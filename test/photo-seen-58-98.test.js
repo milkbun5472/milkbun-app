@@ -100,7 +100,7 @@ test("线下也接上了：发得出去，也接得回来", () => {
 });
 
 test("四处的差异登记写清楚了", () => {
-  const reg = app.slice(app.indexOf("      // ── 他刚看见的那张照片（她 2026-08-31）"), app.indexOf("      const _seenMsg ="));
+  const reg = app.slice(app.indexOf("      // ── TA刚看见的那张照片（她 2026-08-31）"), app.indexOf("      const _seenMsg ="));
   assert.match(reg, /单聊线上 ✅/);
   assert.match(reg, /单聊线下 ✅ v58\.100 补上/, "线下补上了，登记没跟着改");
   assert.match(reg, /群聊两处 ❌ 有真理由/, "群里那两处没写理由");

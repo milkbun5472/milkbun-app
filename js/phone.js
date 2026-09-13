@@ -2,6 +2,8 @@
 // 查手机 — 仿 iOS 桌面：锁屏 → 桌面 → 各 app。生成的那些各自独立刷新；
 // 论坛/音乐/日历/匿名信箱读 App 里的真数据；时间线不生成，只把翻出来的碎片按时间串起来。
 // ============================================================
+// 独立 Node 工具与浏览器使用同一份称呼规则；网页由 index.html 先加载。
+if (typeof module === "object" && module.exports) require("./character-pronoun.js");
 const PHONE_APPS = [{
   key: "wechat",
   zh: "微信"
@@ -51,12 +53,12 @@ const PHONE_APPS = [{
   key: "takeout",
   zh: "外卖"
 }, {
-  // 邮件：他对外那一面。跟微信不撞车——微信是熟人和随口，邮件是**正式的**：
-  // 工作、账单、订阅、学校。真正有东西的是【正式腔和他私下说话的落差】。
+  // 邮件：TA对外那一面。跟微信不撞车——微信是熟人和随口，邮件是**正式的**：
+  // 工作、账单、订阅、学校。真正有东西的是【正式腔和TA私下说话的落差】。
   key: "mail",
   zh: "邮件"
 }, {
-  // 账本：他心里那本没结清的账。跟钱包不是一回事——钱包记钱，这儿记
+  // 账本：TA心里那本没结清的账。跟钱包不是一回事——钱包记钱，这儿记
   // 没结清的东西（欠着的、替谁挡过的、放过的狠话、舍不得的、拿不准的）。
   // 账是跟【谁】的都行，用户只是其中一个人。
   key: "tally",
@@ -73,20 +75,20 @@ const PHONE_APPS = [{
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 接真数据的 app：不调模型、不存进 phones，直接读 App 里那份真的。
-// 论坛读 x_forumPosts（他真发过的帖，连小号和匿名一起），
-// 音乐读「一起听」里归到他名下的那张歌单（点开就能放）。
+// 论坛读 x_forumPosts（TA真发过的帖，连小号和匿名一起），
+// 音乐读「一起听」里归到TA名下的那张歌单（点开就能放）。
 // 以前这两个各自另生成一份，等于同一个人有两套互不相干的论坛痕迹和歌单，
-// 而且手机里那份点不动、也不会因为他真去发帖而变。
+// 而且手机里那份点不动、也不会因为TA真去发帖而变。
 const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
-// 日历接的是 App 里那份真的（x_calendar 里他自己的那格 + 带时刻的日程 + 他答应过她的事），
-// 不再另生成一份假的——翻到他日历上真的写着某一天有事，比生成出来的任何一条都重。
+// 日历接的是 App 里那份真的（x_calendar 里TA自己的那格 + 带时刻的日程 + TA答应过她的事），
+// 不再另生成一份假的——翻到角色日历上真的写着某一天有事，比生成出来的任何一条都重。
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
 // 内层 app 的底衬。
 // ⚠️这一块【平色是有意的】，不是还没装修。查手机里那二十个 app 扮的是【真手机上的那些 app】
 //   ——微信就该是灰地白格、日历就该是白卡、便签就该是白底上一张黄条、相册就该是照片铺满。
-//   给它们铺纸、铺木头，反而会拆掉「这是他手机」这件事。判据（tabs-not-plain-pills）
+//   给它们铺纸、铺木头，反而会拆掉「这是TA手机」这件事。判据（tabs-not-plain-pills）
 //   在这一处是反过来的：**搬到别的 app 里【不成立】才对，而它们模仿的正是别的 app**——
 //   所以这一处照着现实里那个东西来，就是对的。
 //   （2026-09-05 在浏览器里把二十个逐个开过：购物/论坛/音乐/健康/外卖自己画皮，
@@ -97,11 +99,11 @@ const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 function phoneAppBg(t) { return { background: t.bg }; }
 const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
 // 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
-//   clock  一只走针的表      frame  从他相册里挑一张当相框      saying 把他写过的一句话放大
+//   clock  一只走针的表      frame  从TA相册里挑一张当相框      saying 把TA写过的一句话放大
 const PHONE_DECOR = ["clock", "frame", "saying"];
 // 桌面上那几个【不是 app 的动作格】：点了是干一件事，不是进一个 app。
 // ⚠️名单要有个名字，别在 deskWidget 和两个测试里各写死一个 "refresh"——
-//   v66.18 加「看他玩」时，那三处正好一处不落地全红了一遍（一层写在三处的现成一例）。
+//   v66.18 加「看TA玩」时，那三处正好一处不落地全红了一遍（一层写在三处的现成一例）。
 const PHONE_ACTION_WIDGETS = ["refresh", "watch"];
 // 四种桌面【不只是换几个 key】——她 2026-08-30 问「加了一堆新功能之后这四种分别怎么排比较好」。
 // 原来四种的骨架一模一样（时间线 wide + 一个 hero + 一个小的 + 刷新），换的只是里面的名字，
@@ -149,7 +151,7 @@ const phoneDesktopLayout = char => PHONE_DESKTOP_LAYOUTS[phoneStableHash(char &&
 // ─────────────────────────────────────────────────────────────
 // 单看每个 app，里面那些条目都挺平的：一通未接来电、一段没发出去的话、一个
 // 深夜看完的视频、一条只有两个字的便签。可它们都带时间——按时间排一下，
-// 就是他一个晚上的完整心路。这一层不生成任何新内容，只是把已经翻出来的东西
+// 就是TA一个晚上的完整心路。这一层不生成任何新内容，只是把已经翻出来的东西
 // 重新放在一起看；刷新一次手机的成本一分没多，看到的东西完全不一样。
 //
 // 难在时间。模型写出来的时间串写法五花八门：「今天 09:12」「昨天 21:03」
@@ -285,9 +287,9 @@ function phoneTimeline(charData, live, nowTs) {
   return ahead.concat(past, loose);
 }
 // ─────────────────────────────────────────────────────────────
-// 钱：花钱的那几个 app 得知道他有多少钱
+// 钱：花钱的那几个 app 得知道TA有多少钱
 // ─────────────────────────────────────────────────────────────
-// 钱包那边算着他的存款、月收入、固定支出，购物和外卖却各编各的价钱——
+// 钱包那边算着TA的存款、月收入、固定支出，购物和外卖却各编各的价钱——
 // 一个月俸微薄的小官照样下单六百八十文的袍子，两边说的不是同一个人。
 // 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
 const PHONE_MONEY_KEYS = ["shopping", "takeout"];
@@ -299,11 +301,11 @@ function phoneMoneyBlock(appKey, money) {
   if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
   if (n(money.fixedMonthly)) bits.push("每月固定要出 " + n(money.fixedMonthly));
   if (!bits.length && !money.spendingNote) return "";
-  let out = "\n\n【他的钱】" + bits.join("；") + "。";
-  if (money.spendingNote) out += "他对花钱的态度：" + String(money.spendingNote).slice(0, 200);
-  out += "\n**金额必须落在这个水平上**：买不起的东西他就是买不起，别让他随手下单一笔够他过半个月的单子。"
+  let out = "\n\n【TA的钱】" + bits.join("；") + "。";
+  if (money.spendingNote) out += "TA对花钱的态度：" + String(money.spendingNote).slice(0, 200);
+  out += "\n**金额必须落在这个水平上**：买不起的东西TA就是买不起，别让TA随手下单一笔够TA过半个月的单子。"
     + "手头紧的时候，想买清单会变长、真下单的会变少——那种落差本身就是内容。"
-    + (n(money.balance) != null && n(money.balance) <= 0 ? "他现在已经透支了：这一轮不该有任何非必需的下单。" : "");
+    + (n(money.balance) != null && n(money.balance) <= 0 ? "TA现在已经透支了：这一轮不该有任何非必需的下单。" : "");
   return out;
 }
 
@@ -316,14 +318,14 @@ function phoneMoneyBlock(appKey, money) {
 //      号码、账号 id、过敏和真忌口。这些变了就等于换了个人。
 //   🌱 缓慢演化 PHONE_EVOLVE —— 默认原样沿用，但允许变。昵称、签名、
 //      给她的备注、对她的评价、住址、消费习惯、口味偏好。
-//      **不许硬钉死**：关系会长，人会搬家，评价会变——钉死等于他永远拿
+//      **不许硬钉死**：关系会长，人会搬家，评价会变——钉死等于TA永远拿
 //      第一次见面的眼光看她（Codex 2026-08-29 指出，是我做错了）。
 //   📚 累积日志 PHONE_GROW —— 发生过的事，新旧合并去重，满了挤掉最旧的。
 //   ♻️ 当前快照（不登记 = 默认）—— 只表示此刻：购物车、在途、开着的标签页、
 //      今天的健康、常联系人、黑名单、关注列表。
 //
 // 判据两问：
-//   一、这一栏变了，是「他变了」还是「系统忘了」？系统忘了 → 🔒 或 🌱。
+//   一、这一栏变了，是「TA变了」还是「系统忘了」？系统忘了 → 🔒 或 🌱。
 //   二、它说的是「发生过什么」还是「现在有哪些」？
 //       发生过 → 📚（只进不出是对的，发生过就是发生过）；
 //       现在有哪些 → ♻️（名册必须能出，只进不出的黑名单是坟场）。
@@ -342,10 +344,10 @@ const PHONE_STICKY = {
 };
 // 🌱 默认沿用、允许变。跟 ♻️ 的区别：♻️ 每次照实重写，🌱 要有理由才动。
 const PHONE_EVOLVE = {
-  // 「对你的评价」尤其不能钉死——钉死就是关系长了他还拿第一次的眼光看你
+  // 「对你的评价」尤其不能钉死——钉死就是关系长了TA还拿第一次的眼光看你
   // 朋友圈签名和封面走这一档（她 2026-09-03 点名「最慢那一档」）：
   // 一个人的签名和封面确实不是每天换，但也不是一辈子不换——真钉死（🔒）就成了
-  // 「他这辈子只写过这一句」。所以 🌱：默认原样沿用，心境真变了才动。
+  // 「TA这辈子只写过这一句」。所以 🌱：默认原样沿用，心境真变了才动。
   wechat: ["me.wechatName", "me.signature", "me.cover", "userContact"],
   browser: ["me.name"],
   // 地址也不能钉死：会搬家，也会多出「她家」这一条
@@ -402,7 +404,7 @@ function phoneEvolveMerge(appKey, oldData, newData) {
   });
   return out;
 }
-// 🔒 要喂回提示词：不然模型不知道他的账号是什么，编的内容跟钉死的对不上
+// 🔒 要喂回提示词：不然模型不知道TA的账号是什么，编的内容跟钉死的对不上
 function phoneIdentityBlock(appKey, oldData) {
   const paths = PHONE_STICKY[appKey];
   if (!paths || !oldData) return "";
@@ -415,7 +417,7 @@ function phoneIdentityBlock(appKey, oldData) {
     lines.push("- " + pt + "：" + txt);
   });
   if (!lines.length) return "";
-  return "\n\n【这几项是他的身份，原样照抄回来，一个字都不要改】\n" + lines.join("\n");
+  return "\n\n【这几项是TA的身份，原样照抄回来，一个字都不要改】\n" + lines.join("\n");
 }
 // 🌱 也要喂回去，但说法不一样：默认沿用，有理由才改，一次别改一片
 function phoneEvolveBlock(appKey, oldData) {
@@ -430,8 +432,8 @@ function phoneEvolveBlock(appKey, oldData) {
     lines.push("- " + pt + "：" + txt);
   });
   if (!lines.length) return "";
-  return "\n\n【这几项是他现在的样子，默认照抄回来】\n" + lines.join("\n")
-    + "\n它们不是永远不能变——**关系真的变了、他真的搬了家、口味真的换了，就该跟着变**。"
+  return "\n\n【这几项是TA现在的样子，默认照抄回来】\n" + lines.join("\n")
+    + "\n它们不是永远不能变——**关系真的变了、TA真的搬了家、口味真的换了，就该跟着变**。"
     + "但一次刷新最多动其中一两项，而且改了的那项要能说得出为什么改。**没有理由就原样抄回来。**"
     + "\n新写的内容必须和上面这些对得上（地址、账号、称呼、口味都照这份来），别另编一份。";
 }
@@ -496,7 +498,7 @@ function phoneWeekKey(d) {
 }
 // 周刊式刷新时告诉模型取材的时间窗。平时手动刷不发这一段。
 const PHONE_WEEKLY_HINT = "\n\n【这一次是每周一次的例行刷新】写的是**过去这一周**新发生的事，"
-  + "不是从头再编一遍他这个人。上面列出来的旧东西该留的留着，你补的是这七天里多出来的那些。"
+  + "不是从头再编一遍TA这个人。上面列出来的旧东西该留的留着，你补的是这七天里多出来的那些。"
   + "一周该有一周的量：不必每一栏都塞满，有些栏这一周本来就没什么新的。";
 
 // ── 健康的趋势：另存每日轻量快照，不把整份报告天天累计 ──────
@@ -554,7 +556,7 @@ const PHONE_RETIRE = {
   // ⚠️「常去的那几家」是名册，不是日志（她 2026-09-01 同意改）。
   // 它答的是「现在常去哪几家」，不是「发生过什么」——按第二问就该走名册这一路。
   // 原来挂在纯累积层：模型每轮凭空写四五家新店，一路攒到十八家，
-  // 那不是「他常去的店」，那是「他去过的所有店」。而且他真的不去了的那几家永远退不出。
+  // 那不是「TA常去的店」，那是「TA去过的所有店」。而且TA真的不去了的那几家永远退不出。
   // 走名册＝【还在的原样照抄回来 + 不去了的写进 retired】，跟书签、想买清单一个形状。
   shopping: { wish: "想买清单", shops: "常去的店" },
   // 想吃的／想买的：买到手或不惦记了就该退出，同理
@@ -659,7 +661,7 @@ function phoneChatWhen(x, nowTs) {
 // ⚠️phoneFreezeTime 只在【合并】那一刻跑（phoneGrowList 里），而合并只在刷新时发生。
 // 于是不刷新的话，昨天存进去的「1小时前」今天打开【还是写着「1小时前」】，
 // 看起来就像刚刚才发的——她 2026-08-30 就是这么被骗到的：
-// 「我都没刷新过他就自己出来的」，其实是旧条目的时间戳从来没变老。
+// 「我都没刷新过TA就自己出来的」，其实是旧条目的时间戳从来没变老。
 // 存的那句话仍然留着当兜底（老数据没有 _ts，或者本来就是绝对日期）。
 function phoneAgo(x, nowTs) {
   if (!x || typeof x !== "object") return "";
@@ -772,7 +774,7 @@ const PHONE_SHELF_CAP = 8, PHONE_BOOK_CAP = 40;
 // 原来每一轮都让模型重出「正好 5 架 30 本」，累积层再把它们并进去——
 // 结果不是那几本书往前读了，而是**每周凭空多出三十本新书**，一架很快就满四十本。
 // 一个人的书架不该这样长。
-// 所以例行刷新走另一条路：只回 updates（这一周他真的动过的那几本），
+// 所以例行刷新走另一条路：只回 updates（这一周TA真的动过的那几本），
 // 按书名认人，只改 readAt 和 note，别的一概不动，也不许添新书。
 // 动过的那几本盖上 _upd 时间戳，界面上给个红点——她要的「就在书上放个红点」。
 function phoneApplyBookUpdates(oldData, updates, nowTs) {
@@ -798,9 +800,9 @@ function phoneApplyBookUpdates(oldData, updates, nowTs) {
 }
 // ── 微信：人是慢慢认识的，话是天天在说的（v59.54）──────────────────────
 // 她 2026-09-01：「微信联系人，一开始只生成几个但是后续封顶了不应该生成新的，
-// 而是在他已有的联系人和群聊里更新说的话而已」。
+// 而是在TA已有的联系人和群聊里更新说的话而已」。
 // 原来每刷一次都要「另外生成正好 5 个互不相同的**新**会话」+「contacts 正好 5 个」，
-// 累积层再并进去——三轮之后他微信里就有十五个互不相干的会话、十五拨人。
+// 累积层再并进去——三轮之后TA微信里就有十五个互不相干的会话、十五拨人。
 // 那不是一个人的微信，那是十五份互不相干的样本。
 // 跟书架同一个形状：**名单封顶之后，变的只是那几个会话里【又说了什么】。**
 const PHONE_WECHAT_ENOUGH = 8;
@@ -960,17 +962,17 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   delete out.retired;    // 它是一条指令，不是要存下来的内容
   return appKey === "album" ? phoneAlbumTidy(out, now) : out;
 }
-// ── 走乙：他自己刷出来的那几行，周刷不许凭空重编（她 2026-09-10 选的「乙」）──
-// 「看他玩」之后，这个 app 就变成【有底稿的 app】。可它写进去的那几栏偏偏是 ♻️：
+// ── 走乙：TA自己刷出来的那几行，周刷不许凭空重编（她 2026-09-10 选的「乙」）──
+// 「看TA玩」之后，这个 app 就变成【有底稿的 app】。可它写进去的那几栏偏偏是 ♻️：
 // 开着的标签页、购物车、还在路上的那一单——♻️ 的规矩是每次照实重写，
-// 于是下一次周刷会把他刚开的那一页、刚放进车里的那件东西，凭空抹掉。
+// 于是下一次周刷会把TA刚开的那一页、刚放进车里的那件东西，凭空抹掉。
 //
-// 「甲」是周刷绕开他碰过的 app（那一周整个 app 不刷了，太粗）；
+// 「甲」是周刷绕开TA碰过的 app（那一周整个 app 不刷了，太粗）；
 // 「乙」是她选的：**那几行留住，别的照旧重编**。这就是乙在代码里的落法——
 // 提示词那一段（phoneWatchDraftBlock）告诉模型它们存在，这一层兜死它们不会没。
 //
-// ⚠️只保【他真做过的那几行】，不是整栏冻住：栏还是 ♻️，周刷照常重写其余部分。
-// ⚠️会过期。八天＝比一周长一点，正好让下一次周刷还认得上一周他干的事；
+// ⚠️只保【TA真做过的那几行】，不是整栏冻住：栏还是 ♻️，周刷照常重写其余部分。
+// ⚠️会过期。八天＝比一周长一点，正好让下一次周刷还认得上一周TA干的事；
 //   再往后那一页早该关了、那一单早该到了，还留着就成了坟场。
 const PHONE_WATCH_KEEP = {
   browser: { tabs: 12 },
@@ -995,8 +997,8 @@ function phoneWatchKeep(appKey, oldData, newData, nowTs) {
     const fresh = phoneGetPath(out, field);
     const seen = {};
     mine.forEach(x => { seen[phoneNameNorm(phoneRowName(x))] = 1; });
-    // 他做过的那几行排在最前面（那是【刚刚】发生的），模型新写的接在后面；
-    // 同名的以他那一行为准——不然屏幕上同一件东西会出现两遍。
+    // TA做过的那几行排在最前面（那是【刚刚】发生的），模型新写的接在后面；
+    // 同名的以TA那一行为准——不然屏幕上同一件东西会出现两遍。
     const rest = (Array.isArray(fresh) ? fresh : []).filter(x => !seen[phoneNameNorm(phoneRowName(x))]);
     phoneSetPath(out, field, mine.concat(rest).slice(0, conf[field]));
   });
@@ -1013,13 +1015,13 @@ function phoneWatchDraftBlock(appKey, known, nowTs) {
     if (names.length) lines.push("- " + field + "：" + names.join("｜"));
   });
   if (!lines.length) return "";
-  return "\n\n【这几样是他自己刚在手机上弄出来的】\n" + lines.join("\n")
-    + "\n它们不是编出来的，是他真做过的那一下——**别当成旧数据清掉，也别改写名字**。"
+  return "\n\n【这几样是TA自己刚在手机上弄出来的】\n" + lines.join("\n")
+    + "\n它们不是编出来的，是TA真做过的那一下——**别当成旧数据清掉，也别改写名字**。"
     + "你这一轮写的别的东西要和它们对得上（同一件东西别再写一遍）。";
 }
-// 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志 + 他自己刷出来的那几行
+// 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志 + TA自己刷出来的那几行
 function phoneMergeSaved(appKey, oldData, newData, nowTs) {
-  // 顺序：🔒 硬钉死盖回来 → 🌱 缓慢演化收口 → 📚 日志并进来 → 走乙留住他做过的。
+  // 顺序：🔒 硬钉死盖回来 → 🌱 缓慢演化收口 → 📚 日志并进来 → 走乙留住TA做过的。
   // 剩下没登记的一律 ♻️ 照实重写。
   // ⚠️走乙排在最后：它要盖的正是 ♻️ 那一步的结果，排在前面会被随后的重写抹掉。
   return phoneWatchKeep(appKey, oldData, phoneGrowMerge(appKey, oldData,
@@ -1029,7 +1031,7 @@ function phoneMergeSaved(appKey, oldData, newData, nowTs) {
 // 日志那些「别再写一遍」，名册这些「还在的请照抄回来」。
 // ── 多久才该再看一次大夫（v59.44）────────────────────────────────────────
 // 她 2026-09-01 定的形状：大夫的话是【低频、有日期、会累积的】，每天变的只是读数。
-// 「别每次都写一条新就诊」写在提示词里只是降概率——模型高兴起来天天送他去医院。
+// 「别每次都写一条新就诊」写在提示词里只是降概率——模型高兴起来天天送TA去医院。
 // 所以间隔由代码说了算：离上一次不够久，这一轮生成的 visits 一律丢掉，旧的照旧留着。
 // 例外：一条都没有的时候必须让它写第一条，否则这个 app 永远是空的。
 // 14 天＝整两周（她 2026-09-01 定）：**跟每周自动刷那条链对齐**——
@@ -1048,7 +1050,7 @@ function phoneVisitDays(known) {
 }
 // ⚠️这三档必须【整段分开写】，不能共用一句收尾。
 // 她 2026-09-01：「之前有旧数据刷新了一直不看大夫」——病因就在这儿：
-// 原来三档共用一句加粗的「**不写就给空数组，别硬凑**」，而「他从没看过大夫，写第一次」
+// 原来三档共用一句加粗的「**不写就给空数组，别硬凑**」，而「TA从没看过大夫，写第一次」
 // 只是一句轻飘飘的陈述。**最响的那句话赢**，何况这一轮本来就要吐十六张卡，
 // 给空数组是最省事的路，于是病历夹永远开不了张。
 // 跟主动消息那次是同一个病：一条强否定压在一条弱肯定后面，模型只听得见否定那句。
@@ -1056,14 +1058,14 @@ function phoneVisitDays(known) {
 function phoneVisitHint(known) {
   const days = phoneVisitDays(known);
   if (days == null) {
-    return "他的病历夹是空的，从没有过一条记录。**这一轮必须写出正好一条**——"
-      + "写他最近一次去看大夫的那一回（哪天由你定，不必是今天）。**这一档不许给空数组。**";
+    return "TA的病历夹是空的，从没有过一条记录。**这一轮必须写出正好一条**——"
+      + "写TA最近一次去看大夫的那一回（哪天由你定，不必是今天）。**这一档不许给空数组。**";
   }
   if (days >= PHONE_VISIT_GAP_DAYS) {
-    return "他上一次看大夫是 " + days + " 天前。这一次可以再看一回，写就正好一条——"
-      + "**但只有他身上真有事才去**，没事就给空数组，别硬送他去医院。";
+    return "TA上一次看大夫是 " + days + " 天前。这一次可以再看一回，写就正好一条——"
+      + "**但只有TA身上真有事才去**，没事就给空数组，别硬送TA去医院。";
   }
-  return "他 " + days + " 天前刚看过大夫。**这一轮不要写新的就诊记录，visits 给空数组。**";
+  return "TA " + days + " 天前刚看过大夫。**这一轮不要写新的就诊记录，visits 给空数组。**";
 }
 // 存之前再筛一遍：离上次不够久的新就诊直接丢掉（旧的由累积层留着）
 function phoneGateVisits(data, known) {
@@ -1088,7 +1090,7 @@ function phoneRosterBlock(appKey, known) {
     if (names.length) lines.push("- " + conf[field] + "（" + field + "）：" + names.join("｜"));
   });
   if (!lines.length) return "";
-  return "\n\n【他这几份名单上现在有这些】\n" + lines.join("\n")
+  return "\n\n【TA这几份名单上现在有这些】\n" + lines.join("\n")
     + "\n**还在名单上的请原样照抄回来**（连名字一起，别改写），这几份是「现在有哪些」不是「这次新增了哪些」。"
     + "\n**已经不在了的，写进 retired**：取消收藏的书签、发出去或删掉的草稿、取关的人、放出黑名单的人、买到手或不想要了的东西、**已经不去了的那家店**、**划掉或者事情办完了的便签**。"
     + " retired 的格式是 {\"字段名\":[\"那一条在名单上的名字\"]}，名字要和上面列的对得上。"
@@ -1204,9 +1206,9 @@ function phoneTimelineWithArchive(charData, live, archive, nowTs) {
   return ahead.concat(rest, loose);
 }
 // ─────────────────────────────────────────────────────────────
-// 全局搜索：在他手机里搜一个词
+// 全局搜索：在TA手机里搜一个词
 // ─────────────────────────────────────────────────────────────
-// 所有偷看动作里最真的一个是【搜自己的名字】——看她在他手机的几个角落出现过、
+// 所有偷看动作里最真的一个是【搜自己的名字】——看她在TA手机的几个角落出现过、
 // 以什么名字出现的。不调模型：时间线已经把各 app 的碎片规范化了，
 // 再补上时间线不收的那几栏（联系人、想买、口味、账本、书、名单）就够了。
 function phoneSearchExtra(charData, live) {
@@ -1225,7 +1227,7 @@ function phoneSearchExtra(charData, live) {
   };
   A(g("wechat").contacts).forEach(x => x && add("wechat", "联系人", S(x.name) + (x.remark ? "（备注：" + S(x.remark) + "）" : ""), x.intro));
   const uc = g("wechat").userContact;
-  if (uc) add("wechat", "他给你的备注", S(uc.name) + "（备注：" + S(uc.remark) + "）", uc.intro);
+  if (uc) add("wechat", "TA给你的备注", S(uc.name) + "（备注：" + S(uc.remark) + "）", uc.intro);
   A(g("calls").frequent).forEach(x => x && add("calls", "常联系", x.name, x.why));
   A(g("calls").blocked).forEach(x => x && add("calls", "黑名单", x.name, x.why));
   A(g("browser").marks).forEach(f => f && A(f.items).forEach(x => x && add("browser", "书签 · " + S(f.name), x.title, x.site)));
@@ -1250,13 +1252,13 @@ function phoneSearchExtra(charData, live) {
 // 一个词在这部手机里出现在哪儿。词不区分大小写、去掉空白再比。
 // ── 界面上的称呼（v58.88，她 2026-08-31：「把所有查手机里的『他』换成跟着实际性别走」）──
 // 提示词那一半 v58.86 已经从 phoneProbeSpec 一处过掉了。这一半是【界面标签】：
-// 「他的订单」「他为什么想买」这类写死的字面量，一百五十多处。
+// 「TA的订单」「TA为什么想买」这类写死的字面量，一百五十多处。
 // 一个人的手机同一时刻只看得了一份，所以记一个模块级的「现在在看谁」就够了，
 // 不用把称呼一路穿过几十个组件的 props。
-let PHONE_VIEW_TA = "他";
+let PHONE_VIEW_TA = "TA";
 function phoneViewTa(char) { PHONE_VIEW_TA = charTa(char); }
-// T("他的订单") → 按现在这台手机的主人换称呼；默认「他」时原样返回，一个字不动。
-function T(s) { return PHONE_VIEW_TA === "他" ? s : phoneTa(s, PHONE_VIEW_TA); }
+// T("TA的订单") → 按现在这台手机的主人换称呼；默认「TA」时原样返回，一个字不动。
+function T(s) { return characterText({ gender: PHONE_VIEW_TA }, s); }
 // 通讯录那一行的小字（她 2026-08-31：「还是看不出来哪些刷了哪些没刷」）。
 // 原来写的是「每周自动刷一次 / 翻翻 Ta 的手机」——那说的是【开关状态】，不是【刷没刷】，
 // 所以一屏看下来还是分不出谁的手机是新的。改成上次全刷的时间。
@@ -1356,7 +1358,7 @@ function phoneTone(key) {
 // 她 2026-09-01：「查手机界面跟主界面颜色一样为啥看起来怪怪的」。
 // 怪在【语义】上，不只是审美：**查手机的全部意思是「你在翻别人的手机」**，
 // 那种偷看感来自它跟她自己的界面【不一样】。做成同一套纸底＋同一套彩釉图标，
-// 等于给他的手机换上了她的皮；四个角色的手机也会长得一模一样，翻谁都一个样。
+// 等于给TA的手机换上了她的皮；四个角色的手机也会长得一模一样，翻谁都一个样。
 // 视觉上还坏在两处：① 极淡的彩釉浮在极淡的米纸上，对比低到一排图标像蒙了雾；
 // ② 玻璃质感要透出底下的东西才成立，可底下是哑光米纸，透出来只剩灰。
 // 修法不是推翻 Codex 那套（每个角色自定义外观的骨架是对的），是把【默认值】改对。
@@ -1369,7 +1371,7 @@ function phoneHue(charId) {
 // 同一个人永远同一个色，不同人一定不同色。
 // ⚠️v59.31 调亮。她 2026-09-01：「你这些颜色太深了」。
 // 上一版为了跟她那张暖米纸分开，直接压到 13~26% 的暗调——分是分开了，但整屏发闷。
-// 其实**区分靠色相就够了，不必靠暗**：她的主屏是暖奶油，他的是带色相的浅色调，
+// 其实**区分靠色相就够了，不必靠暗**：她的主屏是暖奶油，TA的是带色相的浅色调，
 // 一眼就知道不是同一台机器，而且亮着好看。
 function phoneOwnPaper(charId) {
   const hu = phoneHue(charId);
@@ -1384,8 +1386,8 @@ function phonePaper(charId, look) {
   }
   return phoneOwnPaper(charId);
 }
-// 她 2026-09-01：「为啥第一个的阿屿用的还是旧的 codex 那套，你之前改深色他也没动」。
-// 病不在这次的色，在【默认值只对没存过的人生效】：v59.30 把默认改成「他自己的」，
+// 她 2026-09-01：「为啥第一个的阿屿用的还是旧的 codex 那套，你之前改深色TA也没动」。
+// 病不在这次的色，在【默认值只对没存过的人生效】：v59.30 把默认改成「TA自己的」，
 // 可 08-31 那天她在外观页挨个点过那四张预览卡看长什么样——**点一下就写进了
 // x_phoneLooks**。于是那几位被钉死在旧默认上，后面默认怎么改都跟他们无关，
 // 看上去就像「这个人没跟着改」。
@@ -1407,8 +1409,8 @@ function phoneImage(ref) {
   return typeof resolveImg === "function" ? (resolveImg(ref) || "") : String(ref);
 }
 const PHONE_ICON_PRESETS = [
-  // ⭐默认：他的手机就该跟她自己的界面不一样，不然「翻别人手机」在视觉上不成立
-  { key: "own", name: "他自己的", sub: "一人一个底色，跟你的界面分得开" },
+  // ⭐默认：TA的手机就该跟她自己的界面不一样，不然「翻别人手机」在视觉上不成立
+  { key: "own", name: "TA自己的", sub: "一人一个底色，跟你的界面分得开" },
   { key: "main", name: "主界面彩釉", sub: "跟这个 app 主界面同一套颜色" },
   { key: "soft", name: "柔光", sub: "更浅、更像磨砂玻璃" },
   { key: "mono", name: "墨色", sub: "低饱和黑白图标" },
@@ -1549,9 +1551,9 @@ function PGlyph({
 }
 
 // ─────────────────────────────────────────────────────────────
-// 邮件：他对外那一面
+// 邮件：TA对外那一面
 // ─────────────────────────────────────────────────────────────
-// 这个 app 的全部意义是【落差】：邮件里的他是对陌生人和上级说话的样子，
+// 这个 app 的全部意义是【落差】：邮件里的TA是对陌生人和上级说话的样子，
 // 客气、绕、留余地；而同一个人在便签里骂的是另一句。
 // 界面照着真邮箱做：列表只露主题和那一截，点进去才是全文。
 const MAIL_BG = "#f2f4f7", MAIL_INK = "#1b1f26", MAIL_DIM = "#8a919c", MAIL_LINE = "#e3e7ec", MAIL_BLUE = "#2f6fd0";
@@ -1559,7 +1561,7 @@ const MAIL_TABS = [{ k: "inbox", zh: "收件箱" }, { k: "sent", zh: "发出去�
 function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("inbox");
   const [open, setOpen] = useState(null);
-  // ── 「看他玩」驱动（第五批）──
+  // ── 「看TA玩」驱动（第五批）──
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
   useEffect(() => {
@@ -1632,7 +1634,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM, marginTop: 2, wordBreak: "break-all" } },
             [S(open.fromAddr), S(open.time) || S(open.savedAt)].filter(Boolean).join(" · ")))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 2, color: "#3c424b", marginTop: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, S(open.body)),
-      // 他心里那句：邮件那套客气话之外的真话，落差就在这儿
+      // TA心里那句：邮件那套客气话之外的真话，落差就在这儿
       S(open.thought) ? h("div", {
         style: { marginTop: 20, background: "#f5f7fa", borderRadius: 13, padding: "13px 15px" }
       },
@@ -1641,7 +1643,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       open._kind === "drafts" ? h("div", {
         style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: "#b6473c", lineHeight: 1.8 }
       }, "这封一直没发出去。" + phoneKeptLine(open, Date.now())) : null,
-      // ── 回信条：只有「看他玩」演到打字那一下才出现 ──
+      // ── 回信条：只有「看TA玩」演到打字那一下才出现 ──
       drive && drive.typing != null ? h("div", { "data-watch": "input", style: { marginTop: 20, border: "1px solid " + MAIL_LINE, borderRadius: 13, padding: "13px 15px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM } }, "回复 · " + (S(open.from) || S(open.to))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: MAIL_INK, marginTop: 7, whiteSpace: "pre-wrap", minHeight: 22 } },
@@ -1693,10 +1695,10 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
 }
 
 // ─────────────────────────────────────────────────────────────
-// 账本：他心里那本没结清的账。跟谁有账就记谁——用户只是其中一个人（v59.12）
+// 账本：TA心里那本没结清的账。跟谁有账就记谁——用户只是其中一个人（v59.12）
 // ─────────────────────────────────────────────────────────────
 // 五栏各有各的腔调，界面也就各长各的样子——挤成一个样式就白分了。
-//   负债 = 两栏对账（他欠 / 她欠 / 悬着）
+//   负债 = 两栏对账（TA欠 / 她欠 / 悬着）
 //   保单 = 条款卡（虚线框、条目式）
 //   声明 = 一句一张的盖章卡
 //   藏品 = 横滑的估价牌
@@ -1704,7 +1706,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
 const TALLY_BG = "#f4f2ee", TALLY_INK = "#1f1d1a", TALLY_DIM = "#8b8578", TALLY_LINE = "rgba(31,29,26,.12)";
 // 账页那套纸（v59.63）：贴条的纸色、账本的朱色、横格线。五栏共用这一套。
 const TALLY_PAPER = "#fffdf7", TALLY_RED = "#9c3f34", TALLY_RULE = "rgba(31,29,26,.055)";
-const TALLY_DIR = { mine: { zh: T("他欠"), c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
+const TALLY_DIR = { mine: { get zh() { return T("他欠"); }, c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
 const TALLY_TABS = [
   // ⚠️原来每一栏还挂着一个 en（OPEN / COVER / STAMP / WORTH / ASK）——
   //   全库没有一处引用它，纯粹是死字段，删干净（no-english-titles 顺手）。
@@ -1724,7 +1726,7 @@ function phoneCalmMotion() {
 // 就有这句话的另一面，然后可以做这种流式显示翻过来一个字一个字慢慢往外蹦」。
 // ⚠️不是给账本硬套一层壳：这五栏的数据【本来就长成两面】——
 //   正面是记在账上的那一行（欠的是什么、险种名、那句话、那样东西、那个问题），
-//   背面是他心里那一句（怎么想这笔、条款正文、那句话真正的意思、他给的估价、他的答案）。
+//   背面是TA心里那一句（怎么想这笔、条款正文、那句话真正的意思、TA给的估价、TA的答案）。
 // ⚠️背面是空的那几条不给折角：折角在，就是说这张真有背面。空折角＝骗人点一下。
 function tallyEntries(tab, data) {
   const A = a => Array.isArray(a) ? a : [];
@@ -1734,7 +1736,7 @@ function tallyEntries(tab, data) {
   return rows.map((x, i) => {
     const b = { i, key: tab + i, kind: tab, who: S(x.who) };
     if (tab === "debts") return { ...b, dir: S(x.dir), lead: S(x.title),
-      back: { label: "他心里这笔账", text: S(x.note) } };
+      back: { label: "TA心里这笔账", text: S(x.note) } };
     if (tab === "policies") return { ...b, lead: S(x.name), scope: S(x.scope), terms: S(x.terms),
       back: { label: "条款正文", text: S(x.clause) } };
     if (tab === "statements") return { ...b, lead: S(x.text), heat: S(x.heat),
@@ -1742,13 +1744,13 @@ function tallyEntries(tab, data) {
       // 老存档没有它 —— 那就没有背面，别拿别的字段凑一句假的出来。
       back: { label: "这句话底下", text: S(x.truth) } };
     if (tab === "treasures") return { ...b, lead: S(x.title), kind2: S(x.kind),
-      back: { label: "他给的估价", text: S(x.worth) } };
-    return { ...b, lead: S(x.q), back: { label: "他的答案", text: S(x.a) } };
+      back: { label: "TA给的估价", text: S(x.worth) } };
+    return { ...b, lead: S(x.q), back: { label: "TA的答案", text: S(x.a) } };
   });
 }
 function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("debts");
-  // ── 「看他玩」驱动（第五批）。账本只能看：翻开一张卡片看它背面，改不了 ──
+  // ── 「看TA玩」驱动（第五批）。账本只能看：翻开一张卡片看它背面，改不了 ──
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setFlip(null); } }, [driveTab]);
   // 同一时刻只翻开一张：打字机的计时器就一个，不会漏；也免得整页都在动。
@@ -1806,9 +1808,9 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   // 骑缝印（v59.64）：一栏一个字，盖在左边那道栏线上。
   // 五栏原来是同一列白卡往下排，翻不翻都一个样子；一列朱印下去，
   // 这一页才像一本账，而不是一叠便签。没结清那一栏按方向上色——
-  // 「他欠」和「记着」隔着老远也分得出来。
+  // 「TA欠」和「记着」隔着老远也分得出来。
   // 没结清那一栏的印刻的是【方向】：一列 欠／记／悬 走下来，隔着老远也看得出
-  // 这一页是他欠得多还是他记着的多。别的栏一栏一个字。
+  // 这一页是TA欠得多还是TA记着的多。别的栏一栏一个字。
   const SEAL = { policies: "保", statements: "定", treasures: "估", appraisals: "问" };
   const DIR_SEAL = { mine: "欠", theirs: "记", open: "悬" };
   const sealOf = e => e.kind === "debts" ? (DIR_SEAL[e.dir] || DIR_SEAL.open) : (SEAL[e.kind] || "账");
@@ -1873,7 +1875,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const backOf = e => {
     // ⚠️背面一直在 DOM 里（backface-hidden 挡着），所以这两样都要认「翻开的是不是我」：
     //   光标不认的话，没翻开的每一张背面上都在闪一根竖线；
-    //   按钮不认的话，每一张背面都挂着一个「摆到他面前」——读屏读不到，
+    //   按钮不认的话，每一张背面都挂着一个「摆到TA面前」——读屏读不到，
     //   但键盘能 Tab 上去按下它（aria-hidden 不管 tab 顺序）。
     const on = flip === e.key;
     const txt = e.back.text, n = on ? typed : 0, typing = on && n < txt.length;
@@ -1961,8 +1963,8 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     }
     if (tab === "policies") return "给 " + new Set(rows.map(e => e.who).filter(Boolean)).size + " 个人兜着底";
     if (tab === "statements") return n + " 句盖过章的话";
-    if (tab === "treasures") return n + " 样他估过价的东西";
-    return n + " 个他问自己的问题";
+    if (tab === "treasures") return n + characterText(char, " 样他估过价的东西");
+    return n + characterText(char, " 个他问自己的问题");
   };
 
   return h("div", { className: "h-full flex flex-col", style: { background: TALLY_BG } },
@@ -2023,7 +2025,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
         h("div", { style: { height: 1, background: "rgba(156,63,52,.30)" } }),
         h("div", { style: { height: 1, background: "rgba(156,63,52,.30)", marginTop: 2 } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TALLY_DIM, marginTop: 9 } },
-          "这一栏记到这儿。他没记下的，这儿也不会有。")) : null));
+          characterText(char, "这一栏记到这儿。他没记下的，这儿也不会有。"))) : null));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2033,14 +2035,14 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
 // 新增的（上次翻完之后才出现的）左侧有一个实心点，顶上可以切「只看新增」。
 function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCount, onMarkRead, kept, onToggleKeep }) {
   // mode: all / new / keep —— 「我收着的」是【她自己】留的，不喂给聊天。
-  // 转发＝摆到他面前；收着＝我自己留一份。两件事，两个按钮。
+  // 转发＝摆到TA面前；收着＝我自己留一份。两件事，两个按钮。
   const [mode, setMode] = useState("all");
   const [sheet, setSheet] = useState(null);
   // ── 接下来 / 走过的，分两个 tab（v59.60）────────────────────────────
   // 她 2026-09-01：「时间线现在是打开看到接下来排好的下滑完一周接下来的才能看到
   // 以前的时间线。能不能改成这俩分开俩 tab」。
   // 原来是一条线：未来正序摆最前、过去倒序跟在后面。日历接了真数据之后「接下来」
-  // 动辄一整周，于是【时间线本体反而要滑过一周才够得着】——这条线的主角是他手机上
+  // 动辄一整周，于是【时间线本体反而要滑过一周才够得着】——这条线的主角是TA手机上
   // 已经留下的痕迹，不该被还没发生的事挡在门口。
   // 默认落在【走过的】：它才是这条线的正文；「接下来」是另一件事，自己一格。
   const [tab, setTab] = useState("past");
@@ -2155,7 +2157,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
         tab === "ahead"
-          ? (aheadN ? "他日历上排下来的 " + aheadN + " 件事" : "日历上还没有排下来的事")
+          ? (aheadN ? characterText(char, "他日历上排下来的 ") + aheadN + " 件事" : "日历上还没有排下来的事")
           : pastN
             ? (() => { const g = pool.filter(r => r.gone).length; return "把 " + pastN + " 条痕迹按时间排在一起" + (g ? "，其中 " + g + " 条只在这儿还留着" : ""); })()
             : "还没有翻出任何东西"),
@@ -2203,7 +2205,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
           } }),
           h("span", { style: { position: "absolute", left: "50%", marginLeft: -3.5, bottom: 8, width: 7, height: 7, borderRadius: 9, border: "1px solid " + t.line } })),
         h("div", { className: "flex-1 min-w-0", style: { paddingTop: 66, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog } },
-          tab === "ahead" ? "再往后，他日历上还没排。" : "再往前，他手机上没留下什么了。")) : null),
+          tab === "ahead" ? characterText(char, "再往后，他日历上还没排。") : characterText(char, "再往前，他手机上没留下什么了。"))) : null),
     newCount > 0 && h("div", { className: "shrink-0 px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("button", {
         onClick: onMarkRead, className: "w-full py-3 active:opacity-60",
@@ -2211,7 +2213,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       // ⚠️这一下清的是【两格一起】的新增标记，不是当前这一格。所以不能写「这 N 条」
       // ——「走过的」里写着「只看新增 3」、按钮却说「这 10 条」，看上去像个 bug。
       }, "全部 " + newCount + " 条新的都看过了")),
-    // 详情整页（no-half-sheet）：这一层是一条时间线上的东西被摊开——正文、他当时的想法、
+    // 详情整页（no-half-sheet）：这一层是一条时间线上的东西被摊开——正文、TA当时的想法、
     // 三颗按钮，从来不是三行能说完的；也不需要同时看见底下那条轴。
     sheet && h(PhoneSubPage, {
       bg: { background: t.bg }, ink: t.ink,
@@ -2239,8 +2241,8 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
         className: "w-full mt-2 py-3 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
       }, T("转发给 TA · 他会知道你翻了手机")),
-      // 收着 ≠ 转发。转发是摆到他面前，收着是【她自己留一份】，
-      // 不进他的上下文、不影响任何生成——只给她自己看。
+      // 收着 ≠ 转发。转发是摆到TA面前，收着是【她自己留一份】，
+      // 不进TA的上下文、不影响任何生成——只给她自己看。
       onToggleKeep && h("button", {
         onClick: () => onToggleKeep(sheet.id),
         className: "w-full mt-2 py-3 active:opacity-60",
@@ -2254,7 +2256,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
 }
 
 // ─────────────────────────────────────────────────────────────
-// 锁屏：拿起他手机的第一眼
+// 锁屏：拿起TA手机的第一眼
 // ─────────────────────────────────────────────────────────────
 // 一叠还没点开的通知横幅，每条只露半句——要看全文得进去。
 // 通知就是 delta：上次翻完之后才出现的那些。没有新的就摆最近几条，灰着。
@@ -2312,7 +2314,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         style: { padding: 13, minHeight: 86, borderRadius: 18, background: iconPreset === p.key ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.50)", border: "1.5px solid " + (iconPreset === p.key ? tone.glyph : "rgba(255,255,255,.70)") }
       }, h("div", { className: "flex items-center", style: { gap: 9 } },
         h("div", { style: { width: 34, height: 34, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: p.key === "mono" ? "#ecebe7" : p.key === "glass" ? "rgba(255,255,255,.40)" : p.key === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash : tone.wash } }, h(PGlyph, { k: "settings", size: 17, color: p.key === "mono" ? "#4d4b47" : tone.glyph })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, p.name)),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, T(p.name))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, p.sub)))),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "逐个换图标"),
       h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map((a, i) => {
@@ -2399,8 +2401,8 @@ function WechatNavIcon({ kind, active }) {
 function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
-  // ── 「看他玩」在开着的时候，这一屏由外面那串动作驱动（js/phone-watch.js）──
-  // ⚠️不另做一份「他的微信」：他操作的就是她平时翻的这一屏，这才是这个玩法成立的地方。
+  // ── 「看TA玩」在开着的时候，这一屏由外面那串动作驱动（js/phone-watch.js）──
+  // ⚠️不另做一份「TA的微信」：TA操作的就是她平时翻的这一屏，这才是这个玩法成立的地方。
   //   所以只加一条同步——drive 变了就把内部状态搬过去，drive 不在时一个像素都没变。
   const driveTab = drive && drive.tab, driveChat = drive && drive.item;
   // ⚠️她 2026-09-10 报的两条：「发微信不会显示屏幕最底下，发出去的动画也没有」。
@@ -2425,11 +2427,11 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const [publicPage, setPublicPage] = useState(false);
   const [article, setArticle] = useState(null);
   const arr = a => Array.isArray(a) ? a : [];
-  // ⚠️她和这个角色一条消息都没聊过时，他手机里【压根没有跟她的那条对话】：
+  // ⚠️她和这个角色一条消息都没聊过时，TA手机里【压根没有跟她的那条对话】：
   //   真聊天是从消息里长出来的（app.js phoneWechatActual：direct.length 才 push），
-  //   而模型推演出来的那条又会被下面 meLike 那道闸滤掉（不然他手机里会有两条跟她的）。
-  //   于是「看他玩」里他想点开她也点不着，屏幕上一声不响——她 2026-09-12 点名的那个 bug。
-  //   补一条空的：名字、头像都在，里头还没有话。他在里头打一句发出去就是**真发到她手机上**
+  //   而模型推演出来的那条又会被下面 meLike 那道闸滤掉（不然TA手机里会有两条跟她的）。
+  //   于是「看TA玩」里TA想点开她也点不着，屏幕上一声不响——她 2026-09-12 点名的那个 bug。
+  //   补一条空的：名字、头像都在，里头还没有话。TA在里头打一句发出去就是**真发到她手机上**
   //   （watchSend 那条路一个字没动），真聊天当场长出来，下一帧 actual 自己顶上来。
   const actual0 = arr(d.actualChats);
   const meRow = { id: "actual:private:" + char.id, type: "private", name: userName(profile),
@@ -2437,10 +2439,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const hasMe = actual0.some(c => c && c.type !== "group"
     && (typeof phoneSamePerson === "function" ? phoneSamePerson(c.name, meRow.name) : String(c.name || "").trim() === meRow.name));
   const actual = (hasMe || !meRow.name) ? actual0 : actual0.concat([meRow]);
-  // ⚠️她 2026-09-10：「我发睡了吗他回了，我查手机，然后就一直被固定住在那儿了，
+  // ⚠️她 2026-09-10：「我发睡了吗TA回了，我查手机，然后就一直被固定住在那儿了，
   //   下次再聊几轮进去都不会显示，除非我再刷一次微信。」
-  //   病根：模型刷新时会照着【他给她的备注】另造一条跟她的私聊（「小笨蛋」），
-  //   而避重名单里只有她的本名——于是他手机里有两条跟她的对话：
+  //   病根：模型刷新时会照着【TA给她的备注】另造一条跟她的私聊（「小笨蛋」），
+  //   而避重名单里只有她的本名——于是TA手机里有两条跟她的对话：
   //   一条是真的（活的），一条是推演出来的（永远停在刷新那一刻）。她点开的是后面那条。
   //   落盘那头也补了（phoneTakenNames 收下备注），但已经存着的那些得在这儿挡住，
   //   否则她得再刷一次微信才好——那正是她说的「除非我再刷一次」。
@@ -2454,7 +2456,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 但那只在【刷新时】发生——已经存着的那份还是乱的，她得等下一次刷新才看得对。
   // 会话列表乱序是一眼就假的：今天下午那条掉在前天下面，微信不会长这样。
   // 认得出时刻的按新→旧，认不出的沉底、彼此保持原来的先后（跟存那一端同一条规矩）。
-  // 真实互通的那几条永远在最前面——那是她跟他此刻正在说的话，不跟推演出来的比时间。
+  // 真实互通的那几条永远在最前面——那是她跟TA此刻正在说的话，不跟推演出来的比时间。
   const byWhen = list => {
     const known = [], unknown = [];
     list.forEach(x => (x && typeof x === "object" && x._ts != null ? known : unknown).push(x));
@@ -2464,7 +2466,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const chats = [...actual, ...byWhen(generated)];
   // ⚠️thread 存的是【点开那一刻的那个对象】，是一张快照。真聊天那几条是活的
   //   （actual 每次渲染都从最新的消息重算），可快照不会跟着长——于是她在聊天里
-  //   刚说的话、他刚回的那条，在他手机上要退出去再点进来才看得见
+  //   刚说的话、TA刚回的那条，在TA手机上要退出去再点进来才看得见
   //   （她 2026-09-10：「微信消息能不能做实时联动……而不是只有刷新才有」）。
   //   所以每一帧都按名字把它认回来：认名字走公共那条规矩。
   const liveThread = thread ? (watchPick(chats, thread.name, c => c && c.name) || thread) : null;
@@ -2480,10 +2482,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // （mobile-ui-layout §1；原来是一个 26px 的「‹」字符，点击区只有那几个像素）
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
       h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, sub)));
-  // 「看他玩」里他刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
+  // 「看TA玩」里TA刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
   // ⚠️认名字必须走公共那份（watchSame）。这两行原来是严格等号：模型把会话名写成
   //   「《长夜》」而聊天叫「长夜」时，上面那个 effect 会正常打开聊天（它用的是 watchSame），
-  //   可输入框和他发出去的气泡一个都不显示——屏幕上就是「点开了，然后什么也没发生」。
+  //   可输入框和TA发出去的气泡一个都不显示——屏幕上就是「点开了，然后什么也没发生」。
   const driveOn = !!(drive && drive.item && thread && watchSame(thread.name, drive.item));
   const th = liveThread || thread;
   // ⚠️落盘是同步的，数据那一头下一帧就有了；再挂一条演出气泡就是同一句话两遍。
@@ -2496,7 +2498,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     const self = selfNames.has(m.from);
     return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, m.text)));
   })),
-    // 他正在打字的那一栏：只在「看他玩」里出现（她自己翻的时候没有理由往他微信里打字）。
+    // TA正在打字的那一栏：只在「看TA玩」里出现（她自己翻的时候没有理由往TA微信里打字）。
     // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
     driveTyping != null ? h("div", { "data-watch": "input", className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       h("div", { className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
@@ -2528,7 +2530,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   if (tab === "chats") body = h("div", null, chats.map(chatRow));
   else if (tab === "contacts") body = h("div", null, h("div", { style: { padding: "7px 14px", fontFamily: F_BODY, fontSize: 11, color: "#888", background: "#f4f4f4" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
   else if (tab === "moments") {
-    // 挂点挂在【谁发的】上：他半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
+    // 挂点挂在【谁发的】上：TA半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
     // 一个挂点都没有，切过去之后圆点还停在别处，看着像卡住）。
     const momentCard = (m, i) => h("div", { key: i, "data-watch": "item:" + (m.author || ""), className: "flex gap-3", style: { padding: "15px 14px", borderBottom: "1px solid #eee" } },
       h(Avatar, { character: person(m.author), size: 40, radius: 6 }),
@@ -2604,8 +2606,8 @@ function AlbumNavIcon({ kind, active }) {
 // 全部照旧——它们撑着回收站 30 天过期、五类保底、私密走 hidden 档那几条规矩。
 // canon() 仍然认得出旧标签，老存档翻开就是新名字。
 //
-// 起名的判据：**这一摞在他自己嘴里叫什么。**
-// 「最近删除」是系统的说法；他心里那句是「删了又没真删的」——他按了删除，
+// 起名的判据：**这一摞在TA自己嘴里叫什么。**
+// 「最近删除」是系统的说法；TA心里那句是「删了又没真删的」——TA按了删除，
 // 可它还在那儿躺着。那才是翻别人相册时真正扎人的一摞。
 const ALBUM_ACCENT = "#8a6478";   // 藕：这一路谁都没用过（外卖暖、购物靛、健康草药）
 const ALBUM_ALERT = "#a8524a";    // 只给「删了又没真删的」和「锁起来的」
@@ -2624,14 +2626,14 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
   const [photo, setPhoto] = useState(null);
-  // ──「看他玩」驱动：这一路【零写入】——他只是点开一张已有的照片看看。
+  // ──「看TA玩」驱动：这一路【零写入】——TA只是点开一张已有的照片看看。
   //   她 2026-09-10：「不一定是每次要加新东西，可以是比如说点开一张已有的照片
-  //   然后屏幕某处有他的想法之类的」。素材本来就在他手机里，一个字都不用现编。
+  //   然后屏幕某处有TA的想法之类的」。素材本来就在TA手机里，一个字都不用现编。
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpened(null); } }, [driveTab]);
-  // ⚠️她 2026-09-10：「照片也是打开显示全部而不是他的几摞」。
-  //   这一屏默认停在【他的几摞】——那是她自己翻手机时想看的（他把照片分成了哪几堆）；
-  //   可他自己刷相册不会先看分类，是直接往下翻。所以【只在看他玩时】改默认。
+  // ⚠️她 2026-09-10：「照片也是打开显示全部而不是TA的几摞」。
+  //   这一屏默认停在【TA的几摞】——那是她自己翻手机时想看的（TA把照片分成了哪几堆）；
+  //   可TA自己刷相册不会先看分类，是直接往下翻。所以【只在看TA玩时】改默认。
   useEffect(() => { if (drive) { setTab("library"); setOpened(null); } }, [!!drive]);
   useEffect(() => {
     if (!drive) return;
@@ -2663,8 +2665,8 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const albums = [
     { key: "memory", label: "总翻出来看的", why: "隔一阵就点开一次" },
     { key: "favorite", label: "舍不得删的", why: "存了很久了" },
-    { key: "saved", label: "从别处存下来的", why: "不是他拍的" },
-    { key: "private", label: "锁起来的", why: "只有他打得开" },
+    { key: "saved", label: "从别处存下来的", why: characterText(char, "不是他拍的") },
+    { key: "private", label: "锁起来的", why: characterText(char, "只有他打得开") },
     { key: "deleted", label: "删了又没真删的", why: "按了删除，还在这儿躺着" }
   ];
   // ⚠️旧标签必须继续认得出：老存档里存的是「个人收藏」那一套，
@@ -2736,7 +2738,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   // 「删了又没真删的」原来只是一摞【看得见的】照片：按了删除还在这儿躺着，可她
   // 既不能真删掉，也不能把它捞回来，更不能把别的照片扔进去。
   // ⚠️「我收着的」那一摞【永远不动】：那是她自己挑着留下的（x_phoneKeep 另一份数据），
-  //   跟他手机里这份 items 是两回事——删这边不该碰到那边。
+  //   跟TA手机里这份 items 是两回事——删这边不该碰到那边。
   const editPhoto = (p, how) => {
     if (!onPhotoEdit || !p) return;
     const all = arr(d && d.items);
@@ -2751,7 +2753,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     Promise.resolve(onDrawPhoto(p, sig(p))).then(() => {
       const k = loadJSON("x_phoneKeep", {});
       setKeep(k);
-      // ⚠️她 2026-09-10：「他说画好了但是图不会动，要我重开 app 进一次才会替换」。
+      // ⚠️她 2026-09-10：「TA说画好了但是图不会动，要我重开 app 进一次才会替换」。
       //   光 setKeep 不够稳：正看着的这一张是 photo 这份【快照】，而 drawnRef 先看
       //   p.imageRef、再回落到收藏那条记录。把新的 ref 直接盖回手上这份快照，
       //   这一屏就当场换图，不用等任何一层 state 对上。
@@ -2791,7 +2793,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
   // （施工规则/mobile-ui-layout.md §2）
-  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", "他的几摞"], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, "data-watch": "tab:" + k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", characterText(char, "他的几摞")], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, "data-watch": "tab:" + k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
   // ── 一张照片（v62.60 重做）─────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：白底 + 圆角 20 的缩略图 +
   // 一块 #f2f2f7 圆角 17 的灰卡——换成任何一个 app 的详情页都成立。
@@ -2811,12 +2813,12 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
       h("div", { style: { padding: "20px 20px 30px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff" } }, photo.caption || "照片"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "rgba(255,255,255,.6)", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。"),
-        // 他的想法：黑底上用一道细线分栏，不再套一块浅灰圆角卡
+        // TA的想法：黑底上用一道细线分栏，不再套一块浅灰圆角卡
         h("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.14)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.42)", marginBottom: 9 } }, char.name + " 对这张照片的想法"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "rgba(255,255,255,.9)", whiteSpace: "pre-wrap" } }, photo.thought || T("他没多说什么。"))),
         // ── 画出来（v59.59）──────────────────────────────────────────────────
-        // 她 2026-09-01：「相册放进我的收藏后可以给他一个按钮生成真图吧，
+        // 她 2026-09-01：「相册放进我的收藏后可以给TA一个按钮生成真图吧，
         // 就按图上的 prompt 生成」。
         // ⚠️只给【已经收着的】那几张：收藏是她自己挑的，刷新不会冲掉，
         //   画出来的图才有地方留着；随手给二十五张都配个按钮等于劝人烧额度。
@@ -2832,7 +2834,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
         }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
           : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
         // ── 回收站进出（她 2026-09-10）──────────────────────────
-        // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在他手机上被删掉。
+        // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在TA手机上被删掉。
         (onPhotoEdit && tab !== "saved") ? h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
           canon(photo.category) === "deleted"
             ? [h("button", { key: "back", onClick: () => editPhoto(photo, "memory"), "data-watch": "move:memory",
@@ -2845,7 +2847,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
                 className: "w-full active:opacity-60",
                 style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.72)" } }, "扔进「删了又没真删的」")) : null,
         onPeek ? (function () {
-          // 锁起来的和删了又没真删的是他藏起来的；另外三摞只是他没主动提起
+          // 锁起来的和删了又没真删的是TA藏起来的；另外三摞只是TA没主动提起
           const hid = photo.category === "private" || photo.category === "deleted";
           return h("button", {
             onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·删了又没真删的" : photo.category === "private" ? "相册·锁起来的" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
@@ -2864,11 +2866,11 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     items.forEach(p => { const raw = String(p.date || p.time || "日期未记"); const m = raw.match(/(\d{4})[-\/.年](\d{1,2})/); const label = m ? (m[1] + "年" + Number(m[2]) + "月") : "日期未记"; let g = groups.find(x => x.label === label); if (!g) { g = { label, list: [] }; groups.push(g); } g.list.push(p); });
     return groups.map((g, i) => h("section", { key: g.label + i, style: { marginBottom: 22 } }, h("div", { className: "flex justify-between", style: { padding: "0 20px 10px", fontFamily: F_DISPLAY, fontSize: 16, color: "#444" } }, h("span", null, g.label), h("span", { style: { color: "#999", fontFamily: F_BODY, fontSize: 12 } }, g.list.length)), grid(g.list, false, 3)));
   })());
-  // ── 他的几摞（v59.50 换骨架）───────────────────────────────────────────
+  // ── TA的几摞（v59.50 换骨架）───────────────────────────────────────────
   // 原来是【回忆一排横滑大卡 + 相簿一排横滑小卡】——那是别人家系统相册的首页，
   // 连分区名都一样。横滑一次只看得见一张半，还得划；而这五摞本来就该一眼看全。
-  // 改成竖着五行，一行一摞：名字、他为什么把这些归在一起、几张、一排缩略。
-  // 「删了又没真删的」摆在最上面并标出来——**他按了删除，可它还在那儿躺着**，
+  // 改成竖着五行，一行一摞：名字、TA为什么把这些归在一起、几张、一排缩略。
+  // 「删了又没真删的」摆在最上面并标出来——**TA按了删除，可它还在那儿躺着**，
   // 那是翻别人相册时真正扎人的一摞，系统相册只会管它叫「最近删除」。
   const dayLeft = p => {
     const t2 = dateMs(p);
@@ -2895,21 +2897,21 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
         }, art(p2, 11)))));
   };
   const collections = h("div", { style: { padding: "18px 0 30px" } },
-    // 藏起来的那两摞排在最前：翻他手机时，那才是你真正在找的
+    // 藏起来的那两摞排在最前：翻TA手机时，那才是你真正在找的
     albums.slice().sort((a, b) => (b.key === "deleted" || b.key === "private" ? 1 : 0) - (a.key === "deleted" || a.key === "private" ? 1 : 0)).map(pileRow).filter(Boolean),
-    items.length ? null : h("div", { style: { margin: "0 20px", padding: "40px 18px", borderRadius: 16, background: "#f4f2f4", color: ALBUM_DIM, textAlign: "center", fontFamily: F_BODY, fontSize: 12 } }, "刷新相册后，这里会出现他分好的那几摞。"));
+    items.length ? null : h("div", { style: { margin: "0 20px", padding: "40px 18px", borderRadius: 16, background: "#f4f2f4", color: ALBUM_DIM, textAlign: "center", fontFamily: F_BODY, fontSize: 12 } }, characterText(char, "刷新相册后，这里会出现他分好的那几摞。")));
   const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
-  const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : "他的几摞";
-  const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? "他把 " + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
+  const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : characterText(char, "他的几摞");
+  const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? characterText(char, "他把 ") + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
   return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 
 // 各 app 详情内容
 // ============================================================
 // 阅读 —— 五个书架、三十本书（她 2026-08-29 给了参考稿）
-// 书架名不是分类标签，是【他自己给这堆书起的名字】：
+// 书架名不是分类标签，是【TA自己给这堆书起的名字】：
 // 「导师以为我在看的论文」「凌晨两点的关东煮哲学」「怎么对付某个麻烦精」——
-// 一看名字就知道是谁的书架。点开一本能看到他读到哪、划了哪句、写了什么批注。
+// 一看名字就知道是谁的书架。点开一本能看到TA读到哪、划了哪句、写了什么批注。
 // 「我的」里是阅读档案：最爱的一本、本周读了多久、打算下一本读什么。
 // ============================================================
 const READ_PALETTES = [
@@ -2945,7 +2947,7 @@ const readFmtMin = n => {
 function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("shelf");
   const [book, setBook] = useState(null);
-  // ── 「看他玩」驱动（第五批）──
+  // ── 「看TA玩」驱动（第五批）──
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setBook(null); } }, [driveTab]);
   useEffect(() => {
@@ -2998,9 +3000,9 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   // 对这些角色毫无意义（一个古代王爷的书架不会有 frontier）。
   // 横滑书脊则是**书店的陈列方式**：一次只看得见两三本，还得划。
   //
-  // 一个人自己的书架和书店的区别只有一样：**他读到哪儿了、哪本放着没动。**
+  // 一个人自己的书架和书店的区别只有一样：**TA读到哪儿了、哪本放着没动。**
   // 书店永远不会告诉你这个。所以竖着一本一行，把「读到哪儿」摆在最显眼处，
-  // 底下一条细线画出他走了多远；停住的那本自己说话。
+  // 底下一条细线画出TA走了多远；停住的那本自己说话。
   const lastUpd = Number(d && d._lastUpd) || 0;
   const readPct = txt => {
     const t2 = String(txt || "");
@@ -3140,9 +3142,9 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     book.quote ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, T("他划的一句")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, book.quote)) : null,
-    // ── 批注条：只有「看他玩」演到写批注那一下才出现 ──
+    // ── 批注条：只有「看TA玩」演到写批注那一下才出现 ──
     drive && drive.typing != null ? h("div", { "data-watch": "input", style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, "他正在写的批注"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, characterText(char, "他正在写的批注")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap", minHeight: 22 } },
         drive.typing,
         h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: READ_INK, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
@@ -3191,7 +3193,7 @@ const shopInt = n => Number(n || 0).toLocaleString("en-US");
 function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats, drive }) {
   const [tab, setTab] = useState("home");
   const [sheet, setSheet] = useState(null);
-  // ── 「看他玩」驱动（第四批）──────────────────────────────────────
+  // ── 「看TA玩」驱动（第四批）──────────────────────────────────────
   // ⚠️只加一条同步：drive 不在的时候这一屏一个像素都没变（跟微信那几屏同一个做法）。
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setSheet(null); } }, [driveTab]);
@@ -3244,12 +3246,12 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // ⚠️账户卡整个撤了（v59.48，她 2026-09-01：「购物这块结构还是太像了」）。
   // 上一版砍的是零件（会员等级、积分、那排统计），骨架没动——而**骨架才是撞的那样东西**：
   // 一张头像方块 + 名字 + 一句话打头，那是所有 app 的「我的」页。
-  // 何况这是**他自己的手机**：在自己手机上摆一张卡告诉你他是谁，纯粹是家具。
-  // 里面唯一有内容的是 persona 那句（他买东西的毛病），挪进「合起来看」。
+  // 何况这是**TA自己的手机**：在自己手机上摆一张卡告诉你TA是谁，纯粹是家具。
+  // 里面唯一有内容的是 persona 那句（TA买东西的毛病），挪进「合起来看」。
   // ── 还在路上（v59.48 改成一行一样）───────────────────────────────────
   // 原来是【竖线 + 圆点 + 一张张白卡】：那是快递追踪页的形状，跟参考那份一模一样。
-  // 他等的不是包裹，是**一样东西和一段等待**。所以一行一样：东西、还要等多久、
-  // 他为什么在等。不要卡、不要圆点、不要状态徽章。
+  // TA等的不是包裹，是**一样东西和一段等待**。所以一行一样：东西、还要等多久、
+  // TA为什么在等。不要卡、不要圆点、不要状态徽章。
   const shipping = A(data.shipping);
   const shipSec = shipping.length ? h("section", { key: "ship" }, secTitle("还在路上", shipping.length + " 件没到"),
     h("div", { style: { marginBottom: 16 } }, shipping.map((it, i2) => h("div", {
@@ -3272,8 +3274,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 8 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_MARK } }, shopMoney(it.price)),
           Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was)) : null,
-          // ⚠️「满减／限时」那枚促销标不画：那是货架上的标签，不是他的事。
-          // 他为什么把这件东西一直停在车里，写在下面 why 那一行。
+          // ⚠️「满减／限时」那枚促销标不画：那是货架上的标签，不是TA的事。
+          // TA为什么把这件东西一直停在车里，写在下面 why 那一行。
           null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1)))))))) : null;
   // ── 一直没下手的 ─────────────────────────────────────────────
@@ -3319,7 +3321,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_BODY, flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price))))) : null,
       h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 13 } },
-        // 运费单列是收据的排版，不是这个人的事；只留他真花掉的那个数
+        // 运费单列是收据的排版，不是这个人的事；只留TA真花掉的那个数
         h("span", null),
         Number(o.paid) > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SHOP_MARK } }, shopMoney(o.paid)) : null),
       A(o.tags).length ? h("div", { key: "g", className: "flex gap-2 flex-wrap", style: { marginTop: 12 } }, A(o.tags).map(tag)) : null,
@@ -3327,8 +3329,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       // 撤掉白卡是对的（那是电商的排版），但**层次不能跟着一起撤**——
       // 评价、为什么买、送到哪儿三段字号颜色都差不多，读起来就是一坨。
       // 层次改用【小标签】重建：标签是我们自己的说法，不是平台部件，
-      // 而且它顺带答了「这句话是谁说的」——评价是他写的，理由是他自己的心思。
-      o.review ? labeled("他写的", o.review) : null,
+      // 而且它顺带答了「这句话是谁说的」——评价是TA写的，理由是TA自己的心思。
+      o.review ? labeled(characterText(char, "他写的"), o.review) : null,
       o.reason ? labeled("为什么买这个", o.reason) : null,
       o.addr ? labeled("送到", o.addr, true) : null,
       h("div", { key: "pk" }, peekBtn("quiet", T("他的订单"), o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
@@ -3348,7 +3350,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     [T("多少钱以上他要犹豫一晚上"), habit.budget],
     [T("他是什么时候点下那个付款的"), habit.how]
   ].filter(x => x[1]);
-  const habitSec = habitAsks.length ? h("section", { key: "hb" }, secTitle("买东西这件事上", "他的取舍"),
+  const habitSec = habitAsks.length ? h("section", { key: "hb" }, secTitle("买东西这件事上", characterText(char, "他的取舍")),
     card(habitAsks.map(([q, v], i) => h("div", { key: i }, askRow(q, askLine(v))))),
     peekBtn("quiet", T("他买东西的样子"), T("他的取舍"), habitAsks.map(([q, v]) => q + "：" + v).join("｜"))) : null;
   // ── 常逛店铺 ──
@@ -3396,18 +3398,18 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 同一屏两处说着不同的钱。所以改成一句话摆在这一段的开头。
   // ⚠️钱包只有【记着东西】的时候才算数（她 2026-09-01：「这里 bug 了怎么是 0」）。
   // ms.spend 是 0 也是 isFinite，于是空钱包被当成权威，屏幕上写出「花掉 ¥0.00，0 单」
-  // ——那不是「他这阵子没花钱」，是**我们还不知道他花了多少**。
+  // ——那不是「TA这阵子没花钱」，是**我们还不知道TA花了多少**。
   // 空钱包等同于没建档：退回模型那份；两份都没有就整句不出现，不硬报一个数。
   const msReal = ms && (Number(ms.spend) > 0 || Number(ms.orders) > 0) ? ms : null;
   const spendLine = msReal
     ? "这一阵花掉 " + shopMoney(msReal.spend) + "，" + shopInt(msReal.orders) + " 单"
     : (Number(acc.monthSpend) > 0 ? "这一阵花掉 " + shopMoney(acc.monthSpend) + (Number(acc.monthOrders) > 0 ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
-  // acc.persona（他买东西的毛病）原来挂在账户卡上。账户卡撤了，这句得有地方去——
-  // 它本来就属于「合起来看」：那一段说的正是他这个人怎么花钱。
-  const monthSec = (data.monthNote || data.tail || spendLine || acc.persona) ? h("section", { key: "mn" }, secTitle("合起来看", "这一阵他是这么花钱的"),
+  // acc.persona（TA买东西的毛病）原来挂在账户卡上。账户卡撤了，这句得有地方去——
+  // 它本来就属于「合起来看」：那一段说的正是TA这个人怎么花钱。
+  const monthSec = (data.monthNote || data.tail || spendLine || acc.persona) ? h("section", { key: "mn" }, secTitle("合起来看", characterText(char, "这一阵他是这么花钱的")),
     acc.persona ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.75, color: SHOP_INK, padding: "0 2px 14px" } }, acc.persona) : null,
-    // 他在这个平台上的号：账户卡撤了，但这一条不能跟着一起没
-    //（她 2026-08-29 专门要过「每个 app 都给他一个自己的 id」）。
+    // TA在这个平台上的号：账户卡撤了，但这一条不能跟着一起没
+    //（她 2026-08-29 专门要过「每个 app 都给TA一个自己的 id」）。
     // 只是它不配再占一整张卡——落成一行小字。
     (acc.name || acc.uid) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, padding: "0 2px 14px" } },
       [acc.name, acc.uid ? "账号 " + acc.uid : ""].filter(Boolean).join(" · ")) : null,
@@ -3447,7 +3449,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     onBack: onBack,
     right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })) });
   // ── 详情：整页，不是半窗（no-half-sheet）───────────────────────────
-  // 原来是从底下掀起来的半窗。这一层的正文是他为什么想买这样东西——
+  // 原来是从底下掀起来的半窗。这一层的正文是TA为什么想买这样东西——
   // 那是这一格的命，从来不是三行能说完的，也不需要同时看见底下那一列。
   // 整页之后它就是册子里【单独一叶】：一样东西占一叶，理由抄在下面。
   const sheetNode = sheet && sheet.kind === "wish" ? (function () {
@@ -3487,7 +3489,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     // 不挂 backgroundAttachment:"local"——内容在动，纸不该跟着动。
     style: { background: SHOP_BG, backgroundImage: SHOP_LAID }
   }, chrome,
-  // 他在搜东西那一下才出现的搜索条：册页上不摆药丸，走【墨围】——方角、一道细线。
+  // TA在搜东西那一下才出现的搜索条：册页上不摆药丸，走【墨围】——方角、一道细线。
   // （她自己翻的时候一个像素都不画。）
   (drive && (drive.typing != null || drive.searchQ) && typeof window !== "undefined" && window.PhoneWatch)
     ? h("div", { className: "shrink-0 flex items-center", style: { margin: "0 13px 8px" } },
@@ -3507,11 +3509,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord),
       body.length ? folio : null)),
   nav, sheetNode,
-  // 他刚点进去的那一件商品页：手机里本来没有这一页，是这一段里现编的
+  // TA刚点进去的那一件商品页：手机里本来没有这一页，是这一段里现编的
   watchPageNode(drive, { bg: SHOP_BG, ink: SHOP_INK, dim: SHOP_DIM, line: SHOP_FRAME, body: SHOP_BODY, mark: SHOP_MARK }));
 }
 // ============================================================
-// 外卖 —— 他怎么把自己喂饱（她 2026-08-29 点名先搭个框）
+// 外卖 —— TA怎么把自己喂饱（她 2026-08-29 点名先搭个框）
 // 备注那一栏比吃什么更暴露人：「不要香菜」「放门口就行」
 // 「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。
 // 三页：点餐（在送 + 常点的店）· 订单 · 我的（口味 / 地址 / 月结）
@@ -3538,7 +3540,7 @@ const TAKE_MUTE = "#bcaa98";     // 最淡的那一档：没吃上的那天、�
 function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats, drive }) {
   const [tab, setTab] = useState("home");
   const [open, setOpen] = useState(null);
-  // ── 「看他玩」驱动（第四批）。drive 不在时这一屏一个像素都没变 ──
+  // ── 「看TA玩」驱动（第四批）。drive 不在时这一屏一个像素都没变 ──
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
   useEffect(() => {
@@ -3644,7 +3646,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.4, color: TAKE_INK } }, today.shop || ""),
           // 评分和配送方式不画：那是平台给陌生人看的信用背书，跟这个人无关。
-          // 只留「几点送到」——那是他这一天的时间。
+          // 只留「几点送到」——那是TA这一天的时间。
           today.eta ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 6 } }, today.eta) : null)),
 
       today.main ? h("div", { className: "flex", style: { gap: 7, marginTop: 13 } },
@@ -3669,7 +3671,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#e8863a", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.why) : null,
           sp.last ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#b8b2a8", marginTop: 6 } }, sp.last) : null))))) : null;
   // ── 进行中（四段进度）──
-  const liveSec = live.length ? h("section", { key: "lv" }, secTitle("还在路上", "他这会儿等着的"),
+  const liveSec = live.length ? h("section", { key: "lv" }, secTitle("还在路上", characterText(char, "他这会儿等着的")),
     live.map((it, i) => {
       const st = Math.max(0, Math.min(3, Number(it.step) || 0));
       return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13 } },
@@ -3681,7 +3683,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("div", { style: { padding: "15px 16px 17px" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, it.shop || ""),
           it.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#6b665e", marginTop: 7 } }, it.items) : null,
-          // 四段进度条和骑手名是平台的部件——他等的是一顿饭，不是等一个进度条走完。
+          // 四段进度条和骑手名是平台的部件——TA等的是一顿饭，不是等一个进度条走完。
           // 只留一行「等到几点」。
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 13 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, it.eta ? "等到 " + it.eta : ""),
@@ -3709,7 +3711,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: TAKE_SOFT } },
           A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: 12.5, color: TAKE_BODY } },
             h("span", { className: "flex-1 min-w-0" }, x.name || ""), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price)))),
-          // 星星不画：那是给平台看的刻度。他亲口写的那句评价才是他说的话。
+          // 星星不画：那是给平台看的刻度。TA亲口写的那句评价才是TA说的话。
           o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + TAKE_LINE, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_BODY } }, o.rating) : null,
           o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,
           o.note ? noteLine(o.note) : null,
@@ -3720,8 +3722,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 原来这儿是【辣度 / 忌口 / 偏好 / 预算 / 习惯】五行彩色药丸——那是外卖平台的
   // 「口味画像」表单，换个角色照样成立（她 2026-08-31：「这些 category 还是跟
   // 另外一个小手机的一模一样」）。改成三问，每一问都得答出这个人才成立：
-  //   嫌什么 → 他嫌它哪一点（不是食材名，是他的挑剔）
-  //   备注写什么 → 每次都要的那句话，是他对陌生人唯一开的口
+  //   嫌什么 → TA嫌它哪一点（不是食材名，是TA的挑剔）
+  //   备注写什么 → 每次都要的那句话，是TA对陌生人唯一开的口
   //   什么时候吃 → 几点、饿到什么程度才想起来，连着预算一起说
   // 字段沿用旧的那几个，老存档照样读得出来。
   const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid " + TAKE_LINE } },
@@ -3743,7 +3745,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 而且那一栏里既有「偏好微辣」也有「忌死辣」，混进「怎么都不腻的那几样」是错的。
   const likeAll = A(taste.likeTags);
   const hasTaste = A(taste.avoidTags).length || likeAll.length || taste.budget || taste.habit || stockNote;
-  const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃这件事上", "他的挑剔"),
+  const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃这件事上", characterText(char, "他的挑剔")),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "2px 16px 8px", marginBottom: 13 } },
       A(taste.avoidTags).length ? askRow(T("他嫌什么——不是嫌这样东西，是嫌它哪一点"), lines(taste.avoidTags, "warn")) : null,
       stockNote ? askRow(T("他每次都写的那句"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.75, color: TAKE_INK } },
@@ -3802,7 +3804,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       !a.isDefault ? h("div", null, peekBtn("hidden", "外卖常用地址", a.label, a.detail)) : null)))) : null;
   // ── 想吃清单 ──
   // ⚠️标题独占一行：跟指标名那次一样，中文在窄 flex 里会被压成一条竖字
-  // 「想吃清单」是购物车的说法（清单＝待办）。他不是在列清单，是在惦记。
+  // 「想吃清单」是购物车的说法（清单＝待办）。TA不是在列清单，是在惦记。
   const wishSec = wish.length ? h("section", { key: "ws" }, secTitle("惦记着的", wish.length + " 样还没吃上"),
     card(wish.map((w, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #f3f1ec" : "none" } },
       h("div", { className: "flex items-start", style: { gap: 9 } },
@@ -3815,10 +3817,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 认输认得对：together 那一栏的身份是【模型现编的一个称呼】，
   // 「老周」和「周叔」在代码里没有任何办法认成一个人，提示词也只能降概率。
   // **身份不稳的东西就不该拿来当一栏的主键。**
-  // 换成从 orders 里长出来的这一格：他给【哪个地方】点过饭。
+  // 换成从 orders 里长出来的这一格：TA给【哪个地方】点过饭。
   // 地址是复用的、会重复出现的，天生就是稳的主键；而且这一格跟这七天、吃过的记录
   // 读的是同一份 orders，三处永远对得上。
-  // 内容也没变弱：一个人给谁点饭，比他跟谁吃饭更说明问题。
+  // 内容也没变弱：一个人给谁点饭，比TA跟谁吃饭更说明问题。
   const homeAddr = (addrs.find(a => a.isDefault) || addrs[0] || {});
   const addrNorm = v => String(v == null ? "" : v).replace(/[\s。，、,.!！?？:：;；"'「」『』（）()\[\]【】~～·-]/g, "");
   const homeKeys = [homeAddr.label, homeAddr.detail].map(addrNorm).filter(Boolean);
@@ -3831,7 +3833,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   });
   const feeds = Object.keys(feedMap).map(k => feedMap[k]).sort((a, b) => b.rows.length - a.rows.length).slice(0, 8);
   const feedSec = feeds.length ? h("section", { key: "fd" },
-    secTitle("送到别人那儿", feeds.length + " 个不是他自己家的地方"),
+    secTitle("送到别人那儿", feeds.length + characterText(char, " 个不是他自己家的地方")),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } },
       feeds.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none" } },
         h("div", { className: "flex items-start", style: { gap: 12 } },
@@ -3854,9 +3856,9 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // **把「几件」换成「哪一件」**，数量只留给数量本身就是内容的地方
   //（「几顿在深夜」有意思，所以那一个挪去了「这七天」的副标；
   //  「记下的餐 12」什么也没说，删掉）。
-  // 剩下的两样本来就是全部内容：一段关于他这一周怎么吃的话，和他自己最后那句念叨。
-  // 所以这一格干脆做成一页纸：正文一段，他的话另起一行、用他自己的口气收尾。
-  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("合起来看", "这一周他是这么吃的"),
+  // 剩下的两样本来就是全部内容：一段关于TA这一周怎么吃的话，和TA自己最后那句念叨。
+  // 所以这一格干脆做成一页纸：正文一段，TA的话另起一行、用TA自己的口气收尾。
+  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("合起来看", characterText(char, "这一周他是这么吃的")),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "17px 17px 18px", marginBottom: 13 } },
       data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: TAKE_BODY } }, data.monthNote) : null,
       data.tail ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: TAKE_INK, marginTop: data.monthNote ? 15 : 0, paddingLeft: 12, borderLeft: "2px solid " + TAKE_CORAL } }, data.tail) : null)) : null;
@@ -3868,9 +3870,9 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     // ⚠️v59.16 曾经在这儿开过一档「写给陌生人」，把订单里的备注挖出来单独摆一面。
     // 她当天就报「本质上不就是把怎么吃里面的备注挖出来嘛，有点鸡肋」——对的：
     // 那不是一栏新东西，是同一份数据换个地方摆第二遍。撤掉，不留着。
-    // 备注该待的地方是它本来那一顿旁边；「他每次都写的那句」抽进了下面那一问。
-    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: "七天的节奏、一次次落点、还有他吃这件事上的挑剔。", secs: [tasteSec, weekSec, orderSec, monthSec], badge: orders.length },
-    { key: "people", zh: "和谁吃", glyph: "me", lead: "他把饭送到谁那儿、为什么总回某家店、还惦记着什么没吃上。", secs: [feedSec, shopSec, wishSec, addrSec] }
+    // 备注该待的地方是它本来那一顿旁边；「TA每次都写的那句」抽进了下面那一问。
+    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: characterText(char, "七天的节奏、一次次落点、还有他吃这件事上的挑剔。"), secs: [tasteSec, weekSec, orderSec, monthSec], badge: orders.length },
+    { key: "people", zh: "和谁吃", glyph: "me", lead: characterText(char, "他把饭送到谁那儿、为什么总回某家店、还惦记着什么没吃上。"), secs: [feedSec, shopSec, wishSec, addrSec] }
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
@@ -3902,7 +3904,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
     nav,
-    // 他刚点进去的那一家店／那一道菜
+    // TA刚点进去的那一家店／那一道菜
     watchPageNode(drive, { bg: TAKE_BG, ink: TAKE_INK, dim: TAKE_DIM, line: TAKE_LINE, body: TAKE_BODY, mark: TAKE_CORAL }));
 }
 // ============================================================
@@ -3996,7 +3998,7 @@ const healthGroupOf = c => {
 };
 function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals, drive }) {
   const [tab, setTab] = useState("body");
-  // ── 「看他玩」驱动（第五批）：健康只能看，他盯着某一项读数而已 ──
+  // ── 「看TA玩」驱动（第五批）：健康只能看，TA盯着某一项读数而已 ──
   const driveTab = drive && drive.tab;
   useEffect(() => { if (drive && driveTab) setTab(driveTab); }, [driveTab]);
   const scrollRef = useRef(null);
@@ -4085,9 +4087,9 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   // 原来这儿是一个 74/100 的综合分环——那是全场最像健康 App 的一样东西，
   // 而且是个凭空捏出来的加权数。换成最近那一次的诊断。
   //
-  // ⚠️这一格真正值钱的是 chief 和 exam 之间那道缝：他嘴里说的（「没事，就是没睡好」）
+  // ⚠️这一格真正值钱的是 chief 和 exam 之间那道缝：TA嘴里说的（「没事，就是没睡好」）
   // 和身上显示的（连着五天不到四小时）多半不是一回事。所以两栏【并排摆、不合并】，
-  // 跟情侣空间「他记得的那一版」是同一个形状——落差就是内容。
+  // 跟情侣空间「TA记得的那一版」是同一个形状——落差就是内容。
   const visits = A(data.visits).filter(x => x && typeof x === "object")
     .slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   const [visitOpen, setVisitOpen] = useState(false);
@@ -4104,10 +4106,10 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
     folded
       ? (v.impression ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: HEALTH_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.impression) : null)
       : h("div", null,
-          // 他说的 ↔ 身上显示的：并排两栏，中间一条竖线，落差自己跳出来
+          // TA说的 ↔ 身上显示的：并排两栏，中间一条竖线，落差自己跳出来
           h("div", { className: "flex", style: { gap: 12, marginTop: 14 } },
             h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM, marginBottom: 5 } }, "他说的"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM, marginBottom: 5 } }, characterText(char, "他说的")),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: HEALTH_BODY, wordBreak: "break-word" } }, v.chief || "—")),
             h("div", { "aria-hidden": "true", style: { width: 1, background: HEALTH_LINE, flexShrink: 0 } }),
             h("div", { style: { flex: 1, minWidth: 0 } },
@@ -4116,14 +4118,14 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
           chartRow("印象", v.impression),
           chartRow("医嘱", v.orders, true),
           v.followup ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: HEALTH_ALERT, marginTop: 13, paddingTop: 12, borderTop: "1px dashed " + HEALTH_LINE } }, v.followup) : null,
-          onPeek ? peekBtn("他的病历", v.who || "大夫", [v.chief, v.exam, v.impression, v.orders, v.followup].filter(Boolean).join("｜")) : null));
+          onPeek ? peekBtn(characterText(char, "他的病历"), v.who || "大夫", [v.chief, v.exam, v.impression, v.orders, v.followup].filter(Boolean).join("｜")) : null));
   const headCard = h("div", { key: "hd", style: { marginBottom: 20 } },
     h("div", { className: "flex items-baseline justify-between", style: { padding: "2px 4px 12px", gap: 10 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: HEALTH_INK } }, "病历"),
       visits.length > 1 ? h("button", { onClick: () => setVisitOpen(o => !o), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: HEALTH_ACCENT, flexShrink: 0 } }, visitOpen ? "只看最近一次" : "看过 " + visits.length + " 次") : null),
     visits.length
       ? h("div", null, (visitOpen ? visits : visits.slice(0, 1)).map((v, i2) => visitCard(v, i2, visitOpen && i2 > 0)))
-      : h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, "他还没看过大夫。下面这些是身上的读数。"),
+      : h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, characterText(char, "他还没看过大夫。下面这些是身上的读数。")),
     data.since ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: HEALTH_DIM, padding: "4px 6px 0" } }, "自那之后 · " + data.since) : null);
   // ── 这一段时间的综合分（每日轻量快照，不是把整份报告天天累计）──
   // 报告本身代表【今天】，每次照实重写；趋势另存一条一天一个数的线。
@@ -4177,7 +4179,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: HEALTH_BODY } }, it.text || "")))))) : null;
   // ⚠️「健康洞察」整段撤了（v59.44）：那是健康 App 的固定小组件——三条短判断加解释，
   // 换个人照样成立。大夫要说的话已经在病历的【印象】和【医嘱】里，说两遍就是两处
-  // 各说各的。他自己那句念叨留着，接在今日轨迹后面。
+  // 各说各的。TA自己那句念叨留着，接在今日轨迹后面。
   const tailSec = data.tail ? h("section", { key: "tl2" },
     h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: HEALTH_LINE, margin: "20px auto 14px" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: HEALTH_DIM, textAlign: "center", padding: "0 10px" } }, data.tail)) : null;
@@ -4215,8 +4217,8 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
 }
 // ============================================================
 // 视频（仿 bilibili）—— 白天刷的那些（她 2026-08-29 拆成独立 app）
-// 这个 app 最好的东西不是他看了什么，是【他发过的弹幕】：
-// 短、脱口而出、没措辞，跟他在别处说话的样子可以完全不同。
+// 这个 app 最好的东西不是TA看了什么，是【TA发过的弹幕】：
+// 短、脱口而出、没措辞，跟TA在别处说话的样子可以完全不同。
 // ============================================================
 const BILI_PINK = "#fb7299";
 const BILI_BLUE = "#23ade5";
@@ -4230,7 +4232,7 @@ const BILI_COVERS = [
 function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState(0);
   const [open, setOpen] = useState(null);
-  // ── 「看他玩」驱动（第五批）：这一路什么都改不了，就是刷 ──
+  // ── 「看TA玩」驱动（第五批）：这一路什么都改不了，就是刷 ──
   const driveItem = drive && drive.item;
   useEffect(() => {
     if (!drive) return;
@@ -4299,14 +4301,14 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   const head = h("div", { "data-wk": "head", className: "shrink-0", style: { background: "#fff", paddingTop: safeTop(8) } },
     h("div", { className: "flex items-center gap-2.5 px-3 pb-2.5" },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IArrow, { size: 18, color: BILI_INK })),
-      // 「看他玩」演到他搜东西那一下，这颗药丸就是真的搜索条（她自己翻的时候一个像素没变）
+      // 「看TA玩」演到TA搜东西那一下，这颗药丸就是真的搜索条（她自己翻的时候一个像素没变）
       (drive && (drive.typing != null || drive.searchQ) && typeof window !== "undefined" && window.PhoneWatch)
         ? h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
             skin: { ink: BILI_INK, dim: BILI_DIM, soft: "#f1f2f3", accent: BILI_PINK } })
         : h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: BILI_DIM } }, "搜索")),
       h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK }))),
-    // 他自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
+    // TA自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
     (me.name || me.uid) ? h("div", { className: "flex items-center px-3 pb-2.5", style: { gap: 10 } },
       h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15 } }, String(me.name || char.name || "?").trim().slice(0, 1)),
       h("div", { className: "flex-1 min-w-0" },
@@ -4338,7 +4340,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
 // ============================================================
 function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
-  // ── 「看他玩」驱动（第五批）：只能看 ──
+  // ── 「看TA玩」驱动（第五批）：只能看 ──
   const driveItem = drive && drive.item;
   useEffect(() => {
     if (!drive) return;
@@ -4398,8 +4400,8 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
 // 广场（原「赞过」）—— 双列瀑布流图文社区
 // 她 2026-08-29 说想做成某种社媒但没定；我选了图文社区而不是短视频，
 // 理由：视频已经占了两个 app（视频 / 深夜台），再来一个短视频是重复；
-// 而「点赞收藏」这个动作本来就最贴图文——他不会写下来，但他会点。
-// 三页：广场（他赞过收藏过的）· 关注 · 我的（他自己发的）
+// 而「点赞收藏」这个动作本来就最贴图文——TA不会写下来，但TA会点。
+// 三页：广场（TA赞过收藏过的）· 关注 · 我的（TA自己发的）
 // ============================================================
 const PLAZA_RED = "#ff2e4d";
 const PLAZA_BG = "#f7f7f8";
@@ -4413,7 +4415,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const [tab, setTab] = useState("feed");
   const [open, setOpen] = useState(null);
   const [chan, setChan] = useState(0);
-  // ── 「看他玩」驱动（第四批）。drive 不在时这一屏一个像素都没变 ──
+  // ── 「看TA玩」驱动（第四批）。drive 不在时这一屏一个像素都没变 ──
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
   useEffect(() => {
@@ -4504,7 +4506,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, T("他谁也没关注"));
   // ── 「我的」：照小红书个人页（她 2026-08-29 给了参考稿）──
   // 大背景 + 头像 + 小红书号 + 三个数字 + 简介 + 药丸标签，
-  // 底下 笔记 / 收藏 / 草稿 三个 tab；草稿带锁——那是他写了却没发的。
+  // 底下 笔记 / 收藏 / 草稿 三个 tab；草稿带锁——那是TA写了却没发的。
   const drafts = A(data.drafts).filter(x => x && typeof x === "object");
   const saved = items.filter(x => x.act === "收藏");
   const [mtab, setMtab] = useState("note");
@@ -4572,7 +4574,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     : null;
   const topBar = h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-2 pb-1.5", style: { paddingTop: safeTop(10), background: "#fff" } },
     h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: PLAZA_INK })),
-    // 演到他搜东西那一下，频道那一排让位给搜索条（平时一个像素都不变）
+    // 演到TA搜东西那一下，频道那一排让位给搜索条（平时一个像素都不变）
     searchPill,
     searchPill ? null : tab === "feed"
       ? h("div", { className: "flex-1 min-w-0 flex gap-3 overflow-x-auto justify-center", style: { scrollbarWidth: "none" } }, chans.map((c, i) => h("button", {
@@ -4594,7 +4596,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
         h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? PLAZA_RED : PLAZA_DIM })),
       h("span", { style: { marginTop: 2 } }, pg.zh)))),
-    // 他刚点进去的那一条笔记（现编的那一页）
+    // TA刚点进去的那一条笔记（现编的那一页）
     watchPageNode(drive, { bg: "#fff", ink: PLAZA_INK, dim: PLAZA_DIM, line: "#eeeef1", mark: PLAZA_RED }));
 }
 // ============================================================
@@ -4604,7 +4606,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
 function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
   const [sel, setSel] = useState(null);
-  // ── 「看他玩」驱动（第五批）：日历只能看 ──
+  // ── 「看TA玩」驱动（第五批）：日历只能看 ──
   const driveItem = drive && drive.item;
   useEffect(() => {
     if (!drive) return;
@@ -4620,7 +4622,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
   const dated = items.map(x => ({ x: x, at: parse(x.date) })).filter(r => r.at);
   // 月份（v64.29 改，她 2026-09-06：「为啥查手机显示 8 月明明已经九月了」）。
   // ⚠️原来是【数据里出现最多的那个月】：她日历上多半是七八月记下的旧事，
-  //   于是九月打开还停在八月——而这一页是「他的日历」，人翻开日历默认看的是【这个月】。
+  //   于是九月打开还停在八月——而这一页是「TA的日历」，人翻开日历默认看的是【这个月】。
   //   出现最多的那个月是个统计量，不是一个人会想看的东西。
   const now = new Date();
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() + 1 });
@@ -4712,7 +4714,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
         : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, lineHeight: 1.8 } },
             sel ? "这天没有安排"
               : h("div", null,
-                  h("div", null, "这个月他日历上没有东西"),
+                  h("div", null, characterText(char, "这个月他日历上没有东西")),
                   // ⚠️别只说「没有」：翻空一个月就以为整本是空的。有的话就指出来在哪几个月
                   monthsWith.length ? h("div", { style: { fontSize: 12, marginTop: 6 } },
                     "有安排的是 " + monthsWith.slice(-4).map(x => (x.y === now.getFullYear() ? "" : x.y + "年") + x.m + "月").join("、")) : null))),
@@ -4720,7 +4722,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
 }
 // ============================================================
 // 便签 —— 备忘录和录音合成一个（她 2026-08-29）
-// 它们本来就是同一件事的两种载体：没人看的时候他留给自己的东西。
+// 它们本来就是同一件事的两种载体：没人看的时候TA留给自己的东西。
 // 一个是打的，一个是说的；**只有打字打不出来的才会被录下来**，这是分界。
 // 界面：一墙彩色便利贴，微微歪着，录音那种带波形条和时长。
 // ============================================================
@@ -4736,7 +4738,7 @@ const STICKY_BG = "#efeae0";
 function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
   const A = a => Array.isArray(a) ? a : [];
-  // ──「看他玩」驱动：这是【改】那一类——他把写好的那条划掉重写（她举的例子之一）
+  // ──「看TA玩」驱动：这是【改】那一类——TA把写好的那条划掉重写（她举的例子之一）
   const driveItem = drive && drive.item;
   useEffect(() => {
     if (!drive) return;
@@ -4782,8 +4784,8 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
           h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.45, color: c.ink } }, open.title || ""),
         voice ? wave(c.ink, 34) : null,
-        // ⚠️「看他玩」里他正在改这条：显示手上那份草稿，不是存档里那份。
-        //   驱动时哪怕草稿是空的也要占着位（他刚把整段划掉，那一下正是要看见的）。
+        // ⚠️「看TA玩」里TA正在改这条：显示手上那份草稿，不是存档里那份。
+        //   驱动时哪怕草稿是空的也要占着位（TA刚把整段划掉，那一下正是要看见的）。
         drive && drive.typing != null
           ? h("div", { "data-watch": "input", style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", minHeight: 30 } },
               drive.typing,
@@ -4817,7 +4819,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
 // 注释里从来就写着「一叠纸条」，纸上却是暗底 + 圆角 12 的卡片 + 左边一道色边——
 // 那是通用的深色列表，搬到任何一个 app 都成立（审美审计 2026-09-04 点名）。
 //
-// 剪贴板里躺的是【从别处撕下来的一片字】：他复制了，有的发出去了，有的一直捏在手里。
+// 剪贴板里躺的是【从别处撕下来的一片字】：TA复制了，有的发出去了，有的一直捏在手里。
 // 所以每一条就长成一张纸条：纸色、方角（纸没有圆角）、微微歪着叠在桌上、
 // 底边是撕口。没发出去的那几张多两样东西——别着一枚回形针，和一道折痕（捏皱过）。
 //
@@ -4850,7 +4852,7 @@ function ClipPin({ color, size }) {
 }
 function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
-  // ── 「看他玩」驱动（第五批）：剪贴板只能看 ──
+  // ── 「看TA玩」驱动（第五批）：剪贴板只能看 ──
   const driveItem = drive && drive.item;
   useEffect(() => {
     if (!drive) return;
@@ -4902,7 +4904,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
         h(ClipPin, { color: CLIP_HOT, size: 21 })) : null);
   };
   // ── 详情：整页，不是半窗（no-half-sheet）────────────────────────────
-  // 原来是从底下掀起来的半窗。这一层的内容是一整段他复制下来的话，
+  // 原来是从底下掀起来的半窗。这一层的内容是一整段TA复制下来的话，
   // 三行说不完，而且压根不需要同时看见底下那一列——按规矩就该是整页。
   // 整页之后还多了一件事能做：把这张纸条摊开成一整张纸铺满屏幕。
   const detail = open ? (function () {
@@ -4960,10 +4962,10 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
 // 浏览器 —— 仿真浏览器（她 2026-08-29 点名）
 // 四页：标签页 / 搜索 / 书签 / 无痕
 // 这个 app 的两个爆点：
-//   ① 一堆没关的标签页是这个人脑子的横截面——尤其那个开了很久、他自己也说不清
+//   ① 一堆没关的标签页是这个人脑子的横截面——尤其那个开了很久、TA自己也说不清
 //      为什么不关的；
 //   ② 搜索词比访问过的网页更暴露人：人在搜索框里是不修饰的。
-// 无痕那一页整个走 hidden 档：那是他专门开了不留记录的。
+// 无痕那一页整个走 hidden 档：那是TA专门开了不留记录的。
 // ============================================================
 const BR_BG = "#f2f2f5";
 const BR_INK = "#1c1c1e";
@@ -4972,20 +4974,20 @@ const BR_DIM = "#8e8e93";
 const BR_BLUE = "#2f6fdb";
 const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "#e8f1ea"],
   ["#e5dbef", "#f1ebf7"], ["#e9e3cc", "#f4f0e2"], ["#cfe3e8", "#e6f0f3"]];
-// 「看他玩」里现编的那一页，四个 app 共用一份（浏览器 / 购物 / 外卖 / 小红书）。
+// 「看TA玩」里现编的那一页，四个 app 共用一份（浏览器 / 购物 / 外卖 / 小红书）。
 // 这儿只是个转手：组件在 js/phone-watch.js 里，没加载那个文件时什么也不画。
-// 「看他玩」里【买东西那一路】的三个 app：它们没有输入框，send 落的是屏幕上那一页。
+// 「看TA玩」里【买东西那一路】的三个 app：它们没有输入框，send 落的是屏幕上那一页。
 // 写成一份名单，播放器和落盘各读它一次——别在两处各写一串 || 。
 const WATCH_BUY_APPS = ["shopping", "takeout", "liked"];
 // 能【搜出新东西】的那几个：进去就有一张空草稿，敲完回车先看见搜的那一句，再点进去。
 // ⚠️她 2026-09-10 定的顺序（浏览器那次立的，小红书和视频照办）：
-//   凭空冒出一页，看的人不知道他为什么看见它。
+//   凭空冒出一页，看的人不知道TA为什么看见它。
 const WATCH_SEARCH_APPS = ["browser", "liked", "bili", "shopping", "takeout"];
-// 「看他玩」里各屏找那一行时，认名字只走 PhoneWatch.sameName 一份规矩
+// 「看TA玩」里各屏找那一行时，认名字只走 PhoneWatch.sameName 一份规矩
 // （挂点那头 watchFuzzy 用的也是它——两处各写一套就会圆点点着、页面却没开）。
 const watchSame = (a, b) => (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.sameName)
   ? window.PhoneWatch.sameName(a, b) : (String(a == null ? "" : a) === String(b == null ? "" : b));
-// 从一堆里挑出他点的那一个。⚠️别用 find(watchSame)：两条都「像」的时候，
+// 从一堆里挑出TA点的那一个。⚠️别用 find(watchSame)：两条都「像」的时候，
 // 各屏按数据顺序挑、圆点按 DOM 顺序挑，挑出来的会是两条不同的东西
 // （她 2026-09-10：「点开一个标题点进去又是另一个标题」）。pickName 先要完全一样的。
 const watchPick = (list, name, get) => (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.pickName)
@@ -4995,7 +4997,7 @@ const watchPick = (list, name, get) => (typeof window !== "undefined" && window.
 //   病根：模型点开的那个名字在这一屏的数据里**一条都对不上**（它自己编了个标题，
 //   或者那条被上一次刷新顶掉了），于是各屏的 openItem effect 里 hit 是 null、
 //   一个 setOpen 都没跑——屏幕停在列表上，后面「看了两眼又退出去」全落空。
-//   点开这一下是【他真的按下去了】，必须开出一页来：认不出名字就开这一屏的第一条。
+//   点开这一下是【TA真的按下去了】，必须开出一页来：认不出名字就开这一屏的第一条。
 //   ⚠️微信／短信／邮件不给这个兜底：开错人比不开更糟（在错的会话里打字）。
 // ⚠️⚠️它必须住在【模块级】，跟 watchPick/watchSame 并排：用它的是二十来个各自独立的
 //   组件（StickyView / BrowserView / BiliView…）。v67.04 我把它写进了 PhoneCarry 里面，
@@ -5007,7 +5009,7 @@ const watchPageNode = (drive, skin) => (drive && drive.page && typeof window !==
 function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("tabs");
   const [open, setOpen] = useState(null);
-  // ──「看他玩」驱动：这是第一个【现编新内容】的 app——他敲进搜索框、回车、点开一页。
+  // ──「看TA玩」驱动：这是第一个【现编新内容】的 app——TA敲进搜索框、回车、点开一页。
   //   搜到的那一页当场就在这一屏上（drive.page），落盘另走 applyWrite。
   const driveTab = drive && drive.tab, driveItem = drive && drive.item, drivePage = drive && drive.page;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
@@ -5054,7 +5056,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const searchPage = searches.length ? h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
     searches.map((x, i) => h("button", {
       key: i, onClick: () => setOpen({ title: x.q, site: x.site, gist: "", _search: true, time: x.time, results: x.results, opened: x.opened }),
-      // 搜索记录每一行也认名字：他要是回头点开自己搜过的那一句，圆点落得下去
+      // 搜索记录每一行也认名字：TA要是回头点开自己搜过的那一句，圆点落得下去
       "data-watch": "item:" + (x.q || ""),
       className: "w-full text-left active:opacity-60 flex items-center",
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
@@ -5084,7 +5086,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     priv.length ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, priv.map((x, i) => tabCard(x, i, true)))
       : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "这会儿没有无痕页"));
   // 搜索记录点进去 = 那一次搜索的【结果页】。
-  // 「搜了什么」只有一半；另一半是【他点开了哪一条】——那才是他真正想知道的东西。
+  // 「搜了什么」只有一半；另一半是【TA点开了哪一条】——那才是TA真正想知道的东西。
   const searchPage2 = open && open._search ? (function () {
     const rs = A(open.results).filter(x => x && typeof x === "object");
     // 结果数不问模型要：拿搜索词算一个稳定的数，每次进来都一样。
@@ -5157,7 +5159,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         // 地址栏：真浏览器的样子
         h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 11, background: "#e6e6ea", padding: "0 12px" } },
           h("span", { "aria-hidden": "true", style: { fontSize: 10.5, color: BR_DIM } }, "🔒"),
-          // ⚠️他敲搜索框那一下必须看得见——这一路的戏就在「敲进去、又退回来」上。
+          // ⚠️TA敲搜索框那一下必须看得见——这一路的戏就在「敲进去、又退回来」上。
           drive && drive.typing != null
             ? h("span", { "data-watch": "input", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: BR_INK, overflow: "hidden", whiteSpace: "nowrap" } },
                 drive.typing,
@@ -5183,8 +5185,8 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       })) ),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 13px 22px" } }, page.body),
     searchPage2, detail,
-    // ── 他刚搜出来点进去的那一页（「看他玩」专属）──────────────────────
-    //   这一页在他手机里本来不存在——是这一段里现编出来的。落盘另走 applyWrite：
+    // ── TA刚搜出来点进去的那一页（「看TA玩」专属）──────────────────────
+    //   这一页在TA手机里本来不存在——是这一段里现编出来的。落盘另走 applyWrite：
     //   搜的那句进 searches（📚 累积），打开的这一页顶到 tabs 最前面（♻️ 快照）。
     // ⚠️这一页原来是这儿手写的一份。第四批要在购物／外卖／小红书上摆同一张，
     //   于是搬进 PhoneWatch.WatchPage 一处，这儿也跟着改用它（不是只开公共的、
@@ -5193,8 +5195,8 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
 }
 // ============================================================
 // 电话 —— 通话 / 短信 / 信箱 / 联系人（她 2026-08-29 拍板留下并重做）
-// 这个 app 真正有东西的是【没接通的那些】：谁打来他不接、他打给谁一直打不通、
-// 深夜那通只有几十秒的。每一条都带他自己的想法。
+// 这个 app 真正有东西的是【没接通的那些】：谁打来TA不接、TA打给谁一直打不通、
+// 深夜那通只有几十秒的。每一条都带TA自己的想法。
 // 短信单独一页，而且和微信收发的东西**完全不是一回事**——那条分界写在提示词里，
 // 界面上也用「通知/人」两种样式把它显出来。
 // ============================================================
@@ -5222,7 +5224,7 @@ const CALL_RED = "#ff3b30";
 function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [tab, setTab] = useState("calls");
   const [open, setOpen] = useState(null);
-  // ── 「看他玩」驱动（第五批）。drive 不在时这一屏一个像素都没变 ──
+  // ── 「看TA玩」驱动（第五批）。drive 不在时这一屏一个像素都没变 ──
   const driveTab = drive && drive.tab, driveItem = drive && drive.item;
   useEffect(() => { if (drive && driveTab) { setTab(driveTab); setOpen(null); } }, [driveTab]);
   useEffect(() => {
@@ -5335,12 +5337,12 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
       ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "还没有联系人") : null);
   // ── 详情 ──
   // ⚠️跟微信那一屏同一件事：open.x 是【点开那一刻的那一行】，一张快照。
-  //   他发出去的那条落进 x_phone 之后这张快照不会跟着长——去重也就无从比起。
+  //   TA发出去的那条落进 x_phone 之后这张快照不会跟着长——去重也就无从比起。
   //   所以每一帧按名字把它认回来（认名字走公共那条）。
   const liveSms = (open && open.kind === "sms")
     ? (watchPick(A(d && d.sms), (open.x || {}).name, x => x && x.name) || open.x || {}) : null;
-  // 演到一半就该看见：他刚发出去的那条先挂在气泡串上（落盘另走 applyWrite）
-  // 同上：这一行也得走公共那份，不然短信点开了、他打的字和发出去的气泡却不出现
+  // 演到一半就该看见：TA刚发出去的那条先挂在气泡串上（落盘另走 applyWrite）
+  // 同上：这一行也得走公共那份，不然短信点开了、TA打的字和发出去的气泡却不出现
   const driveOn = !!(drive && open && open.kind === "sms" && drive.item
     && (watchSame((open.x || {}).name, drive.item) || String((open.x || {}).number || "") === String(drive.item)));
   const driveSent0 = driveOn ? A(drive.sent) : [];
@@ -5358,7 +5360,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.35, color: missed ? CALL_RED : CALL_INK } }, x.name || x.from || x.number || "陌生号码"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM, marginTop: 5 } },
         [x.number, x.time, isCall ? (missed ? "未接通" : (x.dir === "in" ? "来电 " : "拨出 ") + (x.duration || "")) : "", isVm ? x.duration : "", isSms ? (x.kind === "人" ? "短信 · 人" : "短信 · 通知") : ""].filter(Boolean).join(" · ")),
-      // 短信：气泡串。收到的靠左灰、他发的靠右蓝
+      // 短信：气泡串。收到的靠左灰、TA发的靠右蓝
       isSms ? h("div", { "data-watch": "thread", style: { marginTop: 16 } }, A(x.msgs).concat(driveSent).map((m2, j) => {
         const mine = m2.from === "me";
         return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
@@ -5369,7 +5371,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
         h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, x.transcript)) : null,
       isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#4b4b53" } }, x.gist) : null,
       x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: CALL_INK } }, x.thought) : null,
-      // ── 打字条：只有「看他玩」演到打字那一下才出现（drive 不在时压根不画）──
+      // ── 打字条：只有「看TA玩」演到打字那一下才出现（drive 不在时压根不画）──
       driveTyping != null ? h("div", { "data-watch": "input", className: "flex items-end", style: { gap: 8, marginTop: 16, padding: "8px 10px", background: "#f5f5f8", borderRadius: 14 } },
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: CALL_INK, minHeight: 20 } },
           driveTyping || h("span", { style: { color: "#bbb" } }, "\u00a0"),
@@ -5418,7 +5420,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
 // 原来是【一排小方图 + 歌名 + 歌手】——任何音乐 app 都长这样，
 // 按 施工规则/tabs-not-plain-pills.md 那条判据（换个 app 照样成立就是写坏了）
 // 就是没设计。而且那排 34px 的灰方块正是「哪个音乐 app 都有」的那一样东西。
-// 这一页真正独有的是 note：**他为什么循环这一首**。所以照【碟的曲目单】来做：
+// 这一页真正独有的是 note：**TA为什么循环这一首**。所以照【碟的曲目单】来做：
 // 顶上一张真的碟（纹路是程序画的，不烧生图额度），底下曲目一行行，
 // note 是写在曲目边上的那一行小字。
 // 歌单是查手机里【唯一一个没穿自己皮】的内层 app（审美审计 2026-09-04）：
@@ -5436,8 +5438,8 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
   const t = MUSIC_SKIN;
   const [open, setOpen] = useState(null);
   const A = a => Array.isArray(a) ? a : [];
-  // ──「看他玩」驱动：音乐这一路跟别的都不一样——歌单是【真数据】（listen.playlists），
-  //   不在 x_phone 里，所以他点一首歌就是【真的放出来】，不是演一下。
+  // ──「看TA玩」驱动：音乐这一路跟别的都不一样——歌单是【真数据】（listen.playlists），
+  //   不在 x_phone 里，所以TA点一首歌就是【真的放出来】，不是演一下。
   //   ⚠️也因此这一路不落 x_phone：applyWrite 里压根没有 music 分支，写的是播放器状态。
   // ⚠️「正在放的是哪一首」是播放器说了算，这一屏跟着它走（她 2026-09-10：
   //   「就算播放的是其他歌也不会变」）。她手动点开别的那一行时，以她点的为准——
@@ -5523,7 +5525,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
           "和「一起听」是同一张"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 3, lineHeight: 1.65 } },
           T("点一首，摊开他为什么听它")))),
-    // 曲目单：号在左边挂着，中间是曲名，他为什么循环这一首写在下面那一行
+    // 曲目单：号在左边挂着，中间是曲名，TA为什么循环这一首写在下面那一行
     songs.map((s2, i) => {
       const k = s2.id || ("s" + i);
       const on = open === k;
@@ -5542,7 +5544,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
           h("div", { className: "min-w-0", style: { flex: 1 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.4, color: t.ink, wordBreak: "break-word" } }, S(s2.title) || "未命名"),
             S(s2.artist) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, S(s2.artist)) : null,
-            // 心境：他为什么会循环这一首（她 2026-08-29 点名要在查手机这边看得到）。
+            // 心境：TA为什么会循环这一首（她 2026-08-29 点名要在查手机这边看得到）。
             // 这一行是这一页的正文，不是附注——所以给它朱色，别再当成灰色小字。
             note ? h("div", { style: {
               fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.accent, marginTop: 7,
@@ -5552,7 +5554,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
             // 一首歌要说的就这两个动作，为它另开一层页面反而更重。
             on ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 11 } },
               onPlay ? act("放这首", () => onPlay(s2)) : null,
-              // 歌单走 open 档——他没瞒着自己在听什么，所以不说「他会知道你翻了手机」，
+              // 歌单走 open 档——TA没瞒着自己在听什么，所以不说「TA会知道你翻了手机」，
               // 那是撞破那一档的话。这儿就是随口提起。
               onPeek ? act(T("跟他提这首"), () => onPeek({
                 tier: "open", label: "歌单",
@@ -5592,8 +5594,8 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
     savedScrollRef.current = scrollRef.current ? scrollRef.current.scrollTop : 0;
     setOpen({ kind, item });
   };
-  // ──「看他玩」驱动（她 2026-09-10：「论坛和匿名可以点开看但是不改」）──
-  // ⚠️这一路【零写入】，而且比相册还硬：论坛接的是真数据，他在这儿发一帖就是**真发出去**。
+  // ──「看TA玩」驱动（她 2026-09-10：「论坛和匿名可以点开看但是不改」）──
+  // ⚠️这一路【零写入】，而且比相册还硬：论坛接的是真数据，TA在这儿发一帖就是**真发出去**。
   //   所以只认 openItem，一个写入分支都不给（applyWrite 里压根没有 forum 这一支）。
   const driveItem = drive && drive.item;
   useEffect(() => {
@@ -5707,10 +5709,10 @@ function renderPhoneModule(key, d, ctx) {
   // 模型偶尔会把 items 返回成字符串或对象；a || [] 会原样放行，下一步 .map 就是白屏
   const arr = a => Array.isArray(a) ? a : [];
   // 【偷看转发】她 2026-08-29 定的规矩：手机里的东西不常驻上下文，**转发了才注入**，
-  // 而且注入时的语境必须是「她翻了他的手机」。tier 决定他该有什么反应：
-  //   open   = 他本来就没瞒着（歌单、大号发的帖）
-  //   quiet  = 你看得见但他没主动说（备忘录、购物、浏览器、录音、普通照片）
-  //   hidden = 他压根没打算让任何人知道（小号、匿名、深夜、私密、最近删除）
+  // 而且注入时的语境必须是「她翻了TA的手机」。tier 决定TA该有什么反应：
+  //   open   = TA本来就没瞒着（歌单、大号发的帖）
+  //   quiet  = 你看得见但TA没主动说（备忘录、购物、浏览器、录音、普通照片）
+  //   hidden = TA压根没打算让任何人知道（小号、匿名、深夜、私密、最近删除）
   const peekFoot = (tier, label, title, text) => ctx.onPeek ? h("button", {
     onClick: () => ctx.onPeek({ tier, label, title, text }),
     className: "w-full mt-6 py-3 active:opacity-60",
@@ -5728,8 +5730,8 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "takeout") return h(TakeoutView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
   if (key === "album") return h(AlbumView, { drive: ctx.drive, onPhotoEdit: ctx.onPhotoEdit, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, onDrawPhoto: ctx.onDrawPhoto, drawing: ctx.drawing });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
-  // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
-  // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
+  // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是TA发的，
+  // 只有翻TA手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
   if (key === "forum") return h(PhoneForumView, {
     drive: ctx.drive,
     accounts: ctx.forumAccounts, char, onBack: ctx.onBack, onPeek: ctx.onPeek,
@@ -5737,7 +5739,7 @@ function renderPhoneModule(key, d, ctx) {
   });
   // ── 音乐：接【一起听】里那张真歌单 ──
   // 以前这儿单独生成一份，于是同一个人有两张互不相干的歌单，
-  // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。
+  // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带TA自己的心境。
   if (key === "music") return h(MusicView, {
     pl: ctx.playlist, char, t, onGen: ctx.onGenPlaylist, busy: !!ctx.playlistBusy,
     onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack, drive: ctx.drive, nowSongId: ctx.nowSongId
@@ -5783,7 +5785,7 @@ function PhoneApp({
   drive
 }) {
   const t = useTheme();
-  phoneViewTa(char);   // 界面上的「他/她/TA」跟着这台手机的主人走（v58.88）
+  phoneViewTa(char);   // 界面上的「TA/她/TA」跟着这台手机的主人走（v58.88）
   const [sheet, setSheet] = useState(null);
   const zh = PHONE_LABEL[appKey];
   const rawData = charData[appKey];
@@ -5793,7 +5795,7 @@ function PhoneApp({
   const [forumTab, setForumTab] = useState("main");
   // 打开非视频版块：直接生成，失败退回上一级（不再显示中间的「生成」页）
   useEffect(() => {
-    // ⚠️「看他玩」开着的时候不许顺手再生成一次：那是另一枪，而且会把正在演的这一份盖掉
+    // ⚠️「看TA玩」开着的时候不许顺手再生成一次：那是另一枪，而且会把正在演的这一份盖掉
     if (drive || isLive || charData[appKey]) return;
     let alive = true;
     Promise.resolve(onGen(char, appKey)).then(ok => { if (alive && ok === false) onBack(); });
@@ -5821,9 +5823,9 @@ function PhoneApp({
     setForumTab,
     drive,
     ...(live || {}),
-    // ⚠️「看他玩」的时候把【转发给 TA / 摆到 TA 面前】那颗钮收起来（她 2026-09-10 提）。
-    //   这一屏此刻扮的是**他手里的手机**：他自己刷着刷着，屏幕上冒出一颗
-    //   「转发给他，他会知道你翻了手机」——那是她的按钮，出现在他的手上就穿帮了。
+    // ⚠️「看TA玩」的时候把【转发给 TA / 摆到 TA 面前】那颗钮收起来（她 2026-09-10 提）。
+    //   这一屏此刻扮的是**TA手里的手机**：TA自己刷着刷着，屏幕上冒出一颗
+    //   「转发给TA，TA会知道你翻了手机」——那是她的按钮，出现在TA的手上就穿帮了。
     //   收在这一处就够：二十来屏都是 `onPeek ? h("button"…) : null` 的写法，
     //   给它 null 就整片消失，不用去二十个地方各加一个 if（施工规则/one-public-mechanism.md）。
     onPeek: drive ? null : (live || {}).onPeek
@@ -5851,7 +5853,7 @@ function PhoneApp({
     h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.55 } },
       "正在重新推演 " + zh + "…（这一步会调一次模型）"),
     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, "下面还是上一次的")) : null;
-  // 接真数据的 app 没有「重刷」这回事——它跟着他真去论坛发帖、真加歌单在变。
+  // 接真数据的 app 没有「重刷」这回事——它跟着TA真去论坛发帖、真加歌单在变。
   const refreshKey = isLive ? null : appKey;
   const liveTitle = appKey === "music"
     ? (((live || {}).playlist || {}).name || "音乐")
@@ -5930,8 +5932,8 @@ function PhoneCarry({
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
   const [deskPage, setDeskPage] = useState(0);
-  // ── 「看他玩」：他自己在刷手机，我在旁边看（js/phone-watch.js 是词表和落盘那一份）──
-  // ⚠️他操作的就是她平时翻的这几屏，不另做一套「他的手机」——那才是这个玩法成立的地方。
+  // ── 「看TA玩」：TA自己在刷手机，我在旁边看（js/phone-watch.js 是词表和落盘那一份）──
+  // ⚠️TA操作的就是她平时翻的这几屏，不另做一套「TA的手机」——那才是这个玩法成立的地方。
   //   所以这儿只多一个【播放器】：把一串动作按时间演成 open/locked/tab/chat/typing 的变化。
   const [watch, setWatch] = useState(null);   // {acts,i,speed,tab,chat,typing,sent,thought,knocks,knocking,done,note}
   const [watchBusy, setWatchBusy] = useState(false);
@@ -5942,7 +5944,7 @@ function PhoneCarry({
   // open 是 state，effect 里读到的是那一轮的旧值，所以另存一份 ref。
   const openRef = useRef(null);
   openRef.current = open;
-  // 便签里点开一条时，手上那份草稿就是它现在的正文——他要「划掉重写」得先有东西可划
+  // 便签里点开一条时，手上那份草稿就是它现在的正文——TA要「划掉重写」得先有东西可划
   // 阅读：点开一本书时，手上那份草稿就是它现在的批注（跟便签同一个理由）
   const bookNoteOf = title => {
     const shelves = (((phones || {})[char && char.id] || {}).reading || {}).shelves;
@@ -5953,7 +5955,7 @@ function PhoneCarry({
   };
   const noteBodyOf = title => {
     const it = (((phones || {})[char && char.id] || {}).notes || {}).items;
-    // ⚠️这一处最阴：取不到正文的话，他「划掉重写」划的是一片空白，
+    // ⚠️这一处最阴：取不到正文的话，TA「划掉重写」划的是一片空白，
     //   可落盘那头 applyWrite 用的是模糊认名，照样找到那条便签覆盖掉——演的和写的两回事。
     const hit = watchPick(Array.isArray(it) ? it : [], title, x => x && x.title);
     return hit ? String(hit.body || "") : "";
@@ -5968,7 +5970,7 @@ function PhoneCarry({
   const WK = typeof window !== "undefined" ? window.PhoneWatch : null;
   // 挂点找不着的时候再模糊找一次：模型写的名字标点常常飘（「《长夜》」→「长夜」），
   // 严格选择器就当场落空。认名字的规矩只有 PhoneWatch.sameName 一份。
-  // 他说「切到收藏那一栏」，可挂点上写的是 tab:saved——名字对不上的后果是【两处一起哑】：
+  // TA说「切到收藏那一栏」，可挂点上写的是 tab:saved——名字对不上的后果是【两处一起哑】：
   // 圆点找不着挂点（她 2026-09-11：「光标有时候还是对不上」），而那一屏被切到一个
   // 根本不存在的栏，于是整页空着（跟「在邮件里切到 sms」同一个病）。
   // ⚠️认名字仍然只走 PhoneWatch.pickName 这一份规矩：先按 key 对，再按那颗键上写的字对。
@@ -6056,7 +6058,7 @@ function PhoneCarry({
     // ⚠️第一下必须【当场同步量】：手指按的是**按下去之前**那一屏上的东西——
     //   点开一个 app、点开一行、按返回，这几下一按屏幕就换了，等到下一帧那个图标
     //   早没了（她 2026-09-10：「整体光标都不会移动」，病根就在这儿：原来第一下也是异步的）。
-    //   effect 里的 setState 不会同步刷 DOM，所以这一刻量到的正是他手指按下去的那一屏。
+    //   effect 里的 setState 不会同步刷 DOM，所以这一刻量到的正是TA手指按下去的那一屏。
     attempt();
     // 按完才出现的那几样（搜出来的那一页、发送键、打字条）第一下量不到，隔几拍再试。
     const shots = [90, 220, 420, 660].map(ms => setTimeout(attempt, ms));
@@ -6128,18 +6130,18 @@ function PhoneCarry({
     else if (a.kind === "openItem") setWatch(w => w ? {
       ...w, item: a.name, page: null,
       // 微信：点开会话＝可以开始打字（空草稿）。便签：点开＝手上是那条现有的正文，
-      // 他要划掉重写就从这一份上删起。相册／音乐：纯点开，压根不给草稿。
+      // TA要划掉重写就从这一份上删起。相册／音乐：纯点开，压根不给草稿。
       // 微信／短信／邮件：点开＝可以开始打字（空草稿）。
-      // 便签／阅读：点开＝手上是它现在的正文／批注，他要划掉重写就从这一份上删起。
+      // 便签／阅读：点开＝手上是它现在的正文／批注，TA要划掉重写就从这一份上删起。
       // 相册／音乐／视频／健康这些：纯点开，压根不给草稿。
       typing: (openRef.current === "wechat" || openRef.current === "calls" || openRef.current === "mail") ? ""
         : openRef.current === "notes" ? String((noteBodyOf(a.name) || ""))
         : openRef.current === "reading" ? String((bookNoteOf(a.name) || "")) : null
     } : w);
-    // 浏览器：他刚搜出来点进去的那一页。这一页在他手机里本来不存在——是现编的。
+    // 浏览器：TA刚搜出来点进去的那一页。这一页在TA手机里本来不存在——是现编的。
     else if (a.kind === "openPage") {
       const pg = { title: a.name, site: a.site || "", gist: a.gist || "", price: a.price != null ? a.price : null, priv: !!a.priv };
-      // ⚠️只有浏览器那一路的 openPage 才接得住「他刚搜的那句」。
+      // ⚠️只有浏览器那一路的 openPage 才接得住「TA刚搜的那句」。
       //   lastQ 原来跨 app 不清：先在浏览器搜过「怎么煮溏心蛋」，后来点开购物点一件商品，
       //   那件商品就被存成了「怎么煮溏心蛋」（购物/外卖/小红书/视频四处同一行写法，全中）。
       const q = openRef.current === "browser" ? String((watchRef.current && watchRef.current.lastQ) || "") : "";
@@ -6148,8 +6150,8 @@ function PhoneCarry({
       setWatch(w => w ? { ...w, page: pg, item: null, typing: null } : w);
       if (onWatchSend) { try { onWatchSend(char, openRef.current, q, a.name, Object.assign({ act: "openPage" }, pg)); } catch (e) {/* 落盘失败不该把这段演砸 */} }
     }
-    // ⚠️scroll 原来是个【空动作】：词表里有、提示词里三处让他用（小红书／视频／深夜台
-    //   这三个「只能刷」的 app 里他几乎只能干这个），可播放器一个分支都没有——
+    // ⚠️scroll 原来是个【空动作】：词表里有、提示词里三处让TA用（小红书／视频／深夜台
+    //   这三个「只能刷」的 app 里TA几乎只能干这个），可播放器一个分支都没有——
     //   屏幕纹丝不动地停 700 毫秒。这个功能的命根子就是「一眼看得出是真的」。
     else if (a.kind === "scroll") {
       const px = Math.max(-1400, Math.min(1400, Number(a.amount) || 320));
@@ -6157,7 +6159,7 @@ function PhoneCarry({
         const el = watchScroller();
         if (!el) return;
         try { el.scrollBy({ top: px, behavior: "smooth" }); } catch (e) { el.scrollTop += px; }
-        // 手指落在他划的那一片上，跟着往下带一截
+        // 手指落在TA划的那一片上，跟着往下带一截
         const r = el.getBoundingClientRect();
         setDot({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * (px > 0 ? 0.62 : 0.38)), press: false });
       });
@@ -6176,7 +6178,7 @@ function PhoneCarry({
       }
       setWatch(w => w ? { ...w, typing: null } : w);
     }
-    // 把正看着的这张照片挪到另一摞（她 2026-09-10：「照片换相册我是说看他玩让他弄」）。
+    // 把正看着的这张照片挪到另一摞（她 2026-09-10：「照片换相册我是说看TA玩让TA弄」）。
     // ⚠️不另开落盘路径：跟发微信、下单同一条路（onWatchSend → applyWrite → savePhoneApp）。
     else if (a.kind === "move") {
       const w0 = watchRef.current;
@@ -6185,7 +6187,7 @@ function PhoneCarry({
     }
     else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
     // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——
-    // 不然那一屏永远停在他自己那条上，像对面死了。
+    // 不然那一屏永远停在TA自己那条上，像对面死了。
     else if (a.kind === "reply") {
       setWatch(w => w ? { ...w, sent: (w.sent || []).concat([{ from: a.name, text: a.text, them: true }]) } : w);
       if (onWatchReply) { try { onWatchReply(char, a.name, a.text, openRef.current); } catch (e) {/* 落盘失败不该把这段演砸 */} }
@@ -6201,37 +6203,37 @@ function PhoneCarry({
           // 手上没在打字、屏幕上摆着一页 → 这一下是把它收进书签（跟买东西那几屏同一条分家规矩）
           if (onWatchSend) { try { onWatchSend(char, "browser", "", w0.page.title, Object.assign({}, w0.page, { act: "mark" })); } catch (e) {} }
         }
-        // 浏览器里按回车＝搜这一句。搜完不一定点得开东西（那也很像他），
+        // 浏览器里按回车＝搜这一句。搜完不一定点得开东西（那也很像TA），
         // 所以这一下先只记 searches；真点开哪一页由后面的 openPage 决定。
         else if (text) {
           // ⚠️敲完回车得【先看见搜出来的那一列】，再点进去其中一条（她 2026-09-10：
           //   「搜浏览器顺序错了，现在是先打开了搜索后的页面退出才显示搜索」）。
           //   原来这一下只把地址栏清空，屏幕还停在标签页那一栏，于是下一下 openPage
-          //   直接盖上来——看着就是「凭空冒出一页，退出来才看见他搜了什么」。
+          //   直接盖上来——看着就是「凭空冒出一页，退出来才看见TA搜了什么」。
           setWatch(w => w ? { ...w, lastQ: text, typing: "", page: null, tab: "search" } : w);
           if (onWatchSend) { try { onWatchSend(char, "browser", text, "", { act: "send" }); } catch (e) {} }
         }
       }
       else if (text && WATCH_SEARCH_APPS.indexOf(where) >= 0) {
         // ⚠️同一颗键，两件事，靠【手上有没有草稿】分：
-        //   有草稿＝他在搜索框里敲完了 → 这一下是搜索（先让那句话留在框里）；
+        //   有草稿＝TA在搜索框里敲完了 → 这一下是搜索（先让那句话留在框里）；
         //   没草稿＝屏幕上摆着一页 → 这一下才是这个 app 的动作（收藏／加购／下单）。
         //   真手机就是这么分的，不用另造一个词。
         setWatch(w => w ? { ...w, searchQ: text, typing: "", page: null } : w);
       }
       else if (WATCH_BUY_APPS.indexOf(where) >= 0) {
-        // 购物／外卖／小红书里没有输入框：这一下按的是【他正看着的那一页】上那颗钮——
+        // 购物／外卖／小红书里没有输入框：这一下按的是【TA正看着的那一页】上那颗钮——
         // 加进购物车 / 下这一单 / 收藏这一条。所以看的不是草稿，是屏幕上那一页。
         const pg = w0 && w0.page;
         if (pg && pg.title && onWatchSend) { try { onWatchSend(char, where, pg.title, "", Object.assign({}, pg, { act: "send" })); } catch (e) {/* 同上 */} }
       }
       else if (where === "tally" && text) {
-        // 账本：记在【他此刻翻开的那一栏】里（五栏字段各不相同，落盘那头按 tab 分流）
+        // 账本：记在【TA此刻翻开的那一栏】里（五栏字段各不相同，落盘那头按 tab 分流）
         if (onWatchSend) { try { onWatchSend(char, "tally", (w0 && w0.item) || "", text, { act: "send", tab: (w0 && w0.tab) || "debts" }); } catch (e) {} }
         setWatch(w => w ? { ...w, typing: "" } : w);
       }
       else if (text) {
-        // 边演边落（她 2026-09-10 定的）：看到一半退出去，他已经做过的就是做过了。
+        // 边演边落（她 2026-09-10 定的）：看到一半退出去，TA已经做过的就是做过了。
         // ⚠️先落盘再决定要不要挂气泡：发给【她】的那一条落进的是真聊天，
         //   而她那条聊天在这一屏上是活的——再挂一条演出用的气泡，同一句话就出现两遍
         //   （她 2026-09-10 抓到的）。落盘那头回一个「真」字，这儿据此让路。
@@ -6307,7 +6309,7 @@ function PhoneCarry({
       if (!acts || !acts.length) return;
       setWatch({ acts, i: 0, speed: 1, tab: "chats", chat: null, typing: null, sent: [], thought: "", knocks: 0, knocking: false, paused: false, done: false });
       setDot(null);
-      // 让别的浮层（秋秋那颗球）让开——这一屏扮的是他的手机
+      // 让别的浮层（秋秋那颗球）让开——这一屏扮的是TA的手机
       if (onWatching) onWatching(true);
     } finally { setWatchBusy(false); }
   };
@@ -6317,18 +6319,18 @@ function PhoneCarry({
     if (!w || w.knocking || !onWatchKnock || WK && WK.knockOver(w.knocks)) return;
     setWatch(p => p ? { ...p, knocking: true } : p);
     try {
-      // 第三下他可能真的给她发了一条微信：那一下回的是 {say, wx}，别的时候还是一句话。
+      // 第三下TA可能真的给她发了一条微信：那一下回的是 {say, wx}，别的时候还是一句话。
       // ⚠️那条消息在 app.js 那头就已经【真的发出去】了（走 watchSend 的真聊天路径），
-      //   这儿只负责让她知道——不然她要退出去翻聊天才发现他刚跟她说了话。
+      //   这儿只负责让她知道——不然她要退出去翻聊天才发现TA刚跟她说了话。
       const got = await onWatchKnock(char, (w.knocks || 0) + 1, w.acts[w.i] || null);
       const say = (got && typeof got === "object") ? String(got.say || "") : got;
       const sentWx = (got && typeof got === "object") ? String(got.wx || "").trim() : "";
-      if (sentWx && onWatchToast) onWatchToast("他给你发了一条：" + sentWx.slice(0, 24));
+      if (sentWx && onWatchToast) onWatchToast("TA给你发了一条：" + sentWx.slice(0, 24));
       // 真出声了才算这一下：没出声还扣次数，就是「敲了没反应，还少一下」
       setWatch(p => {
         if (!p) return p;
         const n = (p.knocks || 0) + (say ? 1 : 0);
-        // 敲完他真的会变一下：往【当前这一下后面】插一段停住（第三下起还会把
+        // 敲完TA真的会变一下：往【当前这一下后面】插一段停住（第三下起还会把
         // 手上打了一半那句删光）。⚠️只插不删——截掉剩下的动作会把本该落盘的演漏。
         // 那一句心声跟着这一段一起演，不再直接压在 thought 上：走同一条退场路，
         // 才不会一句话挂到整段结束（她 9-10 报过的那条）。
@@ -6373,17 +6375,17 @@ function PhoneCarry({
       if (deskRef.current) deskRef.current.scrollLeft = deskRef.current.clientWidth * n;
     }));
   }, [open, inList, lookOpen]);
-  // 锁屏：拿起他手机的第一眼，不该直接是一片图标网格
+  // 锁屏：拿起TA手机的第一眼，不该直接是一片图标网格
   const [locked, setLocked] = useState(true);
   // 外观只存小引用；图片本体进图片金库。按角色分桶，谁的手机就只改谁。
   const [phoneLooks, setPhoneLooks] = useState(phoneLooksBoot);
   // 「我收着的」——她自己留的那些，只给她自己看，不进任何上下文。
-  // 转发是摆到他面前，收着是我自己留一份：两件事。
+  // 转发是摆到TA面前，收着是我自己留一份：两件事。
   const [kept, setKept] = useState(() => loadJSON("x_phoneKeep", {}));
-  // 桌面顶部的全局搜索。在他手机里搜自己的名字，是所有偷看动作里最真的一个。
+  // 桌面顶部的全局搜索。在TA手机里搜自己的名字，是所有偷看动作里最真的一个。
   const [q, setQ] = useState("");
   // delta 账本：上次翻完时手机上有哪些条目。x_phoneMark[charId].ids = { 指纹: 1 }
-  // 指纹只由内容决定（见 phoneEntryId），所以他没动的东西不会因为你又翻了一次就变新。
+  // 指纹只由内容决定（见 phoneEntryId），所以TA没动的东西不会因为你又翻了一次就变新。
   const [mark, setMark] = useState(() => loadJSON("x_phoneMark", {}));
   // 绿点 = 有数据且还没看过；打开即消，刷新全部时重新点亮
   const [seen, setSeen] = useState(() => loadJSON("x_phoneSeen", {}));
@@ -6394,10 +6396,10 @@ function PhoneCarry({
   const isAllRun = String(busyKey || "").indexOf("__all__") === 0;
   const char = characters.find(c => c.id === selId) || characters[0];
   phoneViewTa(char);   // 同上：列表页的标签也跟着选中的这位走
-  // 进了谁的手机就放他那张歌单，退出去还回她原来在听的（她 2026-09-06：
+  // 进了谁的手机就放TA那张歌单，退出去还回她原来在听的（她 2026-09-06：
   // 「查手机也改成和情侣空间一样点进去就会播放吧」）。落针/收针那套礼数全在
   // app.js 的 roomMusicEnter/Leave 里（和情侣唱片共用一份），这儿只负责喊人。
-  // ⚠️只在【真进了某个人的手机】时落针：还在通讯录那一屏不算——那是名单，不是他的手机。
+  // ⚠️只在【真进了某个人的手机】时落针：还在通讯录那一屏不算——那是名单，不是TA的手机。
   // ⚠️这个 effect 必须待在所有 return 上面（这一份文件里已经因为这条摔过两次：
   //   列表页少调一次 hook，从列表点进某人手机那一下 React 直接抛 #310 整页白）。
   const inPhoneOf = !inList && char ? char.id : null;
@@ -6474,7 +6476,7 @@ function PhoneCarry({
               // 一个东西两处能拧，她在设置里开过之后，这一行看着还像没开、顺手一点就变成了
               // 「开了又关」——而每周刷新一开就是十几次调用，她按次计费。
               // 一个开关只留一处（设置里那处是统一的、和别的自动刷新排在一起）；
-              // 这儿保留一枚不能点的标，好让「这是谁的手机」和「他开着每周刷新」还在同一屏上。
+              // 这儿保留一枚不能点的标，好让「这是谁的手机」和「TA开着每周刷新」还在同一屏上。
               (autoOn || {})[c.id] ? h("span", {
                 className: "shrink-0",
                 title: "每周自动刷新已开（在 设置 · 自动刷新 里改）",
@@ -6496,7 +6498,7 @@ function PhoneCarry({
     onGenPlaylist: () => onGenPlaylist && onGenPlaylist(char),
     playlistBusy: playlistBusyId === char.id,
     onPlaySong: s => onPlaySong && onPlaySong(s),
-    // 日历接 App 里那份真的：他自己那格日历 + 带时刻的日程 + 他答应过她的事
+    // 日历接 App 里那份真的：TA自己那格日历 + 带时刻的日程 + TA答应过她的事
     calendar: calendarFor ? calendarFor(char) : null,
     // 健康的每日快照（趋势）。报告本身照旧每次重写，这一条是另存的轻量线。
     vitals: vitalsFor ? vitalsFor(char.id) : null,
@@ -6509,7 +6511,7 @@ function PhoneCarry({
     onGenAnonQuestion: () => onGenAnonQuestion && onGenAnonQuestion(char),
     onAskAnon: q => onAskAnon && onAskAnon(char, q),
     onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
-    // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
+    // 偷看转发：手机里的东西只有【转发了】才进TA的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk),
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
     // 的指纹，不是 true/false——同屏两张的按钮不能一起转圈。
@@ -6582,15 +6584,15 @@ function PhoneCarry({
         h(PGlyph, { k: "settings", size: 24, color: glyph })),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
   };
-  // 「看他玩」那一层罩子：触控圆点 / 他心里那一句 / 底下那条。
+  // 「看TA玩」那一层罩子：触控圆点 / TA心里那一句 / 底下那条。
   // 三处 return（app 里、锁屏、桌面）都套同一个——各写一份的话，改一处另两处必然落单。
   const watchSkin = view => {
     if (!watch || !WK) return view;
     // ⚠️底下那条会把正在打字的那一栏压住（真机上看见的）。给正文让出一条的高度，
-    //   别让「他打了又删」那一下正好被自己的控制条挡掉——那是这个功能最戳人的一眼。
+    //   别让「TA打了又删」那一下正好被自己的控制条挡掉——那是这个功能最戳人的一眼。
     // ⚠️原来这儿给正文让出 54px（怕底下那条压住正在打字的那一栏）。可她 2026-09-10 说
     //   「按键是实的会把手机屏幕往上推一节」——让位＝手机变矮了一截，那才是真穿帮：
-    //   他的手机不会因为她在看就少一块。改成真悬浮：这一条压在屏幕上，一个像素都不占。
+    //   TA的手机不会因为她在看就少一块。改成真悬浮：这一条压在屏幕上，一个像素都不占。
     //   压住打字那一栏的问题另解：把它收窄压扁，并且演到打字那几下自己让路（变淡）。
     return h(React.Fragment, null,
       h("div", { style: { height: "100%" } }, view),
@@ -6599,14 +6601,15 @@ function PhoneCarry({
         h(WK.WatchThought, { text: watch.thought })),
       h("div", { style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 56 } },
         h(WK.WatchBar, {
-          // 他正在打字（或者刚打完还没发）的时候这一条让路——那一眼是这个功能最戳人的
+          char,
+          // TA正在打字（或者刚打完还没发）的时候这一条让路——那一眼是这个功能最戳人的
           // 一下，不能被自己的控制条挡掉。手指按上去它就亮回来。
           dim: watch.typing != null && !watch.done && !barWake,
           onWake: () => { setBarWake(true); setTimeout(() => setBarWake(false), 2600); },
           t, i: watch.i, total: watch.acts.length, done: watch.done, speed: watch.speed,
           knocks: watch.knocks, knocking: watch.knocking, paused: watch.paused,
           onSpeed: () => setWatch(w => w ? { ...w, speed: w.speed >= 4 ? 1 : w.speed * 2 } : w),
-          // 暂停（她 2026-09-10 那批里的第 ⑦ 条）：他打了一句又删掉、心声一闪而过，
+          // 暂停（她 2026-09-10 那批里的第 ⑦ 条）：TA打了一句又删掉、心声一闪而过，
           // 原来想看清楚只能按 1× 或者错过。⚠️「跳到最后」要顺手放开暂停，
           // 否则按了没反应——暂停着的时候倍速再快也不往下走。
           onPause: () => setWatch(w => w ? { ...w, paused: !w.paused } : w),
@@ -6647,7 +6650,7 @@ function PhoneCarry({
     const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : tone.glyph;
     return h("button", {
     key: a.key,
-    // 「看他玩」的圆点要落在这上面。⚠️原来一个 app: 挂点都没有，于是【点开一个 app】
+    // 「看TA玩」的圆点要落在这上面。⚠️原来一个 app: 挂点都没有，于是【点开一个 app】
     //   这个最常见的动作永远不动圆点（她 2026-09-10：「整体光标都不会移动」）。
     "data-watch": "app:" + a.key,
     onClick: () => openApp(a),
@@ -6673,7 +6676,7 @@ function PhoneCarry({
   })), h("span", {
     // ⚠️dock 那排也要写名字。浏览器在四套布局里有三套只在 dock，没有名字就等于
     // 这个 app 不存在（她 2026-08-29：「我的查手机浏览器怎么找不到了」）。
-    // iOS 的 dock 不写字，但这不是 iOS，是「翻他手机」——找得到比像不像重要。
+    // iOS 的 dock 不写字，但这不是 iOS，是「翻TA手机」——找得到比像不像重要。
     style: {
       width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       // 图标名也跟着底走：底自成一套色，名字还用她那套墨，一屏上就有两种黑
@@ -6704,10 +6707,10 @@ function PhoneCarry({
     // 一份 drive 递给所有被驱动的 app（微信／相册／便签各取所需）——
     // 各拼一份的话，第三批加浏览器又要在这儿多一支（一层写在多处）。
     drive: watch ? { tab: watch.tab, item: watch.item, page: watch.page, typing: watch.typing, searchQ: watch.searchQ,
-      // sent 里两种人：他自己发的（右侧绿气泡）和对面回的
-      // ⚠️「他自己」在两屏上叫的名字不一样：微信按头像认人，所以要换成他的微信昵称；
+      // sent 里两种人：TA自己发的（右侧绿气泡）和对面回的
+      // ⚠️「TA自己」在两屏上叫的名字不一样：微信按头像认人，所以要换成TA的微信昵称；
       //   短信那一屏认的是死字符串 "me"（照各自那屏自己的写法来）。
-      //   原来这儿一律换成昵称——于是短信里他自己发的那条被画成了对面的灰气泡（真机上抓到的）。
+      //   原来这儿一律换成昵称——于是短信里TA自己发的那条被画成了对面的灰气泡（真机上抓到的）。
       sent: (watch.sent || []).map(x => ({
         from: x.them ? x.from : (x.from === "me" ? "me" : ((data.wechat && data.wechat.me && data.wechat.me.wechatName) || char.name)),
         text: x.text, _new: true })) } : null,
@@ -6733,7 +6736,7 @@ function PhoneCarry({
     }[key] || "还没有内容";
     // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
     if (key === "timeline") {
-      // 小组件说的是「他最近干了什么」，不是待办清单，所以跳过还没发生的那几条
+      // 小组件说的是「TA最近干了什么」，不是待办清单，所以跳过还没发生的那几条
       const r = tlRows.find(x => !x.ahead) || tlRows[0];
       if (!r) return fallback;
       return (newCount > 0 ? newCount + " 条新的 · " : "") + (r.ts == null ? "" : phoneClock(r.ts) + " ") + (r.title || r.text || "");
@@ -6785,7 +6788,7 @@ function PhoneCarry({
           hand(hh * 30, 18, 2.6, ink), hand(mm * 6, 25, 1.8, ink),
           h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 5, height: 5, borderRadius: 999, background: ink, transform: "translate(-50%,-50%)" } })));
     }
-    // 相框：从他相册里挑一张。没有真图就按标题生成一块底色——不是占位符，是一张卡片
+    // 相框：从TA相册里挑一张。没有真图就按标题生成一块底色——不是占位符，是一张卡片
     if (key === "frame") {
       const ph = wRows("album")[0];
       const cap = ph ? (wText(ph) || "相册") : "相册还没翻过";
@@ -6794,7 +6797,7 @@ function PhoneCarry({
         h("div", { style: { height: 74, borderRadius: 15, marginTop: 8, background: "linear-gradient(150deg," + c1 + "cc," + c2 + "88)" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dim, marginTop: 9 } }, cap));
     }
-    // 一句话：把他自己写过的一句放大。挑最长的那句——短的那种「买牛奶」放大了很傻
+    // 一句话：把TA自己写过的一句放大。挑最长的那句——短的那种「买牛奶」放大了很傻
     if (key === "saying") {
       const pool = [].concat(wRows("notes"), wRows("tally"), wRows("latenight"))
         .map(x => (x.body && String(x.body).trim()) || wText(x)).filter(x => x && x.length >= 6);
@@ -6963,8 +6966,8 @@ function PhoneCarry({
     }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
       style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub }
     }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻…") : "刷新全部"));
-    // 「看他玩」跟「刷新全部」并排：它们是同一层的两面——一个是我翻他的手机，
-    // 一个是他自己在刷、我在旁边看。所以摆成一对，一人一半。
+    // 「看TA玩」跟「刷新全部」并排：它们是同一层的两面——一个是我翻TA的手机，
+    // 一个是TA自己在刷、我在旁边看。所以摆成一对，一人一半。
     if (key === "watch") return h("button", {
       key,
       onClick: () => { if (!watchCoolLeft) startWatch(); },
@@ -6978,7 +6981,7 @@ function PhoneCarry({
     }, h("span", { "aria-hidden": "true", style: {
         width: 7, height: 7, borderRadius: 999, flexShrink: 0,
         background: watchCoolLeft > 0 ? t.line : "#78bd58",
-        // 「他这会儿在手机上」（她 2026-09-10 第 ⑩ 条）：这颗点本来就在，
+        // 「TA这会儿在手机上」（她 2026-09-10 第 ⑩ 条）：这颗点本来就在，
         // 提示只是让它【呼吸一下】——不另加一个红点、也不多一行字。
         // 判据零调用，节奏由 PhoneWatch 兜（冷却是关着的，见台账那条红的）。
         animation: (watchHintOn && !watchCoolLeft && !watchBusy) ? "wkbreathe 2.4s ease-in-out infinite" : undefined
@@ -7060,7 +7063,7 @@ function PhoneCarry({
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
   // 搜索条已经并进顶栏（她 2026-09-01：「搜索键缩短放顶上时间那块地方」），
   // 这儿不再单占一条。
-  // 「看他玩」的入口在桌面组件里，跟「刷新全部」并排（她 2026-09-10 定的：
+  // 「看TA玩」的入口在桌面组件里，跟「刷新全部」并排（她 2026-09-10 定的：
   // 全刷从 4×1 收成 2×1，另一半让给它）——它们是同一层的两面。
   q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "2px 2px 10px" } },
@@ -7145,10 +7148,10 @@ function PhoneCarry({
 //      让它们靠结构分开，而不是靠运气分开。
 // ============================================================
 
-// 每个 app 站的位置：他在这个 app 里是「对谁」的样子，以及往回捞多久。
+// 每个 app 站的位置：TA在这个 app 里是「对谁」的样子，以及往回捞多久。
 // 时间窗尤其重要——现在所有 app 默认都在写「这几天」，相册本该跨年、
 // 购物本该跨月，全挤在同一个窗口里，撞车是必然的。
-// 【他人在哪儿】（v64.72，她 2026-09-06：「以前查手机他们都会查温尼伯有关的…
+// 【角色在哪儿】（v64.72，她 2026-09-06：「以前查手机他们都会查温尼伯有关的…
 // 现在都变回 general 的国内了」）。
 //
 // ⚠️她 2026-09-05 报过一模一样的病，那次是行程：「资料丢了重新找回来，王爷就变成
@@ -7157,36 +7160,36 @@ function PhoneCarry({
 //
 // ⚠️查手机比别处更容易滑回去，因为【这个界面本身就是中文的】：微信、朋友圈、小红书、
 //   仿 bilibili，连渲染层的钱都写死了 ¥。模型看见一屏中文 app，就默认这人在国内。
-//   所以这一条要挑明：**界面语言不代表他人在哪儿**——中国人在国外照样用微信。
+//   所以这一条要挑明：**界面语言不代表角色在哪儿**——中国人在国外照样用微信。
 //
 // ⚠️写的是判据不是示范（prompt-no-content-samples.md）：给了「曼大教授的邮件」
 //   这种例子，每个角色的邮箱里都会长出一个教授。
-const PHONE_WORLD_RULE = "\n\n【先认准他人在哪儿，再往手机里填东西】\n"
-  + "· 这台手机的界面是中文的，**这不代表他人在国内**：人在国外照样用中文 app。\n"
-  + "· 每一条内容都要落在【他真正生活的那个地方】：收到的信来自哪儿的机构和学校、"
+const PHONE_WORLD_RULE = "\n\n【先认准角色在哪儿，再往手机里填东西】\n"
+  + "· 这台手机的界面是中文的，**这不代表角色人在国内**：人在国外照样用中文 app。\n"
+  + "· 每一条内容都要落在【TA真正生活的那个地方】：收到的信来自哪儿的机构和学校、"
   + "约人去的地方在哪座城、地址和电话是哪国的写法、价格用哪种货币、"
   + "刷到的热闹是哪儿的事、身边这些人是谁。\n"
   + "· 判据一句话：**这一条搬到另一座城市还成立吗？成立就说明写空了，重写。**\n"
-  + "· 他在哪儿由上面【你自己住在哪儿】那一行、人设和世界书说了算；三处都没写才按人设的语感来推，"
+  + "· TA在哪儿由上面【你自己住在哪儿】那一行、人设和世界书说了算；三处都没写才按人设的语感来推，"
   + "**绝不许因为界面是中文的就默认国内**。";
 
 const PHONE_ANGLE = {
-  wechat: "【取材层】有别人在场时的他。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
-  notes: "【取材层】完全没人看的时候，他留给自己的东西——打字的和说出口的都在这儿。录下来的那些是**打字打不出来、只能说出来**的，这是它和打字条的分界。【时间窗】这一两周。",
-  calls: "【取材层】他和外面世界打交道时留下的硬痕迹：谁打来他不接、谁给他留了言、哪些人只配收到短信。**电话记录里最有东西的是没接通的那些。**【时间窗】这一周。",
-  browser: "【取材层】没人看着的时候他自己去找的东西。搜索框里的人是不修饰的——会打错字、会问很蠢的问题、会反复搜同一件事。【时间窗】这几天，标签页可以开了很久。",
-  shopping: "【取材层】他花钱的方式。买了什么、想买没买、绝不买什么、送到谁家——这四样加起来比他自己说的任何一句都准。【时间窗】这一个月，想买清单可以惦记很久。",
-  bili: "【取材层】他消磨时间的口味，不是他的心事——刷视频多半是没在想什么的时候。弹幕是例外：那是他忍不住开口的地方。【时间窗】这几天。",
+  wechat: "【取材层】有别人在场时的TA。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
+  notes: "【取材层】完全没人看的时候，TA留给自己的东西——打字的和说出口的都在这儿。录下来的那些是**打字打不出来、只能说出来**的，这是它和打字条的分界。【时间窗】这一两周。",
+  calls: "【取材层】TA和外面世界打交道时留下的硬痕迹：谁打来TA不接、谁给TA留了言、哪些人只配收到短信。**电话记录里最有东西的是没接通的那些。**【时间窗】这一周。",
+  browser: "【取材层】没人看着的时候TA自己去找的东西。搜索框里的人是不修饰的——会打错字、会问很蠢的问题、会反复搜同一件事。【时间窗】这几天，标签页可以开了很久。",
+  shopping: "【取材层】TA花钱的方式。买了什么、想买没买、绝不买什么、送到谁家——这四样加起来比TA自己说的任何一句都准。【时间窗】这一个月，想买清单可以惦记很久。",
+  bili: "【取材层】TA消磨时间的口味，不是TA的心事——刷视频多半是没在想什么的时候。弹幕是例外：那是TA忍不住开口的地方。【时间窗】这几天。",
   latenight: "【取材层】深夜、独自一人、没打算被任何人看见的欲望。【时间窗】这阵子。",
   album: "【取材层】过去。**相册的主体不是这几天**，而是几个月到几年沉下来的东西：旧的人、去过的地方、早就结束的事。只有一两张属于最近。【时间窗】跨月跨年。",
-  reading: "【取材层】他一个人读到某一句停下来的那个瞬间。**批注和划线是不打算给任何人看的动作**，所以它比书单诚实得多；书架怎么分、怎么起名，也是他自己对自己的说法。【时间窗】跨年，一架书是攒出来的，不是这个月买的。",
-  liked: "【取材层】他不会写下来、但会顺手点的东西。点赞和收藏没有措辞、不用解释，所以最诚实。【时间窗】这一两个月。",
-  health: "【取材层】他的身体和心神这一天经历了什么。**指标名和细分项都要长成这个角色世界里的样子**，不是通用体检报告。【时间窗】今天为主，一周做背景。",
-  clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
-  takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
-  wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。",
-  mail: "【取材层】他对外那一面：工作、账单、订阅、学校、机构。**这里的他是【对陌生人和上级说话】的样子**，跟微信里那个人是同一个，但措辞完全两回事。【时间窗】这一两周，订阅和账单可以更久。",
-  tally: "【取材层】他心里那本没结清的账——欠着的、替谁挡过的、放过的狠话、舍不得的、拿不准的。**跟谁有账就记谁**，用户只是其中一个人。**这本账不记钱**，钱在钱包里。【时间窗】从认识到现在，横跨很久；大多数条目应该已经挂了一阵子了。"
+  reading: "【取材层】TA一个人读到某一句停下来的那个瞬间。**批注和划线是不打算给任何人看的动作**，所以它比书单诚实得多；书架怎么分、怎么起名，也是TA自己对自己的说法。【时间窗】跨年，一架书是攒出来的，不是这个月买的。",
+  liked: "【取材层】TA不会写下来、但会顺手点的东西。点赞和收藏没有措辞、不用解释，所以最诚实。【时间窗】这一两个月。",
+  health: "【取材层】TA的身体和心神这一天经历了什么。**指标名和细分项都要长成这个角色世界里的样子**，不是通用体检报告。【时间窗】今天为主，一周做背景。",
+  clipboard: "【取材层】TA复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
+  takeout: "【取材层】TA怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
+  wallet: "【取材层】TA的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。",
+  mail: "【取材层】TA对外那一面：工作、账单、订阅、学校、机构。**这里的TA是【对陌生人和上级说话】的样子**，跟微信里那个人是同一个，但措辞完全两回事。【时间窗】这一两周，订阅和账单可以更久。",
+  tally: "【取材层】TA心里那本没结清的账——欠着的、替谁挡过的、放过的狠话、舍不得的、拿不准的。**跟谁有账就记谁**，用户只是其中一个人。**这本账不记钱**，钱在钱包里。【时间窗】从认识到现在，横跨很久；大多数条目应该已经挂了一阵子了。"
 };
 
 // 从已存下来的各 app 数据里抽一行代表，喂给下一个 app 当【已经写过】清单。
@@ -7239,21 +7242,21 @@ function phoneRoundDigest(charData, exceptKey, cap) {
 
 function phoneAvoidBlock(lines) {
   if (!lines || !lines.length) return "";
-  return "\n\n【同一部手机 · 不许复读】这轮他手机里别的 app 已经写了下面这些：\n" + lines.join("\n")
-    + "\n**换一件别的事写。**一个人的手机里不会所有 app 都在说同一件事——备忘录记的、搜索框里搜的、买的东西、听的歌，本来就来自他生活里互不相干的角落，"
+  return "\n\n【同一部手机 · 不许复读】这轮TA手机里别的 app 已经写了下面这些：\n" + lines.join("\n")
+    + "\n**换一件别的事写。**一个人的手机里不会所有 app 都在说同一件事——备忘录记的、搜索框里搜的、买的东西、听的歌，本来就来自TA生活里互不相干的角落，"
     + "很多东西跟你以为最重要的那件事根本没关系。\n"
-    + "上面已经出现过的事，这里【只能写它的侧面或后果】，绝不许重讲一遍：别处写了他在等一个消息，这里可以是他等的时候顺手买的东西，但不能又写一遍他在等。\n"
-    + "优先去写上面完全没提到的、属于他自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
+    + "上面已经出现过的事，这里【只能写它的侧面或后果】，绝不许重讲一遍：别处写了TA在等一个消息，这里可以是TA等的时候顺手买的东西，但不能又写一遍TA在等。\n"
+    + "优先去写上面完全没提到的、属于TA自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
 }
 
-// 「他自己的一句话」这种自由栏最容易滑回训练先验：健康那份是 ♻️（每次整份重写），
+// 「TA自己的一句话」这种自由栏最容易滑回训练先验：健康那份是 ♻️（每次整份重写），
 // 模型没有任何上一轮的记忆，于是每次都从同一个先验里捞同一句出来——
 // 她 2026-08-30：「这一块的 quote 就开始八股要连本带利收回来了」。
 // 提示词里立判据只能降概率；这一道是代码保证：上一轮写过的原样发回去，说别再写。
 // ⚠️只发【句子本身】，不搬整份报告——健康是 ♻️，报告不该跨轮累积（见四层手机数据模型）。
 // ⚠️为什么只有健康吃这一块（合法差异，见 four-surfaces-same-context.md）：
 // 每次整份重写、又没有累积避重的只有 health 和 reading 两个。但「别重复上一轮」
-// 这句话对 reading 是【错的】——书架和书是他这个人稳定的东西，一个人的书架不该每翻一次
+// 这句话对 reading 是【错的】——书架和书是TA这个人稳定的东西，一个人的书架不该每翻一次
 // 就换一整套；健康那份报告写的却是【今天】，同一句话再出现一次本身就是没写今天。
 // 所以这一块只挂在 health 上，别顺手推广。
 function phoneQuoteAvoidBlock(key, known) {
@@ -7266,35 +7269,18 @@ function phoneQuoteAvoidBlock(key, known) {
   if (!said.length) return "";
   let body = said.slice(0, 20).map(x => "· " + x).join("\n");
   if (body.length > 900) body = body.slice(0, 900) + "…";
-  return "\n\n【上一轮他已经说过这些，一句都不许重复】\n" + body
+  return "\n\n【上一轮TA已经说过这些，一句都不许重复】\n" + body
     + "\n**连意思相近、换个说法的也算重复。**这一轮的每一句都得是新的、扣着今天这个读数说的。"
     + "如果你发现自己想写的又是上面某一句的同义句，说明你在套模板——换一个真正属于今天的角度重写。";
 }
 
-// 称呼跟着角色的性别走（她 2026-08-31：「我加了几个女生角色进来」）。
-// 查手机这一层原来通篇写死「他」——那不只是称呼难看，它是在【每一句提示词里都告诉
-// 模型这是个男的】，人设里写了女性也压不过一屏的「他」。
-// ⚠️只在【一处】改：phoneProbeSpec 最后那一行把所有段拼成 instruction，从那里过一遍
-// 就够了；散在 211 行里逐个手改，必然漏、而且下次加一段又要重来。
-// 保护名单是要紧的：其他/他们/他人/吉他 这些词里的「他」不是代词，换了就成错别字。
-const PHONE_TA_KEEP = /其他|他们|他人|他乡|吉他|利他|排他|他杀|他律/g;
+// 旧入口保留，算法迁到 character-pronoun.js。浏览器和纯函数测试共用同一份判断表。
 function phoneTa(text, ta) {
-  if (!ta || ta === "他") return String(text || "");     // 默认那一档不做任何事
-  const holes = [];
-  let s = String(text || "").replace(PHONE_TA_KEEP, m => { holes.push(m); return "\u0000" + (holes.length - 1) + "\u0000"; });
-  s = s.replace(/他/g, ta);
-  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => holes[Number(i)]);
+  return (typeof CharacterPronoun !== "undefined" ? CharacterPronoun : require("./character-pronoun.js")).replace(text, ta);
 }
-// ⚠️没设性别时默认「他」＝【不改变现状】。这一层从来就写着「他」，默认改成 TA 的话，
-// 她已有的每一个角色的提示词都会被悄悄改写一遍——那是她没要的改动，而且「TA的钱」
-// 读起来也别扭。她只需要给新加的女生角色点一下；想要中性也有 TA 这一档可选。
 function charTa(char) {
-  const g = String((char && char.gender) || "").trim();
-  return g === "她" || g === "女" || g === "f" || g === "female" ? "她"
-    : g === "TA" || g === "ta" || g === "中性" ? "TA" : "他";
+  return (typeof CharacterPronoun !== "undefined" ? CharacterPronoun : require("./character-pronoun.js")).ta(char);
 }
-// 给查手机以外、同样需要跟随角色性别的界面复用；不要再各写一份判断表。
-if (typeof window !== "undefined") window.PhonePronoun = { ta: charTa, replace: phoneTa };
 // ── 一个人的好几种叫法（v59.18）─────────────────────────────
 // 她 2026-08-31：「人设里写着 scar 和 prim 是双暗恋，但我建角色时写了 prim 全名，
 // 所以现在查 scar 微信能看到 prim 实时互通的记录，外加一个假的 prim」。
@@ -7343,36 +7329,36 @@ function phoneDropDupWechat(d, taken) {
 }
 // 同一个人别用好几个别称各占一条（她 2026-08-31：「饭桌上的人有时候是同一个人
 // 好几个别称」）。留先出现的那条——列表本来就按分量排。
-// ── 这是【他自己】的手机（v64.36，她 2026-09-06：「为什么查手机会互通素材，
+// ── 这是【TA自己】的手机（v64.36，她 2026-09-06：「为什么查手机会互通素材，
 //    这些都在陆衍手机里但是这些应该是沈屿白的信息」）────────────────────────
 // 病根不在这一层，在上下文：查手机吃的是整份 ctxFor，里头有群回声、朋友圈回声、
-// 记忆库里没绑角色的那些……那些他【确实知道】，但知道不等于是他的。
+// 记忆库里没绑角色的那些……那些TA【确实知道】，但知道不等于是TA的。
 // 代码那一半在 app.js 的 phoneCtx（掐掉群回声）；这一句管剩下的那一半——
 // 上下文里总还会有别人的名字和事，得说死「听说过 ≠ 发生在你身上」。
 // ⚠️写成一个函数、只此一份：十几个 app 加上锁屏偷看那一处共用，新加一个也漏不掉。
 function phoneOwnOnlyBlock(name) {
-  const who = String(name || "他");
-  return "\n\n【这是他自己的手机 · 最高优先】这台手机里只许有【" + who + "】自己的东西：他自己的事、他自己认识的人、他自己的职业和日常。\n"
-    + "· 上下文里会出现别人（别的角色、群里说过的话、记忆库里记着的事）。那些是他**听说过**的，不是他**经历过**的——**听说过绝不等于发生在他身上**。\n"
-    + "· **绝不许**把别人的职业、专业术语、项目、病人、同事、爱好、行程挪到他名下写成他的。判据一句话：这一条要是搬到另一个角色的手机里也照样成立，那它就不该出现在这里。\n"
-    + "· 别人可以作为【他生活里的人】出现（他跟对方说话、提起对方、和对方约了什么），但事情本身必须是**他这一头**的。";
+  const who = String(name || "TA");
+  return "\n\n【这是TA自己的手机 · 最高优先】这台手机里只许有【" + who + "】自己的东西：TA自己的事、TA自己认识的人、TA自己的职业和日常。\n"
+    + "· 上下文里会出现别人（别的角色、群里说过的话、记忆库里记着的事）。那些是TA**听说过**的，不是TA**经历过**的——**听说过绝不等于发生在TA身上**。\n"
+    + "· **绝不许**把别人的职业、专业术语、项目、病人、同事、爱好、行程挪到TA名下写成TA的。判据一句话：这一条要是搬到另一个角色的手机里也照样成立，那它就不该出现在这里。\n"
+    + "· 别人可以作为【TA生活里的人】出现（TA跟对方说话、提起对方、和对方约了什么），但事情本身必须是**TA这一头**的。";
 }
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const visitHint = key === "health" ? phoneVisitHint(known) : "";
-  // 书架：已经摆好了、而且这是例行刷新，就只问「这一周他动了哪几本」
+  // 书架：已经摆好了、而且这是例行刷新，就只问「这一周TA动了哪几本」
   const _shelves = (key === "reading" && known && Array.isArray(known.shelves)) ? known.shelves : [];
   const bookUpdOnly = key === "reading" && weekly && _shelves.length > 0;
   // 微信：会话已经够多了就只更新说的话（她 2026-09-01：「后续封顶了不应该生成新的」）
   const _wxChats = (key === "wechat" && known && Array.isArray(known.chats)) ? known.chats : [];
   const wxUpdOnly = key === "wechat" && _wxChats.length >= PHONE_WECHAT_ENOUGH;
   const wxChatList = wxUpdOnly
-    ? "\n【他微信里现有的会话（name 必须从这里面照抄）】\n" + _wxChats.map(function (c) {
+    ? characterText(char, "\n【他微信里现有的会话（name 必须从这里面照抄）】\n") + _wxChats.map(function (c) {
         return "· " + (c.name || "") + (c.type === "group" ? "（群）" : "") + (c.last ? "：" + String(c.last).slice(0, 24) : "");
       }).join("\n") + "\n"
     : "";
   const bookList = bookUpdOnly
-    ? "\n【他架上现有的书（title 必须从这里面照抄）】\n" + _shelves.map(function (sh) {
+    ? characterText(char, "\n【他架上现有的书（title 必须从这里面照抄）】\n") + _shelves.map(function (sh) {
         return "〔" + (sh.name || "") + "〕" + (Array.isArray(sh.books) ? sh.books : []).map(function (b) {
           return (b && b.title || "") + (b && b.readAt ? "（现在：" + b.readAt + "）" : "");
         }).filter(Boolean).join("、");
@@ -7382,16 +7368,16 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     wechat: {
       instruction: wxUpdOnly
         ? ("「" + char.name + "」的微信里人已经认全了，**这一轮不要另开新会话、不要新增联系人**。\n"
-          + "人是慢慢认识的，话是天天在说的：一周之内他不会突然多出五个朋友，变的只是**那几个已有的会话里又说了什么**。\n"
+          + characterText(char, "人是慢慢认识的，话是天天在说的：一周之内他不会突然多出五个朋友，变的只是**那几个已有的会话里又说了什么**。\n")
           + "下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要，避开其中的原话：\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n"
           + "这一轮只回 updates：**这几天真的有新消息的那 1-3 个会话**，没动静的一个都别写。\n"
           + "每条给 name（**从下面这份会话名单里原样照抄**，一个字都不许改）、"
           + "messages（**接着往下说的新消息 4-8 条**，有来有回，不要把之前说过的再抄一遍）、"
           + "last（这个会话现在的最后一条）、time。\n"
           + "⚠️新消息要接得上原来那段话的走向——是同一段关系往前走了几步，不是换个话题重开。\n"
-          + "moments 照旧给 1-2 条新的朋友圈（那是真发生的事，该有新的），作者从他已有的联系人里选。\n"
+          + characterText(char, "moments 照旧给 1-2 条新的朋友圈（那是真发生的事，该有新的），作者从他已有的联系人里选。\n")
           + "me 这一栏【基本不要动】：朋友圈签名 signature 和封面 cover 不是每天换的东西。"
-          + "只有他这几天的心境真的翻篇了（结束了什么、开始了什么、想通了什么），才在 me 里写新的那一两栏；"
+          + characterText(char, "只有他这几天的心境真的翻篇了（结束了什么、开始了什么、想通了什么），才在 me 里写新的那一两栏；")
           + "**不写就是照旧**，绝大多数轮次都该一栏都不写。\n"
           + wxChatList + relHint)
         : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
@@ -7400,7 +7386,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"用户本人的名字\",\"remark\":\"TA给用户的微信备注\",\"intro\":\"TA对用户具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"cover\":\"朋友圈封面的一句画面描述\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
-      instruction: "推演「" + char.name + "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n"
+      instruction: "推演「" + char.name + characterText(char, "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n")
         + "每条：kind（typed = 打字的 / voice = 录音的）、title（很短的一句抬头，可以就是正文第一句）、time、body（正文）、color（0-5 的整数，定便签颜色）。\n"
         + "kind=voice 的另给 duration（如 0:37 / 2:14）；它的 body 就是那段录音转成的字。\n\n"
         + "【两种要真的不一样，这是这个 app 唯一重要的事】\n"
@@ -7412,52 +7398,52 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     calls: {
       instruction: "推演「" + char.name + "」手机上的电话和短信。\n\n"
-        + "me：number（他自己的号码）。\n\n"
-        + "calls 通话记录 **8-12 条**：name（对方怎么称呼，陌生号就留空）、number、dir（in 来电 / out 拨出）、time、duration（接通了才写；没接通留空）、answered（true/false）、gist（这通说了什么，一句；没接通就写没接通时他在干嘛）、thought（**他对这通电话的真实想法**，一句，可以刻薄、可以敷衍、可以是没接的理由）。\n"
-        + "**这个 app 真正有东西的是没接通的那些**：谁打来他不接、他打给谁一直打不通、深夜那通只有几十秒的、同一个人一天打了好几遍。**至少三条是没接通的**，而且每一条不接的理由都不一样（在忙、不想接、故意晾着、没听见、正跟别人在一起）。\n\n"
-        + "sms 短信 **5-8 串**：name、number、kind（通知 或 人）、time、unread（true/false）、msgs（1-4 条，各有 from = they／me、text、time）、thought（他对这串的想法，可空）。\n"
+        + characterText(char, "me：number（他自己的号码）。\n\n")
+        + characterText(char, "calls 通话记录 **8-12 条**：name（对方怎么称呼，陌生号就留空）、number、dir（in 来电 / out 拨出）、time、duration（接通了才写；没接通留空）、answered（true/false）、gist（这通说了什么，一句；没接通就写没接通时他在干嘛）、thought（**他对这通电话的真实想法**，一句，可以刻薄、可以敷衍、可以是没接的理由）。\n")
+        + characterText(char, "**这个 app 真正有东西的是没接通的那些**：谁打来他不接、他打给谁一直打不通、深夜那通只有几十秒的、同一个人一天打了好几遍。**至少三条是没接通的**，而且每一条不接的理由都不一样（在忙、不想接、故意晾着、没听见、正跟别人在一起）。\n\n")
+        + characterText(char, "sms 短信 **5-8 串**：name、number、kind（通知 或 人）、time、unread（true/false）、msgs（1-4 条，各有 from = they／me、text、time）、thought（他对这串的想法，可空）。\n")
         + "**⚠️短信和微信收发的东西完全不是一回事，别把微信那套搬过来。**\n"
         + "短信里**绝大多数不是人**：验证码、账目通知、催缴、店家提醒、送货、推销、以及骗子。这些一条就是一条，没有来回，语气是机器或者陌生人的。kind=通知 的那几串占多数。\n"
-        + "**熟人一旦出现在短信里，必有一个理由**：那会儿联不上网、对方被他删了或拉黑了、手机不在身边、或者是必须留个凭据的正事。**写熟人短信时，那个理由要能从内容里看出来**，不能写成日常闲聊——日常闲聊属于微信，不属于这里。\n"
+        + characterText(char, "**熟人一旦出现在短信里，必有一个理由**：那会儿联不上网、对方被他删了或拉黑了、手机不在身边、或者是必须留个凭据的正事。**写熟人短信时，那个理由要能从内容里看出来**，不能写成日常闲聊——日常闲聊属于微信，不属于这里。\n")
         + "短信也**几乎没有表情、没有连发、没有撒娇**，句子是完整的、生硬的、像在办事。\n\n"
-        + "voicemail 语音信箱 **2-4 条**：from、time、duration、transcript（留言转成的字，**要有停顿、改口、说到一半的句子**）、heard（他听没听过）、thought。\n"
-        + "**留言是单向的，本身就说明对方联系不上他**——所以这几条里应该有他一直没听的那条。\n\n"
+        + characterText(char, "voicemail 语音信箱 **2-4 条**：from、time、duration、transcript（留言转成的字，**要有停顿、改口、说到一半的句子**）、heard（他听没听过）、thought。\n")
+        + characterText(char, "**留言是单向的，本身就说明对方联系不上他**——所以这几条里应该有他一直没听的那条。\n\n")
         + "frequent 常联系 **3-5 个**：name、count（通话次数）、why（一句为什么总跟这人通话）。**电话打给谁，和微信聊得多的，往往不是同一批人**：电话给的是办事的、家里的、以及不方便打字的。\n\n"
-        + "blocked 拦截名单 **1-3 个**：name、why（一句为什么拉黑的）。可以是骗子，也可以是他不想再接的人。" + relHint,
-      schemaHint: "{\"me\":{\"number\":\"他的号码\"},\"calls\":[{\"name\":\"对方称呼\",\"number\":\"号码\",\"dir\":\"in\",\"time\":\"今天 09:12\",\"duration\":\"04:32\",\"answered\":true,\"gist\":\"这通说了什么\",\"thought\":\"他的想法\"}],\"sms\":[{\"name\":\"发信方\",\"number\":\"号码\",\"kind\":\"通知\",\"time\":\"时间\",\"unread\":false,\"msgs\":[{\"from\":\"they\",\"text\":\"内容\",\"time\":\"时间\"}],\"thought\":\"可空\"}],\"voicemail\":[{\"from\":\"谁留的\",\"time\":\"时间\",\"duration\":\"0:41\",\"transcript\":\"留言转成的字\",\"heard\":false,\"thought\":\"他的想法\"}],\"frequent\":[{\"name\":\"谁\",\"count\":14,\"why\":\"为什么总跟这人通话\"}],\"blocked\":[{\"name\":\"谁\",\"why\":\"为什么拉黑\"}],\"retired\":{\"frequent\":[\"不再常联系的\"],\"blocked\":[\"放出黑名单的\"]}}"
+        + characterText(char, "blocked 拦截名单 **1-3 个**：name、why（一句为什么拉黑的）。可以是骗子，也可以是他不想再接的人。") + relHint,
+      schemaHint: characterText(char, "{\"me\":{\"number\":\"他的号码\"},\"calls\":[{\"name\":\"对方称呼\",\"number\":\"号码\",\"dir\":\"in\",\"time\":\"今天 09:12\",\"duration\":\"04:32\",\"answered\":true,\"gist\":\"这通说了什么\",\"thought\":\"他的想法\"}],\"sms\":[{\"name\":\"发信方\",\"number\":\"号码\",\"kind\":\"通知\",\"time\":\"时间\",\"unread\":false,\"msgs\":[{\"from\":\"they\",\"text\":\"内容\",\"time\":\"时间\"}],\"thought\":\"可空\"}],\"voicemail\":[{\"from\":\"谁留的\",\"time\":\"时间\",\"duration\":\"0:41\",\"transcript\":\"留言转成的字\",\"heard\":false,\"thought\":\"他的想法\"}],\"frequent\":[{\"name\":\"谁\",\"count\":14,\"why\":\"为什么总跟这人通话\"}],\"blocked\":[{\"name\":\"谁\",\"why\":\"为什么拉黑\"}],\"retired\":{\"frequent\":[\"不再常联系的\"],\"blocked\":[\"放出黑名单的\"]}}")
     },
     browser: {
       instruction: "推演「" + char.name + "」浏览器里的全部东西。\n\n"
-        + "me：他浏览器同步账号的昵称（不是本名照抄）和 uid。\n\n"
+        + characterText(char, "me：他浏览器同步账号的昵称（不是本名照抄）和 uid。\n\n")
         + "tabs 没关掉的标签页 **8-12 个**：title（网页标题）、site（站点名或域名）、age（这一页开了多久，写成一句）、pinned（true/false，钉住的最多 2 个）、cover（0-5 整数定色）、gist（这一页上写着什么，一句）。\n"
-        + "**一堆没关的标签页是这个人脑子的横截面**：有他正在办的正事、有查到一半忘了的、有想买没买的、有半夜看了没退出的、有开了很久舍不得关的。**至少有一个是开了很久、他自己也说不清为什么不关的。**\n\n"
-        + "searches 搜索记录 **10-14 条**：q（他敲进搜索框的原话）、time、site（在哪儿搜的，可空）、results（这一次搜出来的结果，2-4 条）、opened（这几条里他真正点开的那条的 source，填其中一个）。\n"
-        + "**搜索词比访问过的网页更暴露人**：人在搜索框里是不修饰的，会打错字、会问很蠢的问题、会反复搜同一件事、会在半夜搜白天绝不会问出口的东西。所以这十几条里要有：实用的、丢人的、重复搜过的、以及一两条他绝不会告诉任何人他搜过的。\n"
+        + characterText(char, "**一堆没关的标签页是这个人脑子的横截面**：有他正在办的正事、有查到一半忘了的、有想买没买的、有半夜看了没退出的、有开了很久舍不得关的。**至少有一个是开了很久、他自己也说不清为什么不关的。**\n\n")
+        + characterText(char, "searches 搜索记录 **10-14 条**：q（他敲进搜索框的原话）、time、site（在哪儿搜的，可空）、results（这一次搜出来的结果，2-4 条）、opened（这几条里他真正点开的那条的 source，填其中一个）。\n")
+        + characterText(char, "**搜索词比访问过的网页更暴露人**：人在搜索框里是不修饰的，会打错字、会问很蠢的问题、会反复搜同一件事、会在半夜搜白天绝不会问出口的东西。所以这十几条里要有：实用的、丢人的、重复搜过的、以及一两条他绝不会告诉任何人他搜过的。\n")
         + "results 每条：source（哪个站/哪个号发的）、title（那条结果的标题）、excerpt（摘要，一两句，像搜索结果页里那截被掐头去尾的正文，可以用「……」表示截断）。\n"
-        + "**这一层要写成【搜索引擎会返回什么】，不是【他想看到什么】**：结果里该有权威一点的、有营销号味的、有答非所问的，也可以有一条正好戳到他心事的。\n"
-        + "**opened 才是这一栏真正的东西**——搜了什么只说明他在想什么，点开了哪一条才说明他信谁、他到底想确认什么。这两个不必一致：他可以搜得很正经，然后点开最不正经的那条。\n\n"
-        + "marks 书签 **3-4 个文件夹**：name（文件夹名，按他自己的分法起，不是「工作」「学习」这种）、items（2-4 条，各有 title 和 site）。**书签是他觉得以后还用得着的东西**，所以里面会有很久没点过的旧东西。\n\n"
-        + "private 无痕标签页 **1-3 个**：title、site、gist。**这是他专门开了不留记录的那几页**，和上面那些不是一回事。\n\n"
-        + "所有内容都要贴合他的身份和时代——古代角色的\"浏览器\"是他那个世界里查东西的方式，别硬套现代网站。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\",\"opened\":\"他点开那条的 source\",\"results\":[{\"source\":\"哪个站或哪个号\",\"title\":\"结果标题\",\"excerpt\":\"摘要……\"}]}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}],\"retired\":{\"marks\":[\"已经取消收藏的书签名\"]}}"
+        + characterText(char, "**这一层要写成【搜索引擎会返回什么】，不是【他想看到什么】**：结果里该有权威一点的、有营销号味的、有答非所问的，也可以有一条正好戳到他心事的。\n")
+        + characterText(char, "**opened 才是这一栏真正的东西**——搜了什么只说明他在想什么，点开了哪一条才说明他信谁、他到底想确认什么。这两个不必一致：他可以搜得很正经，然后点开最不正经的那条。\n\n")
+        + characterText(char, "marks 书签 **3-4 个文件夹**：name（文件夹名，按他自己的分法起，不是「工作」「学习」这种）、items（2-4 条，各有 title 和 site）。**书签是他觉得以后还用得着的东西**，所以里面会有很久没点过的旧东西。\n\n")
+        + characterText(char, "private 无痕标签页 **1-3 个**：title、site、gist。**这是他专门开了不留记录的那几页**，和上面那些不是一回事。\n\n")
+        + characterText(char, "所有内容都要贴合他的身份和时代——古代角色的\"浏览器\"是他那个世界里查东西的方式，别硬套现代网站。") + relHint,
+      schemaHint: characterText(char, "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\",\"opened\":\"他点开那条的 source\",\"results\":[{\"source\":\"哪个站或哪个号\",\"title\":\"结果标题\",\"excerpt\":\"摘要……\"}]}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}],\"retired\":{\"marks\":[\"已经取消收藏的书签名\"]}}")
     },
     shopping: {
       instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
-        + "**所有金额、店铺、商品都必须贴合他的身份、时代和谋生方式**：古代角色买的是他那个世界里买得到的东西、逛的是那种铺子；普通人就是普通消费水平，不许人人都很有钱。\n\n"
-        + "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格）、monthSpend（本月消费，数字）、monthOrders（本月订单数）——**这两个只是占位，界面会用钱包的真实流水覆盖它们，给个大致数就行，别为它们编细节**、points（积分）、persona（一句更狠的购物性格：他买东西时最像他自己的那个毛病）。\n"
+        + characterText(char, "**所有金额、店铺、商品都必须贴合他的身份、时代和谋生方式**：古代角色买的是他那个世界里买得到的东西、逛的是那种铺子；普通人就是普通消费水平，不许人人都很有钱。\n\n")
+        + characterText(char, "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格）、monthSpend（本月消费，数字）、monthOrders（本月订单数）——**这两个只是占位，界面会用钱包的真实流水覆盖它们，给个大致数就行，别为它们编细节**、points（积分）、persona（一句更狠的购物性格：他买东西时最像他自己的那个毛病）。\n")
         + "shipping 在途包裹 **2-3 件**：status（派送中/运输中/已揽收）、eta（如「今日 18:00 前」）、shop、title（商品全名带规格）、progress（0-100 整数）、carrier、tail（运单尾号）、amount（数字）。\n"
         + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（优惠标签，可空）、qty。购物车装的是【还没下决心的东西】。\n"
-        + "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n"
-        + "**why 这一栏是整个 app 里最重要的东西**：它要暴露他的私心、旧事和惦记的人（「某人不是喜欢红的么，买来扣她脖子上」「刀柄弧度很像当年父亲留下的那把」「府里那张被陆闻拍裂了一条缝」）。不许写「质量好」「性价比高」这种。\n"
-        + "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账，换了 id 会被当成新的一单再扣一次钱）**、shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右：品类和付款方式各一个）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n"
+        + characterText(char, "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n")
+        + characterText(char, "**why 这一栏是整个 app 里最重要的东西**：它要暴露他的私心、旧事和惦记的人（「某人不是喜欢红的么，买来扣她脖子上」「刀柄弧度很像当年父亲留下的那把」「府里那张被陆闻拍裂了一条缝」）。不许写「质量好」「性价比高」这种。\n")
+        + characterText(char, "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账，换了 id 会被当成新的一单再扣一次钱）**、shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右：品类和付款方式各一个）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n")
         + "habit 购物习惯：budget（单笔预算区间）、buys（常买什么）、avoids（**绝不买什么**——这一条比常买更像人）、how（下单习惯，什么时候翻、还不还价）。\n"
         + "shops 常逛店铺 **3-4 家**：name、cat（品类）、why（一句为什么是这家，要具体到掌柜脾气、货色成色这种）。\n"
         + "coupons 优惠券 **2-3 张**：rule（如「满300减50」）、name、scope（哪家或哪类可用）、until（到期日）。\n"
         + "viewed 最近浏览 **5-7 条**：title、shop、price、time。**看了没买的东西和购物车里的要错开**，那是另一层心思。\n"
-        + "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n"
-        + "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n"
-        + "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"],\"shops\":[\"已经不去了的那家\"]}}"
+        + characterText(char, "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n")
+        + characterText(char, "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n")
+        + characterText(char, "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。"),
+      schemaHint: characterText(char, "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"],\"shops\":[\"已经不去了的那家\"]}}")
     },
     album: {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
@@ -7466,167 +7452,167 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     reading: {
       instruction: bookUpdOnly
         ? ("「" + char.name + "」的书架已经摆好了，**这一轮不要重摆**。\n"
-          + "书是慢慢读的：一周之内，书架不会换、书目不会换，会变的只有**他读到哪儿了**和**他写下的批注**。\n"
-          + "所以这一轮只回 updates：**这一周他真的翻过的那几本**，通常 1-4 本，**没动的一本都别写**。\n"
+          + characterText(char, "书是慢慢读的：一周之内，书架不会换、书目不会换，会变的只有**他读到哪儿了**和**他写下的批注**。\n")
+          + characterText(char, "所以这一轮只回 updates：**这一周他真的翻过的那几本**，通常 1-4 本，**没动的一本都别写**。\n")
           + "每条给 title（**从下面这份书目里原样照抄**，一个字都不许改，改了就认不出是同一本）、"
-          + "readAt（新的进度——要**比原来往前**，除非他这周把它放下了，那就写清停在哪儿）、"
-          + "note（他读到这里新写下的批注，40-90 字，第一人称；没有新想法就别给这一栏）。\n"
+          + characterText(char, "readAt（新的进度——要**比原来往前**，除非他这周把它放下了，那就写清停在哪儿）、")
+          + characterText(char, "note（他读到这里新写下的批注，40-90 字，第一人称；没有新想法就别给这一栏）。\n")
           + "⚠️**不要新建书架、不要添新书、不要改书名。**这一轮 shelves 一栏根本不用出现。\n"
           + bookList)
         : ("推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n")
-        + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲——**一看名字就知道是谁的书架**，而且换个角色这名字就不成立了。\n"
-        + "五个里至少有一个是【只有他会有的】：跟他的职业、他正在应付的麻烦、他藏着的身份、或者某个具体的人有关。" + relHint + "\n\n"
-        + "【书必须是真的】真实存在、书名和作者都对得上，而且【是他在他所处的时代和世界里拿得到的】：古代角色的架子上不许出现现代出版物，现代角色可以有古籍和译本。同一架里的书要像同一个人挑的。\n\n"
-        + "【每本都要有】title、author；readAt = 他读到哪儿。**这一栏是这一页的主角**——一个人自己的书架和书店的区别就在这儿。写法随意（「卷七·饮食果子」「第 3 章」「128/357 页」「62%」都行），但**尽量能看出走了多远**；**每一架里至少有一本是停住的**——写清它停在哪儿、放了多久（「停在第三章，搁着两个月没再动」），那比读完的那几本更像他；也允许有「还没翻开」「买来就放着」这种。note = 他的批注，40-90 字，第一人称。\n"
-        + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头、一个当场冒出来的打算。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
-        + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
-        + "【阅读档案 archive】name = **他在这个读书 app 上的昵称**（不是本名照抄）；uid = 书友号（一串数字）；favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。",
+        + characterText(char, "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲——**一看名字就知道是谁的书架**，而且换个角色这名字就不成立了。\n")
+        + characterText(char, "五个里至少有一个是【只有他会有的】：跟他的职业、他正在应付的麻烦、他藏着的身份、或者某个具体的人有关。") + relHint + "\n\n"
+        + characterText(char, "【书必须是真的】真实存在、书名和作者都对得上，而且【是他在他所处的时代和世界里拿得到的】：古代角色的架子上不许出现现代出版物，现代角色可以有古籍和译本。同一架里的书要像同一个人挑的。\n\n")
+        + characterText(char, "【每本都要有】title、author；readAt = 他读到哪儿。**这一栏是这一页的主角**——一个人自己的书架和书店的区别就在这儿。写法随意（「卷七·饮食果子」「第 3 章」「128/357 页」「62%」都行），但**尽量能看出走了多远**；**每一架里至少有一本是停住的**——写清它停在哪儿、放了多久（「停在第三章，搁着两个月没再动」），那比读完的那几本更像他；也允许有「还没翻开」「买来就放着」这种。note = 他的批注，40-90 字，第一人称。\n")
+        + characterText(char, "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头、一个当场冒出来的打算。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n")
+        + characterText(char, "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n")
+        + characterText(char, "【阅读档案 archive】name = **他在这个读书 app 上的昵称**（不是本名照抄）；uid = 书友号（一串数字）；favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。"),
       schemaHint: bookUpdOnly
         ? "{\"updates\":[{\"title\":\"从书目里原样照抄的书名\",\"readAt\":\"新的进度\",\"note\":\"读到这里新写下的批注\"}]}"
-        : "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
+        : characterText(char, "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}")
     },
     liked: {
       instruction: "推演「" + char.name + "」在小红书那样的图文社区里的账号。\n"
-        + "me：name（**他在这儿的昵称**，不是本名照抄；这种号往往随手起、有点敷衍或自嘲）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸：年纪、所在地、或一句自嘲，二选一）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**粉丝数按他这个人合理，多数人很少。**\n"
-        + "tabs：他常看的频道 **4-6 个**，按他的口味起名（按他真正会点进去的东西起名，别用平台默认那几个大类）。\n"
-        + "items **10-12 条**他【赞过或收藏过】的笔记，每条：author、title（社区那种口吻——夸张、口语、像在跟人诉苦或炫耀）、excerpt（正文一两句）、tab、tags（1-3 个）、likes、act（赞 或 收藏）、time、cover（0-5 的整数，定封面色）。\n"
-        + "**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。这十来条要出现他【不主动说、也不觉得需要解释】的部分——某种审美、某个身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议、一件他偷偷惦记的事。也要有很没意思的（做饭、通勤、修东西），别每条都深刻。\n"
-        + "mine **2-4 条**他自己发出去的笔记：title、excerpt、tags（1-3 个，和他赞的那些是同一套标签体系）、likes、time、cover。\n"
-        + "**drafts 1-3 条：他写了却一直没发出去的草稿。**这是这个 app 最狠的一格——写完了、存着、就是没点发送。可以是矫情的、丢人的、太露骨的、或者写给某个具体的人却不敢发的。每条：title、excerpt、tags（1-3 个）、savedAt（存了多久，写成一句）。\n"
-        + "**他发出去的、他赞过的、和他没发出去的，可以完全是三个人**：发出去的是他愿意给人看的，赞过的是他自己，草稿箱里的是他不敢承认的。\n"
-        + "follows：他关注的 **4-6 个**账号，name ＋一句 desc。别全是正经账号。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"频道名\",\"频道名\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"频道\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"retired\":{\"follows\":[\"取关了的\"],\"drafts\":[\"发出去或删掉的草稿标题\"]}}"
+        + characterText(char, "me：name（**他在这儿的昵称**，不是本名照抄；这种号往往随手起、有点敷衍或自嘲）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸：年纪、所在地、或一句自嘲，二选一）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**粉丝数按他这个人合理，多数人很少。**\n")
+        + characterText(char, "tabs：他常看的频道 **4-6 个**，按他的口味起名（按他真正会点进去的东西起名，别用平台默认那几个大类）。\n")
+        + characterText(char, "items **10-12 条**他【赞过或收藏过】的笔记，每条：author、title（社区那种口吻——夸张、口语、像在跟人诉苦或炫耀）、excerpt（正文一两句）、tab、tags（1-3 个）、likes、act（赞 或 收藏）、time、cover（0-5 的整数，定封面色）。\n")
+        + characterText(char, "**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。这十来条要出现他【不主动说、也不觉得需要解释】的部分——某种审美、某个身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议、一件他偷偷惦记的事。也要有很没意思的（做饭、通勤、修东西），别每条都深刻。\n")
+        + characterText(char, "mine **2-4 条**他自己发出去的笔记：title、excerpt、tags（1-3 个，和他赞的那些是同一套标签体系）、likes、time、cover。\n")
+        + characterText(char, "**drafts 1-3 条：他写了却一直没发出去的草稿。**这是这个 app 最狠的一格——写完了、存着、就是没点发送。可以是矫情的、丢人的、太露骨的、或者写给某个具体的人却不敢发的。每条：title、excerpt、tags（1-3 个）、savedAt（存了多久，写成一句）。\n")
+        + characterText(char, "**他发出去的、他赞过的、和他没发出去的，可以完全是三个人**：发出去的是他愿意给人看的，赞过的是他自己，草稿箱里的是他不敢承认的。\n")
+        + characterText(char, "follows：他关注的 **4-6 个**账号，name ＋一句 desc。别全是正经账号。") + relHint,
+      schemaHint: characterText(char, "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"频道名\",\"频道名\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"频道\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"retired\":{\"follows\":[\"取关了的\"],\"drafts\":[\"发出去或删掉的草稿标题\"]}}")
     },
     health: {
       instruction: "推演「" + char.name + "」的【病历夹】与今天的读数。" + relHint + "\n\n"
-        + "⚠️这不是一个给他打分的健康 App，是**一位看过他的大夫留下的东西**，加上自那次之后身上的几个读数。\n"
+        + characterText(char, "⚠️这不是一个给他打分的健康 App，是**一位看过他的大夫留下的东西**，加上自那次之后身上的几个读数。\n")
         + "所以：不出现「综合评分」「今日得分」「健康建议」这类字眼，一个都不要。\n\n"
 
         + "【visits 就诊记录】" + visitHint + "\n"
-        + "一条包含：date（YYYY-MM-DD）、who（**这位大夫在他的世界里怎么被称呼**——现代是科室加姓，古代是医官、坐堂的、府里请的那位；同一个人以后还会再出现，叫法要固定）、"
-        + "chief（**主诉：他自己说哪儿不舒服，用他的原话**，短，而且多半是轻描淡写、避重就轻的）、"
+        + characterText(char, "一条包含：date（YYYY-MM-DD）、who（**这位大夫在他的世界里怎么被称呼**——现代是科室加姓，古代是医官、坐堂的、府里请的那位；同一个人以后还会再出现，叫法要固定）、")
+        + characterText(char, "chief（**主诉：他自己说哪儿不舒服，用他的原话**，短，而且多半是轻描淡写、避重就轻的）、")
         + "exam（**查体：身体实际显示出什么**，成句，带上具体读数；现代角色写现代化验和体征，古代角色写脉象、舌苔、气色、按压之处——**绝不许给古人写血压和血氧**）、"
         + "impression（**印象：大夫据此判断什么**，一两句，是判断不是安慰）、"
-        + "orders（**医嘱：让他去做什么**，具体到几天几次，不写「注意休息」这种）、"
-        + "followup（**上一次约好的事他做到没有**——没来复查、药没吃完、说好戒的没戒。第一次就留空）。\n"
-        + "⚠️**这一栏最要紧的是 chief 和 exam 之间的落差**：他嘴里说的和身上显示的，多半不是一回事。那道缝就是这个人。\n"
-        + "⚠️大夫是**背着他**写这些的，写的是一个不在场的人。别写成对他说话，也别替他找补。\n\n"
+        + characterText(char, "orders（**医嘱：让他去做什么**，具体到几天几次，不写「注意休息」这种）、")
+        + characterText(char, "followup（**上一次约好的事他做到没有**——没来复查、药没吃完、说好戒的没戒。第一次就留空）。\n")
+        + characterText(char, "⚠️**这一栏最要紧的是 chief 和 exam 之间的落差**：他嘴里说的和身上显示的，多半不是一回事。那道缝就是这个人。\n")
+        + characterText(char, "⚠️大夫是**背着他**写这些的，写的是一个不在场的人。别写成对他说话，也别替他找补。\n\n")
 
         + "cards **正好这 " + HEALTH_SLOTS.length + " 项，一项不多一项不少，每项写一张**。每张必须带 slot（下面括号里那个英文 key，原样照抄，不要翻译不要改）：\n"
         + HEALTH_SLOTS.map(function (x) { return "· " + x.zh + "（slot: " + x.slot + "）"; }).join("\n") + "\n\n"
         + "【格位是死的，名字是活的 · 这是这个 app 的骨架】上面这 " + HEALTH_SLOTS.length + " 项是**每个人都有的同一套读数**，顺序和分档由 slot 决定，你不用管，也不许增删或合并。"
-        + "你要做的是给每一项起一个**这个角色的世界里真会用的名字**放进 name：**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」「正念冥想」，那两项在他那儿必须换成他会用的说法；现代角色就用现代说法。"
-        + "**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**换个角色还照样成立的名字，就是没改。\n\n"
+        + characterText(char, "你要做的是给每一项起一个**这个角色的世界里真会用的名字**放进 name：**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」「正念冥想」，那两项在他那儿必须换成他会用的说法；现代角色就用现代说法。")
+        + characterText(char, "**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**换个角色还照样成立的名字，就是没改。\n\n")
         + "【intimacy / desire / closeness 这三项】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 value / tag / 三项细账，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n"
-        + "**这三项的 quote 尤其容易滑进占有欲宣言和狠话**——那是网文腔，不是他。写他当下身体上的实感、以及他拿这件事没办法的地方。\n\n"
+        + characterText(char, "**这三项的 quote 尤其容易滑进占有欲宣言和狠话**——那是网文腔，不是他。写他当下身体上的实感、以及他拿这件事没办法的地方。\n\n")
 
-        + "【每张卡都要有】slot（照抄，见上）、name（这个角色对这一项的叫法，见上）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、num（**把 value 折成一个 0-100 的整数**，只用来画这一项这些天的走势线，越大越好；「不均」这种没法折的就别给）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、quote（他自己的一句话）。\n"
+        + characterText(char, "【每张卡都要有】slot（照抄，见上）、name（这个角色对这一项的叫法，见上）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、num（**把 value 折成一个 0-100 的整数**，只用来画这一项这些天的走势线，越大越好；「不均」这种没法折的就别给）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、quote（他自己的一句话）。\n")
         + "**不要给 score，也不要给 week。**这不是记分板。\n\n"
         + "【quote 是这份报告里最容易写成八股的一栏，落笔前过一遍这三条】\n"
         + "① **扣着这张卡今天这个读数说话**，不是放之四海皆准的宣言。换一张卡、换一天还照样成立的，就是写坏了。\n"
-        + "② 是他心里过了一下、**没打算给谁听**的半句话；不是说给人听的狠话、承诺或预告。一旦写成「我要……」「早晚……」「一定会……」这种句式，就是滑回通用腔了，重写。\n"
-        + "③ 语气是**他这个人**的，不是他这个类型的。他的身份、今天的处境、他自己嫌不嫌烦，都该听得出来。\n\n"
-        + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：三项拆的应该是**他今天真正走过的那几段路、真正喝下去的那几样东西**，名字要带上地点、场合、或某个具体的人。**换个角色还照样成立的三项，就是写坏了。**\n\n"
-        + "【note】用查体那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n"
-        + "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，**和上面那段冷静的观测形成反差**——那道反差跟 chief 与 exam 之间那道是同一道缝。\n\n"
-        + "since：一句话，**自上次看大夫之后他身上发生了什么**（没看过大夫就写这几天身上的变化）。很短。\n"
+        + characterText(char, "② 是他心里过了一下、**没打算给谁听**的半句话；不是说给人听的狠话、承诺或预告。一旦写成「我要……」「早晚……」「一定会……」这种句式，就是滑回通用腔了，重写。\n")
+        + characterText(char, "③ 语气是**他这个人**的，不是他这个类型的。他的身份、今天的处境、他自己嫌不嫌烦，都该听得出来。\n\n")
+        + characterText(char, "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：三项拆的应该是**他今天真正走过的那几段路、真正喝下去的那几样东西**，名字要带上地点、场合、或某个具体的人。**换个角色还照样成立的三项，就是写坏了。**\n\n")
+        + characterText(char, "【note】用查体那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n")
+        + characterText(char, "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，**和上面那段冷静的观测形成反差**——那道反差跟 chief 与 exam 之间那道是同一道缝。\n\n")
+        + characterText(char, "since：一句话，**自上次看大夫之后他身上发生了什么**（没看过大夫就写这几天身上的变化）。很短。\n")
         + "timeline **4-6 条**：time（HH:mm）、tag（两三个字的类别，用上面那些指标名里的词）、text（一句 25-45 字，说清那个时刻身体发生了什么、为什么）。按时间顺序。\n"
-        + "tail：最后一句他自己的话，一两句。",
-      schemaHint: "{\"visits\":[{\"date\":\"2026-08-21\",\"who\":\"这位大夫在他世界里怎么被称呼\",\"chief\":\"他自己说哪儿不舒服，用他的原话\",\"exam\":\"身体实际显示出什么，带读数\",\"impression\":\"大夫据此判断什么\",\"orders\":\"让他去做什么\",\"followup\":\"上次约好的事他做到没有\"}],\"since\":\"自那次之后身上发生了什么\",\"cards\":[{\"slot\":\"上面那个英文key原样照抄\",\"name\":\"这个角色对这一项的叫法\",\"value\":\"6.2\",\"unit\":\"h\",\"num\":62,\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"tail\":\"最后一句\"}"
+        + characterText(char, "tail：最后一句他自己的话，一两句。"),
+      schemaHint: characterText(char, "{\"visits\":[{\"date\":\"2026-08-21\",\"who\":\"这位大夫在他世界里怎么被称呼\",\"chief\":\"他自己说哪儿不舒服，用他的原话\",\"exam\":\"身体实际显示出什么，带读数\",\"impression\":\"大夫据此判断什么\",\"orders\":\"让他去做什么\",\"followup\":\"上次约好的事他做到没有\"}],\"since\":\"自那次之后身上发生了什么\",\"cards\":[{\"slot\":\"上面那个英文key原样照抄\",\"name\":\"这个角色对这一项的叫法\",\"value\":\"6.2\",\"unit\":\"h\",\"num\":62,\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"tail\":\"最后一句\"}")
     },
     clipboard: {
-      instruction: "推演「" + char.name + "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。" + relHint,
+      instruction: "推演「" + char.name + characterText(char, "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。") + relHint,
       schemaHint: "{\"items\":[{\"text\":\"复制的原文\",\"from\":\"从哪个 app 复制的\",\"time\":\"昨天 02:11\",\"sent\":false}]}"
     },
     takeout: {
       instruction: "推演「" + char.name + "」点餐 App 的整个界面。" + relHint + "\n"
-        + "**所有店铺、菜名、价格都要贴合他的身份、时代和谋生方式**：古代角色是从街市的铺子叫吃食、由跑腿送到门上；现代角色就是正常外卖。别人人都点贵的。\n\n"
-        + "account：name（**他在这个平台上的昵称**，不是本名照抄；这种账号名往往随手起、有点敷衍或自嘲）、uid（平台号，一串数字或字母数字）、member（会员等级的叫法，按这个平台在他世界里的说法起）、monthOrders、monthSpend（数字）、persona（一句他点餐的性格：他叫外卖时最像他自己的那个毛病）。\n\n"
-        + "today 今日推荐（一条）：addrLabel（送到哪，一两个字的地方别名）、addrDetail、date（如「8月28日 周五」）、meal（早餐/午餐/晚餐/夜宵）、shop、rating（店铺评分，如「4.6」）、eta（如「12:45送达」）、delivery（配送方式的叫法）、main（主推那道菜，**后面用括号带上他每次都要的规格**）、amount（数字）、status、note（下单备注）。\n\n"
-        + "shops 常点商家 **4-5 家**：name、cat、times（点过多少次，写成一句）、usual（他每次都点的）、why（一句为什么总是这家，具体到掌柜脾气、火候、开到几时）、last（上次什么时候）、cover（0-5 整数定色）。\n\n"
+        + characterText(char, "**所有店铺、菜名、价格都要贴合他的身份、时代和谋生方式**：古代角色是从街市的铺子叫吃食、由跑腿送到门上；现代角色就是正常外卖。别人人都点贵的。\n\n")
+        + characterText(char, "account：name（**他在这个平台上的昵称**，不是本名照抄；这种账号名往往随手起、有点敷衍或自嘲）、uid（平台号，一串数字或字母数字）、member（会员等级的叫法，按这个平台在他世界里的说法起）、monthOrders、monthSpend（数字）、persona（一句他点餐的性格：他叫外卖时最像他自己的那个毛病）。\n\n")
+        + characterText(char, "today 今日推荐（一条）：addrLabel（送到哪，一两个字的地方别名）、addrDetail、date（如「8月28日 周五」）、meal（早餐/午餐/晚餐/夜宵）、shop、rating（店铺评分，如「4.6」）、eta（如「12:45送达」）、delivery（配送方式的叫法）、main（主推那道菜，**后面用括号带上他每次都要的规格**）、amount（数字）、status、note（下单备注）。\n\n")
+        + characterText(char, "shops 常点商家 **4-5 家**：name、cat、times（点过多少次，写成一句）、usual（他每次都点的）、why（一句为什么总是这家，具体到掌柜脾气、火候、开到几时）、last（上次什么时候）、cover（0-5 整数定色）。\n\n")
         + "live 正在送的 **0-2 单**：status、eta、shop、items（一句话说清点了什么）、rider、step（0-3 的整数：0已下单 1商家接单 2配送中 3待送达）、amount、note。\n\n"
-        + "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账）**、shop、time、meal（餐次）、status、main（主菜一行）、items（1-3 样，各有 name、spec 规格、qty、price）、pack（包装费数字）、fee（配送费数字）、amount（实付数字）、stars（1-5 整数）、rating（他写的评价，一句，很实在）、tags（2-3 个：品类、餐次、付款方式各一个）、addr、note（**下单备注**）、reason（**为什么这一单**，一句，可以牵涉到人）。\n"
-        + "**note 那一栏是这个 app 的重点**：同样一句备注，写给谁、护着谁、怕吵着谁，是三个不同的人。要像真人当场打的字，宁可留空也别写成客服模板。**至少一单是深夜的，至少两单是送到别人那儿的（addr 写那个地方，不是他自己住处）。**\n"
+        + characterText(char, "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账）**、shop、time、meal（餐次）、status、main（主菜一行）、items（1-3 样，各有 name、spec 规格、qty、price）、pack（包装费数字）、fee（配送费数字）、amount（实付数字）、stars（1-5 整数）、rating（他写的评价，一句，很实在）、tags（2-3 个：品类、餐次、付款方式各一个）、addr、note（**下单备注**）、reason（**为什么这一单**，一句，可以牵涉到人）。\n")
+        + characterText(char, "**note 那一栏是这个 app 的重点**：同样一句备注，写给谁、护着谁、怕吵着谁，是三个不同的人。要像真人当场打的字，宁可留空也别写成客服模板。**至少一单是深夜的，至少两单是送到别人那儿的（addr 写那个地方，不是他自己住处）。**\n")
         + "送到别人那儿的那几单，reason 要说清**送给谁、为什么是这个时候**——界面上「送到别人那儿」那一格就是把这几单按地方拢起来的，那儿读到的全部内容就是这一栏。\n\n"
-        + "taste 口味：spicyTags（辣度，2-3 个短词的数组）、avoidTags（**忌口，3-4 个**——这一组比爱吃什么更像人。**别只写食材名**，要写清他嫌它哪一点，越具体越像他）、likeTags（偏好，3-4 个）、budget（一句预算）、habit（一句点餐习惯，什么时辰点、为什么点）。\n\n"
-        + "coupons 红包卡券 **2-4 张**：amount（如「50」或「免跑腿脚钱2文」）、unit（如「元」，amount 已经是整句时留空）、name（券名，按他世界里的叫法起，别用现代满减券的套话）、scope（哪家可用）、until（到期）。\n\n"
-        + "addrs 常用地址 **2-3 条**：label（地址别名，**后面用括号补一句这是谁的地方／去干嘛的**）、tail（尾号数字）、detail（详细到怎么送、怎么放、进哪个门——**要具体到只有常来的人才写得出**）、isDefault（只有一条 true）。**其中一条应当是【他常去投喂的另一个地方】，不是自己住处。**\n\n"
-        + "wish 想吃清单 **3-5 条**：title（想吃的东西，可以很长很具体）、when（**什么时候会突然想起它**——写那个当下他在哪、在受什么罪、嘴里是什么味）。\n\n"
-        + "monthNote：本周点餐概况，一段 70-110 字。tail：最后一两句他自己的念叨。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\",\"retired\":{\"wish\":[\"不惦记了的\"],\"shops\":[\"已经不去了的那家\"]}}"
+        + characterText(char, "taste 口味：spicyTags（辣度，2-3 个短词的数组）、avoidTags（**忌口，3-4 个**——这一组比爱吃什么更像人。**别只写食材名**，要写清他嫌它哪一点，越具体越像他）、likeTags（偏好，3-4 个）、budget（一句预算）、habit（一句点餐习惯，什么时辰点、为什么点）。\n\n")
+        + characterText(char, "coupons 红包卡券 **2-4 张**：amount（如「50」或「免跑腿脚钱2文」）、unit（如「元」，amount 已经是整句时留空）、name（券名，按他世界里的叫法起，别用现代满减券的套话）、scope（哪家可用）、until（到期）。\n\n")
+        + characterText(char, "addrs 常用地址 **2-3 条**：label（地址别名，**后面用括号补一句这是谁的地方／去干嘛的**）、tail（尾号数字）、detail（详细到怎么送、怎么放、进哪个门——**要具体到只有常来的人才写得出**）、isDefault（只有一条 true）。**其中一条应当是【他常去投喂的另一个地方】，不是自己住处。**\n\n")
+        + characterText(char, "wish 想吃清单 **3-5 条**：title（想吃的东西，可以很长很具体）、when（**什么时候会突然想起它**——写那个当下他在哪、在受什么罪、嘴里是什么味）。\n\n")
+        + characterText(char, "monthNote：本周点餐概况，一段 70-110 字。tail：最后一两句他自己的念叨。"),
+      schemaHint: characterText(char, "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\",\"retired\":{\"wish\":[\"不惦记了的\"],\"shops\":[\"已经不去了的那家\"]}}")
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"
-        + "me：他自己的账号——name（**他给自己取的用户名**，不是本名照抄；这种名字往往随手起、有点中二或自嘲）、uid（一串数字）、level（1-6 整数）、followers（关注了多少人，数字）、fans（粉丝数，数字，多数人很少）、coins（硬币数）。\n"
-        + "tabs：他首页顶上的分区标签 **4-6 个**，按他真实的口味排（如「推荐」「科技」「生活」「鬼畜」「纪录片」）。\n"
-        + "items **正好 10 条**视频，每条：title（真实感的视频标题，长短不一，可以有那种很长的标题党）、up（UP主名）、tab（属于上面哪个分区）、duration（如 08:24 / 1:12:05，按内容类型给合理长度）、views（播放量，如「12.4万」「873」）、danmaku（弹幕数，数字）、desc（视频简介一两句）、thought（**他看完的真实想法**，一句，可以很敷衍、可以骂、可以只是「行吧」）。\n"
-        + "**myDanmaku：他自己在这个视频里发过的弹幕，0-3 条。**这是这个 app 最好的东西——**弹幕是他忍不住开口的地方**，短、脱口而出、没措辞，跟他在别处说话的样子可以完全不同。多数视频他是不发弹幕的（留空数组），只在真被戳到时才发。弹幕要短（十几个字以内），像真弹幕：可以是吐槽、接梗、数字刷屏、突然一句真心话。\n"
-        + "【内容要贴人设】十条要有层次：他真正在追的、随手点开的、无聊到底的、别人推给他的、以及一两条跟他职业或麻烦事有关的。别十条都是同一类。视频要像那个世界里真会有的东西——不必强行套现代，但要是他刷得到的。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"用户名\",\"uid\":\"3947201\",\"level\":5,\"followers\":128,\"fans\":37,\"coins\":412},\"tabs\":[\"分区名\",\"分区名\"],\"items\":[{\"title\":\"视频标题\",\"up\":\"UP主\",\"tab\":\"分区\",\"duration\":\"08:24\",\"views\":\"12.4万\",\"danmaku\":320,\"desc\":\"简介\",\"thought\":\"他看完的想法\",\"myDanmaku\":[\"他发的弹幕\"]}]}"
+        + characterText(char, "me：他自己的账号——name（**他给自己取的用户名**，不是本名照抄；这种名字往往随手起、有点中二或自嘲）、uid（一串数字）、level（1-6 整数）、followers（关注了多少人，数字）、fans（粉丝数，数字，多数人很少）、coins（硬币数）。\n")
+        + characterText(char, "tabs：他首页顶上的分区标签 **4-6 个**，按他真实的口味排（如「推荐」「科技」「生活」「鬼畜」「纪录片」）。\n")
+        + characterText(char, "items **正好 10 条**视频，每条：title（真实感的视频标题，长短不一，可以有那种很长的标题党）、up（UP主名）、tab（属于上面哪个分区）、duration（如 08:24 / 1:12:05，按内容类型给合理长度）、views（播放量，如「12.4万」「873」）、danmaku（弹幕数，数字）、desc（视频简介一两句）、thought（**他看完的真实想法**，一句，可以很敷衍、可以骂、可以只是「行吧」）。\n")
+        + characterText(char, "**myDanmaku：他自己在这个视频里发过的弹幕，0-3 条。**这是这个 app 最好的东西——**弹幕是他忍不住开口的地方**，短、脱口而出、没措辞，跟他在别处说话的样子可以完全不同。多数视频他是不发弹幕的（留空数组），只在真被戳到时才发。弹幕要短（十几个字以内），像真弹幕：可以是吐槽、接梗、数字刷屏、突然一句真心话。\n")
+        + characterText(char, "【内容要贴人设】十条要有层次：他真正在追的、随手点开的、无聊到底的、别人推给他的、以及一两条跟他职业或麻烦事有关的。别十条都是同一类。视频要像那个世界里真会有的东西——不必强行套现代，但要是他刷得到的。") + relHint,
+      schemaHint: characterText(char, "{\"me\":{\"name\":\"用户名\",\"uid\":\"3947201\",\"level\":5,\"followers\":128,\"fans\":37,\"coins\":412},\"tabs\":[\"分区名\",\"分区名\"],\"items\":[{\"title\":\"视频标题\",\"up\":\"UP主\",\"tab\":\"分区\",\"duration\":\"08:24\",\"views\":\"12.4万\",\"danmaku\":320,\"desc\":\"简介\",\"thought\":\"他看完的想法\",\"myDanmaku\":[\"他发的弹幕\"]}]}")
     },
     latenight: {
       instruction: "推演「" + char.name + "」深夜独自看的小电影（**正好 10 条**）。尺度该多大就多大，不要含糊其辞、不要写成文艺片。\n"
-        + "每条：title（标题）、duration（如 00:18:42 / 01:45:20，符合这类片子的合理长度）、tags（2-4 个标签的字符串数组）、views（播放量）、thought（点开那一秒他在想什么，一句，赤裸、不修饰）。\n"
-        + "另给 me：uid（这种站子上他没有名字，只有一串数字或字母）、lastAt（上次是什么时候，如「前天 03:12」）、note（一句他自己都不愿承认的旁白）。\n"
+        + characterText(char, "每条：title（标题）、duration（如 00:18:42 / 01:45:20，符合这类片子的合理长度）、tags（2-4 个标签的字符串数组）、views（播放量）、thought（点开那一秒他在想什么，一句，赤裸、不修饰）。\n")
+        + characterText(char, "另给 me：uid（这种站子上他没有名字，只有一串数字或字母）、lastAt（上次是什么时候，如「前天 03:12」）、note（一句他自己都不愿承认的旁白）。\n")
         // 病：所有角色都往「强势占有」那一头写（她 2026-08-29 报）。那不是哪个词写坏了，
         // 是这一栏除了「一个角色 + 深夜看的片」几乎没给别的约束，剩下的空白由训练先验补上，
         // 而这个题材的先验就是支配。治法跟人设被截断那次一样：不是加禁令，是把维度铺开，
-        // 让他必须先在几根互不相干的轴上各选一头，答案才有地方长出来。
-        + "【先定他站在哪几根轴上，再写这十条】欲望不是一条从轻到重的直线，是好几根互不相干的轴。动笔前先想清楚这个人在下面每一根上偏向哪一头，**再让十条分散落在不同的轴上**：\n"
-        + "· 他要的是自己掌控局面，还是要有人替他拿主意，还是根本不在这条轴上；\n"
-        + "· 他是在看别人，还是在想象自己被看；\n"
-        + "· 他要陌生、一次性的，还是要认识很久的那种熟；\n"
-        + "· 他要用力和快，还是要慢和长；\n"
+        // 让TA必须先在几根互不相干的轴上各选一头，答案才有地方长出来。
+        + characterText(char, "【先定他站在哪几根轴上，再写这十条】欲望不是一条从轻到重的直线，是好几根互不相干的轴。动笔前先想清楚这个人在下面每一根上偏向哪一头，**再让十条分散落在不同的轴上**：\n")
+        + characterText(char, "· 他要的是自己掌控局面，还是要有人替他拿主意，还是根本不在这条轴上；\n")
+        + characterText(char, "· 他是在看别人，还是在想象自己被看；\n")
+        + characterText(char, "· 他要陌生、一次性的，还是要认识很久的那种熟；\n")
+        + characterText(char, "· 他要用力和快，还是要慢和长；\n")
         + "· 要不要有情节、有没有对话，还是根本不需要；\n"
-        + "· 他代入的是哪一边——也可能哪边都不代入，只是在旁边看着。\n"
-        + "【这一栏最容易写坏的地方】不要默认每个人的欲望都往「支配 / 占有 / 强势」那一头去。那是最省事的答案，**也是换成任何一个角色都照样成立的答案——照样成立就等于没写**。有人要的是被照顾，有人要的是自己失控，有人要的是被当成平等的人，有人只是想有一段不必说话的时间。他要哪一种，从他的人设长出来，不从这个题材的惯例长出来。\n"
-        + "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。",
+        + characterText(char, "· 他代入的是哪一边——也可能哪边都不代入，只是在旁边看着。\n")
+        + characterText(char, "【这一栏最容易写坏的地方】不要默认每个人的欲望都往「支配 / 占有 / 强势」那一头去。那是最省事的答案，**也是换成任何一个角色都照样成立的答案——照样成立就等于没写**。有人要的是被照顾，有人要的是自己失控，有人要的是被当成平等的人，有人只是想有一段不必说话的时间。他要哪一种，从他的人设长出来，不从这个题材的惯例长出来。\n")
+        + characterText(char, "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。"),
       schemaHint: "{\"me\":{\"uid\":\"u_7741903\",\"lastAt\":\"前天 03:12\",\"note\":\"一句旁白\"},\"items\":[{\"title\":\"标题\",\"duration\":\"00:18:42\",\"tags\":[\"tag1\",\"tag2\"],\"views\":\"3.2万\",\"thought\":\"想法\"}]}"
     },
     mail: {
       instruction: "推演「" + char.name + "」的邮箱。\n"
-        + "me：addr（他的邮箱地址，**从他的身份和年代来定**，不是随手编一串）、name（发件人显示名）、sign（邮件签名档，一到两行）。\n"
-        + "inbox 收件箱 **8-12 封**：from（谁发的）、fromAddr、subject（主题）、time、kind（这封属于哪一类）、unread（true/false）、preview（列表里露出来的那一截）、body（正文，3-6 句，写成那类邮件真正的样子）、thought（他看完心里那句，一句，可空——大多数邮件他心里什么都没有，那就留空）。\n"
-        + "sent 发出去的 **3-5 封**：to、subject、time、body（他写的正文）。\n"
-        + "drafts 草稿 **1-3 封**：to、subject、body、savedAt（存了多久）——**草稿是这个 app 最有东西的一栏**：写了没发的那封，通常是他不敢发或者不知道怎么措辞的。\n\n"
-        + "【这一栏的全部意义是【落差】】邮件里的他是【对陌生人和上级说话】的样子：客气、绕、留余地、把话说死之前先铺三层。"
-        + "**这个腔调和他私下说话的差距，就是这个 app 要给出来的东西**——同一个人，一边是邮件里那套滴水不漏的说法，一边是他在便签里骂的那句。\n"
-        + "【收件箱要杂】不是每封都重要：该有正事、有账单、有他懒得退订的推送、有群发的、有一封他一直没回的。**一直没回的那封最说明人。**\n"
+        + characterText(char, "me：addr（他的邮箱地址，**从他的身份和年代来定**，不是随手编一串）、name（发件人显示名）、sign（邮件签名档，一到两行）。\n")
+        + characterText(char, "inbox 收件箱 **8-12 封**：from（谁发的）、fromAddr、subject（主题）、time、kind（这封属于哪一类）、unread（true/false）、preview（列表里露出来的那一截）、body（正文，3-6 句，写成那类邮件真正的样子）、thought（他看完心里那句，一句，可空——大多数邮件他心里什么都没有，那就留空）。\n")
+        + characterText(char, "sent 发出去的 **3-5 封**：to、subject、time、body（他写的正文）。\n")
+        + characterText(char, "drafts 草稿 **1-3 封**：to、subject、body、savedAt（存了多久）——**草稿是这个 app 最有东西的一栏**：写了没发的那封，通常是他不敢发或者不知道怎么措辞的。\n\n")
+        + characterText(char, "【这一栏的全部意义是【落差】】邮件里的他是【对陌生人和上级说话】的样子：客气、绕、留余地、把话说死之前先铺三层。")
+        + characterText(char, "**这个腔调和他私下说话的差距，就是这个 app 要给出来的东西**——同一个人，一边是邮件里那套滴水不漏的说法，一边是他在便签里骂的那句。\n")
+        + characterText(char, "【收件箱要杂】不是每封都重要：该有正事、有账单、有他懒得退订的推送、有群发的、有一封他一直没回的。**一直没回的那封最说明人。**\n")
         + "【不要和微信撞车】微信是熟人和随口，这儿是正式的往来。同一件事不要在两处各写一遍。",
-      schemaHint: "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}"
+      schemaHint: characterText(char, "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}")
     },
     tally: {
       // 她 2026-08-31：「如果我和她不是恋人（她自己有 cp）这块写的还是我和她的账本
-      // 而且会有点恋爱倾向的写法」。原来这一栏把「这本账」直接钉成了他和用户之间那
+      // 而且会有点恋爱倾向的写法」。原来这一栏把「这本账」直接钉成了TA和用户之间那
       // 一本，还配了一整套恋爱腔的词（兜底、舍不得、放过的狠话）。于是不管什么关系，
       // 出来的都是一本情账。
-      // 改成：这是【他自己的一本账】，跟谁有账写谁；用户是其中一个人，占多大篇幅由
+      // 改成：这是【TA自己的一本账】，跟谁有账写谁；用户是其中一个人，占多大篇幅由
       // 真实关系决定。腔调也从关系里长出来，不预设是哪一种。
       instruction: "推演「" + char.name + "」心里那本【没结清的账】。\n"
         + "**这本账不记钱**——钱是钱包的事。这儿记的是没结清的东西：欠着的、替谁挡过的、放过的狠话、"
         + "舍不得的、拿不准的、看不顺眼又没发作的、受了没还的。\n"
-        + "⚠️**这不是「他和用户之间」那一本，是他自己的那一本。** 每一条都要写清楚这笔账是【跟谁】的（who）："
-        + "可以是用户，也可以是他的家人、同伙、对头、旧相识、他自己的那个人。上面那一段写着他跟谁是什么关系，照它来。\n"
+        + characterText(char, "⚠️**这不是「他和用户之间」那一本，是他自己的那一本。** 每一条都要写清楚这笔账是【跟谁】的（who）：")
+        + characterText(char, "可以是用户，也可以是他的家人、同伙、对头、旧相识、他自己的那个人。上面那一段写着他跟谁是什么关系，照它来。\n")
         + "⚠️**腔调从关系里长出来，别预设是哪一种。** 欠人情、赌一口气、敬着、瞧不上、亏欠、还不清——"
-        + "全都是账。**把每一条都写成情账是这一栏最容易犯的错**：跟他不是那种关系的人，"
+        + characterText(char, "全都是账。**把每一条都写成情账是这一栏最容易犯的错**：跟他不是那种关系的人，")
         + "写出来却字字含情，那就是写坏了。\n"
         + "所有内容必须从【真实发生过的事】里长出来（关系、记忆、印象、这阵子的来往）；写不出具体的，那一栏宁可少给两条，也不要拿泛泛的关系描述凑数。\n\n"
         + "五栏，各自的写法（每一栏的每一条都要有 who）：\n"
         + "① debts（4-7 条）没结清的账。每条：who 这笔是跟谁的、title 一句话说清欠的是什么、"
-        + "dir 填 mine（他欠对方）/ theirs（对方欠他）/ open（两边都没说清、悬着）、note 一句他自己怎么想这笔。\n"
-        + "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n"
-        + "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n"
-        + "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。"
+        + characterText(char, "dir 填 mine（他欠对方）/ theirs（对方欠他）/ open（两边都没说清、悬着）、note 一句他自己怎么想这笔。\n")
+        + characterText(char, "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n")
+        + characterText(char, "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n")
+        + characterText(char, "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。")
         + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"
-        + "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）、"
-        + "truth 这句话底下真正的意思——**他嘴上这么说，心里其实是什么**。\n"
-        + "   ⚠️truth 不是把 text 换个说法再讲一遍，也不是替他解释这句话什么意思。它要说的是【那句话没说出来的那一半】："
+        + characterText(char, "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）、")
+        + characterText(char, "truth 这句话底下真正的意思——**他嘴上这么说，心里其实是什么**。\n")
+        + characterText(char, "   ⚠️truth 不是把 text 换个说法再讲一遍，也不是替他解释这句话什么意思。它要说的是【那句话没说出来的那一半】：")
         + "嘴上是硬的、底下是软的，嘴上是随口、底下是记了很久的。两句话之间必须有落差，没有落差就说明这一条写坏了。\n"
-        + "④ treasures（3-5 条）他心里估价最高的东西，**用估值的语言说**：who 这样东西跟谁有关（也可以是他自己）、title 那样东西是什么（可以是一个瞬间、一个习惯、一份证据）、kind 归成哪一类、worth 他给的估价（用估价的口吻，不是数字）。\n"
-        + "⑤ appraisals（3-5 条）他自己给自己的定论，问答体：q 一个悬着的问题（这个问题得是他真会在心里问自己的）、a 他的答案，一到两句，说死不留余地。这一栏的 who 多半是他自己。\n\n"
+        + characterText(char, "④ treasures（3-5 条）他心里估价最高的东西，**用估值的语言说**：who 这样东西跟谁有关（也可以是他自己）、title 那样东西是什么（可以是一个瞬间、一个习惯、一份证据）、kind 归成哪一类、worth 他给的估价（用估价的口吻，不是数字）。\n")
+        + characterText(char, "⑤ appraisals（3-5 条）他自己给自己的定论，问答体：q 一个悬着的问题（这个问题得是他真会在心里问自己的）、a 他的答案，一到两句，说死不留余地。这一栏的 who 多半是他自己。\n\n")
         + "【最容易写坏的地方】这本账要能一眼看出是【这个人】的账。换成任何一个角色都照样成立的条目就是写坏了——那种句子只是在描述「有点在乎某人」，谁都能写。"
-        + "每一条都要能指回一件具体的事：某次没做到的、某次替谁挡下的、某句被记住的话、某个他不肯承认自己在留意的细节。",
-      schemaHint: "{\"debts\":[{\"who\":\"这笔是跟谁的\",\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"who\":\"承保的是谁\",\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"who\":\"冲谁去的\",\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\",\"truth\":\"这句话底下真正的意思\"}],\"treasures\":[{\"who\":\"跟谁有关\",\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"who\":\"多半是他自己\",\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}"
+        + characterText(char, "每一条都要能指回一件具体的事：某次没做到的、某次替谁挡下的、某句被记住的话、某个他不肯承认自己在留意的细节。"),
+      schemaHint: characterText(char, "{\"debts\":[{\"who\":\"这笔是跟谁的\",\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"who\":\"承保的是谁\",\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"who\":\"冲谁去的\",\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\",\"truth\":\"这句话底下真正的意思\"}],\"treasures\":[{\"who\":\"跟谁有关\",\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"who\":\"多半是他自己\",\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}")
     },
     wallet: {
       instruction: "推演「" + char.name + "」的财务档案。**最重要：收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，money 要贴合 TA 真实的谋生方式。** 收入来源 incomes（1-3 项，name+category+amount 数字）——category 从 TA 实际的谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；**只有当人设明确是富家子弟、继承人、家境优渥时，才可以出现「家族供养/信托」这类收入，否则绝对不要默认套用家族收入。** 普通人就是普通收入、金额可以不高甚至拮据。monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白，透露财力与消费态度）；dailyPool 15-25 条日常消费模板（每条 items 一句话描述当天买了啥，amount 数字，反映其真实生活水平）；可选 gifts 送礼转账。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
@@ -7649,12 +7635,12 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  // 「他跟谁有账」只发给账本这一栏：别处不需要，她按次计费。
+  // 「TA跟谁有账」只发给账本这一栏：别处不需要，她按次计费。
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
   const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: _full };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
 // phoneProbeSpec 也导出：测试该核【拼出来的那份提示词】，不是核源码里的字符串——

@@ -23,7 +23,7 @@ test("两处 schemaHint 里不许再有【样例内容】", () => {
   assert.equal((code.match(/这一段他在做什么（这个身份的人真会做的具体事）/g) || []).length, 2, "两处 schemaHint 没都换过来");
   // v64.24 起分成两栏：location 写细的（具体处所），place 写粗的（城／坊市，地图靠它认人）
   assert.equal((code.match(/在哪儿（细到具体处所，贴着他那个世界）/g) || []).length, 2);
-  assert.equal((code.match(/这会儿他人在哪个【大地方】/g) || []).length, 2, "两处 schemaHint 没都要 place");
+  assert.equal((code.match(/这会儿他在哪个【大地方】/g) || []).length, 2, "两处 schemaHint 没都要 place");
 });
 
 test("指令里那串现代职业清单删干净了", () => {
@@ -35,7 +35,7 @@ test("指令里那串现代职业清单删干净了", () => {
 
 test("「先认准他属于哪个世界」独立成一条，而且两处都发", () => {
   // ⚠️独立成立的规则就让它独立成立，别挂在别人身上搭便车（v55.90 那条）
-  assert.match(eng, /const SCHED_WORLD_RULE = `【先认准他属于哪个世界，再排这一天】/);
+  assert.match(eng, /const SCHED_WORLD_RULE = `【先认准TA属于哪个世界，再排这一天】/);
   assert.match(eng, /绝不许出现公寓、通勤、上班打卡、咖啡店、便利店、手机、电脑/);
   assert.match(eng, /这一段搬到另一个时代还成立吗/, "没写判据，只写禁令会漏");
   // type 那几个词是给图标用的，不是剧情——coffee 尤其容易被当成「他要喝咖啡」

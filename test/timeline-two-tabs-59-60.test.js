@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
-const view = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起他手机的第一眼"));
+const view = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起TA手机的第一眼"));
 
 // 她 2026-09-01：「时间线现在是打开看到接下来排好的下滑完一周接下来的才能看到
 // 以前的时间线。能不能改成这俩分开俩 tab」。
@@ -22,7 +22,7 @@ test("两格都常驻，空的那格自己说话", () => {
   // 空了就藏起来的话，日历里排下来的事一进时间线就人间蒸发
   const bar = view.slice(view.indexOf('[["past", "走过的"'), view.indexOf("// 只看新增"));
   assert.ok(bar.indexOf("aheadN > 0 &&") < 0 && bar.indexOf("aheadN ?") < 0, "空的那一格被藏起来了");
-  assert.match(view, /aheadN \? "他日历上排下来的 " \+ aheadN \+ " 件事" : "日历上还没有排下来的事"/,
+  assert.match(view, /aheadN \? characterText\(char, "他日历上排下来的 "\) \+ aheadN \+ " 件事" : "日历上还没有排下来的事"/,
     "接下来那一格没有自己的说明");
   assert.match(view, /tab === "ahead" \? T\("他日历上还没有排下来的事。排了的话会出现在这儿。"\)/,
     "接下来空着时没有交代");

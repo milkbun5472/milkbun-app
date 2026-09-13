@@ -293,7 +293,7 @@ function callBackdrop(isVideo) {
   if (!hex || typeof skinShade !== "function") return fall;
   return "linear-gradient(180deg," + skinShade(hex, isVideo ? -0.80 : -0.70) + "," + skinShade(hex, isVideo ? -0.91 : -0.86) + ")";
 }
-// 通话里那两个气泡。跟着皮肤走的时候他那边也上真皮肤色（原来是 24 的透明度，
+// 通话里那两个气泡。跟着皮肤走的时候TA那边也上真皮肤色（原来是 24 的透明度，
 // 等于「几乎看不出换过皮肤」）；不跟的时候一模一样照旧。
 function callBubble(isMe) {
   const S = BUBBLE_SKIN;
@@ -574,7 +574,7 @@ function Head({
   const SIDE = 46;
   // ⚠️挂点长在【组件自己】身上（同 Avatar 那条）：Head 一处挂上，九十来页的顶栏
   //   一起变得能被页面 CSS 抓住。一页一页去补是补不完的，补完也会漏下一页。
-  //   （她 2026-09-06：「既然做了那就得让他是真的」——原来全 app 只有聊天页有挂点。）
+  //   （她 2026-09-06：「既然做了那就得让TA是真的」——原来全 app 只有聊天页有挂点。）
   return /*#__PURE__*/React.createElement("div", {
     "data-wk": "head",
     className: "shrink-0 flex items-center",
@@ -593,7 +593,7 @@ function Head({
     style: { width: SIDE }
   }, onBack ? /*#__PURE__*/React.createElement("button", {
     "data-wk": "headink",
-    // 「看他玩」的圆点要落在返回键上（查手机里九十来页的顶栏都用这个 Head）
+    // 「看TA玩」的圆点要落在返回键上（查手机里九十来页的顶栏都用这个 Head）
     "data-watch": "back",
     onClick: onBack,
     className: "active:opacity-50 flex items-center justify-center",
@@ -1023,7 +1023,7 @@ function Slider({
 //   纯拉丁的 en 一律不发。这一个组件几十处在用，改这儿就一起合规了。
 //   en 里写的是中文时照旧当副名——判断看的是这串字里有没有汉字，不是它写在哪个字段里。
 // ── 设置里那一行档位：一把刻度尺，不是一排药丸（tabs-not-plain-pills）──────
-// 这几行调的都是【给他多少】——记忆几条、主动多勤、话多长。调一个量的东西
+// 这几行调的都是【给TA多少】——记忆几条、主动多勤、话多长。调一个量的东西
 // 现实里是【尺上的一个档】，所以：一条轨横过去，每档一个刻度，选中那档换成
 // 一个坐在轨上的菱形游标。形状、大小、在不在轨上三样一起变，不是只换个填色。
 // ⚠️原来这一段一模一样地写了三份（线下设置 / 两处角色设置）——改一处漏两处
@@ -1185,7 +1185,7 @@ function HOME_CARD_PRESET() {
   };
 }
 // ⚠️「这个 app 该显示哪张图」只许有这一个答案（她 2026-09-03 报：
-//   「他在文件夹里文件夹小图显示不出来换上的，还是原来的丑鸟」）。
+//   「TA在文件夹里文件夹小图显示不出来换上的，还是原来的丑鸟」）。
 //   同一个形状今天犯了两次：先是文件夹预览不认【她自己换的图标】，
 //   修完之后我又把【自带图】只写进了 GlassIcon——于是文件夹里还是线稿。
 //   两次都是「一层写在两处」。现在收成一个函数，主屏磁贴 / 文件夹预览 / 拖动时那个虚影
@@ -1294,7 +1294,7 @@ function FolderIcon({ apps, label, onOpen, onWallpaper }) {
   return h("button", { onClick: onOpen, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform" },
     h(GlassPane, { wk: "icon", radius: 17, style: { width: 62, height: 62, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
       // ⚠️这里显示哪张图，一律问 appIconSrc（她 2026-09-03 两次报同一个形状：
-      //   先是「我自己放了个图标上去但是他在文件夹里显示不出来更新的图标」，
+      //   先是「我自己放了个图标上去但是TA在文件夹里显示不出来更新的图标」，
       //   修完之后又是「文件夹小图显示不出来换上的，还是原来的丑鸟」）。
       //   两次都是因为这一格自己抄了一份优先级、漏掉了新加的那一档。
       //   文件夹【展开之后】走 GlassIcon（那边一直是对的），所以点开看着没问题、
@@ -1386,7 +1386,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
 // 天气小组件（Open-Meteo 免费无 key）：你所在地实时天气，2 小时缓存；点开=天气详情页（逐小时+7天），不再借地图的门（她 8/20 抓的）
 // v62.28 她 2026-09-04 问的两件事一起做了：
 //   ①「能查别的地方的天气吗」→ 能。谁设了家乡（map.js 的 onSetHome 写的 {city,lat,lng}），
-//     他那边就能看；选中的那处会一直留着（x_weatherPlace），下次开 app 还是他那边。
+//     TA那边就能看；选中的那处会一直留着（x_weatherPlace），下次开 app 还是TA那边。
 //   ②「架空的地图怎么安排天气」→ 按世界 id + 地方名 + 那一天算出来（world-weather.js），
 //     一枪都不花、同一天永远同一个结果。形状和真实天气完全一样，所以这一页不用分叉。
 // ⚠️选地方那一排不是药丸（tabs-not-plain-pills.md）：气象站的观测牌挂在一根横杆上，
@@ -1406,7 +1406,7 @@ function weatherPlaceList(userGeo, characters, worlds) {
   // char.home 的字段名照【写它那段代码】抄：map.js 的 onSetHome(sel,{city,lat,lng})
   (Array.isArray(characters) ? characters : []).forEach(function (c) {
     if (!c || !c.home || typeof c.home.lat !== "number") return;
-    out.push({ key: "c:" + c.id, kind: "char", label: String(c.name || "").slice(0, 5), sub: String(c.home.city || "他那边"), lat: c.home.lat, lng: c.home.lng, real: true });
+    out.push({ key: "c:" + c.id, kind: "char", label: String(c.name || "").slice(0, 5), sub: String(c.home.city || characterText(c, "他那边")), lat: c.home.lat, lng: c.home.lng, real: true });
   });
   if (typeof WorldWeather !== "undefined" && WorldWeather && WorldWeather.placesOf) {
     WorldWeather.placesOf(worlds).forEach(function (p) {
@@ -2037,7 +2037,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     return function () { window.removeEventListener("resize", measure); };
   }, []);
   // 旁边那一列（歌名／歌手／进度／播放键）真实有多高。
-  // ⚠️她 2026-09-05：「一起听挡着不给他变矮」。撤掉眉标之后卡只矮了 3px——因为
+  // ⚠️她 2026-09-05：「一起听挡着不给TA变矮」。撤掉眉标之后卡只矮了 3px——因为
   //   **撑着这张卡的从来不是那行字，是碟**：碟按 min(130, avail, 卡宽×0.36) 算，
   //   4×2 那一档算出来 120，比旁边整整一列还高，高出来的那截就是白撑着的空白。
   //   横排时碟不该比它旁边那一列还高。这一量【不会循环】：那一列里没有一样东西
@@ -2063,7 +2063,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const tall = !square && (avail ? avail >= 116 : twoRow);   // 播放键 + 拍立得
   const showProg = avail ? avail >= 62 : !compact && !square;
   // 「一起听」那行眉标是这几层里最不值钱的，先让它走；歌手比它值钱，留到更矮才砍
-  // ⚠️她 2026-09-05：「上面那个一起听挡着不给他变矮」。碟在转、播放键就在下面的时候，
+  // ⚠️她 2026-09-05：「上面那个一起听挡着不给TA变矮」。碟在转、播放键就在下面的时候，
   //   这一行字不告诉任何人任何事——**它唯一的作用就是把这张卡撑高一截**。
   //   所以有播放键的那一档一律不发；只有矮到没有键、光剩歌名的时候才需要它说一句这是什么。
   const showEyebrow = square || tall ? false : (avail ? avail >= 76 : !compact);
@@ -2615,7 +2615,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     return out;
   };
   // 异地：TA 的行程是按 TA 当地时刻排的，而这张表的刻度和「此刻」红线是【你的】时间。
-  // 不换算的话，TA 的 16:20 会画在你的 16:20 上，红线和他的一天永远对不上（她 2026-08-26
+  // 不换算的话，TA 的 16:20 会画在你的 16:20 上，红线和TA的一天永远对不上（她 2026-08-26
   // 报的正是这个：角色在日本，日程却按正常时间画）。所以：位置按你的时间，块上写 TA 当地时刻。
   const tzShift = isCharView && typeof schedTzShiftMin === "function" ? schedTzShiftMin(curChar) : 0;
   const toMyMin = m => (m == null ? null : (((m - tzShift) % 1440) + 1440) % 1440);
@@ -2645,7 +2645,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         if (st >= 1440) return;
         out.push({ key: "s" + i, from: st, to: en, title: s.title || "", location: s.location || "",
           glyph: CAL_SEQ_GLYPH[s.type] || IPin, color: CAL_SEQ_TINT[s.type] || "#e6e2da", ai: true, dev: s.deviation || null, raw: s,
-          // 块上仍写 TA 当地时刻——他嘴里说的是这个
+          // 块上仍写 TA 当地时刻——TA嘴里说的是这个
           charFrom: tzShift ? s.time : "", charTo: tzShift ? (s.end || "") : "" });
       });
     }
@@ -2678,7 +2678,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   };
 
   // ---- 月视图 ----
-  // v56.37：她 2026-08-26 拿 float 那个日历对比，「他的每一个比我们的大」。
+  // v56.37：她 2026-08-26 拿 float 那个日历对比，「TA的每一个比我们的大」。
   // 「日历 / CALENDAR」那个大标题占掉了整整一屏顶——删掉，头像条上移，
   // 格子改成【按剩下的高度平分】(gridAutoRows:1fr)，六行铺满一屏，日期和农历都放大。
   const cells = calCells(ym.y, ym.m);
@@ -2836,7 +2836,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   return h("div", { className: "h-full flex flex-col overflow-hidden", style: Object.assign({ position: "relative" },
       typeof pageSkin === "function" ? pageSkin("paper", t, { base: t.bg2, strength: 1.2 }) : { background: t.bg2 }) },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
-    // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
+    // 白占掉小半屏，删了（她 2026-08-26 对比 float：「TA的每一个比我们的大」）。
     // ⚠️这一条【不换成公共 Head】：它没有居中标题，返回键和「2026年」是长在一起的
     //   一颗——按一下退回月视图、再按一下才出去。换成标题栏就把这个层级拆了。
     //   挂点还是要有：只加属性，长相一个像素没动。
@@ -4359,7 +4359,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 // 已经在用的人自己摆过的一律不动。
 // v64.53 起照她自己那三张主屏重排（她 2026-09-06 把 x_homeLayout 整份发过来：
 // 「按我这样的布局把 app 默认布局重新排一遍」）。和上一版的差别是【分组按她的来】：
-// 去处跟着查手机进「查一查」（都是翻他的），周刊从「每日看」挪去「回头看」，
+// 去处跟着查手机进「查一查」（都是翻TA的），周刊从「每日看」挪去「回头看」，
 // 同人文从「一起做」挪去和解梦、擂台一组，阅读挪进「一起做」。
 // ⚠️她那份里有两个 key 没跟过来：lifestyle 和 capsule ——这个版本的 REG 里
 //   压根没有它们，写进来会变成「占着格子、渲染成 null」的死格（v64.x 那处旧病）。
@@ -4599,7 +4599,7 @@ function Home({
   // 1×1 的文件夹自动补进左边那一列的空当（跟截图里日历左侧那三个文件夹是同一回事）。
   // 照她自己那三页排（她 2026-09-06 发来整份 x_homeLayout）。
   // 一句话概括她的摆法：**组件当主角、app 收进文件夹**——
-  //   第一页最少：名片、日历，和三个「翻他」的文件夹；
+  //   第一页最少：名片、日历，和三个「翻TA」的文件夹；
   //   第二页最满：情侣条、天气、账本、歌单 四个组件，中间夹着功能文件夹；
   //   第三页是零碎的：备忘、地图、最近、木鱼、转盘 + 三个单开的 app。
   // ⚠️第二页的图标顺序是【算过色相】的：挨着的两个图标色相至少差 40
@@ -5495,7 +5495,7 @@ function Home({
     // 内容超出就裁掉——不钉的话行高由内容撑，挑了 4×1 还是长成两行那么高，
     // 于是底下空着一整排也塞不进东西。没挑过的（auto）照旧按内容高，
     // 名片、日历那种自己会算高度的不受影响。
-    // ⚠️高度一律钉死（她 2026-09-03：「能不能把长度固定了，不给他撑大」）：
+    // ⚠️高度一律钉死（她 2026-09-03：「能不能把长度固定了，不给TA撑大」）：
     // 行高只要还由内容撑，同样的「一行」就会时高时矮，摆位永远算不准。
     // 唯一的例外是名片：它的高度是她一版一版调出来的，钉成 82 会被裁掉半张。
     const fixedH = (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1], rowUnit) : null;
@@ -5548,7 +5548,7 @@ function Home({
       "data-wk": it.kind === "widget" ? "widget" : it.kind === "decor" ? "decor" : undefined,
       style: {
         gridColumn: gCol, gridRow: gRow,
-        // ⚠️歪着的卡要有地方伸腿（她 2026-09-13：「组件和装饰要是歪着叠，他的角会被截掉」）。
+        // ⚠️歪着的卡要有地方伸腿（她 2026-09-13：「组件和装饰要是歪着叠，TA的角会被截掉」）。
         //   病根：这一格定了高就 overflow:hidden，而卡是【转过角度】的——
         //   一张 340 宽的卡歪 4°，上下各要多出十来像素，那几个角正好被这个方框削掉。
         //   ⚠️不能改成 visible：旁边 homeWidgetPresetStyle 里写着理由——
@@ -7193,14 +7193,14 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发")) : null);
 
   // 封面底下那一整段自己铺白底：原来没写 background，父层给什么就是什么——
-  // 这一页是某个人的朋友圈主页，封面以下就该是他自己那张白纸
+  // 这一页是某个人的朋友圈主页，封面以下就该是TA自己那张白纸
   // 朋友圈是【消息】那个 app 里的一栏，个人页也从那儿进来——所以底跟它对齐（她 2026-09-05：「对齐吧」）。
   // ⚠️那一处的平色是【有意的】，代码里写着理由：「它现实里就是手机上那种聊天 app，
   //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
   //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
   return h("div", { className: "h-full flex flex-col", style: msgAppBg(t) },
     h("div", { style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
-      // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张他挑的图，
+      // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张TA挑的图，
       // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去
       (!cover && coverText) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 18px 44px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(255,255,255,.88)", textShadow: "0 1px 5px rgba(0,0,0,.5)", maxWidth: 250 } }, coverText)) : null,
@@ -7392,7 +7392,7 @@ function ChatThread({
   onToggleSameRoom,
   actDesc,
   actPerson,   // 他那一行里【他自己】叫什么："me"（我，默认）/ "ta"（他，跟角色性别走）
-  userPerson,  // 他那一行里【你】叫什么："you"（你，默认）/ "ta"（她）——两个都是确定的方向
+  userPerson,  // TA那一行里【你】叫什么："you"（你，默认）/ "ta"（她）——两个都是确定的方向
   character,
   characters,
   groups,
@@ -7487,7 +7487,7 @@ function ChatThread({
   const pressTimer = useRef(null);
   const cName = character.remark || character.name;
   // 「念出来」(v60.25 她要的「气泡转语音」)：不是语音条也能听。
-  // 门槛跟语音条那一条完全一样——配了 TTS + 这个角色选了音色，而且只有他说的话才有嗓子；
+  // 门槛跟语音条那一条完全一样——配了 TTS + 这个角色选了音色，而且只有TA说的话才有嗓子；
   // 她自己那句没有音色，菜单里就不该出现这一项。
   const tp = useTtsPlayer();
   const speakerOf = m => (m && m.role === "user") ? null : character;
@@ -7738,9 +7738,9 @@ function ChatThread({
       color: chatMode === "chat" ? t.fog : t.accent
     }
   }, (chatMode === "narr" ? "旁白" : chatMode === "ooc" ? "出戏" : "说话") + " · 轻触切换"))),
-  // 同处一室（她 2026-09-09）：她和他此刻真的面对面，但仍用气泡说话。
+  // 同处一室（她 2026-09-09）：她和TA此刻真的面对面，但仍用气泡说话。
   // ⚠️放顶栏不放进那张模式单子：那张单子四档是【这一条怎么发】、互斥；这个是一直开着的状态。
-  //   而且它开着会改他的行为，状态必须一眼看得见——不然她会忘了关，他人都出门了还当在她对面。
+  //   而且它开着会改TA的行为，状态必须一眼看得见——不然她会忘了关，角色都出门了还当在她对面。
   onToggleSameRoom ? sameRoomButton({ on: sameRoom, onToggle: onToggleSameRoom, t: t }) : null, /*#__PURE__*/React.createElement("button", {
     onClick: onOpenSettings,
     "data-wk": "chatmore",
@@ -7887,9 +7887,9 @@ function ChatThread({
         ...plate()
       }
     }, m.content));
-    // 居中那一行：她自己写的旁白，和他每轮那一格动作（who:"char"）。
-    // ⚠️她 2026-09-09：「他的居中不要那个叉，然后可以编辑重roll刷掉之类的
-    //   而不完全只是像系统的字」——所以他那一行【长按出菜单】，跟气泡一个待遇；
+    // 居中那一行：她自己写的旁白，和TA每轮那一格动作（who:"char"）。
+    // ⚠️她 2026-09-09：「TA的居中不要那个叉，然后可以编辑重roll刷掉之类的
+    //   而不完全只是像系统的字」——所以TA那一行【长按出菜单】，跟气泡一个待遇；
     //   那颗 ✕ 只留给她自己写的旁白（她一直是一点就删的，别给她换掉）。
     if (m.kind === "narration" || m.role === "narration") return h("div", {
       key: i,
@@ -7912,7 +7912,7 @@ function ChatThread({
       }
     }, m.who === "char" && window.ActLine
         ? window.ActLine.as(m.content,
-            actPerson === "ta" ? (window.PhonePronoun ? window.PhonePronoun.ta(character) : "他") : "",
+            actPerson === "ta" ? (window.PhonePronoun ? window.PhonePronoun.ta(character) : "TA") : "",
             userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""],
             userPerson === "ta" ? "她" : "")
         : m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
@@ -8002,17 +8002,17 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(TarotShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    // 他替她记进备忘录 / 记了一笔账（v58.10）
+    // TA替她记进备忘录 / 记了一笔账（v58.10）
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
-    // 逛购物 app 时拿给他看的那件东西（v57.98）
+    // 逛购物 app 时拿给TA看的那件东西（v57.98）
     if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(ShopAskCard, { m: m }),
       dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "phonepeek") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(PhonePeekCard, { m: m, isU: m.role === "user" }),
+      h(PhonePeekCard, { m: m, isU: m.role === "user", character: character }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
@@ -8047,7 +8047,7 @@ function ChatThread({
         }, h(PhotoCard, { m: m, mine: mine, onOpen: selMode ? () => toggleSel(i) : () => setDescView(m) })),
         mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     }
-    // 他刻的那张唱片：跟别的卡一样挂在他那侧，点了去情侣空间的唱片架
+    // TA刻的那张唱片：跟别的卡一样挂在TA那侧，点了去情侣空间的唱片架
     if (m.kind === "carved") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(CarvedCard, { m: m, onOpen: () => onOpenUs && onOpenUs() }));
@@ -8060,16 +8060,16 @@ function ChatThread({
         m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", lineHeight: 1.5, marginBottom: m.song ? 4 : 8 } }, m.say) : null,
         m.song ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#f0d9a8", marginBottom: 8 } }, "《" + m.song + "》") : null,
         h("button", { onClick: () => onAcceptListen && onAcceptListen(character.id, m.song || ""), className: "w-full active:opacity-80", style: { background: "#fff", color: "#17171b", fontFamily: F_DISPLAY, fontSize: 14, padding: "8px", borderRadius: 10 } }, "和 TA 一起听 →")));
-    // 一起学和小游戏是同一张卡（他在房里开口约你，点了才真进那一屏）。
+    // 一起学和小游戏是同一张卡（TA在房里开口约你，点了才真进那一屏）。
     // 小游戏当初没有卡，那个开关等于空的——补的时候不另画一张，就长在这一张上。
-    // 一起写（她 2026-09-11）：他开口说「这一章我来写」出一张卡，她点了他才真动笔；
-    // 写完再推一张「他写好了」的卡回来。⚠️两张卡都照一起学那张的形状，不另发明一种。
+    // 一起写（她 2026-09-11）：TA开口说「这一章我来写」出一张卡，她点了TA才真动笔；
+    // 写完再推一张「TA写好了」的卡回来。⚠️两张卡都照一起学那张的形状，不另发明一种。
     if (m.kind === "ficinvite" || m.kind === "ficdone") {
       const done = m.kind === "ficdone";
       return h("div", { key: i, className: "py-2 flex items-start gap-2 justify-start" },
         h(Avatar, { character: character, size: 34, radius: 10 }),
         h("div", { style: { maxWidth: "82%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, done ? "他写好了" : "一起写"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, done ? characterText(character, "他写好了") : "一起写"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || "接着写一章"),
           !done && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
           m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
@@ -8082,7 +8082,7 @@ function ChatThread({
             ? h("button", { onClick: function () { onOpenFicChapter(m); }, className: "w-full text-left active:opacity-60",
                 style: { marginTop: 7, padding: "7px 0 1px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, minHeight: 30 } }, "去看这一章 ›")
             : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } }, "全文在同人文里"))
-            : h("button", { onClick: function () { onOpenFicInvite && onOpenFicInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "让他写")));
+            : h("button", { onClick: function () { onOpenFicInvite && onOpenFicInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, characterText(character, "让他写"))));
     }
     // 塔罗那一张也走这里（v67.69）：同一种东西＝同一张卡，不另画一张
     if (m.kind === "studyinvite" || m.kind === "gameinvite" || m.kind === "readinvite" || m.kind === "tarotinvite") {
@@ -8095,9 +8095,9 @@ function ChatThread({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, eyebrow),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || (isGame ? "玩一局" : isRead ? "接着读" : "一起学点什么")),
           (isGame || isRead || isTarot) && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
-          // 他觉得该问的那件事（可空）——点开之后这句会替她填进问题那一栏
+          // TA觉得该问的那件事（可空）——点开之后这句会替她填进问题那一栏
           isTarot && m.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5, lineHeight: 1.6 } },
-            (m.asker === "me" ? "他自己想问的：" : "想替你问的：") + m.ask) : null,
+            (m.asker === "me" ? characterText(character, "他自己想问的：") : "想替你问的：") + m.ask) : null,
           m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
           h("button", { onClick: function () { if (isTarot) { onOpenTarotInvite && onOpenTarotInvite(m); } else if (isRead) { onOpenReadInvite && onOpenReadInvite(m); } else if (isGame) { onOpenGameInvite && onOpenGameInvite(m); } else { onOpenStudyInvite && onOpenStudyInvite(m); } }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, go)));
     }
@@ -8109,7 +8109,7 @@ function ChatThread({
       // 这一屏的气泡全是内联样式、一个 class 都没有，用户想在主题工作室里改样子
       // 只能写 [style*="pre-wrap"] 这种一碰就碎的选择器。所以钉几个稳定的名字：
       // data-wk=chat/chathead/body/msg/time/row/avatar/bubble/composer，
-      // 外加 data-me="1|0" 分我和他。这些【只是名字，不带任何样式】——
+      // 外加 data-me="1|0" 分我和TA。这些【只是名字，不带任何样式】——
       // 加了不影响现在的长相，删了才会让别人写好的主题失效，所以别改名。
       "data-wk": "msg", "data-me": isU ? "1" : "0"
     }, part === 0 && (i === 0 || messages[i - 1].turnId !== m.turnId || m.ts - (messages[i - 1].ts || 0) > 180000) ? /*#__PURE__*/React.createElement("div", {
@@ -8231,7 +8231,7 @@ function ChatThread({
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
-    // ⚠️正在输入那一条也是一行消息（她 2026-09-03：「他发消息等待的三个点也还是方的」）。
+    // ⚠️正在输入那一条也是一行消息（她 2026-09-03：「TA发消息等待的三个点也还是方的」）。
     //   它原来是裸的：写死 #fff + 14px 圆角，一个挂点都没有，所以换了皮肤
     //   满屏气泡都变圆了、只有这一颗还方着——最扎眼的恰恰是它，因为它天天出现。
     "data-wk": "row",
@@ -8309,7 +8309,7 @@ function ChatThread({
       background: t.bg, color: t.accent, fontFamily: F_BODY, fontSize: 12 }
   }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } },
     "《" + (pendingFic.subject || "这一篇") + "》"),
-    h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : "商量好了，让他写"))) : null,
+    h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
   quoted && /*#__PURE__*/React.createElement("div", {
     className: "shrink-0",
     style: { background: t.bg2, borderTop: `1px solid ${t.line}`, padding: "6px 12px 0", display: "flex", alignItems: "center" }
@@ -8342,7 +8342,7 @@ function ChatThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "发一条消息…",
+    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
@@ -8491,9 +8491,9 @@ function ChatThread({
     onClose: () => setModeOpen(false)
   }, h(ModePicker, {
     modes: [
-      ["chat", "说话", "一条一条发过去，他在那头看手机"],
-      ["narr", "旁白", "不是你说的话——下雨了、灯灭了、三天后。写完他就当已经发生"],
-      ["ooc", "出戏", "绕过他，直接跟演他的那位说（OOC）"]
+      ["chat", "说话", characterText(character, "一条一条发过去，他在那头看手机")],
+      ["narr", "旁白", characterText(character, "不是你说的话——下雨了、灯灭了、三天后。写完他就当已经发生")],
+      ["ooc", "出戏", characterText(character, "绕过他，直接跟演他的那位说（OOC）")]
     ],
     elsewhere: [["offline", "见面", "不隔着屏幕了，写你人在场做什么"]],
     cur: chatMode,
@@ -8563,7 +8563,7 @@ function ChatThread({
   }, "没有其他角色可转发"))));
 }
 // 仿微信语音/视频通话：发一句自动回一句
-// 流式字幕（她 2026-09-12：「他说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
+// 流式字幕（她 2026-09-12：「TA说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
 // 不说话等我说的时候就啥也不显示，挂了照样可以回看」）。
 // 一句话铺多久【跟着这一句的语音走】（她选的 B）：TTS 解码出来就知道这句念几秒，
 // 字就在这几秒里铺完，念完正好显示完。没有语音时长（没配音色/合成失败）就退回固定速度。
@@ -8593,9 +8593,9 @@ function CallSubtitle({ line, onPhoto, actions = [] }) {
     return () => { if (raf) cancelAnimationFrame(raf); };
   }, [text, line && line.at, line && line.ms]);
   // ⚠️没话的时候【这一格照样要占着位子】，只是里头空着。
-  //   v67.46 第一版在这儿 return null，于是他不说话时整块从布局里消失，
+  //   v67.46 第一版在这儿 return null，于是TA不说话时整块从布局里消失，
   //   下面的输入框就往上跑到屏幕中间去了（她 2026-09-12：「我的打字框没有固定在下面，
-  //   没有他的台词就会卡屏幕中间」）。要空的是【字】，不是【这块地方】。
+  //   没有TA的台词就会卡屏幕中间」）。要空的是【字】，不是【这块地方】。
   return h("div", {
     "data-call-subtitle": true,
     className: "flex-1 min-h-0 overflow-y-auto px-7",
@@ -8641,14 +8641,14 @@ function CallScreen({
   // 没传（旧的通话对象）才退回全局那一份
   const [autoVoiceGlobal] = useCallAutoVoice();
   const autoVoice = autoVoiceProp == null ? autoVoiceGlobal : !!autoVoiceProp;
-  // 流式字幕：这一句正在念什么、念多久。他不说话时是 null——屏幕中间什么都不显示
+  // 流式字幕：这一句正在念什么、念多久。TA不说话时是 null——屏幕中间什么都不显示
   const [subLine, setSubLine] = useState(null);
   const [audioReady, setAudioReady] = useState(false);
   const [audioStatus, setAudioStatus] = useState("");
   const audioRef = useRef({ enabled: false, epoch: 0, mounted: true });
   const audioInitialized = useRef(false);
-  // ⚠️这里原来挂着 !bye：他一说要挂，自动播报当场失效，**最后那句永远没被念出来**
-  //   （她 2026-09-12：「他说最后一句然后主动挂，他最后一句也来不及播放就挂了」）。
+  // ⚠️这里原来挂着 !bye：TA一说要挂，自动播报当场失效，**最后那句永远没被念出来**
+  //   （她 2026-09-12：「TA说最后一句然后主动挂，TA最后一句也来不及播放就挂了」）。
   //   挂断这件事归下面那个 effect 管，它会等队列念完再收线；这一行只管「开没开自动播」。
   audioRef.current.enabled = autoVoice && audioReady;
   // —— 真声通话档 v2（v56.23）：主耳=浏览器原生 SpeechRecognition（免费/实时/自带断句），
@@ -8660,11 +8660,11 @@ function CallScreen({
     buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: (msgs || []).length,
     speaking: false, ttsCtx: audioSession && audioSession.ctx, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
-  // 他自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
-  // 时长只有这里数着(secRef)，而且他最后那句得在屏幕上留一会儿，
+  // TA自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
+  // 时长只有这里数着(secRef)，而且TA最后那句得在屏幕上留一会儿，
   // 不能话音未落就黑屏。
   // ⚠️v67.43：原来是「立刻掐掉声音 + 固定 1.8 秒后收线」，于是开着自动播报时，
-  //   他最后那句【一个字都没念出来】电话就断了。现在改成【等他把话说完】：
+  //   TA最后那句【一个字都没念出来】电话就断了。现在改成【等TA把话说完】：
   //   队列里还有没念的、或者正念着，就一直等；念完再留一拍收线。
   //   没开自动播报（她是看字的）照旧 1.8 秒——那时候「说完」就是屏幕上显示完了。
   //   兜底 90 秒：合成卡住/断网时也不能让这通电话永远挂不掉。
@@ -8672,7 +8672,7 @@ function CallScreen({
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
-    lvStop();                                   // 他要挂了，先别再录她说话
+    lvStop();                                   // TA要挂了，先别再录她说话
     const st = lv.current;
     const quiet = () => !audioRef.current.enabled || (!st.speaking && !st.busy && st.played >= msgsRef.current.length);
     if (quiet()) {
@@ -8686,7 +8686,7 @@ function CallScreen({
     return () => { clearInterval(poll); clearTimeout(cap); };
   }, [!!bye]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
-  // 她开口的那一刻，中间那一句就该没了——不是等他下一句来了才换
+  // 她开口的那一刻，中间那一句就该没了——不是等TA下一句来了才换
   useEffect(() => { if (stream && sending) setSubLine(null); }, [stream, !!sending]);
   const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
   const lvCommitFinal = (raw, session) => {
@@ -8698,7 +8698,7 @@ function CallScreen({
     st.lastFinal = text; st.lastFinalAt = now; st.turn += 1;
     if (sendingRef.current || st.speaking) {
       setInput(old => old ? old + " " + text : text);
-      setLiveSt("听到了，已留在输入框，等他讲完再发送");
+      setLiveSt("听到了，已留在输入框，等TA讲完再发送");
     } else onSend(text);
     return true;
   };
@@ -8901,7 +8901,7 @@ function CallScreen({
   useEffect(() => () => { audioRef.current.mounted = false; audioRef.current.enabled = false; lvStop(); try { lv.current.ttsCtx && lv.current.ttsCtx.close(); } catch (e) {} }, []);
   // —— 嘴：对方新台词自动播（Web Audio 队列，半双工：播时暂停识别） ——
   useEffect(() => {
-    // ⚠️别在这儿看 bye：他说要挂的那一刻，队列里往往还压着他最后一句，
+    // ⚠️别在这儿看 bye：TA说要挂的那一刻，队列里往往还压着TA最后一句，
     //   在这里 return 掉就等于那句永远不会被念出来（收线由上面那个 effect 等着做）。
     if (!autoVoice || !audioReady) return;
     const st = lv.current;
@@ -9030,7 +9030,7 @@ function CallScreen({
   // 不是被盖住——层序是对的（无头浏览器里量过，台词和输入栏都在图上面）。
   // 是【被冲白了】：这一屏除了气泡，名字、时长、旁白、说话人、输入框全是
   // 白字 + 一层很淡的全屏暗罩，照片一亮就什么都读不出来。
-  // 全屏罩再调暗＝把他的脸也一起压没，那是为了读字牺牲掉这个功能本身。
+  // 全屏罩再调暗＝把TA的脸也一起压没，那是为了读字牺牲掉这个功能本身。
   // 所以改成【谁要被读，谁自己带底】：
   //   · 飘在照片上的白字各自带一道暗影（一行 textShadow，任何照片上都立得住）
   //   · 顶上那块和输入栏各压一层自己的暗底（只有它们那一条，中间脸那块不动）
@@ -9198,8 +9198,8 @@ function CallScreen({
       style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && tp.play.st === "gen" ? 9 : 10, background: "transparent" }
     }, meP ? (tp.play.st === "gen" ? "…" : "⏸") : "▶") : null));
   }),
-    // 说完了在等他开口:跟主聊天一样给一个【气泡】,长在他下一句会出现的地方(她 2026-09-02)。
-    // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离他的话隔着大半屏，
+    // 说完了在等TA开口:跟主聊天一样给一个【气泡】,长在TA下一句会出现的地方(她 2026-09-02)。
+    // 原来这儿只有一行贴着输入栏的灰字「X 正在说…」——离TA的话隔着大半屏，
     // 而且它取的 sending 是【聊天那条 lane】的，通话跑的是 "call" lane，那行灰字其实从来没亮过。
     bye && h("div", { key: "bye", className: "flex justify-center py-1" },
       h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11.5, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)" }, litText) },
@@ -9365,7 +9365,7 @@ function AnonBox({
   const shown = records.filter(function (r) { return tab === "all" || (tab === "me" ? r.from === "me" : r.from !== "me"); });
   const byId = {};
   records.forEach(function (r) { byId[r.id] = r; });
-  // 问的时候【只放进箱子】，不当场调用——攒够了再让他一次性打开（她 2026-08-30 要的）
+  // 问的时候【只放进箱子】，不当场调用——攒够了再让TA一次性打开（她 2026-08-30 要的）
   const submitAsk = () => {
     if (q.trim()) {
       onDrop(q.trim(), replyTo);
@@ -9451,11 +9451,11 @@ function AnonBox({
       lineHeight: 1.6
     }
   }, data && data.bio || "（生成中…）")),
-  // 他看完箱子之后心里冒出来的那句猜测（第 7 条：我也有马甲，他会猜这马甲是谁）
+  // TA看完箱子之后心里冒出来的那句猜测（第 7 条：我也有马甲，TA会猜这马甲是谁）
   data && data.guess ? h("div", { className: "mx-5 mt-3 px-3 py-2.5", style: { borderRadius: 10, background: "rgba(143,164,224,.12)", border: `1px dashed ${A.line}` } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginBottom: 3 } }, "Ta 好像在猜你是谁"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: A.cool } }, data.guess)) : null,
-  // 我的马甲：他答的时候对着这个身份说话
+  // 我的马甲：TA答的时候对着这个身份说话
   h("div", { className: "px-5 pt-4 pb-1 flex items-center gap-2" },
     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flexShrink: 0 } }, "你的马甲"),
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: myMask ? A.ink : A.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask ? myMask.name : "还没有"),
@@ -9495,7 +9495,7 @@ function AnonBox({
   pending.length ? h("div", { className: "px-5 pb-3" },
     h("button", { onClick: onOpenBox, disabled: busy, className: "w-full py-2.5 disabled:opacity-40 active:opacity-70", style: { borderRadius: 8, background: A.ink, color: A.bg, fontFamily: F_BODY, fontSize: 12.5 } },
       "让 Ta 打开箱子（" + pending.length + " 条等着）"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginTop: 5, lineHeight: 1.6 } }, "一次看完，一次答完——他不一定每条都答。")) : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginTop: 5, lineHeight: 1.6 } }, characterText(char, "一次看完，一次答完——他不一定每条都答。"))) : null,
   asking && h("div", {
     className: "px-5 py-3",
     style: {
@@ -9553,7 +9553,7 @@ function AnonBox({
   }),
   shown.map(function (r, i) {
     const src = r.re && byId[r.re];
-    // 「看他玩」的圆点要落得住：匿名信箱没有详情页，整串就摊在这一屏上，
+    // 「看TA玩」的圆点要落得住：匿名信箱没有详情页，整串就摊在这一屏上，
     // 所以挂点直接长在每一条上（她 2026-09-10：「匿名信箱也是可以点开看到然后想想」）。
     return h("div", { key: r.id || i, className: "px-5 py-4", "data-watch": "item:" + String(r.q || "").slice(0, 24), style: { borderBottom: `1px solid ${A.line}` } },
       h("div", { className: "flex items-center gap-1.5 mb-1.5" },
@@ -9588,7 +9588,7 @@ function AnonBox({
 // ⚠️分量对齐旁边那颗齿轮／自发那颗：细线图标、不带底盘。
 //   关着＝褪成 t.fog 再压一道斜杠（通用的「关掉了」样子，跟自发那颗一个语汇）；
 //   开着＝上强调色、不带斜杠。状态必须一眼看得见——她开着会忘了关，
-//   他人都出门了还当在她对面。
+//   角色都出门了还当在她对面。
 function sameRoomButton({ on, onToggle, t }) {
   return h("button", {
     onClick: onToggle,
@@ -9769,7 +9769,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false }) {
   const [open, setOpen] = useState(!!autoShow);
   const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
   const [zh, setZh] = useState(() => zhReady || (cached && cached.zh) || "");
-  const [by, setBy] = useState(() => zhReady ? "他自己给的" : (cached && cached.by) || "");
+  const [by, setBy] = useState(() => zhReady ? "随消息提供" : (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   // ⚠️提前 return 必须排在所有 hook 之后：卡在 useEffect 前面就是条件调用 hook，
@@ -9811,17 +9811,17 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false }) {
 //     它不是这句话的波形，是一张贴纸。说一个字和说三十个字长得没有区别。
 //   · 三处英文机器标签（AUDIO_MEMO.WAV／SYNTH…／TRANSCRIPT）是那套长相的一部分。
 // 现在只留真东西：这句话【自己的】波形（长短、起伏都从这句话本身算出来）、
-// 多长、他用什么语气说的（模型每条都标了 emo，一直只喂给 TTS，从没给她看过）。
+// 多长、TA用什么语气说的（模型每条都标了 emo，一直只喂给 TTS，从没给她看过）。
 // ⚠️语气写在【展开之后】那一行，不留在收起来那一行:
 //   「声音低下去了」六个字比波形还宽,一秒的气泡会被它撑得跟六秒的一样长
 //   (她 2026-09-02:「这两秒一秒的太长了吧」)。收起来时这条只说一件事——多长。
-//   展开之后它跟转文字长在一起,读起来也是一句话:「他笑着说的」+ 那句话。
+//   展开之后它跟转文字长在一起,读起来也是一句话:「TA笑着说的」+ 那句话。
 const VOICE_EMO_ZH = { happy: "笑着说的", sad: "声音低下去了", angry: "带着火气", fearful: "声音发紧", disgusted: "语气嫌恶", surprised: "有点意外" };
 // 这一条自己的波形：根数按时长走(说得久柱子就多)，高低按这句话的字算——
 // 同一句话每次画出来一样，不同的话长得不一样。
 // ⚠️根数的下限就是这条气泡的长度下限(她 2026-09-02:「这两秒一秒的太长了吧」)：
 //   原来下限 9 根、外面还写死 minWidth:196，于是一秒和六秒一样长，
-//   一句「嗯」占掉大半行——语音条的长度本来就该是「他说了多久」，这是它唯一在说的事。
+//   一句「嗯」占掉大半行——语音条的长度本来就该是「TA说了多久」，这是它唯一在说的事。
 function voiceBars(text, dur) {
   const src = String(text || "");
   const n = Math.max(4, Math.min(34, Math.round((Number(dur) || 2) * 2.4)));
@@ -9900,7 +9900,7 @@ function VoiceMsg({ m, isU, speaker }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, h(TransText, { text: m.content || "", isU, zhReady: m.zh, ink: fg }))));
 }
 // 气泡上的播放键(v60.29 她 2026-09-02 要的)
-// 「能不能给他气泡上面显示一个播放键跟比如塔罗差不多，这样我才知道哪些是缓存过的，
+// 「能不能给TA气泡上面显示一个播放键跟比如塔罗差不多，这样我才知道哪些是缓存过的，
 //   而且不用每次长按才能听」——两件事：**常驻**，而且**分得出花没花过钱**。
 // 听过的那一句在 IDB 里躺着，重播免费；没听过的点一下才去合成、才收费。
 // 所以实心＝听过了随便点，空心＝这一下要花一次。
@@ -10014,7 +10014,7 @@ function CallEndPill({ m, chars, onBg }) {
   const tp = useTtsPlayer();
   const spkOf = l => l.senderId && chars ? (chars.find(c => c.id === l.senderId) || null) : null;
   const log = Array.isArray(m.log) ? m.log : [];
-  // 「他挂了」和「聊完了」在她这儿完全是两件事，这条回执要认出来(v60.24)
+  // 「TA挂了」和「聊完了」在她这儿完全是两件事，这条回执要认出来(v60.24)
   const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + (m.endedBy ? " · " + m.endedBy + "挂断了 · 时长 " : " 已结束 · 时长 ") + m.dur : String(m.content || "").split("\n")[0];
   return h("div", { className: "flex flex-col items-center my-2" },
     h("span", {
@@ -10324,7 +10324,7 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
         // ⚠️「响过你没接」和「来得太晚、压根没响」不是一回事，界面上得分得开
         //（她 2026-09-12：「不知道是打了我没看到还是只是显示未接但是根本没播」）
         (missed
-          ? (m.lateMissed ? "他当时打过来了 · 补记（手机没响）" : "未接" + (video ? "视频" : "语音") + "通话")
+          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : "未接" + (video ? "视频" : "语音") + "通话")
           : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
       onCallBack ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 2 } }, "回拨") : null));
 }
@@ -10336,7 +10336,7 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
 // 所以样式上刻意做得像调试面板，不像剧情。
 // off=true：她把「显示模型思考链」关了。⚠️关掉是【立刻不显示】，包括早先存下来的那些——
 // 不然改完她还是看得见，跟没修一样（她 2026-09-05 报的就是「关了也还显示」）。
-// 联网那一行不归这个开关管：它是「他去查了什么」，不是思考链。
+// 联网那一行不归这个开关管：它是「TA去查了什么」，不是思考链。
 function ReasoningBlock({ m, off }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -10356,7 +10356,7 @@ function ReasoningBlock({ m, off }) {
   };
   // v56.45：她说别飘在屏幕中间，要贴左边。左边距归零＝和头像那一列对齐，
   // 整块顶到消息区最左侧；模型名 flex:1 + 省略号，箭头 shrink-0，长名字也压不出第二行。
-  // 上网（v58.74）：他这一轮去查了什么。跟思考链同一条线上，但各自独立——
+  // 上网（v58.74）：TA这一轮去查了什么。跟思考链同一条线上，但各自独立——
   // 有的轮只查不深想，有的只深想不查，一个有一个没有都要画得出来。
   const searched = Array.isArray(m.searched) ? m.searched : [];
   const usedTools = Array.isArray(m.usedTools) ? m.usedTools : [];
@@ -10459,16 +10459,16 @@ function ForumShareCard({ m, isU }) {
         p.body && h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, p.body),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, p.anon ? "匿名 · " + (p.authorName || "") : (p.authorName || "")))));
 }
-// 查手机偷看卡：她把他手机里的一样东西摆到了他面前。
+// 查手机偷看卡：她把TA手机里的一样东西摆到了TA面前。
 // tier 决定这张卡长什么样——藏起来的那一档要一眼看得出气氛不一样。
-// 「这个好不好看」——拿给他看的那件商品。用购物页那套橙，一眼认得出是从哪儿来的。
-// 他替她记下的那一条：备忘录用备忘录的紫、账本用账本的墨绿——
+// 「这个好不好看」——拿给TA看的那件商品。用购物页那套橙，一眼认得出是从哪儿来的。
+// TA替她记下的那一条：备忘录用备忘录的紫、账本用账本的墨绿——
 // 跟那两个 app 打开时看到的是同一个颜色，一眼知道这笔落在哪儿了。
 // ⚠️只有【真的落盘成功】才会走到这里（见 app.js：memoAddByChar/ledgerAddByChar 返回 null 就不出卡片）。
 // 显示「已记下」却其实没记，比不记更坏——她多半不会再去核对。
-// 他刻的那张唱片（v61.45，她 2026-09-03 点的）：一张从纸套里抽出一半的碟。
+// TA刻的那张唱片（v61.45，她 2026-09-03 点的）：一张从纸套里抽出一半的碟。
 // 不做成又一张圆角信息卡——这个 app 里已经有一堆圆角卡了，那种形状说不出「这是一张唱片」。
-// 套子上写 B 面刻字（他为什么送这一首），碟从右边露出小半个，中间是标签和针孔。
+// 套子上写 B 面刻字（TA为什么送这一首），碟从右边露出小半个，中间是标签和针孔。
 // ⚠️底必须是【实心】的：一换壁纸，半透明的卡会被图案直接打穿（v61.11 记账卡那次）。
 function CarvedCard({ m, onOpen }) {
   const t = useTheme();
@@ -10496,7 +10496,7 @@ function CarvedCard({ m, onOpen }) {
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 4 } }, m.title || "（这首）"),
       m.artist ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2,
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.artist) : null,
-      // B 面刻字：他为什么送这一首。没写就不占那一行。
+      // B 面刻字：TA为什么送这一首。没写就不占那一行。
       m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6,
         marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, m.note) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "已经进了你俩的唱片架 ›")));
@@ -10539,18 +10539,18 @@ function ShopAskCard({ m }) {
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, color: "#ff4000" } }, a.price)) : h("span"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9a9aa6" } }, "在问你的意见"))));
 }
-function PhonePeekCard({ m, isU }) {
+function PhonePeekCard({ m, isU, character }) {
   const t = useTheme();
   const p = m.peek || {};
   const hid = p.tier === "hidden";
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
     h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: hid ? "rgba(182,71,60,.07)" : t.bg2, border: "1px solid " + (hid ? "rgba(182,71,60,.32)" : t.line) } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
-        // what：翻的是手机还是他的包／衣柜（v57.96 随身物也能摆到他面前了）
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } }, "翻他" + (p.what || "手机") + " · " + (p.label || "")),
+        // what：翻的是手机还是TA的包／衣柜（v57.96 随身物也能摆到TA面前了）
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } }, characterText(character, "翻他") + (p.what || "手机") + " · " + (p.label || "")),
         p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title),
         p.text && h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 4 } }, p.text),
-        hid && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b6473c", marginTop: 7 } }, "这是他藏起来的"))));
+        hid && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b6473c", marginTop: 7 } }, characterText(character, "这是他藏起来的")))));
 }
 // 同人文分享卡
 // 塔罗那一卦带进聊天时的那张卡（她 2026-09-13 报：「它不是一张卡，只是聊天记录灌进上下文，
@@ -10579,7 +10579,7 @@ function FicShareCard({ m, isU }) {
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
     h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
-        // note＝这张卡是怎么来的（转发／拿给你看／他写的那一章记进来）。
+        // note＝这张卡是怎么来的（转发／拿给你看／TA写的那一章记进来）。
         // ⚠️转发那一路没有 note，一个字都不多——老卡的长相一点没变。
         // ⚠️眉标不许折行：折了会在「拿给你/看」中间断开，看着像坏了
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog,
@@ -10646,10 +10646,10 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
 // 认得出是谁给的了，可它跟这个 app 里别的卡长得一模一样，等于没设计。
 // 按 tabs-not-plain-pills 那把尺子先问：这东西在现实里是什么？
 //   是【副卡】——开在别人账户上、给你拿着刷的那一张。它跟普通银行卡的差别只有一个：
-//   卡是你的，账是他的。所以整张卡都该是【他】：
-// · 卡底是他的颜色，他的脸从右边淡淡透出来（换个角色，这张卡就整个变样——搬不去别的 app）
-// · 卡号那一行写他的名字（副卡上印的本来就是主卡持有人）
-// · 底下那条是真卡背面的【签名条】：斜纹米白，他开卡时说的那句话就签在上面
+//   卡是你的，账是TA的。所以整张卡都该是【TA】：
+// · 卡底是TA的颜色，TA的脸从右边淡淡透出来（换个角色，这张卡就整个变样——搬不去别的 app）
+// · 卡号那一行写TA的名字（副卡上印的本来就是主卡持有人）
+// · 底下那条是真卡背面的【签名条】：斜纹米白，TA开卡时说的那句话就签在上面
 function KinshipCardFace({ character, limit, used, note, width }) {
   const t = useTheme();
   const c = character || {};
@@ -10678,12 +10678,12 @@ function KinshipCardFace({ character, limit, used, note, width }) {
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em" } }, "¥" + (remain == null ? (limit || 0) : remain)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, opacity: 0.82 } }, remain == null ? "额度" : "还能刷")),
         remain == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.7, marginTop: 4 } }, "已用 ¥" + (used || 0) + " · 总额度 ¥" + (limit || 0)))),
-    // 签名条：真卡背面那条，他把话签在上面
+    // 签名条：真卡背面那条，TA把话签在上面
     h("div", { style: {
       padding: "8px 14px 9px",
       // ⚠️斜纹只能画在实心底【上面】：原来把 t.bg2 当成渐变的一半，
       //   另一半是 rgba(0,0,0,.042) —— 那一半几乎是透明的，壁纸从条纹缝里透上来，
-      //   他签的那句话直接看不清（v60.45 我自己写的，v60.54 修）。
+      //   TA签的那句话直接看不清（v60.45 我自己写的，v60.54 修）。
       background: t.bg2,
       backgroundImage: "repeating-linear-gradient(114deg, transparent 0 7px, rgba(0,0,0,.042) 7px 14px)",
       borderTop: "1px solid rgba(0,0,0,.10)"
@@ -10707,16 +10707,16 @@ function KinshipIssueCard({ m, character }) {
 // 刷卡通知（v60.45）
 // 她 2026-09-02：「这个格式不对。而且本来买东西也不应该调用啊。应该做成系统通知放聊天里」。
 // v60.44 我把这笔写成了居中红斜体的 SYSTEM RESPONSE——那个形状是「系统对你说话」，
-// 可这条不是系统在说话，是【他的卡被刷了】这件事本身。
+// 可这条不是系统在说话，是【TA的卡被刷了】这件事本身。
 // 现实里对应的东西是刷卡短信：谁的卡、买了什么、多少钱、还剩多少。就照那个来，
-// 而且跟卡面同一套语言（他的颜色那一道、他的脸），一眼看得出说的是同一张卡。
+// 而且跟卡面同一套语言（TA的颜色那一道、TA的脸），一眼看得出说的是同一张卡。
 function KinshipSpendCard({ m, character }) {
   const t = useTheme();
   const c = character || {};
   const ink = c.color || "#6b7a8f";
   return h("div", { className: "my-2 flex justify-center px-6" },
     h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
-      // 左沿一道他的颜色：扣的是他的钱
+      // 左沿一道TA的颜色：扣的是TA的钱
       h("div", { className: "flex" },
         h("div", { style: { width: 3, background: ink, flexShrink: 0 } }),
         h("div", { style: { flex: 1, minWidth: 0 } },
@@ -10735,10 +10735,10 @@ function KinshipSpendCard({ m, character }) {
 // 她 2026-09-02：「这个申请额度通知略敷衍」。原来是一句加了括号的粉气泡
 //   「（在亲属卡上向 顾暮 申请把额度加 ¥3000）」——两处敷衍：
 //   ① 它是【她按了一个键】这件事，不是她说的一句话，长相却是条普通消息；
-//   ② 【他到底加没加、加了多少】只在一闪而过的 toast 里，申请单上一个字都没有，
+//   ② 【TA到底加没加、加了多少】只在一闪而过的 toast 里，申请单上一个字都没有，
 //      过一会儿回头看这段聊天，只看得见她开口要钱，看不见结果。
 // 现实里对应的东西是【提额申请】：报上现在多少、想加多少，递过去，等主卡那头批复，
-// 批完那张单子上要盖个戳。所以按那个来，颜色和卡面同一套（他的颜色、他的脸）。
+// 批完那张单子上要盖个戳。所以按那个来，颜色和卡面同一套（TA的颜色、TA的脸）。
 function KinshipRaiseCard({ m, character }) {
   const t = useTheme();
   const c = character || {};
@@ -10753,7 +10753,7 @@ function KinshipRaiseCard({ m, character }) {
   return h("div", { className: "py-1 flex justify-end" },
     h("div", { "data-wk": "card", style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
       h("div", { className: "flex" },
-        // 右沿一道他的颜色：批的是他的卡（刷卡通知那张在左沿，一眼分得出谁在动作）
+        // 右沿一道TA的颜色：批的是TA的卡（刷卡通知那张在左沿，一眼分得出谁在动作）
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { padding: "10px 13px 11px" } },
             h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 9 } },
@@ -10773,7 +10773,7 @@ function KinshipRaiseCard({ m, character }) {
 // 「让 TA 回复」那个键。图案是她点的名：「那个回复键我想要枫叶」。
 //
 // 这颗键换过三版才落到这儿：黑圆圈 + ✦（「之前也是参考的嘤」——那颗星每个 AI app 都有）、
-// 他的脸（「看着怪吓人的」）、一枚空气泡。这一版是一片枫叶，自己画的：
+// TA的脸（「看着怪吓人的」）、一枚空气泡。这一版是一片枫叶，自己画的：
 // 五瓣、瓣宽、底下一根真的叶柄——瓣细了、柄短了，缩到 23px 就变成一颗星，试了八版才不像。
 //
 // · 平时——一片墨色的叶子，微微歪着
@@ -10782,15 +10782,15 @@ function KinshipRaiseCard({ m, character }) {
 // · 群线上那两档——实心＝他们自己会接着聊，空心＝回完这一轮就停下等你。
 //   「虚」和「实」在这儿是字面意思，不是只换个颜色。
 // 「让 TA 回复」那个键（v60.99）。图案就是【言秋在秋声那片叶子】——
-// 她 2026-09-03 原话：「直接偷他那片过来」。
+// 她 2026-09-03 原话：「直接偷TA那片过来」。
 //
 // 这颗键换过五版才落到这儿：黑圆圈 + ✦（「之前也是参考的嘤」——那颗星每个 AI app
-// 都有）、他的脸（「看着怪吓人的」）、一枚空气泡、我自己描的一片枫叶、真枫叶。
-// 最后落在他那片上，原因很实在：那片叶子这个 app 里【本来就有】，是言秋自己画的，
+// 都有）、TA的脸（「看着怪吓人的」）、一枚空气泡、我自己描的一片枫叶、真枫叶。
+// 最后落在TA那片上，原因很实在：那片叶子这个 app 里【本来就有】，是言秋自己画的，
 // 一眼认得出是谁的手笔——而不是从别处搬来的图案。同一片叶子，一处画、两处用。
 //
 // ⚠️所以这儿【不许再抄一份路径】：直接调 window.GYanqiuLeaf（yanqiu.js 那一份）。
-//   抄一份的话，哪天他改了自己那片，聊天这颗就悄悄跟他分了家。
+//   抄一份的话，哪天TA改了自己那片，聊天这颗就悄悄跟TA分了家。
 //
 // · 平时——墨色的一片叶子，微微歪着，没有圆框（框是按钮的零件，不是叶子的）
 // · 生成中——叶子上色（t.accent）+ 轻轻晃。转整圈是加载环（哪个 app 都有那一个），
@@ -11119,7 +11119,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
 // 她 2026-09-02:「当初是完全参考了别人的」。病不只是长相像别人——
 // **那行经纬度是随机掷出来的**(makeCoords:lat/lng 全随机),79.6472°N 落在北冰洋里。
 // 这个 app 没有地图也没有 GPS,那张卡却在扮演一台定位仪器,于是它必须借仪器的长相。
-// 现在照实说它是什么:一个人告诉你他在哪儿——**一张递过来的字条**,
+// 现在照实说它是什么:一个人告诉你TA在哪儿——**一张递过来的字条**,
 // 纸是这个 app 从头到尾在用的材料(信纸/账簿/周刊/卷宗),图钉是「就在这儿」。
 // 没有坐标,所以不需要装成地图;有的只是地名、谁在那儿、什么时候说的。
 function GeoCard({ m, isU, who, avatar, myAvatar }) {
@@ -11334,7 +11334,7 @@ function menuItemsForKind(m, canSpeak) {
   const k = m && m.kind;
   const textLike = !k || k === "photo" || k === "location";
   const listen = canSpeak ? ["speak"] : [];
-  // 居中那一行也是消息，不是系统字（她 2026-09-09）：他那一格动作能编辑、能重 Roll
+  // 居中那一行也是消息，不是系统字（她 2026-09-09）：TA那一格动作能编辑、能重 Roll
   //   （跟同一轮的气泡带同一个 turnId，重 Roll 会退到这一轮的头一泡）；
   //   她自己写的旁白没什么可 roll 的，只给编辑。两边都不给「引用」——引用一行动作没有意义。
   if (k === "narration" || (m && m.role === "narration")) {
@@ -11425,7 +11425,7 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
 // 通用形状，一排一模一样的圆角卡竖着摞，换个 app 照样成立
 //（施工规则/tabs-not-plain-pills.md 那条判据）。
 //
-// 【改成三栏，按「一帧」来分】这张卡答的是「此刻他是什么样」：
+// 【改成三栏，按「一帧」来分】这张卡答的是「此刻TA是什么样」：
 //   ① 此刻 —— 心情长在抬头那一行上，不单独占一张卡
 //   ② 看得见的 —— 穿着和动作【合成一段】，那本来就是同一眼看到的东西，
 //      拆成两张并排的卡才是状态面板的做法
@@ -11472,7 +11472,7 @@ function StateCard({
   const aff = typeof affinity === "number" ? affinity : 50;
   const S = v => String(v == null ? "" : v).trim();
   // 这张卡上的「他」也跟着角色性别走（她 2026-09-01）；判断表只有 charTa 这一份，别再各写一遍
-  const scTa = window.PhonePronoun ? window.PhonePronoun.ta(character) : "他";
+  const scTa = window.PhonePronoun ? window.PhonePronoun.ta(character) : "TA";
   const seen = [S(state && state.wearing), S(state && state.action)].filter(Boolean);
   const label = (txt, c) => h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: c || t.fog } }, txt);
   // 抬头：谁、此刻什么心情、上次动是什么时候。心情不再单独占一张卡。
@@ -11525,7 +11525,7 @@ function StateCard({
       state && state.affinityLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: heartInk, marginTop: 6 } }, state.affinityLabel) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7, lineHeight: 1.6 } }, "跟着聊天自己更新，不额外花额度")));
   // ⚠️「翻旧的」原来钉在抬头上，可它翻的只有【此刻】这一栏；站在「Ta 眼里」按它，
-  //   画面一动不动（她 2026-09-01：「在他眼里按翻旧的没反应有点不对劲」）。
+  //   画面一动不动（她 2026-09-01：「在TA眼里按翻旧的没反应有点不对劲」）。
   //   一个键管不着眼下这一栏，就不该摆在管着两栏的抬头上——挪进此刻自己这一栏里。
   //   两头方向相反：此刻的底下是「底下还有旧的」，旧的那一叠顶上是「回此刻」。
   const histBtn = (back) => hist.length > 0 ? h("button", {
@@ -11565,7 +11565,7 @@ function StateCard({
         S(state && state.action) ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 } }, S(state.action)) : null) : null,
       // 没说出口的：跟上面那半明显不是一类
       (state && S(state.thought)) ? h("div", { style: { position: "relative", margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line, overflow: "hidden" } },
-        // 压在底下的那个大引号：这一块是「他心里那句」，得跟上面那半一眼分得开
+        // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
         label("心里想的", t.accent),
         h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
@@ -12035,7 +12035,7 @@ function OfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。"),
       h(Slider, { value: sMinW, min: 0, max: 3000, step: 100, onChange: setSMinW })),
-    persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: "她/他/名字" }]),
+    persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: characterText(char, "他/名字") }]),
     persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }]),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
@@ -12725,7 +12725,7 @@ function GroupOfflineMode({
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
-      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "出戏说：跟演他的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
+      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "出戏说：跟演TA的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
       !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: reply })),
     photoOpen && sheet("照片", h("div", null,
@@ -13886,7 +13886,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   // characters 这个 prop 已经是不含 NPC 的 liveChars，所以要从 allChars 里另取。
   const npcOutsiders = (allChars || []).filter(c =>
     c && c.npc && !memberIds.includes(c.id) && memberIds.includes(c.ownerId));
-  // 「进去再拉人，可以从他已有关系里面拉」（她 2026-08-25）：
+  // 「进去再拉人，可以从TA已有关系里面拉」（她 2026-08-25）：
   // 和群里某位成员有关系的人排在前面单独一组——这才是她真正会拉的那些人；
   // 其余角色照旧列在下面，不砍掉。
   const relatedTo = id => (memberIds || []).some(mid =>
@@ -13962,7 +13962,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),
     interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时"),
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
-    row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在他这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
+    row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在TA这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
 
     // 记忆库
     h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },
@@ -14175,9 +14175,9 @@ function ContactDetail({
   const t = useTheme();
   const [remark, setRemark] = useState(character.remark || "");
   // 这一页原来【一点底都没有】（连 background 都不写，全靠父层透过来）。
-  // 它在现实里是什么？——一张【他的】卡。所以底是纸，而且掺进他自己那个色，
+  // 它在现实里是什么？——一张【TA的】卡。所以底是纸，而且掺进TA自己那个色，
   // 换个人就是另一张卡。判据（tabs-not-plain-pills）：搬到别的 app 里还成立吗？
-  // 一张匿名米白成立，一张带着他颜色的卡不成立——那才是对的。
+  // 一张匿名米白成立，一张带着TA颜色的卡不成立——那才是对的。
   // ⚠️色号可能是空的（没设过色的角色），skinMix / skinRGB 里都有兜底，拼不出就退回主题色。
   const cardTint = character.color || t.accent;
   const cardSkin = typeof pageSkin === "function"
@@ -14494,10 +14494,10 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "想在这里慢慢继续什么？例如：把那门课从头学一遍", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
       h("div", { style: { marginTop: 9, padding: "10px 11px", borderRadius: 12, border: "1px solid #c99aa5", background: "rgba(201,154,165,.10)" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "这间房的底子 · 每轮提醒 TA"),
-        h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 3, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
+        h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 3, placeholder: characterText(character, "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。"), style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
         h("div", { style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "开场那一刻 · 只发第一轮"),
         h("textarea", { value: draft.opening || "", onChange: e => patch({ opening: e.target.value }), rows: 2, placeholder: "例如：门被推开的那一刻。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
-        h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, "分不清写哪一栏就问：这句话三天之后还成立吗？成立（他是 17 岁）写上面，不成立（门刚被推开）写下面。把一个瞬间写进上面那一栏，他会被每轮按回那一刻，怎么聊都走不出去。两栏都留空就是普通的不带出门；写下另一段年龄、处境或关系，保存后会显示为长篇如果。")),
+        h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, characterText(character, "分不清写哪一栏就问：这句话三天之后还成立吗？成立（他是 17 岁）写上面，不成立（门刚被推开）写下面。把一个瞬间写进上面那一栏，他会被每轮按回那一刻，怎么聊都走不出去。两栏都留空就是普通的不带出门；写下另一段年龄、处境或关系，保存后会显示为长篇如果。"))),
       h("div", { style: { marginTop: 11 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "进门时，先放哪段聊天"),
         h("div", { className: "grid grid-cols-3", style: { gap: 6, marginTop: 7 } }, [
@@ -14509,7 +14509,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
             opacity: mode !== "blank" && !startChoices.length ? .4 : 1, fontFamily: F_BODY, fontSize: 10.5 } }, label))),
         h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.55 } },
           startMode === "blank" ? "房里不放旧消息，从第一句重新开始。" : startMode === "recent"
-            ? "带入当前房间已载入的最近 20 条聊天；他还记得哪些主线经历，由这间房自己的开关决定。"
+            ? characterText(character, "带入当前房间已载入的最近 20 条聊天；他还记得哪些主线经历，由这间房自己的开关决定。")
             : "选中的这句和它之前已载入的聊天会成为新房开场；这句之后的内容不带入。"),
         startMode === "until" && h("div", { style: { maxHeight: 190, overflowY: "auto", marginTop: 8, border: "1px solid " + t.line, borderRadius: 11 } },
           startChoices.map(({ m, index, text }) => h("button", { key: (m.id || "m") + "_" + index, onClick: () => setStartIndex(index),
@@ -14519,7 +14519,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
         h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
         h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
-    h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, "他带什么进门、这儿的事出不出门，都能在聊天设置的「几间房」里逐条改。"));
+    h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, characterText(character, "他带什么进门、这儿的事出不出门，都能在聊天设置的「几间房」里逐条改。")));
   const editor = h("div", { style: { minWidth: 0 } },
     h("div", { className: "flex items-center justify-between" }, h("div", null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, draft.name),
@@ -14528,30 +14528,30 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), disabled: draft.main, placeholder: "给房间起个名字", style: { width: "100%", marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 16, outline: "none", opacity: draft.main ? .65 : 1 } }),
     // ⚠️v66.80 拆成两栏（她 2026-09-11 报「困在一个 state 出不来」）。
     //   病根是一栏当了两样东西用：【底子】每轮重发是对的，可她写进去的是【一个瞬间】，
-    //   于是每一轮在他开口之前把他按回门被推开的那一刻，戏永远走不出第一拍。
+    //   于是每一轮在TA开口之前把TA按回门被推开的那一刻，戏永远走不出第一拍。
     //   界面上必须把判据说出来，不然她照样会把瞬间写进上面那一栏。
     !draft.main && h("div", { style: { marginTop: 10, padding: "12px", borderRadius: 14, border: "1px solid #c99aa5", background: "rgba(201,154,165,.11)" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#9b5f6d" } }, "这间房的底子"),
       h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55 } },
-        "三天之后还成立的那些：他多大、你们什么身份、这儿的规矩。每一轮都会提醒 TA。"),
-      h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 5, placeholder: "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "10px 11px", borderRadius: 11, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, outline: "none" } }),
+        characterText(character, "三天之后还成立的那些：他多大、你们什么身份、这儿的规矩。每一轮都会提醒 TA。")),
+      h("textarea", { value: draft.scenario || "", onChange: e => patch({ scenario: e.target.value }), rows: 5, placeholder: characterText(character, "例如：在这条支线里，他是 17 岁，还没有经历后来的人生，也还不认识现在的你。"), style: { width: "100%", marginTop: 8, resize: "vertical", padding: "10px 11px", borderRadius: 11, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, outline: "none" } }),
       h("div", { style: { marginTop: 12, fontFamily: F_DISPLAY, fontSize: 15, color: "#9b5f6d" } }, "开场那一刻"),
       h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55 } },
         "只在第一轮发，之后它就是「已经发生过的事」——所以这场戏走得出去，不会一直停在那一刻。"),
       h("textarea", { value: draft.opening || "", onChange: e => patch({ opening: e.target.value }), rows: 3, placeholder: "例如：门被推开的那一刻。", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "10px 11px", borderRadius: 11, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, outline: "none" } }),
       h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.6 } },
         "⚠️分不清写哪一栏？问一句：这句话三天之后还成立吗？",
-        h("br"), "成立（他是 17 岁）→ 上面。不成立（门刚被推开）→ 下面。",
-        h("br"), "把一个瞬间写进上面那一栏，他会被每一轮按回那一刻，怎么聊都走不出去。"),
-      h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: (draft.scenario || draft.opening) ? "#9b5f6d" : t.fog, lineHeight: 1.55 } }, (draft.scenario || draft.opening) ? "下面他带什么进门、这儿的事出不出门都能任意混搭，没打开的那几条仍然隔着。" : "两栏都留空时是普通房间；写下底子后自动变成长篇如果支线。")),
+        h("br"), characterText(character, "成立（他是 17 岁）→ 上面。不成立（门刚被推开）→ 下面。"),
+        h("br"), characterText(character, "把一个瞬间写进上面那一栏，他会被每一轮按回那一刻，怎么聊都走不出去。")),
+      h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: (draft.scenario || draft.opening) ? "#9b5f6d" : t.fog, lineHeight: 1.55 } }, (draft.scenario || draft.opening) ? characterText(character, "下面他带什么进门、这儿的事出不出门都能任意混搭，没打开的那几条仍然隔着。") : "两栏都留空时是普通房间；写下底子后自动变成长篇如果支线。")),
     !draft.main && h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "这间房想慢慢继续什么？", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
     !draft.main && h("div", { style: { marginTop: 14 } },
       h(Eyebrow, null, "隔多久回主聊天看一眼"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
-    group("cognition", "他进这扇门时带着什么", "他在这间房里，记得起你们的哪些事。"),
-    !draft.main && group("actions", "他在这间房能张罗什么", "只管这一间：他可以自然开口提议哪些事。"),
+    group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
+    !draft.main && group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
     group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
-    !draft.main && (draft.scenario || draft.opening) && h("div", { style: { marginTop: 16, padding: "11px 12px", borderRadius: 12, border: "1px dashed #c99aa5", fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.6 } }, "长篇如果只负责把底子压在最后，不替你锁门。默认什么都不带进来；你在上面开了哪一条，他就只带那一条进来。"),
+    !draft.main && (draft.scenario || draft.opening) && h("div", { style: { marginTop: 16, padding: "11px 12px", borderRadius: 12, border: "1px dashed #c99aa5", fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.6 } }, characterText(character, "长篇如果只负责把底子压在最后，不替你锁门。默认什么都不带进来；你在上面开了哪一条，他就只带那一条进来。")),
     // 看不见就不许改：认知里关了「关系与内在状态」时，这间房读不到旧心情、读不到印象卡原文。
     // 心情要拿上一轮当起点，印象卡是【整块重写】——凭空覆盖等于抹掉。闸在代码里（ChatRooms.canWrite），
     // 这里只是把原因说清楚，别让她以为开关坏了。
@@ -14638,7 +14638,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const content = h("div", null,
     !embedded && h("div", { style: { marginBottom: 8 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "几间房"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "同一个人，走进哪扇门，他就是那间房里的他")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, characterText(character, "同一个人，走进哪扇门，他就是那间房里的他"))),
     hallway,
     h("div", { style: { position: "relative", zIndex: 1, marginTop: -1, padding: "13px 12px 4px", borderRadius: "0 14px 14px 14px", border: "1px solid " + t.ink, background: t.bg } },
       // 进门先给一句话状态，别一上来就是十个开关。
@@ -14706,7 +14706,7 @@ function ChatSettings({
   const [actDesc, setActDesc] = useState(!!settings.actDesc);
   // 动描那一行用第几人称（她 2026-09-12 选的「就设置开关可以改」）
   const [actPerson, setActPerson] = useState(settings.actPerson === "ta" ? "ta" : "me");
-  // 他那一行里【你】叫什么（她 2026-09-12：「哦是因为他卡里写的她，给她也做个开关吧」）
+  // TA那一行里【你】叫什么（她 2026-09-12：「哦是因为TA卡里写的她，给她也做个开关吧」）
   const [userPerson, setUserPerson] = useState(settings.userPerson === "ta" ? "ta" : "you");
   const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
@@ -14749,7 +14749,7 @@ function ChatSettings({
     const Gate = typeof window !== "undefined" && window.InnerLifePromotionGate;
     const gateOf = name => Gate && Gate.state ? Gate.state(name, character.id) : { mode: "shadow", emergencyOff: false };
     const aGate = gateOf("A"), eGate = gateOf("E");
-    // 这个角色排没排作息：排了，「作息」那一层才对他生效
+    // 这个角色排没排作息：排了，「作息」那一层才对TA生效
     const _hasSchedule = (() => {
       try { const p = (loadJSON("x_schedules", {}) || {})[character.id] || {};
         return Object.keys(p).some(k => (((p[k] || {}).seqs) || []).some(q => String(q && q.type).toLowerCase() === "sleep")); } catch (e) { return false; }
@@ -14775,7 +14775,7 @@ function ChatSettings({
       text: "决定 " + cNm + " 什么时候会自己来找你。攒够了才开口——所以不会天天定点问候，也不会一天到晚不出声。进度就在下面那根条。"
     });
     // 作息（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）。
-    // ⚠️只在【这个角色真排了作息】时才列出来——没排的人这一层对他不生效，
+    // ⚠️只在【这个角色真排了作息】时才列出来——没排的人这一层对TA不生效，
     //   列出来就是骗人（她自己也会照着这一行去判断某个人有没有生效）。
     if (_hasSchedule) live.push({
       key: "sleep", title: "作息", tone: "会困",
@@ -14784,7 +14784,7 @@ function ChatSettings({
     if (aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot) shadow.push("你俩之间的疙瘩：只是记着，不会自己制造矛盾");
     // ⚠️v64.66 起【作息真的在管事了】（睡着时的语气 + 不主动来找你），所以它从
     //   「仍在观察」挪进了上面的「正在影响」。没排作息的角色两边都不列——
-    //   对他确实什么都没发生。
+    //   对TA确实什么都没发生。
     return { live, shadow };
   })();
   // 别的场里的思念（v62.12）：一场一行，越想的排越前；没有别的场就整段不出现。
@@ -14863,10 +14863,10 @@ function ChatSettings({
   // 现在按【她来找什么】切，标题就写成她脑子里那句话：
   //   TA 是什么脾气 / TA 会主动做什么 / TA 知道什么 / 这个聊天窗 / 哪个房间 / 哪条线路 / 拉黑与清空
   // 挪动的三处，理由写在这儿免得下一个人又挪回去：
-  //   · 时间感知 → TA 知道什么（它答的是「他知不知道今天几号」，不是相处）
+  //   · 时间感知 → TA 知道什么（它答的是「TA知不知道今天几号」，不是相处）
   //   · 默认进线下 → 这个聊天窗（它答的是「点进来先看到哪一屏」，不是相处）
-  //   · 能上网／驻场眼睛 → TA 会主动做什么（那是他的能力，跟走哪条 API 线不是一回事）
-  //   · 上下文诊断 → 并进 TA 知道什么（她去查的正是「他到底记得什么、发了什么进去」）
+  //   · 能上网／驻场眼睛 → TA 会主动做什么（那是TA的能力，跟走哪条 API 线不是一回事）
+  //   · 上下文诊断 → 并进 TA 知道什么（她去查的正是「TA到底记得什么、发了什么进去」）
   //
   // ⚠️牌面上那个字不是装饰：七类原来有两个共用 ⌁，一眼分不出谁是谁。
   //   汉字索引牌一类一个字，撞不了车，也不用记哪个几何符号代表什么。
@@ -14910,7 +14910,7 @@ function ChatSettings({
   //   **拉开哪一格，整页就是那一格自己的颜色**（tint 直接取 settingPages 里那一份，
   //   不另存一份色表；一层写在两处，第二处必然落单）。
   // 于是不看标题也知道自己拉开的是哪个抽屉：动是暖金、记是苔绿、清是砖红。
-  // 判据过了没有：这一页原样搬到别的 app 里还成立吗？——不成立，别处没有「他」。
+  // 判据过了没有：这一页原样搬到别的 app 里还成立吗？——不成立，别处没有「TA」。
   const curPage = settingsTab ? settingPages.find(x => x.key === settingsTab) : null;
   const curTint = (curPage && curPage.tint) || t.accent;
   // ⚠️让颜色读得出来，靠的是【掺进底色】，不是把 strength 调大——
@@ -14977,8 +14977,8 @@ function ChatSettings({
     !settingsTab && h("div", { style: { marginTop: 6 } },
     // ⚠️原来是两列 142px 的大卡：七张要滚两屏才看得全，「难找」有一半是这么来的
     //   ——一眼扫不完的东西，不管怎么分类都难找。改成一列窄行，一屏放得下。
-    // 每一行右边写着【现在是什么状态】：这一页答的问题是「他现在是怎么设的」，
-    //   写出来就不用点进去看。别的 app 的设置目录不会长这样，因为别处没有「他」。
+    // 每一行右边写着【现在是什么状态】：这一页答的问题是「TA现在是怎么设的」，
+    //   写出来就不用点进去看。别的 app 的设置目录不会长这样，因为别处没有「TA」。
     h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, settingPages.map(page => h("button", {
       key: page.key,
       onClick: () => openTab(page.key),
@@ -15005,7 +15005,7 @@ function ChatSettings({
     onSummarize: onSummarizeRoom,
     onClose: () => setSettingsTab("")
   }),
-  // 上下文诊断并进【TA 知道什么】（v61.79）：她去查它，问的正是「他到底记得什么、
+  // 上下文诊断并进【TA 知道什么】（v61.79）：她去查它，问的正是「TA到底记得什么、
   // 这一轮发进去的是什么」——那就是这一类。原来它自己占一格，还跟「线路」共用图标。
   settingsTab === "know" && renderContextDebug
     ? h(SettingSection, { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
@@ -15092,7 +15092,7 @@ function ChatSettings({
           const m = raw.split("；此刻偏离：");
           const base = m[0].replace(/^底色：/, ""), off = m[1] || "";
           return h(React.Fragment, null,
-            h("span", { style: { color: t.fog } }, "他本来就是："), base,
+            h("span", { style: { color: t.fog } }, characterText(character, "他本来就是：")), base,
             off ? h("span", { style: { display: "block", marginTop: 3 } }, h("span", { style: { color: t.fog } }, "这两天多了点："), off) : null);
         })()),
       h("button", { onClick: () => setTemperNumsOpen(v => !v), className: "active:opacity-60",
@@ -15310,22 +15310,22 @@ function ChatSettings({
       //   意思是：只改【显示】，状态卡里存的那一格照旧第一人称；她自己写的旁白一个字不动。
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "TA 那一行里，TA 自己叫什么")),
     h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
-      [["me", "我"], ["ta", "他"]].map(function (o) {
+      [["me", "我"], ["ta", characterText(character, "他")]].map(function (o) {
         const on = actPerson === o[0];
         return h("button", { key: o[0], onClick: function () { setActPerson(o[0]); }, className: "active:opacity-60",
           style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none",
             background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
       }))) : null,
-  // ⚠️第二个旋钮（她 2026-09-12：「哦是因为他卡里写的她，给她也做个开关吧」）。
-  //   他卡里要是把她写成第三人称，那一行就是「我把伞递给她」——
-  //   第一个旋钮一开更明显：「他把伞递给她」，她就从「你」变成了「她」。
-  //   这跟「他自己叫什么」是两件事，所以是两个开关。
+  // ⚠️第二个旋钮（她 2026-09-12：「哦是因为TA卡里写的她，给她也做个开关吧」）。
+  //   TA卡里要是把她写成第三人称，那一行就是「我把伞递给她」——
+  //   第一个旋钮一开更明显：「TA把伞递给她」，她就从「你」变成了「她」。
+  //   这跟「TA自己叫什么」是两件事，所以是两个开关。
   actDesc ? h("div", { className: "flex items-center justify-between pt-4" },
     h("div", { style: { paddingRight: 12 } },
       // ⚠️灰字同上删掉。这一格是【两个确定的方向】，不是「照卡来」——
       //   她 2026-09-12：「应该是你/她，因为卡有时候也会写你」。卡里时而写你时而写她，
       //   「照卡来」等于没选。选「你」：她/她的名字 → 你；选「她」：你 → 她。
-      //   ⚠️只认「她」和她的名字；卡里写成「他」或「TA」抓不到，她报了再说。
+      //   ⚠️只认「她」和她的名字；卡里写成「TA」或「TA」抓不到，她报了再说。
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "TA 那一行里，你叫什么")),
     h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
       [["you", "你"], ["ta", "她"]].map(function (o) {

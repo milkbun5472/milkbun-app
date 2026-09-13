@@ -40,7 +40,7 @@ test("字段说明本地也补一句：action 有人称硬规则，thought 不�
   // action 那条一直都在，thought 这条是新补的对称规则
   // v67.26：action 那条人称硬规则搬进了 engine.js 的 ACT_MEANING（单聊群聊共用一份）
   assert.match(fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8"),
-    /必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述/, "action 的人称规则还在");
+    /必须用第一人称「我」写，禁止用角色名或「TA／她／TA」从旁描述/, "action 的人称规则还在");
   // ⚠️v67.49 起心声那一段抠成了 engine.js 的公共 THOUGHT_MEANING（线上线下共用一份），
   //   app.js 那头只剩一个 ${THOUGHT_MEANING}。所以这条要对着【拼起来的那一份】验。
   assert.match(app + engine, /心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）/);

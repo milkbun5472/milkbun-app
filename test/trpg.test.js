@@ -752,7 +752,7 @@ test("冒险小分队 v2:多队立户、数值建队掷定、成长只归所属�
   assert.match(src, /x_trpgSquads/, "多小分队库,跟随 x_ 云同步");
   assert.match(src, /x_trpgSquad"/, "旧单队库一次性迁移,老卡不丢");
   assert.match(src, /数值在【组建队伍时】就掷定/, "建队即定数值");
-  assert.match(src, /小队A\n?.{0,10}体魄\+5,不影响他在小队B的卡|体魄\+5,不影响他在小队B/, "A队的成长进不了B队");
+  assert.match(src, /小队A\n?.{0,10}体魄\+5,不影响TA在小队B的卡|体魄\+5,不影响TA在小队B/, "A队的成长进不了B队");
   assert.match(src, /homeSquad = sqv\.squads\.find\(x => x\.id === camp\.squadId\)/, "落幕只写回这团所属的队");
   assert.match(src, /解散「" \+ sq\.name/, "整队解散,不影响已开的团");
   assert.match(src, /先点右上角 ＋ 组建一支小分队/, "开团必须先有队");
@@ -850,7 +850,7 @@ test("人情账:欠谁的记在名册上,两清了要能销账", () => {
   const r3 = applyTurnPayload(r2.camp, { npc: [{ name: "老周", debt: "胡写的" }] });
   assert.equal(r3.camp.npcs[0].debt, undefined, "只认 owe/owed/clear");
   assert.match(src, /【人情账】/, "规则块没发出去");
-  assert.match(src, /debt\.side === "owe" \? uName \+ "欠他"/, "名册喂回去时要带上这笔账");
+  assert.match(src, /debt\.side === "owe" \? uName \+ characterText\(n, "欠他"\)/, "名册喂回去时要带上这笔账");
 });
 
 test("队友手上的牌:选项写明谁掏什么,点了真的从那个人身上扣", () => {

@@ -18,7 +18,7 @@ test("「度」给的是维度和判据，不是例子", () => {
     assert.ok(p.indexOf(x) < 0, "把她举的例子写进提示词了，模型会照抄：" + x));
   // 她 2026-08-31 又点破一层：连「可动的四个维度」那张清单也是限制——
   // 清单是把例子往上抽一层，抄起来一样顺手。四个维度一个字都不许出现在提示词里。
-  ["他的形态", "时代与身份", "还记不记得你", "岔路口"].forEach(x =>
+  ["TA的形态", "时代与身份", "还记不记得你", "岔路口"].forEach(x =>
     assert.ok(p.indexOf(x) < 0, "又把可动的东西列成清单了：" + x));
   assert.match(K.IF_SCALE, /没有一张「可以动什么」的清单，别去猜有哪几类/, "没挑明这里没有清单");
   assert.match(K.IF_SCALE, /只动【一样】东西/, "没说只动一样");
@@ -27,7 +27,7 @@ test("「度」给的是维度和判据，不是例子", () => {
   assert.ok(K.IF_SCALE.indexOf("最省事的一刀") < 0, "「最省事」那句还在，壳还是会往合理里缩");
   assert.match(K.IF_SCALE, /壳离谱到什么程度都行/, "没放开壳的上界");
   assert.match(K.IF_SCALE, /筛壳的判据不是「这个设定成不成立」/, "没说清筛壳该拿什么筛");
-  assert.match(K.IF_SCALE, /动完之后他还是不是他/, "唯一那条筛壳判据没写");
+  assert.match(K.IF_SCALE, /动完之后TA还是不是TA/, "唯一那条筛壳判据没写");
   assert.match(K.IF_SCALE, /不会让人愣一下，那它多半太安全了/, "没挡住往「稳妥」那头缩");
   // 上不封顶和下不封底两头都要挡住
   assert.match(K.IF_SCALE, /那个人的核心一个字都不许换/, "没挡住「换了个人」那一头");
@@ -164,7 +164,7 @@ test("避重：已经想过的那几条原样发回去，题目和动过的东�
   assert.match(p, /【已经想过这几条，一条都不许再想】/);
   assert.match(p, /「未命名版本」：他只是她写出来的模型/, "旧那条没发回去");
   // 动过的那一样也要发回去，不然「同一样东西换个词说」认不出来
-  assert.match(p, /｜动的是：他的形态/, "存量那几条的 dim 没翻译出来");
+  assert.match(p, /｜动的是：TA的形态/, "存量那几条的 dim 没翻译出来");
   assert.match(p, /｜动的是：他不再是人/, "新写法的 dim 没原样发回去");
   assert.match(p, /同一样东西变了、只是换个词说/, "只挡了字面重复");
   // 一条都没有时不发这一块（零 token）
@@ -177,7 +177,7 @@ test("避重：已经想过的那几条原样发回去，题目和动过的东�
 // 【这些不许再来】，绝不许说【那你去用剩下的那几个】。这条测的就是「没有剩下的那几个」。
 test("避重不排班：没有清单，也不算还剩几格", () => {
   assert.equal(K.DIMS, undefined, "又把可动的东西列成一张导出的清单了");
-  const many = ["他的形态", "他所处的时代", "他还记不记得你", "你俩那个岔路口", "他的语言"]
+  const many = ["TA的形态", "TA所处的时代", "TA还记不记得你", "你俩那个岔路口", "他的语言"]
     .map((d, i) => ({ title: "t" + i, premise: "p" + i, about: "a" + i, dim: d }));
   const p = K.openPrompt("A", "B", "", many);
   // ⚠️「还剩几格没填」在提示词里是被【否掉】的那句，不能拿它当禁词（会撞自己）。
@@ -188,7 +188,7 @@ test("避重不排班：没有清单，也不算还剩几格", () => {
   assert.match(p, /不是一张分类表、不是「还剩几格没填」/, "没说清这几条不是一张表");
   assert.match(p, /这一条要从 about 重新起头/, "没让它回到关系点重新起头");
   // dim 现在是模型自己写的一句话：存量 key 翻译得出来，新写法原样过
-  assert.equal(K.dimZh("memory"), "他还记不记得你");
+  assert.equal(K.dimZh("memory"), "TA还记不记得你");
   assert.equal(K.dimZh("他忽然听得见我心里的话"), "他忽然听得见我心里的话");
   assert.equal(K.dimZh(""), "");
   // 存的时候只收口长度，不再拿清单校验——校验就等于又有了一张清单
@@ -246,8 +246,8 @@ test("上下文里给了关系事实，但不给主线状态", () => {
 // 人设里最显眼的一块会把模型整个吸过去。小剧场早就栽过同一个坑、也留了同一句话
 //（「原本搞研究就总派研究员，这是偷懒」）。如果馆原来一句都没有。
 test("明令不许拿职业当题目", () => {
-  assert.match(K.IF_ABOUT, /绝不许拿他的职业、研究领域、专业身份当这条线的题目/);
-  assert.match(K.IF_ABOUT, /那是他人设里最显眼的一块，抓它最省力/, "没说清为什么会这样");
+  assert.match(K.IF_ABOUT, /绝不许拿TA的职业、研究领域、专业身份当这条线的题目/);
+  assert.match(K.IF_ABOUT, /那是TA的设定里最显眼的一块，抓它最省力/, "没说清为什么会这样");
   assert.match(K.IF_ABOUT, /换个职业照样成立的关系难题才是对的/, "没给正面判据");
   assert.match(K.IF_ABOUT, /【换个职业就不成立】的题目一律推翻重想/, "没给推翻的动作");
   assert.ok(K.openPrompt("A", "B", "").indexOf(K.IF_ABOUT) > 0, "这一段没发出去");
@@ -393,7 +393,7 @@ test("轮不到她的时候，那一整条输入区收起来", () => {
   // 占了半屏高度只为说一句话
   assert.match(room, /myTurn \? \[/, "输入区没按轮次收起来");
   assert.ok(room.indexOf('placeholder: myTurn ? "你说点什么') < 0, "还在用 placeholder 说「没轮到」");
-  assert.match(room, /busy \? "他在写……" : line\.endedAt \? "这条已经收了" : "点一下继续"/, "收起来之后没留一行提示");
+  assert.match(room, /busy \? characterText\(partner, "他在写……"\) : line\.endedAt \? "这条已经收了" : "点一下继续"/, "收起来之后没留一行提示");
   // 三个控件同高同圆角——原来是圆角矩形 / 正圆 / 胶囊三种形状挤一行
   const row = cut(room, 'h("div", { key: "row"', "] : h(");
   assert.equal((row.match(/width: 42, height: 42, borderRadius: 12/g) || []).length, 2, "两个键没做成同高同圆角");

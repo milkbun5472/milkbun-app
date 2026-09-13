@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 四层手机数据模型
 //
 //   🔒 硬钉死 PHONE_STICKY —— 号码、账号 id、过敏和真忌口。变了就等于换了个人。

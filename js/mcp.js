@@ -110,7 +110,7 @@
     return out;
   }
 
-  // 调一件工具。失败【不抛】——把错误当成工具的返回喂回给模型，让他自己说
+  // 调一件工具。失败【不抛】——把错误当成工具的返回喂回给模型，让TA自己说
   // 「查不到」，而不是整轮对话炸掉。她按次计费，一轮炸掉就是白扣一次。
   async function callTool(full, args) {
     const { sid, name } = unqualify(full);

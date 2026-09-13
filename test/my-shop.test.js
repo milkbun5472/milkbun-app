@@ -56,7 +56,7 @@ test("商品点得进去了——以前只有那颗加购钮能点", () => {
   assert.ok(i > 0, "找不到详情");
   const seg = screens.slice(i, screens.indexOf("\n  })() : null;", i));
   assert.match(seg, /钱包里还有 ¥/, "详情要告诉她买不买得起");
-  assert.match(seg, /这件买不起，可以让他代付或用亲属卡/);
+  assert.match(seg, /这件买不起，可以让TA代付或用亲属卡/);
   assert.match(seg, /"加入购物车"/);
   assert.match(seg, /"去结算"/);
 });
@@ -115,7 +115,7 @@ test("想要清单进四处的上下文，且不是「快去给她买」", () =>
   assert.match(app, /!settingsFor\(char\.id\)\.engineerEyes && \(wishRef/);
   assert.match(engine, /!ctx\.notRoleplay && ctx\.wishLog/);
   // ⚠️这一段最容易被读成「快去给她买」——那样他就成了自动贩卖机
-  const seg = engine.slice(engine.indexOf('parts.push("【" + uName + " 最近看上但没买的东西】'), engine.indexOf("// 随身物：他身上真带着的东西"));
+  const seg = engine.slice(engine.indexOf('parts.push("【" + uName + " 最近看上但没买的东西】'), engine.indexOf("// 随身物：TA身上真带着的东西"));
   assert.match(seg, /\*\*记得\*\* 比 \*\*送\*\* 重要得多/);
   assert.match(seg, /绝不是每轮都该送/);
   assert.match(seg, /不许把这张单子念给她听/);

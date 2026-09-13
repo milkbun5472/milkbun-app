@@ -19,7 +19,7 @@ test("分栏不再是一份通用电商品类词典", () => {
     assert.ok(zh.indexOf(k) < 0, "还留着通用品类词：" + k));
   assert.ok(zh.indexOf("情趣") >= 0, "情趣她说留着");
   // 别的购物 app 不可能有的那一栏
-  assert.ok(cats.indexOf('key: "forhim"') > 0 && zh.indexOf("给他买") >= 0);
+  assert.ok(cats.indexOf('key: "forhim"') > 0 && zh.indexOf("给TA买") >= 0);
   // ⚠️key 不许改：商品和订单上存着 cat
   ["recommend", "fashion", "beauty", "digital", "furniture", "adult"].forEach(k =>
     assert.ok(cats.indexOf('key: "' + k + '"') > 0, "key 被改了，老数据认不回来：" + k));

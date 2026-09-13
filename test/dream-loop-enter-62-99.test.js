@@ -23,7 +23,7 @@ test("两扇门：解梦馆那栏有「推门进这场梦」，梦境落地页�
   assert.match(journal, /props\.onEnterDream\(d\)/, "解梦馆没有那扇门");
   assert.match(journal, /"推门进这场梦"/);
   assert.match(journal, /你进去过这场梦：/, "进去过的没标出来");
-  assert.match(dream, /"他昨晚真做的梦 · 还没进过"/);
+  assert.match(dream, /"TA昨晚真做的梦 · 还没进过"/);
   assert.match(dream, /r\.status === "queued" \|\| r\.status === "generated"/, "无梦之夜也给门了？");
   assert.match(dream, /!enteredKeys\.has\(r\.key\) && !\(r\.entered && r\.entered\.outcome\)/, "进过的还列着");
   // App 那根线：解梦馆 → 梦境 带 key；Dream 用完就清

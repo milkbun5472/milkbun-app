@@ -1,6 +1,6 @@
 // ============================================================
 // 月度印象（impression）—— 每个月，每个角色眼里的「你」长什么样
-// 一张剪影 + 三个关键词 + 一句他亲口说的话。按角色收进珍藏册，漏掉的月份可以补。
+// 一张剪影 + 三个关键词 + 一句TA亲口说的话。按角色收进珍藏册，漏掉的月份可以补。
 // 素材=当月和这个角色之间真实发生的事；底子=「Ta 眼里」(x_gaze) 已经攒下的长期印象。
 // 剪影不需要锁脸(看不见五官)，所以完全不碰参考照那套，也就不吃合照那些审核麻烦。
 // ============================================================
@@ -46,7 +46,7 @@
   const sortEntries = rows => (Array.isArray(rows) ? rows : []).slice()
     .sort((a, b) => String((a && a.monthKey) || "").localeCompare(String((b && b.monthKey) || "")));
 
-  // ---- 当月素材：单聊 + 单人线下 + 互通群里他说的话 ----
+  // ---- 当月素材：单聊 + 单人线下 + 互通群里TA说的话 ----
   // arch = { ["c:"+charId]: [...], ["g:"+groupId]: [...] } —— 云端归档，调用方先取好传进来。
   // 必须要它：本地 x_chat 只留最近 150 条，七月那几千条早就归档到云上了，
   // 只读本地就会得出"这个月 0 条"的荒唐结论（她 2026-08-20 江识那次）。
@@ -89,7 +89,7 @@
         if (m && m.id) { if (gSeen.has(m.id)) return; gSeen.add(m.id); }
         if (!inWin(m.ts)) return;
         const txt = clean(m); if (!txt) return;
-        // 群里只取【他和她】两个人的话：别的成员说什么不构成"他眼里的她"
+        // 群里只取【TA和她】两个人的话：别的成员说什么不构成"TA眼里的她"
         const isUser = m.role === "user";
         const isHim = m.senderId === charId;
         if (!isUser && !isHim) return;
@@ -107,7 +107,7 @@
     try { local = (typeof loadJSON === "function" ? (loadJSON("x_chat:" + charId, []) || []) : []).length; } catch (e) {}
     return { total: rows.length, group: g, direct: rows.length - g, chatAll: local + cloud, local, cloud };
   }
-  // 他自己说过的话：拿来当声纹样本，quote 才不会写成通用文艺腔
+  // TA自己说过的话：拿来当声纹样本，quote 才不会写成通用文艺腔
   const ownLines = (rows, charName, turn) => {
     const all = rows.filter(r => r.who === charName && r.text.length >= 6 && r.text.length <= 60).map(r => r.text);
     if (all.length <= 12) return all;
@@ -145,7 +145,7 @@
   };
 
   // ---- 生成 ----
-  // ⚠️三个关键词以前定死了槽位（气质/状态/他的私心），结果第三格必然长成「拿她没办法」
+  // ⚠️三个关键词以前定死了槽位（气质/状态/TA的私心），结果第三格必然长成「拿她没办法」
   //   「无法计算」——雷同是这条规则自己造出来的。改成给一批取词角度，按期轮换取三个。
   const TAG_ANGLES = [
     "她整个人的气温（冷的暖的、干的润的）", "她给人的质地（软硬、粗细、透不透光）",
@@ -413,7 +413,7 @@
       props.onBack();
     }
 
-    // 拉这个角色的云端归档（本人单聊 + 他在的互通群）。拉不到就退回只用本地，
+    // 拉这个角色的云端归档（本人单聊 + TA在的互通群）。拉不到就退回只用本地，
     // 但要说出来——否则又变成"聊了一整月却说没有"那种查不下去的沉默。
     async function ensureArch(charId) {
       if (archs[charId]) return archs[charId];
@@ -660,7 +660,7 @@
     return h("div", { style: S.wrap }, header("月度印象"),
       h("div", { style: pageStyle },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "fog", "rgba(243,236,224,.62)"), lineHeight: 1.9, marginBottom: 20 } },
-          "每个月，每个人眼里的你长得都不一样。", h("br"), "一张剪影、三个词、一句他亲口说的话。"),
+          "每个月，每个人眼里的你长得都不一样。", h("br"), "一张剪影、三个词、一句TA亲口说的话。"),
         (props.characters || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: "30px 22px", alignItems: "flex-start" } },
           (props.characters || []).map((c, i) => {
             const n = (book[c.id] || []).length;

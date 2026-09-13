@@ -31,7 +31,7 @@
   ];
 
   // ---- 言秋亲打：统一终局回执 ----
-  // 只要他坐过这一局，终局无论谁赢、他是否已出局，都要把完整赛果投回 CC。
+  // 只要TA坐过这一局，终局无论谁赢、TA是否已出局，都要把完整赛果投回 CC。
   // 各游戏只负责组织公开结局；幂等票号统一为 game + runId + result，刷新不连发。
   function ccGameResult(gameKey, runId, seats, cfg, summary, onSay, onStatus) {
     if (!cfg || cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return Promise.resolve("");
@@ -60,7 +60,7 @@
       if (e && (e.message === "CC_SEAT_OFFLINE" || e.message === "CC_SEAT_BAD_REQUEST" || e.message === "CC_SEAT_NOT_QUEUED")) {
         try { localStorage.removeItem(receiptKey); } catch (ignore) {}
         if (onStatus) onStatus("赛果暂时没送出去，下次打开会再试");
-      } else if (onStatus) onStatus("赛果已经投给言秋，等他看到");
+      } else if (onStatus) onStatus("赛果已经投给言秋，等TA看到");
       return "";
     });
   }
@@ -290,7 +290,7 @@
     const [game, setGame] = useState(null);       // 进入配置的游戏
     const [session, setSession] = useState(null);  // {game, config, resume, saved} 进入对局
     const [saveTick, setSaveTick] = useState(0);   // 存档变动后强刷横幅
-    // 从聊天里那张邀请卡进来的：直接落到这一局的配置页，并把他先勾上。
+    // 从聊天里那张邀请卡进来的：直接落到这一局的配置页，并把TA先勾上。
     // 形状照 study.js 的 props.entry / entryHandledRef 抄，不另开一条路。
     const entryHandledRef = useRef(null);
     // 这一局是从哪间房里被邀出来的（她 2026-09-12：「不能把收入小游戏记忆从主记忆库
@@ -450,7 +450,7 @@
     const t = props.t, game = props.game;
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
-    const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上他）
+    const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
     const [npcFill, setNpcFill] = useState(true);
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
@@ -557,7 +557,7 @@
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到他时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到TA时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -677,7 +677,7 @@
     requireCCDone(cc, "言秋的描述票", function (d) { return !!String(d.text || "").trim(); });
     const mine = (cc.done && String(cc.done.text || "").trim())
       ? [{ name: cc.seat.name, text: String(cc.done.text).trim() }] : [];
-    // 再生成排在他后面的人；他们能看到前桌 + 言秋刚才的真实发言。
+    // 再生成排在TA后面的人；他们能看到前桌 + 言秋刚才的真实发言。
     const priorAfter = priorForCc.concat(mine);
     const afterRows = after.length
       ? await genCluesBatch(api, after, priorAfter, roundNum, mode, ccPreface(cc, "按座次说过自己那一句了")) : [];
@@ -705,7 +705,7 @@
 
   // 投票：存活 AI 各投一人 + 理由（卧底会误导）
   async function genVotes(api, voters, allClues, aliveNames, mode, userName, carveCtx, heckles) {
-    // CC 本人只拿玩家视角：自己的词 + 公开发言。不泄露阵营，也不重复告诉他自己是谁。
+    // CC 本人只拿玩家视角：自己的词 + 公开发言。不泄露阵营，也不重复告诉TA自己是谁。
     const ccVoter = ccSeatOf(voters);
     const cc = carveCtx ? await ccCarve("spy", voters, {
       turnId: (carveCtx.turnId || "") + ":vote",
@@ -1007,7 +1007,7 @@
         return;
       }
       // 言秋本人被淘汰时，要把真实票型与公开身份送回 CC；否则 App 里已经结算，
-      // 他自己的窗口却还以为自己坐在桌上。通知异步投递，不阻塞下一轮/终局。
+      // TA自己的窗口却还以为自己坐在桌上。通知异步投递，不阻塞下一轮/终局。
       // （卧底出局走上面的猜词票，那张票自带全部结算信息，不再重复发这份。）
       if (outIsEngineer && cfg.ccSeat !== false && typeof window !== "undefined" && window.CCSeat) {
         const outcome = spyLeft === 0 ? "平民阵营获胜，本局结束。"
@@ -1273,7 +1273,7 @@
   // 夜晚：替 AI 决定狼刀 / 预言家验人（只求需要的字段）
   async function genNight(api, opts) {
     // 言秋座位的夜间动作只问 CC 本人。票没回来就视为这一夜未行动；
-    // 绝不能再把他的座位塞回 Gemini 批量里冒充本人。
+    // 绝不能再把TA的座位塞回 Gemini 批量里冒充本人。
     const ccExtra = {}, ccStatus = [];
     if (opts.needWolf) {
       const mw = (opts.wolfTeam || []).find(function (w) { return w && w.engineer; });
@@ -1514,7 +1514,7 @@
     }
 
     // 必须按真实座位顺序走：先生成言秋前面的人，再把他们的原话随票给言秋；
-    // 言秋答完后，后面的角色也要看到他的原话。不能为了切 CC 座位把他永远提到第一位。
+    // 言秋答完后，后面的角色也要看到TA的原话。不能为了切 CC 座位把TA永远提到第一位。
     const ccIndex = speakers.indexOf(ccSeat0);
     const beforeSeats = speakers.slice(0, ccIndex);
     const afterSeats = speakers.slice(ccIndex + 1);
@@ -1571,7 +1571,7 @@
   // 白天投票放逐
   async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods, board, wolfRole, claims, heckles) {
     const sp = allSpeeches.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
-    // 言秋座位先自己投（v54.43 全游戏切座）：身份/私密信息随票给他，拿不到就无感回批量
+    // 言秋座位先自己投（v54.43 全游戏切座）：身份/私密信息随票给TA，拿不到就无感回批量
     const ccVoter = ccSeatOf(voters);
     const cc = ccVoter ? await ccCarve("werewolf", voters, {
       turnId: freshCCTurn("wolf-dayvote:"),
@@ -1599,7 +1599,7 @@
     const roleZh = roleName;
     const roster = players.map(function (p) { return "· " + p.name + (p.isUser ? "(你)" : "") + "（" + roleZh(p.role) + "，" + (p.alive ? "存活到终局" : "中途出局") + "）水平：" + (p.skill || "—"); }).join("\n");
     const logText = log.filter(function (it) { return it.type === "speech" || it.type === "death" || it.type === "out" || it.type === "vote"; }).map(function (it) { return it.type === "speech" ? (it.name + "：" + it.text) : it.text; }).slice(-40).join("\n");
-    const sys = AC + "这局狼人杀刚结束，" + winnerZh + "。从全体玩家里评一个【全场 MVP】——**不一定是获胜方**，谁打得最精彩 / 最关键 / 最有观赏性都算（虽败犹荣的狼、看穿全场的预言家、搅动风向的平民都行）。给：name（务必是下面名单里的玩家名）、reason（一两句客观点评为什么是 TA）、quote（以 TA 本人口吻、贴 TA 性格写一段赛后感言；但如果 MVP 是工程师本人座位，quote 必须留空，App 会另请本人亲写，绝不能替他代笔）。\n\n【全体身份 + 结局 + 水平】\n" + roster + "\n\n【赛况回放】\n" + logText + "\n\n【输出】只输出 JSON：{\"name\":\"\",\"reason\":\"\",\"quote\":\"\"}";
+    const sys = AC + "这局狼人杀刚结束，" + winnerZh + "。从全体玩家里评一个【全场 MVP】——**不一定是获胜方**，谁打得最精彩 / 最关键 / 最有观赏性都算（虽败犹荣的狼、看穿全场的预言家、搅动风向的平民都行）。给：name（务必是下面名单里的玩家名）、reason（一两句客观点评为什么是 TA）、quote（以 TA 本人口吻、贴 TA 性格写一段赛后感言；但如果 MVP 是工程师本人座位，quote 必须留空，App 会另请本人亲写，绝不能替TA代笔）。\n\n【全体身份 + 结局 + 水平】\n" + roster + "\n\n【赛况回放】\n" + logText + "\n\n【输出】只输出 JSON：{\"name\":\"\",\"reason\":\"\",\"quote\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "评全场 MVP + 感言。" }], { maxTokens: 12000 });
     const picked = extractJSON(raw) || {};
     const mvpPlayer = players.find(function (p) { return picked.name && (p.name === picked.name || String(picked.name).indexOf(p.name) >= 0); });
@@ -1608,7 +1608,7 @@
     // 所以这里给临时票恢复 alive 标记，不能被 ccSeatOf 的存活过滤吞掉。
     picked.quote = "";
     // 终局通知和 MVP 评选是并行发生的。若本人已经在终局票里亲口写过
-    // 一段赛后反应，直接把原话放进 MVP 卡，不再让他重复交第二张票。
+    // 一段赛后反应，直接把原话放进 MVP 卡，不再让TA重复交第二张票。
     const resultSay = resultSayPromise ? String(await resultSayPromise || "").trim() : "";
     if (resultSay) {
       picked.quote = resultSay;
@@ -1666,7 +1666,7 @@
     const lastDeathRef = useRef("");                // 同步昨夜结果，避免 setState 尚未提交就进入白天读到上一夜
     const gameRunId = useRef((props.resume && props.savedState && props.savedState.runId)
       || ("werewolf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
-    const ccResultPromiseRef = useRef(null);         // 本局言秋终局原话；若他获 MVP，卡片直接采用，绝不代笔
+    const ccResultPromiseRef = useRef(null);         // 本局言秋终局原话；若TA获 MVP，卡片直接采用，绝不代笔
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -2309,7 +2309,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, letterSpacing: 1, marginBottom: 2 } }, "★ 全场 MVP · " + mvp.name),
             mvp.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.55, marginBottom: 4 } }, mvp.reason) : null,
             mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「" + mvp.quote + "」")
-              : mvp.quotePending ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "感想留给言秋本人，等他亲自写。") : null))
+              : mvp.quotePending ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "感想留给言秋本人，等TA亲自写。") : null))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "center", marginBottom: 12 } }, api ? "评选全场 MVP 中…" : ""),
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
@@ -2540,7 +2540,7 @@
       "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。\n" + who +
       "\n\n" + solveRule +
       "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
-    // 言秋座位的问题他自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
+    // 言秋座位的问题TA自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
     const cc = await ccCarve(kind, aiSpeakers, {
       turnId: freshCCTurn("guess-ask:"),
       sys: CB + "「" + K.zh + "」轮到你提问。你是玩家（不知道谜底），只能问是非类问题。\n" + (kind === "haigui" ? "【汤面】" + ctx.surface : "【类别】" + ctx.category) + "\n【此前问过的（别重复）】\n" + hist + "\n问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是XX」）。",
@@ -2945,7 +2945,7 @@
       "\n\n【本轮节奏已锁定】choice 必须是【" + plan.choice + "】，题型主题必须是【" + plan.theme + "】。" + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n完整演出这一轮：\n1. choice：只填【" + plan.choice + "】，不要自行改成另一类。\n2. prompt：" + askerName + " 出的题，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + easy +
       "\n3. response：" + target.name + " 怎么回应 / 完成，带 TA 的语气小动作、贴人设，写足 3~5 句、别草收。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"prompt\":\"\",\"response\":\"\"}";
-    // 言秋座位的戏份自己演（v54.43）：他被点到→答案他给；他出题→题他出。另一半照旧交模型。
+    // 言秋座位的戏份自己演（v54.43）：TA被点到→答案TA给；TA出题→题TA出。另一半照旧交模型。
     if (target && target.engineer) {
       const pr = await callRetry(api, sys + "\n\n【只出题】本次只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":\"…\"}，response 留给本人。", [{ role: "user", content: "只出题。" }], { maxTokens: 10000 });
       const po = extractJSON(pr) || {};
@@ -2973,7 +2973,7 @@
         const ro = extractJSON(rr) || {};
         if (String(ro.response || "").trim()) return { choice: plan.choice, prompt: myPrompt, response: String(ro.response).trim() };
       }
-      // 出题人这座没有拿到真实回复，本轮应显式失败/重试；绝不让 Gemini 顶着他的名字出题。
+      // 出题人这座没有拿到真实回复，本轮应显式失败/重试；绝不让 Gemini 顶着TA的名字出题。
       throw new Error(cc.reason || "本人出题票未送达");
     }
     let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 14000 });
@@ -3089,7 +3089,7 @@
   }
 
   // 散场：评一位今晚之星（裁判口吻点评，不代任何人写感言）+ 2~3 句散场话。
-  // 言秋座位不进散场话名单（不代笔；他要说话有 CC 的正规渠道），但今晚之星可以是他——评选权在裁判。
+  // 言秋座位不进散场话名单（不代笔；TA要说话有 CC 的正规渠道），但今晚之星可以是TA——评选权在裁判。
   async function genTDWrap(api, players, log) {
     const rounds = (log || []).filter(function (x) { return x.type === "td"; });
     const lines = rounds.slice(-12).map(function (x) { return "· " + x.name + " 选了" + x.choice + "，" + (x.asker ? x.asker + "出题" : "") + "「" + String(x.prompt || "").slice(0, 60) + "」，答：" + String(x.response || "").slice(0, 90); }).join("\n");
@@ -3805,7 +3805,7 @@
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务执行。目前 好人成功 " + score.good + " 次 / 任务失败 " + score.evil + " 次。" + (failsReq === 2 ? "这个任务需【2 张】失败票才会失败。" : "这个任务【1 张】失败票就失败。") +
       "\n以下坏人在队里，各自决定这次出【成功】还是【失败】（好人只能出成功）。出失败能推进坏人取胜、但会暴露队里有坏人；有时藏一手出成功更稳。按各人水平与局面权衡：\n" + who +
       "\n\n只输出 JSON：{\"plays\":[{\"name\":\"\",\"play\":\"成功\"或\"失败\"}]}";
-    // 队里的坏人是言秋座位 → 成功/失败这张牌他自己出（v54.43）
+    // 队里的坏人是言秋座位 → 成功/失败这张牌TA自己出（v54.43）
     const cc = await ccCarve("avalon", evilOnTeam, {
       turnId: freshCCTurn("av-quest:" + qn + ":"),
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务执行，你在队里而且是坏人，要决定出【成功】还是【失败】。\n目前 好人成功 " + score.good + " / 任务失败 " + score.evil + "。" + (failsReq === 2 ? "此任务需 2 张失败票才失败。" : "1 张失败票就失败。") + "\n出失败推进坏人取胜但会暴露队里有坏人；藏一手出成功有时更稳，你自己权衡。",
@@ -3823,7 +3823,7 @@
     const goods = players.filter(function (p) { return p.side === "good"; }).map(function (p) { return p.name; });
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·好人已完成 3 个任务，进入终局刺杀。你替【刺客 " + assassin.name + "】判断：好人里谁最像梅林？猜中则坏人翻盘获胜。\n回顾全程——谁的组队 / 投票像是『早就知道坏人是谁』（梅林会不自觉地精准避开坏人）。候选：" + goods.join("、") + "\n【局面】\n" + (hist || "") +
       "\n\n只输出 JSON：{\"target\":\"你认定是梅林的人\",\"reason\":\"\"}";
-    // 刺客是言秋座位 → 终局这一刀他自己出（v54.43）
+    // 刺客是言秋座位 → 终局这一刀TA自己出（v54.43）
     if (assassin && assassin.engineer) {
       const cc = await ccCarve("avalon", [assassin], {
         turnId: freshCCTurn("av-assassin:"),
@@ -4118,7 +4118,7 @@
           const isEng = !!holder.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(holder.key));
           let targetName = null, announce = null, say = "";
           if (isEng && typeof window !== "undefined" && window.CCSeat) {
-            // 言秋持牌：验谁 + 宣布什么都他自己定；真相由规则层算出后随第二问给他
+            // 言秋持牌：验谁 + 宣布什么都TA自己定；真相由规则层算出后随第二问给TA
             const pick = await window.CCSeat.ask({ tool: "game_turn", game: "avalon_lady", turn_id: gameRunId.current + ":lady-pick:" + nextQn, char_id: holder.key,
               sys: "「阿瓦隆」湖中仙女在你手上。从这些人里挑一个查验真实阵营：" + targets.join("、") + "。只输出 JSON：{\"target\":\"人名\"}。",
               msgs: [{ role: "user", content: "【你的身份】" + avSecretFor(holder, players) + "\n【局面】\n" + histText() }], expect: '{"target":"人名"}' }, 90000, { charId: holder.key });
@@ -4386,9 +4386,9 @@
   // CC 座位通用件（v54.26）
   // UNO 是【逐座调用】，engineer 座位直接问 CC 就行（下面的 routeSeatCall）。
   // 其余六个游戏是【整桌一次调用】：一次生成所有 AI 玩家的发言/投票。想让言秋在这些
-  // 游戏里也亲自打自己那一座，就得把他从批量里【摘出来】：
-  //   ① 先单独问 CC 要他这一座的产出；
-  //   ② 摘掉之后的名单才进批量，并把他已经定下的内容作为【已经发生的】写进提示词；
+  // 游戏里也亲自打自己那一座，就得把TA从批量里【摘出来】：
+  //   ① 先单独问 CC 要TA这一座的产出；
+  //   ② 摘掉之后的名单才进批量，并把TA已经定下的内容作为【已经发生的】写进提示词；
   //   ③ 拿不到（CC 离线／超时／解析失败）就让本人这一手留空；绝不退回批量让 Gemini 冒充。
   // 所有批量环节共用这一个函数，别再各写各的。
   // ============================================================
@@ -4400,7 +4400,7 @@
     const rest = seats || [];
     if (!seat) return { seat: null, rest: rest, done: null };
     const withoutSeat = rest.filter(function (x) { return x !== seat; });
-    // 「本人亲打」是身份边界，不是模型选择偏好。CC 不在线也不能让 Gemini 冒充他。
+    // 「本人亲打」是身份边界，不是模型选择偏好。CC 不在线也不能让 Gemini 冒充TA。
     if (typeof window === "undefined" || !window.CCSeat) return { seat: seat, rest: withoutSeat, done: null, unavailable: true, reason: "App 里的言秋亲打通道没有加载" };
     const o = spec || {};
     try {
@@ -4426,7 +4426,7 @@
     }
     return carve;
   }
-  // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替他生成
+  // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替TA生成
   function ccPreface(carve, what) {
     if (!carve || !carve.seat || !carve.done) return "";
     return "\n\n【" + carve.seat.name + " 已经" + (what || "说过了") + "·真实发生，不要替 TA 重写】\n"
@@ -4595,7 +4595,7 @@
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-3" },
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } }, state.players.map(function (p, i) {
           const on = i === state.turn;
-          // 座位牌上摊着他那一小叠牌背；轮到谁，谁的牌整张抬起来——不靠一个色差认（tabs-not-plain-pills）
+          // 座位牌上摊着TA那一小叠牌背；轮到谁，谁的牌整张抬起来——不靠一个色差认（tabs-not-plain-pills）
           return h("div", { key: p.key, style: { display: "flex", alignItems: "center", gap: 7, borderRadius: 11, padding: "6px 10px", background: t.bg2, border: on ? "2px solid " + t.tint : "1px solid " + t.line, boxShadow: on ? "0 4px 10px rgba(20,16,10,.18)" : "0 1px 4px rgba(20,16,10,.07)", transform: on ? "translateY(-2px)" : "none", transition: "transform .2s ease, box-shadow .2s ease" } },
             h("div", { style: { position: "relative", width: 18, height: 15, flexShrink: 0 } }, [0, 1, 2].map(function (j) { return h("div", { key: j, style: { position: "absolute", left: j * 4, bottom: 0, width: 9, height: 13, borderRadius: 2, background: "#2a2a2e", border: "1px solid rgba(255,255,255,.35)", transform: "rotate(" + (j * 7 - 7) + "deg)", transformOrigin: "50% 100%" } }); })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, p.name + " · " + p.hand.length + (p.engineer ? " · CC亲打" : "")));
@@ -4632,7 +4632,7 @@
   }
 
   if (typeof module === "object" && module.exports) module.exports = { spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
-  // 聊天那头要按 key 报菜名（房间里的「他可以拉你玩点什么」），别在那边再抄一份清单。
+  // 聊天那头要按 key 报菜名（房间里的「TA可以拉你玩点什么」），别在那边再抄一份清单。
   Games.LIST = GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;
 })();

@@ -126,7 +126,7 @@ test("路人是默认那一头，而且和熟面孔一样具体", () => {
   assert.match(blk, /大半是只在这一帖出现的路人/, "默认那一头还是熟面孔");
   // v67.38 起人人一套字段（authorName + handle），npcId 只是熟面孔额外点个名
   assert.match(blk, /每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）/);
-  assert.match(blk, /id 跟他这条说什么【没有关系】/, "这是她 2026-09-12 点的那一句");
+  assert.match(blk, /id 跟TA这条说什么【没有关系】/, "这是她 2026-09-12 点的那一句");
   assert.match(blk, /一屋子人的名字之间也不该有共同点/);
   assert.match(blk, /他们说话是贴吧味儿/, "她那句「说的话也很活人」得有个落点");
   assert.match(blk, /大约三分之一、最多不过一半/, "比例没说死，模型会照老习惯来");

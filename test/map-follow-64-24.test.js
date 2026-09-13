@@ -14,8 +14,8 @@ const app = R("app.js"), eng = R("engine.js"), mapSrc = R("map.js");
 const MK = require(path.join(__dirname, "..", "js", "map.js"));
 
 test("行程多出一栏【大地方】，两处 schema 和落库都收下它", () => {
-  assert.match(eng, /⚠️每一段都要给 place：他这会儿人在哪个【大地方】/);
-  assert.match(eng, /写不出 place 那一段，他就停在原地不动/);
+  assert.match(eng, /⚠️每一段都要给 place：TA这会儿人在哪个【大地方】/);
+  assert.match(eng, /写不出 place 那一段，TA就停在原地不动/);
   // 三处落库（单天／整周／补写）都要留住它，漏一处那一天的人就不动
   assert.equal((app.match(/place: (?:s|x)\.place \|\| ""/g) || []).length, 3, "有落库的地方没收 place");
   // ⚠️还得从 status 那一层递出去，否则地图那头永远看不见（一层写在两处的老病）

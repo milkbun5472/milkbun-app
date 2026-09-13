@@ -19,7 +19,7 @@ test("房间那一格开关在名单里，默认是关的", () => {
   const keys = K.GROUPS.actions.map(x => x[0]);
   assert.deepEqual(keys, ["study", "games", "fanfic", "read", "tarot"], "开关名单变了（设置页是照这张名单画的）");
   const row = K.GROUPS.actions.filter(x => x[0] === "tarot")[0];
-  assert.equal(row[1], "他可以给你抽一张");
+  assert.equal(row[1], "TA可以给你抽一张");
   // 预设里跟着那一档本来的规矩走，不给自己开小灶：
   // everyday 那一档就是「什么都可以」（四样本来全开），别的几档一样都不开。
   assert.equal(K.PRESETS.everyday.actions.tarot, K.PRESETS.everyday.actions.games);

@@ -291,7 +291,7 @@ test("往期 quote 要喂回去，重写时连自己上一版一起避开", () =
 // v54.07：她说某个角色七月聊了很多，却被告知"没有来往写不了"。
 // 原因是取素材只数了单聊和单人线下——而她和顾朝顾暮大半的话是在群里说的。
 test("群聊也算素材，但封闭群不算", () => {
-  const seg = imp.slice(imp.indexOf("function monthMaterial"), imp.indexOf("// 他自己说过的话"));
+  const seg = imp.slice(imp.indexOf("function monthMaterial"), imp.indexOf("// TA自己说过的话"));
   assert.match(seg, /grab\("x_gchat:" \+ g\.id\)/, "群记录要读");
   assert.match(seg, /\(g\.memberIds \|\| \[\]\)\.includes\(charId\)/, "只算他真的在的群");
   assert.match(seg, /if \(!\(gset\[g\.id\] && gset\[g\.id\]\.memoryInterop\)\) return;/,
@@ -311,7 +311,7 @@ test("素材不够时要报出实际条数，别让人猜", () => {
 });
 
 test("取素材走 loadJSON——它会先读 IDB 镜像，聊天记录可能不在 localStorage 里", () => {
-  const seg = imp.slice(imp.indexOf("function monthMaterial"), imp.indexOf("// 他自己说过的话"));
+  const seg = imp.slice(imp.indexOf("function monthMaterial"), imp.indexOf("// TA自己说过的话"));
   assert.match(seg, /typeof loadJSON === "function" \? \(loadJSON\(k, \[\]\) \|\| \[\]\)/);
   assert.match(seg, /先读 IDB 镜像/);
   // x_chat / x_gchat 都在 engine 的 IDB 文本键前缀里，裸读 localStorage 会漏

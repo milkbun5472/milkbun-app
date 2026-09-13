@@ -245,7 +245,7 @@ function applyYanqiuBoss(){
 }
 function waitYanqiu(){
   document.getElementById('pickPanel').innerHTML =
-    `<div style="text-align:center;padding:18px;color:#8aa">⏳ 等待言秋落子…（他在他那头看牌）</div>`;
+    `<div style="text-align:center;padding:18px;color:#8aa">⏳ 等待言秋落子…（言秋在另一头看牌）</div>`;
   pollTimer = setInterval(async () => {
     try {
       const r = await fetch('/api/yanqiu-move?t=' + Date.now());

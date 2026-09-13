@@ -16,7 +16,7 @@ test("五摞和三个页签都换成他自己的说法", () => {
   });
   ["总翻出来看的", "舍不得删的", "从别处存下来的", "锁起来的", "删了又没真删的"].forEach(good =>
     assert.match(view, new RegExp('label: "' + good + '"'), "没有「" + good + "」这一摞"));
-  assert.match(view, /\["library", "全部"\], \["collections", "他的几摞"\], \["saved", "我收着的"\]/, "页签还叫着别人家那三个");
+  assert.match(view, /\["library", "全部"\], \["collections", characterText\(char, "他的几摞"\)\], \["saved", "我收着的"\]/, "页签还叫着别人家那三个");
   // ⚠️五个 key 一个都不许改：回收站 30 天、五类保底、私密走 hidden 档都靠它们
   ["memory", "favorite", "saved", "private", "deleted"].forEach(k =>
     assert.match(view, new RegExp('key: "' + k + '"'), "把 key 也改了，回收站和保底那几条规矩会一起塌"));

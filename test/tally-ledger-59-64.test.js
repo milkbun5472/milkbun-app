@@ -51,7 +51,7 @@ test("没结清那一栏的印刻的是方向，正面就不再重复说一遍",
   // 真渲一遍数一数：「他欠」「记着」只该在抬头那一行出现一次，
   // 卡片上再冒出来就是又把方向说了第二遍
   const d = draw("debts");
-  [["他欠", 1], ["记着", 1], ["还悬着", 1]].forEach(([w, n]) =>
+  [["TA欠", 1], ["记着", 1], ["还悬着", 1]].forEach(([w, n]) =>
     assert.equal((d.match(new RegExp(w, "g")) || []).length, n, "「" + w + "」在页面上出现了不止抬头那一次"));
   // 别的栏一栏一个字
   Object.entries({ policies: "保", statements: "定", treasures: "估", appraisals: "问" }).forEach(([k, ch]) =>
@@ -66,7 +66,7 @@ test("抬头那一行说的是这一栏，而且三个方向按各自的颜色�
     assert.ok(view.indexOf(s) > 0, "少了一栏自己的抬头：" + s));
   // 抬头得跟着数据走，不是写死的一句
   const d = draw("debts");
-  assert.ok(d.includes("他欠") && d.includes("记着"), "没结清的抬头没把方向数出来");
+  assert.ok(d.includes("TA欠") && d.includes("记着"), "没结清的抬头没把方向数出来");
   assert.ok(draw("statements").includes("句盖过章的话"), "定论的抬头没出来");
 });
 

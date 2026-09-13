@@ -18,7 +18,7 @@ test("来得太晚没响的那一通，界面上说得出自己没响过", () =>
   assert.match(body, /if \(missed\) \{ inv\.answered = "missed"; inv\.lateMissed = true; \}/);
   assert.match(body, /if \(!missed\) setRinging\(/, "迟到很久的还是不许响——那一条没动");
   // 回执两种说法要不一样，不然她还是分不出来
-  assert.match(C, /m\.lateMissed \? "他当时打过来了 · 补记（手机没响）" : "未接" \+ \(video \? "视频" : "语音"\) \+ "通话"/);
+  assert.match(C, /m\.lateMissed \? "TA当时打过来了 · 补记（手机没响）" : "未接" \+ \(video \? "视频" : "语音"\) \+ "通话"/);
 });
 
 // ── ② 他打来的，他先开口 ────────────────────────────────────

@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -50,7 +52,7 @@ test("上一份和钉住的，按栏各喂各的", () => {
 
 test("真到手的东西只喂一遍，不是四栏各喂一遍", () => {
   const sp = S.carryProbeSpecAll({ name: "裴照川" }, {}, {}, { bought: ["一把新伞"], gifts: ["围巾"] });
-  assert.equal((sp.instruction.match(/【他最近真到手的东西】/g) || []).length, 1);
+  assert.equal((sp.instruction.match(/【TA最近真到手的东西】/g) || []).length, 1);
   assert.ok(sp.instruction.indexOf("一把新伞") > 0 && sp.instruction.indexOf("围巾") > 0);
 });
 

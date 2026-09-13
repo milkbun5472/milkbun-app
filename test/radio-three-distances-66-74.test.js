@@ -49,18 +49,18 @@ test("三档的比例：大头在生活半径，远景保底，痕迹一天一�
 
 test("不许判定：痕迹不署名，界面上也永远不标是谁", () => {
   assert.match(R.DISTANCE_RULE, /不署名、不点名、也不在话里暗示「你懂的」/);
-  assert.match(R.DISTANCE_RULE, /一旦坐实，它就从「可能是他」变成「系统通知你是他」/);
+  assert.match(R.DISTANCE_RULE, /一旦坐实，它就从「可能是TA」变成「系统通知你是TA」/);
   // 存的是一串纯句子，没有作者字段——存了作者，界面迟早会把它显示出来
   assert.match(Rd("js/radio.js"), /row\.st\[stId\] = \(Array\.isArray\(items\) \? items : \[\]\)\.map\(S\)\.filter\(Boolean\);/);
   assert.ok(strip(ui).indexOf("authorId") < 0 && strip(ui).indexOf("charId") < 0, "界面上出现了角色身份，那就等于替她判定了");
 });
 
 test("生活半径那一档的判据：把那个人删掉，这一条还成立吗", () => {
-  assert.match(R.DISTANCE_RULE, /\*\*不要写关于他的内容\*\*/);
+  assert.match(R.DISTANCE_RULE, /\*\*不要写关于TA的内容\*\*/);
   assert.match(R.DISTANCE_RULE, /把那个人整个删掉，这一条还成立吗/);
-  assert.match(R.DISTANCE_RULE, /播的人不认识他，也不知道有他这个人/);
+  assert.match(R.DISTANCE_RULE, /播的人不认识TA，也不知道有TA这个人/);
   const bed = R.worldBedText({ orbit: ["下午在平江路那家印刷店"] });
-  assert.match(bed, /不是让你写他/);
+  assert.match(bed, /不是让你写TA/);
   assert.match(bed, /别整份用完/, "整份用完就成了「今日顾朝行踪播报」");
 });
 

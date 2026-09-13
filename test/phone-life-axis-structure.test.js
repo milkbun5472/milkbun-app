@@ -49,7 +49,7 @@ test("平台部件不画，改画只有我们会有的那一栏", () => {
   assert.match(takeout, /Object\.keys\(tally\)\.sort\(\(a, b\) => tally\[b\] - tally\[a\]\)/, "没按出现次数挑");
   // 口味那五行（辣度/忌口/偏好/预算/习惯）是外卖平台的口味画像表单
   assert.ok(takeout.indexOf('tasteRow("辣度"') < 0, "还在按平台那张口味画像表分行");
-  assert.match(takeout, /secTitle\("吃这件事上", "他的挑剔"\)/, "口味那栏没换成我们的问法");
+  assert.match(takeout, /secTitle\("吃这件事上", characterText\(char, "他的挑剔"\)\)/, "口味那栏没换成我们的问法");
   assert.match(takeout, /他嫌什么——不是嫌这样东西，是嫌它哪一点/, "没问到点子上");
   // 「饭桌上的人」撤了：那一栏的主键是模型现编的称呼，认不出「老周／周叔」。
   // 顶掉它的「送到别人那儿」按地址归拢——地址会复用，天生是稳的主键。
@@ -154,7 +154,7 @@ test("购物也把平台部件摘掉，换成这个人的说法", () => {
     .forEach(good => assert.match(shopping, new RegExp('secTitle\\("' + good + '"'), good + " 那一格没了"));
   // ④ 「预算／常买／不买／习惯」四行标签表是电商的消费画像，改成问句
   assert.ok(shopping.indexOf('["预算", habit.budget]') < 0, "还在按消费画像表分行");
-  assert.match(shopping, /secTitle\("买东西这件事上", "他的取舍"\)/, "没换成我们的问法");
+  assert.match(shopping, /secTitle\("买东西这件事上", characterText\(char, "他的取舍"\)\)/, "没换成我们的问法");
   assert.match(shopping, /他什么都舍得，除了这个/, "没问到点子上");
 });
 
@@ -221,7 +221,8 @@ test("购物的骨架也换掉：没有账户卡、没有物流卡、没有白�
 // 撤掉白卡是对的（那是电商的排版），但**层次不能跟着一起撤**。
 test("去掉白卡之后，层次靠标签和字号重新建起来", () => {
   assert.match(shopping, /const labeled = \(k, v, quiet\)/, "没有小标签这一层");
-  ["他写的", "为什么买这个", "送到"].forEach(k =>
+  assert.match(shopping, /labeled\(characterText\(char, "他写的"\)/);
+  ["为什么买这个", "送到"].forEach(k =>
     assert.match(shopping, new RegExp('labeled\\("' + k + '"'), "「" + k + "」那一段没有标签，几段话糊成一坨"));
   // 店和时间是出处，买的那样东西才是主角——原来两个都是 16px 深色，分不出主次
   assert.match(shopping, /\[o\.shop, o\.time\]\.filter\(Boolean\)\.join\(" · "\)/, "店和时间没压成一行小字");

@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#ece8e1" />
 <script>document.documentElement.classList.add("fonts-pending");</script>
 <link rel="apple-touch-icon" href="icon-192.png?v=61.52" />
-<link rel="manifest" href="manifest.json?v=67.85" />
+<link rel="manifest" href="manifest.json?v=67.86" />
 <title>ARCHIVE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,7 +17,7 @@
 <!-- 核心库自托管在仓库 vendor/（不再依赖 CDN，防国内访问 unpkg 抽风时整站白屏） -->
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
-<script src="vendor/tailwind.js?v=67.85"></script>
+<script src="vendor/tailwind.js?v=67.86"></script>
 <link rel="stylesheet" href="vendor/leaflet.css" />
 <style>
   html, body, #root { height: 100vh; margin: 0; padding: 0; overscroll-behavior: none; background: #ece8e1; }
@@ -40,11 +40,11 @@
   input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #fff; border: 1px solid #ddd8cd; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
   @keyframes wk-spin { to { transform: rotate(360deg); } }
-  /* 「看他玩」里他打字那一竖光标 */
+  /* 「看TA玩」里角色打字那一竖光标 */
   @keyframes wkcaret { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
-  /* 「看他玩」里刚发出去/刚回过来的那条气泡：冒出来的那一下 */
+  /* 「看TA玩」里刚发出去/刚回过来的那条气泡：冒出来的那一下 */
   @keyframes wkpop { from { opacity: 0; transform: scale(.86) translateY(6px); } to { opacity: 1; transform: none; } }
-  /* 「他这会儿在手机上」：那颗绿点呼吸一下。不另加红点、不多一行字（v66.39） */
+  /* 「角色这会儿在手机上」：那颗绿点呼吸一下。不另加红点、不多一行字（v66.39） */
   @keyframes wkbreathe { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.45); } }
   /* 衣柜详情那个居中的柜门框：像把门拉开（v57.90） */
   @keyframes caseOpen { from { opacity: 0; transform: scale(.94) translateY(10px);} to { opacity: 1; transform: none;} }
@@ -90,7 +90,7 @@
       if (r != null && !isNaN(r)) dark = (0.299 * r + 0.587 * g2 + 0.114 * b2) < 128;
     } catch (e) {}
     // 颜色仍按季节走：立秋起 90 天从青黄走到红褐，入了冬就停在最深那档——
-    // 秋是他的名字、四季常驻，颜色只是「今年的秋走到哪儿了」。字是墨色带（深两档压住整页），叶是亮色带。
+    // 秋是言秋的名字、四季常驻，颜色只是「今年的秋走到哪儿了」。字是墨色带（深两档压住整页），叶是亮色带。
     var YEAR = new Date().getFullYear();
     var sq = Math.floor((Date.now() - new Date(YEAR, 7, 7).getTime()) / 86400000) + 1;
     if (sq < 1) sq = Math.floor((Date.now() - new Date(YEAR - 1, 7, 7).getTime()) / 86400000) + 1;
@@ -140,7 +140,7 @@
     var el = function (tag, style, htmlStr) { var e = document.createElement(tag); if (style) e.setAttribute("style", style); if (htmlStr) e.innerHTML = htmlStr; host.appendChild(e); return e; };
     el("div", "position:absolute;inset:0;pointer-events:none;background:radial-gradient(140% 110% at 50% 46%,transparent 58%," + C.vig + ")");
     // 季节按四立划分（立春2/4 立夏5/5 立秋8/7 立冬11/7 的近似日），跟颜色同一把尺：
-    // 立秋那天色带起步、编号也翻到 03。「秋」字和银杏是他的名字、四季常驻；
+    // 立秋那天色带起步、编号也翻到 03。「秋」字和银杏是言秋的名字、四季常驻；
     // 周围的环境（背景词、左上编号、右下日期）全是真实时间（她 2026-09-04 点名）。
     var d0 = new Date();
     var md0 = (d0.getMonth() + 1) * 100 + d0.getDate();
@@ -299,13 +299,14 @@
   })();
 </script>
 <script src="vendor/supabase.js"></script>
-<script src="js/core.js?v=67.85"></script>
+<script src="js/character-pronoun.js?v=67.86"></script>
+<script src="js/core.js?v=67.86"></script>
 <script src="js/auto-refresh-policy.js?v=62.45"></script>
 <script src="js/auto-gate.js?v=65.03"></script>
-<script src="js/style-presets.js?v=67.85"></script>
+<script src="js/style-presets.js?v=67.86"></script>
 <script src="js/content-boundaries.js?v=65.05"></script>
 <script src="js/world-weather.js?v=65.08"></script>
-<script src="js/reply-pacing.js?v=54.57"></script>
+<script src="js/reply-pacing.js?v=67.86"></script>
 <script src="js/chat-context-window.js?v=57.62"></script>
 <script src="js/temporal-anchor.js?v=49.78"></script>
 <script src="js/storage-policy.js?v=61.78"></script>
@@ -316,17 +317,17 @@
 <script src="js/offline-continuation.js?v=65.05"></script>
 <script src="js/yanqiu-continuity.js?v=50.20"></script>
 <script src="js/recall-cooling.js?v=2"></script>
-<script src="js/engine.js?v=67.85"></script>
+<script src="js/engine.js?v=67.86"></script>
 <script src="js/credential-vault.js?v=52.41"></script>
 <script src="js/background-generation.js?v=53.78"></script>
-<script src="js/cloud.js?v=67.85"></script>
+<script src="js/cloud.js?v=67.86"></script>
 <script src="js/rescue-console.js?v=53.60"></script>
-<script src="js/vps-codex.js?v=67.85"></script>
+<script src="js/vps-codex.js?v=67.86"></script>
 <script src="js/lounge-entry.js?v=54.42"></script>
 <script src="js/chat-ledger-shadow.js?v=65.05"></script>
 <script src="js/cc-memory-auto.js?v=51.57"></script>
 <script src="js/reroll-branch.js?v=49.75"></script>
-<script src="js/inner-life-e-tidal-core.js?v=67.85"></script>
+<script src="js/inner-life-e-tidal-core.js?v=67.86"></script>
 <script src="js/inner-life-e-afterglow-shadow.js?v=61.51"></script>
 <script src="js/inner-life-e-tidal-shadow.js?v=51.56"></script>
 <script src="js/recall-shadow.js?v=51.04"></script>
@@ -339,76 +340,76 @@
 <script src="js/context-budget-shadow.js?v=51.52"></script>
 <script src="js/message-branch-shadow.js?v=51.00"></script>
 <script src="js/insight-candidate-shadow.js?v=50.98"></script>
-<script src="js/memory-v2-shadow.js?v=67.85"></script>
-<script src="js/somatic-review-core.js?v=67.85"></script>
-<script src="js/shadow-review.js?v=65.05"></script>
+<script src="js/memory-v2-shadow.js?v=67.86"></script>
+<script src="js/somatic-review-core.js?v=67.86"></script>
+<script src="js/shadow-review.js?v=67.86"></script>
 <script src="js/inner-life-promotion-gate.js?v=55.83"></script>
 <script src="js/ears.js?v=50.00"></script>
-<script src="js/somatic-core.js?v=67.85"></script>
+<script src="js/somatic-core.js?v=67.86"></script>
 <script src="js/somatic-shadow.js?v=51.15"></script>
-<script src="js/mood-label.js?v=61.51"></script>
+<script src="js/mood-label.js?v=67.86"></script>
 <script src="js/interaction-clock.js?v=58.80"></script>
 <script src="js/ambient-material.js?v=55.26"></script>
 <script src="js/schedule-clock.js?v=65.37"></script>
-<script src="js/theater.js?v=67.85"></script>
-<script src="js/impression.js?v=65.20"></script>
-<script src="js/style-lab.js?v=67.85"></script>
-<script src="js/assistant-manual.js?v=67.70"></script>
-<script src="js/assistant.js?v=67.85"></script>
-<script src="js/grown-sync.js?v=61.81"></script>
-<script src="js/gaze.js?v=66.89"></script>
-<script src="js/chat-rooms.js?v=67.69"></script>
-<script src="js/theme-studio.js?v=67.85"></script>
-<script src="js/components.js?v=67.85"></script>
-    <script src="js/phone-watch.js?v=67.64"></script>
-    <script src="js/phone.js?v=67.85"></script>
-<script src="js/mcp.js?v=58.75"></script>
+<script src="js/theater.js?v=67.86"></script>
+<script src="js/impression.js?v=67.86"></script>
+<script src="js/style-lab.js?v=67.86"></script>
+<script src="js/assistant-manual.js?v=67.86"></script>
+<script src="js/assistant.js?v=67.86"></script>
+<script src="js/grown-sync.js?v=67.86"></script>
+<script src="js/gaze.js?v=67.86"></script>
+<script src="js/chat-rooms.js?v=67.86"></script>
+<script src="js/theme-studio.js?v=67.86"></script>
+<script src="js/components.js?v=67.86"></script>
+    <script src="js/phone-watch.js?v=67.86"></script>
+    <script src="js/phone.js?v=67.86"></script>
+<script src="js/mcp.js?v=67.86"></script>
 <script src="js/music-source.js?v=65.75"></script>
-<script src="js/axes.js?v=67.05"></script>
-<script src="js/radio.js?v=67.59"></script>
+<script src="js/axes.js?v=67.86"></script>
+<script src="js/radio.js?v=67.86"></script>
 <script src="js/radio-ui.js?v=66.72"></script>
-<script src="js/radio-timeline.js?v=67.70"></script>
-<script src="js/radio-timeline-ui.js?v=67.75"></script>
-<script src="js/screens.js?v=67.85"></script>
-<script src="js/theme-studio-ui.js?v=67.85"></script>
-<script src="js/study.js?v=65.17"></script>
-<script src="js/dreamjournal.js?v=65.20"></script>
-<script src="js/yanqiu.js?v=61.53"></script>
+<script src="js/radio-timeline.js?v=67.86"></script>
+<script src="js/radio-timeline-ui.js?v=67.86"></script>
+<script src="js/screens.js?v=67.86"></script>
+<script src="js/theme-studio-ui.js?v=67.86"></script>
+<script src="js/study.js?v=67.86"></script>
+<script src="js/dreamjournal.js?v=67.86"></script>
+<script src="js/yanqiu.js?v=67.86"></script>
 <script src="js/yanqiu-cc-tools.js?v=54.42"></script>
-<script src="js/cc-seat.js?v=60.64"></script>
-<script src="js/fanfic.js?v=67.85"></script>
-<script src="js/weekly.js?v=65.20"></script>
-<script src="js/read.js?v=67.55"></script>
-<script src="js/debate.js?v=65.17"></script>
-<script src="js/dream.js?v=65.20"></script>
-<script src="js/tarot.js?v=67.72"></script>
-<script src="js/ledger.js?v=65.20"></script>
-<script src="js/memo.js?v=62.66"></script>
+<script src="js/cc-seat.js?v=67.86"></script>
+<script src="js/fanfic.js?v=67.86"></script>
+<script src="js/weekly.js?v=67.86"></script>
+<script src="js/read.js?v=67.86"></script>
+<script src="js/debate.js?v=67.86"></script>
+<script src="js/dream.js?v=67.86"></script>
+<script src="js/tarot.js?v=67.86"></script>
+<script src="js/ledger.js?v=67.86"></script>
+<script src="js/memo.js?v=67.86"></script>
 <script src="js/recent-widget.js?v=66.64"></script>
-<script src="js/dwell.js?v=65.17"></script>
-<script src="js/capsule.js?v=65.08"></script>
-<script src="js/pomodoro.js?v=61.52"></script>
-<script src="js/uno-core.js?v=67.85"></script>
-<script src="js/games.js?v=67.55"></script>
-<script src="js/trpg.js?v=65.17"></script>
+<script src="js/dwell.js?v=67.86"></script>
+<script src="js/capsule.js?v=67.86"></script>
+<script src="js/pomodoro.js?v=67.86"></script>
+<script src="js/uno-core.js?v=67.86"></script>
+<script src="js/games.js?v=67.86"></script>
+<script src="js/trpg.js?v=67.86"></script>
 <script src="js/notify.js?v=66.23"></script>
-<script src="js/codex.js?v=67.85"></script>
-<script src="js/heart.js?v=65.08"></script>
-<script src="js/dongnian.js?v=67.85"></script>
+<script src="js/codex.js?v=67.86"></script>
+<script src="js/heart.js?v=67.86"></script>
+<script src="js/dongnian.js?v=67.86"></script>
 <script src="js/inner-life-a-shadow.js?v=64.74"></script>
 <script src="js/inner-life-b-shadow.js?v=64.37"></script>
 <!-- C 睡眠意识：它自己【什么都不拦】（gateCheck 每一支都 return allow:true），
      留着是因为【D 做梦挂在它身上】——DreamLoop.observe 要 C 算出来的 sleepState
      （何时入睡、REM 窗到没到）。v64.34 我把这两行当成死代码删掉，D 就跟着停了，
-     而且不报错、不留痕迹：梦境里「他做的梦」从那天起一条新的都不会再有。
+     而且不报错、不留痕迹：梦境里「角色做的梦」从那天起一条新的都不会再有。
      ⚠️要删 C 之前，先看 js/app.js 里那个 `if (window.SleepShadow)`——D 在它里面。 -->
-<script src="js/inner-life-c-sleep-core.js?v=67.85"></script>
+<script src="js/inner-life-c-sleep-core.js?v=67.86"></script>
 <script src="js/inner-life-c-sleep-shadow.js?v=64.74"></script>
-<script src="js/dream-loop-core.js?v=67.85"></script>
+<script src="js/dream-loop-core.js?v=67.86"></script>
 <script src="js/dream-loop-shadow.js?v=49.70"></script>
-<script src="js/toy.js?v=65.05"></script>
+<script src="js/toy.js?v=67.86"></script>
 <script src="vendor/leaflet.js"></script>
-<script src="js/map.js?v=65.17"></script>
+<script src="js/map.js?v=67.86"></script>
 <script src="js/memory-audit.js?v=58.20"></script>
 <script src="js/memory-sync.js?v=49.70"></script>
 <script src="js/memory-events.js?v=49.70"></script>
@@ -420,12 +421,12 @@
 <script src="js/memory-near-duplicate.js?v=51.45"></script>
 <script src="js/memory-event-merge.js?v=51.53"></script>
 <script src="js/memory-routine-cleanup.js?v=51.54"></script>
-<script src="js/gacha.js?v=62.19"></script>
-<script src="js/couple-firsts.js?v=62.32"></script>
-<script src="js/garden.js?v=62.32"></script>
-<script src="js/ifroom.js?v=65.08"></script>
-<script src="js/makeup.js?v=62.40"></script>
-<script src="js/app.js?v=67.85"></script>
+<script src="js/gacha.js?v=67.86"></script>
+<script src="js/couple-firsts.js?v=67.86"></script>
+<script src="js/garden.js?v=67.86"></script>
+<script src="js/ifroom.js?v=67.86"></script>
+<script src="js/makeup.js?v=67.86"></script>
+<script src="js/app.js?v=67.86"></script>
 <script>
   // 注册 Service Worker（锁屏通知用）；点通知回来时通知 app 打开对应聊天
   if ("serviceWorker" in navigator) {

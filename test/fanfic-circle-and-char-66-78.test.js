@@ -1,3 +1,4 @@
+require("../js/character-pronoun.js");
 // 她 2026-09-11 的④和「让角色来写」。
 //
 // ④ ⚠️**不存关系值，存一本流水账**。关系现算。存一个「−20」出来，喂给模型只能变成
@@ -28,7 +29,7 @@ const box = { loadJSON: () => [], saveJSON: () => {}, Axes: Axes };
 vm.createContext(box);
 vm.runInContext(CIRCLE + "\nthis.C = { circleBetween, circleFeud, circleLines, CIRCLE_ZH };", box);
 const C = box.C;
-const box2 = { Axes: Axes };
+const box2 = { Axes: Axes, characterText: require('../js/character-pronoun.js').text };
 vm.createContext(box2);
 vm.runInContext(fic.slice(fic.indexOf("  const STANCE = {"), fic.indexOf("  // ── 圈子：谁跟谁有过什么"))
   + "\nthis.S = { STANCE, stanceFor, stanceFacts, WRITER_AXES, rollWriterAxes, charWriterBlock };", box2);
@@ -81,7 +82,7 @@ test("④ 有过节的枪手，热度涨得更凶——③和④在这儿接上"
 });
 
 test("④ 只有真发生过一件事才记一笔，不生成日常", () => {
-  const r = fic.slice(fic.indexOf("async function addChapter(by, want, hard)"), fic.indexOf("    // 「让他接着写」"));
+  const r = fic.slice(fic.indexOf("async function addChapter(by, want, hard)"), fic.indexOf("    // 「让TA接着写」"));
   assert.match(r, /K\.circlePush\(\{ a: ownNm, b: byNmRaw, kind: "grab"/);
   assert.match(r, /K\.circlePush\(\{ a: byNmRaw, b: ownNm, kind: "ghost"/);
   assert.match(r, /if \(quitting && ownNm\) K\.circlePush\(\{ a: ownNm, b: byNmRaw, kind: "quit"/);
@@ -126,9 +127,9 @@ test("角色来写：轴只管本章形式，能力和立场归人设", () => {
   craft.opts.forEach(o => assert.ok(!/错别字|文笔差|很烂|水平低/.test(o), "掷到了「写得烂」这种词：" + o));
   const blk = S.charWriterBlock({ id: "c1", name: "顾朝" }, { cp: ["c1", "me"] }, {}, S.rollWriterAxes("c1", "f1", 2), id => id, "小美");
   assert.match(blk, /是否写过文、是否混圈、擅长什么，都以你的角色卡为准/);
-  assert.doesNotMatch(blk, /他不是作家|他不写文|他不是干这行/);
+  assert.doesNotMatch(blk, /TA不是作家|TA不写文|TA不是干这行/);
   assert.match(blk, /笔法：你的阅读经验、表达习惯/);
-  assert.match(blk, /你就是他本人在写，不是「一位作者在模仿他」/);
+  assert.match(blk, /你就是TA本人在写，不是「一位作者在模仿TA」/);
   assert.match(blk, /正文呈现故事本身/);
   // 掷得稳：同一个人同一章问两次一样
   assert.deepEqual(S.rollWriterAxes("c1", "f1", 2), S.rollWriterAxes("c1", "f1", 2));
@@ -141,7 +142,7 @@ test("角色来写：轴只管本章形式，能力和立场归人设", () => {
 
 test("角色来写：接到界面上了，而且写完这件事会留下", () => {
   assert.match(fic, /name: \(c\.remark \|\| c\.name\) \+ "（你的人）"/);
-  assert.match(fic, /self_user: "这篇写的就是他和你", self_other: "这篇把他跟别人配了"/, "那一行得写他跟这篇什么关系，不是一句空话");
+  assert.match(fic, /self_user: characterText\(c, "这篇写的就是他和你"\), self_other: characterText\(c, "这篇把他跟别人配了"\)/, "那一行得写他跟这篇什么关系，不是一句空话");
   assert.match(fic, /byChar: byChar,/);
   assert.match(fic, /writerAxes: byChar \? K\.rollWriterAxes\(byChar\.id, f\.id, \(f\.chapters \|\| \[\]\)\.length\) : null/);
   assert.match(fic, /if \(byChar\) ch\.byCharId = byChar\.id;/);
@@ -149,7 +150,7 @@ test("角色来写：接到界面上了，而且写完这件事会留下", () =>
   //   但是不想让他们记得」——「不记」事后能补，「记了」得手动去删，
   //   默认值不该选不可逆的那一边。撤掉就是删掉，不是在后面挂说明。
   assert.ok(fic.indexOf("onCharWrote") < 0 && app.indexOf("onCharWrote") < 0, "自动往主线记忆库写那一条又长回来了");
-  assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给他看"/, "她按一下才发生的那颗键没了");
+  assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给TA看"/, "她按一下才发生的那颗键没了");
   assert.match(app, /onFileChapter: \(charId, card, pick, meta\) => \{/);
   // ⚠️v67.66 换了落点（她 2026-09-12）：「只记一笔」落在**这一篇发生的那间房**，
   //   没进过房的才进记忆库。所以这儿冻的不再是 addMemEntry，是那个公共落点函数——

@@ -428,8 +428,8 @@
         const sess = list.find(s => s.id === id); if (sess && sess.loopKey) settleLoopDream(sess, patch.status);
       }
     };
-    // ── 他昨晚做的梦（v62.99 合龙）──────────────────────────────
-    // 梦回路每晚给角色真做一场梦（材料是他昨天真过过的一天），一直只能在解梦馆里读。
+    // ── TA昨晚做的梦（v62.99 合龙）──────────────────────────────
+    // 梦回路每晚给角色真做一场梦（材料是TA昨天真过过的一天），一直只能在解梦馆里读。
     // 这儿把还没进过的那几场列出来，点一下就是一场戏——不用递关键词，料是现成的。
     const [loopRows, setLoopRows] = useState([]);
     const loadLoop = () => { try { if (window.DreamLoop && window.DreamLoop.listDreams) window.DreamLoop.listDreams(40).then(rows => setLoopRows(Array.isArray(rows) ? rows : [])); } catch (e) {} };
@@ -500,9 +500,9 @@
             background: "radial-gradient(110% 62% at 50% 108%, rgba(169,154,201,.20), transparent 72%)"
           }
         }, "推开一扇门"),
-        // 他昨晚做的梦：一列还没推开的门
+        // TA昨晚做的梦：一列还没推开的门
         loopOpen.length ? h("div", { style: { marginBottom: 26 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: ACC_LIT, marginBottom: 10 } }, "他昨晚真做的梦 · 还没进过"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: ACC_LIT, marginBottom: 10 } }, "TA昨晚真做的梦 · 还没进过"),
           loopOpen.map(r => { const c = (props.characters || []).find(x => x.id === r.charId) || {};
             return h("button", { key: r.key, onClick: () => enterLoop(r), className: "w-full active:opacity-70 flex items-center",
               style: { gap: 12, padding: "10px 4px", textAlign: "left", borderBottom: "1px solid " + t.line } },
@@ -538,7 +538,7 @@
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第 " + ((s.scenes || []).length || 1) + " 幕")),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦" + (s.recur ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜又做了一次）" : s.fromLoop ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜真做的）" : "")),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                  s.fromLoop ? (((s.material || {}).motifs || []).join(" · ") || "从他昨天真过的一天里长出来的") : ((s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）"))
+                  s.fromLoop ? (((s.material || {}).motifs || []).join(" · ") || "从TA昨天真过的一天里长出来的") : ((s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）"))
               );
             })),
         saves.length > 0 ? h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按可忘掉这场梦") : null

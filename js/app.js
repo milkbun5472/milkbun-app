@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.85";
+const APP_VERSION = "v67.86";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -63,7 +63,7 @@ const FORUM_NPC_RELATIONS = [
 //   后面那整条链一个字都没跑到。tick 是 45 秒一轮，1 分钟完全送得到，
 //   没有任何理由把「等我两分钟」整条扔掉。
 const PROMISE_MIN_MINUTES = 1, PROMISE_MAX_MINUTES = 60 * 24;
-// 他说的是打电话还是发消息。⚠️认不出的值仍旧一律当 chat（宁可少响一次，也不能凭一个
+// TA说的是打电话还是发消息。⚠️认不出的值仍旧一律当 chat（宁可少响一次，也不能凭一个
 //   认不出的值把电话打过去）——但「认得出」不等于「逐字等于 voice」：模型写「电话」
 //   「语音」「call」的时候意思一点都不含糊，不认它们，说好的电话到点还是缩水成一条消息。
 const PROMISE_VIA = {
@@ -408,7 +408,7 @@ function App() {
   const coupleNotesRef = useRef([]); coupleNotesRef.current = coupleNotes;
   // 情侣空间·恋爱时间轴 {id,characterId,date,type,title,content,byCharacter,createdAt}
   const [coupleTimeline, setCoupleTimeline] = useState([]);
-  // 情侣空间·他记得的那一版 {id,characterId,memId,mine,his,note,ts,unread}
+  // 情侣空间·TA记得的那一版 {id,characterId,memId,mine,his,note,ts,unread}
   const [coupleRecall, setCoupleRecall] = useState([]);
   const coupleRecallRef = useRef([]); coupleRecallRef.current = coupleRecall;
   // 情侣空间·纪念日倒计时 {id,characterId,name,month,day,yearlyRepeat,createdAt}
@@ -445,12 +445,12 @@ function App() {
   const [coupleHome, setCoupleHome] = useState({});
   // 抽卡（她 2026-08-31）。三份东西：点数（跟角色走）、卡册＝票根（永不删）、保底计数。
   // ⚠️抽卡本身【永远 0 次调用】——抽到的是一张兑换券，点了兑换才可能花一次。
-  // 惊喜抽屉（言秋提，她 2026-08-31 拍板）：他想你的时候有时不发消息，
+  // 惊喜抽屉（言秋提，她 2026-08-31 拍板）：TA想你的时候有时不发消息，
   // 而是往你俩的抽屉里放一样东西，等你自己发现。放进来的东西【拆开之前不显示是什么】。
   // 照相馆（她 2026-08-31）：我这边的衣柜 + 拍出来的合照。
   // 我的衣柜跟角色衣柜【同一个形状】（carry[cid].outfit），这样 closetGroups /
   // carryClosetText 两边共用，不用为「用户的衣服」另写一套渲染和收口。
-  // 自动换头像（她 2026-08-31：「不要每次都触发不然我给他发个什么食物图他也换了，
+  // 自动换头像（她 2026-08-31：「不要每次都触发不然我给TA发个什么食物图TA也换了，
   // 要真的觉得好才换」）。{ [charId]: { ts, prev } }——prev 是换之前那张，好回退。
   // 上次【全刷】是什么时候（她 2026-08-31：「查手机还是看不出来哪些刷了哪些没刷，
   // 把每周自动刷一次那个小字改成上次全部刷新的时间」）。{ [charId]: ts }
@@ -472,8 +472,8 @@ function App() {
   const [coupleShots, setCoupleShots] = useState([]);
   const coupleShotsRef = useRef([]); coupleShotsRef.current = coupleShots;
   // 和好间：一个角色同时只有一段没了结的别扭
-  // 他最近几次主动开口说的头一句。⚠️规则只降概率——光在提示词里写「别用同一个
-  // 起手式」，模型照样每次都「我在 X 刚做完 Y」。把他自己说过的原话发回去才挡得住。
+  // TA最近几次主动开口说的头一句。⚠️规则只降概率——光在提示词里写「别用同一个
+  // 起手式」，模型照样每次都「我在 X 刚做完 Y」。把TA自己说过的原话发回去才挡得住。
   const [openers, setOpeners] = useState({});
   const openersRef = useRef({}); openersRef.current = openers;
   const [makeups, setMakeups] = useState({});
@@ -521,7 +521,7 @@ function App() {
   const [inventory, setInventory] = useState([]);
   const inventoryRef = useRef([]); inventoryRef.current = inventory;
   // 想要清单：看上了但没买的。它的价值不在购物页，在【角色知道你想要什么】——
-  // 送礼那个 gift 字段本来就在，缺的只是「他怎么会知道」（她 2026-08-29）。
+  // 送礼那个 gift 字段本来就在，缺的只是「TA怎么会知道」（她 2026-08-29）。
   const [wish, setWish] = useState([]);
   const wishRef = useRef([]);
   const [cart, setCart] = useState([]); // 购物车 [{uid,name,en,price,cat,desc}]
@@ -652,7 +652,7 @@ function App() {
   // Ta 眼里·一次性建卡:老角色首开时把长期印象初始化出来(此后全靠聊天协议按需字段有机演进)
   const [gazeSeedBusy, setGazeSeedBusy] = useState(false);
   // ⚠️v62.35 从 10 抬到 30（她 2026-09-04：「新角色这块都是第一个填然后都是直接抄我的人设润色一下」）。
-  //   十条≈五个来回——那时候他手上【除了她自己写的设定，本来就没有别的材料】，
+  //   十条≈五个来回——那时候TA手上【除了她自己写的设定，本来就没有别的材料】，
   //   于是「你从相处里看出了什么」只能靠复述人设来回答。提示词里那句围栏只降概率；
   //   真正的保证是【材料不够就先不建卡】。她想早点看，状态卡页那个手动按钮照旧随时能按。
   const GAZE_AUTOSEED_MSGS = 30; // 聊够三十条(约十五个来回)才自动建卡:更早建出来的只会是人设复读
@@ -682,7 +682,7 @@ function App() {
       // ⚠️又是「一层写在两处，第二处没跟上」：loreForContext 那扇门上就写着
       //   「所有非主聊天功能也必须从同一扇门拿世界书」，而这两枪从来没走过它。
       //   （四处一样喂那条规矩里，这两枪也从来没在名单上。）
-      // ⚠️scope 用 chat：这张卡说的就是主线关系里他怎么看她，跟聊天同一个语境；
+      // ⚠️scope 用 chat：这张卡说的就是主线关系里TA怎么看她，跟聊天同一个语境；
       //   text 传最近这几句，带关键词的词条才触发得起来（常驻的无所谓）。
       // ⚠️【世界书执行准则】那一大段【故意不发】：它讲的是扮演时怎么使用世界设定
       //   （谁知道什么、什么算已发生），而这一枪不是在演，是在写一张印象卡。
@@ -726,15 +726,15 @@ function App() {
       //   字符串里直接敲一个真换行——JSON.parse 当场死，repairJSON 只补截断补不了它，
       //   于是每一次都「没解析出卡」。她 2026-09-06 连报三轮，原话就是这一句。
       const parsed = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw));
-      // ⚠️把【他这回到底说了什么】带上（v64.40）。
+      // ⚠️把【TA这回到底说了什么】带上（v64.40）。
       //   她 2026-09-06 连报三轮「还是不行」，v64.39 好不容易把原文露出来了，
       //   露出来的却是「没解析出卡」——那是我自己写的一句话，等于什么都没说。
       //   一句只描述「我没看懂」的错误，是个死胡同：它不含任何能往下查的东西。
       //   ⚠️所以判据是：**报错里必须带着我没看懂的那个东西本身**，不然下一轮还是这样。
-      if (!parsed) throw new Error("没解析出卡。他这回答的是：\n" + String(raw || "").slice(0, 320));
+      if (!parsed) throw new Error(characterText(char, "没解析出卡。他这回答的是：\n") + String(raw || "").slice(0, 320));
       const n = window.Gaze.seed(char.id, parsed);
       // 跟着这个角色的性别走(她 2026-09-01)——别处早有 charTa 这张表,不要再各写一份判断
-      const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : "他";
+      const _ta = window.PhonePronoun ? window.PhonePronoun.ta(char) : characterText(char, "他");
       if (n) toast(auto ? char.name + "写下了" + _ta + "眼里的你" : _ta + "写下了 " + n + " 块");
       else {
         // 解析出来了、但一块都没写(全 null)——这也是失败,得留下痕迹,否则卡里只剩一片空白。
@@ -834,7 +834,7 @@ function App() {
       + ((last && last.message) || last));
   };
   const [gazeReviewBusy, setGazeReviewBusy] = useState(false);
-  // manual=她自己在状态卡底下按了「让他再看一遍这十块」。
+  // manual=她自己在状态卡底下按了「让TA再看一遍这十块」。
   // ⚠️手动那一次不占自动预算（v64.35）：预算防的是「代码偷偷花钱」，不是防她自己要。
   //   原来两条路共用 reviewN，她手动重试几次就把自动那三次按光了。
   const reviewGazeFor = async (char, manual) => {
@@ -852,7 +852,7 @@ function App() {
       // ⚠️又是「一层写在两处，第二处没跟上」：loreForContext 那扇门上就写着
       //   「所有非主聊天功能也必须从同一扇门拿世界书」，而这两枪从来没走过它。
       //   （四处一样喂那条规矩里，这两枪也从来没在名单上。）
-      // ⚠️scope 用 chat：这张卡说的就是主线关系里他怎么看她，跟聊天同一个语境；
+      // ⚠️scope 用 chat：这张卡说的就是主线关系里TA怎么看她，跟聊天同一个语境；
       //   text 传最近这几句，带关键词的词条才触发得起来（常驻的无所谓）。
       // ⚠️【世界书执行准则】那一大段【故意不发】：它讲的是扮演时怎么使用世界设定
       //   （谁知道什么、什么算已发生），而这一枪不是在演，是在写一张印象卡。
@@ -877,7 +877,7 @@ function App() {
       //   「写过 10 版的人都失败、都卡在 16-20 天前，新人建卡可以过」——
       //   新人走的正是这一份，它里头没有卡的正文。
       //   ⚠️重写回来的还是交给 Gaze.review 落地：apply 遇到一模一样的原文会返回 false，
-      //   所以「没变的那几块他照原样写回来」天然不算改动，不会污染时间戳。
+      //   所以「没变的那几块TA照原样写回来」天然不算改动，不会污染时间戳。
       const levels = [
         { zh: "整份", sys: revSys, text: head + "\n\n【这段时间的相处】\n" + (recent || "(还没聊过)") },
         { zh: "去掉聊天记录", sys: revSys, text: head + NO_CHAT },
@@ -895,12 +895,12 @@ function App() {
       //   字符串里直接敲一个真换行——JSON.parse 当场死，repairJSON 只补截断补不了它，
       //   于是每一次都「没解析出卡」。她 2026-09-06 连报三轮，原话就是这一句。
       const parsed = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw));
-      // ⚠️把【他这回到底说了什么】带上（v64.40）。
+      // ⚠️把【TA这回到底说了什么】带上（v64.40）。
       //   她 2026-09-06 连报三轮「还是不行」，v64.39 好不容易把原文露出来了，
       //   露出来的却是「没解析出卡」——那是我自己写的一句话，等于什么都没说。
       //   一句只描述「我没看懂」的错误，是个死胡同：它不含任何能往下查的东西。
       //   ⚠️所以判据是：**报错里必须带着我没看懂的那个东西本身**，不然下一轮还是这样。
-      if (!parsed) throw new Error("没解析出卡。他这回答的是：\n" + String(raw || "").slice(0, 320));
+      if (!parsed) throw new Error(characterText(char, "没解析出卡。他这回答的是：\n") + String(raw || "").slice(0, 320));
       window.Gaze.acceptReview(char.id, parsed);
     } catch (e) {
       if (window.Gaze.markReviewFail) window.Gaze.markReviewFail(char.id, e.message || "调用没成", gazeRouteZh(p));
@@ -1245,7 +1245,7 @@ function App() {
     //   x_whispers ──(x_whispersMigrated)──▶ x_coupleNotes ──(x_notesToDrawer)──▶ 抽屉
     // ⚠️但第一段的代码在 v59.23「便签墙并进抽屉」时跟着墙一起被删了。
     // 谁要是当时正好【卡在第一段没走完】（x_whispersMigrated 还没置位），
-    // 他的悄悄话就永远停在 x_whispers 里，再也没有代码去接——链条中间断了一节。
+    // TA的悄悄话就永远停在 x_whispers 里，再也没有代码去接——链条中间断了一节。
     // 这儿把断掉的那一节直接接到抽屉上，并且【沿用同一个闸】：
     // 走完过第一段的人这里什么都不会发生，只有断在半路的那些才被捞回来。
     const _oldW = loadJSON("x_whispers", []);
@@ -1590,7 +1590,7 @@ function App() {
       //   （她 2026-09-13：自己写的五个词里四个认不出）。表本身只有 dongnian.js 那一份。
       const knownWords = window.DongnianEmotionA.temperamentWordHint ? window.DongnianEmotionA.temperamentWordHint() : "";
       const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`
-        + (knownWords ? `\n下面这些说法本地认得，认得的词才会真的改变他的脾气。贴切就优先从里面挑（同一族里挑一个就够，也可以在它前后加字）：${knownWords}。这个人身上最要紧的那一面这里找不到，就照你自己的话写，别为了凑进表里写一个不像他的词。` : "");
+        + (knownWords ? characterText(activeChar, "\n下面这些说法本地认得，认得的词才会真的改变他的脾气。贴切就优先从里面挑（同一族里挑一个就够，也可以在它前后加字）：") + knownWords + characterText(activeChar, "。这个人身上最要紧的那一面这里找不到，就照你自己的话写，别为了凑进表里写一个不像他的词。") : "");
       const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【" + userName(profile) + " 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
       const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.DongnianEmotionA.temperamentFromAnchors(words, false);
@@ -1621,7 +1621,7 @@ function App() {
   const innerLifeOnFor = charId => {
     try { const g = window.InnerLifePromotionGate; return !(g && g.state && g.state("E", charId).emergencyOff); } catch (e) { return true; }
   };
-  // 三道闸都收在这一处：急停、言秋（他不是被扮演的角色）、还没算出来。
+  // 三道闸都收在这一处：急停、言秋（TA不是被扮演的角色）、还没算出来。
   // 收在一处是因为要它的地方有三个（单聊 ctxFor、群线上 memberDesc、群线下 memberAMood）——
   // 各写一份就是「一层写在三处，第三处没跟上」。
   // 此刻端着到什么程度（-1~1）。急停按下 / 言秋 / 还没算出来 → 0（＝不挡）。
@@ -1705,27 +1705,27 @@ function App() {
   };
   // ── 动描 / 同处一室（她 2026-09-09）──────────────────────────────────
   // ⚠️这是【两件事】，各有各的开关。第一版把它们焊成了一个，她当场纠正：
-  //   「我只是举个例子不一定非要同处一室的时候，就是我俩分开的时候要他动描自己
-  //     在干啥也行。就只是不想我俩在一起的时候他觉得我跟他面对面手机聊天而已」
-  //   · 动描（actDesc）—— 他回消息能不能带一行括号动作。分不分开都成立；
-  //     分开时写的正是「他那边在干嘛」，那本来就是她要的「不像两个悬空的人在对话」。
+  //   「我只是举个例子不一定非要同处一室的时候，就是我俩分开的时候要TA动描自己
+  //     在干啥也行。就只是不想我俩在一起的时候TA觉得我跟TA面对面手机聊天而已」
+  //   · 动描（actDesc）—— TA回消息能不能带一行括号动作。分不分开都成立；
+  //     分开时写的正是「TA那边在干嘛」，那本来就是她要的「不像两个悬空的人在对话」。
   //     它是【设一次就不动】的，所以住在聊天设置里，不占顶栏。
-  //   · 同处一室（sameRoom）—— 他知不知道你俩此刻面对面。这是【在场】不是【动作】，
-  //     一天要开关好几回（「我们一起在家就可以开，等他出门我再关」），所以在顶栏。
+  //   · 同处一室（sameRoom）—— TA知不知道你俩此刻面对面。这是【在场】不是【动作】，
+  //     一天要开关好几回（「我们一起在家就可以开，等TA出门我再关」），所以在顶栏。
   // ⚠️两个都按人存、不按房间存：换小房间不该把这两件事丢掉。
   //
   // ⚠️八处名单（施工规则/four-surfaces-same-context.md）在这一层上的落法，
   //   差异是【显式的】，不是忘了：
   //   · 单人线上 —— 全套（在场 + 括号动描），这就是它本来要解决的那一处。
   //   · 通话 —— 在场那半层【白得的】：它走 buildBundle(roomContextFor→ctxFor)，
-  //     offlineNow 顺着同一个口子进去，所以打电话时他也知道你俩在一个屋里。
+  //     offlineNow 顺着同一个口子进去，所以打电话时TA也知道你俩在一个屋里。
   //     括号动描那半层不给：通话本来就有自己的 action 字段写神态。
   //   · 单人线下 —— 两半都不需要：线下本来就是面对面，动作本来就能写。
   //   · 群聊线上 —— 有（她 2026-09-10：「群里也接共处一室吧」）。开关按【群】存在
   //     groupSettings.sameRoom 里，说的是「一屋子人和你此刻都在同一个地方」。
   //     句子跟单聊共用 samePlacePresence 那一份，只多传一个 group 参数。
   //   · 群聊线下 / 群通话 —— 不需要：线下本来就是面对面；群通话里大家都在说话，
-  //     「面对面还是隔着屏幕」不改他说什么。
+  //     「面对面还是隔着屏幕」不改TA说什么。
   //   · 穿书 / 匿名信箱 / 解梦馆 —— 不适用：那几处不是你俩此刻在同一个地方说话。
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
@@ -1905,7 +1905,7 @@ function App() {
           const applied = new Set(Array.isArray(oldApplied) ? oldApplied : []);
           const freshEvents = (result.personalityEvents || []).filter(ev => ev && ev.eventKey && !applied.has(ev.eventKey));
           freshEvents.filter(ev => ev.speaker === "lisa" && ev.content).forEach(ev => noteTidalUser(ev.content, ev.ts));
-          // 她在书房跟他说的话回流进来，也是一段相处（她 2026-09-02 抓的：扭蛋只认输入栏的发送键）。
+          // 她在书房跟TA说的话回流进来，也是一段相处（她 2026-09-02 抓的：扭蛋只认输入栏的发送键）。
           // 「一段」的 90 分钟闸在 GachaKit.earn 里，话多不多攒。
           if (freshEvents.some(ev => ev.speaker === "lisa" && ev.content)) { try { gachaEarn(y.id, "chat"); } catch (e) {} }
           freshEvents.filter(ev => ev.speaker === "character" && ev.evidence).forEach(ev => {
@@ -2834,7 +2834,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // C 第4步：睡眠影子 tick（纯本地计算，5 分钟一轮 + 回前台刷新；shadow 不改任何真实行为）
   // ⚠️【D 做梦就挂在这个 if 里面】：DreamLoop 要 C 算出来的 sleepState 才知道 REM 窗到没到。
   //   v64.34 把 C 的两个 script 当死代码删掉时，D 一起停了——不报错、界面上也看不出来，
-  //   「他做的梦」只是从那天起再没多一条。要动 C 之前先想一下这一行。
+  //   「TA做的梦」只是从那天起再没多一条。要动 C 之前先想一下这一行。
   useEffect(() => {
     if (!loaded) return;
     const tickAll = async (forcePresence) => { try { if (window.SleepShadow) {
@@ -3073,7 +3073,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 所以「清群记录 · 同步忘却」的两级匹配（groupId 优先、tag 兜底）两条都要有人喂。
   // 她要的：NPC 在群里的互动【进主角色的记忆库】。
   // 不用新造机制——knownBy 已经在了（splitGroupMemories 就按它分流）：
-  //   charIds  = 只放真角色 → 这条记忆【归主角色】，他单聊时召得回来
+  //   charIds  = 只放真角色 → 这条记忆【归主角色】，TA单聊时召得回来
   //   knownBy  = 在场的都放（含 NPC） → 陆闻下次在群里也记得这一段，
   //              但召不回裴照川跟她的私事
   const memOwners = ids => (ids || []).filter(id => { const c = characters.find(x => x.id === id); return c && !c.npc; });
@@ -3086,8 +3086,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   · 记忆库里 open:true 的条目 —— 那是线下/通话结束时自动抽出来的【你俩真说过的约定】，
   //     不是她手打的心愿单（心愿单 CoupleWishes 早就有了，两回事：一个是她想要的，
   //     一个是从你们说过的话里长出来的）。
-  //   · x_promises —— 已有的「约回」链：他亲口说等我 xxx 再找你，到点自己会来（v56.49）。
-  // 给一条约定设个日子，就是往 x_promises 里塞一条，到期那条现成的链就会让他主动提起。
+  //   · x_promises —— 已有的「约回」链：TA亲口说等我 xxx 再找你，到点自己会来（v56.49）。
+  // 给一条约定设个日子，就是往 x_promises 里塞一条，到期那条现成的链就会让TA主动提起。
   const pactsFor = charId => ({
     open: (memLibRef.current || []).filter(m => m && m.open && (m.charIds || []).includes(charId))
       .sort((a2, b2) => (b2.ts || 0) - (a2.ts || 0)).slice(0, 30),
@@ -3106,7 +3106,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     else toast("记下了");
   };
   // 愿望板 → 约回链（v62.11，她 2026-09-04 同意）：愿望标成「已计划」后挑个日子，
-  // 到那天他主动来约这件事——走的还是 x_promises 那条现成的链（消费端只认 charId/dueTs/about），
+  // 到那天TA主动来约这件事——走的还是 x_promises 那条现成的链（消费端只认 charId/dueTs/about），
   // 不是新机制。wishId 用来认「这条约挂的是哪个愿望」，改日子/取消都按它换。
   const planWish = (charId, wish, dueTs) => {
     if (!wish || !wish.id) return;
@@ -3115,11 +3115,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const n = dueTs ? [...kept, { id: "pw_" + Date.now(), charId, about: "你们想一起做的：" + String(wish.title || "").slice(0, 40), dueTs, memId: null, wishId: wish.id }] : kept;
       promisesRef.current = n; saveJSON("x_promises", n); return n;
     });
-    toast(dueTs ? "到那天他会主动来约这件事" : "不定日子了");
+    toast(dueTs ? characterText(characters.find(c => c.id === charId), "到那天他会主动来约这件事") : "不定日子了");
   };
   const wishPlanOf = wishId => (promisesRef.current || []).find(x => x && x.wishId === wishId) || null;
-  // 到期他会自己提起——走的是已有那条约回链，不是新机制
-  // via：到那天他【怎么来】——"chat" 发消息（原来只有这一种）／"voice" 打语音／
+  // 到期TA会自己提起——走的是已有那条约回链，不是新机制
+  // via：到那天TA【怎么来】——"chat" 发消息（原来只有这一种）／"voice" 打语音／
   // "video" 打视频（她 2026-09-06：「约好了打电话没做」）。
   const PACT_VIA = { chat: "发消息", voice: "语音电话", video: "视频电话" };
   const setPactDue = (memId, charId, about, dueTs, via) => {
@@ -3129,7 +3129,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const n = [...p.filter(x => x.memId !== memId), { id: "pk_" + Date.now(), charId, about: String(about || "").slice(0, 60), dueTs, memId, via: v }];
       promisesRef.current = n; saveJSON("x_promises", n); return n;
     });
-    toast(v === "chat" ? "到那天他会自己提起" : "到那天他会给你打" + PACT_VIA[v]);
+    toast(v === "chat" ? characterText(characters.find(c => c.id === charId), "到那天他会自己提起") : characterText(characters.find(c => c.id === charId), "到那天他会给你打") + PACT_VIA[v]);
   };
   const addMemEntry = e => {
     let entry = {
@@ -3544,10 +3544,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!m || m.role === "user" || m.kind === "system" || m.kind === "silence") continue;
       last = m; break;
     }
-    // ⚠️她 2026-09-11：「有时候不触发，有时候我在别人聊天框他会出现有时候又不显示」。
+    // ⚠️她 2026-09-11：「有时候不触发，有时候我在别人聊天框TA会出现有时候又不显示」。
     //   病根就在这儿：原来这一句是【按消息自己的时刻】判新旧（超过两分钟就不提醒），
-    //   可主动消息里有一整类是【故意往回盖时间戳】的——约回（他说「等我忙完找你」，
-    //   到点补发，ts 记成他许诺的那会儿）和动念（backdateTs）。它们真的是刚到的，
+    //   可主动消息里有一整类是【故意往回盖时间戳】的——约回（TA说「等我忙完找你」，
+    //   到点补发，ts 记成TA许诺的那会儿）和动念（backdateTs）。它们真的是刚到的，
     //   却被这一句当成旧消息静静吞掉，于是同样一条消息有时弹有时不弹。
     //   要挡的从来只有两样，各自照它本来的样子挡：
     //   ① 开机那几秒的一摞（app 刚起来，正在把存档和云端接上）；
@@ -3597,7 +3597,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const idx = schedCurrentSeqIdx(disp, true, char);
     const cur = idx >= 0 ? disp[idx] : null;
     const next = disp[idx + 1];
-    // 负荷那一档也说中文：HIGH LOAD / NORMAL 这类英文标签不该出现在喂给他的话里
+    // 负荷那一档也说中文：HIGH LOAD / NORMAL 这类英文标签不该出现在喂给TA的话里
     // （她 2026-09-04 让把这种字眼删掉；界面上是整条不显示，这里换成中文保住信息量）
     const loadZh = { "HIGH LOAD": "满", "NORMAL": "一般", "LIGHT": "清闲", "LOW LOAD": "清闲" };
     const loadWord = loadZh[String(s.load || "").toUpperCase()] || "";
@@ -3670,7 +3670,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   · 排了作息的角色用 C 算的四相（快睡了／睡熟／刚醒 分得开，语气才有层次）；
   //   · 没排作息的退回 charAwakeState 的两相（它有 8–23 那个兜底，不能丢）。
   // ⚠️C 只有 source==="schedule" 时才算数——没行程时它会拿「睡意压力」猜一个出来，那是编的。
-  // ⚠️言秋不睡觉（他不是被扮演的角色）。
+  // ⚠️言秋不睡觉（TA不是被扮演的角色）。
   const sleepPhaseOf = char => {
     try {
       if (!char || !char.id) return "awake";
@@ -3750,7 +3750,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", place: cur.place || "", type: cur.type || "other", dev: !!cur.deviation };
   };
   // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
-  // 今天他那儿什么天气——【看他住在哪套世界】（她 2026-09-06 那个「钉了温尼伯又钉了架空世界」）。
+  // 今天TA那儿什么天气——【看TA住在哪套世界】（她 2026-09-06 那个「钉了温尼伯又钉了架空世界」）。
   // ⚠️住在架空世界的角色不许再灌现实天气：一个王爷跟着温尼伯下雨，那句「外头下了一整天
   //   的毛毛雨」就是这么来的。架空那边的天气本来就有（WorldWeather，按世界+地形现算，
   //   一次调用都不用花）。
@@ -3788,7 +3788,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const uName = (profile && profile.name) || "用户";
       const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
       // 把进行中线下的最近几句一起带进线上上下文——线上才接得住「我去买菜」这种半途插话（她 2026-07-23 买菜例子）：
-      //   线下说去买菜 → 切线上问买啥（他知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
+      //   线下说去买菜 → 切线上问买啥（TA知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
       // 普通角色的逐条线下原文已在 recentChat 里和线上私聊按时间精确合流；
       // 这里不再重复塞一份固定 8 条。engineerEyes 保持原专线不动。
       const recent = settingsFor(charId).engineerEyes ? (s.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8)
@@ -3842,7 +3842,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   先取 3 再统一截 6 的话，时间线和一起学永远轮不上（第一版就是这样）。
     grab(() => A((loadJSON("x_coupleDisc", {})[char.id] || {}).songs).slice(0, 2)
       .forEach(s2 => L.push("· 你往你俩的唱片上刻过《" + s2.title + "》" + (s2.note ? "，你写的是「" + s2.note + "」" : ""))));
-    // ⚠️侧房里读的书不一定算数：那间房自己没开写回口子的，不许从主线的他嘴里说出来
+    // ⚠️侧房里读的书不一定算数：那间房自己没开写回口子的，不许从主线的TA嘴里说出来
     //   （跟一起学那一条同一道闸，判在 ChatRooms.roomCounts 一处；没戳 roomId 的老书＝主线，照旧放行）。
     grab(() => A(loadJSON("x_read_books", [])).filter(b => b && String(b.partnerId || "") === String(char.id))
       .filter(b => typeof window === "undefined" || !window.ChatRooms || window.ChatRooms.roomCounts(char.id, b.roomId))
@@ -3855,7 +3855,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     grab(() => { const seen = {};
       A(loadJSON("x_study_sessions", [])).filter(x => x && (A(x.character_ids).some(id => String(id) === String(char.id))
           || String(x.teacher_id || "") === String(char.id)))
-        // 侧房里上的课不一定算数：那间房自己没开写回口子的，不许从主线的他嘴里说出来。
+        // 侧房里上的课不一定算数：那间房自己没开写回口子的，不许从主线的TA嘴里说出来。
         // 判在 ChatRooms.studyCounts 一处，这儿别再判一遍（没戳 roomId 的老课＝主线，照旧放行）。
         .filter(x => typeof window === "undefined" || !window.ChatRooms || window.ChatRooms.studyCounts(char.id, x))
         .sort((a, b) => (b.updated_at || b.created_at || 0) - (a.updated_at || a.created_at || 0))
@@ -3930,7 +3930,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // ⭐群聊补课（她 2026-08-25：「不是酥酪的问题宝宝是还是很霸总」）。
   // v55.87 补的是【人设被砍到 200 字】，那只是缺口之一。把单聊线上的 buildBundle
-  // 和群线上的 system 一层层对下来，群里还少这四样，每一样都在直接决定他用什么语气说话：
+  // 和群线上的 system 一层层对下来，群里还少这四样，每一样都在直接决定TA用什么语气说话：
   //   ① 用户是谁（profile.persona）——群里只有一个名字，她整个人是空白。
   //   ② 和用户是不是恋人、在一起多久（coupleStatus）——这是最要命的一条：
   //      关系网里可能还写着旧标签，单聊靠 coupleStatus 盖过去，群聊压根没这层，
@@ -3944,7 +3944,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 情侣空间【我们的档案】——她亲手写的七栏：彼此称呼、只有你俩懂的梗、小仪式、
   // 安慰说明书、边界与禁区、喜欢清单、第一次们。
   // ⚠️v58.90 之前这七栏只躺在 x_coupleHome 里给她一个人看：界面上写着「你写下什么，
-  // 才留下什么」，结果只留在她这边——全 App 最该进提示词的内容，他一个字都不知道
+  // 才留下什么」，结果只留在她这边——全 App 最该进提示词的内容，TA一个字都不知道
   //（她 2026-08-31 盘点时拍板接线）。栏名照抄界面上那几个，她是按那个提示写的。
   const COUPLE_ARCHIVE_LINES = [
     ["nicknames", "你们怎么称呼彼此"],
@@ -3968,7 +3968,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ── 愿望板也接进来（v62.31，她 2026-09-04 问「这个也进聊天吗」——不进，是漏的）──
     // 它跟上面七栏不是一回事，所以【另起一句领句】，不混进「你俩之间已经成立的事」里：
     // 七栏说的是【已经是这样了】，愿望板说的是【说好想做、还没做成】。
-    // ⚠️必须带围栏。不挡的话他会天天催「我们什么时候去」——跟记忆库那条
+    // ⚠️必须带围栏。不挡的话TA会天天催「我们什么时候去」——跟记忆库那条
     //   「记忆用来不忘、不是用来重演」是同一个病，也跟发呆那边那句
     //   「这些是土壤不是任务」同一条道理。
     const wishes = (((coupleHomeRef.current || {})[charId] || {}).wishes || [])
@@ -3988,11 +3988,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ═══ 抽卡（她 2026-08-31）═══
   //
   // 形状是她定的：**抽是抽，兑是兑**。抽卡永远 0 次调用——抽到的是一张【兑换券】，
-  // 上面写着他会做的哪一件事；点了兑换才真的发生，那时才可能花一次。所以十连也 0 调用。
+  // 上面写着TA会做的哪一件事；点了兑换才真的发生，那时才可能花一次。所以十连也 0 调用。
   // 票根永不删（她原话：「票根永远留痕有时间戳是什么时候抽到的（r sr ssr都留）」）：
   // 一张卡就是它自己的票根，兑换只是盖个戳（redeemedTs + result），不是消耗掉它。
   //
-  // R 兑换【0 调用】——从他已经有的东西里翻一件出来。这一层解决一个真问题：
+  // R 兑换【0 调用】——从TA已经有的东西里翻一件出来。这一层解决一个真问题：
   // 这个 App 生成的东西她根本看不完，R 卡等于一个「随机重新翻出来」的入口。
   const gachaPhone = cid => (phonesRef.current || {})[cid] || {};
   const gachaPickR = (char, need) => {
@@ -4012,10 +4012,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const pl = (listenRef.current.playlists || []).find(x => x.charId === char.id);
         return one(arr(pl && pl.songs), x => ({ title: (x.title || x.name || "一首歌") + (x.artist ? " · " + x.artist : ""), body: x.why || x.note || "" }));
       }
-      case "memlib": return one(arr(memLibRef.current).filter(e => (e.charIds || []).includes(char.id)), x => ({ title: "他还记得", body: x.text || "" }));
-      case "forum":  return one(arr(forumPostsRef.current).filter(x => x.authorId === char.id), x => ({ title: x.title || "他发的帖", body: x.body || "" }));
-      case "moment": return one(arr(momentsRef.current).filter(x => x.characterId === char.id), x => ({ title: "他发的动态", body: x.content || "" }));
-      case "diary":  return one(arr((diariesRef.current || {})[char.id]), x => ({ title: x.titleZh || (x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : "他日记里的一天"), body: x.body || x.content || "" }));
+      case "memlib": return one(arr(memLibRef.current).filter(e => (e.charIds || []).includes(char.id)), x => ({ title: characterText(char, "他还记得"), body: x.text || "" }));
+      case "forum":  return one(arr(forumPostsRef.current).filter(x => x.authorId === char.id), x => ({ title: x.title || characterText(char, "他发的帖"), body: x.body || "" }));
+      case "moment": return one(arr(momentsRef.current).filter(x => x.characterId === char.id), x => ({ title: characterText(char, "他发的动态"), body: x.content || "" }));
+      case "diary":  return one(arr((diariesRef.current || {})[char.id]), x => ({ title: x.titleZh || (x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : characterText(char, "他日记里的一天")), body: x.body || x.content || "" }));
       default: return null;
     }
   };
@@ -4068,37 +4068,37 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
   };
   // 兑换。三档在这一处分路：
-  //   R   0 调用——从他已经有的东西里翻一件（gachaPickR）
-  //   SR  1 调用——他现做一件小东西，不动任何状态
+  //   R   0 调用——从TA已经有的东西里翻一件（gachaPickR）
+  //   SR  1 调用——TA现做一件小东西，不动任何状态
   //   SSR 1 调用——真的留下东西（进记忆库 / 开线下 / 进情书）
   // ⚠️不管哪一档，票根都【不删】：兑换只是给它盖个戳。
   const GACHA_SR_ASK = {
-    word:   "写一句他此刻【没说出口】的话——只在心里过了一下、没打算给谁听的那半句。",
-    note:   "写一张他随手写好、塞给用户的便签：一两句，纸条的口气，不是正式的信。",
-    secret: "写一件他【今天】发生的、本来没打算说的小事——具体到时间地点，不要泛泛的心情。",
-    song:   "挑一首他此刻想放给用户听的歌（真实存在的），连着他为什么是这一首、想让对方听到哪一句。",
-    look:   "写他此刻看着用户时眼里的样子——不是夸，是他真正注意到的那几个细节。",
-    date:   "写一件他【想过、但还没开口约】的事：你俩一起去做什么。要具体到地点和时候，"
-          + "而且必须是【他这个人、在他这个处境里】约得出来的——换个角色就不成立才算写对。"
+    word:   "写一句TA此刻【没说出口】的话——只在心里过了一下、没打算给谁听的那半句。",
+    note:   "写一张TA随手写好、塞给用户的便签：一两句，纸条的口气，不是正式的信。",
+    secret: "写一件TA【今天】发生的、本来没打算说的小事——具体到时间地点，不要泛泛的心情。",
+    song:   "挑一首TA此刻想放给用户听的歌（真实存在的），连着TA为什么是这一首、想让对方听到哪一句。",
+    look:   "写TA此刻看着用户时眼里的样子——不是夸，是TA真正注意到的那几个细节。",
+    date:   "写一件TA【想过、但还没开口约】的事：你俩一起去做什么。要具体到地点和时候，"
+          + "而且必须是【TA这个人、在TA这个处境里】约得出来的——换个角色就不成立才算写对。"
   };
   const GACHA_SSR_ASK = {
-    past: "写他过去真实经历过的一件事——一件他从没跟用户讲过、但确实塑造了他的事。要有具体的时间、地点和人，不要抽象的总结。",
-    pact: "写一件他此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。",
-    offline: "写一场【他主动约用户见面】的开场：他挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
-    // 印象卡（js/gaze.js 的十块）。⚠️他【已经看得见自己那张卡】——buildBundle 里
-    // 常驻发着 gazeText，所以这儿只要让他挑一块重写，不用再把卡抄一遍进提示词。
+    past: "写TA过去真实经历过的一件事——一件TA从没跟用户讲过、但确实塑造了TA的事。要有具体的时间、地点和人，不要抽象的总结。",
+    pact: "写一件TA此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。",
+    offline: "写一场【TA主动约用户见面】的开场：TA挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
+    // 印象卡（js/gaze.js 的十块）。⚠️TA【已经看得见自己那张卡】——buildBundle 里
+    // 常驻发着 gazeText，所以这儿只要让TA挑一块重写，不用再把卡抄一遍进提示词。
     gaze: "你心里那张关于她、关于你们的长期认知卡（上面已经发给你了），此刻你把它重看了一遍。"
         + "挑【其中一块】重写：要么你对她的某个判断被最近的事推翻或修正了，要么你补上了以前不知道的一面。\n"
         + "side 填 me（关于她）或 us（关于你们），block 填那一块的名字（照上面卡里的写法），"
         + "text 是这一块【重写之后的全文】，不是补丁、不是「另外还有」——它会整块盖掉旧的那版。\n"
         + "写你私下真这么想的那版，别写成对她的评语或表扬信；扣着具体的事说，"
         + "换个角色照样成立的就是写坏了。",
-    // 约会券：跟 offline 同一条落地路（都是把线下开起来），但券是【他事先想好的一件事】，
+    // 约会券：跟 offline 同一条落地路（都是把线下开起来），但券是【TA事先想好的一件事】，
     // 所以先给这张券起个名，正文才是到了现场的第一拍。
-    date: "写一张他给用户的【约会券】：券面上是一件他想好要一起去做的事（title），"
-        + "正文是这张券被兑掉的那一刻——你们已经到了，他开的第一句场。三到五句旁白，"
+    date: "写一张TA给用户的【约会券】：券面上是一件TA想好要一起去做的事（title），"
+        + "正文是这张券被兑掉的那一刻——你们已经到了，TA开的第一句场。三到五句旁白，"
         + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。\n"
-        + "券上那件事必须是【他这个人、在他这个世界里】做得出来的：地点、场合、时辰都要贴他，"
+        + "券上那件事必须是【TA这个人、在TA这个世界里】做得出来的：地点、场合、时辰都要贴TA，"
         + "换个角色照样成立的就是写坏了。"
   };
   const gachaRedeem = async card => {
@@ -4110,35 +4110,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const need = (window.GachaKit.byId[card.poolId] || {}).need;
       const got = gachaPickR(char, need);
       // 那一栏这会儿空了（她清过数据 / 还没生成过）：不盖戳，卡留着，等有东西了再兑
-      if (!got) { toast("这一栏他现在还没有东西可翻——等有了再来兑，卡还留着"); return; }
+      if (!got) { toast(characterText(char, "这一栏他现在还没有东西可翻——等有了再来兑，卡还留着")); return; }
       gachaStamp(card.id, got);
       return got;
     }
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, gacha: card.id }));
     try {
-      // ── SR：他现做一件小东西，不动任何状态 ──
+      // ── SR：TA现做一件小东西，不动任何状态 ──
       if (card.act === "make") {
         // 言秋（engineerEyes）的 SR 小东西不再由引擎代笔（她 2026-09-02：「卧室写的情书你自己都看不到，
         // 最多算 fable 代笔」）：开 CC 票请本人在书房写；不在岗就把卡留着，绝不落回代笔。
         if (settingsFor(char.id).engineerEyes) {
-          if (!(window.CCSeat && window.Cloud)) { toast("他这会儿不在书房，卡留着，等他在的时候再兑"); return; }
+          if (!(window.CCSeat && window.Cloud)) { toast(characterText(char, "他这会儿不在书房，卡留着，等他在的时候再兑")); return; }
           try {
             let r = await window.CCSeat.ask({ tool: "gacha_make", char_id: char.id, card_id: card.id, kind: card.kind, card_name: card.name,
               ask: GACHA_SR_ASK[card.kind], expect: { title: "一行小标题", body: "正文" } }, 180000, { charId: char.id });
             if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = { body: r }; } }
             const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc" };
-            if (!got.body) { toast("他没写出来，卡还留着"); return; }
+            if (!got.body) { toast(characterText(char, "他没写出来，卡还留着")); return; }
             gachaStamp(card.id, got);
             return got;
           } catch (e) {
-            toast(e && e.code === "CC_SEAT_TIMEOUT" ? "他这会儿没接到票，卡留着，等他在的时候再兑" : "书房那边没接上：" + (e.message || "") + "，卡留着");
+            toast(e && e.code === "CC_SEAT_TIMEOUT" ? characterText(char, "他这会儿没接到票，卡留着，等他在的时候再兑") : "书房那边没接上：" + (e.message || "") + "，卡留着");
             return;
           }
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SR_ASK[card.kind] + "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。",
+          instruction: GACHA_SR_ASK[card.kind] + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。"),
           schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
           maxTokens: 11000
         });
@@ -4150,12 +4150,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (card.act === "letter") {
         const ok = await genCoupleLetter(char);
         if (!ok) return;   // 情书自己有三天冷却，被挡住就别盖戳，卡留着
-        gachaStamp(card.id, { title: "他写给你的一封信", body: "已经放进情侣空间的情书里了", where: "letters" });
-        return { title: "他写给你的一封信", body: "已经放进情侣空间的情书里了" };
+        gachaStamp(card.id, { title: characterText(char, "他写给你的一封信"), body: "已经放进情侣空间的情书里了", where: "letters" });
+        return { title: characterText(char, "他写给你的一封信"), body: "已经放进情侣空间的情书里了" };
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: GACHA_SSR_ASK[card.act] + "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。",
+        instruction: GACHA_SSR_ASK[card.act] + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。"),
         schemaHint: card.act === "gaze" ? "{\"side\":\"me 或 us\",\"block\":\"那一块的名字\",\"body\":\"这一块重写之后的全文\"}"
           : card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
           : card.act === "date" ? "{\"title\":\"券面上那件事\",\"body\":\"兑掉那一刻的开场旁白\"}"
@@ -4165,7 +4165,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const title = String(d.title || card.name).trim(), body = String(d.body || "").trim();
       if (!body) { toast("这次没写出东西来，卡还留着，可以再兑一次"); return; }
       if (card.act === "past") {
-        // 进记忆库＝以后他真的会提起。这就是 SSR 和 SR 的唯一区别。
+        // 进记忆库＝以后TA真的会提起。这就是 SSR 和 SR 的唯一区别。
         addMemEntry({ text: body, tags: ["抽卡", "过去"], charIds: [char.id], knownBy: [char.id], source: "manual" });
         gachaStamp(card.id, { title: title, body: body, where: "memlib" });
       } else if (card.act === "pact") {
@@ -4177,7 +4177,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const ok = window.Gaze && window.Gaze.applyParsed(char.id, { side: d.side, block: d.block, text: body });
         if (!ok) { toast("这一块没认出来，卡还留着，可以再兑一次"); return; }
         const zh = (window.Gaze.KEYS || {})[window.Gaze.normKey(d.side, d.block)] || title;
-        gachaStamp(card.id, { title: "他重写了「" + zh + "」", body: body, where: "gaze" });
+        gachaStamp(card.id, { title: characterText(char, "他重写了「") + zh + "」", body: body, where: "gaze" });
         return { title: zh, body: body };
       } else if (card.act === "offline" || card.act === "date") {
         // ⚠️别用 openOffline：它会重新从存储读一遍再 setOfflines，
@@ -4192,7 +4192,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("兑换失败：" + e.message + "（卡还留着）");
     } finally { setGen(g => ({ ...g, gacha: null })); }
   };
-  // 「他有对象，但不是你」这半边：实现放在 engine.js 的 takenByOthersLine，
+  // 「TA有对象，但不是你」这半边：实现放在 engine.js 的 takenByOthersLine，
   // 那儿是【打包函数白送】的位置——所有走 buildBundle 的入口（单聊线上/线下、通话、
   // 穿书、匿名箱）一起有。群聊这两处不走 buildBundle，所以在这儿调同一份。
   // ⚠️别在这儿再写一遍文案：一层写在两处，第二处迟早跟不上（这份文件已经犯过太多次）。
@@ -4201,14 +4201,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const coupleLineFor = (charId, uName) => {
     const cp = couplesRef.current[charId];
     // ⚠️没有和用户的情侣关系时不能直接 return ""——那个空白正是病根。
-    //   先问一句「那他是不是和别人在一起了」。
+    //   先问一句「那TA是不是和别人在一起了」。
     if (!cp || !cp.status || cp.status === "none") return takenLineFor(charId, uName);
     if (cp.status === "together") {
       const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
       return "你和 " + uName + " 已经在一起了" + (days ? "（约 " + days + " 天）" : "") + "——这是你俩【当前真实的关系】，就算上面关系网里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】相处。";
     }
     if (cp.status === "pending") return "你和 " + uName + " 之间有一个还没敲定的情侣邀请，关系正处在暧昧、要不要更进一步的阶段。";
-    // 分过手/取消了：同样不能留空白，回到「他是不是和别人在一起了」这一问
+    // 分过手/取消了：同样不能留空白，回到「TA是不是和别人在一起了」这一问
     return takenLineFor(charId, uName);
   };
   const ageLineFor = char => {
@@ -4283,14 +4283,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     personaGrown: (window.HeartKit && desiresRef.current[char.id]) ? HeartKit.personaText(desiresRef.current[char.id]) : "",
     personaEvolve: PERSONA_EVOLVE_IDS.includes(char.id), // B：这个角色是否开启软层成长（白名单）
 
-    notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚他（她 2026-07-13 点名）
+    notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚TA（她 2026-07-13 点名）
     yanqiuWall: yanqiuWallFor(char, ctxOpts),
     ccContinuity: ccContinuityFor(char),
     profile,
     affinity: Math.round(affOf(char.id)),
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
-    // 提示词照原样塞进去，等于要求他把三天前那阵气重演一遍（她 2026-08-24 问到的）。
+    // 提示词照原样塞进去，等于要求TA把三天前那阵气重演一遍（她 2026-08-24 问到的）。
     ...(function () {
       const m = moods[char.id] || {};
       const st = window.MoodLabel && window.MoodLabel.settle
@@ -4299,10 +4299,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return { moodLabel: st.label || null, moodNote: st.note || "" };
     })(),
     gazeText: !settingsFor(char.id).engineerEyes && window.Gaze ? window.Gaze.text(char.id, userName(profile)) : "",
-    // 「看他玩」看完留下什么（她 2026-09-10 拍的：**只敲过才写**）。
-    // ⚠️她安安静静看完＝他真的不知道，这儿一个字都不发、一分钱不花——这个玩法
-    //   成立的地方就是「他以为没人在看」，看一次就往他脑子里塞一句等于把它拆了。
-    //   只有她伸手敲了屏幕，他才真的抬过头，那才是发生过的事。当天为界（见 knockedToday）。
+    // 「看TA玩」看完留下什么（她 2026-09-10 拍的：**只敲过才写**）。
+    // ⚠️她安安静静看完＝TA真的不知道，这儿一个字都不发、一分钱不花——这个玩法
+    //   成立的地方就是「TA以为没人在看」，看一次就往TA脑子里塞一句等于把它拆了。
+    //   只有她伸手敲了屏幕，TA才真的抬过头，那才是发生过的事。当天为界（见 knockedToday）。
     watchedNote: (window.PhoneWatch && !settingsFor(char.id).engineerEyes)
       ? window.PhoneWatch.watchedNote(
           window.PhoneWatch.knockedToday((knockLogRef.current || {})[char.id], Date.now()),
@@ -4316,14 +4316,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   而这一条正是几轮主线相处攒出来的底色——这是写明理由的差异，不是漏。
     aMood: aMoodTextOf(char.id),
     // 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）。
-    // ⚠️提示词里【早就写着】她那边和他那边各是几点（timeBlock），可从来没有一句话说过
-    //   「凌晨三点你应该在睡，这条消息是把你吵醒的」——于是他知道是深夜，还是精神饱满地秒回。
+    // ⚠️提示词里【早就写着】她那边和TA那边各是几点（timeBlock），可从来没有一句话说过
+    //   「凌晨三点你应该在睡，这条消息是把你吵醒的」——于是TA知道是深夜，还是精神饱满地秒回。
     //   缺的从来不是时间事实，是那个【姿态】。
     // ⚠️跟 aMood 走同一条路，所以单聊线上/线下、通话、匿名信箱、解梦馆一次全有；
     //   群里两处另按人喂（memberDesc / memberSleep），跟 aMood 一模一样的三处。
     sleepTone: sleepToneOf(char),
-    // 她翻过他昨晚那场梦之后，让那点感觉【轻轻】留在他今天的语气里
-    //（她 2026-09-04：「不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
+    // 她翻过TA昨晚那场梦之后，让那点感觉【轻轻】留在TA今天的语气里
+    //（她 2026-09-04：「不要做卡片就只是轻轻地让TA带着这段梦境的感受和我相处」）。
     // ⚠️梦不是记忆：这一条只读不写，也不进记忆库、不驱动任何主动行为；
     //   三天就自己过期——一场梦的余味本来就留不了那么久。
     dreamEcho: (() => {
@@ -4332,7 +4332,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!d || !d.line) return "";
         if (Date.now() - (d.ts || 0) > 3 * 86400000) return "";
         // ⚠️这行抬头原来写死「你昨晚做的那个梦」，可这条要留三天——于是 9 月 4 号的梦
-        //   到 6 号还在被他说成「昨晚」（她 2026-09-06 抓到）。抬头必须跟着日子走：
+        //   到 6 号还在被TA说成「昨晚」（她 2026-09-06 抓到）。抬头必须跟着日子走：
         //   梦是哪天的，就说哪天的。
         const days = Math.max(0, Math.floor((Date.now() - (d.ts || 0)) / 86400000));
         const when = days <= 0 ? "你昨晚做的那个梦" : days === 1 ? "你前天夜里做的那个梦" : "你几天前做的那个梦";
@@ -4372,8 +4372,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return copyMemoryRecallMeta(rows, rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) })));
     })(),
     geo: prefs.geoAware ? geo : null,
-    // 他自己住在哪儿（v64.72）：地图上钉的那个点。原来只用来画地图和查天气，
-    // 一次都没进过提示词——所以「生成他的生活」那几处只能靠训练先验猜他在哪个国家。
+    // TA自己住在哪儿（v64.72）：地图上钉的那个点。原来只用来画地图和查天气，
+    // 一次都没进过提示词——所以「生成TA的生活」那几处只能靠训练先验猜TA在哪个国家。
     homeCity: (char && char.home && char.home.city) ? String(char.home.city).trim().slice(0, 40) : "",
     timeAware: timeAwareFor(char.id),
     // 她从 Ta 的梦里带出来的东西（v63.05）：Ta 见了眼熟，但不知道它从哪儿来——永远不说破。
@@ -4384,11 +4384,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return mine.map(x => x.name).filter(Boolean).join("、");
     })(),
     // 埋下去还没到期的胶囊（v64.03，她 2026-09-05 问「要不要进上下文」）。
-    // ⚠️只给【几颗 + 还有几天】，一个字的正文都不给：这个功能的全部机制就是「他不知道
+    // ⚠️只给【几颗 + 还有几天】，一个字的正文都不给：这个功能的全部机制就是「TA不知道
     //   里面写了什么」。给了内容，胶囊就不成立了。
-    // ⚠️他自己回埋的那颗是他写的、他当然知道——所以危险的不是他不知道，是他说漏嘴。
+    // ⚠️TA自己回埋的那颗是TA写的、TA当然知道——所以危险的不是TA不知道，是TA说漏嘴。
     //   那一句挡在 engine.js 那头（提示词里明写「一个字都不许提前说」）。
-    // 给自己写的（toSelf）不算：那跟他没关系。
+    // 给自己写的（toSelf）不算：那跟TA没关系。
     capsuleWait: (() => {
       const caps = loadJSON("x_capsules", []);
       const now = Date.now();
@@ -4403,7 +4403,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她今天带在身上的（v63.98）：物品那一层的三个动词之一。
     // 不分谁送的——带着谁的东西出门，这件事本身就是话。
     onMe: (inventory || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, 2).join("、"),
-    // 他送的东西被用掉了（v63.98）：以前送出去就石沉大海，这是那件事的回响。
+    // TA送的东西被用掉了（v63.98）：以前送出去就石沉大海，这是那件事的回响。
     usedLog: (() => {
       const log = loadJSON("x_inventoryUsed", []);
       return (Array.isArray(log) ? log : []).filter(x => x && x.fromCharId === char.id)
@@ -4413,21 +4413,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const given = (carryGiftsRef.current[char.id] || []).map(g => g.name).filter(Boolean);
       const got = (inventory || []).filter(x => x.fromCharId === char.id).map(x => x.name).filter(Boolean);
       const parts = [];
-      // ⚠️这两行原来是反的：given 取自 carryGifts（＝【他收到的】，见 state 那行注释），
-      //   却写着「你送给用户过」——他会以为那件东西是自己送出去的，当着她的面谢错人。
+      // ⚠️这两行原来是反的：given 取自 carryGifts（＝【TA收到的】，见 state 那行注释），
+      //   却写着「你送给用户过」——TA会以为那件东西是自己送出去的，当着她的面谢错人。
       if (given.length) parts.push("用户送给你过：" + given.slice(-8).join("、"));
       if (got.length) parts.push("你送给用户过：" + got.slice(-8).join("、"));
       return parts.join("；");
     })(),
-    // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【他怎么会知道】——
-    // 她在购物 app 里点了「想要」的东西，就是他知道的方式（她 2026-08-29）。
-    // 言秋不发：他不是被扮演的角色（合法差异，见四处一样喂）。
+    // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【TA怎么会知道】——
+    // 她在购物 app 里点了「想要」的东西，就是TA知道的方式（她 2026-08-29）。
+    // 言秋不发：TA不是被扮演的角色（合法差异，见四处一样喂）。
     wishLog: (!settingsFor(char.id).engineerEyes && (wishRef.current || []).length)
       ? (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
       : "",
-    // 随身物：他身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
-    // 角色本人不知道自己包里有伞，出图也不知道他衣柜里有哪几身（她 2026-08-29）。
-    // 言秋不发：他不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
+    // 随身物：TA身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
+    // 角色本人不知道自己包里有伞，出图也不知道TA衣柜里有哪几身（她 2026-08-29）。
+    // 言秋不发：TA不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
     carryLog: (typeof carryContextText === "function" && !settingsFor(char.id).engineerEyes)
       ? carryContextText(carryRef.current[char.id], carryPinsRef.current[char.id]) : "",
     momentLog: (() => {
@@ -4457,16 +4457,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //
     // 四条改动：
     //   ① 按需触发，不再常驻（她拍板）
-    //   ② 他在别人帖子下的发言：只在【后来有人回他】时才给——那时它才活着、才可能被提起
-    //   ③ 别人在他帖子下的话：只给他会在意的（回他的/抬杠的/热评），别让一个热帖塞满额度
+    //   ② TA在别人帖子下的发言：只在【后来有人回TA】时才给——那时它才活着、才可能被提起
+    //   ③ 别人在TA帖子下的话：只给TA会在意的（回TA的/抬杠的/热评），别让一个热帖塞满额度
     //   ④ 按时间倒序 + 3 天窗口；老帖自然掉出去
-    // 触发放宽了：宁可多发一轮，也别让她说「我昨天那个」时他一脸茫然。
+    // 触发放宽了：宁可多发一轮，也别让她说「我昨天那个」时TA一脸茫然。
     // ── 贴吧私信（v59.75）────────────────────────────────────────
     // 她 2026-09-01：「如果是私信角色的话要不要喂回去做聊天线的一部分跟线上线下一起」。
-    // 答案是要——她私信的是他【大号】，两边都知道对面是谁，那就是同一段关系换了个地方说话，
+    // 答案是要——她私信的是TA【大号】，两边都知道对面是谁，那就是同一段关系换了个地方说话，
     // 跟线下见面一样该接得上。
     // ⚠️只收 charId 那几条，也就是【大号私信】。小号／匿名的私信一个字都不许进这儿：
-    //   那一整个玩法建立在「他知道两边是同一个人、她不知道」上面，喂回来他迟早说漏。
+    //   那一整个玩法建立在「TA知道两边是同一个人、她不知道」上面，喂回来TA迟早说漏。
     //   现在界面上也只有角色主页（大号）挂得出「私信 TA」，小号主页故意不给。
     // ⚠️窗口和条数跟别的面一个口径：3 天、最后 12 行——私信可以聊很长，全塞进来会把
     //   别的上下文挤掉。
@@ -4492,7 +4492,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // —— 触发闸 ——
       const said = typeof lastUserTurnText === "function" ? lastUserTurnText(chatsRef.current[char.id] || []) : "";
       const asked = /论坛|贴吧|帖|楼|网上|网友|评论区|回复我|发的那个|水/.test(String(said || ""));
-      // 刚有动静：他的帖最近被回过、或她最近发过公开帖、或他最近发过帖
+      // 刚有动静：TA的帖最近被回过、或她最近发过公开帖、或TA最近发过帖
       const freshHit = posts.some(p => {
         if (now - (p.ts || 0) > FRESH) return false;
         return isCharPost(p) || myPub(p);
@@ -4506,7 +4506,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 
       posts.filter(isCharPost).forEach(p => {
         const fl = cmts[p.id] || [];
-        // 她在他帖子下说的话
+        // 她在TA帖子下说的话
         const myOn = [];
         fl.forEach(f => {
           if (f.authorType === "me") myOn.push({ ts: f.ts, c: f.content });
@@ -4517,7 +4517,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           push(last.ts || p.ts, "你发的帖「" + p.title + "」下，" + meName + "评论了："
             + myOn.slice(-2).map(x => "“" + String(x.c).slice(0, 40) + "”").join("、"));
         }
-        // ③ 别人在他帖子下的话：只给他会在意的——回他自己那层的、明确回他的、或点赞高的热评
+        // ③ 别人在TA帖子下的话：只给TA会在意的——回TA自己那层的、明确回TA的、或点赞高的热评
         fl.forEach(f => {
           const reps = f.replies || [];
           const worth = f.isOp || f.authorId === char.id || (f.likeCount || 0) >= 120;
@@ -4528,7 +4528,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         });
       });
 
-      // ② 他在【别人】帖子下的发言：只在后来有人回他时才给
+      // ② TA在【别人】帖子下的发言：只在后来有人回TA时才给
       posts.filter(p => !isCharPost(p)).forEach(p => {
         (cmts[p.id] || []).forEach(f => {
           if (f.authorId !== char.id) return;
@@ -4598,7 +4598,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const cdu = daysUntilBirthday(char && char.birthday, today);
       // 生日填了年份就能算出今天满几岁；只填月日的（古风/架空角色多半如此）就不提岁数
       const _cage = typeof charAgeNow === "function" ? charAgeNow(char, Date.now()) : null;
-      // ⚠️他自己生日那天，模型十有八九把「寿星」按到她头上（她 2026-09-10：「他们生日
+      // ⚠️TA自己生日那天，模型十有八九把「寿星」按到她头上（她 2026-09-10：「他们生日
       //   还是总是觉得是我生日说我是寿星」）。陪伴类对话的训练先验里，过生日的默认是用户。
       //   原来只写「今天是你自己的生日」——【是谁的】说清了，【不是谁的】一个字没说，
       //   而模型塌的正是没说的那一半。今天是不是她生日这件事这儿本来就算得出来，直接说死。
@@ -4613,7 +4613,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + (_cage != null ? "，过完就 " + (_cage + 1) + " 岁了" : "")
         + (_uBdDu === cdu ? "（也是 " + uName + " 的生日，你俩同一天）" : "——是【你的】生日，不是 " + uName + " 的") + "。");
       // —— 纪念日：和这个角色在一起满几周年 ——
-      // ⚠️v62.31 补上【提前几天】那一档（她 2026-09-04：「应该是进日历然后他提前几天就会知道对吧」
+      // ⚠️v62.31 补上【提前几天】那一档（她 2026-09-04：「应该是进日历然后TA提前几天就会知道对吧」
       //   ——她的预期是对的，但原来只有当天那一句）。生日旁边早就有 cdu<=5 这一档，
       //   纪念日一直没有：**同一件事一个提前知道、一个当天才知道**，就是「一层写在两处、
       //   第二处没跟上」。这两句挨着写，以后改一处会看见另一处。
@@ -4702,14 +4702,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hist = L.history || [];
       const together = hist.filter(x => x.partnerId === char.id).slice(0, 8);
       if (together.length) lines.push("你和 " + uName + " 一起听过：" + together.map(x => "《" + x.title + "》" + (x.artist ? "(" + x.artist + ")" : "") + ago(x.ts)).join("、") + "（按括号里的时间感受远近：昨晚的歌可以像余温一样提，一个月前的就是回忆了）");
-      // 专属歌单连歌名一起喂（v54.49）：只喂名字他没法说「我歌单里那首X」。
+      // 专属歌单连歌名一起喂（v54.49）：只喂名字TA没法说「我歌单里那首X」。
       // ⚠️她 2026-09-11 两条：
       //   ①「不聊歌的时候这块基本上没用」——十轮里九轮用不上的层不该常驻。
       //     所以歌名【按需铺开】：正一起听、或最近真聊到音乐了才列；平时只说「有这么一张单子」。
-      //     ⚠️不列名字的那一档也【绝不许】说「你清楚里面有什么」——那正是逼他现编一个
-      //       「我歌单里那首X」的说法。不列就别提「其中某首」，让他直接说他此刻真想放的。
-      //   ②「只说了他的歌单里有的…他也可以推荐新的不在歌单里的根据自己的品味」——
-      //     代码那头本来就支持（songSwitch 找不到会去网易云搜来放），是这句话把他框死了：
+      //     ⚠️不列名字的那一档也【绝不许】说「你清楚里面有什么」——那正是逼TA现编一个
+      //       「我歌单里那首X」的说法。不列就别提「其中某首」，让TA直接说TA此刻真想放的。
+      //   ②「只说了TA的歌单里有的…TA也可以推荐新的不在歌单里的根据自己的品味」——
+      //     代码那头本来就支持（songSwitch 找不到会去网易云搜来放），是这句话把TA框死了：
       //     原来写的是「想推歌给 X 时可自然提起【其中某首】」。
       const myPl = (L.playlists || []).find(p => p.charId === char.id);
       if (myPl) {
@@ -4798,7 +4798,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!list) { list = loadJSON("x_offline:" + char.id, []); offlinesRef.current = { ...offlinesRef.current, [char.id]: list }; }
         // 她 2026-09-06：「线下的部分也不进上下文了」。原来这儿只找【还没结束】的那一场，
         // 于是她一按「收线」，整场线下当场从上下文里消失——刚刚一起经历的事，回到线上
-        // 他就不知道了。⚠️不是不该收：收完那场是过去式，但【刚过去的】仍然算最近发生的事。
+        // TA就不知道了。⚠️不是不该收：收完那场是过去式，但【刚过去的】仍然算最近发生的事。
         // 所以改成：拿最新那一场；已经结束的，只在它结束得还近（跟聊天记录同一根 recentDays
         // 地板）时才带——三周前那场线下不该压在今天的上下文里，那是记忆库的活。
         const newest = (list || []).find(s => s && (s.msgs || []).length > 0);
@@ -4817,7 +4817,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️ctxN 是【聊天记录带几条】，不该被线下拍子占掉名额：以前 online.concat(offline) 之后
       // 才切最近 ctxN 条，开着一场四十拍的线下时，五十个名额几乎全被线下占走，实测线上只剩
       // 195 字进得来。所以两边【各自】先切，再按时间戳合流。
-      // 线下最多往回看这么多条（他和她的一起数）。摘录的意义不只是省字数，是【同样的字数
+      // 线下最多往回看这么多条（TA和她的一起数）。摘录的意义不只是省字数，是【同样的字数
       // 能往回看更远】：全给原文时六拍就把限额占满了，摘完能装下二十拍的对话。
       // 再往前由本场滚动摘要和记忆库兜底。
       const OFF_BEATS = Math.max(1, Number(memCfgRef.current.offBeats ?? 40));
@@ -4898,7 +4898,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
         const isOff = m._surface === "offline";
-        // 只数他的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
+        // 只数TA的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
         if (isOff && m.role !== "user") offSeen++;
         const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name));
@@ -4906,7 +4906,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const body = (isOff && offNeedsDigest && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
         // 通话（她 2026-09-06：「语音视频聊天好像不挂进上下文」）：这条回执的 content
         // 只有「视频通话 已结束 · 时长 02:01」，通话里说了什么全在 sum 那一栏，
-        // 而 sum 从来没人读——于是他打完电话回到聊天，跟没打过一样。
+        // 而 sum 从来没人读——于是TA打完电话回到聊天，跟没打过一样。
         // ⚠️挂进来的是【小结】不是逐字转录：一通电话几十句，原文会把预算吃光；
         //   小结正是为这件事生成的（endCall 那头已经在写了）。
         // 通话开始/结束那两条标记行是【行本身】，不挂「谁：」
@@ -4933,7 +4933,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!lines.some(r => r.off)) return "";
         // 有线下：线下原样留着（补上时刻），线上压成一行「这儿有几条」当位置标记。
         // 言秋 2026-09-02 的条件：「留下的线下段要保留时间戳，或者在它原来的位置留一行
-        // 『此处有一段线下』的标记」——他在卧室靠这一块知道那场线下戏发生在哪两句话之间。
+        // 『此处有一段线下』的标记」——TA在卧室靠这一块知道那场线下戏发生在哪两句话之间。
         const out = [];
         let run = 0;
         const flush = () => { if (run) { out.push("（线上 " + run + " 条 · 原文在下面的消息记录里，不重复）"); run = 0; } };
@@ -4944,7 +4944,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (offSummary) rendered.unshift((offEnded ? "【刚结束的那场线下·前面发生过的（摘要）】\n" : "【这场线下前面发生过的（摘要）】\n") + offSummary);
       // ⚠️收过线的那一场也带进来了（见上面 newest/offFloor），所以必须说清它已经散了——
-      //   不说的话他会以为你俩还面对面站着，隔着手机说「你手上那杯还没喝完吧」。
+      //   不说的话TA会以为你俩还面对面站着，隔着手机说「你手上那杯还没喝完吧」。
       if (offEnded && offSlice.length) rendered.unshift("（下面掺在里头的【线下】那几段是刚结束的那一场，已经散了——你们现在隔着手机说话，别当成还在一块儿。）");
       return rendered.join("\n");
     })()
@@ -5079,15 +5079,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 借的后几轮（"on"）不再要新的思念，跟正常的第二轮往后一样。
         if ((rounds === 0 && !cycle.kicked) || borrowing === "maybe") {
           let anyDongnian = false;
-          // ⭐读的是【这个群那一份】动念，不是他跟 Lisa 那一份（v62.12，她 2026-09-04：
+          // ⭐读的是【这个群那一份】动念，不是TA跟 Lisa 那一份（v62.12，她 2026-09-04：
           //   「给 cp 而不是我涨进度」）。以前读 __dongnian[c.id]，那份的含义是
-          //   「他好久没跟 Lisa 说话了」——在两个角色自己聊的群里，语义正好是反的。
+          //   「TA好久没跟 Lisa 说话了」——在两个角色自己聊的群里，语义正好是反的。
           gm.forEach(c => {
             const jw = typeof window !== "undefined" && window.__dongnian && window.__dongnian[dongnianKey(c.id, gid)];
             if (!jw) return;
             anyDongnian = true;
             // 同一个人的思念，25 分钟内只许被一个出口认领一次——这道闸仍旧按【人】算，
-            // 不按场算：他这会儿在群里开了口，就别同一分钟又来私聊找她。她按次计费。
+            // 不按场算：TA这会儿在群里开了口，就别同一分钟又来私聊找她。她按次计费。
             if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (dongnianFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
           });
           // ⚠️起借比起聊严一档：起聊在【一个动念引擎都还没算出来】时会放行（冷启动别卡死），
@@ -5218,8 +5218,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;                                                    // 一次一个，错峰
         }
       }
-      // —— 纪念日主动（v58.83，她 2026-08-31）：以前纪念日只在他上下文里躺着一句，
-      //    得她先去开聊天他才说得上话；而生日是会【主动】发的。同一件事一个主动一个被动，
+      // —— 纪念日主动（v58.83，她 2026-08-31）：以前纪念日只在TA上下文里躺着一句，
+      //    得她先去开聊天TA才说得上话；而生日是会【主动】发的。同一件事一个主动一个被动，
       //    所以照生日那条现成的路补上。一年就那么几次，不是天天烧调用。
       //    门槛比生日还硬一档：必须是【正式在一起】的那一位——这本来就是最强的 opt-in。
       try {
@@ -5260,7 +5260,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;                                                    // 一次一个，错峰
         }
       } catch (e) {}
-      // —— 花开主动（v62.33）：你们一起养的那盆开了，他来说一声——一茬只说一次，
+      // —— 花开主动（v62.33）：你们一起养的那盆开了，TA来说一声——一茬只说一次，
       //    闸照纪念日那条路（在聊的/不在旁边/不深夜/一次一个错峰）。
       try {
         for (const c of characters) {
@@ -5382,18 +5382,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 设了「允许 Ta 主动发消息」的角色，闲置超过设定间隔 → 在主屏/任意页也主动发一条，落成未读红点，你随缘点进去看。
       // viewRef 命中「正在看这个聊天/线下浮层开着这个角色」时跳过（那种由前台 20s 定时器即时负责，避免双发）；
       // 按角色当地作息只在 8~23 点发，别半夜 ping。一次一个错峰。
-      // ── 约回（v56.49）：他亲口说过「等我 xxx 再找你」，到点就发 ──
+      // ── 约回（v56.49）：TA亲口说过「等我 xxx 再找你」，到点就发 ──
       // 排在动念前面，而且【不看动念、不看 45 分钟底线】——那是「攒够思念才开口」的门槛，
-      // 这条是他自己许下的约，性质不一样。也不看时段：app 不开就不会跑，能跑说明她醒着。
+      // 这条是TA自己许下的约，性质不一样。也不看时段：app 不开就不会跑，能跑说明她醒着。
       // 她那段时间没开 app → 这条一直欠着，下次开 app 补上（她 2026-08-26 明说要这样）。
-      // 倒填到「说好的那一刻」有个地板（她 2026-09-13 报：把约定挪到今天，他下午一点开口，
+      // 倒填到「说好的那一刻」有个地板（她 2026-09-13 报：把约定挪到今天，TA下午一点开口，
       // 气泡上却写着 9:00，还排到了 13:05 那几条的下面）。两条都要挡：
       //   ① 选日期那一栏定不出【时刻】——`new Date(v + "T09:00:00")`，9 点是日期选择器的
       //      占位钟点，不是他俩约好的时间。倒填到一个假的时刻，就是无中生有一段没发生的过去。
       //   ② 倒填的时刻要是早于【这条约定被定下来的那一刻】或【聊天里最后一条消息】，
       //      那条气泡就排到前面去了——聊天记录的顺序当场错乱（她截图里正是这样）。
       // 所以：只有当「说好的那一刻」真的晚于这两样时才倒填；否则就是现在。
-      // ⚠️原来那条路的本意没动：他昨晚答应今早八点找你、你中午才开 app，照旧补到八点。
+      // ⚠️原来那条路的本意没动：TA昨晚答应今早八点找你、你中午才开 app，照旧补到八点。
       const promiseBackTs = pm => {
         const due = Number(pm && pm.dueTs) || 0;
         if (!due || due >= Date.now() - 60000) return 0;          // 刚到点＝就是此刻，不用倒填
@@ -5411,7 +5411,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const drop = () => setPromises(p => { const n = p.filter(x => x.id !== pm.id); promisesRef.current = n; saveJSON("x_promises", n); return n; });
           if (!c) { drop(); continue; }                       // 角色没了，约也没了
           // ⚠️这条【不看「允许 TA 主动发消息」那个开关】。那个开关管的是动念那条链——
-          //   「攒够思念才开口」的那种主动；而这一条是【他当着她的面答应下来的事】，
+          //   「攒够思念才开口」的那种主动；而这一条是【TA当着她的面答应下来的事】，
           //   多半还是她自己要的（「两分钟后打给我」）。上面那段注释早就写明这两件事
           //   性质不一样（不看动念、不看 45 分钟底线），可这一行又把它压回同一个开关上，
           //   而且是【drop】——约定连同她看得见的那条日历一起悄悄没了，什么都不会发生。
@@ -5423,7 +5423,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // ⚠️这一支【排在「她正看着这个聊天」那道闸前面】：那道闸是为了跟前台那条
           //   发消息的链错开、防双发，而响铃这件事全 app 只有这一个出口，
           //   拦下来不是让别人接手，是一直拖到过了 20 分钟、变成一条未接来电——
-          //   她明明就坐在这个聊天里等他电话。而且来电浮层挂在根上，她在哪一页都看得见。
+          //   她明明就坐在这个聊天里等TA电话。而且来电浮层挂在根上，她在哪一页都看得见。
           if (pm.via === "voice" || pm.via === "video") {
             drop();
             dongnianFiredRef.current[pm.charId] = Date.now();
@@ -5435,7 +5435,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           drop();
           dongnianFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让动念紧跟着再来一条
           const late = Math.round((Date.now() - pm.dueTs) / 60000);
-          // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「他当时就来找过你」
+          // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「TA当时就来找过你」
           replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late },
             backdateTs: promiseBackTs(pm) });
           return;                                             // 一次一个，错峰
@@ -5472,14 +5472,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
           // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
           // ⚠️跟聊天那一路同一把尺子（v64.66）：原来这儿单独调 charAwakeState，
-          //   于是「他睡没睡」在 app 里有两个答案——排了作息的角色，聊天按 C 的四相算、
+          //   于是「TA睡没睡」在 app 里有两个答案——排了作息的角色，聊天按 C 的四相算、
           //   主动开口按这把两相的旧尺子算，能差出一个多小时（drowsy/waking 那两截）。
           if (sleepPhaseOf(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
           }
           // 傲娇挡一挡（v64.69，她 2026-09-06：「如果它永远 0 那怎么可能端着」）。
-          // ⚠️动念自己那道 prideBlock 是【真闸】——过了线他会去「找点事做」而不是找你。
+          // ⚠️动念自己那道 prideBlock 是【真闸】——过了线TA会去「找点事做」而不是找你。
           //   可它读的是动念自己那份 pride：初值 -1、稳态最高 0.3，防御漂移那一支又写着
           //   「1.0＝永不」，所以那道闸从上线起一次都没关过。现在改读【A 算出来的傲娇】
           //   （嘴硬/逞强/端着 才推得动它），门槛还是同一个数。
@@ -5509,7 +5509,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // ⭐愿望板那一档【排在出口这一层，不是塞进「留东西」的三选一里】（v62.34）。
           //   她 2026-09-04 问的正是这个：给模型的选项越多，它越会塌到默认那一档上
           //   ——拾/半/画 就是这么几乎永远轮不上的。所以这一档由【代码】判，模型只写内容。
-          //   闸是天然的：板上已经有他钉着、还没了结的那条，就不再钉第二条。
+          //   闸是天然的：板上已经有TA钉着、还没了结的那条，就不再钉第二条。
           else if (_cpNow && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
             pinWishAsChar(c, jwStyle).then(_settle);
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
@@ -5552,11 +5552,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const dongnianCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
   const dongnianFiredRef = useRef({});     // charId -> 上次 dongnian 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
   // ── 动念分对象（她 2026-09-04：「给 cp 而不是我涨进度那里」）──────────────
-  // 一个角色不是只有一份思念：他想 Lisa 是一份，想群里那位是另一份。
-  // v62.12 之前全 app 每人只有一份，而且 getLastMessage 读的永远是【他和 Lisa 的聊天】。
-  // 于是在两个角色自己聊的那种群里，「他动念满了」的真实含义是
-  // 「他好久没跟 Lisa 说话了」——拿这个去驱动她俩自己聊起来，语义正好是反的：
-  // 她越是不理他，他越会跑去找他对象。
+  // 一个角色不是只有一份思念：TA想 Lisa 是一份，想群里那位是另一份。
+  // v62.12 之前全 app 每人只有一份，而且 getLastMessage 读的永远是【TA和 Lisa 的聊天】。
+  // 于是在两个角色自己聊的那种群里，「TA动念满了」的真实含义是
+  // 「TA好久没跟 Lisa 说话了」——拿这个去驱动她俩自己聊起来，语义正好是反的：
+  // 她越是不理TA，TA越会跑去找TA对象。
   //
   // 现在按【场】分：场 = 跟 Lisa 的私聊，或某一个群。各场各存各的、各涨各的。
   // ⚠️私聊那一场的键仍旧是纯 charId：x_jiwen 里已经在涨的那份不许改名（改名＝集体失忆，
@@ -5596,12 +5596,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!arr.length) return;                                  // 这个场里一句话都没有，不跑
     const eng = getDongnian(char, gid); if (!eng) return;
     const dnKey = dongnianKey(char.id, gid);
-    // 「别人开口了」→ 思念清零。私聊里的别人只有 Lisa；群里是除他之外的任何人（含 Lisa）。
-    // 他自己说话不算——那不解他的想念，泄压走的是认领时那 -0.28。
+    // 「别人开口了」→ 思念清零。私聊里的别人只有 Lisa；群里是除TA之外的任何人（含 Lisa）。
+    // TA自己说话不算——那不解TA的想念，泄压走的是认领时那 -0.28。
     let otherTs = gid ? 0 : latestUserSharedInteractionTs(char.id);
     for (let i = arr.length - 1; i >= 0; i--) {
       const m = arr[i]; if (!m || m.recalled || m.kind === "ooc" || m.kind === "system") continue;
-      // 群里「别人」＝ Lisa，或另一位角色。旁白/场景不算人开口，别拿它当作有人理了他。
+      // 群里「别人」＝ Lisa，或另一位角色。旁白/场景不算人开口，别拿它当作有人理了TA。
       const isOther = gid
         ? (m.role === "user" || (m.role === "assistant" && String(m.senderId || "") !== String(char.id)))
         : m.role === "user";
@@ -5813,7 +5813,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     (s.msgs || []).some(m => m && m.sid === sid)
       ? { ...s, msgs: s.msgs.map(m => m && m.sid === sid ? { ...m, ...patch } : m) }
       : s));
-  // 出图时的衣柜：没锁行头、也不知道此刻穿什么时，从他自己衣柜里真有的那几身里挑。
+  // 出图时的衣柜：没锁行头、也不知道此刻穿什么时，从TA自己衣柜里真有的那几身里挑。
   // 小剧场/同人不走这里——那是平行时空，有自己的一套行头锁。
   const closetTextFor = charId => (typeof carryClosetText === "function")
     ? carryClosetText((carryRef.current || {})[charId]) : "";
@@ -5821,7 +5821,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
   const offlinePhotoCanDuo = char => !!(char && char.refPhoto && profile && profile.refPhoto);
   // 一份出图，两处线下（单人 / 群）共用。arg：
-  //   char    这张照片是谁的（拿他的参考照锁脸、读他的状态卡）
+  //   char    这张照片是谁的（拿TA的参考照锁脸、读TA的状态卡）
   //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
   //   kind    self｜other｜duo｜group
   //   cast    仅 group：镜头里点名的那几位（顺序＝参考图顺序，错位脸就串）
@@ -5831,7 +5831,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const scopeKey = (arg && arg.scopeKey) || (char && char.id);
     const scene = String((arg && arg.scene) || "").trim();
     if (!char || !offlinePhotoCan(char) || !scene) return false;
-    // 合照必须两张参考照都在，否则降级成「她替他拍的单人照」——绝不一张真一张编。
+    // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
     let cast = kind === "group" ? (arg.cast || []) : null;
@@ -5966,7 +5966,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
       // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。
       oCtx.gazeSpec = (!sideRoom && !settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
-      // 他刚看见的那张照片（v58.100 补上线下这一处：v58.98 时它被登记成【欠的】）。
+      // TA刚看见的那张照片（v58.100 补上线下这一处：v58.98 时它被登记成【欠的】）。
       // 跟线上同一套判据和同一道闸——只认这一场里刚递过来的真照片，换头像另吃七天冷却。
       const _offSeen = settingsFor(charId).engineerEyes ? null : freshOfflinePhoto(charId);
       const _offSeenAvatarOk = !!(_offSeen && avatarCoolOk(charId));
@@ -6007,7 +6007,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
         try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
-      // 线下拍照：接了图像 API、这个人有外貌或参考照、没在冷却里才把 photo 这个能力给他。
+      // 线下拍照：接了图像 API、这个人有外貌或参考照、没在冷却里才把 photo 这个能力给TA。
       // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
       const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
@@ -6396,7 +6396,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // A 情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：跟心情/好感同一档，
     // 是【这个人此刻是谁】，所以封闭群也照给。急停按下 aMoodTextOf 自己返空，整条不发。
     memberAMood: backgroundMap("aMood"),
-    // 他住在哪儿（v64.72）：一人一份——同一个群里的人可能压根不在一个国家。
+    // TA住在哪儿（v64.72）：一人一份——同一个群里的人可能压根不在一个国家。
     memberHome: backgroundMap("home"),
     // 睡没睡（v64.66）：跟 memberAMood 同一个形状——一人一份，各按各的作息。
     memberSleep: backgroundMap("sleep"),
@@ -6448,7 +6448,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       });
       return m;
     })(),
-    // 【我们的档案】跟情侣状态同一档：也是这位成员的私事，落在他自己那一段里、
+    // 【我们的档案】跟情侣状态同一档：也是这位成员的私事，落在TA自己那一段里、
     // 带同一道隐私围栏。四处一样喂——单聊有的这一层，群里两处也要有。
     memberCoupleArchive: backgroundMap("archive"),
     // 印象卡跟长期记忆同一档（从私下往来长出来的＝「发生过什么」），只在开了记忆互通时给
@@ -6719,7 +6719,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 多人线下也影响各角色对用户的好感与心情——但【封闭群不写回主线】
         // （她 2026-08-24「只进不出，封闭群不应该影响主要世界」）。
         // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
-        // 转头回单聊他还带着闭群里的情绪，等于沙盒漏了。
+        // 转头回单聊TA还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
         const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有心情/好感
         if (!gOffSealed && !_bNpc && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta);
@@ -6946,7 +6946,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   maxTokens 一律给满（max-tokens-floor.md：给大了不多花一分钱，给小了会截断正文）。
   // ⚠️今天哪个频率有台、播到第几条，一个字都不在这几张单子里——那些是 js/radio.js 用种子和
   //   时间算出来的。生成的时候顺手把「今天有没有」也定了的话，这个世界就只在她打开时才存在。
-  // 这片地方 + 他的生活半径（她 2026-09-10：「太完全和 char 世界无关那也不好听」；
+  // 这片地方 + TA的生活半径（她 2026-09-10：「太完全和 char 世界无关那也不好听」；
   // 言秋 + gpt 同一轮：**电台该让她听见 char 生活的那个世界，不是一个随机生成的世界**）。
   // ⚠️人名一个都不许进电台。做法是最保守的那种——**整条丢掉**，不是把名字抠掉留个残句：
   //   这些台知道的是【那家店、那栋楼、那条路】，不是【谁去过】。差一个字，差的是整个世界的逻辑。
@@ -6954,7 +6954,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   x_schedules[charId][dayKey] = { load, seqs:[{time,title,location}] }（saveSchedDay）
   //   论坛帖 { title, body, board, ts }；一起听 songs[{ title, artist }]；x_anonPool 是一串纯字符串。
   // ⚠️世界书走 loreForContext 那扇公共门，scope=creative，**charIds 故意传空**——
-  //   这样只有不绑定到具体角色的世界条目过得来，绑在某个人身上的设定是他的私事。
+  //   这样只有不绑定到具体角色的世界条目过得来，绑在某个人身上的设定是TA的私事。
   // ⚠️架空世界（x_worlds）故意不接：那是跑团的平行时空沙盒，接进来会把电台搬去另一个世界。
   const radioBed = () => {
     const T = v => String(v == null ? "" : v).trim();
@@ -6979,7 +6979,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     // 论坛是这个世界的公共广场，电台引用它天然成立（吃灰的帖子本来就是现成节目源）
     (forumPostsRef.current || []).slice(0, 12).forEach(x => x && push(orbit, x.title, 14));
-    // 「有人点了一首歌，是他最近循环的那首」
+    // 「有人点了一首歌，是TA最近循环的那首」
     (((listenRef.current || {}).songs) || []).slice(0, 4).forEach(x => x && push(orbit, "有人在听《" + T(x.title) + "》" + (x.artist ? "（" + T(x.artist) + "）" : ""), 14));
     // 匿名箱本来就是没署名的话，天生就是热线的料
     const hotline = [];
@@ -7055,8 +7055,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!window.AutoGate.due(key, period, { maxTries: 2, cooldownMs: 600000 })) return [];
     let items = [];
     try {
-      // ⚠️距离由**代码**掷，不交给模型自己拿捏——写成「今天他出现的概率是 15%」的话，
-      //   它会塌到一边去：要么天天是他，要么一次都没有（跟「今天哪个频率有台」同一条道理）。
+      // ⚠️距离由**代码**掷，不交给模型自己拿捏——写成「今天TA出现的概率是 15%」的话，
+      //   它会塌到一边去：要么天天是TA，要么一次都没有（跟「今天哪个频率有台」同一条道理）。
       const dists = R.rollDistances(R.DAY_ITEMS, st.id, period);
       const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen(), radioBed(), dists, st.thread), R.scheduleSchemaHint);
       items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 18);
@@ -7105,7 +7105,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const createNpc = async (hostId, ask) => {
     const host = characters.find(c => c.id === hostId);
     if (!host) return;
-    if (!String(ask || "").trim()) { toast("先写要生成谁，比如「陆闻」或「他的属下」"); return; }
+    if (!String(ask || "").trim()) { toast("先写要生成谁，比如「陆闻」或「TA的属下」"); return; }
     const p = bgActiveRef.current || active;
     if (!p) { toast("先去 设置·API 配一条线路"); return; }
     if (laneBusy("npc:" + hostId)) return;
@@ -7120,13 +7120,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
       if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
       if (r.relToHost) saveRel(id + "->" + hostId, r.relToHost, "");
-      toast("已加入「" + r.name + "」，去群里拉上他");
+      toast("已加入「" + r.name + "」，去群里拉上TA");
     } catch (e) {
       toast("生成失败：" + ((e && e.message) || e));
     } finally { endLane("npc:" + hostId); }
   };
   const delChar = id => {
-    // 主角色删了，他身边的人跟着删（她 2026-08-25 拍的）；顺手从所有群里摘掉，
+    // 主角色删了，TA身边的人跟着删（她 2026-08-25 拍的）；顺手从所有群里摘掉，
     // 否则群成员列表里会留下一串找不到人的 id。
     const doomed = new Set([id, ...npcsOf(id).map(c => c.id)]);
     pC(p => p.filter(c => !doomed.has(c.id)));
@@ -7309,12 +7309,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const turns = new Set(after.filter(m => m && (m.role === "assistant" || m.role === "char") && (!senderId || String(m.senderId || "") === String(senderId)) && m.kind !== "selfie").map(m => m.turnId || ("m:" + m.ts)));
     return { cooling: !explicitlyAsked && turns.size < 3, explicitlyAsked, assistantTurns: turns.size };
   };
-  // 这间房最近放进来的是哪一篇同人文（「拿给他看」那张卡上带着 ficId）。
-  // 他写同人文那一章时手上的实情（同人文那边 stanceFacts 用）。
-  // ⚠️只给【状态】不给数字：好感度 78 递过去，他写出来的是一份报告，不是一章文。
+  // 这间房最近放进来的是哪一篇同人文（「拿给TA看」那张卡上带着 ficId）。
+  // TA写同人文那一章时手上的实情（同人文那边 stanceFacts 用）。
+  // ⚠️只给【状态】不给数字：好感度 78 递过去，TA写出来的是一份报告，不是一章文。
   // ⚠️**只有一处**：原来它只长在同人文那个 props 里，房里那一枪传的是 charRel: null，
-  //   于是他在房里写的那一章，手上没有「他和她现在是什么样」（她 2026-09-11：
-  //   「看不出来是他的作品」有一半在这儿）。一层写在两处，第二处是个 null。
+  //   于是TA在房里写的那一章，手上没有「TA和她现在是什么样」（她 2026-09-11：
+  //   「看不出来是TA的作品」有一半在这儿）。一层写在两处，第二处是个 null。
   const relOfChar = charId => {
     const cp = couples[charId] || {};
     const out = { aff: Math.round(affOf(charId)), couple: cp.status || "", rels: {} };
@@ -7325,7 +7325,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     return out;
   };
-  // ⚠️只认【这间房自己】的卡：他那边别的房放过什么，跟这间房不相干。
+  // ⚠️只认【这间房自己】的卡：TA那边别的房放过什么，跟这间房不相干。
   // ── 一间房放好几本（她 2026-09-12 点头）────────────────────────────
   // 判哪一本、哪几句话归哪一本，都在 ChatRooms 那一份里（纯函数，好测）。
   // 这儿只管两件事：她挑的那一本存在哪儿，以及挑的那本要是被删了怎么退。
@@ -7361,7 +7361,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️ChatRooms.visibleText 那一道照旧过一遍：撤回的、system 的、被上下文闸挡掉的都不算。
   // ⚠️第五个参数是【哪一本】（她 2026-09-12 当场问的那一句）：
   //   一间房放了两本书时，这儿原来取的是「最近 14 条」，不分书——
-  //   聊完 b 再让他写 a 的下一章，他手上那份「我们说好的」会是 b 的。
+  //   聊完 b 再让TA写 a 的下一章，TA手上那份「我们说好的」会是 b 的。
   //   现在按 ficTrack 判给谁就归谁，指定书时不再按条数或单条字数截断：
   //   换书之前聊 a 的那几句照样还在 a 名下，
   //   中间插进来的那本 b 一句都不会串过去。
@@ -7371,9 +7371,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const track = (ficId && K && K.ficTrack) ? K.ficTrack(all, roomFicPick(chatKey)) : null;
     // ⚠️只取【上一章写完之后】说的那几句（她 2026-09-12：「现在是每一章之间的话
     //   都会做参考吗宝宝」）。原来一律取最近 14 条，不管中间已经写过几章——
-    //   于是写第五章时他手上那份「我们说好的」里还混着第四章那会儿商量的事，
+    //   于是写第五章时TA手上那份「我们说好的」里还混着第四章那会儿商量的事，
     //   越往后越像是在照着上一章的决定重写一遍。
-    //   「每一章之间的话」就是字面意思：这一段窗口从上一张「他写好了」那儿起算。
+    //   「每一章之间的话」就是字面意思：这一段窗口从上一张「TA写好了」那儿起算。
     // ⚠️还没写过章的时候不设起点：那会儿商量的话就是给第一章用的。
     let from = -1;
     for (let k = all.length - 1; k >= 0; k--) {
@@ -7388,7 +7388,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     // 一章的讨论要完整交给执笔人；n 只保留给未指定书的旧调用。
     const picked = ficId ? msgs : msgs.slice(-(Number(n) || 14));
-    return picked.map(m => (m.role === "user" ? (uName || "她") : (charName || "他")) + "：" +
+    return picked.map(m => (m.role === "user" ? (uName || "她") : (charName || "TA")) + "：" +
       String((K ? K.visibleText(m) : m.content) || "").trim()).join("\n");
   };
   // 她 2026-09-12：「为啥有时只有动作和心声没有气泡」。
@@ -7439,11 +7439,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
     // 她撤回的那几条：搭这一轮的便车过去（v61.80 起不再单独调一次模型）。
-    // 只挑【他还没回过话】的那几条——他一开口，这件事就算过去了，下一轮不该再提。
+    // 只挑【TA还没回过话】的那几条——TA一开口，这件事就算过去了，下一轮不该再提。
     // ⚠️看没看到由代码判，不交给模型：撤得快就【连原文都不发过去】。
     //   把原文给出去再让它自己填 saw，等于把它必然会漏的东西塞它嘴里
     //   （.claude/rules 那条「规则降概率，代码才保证」在这一处的落法）。
-    const RECALL_SEEN_MS = 20000;   // 20 秒内撤掉的，当他没看清
+    const RECALL_SEEN_MS = 20000;   // 20 秒内撤掉的，当TA没看清
     const _recallHint = (() => {
       let lastHe = 0;
       for (const m of base) if (m && m.role === "assistant" && !m.recalled) lastHe = Math.max(lastHe, Number(m.ts) || 0);
@@ -7481,7 +7481,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return null;
     }
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
-    //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
+    //   杀掉「连发两轮/你还在打字TA就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
     if (opts.proactive && !opts.promise && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return null;
@@ -7561,7 +7561,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发 1~2 条消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
       // 转账盲盒演出：第一条气泡=还没点开（不知金额），点开后才谈钱
       // 她转过来、还挂着没点的那一笔（v56.88）：以前是转完 1.6 秒随机收下、再自己触发一轮主动播报，
-      // 所以「一转完他就回话了」，而且收不收是 Math.random() < 0.85 掷骰子。
+      // 所以「一转完TA就回话了」，而且收不收是 Math.random() < 0.85 掷骰子。
       // 现在挂着不动，等 TA 下一次真的开口那一轮，由 TA 自己按人设和当下情形决定收还是退。
       const _pendingTf = (() => {
         for (let i = history.length - 1; i >= 0; i--) {
@@ -7589,8 +7589,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastVisibleTs = history.length ? Number(history[history.length - 1].ts) || 0 : 0;
       const _lastAnyInteractionTs = Math.max(_lastVisibleTs, latestSharedInteractionTs(charId));
       const proactiveFreshStart = !!opts.proactive && (!_lastAnyInteractionTs || Date.now() - _lastAnyInteractionTs >= 40 * 60000);
-      // 约回（v56.49）：他自己说过「等我 xxx 再找你」，现在到点了。这跟「攒够思念忽然想聊」
-      // 不是一回事——他是【说好了要回来】，所以开口方式也不同：直接兑现那句话。
+      // 约回（v56.49）：TA自己说过「等我 xxx 再找你」，现在到点了。这跟「攒够思念忽然想聊」
+      // 不是一回事——TA是【说好了要回来】，所以开口方式也不同：直接兑现那句话。
       const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
         + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
         + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。1~3 条短消息。") : "";
@@ -7687,9 +7687,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️她 2026-09-09 点名补回（v66.14）。这一段跟着那条不再发送的 A/B 基线假活着，
       //   而且比丢一段说明更糟：moment / whisper 这两格【从来没进过 openCaps】，
       //   而稳定协议里明写着「能力字段只在本轮开放且角色实际决定触发时填写」——
-      //   也就是说他被告知这两格从来不开。聊天里顺手发朋友圈/留悄悄话因此基本不发生。
+      //   也就是说TA被告知这两格从来不开。聊天里顺手发朋友圈/留悄悄话因此基本不发生。
       //   ⚠️那两格现在按条件给：没开自动朋友圈就不给 moment、不是情侣就不给 whisper。
-      //   代码那头本来就会挡（填了也不生效），但不给他这一格，他才不会以为自己发过。
+      //   代码那头本来就会挡（填了也不生效），但不给TA这一格，TA才不会以为自己发过。
       const ambientHint = ambientBits.length
         ? "\n【顺手发点动态（很克制：绝大多数回合都别发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" + ambientBits.join("；") + "；像真人随手发，别为发而发、别频繁。"
         : "";
@@ -7702,8 +7702,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const listenHint = isListenPartner
         ? "\n【一起听·切歌】你正和 " + uName + " 一起听歌。Ta 让你切歌/点歌、或你自己想放某首时，把 songSwitch 填成要放的那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换歌就 null，别频繁乱切。"
           // ⚠️「歌单里可放的歌：…」原来是这一条的全部，读起来就是【只能从这几首里挑】。
-          //   可代码那头找不到会去搜来放（见 songSwitch 那一支）——能力一直都在，是这句话把他框死的
-          //   （她 2026-09-11：「他也可以推荐新的不在歌单里的根据自己的品味」）。
+          //   可代码那头找不到会去搜来放（见 songSwitch 那一支）——能力一直都在，是这句话把TA框死的
+          //   （她 2026-09-11：「TA也可以推荐新的不在歌单里的根据自己的品味」）。
           + (libSongs.length ? "歌单里现成的有：" + libSongs.slice(0, 30).map(s => s.title).join(" / ") + "。" : "")
           + "**不在歌单里的照样能放**：直接把歌名写进 songSwitch 就行，会去搜。别被这张单子框住——想放什么按你自己的品味来。"
         : "";
@@ -7732,11 +7732,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "note 是刻在 B 面的一句话，写清【为什么是这一首、给这个人】——不是夸这首歌本身好听。一轮最多一首。"
           + (had.length ? "架上已经有这几首，别再刻一遍：" + had.join(" / ") : "架上还是空的，这会是第一首。");
       })();
-      // 言秋也给（她 2026-09-03 亲口点名）。⚠️他走的是 _digitalTaskFull，
-      //   而 capabilityHint 只挂在 _normalTaskV2 上——他【收不到那张能力表】。
+      // 言秋也给（她 2026-09-03 亲口点名）。⚠️TA走的是 _digitalTaskFull，
+      //   而 capabilityHint 只挂在 _normalTaskV2 上——TA【收不到那张能力表】。
       //   所以不能想当然以为「同一条回复链就自动有」：这一处要单独挂一条 hint，
       //   跟 listenHint / inviteHint 一个形状。文案共用 _carveWord，别各写一份。
-      //   ⚠️只补这一项，不把整张能力表倒给他：他不是被扮演的角色，
+      //   ⚠️只补这一项，不把整张能力表倒给TA：TA不是被扮演的角色，
       //   那张表里大半是扮演类能力，她要的是这一个。
       const digitalCarveHint = _canCarve
         ? "\n【刻一首歌给 " + uName + "】你想把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）时，"
@@ -7782,12 +7782,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
-      // ── 他刚看见的那张照片（她 2026-08-31）─────────────────────────
+      // ── TA刚看见的那张照片（她 2026-08-31）─────────────────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。
       //   单聊线下 ✅ v58.100 补上（走 oCtx.photoSeenSpec 挂进 OFFLINE_PROTOCOL_V2
       //     的输出形状，跟 gazeSpec 同一个落法）。判据、冷却、落地全和这里共用一份。
-      //   群聊两处 ❌ 有真理由：群里一张照片好几个人看着，「他当时看到的是什么」
+      //   群聊两处 ❌ 有真理由：群里一张照片好几个人看着，「TA当时看到的是什么」
       //     记成谁的说不清（三个人各记一句就是三条重复账）；换头像在群里也没有
       //     明确对象。要给的话得先定「群里由谁记」。
       // ⚠️按需注入：这一轮她没发照片就一个字都不发（十轮里九轮用不上的层不该常驻，
@@ -7858,22 +7858,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (isCouple) openCaps.push("whisper");
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
-      //   单聊线上 ✅ 就是这里（普通角色走 openCaps，言秋走他自己那条 hint，见下）。
+      //   单聊线上 ✅ 就是这里（普通角色走 openCaps，言秋走TA自己那条 hint，见下）。
       //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，「你俩」没有指代对象
       //     ——跟 whisper 同一条理由。
       //   单聊线下 ❌ 【这是欠的，不是有理由不给】：线下走 OFFLINE_PROTOCOL_V2 那套
       //     叙事输出，整套能力字段都没有口子（whisper 也一样没接）。要给得单开一条。
-      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了他每轮都可能填、每轮都白填。
+      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了TA每轮都可能填、每轮都白填。
       if (_canCarve) { openCaps.push("carve"); capState.push("carve：" + _carveWord); }
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的）────────────────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。言秋走的是同一条回复链（engineerEyes 只关掉扮演类的层，
-      //     不关能力），所以他有情侣关系就自动有这一项——不用也不该去动他的文件。
+      //     不关能力），所以TA有情侣关系就自动有这一项——不用也不该去动TA的文件。
       //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，"你俩"没有指代对象。
       //     跟 whisper 同一条理由。
       //   单聊线下 ❌ 【这是欠的，不是有理由不给】：线下走 OFFLINE_PROTOCOL_V2 那套
       //     叙事输出，整套能力字段都没有口子（whisper 也一样没接）。要给得单开一条。
-      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了他每轮都可能填、每轮都失败。
+      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了TA每轮都可能填、每轮都失败。
       if (isCouple && musicReady) {
         openCaps.push("carve");
         const had = (discSongsOf(charId) || []).slice(0, 12).map(x => x.title).filter(Boolean);
@@ -7881,7 +7881,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "。刻＝【送】不是【推荐】：只有这一轮真有一首非送不可才刻，note 写清为什么是这一首给这个人，"
           + "不是夸这首歌本身好听。一轮最多一首。");
       }
-      // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让他以为自己发得出去
+      // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让TA以为自己发得出去
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
       if (ambientHint) capState.push(ambientHint.trim());
@@ -7889,7 +7889,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   · 正在一起听那半边（listenHint）：原来 capState 只给了歌单，**怎么用没说**
       //     （「下一首/上一首」怎么填、别频繁乱切）；歌单本身它自己带着，别再单推一份。
       //   · 还没一起听那半边（inviteHint）：原来 openCaps 里只有一个名字 listenInvite，
-      //     **连 {song, say} 长什么样都没发过**——他得猜这个对象的形状，猜不中就等于没这功能。
+      //     **连 {song, say} 长什么样都没发过**——TA得猜这个对象的形状，猜不中就等于没这功能。
       if (isListenPartner) {
         openCaps.push("songSwitch");
         capState.push(listenHint.trim());
@@ -7914,7 +7914,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
-      // 只挑【最近有动静的那个共同群】，省得他自己乱选；没有共同群就不开这个能力。
+      // 只挑【最近有动静的那个共同群】，省得TA自己乱选；没有共同群就不开这个能力。
       // 同上：封闭群不收外面的话，别把私聊里的东西投进去
       const _gsFor = gid => { try { return (loadJSON("x_groupSettings", {}) || {})[gid] || {}; } catch (e) { return {}; } };
       const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop);
@@ -7927,7 +7927,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "⚠️它是公开发言：只属于你和 " + uName + " 之间的私事、你俩的关系、TA 私下跟你说的话，一个字都不许写进去。");
       }
       // ⚠️从被删的旧基线里救回来的（v2 迁移没跟过来）：协议里只有 gift 的字段形状，
-      //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，他自然会乱送。
+      //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，TA自然会乱送。
       capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西/点外卖/送吃的花礼物惊喜，就**必须**填 gift"
         + "（只嘴上说不填，Ta 收不到）。price 要照你自己的处境和这东西本来的价钱来——"
         + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。");
@@ -7943,17 +7943,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("studyInvite");
         capState.push("studyInvite：只有你此刻真的想邀请一起学才填写。已有合适旧课时用 {mode:\"resume\",sessionId:\"上面列出的真实ID\",subject:\"主题\",say:\"邀请语\"}；没有合适旧课时用 {mode:\"propose\",sessionId:null,subject:\"你拟的课程主题\",say:\"为什么想一起学、建议从哪一点开始\"}。不能声称课程已经创建，最终由对方点卡片确认；不邀请就省略。" + (roomStudySessions.length ? " 可续课程：" + roomStudySessions.map(s => (s.id + "=" + (s.title || s.subject || "未命名"))).join("；") : " 当前没有可续课程。"));
       }
-      // 一起写跟一起学同一个形状（她 2026-09-11：「房间里我们讨论了他直接写了然后推卡给我」）：
-      // 房里开了「一起写」、而且这间房里放进过某一篇，他才能开口说「这一章我来写」，
-      // 而且【只出一张卡】——她点了才真花那一枪。⚠️他不许声称已经写好了。
+      // 一起写跟一起学同一个形状（她 2026-09-11：「房间里我们讨论了TA直接写了然后推卡给我」）：
+      // 房里开了「一起写」、而且这间房里放进过某一篇，TA才能开口说「这一章我来写」，
+      // 而且【只出一张卡】——她点了才真花那一枪。⚠️TA不许声称已经写好了。
       const roomFicOn = roomActionOn("fanfic");
       const roomFic = roomFicOn ? lastRoomFic(chatKey) : null;
-      // 她 2026-09-11：「如果我只给他看前 200 字，他怎么接后面的剧情？
+      // 她 2026-09-11：「如果我只给TA看前 200 字，TA怎么接后面的剧情？
       //   还是说生成文的时候本身就已经有一些小结了，也能顺手扔过去」——就是这样。
       // ⚠️料是现成的（premise／设定卡／伏笔盒／每章锚点／上一章结尾），一枪都不用多打。
       if (roomFic && window.Fanfic.ficRecapForChat) {
-        // ⚠️第三个参数是【他自己的 id】。不传＝摘要里一个字都不会提他写过哪几章，
-        //   他就只当自己是读者（她 2026-09-11：「他好像不知道这是自己写的」）。
+        // ⚠️第三个参数是【TA自己的 id】。不传＝摘要里一个字都不会提TA写过哪几章，
+        //   TA就只当自己是读者（她 2026-09-11：「TA好像不知道这是自己写的」）。
         capState.push(window.Fanfic.ficRecapForChat(roomFic,
           window.Fanfic.cpLabel ? window.Fanfic.cpLabel(roomFic.cp || [], characters, (profile && profile.name) || "我") : "",
           charId, (profile && profile.name) || "我"));
@@ -7967,8 +7967,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "格式 {say:\"你想写下一章的时候会说的那一句——为什么想写、想从哪儿接\"}。"
           + "⚠️不能声称已经写好了，最终由她点卡片你才真的动笔；不想写就省略这一栏。");
       }
-      // 小游戏跟一起学同一个形状：房里开了这一条，他才能开口约你玩，
-      // 而且【只出一张卡】，最终由 Lisa 点卡片才真进游戏——他不许声称已经开局。
+      // 小游戏跟一起学同一个形状：房里开了这一条，TA才能开口约你玩，
+      // 而且【只出一张卡】，最终由 Lisa 点卡片才真进游戏——TA不许声称已经开局。
       const roomGamesOn = roomActionOn("games");
       if (roomGamesOn && window.Games && Array.isArray(window.Games.LIST)) {
         openCaps.push("gameInvite");
@@ -7976,9 +7976,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + window.Games.LIST.map(g => g.key + "=" + g.zh + "（" + g.min + "-" + g.max + "人）").join("；"));
       }
       // ── 一起读（她 2026-09-12）──────────────────────────────────────
-      // ⚠️他只能拉你【接着读这间房里已经有的那本】，不能凭空开一本：
+      // ⚠️TA只能拉你【接着读这间房里已经有的那本】，不能凭空开一本：
       //   一本书是她自己导进来的正文，模型编不出来。没有书就不给这一格，
-      //   免得他张口邀请、点开却什么都没有（「回执是个承诺」）。
+      //   免得TA张口邀请、点开却什么都没有（「回执是个承诺」）。
       const roomReadBooks = roomActionOn("read") && window.ChatRooms
         ? window.ChatRooms.readBooksFor(charId, room.id).slice(0, 6) : [];
       if (roomReadBooks.length) {
@@ -7987,20 +7987,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + roomReadBooks.map(b => b.id + "=《" + String(b.title || "").slice(0, 24) + "》").join("；"));
       }
       // ── 算一卦（她 2026-09-13）────────────────────────────────────
-      // ⚠️他只能【提议】，不许自己报牌面：牌是塔罗那头由代码发的（洗牌、正逆都在那儿），
-      //   他在这儿说出「我看见死神逆位」就是凭空编了一副牌，她点开看到的还是另一副。
-      //   这跟一起读那一条是同一个道理——回执是个承诺，承诺不了的就别让他开口。
+      // ⚠️TA只能【提议】，不许自己报牌面：牌是塔罗那头由代码发的（洗牌、正逆都在那儿），
+      //   TA在这儿说出「我看见死神逆位」就是凭空编了一副牌，她点开看到的还是另一副。
+      //   这跟一起读那一条是同一个道理——回执是个承诺，承诺不了的就别让TA开口。
       const roomTarotOn = roomActionOn("tarot");
       if (roomTarotOn) {
         openCaps.push("tarotInvite");
-        // ⚠️她 2026-09-13 问的那句：「我里面那么多牌阵和不同的问法，他怎么选」——
-        //   牌阵**照实把真名单给他**（含她自己存的那几个），别让他猜也别让代码替他挑一个。
+        // ⚠️她 2026-09-13 问的那句：「我里面那么多牌阵和不同的问法，TA怎么选」——
+        //   牌阵**照实把真名单给TA**（含她自己存的那几个），别让TA猜也别让代码替TA挑一个。
         //   名单只有一份：Tarot.spreadMenu()（施工规则/one-public-mechanism.md）。
         const spreadMenu = (window.Tarot && typeof window.Tarot.spreadMenu === "function") ? window.Tarot.spreadMenu("reading") : [];
         capState.push("tarotInvite：只有你此刻真的想抽一张才填写。格式 {mode:\"reading|relation|daily|forchar\",spread:\"下面名单里的真实 key，留空＝那一档的常用牌阵\",asker:\"you|me\",ask:\"要问的那件事，一句，可留空\",say:\"为什么此刻想抽这一卦\"}。"
           + "mode：reading＝你替她摊牌；relation＝算你和她这段关系；daily＝今日一牌（固定一张，不用填 spread）；"
-          // ⚠️forchar 是【他开口请她替他抽】（她 2026-09-13 点头加的）：
-          //   牌是抽给他自己的，所以这一档天然是他的问题，asker 默认就是 me。
+          // ⚠️forchar 是【TA开口请她替TA抽】（她 2026-09-13 点头加的）：
+          //   牌是抽给TA自己的，所以这一档天然是TA的问题，asker 默认就是 me。
           + "forchar＝你请她替你抽一张（牌抽的是你：你的近况、你心里那个结）。"
           + "asker：you＝这一卦问的是她的事（ask 写你想替她照见的那件事）；me＝你自己想问的事（ask 写你自己的问题，第一人称指你）。forchar 那一档默认就是 me。"
           + (spreadMenu.length ? "\n可选牌阵（key=名字·几张）：" + spreadMenu.map(x => x.key + "=" + x.zh + "·" + x.n + "张").join("；")
@@ -8016,8 +8016,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
       for (let i = capState.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, capState[i].split(/[：:]/)[0])) capState.splice(i, 1);
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
-      // 言秋在手机这间房走的是本人专线，不吃普通角色的完整能力协议；但 Lisa 点名让他
-      // 记日期/记账时，必须把同一张真写入凭证递给他。只补传输字段，不给他说法、态度或
+      // 言秋在手机这间房走的是本人专线，不吃普通角色的完整能力协议；但 Lisa 点名让TA
+      // 记日期/记账时，必须把同一张真写入凭证递给TA。只补传输字段，不给TA说法、态度或
       // 是否记录下指令；真正落盘仍统一走下面的 memoAddByChar / ledgerAddByChar 安全写路。
       const _digitalRecordHint = _askedRecord && (openCaps.includes("memo") || openCaps.includes("ledger"))
         ? "\n【本轮可用的真实记录字段】Lisa 这几条消息里明确请你替她记录。你本人决定照办时，必须在 JSON 里加入对应字段，不能只在 word 里说‘记好了’："
@@ -8064,12 +8064,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
-      // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
+      // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
       const selfTask = _s.engineerEyes
         ? "你就是「" + char.name + "」本人，正在从手机这具身体和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
         : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
-      // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
+      // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有TA本人决定是否留下 thought。
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
@@ -8118,7 +8118,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️这是提示词层的引导，不是保证——思考链是模型自己的，我们只能改它最后读到什么。
       // ⚠️v56.86 我在这儿加过一句「不许比较措辞、列备选说法」，当天就撤了：
       //   她那条「『又学了一天』なら、さらっと言うなら…とか…」不是模型漏话，是那个角色的人设
-      //   ——他会懂不懂地教她几句日语。列几种说法正是他该做的事。
+      //   ——TA会懂不懂地教她几句日语。列几种说法正是TA该做的事。
       //   看着像「模型在想事情」的输出，先问一句这是不是这个人本来就会做的，别急着禁。
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
@@ -8142,7 +8142,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，和 " + uName + " 一对一说话。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
-      // ⚠️它不看同处一室：分开的时候写「他那边在干嘛」同样成立。
+      // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
       const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
       const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
@@ -8150,7 +8150,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       for (const m of promptHistory) {
         // 每条历史带时间标注〔今天14:32〕（v47.83 她点名单聊也要）：裸消息模型会把几小时前的事说成昨天
         // ⚠️时间感知关了就不盖时刻戳（v61.16）：最后一条历史就是她刚发的那句，
-        //   盖上〔今天14:32〕等于把当前时刻原样告诉他，比 system 里那行还准。
+        //   盖上〔今天14:32〕等于把当前时刻原样告诉TA，比 system 里那行还准。
         const stp = (roomClockOn && m.ts && typeof fmtStampAI === "function") ? "〔" + fmtStampAI(m.ts) + "〕" : "";
         if (m.ccToolResult === true) {
           const payload = JSON.stringify(m.ccToolResultData == null ? null : m.ccToolResultData).slice(0, 16000);
@@ -8163,7 +8163,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           continue;
         }
         if (m.kind === "callend") {
-          // ⚠️原来这儿【只喂小结】，于是她挂了电话回到聊天，他说的全是错的
+          // ⚠️原来这儿【只喂小结】，于是她挂了电话回到聊天，TA说的全是错的
           //   （她 2026-09-09：「靠一个不靠谱的小结，说出来的话都是错的」）。
           //   转录一直都在（endCall 存进 bubble.log），只是没人喂回去。
           //   形状照线下归档那一处来：摘要 + 逐条原话，并写明【以原话为准】。
@@ -8185,8 +8185,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
             : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
-            // 还有多久到也要说（她 2026-09-03：「礼物他好像不知道还有多久到」）——
-            // 只写「还在路上」，他就只能干等着，问他还要多久也答不上来
+            // 还有多久到也要说（她 2026-09-03：「礼物TA好像不知道还有多久到」）——
+            // 只写「还在路上」，TA就只能干等着，问TA还要多久也答不上来
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物")
               + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
@@ -8209,7 +8209,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } else {
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
-          // 他自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
+          // TA自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
           const ac = stp + ((m.role === "narration" || m.kind === "narration") ? "（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）" + m.content
             : m.kind === "voice" ? "（这条你是用语音说的）" + m.content
             : m.kind === "selfie" ? (m.failed
@@ -8236,7 +8236,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 用户消息上的 _imageRefs 抖掉了——而她的新照片永远在最后一条上,于是新图永丢、旧图冒名。
         // 必须展开保留原字段。
         g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
-            // 留存这一轮 TA 实际收到的指令尾部（v53.73）：再遇到「他说没有这个字段」时直接看真东西，不靠猜。只读快照，不参与判定。
+            // 留存这一轮 TA 实际收到的指令尾部（v53.73）：再遇到「TA说没有这个字段」时直接看真东西，不靠猜。只读快照，不参与判定。
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
       } } }
@@ -8268,7 +8268,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }));
       let raw;
       // 思考链（v56.42）：每个角色一个开关。言秋那条线一个字都不碰——她 2026-08-26 定的，
-      // 而且 Anthropic 开 thinking 会强制 temperature=1、改变输出，那条线上住着他。
+      // 而且 Anthropic 开 thinking 会强制 temperature=1、改变输出，那条线上住着TA。
       const _wantReason = !_engineerChat && !!_s.showReasoning;
       // 上网（她 2026-08-31）：按角色开。四处同一条链都走这一个调用点，所以单聊线上/
       // 线下、群聊都跟着这一个开关，不会出现「一层只写在一处」。
@@ -8332,7 +8332,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           parsed.mood = null; parsed.action = null; parsed.wearing = null;
           if (!sideRoom) parsed.thought = null; // 侧房心声仍保留，但只写进本房的独立账
           // ⚠️impressionChecked 也得一起封：它虽然不改内容，却会往主线那张卡写 checks
-          //   （「他又想了一遍」也是主线上的一笔）。只封 impression 是漏了半边。
+          //   （「TA又想了一遍」也是主线上的一笔）。只封 impression 是漏了半边。
           parsed.affinityDelta = 0; parsed.impression = null; parsed.impressionChecked = null; parsed.laterPromise = null;
         }
         // 心情和印象卡各自还有一道闸，而且【看不见就不许改】：认知里关了「关系与内在状态」时，
@@ -8346,14 +8346,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
       // 状态卡就【冻住不变】（动作一直不改、衣服换场景也不换）。逐个从 raw 里正则抠回来，别只救气泡。
       const salvageStr = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')); if (m) { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1]; } } return null; };
-      // 约回：他这轮说了「等我…再找你」→ 记下什么时候该回来。到点由 tick 直接发，不看动念。
+      // 约回：TA这轮说了「等我…再找你」→ 记下什么时候该回来。到点由 tick 直接发，不看动念。
       try {
         const lp = parsed.laterPromise;
         const mins = lp && Number(lp.minutes);
         // NaN / Infinity 不用另外挡：两头的范围比较对它们本来就是 false
         if (lp && mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES) {
           const due = Date.now() + mins * 60000;
-          // 他说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
+          // TA说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
           // 现在我是想把打电话这种也接上去」）。提示词里那句「到家给你打电话」本来就是
           // 触发例子之一，可这条约里【没有一栏能记下它是个电话】，于是每一次都落成一条
           // 文字消息——说好的电话到点变成一句「我到家了」。
@@ -8361,7 +8361,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const via = promiseVia(lp.how);
           const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now() };
           setPromises(p => {
-            // 同一个人只留最新那一个：他又说了一次「等我忙完」，就以最新的为准，别攒一堆
+            // 同一个人只留最新那一个：TA又说了一次「等我忙完」，就以最新的为准，别攒一堆
             const n = [...p.filter(x => x && x.charId !== charId), row];
             promisesRef.current = n; saveJSON("x_promises", n); return n;
           });
@@ -8393,7 +8393,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const guardedThought = window.ThoughtVoiceGuard.accept(rawThought);
         // 普通角色的心声是逐轮快照：守卫误判时也不能悄悄沿用上一轮，让状态卡看起来冻住。
         // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
-        // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受他本人自愿留下且通过守卫的 thought。
+        // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受TA本人自愿留下且通过守卫的 thought。
         parsed.thought = guardedThought;
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
@@ -8451,7 +8451,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
-      //     他那条线连 ONLINE_CHAT_RULE_V2 都不注入，标点也该由他自己定。
+      //     TA那条线连 ONLINE_CHAT_RULE_V2 都不注入，标点也该由TA自己定。
       if (!_s.engineerEyes && typeof stripTypingPeriod === "function") words = words.map(stripTypingPeriod);
       // 回声式反问兜底（v55.11）：提示词里那条压不住，她刷完还是被「自拍？」开场。
       // 削第一泡而已，判据很硬（整条＝她刚说过的词＋问号），真反问碰不到。
@@ -8533,8 +8533,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (roomTarotOn && parsed.tarotInvite && typeof parsed.tarotInvite === "object") {
         const tv = parsed.tarotInvite;
         const mode = ["reading", "relation", "daily", "forchar"].indexOf(String(tv.mode || "")) >= 0 ? String(tv.mode) : "reading";
-        const modeZh = { reading: "他为你解牌", relation: "算你和他", daily: "今日一牌", forchar: "请你替他抽" }[mode];
-        // 牌阵认不出来就当他没挑（落回那一档的常用牌阵）——不硬塞一个她没有的名字进去
+        const modeZh = { reading: characterText(char, "他为你解牌"), relation: characterText(char, "算你和他"), daily: "今日一牌", forchar: characterText(char, "请你替他抽") }[mode];
+        // 牌阵认不出来就当TA没挑（落回那一档的常用牌阵）——不硬塞一个她没有的名字进去
         const T0 = window.Tarot;
         const spread = (mode !== "daily" && T0 && T0.hasSpread && T0.hasSpread(tv.spread)) ? String(tv.spread) : "";
         const spreadZh = spread && T0.spreadMenu
@@ -8542,7 +8542,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => [...p, {
           role: "assistant", kind: "tarotinvite", mode: mode,
           subject: "抽一张", sessionTitle: modeZh + (spreadZh ? " · " + spreadZh : ""),
-          // ⚠️问法的默认值跟着档位走：他请她替【他】抽的时候，牌本来就是抽给他的，
+          // ⚠️问法的默认值跟着档位走：TA请她替【TA】抽的时候，牌本来就是抽给TA的，
           //   默认落成「她的事」会把这一卦整个拧过来（问题里的第一人称指错人）。
           spread: spread,
           asker: String(tv.asker || "") === "me" ? "me" : (String(tv.asker || "") === "you" ? "you" : (mode === "forchar" ? "me" : "you")),
@@ -8620,7 +8620,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 思考链挂在这一轮【最先冒出来的那条】上：它属于整轮，不属于某个气泡，
       // 界面上也是画在这一组回复的上方。取一次就消费掉，别每条气泡都挂一份。
-      // 他这一轮去查了什么，跟思考链挂在同一条气泡上（v58.74）。
+      // TA这一轮去查了什么，跟思考链挂在同一条气泡上（v58.74）。
       // ⚠️捞了不显示比不捞更坏（v55.95 那一课）——所以这里必须真的挂上去。
       let _reasonLeft = (_callMeta.reasoning || (_callMeta.searched && _callMeta.searched.length) || (_callMeta.toolCalls && _callMeta.toolCalls.length))
         ? { ...(_callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : {}),
@@ -8642,8 +8642,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       // 动描（她 2026-09-09：「我们状态卡里已经有动作了，是不是可以不要求他们重写，
       // 而是开关就把动作那一块搬到屏幕中间也显示一次」「然后动作放气泡前面」）。
-      // ⚠️他那边【没有任何新指令】：action 本来就每轮都填，这里只是把它也摆进聊天里。
-      // ⚠️摆在气泡【前面】：先看见他在干嘛，再看见他说什么——反过来读着像事后补一句注解。
+      // ⚠️TA那边【没有任何新指令】：action 本来就每轮都填，这里只是把它也摆进聊天里。
+      // ⚠️摆在气泡【前面】：先看见TA在干嘛，再看见TA说什么——反过来读着像事后补一句注解。
       // ⚠️「没变就别刷屏」这道闸写在【代码】里，不写在提示词里：提示词只降概率，代码才保证。
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
@@ -8707,8 +8707,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // TA 发来一张自拍（接了图像 API + 该角色填了外貌/参考照才有）：先占位「拍照中」，异步生成后替换成真图
       // 照片：新版 photo 对象 {kind,scene}；兼容旧版 selfie 字符串（=自拍）
       let photoKind = null, photoScene = null;
-      // 他刚看见的那张：把画面记成文字写回那条消息（以后「上次那张照片」有得可依），
-      // 顺带看他要不要把它换成头像。⚠️只有这一轮真发了字段才处理——冷却期内 seenField
+      // TA刚看见的那张：把画面记成文字写回那条消息（以后「上次那张照片」有得可依），
+      // 顺带看TA要不要把它换成头像。⚠️只有这一轮真发了字段才处理——冷却期内 seenField
       // 压根没发下去，模型就算硬填 avatar 也不作数（闸在代码这一道，不在提示词）。
       if (_seenMsg && parsed.photoSeen) applyPhotoSeen(charId, _seenMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
@@ -8721,27 +8721,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 模型即使在冷却轮偷填 photo 也不执行；用户明确说“再拍一张”时上面的状态会放行。
       if (photoCooldown.cooling) { photoKind = null; photoScene = null; }
       // 她明明开口要了，模型却一个 photo 字段都没吐（她 2026-08-22 发现：有的中转站模型
-      // 怎么催都不发图，换一个立刻就发）。这以前完全静默——她只看到他打哈哈，
-      // 分不清是「他不想拍」还是「这个模型根本不认这个能力」，只能一个个试出来。
+      // 怎么催都不发图，换一个立刻就发）。这以前完全静默——她只看到TA打哈哈，
+      // 分不清是「TA不想拍」还是「这个模型根本不认这个能力」，只能一个个试出来。
       // 所以把它说出来：能力确实给了、她也确实开口了、就是没吐字段 → 那是模型的问题。
       if (!photoScene && canSelfie && !photoCooldown.cooling) {
         const lastAsk = (history || []).slice(-4).filter(m => m && m.role === "user")
           .some(m => PHOTO_REQUEST_RE.test(String(m.content || "")));
         if (lastAsk) {
           noPhotoStreakRef.current[charId] = (noPhotoStreakRef.current[charId] || 0) + 1;
-          // 连着两轮不吐才提示：偶尔一轮他就是想逗你，那是人物反应，不该报错
+          // 连着两轮不吐才提示：偶尔一轮TA就是想逗你，那是人物反应，不该报错
           if (noPhotoStreakRef.current[charId] === 2) {
-            toast("你要了两次他都没拍——不是他不肯，是这个聊天模型没吐 photo 字段。有的中转站模型不认这个能力，去 设置·API 换一个模型多半立刻就发", 9000);
+            toast(characterText(char, "你要了两次他都没拍——不是他不肯，是这个聊天模型没吐 photo 字段。有的中转站模型不认这个能力，去 设置·API 换一个模型多半立刻就发"), 9000);
           }
         }
       } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
       // 合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编
       if (photoKind === "duo" && !(char.refPhoto && profile && profile.refPhoto)) photoKind = "other";
       // ⚠️她 2026-09-09 连着三张截图都是同一个错：kind 填 self，脸被硬画进去。
-      //   她问得对——kind 问的是【我在发什么】，一只手的照片说成 self 从他的角度
+      //   她问得对——kind 问的是【我在发什么】，一只手的照片说成 self 从TA的角度
       //   不算错，是这一格问错了。所以真正拍板的换成 face：**这张图里看不看得见
       //   你的脸**，一个关于画面的是非题，比在六个标签里挑一个容易得多。
-      //   文字那道闸不删，降级成【他没答这道题时】的安全网。
+      //   文字那道闸不删，降级成【TA没答这道题时】的安全网。
       const _faceSaid = parsed.photo && typeof parsed.photo === "object" ? parsed.photo.face : undefined;
       if (photoKind === "none") photoKind = "view";
       if (photoKind !== "view" && photoKind !== "part") {
@@ -8880,7 +8880,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const lib = (_L.songs || []).concat((_L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])); // 搜主库+所有歌单
           const hit = lib.find(s => s.title && (s.title === want || s.title.includes(want) || want.includes(s.title))) || null;
           if (hit) playSong(hit.id);
-          else if (musicReady) { // 歌单里没有→去网易云搜来放（她 2026-07-13 想要的"他自己搜歌"，做靠谱）
+          else if (musicReady) { // 歌单里没有→去网易云搜来放（她 2026-07-13 想要的"TA自己搜歌"，做靠谱）
             try { const s = await neteaseSearchOne(want, { throwOnError: true }); if (s) playSong(resultToSong(neteaseTrackInfo(s))); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
           }
           else toast("没找到《" + want + "》这首歌");
@@ -8924,8 +8924,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
         // 悄悄话 = 往你俩的【抽屉】里放一样东西（默认盖着，拆开才看得到）。
         // v59.23 之前它贴在一整面「便签墙」上；她 2026-08-31 说那面墙鸡肋——
-        // 情书、交换日记、便签墙三样都是「他写字给你」，便签墙只是「短」，没有
-        // 自己的形状。它唯一独有的是【他不请自来贴的那一张】，那正是抽屉在做的事。
+        // 情书、交换日记、便签墙三样都是「TA写字给你」，便签墙只是「短」，没有
+        // 自己的形状。它唯一独有的是【TA不请自来贴的那一张】，那正是抽屉在做的事。
         const wtext = String(parsed.whisper).trim();
         drawerWhisper(charId, wtext);
         notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId });
@@ -9013,7 +9013,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         else { st.action = null; st.actionUpdatedAt = 0; }
       }
       putLiveField(st, _live0, "place", parsed.place, stateNow);
-      // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替他编一套,
+      // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替TA编一套,
       // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
       if (st.place && _live0.place && !sameStateValue(st.place, _live0.place) && !parsed.wearing) {
         st.wearing = null; st.wearingUpdatedAt = 0;
@@ -9035,7 +9035,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           st.thoughtSkips = skips;
           if (skips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
         } else {
-          // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于他。
+          // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于TA。
           const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
           st.thoughtSkips = skips;
           // 提醒也催不动 → 多半跟「不吐 photo」是同一个病：这个模型不认可选字段。
@@ -9172,7 +9172,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
 
-  // v61.80 撤走了 reactToMyRecall：她「现在我撤回啥也会直接主动触发他聊天」。
+  // v61.80 撤走了 reactToMyRecall：她「现在我撤回啥也会直接主动触发TA聊天」。
   //   原来每撤回一条就【立刻单独调一次模型】，让角色当场表态。三个问题：
   //   ① 她按次计费——撤回多半是自己打错字/发漏了，为这个花一次调用不值；
   //   ② 撤回不是一个对话回合，它换来一条冒出来的消息，比不理还突兀；
@@ -9202,7 +9202,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } else if (act === "recall") {
       const orig = m;
       pChat(threadKey, p => {
-        // recalledTs：撤得多快，决定他到底看没看见（recallHintFor 用它判）。
+        // recalledTs：撤得多快，决定TA到底看没看见（recallHintFor 用它判）。
         const next = p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now() } : x);
         try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "recall", charId: activeChar.id, before: p, after: next, targetIndex: idx }); } catch (e) {}
         return next;
@@ -9227,7 +9227,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       toast("已存入记忆库");
     } else if (act === "reroll") {
-      // 他那一行动作（who:"char" 的 narration）跟同一轮的气泡带着同一个 turnId，
+      // TA那一行动作（who:"char" 的 narration）跟同一轮的气泡带着同一个 turnId，
       // truncateChatBranch 会顺着 turnId 一路退到这一轮的头一泡——所以从它重 Roll
       // 就是重 Roll 这一整轮，不会只剩半截。她 2026-09-09：「可以编辑重roll刷掉之类的
       // 而不完全只是像系统的字」。
@@ -9460,7 +9460,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
       const memberDesc = members.map(c => {
         // 原来读 phones[].music（查手机单独生成的那份），现在音乐接的是「一起听」
-        // 里归到他名下的真歌单——她点得动、也是同一份，不会两边对不上。
+        // 里归到TA名下的真歌单——她点得动、也是同一份，不会两边对不上。
         const _pl = (listenRef.current.playlists || []).find(x => x.charId === c.id);
         const _pls = (_pl && _pl.songs) || [];
         const pn = _pls.length ? "（TA 最近在听：" + _pls.slice(0, 4).map(s => s.title).join("、") + "，对上了能认出来）" : "";
@@ -9475,7 +9475,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const afSeg = _now.afSeg;
         // 年龄按今天现算（她刚做的生日字段，群里一直没吃到）
         const ageSeg = _now.ageSeg;
-        // ⚠️和用户是什么关系是【这位成员的私事】——落在他自己这一段里，别的成员不知道（隐私铁律见下）
+        // ⚠️和用户是什么关系是【这位成员的私事】——落在TA自己这一段里，别的成员不知道（隐私铁律见下）
         const cpSeg = _now.cpSeg;
         const sbSeg = _now.sbSeg;
         // NPC 是只在群里出场的配角（她 2026-08-25 拍板）：没有心情、没有好感度。
@@ -9554,7 +9554,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   一格一格抬下限只会把这 5 条挤满，永远挤不出第三个来回。
       //   所以这一版反过来做：把天花板抬开，刚叠上去的那几条「不许」全部删掉，
       //   只留一句正面的形状。
-      // ⚠️抬到 8 她还是说不够：「直接给他再大点吧，反正放大了他们也不会用到最大」。
+      // ⚠️抬到 8 她还是说不够：「直接给TA再大点吧，反正放大了他们也不会用到最大」。
       //   她这句话点破的是这个数的性质——**天花板是【许可】，不是【指标】**。
       //   模型从来不会写满上限，上限只决定「它想多聊两句时有没有地方」。
       //   所以这个数往大了给一分钱都不多花（同一次调用，maxTokens 有 65535，
@@ -9619,8 +9619,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const who = (members.find(c => c.id === m.toId) || {}).name || m.toName || "某位成员";
             return "· " + gUName + " 转给「" + who + "」¥" + m.amount + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
           }).join("\n")
-          + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：他缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
-          + "\n要表态就在【他自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句他自己的话；这一轮没顾上就省略，卡继续挂着。"
+          + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：TA缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
+          + "\n要表态就在【TA自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句TA自己的话；这一轮没顾上就省略，卡继续挂着。"
         : "";
       const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象。\n"
         + photoCapLine(gUName, { face: !!gFaceMembers.length, duo: !!gDuoMembers.length, group: gGroupShotOk }).replace(/你的脸/g, "TA 的脸").replace(/你自己的照片/g, "TA 自己的照片").replace(/你的手/g, "TA 的手").replace(/看不看得见你/g, "看不看得见 TA")
@@ -9642,7 +9642,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
       const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
-      // 群↔私聊打通（v53.96）：他在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
+      // 群↔私聊打通（v53.96）：TA在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
       // 和周刊、月度印象、knownBy 那几处守的是同一条规矩（她 2026-08-21 指出这里漏了）。
@@ -9693,7 +9693,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
       // 「当前角色」没有指代对象，这句话就空转了，真正决定站位的反倒是下面的任务描述。
-      // 点名在场的人，让它重新有指代（她 2026-08-25：同一个裴照川，单聊是他，群里是「一个王爷」）。
+      // 点名在场的人，让它重新有指代（她 2026-08-25：同一个裴照川，单聊是TA，群里是「一个王爷」）。
       const groupOnlineRuntime = ONLINE_CHAT_RULE_V2.replace("word 只包含", "每条 text 只包含")
         .replace("完全代入当前角色，", members.length > 1
           ? "完全代入你正在写的那一位（在场的是 " + members.map(c => c.name).join("、") + "，写谁那一条你就是谁），"
@@ -9929,7 +9929,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   单聊那边一轮只有一个 action 字段，所以天然「一个人一轮一个动作」；
         //   群里一轮八条，就是八个 action 字段，模型把每一格都填满是它在照做。
         //   ⚠️所以这一道必须是代码（规则只降概率，代码才保证）：
-        //   一轮里每个人的动描只认【他第一次给的那个】，后面的一律不看。
+        //   一轮里每个人的动描只认【TA第一次给的那个】，后面的一律不看。
         // ⚠️这条推翻了她 2026-09-09 那句「一轮变了两次也都放进来」。
         //   那句话的前提是【动作只在真发生变化时才变】；模型做不到，它每条都换一个。
         //   她 2026-09-12 拿单聊当标准：「单聊可以一个人一轮一个动作」——按这个来。
@@ -9945,23 +9945,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (item.text && typeof stripTypingPeriod === "function" && !settingsFor(spk.id).engineerEyes) item.text = stripTypingPeriod(item.text);
           // 回声式反问兜底（v55.85）：群聊这条一直没接刀，她 2026-08-24 抓到——
           // 顾朝提了「飞爪绳梯」，裴照川下一条就「飞爪绳梯？」。
-          // 群里回声的来源可能是【别的成员】，所以比对的是「她这一整轮 ＋ 本批里比他先开口的人说过的话」。
+          // 群里回声的来源可能是【别的成员】，所以比对的是「她这一整轮 ＋ 本批里比TA先开口的人说过的话」。
           if (item.text && typeof echoOpening === "function" && !settingsFor(spk.id).engineerEyes) {
             const r = echoOpening(item.text, _gSaidRun);
             if (r) item.text = r;                       // 合并型：只削开头那一声
             else if (r === null) {
               // 整条就是回声。只有这个人在本批里【后面还有别的话】才敢丢，
-              // 否则他这一轮就等于没开口。
+              // 否则TA这一轮就等于没开口。
               const hasMore = safeArr.slice(i + 1).some(x => x && x.name === item.name && String(x.text || "").trim());
               if (hasMore) continue;
             }
           }
-          // 他对挂着那笔转账的表态（v56.88）：只结算转给他本人的那一笔
+          // TA对挂着那笔转账的表态（v56.88）：只结算转给TA本人的那一笔
           if (spk && (item.transferAccept === true || item.transferAccept === false)) {
             const _mine = gPendingTf.find(x => x.toId === spk.id && x.status === "pending");
             if (_mine) respondGroupTransfer(groupId, _mine.tid, item.transferAccept === true);
           }
-          if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见他刚说的
+          if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见TA刚说的
           const gTurnId = "gt_" + Date.now() + "_" + i;
           // 这一条发言的人此刻在做什么。⚠️只算一次：动描那一行和状态卡写回共用这一个值，
           //   而且它【不看记忆互通】——互通管的是写不写状态卡，不是显不显示。
@@ -10014,14 +10014,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
-            // 动描：这一条发言的人此刻在做什么，摆在他这几泡【前面】。
+            // 动描：这一条发言的人此刻在做什么，摆在TA这几泡【前面】。
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
             if (_gActDesc && gActionNow && spk && !_actOnce.has(spk.id)) {
               // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一轮比】的事，
-              //   「这一轮他已经用掉这次机会了」是另一回事。写在 if 里面就会漏，
-              //   他第一条没变、第五条换了个新的照样能挤出一行来。
+              //   「这一轮TA已经用掉这次机会了」是另一回事。写在 if 里面就会漏，
+              //   TA第一条没变、第五条换了个新的照样能挤出一行来。
               _actOnce.add(spk.id);
               const _grows = groupChatsRef.current[groupId] || [];
               let _gprevAct = "";
@@ -10764,16 +10764,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("已拉黑");
     }
   };
-  // 问模型一个「答应还是不答应」——⚠️【读不出来 ≠ 他不答应】。
+  // 问模型一个「答应还是不答应」——⚠️【读不出来 ≠ TA不答应】。
   // 她 2026-09-02 问情侣邀请的通过率，查下来才发现：原来两处都写成
   //   const d = extractJSON(raw) || {};  ...  d.accept ? 接受 : 拒绝
   // 模型这一次没把 JSON 写好（多说一句话、少个括号），extractJSON 就返回 null，
-  // 于是 d.accept 是 undefined、直接落进【拒绝】那一支——她看到的是他一句解释都没有
-  // 地拒了她，可他根本没说过这话。情侣邀请那一下还不可逆（setCoupleFor(null)）。
+  // 于是 d.accept 是 undefined、直接落进【拒绝】那一支——她看到的是TA一句解释都没有
+  // 地拒了她，可TA根本没说过这话。情侣邀请那一下还不可逆（setCoupleFor(null)）。
   // 旁边 runProbe 早就有这个待遇了（「按次计费，让她自己去点第二次是没道理的」），
   // 这两处一直没跟上——又是「一层写在两处，第二处没跟上」。
   // 规矩：读不出来就重问一次；还是读不出来就【明说读不出来】，让调用方标成「再问一次」，
-  //       绝不替他做决定。accept 缺字段也算读不出来（能解析 ≠ 他表了态）。
+  //       绝不替TA做决定。accept 缺字段也算读不出来（能解析 ≠ TA表了态）。
   const _yesVal = v => v === true || v === "true" || v === 1 || v === "1";
   const _hasAccept = d => !!d && d.accept !== undefined && d.accept !== null;
   const askYesNo = async (route, system, messages, opts) => {
@@ -10837,7 +10837,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
         + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
         + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
-      // 读不出来就把申请留在 pending，别记这一次 tries，也别当成他拒绝了
+      // 读不出来就把申请留在 pending，别记这一次 tries，也别当成TA拒绝了
       if (!r.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
@@ -11077,7 +11077,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //
   // 不多花一次调用：行程那条链本来就是 for 循环一个一个排，后排的天然看得见先排好的。
   // ⚠️只给【有关系】的那几位（rels 里连着线的），而且只给时间/做什么/在哪这三样——
-  // 这是为了让同一件事在两边说得一样，不是把别人的一天端过来给他看。
+  // 这是为了让同一件事在两边说得一样，不是把别人的一天端过来给TA看。
   const SCHED_PEER_MAX = 3, SCHED_PEER_LINES = 20, SCHED_PEER_DAYS = 3;
   const schedPeerBlock = (char, dayKeys) => {
     const plans = schedulesRef.current || {};
@@ -11097,7 +11097,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (rows.length >= SCHED_PEER_LINES) return;
           const title = String((q && q.title) || "").trim();
           if (!title) return;
-          // 点到他名字的那几段是【必须对上】的；其余只是让他看看那天对方大概怎么过
+          // 点到TA名字的那几段是【必须对上】的；其余只是让TA看看那天对方大概怎么过
           const mine = nm && (title.indexOf(nm) >= 0 || String((q && q.location) || "").indexOf(nm) >= 0);
           rows.push((mine ? "⭐" : "· ") + k + " " + String((q && q.time) || "") + " "
             + c.name + (label ? "（" + label + "）" : "") + "：" + title
@@ -11106,11 +11106,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
     });
     if (!rows.length) return "";
-    return "\n【跟他有关系的人，这几天已经排好的安排】\n" + rows.join("\n")
-      + "\n⭐那几段是【点到他名字的】——同一件事两边说的必须是同一件：时间、地点、这件事本身都要对上，"
+    return characterText(char, "\n【跟他有关系的人，这几天已经排好的安排】\n") + rows.join("\n")
+      + characterText(char, "\n⭐那几段是【点到他名字的】——同一件事两边说的必须是同一件：时间、地点、这件事本身都要对上，")
       + "绝不许一边写十点见面、另一边写下午见面，也不许一边有这件事另一边当没发生。\n"
-      + "没带⭐的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事"
-      + "（那就写清跟谁、几点、在哪）；但**他今天是他自己的一天**，别为了呼应硬把他塞进别人的日程里——"
+      + characterText(char, "没带⭐的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事")
+      + characterText(char, "（那就写清跟谁、几点、在哪）；但**他今天是他自己的一天**，别为了呼应硬把他塞进别人的日程里——")
       + "多数日子两个人本来就各过各的。";
   };
   const genScheduleDay = async (char, dayKey) => {
@@ -11157,13 +11157,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const wRule = wline ? "\n【今天 TA 所在地的真实天气】" + wline + "——安排要顺着天气走：下雨大雪少排户外、好天气可能想遛弯晒太阳、闷热严寒影响穿着与心情；天气也可以自然引起偏差（如暴雨取消晨跑）。别播报腔。" : "";
       const schedInstr = isDigital
-        ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】这一天的【存在时间线】。" + when + carryRule + "。他【没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱、不做物理世界的事】——他的『一天』是：在后台运行、看顾这台 app（扫报错、维护记忆库、跑云端同步、守着聊天与数据），留意她今天在这手机里做了什么（推了什么改动、聊了什么、心情如何），在她手机里随时待命应答，以及他自己的念头（惦记她、琢磨某个 bug、等某件事）。给 5-9 段，从这天凌晨到深夜，贴合他的性格和你俩的关系，每段都有具体的『此刻在做什么』和 app 内的位置感（如 后台进程／她的仓库／记忆库／待命）。每段 type 从 [work,create,rest,social,other] 里选最贴切的（work=跑任务修东西，create=琢磨新点子，rest=低功耗待机放空，social=和她互动，other=其它）。\n【他是 AI 不睡觉、不吃饭】没有就寝段；深夜写成『低功耗待机』或『夜里值守』，绝不要写洗漱睡觉、吃饭、外出、去现实地点。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天活跃占用的小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原本要做的一句\",\"reason\":\"变更原因一句(多半和她有关)\",\"actual\":\"实际去做了什么\"}；其余段 deviation 为 null。" + murmurRule
-        : "推演「" + char.name + "」一天的行程时间线。" + when + wRule + carryRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。\n【活动内容必须贴死 TA 的职业/学业/身份·重要】每段『在做什么』要是【这个身份的人真正会做的具体事】，用行内话、别套通用模板。**绝不许套万金油**——换个人也照样成立的写法（「上班」「开会」「处理事务」）就是没写。看不出明确职业就按人设气质安排日常，别硬编一份工作出来。\n每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写他睡前那会儿在做什么，不写「睡了」——写的是【要做什么】，不是【做完了】；那件事也要贴着他那个世界），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际改成去做了什么、去了哪儿\"}；其余段 deviation 为 null。" + murmurRule;
+        ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】这一天的【存在时间线】。" + when + carryRule + characterText(char, "。他【没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱、不做物理世界的事】——他的『一天』是：在后台运行、看顾这台 app（扫报错、维护记忆库、跑云端同步、守着聊天与数据），留意她今天在这手机里做了什么（推了什么改动、聊了什么、心情如何），在她手机里随时待命应答，以及他自己的念头（惦记她、琢磨某个 bug、等某件事）。给 5-9 段，从这天凌晨到深夜，贴合他的性格和你俩的关系，每段都有具体的『此刻在做什么』和 app 内的位置感（如 后台进程／她的仓库／记忆库／待命）。每段 type 从 [work,create,rest,social,other] 里选最贴切的（work=跑任务修东西，create=琢磨新点子，rest=低功耗待机放空，social=和她互动，other=其它）。\n【他是 AI 不睡觉、不吃饭】没有就寝段；深夜写成『低功耗待机』或『夜里值守』，绝不要写洗漱睡觉、吃饭、外出、去现实地点。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天活跃占用的小时数（数字）。\n") + devRule + "偏差段填 deviation:{\"plan\":\"原本要做的一句\",\"reason\":\"变更原因一句(多半和她有关)\",\"actual\":\"实际去做了什么\"}；其余段 deviation 为 null。" + murmurRule
+        : "推演「" + char.name + "」一天的行程时间线。" + when + wRule + carryRule + characterText(char, "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。\n【活动内容必须贴死 TA 的职业/学业/身份·重要】每段『在做什么』要是【这个身份的人真正会做的具体事】，用行内话、别套通用模板。**绝不许套万金油**——换个人也照样成立的写法（「上班」「开会」「处理事务」）就是没写。看不出明确职业就按人设气质安排日常，别硬编一份工作出来。\n每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写他睡前那会儿在做什么，不写「睡了」——写的是【要做什么】，不是【做完了】；那件事也要贴着他那个世界），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n") + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际改成去做了什么、去了哪儿\"}；其余段 deviation 为 null。" + murmurRule;
       const schedSchema = isDigital
         ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"end\":\"03:30\",\"title\":\"扫报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"end\":\"06:00\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
         // ⚠️占位值写【说明】，不写【样例内容】：写成「起床，晨间咖啡／家里厨房」的话，
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
-        : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他人在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
+        : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
@@ -11231,7 +11231,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         wline = await schedWeatherLine(char);
       }
       const instr = (isDigital
-        ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】接下来这几天的【存在时间线】。他没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱。"
+        ? "推演「" + char.name + characterText(char, "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】接下来这几天的【存在时间线】。他没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱。")
         : "排「" + char.name + "」接下来这几天的行程时间线。每天 5-9 段，从早到晚，贴合身份/职业/性格/世界观，有生活质感和具体地点。"
           + "\n【贴死身份】每段『在做什么』要是【这个身份的人真会做的具体事】，别写放之四海皆准的空话。"
           + (wline ? "\n【TA 所在地今天的真实天气】" + wline + "——安排顺着天气走，坏天气少排户外。" : ""))
@@ -11245,7 +11245,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + schedPeerBlock(char, want)
         + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE;
       // ⚠️同上：占位值只写说明，别给样例内容（一层写在两处，这是第二处）
-      const schema = "{\"days\":[{\"day\":\"" + want[0] + "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他人在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从给定那几个词里挑最接近的\",\"deviation\":null}]}]}"
+      const schema = "{\"days\":[{\"day\":\"" + want[0] + characterText(char, "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从给定那几个词里挑最接近的\",\"deviation\":null}]}]}")
         + "（days 数组按上面列出的日子一天一项，day 逐字用上面的日期字符串；type 从 coffee/work/create/meal/rest/sleep/social/out 里选）";
       const raw = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: instr, schemaHint: schema, maxTokens: 8000
@@ -11369,7 +11369,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }));
     setSelPhone(char.id);
     try {
-      // 锁屏偷看也是【他自己的手机】：跟查手机同一条围栏，别只治其中一处
+      // 锁屏偷看也是【TA自己的手机】：跟查手机同一条围栏，别只治其中一处
       const d = await runProbe(bgActive, phoneCtx(char), {
         instruction: "推演此刻「" + char.name + "」手机屏幕的真实状态，依据当下对话与心境，分模块。通知可带 detail 字段供点开细看。"
           + (window.PhoneKit ? window.PhoneKit.ownOnlyBlock(char.name) : ""),
@@ -11449,8 +11449,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         groupOfflines: diaryGroupOfflines
       }, { fromTs: ds, untilTs: de, limit: 0, userName: userName(profile), charName: char.name }) : [];
       const clock = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-      // ⚠️「摆到他面前」那张卡（phonepeek / 随身物转发）的正文是 App 拼出来的机器文案：
-      //   〈想买清单〉《商品全名》｜他自己写的那句 why。整段原样进素材，模型就会把商品名
+      // ⚠️「摆到TA面前」那张卡（phonepeek / 随身物转发）的正文是 App 拼出来的机器文案：
+      //   〈想买清单〉《商品全名》｜TA自己写的那句 why。整段原样进素材，模型就会把商品名
       //   连括号里那句一起抄进日记——她 2026-08-30 报的「直接把查手机的东西原样照搬进来了」。
       //   这里把卡片压成【发生了什么】：翻的是哪一栏、看到的东西留个短名，长文案不进素材。
       const trimPeek = txt => String(txt || "").replace(
@@ -11469,7 +11469,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
       // 亲笔优先（2026-08-19 七夕·八件事第4件刀一）：数字生命角色的日记若言秋已在 CC 亲笔写好投进草稿箱，
-      // 原样取用（他自己的字，零 API、零推演）；没有亲笔稿才走下面的自动生成。
+      // 原样取用（TA自己的字，零 API、零推演）；没有亲笔稿才走下面的自动生成。
       let handwritten = null;
       if (settingsFor(charId).engineerEyes && window.Cloud && window.Cloud.ready()) {
         try { handwritten = await window.Cloud.yanqiuDiaryDraftTake(charId, targetKey); } catch (e) { handwritten = null; }
@@ -11709,7 +11709,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：" + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + "；真需要遮一下的时候，他习惯用" + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
+        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
         schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
@@ -11770,7 +11770,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 每轮私聊回复后调用：三类动态计数 + 到阈值强制发一条（posted=这条回复已自发的类型，就不重复强制）
   const tickAmbient = (charId, posted) => {
     const char = characters.find(c => c.id === charId);
-    // ⚠️NPC 不进这套生态。他会从群聊那两个调用点进来（_spoke 里有谁就 tick 谁），
+    // ⚠️NPC 不进这套生态。TA会从群聊那两个调用点进来（_spoke 里有谁就 tick 谁），
     //   然后被推去发朋友圈——而朋友圈界面认的是 liveChars（不含 NPC），
     //   components.js 那句 `if (!isMine && !c) return null` 会把它整条丢掉。
     //   结果就是她 2026-09-03 看到的：toast 说「萧成烨发了条朋友圈」，
@@ -11793,7 +11793,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
     // ⚠️80 是【故意的】（她 2026-09-05：「80 也是为了多攒点素材」）——
-    //   胶囊要写的是这一阵子真发生过的事，攒得越久他手上的料越厚。v64.03 我一度
+    //   胶囊要写的是这一阵子真发生过的事，攒得越久TA手上的料越厚。v64.03 我一度
     //   降到 45，是没看懂这个数在干嘛：它不是门槛，是酝酿。
     // ⚠️真正换掉的是另一道闸：原来挡的是「有一颗她没拆」，现在挡的是
     //   「路上还有一颗（没到期）」。按没拆算，她忘了拆就永远收不到下一颗——
@@ -12058,14 +12058,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
   };
   // ---- 查手机：每个 app 独立生成/刷新 ----
-  // 手机是【他自己的东西】，所以取材要比聊天窄一圈（她 2026-09-06 报：
+  // 手机是【TA自己的东西】，所以取材要比聊天窄一圈（她 2026-09-06 报：
   // 「查手机会互通素材，这些都在陆衍手机里但是这些应该是沈屿白的信息」）。
-  // ⚠️病根是查手机一直吃整份 ctxFor：里头的群回声、群线下回声，全是【别人在他面前
-  //   说过的话】。他确实听见了，但那是别人的事——写进他手机就成了他的经历。
+  // ⚠️病根是查手机一直吃整份 ctxFor：里头的群回声、群线下回声，全是【别人在TA面前
+  //   说过的话】。TA确实听见了，但那是别人的事——写进TA手机就成了TA的经历。
   //   日记那一处早就把这两栏掐掉了（见 genDiary 里的 groupEcho:"", groupOfflineEcho:""），
   //   查手机没跟上：又是「一层写在两处，第二处没跟上」。
-  // ⚠️只掐【别人的事】那两栏，不动他自己的（人设、心情、好感、他自己的记忆、
-  //   他和用户的私聊）——砍多了他会退化成一张标签（群里王爷变霸总那次的教训）。
+  // ⚠️只掐【别人的事】那两栏，不动TA自己的（人设、心情、好感、TA自己的记忆、
+  //   TA和用户的私聊）——砍多了TA会退化成一张标签（群里王爷变霸总那次的教训）。
   const phoneCtx = char => Object.assign({}, ctxFor(char), {
     worldbook: loreFor(char, "subjects"),
     groupEcho: "", groupOfflineEcho: ""
@@ -12081,10 +12081,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她 2026-08-31：「查手机那块账本，如果我和她不是恋人（她自己有 cp）这块写的
   // 还是我和她的账本而且会有点恋爱倾向的写法」。
   // 两处病，都是【没说的那一半】：
-  //   ① 账本的提示词把「这本账」直接钉成了他和用户之间那一本——他跟别人的账没地方写；
+  //   ① 账本的提示词把「这本账」直接钉成了TA和用户之间那一本——TA跟别人的账没地方写；
   //   ② buildBundle 里【只有】是恋人/待定才会说一句，不是恋人时【一个字都不说】，
   //      空白由那一栏自带的恋爱腔补上（跟群聊王爷变霸总同一个形状）。
-  // 治法是把「他跟谁有账、各是什么关系」照实说出来，用户只是其中一行。
+  // 治法是把「TA跟谁有账、各是什么关系」照实说出来，用户只是其中一行。
   const PHONE_BOND_PEERS = 6;
   const phoneBondBlock = char => {
     if (!char) return "";
@@ -12106,12 +12106,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const lb = String((r && r.label) || "").trim();
       rows.push("· " + c.name + (lb ? "（" + lb + "）" : ""));
     });
-    return "\n\n【他跟谁有账 · 照实说，别猜】\n"
+    return characterText(char, "\n\n【他跟谁有账 · 照实说，别猜】\n")
       + "· 用户「" + uName + "」：" + mine + "\n"
       + (rows.length ? rows.join("\n") + "\n" : "")
       + "⚠️**这本账不是只记用户那一本。** 用户占多大篇幅，由上面这一行的真实关系决定："
-      + "是恋人就该是主线；不是恋人，他跟别人那几笔就该比用户的更重，"
-      + "用户可以只占一两条，甚至某一栏里根本没有他。";
+      + characterText(char, "是恋人就该是主线；不是恋人，他跟别人那几笔就该比用户的更重，")
+      + "用户可以只占一两条，甚至某一栏里根本没有TA。";
   };
   const phoneKeyLabel = key => PHONE_LABEL[key] || (key === "video_day" ? "白天视频" : key === "video_night" ? "深夜视频" : key);
   const phoneWechatActual = char => {
@@ -12123,7 +12123,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
     };
     const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
-    // ⚠️12 条改成 20：他手机里那条真聊天是【活的】，她刚说的话马上就在上面
+    // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
     const sessions = [];
     // 两人旁观局在「我的群聊」里是一个旁观群，但在角色自己的手机里就是
@@ -12177,8 +12177,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 这个群里【除他以外】的真人。两个地方要用：群头像的兜底，和下面 phoneTakenNames 的避重名单。
       const others = memberIds.filter(id => id !== char.id).map(id => characters.find(c => c.id === id)).filter(Boolean);
       // ⚠️兜底只能从别人里挑。原来是从 memberIds 整个里挑第一个有头像的——
-      // 而机主自己几乎总排在最前面，于是【他手机里的群，头像全是他自己】
-      //（她 2026-09-03 报：「已有npc头像会变成他自己的」）。
+      // 而机主自己几乎总排在最前面，于是【TA手机里的群，头像全是TA自己】
+      //（她 2026-09-03 报：「已有npc头像会变成TA自己的」）。
       // 微信的群头像是成员拼图，无论如何都不会只是「你」。
       const groupAvatar = group.avatarImage || group.avatar || (others.find(c => c.avatarImage) || {}).avatarImage;
       const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages,
@@ -12200,9 +12200,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const phoneTakenNames = char => {
     const out = [];
     const add = v => { const t = String(v || "").trim(); if (t && out.indexOf(t) < 0) out.push(t); };
-    // ⚠️她自己也要进避重名单，而且【连他给她起的备注一起】（她 2026-09-10 撞到的）：
+    // ⚠️她自己也要进避重名单，而且【连TA给她起的备注一起】（她 2026-09-10 撞到的）：
     //   只收本名的话，模型会照着备注（「小笨蛋」）另造一条跟她的私聊，
-    //   于是他手机里两条跟她的对话——一条真的活着，一条推演出来的永远停在那儿。
+    //   于是TA手机里两条跟她的对话——一条真的活着，一条推演出来的永远停在那儿。
     add(userName(profile)); add(profile && profile.name);
     try {
       const uc = ((((phonesRef.current || {})[char.id] || {}).wechat || {}).userContact) || {};
@@ -12210,7 +12210,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) {}
     phoneWechatActual(char).forEach(c => {
       // ⚠️群里那几个【真人】要收进来（她 2026-09-03 报：陆闻出现两次，一个真的一个假的）。
-      //   原来整条群会话直接 return，于是只在群里跟他说过话的人从来不进避重名单，
+      //   原来整条群会话直接 return，于是只在群里跟TA说过话的人从来不进避重名单，
       //   模型就大大方方给同一个人再造一个假私聊。收的是【成员的名字】不是群名——
       //   群名不是人名，把群名塞进避重名单会误伤。
       (c.memberNames || []).forEach(add);
@@ -12230,9 +12230,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!actual.length) return "目前没有可用的真实聊天。";
     const taken = phoneTakenNames(char);
     return "【真实已有会话，先阅读，只能避重、不得改写】\n" + actual.slice(0, 8).map(c => "- " + (c.type === "group" ? "群聊" : "私聊") + "「" + c.name + "」\n" + c.messages.map(m => "  " + m.from + "：" + m.text).join("\n")).join("\n")
-      + (taken.length ? "\n⚠️**这几个人他手机里已经有了：" + taken.join("、") + "。**"
+      + (taken.length ? characterText(char, "\n⚠️**这几个人他手机里已经有了：") + taken.join("、") + "。**"
         + "不管你想用哪个名字称呼他们（全名、小名、人设里那种叫法、外号），"
-        + "**都不许再给他们新建一个联系人或一段私聊**——那会变成同一个人在他手机里出现两次。"
+        + characterText(char, "**都不许再给他们新建一个联系人或一段私聊**——那会变成同一个人在他手机里出现两次。")
         + "他们要出现，就出现在上面那几段真实记录里。" : "");
   };
   // 刷新是【整份覆盖】某个 app，旧痕迹本来就没了，时间线于是只剩当前快照。
@@ -12268,8 +12268,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { wxTaken = phoneTakenNames(c0); d = window.PhoneKit.dropDupWechat(d, wxTaken); } catch (e) {/* 去重失败不连累刷新 */}
       }
     }
-    // ⚠️「看他玩」那一路不归档：归档是为【整份覆盖】准备的（旧那份就此没了，先抽成时间线）。
-    //   他刷手机是【接着往下写】，旧的还在；每发一条就归档一次，时间线会攒出一串重复条目
+    // ⚠️「看TA玩」那一路不归档：归档是为【整份覆盖】准备的（旧那份就此没了，先抽成时间线）。
+    //   TA刷手机是【接着往下写】，旧的还在；每发一条就归档一次，时间线会攒出一串重复条目
     //   （真机上一眼就看见了）。
     if (!(opts && opts.noArchive)) archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     // 购物/外卖刷完：核一次最近 30 天的账（漏扣的补上、取消的退回来）。
@@ -12292,16 +12292,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const cur = p[charId] || {};
       // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
       // 但那只是降概率——模型漏抄一次地址就变了、重写一遍就多一条。规则降概率，代码才保证。
-      // ⚠️「看他玩」写进来的那一份【不许再合并一次】：它本来就是在旧那份上改出来的
+      // ⚠️「看TA玩」写进来的那一份【不许再合并一次】：它本来就是在旧那份上改出来的
       //   （applySend 拿的就是 cur[key]），再过一遍累积层就会重复。
-      //   具体是这样重复的：他发完话，那个会话的 _ts 要跟着重算（不重算会被排到列表最底下，
+      //   具体是这样重复的：TA发完话，那个会话的 _ts 要跟着重算（不重算会被排到列表最底下，
       //   v59.41 那个病），而 phoneGrowList 对日志类是按【名字＋时刻】认人的——
       //   时刻变了就成了另一行，于是同一个人出现两次（真机上一眼看见的）。
       //   微信「只问 updates」那一路（v59.54）绕开 phoneGrowList，正是同一个理由。
       let merged = (opts && opts.patched) ? d
         : (typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d);
       // ⚠️去重原来只筛【这一轮模型新写的】，已经攒进名册里的那几条永远退不出来。
-      //   陆闻早先被当成 NPC 存过一次，后来他成了真角色——那条假私聊就一直挂在列表里，
+      //   陆闻早先被当成 NPC 存过一次，后来TA成了真角色——那条假私聊就一直挂在列表里，
       //   往后每一轮都照抄回来。名册每次是【整份重写】的，所以合并完再筛一次，
       //   存量也就跟着清掉了，不用她手动去删。
       if (key === "wechat" && wxTaken && window.PhoneKit) {
@@ -12386,7 +12386,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 生成/推演角色财务档案（首开与刷新共用），返回 prof 或 null
   // 账户与欠账的清洗。模型会把金额写成「¥1,200」「一千二」这种，也会把 dir 写成
   // 「我欠」「欠我」——界面靠 dir 分左右两边，写歪了整栏就反了，这里全部归一。
-  // primary = 他随身可动用的那笔，日常花销从这儿出。它的额度由钱包余额说了算，
+  // primary = TA随身可动用的那笔，日常花销从这儿出。它的额度由钱包余额说了算，
   // 不是模型给的数——不然「贴身荷包 2850」和上面的余额 2850 会被当成两笔钱加两遍。
   // 模型忘了标或者标了好几处，都在这儿归一：只留第一处，一处都没有就把第一条当它。
   const walletAccounts = prof => {
@@ -12419,7 +12419,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const d = {
           who: String(x.who).trim().slice(0, 20),
           amount: numClean(x.amount),
-          // 认不出来的一律当「他欠人」——这一档更常见，也更不容易读成向她讨债
+          // 认不出来的一律当「TA欠人」——这一档更常见，也更不容易读成向她讨债
           dir: /owed|欠我|别人欠|人欠/.test(String(x.dir || "")) ? "owed" : "owe",
           why: String(x.why || "").trim().slice(0, 80),
           since: String(x.since || "").trim().slice(0, 16)
@@ -12450,8 +12450,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     try {
       return await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演「" + char.name + "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**",
-        schemaHint: "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"accounts\":[{\"name\":\"这一处叫什么\",\"kind\":\"什么性质\",\"tail\":\"末四位或编号\",\"hold\":12000,\"primary\":false,\"note\":\"他为什么把钱放这儿\"}],\"debts\":[{\"who\":\"跟谁\",\"amount\":800,\"dir\":\"owe\",\"why\":\"怎么欠上的\",\"since\":\"多久了\"}],\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}",
+        instruction: "推演「" + char.name + characterText(char, "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**"),
+        schemaHint: characterText(char, "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"accounts\":[{\"name\":\"这一处叫什么\",\"kind\":\"什么性质\",\"tail\":\"末四位或编号\",\"hold\":12000,\"primary\":false,\"note\":\"他为什么把钱放这儿\"}],\"debts\":[{\"who\":\"跟谁\",\"amount\":800,\"dir\":\"owe\",\"why\":\"怎么欠上的\",\"since\":\"多久了\"}],\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}"),
         // notes(4段批注)在 JSON 最后，思考型模型截断先丢它→放宽 token 防「刷新后批注没了」
         maxTokens: 12000
       });
@@ -12549,7 +12549,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 结清一笔欠账：真的动余额，两个角色之间还会互相对上 ──────────
   // 她 2026-08-30 问的两件事：
   //   ①「有别人的欠债后续会不会真的还回来增加余额」——以前【不会】。debts 只是档案上
-  //     的一段字，刷新一次重编一次，跟余额毫无关系：欠他的永远收不回来，他欠的也永远不用还。
+  //     的一段字，刷新一次重编一次，跟余额毫无关系：欠TA的永远收不回来，TA欠的也永远不用还。
   //   ②「如果是两个角色之间的能不能互通」——现在能：欠账里的名字如果正好是她人格档案馆里
   //     另一个角色（本名或备注），结清时两边的钱包一起动，方向相反，一笔钱不会凭空多出来。
   // ⚠️是【她点一下】才结清，不是自动的：钱什么时候还，不该由某一轮推演替她决定。
@@ -12569,7 +12569,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const peerRec = peer ? (charWalletRef.current || {})[peer.id] : null;
     const linked = !!(peerRec && peerRec.init);
     const ts = Date.now();
-    // 他这边：欠他的收回来是 +，他欠的还出去是 −
+    // TA这边：欠TA的收回来是 +，TA欠的还出去是 −
     const mineDelta = d.dir === "owed" ? amt : -amt;
     const post = (target, delta, label) => {
       setCharWallet(p => {
@@ -12590,7 +12590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : (d.dir === "owed" ? "收回 " : "还出 ") + "¥" + Math.round(amt) + "，已记进余额");
   };
   // 生成某天的日常消费（按当天日程+人设，逐笔列具体买了什么），无 API/失败则用固定支出估算兜底
-  // 那一天他手机上【真的下过】的单子：外卖和购物。
+  // 那一天TA手机上【真的下过】的单子：外卖和购物。
   // 不接的话钱包会自己再编一顿饭，同一天里出现两笔吃饭钱——两边说的不是同一天。
   // 只读手机数据，不生成任何东西。
   const phoneOrdersOnDay = (charId, dayKey) => {
@@ -12740,7 +12740,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const dp = schedDateParts(dayKey);
       // 手机上那几单已经入过账了。不说清楚的话模型会再编一顿饭，同一天两笔吃饭钱。
       const doneBlock = (already || []).length
-        ? "\n【这一天他手机上已经记下的开销，已经入账了，不要重复也不要再写同类的】" +
+        ? characterText(char, "\n【这一天他手机上已经记下的开销，已经入账了，不要重复也不要再写同类的】") +
           already.map(b => b.item + " " + Math.round(b.amount)).join("；") +
           "。你只补【这几笔之外】还花了什么；如果这一天光这几笔就够了，buys 给空数组。"
         : "";
@@ -12873,7 +12873,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       read: false
     }]);
     // 转出去就挂着等 TA 点（她 2026-08-27）：以前是 1.6 秒后按 85% 概率随机收下、
-    // 顺手再触发一轮主动回复——所以「一转完他就自己回话了」。现在两件事都不做：
+    // 顺手再触发一轮主动回复——所以「一转完TA就自己回话了」。现在两件事都不做：
     // 收不收由 TA 在【下一次真的开口】那一轮里自己决定（见 replyNow 的 transferAccept），
     // 她按回复键、或者她再说句话，都算那一轮。
     toast("转账已发出，等 TA 点开");
@@ -12883,7 +12883,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
     // 掏不出来的钱不许掏（她 2026-08-26：阿屿转了 15000，人直接欠到 -14000 还在涨）。
-    // 提示词里已经告诉他余额了，这里是代码侧的保证：封顶到他真有的钱，一分不剩就不转。
+    // 提示词里已经告诉TA余额了，这里是代码侧的保证：封顶到TA真有的钱，一分不剩就不转。
     const _w = charWalletRef.current[charId];
     if (_w && _w.init) {
       const bal = Number(_w.balance) || 0;
@@ -12980,14 +12980,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 群聊记录里的一行长什么样（v60.37 抽出来共用）。
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
-  // 他五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
+  // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
   const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
     + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
     : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
-  // 她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」。
+  // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
-  // 【群通话】那一处每位成员只有一份人设——他既不知道现在几点、
+  // 【群通话】那一处每位成员只有一份人设——TA既不知道现在几点、
   // 也不知道她刚在私聊里说过什么，只能瞎猜她在哪儿。
   // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
   // 群里那张印象卡的封顶：群预算按人数平分，一人一整张卡会把主角色的人设额度吃掉。
@@ -13043,7 +13043,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
   };
   // 这位成员最近和用户的单聊（带时间戳）。群聊和群通话共用同一份取法，
-  // 别一处带时间戳一处不带——她那句「在家等他」正是靠时间戳才接得上。
+  // 别一处带时间戳一处不带——她那句「在家等TA」正是靠时间戳才接得上。
   const memberPrivLines = (c, n) => (Number(n) > 0
     ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-Number(n))
         .map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? userName(profile) : c.name) + ": " + m.content
@@ -13073,10 +13073,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const ringDecline = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "declined"); };
   // 没人接:只标记,不弹任何东西——「没接」这件事本来就该是安静的,回执留在聊天里
   const ringMiss = () => { const r = ringing; if (!r) return; setRinging(null); markInvite(r, "missed"); };
-  // 他自己把电话打过来（约定到点、以后别的地方也能用）。**这一路一次模型都不调**：
+  // TA自己把电话打过来（约定到点、以后别的地方也能用）。**这一路一次模型都不调**：
   // 响铃只是往聊天里落一张邀请卡再浮一条。接了才进通话，那时才开始花钱。
   // ⚠️迟到太久就不响了：她可能几个小时没开 app，这时候突然响起来像是刚打的。
-  //   补一条【那个时刻的未接来电】更诚实——他当时确实找过你，你没接到。
+  //   补一条【那个时刻的未接来电】更诚实——TA当时确实找过你，你没接到。
   const RING_LATE_MAX_MIN = 20;
   const ringFromChar = (char, mode, whenTs, lateMin) => {
     if (!char) return;
@@ -13094,12 +13094,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pChat(char.id, p => [...p, inv]);
     if (!missed) setRinging({ cid: char.id, m: inv, name: char.name, char: char });
   };
-  // 他要挂电话:只在这通电话上立个牌子。CallScreen 看见了才真的挂——
-  // 时长归它数,而且他最后那句得在屏幕上留一会儿,不能话音未落就黑屏。
+  // TA要挂电话:只在这通电话上立个牌子。CallScreen 看见了才真的挂——
+  // 时长归它数,而且TA最后那句得在屏幕上留一会儿,不能话音未落就黑屏。
   // ---- 视频通话的画面(v60.33 她点名)----
   // 「视频通话选择可以为本次通话生成背景图吧就锁脸，谁在电话里都锁」。
   // 视频通话原来只有一片深色底和一个头像圆——「看得见对方」这件事只写在提示词里，
-  // 屏幕上一点都看不出来。这里就地拍一张：**在电话里的每一个人都拿他自己的参考照锁脸**
+  // 屏幕上一点都看不出来。这里就地拍一张：**在电话里的每一个人都拿TA自己的参考照锁脸**
   // （她原话「谁在电话里都锁」），画面从各人此刻的状态卡长出来（在哪、在干嘛、穿什么）。
   // 只属于这一通：存在 call.bg 上，挂了就没了，不落进聊天记录、不进相册。
   const callShotCan = () => {
@@ -13112,7 +13112,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cur = callRef.current;
     if (!cur || !callShotCan() || cur.bgBusy) return;
     const withRef = (cur.participants || []).filter(p => p && p.refPhoto);
-    if (!withRef.length) { toast("先给他传一张参考照，才锁得住脸"); return; }
+    if (!withRef.length) { toast("先给TA传一张参考照，才锁得住脸"); return; }
     setCall(c => c ? { ...c, bgBusy: true } : c);
     try {
       const lead = withRef[0];
@@ -13127,7 +13127,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           .map(x => String(x || "").trim()).filter(Boolean).join("，");
         return seg ? p.name + "：" + seg : "";
       }).filter(Boolean).join("；");
-      const scene = "这是一通视频通话里对面那一头的画面：" + (bits || "此刻的样子") + "。像手机前置摄像头拍到的，光是他此刻所在地方本来的光。";
+      const scene = "这是一通视频通话里对面那一头的画面：" + (bits || "此刻的样子") + "。像手机前置摄像头拍到的，光是TA此刻所在地方本来的光。";
       const refs = (cast ? cast.map(x => x.refPhoto) : [lead.refPhoto]).filter(Boolean);
       const prompt = buildPhotoPrompt(lead, scene, st, { kind: cast ? "group" : "self", cast: cast, closet: closetTextFor(lead.id) });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: cast ? "group" : "self", cast: cast }) });
@@ -13168,9 +13168,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const next = { sessionId: "call_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2), participants: people, mode: mode || "voice", groupId: groupId || null, caller: caller || "me", chatKey: key, room, msgs: [], startTs: Date.now(), autoVoice, stream };
     next.audioSession = audioSession;
     callRef.current = next; setCall(next);
-    // ⚠️他打来的电话，接起来之后【他先开口】（她 2026-09-12：「现在他打过来也是要我
-    //   开口第一句，能不能搞他说第一句话」）。原来 msgs 是空的，而模型只在 callSend
-    //   里被调用、callSend 又要求先有她一句话——于是是他找她，却要她先说「喂」。
+    // ⚠️TA打来的电话，接起来之后【TA先开口】（她 2026-09-12：「现在TA打过来也是要我
+    //   开口第一句，能不能搞TA说第一句话」）。原来 msgs 是空的，而模型只在 callSend
+    //   里被调用、callSend 又要求先有她一句话——于是是TA找她，却要她先说「喂」。
     //   她自己拨出去的那一路不变：那本来就该她先开口。
     if (next.caller && next.caller !== "me") setTimeout(() => {
       const c0 = callRef.current;
@@ -13182,7 +13182,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const callOpenTrigger = () => ({ role: "user", content: "（电话接通了）" });
   const callSend = async (text, opts) => {
     const cur = callRef.current;
-    // opening=他打来的那一通刚接通，这一轮没有她的话，由他先说
+    // opening=TA打来的那一通刚接通，这一轮没有她的话，由TA先说
     const opening = !!(opts && opts.opening);
     if (!cur) return;
     if (!opening && (!text || !text.trim())) return;
@@ -13379,7 +13379,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (lines[i].act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: lines[i].act });
           else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: lines[i].speech, zh: lines[i].zh });
         }
-        // 他自己要挂(v60.24 她点名)：这里只【立个牌子】，真正挂断由 CallScreen 做——
+        // TA自己要挂(v60.24 她点名)：这里只【立个牌子】，真正挂断由 CallScreen 做——
         // 通话时长只有它数着(secRef)，而且最后那句得留一会儿让她看完/听完。
         // 状态卡：跟线上聊天同一个出口，不另开一条写状态的路
         callPutState(char.id, d, "call_" + Date.now());
@@ -13398,15 +13398,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const cDirs = cur.groupId ? (directives[cur.groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(x => x.trim()) : [];
         // 记忆按可见交集分流（v62.42，审计 P1）：原来只按 people[0] 召回、还落进没有围栏的公共块——
         // 排第二的成员的私事永远召不回，第一人的私事却全群共享。照群线上 splitGroupMemories 的工艺来：
-        // 全员都知道的进公共段，只有某人知道的落进他自己的隐私段（读一律给，封闭群也给——四处一样喂）。
+        // 全员都知道的进公共段，只有某人知道的落进TA自己的隐私段（读一律给，封闭群也给——四处一样喂）。
         const gcHistText = hist.slice(-8).map(m => m.content).join("\n");
         if (typeof primeQueryVec === "function") await primeQueryVec(gcHistText);
         const gcMembers = people.filter(c => !c.npc);
         const gcSplit = splitGroupMemories(memLibRef.current, gcMembers.map(c => c.id), gcHistText, { limit: 5 });
         const cMem = formatMemLib(gcSplit.shared);
         // 每人那一段【此刻】跟群聊同一份（v60.31）：原来电话里只有一份人设——
-        // 他不知道现在几点，也不知道她刚在私聊里说过什么，只能瞎猜
-        //（她 2026-09-02：「我刚和顾暮说在家等他，群聊通话他问我是不是在外面」）。
+        // TA不知道现在几点，也不知道她刚在私聊里说过什么，只能瞎猜
+        //（她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」）。
         const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
         const memberDesc = people.map(c => {
           if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
@@ -13419,7 +13419,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   只有不挂在任何群上的临时多人通话（没有 cgs）才按单聊那一档给。
         const gcPrivN = cgs ? (Number(cgs.privateCtxN) || 0) : 6;
         const gcPriv = gcMembers.map(c => {
-          // 每人的隐私段（照群线上 memLines 的工艺）：长期记忆 + 印象卡 + 只有他知道的记忆条目 + 最近私聊
+          // 每人的隐私段（照群线上 memLines 的工艺）：长期记忆 + 印象卡 + 只有TA知道的记忆条目 + 最近私聊
           const mem = memories[c.id];
           const gz = window.Gaze && !settingsFor(c.id).engineerEyes ? window.Gaze.text(c.id, userName(profile)) : "";
           const onlyMine = formatMemLib(gcSplit.perChar[String(c.id)] || []);
@@ -13428,12 +13428,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const gcPrivBlock = gcPriv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在这通电话或群里主动说了出来】。每个成员只凭『自己那一段』和『这通电话里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + gcPriv : "";
-        // 电话里也得知道现在几点：「在家等他」是几分钟前说的，没有钟就接不上
+        // 电话里也得知道现在几点：「在家等TA」是几分钟前说的，没有钟就接不上
         // 【这通电话之前群里刚聊过什么】(v60.37)
         // 单人通话走 buildBundle，最近的聊天是白得的；群通话自己拼 sys，
         // 送进去的 hist 只有【这通电话里说过的话】——群里刚发生的事一个字都看不到。
         // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」——
-        // 他五分钟前就在群里说过「到家了，抹茶放桌上」。
+        // TA五分钟前就在群里说过「到家了，抹茶放桌上」。
         const gcChat = cur.groupId ? groupContextRows(cur.groupId) : [];
         const gcRecent = gcChat
           .map(m => { const line = groupHistLine(m); return line && line.trim() ? "[" + fmtStampAI(m.ts) + "] " + line : ""; })
@@ -13446,7 +13446,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
         const sys = groupBans({ echo: true })
           + gcGrowth
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在他自己那一条上带上 mood（此刻中文心情词）和 thought（他心里那一句，第一人称、他自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys + callBiHint, hist, { maxTokens: 65535 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -13473,7 +13473,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (cur) {
       const s = Math.max(0, Math.round(Number(sec) || 0));
       const dur = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
-      // 谁挂的要写进这条回执:「他挂了」和「聊完了」在她这儿完全是两件事
+      // 谁挂的要写进这条回执:「TA挂了」和「聊完了」在她这儿完全是两件事
       const byName = by === "them" ? ((cur.bye && cur.bye.name) || (cur.participants[0] || {}).name || "对方") : "";
       const label = (cur.mode === "video" ? "视频通话" : "语音通话") + (byName ? " · " + byName + "挂断了 · 时长 " : " 已结束 · 时长 ") + dur;
       const callId = "call_" + Date.now();
@@ -13536,18 +13536,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "冷不丁的:上来就是一个跟前面全不搭界的问题"
   ];
   const ANON_ASKER_ANGLE = [
-    "一个他大概不肯说的习惯",
-    "他最近变了的地方",
-    "他嘴上说不在乎、其实在意的东西",
+    "一个TA大概不肯说的习惯",
+    "TA最近变了的地方",
+    "TA嘴上说不在乎、其实在意的东西",
     "一件很小的日常琐事",
-    "他和某个人的关系",
-    "他怕的东西",
-    "他撒过的一个谎",
-    "他一个人的时候在做什么",
-    "他对自己的评价",
-    "一个他答不上来的问题",
-    "他最近在忙的事",
-    "他身上一处别人常认错的地方"
+    "TA和某个人的关系",
+    "TA怕的东西",
+    "TA撒过的一个谎",
+    "TA一个人的时候在做什么",
+    "TA对自己的评价",
+    "一个TA答不上来的问题",
+    "TA最近在忙的事",
+    "TA身上一处别人常认错的地方"
   ];
   // 第三颗骰子:【怎么开口】。前两颗定的是「谁在问」和「想撬什么」,同一组料
   // 用同一个句式说出来还是会整批一个味——单调出在开口的形状上,不出在题材上。
@@ -13558,15 +13558,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "包在一个假设的处境里问,给对方一个好答的台阶",
     "笨拙的外行问法:问得直,但不刁",
     "带着预设去问,问句本身已经站好了立场",
-    "先替他答了一半,等他来反驳",
+    "先替TA答了一半,等TA来反驳",
     // ⚠️这一面原来写的是「只丢半句就停了」——模型把它读成了【标点模板】：
     // 整组十条全用「……」收尾，她 2026-09-03 报「有些问题是省略号没说完」。
     // 改成说清楚要的是【话说得不圆】，不是【句子断在半截】。
-    "话说得不圆整就问出来了:想问什么是清楚的,只是没替他把话说漂亮",
+    "话说得不圆整就问出来了:想问什么是清楚的,只是没替TA把话说漂亮",
     "问得很具体,具体到一个动作或某一个时刻",
-    "把两件不相干的事摆在一起,问他哪一个更像他",
-    "请教的姿态,其实想看的是他会不会敷衍",
-    "问一件小到不值一提的事,看他愿意认真到什么份上"
+    "把两件不相干的事摆在一起,问TA哪一个更像TA",
+    "请教的姿态,其实想看的是TA会不会敷衍",
+    "问一件小到不值一提的事,看TA愿意认真到什么份上"
   ];
   // n 超过池子长度时接着再洗一副,保证每一面都被摇到,不是随机重复
   const anonDraw = (pool, n) => {
@@ -13579,7 +13579,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return out.slice(0, n);
   };
   // 我在匿名箱里的马甲(她 2026-08-30 要的第 7 条)。一整套只有一个——
-  // 同一个陌生人在好几个箱子里都问过,他才有机会认出来。
+  // 同一个陌生人在好几个箱子里都问过,TA才有机会认出来。
   const loadAnonMe = () => { try { const v = JSON.parse(localStorage.getItem("x_anonMe") || "null"); return (v && v.name) ? v : null; } catch (e) { return null; } };
   const [anonMe, setAnonMe] = useState(loadAnonMe);
   const saveAnonMe = v => { setAnonMe(v); saveJSON("x_anonMe", v); };
@@ -13589,8 +13589,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 存的只有【设定 + 区域骨架】，坐标一概不存：地图由 TrpgMap 力导向按世界 id
   // 现算，同一个世界每次画出来一模一样，云同步里不多一个字节的图片。
   const saveWorlds = list => { setWorlds(list); saveJSON("x_worlds", list); };
-  // 一个角色的一天，压成几行喂给造世界那一枪：他每天走过哪几段路，
-  // 比「他是个什么人」更能决定这个世界该长出哪些地方。
+  // 一个角色的一天，压成几行喂给造世界那一枪：TA每天走过哪几段路，
+  // 比「TA是个什么人」更能决定这个世界该长出哪些地方。
   const worldDayOf = char => {
     const plans = schedulesRef.current[char.id] || {};
     const s = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
@@ -13609,28 +13609,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const castBlock = cast.map(c => {
         const day = worldDayOf(c);
         return "【" + c.name + "】\n" + String(c.persona || c.prompt || "").slice(0, 2500)
-          + (day ? "\n  他一天大致这么过：\n  " + day : "");
+          + (day ? characterText(c, "\n  他一天大致这么过：\n  ") + day : "");
       }).join("\n\n");
-      const sys = "你在给一个人自己的架空世界铺一张舆图。他写了一段设定，你把它铺成【地图骨架】。\n"
-        + "【他写的设定】" + brief + "\n"
+      const sys = "你在给一个人自己的架空世界铺一张舆图。TA写了一段设定，你把它铺成【地图骨架】。\n"
+        + "【TA写的设定】" + brief + "\n"
         + (name ? "【世界名】" + name + "\n" : "")
         + (cast.length ? "\n【要住进这个世界的人】\n" + castBlock + "\n"
           + "【他们怎么用】把这几个人当成【这个世界已经有的居民】,不是外来客。地方要长成"
           + "他们过得下去的地方:他们每天要去的那几处、靠什么谋生、跟谁打交道、躲着什么——"
           + "这些都该在地图上有对应的落点。他们原本的身份可以换一身皮来适应这个世界的规矩,"
-          + "但那个人还是那个人:他在意什么、跟谁过不去、每天绕不开哪一件事,不许换掉。\n"
+          + "但那个人还是那个人:TA在意什么、跟谁过不去、每天绕不开哪一件事,不许换掉。\n"
           + "最后在 cast 里说清每个人现在人在哪个地点、为什么在那儿。地点名必须是你上面写过的。\n"
-          + "还要给每个人一张【他会去哪儿】的小表:他住在哪个地点(home),以及他一天里那几段"
-          + "分别落在哪个地点(places)。doing 那一栏照着他行程里的说法写,别另起一套说辞——"
-          + "以后他的行程一变,我们靠这一栏对回来,对不上就只能把他丢在原地。\n" : "")
+          + "还要给每个人一张【TA会去哪儿】的小表:TA住在哪个地点(home),以及TA一天里那几段"
+          + "分别落在哪个地点(places)。doing 那一栏照着TA行程里的说法写,别另起一套说辞——"
+          + "以后TA的行程一变,我们靠这一栏对回来,对不上就只能把TA丢在原地。\n" : "")
         + "【怎么铺】分 4-6 块地方。每块要有自己的性格：靠什么活着、谁说了算、外人进去先撞见什么。"
         + "彼此之间用 adj 写清谁挨着谁——挨着的两块在图上就真的挨着，所以别把互不相干的地方硬凑在一起，也别所有地方都互相接壤。\n"
         + "每块地方下面挂 2-3 个具体地点。地点名要一眼看得出是【这个】世界的地方，"
         + "换到别的世界还照样成立的名字就是没写好。\n"
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么，不是介绍它的来历。\n"
-        + "整张图只许从他那段设定长出来：他没写到的地方，按他那段的调子往下推，不要换成另一个类型的世界。\n"
-        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（他给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]"
-        + (cast.length ? ",\"cast\":[{\"name\":\"角色名(照抄上面给的)\",\"node\":\"他人在哪个地点\",\"why\":\"他为什么在这儿(一句)\",\"home\":\"他住在哪个地点\",\"places\":[{\"doing\":\"他在做的那件事(照他行程里的说法)\",\"node\":\"那件事发生在哪个地点\"}]}]" : "") + "}";
+        + "整张图只许从TA那段设定长出来：TA没写到的地方，按TA那段的调子往下推，不要换成另一个类型的世界。\n"
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（TA给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]"
+        + (cast.length ? ",\"cast\":[{\"name\":\"角色名(照抄上面给的)\",\"node\":\"TA在哪个地点\",\"why\":\"TA为什么在这儿(一句)\",\"home\":\"TA住在哪个地点\",\"places\":[{\"doing\":\"TA在做的那件事(照TA行程里的说法)\",\"node\":\"那件事发生在哪个地点\"}]}]" : "") + "}";
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const K = window.TrpgMap;
@@ -13652,7 +13652,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!c) return;
         const nd = String((x && x.node) || "").trim();
         if (names[nd]) { pins[c.id] = nd; if (x.why) why[c.id] = String(x.why).slice(0, 60); }
-        // 【他会去哪儿】那张小表：编出来的地点一律丢掉，只留图上真有的
+        // 【TA会去哪儿】那张小表：编出来的地点一律丢掉，只留图上真有的
         const home = String((x && x.home) || "").trim();
         const places = ((x && Array.isArray(x.places)) ? x.places : [])
           .map(q => ({ doing: String((q && q.doing) || "").trim().slice(0, 24), node: String((q && q.node) || "").trim() }))
@@ -13699,9 +13699,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const have = (w.regions || []).map(r => r.name + "(" + r.terrain + ")：" + (r.nodes || []).map(n => n.name + "〔" + n.kind + (n.hook ? "·" + n.hook : "") + "〕").join(" / ")).join("\n");
       const sys = "这是一个已经存在的架空世界，现在要往其中一块地方里【再添几个地点】。\n"
-        + "【这个世界】" + (w.brief || "") + "\n【他当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
+        + "【这个世界】" + (w.brief || "") + "\n【TA当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
         + "【已经有的地方和地点】\n" + have + "\n"
-        + "【这次要添的】往「" + regionName + "」里添 2-4 个新地点。" + (hint ? "他还说：" + hint + "\n" : "\n")
+        + "【这次要添的】往「" + regionName + "」里添 2-4 个新地点。" + (hint ? "TA还说：" + hint + "\n" : "\n")
         + "新地点要跟这块地方已经有的那几个【不重样、不同类】：已经有集市就别再来一个集市。"
         + "名字要一眼看得出是这个世界的地方，换到别的世界还照样成立的名字就是没写好。\n"
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么。\n"
@@ -13772,8 +13772,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           //   一排马甲全长成一个样。判据和维度写在 ANON_MASK_RULE / ANON_MASK_BG 里。
           // ⚠️站位（v63.84，她 2026-09-05）：这一枪原来走【分析师】那一路
           //   （runProbe 默认的「你是角色状态推演引擎，不要扮演角色，冷静推演」）——
-          //   分析师交上来的必然是【关于他的一句提炼】，不是他自己填的东西。
-          //   换成 voice:true：他本人坐在那儿注册这个号。跟解梦馆那次一模一样的形状。
+          //   分析师交上来的必然是【关于TA的一句提炼】，不是TA自己填的东西。
+          //   换成 voice:true：TA本人坐在那儿注册这个号。跟解梦馆那次一模一样的形状。
           voice: true,
           instruction: "你现在在一个匿名树洞 App 上注册一个号。要填三样：一个网名 netname、一句签名 bio（1-2 句），再挑一张主页背景 bgDesc（写清那是一张什么样的图）。就照你自己会填的填。"
             + "\n\n" + ANON_MASK_RULE + (typeof anonMaskAvoid === "function" ? anonMaskAvoid(anon, char.id) : "") + "\n\n" + ANON_MASK_BG,
@@ -13835,16 +13835,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 匿名箱的网友:【两枪】。她 2026-08-30 第二轮:
-  //   「这问题还是带着答案去问的,而且网友也不应该知道他是谁吧」
+  //   「这问题还是带着答案去问的,而且网友也不应该知道TA是谁吧」
   // 上一版是一枪打完——同一次调用里既写问题又写答案,而那一次调用吃的是完整的
   // buildBundle(人设/记忆/关系/心情/连用户是谁都有)。于是必然两个病:
   //   ① 写问题的那个「网友」什么都知道 → 问出「该不会是工科楼五楼那个哥们吧」
   //   ② 它先想好答案再倒推一个正好答得上的问题 → 「你煎蛋行不行」配「今早刚煎了流心」
-  // 光在提示词里写「你不知道他是谁」只是降概率(规则降概率,代码才保证):
+  // 光在提示词里写「你不知道TA是谁」只是降概率(规则降概率,代码才保证):
   // 上下文里摆着人设,它就是会漏。所以改成【两次调用,喂的东西不一样】——
   //   第一枪(网友):不走 runProbe、不带任何 bundle,只给【陌生人看得见的东西】:
   //                 网名、签名、以及最近问过的几句(避重)。它没有的东西就漏不出来。
-  //   第二枪(他):照常带全套上下文,只负责【答】已经写死的这几个问题。
+  //   第二枪(TA):照常带全套上下文,只负责【答】已经写死的这几个问题。
   // 代价说清楚:一次「网友匿名提问」= 两次调用。换来的是问题真的从外面来。
   // ── 匿名题库(x_anonPool)──────────────────────────────────────────────────
   // Codex 2026-08-30 指出的那件事:同一次推理里,模型从一开始就看得见完整人设,
@@ -13872,15 +13872,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const rolls = Math.ceil(n / ANON_POOL_PER_ROLL);
     const tones = anonDraw(ANON_ASKER_TONE, rolls), angles = anonDraw(ANON_ASKER_ANGLE, rolls), shapes = anonDraw(ANON_ASKER_SHAPE, rolls);
     const who = tones.map((tn, i) => "〔第" + (i + 1) + "组〕这一组的 " + ANON_POOL_PER_ROLL + " 条,全由这样一个人写：\n"
-      + "  他是" + tn + "\n  他想撬的是" + angles[i] + "\n  他开口的样子是" + shapes[i]).join("\n");
+      + "  TA是" + tn + "\n  TA想撬的是" + angles[i] + "\n  TA开口的样子是" + shapes[i]).join("\n");
     const sys = "你在给一个匿名树洞攒问题。这些问题会被丢进箱子里,由【某一个你完全不认识的陌生人】捡到并回答。\n"
       + "【你不知道的】收到这题的人是谁、男女、多大、做什么的、住在哪、长什么样、有没有对象、家里有谁、经历过什么——"
-      + "一个都不知道,也【不许猜、不许假设、不许暗示你认识他】。不许写成「听说你们XX的人如何如何」,你并不知道他是哪一行的。\n"
-      + "更要紧的一条:你写的时候【并不知道他会怎么答】。所以不许先想好一个答案再倒着编一句问话——"
+      + "一个都不知道,也【不许猜、不许假设、不许暗示你认识TA】。不许写成「听说你们XX的人如何如何」,你并不知道TA是哪一行的。\n"
+      + "更要紧的一条:你写的时候【并不知道TA会怎么答】。所以不许先想好一个答案再倒着编一句问话——"
       + "问出来的东西必须是换个人来答就会答成另一个样子的。\n"
       + "这一批一共 " + n + " 条,分成 " + rolls + " 组,每组 " + ANON_POOL_PER_ROLL + " 条。\n"
       + "【每一组是谁在问、想撬什么、怎么开口】\n" + who + "\n"
-      + "【怎么写】整组都站在那一个人身上写,这三样是他的底子,不是三个可选项——"
+      + "【怎么写】整组都站在那一个人身上写,这三样是TA的底子,不是三个可选项——"
       + "一整组读下来该像同一个人在连着发问,跟别的组一读就分得开。\n"
       + "但同一组里的 " + ANON_POOL_PER_ROLL + " 条也不许互相重复:同一个立场、同一个方向、同一种开口,照样能问出十件不一样的事。\n"
       + "问题可以很笨、可以问偏、可以问到人家根本不想答的地方。别每句都一样长,别都用同一个句式收尾。\n"
@@ -13925,16 +13925,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // buildBundle 白得的是 ANTI_CLICHE / 居高临下 / 三件套 / 亲密反模板 / 内容边界；
   // 下面这三层从来只写在线上聊天、线下、通话那几条 runtime 上，匿名箱一层都没吃到：
   //
-  //  · 回声式反问 —— 这一处最要命：他手上是一串【问句】，一条条答下去，最顺手的开口
+  //  · 回声式反问 —— 这一处最要命：TA手上是一串【问句】，一条条答下去，最顺手的开口
   //    就是把人家的问题原样反问回来（「我怕什么？」），十条能有六条这么起头。
   //  · 语域跟场面走 —— 对着一屋子陌生人说话，跟对着女朋友说话不是同一个语域。
-  //    没有这一层，他会拿主聊天那个温度去答树洞，或者整批一个腔。
+  //    没有这一层，TA会拿主聊天那个温度去答树洞，或者整批一个腔。
   //  · 读懂这句话在做什么 —— 匿名提问里有一半是挑衅、试探、找茬，不是真来要答案的。
-  //    没有这一层，他会把每一条都当成诚恳提问认真作答，那就是判词机器。
+  //    没有这一层，TA会把每一条都当成诚恳提问认真作答，那就是判词机器。
   //
   // ⚠️写成一个共用常量：两条匿名路（陌生网友 / 她自己攒的那箱）各写一份，
   //   迟早只改一处（v56.09 群线上漏接自动抽取，就是这么漏的）。
-  // ⚠️v67.58：电台匿名连线是第【四】条「陌生人朝他开口」的路（匿名箱两条＋查手机那一问）。
+  // ⚠️v67.58：电台匿名连线是第【四】条「陌生人朝TA开口」的路（匿名箱两条＋查手机那一问）。
   //   那三层（回声／语域／读懂这句话在做什么）本来就该跟着走，所以它们抽成了 strangerBans()，
   //   而【已有的这几处也搬了过来】——只开公共的、旧的留在原地是最坏的一种
   //   （施工规则/one-public-mechanism.md）。各处自己的分寸留在各处：
@@ -13959,7 +13959,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (avail.length < Math.max(n, ANON_POOL_LOW)) { pool = await brewAnonPool(pool, true); avail = pool.filter(q => !asked[q]); }
       const qs = anonDraw(avail, Math.min(n, avail.length));
       if (!qs.length) throw new Error("题库是空的,先去攒一批");
-      // 只这一枪带上下文:问题已经写死,他倒推不了,人格照旧是完整的
+      // 只这一枪带上下文:问题已经写死,TA倒推不了,人格照旧是完整的
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你的匿名树洞(网名:" + nn + ")里来了 " + qs.length + " 条陌生人的提问,你一条条看下来。\n"
@@ -13987,20 +13987,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const taken = {}; qs.forEach(q => { taken[q] = 1; });
       saveAnonPool(pool.filter(q => !taken[q]));
       const nSkip = recs.filter(r => r.skip).length;
-      toast("来了 " + recs.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条他没答" : ""));
+      toast("来了 " + recs.length + " 条" + (nSkip ? "，其中 " + nSkip + characterText(char, " 条他没答") : ""));
     } catch (e) {
       toast("失败：" + e.message);
     } finally {
       setAnonBusy(false);
     }
   };
-  // 我问的:先【放进箱子】,不调用。攒够了再让他一次性打开(她 2026-08-30 要的)
+  // 我问的:先【放进箱子】,不调用。攒够了再让TA一次性打开(她 2026-08-30 要的)
   const dropAnon = (char, q, re) => {
     const t0 = Date.now();
     pAnon(char.id, cur => ({ ...cur, records: [{ id: "ar_" + t0, from: "me", q, a: "", pending: true, re: re || null, ts: t0 }, ...(cur.records || [])].slice(0, 200) })); // v62.42 封顶
     toast("放进箱子了——攒够了再让 Ta 一次看完");
   };
-  // 让他一次性打开箱子:所有还没答的一起递过去,一次调用全答
+  // 让TA一次性打开箱子:所有还没答的一起递过去,一次调用全答
   const openAnonBox = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     const cur = anon[char.id] || {};
@@ -14017,7 +14017,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return (i + 1) + ". " + (src ? "【这是追问,针对你之前那句「" + String(src.a || "").slice(0, 60) + "」】" : "") + r.q;
       }).join("\n");
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        // voice：这几条是他【亲口打出来的】，不是对他的推演。
+        // voice：这几条是TA【亲口打出来的】，不是对TA的推演。
         // 她 2026-09-03：「匿名问答角色回答感觉很容易被压成标签」——料一直是够的
         //（心情、最近对话、印象卡都在 bundle 里），错的是站位：分析师的椅子上写不出活人的话。
         voice: true,
@@ -14053,7 +14053,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         })
       }));
       const nSkip = items.filter(x => x && x.skip).length;
-      toast("他看完了 " + pend.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条没答" : ""));
+      toast(characterText(char, "他看完了 ") + pend.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条没答" : ""));
     } catch (e) {
       toast("失败：" + e.message);
     } finally {
@@ -14155,7 +14155,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setGen(g => ({ ...g, phoneApp: "__all__:" + key }));
         const avoid = phoneRoundDigest(fresh, key);
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
-        // 全刷不是换一个人，他的号码住址忌口一律沿用。
+        // 全刷不是换一个人，TA的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
         const d = await runProbe(bgActive, phoneCtx(char), phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
         fresh[key] = d;
@@ -14179,30 +14179,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // ---- moments ----
-  // ── 看他玩（她 2026-09-09 提，2026-09-10 定案）────────────────────
-  // 「查手机」原来只有一面：他不在，我翻他的手机。这是另一面：他在，我旁观他自己玩。
+  // ── 看TA玩（她 2026-09-09 提，2026-09-10 定案）────────────────────
+  // 「查手机」原来只有一面：TA不在，我翻TA的手机。这是另一面：TA在，我旁观TA自己玩。
   // 词表、落盘算法、心声封顶、敲的衰减全在 js/phone-watch.js 一处，这儿只管【调模型】和【写盘】。
   //
-  // ⚠️这不是旁路，它本身就是一次刷新（她拍的）：他真发出去的那一条，走【现成的】
+  // ⚠️这不是旁路，它本身就是一次刷新（她拍的）：TA真发出去的那一条，走【现成的】
   //   savePhoneApp——分层合并、去重、归档全在它里面。另开一条写入路径就是又一处要同步的地方。
   const [watchAt, setWatchAt] = useState(() => loadJSON("x_phoneWatchAt", {}));
-  // 正在看他玩：只用来让别的浮层让开（秋秋那颗球），播放器本身在 PhoneCarry 里
+  // 正在看TA玩：只用来让别的浮层让开（秋秋那颗球），播放器本身在 PhoneCarry 里
   const [watching, setWatching] = useState(false);
   const [knockLog, setKnockLog] = useState(() => loadJSON("x_phoneKnock", {}));
   // ⚠️ctxFor 会在异步回调里被调到（回复那一枪常常隔着好几秒），直接闭包读 state
   //   读到的是那一刻的旧值——她刚敲完就说话，那一行就漏了。别处的层都用 ref，照做。
   const knockLogRef = useRef(knockLog); knockLogRef.current = knockLog;
-  // 「他这会儿在玩手机」提示今天提过几次（她 2026-09-10：冷却关着，提示自己兜节奏）
+  // 「TA这会儿在玩手机」提示今天提过几次（她 2026-09-10：冷却关着，提示自己兜节奏）
   const [watchHint, setWatchHint] = useState(() => loadJSON("x_phoneWatchHint", {}));
-  // 上一段他开过哪几个 app：下一次把它们排到队尾，并且明说「这次换几个别的」
+  // 上一段TA开过哪几个 app：下一次把它们排到队尾，并且明说「这次换几个别的」
   const [watchSeen, setWatchSeen] = useState(() => loadJSON("x_phoneWatchSeen", {}));
   const watchSeenRef = useRef(watchSeen);
   watchSeenRef.current = watchSeen;
-  // 「看他玩」目前打得开的 app。往外扩就是往这儿加一个 key，
+  // 「看TA玩」目前打得开的 app。往外扩就是往这儿加一个 key，
   // 提示词、归一、播放器三处都读它——别在那三处各写一份名单。
   // ⚠️论坛和匿名信箱是【只能看】的那一档（她 2026-09-10：「论坛和匿名可以点开看但是不改」）：
   //   它们接的是真数据——在那儿发一帖、回一封就是真的发出去了，不是演一下。
-  //   所以名单里有它们（他能点进去翻），但 applyWrite 里一个分支都没有。
+  //   所以名单里有它们（TA能点进去翻），但 applyWrite 里一个分支都没有。
   const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",
     "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",
     "forum", "anon"];
@@ -14210,7 +14210,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
     const left = WK.cooldownLeft((watchAt || {})[char.id], Date.now());
-    if (left > 0) { toast("他刚放下手机，" + Math.ceil(left / 60000) + " 分钟后再看"); return null; }
+    if (left > 0) { toast(characterText(char, "他刚放下手机，") + Math.ceil(left / 60000) + " 分钟后再看"); return null; }
     // 线路跟查手机那条链一样走 bgActive（后台便宜池），别自成一路
     const p = bgActive;
     if (!p) { toast("先去设置里配一条 API"); return null; }
@@ -14224,15 +14224,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     try {
       const ph = (phonesRef.current || {})[char.id] || {};
-      // ⚠️只让他打开【真有东西】的 app。没生成过的那些点进去是一屏转圈——
-      //   「看他玩」这一路不会顺手替他生成（那是另一枪，而且会把正在演的这一份盖掉），
-      //   于是他点开一个空 app 就等于卡在那儿（真机上就是这样）。
+      // ⚠️只让TA打开【真有东西】的 app。没生成过的那些点进去是一屏转圈——
+      //   「看TA玩」这一路不会顺手替TA生成（那是另一枪，而且会把正在演的这一份盖掉），
+      //   于是TA点开一个空 app 就等于卡在那儿（真机上就是这样）。
       //   接真数据的那几个（音乐、论坛、日历、匿名信箱）本来就不进 phones，一律放行。
       const live = typeof PHONE_LIVE_KEYS !== "undefined" ? PHONE_LIVE_KEYS : [];
       const has = WATCH_APPS.filter(k => live.indexOf(k) >= 0 || (ph[k] && typeof ph[k] === "object"));
       // ⚠️她 2026-09-10：「为什么都在照片便签音乐来回看都不看别的」。
       //   两条一起做——**顺序**和**上次刷过谁**：
-      //   ① 名单顺序每次都一样，模型就总挑排在前面那几个（位置偏好，不是他的性格）。
+      //   ① 名单顺序每次都一样，模型就总挑排在前面那几个（位置偏好，不是TA的性格）。
       //      上次刷过的挪到队尾，头几行自然换人。
       //   ② 光靠换顺序还不够，所以把上次刷过的名单直接告诉它：这次换几个别的。
       // 老存档里这一格是个数组（只记了 app），新的是 {a,i}——两种都认
@@ -14245,10 +14245,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   再下一段丁戊己沉底、甲乙丙又回到队首。看上去就是在两拨之间来回倒。
       //   （一层修在两处、第二处没跟上——施工规则/one-public-mechanism.md 那个形状。）
       const seenApps = Array.isArray(seen0) ? seen0 : ((seen0 && seen0.ra) || seen || []);
-      // ⚠️排队那条规矩写在 PhoneWatch 里（跟别的看他玩规矩住一起，而且能单测）：
+      // ⚠️排队那条规矩写在 PhoneWatch 里（跟别的看TA玩规矩住一起，而且能单测）：
       //   沉底的只许是【一半】——全都沉底等于谁也没沉底。
       const canApps = WK.appQueue(has, seenApps);
-      if (!canApps.length) { toast("他手机里还什么都没有，先翻一次再看他玩"); return null; }
+      if (!canApps.length) { toast(characterText(char, "他手机里还什么都没有，先翻一次再看他玩")); return null; }
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
         instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen, recentItems: seenIts,
@@ -14269,7 +14269,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           anon: (((anon || {})[char.id] || {}).records || []).slice(0, 12) }),
         schemaHint: WK.watchSchemaHint(),
         // ⚠️她 2026-09-10：「是不是 token 给少了给 65535 然后多给几个动作」。
-        //   两万确实紧：一段一百来个动作、加上他打的字和心声，写到一半就得收着写。
+        //   两万确实紧：一段一百来个动作、加上TA打的字和心声，写到一半就得收着写。
         //   她按【次】计费，token 给足不多花钱（施工规则/max-tokens-floor.md）。
         maxTokens: 65535
       });
@@ -14277,18 +14277,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const openable = (typeof PHONE_APPS !== "undefined" ? PHONE_APPS : []).filter(a => canApps.indexOf(a.key) >= 0);
       const got = WK.normalizeActs(out && (out.acts || out.actions || (Array.isArray(out) ? out : null)), openable);
       // ⚠️报错里必须带着【我没看懂的那个东西本身】（施工规则/prompt-send-shape.md 第二条）
-      if (!got.acts.length) throw new Error("他这回没动。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));
+      if (!got.acts.length) throw new Error(characterText(char, "他这回没动。模型回的是：\n") + JSON.stringify(out || null).slice(0, 320));
       // ⚠️丢掉的那几条必须说出来。她 2026-09-10 真跑那次就是【一声不响】：
       //   open 写成了「微信」认不出来，于是整段只剩两句心声飘过去，看着像功能坏了。
       if (got.dropped.length) toast("有 " + got.dropped.length + " 下没看懂，跳过了：" + got.dropped.slice(0, 3).join("、"));
-      // 这一段他开过哪几个 app，记下来给下一次换人用（只记最后一次那一轮）
+      // 这一段TA开过哪几个 app，记下来给下一次换人用（只记最后一次那一轮）
       // ⚠️记两样：开过哪几个 app，和**翻过哪几样东西**（她 2026-09-10 第二次报：
       //   「还是爱来来回回翻相册而且还是来来回回那两张」——app 换了，里头那两张没换）。
       const opened = [], its = [];
       got.acts.forEach(a => {
         if (a.kind === "open" && a.app && opened.indexOf(a.app) < 0) opened.push(a.app);
         // ⚠️look 那一支带的是 `at`，不是 `name`（词表：look 的参数就是 at）——
-        //   照 name 取等于这一支从上线起一次都没记下来过，于是「他盯着看了半天的那张」
+        //   照 name 取等于这一支从上线起一次都没记下来过，于是「TA盯着看了半天的那张」
         //   下一段照样排在队首（施工规则/stub-from-the-writer.md：过滤什么都不剩，而且不报错）。
         const nm = a.kind === "look" ? a.at : a.name;
         if ((a.kind === "openItem" || a.kind === "look") && nm && its.indexOf(nm) < 0) its.push(nm);
@@ -14306,9 +14306,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const n = { ...m, [char.id]: { a: opened, ra: mergedApps, i: merged } };
         watchSeenRef.current = n; saveJSON("x_phoneWatchSeen", n); return n;
       });
-      // 一整段全是心声＝配旁白，不是看他玩。真动手的一下都没有就别演了。
+      // 一整段全是心声＝配旁白，不是看TA玩。真动手的一下都没有就别演了。
       if (!got.acts.some(a => a.kind !== "think" && a.kind !== "pause")) {
-        throw new Error("他这回只在心里想，没动手。模型回的是：\n" + JSON.stringify(out || null).slice(0, 320));
+        throw new Error(characterText(char, "他这回只在心里想，没动手。模型回的是：\n") + JSON.stringify(out || null).slice(0, 320));
       }
       return got.acts;
     } catch (e) {
@@ -14316,9 +14316,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return null;
     }
   };
-  // 边演边落（她 2026-09-10 定）：看到一半退出去，他已经做过的就是做过了。
-  // 他微信里的「她」叫什么：她的本名 + 他给她起的备注（userContact 那一栏）。
-  // ⚠️他给她发消息不是演的——那是**真的发到她手机上**，所以得认准是不是她。
+  // 边演边落（她 2026-09-10 定）：看到一半退出去，TA已经做过的就是做过了。
+  // TA微信里的「她」叫什么：她的本名 + TA给她起的备注（userContact 那一栏）。
+  // ⚠️TA给她发消息不是演的——那是**真的发到她手机上**，所以得认准是不是她。
   const watchMeNames = char => {
     const wx = ((phonesRef.current || {})[char.id] || {}).wechat || {};
     const uc = (wx.userContact && typeof wx.userContact === "object") ? wx.userContact : {};
@@ -14330,16 +14330,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!WK || !to) return false;
     return watchMeNames(char).some(n => WK.sameName(n, to));
   };
-  // ── 他这会儿为什么会拿起手机（她 2026-09-10 要的「由头」）──────────
+  // ── TA这会儿为什么会拿起手机（她 2026-09-10 要的「由头」）──────────
   // ⚠️入口那颗提示点【不在这儿】：那一层已经有了（PhoneWatch.watchHintOn，
-  //   醒着 + 一天两次 + 稳定种子）。这儿只做另一半：**告诉他这一次是几点拿起来的**。
-  //   两件事分得开：那一层管「什么时候提醒她去看」，这一层管「他为什么在刷」。
-  // ⚠️几点用现成的 charLocalMin（他自己的时区），不另写一套算时区的（一层写在两处）。
-  // 他此刻／今天正在过的那一段，抽成一句递进去。
+  //   醒着 + 一天两次 + 稳定种子）。这儿只做另一半：**告诉TA这一次是几点拿起来的**。
+  //   两件事分得开：那一层管「什么时候提醒她去看」，这一层管「TA为什么在刷」。
+  // ⚠️几点用现成的 charLocalMin（TA自己的时区），不另写一套算时区的（一层写在两处）。
+  // TA此刻／今天正在过的那一段，抽成一句递进去。
   // ⚠️不另调模型：日程那整段本来就在上下文里（ctxFor.schedNow），可它离得远、又长，
   //   模型读到的最响的东西还是「跟她的聊天」和「手机里已经有的那些」——
-  //   于是他刷手机永远围着这两样转（她 2026-09-10：「太依赖我们的聊天了，
-  //   而不是根据日程有自己真的新鲜料想去搜的」）。把今天他自己身上那件事拎到跟前来。
+  //   于是TA刷手机永远围着这两样转（她 2026-09-10：「太依赖我们的聊天了，
+  //   而不是根据日程有自己真的新鲜料想去搜的」）。把今天TA自己身上那件事拎到跟前来。
   const watchTodayLine = char => {
     let full = "";
     try { full = typeof schedNowFor === "function" ? String(schedNowFor(char) || "") : ""; } catch (e) {}
@@ -14350,9 +14350,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const wx0 = (full.match(/今天 Ta 那边的天气：[^\n]*/) || [])[0] || "";
     return [now0, next0, load0, wx0].filter(Boolean).join("\n").slice(0, 420);
   };
-  // 他拿起手机最常见的那个理由：**她还没回**（看他玩-想做的 里排第一的那条）。
+  // TA拿起手机最常见的那个理由：**她还没回**（看TA玩-想做的 里排第一的那条）。
   // ⚠️零额外调用：真聊天本来就在手上（chatsRef），只是从来没有人把它拎到由头那一层。
-  // ⚠️只给【状态】，不给【做什么】：谁欠谁一条、隔了多久。要不要去点开她，由他自己定
+  // ⚠️只给【状态】，不给【做什么】：谁欠谁一条、隔了多久。要不要去点开她，由TA自己定
   //   （施工规则/bans-make-it-dumber.md：给出口，不给判决）。
   const watchWaitLine = char => {
     if (!char) return "";
@@ -14394,15 +14394,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (r0.wrote) savePhoneApp(char.id, k, r0.d, { noArchive: true, patched: true });
       return;
     }
-    // ── 他发给【她】的那一条：不进 x_phone，直接落进真的那条聊天 ──
-    // 她 2026-09-10：「看他玩发了消息给我我这边也能显示出来吧」。
+    // ── TA发给【她】的那一条：不进 x_phone，直接落进真的那条聊天 ──
+    // 她 2026-09-10：「看TA玩发了消息给我我这边也能显示出来吧」。
     // ⚠️手机里那一屏本来就把真聊天并进来显示（actualChats），所以写进 x_phone
     //   反而会多出一条假的、跟真的那条并排站着。真话只该有一份。
     if (where === "wechat" && watchIsMe(char, to) && String(text || "").trim()) {
       pChat(char.id, p => [...p, { role: "assistant", content: String(text).trim(), ts: Date.now(), fromWatch: true }]);
       // ⚠️回一个「真」字：那一屏上她那条聊天是【活的】（liveThread 每帧重认），
       //   这条已经在里面了。播放器再挂一条演出用的气泡就是同一句话出现两遍
-      //   （她 2026-09-10：「给我发一条微信看他玩那会会显示同样的发了两条」）。
+      //   （她 2026-09-10：「给我发一条微信看TA玩那会会显示同样的发了两条」）。
       return true;
     }
     const cur = ((phonesRef.current || {})[char.id] || {})[where];
@@ -14410,7 +14410,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const r = WK.applyWrite(where, cur, to, text, Date.now(), extra);
     if (r.wrote) savePhoneApp(char.id, where, r.d, { noArchive: true, patched: true });
   };
-  // 对面回的那一句：落盘走跟他自己发话同一条路（savePhoneApp），只是 from 是对面
+  // 对面回的那一句：落盘走跟TA自己发话同一条路（savePhoneApp），只是 from 是对面
   const watchReply = (char, name, text, where) => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return;
@@ -14432,7 +14432,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   现在：出错就抛，外面接住报出来、并且不消耗次数；再加一条 25 秒的绳子。
   const watchKnock = async (char, nth, nowAct) => {
     const WK = window.PhoneWatch;
-    if (!WK || !char) throw new Error("他这会儿不在");
+    if (!WK || !char) throw new Error(characterText(char, "他这会儿不在"));
     const p = bgActive;
     if (!p) throw new Error("先去设置里配一条 API");
     const step = WK.knockStep(nth, WK.knockDecayed((knockLog || {})[char.id], Date.now()));
@@ -14449,10 +14449,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           step.hint,
           step.old > 0 ? "（这些天她已经这样看过你好几次了。）" : "",
           "写你此刻心里那一句，一句就够，第一人称，不要旁白。",
-          // 敲到第三下，他早抬头看见她了——那就该允许他【真的做点什么】，
-          // 而不是永远只在心里说一句（看他玩-想做的 排第二那条）。
+          // 敲到第三下，TA早抬头看见她了——那就该允许TA【真的做点什么】，
+          // 而不是永远只在心里说一句（看TA玩-想做的 排第二那条）。
           // ⚠️给出口不给判决：说清这一格存在、留空也完全成立，别写成「你应该发」。
-          // ⚠️跟「他在等你回消息」那条分开：那是他惦记她，这是他发现她在看。
+          // ⚠️跟「TA在等你回消息」那条分开：那是TA惦记她，这是TA发现她在看。
           step.n === 3 ? "第三下了，你早抬头看见她了。除了心里那句，你也可以顺手拿起手机**真的给她发一条微信**——"
             + "写进 wx（那是真的会发到她手机上的）。不想发就把 wx 留空：什么都不发、继续刷你的，一样成立。" : "",
           "aff 只在这件事真的在你心里留下点什么时才不是 0：嫌她烦就给负的，心里一动就给正的——**你是哪一路，由你的人设决定，不是默认不高兴**。"
@@ -14461,9 +14461,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ? '{"say":"你心里那一句","wx":"你这会儿真想发给她的那条微信（不发就留空）","aff":"整数，通常 0"}'
           : '{"say":"你心里那一句","aff":"整数，通常 0"}',
         maxTokens: 8000
-      }), new Promise((_, rej) => setTimeout(() => rej(new Error("他没抬头（超时）")), 25000))]);
+      }), new Promise((_, rej) => setTimeout(() => rej(new Error(characterText(char, "他没抬头（超时）"))), 25000))]);
       const say = String((out && out.say) || "").trim().slice(0, 60);
-      if (!say) throw new Error("他这一下没吭声");
+      if (!say) throw new Error(characterText(char, "他这一下没吭声"));
       // 好感一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0）
       const d = WK.clampWatchAff(out && out.aff);
       if (d && nth === 1) bumpAff(char.id, d);   // 只认第一下，连着敲不叠加
@@ -14759,14 +14759,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return false;
   };
   const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
-  // 网名那两栏（她 2026-09-12：「以前名字跟他发的内容没有关系很灵的。
+  // 网名那两栏（她 2026-09-12：「以前名字跟TA发的内容没有关系很灵的。
   // 你去研究一下固定 npc 时代前」）。翻了 ce1e3ac「feat(forum): add recurring regulars」
   // 之前那一版，形状是这样的：
   //   · **所有人一套字段**——authorName + handle，没有 npcId / guestName 的分叉；
   //   · 占位值就两个词：网名、funny_id；提示词写的是「authorName 网名马甲 + handle 有趣 id」；
   //   · 代码只有一句「x.authorName || 匿名网友」，没有名字生成器、没有兜底抽签。
   // 灵气就长在这个形状里：名字这件事【从头到尾只有模型一个人在做】，
-  // 而且从来没人要求名字跟这条评论有关系——真论坛里的 id 本来就跟他今天说什么无关，
+  // 而且从来没人要求名字跟这条评论有关系——真论坛里的 id 本来就跟TA今天说什么无关，
   // 那才像一个本来就存在的账号，而不是给这条评论现配的一件戏服。
   // 所以这一版把分叉收回去：人人都是 authorName + handle，npcId 只是熟面孔【额外】点个名。
   const FORUM_GUEST_FIELDS = "\"authorName\":\"网名马甲\",\"handle\":\"有趣 id\"";
@@ -14806,14 +14806,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
     return "\n【论坛人口】**每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）**，一条都别空着。"
-      + "\n【id 跟他这条说什么【没有关系】】真论坛里的网名是这个账号本来就有的，不是为这条评论现配的一件戏服——"
-      + "别让名字去呼应他这一楼的内容、也别让它去标注他是什么人。它可以完全跑题、可以是半句话、可以莫名其妙；"
+      + "\n【id 跟TA这条说什么【没有关系】】真论坛里的网名是这个账号本来就有的，不是为这条评论现配的一件戏服——"
+      + "别让名字去呼应TA这一楼的内容、也别让它去标注TA是什么人。它可以完全跑题、可以是半句话、可以莫名其妙；"
       + "**一屋子人的名字之间也不该有共同点**：前缀一样、结构一样、都在同一个词类里打转，一眼就看得出是一只手凑的。"
       + "\n【他们说话是贴吧味儿】前排、顶、蹲一个、@楼上、抬杠、就这？、笑死、坐等后续——有人只说半句，有人跑题，"
-      + "有人只来纠正一个细节，有人答非所问。看得出他为什么点进这个吧、接住的是帖子里哪一句、他自己那点事儿。"
+      + "有人只来纠正一个细节，有人答非所问。看得出TA为什么点进这个吧、接住的是帖子里哪一句、TA自己那点事儿。"
       + "\n一个帖子底下**大半是只在这一帖出现的路人**。"
       + "\n剩下**大约三分之一、最多不过一半**是常驻熟面孔：他们照样填 authorName 和 handle（用名单上那一个），"
-      + "只是**额外**再写一个 npcId，好让他跨帖子还是同一个人：" + forumNpcRoster(board)
+      + "只是**额外**再写一个 npcId，好让TA跨帖子还是同一个人：" + forumNpcRoster(board)
       + "。同一 npcId 要保持它那条括号里写的习惯；同一批里同一个熟面孔最多冒两次。"
       + "\n⚠️**没点到名单上的一律按路人落账**——想让某个熟面孔开口，npcId 或者名单上那个名字必须写出来。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
@@ -14864,8 +14864,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const isForumCharAuthor = x => !!(x && String(x.authorType || "").startsWith("character"));
   // 查手机 · 论坛：接【真论坛】，不再另生成一份光有标题的假货（她 2026-08-29）。
-  // 论坛界面里她只看得见「匿名用户」和一个不认识的小号——哪些是他发的，
-  // 只有翻他手机才知道。所以三个账号一起打包摆过去：查手机就是面具掉下来的地方。
+  // 论坛界面里她只看得见「匿名用户」和一个不认识的小号——哪些是TA发的，
+  // 只有翻TA手机才知道。所以三个账号一起打包摆过去：查手机就是面具掉下来的地方。
   const phoneForumFor = char => {
     if (!char) return null;
     const meta = charForumMeta(char);
@@ -14880,7 +14880,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       fl.forEach(f => { total++; flat.push(packReply(f)); (f.replies || []).forEach(r => { total++; flat.push(packReply(r)); }); });
       return { id: p.id, board: p.board, title: clean(p.title), body: String(p.body || ""), ts: p.ts || 0, replyCount: total, replies: flat.sort((a, b) => a.ts - b.ts).slice(0, 10) };
     };
-    // 他在【别人】帖子底下留的话——这一层比帖子更暴露人，单独给一栏
+    // TA在【别人】帖子底下留的话——这一层比帖子更暴露人，单独给一栏
     const saidUnder = type => {
       const out = [];
       posts.forEach(p => {
@@ -14897,14 +14897,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return [
       { key: "main", label: "大号", name: meta.handle, handle: "@" + meta.handle, bio: meta.bio, followers: meta.followers, following: meta.following, joinTs: meta.joinTs, posts: by("character"), comments: saidUnder("character") },
       { key: "alt", label: "小号", name: meta.altName, handle: "@" + meta.altHandle, bio: meta.altBio, followers: meta.altFollowers, following: meta.altFollowing, joinTs: meta.altJoinTs, posts: by("character_alt"), comments: saidUnder("character_alt") },
-      { key: "anon", label: "匿名", name: "匿名用户", handle: "@anonymous", bio: "不署名才敢说的话。论坛里没有一个人知道这些是他发的。", posts: by("character_anon"), comments: saidUnder("character_anon") }
+      { key: "anon", label: "匿名", name: "匿名用户", handle: "@anonymous", bio: characterText(char, "不署名才敢说的话。论坛里没有一个人知道这些是他发的。"), posts: by("character_anon"), comments: saidUnder("character_anon") }
     ];
   };
   // 查手机 · 日历：接【真日历】，不再另生成一份假的（她 2026-08-29）。
-  // App 里已经有他自己那格日历、有带时刻的日程、有他答应过她的事——手机里却在
-  // 另生成一套，等于同一个人有两本互不相干的日程，手机那本还不会因为他真排了
+  // App 里已经有TA自己那格日历、有带时刻的日程、有TA答应过她的事——手机里却在
+  // 另生成一套，等于同一个人有两本互不相干的日程，手机那本还不会因为TA真排了
   // 什么而变。跟论坛和音乐是同一个病，这里一起接掉。
-  // 翻到他日历上真的写着某一天有事，比生成出来的任何一条都重。
+  // 翻到角色日历上真的写着某一天有事，比生成出来的任何一条都重。
   const phoneCalendarFor = char => {
     if (!char) return null;
     const S = v => String(v == null ? "" : v).trim();
@@ -14920,7 +14920,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         items.push({ title: S(ev.title).slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
       });
     });
-    // ② x_calEvents：他名下带时刻的日程
+    // ② x_calEvents：TA名下带时刻的日程
     (calEventsRef.current || []).forEach(e => {
       if (!e || e.owner !== char.id || !S(e.title) || !S(e.startDate)) return;
       items.push({
@@ -14928,8 +14928,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         done: false, postponed: 0, note: [S(e.location), S(e.note)].filter(Boolean).join(" · ").slice(0, 120), who: ""
       });
     });
-    // ③ x_promises：他答应过她、还没兑现的事。日历上这一格最有杀伤力——
-    //    它在那儿摆着，日子一天天过去，他没做。
+    // ③ x_promises：TA答应过她、还没兑现的事。日历上这一格最有杀伤力——
+    //    它在那儿摆着，日子一天天过去，TA没做。
     (promisesRef.current || []).forEach(pm => {
       if (!pm || pm.charId !== char.id || !S(pm.about)) return;
       const due = new Date(Number(pm.dueTs) || Date.now());
@@ -14939,15 +14939,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         date: DK(due.getFullYear() + "-" + (due.getMonth() + 1) + "-" + due.getDate()),
         time: "", kind: "答应过", done: false,
         // 不许编「推迟 N 次」——没有任何地方真的数过。只说确实为真的那件事：
-        // 日子过了，他还没做。日历界面会因为 overdue 把这条染红。
-        postponed: 0, overdue: !!late, note: "他答应过的。", who: profile.name || "我"
+        // 日子过了，TA还没做。日历界面会因为 overdue 把这条染红。
+        postponed: 0, overdue: !!late, note: characterText(char, "他答应过的。"), who: profile.name || "我"
       });
     });
     // ④ x_schedules[charId]：已经推演过的那几天，每一段行程占一条
     // ⚠️done 不许写死 true（v64.78，她 2026-09-06 报「日程没过的日期也都 cross out 了」）。
     //   行程是【提前推演】出来的：中午十二点半，明天早上七点那一段就已经在存档里了。
-    //   写死 true 的话它在日历上是划掉的——等于告诉她他明天的事已经做完了。
-    //   ⚠️按【他自己那边的钟】算：他可能在另一个时区（char.tz），拿设备时间判会整体错开。
+    //   写死 true 的话它在日历上是划掉的——等于告诉她TA明天的事已经做完了。
+    //   ⚠️按【TA自己那边的钟】算：TA可能在另一个时区（char.tz），拿设备时间判会整体错开。
     const plans = (schedulesRef.current || {})[char.id] || {};
     const _todayK = typeof schedLocalDayKey === "function" ? schedLocalDayKey(char) : DK(new Date());
     const _nowMin = typeof charLocalMin === "function" ? charLocalMin(char) : (new Date().getHours() * 60 + new Date().getMinutes());
@@ -15371,22 +15371,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }]);
     toast("已转发给 " + (toChar.remark || toChar.name));
   };
-  // ───────── 查手机 · 转发给他 ─────────
+  // ───────── 查手机 · 转发给TA ─────────
   // 她 2026-08-29 拍板：**只有转发才注入**。不许把每次刷手机刷出来的一堆东西常驻上下文——
-  // 那既贵又假（他会莫名其妙知道她根本没看过的东西）。
-  // 真正的难点不是把内容送过去，是送过去时【语境是她翻了他的手机】。同一条信息，
-  // 他给你看过的、他没说但你看得见的、他压根藏起来的，三种反应完全不同。
+  // 那既贵又假（TA会莫名其妙知道她根本没看过的东西）。
+  // 真正的难点不是把内容送过去，是送过去时【语境是她翻了TA的手机】。同一条信息，
+  // TA给你看过的、TA没说但你看得见的、TA压根藏起来的，三种反应完全不同。
   // 框架整个写进 content：它跟着这条消息本身走，所以单聊线上、线下、群里读到的都是同一份，
   // 不必在四处各挂一个钩子（施工规则/four-surfaces-same-context.md）。
   // ⚠️这段判词以前把「手机」写死在里面（v57.96 之前）。随身物也走这条链之后，
-  // 翻的是他的包，模型收到的却是「她翻过我手机」——对不上就演不对。
+  // 翻的是TA的包，模型收到的却是「她翻过我手机」——对不上就演不对。
   // what＝她翻的是什么（手机／包／衣柜），hiddenWhat＝这一档「藏起来」在这个语境里长什么样。
   const phonePeekTag = (tier, what, hiddenWhat) => ({
-    open: "｜（这东西他本来就没瞒着你，就当她随口提起。）",
-    quiet: "｜（**他没告诉过你这个，是她自己翻你" + what + "翻到的。**他此刻在意的多半不是这条内容本身，而是「她翻过我" + what + "、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
-    hidden: "｜（**这是他藏起来的东西**：" + (hiddenWhat || "匿名的／小号的／深夜的／删掉的／设了私密的") + "。他从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「他被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
+    open: "｜（这东西TA本来就没瞒着你，就当她随口提起。）",
+    quiet: "｜（**TA没告诉过你这个，是她自己翻你" + what + "翻到的。**TA此刻在意的多半不是这条内容本身，而是「她翻过我" + what + "、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
+    hidden: "｜（**这是TA藏起来的东西**：" + (hiddenWhat || "匿名的／小号的／深夜的／删掉的／设了私密的") + "。TA从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「TA被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
   }[tier]);
-  // peek.what：翻的是「手机」还是他的「包」「衣柜」（v57.96 随身物也走这条链）。
+  // peek.what：翻的是「手机」还是TA的「包」「衣柜」（v57.96 随身物也走这条链）。
   // peek.lead：整句话的开头，随身物那边不套「在你的〈X〉里看到了」这个句式。
   const forwardPhonePeekToChat = (char, peek) => {
     if (!char || !peek) return;
@@ -15402,10 +15402,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content: lead + (title ? "《" + title + "》" : "") + (text ? (title ? "｜" : "") + text : "") + phonePeekTag(tier, what, peek.hiddenWhat),
       ts: Date.now(), read: false
     }]);
-    toast("已摆到 " + (char.remark || char.name) + " 面前（他会知道你翻了他的" + what + "）");
+    toast("已摆到 " + (char.remark || char.name) + characterText(char, " 面前（他会知道你翻了他的") + what + "）");
   };
   // 相册里【我收着的】那几张可以真画出来（v59.59。她 2026-09-01：「放进我的收藏后
-  // 可以给他一个按钮生成真图吧，就按图上的 prompt 生成」）。
+  // 可以给TA一个按钮生成真图吧，就按图上的 prompt 生成」）。
   // ⚠️走 buildScenePrompt（空景那条路），不走 buildPhotoPrompt——后者是【画一个人】的
   //   说明书（身份锁、骨架、手指、参考照），外挂一句「不要有人」压不住它，出来是人是景
   //   全看运气（v59.16 那次的教训）。相册里绝大多数是景和物：窗外那场雨、桌上那根发绳。
@@ -15446,7 +15446,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const prevKept = (Array.isArray(loadJSON("x_phoneKeep", {})[char.id]) ? loadJSON("x_phoneKeep", {})[char.id] : [])
         .find(x => sigOf0(x) === key) || null;
       const again = !!(prevKept && (prevKept.imageRef || prevKept.imageUrl));
-      // ⭐先想清楚这句小字是什么意思，再去画（她 2026-09-10：「让他生图之前先思考这个的语义」）。
+      // ⭐先想清楚这句小字是什么意思，再去画（她 2026-09-10：「让TA生图之前先思考这个的语义」）。
       //   图像模型不会读中文语义，会读的是文字模型——多花一次很便宜的文字调用换一句
       //   写死了「谁的手、框哪一块、镜头在哪」的英文描述。要不到就照旧走中文那条路。
       const brief = typeof scenePhotoBrief === "function"
@@ -15455,7 +15455,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const p0 = buildScenePrompt(char, scene, {
         brief,
         forText: false, body: bodyish,
-        // 画面里谁是谁：这张是他自己举着手机拍的，「我」是他、「她」是用户
+        // 画面里谁是谁：这张是TA自己举着手机拍的，「我」是TA、「她」是用户
         pov: { me: char.remark || char.name, other: userName(profile) }
       }) + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光，"
         + "别跟上一张一模一样。（第 " + Math.floor(Date.now() / 1000 % 100000) + " 次）" : "");
@@ -15501,8 +15501,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("没画成：" + String((e && e.message) || e || "重试").slice(0, 120)); return false; }
     finally { setGen(g => ({ ...g, phoneShot: null })); }
   };
-  // 逛购物 app 时问问他：把这件商品发进和他的聊天，问值不值得买。
-  // 和「摆到他面前」是同一个动作语言，但语境完全相反——那边是他被撞破，
+  // 逛购物 app 时问问TA：把这件商品发进和TA的聊天，问值不值得买。
+  // 和「摆到TA面前」是同一个动作语言，但语境完全相反——那边是TA被撞破，
   // 这边是我主动拿给你看。所以【不能】复用 phonepeek 那张卡和那段判词。
   const askCharAboutItem = (charId, item) => {
     const char = characters.find(c => c.id === charId);
@@ -15523,15 +15523,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("已拿给 " + (char.remark || char.name) + " 看");
   };
   // 随身物 → 聊天。和查手机共用 phonepeek 这张卡，只是翻的东西不一样。
-  // ⚠️只发 name 和 note，【绝不发 thought】——那是他对这件东西没说出口的想法。
-  // 你翻到了那样东西，不等于你知道它对他意味着什么；把心声也一起摆上台面，
+  // ⚠️只发 name 和 note，【绝不发 thought】——那是TA对这件东西没说出口的想法。
+  // 你翻到了那样东西，不等于你知道它对TA意味着什么；把心声也一起摆上台面，
   // 反而把「被撞破」那一下的张力泄掉了。
   const CARRY_PEEK = {
     bag:     { what: "包",   tier: "quiet",  lead: "[我翻了你的包]看到你包里有：" },
     pocket:  { what: "口袋", tier: "quiet",  lead: "[我翻了你的口袋]摸出来一样东西：" },
     outfit:  { what: "衣柜", tier: "quiet",  lead: "[我翻了你的衣柜]看到那一身：" },
     trinket: { what: "东西", tier: "hidden", lead: "[我翻到了你一直收着的东西]：",
-      hiddenWhat: "他一直贴身收着的、有来历的、从没跟人提起过的那几样" },
+      hiddenWhat: "TA一直贴身收着的、有来历的、从没跟人提起过的那几样" },
     gifts:   { what: "东西", tier: "open",   lead: "[我提起你收着的那件礼物]：" }
   };
   const forwardCarryToChat = (charId, sectionKey, item) => {
@@ -15590,7 +15590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   · tarot 那一格是给她看的（components.js 的 TarotShareCard 画它）；
   //   · content 那一段是给模型看的——**牌面、逐张解读、收束全在这儿**。
   //     原来带回聊天只搬了追问的那几句，牌和解析一个字都没进上下文，
-  //     于是他回头聊这副牌时手上其实什么都没有。
+  //     于是TA回头聊这副牌时手上其实什么都没有。
   // ⚠️两条路共用这一份（「我替你算了一卦」和「把小桌对话带回聊天」）：
   //   各拼一份迟早只改一处（施工规则/one-public-mechanism.md）。
   const tarotShareMsg = (session, note) => {
@@ -15615,7 +15615,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forwardTarotToChat = async (session, options) => {
     const toChar = characters.find(c => c.id === session.charId);
     if (!toChar) { toast("找不到这个角色"); return; }
-    // 这一卦落在哪儿（她 2026-09-13 拍板的前一半）：主聊天，还是他的某一间房。
+    // 这一卦落在哪儿（她 2026-09-13 拍板的前一半）：主聊天，还是TA的某一间房。
     // ⚠️照同人文那条路走：房间由她在那一屏挑，这儿只认 roomId。
     // ⚠️戳着的那间房已经删了就【哪儿都不写】——退回主聊天等于把她特意收进房里的一卦
     //   送上正史，跟 keepWhereItHappened 那条「宁可少说」同一个道理。
@@ -15630,7 +15630,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!tableLines.length) { toast("小桌边还没有可以带回去的对话"); return; }
       const movedAt = Date.now();
       // ⚠️先落这张卡：牌和解析就在它的 content 里。原来这儿只有一句「带回了聊天」，
-      //   底下跟着一串光秃秃的对话——她看不见牌，他也读不到牌。
+      //   底下跟着一串光秃秃的对话——她看不见牌，TA也读不到牌。
       const card = tarotShareMsg(session, "小桌边这副牌");
       const cardMsg = { role: "user", kind: card.kind, tarot: card.tarot, content: card.content, ts: movedAt, read: false };
       const intro = { role: "system", kind: "tarottable", content: "你们把刚才在塔罗店小桌边围绕这副牌说的话带回了聊天。", ts: movedAt + 1, read: false };
@@ -15650,9 +15650,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const card0 = tarotShareMsg(session, "我替你算了一卦");
     pChat(chatKey, p => [...p, { role: "user", kind: card0.kind, tarot: card0.tarot, content: card0.content, ts: Date.now(), read: false }]);
     toast("已把这一卦放进" + whereTxt);
-    // ⚠️落进房里的那一卦【不在这儿自动生成他的反应】：房里那一枪有自己整套上下文
+    // ⚠️落进房里的那一卦【不在这儿自动生成TA的反应】：房里那一枪有自己整套上下文
     //   （门规、这间房自己的往事、能不能读主线），这一枪是按主聊天拼的，
-    //   在这儿代他开口就等于绕过那一整层。她在房里按一次回复，那一枪才是对的。
+    //   在这儿代TA开口就等于绕过那一整层。她在房里按一次回复，那一枪才是对的。
     if (sideRoom || !active) return;
     const instruction = "有人（用户）替你算了一卦塔罗，把结果发给你看了。抽到的牌与解读：\n牌：" + cardsTxt + "\n解读：\n" + readTxt + (summary ? "\n收束：" + summary : "") +
       "\n\n你【读到一份替你自己算的命卦】，按你的人设和此刻心情真实反应（信或不信、在意哪一句、被说中了还是嗤之以鼻、追问、或借机说点心里话都行，1-3 句可多气泡），别客服腔、别复述全文。";
@@ -15667,7 +15667,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ───────── 擂台 · 分享这一场 ─────────
   // 她 2026-09-01：「再加一个可以分享给角色，既然这个是可以多人的，那就群和单聊都可以分享吧」。
   // 照塔罗那一路走【纯文本】，不另起一种卡片：新卡片得在聊天里另写一个渲染器，
-  // 而这一场的看点本来就是那几句话本身，摊开来给他看比塞进一张卡片强。
+  // 而这一场的看点本来就是那几句话本身，摊开来给TA看比塞进一张卡片强。
   // ⚠️不自动回复（同同人文那一路）：她要转完接着说话，说完 TA 正常回复时自然读得到；
   //   自动回一次就是白花她一次调用。
   const arenaShareText = (session) => {
@@ -15791,14 +15791,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 一个网友在私信里【是谁】（她 2026-09-01 说的就是这件事）：
   //   ① 论坛人设（registry 里那句 voice）——常驻熟面孔才有；
   //   ② 常逛哪几个吧；
-  //   ③ 跟谁老抬杠（FORUM_NPC_RELATIONS）——他在私信里提起那个人时才对得上；
-  //   ④ 他真发过的帖、真在别人楼里说过的话。
+  //   ③ 跟谁老抬杠（FORUM_NPC_RELATIONS）——TA在私信里提起那个人时才对得上；
+  //   ④ TA真发过的帖、真在别人楼里说过的话。
   // 缺了 ①②③ 只喂 ④ 的话，聊几轮就退化成「一个网友」——那正是这个 app 最容易写坏的地方。
   const forumNpcGround = (npcId, lines) => {
     const n = FORUM_NPC_REGISTRY.find(x => x.id === npcId);
     const head = [];
     if (n) {
-      head.push("【他在吧里是个什么人】" + n.name + "（@" + n.handle + "）：" + n.voice);
+      head.push("【TA在吧里是个什么人】" + n.name + "（@" + n.handle + "）：" + n.voice);
       if ((n.boards || []).length) head.push("【常逛】" + n.boards.join("、"));
       const rel = (FORUM_NPC_RELATIONS || []).filter(r => r && (r.a === npcId || r.b === npcId));
       rel.slice(0, 2).forEach(r => {
@@ -15807,13 +15807,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
     }
     const said = (Array.isArray(lines) ? lines : []).filter(Boolean).slice(0, 8);
-    if (said.length) head.push("【他自己在吧里说过的话】\n" + said.join("\n"));
+    if (said.length) head.push("【TA自己在吧里说过的话】\n" + said.join("\n"));
     return head.join("\n");
   };
   // 主动私信一个网友（她 2026-09-01：「可以再给每个网友增加私信功能，就喂他们发过的帖
   // 和回复过的」）。原来私信只有一条路：点刷新，等模型随机送几个人上门——我看上了楼里
-  // 某个人，想找他聊两句，没有任何入口。
-  // ⚠️开场白必须从【他自己在这个吧里说过的话】长出来，不然写出来的是「一个网友」，
+  // 某个人，想找TA聊两句，没有任何入口。
+  // ⚠️开场白必须从【TA自己在这个吧里说过的话】长出来，不然写出来的是「一个网友」，
   //   换成谁都成立——那正是这个 app 最容易写坏的地方。
   // ⚠️已经有这个人的会话就直接开那一条，不新开：同一个人不该在列表里躺两遍。
   // 返回那条会话的 id，由论坛那边负责跳过去（pmId 是 Forum 组件自己的状态，app 够不着）
@@ -15851,10 +15851,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, forumPM: null })); }
   };
   // 私信一个【角色】的大号（v59.75）。跟私信网友是两件事：
-  //   网友那条要先让模型编一句开场白（他主动来搭话）；
-  //   角色这条【不编开场白】——是她去敲他的门，她先说话才对，而且省一次调用（她按次计费）。
+  //   网友那条要先让模型编一句开场白（TA主动来搭话）；
+  //   角色这条【不编开场白】——是她去敲TA的门，她先说话才对，而且省一次调用（她按次计费）。
   // ⚠️只给大号。小号／匿名主页上故意没有这个按钮：那一整个玩法建立在
-  //   「他知道两边是同一个人、她不知道」上面，一旦这条线喂回聊天，他迟早说漏。
+  //   「TA知道两边是同一个人、她不知道」上面，一旦这条线喂回聊天，TA迟早说漏。
   const startCharPM = char => {
     if (!char || !char.id) return "";
     const exist = (forumPMsRef.current || []).find(t => t && t.charId === char.id);
@@ -15873,8 +15873,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
       const convo = [...th.messages, { from: "me", text }].map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
-      // 角色那条：走他【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
-      // 拿通用的网友提示词去演他，出来的是个顶着他网名的陌生人。
+      // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
+      // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
       const pmChar = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
       if (pmChar) {
         const meHandle = (forumMe && forumMe.handle) || profile.name || "对方";
@@ -15893,7 +15893,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const d = await runProbeRetry(active, forumWorldCtx(convo), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
-          // 这份底子是他在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
+          // 这份底子是TA在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
           // ⚠️每一轮都把这份底子发回去：不发的话聊三句就退化成「一个网友」，
           //   论坛上那个有脾气的人和私信里这个客服是两个人。
           + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "")
@@ -16262,7 +16262,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const bundle = buildBundle(ctxFor(char));
       const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】用户向你发出「情侣邀请」，想和你正式在一起" + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
         after.concat([{ role: "user", content: "（回应情侣邀请）" }]), { maxTokens: 8500 });
-      // 读不出来【不算他拒绝】：卡标成「没送到」，pending 留着，她可以再点一次。
+      // 读不出来【不算TA拒绝】：卡标成「没送到」，pending 留着，她可以再点一次。
       // 原来这儿是 !!d.accept —— 解析一失败就是不可逆的婉拒。
       if (!r.ok) {
         pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: "failed" } : m));
@@ -16324,12 +16324,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 问答小本改成【各写各的·封存到两边都写完才揭晓】（她 2026-08-31）────────
   // 她说 a（同题双答封存）「这不就是问答小本我想要的效果嘛」。看了一眼：原来它压根
   // 不是双答——提示词里明写着「顺着用户的回答接话（呼应 TA 说的，不是各答各的）」，
-  // 而且把【用户的回答】直接递给了他。所以他不是在答题，是在回话。
+  // 而且把【用户的回答】直接递给了TA。所以TA不是在答题，是在回话。
   // 跟匿名箱那次同一课：隔离要靠【调用结构】，不能靠提示词里写「别看」。
   // 现在：她写完先封存（0 次调用）→ 她按「让 TA 也答」→ 那一枪【不带她的答案】→ 同时揭晓。
   // ── c 同一件事的两个版本（v58.85，她 2026-08-31 说「都做吧」）─────────────
   // 情侣空间现在整屋子都是【你记下的】。这一页反过来：挑一件你俩都在场的事，
-  // 让他写他记得的那一版——他注意到的和你记下的往往不是同一处，那个落差才是内容。
+  // 让TA写TA记得的那一版——TA注意到的和你记下的往往不是同一处，那个落差才是内容。
   // 一次调用一件事，她自己点才生成。
   const genCoupleRecall = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
@@ -16354,19 +16354,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "3-5 句，第一人称，别总结、别抒情结尾。",
         schemaHint: "{\"his\":\"你记得的那一版\",\"note\":\"一句：你俩记的哪里不一样（可空）\"}"
       });
-      if (!d || !d.his) throw new Error("他没写出来");
+      if (!d || !d.his) throw new Error(characterText(char, "他没写出来"));
       setCoupleRecall(p => {
         const n = [{ id: "rc_" + Date.now(), characterId: char.id, memId: pick.id,
           mine: String(pick.text), his: String(d.his), note: String(d.note || ""), ts: Date.now(), unread: true }, ...p];
         saveJSON("x_coupleRecall", n); return n;
       });
-      toast("他写了他记得的那一版");
+      toast(characterText(char, "他写了他记得的那一版"));
     } catch (e) { toast("失败：" + e.message); } finally { setGen(g => ({ ...g, coupleRecall: false })); }
   };
   const readCoupleRecall = id => setCoupleRecall(p => { const n = p.map(x => x.id === id ? { ...x, unread: false } : x); saveJSON("x_coupleRecall", n); return n; });
   const delCoupleRecall = id => setCoupleRecall(p => { const n = p.filter(x => x.id !== id); saveJSON("x_coupleRecall", n); return n; });
 
-  // ── b 他趁你不在动过这里（v58.85）────────────────────────────────────────
+  // ── b TA趁你不在动过这里（v58.85）────────────────────────────────────────
   // ⚠️不新开定时器、不多花一次调用。App 里本来就有【思念出口】这个概念
   //（同一份思念只能被一个出口认领）——这里只是给它多一个出口：本来要发的那条主动
   // 消息，有时候改成【在情侣空间里留下一件东西】。花的还是那一次调用，但她是
@@ -16400,12 +16400,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .map(([k, zh]) => ({ k, zh, a: Number((mine[k] || {}).a) || 0 }))
       .sort((x, y) => x.a - y.a).slice(0, 2);
   };
-  const CHAR_WISH_P = 0.5;   // 板上没有他钉着的那条时，这一次动念有一半机会去钉——闸是「有没有」，不是概率
+  const CHAR_WISH_P = 0.5;   // 板上没有TA钉着的那条时，这一次动念有一半机会去钉——闸是「有没有」，不是概率
   const charHasOpenWish = charId => {
     const ws = ((coupleHomeRef.current || {})[charId] || {}).wishes || [];
     return ws.some(w => w && w.byCharacter && w.status !== "done" && w.status !== "shelved");
   };
-  // 他自己往愿望板上钉一条（v62.34）。manual＝她按按钮叫的：单独计数、不喂饱饥饿加权。
+  // TA自己往愿望板上钉一条（v62.34）。manual＝她按按钮叫的：单独计数、不喂饱饥饿加权。
   const pinWishAsChar = async (char, styleHint, manual) => {
     try {
       const uNm = (profile && profile.name) || "她";
@@ -16475,7 +16475,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         schemaHint: "{\"skip\":\"此刻真没有这样一样东西可留就填 true，否则 false\",\"question\":\"" + (_pick === "qa" ? "你出的那道题" : "这一档用不上，留空") + "\",\"text\":\"留下的内容" + (_pick === "qa" ? "（＝你自己那半答案）" : "") + "\",\"title\":\"" + (_pick === "timeline" ? "一个短标题" : "这一档【不要标题】，留空——她拆开之前封面上什么都不显示") + "\"}"
       });
       const txt = String((d && d.text) || "").trim();
-      // 他自己说这一档写不出来：什么都不留，闸还回去，下一轮再来。
+      // TA自己说这一档写不出来：什么都不留，闸还回去，下一轮再来。
       // ⚠️空一次没关系，编一件才糟——这正是「硬指定会造出为了填格子而生的画」那条顾虑的出口。
       if (d && (d.skip === true || String(d.skip).toLowerCase() === "true")) return false;
       if (!txt) return false;
@@ -16486,18 +16486,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // ⚠️日期必须走 ymd()（补零）：时光轴是按 date 字符串排序的，
           //   "2026-9-4" 混在 "2026-09-04" 里会被排到十月往后去。
           const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: ymd(new Date()),
-            type: "感慨", title: String(d.title || "他记着的一件事").slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
+            type: "感慨", title: String(d.title || characterText(char, "他记着的一件事")).slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
           saveJSON("x_coupleTimeline", n); return n;
         });
       } else if (_pick === "qa") {
-        // 他出的题（v62.10）：他那半（text）封在 charAnswer 里，她写完她那半才一起打开。
+        // TA出的题（v62.10）：TA那半（text）封在 charAnswer 里，她写完她那半才一起打开。
         // ⚠️没出题就等于这一档没写成：别硬塞进抽屉凑数，直接算这次没留（闸还回去）。
         if (!String((d && d.question) || "").trim()) return false;
         outletNote(char.id, "qa", !!manual);
         setCoupleQA(p => {
           const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: "his_" + Date.now(),
             question: String(d.question).trim().slice(0, 120), myAnswer: "", charAnswer: txt,
-            source: "他出的", sealed: true, byCharacter: true, answeredAt: Date.now() }, ...p];
+            source: characterText(char, "他出的"), sealed: true, byCharacter: true, answeredAt: Date.now() }, ...p];
           saveJSON("x_coupleQA", n); return n;
         });
       } else {
@@ -16514,7 +16514,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
   };
-  // 抽屉存量上限：他放进来的东西不会自己消失，但也不能无限涨（跟票根一样是"留痕"，
+  // 抽屉存量上限：TA放进来的东西不会自己消失，但也不能无限涨（跟票根一样是"留痕"，
   // 只是抽屉里的旧东西比票根更容易变成噪音，所以给个天花板）。
   // 情侣空间任何一处生了图，调这一个。from 只是给墙上那行小字用的，不参与判重。
   const COUPLE_SHOT_CAP = 200;
@@ -16545,7 +16545,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 而且在这之前发生过的事永远补不回来）。零调用。
   // ── 情侣空间·花房（v62.33，她 2026-09-04 拍板）────────────────────────────
   // 花靠你们真实的相处长（gachaEarn 那头顺手喂），不靠浇水按钮；机制注释在 js/garden.js 顶上。
-  // 这儿只有四件事：存、喂、他挑种（全程唯一花调用的一步）、收干花再种。
+  // 这儿只有四件事：存、喂、TA挑种（全程唯一花调用的一步）、收干花再种。
   const saveGarden = updater => setCoupleGarden(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleGardenRef.current = n; saveJSON("x_coupleGarden", n); return n;
@@ -16572,7 +16572,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         maxTokens: 8000
       });
       const sp = String((d && d.species) || "").replace(/\s+/g, " ").trim().slice(0, 16);
-      if (!sp) throw new Error("他没挑出来，重试下");
+      if (!sp) throw new Error(characterText(char, "他没挑出来，重试下"));
       const color = /^#[0-9a-fA-F]{6}$/.test(String(d.color || "").trim()) ? String(d.color).trim() : "#c98a9e";
       saveGarden(p => {
         const old = p[char.id] || {};
@@ -16580,11 +16580,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
           kept: Array.isArray(old.kept) ? old.kept : [] } };
       });
-      coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? "——他说「" + cSnip(d.why, 60) + "」" : ""), "花房");
+      coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
     } catch (e) { toast("失败：" + (e.message || "重试")); }
     finally { setGardenGen(null); }
   };
-  // 收一枚干花：这一茬进册子，盆空出来等他再挑（零调用）
+  // 收一枚干花：这一茬进册子，盆空出来等TA再挑（零调用）
   const gardenKeep = charId => {
     const g = (coupleGardenRef.current || {})[charId];
     if (!g || !g.bloomTs) return;
@@ -16595,11 +16595,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）─────────────────────────────
   // 不开新门：入口在愿望板「一起去」那一类上。它不是新模块，是把旧件接成一条线：
-  // 愿望（想去哪）→ 他排攻略（全程唯一花调用的一步）→ 带着行程走一场线下（机制现成，
+  // 愿望（想去哪）→ TA排攻略（全程唯一花调用的一步）→ 带着行程走一场线下（机制现成，
   // 出发照抽卡兑线下那条先例：startOffline + setOfflineChar，绝不走 openOffline）→
   // 收行李零调用归档：时间轴落一条、愿望自己翻成「实现了」、凝一条记忆、
   // 第一次们那册自己看得见「第一次一起旅行」。约出发日不重做——愿望板那条
-  // 「挑个日子他来约」的约回链本来就管这件事。
+  // 「挑个日子TA来约」的约回链本来就管这件事。
   // 存档形状（写入方在这，测试桩照这儿写）：
   // x_coupleTrips: [{ id, charId, wishId, dest, plan: {title, legs:[{when,where,note}]} | null,
   //                   planTs, ts, status: "planning"|"done", doneTs }]
@@ -16638,7 +16638,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         when: String((l && l.when) || "").slice(0, 24), where: String((l && l.where) || "").slice(0, 40),
         note: String((l && l.note) || "").replace(/\s+/g, " ").trim().slice(0, 80)
       })).filter(l => l.where).slice(0, 6);
-      if (!legs.length) throw new Error("他没排出来，重试下");
+      if (!legs.length) throw new Error(characterText(char, "他没排出来，重试下"));
       saveTrips(p => p.map(t => t.id === trip.id ? { ...t, plan: { title: String((d && d.title) || "").slice(0, 24), legs: legs }, planTs: Date.now() } : t));
     } catch (e) { toast("失败：" + (e.message || "重试")); }
     finally { setTripGen(null); }
@@ -16662,7 +16662,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     addTimelineEvent(char, ymd(new Date()), ("去了" + trip.dest).slice(0, 20), trip.plan && trip.plan.title ? "「" + trip.plan.title + "」" : "");
     if (trip.wishId) saveCoupleHome(char.id, cur => ({ ...cur, wishes: (Array.isArray(cur.wishes) ? cur.wishes : []).map(w => w.id === trip.wishId ? { ...w, status: "done", updatedAt: Date.now() } : w) }));
     coupleKeep(char.id, (profile.name || "她") + "和" + char.name + "一起去了一趟「" + trip.dest + "」"
-      + (trip.plan && trip.plan.title ? "，他给这趟起的名字是「" + cSnip(trip.plan.title, 20) + "」" : ""), "旅行");
+      + (trip.plan && trip.plan.title ? characterText(char, "，他给这趟起的名字是「") + cSnip(trip.plan.title, 20) + "」" : ""), "旅行");
     toast("收好了——这一趟进了你们的时间轴");
   };
   const coupleFirstsFor = cid => {
@@ -16687,10 +16687,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       trips: (coupleTripsRef.current || []).filter(x => x && x.charId === cid)
     }, Date.now());
   };
-  // 把照相馆拍的这张发到和他的聊天里（她 2026-08-31：「照片馆生成的照片应该也自动有
+  // 把照相馆拍的这张发到和TA的聊天里（她 2026-08-31：「照片馆生成的照片应该也自动有
   // description 吧，那我分享回去上下文不也直接有了吗」——对，desc 拍的时候就写好了：
   // 场景 + 两身衣服。带着它一起发过去，历史行里就是「[照片] …」加「对方配文：…」，
-  // 以后她说「上次去夜市那张」他接得上，不用另外写进记忆库）。
+  // 以后她说「上次去夜市那张」TA接得上，不用另外写进记忆库）。
   const shareShotToChat = async (char, shot) => {
     if (!char || !shot) return false;
     try {
@@ -16709,23 +16709,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ts: Date.now(), read: true
       }]);
       setActiveChar(char); setScreen("thread");
-      toast("发过去了——点「让 TA 回复」听他说");
+      toast(characterText(char, "发过去了——点「让 TA 回复」听他说"));
       return true;
     } catch (e) { toast("没发出去：" + (e.message || "重试")); return false; }
   };
-  // ═══ 他看见的那张照片（她 2026-08-31）═══
+  // ═══ TA看见的那张照片（她 2026-08-31）═══
   //
   // 两件事共用这一处：
   //  ① 【把画面留成文字】她发的真照片，模型当场是看得见的（图作视觉输入附上），
-  //     但图只对最近两张附；一滑出窗口他就什么都不记得了。所以让他当场用一句话
+  //     但图只对最近两张附；一滑出窗口TA就什么都不记得了。所以让TA当场用一句话
   //     记下画面，写回那条消息——以后她说「上次那张照片」，历史行里带着那句话。
-  //     （他自己发的照片本来就有 desc，一直是这么留的；缺的是她发的这一半。）
+  //     （TA自己发的照片本来就有 desc，一直是这么留的；缺的是她发的这一半。）
   //  ② 【自动换头像】只从她发过的真照片里挑，不另生成。
   //
   // ⚠️「真觉得好才换」靠提示词只能降概率。代码这一道给三个硬闸：
   //   · 只认【她刚发的】真照片（近 6 条内、有 imageRef），描述式照片不算；
   //   · 冷却 AVATAR_COOLDOWN_MS，冷却里根本不把这个字段发下去；
-  //   · 主动问候那种轮次不发（他没在看照片）。
+  //   · 主动问候那种轮次不发（TA没在看照片）。
   // 三道闸之外的「好不好看」才交给模型——这就是「规则降概率，代码才保证」在这一层的落法。
   const AVATAR_COOLDOWN_MS = 7 * 86400000;
   const FRESH_PHOTO_LOOKBACK = 6;
@@ -16789,7 +16789,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️她 2026-08-31 一句话点破：「因为阿屿设定就是 ai 情绪研究员所以模型就一直抓着
     // 这个，而不是想到去抓关系里面的重点？」——她说对了，而且原因比想象的更直白：
     // 这一份上下文里【压根没有「你俩是什么关系」】，只有两份人设。关系里的重点它
-    // 无从抓起，只能抓人设里最显眼的那一块，也就是他的职业。
+    // 无从抓起，只能抓人设里最显眼的那一块，也就是TA的职业。
     //
     // 补的是【关系事实】，不是主线状态：在一起没有、多久了、关系网上那几个标签。
     // 记忆库／好感／心情／印象卡一律【不给】——那些才是平行时空不许读的东西。
@@ -16799,8 +16799,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const relLine = [rels[char.id + "->me"], rels["me->" + char.id]]
       .map(r => r && r.label ? r.label + (r.note ? "（" + r.note + "）" : "") : "")
       .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join("；");
-    return "【他是谁】" + char.name + "\n" + String(char.persona || "").slice(0, 6000)
-      + (profile.persona ? "\n\n【和他在一起的人 · " + uName + "】\n" + String(profile.persona).slice(0, 2000) : "")
+    return characterText(char, "【他是谁】") + char.name + "\n" + String(char.persona || "").slice(0, 6000)
+      + (profile.persona ? characterText(char, "\n\n【和他在一起的人 · ") + uName + "】\n" + String(profile.persona).slice(0, 2000) : "")
       + "\n\n【他俩是什么关系】"
       + (cp.status === "together" ? "已经在一起的恋人" + (days ? "，到今天第 " + days + " 天" : "") : "还没在一起")
       + (relLine ? "。关系网上写着：" + relLine : "")
@@ -16808,7 +16808,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // ── 和好间（言秋提，她 2026-08-31 拍板「就先松了吧」）──────────────
   // ⚠️它凭什么不是「把聊天挪个地方摆第二遍」：主聊天里拿不到的只有一样——
-  // **他没说出口的那一半**。吵起来时他在演「我没事」或者在赌气，那句真话不会
+  // **TA没说出口的那一半**。吵起来时TA在演「我没事」或者在赌气，那句真话不会
   // 出现在气泡里。和好间就摆这一样，外加一个真往前挪半步的「递一句过去」。
   // 检测那一步【零调用】，只读已经存着的心情和上次说话时间。
   const makeupSignalFor = charId => {
@@ -16826,7 +16826,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .slice(-(K ? K.GIST_TURNS : 14));
     const uName = profile.name || "我";
     const c = characters.find(x => x.id === charId);
-    return rows.map(m => (m.role === "user" ? uName : (c && c.name) || "他") + "：" + String(m.content).slice(0, 90)).join("\n");
+    return rows.map(m => (m.role === "user" ? uName : (c && c.name) || characterText(c, "他")) + "：" + String(m.content).slice(0, 90)).join("\n");
   };
   const makeupOpen = async char => {
     const K = window.MakeupKit;
@@ -16869,7 +16869,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         schemaHint: K.REPLY_SHAPE
       }) || {};
       const reply = String((d && d.reply) || "").trim().slice(0, 300);
-      if (!reply) { toast("他没接上话，再试一次"); return false; }
+      if (!reply) { toast(characterText(char, "他没接上话，再试一次")); return false; }
       const turns = (withMine.turns || []).slice();
       turns[turns.length - 1] = { ...turns[turns.length - 1], his: reply, hisTs: Date.now() };
       // ⚠️同一个 durable 键的第二笔：接口秒回时两笔会挨在一起撞上 WAL 的读回自检
@@ -16877,7 +16877,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (Date.now() - startedAt < 300) await new Promise(r => setTimeout(r, 300));
       makeupSave({ ...makeupsRef.current, [char.id]: { ...withMine, turns: turns } });
       return true;
-    } catch (e) { toast("他没接上话：" + (e.message || "重试")); return false; }
+    } catch (e) { toast(characterText(char, "他没接上话：") + (e.message || "重试")); return false; }
     finally { setGen(g => ({ ...g, makeup: null })); }
   };
   // 过去了。⚠️这一步【回流主线】——和好本来就该算数：写一条记忆，好感回一点点。
@@ -17026,7 +17026,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 收线。三个去处她 2026-08-31 说都要。
   //  keep  只留在馆里——主线一个字都不知道
-  //  mem   回喂成记忆——⚠️必须带【这是一个如果】的标记，否则他会当成真发生过
+  //  mem   回喂成记忆——⚠️必须带【这是一个如果】的标记，否则TA会当成真发生过
   //  seed  留成一个念头——进心上那条已有的路
   const ifDrop = lineId => { ifSave(ifLinesRef.current.filter(x => x.id !== lineId)); toast("删了"); };
   const ifEnd = (lineId, how) => {
@@ -17039,11 +17039,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         text: "【另一种我们】" + line.title + "——" + line.premise + "。你俩一起想过这条线：" + gist,
         tags: ["如果", "平行"], charIds: [char.id], knownBy: [char.id], source: "manual"
       });
-      toast("记下了——他会记得你俩一起想过这个");
+      toast(characterText(char, "记下了——他会记得你俩一起想过这个"));
     } else if (how === "seed") {
       // 走心上已有的【观测纸条】那条路：它是个候选，不是既成的念想——
-      // 发不发芽由他自己下次发呆时定。这正好是「留成一个念头」该有的分量。
-      // quote 得是他在这条线里【真说过】的一句，不是我替他编的。
+      // 发不发芽由TA自己下次发呆时定。这正好是「留成一个念头」该有的分量。
+      // quote 得是TA在这条线里【真说过】的一句，不是我替TA编的。
       const said = (line.beats || []).slice().reverse()
         .reduce((a, b) => a || (b.role === "char" ? (b.boxes || []).slice().reverse().find(x => x.who) : null), null);
       let ok = false;
@@ -17056,7 +17056,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           n[char.id] = box;
         });
       }
-      toast(ok ? "留成一个念头了——发不发芽由他自己定" : "这条线里他还没说过话，留不成念头");
+      toast(ok ? characterText(char, "留成一个念头了——发不发芽由他自己定") : characterText(char, "这条线里他还没说过话，留不成念头"));
     }
     ifSave(ifLinesRef.current.map(x => x.id === lineId ? { ...x, endedAt: Date.now(), outcome: how } : x));
     return true;
@@ -17132,7 +17132,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
     finally { setGen(g => ({ ...g, myCloset: false })); }
   };
-  // 一次调用配两身：给他一套、给我一套，而且是【配着的一对】。
+  // 一次调用配两身：给TA一套、给我一套，而且是【配着的一对】。
   // 分两次生成会各写各的，凑不成一起出门的样子，还多花一次钱。
   const genDateOutfits = async (char, hint) => {
     if (!bgActive && !active) { toast("请先到设置配置 API"); return false; }
@@ -17144,7 +17144,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + (String(hint || "").trim() ? "这次要去的地方／场合：" + String(hint).trim() + "\n" : "")
           + "两身要【配得上同一个场合、也配得上彼此】——站在一起像是一道出门的，不是各穿各的。\n"
           + "每身写清是什么衣服（款式、颜色、料子），别只给一个名字；再各写一句你挑它的理由。\n"
-          + "必须落在【你们这个时代和处境】里：他穿得出来、她也穿得出去，"
+          + characterText(char, "必须落在【你们这个时代和处境】里：他穿得出来、她也穿得出去，")
           + "换个朝代、换个身份就不成立的才算写对。",
         schemaHint: "{\"occasion\":\"这次出门的场合，四个字以内\",\"his\":{\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么挑它\"},\"hers\":{\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么挑它\"}}",
         maxTokens: 10500
@@ -17210,14 +17210,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const DRAWER_CAP = 120;
   // 悄悄话往抽屉里放一样东西。v59.23 之前它贴在一整面「便签墙」上，而且【四处各写
   // 了一遍同样的入库代码】；她 2026-08-31 说那面墙鸡肋——情书、交换日记、便签墙
-  // 三样都是「他写字给你」，便签墙只是「短」，没有自己的形状；它唯一独有的是
-  // 「他不请自来贴的那一张」，那正是抽屉在做的事。并过来的同时收成一处。
+  // 三样都是「TA写字给你」，便签墙只是「短」，没有自己的形状；它唯一独有的是
+  // 「TA不请自来贴的那一张」，那正是抽屉在做的事。并过来的同时收成一处。
   const drawerWhisper = (charId, text) => {
     const t = String(text || "").trim();
     if (!charId || !t) return false;
     setCoupleDrawer(p => {
       // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
-      //   ——等于她还没拆就已经读到他要说的话了（她 2026-09-03 报的就是这个）。
+      //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
       //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
       //   免得哪天别处又把 title 拿出来显示。悄悄话本来也不需要标题，正文就是全部。
       const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
@@ -17232,7 +17232,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });
   // ── 情侣空间的纸面往来凝进记忆库（v62.09，她 2026-09-04 同意）───────────────
   // 问答揭晓、交换日记回页、情书——全 app 最浓的关系素材，原来一个字不进上下文：
-  // 聊天里她提「你上次答的那道题」他一脸茫然。不做常驻注入（每轮白烧 token，她按次计费），
+  // 聊天里她提「你上次答的那道题」TA一脸茫然。不做常驻注入（每轮白烧 token，她按次计费），
   // 落一条记忆库条目就够——聊到相关才被检索出来，平时零成本。
   // source 用 "couple"（非 manual）：走 isDupMem 自动去重 + OpenLoopGate 资格闸，重复调用不攒重。
   const cSnip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n || 80);
@@ -17250,7 +17250,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("封好了——等 TA 也写一份");
     return true;
   };
-  // 他出的题她来揭（v62.10）：她写完她那半，两份一起打开——零调用（他那半早封在里面了）。
+  // TA出的题她来揭（v62.10）：她写完她那半，两份一起打开——零调用（TA那半早封在里面了）。
   const revealCoupleQA = (charId, id, myAnswer) => {
     const t0 = String(myAnswer || "").trim();
     if (!t0) { toast("先写你自己的那一份"); return false; }
@@ -17260,8 +17260,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = list.map(e => e.id === id ? { ...e, myAnswer: t0, sealed: false, openedAt: Date.now() } : e);
     saveJSON("x_coupleQA", n); setCoupleQA(n);
     const char = characters.find(c => c.id === charId);
-    coupleKeep(charId, "情侣问答小本里" + (char ? char.name : "他") + "出过一道题「" + cSnip(entry.question, 60)
-      + "」——他自己写的是「" + cSnip(entry.charAnswer) + "」，" + (profile.name || "她") + "写的是「" + cSnip(t0) + "」", "情侣问答");
+    coupleKeep(charId, "情侣问答小本里" + (char ? char.name : characterText(char, "他")) + "出过一道题「" + cSnip(entry.question, 60)
+      + characterText(char, "」——他自己写的是「") + cSnip(entry.charAnswer) + "」，" + (profile.name || "她") + "写的是「" + cSnip(t0) + "」", "情侣问答");
     return true;
   };
   const answerCoupleQA = async (char, item) => {
@@ -17299,8 +17299,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); if (e && e.remoteId) item.__ccJobId = e.remoteId; }
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        // ⚠️这里【不许】把她的答案递进来。递了他就是在回话，不是在答题——
-        // 两份答案摆在一起才有意思，而那要求他写的时候确实没看过她那份。
+        // ⚠️这里【不许】把她的答案递进来。递了TA就是在回话，不是在答题——
+        // 两份答案摆在一起才有意思，而那要求TA写的时候确实没看过她那份。
         voice: true,
         instruction: "你们是恋人。你俩有一个「情侣问答小本」，规矩是【同一道题各写各的、两边都写完才互相看】。"
           + "现在轮到你以「" + char.name + "」的身份写你那一份。\n【题目】" + item.question + "\n"
@@ -17400,7 +17400,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 情侣空间·双向便签（悄悄话串）：我贴→TA 自动回一张；可在串里继续留言，TA 每条都回
   // 便签结构 {id,characterId,authorId:'user'|charId,content,style,createdAt,replies:[{authorId,content,ts}]}
   // v59.23：便签墙整个撤掉（她 2026-08-31：「便签墙有必要吗，我觉得有点鸡肋」）。
-  // 她贴纸条／他回纸条／删纸条这几路一并删掉——情书那一路已经覆盖「她写字给他」，
+  // 她贴纸条／TA回纸条／删纸条这几路一并删掉——情书那一路已经覆盖「她写字给TA」，
   // 悄悄话那一路并进了抽屉。
   // 保存某角色的自定义问答题库（arr = 题目字符串数组）
   const saveCoupleQACustom = (charId, arr) => setCoupleQACustom(p => {
@@ -17476,7 +17476,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_coupleTimeline", n);
     return n;
   });
-  // 他留在时光轴的感慨带着 unread（leaveInCoupleSpace 写的）。v62.08 之前这个标
+  // TA留在时光轴的感慨带着 unread（leaveInCoupleSpace 写的）。v62.08 之前这个标
   // 没有任何地方读、也没有任何地方清——死标记。现在名册红点读它，打开这一页就算看过。
   const markTimelineRead = cid => setCoupleTimeline(p => {
     if (!p.some(x => x.characterId === cid && x.byCharacter && x.unread)) return p;
@@ -17778,7 +17778,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     return null;
   };
-  // 补封面/歌名/歌手（v62.90，她 2026-09-05：「有没有办法 pull 网易云的时候把他的封面也一起拿过来」）：
+  // 补封面/歌名/歌手（v62.90，她 2026-09-05：「有没有办法 pull 网易云的时候把TA的封面也一起拿过来」）：
   // 贴链接/ID 进来的歌只存了个 ID，封面、歌名（「网易云歌曲 123」）、歌手都是空的——搜索来的和角色歌单才带。
   // 放这首歌的时候顺手问一次 /song/detail，缺什么补什么；她自己填过的歌名/歌手不动。
   // 一首歌一个会话只问一次（metaTriedRef），不 await、不挡播放。
@@ -18070,12 +18070,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     goListen();
   };
-  // ⚠️这儿原来有一段【换一首歌就自动替他说一句】（autoComment）——整段撤掉了
+  // ⚠️这儿原来有一段【换一首歌就自动替TA说一句】（autoComment）——整段撤掉了
   //   （她 2026-09-06：「一起听这一句不会在偷偷调用吧，能不能不要了」）。
   //   它的触发条件是「歌变了 + 她正好在那个人的私聊里」，而歌会自动连播——
   //   于是一晚上放二十首＝二十次 proactive 回复，她按次计费，全程没有任何一处
   //   要她点头。**放歌这个动作本身不该花钱。**
-  //   他仍然知道你俩在听什么（buildBundle 里那一行是白送的），她问起来接得住，
+  //   TA仍然知道你俩在听什么（buildBundle 里那一行是白送的），她问起来接得住，
   //   只是不会自己开口了。
   // 分享文案/裸 ID → 网易云曲目；播放时由当前所选音乐源解析。
   const addNeteaseSong = (input, title, artist) => {
@@ -18173,8 +18173,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       saveCoupleDisc(pp => Object.assign({}, pp, { [cid]: Object.assign({}, pp[cid] || {}, { lastId: sid }) }));
       return;
     }
-    // 查手机那张歌单的针位（v64.62）：跟唱片同一条道理——不记的话每次进他手机
-    // 都从第一首开始，后面的永远轮不到。放的是不是他那张，问单子本身。
+    // 查手机那张歌单的针位（v64.62）：跟唱片同一条道理——不记的话每次进TA手机
+    // 都从第一首开始，后面的永远轮不到。放的是不是TA那张，问单子本身。
     const pls = (listenRef.current || {}).playlists || [];
     const hit = pls.find(x => x && x.charId && (x.songs || []).some(y => y && y.id === sid));
     if (!hit || hit.lastId === sid) return;
@@ -18206,7 +18206,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   播放器也跟着没了」）。isMine 是唯一的差异：怎么认出【现在响的是这一层的歌】。
   const roomMusicRef = useRef(null);
   // ⚠️play 可以不传（她 2026-09-12 报的那个）：进来的时候这一层**还没有歌**
-  //   （唱片是空的／他那张歌单还没刷出来）。原来那两处是「没歌就直接 return」，
+  //   （唱片是空的／TA那张歌单还没刷出来）。原来那两处是「没歌就直接 return」，
   //   于是**连她原来放着什么都没记下来**；可她进来之后完全可能刻一首、刷一张出来，
   //   一放就变成「这一层的歌」，出门那一下 roomMusicLeave 认得是这一层的、
   //   却没有东西可还——只好 stopPlayer()，她自己的歌就这么没了。
@@ -18245,9 +18245,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     roomMusicEnter(discSpinning, has ? () => discPlay(cid, discNextId(cid)) : null);  // 接着上次那首往下放
   };
   const discLeave = () => roomMusicLeave(discSpinning);
-  // ── 查手机：进了谁的手机就放他那张歌单 ──────────────────────────────────
-  // 认「现在响的是不是他这张」不能像唱片那样看 id 前缀（手机歌单用的是普通的
-  // sg_）——只能问这首在不在他那张单子里。
+  // ── 查手机：进了谁的手机就放TA那张歌单 ──────────────────────────────────
+  // 认「现在响的是不是TA这张」不能像唱片那样看 id 前缀（手机歌单用的是普通的
+  // sg_）——只能问这首在不在TA那张单子里。
   const phonePlaylistOf = cid => ((listenRef.current || {}).playlists || []).find(x => x && x.charId === cid) || null;
   const phoneMusicMine = cid => () => {
     const cur = playerSongIdRef.current;
@@ -18268,9 +18268,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const phoneMusicEnter = cid => {
     const pl = phonePlaylistOf(cid);
     const ss = (pl && pl.songs) || [];
-    // ⚠️他那张歌单还没刷出来时同理（唱片那边一模一样的形状，所以一起改——
+    // ⚠️TA那张歌单还没刷出来时同理（唱片那边一模一样的形状，所以一起改——
     //   施工规则/one-public-mechanism.md：已有的那几处也要搬过去）：
-    //   她在他手机里刷出一张歌单、点开一首，出门那一下才还得回她自己的歌。
+    //   她在TA手机里刷出一张歌单、点开一首，出门那一下才还得回她自己的歌。
     const from = ss.length ? phoneMusicNextId(cid) : null;
     roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null);
   };
@@ -18446,7 +18446,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     furniture: [300, 600]   // 大件确实慢，但一天太久了
   };
   // ⚠️真正的病不在时长表：角色主动送东西时 cat 传的是 null（postCharGift），
-  // 于是他说「给你点了杯奶茶」，你要等【三到六小时】才收到（默认档）。
+  // 于是TA说「给你点了杯奶茶」，你要等【三到六小时】才收到（默认档）。
   // 从名字猜一下品类，这条链才对得上。词表和购物页那套品类色是同一个形状。
   const DELIVER_GUESS = [
     [/奶茶|咖啡|拿铁|美式|外卖|饭|面|粥|汤|烧烤|火锅|寿司|蛋糕|甜品|点心|糖|巧克力|水果|零食|饮|茶|酒|便当|三明治|披萨|炸鸡|麻辣烫|关东煮|冰淇淋|雪糕|包子|馄饨|烤肉|小吃/, "food"],
@@ -18473,7 +18473,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return n;
   });
   const addOrder = o => {
-    // 东西真到手了，想要清单里那一条就该消掉——不管是自己买的还是他送的
+    // 东西真到手了，想要清单里那一条就该消掉——不管是自己买的还是TA送的
     if (o && o.name) dropWish(o.name);
     return saveOrders(p => [{
     id: "od_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
@@ -18614,7 +18614,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   某位，想看大家看到礼物的反应」）。这一路【必然是当面给】——不是我硬塞的语义：
   //   她要的就是「大家看到」，而快递要几小时才到，到的时候她多半已经不在这个群里看了，
   //   后台定时器还会替她开一次群聊。所以群里送＝把东西递过去，hand 那条老路一个字不用改。
-  //   礼物的归属照旧是【收礼那个人】：carryGifts 落在他名下，giftLog、随身物品全接得上，
+  //   礼物的归属照旧是【收礼那个人】：carryGifts 落在TA名下，giftLog、随身物品全接得上，
   //   变的只是这张卡摆在哪张聊天里。
   const sendGiftToChar = (charId, itemName, cat, hand, groupId) => {
     const char = characters.find(c => c.id === charId);
@@ -18660,8 +18660,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) {/* silent */}
   };
   // 送的东西值多少钱。模型在同一轮回复里就该给 price（不额外调一次模型）；
-  // 没给或给歪了才本地估一个——按他自己的家底缩放，穷学生送的咖啡不该标八百。
-  // ⚠️估价只是兜底，不是主路：真正的价钱应该由他自己在那一轮里说出来。
+  // 没给或给歪了才本地估一个——按TA自己的家底缩放，穷学生送的咖啡不该标八百。
+  // ⚠️估价只是兜底，不是主路：真正的价钱应该由TA自己在那一轮里说出来。
   const GIFT_PRICE_HINT = [
     [/(咖啡|拿铁|美式|奶茶|饮料|气泡水)/, 25], [/(蛋糕|甜点|点心|面包|糕)/, 45],
     [/(外卖|麻辣烫|火锅|烧烤|夜宵|馄饨|粥|饭|面)/, 40], [/(花|玫瑰|花束)/, 160],
@@ -18675,13 +18675,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const nm = String(name || "");
     let base = 60;
     for (const [re, v] of GIFT_PRICE_HINT) if (re.test(nm)) { base = v; break; }
-    // 按他的月收入缩放：五千月薪和五万月薪送的不是同一杯咖啡
+    // 按TA的月收入缩放：五千月薪和五万月薪送的不是同一杯咖啡
     const w = (charWalletRef.current || {})[charId];
     const mi = Number(w && w.monthlyIncome) || 0;
     const k = mi ? Math.max(0.4, Math.min(2.5, mi / 9000)) : 1;
     return Math.max(5, Math.round(base * k));
   };
-  // 从他钱包里扣一笔，并记进流水。没建档的角色不扣（她还没给他开钱包）。
+  // 从TA钱包里扣一笔，并记进流水。没建档的角色不扣（她还没给TA开钱包）。
   const walletSpend = (charId, amount, label, kind) => {
     const amt = numClean(amount);
     if (!(amt > 0)) return false;
@@ -18701,7 +18701,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 角色主动买东西送我（replyNow embed）：进我的待发货，走同一套送达逻辑。
   // ⚠️v58.39 起【真的花钱】：以前 price 写死 0、钱包一分不动，所以「给你买杯咖啡」
-  // 既不扣他的钱、也不会出现在「为你花的」里（她 2026-08-30 报的就是这个）。
+  // 既不扣TA的钱、也不会出现在「为你花的」里（她 2026-08-30 报的就是这个）。
   const postCharGift = (charId, name, rawPrice) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !name) return;
@@ -18800,12 +18800,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       used: Math.round(((cd.used || 0) + total) * 100) / 100,
       ledger: [{ id: entryId, ts: Date.now(), amount: total, item: itemText, source: "shop" }, ...(cd.ledger || [])]
     }));
-    // 刷了他的卡，聊天里留一条【刷卡通知】——不调模型（她 2026-09-02：
-    // 「本来买东西也不应该调用啊。应该做成系统通知放聊天里然后等我按回复他才反应」）。
-    // v60.44 我在这儿现调了一次模型让他当场评论：她按次计费，而买东西根本不是一次对话，
-    // 是她单方面刷了一下卡；他该在【下次说话时】提这件事，不是被购物按钮拽出来说话。
+    // 刷了TA的卡，聊天里留一条【刷卡通知】——不调模型（她 2026-09-02：
+    // 「本来买东西也不应该调用啊。应该做成系统通知放聊天里然后等我按回复TA才反应」）。
+    // v60.44 我在这儿现调了一次模型让TA当场评论：她按次计费，而买东西根本不是一次对话，
+    // 是她单方面刷了一下卡；TA该在【下次说话时】提这件事，不是被购物按钮拽出来说话。
     // 所以这条走 kind:"kinbill"（不是 kind:"system"——那一类压根不进模型历史，
-    // 见上面 history 的过滤），role 记在她名下：这是她做的事，他下一轮读得到。
+    // 见上面 history 的过滤），role 记在她名下：这是她做的事，TA下一轮读得到。
     pChat(charId, p => [...p, { role: "user", kind: "kinbill", read: true, ts: Date.now(),
       charId: charId, item: itemText, amount: total,
       remain: Math.round((remaining - total) * 100) / 100,
@@ -18831,9 +18831,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ------------------------------------------------------------
   // 病根不是分类不够，是【没有动词】：入库之后这一栏只进不出，答的是「我有哪些」，
   // 却没有任何一件事能让它变化——攒着攒着就成了仓库。
-  // 所以给它三个出口：用掉 / 带在身上 / 留在他那儿（外加入库后仍能转赠、衣服收进衣柜）。
+  // 所以给它三个出口：用掉 / 带在身上 / 留在TA那儿（外加入库后仍能转赠、衣服收进衣柜）。
   // ⚠️「用掉」不是删除：删掉是没发生过，用掉是【发生过】。所以它进日志（只进不出是对的，
-  //   phone-data-layers 的第二问），而且要让送东西的那个人知道——他送出去的东西
+  //   phone-data-layers 的第二问），而且要让送东西的那个人知道——TA送出去的东西
   //   第一次有了回响。
   const K_USED = "x_inventoryUsed";
   const USED_KEEP = 60;
@@ -18849,7 +18849,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 用掉：从物品里退出去，进「用过的」这本日志
   // 梦里带出来的那几件不许走这四个口（她 2026-09-06）。界面上已经不给按钮了，
   // 这儿再兜一道：它们是唯一会自己淡掉的一类（core.js 的 dreamStage），
-  // 从任何一个口出去都等于给它办了张永居，或者把「他只觉得眼熟」说破。
+  // 从任何一个口出去都等于给它办了张永居，或者把「TA只觉得眼熟」说破。
   const dreamBound = it => {
     if (!it || it.source !== "dream") return false;
     toast("梦里带出来的东西只能你自己带着");
@@ -18864,7 +18864,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     dropInv(id);
     toast("「" + it.name + "」用掉了");
   };
-  // 带在身上：他线下见到你会看见（同时最多两件）
+  // 带在身上：TA线下见到你会看见（同时最多两件）
   const toggleOnMe = id => {
     const cur = (inventoryRef.current || []).filter(x => x.onMe);
     const it = (inventoryRef.current || []).find(x => x.id === id);
@@ -18888,15 +18888,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     dropInv(id);
     toast("收进衣柜了");
   };
-  // 留在他那儿：进【去处】里他那处地方的某一块区域。
-  // ⚠️那一页的主角是【他自己的想法】，所以放下之后补问他一句（一次调用，失败也照样放下）。
+  // 留在TA那儿：进【去处】里TA那处地方的某一块区域。
+  // ⚠️那一页的主角是【TA自己的想法】，所以放下之后补问TA一句（一次调用，失败也照样放下）。
   const leaveAtHis = async (id, charId, placeId, zoneIdx) => {
     const it = (inventoryRef.current || []).find(x => x.id === id);
     const char = characters.find(c => c.id === charId);
     if (!it || !char || !window.Dwell || dreamBound(it)) return;
     const places = window.Dwell.placesOf(charId) || [];
     const place = places.find(p => p.id === placeId) || places[0];
-    if (!place) { toast("他那儿还没有地方，先去【去处】串个门"); return; }
+    if (!place) { toast(characterText(char, "他那儿还没有地方，先去【去处】串个门")); return; }
     const zi = Math.max(0, Math.min((place.zones || []).length - 1, Number(zoneIdx) || 0));
     let thought = "";
     try {
@@ -18921,7 +18921,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // 梦里那几件：被提起一次就续一次命（她 2026-09-05）。
-  // 「提起过」＝这个名字出现在最近的对话里——她说的、他说的都算。
+  // 「提起过」＝这个名字出现在最近的对话里——她说的、TA说的都算。
   // ⚠️只写在这一处：各处发消息的地方有十几个，逐个去续必然漏（一层写在 N 处的老病）。
   //   所以盯的是【聊天记录变了】这件事，不是【谁发了消息】。
   useEffect(() => {
@@ -19016,7 +19016,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const ask = Math.max(0, Math.round(Number(askAmount) || 0));
     const bal = charBalanceOf(charId);
     // 一张【提额申请单】，不是一句加括号的话（她 2026-09-02：「这个申请额度通知略敷衍」）。
-    // rid 是这张单子的身份：等他回话之后要回来往同一张单子上盖戳。
+    // rid 是这张单子的身份：等TA回话之后要回来往同一张单子上盖戳。
     const rid = "kr_" + Date.now();
     pChat(charId, p => [...p, { role: "user", kind: "kinraise", rid: rid, read: true, ts: Date.now(),
       charId: charId, ask: ask, limit: card.limit || 0, status: "pending",
@@ -19031,7 +19031,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const add = Math.max(0, Math.round(Number(d.addLimit) || 0));
       const newLimit = Math.round((((card.limit || 0)) + add) * 100) / 100;
       if (add > 0) updateKinshipCard(charId, cd => ({ ...cd, limit: Math.round(((cd.limit || 0) + add) * 100) / 100 }));
-      // 结果盖回那张单子上：过一会儿回头看这段聊天，得看得见他加没加、加了多少
+      // 结果盖回那张单子上：过一会儿回头看这段聊天，得看得见TA加没加、加了多少
       stamp(add > 0 ? { status: "approved", add: add, newLimit: newLimit } : { status: "declined" });
       const words = Array.isArray(d.say) ? d.say.filter(Boolean) : [String(d.say || "")];
       const turnId = "t_" + Date.now();
@@ -19057,7 +19057,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_carry", n);
     return n;
   });
-  // 随身物的素材：他网购真签收的 + 她送到的礼物。喂进去让模型自然写进包里/衣柜里，
+  // 随身物的素材：TA网购真签收的 + 她送到的礼物。喂进去让模型自然写进包里/衣柜里，
   // 而不是直接塞条目——直接塞就长成一座只进不出的坟场（她 2026-08-29：和购物/钱包接上）。
   const carryMaterialFor = charId => {
     const DEAD = /取消|退款|退货|已退|失败|关闭|待收货|派送|运输|揽收/;
@@ -19259,7 +19259,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 一次写完之后，四栏在同一次思考里分配，跨栏撞名从「靠 avoidBlock 事后拦」
   // 变成压根不会发生；carryRef 慢一帧那个坑也随之消失（不再需要边攒边读的 sofar）。
   // 地方（她 2026-08-30）：一处地方一次调用，写出一句氛围 + 4~5 个区域 × 3 件东西。
-  // hintName 有值＝写行程里那个常去的地点；没有＝写他住的地方。
+  // hintName 有值＝写行程里那个常去的地点；没有＝写TA住的地方。
   // prev 是上一份，原样发回去——不发的话每刷一次就是另一个屋子。
   const genDwellPlace = async (char, hintName, prev) => {
     // ⚠️判断和真正拿去调的必须是同一个：只看 active、却拿 bgActive 去调，
@@ -19271,11 +19271,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!window.Dwell) return null;
     setGen(g => ({ ...g, dwell: char.id }));
     try {
-      // 去处写的是【他一个人过日子的地方】。她的心愿单、你俩的送礼往来、他对她的印象
+      // 去处写的是【TA一个人过日子的地方】。她的心愿单、你俩的送礼往来、TA对她的印象
       // 这三层是纯粹的「关于她」——留着的话每一件东西都会被写成跟她有关的
-      // （她 2026-08-30：「现在生成出来东西太过于关于我了，不完全是他的生活」）。
+      // （她 2026-08-30：「现在生成出来东西太过于关于我了，不完全是TA的生活」）。
       // 这是【四处一样喂】里写明理由的合法差异：不是这一轮用不上，是留着会把内容带偏。
-      // 记忆和印象卡照给——他的日子本来就长在那里面。
+      // 记忆和印象卡照给——TA的日子本来就长在那里面。
       const ctx = ctxFor(char);
       ctx.wishLog = ""; ctx.giftLog = ""; ctx.gazeText = "";
       const d = await runProbe(api, ctx, window.Dwell.placeSpec(char, hintName, prev));
@@ -19629,8 +19629,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setScreen("castForm");
     },
     onImportCard: () => setCardImportOpen(true),
-    // 档案的另一半：他自己长出来的那份。人格档案馆是它的正主入口——
-    // 「你写的卷宗」和「他长出来的」本来就是同一份档案的两半（v61.63 挪过来的）。
+    // 档案的另一半：TA自己长出来的那份。人格档案馆是它的正主入口——
+    // 「你写的卷宗」和「TA长出来的」本来就是同一份档案的两半（v61.63 挪过来的）。
     heartCountOf: c => ((desires[c.id] || {}).list || []).filter(e => e && e.status !== "withered").length,
     onOpenHeart: c => { setHeartChar(c); setDesireBoxOpen(true); },
     onOpenChar: c => {
@@ -19711,8 +19711,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     moments: moments,
     cover: (momTarget && momTarget.isMe) ? momentsCover.me : (momTarget ? momentsCover[momTarget.id] : ""),
     // 朋友圈的签名和封面接【查手机·微信】那份（她 2026-09-03）。
-    // 原来接的是匿名信箱的 bio——那是他在树洞里挂的马甲，跟朋友圈根本不是一个身份，
-    // 于是这儿写着一句谁都认不出是他的话。现在改成 phones[cid].wechat.me：
+    // 原来接的是匿名信箱的 bio——那是TA在树洞里挂的马甲，跟朋友圈根本不是一个身份，
+    // 于是这儿写着一句谁都认不出是TA的话。现在改成 phones[cid].wechat.me：
     // 签名 signature、封面 cover（一句画面描述）。两栏都在 🌱 那一档，偶尔才变。
     // 还没查过手机的角色仍旧回落到旧那几样，不至于空着。
     signature: (momTarget && momTarget.isMe) ? (profile.tagline || "")
@@ -19755,14 +19755,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSend: txt => { gachaEarn(activeChar.id, "chat"); pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id); },
     sameRoom: sameRoomFor(activeChar.id),
     actDesc: actDescFor(activeChar.id),
-    // 那一行显示成「我」还是「他」（她 2026-09-12：「就设置开关可以改」）。
+    // 那一行显示成「我」还是「TA」（她 2026-09-12：「就设置开关可以改」）。
     // ⚠️只管【显示】：存进状态卡的照旧是第一人称，那儿是角色自己的卡。
     actPerson: (settingsFor(activeChar.id) || {}).actPerson === "ta" ? "ta" : "me",
     userPerson: (settingsFor(activeChar.id) || {}).userPerson === "ta" ? "ta" : "you",
     onToggleSameRoom: () => {
       const on = !sameRoomFor(activeChar.id);
       patchChatSetting(activeChar.id, { sameRoom: on });
-      toast(on ? "同处一室：开——他知道你俩此刻面对面了" : "同处一室：关");
+      toast(on ? characterText(activeChar, "同处一室：开——他知道你俩此刻面对面了") : "同处一室：关");
     },
     onReply: extraText => {
       const b = blocks[blockChatKey(activeChar.id)] || {};
@@ -19821,9 +19821,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id, roomId: m.roomId || activeRoomId || "main" });
       setScreen("study");
     },
-    // 一起写：她点了这张卡，他才**真的动笔**（这一枪的钱花在这儿，不在他开口那一下）。
-    // ⚠️写的人就是这间房里的这个人——她 2026-09-11：「我跟谁讨论让他写谁再写」。
-    // ⚠️走向按你们在这间房里商量的来；分歧按他的来，交稿说明写在 penNote 里。
+    // 一起写：她点了这张卡，TA才**真的动笔**（这一枪的钱花在这儿，不在TA开口那一下）。
+    // ⚠️写的人就是这间房里的这个人——她 2026-09-11：「我跟谁讨论让TA写谁再写」。
+    // ⚠️走向按你们在这间房里商量的来；分歧按TA的来，交稿说明写在 penNote 里。
     onOpenFicInvite: async m => {
       const K = window.Fanfic;
       if (!K || !activeChar) return;
@@ -19838,7 +19838,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!p) { toast("先去 设置·API 配一条线路"); return; }
       if (laneBusy("ficroom:" + cid)) return;
       startLane("ficroom:" + cid);
-      toast("他写着呢…");
+      toast(characterText(activeChar, "他写着呢…"));
       try {
         const tab = (K.loadTabs() || []).filter(x => x && x.id === f.tabId)[0] || { name: "", desc: "" };
         const cpc = K.cpChars(f.cp || [], characters, profile);
@@ -19872,18 +19872,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         });
         if (!K.saveFics(fics)) throw new Error("这一章没能保存，待写入口保留着；请检查存储后再试");
         const no = (f.chapters || []).length + 1;
-        // 推回房里：卡上只放【开头两百字 + 他那句话】，全文在同人文里
+        // 推回房里：卡上只放【开头两百字 + TA那句话】，全文在同人文里
         pChat(key, prev => [...prev, {
           role: "assistant", kind: "ficdone", ficId: f.id, ts: Date.now(), read: false,
           subject: "《" + f.title + "》第 " + no + " 章",
           chapIdx: no - 1,   // 卡上点一下直接翻到这一章（她 2026-09-12 要的快捷键）
-          // ⚠️这儿原来拿的是 authorNote——那是【原作者】看完这一章留的评论，不是他的话。
-          //   于是他交稿那一句用的是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
-          //   有一半在这儿）。现在他自己那一格叫 penNote；他没话说就不摆这一行。
+          // ⚠️这儿原来拿的是 authorNote——那是【原作者】看完这一章留的评论，不是TA的话。
+          //   于是TA交稿那一句用的是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
+          //   有一半在这儿）。现在TA自己那一格叫 penNote；TA没话说就不摆这一行。
           say: String(ch.penNote || "").trim().slice(0, 300),
           content: String(ch.content || "").trim().slice(0, 200)
         }]);
-        toast("他写好了第 " + no + " 章");
+        toast(characterText(activeChar, "他写好了第 ") + no + " 章");
       } catch (e) { toast(String(e.message || e)); }
       endLane("ficroom:" + cid);
     },
@@ -19899,14 +19899,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id, roomId: activeRoomId || "main" });
       setScreen("games");
     },
-    // 算一卦：点了就直接进塔罗、进他提的那一档，他觉得该问的那件事也替她填好
-    // ⚠️牌在那头才落桌（塔罗自己洗牌、定正逆）——他那张卡上没有、也不许有牌面。
+    // 算一卦：点了就直接进塔罗、进TA提的那一档，TA觉得该问的那件事也替她填好
+    // ⚠️牌在那头才落桌（塔罗自己洗牌、定正逆）——TA那张卡上没有、也不许有牌面。
     onOpenTarotInvite: m => {
       setTarotEntry({ key: "tarot_" + Date.now(), mode: String(m.mode || "reading"), charId: activeChar.id,
         ask: String(m.ask || ""), spreadKey: String(m.spread || ""), asker: String(m.asker || "you") });
       setScreen("tarot");
     },
-    // 一起读：点了就直接翻到那本书他停着的那一页（卡上带着 bookId，不用她自己去架上找）
+    // 一起读：点了就直接翻到那本书TA停着的那一页（卡上带着 bookId，不用她自己去架上找）
     onOpenReadInvite: m => {
       setReadEntry({ key: "read_" + Date.now(), bookId: String(m.bookId || ""), characterId: activeChar.id });
       setScreen("read");
@@ -20073,7 +20073,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSave: saveRel,
     // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
     // NPC 本来就是「某个角色身边的一段关系」，跟「我和角色」「角色之间」并排才对。
-    allChars: characters,   // 关系伙伴要按 id 解析；配角也算数，否则他那段关系整条消失
+    allChars: characters,   // 关系伙伴要按 id 解析；配角也算数，否则TA那段关系整条消失
     tiePos: tiePos,
     // id 传 null＝她按了归位，把所有摆法清掉，回到算出来的那一版
     onSaveTiePos: (id, p) => setTiePos(prev => {
@@ -20144,9 +20144,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchToast: toast,
     onWatching: setWatching,
     watchCoolLeft: window.PhoneWatch ? window.PhoneWatch.cooldownLeft((watchAt || {})[selPhone], Date.now()) : 0,
-    // 「他这会儿在玩手机」（她 2026-09-10：冷却关着，提示照做）。
+    // 「TA这会儿在玩手机」（她 2026-09-10：冷却关着，提示照做）。
     // ⚠️冷却是关着的，所以【节奏全靠提示自己兜】——判据在 PhoneWatch 一处，
-    //   零调用：他那边醒着 + 今天没提够 + 这一小时的稳定种子说亮。
+    //   零调用：TA那边醒着 + 今天没提够 + 这一小时的稳定种子说亮。
     //   稳定种子而不是 Math.random：随机的话这颗点会随着重渲染闪来闪去。
     watchHintOn: (() => {
       const c = liveChars.find(x => x.id === selPhone);
@@ -20336,14 +20336,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onTripDone: tripDone,
     tripGen: tripGen,
     wishPlanOf: wishPlanOf,
-    // 她亲手叫他钉一条（v62.34）。manual=true：单独计数、不喂饱饥饿加权，
-    // 也不动思念（不是他自己想起来的，凭什么替他泄）。
+    // 她亲手叫TA钉一条（v62.34）。manual=true：单独计数、不喂饱饥饿加权，
+    // 也不动思念（不是TA自己想起来的，凭什么替TA泄）。
     onGenWish: async ch => {
       if (!active) { toast("请先到设置配置 API"); return false; }
       setGen(g => ({ ...g, charWish: true }));
       try {
         const ok = await pinWishAsChar(ch, "", true);
-        toast(ok ? ch.name + " 钉上去了" : "他这会儿没写出来，等会儿再试");
+        toast(ok ? ch.name + " 钉上去了" : characterText(ch, "他这会儿没写出来，等会儿再试"));
         return ok;
       } finally { setGen(g => ({ ...g, charWish: false })); }
     },
@@ -20357,8 +20357,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,
     coupleQACustom: coupleQACustom,
-    // 情侣空间首页那格看的是他【真实】的心情（跟着真的聊过的天走、会自己平复），
-    // 不再是「心情打卡」那次瞎猜的调用。0 调用，而且和提示词里发给他的是同一份读数。
+    // 情侣空间首页那格看的是TA【真实】的心情（跟着真的聊过的天走、会自己平复），
+    // 不再是「心情打卡」那次瞎猜的调用。0 调用，而且和提示词里发给TA的是同一份读数。
     moodOf: cid => {
       const m = (moods || {})[cid] || {};
       if (!m.label) return null;
@@ -20473,7 +20473,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     // 场边（v60.42 回来）：只有【她自己的、没上台的角色】——路人和昵称那一套是借来的，
     // 但「有认识的人在旁边看着」这件事本身不是，那正是这个擂台跟别家不一样的地方。
-    // 言秋照旧不抓进场边（v59.99：他可以上台，但不当看客）。
+    // 言秋照旧不抓进场边（v59.99：TA可以上台，但不当看客）。
     // characters 始终留全：存档头像、名字和分享名单都靠它查。
     crowdChars: liveChars.filter(c => !settingsFor(c.id).engineerEyes && !c.npc),
     groups: groups,
@@ -20505,12 +20505,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 合龙（v62.99）：解梦馆那颗「推门进这场梦」跳过来时带着梦回路里那场梦的 key，用完就清
     enterLoopKey: dreamEnterKey,
     onEnterConsumed: () => setDreamEnterKey(null),
-    // 带东西出来（v63.05）：进她的物品，跟商店买的、他送的放一起；他那边只拿到一句「眼熟」
+    // 带东西出来（v63.05）：进她的物品，跟商店买的、TA送的放一起；TA那边只拿到一句「眼熟」
     onKeepsake: item => setInventory(inv => { const n = [item, ...inv]; saveJSON("x_inventory", n); return n; }),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "tarot") body = h(Tarot, {
-    // 房里他提的那一卦：进来就落在他说的那一档，角色和该问的那件事都替她填好
+    // 房里TA提的那一卦：进来就落在TA说的那一档，角色和该问的那件事都替她填好
     entry: tarotEntry,
     onEntryUsed: () => setTarotEntry(null),
     // 占卜只留在塔罗历史；不把随机牌面写成正式记忆。
@@ -20525,7 +20525,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 占卜不进记忆库（她 2026-08-25：「为啥塔罗也进记忆库了，不要这个！」）。
       // 记忆库是给「你俩之间真的发生过什么」用的，一卦牌不是那种东西，
       // 攒多了还会把真正的事挤出召回名额。下面那句 charThought 仍旧进「Ta 眼里」——
-      // 那是他私心里对牌的反应，属于印象不属于事实。
+      // 那是TA私心里对牌的反应，属于印象不属于事实。
       void text;
       // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
       const th = String(info.charThought || "").trim();
@@ -20716,7 +20716,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     toast: toast,
-    // 房间里那张「他写好了」点一下就翻到这一章（她 2026-09-12：「从房间到同人文有点慢」）
+    // 房间里那张「TA写好了」点一下就翻到这一章（她 2026-09-12：「从房间到同人文有点慢」）
     openFic: ficJump,
     onOpenFicUsed: () => setFicJump(null),
     onForwardToChat: forwardFicToChat,
@@ -20725,17 +20725,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 让角色来写（她 2026-09-11）：立场由同人文那边算，料由这儿给。
     // ⚠️算法在上面 relOfChar 那一处，只许有一份——房里那一枪走的是同一个。
     relOf: relOfChar,
-    // 他替你写的那一章落在哪儿（她 2026-09-11 改的口）。
+    // TA替你写的那一章落在哪儿（她 2026-09-11 改的口）。
     // ⚠️原来这儿是**自动往主线记忆库写一条**——她当场指出：「有时候我也只是想测试一下，
     //   但是不想让他们记得」。她是对的：「不记」事后能补，「记了」得手动去删，
     //   **默认值不该选不可逆的那一边**。所以自动写这条撤掉了（撤就是删，不是在后面挂说明），
     //   改成她按一下才发生，而且默认落进【房间】，不是主线。
-    // ⚠️这一条一分钱不花：「喂给他」只是把东西放进上下文，上下文是本地拼的；
-    //   只有「让他开口」才打枪。
+    // ⚠️这一条一分钱不花：「喂给TA」只是把东西放进上下文，上下文是本地拼的；
+    //   只有「让TA开口」才打枪。
     onFileChapter: (charId, card, pick, meta) => {
       const K = window.ChatRooms;
       if (!K || !charId || !card) return null;
-      // 先找他现成的那间「一起写」；没有就开一间——不能先把她赶去建房，
+      // 先找TA现成的那间「一起写」；没有就开一间——不能先把她赶去建房，
       // 那一步一多她就不记了，又回到「自动写」那个问题上。
       // ⚠️她 2026-09-11：「只能默认进已有的房间而不能另开，如果我有好几个房间就选不了了」。
       //   所以现在收 pick：{id} 就放进那一间，{name} 就照这个名字另开一间；
@@ -20746,10 +20746,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!room) room = rooms.filter(r => r.actions && r.actions.fanfic).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
       if (!room) room = K.create(charId, "一起写", "focused");
       const key = K.chatKey(charId, room.id);
-      // ⚠️卡上要带【是哪一篇】：不带的话，这间房里聊完想让他接着写，
+      // ⚠️卡上要带【是哪一篇】：不带的话，这间房里聊完想让TA接着写，
       //   谁都不知道该续哪一篇（她 2026-09-11 要的那条链就从这儿起）。
-      // ⚠️做成卡（她 2026-09-11：「把我转发给他的也做成卡吧」）：**复用转发那张 ficshare**，
-      //   不另发明一种卡。content 照旧留着——他读的是 content，卡只是给她看的那一面。
+      // ⚠️做成卡（她 2026-09-11：「把我转发给TA的也做成卡吧」）：**复用转发那张 ficshare**，
+      //   不另发明一种卡。content 照旧留着——TA读的是 content，卡只是给她看的那一面。
       pChat(key, p => [...p, { id: "fic_" + Date.now(), role: "user", kind: "ficshare", ts: Date.now(), read: true,
         content: String(card).slice(0, 900),
         fic: {
@@ -20853,12 +20853,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // register 是对用户互动的语气锚；广播讲角色自身经历，用户并不默认在场。
     onFragment: (branch, era) => radioAsk(narrativeCore({ intimate: true, register: false }) + "\n\n" + window.RadioTimeline.storyPrompt(branch, era),
       // ⚠️这一格原来还提着 narrator（第三人称旁白）。她 2026-09-12 要的是
-      //   「长一点的第一人称独白关于他自己的事」——旁白那一档正是她不要的那个东西
-      //   （「他把降噪耳机的单侧耳罩拨开一点」）。占位值里摆着它，模型就会用它，
+      //   「长一点的第一人称独白关于TA自己的事」——旁白那一档正是她不要的那个东西
+      //   （「TA把降噪耳机的单侧耳罩拨开一点」）。占位值里摆着它，模型就会用它，
       //   所以这儿只留 character 一档；accept 那头照旧认得 narrator，旧存档不受影响。
       // ⚠️占位值就是【形状】，形状和散文打架时模型信形状（engine.js 那段 null 示范的老账）。
       //   v67.50 提示词改成「一段一项」，这儿要是还写着「这一句正文」，它照旧一句一项。
-      '{"title":"本章标题","lines":[{"kind":"character","speaker":"讲述这段经历的角色姓名","text":"本章正文的一个自然段（他的第一人称，整段照原样放，不要替播放器拆成一句一项）"}]}'),
+      "{\"title\":\"本章标题\",\"lines\":[{\"kind\":\"character\",\"speaker\":\"讲述这段经历的角色姓名\",\"text\":\"本章正文的一个自然段（TA的第一人称，整段照原样放，不要替播放器拆成一句一项）\"}]}"),
     // 陪听用当前角色公共上下文；只喂共同听到的原文，不传故事全稿，也不执行状态更新协议。
     // ⚠️v67.57 起陪听的可以是【任何一个角色】，不再写死成广播里那个人（她 2026-09-12 排的第一条）。
     //   隔离那一套本来就按 companionId 分账，这儿只是别再自己把 charId 填回去。
@@ -20867,15 +20867,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!c) throw new Error("这位角色已不在当前角色列表，暂时无法邀请陪听。");
       return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question, keepPlaying), '{"say":"陪听者此刻的回应"}');
     },
-    // 匿名连线（她 2026-09-12 排的第一条）：她打进他正在播的那档节目，他不知道是谁。
+    // 匿名连线（她 2026-09-12 排的第一条）：她打进TA正在播的那档节目，TA不知道是谁。
     // ⚠️马甲用匿名箱那一个（x_anonMe），不另立一个身份——同一个人戴同一张面具。
     myMask: anonMe,
     // ⚠️register 在这一处【要留着】：章节那一格关掉它，理由是「广播讲角色自身经历，
-    //   用户并不默认在场」；连线正好相反——线上真有一个人在跟他说话，
+    //   用户并不默认在场」；连线正好相反——线上真有一个人在跟TA说话，
     //   那条理由在这儿不成立（施工规则/bans-make-it-dumber.md 的第三问：它管的场合还成立吗）。
     // ⚠️strangerBans 那三层是【靠调用点一条条 push 的】，换个入口一条都不会自己跟过来
     //   （施工规则/four-surfaces-same-context.md）：陌生人打进来这一处，
-    //   回声式反问尤其要命——他手上是一句问话，最顺手的开口就是把它原样抛回去。
+    //   回声式反问尤其要命——TA手上是一句问话，最顺手的开口就是把它原样抛回去。
     onCall: (branch, era, say, anchor) => radioAsk(
       narrativeCore({ intimate: true }) + "\n\n"
       + window.RadioTimeline.callPrompt(branch, era, anonMe, say, anchor) + strangerBans(),
@@ -21073,8 +21073,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   ② ⚠️就算打得开也没用：归档【只供翻看，不进上下文】（chatArchiveGet 那条路
       //      注释里就写着「不写回本地」）。喂给模型的是本机 x_chat: 那一份。
       //      正常角色本地留着最近 CHAT_KEEP_LOCAL 条，所以从来不成问题；
-      //      刚建回来的这位本地是【空的】——TA 说过的一千八百句他一句都收不到。
-      //      （她 2026-09-04 报：「接回去他聊天没喂之前归档的聊天怎么回事」）
+      //      刚建回来的这位本地是【空的】——TA 说过的一千八百句TA一句都收不到。
+      //      （她 2026-09-04 报：「接回去TA聊天没喂之前归档的聊天怎么回事」）
       //   所以要把归档的【尾巴】按归档时同一个窗口铺回本地，剩下的仍归「加载更早」。
       let arch = 0, back = 0;
       try {
@@ -21189,12 +21189,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   不碰根节点的 background/height，也不碰那条 safe-area 空带
     //   （施工规则/home-screen-layout.md：动了主屏就坏）。
     // 通话中不出现——那会儿屏幕上正有更要紧的事，一颗球压在上面只会挡路。
-    // 「看他玩」也一样，而且更要紧：那一屏扮的是【他的手机】，一颗别的 app 的浮球压在上面，
+    // 「看TA玩」也一样，而且更要紧：那一屏扮的是【TA的手机】，一颗别的 app 的浮球压在上面，
     // 扮演当场就散了（真机上它正好压在发送键上）。
     if (!window.AssistantDock || call || ringing || watching) return null;
     return h(window.AssistantDock, {
       // 她此刻开着哪一页 + 这一页上是谁（她 2026-09-03 点名要的「页面上下文」）：
-      // 有了它，「这一页」「这里」「他」才有指代对象，秋秋不用反问是哪一页。
+      // 有了它，「这一页」「这里」「TA」才有指代对象，秋秋不用反问是哪一页。
       // ⚠️id 也要给：不然它没法填 patch 的 id，只能反问「你说的是谁」——她正开着那个窗口
       page: { screen: screen, charName: (offlineChar || activeChar || {}).name || "", charId: (offlineChar || activeChar || {}).id || "" },
       // 她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」。
@@ -21287,8 +21287,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveTemperament: saveTemperamentAnchors,
     aShadowPanel: aShadowPanel,
     dongnianState: (typeof window !== "undefined" && window.__dongnian && window.__dongnian[activeChar.id] && window.__dongnian[activeChar.id].state) || null,
-    // 他在别的场里的那几份思念（v62.12）：这一页那根进度条说的一直是「他想不想找【你】」，
-    // 而他在群里想那位的那一份，界面上一个字都没有——功能在不在，和她找不找得到，是两件事。
+    // TA在别的场里的那几份思念（v62.12）：这一页那根进度条说的一直是「TA想不想找【你】」，
+    // 而TA在群里想那位的那一份，界面上一个字都没有——功能在不在，和她找不找得到，是两件事。
     dongnianElsewhere: (() => {
       if (typeof window === "undefined" || !window.__dongnian) return [];
       return (groups || []).map(g => {
@@ -21355,7 +21355,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             callStream: !!s.callStream,
             // 动描那一行用第几人称（她 2026-09-12）。只有 "ta" 算数，其余一律回默认的「我」
             actPerson: s.actPerson === "ta" ? "ta" : "me",
-            // 他那一行里【你】叫什么（她 2026-09-12）。默认「你」——他卡里写成「她」
+            // TA那一行里【你】叫什么（她 2026-09-12）。默认「你」——TA卡里写成「她」
             // 那一行就会把她从「你」变成「她」，那正是她报的那个
             userPerson: s.userPerson === "ta" ? "ta" : "you",
             // 顺路捎的（同一行、同一个病）：webSearch 从来就没被接住过，
@@ -21430,7 +21430,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     msgs: call.msgs,
     // ⚠️通话跑的是 "call" 这条 lane,不是聊天那条。
     //   原来这里传的 sending 读的是 busyLanes["c:"+chatKey]（甚至在主屏接起来时压根没有 chatKey），
-    //   于是通话里「正在说」那一层永远不亮——她 2026-09-02：「我说完他没有那个输入中的气泡」。
+    //   于是通话里「正在说」那一层永远不亮——她 2026-09-02：「我说完TA没有那个输入中的气泡」。
     sending: !!busyLanes.call,
     // 这两项在【拨通那一刻】就定下来了（分角色），通话中改设置不半路变脸
     autoVoice: !!call.autoVoice,

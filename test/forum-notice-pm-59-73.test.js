@@ -55,10 +55,10 @@ test("能主动私信一个网友，他在私信里得还是吧里那个人", ()
   // 只喂最后一样的话，聊几轮就退化成「一个网友」。
   const gd = cut(ap, "const forumNpcGround = (npcId, lines)", "\n  // 主动私信一个网友");
   assert.match(gd, /const n = FORUM_NPC_REGISTRY\.find\(x => x\.id === npcId\);/, "没去查他的论坛人设");
-  assert.match(gd, /【他在吧里是个什么人】/, "论坛人设没喂");
+  assert.match(gd, /【TA在吧里是个什么人】/, "论坛人设没喂");
   assert.match(gd, /【常逛】/, "常逛哪几个吧没喂");
   assert.match(gd, /FORUM_NPC_RELATIONS \|\| \[\]\)\.filter\(r => r && \(r\.a === npcId \|\| r\.b === npcId\)\)/, "跟谁老抬杠没喂");
-  assert.match(gd, /【他自己在吧里说过的话】/, "他发过的帖和回过的话没喂");
+  assert.match(gd, /【TA自己在吧里说过的话】/, "他发过的帖和回过的话没喂");
   assert.match(st, /const ground = forumNpcGround\(npc\.id, lines\);/, "开场白没走这份底子");
   const np = cut(sc, "function npcProfileView()", "\n  // ---- 主体分派");
   assert.match(np, /const pmGround = authored\.slice\(0, 3\)/, "主页没把他发过的帖整理出来");

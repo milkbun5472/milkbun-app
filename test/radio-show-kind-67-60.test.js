@@ -21,7 +21,7 @@ test("这一栏不填＝今天的样子：老存档一个字都不变", () => {
   const p = R.storyPrompt(old, "past");
   assert.ok(p.includes("以广播中角色的第一人称，讲述自己的一段经历"));
   assert.ok(p.includes("广播那头没有人"));
-  assert.ok(p.includes("他的来历、身份、已有的关系这些根基不改写"));
+  assert.ok(p.includes("TA的来历、身份、已有的关系这些根基不改写"));
   assert.ok(p.includes("接着已有进展往下走"));
   assert.ok(!p.includes("【这档节目是什么】"));
   assert.deepEqual(R.showOf(old), { label: "", tell: "self", audience: "none", roots: "self", chain: "serial" });
@@ -42,12 +42,12 @@ test("四件事一起换：讲故事／有听众／根基只管他／一章一�
   // ③ 根基那条改管他这个讲的人
   assert.ok(p.includes("不改写的是**你这个讲的人**"));
   assert.ok(p.includes("故事里的人物、地方、来龙去脉和结局都归你编"));
-  assert.ok(!p.includes("他的来历、身份、已有的关系这些根基不改写"));
+  assert.ok(!p.includes("TA的来历、身份、已有的关系这些根基不改写"));
   // ④ 章与章各讲各的
   assert.ok(p.includes("一章一个，各讲各的"));
   assert.ok(!p.includes("接着已有进展往下走"));
   // 顺带两句跟着换：第三人称是他在讲别人，主角也不再是他
-  assert.ok(p.includes("故事里的人物他当然用第三人称讲"));
+  assert.ok(p.includes("故事里的人物TA当然用第三人称讲"));
   assert.ok(!p.includes("**不要旁白、不要第三人称交代**"));
   assert.ok(p.includes("但不要另起一个旁白"));
   assert.ok(p.includes("故事里那个人是怎么被卷进去的"));
@@ -59,11 +59,11 @@ test("四根轴各管各的：只换一根，别的照旧", () => {
   const onlyAudience = R.storyPrompt(mk({ audience: "listeners" }), "past");
   assert.ok(onlyAudience.includes("广播那头有人在听"));
   assert.ok(onlyAudience.includes("讲述自己的一段经历"), "只换了听众那一根，讲什么也跟着变了");
-  assert.ok(onlyAudience.includes("他的来历、身份、已有的关系这些根基不改写"));
+  assert.ok(onlyAudience.includes("TA的来历、身份、已有的关系这些根基不改写"));
   // 讲故事、但根基照旧管他本人（她要一档「他讲他自己家的怪事」也说得通）
   const rooted = R.storyPrompt(mk({ tell: "story", roots: "self" }), "past");
   assert.ok(rooted.includes("你在广播里讲一个故事"));
-  assert.ok(rooted.includes("他的来历、身份、已有的关系这些根基不改写"));
+  assert.ok(rooted.includes("TA的来历、身份、已有的关系这些根基不改写"));
 });
 
 test("连线和陪听都跟着这一栏走", () => {

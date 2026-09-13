@@ -41,7 +41,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.5, color: t.fog, marginTop: 2 } }, "CODEX · ALWAYS ON")),
           h("button", { onClick: onOpenRescue, style: { flex: "0 0 auto", border: "1px solid " + t.line, borderRadius: 999, padding: "7px 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "互救台"))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-4", style: { WebkitOverflowScrolling: "touch" } },
-        !rows.length && h("div", { style: { padding: "24px 18px", textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "这扇窗常驻在 VPS。Mac 合盖、你人在外面，也可以把问题留给他。"),
+        !rows.length && h("div", { style: { padding: "24px 18px", textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "这扇窗常驻在 VPS。Mac 合盖、你人在外面，也可以把问题留给TA。"),
         rows.map(function (r) {
           const reply = r.result && r.result.reply;
           return h("div", { key: r.id, style: { marginBottom: 16 } },

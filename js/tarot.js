@@ -371,7 +371,7 @@
     const homeScrollTop = useRef(0);
     const lpTimer = useRef(null), lpFired = useRef(false);
     const [confirmDel, setConfirmDel] = useState(null); // 待确认删除的占卜 id
-    // 房里他提的那一卦点进来时带着的那一戳（v67.69）：进哪一档、算谁、该问什么
+    // 房里TA提的那一卦点进来时带着的那一戳（v67.69）：进哪一档、算谁、该问什么
     const [seed, setSeed] = useState(null);
     const entryKey = props.entry && props.entry.key;
     React.useEffect(function () {
@@ -379,7 +379,7 @@
       if (!e || !e.key) return;
       const mk = MODES[e.mode] ? e.mode : "reading";
       setSeed({ charId: e.charId || "", q: e.ask || "", proposed: true,
-        // 他挑的牌阵／这一卦问的是谁的事：认不出来的一律落回那一档的默认，不硬塞
+        // TA挑的牌阵／这一卦问的是谁的事：认不出来的一律落回那一档的默认，不硬塞
         spreadKey: Tarot.hasSpread(e.spreadKey) ? String(e.spreadKey) : "",
         owner: e.asker === "me" ? "character" : "" });
       setView("mode:" + mk);
@@ -404,10 +404,10 @@
 
     if (view.indexOf("mode:") === 0) {
       return h(Setup, {
-        // 他提的那一卦：角色和该问的那件事替她填好，改不改随她
+        // TA提的那一卦：角色和该问的那件事替她填好，改不改随她
         initCharId: (seed && seed.charId) || "", initQ: (seed && seed.q) || "",
         initSpreadKey: (seed && seed.spreadKey) || "", initOwner: (seed && seed.owner) || "",
-        // 这一卦是他自己开口要的（房里那张卡点进来的），不是她从架上挑的
+        // 这一卦是TA自己开口要的（房里那张卡点进来的），不是她从架上挑的
         proposed: !!(seed && seed.proposed),
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
         affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, toast: props.toast,
@@ -582,11 +582,11 @@
     const [charId, setCharId] = useState(props.initCharId || "");
     const [dailyAll, setDailyAll] = useState(false); // 每日一牌：一次抽全部角色
     const [q, setQ] = useState(props.initQ || "");
-    // ⚠️他在房里提的那一卦可以把牌阵和「这问题是谁的」一起带进来（v67.70）——
+    // ⚠️TA在房里提的那一卦可以把牌阵和「这问题是谁的」一起带进来（v67.70）——
     //   带进来的是【默认值】，不是锁死：她照样能改。带不进来就跟以前一模一样。
     const [spreadKey, setSpreadKey] = useState(props.initSpreadKey || DEFAULT_SPREAD[props.modeKey] || "guide");
     const [spreadGroup, setSpreadGroup] = useState(
-      // 他挑的牌阵在哪一组，就先翻到那一组——不然她点进来看见的是另一组，那一格像没生效
+      // TA挑的牌阵在哪一组，就先翻到那一组——不然她点进来看见的是另一组，那一格像没生效
       (props.initSpreadKey && ((SPREADS[props.initSpreadKey] || {}).group || (String(props.initSpreadKey).indexOf("custom:") === 0 ? "custom" : "")))
       || (props.modeKey === "relation" ? "relation" : "basic"));
     const [questionOwner, setQuestionOwner] = useState(props.initOwner || "user");
@@ -663,9 +663,9 @@
         const prepare = async update => {
           let finalQuestion = q.trim();
           let intent = null;
-          // ⚠️这一卦是【他自己在房里开口要的】（v67.72）：那就别再回头问他一次
-          //   「你愿意让我替你算吗」——他刚说完想算，问句本身就是他给的（ask）。
-          //   多问这一次既拧巴（他可能当场 refuse 掉自己提的事），又白花一枪。
+          // ⚠️这一卦是【TA自己在房里开口要的】（v67.72）：那就别再回头问TA一次
+          //   「你愿意让我替你算吗」——TA刚说完想算，问句本身就是TA给的（ask）。
+          //   多问这一次既拧巴（TA可能当场 refuse 掉自己提的事），又白花一枪。
           const heAsked = !!props.proposed && props.modeKey === "forchar" && !!finalQuestion;
           if (!heAsked && (props.modeKey === "forchar" || (props.modeKey === "reading" && questionOwner === "character"))) {
             update(null, props.modeKey === "forchar" ? "先问问 " + c.name + " 愿不愿意…" : c.name + " 正在想要问什么…");
@@ -874,7 +874,7 @@
     const [forwarded, setForwarded] = useState(false);
     const [tableFwd, setTableFwd] = useState(false);
     const [tableForwarded, setTableForwarded] = useState(!!s.tableForwardedAt);
-    // 这一卦带回哪儿（她 2026-09-13）："" ＝ 主聊天，别的就是他某一间房的 id。
+    // 这一卦带回哪儿（她 2026-09-13）："" ＝ 主聊天，别的就是TA某一间房的 id。
     // ⚠️照同人文「放进哪一间」那一处的形状长（墨点＋名字），不另发明一种挑法。
     const [roomId, setRoomId] = useState("");
     const [followups, setFollowups] = useState(Array.isArray(s.followups) ? s.followups : []);
@@ -943,7 +943,7 @@
     // ---- reading / relation / forchar ----
     const cards = s.cards || [];
     const subject = s.mode === "forchar" ? "为 " + s.charName + " 而算" : s.mode === "relation" ? "你 与 " + s.charName : s.charName + " 为你解牌";
-    // 他有哪几间房（主聊天不在这张单子里，它是上面那一格「与他的聊天」）
+    // TA有哪几间房（主聊天不在这张单子里，它是上面那一格「与TA的聊天」）
     const myRooms = (function () {
       const KR = (typeof window !== "undefined" && window.ChatRooms) || null;
       if (!KR || !s.charId) return [];
@@ -956,7 +956,7 @@
     };
     const whereWord = function () { return roomId ? "「" + roomName() + "」" : "与 " + s.charName + " 的聊天"; };
     const roomPick = function () {
-      if (!myRooms.length) return null;                 // 他还没有别的房间，就别多问一句
+      if (!myRooms.length) return null;                 // TA还没有别的房间，就别多问一句
       return h("div", { "data-tarot-where": true, style: { marginTop: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: N.fog, marginBottom: 5, lineHeight: 1.6 } },
           "放进哪儿：落进房间的只在那间房里算数，不进主线聊天。"),
@@ -1103,9 +1103,9 @@
   }
 
   // 这副牌桌上现在摆得出来的牌阵（含她自己存的那几个）。
-  // ⚠️只此一份：房里那一格（他提议算一卦）要照实报出可选的牌阵，各写一份表迟早只改一处
+  // ⚠️只此一份：房里那一格（TA提议算一卦）要照实报出可选的牌阵，各写一份表迟早只改一处
   //   （施工规则/one-public-mechanism.md）。她 2026-09-13 问的正是这件事：
-  //   「我里面那么多牌阵和不同的问法，他怎么选」——那就把真名单给他，别让他猜。
+  //   「我里面那么多牌阵和不同的问法，TA怎么选」——那就把真名单给TA，别让TA猜。
   Tarot.spreadMenu = function (modeKey) {
     if (modeKey === "daily") return [];                 // 每日一牌固定一张，没得挑
     const all = [];

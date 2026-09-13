@@ -33,7 +33,7 @@
     return cur;
   }
   // 喂一口：量由调用方给（就是 GachaKit 刚结算出的那份），这儿只累加。
-  // 没种花（species 空）就一口都不吃——花是他挑的，不是自动长出来的。
+  // 没种花（species 空）就一口都不吃——花是TA挑的，不是自动长出来的。
   function feed(g, amount, now) {
     if (!g || !g.species || !(Number(amount) > 0)) return g;
     const fed = (Number(g.fed) || 0) + Number(amount);

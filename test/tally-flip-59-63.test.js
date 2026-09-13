@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

@@ -38,7 +38,7 @@ test("自动回流撤掉了——撤就是删，不是在后面挂一句说明",
   assert.ok(strip(r).indexOf("addMemEntry") < 0 && strip(r).indexOf("onNoteChapter") < 0, "生成那一路上还在自己往记忆里写");
   // 她按一下才发生
   assert.match(fic, /onClick: function \(\) \{ setFileIdx\(idx\); \}/);
-  assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给他看"/, "他自己写的和别人写的是两件事，文案要分开");
+  assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给TA看"/, "他自己写的和别人写的是两件事，文案要分开");
 });
 
 test("落进去的是一张卡，不是整章正文", () => {
@@ -83,7 +83,7 @@ test("这一步一分钱不花——喂不要钱，说话才要钱", () => {
 });
 
 test("一起写是第三个开关，一间房想开几样开几样", () => {
-  assert.match(rooms, /\["fanfic", "他可以拉你一起写"/);
+  assert.match(rooms, /\["fanfic", "TA可以拉你一起写"/);
   // ⚠️钉的是「focused 这一档把一起写开着」，不是「这一行一共列了几样」——
   //   v67.53 一起读进来之后又多一样，再多一样也不该红。
   assert.match(rooms, /actions: \{ \.\.\.bools\(GROUPS\.actions, false\)[^}]*\bfanfic: true\b/, "归档用的那一档（focused）没把一起写开上");

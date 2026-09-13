@@ -58,13 +58,13 @@ test('完整章节不裁字、不截句，提示改为人物独白而非对用�
 //   一句一张卡——那是播放器的形状，不是这一条要管的
 test('独白只有他一个声音：没有旁白、没有第三人称交代', () => {
   const prompt = R.storyPrompt(make(), 'present');
-  assert.ok(prompt.includes('全篇只有他一个人的声音'));
+  assert.ok(prompt.includes("全篇只有TA一个人的声音"));
   assert.ok(prompt.includes('**不要旁白、不要第三人称交代**'));
-  assert.ok(prompt.includes('不是「他把耳罩拨开一点」，是「我把耳罩拨开一点」'), '给判据就要给得看得出差别');
+  assert.ok(prompt.includes("不是「TA把耳罩拨开一点」，是「我把耳罩拨开一点」"), '给判据就要给得看得出差别');
   assert.ok(prompt.includes('**不要输出kind=narrator的项**'));
   // 占位值里也不许再摆着 narrator——摆着它模型就会用
   const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '../js/app.js'), 'utf8');
-  assert.match(app, /"kind":"character","speaker":"讲述这段经历的角色姓名"/);
+  assert.ok(app.includes(JSON.stringify('"kind":"character","speaker":"讲述这段经历的角色姓名"').slice(1,-1)));
   assert.ok(!/"kind":"character或narrator"/.test(app), '占位值里的旁白那一档又回来了');
   // accept 那头照旧认 narrator：旧存档里那些行还在，别把它们判成坏数据
   assert.doesNotThrow(() => R.accept({ lines: [{ kind: 'narrator', text: '旧存档里的一行' }] }, 'past', 'x'));
@@ -73,7 +73,7 @@ test('独白只有他一个声音：没有旁白、没有第三人称交代', ()
 test('不对着屏幕外的人说话——称呼、提问、等回应都不要', () => {
   const prompt = R.storyPrompt(make(), 'present');
   assert.ok(prompt.includes('用户是收听者'), 'Codex v67.41 那句还在');
-  assert.ok(prompt.includes('他不是在对谁说话'));
+  assert.ok(prompt.includes("TA不是在对谁说话"));
   assert.ok(prompt.includes('没有称呼（姐姐、宝宝、名字、你，一个都不要）'), '她截图里那句就是「姐姐，你戴上听听看」');
   assert.ok(prompt.includes('这段独白仍然不是说给她听的'), '她进了故事也还是故事里的一个人，不是收件人');
 });

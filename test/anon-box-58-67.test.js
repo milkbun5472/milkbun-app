@@ -15,7 +15,7 @@ const brew = grab(app, "  const brewAnonPool = async (cur, quiet) => {", "  cons
 
 // ── ④ 我可以一次性放几条下去，等我按调用他再一次性看 ──────────────────────
 test("写一条只是放进箱子，一分钱不花", () => {
-  const drop = grab(app, "  const dropAnon = (char, q, re) => {", "  // 让他一次性打开箱子", 700);
+  const drop = grab(app, "  const dropAnon = (char, q, re) => {", "  // 让TA一次性打开箱子", 700);
   assert.ok(!/runProbe|callAI/.test(drop), "放进箱子这一步不该调模型");
   assert.match(drop, /pending: true/, "放进去的没标成「等着答」");
   assert.match(drop, /re: re \|\| null/, "追问没记住是接着哪一条");
@@ -78,10 +78,10 @@ test("出题那一枪不认识任何人——连网名签名都不给,它没有�
 });
 
 test("提示词里把「不许猜身份」「不许从答案倒推」都写死", () => {
-  ["男女", "做什么的", "住在哪", "不许猜", "不许暗示你认识他"].forEach(k =>
+  ["男女", "做什么的", "住在哪", "不许猜", "不许暗示你认识TA"].forEach(k =>
     assert.ok(brew.includes(k), "没挡住这一项：" + k));
   assert.match(brew, /听说你们XX的人如何如何/, "没挡住按行业下的假设");
-  assert.match(brew, /并不知道他会怎么答/, "没挑明不许从答案倒推");
+  assert.match(brew, /并不知道TA会怎么答/, "没挑明不许从答案倒推");
   assert.match(brew, /换个人来答就会答成另一个样子的/, "没给出「这题算不算写好了」的判据");
   assert.match(brew, /【库里已经有这些了/, "没把已有的递回去,会越攒越重复");
 });
@@ -95,7 +95,7 @@ test("三个维度一起扔算一次,一次管一组题——扔的次数跟着�
   assert.match(brew, /const rolls = Math\.ceil\(n \/ ANON_POOL_PER_ROLL\);/, "扔的次数写死了,批量一放大每组就撑成一个味");
   ["ANON_ASKER_TONE", "ANON_ASKER_ANGLE", "ANON_ASKER_SHAPE"].forEach(k =>
     assert.ok(brew.indexOf("anonDraw(" + k + ", rolls)") > 0, "这一颗不是按「扔几次」摇的：" + k));
-  assert.match(brew, /整组都站在那一个人身上写,这三样是他的底子,不是三个可选项/, "没说清一组就是一个人");
+  assert.match(brew, /整组都站在那一个人身上写,这三样是TA的底子,不是三个可选项/, "没说清一组就是一个人");
   assert.match(brew, /同一组里的 " \+ ANON_POOL_PER_ROLL \+ " 条也不许互相重复/, "没挡住组内自己长成一个味");
   // 分组是结构，不是提示词里的一句嘱咐
   assert.match(brew, /\{\\"groups\\":\[\{\\"items\\":\[\{\\"question\\"/, "输出不是分组结构,每条就绑不回它那一次扔");

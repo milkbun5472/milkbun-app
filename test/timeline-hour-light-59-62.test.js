@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const ph = fs.readFileSync(path.join(root, "js", "phone.js"), "utf8");
-const view = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起他手机的第一眼"));
+const view = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起TA手机的第一眼"));
 const { loadPhone } = require("./helpers/phone-render.js");
 
 // vm 里没有 phoneHourLight 的导出口，直接把这两个声明抠出来跑。
@@ -76,7 +76,7 @@ test("还没发生的那一条，竖轴也画成虚线", () => {
 
 test("线走完最后一条还往下走一小截，收在一个空心点上", () => {
   assert.match(view, /background: "linear-gradient\(180deg," \+ t\.line \+ ",transparent\)"/, "收尾那截线没有淡出去");
-  assert.match(view, /tab === "ahead" \? "再往后，他日历上还没排。" : "再往前，他手机上没留下什么了。"/,
+  assert.match(view, /tab === "ahead" \? characterText\(char, "再往后，他日历上还没排。"\) : characterText\(char, "再往前，他手机上没留下什么了。"\)/,
     "线的尽头没交代那头是什么");
   // 一条都没有时不该画尾巴——空列表下面挂一截线，看着像加载坏了
   assert.match(view, /shown\.length \? h\("div", \{ className: "flex", style: \{ paddingLeft: 46 \} \}/,
@@ -119,6 +119,6 @@ test("两格各渲染一遍，各自只装自己那一半", () => {
   const past = draw("past"), ahead = draw("ahead");
   assert.ok(past.includes("走过的那条") && !past.includes("要办的那件"), "走过的那格漏进了还没发生的事");
   assert.ok(ahead.includes("要办的那件") && !ahead.includes("走过的那条"), "接下来那格漏进了已经发生的事");
-  assert.ok(past.includes("再往前，他手机上没留下什么了。"), "走过的那格没有收尾");
-  assert.ok(ahead.includes("再往后，他日历上还没排。"), "接下来那格没有收尾");
+  assert.ok(past.includes("再往前，TA手机上没留下什么了。"), "走过的那格没有收尾");
+  assert.ok(ahead.includes("再往后，TA日历上还没排。"), "接下来那格没有收尾");
 });

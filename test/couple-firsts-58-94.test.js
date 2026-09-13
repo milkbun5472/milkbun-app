@@ -35,11 +35,11 @@ test("只认最早的那一条", () => {
 test("作者分得清：我写的不算他写的", () => {
   const r = K.coupleFirsts({
     letters: [{ authorId: "user", createdAt: NOW - 380 * DAY, title: "我写的" },
-              { authorId: "c1", createdAt: NOW - 50 * DAY, title: "他写的" }]
+              { authorId: "c1", createdAt: NOW - 50 * DAY, title: "TA写的" }]
   }, NOW);
   const lt = r.find(x => x.key === "letter");
   assert.equal(lt.ts, NOW - 50 * DAY);
-  assert.equal(lt.note, "他写的", "引错了那一封");
+  assert.equal(lt.note, "TA写的", "引错了那一封");
 });
 
 // 天数只列【已经走到的】。没走到的列出来就成了倒计时——那是「我们的日子」那一页的活

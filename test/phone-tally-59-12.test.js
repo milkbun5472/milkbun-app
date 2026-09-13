@@ -20,7 +20,7 @@ const mk = (bond) => P.phoneProbeSpec("tally", { name: "苏晚" }, ["沈砚"], "
 const spec = mk(BOND).instruction;
 
 test("账本不再钉死成「他和用户之间」那一本", () => {
-  assert.match(spec, /这不是「他和用户之间」那一本，是他自己的那一本/, "还钉在用户身上");
+  assert.match(spec, /这不是「TA和用户之间」那一本，是TA自己的那一本/, "还钉在用户身上");
   assert.match(spec, /每一条都要写清楚这笔账是【跟谁】的（who）/, "没要求写清跟谁");
   // 五栏的 schema 每一栏都得有 who，少一栏那一栏就退回旧样子
   const sh = mk(BOND).schemaHint;
@@ -38,7 +38,7 @@ test("账本不再钉死成「他和用户之间」那一本", () => {
 test("腔调不预设成恋爱", () => {
   assert.match(spec, /腔调从关系里长出来，别预设是哪一种/, "没说腔调跟着关系走");
   assert.match(spec, /把每一条都写成情账是这一栏最容易犯的错/, "没挡住一律写成情账");
-  assert.match(spec, /跟他不是那种关系的人，写出来却字字含情，那就是写坏了/, "没给判据");
+  assert.match(spec, /跟TA不是那种关系的人，写出来却字字含情，那就是写坏了/, "没给判据");
   // bond 那一段只发给账本这一栏，别处不发（她按次计费）
   assert.ok(mk(BOND).instruction.indexOf("合租室友") > 0, "账本没收到「他跟谁有账」那一段");
   assert.ok(P.phoneProbeSpec("notes", { name: "苏晚" }, [], "", [], {}, null, false, BOND)

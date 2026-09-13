@@ -51,7 +51,7 @@
     add("duo", "第一张合照", duo && duo.t, duo ? trim(duo.x.desc, 26) : "");
 
     const lt = firstOf(D.letters, function (l) { return l.createdAt; }, function (l) { return l.authorId && l.authorId !== "user"; });
-    add("letter", "他写的第一封信", lt && lt.t, lt ? trim(lt.x.title, 22) : "");
+    add("letter", "TA写的第一封信", lt && lt.t, lt ? trim(lt.x.title, 22) : "");
 
     const ex = firstOf(D.exdiary, function (e) { return e.createdAt || e.ts; });
     add("exdiary", "交换日记的第一页", ex && ex.t, "");
@@ -60,7 +60,7 @@
     add("note", "便签墙上的第一张", nt && nt.t, nt ? trim(nt.x.content, 26) : "");
 
     const dw = firstOf(D.drawer, function (x) { return x.ts; });
-    add("drawer", "他第一次往抽屉里放东西", dw && dw.t, dw ? trim(dw.x.title, 22) : "");
+    add("drawer", "TA第一次往抽屉里放东西", dw && dw.t, dw ? trim(dw.x.title, 22) : "");
 
     const pact = firstOf(D.pacts, function (p) { return p.ts; });
     add("pact", "第一件说好的事", pact && pact.t, pact ? trim(pact.x.text, 26) : "");

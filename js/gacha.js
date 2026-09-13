@@ -1,13 +1,13 @@
 // 抽卡（她 2026-08-31 提，同一轮里定的形状）
 //
 // ⚠️这一层最要紧的一条：**抽是抽，兑是兑**。
-// 抽卡【永远 0 次调用】——抽到的是一张【兑换券】，上面写着他会做的哪一件事；
+// 抽卡【永远 0 次调用】——抽到的是一张【兑换券】，上面写着TA会做的哪一件事；
 // 点了兑换才真的发生，那时才可能花一次调用。所以十连也是 0 调用，想抽就抽，
 // 花钱的时机完全由她自己捏在手里（她按次计费）。
 //
 // 三档的区别不是「文案更长更好看」，是【留不留下痕迹】：
-//   R   兑换 0 调用 —— 从他【已经有的】东西里翻一件出来给你看
-//   SR  兑换 1 调用 —— 他现做一件小东西，看完就完，不动任何状态
+//   R   兑换 0 调用 —— 从TA【已经有的】东西里翻一件出来给你看
+//   SR  兑换 1 调用 —— TA现做一件小东西，看完就完，不动任何状态
 //   SSR 兑换 1 调用 —— 触发一件【真的会留下东西】的事（进记忆库 / 开线下 / 进情书）
 // 这样稀有度天然防通胀：它贵在改变了什么，不贵在辞藻。
 //
@@ -40,39 +40,39 @@
   //       （不然抽到一张永远兑不了的券）。
   // act：兑换时走哪一条路，由 app 那头认。
   const POOLS = [
-    // ── R：从他已经有的东西里翻一件出来（0 调用）──
-    { id: "r_photo",  r: "R", act: "peek", need: "album",    name: "他相册里的一张",     hint: "随机翻开一张他存着的照片" },
-    { id: "r_note",   r: "R", act: "peek", need: "notes",    name: "他手机里的一条便签", hint: "他写给自己看的" },
-    { id: "r_search", r: "R", act: "peek", need: "search",   name: "他搜过的一件事",     hint: "搜索记录里随机一条" },
-    { id: "r_song",   r: "R", act: "peek", need: "playlist", name: "他歌单里的一首",     hint: "他自己存的那张歌单" },
-    { id: "r_mem",    r: "R", act: "peek", need: "memlib",   name: "他还记得的一件事",   hint: "记忆库里随机一条" },
-    { id: "r_order",  r: "R", act: "peek", need: "order",    name: "他买过的一样东西",   hint: "订单里随机一笔" },
-    { id: "r_read",   r: "R", act: "peek", need: "reading",  name: "他书架上的一本",     hint: "他在看的那些" },
-    { id: "r_forum",  r: "R", act: "peek", need: "forum",    name: "他在论坛发过的一条", hint: "他用小号说的话" },
-    { id: "r_moment", r: "R", act: "peek", need: "moment",   name: "他朋友圈里的一条",   hint: "他自己发的动态" },
-    { id: "r_diary",  r: "R", act: "peek", need: "diary",    name: "他日记里的一天",     hint: "他那天写了什么" },
+    // ── R：从TA已经有的东西里翻一件出来（0 调用）──
+    { id: "r_photo",  r: "R", act: "peek", need: "album",    name: "TA相册里的一张",     hint: "随机翻开一张TA存着的照片" },
+    { id: "r_note",   r: "R", act: "peek", need: "notes",    name: "TA手机里的一条便签", hint: "TA写给自己看的" },
+    { id: "r_search", r: "R", act: "peek", need: "search",   name: "TA搜过的一件事",     hint: "搜索记录里随机一条" },
+    { id: "r_song",   r: "R", act: "peek", need: "playlist", name: "TA歌单里的一首",     hint: "TA自己存的那张歌单" },
+    { id: "r_mem",    r: "R", act: "peek", need: "memlib",   name: "TA还记得的一件事",   hint: "记忆库里随机一条" },
+    { id: "r_order",  r: "R", act: "peek", need: "order",    name: "TA买过的一样东西",   hint: "订单里随机一笔" },
+    { id: "r_read",   r: "R", act: "peek", need: "reading",  name: "TA书架上的一本",     hint: "TA在看的那些" },
+    { id: "r_forum",  r: "R", act: "peek", need: "forum",    name: "TA在论坛发过的一条", hint: "TA用小号说的话" },
+    { id: "r_moment", r: "R", act: "peek", need: "moment",   name: "TA朋友圈里的一条",   hint: "TA自己发的动态" },
+    { id: "r_diary",  r: "R", act: "peek", need: "diary",    name: "TA日记里的一天",     hint: "TA那天写了什么" },
 
-    // ── SR：他现做一件小东西，不动任何状态（1 调用）──
-    { id: "s_word",   r: "SR", act: "make", kind: "word",   name: "一句他此刻没说出口的话", hint: "只在心里过了一下的那半句" },
-    { id: "s_note",   r: "SR", act: "make", kind: "note",   name: "一张只给你的便签",       hint: "他随手写的，塞给你" },
-    { id: "s_secret", r: "SR", act: "make", kind: "secret", name: "他今天的一个小秘密",     hint: "今天发生的、他没打算说的" },
-    { id: "s_song",   r: "SR", act: "make", kind: "song",   name: "一首他想放给你听的",     hint: "连着他为什么想放这首" },
-    { id: "s_look",   r: "SR", act: "make", kind: "look",   name: "此刻他眼里的你",         hint: "他这会儿看你是什么样子" },
+    // ── SR：TA现做一件小东西，不动任何状态（1 调用）──
+    { id: "s_word",   r: "SR", act: "make", kind: "word",   name: "一句TA此刻没说出口的话", hint: "只在心里过了一下的那半句" },
+    { id: "s_note",   r: "SR", act: "make", kind: "note",   name: "一张只给你的便签",       hint: "TA随手写的，塞给你" },
+    { id: "s_secret", r: "SR", act: "make", kind: "secret", name: "TA今天的一个小秘密",     hint: "今天发生的、TA没打算说的" },
+    { id: "s_song",   r: "SR", act: "make", kind: "song",   name: "一首TA想放给你听的",     hint: "连着TA为什么想放这首" },
+    { id: "s_look",   r: "SR", act: "make", kind: "look",   name: "此刻TA眼里的你",         hint: "TA这会儿看你是什么样子" },
 
     // ── SSR：真的会留下东西（1 调用 + 留痕）──
-    { id: "x_past",    r: "SSR", act: "past",    name: "他的一段过去",       hint: "写进记忆库——以后他真的会提起" },
-    { id: "x_pact",    r: "SSR", act: "pact",    name: "一件你们说好的",     hint: "进「我们说好的」，到日子他会记得" },
-    { id: "x_offline", r: "SSR", act: "offline", name: "他主动开的一场线下", hint: "他挑的时间地点，开场已经写好了" },
-    { id: "x_letter",  r: "SSR", act: "letter",  name: "他写给你的一封信", hint: "进情侣空间的情书那一叠" },
+    { id: "x_past",    r: "SSR", act: "past",    name: "TA的一段过去",       hint: "写进记忆库——以后TA真的会提起" },
+    { id: "x_pact",    r: "SSR", act: "pact",    name: "一件你们说好的",     hint: "进「我们说好的」，到日子TA会记得" },
+    { id: "x_offline", r: "SSR", act: "offline", name: "TA主动开的一场线下", hint: "TA挑的时间地点，开场已经写好了" },
+    { id: "x_letter",  r: "SSR", act: "letter",  name: "TA写给你的一封信", hint: "进情侣空间的情书那一叠" },
     // 约会券（言秋提，她 2026-08-31 拍板并进抽卡）。原提案是另做一叠券、每周抽一张、
     // 完成盖章进册——那跟抽卡是【同一个形状】（兑换券 + 票根），再做一套就是两套并行的册子。
-    // 所以它不是新功能，是多一个 act：券的内容按他人设生成（王爷的约会和程序员的不该是同一张），
+    // 所以它不是新功能，是多一个 act：券的内容按角色人设生成（王爷的约会和程序员的不该是同一张），
     // 兑换＝拿这张券当开场把线下开起来，票根就是盖过的章。
-    { id: "x_date",    r: "SSR", act: "date",    name: "一张他开的约会券", hint: "他挑的一件一起做的事——兑了就直接开线下" },
-    // 印象卡是他对你的长期认知（十块，js/gaze.js），而且它【进提示词】——
-    // 改一块，他往后看你的眼光就真的变了。留痕最硬的一张。
-    { id: "x_gaze",    r: "SSR", act: "gaze",    name: "他把你重看了一遍", hint: "他印象卡里的一块被改写——他往后看你的眼光跟着变" },
-    { id: "s_date",    r: "SR",  act: "make", kind: "date", name: "他想过的一次约会", hint: "他脑子里过了一遍、还没开口约的那次" }
+    { id: "x_date",    r: "SSR", act: "date",    name: "一张TA开的约会券", hint: "TA挑的一件一起做的事——兑了就直接开线下" },
+    // 印象卡是TA对你的长期认知（十块，js/gaze.js），而且它【进提示词】——
+    // 改一块，TA往后看你的眼光就真的变了。留痕最硬的一张。
+    { id: "x_gaze",    r: "SSR", act: "gaze",    name: "TA把你重看了一遍", hint: "TA印象卡里的一块被改写——TA往后看你的眼光跟着变" },
+    { id: "s_date",    r: "SR",  act: "make", kind: "date", name: "TA想过的一次约会", hint: "TA脑子里过了一遍、还没开口约的那次" }
   ];
 
   const byId = {};
@@ -96,7 +96,7 @@
   }
 
   // 新角色什么都还没有时 R 池会是空的——那就升一档，别发一张空券。
-  // （这也刚好对：还没东西可翻的时候，他现做给你。）
+  // （这也刚好对：还没东西可翻的时候，TA现做给你。）
   function pickCard(rarity, rand, opts) {
     let r = rarity;
     let list = poolOf(r, opts);

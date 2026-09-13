@@ -192,7 +192,7 @@
     } catch (e) { return ""; }
   };
   // ⚠️包一层：没开全局可见的角色，ledgerNoteFor 上面那段会直接 return ""，
-  // 但他【自己替她记的那几笔】仍然该知道，否则「记好了他能看到这笔」就是空话。
+  // 但TA【自己替她记的那几笔】仍然该知道，否则「记好了TA能看到这笔」就是空话。
   const _ledgerNoteBase = window.ledgerNoteFor;
   window.ledgerNoteFor = function (charId) {
     const main = _ledgerNoteBase(charId) || "";
@@ -203,9 +203,9 @@
   // 角色替她记一笔（她 2026-08-30：「我说帮我记加币 xx 元吃东西，他们也能记上」）。
   // ⚠️币种和分类【只能从她已有的那几个里挑】：模型自己编一个 "CAD$" 或者「吃饭」出来，
   // 这笔就永远归不进任何一栏汇总，看着记上了其实是废的。认不出就退回默认那一个。
-  // ⚠️「记好默认他们能看到这笔」＝只让他看到【这一笔】，不是把整本账开给他：
+  // ⚠️「记好默认他们能看到这笔」＝只让TA看到【这一笔】，不是把整本账开给TA：
   // 账本的可见是全局开关（settings.visibleTo），随手打开等于把她所有开销一次性交出去。
-  // 所以这里只在这一条上记 byChar，ledgerNoteFor 单独把「他自己记的那几笔」发回去。
+  // 所以这里只在这一条上记 byChar，ledgerNoteFor 单独把「TA自己记的那几笔」发回去。
   const LEDGER_CAP = 2000;
   window.ledgerAddByChar = function (charId, tx) {
     try {
@@ -249,8 +249,8 @@
       };
     } catch (e) { return { currencies: [], expense: [], income: [] }; }
   };
-  // 他自己替她记的那几笔——不受「谁能看到我的账」那个全局开关限制。
-  // 是他记的，他当然知道；但别的开销仍然只有被授权的人看得见。
+  // TA自己替她记的那几笔——不受「谁能看到我的账」那个全局开关限制。
+  // 是TA记的，TA当然知道；但别的开销仍然只有被授权的人看得见。
   function ledgerOwnLines(charId) {
     try {
       const d = loadJSON("x_ledger", null);
@@ -282,7 +282,7 @@
       const tot = same.reduce((s, x) => s + (Number(x.amount) || 0), 0);
       if (same.length > 1) bgLine = "\n【背景】这个月『" + txn.category + "』连这笔已是第 " + same.length + " 笔、共 " + fmtAmt(tot, cur) + "。角色可以自然联系这个频率或累计来说话，但别报账式复述数字。";
     }
-    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
+    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  应用称呼：" + characterText(it, "他") + "\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
       + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气的亲疏和上不上心的程度）" : "")
       + (prevOf(it.id).length ? "\n  Ta 最近对别的账说过：" + prevOf(it.id).map(s => "「" + s.slice(0, 40) + "」").join("、") + "——这次必须换新的说法和角度，别复读同样的梗和句式" : "")).join("\n\n");
     // 事件驱动模式：不是用户请 Ta 来看，而是 Ta 自己刷到了这笔账、主动开口的第一反应
@@ -293,7 +293,7 @@
       evIntro +
       "【硬性要求，必须做到】\n" +
       "· 真的进入角色、说出有内容有态度的一句，结合人设＋此刻心情＋这笔账的分类和金额。严禁敷衍成『看了一眼没说什么』『无所谓』『随你』这类空话——那是偷懒。\n" +
-      "· 人称必须对：从人设判断角色的性别，男用「他」女用「她」；判断不出就直接叫名字或干脆不用第三人称。绝对不许写成『Ta』『TA』这种占位符。\n" +
+      "· 各角色以第一人称说自己的话。需要第三人称时，按该条目的「应用称呼」或角色姓名表达；未填写性别的称呼是 TA。\n" +
       "· 每人一句、口语、像随手发的消息；几个人语气各不相同，别写成同一个腔调，别说教别客套别报流水账。\n" +
       "· 反应可以多样：心疼你乱花、笑你手松、替你算账、酸一下、担心、或只是顺口关心——按各自人设来。\n\n" +
       "【这笔账】" + fmtDay(txn.date) + " · " + typeZh + " · " + txn.category + " · " + amt + (txn.note ? " · 备注：" + txn.note : "") + bgLine + "\n\n" +
@@ -372,7 +372,7 @@
         const c = (props.characters || []).find(x => x.id === cid);
         if (!c) return;
         const mo = props.moods && props.moods[c.id];
-        const list = [{ id: c.id, name: c.name, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[c.id] }];
+        const list = [{ id: c.id, name: c.name, gender: c.gender, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[c.id] }];
         const outs = await genComments(props.active, txn, cur, list, uName, routedLore([c.id], txn.note || txn.category || "记账"), { event: ev });
         const cmts = (outs || []).filter(o => o && o.text).map(o => ({ charId: c.id, charName: c.name, text: o.text, ts: Date.now(), auto: true, event: ev.key }));
         if (!cmts.length) return;
@@ -401,13 +401,13 @@
         });
         if (!statLines.length) return;
         const aff = props.affinities || {};
-        const list = vis.map(id => { const c = props.characters.find(x => x.id === id); const mo = props.moods && props.moods[id]; return { id, name: c.name, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[id] }; });
-        const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 300) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气亲疏）" : "")).join("\n\n");
+        const list = vis.map(id => { const c = props.characters.find(x => x.id === id); const mo = props.moods && props.moods[id]; return { id, name: c.name, gender: c.gender, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[id] }; });
+        const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  应用称呼：" + characterText(it, "他") + "\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 300) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气亲疏）" : "")).join("\n\n");
         const sys = AC() + CB() + NAC() +
           uName + " 上个月（" + fmtMonth(mk) + "）的账本盘点如下。请【分别以每位角色本人的口吻】对这份月账单说一段话（1~3 句）。\n" +
           "【硬性要求】\n" +
           "· 这是【月度盘点】不是单笔吐槽：看整月的花钱习惯和趋势——心疼、表扬、揶揄手松、替 Ta 操心结余、注意到某类花得突然多，都按各自人设来，几个人腔调各不相同。\n" +
-          "· 人称从人设判断性别，男「他」女「她」，判断不出就叫名字；绝不许写『Ta』。严禁『看了一眼没说什么』这类空话。\n\n" +
+          "· 各角色以第一人称盘点。需要第三人称时，使用条目里的「应用称呼」或姓名，未填写性别用 TA。严禁『看了一眼没说什么』这类空话。\n\n" +
           "【上月账单】\n" + statLines.join("\n") + "\n\n【要盘点的角色】\n" + block +
           "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的月度盘点\"}]}。别加解释、别加代码块。";
         const raw = await callAI(props.active, sys, [{ role: "user", content: "开始盘点。" }], { maxTokens: 14000 });
@@ -712,7 +712,7 @@
       if (!sel.length || busy) return;
       setBusy(true);
       try {
-        const list = sel.map(id => { const c = chars.find(x => x.id === id); return { id, name: c.name, persona: c.persona || "", mood: moodOf(id), aff: props.affinities ? props.affinities[id] : null }; });
+        const list = sel.map(id => { const c = chars.find(x => x.id === id); return { id, name: c.name, gender: c.gender, persona: c.persona || "", mood: moodOf(id), aff: props.affinities ? props.affinities[id] : null }; });
         const lore = props.worldbookFor ? props.worldbookFor(sel, [props.txn && props.txn.note, props.txn && props.txn.category].filter(Boolean).join("\n")) : props.worldbook;
         const outs = await genComments(props.active, props.txn, props.cur, list, props.uName, lore);
         const cmts = list.map((it, i) => ({ charId: it.id, charName: it.name, text: outs[i].text, ts: Date.now() })).filter(c => c.text);

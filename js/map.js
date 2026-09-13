@@ -79,7 +79,7 @@ function mapSubSkin(t) {
     const key = geoKey(char, loc);
     if (geoLoad()[key] || geoQueue.some(function (j) { return j.key === key; })) return;
     const hm = charHome(char);
-    // 带上他所在的城市一起搜：光搜「公司」全世界都是，加了城市才落在他那一片
+    // 带上TA所在的城市一起搜：光搜「公司」全世界都是，加了城市才落在TA那一片
     geoQueue.push({ key: key, q: (hm ? hm.city + " " : "") + String(loc).trim(), near: hm ? [hm.lat, hm.lng] : null });
     geoPump();
   }
@@ -97,15 +97,15 @@ function mapSubSkin(t) {
     });
   }
   function charHome(char) { const hm = char && char.home; return hm && typeof hm.lat === "number" ? hm : null; }
-  // 他到底住在哪一套世界里（她 2026-09-06：「比如说王爷我钉到温尼伯和一个架空世界
+  // TA到底住在哪一套世界里（她 2026-09-06：「比如说王爷我钉到温尼伯和一个架空世界
   // 这种怎么算呢」）。
   //
-  // 判据一句话：**他被钉进哪个架空世界，他就住在那个世界。** 没钉进任何世界，才算住在现实。
+  // 判据一句话：**TA被钉进哪个架空世界，TA就住在那个世界。** 没钉进任何世界，才算住在现实。
   // 理由是这一钉是她【专门为这个人做的动作】，而 home 那个坐标常常只是随手给的一个参照
-  //（没设城市的角色本来就会被撒在她定位附近）。取消那一钉，他自己就回现实。
+  //（没设城市的角色本来就会被撒在她定位附近）。取消那一钉，TA自己就回现实。
   //
   // 谁在乎这件事：① 现实地图不再画住在架空世界里的人（不然一个王爷插在温尼伯街上）；
-  //              ② 行程那一枪不再给他灌现实天气——古代那位不该跟着温尼伯下雨。
+  //              ② 行程那一枪不再给TA灌现实天气——古代那位不该跟着温尼伯下雨。
   function charRealm(char, worlds) {
     if (!char) return { kind: "real" };
     const list = Array.isArray(worlds) ? worlds : [];
@@ -137,9 +137,9 @@ function mapSubSkin(t) {
         : { lat: CITY_DB["温尼伯"][0], lng: CITY_DB["温尼伯"][1] };
     const j = charJitter(char);
     // 行程里写了地名、而且查到过坐标：直接站到那个真地方去（只叠 jitter，不叠活动偏移，
-    // 那个偏移本来就是「不知道他具体在哪」时的替代品）
+    // 那个偏移本来就是「不知道TA具体在哪」时的替代品）
     // ⚠️先认 place（城／坊市这一级），再认 location（具体处所）。
-    //   她 2026-09-06：「角色好像都不会随着日程移动」——根因是行程写的是【他家里的一个房间】，
+    //   她 2026-09-06：「角色好像都不会随着日程移动」——根因是行程写的是【TA家里的一个房间】，
     //   而这张图上查得到的是【城市级】的地名，永远搜不到，于是永远退回落脚点。
     const q = (st && (st.place || st.location)) || "";
     const g = q ? geoHit(char, q) : null;
@@ -335,7 +335,7 @@ function mapSubSkin(t) {
   });
 
   // 行程一变，人就自己挪一下——【不花一次调用】（她 2026-08-31 要的）。
-  // 贵的那一步是「他在做的这件事，落在这个世界的哪个地点」，那是语义配对；
+  // 贵的那一步是「TA在做的这件事，落在这个世界的哪个地点」，那是语义配对；
   // 造世界那一枪已经顺手问过一次了（world.route），之后就只是查表。
   // 对不上就退回落脚点，绝不瞎猜——猜错比不动更糟，人会莫名其妙地闪现。
   const zhOverlap = function (a, b) {
@@ -361,9 +361,9 @@ function mapSubSkin(t) {
     names.forEach(function (nm) { const sc = zhOverlap(nm, text); if (sc > score) { score = sc; best = nm; } });
     return best;
   };
-  // 他此刻在图上的哪一点。
+  // TA此刻在图上的哪一点。
   //
-  // ⚠️她 2026-08-31 报「王爷一直在王府不动了，但是明明显示他应该在别的地方」。
+  // ⚠️她 2026-08-31 报「王爷一直在王府不动了，但是明明显示TA应该在别的地方」。
   // 三个毛病叠在一起：
   //  ① 原来【只】跟 route.places 那张表对，而那张表是【开世界那天】模型给的一次性映射
   //     （「搜查厢房→东跨院」这种）。行程天天新生成，doing 对不上，就永远退回落脚点。
@@ -388,7 +388,7 @@ function mapSubSkin(t) {
     if (!hit && title) hit = bestNode(names, title, 0.5);
     // 标题本来就常以「在」开头（「在城南茶楼见人」），不去掉就成了「此刻在在城南…」
     if (hit) return { node: hit, live: true, why: "此刻在" + String(title || loc || place).replace(/^在/, "") };
-    // ③ 兜底：开世界那天那张「他会去哪儿」的小表。分开比、取高的，不拼在一起
+    // ③ 兜底：开世界那天那张「TA会去哪儿」的小表。分开比、取高的，不拼在一起
     const r = (world.route || {})[char.id];
     if (r) {
       let best = null, score = 0.34;
@@ -399,7 +399,7 @@ function mapSubSkin(t) {
       if (best) return { node: best, live: true, why: "此刻" + (title ? "在" + title : "") };
       if ((st.type === "sleep" || st.type === "rest") && r.home) return { node: r.home, live: true, why: "回去歇着了" };
     }
-    // ④ 行程明明写着他在某处、图上却没有这个地方——这就是她看到的那个样子。
+    // ④ 行程明明写着TA在某处、图上却没有这个地方——这就是她看到的那个样子。
     //    把它说出来（miss），别默默退回落脚点让人以为是坏了。
     return { node: pinned, live: false, miss: place || loc || title || "" };
   }
@@ -513,10 +513,10 @@ function mapSubSkin(t) {
                   c.__me ? (here ? "你在这儿" : other ? "你在「" + w.node + "」" : "你还没进这个世界")
                     : here ? (w.live ? (w.why || "此刻在这儿") + "（跟着今天的行程走）" : ((world.why || {})[c.id] || "就在这儿"))
                     : other ? (w.live ? "此刻在「" + w.node + "」" : "落脚在「" + w.node + "」") : "还没落脚在这个世界里"),
-                // 行程说他在某处、图上却没有那个地方——不说的话看起来就是「人不动了」。
+                // 行程说TA在某处、图上却没有那个地方——不说的话看起来就是「人不动了」。
                 // 说出来，顺手指向右上角那个加地点
                 w.miss ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: here ? "rgba(255,255,255,0.9)" : t.accent, lineHeight: 1.5, marginTop: 2 } },
-                  "行程说他在「" + w.miss + "」，这张图上还没有——右上角可以加一个") : null),
+                  "行程说TA在「" + w.miss + "」，这张图上还没有——右上角可以加一个") : null),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } },
                 (pins[c.id] === sel.name) ? "挪走" : "钉过来"));
           })))) : null;
@@ -858,7 +858,7 @@ function mapSubSkin(t) {
     }, [livePos]);
     const anchor = livePos ? { lat: livePos[0], lng: livePos[1] } : (userGeo && typeof userGeo.lat === "number" ? userGeo : null);
     // 住在架空世界里的那几位不画在现实图上（她 2026-09-06 那个「钉了温尼伯又钉了架空世界」）：
-    // 一个王爷插在温尼伯的街上，看着就不对。取消那一钉，他自己就回来了。
+    // 一个王爷插在温尼伯的街上，看着就不对。取消那一钉，TA自己就回来了。
     const pins = (characters || []).filter(function (c) { return charRealm(c, worlds).kind === "real"; }).map(function (c) {
       const st = (status || {})[c.id];
       const label = st && st.title ? (c.name + " · " + st.title) : c.name;

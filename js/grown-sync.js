@@ -65,7 +65,7 @@
 
   // ── Ta 眼里 ───────────────────────────────────────────────
   // blocks 每一块自己带 ts，逐块取新的；hist 是旧版快照，按【块+时刻】去重全留；
-  // checks 是「他又想了一遍」的时刻，逐块取晚的。
+  // checks 是「TA又想了一遍」的时刻，逐块取晚的。
   function mergeGazeBox(a, b) {
     a = obj(a); b = obj(b);
     const blocks = {};

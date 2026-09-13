@@ -70,7 +70,7 @@ test("② 数出来短了只提示，绝不自动再打一枪", () => {
   assert.equal(F.shortBy("一二三", 100), 97);
   // 界面上：一行字 + 一颗键，按了才发
   assert.match(fic, /const miss = window\.Fanfic\.shortBy\(ch\.content, minChars\);/);
-  assert.match(fic, /"让他接着写"/);
+  assert.match(fic, /"让TA接着写"/);
   assert.match(fic, /onClick: function \(\) \{ moreChapter\(idx\); \}/);
   // genChapterMore 只能从界面按出来，代码里不许有第二个调用点
   const calls = (strip(fic).match(/genChapterMore\(/g) || []).length;
@@ -89,7 +89,7 @@ test("② 接着写不是重写，天花板也跟着地板走", () => {
 });
 
 test("② 字数在提示词里说两处，别只埋在最后那行 schema 里", () => {
-  const g = fic.slice(fic.indexOf("async function genNextChapter"), fic.indexOf("  // ---- 「让他接着写」"));
+  const g = fic.slice(fic.indexOf("async function genNextChapter"), fic.indexOf("  // ---- 「让TA接着写」"));
   assert.match(g, /这一章至少写 " \+ minWords \+ " 字\*\*。这是硬指标，不是参考值/, "任务那一段里没说");
   assert.match(g, /\*\*至少 " \+ minWords \+ " 字\*\*/, "输出格式那一行里没说");
   assert.match(g, /的下一章，至少 " \+ minWords \+ " 字/, "user 那句触发里没说");
@@ -127,7 +127,7 @@ test("③ 设定卡发出去了，而且判据不给例子；伏笔不许每章�
 });
 
 test("③ 前情摘要不再线性变长——远期交给设定卡", () => {
-  const g = fic.slice(fic.indexOf("async function genNextChapter"), fic.indexOf("  // ---- 「让他接着写」"));
+  const g = fic.slice(fic.indexOf("async function genNextChapter"), fic.indexOf("  // ---- 「让TA接着写」"));
   assert.match(g, /const hookFrom = Math\.max\(0, chapters\.length - HOOK_TAIL\);/);
   assert.match(g, /chapters\.slice\(hookFrom\)/, "还在 chapters.map 整串——二十章之后它自己占一大块");
   assert.ok(g.indexOf("chapters.map(function (c, i)") < 0);

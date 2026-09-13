@@ -104,7 +104,7 @@ test("子页面：查手机里那二十个、情侣空间那些门，问哪个�
   const ZH = { album: "合照", anniv: "我们的日子", archive: "我们的档案", capsule: "时光胶囊",
     disc: "唱片", drawer: "抽屉", exdiary: "交换日记", firsts: "第一次", gacha: "抽卡",
     garden: "花房", ifroom: "如果馆", letters: "情书", makeup: "和好间", pacts: "说好的",
-    qa: "问答小本", recall: "他记得的", studio: "照相馆", timeline: "我们的日子",
+    qa: "问答小本", recall: "TA记得的", studio: "照相馆", timeline: "我们的日子",
     trip: "旅行", wishes: "愿望板" };
   subs.forEach(k => {
     assert.ok(ZH[k], "情侣空间多出一扇门「" + k + "」，手册这条得跟着补");

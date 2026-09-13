@@ -123,5 +123,5 @@ test("界面上能选「怎么来」，而且选中态不是只填个色", () =>
     assert.ok(seg.indexOf(k) > 0, "选中态少了一样：" + k));
   assert.match(seg, /minHeight: 40/, "点不着（低于 40px）");
   // 已经约好的那条要看得出是哪一种，不然改完看不出改没改
-  assert.match(scr, /d\.via === "voice" \? "他会打给你" : d\.via === "video" \? "他会视频找你" : "他会来找你说"/);
+  assert.match(scr, /d\.via === "voice" \? characterText\(partner, "他会打给你"\) : d\.via === "video" \? characterText\(partner, "他会视频找你"\) : characterText\(partner, "他会来找你说"\)/);
 });

@@ -22,22 +22,22 @@ const sched = (dists, b) => R.buildScheduleInstruction(st, Date.now(), R.readSee
 test("今天掷到了痕迹：那一档终于有料了，而且只许取最小的一样", () => {
   const p = sched(["trace", "far"], bed);
   assert.ok(p.includes("有人把一只搪瓷缸忘在了播音室"));
-  assert.ok(p.includes("【「他留下的痕迹」那一档能用的料】"));
+  assert.ok(p.includes("【「TA留下的痕迹」那一档能用的料】"));
   assert.ok(p.includes("别把它当故事讲出来"), "整段情节搬上去就等于坐实了这是谁，这一句不能少");
   assert.ok(p.includes("不署名、不点名、不暗示"));
   // 生活半径那一份照旧在，两份不许互相顶替
-  assert.ok(p.includes("【他的生活半径】"));
+  assert.ok(p.includes("【TA的生活半径】"));
 });
 
 test("今天一条痕迹都没掷到，这一份就不发", () => {
   const p = sched(["far", "orbit", "orbit"], bed);
-  assert.ok(!p.includes("【「他留下的痕迹」那一档能用的料】"));
+  assert.ok(!p.includes("【「TA留下的痕迹」那一档能用的料】"));
   assert.ok(!p.includes("有人把一只搪瓷缸忘在了播音室"));
   // 掷到了痕迹、可那边一句都没播出去过——照样不发这一栏，不许硬造
   const empty = sched(["trace"], { ...bed, traces: [] });
-  assert.ok(!empty.includes("【「他留下的痕迹」那一档能用的料】"));
+  assert.ok(!empty.includes("【「TA留下的痕迹」那一档能用的料】"));
   // 三个距离那条规矩本身跟料无关，一直都在
-  assert.ok(empty.includes("他留下的痕迹"));
+  assert.ok(empty.includes("TA留下的痕迹"));
 });
 
 test("临时台不吃这一份：它是飘过来的，凭什么知道这儿住着谁", () => {

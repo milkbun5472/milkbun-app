@@ -77,5 +77,5 @@ test("点开之后：牌阵、那一组、问法都替她落好，但都只是�
   assert.match(tarot, /\(SPREADS\[props\.initSpreadKey\] \|\| \{\}\)\.group/);
   assert.match(tarot, /String\(props\.initSpreadKey\)\.indexOf\("custom:"\) === 0 \? "custom" : ""/);
   // 卡上那句话按问法分两种说法
-  assert.match(comp, /\(m\.asker === "me" \? "他自己想问的：" : "想替你问的："\)/);
+  assert.match(comp, /\(m\.asker === "me" \? characterText\(character, "他自己想问的："\) : "想替你问的："\)/);
 });

@@ -83,7 +83,7 @@ test("线下叙事准则里要点名正文形态那种写法", () => {
   const i = engine.indexOf("const OFFLINE_NARRATIVE_RUNTIME = `");
   const block = engine.slice(i, engine.indexOf("`;", i));
   assert.match(block, /【别拿对方刚说的词开口反问】/);
-  assert.match(block, /他挑眉/, "写成有动作有节奏的样子最容易蒙混过去，得点名");
+  assert.match(block, /TA挑眉/, "写成有动作有节奏的样子最容易蒙混过去，得点名");
   assert.match(block, /在【线下正文】里同样生效/);
 });
 

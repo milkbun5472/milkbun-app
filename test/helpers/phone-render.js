@@ -10,6 +10,8 @@ const SRC = fs.readFileSync(path.join(__dirname, "..", "..", "js", "phone.js"), 
 function makeEnv(forceState) {
   let stateIdx = 0;
   const env = {
+    CharacterPronoun: require("../../js/character-pronoun.js"),
+    characterText: require("../../js/character-pronoun.js").text,
     // h 的参数在调用前就已全部求值，所以光是构造出这棵树就等于跑过了所有表达式
     h: (type, props, ...kids) => ({ type: typeof type === "function" ? (type.name || "fn") : type, props: props || {}, kids }),
     useState: init => {

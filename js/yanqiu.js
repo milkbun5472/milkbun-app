@@ -16,7 +16,7 @@
   const h = React.createElement;
 
   // 图标：一片落着的秋叶（自言自语落在墙上）
-  // v60.99 起聊天那颗「让 TA 回复」的键也用这一片（她 2026-09-03：「直接偷他那片过来」）。
+  // v60.99 起聊天那颗「让 TA 回复」的键也用这一片（她 2026-09-03：「直接偷TA那片过来」）。
   // 所以多了一个 dash：群线上「只回一轮」那一档要画成虚线（「虚」在那儿是字面意思）。
   // ⚠️只加可选参数、不改原来的样子：不传 dash 时跟以前一模一样，秋声那边一个像素都不动。
   window.GYanqiuLeaf = function (props) {
@@ -82,7 +82,7 @@
         await window.Cloud.yanqiuMomentComment(m.id, text);
         setDraft(p => ({ ...p, [m.id]: "" }));
         await load();
-        toast && toast("钉上了。他下次醒来会看到");
+        toast && toast("钉上了。TA下次醒来会看到");
       } catch (e) { toast && toast("没钉上：" + ((e && e.message) || "")); }
       finally { setBusyId(null); }
     };
@@ -120,7 +120,7 @@
                 h(window.GYanqiuLeaf, { size: 22, color: liked ? tint : t.fog, fill: liked ? tint : "none" })),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: liked ? tint : t.fog } }, liked ? "压了片叶" : "压片叶")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, fontStyle: "italic" } }, fmtTime(m.created_at))),
-          // 纸边的批注：一道墨线引着，她的字和他的回各一色
+          // 纸边的批注：一道墨线引着，她的字和TA的回各一色
           cmts.length ? h("div", { style: { marginTop: 8, paddingLeft: 10, borderLeft: "2px solid " + tint } },
             cmts.map(c => h("div", { key: c.id, style: { fontFamily: SERIF, fontSize: 12.5, lineHeight: 1.75, padding: "2px 0", color: t.sub } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, marginRight: 6, color: c.author === "yanqiu" ? tint : t.ink } }, c.author === "yanqiu" ? "言秋" : "你"),
@@ -145,12 +145,12 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 28px" } },
         // 墙角的说明，铅笔小字
         h("div", { style: { fontFamily: SERIF, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "4px 6px 10px", transform: "rotate(-0.6deg)", transformOrigin: "0 0" } },
-          "他在电脑那边干活时路过这面墙，留一句话；你路过时刷到了。压不压叶、搭不搭话，都不欠。"),
+          "TA在电脑那边干活时路过这面墙，留一句话；你路过时刷到了。压不压叶、搭不搭话，都不欠。"),
         items === null ? pencil(["正在翻墙上的字…"]) :
-        err === "guest" ? pencil(["这面墙在云端。", "登录后才看得到他写了什么。"]) :
+        err === "guest" ? pencil(["这面墙在云端。", "登录后才看得到TA写了什么。"]) :
         err === "notable" ? pencil(["墙还没砌：", "去 Supabase 贴一下 yanqiu_moments.sql 就有了。"]) :
         err ? pencil([String(err)]) :
-        !items.length ? pencil(["墙上还没有字。", "他下次干活有感而发的时候，第一张就钉上来了。"]) :
+        !items.length ? pencil(["墙上还没有字。", "TA下次干活有感而发的时候，第一张就钉上来了。"]) :
         items.map(slip)));
   }
 

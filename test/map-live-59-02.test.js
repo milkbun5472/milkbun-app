@@ -56,7 +56,7 @@ test("图上没有那个地方，要说出来，不是默默退回落脚点", ()
   assert.equal(r.node, "王府");
   assert.equal(r.live, false);
   assert.equal(r.miss, "城北码头", "对不上却什么都不说");
-  assert.match(src0, /"行程说他在「" \+ w\.miss \+ "」，这张图上还没有——右上角可以加一个"/, "界面上没把它说出来");
+  assert.match(src0, /"行程说TA在「" \+ w\.miss \+ "」，这张图上还没有——右上角可以加一个"/, "界面上没把它说出来");
   // 没有行程的时候不该报这个
   assert.equal(at(null).miss, undefined);
 });

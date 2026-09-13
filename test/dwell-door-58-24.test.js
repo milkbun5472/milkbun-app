@@ -139,7 +139,7 @@ test("一件东西：他心里那句是这一页唯一的主角", () => {
     "那句话跟这一页的地皮成了同一种材质，一眼分不出来了");
   assert.match(src, /boxShadow: "0 16px 34px rgba\(0,0,0,\.42\)"/, "纸没有压在图上的样子");
   assert.match(src, /fontFamily: "'Noto Serif SC',serif", fontSize: 17/, "那句话没有比说明大");
-  assert.match(src, /"—— " \+ \(char \? char\.name : "他"\) \+ " 没说出口"/);
+  assert.match(src, /"—— " \+ \(char \? char\.name : characterText\(char, "他"\)\) \+ " 没说出口"/);
   // note 不再包成一张跟它平起平坐的卡片
   assert.ok(src.indexOf("borderRadius: 10, padding") < 0, "说明又做成了跟那句话平起平坐的卡片");
   assert.match(src, /item\.note \?/, "说明丢了");

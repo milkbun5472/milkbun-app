@@ -10,12 +10,12 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const RULE = eng.slice(eng.indexOf("const ANON_MASK_RULE"), eng.indexOf("function anonMaskNames"));
 
 test("换站位：他本人坐在那儿注册这个号", () => {
-  assert.match(RULE, /这一栏不是「给他设计一个马甲」，是他自己在填/);
-  assert.match(RULE, /他本人坐在那儿，注册这个号，要填一个名字和一句签名。他会填什么？/);
+  assert.match(RULE, /这一栏不是「给TA设计一个马甲」，是TA自己在填/);
+  assert.match(RULE, /TA本人坐在那儿，注册这个号，要填一个名字和一句签名。TA会填什么？/);
   // 点破前面两版都错在哪儿，免得下次又荡回去
   assert.match(RULE, /提炼过头就是工牌，加工过头就是\n一句谁都能挂的漂亮话/);
   // 混人称的桥：规矩里全是「他」，可现在读它的人就是他
-  assert.match(RULE, /下面这些话里的「他」说的就是你自己/);
+  assert.match(RULE, /下面这些话里的「TA」说的就是你自己/);
 });
 
 test("态度就是他是谁——不必靠内容表明身份", () => {
@@ -27,9 +27,9 @@ test("态度就是他是谁——不必靠内容表明身份", () => {
 
 test("不必非得是一件具体的事", () => {
   assert.match(RULE, /\*\*不必非得是一件具体的事。\*\*/);
-  assert.match(RULE, /一个声音、一个手感、一个他\n\s*懒得解释的词、一串没意义的字符都行/);
+  assert.match(RULE, /一个声音、一个手感、一个TA\n\s*懒得解释的词、一串没意义的字符都行/);
   // 判据：这是他会填的那种东西，不是这句话说清了他是谁
-  assert.match(RULE, /重要的是【这是他会填的那种东西】，不是【这句话说清了他是谁】/);
+  assert.match(RULE, /重要的是【这是TA会填的那种东西】，不是【这句话说清了TA是谁】/);
 });
 
 test("三枪都换成他本人在打字（voice），不再走分析师那一路", () => {

@@ -21,7 +21,7 @@ test("只在她真的开口要过时才提示", () => {
 
 test("连着两轮才提示：偶尔一轮不拍是人物反应，不是故障", () => {
   assert.match(app, /noPhotoStreakRef\.current\[charId\] === 2/);
-  assert.match(app, /偶尔一轮他就是想逗你，那是人物反应，不该报错/);
+  assert.match(app, /偶尔一轮TA就是想逗你，那是人物反应，不该报错/);
   // 拍成了就清零，否则计数会一直累加、隔很久突然弹一句莫名其妙的提示
   assert.match(app, /\} else if \(photoScene\) noPhotoStreakRef\.current\[charId\] = 0;/);
   assert.match(app, /const noPhotoStreakRef = useRef\(\{\}\);/);

@@ -43,7 +43,8 @@ test("没挑日子就什么都不是：不许自己造一个今天出来", () =>
   assert.equal(K.coupleDueTs("", "20:00"), 0);
   assert.equal(K.coupleDueTs(null, "20:00"), 0);
   assert.equal(K.coupleDueTs("不是日子", "20:00"), 0);
-  assert.equal(K.coupleDueClock(0), "00:00");   // 只在有日子的时候才拿去显示
+  const epoch = new Date(0);
+  assert.equal(K.coupleDueClock(0), String(epoch.getHours()).padStart(2,"0") + ":" + String(epoch.getMinutes()).padStart(2,"0")); // 使用本地时区，而非假设UTC
 });
 
 test("两处都从这一份要时刻，不再各写一遍", () => {

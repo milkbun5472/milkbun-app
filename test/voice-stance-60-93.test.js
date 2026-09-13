@@ -86,7 +86,7 @@ test("凡是【他亲口说的话】都换了站位，凡是推演数据的照�
   const notVoice = (fn, zh) => { const i = app.indexOf(fn); assert.ok(i > 0, "抠不出：" + zh);
     assert.equal(app.slice(i - 700, i + 40).indexOf("voice: true"), -1, zh + " 不该换站位——它产出的是数据不是话"); };
   [['推演此刻「" + char.name + "」手机屏幕的真实状态', "查手机"],
-   ['推演「" + char.name + "」的财务档案', "财务档案"],
+   ['的财务档案。**收入来源', "财务档案"],
    ['为「" + c.name + "」设计 Ta 的贴吧资料', "贴吧资料"],
    ['你在给一个人刷购物 App 的信息流', "购物信息流"]].forEach(x => notVoice(x[0], x[1]));
 });

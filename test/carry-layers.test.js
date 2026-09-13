@@ -97,7 +97,7 @@ test("头一次生成（以前没有）照单全收，别拿空的去回填", ()
 
 test("旧那一份要喂回提示词，钉住的点名不许动", () => {
   const blk = F.carryKnownBlock("bag", mk("伞", "那块玉"), ["那块玉"]);
-  assert.match(blk, /上一次翻他这一栏/);
+  assert.match(blk, /上一次翻TA这一栏/);
   assert.match(blk, /默认原样照抄回来/);
   assert.match(blk, /这一次最多换掉两件/);
   assert.match(blk, /绝对不许换掉、不许改名/);
@@ -173,7 +173,7 @@ test("衣柜驱动出图，但不抢锁死的行头和此刻真穿着", () => {
 test("和购物/钱包接上：真到手的东西当素材，不是直接塞条目", () => {
   assert.match(app, /const carryMaterialFor = charId => \{/);
   assert.match(app, /box\.shopping \|\| \{\}\)\.orders/, "没从他网购订单里取");
-  assert.match(screens, /【他最近真到手的东西】/);
+  assert.match(screens, /【TA最近真到手的东西】/);
   assert.match(screens, /没有一件对得上就一件都不写/, "得说清这不是清单核对，否则会硬塞");
   // 取消/退款/还在路上的不算「到手」
   assert.match(app, /取消\|退款\|退货\|已退\|失败\|关闭\|待收货\|派送\|运输\|揽收/);
@@ -475,7 +475,7 @@ test("随身物也能摆到他面前，和查手机共用同一张卡", () => {
   assert.match(conf, /trinket: \{ what: "东西", tier: "hidden"/, "珍藏是他藏着的东西");
   assert.match(conf, /gifts:\s+\{ what: "东西", tier: "open"/, "礼物是你送的，他本来就知道你知道");
   // 珍藏那一档的「藏起来」不能沿用手机那套说法（小号／深夜／删掉的）
-  assert.match(conf, /hiddenWhat: "他一直贴身收着的/);
+  assert.match(conf, /hiddenWhat: "TA一直贴身收着的/);
 });
 
 test("摆过去的只有东西本身，绝不带他的心声", () => {
@@ -493,7 +493,7 @@ test("判词跟着翻的是什么走，不再写死「手机」", () => {
   assert.doesNotMatch(app, /const PHONE_PEEK_TAG = \{/, "旧的写死版还在");
   assert.match(app, /是她自己翻你" \+ what \+ "翻到的/);
   // 卡片上那行小字同理
-  assert.match(R("components.js"), /"翻他" \+ \(p\.what \|\| "手机"\) \+ " · "/);
+  assert.match(R("components.js"), /characterText\(character, "翻他"\) \+ \(p\.what \|\| "手机"\) \+ " · "/);
 });
 
 // 她 2026-08-29 真机截图抓出来的三个
@@ -561,7 +561,7 @@ test("生成时把别栏已有的喂过去，写回来之前再删一道", () =>
     ["bag:随身记词小本子", "bag:油纸伞", "gifts:羊毛围巾"], "礼物也该算在「别处」里");
   // 提示词那一半
   const blk = F6.carryAvoidBlock(el);
-  assert.match(blk, /这些东西已经在他别处了，一件都别再写/);
+  assert.match(blk, /这些东西已经在TA别处了，一件都别再写/);
   assert.match(blk, /同一件东西只能待在一个地方/);
   assert.match(blk, /· 包内：随身记词小本子、油纸伞/);
   assert.match(blk, /· 收到的礼物：羊毛围巾/);

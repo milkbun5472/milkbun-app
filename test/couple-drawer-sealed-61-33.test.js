@@ -37,7 +37,7 @@ test("源头也断掉：悄悄话不再拿正文当标题", () => {
 });
 
 test("抽屉里会放哪几样，写在页面上，不用她来问", () => {
-  ["他捡到的", "半句话", "他画的", "一句悄悄话"].forEach(zh =>
+  ["TA捡到的", "半句话", "TA画的", "一句悄悄话"].forEach(zh =>
     assert.ok(drawer.indexOf(zh) >= 0 || scr.indexOf('zh: "' + zh + '"') >= 0, "少了「" + zh + "」"));
   assert.match(drawer, /Object\.keys\(DRAWER_KIND\)\.map/, "没把这几类摆出来");
 });

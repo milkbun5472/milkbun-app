@@ -148,7 +148,7 @@ test("单聊那一行按开关显示", () => {
   const i = C.indexOf('m.who === "char" && window.ActLine');
   assert.ok(i > 0, "那一行没接上开关");
   const blk = C.slice(i, i + 400);
-  assert.match(blk, /window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "他"/,
+  assert.match(blk, /window\.PhonePronoun \? window\.PhonePronoun\.ta\(character\) : "TA"/,
     "人称得跟着角色性别走——charTa 那张表只有一份，别再各写一遍");
   assert.match(blk, /userPerson === "ta" \? \[\] : \["她", \(profile && profile\.name\) \|\| ""\]/, "「选你」那一头没接上");
   assert.match(blk, /userPerson === "ta" \? "她" : ""/, "「选她」那一头没接上——卡里写「你」时就转不过去了");
@@ -183,7 +183,7 @@ test("动描关着的时候不摆这个开关", () => {
   assert.ok(blk.indexOf("t.fog, marginTop: 2") < 0, "那两段灰字说明又长回来了");
   assert.ok(C.indexOf("只认「她」和你的名字") < 0, "灰字没删干净");
   assert.ok(C.indexOf("你自己写的旁白也是「我」，两个人都说「我」容易看岔") < 0, "灰字没删干净");
-  assert.match(blk, /\[\["me", "我"\], \["ta", "他"\]\]/);
+  assert.match(blk, /\[\["me", "我"\], \["ta", characterText\(character, "他"\)\]\]/);
   assert.equal((blk.match(/minHeight: 32/g) || []).length, 2, "两个开关的按钮都得点得到，不能只有第一个够大");
   assert.match(blk, /\) : null\)/, "动描关着时该整个不摆");
 });

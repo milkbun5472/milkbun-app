@@ -9,7 +9,7 @@ const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf
 // 这条要证的没变——**三页都在、三个 key 没动**；改的只是它们叫什么。
 test("相册是三页完整界面", () => {
   assert.match(phone, /\["library", "全部"\]/);
-  assert.match(phone, /\["collections", "他的几摞"\]/);
+  assert.match(phone, /\["collections", characterText\(char, "他的几摞"\)\]/);
   assert.match(phone, /\["saved", "我收着的"\]/);
   assert.match(phone, /function AlbumNavIcon/);
   // 相册自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达

@@ -58,7 +58,7 @@ test("接在单聊气泡流水线上，engineerEyes 照旧跳过", () => {
   // 要拿【她最近一条】来比，不是整段历史
   // 她这一整轮说过的话（可能连发好几条），不是最后那一条
   assert.match(engine, /function lastUserTurnText\(msgs\)/);
-  assert.match(engine, /if \(m\.role === "assistant" \|\| m\.role === "char"\) break;/, "碰到他说话就是上一轮了");
+  assert.match(engine, /if \(m\.role === "assistant" \|\| m\.role === "char"\) break;/, "碰到TA说话就是上一轮了");
 });
 
 // —— 心声刷新 ——

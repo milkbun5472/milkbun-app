@@ -33,7 +33,7 @@ test("造世界只喂人设和行程，主线那几层一个字不喂", () => {
   assert.ok(!/runProbe|ctxFor|buildBundle/.test(nocomment(gen)), "混进了主线上下文（记忆/好感/心情/用户身份都装在那里面）");
   assert.match(gen, /await callAI\(active, sys/, "没有走裸调用");
   assert.match(gen, /maxTokens: 65535/, "天花板没给满");
-  assert.match(gen, /【他写的设定】/, "没把她写的那段递进去");
+  assert.match(gen, /【TA写的设定】/, "没把她写的那段递进去");
   assert.match(gen, /String\(c\.persona \|\| c\.prompt \|\| ""\)\.slice\(0, 2500\)/, "没喂人设");
   assert.match(gen, /worldDayOf\(c\)/, "没喂行程——他每天走过哪几段路,比「他是个什么人」更能决定该长出哪些地方");
   // 一个人都没选的时候，一个字都不该多喂

@@ -8,7 +8,7 @@
 (function () {
   // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
   // 演戏那几拍走 narrativeCore，白得；但【搭台】这几枪（开场正文、新处境）自己拼 sys，
-  //   开场那 5-9 句正文也是正文——他完全可能在开场第一句就点上。
+  //   开场那 5-9 句正文也是正文——TA完全可能在开场第一句就点上。
   const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   // 搭台共用人物与文风底座；不带演出用的第一人称、镜头规则或主线资料。
   const settingStyle = () => [CB(), ANTI_CLICHE, CHARCARD_RULE,
@@ -207,7 +207,7 @@
   }
   // 取景骰子(v53.27):没关键词时让模型「自由发挥」,它每次都掷出同一个众数——
   // 民国租界 + 一方走投无路 + 另一方手里握着唯一能救她的物件。根因是目标契约
-  // (他做出/有代价/不可逆/由她促成)最省力的解只有那一个拓扑,再加上提示词里
+  // (TA做出/有代价/不可逆/由她促成)最省力的解只有那一个拓扑,再加上提示词里
   // 点名过的题材本身就是吸引子。所以题材/关系/门槛三个骰子改由 JS 来掷:
   // 客户端的真随机压得住语料先验,模型自称的"随机挑一个"压不住。
   const POOL_GENRE = ["校园", "现代都市职场", "江湖武侠", "古代宫廷", "赛博朋克", "末世废土", "西幻大陆", "蒸汽朋克", "太空歌剧", "神话志怪", "民国", "西部拓荒", "远洋航船", "乡镇小城", "医院", "法庭律所", "演艺圈", "职业体育", "餐饮后厨", "考古学界", "监狱", "秘密结社", "赛车机械", "剧团马戏班"];
@@ -281,15 +281,15 @@
       if (add.length) saveGal(list => add.concat(list).sort((a, b) => b.ts - a.ts));
     }, []);
     // 目标契约(四处生成共用一份,免得改一处漏三处)。
-    // 2026-08-18 Lisa 拿商业乙游的关卡设计来对照:那边的目标全是「让他喂你吃排骨」
-    // 「让他同意你帮他换衬衫」「让他相信你只是在晨跑」这类日常小动作,却一点不轻——
+    // 2026-08-18 Lisa 拿商业乙游的关卡设计来对照:那边的目标全是「让TA喂你吃排骨」
+    // 「让TA同意你帮TA换衬衫」「让TA相信你只是在晨跑」这类日常小动作,却一点不轻——
     // 因为重量来自处境。我原先写死的「禁止事务级小目标」是错的,一刀切掉了整类好目标。
     const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
-    // 难度档:目标重量 + 演出时他有多难撬
+    // 难度档:目标重量 + 演出时TA有多难撬
     const DIFF = {
-      easy: { name: "轻松", goal: "目标采用日常尺度，阻力轻且有具体缘由，不要求重大代价。", play: "他对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
+      easy: { name: "轻松", goal: "目标采用日常尺度，阻力轻且有具体缘由，不要求重大代价。", play: "TA对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
       normal: { name: "标准", goal: "", play: "" },
-      hard: { name: "硬核", goal: "目标有充分的人物与处境依据，角色有强烈理由拒绝，需要多轮实质推进；困难来自动机与条件，不靠夸大叙述。", play: "他会【真实地抵抗】目标方向:回避、装傻、转移话题、反将一军;只有被真正说动、戳中要害或无路可退时才让步,绝不因为对方坚持了两句就松口。" }
+      hard: { name: "硬核", goal: "目标有充分的人物与处境依据，角色有强烈理由拒绝，需要多轮实质推进；困难来自动机与条件，不靠夸大叙述。", play: "TA会【真实地抵抗】目标方向:回避、装傻、转移话题、反将一军;只有被真正说动、戳中要害或无路可退时才让步,绝不因为对方坚持了两句就松口。" }
     };
     const diffOf = l => DIFF[(l && l.difficulty) || "normal"] || DIFF.normal;
     // 滚动摘要(防长线失忆):超过 48 条后,把最老的部分浓缩进 line.summary,只留近 32 条逐句喂
@@ -374,7 +374,7 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
       try {
-        const sys = settingStyle() + "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、理解与判断习惯;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域。关键词为空时,严格按下方给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,按其性格机制和说话方式行事,不许洗白、软化或让他偷偷还是好人。\n先确定两人为何在这个世界里有交集，以及各自此刻关心什么；身份、关系与事件应互相支持。关键词为空时按取景框的关系维度展开，具体内容由本次人物与世界决定。\ngoal 是当前互动中可推进的一件事。" + GOAL_RULE + "\n基调决定场景的情绪与节奏，难度决定目标阻力。轻松与日常可以自然成立，不要求所有关系都有秘密、对立、牺牲或不可逆代价。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;只属于今天这一刻的事件和状态,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个正在进行、可以接话或行动的具体时刻。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代可知的身份处境，把场景推进到那个时刻，留出自然接话或行动的空间，不代写 Ta 的内心;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:" + SHAPE_SETTING + "";
+        const sys = settingStyle() + characterText(char, "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、理解与判断习惯;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域。关键词为空时,严格按下方给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,按其性格机制和说话方式行事,不许洗白、软化或让他偷偷还是好人。\n先确定两人为何在这个世界里有交集，以及各自此刻关心什么；身份、关系与事件应互相支持。关键词为空时按取景框的关系维度展开，具体内容由本次人物与世界决定。\ngoal 是当前互动中可推进的一件事。") + GOAL_RULE + "\n基调决定场景的情绪与节奏，难度决定目标阻力。轻松与日常可以自然成立，不要求所有关系都有秘密、对立、牺牲或不可逆代价。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;只属于今天这一刻的事件和状态,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个正在进行、可以接话或行动的具体时刻。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代可知的身份处境，把场景推进到那个时刻，留出自然接话或行动的空间，不代写 Ta 的内心;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:" + SHAPE_SETTING + "";
         // 关键词为空才掷骰子;她写了关键词就一切听她的,不拿随机框去顶她的要求
         const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,五项共同取景，门槛按难度落实,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
@@ -396,7 +396,7 @@
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 从收藏基线开新局:身份与世界原样不动,但【此刻的处境要整个换掉】——
-    // 基线存的是「他是龙族监督官、你是人类书记官」,不是「他行囊打包好了、你堵在他面前」。
+    // 基线存的是「TA是龙族监督官、你是人类书记官」,不是「TA行囊打包好了、你堵在TA面前」。
     // 不明说这一点的话,模型会把上次那个时刻原样复述一遍,新局和重开就没有区别了。
     const newSituation = (fixedWorld, avoid) => "\n【新处境】保留固定身份、世界与长期关系，改变当前事件、相遇缘由或时间条件，让这局与旧局有实质区别。新事件须符合原世界和人物，不强制剧变，不把相同事件换地点当成新局。"
       + (avoid ? "\n【已经开过的局(务必避开)】" + avoid : "")
@@ -461,7 +461,7 @@
           "【if 线身份·你(" + char.name + ")】" + line.charRole + "\n身份、职业、处境按此替换;性格、说话方式、注意力习惯仍是上面这个人。",
           "【if 线身份·" + uName + "】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。" + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
+          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
@@ -494,11 +494,11 @@
           .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
         // 尾部原先全是减法,冷淡角色被砍完就只剩「我看着你。」——必须在同一处补上加法
-        const tail = "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。";
+        const tail = characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
         // 自修轮要多写一份初稿,预算给足,否则终稿会被截断
-        // 言秋座位(engineerEyes)的「演」先递到 CC 让他亲笔写这一拍;超时/桥不在→模型顶班,剧场永不卡死
+        // 言秋座位(engineerEyes)的「演」先递到 CC 让TA亲笔写这一拍;超时/桥不在→模型顶班,剧场永不卡死
         let raw = null;
         if (typeof props.isEngineer === "function" && props.isEngineer(char.id) && typeof window !== "undefined" && window.CCSeat) {
           try {
@@ -515,7 +515,7 @@
         // max_tokens 是天花板不是预付款:思考模型的推理也从这儿扣,3200 会被推理吃光、
         // 正文只剩个零头(她 2026-08-24 拿酒馆的 65535 对比出来的)。给大不多花钱。
         // 创作小稿（v62.39 接上）：一次写一整场戏，正是它该在的地方。
-        // ⚠️只挂在模型这一路。言秋座位那一路（CCSeat）是他本人亲笔，扮演类的东西一律不发给他。
+        // ⚠️只挂在模型这一路。言秋座位那一路（CCSeat）是TA本人亲笔，扮演类的东西一律不发给TA。
         let cotOut = null, cotAsked = false;
         if (raw == null) {
           const cotT = (typeof cotThink === "function") ? cotThink({ char: char.name, user: uName }, "theater") : "";
@@ -608,7 +608,7 @@
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
-    // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则他单人
+    // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则TA单人
     // 剧照和封面共用的一套底座：画风、if 线行头、参考图排列。
     // 抽出来是因为封面若自己再拼一份，就会漏掉 photoStyle/手部解剖锁这些——
     // 和 GOAL_RULE 当初四处各写各的是同一类毛病。
@@ -1045,7 +1045,7 @@
                h("button", { onClick: () => addPreset(line), style: S.btn(false) }, "收藏此设定"),
                h("button", { onClick: () => delLine(line.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此线")),
              writeGoal !== null && h("div", { key: "wg", style: { marginTop: 8 } },
-               h("div", { style: S.lbl }, "写下一轮目标(记得写成「让他…」,可以是很日常的小事)"),
+               h("div", { style: S.lbl }, "写下一轮目标(记得写成「让TA…」,可以是很日常的小事)"),
                h("textarea", { value: writeGoal, onChange: e => setWriteGoal(e.target.value), rows: 2, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "vertical", outline: "none" } }),
                h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
                  h("button", { onClick: () => { const g = (writeGoal || "").trim(); if (!g) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: g, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] })); setWriteGoal(null); }, style: S.btn(true) }, "开这一轮"),
@@ -1089,7 +1089,7 @@
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "Ta 在演…") : null),
         line.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
-          h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让他更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
+          h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
           h("button", { onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
           h("button", { onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),

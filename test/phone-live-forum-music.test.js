@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 查手机的论坛和音乐接【真数据】（她 2026-08-29 点名）：
 // 论坛读真论坛、带大号/小号/匿名三个账号；音乐读「一起听」里归到他名下的歌单，
 // 每首带他自己的心境。这两个不再各自另生成一份，全刷少两次调用。
@@ -70,10 +72,10 @@ test("歌单里每首歌带心境，并且在查手机看得到", () => {
   // 真渲一遍看 note 有没有印在页面上
   const { loadPhone } = require("./helpers/phone-render.js");
   const tree = JSON.stringify(loadPhone().MusicView({
-    pl: { name: "深夜那张", songs: [{ id: "a", title: "某首", artist: "某人", note: "他为什么循环这一首" }] },
+    pl: { name: "深夜那张", songs: [{ id: "a", title: "某首", artist: "某人", note: "TA为什么循环这一首" }] },
     char: { name: "某人" }, t: {}, onGen: () => {}, busy: false, onPlay: () => {}, onPeek: () => {}
   }));
-  assert.ok(tree.includes("他为什么循环这一首"), "查手机的歌单里看不到心境");
+  assert.ok(tree.includes("TA为什么循环这一首"), "查手机的歌单里看不到心境");
   assert.ok(tree.includes("某首") && tree.includes("某人"), "歌名或歌手没印出来");
 });
 

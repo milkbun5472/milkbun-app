@@ -1,3 +1,4 @@
+require("../js/character-pronoun.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -44,7 +45,7 @@ test("点到他名字的标星，而且说清必须对上", () => {
 // ⚠️不加这一句，每个人的一天都会变成「去找别人」
 test("留了「他今天是他自己的一天」这道闸", () => {
   const out = mk(CH, RELS, PLANS)(CH[0], [K]);
-  assert.match(out, /他今天是他自己的一天/, "没挡住「为了呼应硬凑」");
+  assert.match(out, /TA今天是TA自己的一天/, "没挡住「为了呼应硬凑」");
   assert.match(out, /多数日子两个人本来就各过各的/);
   assert.match(out, /没带⭐的只是让你知道那几位那天大概怎么过/, "没说清没标星的那些是干嘛的");
 });

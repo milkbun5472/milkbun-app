@@ -31,7 +31,7 @@ test("ctxFor 从地图上钉的那个点取城市——照写它那段代码的�
   //   {city, lat, lng}，components.js:1194 读的也是 c.home.city。字段名一改，这里当场红。
   assert.match(app, /^\s*homeCity: \(char && char\.home && char\.home\.city\) \? String\(char\.home\.city\)\.trim\(\)\.slice\(0, 40\) : "",$/m,
     "ctxFor 没填 homeCity");
-  assert.match(R("js/components.js"), /String\(c\.home\.city \|\| "他那边"\)/, "写它那头的字段名变了？两边要一起改");
+  assert.match(R("js/components.js"), /String\(c\.home\.city \|\| characterText\(c, "他那边"\)\)/, "写它那头的字段名变了？两边要一起改");
 });
 
 test("群里三处也按人喂——同一个群里的人可能压根不在一个国家", () => {
@@ -49,7 +49,7 @@ test("查手机那一处还要额外挡住「界面是中文的所以他在国�
   const phone = R("js/phone.js");
   assert.match(phone, /const PHONE_WORLD_RULE =/, "查手机没有自己那条世界规则");
   const seg = phone.slice(phone.indexOf("const PHONE_WORLD_RULE"), phone.indexOf("const PHONE_ANGLE"));
-  assert.match(seg, /这不代表他人在国内/, "没挑明界面语言 ≠ 人在哪儿");
+  assert.match(seg, /这不代表角色人在国内/, "没挑明界面语言 ≠ 人在哪儿");
   assert.match(seg, /搬到另一座城市还成立吗/, "没给判据");
   assert.ok(!/曼大|温尼伯|多伦多|@163|北京|上海/.test(seg),
     "塞了内容示范——给了例子每个角色都会长出同一个（prompt-no-content-samples.md）");
@@ -63,6 +63,6 @@ test("每一个 app 的提示词里都真的有它（拼出来核，不是核源
   const { phoneProbeSpec } = require(path.resolve(__dirname, "..", "js/phone.js"));
   const char = { id: "c1", name: "沈屿白", persona: "研究生。", home: { city: "温尼伯" } };
   ["mail", "takeout", "shopping", "wechat", "browser", "album", "wallet"].forEach(k => {
-    assert.match(phoneProbeSpec(k, { char }).instruction, /先认准他人在哪儿/, k + " 这一栏没带上");
+    assert.match(phoneProbeSpec(k, char).instruction, /先认准角色在哪儿/, k + " 这一栏没带上");
   });
 });

@@ -58,8 +58,8 @@ test("群里的人是人，不是身份标签的展览", () => {
   const i = engine.indexOf("const GROUP_IN_CHARACTER");
   assert.ok(i > 0);
   const rule = engine.slice(i, engine.indexOf("`;", i));
-  assert.match(rule, /你就【是】那个人在打字、在场，不是站在旁边替他写台词/);
-  assert.match(rule, /不是从「他这种人该有的样子」里出来/);
+  assert.match(rule, /你就【是】那个人在打字、在场，不是站在旁边替TA写台词/);
+  assert.match(rule, /不是从「TA这种人该有的样子」里出来/);
   // 她要的不是把王爷阉掉：自称本身不禁，禁的是【因为人多就端起来】
   assert.match(rule, /自称和称谓不许因为人多就端起来/);
   assert.match(rule, /自嘲、耍赖、开玩笑地摆谱都算/, "单聊里那句「别让本王卡在窗台上」必须仍然合法");

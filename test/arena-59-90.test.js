@@ -138,7 +138,7 @@ test("台下回来了，但只有她的人——路人弹幕那一套不许回�
   assert.match(gen, /挑【至多两位】各出一声/);
   assert.match(dbt, /\.slice\(0, 2\);/, "没封顶，一轮又能刷出一屏");
   // 判据写死：换个人说照样成立的那种话，一句都不要
-  assert.match(gen, /这一句必须【只有他说才成立】/);
+  assert.match(gen, /这一句必须【只有TA说才成立】/);
   assert.match(gen, /换个人说照样成立的那种话/);
   // 只认名单里的人：模型凭空多出一个路人就丢掉
   assert.match(dbt, /return c\.text && names\[c\.name\];/, "模型编个路人也照收，那名单就是摆设");

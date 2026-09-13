@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 钱包 ↔ 购物/外卖：两边说的得是同一个人、同一天
 //
 // 病一：genDailySpend 读了行程，却完全不知道他今天点了外卖、买了东西——
@@ -20,7 +22,7 @@ test("手头有多少钱要发给购物和外卖，而且只发给它们", () =>
   assert.match(blk, /4000/);
   assert.match(blk, /2800/);
   assert.match(blk, /嫌麻烦多过心疼钱/);
-  assert.match(blk, /买不起的东西他就是买不起/);
+  assert.match(blk, /买不起的东西TA就是买不起/);
   // 别的 app 不该收到这一段（深夜台知道他存款多少没有任何意义）
   ["notes", "latenight", "album", "health", "wechat"].forEach(k =>
     assert.equal(P.phoneMoneyBlock(k, money), "", k + " 不该收到钱包简报"));

@@ -34,7 +34,7 @@ test("三档分路：R 不花调用，SR/SSR 才花", () => {
   ["callAI", "runProbe"].forEach(k => assert.ok(rSeg.indexOf(k) < 0, "R 兑换调模型了：" + k));
   assert.match(rSeg, /const got = gachaPickR\(char, need\);/, "R 没从他已有的东西里翻");
   // 那一栏这会儿空了：不盖戳，卡留着
-  assert.match(rSeg, /if \(!got\) \{ toast\([^)]*\); return; \}/, "翻不出东西也把卡兑掉了");
+  assert.match(rSeg, /if \(!got\) \{ toast\(characterText\(char, "[^"]*"\)\); return; \}/, "翻不出东西也把卡兑掉了");
   assert.ok(redeem.indexOf('if (!active) { toast("请先到设置配置 API"); return; }') > redeem.indexOf('if (card.act === "peek")'),
     "没配 API 的闸挡在 R 前面了——R 本来就不需要 API");
 });

@@ -111,9 +111,9 @@ test("人人一套字段：authorName + handle，npcId 只是熟面孔额外点�
 test("⭐她那一句：id 跟他这条说什么没有关系", () => {
   const i = A.indexOf("【论坛人口】");
   const blk = A.slice(i, i + 900);
-  assert.match(blk, /id 跟他这条说什么【没有关系】/);
+  assert.match(blk, /id 跟TA这条说什么【没有关系】/);
   assert.match(blk, /不是为这条评论现配的一件戏服/);
-  assert.match(blk, /别让名字去呼应他这一楼的内容/, "v67.37 那句「名字里可以带着他是谁」正好是反的，不许长回来");
+  assert.match(blk, /别让名字去呼应TA这一楼的内容/, "v67.37 那句「名字里可以带着他是谁」正好是反的，不许长回来");
   assert.ok(blk.indexOf("名字里可以带着他是谁") < 0, "反方向那句又回来了");
   assert.match(blk, /一屋子人的名字之间也不该有共同点/);
 });
@@ -140,5 +140,5 @@ test("病历留在代码里：为什么回到那个形状", () => {
   assert.match(doc, /固定 npc 时代前/);
   assert.match(doc, /ce1e3ac/, "得写明翻的是哪一个 commit");
   assert.match(doc, /没有 npcId \/ guestName 的分叉/);
-  assert.match(doc, /本来就跟他今天说什么无关/);
+  assert.match(doc, /本来就跟TA今天说什么无关/);
 });

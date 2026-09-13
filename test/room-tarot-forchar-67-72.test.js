@@ -24,7 +24,7 @@ test("那一格里多了这一档，而且说清楚牌抽的是谁", () => {
 test("问法的默认值跟着档位走：他请她替他抽＝他的问题", () => {
   const seg = app.slice(app.indexOf("if (roomTarotOn && parsed.tarotInvite"), app.indexOf("if (roomGamesOn && parsed.gameInvite"));
   assert.match(seg, /\["reading", "relation", "daily", "forchar"\]\.indexOf\(String\(tv\.mode \|\| ""\)\) >= 0/);
-  assert.match(seg, /forchar: "请你替他抽"/);
+  assert.match(seg, /forchar: characterText\(char, "请你替他抽"\)/);
   // 他明说了就听他的；没说才按档位给默认
   assert.match(seg, /String\(tv\.asker \|\| ""\) === "me" \? "me" : \(String\(tv\.asker \|\| ""\) === "you" \? "you" : \(mode === "forchar" \? "me" : "you"\)\)/);
   // 塔罗那头把 me 接成 questionOwner=character（问题里的第一人称指他）

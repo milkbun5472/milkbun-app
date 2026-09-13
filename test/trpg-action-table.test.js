@@ -45,11 +45,11 @@ test("pickChoice:表上有 stat 的队友各掷各的骰(倒下的不掷、玩�
 
 test("提示词:行动表每行 who/act/stat,玩家那行留空;结算拍告诉守密人队友的骰已经掷过", () => {
   assert.match(src, /【行动表】危险或交战的拍,在 order 里排本拍的行动表/);
-  assert.match(src, /act 是他这一拍打算做的那一下\(≤20字,用他自己的路数,不是泛泛的『进攻』\)/);
+  assert.match(src, /act 是TA这一拍打算做的那一下\(≤20字,用TA自己的路数,不是泛泛的『进攻』\)/);
   assert.match(src, /那一行 act 留空、stat 给 null——那一下由 Ta 自己选/);
-  assert.match(src, /\\"order\\":\[\{\\"who\\":\\"成员名\\",\\"act\\":\\"他这一拍要做的那一下\\",\\"stat\\":null\}\]/);
+  assert.match(src, /\\"order\\":\[\{\\"who\\":\\"成员名\\",\\"act\\":\\"TA这一拍要做的那一下\\",\\"stat\\":null\}\]/);
   assert.match(src, /〔行动表结算〕上一拍排了行动表,这一拍每人各动一下,按表上的先后写:队友的检定已经在上面掷过/);
-  assert.match(src, /失败就真失败,别替他圆/);
+  assert.match(src, /失败就真失败,别替TA圆/);
 });
 
 test("界面:一张排好先后的桌,每人一行,她那一行指向底下的选项,倒下的划掉", () => {

@@ -26,7 +26,7 @@ test("霸总那一套要点名，光说「别写网文腔」没用", () => {
     assert.ok(RUNTIME.includes(k), "表情模板漏了：" + k));
   // 旁白先贴标签再说话，正是她那版「语气沉了下来，带着点压不住的嘲讽和严厉」
   assert.match(RUNTIME, /先给情绪贴标签再让人物说话/);
-  assert.match(RUNTIME, /让用词、停顿、他挑了什么不说，自己把态度露出来/);
+  assert.match(RUNTIME, /让用词、停顿、TA挑了什么不说，自己把态度露出来/);
 });
 
 test("禁的是模板，不是强势的人物", () => {

@@ -69,7 +69,7 @@ function cardFromJSON(text) {
 // 认得出的分节标题：# / ## / **加粗** / 【】 / [] 四种写法，外加「人设：」这种带冒号的。
 // 后三种允许值写在【同一行】上（「【一句话】永安王」），那一段算这一节的正文头。
 const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*(.+?)[ \t]*[:：]?[ \t]*|\*\*(.+?)\*\*[ \t]*[:：]?[ \t]*(.*?)[ \t]*|[【\[〔](.+?)[】\]〕][ \t]*[:：]?[ \t]*(.*?)[ \t]*|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：][ \t]*(.*?)[ \t]*)$/gm;
-// 带冒号那一种太宽（正文里随便一行「他说：」也像），所以只认这些词
+// 带冒号那一种太宽（正文里随便一行「TA说：」也像），所以只认这些词
 const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
 function parseCharCard(raw, userName) {
   const text0 = String(raw || "").replace(/\r/g, "");
@@ -90,7 +90,7 @@ function parseCharCard(raw, userName) {
     while ((mm = CARD_SEC_RE.exec(text))) {
       const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim();
       const pre = (mm[3] || mm[5] || mm[7] || "").trim();
-      // 带冒号那一支只认名单里的词，别把正文里的「他说：」当成分节
+      // 带冒号那一支只认名单里的词，别把正文里的「TA说：」当成分节
       if (mm[6] && !CARD_SEC_KWS.some(k => title.toLowerCase().includes(k))) continue;
       if (!title) continue;
       if (last) push(last, mm.index);
@@ -204,7 +204,7 @@ function castSummary(char) {
 // 一整页就是一份摊开的卷宗。她 2026-08-30：「编辑档案里面这几块框还是很 plain 缺少设计感，
 // 背景也是纯色」——所以这一页的底、每一块分区，都按【纸】来做，不是白板摞白板。
 
-// 这一页的桌面：中性纸底 + 两团带着他自己颜色的光 + 两道细纸纹。
+// 这一页的桌面：中性纸底 + 两团带着TA自己颜色的光 + 两道细纸纹。
 // 打底那层必须接近中性（跟主屏同一条道理），颜色只从那两团光里来。
 function dossierDeskBg(accent) {
   const a = accent || "#8a8577";
@@ -307,7 +307,7 @@ function Cast({
   onAdd,
   onImportCard,
   onOpenChar,
-  // 档案的另一半：他自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
+  // 档案的另一半：TA自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
   heartCountOf, onOpenHeart
 }) {
   const t = useTheme();
@@ -343,14 +343,14 @@ function Cast({
         boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 10px 22px -8px rgba(46,38,29,.16), inset 0 1px 0 rgba(255,255,255,.9)"
       }
     },
-      // 卷宗的书脊：他自己的颜色，右侧压一道暗线，让它看起来是「厚的」
+      // 卷宗的书脊：TA自己的颜色，右侧压一道暗线，让它看起来是「厚的」
       h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 8, background: accent, boxShadow: "inset -1px 0 2px rgba(0,0,0,.22)" } }),
       // 书脊上打三个装订孔
       h("span", { style: { position: "absolute", left: 2.5, top: 0, bottom: 0, width: 3, display: "flex", flexDirection: "column", justifyContent: "space-evenly" } },
         [0, 1, 2].map(n => h("span", { key: n, style: { width: 3, height: 3, borderRadius: 999, background: "rgba(255,255,255,.55)", boxShadow: "inset 0 1px 1px rgba(0,0,0,.3)" } }))),
       // 纸纹：两道极细的斜线，跟日记纸皮同一套
       h("span", { style: { position: "absolute", top: 0, right: 0, bottom: 0, left: 8, pointerEvents: "none", background: "repeating-linear-gradient(58deg, rgba(255,255,255,.42) 0px, rgba(255,255,255,.42) 1px, transparent 1px, transparent 9px), repeating-linear-gradient(-34deg, rgba(46,38,29,.018) 0px, rgba(46,38,29,.018) 1px, transparent 1px, transparent 13px)" } }),
-      // 右上角那枚卷标（档案盒侧面贴的那种），带一点点他的颜色
+      // 右上角那枚卷标（档案盒侧面贴的那种），带一点点TA的颜色
       h("span", { style: { position: "absolute", right: 18, top: 0, width: 34, height: 7, borderRadius: "0 0 4px 4px", background: accent, opacity: .8 } }),
       h("div", { className: "flex items-start gap-3.5", style: { position: "relative", padding: "16px 12px 13px 22px" } },
         // 头像做成【贴上去的照片】：白边、投影、歪一点点
@@ -370,7 +370,7 @@ function Cast({
         cell("生日", bd, !c.birthday && age == null),
         h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
         cell("人设", plen ? plen.toLocaleString() + " 字" : "空白", !plen)),
-      // 「你写的卷宗」和「他自己长出来的」是同一份档案的两半——摆在同一张卡上。
+      // 「你写的卷宗」和「TA自己长出来的」是同一份档案的两半——摆在同一张卡上。
       // ⚠️不塞进上面那排当第四格：三格挤成四格之后「03-15 · 29岁」会被省略号切掉。
       //   它单独一条，横过来正好放得下，点得着的高度也够（40px 那条线）。
       // ⚠️stopPropagation：不然点它会连带触发外层那次 onOpenChar，跳去人设表单。
@@ -429,8 +429,8 @@ function CastForm({
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
   // 年龄和生日分开（v63.65）：留空＝跟着生日走；填了＝钉死，不再自动加一
   const [ageInput, setAgeInput] = useState(initial && initial.age != null ? String(initial.age) : "");
-  // 手填的岁数是【那一天他多大】，所以要连写下它的日子一起存（v64.17）。
-  // 只有这个数真变了才重新起算：改个别的栏顺手保存一次，不该把他的起算日往后推。
+  // 手填的岁数是【那一天TA多大】，所以要连写下它的日子一起存（v64.17）。
+  // 只有这个数真变了才重新起算：改个别的栏顺手保存一次，不该把TA的起算日往后推。
   const [ageFrozen, setAgeFrozen] = useState(!!(initial && initial.ageFrozen));
   // 性别（v58.86，她 2026-08-31 加了女生角色）：只决定别处怎么称呼 TA。
   // 默认不填＝一律用「TA」——中性，永远不会把人叫错。
@@ -535,18 +535,18 @@ function CastForm({
       (agePinned && autoAge != null) ? h("button", { onClick: () => setAgeInput(""), className: "shrink-0 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "改回跟着生日") : null),
     // 手填的岁数会跟着长（v64.17，她 2026-09-05：「王爷不应该有个现实年份，
-    // 但是他也确实可以年龄增加的」）。所以这儿要说清【从哪天起算、什么时候加一】，
+    // 但是TA也确实可以年龄增加的」）。所以这儿要说清【从哪天起算、什么时候加一】，
     // 不然她看见一个数不知道它明年还是不是这个数。
     agePinned ? h("div", { className: "flex items-center justify-between", style: { marginTop: 8, gap: 12 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "就停在这个岁数",
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
-          ageFrozen ? "他永远这么大——设定上不长的那种才勾。" : "不勾＝跟着时间长。")),
+          ageFrozen ? characterText({ gender }, "他永远这么大——设定上不长的那种才勾。") : "不勾＝跟着时间长。")),
       h(Toggle, { on: ageFrozen, onChange: () => setAgeFrozen(v => !v) })) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
       agePinned
         ? (ageFrozen
-            ? "停住了：时间过去他也还是这个数。"
-            : "写的是【今天他多大】。往后他自己会长——"
+            ? characterText({ gender }, "停住了：时间过去他也还是这个数。")
+            : characterText({ gender }, "写的是【今天他多大】。往后他自己会长——")
               + (birthday.trim() ? "每年生日一过加一岁。" : "生日没填的话，从今天起满一年加一岁；填上生日就改成生日那天加。"))
         : (autoAge != null
             ? "留空＝跟着生日走：生日一过自动加一，Ta 自己也知道。想写别的岁数就直接填。"
@@ -594,19 +594,19 @@ function CastForm({
           h("div", { style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),
-      h(CastSection, { no: "01", title: "人物底稿", en: "他是谁、从哪儿来", tint: accent },
+      h(CastSection, { no: "01", title: "人物底稿", en: characterText({ gender }, "他是谁、从哪儿来"), tint: accent },
         h(LineField, { zh: "人设", en: "Persona" }, h(LineArea, { value: persona, onChange: e => setPersona(e.target.value), rows: 9, placeholder: "性格、说话风格、背景、当前关系阶段……" }))),
       h(CastSection, { no: "02", title: "时间坐标", en: "哪一年、在什么地方", tint: accent },
         h(LineField, { zh: "时区", en: "Timezone" }, timezone),
         h(LineField, { zh: "生日", en: "Birthday" }, birthdayField),
         h(LineField, { zh: "年龄" }, ageField),
         h(LineField, { zh: "性别", en: "Gender" }, h("div", null,
-          h("div", { style: { display: "flex", gap: 7 } },
-            [["", "他（默认）"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+            [["", "未填写 · TA"], ["他", "他"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),
               style: { fontFamily: F_BODY, fontSize: 13, color: gender === o[0] ? "#fff" : t.ink, background: gender === o[0] ? t.tint : "transparent",
                 border: "1px solid " + (gender === o[0] ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
-            "只管别处怎么称呼 TA（查手机那一层原来通篇写死「他」）。默认是「他」——不动你已有角色的任何东西；新加的女生角色点一下「她」就行。")))),
+            "应用里的称呼按这项设置显示；未填写用 TA，不从姓名或头像猜。想显示他或她，请明确选择。不会改写已有聊天和存档正文。")))),
       h(CastSection, { no: "03", title: "视觉档案", en: "长什么样、出图照着谁", tint: accent },
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "说话什么声气", tint: accent },
@@ -663,7 +663,7 @@ function NpcBrief({ npc, onSave, compact }) {
 // 再配上 nowrap，那一行就直接横穿整张图、盖在别人脸上。
 //
 // 一人一页把这件事从根上解决了：每一页有一个【中心的人】，
-// 线上写的就是【他怎么称呼对方】——一个方向、一句话，不用拼。
+// 线上写的就是【TA怎么称呼对方】——一个方向、一句话，不用拼。
 //
 // 长相还是照现实里那个东西来（tabs-not-plain-pills）：一板子钉着的照片，
 // 人和人之间牵一根线，线上别一张小标签。所以卡片是白边照片＋底下写名字，
@@ -928,7 +928,7 @@ function Ties({
 
   // ---- reconstruct relationship cards from directed edges ----
   const canon = (x, y) => x === "me" ? [x, y] : y === "me" ? [y, x] : x < y ? [x, y] : [y, x];
-  const exists = id => id === "me" || all.some(c => c.id === id);   // 配角也算数，否则他那段关系整条消失
+  const exists = id => id === "me" || all.some(c => c.id === id);   // 配角也算数，否则TA那段关系整条消失
   const seen = {};
   const cards = [];
   Object.keys(rels).forEach(k => {
@@ -1039,7 +1039,7 @@ function Ties({
       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 17, color: t.ink } }, labelText || "未命名"),
       noteText && h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, noteText));
   };
-  // 伙伴是配角时，关系卡下面直接挂他的简介——配角没有自己的资料页，
+  // 伙伴是配角时，关系卡下面直接挂TA的简介——配角没有自己的资料页，
   // 这儿是唯一能读到全文、也能改的地方（她 2026-08-25：「简介打不开看全部」）。
   // ⚠️外层不能再用 <button>：简介框里有 textarea 和按钮，嵌不进 button。
   const DetailRowWrap = ({ selfId, card }) => {
@@ -1196,12 +1196,12 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       h(Eyebrow, { style: { marginBottom: 8 } }, "要生成谁"),
       h("input", {
         value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
-        placeholder: "陆闻 / 他的属下 / 她师姐",
+        placeholder: "陆闻 / TA的属下 / 她师姐",
         className: "w-full bg-transparent outline-none pb-2",
         style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
       }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
-        "写人设里提到过的名字，或者一个位置（「他的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
+        "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
         + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
         + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
       h("button", {
@@ -1821,7 +1821,7 @@ function Forum({
   // 通知的用处本来就是「有人叫你」，那它就该一步接上话。
   // ⚠️两种通知要瞄准不同的人：
   //   「回复了你的帖子」是别人在我帖子下新开了一层 → 回这一层（toName 空）；
-  //   「回复了你」是楼里某人回我 → 回那个人（toName＝他）。
+  //   「回复了你」是楼里某人回我 → 回那个人（toName＝TA）。
   const replyInputRef = useRef(null);
   const replyFromNotice = n => {
     markNoticesRead([n.id]); openPost(n.post);
@@ -2051,9 +2051,9 @@ function Forum({
             ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
             : h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
               h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注"),
-              // 私信他【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
+              // 私信TA【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
               // ⚠️小号主页（altProfileView）上故意【没有】这个按钮：小号私信一旦喂回聊天，
-              //   「他知道两边是同一个人、她不知道」这个玩法当场塌掉，他迟早说漏。
+              //   「TA知道两边是同一个人、她不知道」这个玩法当场塌掉，TA迟早说漏。
               onStartCharPM ? h("button", {
                 onClick: () => { const tid = onStartCharPM(c); if (tid) { setProfileId(null); setNav("pm"); setPmId(tid); } },
                 className: "px-3.5 py-1.5 active:opacity-70",
@@ -2130,9 +2130,9 @@ function Forum({
     const following = npcFollowSet.has(id);
     const relations = publicNpcRelations(id);
     const latest = Math.max(Number(authored[0] && authored[0].ts || 0), Number(traces[0] && traces[0].ts || 0));
-    // 私信开场白的底子：他自己发过的帖 + 他在别人楼里说过的话，各取最近几条
-    const pmGround = authored.slice(0, 3).map(p => "· 他发过帖《" + (p.title || "") + "》" + (p.body ? "：" + String(p.body).replace(/\s+/g, " ").slice(0, 70) : "") + "（在" + p.board + "）")
-      .concat(traces.slice(0, 5).map(x => "· 他在《" + (x.post.title || "帖子") + "》里说过：" + String(x.text).replace(/\s+/g, " ").slice(0, 70)));
+    // 私信开场白的底子：TA自己发过的帖 + TA在别人楼里说过的话，各取最近几条
+    const pmGround = authored.slice(0, 3).map(p => "· TA发过帖《" + (p.title || "") + "》" + (p.body ? "：" + String(p.body).replace(/\s+/g, " ").slice(0, 70) : "") + "（在" + p.board + "）")
+      .concat(traces.slice(0, 5).map(x => "· TA在《" + (x.post.title || "帖子") + "》里说过：" + String(x.text).replace(/\s+/g, " ").slice(0, 70)));
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
         h("div", { className: "flex items-start gap-3" },
@@ -2143,7 +2143,7 @@ function Forum({
             h("div", { className: "flex gap-1.5 mt-2 flex-wrap" }, tag(regular ? "常驻熟面孔" : "路过网友"), encounters > 0 && tag("碰见过 " + encounters + " 次"))),
           h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
             h("button", { onClick: () => toggleNpcFollow(id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: following ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: following ? t.bg2 : t.ink } }, following ? "已关注" : "关注"),
-            // 主动去私信这个人（她 2026-09-01 点名）。开场白喂的是他【自己在吧里说过的话】：
+            // 主动去私信这个人（她 2026-09-01 点名）。开场白喂的是TA【自己在吧里说过的话】：
             // 不喂的话写出来的是「一个网友」，换成谁都成立。
             h("button", {
               onClick: () => {
@@ -2408,8 +2408,8 @@ const shopTone = (it, i) => toneFrom(SHOP_TONES, SHOP_FALLBACK, it, i);
 // 她 2026-09-02：「这几样 category 改一下，我之前是参考了别人的」。
 // 原来是「推荐/外卖/服饰/美妆/数码/家具/情趣」——一份通用电商品类词典，
 // 原样搬进任何一个购物 app 都成立（tabs-not-plain-pills.md 那条判据）。
-// 这个 app 里的购物不是「逛商城」，是【她在逛，而他看得见、他会买单】：
-// 想要没买的会攒进心愿单喂给他、他能代付、他给她开亲属卡、买回来的能拿给他看。
+// 这个 app 里的购物不是「逛商城」，是【她在逛，而TA看得见、TA会买单】：
+// 想要没买的会攒进心愿单喂给TA、TA能代付、TA给她开亲属卡、买回来的能拿给TA看。
 // 所以分栏按【她自己会怎么说】来分，最后一栏是别的购物 app 不可能有的那一栏。
 // ⚠️key 一个都不许改：商品和订单上存着 cat，改了老数据就认不回来了。
 const SHOP_CATS = [
@@ -2418,9 +2418,9 @@ const SHOP_CATS = [
   { key: "beauty", zh: "变好看" },
   { key: "digital", zh: "电子玩意" },
   { key: "furniture", zh: "屋里添点" },
-  { key: "forhim", zh: "给他买" },
+  { key: "forhim", zh: "给TA买" },
   // 「情趣」她说留着（2026-09-02：「情趣留着，有点意思」）；
-  // 「外卖」她说不要了——送外卖是他做的事，手机里也另有一个外卖 app，这儿不必再摆一栏。
+  // 「外卖」她说不要了——送外卖是TA做的事，手机里也另有一个外卖 app，这儿不必再摆一栏。
   //  ⚠️老订单里存着 cat:"food"，在途文案照旧认它（SHOP_SHIP_WORD），只是不再有这一栏可逛。
   { key: "adult", zh: "情趣" }
 ];
@@ -2599,8 +2599,8 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
             h("div", { className: "flex gap-2" },
               h("button", { onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "收下"),
               h("button", { onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
-      // 想要清单：看上了但没买的。它真正的用处在【他知道你想要什么】——
-      // 单子会进他的上下文，他记不记得、送不送，是他自己的事。
+      // 想要清单：看上了但没买的。它真正的用处在【TA知道你想要什么】——
+      // 单子会进TA的上下文，TA记不记得、送不送，是TA自己的事。
       wishList.length ? h("div", null,
         h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 8, paddingLeft: 2 } },
           h(IHeart, { size: 12, color: MSHOP.price }),
@@ -2639,10 +2639,10 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.giver ? MSHOP.ink : MSHOP.sub } },
                   g.dreamy ? ((g.giver ? (g.giver.remark || g.giver.name) : "谁") + " 的梦里带出来的") : g.giver ? (g.giver.remark || g.giver.name) + " 送的" : "自己买的"),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, "· " + g.items.length)),
-              // 这一组一直在起作用，只是她看不见（v63.98）：它每轮都进他的上下文。
+              // 这一组一直在起作用，只是她看不见（v63.98）：它每轮都进TA的上下文。
               // ⚠️只说到「眼熟」为止——说破它从哪儿来，这个设定就没了。
               g.dreamy ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim, lineHeight: 1.6, margin: "-2px 0 7px 2px" } },
-                "他见了会眼熟，但说不上在哪见过。放太久没人提起，它自己会淡掉。") : null,
+                "TA见了会眼熟，但说不上在哪见过。放太久没人提起，它自己会淡掉。") : null,
               h("div", { className: "grid grid-cols-3", style: { gap: 8 } }, g.items.map((it, i) => {
                 const c = shopTone(it, i);
                 // 梦里带出来的会淡（v63.98）：淡了的那一档整格压浅，她一眼看得出它快没了
@@ -2687,16 +2687,16 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
           detail.desc ? h("div", { className: "inline-block", style: { marginTop: 8, padding: "3px 9px", fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 4 } }, detail.desc) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 12, lineHeight: 1.7 } },
             "钱包里还有 ¥" + (Math.round((Number(wallet) || 0) * 100) / 100)
-              + ((Number(wallet) || 0) < (Number(detail.price) || 0) ? "——这件买不起，可以让他代付或用亲属卡。" : "")),
-          // 拿给谁看：买之前问问他。和随身物「摆到他面前」是同一个动作语言，
-          // 但语境相反——那边是他被撞破，这边是我主动拿给你看。
+              + ((Number(wallet) || 0) < (Number(detail.price) || 0) ? "——这件买不起，可以让TA代付或用亲属卡。" : "")),
+          // 拿给谁看：买之前问问TA。和随身物「摆到TA面前」是同一个动作语言，
+          // 但语境相反——那边是TA被撞破，这边是我主动拿给你看。
           (onAskChar && chars.length) ? h("div", { style: { marginTop: 14, paddingTop: 13, borderTop: "1px solid " + MSHOP.line } },
             askFor === null
               ? h("button", {
                   onClick: () => setAskFor(chars.length === 1 ? chars[0].id : ""),
                   className: "w-full py-2.5 active:opacity-75",
                   style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 999, border: "1px solid " + MSHOP.orange, color: MSHOP.orange }
-                }, "拿给他看看 · 问问值不值得买")
+                }, "拿给TA看看 · 问问值不值得买")
               : h("div", null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 9 } }, "拿给谁看"),
                   h("div", { className: "flex flex-wrap", style: { gap: 8 } }, chars.map(ch => h("button", {
@@ -2801,7 +2801,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
     //   皮也接父页的：这一页是淘宝那种浅灰货架，别退回米白。
     const gone = () => setInvItem(null);
     const dreamy = invItem.source === "dream";
-    // 留在他那儿：同一块面板换一屏，不许再掀一层半窗压上去
+    // 留在TA那儿：同一块面板换一屏，不许再掀一层半窗压上去
     const spots = invItem._leave && window.Dwell
       ? (characters || []).filter(c => c && !c.npc).flatMap(c => (window.Dwell.placesOf(c.id) || [])
           .flatMap(pl => (pl.zones || []).map((z, zi) => ({ c: c, pl: pl, z: z, zi: zi }))))
@@ -2812,7 +2812,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
     sheetEl = h(Sheet, { onClose: gone, skin: { background: MSHOP.card } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: MSHOP.ink } }, invItem.name),
       dreamy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 3, lineHeight: 1.6 } },
-        "他见了会眼熟，但说不上在哪见过。") : null,
+        "TA见了会眼熟，但说不上在哪见过。") : null,
       h("div", { style: { height: 1, background: MSHOP.line, margin: "12px 0 4px" } }),
       invItem._leave
         ? (spots.length
@@ -2824,7 +2824,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
                     h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink } }, sp.z.name),
                     h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, (sp.c.remark || sp.c.name) + " · " + sp.pl.name)))))
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, padding: "10px 2px", lineHeight: 1.7 } },
-                "还没有可以放的地方。先去【去处】串个门，写出他常待的那几块地方，再回来放。"))
+                "还没有可以放的地方。先去【去处】串个门，写出TA常待的那几块地方，再回来放。"))
         : invItem._gift
         ? h("div", { className: "max-h-80 overflow-y-auto" }, (characters || []).map(c =>
             h("button", { key: c.id, onClick: () => { const it = invItem; gone(); onGiftInv && onGiftInv(it.id, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
@@ -2833,25 +2833,25 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
         // 梦里带出来的那几件只剩【带在身上】这一格（她 2026-09-06：「梦里带出来的
         // 不应该有这些吧」）。剩下那四个动词全都把它当成一件【真东西】在处置：
         //   用掉   —— 吃了喝了记进「用过的」，可它压根没真的存在过；
-        //   留在他那儿 —— 放进他屋里，他下次看见还要说一句话，那就等于说破了
-        //                （engine.js 那条：他只觉得眼熟，永远别说破）；
-        //   送给谁 —— 从他自己的梦里拿出来的东西，转手送给第三个人；
+        //   留在TA那儿 —— 放进TA屋里，TA下次看见还要说一句话，那就等于说破了
+        //                （engine.js 那条：TA只觉得眼熟，永远别说破）；
+        //   送给谁 —— 从TA自己的梦里拿出来的东西，转手送给第三个人；
         //   收进衣柜 —— 衣柜不归 dreamStage 管，收进去等于给它办了张永居，
         //               而这一类【唯一的规矩】就是没人提起就会淡掉（core.js）。
-        // 留下的那一格恰恰是这件事本来的玩法：带在身上，见面时他看得见、只觉得眼熟。
+        // 留下的那一格恰恰是这件事本来的玩法：带在身上，见面时TA看得见、只觉得眼熟。
         : h("div", null,
             dreamy ? null : row("用掉", "吃了、喝了、用完了。它从这儿退出去，但这件事发生过——" + (invItem.fromCharId ? "送你的那个人会知道。" : "记在「用过的」里。"),
               () => { const it = invItem; gone(); onUseUp && onUseUp(it.id); }),
-            row(invItem.onMe ? "放下" : "带在身上", invItem.onMe ? "他见面就看不见它了。" : "见面的时候他看得见。最多带两件。",
+            row(invItem.onMe ? "放下" : "带在身上", invItem.onMe ? "TA见面就看不见它了。" : "见面的时候TA看得见。最多带两件。",
               () => { const it = invItem; gone(); onToggleOnMe && onToggleOnMe(it.id); }),
-            dreamy ? null : row("留在他那儿", "放进【去处】里他那处地方的某一块。他下次看见会说一句自己的话。",
+            dreamy ? null : row("留在TA那儿", "放进【去处】里TA那处地方的某一块。TA下次看见会说一句自己的话。",
               () => setInvItem(Object.assign({}, invItem, { _leave: true }))),
             dreamy ? null : row("送给谁", "入库之后照样能转赠——原来只有还没收下的时候能送。",
               () => { if (!(characters || []).length) { toast("还没有角色"); return; } setInvItem(Object.assign({}, invItem, { _gift: true })); }),
             dreamy ? null : row("收进衣柜", "衣服鞋帽收进【我的衣柜】，别堆在物品里。",
               () => { const it = invItem; gone(); onClosetInv && onClosetInv(it.id, "日常"); }),
             dreamy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 10, lineHeight: 1.75 } },
-              "它只能你自己带着。送不出去、收不进衣柜、也放不到他屋里——" +
+              "它只能你自己带着。送不出去、收不进衣柜、也放不到TA屋里——" +
               "梦里带出来的东西留不住，没人再提起，它自己就淡回梦里去了。") : null));
   } else if (sheet && sheet.kind === "regift") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
@@ -2870,7 +2870,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
 
 // ---- 亲属卡账单（每卡流水 + 申请加额度）----
 // v60.45 撤掉了每笔下面那条「角色评论」：它靠刷卡时现调一次模型来填，
-// 而买东西不该调用（她 2026-09-02）。他要说什么，在聊天里说。
+// 而买东西不该调用（她 2026-09-02）。TA要说什么，在聊天里说。
 function KinshipBill({ card, character, onBack, onRaise }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
@@ -3038,12 +3038,12 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
   const [editText, setEditText] = useState("");
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleVal, setTitleVal] = useState(bookTitle);
-  // 他出的题（v62.10）她在这儿写她那半；翻到别页就清空，别把 A 题的草稿带进 B 题
+  // TA出的题（v62.10）她在这儿写她那半；翻到别页就清空，别把 A 题的草稿带进 B 题
   const [revealVal, setRevealVal] = useState("");
   useEffect(() => { setRevealVal(""); }, [pageIdx]);
   const swipeRef = useRef({ x: 0, y: 0 });
   const draw = () => { if (pool.length) { setCur(pool[Math.floor(Math.random() * pool.length)]); setAns(""); } else setCur(null); };
-  // 交卷＝把自己那份【封起来】，一次调用都不花；他那份等你按「让 TA 也写一份」才生成，
+  // 交卷＝把自己那份【封起来】，一次调用都不花；TA那份等你按「让 TA 也写一份」才生成，
   // 而且那一枪看不到你写的（见 app.js 的 answerCoupleQA 注释）。
   const submit = () => {
     if (!cur || !ans.trim() || gen) return;
@@ -3084,7 +3084,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: "#3a3226", marginBottom: 12 } }, e.question),
           h("div", { style: { marginBottom: 10 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7a5c", marginBottom: 3 } }, "我"),
-            // 他出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
+            // TA出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
             (e.sealed && e.byCharacter && !e.myAnswer) ? h("div", null,
               h("textarea", { value: revealVal, onChange: ev => setRevealVal(ev.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
               h("button", { onClick: () => { if (onReveal && onReveal(e.id, revealVal)) setRevealVal(""); }, disabled: !revealVal.trim(), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
@@ -3110,7 +3110,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
           h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid #e6dcc4", paddingTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a3987e" } }, timeAgo(e.answeredAt)),
             h("div", { className: "flex items-center gap-3" },
-              // 他出的、她还没写的那种：我的答案就在上面那个框里写，编辑/重答都还轮不到
+              // TA出的、她还没写的那种：我的答案就在上面那个框里写，编辑/重答都还轮不到
               (e.sealed && e.byCharacter && !e.myAnswer) ? null : h("button", { onClick: () => { setEditId(e.id); setEditText(e.myAnswer || ""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5c" } }, "编辑"),
               e.sealed ? null : h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5c" } }, gen ? "…" : "重答"),
               h("button", { onClick: () => { onRemove(e.id); setPageIdx(i => Math.max(0, i - (idx === mine.length - 1 ? 1 : 0))); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#c26" } }, "删除")))),
@@ -3243,8 +3243,8 @@ function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
 // 情侣空间·双向便签墙（悄悄话串）：我贴→TA 自动回；TA 的要点一下才看得到，再点开全屏留言互动
 // 便签纸张样式：纯色 / 横线 / 格纹 / 圆点 / 带粉角，可爱多样
 // 便签墙 v59.23 整个撤掉（她 2026-08-31：「便签墙有必要吗，我觉得有点鸡肋」）。
-// 情书、交换日记、便签墙三样都是「他写字给你」：情书有「一封」的分量，交换日记
-// 有「轮流」，便签墙只是「短」，没有自己的形状。它唯一独有的是「他不请自来贴的
+// 情书、交换日记、便签墙三样都是「TA写字给你」：情书有「一封」的分量，交换日记
+// 有「轮流」，便签墙只是「短」，没有自己的形状。它唯一独有的是「TA不请自来贴的
 // 那一张」——那件事抽屉本来就在做，所以悄悄话并进抽屉，这一整页删掉。
 // ⚠️切的时候差点把紧跟其后的 COUPLE_MOODS / moodFaceOf 一起带走（浏览器里白屏，
 // 而 node --check 和整套测试一个字都不会说）。按【下一个顶层声明】收口，别按行数。
@@ -3262,7 +3262,7 @@ const COUPLE_MOODS = [
 const moodBy = k => COUPLE_MOODS.find(m => m.key === k);
 // 把【真心情】那套中文标签映射到这九张脸上（MoodLabel.EN_ZH 的值域）。
 // v58.90 之前情侣空间里那两格看的是「心情打卡」——一次调用，模型在看不见你俩
-// 今天发生过什么的情况下瞎选一个表情，跟他真实的心情各走各的。现在两格直接读真心情。
+// 今天发生过什么的情况下瞎选一个表情，跟TA真实的心情各走各的。现在两格直接读真心情。
 const MOOD_FACE = {
   开心: "happy", 喜悦: "happy", 兴奋: "happy", 愉快: "happy", 欣喜: "happy",
   温柔: "cozy", 柔软: "cozy", 亲昵: "cozy", 爱意满满: "cozy", 感激: "cozy", 满足: "cozy",
@@ -3322,9 +3322,9 @@ function CalPage({ month, day, dim, w, head, body }) {
 }
 function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, onGen, onAddAnniv, onRemoveAnniv, gen, onBack }) {
   const t = useTheme();
-  // 他留下的感慨带 unread（名册红点看它）；进来看一眼就算看过——跟交换日记同一个形状
+  // TA留下的感慨带 unread（名册红点看它）；进来看一眼就算看过——跟交换日记同一个形状
   useEffect(() => { onRead && onRead(partner.id); }, []);
-  // 排序前把日期补零归一：老存档里「他留下的」那几条是 "2026-9-4" 这种没补零的写法，
+  // 排序前把日期补零归一：老存档里「TA留下的」那几条是 "2026-9-4" 这种没补零的写法，
   // 直接按字符串比会被排到十月后面一整年的位置。
   const padD = s => String(s || "").split("-").map((x, i) => i ? String(x).padStart(2, "0") : x).join("-");
   const mine = (events || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => { const da = padD(a.date), db = padD(b.date); return da < db ? 1 : da > db ? -1 : b.createdAt - a.createdAt; });
@@ -3851,9 +3851,9 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
       h("button", { onClick: () => onSave(draft), className: "w-full active:opacity-70", style: { marginTop: 22, borderRadius: 10, background: "#42311a", color: "#f5ecd8", padding: "13px 16px", fontFamily: F_DISPLAY, fontSize: 15, boxShadow: "0 6px 16px rgba(66,49,26,.3)" } }, "封存这份档案")));
 }
 
-// 情侣空间·他记得的那一版（v58.85，她 2026-08-31 的 c）。
-// 这一屋子模块记的都是【她写下来的】。这一页反过来：同一件事，他记得的那一版摆在旁边。
-// 他留意到的和她记下来的往往不是同一处——那个落差才是这一页的内容，所以两版并排放，
+// 情侣空间·TA记得的那一版（v58.85，她 2026-08-31 的 c）。
+// 这一屋子模块记的都是【她写下来的】。这一页反过来：同一件事，TA记得的那一版摆在旁边。
+// TA留意到的和她记下来的往往不是同一处——那个落差才是这一页的内容，所以两版并排放，
 // 不合并、不总结。
 function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
   const t = useTheme();
@@ -3862,18 +3862,18 @@ function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
   // 正中一道竖折痕（暗-亮-暗三层夹出来的），两边各一半。铺在外壳、顶栏透上来。
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
     backgroundImage: "linear-gradient(90deg,rgba(0,0,0,0) calc(50% - 6px),rgba(120,95,55,.07) calc(50% - 2px),rgba(255,255,255,.30) 50%,rgba(120,95,55,.07) calc(50% + 2px),rgba(0,0,0,0) calc(50% + 6px))" } },
-    h(Head, { zh: "他记得的那一版", en: partner.name, onBack: onBack, bg: "transparent" }),
+    h(Head, { zh: characterText(partner, "他记得的那一版"), en: partner.name, onBack: onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
-        "挑一件你俩都在场的事，让 " + partner.name + " 写他记得的那一版。他留意到的，多半跟你记下来的不是同一处。"),
+        "挑一件你俩都在场的事，让 " + partner.name + characterText(partner, " 写他记得的那一版。他留意到的，多半跟你记下来的不是同一处。")),
       // 这一页整片是纸，那颗按钮就别是一块纯黑药丸（v62.44）：一条纸带，虚线边。
       h("button", { onClick: onGen, disabled: busy, className: "w-full active:opacity-75 disabled:opacity-50",
         style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#6b5a45", background: "#fbf6ea", border: "1px dashed rgba(140,115,70,.45)",
           borderRadius: 3, padding: "13px 0", marginBottom: 18, minHeight: 44, boxShadow: "0 4px 11px rgba(90,70,40,.08)" } },
-        busy ? "他在想…" : "挑一件事，问问他记得的"),
+        busy ? characterText(partner, "他在想…") : characterText(partner, "挑一件事，问问他记得的")),
       // ── 一张对折又摊开的纸（v62.17）：这一页的内容本来就是【同一件事的两份笔迹】——
       // 上半是她那面（她记下的那版），中间一道真的折缝（凹痕：暗-亮-暗三层夹出来的），
-      // 下半是他那面（他的那版用衬线手写感）。原来是通用卡+一条分隔线，换个 app 照样成立。
+      // 下半是TA那面（TA的那版用衬线手写感）。原来是通用卡+一条分隔线，换个 app 照样成立。
       // 配色写死：纸写死浅色，字色不能再跟主题走（深色主题浅字浅纸那一课）。
       list.length ? list.map(x => h("div", { key: x.id, onClick: () => x.unread && onRead(x.id),
         style: { position: "relative", borderRadius: 5, overflow: "hidden", marginBottom: 14,
@@ -3887,7 +3887,7 @@ function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: "#6a5f4b", whiteSpace: "pre-wrap" } }, x.mine)),
         // 折缝：上影、缝里一线亮、下影——纸对折过才有的那道凹痕
         h("div", { "aria-hidden": "true", style: { height: 8, background: "linear-gradient(rgba(90,70,40,.18), rgba(90,70,40,.03) 42%, rgba(255,255,255,.8) 52%, rgba(90,70,40,.12))" } }),
-        // 下半：他的那面（另一种纸色 + 手写感衬线）
+        // 下半：TA的那面（另一种纸色 + 手写感衬线）
         h("div", { style: { background: "#f6efdd", padding: "12px 15px 12px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a05a6a", marginBottom: 4 } }, partner.name + " 记得的"),
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14, lineHeight: 1.9, color: "#3d3322", whiteSpace: "pre-wrap" } }, x.his),
@@ -3899,7 +3899,7 @@ function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
 }
 // 说好的事／心愿的日子，挑到【几点】（她 2026-09-13：「要时间」）。
 // ⚠️原来两处各写一遍 `new Date(v + "T09:00:00")`——那个 9 点不是他俩约的时间，
-//   是日期选择器没处放钟点时的占位。到点他开口，气泡上就写着一个没发生过的九点
+//   是日期选择器没处放钟点时的占位。到点TA开口，气泡上就写着一个没发生过的九点
 //   （v67.80 那次倒填错乱的一半病根就在这儿）。
 // ⚠️合成一处（施工规则/one-public-mechanism.md）：两处都从这儿要时刻，
 //   不填几点仍然落回 09:00——老存档和老习惯一个字不变。
@@ -3926,7 +3926,7 @@ function coupleDueClock(ts) {
 // ⚠️和「心愿单」是两回事，别混：心愿单是【她想要的】，自己往里放；
 // 这一页是【你俩真说过的】——线下/通话结束时自动抽出来的开环（记忆库里 open:true 的条目）。
 // 情侣空间现在整屋子都是记过去的收藏夹，这一页是唯一朝前的：给一条约定挑个日子，
-// 到那天他会自己提起（走的是已有的「约回」链，不是新机制）。
+// 到那天TA会自己提起（走的是已有的「约回」链，不是新机制）。
 function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
   const t = useTheme();
   const [txt, setTxt] = useState("");
@@ -3935,7 +3935,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
   const [dueVal, setDueVal] = useState("");
   const [dueHm, setDueHm] = useState(COUPLE_DUE_DEFAULT_HM);       // 到那天【几点】
   const [dayHm, setDayHm] = useState(COUPLE_DUE_DEFAULT_HM);       // 自己记一条时的几点
-  // 到那天他【怎么来】（她 2026-09-06：「约好了打电话没做」）。
+  // 到那天TA【怎么来】（她 2026-09-06：「约好了打电话没做」）。
   // 原来只有一种：发消息。约好打电话的那些到点只能等来一条文字，那不叫打电话。
   const [dueVia, setDueVia] = useState("chat");
   const open = (pacts && pacts.open) || [], due = (pacts && pacts.due) || [];
@@ -3960,7 +3960,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
     h(Head, { zh: "我们说好的", en: partner.name, onBack: onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
-        "这里的每一条都是你们【真说过】的——线下和通话结束时自己攒进来的，不是你手打的愿望（那是愿望板）。给一条挂上日子，到那天他会自己提起。"),
+        characterText(partner, "这里的每一条都是你们【真说过】的——线下和通话结束时自己攒进来的，不是你手打的愿望（那是愿望板）。给一条挂上日子，到那天他会自己提起。")),
       // 新记一条：一张还空着的字据
       h("div", { style: { position: "relative", borderRadius: 3, border: "1px dashed " + PLINE2, background: "rgba(250,244,230,.5)", padding: "13px 14px", marginBottom: 16 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: PFOG, marginBottom: 8 } }, "自己先记一条"),
@@ -3972,7 +3972,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
             style: Object.assign({}, inp, { width: 104, flexShrink: 0, opacity: day ? 1 : .45 }) }),
           h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day, dayHm) : 0); setTxt(""); setDay(""); setDayHm(COUPLE_DUE_DEFAULT_HM); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70 disabled:opacity-40",
             style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 18px", minHeight: 44 } }, "记下")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7 } }, "日子可以不填。填了到那天【那个点】他会主动来找你说这件事；不改钟点就是早上九点。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7 } }, characterText(partner, "日子可以不填。填了到那天【那个点】他会主动来找你说这件事；不改钟点就是早上九点。"))),
       open.length ? open.map(m => {
         const d = dueOf(m.id);
         const dd = d ? new Date(d.dueTs) : null;
@@ -3986,7 +3986,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
               h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.85, color: PINK2 } }, m.text),
               d ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: passed ? "#b06a5a" : "#8a7a5c", marginTop: 7 } },
                 // ⚠️几点必须写出来：只写「就是今天」的话，她挑的那个钟点等于没挑过
-                leftOf(d.dueTs) + " " + coupleDueClock(d.dueTs) + " · " + (d.via === "voice" ? "他会打给你" : d.via === "video" ? "他会视频找你" : "他会来找你说")) : null),
+                leftOf(d.dueTs) + " " + coupleDueClock(d.dueTs) + " · " + (d.via === "voice" ? characterText(partner, "他会打给你") : d.via === "video" ? characterText(partner, "他会视频找你") : characterText(partner, "他会来找你说"))) : null),
             // 挂历页本身就是「挑个日子」那颗按钮：没挑过是空白的一页
             h("button", { onClick: () => { setDueFor(picking ? null : m.id); setDueVal(""); setDueHm(d ? coupleDueClock(d.dueTs) : COUPLE_DUE_DEFAULT_HM); setDueVia((d && d.via) || "chat"); }, className: "shrink-0 active:opacity-75",
               style: { width: 64, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 2px" } },
@@ -3999,7 +3999,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
             // 带一点压痕；没选的只是描在纸上的一个框。形状/底/字色/歪不歪四样都变，
             // 不是靠填个色区分（tabs-not-plain-pills）。
             h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 9 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginRight: 2 } }, "到那天他"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginRight: 2 } }, characterText(partner, "到那天他")),
               ["chat", "voice", "video"].map(k => {
                 const on = dueVia === k;
                 return h("button", { key: k, onClick: () => setDueVia(k), "aria-pressed": on ? "true" : "false",
@@ -4031,7 +4031,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
               h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: PFOG, marginLeft: 8 } }, "做到了"))));
       }) : h(Empty, { text: "还没有说好的事", sub: "跟 " + partner.name + " 线下相处或打完电话，说定的事会自己攒到这儿来。也可以自己先记一条。" }),
       due.filter(x => !x.memId).length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, null, "他说好要来找你的"),
+        h(Eyebrow, null, characterText(partner, "他说好要来找你的")),
         due.filter(x => !x.memId).map(x => h("div", { key: x.id, className: "flex items-center", style: { gap: 10, padding: "9px 0", borderBottom: "1px solid rgba(140,115,70,.18)" } },
           h("span", { "aria-hidden": "true", style: { width: 4, height: 4, borderRadius: 999, background: "#a83c30", flexShrink: 0 } }),
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8 } }, x.about),
@@ -4043,7 +4043,7 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
   const [title, setTitle] = useState("");
   const [type, setType] = useState("一起做");
   const [note, setNote] = useState("");
-  // 「已计划」的愿望可以挑个日子（v62.11）：到那天他主动来约——走约回那条现成的链
+  // 「已计划」的愿望可以挑个日子（v62.11）：到那天TA主动来约——走约回那条现成的链
   const [planFor, setPlanFor] = useState(null);
   const [planVal, setPlanVal] = useState("");
   const [planHm, setPlanHm] = useState(COUPLE_DUE_DEFAULT_HM);
@@ -4102,10 +4102,10 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
               trips.some(t => t.status !== "done") ? "有一趟正走着 · 看登机牌" : "你们的登机牌"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: paperFog, marginTop: 2 } }, "走过 " + trips.filter(t => t.status === "done").length + " 趟")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: paperFog } }, "→"))) : null,
-      // ── 让 TA 也钉一条（v62.34，她 2026-09-04：「有时候还是希望能我主动让他来写」）──
-      // 一张空白的、只钉了半边的纸——它自己就是「这儿还空着，等他写」的样子。
+      // ── 让 TA 也钉一条（v62.34，她 2026-09-04：「有时候还是希望能我主动让TA来写」）──
+      // 一张空白的、只钉了半边的纸——它自己就是「这儿还空着，等TA写」的样子。
       // ⚠️她按这一下【单独计数】：不进「哪几档很久没出现」那本账（她点名的），
-      //   也不动他的思念——不是他自己想起来的，凭什么替他泄。
+      //   也不动TA的思念——不是TA自己想起来的，凭什么替TA泄。
       onGenWish ? h("button", { onClick: () => !wishGen && onGenWish(partner), disabled: wishGen,
         className: "w-full active:opacity-80 disabled:opacity-70",
         style: { position: "relative", marginTop: 17, padding: "15px 14px 14px", borderRadius: 2, textAlign: "left",
@@ -4115,7 +4115,7 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: paperInk } },
           wishGen ? partner.name + " 正在想…" : "让 " + partner.name + " 也钉一条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: paperFog, marginTop: 4, lineHeight: 1.6 } },
-          wishGen ? "他在翻自己心里那件一直没做成的事" : "他自己想跟你一起做、但一直没做成的那件事")) : null,
+          wishGen ? characterText(partner, "他在翻自己心里那件一直没做成的事") : characterText(partner, "他自己想跟你一起做、但一直没做成的那件事"))) : null,
       wishes.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 17, marginTop: 20 } }, wishes.map((w, wi) => {
         const done = w.status === "done", shelved = w.status === "shelved";
         return h("article", { key: w.id, style: { position: "relative", padding: "15px 14px 8px", borderRadius: 2,
@@ -4142,26 +4142,26 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
                 style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } },
                 going ? "旅途中 · 看登机牌" : "出发 · 把它变成一趟真的旅行"));
           })(),
-          // 已计划的可以挑个日子：到那天他会主动来约这件事（约回链，不是提醒闹钟）
+          // 已计划的可以挑个日子：到那天TA会主动来约这件事（约回链，不是提醒闹钟）
           (function () {
             if (w.status !== "planned" || !onPlan) return null;
             const pl = planOf ? planOf(w.id) : null;
             return h("div", { style: { margin: "2px 0 8px" } },
               pl ? h("div", { className: "flex items-center flex-wrap", style: { gap: 9 } },
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#4a7396", border: "1px solid #cdbfa0", borderRadius: 999, padding: "3px 10px" } },
-                  (new Date(pl.dueTs).getMonth() + 1) + "月" + new Date(pl.dueTs).getDate() + "日 · " + planLeft(pl.dueTs) + " · 到时他来约"),
+                  (new Date(pl.dueTs).getMonth() + 1) + "月" + new Date(pl.dueTs).getDate() + "日 · " + planLeft(pl.dueTs) + characterText(partner, " · 到时他来约")),
                 h("button", { onClick: () => onPlan(w, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: paperFog, minHeight: 32 } }, "不定了"))
               : planFor === w.id ? h("div", { className: "flex items-center", style: { gap: 8 } },
                 h("input", { type: "date", value: planVal, onChange: e => setPlanVal(e.target.value), style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, color: paperInk, background: "#fffdf6", border: "1px solid #d5c7a4", borderRadius: 8, padding: "8px 10px", outline: "none" } }),
                 h("input", { type: "time", value: planHm, "aria-label": "几点", onChange: e => setPlanHm(e.target.value), style: { width: 96, flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: paperInk, background: "#fffdf6", border: "1px solid #d5c7a4", borderRadius: 8, padding: "8px 8px", outline: "none" } }),
                 h("button", { onClick: () => { const ts = planTs(planVal, planHm); if (ts) { onPlan(w, ts); setPlanFor(null); } }, disabled: !planVal, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#4a7396", borderRadius: 8, padding: "8px 12px" } }, "就这天"))
-              : h("button", { onClick: () => { setPlanFor(w.id); setPlanVal(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } }, "挑个日子 · 到那天他来约"));
+              : h("button", { onClick: () => { setPlanFor(w.id); setPlanVal(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } }, characterText(partner, "挑个日子 · 到那天他来约")));
           })());
       })) : h("div", { style: { margin: "26px 4px 0", padding: "30px 16px", textAlign: "center", border: "1.5px dashed rgba(70,45,15,.35)", borderRadius: 6, fontFamily: F_BODY, fontSize: 12.5, color: "#5c4726", lineHeight: 1.9 } }, "板上还空着。", h("br"), "先钉一件不急着完成、但不想忘记的事。")));
 }
 
 // ── 情侣空间·花房（v62.33）────────────────────────────────────────────────
-// 盆栽全程序画：一只陶盆，按长势画芽/叶/苞/花——花色是他挑的那个色。
+// 盆栽全程序画：一只陶盆，按长势画芽/叶/苞/花——花色是TA挑的那个色。
 // 打盹（一周没相处）只是姿态压淡，不掉任何东西（不惩罚，见 js/garden.js 顶上）。
 function GardenPlant({ g, size }) {
   const sp = g && g.species;
@@ -4196,7 +4196,7 @@ function GardenPlant({ g, size }) {
     style: { display: "block", flexShrink: 0, opacity: doze ? 0.62 : 1 } }, kids);
 }
 
-// 花房整页（no-half-sheet）。规矩就三条：花是他挑的；它吃你们真实的相处（不靠浇水按钮，
+// 花房整页（no-half-sheet）。规矩就三条：花是TA挑的；它吃你们真实的相处（不靠浇水按钮，
 // 没有任何数值进度条——长到哪儿看它自己）；开完一茬收一枚干花，盆空出来等下一种。
 function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
   const t = useTheme();
@@ -4241,7 +4241,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
 }
 
 // ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）──────────────────────────────
-// 整页（no-half-sheet）。它长成【一张登机牌 + 他手写批注的行程册】：现实里一趟旅行
+// 整页（no-half-sheet）。它长成【一张登机牌 + TA手写批注的行程册】：现实里一趟旅行
 // 留在手里的就是这两样。从愿望板「一起去」进来，返回也回愿望板（一层层退）。
 // 配色整套写死（票纸写死浅色，字色跟主题走会在深色主题下失明——信纸那套的老课）。
 function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
@@ -4275,11 +4275,11 @@ function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
             h("div", { style: { width: 56, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".2em", color: TFOG } }, "存根"),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: TIN } }, String(cur.id || "").slice(-4))))),
-        // ── 行程册：他排的，每一段带着说给你听的那句 ──
+        // ── 行程册：TA排的，每一段带着说给你听的那句 ──
         cur.plan ? h("div", { style: { marginTop: 16 } },
           h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 8 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, partner.name + " 排的行程"),
-            h("button", { onClick: onPlan, disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, minHeight: 32 } }, gen ? "重排着…" : "让他重排")),
+            h("button", { onClick: onPlan, disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, minHeight: 32 } }, gen ? "重排着…" : characterText(partner, "让他重排"))),
           cur.plan.legs.map((l, i) => h("div", { key: i, style: { background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "11px 13px", marginBottom: 9,
             backgroundImage: "repeating-linear-gradient(transparent 0 25px, rgba(190,170,120,.14) 25px 26px)" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3987e" } }, l.when || "到时候再说"),
@@ -4478,7 +4478,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     if (unreadLettersFor(cid)) a.push("情书");
     if (unreadExDiaryFor(cid)) a.push("交换日记");
     if ((coupleQA || []).some(e => e.characterId === cid && e.sealed && e.byCharacter && !e.myAnswer)) a.push("问答小本");
-    if ((coupleRecall || []).some(x => x.characterId === cid && x.unread)) a.push("他记得的");
+    if ((coupleRecall || []).some(x => x.characterId === cid && x.unread)) a.push(characterText(characters.find(c => c.id === cid), "他记得的"));
     if ((coupleTimeline || []).some(x => x.characterId === cid && x.byCharacter && x.unread)) a.push("时光轴");
     if (pactDueSoonFor(cid)) a.push("说好的");
     try { if (typeof window !== "undefined" && window.capsuleDueCount && window.capsuleDueCount(cid, (characters.find(c => c.id === cid) || {}).name) > 0) a.push("时光胶囊"); } catch (e) {}
@@ -4635,7 +4635,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const bPhotos = (duoPhotosFor ? duoPhotosFor(bCid) : []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const bLetters = (coupleLetters || []).filter(l => l.characterId === bCid);
     const bUnread = bLetters.filter(l => !l.isRead).length;
-    // 他【真实】的心情（跟着真的聊过的天走，会自己平复）。v58.90 之前这儿看的是
+    // TA【真实】的心情（跟着真的聊过的天走，会自己平复）。v58.90 之前这儿看的是
     // 「心情打卡」——一次调用让模型在看不见你俩今天发生过什么的情况下瞎选一个表情。
     const bMood = moodOf ? moodOf(bCid) : null;
     const bQaN = (coupleQA || []).filter(e => e.characterId === bCid).length;
@@ -4661,8 +4661,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     // ── v59.22 她 2026-08-31：「还是差点意思不知道怎么搞」──────────────
     // 上一版把长相修好了，可每一格说的还是【几件】：「3 封」「4 个走过的第一次」
     // 「已答 5 题」「2 条想过的如果」。那是【目录语言】——一面真正的墙上你看见的
-    // 是东西本身：一张照片、他写的那行字、一个日期，不是「合照墙 · 还没有」。
-    // 整页最有意思的那一格是和好间，因为它写的是「他从 3 小时前开始，心情一直是
+    // 是东西本身：一张照片、TA写的那行字、一个日期，不是「合照墙 · 还没有」。
+    // 整页最有意思的那一格是和好间，因为它写的是「TA从 3 小时前开始，心情一直是
     // 「闷」」——一件具体发生的事。那不是巧合。
     // **把「几件」换成「哪一件」。** 数量只留给数量本身就是内容的那两处
     //（在一起第几天、抽卡点数）。
@@ -4673,7 +4673,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const bFirstLast = coupleFirstsOf ? coupleFirstsOf(bCid)[0] : null;
     // ⚠️QA 记录的字段是 myAnswer/charAnswer，从来没有 e.answer——原来这个 filter 永远空，
     //   书脊上永远是「关于我们」（跟情书那行同一个病，v62.10 一起修）。
-    //   他出的、她还没答的那道排最前——那是这一格此刻真正的事。
+    //   TA出的、她还没答的那道排最前——那是这一格此刻真正的事。
     const bQaAsk = (coupleQA || []).filter(e => e.characterId === bCid && e.sealed && e.byCharacter && !e.myAnswer)[0];
     const bQaLast = bQaAsk || (coupleQA || []).filter(e => e.characterId === bCid && (e.myAnswer || e.charAnswer))[0];
     const bIfLast = (ifLines || []).filter(x => x.charId === bCid)[0];
@@ -4718,8 +4718,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
     bPhotos.forEach((x, i) => recentItems.push({ id: "p_" + (x.imgKey || x.ts || i), ts: itemTs(x), sub: "album", label: "合照墙", text: cleanSnippet(x.desc) || "收进了一张我俩的合照" }));
     bWishes.forEach(x => recentItems.push({ id: "w_" + x.id, ts: itemTs(x), sub: "wishes", label: x.status === "done" ? "愿望实现" : "愿望板", text: cleanSnippet(x.title) }));
-    // 他出的题（v62.10）也是「刚发生的事」——她自己翻题答题不算，那是她自己干的
-    (coupleQA || []).filter(x => x.characterId === bCid && x.byCharacter).forEach(x => recentItems.push({ id: "q_" + x.id, ts: itemTs(x), sub: "qa", label: "他出的题", text: cleanSnippet(x.question) }));
+    // TA出的题（v62.10）也是「刚发生的事」——她自己翻题答题不算，那是她自己干的
+    (coupleQA || []).filter(x => x.characterId === bCid && x.byCharacter).forEach(x => recentItems.push({ id: "q_" + x.id, ts: itemTs(x), sub: "qa", label: characterText(partner, "他出的题"), text: cleanSnippet(x.question) }));
     recentItems.sort((a, b) => b.ts - a.ts);
     // 15 条＝能往回翻一阵，又不至于把整页撑长（她 2026-09-03：「固定高度，
     // 可以 scroll 看历史 15 条」）。看得见的永远只有三条，剩下的靠滚。
@@ -4834,7 +4834,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, bToday.length ? "今天留下 " + bToday.length + " 件事" : "安静的一天也算一天")),
             // ── 这两格原来是同一个圆角框劈成两半、只靠一条竖线分开（她 2026-09-04：
             //    「很无聊的框」）。两边说的本来就不是一件事，所以给两样不同的东西：
-            //    左边【他此刻】＝一张贴上去的便签（顶上一段胶带，纸微微歪）；
+            //    左边【TA此刻】＝一张贴上去的便签（顶上一段胶带，纸微微歪）；
             //    右边【下一件值得等的事】＝那本挂历的一页——跟「我们的日子」里倒数那一列
             //    是同一张 CalPage，一处画两处用。
             h("div", { style: { borderRadius: 22, overflow: "hidden", border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)" } },
@@ -4952,7 +4952,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             // 前两版是在 bento 里修装饰：换配色、改圆角、加水印字。可病在结构——
             // **六列网格每加一格就更糟**，而她明说了以后还要往里加东西。
             // 现在改成【三个面】，每个面有自己的底和自己的规矩：
-            //   ① 今天   一块深的，只放此刻的事（第几天、他这会儿怎么样）
+            //   ① 今天   一块深的，只放此刻的事（第几天、TA这会儿怎么样）
             //   ② 墙上   贴着的东西：照片、票根、卡片——**不对齐**，各自宽度不同、
             //            轻微歪着，用 flex-wrap 不用 grid，所以加一样就是多贴一张
             //   ③ 收着的 一列书脊：情书、日记、约定……加一样就是多一本，不撑版面
@@ -5033,7 +5033,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   // 撕线：挂历页撕下来的那一道
                   h("div", { "aria-hidden": "true", style: { height: 6, borderTop: "1px dashed rgba(140,110,120,.42)",
                     background: "repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 3px,rgba(0,0,0,0) 3px 7px)" } }))),
-              // 纪念日当天的仪式（v62.11）：就今天这一天露出来——让他写一条「走到今天」的感慨，
+              // 纪念日当天的仪式（v62.11）：就今天这一天露出来——让TA写一条「走到今天」的感慨，
               // 落进时光轴（还是那条 genTimelineMusing 链，只是带上了是哪个日子）。一年就那么几次。
               bAnn && bAnn.days === 0 ? h("button", { onClick: () => !tlGen && onGenTimeline(partner, bAnn.name), disabled: tlGen,
                 className: "w-full text-left active:opacity-75 disabled:opacity-60",
@@ -5044,7 +5044,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               // ── 和好间：一张折起来的字条 ───────────────────────
               // v62.40（她 2026-09-04：「和好馆的外观也好无聊」）。上一版是一个圆角
               // 药丸框换个底色——同样过不了那句「搬去别的 app 还成立吗」。
-              // 这一格凭什么存在，makeup.js 开头写死了：**他没说出口的那一半**。
+              // 这一格凭什么存在，makeup.js 开头写死了：**TA没说出口的那一半**。
               // 那句话在现实里就是一张【折起来的字条】：外头看得见一行，剩下的折在里面。
               // 所以有事的时候它是折过的——右上角一个真的折角、当中一道折痕、纸微微歪；
               // 没事的时候它就是一张没折过的空白纸条，平平地压在那儿。
@@ -5165,7 +5165,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1, color: "#96678c" } }, bGachaPts || 0),
                       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b78bad" } }, "点")),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b78bad", marginTop: 5 } },
-                      bGachaOpen ? bGachaOpen + " 张还没兑" : "陪着他就有点数"))),
+                      bGachaOpen ? bGachaOpen + " 张还没兑" : characterText(partner, "陪着他就有点数")))),
                 // 抽屉：真拉开一条缝的那一格（v62.41）。
                 // 上一版只有底下一条把手，别的还是个圆角方框。抽屉之所以是抽屉，
                 // 靠的是【顶上那道暗缝】（里面是黑的）和【两侧的木边】——把手只是最后一笔。
@@ -5216,7 +5216,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               // ── ③ 收着的：一列书脊 ─────────────────────────────
               eyebrow("收着的", "一本一本翻"),
               h("div", { style: { borderTop: "1px solid " + PLINE } },
-                // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「他记得的」那行同一个病：
+                // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「TA记得的」那行同一个病：
                 //   原来读 content/text——两个都不存在，没标题的信在书脊上永远是空白。
                 spine("letters", { zh: "情书", band: "#b08d52", dot: bUnread > 0,
                   say: bLetterLast ? one(bLetterLast.title || bLetterLast.body, 22) : "写给彼此" }),
@@ -5232,8 +5232,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 // ⚠️这一行读的必须是【这条记录真有的字段】。原来写的是
                 // title / topic / text——一个都不存在（这条记录是 {mine,his,note}），
                 // 所以书脊上永远是空的，可红点又亮着：看着就像「一直是空的」。
-                // 摆出来的该是【他记得的那一版】，那才是这一格的内容。
-                spine("recall", { zh: "他记得的", band: "#93707c",
+                // 摆出来的该是【TA记得的那一版】，那才是这一格的内容。
+                spine("recall", { zh: characterText(partner, "他记得的"), band: "#93707c",
                   dot: (coupleRecall || []).some(function (x) { return x.characterId === bCid && x.unread; }),
                   say: bRecallLast ? one(bRecallLast.his || bRecallLast.mine, 22) : "同一件事，两个人" }),
                 spine("pacts", { zh: "说好的", band: "#8f7d5c",
@@ -5570,7 +5570,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     //   开着的时候只要【换一首歌】而她正好在那个人的私聊里，就自动发一次
     //   proactive 回复——自动连播、点下一首、随便挑一首，每一次都是一刀，
     //   而她按次计费。放歌这个动作本身不该花钱。
-    //   他还是知道你俩在听什么（那一层是白送的，不花钱）：她问起来接得住，
+    //   TA还是知道你俩在听什么（那一层是白送的，不花钱）：她问起来接得住，
     //   只是不会自己开口了。
     pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
@@ -5796,7 +5796,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 她 2026-09-05：「一起听这些页面没弄 UI 弄一弄」。发现/我的/设置三页原来是
   // 一叠一模一样的圆角白卡浮在米白上——那个形状搬到任何 app 里都成立，就是没设计。
   // ⚠️不铺纹理：她 2026-09-05 已经否过一次（「我们这个纹理背景方向错了，
-  //   他放在听歌软件里不好看」）。所以不靠材质，靠【形状】：
+  //   TA放在听歌软件里不好看」）。所以不靠材质，靠【形状】：
   //   一张歌单在现实里是一张【插在箱子里的碟套】——左边是压出来的脊（厚、暗、带一道高光），
   //   右边是开口那侧（薄、圆、有一道浅浅的内影）。所以左右两边长得不一样，它才不是一块方卡。
   // lit=true：这张碟正被抽出来（静音保活正放着），脊染成强调色
@@ -6133,7 +6133,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                 (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null))));
 
   // ── 底：封面就是这一页（v62.92）─────────────────────────────────
-  // 她 2026-09-05：「封面整个代替掉页面」「我们这个纹理背景方向错了，他放在听歌软件里不好看」。
+  // 她 2026-09-05：「封面整个代替掉页面」「我们这个纹理背景方向错了，TA放在听歌软件里不好看」。
   // 木纹（v61.43）、沟纹（v61.44）、内袋纸（v62.46）、沟纹只铺一片再淡出（v62.89）——四版材质
   // 都在一个前提上：这一页现实里是【一件东西】（台面、碟、纸袋）。前提错了：听歌软件的播放页
   // 现实里不是一件东西，是【正在放的那首歌】——所以底就是它的封面，从顶栏底下铺下来、
@@ -6170,7 +6170,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的
-    // 所以看起来很乱，你帮他重新排序一下」）：
+    // 所以看起来很乱，你帮TA重新排序一下」）：
     //   **这首歌已经是我的了吗？**
     //   还不是 → 发现（搜、日推、私人FM、排行榜）
     //   已经是 → 我的（我喜欢的、我的歌单、最近播放、本地收藏、全部歌曲）
@@ -6233,20 +6233,20 @@ function CoupleQAConfig({ characters, custom, onSave, toast }) {
 const COT_BUILTIN = [
   { name: "照人写", note: "日常都用这套", think:
     "· 这一句在做什么：{{user}}刚才那句是撒娇、试探、玩笑、抱怨，还是真的在说一件难事？先认出来，再决定接多重。\n" +
-    "· {{char}}此刻的处境：人在哪儿、手上正做着什么、身上有没有不舒服——这些决定他怎么开口，不是背景板。\n" +
+    "· {{char}}此刻的处境：人在哪儿、手上正做着什么、身上有没有不舒服——这些决定TA怎么开口，不是背景板。\n" +
     "· 只推一步：这一段往前走哪一件事？别把后面的都写完，也别把上一段换个说法重讲一遍。\n" +
     "· 换个角色还成立吗：把这段话放进另一个角色嘴里，如果照样成立，就是没写出这个人，重写。" },
-  { name: "专治八股", note: "他开始说套话时换这套", think:
+  { name: "专治八股", note: "TA开始说套话时换这套", think:
     "· 回声：开头是不是把{{user}}的话原样反问回去了？是就删掉，直接接住。\n" +
     "· 语域：这个场面——谁在场、什么关系、什么时辰、什么身份——该有的分寸，和现在这一段是不是一回事？\n" +
     "· 成套话术：有没有滑进「先安抚、再解释、最后保证」那一整套？只做这一轮真正需要做的那一件。\n" +
     "· 形容词换具体：靠形容词撑起来的句子，一律换成一个具体的动作、一件具体的东西、或一句具体的话。\n" +
-    "· 训话腔：有没有站在高处点评{{user}}、替他总结、教他做人？有就删。" },
+    "· 训话腔：有没有站在高处点评{{user}}、替TA总结、教TA做人？有就删。" },
   { name: "贴着上一句", note: "要张力、要慢下来时用", think:
-    "· 上一句留的口子：{{user}}那句里有没有他自己没说完、或者故意不说的那半句？{{char}}接不接得住？\n" +
+    "· 上一句留的口子：{{user}}那句里有没有TA自己没说完、或者故意不说的那半句？{{char}}接不接得住？\n" +
     "· 这一拍的分量：该轻轻带过，还是该停下来？按对方给的重量来——不要自动加码，也不要把重的写轻。\n" +
     "· 身体先于话：{{char}}开口之前，身上先发生了什么？\n" +
-    "· 别替对方作答：写到需要{{user}}回应的地方就停，不要替他答完再接着往下写。" }
+    "· 别替对方作答：写到需要{{user}}回应的地方就停，不要替TA答完再接着往下写。" }
 ];
 function CotConfig({ toast, activeProfile }) {
   const t = useTheme();
@@ -7429,7 +7429,7 @@ function Config(props) {
             h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
             h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
         h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
-          "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在他自己的聊天里点右上角 ⋯。")),
+          "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在TA自己的聊天里点右上角 ⋯。")),
       // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
       page === "look" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "色", tint: "#8a6d9c", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
@@ -7507,7 +7507,7 @@ function McpConfig({ toast }) {
     h("button", { onClick: () => persist([...list, { id: "m_" + Date.now(), name: "", url: "", token: "", on: true }]), className: "w-full active:opacity-70",
       style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0" } }, "＋ 加一台 MCP 服务器"),
     list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 10 } },
-      "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给他。默认谁都不发。") : null);
+      "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给TA。默认谁都不发。") : null);
 }
 
 function ApiConfig({
@@ -9064,9 +9064,9 @@ function CandidateReviewSheet({ candidateId, characters, onClose, onChanged, toa
     setEditing(false);
     toast && toast("已还原成执笔人原稿");
   };
-  const doReturn = () => requestAppPrompt("退回给执笔人", "说说要改哪里（他下次起草能看到）。", "", async function (fb) {
+  const doReturn = () => requestAppPrompt("退回给执笔人", "说说要改哪里（TA下次起草能看到）。", "", async function (fb) {
     setBusy(true);
-    try { await window.Cloud.eventCandidateSetStatus(candidateId, "requested", String(fb || "").trim() || "退回重写"); toast && toast("已退回，等他重新起草"); onChanged && onChanged(); onClose(); }
+    try { await window.Cloud.eventCandidateSetStatus(candidateId, "requested", String(fb || "").trim() || "退回重写"); toast && toast("已退回，等TA重新起草"); onChanged && onChanged(); onClose(); }
     catch (e) { toast && toast("退回失败：" + ((e && e.message) || "")); }
     finally { setBusy(false); }
   }, "退回", { multiline: true });
@@ -9216,7 +9216,7 @@ function EventShelfSection({ characters, entries }) {
       h("button", { onClick: () => setShowRejected(!showRejected), className: "w-full py-1 mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, (showRejected ? "▾" : "▸") + " 废弃候选 " + rej.length + " 份（留档可查）"),
       showRejected ? rej.map(c => h("button", { key: c.id, onClick: () => setReviewId(c.id), className: "w-full rounded-lg py-1.5 mb-1 active:opacity-70", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, "🗂 " + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条 · " + String(c.updated_at || "").slice(0, 10))) : null) : null; })(),
     !events.length && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "14px 0", lineHeight: 1.7 } },
-      "还没有事件。", h("br"), "点上面那行，挑几条记忆碎片请他写成第一件。"),
+      "还没有事件。", h("br"), "点上面那行，挑几条记忆碎片请TA写成第一件。"),
     events.length > 3 ? h("input", { value: evQ, onChange: e => setEvQ(e.target.value), placeholder: "搜事件：标题 / 梗概 / 主题…", className: "w-full outline-none px-3 py-2 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }) : null,
     events.filter(ev => { const q = evQ.trim().toLowerCase(); if (!q) return true; return (String(ev.title || "") + " " + String(ev.synopsis || "") + " " + (ev.themes || []).join(" ")).toLowerCase().indexOf(q) >= 0; }).map(ev => h("button", {
       key: ev.id,
@@ -9353,7 +9353,7 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
   const [rows, setRows] = useState(null);
   const [gateTick, setGateTick] = useState(0);
   // ⚠️名字只有 dongnian.js 那一份（A_DISPLAY_LABELS）。这儿再抄一遍的话，
-  //   界面和发给他的那句话迟早对不上——v64.68 之前就是这样：这儿写「暖意」，
+  //   界面和发给TA的那句话迟早对不上——v64.68 之前就是这样：这儿写「暖意」，
   //   发出去的是「柔软」。拿不到就退回英文键名，别自作主张补一套。
   const AXIS_ZH = (window.DongnianEmotionA && window.DongnianEmotionA.displayLabels) || {};
   const load = async () => {
@@ -10104,7 +10104,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     // 线下那半（她 2026-09-13：「50、3 天都是设置可以改的，但是 40 是钉死的」）。
     // ⚠️只放这两根。「摘录留多少字」「线下最多占三成预算」留在代码里——那是怎么压的手艺，
     //   不是她需要天天拧的旋钮；旋钮多了每一根都变得不值钱。
-    slider("线下回看几拍", c.offBeats != null ? c.offBeats : 40, 10, 120, 5, " 拍", v => set({ offBeats: v }), "线下那半最多往回带这么多拍（他和你的一起数）。再往前由本场滚动摘要和记忆库兜底。"),
+    slider("线下回看几拍", c.offBeats != null ? c.offBeats : 40, 10, 120, 5, " 拍", v => set({ offBeats: v }), "线下那半最多往回带这么多拍（TA和你的一起数）。再往前由本场滚动摘要和记忆库兜底。"),
     slider("线下最近几拍给原文", c.offVerbatim != null ? c.offVerbatim : 3, 1, 10, 1, " 拍", v => set({ offVerbatim: v }), "只有最近这几拍原样带，更早的压成摘录（留台词那几句）。调大衔接更稳、更吃字数；线下再多也最多占走短期窗预算的三成，挤不到聊天头上。"),
     h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"),
     // 清理落灰记忆（v48.41 #4）：库越攒越大，一键删掉久无人问津的低情绪旧事——约定/心事/置顶都留着
@@ -10183,7 +10183,7 @@ function MemEntrySheet({
   }))), h(LineArea, {
     value: text,
     onChange: e => setText(e.target.value),
-    placeholder: "一句关键事实，如：他答应周末带我去看海。",
+    placeholder: "一句关键事实，如：TA答应周末带我去看海。",
     style: {
       minHeight: 90
     }
@@ -10342,7 +10342,7 @@ function InkSecret({ text, seed, rgb, ink }) {
     }
   }, text);
 }
-// 每个角色一种纸：他的本子长什么样，本来就该是他的一部分
+// 每个角色一种纸：TA的本子长什么样，本来就该是TA的一部分
 const DIARY_PAPERS = ["paper", "lined", "grid", "cloth", "night", "wood"];
 function diaryPaperOf(char) {
   if (char && char.diaryPaper && DIARY_PAPERS.indexOf(char.diaryPaper) >= 0) return char.diaryPaper;
@@ -10357,7 +10357,7 @@ function diaryPreview(e) {
   return p ? p.text : "";
 }
 
-// 全文页 —— 这一页就是他那张纸：日期是他写下的，天气地点随手记在边上，
+// 全文页 —— 这一页就是TA那张纸：日期是TA写下的，天气地点随手记在边上，
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
 // ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
@@ -10373,7 +10373,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
   const title = isMe ? (entry.title || "") : (entry.titleZh || entry.titleEn || "");
   const sub = (!isMe && entry.titleZh && entry.titleEn) ? entry.titleEn : "";
   return h("div", { className: "h-full flex flex-col", style: pageSkin(paper, t, { corner: false }) },
-    h(Head, { zh: char ? (char.remark || char.name) : "日记", sub: isMe ? "我的手记" : "他写的",
+    h(Head, { zh: char ? (char.remark || char.name) : "日记", sub: isMe ? "我的手记" : characterText(char, "他写的"),
       bg: "transparent", noLine: true, onBack,
       right: h("button", { onClick: onDelete, "aria-label": "删掉", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(ITrash, { size: 17, color: t.fog })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-16" },
@@ -10437,7 +10437,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
     tp.current = null;
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
   };
-  // 封面就是他那张纸 + 一张贴上去的书名签。
+  // 封面就是TA那张纸 + 一张贴上去的书名签。
   // ⚠️别再往回做那套「深色大图 + 编号 + 一排英文小标题」的档案卡版式——
   //   那是照着别人的来的，她 2026-08-30 明说要我们自己的东西。
   const paper = diaryPaperOf(char);
@@ -10729,7 +10729,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         className: "active:opacity-60 disabled:opacity-40",
         style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: 13, color: t.sub }
       }, "全部补齐（" + missing.length + " 篇）") : null));
-    // 目录也铺他那张纸：翻他的日记，从目录起就该是他的本子
+    // 目录也铺TA那张纸：翻TA的日记，从目录起就该是TA的本子
     return h("div", { className: "h-full flex flex-col", style: pageSkin(isMe ? "paper" : diaryPaperOf(curAuthor), t, { corner: false, strength: .7 }) }, daySheet,
       h(Head, {
         zh: curAuthor.name, en: isMe ? "My Journal · 我的日记" : "Journal · 翻阅日记",
@@ -10984,7 +10984,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h(Avatar, { character: c, size: 46, radius: 8 }),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, c.remark || c.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, open ? "这一格里有" : "这一格还空着 · 点开生成他的资产")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, open ? "这一格里有" : characterText(c, "这一格还空着 · 点开生成他的资产"))),
           open ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, fmtMoney(rec.balance))
             : h(IChevR, { size: 16, color: t.fog }))));
     })));
@@ -11002,15 +11002,15 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   const heldTotal = acctRows.reduce((n, a) => n + (a.primary ? 0 : (Number(a.hold) || 0)), 0);
   const assetTotal = heldTotal + bal0;
   // 为她花的：只认【真的发生过】的那几种——她在 App 里亲手收到过的。
-  //   转账 / 他送来的礼物 / 红包 / 亲属卡
+  //   转账 / TA送来的礼物 / 红包 / 亲属卡
   // ⚠️v58.39 起不再靠「名目里出现她的名字」来筛。以前那样筛，模型在推演当天
-  // 日常消费时随手写一句「给 Lisa 带的桂花糕」，这一栏就把它算成他为她花的钱——
-  // 可他根本没点过、她也没收到过任何东西（她 2026-08-30：「显示有好多就是编出来的」）。
+  // 日常消费时随手写一句「给 Lisa 带的桂花糕」，这一栏就把它算成TA为她花的钱——
+  // 可TA根本没点过、她也没收到过任何东西（她 2026-08-30：「显示有好多就是编出来的」）。
   // 少算一点也不能算错：这一栏是她翻钱包最当真的一栏。
   const FOR_HER_KINDS = ["transfer", "gift", "redpacket", "kinship"];
   const forHer = ledger.filter(e => e && Number(e.delta) < 0 && FOR_HER_KINDS.indexOf(e.kind) >= 0);
   const forHerTotal = forHer.reduce((n, e) => n + Math.abs(Number(e.delta) || 0), 0);
-  // 还没结清的那几笔算个净额：正数是别人还欠他的，负数是他还欠人的
+  // 还没结清的那几笔算个净额：正数是别人还欠TA的，负数是TA还欠人的
   const debtOpen = { net: debts.reduce((n, d) => d && !d.settledTs ? n + (d.dir === "owed" ? 1 : -1) * (Number(d.amount) || 0) : n, 0) };
   const notes = (rec && rec.notes) || {};
   const incomes = (rec && rec.incomes) || [];
@@ -11045,7 +11045,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
 
   return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, header,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-10" },
-      // 他手上那叠钱
+      // TA手上那叠钱
       noteStack([
         h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, (char.remark || char.name) + " · 余额"),
         h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
@@ -11089,7 +11089,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
         h("div", { key: "ivv", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 2 } }, fmtMoney((rec && rec.investAssets) || 0)),
         note(notes.invest)
       ]) : null,
-      // 钱分几处放着。一个人把钱分几处、各放多少，本身就在说他是什么人——
+      // 钱分几处放着。一个人把钱分几处、各放多少，本身就在说TA是什么人——
       // 有人只有一个存钱的地方，有人分五处谁也不知道全貌。
       // 随身可动用的那笔就是上面的余额；这里列的是【另外存着的】，两边不重复计。
       acctRows.length ? cardBox([
@@ -11127,7 +11127,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
                 background: done ? "rgba(0,0,0,.05)" : mine ? "rgba(196,85,63,.11)" : "rgba(63,138,84,.11)",
                 color: done ? t.fog : mine ? "#b6473c" : "#3f8a54"
               }
-            }, done ? "已了" : mine ? "他欠" : "欠他"),
+            }, done ? "已了" : mine ? characterText(char, "他欠") : characterText(char, "欠他")),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, textDecoration: done ? "line-through" : "none", wordBreak: "break-word" } }, d.who),
@@ -11165,7 +11165,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("span", { style: { marginLeft: "auto", fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, fmtMoney(forHerTotal)),
           h("span", { style: { marginLeft: 8, transform: forHerOpen ? "rotate(180deg)" : "none", transition: "transform .18s ease" } }, h(IChevD, { size: 16, color: t.fog }))),
         forHerOpen ? h("div", { key: "fn", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginBottom: 8 } },
-          "只算你真的收到过的：转账、他寄来的东西、红包、亲属卡。他行程里推演出来的日常花销不算在这儿。") : null,
+          characterText(char, "只算你真的收到过的：转账、他寄来的东西、红包、亲属卡。他行程里推演出来的日常花销不算在这儿。")) : null,
         forHerOpen ? h("div", { key: "fb", className: "space-y-1" }, forHer.slice(0, 30).map((e, i) => h("div", {
           key: e.id || i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },
@@ -11471,7 +11471,7 @@ const CARRY_SECTIONS = [
 // 但上限得由代码守着——模型高兴起来能给一个借住在别人家的人排出四十套。
 // v57.85 放宽：单场合 4 套太紧——「上朝」这种场合真讲究的人就是有五六套，
 // 而她要的正是「同一个场合也能多几套」。上限只是防模型排出四十套的那道闸，
-// 不该反过来替角色决定他有多少衣服。
+// 不该反过来替角色决定TA有多少衣服。
 // v67.33 再放宽（她 2026-09-12：「衣柜能不能多加可以生成多几套衣服」）：
 // 有了「再添几套」那条路之后，这个数管的就不只是【模型一次能给多少】了，
 // 而是【她一次次攒起来能攒多少】。⚠️这是渲染时才截的闸——给小了，
@@ -11537,12 +11537,12 @@ function closetMerge(oldData, addData) {
   return { ...(oldData || {}), closet: groups };
 }
 // 一身衣服该怎么称呼（v61.42，她 2026-09-03 报：「陆衍的衣服写成了这个风格，
-// 但是别人的都是正常描述是啥衣服，所以看陆衍状态卡就只能看到他穿着 xx 场合的衣服」）。
+// 但是别人的都是正常描述是啥衣服，所以看陆衍状态卡就只能看到TA穿着 xx 场合的衣服」）。
 //
 // 病根在提示词：name 那一栏原来只说「这一身的叫法」，模型于是给了一个【场合名】
 //（「日常采购与平价餐厅出行套」）。可场合已经有 occasion 那一栏了——写两遍，
 // 等于 name 这一栏是空的。而 name 会顺着 carryContextText 进聊天上下文，
-// 模型再照抄进 wearing，状态卡上就成了「他穿着 xx 场合的衣服」。
+// 模型再照抄进 wearing，状态卡上就成了「TA穿着 xx 场合的衣服」。
 //
 // 提示词那头改了（说清 name 要写衣服本身）。这儿是代码这一道：
 // **已经存下来的坏名字不会自己变好**（衣柜一次最多换两件，钉住的还不换），
@@ -11565,7 +11565,7 @@ function outfitLabel(set, occasion) {
 }
 // 随身物摘要，喂给角色本人（她 2026-08-29：这一整块以前一个字都不进上下文，
 // 是「声明了、生成了、从没被引用过」那个病的原样重演——衣柜里挂着八件衣服，
-// 出图时一件都用不上；包里那把伞，聊天里他掏不出来）。
+// 出图时一件都用不上；包里那把伞，聊天里TA掏不出来）。
 // 控长：只发【有什么】，不发 thought（那是给她看的私人批注），也不发 note 的全文。
 function carryContextText(box, pins, opts) {
   const b = box || {};
@@ -11802,7 +11802,7 @@ function clothFigure(o) {
         }, "◆") : null)));
 }
 // ── 随身物的四层（照查手机那套落，见 施工规则/phone-data-layers.md）──────
-// 判据一：这一栏变了，是「他变了」还是「系统忘了」？
+// 判据一：这一栏变了，是「TA变了」还是「系统忘了」？
 // 随身物比手机更该稳：你身上带着的东西本来就是几个月不动的，
 // 刷一次全换掉＝换了个人（她 2026-08-29 点名的病）。所以这里【没有 ♻️ 层】：
 //   🔒 = 她亲手钉住的那几件（那块玉、那把刀）＋ 收到的礼物（本来就永久）
@@ -11833,7 +11833,7 @@ function carryEvolveMerge(key, oldData, newData, pinned) {
   if (key === "outfit") {
     const groups = closetGroups(newData).map(g => ({ occasion: g.occasion, sets: g.sets.slice() }));
     // ⚠️补回来的那几身要回到【它原来挂的那一格】。原来一律塞进 groups[0]，
-    //   于是刷一次，他的朝服就挂到「在家」那一格去了；衣柜越大这事越显眼
+    //   于是刷一次，TA的朝服就挂到「在家」那一格去了；衣柜越大这事越显眼
     //   （v67.33 加了「再添几身」之后，柜子本来就会攒大）。
     const was = {};
     closetGroups(oldData).forEach(g => g.sets.forEach(it => { was[carryItemKey(it)] = g.occasion; }));
@@ -11857,24 +11857,24 @@ function carryKnownBlock(key, oldData, pinned) {
   if (!items.length) return "";
   const pins = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
   const pinNames = items.filter(it => pins.has(carryItemKey(it))).map(it => it.name);
-  let out = "\n\n【上一次翻他这一栏，里面是这些】\n" + items.map(it => "· " + it.name + (it.note ? "（" + String(it.note).replace(/\s+/g, " ").slice(0, 40) + "）" : "")).join("\n")
+  let out = "\n\n【上一次翻TA这一栏，里面是这些】\n" + items.map(it => "· " + it.name + (it.note ? "（" + String(it.note).replace(/\s+/g, " ").slice(0, 40) + "）" : "")).join("\n")
     + "\n**默认原样照抄回来**——一个人身上带的东西本来就是几个月不变的，不是每次翻都换一套。"
-    + "\n这一次最多换掉两件，而且要有理由（用完了、丢了、坏了、换季了、最近发生的事让他添了一件）；没有理由就一件都别动。"
+    + "\n这一次最多换掉两件，而且要有理由（用完了、丢了、坏了、换季了、最近发生的事让TA添了一件）；没有理由就一件都别动。"
     + "\n照抄的那些名字要逐字一样，别改写成近义词——改了名字就等于换了一件。";
   if (pinNames.length) out += "\n\n【这几件她钉住了，绝对不许换掉、不许改名】\n" + pinNames.map(x => "· " + x).join("\n");
   return out;
 }
-// 「他最近真到手的东西」：网购签收的 + 她送到的礼物。不直接塞成条目——
+// 「TA最近真到手的东西」：网购签收的 + 她送到的礼物。不直接塞成条目——
 // 那会长成一座只进不出的数据坟场；而是当【素材】喂进去，让模型自己把该随身带的
 // 那几件自然编进包里/衣柜里（她 2026-08-29：和购物/钱包接上）。
 function carryMaterialBlock(key, material) {
   const bought = (material && material.bought) || [];
   const gifts = (material && material.gifts) || [];
   if (!bought.length && !gifts.length) return "";
-  let out = "\n\n【他最近真到手的东西】（这些是真花过钱、真送到手的，不是让你罗列）";
-  if (bought.length) out += "\n· 他自己买的：" + bought.slice(0, 10).join("、");
+  let out = "\n\n【TA最近真到手的东西】（这些是真花过钱、真送到手的，不是让你罗列）";
+  if (bought.length) out += "\n· TA自己买的：" + bought.slice(0, 10).join("、");
   if (gifts.length) out += "\n· 她送的：" + gifts.slice(0, 8).join("、");
-  out += "\n里面**如果有该随身带着 / 该挂进衣柜的**，就自然写进这一栏（用他自己的叫法，note 里可以带上「哪儿来的」）。"
+  out += "\n里面**如果有该随身带着 / 该挂进衣柜的**，就自然写进这一栏（用TA自己的叫法，note 里可以带上「哪儿来的」）。"
     + "\n消耗掉的、用不上的、和这一栏不搭的，就别硬塞——**没有一件对得上就一件都不写**，这不是清单核对。";
   return out;
 }
@@ -11907,7 +11907,7 @@ function carryAvoidBlock(rows) {
   const zh = { bag: "包内", pocket: "口袋", outfit: "衣柜", trinket: "珍藏小物", gifts: "收到的礼物" };
   const by = {};
   rows.slice(0, 40).forEach(r => { (by[r.where] = by[r.where] || []).push(r.name); });
-  return "\n\n【这些东西已经在他别处了，一件都别再写】\n"
+  return "\n\n【这些东西已经在TA别处了，一件都别再写】\n"
     + Object.keys(by).map(k => "· " + (zh[k] || k) + "：" + by[k].join("、")).join("\n")
     + "\n**同一件东西只能待在一个地方。**哪怕你觉得某件更该归这一栏，也不许在这儿重写一遍——"
     + "换一件真正属于这一栏的；实在没有可换的，就少写一件。";
@@ -11927,43 +11927,43 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
   const nm = char.name;
   const tail = "每件除了 name、note(一句状态/来历) 外，再写 thought：「" + nm + "」对这件东西的私人想法/批注（为什么带它、和谁有关、藏了什么心事），点开细看用，贴人设、可以更私密。**thought 每件都要写完整，别写一半。**";
   // 件数不再写死。写死了「正好 5 件」，一个身无长物的人也被逼着凑满五件——
-  // 而【他有多少东西】本身就是人物信息（她 2026-08-29：衣柜大小跟人设走）。
-  const many = "**有几件由这个人决定**：他的身份、处境、讲究程度、有没有条件置办——揣着最后几个铜板的人和王府里的人，不该翻出一样多的东西。少也要少得有道理，别为了凑数硬编。";
+  // 而【TA有多少东西】本身就是人物信息（她 2026-08-29：衣柜大小跟人设走）。
+  const many = characterText(char, "**有几件由这个人决定**：他的身份、处境、讲究程度、有没有条件置办——揣着最后几个铜板的人和王府里的人，不该翻出一样多的东西。少也要少得有道理，别为了凑数硬编。");
   const hint = "{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]}";
   const S = {
     // ⚠️这三栏的分工必须说死。原先写的是「包里/随身携带的东西」「随身的小物件/珍藏」——
     // 界限模糊，于是同一个立牌、同一枚徽章、同一个小本子在两栏里各写了一遍
-    //（她 2026-08-29 真机截图）。判据是【为什么它在他身上】：要用 / 摸得到 / 舍不得。
+    //（她 2026-08-29 真机截图）。判据是【为什么它在TA身上】：要用 / 摸得到 / 舍不得。
     bag: {
       instruction: "推演「" + nm + "」此刻包里带着的东西。"
-        + "\n【这一栏的判据：他【出门要用】的东西】拿走它，他今天某件事就办不成——干活的家伙、路上要吃要喝的、"
+        + characterText(char, "\n【这一栏的判据：他【出门要用】的东西】拿走它，他今天某件事就办不成——干活的家伙、路上要吃要喝的、")
         + "要交给谁的、防着天气的。**不写那些纯粹因为舍不得才带着的**，那些归「珍藏小物」。" + many + tail,
       schemaHint: hint
     },
     pocket: {
       instruction: "推演「" + nm + "」口袋里的零碎小东西。"
-        + "\n【这一栏的判据：伸手就摸得到】小到能一直揣着、掏出来不费事，而且他常常无意识地摸到它——"
+        + characterText(char, "\n【这一栏的判据：伸手就摸得到】小到能一直揣着、掏出来不费事，而且他常常无意识地摸到它——")
         + "钥匙、票根、糖、揉皱的纸、硬币这一类。**不写包里那些要翻半天才拿得出来的**。" + many + tail,
       schemaHint: hint
     },
     trinket: {
       instruction: "推演「" + nm + "」一直收着的那几样小东西。"
-        + "\n【这一栏的判据：一点用都没有，他还是带着】它办不成任何事，留着只因为它牵着一个人、一件事、一段日子。"
+        + characterText(char, "\n【这一栏的判据：一点用都没有，他还是带着】它办不成任何事，留着只因为它牵着一个人、一件事、一段日子。")
         + "**能派上用场的一律不写**，那些归「包内」或「口袋」。这一栏宁可只有两三件，也不许拿有用的东西凑数。" + many + tail,
       schemaHint: hint
     },
     // 衣柜按【场合】分组，同一个场合可以有好几套（她 2026-08-29）：
-    // 一个人在同一种场合下反复挑中的那几套，正是「他有偏好」的证据。
+    // 一个人在同一种场合下反复挑中的那几套，正是「TA有偏好」的证据。
     outfit: {
       instruction: "推演「" + nm + "」的衣柜，按【场合】分组。"
-        + "\n【衣柜有多大由这个人决定】场合分几类、每类有几套，全看他的身份、处境、有没有条件置办、讲不讲究——"
+        + characterText(char, "\n【衣柜有多大由这个人决定】场合分几类、每类有几套，全看他的身份、处境、有没有条件置办、讲不讲究——")
         + "王府里的人和借住在别人家的人，衣柜不该一样大。**衣柜的规模本身就是人物信息**，别把谁都排成满满一柜。"
-        + "\n【同一个场合可以有好几套】他在同一种场合下反复挑中的那几套，彼此只有细微差别（颜色、料子、新旧、配的东西不同）——"
+        + characterText(char, "\n【同一个场合可以有好几套】他在同一种场合下反复挑中的那几套，彼此只有细微差别（颜色、料子、新旧、配的东西不同）——")
         + "那正是一个人有偏好的证据。真讲究的人这里就该厚，不在乎穿什么的人一个场合一套也够。"
-        + "\n【场合怎么分】按他真过的日子分，不是按季节表分：他每天要去的地方、要见的人、要撑的场面、独自在家的时候、以及那些不常有但一定得有的场合。场合名要带上他那个世界的说法。"
+        + characterText(char, "\n【场合怎么分】按他真过的日子分，不是按季节表分：他每天要去的地方、要见的人、要撑的场面、独自在家的时候、以及那些不常有但一定得有的场合。场合名要带上他那个世界的说法。")
         + "\n【name 写的是衣服本身，不是场合】场合已经有 occasion 那一栏了，name 再写一遍场合，这一栏就等于空的。"
-        + "name 要让人光看它就想象得出他身上穿的是什么：主件是什么、什么颜色或料子、怎么搭的。"
-        + "判据一句话：**把 note 盖住只看 name，能不能看出他穿的是什么？** 看不出就是写坏了。"
+        + characterText(char, "name 要让人光看它就想象得出他身上穿的是什么：主件是什么、什么颜色或料子、怎么搭的。")
+        + characterText(char, "判据一句话：**把 note 盖住只看 name，能不能看出他穿的是什么？** 看不出就是写坏了。")
         + "\nnote 再补：由什么组成、什么料子颜色、什么时候穿、哪儿来的。" + tail,
       schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}"
     }
@@ -11996,13 +11996,13 @@ function closetMoreSpec(char, known, room, material, elsewhere) {
     instruction: "给「" + nm + "」的衣柜再添几身衣服，**只写新添的那几身**。"
       + (list ? "\n\n【柜子里已经挂着这些】\n" + list
           + "\n新添的要和上面这些真的是两回事——不是同一件换个颜色，也不是同一句话换个说法。" : "")
-      + "\n\n【添在哪个场合由这个人决定】可以补进上面已经有的场合——同一种场合下他反复挑中的那几身，"
+      + characterText(char, "\n\n【添在哪个场合由这个人决定】可以补进上面已经有的场合——同一种场合下他反复挑中的那几身，")
       + "彼此只有细微差别（料子、新旧、配的东西不同），那正是一个人有偏好的证据；"
-      + "也可以开一个他日子里本来就有、柜子里却还空着的场合。"
-      + "\n【这一次写 1~" + want + " 身】他是个什么处境的人就添什么样的衣服：置办得起几身、讲不讲究、"
-      + "最近过的日子让他多了什么。真添得出几身就写几身，添不出那么多就少写。"
+      + characterText(char, "也可以开一个他日子里本来就有、柜子里却还空着的场合。")
+      + "\n【这一次写 1~" + want + characterText(char, " 身】他是个什么处境的人就添什么样的衣服：置办得起几身、讲不讲究、")
+      + characterText(char, "最近过的日子让他多了什么。真添得出几身就写几身，添不出那么多就少写。")
       + "\n【补进老场合时，occasion 要和上面列的那个逐字一样】写岔一个字就另开一格了。"
-      + "\n【name 写的是衣服本身，不是场合】判据一句话：**把 note 盖住只看 name，能不能看出他穿的是什么？**"
+      + characterText(char, "\n【name 写的是衣服本身，不是场合】判据一句话：**把 note 盖住只看 name，能不能看出他穿的是什么？**")
       + "\nnote 再补：由什么组成、什么料子颜色、什么时候穿、哪儿来的。"
       + "每身还要写 thought：「" + nm + "」对这一身的私人想法（什么场合会挑它、和谁有关、藏了什么心事），点开细看用，贴人设、可以更私密。"
       + carryMaterialBlock("outfit", material) + carryAvoidBlock(elsewhere)
@@ -12206,7 +12206,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, g.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
                     new Date(g.receivedTs).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })
-                      + (g.thought ? " · 他说了点什么" : ""))),
+                      + (g.thought ? characterText(char, " · 他说了点什么") : ""))),
                 h(IChevR, { size: 14, color: t.line }));
             }))));
         })();
@@ -12366,15 +12366,15 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
               color: isPinned(sheet) ? (tone ? tone.ink : t.accent) : t.ink
             }
           }, isPinned(sheet) ? "◆ 钉住了" : "钉住这一件") : null,
-          // 摆到他面前：和查手机那条链是同一张卡（v57.96）
+          // 摆到TA面前：和查手机那条链是同一张卡（v57.96）
           onPeek ? h("button", {
             onClick: () => { onPeek(char.id, sectionKey, sheet); setSheet(null); },
             className: "flex-1 py-2.5 active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
-          }, "摆到他面前") : null),
+          }, characterText(char, "摆到他面前")) : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
           (onTogglePin ? "钉住的东西刷新时不会被换掉，没钉住的一次最多换两件。" : "")
-          + (onPeek ? "「摆到他面前」会在聊天里发一条——他会知道你翻过。" : ""))) : null;
+          + (onPeek ? characterText(char, "「摆到他面前」会在聊天里发一条——他会知道你翻过。") : ""))) : null;
       const think = h("div", { style: { marginTop: tone ? 18 : 0 } },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: tone ? tone.ink : t.accent, marginBottom: 7 } }, char.name + " 的想法"),
         h("div", {
@@ -12456,7 +12456,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         : openGift.thought
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, openGift.thought)
           : h("button", { onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法"),
-      // 礼物是你送的，他本来就知道你知道——所以这一条走 open 档，不带「被撞破」那层
+      // 礼物是你送的，TA本来就知道你知道——所以这一条走 open 档，不带「被撞破」那层
       onPeek ? h("div", { style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
         h("button", {
           onClick: () => { onPeek(char.id, sectionKey, { name: openGift.name, note: "你送的" }); setOpenGiftId(null); },
@@ -12701,11 +12701,15 @@ const gachaWhen = ts => {
   const p = n => (n < 10 ? "0" : "") + n;
   return (d.getFullYear() + "").slice(2) + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 };
-function GachaCard({ card, busy, onRedeem, fresh }) {
+function GachaCard({ card, busy, onRedeem, fresh, character }) {
   const t = useTheme();
   const sk = GACHA_SKIN[card.r] || GACHA_SKIN.R;
   const done = !!card.redeemedTs;
   const res = card.result || {};
+  // 券面来自应用卡池；兑换结果是角色原文，不经称呼替换。
+  const template = window.GachaKit && window.GachaKit.byId && window.GachaKit.byId[card.poolId];
+  const cardName = template ? characterText(character, template.name) : card.name;
+  const cardHint = template ? characterText(character, template.hint) : card.hint;
   return h("div", {
     style: {
       borderRadius: 16, border: "1px solid " + sk.bd, background: sk.bg, padding: "12px 13px",
@@ -12714,7 +12718,7 @@ function GachaCard({ card, busy, onRedeem, fresh }) {
   },
     h("div", { className: "flex items-center gap-2" },
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: ".1em", color: "#fff", background: sk.tag, borderRadius: 5, padding: "2px 6px" } }, sk.zh),
-      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, card.name),
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cardName),
       // 票根：什么时候抽到的。兑掉了也留着，这一行永远在
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: sk.tag, flexShrink: 0 } }, gachaWhen(card.ts))),
     done
@@ -12723,9 +12727,9 @@ function GachaCard({ card, busy, onRedeem, fresh }) {
           res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.tag, marginTop: 7 } },
             "已兑 " + gachaWhen(card.redeemedTs)
-            + (res.where === "memlib" ? " · 已进记忆库，以后他会提起" : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "date" ? " · 这张券已经用掉了，线下开了" : res.where === "letters" ? " · 已进情书" : res.where === "gaze" ? " · 印象卡已改，旧版进了修订史"  : "")))
+            + (res.where === "memlib" ? characterText(character, " · 已进记忆库，以后他会提起") : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "date" ? " · 这张券已经用掉了，线下开了" : res.where === "letters" ? " · 已进情书" : res.where === "gaze" ? " · 印象卡已改，旧版进了修订史"  : "")))
       : h("div", { className: "flex items-end justify-between gap-3", style: { marginTop: 8 } },
-          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, card.hint),
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, cardHint),
           h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
             busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")));
 }
@@ -12768,25 +12772,25 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
           h("button", { key: k, onClick: () => setTab(k), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 14px", borderRadius: 999, border: "1px solid " + (tab === k ? t.ink : t.line), background: tab === k ? t.ink : "transparent", color: tab === k ? t.bg2 : t.sub } }, zh))),
       shown.length
         ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
-            shown.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, fresh: fresh.indexOf(c.id) >= 0 })))
+            shown.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, fresh: fresh.indexOf(c.id) >= 0, character: partner })))
         : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "26px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
             tab === "open" ? "手上没有还没兑的卡。" : "还没抽过。",
             h("div", { style: { marginTop: 4 } }, "票根会一直留着，抽到的时间也留着。"))));
 }
 
 // ═══ 情侣空间·惊喜抽屉（言秋提，她 2026-08-31 拍板）═══
-// 他想你的时候有时不发消息，而是往你俩的抽屉里放一样东西，等你自己发现。
+// TA想你的时候有时不发消息，而是往你俩的抽屉里放一样东西，等你自己发现。
 // ⚠️这一格【故意不报红点、不显示还有几件没拆】——报了就跟 App 里其余通知一个样，
 // 惊喜就没了。代价是可能白开一次；补偿是拆过的都留在里头，所以从来不会空手而归。
 // ⚠️封面上【一个字的内容都不许露】（v61.33，她 2026-09-03：「这个还没拆不应该显示
 //   说的话的一部分，就是要拆开了才看到」）。原来封着的那张会把 x.title 印在外面，
 //   而悄悄话那一路的 title 就是正文头 16 个字（drawerWhisper 那儿切的）——
-//   等于封面上直接印着他要说的话，拆不拆都一样。
+//   等于封面上直接印着TA要说的话，拆不拆都一样。
 //   所以封着的时候只有：还没拆、放进来的时刻。别的一律等拆开。
 const DRAWER_KIND = {
-  thing:   { zh: "他捡到的",   ch: "拾", band: "#8a7a52" },
+  thing:   { zh: "TA捡到的",   ch: "拾", band: "#8a7a52" },
   word:    { zh: "半句话",     ch: "半", band: "#7d6a86" },
-  draw:    { zh: "他画的",     ch: "画", band: "#7a8a6e" },
+  draw:    { zh: "TA画的",     ch: "画", band: "#7a8a6e" },
   // 悄悄话从 v59.23 起也落这儿（便签墙撤掉，并进来的）
   whisper: { zh: "一句悄悄话", ch: "悄", band: "#a4736f" }
 };
@@ -12820,15 +12824,15 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
             style: { gap: 5, background: "rgba(201,168,106,.14)", borderRadius: 999, padding: "3px 10px 3px 4px" } },
             h("span", { "aria-hidden": "true", style: { width: 17, height: 17, borderRadius: 5, background: DRAWER_KIND[k].band,
               color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 10 } }, DRAWER_KIND[k].ch),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8d7745" } }, DRAWER_KIND[k].zh)))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8d7745" } }, characterText(partner, DRAWER_KIND[k].zh))))),
         // ── 各档上次是什么时候（v62.34）────────────────────────────────────────
         // 她 2026-09-04 问「模型真的会 follow through 吗」。真正防复发的不是硬配额，
         // 是【看得见】：**「从来没出现过」和「本来就少」在界面上长得一模一样**——
         // 一起学那条从上线起一次都没出现过、几个月没人发现，就是这个形状。
-        // ⚠️报的是【他自己走的那次】。她按按钮叫出来的单独记（她点名的：「我调用的
+        // ⚠️报的是【TA自己走的那次】。她按按钮叫出来的单独记（她点名的：「我调用的
         //   就是单独自己算的」），另算一列，免得按几下就把某一档「喂饱」看不出问题。
         (kinds || []).length ? h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(201,168,106,.5)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".08em", color: "#a89066" } }, "他自己走过的那几档 · 上次"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".08em", color: "#a89066" } }, characterText(partner, "他自己走过的那几档 · 上次")),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", marginTop: 6 } },
             kinds.map(([k, zh]) => {
               const row = (ledger || {})[k] || {};
@@ -12877,7 +12881,7 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
                   h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                     background: k.band, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
                     fontFamily: F_DISPLAY, fontSize: 11.5 } }, k.ch),
-                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a08b5d" } }, k.zh),
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a08b5d" } }, characterText(partner, k.zh)),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#b9a785" } }, gachaWhen(x.ts))),
                 // ⚠️悄悄话的 title 就是正文头一截，两行一样等于把同一句摆两遍
                 (x.title && String(x.title).replace(/…$/, "") !== String(x.text || "").slice(0, String(x.title).replace(/…$/, "").length))
@@ -12885,7 +12889,7 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#5b4c3a", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text));
             }))
         : h("div", { style: { border: "1px dashed rgba(150,120,70,.32)", borderRadius: 4, padding: "30px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: "#a08b5d", lineHeight: 1.8 } },
-            "他还没往里放过东西。", h("div", { style: { marginTop: 4 } }, "这儿不会提醒你——想起来了就来看看。"))));
+            characterText(partner, "他还没往里放过东西。"), h("div", { style: { marginTop: 4 } }, "这儿不会提醒你——想起来了就来看看。"))));
 }
 
 // ═══ 情侣空间·里程碑册（言秋提，她 2026-08-31 拍板）═══
@@ -12924,7 +12928,7 @@ function CoupleFirstsBook({ partner, items, onBack }) {
 //   都被拆成单件了」）。衣柜里挂的本来就不一定是「一整身」——外套是一件、鞋是一件，
 //   只能单选等于逼她二选一，出图那头就永远少一半。
 //   value 是一个数组；点一下加进来、再点一下拿掉。
-function StudioPicker({ zh, groups, value, onPick, tint }) {
+function StudioPicker({ zh, groups, value, onPick, tint, character }) {
   const t = useTheme();
   const picked = Array.isArray(value) ? value : (value ? [value] : []);   // 老调用传字符串也认
   const on = n => picked.indexOf(n) >= 0;
@@ -12945,7 +12949,7 @@ function StudioPicker({ zh, groups, value, onPick, tint }) {
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: on(x.name) ? "#fff" : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
               (x.occasion ? x.occasion + " · " : "") + x.name),
             x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: on(x.name) ? "rgba(255,255,255,.8)" : t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.note) : null)))
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "衣柜里还没有——不指定也能拍，或者让他配一套"));
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, characterText(character, "衣柜里还没有——不指定也能拍，或者让他配一套")));
 }
 // 我的衣柜（v59.27）。她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
 // 用关键词生成几套，再加上可以自己填」。
@@ -13033,7 +13037,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, big.scene || ""),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
-          // 所以聊天历史里自带上下文，以后她说「上次那张」他接得上
+          // 所以聊天历史里自带上下文，以后她说「上次那张」TA接得上
           h("button", { onClick: () => onShare(big), className: "w-full active:opacity-70", style: { marginTop: 16, borderRadius: 14, padding: "12px 0", background: "#6d4d8f", color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
             "发给 " + (partner.remark || partner.name)))
       : h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
@@ -13045,11 +13049,11 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
               className: "w-full outline-none resize-none",
               style: { marginTop: 7, borderRadius: 13, border: "1px solid #e2d9ea", background: "#fff", color: t.ink, padding: "10px 11px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6 }
             }),
-            h(StudioPicker, { zh: partner.remark || partner.name + " 穿", groups: hisSets, value: theirs, onPick: setTheirs, tint: "#7c5aa6" }),
-            h(StudioPicker, { zh: "我穿", groups: mySets, value: mine, onPick: setMine, tint: "#a74d70" }),
+            h(StudioPicker, { zh: partner.remark || partner.name + " 穿", groups: hisSets, value: theirs, onPick: setTheirs, tint: "#7c5aa6", character: partner }),
+            h(StudioPicker, { zh: "我穿", groups: mySets, value: mine, onPick: setMine, tint: "#a74d70", character: partner }),
             h("div", { className: "flex gap-2", style: { marginTop: 14 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "10px 14px", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
-                fitBusy ? "配着…" : "让他配一对"),
+                fitBusy ? "配着…" : characterText(partner, "让他配一对")),
               h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、") }), disabled: !!busy || !scene.trim(), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !scene.trim()) ? "#e0d6e8" : "#6d4d8f", color: (busy || !scene.trim()) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
                 busy ? "在拍了…" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
@@ -13146,10 +13150,10 @@ function IfBox({ box, charName, uName, mine, tick }) {
 // 收线时那三个去处。列表上收和线里收用的是同一份——一层只写一处。
 const IF_ENDINGS = [
   ["keep", "只留在馆里", "主线一个字都不知道"],
-  ["mem", "记进记忆库", "他会记得你俩一起想过这条线——标着这是个如果，不会当成真发生过"],
-  ["seed", "留成一个念头", "进他的心上当一张观测纸条，发不发芽他自己定"]
+  ["mem", "记进记忆库", "TA会记得你俩一起想过这条线——标着这是个如果，不会当成真发生过"],
+  ["seed", "留成一个念头", "进TA的心上当一张观测纸条，发不发芽TA自己定"]
 ];
-function IfEndPick({ onPick, onClose }) {
+function IfEndPick({ onPick, onClose, character }) {
   return h("div", { onClick: onClose, style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, border: "1px solid " + IF_LINE, background: "#15121e", padding: "18px 17px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: IF_INK } }, "这条就到这儿"),
@@ -13157,10 +13161,10 @@ function IfEndPick({ onPick, onClose }) {
       IF_ENDINGS.map(([k, zh, sub]) =>
         h("button", { key: k, onClick: () => onPick(k), className: "w-full text-left active:opacity-70", style: { marginTop: 10, borderRadius: 13, border: "1px solid " + IF_LINE, padding: "11px 13px" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, zh),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, sub)))));
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, characterText(character, sub))))));
 }
 // 和好间（v59.19）。整页，不用半窗（施工规则/no-half-sheet.md）。
-// ⚠️这一页只做两件事：摆出【他没说出口的那一半】，和让她递一句过去。
+// ⚠️这一页只做两件事：摆出【TA没说出口的那一半】，和让她递一句过去。
 // 别把聊天记录再列一遍——那是「同一份数据换个地方摆第二遍」，她刚因为这个
 // 撤掉了外卖那栏「写给陌生人」。
 const MK_INK = "#3a2f2c", MK_DIM = "#93857f", MK_LINE = "rgba(58,47,44,.12)", MK_ACC = "#a0685c";
@@ -13180,19 +13184,19 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.6, color: MK_INK } },
             signal && signal.on ? signal.why : "这会儿看着没什么事"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: MK_DIM, marginTop: 12 } },
-            "推开这扇门，先看他心里那一半——不是他会讲给你听的那一半。他可能还在气头上，也可能只是说不出口。看完你再决定要不要递一句过去。"),
+            characterText(partner, "推开这扇门，先看他心里那一半——不是他会讲给你听的那一半。他可能还在气头上，也可能只是说不出口。看完你再决定要不要递一句过去。")),
           h("button", { onClick: onOpen, disabled: !!busy, className: "w-full active:opacity-70", style: { marginTop: 16, borderRadius: 12, padding: "12px 0", background: busy ? "rgba(58,47,44,.1)" : MK_ACC, color: busy ? MK_DIM : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
-            busy ? "他在想……" : "推开门")),
+            busy ? characterText(partner, "他在想……") : "推开门")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.9, color: MK_DIM, padding: "16px 4px 0" } },
-          "⚠️这里说的话不会替你在聊天里说出去。要真的和好，还得你自己去跟他讲。")));
+          characterText(partner, "⚠️这里说的话不会替你在聊天里说出去。要真的和好，还得你自己去跟他讲。"))));
   }
   const turns = data.turns || [];
   return h("div", { className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
     h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 12 } },
       data.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM, padding: "2px 2px 12px" } }, data.why) : null,
-      // 他心里那一半：刻意做成【手写的一页】，不是聊天气泡——它不是说给她听的
+      // TA心里那一半：刻意做成【手写的一页】，不是聊天气泡——它不是说给她听的
       h("div", { style: { borderRadius: 4, background: "#fffdfa", border: "1px solid " + MK_LINE, borderLeft: "3px solid " + MK_ACC, padding: "18px 17px", boxShadow: "0 2px 12px rgba(58,47,44,.05)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".04em", color: MK_DIM, marginBottom: 10 } }, "他心里那半句"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".04em", color: MK_DIM, marginBottom: 10 } }, characterText(partner, "他心里那半句")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 2.05, color: MK_INK, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, data.his),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MK_DIM, marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + MK_LINE } },
           name + "没打算让你看见这一段")),
@@ -13201,7 +13205,7 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
           h("div", { style: { maxWidth: "82%", borderRadius: "14px 14px 4px 14px", background: MK_ACC, color: "#fff", padding: "11px 14px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, wordBreak: "break-word" } }, t.me)),
         t.his ? h("div", { className: "flex", style: { marginTop: 10 } },
           h("div", { style: { maxWidth: "82%", borderRadius: "14px 14px 14px 4px", background: "#fff", border: "1px solid " + MK_LINE, color: MK_INK, padding: "11px 14px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, wordBreak: "break-word" } }, t.his)) : null)),
-      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: MK_DIM, marginTop: 14 } }, "他在想怎么回……") : null),
+      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: MK_DIM, marginTop: 14 } }, characterText(partner, "他在想怎么回……")) : null),
     h("div", { className: "shrink-0 px-4", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
       h("div", { className: "flex items-end gap-2" },
         h("textarea", {
@@ -13218,7 +13222,7 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
     ending ? h("div", { onClick: () => setEnding(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, background: "#fff", padding: "18px 17px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: MK_INK } }, "这一段过去了？"),
-        [["mem", "过去了，让他记着", "写一条进记忆库，好感回一点点。和好本来就该算数。"],
+        [["mem", characterText(partner, "过去了，让他记着"), "写一条进记忆库，好感回一点点。和好本来就该算数。"],
          ["drop", "先收起来", "主线一个字都不知道，这一页也不留。"]].map(([k, zh, sub]) =>
           h("button", { key: k, onClick: () => { onClose(k); setEnding(false); }, className: "w-full text-left active:opacity-70",
             style: { display: "block", marginTop: 12, borderRadius: 13, border: "1px solid " + MK_LINE, padding: "13px 14px" } },
@@ -13252,15 +13256,15 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
         h("div", { style: { borderRadius: 18, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", padding: "16px 15px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8 } },
-            "同样的我们、同样这段关系，只换掉当初的一样东西。留空就让他自己想一条。"),
+            characterText(partner, "同样的我们、同样这段关系，只换掉当初的一样东西。留空就让他自己想一条。")),
           h("textarea", {
             value: hint, onChange: e => setHint(e.target.value), rows: 2,
-            placeholder: "想走哪个方向？留空他自己想",
+            placeholder: characterText(partner, "想走哪个方向？留空他自己想"),
             className: "w-full outline-none resize-none",
             style: { marginTop: 10, borderRadius: 12, border: "1px solid " + IF_LINE, background: "rgba(0,0,0,.28)", color: IF_INK, padding: "10px 11px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6 }
           }),
           h("button", { onClick: () => onOpen(hint).then(l => { if (l) { setHint(""); setOpenId(l.id); setAt({ beat: 0, box: 0 }); } }), disabled: !!busy, className: "w-full active:opacity-70", style: { marginTop: 11, borderRadius: 12, padding: "11px 0", background: busy ? "rgba(255,255,255,.12)" : "#6d5a9c", color: busy ? IF_DIM : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
-            busy ? "他在想……" : "开一条")),
+            busy ? characterText(partner, "他在想……") : "开一条")),
         mine.length
           // ── 变化图（她 2026-09-05 定的形状）──────────────────────────
           // 这个东西在现实里就是【复盘时的变化图】：同一盘棋，某一手换掉，往下摆一遍。
@@ -13302,7 +13306,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
               "还没有想过另一种。")),
       // 在列表上收一条：跟线里那个「就到这儿」是同一套三选一，一层只写一处不好写成组件，
       // 就把去处那三项抽出来共用
-      endId ? h(IfEndPick, { onPick: k => { onEnd(endId, k); setEndId(null); }, onClose: () => setEndId(null) }) : null,
+      endId ? h(IfEndPick, { character: partner, onPick: k => { onEnd(endId, k); setEndId(null); }, onClose: () => setEndId(null) }) : null,
       // 删是不可逆的，问一句
       dropId ? h("div", { onClick: () => setDropId(null), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, border: "1px solid " + IF_LINE, background: "#15121e", padding: "18px 17px" } },
@@ -13364,7 +13368,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
     // v59.14 重做（她 2026-08-31：「回复键的样式也改一下」）：
     //   ① 原来三个控件三种形状——输入框是圆角矩形、攒着是正圆、发出是胶囊，
     //      挤在一行像三件不相干的东西。现在统一成【同高同圆角】的一套。
-    //   ② 还没轮到她的时候，那一整条输入区照样占着地方、placeholder 写「他还没说完」——
+    //   ② 还没轮到她的时候，那一整条输入区照样占着地方、placeholder 写「TA还没说完」——
     //      占了半屏高度只为说一句话。改成收起来，只留一行提示。
     h("div", { className: "shrink-0 px-4", style: { position: "relative", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
       myTurn ? [
@@ -13395,7 +13399,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
             // 送出：一个朝右的小三角，跟对话框右下角那个是同一个形状
             : h("div", { style: { width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "10px solid currentColor", marginLeft: 3 } })))
       ] : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: IF_DIM, padding: "12px 0 6px" } },
-        busy ? "他在写……" : line.endedAt ? "这条已经收了" : "点一下继续"),
+        busy ? characterText(partner, "他在写……") : line.endedAt ? "这条已经收了" : "点一下继续"),
       h("div", { className: "flex items-center justify-between", style: { marginTop: myTurn ? 9 : 2 } },
         h("div", { className: "flex items-center", style: { gap: 14 } },
           h("button", { onClick: () => onBg(line.id), disabled: !!bgBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } },
@@ -13424,5 +13428,5 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
             h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: IF_DIM } }, b.role === "user" ? "你" : (partner.remark || partner.name)),
             (b.boxes || []).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: i === at.beat ? IF_INK : IF_DIM, fontStyle: (!x.who && b.role !== "user") ? "italic" : "normal", marginTop: 2 } }, x.text))))))) : null,
     // 收线：三个去处
-    ending ? h(IfEndPick, { onPick: k => { onEnd(line.id, k); setEnding(false); }, onClose: () => setEnding(false) }) : null);
+    ending ? h(IfEndPick, { character: partner, onPick: k => { onEnd(line.id, k); setEnding(false); }, onClose: () => setEnding(false) }) : null);
 }

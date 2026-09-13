@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 她 2026-09-12 两件事：
 //   ①「宝宝衣柜能不能多加可以生成多几套衣服」
 //   ②「还有随身物现在是卡的不能下滑」

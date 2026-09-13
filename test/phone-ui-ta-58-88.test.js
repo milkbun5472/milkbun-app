@@ -3,18 +3,18 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
-const src = ph.slice(ph.indexOf("const PHONE_TA_KEEP"), ph.indexOf("function phoneProbeSpec("));
-const K = new Function(src + "\nreturn { phoneTa, charTa };")();
+const P = require("../js/character-pronoun.js");
+const K = {phoneTa:P.replace,charTa:P.ta};
 
 // 她 2026-08-31 的后半段：提示词那一半 v58.86 已经从一处过掉了，这一半是【界面标签】
 //（「他的订单」「他为什么想买」「解锁 · 进他的桌面」），一百五十多处写死的字面量。
 // 一个人的手机同一时刻只看得了一份，所以记一个模块级的「现在在看谁」就够，
 // 不用把称呼一路穿过几十个组件的 props。
 test("界面标签走 T()，默认那一档一个字不动", () => {
-  assert.match(ph, /let PHONE_VIEW_TA = "他";/, "没有「现在在看谁」这一处");
+  assert.match(ph, /let PHONE_VIEW_TA = "TA";/, "没有「现在在看谁」这一处");
   assert.match(ph, /function phoneViewTa\(char\) \{ PHONE_VIEW_TA = charTa\(char\); \}/, "没接上 charTa");
-  assert.match(ph, /function T\(s\) \{ return PHONE_VIEW_TA === "他" \? s : phoneTa\(s, PHONE_VIEW_TA\); \}/,
-    "T\\(\\) 没走快路——默认档也去跑一遍替换，白折腾");
+  assert.match(ph, /function T\(s\) \{ return characterText\(\{ gender: PHONE_VIEW_TA \}, s\); \}/,
+    "界面应复用共享模板规则");
 });
 
 test("两个渲染入口都定了称呼，不然子树会拿到上一个人的", () => {
@@ -41,7 +41,8 @@ test("只包界面那一段，提示词那两头一处都没动", () => {
   assert.ok(bare(ph.slice(0, uiStart)).indexOf('T("') < 0, "提示词那一半（前半段）被包进去了");
   assert.ok(bare(ph.slice(uiEnd)).indexOf('T("') < 0, "提示词那一半（后半段）被包进去了");
   // 提示词仍然走各自角色的那一条
-  assert.match(ph, /instruction: phoneTa\(_full, charTa\(char\)\)/, "提示词那条路被改坏了");
+  assert.match(ph, /characterText\(char,/, "提示词应使用当前生成对象");
+  assert.match(ph, /instruction: _full/, "拼完的引用不能再整段改写");
 });
 
 test("不是代词的「他」没被包进去", () => {
@@ -49,7 +50,7 @@ test("不是代词的「他」没被包进去", () => {
   wrapped.forEach(w => {
     const body = w.slice(3, -2);
     const rest = body.replace(/其他|他们|他人|他乡|吉他|利他|排他|他杀|他律/g, "");
-    assert.ok(rest.indexOf("他") >= 0, "这条里没有真正的代词，白包了：" + body.slice(0, 24));
+    assert.ok(/他|TA/.test(rest), "这条里没有真正的代词，白包了：" + body.slice(0, 24));
   });
   // 真跑一遍：包了也不会把保护词换坏
   assert.equal(K.phoneTa("其他他们他人吉他他", "她"), "其他他们他人吉他她");

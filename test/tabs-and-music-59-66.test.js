@@ -5,7 +5,7 @@ const path = require("node:path");
 const { loadPhone } = require("./helpers/phone-render.js");
 const root = path.join(__dirname, "..");
 const ph = fs.readFileSync(path.join(root, "js", "phone.js"), "utf8");
-const tl = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起他手机的第一眼"));
+const tl = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起TA手机的第一眼"));
 const bar = tl.slice(tl.indexOf("两格＝这条轴的两头"), tl.indexOf("// 只看新增"));
 const mv = ph.slice(ph.indexOf("function MusicView("), ph.indexOf("function renderPhoneModule("));
 
@@ -93,5 +93,5 @@ test("歌单空着、脏数据都不炸", () => {
     assert.doesNotThrow(() => { out = mk(pl); }, "脏数据 " + i + " 炸了");
     assert.ok(out.indexOf("[object") < 0, "脏数据 " + i + " 把 [object Object] 印出来了");
   });
-  assert.ok(mk({ songs: [] }).includes("给他生成一张"), "没歌单时没给生成入口");
+  assert.ok(mk({ songs: [] }).includes("给TA生成一张"), "没歌单时没给生成入口");
 });

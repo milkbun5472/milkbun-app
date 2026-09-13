@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 账本：他心里给这段关系记的那本账。
 // 跟钱包不是一回事——钱包记钱，这儿记没结清的东西（欠着的、兜过的底、
 // 放过的狠话、舍不得的、拿不准的）。
@@ -40,8 +42,8 @@ test("五栏各自的字段都在推演任务和 schema 里", () => {
 test("「对方欠」那一栏不许写成讨债", () => {
   // 它让角色对用户记账，一不小心就写成指责。判据：主语是他的在意，不是对方的亏欠。
   const ins = P0.phoneProbeSpec("tally", char, [], "", []).instruction;
-  assert.match(ins, /不是他在讨债/);
-  assert.match(ins, /主语是他的在意/);
+  assert.match(ins, /不是TA在讨债/);
+  assert.match(ins, /主语是TA的在意/);
   assert.match(ins, /三种都要有/, "没要求三个方向都有，会一边倒");
   assert.deepEqual(Object.keys(P0.TALLY_DIR).sort(), ["mine", "open", "theirs"]);
 });

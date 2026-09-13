@@ -62,7 +62,7 @@ test("① 没有心情、没有好感度", () => {
 test("入口在【关系】的 + 里，跟另外两种并排；资料卡里那份要撤干净", () => {
   assert.match(screens, /seg\("npc", c\.tab, \(\) => set\(\{ tab: "npc" \}\), "NPC"\)/);
   assert.match(screens, /c\.tab === "npc" \? h\(Fragment, null,/);
-  assert.match(screens, /placeholder: "陆闻 \/ 他的属下 \/ 她师姐"/);
+  assert.match(screens, /placeholder: "陆闻 \/ TA的属下 \/ 她师姐"/);
   // NPC 那一支没有「关系」可存，右上角的勾要藏起来，别让她按了没反应
   assert.match(screens, /c\.tab !== "npc" && h\("button", \{ onClick: onSave/);
   // 两个入口只留一个
@@ -174,8 +174,8 @@ test("生成器：按主角色的世界观来，且绝不许碰用户", () => {
   const fn = engine.slice(engine.indexOf("async function generateNpc"), engine.indexOf("// ==== 外语气泡按需翻译"));
   assert.match(fn, /人设里已经提到过的人/, "填名字＝把已有的补完整");
   assert.match(fn, /一个【位置或身份】/, "填「他的属下」＝造一个具体的人");
-  assert.match(fn, /他不认识用户/);
-  assert.match(fn, /不许给他安排和用户的感情线/, "否则配角一进群就开始争宠");
+  assert.match(fn, /TA不认识用户/);
+  assert.match(fn, /不许给TA安排和用户的感情线/, "否则配角一进群就开始争宠");
   assert.match(fn, /世界观、时代、称谓一律跟着主角色走/);
   assert.match(fn, /别写成「忠心耿耿、办事得力」这种履历/, "要具体到能照着演");
   assert.match(fn, /relFromHost.*relToHost/s, "双向关系——群里的【成员间关系】那段就读它");

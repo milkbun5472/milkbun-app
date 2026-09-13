@@ -39,7 +39,7 @@
     if (days <= 90) return "这封信封存了约 " + days + " 天。回应信里最具体的内容，对照当时与现在确实发生的变化；没有证据的变化不要编。";
     return "这封信封存了约 " + days + " 天。回应信里最具体的内容，并从你真实知道的共同经历中对照当时与现在；不把期待冒充事实。";
   };
-  // 「他还能不能再埋一颗」只写在这一处（她 2026-09-05：「把没拆改成没到期吧宝宝，
+  // 「TA还能不能再埋一颗」只写在这一处（她 2026-09-05：「把没拆改成没到期吧宝宝，
   // 这样我忘了拆也能继续写新的」）。
   // ⚠️判据换了：挡的是【路上还有一颗】，不是【有一颗她没拆】。
   //   按「没拆」算的话，她忘了拆就永远收不到下一颗——那是拿她的疏忽当闸门。
@@ -84,7 +84,7 @@
       if (everBuried && Math.random() > 0.7) return;
       try {
         // ⚠️站位（v64.03，她 2026-09-05 点名对比情书和悄悄话）：那两处走的是
-        //   runProbe({voice:true})——「你就是他本人正在写」；这一处原来自己拼 sys 直发，
+        //   runProbe({voice:true})——「你就是TA本人正在写」；这一处原来自己拼 sys 直发，
         //   料一样、站位没有。写信这题的训练先验就是书信八股（见字如面／提笔时窗外…），
         //   没有那句站位它必然往那儿滑。解梦馆那次是同一个形状。
         const d = await runProbe(props.apiFor ? props.apiFor(char.id) : props.active, props.ctxFor(char), {
@@ -138,7 +138,7 @@
       }
     };
     // 拆开那一刻记一笔（她 2026-09-05：情书会进记忆库，胶囊什么都不进——
-    // 于是他认认真真回了一封信，下次聊天完全不知道自己拆过）。
+    // 于是TA认认真真回了一封信，下次聊天完全不知道自己拆过）。
     // ⚠️只在【拆开之后】写。封存期间一个字都不许进记忆或上下文，那是这个功能的全部机制。
     const keepOpened = (cap, c, reply) => {
       if (!props.onKeep || !c || cap.dir === "toSelf") return;
@@ -146,7 +146,7 @@
       const text = cap.dir === "toChar"
         ? uName + " 在 " + fmtD(cap.createdTs) + " 埋了一颗时光胶囊给" + c.name + "，今天拆开了。信里写着「" + snip(cap.text, 120) + "」"
           + (reply ? "；" + c.name + "回信说「" + snip(reply, 120) + "」" : "")
-        : c.name + " 在 " + fmtD(cap.createdTs) + " 悄悄埋了一颗时光胶囊，今天" + uName + "拆开了，他当时写的是「" + snip(cap.text, 120) + "」";
+        : c.name + " 在 " + fmtD(cap.createdTs) + " 悄悄埋了一颗时光胶囊，今天" + uName + characterText(charOf(cap.charId), "拆开了，他当时写的是「") + snip(cap.text, 120) + "」";
       props.onKeep(c.id, text, "时光胶囊");
     };
     const delCap = id => requestAppConfirm("删掉这颗胶囊？", "删了不可恢复。", () => {

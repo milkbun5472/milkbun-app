@@ -1,5 +1,5 @@
 // ============================================================
-// 地方（dwell）—— 他住的地方 + 他常去的地方
+// 地方（dwell）—— TA住的地方 + TA常去的地方
 // 一个地方 = 一句氛围 + 4~5 个【区域】，每个区域里几件东西。
 //   · 区域→物品两层，不是一堆孤立的点：一件东西属于哪一块地方，本身就是信息
 //   · 常去的地方【不另外生成】：行程每天都在出具体地点，攒几天自然浮出来（零 API）
@@ -34,7 +34,7 @@
 
   // ── 常去的地方：从行程里长出来，不另外调模型 ──────────────
   // ⚠️别再让模型编一份地点表：行程每天都在写具体地点，另编一份必然打架
-  // （行程说他在书房，地点表说他常泡茶楼）。这里只是把已经发生过的数一数。
+  // （行程说TA在书房，地点表说TA常泡茶楼）。这里只是把已经发生过的数一数。
   function frequentPlaces(charId, schedules, days) {
     try {
       // ⚠️行程一天是 { load, estTime, seqs:[{ time, title, location, type }] }
@@ -62,29 +62,29 @@
 
   // ── 生成：一个地方一次调用 ──────────────────────────────
   // 提示词只给【判据】，不给内容示范（施工规则/prompt-no-content-samples.md）。
-  // 判据压到一条：每一件都要能反过来说出他这个人的一件事。
+  // 判据压到一条：每一件都要能反过来说出TA这个人的一件事。
   function placeSpec(char, hintName, known) {
     const nm = char.name;
     const which = hintName
-      ? "这次写的是【" + hintName + "】——他行程里常出现的那个地方。"
-      : "这次写他现在住的地方。";
+      ? "这次写的是【" + hintName + characterText(char, "】——他行程里常出现的那个地方。")
+      : characterText(char, "这次写他现在住的地方。");
     return {
       maxTokens: 12000,
       instruction: "推演「" + nm + "」的一处地方。" + which
         + "\n\n【一句氛围】进门第一感觉：气味、光线、声音，一句话，别写成风景描写。"
-        + "\n\n【分 4~5 个区域】区域＝他真的会分开使用的那几块地方，按他的身份、处境、这地方有多大来分——"
-        + "住得局促的人只有两三块，宽敞的人才分得开。区域名用他自己的叫法。"
-        + "\n\n【每个区域 3 件东西】name 是他自己怎么称呼它；note 一句话写清楚它什么样、怎么来的、为什么在这儿；"
-        + "thought 是他自己的想法，第一人称。"
-        + "\n\n【唯一的判据】每一件都要能反过来说出他这个人的一件事——"
-        + "他反复做什么、在意什么、什么事他一直没弄完、跟他生活里的谁有关。"
-        + "**换个角色照样成立的就是写坏了**，说不出他哪一点的，别写进来。"
-        + "\n\n【这是他一个人过日子的地方】写的是他自己的日子：他的活计、他的旧事、"
-        + "他身边和家里的人、他自己的毛病和讲究。绝大多数东西跟用户没关系。"
-        + "用户至多出现在一两件里，而且得是他私底下的心思，不是摆出来给用户看的。"
+        + characterText(char, "\n\n【分 4~5 个区域】区域＝他真的会分开使用的那几块地方，按他的身份、处境、这地方有多大来分——")
+        + characterText(char, "住得局促的人只有两三块，宽敞的人才分得开。区域名用他自己的叫法。")
+        + characterText(char, "\n\n【每个区域 3 件东西】name 是他自己怎么称呼它；note 一句话写清楚它什么样、怎么来的、为什么在这儿；")
+        + characterText(char, "thought 是他自己的想法，第一人称。")
+        + characterText(char, "\n\n【唯一的判据】每一件都要能反过来说出他这个人的一件事——")
+        + characterText(char, "他反复做什么、在意什么、什么事他一直没弄完、跟他生活里的谁有关。")
+        + characterText(char, "**换个角色照样成立的就是写坏了**，说不出他哪一点的，别写进来。")
+        + characterText(char, "\n\n【这是他一个人过日子的地方】写的是他自己的日子：他的活计、他的旧事、")
+        + characterText(char, "他身边和家里的人、他自己的毛病和讲究。绝大多数东西跟用户没关系。")
+        + characterText(char, "用户至多出现在一两件里，而且得是他私底下的心思，不是摆出来给用户看的。")
         + (known ? knownBlock(known) : ""),
       schemaHint: "{\"name\":\"这地方的叫法\",\"en\":\"英文短名，两三个词\",\"ambient\":\"一句氛围\","
-        + "\"zones\":[{\"name\":\"区域名\",\"en\":\"英文短名\",\"items\":[{\"name\":\"东西的叫法\",\"note\":\"一句：什么样/怎么来的/为什么在这儿\",\"thought\":\"他自己的想法，第一人称\"}]}]}"
+        + characterText(char, "\"zones\":[{\"name\":\"区域名\",\"en\":\"英文短名\",\"items\":[{\"name\":\"东西的叫法\",\"note\":\"一句：什么样/怎么来的/为什么在这儿\",\"thought\":\"他自己的想法，第一人称\"}]}]}")
     };
   }
   // 上一份原样发回去：不发的话每刷一次就是另一个屋子
@@ -96,7 +96,7 @@
     if (!lines.length) return "";
     return "\n\n【上一次这地方是这样】\n" + lines.join("\n")
       + "\n**默认原样照抄回来**——一个人住的地方不会每次看都换一套。"
-      + "真变了才改（搬动、添置、用完了、他最近在忙的事变了），一次别改太多。";
+      + "真变了才改（搬动、添置、用完了、TA最近在忙的事变了），一次别改太多。";
   }
   // ── 出图：画这个地方，画面里【没有人】────────────────────
   // 画什么全部从这份地方数据里长出来：那一句氛围定光线冷暖，几个区域定画面里有哪几块。
@@ -133,7 +133,7 @@
     if (!zones.length) return null;
     return {
       id: (prev && prev.id) || uid("pl"),
-      name: String(d.name || hintName || "他住的地方").slice(0, 16),
+      name: String(d.name || hintName || "TA住的地方").slice(0, 16),
       en: String(d.en || "").replace(/[^A-Za-z0-9 ]/g, "").slice(0, 24),
       ambient: String(d.ambient || "").slice(0, 120),
       // 图原样留着：重新看一遍只该换文字。出图慢又贵，不该为了换几句话把画也重刷一遍
@@ -152,16 +152,16 @@
   function loadCfg() { const d = loadJSON(CFG_K, null); return { withImg: !(d && d.withImg === false) }; }
   function saveCfg(c) { saveJSON(CFG_K, { withImg: !!c.withImg }); return loadCfg(); }
 
-  // 去处在现实里是【串门】：你去他常待的地方，他不在，你一个人转着看。
+  // 去处在现实里是【串门】：你去TA常待的地方，TA不在，你一个人转着看。
   // 数据是 地点→区域→物件 三层，三层各自照现实里那件事的样子长：
   //   · 一处地方 = 你站在那儿看见的一整屏画面。点一下图就是【真全屏】，什么都不压在上面。
-  //   · 几块区域 = 他把东西摆在哪儿。区域名本来就是方位（窗下那张长案／靠墙的那口旧柜），
+  //   · 几块区域 = TA把东西摆在哪儿。区域名本来就是方位（窗下那张长案／靠墙的那口旧柜），
   //     所以每一块画成【一条台面】，东西一样样摆在这条线上——不是分类瓷砖，也不是设置项列表。
-  //   · 一件东西 = 你把它拿起来，然后听见他心里那句。那句话是这一页唯一的主角。
+  //   · 一件东西 = 你把它拿起来，然后听见TA心里那句。那句话是这一页唯一的主角。
   //
   // ⚠️v59.82 那版把这里做成了「场所观察档案」：场所观察档案／空间索引／区域 01／
   //   现场视图／物件观察卡／外观与来路。那套话【原样搬进房产 app、勘察 app、库存 app 都成立】，
-  //   按 tabs-not-plain-pills.md 的判据就是写坏了；更糟的是它把他的家说成了证物。
+  //   按 tabs-not-plain-pills.md 的判据就是写坏了；更糟的是它把TA的家说成了证物。
   //   v59.84 加回一屏氛围是治标：形状和用词还是档案的。所以这一版换的是【那个东西】，不是摆放。
   //
   // ⚠️v59.86 还欠着两件（她 2026-09-01：「这些页面没有图片背景了嘤，就我还是想要能直接
@@ -317,11 +317,11 @@
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: OVER_SUB, whiteSpace: "nowrap" } }, (z.items || []).length ? (z.items || []).length + " 样" : "空着"));
                 }))
             : h("div", { style: { marginTop: 18, paddingTop: 12, borderTop: "1px solid " + OVER_LINE, fontFamily: F_BODY, fontSize: 11, color: OVER_SUB } },
-                (char ? char.name : "他") + "这儿还什么都没摆。")));
+                (char ? char.name : characterText(char, "他")) + "这儿还什么都没摆。")));
     };
     // ── 一条台面：东西一样样摆在上面 ─────────────────────────
     // 区域名本来就是方位（窗下那张长案／靠墙的那口旧柜／门边挂衣服的那根钉），
-    // 说的是【他把东西放在哪儿】。所以它长成台面：东西压在线上、线底下一道影子。
+    // 说的是【TA把东西放在哪儿】。所以它长成台面：东西压在线上、线底下一道影子。
     // 不是两列瓷砖（分类），也不是带 › 的设置项列表。
     // ⚠️东西的名字要【全都看得见】：一块区域最多六样，名字直接摆出来，
     //   别缩成「3 件」再让人点进去猜（no-half-sheet.md 里那句「只够干列三个名字」是同一个病）。
@@ -351,15 +351,15 @@
                   style: { flex: "1 1 0", minWidth: 0, minHeight: 44, background: OVER_CARD, border: "1px solid " + OVER_LINE, borderBottom: "none", borderRadius: "6px 6px 0 0", padding: o.big ? "13px 14px 14px" : "10px 11px 12px", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" } },
                   h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: o.big ? 16.5 : 13.5, lineHeight: 1.45, color: OVER_INK } }, x.name),
                   (o.big && x.note) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: OVER_SUB, marginTop: 5 } }, x.note) : null,
-                  (o.big && x.thought) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(244,241,233,.9)", marginTop: 7 } }, "他心里有句话没说 ›") : null);
+                  (o.big && x.thought) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(244,241,233,.9)", marginTop: 7 } }, characterText(char, "他心里有句话没说 ›")) : null);
               })),
             ledge);
         }),
         items.length ? null : ledge);
     };
 
-    // ── 一件东西：你把它拿起来，然后听见他心里那句 ──────────────
-    // ⚠️这一页只有一样东西是别处没有的：他没说出口的那句。
+    // ── 一件东西：你把它拿起来，然后听见TA心里那句 ──────────────
+    // ⚠️这一页只有一样东西是别处没有的：TA没说出口的那句。
     //   它得跟这一页的地皮【是相反的材质】才一眼分得开——地皮是那处地方糊开的图，
     //   所以那句话是压在图上的一张纸。看得见的写在图上，心里那句写在纸上。
     if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK } },
@@ -373,8 +373,8 @@
           item.thought ? h("div", { style: { position: "relative", marginTop: 26, background: FIELD_PAPER, color: FIELD_INK, borderRadius: 4, padding: "26px 20px 20px", overflow: "hidden", boxShadow: "0 16px 34px rgba(0,0,0,.42)" } },
             h("span", { "aria-hidden": "true", style: { position: "absolute", left: 13, top: 2, fontFamily: F_DISPLAY, fontSize: 62, lineHeight: 1, color: FIELD_INK, opacity: .12, pointerEvents: "none" } }, "\u201c"),
             h("div", { style: { position: "relative", fontFamily: "'Noto Serif SC',serif", fontSize: 17, lineHeight: 2 } }, item.thought),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 16, textAlign: "right" } }, "—— " + (char ? char.name : "他") + " 没说出口"))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.9, color: OVER_SUB, marginTop: 24, paddingTop: 16, borderTop: "1px solid " + OVER_LINE } }, "这样东西他没往心里去。"))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 16, textAlign: "right" } }, "—— " + (char ? char.name : characterText(char, "他")) + " 没说出口"))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.9, color: OVER_SUB, marginTop: 24, paddingTop: 16, borderTop: "1px solid " + OVER_LINE } }, characterText(char, "这样东西他没往心里去。")))),
       fullShot);
 
     // ── 一块区域：还是那条台面，只是走到跟前了 ────────────────
@@ -390,7 +390,7 @@
           h("div", { className: "px-5", style: { paddingTop: 22 } },
             surface(zone, 0, { big: true }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: OVER_SUB, marginTop: 16, lineHeight: 1.8 } },
-              (zone.items || []).length ? "点一样，看他心里怎么说它。" : "这一块他什么都没放。")))),
+              (zone.items || []).length ? characterText(char, "点一样，看他心里怎么说它。") : characterText(char, "这一块他什么都没放。"))))),
       fullShot);
 
     // ── 门：推开才进去 ─────────────────────────────────────
@@ -465,7 +465,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         busy ? h(Spinner, { label: "正在看看 " + (char ? char.name : "") + " 的地方…（这一步会调一次模型" + (cfg.withImg ? "，出图再一次" : "") + "）" }) : null,
         !places.length && !busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.fog, padding: "10px 0 18px" } },
-          "还没看过他的地方。生成一次会写出几块区域，每块里几件东西。") : null,
+          characterText(char, "还没看过他的地方。生成一次会写出几块区域，每块里几件东西。")) : null,
         places.map(function (p) {
           return h("button", { key: p.id, onClick: function () { setOpenId(p.id); setZoneIdx(-1); setView("place"); }, className: "w-full text-left active:opacity-80 mb-2.5",
             style: { border: "1px solid " + t.line, borderRadius: 13, overflow: "hidden", background: t.bg2 } },
@@ -484,7 +484,7 @@
         !places.some(function (p) { return !p.fromSched; }) ? h("button", {
           onClick: function () { gen(null, null); }, disabled: !!busy, className: "w-full text-left active:opacity-70 mb-2",
           style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink }
-        }, "他住的地方") : null,
+        }, characterText(char, "他住的地方")) : null,
         todo.map(function (f) {
           return h("button", { key: f.name, onClick: function () { gen(f.name, null); }, disabled: !!busy,
             className: "w-full text-left active:opacity-70 mb-2",

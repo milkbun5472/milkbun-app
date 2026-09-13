@@ -143,7 +143,7 @@ test("界面：三处 return 套同一个罩子，hook 在所有早返回上面"
   const iRet = phone.indexOf("  if (!char) return h(\"div\", {");
   assert.ok(iHook > 0 && iRet > iHook, "播放器那串 hook 跑到早返回后面去了");
   // 他操作的就是她平时翻的那一屏，不另做一套
-  assert.match(phone, /不另做一份「他的微信」/);
+  assert.match(phone, /不另做一份「TA的微信」/);
   assert.match(phone, /drive: ctx\.drive/);
   // 「看他玩」开着时不许顺手再生成一次（那是另一枪，还会把正在演的那份盖掉）
   assert.match(phone, /if \(drive \|\| isLive \|\| charData\[appKey\]\) return;/);
@@ -397,13 +397,13 @@ test("买东西那三个 app 没有输入框：send 按的是屏幕上那一页"
 test("走乙：♻️ 那几栏里他做过的那几行，周刷之后还在", () => {
   const now = Date.now();
   const old = { tabs: [
-    { title: "他刚开的那一页", _wk: 1, _wkAt: now - 3600000 },
+    { title: "TA刚开的那一页", _wk: 1, _wkAt: now - 3600000 },
     { title: "上一轮编出来的", site: "x" }
   ] };
   // 周刷是【整份重生成】：模型这一轮写的 tabs 里压根没有他刚开的那一页
   const merged = PK.phoneMergeSaved("browser", old, { tabs: [{ title: "模型新编的" }] }, now);
   const names = merged.tabs.map(x => x.title);
-  assert.equal(names[0], "他刚开的那一页", "他做过的排最前面——那是刚刚发生的");
+  assert.equal(names[0], "TA刚开的那一页", "他做过的排最前面——那是刚刚发生的");
   assert.ok(names.indexOf("模型新编的") >= 0, "别的照旧重写，走乙只保他那几行");
   assert.ok(names.indexOf("上一轮编出来的") < 0, "没盖戳的旧行不该跟着留下——那一栏还是 ♻️");
 });
@@ -417,13 +417,13 @@ test("走乙会过期，而且同名不许出现两遍", () => {
   const dup = { cart: [{ title: "一把椅子", _wk: 1, _wkAt: now }] };
   const m = PK.phoneMergeSaved("shopping", dup, { cart: [{ title: "一把椅子", shop: "模型又写了一遍" }] }, now);
   assert.equal(m.cart.filter(x => x.title === "一把椅子").length, 1);
-  assert.equal(m.cart[0]._wk, 1, "同名的以他那一行为准");
+  assert.equal(m.cart[0]._wk, 1, "同名的以TA那一行为准");
 });
 
 test("走乙也要说给模型听（代码兜死 + 提示词降概率，两头都要）", () => {
   const now = Date.now();
   const blk = PK.phoneWatchDraftBlock("takeout", { live: [{ shop: "老陈面馆", _wk: 1, _wkAt: now }] }, now);
-  assert.match(blk, /他自己刚在手机上弄出来的/);
+  assert.match(blk, /TA自己刚在手机上弄出来的/);
   assert.match(blk, /老陈面馆/);
   assert.equal(PK.phoneWatchDraftBlock("takeout", { live: [{ shop: "老陈面馆" }] }, now), "", "不是他刷出来的就别说");
   // 接进那一整段提示词里了（漏接的话这一层等于没有）
@@ -643,7 +643,7 @@ test("敲一下：失败要说出来，而且不许白扣一次", () => {
   // 没配线路直接 return ""、模型那一枪失败也 return ""（外面照样把这一下算掉）、卡住不返回。
   assert.match(app, /if \(!p\) throw new Error\("先去设置里配一条 API"\)/);
   assert.match(app, /他没抬头（超时）/);
-  assert.match(app, /if \(!say\) throw new Error\("他这一下没吭声"\)/);
+  assert.match(app, /if \(!say\) throw new Error\(characterText\(char, "他这一下没吭声"\)\)/);
   const knockFn = app.slice(app.indexOf("const watchKnock = async"), app.indexOf("const genMoment"));
   assert.doesNotMatch(knockFn, /catch \(e\) \{ return ""; \}/, "又把敲一下的错吞回去了");
   assert.match(knockFn, /throw new Error\(e && e\.message/);

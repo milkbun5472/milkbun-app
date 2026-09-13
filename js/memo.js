@@ -112,8 +112,8 @@
         else if (nx.days > 0 && nx.days <= 2) lines.push("再过 " + nx.days + " 天 " + uName + " 要 " + what + "，你心里有数，临近了可自然提一嘴。");
         else if (nx.days < 0) lines.push(uName + " 之前记着要 " + what + "（" + (-nx.days) + " 天前就该做了、好像还没勾掉），你可以关心一下弄了没。");
         // ⚠️【是你自己替 Ta 记的】那几条，不管还有多远都得知道。
-        // 原来只有「今天／两天内／逾期」才进上下文，于是她让他记下周三的会，
-        // 他记完转头就忘了，要到临近那两天才想起来——刚答应过的事不该是这样。
+        // 原来只有「今天／两天内／逾期」才进上下文，于是她让TA记下周三的会，
+        // TA记完转头就忘了，要到临近那两天才想起来——刚答应过的事不该是这样。
         else if (r.byChar === charId) lines.push("是你替 " + uName + " 记下的：" + nx.days + " 天后 " + what + "。别老提，但心里有这回事。");
       });
       (d.notes || []).forEach(n => {
@@ -126,7 +126,7 @@
   };
   // 角色替她记一笔（她 2026-08-30：「我跟他们说帮我记下周三十点的会，他们就真的能帮我记」）。
   // ⚠️写入口只此一处，校验也只写一处：日期不合法就不落盘，宁可不记也别记错一条她以为记上了的事。
-  // visibleTo 默认带上【记这一笔的那个角色】——是他替她记的，他当然知道这件事。
+  // visibleTo 默认带上【记这一笔的那个角色】——是TA替她记的，TA当然知道这件事。
   const MEMO_CAP = 200;
   window.memoAddByChar = function (charId, r) {
     try {
@@ -187,7 +187,7 @@
     const d0 = loadData();
     const allItems = (d0.notes || []).concat(d0.reminders || []);
     const prevOf = id => allItems.filter(x => x.id !== (opts && opts.excludeId)).flatMap(x => (x.comments || []).filter(cm => cm.charId === id).map(cm => String(cm.text || ""))).filter(Boolean).slice(0, 2);
-    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
+    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  应用称呼：" + characterText(it, "他") + "\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
       + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气的亲疏和上不上心的程度）" : "")
       + (prevOf(it.id).length ? "\n  Ta 最近对别的备忘说过：" + prevOf(it.id).map(s => "「" + s.slice(0, 40) + "」").join("、") + "——这次必须换新的说法和角度，别复读同样的梗和句式" : "")).join("\n\n");
     // 事件驱动模式：不是用户请 Ta 来看，而是 Ta 自己注意到这条提醒被办完了、主动开口的第一反应
@@ -198,7 +198,7 @@
       evIntro +
       "【硬性要求】\n" +
       "· 真的进入角色、说出有内容有态度的一句，结合人设＋此刻心情＋这条的内容。严禁敷衍成『看了一眼没说什么』『随你』这类空话。\n" +
-      "· 人称必须对：从人设判断性别，男用「他」女用「她」，判断不出就叫名字或不用第三人称。绝不许写『Ta』『TA』占位符。\n" +
+      "· 各角色以第一人称说自己的话。需要第三人称时，使用条目里的「应用称呼」或姓名，未填写性别用 TA。\n" +
       "· 每人一句、口语、像随手发的消息；几个人语气各不相同，别一个腔调，别说教别客套。\n" +
       (opts && opts.event ? "" : "· 反应可多样：提醒你别忘、催你、心疼、调侃、替你操心、或只是顺口关心——按各自人设来。\n") + "\n" +
       "【这条备忘】" + itemDesc + "\n\n" +
@@ -270,7 +270,7 @@
       setBusy(true);
       try {
         const list = ids.map(id => (props.characters || []).find(c => c.id === id)).filter(Boolean)
-          .map(c => ({ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: props.affinities ? props.affinities[c.id] : null }));
+          .map(c => ({ id: c.id, name: c.name, gender: c.gender, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: props.affinities ? props.affinities[c.id] : null }));
         const lore = props.worldbookFor ? props.worldbookFor(ids, props.itemDesc) : props.worldbook;
         const outs = await genComments(props.active, props.itemDesc, list, props.uName, lore, { excludeId: props.itemId });
         if (outs.length) props.onAdd(outs);
@@ -416,7 +416,7 @@
         if (!c) return;
         const hour = new Date().getHours();
         const desc = (nd < 0 ? "这件事拖了 " + (-nd) + " 天，Ta 今天终于办完勾掉了" : "Ta 今天按时把这事办完勾掉了") + (hour < 5 ? "（还是深夜 " + (hour === 0 ? "十二" : hour) + " 点多勾掉的）" : "");
-        const list = [{ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: aff[c.id] }];
+        const list = [{ id: c.id, name: c.name, gender: c.gender, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: aff[c.id] }];
         const itemDesc = "提醒 · " + r.title + "（" + reminderDateText(r) + "）" + (r.note ? " · 备注：" + r.note : "");
         const lore = props.worldbookFor ? props.worldbookFor([c.id], itemDesc) : props.worldbook;
         genComments(props.active, itemDesc, list, uName, lore, { event: { key: "done", desc }, excludeId: r.id }).then(outs => {

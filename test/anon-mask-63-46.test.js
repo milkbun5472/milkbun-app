@@ -47,9 +47,9 @@ test("规矩给的是判据，不是内容示范（prompt-no-content-samples）"
 });
 
 test("背景图那条挡的是「把定位挂上去」", () => {
-  assert.match(bg, /他此刻所在的地方/);
+  assert.match(bg, /TA此刻所在的地方/);
   assert.match(bg, /马甲就白戴了/);
-  assert.match(bg, /别去描述他本人/);
+  assert.match(bg, /别去描述TA本人/);
 });
 
 test("代码这一道：马甲这一枪不发最近对话", () => {

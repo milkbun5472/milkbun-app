@@ -31,7 +31,7 @@ test("引擎攒得起来：普通对话八九个小时就该想找人", async ()
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(R("dongnian.js"), "utf8"), ctx);
   const eng = ctx.createDongnian({
-    persona: { subjectName: "Lisa", selfName: "他", subjectPronoun: "ta" },
+    persona: { subjectName: "Lisa", selfName: "TA", subjectPronoun: "ta" },
     getLastMessage: () => ({ id: 1, role: "user", content: "今天实验做完了挺顺利的", timestamp: new Date() }),
     connectionRateFn: () => 0.0007,
     onLoad: async () => null, onSave: async () => {}

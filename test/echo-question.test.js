@@ -205,7 +205,7 @@ test("群聊接线：比对文本要随本批成员依次开口累加", () => {
 test("整条是回声时，只有他后面还有别的话才敢丢", () => {
   assert.match(app, /const hasMore = safeArr\.slice\(i \+ 1\)\.some\(x => x && x\.name === item\.name && String\(x\.text \|\| ""\)\.trim\(\)\);/);
   assert.match(app, /if \(hasMore\) continue;/);
-  assert.match(app, /否则他这一轮就等于没开口/);
+  assert.match(app, /否则TA这一轮就等于没开口/);
   // 言秋那条专线不参与
   assert.match(app, /typeof echoOpening === "function" && !settingsFor\(spk\.id\)\.engineerEyes/);
 });

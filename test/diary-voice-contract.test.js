@@ -43,7 +43,7 @@ test("日记要在 recency 最强处放声纹守则，并有正向锚点", () =>
   assert.match(engine, /const voiceTail = /, "声纹守则要挂到 user 消息尾部");
   assert.match(engine, /content: \(retro \? "现在是今晚睡前[\s\S]{0,80}\) \+ voiceTail/, "user 消息必须带上尾部守则");
   assert.match(engine, /这是【说话】的样本，日记是【写字】/, "要说明如何把说话习惯换算成书写习惯");
-  assert.match(engine, /【至少有一处只有他会写】/, "禁令之外必须有正向锚点");
+  assert.match(engine, /【至少有一处只有TA会写】/, "禁令之外必须有正向锚点");
   assert.match(engine, /划出一片谁站进去都安全的中间地带/, "要点明纯禁令导致的趋同");
 });
 

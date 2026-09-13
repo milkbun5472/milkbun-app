@@ -102,7 +102,7 @@ test("那两块纯黑药丸换成了各自这一页的材质", () => {
   assert.doesNotMatch(scr, /background: t\.ink, color: t\.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 14/,
     "那块纯黑药丸还在");
   // 「挑一件事，问问他记得的」换成一条纸带
-  assert.match(scr, /busy \? "他在想…" : "挑一件事，问问他记得的"/);
+  assert.match(scr, /busy \? characterText\(partner, "他在想…"\) : characterText\(partner, "挑一件事，问问他记得的"\)/);
   assert.match(scr, /border: "1px dashed rgba\(140,115,70,\.45\)"/, "那一颗还是纯黑药丸");
 });
 

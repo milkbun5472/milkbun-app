@@ -19,7 +19,7 @@ const menu = scr.slice(scr.indexOf('row(invItem.onMe ? "放下" : "带在身上"
   scr.indexOf('} else if (sheet && sheet.kind === "regift")'));
 
 test("界面：梦里带出来的只留【带在身上】", () => {
-  ["用掉", "留在他那儿", "送给谁", "收进衣柜"].forEach(zh => {
+  ["用掉", "留在TA那儿", "送给谁", "收进衣柜"].forEach(zh => {
     const i = menu.indexOf('row("' + zh + '"');
     assert.ok(i > 0, "找不到「" + zh + "」那一格");
     // 这一格前面必须挂着 dreamy 那道闸

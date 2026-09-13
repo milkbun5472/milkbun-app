@@ -33,7 +33,7 @@ test("换房间的是几扇门，不是侧边一列按钮", () => {
 test("进门先给一句话，说的是他记不记得、这儿的事出不出得去", () => {
   const p = "pDoor";
   const main = Rooms.get(p, "main");
-  assert.match(Rooms.doorLine(main), /完整的他/);
+  assert.match(Rooms.doorLine(main), /完整的TA/);
 
   const shut = Rooms.create(p, "十七岁", "alternate");
   assert.match(Rooms.doorLine(shut), /不记得你们的过去/);

@@ -146,7 +146,7 @@ test("两张卡照一起学那张的形状，不另发明一种", () => {
   const seg = comp.slice(comp.indexOf('if (m.kind === "ficinvite" || m.kind === "ficdone")'), comp.indexOf('if (m.kind === "studyinvite"'));
   assert.ok(seg.length > 600, "没切到那张卡");
   assert.match(seg, /h\(Avatar, \{ character: character, size: 34, radius: 10 \}\)/, "跟一起学那张不是一个长相");
-  assert.match(seg, /done \? "他写好了" : "一起写"/);
+  assert.match(seg, /done \? characterText\(character, "他写好了"\) : "一起写"/);
   // ⚠️写好的那张不给「让他写」的按钮：给了她会又点一次，又花一枪
   // v67.28：写好的那张现在是「去看这一章 ›」（她 2026-09-12 要的那个快捷键），
   //   形状从「一行死字 : 按钮」变成了「跳转 : 死字 : 按钮」。要证的还是同一件事，
@@ -156,7 +156,7 @@ test("两张卡照一起学那张的形状，不另发明一种", () => {
   assert.match(seg, /"全文在同人文里"/, "老卡（没记是哪一篇）还得留着那行字");
   assert.ok(seg.indexOf('"让他写"') > seg.indexOf('"去看这一章 ›"'), "「让他写」跑到写好的那一支上去了");
   assert.match(seg, /onClick: function \(\) \{ onOpenFicInvite && onOpenFicInvite\(m\); \}/);
-  assert.match(seg, /\}, "让他写"\)\)\);/);
+  assert.match(seg, /\}, characterText\(character, "让他写"\)\)\)\);/);
   // 房间里不放第二份正文
   assert.match(seg, /done && m\.content \? h\("div"/);
   assert.match(comp, /  onOpenFicInvite,/, "props 没接上，按钮点了没人接");
@@ -175,7 +175,7 @@ test("拿给他看那一条也做成卡，而且是复用转发那张", () => {
   assert.match(seg, /fic: \{\n\s*title: String\(\(meta && meta\.ficTitle\) \|\| ""\)\.slice\(0, 60\),/);
   assert.match(seg, /note: String\(\(meta && meta\.note\) \|\| "拿给你看"\),/);
   // 卡上那一行小字：第几章、是拿给他看还是他写的
-  assert.match(fic, /note: "第 " \+ \(i \+ 1\) \+ " 章 · " \+ \(mine \? "他写的" : "拿给你看"\),/);
+  assert.match(fic, /note: "第 " \+ \(i \+ 1\) \+ " 章 · " \+ \(mine \? "TA写的" : "拿给你看"\),/);
   assert.match(fic, /cpText: cpLabel\(f\.cp, props\.characters, props\.userName\),/);
   // ⚠️v67.14：这儿写过一次 ch.content——那个闭包里压根没有 ch（那一章叫 ch2），
   //   点下去当场抛异常，按钮看着像死的（她 2026-09-11：「拿给他看那个按钮是死的」）。

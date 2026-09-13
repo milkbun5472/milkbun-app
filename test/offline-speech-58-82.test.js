@@ -44,7 +44,7 @@ test("引号那套判据只有一份，components 没有自己再写一个正则
   // 顺带回归：抽出 spans 之后，念台词那条路不许坏
   assert.equal(SP.extractSpeech("他说「快跑」，她没动。"), "快跑");
   assert.equal(SP.extractSpeech("屏幕 5\" 大"), "", "落单的直角引号又被当成台词了（v47.99 那一课）");
-  assert.equal(SP.extractSpeech("他喊『快跑』"), "快跑");
+  assert.equal(SP.extractSpeech("TA喊『快跑』"), "快跑");
 });
 
 // 角色的颜色是她随手挑的，浅黄淡粉直接印在纸上根本看不清

@@ -107,7 +107,7 @@
 
   // 结算：一张【收桌时留在桌上的单子】（v61.40，她 2026-09-03：「结算的页面也很无聊」）
   // 原来是从底下掀起来的半窗（还犯了 no-half-sheet.md），里面是一排「键：值」。
-  // 现在是整页：桌面打底，中间一张长条单据——齿孔边、虚线分栏、他的批注写在最底下，
+  // 现在是整页：桌面打底，中间一张长条单据——齿孔边、虚线分栏、TA的批注写在最底下，
   // 像收摊时撕下来的那一联。结果页和往期回看共用它（一处画、两处用）。
   function ResultCard(t, rec, char, onClose, tp) {
     const isDone = rec.status === "done";
@@ -137,7 +137,7 @@
             rec.interruptReason ? row("为什么收桌", rec.interruptReason) : null,
             rec.escapes != null ? row("旧版 · 想跑", String(rec.escapes || 0), rec.escapes ? "#a8433a" : "#3a3024") : null,
             rec.wrong != null ? row("旧版 · 暗号输错", String(rec.wrong || 0), rec.wrong ? "#a8433a" : "#3a3024") : null),
-          // 他的批注：写在单子最下面那一格，像顺手划下的一行
+          // TA的批注：写在单子最下面那一格，像顺手划下的一行
           rec.annotation ? h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px dashed rgba(120,96,58,.35)" } },
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15.5, lineHeight: 1.95, color: "#3a3024" } }, "“" + rec.annotation + "”"),
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 9 } },

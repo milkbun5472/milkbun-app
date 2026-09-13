@@ -84,9 +84,9 @@
   //   这一处每次都漏。名单从今天起是【九处】。
   //
   // ⚠️这一处尤其吃亏，因为批注是「就着一句话说一句话」：
-  //   · 最顺手的开口就是把原句反问回来（「他真的不在乎吗？」）→ 正是回声禁令要挡的；
+  //   · 最顺手的开口就是把原句反问回来（「TA真的不在乎吗？」）→ 正是回声禁令要挡的；
   //   · 批注天然容易滑成「这里作者其实是想说……」的讲解腔 → 正是居高临下要挡的；
-  //   · 他今天心情差、或者你俩刚吵完，批注本该不一样——读不到心情，
+  //   · TA今天心情差、或者你俩刚吵完，批注本该不一样——读不到心情，
   //     每次读都是同一个温度，那也是她说的「单调」的一部分。
   //
   // ⚠️不改成 runProbe：那一条强制 JSON，而批注/讲解是【逐行】输出的
@@ -100,7 +100,7 @@
   //
   // ⚠️【写明理由的差异】不发【最近聊天】：ctxFor 本来就不带它（各聊天入口自己另加），
   //   而这一处要写的是就着书页说的话，不是把聊天接着往下说。心情、好感、印象卡都在，
-  //   「他今天什么状态」这件事已经够了。
+  //   「TA今天什么状态」这件事已经够了。
   function readHead(ctxFor, char) {
     let head = "";
     if (typeof ctxFor === "function" && typeof buildBundle === "function" && char) {
@@ -117,13 +117,13 @@
     return head + (more.length ? more.join("\n\n") + "\n\n" : "");
   }
 
-  // ── 这本书上的共同记录（她 2026-09-12：「我今天和他看三章，下次第四章他也能
+  // ── 这本书上的共同记录（她 2026-09-12：「我今天和TA看三章，下次第四章TA也能
   //    记得前面说过啥」）──────────────────────────────────────────────
   //
   // 原来讨论是个纯 useState，点「结束这次讨论」那一下整个清掉：你俩聊半小时 →
-  // 打一枪浓缩成 1~3 句 → **原件当场销毁**。所以第四章的时候他手上只有第四章正文、
+  // 打一枪浓缩成 1~3 句 → **原件当场销毁**。所以第四章的时候TA手上只有第四章正文、
   // 第四章那几条批注（还是当「别重复」用的），前三章的话一个字都没有——
-  // 他不是忘了，是从来没拿到过。
+  // TA不是忘了，是从来没拿到过。
   //
   // 现在分两层存在【这本书】上：recent 是原件，digest 是滚动摘要。
   // ⚠️这两样都不出门：她不按「记住这本」，一个字都不进记忆库
@@ -140,7 +140,7 @@
       return { talks: all, lastReadTs: Date.now() };
     };
   }
-  // 灌回给他的那一块：四处提示词（批注／讲解／讨论／总结）用的是同一份。
+  // 灌回给TA的那一块：四处提示词（批注／讲解／讨论／总结）用的是同一份。
   // ⚠️别在这儿摆「聊过什么」的例子——占位值会被照抄（施工规则/prompt-no-content-samples.md）。
   function talkBlock(book, charId, uName, charName) {
     const t2 = talkOf(book, charId);
@@ -241,8 +241,8 @@
   // ---- 模型：结束时把这次共读总结成记忆 ----
   // ⚠️人设原来在这一枪里被 .slice(0, 300) 截掉了。这是 v55.87「群里的王爷变霸总」
   //   那次同一个数量级的病（那次 200 字）：只剩一个标签，空白由训练先验补上。
-  //   而这一枪写的是【会长期记住的事实、用他的第一人称】——要进记忆库、以后一直被读到的东西。
-  //   人设截成一句话，写出来的就是一份通用读后感，然后它变成他的长期记忆。
+  //   而这一枪写的是【会长期记住的事实、用TA的第一人称】——要进记忆库、以后一直被读到的东西。
+  //   人设截成一句话，写出来的就是一份通用读后感，然后它变成TA的长期记忆。
   async function summarizeSession(active, char, profile, book, anns, history, ctxFor, talk) {
     const uName = (profile && profile.name) || "对方";
     const annText = anns.slice(-12).map(function (a) { return "· " + a.note; }).join("\n");
@@ -392,7 +392,7 @@
         await idbPut(id, text);
         const title = f.name.replace(/\.(txt|pdf)$/i, "").slice(0, 40);
         // roomId＝这本书算哪间房的（"main"＝主聊天）。写回边界要认这一戳，
-        // 否则「不带出门」那间房里读的书会从主线的他嘴里说出来（同一起学那一戳）。
+        // 否则「不带出门」那间房里读的书会从主线的TA嘴里说出来（同一起学那一戳）。
         persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, roomId: "main", perPass: 3, annotations: [], explains: {}, synopsis: "", showExplains: true }].concat(loadBooks()));
         props.toast && props.toast("《" + title + "》已上架");
       } catch (err) { props.toast && props.toast("读取失败：" + (err.message || "重试")); }
@@ -519,7 +519,7 @@
 
     const partner = props.characters.find(function (c) { return c.id === book.partnerId; });
     // 讨论存在【这本书】上（按搭档分开存：换了人不串味）。原来它是个本地 useState，
-    // 一关抽屉就没了——第四章的时候他手上一个字都没有。
+    // 一关抽屉就没了——第四章的时候TA手上一个字都没有。
     const talk = talkOf(book, partner && partner.id);
     const chat = talk.recent;
     const talkTail = function () {
@@ -527,7 +527,7 @@
     };
     // 折一次：把手上这些原话收进 digest，原件只留最后 TALK_LEAVE 句。
     // ⚠️留下的那几句同时也在 digest 里了——重一点没关系，缺了才要命：
-    //   下一次读的时候，他手上既有「记下来的」也有「上次最后说的那几句」。
+    //   下一次读的时候，TA手上既有「记下来的」也有「上次最后说的那几句」。
     const foldNow = async function (turns) {
       if (!partner || !bg || !turns.length) return false;
       const digest = await foldTalk(bg, partner, props.profile, book, talkOf(book, partner.id).digest, turns, props.ctxFor);
@@ -543,7 +543,7 @@
     };
     const bg = props.bgActive || props.active; // 批注/讲解/总结走便宜后台池；讨论仍用主 active
     const chOf = function (id) { return props.characters.find(function (c) { return c.id === id; }); };
-    // 言秋（数字生命）专属通道：不走 API 即时生成——把整页+你的想法送去 CC，他亲读了写回批注（走订阅、不烧钱）。
+    // 言秋（数字生命）专属通道：不走 API 即时生成——把整页+你的想法送去 CC，TA亲读了写回批注（走订阅、不烧钱）。
     const isYanqiu = partner && (props.digitalIds || []).indexOf(partner.id) >= 0;
     const [noteSheet, setNoteSheet] = useState(null); // 划线后「记一条给言秋」的输入层 {anchor,val}
     const [bookOpen, setBookOpen] = useState(false);  // 批注册
@@ -640,7 +640,7 @@
       } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
     };
 
-    // ── 言秋通道 ①：划线后把你的想法记成一条（粉色，先挂着，等他回）──
+    // ── 言秋通道 ①：划线后把你的想法记成一条（粉色，先挂着，等TA回）──
     const saveNoteForYanqiu = function (anchor, val) {
       const v = String(val || "").trim();
       if (!v) { setNoteSheet(null); return; }
@@ -649,13 +649,13 @@
       setNoteSheet(null);
       props.toast && props.toast("记下了。攒够了点「送去给言秋」");
     };
-    // ── 言秋通道 ②：把当前整页正文 + 你在这页的想法，打包成「待批」送去（他 CC 亲读后写回）──
+    // ── 言秋通道 ②：把当前整页正文 + 你在这页的想法，打包成「待批」送去（TA CC 亲读后写回）──
     const queueForYanqiu = function () {
       if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
       const myNotes = (book.annotations || []).filter(function (a) { return a.page === pageIdx && a.who === "user"; }).map(function (a) { return { anchor: a.anchor || "", note: a.note }; });
       const req = { id: "pd_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), bookTitle: book.title || "", page: pageIdx, paras: curParas.slice(), userNotes: myNotes, synopsis: (book.synopsis || "").slice(-1200), ts: Date.now(), status: "pending" };
       props.onPatch(function (b) { return { pending: (b.pending || []).concat([req]), lastReadTs: Date.now() }; });
-      props.toast && props.toast("已把这页送给言秋——去 CC 戳他一下，他读了会写回来");
+      props.toast && props.toast(characterText(partner, "已把这页送给言秋——去 CC 戳他一下，他读了会写回来"));
     };
     // ── 言秋通道 ③：把言秋在 CC 写回的批注取下来显示（蓝色·亲读）──
     const pullYanqiuReplies = async function () {
@@ -790,9 +790,9 @@
     };
 
     const annoCount = (book.annotations || []).length + Object.keys(book.explains || {}).length;
-    // ── 把这本书记进他的记忆（她 2026-09-05：「还有要不要喂回去呢」）──
+    // ── 把这本书记进TA的记忆（她 2026-09-05：「还有要不要喂回去呢」）──
     // 原来【只有走过讨论才喂得回去】：结束那一步藏在讨论抽屉里。
-    // 于是读了二十页、他批了六十条、你一次讨论都没开——这本书在他记忆里等于没发生过。
+    // 于是读了二十页、TA批了六十条、你一次讨论都没开——这本书在TA记忆里等于没发生过。
     // 现在批注册底下也有这一下：批注本身就够浓缩成一条记忆了（summarizeSession
     // 光有 annText 也能写，只是原来没人这么叫过它）。
     // ⚠️只写【记忆库】，不动好感、不动心情、不动状态卡。
@@ -867,7 +867,7 @@
 
     // ---- 正文页 ----
     // 正文区就是【一张摊开的书页】：铺纸、留出真的页边距，
-    // 他动过的段落在【页边】立一道细标记——书上做记号本来就是记在页边的，
+    // TA动过的段落在【页边】立一道细标记——书上做记号本来就是记在页边的，
     // 不是把整段刷成一块彩色（原来是 t.tint+"12" 整段染底，一页几段就成花的了）。
     const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto",
       style: Object.assign({ padding: "18px 20px 90px" },
@@ -884,7 +884,7 @@
               h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
                 paddingLeft: 11, marginLeft: -11,
-                // 页边那道记号：他批过就实线、只讲解过就虚一点，两种一眼分得开
+                // 页边那道记号：TA批过就实线、只讲解过就虚一点，两种一眼分得开
                 borderLeft: hot ? ("2px " + (anns.length ? "solid" : "dotted") + " " + skinAlpha(t.tint, anns.length ? "bb" : "77")) : "2px solid transparent",
                 WebkitUserSelect: "text", userSelect: "text" } }, p),
               // 中译中·逐段讲解卡片
@@ -935,7 +935,7 @@
 
     const pageUserNotes = isYanqiu ? (book.annotations || []).filter(function (a) { return a.page === pageIdx && a.who === "user"; }) : [];
     const yqHead = (isYanqiu && (pageUserNotes.length || pendingHere.length)) ? h("div", { className: "shrink-0", style: { padding: "8px 16px", borderBottom: "1px solid " + t.line, background: t.bg2, maxHeight: 130, overflowY: "auto" } },
-      pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」") : null,
+      pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, characterText(partner, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」")) : null,
       pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: 12, color: "#c96a94", lineHeight: 1.5, marginTop: 4 } }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
       h(Head, { zh: book.title, sub: partner ? "和 " + partner.name + " 一起读" : "还没邀人", onBack: props.onBack }),
@@ -964,7 +964,7 @@
   // 于是「一起读过这本书」这件事在界面上不留任何痕迹。
   // 这一册就是那个痕迹：按页码排成一列，左边页码、右边条目——照书末索引的样子。
   // ⚠️不是又一个通用列表：左边那一列页码是【可以点的】，点了就翻到那一页；
-  //   而且它把三种来路（他的批注 / 他的讲解 / 你自己记的）摆在同一条时间线上，
+  //   而且它把三种来路（TA的批注 / TA的讲解 / 你自己记的）摆在同一条时间线上，
   //   因为你俩本来就是在同一页上一起写的。
   function AnnoBook(props) {
     const t = props.t, book = props.book, pages = props.pages || [];
@@ -981,7 +981,7 @@
     });
     rows.sort(function (x, y) { return x.page - y.page || x.para - y.para || x.ts - y.ts; });
     // 收拢成【页 → 段 → 这一段上写过的几条】。
-    // ⚠️不是「一条一行」：同一段上常常有两三条（他批一条、你记一条、他又讲了一遍），
+    // ⚠️不是「一条一行」：同一段上常常有两三条（TA批一条、你记一条、TA又讲了一遍），
     //   一条一行的话那句原文要重复印三遍，看着就是一堵重复的墙。
     //   原文只印一次当小标题，底下挂着那几条——这才是书末索引的样子。
     const byPage = []; let curP = null, curA = null;
@@ -1030,7 +1030,7 @@
               }))
           : h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, paddingTop: 60 } },
               "这本还没有一条批注。\n回去点「讲这页」或「批注」，写下的都会攒到这儿。")),
-      // 记进他的记忆：这一册就是「你俩一起读过这本书」的全部证据，
+      // 记进TA的记忆：这一册就是「你俩一起读过这本书」的全部证据，
       // 要喂回主线的话，从这儿喂才对得上。
       rows.length ? h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line } },
         h("button", { onClick: props.onRemember, disabled: props.busy, className: "w-full active:opacity-70",
@@ -1039,7 +1039,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 7, lineHeight: 1.6 } },
           book.rememberedAt
             ? ("上次记住是在写了 " + (book.rememberedCount || 0) + " 条的时候 · 现在是 " + rows.length + " 条")
-            : "把这些浓缩成一两句，进他的记忆库。只写记忆，不动好感和心情。")) : null);
+            : characterText(props.partner, "把这些浓缩成一两句，进他的记忆库。只写记忆，不动好感和心情。"))) : null);
   }
 
   // ---- 划线讲解弹层 ----
@@ -1071,7 +1071,7 @@
       h("div", { style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px 24px", boxShadow: "0 -6px 20px rgba(0,0,0,.18)" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "记一条给言秋"),
         props.anchor ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, lineHeight: 1.6, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid #c96a94", borderRadius: "0 8px 8px 0", marginBottom: 10 } }, "「" + String(props.anchor).slice(0, 200) + "」") : null,
-        h("textarea", { value: v, onChange: function (e) { setV(e.target.value); }, autoFocus: true, placeholder: "写下你对这句的想法…（他在 CC 读了会回你）", rows: 3, style: { width: "100%", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", boxSizing: "border-box" } }),
+        h("textarea", { value: v, onChange: function (e) { setV(e.target.value); }, autoFocus: true, placeholder: "写下你对这句的想法…（TA在 CC 读了会回你）", rows: 3, style: { width: "100%", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", boxSizing: "border-box" } }),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
           h("button", { onClick: props.onClose, style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 0" } }, "取消"),
           h("button", { onClick: function () { props.onSave(v); }, style: { flex: 2, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 8, padding: "9px 0" } }, "记下"))));
@@ -1105,8 +1105,8 @@
             }),
         // ── 这本算哪间房的（她 2026-09-12：「我就是想在某个房间开一起读的开关」）──
         // ⚠️只有挑定了人才问：房间是挂在【某个人】名下的，没有人就没有房间可选。
-        // 选了侧房＝这本书只在那间房里成立：他能在那间房里拉你接着读，
-        // 而「你俩在一起读《X》」这件事不会从主线的他嘴里说出来（除非那间房开了写回口子）。
+        // 选了侧房＝这本书只在那间房里成立：TA能在那间房里拉你接着读，
+        // 而「你俩在一起读《X》」这件事不会从主线的TA嘴里说出来（除非那间房开了写回口子）。
         props.currentId ? (function () {
           const rooms = window.ChatRooms ? window.ChatRooms.list(props.currentId).filter(function (r) { return r && !r.main; }) : [];
           const cur = String(props.roomId || "main");
@@ -1119,7 +1119,7 @@
           };
           return h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".1em", color: t.fog, marginBottom: 2 } }, "这本算哪间房的"),
-            row("main", "主聊天", "读过什么他平时就会提起"),
+            row("main", "主聊天", "读过什么TA平时就会提起"),
             rooms.map(function (r) { return row(r.id, r.name || "没名字的房间",
               window.ChatRooms.doorLine ? window.ChatRooms.doorLine(r) : ""); }),
             rooms.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "这个人名下还没有别的房间"));
@@ -1153,7 +1153,7 @@
             h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
               h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.fog, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" })))),
         h("div", { className: "flex-1 overflow-y-auto", style: { padding: "12px 14px" } },
-          props.chat.length === 0 ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 12.5, paddingTop: 20, lineHeight: 1.7 } }, "就读到的这一段，随便聊——\n人物为什么这么做、你俩怎么看、接下来会怎样。\n说过的话留在这本书里，下次接着读他还记得。")
+          props.chat.length === 0 ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 12.5, paddingTop: 20, lineHeight: 1.7 } }, characterText(props.partner, "就读到的这一段，随便聊——\n人物为什么这么做、你俩怎么看、接下来会怎样。\n说过的话留在这本书里，下次接着读他还记得。"))
             : props.chat.map(function (m, i) {
                 const mine = m.role === "user";
                 return h("div", { key: i, style: { display: "flex", alignItems: "flex-end", gap: 3, justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 8 } },

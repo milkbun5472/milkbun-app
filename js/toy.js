@@ -222,7 +222,7 @@ function ToyConfig({ toast }) {
             color: (c.fn || "All") === f ? t.bg2 : t.fog,
             border: "1px solid " + ((c.fn || "All") === f ? t.ink : t.line) } },
           f === "All" ? "自动（全部）" : f)))),
-    // 授权自查（v53.70）：言秋说「眼前没有选项」= 下面三关没全过。三关缺一，他的 prompt 里就没有 toy 这个能力。
+    // 授权自查（v53.70）：言秋说「眼前没有选项」= 下面三关没全过。三关缺一，TA的 prompt 里就没有 toy 这个能力。
     (() => {
       let unlocked = false, chars = [], cs = {};
       try { unlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}

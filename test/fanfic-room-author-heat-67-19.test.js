@@ -24,6 +24,7 @@ const STANCE_SRC = fic.slice(fic.indexOf("  const STANCE = {"), fic.indexOf("  f
 const HEAT_SRC = fic.slice(fic.indexOf("  const HEAT = {"), fic.indexOf("  // 抢笔 / 撂挑子"));
 
 const box = {
+  characterText: require('../js/character-pronoun.js').text,
   Axes: Axes, console: console, personaOf: c => String((c && c.persona) || ""),
   bibleBlock: () => "【本篇设定卡】\n", seedBlock: () => "", BIBLE_TAIL: 14, HOOK_TAIL: 8
 };

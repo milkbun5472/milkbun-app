@@ -73,7 +73,7 @@ test("界面：陪听从一个勾变成挑人，谁陪听就记在谁名下", ()
   // 要钉的还是同一件事：**它是个挑人的 select**，不是一个开关。
   assert.match(ui, /h\("select", \{ "aria-label": "谁陪你一起听"/);
   assert.match(ui, /h\("option", \{ value: "" \}, "没有人，我自己听"\)/, "没有「我自己听」那一档＝退不回原来的独听");
-  assert.match(ui, /c\.id === branch\.charId \? c\.name \+ "（广播里的就是他）" : c\.name/);
+  assert.match(ui, /c\.id === branch\.charId \? c\.name \+ characterText\(c, "（广播里的就是他）"\) : c\.name/);
   // 听闻和对话都按当前这位落库
   assert.match(ui, /R\.reveal\(x, row\.fragmentId, row\.index, companionId\)/);
   assert.match(ui, /talks: x\.talks\.concat\(\{ companionId: companionId, question: q, answer: raw\.say\.trim\(\) \}\)/);
@@ -85,7 +85,7 @@ test("界面：陪听从一个勾变成挑人，谁陪听就记在谁名下", ()
   // 可一颗按不动又不说话的键跟坏了没区别，所以旁边必须写明白为什么。
   assert.match(ui, /const deaf = !mine\.heard\.length;/);
   assert.match(ui, /刚坐下，还没听见任何一句/);
-  assert.match(ui, /btn\("问问他", ask, !question\.trim\(\) \|\| !mine\.heard\.length, true\)/);
+  assert.match(ui, /btn\(characterText\(companion, "问问他"\), ask, !question\.trim\(\) \|\| !mine\.heard\.length, true\)/);
   // 换一条线就把陪听的人清掉：上一条线挑的人不该跟过来
   assert.match(ui, /resetPlayback\(\); setCompanion\(""\); select\(id\);/);
 });

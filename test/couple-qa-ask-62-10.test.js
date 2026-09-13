@@ -30,7 +30,7 @@ test("界面认得「他出的题」：她那半直接写、他那半标着封�
 test("他出的题有人叫她来看：红点、书脊、最近发生三处都接了", () => {
   assert.match(screens, /e\.sealed && e\.byCharacter && !e\.myAnswer\)\) a\.push\("问答小本"\)/, "名册红点没接");
   assert.match(screens, /bQaAsk \? "TA 出了道题等你答"/, "书脊没把等答的那道排最前");
-  assert.match(screens, /label: "他出的题", text: cleanSnippet\(x\.question\)/, "最近发生没接");
+  assert.match(screens, /label: characterText\(partner, "他出的题"\), text: cleanSnippet\(x\.question\)/, "最近发生没接");
   // 她自己翻题答题不进「最近发生」——那是她自己干的，不是「发生在她身上的事」
   assert.match(screens, /x\.characterId === bCid && x\.byCharacter\)\.forEach\(x => recentItems\.push\(\{ id: "q_"/, "把她自己答的题也当成通知推了");
 });

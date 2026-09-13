@@ -31,13 +31,13 @@ test("房间里多了「一起读」这一档，归档那一档默认开着", ()
   const { Rooms } = freshRooms();
   assert.deepEqual(Rooms.GROUPS.actions.map(([k]) => k), ["study", "games", "fanfic", "read", "tarot"]);
   const [, label, note] = Rooms.GROUPS.actions.find(([k]) => k === "read");
-  assert.equal(label, "他可以拉你一起读");
+  assert.equal(label, "TA可以拉你一起读");
   assert.match(note, /接着读那本书/);
   assert.equal(Rooms.PRESETS.focused.actions.read, true, "「一起做件事」那一档该把一起读也开上");
   assert.equal(Rooms.PRESETS.isolated.actions.read, false);
   // 开关一开，房间提示词里那一行自己就会多出这一样（清单是从 GROUPS 长出来的）
   const side = Rooms.create("p1", "读书角", "focused");
-  assert.match(Rooms.prompt(side, []), /他可以拉你一起读/);
+  assert.match(Rooms.prompt(side, []), /TA可以拉你一起读/);
 });
 
 test("这间房的事算不算数：一份判据，课和书问的是同一句", () => {

@@ -35,13 +35,13 @@ test("提示词里说死「听说过 ≠ 发生在你身上」", () => {
   assert.match(ph, /function phoneOwnOnlyBlock\(name\) \{/, "没有这一段");
   const i = ph.indexOf("function phoneOwnOnlyBlock(name) {");
   const rule = ph.slice(i, ph.indexOf("\n}", i));
-  assert.match(rule, /听说过绝不等于发生在他身上/, "没说死这一句");
-  assert.match(rule, /绝不许.*把别人的职业、专业术语、项目、病人、同事、爱好、行程挪到他名下/, "没点名最容易被挪过来的那几样");
+  assert.match(rule, /听说过绝不等于发生在TA身上/, "没说死这一句");
+  assert.match(rule, /绝不许.*把别人的职业、专业术语、项目、病人、同事、爱好、行程挪到TA名下/, "没点名最容易被挪过来的那几样");
   // 判据而不是内容示范（prompt-no-content-samples）
   assert.match(rule, /搬到另一个角色的手机里也照样成立，那它就不该出现在这里/, "少了那条判据");
   assert.ok(!/羽毛球|BioRender|论文/.test(rule), "把她这次报的具体内容写成例子了——模型会照抄");
   // 别人还是可以出现，只是不能把事挪过来
-  assert.match(rule, /别人可以作为【他生活里的人】出现/, "一刀切成「不许提别人」，那他手机里就没有人了");
+  assert.match(rule, /别人可以作为【TA生活里的人】出现/, "一刀切成「不许提别人」，那他手机里就没有人了");
 });
 
 test("这一段写在一处，十几个 app 一起合规", () => {

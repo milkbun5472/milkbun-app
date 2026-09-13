@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 累积层：日志该越攒越长，当前状态该照实重写
 //
 // 判据：这一栏说的是「发生过什么」还是「现在是什么样」？

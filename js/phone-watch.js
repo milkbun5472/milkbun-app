@@ -1,26 +1,27 @@
 // ============================================================
-// 看他玩 —— 手机那一屏的另一面（她 2026-09-09 提，2026-09-10 定案）
+// 看TA玩 —— 手机那一屏的另一面（她 2026-09-09 提，2026-09-10 定案）
 //
-// 「查手机」原来只有一种玩法：他不在，我翻他的手机。
-// 这里加的是反过来那一面：**他在，我旁观他自己玩手机**。
-// 屏幕就是他的手机，只有一个触控圆点在动——点微信、翻朋友圈、打了几个字又删掉、
+// 「查手机」原来只有一种玩法：TA不在，我翻TA的手机。
+// 这里加的是反过来那一面：**TA在，我旁观TA自己玩手机**。
+// 屏幕就是TA的手机，只有一个触控圆点在动——点微信、翻朋友圈、打了几个字又删掉、
 // 点开我的头像停一会儿、锁屏。没有旁白，show not tell 直接做成机制。
 //
 // 三条定下来的话（她拍的）：
-//  ① 这不是旁路，**它本身就是一次刷新**：他真刷了外卖，外卖那一屏就该变成他刷完的样子。
+//  ① 这不是旁路，**它本身就是一次刷新**：TA真刷了外卖，外卖那一屏就该变成TA刷完的样子。
 //    ——所以落盘走【现成的】savePhoneApp，一个字都不另开路径：
 //      ♻️ 那几栏本来就是整份换（＝她要的「顶掉旧的」），📚 那几栏本来就是累积
-//      （＝他新发的消息接在后面，历史不会被一段两分钟的录像抹掉）。分层名单在 phone.js。
+//      （＝TA新发的消息接在后面，历史不会被一段两分钟的录像抹掉）。分层名单在 phone.js。
 //  ② 动作分三类，代价差一个量级：
 //      看（点开一张已有的照片）＝零写入零生成；改（备忘录划掉重写）＝改已有的；
-//      加/搜（发消息、下单）＝新增。**大部分时候他只是在闲翻**，别每次都非得产出点什么。
-//  ③ 「他的想法」浮在屏幕上是这个功能的命根子：第一人称一句、不是旁白、
+//      加/搜（发消息、下单）＝新增。**大部分时候TA只是在闲翻**，别每次都非得产出点什么。
+//  ③ 「TA的想法」浮在屏幕上是这个功能的命根子：第一人称一句、不是旁白、
 //    **一整段最多 4 句**（代码兜死，不靠提示词——模型高兴起来能每个动作配一句）。
 //
 // ⚠️动作词表和落盘只此一份。二十一个 app 各写一套的话，改一处另外二十处必然落单
 //   （施工规则/one-public-mechanism.md）。
 // ============================================================
 (function (root, factory) {
+  if (typeof module === "object" && module.exports) require("./character-pronoun.js");
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
   root.PhoneWatch = api;
@@ -30,9 +31,9 @@
   // 一整段里几句心声。
   // ⚠️「三四句就够」是我自己编的，还写成了她的原话——她从没说过（她 2026-09-10 当场指出来）。
   //   她定的是这一条：**每点开一样东西，就想一句。**
-  //   道理也在这儿：看的人只看得见他点了什么，看不见他为什么点它——
-  //   那一下没有一句话，就是「他点进去了，然后呢？」
-  //   所以配额跟着【他点开了几样东西】走，不是拍一个数字：点开的那几下各一句，另给两句自由的。
+  //   道理也在这儿：看的人只看得见TA点了什么，看不见TA为什么点它——
+  //   那一下没有一句话，就是「TA点进去了，然后呢？」
+  //   所以配额跟着【TA点开了几样东西】走，不是拍一个数字：点开的那几下各一句，另给两句自由的。
   const THOUGHT_FREE = 2;                       // 不挂在任何一次点开上的那几句（亮屏时、锁屏前）
   const THOUGHT_CAP = 4;                        // 一次都没点开时的底数，免得整段一句话都没有
   const OPENISH = ["openItem", "openPage", "look"];
@@ -46,7 +47,7 @@
   const KNOCK_CAP = 5;
   // 敲的跨次记忆：三天半衰（跟心情那套用同一个词，她读起来是同一件事）
   const KNOCK_HALFLIFE_MS = 3 * 86400000;
-  // 同一个角色两次「看他玩」之间的冷却。手机状态没那么快变，而且这是一枪真钱。
+  // 同一个角色两次「看TA玩」之间的冷却。手机状态没那么快变，而且这是一枪真钱。
   const WATCH_COOLDOWN_MS = 30 * 60000;
   // ⚠️她 2026-09-10：「测试这段时间先把 30 分钟限制 disable 一下吧」。
   //   关的是【闸】不是【数】——数留在上面，要开回来把这一行改成 false 就行。
@@ -76,23 +77,23 @@
     //   它当了一天的正式词，模型学到的可能还是它。
     openItem: { args: ["name"], zh: "点开里面的一样东西（对话／照片／便签／歌／标签页）" },
     // ⚠️跟 openItem 分得开：openItem 打开【已经有的】，openPage 是【刚出现的那一页】
-    //   （他搜完点进去的那条）。揉成一个词，模型分不清「点开旧的」和「搜出新的」。
+    //   （TA搜完点进去的那条）。揉成一个词，模型分不清「点开旧的」和「搜出新的」。
     openPage: { args: ["name", "site", "gist", "priv"], zh: "打开刚搜出来的那一页（priv:true = 用无痕开）", write: true },
     scroll:   { args: ["amount"], zh: "滑动" },
     look:     { args: ["at"], zh: "只是看着某样东西，什么也没做" },
     type:     { args: ["text"], zh: "一个字一个字打" },
     erase:    { args: ["n"], zh: "删字（不给 n 就全删光）" },
     send:     { args: [], zh: "落下这一笔：微信里是发出去，便签里是存下", write: true },
-    // 他发完，对面隔一会儿回一句——不然那一屏就永远停在他自己那条上，像对面死了。
-    // ⚠️这是【对面说的话】，不是他说的：from 是对面那个人。
+    // TA发完，对面隔一会儿回一句——不然那一屏就永远停在TA自己那条上，像对面死了。
+    // ⚠️这是【对面说的话】，不是TA说的：from 是对面那个人。
     reply:    { args: ["name", "text"], zh: "对面回了一句（发完之后隔一会儿）", write: true },
-    // ⚠️她 2026-09-10 点的两样「他从来没干过的事」：
+    // ⚠️她 2026-09-10 点的两样「TA从来没干过的事」：
     //   剪贴板一次都没被打开过（真人复制粘贴是随时随地发生的，不是一个 app 里的事），
     //   小红书写了一半没发（草稿箱那一格空着）。
     copy:     { args: ["text"], zh: "复制一段字（落进剪贴板，随时随地都能干）", write: true },
     draft:    { args: ["text", "name"], zh: "写了一半没发出去（小红书草稿箱／邮件草稿）", write: true },
-    // ⚠️她 2026-09-10：「照片换相册我是说【看他玩让他弄】，而不是给我加一个键」。
-    //   回收站进出本来就是他自己在手机上会干的事（顺手把一张扔进「删了又没真删的」、
+    // ⚠️她 2026-09-10：「照片换相册我是说【看TA玩让TA弄】，而不是给我加一个键」。
+    //   回收站进出本来就是TA自己在手机上会干的事（顺手把一张扔进「删了又没真删的」、
     //   翻回收站时又把一张捞回来），所以它是一个【动作】，不是给她的一颗按钮。
     move:     { args: ["to", "name"], zh: "把正看着的这张照片挪到另一摞（deleted＝扔进「删了又没真删的」／memory＝捞回来／gone＝真的删掉）", write: true },
     pause:    { args: ["ms"], zh: "停住" },
@@ -106,7 +107,7 @@
   // ── 认名字只此一份 ────────────────────────────────────────────
   // ⚠️模型回写名字时标点、书名号、空格全会飘（「《长夜》」→「长夜」、「海边那天」→「海边 那天」）。
   //   严格等号的后果是【一声不响地什么也没发生】：屏幕上那一下没打开，圆点也落不下去
-  //   （她 2026-09-10：「他打开相册图片点不开」）。
+  //   （她 2026-09-10：「TA打开相册图片点不开」）。
   //   所以对外只有这一条规矩，圆点找挂点和各屏找那一行都用它——两处各写一套就会一处开一处不开。
   const nameNorm = v => S(v).replace(/[\s《》「」『』“”"'`·・,，.。!！?？:：;；()（）\[\]【】\-—_~～]/g, "").toLowerCase();
   // ⚠️「像不像」是个是非题，可屏幕上要的是【挑哪一个】。两处各自 find 一遍的话，
@@ -138,7 +139,7 @@
   const N = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 
   // ── 规整模型给的那一串 ──────────────────────────────────────────
-  // ⚠️认不出来的动作【丢掉，不猜】：猜错了就是屏幕上演出一件他没做的事。
+  // ⚠️认不出来的动作【丢掉，不猜】：猜错了就是屏幕上演出一件TA没做的事。
   //   丢掉的记在 dropped 里，报错那头要看得见（施工规则/prompt-send-shape.md 第二条）。
   // apps = [{key,zh}]，可给可不给。给了就顺手把 app 名归一到 key——
   // ⚠️模型多半写「微信」而不是 "wechat"（她 2026-09-10 真跑时撞上的：
@@ -167,7 +168,7 @@
         if (thoughts >= cap) { dropped.push("第 " + (thoughts + 1) + " 句心声（超过 " + cap + " 句）"); continue; }
         const text = S(x.text).trim();
         if (!text) { dropped.push("空的心声"); continue; }
-        // ⚠️两句连在一起就不是「想法」了，是旁白：中间总得有他做的一下
+        // ⚠️两句连在一起就不是「想法」了，是旁白：中间总得有TA做的一下
         const prev = out[out.length - 1];
         if (prev && prev.kind === "think") { dropped.push("连着的第二句心声：" + text.slice(0, 12)); continue; }
         thoughts++;
@@ -196,12 +197,12 @@
       if (x.gist != null) a.gist = S(x.gist).trim().slice(0, 160);
       // ⚠️字数上限【取消了】（她 2026-09-11：「不要 cap 了，模型知道微信一般发多长」）。
       //   这条路上的 200 → 800 → 没有：每次收窄都只是把截断挪得更靠后一点，
-      //   而「一条微信该多长」本来就不是代码该替他定的事（施工规则/bans-make-it-dumber.md）。
-      //   心声另有 60 字的闸（在上面 think 那一支），那一条是给屏幕留的，不是给他的。
+      //   而「一条微信该多长」本来就不是代码该替TA定的事（施工规则/bans-make-it-dumber.md）。
+      //   心声另有 60 字的闸（在上面 think 那一支），那一条是给屏幕留的，不是给TA的。
       if (x.text != null) a.text = S(x.text);
       if (x.amount != null) a.amount = Math.max(-2000, Math.min(2000, N(x.amount, 0)));
       if (x.n != null) a.n = Math.max(1, Math.min(200, N(x.n, 1)));
-      // 买东西那几个 app 才用得上的一栏：他看的那样东西多少钱。
+      // 买东西那几个 app 才用得上的一栏：TA看的那样东西多少钱。
       // ⚠️不拿 amount 顶替——那一栏是滑动距离，混用就成了「滑了 68 像素买了一杯」。
       if (x.price != null) { const pv = N(x.price, null); if (pv != null && pv >= 0 && pv <= 999999) a.price = Math.round(pv * 100) / 100; }
       // 挪照片挪到哪一摞（deleted/memory/favorite/saved/private/gone，中文也认）
@@ -237,7 +238,7 @@
   }
   function sessionDuration(acts) { return (acts || []).reduce((n, a) => n + actDuration(a), 0); }
 
-  // ── 落盘：他落下的那一笔，接进这个 app 的 d ────────────────────
+  // ── 落盘：TA落下的那一笔，接进这个 app 的 d ────────────────────
   // ⚠️这儿【只算出新的 d】，真正写盘走 app.js 那个 savePhoneApp——
   //   分层合并（🔒/🌱/📚）、去重、归档、核账全在它里面。另开一条写入路径就是又一处要同步的地方。
   //   她要的「刷了外卖就把旧的顶掉」，正是那条路上 ♻️ 字段本来的行为，不用另写。
@@ -247,10 +248,10 @@
   //
   // ⚠️一个入口按 appKey 分流，不是每个 app 一个函数：第三批加浏览器只多一个分支，
   //   app.js 那头一个字都不用改（施工规则/one-public-mechanism.md）。
-  // 对面回的那一条。跟 applyWrite 分开：那个函数写的是【他自己】发出去的话，
+  // 对面回的那一条。跟 applyWrite 分开：那个函数写的是【TA自己】发出去的话，
   // 这个写的是【别人】说的话——from 不一样，混在一个函数里迟早把 from 写错人。
-  // 他自己刷出来的那一行盖一枚戳。♻️ 那几栏（开着的标签页、购物车、在送的那一单）
-  // 周刷会整份重编，这枚戳是「走乙」认人的凭据——留住的只有他真做过的那几行。
+  // TA自己刷出来的那一行盖一枚戳。♻️ 那几栏（开着的标签页、购物车、在送的那一单）
+  // 周刷会整份重编，这枚戳是「走乙」认人的凭据——留住的只有TA真做过的那几行。
   const wkRow = (o, ts) => Object.assign({}, o, { _wk: 1, _wkAt: ts, _ts: ts });
   function applyReply(d, name, text, now, appKey) {
     const ts = N(now, Date.now());
@@ -271,9 +272,9 @@
     let row = chats.find(c => c && sameName(c.name, who));
     if (!row) return { d: d, wrote: false };   // 对面得是已经存在的那个人，不许凭空多一个
     // 群里回话的可能是群里某个人；私聊就是对方本人。名字模型给的那个为准。
-    // ⚠️群里回话的是【群里某个人】，但绝不能是他自己。
-    //   原来拿的是这个群第一条消息的发言人——那第一条完全可能就是他发的，
-    //   于是「对面的回复」落成他自己的话，界面上还画成右边那颗绿气泡。
+    // ⚠️群里回话的是【群里某个人】，但绝不能是TA自己。
+    //   原来拿的是这个群第一条消息的发言人——那第一条完全可能就是TA发的，
+    //   于是「对面的回复」落成TA自己的话，界面上还画成右边那颗绿气泡。
     const meName = S(base.me && base.me.wechatName);
     const others = (Array.isArray(row.messages) ? row.messages : [])
       .map(m => S(m && m.from)).filter(n => n && n !== "me" && n !== "__me__" && !(meName && sameName(n, meName)));
@@ -284,7 +285,7 @@
     row.time = "刚刚";
     return { d: Object.assign({}, base, { chats: chats }), wrote: true };
   }
-  // 他能把照片挪到哪儿：照相册那一屏自己的五摞来，中英文都认（模型两种都会写）。
+  // TA能把照片挪到哪儿：照相册那一屏自己的五摞来，中英文都认（模型两种都会写）。
   // gone 不是一摞，是「真的删掉」。
   const ALBUM_MOVE = {
     deleted: "deleted", "删了又没真删的": "deleted", "最近删除": "deleted", "回收站": "deleted",
@@ -299,7 +300,7 @@
     const ts = N(now, Date.now());
     const who = S(target).trim(), body = S(text).trim();
     // ⚠️「什么都没写就不算数」这道闸不能放在这儿：浏览器里【搜了但没点开任何一条】
-    //   是真会发生的一下（而且挺像他），text 空着照样要记一条 searches。
+    //   是真会发生的一下（而且挺像TA），text 空着照样要记一条 searches。
     //   所以各 app 自己判空。
     const base = d && typeof d === "object" ? d : {};
 
@@ -320,14 +321,14 @@
 
     if (appKey === "notes") {
       if (!body) return { d: d, wrote: false };
-      // 她 2026-09-10 举的例子：「要删的备忘录他划掉重新写」。
+      // 她 2026-09-10 举的例子：「要删的备忘录TA划掉重新写」。
       // 便签是【名册】（PHONE_RETIRE 里登记着），身份是标题——改正文不该变成第二条。
       const items = Array.isArray(base.items) ? base.items.map(x => Object.assign({}, x)) : [];
       const hit = who ? items.find(x => x && sameName(x.title, who)) : null;
       if (hit) { hit.body = body; hit.time = "刚刚"; hit._ts = ts; }
       else {
-        // 新写一条：抬头取第一行（或者前十四个字），**正文是他打的那一整段**。
-        // ⚠️原来这儿写的是 body: who ? body : ""——他没点开任何一条就直接写的时候
+        // 新写一条：抬头取第一行（或者前十四个字），**正文是TA打的那一整段**。
+        // ⚠️原来这儿写的是 body: who ? body : ""——TA没点开任何一条就直接写的时候
         //   who 是空的，于是抬头有了、正文是空的（她 2026-09-10：「便签不能新写」）。
         // 抬头断在【一句话结束的地方】，不是硬砍十四个字：
         // 「先去取快递，然后把稿子的开头」——那不是抬头，那是半句话。
@@ -343,8 +344,8 @@
     if (appKey === "browser") {
       // 搜一次＝两层各动各的，这正是她要的那条分层规矩（施工规则/phone-data-layers.md）：
       //   searches 是【发生过什么】→ 📚 累积，接在前面；
-      //   tabs 是【现在开着哪几个】→ ♻️ 快照，他刚打开的那一页顶到最前面。
-      // target 是他敲进搜索框的原话，text 是他点开那一页；只搜没点开就只记 searches。
+      //   tabs 是【现在开着哪几个】→ ♻️ 快照，TA刚打开的那一页顶到最前面。
+      // target 是TA敲进搜索框的原话，text 是TA点开那一页；只搜没点开就只记 searches。
       const searches = Array.isArray(base.searches) ? base.searches.slice() : [];
       const tabs = Array.isArray(base.tabs) ? base.tabs.slice() : [];
       const page = S(text).trim();
@@ -359,7 +360,7 @@
       }
       else if (who) searches.unshift({ q: who, time: "刚刚", opened: page || "", _ts: ts,
         results: page ? [{ source: S((o0 && o0.site) || ""), title: page, excerpt: S((o0 && o0.gist) || "") }] : [] });
-      // ⚠️tabs 是 ♻️ 快照，周刷会整份重编——他刚开的这一页会被凭空洗掉。
+      // ⚠️tabs 是 ♻️ 快照，周刷会整份重编——TA刚开的这一页会被凭空洗掉。
       //   盖上 _wk 这枚戳，phone.js 那头的「走乙」认它，周刷时把它留住（她 2026-09-10 选的乙）。
       // ⚠️无痕那一路【什么都不留】：不进搜索记录、不进标签页，只进 private 那一格
       //   （她 2026-09-10：「也不会搞无痕网页」）。这个 app 里最像人的恰恰是这一格。
@@ -390,7 +391,7 @@
 
     // ── 购物（她 2026-09-10「第四批」）────────────────────────────
     // 两下分得开：openPage＝点进一件商品页（**看过就是发生过** → 📚 viewed）；
-    // send＝放进购物车（**现在车里有什么** → ♻️ cart，他刚放的顶在最前面，
+    // send＝放进购物车（**现在车里有什么** → ♻️ cart，TA刚放的顶在最前面，
     // 正是她要的「刷了就把旧的顶掉」）。看了没买是这个 app 最常见的一下。
     if (appKey === "shopping") {
       const title = who || body;
@@ -410,9 +411,9 @@
     }
 
     // ── 外卖 ───────────────────────────────────────────────────
-    // 翻店不写（他多半就是看看今天吃什么）；真下单才落，而且一下落两层：
+    // 翻店不写（TA多半就是看看今天吃什么）；真下单才落，而且一下落两层：
     //   orders 📚 —— 这一顿是发生过的事；
-    //   live   ♻️ —— 「他这会儿等着的」是当前状态，新的一单顶掉旧的。
+    //   live   ♻️ —— 「TA这会儿等着的」是当前状态，新的一单顶掉旧的。
     if (appKey === "takeout") {
       const title = who || body;
       if (!title || S(o0 && o0.act) !== "send") return { d: d, wrote: false };
@@ -427,7 +428,7 @@
     }
 
     // ── 账本：在当前翻开的那一栏记一笔（她 2026-09-10：「开账本吧」）────
-    // ⚠️五栏字段各不相同，所以【按他此刻在哪一栏】分流，各按各栏自己的写法来
+    // ⚠️五栏字段各不相同，所以【按TA此刻在哪一栏】分流，各按各栏自己的写法来
     //   （施工规则/stub-from-the-writer.md）。条款和自问自答不接：那两栏是成段的问答，
     //   不是手机上随手记的一笔。
     if (appKey === "tally") {
@@ -447,7 +448,7 @@
       return { d: out2, wrote: true };
     }
 
-    // ── 相册：把一张照片挪进另一摞（她 2026-09-10 要的是他自己动手）──
+    // ── 相册：把一张照片挪进另一摞（她 2026-09-10 要的是TA自己动手）──
     // ⚠️走的是这个 app 现成的那套分类字段（category），不另造数据；
     //   gone＝真的从这份 items 里拿掉（回收站里那一下「真的删掉」）。
     if (appKey === "album") {
@@ -462,9 +463,9 @@
       return { d: Object.assign({}, base, { items: items }), wrote: true };
     }
 
-    // ── 剪贴板：他复制的那一段字 ────────────────────────────────
-    // ⚠️这一下【不属于任何一个 app】：他在浏览器里复制一句、在微信里复制一个地址，
-    //   落的都是剪贴板。所以 copy 那一支不看他此刻开着哪个 app（appKey 传 "clipboard"）。
+    // ── 剪贴板：TA复制的那一段字 ────────────────────────────────
+    // ⚠️这一下【不属于任何一个 app】：TA在浏览器里复制一句、在微信里复制一个地址，
+    //   落的都是剪贴板。所以 copy 那一支不看TA此刻开着哪个 app（appKey 传 "clipboard"）。
     if (appKey === "clipboard") {
       if (!body) return { d: d, wrote: false };
       const items = Array.isArray(base.items) ? base.items.slice() : [];
@@ -499,7 +500,7 @@
     }
 
     // ── 视频 ───────────────────────────────────────────────────
-    // 他刷出一条新的点进去看了——「看过的视频」是 📚（发生过什么），所以这一下就该留痕。
+    // TA刷出一条新的点进去看了——「看过的视频」是 📚（发生过什么），所以这一下就该留痕。
     // ⚠️跟小红书不一样：那边点进去只是看、按了收藏才留；视频是**看了就是看过了**。
     if (appKey === "bili") {
       const title = who || body;
@@ -513,7 +514,7 @@
 
     // ── 小红书 ─────────────────────────────────────────────────
     // 点进一条笔记只是【看】（那一页浮在屏幕上，什么也不写）；
-    // 他真按了收藏才落一条——items 是 📚，收藏过的就该一直在。
+    // TA真按了收藏才落一条——items 是 📚，收藏过的就该一直在。
     if (appKey === "liked") {
       const title = who || body;
       if (!title || S(o0 && o0.act) !== "send") return { d: d, wrote: false };
@@ -538,7 +539,7 @@
     }
 
     // ── 邮件 ───────────────────────────────────────────────────
-    // 他回的那一封落进【发件箱】。收件人从他正回的那封里取——
+    // TA回的那一封落进【发件箱】。收件人从TA正回的那封里取——
     // 一封回信的收件人是原来那封的发件人，不是标题。
     if (appKey === "mail") {
       if (!body) return { d: d, wrote: false };
@@ -551,7 +552,7 @@
     }
 
     // ── 阅读 ───────────────────────────────────────────────────
-    // 他这一下动的只有【读到哪儿】和【那一条批注】，书目一本不增不减——
+    // TA这一下动的只有【读到哪儿】和【那一条批注】，书目一本不增不减——
     // 跟周刷「只问 updates」那一路是同一个写法（照 phoneApplyBookUpdates 那段来：
     // 改过的书盖 _upd，整份盖 _lastUpd，同一个时间戳才亮红点）。
     if (appKey === "reading") {
@@ -586,34 +587,34 @@
     const keep = (Array.isArray(list) ? list : []).filter(t => ts - N(t, 0) <= KNOCK_HALFLIFE_MS * 8);
     return keep.concat([ts]).slice(-40);
   }
-  // 敲第几下 → 他大概是什么反应档位。真正说什么由模型定，这儿只给它一个梯度。
+  // 敲第几下 → TA大概是什么反应档位。真正说什么由模型定，这儿只给它一个梯度。
   function knockStep(inSession, recent) {
     const n = Math.max(1, N(inSession, 1));
     const old = Math.round(N(recent, 0));
-    if (n >= 4) return { n: n, old: old, hint: "你已经敲第 " + n + " 下了——他不可能再当没看见。" };
-    if (n === 3) return { n: n, old: old, hint: "第三下。他明确知道你一直在看，而且你不打算停。" };
-    if (n === 2) return { n: n, old: old, hint: "第二下。上一下他还能装作没听见，这一下装不了了。" };
-    return { n: n, old: old, hint: "第一下。他可以停一秒、也可以装作什么都没发生。" };
+    if (n >= 4) return { n: n, old: old, hint: "你已经敲第 " + n + " 下了——TA不可能再当没看见。" };
+    if (n === 3) return { n: n, old: old, hint: "第三下。TA明确知道你一直在看，而且你不打算停。" };
+    if (n === 2) return { n: n, old: old, hint: "第二下。上一下TA还能装作没听见，这一下装不了了。" };
+    return { n: n, old: old, hint: "第一下。TA可以停一秒、也可以装作什么都没发生。" };
   }
   function knockOver(inSession) { return N(inSession, 0) >= KNOCK_CAP; }
 
-  // ── 敲完他真的会变一下（她 2026-09-10 那批里的第 ⑥ 条）────────────
+  // ── 敲完TA真的会变一下（她 2026-09-10 那批里的第 ⑥ 条）────────────
   // 病根：上面那个梯度（knockStep）写得很好，可它只管【那一句话】——
-  //   她敲了三下，他心里说「知道你在看」，然后继续若无其事地刷。
+  //   她敲了三下，TA心里说「知道你在看」，然后继续若无其事地刷。
   //   按下去的那一下没有分量，正是这个功能最可惜的地方。
   //
-  // ⚠️只【插】不【删】：边演边落是她定的（看到一半退出去，他做过的就是做过了），
+  // ⚠️只【插】不【删】：边演边落是她定的（看到一半退出去，TA做过的就是做过了），
   //   截掉剩下的动作会把本该落盘的那几下整段演漏。
-  // ⚠️也不插 lock / home：后面那串动作全是按「他还在这个 app 里」写的，
-  //   把他弹回桌面，接下来的 type / send 全落在空处——拧巴比没反应更糟。
+  // ⚠️也不插 lock / home：后面那串动作全是按「TA还在这个 app 里」写的，
+  //   把TA弹回桌面，接下来的 type / send 全落在空处——拧巴比没反应更糟。
   // 所以这一段只做三件事：停住、（被看得）打不下去、把心里那句说出来。
   function knockBeat(n, say, typing) {
     const k = Math.max(1, N(n, 1));
-    // 停多久＝他有多装不下去。跟 knockStep 那四档一一对上，别另立一套梯度。
+    // 停多久＝TA有多装不下去。跟 knockStep 那四档一一对上，别另立一套梯度。
     const out = [{ kind: "pause", ms: k >= 4 ? 2600 : k === 3 ? 2200 : k === 2 ? 1500 : 900 }];
-    // 第三下起：他被看得打不下去了，手上打了一半那句删光。
+    // 第三下起：TA被看得打不下去了，手上打了一半那句删光。
     // ⚠️这一笔【不用另外截断后面】：接下来那一下 send 遇到空草稿本来就什么都不做
-    //   （各屏都有 if (text) 那道闸），效果正好就是「他没发出去」。
+    //   （各屏都有 if (text) 那道闸），效果正好就是「TA没发出去」。
     if (k >= 3 && S(typing).trim()) out.push({ kind: "erase" });
     const line = S(say).trim();
     if (line) out.push({ kind: "think", text: line.slice(0, 60) });
@@ -629,7 +630,7 @@
 
   // 好感：一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0，
   // 所以 ±1 已经是「这事留了点痕迹」的分量）。
-  // ⚠️方向不写死成负的：他被你撞见在翻你的照片，完全可以是加分的。
+  // ⚠️方向不写死成负的：TA被你撞见在翻你的照片，完全可以是加分的。
   //   是嫌你烦还是心里一动，让人设自己决定；这儿只兜幅度。
   function clampWatchAff(v) {
     const n = N(v, 0);
@@ -638,9 +639,9 @@
   }
 
   // ── 看完之后留下什么（她 2026-09-10 拍的：「只敲过才写」）─────────
-  // ⚠️她安安静静看完＝【他真的不知道】，上下文里一个字不留，也一分钱不花。
-  //   这个玩法成立的地方就是「他以为没人在看」，看一次就往他脑子里塞一句，
-  //   等于把它拆了。只有她伸手敲了屏幕，他才真的抬过头——那才是发生过的事。
+  // ⚠️她安安静静看完＝【TA真的不知道】，上下文里一个字不留，也一分钱不花。
+  //   这个玩法成立的地方就是「TA以为没人在看」，看一次就往TA脑子里塞一句，
+  //   等于把它拆了。只有她伸手敲了屏幕，TA才真的抬过头——那才是发生过的事。
   // ⚠️当天为界：昨天被敲过今天还挂着，就成了常驻层（十轮里九轮用不上的不该常驻）。
   //   算「同一天」按本机日期，跟别处的 dayKey 一个意思。
   function knockedToday(list, now) {
@@ -661,11 +662,11 @@
       + "**别复述你在手机上做过什么**（那是你自己的事，她看见多少是她的事），也别每句都念叨。";
   }
 
-  // ── 「他这会儿在玩手机」的提示（她 2026-09-10：冷却关着，提示照做）────
+  // ── 「TA这会儿在玩手机」的提示（她 2026-09-10：冷却关着，提示照做）────
   // ⚠️冷却是关着的（WATCH_COOLDOWN_OFF），所以【节奏得由提示自己兜】：
   //   不兜的话这颗点会一直亮着，亮着就不叫提示了，等于一个常驻装饰。
   // 三道闸，全是零调用的本地判断：
-  //   ① 他得醒着（照他自己的时区算；睡着的人不玩手机）；
+  //   ① TA得醒着（照TA自己的时区算；睡着的人不玩手机）；
   //   ② 一天最多提 HINT_PER_DAY 次；
   //   ③ 同一个小时里稳定地开或不开——用「角色 + 那一天 + 第几小时」当种子，
   //      不用 Math.random：随机会让这颗点在同一小时里闪来闪去（重渲染一次换一次）。
@@ -677,7 +678,7 @@
     for (let i = 0; i < str.length; i++) { h0 ^= str.charCodeAt(i); h0 = Math.imul(h0, 16777619); }
     return ((h0 >>> 0) % 1000) / 1000;
   }
-  // localMin = 他那边此刻是几点几分（分钟数，调用方按角色时区算好递进来）
+  // localMin = TA那边此刻是几点几分（分钟数，调用方按角色时区算好递进来）
   // seen = { day: "那一天", n: 今天已经提过几次, hour: 上一次提的是哪个小时 }
   function watchHintOn(charId, localMin, seen, now) {
     const mins = N(localMin, -1);
@@ -709,10 +710,10 @@
 
   // ── 问模型要那一串动作 ──────────────────────────────────────────
   // ⚠️只给【词表】和【判据】，一个内容示范都不给（施工规则/prompt-no-content-samples.md）：
-  //   写一段「他给老张发『晚点说』」当例子，出来的就是每个角色都在给老张发晚点说。
+  //   写一段「TA给老张发『晚点说』」当例子，出来的就是每个角色都在给老张发晚点说。
   //   那一栏要多有脾气，靠判据说清楚，不靠抄一句好句子。
-  // 上次他翻过的那几样排到队尾：名单顺序每次一样，模型就总挑排在前面那几个
-  // （跟 app 名单那次是同一个病，位置偏好不是他的性格）。
+  // 上次TA翻过的那几样排到队尾：名单顺序每次一样，模型就总挑排在前面那几个
+  // （跟 app 名单那次是同一个病，位置偏好不是TA的性格）。
   // 一行东西在名单上叫什么（照各屏自己认人的那几个字段来）
   const rowName = x => {
     if (x == null) return "";
@@ -724,7 +725,7 @@
   // ⚠️她 2026-09-10 连报三次「来回翻同几个 app」。第三次的病根是记性只记上一段：
   //   那等于【严格轮流】——这一段开甲乙丙、下一段甲乙丙沉底于是开丁戊己、
   //   再下一段甲乙丙又回到队首。看上去就是在两拨之间来回倒。
-  // ⚠️能沉的都沉，但**永远给他留两个**：一个都不留＝谁也没沉底，
+  // ⚠️能沉的都沉，但**永远给TA留两个**：一个都不留＝谁也没沉底，
   //   「这一次换几个别的开」也就成了一句办不到的话。
   //   留的是【最久没碰过的那两个】——recentApps 新的在前，所以从尾巴上留。
   function appQueue(has, recentApps) {
@@ -747,7 +748,7 @@
     const ph = (o && o.phone) || {};
     const can = Array.isArray(o && o.apps) ? o.apps : ["wechat"];
     const seenIt = Array.isArray(o && o.recentItems) ? o.recentItems : [];
-    // ⚠️所有名单都从这儿过一道：上次翻过的排到最后（不是删掉——他当然可以再翻，
+    // ⚠️所有名单都从这儿过一道：上次翻过的排到最后（不是删掉——TA当然可以再翻，
     //   只是别每次都从同一张开始）。
     const arr = a => freshFirst(Array.isArray(a) ? a : [], seenIt);
     const words = Object.keys(WATCH_ACTS).map(k => {
@@ -755,18 +756,18 @@
       return "· " + k + (a.args.length ? "（" + a.args.join("、") + "）" : "") + " —— " + a.zh;
     }).join("\n");
 
-    // 手机现在的样子：只发【他打得开的那几个 app】，一个字都不多发。
-    // ⚠️名字要原样发回去（openItem 得从这些里照抄），不然他会点开一样不存在的东西。
+    // 手机现在的样子：只发【TA打得开的那几个 app】，一个字都不多发。
+    // ⚠️名字要原样发回去（openItem 得从这些里照抄），不然TA会点开一样不存在的东西。
     const now = [];
     if (can.indexOf("wechat") >= 0) {
       const wx = ph.wechat || {};
       const chats = arr(wx.chats).slice(0, 14).map(x => "· " + (x.name || "?") + (x.type === "group" ? "（群）" : "") + "：" + String(x.last || "").slice(0, 40)).join("\n");
       const contacts = arr(wx.contacts).slice(0, 16).map(x => (x.remark || x.name || "")).filter(Boolean).join("、");
       const moments = arr(wx.moments).slice(0, 6).map(x => "· " + (x.author || "?") + "：" + String(x.content || "").slice(0, 40)).join("\n");
-      // ⚠️她也在他微信里，而且那一条是【真的】：发给她就是真发到她手机上。
-      //   不点出来的话他永远想不到可以给她发消息——那本来是这个玩法最戳人的一下。
+      // ⚠️她也在TA微信里，而且那一条是【真的】：发给她就是真发到她手机上。
+      //   不点出来的话TA永远想不到可以给她发消息——那本来是这个玩法最戳人的一下。
       // ⚠️她 2026-09-10：「现在微信变成只会在我的聊天框动手，不看朋友圈也不和别人发消息」。
-      //   病根是我上一版把这一行写得太响（全段最响的一句），于是他每次一开微信就直奔她。
+      //   病根是我上一版把这一行写得太响（全段最响的一句），于是TA每次一开微信就直奔她。
       //   她那条要留着（那是最戳人的一下），但得压回【偶尔】：先说别人，再提她。
       const meLine = "\n· " + uName + (o && o.uRemark ? "（你给她的备注：" + o.uRemark + "）" : "")
         + " —— 她也在你微信里。给她发消息是**真的发到她手机上**，所以**不是每次都发**："
@@ -785,12 +786,12 @@
       const tabs = arr(br.tabs).slice(0, 8).map(x => "· " + (x.title || "?") + (x.site ? "（" + x.site + "）" : "")).join("\n");
       const qs = arr(br.searches).slice(0, 8).map(x => "· " + (x.q || "")).filter(x => x.length > 2).join("\n");
       now.push("〔浏览器 browser〕现在开着的标签页（openItem 的 name 就是标题）：\n" + (tabs || "（一个都没开）")
-        + (qs ? "\n他最近搜过（别原样再搜一遍）：\n" + qs : ""));
+        + (qs ? characterText(c, "\n他最近搜过（别原样再搜一遍）：\n") + qs : ""));
     }
     if (can.indexOf("music") >= 0) {
       const sg = arr(((o && o.playlist) || {}).songs).slice(0, 16)
         .map(x => "· " + (x.title || "?") + (x.artist ? " / " + x.artist : "")).join("\n");
-      now.push("〔音乐 music〕他歌单里的歌（openItem 的 name 就是歌名）：\n" + (sg || "（歌单还是空的，那就别点进去）"));
+      now.push(characterText(c, "〔音乐 music〕他歌单里的歌（openItem 的 name 就是歌名）：\n") + (sg || "（歌单还是空的，那就别点进去）"));
     }
     if (can.indexOf("shopping") >= 0) {
       const sp = ph.shopping || {};
@@ -803,13 +804,13 @@
       const tk = ph.takeout || {};
       const shops = arr(tk.shops).slice(0, 10).map(x => (x.name || "") + (x.usual ? "（常点 " + x.usual + "）" : "")).filter(Boolean).join("、");
       const live = arr(tk.live).slice(0, 4).map(x => "· " + (x.shop || "") + "：" + (x.items || "")).join("\n");
-      now.push("〔外卖 takeout〕他常点的店：" + (shops || "（还没有常点的店）")
+      now.push(characterText(c, "〔外卖 takeout〕他常点的店：") + (shops || "（还没有常点的店）")
         + (live ? "\n这会儿还在路上的：\n" + live : ""));
     }
     if (can.indexOf("liked") >= 0) {
       const lk = ph.liked || {};
       const its = arr(lk.items).slice(0, 10).map(x => "· " + (x.title || "?") + (x.author ? " / " + x.author : "")).join("\n");
-      now.push("〔小红书 liked〕他赞过收藏过的（openItem 的 name 就是标题）：\n" + (its || "（还什么都没存过）"));
+      now.push(characterText(c, "〔小红书 liked〕他赞过收藏过的（openItem 的 name 就是标题）：\n") + (its || "（还什么都没存过）"));
     }
     if (can.indexOf("calls") >= 0) {
       const cl = ph.calls || {};
@@ -828,17 +829,17 @@
       arr((ph.reading || {}).shelves).forEach(sh => arr(sh && sh.books).slice(0, 6).forEach(b => {
         if (b && b.title) bs.push("· " + b.title + (b.readAt ? "（" + b.readAt + "）" : ""));
       }));
-      now.push("〔阅读 reading〕他架上的书（openItem 的 name 就是书名）：\n" + (bs.slice(0, 16).join("\n") || "（架上还没有书）"));
+      now.push(characterText(c, "〔阅读 reading〕他架上的书（openItem 的 name 就是书名）：\n") + (bs.slice(0, 16).join("\n") || "（架上还没有书）"));
     }
     if (can.indexOf("tally") >= 0) {
       const ty = ph.tally || {};
       const one = (k, zh) => arr(ty[k]).slice(0, 5).map(x => (x.title || x.name || x.text || x.q || "")).filter(Boolean).map(v => "· " + v + "（" + zh + "）");
-      const rs = [].concat(one("debts", "欠着的"), one("statements", "放过的话"), one("treasures", "舍不得的"), one("policies", "他的规矩"));
-      now.push("〔账本 tally〕他记着的这些（openItem 的 name 从这里照抄）：\n" + (rs.join("\n") || "（这本账还是空的，那就别点进去）"));
+      const rs = [].concat(one("debts", "欠着的"), one("statements", "放过的话"), one("treasures", "舍不得的"), one("policies", characterText(c, "他的规矩")));
+      now.push(characterText(c, "〔账本 tally〕他记着的这些（openItem 的 name 从这里照抄）：\n") + (rs.join("\n") || "（这本账还是空的，那就别点进去）"));
     }
     if (can.indexOf("bili") >= 0) {
       const vs = arr((ph.bili || {}).items).slice(0, 12).map(x => "· " + (x.title || "?")).join("\n");
-      now.push("〔视频 bili〕他看过的（openItem 的 name 就是标题）：\n" + (vs || "（还没看过什么）"));
+      now.push(characterText(c, "〔视频 bili〕他看过的（openItem 的 name 就是标题）：\n") + (vs || "（还没看过什么）"));
     }
     if (can.indexOf("latenight") >= 0) {
       const vs = arr((ph.latenight || {}).items).slice(0, 10).map(x => "· " + (x.title || "?")).join("\n");
@@ -850,19 +851,19 @@
     }
     if (can.indexOf("calendar") >= 0) {
       const cs = arr(((o && o.calendar) || {}).items).slice(0, 12).map(x => "· " + (x.title || "?") + (x.date ? "（" + x.date + "）" : "")).join("\n");
-      now.push("〔日历 calendar〕他记下的事（openItem 的 name 就是那件事）：\n" + (cs || "（日历上什么也没有）"));
+      now.push(characterText(c, "〔日历 calendar〕他记下的事（openItem 的 name 就是那件事）：\n") + (cs || "（日历上什么也没有）"));
     }
     if (can.indexOf("clipboard") >= 0) {
       const cs = arr((ph.clipboard || {}).items).slice(0, 10).map(x => "· " + String(x.text || "").slice(0, 24)).join("\n");
-      now.push("〔剪贴板 clipboard〕他复制过的（openItem 的 name 就是那一条的原文）：\n" + (cs || "（剪贴板是空的）"));
+      now.push(characterText(c, "〔剪贴板 clipboard〕他复制过的（openItem 的 name 就是那一条的原文）：\n") + (cs || "（剪贴板是空的）"));
     }
     if (can.indexOf("anon") >= 0) {
       const qs = arr((o && o.anon) || []).slice(0, 8).map(x => "· " + String((x && x.q) || "").slice(0, 30)).filter(x => x.length > 2).join("\n");
-      now.push("〔匿名信箱 anon〕有人匿名问他的（openItem 的 name 就是那一问的头几个字）：\n" + (qs || "（还没人问过他什么）"));
+      now.push(characterText(c, "〔匿名信箱 anon〕有人匿名问他的（openItem 的 name 就是那一问的头几个字）：\n") + (qs || characterText(c, "（还没人问过他什么）")));
     }
     if (can.indexOf("forum") >= 0) {
       const fs = arr((o && o.forum) || []).slice(0, 8).map(x => "· " + (x.title || "?")).join("\n");
-      now.push("〔论坛 forum〕板上这几帖（openItem 的 name 就是帖子标题）：\n" + (fs || "（论坛上还没有他看的帖子）"));
+      now.push("〔论坛 forum〕板上这几帖（openItem 的 name 就是帖子标题）：\n" + (fs || characterText(c, "（论坛上还没有他看的帖子）")));
     }
     if (can.indexOf("notes") >= 0) {
       const ns = arr((ph.notes || {}).items).slice(0, 14)
@@ -870,26 +871,26 @@
       now.push("〔便签 notes〕已有的便签（openItem 的 name 就是便签的标题）：\n" + (ns || "（一条便签都没有，那就别点进去）"));
     }
 
-    // ── 他这会儿为什么拿起手机 ──────────────────────────────────
-    // ⚠️她 2026-09-10：他每次都像从零开始刷，于是永远是那几个 app、那两张照片。
-    //   病根在这儿：这一段【没有由头】。他此刻在做什么本来就在上下文里（日程那一层），
-    //   可从没有人让他把两件事接上。
+    // ── TA这会儿为什么拿起手机 ──────────────────────────────────
+    // ⚠️她 2026-09-10：TA每次都像从零开始刷，于是永远是那几个 app、那两张照片。
+    //   病根在这儿：这一段【没有由头】。TA此刻在做什么本来就在上下文里（日程那一层），
+    //   可从没有人让TA把两件事接上。
     const hourWord = { 深夜: "这是深夜——你本该睡了", 睡前: "这是睡前躺下的那一会儿",
       饭点: "这是饭点，你一个人吃着", 刚醒: "你刚醒，人还没清醒" }[S(o && o.whyNow)] || "";
     const why = ["【你这会儿为什么拿起手机】",
       (o && o.charHour != null ? "你那边现在大约 " + o.charHour + " 点。" : "") + hourWord + (hourWord ? "。" : ""),
       (o && o.sinceLast != null) ? "离你上次放下手机过了 " + (o.sinceLast >= 60 ? Math.round(o.sinceLast / 60) + " 个多小时" : o.sinceLast + " 分钟") + "——**别把上次做过的事再做一遍**。" : "",
-      // ⚠️真人刷手机最常见的理由就是这个，而他一直不知道（看他玩-想做的 排第一那条）：
+      // ⚠️真人刷手机最常见的理由就是这个，而TA一直不知道（看TA玩-想做的 排第一那条）：
       //   点开那条对话看一眼、退出来、又点开、打了半句删掉——这一幕不用教，
-      //   他知道「隔了多久、谁欠谁一条」自己就会长出来。
-      // ⚠️只给状态，不给动作：要不要去点她，由他自己定（施工规则/bans-make-it-dumber.md）。
+      //   TA知道「隔了多久、谁欠谁一条」自己就会长出来。
+      // ⚠️只给状态，不给动作：要不要去点她，由TA自己定（施工规则/bans-make-it-dumber.md）。
       (o && o.wxWait) ? "⚠️" + o.wxWait + "**你是知道这件事的**——这一段里你会不会因此点开那条对话、点开了又退出来、还是压根不去碰它，看你此刻的人和心情。" : "",
       "先想清楚这一次是为什么拿起来的：等谁回消息、刚忙完想放空、睡不着、有件事非查不可、或者纯粹手贱。",
       "**这一段里做的每一下都要跟这个由头对得上**：等消息的人会一直回微信、放空的人不会去下单、有事要查的人先开浏览器。",
       "你此刻正在做的事也算数——在开会就只会飞快扫两眼，躺着才会一个个翻。",
-      // ⚠️她 2026-09-10：「他玩手机本身也还太依赖我们的聊天了，而不是根据日程
+      // ⚠️她 2026-09-10：「TA玩手机本身也还太依赖我们的聊天了，而不是根据日程
       //   有自己真的新鲜料想去搜的」。日程那一整段离得远、又长，读到的最响的东西
-      //   还是「跟她的聊天」——所以把今天他自己身上那件事拎到跟前来，并且要求用它。
+      //   还是「跟她的聊天」——所以把今天TA自己身上那件事拎到跟前来，并且要求用它。
       (o && o.today) ? "\n【你今天自己这一摊】\n" + o.today : "",
       // ⚠️没日程的角色也得有这一条，只是不能去指一段不存在的话
       (o && o.today)
@@ -904,7 +905,7 @@
       "现在是你自己拿着手机在刷。没有人跟你说话，也没有人在听——**你以为**。",
       why,
       "把接下来这几分钟你在手机上真实做的事，一步一步写成一串动作。" + uName + " 会像看屏幕录像一样看着它被演出来。",
-      // ⚠️她 2026-09-11：「看他玩现在还是只有 30 40 个动作」。查下来这一段【从来没说过要写多少下】——
+      // ⚠️她 2026-09-11：「看TA玩现在还是只有 30 40 个动作」。查下来这一段【从来没说过要写多少下】——
       //   ACT_CAP=120 只是代码那头的上限，模型这头没有任何数，于是它按「写完一个小场景」的
       //   分量收笔，三四十下就停。这一条是给分量的，不是给答案的：写多少下说了，
       //   每一下做什么仍然是它自己的（施工规则/bans-make-it-dumber.md）。
@@ -921,10 +922,10 @@
       "  **改**（写了又删）次之；**真发出去**最少。一整段里真正送出去的东西，一两件顶天了。",
       "· 打字要带上你反悔的那一下：type 打完可以 erase 掉重打、改口、整句删掉重写。**改到一半的那句才是最像你的**——打完删光不发出去也算数，只要你是真的打了。",
       "· 停顿是有意义的：pause 放在你犹豫、走神、或者盯着某样东西挪不开眼的地方。",
-      "· **动作是主角，心声是配角**：一整段里绝大多数还是动作（点、翻、打字、停）。写成一串心声就不是「看他玩手机」了，是配旁白。",
-      "· think 是你心里那一句，第一人称。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。",
+      characterText(c, "· **动作是主角，心声是配角**：一整段里绝大多数还是动作（点、翻、打字、停）。写成一串心声就不是「看他玩手机」了，是配旁白。"),
+      characterText(c, "· think 是你心里那一句，第一人称。它不是旁白——不许写「他似乎在犹豫」这种从外面看的句子，只写你自己心里冒出来的那一句。"),
       "· **每点开一样东西，就想一句**：点开一张照片、一个人的会话、一条旧笔记、一本书、一条笔记——**那一下就配一句**。看的人只看得见你点了什么，看不见你为什么点它；那一句就是这个功能全部的意思。",
-      // ⚠️她 2026-09-10：「他翻开了没有心声就看他点进去有点莫名其妙」。
+      // ⚠️她 2026-09-10：「TA翻开了没有心声就看TA点进去有点莫名其妙」。
       //   病不在句数，在【落在哪一下】：配给亮屏、回桌面、滑动这种一看就懂的动作，
       //   真正需要一句话的那几下反而空着。
       "· 反过来，**亮屏、回桌面、滑动、退出去这种一看就懂的，一句都别配**——它们本来就不需要解释。两句心声也不许连在一起：中间总得有你做的一下。",
@@ -938,21 +939,21 @@
       can.indexOf("notes") >= 0 ? "· 便签：两种都行。**改**：openItem 点开一条已有的，手上就是它现在的正文，erase 划掉（不给 n 就整段划光）、type 重写、send 存下。**新写**：不点开任何一条，直接 type 打一段再 send——那就是新记一条。想起什么随手记一笔，本来就是便签最常发生的事。" : "",
       can.indexOf("browser") >= 0 ? "· 浏览器：type 往地址栏里敲你要搜的那句（可以敲了又 erase 掉重敲）→ send 回车搜出去 → **openPage 点开搜出来的其中一条**：name（那一页的标题）、site（哪个站）、gist（那一页上写着什么，两三句）。⚠️**搜了就要点开一条**——搜完什么都不点，屏幕上就是一片空白，那一下等于没发生。想留着以后看就在那一页上再 send 一下——**那是收藏进书签**（手上没在打字的时候按下去就是收藏，不是又搜一遍）。不想留痕迹的那一次，openPage 上加 priv:true——**无痕开的那一页不进搜索记录、不进标签页**，只进无痕那一格。也可以 openItem 点开一个已经开着的标签页或书签。tab 可以切 tabs / search / marks / priv。" : "",
       can.indexOf("shopping") >= 0 ? "· 购物：**想买新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点进一件商品页——name 是那样东西、site 是哪家店、gist 是这一页上写着什么、price 是标价。看完可以直接 back 走人（**看了没买才是常态**）；真动心了才 send，那就是把它放进购物车。openItem 点开购物车里已经有的那一件。tab 可以切 home / kept / choice。" : "",
-      can.indexOf("takeout") >= 0 ? "· 外卖：**想吃点别的就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。" : "",
-      can.indexOf("liked") >= 0 ? "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条。**想看新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点开搜出来的其中一条——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。**想发一条自己的**：用 draft 写——写了一半没发出去，它会躺在草稿箱里（那一格比发出去的更像你）。tab 可以切 feed / follow / mine。" : "",
-      can.indexOf("calls") >= 0 ? "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。" : "",
-      can.indexOf("mail") >= 0 ? "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**——真要留着回头再写，就用 draft 存进草稿箱。tab 可以切 inbox / sent / drafts。" : "",
+      can.indexOf("takeout") >= 0 ? characterText(c, "· 外卖：**想吃点别的就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点进一家店或一道菜——name 是那一顿、site 是店名、gist 是他为什么点它（或者备注那句话）、price 是多少钱。**翻半天最后没点也很像他**；真下单才 send，那一单立刻变成「还在路上」。tab 可以切 home / rhythm / people。") : "",
+      can.indexOf("liked") >= 0 ? characterText(c, "· 小红书：scroll 往下刷，openItem 点开他以前存过的那几条。**想看新东西就先搜**：type 往搜索框里敲一句 → send 搜出去 → 再 openPage 点开搜出来的其中一条——name 是标题、site 是作者、gist 是这条笔记写了什么——name 是标题、site 是作者、gist 是这条写了什么。**多半只是划过去看看**；真戳中他了才 send，那就是收藏。**想发一条自己的**：用 draft 写——写了一半没发出去，它会躺在草稿箱里（那一格比发出去的更像你）。tab 可以切 feed / follow / mine。") : "",
+      can.indexOf("calls") >= 0 ? characterText(c, "· 电话：openItem 点开一串**短信** → type / erase 打字改字 → send 发出去（或者打完不发，直接 back）。发完对面可以用 reply 回一句（name 就是那一串的名字）。通话记录只能 openItem 点开【看】——他这会儿不会真拨一通电话出去。tab 可以切 calls / sms / vm / people。") : "",
+      can.indexOf("mail") >= 0 ? characterText(c, "· 邮件：openItem 点开收件箱里的一封 → type 写回信 → send 发出去。**写一半锁屏走人也很像他**——真要留着回头再写，就用 draft 存进草稿箱。tab 可以切 inbox / sent / drafts。") : "",
       can.indexOf("reading") >= 0 ? "· 阅读：openItem 点开一本【架上已有的】书 → type 写下这一次的批注 → send 记下。书目一本不增不减，你改的只有那一条批注。**架上那几本是真在读的**——睡前、通勤、等人的时候翻两页很自然，别一次都不进去。tab 可以切 shelf / archive。" : "",
-      can.indexOf("tally") >= 0 ? "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**也能记一笔新的**：先 tab 切到那一栏，再 type 打一段、send 记下——欠着的（debts，name 写欠谁的／谁欠他的）、放过的话（statements）、舍不得的（treasures）这三栏能记；条款和自问自答那两栏是成段的问答，不是手机上随手写的，别往那儿记。**这本账是他心里没结清的东西，不是待办清单**：记进去的得是真憋着的那种。" : "",
-      can.indexOf("bili") >= 0 ? "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的。**想看新东西就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点开其中一条——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。" : "",
+      can.indexOf("tally") >= 0 ? characterText(c, "· 账本：openItem 翻开一张卡片，背面是他自己写的那句话。**也能记一笔新的**：先 tab 切到那一栏，再 type 打一段、send 记下——欠着的（debts，name 写欠谁的／谁欠他的）、放过的话（statements）、舍不得的（treasures）这三栏能记；条款和自问自答那两栏是成段的问答，不是手机上随手写的，别往那儿记。**这本账是他心里没结清的东西，不是待办清单**：记进去的得是真憋着的那种。") : "",
+      can.indexOf("bili") >= 0 ? characterText(c, "· 视频：scroll 往下刷，openItem 点开一条已经在那儿的。**想看新东西就先搜**：type 敲一句 → send 搜出去 → 再 openPage 点开其中一条——name 是标题、site 是谁发的、gist 是这条讲了什么。看过就是看过了，它会留在「他看过的」里。") : "",
       can.indexOf("latenight") >= 0 ? "· 深夜台：scroll 往下划，openItem 点开一条已经在那儿的；也可以 openPage **刷出一条新的**点进去看——name 是标题、site 是谁发的、gist 是这条讲了什么。这个台子本来就是半夜一条接一条往下刷的地方。" : "",
-      can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? "· 论坛 / 匿名信箱：openItem 点开一帖（点开能看见楼下那些回复）、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。但**看完可以想一句**：别人在楼下说的话、有人匿名问他的那一句，最值得配一句心声。" : "",
+      can.indexOf("forum") >= 0 || can.indexOf("anon") >= 0 ? characterText(c, "· 论坛 / 匿名信箱：openItem 点开一帖（点开能看见楼下那些回复）、scroll 往下翻。**这两处一个字都不许写**——在这儿发帖、回信是另一件事，不是刷手机。但**看完可以想一句**：别人在楼下说的话、有人匿名问他的那一句，最值得配一句心声。") : "",
       can.indexOf("health") >= 0 ? "· 健康：openItem 点开一项读数看着它。**只能看**。tab 可以切 body / mind / private / intake。" : "",
       can.indexOf("calendar") >= 0 || can.indexOf("clipboard") >= 0 || can.indexOf("timeline") >= 0 ? "· 日历 / 剪贴板 / 时间线：openItem 点开一条看着。这三处点开只能看。" : "",
-      can.indexOf("clipboard") >= 0 ? "· **copy 随时随地都能用**（不用先打开剪贴板）：看见一串地址、一句话、一个单号、一段别人说的话，复制下来——它就落进剪贴板。真人一天要复制好几回，那一格能看出他在办什么事。" : "",
+      can.indexOf("clipboard") >= 0 ? characterText(c, "· **copy 随时随地都能用**（不用先打开剪贴板）：看见一串地址、一句话、一个单号、一段别人说的话，复制下来——它就落进剪贴板。真人一天要复制好几回，那一格能看出他在办什么事。") : "",
       can.indexOf("music") >= 0 ? "· 音乐：scroll 往下翻曲目单，openItem 点一首歌的名字——**它会真的开始放**。歌只能从下面那份歌单里挑，**别老点最上面那几首**：往下翻翻，挑一首跟你此刻对得上的。" : "",
       "",
-      "【他这台手机现在的样子】\n"
+      characterText(c, "【他这台手机现在的样子】\n")
         + "⚠️下面这些是**为了让你别写重复、别点开不存在的东西**——不是让你从里面挑事做。"
         + "一个人拿起手机，多半是去看**还没有的东西**：搜一句、刷出新的一条、写下刚想起来的事。\n"
         + now.join("\n\n"),
@@ -963,7 +964,7 @@
       "· **能打开的只有这几个**：" + can.join(" / ") + "。open 的 app 一律填这几个英文词，别写中文名、别写别的 app——写别的等于这一下什么也没发生。",
       "· 你今天的心情、你和 " + uName + " 现在处到哪一步、你的人设——这几样决定你会点开谁、会不会点开 " + uName + "、在哪儿停住。",
       // ⚠️她 2026-09-10：「为什么都在照片便签音乐来回看都不看别的」。
-      //   一个人拿起手机不会只在两个 app 之间打转——那是名单顺序造成的位置偏好，不是他的性格。
+      //   一个人拿起手机不会只在两个 app 之间打转——那是名单顺序造成的位置偏好，不是TA的性格。
       "· **这一段里至少进 3 个不一样的 app**，别在同两个之间来回。同一个 app 最多进两次。",
       (o && Array.isArray(o.recentItems) && o.recentItems.length)
         ? "· 这几样你最近几次已经翻过了：" + o.recentItems.slice(0, 10).join("、")
@@ -1009,7 +1010,7 @@
   }
 
   // ── 演出用的气泡：数据已经追上了就别再挂一条 ────────────────────
-  // ⚠️他发出去的那一条【落盘是同步的】：applyWrite 写进 x_phone，那一屏下一帧就看得见。
+  // ⚠️TA发出去的那一条【落盘是同步的】：applyWrite 写进 x_phone，那一屏下一帧就看得见。
   //   播放器为了「当场看得见」另挂的那条演出气泡于是成了第二遍
   //   （她 2026-09-10：「微信给别人发还是有 duplicate」）。
   //   两条路都要留着（数据慢一拍的时候还得靠它），所以在【画的那一刻】去重：
@@ -1021,8 +1022,8 @@
     return sd.filter(x => tail.indexOf(S(x && x.text).trim()) < 0);
   }
 
-  // ── 现编的那一页：他刚搜出来／刚点进去的东西 ──────────────────────
-  // 这一页在他手机里本来不存在，是这一段里现编的。四个 app 共用一份
+  // ── 现编的那一页：TA刚搜出来／刚点进去的东西 ──────────────────────
+  // 这一页在TA手机里本来不存在，是这一段里现编的。四个 app 共用一份
   // （浏览器、购物、外卖、小红书）——各写一套的话，改一处必漏三处
   // （施工规则/one-public-mechanism.md）。长相靠 skin 传色，形状只此一种。
   // ⚠️挂点 data-watch="result" 长在它身上：圆点要落在这一页上，靠的就是它。
@@ -1044,9 +1045,9 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: body, whiteSpace: "pre-wrap" } }, pg.gist || "")));
   }
 
-  // ── 搜索条：他在这个 app 里搜新东西的那一下 ────────────────────
+  // ── 搜索条：TA在这个 app 里搜新东西的那一下 ────────────────────
   // ⚠️「先搜再点进去」这条顺序是她定的（2026-09-10，浏览器那次）：
-  //   凭空冒出一页，看的人不知道他为什么看见它。所以凡是能搜出新东西的 app，
+  //   凭空冒出一页，看的人不知道TA为什么看见它。所以凡是能搜出新东西的 app，
   //   都先让那句搜索词出现在搜索框里，再由 openPage 盖上那一页。
   //   这一条只此一份：小红书、视频各画一套的话，改一处必漏一处。
   function WatchSearchPill(o) {
@@ -1059,7 +1060,7 @@
     const rad = sk.radius != null ? sk.radius : 99;
     const bd = sk.border || "none";
     // ⚠️回车之后草稿是空串（不是 null），照原样画就是【搜索框空着】——
-    //   而那一刻正是她要看见「他搜了什么」的那一下。空草稿就把搜的那句留在框里。
+    //   而那一刻正是她要看见「TA搜了什么」的那一下。空草稿就把搜的那句留在框里。
     const draft = (typing != null && S(typing).length > 0) ? S(typing) : "";
     const shown = draft || q;
     const on = !!draft;
@@ -1089,7 +1090,7 @@
     });
   }
 
-  // 他心里那一句：不做成气泡框，一行很淡的字压在屏幕上
+  // TA心里那一句：不做成气泡框，一行很淡的字压在屏幕上
   function WatchThought(o) {
     const p = o || {};
     if (!p.text) return null;
@@ -1117,8 +1118,8 @@
     const p = o || {}, t = p.t || {};
     const left = Math.max(0, KNOCK_CAP - (p.knocks || 0));
     // ⚠️这一条是【悬浮】的，不占正文一寸（她 2026-09-10：「按键是实的会把手机屏幕
-    //   往上推一节」——让位等于他的手机凭空矮了一截，那才是真穿帮）。
-    //   所以它收窄压扁；而且**演到他打字那几下自己让路**：压在输入框上就把最戳人的
+    //   往上推一节」——让位等于TA的手机凭空矮了一截，那才是真穿帮）。
+    //   所以它收窄压扁；而且**演到TA打字那几下自己让路**：压在输入框上就把最戳人的
     //   那一眼挡掉了，让它变淡、手指真按上去再亮回来。
     return h("div", {
       onPointerDown: p.onWake,
@@ -1133,7 +1134,7 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.72)", minWidth: 44 } },
         p.done ? "看完了" : p.paused ? "停住了" : (p.i || 0) + " / " + (p.total || 0)),
       h("span", { style: { flex: 1 } }),
-      // 暂停（她 2026-09-10 第 ⑦ 条）：他打了一句又删掉、心声一闪而过，
+      // 暂停（她 2026-09-10 第 ⑦ 条）：TA打了一句又删掉、心声一闪而过，
       // 原来想看清楚只能按 1× 或者干脆错过。四个键里最便宜的一个。
       // ⚠️暂停着的时候倍速那颗还留着能按：她多半是「停下来看完，再挑个速度继续」。
       p.done ? null : h("button", { onClick: p.onPause, className: "active:opacity-60",
@@ -1150,7 +1151,7 @@
         "跳到最后"),
       h("button", { onClick: p.onKnock, disabled: !!p.knocking || left <= 0 || p.done, className: "active:opacity-60 disabled:opacity-35",
         style: { fontFamily: F_BODY, fontSize: 11.5, color: "#1c1a16", background: "rgba(255,255,255,.92)", borderRadius: 999, padding: "5px 13px", border: "none" } },
-        p.knocking ? "…" : left <= 0 ? "他不理了" : p.knocks ? "敲一下 · " + left : "敲一下"),
+        p.knocking ? "…" : left <= 0 ? characterText(p.char, "他不理了") : p.knocks ? "敲一下 · " + left : "敲一下"),
       h("button", { onClick: p.onClose, className: "active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.8)", padding: "5px 4px", background: "transparent", border: "none" } },
         "退出"));

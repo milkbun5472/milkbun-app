@@ -275,7 +275,7 @@ test("④ 建卡和复看两枪都换成加固版（别只修一处）", () => {
     assert.match(seg, /parseJSONLoose\(raw\)/, zh + "那一枪还在用裸的 extractJSON");
     assert.doesNotMatch(seg, /const parsed = extractJSON\(raw\);/, zh + "还留着旧那行");
     // 解析不出来时必须带上他的原话，否则又是一句「我没看懂」的死胡同
-    assert.match(seg, /throw new Error\("没解析出卡。他这回答的是：\\n" \+ String\(raw \|\| ""\)\.slice\(0, 320\)\)/, zh + "报错里没带他的原话");
+    assert.match(seg, /throw new Error\(characterText\(char, "没解析出卡。他这回答的是：\\n"\) \+ String\(raw \|\| ""\)\.slice\(0, 320\)\)/, zh + "报错里没带他的原话");
   });
 });
 

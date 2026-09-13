@@ -51,7 +51,7 @@
   // 「规则降概率，代码才保证」：提示词里已经说了别照抄，这儿再兜一道。
   const PLACEHOLDER = {};
   Object.keys(KEYS).forEach(k => { PLACEHOLDER[KEYS[k].replace(/[·、，。]/g, "")] = 1; });
-  // v64.56：发给模型的是 ASK 那一套说法，所以他抄回来的也会是那一套——两套都得挡
+  // v64.56：发给模型的是 ASK 那一套说法，所以TA抄回来的也会是那一套——两套都得挡
   Object.keys(ASK).forEach(k => { PLACEHOLDER[ASK[k].replace(/[·、，。]/g, "")] = 1; });
   // ⚠️占位说明就是【块名本身】——schemaHint 里那十栏写的正是 KEYS 里那十个名字。
   //   所以这张表只能从 KEYS 派生，不许另抄一份：另抄一份就是「一层写在两处」，
@@ -68,7 +68,7 @@
     if (old && old.text) box.hist = [{ k, old: old.text, ts: old.ts || Date.now() }, ...(box.hist || [])].slice(0, 120);
     box.blocks[k] = { text: t, ts: Date.now() };
     d[charId] = box; persist(d, charId);
-    // 他改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
+    // TA改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
     // 别去比时间戳：同一毫秒内改写会让 ts 和 seen 相等，红点就永远亮不起来（测试逮到的）。
     try {
       const sd = loadSeen(); const mine = sd[charId];
@@ -78,10 +78,10 @@
   }
   // 协议里塞回的 impression 字段(单聊/群聊共用解析)
   // 模型偶尔把块名写成中文名(「她是个什么样的人」)、或把 side 一起塞进 block(「me.person」)。
-  // 以前这两种都直接 KEYS 查不到 → 静悄悄返回 false,看上去就是「他从来不写」。
+  // 以前这两种都直接 KEYS 查不到 → 静悄悄返回 false,看上去就是「TA从来不写」。
   // 认得出来就别丢:这一层本来就写得少,丢一次就是丢一次(她 2026-08-27:8.16 到现在一次没改过)。
   const NAME2KEY = {}; Object.keys(KEYS).forEach(k => { NAME2KEY[KEYS[k]] = k; });
-  Object.keys(ASK).forEach(k => { NAME2KEY[ASK[k]] = k; });   // v64.56：他看到的是 ASK 那套名字
+  Object.keys(ASK).forEach(k => { NAME2KEY[ASK[k]] = k; });   // v64.56：TA看到的是 ASK 那套名字
   function normKey(side, block) {
     const b = String(block || "").trim(), sd = String(side || "").trim();
     if (KEYS[sd + "." + b]) return sd + "." + b;
@@ -113,7 +113,7 @@
   //   她 2026-09-04 报：新角色十块里只有第一块有字，而那一块就是她人设的润色版。
   //   病根有两半——一半是下面 seedSpec 那份示例【自己示范了「填一块、其余全 null」】
   //   （prompt-no-content-samples.md：示例会被逐字照抄，连填法也会）；
-  //   另一半是没人拦着他复述人设：新角色手上除了她的设定本来就没别的材料。
+  //   另一半是没人拦着TA复述人设：新角色手上除了她的设定本来就没别的材料。
   // ⚠️两条路（建卡那一次 + 每轮那一路）都要这一句，所以只写一份——各写一份迟早只改一处。
   const NOT_PROFILE = uName => "⚠️【绝不许复述她的设定】" + uName
     + " 自己写下的自我介绍/人设，是她【给】你的，不是你看出来的——把它换个说法写进这张卡，等于一个字都没写。"
@@ -194,7 +194,7 @@
   }
   const newestTs = box => Object.keys(box.blocks || {}).reduce((a, k) => Math.max(a, Number(box.blocks[k].ts) || 0), 0);
   // 先记标记再打调用（照「先记游标再刷」）：抖一下不该把这轮机会静悄悄烧掉，所以记的是次数不是布尔。
-  // ⚠️manual=她自己按下面那颗「让他再看一遍这十块」：**不占自动预算**（v64.35）。
+  // ⚠️manual=她自己按下面那颗「让TA再看一遍这十块」：**不占自动预算**（v64.35）。
   //   原来手动和自动共用 reviewN，于是她手动重试几次就把自动那三次额度按光了——
   //   她 2026-09-06 那张截图上写着「自动复看过 4 次」，而上限是 3，多出来的那一次
   //   就是她自己按的。预算防的是「代码偷偷花钱」，不是防她自己要。
@@ -267,10 +267,10 @@
     d[charId] = box; persist(d, charId);
     return true;
   }
-  // 「复看了一遍，他觉得没什么要改的」——这是个【正常结局，不是失败】（v64.35）。
+  // 「复看了一遍，TA觉得没什么要改的」——这是个【正常结局，不是失败】（v64.35）。
   // 提示词里白纸黑字写着「没变就是没变，不必为了交差改字」，模型照做了，
   // 代码这一道却把它记成一次失败：三次之后「试满了，往后不再自动试」，
-  // 而界面上写的是「都没成」。她看到的于是是「坏了」，其实是「他真没什么要改的」。
+  // 而界面上写的是「都没成」。她看到的于是是「坏了」，其实是「TA真没什么要改的」。
   function markReviewNoChange(charId) {
     const d = load(); const box = boxOf(d, charId);
     box.reviewOkAt = Date.now(); box.reviewErr = ""; box.reviewErrRaw = "";
@@ -284,7 +284,7 @@
       err: box.reviewErr || "", raw: box.reviewErrRaw || "", okAt: Number(box.reviewOkAt) || 0, mute: Number(box.mute) || 0 };
   };
   // 复看这一次问的不是「你对她怎么看」（那是建卡），是「这十块里哪几块已经不对了」。
-  // 把现行十块原样给他看，让他逐块比对；没变的填 null。
+  // 把现行十块原样给TA看，让TA逐块比对；没变的填 null。
   function reviewSpec(uName, charId) {
     const box = boxOf(load(), charId);
     const rows = Object.keys(KEYS).map(k => "· " + ASK[k] + "(" + k + ")：" + ((box.blocks[k] || {}).text || "（还空着）")).join("\n");
@@ -298,7 +298,7 @@
       + "\n只输出 JSON:{\"me\":{\"person\":null,\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}——把真变了的那几块换成新内容，其余保持 null。"
       // ⚠️这一段是 v64.40 补的。这一问最可能的正确答案就是【什么都没变】，
       //   而「什么都没变」用一句话说出来比填一份全 null 的 JSON 自然得多——
-      //   于是他很可能直接答「这十块我看了一遍，暂时没什么要改的」，一个大括号都没有，
+      //   于是TA很可能直接答「这十块我看了一遍，暂时没什么要改的」，一个大括号都没有，
       //   extractJSON 当然解析不出来，界面上就成了「没解析出卡」。
       //   （她 2026-09-06 连报三轮不行，原话正是这一句。）
       //   所以必须把【没变也要输出 JSON】这件事单独说死，不能只说「只输出 JSON」。
@@ -407,7 +407,7 @@
 
 
   // ---- 红点(她 2026-08-27 要的)----
-  // 这张卡是角色自己慢慢改的,不改则已、一改就是他对她的看法变了——那正是她想被叫住的时刻。
+  // 这张卡是角色自己慢慢改的,不改则已、一改就是TA对她的看法变了——那正是她想被叫住的时刻。
   // 存一份「她上次看这一块是什么时候」,块的 ts 比它新就是没看过。
   // 已读只存本机:它是「这台设备上她看没看过」,不是印象卡的内容。
   // ⚠️不能用 x_ 前缀——那个前缀会被云同步捡走(见 cloud.js),
@@ -451,8 +451,7 @@
     const [seenTick, setSeenTick] = useState(0);   // 标记已读后要重画红点
     const [whyOpen, setWhyOpen] = useState(false); // 复看败因的原文，点开才看
     const box = boxOf(load(), charId);
-    const who = ta === "她" || ta === "TA" ? ta : "他";
-    const say = s => who === "他" ? s : String(s || "").replace(/他/g, who);
+    const say = s => characterText({ gender: ta }, s);
     const unseen = new Set(unseenKeys(charId));
     void seenTick;
     // 展开一块信纸＝她看过这一块了，红点就该灭
@@ -473,7 +472,7 @@
             box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN"))))) : null)),
       document.body);
     // 「收纳」那一档(她 2026-08-27):以前每一块的旧版只埋在自己那张信纸最底下,
-    // 想回看「他从前都怎么写我的」得一块一块点开。这里把十块的现行版和全部旧版
+    // 想回看「TA从前都怎么写我的」得一块一块点开。这里把十块的现行版和全部旧版
     // 按时间倒序摊在一起,一次看完这张卡是怎么长成现在这样的。
     const revs = revisions(charId);
     const allSheet = allOpen && ReactDOM.createPortal(
@@ -498,7 +497,7 @@
       // ── 两栏＝挂在页头的两条布书签（v62.66）──────────────────────
       // 审美审计 2026-09-04：这两个 tab 是填色药丸，只靠色差区分——
       // 换个 app 照样成立（tabs-not-plain-pills）。
-      // 这一页现实里是【他手写的一册手记】，手记分栏靠的是夹在里面的书签：
+      // 这一页现实里是【TA手写的一册手记】，手记分栏靠的是夹在里面的书签：
       // 选中那条垂得长、上了色、底下收一个尖口；没选中的短一截、淡着。
       // 形状照的是解梦馆那份（规则文件把布书签列为合规范例）。
       // ⚠️选中态同时变【长度、颜色、尖口】三样，不只靠色差（无障碍那一条）。
@@ -526,7 +525,7 @@
       // 仅展示明确复看的结果或错误；省略不展示为漏答。
       hasAny(charId) ? (function () {
         var rv = reviewState(charId), lines = [];
-        // ⚠️「复看过、他觉得没什么要改的」是【答案】，不是失败（v64.35）。
+        // ⚠️「复看过、TA觉得没什么要改的」是【答案】，不是失败（v64.35）。
         //   原来这一句不分青红皂白写「都没成」，她看到的于是是「坏了」。
         // ⚠️v64.54：这一行原来的条件是 `else if (rv.tries)`——**次数为 0 就整行不画**。
         //   而 v64.39 刚把「她手动按的那一次不占自动预算」改对（reviewN 不再加一），
@@ -554,8 +553,8 @@
       })() : null,
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
-        // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替他自动写过但失败了」
-        // 还是「他连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
+        // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替TA自动写过但失败了」
+        // 还是「TA连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
         (function () {
           var st = autoSeedState(charId), lines = [];
           // 同上（v64.54）：有败因就得说，别拿「自动试过几次」当门槛——
@@ -586,7 +585,7 @@
             // 而「复看没改」要模型主动填 impressionChecked，本来就少；写过一次之后
             // 从没被复看的块（绝大多数），这里一个字都没有，看着就像这一块没有时间。
             // 时间本来就在 b.ts 里，只是没画出来。现在两种情况都说：
-            //   复看过没改 → 「N 天前又想了一遍 · 没改」（他真又想了一遍，不是被忘了）
+            //   复看过没改 → 「N 天前又想了一遍 · 没改」（TA真又想了一遍，不是被忘了）
             //   只写过     → 「N 天前写的」
             if (!b || !b.text) return null;
             var ck = (box.checks || {})[fk] || 0;

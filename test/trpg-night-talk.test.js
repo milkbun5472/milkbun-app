@@ -54,9 +54,9 @@ test("turn():夜谈是特殊拍——不开亲笔票、不触发幕间、场景�
 test("提示词:休整拍要每位队友开一个话头(不是对下一步的看法),夜谈拍只演两个人、可以擦暗线的边", () => {
   assert.match(src, /每位队友各开【一个话头】,写进 night 字段/);
   assert.doesNotMatch(src, /每位队友至少对下一步提一句自己的看法/, "旧的那句要删掉,不然两句打架");
-  assert.match(src, /这句话换个人说就不对了,才算他的/, "判据不是样例");
+  assert.match(src, /这句话换个人说就不对了,才算TA的/, "判据不是样例");
   assert.match(src, /〔夜谈·对象:" \+ mode\.night\.who \+ "〕sceneMeta\.type 固定 interlude/);
-  assert.match(src, /他隐约察觉 " \+ uName \+ " 心里揣着事\(他不知道那是什么\)/);
+  assert.match(src, /TA隐约察觉 " \+ uName \+ " 心里揣着事\(TA不知道那是什么\)/);
   assert.match(src, /问完就住,玩家躲开也不追,绝不点破/);
   assert.match(src, /\\"night\\":\[\],/, "输出 JSON 里有 night");
   // prompt-no-content-samples:话头没有样例句

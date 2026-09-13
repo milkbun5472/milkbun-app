@@ -108,7 +108,7 @@ test("热度那个数一个字都不进提示词，进去的是【事实】", ()
   assert.match(txt, /她本来就不在乎的，那就真的不在乎/, "不给出口的话，没脾气的太太也会被演成护崽狂");
   assert.equal(M.authorStanceFacts({ chapters: [] }, {}), "", "还没有章节就别发一段空的");
   // 调用点也不许把热度递进去
-  const seg = fic.slice(fic.indexOf("async function genNextChapter"), fic.indexOf("  // ---- 「让他接着写」"));
+  const seg = fic.slice(fic.indexOf("async function genNextChapter"), fic.indexOf("  // ---- 「让TA接着写」"));
   assert.ok(strip(seg).indexOf("authorHeat") < 0, "热度递进了这一枪");
 });
 
@@ -162,7 +162,7 @@ test("③ 撂挑子先预告，所以它是有台词的，而且不多花一枪"
 });
 
 test("③ 能翻脸就得能和好，而且成不成由代码定", () => {
-  const r = fic.slice(fic.indexOf("async function askAuthorBack"), fic.indexOf("    // 「让他接着写」"));
+  const r = fic.slice(fic.indexOf("async function askAuthorBack"), fic.indexOf("    // 「让TA接着写」"));
   assert.match(r, /const ok = Math\.random\(\) < K\.backChance\(/, "让模型自己决定答不答应，它十次有九次会答应＝这道门等于没有");
   assert.match(r, /if \(r\.ok\) \{ fic\.authorQuit = false;/);
   assert.match(r, /fic\.authorHeat = Math\.max\(0, window\.Fanfic\.heatNow\(fic, Date\.now\(\)\) - 25\)/, "和好了热度不降，下一章立刻又翻脸");

@@ -40,7 +40,7 @@ test("三档语境各自写死了他该有的反应边界", () => {
   assert.doesNotMatch(s, /翻你手机翻到的/, "「手机」又被写死回判词里了");
   assert.match(s, /别一上来就配合地把内容解释一遍/);
   // hidden：被撞破，不是被问
-  assert.match(s, /不是「她问了个问题」，是「他被撞破了」/);
+  assert.match(s, /不是「她问了个问题」，是「TA被撞破了」/);
   assert.match(s, /有权不答、反问、翻脸/);
 });
 
@@ -83,9 +83,9 @@ test("没主动说的日常内容走 quiet 档", () => {
 });
 
 test("聊天里这条渲染成偷看卡，藏起来的那档一眼看得出不一样", () => {
-  assert.match(comp, /function PhonePeekCard\(\{ m, isU \}\)/);
+  assert.match(comp, /function PhonePeekCard\(\{ m, isU, character \}\)/);
   assert.match(comp, /const hid = p\.tier === "hidden";/);
-  assert.match(comp, /"翻他" \+ \(p\.what \|\| "手机"\) \+ " · "/);
+  assert.match(comp, /characterText\(character, "翻他"\) \+ \(p\.what \|\| "手机"\) \+ " · "/);
   assert.match(comp, /if \(m\.kind === "phonepeek"\)/);
   // 卡片读 m.peek，不把带反应指令的 content 原样显示出来
   assert.match(comp, /const p = m\.peek \|\| \{\};/);

@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 同一部手机不许复读（她 2026-08-29：「差不多同一时间刷新的话素材都差不多，
 // 就算功能不一样还是会说的大差不差的」）。
 // 病因不是某个 app 的提示词，是 runProbe 给十二个 app 发的 buildBundle 逐字相同，

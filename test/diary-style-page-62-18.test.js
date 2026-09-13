@@ -25,7 +25,7 @@ test("原型（mbti）栏删干净了——那是个没人读的死字段，不�
 
 test("档案卡整个真生效：文风和签名都进日记提示词", () => {
   assert.match(engine, /char\.diaryStyle && char\.diaryStyle\.trim\(\)/, "文风没进提示词");
-  assert.match(engine, /【他写给自己的那句签名】/, "签名没进提示词");
+  assert.match(engine, /【TA写给自己的那句签名】/, "签名没进提示词");
   // 签名只是调性参照，不许被抄成每篇的落款
   assert.match(engine, /不要每篇日记都把它抄进正文或当落款/, "没拦住「每篇都抄签名」");
 });

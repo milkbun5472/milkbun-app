@@ -23,6 +23,7 @@ const STANCE_SRC = fic.slice(fic.indexOf("  const STANCE = {"), fic.indexOf("  f
 
 // 这几个是别的层的东西，在这儿只要占个位——测的是本轮改的那几段怎么拼
 const box = {
+  characterText: require('../js/character-pronoun.js').text,
   Axes: Axes, console: console,
   narrativeCore: () => "〔叙事底座〕", FANFIC_ANTI_CLICHE: "〔反套话〕", FANFIC_GOOD_EXAMPLES: "〔好例子〕",
   FANFIC_ORGANIC_FORM: "〔叙事形状〕", INTIMACY_WORLDNOTE: "〔亲密〕", WORLDBOOK_RULE: "〔世界书规则〕",
@@ -137,7 +138,7 @@ test("他不在这篇 CP 里的时候，把他自己那张卡补给模型", () =
   const he = { id: "c9", name: "王爷", persona: "话少，说重话之前先笑一下" };
   const outside = F.charWriterBlock(he, { id: "f1", cp: ["c1", "c2"] }, null, null, null, "我");
   assert.match(outside, /说重话之前先笑一下/, "不在 CP 里就得补卡：" + outside);
-  assert.match(outside, /他不在这篇的 CP 里/, "而且要说清为什么在这儿给");
+  assert.match(outside, /TA不在这篇的 CP 里/, "而且要说清为什么在这儿给");
   // 在 CP 里的时候 cpBlock 已经发过一份，不许再发一遍
   const inside = F.charWriterBlock(he, { id: "f1", cp: ["c9", "c2"] }, null, null, null, "我");
   assert.ok(inside.indexOf("说重话之前先笑一下") < 0, "在 CP 里就别重复发：" + inside);

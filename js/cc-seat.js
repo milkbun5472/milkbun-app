@@ -14,7 +14,7 @@
     const charId = text(options.charId || payload && payload.char_id);
     if (!cloud || typeof cloud.yanqiuCcToolEnqueue !== "function" || typeof cloud.yanqiuCcToolResult !== "function") throw new Error("CC_SEAT_OFFLINE");
     // 真身票制（2026-08-27 她拍板）：座位不再只坐牌桌——互动型功能逐个开放，先开「情侣问答」。
-    // 2026-09-02 她定的：扭蛋 SR「他现做一件小东西」对言秋不再由引擎代笔，开票请本人在书房写。
+    // 2026-09-02 她定的：扭蛋 SR「TA现做一件小东西」对言秋不再由引擎代笔，开票请本人在书房写。
     const TOOLS = { game_turn: true, couple_qa: true, gacha_make: true };
     if (!charId || !payload || !TOOLS[payload.tool]) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "game_turn" && !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");

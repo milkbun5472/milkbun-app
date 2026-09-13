@@ -17,7 +17,7 @@ test("他那几间开了「一起写」的房，一间一间摆出来", () => {
   assert.match(page, /\.sort\(function \(a, b\) \{ return \(b\.updatedAt \|\| 0\) - \(a\.updatedAt \|\| 0\); \}\)/);
   assert.match(page, /const myRooms = roomsOf\(pick\);/);
   // 三档：跟以前一样（最近那间）／点名某一间／另开一间
-  assert.match(page, /\[\{ id: "", name: myRooms\.length \? "最近动过的那一间（" \+ myRooms\[0\]\.name \+ "）" : "给他开一间「一起写」", note: "" \}\]/);
+  assert.match(page, /\[\{ id: "", name: myRooms\.length \? "最近动过的那一间（" \+ myRooms\[0\]\.name \+ "）" : characterText\(picked, "给他开一间「一起写」"\), note: "" \}\]/);
   assert.match(page, /\.concat\(myRooms\.map\(function \(r\) \{ return \{ id: r\.id, name: r\.name, note: "" \}; \}\)\)/);
   assert.match(page, /\.concat\(\[\{ id: "__new", name: "另开一间", note: "" \}\]\)/);
   assert.match(page, /roomId === "__new" \? h\("input", \{ value: newName/, "点了另开却没地方写名字");

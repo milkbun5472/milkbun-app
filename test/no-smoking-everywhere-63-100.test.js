@@ -73,7 +73,7 @@ test("每一处 sys 的头上真的接了，不是只声明了一个没人叫的
     assert.ok(calls >= 1, f + " 里 CB() 声明了却没人叫");
   });
   // 逐处点名：这几处的 sys 头上必须真的带着它
-  assert.match(read("dreamjournal.js"), /\+ CB\(\)   \/\/ ⚠️她 2026-09-05 就是在这一处看见他还在抽/);
+  assert.match(read("dreamjournal.js"), /\+ CB\(\)   \/\/ ⚠️她 2026-09-05 就是在这一处看见TA还在抽/);
   assert.match(read("study.js"), /parts\.push\(ANTI_CLICHE\);\n\s*if \(typeof ContentBoundaries !== "undefined" && ContentBoundaries\.prompt\) parts\.push\(ContentBoundaries\.prompt\);/);
   // ⚠️口径改了（v64.07，她问「这些批注是喂了全部人设和那一堆吗」）：
   //   一起读那几处原来各自拼 `ANTI_CLICHE + CB() +`，现在收成了一个 readHead——

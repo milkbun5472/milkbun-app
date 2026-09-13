@@ -23,7 +23,7 @@ test('待写卡跨长聊天和重进仍在，换书隔离，交稿/撤回后收�
 
 function fixture() {
   const calls = [], store = {};
-  const box = { React: {}, window: {}, Axes: require('../js/axes.js'),
+  const box = { React: {}, window: {}, characterText: require('../js/character-pronoun.js').text, Axes: require('../js/axes.js'),
     loadJSON: (k, fallback) => store[k] || fallback, saveJSON: (k,v) => { store[k]=v; return true; },
     narrativeCore: () => '叙事底座', INTIMACY_WORLDNOTE: '', WORLDBOOK_RULE: '',
     isOocMsg: m => m.kind === 'ooc', parseJSONLoose: JSON.parse,
@@ -84,7 +84,7 @@ test('真实交稿入口读取按下时的新讨论，保存失败不消耗邀�
   const chatsRef={current:{[key]:[card,{role:'user',content:'出卡之后刚补的决定',ts:2}]}};
   let fics=[{id:'a',title:'测试',cp:['c1'],chapters:[]}], canSave=false, busy=false;
   K.loadFics=()=>fics;K.saveFics=next=>{if(canSave)fics=next;return canSave;};
-  const box={window:{Fanfic:K,ChatRooms:Rooms},activeChar:writer,activeRoomId:'r1',chatsRef,
+  const box={characterText:require('../js/character-pronoun.js').text,window:{Fanfic:K,ChatRooms:Rooms},activeChar:writer,activeRoomId:'r1',chatsRef,
     characters:[writer],profile:{name:'测试用户'},bgActiveRef:{current:{}},active:{},
     toast:()=>{},laneBusy:()=>busy,startLane:()=>{busy=true;},endLane:()=>{busy=false;},
     relOfChar:()=>({}),loreForContext:()=>'',roomFicPick:()=>null,isOocMsg:m=>m.kind==='ooc',

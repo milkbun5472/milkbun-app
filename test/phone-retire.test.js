@@ -1,3 +1,5 @@
+// Load the same shared dependency that index.html loads before the feature.
+require("../js/character-pronoun.js");
 // 名册的退出机制（墓碑）
 //
 // 书签会取消收藏、草稿会发出去或删掉、关注会取关、黑名单里的人会被放出来、
@@ -173,6 +175,6 @@ test("例行刷新要告诉模型时间窗是「过去这一周」", () => {
   const weekly = W.phoneProbeSpec("notes", char, [], "", [], null, null, true).instruction;
   const manual = W.phoneProbeSpec("notes", char, [], "", [], null, null, false).instruction;
   assert.match(weekly, /过去这一周/);
-  assert.match(weekly, /不是从头再编一遍他这个人/);
+  assert.match(weekly, /不是从头再编一遍TA这个人/);
   assert.ok(manual.indexOf("过去这一周") < 0, "手动刷不该带这一段");
 });

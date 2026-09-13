@@ -47,7 +47,7 @@ test("敲到第三下：他可以真发一条，也可以什么都不发", () =>
   assert.ok(!/out\.wx[\s\S]{0,120}nth >= 3/.test(app));
   // 界面那头：老的一句话照旧认，多带一条时告诉她
   assert.match(phone, /const say = \(got && typeof got === "object"\) \? String\(got\.say \|\| ""\) : got;/);
-  assert.match(phone, /if \(sentWx && onWatchToast\) onWatchToast\("他给你发了一条："/);
+  assert.match(phone, /if \(sentWx && onWatchToast\) onWatchToast\("TA给你发了一条："/);
   // 心声那一段照旧走 knockBeat 退场，没被这一条挤掉
   assert.match(phone, /WK\.knockBeat\(n, say, p\.typing\)/);
 });

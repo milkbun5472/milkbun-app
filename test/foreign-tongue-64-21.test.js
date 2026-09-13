@@ -15,17 +15,17 @@ const rule = eng.slice(eng.indexOf("const FOREIGN_TONGUE_RULE = `"), eng.indexOf
 const code = eng.split("\n").filter(l => l.trim().indexOf("//") !== 0).join("\n");
 
 test("判据写在明处：看他的世界里有没有这门话，不看模型认不认识", () => {
-  assert.match(rule, /判据是【他的世界里有没有它】/);
+  assert.match(rule, /判据是【TA的世界里有没有它】/);
   assert.match(rule, /不是你认不认识/);
   // 人设里写着他懂就照懂来——别把现代角色也弄成听不懂英文
-  assert.match(rule, /人设里写明他懂/);
+  assert.match(rule, /人设里写明TA懂/);
 });
 
 test("最要紧的那一条：不许先答对、再补一句嫌她胡说", () => {
   assert.match(rule, /绝不许照着意思回答/);
   assert.match(rule, /不许先答对、再补一句嫌她胡说/);
   assert.match(rule, /那是半懂不懂，比装懂还假/);
-  assert.match(rule, /她换回他懂的话再说一遍，他才接得上/);
+  assert.match(rule, /她换回TA懂的话再说一遍，TA才接得上/);
 });
 
 // ⚠️她 2026-09-05 当场纠的：这条规则第一版里给了例子（他懂的几种来历、听不懂时的几种

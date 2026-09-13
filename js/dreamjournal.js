@@ -4,7 +4,7 @@
 //   ①残渣也是梦：只记得颜色/情绪/一个画面都能记、都能解；「没梦」也是记录
 //   ②十秒采集：语音优先（复用 Ears 听写），睁眼含糊嘟囔即可，不用打字不用清醒
 //   ③解梦=角色人设的舞台：谁解都行，各按各的腔调；禁止心理诊断腔
-//   ④无梦日反向营业的口子留给 D 模块自发梦（他讲他的梦），本文件不做
+//   ④无梦日反向营业的口子留给 D 模块自发梦（TA讲TA的梦），本文件不做
 // 存储：x_dreamlog（数组，最新在前；纯文本量小，随 saves 云同步）
 // 成本：零常驻、零自动调用——只有她点「找TA解」才走一次 apiFor(charId) 专线
 // ============================================================
@@ -48,7 +48,7 @@
   //
   // 改法照匿名信箱那次（v61.37）：走 runProbe({voice:true})，
   // buildBundle 那一整份就是白得的（人设全文/心情/好感/印象卡/记忆/反陈词滥调/
-  // 居高临下/三件套/亲密反模板/内容边界），站位也从「分析师」换成「他本人在说话」。
+  // 居高临下/三件套/亲密反模板/内容边界），站位也从「分析师」换成「TA本人在说话」。
   // 剩下三条只能靠调用点 push 的，在这儿补上——理由和匿名箱一模一样：
   //   · 回声禁令：她讲完一个梦，最顺手的开口就是把她的话原样复述一遍再问「你梦见了X？」
   //   · 语域跟场面走：睡醒了跟人讲梦，跟正经聊天不是一个分寸
@@ -101,7 +101,7 @@
     //   梦就长成「谁都能做的那种梦」。反八股这两条也一起给上。
     return (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
       + (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "")
-      + CB()   // ⚠️她 2026-09-05 就是在这一处看见他还在抽：TA 们每晚那场梦自己拼 sys，谁都没给过它
+      + CB()   // ⚠️她 2026-09-05 就是在这一处看见TA还在抽：TA 们每晚那场梦自己拼 sys，谁都没给过它
       + "你是「" + char.name + "」。人设：" + String(char.persona || "").slice(0, 6000) + "\n\n" +
       "你昨晚睡着后做了一场梦。下面是入梦材料——你昨天真实经历的对话片段和情绪状态。请把它们揉成一场【你的梦】。\n" +
       "【当日对话片段】\n" + (excerpts.length ? excerpts.map(x => "· " + x).join("\n") : "（昨天没什么对话，梦从情绪里长出来）") + "\n" +
@@ -313,7 +313,7 @@
             if (it && it.sign) signs.push({ sign: it.sign, name: it.name, day: e.day, dream: e.text || "" });
           }));
           if (!signs.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: NSUB, textAlign: "center", padding: "34px 0", lineHeight: 1.9 } },
-            "还没有签。", h("br"), "找人解一次梦，他会在最后给你写一句。");
+            "还没有签。", h("br"), "找人解一次梦，TA会在最后给你写一句。");
           return h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: NSUB, lineHeight: 1.7, marginBottom: 12 } },
               "解梦的人在末尾写给你的那一句。攒着看，比一条一条翻回去有意思。"),
@@ -350,14 +350,14 @@
                 h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, color: pageColor("dreamjournal", "ink", "#2c2822"), lineHeight: 1.8, whiteSpace: "pre-wrap" },
                   openId === d.key ? null : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, d.narrative),
                 // 展开＝她真的读了这场梦（她 2026-09-04：「看了他们的梦之后发给他们进上下文
-                // 记得这件事，但是不要做卡片就只是轻轻地让他带着这段梦境的感受和我相处」）。
+                // 记得这件事，但是不要做卡片就只是轻轻地让TA带着这段梦境的感受和我相处」）。
                 // ⚠️不弹卡片、不发消息、不写记忆——只在 x_dreamSeen 留一行，
-                //   由 ctxFor 挑成一句轻的塞进他的上下文，三天自己过期。
+                //   由 ctxFor 挑成一句轻的塞进TA的上下文，三天自己过期。
                 h("button", { onClick: () => { const on = openId === d.key; setOpenId(on ? null : d.key); if (!on) markDreamSeen(d); },
                   className: "active:opacity-60", style: tap({ color: PINK, padding: "0 8px 0 0" }) },
                   openId === d.key ? "合上" : "展开这场梦"),
                 (d.motifs || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, d.motifs.map(m => h("span", { key: m, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, padding: "1px 8px", borderRadius: 999 } }, m))) : null,
-                d.wakeLine ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, borderTop: "1px dashed " + t.line, paddingTop: 6 } }, "醒来他大概会说：「" + d.wakeLine + "」") : null) : null)))); })()
+                d.wakeLine ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, borderTop: "1px dashed " + t.line, paddingTop: 6 } }, "醒来TA大概会说：「" + d.wakeLine + "」") : null) : null)))); })()
         ) : h(React.Fragment, null,
 
         // 母题仪表（潜意识词频）
