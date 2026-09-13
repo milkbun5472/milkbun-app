@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.58";
+const APP_VERSION = "v67.59";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6954,8 +6954,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const hotline = [];
     (anonPool || []).slice(-8).forEach(q => push(hotline, q, 6));
 
+    // 痕迹那一档的料（她 2026-09-12 排的第二条：把两台电台接起来）。
+    // ⚠️只收时间线电台那边**真的播出去过**的句子（branch.heard）：那边 v67.58 已经定了
+    //   「播出去的就是公开的，没播的等于没发生」——这边要是去读 fragments 全文，
+    //   她还没放出去的那几句就从另一个台漏出来了，那条规矩当场作废。
+    // ⚠️clean() 照旧把带人名的句子整条滤掉：痕迹的规矩是不署名、不点名、不暗示。
+    const traces = [];
+    if (window.RadioTimeline && typeof loadJSON === "function") {
+      const branches = loadJSON(window.RadioTimeline.KEY, []);
+      const rows = [];
+      (Array.isArray(branches) ? branches : []).forEach(b => {
+        (b && Array.isArray(b.heard) ? b.heard : []).forEach(x => { if (x) rows.push(T(x.text)); });
+      });
+      // 新播出去的排前面：她今天听到的那几句，今天最可能在别的台上冒出来
+      rows.slice(-40).reverse().forEach(t => { if (t.length >= 6) push(traces, t.slice(0, 90), 8); });
+    }
+
     const lore = (typeof loreForContext === "function" ? String(loreForContext("creative", [], "") || "") : "");
-    return { places: places.slice(0, 8), lore: lore.slice(0, 1600), orbit: orbit.slice(0, 14), hotline: hotline };
+    return { places: places.slice(0, 8), lore: lore.slice(0, 1600), orbit: orbit.slice(0, 14), hotline: hotline, traces: traces };
   };
   const radioAsk = async (instruction, schemaHint) => {
     const sys = instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + schemaHint;
