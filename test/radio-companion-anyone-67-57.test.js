@@ -69,7 +69,9 @@ test("广播里那个人自己来陪听：那一句不能再说「你不是广�
 test("界面：陪听从一个勾变成挑人，谁陪听就记在谁名下", () => {
   assert.match(ui, /const \[companionId, setCompanion\] = useState\(""\);/);
   assert.ok(!/setTogether|\btogether\b/.test(ui), "那个写死的勾还在");
-  assert.match(ui, /field\("谁陪你一起听", h\("select"/);
+  // v67.71 换脸之后它不再是表单里的一格，是机器下沿那一排铜键里的一片牌子；
+  // 要钉的还是同一件事：**它是个挑人的 select**，不是一个开关。
+  assert.match(ui, /h\("select", \{ "aria-label": "谁陪你一起听"/);
   assert.match(ui, /h\("option", \{ value: "" \}, "没有人，我自己听"\)/, "没有「我自己听」那一档＝退不回原来的独听");
   assert.match(ui, /c\.id === branch\.charId \? c\.name \+ "（广播里的就是他）" : c\.name/);
   // 听闻和对话都按当前这位落库
@@ -79,7 +81,7 @@ test("界面：陪听从一个勾变成挑人，谁陪听就记在谁名下", ()
   // 界面上只列当前这位的对话、按当前这位判能不能问
   assert.match(ui, /const mine = R\.companionContext\(branch, companion\.id\), latest = mine\.talks\.at\(-1\);/);
   assert.match(ui, /R\.companionContext\(branch, companion\.id\)\.talks\.map/, "把别人跟他的对话也列出来了");
-  assert.match(ui, /btn\("问问他", ask, !question\.trim\(\) \|\| !mine\.heard\.length\)/);
+  assert.match(ui, /btn\("问问他", ask, !question\.trim\(\) \|\| !mine\.heard\.length, true\)/);
   // 换一条线就把陪听的人清掉：上一条线挑的人不该跟过来
   assert.match(ui, /resetPlayback\(\); setCompanion\(""\); select\(id\);/);
 });

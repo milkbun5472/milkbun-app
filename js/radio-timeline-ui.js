@@ -17,6 +17,8 @@
     const [lineIndex, setLine] = useState(-1);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [talkOpen, setTalkOpen] = useState(false);
+    // 纠正那一格默认收着（她 2026-09-13：「下面很多条条框框能不能收纳整齐一点」）
+    const [noteOpen, setNoteOpen] = useState(false);
     const [inputMode, setInputMode] = useState("talk");
     const [keepPlaying, setKeepPlaying] = useState(false);
     const cursor = useRef(-1), completed = useRef(-1);
@@ -137,106 +139,243 @@
       update(b.id, x => ({ ...x, talks: x.talks.concat({ companionId: companionId, question: q, answer: raw.say.trim() }) }));
       setQuestion("");
     }, !keepPlaying, keepPlaying);
-    const skin = { background: "#f1eade", color: "#39362f", fontFamily: F_BODY };
-    const inputStyle = { width: "100%", minWidth: 0, boxSizing: "border-box", padding: 12, border: "1px solid #c9beaa", borderRadius: 8, background: "#fffaf1", color: "#39362f", fontSize: 15 };
-    const btn = (label, click, disabled) => h("button", { type: "button", disabled: busy || disabled, onClick: click, style: { minHeight: 44, maxWidth: "100%", margin: "0 6px 8px 0", padding: "8px 12px", border: "1px solid #b9ac95", borderRadius: 6, background: "#fffaf1", color: "#39362f", opacity: busy || disabled ? .5 : 1 } }, label);
-    const field = (label, child) => h("label", { style: { display: "block", marginBottom: 14 } }, h("div", { style: { marginBottom: 6, fontSize: 13 } }, label), child);
+    // ── 界面：一台真的收音机（她 2026-09-13）───────────────────────────
+    // 她原话：「界面很丑……比如做个收音机然后左右两边有可以拧的按钮，然后下面也很多
+    // 条条框框能不能收纳整齐一点……反正就是还是换个 app 它形状还成立吗」。
+    // 所以这一页按【一台机器】来画，不是按一摞表单：
+    //   · 上半是机器正面（不滚）：左旋钮＝调频，中间是调谐窗，右旋钮＝声音；
+    //   · 下半只剩【正文】一件事（唯一的滚动区）；
+    //   · 原来那一摞按钮收成机器下沿的一排铜键（新章节／回听／陪听／纠正）。
+    // ⚠️配色跟旧电台同一份（RadioUI.NIGHT）：两块地方是同一台机器，不该是两个皮。
+    const NT = (root.RadioUI && root.RadioUI.NIGHT)
+      || { ink: "#efe7da", dim: "#a89a86", faint: "#6f6558", line: "rgba(239,231,218,.16)", warm: "#e3a86a" };
+    const BRASS = "#c9a15e";
+    const skin = { background: "linear-gradient(168deg,#3a2d23,#241c16 58%,#181310)", color: NT.ink, fontFamily: F_BODY };
+    const inputStyle = { width: "100%", minWidth: 0, boxSizing: "border-box", padding: 11, border: "1px solid " + NT.line,
+      borderRadius: 9, background: "rgba(12,10,9,.55)", color: NT.ink, fontSize: 15, fontFamily: F_BODY };
+    // 铜键：这一页所有按钮只有这一种（黄铜、方角、按下去暗一下）
+    const btn = (label, click, disabled, hot) => h("button", { type: "button", disabled: busy || disabled, onClick: click,
+      className: "active:opacity-60",
+      style: { minHeight: 44, maxWidth: "100%", margin: "0 6px 8px 0", padding: "9px 13px",
+        border: "1px solid " + (hot ? "rgba(201,161,94,.75)" : NT.line), borderRadius: 7,
+        background: hot ? "rgba(201,161,94,.14)" : "rgba(255,255,255,.03)",
+        color: hot ? BRASS : NT.ink, fontFamily: F_BODY, fontSize: 13,
+        opacity: busy || disabled ? .38 : 1 } }, label);
+    const field = (label, child) => h("label", { style: { display: "block", marginBottom: 14 } },
+      h("div", { style: { marginBottom: 6, fontSize: 12.5, color: NT.dim } }, label), child);
+    const title = (txt, style) => h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontSize: 17, color: NT.ink, margin: "0 0 8px" }, style || {}) }, txt);
+
+    // 旋钮：一颗能拧的钮。⚠️它只是【那几颗真键的脸】——真正可点的还是下面带名字的键，
+    //   不然读屏和自检都会摸到一颗没有名字的圆。拧到第几格用角度表示。
+    const knob = (o) => h("div", { style: { width: 56, flexShrink: 0, textAlign: "center" } },
+      h("div", { "aria-hidden": "true", style: {
+        width: 46, height: 46, margin: "0 auto", borderRadius: 999, position: "relative",
+        background: "radial-gradient(circle at 34% 28%, #6b584a, #2b221b 72%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,.18), 0 3px 8px rgba(0,0,0,.45)",
+        border: "1px solid rgba(0,0,0,.5)", transition: "transform .25s ease",
+        transform: "rotate(" + o.deg + "deg)"
+      } },
+        h("span", { style: { position: "absolute", left: "50%", top: 5, width: 2.5, height: 14, marginLeft: -1.25,
+          borderRadius: 2, background: BRASS, boxShadow: "0 0 6px rgba(201,161,94,.6)" } })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: NT.faint, marginTop: 7, letterSpacing: ".08em" } }, o.zh),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: BRASS, marginTop: 2 } }, o.val));
+
+    // 机器下沿那一排铜键：**一颗一行字**。⚠️不写死 nowrap 的话，「接收这个频率的新章节」
+    //   在 320 宽上会被挤成六行，那一排能长到两百多像素，底下那条就被顶出屏幕了。
+    const keyBtn = (label, click, disabled, hot) => h("button", { type: "button", disabled: busy || disabled, onClick: click,
+      className: "active:opacity-60",
+      style: { flexShrink: 0, minHeight: 40, padding: "8px 12px", whiteSpace: "nowrap",
+        border: "1px solid " + (hot ? "rgba(201,161,94,.75)" : NT.line), borderRadius: 7,
+        background: hot ? "rgba(201,161,94,.14)" : "rgba(255,255,255,.03)",
+        color: hot ? BRASS : NT.ink, fontFamily: F_BODY, fontSize: 12.5,
+        opacity: busy || disabled ? .38 : 1 } }, label);
+    // 只有名字看不见，名字本身一个字不少（见下面那条注释）
+    const SR = { position: "absolute", width: 1, height: 1, margin: -1, padding: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 };
+    const soundKey = (name, glyph, click, disabled) => h("button", { type: "button", disabled: disabled, onClick: click,
+      className: "active:opacity-60",
+      style: { minHeight: 30, width: 26, borderRadius: 6, border: "1px solid " + NT.line, background: "transparent",
+        color: disabled ? NT.faint : NT.dim, fontSize: 11, position: "relative", opacity: disabled ? .45 : 1 } },
+      // ⚠️键上那个符号【不能是字】：写成字的话 textContent 会变成「停暂停声音」，
+      //   读屏念一遍半，自检也认不出来。所以符号用画的（一条杠／两条杠／一个方块）。
+      h("span", { "aria-hidden": "true", style: Object.assign({ display: "block", margin: "0 auto" }, glyph) }),
+      h("span", { style: SR }, name));
+
+    // 机器正面：左调频、中调谐窗、右声音
+    const soundState = playing ? "念着" : lineIndex < 0 ? "静" : "停着";
+    // ⚠️画成【函数】不是常量：还没选频道时 branch 是空的，常量会在建线那一屏就先炸一次
+    const face = () => h("div", { className: "shrink-0", "data-radio-face": true, style: { padding: "6px 14px 0" } },
+      h("div", { style: {
+        borderRadius: 16, padding: "14px 12px 12px",
+        background: "linear-gradient(178deg,rgba(255,255,255,.06),rgba(0,0,0,.28))",
+        border: "1px solid " + NT.line, boxShadow: "inset 0 1px 0 rgba(255,255,255,.08)"
+      } },
+        h("div", { className: "flex items-center", style: { gap: 10 } },
+          // 左：调频（拧过去／拧回来都在这颗钮底下那两颗小键上）
+          h("div", null,
+            knob({ deg: -38 + frequency * 38, zh: "调频", val: currentEra.label }),
+            h("div", { className: "flex", style: { gap: 4, marginTop: 6, justifyContent: "center" } },
+              h("button", { type: "button", "aria-label": "往回拧", disabled: busy || frequency <= 0,
+                onClick: () => { resetPlayback(); tune(Math.max(0, frequency - 1)); },
+                className: "active:opacity-60",
+                style: { minHeight: 30, width: 26, borderRadius: 6, border: "1px solid " + NT.line, background: "transparent", color: NT.dim, fontSize: 12 } }, "◂"),
+              h("button", { type: "button", "aria-label": "往前拧", disabled: busy || frequency >= R.ERAS.length - 1,
+                onClick: () => { resetPlayback(); tune(Math.min(R.ERAS.length - 1, frequency + 1)); },
+                className: "active:opacity-60",
+                style: { minHeight: 30, width: 26, borderRadius: 6, border: "1px solid " + NT.line, background: "transparent", color: NT.dim, fontSize: 12 } }, "▸"))),
+          // 中：调谐窗。玻璃底下是频率、台名、和一根走到哪儿的细线
+          h("div", { className: "flex-1 min-w-0", style: {
+            borderRadius: 10, padding: "10px 12px", minWidth: 0, position: "relative",
+            background: "linear-gradient(180deg,rgba(240,217,168,.14),rgba(0,0,0,.4))",
+            border: "1px solid rgba(201,161,94,.28)", boxShadow: "inset 0 0 18px rgba(227,168,106,.12)"
+          } },
+            h("div", { className: "flex items-baseline", style: { gap: 5, flexWrap: "nowrap", whiteSpace: "nowrap" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1, color: NT.ink, letterSpacing: "-.02em" } }, currentEra.freq),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: NT.faint, flexShrink: 0 } }, "兆赫")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: BRASS, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              branch.name + (fragment ? " · " + fragment.title : "")),
+            // 走到第几句：一根细线，不摆数字条
+            h("div", { style: { height: 2, borderRadius: 2, marginTop: 8, background: "rgba(255,255,255,.09)", overflow: "hidden" } },
+              h("div", { style: { height: "100%", width: (queue.length ? Math.max(2, Math.round((lineIndex + 1) / queue.length * 100)) : 0) + "%", background: BRASS, transition: "width .3s ease" } })),
+            // ⚠️调频这一格仍然是个【真的 range】：读屏要摸得到，手指也能在窗上直接拖。
+            //   只是它不该画成一根灰色滑杆压在玻璃上——摊平铺在调谐窗上、透明，
+            //   看得见的是上面那根走针和左边那颗钮。
+            h("input", { type: "range", min: 0, max: R.ERAS.length - 1, step: 1, value: frequency, "aria-label": "调频",
+              disabled: busy, style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, margin: 0, cursor: "pointer" },
+              onChange: e => { resetPlayback(); tune(Number(e.target.value)); } })),
+          // 右：声音（三格——静、念一句、连着念）
+          // ⚠️键上画的是符号，可【名字要整整齐齐地在那儿】：读屏念的、自检认的都是
+          //   按钮的文字。所以文字照写，只是用 clip 收起来不占地方——
+          //   拿 aria-label 顶替会让 textContent 变成「停」，自检当场摸空（v67.71 踩过）。
+          h("div", null,
+            knob({ deg: playing ? 38 : lineIndex < 0 ? -38 : 0, zh: "声音", val: soundState }),
+            h("div", { className: "flex", style: { gap: 4, marginTop: 6, justifyContent: "center" } },
+              soundKey("朗读当前句（系统音色）", { width: 11, height: 2, borderRadius: 2, background: "currentColor" }, () => read(false), busy || lineIndex < 0),
+              soundKey("连续收听（系统音色）", { width: 11, height: 2, borderRadius: 2, background: "currentColor", boxShadow: "0 4px 0 currentColor", marginTop: -2 }, () => read(true),
+                busy || playing || (completed.current === lineIndex && lineIndex === queue.length - 1)),
+              soundKey("暂停声音", { width: 7, height: 7, borderRadius: 1.5, background: "currentColor" }, stop, busy || !playing)))),
+        // 喇叭网：一排细孔，机器的下半张脸
+        h("div", { "aria-hidden": "true", style: {
+          height: 16, marginTop: 11, borderRadius: 5, opacity: .5,
+          backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1.5px, transparent 1.5px 5px)"
+        } }),
+        // 机器下沿那一排铜键：原来散在正文里的那一摞，全收到这儿
+        h("div", { "data-radio-keys": true, className: "flex items-center", style: { gap: 6, marginTop: 10, overflowX: "auto", paddingBottom: 2 } },
+          keyBtn("接收这个频率的新章节", generate),
+          keyBtn("已听回放（" + heard.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setHistoryOpen(true); }, !heard.length),
+          keyBtn(noteOpen ? "收起纠正" : "这不像他", () => setNoteOpen(!noteOpen), !fragment, noteOpen),
+          h("select", { "aria-label": "谁陪你一起听", value: companionId, disabled: busy,
+            onChange: e => { stop(); setCompanion(e.target.value); },
+            style: { flexShrink: 0, minHeight: 40, padding: "0 8px", borderRadius: 7, border: "1px solid " + NT.line,
+              background: "rgba(255,255,255,.03)", color: companion ? BRASS : NT.dim, fontFamily: F_BODY, fontSize: 12.5, maxWidth: 150 } },
+            h("option", { value: "" }, "没有人，我自己听"),
+            (p.characters || []).map(c => h("option", { key: c.id, value: c.id },
+              c.id === branch.charId ? c.name + "（广播里的就是他）" : c.name))),
+          companion ? keyBtn("陪听对话（" + R.companionContext(branch, companion.id).talks.length + "）",
+            () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setTalkOpen(true); },
+            !R.companionContext(branch, companion.id).talks.length) : null,
+          companion ? h("label", { style: { flexShrink: 0, fontSize: 11.5, color: NT.faint, whiteSpace: "nowrap", display: "flex", alignItems: "center", minHeight: 40 } },
+            h("input", { type: "checkbox", checked: keepPlaying, disabled: busy, onChange: e => setKeepPlaying(e.target.checked), style: { marginRight: 5 } }), "聊天时节目继续播放") : null)));
+
     return h("div", { className: "h-full flex flex-col", style: skin, "data-radio-timeline": true },
-      h(Head, { zh: historyOpen ? "已听回放" : talkOpen ? "陪听对话" : "时间线电台", sub: historyOpen && fragment ? fragment.title : "平行故事 · 框架试用", bg: "transparent", ink: "#39362f", subInk: "#706552", lineInk: "#d7cdbb", onBack: back }),
-      h("div", { ref: scroll, "data-radio-scroll": true, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 16, overflowWrap: "anywhere" } },
+      h(Head, { zh: historyOpen ? "已听回放" : talkOpen ? "陪听对话" : "时间线电台",
+        sub: historyOpen && fragment ? fragment.title : (branch ? R.showOf(branch).label || branch.topic : "调到过去、现在或未来"),
+        bg: "transparent", ink: NT.ink, subInk: NT.faint, lineInk: NT.line, onBack: back }),
+      branch && !historyOpen && !talkOpen ? face() : null,
+      h("div", { ref: scroll, "data-radio-scroll": true, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 16px 20px", overflowWrap: "anywhere" } },
         historyOpen && fragment ? h("section", { "data-radio-history": true },
-          h("p", { style: { fontSize: 13 } }, "本章已听过的句子。选一句回到播放屏重听，未播内容不会提前展开。"),
-          paragraphs.map((rows, i) => h("p", { key: i, "data-radio-paragraph": true, style: { margin: "0 0 18px", lineHeight: 2, fontSize: 17 } },
+          h("p", { style: { fontSize: 12.5, color: NT.dim, lineHeight: 1.9, marginTop: 0 } }, "本章已听过的句子。选一句回到播放屏重听，未播内容不会提前展开。"),
+          paragraphs.map((rows, i) => h("p", { key: i, "data-radio-paragraph": true, style: { margin: "0 0 18px", lineHeight: 2.05, fontSize: 16.5, color: NT.ink } },
             rows.map(l => h("button", { key: l.fragmentId + ":" + l.index, "aria-label": "第" + (l.position + 1) + "句 · " + l.text,
               onClick: () => { showLine(l.position); setHistoryOpen(false); }, style: { display: "inline", padding: 0, border: 0, background: "transparent", color: "inherit", font: "inherit", lineHeight: "inherit", textAlign: "left", cursor: "pointer" } }, l.text + " ")))),
           btn("返回当前句", () => setHistoryOpen(false))
         ) : talkOpen && branch && companion ? h("section", { "data-radio-talk-history": true },
-          R.companionContext(branch, companion.id).talks.map((t, i) => h("div", { key: i, style: { lineHeight: 1.8, marginBottom: 18 } }, h("p", null, "你：" + t.question), h("p", null, companion.name + "：" + t.answer))),
+          R.companionContext(branch, companion.id).talks.map((t, i) => h("div", { key: i, style: { lineHeight: 1.85, marginBottom: 18 } },
+            h("p", { style: { margin: 0, color: NT.dim } }, "你：" + t.question),
+            h("p", { style: { margin: "4px 0 0" } }, companion.name + "：" + t.answer))),
           btn("返回电台", () => setTalkOpen(false))
         ) : !branch ? h(React.Fragment, null,
-          h("p", { style: { fontSize: 13, lineHeight: 1.8 } }, "调到过去、现在或未来，听见他的另一种可能。内容不会成为主线史实。"),
+          h("p", { style: { fontSize: 12.5, lineHeight: 1.9, color: NT.dim, marginTop: 0 } }, "调到过去、现在或未来，听见他的另一种可能。内容不会成为主线史实。"),
           field("想听谁的时间线", h("select", { style: inputStyle, value: charId, onChange: e => setChar(e.target.value) }, h("option", { value: "" }, "选择角色"), p.characters.map(c => h("option", { key: c.id, value: c.id }, c.name)))),
           field(show.tell === "story" ? "想听什么样的故事" : "想探索的事／分岔条件", h("textarea", { style: inputStyle, rows: 3, value: topic, onChange: e => setTopic(e.target.value) })),
           // ⚠️名字那一格是空白的：写「深夜怪谈」也行，写一个我们没想到的东西也行。
           //   代码只管下面这四根轴，不拿一张写死的类型表去顶替想象力。
-          h("h3", null, "这是一档什么节目"),
+          title("这是一档什么节目"),
           field("节目名（可留空）", h("input", { style: inputStyle, value: show.label, placeholder: "比如：深夜怪谈", onChange: e => setShow({ ...show, label: e.target.value }) })),
           R.SHOW_AXES.map(ax => field(ax.zh, h("select", { style: inputStyle, value: show[ax.key], onChange: e => setShow({ ...show, [ax.key]: e.target.value }) },
-            ax.opts.map(o => h("option", { key: o.id, value: o.id }, o.zh))))),
+            ax.opts.map(o => h("option", { key: o.id, value: o.zh === undefined ? o.id : o.id }, o.zh))))),
           field("已知设定与不想出现的内容（可留空）", h("textarea", { style: inputStyle, rows: 2, value: limits, onChange: e => setLimits(e.target.value) })),
-          btn("建立这条时间线", newBranch, !charId || !topic.trim()),
-          h("p", { style: { fontSize: 12 } }, "建立不调用模型；接收新片段和陪听回应时才各调用一次。"),
-          h("h3", null, "留在这里的频率"),
-          branches.map(b => h("div", { key: b.id, style: { marginBottom: 10 } },
+          btn("建立这条时间线", newBranch, !charId || !topic.trim(), true),
+          h("p", { style: { fontSize: 11.5, color: NT.faint, lineHeight: 1.8 } }, "建立不调用模型；接收新片段和陪听回应时才各调用一次。"),
+          title("留在这里的频率", { marginTop: 22 }),
+          branches.map(b => h("div", { key: b.id, style: { marginBottom: 6 } },
             btn(b.name + " · " + (R.showOf(b).label ? R.showOf(b).label + " · " : "") + b.topic, () => open(b.id)))),
           btn("打开旧电台", p.onLegacy)
         ) : h(React.Fragment, null,
-          h("h3", { style: { marginTop: 0 } }, branch.name + " · " + branch.topic),
-          (function () {
-            const sh = R.showOf(branch);
-            return h("p", { "data-radio-show": true, style: { fontSize: 12, marginTop: 0 } },
-              (sh.label ? sh.label + " · " : "") + R.SHOW_AXES.map(ax => (ax.opts.find(o => o.id === sh[ax.key]) || {}).zh).filter(Boolean).join(" · "));
-          })(),
-          h("p", { style: { fontSize: 12 } }, "角色卡与世界设定在建线时留存；修改角色卡后可新建一条线。"),
-          h("div", { style: { border: "1px solid #c6bba7", padding: 14, borderRadius: 10, background: "#e7ddca" } },
-            h("div", { style: { textAlign: "center", fontSize: 24 } }, currentEra.freq + " · " + currentEra.label),
-            h("input", { type: "range", min: 0, max: 2, step: 1, value: frequency, "aria-label": "调频", disabled: busy, style: { width: "100%", minHeight: 44, accentColor: "#876347" }, onChange: e => { resetPlayback(); tune(Number(e.target.value)); } }),
-            h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 12 } }, R.ERAS.map(x => h("span", { key: x.id }, x.label)))
-          ),
-          // ⚠️换人之后，新来的那位【从你切给他的那一句开始听】：前面那些他没在场，
-          //   heard 按 companionId 分账，所以这一条不用另写代码，它自己就成立。
-          field("谁陪你一起听", h("select", { style: inputStyle, value: companionId, disabled: busy,
-            onChange: e => { stop(); setCompanion(e.target.value); } },
-            h("option", { value: "" }, "没有人，我自己听"),
-            p.characters.map(c => h("option", { key: c.id, value: c.id },
-              c.id === branch.charId ? c.name + "（广播里的就是他）" : c.name)))),
-          btn("接收这个频率的新章节", generate),
-          branch.fragments.filter(x => x.era === currentEra.id && !x.insert).map(f => h("div", { key: f.id, style: { marginTop: 8 } }, btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); cursor.current = completed.current = -1; }))),
-          fragment ? h("section", { style: { marginTop: 16, padding: 14, background: "#fffaf1", borderRadius: 10 } },
-            h("h4", null, fragment.title),
-            h("p", { role: "status", style: { fontSize: 12 } }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话")),
-            current ? h("div", { "data-radio-current": true, "aria-live": "polite", style: { marginBottom: 14, lineHeight: 1.85 } },
-              h("small", null, (currentPart.call ? "插播 · " : "") + "第" + (lineIndex + 1) + "句 · " + (current.speaker || branch.name)),
-              h("div", null, current.text)) : null,
-            btn(lineIndex < 0 ? "开始收听这一句" : "继续下一句", nextLine, lineIndex >= queue.length - 1),
-            btn("已听回放（" + heard.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setHistoryOpen(true); }, !heard.length),
-            btn("连续收听（系统音色）", () => read(true), playing || (completed.current === lineIndex && lineIndex === queue.length - 1)),
-            btn("朗读当前句（系统音色）", () => read(false), lineIndex < 0), btn("暂停声音", stop, !playing),
-            field("这不像他？写下你的纠正", h("textarea", { style: inputStyle, rows: 2, value: correction, onChange: e => setCorrection(e.target.value), disabled: busy })),
-            btn("记作本分支约束", () => { update(branch.id, x => ({ ...x, corrections: x.corrections.concat(correction.trim()) })); setCorrection(""); }, !correction.trim()),
-            h("small", { style: { display: "block", lineHeight: 1.7 } }, "纠正用于之后的新片段，旧片段本版不自动重写。"),
+          // 这一屏只剩【正文】一件事：机器在上面，纸在下面
+          !fragment ? h("div", { style: { fontSize: 12.5, color: NT.faint, lineHeight: 2, paddingTop: 6 } },
+            "拧到 " + currentEra.label + "。按机器下沿那颗「接收这个频率的新章节」，这一格上就会有东西。",
+            branch.fragments.filter(x => x.era === currentEra.id && !x.insert).length
+              ? h("div", { style: { marginTop: 14 } },
+                h("div", { style: { fontSize: 11, color: NT.faint, marginBottom: 6 } }, "这一格上已经有的："),
+                branch.fragments.filter(x => x.era === currentEra.id && !x.insert).map(f =>
+                  h("div", { key: f.id }, btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); cursor.current = completed.current = -1; }))))
+              : null)
+          : h("section", null,
+            (function () {
+              const sh = R.showOf(branch);
+              return h("div", { "data-radio-show": true, style: { fontSize: 11, color: NT.faint, marginBottom: 4 } },
+                (sh.label ? sh.label + " · " : "") + R.SHOW_AXES.map(ax => (ax.opts.find(o => o.id === sh[ax.key]) || {}).zh).filter(Boolean).join(" · "));
+            })(),
+            h("div", { style: { fontSize: 11, color: NT.faint, marginBottom: 10 } },
+              h("span", { role: "status" }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话"))),
+            current ? h("div", { "data-radio-current": true, "aria-live": "polite", style: { marginBottom: 16 } },
+              h("small", { style: { color: BRASS, fontSize: 11 } }, (currentPart.call ? "插播 · " : "") + "第" + (lineIndex + 1) + "句 · " + (current.speaker || branch.name)),
+              h("div", { style: { fontSize: 16.5, lineHeight: 2.05, marginTop: 7, color: NT.ink } }, current.text)) : null,
             // 他心里那句「这人是不是我认识的某某」——没播到的电话等于没发生，所以播出去了才给她看。
             currentPart && currentPart.call && currentPart.guess && R.heardLines(branch, currentPart.id).length
-              ? h("p", { "data-radio-guess": true, style: { marginTop: 12, fontSize: 13, lineHeight: 1.8 } },
+              ? h("p", { "data-radio-guess": true, style: { marginTop: 12, fontSize: 13, lineHeight: 1.9, color: NT.dim, borderLeft: "2px solid " + NT.line, paddingLeft: 10 } },
                   "挂掉之后他心里那句：" + currentPart.guess)
-              : null
-          ) : null,
-          companion ? h("p", { style: { fontSize: 12 } }, "身边的" + companion.name + "只知道共同听见的内容；打进电台时，他仍留在这边陪听。") : null
+              : null,
+            // 纠正那一格默认是收着的：按「这不像他」才展开（她 2026-09-13 要的「合起来」）
+            noteOpen ? h("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px dashed " + NT.line } },
+              field("这不像他？写下你的纠正", h("textarea", { style: inputStyle, rows: 2, value: correction, onChange: e => setCorrection(e.target.value), disabled: busy })),
+              btn("记作本分支约束", () => { update(branch.id, x => ({ ...x, corrections: x.corrections.concat(correction.trim()) })); setCorrection(""); setNoteOpen(false); }, !correction.trim()),
+              h("small", { style: { display: "block", lineHeight: 1.8, color: NT.faint, fontSize: 11 } }, "纠正用于之后的新片段，旧片段本版不自动重写。")) : null,
+            // 这一格上的章节：正在听的那一条也留着（从头再听一遍走的就是它）
+            h("div", { style: { marginTop: 20, paddingTop: 12, borderTop: "1px dashed " + NT.line } },
+              h("div", { style: { fontSize: 11, color: NT.faint, marginBottom: 6 } }, "这一格上的章节："),
+              h("div", { className: "flex", style: { flexWrap: "wrap" } },
+                branch.fragments.filter(x => x.era === currentEra.id && !x.insert).map(f =>
+                  btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); cursor.current = completed.current = -1; }, false, f.id === fragment.id)))),
+            companion ? h("p", { style: { fontSize: 11.5, color: NT.faint, lineHeight: 1.9, marginTop: 18 } },
+              "身边的" + companion.name + "只知道共同听见的内容；打进电台时，他仍留在这边陪听。") : null)
         ),
-        busy ? h("p", { role: "status" }, "正在接收；不会自动重试。") : null,
-        error && (!branch || historyOpen || talkOpen) ? h("p", { role: "alert", style: { color: "#913d32", whiteSpace: "pre-wrap" } }, error) : null
+        busy ? h("p", { role: "status", style: { color: NT.dim, fontSize: 12.5 } }, "正在接收；不会自动重试。") : null,
+        error && (!branch || historyOpen || talkOpen) ? h("p", { role: "alert", style: { color: "#e08b76", whiteSpace: "pre-wrap", fontSize: 12.5 } }, error) : null
       ),
-      branch && !historyOpen && !talkOpen ? h("section", { "data-radio-composer": true, className: "shrink-0", style: { padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fffaf1", borderTop: "1px solid #c6bba7" } },
-        busy ? h("small", { role: "status" }, "正在接收；播放中的这一句会先说完。") : null,
-        error ? h("div", { role: "alert", style: { color: "#913d32", fontSize: 12, maxHeight: 60, overflowY: "auto", overflowWrap: "anywhere" } }, error) : null,
-        h("div", { style: { display: "flex", gap: 12, alignItems: "center", fontSize: 13 } },
-          h("strong", null, inputMode === "call" ? "正在接入故事" : companion ? "和" + companion.name + "聊聊" : "独自收听"),
+      // 底下那一条：往下走的那一键 + 说话那一格。⚠️整页只有这一条，不再是一摞
+      branch && !historyOpen && !talkOpen ? h("section", { "data-radio-composer": true, className: "shrink-0", style: { padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(10,8,7,.72)", borderTop: "1px solid " + NT.line } },
+        busy ? h("small", { role: "status", style: { color: NT.faint } }, "正在接收；播放中的这一句会先说完。") : null,
+        error ? h("div", { role: "alert", style: { color: "#e08b76", fontSize: 12, maxHeight: 60, overflowY: "auto", overflowWrap: "anywhere" } }, error) : null,
+        h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 2 } },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            btn(lineIndex < 0 ? "开始收听这一句" : "继续下一句", nextLine, !fragment || lineIndex >= queue.length - 1, true)),
           btn(inputMode === "call" ? "回到陪听" : "接入故事", () => setInputMode(inputMode === "call" ? "talk" : "call"), !fragment)),
         inputMode === "call" ? h("div", { "data-radio-callin": true },
-          h("p", { style: { fontSize: 12, margin: "0 0 6px" } }, "马甲：" + ((p.myMask && p.myMask.name) || "一个没报名字的人") + "。插播结束接回原文，原语音保留；陪听者不进入故事。"),
+          h("p", { style: { fontSize: 11.5, color: NT.faint, margin: "0 0 6px" } }, "马甲：" + ((p.myMask && p.myMask.name) || "一个没报名字的人") + "。插播结束接回原文，原语音保留；陪听者不进入故事。"),
           h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
             h("textarea", { "aria-label": "对着话筒说一句", placeholder: "对着话筒说一句…", style: { ...inputStyle, flex: 1 }, rows: 2, value: callSay, disabled: busy, onChange: e => setCallSay(e.target.value) }),
             btn("打进去", callIn, !fragment || !callSay.trim())))
         : companion ? (function () {
           const mine = R.companionContext(branch, companion.id), latest = mine.talks.at(-1);
+          // ⚠️底下这一条【只留一行】：小屏上（568 高）它一超过两行就把正文挤出屏幕。
+          //   他上一句回话收成一行，翻旧账和「边听边聊」那个勾都搬到机器下沿那一排去了。
           return h(React.Fragment, null,
-            latest ? h("div", { style: { maxHeight: 76, overflowY: "auto", lineHeight: 1.6, fontSize: 14 } }, companion.name + "：" + latest.answer) : null,
-            btn("陪听对话（" + mine.talks.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setTalkOpen(true); }, !mine.talks.length),
-            h("label", { style: { fontSize: 12 } }, h("input", { type: "checkbox", checked: keepPlaying, disabled: busy, onChange: e => setKeepPlaying(e.target.checked) }), "聊天时节目继续播放"),
+            latest ? h("div", { style: { lineHeight: 1.6, fontSize: 12.5, color: NT.faint, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, companion.name + "：" + latest.answer) : null,
             h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
               h("textarea", { "aria-label": "和他说一句", placeholder: "和他说一句…", style: { ...inputStyle, flex: 1 }, rows: 1, value: question, disabled: busy, onChange: e => setQuestion(e.target.value) }),
-              btn("问问他", ask, !question.trim() || !mine.heard.length)));
-        })() : h("small", null, "选一位陪听者，就能在这里边听边聊。")) : null);
+              btn("问问他", ask, !question.trim() || !mine.heard.length, true)));
+        })() : h("small", { style: { color: NT.faint } }, "选一位陪听者，就能在这里边听边聊。")) : null);
   }
   root.RadioTimelineScreen = RadioTimelineScreen;
 })(typeof window !== "undefined" ? window : globalThis);

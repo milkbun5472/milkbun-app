@@ -111,7 +111,15 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
       assert.equal(await page.evaluate(()=>qaCalls),1);
       const layout=await page.locator('[data-radio-timeline]').evaluate(el=>({w:el.clientWidth,scroll:el.scrollWidth,body:el.querySelector('[data-radio-scroll]').scrollHeight,view:el.querySelector('[data-radio-scroll]').clientHeight}));
-      assert.ok(layout.scroll<=width,JSON.stringify(layout));assert.ok(layout.body>layout.view);
+      assert.ok(layout.scroll<=width,JSON.stringify(layout));
+      // ⚠️v67.71 改版之后「正文一定超出一屏」不再成立：新章节／回放／陪听那几颗键都收进
+      //   机器面板了，正文区一次只摆一句话，短是**对的**。这一条真正要钉的是另一件事——
+      //   **整页只有一个纵向滚动容器，而且它就是正文那一块**（横向不许溢出那一条照旧）。
+      const scrollers=await page.locator('[data-radio-timeline]').evaluate(el=>
+        [...el.querySelectorAll('*')].filter(e=>{const s=getComputedStyle(e);
+          return (s.overflowY==='auto'||s.overflowY==='scroll')&&e.scrollHeight>e.clientHeight+1;})
+          .map(e=>e.hasAttribute('data-radio-scroll')?'body':(e.tagName+'.'+(e.className||''))));
+      assert.ok(scrollers.length<=1&&(scrollers[0]||'body')==='body',JSON.stringify(scrollers));
       await page.screenshot({path:'/tmp/lisa-timeline-'+width+'.png'});
       await page.getByRole('button',{name:'朗读当前句（系统音色）',exact:true}).click();
       await page.getByLabel('和他说一句').fill('继续聊');
