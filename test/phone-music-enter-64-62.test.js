@@ -13,9 +13,10 @@ test("落针/收针那套礼数只有一份，两处共用", () => {
   assert.match(app, /const roomMusicEnter = \(isMine, play\) => \{/);
   assert.match(app, /const roomMusicLeave = async isMine => \{/);
   // 情侣唱片和查手机都得走这一份——各写一份的话，第二处必然漏掉「暂借要还」那一半
-  assert.match(app, /roomMusicEnter\(discSpinning, \(\) => discPlay\(cid, discNextId\(cid\)\)\)/);
+  // v67.66：没歌的时候也要进这道门（只是不落针）——不然她原来那首没人记，出门就没了
+  assert.match(app, /roomMusicEnter\(discSpinning, has \? \(\) => discPlay\(cid, discNextId\(cid\)\) : null\)/);
   assert.match(app, /const discLeave = \(\) => roomMusicLeave\(discSpinning\);/);
-  assert.match(app, /roomMusicEnter\(phoneMusicMine\(cid\), \(\) => playSong\(from, ss\.map\(x => x\.id\)\)\)/);
+  assert.match(app, /roomMusicEnter\(phoneMusicMine\(cid\), from \? \(\) => playSong\(from, ss\.map\(x => x\.id\)\) : null\)/);
   assert.match(app, /const phoneMusicLeave = cid => roomMusicLeave\(phoneMusicMine\(cid\)\);/);
   // 那一半（进来前在放什么、放到哪儿、当时是不是真在放）必须留在共用那份里
   const seg = app.slice(app.indexOf("const roomMusicEnter"), app.indexOf("const discEnter = cid =>"));
@@ -41,7 +42,7 @@ test("下次进来接着上次那首的下一首，不是从头再来", () => {
   assert.equal(f.indexOf("ss[0].id;"), -1, "还是写死第一首");
   // 算得出下一首、落针那一步却没用它——第一版就是这么漏过去的
   const e = app.slice(app.indexOf("const phoneMusicEnter = cid => {"), app.indexOf("const phoneMusicLeave"));
-  assert.match(e, /const from = phoneMusicNextId\(cid\);/, "落针那一步没读针位，还是从头放");
+  assert.match(e, /const from = ss\.length \? phoneMusicNextId\(cid\) : null;/, "落针那一步没读针位，还是从头放");
   // 针位得真的有人记
   const eff = app.slice(app.indexOf("useEffect(() => {\n    const sid = player.songId;"), app.indexOf("}, [player.songId]);"));
   assert.match(eff, /lastId: sid/, "手机歌单的针位没人记，下次还是从头");

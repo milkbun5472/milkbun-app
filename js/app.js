@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.65";
+const APP_VERSION = "v67.66";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7144,6 +7144,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (side) return "gone";
     addMemEntry(Object.assign({ text: text, charIds: charIds, knownBy: charIds.slice() }, o.entry || {}));
     return "mem";
+  };
+
+  // 这一篇是在哪间房里发生的。线在 ChatRooms 那一层（房里那几张卡就是真相），
+  // 这儿只把聊天记录递给它——聊天在 chatsRef 手上。
+  const ficRoomOf = (charId, ficId) => {
+    const K = window.ChatRooms;
+    if (!K || typeof K.roomOfFic !== "function" || !charId || !ficId) return null;
+    return K.roomOfFic(charId, ficId, key => chatsRef.current[key] || []);
   };
 
   // ---- summary check ----
@@ -18045,6 +18053,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   而那一半正是她 2026-09-02 亲自抓出来的（「出来音乐会停，但我原来的悬浮
   //   播放器也跟着没了」）。isMine 是唯一的差异：怎么认出【现在响的是这一层的歌】。
   const roomMusicRef = useRef(null);
+  // ⚠️play 可以不传（她 2026-09-12 报的那个）：进来的时候这一层**还没有歌**
+  //   （唱片是空的／他那张歌单还没刷出来）。原来那两处是「没歌就直接 return」，
+  //   于是**连她原来放着什么都没记下来**；可她进来之后完全可能刻一首、刷一张出来，
+  //   一放就变成「这一层的歌」，出门那一下 roomMusicLeave 认得是这一层的、
+  //   却没有东西可还——只好 stopPlayer()，她自己的歌就这么没了。
+  //   所以【记一份】和【落针】是两件事：没歌可放也要先记，礼数那一半才还得回去。
   const roomMusicEnter = (isMine, play) => {
     if (isMine()) return;                     // 已经在放这一层的歌了，别打断
     const prevId = playerSongIdRef.current;
@@ -18057,7 +18071,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       t: (el && el.currentTime) || 0,
       playing: !!(el && !el.paused)
     } : null;
-    play();
+    if (typeof play === "function") play();
   };
   const roomMusicLeave = async isMine => {
     if (!isMine()) { roomMusicRef.current = null; return; }  // 这一层压根没落针：她自己的歌照放，别动
@@ -18073,8 +18087,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!prev.playing) { el2.pause(); setPlayer(p => ({ ...p, playing: false })); } // 原来是暂停的就还它一个暂停
   };
   const discEnter = cid => {
-    if (!discSongsOf(cid).length) return;
-    roomMusicEnter(discSpinning, () => discPlay(cid, discNextId(cid)));  // 接着上次那首往下放
+    // 唱片是空的也要进这道门：不落针，但把她原来那首记下来（见 roomMusicEnter 上面那段）。
+    // 她在空间里刻一首、放起来，出门时那首才还得回去。
+    const has = discSongsOf(cid).length;
+    roomMusicEnter(discSpinning, has ? () => discPlay(cid, discNextId(cid)) : null);  // 接着上次那首往下放
   };
   const discLeave = () => roomMusicLeave(discSpinning);
   // ── 查手机：进了谁的手机就放他那张歌单 ──────────────────────────────────
@@ -18100,9 +18116,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const phoneMusicEnter = cid => {
     const pl = phonePlaylistOf(cid);
     const ss = (pl && pl.songs) || [];
-    if (!ss.length) return;
-    const from = phoneMusicNextId(cid);
-    roomMusicEnter(phoneMusicMine(cid), () => playSong(from, ss.map(x => x.id)));
+    // ⚠️他那张歌单还没刷出来时同理（唱片那边一模一样的形状，所以一起改——
+    //   施工规则/one-public-mechanism.md：已有的那几处也要搬过去）：
+    //   她在他手机里刷出一张歌单、点开一首，出门那一下才还得回她自己的歌。
+    const from = ss.length ? phoneMusicNextId(cid) : null;
+    roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null);
   };
   const phoneMusicLeave = cid => roomMusicLeave(phoneMusicMine(cid));
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
@@ -20582,11 +20600,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ficId: String((meta && meta.ficId) || ""), ficTitle: String((meta && meta.ficTitle) || "").slice(0, 60) }]);
       return { roomId: room.id, roomName: room.name };
     },
-    // 「只记一笔」：也是 0 枪，也是她按了才发生
-    onNoteChapter: (charId, text) => {
-      if (!charId || !String(text || "").trim()) return;
-      addMemEntry({ text: String(text).trim().slice(0, 200), charIds: [charId], source: "fanfic" });
+    // 「只记一笔」：也是 0 枪，也是她按了才发生。
+    // ⚠️v67.66 起它**落在这一篇发生的那间房**（她 2026-09-12：「同人文只记一笔也该落在
+    //   它发生的那间房」）。跟小游戏、一起读走同一个落点函数 keepWhereItHappened——
+    //   这一层只负责回答「哪间房」，写哪儿的规矩只有那一份。
+    //   这一篇没进过任何一间房（她自己在同人文里写的）→ roomId 是 "main"，照旧进记忆库。
+    onNoteChapter: (charId, text, ficId) => {
+      if (!charId || !String(text || "").trim()) return null;
+      const hit = ficRoomOf(charId, ficId);
+      const where = keepWhereItHappened({
+        text: String(text).trim().slice(0, 200), charIds: [charId],
+        roomId: hit ? hit.roomId : "main", personId: charId,
+        entry: { source: "fanfic" }
+      });
+      return { where: where, roomName: hit ? hit.name : "" };
     },
+    // 这一篇在哪间房里发生过（给界面上那颗按钮写清楚这一笔要落在哪儿）
+    ficRoomOf: ficRoomOf,
     onBack: () => setScreen("home")
   });else if (screen === "weekly") body = h(WeeklyApp, {
     active: active,

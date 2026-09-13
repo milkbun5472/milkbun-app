@@ -3751,6 +3751,8 @@
         fic: f, chapIdx: fileIdx,
         chars: (props.fwdChars || props.characters || []).filter(function (c) { return c && !c.npc; }),
         defaultCharId: ((f.chapters || [])[fileIdx] || {}).byCharId || "",
+        // 房↔文那根线（v67.66）：那颗「只记一笔」要写清楚这一笔落在哪儿
+        ficRoomOf: props.ficRoomOf,
         onClose: function () { setFileIdx(-1); },
         onFile: function (c, noteOnly, roomPick) {
           if (!c) return;
@@ -3759,8 +3761,13 @@
           const mine = ch2.byCharId === c.id;
           const nm = c.remark || c.name;
           if (noteOnly) {
-            props.onNoteChapter && props.onNoteChapter(c.id, window.Fanfic.chapterNote(f, i, nm, mine, props.userName));
-            setFiledNote("记了一笔");
+            // v67.66：这一笔落在【这一篇发生的那间房】；没进过房的照旧进记忆库。
+            // 回执照实说落在哪儿——「记了一笔」三个字在两种落点下都成立，等于什么都没说。
+            const rn = props.onNoteChapter && props.onNoteChapter(c.id, window.Fanfic.chapterNote(f, i, nm, mine, props.userName), f.id);
+            const wh = rn && rn.where;
+            setFiledNote(wh === "room" ? "记进了「" + (rn.roomName || "那间房") + "」——只在那儿算数"
+              : wh === "gone" ? "这一篇挂着的那间房已经不在了，没处记"
+              : "记了一笔");
           } else {
             // 卡上要露的那几样（她 2026-09-11：「把我转发给他的也做成卡吧」）——
             // 跟转发那张同一套字段，所以共用同一张卡
@@ -3934,6 +3941,9 @@
       return { id: roomId, name: "" };
     };
     const mine = !!(ch.byCharId && picked && ch.byCharId === picked.id);
+    // 这一篇在他那儿发生在哪间房（v67.66）：按钮上要写清楚这一笔会落在哪儿，
+    // 不能还写着「不进房间」——那已经不是它做的事了。
+    const noteRoom = (props.ficRoomOf && picked) ? props.ficRoomOf(picked.id, f.id) : null;
     const btn = function (label, primary, onClick) {
       return h("button", { onClick: onClick, disabled: !picked, className: "w-full active:opacity-80",
         style: { fontFamily: F_BODY, fontSize: primary ? 14 : 13, minHeight: primary ? 46 : 42, borderRadius: 12, marginTop: primary ? 0 : 8,
@@ -3986,7 +3996,8 @@
               color: t.ink, border: "none", borderBottom: "1px solid " + t.line } }) : null) : null),
       h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         btn(mine ? "记进他那间房" : "拿给他看", true, function () { props.onFile(picked, false, roomTarget()); }),
-        btn("只记一笔（不进房间）", false, function () { props.onFile(picked, true); })));
+        btn(noteRoom ? "只记一笔（记在「" + noteRoom.name + "」里）" : "只记一笔（进你的记忆库）",
+          false, function () { props.onFile(picked, true); })));
   }
 
   // ---------- 转发选人 sheet ----------

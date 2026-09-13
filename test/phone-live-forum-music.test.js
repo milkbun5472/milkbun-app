@@ -127,9 +127,14 @@ test("情侣唱片进空间一律落针，离开只收自己的针", () => {
   // v64.62：礼数抽成了共用的 roomMusicEnter（情侣唱片 / 查手机两处用），
   // 于是那两道闸分在两处：「这对没有唱片」留在 discEnter，「已经在转」变成
   // 共用那份里的 isMine()。要冻的还是同一件事——**不许有第三道**。
+  // v67.66：「这对没有唱片」不再是一道 return——她 2026-09-12 报的那个正是它造成的：
+  // 直接 return 等于**连她原来放着什么都没记下来**，她在空间里刻一首放起来，
+  // 出门那一下就只剩 stopPlayer()，她自己的歌没了。现在没歌是【不落针、但照样记一份】
+  // （play 传 null）。要冻的还是同一件事：不许有第三道闸、更不许有「播放器忙就不落针」。
   const guards = m[0].match(/if \(.*?\) return;/g) || [];
-  assert.deepEqual(guards, ["if (!discSongsOf(cid).length) return;"],
-    "discEnter 只许有这一道闸：这对没有唱片——别再加「播放器忙就不落针」");
+  assert.deepEqual(guards, [], "discEnter 里又长出闸了——没歌也得先进门记一份");
+  assert.match(m[0], /roomMusicEnter\(discSpinning, has \? \(\) => discPlay\(cid, discNextId\(cid\)\) : null\)/,
+    "有歌才落针、没歌也要记一份，这一句是那件事的全部");
   const shared = appSrc.match(/const roomMusicEnter = \(isMine, play\) => \{[\s\S]*?\n  \};/);
   assert.ok(shared, "找不到共用那份 roomMusicEnter");
   assert.deepEqual(shared[0].match(/if \(.*?\) return;/g) || [], ["if (isMine()) return;"],

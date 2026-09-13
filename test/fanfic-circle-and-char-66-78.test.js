@@ -151,7 +151,11 @@ test("角色来写：接到界面上了，而且写完这件事会留下", () =>
   assert.ok(fic.indexOf("onCharWrote") < 0 && app.indexOf("onCharWrote") < 0, "自动往主线记忆库写那一条又长回来了");
   assert.match(fic, /ch\.byCharId \? "记进房间" : "拿给他看"/, "她按一下才发生的那颗键没了");
   assert.match(app, /onFileChapter: \(charId, card, pick, meta\) => \{/);
-  assert.match(app, /addMemEntry\(\{[\s\S]{0,200}charIds: \[charId\], source: "fanfic"/);
+  // ⚠️v67.66 换了落点（她 2026-09-12）：「只记一笔」落在**这一篇发生的那间房**，
+  //   没进过房的才进记忆库。所以这儿冻的不再是 addMemEntry，是那个公共落点函数——
+  //   写哪儿的规矩只有 keepWhereItHappened 一份（小游戏／一起读／同人文共用）。
+  assert.match(app, /onNoteChapter: \(charId, text, ficId\) => \{/);
+  assert.match(app, /keepWhereItHappened\(\{[\s\S]{0,240}entry: \{ source: "fanfic" \}/);
   // relOf 只给状态不给数字这件事，是在 app 那头就定的
   // ⚠️v67.17 它从 props 里那一处**搬去了公共的 relOfChar**：房里那一枪原来传的是
   //   charRel: null，同一件事写在两处、第二处是个 null。所以这儿认的是那个名字。

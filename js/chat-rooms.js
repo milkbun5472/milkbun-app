@@ -494,6 +494,29 @@
       .sort(function (a, b) { return (a[0].ts - b[0].ts) || (a[1] - b[1]); })
       .map(function (x) { return x[0]; });
   }
+  // 房↔文那根线的【反向】：这一篇是在哪间房里发生的（她 2026-09-12 点名要先补的那根线）。
+  // ⚠️不另存一份「文→房」的表。房里那几张卡本来就是这件事的真相——ficMarks 认的就是
+  //   消息上的 ficId，onFileChapter 放进去的那张 ficshare 带着它，房里那张 ficinvite 也带着它。
+  //   另存一份就是又一处要同步的地方（施工规则/one-public-mechanism.md）。
+  // ⚠️同一篇进过好几间房时，认【最近一次进的那间】：这一章刚在哪儿聊过，它就发生在哪儿。
+  // getChat(chatKey) 由调用方给（聊天记录在 app 那头），这一层只管认。
+  function roomOfFic(personId, ficId, getChat) {
+    const pid = String(personId == null ? "" : personId);
+    const fid = String(ficId == null ? "" : ficId).trim();
+    if (!pid || !fid || typeof getChat !== "function") return null;
+    let best = null;
+    list(pid).forEach(function (r) {
+      if (!r || r.main) return;
+      const msgs = getChat(chatKey(pid, r.id)) || [];
+      let ts = 0;
+      (Array.isArray(msgs) ? msgs : []).forEach(function (m) {
+        if (m && String(m.ficId == null ? "" : m.ficId).trim() === fid) ts = Math.max(ts, Number(m.ts) || 0);
+      });
+      if (!ts) return;
+      if (!best || ts > best.ts) best = { roomId: r.id, personId: pid, name: String(r.name || ""), ts: ts };
+    });
+    return best;
+  }
   // 现在在聊哪一本：最后一个标记说了算（她刚挑的，或者刚放进来的那张卡）
   function currentFicId(messages, pick) {
     const marks = ficMarks(messages, pick);
@@ -526,5 +549,5 @@
   }
 
   return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt,
-    ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, ficTrack };
+    ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });
