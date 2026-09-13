@@ -404,6 +404,13 @@
     const [arching, setArching] = useState(false);
     const archOf = id => archs[id] || null;
     const put = fn => setBook(p => { const n = fn(p); if (M.save(n)) return n; props.toast("这次没保存成功，原印象还在"); return p; });
+    // ⚠️补齐是一个 await 接一个 await 的长循环，而这中间 book 这个 state 在闭包里【不会变】。
+    //   她 2026-09-13 报「补齐两个月，七月出来的时候等于把八月又写了一遍」：
+    //   写存档那一步本来就是按月份合并的（不会真盖掉），可【喂给模型的那份料】用的是
+    //   循环开始时的旧 book——七月压根不知道八月已经写完了，于是「往期不许重复」里没有它，
+    //   两张自然撞成一张。所以取料一律走 ref，不许再读闭包里那份。
+    const bookRef = React.useRef(book);
+    bookRef.current = book;
     // ⚠️imgSrc 不是全局的：它是 theater.js 自己内部声明的（js/theater.js 里那份）。
     // 照抄用法却没带上定义，一进这个页面就 ReferenceError、整个 App 白屏（她 2026-08-20 撞到）。
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
@@ -507,7 +514,7 @@
       setBusy(charId + monthKey);
       try {
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
-        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, M.genOpts(book, charId, monthKey, 0));
+        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, M.genOpts(bookRef.current, charId, monthKey, 0));
         let img = null;
         // 图出不来不算失败：字才是主体，剪影可以之后单独补
         try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
@@ -539,7 +546,7 @@
         const turn = Number(entry.turn || 0) + 1;
         // 自己上一版单独作为 last 传进去（不是混进 past 末尾——那样会被 slice 切掉）
         const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText,
-          M.genOpts(book, charId, entry.monthKey, turn, entry));
+          M.genOpts(bookRef.current, charId, entry.monthKey, turn, entry));
         put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
           ? Object.assign({}, x, M.entryOf(d, entry.monthKey, x.img, turn), { id: x.id, ts: x.ts }) : x) }));
         props.toast("换了个写法，剪影没动");
@@ -556,7 +563,7 @@
         const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName, props.groups, await ensureArch(charId));
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
         const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText,
-          M.genOpts(book, charId, entry.monthKey, Number(entry.turn || 0)));
+          M.genOpts(bookRef.current, charId, entry.monthKey, Number(entry.turn || 0)));
         put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
           ? Object.assign({}, x, { moment: d.moment, shift: d.shift, him: d.him, firstShift: d.firstShift }) : x) }));
         props.toast("背面写好了，正面没动");
@@ -577,7 +584,7 @@
       // 整段包起来：以前任何一步抛出去，外面没人接，表现就是"点了没反应"
       try {
         const arch = await ensureArch(charId);              // 先把云端归档拉齐，再判断哪些月有素材
-        const have = new Set((book[charId] || []).map(x => x.monthKey));
+        const have = new Set((bookRef.current[charId] || []).map(x => x.monthKey));
         const all = M.prevMonths(12);                       // 已经过完的 12 个月
         const missing = all.filter(k => !have.has(k));
         want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName, props.groups, arch).length >= 6);
@@ -597,6 +604,8 @@
           want.reverse();
           let done = 0;
           for (const k of want) {
+            // 这一轮里已经写出来的月份不再碰（比如她中途自己点了那一张）
+            if ((bookRef.current[charId] || []).some(x => x.monthKey === k)) { done++; continue; }
             const ok = await make(charId, k, { quiet: true });
             if (!ok) { props.toast("补到 " + M.monthLabel(k) + " 时停下了，已写好 " + done + " 个"); return; }
             done++; props.toast("已补 " + done + "/" + want.length, 1200);
