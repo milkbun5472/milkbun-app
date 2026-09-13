@@ -9,8 +9,8 @@ const rows=new Function('h','TransText','F_BODY','list',`const recent=list,peopl
 test('通话窗口16→17→40条：同一条key稳定，新消息不继承旧位置',()=>{
  // 消息形状钉在真实通话写入方；无需假造不存在的消息id。
  const app=fs.readFileSync('js/app.js','utf8');
- assert.match(app,/msgs: \[\.\.\.c.msgs, \{ ts: Date.now\(\), \.\.\.line \}\]/);
- const list=Array.from({length:40},(_,i)=>({role:i%2?'user':'char',content:'message '+i,ts:i}));
+ assert.match(app,/msgs: \[\.\.\.c.msgs, \{ ts: Date.now\(\), turnId: callTurnId, \.\.\.line \}\]/);
+ const list=Array.from({length:40},(_,i)=>({role:i%2?'user':'char',content:'message '+i,ts:i,turnId:'session:'+Math.floor(i/2)}));
  const a=rows(h,()=>{},'sans',list.slice(0,16));
  const b=rows(h,()=>{},'sans',list.slice(0,17));
  assert.match(src,/const recent = list;/);

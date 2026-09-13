@@ -575,6 +575,7 @@
     couple_rooms: "couple", couple_wall: "couple", couple_kept: "couple",
     couple_days: "couple", makeup: "couple",
     stepin: "fanfic",
+    radio_legacy: "radio",
     shop: "phone"
   };
   E.forEach(function (e) { e.app = APP_OF[e.id] || e.id; });

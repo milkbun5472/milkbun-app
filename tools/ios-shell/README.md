@@ -52,6 +52,16 @@
   App 切后台后系统对原生壳比对 Safari 标签页宽容得多，回来基本不重载。
 - 站点更新不用重装壳：壳只是浏览器，刷新即最新版。
 
+## 通话语音识别权限
+
+麦克风和语音识别是两个独立权限。壳的 Info.plist 必须同时包含
+`NSMicrophoneUsageDescription` 和 `NSSpeechRecognitionUsageDescription`；
+缺少后者时，WKWebView 的语音识别可能直接报 `service-not-allowed`。
+本次补齐的是壳配置，网页刷新不能更新它：在同一个工程、同一个 Bundle Identifier 下
+按 Run 覆盖安装即可，**不要删除 App**，保留原沙盒与存档。
+安装后点通话麦克风，允许系统语音识别授权。若仍被拒绝，检查系统对本 App 的
+语音识别权限以及听写是否可用；真机授权与实际收音仍需在手机上验证。
+
 ## 图片保险仓
 
 壳内生成/导入的聊天自拍除了网页 IndexedDB，还会镜像到 App 自己的

@@ -13,10 +13,12 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 //   群线下      calc(env(safe-area-inset-bottom) * 0.4 + 4px)
 // iPhone 上安全区约 34px，单聊线下就比线上高了二十多像素。
 
-test("三条输入栏的下内边距用同一个常量，谁也不许自己写一份", () => {
+test("聊天、两条线下和通话输入栏的下内边距共用常量", () => {
   assert.match(engine, /const COMPOSER_PAD_BOTTOM = "calc\(env\(safe-area-inset-bottom\) \* 0\.4\)"/);
   const uses = comp.match(/paddingBottom: COMPOSER_PAD_BOTTOM/g) || [];
-  assert.equal(uses.length, 3, "线上单聊 / 单聊线下 / 群线下，一处都不能漏");
+  assert.equal(uses.length, 4, "线上单聊 / 单聊线下 / 群线下 / 通话，一处都不能漏");
+  const callScreen = comp.slice(comp.indexOf('function CallScreen(')).split('\nfunction ')[0];
+  assert.match(callScreen, /paddingBottom: COMPOSER_PAD_BOTTOM/);
   // 旧的三份各写各的必须已经删掉，不是在旁边留着
   assert.doesNotMatch(comp, /paddingBottom: "calc\(env\(safe-area-inset-bottom\)[^"]*\)", marginBottom: kbLift/);
 });

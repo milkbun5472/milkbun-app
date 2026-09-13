@@ -9,15 +9,16 @@ const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "scripts", "bump-version.mjs"), "utf8");
 
 test("算号时要把远端也算进来", () => {
-  assert.match(src, /git fetch --quiet origin main/, "发版前没有现拉一次远端");
-  assert.match(src, /git log --format=%s origin\/main -60/, "没读远端的提交标题");
-  assert.match(src, /git show origin\/main:js\/app\.js/, "没读远端的 APP_VERSION");
-  assert.match(src, /git show origin\/main:index\.html/, "没读远端的指纹");
+  assert.match(src, /git rev-parse --abbrev-ref main@\{upstream\}/, "远端应按本仓 upstream 解析，不能写死 origin");
+  assert.match(src, /git fetch --quiet " \+ REMOTE \+ " main/, "发版前没有现拉一次远端");
+  assert.match(src, /git log --format=%s " \+ REMOTE_MAIN \+ " -60/, "没读远端的提交标题");
+  assert.match(src, /git show " \+ REMOTE_MAIN \+ ":js\/app\.js/, "没读远端的 APP_VERSION");
+  assert.match(src, /git show " \+ REMOTE_MAIN \+ ":index\.html/, "没读远端的指纹");
 });
 
 test("读远端文件必须给足 maxBuffer——app.js 一个多兆", () => {
   // 默认 1MB 会抛错，而那几处都包在 try 里：闸看着在，其实从没关上过
-  const shows = src.match(/execSync\("git show origin\/main:[^"]+", \{[^}]*\}/g) || [];
+  const shows = src.match(/execSync\("git show " \+ REMOTE_MAIN \+ ":[^"]+", \{[^}]*\}/g) || [];
   assert.ok(shows.length >= 3, "读远端文件的地方少了：" + shows.length);
   shows.forEach(x => assert.match(x, /maxBuffer: 64 \* 1024 \* 1024/, "这一处没给 maxBuffer：" + x.slice(0, 60)));
 });
