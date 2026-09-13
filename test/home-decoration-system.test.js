@@ -206,7 +206,9 @@ test("装饰可以独立倾斜：自然预设、细调、持久化与防裁切�
   assert.match(home, /tilt: normalizeHomeDecorTilt\(A\.tilt\)/, "builder 没把倾斜写进去");
   assert.match(home, /setStyleDecorTilt\(normalizeHomeDecorTilt\(d\.tilt\)\)/,
     "旧装饰再次打开时必须读回自己的角度");
-  assert.match(home, /overflow: it\.kind === "decor" \? "visible"/,
+  // v67.82：组件也可能被她歪过（她 2026-09-13：「角还是消掉了」），所以这一层的判据
+  //   从「是不是装饰」放宽成「是不是歪的」——装饰照旧永远放开。
+  assert.match(home, /overflow: \(it\.kind === "decor" \|\| tiltDeg\) \? "visible"/,
     "装饰旋转后不得被占格边缘裁掉四角");
   assert.match(home, /transform: isDrag \? "scale\(1\.08\)"/,
     "拖动缩放应继续留在网格外层，与装饰旋转互不覆盖");

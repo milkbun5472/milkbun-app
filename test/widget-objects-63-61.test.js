@@ -216,7 +216,7 @@ test("组件比格子矮时不再被拉满，多出来的空白靠哪儿由她�
   //   高度 fixedH + 两倍 bleed、padding 一倍、margin 负一倍（border-box）＝占位和内容尺寸原样。
   assert.match(comp, /height: fixedH \? fixedH \+ HOME_TILT_BLEED \* 2 : undefined,/, "格子的高度被动过了");
   assert.match(comp, /padding: fixedH \? HOME_TILT_BLEED : undefined,\n\s*margin: fixedH \? -HOME_TILT_BLEED : undefined,/, "占位被改大了（少了负 margin 那一半）");
-  assert.match(comp, /overflow: fixedH \? "hidden" : undefined,/, "格子的高度被动过了");
+  assert.match(comp, /overflow: tiltDeg \? "visible" : \(fixedH \? "hidden" : undefined\),/, "格子的高度被动过了");
   assert.match(comp, /const HOME_ALIGN_CSS = \{ top: "flex-start", center: "center", bottom: "flex-end" \};/);
   assert.match(comp, /justifyContent: HOME_ALIGN_CSS\[homeAlignOf\(key, widgetAligns\)\]/, "格子里没有按对齐站位");
   // ⚠️面板里那三个小图也有一模一样的三件套，所以这条必须钉在【格子那一处】上；

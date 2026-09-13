@@ -38,8 +38,10 @@ test("只把裁剪框往外挪，占位和内容尺寸一个都不许变", () =>
   assert.match(seg, /padding: fixedH \? HOME_TILT_BLEED : undefined,/);
   assert.match(seg, /margin: fixedH \? -HOME_TILT_BLEED : undefined,/);
   // 裁剪本身照旧（那句「会盖住邻居」的理由还在）
-  assert.match(seg, /overflow: fixedH \? "hidden" : undefined,/);
-  assert.ok(!/overflow: fixedH \? "visible"/.test(seg), "把裁剪放开了——装饰会画到邻居头上");
+  // v67.82：没歪的那些照旧一寸不让；歪过的那几张两层都放开——6px 借不出一张宽卡歪 3° 要的九像素，
+  //   而且组件还压着第二层裁剪（inner），只放开外面那一层等于没改（她第二次报「角还是消掉了」）。
+  assert.match(seg, /overflow: tiltDeg \? "visible" : \(fixedH \? "hidden" : undefined\),/);
+  assert.match(comp, /overflow: \(it\.kind === "decor" \|\| tiltDeg\) \? "visible"/, "里面那一层还在原地裁");
   // 没定高的那几格（自己决定高度的）一个字都没动
   assert.match(seg, /height: fixedH \? fixedH \+ HOME_TILT_BLEED \* 2 : undefined/);
 });
@@ -50,4 +52,14 @@ test("主屏那几样「不许动」的东西，这一版一个都没碰", () =>
   assert.match(comp, /className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col"/, "内容区那个 pt-3 被动了");
   assert.match(comp, /paddingBottom: "calc\(env\(safe-area-inset-bottom\) \+ 26px\)"/, "底下那排快捷栏的安全区被动了");
   assert.match(comp, /const HOME_PAD_X = 12;/, "主屏左右边距被动了");
+});
+
+test("判据是【她歪过没有】，不是【是不是装饰】（组件也会被歪）", () => {
+  // 她 2026-09-13 第二次报「角还是消掉了」：那张卡是【组件】（情侣空间），
+  // 而 v67.79 只放开了外面那一层，组件的 inner 照旧 hidden——等于没改。
+  assert.match(comp, /var tiltDeg = look \? normalizeHomeDecorTilt\(look\.tilt\) : 0;/);
+  // 歪的角度本来就有闸（±12），所以这条判据不会被一个离谱的值撑开
+  assert.match(comp, /return Math\.max\(-12, Math\.min\(12, Math\.round\(n\)\)\);/);
+  // 没歪的照旧一寸不让：那句「会盖住邻居」的顾虑对方方正正的卡仍然成立
+  assert.match(comp, /overflow: tiltDeg \? "visible" : \(fixedH \? "hidden" : undefined\),/);
 });

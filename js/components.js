@@ -5483,6 +5483,14 @@ function Home({
     //   （borderMode 默认「细边」），拿一个空对象喂进去等于给全桌面每个组件凭空画一圈边。
     //   所以这儿问的是 widgetLooks[key] 在不在，不是 lookOf(key) 有没有返回对象。
     var look = it.kind === "decor" ? it.decor : (it.kind === "widget" && widgetLooks[key]) ? lookOf(key) : null;
+    // 这一张她自己歪过没有（她 2026-09-13 第二次报：「角还是消掉了」）。
+    // ⚠️v67.79 只把【外面那一格】的裁剪框往外让了 6px，可组件还压着【第二层】裁剪
+    //   （下面那个 inner 外壳：装饰是 visible，组件是 hidden）——第二层照旧卡在原来那个方框上，
+    //   所以那一版对组件等于没改。「一层写在两处，第二处没跟上」的又一例。
+    // ⚠️而且 6px 也不够：一张 340 宽的卡歪 3°，上下各要多出九像素。缝只有 8px，借不出来。
+    //   所以歪过的那几张【两层都放开】——旁边那句「会盖住邻居」的顾虑对【方方正正】的卡成立，
+    //   可她把这张卡特意歪过来，要的就是叠着的样子；没歪的那些照旧一寸不让。
+    var tiltDeg = look ? normalizeHomeDecorTilt(look.tilt) : 0;
     if (look) {
       presetStyle = Object.assign({}, presetStyle || {
         width: "100%", height: "100%", minWidth: 0, minHeight: 0,
@@ -5524,7 +5532,7 @@ function Home({
         height: fixedH ? fixedH + HOME_TILT_BLEED * 2 : undefined,
         padding: fixedH ? HOME_TILT_BLEED : undefined,
         margin: fixedH ? -HOME_TILT_BLEED : undefined,
-        overflow: fixedH ? "hidden" : undefined,
+        overflow: tiltDeg ? "visible" : (fixedH ? "hidden" : undefined),
         animation: editMode && !isDrag && !isHoverTgt ? "wk-jiggle .32s ease-in-out infinite" : "none",
         transform: isDrag ? "scale(1.08)" : (isHoverTgt ? "scale(1.2)" : "none"),
         opacity: isDrag ? 0.28 : 1,
@@ -5536,7 +5544,7 @@ function Home({
         transition: "transform .15s ease"
       }
     }, h("div", { style: Object.assign({ pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
-        overflow: it.kind === "decor" ? "visible" : (homeSize === "auto" ? "visible" : "hidden") },
+        overflow: (it.kind === "decor" || tiltDeg) ? "visible" : (homeSize === "auto" ? "visible" : "hidden") },
         // ⚠️只有【自己决定高度】的那几个才套 flex 对齐层。
         //   v63.53 我给所有格子都套上了，结果把名片弄坏了（她 2026-09-05 截图）：
         //   竖排 flex 里的孩子 flex-shrink 默认是 1，名片本来是「比一行高、靠 overflow:visible
