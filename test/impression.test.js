@@ -305,7 +305,8 @@ test("群聊也算素材，但封闭群不算", () => {
   assert.match(seg, /"【群】" \+ txt/, "标出来源，模型才知道这句是当众说的");
   // 三个调用点都要把 groups 传下去，漏一个就又数不到
   // 四处调用都要带上 groups，漏一个就又数不到群（现在还各自带上云端归档）
-  assert.equal((imp.match(/uName, props\.groups, /g) || []).length, 4);
+  // v67.89 又多一处：只补背面那一条也要自己取素材
+  assert.equal((imp.match(/uName, props\.groups, /g) || []).length, 5);
   assert.match(app, /groups: groups,\s+\/\/ 群聊也是素材/);
 });
 
@@ -490,7 +491,8 @@ test("卡片版式照「初形象生成」那套：白点连线标签＋英文�
   assert.match(imp, /boxShadow: "0 0 0 7px rgba\(255,255,255,\.26\)"/, "白点带光晕");
   assert.match(imp, /onLeft \? \[chip, line, dot\] : \[dot, line, chip\]/, "点永远朝画面里侧");
   // v63.01 no-english-titles：这一行换成中文（相纸白边上那行小字）
-  assert.match(imp, /"印象变了哪儿"/, "白边上那行小字");
+  // v67.89：这行小字从纯装饰变成翻面的入口，字随背面有没有东西而变
+  assert.match(imp, /hasBack \? \(e\.firstShift \? "在这之前 →" : "印象变了哪儿 →"\) : "背面还空着 →"/, "白边上那行小字");
   // v61.26：英文水印从相片正下方那一行，挪到白边上跟「No. 04 · 月份」并排。
   // v61.29 又收了一档（.22em / 8.5px）并两边都 nowrap——她截图里它折成了两行，
   // 而这一行是「相纸白边上的一行铅笔小字」，断行就不成立了。

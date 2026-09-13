@@ -393,6 +393,8 @@
     const [book, setBook] = useState(() => M.load());
     const [curChar, setCurChar] = useState(null);
     const [cardId, setCardId] = useState(null);
+    // 翻过来的是哪一张（按卡 id 记，不是一个裸 boolean：换一张卡就自动翻回正面）
+    const [flipId, setFlipId] = useState(null);
     const [busy, setBusy] = useState("");
     const backfillLock = React.useRef(false);
     const [backfillState, setBackfillState] = useState(null); // { charId, phase: scan|confirm|run }
@@ -543,6 +545,23 @@
         props.toast("换了个写法，剪影没动");
       } catch (e) { props.toast("重写失败：" + (e.message || "重试")); } finally { setBusy(""); }
     }
+    // 只补背面那三格（老卡是在加这三格之前贴上去的）。
+    // ⚠️不另开一条提示词：还是走 genText 那一枪，只把 moment/shift/him 三格取回来写进去，
+    //   正面的 title/tags/quote/silhouette 和剪影一个字不动（出图贵，别为三行字白刷一次）。
+    async function writeBack(charId, entry) {
+      const char = (props.characters || []).find(c => c.id === charId); if (!char) return;
+      if (!props.active) return props.toast("请先配置线下 API");
+      setBusy(charId + entry.monthKey);
+      try {
+        const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName, props.groups, await ensureArch(charId));
+        const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
+        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText,
+          M.genOpts(book, charId, entry.monthKey, Number(entry.turn || 0)));
+        put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
+          ? Object.assign({}, x, { moment: d.moment, shift: d.shift, him: d.him, firstShift: d.firstShift }) : x) }));
+        props.toast("背面写好了，正面没动");
+      } catch (e) { props.toast("背面没写成：" + (e.message || "重试")); } finally { setBusy(""); }
+    }
     // 补齐：最近 12 个月里有素材、却还没写过的，一月一月补（失败即停，已写好的都留着）
     async function backfill(charId) {
       const char = (props.characters || []).find(c => c.id === charId); if (!char) return;
@@ -595,17 +614,61 @@
       if (!e) { setCardId(null); return null; }
       // 编号＝这本册子里的第几张（按月份从旧到新，跟珍藏册那页铺的顺序一致）
       const idxOf = listOf(curChar).findIndex(x => x.id === e.id);
+      const flipped = flipId === e.id;
+      // 背面那三段：跟上个月比变了哪儿 / 那一天 / 他自己。三段问的是三件事，
+      // 所以它们才不在正面跟 quote 挤——正面是"她是什么样"，背面是"这个月发生在你俩之间的"。
+      const backRows = [
+        [e.firstShift ? "在这之前" : "变了哪儿", e.shift],
+        ["那天", e.moment],
+        ["他自己", e.him]
+      ].filter(x => String(x[1] || "").trim());
+      const hasBack = backRows.length > 0;
+      const penHead = { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".22em", textIndent: ".22em",
+        color: pageColor("impression", "fog", "rgba(120,100,72,.62)"), marginBottom: 7 };
+      const penText = { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 2,
+        color: pageColor("impression", "ink", "rgba(43,36,28,.9)") };
+      // 相片的背面：没有图，只有铅笔字。纸纹比正面更旧一点（背面本来就是压在册子里那一面）
+      const backFace = h("div", { style: { position: "absolute", inset: 0, background: PAPER,
+        backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)",
+        backgroundImage: "radial-gradient(90% 70% at 15% 8%,rgba(146,116,72,.17),transparent 62%),"
+          + "radial-gradient(90% 70% at 88% 94%,rgba(146,116,72,.15),transparent 60%)",
+        boxShadow: "0 16px 40px rgba(0,0,0,.42)", padding: "34px 26px 26px", overflowY: "auto" } },
+        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, letterSpacing: ".04em",
+          color: pageColor("impression", "fog", "rgba(120,100,72,.68)"), marginBottom: 22 } },
+          M.monthLabel(e.monthKey) + "　背面"),
+        hasBack
+          ? backRows.map((r, i) => h("div", { key: i, style: { marginBottom: 24 } },
+              h("div", { style: penHead }, "〔" + r[0] + "〕"),
+              h("div", { style: penText }, r[1])))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 2,
+              color: pageColor("impression", "fog", "rgba(120,100,72,.7)") } },
+              "这张是早先贴的，背面还空着。",
+              h("br"),
+              h("button", { onClick: ev => { ev.stopPropagation(); writeBack(curChar, e); }, disabled: !!busy,
+                style: Object.assign({}, S.btn(false), { marginTop: 14, color: pageColor("impression", "ink", "rgba(64,54,42,.9)"),
+                  border: "1px solid rgba(120,100,72,.4)" }) }, busy ? "在写…" : "补写背面")),
+        hasBack ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, textAlign: "right", marginTop: 4,
+          color: pageColor("impression", "ink", "rgba(94,79,58,.75)") } }, "—— " + (c.name || "TA")) : null);
       return h("div", { style: S.wrap }, header(M.monthLabel(e.monthKey)),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 18px 40px" } },
           // 这一张是【从册子上取下来的那张相纸】（v61.26，她 2026-09-03：「点进卡里面还是白的，
           // 卡片要不要也做点装饰」）。原来是一块 t.bg2 的白圆角——白得像个弹窗，
           // 跟外面那本相册不是一件东西。现在：相纸本身泛旧（四角压暖压深，不是纯白）、
           // 上边斜贴一条胶带、下半张白边上有铅笔写的编号和月份。
-          h("div", { style: { position: "relative", marginTop: 12, background: PAPER,
+          // 点一下【整张相纸翻过去】（v67.89，她 2026-09-13：「四个格子在说同一句话」）。
+          // ⚠️不用淡入淡出：淡入淡出搬到别的功能上照样成立，翻相片不行——
+          //   背面本来就是相片写字的地方，这个形状是它自己长出来的。
+          h("div", { style: { perspective: 1400, marginTop: 12 } },
+          h("div", { onClick: () => setFlipId(flipped ? null : e.id),
+            style: { position: "relative", transformStyle: "preserve-3d", cursor: "pointer",
+              transition: "transform .55s cubic-bezier(.2,.7,.3,1)",
+              transform: "rotate(-.5deg)" + (flipped ? " rotateY(180deg)" : "") } },
+          backFace,
+          h("div", { style: { position: "relative", background: PAPER, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
             backgroundImage: "radial-gradient(120% 90% at 50% 0,rgba(255,255,255,.55),transparent 55%),"
               + "radial-gradient(80% 60% at 8% 100%,rgba(146,116,72,.16),transparent 60%),"
               + "radial-gradient(80% 60% at 96% 6%,rgba(146,116,72,.13),transparent 62%)",
-            padding: 9, boxShadow: "0 16px 40px rgba(0,0,0,.42)", transform: "rotate(-.5deg)" } },
+            padding: 9, boxShadow: "0 16px 40px rgba(0,0,0,.42)" } },
             // 胶带：斜贴在上边缘，压住相纸和台面的交界——这就是它在册子上的贴法
             h("div", { style: { position: "absolute", top: -13, left: "50%", width: 104, height: 26,
               transform: "translateX(-58%) rotate(-3.4deg)", background: pageColor("impression", "bg2", "rgba(226,214,186,.62)"),
@@ -638,13 +701,13 @@
                 paddingBottom: 11, marginBottom: 13, borderBottom: "1px solid rgba(120,100,72,.20)" } },
                 h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
                   "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, "印象变了哪儿")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, hasBack ? (e.firstShift ? "在这之前 →" : "印象变了哪儿 →") : "背面还空着 →")),
               e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
                 h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)") } }, "“"),
                 h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, e.quote),
                 h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)"), textAlign: "right" } }, "”")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))))),
           h("div", { style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
