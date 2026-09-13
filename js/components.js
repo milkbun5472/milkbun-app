@@ -3371,6 +3371,21 @@ function homeWidgetGroundTheme(t, ground) {
   return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color,
     ink: dark ? "#fffaf1" : "#24231f", sub: dark ? "#e0dbd2" : "#55534e", fog: dark ? "#c5c0b8" : "#716e67" });
 }
+// 叠在一起时谁在上面（她 2026-09-13：「那这个怎么决定叠一块的哪个在上面呢」「直接手动吧」）。
+// ⚠️在这一版之前没有任何规矩：谁排在后面谁盖住谁，纯粹是摆放顺序的副产品。
+//   而只有【歪过的】那几张会伸出格子——它伸出来的角要是被旁边一张方卡压住，
+//   看着就像角又被削了一次（只不过这回不是裁剪，是被邻居盖了）。
+// ⚠️三档就够：垫在下面 / 跟着顺序 / 压在上面。再多档她也记不住哪张是第几层。
+const HOME_DECOR_LAYERS = [{ id: "under", name: "垫在下面" }, { id: "auto", name: "跟着顺序" }, { id: "over", name: "压在上面" }];
+function normalizeHomeLayer(value) { return value === "under" || value === "over" ? value : "auto"; }
+// ⚠️「跟着顺序」也要给一个真的 z（1）：不给的话 under 的 0 跟它并列，
+//   平级之间照旧按出场顺序叠——「垫在下面」就成了一句空话。
+//   拖着的那张永远在最上面（5），那是为了拖得看得见，跟这三档无关。
+function homeLayerZ(layer, isDrag) {
+  if (isDrag) return 5;
+  const v = normalizeHomeLayer(layer);
+  return v === "over" ? 3 : v === "under" ? 0 : 1;
+}
 function normalizeHomeDecorTilt(value) {
   var n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -4259,7 +4274,7 @@ function HomeStickerEditor({ list, onChange, onPick, busy }) {
             })));
       })) : null);
 }
-function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, mark, tilt, ground, onSurface, onBorderMode, onAccent, onAlign, onBadge, onMark, onTilt, onGround, onGroundPhoto, busy }) {
+function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, mark, tilt, layer, ground, onSurface, onBorderMode, onAccent, onAlign, onBadge, onMark, onTilt, onLayer, onGround, onGroundPhoto, busy }) {
   const t = useTheme();
   function choiceRow(items, value, onChange) {
     return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + items.length + ",minmax(0,1fr))", gap: 7 } }, items.map(function (x) {
@@ -4329,7 +4344,13 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
         return h("button", { key: x.value, type: "button", onClick: function () { onTilt(x.value); }, className: "active:opacity-70", style: { minWidth: 0, borderRadius: 11, padding: "8px 2px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line), fontFamily: F_BODY, fontSize: 9.5, whiteSpace: "nowrap" } }, x.name);
       })),
     h("input", { type: "range", min: -12, max: 12, step: 1, value: normalizeHomeDecorTilt(tilt), onChange: function (e) { onTilt(normalizeHomeDecorTilt(e.target.value)); }, "aria-label": "微调装饰倾斜角度", style: { width: "100%", marginTop: 10, accentColor: accent || HOME_DECOR_ACCENTS[0] } }),
-    h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, h("span", null, "左斜 12°"), h("span", null, "右斜 12°")));
+    h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, h("span", null, "左斜 12°"), h("span", null, "右斜 12°")),
+    // 叠起来谁在上面——紧挨着「摆放角度」：歪了才会叠，这两件事是一件事的两半
+    onLayer ? h("div", null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 16, marginBottom: 9 } }, "叠起来时"),
+      choiceRow(HOME_DECOR_LAYERS, normalizeHomeLayer(layer), onLayer),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7, lineHeight: 1.6 } },
+        "歪着的卡会把角伸出格子，跟旁边那张叠在一起。「跟着顺序」＝按摆放的先后（后摆的压前面的）。")) : null);
 }
 // 默认自带的三个文件夹与八个之外的收纳（她 2026-09-03 给了三张她自己主屏的截图：
 // 「按这个布局把 app 的默认布局摆成这样」）。原来第三页是二十多个图标铺一屏，
@@ -4475,6 +4496,7 @@ function Home({
   const [decorDraftBadge, setDecorDraftBadge] = useState("");
   const [decorDraftMark, setDecorDraftMark] = useState("");
   const [decorDraftTilt, setDecorDraftTilt] = useState(0);
+  const [decorDraftLayer, setDecorDraftLayer] = useState("auto");     // 叠起来时谁在上面
   const [styleDecorText, setStyleDecorText] = useState("");
   const [styleDecorDetail, setStyleDecorDetail] = useState("");
   const [styleDecorFrame, setStyleDecorFrame] = useState("single");
@@ -4487,6 +4509,7 @@ function Home({
   const [styleDecorBadge, setStyleDecorBadge] = useState("");
   const [styleDecorMark, setStyleDecorMark] = useState("");
   const [styleDecorTilt, setStyleDecorTilt] = useState(0);
+  const [styleDecorLayer, setStyleDecorLayer] = useState("auto");
   // 新做的那一件还没有 key，贴纸先攒在草稿里，放到桌面那一刻才落进 x_homeStickers
   const [decorDraftStickers, setDecorDraftStickers] = useState([]);
   const [decorBusy, setDecorBusy] = useState(false);
@@ -4852,6 +4875,7 @@ function Home({
       setStyleDecorBadge(d.badge || "");
       setStyleDecorMark(d.mark || "");
       setStyleDecorTilt(normalizeHomeDecorTilt(d.tilt));
+      setStyleDecorLayer(normalizeHomeLayer(d.layer));
     }
     setStyleKey(key);
   }
@@ -4938,6 +4962,7 @@ function Home({
       badge: isNew ? decorDraftBadge : styleDecorBadge, setBadge: isNew ? setDecorDraftBadge : setStyleDecorBadge,
       mark: isNew ? decorDraftMark : styleDecorMark, setMark: isNew ? setDecorDraftMark : setStyleDecorMark,
       tilt: isNew ? decorDraftTilt : styleDecorTilt, setTilt: isNew ? setDecorDraftTilt : setStyleDecorTilt,
+      layer: isNew ? decorDraftLayer : styleDecorLayer, setLayer: isNew ? setDecorDraftLayer : setStyleDecorLayer,
       // 外观和尺寸：新建时是草稿，重改时是【当场落档】的（那两样本来就不用按保存）
       preset: isNew ? decorDraftPreset : (widgetStyles[key] || "soft"),
       setPreset: isNew ? setDecorDraftPreset : function (id) { setWidgetPreset(key, id); },
@@ -4957,6 +4982,7 @@ function Home({
         borderMode: L.borderMode || "line", setBorderMode: function (v) { setWidgetLook(key, { borderMode: v }); },
         accent: L.accent || HOME_DECOR_ACCENTS[0], setAccent: function (v) { setWidgetLook(key, { accent: v }); },
         tilt: normalizeHomeDecorTilt(L.tilt), setTilt: function (v) { setWidgetLook(key, { tilt: v }); },
+        layer: normalizeHomeLayer(L.layer), setLayer: function (v) { setWidgetLook(key, { layer: v }); },
         badge: L.badge || "", setBadge: function (v) { setWidgetLook(key, { badge: v }); },
         ground: L.ground || null, setGround: function (v) { setWidgetLook(key, { ground: v }); },
         align: "left", setAlign: null, mark: "", setMark: null,
@@ -4971,7 +4997,7 @@ function Home({
   function decorItemOf(A, id) {
     var text = String(A.text || "").trim();
     var meta = homeDecorMeta(A.type);
-    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), createdAt: Date.now() };
+    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
   }
   function addDecoration() {
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
@@ -5491,6 +5517,7 @@ function Home({
     //   所以歪过的那几张【两层都放开】——旁边那句「会盖住邻居」的顾虑对【方方正正】的卡成立，
     //   可她把这张卡特意歪过来，要的就是叠着的样子；没歪的那些照旧一寸不让。
     var tiltDeg = look ? normalizeHomeDecorTilt(look.tilt) : 0;
+    var layerId = normalizeHomeLayer(look && look.layer);
     if (look) {
       presetStyle = Object.assign({}, presetStyle || {
         width: "100%", height: "100%", minWidth: 0, minHeight: 0,
@@ -5537,7 +5564,7 @@ function Home({
         transform: isDrag ? "scale(1.08)" : (isHoverTgt ? "scale(1.2)" : "none"),
         opacity: isDrag ? 0.28 : 1,
         pointerEvents: isDrag ? "none" : "auto",
-        zIndex: isDrag ? 5 : "auto",
+        zIndex: homeLayerZ(layerId, isDrag),
         outline: dropKey === key && dragKey && dragKey !== key ? "2px dashed " + t.accent : "none",
         outlineOffset: 3,
         borderRadius: 17,
@@ -5815,9 +5842,9 @@ function Home({
               ground: A.ground, onGround: A.setGround,
               onGroundPhoto: function (f) { takeDecorGround(f, A.target, A.isWidget ? function (ref) { A.setGround({ imageRef: ref }); } : null); },
               busy: decorBusy,
-              align: A.align, badge: A.badge, mark: A.mark, tilt: A.tilt,
+              align: A.align, badge: A.badge, mark: A.mark, tilt: A.tilt, layer: A.layer,
               onSurface: A.setSurface, onBorderMode: A.setBorderMode, onAccent: A.setAccent,
-              onAlign: A.setAlign, onBadge: A.setBadge, onMark: A.setMark, onTilt: A.setTilt
+              onAlign: A.setAlign, onBadge: A.setBadge, onMark: A.setMark, onTilt: A.setTilt, onLayer: A.setLayer
             }))),
         // ⚠️她 2026-09-05：「设置的时候没有选大小」——新建那一页原来压根没有这一段，
         //   只有已经放上去之后长按才挑得到。两处本来就该是同一页。
