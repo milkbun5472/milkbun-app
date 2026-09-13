@@ -648,9 +648,7 @@
               color: pageColor("impression", "fog", "rgba(120,100,72,.7)") } },
               "这张是早先贴的，背面还空着。",
               h("br"),
-              h("button", { onClick: ev => { ev.stopPropagation(); writeBack(curChar, e); }, disabled: !!busy,
-                style: Object.assign({}, S.btn(false), { marginTop: 14, color: pageColor("impression", "ink", "rgba(64,54,42,.9)"),
-                  border: "1px solid rgba(120,100,72,.4)" }) }, busy ? "在写…" : "补写背面")),
+              "翻回正面，点下面那个「补写背面」。"),
         hasBack ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, textAlign: "right", marginTop: 4,
           color: pageColor("impression", "ink", "rgba(94,79,58,.75)") } }, "—— " + (c.name || "TA")) : null);
       return h("div", { style: S.wrap }, header(M.monthLabel(e.monthKey)),
@@ -717,6 +715,11 @@
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
             h("button", { onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
+            // ⚠️这个按钮原来长在背面上（v67.89/67.90 跟 iOS 的 3D 命中测试较劲了两版，
+            //   她两次都点不着）。动作本来就和上面两个同族——都是"只重来其中一块"——
+            //   那就该待在同一排：不翻面也点得着，也不用赌哪一面在吃点击。
+            h("button", { onClick: () => writeBack(curChar, e), disabled: !!busy, style: S.btn(false) },
+              busy ? "在写…" : (hasBack ? "重写背面" : "补写背面")),
             h("button", { onClick: () => requestAppConfirm("删掉这个月的印象？", "删除后不能恢复。", () => { const next = Object.assign({}, book, { [curChar]: (book[curChar] || []).filter(x => x.id !== e.id) }); if (!M.save(next)) return props.toast("这次没删成功，原印象还在"); setBook(next); setCardId(null); }, "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
     }
 

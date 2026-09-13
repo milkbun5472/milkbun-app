@@ -59,7 +59,13 @@ test("老卡能只补背面：正面和剪影一个字不动，也不另开一�
   assert.ok(!/title: d\.title/.test(seg), "正面不许被动");
   // turn 原样带回去：这不是"换个写法"，别把骰子转到下一面
   assert.match(seg, /M\.genOpts\(book, charId, entry\.monthKey, Number\(entry\.turn \|\| 0\)\)/);
-  // 按钮在背面上，点它不能顺手把卡翻回正面
-  assert.match(card, /onClick: ev => \{ ev\.stopPropagation\(\); writeBack\(curChar, e\); \}/);
+  // v67.91：这个按钮不许长在【翻过去的那一面】上。跟 iOS 的 3D 命中测试较劲了两版
+  // （她两次都点不着），而它本来就和「只重写文案」「只重出剪影」同族——都是
+  // "只重来其中一块"——那就该待在正面那一排：不翻面也点得着。
+  assert.match(card, /h\("button", \{ onClick: \(\) => writeBack\(curChar, e\), disabled: !!busy, style: S\.btn\(false\) \},\s*\n\s*busy \? "在写…" : \(hasBack \? "重写背面" : "补写背面"\)\)/);
+  assert.ok(!/stopPropagation\(\); writeBack/.test(card), "按钮还在背面上");
   assert.match(card, /"这张是早先贴的，背面还空着。"/);
+  assert.match(card, /"翻回正面，点下面那个「补写背面」。"/, "背面空着时要说清去哪儿补");
+  // 有背面的卡也要能重写——不然写坏了一次就钉死了
+  assert.match(card, /hasBack \? "重写背面" : "补写背面"/);
 });
