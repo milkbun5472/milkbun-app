@@ -8489,7 +8489,15 @@ function ChatThread({
 // 不说话等我说的时候就啥也不显示，挂了照样可以回看」）。
 // 一句话铺多久【跟着这一句的语音走】（她选的 B）：TTS 解码出来就知道这句念几秒，
 // 字就在这几秒里铺完，念完正好显示完。没有语音时长（没配音色/合成失败）就退回固定速度。
-function CallSubtitle({ line, onPhoto }) {
+function callActionsFor(msgs, index) {
+  const rows = msgs || [], anchor = rows[index == null ? rows.length - 1 : index];
+  if (!anchor || anchor.role === "user") return [];
+  if (anchor.turnId) return rows.filter(m => m.turnId === anchor.turnId && m.act && m.content);
+  let start = index == null ? rows.length - 1 : index;
+  while (start > 0 && rows[start - 1].role !== "user") start--;
+  return rows.slice(start, (index == null ? rows.length - 1 : index) + 1).filter(m => m.act && m.content);
+}
+function CallSubtitle({ line, onPhoto, actions = [] }) {
   const [n, setN] = useState(0);
   const text = String((line && line.text) || "");
   useEffect(() => {
@@ -8512,15 +8520,18 @@ function CallSubtitle({ line, onPhoto }) {
   //   没有他的台词就会卡屏幕中间」）。要空的是【字】，不是【这块地方】。
   return h("div", {
     "data-call-subtitle": true,
-    className: "flex-1 min-h-0 flex items-center justify-center px-7",
-    style: { pointerEvents: "none" }
-  }, text ? h("div", {
+    className: "flex-1 min-h-0 overflow-y-auto px-7",
+  }, h("div", { style: { minHeight: "100%", display: "flex", flexDirection: "column", gap: 14, padding: "12px 0" } },
+    actions.length ? h("div", { "data-call-actions": true, style: { color: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, textAlign: "center", whiteSpace: "pre-wrap", overflowWrap: "anywhere", textShadow: "0 1px 8px rgba(0,0,0,.9)" } },
+      actions.map((m, i) => h("div", { key: i }, (m.senderName ? m.senderName + "：" : "") + m.content))) : null,
+    text ? h("div", {
     style: {
+      flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", alignSelf: "center",
       maxWidth: 560, textAlign: "center", fontFamily: F_BODY, fontSize: 17, lineHeight: 1.75,
       color: "#fff", whiteSpace: "pre-wrap", wordBreak: "break-word",
       textShadow: onPhoto ? "0 1px 10px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.9)" : "0 1px 8px rgba(0,0,0,.5)"
     }
-  }, text.slice(0, n)) : null);
+  }, text.slice(0, n)) : null));
 }
 function CallScreen({
   audioSession,
@@ -8607,7 +8618,11 @@ function CallScreen({
     // 原生识别在 restart 边界偶尔把同一句 final 再吐一次；不让它变成两条用户消息。
     if (text === st.lastFinal && now - st.lastFinalAt < 1800) return false;
     st.lastFinal = text; st.lastFinalAt = now; st.turn += 1;
-    onSend(text); return true;
+    if (sendingRef.current || st.speaking) {
+      setInput(old => old ? old + " " + text : text);
+      setLiveSt("听到了，已留在输入框，等他讲完再发送");
+    } else onSend(text);
+    return true;
   };
   const lvEncode = chunks => { // Float32(16k) → 16k mono WAV（whisper 兜底路径用）
     let len = 0; chunks.forEach(c => len += c.length);
@@ -8629,27 +8644,30 @@ function CallScreen({
     const rec = new SR();
     rec.lang = "zh-CN"; rec.continuous = true; rec.interimResults = true;
     rec.onresult = e => {
-      if (!liveRef.current || st.session !== session) return;
+      if (!liveRef.current || st.session !== session || st.rec !== rec) return;
       st.recAlive = true; // 看门狗：真吐过结果才算活
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const piece = ((e.results[i][0] || {}).transcript || "").trim();
-        if (e.results[i].isFinal) { if (piece && !st.busy && !sendingRef.current) lvCommitFinal(piece, session); }
+        if (e.results[i].isFinal) { if (piece) lvCommitFinal(piece, session); }
         else interim += piece;
       }
       if (interim) setLiveSt("你：" + interim.slice(-24));
     };
     rec.onend = () => { // continuous 也会自己断，450ms 自动重启是命门
-      if (st.recWanted && liveRef.current && st.session === session) st.recTimer = setTimeout(() => { if (st.session === session) try { rec.start(); } catch (e2) {} }, 450);
+      if (st.rec === rec && st.recWanted && liveRef.current && st.session === session) st.recTimer = setTimeout(() => { if (st.session === session && st.recWanted) try { rec.start(); } catch (e2) { fallbackEar(session, "语音识别重启失败"); } }, 450);
     };
-    rec.onaudiostart = () => { if (st.session === session) st.recAlive = true; };
+    rec.onstart = () => { if (st.session === session && liveRef.current) setLiveSt("听着呢（原生识别）"); };
     rec.onerror = ev => {
-      if (st.session !== session) return;
-      if (ev.error === "not-allowed") { setLiveSt("麦克风权限被拒"); lvStop(); }
-      else if (ev.error === "service-not-allowed" || ev.error === "audio-capture") st.recDead = true; // 假货实锤，看门狗会切
+      if (st.session !== session || st.rec !== rec || !liveRef.current) return;
+      if (ev.error === "not-allowed") { lvStop(); setLiveSt("麦克风权限被拒，请在浏览器设置允许麦克风后重试"); }
+      else if (["service-not-allowed", "audio-capture", "network"].includes(ev.error)) {
+        recPause(); st.recDead = true;
+        fallbackEar(session, "原生识别不可用（" + ev.error + "）");
+      } else if (ev.error === "no-speech") setLiveSt("暂时没听到声音，请靠近麦克风再说一句");
     };
     st.rec = rec; st.recWanted = true;
-    try { rec.start(); } catch (e2) { return false; }
+    try { rec.start(); } catch (e2) { st.recWanted = false; st.rec = null; return false; }
     return true;
   };
   const recPause = () => { const st = lv.current; st.recWanted = false; clearTimeout(st.recTimer); try { st.rec && st.rec.stop(); } catch (e2) {} };
@@ -8671,16 +8689,23 @@ function CallScreen({
   const workletStart = async () => {
     const st = lv.current;
     const session = st.session;
-    st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    if (!liveRef.current || st.session !== session) { mic.getTracks().forEach(t => t.stop()); return; }
+    st.stream = mic;
     st.ctx = new (window.AudioContext || window.webkitAudioContext)();
     try { await st.ctx.resume(); } catch (e2) {}
+    if (!liveRef.current || st.session !== session) return;
     if (!st.ctx.audioWorklet) throw new Error("这台设备不支持 AudioWorklet");
     const sr = st.ctx.sampleRate;
-    await st.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([
+    const moduleUrl = URL.createObjectURL(new Blob([
       "registerProcessor('cl-tap',class extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice(0));return true;}});"
-    ], { type: "text/javascript" })));
+    ], { type: "text/javascript" }));
+    try { await st.ctx.audioWorklet.addModule(moduleUrl); } finally { URL.revokeObjectURL(moduleUrl); }
+    if (!liveRef.current || st.session !== session) return;
     const src = st.ctx.createMediaStreamSource(st.stream);
     st.node = new AudioWorkletNode(st.ctx, "cl-tap"); src.connect(st.node);
+    st.mute = st.ctx.createGain(); st.mute.gain.value = 0;
+    st.node.connect(st.mute); st.mute.connect(st.ctx.destination);
     st.last = performance.now();
     st.node.port.onmessage = e => {
       const now = performance.now(), dt = now - st.last; st.last = now;
@@ -8748,40 +8773,45 @@ function CallScreen({
     });
     return () => { dead = true; clearTimeout(watchdog); };
   }, [autoVoice]);
+  const fallbackEar = async (session, reason) => {
+    const st = lv.current;
+    if (!liveRef.current || st.session !== session || st.fallback) return;
+    recPause(); st.rec = null; st.fallback = true;
+    if (typeof voiceEarsReady !== "function" || !voiceEarsReady()) {
+      lvStop(); setLiveSt(reason + "；可重试，或在设置配置「真声通话耳朵」作为备用识别"); return;
+    }
+    try { await workletStart(); if (st.session === session && liveRef.current) setLiveSt("听着呢（备用语音识别）"); }
+    catch (e) { if (st.session === session) { lvStop(); setLiveSt("备用识别开启失败：" + (e.message || e)); } }
+  };
   const lvStart = async () => {
+    const st = lv.current;
+    if (liveRef.current) return;
+    st.session += 1; const session = st.session;
+    liveRef.current = true; setLive(true); setLiveSt("正在开启麦克风…");
     try {
-      const st = lv.current;
-      st.session += 1; const session = st.session;
       st.turn = 0; st.lastFinal = ""; st.lastFinalAt = 0; st.pre = []; st.preSamples = 0;
       stopCallAudio();
-      if (!await unlockCallAudio()) return;
       routeCallAudio(st.ttsCtx, "play-and-record");
-      let mode = "";
-      st.recAlive = false; st.recDead = false;
+      st.recAlive = false; st.recDead = false; st.fallback = false;
+      // 识别必须在点击的这一拍启动，不等待播放 AudioContext 解锁；开耳不要求配置嗓子。
       if (recStart()) {
-        mode = "原生识别";
-        // WKWebView 阴招：识别对象存在也肯 start，但永远不吐结果。6秒看门狗验活，假货自动切书房耳
-        setTimeout(async () => {
-          const st2 = lv.current;
-          if (!liveRef.current || st2.session !== session || st2.recAlive) return;
-          if (typeof voiceEarsReady === "function" && voiceEarsReady()) {
-            recPause(); st2.rec = null;
-            try { await workletStart(); setLiveSt("听着呢（原生哑了，切书房识别）"); }
-            catch (e3) { setLiveSt("原生识别哑了，书房耳也开不了：" + (e3 && e3.message || e3)); }
-          } else setLiveSt("原生识别没反应，且没配书房耳朵——去设置填「真声通话耳朵」");
-        }, 6000);
+        // 没结果不等于设备坏了（用户可能没说话），不擅自切到收费识别。
+        st.watchdog = setTimeout(() => {
+          if (liveRef.current && st.session === session && !st.recAlive && !st.fallback)
+            setLiveSt("还没识别到文字；可关麦重试，或检查浏览器麦克风权限");
+        }, 8000);
       }
-      else if (typeof voiceEarsReady === "function" && voiceEarsReady()) { await workletStart(); mode = "书房识别"; }
-      else throw new Error("这台浏览器不支持语音识别，且没配书房耳朵");
-      setLive(true); setLiveSt("听着呢（" + mode + "）");
-    } catch (e) { routeCallAudio(lv.current.ttsCtx, autoVoice && audioRef.current.mounted ? "playback" : null); setLiveSt("开不了麦：" + (e && e.message || e)); }
+      else await fallbackEar(session, "这台浏览器未能启动原生语音识别");
+    } catch (e) { if (st.session === session) { lvStop(); setLiveSt("开不了麦：" + (e && e.message || e)); } }
   };
   const lvStop = () => {
     const st = lv.current;
+    liveRef.current = false; clearTimeout(st.watchdog);
     stopCallAudio();
     st.session += 1; // 先让识别/TTS 的迟到 promise 全部失效，再拆设备
     recPause(); st.rec = null;
     try { st.node && st.node.disconnect(); } catch (e) {}
+    try { st.mute && st.mute.disconnect(); } catch (e) {}
     try { st.ctx && st.ctx.close(); } catch (e) {}
     try { st.stream && st.stream.getTracks().forEach(t2 => t2.stop()); } catch (e) {}
     try { st.src && st.src.stop(); } catch (e) {}
@@ -8870,7 +8900,7 @@ function CallScreen({
             srcN.onended = () => { clearTimeout(safety); res(); };
             srcN.start(0);
             // ⚠️字幕跟【这一句】走：念几秒字就铺几秒。换句就把上一句整个换掉。
-            if (stream) setSubLine({ text: m.content, ms: abuf.duration * 1000, at: Date.now() });
+            if (stream) setSubLine({ text: m.content, ms: abuf.duration * 1000, at: Date.now(), index: idx });
             setAudioStatus("对方说话中…");
           });
         } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }
@@ -8899,9 +8929,8 @@ function CallScreen({
   const isGroup = people.length > 1;
   const title = people.map(c => c.remark || c.name).join("、");
   // 真声档开关条件放这儿：isGroup/primary 声明之后（放前面吃过 TDZ 崩屏）
-  // 有原生识别就不再要求书房耳朵；嗓子(ttsReady+音色)仍是硬条件
-  const canLive = !isGroup && typeof ttsReady === "function" && ttsReady() && !!primary.voiceId
-    && (!!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady()));
+  // 输入只看识别能力，单人/群聊共用；没有角色音色也能开麦。
+  const canLive = !!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady());
   const send = () => {
     if (!input.trim() || sending) return;
     stopCallAudio(); recResume();
@@ -9040,7 +9069,7 @@ function CallScreen({
       fontSize: isGroup ? 26 : 44,
       color: "#fff"
     }
-  }, (c.name || "?")[0])))), stream ? h(CallSubtitle, { line: subLine, onPhoto: onPhoto }) : h("div", {
+  }, (c.name || "?")[0])))), stream ? h(CallSubtitle, { line: subLine, onPhoto: onPhoto, actions: isVideo ? callActionsFor(list, subLine && subLine.index) : [] }) : h("div", {
     ref: ref,
     "data-call-history": true,
     onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
@@ -9115,7 +9144,7 @@ function CallScreen({
   }, "🎙 " + liveSt), h("div", {
     className: "shrink-0 flex items-center gap-2 px-4 py-3",
     style: Object.assign({
-      paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)"
+      paddingBottom: COMPOSER_PAD_BOTTOM
     }, litPlate("0", ".78"))
   }, canLive && h("button", {
     "aria-label": live ? "关闭麦克风" : "开启麦克风",

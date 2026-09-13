@@ -40,7 +40,7 @@ test("飘在照片上的每一处白字都带上了字影", () => {
 test("顶上那块和输入栏各自压一层底，中间那块【不许】压", () => {
   assert.match(call, /className: "shrink-0 pt-10 pb-3 flex flex-col items-center",\n\s*style: Object\.assign\(\{\}, litPlate\("\.62", "0"\)\)/,
     "顶上名字时长那块没有自己的底");
-  assert.match(call, /paddingBottom: "calc\(env\(safe-area-inset-bottom\) \+ 4px\)"\n\s*\}, litPlate\("0", "\.78"\)\)/,
+  assert.match(call, /paddingBottom: COMPOSER_PAD_BOTTOM\n\s*\}, litPlate\("0", "\.78"\)\)/,
     "输入栏那一条没有自己的底");
   // 中间那一大块（他的脸）不许被压：litPlate 只许出现这两次
   const plates = call.match(/litPlate\(/g) || [];

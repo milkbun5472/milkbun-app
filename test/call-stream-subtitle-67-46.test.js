@@ -52,7 +52,7 @@ test("两项都存得下来（设置页交出来、存档那头接住）", () =>
 test("字幕跟着这一句的语音走，没时长才退回固定速度", () => {
   const i = C.indexOf("function CallSubtitle(");
   assert.ok(i > 0, "字幕那一支没了");
-  const blk = C.slice(i, i + 1400);
+  const blk = C.slice(i, C.indexOf('function CallScreen(', i));
   assert.match(blk, /const ms = Math\.max\(300, Number\(line && line\.ms\) \|\| text\.length \* 78\);/,
     "没有真实时长时要有兜底，不然一个字都不铺");
   assert.match(blk, /const k = Math\.min\(1, \(Date\.now\(\) - at\) \/ ms\);/, "按挂钟算进度：切后台回来不会错位");
@@ -61,14 +61,14 @@ test("字幕跟着这一句的语音走，没时长才退回固定速度", () =>
   assert.match(blk, /text\.slice\(0, n\)/);
   // ⚠️没话的时候空的是【字】，不是【这块地方】：整块 return null 的话，
   //   flex-1 那个撑子没了，下面的输入框会浮到屏幕中间去（她 2026-09-12 当场报的）。
-  assert.match(blk, /className: "flex-1 min-h-0 flex items-center justify-center px-7"/);
-  assert.match(blk, /\}, text \? h\("div", \{/, "没话时把整块摘掉了，输入框会往上跑");
-  assert.match(blk, /text\.slice\(0, n\)\) : null\);/);
+  assert.match(blk, /className: "flex-1 min-h-0 overflow-y-auto px-7"/);
+  assert.match(blk, /text \? h\("div", \{/);
+  assert.match(blk, /text\.slice\(0, n\)\) : null\)\);/);
   assert.ok(blk.indexOf("if (!text) return null;") < 0, "整块 return null 那一版又回来了");
 });
 
 test("这一句的真实时长是从解码出来的音频拿的", () => {
-  assert.match(C, /if \(stream\) setSubLine\(\{ text: m\.content, ms: abuf\.duration \* 1000, at: Date\.now\(\) \}\);/);
+  assert.match(C, /if \(stream\) setSubLine\(\{ text: m\.content, ms: abuf\.duration \* 1000, at: Date\.now\(\), index: idx \}\);/);
   const i = C.indexOf("if (stream) setSubLine({ text: m.content");
   const blk = C.slice(Math.max(0, i - 400), i);
   assert.match(blk, /srcN\.start\(0\);/, "字幕得和开播同一拍，不能早也不能晚");
@@ -81,7 +81,7 @@ test("换句就换掉上一句；念完、她一开口都清空", () => {
 });
 
 test("开了流式就把滚动的气泡列换掉，没开一个字都不变", () => {
-  assert.match(C, /stream \? h\(CallSubtitle, \{ line: subLine, onPhoto: onPhoto \}\) : h\("div", \{\n\s*ref: ref,\n\s*"data-call-history": true,/);
+  assert.match(C, /stream \? h\(CallSubtitle, \{ line: subLine, onPhoto: onPhoto, actions: isVideo \? callActionsFor\(list, subLine && subLine.index\) : \[\] \}\) : h\("div", \{\n\s*ref: ref,\n\s*"data-call-history": true,/);
   // 逐字记录那条路一个字没动（她选的 A：就接现成那条）
   assert.match(C, /"data-call-history": true/);
 });

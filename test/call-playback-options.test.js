@@ -51,7 +51,7 @@ test('通话播放默认手动，播放偏好独立保存；语音和视频用�
   assert.match(app, /audioSession: call.audioSession/);
   assert.doesNotMatch(call, /data-call-options|h\(OnlineTranslationControl|toggleAutoVoice/);
   assert.match(call, /Promise.resolve\(session.ready\)/);
-  assert.match(app, /msgs: \[\.\.\.c.msgs, \{ ts: Date.now\(\), \.\.\.line \}\]/);
+  assert.match(app, /msgs: \[\.\.\.c.msgs, \{ ts: Date.now\(\), turnId: callTurnId, \.\.\.line \}\]/);
 });
 test('公共手动播放器：停止或卸载后，迟到的合成不能播放', async () => {
   const i = src.indexOf('function useTtsPlayer('), body = src.slice(i, src.indexOf('\n}\n', i) + 3);
