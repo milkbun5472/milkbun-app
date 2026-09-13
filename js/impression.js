@@ -637,7 +637,7 @@
         // ⚠️别把"翻过去看见的是背面"全押在 backface-visibility 上：iOS 上它失灵，
         //   她 2026-09-13 截图里看到的就是【正面的镜像】。所以两面各自再用 visibility
         //   显式切一次，延迟半个动画时长（翻到侧面看不见的那一刻）才换人。
-        visibility: flipped ? "visible" : "hidden", transition: "visibility 0s linear .28s",
+        visibility: flipped ? "visible" : "hidden", transition: "visibility 0s linear .21s",
         backgroundImage: "radial-gradient(90% 70% at 15% 8%,rgba(146,116,72,.17),transparent 62%),"
           + "radial-gradient(90% 70% at 88% 94%,rgba(146,116,72,.15),transparent 60%)",
         boxShadow: "0 16px 40px rgba(0,0,0,.42)", padding: "34px 26px 26px", overflowY: "auto" } },
@@ -667,12 +667,12 @@
           h("div", { style: { perspective: 1400, marginTop: 12 } },
           h("div", { onClick: () => setFlipId(flipped ? null : e.id),
             style: { position: "relative", transformStyle: "preserve-3d", WebkitTransformStyle: "preserve-3d", cursor: "pointer",
-              transition: "transform .55s cubic-bezier(.2,.7,.3,1)",
+              transition: "transform .42s cubic-bezier(.25,.85,.3,1)", willChange: "transform",
               transform: "rotate(-.5deg)" + (flipped ? " rotateY(180deg)" : "") } },
           backFace,
           h("div", { style: { position: "relative", background: PAPER, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
             pointerEvents: flipped ? "none" : "auto", transform: "translateZ(1px)",
-            visibility: flipped ? "hidden" : "visible", transition: "visibility 0s linear .28s",
+            visibility: flipped ? "hidden" : "visible", transition: "visibility 0s linear .21s",
             backgroundImage: "radial-gradient(120% 90% at 50% 0,rgba(255,255,255,.55),transparent 55%),"
               + "radial-gradient(80% 60% at 8% 100%,rgba(146,116,72,.16),transparent 60%),"
               + "radial-gradient(80% 60% at 96% 6%,rgba(146,116,72,.13),transparent 62%)",
