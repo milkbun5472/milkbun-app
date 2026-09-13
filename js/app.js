@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.69";
+const APP_VERSION = "v67.70";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20780,10 +20780,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 陪听用当前角色公共上下文；只喂共同听到的原文，不传故事全稿，也不执行状态更新协议。
     // ⚠️v67.57 起陪听的可以是【任何一个角色】，不再写死成广播里那个人（她 2026-09-12 排的第一条）。
     //   隔离那一套本来就按 companionId 分账，这儿只是别再自己把 charId 填回去。
-    onCompanion: (branch, question, companionId) => {
+    onCompanion: (branch, question, companionId, keepPlaying) => {
       const c = liveChars.find(x => x.id === String(companionId || branch.charId));
       if (!c) throw new Error("这位角色已不在当前角色列表，暂时无法邀请陪听。");
-      return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question), '{"say":"陪听者此刻的回应"}');
+      return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question, keepPlaying), '{"say":"陪听者此刻的回应"}');
     },
     // 匿名连线（她 2026-09-12 排的第一条）：她打进他正在播的那档节目，他不知道是谁。
     // ⚠️马甲用匿名箱那一个（x_anonMe），不另立一个身份——同一个人戴同一张面具。
@@ -20794,9 +20794,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️strangerBans 那三层是【靠调用点一条条 push 的】，换个入口一条都不会自己跟过来
     //   （施工规则/four-surfaces-same-context.md）：陌生人打进来这一处，
     //   回声式反问尤其要命——他手上是一句问话，最顺手的开口就是把它原样抛回去。
-    onCall: (branch, era, say) => radioAsk(
+    onCall: (branch, era, say, anchor) => radioAsk(
       narrativeCore({ intimate: true }) + "\n\n"
-      + window.RadioTimeline.callPrompt(branch, era, anonMe, say) + strangerBans(),
+      + window.RadioTimeline.callPrompt(branch, era, anonMe, say, anchor) + strangerBans(),
       '{"title":"这通电话的标题（可空）","lines":[{"text":"你说出口的一段话（整段照原样放，不要替播放器拆成一句一项）"}],"guess":"你心里那句猜测（可空）"}')
   });
   else if (screen === "radioLegacy") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {

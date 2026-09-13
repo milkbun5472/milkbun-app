@@ -75,9 +75,9 @@
     // ⚠️v67.50 起提示词要的是【一段一项】（一句一项会把整章写成等重的短句，见 storyPrompt），
     //   所以拆句这一步从「顺手兜一下」变成了【唯一的那道工序】——它掉链子，
     //   她就会拿到一张两千字的卡。没有 Intl.Segmenter 的那条路照旧要能把段落拆开。
-    return { id, era: eraId, title: text(raw.title) || era(eraId).label, lines: rows.flatMap(x => {
+    return { id, era: eraId, title: text(raw.title) || era(eraId).label, lines: rows.flatMap((x, paragraph) => {
       const sentences = splitSentences(text(x.text));
-      return sentences.map(sentence => ({ kind: x.kind, speaker: x.kind === "narrator" ? "旁白" : text(x.speaker), text: sentence }));
+      return sentences.map(sentence => ({ kind: x.kind, speaker: x.kind === "narrator" ? "旁白" : text(x.speaker), text: sentence, paragraph }));
     }) };
   }
   function reveal(branch, fragmentId, index, companionId) {
@@ -98,6 +98,38 @@
       if (!seen.has(x.index)) seen.set(x.index, x);
     });
     return [...seen.values()].sort((a, b) => a.index - b.index);
+  }
+  // 插播只存定位，不改正文数组。原 fragmentId/index 可继续作为语音缓存键。
+  function insertCall(branch, anchor, call) {
+    const parent = branch.fragments.find(f => f.id === anchor.fragmentId);
+    if (!parent || !Number.isInteger(anchor.index) || anchor.index < -1 || anchor.index >= parent.lines.length || call.era !== parent.era || !call.call || branch.fragments.some(f => f.id === call.id)) throw Error("插播位置失效，请回到正在听的章节重试。");
+    return { ...branch, fragments: branch.fragments.concat({ ...call, insert: { fragmentId: parent.id, index: anchor.index } }) };
+  }
+  function playlist(branch, fragmentId) {
+    const result = [], visiting = new Set();
+    const visit = id => {
+      const f = branch.fragments.find(x => x.id === id);
+      if (!f || visiting.has(id)) return;
+      visiting.add(id);
+      const inserts = i => branch.fragments.filter(x => x.insert && x.insert.fragmentId === id && x.insert.index === i).forEach(x => visit(x.id));
+      inserts(-1);
+      f.lines.forEach((line, index) => { result.push({ ...line, fragmentId: id, index }); inserts(index); });
+      visiting.delete(id);
+    };
+    visit(fragmentId); return result;
+  }
+  function replayParagraphs(branch, fragmentId) {
+    const seen = new Map();
+    (branch.heard || []).forEach(l => seen.set(l.fragmentId + ":" + l.index, l));
+    const paragraphs = []; let previous = null;
+    playlist(branch, fragmentId).forEach((row, position) => {
+      const heard = seen.get(row.fragmentId + ":" + row.index);
+      if (!heard) { previous = null; return; }
+      const same = previous && previous.fragmentId === row.fragmentId && previous.speaker === row.speaker && previous.paragraph === row.paragraph && (row.paragraph != null || paragraphs.at(-1).length < 6);
+      if (!same) paragraphs.push([]);
+      paragraphs.at(-1).push({ ...heard, position }); previous = row;
+    });
+    return paragraphs;
   }
   // ------------------------------------------------------------
   // 匿名连线：她打进他正在播的那档节目，他不知道是谁（她 2026-09-12 排的第一条）
@@ -125,12 +157,17 @@
       id: f.id, era: f.era, title: f.title, lines: airedCallLines(branch, f.id)
     })).filter(x => x.lines.length);
   }
-  function callPrompt(branch, eraId, mask, say) {
+  function callPrompt(branch, eraId, mask, say, anchor) {
     if (!era(eraId)) throw Error("频率无效。");
     if (!text(say)) throw Error("先写下你对着话筒要说的那句。");
     const who = maskName(mask), sign = text(mask && mask.bio);
     const aired = airedCalls(branch);
     const show = showOf(branch);
+    const parent = anchor && branch.fragments.find(f => f.id === anchor.fragmentId && f.era === eraId);
+    if (anchor && (!parent || !Number.isInteger(anchor.index) || anchor.index < -1 || anchor.index >= parent.lines.length)) throw Error("插播位置失效。");
+    const sequence = parent ? playlist(branch, anchor.rootId || parent.id) : [];
+    const at = parent ? sequence.findIndex(x => x.fragmentId === parent.id && x.index === anchor.index) : -1;
+    const bridge = sequence.slice(at + 1).filter(x => !branch.fragments.find(f => f.id === x.fragmentId).call).slice(0, 4);
     return [
       show.label ? "【这档节目是什么】" + show.label : "",
       "你正在播自己的节目。刚才导播把一通电话接了进来，现在线上多了一个人，而且**这通电话是直播出去的**：你说出口的每一句都已经播出去了，收不回来。",
@@ -142,7 +179,10 @@
       "lines 里放你说出口的话，按自然段一段一项；播放器会自己按句子拆开来播，不用你替它拆。",
       "【角色卡原文】\n" + branch.name + "\n" + branch.persona,
       "【相关世界设定】\n" + branch.lore,
-      "【这条分支已经播过的章节（创作，不是主线事实）】\n" + JSON.stringify(storyFragments(branch)),
+      parent ? "【当前插播位置之前的正文】\n" + JSON.stringify(parent.lines.slice(0, anchor.index + 1)) : "【这条分支已经播过的章节（创作，不是主线事实）】\n" + JSON.stringify(storyFragments(branch)),
+      parent ? "【插播约定】这是一段接入当前节目的临时连线，不另起章节、不改写原节目。回应这句话后，用符合你口气的短过渡接回原节目。你可以表达想法，但不替原剧情新增会改变后续的承诺或事件。陪听者在广播外，没有跟随来电进入。" : "",
+      parent ? "【仅供安排衔接的未播原文，不提前复述给来电者；为空表示节目正文已结束】\n" + JSON.stringify(bridge) : "",
+      "【本分支主题与边界】\n" + branch.topic + "\n" + branch.limits,
       aired.length ? "【这条分支上此前播出去的连线】\n" + JSON.stringify(aired) : "【这条分支上此前没有人打进来过】",
       "【本分支纠正】\n" + JSON.stringify(branch.corrections),
       "【本次频率】" + era(eraId).label
@@ -247,7 +287,7 @@
       "【本次频率】" + era(eraId).label
     ].filter(Boolean).join("\n\n");
   }
-  function companionPrompt(branch, companionId, question) {
+  function companionPrompt(branch, companionId, question, keepPlaying) {
     const heard = companionContext(branch, companionId);
     if (!heard.heard.length) throw Error("先一起听到一句，再聊这一段。");
     // ⚠️v67.57：陪听的可以是任何一个角色了。广播里那个人自己也来陪听的时候，
@@ -265,7 +305,7 @@
         : (story
           ? "你是坐在用户身边的陪听者，不是广播中的人物。刚才播的是广播里那个人在他的节目里讲的一个故事——不是谁真实经历过的事，也不是预言。"
           : "你是坐在用户身边的陪听者，不是广播中的人物。刚才播放的是一条虚构的平行时间线，不是你真实经历过的事实，也不是预言。"),
-      "广播已经暂停。回应用户此刻的问题，保持你自己的立场；可以不认同故事中的选择，不必评审剧情或强行表达感想。",
+      (keepPlaying ? "广播仍在播放，你用文字和身边的用户聊。" : "广播已经暂停。") + "回应用户此刻的问题，保持你自己的立场；可以不认同故事中的选择，不必评审剧情或强行表达感想。用户打进节目时你仍在广播之外，只知道共同播出的连线内容。",
       "你对故事的了解仅限下面实际一起听到的原文。没播的片段、独自听过的内容不属于你的见闻。",
       "【实际一起听到】\n" + JSON.stringify(heard.heard),
       "【这条分支里的陪听对话】\n" + JSON.stringify(heard.talks),
@@ -274,8 +314,9 @@
   }
   // 单句和连播共用一个播放会话；取消后迟到的结束事件不能推进旧章节。
   function createPlayback(io) {
-    let epoch = 0, active = false;
-    const stop = () => { epoch++; active = false; io.cancel(); io.state(false); };
+    let epoch = 0, active = false, pauseResolve = null;
+    const stop = () => { epoch++; active = false; io.cancel(); io.state(false); if (pauseResolve) { const done = pauseResolve; pauseResolve = null; done(); } };
+    const pauseAfterLine = () => !active ? Promise.resolve() : new Promise(resolve => { pauseResolve = resolve; });
     const start = (lines, index, continuous) => {
       stop();
       if (!lines[index]) return;
@@ -288,6 +329,8 @@
           if (settled || token !== epoch || !active) return;
           settled = true;
           if (error) { stop(); io.error(error); return; }
+          if (io.ended) io.ended(i);
+          if (pauseResolve) { active = false; io.state(false); const done = pauseResolve; pauseResolve = null; done(); return; }
           if (continuous && i + 1 < lines.length) play(i + 1);
           else { active = false; io.state(false); }
         };
@@ -296,7 +339,7 @@
       };
       play(index);
     };
-    return { start, stop };
+    return { start, stop, pauseAfterLine };
   }
-  return { KEY, ERAS, CALLER, SHOW_AXES, SHOW_DEFAULT, normalizeShow, showOf, create, accept, acceptCall, reveal, heardLines, companionContext, airedCallLines, airedCalls, storyPrompt, callPrompt, companionPrompt, createPlayback };
+  return { KEY, ERAS, CALLER, SHOW_AXES, SHOW_DEFAULT, normalizeShow, showOf, create, accept, acceptCall, insertCall, playlist, replayParagraphs, reveal, heardLines, companionContext, airedCallLines, airedCalls, storyPrompt, callPrompt, companionPrompt, createPlayback };
 });

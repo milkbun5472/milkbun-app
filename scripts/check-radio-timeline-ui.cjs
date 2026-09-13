@@ -32,7 +32,7 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
           onCompanion:async(b,q,who)=>{window.qaWho=who;window.qaPrompt=RadioTimeline.companionPrompt(b,who,q);return {say:'测试回应'};},
           // v67.58 匿名连线：马甲是匿名箱那一张，他那头只看得见这个名字
           myMask:{name:'空瓶子',bio:'睡不着'},
-          onCall:async(b,era,say)=>{window.qaCallPrompt=RadioTimeline.callPrompt(b,era,{name:'空瓶子',bio:'睡不着'},say);return {lines:[{text:'我接了。'}],guess:'这声音像我认识的一个人'};}
+          onCall:async(b,era,say,anchor)=>{if(window.qaFailCall)throw Error('测试接入失败');window.qaCallPrompt=RadioTimeline.callPrompt(b,era,{name:'空瓶子',bio:'睡不着'},say,anchor);return {lines:[{text:'我接了。'}],guess:'这声音像我认识的一个人'};}
         }));
       });
       await page.getByLabel('想听谁的时间线').selectOption('fixture');
@@ -47,7 +47,7 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.getByRole('button',{name:'接收这个频率的新章节',exact:true}).click();
       await page.getByRole('button',{name:'开始收听这一句',exact:true}).click();
       await page.getByLabel('谁陪你一起听').selectOption('fixture');
-      await page.getByLabel('暂停，和他说一句').fill('你觉得呢');
+      await page.getByLabel('和他说一句').fill('你觉得呢');
       assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled());
       await page.getByRole('button',{name:'继续下一句',exact:true}).click();
       assert.equal(await page.locator('[data-radio-current]').count(),1);
@@ -61,7 +61,7 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       // v67.57：换个人来陪听——他是从你切给他那一句开始听的，前面那些他不在场。
       // ⚠️这一条才是「陪听换人」真正要钉的东西：换了人之后，旧陪听者的见闻一句都不许跟过去。
       await page.getByLabel('谁陪你一起听').selectOption('other');
-      await page.getByLabel('暂停，和他说一句').fill('你听见了吗');
+      await page.getByLabel('和他说一句').fill('你听见了吗');
       assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled(),'刚换的人还没听见任何一句，却已经能问了');
       assert.equal(await page.getByText('测试角色：测试回应',{exact:true}).count(),0,'上一位陪听者的对话跟着串到新来的这位名下了');
       await page.getByLabel('谁陪你一起听').selectOption('fixture');
@@ -77,14 +77,14 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       assert.equal(await page.getByRole('button',{name:'已听回放（2）',exact:true}).count(),1);
       await page.getByRole('button',{name:'继续下一句',exact:true}).click();
       const savedScroll=await page.locator('[data-radio-timeline]').evaluate(el=>{
-        el.lastElementChild.scrollTop=120; return el.lastElementChild.scrollTop;
+        const body=el.querySelector('[data-radio-scroll]');body.scrollTop=120; return body.scrollTop;
       });
       // DOM click avoids Playwright auto-scrolling; verify our own full-page return restoration.
       await page.getByRole('button',{name:'已听回放（2）',exact:true}).evaluate(el=>el.click());
       await page.locator('[data-radio-history]').waitFor();
       await page.screenshot({path:'/tmp/lisa-timeline-history-'+width+'.png'});
       await page.getByRole('button',{name:'返回当前句',exact:true}).click();
-      const restoredScroll=await page.locator('[data-radio-timeline]').evaluate(el=>el.lastElementChild.scrollTop);
+      const restoredScroll=await page.locator('[data-radio-scroll]').evaluate(el=>el.scrollTop);
       assert.ok(Math.abs(restoredScroll-savedScroll)<2);
       await page.getByRole('button',{name:'已听回放（2）',exact:true}).click();
       await page.getByRole('button',{name:'返回当前句',exact:true}).click();
@@ -110,31 +110,67 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='暂停声音').disabled);
       assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
       assert.equal(await page.evaluate(()=>qaCalls),1);
-      const layout=await page.locator('[data-radio-timeline]').evaluate(el=>({w:el.clientWidth,scroll:el.scrollWidth,body:el.lastElementChild.scrollHeight,view:el.lastElementChild.clientHeight}));
+      const layout=await page.locator('[data-radio-timeline]').evaluate(el=>({w:el.clientWidth,scroll:el.scrollWidth,body:el.querySelector('[data-radio-scroll]').scrollHeight,view:el.querySelector('[data-radio-scroll]').clientHeight}));
       assert.ok(layout.scroll<=width,JSON.stringify(layout));assert.ok(layout.body>layout.view);
       await page.screenshot({path:'/tmp/lisa-timeline-'+width+'.png'});
-      await page.getByRole('button',{name:'连续收听（系统音色）',exact:true}).click();
-      await page.getByLabel('暂停，和他说一句').focus();
+      await page.getByRole('button',{name:'朗读当前句（系统音色）',exact:true}).click();
+      await page.getByLabel('和他说一句').fill('继续聊');
+      await page.getByRole('button',{name:'问问他',exact:true}).click();
+      assert.ok(await page.getByRole('button',{name:'问问他',exact:true}).isDisabled());
+      await page.evaluate(()=>qaSpeech.at(-1).onend());
+      await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='接收这个频率的新章节').disabled);
       assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
-      await page.getByRole('button',{name:'连续收听（系统音色）',exact:true}).click();
+      await page.getByRole('button',{name:'朗读当前句（系统音色）',exact:true}).click();
       await page.evaluate(()=>qaSpeech.at(-1).onerror({error:'not-allowed'}));
       await page.getByRole('alert').filter({hasText:'朗读中断了'}).waitFor();
       assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
       assert.equal(await page.evaluate(()=>qaCalls),1);
       // ---- v67.58 匿名连线：打进他的节目，他不知道是谁 ----
+      await page.getByRole('button',{name:'已听回放（3）',exact:true}).click();
+      await page.getByRole('button',{name:'第1句 · 独听的场景',exact:true}).click();
+      const original=await page.evaluate(()=>JSON.stringify(JSON.parse(localStorage.getItem(RadioTimeline.KEY))[0].fragments[0]));
+      await page.getByRole('button',{name:'接入故事',exact:true}).click();
       await page.getByLabel('对着话筒说一句').fill('你还记得那年夏天吗？');
       await page.getByRole('button',{name:'打进去',exact:true}).click();
-      await page.getByRole('button',{name:'开始收听这一句',exact:true}).waitFor();
+      await page.getByRole('button',{name:'接入故事',exact:true}).waitFor();
+      assert.equal(await page.evaluate(()=>JSON.stringify(JSON.parse(localStorage.getItem(RadioTimeline.KEY))[0].fragments[0])),original);
       // 一个字都还没播出去：他心里那句猜测这时候不许露出来
       assert.equal(await page.locator('[data-radio-guess]').count(),0,'连线还没播就把他心里那句给看了');
       const callPrompt=await page.evaluate(()=>qaCallPrompt);
       assert.ok(callPrompt.includes('空瓶子'));assert.ok(!callPrompt.includes('测试角色2'));
-      await page.getByRole('button',{name:'开始收听这一句',exact:true}).click();
+      await page.getByRole('button',{name:'继续下一句',exact:true}).click();
       assert.ok((await page.locator('[data-radio-current]').innerText()).includes('你还记得那年夏天吗？'));
       assert.ok((await page.locator('[data-radio-current]').innerText()).includes('空瓶子'),'她那句署的不是马甲名');
       await page.locator('[data-radio-guess]').waitFor();
       await page.getByRole('button',{name:'继续下一句',exact:true}).click();
       assert.ok((await page.locator('[data-radio-current]').innerText()).includes('我接了。'));
+      await page.getByRole('button',{name:'继续下一句',exact:true}).click();
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('共同听见的话'),'插播没接回原文');
+      await page.getByRole('button',{name:/陪听对话（/}).click();
+      await page.locator('[data-radio-talk-history]').waitFor();
+      await page.getByRole('button',{name:'返回电台',exact:true}).click();
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('共同听见的话'));
+      const footer=await page.locator('[data-radio-composer]').boundingBox();assert.ok(footer.y+footer.height<=845);
+      // 选择边播边聊时不取消节目；失败的插播不碰原文/游标，草稿可重试。
+      await page.getByLabel('聊天时节目继续播放').check();
+      await page.getByRole('button',{name:'朗读当前句（系统音色）',exact:true}).click();
+      await page.getByLabel('和他说一句').fill('边听边聊');
+      await page.getByRole('button',{name:'问问他',exact:true}).click();
+      await page.waitForFunction(()=>!document.querySelector('textarea[aria-label="和他说一句"]').value);
+      assert.ok(!await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
+      await page.getByRole('button',{name:'暂停声音',exact:true}).click();
+      const beforeFail=await page.evaluate(()=>localStorage.getItem(RadioTimeline.KEY));
+      await page.evaluate(()=>window.qaFailCall=true);
+      await page.getByRole('button',{name:'接入故事',exact:true}).click();
+      await page.getByLabel('对着话筒说一句').fill('保留这句');
+      await page.getByRole('button',{name:'打进去',exact:true}).click();
+      await page.getByRole('alert').filter({hasText:'测试接入失败'}).waitFor();
+      assert.equal(await page.getByLabel('对着话筒说一句').inputValue(),'保留这句');
+      assert.equal(await page.evaluate(()=>localStorage.getItem(RadioTimeline.KEY)),beforeFail);
+      await page.setViewportSize({width,height:568});
+      const small=await page.locator('[data-radio-composer]').boundingBox();
+      assert.ok(small.y>50 && small.y+small.height<=569,JSON.stringify(small));
+      await page.screenshot({path:'/tmp/lisa-radio-insert-small-'+width+'.png'});
       assert.deepEqual(errors,[]);
       await ctx.close();console.log(width+'px: 单句替换、已听回放、重听/恢复、独听/陪听隔离、匿名连线、滚动通过');
     }

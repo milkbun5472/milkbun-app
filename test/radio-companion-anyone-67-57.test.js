@@ -73,21 +73,21 @@ test("界面：陪听从一个勾变成挑人，谁陪听就记在谁名下", ()
   assert.match(ui, /h\("option", \{ value: "" \}, "没有人，我自己听"\)/, "没有「我自己听」那一档＝退不回原来的独听");
   assert.match(ui, /c\.id === branch\.charId \? c\.name \+ "（广播里的就是他）" : c\.name/);
   // 听闻和对话都按当前这位落库
-  assert.match(ui, /R\.reveal\(x, fragment\.id, index, companionId\)/);
+  assert.match(ui, /R\.reveal\(x, row\.fragmentId, row\.index, companionId\)/);
   assert.match(ui, /talks: x\.talks\.concat\(\{ companionId: companionId, question: q, answer: raw\.say\.trim\(\) \}\)/);
-  assert.match(ui, /p\.onCompanion\(b, q, companionId\)/);
+  assert.match(ui, /p\.onCompanion\(b, q, companionId, keepPlaying\)/);
   // 界面上只列当前这位的对话、按当前这位判能不能问
-  assert.match(ui, /const mine = R\.companionContext\(branch, companion\.id\);/);
-  assert.match(ui, /mine\.talks\.map/, "把别人跟他的对话也列出来了");
+  assert.match(ui, /const mine = R\.companionContext\(branch, companion\.id\), latest = mine\.talks\.at\(-1\);/);
+  assert.match(ui, /R\.companionContext\(branch, companion\.id\)\.talks\.map/, "把别人跟他的对话也列出来了");
   assert.match(ui, /btn\("问问他", ask, !question\.trim\(\) \|\| !mine\.heard\.length\)/);
   // 换一条线就把陪听的人清掉：上一条线挑的人不该跟过来
   assert.match(ui, /resetPlayback\(\); setCompanion\(""\); select\(id\);/);
 });
 
 test("App 那头别再把 charId 填回去", () => {
-  assert.match(app, /onCompanion: \(branch, question, companionId\) => \{/);
+  assert.match(app, /onCompanion: \(branch, question, companionId, keepPlaying\) => \{/);
   assert.match(app, /liveChars\.find\(x => x\.id === String\(companionId \|\| branch\.charId\)\)/,
     "没接界面传来的那个人＝界面挑了也没用");
   // 陪听走的还是这位【陪听者自己】的上下文，不是广播里那位的
-  assert.match(app, /radioAsk\(buildBundle\(ctxFor\(c\)\) \+ "\\n\\n" \+ window\.RadioTimeline\.companionPrompt\(branch, c\.id, question\)/);
+  assert.match(app, /radioAsk\(buildBundle\(ctxFor\(c\)\) \+ "\\n\\n" \+ window\.RadioTimeline\.companionPrompt\(branch, c\.id, question, keepPlaying\)/);
 });

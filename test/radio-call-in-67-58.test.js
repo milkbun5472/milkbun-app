@@ -97,10 +97,10 @@ test("接线：马甲用匿名箱那一个，三层陌生人围栏跟着走，�
   assert.match(app, /const strangerBans = \(\) => "\\n\\n" \+ ECHO_QUESTION_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   assert.match(app, /const anonBans = \(\) => strangerBans\(\)/, "树洞那两条没搬到公共那一层来");
   assert.match(app, /myMask: anonMe/);
-  assert.match(app, /onCall: \(branch, era, say\) => radioAsk\(/);
-  assert.match(app, /window\.RadioTimeline\.callPrompt\(branch, era, anonMe, say\) \+ strangerBans\(\)/);
+  assert.match(app, /onCall: \(branch, era, say, anchor\) => radioAsk\(/);
+  assert.match(app, /window\.RadioTimeline\.callPrompt\(branch, era, anonMe, say, anchor\) \+ strangerBans\(\)/);
   assert.match(ui, /R\.acceptCall\(raw, era, uid\(\), p\.myMask, say, b\.name\)/);
   assert.match(ui, /"data-radio-callin"/);
   // 他心里那句猜测：播出去了才给她看
-  assert.match(ui, /fragment\.call && fragment\.guess && heard\.length/);
+  assert.match(ui, /currentPart\.call && currentPart\.guess && R\.heardLines\(branch, currentPart\.id\)\.length/);
 });
