@@ -9,6 +9,9 @@
     const [charId, setChar] = useState("");
     const [topic, setTopic] = useState("");
     const [limits, setLimits] = useState("");
+    // 节目类型这一栏（她 2026-09-12 排的第三条）。名字那一格自由填；
+    // 四根轴各自决定提示词里那几句话怎么写，默认值就是今天的样子。
+    const [show, setShow] = useState(() => root.RadioTimeline.normalizeShow(null));
     const [frequency, tune] = useState(1);
     const [fragmentId, setFragment] = useState("");
     const [lineIndex, setLine] = useState(-1);
@@ -57,7 +60,7 @@
     const newBranch = () => {
       try {
         const c = p.characters.find(x => x.id === charId);
-        const b = R.create(c, topic, limits, p.loreFor(c, topic), uid());
+        const b = R.create(c, topic, limits, p.loreFor(c, topic), uid(), show);
         save(data.current.concat(b)); open(b.id);
       } catch (e) { setError(e.message); }
     };
@@ -131,15 +134,27 @@
         ) : !branch ? h(React.Fragment, null,
           h("p", { style: { fontSize: 13, lineHeight: 1.8 } }, "调到过去、现在或未来，听见他的另一种可能。内容不会成为主线史实。"),
           field("想听谁的时间线", h("select", { style: inputStyle, value: charId, onChange: e => setChar(e.target.value) }, h("option", { value: "" }, "选择角色"), p.characters.map(c => h("option", { key: c.id, value: c.id }, c.name)))),
-          field("想探索的事／分岔条件", h("textarea", { style: inputStyle, rows: 3, value: topic, onChange: e => setTopic(e.target.value) })),
+          field(show.tell === "story" ? "想听什么样的故事" : "想探索的事／分岔条件", h("textarea", { style: inputStyle, rows: 3, value: topic, onChange: e => setTopic(e.target.value) })),
+          // ⚠️名字那一格是空白的：写「深夜怪谈」也行，写一个我们没想到的东西也行。
+          //   代码只管下面这四根轴，不拿一张写死的类型表去顶替想象力。
+          h("h3", null, "这是一档什么节目"),
+          field("节目名（可留空）", h("input", { style: inputStyle, value: show.label, placeholder: "比如：深夜怪谈", onChange: e => setShow({ ...show, label: e.target.value }) })),
+          R.SHOW_AXES.map(ax => field(ax.zh, h("select", { style: inputStyle, value: show[ax.key], onChange: e => setShow({ ...show, [ax.key]: e.target.value }) },
+            ax.opts.map(o => h("option", { key: o.id, value: o.id }, o.zh))))),
           field("已知设定与不想出现的内容（可留空）", h("textarea", { style: inputStyle, rows: 2, value: limits, onChange: e => setLimits(e.target.value) })),
           btn("建立这条时间线", newBranch, !charId || !topic.trim()),
           h("p", { style: { fontSize: 12 } }, "建立不调用模型；接收新片段和陪听回应时才各调用一次。"),
           h("h3", null, "留在这里的频率"),
-          branches.map(b => h("div", { key: b.id, style: { marginBottom: 10 } }, btn(b.name + " · " + b.topic, () => open(b.id)))),
+          branches.map(b => h("div", { key: b.id, style: { marginBottom: 10 } },
+            btn(b.name + " · " + (R.showOf(b).label ? R.showOf(b).label + " · " : "") + b.topic, () => open(b.id)))),
           btn("打开旧电台", p.onLegacy)
         ) : h(React.Fragment, null,
           h("h3", { style: { marginTop: 0 } }, branch.name + " · " + branch.topic),
+          (function () {
+            const sh = R.showOf(branch);
+            return h("p", { "data-radio-show": true, style: { fontSize: 12, marginTop: 0 } },
+              (sh.label ? sh.label + " · " : "") + R.SHOW_AXES.map(ax => (ax.opts.find(o => o.id === sh[ax.key]) || {}).zh).filter(Boolean).join(" · "));
+          })(),
           h("p", { style: { fontSize: 12 } }, "角色卡与世界设定在建线时留存；修改角色卡后可新建一条线。"),
           h("div", { style: { border: "1px solid #c6bba7", padding: 14, borderRadius: 10, background: "#e7ddca" } },
             h("div", { style: { textAlign: "center", fontSize: 24 } }, currentEra.freq + " · " + currentEra.label),

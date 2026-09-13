@@ -36,6 +36,11 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
         }));
       });
       await page.getByLabel('想听谁的时间线').selectOption('fixture');
+      // v67.60 节目类型那一栏：四根轴在，换成「讲故事」之后连上面那格的名字都跟着换
+      await page.getByLabel('他在讲什么').selectOption('story');
+      await page.getByLabel('想听什么样的故事').fill('测试分岔');
+      await page.getByLabel('他在讲什么').selectOption('self');
+      await page.getByLabel('广播那头有没有人').selectOption('none');
       await page.getByLabel('想探索的事／分岔条件').fill('测试分岔');
       await page.getByRole('button',{name:'建立这条时间线',exact:true}).click();
       assert.equal(await page.evaluate(()=>qaCalls),0);
