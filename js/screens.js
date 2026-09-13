@@ -3897,6 +3897,31 @@ function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
             h("button", { onClick: e => { e.stopPropagation(); onDel(x.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9a8a6a", minHeight: 32, padding: "0 4px" } }, "删掉")))))
         : h(Empty, { text: "还没问过", sub: "问一次就挑一件你俩共同经历过的事。同一件事，两个人记得的常常不是同一处。" })));
 }
+// 说好的事／心愿的日子，挑到【几点】（她 2026-09-13：「要时间」）。
+// ⚠️原来两处各写一遍 `new Date(v + "T09:00:00")`——那个 9 点不是他俩约的时间，
+//   是日期选择器没处放钟点时的占位。到点他开口，气泡上就写着一个没发生过的九点
+//   （v67.80 那次倒填错乱的一半病根就在这儿）。
+// ⚠️合成一处（施工规则/one-public-mechanism.md）：两处都从这儿要时刻，
+//   不填几点仍然落回 09:00——老存档和老习惯一个字不变。
+const COUPLE_DUE_DEFAULT_HM = "09:00";
+function coupleDueTs(day, hm) {
+  const d0 = String(day || "").trim();
+  if (!d0) return 0;
+  const t0 = /^\d{2}:\d{2}$/.test(String(hm || "")) ? hm : COUPLE_DUE_DEFAULT_HM;
+  const d = new Date(d0 + "T" + t0 + ":00");
+  // ⚠️钟点不成立（「25:99」这种形状对、数不对的）不许连日子一起作废：
+  //   返回 0 的意思是【她没挑日子】，可她明明挑了。落回默认钟点，别把她那一下吞掉。
+  if (!isNaN(d.getTime())) return d.getTime();
+  const d2 = new Date(d0 + "T" + COUPLE_DUE_DEFAULT_HM + ":00");
+  return isNaN(d2.getTime()) ? 0 : d2.getTime();
+}
+// 挂在日子后面那一行的「几点」。⚠️照真实时刻显示，不许省：
+//   她挑了晚上八点，界面上就得写八点；写着「就是今天」而不写几点，等于没挑过。
+function coupleDueClock(ts) {
+  const d = new Date(Number(ts) || 0);
+  if (isNaN(d.getTime())) return "";
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
 // 情侣空间·我们说好的（v58.83，她 2026-08-31 选的第 ② 条）。
 // ⚠️和「心愿单」是两回事，别混：心愿单是【她想要的】，自己往里放；
 // 这一页是【你俩真说过的】——线下/通话结束时自动抽出来的开环（记忆库里 open:true 的条目）。
@@ -3908,13 +3933,15 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
   const [day, setDay] = useState("");
   const [dueFor, setDueFor] = useState(null);      // 正在给哪一条挑日子
   const [dueVal, setDueVal] = useState("");
+  const [dueHm, setDueHm] = useState(COUPLE_DUE_DEFAULT_HM);       // 到那天【几点】
+  const [dayHm, setDayHm] = useState(COUPLE_DUE_DEFAULT_HM);       // 自己记一条时的几点
   // 到那天他【怎么来】（她 2026-09-06：「约好了打电话没做」）。
   // 原来只有一种：发消息。约好打电话的那些到点只能等来一条文字，那不叫打电话。
   const [dueVia, setDueVia] = useState("chat");
   const open = (pacts && pacts.open) || [], due = (pacts && pacts.due) || [];
   const dueOf = memId => due.find(x => x.memId === memId);
   const leftOf = ts => { const n = Math.ceil((ts - Date.now()) / 86400000); return n > 0 ? "还有 " + n + " 天" : n === 0 ? "就是今天" : "已经过了 " + (-n) + " 天"; };
-  const toTs = v => { const d = new Date(v + "T09:00:00"); return isNaN(d.getTime()) ? 0 : d.getTime(); };
+  const toTs = (v, hm) => coupleDueTs(v, hm);
   // ── v62.44（她 2026-09-04：「我们说好的里面还是一条条很无聊」）────────────
   // 上一版是一条条圆角框 + 一排文字链（挑个日子／不催了／做到了／算了）——
   // 换个 app 照样成立，而且这一页真正的动作【挑哪一天】被藏成了一个小灰字。
@@ -3940,9 +3967,12 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
         h("input", { value: txt, onChange: e => setTxt(e.target.value), placeholder: "你们说好了什么", style: inp }),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 9 } },
           h("input", { type: "date", value: day, onChange: e => setDay(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
-          h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day) : 0); setTxt(""); setDay(""); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70 disabled:opacity-40",
+          // 几点：填了日子才有意义，所以没填日子时它是灰的
+          h("input", { type: "time", value: dayHm, disabled: !day, "aria-label": "几点", onChange: e => setDayHm(e.target.value),
+            style: Object.assign({}, inp, { width: 104, flexShrink: 0, opacity: day ? 1 : .45 }) }),
+          h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day, dayHm) : 0); setTxt(""); setDay(""); setDayHm(COUPLE_DUE_DEFAULT_HM); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70 disabled:opacity-40",
             style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 18px", minHeight: 44 } }, "记下")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7 } }, "日子可以不填。填了到那天他会主动来找你说这件事。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7 } }, "日子可以不填。填了到那天【那个点】他会主动来找你说这件事；不改钟点就是早上九点。")),
       open.length ? open.map(m => {
         const d = dueOf(m.id);
         const dd = d ? new Date(d.dueTs) : null;
@@ -3955,9 +3985,10 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
             h("div", { className: "flex-1 min-w-0", style: { paddingRight: 8 } },
               h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.85, color: PINK2 } }, m.text),
               d ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: passed ? "#b06a5a" : "#8a7a5c", marginTop: 7 } },
-                leftOf(d.dueTs) + " · " + (d.via === "voice" ? "他会打给你" : d.via === "video" ? "他会视频找你" : "他会来找你说")) : null),
+                // ⚠️几点必须写出来：只写「就是今天」的话，她挑的那个钟点等于没挑过
+                leftOf(d.dueTs) + " " + coupleDueClock(d.dueTs) + " · " + (d.via === "voice" ? "他会打给你" : d.via === "video" ? "他会视频找你" : "他会来找你说")) : null),
             // 挂历页本身就是「挑个日子」那颗按钮：没挑过是空白的一页
-            h("button", { onClick: () => { setDueFor(picking ? null : m.id); setDueVal(""); setDueVia((d && d.via) || "chat"); }, className: "shrink-0 active:opacity-75",
+            h("button", { onClick: () => { setDueFor(picking ? null : m.id); setDueVal(""); setDueHm(d ? coupleDueClock(d.dueTs) : COUPLE_DUE_DEFAULT_HM); setDueVia((d && d.via) || "chat"); }, className: "shrink-0 active:opacity-75",
               style: { width: 64, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 2px" } },
               h(CalPage, { w: 44, dim: !d || passed,
                 month: dd ? dd.getMonth() + 1 : undefined, day: dd ? dd.getDate() : undefined,
@@ -3982,7 +4013,8 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
               })),
             h("div", { className: "flex items-center", style: { gap: 8 } },
               h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
-              h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal), dueVia); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
+              h("input", { type: "time", value: dueHm, "aria-label": "几点", onChange: e => setDueHm(e.target.value), style: Object.assign({}, inp, { width: 104, flexShrink: 0 }) }),
+              h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal, dueHm), dueVia); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
                 style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 16px", minHeight: 44 } }, "就这天"),
               d ? h("button", { onClick: () => { onSetDue(m.id, m.text, 0); setDueFor(null); }, className: "shrink-0 active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 44, padding: "0 4px" } }, "不催了") : null),
@@ -4014,8 +4046,11 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
   // 「已计划」的愿望可以挑个日子（v62.11）：到那天他主动来约——走约回那条现成的链
   const [planFor, setPlanFor] = useState(null);
   const [planVal, setPlanVal] = useState("");
-  const planTs = v => { const d = new Date(v + "T09:00:00"); return isNaN(d.getTime()) ? 0 : d.getTime(); };
-  const planLeft = ts => { const n2 = Math.ceil((ts - Date.now()) / 86400000); return n2 > 0 ? "还有 " + n2 + " 天" : n2 === 0 ? "就是今天" : "过了 " + (-n2) + " 天"; };
+  const [planHm, setPlanHm] = useState(COUPLE_DUE_DEFAULT_HM);
+  // ⚠️跟「说好的事」同一个形状，所以用同一份（施工规则/one-public-mechanism.md）：
+  //   各写一份 `T09:00:00` 正是上一版倒填错乱的病根之一。
+  const planTs = (v, hm) => coupleDueTs(v, hm);
+  const planLeft = ts => { const n2 = Math.ceil((ts - Date.now()) / 86400000); const when = n2 > 0 ? "还有 " + n2 + " 天" : n2 === 0 ? "就是今天" : "过了 " + (-n2) + " 天"; return when + " " + coupleDueClock(ts); };
   const add = () => {
     const clean = title.trim(); if (!clean) return;
     const now = Date.now();
@@ -4117,8 +4152,9 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
                   (new Date(pl.dueTs).getMonth() + 1) + "月" + new Date(pl.dueTs).getDate() + "日 · " + planLeft(pl.dueTs) + " · 到时他来约"),
                 h("button", { onClick: () => onPlan(w, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: paperFog, minHeight: 32 } }, "不定了"))
               : planFor === w.id ? h("div", { className: "flex items-center", style: { gap: 8 } },
-                h("input", { type: "date", value: planVal, onChange: e => setPlanVal(e.target.value), style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: paperInk, background: "#fffdf6", border: "1px solid #d5c7a4", borderRadius: 8, padding: "8px 10px", outline: "none" } }),
-                h("button", { onClick: () => { const ts = planTs(planVal); if (ts) { onPlan(w, ts); setPlanFor(null); } }, disabled: !planVal, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#4a7396", borderRadius: 8, padding: "8px 14px" } }, "就这天"))
+                h("input", { type: "date", value: planVal, onChange: e => setPlanVal(e.target.value), style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, color: paperInk, background: "#fffdf6", border: "1px solid #d5c7a4", borderRadius: 8, padding: "8px 10px", outline: "none" } }),
+                h("input", { type: "time", value: planHm, "aria-label": "几点", onChange: e => setPlanHm(e.target.value), style: { width: 96, flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: paperInk, background: "#fffdf6", border: "1px solid #d5c7a4", borderRadius: 8, padding: "8px 8px", outline: "none" } }),
+                h("button", { onClick: () => { const ts = planTs(planVal, planHm); if (ts) { onPlan(w, ts); setPlanFor(null); } }, disabled: !planVal, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#4a7396", borderRadius: 8, padding: "8px 12px" } }, "就这天"))
               : h("button", { onClick: () => { setPlanFor(w.id); setPlanVal(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6a5a40", minHeight: 32 } }, "挑个日子 · 到那天他来约"));
           })());
       })) : h("div", { style: { margin: "26px 4px 0", padding: "30px 16px", textAlign: "center", border: "1.5px dashed rgba(70,45,15,.35)", borderRadius: 6, fontFamily: F_BODY, fontSize: 12.5, color: "#5c4726", lineHeight: 1.9 } }, "板上还空着。", h("br"), "先钉一件不急着完成、但不想忘记的事。")));

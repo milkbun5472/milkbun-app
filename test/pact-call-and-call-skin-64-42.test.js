@@ -114,7 +114,8 @@ test("响铃这一路一次模型都不调", () => {
 
 test("界面上能选「怎么来」，而且选中态不是只填个色", () => {
   assert.match(scr, /\["chat", "voice", "video"\]\.map\(k => \{/, "三选一那一排没有");
-  assert.match(scr, /onSetDue\(m\.id, m\.text, toTs\(dueVal\), dueVia\)/, "选了怎么来，没传下去");
+  // v67.81：日子后面多挑一个【几点】（她 2026-09-13「要时间」），「怎么来」照旧跟着走
+  assert.match(scr, /onSetDue\(m\.id, m\.text, toTs\(dueVal, dueHm\), dueVia\)/, "选了怎么来，没传下去");
   assert.match(scr, /onSetDue: \(mid, about, ts, via\) => onSetPactDue\(mid, partner\.id, about, ts, via\)/, "中间那一层把 via 吃掉了");
   // 选中/没选中至少还要差【形状】——色差之外的东西（tabs-not-plain-pills 第 2 点）
   const seg = scr.slice(scr.indexOf('["chat", "voice", "video"].map(k => {'), scr.indexOf('k === "chat" ? "来找你说"'));

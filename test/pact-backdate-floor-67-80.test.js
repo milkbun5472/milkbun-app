@@ -65,7 +65,9 @@ test("接线：发消息和未接来电两条路都走这个地板", () => {
   assert.match(app, /backdateTs: promiseBackTs\(pm\) \}\);/);
   assert.match(app, /ringFromChar\(c, pm\.via, promiseBackTs\(pm\) \|\| Date\.now\(\), Math\.round\(\(Date\.now\(\) - pm\.dueTs\) \/ 60000\)\);/);
   assert.ok(!/backdateTs: pm\.dueTs < Date\.now\(\) - 60000 \? pm\.dueTs : 0/.test(app), "老的那行还在，两条路各算各的");
-  // 「9 点」是日期选择器的占位钟点这件事，钉在【它真正被写出来的地方】
-  assert.match(screens, /const toTs = v => \{ const d = new Date\(v \+ "T09:00:00"\); return isNaN\(d\.getTime\(\)\) \? 0 : d\.getTime\(\); \};/);
-  assert.match(screens, /const planTs = v => \{ const d = new Date\(v \+ "T09:00:00"\); return isNaN\(d\.getTime\(\)\) \? 0 : d\.getTime\(\); \};/);
+  // v67.81：那个「9 点」现在是【挑不到钟点时的兜底】，不再是写死的占位——
+  //   她挑了几点就是几点（见 test/pact-due-time-67-81）。两处都从同一份要时刻。
+  assert.match(screens, /const COUPLE_DUE_DEFAULT_HM = "09:00";/);
+  assert.match(screens, /const toTs = \(v, hm\) => coupleDueTs\(v, hm\);/);
+  assert.match(screens, /const planTs = \(v, hm\) => coupleDueTs\(v, hm\);/);
 });
