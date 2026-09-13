@@ -3582,6 +3582,9 @@ const HOME_ROW_UNIT = 82, HOME_ROW_GAP = 8, HOME_ROWS_PER_PAGE = 5, HOME_ROW_MIN
 //   （js/components.js 的 room 兜底那一行）。写死在两处的话，改了这边那边就落单——
 //   而且那种落单不会报错，只会让首帧的碟大一圈或小一圈。所以只此一份。
 const HOME_PAD_X = 12;
+// 歪着的组件/装饰，转角要伸出去的那几像素：借格与格之间那道 8px 的缝，只借 6、留 2。
+// ⚠️不是「留白」，是【裁剪框】往外让——占位和内容尺寸一点没变（见 renderItem 那一格）。
+const HOME_TILT_BLEED = 6;
 // 拖着东西贴到这一页上/下边多少像素之内，就让这一页自己慢慢滚（拖动时纵向滚动是锁死的）。
 // 一帧一个固定步长：滚多快跟手指多快无关，所以停得住、对得准。
 const HOME_EDGE_ZONE = 66, HOME_EDGE_STEP = 9;
@@ -5510,7 +5513,18 @@ function Home({
       "data-wk": it.kind === "widget" ? "widget" : it.kind === "decor" ? "decor" : undefined,
       style: {
         gridColumn: gCol, gridRow: gRow,
-        height: fixedH || undefined, overflow: fixedH ? "hidden" : undefined,
+        // ⚠️歪着的卡要有地方伸腿（她 2026-09-13：「组件和装饰要是歪着叠，他的角会被截掉」）。
+        //   病根：这一格定了高就 overflow:hidden，而卡是【转过角度】的——
+        //   一张 340 宽的卡歪 4°，上下各要多出十来像素，那几个角正好被这个方框削掉。
+        //   ⚠️不能改成 visible：旁边 homeWidgetPresetStyle 里写着理由——
+        //   「格子是按格算落位的，让装饰画到格子外面会盖住邻居」。那句话是对的。
+        //   所以不放开裁剪，而是【把裁剪框往外挪 6px】，正好挪进格与格之间那道 8px 的缝里：
+        //   padding 6 + margin -6 + 高度多 12（border-box），**占位、内容尺寸、位置一个都没变**，
+        //   变的只有那个方框——角有地方伸，邻居也盖不着（缝是 8px，只借 6px，还留 2px）。
+        height: fixedH ? fixedH + HOME_TILT_BLEED * 2 : undefined,
+        padding: fixedH ? HOME_TILT_BLEED : undefined,
+        margin: fixedH ? -HOME_TILT_BLEED : undefined,
+        overflow: fixedH ? "hidden" : undefined,
         animation: editMode && !isDrag && !isHoverTgt ? "wk-jiggle .32s ease-in-out infinite" : "none",
         transform: isDrag ? "scale(1.08)" : (isHoverTgt ? "scale(1.2)" : "none"),
         opacity: isDrag ? 0.28 : 1,

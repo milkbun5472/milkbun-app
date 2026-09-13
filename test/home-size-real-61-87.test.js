@@ -33,7 +33,11 @@ test("组件高度一律钉死；只有名片按内容高（它的高度是一�
   const seg = comp.slice(comp.indexOf("const fixedH ="), comp.indexOf("let inner = homeInnerOf(", comp.indexOf("const fixedH =")) + 40);
   assert.match(seg, /!HOME_FREE_HEIGHT\[key\] \? homeSpanHeight\(span\[1\], rowUnit\)/);
   assert.match(comp, /const HOME_FREE_HEIGHT = \{ w_card: true \};/);
-  assert.match(comp, /height: fixedH \|\| undefined, overflow: fixedH \? "hidden" : undefined/, "钉了高度却没裁溢出，撑破的还是会顶下去");
+  // v67.79：裁剪框往外让了 6px（歪着的卡角不再被削），但【钉高＋裁溢出】这件事一个字没变：
+  //   高度 fixedH + 两倍 bleed、padding 一倍、margin 负一倍（border-box）＝占位和内容尺寸原样。
+  assert.match(comp, /height: fixedH \? fixedH \+ HOME_TILT_BLEED \* 2 : undefined,/, "钉了高度却没裁溢出，撑破的还是会顶下去");
+  assert.match(comp, /padding: fixedH \? HOME_TILT_BLEED : undefined,\n\s*margin: fixedH \? -HOME_TILT_BLEED : undefined,/, "占位被改大了（少了负 margin 那一半）");
+  assert.match(comp, /overflow: fixedH \? "hidden" : undefined,/, "钉了高度却没裁溢出，撑破的还是会顶下去");
 });
 
 test("2 和 4 之间补了两档 3 格宽的", () => {
