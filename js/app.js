@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.79";
+const APP_VERSION = "v67.80";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5382,6 +5382,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 排在动念前面，而且【不看动念、不看 45 分钟底线】——那是「攒够思念才开口」的门槛，
       // 这条是他自己许下的约，性质不一样。也不看时段：app 不开就不会跑，能跑说明她醒着。
       // 她那段时间没开 app → 这条一直欠着，下次开 app 补上（她 2026-08-26 明说要这样）。
+      // 倒填到「说好的那一刻」有个地板（她 2026-09-13 报：把约定挪到今天，他下午一点开口，
+      // 气泡上却写着 9:00，还排到了 13:05 那几条的下面）。两条都要挡：
+      //   ① 选日期那一栏定不出【时刻】——`new Date(v + "T09:00:00")`，9 点是日期选择器的
+      //      占位钟点，不是他俩约好的时间。倒填到一个假的时刻，就是无中生有一段没发生的过去。
+      //   ② 倒填的时刻要是早于【这条约定被定下来的那一刻】或【聊天里最后一条消息】，
+      //      那条气泡就排到前面去了——聊天记录的顺序当场错乱（她截图里正是这样）。
+      // 所以：只有当「说好的那一刻」真的晚于这两样时才倒填；否则就是现在。
+      // ⚠️原来那条路的本意没动：他昨晚答应今早八点找你、你中午才开 app，照旧补到八点。
+      const promiseBackTs = pm => {
+        const due = Number(pm && pm.dueTs) || 0;
+        if (!due || due >= Date.now() - 60000) return 0;          // 刚到点＝就是此刻，不用倒填
+        const rows = chatsRef.current[pm.charId] || [];
+        let lastTs = 0;
+        for (let i = rows.length - 1; i >= 0; i--) { const t0 = Number(rows[i] && rows[i].ts) || 0; if (t0 > lastTs) lastTs = t0; }
+        // 约定/心愿的 id 就是「pk_ / pw_ + 定下来那一刻」，不另存一个字段
+        const bornTs = Number(String((pm && pm.id) || "").split("_")[1]) || 0;
+        return due > Math.max(lastTs, bornTs) ? due : 0;
+      };
       try {
         const due = (promisesRef.current || []).filter(x => x && x.dueTs && Date.now() >= x.dueTs);
         for (const pm of due) {
@@ -5405,7 +5423,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (pm.via === "voice" || pm.via === "video") {
             drop();
             dongnianFiredRef.current[pm.charId] = Date.now();
-            ringFromChar(c, pm.via, pm.dueTs, Math.round((Date.now() - pm.dueTs) / 60000));
+            // 未接来电那张卡也照这个地板走：不然它也会插到前面几条的下面去
+            ringFromChar(c, pm.via, promiseBackTs(pm) || Date.now(), Math.round((Date.now() - pm.dueTs) / 60000));
             return;
           }
           if (viewRef.current.charId === pm.charId) continue; // 她正看着这个聊天，前台那套负责
@@ -5414,7 +5433,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const late = Math.round((Date.now() - pm.dueTs) / 60000);
           // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「他当时就来找过你」
           replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late },
-            backdateTs: pm.dueTs < Date.now() - 60000 ? pm.dueTs : 0 });
+            backdateTs: promiseBackTs(pm) });
           return;                                             // 一次一个，错峰
         }
       } catch (e) {}

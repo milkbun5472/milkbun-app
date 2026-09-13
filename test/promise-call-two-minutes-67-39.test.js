@@ -84,7 +84,8 @@ test("约回不再压在「允许 TA 主动发消息」那个开关上", () => {
   assert.match(seg, /if \(laneBusy\("c:" \+ pm\.charId\)\) continue;/);
   assert.match(seg, /if \(currentlyTogetherWithChar\(pm\.charId\)\) continue;/);
   assert.match(seg, /if \(pm\.via === "voice" \|\| pm\.via === "video"\) \{/, "打电话那一支没了");
-  assert.match(seg, /ringFromChar\(c, pm\.via, pm\.dueTs/);
+  // v67.80：第三个参数过了一道倒填地板（见 test/pact-backdate-floor-67-80）
+  assert.match(seg, /ringFromChar\(c, pm\.via, promiseBackTs\(pm\) \|\| Date\.now\(\)/);
 });
 
 test("响铃那一支排在「她正看着这个聊天」前面（她就坐在那儿等电话）", () => {

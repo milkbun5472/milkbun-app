@@ -82,7 +82,10 @@ test("补记时算出「思念是哪一刻越过阈值的」，消息时间戳�
   assert.match(app, /Math\.max\(lastInteract \+ 60000, Math\.min\(_cross, Date\.now\(\) - 60000\)\)/);
   assert.match(app, /backdateTs: _back > 0 && _back < Date\.now\(\) \? _back : 0/);
   // 约回补到「说好的那一刻」
-  assert.match(app, /backdateTs: pm\.dueTs < Date\.now\(\) - 60000 \? pm\.dueTs : 0/);
+  // v67.80：约回那条路的倒填收进 promiseBackTs（多了一道地板：不许早于约定定下来的那一刻、
+  //   也不许早于聊天里最后一条）。动念那条路的倒填一个字没动，还在上面那条断言里。
+  assert.match(app, /backdateTs: promiseBackTs\(pm\) \}\);/);
+  assert.match(app, /return due > Math\.max\(lastTs, bornTs\) \? due : 0;/);
   // 多条气泡按顺序往后错开，像真的一条条发的
   assert.match(app, /const _tsOf = i => \(_bd && _bd < Date\.now\(\) \? Math\.min\(Date\.now\(\) - 1000, _bd \+ i \* 45000\) : Date\.now\(\)\)/);
   assert.match(app, /ts: _tsOf\(i\)/);

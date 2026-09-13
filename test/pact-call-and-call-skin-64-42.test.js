@@ -91,7 +91,9 @@ test("约定能约成打电话，而且到点走的是【响铃】不是发消�
   // v64.50 起这一支自己 drop、自己算 late（它排到了「她正看着这个聊天」那道闸前面）
   const branch = seg.slice(iRing, seg.indexOf("return;", iRing));
   assert.match(branch, /drop\(\);/, "电话这一支没把那条约消费掉");
-  assert.match(branch, /ringFromChar\(c, pm\.via, pm\.dueTs,/, "没走响铃那条路");
+  // v67.80：那一格的时刻过了一道地板（倒填不许早于「约定定下来」和「聊天最后一条」），
+  //   走的还是响铃这条路，一个字没改。
+  assert.match(branch, /ringFromChar\(c, pm\.via, promiseBackTs\(pm\) \|\| Date\.now\(\),/, "没走响铃那条路");
   assert.ok(seg.indexOf("return;", iRing) < iReply, "电话那一支没有当场 return，会接着再发一条消息（两次）");
 });
 
