@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.57";
+const APP_VERSION = "v67.58";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13815,8 +13815,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //
   // ⚠️写成一个共用常量：两条匿名路（陌生网友 / 她自己攒的那箱）各写一份，
   //   迟早只改一处（v56.09 群线上漏接自动抽取，就是这么漏的）。
-  const anonBans = () => "\n\n" + ECHO_QUESTION_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
-    + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "")
+  // ⚠️v67.58：电台匿名连线是第【四】条「陌生人朝他开口」的路（匿名箱两条＋查手机那一问）。
+  //   那三层（回声／语域／读懂这句话在做什么）本来就该跟着走，所以它们抽成了 strangerBans()，
+  //   而【已有的这几处也搬了过来】——只开公共的、旧的留在原地是最坏的一种
+  //   （施工规则/one-public-mechanism.md）。各处自己的分寸留在各处：
+  //   树洞是「一屋子陌生人」，连线是「直播里接进来一个人」，两句话不一样，不许互相将就。
+  const strangerBans = () => "\n\n" + ECHO_QUESTION_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
+    + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
+  const anonBans = () => strangerBans()
     + "\n\n【这是树洞，不是聊天】问你话的是一屋子跟你毫无关系的陌生人，不是你身边的人。"
     + "对他们说话的分寸、耐心和亲疏，跟你对熟人说话【本来就不一样】——想答就答，不想答就不答，"
     + "不用照顾谁的情绪，也不欠谁一个完整的解释。";
@@ -20597,7 +20603,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const c = liveChars.find(x => x.id === String(companionId || branch.charId));
       if (!c) throw new Error("这位角色已不在当前角色列表，暂时无法邀请陪听。");
       return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question), '{"say":"陪听者此刻的回应"}');
-    }
+    },
+    // 匿名连线（她 2026-09-12 排的第一条）：她打进他正在播的那档节目，他不知道是谁。
+    // ⚠️马甲用匿名箱那一个（x_anonMe），不另立一个身份——同一个人戴同一张面具。
+    myMask: anonMe,
+    // ⚠️register 在这一处【要留着】：章节那一格关掉它，理由是「广播讲角色自身经历，
+    //   用户并不默认在场」；连线正好相反——线上真有一个人在跟他说话，
+    //   那条理由在这儿不成立（施工规则/bans-make-it-dumber.md 的第三问：它管的场合还成立吗）。
+    // ⚠️strangerBans 那三层是【靠调用点一条条 push 的】，换个入口一条都不会自己跟过来
+    //   （施工规则/four-surfaces-same-context.md）：陌生人打进来这一处，
+    //   回声式反问尤其要命——他手上是一句问话，最顺手的开口就是把它原样抛回去。
+    onCall: (branch, era, say) => radioAsk(
+      narrativeCore({ intimate: true }) + "\n\n"
+      + window.RadioTimeline.callPrompt(branch, era, anonMe, say) + strangerBans(),
+      '{"title":"这通电话的标题（可空）","lines":[{"text":"你说出口的一段话（整段照原样放，不要替播放器拆成一句一项）"}],"guess":"你心里那句猜测（可空）"}')
   });
   else if (screen === "radioLegacy") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
     onBack: () => setScreen("radio"),

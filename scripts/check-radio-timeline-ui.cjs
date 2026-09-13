@@ -29,7 +29,10 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
           characters:[{id:'fixture',name:'测试角色',persona:'虚构测试人物'},{id:'other',name:'旁边那位',persona:'另一个虚构人物'}],loreFor:()=>'',onBack:()=>{},onLegacy:()=>{},
           onFragment:async()=>{window.qaCalls++;return {title:'测试片段',lines:[{kind:'narrator',text:'独听的场景'},{kind:'character',speaker:'测试角色',text:'共同听见的话'},{kind:'character',text:'还没播放的秘密'}]};},
           // v67.57：陪听的是谁由界面传进来（原来写死成广播里那个人）
-          onCompanion:async(b,q,who)=>{window.qaWho=who;window.qaPrompt=RadioTimeline.companionPrompt(b,who,q);return {say:'测试回应'};}
+          onCompanion:async(b,q,who)=>{window.qaWho=who;window.qaPrompt=RadioTimeline.companionPrompt(b,who,q);return {say:'测试回应'};},
+          // v67.58 匿名连线：马甲是匿名箱那一张，他那头只看得见这个名字
+          myMask:{name:'空瓶子',bio:'睡不着'},
+          onCall:async(b,era,say)=>{window.qaCallPrompt=RadioTimeline.callPrompt(b,era,{name:'空瓶子',bio:'睡不着'},say);return {lines:[{text:'我接了。'}],guess:'这声音像我认识的一个人'};}
         }));
       });
       await page.getByLabel('想听谁的时间线').selectOption('fixture');
@@ -113,8 +116,22 @@ const fs=require('node:fs'), http=require('node:http'), path=require('node:path'
       await page.getByRole('alert').filter({hasText:'朗读中断了'}).waitFor();
       assert.ok(await page.getByRole('button',{name:'暂停声音',exact:true}).isDisabled());
       assert.equal(await page.evaluate(()=>qaCalls),1);
+      // ---- v67.58 匿名连线：打进他的节目，他不知道是谁 ----
+      await page.getByLabel('对着话筒说一句').fill('你还记得那年夏天吗？');
+      await page.getByRole('button',{name:'打进去',exact:true}).click();
+      await page.getByRole('button',{name:'开始收听这一句',exact:true}).waitFor();
+      // 一个字都还没播出去：他心里那句猜测这时候不许露出来
+      assert.equal(await page.locator('[data-radio-guess]').count(),0,'连线还没播就把他心里那句给看了');
+      const callPrompt=await page.evaluate(()=>qaCallPrompt);
+      assert.ok(callPrompt.includes('空瓶子'));assert.ok(!callPrompt.includes('测试角色2'));
+      await page.getByRole('button',{name:'开始收听这一句',exact:true}).click();
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('你还记得那年夏天吗？'));
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('空瓶子'),'她那句署的不是马甲名');
+      await page.locator('[data-radio-guess]').waitFor();
+      await page.getByRole('button',{name:'继续下一句',exact:true}).click();
+      assert.ok((await page.locator('[data-radio-current]').innerText()).includes('我接了。'));
       assert.deepEqual(errors,[]);
-      await ctx.close();console.log(width+'px: 单句替换、已听回放、重听/恢复、独听/陪听隔离、滚动通过');
+      await ctx.close();console.log(width+'px: 单句替换、已听回放、重听/恢复、独听/陪听隔离、匿名连线、滚动通过');
     }
   } finally {await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -8,6 +8,14 @@
   const KEY = "x_radioTimelines";
   const ERAS = [{ id: "past", label: "过去", freq: "88.1" }, { id: "present", label: "现在", freq: "98.6" }, { id: "future", label: "未来", freq: "108.0" }];
   const text = x => typeof x === "string" ? x.trim() : "";
+  // 按句界拆开，供 accept 与 acceptCall 共用——两处各写一份，迟早只改一处
+  // （施工规则/one-public-mechanism.md）。没有 Intl.Segmenter 的那条路照旧要能把段落拆开。
+  const splitSentences = body => {
+    const seg = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "sentence" }) : null;
+    return seg
+      ? [...seg.segment(body)].map(x => x.segment.trim()).filter(Boolean)
+      : body.replace(/([。！？!?…]+["」』）)]*)/g, "$1\u0000").split("\u0000").map(x => x.trim()).filter(Boolean);
+  };
   const era = id => ERAS.find(x => x.id === id);
   function create(char, topic, limits, lore, id) {
     if (!char || !char.id || !text(char.persona)) throw Error("先选一位写有人设的角色。");
@@ -24,12 +32,8 @@
     // ⚠️v67.50 起提示词要的是【一段一项】（一句一项会把整章写成等重的短句，见 storyPrompt），
     //   所以拆句这一步从「顺手兜一下」变成了【唯一的那道工序】——它掉链子，
     //   她就会拿到一张两千字的卡。没有 Intl.Segmenter 的那条路照旧要能把段落拆开。
-    const segmenter = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "sentence" }) : null;
-    const split = body => segmenter
-      ? [...segmenter.segment(body)].map(s => s.segment.trim()).filter(Boolean)
-      : body.replace(/([。！？!?…]+["」』）)]*)/g, "$1\u0000").split("\u0000").map(s => s.trim()).filter(Boolean);
     return { id, era: eraId, title: text(raw.title) || era(eraId).label, lines: rows.flatMap(x => {
-      const sentences = split(text(x.text));
+      const sentences = splitSentences(text(x.text));
       return sentences.map(sentence => ({ kind: x.kind, speaker: x.kind === "narrator" ? "旁白" : text(x.speaker), text: sentence }));
     }) };
   }
@@ -52,8 +56,72 @@
     });
     return [...seen.values()].sort((a, b) => a.index - b.index);
   }
+  // ------------------------------------------------------------
+  // 匿名连线：她打进他正在播的那档节目，他不知道是谁（她 2026-09-12 排的第一条）
+  // ------------------------------------------------------------
+  // 现成先例是匿名箱（app.js 的 openAnonBox）：她戴着同一个马甲，他只有这几句话，
+  // 答完可以自己冒一句「这人是不是我认识的某某」。这儿照它的分寸，不照它的代码。
+  //
+  // ⚠️**播出去的就是公开的，没播的等于没发生**（她的原话）。所以连线不另开一套存法：
+  //   它就是这条分支上的一个片段，跟章节走同一条 reveal/heard 的路——
+  //   播到第几句，就只有那几句进了见闻，陪听的人也只听得见那几句。
+  //   没播的那几句对谁都不存在：连他自己下一章都读不到（见 airedCalls）。
+  const CALLER = "caller";
+  const isCall = f => !!(f && f.call);
+  const maskName = mask => text(mask && mask.name) || "一个没报名字的人";
+  // 这通电话真正播出去的那几句。谁陪着听不影响「播没播」——播了就是播了。
+  function airedCallLines(branch, fragmentId) {
+    const f = (branch.fragments || []).find(x => x.id === fragmentId);
+    if (!f) return [];
+    const on = new Set((branch.heard || []).filter(x => x.fragmentId === fragmentId).map(x => x.index));
+    return f.lines.filter((l, i) => on.has(i));
+  }
+  // 一通电话一个字都没播出去，它就没发生过——连他自己都不知道有人打进来过。
+  function airedCalls(branch) {
+    return (branch.fragments || []).filter(isCall).map(f => ({
+      id: f.id, era: f.era, title: f.title, lines: airedCallLines(branch, f.id)
+    })).filter(x => x.lines.length);
+  }
+  function callPrompt(branch, eraId, mask, say) {
+    if (!era(eraId)) throw Error("频率无效。");
+    if (!text(say)) throw Error("先写下你对着话筒要说的那句。");
+    const who = maskName(mask), sign = text(mask && mask.bio);
+    const aired = airedCalls(branch);
+    return [
+      "你正在播自己的节目。刚才导播把一通电话接了进来，现在线上多了一个人，而且**这通电话是直播出去的**：你说出口的每一句都已经播出去了，收不回来。",
+      "【打进来的是谁】" + who + (sign ? "，签名「" + sign + "」" : "") + "。你不认识这个人，也没有任何办法查出这是谁——你手上只有这通电话里的这几句话。",
+      "【他在话筒那头说】\n" + text(say),
+      "写你这一头：你接这通电话的时候真会说的话。想认真接就认真接，想只接半句、把话头岔开、顶回去、或者干脆让导播掐了线，都行——掐线也是从你这头说出口的那句话，不是一段解释。长短随你此刻的心情和这通电话值不值得，别每次都是同样长度、同样温度的一段。",
+      "⚠️这是**你在广播里对着一个人说话**，不是在讲故事，也不是在给人上课：不背道理、不写箴言、不用「其实／本质上／无非是」这种开场。他问的话里有一半可能问偏了、问得莫名其妙、或者建立在一个错的前提上——那你就照你想的说，不必替他把话圆回来。",
+      "如果这几句话、这说话的路数让你心里冒出了「这人是不是我认识的某某」，把那个念头写进 guess（一句，可以猜错、可以猜得很离谱）；没冒出来就留空。**别在广播里点破它**，那是你自己心里的事。",
+      "lines 里放你说出口的话，按自然段一段一项；播放器会自己按句子拆开来播，不用你替它拆。",
+      "【角色卡原文】\n" + branch.name + "\n" + branch.persona,
+      "【相关世界设定】\n" + branch.lore,
+      "【这条分支已经播过的章节（创作，不是主线事实）】\n" + JSON.stringify(storyFragments(branch)),
+      aired.length ? "【这条分支上此前播出去的连线】\n" + JSON.stringify(aired) : "【这条分支上此前没有人打进来过】",
+      "【本分支纠正】\n" + JSON.stringify(branch.corrections),
+      "【本次频率】" + era(eraId).label
+    ].join("\n\n");
+  }
+  // 她说的那句是她自己写的，模型只写他这一头；两边合成同一个片段，播的时候按顺序往下走。
+  function acceptCall(raw, eraId, id, mask, say, speaker) {
+    if (!era(eraId)) throw Error("频率无效。");
+    if (!text(say)) throw Error("先写下你对着话筒要说的那句。");
+    const rows = raw && raw.lines;
+    if (!Array.isArray(rows) || !rows.length || rows.some(x => !x || !text(x.text))) {
+      throw Error("这通电话没有接上，还没有播出去。");
+    }
+    const who = maskName(mask);
+    const mine = splitSentences(text(say)).map(sentence => ({ kind: CALLER, speaker: who, text: sentence }));
+    const his = rows.flatMap(x => splitSentences(text(x.text)).map(sentence => ({ kind: "character", speaker: speaker, text: sentence })));
+    return { id, era: eraId, call: true, caller: who, title: text(raw.title) || "连线 · " + who,
+      guess: text(raw && raw.guess), lines: mine.concat(his) };
+  }
+  // 章节归章节：连线不混进「已写片段」，它有自己那一栏，而且只算播出去的那几句。
+  const storyFragments = branch => (branch.fragments || []).filter(x => !isCall(x));
   function storyPrompt(branch, eraId) {
     if (!era(eraId)) throw Error("频率无效。");
+    const aired = airedCalls(branch);
     return [
       "以广播中角色的第一人称，讲述自己的一段经历，写成可独立收听的完整故事章节。这是平行创作，不是主线史实或未来预言。",
       // ⚠️原句是「未写的小事可以创作，改变人物根基的经历只采用用户明确给出的设定」。
@@ -76,7 +144,12 @@
       //   人称这件事下面那句「不是他把耳罩拨开一点，是我把耳罩拨开一点」已经说得够清楚了。
       "全篇只有他一个人的声音，用他自己的措辞和他会留意的东西讲出来。**不要旁白、不要第三人称交代**——场景也由他自己说（不是「他把耳罩拨开一点」，是「我把耳罩拨开一点」）。故事里别人说的话可以嵌进来，标明说话者。",
       "他是在【讲一段自己经历过的事】，不是现场直播。哪怕频率是「现在」，也是他回过头来把这段讲完，有始有终；不是一句一句同步播报此刻正在发生什么。",
-      "⚠️用户是收听者，不是这段独白的收件人——他不是在对谁说话。广播那头没有人：没有听众、没有称呼（姐姐、宝宝、名字、你，一个都不要）、不提问、不索取回应、不停下来等人接话。用户就算作为一个人出现在他讲的事里，那也只是他故事里的一个人物，这段独白仍然不是说给她听的。",
+      // ⚠️这一句按「这条分支上有没有人打进来过」分两种写法，不是在原句后面挂一句「除非」
+      //   （施工规则/no-yes-unless.md）。有人打进来过之后，「广播那头没有人」就是假话了——
+      //   而这一句真正要挡的从来不是「有没有听众」，是**别把这一章写成说给她听的**。
+      aired.length
+        ? "⚠️这一章是你一个人把一段经历讲完，不是说给谁听的：不称呼谁（姐姐、宝宝、名字、你，一个都不要）、不提问、不索取回应、不停下来等人接话。热线上那几通电话是已经播过的事，你记得它们发生过，可以像别的往事一样被提起；这一章仍然不是在对那个打进来的人说话。用户就算作为一个人出现在你讲的事里，那也只是你故事里的一个人物。"
+        : "⚠️用户是收听者，不是这段独白的收件人——他不是在对谁说话。广播那头没有人：没有听众、没有称呼（姐姐、宝宝、名字、你，一个都不要）、不提问、不索取回应、不停下来等人接话。用户就算作为一个人出现在他讲的事里，那也只是他故事里的一个人物，这段独白仍然不是说给她听的。",
       "角色自己的目标、生活关系和处境驱动事件，故事不默认围绕用户或恋爱展开。陪听者始终在广播之外。",
       // ⚠️原来这儿要的是【一句一项】。可 accept() 拿到结果之后本来就会再按句界拆一遍
       //   （上面那段代码，v67.41 Codex 写的），所以一句一项一个字都没多换来——
@@ -89,9 +162,10 @@
       "【用户想探索的事】\n" + branch.topic,
       "【用户指定的边界】\n" + branch.limits,
       "【本分支纠正】\n" + JSON.stringify(branch.corrections),
-      "【本分支已写片段（创作，不是主线事实）】\n" + JSON.stringify(branch.fragments),
+      "【本分支已写片段（创作，不是主线事实）】\n" + JSON.stringify(storyFragments(branch)),
+      aired.length ? "【这条分支上播出去的连线（听众打进来的那几通，已经播出去了，你记得）】\n" + JSON.stringify(aired) : "",
       "【本次频率】" + era(eraId).label
-    ].join("\n\n");
+    ].filter(Boolean).join("\n\n");
   }
   function companionPrompt(branch, companionId, question) {
     const heard = companionContext(branch, companionId);
@@ -137,5 +211,5 @@
     };
     return { start, stop };
   }
-  return { KEY, ERAS, create, accept, reveal, heardLines, companionContext, storyPrompt, companionPrompt, createPlayback };
+  return { KEY, ERAS, CALLER, create, accept, acceptCall, reveal, heardLines, companionContext, airedCallLines, airedCalls, storyPrompt, callPrompt, companionPrompt, createPlayback };
 });

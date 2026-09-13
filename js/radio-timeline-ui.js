@@ -20,6 +20,9 @@
     const [companionId, setCompanion] = useState("");
     const [question, setQuestion] = useState("");
     const [correction, setCorrection] = useState("");
+    // 打进他节目的那句话。⚠️马甲用的是匿名箱那一个（x_anonMe），不另立一个身份：
+    //   同一个人戴同一张面具，他在两处冒出来的猜测才是同一条线（施工规则/one-public-mechanism.md）。
+    const [callSay, setCallSay] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [playing, setPlaying] = useState(false);
@@ -48,7 +51,7 @@
       try { await work(); } catch (e) { if (alive.current) setError(e.message || "这次没有接上，请手动重试。"); }
       finally { lock.current = false; if (alive.current) setBusy(false); }
     };
-    const resetPlayback = () => { stop(); setHistoryOpen(false); setFragment(""); setLine(-1); setQuestion(""); setCorrection(""); setError(""); };
+    const resetPlayback = () => { stop(); setHistoryOpen(false); setFragment(""); setLine(-1); setQuestion(""); setCorrection(""); setCallSay(""); setError(""); };
     const back = () => { if (lock.current) return; if (historyOpen) { setHistoryOpen(false); return; } resetPlayback(); if (selected) select(""); else p.onBack(); };
     const open = id => { listScroll.current = scroll.current ? scroll.current.scrollTop : 0; resetPlayback(); setCompanion(""); select(id); };
     const newBranch = () => {
@@ -65,6 +68,18 @@
       if (!alive.current) return;
       update(b.id, x => ({ ...x, fragments: x.fragments.concat(f) }));
       setFragment(f.id); setLine(-1);
+    });
+    // 打进去：她那句是她自己写的，模型只写他这一头；合成一个片段挂在当前频率上。
+    // ⚠️**播出去的才算数**——这儿只是把电话接进来，一个字都还没播；
+    //   要等她一句句放出去，它才进见闻、才进他下一章读得到的那一栏（RadioTimeline.airedCalls）。
+    const callIn = () => run(async () => {
+      const b = branch, era = currentEra.id, say = callSay.trim();
+      if (!say) return;
+      const raw = await p.onCall(b, era, say);
+      const f = R.acceptCall(raw, era, uid(), p.myMask, say, b.name);
+      if (!alive.current) return;
+      update(b.id, x => ({ ...x, fragments: x.fragments.concat(f) }));
+      setCallSay(""); setFragment(f.id); setLine(-1);
     });
     // 手动下一句、回放选句及未来的播完回调共用这一处切句和听闻落库。
     const revealLine = index => {
@@ -140,6 +155,15 @@
               c.id === branch.charId ? c.name + "（广播里的就是他）" : c.name)))),
           btn("接收这个频率的新章节", generate),
           branch.fragments.filter(x => x.era === currentEra.id).map(f => h("div", { key: f.id, style: { marginTop: 8 } }, btn("回听 · " + f.title, () => { stop(); setFragment(f.id); setLine(-1); }))),
+          h("section", { "data-radio-callin": true, style: { marginTop: 16, padding: 14, background: "#fffaf1", borderRadius: 10 } },
+            h("h4", { style: { marginTop: 0 } }, "打进这档节目"),
+            h("p", { style: { fontSize: 12, lineHeight: 1.8 } },
+              "他不知道打进来的是你——你在他那儿只是"
+              + ((p.myMask && p.myMask.name) || "一个没报名字的人")
+              + "。接进来之后要你一句句放出去；没播的那几句等于没发生，他下一章也读不到。"),
+            field("对着话筒说一句", h("textarea", { style: inputStyle, rows: 2, value: callSay, disabled: busy, onFocus: stop, onChange: e => setCallSay(e.target.value) })),
+            btn("打进去", callIn, !callSay.trim())
+          ),
           fragment ? h("section", { style: { marginTop: 16, padding: 14, background: "#fffaf1", borderRadius: 10 } },
             h("h4", null, fragment.title),
             h("p", { role: "status", style: { fontSize: 12 } }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话")),
@@ -152,7 +176,12 @@
             btn("朗读当前句（系统音色）", () => read(false), lineIndex < 0), btn("暂停声音", stop, !playing),
             field("这不像他？写下你的纠正", h("textarea", { style: inputStyle, rows: 2, value: correction, onChange: e => setCorrection(e.target.value), disabled: busy })),
             btn("记作本分支约束", () => { update(branch.id, x => ({ ...x, corrections: x.corrections.concat(correction.trim()) })); setCorrection(""); }, !correction.trim()),
-            h("small", { style: { display: "block", lineHeight: 1.7 } }, "纠正用于之后的新片段，旧片段本版不自动重写。")
+            h("small", { style: { display: "block", lineHeight: 1.7 } }, "纠正用于之后的新片段，旧片段本版不自动重写。"),
+            // 他心里那句「这人是不是我认识的某某」——没播到的电话等于没发生，所以播出去了才给她看。
+            fragment.call && fragment.guess && heard.length
+              ? h("p", { "data-radio-guess": true, style: { marginTop: 12, fontSize: 13, lineHeight: 1.8 } },
+                  "挂掉之后他心里那句：" + fragment.guess)
+              : null
           ) : null,
           companion ? (function () {
             const mine = R.companionContext(branch, companion.id);
