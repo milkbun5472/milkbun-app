@@ -58,7 +58,9 @@ test("日历：外壳自己铺底，月名收成 20px", () => {
   //   这一条原来钉的是「外壳自己铺底、别靠父层透过来」，写法是平色 t.bg2。
   //   那个【意图】没变，只是底从平色换成了真的纸——所以钉的东西跟着往前挪一格：
   //   还是要求外壳自己带底，只是现在要求它带的是 pageSkin 那一份。
-  assert.match(seg, /className: "h-full flex flex-col", style: Object\.assign\(\{ position: "relative" \}/, "日历外壳没铺底");
+  // v67.76 外壳多了 overflow-hidden（她 2026-09-13：整页往上移、箭头跑到刘海底下）——
+  // 铺底这件事一个字没动，钉的还是同一件事
+  assert.match(seg, /className: "h-full flex flex-col overflow-hidden", style: Object\.assign\(\{ position: "relative" \}/, "日历外壳没铺底");
   assert.match(seg, /pageSkin\("paper", t, \{ base: t\.bg2/, "外壳铺的不是纸");
   assert.ok(!/style: \{ position: "relative", background: t\.bg2 \}/.test(seg), "又退回平色了");
   assert.match(seg, /fontSize: 20, color: t\.ink, letterSpacing: "0\.02em"/, "月名不是 20px 了");

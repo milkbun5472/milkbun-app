@@ -2777,7 +2777,13 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       h("div", { className: "shrink-0", style: { width: 44 } }),
       h("div", { style: { flex: 1, display: "flex" } }, dayList.map(dayHeader))),
     // 时间轴（滚）：刻度列和事件列都从内容 y=0 起算，天然对齐
-    h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { display: "flex", alignItems: "flex-start" } },
+    // ⚠️min-h-0 不许漏（施工规则/mobile-ui-layout.md §3：正文一律 flex-1 min-h-0 overflow-y-auto）。
+    //   她 2026-09-13 报：「别人的日历有时候会往上移，下面变白，箭头跑到上面不可交互的地方」。
+    //   病根就是这一格：这里头是一张**写死高度**的格子（height: gridH + 90，一天能有一千多像素），
+    //   容器没有 min-h-0 就不肯缩到可用高度以下，整页被顶高；她再点一下屏幕下半截的哪个按钮，
+    //   iOS 为了把拿到焦点的那颗按钮滚进视野，就去滚最近那个能滚的祖先——
+    //   顶栏于是被推到刘海底下，而那儿点不着（html/body 是 overflow:hidden，没有滚回来的路）。
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { display: "flex", alignItems: "flex-start" } },
       h("div", { className: "shrink-0", style: { width: 44, position: "relative", height: gridH + 90 } },
         Array.from({ length: hourRows }, (_, i) => h("div", { key: i, style: { position: "absolute", right: 5, top: i * 60 * CAL_PX_PER_MIN - 6, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, calHM(range.lo + i * 60))),
         nowMin >= range.lo && nowMin <= range.hi && dayList.indexOf(todayKey) >= 0
@@ -2814,7 +2820,10 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   //   因为**这一页自己就是一张格子**：七列的日期表已经是网格了，再铺一层 23px 的方格，
   //   两套间距对不上，看着是两张网叠在一起。**底纹是给没有结构的页面补结构的，
   //   本来就有结构的页面只需要一张纸。**
-  return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" },
+  // ⚠️外壳 overflow-hidden 是第二道：日历这一页里有写死高度的格子和绝对定位的 FAB，
+  //   哪天再有东西撑高，也只许它在自己那一格里出界，不许把整页顶出视口
+  //   ——一旦顶出去，那一下滚动是【滚不回来的】（html/body overflow:hidden）。
+  return h("div", { className: "h-full flex flex-col overflow-hidden", style: Object.assign({ position: "relative" },
       typeof pageSkin === "function" ? pageSkin("paper", t, { base: t.bg2, strength: 1.2 }) : { background: t.bg2 }) },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
     // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
