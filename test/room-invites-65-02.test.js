@@ -65,7 +65,8 @@ test("小游戏那个开关不再是空的：同一张卡、同一条路", () =>
   assert.match(app, /不能声称已经开局或界面已经打开/);
   // 卡是长在 studyinvite 那一张上的，不是新画一张
   // v67.53 一起读那张卡也长在这一张上（第三种 kind），所以别钉死「正好两种」
-  assert.match(components, /if \(m\.kind === "studyinvite" \|\| m\.kind === "gameinvite" \|\| m\.kind === "readinvite"\)/);
+  // v67.69：塔罗那一张也长在这一张上（同一种东西＝同一张卡）
+  assert.match(components, /if \(m\.kind === "studyinvite" \|\| m\.kind === "gameinvite" \|\| m\.kind === "readinvite" \|\| m\.kind === "tarotinvite"\)/);
   // 游戏架接 entry，落到那一局的配置页并先勾上他（照 study.js 的形状）
   assert.match(games, /entryHandledRef\.current = entry\.key/);
   assert.match(games, /initialPicked/);

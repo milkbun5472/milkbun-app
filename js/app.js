@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.68";
+const APP_VERSION = "v67.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -640,6 +640,7 @@ function App() {
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [stateCardChar, setStateCardChar] = useState(null); // 心声卡要显示谁（群聊点头像时=该成员；私聊=null→用 activeChar）
   const [ficJump, setFicJump] = useState(null);        // 房间里点「去看这一章」带过去的 {ficId, chap}
+  const [tarotEntry, setTarotEntry] = useState(null);  // 房里那张「抽一张」点开时带过去的 {mode, charId, ask}
   const [roomFicTick, setRoomFicTick] = useState(0);   // 换书之后推一下重画（那一格存在 localStorage 里）
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
   const [stateCardRoomKey, setStateCardRoomKey] = useState(null); // 侧房自己的心声卡；null 才读主房状态
@@ -7955,6 +7956,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("readInvite：只有你此刻真的想拉对方接着读才填写。格式 {bookId:\"下面列表里的真实 id\",say:\"为什么此刻想接着读这本、想从哪儿往下看\"}。不能声称已经读过或已经写好批注，最终由对方点卡片确认；不想读就省略。在读的书："
           + roomReadBooks.map(b => b.id + "=《" + String(b.title || "").slice(0, 24) + "》").join("；"));
       }
+      // ── 算一卦（她 2026-09-13）────────────────────────────────────
+      // ⚠️他只能【提议】，不许自己报牌面：牌是塔罗那头由代码发的（洗牌、正逆都在那儿），
+      //   他在这儿说出「我看见死神逆位」就是凭空编了一副牌，她点开看到的还是另一副。
+      //   这跟一起读那一条是同一个道理——回执是个承诺，承诺不了的就别让他开口。
+      const roomTarotOn = roomActionOn("tarot");
+      if (roomTarotOn) {
+        openCaps.push("tarotInvite");
+        capState.push("tarotInvite：只有你此刻真的想给对方抽一张才填写。格式 {mode:\"reading|relation|daily\",ask:\"你觉得该问的那件事，一句，可留空\",say:\"为什么此刻想抽这一卦\"}。"
+          + "reading＝你为她解牌；relation＝算你和她；daily＝今日一牌。"
+          + "**牌面由牌桌上发，不在你手上**：不许写出任何一张牌的名字、正逆或解读，也不能声称已经抽过了——她点开卡片，牌才落桌。不想抽就省略。");
+      }
       // ⚠️这一条必须挂在【Protocol v2】上：旁边那个 _normalTaskFull 写着「暂留作 A/B
       // 回滚基线，但不再发送给普通角色」——挂上去等于挂在死路上，一个字都发不出去。
       if (_seenMsg) {
@@ -8477,6 +8489,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           }]);
           delivered = true;
         }
+      }
+      if (roomTarotOn && parsed.tarotInvite && typeof parsed.tarotInvite === "object") {
+        const tv = parsed.tarotInvite;
+        const mode = ["reading", "relation", "daily"].indexOf(String(tv.mode || "")) >= 0 ? String(tv.mode) : "reading";
+        const modeZh = { reading: "他为你解牌", relation: "算你和他", daily: "今日一牌" }[mode];
+        pChat(chatKey, p => [...p, {
+          role: "assistant", kind: "tarotinvite", mode: mode,
+          subject: "抽一张", sessionTitle: modeZh,
+          ask: String(tv.ask || "").trim().slice(0, 120),
+          say: String(tv.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
+        }]);
+        delivered = true;
       }
       if (roomGamesOn && parsed.gameInvite && typeof parsed.gameInvite === "object") {
         const gv = parsed.gameInvite;
@@ -19794,6 +19818,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id, roomId: activeRoomId || "main" });
       setScreen("games");
     },
+    // 算一卦：点了就直接进塔罗、进他提的那一档，他觉得该问的那件事也替她填好
+    // ⚠️牌在那头才落桌（塔罗自己洗牌、定正逆）——他那张卡上没有、也不许有牌面。
+    onOpenTarotInvite: m => {
+      setTarotEntry({ key: "tarot_" + Date.now(), mode: String(m.mode || "reading"), charId: activeChar.id, ask: String(m.ask || "") });
+      setScreen("tarot");
+    },
     // 一起读：点了就直接翻到那本书他停着的那一页（卡上带着 bookId，不用她自己去架上找）
     onOpenReadInvite: m => {
       setReadEntry({ key: "read_" + Date.now(), bookId: String(m.bookId || ""), characterId: activeChar.id });
@@ -20398,6 +20428,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "tarot") body = h(Tarot, {
+    // 房里他提的那一卦：进来就落在他说的那一档，角色和该问的那件事都替她填好
+    entry: tarotEntry,
+    onEntryUsed: () => setTarotEntry(null),
     // 占卜只留在塔罗历史；不把随机牌面写成正式记忆。
     // 角色私心里那句 charThought 仍可送进「Ta 眼里」，它是当下印象，不是事实记忆。
     onReadingDone: (charId, info) => {

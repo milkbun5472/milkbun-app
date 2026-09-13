@@ -29,7 +29,7 @@ const freshRooms = () => {
 
 test("房间里多了「一起读」这一档，归档那一档默认开着", () => {
   const { Rooms } = freshRooms();
-  assert.deepEqual(Rooms.GROUPS.actions.map(([k]) => k), ["study", "games", "fanfic", "read"]);
+  assert.deepEqual(Rooms.GROUPS.actions.map(([k]) => k), ["study", "games", "fanfic", "read", "tarot"]);
   const [, label, note] = Rooms.GROUPS.actions.find(([k]) => k === "read");
   assert.equal(label, "他可以拉你一起读");
   assert.match(note, /接着读那本书/);
@@ -104,7 +104,8 @@ test("侧房里读的书不许从主线的他嘴里说出来", () => {
 });
 
 test("卡长在原来那张上，点了直接翻到他停着的那一页", () => {
-  assert.match(comp, /if \(m\.kind === "studyinvite" \|\| m\.kind === "gameinvite" \|\| m\.kind === "readinvite"\)/);
+  // v67.69：塔罗那一张也长在这一张上（同一种东西＝同一张卡）
+  assert.match(comp, /if \(m\.kind === "studyinvite" \|\| m\.kind === "gameinvite" \|\| m\.kind === "readinvite" \|\| m\.kind === "tarotinvite"\)/);
   assert.match(comp, /isRead = m\.kind === "readinvite"/);
   assert.match(comp, /isRead \? "翻到那一页"/);
   assert.match(comp, /if \(isRead\) \{ onOpenReadInvite && onOpenReadInvite\(m\); \}/);

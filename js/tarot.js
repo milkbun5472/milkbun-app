@@ -371,6 +371,17 @@
     const homeScrollTop = useRef(0);
     const lpTimer = useRef(null), lpFired = useRef(false);
     const [confirmDel, setConfirmDel] = useState(null); // 待确认删除的占卜 id
+    // 房里他提的那一卦点进来时带着的那一戳（v67.69）：进哪一档、算谁、该问什么
+    const [seed, setSeed] = useState(null);
+    const entryKey = props.entry && props.entry.key;
+    React.useEffect(function () {
+      const e = props.entry;
+      if (!e || !e.key) return;
+      const mk = MODES[e.mode] ? e.mode : "reading";
+      setSeed({ charId: e.charId || "", q: e.ask || "" });
+      setView("mode:" + mk);
+      props.onEntryUsed && props.onEntryUsed();
+    }, [entryKey]);
 
     const persist = list => { setSaves(list); saveSaves(list); };
     const doDel = id => { persist(loadSaves().filter(s => s.id !== id)); if (view === "s:" + id) setView("home"); setConfirmDel(null); };
@@ -390,9 +401,11 @@
 
     if (view.indexOf("mode:") === 0) {
       return h(Setup, {
+        // 他提的那一卦：角色和该问的那件事替她填好，改不改随她
+        initCharId: (seed && seed.charId) || "", initQ: (seed && seed.q) || "",
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
         affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, toast: props.toast,
-        onCancel: () => setView("home"),
+        onCancel: () => { setSeed(null); setView("home"); },
         onDone: (session, skipHook) => {
           persist([session].concat(loadSaves().filter(s => s.id !== session.id)));
           // 只更新既有的角色印象回调；塔罗本身不自动写正式记忆。
@@ -560,9 +573,9 @@
   function Setup(props) {
     const N = nightNow();
     const m = MODES[props.modeKey];
-    const [charId, setCharId] = useState("");
+    const [charId, setCharId] = useState(props.initCharId || "");
     const [dailyAll, setDailyAll] = useState(false); // 每日一牌：一次抽全部角色
-    const [q, setQ] = useState("");
+    const [q, setQ] = useState(props.initQ || "");
     const [spreadKey, setSpreadKey] = useState(DEFAULT_SPREAD[props.modeKey] || "guide");
     const [spreadGroup, setSpreadGroup] = useState(props.modeKey === "relation" ? "relation" : "basic");
     const [questionOwner, setQuestionOwner] = useState("user");
