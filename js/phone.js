@@ -6317,7 +6317,13 @@ function PhoneCarry({
     if (!w || w.knocking || !onWatchKnock || WK && WK.knockOver(w.knocks)) return;
     setWatch(p => p ? { ...p, knocking: true } : p);
     try {
-      const say = await onWatchKnock(char, (w.knocks || 0) + 1, w.acts[w.i] || null);
+      // 第三下他可能真的给她发了一条微信：那一下回的是 {say, wx}，别的时候还是一句话。
+      // ⚠️那条消息在 app.js 那头就已经【真的发出去】了（走 watchSend 的真聊天路径），
+      //   这儿只负责让她知道——不然她要退出去翻聊天才发现他刚跟她说了话。
+      const got = await onWatchKnock(char, (w.knocks || 0) + 1, w.acts[w.i] || null);
+      const say = (got && typeof got === "object") ? String(got.say || "") : got;
+      const sentWx = (got && typeof got === "object") ? String(got.wx || "").trim() : "";
+      if (sentWx && onWatchToast) onWatchToast("他给你发了一条：" + sentWx.slice(0, 24));
       // 真出声了才算这一下：没出声还扣次数，就是「敲了没反应，还少一下」
       setWatch(p => {
         if (!p) return p;

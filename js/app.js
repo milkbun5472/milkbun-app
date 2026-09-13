@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.63";
+const APP_VERSION = "v67.64";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14154,6 +14154,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           uRemark: (((ph.wechat || {}).userContact || {}).remark || ""),
           // 由头：几点、上一次放下手机多久了。**这一段做的事要跟它对得上。**
           whyNow: watchWhyNow(char), charHour: Math.floor(charLocalMin(char) / 60), today: watchTodayLine(char),
+          // 她还没回你／你还没回她，隔了多久（零额外调用，料本来就在手上）
+          wxWait: watchWaitLine(char),
           sinceLast: (watchAt || {})[char.id] ? Math.round((Date.now() - Number((watchAt || {})[char.id])) / 60000) : null,
           playlist: (listenRef.current.playlists || []).find(x => x.charId === char.id) || null,
           // 日历和论坛跟音乐一样是真数据（不在 x_phone 里），也单独递进去
@@ -14246,6 +14248,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const wx0 = (full.match(/今天 Ta 那边的天气：[^\n]*/) || [])[0] || "";
     return [now0, next0, load0, wx0].filter(Boolean).join("\n").slice(0, 420);
   };
+  // 他拿起手机最常见的那个理由：**她还没回**（看他玩-想做的 里排第一的那条）。
+  // ⚠️零额外调用：真聊天本来就在手上（chatsRef），只是从来没有人把它拎到由头那一层。
+  // ⚠️只给【状态】，不给【做什么】：谁欠谁一条、隔了多久。要不要去点开她，由他自己定
+  //   （施工规则/bans-make-it-dumber.md：给出口，不给判决）。
+  const watchWaitLine = char => {
+    if (!char) return "";
+    const rows = (chatsRef.current || {})[char.id] || [];
+    let last = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const m = rows[i];
+      if (!m || m.recalled || !m.content) continue;
+      if (m.kind === "ooc" || m.kind === "system" || m.role === "system" || m.role === "narration") continue;
+      last = m; break;
+    }
+    if (!last || !last.ts) return "";
+    const mins = Math.max(0, Math.round((Date.now() - Number(last.ts)) / 60000));
+    const ago = mins < 60 ? mins + " 分钟" : (mins < 60 * 24 ? Math.round(mins / 60) + " 个多小时" : Math.round(mins / 60 / 24) + " 天");
+    // 刚说完话的那一段是另一个样子：不必再盯着那条对话看
+    if (mins < 20) return "你俩 " + ago + "前刚说完话。";
+    return last.role === "user"
+      ? "她 " + ago + "前给你发了消息，你还没回。"
+      : "你上一条发出去 " + ago + "了，她还没回。";
+  };
   const watchWhyNow = char => {
     const h = Math.floor(charLocalMin(char) / 60);
     if (h >= 23 || h < 2) return "深夜";
@@ -14322,9 +14347,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           step.hint,
           step.old > 0 ? "（这些天她已经这样看过你好几次了。）" : "",
           "写你此刻心里那一句，一句就够，第一人称，不要旁白。",
+          // 敲到第三下，他早抬头看见她了——那就该允许他【真的做点什么】，
+          // 而不是永远只在心里说一句（看他玩-想做的 排第二那条）。
+          // ⚠️给出口不给判决：说清这一格存在、留空也完全成立，别写成「你应该发」。
+          // ⚠️跟「他在等你回消息」那条分开：那是他惦记她，这是他发现她在看。
+          step.n === 3 ? "第三下了，你早抬头看见她了。除了心里那句，你也可以顺手拿起手机**真的给她发一条微信**——"
+            + "写进 wx（那是真的会发到她手机上的）。不想发就把 wx 留空：什么都不发、继续刷你的，一样成立。" : "",
           "aff 只在这件事真的在你心里留下点什么时才不是 0：嫌她烦就给负的，心里一动就给正的——**你是哪一路，由你的人设决定，不是默认不高兴**。"
         ].filter(Boolean).join("\n"),
-        schemaHint: '{"say":"你心里那一句","aff":"整数，通常 0"}',
+        schemaHint: step.n === 3
+          ? '{"say":"你心里那一句","wx":"你这会儿真想发给她的那条微信（不发就留空）","aff":"整数，通常 0"}'
+          : '{"say":"你心里那一句","aff":"整数，通常 0"}',
         maxTokens: 8000
       }), new Promise((_, rej) => setTimeout(() => rej(new Error("他没抬头（超时）")), 25000))]);
       const say = String((out && out.say) || "").trim().slice(0, 60);
@@ -14333,7 +14366,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = WK.clampWatchAff(out && out.aff);
       if (d && nth === 1) bumpAff(char.id, d);   // 只认第一下，连着敲不叠加
       markKnock();
-      return say;
+      // 第三下那一条微信是【真的】：走 watchSend 那条真聊天路径，不另开写入口。
+      // ⚠️只认第三下：出口只在第三下给出去，第四下再收到 wx 也不发——
+      //   不然连着敲就成了连着轰炸她手机。
+      const wx = (step.n === 3) ? String((out && out.wx) || "").trim().slice(0, 200) : "";
+      if (wx) watchSend(char, "wechat", userName(profile), wx);
+      return wx ? { say: say, wx: wx } : say;
     } catch (e) {
       // ⚠️别再吞掉：吞掉的样子就是「敲了没反应」，而且那一下还被算掉了
       throw new Error(e && e.message ? String(e.message).slice(0, 40) : "没敲动");
