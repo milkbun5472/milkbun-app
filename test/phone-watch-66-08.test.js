@@ -620,7 +620,9 @@ test("别老在同几个 app 之间来回", () => {
   assert.doesNotMatch(W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {} }), /上一次你刷的是/,
     "第一次看他玩不该凭空说「上一次」");
   // 代码这一头：上次刷过的排到队尾，并且真的记下来
-  assert.match(app, /const canApps = has\.filter\(k => seen\.indexOf\(k\) < 0\)\.concat\(has\.filter\(k => seen\.indexOf\(k\) >= 0\)\)/);
+  // v67.62：排队那条规矩搬进 PhoneWatch.appQueue（能单测；沉底的能沉多少沉多少，
+  // 但永远给他留最久没碰过的那两个）。见 test/phone-watch-two-bugs-67-61.test.js
+  assert.match(app, /const canApps = WK\.appQueue\(has, seenApps\)/);
   assert.match(app, /saveJSON\("x_phoneWatchSeen", n\)/);
 });
 

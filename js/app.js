@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.61";
+const APP_VERSION = "v67.62";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14137,7 +14137,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const seen0 = (watchSeenRef.current || {})[char.id];
       const seen = Array.isArray(seen0) ? seen0 : ((seen0 && seen0.a) || []);
       const seenIts = (seen0 && !Array.isArray(seen0) && seen0.i) || [];
-      const canApps = has.filter(k => seen.indexOf(k) < 0).concat(has.filter(k => seen.indexOf(k) >= 0));
+      // ⚠️她第三次报「还是来回翻同几个 app」的病根在这儿（这一版查出来的）：
+      //   **里头那几样**早就改成滚动记最近几段了，**app 这一头没跟上**——它只记上一段。
+      //   只记上一段的后果是【严格轮流】：这一段开甲乙丙，下一段甲乙丙沉底、于是开丁戊己，
+      //   再下一段丁戊己沉底、甲乙丙又回到队首。看上去就是在两拨之间来回倒。
+      //   （一层修在两处、第二处没跟上——施工规则/one-public-mechanism.md 那个形状。）
+      const seenApps = Array.isArray(seen0) ? seen0 : ((seen0 && seen0.ra) || seen || []);
+      // ⚠️排队那条规矩写在 PhoneWatch 里（跟别的看他玩规矩住一起，而且能单测）：
+      //   沉底的只许是【一半】——全都沉底等于谁也没沉底。
+      const canApps = WK.appQueue(has, seenApps);
       if (!canApps.length) { toast("他手机里还什么都没有，先翻一次再看他玩"); return null; }
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
@@ -14175,7 +14183,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const opened = [], its = [];
       got.acts.forEach(a => {
         if (a.kind === "open" && a.app && opened.indexOf(a.app) < 0) opened.push(a.app);
-        if ((a.kind === "openItem" || a.kind === "look") && a.name && its.indexOf(a.name) < 0) its.push(a.name);
+        // ⚠️look 那一支带的是 `at`，不是 `name`（词表：look 的参数就是 at）——
+        //   照 name 取等于这一支从上线起一次都没记下来过，于是「他盯着看了半天的那张」
+        //   下一段照样排在队首（施工规则/stub-from-the-writer.md：过滤什么都不剩，而且不报错）。
+        const nm = a.kind === "look" ? a.at : a.name;
+        if ((a.kind === "openItem" || a.kind === "look") && nm && its.indexOf(nm) < 0) its.push(nm);
       });
       // ⚠️只记【上一段】是不够的（她 2026-09-10 第三次报：还是那张照片、那个标签页）：
       //   两段之间来回换，等于什么都没记住。改成滚动记最近几段，新的在前，封顶 24 个。
@@ -14183,7 +14195,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const prev0 = m[char.id];
         const prevIts = Array.isArray(prev0) ? [] : ((prev0 && prev0.i) || []);
         const merged = its.concat(prevIts.filter(x => its.indexOf(x) < 0)).slice(0, 24);
-        const n = { ...m, [char.id]: { a: opened, i: merged } };
+        // a＝这一段开过的（提示词里「上一次你刷的是」用它，那句话说的就是上一次）；
+        // ra＝滚动记着的最近几段（排队用）。两样各管各的，别拿一样去顶另一样。
+        const prevRa = Array.isArray(prev0) ? prev0 : ((prev0 && prev0.ra) || (prev0 && prev0.a) || []);
+        const mergedApps = opened.concat(prevRa.filter(x => opened.indexOf(x) < 0)).slice(0, 12);
+        const n = { ...m, [char.id]: { a: opened, ra: mergedApps, i: merged } };
         watchSeenRef.current = n; saveJSON("x_phoneWatchSeen", n); return n;
       });
       // 一整段全是心声＝配旁白，不是看他玩。真动手的一下都没有就别演了。

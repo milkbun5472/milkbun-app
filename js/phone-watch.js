@@ -720,6 +720,20 @@
     return ["caption", "title", "name", "q", "shop", "author", "text"]
       .map(k => (typeof x[k] === "string" ? x[k].trim() : "")).filter(Boolean)[0] || "";
   };
+  // 今天这一段先开哪几个：最近刷过的沉底，**但最多沉一半**。
+  // ⚠️她 2026-09-10 连报三次「来回翻同几个 app」。第三次的病根是记性只记上一段：
+  //   那等于【严格轮流】——这一段开甲乙丙、下一段甲乙丙沉底于是开丁戊己、
+  //   再下一段甲乙丙又回到队首。看上去就是在两拨之间来回倒。
+  // ⚠️能沉的都沉，但**永远给他留两个**：一个都不留＝谁也没沉底，
+  //   「这一次换几个别的开」也就成了一句办不到的话。
+  //   留的是【最久没碰过的那两个】——recentApps 新的在前，所以从尾巴上留。
+  function appQueue(has, recentApps) {
+    const list = Array.isArray(has) ? has.slice() : [];
+    const rec = Array.isArray(recentApps) ? recentApps : [];
+    if (list.length <= 2 || !rec.length) return list;
+    const sink = rec.slice(0, Math.max(1, list.length - 2));
+    return list.filter(k => sink.indexOf(k) < 0).concat(list.filter(k => sink.indexOf(k) >= 0));
+  }
   function freshFirst(list, seen, get) {
     const arr0 = Array.isArray(list) ? list : [];
     if (!Array.isArray(seen) || !seen.length) return arr0;
@@ -1143,7 +1157,7 @@
     watchInstruction, watchSchemaHint, watchTargetSel,
     WatchDot, WatchThought, WatchBar, WatchPage, WatchSearchPill, dropEchoBubbles,
     normalizeActs, actDuration, typeTick, sessionDuration, applyWrite, applyReply, sameName, pickName,
-    knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft,
+    appQueue, knockDecayed, knockPush, knockStep, knockOver, knockBeat, spliceBeat, clampWatchAff, cooldownLeft,
     knockedToday, watchedNote, HINT_PER_DAY, watchHintOn, watchHintUsed
   };
 });
