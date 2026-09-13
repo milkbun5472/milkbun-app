@@ -32,7 +32,8 @@ test("提示词那一格：准他开口，不准他报牌面", () => {
   const seg = app.slice(app.indexOf('const roomTarotOn = roomActionOn("tarot");'), app.indexOf("// ⚠️这一条必须挂在【Protocol v2】上"));
   assert.ok(seg.length > 0, "抠不出那一段");
   assert.match(seg, /openCaps\.push\("tarotInvite"\)/);
-  assert.match(seg, /mode:\\"reading\|relation\|daily\\"/);
+  // v67.72 又多一档 forchar（他请她替他抽）
+  assert.match(seg, /mode:\\"reading\|relation\|daily\|forchar\\"/);
   assert.match(seg, /不许写出任何一张牌的名字、正逆或解读/, "没挡住他自己报牌面");
   assert.match(seg, /也不能声称已经抽过了/);
   // 开关关着就一个字都不发（openCaps 都不给）
@@ -41,7 +42,7 @@ test("提示词那一格：准他开口，不准他报牌面", () => {
 
 test("他开口 → 落一张卡；档位乱填的落回 reading", () => {
   const seg = app.slice(app.indexOf('if (roomTarotOn && parsed.tarotInvite'), app.indexOf("if (roomGamesOn && parsed.gameInvite"));
-  assert.match(seg, /\["reading", "relation", "daily"\]\.indexOf\(String\(tv\.mode \|\| ""\)\) >= 0 \? String\(tv\.mode\) : "reading"/);
+  assert.match(seg, /\["reading", "relation", "daily", "forchar"\]\.indexOf\(String\(tv\.mode \|\| ""\)\) >= 0 \? String\(tv\.mode\) : "reading"/);
   assert.match(seg, /kind: "tarotinvite", mode: mode,/);
   assert.match(seg, /ask: String\(tv\.ask \|\| ""\)\.trim\(\)\.slice\(0, 120\)/);
   assert.match(seg, /delivered = true;/);

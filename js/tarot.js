@@ -378,7 +378,7 @@
       const e = props.entry;
       if (!e || !e.key) return;
       const mk = MODES[e.mode] ? e.mode : "reading";
-      setSeed({ charId: e.charId || "", q: e.ask || "",
+      setSeed({ charId: e.charId || "", q: e.ask || "", proposed: true,
         // 他挑的牌阵／这一卦问的是谁的事：认不出来的一律落回那一档的默认，不硬塞
         spreadKey: Tarot.hasSpread(e.spreadKey) ? String(e.spreadKey) : "",
         owner: e.asker === "me" ? "character" : "" });
@@ -407,6 +407,8 @@
         // 他提的那一卦：角色和该问的那件事替她填好，改不改随她
         initCharId: (seed && seed.charId) || "", initQ: (seed && seed.q) || "",
         initSpreadKey: (seed && seed.spreadKey) || "", initOwner: (seed && seed.owner) || "",
+        // 这一卦是他自己开口要的（房里那张卡点进来的），不是她从架上挑的
+        proposed: !!(seed && seed.proposed),
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
         affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, toast: props.toast,
         onCancel: () => { setSeed(null); setView("home"); },
@@ -661,7 +663,11 @@
         const prepare = async update => {
           let finalQuestion = q.trim();
           let intent = null;
-          if (props.modeKey === "forchar" || (props.modeKey === "reading" && questionOwner === "character")) {
+          // ⚠️这一卦是【他自己在房里开口要的】（v67.72）：那就别再回头问他一次
+          //   「你愿意让我替你算吗」——他刚说完想算，问句本身就是他给的（ask）。
+          //   多问这一次既拧巴（他可能当场 refuse 掉自己提的事），又白花一枪。
+          const heAsked = !!props.proposed && props.modeKey === "forchar" && !!finalQuestion;
+          if (!heAsked && (props.modeKey === "forchar" || (props.modeKey === "reading" && questionOwner === "character"))) {
             update(null, props.modeKey === "forchar" ? "先问问 " + c.name + " 愿不愿意…" : c.name + " 正在想要问什么…");
             intent = await askReadingIntent(props.active, {
               mode: props.modeKey, charName: c.name, charPersona: c.persona || "", uName: uName,

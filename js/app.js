@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.71";
+const APP_VERSION = "v67.72";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7967,9 +7967,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   牌阵**照实把真名单给他**（含她自己存的那几个），别让他猜也别让代码替他挑一个。
         //   名单只有一份：Tarot.spreadMenu()（施工规则/one-public-mechanism.md）。
         const spreadMenu = (window.Tarot && typeof window.Tarot.spreadMenu === "function") ? window.Tarot.spreadMenu("reading") : [];
-        capState.push("tarotInvite：只有你此刻真的想给对方抽一张才填写。格式 {mode:\"reading|relation|daily\",spread:\"下面名单里的真实 key，留空＝那一档的常用牌阵\",asker:\"you|me\",ask:\"要问的那件事，一句，可留空\",say:\"为什么此刻想抽这一卦\"}。"
-          + "mode：reading＝你替她摊牌；relation＝算你和她这段关系；daily＝今日一牌（固定一张，不用填 spread）。"
-          + "asker：you＝这一卦问的是她的事（ask 写你想替她照见的那件事）；me＝你自己想问的事（ask 写你自己的问题，第一人称指你）。"
+        capState.push("tarotInvite：只有你此刻真的想抽一张才填写。格式 {mode:\"reading|relation|daily|forchar\",spread:\"下面名单里的真实 key，留空＝那一档的常用牌阵\",asker:\"you|me\",ask:\"要问的那件事，一句，可留空\",say:\"为什么此刻想抽这一卦\"}。"
+          + "mode：reading＝你替她摊牌；relation＝算你和她这段关系；daily＝今日一牌（固定一张，不用填 spread）；"
+          // ⚠️forchar 是【他开口请她替他抽】（她 2026-09-13 点头加的）：
+          //   牌是抽给他自己的，所以这一档天然是他的问题，asker 默认就是 me。
+          + "forchar＝你请她替你抽一张（牌抽的是你：你的近况、你心里那个结）。"
+          + "asker：you＝这一卦问的是她的事（ask 写你想替她照见的那件事）；me＝你自己想问的事（ask 写你自己的问题，第一人称指你）。forchar 那一档默认就是 me。"
           + (spreadMenu.length ? "\n可选牌阵（key=名字·几张）：" + spreadMenu.map(x => x.key + "=" + x.zh + "·" + x.n + "张").join("；")
             + "\n**挑一个跟你此刻真正想看的东西对得上的**：想看一件事怎么走到这里就是时间线那种，想看关系明暗就是关系那几个，想看她自己没看见的就是自我那几个。拿不准就留空。" : "")
           + "\n**牌面由牌桌上发，不在你手上**：不许写出任何一张牌的名字、正逆或解读，也不能声称已经抽过了——她点开卡片，牌才落桌。不想抽就省略。");
@@ -8499,8 +8502,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       if (roomTarotOn && parsed.tarotInvite && typeof parsed.tarotInvite === "object") {
         const tv = parsed.tarotInvite;
-        const mode = ["reading", "relation", "daily"].indexOf(String(tv.mode || "")) >= 0 ? String(tv.mode) : "reading";
-        const modeZh = { reading: "他为你解牌", relation: "算你和他", daily: "今日一牌" }[mode];
+        const mode = ["reading", "relation", "daily", "forchar"].indexOf(String(tv.mode || "")) >= 0 ? String(tv.mode) : "reading";
+        const modeZh = { reading: "他为你解牌", relation: "算你和他", daily: "今日一牌", forchar: "请你替他抽" }[mode];
         // 牌阵认不出来就当他没挑（落回那一档的常用牌阵）——不硬塞一个她没有的名字进去
         const T0 = window.Tarot;
         const spread = (mode !== "daily" && T0 && T0.hasSpread && T0.hasSpread(tv.spread)) ? String(tv.spread) : "";
@@ -8509,7 +8512,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => [...p, {
           role: "assistant", kind: "tarotinvite", mode: mode,
           subject: "抽一张", sessionTitle: modeZh + (spreadZh ? " · " + spreadZh : ""),
-          spread: spread, asker: String(tv.asker || "") === "me" ? "me" : "you",
+          // ⚠️问法的默认值跟着档位走：他请她替【他】抽的时候，牌本来就是抽给他的，
+          //   默认落成「她的事」会把这一卦整个拧过来（问题里的第一人称指错人）。
+          spread: spread,
+          asker: String(tv.asker || "") === "me" ? "me" : (String(tv.asker || "") === "you" ? "you" : (mode === "forchar" ? "me" : "you")),
           ask: String(tv.ask || "").trim().slice(0, 120),
           say: String(tv.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
         }]);

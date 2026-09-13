@@ -62,7 +62,8 @@ test("他报了个她没有的牌阵：当他没挑，不硬塞", () => {
   assert.match(seg, /mode !== "daily"/, "每日一牌那一档还在认牌阵");
   // 卡上那一行要写清楚是哪一个牌阵（她点开之前就看得见）
   assert.match(seg, /sessionTitle: modeZh \+ \(spreadZh \? " · " \+ spreadZh : ""\)/);
-  assert.match(seg, /asker: String\(tv\.asker \|\| ""\) === "me" \? "me" : "you"/);
+  // v67.72：他明说了就听他的，没说才按档位给默认（forchar 那一档默认是 me）
+  assert.match(seg, /asker: String\(tv\.asker \|\| ""\) === "me" \? "me" : \(String\(tv\.asker \|\| ""\) === "you" \? "you" : \(mode === "forchar" \? "me" : "you"\)\)/);
 });
 
 test("点开之后：牌阵、那一组、问法都替她落好，但都只是默认值", () => {
