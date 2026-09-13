@@ -628,8 +628,12 @@
       const penText = { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 2,
         color: pageColor("impression", "ink", "rgba(43,36,28,.9)") };
       // 相片的背面：没有图，只有铅笔字。纸纹比正面更旧一点（背面本来就是压在册子里那一面）
+      // ⚠️backface-visibility 只管【看不看得见】，不保证【点不点得着】：Safari/iOS 里
+      //   压在上面那一面即使已经转到背后，照样会把点击吃掉——她 2026-09-13 报「补写按钮点不了」
+      //   就是这个。所以两面各自显式开关 pointerEvents，不靠引擎的隐藏行为。
       const backFace = h("div", { style: { position: "absolute", inset: 0, background: PAPER,
         backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)",
+        pointerEvents: flipped ? "auto" : "none",
         backgroundImage: "radial-gradient(90% 70% at 15% 8%,rgba(146,116,72,.17),transparent 62%),"
           + "radial-gradient(90% 70% at 88% 94%,rgba(146,116,72,.15),transparent 60%)",
         boxShadow: "0 16px 40px rgba(0,0,0,.42)", padding: "34px 26px 26px", overflowY: "auto" } },
@@ -660,11 +664,12 @@
           //   背面本来就是相片写字的地方，这个形状是它自己长出来的。
           h("div", { style: { perspective: 1400, marginTop: 12 } },
           h("div", { onClick: () => setFlipId(flipped ? null : e.id),
-            style: { position: "relative", transformStyle: "preserve-3d", cursor: "pointer",
+            style: { position: "relative", transformStyle: "preserve-3d", WebkitTransformStyle: "preserve-3d", cursor: "pointer",
               transition: "transform .55s cubic-bezier(.2,.7,.3,1)",
               transform: "rotate(-.5deg)" + (flipped ? " rotateY(180deg)" : "") } },
           backFace,
           h("div", { style: { position: "relative", background: PAPER, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+            pointerEvents: flipped ? "none" : "auto",
             backgroundImage: "radial-gradient(120% 90% at 50% 0,rgba(255,255,255,.55),transparent 55%),"
               + "radial-gradient(80% 60% at 8% 100%,rgba(146,116,72,.16),transparent 60%),"
               + "radial-gradient(80% 60% at 96% 6%,rgba(146,116,72,.13),transparent 62%)",

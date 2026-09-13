@@ -20,6 +20,14 @@ test("点一下整张相纸翻过去，是翻不是淡入淡出", () => {
   // 两面都得挡住自己的背面，否则翻过去会看见反字
   assert.equal((card.match(/backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden"/g) || []).length, 2);
   assert.match(card, /transform: "rotateY\(180deg\)"/, "背面自己要先转过去");
+  assert.match(card, /WebkitTransformStyle: "preserve-3d"/, "老 Safari 不带前缀压根不进 3D 上下文");
+});
+
+// 她 2026-09-13：「补写按钮点不了」。backface-visibility 只管看不看得见，
+// 不保证点不点得着——iOS 里压在上面那一面转到背后照样吃点击。
+test("翻到哪一面，哪一面才吃点击", () => {
+  assert.match(card, /pointerEvents: flipped \? "auto" : "none",/, "背面：没翻过来时不许吃点击");
+  assert.match(card, /pointerEvents: flipped \? "none" : "auto",/, "正面：翻过去之后就别再挡着了");
 });
 
 test("翻的是【哪一张】，不是一个裸 boolean", () => {
