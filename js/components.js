@@ -762,12 +762,22 @@ function Sheet({
 }
 // iOS 软键盘弹出时可视视口会缩短，但底部弹层是 absolute 定位（相对 100vh 容器）不会自动上移、被键盘挡住。
 // 这个 hook 返回键盘当前遮住的高度（px），底部弹层拿去做 marginBottom/位移，把自己顶到键盘上方。
+// ⚠️多小算「键盘没弹」（她 2026-09-13 报：线下那一屏「发送键不是在屏幕最下面，下面有一层空白」）：
+//   这个差值在 iOS 上不只有键盘会让它非零——安全区、取整、地址栏残留都会留下几十像素。
+//   原来是差多少顶多少，于是那几屏的输入栏【永远浮在离底一截的地方】，
+//   而主聊天那条输入栏压根不用这个 hook，所以她一眼看出这两处不一样。
+//   真键盘最矮也有两百多像素（带候选栏更高），所以给一个地板：够不着就是没弹。
+//   ⚠️地板只改「算不算键盘」这一件事——100vh、安全区那套她调好的适配一个字都不碰。
+const KB_MIN_PX = 120;
 function useKbLift() {
   const [lift, setLift] = useState(0);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const onR = () => { setLift(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))); };
+    const onR = () => {
+      const raw = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+      setLift(raw > KB_MIN_PX ? raw : 0);
+    };
     vv.addEventListener("resize", onR); vv.addEventListener("scroll", onR); onR();
     return () => { vv.removeEventListener("resize", onR); vv.removeEventListener("scroll", onR); };
   }, []);
