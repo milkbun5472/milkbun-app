@@ -19,8 +19,18 @@ test("点一下整张相纸翻过去，是翻不是淡入淡出", () => {
   assert.match(card, /onClick: \(\) => setFlipId\(flipped \? null : e\.id\)/);
   // 两面都得挡住自己的背面，否则翻过去会看见反字
   assert.equal((card.match(/backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden"/g) || []).length, 2);
-  assert.match(card, /transform: "rotateY\(180deg\)"/, "背面自己要先转过去");
+  assert.match(card, /transform: "rotateY\(180deg\) translateZ\(1px\)"/, "背面自己要先转过去");
   assert.match(card, /WebkitTransformStyle: "preserve-3d"/, "老 Safari 不带前缀压根不进 3D 上下文");
+});
+
+// 她 2026-09-13 截图：翻过去看到的是【正面的镜像】——iOS 上 backface-visibility 失灵了。
+test("翻过去看见的必须是背面，不能押在 backface-visibility 一个属性上", () => {
+  // 兜底一：两面各自 visibility 显式切，延迟半个动画时长（翻到侧面那一刻）才换人
+  assert.match(card, /visibility: flipped \? "visible" : "hidden", transition: "visibility 0s linear \.28s"/, "背面");
+  assert.match(card, /visibility: flipped \? "hidden" : "visible", transition: "visibility 0s linear \.28s"/, "正面");
+  // 兜底二：两面各占一个 Z，前后顺序才不靠 DOM 次序撞运气
+  assert.match(card, /transform: "rotateY\(180deg\) translateZ\(1px\)"/);
+  assert.match(card, /transform: "translateZ\(1px\)",/);
 });
 
 // 她 2026-09-13：「补写按钮点不了」。backface-visibility 只管看不看得见，
