@@ -287,7 +287,7 @@ test("往期要喂回去，重写时连自己上一版一起避开", () => {
   // 自己上一版单独一栏：跟在 past 末尾会被 slice(0,6) 切掉（她 2026-09-13 查出来的）
   assert.match(imp, /const lastVer = \(opts && opts\.last\) \? cardText\(cardLine\(opts\.last\)\) : "";/);
   assert.match(imp, /【你刚写完的那一版 · 这次就是要换掉它，最要紧】/);
-  assert.match(imp, /M\.genOpts\(bookRef\.current, charId, entry\.monthKey, turn, entry\)/, "重写要把上一版整张传进去");
+  assert.match(imp, /M\.genOpts\(liveBook\(\), charId, entry\.monthKey, turn, entry\)/, "重写要把上一版整张传进去");
   assert.match(imp, /const turn = Number\(entry\.turn \|\| 0\) \+ 1;/);
   assert.match(imp, /turn: Number\(turn \|\| 0\), ts: Date\.now\(\)/, "新卡片要记下 turn，重写才知道转到第几面");
 });
@@ -508,7 +508,7 @@ test("跨角色负例：别人的卡喂进生成，各写各的才不会全撞�
   assert.match(imp, /它们用过的意象【整族】不许再碰/);
   // v67.88：别人的卡由公共的 genOpts 一处算，首次生成/重写/自动出卡三条都从那儿取
   assert.match(imp, /others: Object\.keys\(book \|\| \{\}\)\.filter\(k => k !== charId\)/);
-  assert.match(imp, /M\.genOpts\(bookRef\.current, charId, monthKey, 0\)/, "首次生成要带");
-  assert.match(imp, /M\.genOpts\(bookRef\.current, charId, entry\.monthKey, turn, entry\)/, "重写也要带");
+  assert.match(imp, /M\.genOpts\(liveBook\(\), charId, monthKey, 0\)/, "首次生成要带");
+  assert.match(imp, /M\.genOpts\(liveBook\(\), charId, entry\.monthKey, turn, entry\)/, "重写也要带");
   assert.match(app, /M\.genOpts\(M\.load\(\), char\.id, monthKey, 0\)/, "自动出卡也要带");
 });

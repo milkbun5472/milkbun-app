@@ -11,21 +11,25 @@ const fs = require("node:fs");
 const path = require("node:path");
 const imp = fs.readFileSync(path.join(__dirname, "..", "js/impression.js"), "utf8");
 
-test("取料一律走 ref，不许再读闭包里那份 book", () => {
-  assert.match(imp, /const bookRef = React\.useRef\(book\);\s*\n\s*bookRef\.current = book;/);
+test("取料一律现读存档，不许再读闭包里那份 book", () => {
+  // v67.95：这本册子有两个写手——这一页，和 app.js 里那条自动出卡（它直接 M.load/M.save）。
+  // 拿 state 当底合并会把对方刚写的那张抹掉，所以一律以存档现读的那一份为底。
+  assert.match(imp, /const liveBook = \(\) => M\.load\(\) \|\| bookRef\.current \|\| \{\};/);
+  assert.match(imp, /const put = fn => setBook\(p => \{ const n = fn\(M\.load\(\) \|\| p\);/,
+    "合并的底必须是存档，不是 state");
   // 三条写卡的路都从 ref 取料
-  assert.match(imp, /M\.genOpts\(bookRef\.current, charId, monthKey, 0\)/, "首次生成/补齐");
-  assert.match(imp, /M\.genOpts\(bookRef\.current, charId, entry\.monthKey, turn, entry\)/, "只重写文案");
-  assert.match(imp, /M\.genOpts\(bookRef\.current, charId, entry\.monthKey, Number\(entry\.turn \|\| 0\)\)/, "补写背面");
+  assert.match(imp, /M\.genOpts\(liveBook\(\), charId, monthKey, 0\)/, "首次生成/补齐");
+  assert.match(imp, /M\.genOpts\(liveBook\(\), charId, entry\.monthKey, turn, entry\)/, "只重写文案");
+  assert.match(imp, /M\.genOpts\(liveBook\(\), charId, entry\.monthKey, Number\(entry\.turn \|\| 0\)\)/, "补写背面");
   // 闭包里那份只许用来画界面，不许再进生成
   assert.ok(!/M\.genOpts\(book, charId/.test(imp), "还有一处在读闭包里的 book");
 });
 
 test("补齐时已经写过的月份不再重写", () => {
   const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
-  assert.match(seg, /const have = new Set\(\(bookRef\.current\[charId\] \|\| \[\]\)\.map\(x => x\.monthKey\)\)/,
+  assert.match(seg, /const have = new Set\(\(liveBook\(\)\[charId\] \|\| \[\]\)\.map\(x => x\.monthKey\)\)/,
     "开工前统计哪些月份缺，也得看最新的");
-  assert.match(seg, /if \(\(bookRef\.current\[charId\] \|\| \[\]\)\.some\(x => x\.monthKey === k\)\) \{ done\+\+; continue; \}/,
+  assert.match(seg, /if \(\(liveBook\(\)\[charId\] \|\| \[\]\)\.some\(x => x\.monthKey === k\)\) \{ done\+\+; continue; \}/,
     "循环里每个月开写前再确认一次");
 });
 

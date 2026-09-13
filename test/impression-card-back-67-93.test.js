@@ -68,7 +68,7 @@ test("老卡能只补背面：正面和剪影一个字不动，也不另开一�
   assert.ok(!/M\.genArt/.test(seg), "补三行字不许顺带把剪影重刷一次（出图贵）");
   assert.ok(!/title: d\.title/.test(seg), "正面不许被动");
   // turn 原样带回去：这不是"换个写法"，别把骰子转到下一面
-  assert.match(seg, /M\.genOpts\(bookRef\.current, charId, entry\.monthKey, Number\(entry\.turn \|\| 0\)\)/);
+  assert.match(seg, /M\.genOpts\(liveBook\(\), charId, entry\.monthKey, Number\(entry\.turn \|\| 0\)\)/);
   // v67.91：这个按钮不许长在【翻过去的那一面】上。跟 iOS 的 3D 命中测试较劲了两版
   // （她两次都点不着），而它本来就和「只重写文案」「只重出剪影」同族——都是
   // "只重来其中一块"——那就该待在正面那一排：不翻面也点得着。

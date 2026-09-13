@@ -103,8 +103,8 @@ test("料只有一份：自动出卡那条不再自己拼一遍", () => {
   assert.match(seg, /M\.entryOf\(d, monthKey, img, 0\)/);
   assert.ok(!/memoryInterop === false/.test(seg), "互通群那条判据还是它自己那一套");
   // 手动那两条也走同一份
-  assert.match(src, /M\.genOpts\(bookRef\.current, charId, monthKey, 0\)/);
-  assert.match(src, /M\.genOpts\(bookRef\.current, charId, entry\.monthKey, turn, entry\)/);
+  assert.match(src, /M\.genOpts\(liveBook\(\), charId, monthKey, 0\)/);
+  assert.match(src, /M\.genOpts\(liveBook\(\), charId, entry\.monthKey, turn, entry\)/);
   assert.equal(src.split("M.archiveFor(").length - 1, 1);
 });
 
