@@ -419,6 +419,11 @@
     // 要拿去写、去喂模型、去判断"这个月写过没有"的那一份，一律现读存档：
     // 闭包里那份在一个 await 接一个 await 的长循环里不会变，别的写手写的东西它也看不见。
     const liveBook = () => M.load() || bookRef.current || {};
+    // 这一趟出不出剪影（她 2026-09-13 要的）。只管【这一趟】，不写进设置：
+    // 补齐十二个月就是十二张图，贵且慢，而字才是主体——不出图的那几张随时能单独补。
+    // ⚠️用 ref 读：补齐是个长循环，闭包里那份 state 在循环跑起来之后就不会再变了。
+    const [withArt, setWithArt] = useState(true);
+    const artRef = React.useRef(withArt); artRef.current = withArt;
     // ⚠️imgSrc 不是全局的：它是 theater.js 自己内部声明的（js/theater.js 里那份）。
     // 照抄用法却没带上定义，一进这个页面就 ReferenceError、整个 App 白屏（她 2026-08-20 撞到）。
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
@@ -525,7 +530,7 @@
         const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, M.genOpts(liveBook(), charId, monthKey, 0));
         let img = null;
         // 图出不来不算失败：字才是主体，剪影可以之后单独补
-        try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
+        try { if (artRef.current && typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
         catch (e) { props.toast("字写好了，剪影没出来：" + (e.message || "稍后可单独重出")); }
         const entry = M.entryOf(d, monthKey, img, 0);
         put(p => Object.assign({}, p, { [charId]: [entry].concat((p[charId] || []).filter(x => x.monthKey !== monthKey)) }));
@@ -606,7 +611,9 @@
       // iOS/PWA 可以永久屏蔽系统 confirm；被屏蔽后它只返回 false，按钮就像完全没点到。
       // 用全 App 自己画的确认层，而且把真正补齐动作放进确认回调——点“开始补齐”后才逐月写。
       setBackfillState({ charId, phase: "confirm" });
-      const opened = requestAppConfirm("补齐 " + want.length + " 个月？", "会一个月一个月写，中途失败前面的都保留。", async () => {
+      const opened = requestAppConfirm("补齐 " + want.length + " 个月？",
+        (artRef.current ? "每个月连剪影一起出（慢，也费图额）。" : "这一趟只写字，不出剪影；剪影以后在每张卡上单独补。")
+          + "会一个月一个月写，中途失败前面的都保留。", async () => {
         setBackfillState({ charId, phase: "run" });
         try {
           want.reverse();
@@ -764,15 +771,18 @@
           border: "1px dashed rgba(243,236,224,.30)", display: "flex", alignItems: "center", justifyContent: "center",
           textAlign: "center", padding: 12, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8,
           color: pageColor("impression", "fog", "rgba(243,236,224,.62)") } },
-          busy ? "在写…" : "贴上 " + M.monthLabel(openMonth) + "的那一张",
+          busy ? "在写…" : "贴上 " + M.monthLabel(openMonth) + "的那一张" + (withArt ? "" : "（只写字）"),
           corners(15)),
         h("div", { style: Object.assign({}, handLabel, { marginTop: 8, color: pageColor("impression", "fog", "rgba(243,236,224,.55)") }) },
           M.monthLabel(openMonth)));
       return h("div", { style: S.wrap },
         header((c.name || "?") + " 眼里的 " + uName,
+          h("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
+          h("button", { onClick: () => setWithArt(v => !v), style: S.btn(withArt) },
+            withArt ? "带剪影" : "只写字"),
           h("button", { onClick: () => backfill(curChar), disabled: !!busy || !!backfillState, style: S.btn(false) },
             backfillState && backfillState.charId === curChar
-              ? (backfillState.phase === "scan" ? "统计中…" : backfillState.phase === "confirm" ? "待确认…" : "补齐中…") : "补齐")),
+              ? (backfillState.phase === "scan" ? "统计中…" : backfillState.phase === "confirm" ? "待确认…" : "补齐中…") : "补齐"))),
         h("div", { style: pageStyle },
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: "26px 26px", alignItems: "flex-start" } },
             mine.map((e, i) => h("div", { key: e.id, onClick: () => setCardId(e.id),
