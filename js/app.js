@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.83";
+const APP_VERSION = "v67.84";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9740,7 +9740,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 【关系隐私铁律】旁观群更需要它：两个人都跟她有关系时，正是这条挡住互相拆穿。
       const gRelRule = "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -9971,6 +9971,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const poll = groupPoll(groupId, item.pollVote.pollId);
             const choice = groupPollChoice(item.pollVote.choice, poll);
             if (choice !== null) castVote(groupId, poll.pollId, choice, spk.name);
+          }
+          if (item.pollNew && spk) {
+            postPoll(groupId, spk, item.pollNew.title, item.pollNew.options, item.pollNew.anon === true);
+            autoTook();
           }
           if (item.redpacket && Number(item.redpacket.total) > 0) {
             const rp = item.redpacket;
@@ -10298,27 +10302,44 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // ---- 群投票 ----
   const pollVoteBusyRef = useRef(new Set());
-  const startPoll = (groupId, title, options, anon) => {
-    const by = gsFor(groupId).spectate ? "旁白" : profile.name || "我";
+  // 一张投票卡只有这一个出生点：我发起和成员发起共用它，只差 role/by 和发起人
+  //   （她 2026-09-13 报「群里我可以发投票，但是他们是不是发不了」）。
+  const pushPoll = (groupId, title, options, anon, char) => {
+    const t = String(title || "").trim();
+    const opts = (Array.isArray(options) ? options : []).map(o => String(o == null ? "" : o).trim()).filter(Boolean);
+    if (!t || opts.length < 2) return null;
     const pollId = "pl_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     pushGroupRich(groupId, {
-      role: "user",
+      role: char ? "assistant" : "user",
+      ...(char ? { senderId: char.id, senderName: char.name } : {}),
       kind: "poll",
       pollId,
-      title: title,
+      title: t,
       anon: !!anon,
-      by: by,
-      options: options.map(o => ({
+      by: char ? char.name : (gsFor(groupId).spectate ? "旁白" : profile.name || "我"),
+      options: opts.map(o => ({
         text: o,
         voters: []
       })),
-      content: "[投票] " + title
+      content: "[投票] " + t
     });
+    return pollId;
+  };
+  const startPoll = (groupId, title, options, anon) => {
+    const pollId = pushPoll(groupId, title, options, anon, null);
+    if (!pollId) { toast("投票要有题目和至少两个选项"); return; }
     toast("投票已发起");
     // 发起后角色陆陆续续自动投票（无需手动按）
     setTimeout(() => {
       genPollVotes(groupId, pollId);
     }, 900);
+  };
+  // 成员自己发起的投票：跟红包一条路子——先把卡发出来，再让别人陆陆续续来投
+  const postPoll = (groupId, char, title, options, anon) => {
+    if (!char) return;
+    const pollId = pushPoll(groupId, title, options, anon, char);
+    if (!pollId) return;
+    setTimeout(() => genPollVotes(groupId, pollId), 1400);
   };
   const groupPoll = (groupId, target) => {
     const rows = groupChatsRef.current[groupId] || [];
