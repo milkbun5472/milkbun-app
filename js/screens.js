@@ -433,8 +433,8 @@ function CastForm({
   // 只有这个数真变了才重新起算：改个别的栏顺手保存一次，不该把TA的起算日往后推。
   const [ageFrozen, setAgeFrozen] = useState(!!(initial && initial.ageFrozen));
   // 性别（v58.86，她 2026-08-31 加了女生角色）：只决定别处怎么称呼 TA。
-  // 默认不填＝一律用「TA」——中性，永远不会把人叫错。
-  const [gender, setGender] = useState(initial && initial.gender || "");
+  // 旧档空性别沿用“他”，新建默认TA；显示和保存使用同一个称呼规则。
+  const [gender, setGender] = useState(() => CharacterPronoun.ta(initial));
   const [voiceId, setVoiceId] = useState(initial && initial.voiceId || "");
   const save = () => {
     if (!name.trim()) return;
@@ -602,11 +602,11 @@ function CastForm({
         h(LineField, { zh: "年龄" }, ageField),
         h(LineField, { zh: "性别", en: "Gender" }, h("div", null,
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
-            [["", "未填写 · TA"], ["他", "他"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),
+            [["他", "他"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),
               style: { fontFamily: F_BODY, fontSize: 13, color: gender === o[0] ? "#fff" : t.ink, background: gender === o[0] ? t.tint : "transparent",
                 border: "1px solid " + (gender === o[0] ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
-            "应用里的称呼按这项设置显示；未填写用 TA，不从姓名或头像猜。想显示他或她，请明确选择。不会改写已有聊天和存档正文。")))),
+            "应用里的称呼按这项设置显示。旧角色没填过性别的沿用“他”，新建默认 TA；已选的称呼不变，不改聊天和存档正文。")))),
       h(CastSection, { no: "03", title: "视觉档案", en: "长什么样、出图照着谁", tint: accent },
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "说话什么声气", tint: accent },

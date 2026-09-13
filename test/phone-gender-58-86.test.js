@@ -32,11 +32,11 @@ test("默认那一档一个字都不动，也不许炸", () => {
   assert.equal(K.phoneTa("其他他其他他", "她"), "其他她其他她");
 });
 
-// Lisa于2026-09-13明确改为未填写用TA；存档与角色原话不改。
-test("没设性别用TA，明确性别才取他或她", () => {
-  assert.equal(K.charTa({}), "TA");
+// Lisa补充：旧角色空性别沿用他；只有新建默认TA。
+test("旧档空性别沿用他，明确选择保持不变", () => {
+  assert.equal(K.charTa({}), "他");
   assert.equal(K.charTa(null), "TA");
-  assert.equal(K.charTa({ gender: "" }), "TA");
+  assert.equal(K.charTa({ gender: "" }), "他");
   assert.equal(K.charTa({ gender: "男" }), "他");
   assert.equal(K.charTa({ gender: "她" }), "她");
   assert.equal(K.charTa({ gender: "女" }), "她");
@@ -59,12 +59,13 @@ test("共用规则只处理应用模板，拼好的引用与历史不做整段�
     assert.ok(chunk.indexOf(b) > 0, "这一块没进那一段：" + b));
 });
 
-test("档案馆里有性别这一栏，存得下、默认不指定", () => {
-  assert.match(scr, /const \[gender, setGender\] = useState\(initial && initial\.gender \|\| ""\);/, "没有这一栏的状态");
+test("档案馆只保留三档，初始值共用新旧角色规则", () => {
+  assert.match(scr, /const \[gender, setGender\] = useState\(\(\) => CharacterPronoun\.ta\(initial\)\);/, "没有这一栏的状态");
   assert.match(scr, /\n      gender: gender,/, "存的时候没带上");
-  assert.match(scr, /\[\["", "未填写 · TA"\], \["他", "他"\], \["她", "她"\], \["TA", "TA · 中性"\]\]/, "四档不全");
+  assert.match(scr, /\[\["他", "他"\], \["她", "她"\], \["TA", "TA · 中性"\]\]/, "三档不全");
+  assert.doesNotMatch(scr, /未填写 · TA/);
   assert.match(scr, /h\(LineField, \{ zh: "性别", en: "Gender" \}/, "界面上没有这一栏");
-  assert.match(scr, /未填写用 TA/, "没说清不填会怎样");
+  assert.match(scr, /旧角色没填过性别的沿用“他”，新建默认 TA/);
 });
 
 // 她 2026-08-31：「现在到了自动刷新时间，我就明确看到沈屿白的查手机刷新了其他都没动静」。

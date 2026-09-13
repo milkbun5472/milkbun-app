@@ -70,7 +70,7 @@ test("重新看一遍只换文字，图原样留着", () => {
 test("提示词说明白这是他一个人过日子的地方", () => {
   const { D } = load();
   const ins = D.placeSpec({ name: "沈屿白" }, null, null).instruction;
-  assert.match(ins, /TA一个人过日子的地方/, "没点明这是他的日子");
+  assert.match(ins, /他一个人过日子的地方/, "没点明这是他的日子");
   assert.match(ins, /绝大多数东西跟用户没关系/, "没给比例，模型会把每一件都写成跟用户有关");
   assert.match(ins, /至多出现在一两件里/, "没给上限");
   // 判据里不许再拿「跟谁有关」当敞口——那个「谁」模型默认就填用户

@@ -129,7 +129,7 @@ test("角色来写：轴只管本章形式，能力和立场归人设", () => {
   assert.match(blk, /是否写过文、是否混圈、擅长什么，都以你的角色卡为准/);
   assert.doesNotMatch(blk, /TA不是作家|TA不写文|TA不是干这行/);
   assert.match(blk, /笔法：你的阅读经验、表达习惯/);
-  assert.match(blk, /你就是TA本人在写，不是「一位作者在模仿TA」/);
+  assert.match(blk, /你就是他本人在写，不是「一位作者在模仿他」/);
   assert.match(blk, /正文呈现故事本身/);
   // 掷得稳：同一个人同一章问两次一样
   assert.deepEqual(S.rollWriterAxes("c1", "f1", 2), S.rollWriterAxes("c1", "f1", 2));

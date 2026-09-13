@@ -138,7 +138,7 @@ test("他不在这篇 CP 里的时候，把他自己那张卡补给模型", () =
   const he = { id: "c9", name: "王爷", persona: "话少，说重话之前先笑一下" };
   const outside = F.charWriterBlock(he, { id: "f1", cp: ["c1", "c2"] }, null, null, null, "我");
   assert.match(outside, /说重话之前先笑一下/, "不在 CP 里就得补卡：" + outside);
-  assert.match(outside, /TA不在这篇的 CP 里/, "而且要说清为什么在这儿给");
+  assert.match(outside, /他不在这篇的 CP 里/, "而且要说清为什么在这儿给");
   // 在 CP 里的时候 cpBlock 已经发过一份，不许再发一遍
   const inside = F.charWriterBlock(he, { id: "f1", cp: ["c9", "c2"] }, null, null, null, "我");
   assert.ok(inside.indexOf("说重话之前先笑一下") < 0, "在 CP 里就别重复发：" + inside);

@@ -22,15 +22,22 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
       qaRoot.render(h(CastForm,{initial:{id:'qa',name:'测试角色',gender:''},onBack:()=>{},onSave:c=>qaSaved.push(c.gender)}));
     });
     const host=page.locator('#pronoun-qa');
-    for(const [label,gender] of [['她','她'],['他','他'],['TA · 中性','TA'],['未填写 · TA','']]){
+    await host.getByRole('button',{name:'存档',exact:true}).click();
+    assert.equal(await page.evaluate(()=>qaSaved.at(-1)),'他', '旧角色无需重选');
+    assert.equal(await host.getByRole('button',{name:'未填写 · TA',exact:true}).count(),0);
+    for(const [label,gender] of [['她','她'],['他','他'],['TA · 中性','TA']]){
       const button=host.getByRole('button',{name:label,exact:true});await button.click();
       const box=await button.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1);
       await host.getByRole('button',{name:'存档',exact:true}).click();
       assert.equal(await page.evaluate(()=>qaSaved.at(-1)),gender);
     }
-    await host.getByRole('button',{name:'未填写 · TA',exact:true}).scrollIntoViewIfNeeded();
+    await host.getByRole('button',{name:'TA · 中性',exact:true}).scrollIntoViewIfNeeded();
     await page.screenshot({path:'/tmp/lisa-pronoun-form-'+width+'.png'});
-    for(const [gender,pronoun] of [['她','她'],['他','他'],['','TA'],['她','她']]){
+    await page.evaluate(()=>qaRoot.render(h(CastForm,{key:'new',initial:null,onBack:()=>{},onSave:c=>qaSaved.push(c.gender)})));
+    await host.locator('input:not([type="file"])').first().fill('新建测试角色');
+    await host.getByRole('button',{name:'存档',exact:true}).click();
+    assert.equal(await page.evaluate(()=>qaSaved.at(-1)),'TA', '新角色默认TA并存档');
+    for(const [gender,pronoun] of [['她','她'],['他','他'],['','他'],['TA','TA'],['她','她']]){
       await page.evaluate(gender=>{
         const character={id:'qa',name:'他山',gender};
         qaRoot.render(h('div',null,

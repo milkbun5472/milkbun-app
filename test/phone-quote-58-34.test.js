@@ -60,14 +60,14 @@ test("quote 这一栏有判据，不是光写「他自己的一句话」", () =>
   assert.match(ins, /没打算给谁听/, "没说清是心里过一下的半句话，不是说给人听的");
   // 「连本带利收回来」正是这种句式：说给人听的狠话/预告
   assert.match(ins, /狠话、承诺或预告/, "没点出滑向哪一种腔调");
-  assert.match(ins, /TA这个人.*不是TA这个类型的/, "没要求语气长成这个人，而不是这个类型");
+  assert.match(ins, /他这个人.*不是他这个类型的/, "没要求语气长成这个人，而不是这个类型");
 });
 
 test("私密那一档单独钉住占有欲宣言那条路", () => {
   const ins = spec(null);
   assert.match(ins, /【intimacy \/ desire \/ closeness 这三项】/);
   assert.match(ins, /占有欲宣言和狠话/, "私密那几项最容易滑的就是这个，没钉住");
-  assert.match(ins, /那是网文腔，不是TA/);
+  assert.match(ins, /那是网文腔，不是他/);
 });
 
 // 判据是【描述失败长什么样】，不是【给一句范文】——给了范文模型就照着抄

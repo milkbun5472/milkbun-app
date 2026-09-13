@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.86";
+const APP_VERSION = "v67.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7084,7 +7084,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return st;
   };
   const saveChar = c => {
-    pC(p => p.some(x => x.id === c.id) ? p.map(x => x.id === c.id ? c : x) : [...p, c]);
+    pC(p => p.some(x => x.id === c.id) ? p.map(x => x.id === c.id ? c : x) : [...p, CharacterPronoun.newCharacter(c)]);
     setScreen("cast");
     setEditingChar(null);
   };
@@ -7092,7 +7092,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const [cardImportOpen, setCardImportOpen] = useState(false);
   const importCharCard = parsed => {
     const id = "char_" + Date.now();
-    pC(p => [...p, { id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: (parsed.tagline || "").slice(0, 40), color: "#5a6a7d" }]);
+    pC(p => [...p, CharacterPronoun.newCharacter({ id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: (parsed.tagline || "").slice(0, 40), color: "#5a6a7d" })]);
     if (parsed.longMem) setMemFor(id, parsed.longMem);
     (parsed.seeds || []).forEach(s => addMemEntry({ text: s.text, charIds: [id], knownBy: [id], pinned: s.pinned, source: "manual" }));
     // 卡里的开场白（酒馆的 first_mes）落成 TA 的第一句话——原来直接丢了
@@ -7113,10 +7113,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       const r = await generateNpc(p, host, ask, npcsOf(hostId).map(c => c.name));
       const id = "c_" + Date.now() + "_npc";
-      pC(prev => [...prev, {
+      pC(prev => [...prev, CharacterPronoun.newCharacter({
         id: id, name: r.name, persona: r.brief,
         npc: true, ownerId: hostId          // ← 这两个字段是全部区别
-      }]);
+      })]);
       // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
       if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
       if (r.relToHost) saveRel(id + "->" + hostId, r.relToHost, "");

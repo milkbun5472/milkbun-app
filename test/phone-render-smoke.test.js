@@ -256,7 +256,7 @@ test("阅读的推演任务把书架名、真书、批注三条都钉死了", ()
   assert.match(spec.instruction, /正好 5 个书架、正好 30 本书/);
   assert.match(spec.instruction, /书架名\*\*不是分类标签\*\*/);
   assert.match(spec.instruction, /不许写「历史」「科幻」「文学」「哲学」/);
-  assert.match(spec.instruction, /是TA在TA所处的时代和世界里拿得到的/);
+  assert.match(spec.instruction, /是他在他所处的时代和世界里拿得到的/);
   assert.match(spec.instruction, /不许写读后感/);
   assert.match(spec.instruction, /换个角色也说得通的批注就是写坏了/);
   assert.match(spec.schemaHint, /"shelves"/);
@@ -329,7 +329,7 @@ test("购物的推演任务把「为什么想买」和「不是自己家的地�
   assert.match(spec.instruction, /why 这一栏是整个 app 里最重要的东西/);
   assert.match(spec.instruction, /不许写「质量好」「性价比高」这种/);
   assert.match(spec.instruction, /绝不买什么.*这一条比常买更像人/s);
-  assert.match(spec.instruction, /其中一条应当是「TA常去的另一个地方」/);
+  assert.match(spec.instruction, /其中一条应当是「他常去的另一个地方」/);
   assert.match(spec.instruction, /看了没买的东西和购物车里的要错开/);
 });
 
@@ -429,7 +429,7 @@ test("外卖照参考稿配齐了十来块，重点几栏都钉死了", () => {
   assert.match(spec.instruction, /别只写食材名/);
   // 地址标签要带括号身份、要有一条是去投喂别人的
   assert.match(spec.instruction, /后面用括号补一句这是谁的地方/);
-  assert.match(spec.instruction, /其中一条应当是【TA常去投喂的另一个地方】/);
+  assert.match(spec.instruction, /其中一条应当是【他常去投喂的另一个地方】/);
   // 惦记着的那句 when 是最见人的地方
   assert.match(spec.instruction, /什么时候会突然想起它/);
 });
@@ -503,7 +503,7 @@ test("视频（B站）：列表、详情、脏数据都能渲，弹幕是重点"
     assert.doesNotThrow(() => loadPhone().BiliView({ ...props, d }), "脏数据 " + i + " 炸了"));
   const spec = loadPhone().phoneProbeSpec("bili", char, [], "", []);
   assert.match(spec.instruction, /items \*\*正好 10 条\*\*/);
-  assert.match(spec.instruction, /弹幕是TA忍不住开口的地方/);
+  assert.match(spec.instruction, /弹幕是他忍不住开口的地方/);
   assert.match(spec.schemaHint, /"myDanmaku"/);
 });
 
@@ -673,7 +673,7 @@ test("小红书「我的」按参考稿来，并且有草稿箱", () => {
   assert.match(SRC, /tier: "hidden", label: "小红书草稿箱"/);
   // 提示词里把三者的分野写死了
   const spec = loadPhone().phoneProbeSpec("liked", char, [], "", []);
-  assert.match(spec.instruction, /drafts 1-3 条：TA写了却一直没发出去的草稿/);
+  assert.match(spec.instruction, /drafts 1-3 条：他写了却一直没发出去的草稿/);
   assert.match(spec.instruction, /可以完全是三个人/);
   assert.match(spec.schemaHint, /"drafts"/);
   assert.match(spec.schemaHint, /"xhsId"/);
@@ -706,7 +706,7 @@ test("提示词里不许再塞具体的内容示范（施工规则/prompt-no-con
 test("小红书自己的笔记和草稿也有标签", () => {
   const P = loadPhone();
   const spec = P.phoneProbeSpec("liked", char, [], "", []);
-  assert.match(spec.instruction, /mine \*\*2-4 条\*\*TA自己发出去的笔记：title、excerpt、tags/);
+  assert.match(spec.instruction, /mine \*\*2-4 条\*\*他自己发出去的笔记：title、excerpt、tags/);
   assert.match(spec.instruction, /title、excerpt、tags（1-3 个）、savedAt/);
   assert.ok(/"mine":\[\{[^\]]*"tags"/.test(spec.schemaHint), "mine 的 schema 里没有 tags");
   assert.ok(/"drafts":\[\{[^\]]*"tags"/.test(spec.schemaHint), "drafts 的 schema 里没有 tags");
@@ -770,9 +770,9 @@ test("浏览器做成真浏览器：标签页 / 搜索 / 书签 / 无痕", () =>
   ["tabs", "searches", "marks", "private"].forEach(k =>
     assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 不在 schema 里"));
   assert.match(spec.instruction, /一堆没关的标签页是这个人脑子的横截面/);
-  assert.match(spec.instruction, /至少有一个是开了很久、TA自己也说不清为什么不关的/);
+  assert.match(spec.instruction, /至少有一个是开了很久、他自己也说不清为什么不关的/);
   assert.match(spec.instruction, /搜索词比访问过的网页更暴露人/);
-  assert.match(spec.instruction, /这是TA专门开了不留记录的那几页/);
+  assert.match(spec.instruction, /这是他专门开了不留记录的那几页/);
 });
 
 test("设置那个 app 是删掉了，不是留着不用", () => {
@@ -804,13 +804,13 @@ test("电话的重点是没接通的那些，而且每通都有他自己的想�
   assert.match(spec.instruction, /真正有东西的是没接通的那些/);
   assert.match(spec.instruction, /\*\*至少三条是没接通的\*\*/);
   assert.match(spec.instruction, /每一条不接的理由都不一样/);
-  assert.match(spec.instruction, /\*\*TA对这通电话的真实想法\*\*/);
+  assert.match(spec.instruction, /\*\*他对这通电话的真实想法\*\*/);
   assert.match(spec.schemaHint, /"thought"/);
   // 未接在界面上要看得出来
   assert.match(SRC, /const missed = x\.answered === false/);
   assert.match(SRC, /color: missed \? CALL_RED/);
   // 语音留言：单向的，所以要有他一直没听的那条
-  assert.match(spec.instruction, /留言是单向的，本身就说明对方联系不上TA/);
+  assert.match(spec.instruction, /留言是单向的，本身就说明对方联系不上他/);
   assert.match(SRC, /他一直没听/);
 });
 

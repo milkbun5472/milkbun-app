@@ -119,6 +119,6 @@ test("两格各渲染一遍，各自只装自己那一半", () => {
   const past = draw("past"), ahead = draw("ahead");
   assert.ok(past.includes("走过的那条") && !past.includes("要办的那件"), "走过的那格漏进了还没发生的事");
   assert.ok(ahead.includes("要办的那件") && !ahead.includes("走过的那条"), "接下来那格漏进了已经发生的事");
-  assert.ok(past.includes("再往前，TA手机上没留下什么了。"), "走过的那格没有收尾");
-  assert.ok(ahead.includes("再往后，TA日历上还没排。"), "接下来那格没有收尾");
+  assert.ok(past.includes("再往前，他手机上没留下什么了。"), "走过的那格没有收尾");
+  assert.ok(ahead.includes("再往后，他日历上还没排。"), "接下来那格没有收尾");
 });

@@ -34,7 +34,7 @@ test("病历那一格摆的是【他说的】和【身上显示的】两栏，�
   assert.match(view, /chartRow\("医嘱", v\.orders, true\)/, "医嘱没标成要紧的那一条");
   const spec = P.phoneProbeSpec("health", char, [], "", []);
   assert.match(spec.instruction, /这一栏最要紧的是 chief 和 exam 之间的落差/, "没说清这一栏要的是什么");
-  assert.match(spec.instruction, /大夫是\*\*背着TA\*\*写这些的/, "会写成对着他说话");
+  assert.match(spec.instruction, /大夫是\*\*背着他\*\*写这些的/, "会写成对着他说话");
   assert.match(spec.instruction, /绝不许给古人写血压和血氧/, "古代角色会被写上现代化验单");
 });
 
