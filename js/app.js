@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.66";
+const APP_VERSION = "v67.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15479,6 +15479,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 【不自动回复】她要转完接着说话，说完按「回复」TA 再反应；是不是写 TA 的、配对认不认识，
     // content 里带了「这篇是写你的」标记 + 关系网本来就在 bundle 里，正常回复时 TA 演得出来。
   };
+  // 这一卦进聊天时是【一张卡】，而且牌和解析跟着一起进（她 2026-09-13 报的两条：
+  // 「它不是一张卡，只是聊天记录灌进上下文」「牌和解析没跟上」）。
+  // ⚠️卡面归卡面、上下文归上下文，两样都要：
+  //   · tarot 那一格是给她看的（components.js 的 TarotShareCard 画它）；
+  //   · content 那一段是给模型看的——**牌面、逐张解读、收束全在这儿**。
+  //     原来带回聊天只搬了追问的那几句，牌和解析一个字都没进上下文，
+  //     于是他回头聊这副牌时手上其实什么都没有。
+  // ⚠️两条路共用这一份（「我替你算了一卦」和「把小桌对话带回聊天」）：
+  //   各拼一份迟早只改一处（施工规则/one-public-mechanism.md）。
+  const tarotShareMsg = (session, note) => {
+    const s0 = session || {};
+    const cards = (s0.cards || []).map((c, i) => ({ pos: (s0.spread || [])[i] || "", name: String((c && c.name) || ""), rev: !!(c && c.rev) }));
+    const reads = (s0.reads || []).map(r => ({ pos: String((r && r.pos) || ""), text: String((r && r.text) || "") })).filter(r => r.text);
+    const cardsTxt = cards.map(c => (c.pos ? c.pos + "：" : "") + c.name + (c.rev ? "（逆位）" : "（正位）")).join("；");
+    const readTxt = reads.map(r => (r.pos ? r.pos + "—" : "") + r.text).join("\n");
+    const q = String(s0.question || "").trim();
+    const sum = String(s0.summary || "").trim();
+    return {
+      kind: "tarotshare",
+      tarot: { note: String(note || ""), q: q, spreadName: String(s0.spreadName || s0.spreadLabel || ""), cards: cards, summary: sum },
+      content: "【塔罗" + (note ? " · " + note : "") + "】"
+        + (q ? "\n问的是：" + q : "")
+        + (cardsTxt ? "\n牌：" + cardsTxt : "")
+        + (readTxt ? "\n解读：\n" + readTxt : "")
+        + (sum ? "\n收束：" + sum : "")
+    };
+  };
   // 塔罗「给角色算一卦」转发给对应角色：把这一卦发进 Ta 的私聊，让 Ta 读后反应
   const forwardTarotToChat = async (session, options) => {
     const toChar = characters.find(c => c.id === session.charId);
@@ -15487,20 +15514,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const tableLines = (session.followups || []).filter(x => x && x.content && (x.role === "user" || x.role === "assistant"));
       if (!tableLines.length) { toast("小桌边还没有可以带回去的对话"); return; }
       const movedAt = Date.now();
-      const intro = { role: "system", kind: "tarottable", content: "你们把刚才在塔罗店小桌边围绕这副牌说的话带回了聊天。", ts: movedAt, read: false };
+      // ⚠️先落这张卡：牌和解析就在它的 content 里。原来这儿只有一句「带回了聊天」，
+      //   底下跟着一串光秃秃的对话——她看不见牌，他也读不到牌。
+      const card = tarotShareMsg(session, "小桌边这副牌");
+      const cardMsg = { role: "user", kind: card.kind, tarot: card.tarot, content: card.content, ts: movedAt, read: false };
+      const intro = { role: "system", kind: "tarottable", content: "你们把刚才在塔罗店小桌边围绕这副牌说的话带回了聊天。", ts: movedAt + 1, read: false };
       const moved = tableLines.map((x, i) => ({
         role: x.role, kind: "tarottable", content: String(x.content),
-        ts: Number(x.ts) || movedAt + i + 1, read: false
+        ts: Number(x.ts) || movedAt + 2 + i, read: false
       }));
-      pChat(toChar.id, p => [...p, intro, ...moved]);
+      pChat(toChar.id, p => [...p, cardMsg, intro, ...moved]);
       toast("已把小桌对话带回与 " + (toChar.remark || toChar.name) + " 的聊天");
       return;
     }
     const cardsTxt = (session.cards || []).map((c, i) => ((session.spread || [])[i] ? session.spread[i] + "：" : "") + c.name + (c.rev ? "（逆位）" : "（正位）")).join("；");
     const readTxt = (session.reads || []).map(r => (r.pos ? r.pos + "—" : "") + r.text).join("\n");
-    const summary = session.summary || "";
-    const shareText = "【塔罗 · 我替你算了一卦】\n" + cardsTxt + (summary ? "\n\n" + summary : "");
-    pChat(toChar.id, p => [...p, { role: "user", content: shareText, ts: Date.now(), read: false }]);
+    const summary = session.summary || "";          // 底下那一枪的 instruction 还要用它
+    // ⚠️这一路也换成同一张卡（原来是一段光秃秃的文字）：同一种东西在两处长成两个样子，
+    //   就是又一处要各自维护的地方（施工规则/one-public-mechanism.md：已有的也搬过去）。
+    const card0 = tarotShareMsg(session, "我替你算了一卦");
+    pChat(toChar.id, p => [...p, { role: "user", kind: card0.kind, tarot: card0.tarot, content: card0.content, ts: Date.now(), read: false }]);
     toast("已把这一卦转发给 " + (toChar.remark || toChar.name));
     if (!active) return;
     const instruction = "有人（用户）替你算了一卦塔罗，把结果发给你看了。抽到的牌与解读：\n牌：" + cardsTxt + "\n解读：\n" + readTxt + (summary ? "\n收束：" + summary : "") +

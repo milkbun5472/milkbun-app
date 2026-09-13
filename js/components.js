@@ -7928,6 +7928,11 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(FicShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    // 塔罗这一卦（v67.67）：跟同人文那张卡同一处、同一个形状
+    if (m.kind === "tarotshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(TarotShareCard, { m: m, isU: m.role === "user" }),
+      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     // 他替她记进备忘录 / 记了一笔账（v58.10）
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
@@ -10475,6 +10480,26 @@ function PhonePeekCard({ m, isU }) {
         hid && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b6473c", marginTop: 7 } }, "这是他藏起来的"))));
 }
 // 同人文分享卡
+// 塔罗那一卦带进聊天时的那张卡（她 2026-09-13 报：「它不是一张卡，只是聊天记录灌进上下文，
+// 而且牌和解析没跟上」）。⚠️照 FicShareCard 那一套长（同一种东西＝同一种卡面），
+// 不另发明一种卡面。牌面本身是这张卡的主体：几张牌、正逆、位置，一眼看得见。
+function TarotShareCard({ m, isU }) {
+  const t = useTheme();
+  const d = m.tarot || {};
+  const cards = Array.isArray(d.cards) ? d.cards.slice(0, 6) : [];
+  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
+    h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
+      h("div", { className: "px-3.5 pt-3 pb-3" },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          "塔罗" + (d.spreadName ? " · " + d.spreadName : "") + (d.note ? " · " + d.note : "")),
+        d.q ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, color: t.ink, marginTop: 5 } }, d.q) : null,
+        cards.length ? h("div", { style: { marginTop: d.q ? 7 : 6, display: "flex", flexDirection: "column", gap: 3 } },
+          cards.map((c, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: t.sub,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            (c.pos ? c.pos + " · " : "") + (c.name || "") + (c.rev ? "（逆位）" : "（正位）")))) : null,
+        d.summary ? h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.ink, marginTop: 7 } }, d.summary) : null)));
+}
 function FicShareCard({ m, isU }) {
   const t = useTheme();
   const f = m.fic || {};
@@ -13089,6 +13114,12 @@ function GroupThread({
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
         h(FicShareCard, { m: m, isU: m.role === "user" })),
+      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+    if (m.kind === "tarotshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        h(TarotShareCard, { m: m, isU: m.role === "user" })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),

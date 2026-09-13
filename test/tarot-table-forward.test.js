@@ -14,7 +14,9 @@ test("塔罗小桌转发沿用私聊写入器并保留双方身份与原始时�
   assert.match(forward, /x\.role === "user" \|\| x\.role === "assistant"/);
   assert.match(forward, /role: x\.role, kind: "tarottable"/);
   assert.match(forward, /ts: Number\(x\.ts\)/);
-  assert.match(forward, /pChat\(toChar\.id, p => \[\.\.\.p, intro, \.\.\.moved\]\)/);
+  // v67.67：这一串最前面多了【那张卡】——牌和解析原来一个字都没进去
+  //（她 2026-09-13 带截图报的）。写入器、身份、原始时刻这三样一个字没动。
+  assert.match(forward, /pChat\(toChar\.id, p => \[\.\.\.p, cardMsg, intro, \.\.\.moved\]\)/);
 });
 
 test("小桌转发不额外调用模型，也不直接写正式记忆", () => {
