@@ -8522,8 +8522,8 @@ function CallSubtitle({ line, onPhoto, actions = [] }) {
     "data-call-subtitle": true,
     className: "flex-1 min-h-0 overflow-y-auto px-7",
   }, h("div", { style: { minHeight: "100%", display: "flex", flexDirection: "column", gap: 14, padding: "12px 0" } },
-    actions.length ? h("div", { "data-call-actions": true, style: { color: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, textAlign: "center", whiteSpace: "pre-wrap", overflowWrap: "anywhere", textShadow: "0 1px 8px rgba(0,0,0,.9)" } },
-      actions.map((m, i) => h("div", { key: i }, (m.senderName ? m.senderName + "：" : "") + m.content))) : null,
+    text && actions.length ? h("div", { "data-call-actions": true, style: { color: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, textAlign: "center", whiteSpace: "pre-wrap", overflowWrap: "anywhere", textShadow: "0 1px 8px rgba(0,0,0,.9)" } },
+      actions.map((m, i) => h("div", { key: i }, m.content))) : null,
     text ? h("div", {
     style: {
       flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", alignSelf: "center",
@@ -8737,6 +8737,7 @@ function CallScreen({
   };
   const stopCallAudio = () => {
     const st = lv.current;
+    setSubLine(null);
     audioRef.current.epoch++;
     st.played = msgsRef.current.length; st.speaking = false; st.busy = 0;
     try { st.src && st.src.stop(); } catch (e) {}

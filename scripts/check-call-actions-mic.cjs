@@ -33,8 +33,8 @@ const fn=n=>{const i=src.indexOf('function '+n+'(');return src.slice(i,src.index
    window.rr=ReactDOM.createRoot(document.getElementById('root'));
    window.draw=x=>{Object.assign(props,x);rr.render(h(CallScreen,props));};draw({});
   });
-  await page.locator('[data-call-actions]').waitFor();
-  assert.ok((await page.locator('[data-call-actions]').innerText()).includes('窗帘'));
+  await page.getByPlaceholder('说点什么…').waitFor();
+  assert.equal(await page.locator('[data-call-actions]').count(),0);
   await page.getByRole('button',{name:'开启麦克风'}).click();
   await page.getByRole('button',{name:'关闭麦克风'}).waitFor();
   await page.evaluate(()=>result('测试识别'));
@@ -57,10 +57,15 @@ const fn=n=>{const i=src.indexOf('function '+n+'(');return src.slice(i,src.index
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:'/tmp/lisa-call-actions-'+width+'.png'});
   // 实际字幕组件：动作全文固定，只有台词按时钟逐字增长；小高度可滚而非压走输入栏。
-  await page.evaluate(()=>{rr.unmount();rr=ReactDOM.createRoot(document.getElementById('root'));rr.render(h('div',{style:{height:300,display:'flex',flexDirection:'column',background:'#252a30'}},h(CallSubtitle,{actions:[{content:'固定动作全文'}],line:{text:'这是一句慢慢显示的台词',ms:3000,at:Date.now()}})));});
+  await page.evaluate(()=>{rr.unmount();rr=ReactDOM.createRoot(document.getElementById('root'));window.paintSubtitle=line=>rr.render(h('div',{style:{height:300,display:'flex',flexDirection:'column',background:'#252a30'}},h(CallSubtitle,{actions:[{senderName:'测试姓名',content:'固定动作全文'}],line})));paintSubtitle({text:'这是一句慢慢显示的台词',ms:3000,at:Date.now()});});
   await page.locator('[data-call-actions]').waitFor();assert.equal(await page.locator('[data-call-actions]').innerText(),'固定动作全文');
   await page.waitForTimeout(500);assert.equal(await page.locator('[data-call-actions]').innerText(),'固定动作全文');
   assert.ok(!(await page.locator('[data-call-subtitle]').innerText()).includes('这是一句慢慢显示的台词'));
+  await page.screenshot({path:'/tmp/lisa-call-actions-speaking-'+width+'.png'});
+  await page.evaluate(()=>paintSubtitle(null));
+  await page.waitForFunction(()=>!document.querySelector('[data-call-actions]'));
+  assert.equal(await page.locator('[data-call-subtitle]').innerText(),'');
+  assert.equal(await page.locator('[data-call-subtitle]').count(),1);
   await page.evaluate(()=>rr.unmount());assert.deepEqual(errors,[]);await ctx.close();console.log(width+'px 动作固定/逐字台词/识别发送/忙时保留/权限与网络错误通过');
  }}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
