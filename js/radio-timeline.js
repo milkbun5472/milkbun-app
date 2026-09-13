@@ -118,16 +118,28 @@
     };
     visit(fragmentId); return result;
   }
+  // 回放要读起来像【一份节目文字稿】，不是一摞句子（她 2026-09-13 点的这一条）。
+  // 所以每一段除了句子，还得带上它自己的三件事：
+  //   谁在说（旁白没有名字）、是不是插播连线、跟上一段之间是不是跳过了没听的。
+  // ⚠️这三件事只有【拼段落的这一处】知道：句子进了段落就没有来源了，
+  //   界面再想把说话人补回去就只能去猜。
   function replayParagraphs(branch, fragmentId) {
     const seen = new Map();
     (branch.heard || []).forEach(l => seen.set(l.fragmentId + ":" + l.index, l));
-    const paragraphs = []; let previous = null;
+    const callIds = new Set((branch.fragments || []).filter(f => f && f.call).map(f => f.id));
+    const paragraphs = []; let previous = null, lastPosition = -1;
     playlist(branch, fragmentId).forEach((row, position) => {
       const heard = seen.get(row.fragmentId + ":" + row.index);
       if (!heard) { previous = null; return; }
-      const same = previous && previous.fragmentId === row.fragmentId && previous.speaker === row.speaker && previous.paragraph === row.paragraph && (row.paragraph != null || paragraphs.at(-1).length < 6);
-      if (!same) paragraphs.push([]);
-      paragraphs.at(-1).push({ ...heard, position }); previous = row;
+      const same = previous && previous.fragmentId === row.fragmentId && previous.speaker === row.speaker && previous.paragraph === row.paragraph && (row.paragraph != null || paragraphs.at(-1).lines.length < 6);
+      if (!same) paragraphs.push({
+        speaker: row.kind === "narrator" ? "" : (row.speaker || ""),
+        kind: row.kind || "",
+        call: callIds.has(row.fragmentId),
+        gap: position !== lastPosition + 1,          // 中间那几句还没听——不许悄悄接上
+        lines: []
+      });
+      paragraphs.at(-1).lines.push({ ...heard, position }); previous = row; lastPosition = position;
     });
     return paragraphs;
   }

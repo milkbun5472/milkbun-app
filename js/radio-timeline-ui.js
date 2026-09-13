@@ -42,7 +42,7 @@
     const fragment = branch && branch.fragments.find(x => x.id === fragmentId);
     const queue = branch && fragment ? R.playlist(branch, fragment.id) : [];
     const paragraphs = branch && fragment ? R.replayParagraphs(branch, fragment.id) : [];
-    const heard = paragraphs.flat();
+    const heard = paragraphs.flatMap(x => x.lines);
     const current = queue[lineIndex];
     const currentPart = current && branch.fragments.find(f => f.id === current.fragmentId);
     const currentEra = R.ERAS[frequency];
@@ -284,10 +284,16 @@
       branch && !historyOpen && !talkOpen ? face() : null,
       h("div", { ref: scroll, "data-radio-scroll": true, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 16px 20px", overflowWrap: "anywhere" } },
         historyOpen && fragment ? h("section", { "data-radio-history": true },
-          h("p", { style: { fontSize: 12.5, color: NT.dim, lineHeight: 1.9, marginTop: 0 } }, "本章已听过的句子。选一句回到播放屏重听，未播内容不会提前展开。"),
-          paragraphs.map((rows, i) => h("p", { key: i, "data-radio-paragraph": true, style: { margin: "0 0 18px", lineHeight: 2.05, fontSize: 16.5, color: NT.ink } },
-            rows.map(l => h("button", { key: l.fragmentId + ":" + l.index, "aria-label": "第" + (l.position + 1) + "句 · " + l.text,
-              onClick: () => { showLine(l.position); setHistoryOpen(false); }, style: { display: "inline", padding: 0, border: 0, background: "transparent", color: "inherit", font: "inherit", lineHeight: "inherit", textAlign: "left", cursor: "pointer" } }, l.text + " ")))),
+          h("p", { style: { fontSize: 12.5, color: NT.dim, lineHeight: 1.9, marginTop: 0 } }, "本章已听过的部分，连起来读。选一句回到播放屏重听，未播内容不会提前展开。"),
+          // 一份节目文字稿：谁在说写在段前，插播连线单起一节，没听的那几句留着断口
+          paragraphs.map((par, i) => h(React.Fragment, { key: i },
+            par.gap ? h("p", { "data-radio-gap": true, style: { margin: "0 0 18px", textAlign: "center", fontSize: 12, letterSpacing: ".3em", color: NT.faint } }, "⋯⋯") : null,
+            par.call && !(paragraphs[i - 1] && paragraphs[i - 1].call) ? h("p", { "data-radio-callmark": true, style: { margin: "0 0 12px", fontSize: 11.5, letterSpacing: ".18em", color: BRASS } }, "插播连线") : null,
+            h("p", { "data-radio-paragraph": true, style: { margin: "0 0 18px", lineHeight: 2.05, fontSize: 16.5,
+              color: par.kind === "narrator" ? NT.dim : NT.ink } },
+              par.speaker ? h("span", { style: { color: BRASS, marginRight: 6 } }, par.speaker + "：") : null,
+              par.lines.map(l => h("button", { key: l.fragmentId + ":" + l.index, "aria-label": "第" + (l.position + 1) + "句 · " + l.text,
+                onClick: () => { showLine(l.position); setHistoryOpen(false); }, style: { display: "inline", padding: 0, border: 0, background: "transparent", color: "inherit", font: "inherit", lineHeight: "inherit", textAlign: "left", cursor: "pointer" } }, l.text + " "))))),
           btn("返回当前句", () => setHistoryOpen(false))
         ) : talkOpen && branch && companion ? h("section", { "data-radio-talk-history": true },
           R.companionContext(branch, companion.id).talks.map((t, i) => h("div", { key: i, style: { lineHeight: 1.85, marginBottom: 18 } },

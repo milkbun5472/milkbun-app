@@ -30,7 +30,7 @@ test('回放按自然段合并，未听句不泄露，插播和陪听仍按真�
   const queue=R.playlist(b,'story');
   queue.slice(0,4).forEach(row=>{b=R.reveal(b,row.fragmentId,row.index,'c');});
   const ps=R.replayParagraphs(b,'story');
-  assert.deepEqual(ps[0].map(x=>x.text),['第一句。','第二句。']);
+  assert.deepEqual(ps[0].lines.map(x=>x.text),['第一句。','第二句。']);
   assert.ok(!JSON.stringify(ps).includes('第三句'));assert.ok(!JSON.stringify(ps).includes('回到刚才'));
   assert.equal(R.companionContext(b,'other').heard.length,0);
   assert.ok(!R.companionPrompt(b,'c','问题').includes('第四句'));
