@@ -98,8 +98,10 @@ test("桌边追问先留在塔罗存档，用户点带回后才进入对应私�
   assert.match(tarot, /async function continueAtTable/);
   assert.match(tarot, /小桌边继续聊/);
   assert.match(tarot, /followups: done/);
-  assert.match(tarot, /把小桌对话带回与/);
-  assert.match(tarot, /onForwardToChat\(\{ \.\.\.s, followups: followups \}, \{ table: true \}\)/);
+  // v67.68：带回哪儿可以挑了（主聊天 / 他的某一间房），所以按钮上的字跟着落点走
+  assert.match(tarot, /"把小桌对话带回" \+ whereWord\(\)/);
+  assert.match(tarot, /whereWord = function \(\) \{ return roomId \? "「" \+ roomName\(\) \+ "」" : "与 " \+ s\.charName \+ " 的聊天"; \}/);
+  assert.match(tarot, /onForwardToChat\(\{ \.\.\.s, followups: followups \}, \{ table: true, roomId: roomId \}\)/);
   assert.match(tarot, /tableForwardedAt: Date\.now\(\)/);
 });
 

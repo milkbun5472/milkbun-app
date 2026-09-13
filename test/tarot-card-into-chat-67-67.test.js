@@ -59,7 +59,7 @@ test("卡面那一格是给她看的：牌、位置、正逆、收束都在 taro
 test("带回聊天：先落这张卡，再落那句话和小桌边那几句", () => {
   const seg = app.slice(app.indexOf("const forwardTarotToChat"), app.indexOf("// ───────── 擂台"));
   assert.match(seg, /const card = tarotShareMsg\(session, "小桌边这副牌"\);/);
-  assert.match(seg, /pChat\(toChar\.id, p => \[\.\.\.p, cardMsg, intro, \.\.\.moved\]\)/, "卡没排在最前面（或者压根没落）");
+  assert.match(seg, /pChat\(chatKey, p => \[\.\.\.p, cardMsg, intro, \.\.\.moved\]\)/, "卡没排在最前面（或者压根没落）");
   // 时刻要错开，不然三样挤在同一毫秒里排序不稳
   assert.match(seg, /ts: movedAt \+ 1, read: false \}/);
   assert.match(seg, /ts: Number\(x\.ts\) \|\| movedAt \+ 2 \+ i/);

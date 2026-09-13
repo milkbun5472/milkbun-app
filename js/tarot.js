@@ -846,6 +846,9 @@
     const [forwarded, setForwarded] = useState(false);
     const [tableFwd, setTableFwd] = useState(false);
     const [tableForwarded, setTableForwarded] = useState(!!s.tableForwardedAt);
+    // 这一卦带回哪儿（她 2026-09-13）："" ＝ 主聊天，别的就是他某一间房的 id。
+    // ⚠️照同人文「放进哪一间」那一处的形状长（墨点＋名字），不另发明一种挑法。
+    const [roomId, setRoomId] = useState("");
     const [followups, setFollowups] = useState(Array.isArray(s.followups) ? s.followups : []);
     const [followText, setFollowText] = useState("");
     const [followBusy, setFollowBusy] = useState(false);
@@ -912,11 +915,40 @@
     // ---- reading / relation / forchar ----
     const cards = s.cards || [];
     const subject = s.mode === "forchar" ? "为 " + s.charName + " 而算" : s.mode === "relation" ? "你 与 " + s.charName : s.charName + " 为你解牌";
+    // 他有哪几间房（主聊天不在这张单子里，它是上面那一格「与他的聊天」）
+    const myRooms = (function () {
+      const KR = (typeof window !== "undefined" && window.ChatRooms) || null;
+      if (!KR || !s.charId) return [];
+      return KR.list(s.charId).filter(function (r) { return r && !r.main; })
+        .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    })();
+    const roomName = function () {
+      const hit = myRooms.filter(function (r) { return r.id === roomId; })[0];
+      return hit ? hit.name : "";
+    };
+    const whereWord = function () { return roomId ? "「" + roomName() + "」" : "与 " + s.charName + " 的聊天"; };
+    const roomPick = function () {
+      if (!myRooms.length) return null;                 // 他还没有别的房间，就别多问一句
+      return h("div", { "data-tarot-where": true, style: { marginTop: 10 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: N.fog, marginBottom: 5, lineHeight: 1.6 } },
+          "放进哪儿：落进房间的只在那间房里算数，不进主线聊天。"),
+        [{ id: "", name: "与 " + s.charName + " 的聊天" }].concat(myRooms.map(function (r) { return { id: r.id, name: r.name }; }))
+          .map(function (o) {
+            const on = roomId === o.id;
+            return h("button", { key: o.id || "_main", onClick: function () { setRoomId(o.id); }, className: "w-full text-left active:opacity-70",
+              style: { display: "flex", gap: 9, alignItems: "center", padding: "9px 2px", minHeight: 44,
+                background: "transparent", border: "none", borderBottom: "1px solid " + N.line } },
+              h("span", { style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0,
+                background: on ? N.accent : "transparent", border: "1px solid " + (on ? N.accent : N.line) } }),
+              h("span", { style: { minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, fontWeight: on ? 700 : 400,
+                color: on ? N.ink : N.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, o.name));
+          }));
+    };
     const doForward = async () => {
       if (fwd || !props.onForwardToChat) return;
       setFwd(true);
       try {
-        await props.onForwardToChat(s);
+        await props.onForwardToChat(s, { roomId: roomId });
         setForwarded(true);
       } finally { setFwd(false); }
     };
@@ -924,7 +956,7 @@
       if (tableFwd || tableForwarded || !followups.length || !props.onForwardToChat) return;
       setTableFwd(true);
       try {
-        await props.onForwardToChat({ ...s, followups: followups }, { table: true });
+        await props.onForwardToChat({ ...s, followups: followups }, { table: true, roomId: roomId });
         const updated = { ...s, followups: followups, tableForwardedAt: Date.now() };
         setTableForwarded(true);
         props.onUpdate && props.onUpdate(updated);
@@ -1031,12 +1063,14 @@
               style: { flex: 1, minWidth: 0, resize: "none", outline: "none", borderRadius: 11, border: "1px solid " + N.line, background: N.bg2, color: N.ink, padding: "9px 10px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5 } }),
             h("button", { onClick: sendFollowup, disabled: followBusy || !followText.trim(), className: "active:opacity-70",
               style: { flexShrink: 0, width: 48, height: 48, borderRadius: 12, color: "#fff", background: followBusy || !followText.trim() ? N.fog : N.accent, fontFamily: F_BODY, fontSize: 12 } }, followBusy ? "…" : "说")),
+          // 先挑放进哪儿，再按那颗按钮——挑的东西摆在按钮下面，人是不会回头去看的
+          followups.length && props.onForwardToChat && !tableForwarded ? roomPick() : null,
           followups.length && props.onForwardToChat ? h("button", {
             onClick: doForwardTable, disabled: tableFwd || tableForwarded, className: "w-full active:opacity-80",
             style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700,
               color: tableForwarded ? N.tint : "#fff", background: tableForwarded ? "rgba(184,145,80,.12)" : (tableFwd ? N.fog : N.accent),
               border: tableForwarded ? "1px solid rgba(184,145,80,.3)" : "1px solid transparent", borderRadius: 11, padding: "10px 0" }
-          }, tableFwd ? "正在带回聊天…" : (tableForwarded ? "✓ 已带回与 " + s.charName + " 的聊天" : "把小桌对话带回与 " + s.charName + " 的聊天")) : null) : null,
+          }, tableFwd ? "正在带回…" : (tableForwarded ? "✓ 已带回" + whereWord() : "把小桌对话带回" + whereWord())) : null) : null,
         null));
   }
 

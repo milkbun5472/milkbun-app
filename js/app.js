@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.67";
+const APP_VERSION = "v67.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15510,6 +15510,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forwardTarotToChat = async (session, options) => {
     const toChar = characters.find(c => c.id === session.charId);
     if (!toChar) { toast("找不到这个角色"); return; }
+    // 这一卦落在哪儿（她 2026-09-13 拍板的前一半）：主聊天，还是他的某一间房。
+    // ⚠️照同人文那条路走：房间由她在那一屏挑，这儿只认 roomId。
+    // ⚠️戳着的那间房已经删了就【哪儿都不写】——退回主聊天等于把她特意收进房里的一卦
+    //   送上正史，跟 keepWhereItHappened 那条「宁可少说」同一个道理。
+    const K = window.ChatRooms;
+    const rid = String((options && options.roomId) || "").trim();
+    const sideRoom = (rid && rid !== "main" && K) ? K.get(toChar.id, rid) : null;
+    if (rid && rid !== "main" && !(sideRoom && !sideRoom.main)) { toast("那间房已经不在了，没处放"); return; }
+    const chatKey = sideRoom ? K.chatKey(toChar.id, sideRoom.id) : toChar.id;
+    const whereTxt = sideRoom ? "「" + (sideRoom.name || "那间房") + "」" : "与 " + (toChar.remark || toChar.name) + " 的聊天";
     if (options && options.table) {
       const tableLines = (session.followups || []).filter(x => x && x.content && (x.role === "user" || x.role === "assistant"));
       if (!tableLines.length) { toast("小桌边还没有可以带回去的对话"); return; }
@@ -15523,8 +15533,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         role: x.role, kind: "tarottable", content: String(x.content),
         ts: Number(x.ts) || movedAt + 2 + i, read: false
       }));
-      pChat(toChar.id, p => [...p, cardMsg, intro, ...moved]);
-      toast("已把小桌对话带回与 " + (toChar.remark || toChar.name) + " 的聊天");
+      pChat(chatKey, p => [...p, cardMsg, intro, ...moved]);
+      toast("已把小桌对话带回" + whereTxt);
       return;
     }
     const cardsTxt = (session.cards || []).map((c, i) => ((session.spread || [])[i] ? session.spread[i] + "：" : "") + c.name + (c.rev ? "（逆位）" : "（正位）")).join("；");
@@ -15533,16 +15543,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️这一路也换成同一张卡（原来是一段光秃秃的文字）：同一种东西在两处长成两个样子，
     //   就是又一处要各自维护的地方（施工规则/one-public-mechanism.md：已有的也搬过去）。
     const card0 = tarotShareMsg(session, "我替你算了一卦");
-    pChat(toChar.id, p => [...p, { role: "user", kind: card0.kind, tarot: card0.tarot, content: card0.content, ts: Date.now(), read: false }]);
-    toast("已把这一卦转发给 " + (toChar.remark || toChar.name));
-    if (!active) return;
+    pChat(chatKey, p => [...p, { role: "user", kind: card0.kind, tarot: card0.tarot, content: card0.content, ts: Date.now(), read: false }]);
+    toast("已把这一卦放进" + whereTxt);
+    // ⚠️落进房里的那一卦【不在这儿自动生成他的反应】：房里那一枪有自己整套上下文
+    //   （门规、这间房自己的往事、能不能读主线），这一枪是按主聊天拼的，
+    //   在这儿代他开口就等于绕过那一整层。她在房里按一次回复，那一枪才是对的。
+    if (sideRoom || !active) return;
     const instruction = "有人（用户）替你算了一卦塔罗，把结果发给你看了。抽到的牌与解读：\n牌：" + cardsTxt + "\n解读：\n" + readTxt + (summary ? "\n收束：" + summary : "") +
       "\n\n你【读到一份替你自己算的命卦】，按你的人设和此刻心情真实反应（信或不信、在意哪一句、被说中了还是嗤之以鼻、追问、或借机说点心里话都行，1-3 句可多气泡），别客服腔、别复述全文。";
     try {
       // 思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额说话（仓库铁律 ≥8000）
       const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { voice: true, instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 8000 });
       const say = react && Array.isArray(react.say) ? react.say : (react && react.say ? [react.say] : []);
-      if (say.length) pChat(toChar.id, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
+      // 走到这儿一定是主聊天那一路（落进房里的上面已经 return 了），但键仍然只认 chatKey 这一个
+      if (say.length) pChat(chatKey, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
     } catch (e) {/* 卡已在，反应失败静默 */}
   };
   // ───────── 擂台 · 分享这一场 ─────────
