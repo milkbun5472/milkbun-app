@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v67.55";
+const APP_VERSION = "v67.56";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9336,14 +9336,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 补充上文：每位成员入群前的私聊，作为「封闭空间」的 X 条前情提要——
       // 只在【未开记忆互通】时用；开了互通就实时抽单聊，这档自动让位、不叠加。
       let preJoin = "";
+      // 这一枪里【只有某一个人知道】的那几段，按人收好。回复拿回来之后要对着它查漏
+      // （她 2026-09-12：顾暮在群里说出了她只跟顾朝说过的「合照」）。
+      // ⚠️两处都要收：开了记忆互通走 interop 那一段，没开的走 preJoin 那一段——
+      //   漏收一处，那一处漏的就查不出来（four-surfaces 那个老形状）。
+      const privSegs = {};
+      let privBlob = "";
       if (gs.preJoinN > 0 && !gs.memoryInterop) {
         const cutTs = groupCreatedTs(group);
         const pj = members.map(c => {
           const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-gs.preJoinN);
           if (!before.length) return "";
           const lines = before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + m.content).join("\n");
+          privSegs[c.name] = (privSegs[c.name] ? privSegs[c.name] + "\n" : "") + lines;
           return "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕入群前和用户的私聊：\n" + lines;
         }).filter(Boolean).join("\n\n");
+        privBlob += pj;
         // ⚠️这一整块以前是【没有隐私围栏】的共享注入（隔壁 interop 的 memLines 有铁律、它没有），
         // 于是顾朝能逐字读到裴照川的私聊，第一句就抖出了「大房二房」这个只属于他俩的梗
         //（她 2026-08-24 抓到）。围栏照抄 interop 那份，一个字都不放松。
@@ -9429,8 +9437,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 印象卡跟长期记忆同一档：读一律给（封闭群也给），但必须落在这位成员自己那一段里（隐私围栏见上）
           const gz = window.Gaze && !settingsFor(c.id).engineerEyes ? window.Gaze.text(c.id, userName(profile)) : "";
           const seg = [mem && "长期记忆：" + mem, gz && gz.trim(), onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
+          if (seg) privSegs[c.name] = (privSegs[c.name] ? privSegs[c.name] + "\n" : "") + seg;
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
+        privBlob += memLines;
         const groupMem = formatMemLib(gSplit.shared);
         interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：别复刻记忆里的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作，生活要有新的具体。" : "");
       }
@@ -9732,9 +9742,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { _gMcpT = await window.MCP.listTools(); } catch (e2) { console.warn("[mcp] 列工具失败：", e2); }
       }
       checkAutoCall();
-      const raw = await callAI(active, system, [{
+      // ⚠️抽成一支是为了【查出漏了才重打一次】（见下面 privacyScan）：
+      //   两处各写一份调用参数的话，迟早只改一处（one-public-mechanism）。
+      const _gShoot = uc => callAI(active, system, [{
         role: "user",
-        content: userContent,
+        content: uc,
         ...(groupImageDataUrls.length ? { imageDataUrls: groupImageDataUrls } : {})
       }], {
         // 多人回复给足思考与正文预算。
@@ -9747,16 +9759,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         wantReasoning: _gWantReason,
         meta: _gReasonMeta
       });
+      let raw = await _gShoot(userContent);
       checkAutoCall();
-      if (_gWantReason && !_gReasonMeta.reasoning && typeof reasoningFromBody === "function") {
-        const _gFromBody = reasoningFromBody(raw);
-        if (_gFromBody) { _gReasonMeta.reasoning = _gFromBody; _gReasonMeta.from = "正文 <thinking>"; }
-      }
-      // 取一次就消费掉，别每条气泡都挂一份（和单聊那边同一个写法）
-      let _gReasonLeft = _gReasonMeta.reasoning
-        ? { reasoning: _gReasonMeta.reasoning, reasonMs: _gReasonMeta.ms || 0, reasonModel: _gReasonMeta.model || "", reasonFrom: _gReasonMeta.from || "" }
-        : null;
-      const _gTakeReason = () => { const r = _gReasonLeft; _gReasonLeft = null; return r || {}; };
       phase = "解析回复";
       // 群聊回复里全是对白，最容易踩「JSON 字符串正文里直接写了换行/裸引号」这两种坏法；
       // 走和主聊天、小剧场同一套加固解析，别再裸 extractJSON。
@@ -9772,6 +9776,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const t = String(raw || "").replace(/\s+/g, " ").trim();
         throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 200) + (t.length > 200 ? "…" : "") + "）" : "（上游什么都没回）"));
       }
+      // ── 查漏：谁说出了只属于别人的那几个字（她 2026-09-12）──────────────
+      // 隐私铁律一直在发，可群聊是【一枪写完所有人】：写顾暮那几句的时候顾朝那一段
+      // 就摊在眼前，所以规则只降概率。这一道是本地对字，不漏一分钱不花。
+      // ⚠️公开的那一份＝这一枪减去所有私密段：群聊记录、人设、世界书、共享记忆都算公开，
+      //   只有标着「只有某某本人知道」的那几段不算。
+      // ⚠️只重打一次。她 2026-09-12：「没事重 roll 就行」——判据取严，代价是偶尔白重写一句；
+      //   重打还漏就按原样发出去，不许把她的群聊卡成一片空白。
+      if (window.GroupIdentityGuard && window.GroupIdentityGuard.privacyScan) {
+        const _pub = privBlob ? String(system).replace(privBlob, " ") : String(system);
+        const _leak = window.GroupIdentityGuard.privacyScan(arr, privSegs, _pub);
+        if (_leak.length) {
+          checkAutoCall();
+          const _raw2 = await _gShoot(userContent + window.GroupIdentityGuard.leakRetryNote(_leak));
+          checkAutoCall();
+          let _arr2 = parseJSONLoose(_raw2);
+          if (_arr2 && !Array.isArray(_arr2) && typeof _arr2 === "object") {
+            _arr2 = ["items", "messages", "replies", "list"].map(k => _arr2[k]).find(Array.isArray)
+              || (_arr2.name && (_arr2.text || _arr2.redpacket || _arr2.emote) ? [_arr2] : null);
+          }
+          if (Array.isArray(_arr2) && _arr2.length) { raw = _raw2; arr = _arr2; }
+          toast("有人说漏了只有别人知道的事（" + _leak.map(x => x.words.join("、")).join("、") + "），重说了一遍");
+        }
+      }
+      // ⚠️思考链要在【最终那一枪】之后取：重打过的话，第一枪那份思考属于已经被丢掉的回复。
+      if (_gWantReason && !_gReasonMeta.reasoning && typeof reasoningFromBody === "function") {
+        const _gFromBody = reasoningFromBody(raw);
+        if (_gFromBody) { _gReasonMeta.reasoning = _gFromBody; _gReasonMeta.from = "正文 <thinking>"; }
+      }
+      // 取一次就消费掉，别每条气泡都挂一份（和单聊那边同一个写法）
+      let _gReasonLeft = _gReasonMeta.reasoning
+        ? { reasoning: _gReasonMeta.reasoning, reasonMs: _gReasonMeta.ms || 0, reasonModel: _gReasonMeta.model || "", reasonFrom: _gReasonMeta.from || "" }
+        : null;
+      const _gTakeReason = () => { const r = _gReasonLeft; _gReasonLeft = null; return r || {}; };
       {
         const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, userName(profile)) : { items: arr, dropped: [], thoughtsDropped: [] };
         // ⚠️自发那一轮的条数上限【原来只写在提示词里】（"一次产出 n~m 条"）——那只降概率。
