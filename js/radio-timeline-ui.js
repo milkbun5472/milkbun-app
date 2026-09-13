@@ -370,8 +370,14 @@
           const mine = R.companionContext(branch, companion.id), latest = mine.talks.at(-1);
           // ⚠️底下这一条【只留一行】：小屏上（568 高）它一超过两行就把正文挤出屏幕。
           //   他上一句回话收成一行，翻旧账和「边听边聊」那个勾都搬到机器下沿那一排去了。
+          // ⚠️她 2026-09-13：「陪听问问他按钮按不动」。按不动是**对的**——他还没听见任何一句
+          //   （heard 按 companionId 分账，半路请来的人前面那些不算他在场）。
+          //   错的是这一版【一个字都没说为什么】：一颗按不动的键跟坏了没有区别。
+          const deaf = !mine.heard.length;
           return h(React.Fragment, null,
-            latest ? h("div", { style: { lineHeight: 1.6, fontSize: 12.5, color: NT.faint, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, companion.name + "：" + latest.answer) : null,
+            deaf ? h("div", { style: { lineHeight: 1.6, fontSize: 12, color: BRASS, marginBottom: 5 } },
+              companion.name + "刚坐下，还没听见任何一句——按「" + (lineIndex < 0 ? "开始收听这一句" : "继续下一句") + "」放一句给他听，就能问了")
+            : latest ? h("div", { style: { lineHeight: 1.6, fontSize: 12.5, color: NT.faint, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, companion.name + "：" + latest.answer) : null,
             h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
               h("textarea", { "aria-label": "和他说一句", placeholder: "和他说一句…", style: { ...inputStyle, flex: 1 }, rows: 1, value: question, disabled: busy, onChange: e => setQuestion(e.target.value) }),
               btn("问问他", ask, !question.trim() || !mine.heard.length, true)));

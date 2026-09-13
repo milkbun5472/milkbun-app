@@ -81,6 +81,10 @@ test("界面：陪听从一个勾变成挑人，谁陪听就记在谁名下", ()
   // 界面上只列当前这位的对话、按当前这位判能不能问
   assert.match(ui, /const mine = R\.companionContext\(branch, companion\.id\), latest = mine\.talks\.at\(-1\);/);
   assert.match(ui, /R\.companionContext\(branch, companion\.id\)\.talks\.map/, "把别人跟他的对话也列出来了");
+  // 她 2026-09-13：「陪听问问他按钮按不动」——按不动是对的（他还没听见），
+  // 可一颗按不动又不说话的键跟坏了没区别，所以旁边必须写明白为什么。
+  assert.match(ui, /const deaf = !mine\.heard\.length;/);
+  assert.match(ui, /刚坐下，还没听见任何一句/);
   assert.match(ui, /btn\("问问他", ask, !question\.trim\(\) \|\| !mine\.heard\.length, true\)/);
   // 换一条线就把陪听的人清掉：上一条线挑的人不该跟过来
   assert.match(ui, /resetPlayback\(\); setCompanion\(""\); select\(id\);/);
