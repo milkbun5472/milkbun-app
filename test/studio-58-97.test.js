@@ -35,8 +35,14 @@ test("一次调用配一对，不是各配各的", () => {
 // ⚠️衣柜只挂着没用：图像端读的是画面描述，不是衣柜
 test("挑好的两身要显式写进画面描述里", () => {
   assert.match(shoot, /const fits = \[/, "没把两身拼进去");
-  assert.match(shoot, /char\.name \+ "穿："/, "他那身没写进画面");
-  assert.match(shoot, /me\.name \+ "穿："/, "我那身没写进画面");
+  // v68.28：挑中那一身带的是【原话】（name + note），不再只有一个名字——
+  // 自动配的那两身把款式颜色料子全写在 note 里，只发名字等于什么都没说。
+  assert.match(shoot, /const dressLine = \(who, picked, groups\) =>/, "挑中那身的描述没跟过来");
+  assert.match(shoot, /dressLine\(char\.name, opt && opt\.theirs/, "他那身没写进画面");
+  assert.match(shoot, /dressLine\(me\.name, opt && opt\.mine/, "我那身没写进画面");
+  assert.match(shoot, /n \+ \(note \? "（" \+ note \+ "）" : ""\)/, "只带了名字，没带那一段描述");
+  // 挑定了就别再发整柜清单：合照要装两个人，那份清单正是把提示词撑爆的一段
+  assert.match(shoot, /closet: hisPicked \? "" : closetTextFor\(char\.id, 320\)/, "挑好了还在发整柜清单");
   assert.match(shoot, /const sceneFull = scene \+ \(fits \? "。" \+ fits : ""\);/, "拼了却没交给出图");
   assert.match(shoot, /buildPhotoPrompt\(char, sceneFull, st, \{ kind: "duo"/, "没走已有那条出图链");
   // 走的是【已有的】那条链，不是另造一套

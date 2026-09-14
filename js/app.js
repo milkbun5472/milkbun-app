@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.30";
+const APP_VERSION = "v68.31";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5887,8 +5887,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       : s));
   // 出图时的衣柜：没锁行头、也不知道此刻穿什么时，从TA自己衣柜里真有的那几身里挑。
   // 小剧场/同人不走这里——那是平行时空，有自己的一套行头锁。
-  const closetTextFor = charId => (typeof carryClosetText === "function")
-    ? carryClosetText((carryRef.current || {})[charId]) : "";
+  // cap：合照那一路要在同一段提示词里装两个人，衣柜清单得收着点（不传就走默认 600）
+  const closetTextFor = (charId, cap) => (typeof carryClosetText === "function")
+    ? carryClosetText((carryRef.current || {})[charId], cap) : "";
   // 线下能不能拍：接了图像 API + 这个人有外貌或参考照。合照另要两张参考照都在。
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
   const offlinePhotoCanDuo = char => !!(char && char.refPhoto && profile && profile.refPhoto);
@@ -17350,10 +17351,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const st = statesRef.current[char.id] || {};
       const me = { name: (profile && profile.name) || "我", appearance: profile && profile.appearance, refPhoto: profile.refPhoto };
       // 两身衣服显式写进画面描述里：写进去才画得出来，光挂在衣柜里图像端读不到
-      const fits = [String((opt && opt.theirs) || "").trim() && (char.name + "穿：" + opt.theirs),
-                    String((opt && opt.mine) || "").trim() && (me.name + "穿：" + opt.mine)].filter(Boolean).join("；");
+      // ⚠️社区反馈（她 2026-09-14 转来）：「情侣空间拍合照的时候好像提示词有上限，
+      //   塞不下那么多衣柜的描述（自动生成的比较长）」。查下来是两件事一起犯：
+      //   ① 她在这儿【挑好了两身】，可挑中的只有【名字】进得去（"月下同游·青竹衫"），
+      //      真正写了款式颜色料子的那一段（note）一个字都没跟过来；
+      //   ② 与此同时，整柜的清单还是照发不误——合照要装两个人的信息，本来就挤，
+      //      于是那份清单被 600 字的闸切了，挑中那一身的描述常常正好在被切掉的那半。
+      //   改法：挑中哪一身，就把那一身的【原话】带上；挑了的那一边就不再发整柜清单。
+      const setNote = (groups, name) => {
+        const want = String(name || "").trim();
+        let hit = "";
+        (Array.isArray(groups) ? groups : []).forEach(g => (g && Array.isArray(g.sets) ? g.sets : []).forEach(x => {
+          if (!hit && x && String(x.name || "").trim() === want) hit = String(x.note || "").trim();
+        }));
+        return hit;
+      };
+      const dressLine = (who, picked, groups) => {
+        const names = String(picked || "").split("、").map(x => x.trim()).filter(Boolean);
+        if (!names.length) return "";
+        return who + "穿：" + names.map(n => { const note = setNote(groups, n); return n + (note ? "（" + note + "）" : ""); }).join("；");
+      };
+      const hisGroups = ((carryRef.current || {})[char.id] || {}).outfit;
+      const myGroups = myClosetRef.current;
+      const fits = [dressLine(char.name, opt && opt.theirs, hisGroups && hisGroups.closet ? hisGroups.closet : hisGroups),
+                    dressLine(me.name, opt && opt.mine, myGroups && myGroups.closet ? myGroups.closet : myGroups)].filter(Boolean).join("；");
       const sceneFull = scene + (fits ? "。" + fits : "");
-      const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: closetTextFor(char.id) });
+      // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
+      const hisPicked = !!String((opt && opt.theirs) || "").trim();
+      const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
       const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
       if (out && out.degraded) toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
