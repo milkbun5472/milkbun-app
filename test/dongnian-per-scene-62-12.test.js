@@ -58,11 +58,14 @@ test("tick 一层只有一份实现，且群也跑得到", () => {
     "漂移/补记那段被抄成了两份——这个仓库最常犯的错就是第二处没跟上");
   const i = app.indexOf("const dongnianTickOne = async (char, gid, now)");
   assert.ok(i > 0, "没有那个按场推一步的公共函数");
-  const loop = app.slice(app.indexOf("for (const char of characters) await dongnianTickOne"), app.indexOf("for (const char of characters) await dongnianTickOne") + 700);
+  const loop = app.slice(app.indexOf("for (const char of characters) await dongnianTickOne"), app.indexOf("for (const char of characters) await dongnianTickOne") + 1200);
   assert.match(loop, /dongnianTickOne\(char, null, now\)/, "私聊那一场没跑");
   assert.match(loop, /dongnianTickOne\(c, group\.id, now\)/, "群那几场没跑——分了场却没人推，进度条永远是 0");
   assert.match(loop, /groupsRef\.current/, "读的是闭包里的 groups，setInterval 里会一直拿到旧值");
-  assert.match(loop, /gs\.memoryInterop/, "闭群也算了——它本来就不自发聊，白占存档");
+  // v68.08：旁观群也算（她在旁边看，可他俩是真的在彼此身上过日子）；
+  // 普通封闭群照旧不算——那是她另开的密封剧情线，不回流也不自发聊。
+  assert.match(loop, /if \(\(!gs\.memoryInterop && !watching\) \|\| gs\.autoChat === false\) continue;/,
+    "闭群也算了——它本来就不自发聊，白占存档");
 });
 
 test("群里「有人理他了」才清零，他自己说话不算", () => {

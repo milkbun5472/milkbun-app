@@ -59,3 +59,16 @@ test("那一条进度以存档打底，不因为「这轮没跑到」凭空消�
   assert.match(seg, /const st = \(jw && jw\.state\) \|\| saved\[k\]/, "内存覆盖存档，不是只认内存");
   assert.ok(!/if \(typeof window === "undefined" \|\| !window\.__dongnian\) return \[\]/.test(seg), "老的那道早退还在，存档打底就白写了");
 });
+
+// 她 2026-09-14 第二张图：两个角色都有旁观群，只有一个显示得出「TA 想的不只是你」。
+// 病根：群那一份动念只在【互通群】里跑，而旁观群默认不互通。可互通管的是
+// 「回不回流主线」，不是「他俩算不算在彼此身上过日子」——手机那一处早就这么判了。
+test("旁观群也该攒那一份想念：跟手机那一处同一条判据", () => {
+  const seg = app.slice(app.indexOf("// 群里那几份：一人一群各一份"), app.indexOf("const kick = setTimeout(step, 8000)"));
+  assert.match(seg, /const watching = !imInGroup\(group\);/);
+  assert.match(seg, /if \(\(!gs\.memoryInterop && !watching\) \|\| gs\.autoChat === false\) continue;/);
+  // 普通封闭群照旧不算（她另开的密封剧情线，不回流也不自发聊）
+  assert.match(seg, /普通封闭群/);
+  // 手机那一处的原话还在——两处判的是同一件事，别哪天又只改一处
+  assert.match(app, /旁观局则是[\s\S]{0,80}即使不向主线回流，也应在他们手机里看见/);
+});

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.07";
+const APP_VERSION = "v68.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5645,11 +5645,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const step = async () => {
       const now = Date.now();
       for (const char of characters) await dongnianTickOne(char, null, now);
-      // 群里那几份：一人一群各一份。互通群才算——封闭群本来就不自发聊（见巡检那道闸），
-      // 算了也没人用，白占存档。
+      // 群里那几份：一人一群各一份。哪几个群算数——
+      //   **互通群**：他俩的事会回流主线，当然算；
+      //   **旁观群**：她不在场，可【群里那两个人是真的在彼此身上过日子】，
+      //     所以照样算。互通开关管的是「回不回流主线」，不是「他俩算不算认识」——
+      //     手机那一处早就是这么判的（groupPhoneKind 那条：「旁观局即使不向主线回流，
+      //     也应在他们手机里看见」），这儿一直没跟上（她 2026-09-14 报：两个角色
+      //     都有旁观群，只有一个显示得出来）。
+      //   **普通封闭群**：她另开的密封剧情线，不回流也不自发聊，算了没人用。
       for (const group of groupsRef.current || []) {
         const gs = gsFor(group.id);
-        if (!gs.memoryInterop || gs.autoChat === false) continue;
+        const watching = !imInGroup(group);          // 旁观群＝她在旁边看他俩
+        if ((!gs.memoryInterop && !watching) || gs.autoChat === false) continue;
         for (const id of group.memberIds || []) {
           const c = characters.find(x => x.id === id);
           if (c && !c.npc) await dongnianTickOne(c, group.id, now);
