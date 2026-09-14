@@ -50,3 +50,15 @@ test("接上之后别把空值画成 undefined", () => {
   assert.match(phone, /const s = String\(v == null \? "" : v\);/);
   assert.ok(!/PTX\(\)/.test(phone));
 });
+
+// 她 2026-09-14 补的：朋友发来的截图里，没接上的是【浏览器】和【深夜台】。
+test("浏览器：搜索词、结果标题和摘要、书签、标签页", () => {
+  [/PTX\(x\.q\)/, /PTX\(r\.title\)/, /PTX\(r\.excerpt\)/, /PTX\(open\.title\)/]
+    .forEach(re => assert.match(phone, re, "漏了 " + re));
+  assert.ok(!/String\(r\.title \|\| ""\)\),/.test(phone), "搜索结果标题还是裸的");
+});
+
+test("深夜台：视频标题、TA心里那句、自己那条记号", () => {
+  [/PTX\(v\.title\)/, /PTX\(open\.thought\)/, /PTX\(me\.note\)/]
+    .forEach(re => assert.match(phone, re, "漏了 " + re));
+});

@@ -4270,7 +4270,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       v.duration ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "1px 5px" } }, v.duration) : null),
     A(v.myDanmaku).length ? h("span", { style: { position: "absolute", top: 6, left: 6, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(251,114,153,.92)", borderRadius: 4, padding: "2px 6px" } }, "发过弹幕") : null),
   h("div", { style: { padding: "8px 9px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.45, color: BILI_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || ""),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.45, color: BILI_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BILI_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
       (v.up || "") + (v.danmaku != null ? " · " + v.danmaku + " 弹幕" : ""))));
   const detail = open ? (function () {
@@ -4380,11 +4380,11 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
     bg: { background: BG }, ink: INK, title: "深夜台", onClose: () => setOpen(null)
   },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: DIM } }, open.duration || ""),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.45, color: INK, marginTop: 8 } }, open.title || ""),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.45, color: INK, marginTop: 8 } }, PTX(open.title)),
     h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 12 } }, A(open.tags).map((tg, j) => h("span", {
       key: j, style: { fontFamily: F_BODY, fontSize: 11, color: HOT, border: "1px solid rgba(192,86,109,.4)", borderRadius: 999, padding: "3px 10px" }
     }, tg))),
-    open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, open.thought) : null,
+    open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, PTX(open.thought)) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "hidden", label: "深夜台", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
@@ -4402,7 +4402,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
         (me.uid || me.lastAt) ? h("div", { className: "flex items-center justify-between" },
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: ".14em", color: "rgba(232,227,230,.66)", border: "1px solid rgba(232,227,230,.18)", borderRadius: 6, padding: "3px 9px" } }, me.uid ? me.uid : "未登记"),
           me.lastAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: DIM } }, "上次 " + me.lastAt) : null) : null,
-        me.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "rgba(232,227,230,.62)", marginTop: 8 } }, me.note) : null) : null,
+        me.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "rgba(232,227,230,.62)", marginTop: 8 } }, PTX(me.note)) : null) : null,
       items.length ? items.map(row) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: DIM } }, "深夜台还是空的")),
     detail);
 }
@@ -5072,7 +5072,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
     }, h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 99, flexShrink: 0, background: "#f0f0f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: BR_DIM } }, "⌕"),
     h("div", { className: "flex-1 min-w-0" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: BR_INK, wordBreak: "break-word" } }, x.q || ""),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: BR_INK, wordBreak: "break-word" } }, PTX(x.q)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BR_DIM, marginTop: 4 } }, [x.time, x.site].filter(Boolean).join(" · "))))))
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "没有搜索记录");
   // ── 书签：文件夹分组 ──
@@ -5107,11 +5107,11 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(8), borderBottom: "1px solid #ececf0" } },
         h("div", { className: "flex items-start px-3 pb-3", style: { gap: 6 } },
           h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 40, height: 40, marginTop: -4 } }, h(IArrow, { size: 19, color: BR_INK })),
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.45, color: BR_INK, wordBreak: "break-word", paddingTop: 4, paddingRight: 8 } }, open.title || ""))),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.45, color: BR_INK, wordBreak: "break-word", paddingTop: 4, paddingRight: 8 } }, PTX(open.title)))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fafafc" } },
         h("div", { className: "flex items-center", style: { gap: 11, padding: "20px 0 10px" } },
           h("span", { "aria-hidden": "true", style: { fontSize: 17, color: BR_DIM } }, "⌕"),
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 15, color: BR_INK, wordBreak: "break-word" } }, open.title || "")),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 15, color: BR_INK, wordBreak: "break-word" } }, PTX(open.title))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a8a8b0", paddingBottom: 16, borderBottom: "1px solid #ececf0" } },
           "找到约 " + shown + " 条结果" + (open.time ? "　|　搜索于 " + open.time : "")),
         rs.length ? rs.map((r, i) => {
@@ -5125,8 +5125,8 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
               }, src.slice(0, 1) || "?"),
               h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6b6b74", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, src),
               isOpened ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#c4553f", background: "rgba(196,85,63,.1)", borderRadius: 99, padding: "2px 8px", flexShrink: 0 } }, T("他点开了这条")) : null),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#1a4fbd", wordBreak: "break-word" } }, String(r.title || "")),
-            r.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#8b8b93", marginTop: 7, wordBreak: "break-word" } }, String(r.excerpt)) : null);
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#1a4fbd", wordBreak: "break-word" } }, PTX(r.title)),
+            r.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#8b8b93", marginTop: 7, wordBreak: "break-word" } }, PTX(r.excerpt)) : null);
         }) : h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM, lineHeight: 1.9 } },
           "这条搜索记录里没存下结果。\n重新推演一次浏览器就有了。"),
         h("div", { style: { paddingTop: 18 } },
