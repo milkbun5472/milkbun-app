@@ -159,7 +159,8 @@ test("秘密筹备：第一枪只出信封，第二枪由她按才花", () => {
   assert.match(app, /plan: \{ app: "", unlockOnly: true \}/);
   const sw = app.slice(app.indexOf("const gachaSeedSweep = () => {"), app.indexOf("const gachaSeedSweep = () => {") + 1800);
   assert.match(sw, /if \(spec\.unlockOnly\) \{/);
-  assert.match(sw, /where: "plan", ready: true/);
+  // v68.39 起秘密盒也走这一路，所以这儿认的是【解锁】本身，不再把 where 写死成 plan
+  assert.match(sw, /ready: true \}\);/);
   assert.doesNotMatch(sw, /runProbe/, "到点在后台又打了一枪——她按次计费");
   // 第二枪挂在按钮上
   assert.match(scr, /onRedeem\(\{ \.\.\.card, act: "planOpen" \}\)/);
@@ -167,7 +168,9 @@ test("秘密筹备：第一枪只出信封，第二枪由她按才花", () => {
 });
 
 test("盖过戳的券还拆得开——那道防重兑的闸不许把第二段挡掉", () => {
-  assert.match(app, /if \(card\.redeemedTs && card\.act !== "planOpen"\) return;/);
+  // 两段式的第二段都要放行（v68.39 又多了一个盒子）
+  assert.match(app, /if \(card\.redeemedTs && card\.act !== "planOpen"/);
+  assert.match(app, /card\.act !== "boxOpen"\) return;/);
 });
 
 test("种哪一样由代码掷，不问模型", () => {

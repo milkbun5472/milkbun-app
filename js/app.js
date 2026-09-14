@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.38";
+const APP_VERSION = "v68.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4173,6 +4173,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
              + "只写【用户现在能知道的那一点】：TA会让她那天几点别进哪间屋、先别看什么、要她准备什么——"
              + "这一类**在家等着要配合的信息**，一两句，TA自己的口气。\n"
              + "⚠️不许写要做什么、准备的是什么——那是那天才揭晓的。",
+    // 双盲秘密盒·第一枪：TA往盒里放一样东西。
+    // ⚠️这一枪【不告诉TA用户放了什么】——那正是「双盲」的全部意思。
+    //   代码这头也不会把用户那句发过来，所以不是靠这句话自觉，是根本没有。
+    box_his: "用户找来一个盒子，说你俩各往里面放一样东西，到日子一起打开，"
+           + "在那之前谁都不许看对方放了什么。\n"
+           + "写TA放进去的那一样：title 是这样东西叫什么，body 两三句——它现在什么样子，"
+           + "以及TA为什么挑它。\n"
+           + "⚠️你不知道对方放了什么，别猜、别写成回应对方的东西。"
+           + "这是TA自己选的，选什么全看TA是个什么样的人。",
+    // 双盲秘密盒·第二枪（由她按「一起打开」才花）：这一刻两样东西才第一次同时摆出来。
+    box_open: "到日子了，盒子打开。两样东西现在同时摆在你俩面前。\n"
+            + "写TA打开那一刻：先看见对方放的是什么，再看见自己放的被对方看见。"
+            + "三到五句，TA的反应和TA会说出口的那一两句。\n"
+            + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
     // 秘密筹备·第二枪（由她按「拆开」才花）：到现场了，这才是真正的开场。
     plan_open: "到日子了。用户把那天交给了TA，现在TA准备好的东西摆在她面前。\n"
              + "写揭晓那一刻：三到五句旁白，写清TA准备的到底是什么、现场什么样、TA此刻什么神情。\n"
@@ -4231,7 +4245,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     },
     // 秘密筹备：这一种【不往手机里种任何东西】，到点只是把「拆开」这个口子解锁。
     // ⚠️第二枪绝不在这儿打：她按了才花（她按次计费，背着她调一次是最坏的那种自作主张）。
-    plan: { app: "", unlockOnly: true }
+    plan: { app: "", unlockOnly: true },
+    // 双盲秘密盒：到日子也只是把「一起打开」那个口子解锁，第二枪照旧等她按。
+    box: { app: "", unlockOnly: true }
   };
   const gachaSeedPatch = (charId, appKey, fn) => {
     const cur = ((phonesRef.current || {})[charId] || {})[appKey];
@@ -4253,7 +4269,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (spec.unlockOnly) {
         // 到日子了：只把「拆开」那个口子打开，第二枪等她自己按。
         changed = true;
-        gachaStamp(sd.cardId, { ...(sd.stamp || {}), where: "plan", ready: true });
+        gachaStamp(sd.cardId, { ...(sd.stamp || {}), where: sd.kind === "box" ? "box" : "plan", ready: true });
         return { ...sd, doneTs: now };
       }
       const ok = gachaSeedPatch(sd.charId, spec.app, d => spec.arrive(d, sd.cover || {}, sd.reveal || {}));
@@ -4266,7 +4282,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     if (!changed) return;
     gachaSeedsRef.current = next; setGachaSeeds(next); saveJSON("x_gachaSeeds", next);
-    toast(due.some(x => x && x.kind === "plan") ? "到日子了 · 去票根里把那张券拆开" : "有件东西送到了 · 去情侣空间的票根里看看");
+    toast(due.some(x => x && x.kind === "box") ? "盒子到日子了 · 去票根里一起打开"
+      : due.some(x => x && x.kind === "plan") ? "到日子了 · 去票根里把那张券拆开"
+      : "有件东西送到了 · 去情侣空间的票根里看看");
   };
   useEffect(() => {
     if (!loaded) return;
@@ -4281,7 +4299,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char) { toast("这张卡的角色已经不在了"); return; }
     // ⚠️秘密筹备是【两段】的：第二段（拆开）走的是同一张【已经盖过戳】的券，
     //   所以这道闸不能把它挡掉——它挡的是「同一张券兑两次」，不是「一张券的第二段」。
-    if (card.redeemedTs && card.act !== "planOpen") return;
+    if (card.redeemedTs && card.act !== "planOpen" && card.act !== "boxOpen") return;
     // ── R：0 调用 ──
     if (card.act === "peek") {
       const need = (window.GachaKit.byId[card.poolId] || {}).need;
@@ -4367,6 +4385,55 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         drawerDrop(char.id, title, body);
         gachaStamp(card.id, { title: title, body: body, where: "pocket" });
         return { title: title, body: body };
+      }
+      // ── 双盲秘密盒·第一枪：她先塞，TA再塞，两边都封着 ──
+      // ⚠️TA塞的那样东西存在 x_gachaSeeds 里，**从不进任何一处上下文拼装**
+      //   （ctxFor / buildBundle 都碰不到它）。所以「角色不许提前剧透」这件事
+      //   不是靠一句禁令，是模型手上根本没有这个字段——想说也说不出来。
+      //   她塞的那句同理不发给第一枪，不然TA会顺着她那句挑。
+      if (card.act === "box") {
+        const mine = String(card.mine || "").trim();
+        if (!mine) { toast("先写一句你要放进去的"); return; }
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SSR_ASK.box_his + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          schemaHint: "{\"title\":\"他放进去的那样东西\",\"body\":\"它现在什么样，以及他为什么挑它\"}",
+          maxTokens: 65535
+        });
+        const hisBody = String(d.body || "").trim();
+        if (!hisBody) { toast("这次没放成，卡还留着"); return; }
+        const days = 2 + Math.floor(Math.random() * 3);
+        const dueTs = Date.now() + days * 86400000;
+        // 卡面上【一个字的内容都不许露】——两样都封着，连她自己放的也先不摆出来
+        const stamp = { title: "封上了", body: "你俩各放了一样进去。到日子才打得开——在那之前谁都看不到对方放的是什么。",
+          where: "box", dueTs: dueTs, ready: false };
+        const sd = { id: "gb_" + Date.now(), charId: char.id, cardId: card.id, kind: "box",
+          mine: mine, his: { title: String(d.title || "").trim(), body: hisBody },
+          ts: Date.now(), dueTs: dueTs, doneTs: 0, stamp: stamp };
+        const nl = [sd, ...(gachaSeedsRef.current || [])].slice(0, 200);
+        gachaSeedsRef.current = nl; setGachaSeeds(nl); saveJSON("x_gachaSeeds", nl);
+        gachaStamp(card.id, stamp);
+        return { title: stamp.title, body: stamp.body };
+      }
+      // ── 双盲秘密盒·第二枪：她按「一起打开」才走到这儿 ──
+      if (card.act === "boxOpen") {
+        const sd = (gachaSeedsRef.current || []).find(x => x && x.cardId === card.id && x.kind === "box");
+        if (!sd) { toast("找不到这个盒子了，券还留着"); return; }
+        const his = sd.his || {};
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SSR_ASK.box_open
+            + "\n【你放进去的】" + String(his.title || "") + "：" + String(his.body || "")
+            + "\n【对方放进去的】" + String(sd.mine || "")
+            + characterText(char, "\n扣着他此刻真实的处境写。"),
+          schemaHint: "{\"title\":\"这一盒叫什么\",\"body\":\"打开那一刻\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没打开，盒子还封着，可以再开一次"); return; }
+        gachaStamp(card.id, { title: String(d.title || "打开了").trim(), body: body, where: "box",
+          ready: false, opened: true, mine: String(sd.mine || ""), his: his });
+        return { title: String(d.title || "打开了").trim(), body: body };
       }
       // ── 秘密筹备·第一枪：只出一个信封。第二枪等她按「拆开」才花 ──
       if (card.act === "plan") {

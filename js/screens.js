@@ -12807,6 +12807,17 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character, stackLeft }
           res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
           // 掉马券：兑完故事还没结束——这一下把东西摆到TA面前（走翻手机那条现成的链）
           // 秘密筹备到日子了：第二枪由她按，绝不在后台背着她打
+          // 盒子打开之后，两样东西才第一次同时摆出来（在那之前卡面上一个字都不露）
+          res.where === "box" && res.opened ? h("div", { style: { marginTop: 9, display: "flex", flexDirection: "column", gap: 7 } },
+            [[characterText(character, "他放的"), String((res.his || {}).title || "") + (res.his && res.his.body ? "｜" + res.his.body : "")],
+             ["你放的", String(res.mine || "")]].filter(x => x[1]).map(([zh, tx]) =>
+              h("div", { key: zh, style: { borderRadius: 11, background: t.bg, border: "1px solid " + t.line, padding: "8px 10px" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sk.tag } }, zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 2, whiteSpace: "pre-wrap" } }, tx)))) : null,
+          res.where === "box" && res.ready ? h("button", {
+            onClick: () => onRedeem({ ...card, act: "boxOpen" }), disabled: !!busy, className: "active:opacity-60",
+            style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
+          }, busy === card.id ? "打开中…" : "到日子了 · 一起打开") : null,
           res.where === "plan" && res.ready ? h("button", {
             onClick: () => onRedeem({ ...card, act: "planOpen" }), disabled: !!busy, className: "active:opacity-60",
             style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
@@ -12826,6 +12837,8 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character, stackLeft }
             : res.where === "dual" ? (res.side === "tease" ? " · 你挑了皮的那一面" : " · 你挑了甜的那一面")
             : res.where === "flow" ? " · 只这一次看得到"
             : res.where === "pocket" ? characterText(character, " · 已经放进你俩的抽屉，封着")
+            : res.where === "box" ? (res.opened ? " · 已经一起打开了" : res.ready ? " · 到日子了，可以开了"
+              : " · 封着" + (res.dueTs ? "，约 " + Math.max(1, Math.ceil((res.dueTs - Date.now()) / 86400000)) + " 天后" : "") + "（下次打开就看得到）")
             // ⚠️同上：不许假装它是那天自己弹出来的——到点之后她打开 App 才解得开
             : res.where === "plan" ? (res.opened ? " · 已经拆开了，线下开了" : res.ready ? " · 到日子了，可以拆了"
               : " · 还没到日子" + (res.dueTs ? "，约 " + Math.max(1, Math.ceil((res.dueTs - Date.now()) / 86400000)) + " 天后" : "") + "（下次打开就看得到）")
@@ -12834,7 +12847,15 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character, stackLeft }
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, cardHint),
           // 双面券：两个口子，选了就定了（她 2026-09-14「两种都放」——甜的留着，皮的抽到就想去闹）
           // 秘密筹备：你只说出门还是在家，别的TA自己安排
-          card.act === "plan"
+          // 秘密盒：先问她往里面放什么，拿到了才去问TA（TA那一枪不知道她放了什么）
+          card.act === "box"
+            ? h("button", { onClick: () => requestAppPrompt("你往盒子里放什么？",
+                "一句话就行：一样东西、一句没说过的话、一件想让TA知道的事。放进去就封上了，到日子才打得开。",
+                "", v => { const t0 = String(v || "").trim(); if (!t0) return; onRedeem({ ...card, mine: t0 }); }, "放进去", { multiline: true, maxLength: 200 }),
+                disabled: !!busy, className: "active:opacity-60 shrink-0",
+                style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
+                busy === card.id ? "放进去…" : "放一样进去")
+          : card.act === "plan"
             ? h("div", { className: "flex gap-2 shrink-0" }, ["out", "home"].map(side => h("button", {
                 key: side, onClick: () => onRedeem({ ...card, side: side }), disabled: !!busy, className: "active:opacity-60",
                 style: { fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
