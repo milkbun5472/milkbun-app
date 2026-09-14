@@ -7,6 +7,16 @@
   const tsOf = function (m) { const n = Number(m && m.ts); return Number.isFinite(n) ? n : 0; };
   const maxMsgs = function (msgs, ok) { return (Array.isArray(msgs) ? msgs : []).reduce(function (best, m) { return !ok || ok(m) ? Math.max(best, tsOf(m)) : best; }, 0); };
   const maxSessions = function (sessions, ok) { return (Array.isArray(sessions) ? sessions : []).reduce(function (best, s) { return Math.max(best, Number(s && s.startTs) || 0, Number(s && s.endTs) || 0, maxMsgs(s && s.msgs, ok)); }, 0); };
+  // 旁观群不算「她理过TA」（她 2026-09-14 报：在旁观群推了两句剧情，私聊那边的想我就清零了）。
+  // ⚠️旁观群里她【不在场】：那是两个角色自己的事，她的字是【旁白】不是搭话。
+  //   拿它当「有人理了TA」，语义正好是反的——她越是在旁边看他俩演，他越不想她。
+  //   判据两头都要问：roomKind 记在群自己身上，spectate 记在 x_groupSettings 里（app.js 9307 同一条）。
+  const watchingOnly = function (g, data) {
+    if (!g) return false;
+    if (g.roomKind === "spectate") return true;
+    const gs = (data && data.groupSettings) || {};
+    return !!(gs[g.id] && gs[g.id].spectate);
+  };
   function latestSharedTs(charId, data) {
     data = data || {};
     let best = maxSessions((data.offlines || {})[charId], function (m) { return m && (m.role === "user" || m.role === "narration" || m.role === "assistant"); });
@@ -25,6 +35,7 @@
     let best = maxSessions((data.offlines || {})[charId], fromUser);
     (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
       if (!g || !(g.memberIds || []).includes(charId)) return;
+      if (watchingOnly(g, data)) return;                 // 她在旁边看，不是在跟TA说话
       best = Math.max(best, maxMsgs((data.groupChats || {})[g.id], fromUser));
       best = Math.max(best, maxSessions((data.groupOfflines || {})[g.id], fromUser));
     });
@@ -34,6 +45,7 @@
     data = data || {}; now = Number(now) || Date.now();
     return (Array.isArray(data.groups) ? data.groups : []).some(function (g) {
       if (!g || !(g.memberIds || []).includes(charId)) return false;
+      if (watchingOnly(g, data)) return false;           // 他俩在一起，不是她和他在一起
       if (data.activeGroupId && data.activeGroupId === g.id) return true;
       return (Array.isArray((data.groupOfflines || {})[g.id]) ? data.groupOfflines[g.id] : []).some(function (s) {
         return s && !s.endTs && now - (Number(s.startTs) || 0) < 8 * 60 * 60 * 1000;
@@ -50,6 +62,6 @@
       return s && !s.endTs && ((s.msgs || []).length > 0) && (now - (Number(s.startTs) || 0) < OFFLINE_LIVE_MS);
     });
   }
-  return { latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
+  return { watchingOnly: watchingOnly, latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
     offlineSceneLive: offlineSceneLive };
 });

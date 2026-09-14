@@ -41,5 +41,6 @@ test("页面继续加载未改动的用户跨场景钟缓存指纹", () => {
   const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
   const clockVersion = html.match(/interaction-clock\.js\?v=([^"]+)/);
   assert.ok(clockVersion);
-  assert.equal(clockVersion[1], "58.80", "未改文件不要跟随 App 发布号乱升指纹；真改了就把这个数一起挪，并在上面写清哪一版为什么改");
+  // v68.07 改过一次：旁观群不再算「她理过TA」（她在旁观群推剧情，私聊那边的想我被清零了）。
+  assert.equal(clockVersion[1], "68.07", "未改文件不要跟随 App 发布号乱升指纹；真改了就把这个数一起挪，并在上面写清哪一版为什么改");
 });

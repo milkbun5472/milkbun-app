@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.06";
+const APP_VERSION = "v68.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2640,7 +2640,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     const direct = offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []);
     return window.InteractionClock.latestUserSharedTs(charId, {
-      groups, groupChats: groupChatsRef.current, groupOfflines: go, offlines: { [charId]: direct }
+      groups, groupSettings, groupChats: groupChatsRef.current, groupOfflines: go, offlines: { [charId]: direct }
     });
   };
   const currentlyTogetherWithChar = charId => {
@@ -2650,7 +2650,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       go[g.id] = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []);
     });
     return window.InteractionClock.isTogetherNow(charId, {
-      groups, groupOfflines: go, activeGroupId: screen === "gthread" && activeGroup ? activeGroup.id : null
+      groups, groupSettings, groupOfflines: go, activeGroupId: screen === "gthread" && activeGroup ? activeGroup.id : null
     }, Date.now());
   };
   // 心上写回：mut 拿到浅拷贝的新映射就地改。⚠️必须【立刻同步】以 ref 为底更新 ref+localStorage，再 setState——
@@ -21279,12 +21279,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     dongnianState: (typeof window !== "undefined" && window.__dongnian && window.__dongnian[activeChar.id] && window.__dongnian[activeChar.id].state) || null,
     // TA在别的场里的那几份思念（v62.12）：这一页那根进度条说的一直是「TA想不想找【你】」，
     // 而TA在群里想那位的那一份，界面上一个字都没有——功能在不在，和她找不找得到，是两件事。
+    // ⚠️底是【存档】，不是内存里那份（她 2026-09-14：「几个小时前还有，现在旁观群那条没了」）。
+    //   window.__dongnian 是巡检跑过一轮之后才有的活数据：刚开 app 的头几秒、
+    //   或者这一轮巡检没轮到这个群（比如群设置被改过），它就是空的——
+    //   于是界面上那一条【凭空消失】，可 x_jiwen 里那份积累一直好好的。
+    //   存档打底、内存覆盖：真实积累不会因为「这次没跑到」而看起来归零。
     dongnianElsewhere: (() => {
-      if (typeof window === "undefined" || !window.__dongnian) return [];
+      let saved = {};
+      try { saved = loadJSON("x_jiwen", {}) || {}; } catch (e) { saved = {}; }
+      const live = (typeof window !== "undefined" && window.__dongnian) || {};
       return (groups || []).map(g => {
-        const jw = window.__dongnian[activeChar.id + "@" + g.id];
-        if (!jw || !jw.state) return null;
-        return { gid: g.id, name: g.name || "一个群", connection: Number(jw.state.connection) || 0 };
+        const k = activeChar.id + "@" + g.id;
+        const jw = live[k];
+        const st = (jw && jw.state) || saved[k];
+        if (!st) return null;
+        return { gid: g.id, name: g.name || "一个群", connection: Number(st.connection) || 0 };
       }).filter(Boolean).sort((a, b) => b.connection - a.connection);
     })(),
     activeRoomId: activeRoomId,
