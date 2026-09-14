@@ -7957,7 +7957,7 @@ function ChatThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i) }));
-    if (m.kind === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
+    if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
       key: i,
@@ -13155,7 +13155,9 @@ function GroupThread({
       title: "删除旁白"
     }, "✕") : null);
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
-    if (m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
+    // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
+    //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
+    if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "poll") return h(PollCard, {
       key: i,

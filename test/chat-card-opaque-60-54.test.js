@@ -81,5 +81,5 @@ test("群聊也有背景图，旁白同样要垫", () => {
   assert.ok(narr.length > 200 && narr.length < 4000, "群旁白那一支切歪了：" + narr.length);
   assert.match(narr, /\(gChatBg \|\| _gWkBg\) \? \{ display: "inline-block", background: "rgba\(255,255,255,0\.62\)"/);
   // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
-  assert.match(g, /if \(m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
+  assert.match(g, /if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
 });

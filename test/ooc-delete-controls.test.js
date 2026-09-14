@@ -7,9 +7,12 @@ assert.match(src, /if \(m\.kind === "ooc"\) return h\(SysNote,/,
   "普通 OOC 走共用系统提示；旧版 system OOC 由下面的 system 分支处理");
 // v63.49：系统提示这一族收成一个 SysNote，删除口从「只有 OOC 那一条有」
 // 变成【每一条都有】——system / OOC / 群聊那颗药丸，右上角都能 ✕ 掉。
-assert.match(src, /if \(m\.kind === "system"\) return h\(SysNote, \{ key: i, label: "系统"[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
+// v68.18：单聊和群聊的判据合并成同一条（kind 或 role）——群聊那条失败提示原来是
+// 另一个形状，掉进了普通气泡、叉都叉不掉。
+assert.match(src, /if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
   "单人线上 system 应可删除");
-assert.match(src, /if \(m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
+// 群聊那一处走的是同一条判据，所以数「出现了两次」而不是再写一条正则
+assert.equal((src.match(/if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote/g) || []).length, 2,
   "群聊 system 也得能删——原来那颗药丸连删都删不掉");
 assert.match(src, /function OffCard[\s\S]*?if \(m\.kind === "ooc"\)[\s\S]*?editable && onDelete[\s\S]*?onDelete\(m\.id/,
   "单人/群体线下 OOC 应通过消息 id 删除");

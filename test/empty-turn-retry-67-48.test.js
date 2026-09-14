@@ -70,7 +70,9 @@ test("提前退出一律 null，不是 false", () => {
   assert.match(A, /if \(opts\.proactive && currentlyTogetherWithChar\(charId\)\) return null;/);
   assert.match(A, /toast\("先发条消息再让 TA 回复"\);\n\s*return null;/);
   assert.match(A, /if \(Date\.now\(\) - _lastTs < 12 \* 60000\) return null;/);
-  assert.match(A, /turnId: "e_" \+ Date\.now\(\)\n\s*\}\]\);\n\s*return null;/, "报错也被当成空轮就会重烧一次钱");
+  // v68.18：那条失败提示改走公共的 failureNotice（形状和群聊统一），但「报错之后
+  // return null、不当成空轮再烧一次钱」这件事一个字没变。
+  assert.match(A, /turnId: "e_" \+ Date\.now\(\) \}\)\]\);\n\s*return null;/, "报错也被当成空轮就会重烧一次钱");
   // 真正跑完那一条照旧 return delivered
   assert.match(A, /return delivered;/);
 });

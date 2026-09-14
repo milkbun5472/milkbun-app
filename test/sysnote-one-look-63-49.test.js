@@ -26,8 +26,8 @@ test("每一条都能 ✕ 掉，包括原来删不掉的群聊系统行", () => 
   // 五处都得把关闭口接上（有删除能力时）
   for (const re of [
     /if \(m\.kind === "ooc"\) return h\(SysNote, \{ key: i,[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
-    /if \(m\.kind === "system"\) return h\(SysNote, \{ key: i,[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
-    /if \(m\.role === "system"\) return h\(SysNote, \{ key: i,[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
+    // v68.18：单聊和群聊的判据合并成同一条（kind 或 role），所以这两条各自出现一次
+    /if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote, \{ key: i,[\s\S]{0,200}?onDeleteMessages\(\[i\]\)/,
     /return h\(SysNote, \{ label:[\s\S]{0,200}?onDelete\(m\.id, msgIndex\)/
   ]) assert.match(comp, re);
   // ⚠️不许走 confirm：iOS/PWA 会吞掉原生 confirm，看着像点了没反应（旧账）
