@@ -853,6 +853,64 @@ function PromptDialog({ title, body, value, placeholder, okLabel, multiline, max
         h("button", { onClick: () => onOk(v), className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, okLabel || "好"))), onCancel);
 }
 // 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。
+// ── 发表情那一格（她 2026-09-14：「能不能搞个分栏，每一套单独一个 tab，
+//    跟微信表情包栏差不多」）──────────────────────────────────────────
+// ⚠️单聊和群聊本来各写了一份一模一样的四列网格（施工规则/one-public-mechanism.md）：
+//   要分栏就得改两处，改一处必然漏一处。所以先把它提成这一份，两边都搬过来。
+// ⚠️底下那排不是一排药丸（施工规则/tabs-not-plain-pills.md）：每一格是那一套的
+//   **封面图**——跟微信一样，认的是图不是字，换个 app 也不成立。
+function StickerPanel({ packs, emotes, onPick, onManage }) {
+  const t = useTheme();
+  const list = Array.isArray(packs) ? packs.filter(p => p && (p.emotes || []).length) : [];
+  // 最近用过的那几张（她按下去的那一刻记一笔，只存 id）。
+  // ⚠️只存 id 不存图：表情本体住在 x_emotePacks 里，存两份早晚对不上。
+  const RECENT_KEY = "x_emoteRecent";
+  const [recentIds, setRecentIds] = useState(() => { try { const v = loadJSON(RECENT_KEY, []); return Array.isArray(v) ? v : []; } catch (e) { return []; } });
+  const all = list.length ? list.reduce((a, p) => a.concat(p.emotes), []) : (emotes || []);
+  const byId = new Map(all.map(e => [e.id, e]));
+  const recent = recentIds.map(id => byId.get(id)).filter(Boolean).slice(0, 16);
+  // 分栏：最近用过（有才摆）＋每一套一格
+  const tabs = (recent.length ? [{ id: "_recent", name: "最近用过", emotes: recent, recent: true }] : []).concat(list);
+  const [tab, setTab] = useState(() => { try { return String(localStorage.getItem("x_emoteTab") || ""); } catch (e) { return ""; } });
+  const cur = tabs.find(x => x.id === tab) || tabs[0] || null;
+  const pickTab = id => { setTab(id); try { localStorage.setItem("x_emoteTab", id); } catch (e) {} };
+  const pick = em => {
+    const next = [em.id].concat(recentIds.filter(x => x !== em.id)).slice(0, 16);
+    setRecentIds(next); saveJSON(RECENT_KEY, next);
+    onPick && onPick(em);
+  };
+  const shown = cur ? cur.emotes : (emotes || []);
+  return h(Fragment, null,
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog } },
+        cur ? cur.name : "表情包"),
+      onManage ? h("button", { onClick: onManage, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›") : null),
+    !shown.length
+      ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
+      : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "40vh", overflowY: "auto" } },
+          shown.map(em => h("button", { key: (cur && cur.recent ? "r_" : "") + em.id, onClick: () => pick(em), className: "active:opacity-70",
+            style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
+            h("div", { style: { width: "100%", aspectRatio: "1" } },
+              h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", alt: em.keyword || "",
+                style: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
+                onError: e => { e.target.style.display = "none"; } }))))),
+    // 底下那一排：每一套一格，摆它自己的封面（第一张）。多了横着滑。
+    tabs.length > 1 ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line, overflowX: "auto" } },
+      tabs.map(pk => {
+        const on = cur && cur.id === pk.id;
+        return h("button", { key: pk.id, onClick: () => pickTab(pk.id), "aria-label": pk.name, className: "active:opacity-70",
+          style: { flexShrink: 0, width: 42, height: 42, borderRadius: 10, overflow: "hidden", position: "relative",
+            border: "1px solid " + (on ? t.ink : t.line), background: on ? t.bg2 : "transparent",
+            boxShadow: on ? "inset 0 -2px 0 " + t.tint : "none", padding: 0 } },
+          pk.recent
+            // 「最近用过」那一格画一只表（全库没有现成的钟形图标，就地画一只，不新增全局图标）
+            ? h("div", { className: "flex items-center justify-center", style: { width: "100%", height: "100%" } },
+                h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: on ? t.ink : t.fog, strokeWidth: 1.6, strokeLinecap: "round", "aria-hidden": "true" },
+                  h("circle", { cx: 12, cy: 12, r: 8.4 }), h("path", { d: "M12 7.6V12l3 1.8" })))
+            : h("img", { src: (pk.emotes[0] || {}).url, referrerPolicy: "no-referrer", loading: "lazy", alt: pk.name,
+                style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: on ? 1 : .62 } }));
+      })) : null);
+}
 function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
   const t = useTheme();
   // ⚠️她 2026-09-14：「删除框做好看点」。这一版之前是一张任何 app 都能用的白卡，
@@ -7466,6 +7524,7 @@ function ChatThread({
   disp,
   myBalance,
   emotes,
+  emotePacks,
   onManageEmotes,
   archCount,
   onLoadOlder,
@@ -8503,13 +8562,11 @@ function ChatThread({
       setGeoOpen(false);
     }
   }), stickerOpen && h(Sheet, { onClose: () => setStickerOpen(false), tall: true },
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog } }, "表情包"),
-      h("button", { onClick: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›")),
-    (emotes || []).length === 0
-      ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
-      : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "46vh", overflowY: "auto" } }, (emotes || []).map(em => h("button", { key: em.id, onClick: () => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }, className: "active:opacity-70", style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
-        h("div", { style: { width: "100%", aspectRatio: "1" } }, h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })))))
+    h(StickerPanel, {
+      packs: emotePacks, emotes: emotes,
+      onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
+      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }
+    })
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
@@ -12842,6 +12899,7 @@ function GroupThread({
   onSendTransfer,
   onRespondTransfer,
   emotes,
+  emotePacks,
   onManageEmotes,
   archCount,
   onLoadOlder,
@@ -13572,13 +13630,11 @@ function GroupThread({
     },
     onClose: () => setSheet(null)
   }), sheet === "sticker" && h(Sheet, { onClose: () => setSheet(null), tall: true },
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog } }, "表情包"),
-      h("button", { onClick: () => { setSheet(null); onManageEmotes && onManageEmotes(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›")),
-    (emotes || []).length === 0
-      ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
-      : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "46vh", overflowY: "auto" } }, (emotes || []).map(em => h("button", { key: em.id, onClick: () => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }, className: "active:opacity-70", style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
-        h("div", { style: { width: "100%", aspectRatio: "1" } }, h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })))))
+    h(StickerPanel, {
+      packs: emotePacks, emotes: emotes,
+      onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
+      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }
+    })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && h(RedPacketOpenSheet, {
     rp: messages[rpView],
     meName: meName,

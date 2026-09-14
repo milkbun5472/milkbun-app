@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.20";
+const APP_VERSION = "v68.21";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19255,6 +19255,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     (memberIds || []).forEach(id => emotesForCharMine(id).forEach(e => map.set(e.id, e)));
     return [...map.values()];
   };
+  // ── 发表情那一格：按【包】分栏（她 2026-09-14：「能不能搞个分栏，每一套单独一个 tab，
+  //    跟微信表情包栏差不多」）─────────────────────────────────────────
+  // ⚠️选择器要的是【分好组的】，可别处（喂给模型、按关键词找图）要的还是那一长串。
+  //   所以不动上面那几个拍平的函数，另给一份分组视图；两边读的是同一份 emotePacks。
+  const emotePacksForChar = charId => (emotePacksRef.current || [])
+    .filter(pk => pk && pk.mine !== false && (pk.global || (pk.charIds || []).includes(charId)))
+    .map(pk => ({ id: pk.id, name: pk.name || "表情", emotes: (pk.emotes || []).filter(e => e && e.url) }))
+    .filter(pk => pk.emotes.length);
+  const emotePacksForGroup = memberIds => {
+    const seen = new Set(), out = [];
+    (memberIds || []).forEach(id => emotePacksForChar(id).forEach(pk => { if (!seen.has(pk.id)) { seen.add(pk.id); out.push(pk); } }));
+    return out;
+  };
   const genCarrySection = async (char, key) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setSelCarry(char.id);
@@ -19985,6 +19998,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setScreen("read");
     },
     emotes: emotesForCharMine(activeChar.id),
+    emotePacks: emotePacksForChar(activeChar.id),
     onManageEmotes: () => setScreen("emotes"),
     archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
     onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
@@ -20111,6 +20125,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
     emotes: emotesForGroupMine(activeGroup.memberIds),
+    emotePacks: emotePacksForGroup(activeGroup.memberIds),
     onManageEmotes: () => setScreen("emotes"),
     archCount: chatArch["g_" + activeGroup.id] || 0,
     onLoadOlder: loadChatArchive,
