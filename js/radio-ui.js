@@ -26,24 +26,14 @@
     //   把一把人声在 0.78~1.32 之间乱移调，出来的就是恐怖片音效，不是另一个人。
     //   台跟台的区别改成【换一把真的声音】：系统里本来就有好几把中文嗓子，按台挑一把；
     //   挑不出来就老老实实用默认那把，语速上微调一点点，音高一律不动。
-    let _voices = null;
-    function zhVoices() {
-      if (_voices) return _voices;
-      try {
-        const all = (root.speechSynthesis && root.speechSynthesis.getVoices()) || [];
-        const zh = all.filter(v => /^zh/i.test((v && v.lang) || ""));
-        _voices = zh.length ? zh : [];
-      } catch (e) { _voices = []; }
-      return _voices;
-    }
-    // 第一次问 getVoices() 常常是空的，声音表是异步加载的
-    try { if (root.speechSynthesis) root.speechSynthesis.addEventListener("voiceschanged", () => { _voices = null; }); } catch (e) {}
+    // 挑嗓子这一层搬去 js/radio-voice.js 了（v68.00）：时间线电台要用第二份，
+    // 与其照抄一遍，不如开公共的，两边一起搬（施工规则/one-public-mechanism.md）。
+    // 顺带那一份会【优先挑用户装过的增强音色】，这儿什么都不用改就跟着好了。
     function voiceOf(st) {
       const r = R();
       const id = (st && st.id) || "";
-      const list = zhVoices();
       return {
-        voice: list.length ? list[Math.floor(r.seed01(id, "voice") * list.length) % list.length] : null,
+        voice: root.RadioVoice ? root.RadioVoice.pick(r.seed01(id, "voice")) : null,
         rate: 0.95 + r.seed01(id, "rate") * 0.12,
         pitch: 1
       };

@@ -1,0 +1,58 @@
+// 她 2026-09-13：「系统音色太人机了，有没有别的办法可以免费又不会那么机械」。
+//
+// 最便宜的那一刀：iOS / macOS 的【增强·高级】中文音色要用户自己去系统设置下载，
+// 装了浏览器就列得出来。同样免费，气口比默认那把好一大截——我们只要【优先挑它】。
+// 顺带把「挑嗓子」这一层从 radio-ui.js 里抽出来：时间线电台原来连挑都没挑。
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const V = require("../js/radio-voice.js");
+const ui = fs.readFileSync(path.join(root, "js/radio-timeline-ui.js"), "utf8");
+const old = fs.readFileSync(path.join(root, "js/radio-ui.js"), "utf8");
+const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+
+const v = (name, lang, uri) => ({ name, lang, voiceURI: uri || name });
+
+test("装了增强音色就只在增强那一档里挑", () => {
+  const s = V.scan([
+    v("Ting-Ting", "zh-CN"), v("Li-mu (增强)", "zh-CN"), v("Yu-shu", "zh-CN"),
+    v("Samantha", "en-US"), v("Siri 语音 4", "zh-CN", "com.apple.siri.premium.zh-CN")
+  ]);
+  assert.equal(s.all.length, 4, "非中文的不算");
+  assert.deepEqual(s.best.map(x => x.name), ["Li-mu (增强)", "Siri 语音 4"]);
+  assert.equal(s.enhanced, 2);
+});
+
+test("一把增强的都没有时，老老实实用默认那几把", () => {
+  const s = V.scan([v("Ting-Ting", "zh-CN"), v("Yu-shu", "zh-TW")]);
+  assert.equal(s.enhanced, 0);
+  assert.equal(s.best.length, 2, "挑不到增强就在普通那几把里挑，别挑成空");
+  // 一把中文都没有：返回空，调用方该退回浏览器默认，而不是硬塞一把外语嗓子
+  assert.equal(V.scan([v("Samantha", "en-US")]).best.length, 0);
+  assert.equal(V.pick(0.5), null, "这台机器上没有中文音色，pick 得给 null");
+});
+
+test("同一个种子永远同一把嗓子，换个种子才换人", () => {
+  assert.equal(V.hash01("branch-a"), V.hash01("branch-a"));
+  assert.notEqual(V.hash01("branch-a"), V.hash01("branch-b"));
+  assert.ok(V.hash01("x") >= 0 && V.hash01("x") < 1);
+});
+
+test("挑嗓子只有这一份：两个电台都从公共那层要", () => {
+  assert.match(html, /<script src="js\/radio-voice\.js\?v=/, "新文件要在 index.html 上注册");
+  assert.match(old, /root\.RadioVoice \? root\.RadioVoice\.pick\(r\.seed01\(id, "voice"\)\) : null/, "旧电台搬过去了");
+  assert.ok(!/function zhVoices\(\)/.test(old), "旧电台里那份私有的还在，等于又多一处要同步");
+  assert.match(ui, /root\.RadioVoice\.pick\(root\.RadioVoice\.hash01\(branch\.id\)\)/, "时间线电台一条线一把嗓子");
+  // 音高一律不动——「这个女声很诡异像闹鬼」那次的教训，两边都得守
+  assert.match(ui, /u\.rate = 0\.98; u\.pitch = 1;/);
+  assert.match(old, /pitch: 1/);
+});
+
+test("引导只在真的没装时才出现，装了它自己消失", () => {
+  assert.match(ui, /root\.RadioVoice && !root\.RadioVoice\.hasEnhanced\(\)/);
+  assert.match(ui, /"data-radio-voicehint": true/);
+  assert.match(V.ENHANCED_HINT, /设置 → 辅助功能 → 朗读内容 → 声音/);
+  assert.ok(!/永远|一直/.test(V.ENHANCED_HINT));
+});

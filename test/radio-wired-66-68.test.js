@@ -97,10 +97,13 @@ test("嗓子不许拿音高掷种子（「这个女声很诡异像闹鬼」）",
   const seg = ui.slice(ui.indexOf("function voiceOf"), ui.indexOf("function fromBoundary"));
   assert.ok(seg.indexOf('"pitch"') < 0, "音高又拿去掷种子了——移调出来的是恐怖片音效，不是另一个人");
   assert.match(seg, /pitch: 1\b/);
-  // 台跟台的区别改成换一把真的声音
-  assert.match(ui, /function zhVoices\(\)/);
-  assert.match(ui, /addEventListener\("voiceschanged"/, "第一次 getVoices\\(\\) 常常是空的");
-  assert.match(seg, /voice: list\.length \? list\[/);
+  // 台跟台的区别改成换一把真的声音。
+  // v68.00 起「挑哪把嗓子」搬去了公共的 js/radio-voice.js（时间线电台也要用），
+  // 这儿只剩「按台掷一个种子去要一把」。声音表异步加载那条也跟着搬过去了。
+  const voice = R("js/radio-voice.js");
+  assert.match(seg, /root\.RadioVoice \? root\.RadioVoice\.pick\(r\.seed01\(id, "voice"\)\) : null/);
+  assert.match(voice, /addEventListener\("voiceschanged"/, "第一次 getVoices() 常常是空的");
+  assert.ok(!/function zhVoices\(\) \{\n      if \(_voices\)/.test(ui), "旧电台里那份私有的不该再有第二份");
   // 语速只微调
   const m = seg.match(/rate: ([\d.]+) \+ r\.seed01\(id, "rate"\) \* ([\d.]+)/);
   assert.ok(m, "语速那一行改没了");

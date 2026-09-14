@@ -125,6 +125,13 @@
         error: () => { if (alive.current) setError("朗读中断了，点连续收听可从当前句重试；也可以手动看下一句。"); },
         speak: (text, end, fail) => {
           const u = new root.SpeechSynthesisUtterance(text); utterance = u;
+          // 一条时间线一把嗓子（v68.00）：原来这儿连挑都没挑，用的是系统列表第一把，
+          // 于是所有节目都是同一个人念。挑不出来就还是默认那把，音高一律不动
+          // （旧电台那条「不许拿音高掷种子」的教训对这儿一样成立）。
+          const picked = root.RadioVoice ? root.RadioVoice.pick(root.RadioVoice.hash01(branch.id)) : null;
+          if (picked) u.voice = picked;
+          u.lang = (picked && picked.lang) || "zh-CN";
+          u.rate = 0.98; u.pitch = 1;
           u.onend = () => { if (utterance === u) utterance = null; end(); }; u.onerror = fail;
           root.speechSynthesis.speak(u);
         }
@@ -336,7 +343,14 @@
                 (sh.label ? sh.label + " · " : "") + R.SHOW_AXES.map(ax => (ax.opts.find(o => o.id === sh[ax.key]) || {}).zh).filter(Boolean).join(" · "));
             })(),
             h("div", { style: { fontSize: 11, color: NT.faint, marginBottom: 10 } },
-              h("span", { role: "status" }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话"))),
+              h("span", { role: "status" }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话")),
+              // 免费的那一刀（她 2026-09-13）：增强中文音色得用户自己去系统设置装，
+              // 装了浏览器就列得出来、这儿自动用上。所以只在【真的没装】时才说这一句，
+              // 装了它自己就消失——不是一条永远挂着的广告。
+              root.RadioVoice && !root.RadioVoice.hasEnhanced()
+                ? h("span", { "data-radio-voicehint": true, style: { display: "block", marginTop: 4, lineHeight: 1.8 } },
+                    root.RadioVoice.ENHANCED_HINT)
+                : null),
             current ? h("div", { "data-radio-current": true, "aria-live": "polite", style: { marginBottom: 16 } },
               h("small", { style: { color: BRASS, fontSize: 11 } }, (current.kind === "ad" ? "插播广告 · " : currentPart.call ? "插播 · " : "") + "第" + (lineIndex + 1) + "句 · " + (current.kind === "ad" ? "本台" : current.speaker || branch.name)),
               h("div", { style: { fontSize: 16.5, lineHeight: 2.05, marginTop: 7, color: NT.ink } }, current.text)) : null,
