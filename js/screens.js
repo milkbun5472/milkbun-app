@@ -12845,6 +12845,174 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character }) {
             : h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
               busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")));
 }
+// ═══ 扭蛋机（她 2026-09-14：「ui 能不能也做好看高级点的扭蛋机可以互动的，
+//     扭的时候里面东西会动有出货动画，参考图上但是画我们之间的形状」）═══
+//
+// ⚠️蛋里装的不是寿司，是**你们之间的形状**：一张照片、一句没说出口的话、一首歌、
+//   一件他带在身上的、一封信、一张还在路上的票……全是这副奖池里真有的东西。
+//   参考图给的是【机器的样子】，不是内容——内容照抄就成了别人家的机器。
+// ⚠️动画只演【已经定好的结果】：抽本来就是 0 调用、纯本地掷的，所以先转再算和
+//   先算再转对她没有任何区别；这儿选的是【转完才把卡摆出来】，那一下才有「出货」。
+const GACHA_SHAPES = [
+  // 每一枚蛋里那个小形状，对应奖池里真有的那几样东西
+  { k: "photo", c: "#e8b6c4" },   // 相册里的一张
+  { k: "note",  c: "#d8c9a8" },   // 一张便签
+  { k: "song",  c: "#b8c6e0" },   // 想放给你听的
+  { k: "heart", c: "#e2a0a8" },   // 还记得的一件事
+  { k: "book",  c: "#c3cfae" },   // 书架上的一本
+  { k: "mail",  c: "#e3cbb0" },   // 写给你的一封信
+  { k: "tick",  c: "#c9b4d8" },   // 一张约会券
+  { k: "eye",   c: "#a9c3c9" },   // 他眼里的你
+  { k: "box",   c: "#d6b9a0" },   // 还在路上的那件
+  { k: "ring",  c: "#e6c9a0" },   // 说好的那件
+  { k: "star",  c: "#cbd6ea" }    // 没点开的那些
+];
+// 一枚蛋：外壳半透明，里头那个小形状。cx/cy 是蛋心，r 是蛋的半径。
+function gachaCapsule(s, cx, cy, r, key, extra) {
+  const g = s.k, c = s.c, u = r * 0.46;
+  const inner = g === "photo" ? h("g", null,
+      h("rect", { x: cx - u, y: cy - u * 0.78, width: u * 2, height: u * 1.56, rx: 2.4, fill: c }),
+      h("path", { d: "M" + (cx - u * 0.72) + " " + (cy + u * 0.5) + " L" + cx + " " + (cy - u * 0.24) + " L" + (cx + u * 0.72) + " " + (cy + u * 0.5) + " Z", fill: "#fff", opacity: .72 }))
+    : g === "note" ? h("path", { d: "M" + (cx - u * 0.8) + " " + (cy - u) + " h" + (u * 1.6) + " v" + (u * 1.4) + " l" + (-u * 0.6) + " " + (u * 0.6) + " h" + (-u) + " Z", fill: c })
+    : g === "song" ? h("g", null,
+      h("circle", { cx: cx - u * 0.35, cy: cy + u * 0.6, r: u * 0.5, fill: c }),
+      h("rect", { x: cx + u * 0.05, y: cy - u, width: u * 0.28, height: u * 1.7, rx: .6, fill: c }),
+      h("path", { d: "M" + (cx + u * 0.3) + " " + (cy - u) + " q" + (u * 0.7) + " " + (u * 0.18) + " " + (u * 0.7) + " " + (u * 0.6), stroke: c, strokeWidth: u * 0.3, fill: "none", strokeLinecap: "round" }))
+    : g === "heart" ? h("path", { d: "M" + cx + " " + (cy + u * 0.85) + " C" + (cx - u * 1.5) + " " + (cy - u * 0.15) + " " + (cx - u * 0.55) + " " + (cy - u * 1.15) + " " + cx + " " + (cy - u * 0.3) + " C" + (cx + u * 0.55) + " " + (cy - u * 1.15) + " " + (cx + u * 1.5) + " " + (cy - u * 0.15) + " " + cx + " " + (cy + u * 0.85) + " Z", fill: c })
+    : g === "book" ? h("g", null,
+      h("rect", { x: cx - u * 0.9, y: cy - u * 0.85, width: u * 1.8, height: u * 1.7, rx: 2, fill: c }),
+      h("rect", { x: cx - u * 0.15, y: cy - u * 0.85, width: u * 0.3, height: u * 1.7, fill: "#fff", opacity: .6 }))
+    : g === "mail" ? h("g", null,
+      h("rect", { x: cx - u, y: cy - u * 0.7, width: u * 2, height: u * 1.4, rx: 1.8, fill: c }),
+      h("path", { d: "M" + (cx - u) + " " + (cy - u * 0.7) + " L" + cx + " " + (cy + u * 0.16) + " L" + (cx + u) + " " + (cy - u * 0.7), stroke: "#fff", strokeWidth: u * 0.24, fill: "none", opacity: .8 }))
+    : g === "tick" ? h("g", null,
+      h("rect", { x: cx - u, y: cy - u * 0.62, width: u * 2, height: u * 1.24, rx: 2.2, fill: c }),
+      h("circle", { cx: cx, cy: cy - u * 0.62, r: u * 0.24, fill: "#fff", opacity: .85 }),
+      h("circle", { cx: cx, cy: cy + u * 0.62, r: u * 0.24, fill: "#fff", opacity: .85 }))
+    : g === "eye" ? h("g", null,
+      h("path", { d: "M" + (cx - u) + " " + cy + " q" + u + " " + (-u * 0.95) + " " + (u * 2) + " 0 q" + (-u) + " " + (u * 0.95) + " " + (-u * 2) + " 0 Z", fill: c }),
+      h("circle", { cx: cx, cy: cy, r: u * 0.34, fill: "#fff", opacity: .85 }))
+    : g === "box" ? h("g", null,
+      h("rect", { x: cx - u * 0.9, y: cy - u * 0.8, width: u * 1.8, height: u * 1.6, rx: 2, fill: c }),
+      h("rect", { x: cx - u * 0.16, y: cy - u * 0.8, width: u * 0.32, height: u * 1.6, fill: "#fff", opacity: .62 }),
+      h("rect", { x: cx - u * 0.9, y: cy - u * 0.16, width: u * 1.8, height: u * 0.32, fill: "#fff", opacity: .62 }))
+    : g === "ring" ? h("g", null,
+      h("circle", { cx: cx, cy: cy + u * 0.2, r: u * 0.72, fill: "none", stroke: c, strokeWidth: u * 0.34 }),
+      h("path", { d: "M" + cx + " " + (cy - u * 0.95) + " l" + (u * 0.34) + " " + (u * 0.4) + " l" + (-u * 0.34) + " " + (u * 0.36) + " l" + (-u * 0.34) + " " + (-u * 0.36) + " Z", fill: c }))
+    : h("path", { d: "M" + cx + " " + (cy - u) + " l" + (u * 0.3) + " " + (u * 0.66) + " l" + (u * 0.72) + " " + (u * 0.1)
+        + " l" + (-u * 0.52) + " " + (u * 0.52) + " l" + (u * 0.13) + " " + (u * 0.72) + " l" + (-u * 0.63) + " " + (-u * 0.35)
+        + " l" + (-u * 0.63) + " " + (u * 0.35) + " l" + (u * 0.13) + " " + (-u * 0.72) + " l" + (-u * 0.52) + " " + (-u * 0.52)
+        + " l" + (u * 0.72) + " " + (-u * 0.1) + " Z", fill: c });
+  return h("g", Object.assign({ key: key }, extra || {}),
+    h("circle", { cx: cx, cy: cy, r: r, fill: "rgba(255,255,255,.34)", stroke: "rgba(255,255,255,.9)", strokeWidth: 1.1 }),
+    h("circle", { cx: cx, cy: cy, r: r, fill: "url(#gm-glass)" }),
+    inner,
+    // 蛋壳上那一点高光——没有它就是一个平圆片
+    h("ellipse", { cx: cx - r * 0.34, cy: cy - r * 0.42, rx: r * 0.3, ry: r * 0.19, fill: "#fff", opacity: .78, transform: "rotate(-24 " + (cx - r * 0.34) + " " + (cy - r * 0.42) + ")" }));
+}
+
+// 玻璃罩里那一堆蛋的位置（viewBox 240×326）。手摆的，不是网格——
+// 整整齐齐排成格子的是货架，不是扭蛋机。
+const GACHA_BALLS = [
+  // 手摆的，不是网格：蛋是**堆在罐底**的，彼此压着、大小不一。
+  // 排成整整齐齐的格子那是货架，不是扭蛋机（第一版就是这么画的，一眼假）。
+  [58, 150, 23], [101, 154, 25], [146, 150, 24], [186, 152, 21],
+  [74, 110, 24], [119, 113, 26], [163, 110, 23], [42, 122, 18],
+  [63, 71, 21], [108, 66, 23], [152, 70, 22], [188, 76, 19]
+];
+function GachaMachine({ have, costOne, costTen, spin, onPull, partner }) {
+  const dim = n => have < n;
+  return h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center" } },
+    h("style", null,
+      // 摇：整罐蛋一起晃，每一枚再各自错开一点相位，不然像一整块在动
+      "@keyframes gm-shake{0%,100%{transform:translate(0,0) rotate(0)}"
+      + "15%{transform:translate(-1.8px,1.2px) rotate(-3deg)}35%{transform:translate(2px,-1px) rotate(2.6deg)}"
+      + "55%{transform:translate(-1.4px,-1.6px) rotate(-2deg)}78%{transform:translate(1.6px,1.4px) rotate(1.8deg)}}"
+      // 拉杆：转一圈，中间顿一下（真机就是这个手感）
+      + "@keyframes gm-lever{0%{transform:rotate(0)}45%{transform:rotate(168deg)}62%{transform:rotate(182deg)}100%{transform:rotate(360deg)}}"
+      // 出货：从罐底滚下来，掉进取物口那个圆洞，落底再弹一下
+      + "@keyframes gm-drop{0%{opacity:0;transform:translate(0,0) scale(.72)}"
+      + "14%{opacity:1;transform:translate(4px,16px) scale(.92)}"
+      + "44%{transform:translate(26px,74px) scale(1)}"
+      + "70%{transform:translate(51px,124px) scale(1)}"
+      + "82%{transform:translate(51px,114px) scale(1.05)}"
+      + "100%{transform:translate(51px,122px) scale(1)}}"
+      + "@keyframes gm-glow{0%,58%{opacity:0}72%{opacity:.9}100%{opacity:.4}}"),
+    h("svg", { viewBox: "0 0 240 330", width: "100%", style: { maxWidth: 272, display: "block" }, "aria-hidden": "true" },
+      h("defs", null,
+        h("linearGradient", { id: "gm-body", x1: "0", y1: "0", x2: ".35", y2: "1" },
+          h("stop", { offset: "0", stopColor: "#fffafb" }), h("stop", { offset: ".55", stopColor: "#f7ecf1" }), h("stop", { offset: "1", stopColor: "#e8d6e0" })),
+        // 蛋壳：左上亮、右下几乎透明——这一道是「玻璃球」和「白圆片」的全部区别
+        h("linearGradient", { id: "gm-glass", x1: ".15", y1: "0", x2: ".8", y2: "1" },
+          h("stop", { offset: "0", stopColor: "#fff", stopOpacity: ".82" }), h("stop", { offset: ".5", stopColor: "#fff", stopOpacity: ".26" }), h("stop", { offset: "1", stopColor: "#cfd9e6", stopOpacity: ".3" })),
+        h("linearGradient", { id: "gm-case", x1: "0", y1: "0", x2: ".25", y2: "1" },
+          h("stop", { offset: "0", stopColor: "#ffffff", stopOpacity: ".62" }), h("stop", { offset: "1", stopColor: "#dbe6ef", stopOpacity: ".42" })),
+        // ⚠️洞口是【凹进去的口】，不是一颗深色球：上浅下深、底下压一道暗边。
+        //   第一版用的是球心亮的径向渐变，画出来就是一颗紫褐色的球，整台机器最脏的一块。
+        // ⚠️洞要【上暗下亮】。画反了就是一颗球：光从上面进来、亮面在顶上、
+        //   再描一道白圈，人眼读出来的一定是个球体（前两版都栽在这儿）。
+        //   真正的凹口是顶上最暗（被自己的边压着），底下反而有一点回光。
+        h("linearGradient", { id: "gm-hole", x1: "0", y1: "0", x2: "0", y2: "1" },
+          h("stop", { offset: "0", stopColor: "#7d6474" }), h("stop", { offset: ".62", stopColor: "#9d8494" }), h("stop", { offset: "1", stopColor: "#c0a8b6" })),
+        h("clipPath", { id: "gm-clip" }, h("rect", { x: 28, y: 36, width: 184, height: 146, rx: 18 }))),
+      // 机身
+      h("rect", { x: 10, y: 8, width: 220, height: 314, rx: 32, fill: "url(#gm-body)", stroke: "#e2ccd7", strokeWidth: 1.4 }),
+      h("rect", { x: 19, y: 17, width: 202, height: 296, rx: 26, fill: "none", stroke: "#fff", strokeWidth: 1.3, opacity: .85 }),
+      // 顶上那块铭牌。⚠️中文——眉标一律不留英文（施工规则/no-english-titles.md），
+      //   参考图上那几行日文是【那台机器的样子】，不是这台的名字。
+      h("rect", { x: 74, y: 14, width: 92, height: 17, rx: 8.5, fill: "#fff", opacity: .82 }),
+      h("text", { x: 120, y: 26, textAnchor: "middle", fill: "#b0708a", style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.22em" } }, "我们之间"),
+      // 玻璃罐
+      h("rect", { x: 28, y: 36, width: 184, height: 146, rx: 18, fill: "url(#gm-case)", stroke: "#e7d6e0", strokeWidth: 1.3 }),
+      h("g", { clipPath: "url(#gm-clip)" },
+        h("g", { style: spin ? { animation: "gm-shake .4s ease-in-out " + (spin === 1 ? 3 : 4), transformOrigin: "120px 110px" } : null },
+          GACHA_BALLS.map(([cx, cy, r], i) => gachaCapsule(GACHA_SHAPES[i % GACHA_SHAPES.length], cx, cy, r, "b" + i,
+            spin ? { style: { animation: "gm-shake .4s ease-in-out " + (spin === 1 ? 3 : 4) + " " + (i % 5) * 0.055 + "s", transformOrigin: cx + "px " + cy + "px" } } : null))),
+        // 玻璃上那一道斜光。它压在蛋上面，所以罐子才像有一层玻璃。
+        h("path", { d: "M28 72 L96 36 L136 36 L28 114 Z", fill: "#fff", opacity: .3 }),
+        h("path", { d: "M150 36 L176 36 L28 158 L28 142 Z", fill: "#fff", opacity: .16 })),
+      h("rect", { x: 28, y: 36, width: 184, height: 146, rx: 18, fill: "none", stroke: "#fff", strokeWidth: 2, opacity: .7 }),
+      // 罐口那条压边
+      h("rect", { x: 30, y: 188, width: 180, height: 9, rx: 4.5, fill: "#e9d8e2" }),
+      // ── 面板：左边投点数、中间拉杆 ──
+      h("g", null,
+        h("rect", { x: 30, y: 200, width: 84, height: 34, rx: 11, fill: "#fff", stroke: "#e7d6e0", strokeWidth: 1.2 }),
+        h("rect", { x: 58, y: 213, width: 28, height: 6, rx: 3, fill: "#c9aebb" }),
+        h("text", { x: 72, y: 249, textAnchor: "middle", fill: "#b58aa2",
+          style: { fontFamily: F_BODY, fontSize: 9.5 } }, "投点数")),
+      h("g", { style: { transformOrigin: "166px 217px", animation: spin ? "gm-lever 1.3s cubic-bezier(.4,.1,.2,1) both" : "none" } },
+        h("circle", { cx: 166, cy: 217, r: 21, fill: "#fff", stroke: "#e2ccd7", strokeWidth: 1.5 }),
+        h("circle", { cx: 166, cy: 217, r: 6, fill: "#e4d1dc" }),
+        h("rect", { x: 163.2, y: 199, width: 5.6, height: 20, rx: 2.8, fill: "#c9aebb" }),
+        h("circle", { cx: 166, cy: 198, r: 7, fill: "#b98ba4" })),
+      // ⚠️这一行原来压在拉杆下面，拉杆一转就叠上去了。挪到面板右侧竖着摆，转多少圈都不碰。
+      h("text", { x: 203, y: 213, textAnchor: "middle", fill: "#c39cb2", style: { fontFamily: F_BODY, fontSize: 9 } }, "转"),
+      h("text", { x: 203, y: 224, textAnchor: "middle", fill: "#c39cb2", style: { fontFamily: F_BODY, fontSize: 9 } }, "一"),
+      h("text", { x: 203, y: 235, textAnchor: "middle", fill: "#c39cb2", style: { fontFamily: F_BODY, fontSize: 9 } }, "下"),
+      // ── 取物口：一个真的圆洞，不是一条槽 ──
+      h("rect", { x: 30, y: 256, width: 180, height: 56, rx: 18, fill: "#fff", stroke: "#e7d6e0", strokeWidth: 1.2 }),
+      h("circle", { cx: 171, cy: 284, r: 25, fill: "url(#gm-hole)" }),
+      // 顶上那道压边：洞口的边把光挡住了，所以最暗的一条在【上面】
+      h("path", { d: "M146 284 a25 25 0 0 1 50 0 a25 17 0 0 0 -50 0 Z", fill: "#5f4a58", opacity: .32 }),
+      // 底下那一点回光
+      h("path", { d: "M153 296 q18 9 36 0", stroke: "#e2d0dc", strokeWidth: 2.2, fill: "none", opacity: .45 }),
+      // 洞沿。⚠️只描外圈，不许在洞里再画白弧——那一笔正是把洞画成球的那一笔。
+      h("circle", { cx: 171, cy: 284, r: 25, fill: "none", stroke: "#fff", strokeWidth: 2.6, opacity: .95 }),
+      // 翻盖那一片
+      h("path", { d: "M44 268 h74 a10 10 0 0 1 10 10 v14 a10 10 0 0 1 -10 10 h-74 a10 10 0 0 1 -10 -10 v-14 a10 10 0 0 1 10 -10 Z", fill: "#f3e6ee" }),
+      h("path", { d: "M44 276 q37 -8 74 0", stroke: "#fff", strokeWidth: 2.4, fill: "none", opacity: .8 }),
+      spin ? h("circle", { cx: 171, cy: 284, r: 25, fill: "#f7dce8", style: { animation: "gm-glow 1.8s ease-out both" } }) : null,
+      // 正在出的那一枚：从罐底滚下来，掉进那个圆洞
+      spin ? h("g", { style: { animation: "gm-drop 1.2s cubic-bezier(.34,.9,.36,1) .55s both" } },
+        gachaCapsule(GACHA_SHAPES[(spin * 7) % GACHA_SHAPES.length], 120, 162, 17, "out")) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", marginTop: 2 } },
+      spin ? (spin > 1 ? "一口气转了十下…" : "转起来了…") : "跟 " + (partner.remark || partner.name) + " 之间的那些，都在里头"),
+    h("div", { className: "flex gap-2 w-full", style: { marginTop: 11 } },
+      [[1, "单抽", costOne], [10, "十连", costTen]].map(([n, zh, cost]) =>
+        h("button", { key: zh, onClick: () => onPull(n), disabled: dim(cost) || !!spin, className: "flex-1 active:opacity-70",
+          style: { borderRadius: 14, padding: "11px 0", background: (dim(cost) || spin) ? "#e6d8de" : "#a74d70", color: (dim(cost) || spin) ? "#b09aa2" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+          zh, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .78, marginLeft: 6 } }, cost + " 点")))));
+}
 function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBack }) {
   const t = useTheme();
   const [tab, setTab] = useState("open");     // open=还没兑的 / all=票根全本
@@ -12856,14 +13024,30 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBa
   const p = (pts || {})[partner.id];
   const have = p && typeof p === "object" ? (Number(p.pts) || 0) : 0;
   const lk = (luck || {})[partner.id] || { pulls: 0, sinceSSR: 0 };
-  const pull = n => { const made = onPull(partner, n); if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); } };
+  // 转起来的那一下（她 2026-09-14 要的「扭的时候里面东西会动、有出货动画」）。
+  // ⚠️抽本来就是 0 调用、纯本地掷的，所以先转再算和先算再转对她没区别——
+  //   这儿选【转完才把卡摆出来】，那一下才叫出货。
+  // ⚠️点数不够、或者正在转，按钮自己是禁用的；这儿再挡一道，免得连点两下扣两次。
+  const [spin, setSpin] = useState(0);
+  const spinTimer = useRef(null);
+  useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current); }, []);
+  const pull = n => {
+    if (spin) return;
+    setSpin(n);
+    spinTimer.current = setTimeout(() => {
+      spinTimer.current = null;
+      setSpin(0);
+      const made = onPull(partner, n);
+      if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); }
+    }, 1750);
+  };
   return h("div", { className: "h-full flex flex-col", style: foilSkin(t) },
     // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）
     h(Head, { zh: "抽卡", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
-      // 点数 + 两个抽法。跟谁攒的点数就抽谁的卡——这一份只属于你和 TA
-      h("div", { style: { borderRadius: 20, border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)", padding: "16px 15px" } },
-        h("div", { className: "flex items-end justify-between" },
+      // 扭蛋机本体 + 点数。跟谁攒的点数就抽谁的卡——这一份只属于你和 TA
+      h("div", { style: { borderRadius: 24, border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)", padding: "14px 15px 16px" } },
+        h("div", { className: "flex items-end justify-between", style: { marginBottom: 4 } },
           h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".04em", color: "#b0708a" } }, "跟 " + (partner.remark || partner.name) + " 攒的"),
             h("div", { className: "flex items-baseline gap-1", style: { marginTop: 3 } },
@@ -12872,10 +13056,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBa
           h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", lineHeight: 1.6 } },
             h("div", null, "已抽 " + (lk.pulls || 0) + " 次"),
             h("div", null, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk.sinceSSR || 0)) + " 抽保底 SSR"))),
-        h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          [[1, "单抽", K.COST_ONE || 50], [K.TEN || 10, "十连", K.COST_TEN || 450]].map(([n, zh, cost]) =>
-            h("button", { key: zh, onClick: () => pull(n), disabled: have < cost, className: "flex-1 active:opacity-70", style: { borderRadius: 14, padding: "11px 0", background: have < cost ? "#e6d8de" : "#a74d70", color: have < cost ? "#b09aa2" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
-              zh, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .78, marginLeft: 6 } }, cost + " 点")))),
+        h(GachaMachine, { have: have, costOne: K.COST_ONE || 50, costTen: K.COST_TEN || 450, spin: spin, onPull: pull, partner: partner }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1808e", marginTop: 10, lineHeight: 1.6 } },
           "抽卡不花任何调用，十连也是。抽到的是兑换券——点「兑换」才真的发生。和 " + (partner.remark || partner.name) + " 好好待一会儿就攒点数，发几条不影响。")),
       // 未兑 / 票根全本
