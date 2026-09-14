@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.22";
+const APP_VERSION = "v68.23";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8941,7 +8941,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       if (parsed.momentComment && String(parsed.momentComment).toLowerCase() !== "null") {
         const latest = (moments || []).find(m => m.mine);
-        if (latest) pMom(p => p.map(m => m.id === latest.id ? { ...m, likers: [...new Set([...(m.likers || []), char.name])], comments: [...(m.comments || []), { author: char.name, text: String(parsed.momentComment) }] } : m));
+        if (latest) pMom(p => p.map(m => m.id === latest.id ? { ...m, likers: [...new Set([...(m.likers || []), momentWho(char.name)])], comments: [...(m.comments || []), { author: momentWho(char.name), text: String(parsed.momentComment) }] } : m));
       }
       // TA 在聊天里切歌/点歌（一起听联动）→ 真的换全局播放器的歌
       if (parsed.songSwitch && String(parsed.songSwitch).toLowerCase() !== "null") {
@@ -14612,6 +14612,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 朋友圈封面（me 或某角色）：存 x_momentsCover
   const setMomentCover = (key, uri) => setMomentsCover(p => { const n = { ...p, [key]: uri || "" }; saveJSON("x_momentsCover", n); return n; });
   const openMomProfile = (id, isMe) => { setMomTarget({ id, isMe: !!isMe }); setScreen("momprofile"); };
+  // 朋友圈里显示谁，只有这一处说了算（她 2026-09-14：「角色发朋友圈是原名，
+  // 我回复后他们回复显示的是备注名，能不能统一显示备注名」）。
+  // ⚠️病根：点赞和评论存的是【一个名字字符串】，而那个字符串的来路有三条——
+  //   模型报回来的（原名）、兜底那一条（备注名）、代码直接写的 char.name（原名）。
+  //   三条各写各的，于是同一个人在同一张卡上有两种叫法。
+  //   收成一处：不管来路是什么，都先认回是哪个角色，再统一取【备注名】。
+  const momentWho = who => {
+    const raw = String(who == null ? "" : who).trim();
+    if (!raw) return raw;
+    const norm = v => String(v == null ? "" : v).trim();
+    const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
+    return hit ? (hit.remark || hit.name) : raw;   // 认不出来（旁人、NPC、路人）就原样留着
+  };
   const commentMoment = async (id, text, replyTo) => {
     const meName0 = profile.name || "我";
     // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
@@ -14680,7 +14693,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
       if (!reps.length) reps = [{ author: fbAuthor, text: fallbackText() }]; // 保底
-      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: r.author, text: "回复 " + meName + "：" + r.text }] } : m)), 400 + i * 600));
+      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: "回复 " + meName + "：" + r.text }] } : m)), 400 + i * 600));
     } catch (e) {
       setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
     }
@@ -14736,23 +14749,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       let d = extractJSON(raw);
       if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (d) {
-        const likers = (d.reactions || []).filter(r => r.liked).map(r => r.name);
+        const likers = (d.reactions || []).filter(r => r.liked).map(r => momentWho(r.name));
         const comments = [];
         (d.reactions || []).forEach(r => {
           if (r.comment && String(r.comment).toLowerCase() !== "null") comments.push({
-            author: r.name,
+            author: momentWho(r.name),
             text: r.comment
           });
         });
         // 保底：一个人都没互动时，让好感最高的可见角色至少点个赞
         if (!likers.length && !comments.length && canSee.length) {
           const top = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
-          if (top) likers.push(top.name);
+          if (top) likers.push(momentWho(top.name));
         }
         (d.replies || []).forEach(r => {
           if (r.text) comments.push({
-            author: r.name,
-            text: (r.replyTo ? "回复 " + r.replyTo + "：" : "") + r.text
+            author: momentWho(r.name),
+            text: (r.replyTo ? "回复 " + momentWho(r.replyTo) + "：" : "") + r.text
           });
         });
         pMom(p => p.map(m => m.id === mom.id ? {

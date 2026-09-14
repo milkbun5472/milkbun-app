@@ -6949,6 +6949,16 @@ function GroupManager({
     }
   }, c.remark || c.name))))));
 }
+// 朋友圈里那个名字怎么显示：认得出是谁就用【备注名】，认不出（旁人、NPC）原样留着。
+// ⚠️存量记录里存的是当时那个字符串（多半是原名），所以显示这一头也得认一次——
+//   光改写入不改显示，老的那些卡永远停在原名上（她 2026-09-14）。
+function momentDisplayName(characters, who) {
+  const raw = String(who == null ? "" : who).trim();
+  if (!raw) return raw;
+  const norm = v => String(v == null ? "" : v).trim();
+  const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
+  return hit ? (hit.remark || hit.name) : raw;
+}
 function MomentsFeed({
   characters,
   moments,
@@ -7158,7 +7168,7 @@ function MomentsFeed({
         fontSize: 11.5,
         color: t.tint
       }
-    }, m.likers.join("、"))), (m.comments || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))), (m.comments || []).length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "mt-2.5 rounded-xl px-3 py-2",
       style: {
         background: t.bg
@@ -7177,7 +7187,7 @@ function MomentsFeed({
         color: t.tint,
         fontWeight: 500
       }
-    }, cm.author), /*#__PURE__*/React.createElement("span", {
+    }, momentDisplayName(characters, cm.author)), /*#__PURE__*/React.createElement("span", {
       style: {
         color: t.sub
       }
@@ -7269,8 +7279,8 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "评论"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "删除")),
-    (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, m.likers.join("、"))) : null,
-    (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, cm.author), h("span", { style: { color: t.ink } }, "：", cm.text)))) : null,
+    (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
+    (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", cm.text)))) : null,
     commenting === m.id ? h("div", { className: "flex gap-2 mt-2" },
       h("input", { value: cText, onChange: e => setCText(e.target.value), autoFocus: true, placeholder: cReply ? "回复 " + cReply + "…" : "评论…", onKeyDown: e => { if (e.key === "Enter") sendC(m); }, className: "flex-1 outline-none px-3 py-1.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发")) : null);
