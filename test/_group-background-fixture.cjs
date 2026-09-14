@@ -24,6 +24,10 @@ function fixture() {
     carryContextText: (items, pins, opts) => { if (opts.cap !== 260) throw Error('随身物预算改变'); return items || ''; },
     aMoodTextOf: id => id + '底色', sleepToneOf: c => c.id + '睡眠\n第二行',
     coupleArchiveFor: id => id + '私有档案', coupleArchiveBlock: (a, u) => a + ' / ' + u,
+    // v68.43：称呼跟情侣状态同一档，落在【那位成员自己那一段】里（app.js 的 nickLineFor）。
+    // ⚠️默认给空串：绝大多数角色没有称呼，所以【没有称呼时那一段要跟以前一字不差】——
+    //   那正是下面那张金牌哈希在守的东西。要试有称呼的那一路，在用例里自己覆盖它。
+    nickLineFor: () => '',
     crossChannelSaid: id => id + '跨群消息', listenRef: { current: { playlists: [{ charId: 'a', songs: [{ title: '甲的歌' }] }] } },
     window: { HeartKit: { personaText: x => x }, MoodLabel: { settle: label => ({ label, note: '' }) } },
   };

@@ -24,6 +24,18 @@ for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景
   assert.doesNotMatch(text.slice(text.indexOf('【配角】')), /底色|睡眠|私有档案|成长|随身物/);
 });
 
+test('他给她起的称呼落在【那位成员自己那一段】里，别人看不到（v68.43）', () => {
+  const env = wire(fixture());
+  env.nickLineFor = (id, u) => id === 'a' ? ('你私下管 ' + u + ' 叫「小笨蛋」') : '';
+  const text = evaluate(sections.online, env, 'memberDesc');
+  const a = text.slice(text.indexOf('【甲】'), text.indexOf('【乙】'));
+  const b = text.slice(text.indexOf('【乙】'), text.indexOf('【配角】'));
+  assert.match(a, /小笨蛋/, '甲那一段里没有他给她起的称呼');
+  assert.ok(!b.includes('小笨蛋'), '乙也看到了——隐私围栏漏了');
+  // 跟情侣状态同一道围栏：这一段只有本人知道
+  assert.ok(a.indexOf('只有 甲 本人知道') < a.indexOf('小笨蛋'), '称呼没落在围栏里面');
+});
+
 test('共享背景排除 NPC；空字段不产生空壳段落', () => {
   const env = wire(fixture());
   env.aMoodTextOf = () => { throw Error('NPC 不得访问角色背景'); };

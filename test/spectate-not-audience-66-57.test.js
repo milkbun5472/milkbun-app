@@ -54,7 +54,10 @@ test("她不在场 ≠ 她不存在：好感、情侣、关系铁律、她是谁
   //   你去掉好感和情侣段怎么行。而且有时候和他们好朋友在群聊肯定也会提到女朋友之类的吧」。
   //   她开旁观群要看的就是这些。旁观群唯一该变的只有一件事：她听不见。
   assert.match(app, /afSeg: "\\n〔对 " \+ userName\(profile\) \+ " 的好感〕"/, "旁观群的好感被删了");
-  assert.match(app, /cpSeg: \(\(\) => \{ const l = coupleLineFor/, "旁观群的情侣状态被删了");
+  // v68.43：这一段里多了「他给她起的称呼」，所以别写死那一行的长相——
+  // 核的是【情侣状态还在这一段里】，以及它仍然带着那道「只有本人知道」的围栏。
+  assert.match(app, /cpSeg: \(\(\) => \{[\s\S]{0,400}coupleLineFor\(c\.id, userName\(profile\)\)/, "旁观群的情侣状态被删了");
+  assert.match(app, /cpSeg: \(\(\) => \{[\s\S]{0,400}只有 " \+ c\.name \+ " 本人知道/, "那道围栏没了");
   // 关系隐私铁律旁观群更需要：两个人都跟她有关系时，正是这条挡住互相拆穿
   assert.match(app, /const gRelRule = "\\n\\n【成员间关系 · ⚠️关系隐私铁律】/, "旁观群没了那条铁律");
   assert.ok(app.indexOf("const gRelRule = gSpec") < 0, "又给旁观群另写了一份阉割的关系段");

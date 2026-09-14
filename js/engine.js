@@ -2739,6 +2739,11 @@ function buildBundle(ctx, opts) {
   // Runtime v2 已在角色卡准则中定义根基、短期状态与长期成长的关系；
   // 不再为白名单角色重复注入旧版长篇成长教程，正式长出来的自我本身仍照常进入下文。
   if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，" + (ctx.personaEvolve ? "在【软层】（亲近方式／处理冲突的习惯／偏好／勇气／信任／对未来的选择）上，它比原人设卡更接近现在的你、可以盖过原卡里那些旧的软性倾向（但绝不改你的核心身份、底线和真实发生过的经历）" : "和人设同等分量") + "，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
+  // 他私下管她叫的那个称呼（抽卡 s_title；她点过「收下」才有）。
+  // ⚠️给出口不给判决（施工规则/bans-make-it-dumber.md）：只说这个称呼是你自己起的，
+  //   不规定你每句都得用——写成「要多叫她」会出来一个满嘴昵称的人。
+  if (ctx.nickname && String(ctx.nickname).trim()) parts.push("【你私下管 " + uName + " 叫的那个】「" + String(ctx.nickname).trim()
+    + "」——这是你自己给她起的称呼，想用的时候自然用，不必每句都用，也不用解释它的来历。");
   if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
   parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
   // 档案是【稳定】内容（称呼、梗、仪式几个月不变），所以放在时间切点【之前】跟着人设一起被缓住。

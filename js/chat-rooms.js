@@ -80,6 +80,8 @@
       "moodLabel", "moodNote", "aMood", "gazeText", "personaGrown", "personaEvolve",
       "affinity",       // 好感度
       "coupleStatus",   // 是不是恋人、在一起多少天 ← 她这次看见的就是它
+      "nickname",       // TA私下管她叫的那个称呼（抽卡 s_title）——跟情侣状态同一档：
+                        // 它说的是【你们处到哪一步】，隔离房里不该带着走
       "dateNote",       // 生日与纪念日
       "periodNote",     // 生理期——这一栏尤其不该漏
       "onMe",           // 她今天带着谁的东西出门

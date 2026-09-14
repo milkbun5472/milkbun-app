@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.43";
+const APP_VERSION = "v68.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -481,6 +481,22 @@ function App() {
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   // 情侣空间的落点：从别处直接送到【某个人的某一扇门】。只消费一次，Us 收到就还回来。
   const [usLand, setUsLand] = useState(null);
+  // 他给她起的那个称呼（抽卡 s_title）。⚠️它【会进提示词】，所以：
+  // ① 抽出来只是候选，她点了「收下」才写进这儿；② 收下之后随时能改、能不要；
+  // ③ 换掉的留一条旧的（印象卡那张改写之后「旧版进修订史」是同一个形状）。
+  const [charTitle, setCharTitle] = useState({});
+  const charTitleRef = useRef({}); charTitleRef.current = charTitle;
+  const setCharTitleFor = (charId, text) => {
+    const t0 = String(text || "").trim().slice(0, 12);
+    setCharTitle(p => {
+      const cur = p[charId] || {};
+      // 换掉的那个不删，留一条——哪天想换回去找得到
+      const hist = (cur.text && cur.text !== t0) ? [{ text: cur.text, ts: cur.ts || 0 }].concat(cur.history || []).slice(0, 8) : (cur.history || []);
+      const n = { ...p, [charId]: t0 ? { text: t0, ts: Date.now(), history: hist } : { text: "", ts: 0, history: hist } };
+      saveJSON("x_charTitle", n);
+      return n;
+    });
+  };
   const [coupleTrips, setCoupleTrips] = useState([]);
   const coupleTripsRef = useRef([]); coupleTripsRef.current = coupleTrips;
   const [coupleGarden, setCoupleGarden] = useState({});
@@ -1355,6 +1371,7 @@ function App() {
     setGachaCards(loadJSON("x_gachaCards", []));
     setGachaLuck(loadJSON("x_gachaLuck", {}));
     setGachaSeeds(loadJSON("x_gachaSeeds", []));
+    setCharTitle(loadJSON("x_charTitle", {}));
     setCoupleBreakup(loadJSON("x_coupleBreakup", {}));
     // 迁移旧单人情侣数据 x_couple → 新多人 x_couples
     let cps = loadJSON("x_couples", null);
@@ -4114,7 +4131,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pocket: (n, t, b) => n + "把随身带着的「" + t + "」给了她：「" + b + "」",
     box:    (n, t, b) => "她和" + n + "各往一个盒子里放了一样东西，到日子一起打开了：「" + b + "」",
     seed:   (n, t, b) => "她给" + n + "寄过一样东西，收到了：「" + t + "」",
-    forme:  (n, t, b) => n + "替她扭了一发，挑了「" + t + "」给她，说：「" + b + "」"
+    forme:  (n, t, b) => n + "替她扭了一发，挑了「" + t + "」给她，说：「" + b + "」",
+    replay: (n, t, b) => n + "重演过你们的一幕「" + t + "」：「" + b + "」",
+    title:  (n, t, b) => n + "私下管她叫「" + t + "」——" + (b || "他自己起的")
   };
   const gachaKeep = (char, key, title, body) => {
     const f = GACHA_KEEP[key];
@@ -4245,7 +4264,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char) { toast("这张卡的角色已经不在了"); return; }
     // ⚠️秘密筹备是【两段】的：第二段（拆开）走的是同一张【已经盖过戳】的券，
     //   所以这道闸不能把它挡掉——它挡的是「同一张券兑两次」，不是「一张券的第二段」。
-    if (card.redeemedTs && card.act !== "planOpen" && card.act !== "boxOpen") return;
+    if (card.redeemedTs && card.act !== "planOpen" && card.act !== "boxOpen" && card.act !== "titleAgain") return;
     // ── R：0 调用 ──
     if (card.act === "peek") {
       const need = (window.GachaKit.byId[card.poolId] || {}).need;
@@ -4288,6 +4307,62 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         gachaStamp(card.id, got);
         gachaKeep(char, card.kind, got.title, got.body);
         return got;
+      }
+      // ── 他给你起的称呼：抽出来只是【候选】，收下才算数 ──
+      // 她 2026-09-14：「万一我不喜欢这个称号咋办」。它会进提示词、往后他真的会这么叫，
+      // 所以这一张必须是【他提一个，你说了算】：
+      //   · 没点「收下」之前一个字都不进提示词（ctxFor 读的是 x_charTitle，这儿只盖票根）
+      //   · 「换一个」要再花一枪，界面上写明白（她按次计费，不能让人以为免费重 roll）
+      //   · 收下之后随时能改、能不要；换掉的留一条旧的
+      if (card.act === "title" || card.act === "titleAgain") {
+        const old = (card.result || {}).tried || [];
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: gAsk("s_title")
+            + (old.length ? "\n\n【这几个她没要，换一个别的】" + old.join("、") : "")
+            + characterText(char, "\n扣着他此刻真实的处境写。"),
+          schemaHint: "{\"text\":\"那个称呼\",\"why\":\"他为什么这么叫她\"}",
+          maxTokens: 65535
+        });
+        const text = String(d.text || "").replace(/\s+/g, "").slice(0, 12);
+        if (!text) { toast("这次没起出来，卡还留着"); return; }
+        gachaStamp(card.id, { title: text, body: String(d.why || "").trim(), where: "title",
+          pending: true, tried: old.concat([text]).slice(-6) });
+        return { title: text, body: String(d.why || "").trim() };
+      }
+      // ── 名场面重演：吃的是你俩自己的历史，所以每家出来的都不一样 ──
+      // ⚠️素材【不许灌整段历史】。chat-context-window 开头记着那笔账：
+      //   预算算出来 4940 字（看着还很宽裕），实际拼进 prompt 22940 字，18000 字完全在预算之外。
+      //   所以聊天那一截走【喂回去的那段有多长，只此一份】那道公共闸（transcriptTail）。
+      // ⚠️记忆库那几条不另写一套筛法：它们本来就是「值得长期记住的」那些沉淀，
+      //   直接按时间取最近的十几条就够——真要按相关度召回，这一枪压根没有「相关」可言。
+      if (card.act === "replay") {
+        const uN = profile.name || "她";
+        const mem = (memLibRef.current || [])
+          .filter(e => e && e.text && (e.charIds || []).includes(char.id) && (e.surfaceState || "active") === "active")
+          .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 14)
+          .map(e => "· " + String(e.text).replace(/\s+/g, " ").slice(0, 90));
+        const lines = (chatsRef.current[char.id] || [])
+          .filter(m => m && m.content && contextAllowsMessage(m))
+          .slice(-40)
+          .map(m => (m.role === "user" ? uN : m.role === "narration" ? "【场景】" : char.name) + "：" + String(m.content).replace(/\s+/g, " "));
+        const tail = fedTranscript(lines.join("\n"));
+        if (!mem.length && !tail) { toast("你俩还没攒下什么可重演的，卡留着"); return; }
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: gAsk("s_replay")
+            + (mem.length ? "\n\n【你还记得的那些】\n" + mem.join("\n") : "")
+            + (tail ? "\n\n【最近你俩说过的话】\n" + tail : "")
+            + characterText(char, "\n扣着他此刻真实的处境写。"),
+          schemaHint: "{\"title\":\"这一幕他管它叫什么\",\"body\":\"回到那一刻，重演一遍\",\"track\":\"幕后评论音轨\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没演出来，卡还留着"); return; }
+        const title = String(d.title || card.name).trim(), track = String(d.track || "").trim();
+        gachaStamp(card.id, { title: title, body: body, track: track, where: "replay" });
+        gachaKeep(char, "replay", title, body);
+        return { title: title, body: body };
       }
       // ── 掉马券：一张文字卡，但兑完故事没结束——她可以把它当面摆到TA面前 ──
       // ⚠️那一下走现成的 forwardPhonePeekToChat（跟翻手机、翻随身物同一条链），
@@ -4543,6 +4618,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 那儿是【打包函数白送】的位置——所有走 buildBundle 的入口（单聊线上/线下、通话、
   // 穿书、匿名箱）一起有。群聊这两处不走 buildBundle，所以在这儿调同一份。
   // ⚠️别在这儿再写一遍文案：一层写在两处，第二处迟早跟不上（这份文件已经犯过太多次）。
+  // 群聊那两处不走 buildBundle，所以这一层要在这儿显式补（施工规则/four-surfaces-same-context.md：
+  // 「靠打包函数白送的换个入口自然就有；一条条 push 的，换个入口就一条都没有」）。
+  // ⚠️措辞跟 engine 里那一份保持一致，别在这儿另写一句。
+  const nickLineFor = (charId, uName) => {
+    const nk = ((charTitleRef.current || {})[charId] || {}).text || "";
+    return nk ? "你私下管 " + uName + " 叫「" + nk + "」——这是你自己给她起的称呼，想用的时候自然用，不必每句都用。" : "";
+  };
   const takenLineFor = (charId, uName) =>
     (typeof takenByOthersLine === "function" ? takenByOthersLine(charId, rels, characters || [], uName) : "");
   const coupleLineFor = (charId, uName) => {
@@ -4623,6 +4705,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (cp.status === "pending") return "pending";
       return "";
     })(),
+    // 他给她起的那个称呼（抽卡 s_title，她点了「收下」才有）。
+    // ⚠️走 ctx → buildBundle 这条【白送的】路：单聊线上/线下、通话、穿书、匿名箱、
+    //   解梦馆换个入口自然就有。群聊那两处不走 buildBundle，另外接（见 nickLineFor）。
+    nickname: ((charTitleRef.current || {})[char.id] || {}).text || "",
     coupleArchive: coupleArchiveFor(char.id),
     // 世界书：按当前角色 + 近期对话做关键词/绑定/范围/优先级检索式注入（第2步引擎），不再是一整团
     worldbook: loreFor(char, "chat"),
@@ -6854,7 +6940,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const c = characters.find(x => x.id === id);
         if (!c || c.npc) return;            // 配角跟用户没有关系线
         const l = coupleLineFor(id, userName(profile));
-        if (l) m[id] = l;
+        // 称呼跟情侣状态同一档：这位成员的私事，落在【他自己那一段】里、带同一道隐私围栏
+        const nk0 = nickLineFor(id, userName(profile));
+        const both = [l, nk0].filter(Boolean).join("\n");
+        if (both) m[id] = both;
       });
       return m;
     })(),
@@ -13516,7 +13605,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
-      cpSeg: (() => { const l = coupleLineFor(c.id, userName(profile)); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })(),
+      cpSeg: (() => {
+        // ⚠️称呼也走这一段：它是这位成员的私事，别的成员并不知情（跟情侣状态同一道围栏）。
+        const l = [coupleLineFor(c.id, userName(profile)), nickLineFor(c.id, userName(profile))].filter(Boolean).join("\n");
+        return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
+      })(),
       // 「Ta 眼里的你」那张印象卡（她 2026-09-10：「我的群聊能不能也影响 ta 眼里，
       //   不然如果只在群里聊永远改不了」）。
       // ⚠️查下来【写】那一半群里早就有了（impressionField + 落地那处），缺的是【读】：
@@ -21018,6 +21111,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGachaPin: (poolId, on) => {
       const n = window.GachaKit.setPinned(gachaCardsRef.current || [], poolId, on);
       gachaCardsRef.current = n; setGachaCards(n); saveJSON("x_gachaCards", n);
+    },
+    // 称呼那张卡上的三个口子。⚠️只有「收下」会写进 x_charTitle——也就是说，
+    //   没点它之前这个称呼一个字都不进提示词。
+    onGachaTitle: (card, how, custom) => {
+      const c = (characters || []).find(x => x.id === card.charId);
+      const r = card.result || {};
+      if (!c) return;
+      if (how === "take" || how === "edit") {
+        const t0 = String(how === "edit" ? custom : r.title || "").trim();
+        if (!t0) return;
+        setCharTitleFor(c.id, t0);
+        gachaStamp(card.id, { ...r, title: t0, pending: false, taken: true });
+        gachaKeep(c, "title", t0, r.body || "");
+        toast(characterText(c, "他往后会这么叫你了"));
+      } else if (how === "drop") {
+        // 不要：票根留着（那一下也发生过），只是不写进去；已经收下的也能反悔
+        if (r.taken) setCharTitleFor(c.id, "");
+        gachaStamp(card.id, { ...r, pending: false, taken: false });
+        toast("那就不用这个");
+      }
     },
     onGachaShow: card => {
       const c = characters.find(x => x.id === card.charId); const r = card.result || {};

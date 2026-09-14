@@ -166,7 +166,8 @@ test("秘密筹备：第一枪只出信封，第二枪由她按才花", () => {
 test("盖过戳的券还拆得开——那道防重兑的闸不许把第二段挡掉", () => {
   // 两段式的第二段都要放行（v68.39 又多了一个盒子）
   assert.match(app, /if \(card\.redeemedTs && card\.act !== "planOpen"/);
-  assert.match(app, /card\.act !== "boxOpen"\) return;/);
+  // v68.43 又多了一个「换一个称呼」，所以这儿只核【每一段都在名单上】，不写死结尾
+  assert.match(app, /card\.act !== "boxOpen"/);
 });
 
 test("种哪一样由代码掷，不问模型", () => {

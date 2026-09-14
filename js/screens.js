@@ -12825,8 +12825,31 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character, stackLeft }
           res.img ? h("img", { src: typeof phoneImage === "function" ? phoneImage(res.img) : res.img, alt: "",
             style: { display: "block", width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: 12, marginTop: 7 } }) : null,
           res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
+          // 幕后评论音轨：跟正文分开摆。它俩是【场里的他】和【场外的他】，
+          // 混成一段就把这张券最好玩的那层落差抹平了。
+          res.track ? h("div", { style: { marginTop: 8, borderLeft: "2px solid " + sk.tag, paddingLeft: 9 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sk.tag } }, "幕后"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 2, whiteSpace: "pre-wrap" } }, res.track)) : null,
           // 掉马券：兑完故事还没结束——这一下把东西摆到TA面前（走翻手机那条现成的链）
           // 秘密筹备到日子了：第二枪由她按，绝不在后台背着她打
+          // 称呼那张：抽出来只是候选，三个口子都在这儿。没点「收下」之前它不进提示词。
+          res.where === "title" && res.pending ? h("div", { style: { marginTop: 9 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.tag, marginBottom: 6, lineHeight: 1.6 } },
+              characterText(character, "收下之后他往后真的会这么叫你。「换一个」要再花一次调用。")),
+            h("div", { className: "flex items-center", style: { gap: 7, flexWrap: "wrap" } },
+              h("button", { onClick: () => onTitle && onTitle(card, "take"), disabled: !!busy, className: "active:opacity-60",
+                style: { fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: sk.ink, color: "#fff" } }, "收下"),
+              h("button", { onClick: () => onRedeem({ ...card, act: "titleAgain" }), disabled: !!busy, className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999, border: "1px solid " + sk.bd, color: sk.tag } },
+                busy === card.id ? "重想中…" : "换一个"),
+              h("button", { onClick: () => requestAppPrompt("自己改一个", "他起的那个不顺耳的话，你自己定。", String(res.title || ""),
+                  v => { const t0 = String(v || "").trim(); if (t0) onTitle && onTitle(card, "edit", t0); }, "就这个", { maxLength: 12 }),
+                className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "6px 6px" } }, "自己改"),
+              h("button", { onClick: () => onTitle && onTitle(card, "drop"), className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "6px 6px" } }, "不要"))) : null,
+          // 收下之后仍然能反悔——「随时能改能删」那一条要真的随时
+          res.where === "title" && res.taken ? h("button", { onClick: () => onTitle && onTitle(card, "drop"),
+            className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "不用这个称呼了") : null,
           // 盒子打开之后，两样东西才第一次同时摆出来（在那之前卡面上一个字都不露）
           res.where === "box" && res.opened ? h("div", { style: { marginTop: 9, display: "flex", flexDirection: "column", gap: 7 } },
             [[characterText(character, "他放的"), String((res.his || {}).title || "") + (res.his && res.his.body ? "｜" + res.his.body : "")],
@@ -12856,6 +12879,9 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character, stackLeft }
             : res.where === "drop" ? " · 这东西还没给你看过"
             : res.where === "dual" ? (res.side === "tease" ? " · 你挑了皮的那一面" : " · 你挑了甜的那一面")
             : res.where === "flow" ? " · 只这一次看得到"
+            : res.where === "replay" ? " · 这一幕是你俩真的有过的"
+            : res.where === "title" ? (res.taken ? characterText(character, " · 他往后会这么叫你")
+              : res.pending ? " · 还没定，你说了算" : " · 你没要这个")
             : res.where === "pocket" ? characterText(character, " · 已经放进你俩的抽屉，封着")
             : res.where === "box" ? (res.opened ? " · 已经一起打开了" : res.ready ? " · 到日子了，可以开了"
               : " · 封着" + (res.dueTs ? "，约 " + Math.max(1, Math.ceil((res.dueTs - Date.now()) / 86400000)) + " 天后" : "") + "（下次打开就看得到）")
