@@ -78,9 +78,22 @@ test("列出来的那几把：增强的排前面，而且标出来", () => {
   const s = V.scan([v("Ting-Ting", "zh-CN"), v("Li-mu (增强)", "zh-CN"), v("Yu-shu", "zh-TW")]);
   // options() 读的是真实机器，这儿只钉排序规则本身
   assert.deepEqual(s.best.map(x => x.name), ["Li-mu (增强)"]);
-  assert.match(ui, /h\("option", \{ value: "" \}, "嗓子 · 自动"\)/);
+  assert.match(ui, /h\("option", \{ value: "" \}, voiceOpts\.length \? "嗓子 · 自动"/);
   assert.match(ui, /\(v\.enhanced \? "★ " : ""\) \+ v\.name/);
   assert.match(ui, /setVoicePick\(root\.RadioVoice\.savePick\(ev\.target\.value\)\)/);
   // 她已经手动挑过，就别再唠叨怎么装增强音色
   assert.match(ui, /!root\.RadioVoice\.hasEnhanced\(\) && !voicePick/);
+});
+
+// 她 2026-09-13：「在哪儿选呢没看到嘤」——那一排铜键原来是横向滚动的，
+// 键一多，嗓子和陪听那两格就整个躲到机器右边沿外面，而且没有任何提示。
+test("机器下沿那排键要能全看见：换行，不是横向滚动", () => {
+  assert.match(ui, /"data-radio-keys": true[\s\S]{0,160}flexWrap: "wrap"/);
+  assert.ok(!/"data-radio-keys": true[\s\S]{0,160}overflowX: "auto"/.test(ui), "又躲到右边沿外面去了");
+});
+
+test("一把中文音色都没有时，那一格也要露面", () => {
+  // 不渲染的话她只会以为是自己没找着（上一版就是这么坑的）
+  assert.match(ui, /voiceOpts\.length \? "嗓子 · 自动" : "嗓子 · 这台机器没有中文音色"/);
+  assert.match(ui, /disabled: busy \|\| !voiceOpts\.length/);
 });

@@ -270,18 +270,22 @@
           backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1.5px, transparent 1.5px 5px)"
         } }),
         // 机器下沿那一排铜键：原来散在正文里的那一摞，全收到这儿
-        h("div", { "data-radio-keys": true, className: "flex items-center", style: { gap: 6, marginTop: 10, overflowX: "auto", paddingBottom: 2 } },
+        // ⚠️这一排原来是【横向滚动】的：键一多，后面那几个就整个躲到机器右边沿外面，
+        //   而且没有任何东西告诉你右边还有（她 2026-09-13：「在哪儿选呢没看到」——
+        //   嗓子和陪听那两格就是这么消失的）。改成【换行】：机器下沿多一排键是正常的，
+        //   一个点不到的键不是（施工规则/mobile-ui-layout.md）。
+        h("div", { "data-radio-keys": true, className: "flex items-center", style: { gap: 6, marginTop: 10, flexWrap: "wrap", rowGap: 6 } },
           keyBtn("接收这个频率的新章节", generate),
           keyBtn("已听回放（" + heard.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setHistoryOpen(true); }, !heard.length),
           keyBtn(noteOpen ? "收起纠正" : characterText(broadcaster, "这不像他"), () => setNoteOpen(!noteOpen), !fragment, noteOpen),
           // 嗓子那一格（v68.02）：拉开就是这台机器真列得出来的那几把——
           // 「自动优先增强」认不认得出，我们说了不算；她直接挑一把最实在。
-          voiceOpts.length ? h("select", { "aria-label": "用哪把嗓子", value: voicePick, disabled: busy,
+          h("select", { "aria-label": "用哪把嗓子", value: voicePick, disabled: busy || !voiceOpts.length,
             onChange: ev => { stop(); setVoicePick(root.RadioVoice.savePick(ev.target.value)); },
             style: { flexShrink: 0, minHeight: 40, padding: "0 8px", borderRadius: 7, border: "1px solid " + NT.line,
               background: "rgba(255,255,255,.03)", color: voicePick ? BRASS : NT.dim, fontFamily: F_BODY, fontSize: 12.5, maxWidth: 150 } },
-            h("option", { value: "" }, "嗓子 · 自动"),
-            voiceOpts.map(v => h("option", { key: v.uri, value: v.uri }, (v.enhanced ? "★ " : "") + v.name))) : null,
+            h("option", { value: "" }, voiceOpts.length ? "嗓子 · 自动" : "嗓子 · 这台机器没有中文音色"),
+            voiceOpts.map(v => h("option", { key: v.uri, value: v.uri }, (v.enhanced ? "★ " : "") + v.name))),
           h("select", { "aria-label": "谁陪你一起听", value: companionId, disabled: busy,
             onChange: e => { stop(); setCompanion(e.target.value); },
             style: { flexShrink: 0, minHeight: 40, padding: "0 8px", borderRadius: 7, border: "1px solid " + NT.line,
