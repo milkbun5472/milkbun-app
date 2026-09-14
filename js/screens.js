@@ -13012,7 +13012,10 @@ function StudioPicker({ zh, groups, value, onPick, tint, character }) {
   return h("div", { style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
-        zh, picked.length ? h("span", { style: { color: tint, marginLeft: 6 } }, "挑了 " + picked.length + " 件") : null),
+        zh, picked.length ? h("span", { style: { color: tint, marginLeft: 6 } }, "挑了 " + picked.length + " 件") : null,
+        // ⚠️多选是【拼一整套】不是【挑好几套】（她 2026-09-14：模型常把外套/内衫/裤子/
+        //   鞋帽各写一条）。不写这一句，多选看着像「挑哪一身都行」。
+        picked.length ? null : h("span", { style: { color: t.fog, marginLeft: 6 } }, "可多选，拼成一整套")),
       picked.length ? h("button", { onClick: () => onPick([]), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "不指定") : null),
     sets.length
       ? h("div", { className: "flex gap-2 overflow-x-auto", style: { marginTop: 7, paddingBottom: 3 } },

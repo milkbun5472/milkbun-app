@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.32";
+const APP_VERSION = "v68.33";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17366,21 +17366,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }));
         return hit;
       };
-      // ⚠️她一次可以挑好几身（真机截图里他那边就挑了两身）。全都配上原话，这一段能
-      //   长到几百字——那又把提示词撑回去了，等于换个地方再犯一次。
-      //   所以按【一边一个预算】来：排在前面的带原话，超了预算的只留名字。
-      //   一张照片上身超过三身本来也讲不通，顺手收在三身。
-      const DRESS_BUDGET = 220;
+      // ⚠️多选不是「挑了好几套」，是【把一整套拼出来】（她 2026-09-14 纠正我：
+      //   「模型有时候外套、内衫、裤子、鞋子、帽子都单独写，所以想多选能配出一整套」）。
+      //   所以这几件是【同一身】：用「＋」串成一句，不是用「；」并列成几套。
+      // ⚠️每件那一段 note 写的是「是什么衣服 + 为什么挑它」——【为什么】那半截对出图
+      //   一点用都没有，还正是把提示词撑爆的那半。所以每件只取前 48 个字（款式颜色料子
+      //   都在前头），整身再压一道总预算。
+      const PIECE_NOTE = 48, DRESS_BUDGET = 300, PIECE_MAX = 6;
       const dressLine = (who, picked, groups) => {
-        const names = String(picked || "").split("、").map(x => x.trim()).filter(Boolean).slice(0, 3);
+        const names = String(picked || "").split("、").map(x => x.trim()).filter(Boolean).slice(0, PIECE_MAX);
         if (!names.length) return "";
         let used = 0;
         const parts = names.map(n => {
-          const note = setNote(groups, n);
+          const note = String(setNote(groups, n) || "").slice(0, PIECE_NOTE);
           if (note && used + note.length <= DRESS_BUDGET) { used += note.length; return n + "（" + note + "）"; }
           return n;
         });
-        return who + "穿：" + parts.join("；");
+        // 一身里的几件用＋串起来，图像那头才知道这是一套，不是让它在几套里挑
+        return who + "穿（这是一整套，几件都要穿上）：" + parts.join("＋");
       };
       const hisGroups = ((carryRef.current || {})[char.id] || {}).outfit;
       const myGroups = myClosetRef.current;
