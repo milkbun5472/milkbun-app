@@ -288,9 +288,11 @@
           // 一份节目文字稿：谁在说写在段前，插播连线单起一节，没听的那几句留着断口
           paragraphs.map((par, i) => h(React.Fragment, { key: i },
             par.gap ? h("p", { "data-radio-gap": true, style: { margin: "0 0 18px", textAlign: "center", fontSize: 12, letterSpacing: ".3em", color: NT.faint } }, "⋯⋯") : null,
-            par.call && !(paragraphs[i - 1] && paragraphs[i - 1].call) ? h("p", { "data-radio-callmark": true, style: { margin: "0 0 12px", fontSize: 11.5, letterSpacing: ".18em", color: BRASS } }, "插播连线") : null,
-            h("p", { "data-radio-paragraph": true, style: { margin: "0 0 18px", lineHeight: 2.05, fontSize: 16.5,
-              color: par.kind === "narrator" ? NT.dim : NT.ink } },
+            par.mark && par.mark !== (paragraphs[i - 1] && paragraphs[i - 1].mark) ? h("p", { "data-radio-callmark": true, style: { margin: "0 0 12px", fontSize: 11.5, letterSpacing: ".18em", color: BRASS } }, par.mark) : null,
+            h("p", { "data-radio-paragraph": true, style: { margin: "0 0 18px", lineHeight: 2.05,
+              fontSize: par.kind === "ad" ? 14.5 : 16.5,
+              textAlign: par.kind === "ad" ? "center" : "left",
+              color: par.kind === "narrator" ? NT.dim : par.kind === "ad" ? NT.warm : NT.ink } },
               par.speaker ? h("span", { style: { color: BRASS, marginRight: 6 } }, par.speaker + "：") : null,
               par.lines.map(l => h("button", { key: l.fragmentId + ":" + l.index, "aria-label": "第" + (l.position + 1) + "句 · " + l.text,
                 onClick: () => { showLine(l.position); setHistoryOpen(false); }, style: { display: "inline", padding: 0, border: 0, background: "transparent", color: "inherit", font: "inherit", lineHeight: "inherit", textAlign: "left", cursor: "pointer" } }, l.text + " "))))),
@@ -336,7 +338,7 @@
             h("div", { style: { fontSize: 11, color: NT.faint, marginBottom: 10 } },
               h("span", { role: "status" }, "广播中 · " + (playing ? "正在朗读" : lineIndex < 0 ? "尚未开始" : "已暂停，可接话"))),
             current ? h("div", { "data-radio-current": true, "aria-live": "polite", style: { marginBottom: 16 } },
-              h("small", { style: { color: BRASS, fontSize: 11 } }, (currentPart.call ? "插播 · " : "") + "第" + (lineIndex + 1) + "句 · " + (current.speaker || branch.name)),
+              h("small", { style: { color: BRASS, fontSize: 11 } }, (current.kind === "ad" ? "插播广告 · " : currentPart.call ? "插播 · " : "") + "第" + (lineIndex + 1) + "句 · " + (current.kind === "ad" ? "本台" : current.speaker || branch.name)),
               h("div", { style: { fontSize: 16.5, lineHeight: 2.05, marginTop: 7, color: NT.ink } }, current.text)) : null,
             // TA心里那句「这人是不是我认识的某某」——没播到的电话等于没发生，所以播出去了才给她看。
             currentPart && currentPart.call && currentPart.guess && R.heardLines(branch, currentPart.id).length

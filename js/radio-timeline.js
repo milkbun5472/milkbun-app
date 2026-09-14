@@ -68,7 +68,7 @@
   function accept(raw, eraId, id) {
     if (!era(eraId)) throw Error("频率无效。");
     const rows = raw && raw.lines;
-    if (!Array.isArray(rows) || !rows.length || rows.some(x => !x || !["narrator", "character"].includes(x.kind) || !text(x.text))) {
+    if (!Array.isArray(rows) || !rows.length || rows.some(x => !x || !["narrator", "character", "ad"].includes(x.kind) || !text(x.text))) {
       throw Error("片段格式不完整，尚未存入这条线。");
     }
     // 仅对新生成结果按句界拆分；旧存档的索引已被听闻记录引用，保持原样。
@@ -76,6 +76,8 @@
     //   所以拆句这一步从「顺手兜一下」变成了【唯一的那道工序】——它掉链子，
     //   她就会拿到一张两千字的卡。没有 Intl.Segmenter 的那条路照旧要能把段落拆开。
     return { id, era: eraId, title: text(raw.title) || era(eraId).label, lines: rows.flatMap((x, paragraph) => {
+      // 广告不拆句：一条插播就是一个整的节拍，拆开念就散了（正文照旧一段一项、按句界拆）
+      if (x.kind === "ad") return [{ kind: "ad", speaker: "", text: text(x.text), paragraph }];
       const sentences = splitSentences(text(x.text));
       return sentences.map(sentence => ({ kind: x.kind, speaker: x.kind === "narrator" ? "旁白" : text(x.speaker), text: sentence, paragraph }));
     }) };
@@ -133,8 +135,10 @@
       if (!heard) { previous = null; return; }
       const same = previous && previous.fragmentId === row.fragmentId && previous.speaker === row.speaker && previous.paragraph === row.paragraph && (row.paragraph != null || paragraphs.at(-1).lines.length < 6);
       if (!same) paragraphs.push({
-        speaker: row.kind === "narrator" ? "" : (row.speaker || ""),
+        speaker: row.kind === "narrator" || row.kind === "ad" ? "" : (row.speaker || ""),
         kind: row.kind || "",
+        // 一套标记，两种插播（施工规则/one-public-mechanism.md）：别为广告再开一个字段
+        mark: row.kind === "ad" ? "插播广告" : callIds.has(row.fragmentId) ? "插播连线" : "",
         call: callIds.has(row.fragmentId),
         gap: position !== lastPosition + 1,          // 中间那几句还没听——不许悄悄接上
         lines: []
@@ -288,7 +292,16 @@
       //   换来的是模型得连着吐四十个 JSON 对象，每一句都写成能单独立住的样子：
       //   句子等长、各自完整、谁也不接谁。那正是她看到的「没有剧情」的手感。
       //   拆句归代码，成文归模型：这一层只在提示词里撤掉，播放器那头一模一样。
-      "先把整章正文写完整，再按【自然段】放进lines：一段一项。**不要一句一项**——播放器自己会按句子拆开来播，不用你替它拆；一句一项只会逼着每句话都写成能单独立住的样子，整章就没有轻重了。每一项都是TA在广播里说出口的话：kind一律填character、speaker填角色姓名（讲故事的时候说话的也还是TA），**不要输出kind=narrator的项**。写的是连贯正文，不是章节提纲或梗概。",
+      "先把整章正文写完整，再按【自然段】放进lines：一段一项。**不要一句一项**——播放器自己会按句子拆开来播，不用你替它拆；一句一项只会逼着每句话都写成能单独立住的样子，整章就没有轻重了。每一项都是TA在广播里说出口的话：kind一律填character、speaker填角色姓名（讲故事的时候说话的也还是TA），**不要输出kind=narrator的项**（kind=ad是下面单说的插播，不受这一句管）。写的是连贯正文，不是章节提纲或梗概。",
+      // 插播广告（她 2026-09-13 点名开工的那一条）。
+      // ⚠️跟这一章【一起生成】，不另调模型——每插播一次打一枪＝烧钱。
+      // 为什么广告能存在于「他不知道谁在听」的电台里：广告在形式上是【对所有人说的】，
+      //   所以它不破坏那份不对称，可内容全是私货。这是发糖发刀唯一不越界的口子。
+      "同一章里夹**1~2条插播广告**，kind填ad、speaker留空，摆在两个自然段之间（不许放在开头或结尾）。"
+        + "它是这档节目的赞助广告、寻人启事、天气、失物招领、整点报时——**用广告本身的口气说**，一条不超过40字。"
+        + "⚠️广告不许直说心事：那句话要藏在赞助商的名字里、寻的那个人身上、预报的那场雨里。"
+        + "它可以是甜的，也可以是疼的。写完问自己一句：**这条广告如果真在电台里播出来，别人只会当它是条广告吗**——"
+        + "是，才算写对了；一眼看出是在对谁表白，就重写。",
       "【角色卡原文】\n" + branch.name + "\n" + branch.persona,
       "【相关世界设定】\n" + branch.lore,
       "【用户想探索的事】\n" + branch.topic,

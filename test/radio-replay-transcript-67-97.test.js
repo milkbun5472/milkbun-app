@@ -57,9 +57,10 @@ test("中间没听的那几句留着断口，不许悄悄接上", () => {
 test("界面：说话人写在段前，连线单起一节，断口画成省略号", () => {
   assert.match(ui, /par\.speaker \? h\("span", \{ style: \{ color: BRASS, marginRight: 6 \} \}, par\.speaker \+ "："\) : null/);
   assert.match(ui, /"data-radio-callmark": true/);
-  assert.match(ui, /par\.call && !\(paragraphs\[i - 1\] && paragraphs\[i - 1\]\.call\)/, "连着的连线段只标一次");
+  // v67.99：连线和广告共用一套标记（par.mark），连着同一种插播只标一次
+  assert.match(ui, /par\.mark && par\.mark !== \(paragraphs\[i - 1\] && paragraphs\[i - 1\]\.mark\)/, "连着的同一种插播只标一次");
   assert.match(ui, /"data-radio-gap": true/);
-  assert.match(ui, /color: par\.kind === "narrator" \? NT\.dim : NT\.ink/, "旁白要比台词淡一档");
+  assert.match(ui, /color: par\.kind === "narrator" \? NT\.dim : par\.kind === "ad" \? NT\.warm : NT\.ink/, "旁白要比台词淡一档");
   // 句子还是一句一个按钮：点一句回到播放屏重听，这条没变
   assert.match(ui, /par\.lines\.map\(l => h\("button"/);
   assert.match(ui, /const heard = paragraphs\.flatMap\(x => x\.lines\);/);
