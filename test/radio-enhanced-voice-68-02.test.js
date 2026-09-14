@@ -56,3 +56,31 @@ test("引导只在真的没装时才出现，装了它自己消失", () => {
   assert.match(V.ENHANCED_HINT, /设置 → 辅助功能 → 朗读内容 → 声音/);
   assert.ok(!/永远|一直/.test(V.ENHANCED_HINT));
 });
+
+// 她 2026-09-13：「我设置了还是默认的嘤」。
+// ⚠️「自动优先增强」是【猜】的：增强音色在各家系统里叫什么、暴不暴露给网页，我们说了不算。
+// 所以给一格手动——顺带它也是诊断：拉开就知道这台机器到底列得出哪几把。
+test("她手动挑过就一律听她的，种子不再参与", () => {
+  const store = {};
+  global.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+  try {
+    assert.equal(V.loadPick(), "");
+    V.savePick("com.apple.voice.enhanced.zh-CN.Lilian");
+    assert.equal(V.loadPick(), "com.apple.voice.enhanced.zh-CN.Lilian");
+    // 挑的那把不在这台机器上（换了设备/系统删了）→ 退回自动，不许哑掉
+    assert.equal(V.pick(0.3), null, "这台机器一把中文音色都没有，本来就该退回浏览器默认");
+    V.savePick("");
+    assert.equal(V.loadPick(), "");
+  } finally { delete global.localStorage; }
+});
+
+test("列出来的那几把：增强的排前面，而且标出来", () => {
+  const s = V.scan([v("Ting-Ting", "zh-CN"), v("Li-mu (增强)", "zh-CN"), v("Yu-shu", "zh-TW")]);
+  // options() 读的是真实机器，这儿只钉排序规则本身
+  assert.deepEqual(s.best.map(x => x.name), ["Li-mu (增强)"]);
+  assert.match(ui, /h\("option", \{ value: "" \}, "嗓子 · 自动"\)/);
+  assert.match(ui, /\(v\.enhanced \? "★ " : ""\) \+ v\.name/);
+  assert.match(ui, /setVoicePick\(root\.RadioVoice\.savePick\(ev\.target\.value\)\)/);
+  // 她已经手动挑过，就别再唠叨怎么装增强音色
+  assert.match(ui, /!root\.RadioVoice\.hasEnhanced\(\) && !voicePick/);
+});

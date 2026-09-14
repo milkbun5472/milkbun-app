@@ -158,6 +158,9 @@
     const NT = (root.RadioUI && root.RadioUI.NIGHT)
       || { ink: "#efe7da", dim: "#a89a86", faint: "#6f6558", line: "rgba(239,231,218,.16)", warm: "#e3a86a" };
     const BRASS = "#c9a15e";
+    // 用哪把嗓子：她自己挑（存本机）。空＝自动（优先增强）
+    const [voicePick, setVoicePick] = useState(() => (root.RadioVoice ? root.RadioVoice.loadPick() : ""));
+    const voiceOpts = root.RadioVoice ? root.RadioVoice.options() : [];
     const skin = { background: "linear-gradient(168deg,#3a2d23,#241c16 58%,#181310)", color: NT.ink, fontFamily: F_BODY };
     const inputStyle = { width: "100%", minWidth: 0, boxSizing: "border-box", padding: 11, border: "1px solid " + NT.line,
       borderRadius: 9, background: "rgba(12,10,9,.55)", color: NT.ink, fontSize: 15, fontFamily: F_BODY };
@@ -271,6 +274,14 @@
           keyBtn("接收这个频率的新章节", generate),
           keyBtn("已听回放（" + heard.length + "）", () => { stop(); playbackScroll.current = scroll.current ? scroll.current.scrollTop : 0; setHistoryOpen(true); }, !heard.length),
           keyBtn(noteOpen ? "收起纠正" : characterText(broadcaster, "这不像他"), () => setNoteOpen(!noteOpen), !fragment, noteOpen),
+          // 嗓子那一格（v68.02）：拉开就是这台机器真列得出来的那几把——
+          // 「自动优先增强」认不认得出，我们说了不算；她直接挑一把最实在。
+          voiceOpts.length ? h("select", { "aria-label": "用哪把嗓子", value: voicePick, disabled: busy,
+            onChange: ev => { stop(); setVoicePick(root.RadioVoice.savePick(ev.target.value)); },
+            style: { flexShrink: 0, minHeight: 40, padding: "0 8px", borderRadius: 7, border: "1px solid " + NT.line,
+              background: "rgba(255,255,255,.03)", color: voicePick ? BRASS : NT.dim, fontFamily: F_BODY, fontSize: 12.5, maxWidth: 150 } },
+            h("option", { value: "" }, "嗓子 · 自动"),
+            voiceOpts.map(v => h("option", { key: v.uri, value: v.uri }, (v.enhanced ? "★ " : "") + v.name))) : null,
           h("select", { "aria-label": "谁陪你一起听", value: companionId, disabled: busy,
             onChange: e => { stop(); setCompanion(e.target.value); },
             style: { flexShrink: 0, minHeight: 40, padding: "0 8px", borderRadius: 7, border: "1px solid " + NT.line,
@@ -347,7 +358,7 @@
               // 免费的那一刀（她 2026-09-13）：增强中文音色得用户自己去系统设置装，
               // 装了浏览器就列得出来、这儿自动用上。所以只在【真的没装】时才说这一句，
               // 装了它自己就消失——不是一条永远挂着的广告。
-              root.RadioVoice && !root.RadioVoice.hasEnhanced()
+              root.RadioVoice && !root.RadioVoice.hasEnhanced() && !voicePick
                 ? h("span", { "data-radio-voicehint": true, style: { display: "block", marginTop: 4, lineHeight: 1.8 } },
                     root.RadioVoice.ENHANCED_HINT)
                 : null),

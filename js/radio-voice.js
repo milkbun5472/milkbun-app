@@ -36,9 +36,33 @@
       speechSynthesis.addEventListener("voiceschanged", () => { cache = null; });
     }
   } catch (e) {}
+  // 她自己指定的那一把（她 2026-09-13：装了增强音色还是默认那把）。
+  // ⚠️「自动优先增强」是猜的：增强音色在不同系统里叫什么、暴不暴露给网页，我们说了不算。
+  //   所以给一格手动——顺带它也是诊断：拉开就知道这台机器到底列得出哪几把。
+  const KEY = "x_radioVoice";
+  function loadPick() {
+    try { return String((typeof localStorage !== "undefined" && localStorage.getItem(KEY)) || ""); } catch (e) { return ""; }
+  }
+  function savePick(uri) {
+    try { if (typeof localStorage !== "undefined") localStorage.setItem(KEY, String(uri || "")); } catch (e) {}
+    return String(uri || "");
+  }
+  // 这台机器上所有中文嗓子，按【增强的排前面】给界面列
+  function options() {
+    const v = voices();
+    const good = v.all.filter(isEnhanced), rest = v.all.filter(x => !isEnhanced(x));
+    return good.concat(rest).map(x => ({ uri: x.voiceURI || x.name, name: x.name, lang: x.lang, enhanced: isEnhanced(x) }));
+  }
   // 0~1 的种子 → 一把嗓子。挑不出来返回 null（那就用浏览器默认的，别硬塞）
+  // 她手动指定过就一律用那一把：手动 > 自动，种子不再参与。
   function pick(seed) {
-    const list = voices().best;
+    const v = voices();
+    const mine = loadPick();
+    if (mine) {
+      const hit = v.all.find(x => (x.voiceURI || x.name) === mine);
+      if (hit) return hit;
+    }
+    const list = v.best;
     if (!list.length) return null;
     const n = Number(seed);
     const at = Number.isFinite(n) ? Math.floor(Math.abs(n) * list.length) : 0;
@@ -53,5 +77,5 @@
   const hasEnhanced = () => voices().enhanced > 0;
   // 装增强音色的路（她的机器是 iPhone，先写 iOS 那一条）
   const ENHANCED_HINT = "系统音色偏硬？去 设置 → 辅助功能 → 朗读内容 → 声音 里装一把增强中文音色，这儿会自动用上。";
-  return { pick, hash01, hasEnhanced, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
+  return { pick, hash01, hasEnhanced, options, loadPick, savePick, KEY, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
 });
