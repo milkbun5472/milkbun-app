@@ -14791,7 +14791,12 @@ function ChatSettings({
   // 上面那根条从头到尾说的是「TA 想不想找【你】」，TA 在群里想那边的那几份，
   // 以前界面上一个字都没有——看着就像动念只对着她一个人涨。
   const renderDongnianElsewhere = () => {
-    const rows = (dongnianElsewhere || []).filter(r => r && Number(r.connection) > 0.02);
+    // ⚠️原来这儿是 `> 0.02` 才显示。看着像在过滤噪音，实际效果是
+    //   【刚清零的那一场整行消失】——而群里刚有人说过话，正是最常见的状态。
+    //   她 2026-09-14 报的就是这个：两个角色的旁观群设置一模一样，
+    //   一个显示（0.04）一个整块不见（刚在那个群聊过，清零了）；
+    //   她以为是积累丢了。**有这一场就该有这一行**，攒到哪儿是另一回事。
+    const rows = (dongnianElsewhere || []).filter(r => r && Number.isFinite(Number(r.connection)));
     if (!rows.length) return null;
     return h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
@@ -14802,7 +14807,8 @@ function ChatSettings({
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, flex: "0 0 34%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name),
           h("div", { style: { position: "relative", flex: 1, height: 6, borderRadius: 999, background: t.bg } },
             h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, Math.round(c / 0.5 * 100)) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog } })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: "0 0 auto" } }, c.toFixed(2)));
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: "0 0 auto" } },
+            c > 0.02 ? c.toFixed(2) : "刚归零"));
       }));
   };
   // 端不端着看【A 那份傲娇】：动念自己那份永远到不了闸口，见下面那段注释。
