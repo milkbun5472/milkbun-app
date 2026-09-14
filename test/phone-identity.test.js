@@ -72,10 +72,13 @@ test("🌱 模型没给的不许把旧值抹掉", () => {
   assert.deepEqual(out.userContact, old.userContact);
 });
 
-test("🌱 一次刷新最多真改动两项，多的回填旧值", () => {
+test("🌱 一次刷新最多真改动这么几项，多的回填旧值", () => {
   // 光靠提示词说「别乱改」只是降概率，模型高兴起来能把六项一起换掉，
   // 那 🌱 就退化成 ♻️ 了。代码这一道是保证。
-  assert.equal(P.PHONE_EVOLVE_CHURN, 2);
+  // ⚠️额度是【每个 app 各一个】，不是整次刷新的总额（带 🌱 的有八个 app）。
+  // v68.21：2 → 4（她 2026-09-14）。购物六项、外卖八项，2 的话换一轮要等三四次刷新；
+  // 每周例行那一次中间隔了整整一周，只准动两项太紧。
+  assert.equal(P.PHONE_EVOLVE_CHURN, 4);
   const old = { account: { name: "甲", member: "乙", style: "丙", persona: "丁" }, addrs: [{ label: "戊" }], habit: { budget: "己" } };
   const gen = { account: { name: "A", member: "B", style: "C", persona: "D" }, addrs: [{ label: "E" }], habit: { budget: "F" } };
   const out = P.phoneEvolveMerge("shopping", old, gen);

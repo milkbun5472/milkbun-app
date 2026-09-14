@@ -371,7 +371,12 @@ const PHONE_EVOLVE = {
 };
 // 一次刷新最多允许几项 🌱 真的改动。光靠提示词说「别乱改」只是降概率，
 // 模型高兴起来能把六项一起换掉——那 🌱 就退化成 ♻️ 了。超出的按旧值回填。
-const PHONE_EVOLVE_CHURN = 2;
+// ⚠️这是【每个 app 各一个计数器】，不是整次刷新的总额：带 🌱 的有八个 app，
+//   所以一次完整刷新真正能动的是这个数的八倍。
+// 2 → 4（她 2026-09-14）。2 是按「她一天随手刷好几次」定的，可购物有六项、
+//   外卖有八项，真要换一轮得等三四次刷新；而每周例行那一次中间隔了整整一周，
+//   只准动两项就太紧了——一周里换个签名、搬个家、口味变了都很正常。
+const PHONE_EVOLVE_CHURN = 4;
 
 const phoneGetPath = (obj, path) => String(path || "").split(".").reduce((o, k) => (o && typeof o === "object") ? o[k] : undefined, obj);
 const phoneSetPath = (obj, path, val) => {
