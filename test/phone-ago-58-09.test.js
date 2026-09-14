@@ -64,8 +64,9 @@ test("会写手机数据的只有生成那两条路，没有别的东西在偷�
   // v68.24 起是两处：savePhoneApp（写）和 resetPhoneApp（清空重生，她 2026-09-14）。
   // 清空是【整份删掉】那一路，不经过分层合并——所以它必须是显式的、点得到的，
   // 不能混在写入口里悄悄发生。两处之外再多一处就是又开了一条偷偷刷的路。
-  assert.equal((app.match(/saveJSON\("x_phone", n\);/g) || []).length, 2, "手机数据的写入口不止这两个了");
-  assert.match(app, /const resetPhoneApp = \(charId, key\) => \{/, "第二处不是清空重生那一路");
+  assert.equal((app.match(/saveJSON\("x_phone", n\);/g) || []).length, 1, "日常生成只走共享写入口");
+  assert.match(app, /const resetPhoneApp = async \(charId, key\) => \{/, "清空必须等待持久化");
+  assert.match(app, /PhoneKit\.resetStored\(charId, key, loadJSON, commitJSONDurable\)/, "清空走验证与回滚链");
   assert.equal((app.match(/savePhoneApp\(char\.id, key, d\);/g) || []).length, 2, "只该有 genPhoneApp 和 genPhoneAll 两个调用方");
   // 朋友圈是累积层：刷新是【并进去】不是整份重写，所以旧的还在、新的在上面
   assert.match(phone, /wechat: \{ chats: 14, moments: 14,/);

@@ -7403,7 +7403,7 @@ function VoiceEarComposer({ onSend, onClose, senderName, ownerKey, toast }) {
 
 // ---- chat thread (single) ----
 // 线下经过卡：默认显示短总结（当分隔），点「看完整经过」展开逐条 transcript。
-// 澄清她的疑问：卡片短≠细节丢——喂给模型的一直是完整 transcript（app.js 注入），这里只是让她也能翻看。
+// 回看展示存下来的逐条记录；模型注入另按 ChatContextWindow 的预算取尾段。
 function OfflineLogCard({ m, t, sel }) {
   const [open, setOpen] = useState(false);
   return h("div", { "data-wk": "card", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },

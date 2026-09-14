@@ -30,11 +30,12 @@ function backDecide(handled, lastAt, now, window_) {
   var MARK = "__milkbunBack";
   var stack = [];       // 处理器，后进的在栈顶
   var armed = false;
+  var exiting = false;
   var lastAt = 0;
   var hint = null;
 
   function seed() {
-    try { window.history.pushState({ __milkbunBack: 1 }, ""); } catch (e) {/* 没有 history 就算了 */}
+    try { window.history.pushState(Object.assign({}, window.history.state, { __milkbunBack: 1 }), ""); } catch (e) {/* 没有 history 就算了 */}
   }
   function runStack() {
     for (var i = stack.length - 1; i >= 0; i--) {
@@ -45,13 +46,18 @@ function backDecide(handled, lastAt, now, window_) {
     return false;
   }
   function onPop() {
+    if (exiting) {
+      // 旧版本刷新可能已叠了数枚哨兵，退完这些再离开，不能提前拆掉保护。
+      if (window.history.state && window.history.state[MARK]) { window.history.back(); return; }
+      armed = false; exiting = false; lastAt = 0;
+      window.removeEventListener("popstate", onPop);
+      window.history.back();
+      return;
+    }
     var act = backDecide(runStack(), lastAt, Date.now(), BACK_EXIT_WINDOW);
     if (act === "exit") {
-      // 真放行：哨兵刚被这一下吃掉，不再补回去，再退一格就出去了。
-      armed = false;
-      lastAt = 0;
-      window.removeEventListener("popstate", onPop);
-      try { window.history.back(); } catch (e) {/* 退不出去就留在这儿 */}
+      exiting = true;
+      onPop();
       return;
     }
     seed();
@@ -69,7 +75,9 @@ function backDecide(handled, lastAt, now, window_) {
       hint = (opts && opts.hint) || hint;
       if (armed) return;
       armed = true;
-      seed();
+      exiting = false; lastAt = 0;
+      // 刷新/恢复同一条历史时复用哨兵，不叠加另一条。
+      if (!(window.history.state && window.history.state[MARK])) seed();
       window.addEventListener("popstate", onPop);
     },
     // 注册一个处理器：返回 true = 我接住了。返回的函数用来注销。
@@ -83,6 +91,10 @@ function backDecide(handled, lastAt, now, window_) {
     },
     _depth: function () { return stack.length; }
   };
+  // 从站外返回命中浏览器页面缓存时，React 不会重新挂载；恢复保护但不叠哨兵。
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) window.BackGuard.arm({});
+  });
 })();
 
 if (typeof module === "object" && module.exports) module.exports = { backDecide, BACK_EXIT_WINDOW };

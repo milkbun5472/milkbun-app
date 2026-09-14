@@ -3,7 +3,7 @@
 // 查手机里面的东西让他重新生成了」。
 //
 // 惯性不是模型记性好，是我们自己发回去的：刷新【在旧那份上往下写】。
-// 所以两头一起做——语言那一档治本（连带把旧的改写过来），清空重生止血。
+// 语言档约束新生成内容；已有四层数据保留，清空需确认并验证持久化。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -38,9 +38,10 @@ test("默认那一档跟着人设走，没写才中文", () => {
   assert.equal(s, spec("notes", "乱填的"));   // 认不出的一律回默认档
 });
 
-test("三档都要管【上面发回去的旧内容】——不然改了还是接着旧的写", () => {
+test("三档明确区分新增语言和已有数据，不承诺重写历史", () => {
   K.PHONE_LANG_MODES.forEach(m => {
-    assert.match(spec("notes", m), /这一轮照这条改写过来/, m);
+    assert.match(spec("notes", m), /旧内容使用的语言不决定新内容/, m);
+    assert.match(spec("notes", m), /已有记录按各自保留规则沿用/, m);
   });
 });
 
@@ -76,7 +77,7 @@ test("归档里属于这个 app 的那几条一起走——不然时间线上还
 test("app.js 那一头：三张表都照着写入方的键名清（施工规则/stub-from-the-writer.md）", () => {
   assert.match(appSrc, /saveJSON\("x_phone", n\)/);
   assert.match(appSrc, /saveJSON\("x_phoneArch", n\)/);
-  assert.match(appSrc, /const resetPhoneApp = \(charId, key\) => \{/);
+  assert.match(appSrc, /const resetPhoneApp = async \(charId, key\) => \{/);
   // 健康的趋势是另存的一张表，清空时要一起走
   assert.match(appSrc, /if \(key === "health"\) setPhoneVitals/);
 });

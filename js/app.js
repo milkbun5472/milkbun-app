@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.27";
+const APP_VERSION = "v68.28";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3018,27 +3018,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const memShareChar = (aIds, bIds) => { const a = aIds || [], b = bIds || []; if (!a.length || !b.length) return true; return a.some(x => b.includes(x)); };
   // 是否重复（跳过新的）：v48.41 改成【不对称】——只有「新文本没添新信息」才算重复，即新的 ⊆ 已有（被已有包含）或完全相同。
   // 若新的更长、反而包含了旧的（是更详细版），不算重复：放它进来，交给 pruneSubsumed 淘汰旧的含糊版，别再丢细节。
-  // ── 一场线下别往记忆库里写两遍（她 2026-09-14 转来的反馈）──────────────
-  // 有人报「线下的内容是边聊边生成一些，然后结束了重新全部生成，有一些些重复的」。
-  // 是真的：滚动总结每攒够 50 段就把那一段写进记忆库，而结束那一趟是拿【整场】
-  // 重新总结一遍——同一件事被两份不同措辞的文字各记一条，去重闸认不出来（它只认
-  // 字面重合，而两趟是两次独立生成）。
-  // ⚠️不删行：按全库同一套做法把旧的标成 superseded（行还在，只是不再进提示词、
-  //   不再出现在库里）。以【最后那一份】为准——它看的是整场，本来就更全。
-  // ⚠️她自己动过的不碰：手动记的、钉住的、已经被别处收起来的，一律原样留着。
-  const supersedeOfflineRolling = ofsId => {
-    if (!ofsId) return 0;
-    let n = 0;
-    const next = (memLibRef.current || []).map(e => {
-      if (!e || String(e.ofs || "") !== String(ofsId)) return e;
-      if (e.source === "manual" || e.pinned) return e;
-      if ((e.surfaceState || "active") !== "active") return e;
-      n++;
-      return { ...e, surfaceState: "superseded", supersededReason: "offline-final" };
-    });
-    if (n) saveMemLib(next);
-    return n;
-  };
+  // 线下结束仍走 addMemEntry → pruneSubsumed：重复跳过，更详细替代只提确认候选。
+  // 按场次自动收起会误伤手改/未覆盖细节，也绕过云端纠错写权；ofs 仅作本机来源标记。
   const isDupMem = (text, charIds, pool, meta = {}) => {
     const n = normMemText(text); if (n.length < 4) return false;
     const rows = pool || memLibRef.current;
@@ -3178,7 +3159,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 调用方传了也会被静默丢掉，「清群记录·同步忘却」就永远只能靠 tag 兜底。
       ...(e.groupId ? { groupId: String(e.groupId) } : {}),
       // 哪一场线下写的。⚠️白名单式建对象：不写在这儿，调用方传了也会被静默丢掉，
-      //   结束时就认不出「这几条是这一场滚动总结写的」（见 supersedeOfflineRolling）。
+      //   来源标记仅用于追溯，不能据此自动隐藏整场记忆。
       ...(e.ofs ? { ofs: String(e.ofs) } : {})
     };
     // v51.07：模型把“今晚吃粥”一类普通未来安排也大量标成 open。
@@ -5849,7 +5830,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (summ) {
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
-        // ofs：这几条是【这一场】滚动写的。结束那一趟会拿整场重来一遍，到时候按这个号把它们收起来
+        // ofs：记录本机场次来源；替代旧记忆仍需走共同的确认机制。
         addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
         (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
         (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
@@ -6354,9 +6335,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    // ⚠️顺序要紧：**总结真的出来了**才收起滚动那几条。这一枪要是失败（summary 为空），
-    //   收了就等于这一场的记忆全没了——宁可留着重复，不能留空。
-    if (!sideRoom && summary) supersedeOfflineRolling(sess.id);
+    // 旧记忆保留，新条交给共享去重/确认候选机制，不按场次自动隐藏。
     if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
     // 谈话细节逐条入库（她要的：总结之外，具体聊过什么也记得住）；新约定标未了结
     if (!sideRoom) details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
@@ -6645,7 +6624,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
           // groupId：清群记录时要能只摘本群产生的条目，光靠 tags 认不准（她 2026-08-24）
-          // ofs：这几条是【这一场】滚动写的（跟单人线下同一条规矩，结束时按这个号收起来）
+          // ofs：本机场次来源，不作为自动隐藏记忆的依据。
           addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id });
           (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
           (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
@@ -6973,8 +6952,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    // 同上：总结真的出来了，才把这一场滚动写的那几条收起来
-    if (summary && group && interopOn) supersedeOfflineRolling(sess.id);
+    // 与单人一致：沿用共享去重/确认候选机制。
     if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId, ofs: sess.id });
     // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
     if (group && interopOn) {
@@ -12391,6 +12369,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { /* 归档失败就算了，不影响这次刷新 */ }
   };
   const savePhoneApp = (charId, key, d, opts) => {
+    if (phoneOpsRef.current.resetting) { toast("正在保存清空结果，请稍后再试"); return false; }
     // ⚠️规则降概率，代码才保证：提示词里已经把「这几个人已经有了」连别名一起发回去了，
     // 但模型换个叫法照样能造出第二个。这里按叫法归一，撞上的直接丢掉。
     // 病历夹：离上次看大夫不够久就不许新增一条（她 2026-09-01 定的「大夫的话是低频的」）。
@@ -12461,22 +12440,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️这是全 App 唯一会主动删手机数据的地方，所以它只删【这一个角色的这一个 app】。
   //   归档和健康趋势是从这个 app 抽出来的，一起走——留着的话时间线上照样翻得到旧的，
   //   看起来就像没清干净。别的角色、别的 app 一个字都不许动。
-  const resetPhoneApp = (charId, key) => {
-    if (!charId || !key) return;
-    setPhones(p => { const n = window.PhoneKit.resetApp(p, charId, key); saveJSON("x_phone", n); return n; });
-    setPhoneArch(a => {
-      if (!a[charId]) return a;
-      const n = { ...a, [charId]: window.PhoneKit.archDropApp(a[charId], key) };
-      try { saveJSON("x_phoneArch", n); } catch (e) { return a; }
-      return n;
-    });
-    if (key === "health") setPhoneVitals(v => {
-      if (!v[charId]) return v;
-      const n = { ...v }; delete n[charId];
-      try { saveJSON("x_phoneVitals", n); } catch (e) { return v; }
-      return n;
-    });
-    toast(phoneKeyLabel(key) + "已清空，下次打开会重新生成");
+  // 与单刷、整机刷新、看TA玩共用同步闸，确认框打开后也读取最新占用状态。
+  const phoneOpsRef = useRef({ active: 0, resetting: false, watching: false });
+  const withPhoneWork = async task => {
+    const ops = phoneOpsRef.current;
+    if (ops.resetting) { toast("正在保存手机清空结果，请稍后再试"); return false; }
+    ops.active++;
+    try { return await task(); } finally { ops.active--; }
+  };
+  const resetPhoneApp = async (charId, key) => {
+    if (!charId || !PHONE_APPS.some(a => a.key === key && !a.soon && PHONE_LIVE_KEYS.indexOf(key) < 0)) return;
+    const ops = phoneOpsRef.current;
+    if (ops.active || ops.resetting || ops.watching) { toast("手机正在生成或播放，请结束后再清空"); return false; }
+    ops.resetting = true;
+    toast("正在保存清空结果…");
+    try {
+      const result = await window.PhoneKit.resetStored(charId, key, loadJSON, commitJSONDurable);
+      // 只在持久化/回滚结束后更新屏幕，失败不假报成功。
+      const next = loadJSON("x_phone", {});
+      phonesRef.current = next; setPhones(next);
+      setPhoneArch(loadJSON("x_phoneArch", {}));
+      if (key === "health") setPhoneVitals(loadJSON("x_phoneVitals", {}));
+      toast(result.ok ? phoneKeyLabel(key) + "已清空，下次打开会重新生成"
+        : result.restored ? "这次没清空成功，原记录已保留，请稍后再试"
+        : "保存发生异常，请先导出备份并检查记录，暂时不要继续清空", 5000);
+      return result.ok;
+    } finally { ops.resetting = false; }
   };
   // 调整角色钱包余额（改 wallet.baseBalance，用于转账）
   // 改我的钱包并记一条流水（delta 正=进账/负=支出）
@@ -14249,7 +14238,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setAnonBusy(false);
     }
   };
-  const genPhoneApp = async (char, key, weekly) => {
+  const genPhoneApp = async (char, key, weekly) => { return withPhoneWork(async () => {
     if (!active) {
       toast("请先到设置配置 API");
       return false;
@@ -14283,8 +14272,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         phoneApp: null
       }));
     }
-  };
-  const genPhoneAll = async (char, weekly) => {
+  }); };
+  const genPhoneAll = async (char, weekly) => { return withPhoneWork(async () => {
     if (!active) {
       toast("请先到设置配置 API");
       return;
@@ -14334,7 +14323,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     if (!weekly) toast(ok === keys.length ? "已生成全部" : "完成 " + ok + "/" + keys.length + " 个，可单独重试");
     return { ok: ok, total: keys.length };
-  };
+  }); };
 
   // ---- moments ----
   // ── 看TA玩（她 2026-09-09 提，2026-09-10 定案）────────────────────
@@ -14364,7 +14353,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",
     "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",
     "forum", "anon"];
-  const genWatchSession = async char => {
+  const genWatchSession = async char => { return withPhoneWork(async () => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
     const left = WK.cooldownLeft((watchAt || {})[char.id], Date.now());
@@ -14473,7 +14462,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("这次没看成：" + (e && e.message ? String(e.message).slice(0, 60) : "重试一次"));
       return null;
     }
-  };
+  }); };
   // 边演边落（她 2026-09-10 定）：看到一半退出去，TA已经做过的就是做过了。
   // TA微信里的「她」叫什么：她的本名 + TA给她起的备注（userContact 那一栏）。
   // ⚠️TA给她发消息不是演的——那是**真的发到她手机上**，所以得认准是不是她。
@@ -20336,7 +20325,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
     onWatchToast: toast,
-    onWatching: setWatching,
+    onWatching: v => { phoneOpsRef.current.watching = !!v; setWatching(v); },
     watchCoolLeft: window.PhoneWatch ? window.PhoneWatch.cooldownLeft((watchAt || {})[selPhone], Date.now()) : 0,
     // 「TA这会儿在玩手机」（她 2026-09-10：冷却关着，提示照做）。
     // ⚠️冷却是关着的，所以【节奏全靠提示自己兜】——判据在 PhoneWatch 一处，

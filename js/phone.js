@@ -1210,6 +1210,30 @@ function phoneArchDropApp(list, key) {
   if (!Array.isArray(list)) return [];
   return list.filter(r => !(r && r.app === key));
 }
+// 清空三张表走同一条可验证写入链；失败回放旧快照，调用方持锁到回滚结束。
+async function phoneResetStored(charId, key, read, commit) {
+  const keys = ["x_phone", "x_phoneArch"].concat(key === "health" ? ["x_phoneVitals"] : []);
+  const before = keys.map(k => read(k, {}));
+  const after = [phoneResetApp(before[0], charId, key),
+    { ...before[1], [charId]: phoneArchDropApp(before[1][charId], key) }];
+  if (key === "health") { const v = { ...before[2] }; delete v[charId]; after.push(v); }
+  const attempted = [];
+  try {
+    for (let i = 0; i < keys.length; i++) {
+      attempted.push(i);
+      const result = await commit(keys[i], after[i]);
+      if (!result || !result.durable || !result.live) throw new Error("clear not durable");
+    }
+    return { ok: true };
+  } catch (e) {
+    let restored = true;
+    for (const i of attempted.reverse()) {
+      try { const r = await commit(keys[i], before[i]); if (!r || !r.durable || !r.live) restored = false; }
+      catch (err) { restored = false; }
+    }
+    return { ok: false, restored };
+  }
+}
 // 全库超量时按时间从最旧的开始扔（不是按角色平均砍——翻得多的那个角色
 // 本来就该留得多）。返回新的整张表。
 function phoneArchCapAll(map) {
@@ -2335,7 +2359,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
       has ? h("button", {
         className: "active:opacity-60 shrink-0",
         onClick: () => requestAppConfirm("清空「" + a.zh + "」？",
-          characterText(char, "这个 app 里存的那一份会整份删掉（时间线上属于它的那几条也一起走），下次打开会重新生成一份全新的——他这个 app 现在的样子就找不回来了。\n\n") +
+          "这个 app 里存的那一份会整份删掉（时间线上属于它的那几条也一起走），下次打开会重新生成一份全新的。当前内容只能从事先导出的备份恢复。\n\n" +
           "⚠️舍不得的话先去 设置 → 数据 → 导入与导出 → 导出全部数据，存成 json 放桌面上，存好了再清。",
           () => onReset && onReset(a.key), "清空"),
         style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "6px 10px", borderRadius: 99, border: "1px solid rgba(159,81,73,.30)" }
@@ -2346,7 +2370,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
-        "这一档对所有角色生效，下一次刷新开始算。旧内容跟这一档对不上的，刷新时会顺手改过来。"),
+        "这一档对所有角色的新生成内容生效。已有记录、账号和累积名册会保留原文；阅读旧外语内容可以用译文功能。"),
       h("div", { style: { borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } },
         PHONE_LANG_MODES.map((k, i) => h("button", {
           key: k, onClick: () => onLang && onLang(k), className: "w-full text-left active:opacity-65",
@@ -2357,7 +2381,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginTop: 4 } }, LANG_SUB[k])))),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "清空重生"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
-        characterText(char, "刷新不是从零开始的：旧那份会原样发回去当料，所以他的口气、用的语言会一直接着上一份走。不想等它自己走出来，就把这个 app 整份扔掉，下次打开重新生成。")),
+        "想保留现有记录，可以先改上面的语言设置或使用译文。只有确定要从零生成这个 app 时才清空；请先导出备份。"),
       h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map(row))));
 }
 
@@ -6033,6 +6057,11 @@ function PhoneCarry({
   const [dot, setDot] = useState(null);       // 触控圆点落在哪儿 {x,y,press}
   const [barWake, setBarWake] = useState(false);   // 底下那条让路之后，手指按上去先亮回来
   const watchRef = useRef(null); watchRef.current = watch;
+  const watchAliveRef = useRef(true);
+  useEffect(() => {
+    watchAliveRef.current = true;
+    return () => { watchAliveRef.current = false; if (onWatching) onWatching(false); };
+  }, []);
   // 播放器要知道【此刻开着哪个 app】：同一个 openItem/send 在微信和便签里做的事不一样。
   // open 是 state，effect 里读到的是那一轮的旧值，所以另存一份 ref。
   const openRef = useRef(null);
@@ -6399,6 +6428,7 @@ function PhoneCarry({
     setWatchBusy(true);
     try {
       const acts = await onWatchStart(char);
+      if (!watchAliveRef.current) return;
       if (!acts || !acts.length) return;
       setWatch({ acts, i: 0, speed: 1, tab: "chats", chat: null, typing: null, sent: [], thought: "", knocks: 0, knocking: false, paused: false, done: false });
       setDot(null);
@@ -7304,7 +7334,7 @@ const PHONE_LANG_MODES = ["persona", "zh", "native"];
 const PHONE_LANG_ZH = { persona: "跟着人设", zh: "一律中文", native: "TA当地的语言" };
 function phoneLangBlock(mode) {
   const head = "\n\n【手机里的字用哪种语言】\n";
-  const carry = "\n· 上面发回给你的旧内容如果跟这一条对不上，**这一轮照这条改写过来**，别顺着它接着写。";
+  const carry = "\n· 这一档决定本轮新生成内容的语言，旧内容使用的语言不决定新内容。账号、身份字段和已有记录按各自保留规则沿用；新增正文、更新批注及当前快照按这一档写。";
   if (mode === "zh") return head
     + "· 这台手机里你要写的字**一律写中文**：标题、正文、别人说的话、TA心里那一句，都算。\n"
     + "· 人名、店名、歌名、地名这类专有名词照它本来的样子写，不必硬翻成中文。"
@@ -7797,7 +7827,7 @@ if (typeof window !== "undefined") window.PhoneKit = {
   dropDupWechat: phoneDropDupWechat, keptLine: phoneKeptLine,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
   photoSig: phonePhotoSig,
-  resetApp: phoneResetApp, archDropApp: phoneArchDropApp,
+  resetApp: phoneResetApp, archDropApp: phoneArchDropApp, resetStored: phoneResetStored,
   langBlock: phoneLangBlock, LANG_MODES: PHONE_LANG_MODES, LANG_ZH: PHONE_LANG_ZH
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneResetApp, phoneArchDropApp, PHONE_LANG_MODES, PHONE_LANG_ZH, phoneLangBlock, PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };
+if (typeof module === "object" && module.exports) module.exports = { phoneResetStored, phoneResetApp, phoneArchDropApp, PHONE_LANG_MODES, PHONE_LANG_ZH, phoneLangBlock, PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };

@@ -27,7 +27,8 @@ test("隔太久的那一下不算「再滑一次」——重新从提示开始",
 
 test("接住之后要把哨兵补回去，退出那一路才不补", () => {
   // 补回去 = 历史里永远还剩一格可退；不补 = 这一下真的放行
-  assert.match(guardSrc, /if \(act === "exit"\)[\s\S]{0,320}history\.back\(\)/);
+  assert.match(guardSrc, /if \(act === "exit"\) \{\s*exiting = true;\s*onPop\(\)/);
+  assert.match(guardSrc, /if \(exiting\) \{[\s\S]{0,400}history\.back\(\)/);
   assert.match(guardSrc, /window\.removeEventListener\("popstate", onPop\)/);
   assert.match(guardSrc, /seed\(\);\n    if \(act === "handled"\)/);
 });
@@ -55,7 +56,7 @@ test("只注册一次，靠 ref 读当前状态", () => {
 });
 
 test("挂进 index.html，而且排在 app 之前", () => {
-  const a = indexSrc.indexOf("js/back-guard.js");
-  const b = indexSrc.indexOf("js/app.js");
+  const a = indexSrc.indexOf('<script src="js/back-guard.js');
+  const b = indexSrc.indexOf('<script src="js/app.js');
   assert.ok(a > 0 && b > 0 && a < b);
 });
