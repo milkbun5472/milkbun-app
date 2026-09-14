@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.25";
+const APP_VERSION = "v68.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5717,7 +5717,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 逐条记录喂回线上时的那道预算：从最新往回收，收满就停（收不下的是最老那几句）。
   // ⚠️线下归档和通话回执共用这一道——它俩是同一个形状：一段别处发生的原话，
   //   压成一块文本挂回聊天上下文里。各写一份的话，哪天改了预算另一处永远落单。
-  const TRANSCRIPT_CAP = 6000;
+  // 喂回模型的那一段有多长，只此一份（js/chat-context-window.js）——
+  // 窗口按同一个数记账，两处对不上就是「预算算着很宽裕、prompt 静默超载」那个老病。
+  const TRANSCRIPT_CAP = (typeof window !== "undefined" && window.ChatContextWindow && window.ChatContextWindow.TRANSCRIPT_FED_CAP) || 6000;
+  const fedTranscript = text => (typeof window !== "undefined" && window.ChatContextWindow && window.ChatContextWindow.transcriptTail)
+    ? window.ChatContextWindow.transcriptTail(text) : String(text || "").slice(-TRANSCRIPT_CAP);
   const transcriptTail = (lines, cap) => {
     const picked = []; let used = 0;
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -5727,11 +5731,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     return picked.join("\n");
   };
-  const offlineTranscriptForOnline = (msgs, groupMode, charName) => transcriptTail(
-    (msgs || []).filter(m => m && m.kind !== "ooc" && m.content).map(m => {
+  // ⚠️线下这一段【存全的】（她 2026-09-14：「她想要回看也能看到完整的」）。
+  //   有人报「线下聊得长，总结之后完整经过只有 5k 字，丢了一半」——病根就在这儿：
+  //   原来写进聊天记录之前先切成 6000 字的尾巴，前半段从此没了，点开也看不回来。
+  //   喂给模型那一段仍然有上限，但那道闸挪到【注入的那一刻】（ChatContextWindow.transcriptTail），
+  //   跟通话那一路的做法对齐（记录存全的、拼 prompt 时才切尾巴）。
+  //   这儿只留一道防失控的硬闸：单场再长也不写超过 20 万字。
+  const TRANSCRIPT_KEEP_MAX = 200000;
+  const offlineTranscriptForOnline = (msgs, groupMode, charName) => {
+    const text = (msgs || []).filter(m => m && m.kind !== "ooc" && m.content).map(m => {
       const who = m.role === "narration" ? "【场景】" : m.role === "user" ? userName(profile) : (groupMode ? (m.senderName || "某人") : charName);
       return (m.ts ? "〔" + fmtStampAI(m.ts) + "〕" : "") + who + "：" + String(m.content);
-    }));
+    }).join("\n");
+    return text.length > TRANSCRIPT_KEEP_MAX ? text.slice(text.length - TRANSCRIPT_KEEP_MAX) : text;
+  };
   // 这通电话真正说过的话（她 2026-09-09：「语音视频完之后应该是原纪录进上下文而不只是
   // 小结吧，现在打完电话就不知道了，靠一个不靠谱的小结，说出来的话都是错的」）。
   // ⚠️转录一直都存着（endCall 那儿的 bubble.log，点开就能回看），只是【没人把它喂回去】。
@@ -8256,7 +8269,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
         if (m.kind === "offlinelog") {
           // 线下经过：既不算用户发言也不算角色发言，作为「刚发生的场景」注入，让线上接得上线下
-          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") });
+          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") });
           continue;
         }
         if (m.kind === "callend") {
@@ -13096,7 +13109,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
   const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
-    + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
+    + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
     : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。

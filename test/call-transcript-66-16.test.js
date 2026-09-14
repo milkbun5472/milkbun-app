@@ -35,11 +35,13 @@ test("act 是动作不是台词，得分得开；预算跟线下归档共用一�
   assert.match(fn, /x\.act \? "（" \+ String\(x\.content\)\.trim\(\) \+ "）" : "："/, "动作行跟台词混在一起了");
   assert.match(fn, /x\.role === "user" \? userName\(profile\)/);
   assert.match(fn, /groupMode \? \(x\.senderName \|\| "某人"\)/, "群里认不出是谁说的");
-  // ⚠️预算只许有一道：线下归档和通话回执是同一个形状
-  assert.match(app, /const TRANSCRIPT_CAP = 6000;/);
+  // ⚠️预算只许有一道，而且 v68.22 起它住在公共那一份里（js/chat-context-window.js）：
+  //   窗口记账和拼 prompt 读的是同一个数，两处对不上就是「预算算着宽裕、prompt 静默超载」。
+  assert.match(app, /const TRANSCRIPT_CAP = \(typeof window !== "undefined" && window\.ChatContextWindow && window\.ChatContextWindow\.TRANSCRIPT_FED_CAP\) \|\| 6000;/);
   assert.equal((app.match(/const transcriptTail = /g) || []).length, 1);
   assert.match(app, /callTranscriptForOnline = \(m, groupMode, charName\) => transcriptTail\(/);
-  assert.match(app, /offlineTranscriptForOnline = \(msgs, groupMode, charName\) => transcriptTail\(/);
+  // v68.22：线下那一份【存全的】，尾巴在注入时才切（见 offline-continuity-time 那条）
+  assert.match(app, /offlineTranscriptForOnline = \(msgs, groupMode, charName\) => \{/);
   assert.ok(!/if \(picked\.length && used \+ n > 6000\)/.test(app), "还有一处自己写了一遍预算");
 });
 

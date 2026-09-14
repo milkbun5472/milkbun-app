@@ -20,9 +20,15 @@ test("单人和群线下每轮继续喂逐条原文，并给每条加真实时�
 test("结束回线上后摘要只负责显示，模型另拿有上限的真实逐条尾段", () => {
   assert.match(app, /offlineTranscriptForOnline/);
   // v66.16：那道预算提成公共的了（线下归档 + 通话回执共用同一道）
-  assert.match(app, /const TRANSCRIPT_CAP = 6000;/);
+  // v68.22：预算搬去 js/chat-context-window.js，而且**闸挪到注入那一刻**——
+  //   存进聊天记录的那一份是【全的】（有人报「完整经过只有 5k 字，丢了一半」）。
+  assert.match(app, /const TRANSCRIPT_CAP = \(typeof window !== "undefined" && window\.ChatContextWindow/);
   assert.match(app, /used \+ n > \(cap \|\| TRANSCRIPT_CAP\)/);
-  assert.match(app, /const offlineTranscriptForOnline = \(msgs, groupMode, charName\) => transcriptTail\(/);
+  assert.match(app, /const offlineTranscriptForOnline = \(msgs, groupMode, charName\) => \{/);
+  assert.match(app, /const TRANSCRIPT_KEEP_MAX = 200000;/, "存下来那一份没有防失控的硬闸");
+  assert.ok(!/=> transcriptTail\(\s*\n\s*\(msgs \|\| \[\]\)/.test(app), "又在写的时候把线下记录截了");
+  // 喂给模型的那一段仍然有上限，只是挪到了注入的那一刻
+  assert.equal((app.match(/fedTranscript\(m\.transcript\)/g) || []).length, 2, "单聊群聊两处都要按同一道闸切");
   assert.match(app, /transcript: offlineTranscriptForOnline\(sess\.msgs, false/);
   assert.match(app, /transcript: offlineTranscriptForOnline\(sess\.msgs, true/);
   assert.match(app, /【线下实际逐条记录·以原话为准】/);
