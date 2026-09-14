@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.11";
+const APP_VERSION = "v68.12";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9982,12 +9982,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   **action 挂在每一个元素上**——schema 本身就在说「一条发言一个动作」。
         //   单聊那边一轮只有一个 action 字段，所以天然「一个人一轮一个动作」；
         //   群里一轮八条，就是八个 action 字段，模型把每一格都填满是它在照做。
-        //   ⚠️所以这一道必须是代码（规则只降概率，代码才保证）：
-        //   一轮里每个人的动描只认【TA第一次给的那个】，后面的一律不看。
-        // ⚠️这条推翻了她 2026-09-09 那句「一轮变了两次也都放进来」。
-        //   那句话的前提是【动作只在真发生变化时才变】；模型做不到，它每条都换一个。
-        //   她 2026-09-12 拿单聊当标准：「单聊可以一个人一轮一个动作」——按这个来。
-        const _actOnce = new Set();
+        //   ⚠️所以这一道必须是代码（规则只降概率，代码才保证）。
+        // 这道闸的额度改过两回，两回都是她报的：
+        //   v67.x：一人一轮只认【第一次】那个（她 2026-09-12 拿单聊当标准）。
+        //   v68.12：改成【一人一轮最多两次】——她 2026-09-14 报「群聊为了多写对话，
+        //     一个人一轮说好几次，中间动作真的变了，可只有第一次显示出来」。
+        //   一次太少（一轮里他真的从「开着车」变成「停下车」了），不封顶又会每条都换一个。
+        //   ⚠️额度只是上限：第二次还得【真的跟上一条不一样】（sameActLine 那道）才摆得出来。
+        const ACT_PER_TURN = 2;
+        const _actOnce = new Map();
         // 回声判定的比对文本：先装她这一整轮，然后随着本批成员依次开口往后累加
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         for (let i = 0; i < safeArr.length; i++) {
@@ -10072,11 +10075,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
-            if (_gActDesc && gActionNow && spk && !_actOnce.has(spk.id)) {
-              // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一轮比】的事，
-              //   「这一轮TA已经用掉这次机会了」是另一回事。写在 if 里面就会漏，
-              //   TA第一条没变、第五条换了个新的照样能挤出一行来。
-              _actOnce.add(spk.id);
+            if (_gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
+              // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一条比】的事，
+              //   「这一轮TA已经用掉一次机会了」是另一回事。写在 if 里面就会漏，
+              //   TA前几条没变、最后一条换了个新的照样能把额度花光。
+              _actOnce.set(spk.id, (_actOnce.get(spk.id) || 0) + 1);
               const _grows = groupChatsRef.current[groupId] || [];
               let _gprevAct = "";
               for (let k = _grows.length - 1; k >= 0; k--) {
