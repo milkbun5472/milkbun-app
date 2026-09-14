@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.15";
+const APP_VERSION = "v68.16";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7165,7 +7165,39 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("生成失败：" + ((e && e.message) || e));
     } finally { endLane("npc:" + hostId); }
   };
+  // 长按一张卷宗＝克隆一份（她 2026-09-14：「并不可以长按克隆，你加一下」）。
+  // ⚠️说明书（assistant-manual）上一直写着这一条，可代码里从来没有——
+  //   说明书和实现对不上，比缺一个功能更糟：她照着去按，会以为是坏了。
+  // ⚠️克隆的是【卷宗】，不是这段关系：聊天记录、记忆、好感、心上一条都不跟过来。
+  //   那几样各住各的键（x_chat:id、记忆库按 charIds、x_unread…），本来就不会跟着走；
+  //   这儿只把卡上那几栏复制一份，并且把 npc 那一档摘掉——配角是属于某个主角色的，
+  //   克隆出来的得是一个独立的人，不然它会挂在原主名下、跟着原主一起被删。
+  const cloneChar = c => {
+    if (!c) return;
+    const name = (String(c.name || "角色") + "（副本）").slice(0, 20);
+    requestAppConfirm("克隆一份「" + (c.name || "这个角色") + "」？",
+      "会复制人设、外貌、参考照、音色、时区这些卡上的东西，存成一份新的卷宗。\n聊天记录、记忆、好感和心上都【不会】跟过来——那是你和原来那位的事。",
+      () => {
+        const src = Object.assign({}, c);
+        delete src.id; delete src.npc; delete src.npcOf; delete src.host; delete src.hostId;
+        pC(p => [...p, CharacterPronoun.newCharacter(Object.assign(src, { id: "char_" + Date.now(), name: name }))]);
+        toast("克隆好了：" + name + "，点开改吧");
+      }, "克隆一份", null, { danger: false });
+  };
   const delChar = id => {
+    const c = (characters || []).find(x => x && x.id === id);
+    const kids = npcsOf(id);
+    // ⚠️她 2026-09-14 要的二次确认。这一下【撤不回来】，而且这个 App 的规矩是
+    //   「会让数据消失的事，先说一句导出」（.claude/rules/never-say-delete-first.md）。
+    //   所以这句话要如实说清三件事：谁跟着一起没、什么还留着、先去导出。
+    requestAppConfirm("删掉「" + ((c && (c.name || c.remark)) || "这位角色") + "」的卷宗？",
+      "这一下撤不回来。"
+      + (kids.length ? "\nTA 身边的 " + kids.length + " 位配角会跟着一起删掉。" : "")
+      + "\n聊天记录和记忆还留着（设置 → 数据 → 找回失联的角色，用原来那个 id 能把人建回来），但这份卷宗没了。"
+      + "\n要紧的话先去 设置 → 数据 → 导出全部数据，存一份在自己手上。",
+      () => doDelChar(id), "删掉卷宗");
+  };
+  const doDelChar = id => {
     // 主角色删了，TA身边的人跟着删（她 2026-08-25 拍的）；顺手从所有群里摘掉，
     // 否则群成员列表里会留下一串找不到人的 id。
     const doomed = new Set([id, ...npcsOf(id).map(c => c.id)]);
@@ -19686,7 +19718,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenChar: c => {
       setEditingChar(c);
       setScreen("castForm");
-    }
+    },
+    onClone: cloneChar
   });else if (screen === "castForm") body = /*#__PURE__*/React.createElement(CastForm, {
     initial: editingChar,
     onBack: () => setScreen("cast"),
@@ -21594,7 +21627,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     title: appConfirm.title,
     body: appConfirm.body,
     confirmLabel: appConfirm.confirmLabel,
-    danger: true,
+    // 红印只长在真的会毁掉东西的那几下上（requestAppConfirm 不传就当危险）
+    danger: appConfirm.danger !== false,
     onCancel: () => { const fn = appConfirm.onCancel; setAppConfirm(null); if (typeof fn === "function") setTimeout(() => { try { fn(); } catch (e) {} }, 0); },
     onConfirm: () => { const fn = appConfirm.onConfirm; setAppConfirm(null); setTimeout(() => { try { const r = fn(); if (r && typeof r.catch === "function") r.catch(e => toast("操作失败：" + ((e && e.message) || "请重试"), 5000)); } catch (e) { toast("操作失败：" + ((e && e.message) || "请重试"), 5000); } }, 0); }
   }), appPrompt && h(PromptDialog, {

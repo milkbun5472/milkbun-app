@@ -307,10 +307,31 @@ function Cast({
   onAdd,
   onImportCard,
   onOpenChar,
+  // 长按一张卷宗＝克隆一份（她 2026-09-14：说明书上写着能克隆，可一直没做）
+  onClone,
   // 档案的另一半：TA自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
   heartCountOf, onOpenHeart
 }) {
   const t = useTheme();
+  // ⚠️长按松手之后那一下 click 要拦掉，不然会顺带跳进编辑页（克隆完屏幕就换了，
+  //   她会以为自己点错了）。holdFired 记住「这一下是长按」，click 那头据此让路。
+  const holdTimer = useRef(null), holdFired = useRef(false);
+  const holdStart = c => {
+    holdFired.current = false;
+    clearTimeout(holdTimer.current);
+    if (!onClone) return;
+    holdTimer.current = setTimeout(() => { holdFired.current = true; onClone(c); }, 520);
+  };
+  // ⚠️【幽灵点击】：手指松开之后，浏览器还会在【同一个位置】补一发 mousedown/click
+  //   （触摸的兼容事件）。长按已经把确认框弹出来了，那一下正好落在刚冒出来的框上——
+  //   轻则点在遮罩上把框关掉（框一闪就没，2026-09-14 实机抓到），重则替她按下「确定」。
+  //   治它要在【发出那一下】的地方治：长按真的触发过，就在 touchend 上 preventDefault，
+  //   兼容事件整串都不会再补出来。（别去给弹窗加计时闸——那会让所有弹窗都变迟钝。）
+  const holdEnd = e => {
+    clearTimeout(holdTimer.current);
+    if (holdFired.current && e && e.cancelable && typeof e.preventDefault === "function") e.preventDefault();
+  };
+  useEffect(() => () => clearTimeout(holdTimer.current), []);
   // 一张卡＝一份卷宗。底下那条信息栏照 Codex 那版的形状（她 2026-08-30 点名要），
   // 但里面换成【放着不动也成立】的东西：时区、生日、人设厚度。
   // 好感 / 情侣第几天 / 刚聊过都拿掉了——那是关系的近况，不是档案。
@@ -334,10 +355,17 @@ function Cast({
     return h("div", {
       key: c.id,
       role: "button", tabIndex: 0,
-      onClick: () => onOpenChar(c),
+      onClick: () => { if (holdFired.current) { holdFired.current = false; return; } onOpenChar(c); },
+      onTouchStart: () => holdStart(c), onTouchEnd: holdEnd, onTouchMove: holdEnd, onTouchCancel: holdEnd,
+      onMouseDown: () => holdStart(c), onMouseUp: holdEnd, onMouseLeave: holdEnd,
+      // 长按已经弹了框，这一下的 click 一律不算（点开编辑页那条路让开）
+      onClickCapture: e => { if (holdFired.current) { e.stopPropagation(); } },
+      // 长按时别弹系统菜单、别选中文字——那两样一出来，长按就废了
+      onContextMenu: e => { if (onClone) e.preventDefault(); },
       className: "w-full block active:opacity-90",
       style: {
         position: "relative", marginBottom: 13, textAlign: "left", overflow: "hidden",
+        WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none",
         background: t.bg2, border: "1px solid " + t.line, borderRadius: 17,
         // 三层影：贴着纸的近影、托起来的远影、内圈上沿一道亮线（卡片是从纸上翘起来的）
         boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 10px 22px -8px rgba(46,38,29,.16), inset 0 1px 0 rgba(255,255,255,.9)"
@@ -400,7 +428,10 @@ function Cast({
             // 大标题换成一条细的：一屏 844 高，28px 标题＋留白吃掉快 200px，
             // 只剩两张半卡看得见（mobile-ui-layout.md 也不许子页面放大标题）
             h("div", { key: "cnt", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "共 " + characters.length + " 份卷宗")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "共 " + characters.length + " 份卷宗"),
+              // ⚠️长按这种手势【看不见】，不写一句就等于没有（说明书上写着能克隆，
+              //   可她今天才发现从来点不出来——两头都得补上）
+              onClone ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, "长按一张卡＝克隆一份") : null),
             h("div", { key: "list" }, cards)
           ]));
 }

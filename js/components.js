@@ -786,14 +786,19 @@ function useKbLift() {
 // 全 App 共用的确认入口。iOS/PWA 允许用户永久屏蔽原生 confirm；一旦被屏蔽，
 // 所有“先 confirm 再删除”的按钮都会静默 no-op，看起来就是删不掉。
 // 各独立 App 只提交动作，真正的可见弹层由 App 根节点统一承载。
-function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel) {
+// ⚠️opts.danger：那枚红印只该长在【真的会毁掉东西】的那几下上（删卷宗、清数据）。
+//   不给就当危险——这一层十之八九是删东西用的，宁可多一枚印，也不能让删东西的框
+//   看着像在问「要不要保存」。克隆、导出这种不毁东西的，调用时传 { danger: false }。
+function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts) {
   if (typeof onConfirm !== "function") return false;
   const open = typeof window !== "undefined" && window.__appConfirmOpen;
   if (typeof open !== "function") {
     if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("确认层还没准备好，请再点一次");
     return false;
   }
-  open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定", onCancel: typeof onCancel === "function" ? onCancel : null });
+  open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定",
+    onCancel: typeof onCancel === "function" ? onCancel : null,
+    danger: !(opts && opts.danger === false) });
   return true;
 }
 // 要她填一行字的时候借这一层（v64.88，她 2026-09-06 报「可以放 5 套预设那个按钮也是摆设」）。
@@ -850,14 +855,34 @@ function PromptDialog({ title, body, value, placeholder, okLabel, multiline, max
 // 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。
 function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
   const t = useTheme();
+  // ⚠️她 2026-09-14：「删除框做好看点」。这一版之前是一张任何 app 都能用的白卡，
+  //   而这个 App 里所有要紧的东西都长在【纸】上（卷宗、日记、备忘）。所以这张框
+  //   也照那一套来：纸纹、三层影、一道细边；危险那一档上面压一枚红印。
+  //   ⚠️确认键的底仍是 `danger ? t.accent : t.ink`、字仍是 t.bg2——那是钉住的
+  //   （深色主题里写死白会白底白字，v59.62 的教训）。好看这件事不靠改那两行。
   return appDialogPortal(
-    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 300, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginBottom: body ? 8 : 18, textAlign: "center" } }, title),
-      body ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 18 } }, body) : null,
-      h("div", { className: "flex gap-3" },
-        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, cancelLabel || "取消"),
+    h("div", { onClick: e => e.stopPropagation(), style: {
+      width: "100%", maxWidth: 312, position: "relative", overflow: "hidden",
+      background: t.bg2, border: "1px solid " + t.line, borderRadius: 20, padding: "22px 20px 18px",
+      boxShadow: "0 2px 4px rgba(46,38,29,.10), 0 22px 46px -14px rgba(46,38,29,.34), inset 0 1px 0 rgba(255,255,255,.75)",
+      animation: "fadeUp .2s ease both" } },
+      // 纸纹：跟卷宗卡、日记纸皮同一套两道斜线
+      h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, pointerEvents: "none",
+        background: "repeating-linear-gradient(58deg, rgba(255,255,255,.34) 0px, rgba(255,255,255,.34) 1px, transparent 1px, transparent 9px), repeating-linear-gradient(-34deg, rgba(46,38,29,.016) 0px, rgba(46,38,29,.016) 1px, transparent 1px, transparent 13px)" } }),
+      // 危险那一档：一枚红印压在最上面。不是图标装饰——它是「这一下撤不回来」的招牌
+      danger ? h("div", { "aria-hidden": "true", style: { position: "relative", width: 42, height: 42, margin: "0 auto 12px",
+        borderRadius: 999, border: "1.5px solid " + t.accent, display: "flex", alignItems: "center", justifyContent: "center",
+        background: "transparent", transform: "rotate(-7deg)" } },
+        h(ITrash, { size: 19, color: t.accent })) : null,
+      h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: t.ink, marginBottom: body ? 9 : 18, textAlign: "center" } }, title),
+      // ⚠️正文左对齐：删除这一类的说明常常是两三句（什么会没、什么还留着），
+      //   居中的长段落每一行起头都在动，读起来最累。
+      body ? h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.85, textAlign: "left", marginBottom: 18,
+        padding: "11px 13px", borderRadius: 12, background: "rgba(46,38,29,.035)", border: "1px solid " + t.line, whiteSpace: "pre-wrap" } }, body) : null,
+      h("div", { className: "flex gap-3", style: { position: "relative" } },
+        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "rgba(46,38,29,.03)" } }, cancelLabel || "取消"),
         // ⚠️字色是 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色，白字压上去就是白底白字
-        h("button", { onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, confirmLabel || "确定"))), onCancel);
+        h("button", { onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none", boxShadow: "0 6px 14px -6px rgba(46,38,29,.5)" } }, confirmLabel || "确定"))), onCancel);
 }
 // ⚠️居中不许再靠 -translate-x-1/2 -translate-y-1/2（她 2026-09-01：「这种黑框一直
 //   都是在屏幕右侧出现而不是中间」）。病根：这一层自己带着 animation:fadeUp，

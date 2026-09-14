@@ -14,7 +14,10 @@ test('删除确认 portal 位于设置页之上，取消和确认分别回调', 
   const settingsZ = Number(src.match(/position: "fixed", inset: 0, zIndex: (\d+) \}, pgSkin/)[1]);
   assert.ok(p.node.props.style.zIndex > settingsZ);
   p.node.props.onClick(); assert.deepEqual(calls, ['cancel']);
-  const buttons = p.node.children[0].children[2].children;
+  // ⚠️别按下标摸孩子：这张框里会多出纸纹、红印这种装饰层（v67.79 她要「删除框
+  //   做好看点」时就多了两层），一多就全错位。按那一行自己的 className 找。
+  const row = p.node.children[0].children.find(x => x && x.props && x.props.className === 'flex gap-3');
+  const buttons = row.children;
   buttons[1].props.onClick(); assert.deepEqual(calls, ['cancel', 'confirm']);
   let stopped = false; p.node.children[0].props.onClick({ stopPropagation: () => { stopped = true; } });
   assert.equal(stopped, true);

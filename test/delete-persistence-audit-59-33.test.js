@@ -10,7 +10,8 @@ const engine = read("engine.js");
 const theater = read("theater.js");
 
 test("全 App 删除确认走自绘层，不依赖会被 iOS 吞掉的系统 confirm", () => {
-  assert.match(components, /function requestAppConfirm\(title, body, onConfirm, confirmLabel, onCancel\)/);
+  // v68.13 末尾多了一个 opts（{danger:false} 给克隆这种不毁东西的用）；前五个参数不许动
+  assert.match(components, /function requestAppConfirm\(title, body, onConfirm, confirmLabel, onCancel, opts\)/);
   assert.match(components, /onCancel: typeof onCancel === "function" \? onCancel : null/, "取消回调必须一路送进全局确认层");
   assert.match(app, /window\.__appConfirmOpen = open/);
   assert.match(app, /appConfirm && h\(ConfirmDialog/);
