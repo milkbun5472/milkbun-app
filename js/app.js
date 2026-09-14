@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.42";
+const APP_VERSION = "v68.43";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10503,7 +10503,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 if (mm && mm.who === "char" && String(mm.senderId) === String(spk.id) && (mm.role === "narration" || mm.kind === "narration")) { _gprevAct = String(mm.content || "").trim(); break; }
               }
               // ⚠️动描也占一行、也进未读，所以它也算一条（她数的是屏幕上的行）
-              if (!sameActLine(gActionNow, _gprevAct) && autoRoomLeft() > 0) {
+              // ⚠️她 2026-09-14 在旁观群里撞见「卡在动作上没有气泡说话」：动描是
+              //   【这几泡的前缀】，绝不能自己当这一轮的最后一行。它要是占掉最后一格额度，
+              //   下面那个 for 里第一句就是 `if (autoRoomLeft() <= 0) break;`——
+              //   于是这个人做完动作一句话都没说，屏幕就停在那儿。
+              //   所以：他还有话要说时，得连动描带至少一泡一起放得下才摆；放不下就不摆动描，
+              //   把仅剩的那一格留给他说话。
+              const _actNeed = gBubbles.length ? 2 : 1;
+              if (!sameActLine(gActionNow, _gprevAct) && autoRoomLeft() >= _actNeed) {
                 pGChat(groupId, p => [...p, {
                   role: "narration", kind: "narration", who: "char",
                   senderId: spk.id, senderName: spk.name, content: gActionNow,

@@ -186,10 +186,10 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   //   schema 本身就在说「一条发言一个动作」（她 2026-09-12：「还是一句一个动作」）。
   const i = app.indexOf("if (_gActDesc && gActionNow && spk");
   assert.ok(i > 0, "群里那一行没接上");
-  const blk = app.slice(i, i + 1100);
+  const blk = app.slice(i, i + 1800);   // v68.42 中间多了「动描不许当最后一行」那段注释
   assert.match(blk, /String\(mm\.senderId\) === String\(spk\.id\)/, "拿全群最后一条比，两个人的动作会互相盖掉");
   // v67.20：额度满了连动描这一行都不摆（它也占一行、也进未读）
-  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) > 0\) \{\n\s*pGChat\(groupId/);
+  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) >= _actNeed\) \{\n\s*pGChat\(groupId/);
   assert.match(blk, /senderId: spk\.id, senderName: spk\.name/, "群里不写是谁做的，三个人就认不出来了");
   // 摆在这一条发言的气泡【前面】
   assert.ok(i < app.indexOf("for (let j = 0; j < gBubbles.length; j++)"));

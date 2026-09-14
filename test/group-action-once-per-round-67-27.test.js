@@ -107,16 +107,17 @@ test("那道闸真的写在群回复里，而且一轮一清", () => {
   assert.match(A, /if \(_gActDesc && gActionNow && spk && \(_actOnce\.get\(spk\.id\) \|\| 0\) < ACT_PER_TURN\) \{/, "没接上这道闸");
   // ⚠️记账必须在 if 外面：写进 if 里，第一条被挡住时机会就没用掉
   const i = A.indexOf("if (_gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {");
-  const blk = A.slice(i, i + 700);
+  const blk = A.slice(i, i + 1400);   // v68.42 中间多了「动描不许当最后一行」那段注释
   assert.match(blk, /\{\n\s*_actOnce\.set\(spk\.id, \(_actOnce\.get\(spk\.id\) \|\| 0\) \+ 1\);/, "用掉机会这一笔得紧跟在进门那一下，不能等到画完再记");
   assert.ok(blk.indexOf("_actOnce.set") < blk.indexOf("if (!sameActLine"), "记账排在去重闸后面了");
 });
 
 test("跨轮那道闸和额度那道闸都还在", () => {
   const i = A.indexOf("if (_gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {");
-  const blk = A.slice(i, i + 900);
+  const blk = A.slice(i, i + 1600);
   assert.match(blk, /String\(mm\.senderId\) === String\(spk\.id\)/, "比的是这个人自己上一次那条");
-  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) > 0\) \{/, "跨轮闸或额度闸掉了一个");
+  // v68.42：额度那道闸从「有一格就摆」改成「还得给他留一格说话」
+  assert.match(blk, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) >= _actNeed\) \{/, "跨轮闸或额度闸掉了一个");
 });
 
 // 这一条推翻了她 2026-09-09 那句，理由要留在代码里，别让下一个人又改回去

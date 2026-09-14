@@ -89,8 +89,11 @@ test("每一种真落地的行，紧接着就得记一笔", () => {
    ["自拍", /photoKind: gPhotoKind, ts: Date\.now\(\), turnId: gTurnId \}\]\);\n\s*autoTook\(\);/],
    ["动描", /mid: "gm_" \+ Date\.now\(\) \+ "_" \+ i \+ "_act", ts: Date\.now\(\), turnId: gTurnId\n\s*\}\]\);\n\s*autoTook\(\);/]]
     .forEach(([what, re]) => assert.match(A, re, what + "那一行没紧跟着记进额度"));
-  // 动描那一行也占一行、也进未读，所以额度满了连它都不该摆
-  assert.match(A, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) > 0\) \{/, "额度满了还摆动描");
+  // 动描那一行也占一行、也进未读，所以额度满了连它都不该摆。
+  // ⚠️v68.42 更狠一档：他还有话要说时，得连动描带至少一泡一起放得下才摆——
+  //   动描占掉最后一格的话，这个人做完动作就一句话都说不出来了（她在旁观群里撞见）。
+  assert.match(A, /const _actNeed = gBubbles\.length \? 2 : 1;/);
+  assert.match(A, /if \(!sameActLine\(gActionNow, _gprevAct\) && autoRoomLeft\(\) >= _actNeed\) \{/, "额度满了还摆动描");
 });
 
 test("两道口子都要当场停手：一条发言之间、一泡一泡之间", () => {
