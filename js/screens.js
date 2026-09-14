@@ -6385,6 +6385,47 @@ function VoiceEarsConfig({ toast }) {
     }, testing ? "测试中…" : "🔬 测一下耳朵"),
     msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
+// 自定义语音端点（一张嘴）：跟上面那对耳朵是对称件，同一台书房 Mac。
+// 她 2026-09-13 实测：iOS 把「高音质／增强」音色留给系统朗读和 Siri，不给网页，
+// 所以网页这头只剩 Tingting／Meijia 那两把基础音色。想要正常人的气口只能自己架一张嘴。
+// ⚠️不是私路：谁都能填自己的端点；没填就照旧系统音色，一格都不影响。
+function VoiceMouthConfig({ toast }) {
+  const t = useTheme();
+  const [c, setC] = useState(loadVoiceMouth());
+  const set = patch => setC(saveVoiceMouth(patch));
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const audRef = useRef(null);
+  const test = async () => {
+    if (testing) return;
+    setTesting(true); setMsg(null);
+    try {
+      const blob = await mouthSpeak("这里是本台，试音。", { timeout: 20000 });
+      const url = URL.createObjectURL(blob);
+      if (audRef.current) { try { audRef.current.pause(); } catch (e) {} }
+      audRef.current = new Audio(url);
+      audRef.current.onended = () => { try { URL.revokeObjectURL(url); } catch (e) {} };
+      await audRef.current.play();
+      setMsg({ ok: true, text: "✅ 嗓子在线，这就是电台以后的声音。" });
+    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + "——书房 Mac 的嗓子服务要开着，门锁要对。连不上不影响用，电台会自动退回系统音色。" }); }
+    setTesting(false);
+  };
+  const inp = (label, key, ph) => h("div", { className: "mb-2" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    h("input", { value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
+      className: "w-full outline-none px-3 py-2 rounded-xl",
+      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" } }));
+  return h("div", null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+      "电台朗读的嗓子：自己架的语音服务（仓库里 tools/tts-mouth 那一份，用微软在线语音，免费、不要密钥）。填好后电台就用它念；没填、或者那台机器没开，自动退回系统音色，不会哑掉。"),
+    inp("语音服务地址", "base", "https://…ts.net/tts"),
+    inp("门锁 k", "k", "voice-token"),
+    inp("音色（可留空用服务端默认）", "voice", "zh-CN-YunxiNeural"),
+    h("button", { onClick: test, disabled: testing,
+      className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
+      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
+    msg && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
+}
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
   const t = useTheme();
   const [c, setC] = useState(loadTtsApi());
@@ -7343,7 +7384,7 @@ function Config(props) {
   const meta = {
     home: "设置", api: "接哪些模型", apiText: "文字模型",
     apiImage: "图像 API", apiTts: "语音 API", apiEmbed: "向量记忆",
-    apiEars: "真声耳朵", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
+    apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
     cot: "创作小稿", qa: "情侣问答", look: "这个 app 长什么样",
     theme: "外观与壁纸", themeStudio: "主题工作台",
     bubble: "聊天气泡", write: "他们写出来的东西",
@@ -7444,12 +7485,14 @@ function Config(props) {
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "MiniMax TTS、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
         h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
+        h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),
         h(ConfigTile, { icon: "量", tint: "#8a8378", title: "额度与缓存", sub: "缓存命中与调用读数", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
       page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
       page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
       page === "apiEmbed" && section(h(EmbedApiConfig, { toast: props.toast })),
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
+      page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(CacheStatCard, null)),
       page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),

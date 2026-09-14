@@ -4484,6 +4484,36 @@ function loadVoiceEars() {
 }
 function saveVoiceEars(c) { const clean = Object.assign(loadVoiceEars(), c || {}); try { localStorage.setItem("x_voiceEars", JSON.stringify(clean)); } catch (e) {} return clean; }
 function voiceEarsReady(a) { a = a || loadVoiceEars(); return !!(a.base && a.k); }
+// 真声通话的嘴：跟上面那对耳朵是【对称件】——一个听、一个说，同一台书房 Mac。
+// 她 2026-09-13 实测：iOS 把「高音质／增强」音色留给系统朗读和 Siri，不交给网页，
+// 所以网页这头永远只能拿到 Tingting/Meijia 那两把基础音色。想要正常人的气口，
+// 只能自己架一张嘴（edge-tts 免费、不要密钥）。
+// ⚠️这一格【不是给她一个人开的私路】：谁都能填自己的端点；没填就照旧系统音色。
+function loadVoiceMouth() {
+  const def = { base: "", k: "", voice: "" };
+  let a = def;
+  try { const c = JSON.parse(localStorage.getItem("x_voiceMouth") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
+  a.base = String(a.base || "").trim().replace(/\/+$/, "");
+  a.k = String(a.k || "").trim();
+  a.voice = String(a.voice || "").trim();
+  return a;
+}
+function saveVoiceMouth(c) { const clean = Object.assign(loadVoiceMouth(), c || {}); try { localStorage.setItem("x_voiceMouth", JSON.stringify(clean)); } catch (e) {} return clean; }
+function voiceMouthReady(a) { a = a || loadVoiceMouth(); return !!(a.base && a.k); }
+// 要一段音频回来。失败就抛，调用方【退回系统音色】——Mac 没开不该让电台哑掉。
+async function mouthSpeak(text, opts) {
+  const a = loadVoiceMouth();
+  if (!voiceMouthReady(a)) throw new Error("没配置语音端点（设置 · API）");
+  const o = opts || {};
+  const r = await fetchT(a.base + "/say?k=" + encodeURIComponent(a.k), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: String(text || ""), voice: o.voice || a.voice || "", rate: o.rate || "" })
+  }, o.timeout || 20000);
+  if (!r.ok) throw new Error("嗓子没应答：HTTP " + r.status);
+  const blob = await r.blob();
+  if (!blob || !blob.size) throw new Error("嗓子给了个空音频");
+  return blob;
+}
 // 送一段 16k 单声道 WAV 去识别；回 {text, ms}。识别失败抛人话错误。
 async function earsTranscribe(wavBlob) {
   const a = loadVoiceEars();

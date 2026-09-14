@@ -94,16 +94,19 @@ test("加速期的痕迹能一次清干净", () => {
 
 // ── 她 2026-09-10 听完第一版报的两条 ──
 test("嗓子不许拿音高掷种子（「这个女声很诡异像闹鬼」）", () => {
-  const seg = ui.slice(ui.indexOf("function voiceOf"), ui.indexOf("function fromBoundary"));
-  assert.ok(seg.indexOf('"pitch"') < 0, "音高又拿去掷种子了——移调出来的是恐怖片音效，不是另一个人");
-  assert.match(seg, /pitch: 1\b/);
+  // v68.06：连「怎么念」也搬进了公共那一层（要接自定义语音端点，两个电台得同一份）。
+  // 所以这儿看的是【公共那一份】：音高永远是 1，种子只许拿去挑嗓子和微调语速。
+  const voice = R("js/radio-voice.js");
+  assert.match(voice, /u\.pitch = 1;\s*\/\/ 音高一律不动/);
+  assert.ok(!/pitch = [^1]/.test(voice), "音高又被动了");
+  const seg = ui.slice(ui.indexOf("function say(text, st)"), ui.indexOf("function hush()"));
   // 台跟台的区别改成换一把真的声音。
   // v68.00 起「挑哪把嗓子」搬去了公共的 js/radio-voice.js（时间线电台也要用），
   // 这儿只剩「按台掷一个种子去要一把」。声音表异步加载那条也跟着搬过去了。
-  const voice = R("js/radio-voice.js");
-  assert.match(seg, /root\.RadioVoice \? root\.RadioVoice\.pick\(r\.seed01\(id, "voice"\)\) : null/);
+  assert.match(seg, /root\.RadioVoice\.speak\(t, \{ seed: r\.seed01\(id, "voice"\)/);
   assert.match(voice, /addEventListener\("voiceschanged"/, "第一次 getVoices() 常常是空的");
   assert.ok(!/function zhVoices\(\) \{\n      if \(_voices\)/.test(ui), "旧电台里那份私有的不该再有第二份");
+  assert.ok(!/new root\.SpeechSynthesisUtterance/.test(ui), "旧电台又自己念了一份");
   // 语速只微调
   const m = seg.match(/rate: ([\d.]+) \+ r\.seed01\(id, "rate"\) \* ([\d.]+)/);
   assert.ok(m, "语速那一行改没了");

@@ -42,12 +42,12 @@ test("同一个种子永远同一把嗓子，换个种子才换人", () => {
 
 test("挑嗓子只有这一份：两个电台都从公共那层要", () => {
   assert.match(html, /<script src="js\/radio-voice\.js\?v=/, "新文件要在 index.html 上注册");
-  assert.match(old, /root\.RadioVoice \? root\.RadioVoice\.pick\(r\.seed01\(id, "voice"\)\) : null/, "旧电台搬过去了");
+  assert.match(old, /root\.RadioVoice\.speak\(t, \{ seed: r\.seed01\(id, "voice"\)/, "旧电台连念那一步也搬过去了");
   assert.ok(!/function zhVoices\(\)/.test(old), "旧电台里那份私有的还在，等于又多一处要同步");
-  assert.match(ui, /root\.RadioVoice\.pick\(root\.RadioVoice\.hash01\(branch\.id\)\)/, "时间线电台一条线一把嗓子");
-  // 音高一律不动——「这个女声很诡异像闹鬼」那次的教训，两边都得守
-  assert.match(ui, /u\.rate = 0\.98; u\.pitch = 1;/);
-  assert.match(old, /pitch: 1/);
+  assert.match(ui, /seed: root\.RadioVoice\.hash01\(branch\.id\), rate: 0\.98/, "时间线电台一条线一把嗓子");
+  // 音高一律不动——「这个女声很诡异像闹鬼」那次的教训，现在守在公共那一份里
+  const voice = fs.readFileSync(path.join(root, "js/radio-voice.js"), "utf8");
+  assert.match(voice, /u\.pitch = 1;/);
 });
 
 test("引导只在真的没装时才出现，装了它自己消失", () => {

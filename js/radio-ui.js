@@ -26,18 +26,10 @@
     //   把一把人声在 0.78~1.32 之间乱移调，出来的就是恐怖片音效，不是另一个人。
     //   台跟台的区别改成【换一把真的声音】：系统里本来就有好几把中文嗓子，按台挑一把；
     //   挑不出来就老老实实用默认那把，语速上微调一点点，音高一律不动。
-    // 挑嗓子这一层搬去 js/radio-voice.js 了（v68.00）：时间线电台要用第二份，
-    // 与其照抄一遍，不如开公共的，两边一起搬（施工规则/one-public-mechanism.md）。
-    // 顺带那一份会【优先挑用户装过的增强音色】，这儿什么都不用改就跟着好了。
-    function voiceOf(st) {
-      const r = R();
-      const id = (st && st.id) || "";
-      return {
-        voice: root.RadioVoice ? root.RadioVoice.pick(r.seed01(id, "voice")) : null,
-        rate: 0.95 + r.seed01(id, "rate") * 0.12,
-        pitch: 1
-      };
-    }
+    // 挑嗓子、怎么念、端点不通怎么退——全搬去 js/radio-voice.js 了
+    // （v68.00 抽出挑嗓子，v68.06 连念那一步也搬过去）：
+    // 两个电台共用一份，不许在这儿留第二套（施工规则/one-public-mechanism.md）。
+    // 音高照旧一律不动，那条教训写在公共那一份里。
     // 半路拧过来的时候从哪儿接着念：切在句子边界上。
     // 从半个词中间切进去，念出来是一串听不懂的音节——那也是「闹鬼」的一半。
     function fromBoundary(text, frac) {
@@ -68,28 +60,29 @@
         pos: items.length ? r.whereIs(slot.station, items, now, dk) : null
       });
     }
-    let sayTimer = null;
+    let sayTimer = null, saying = null;
     function say(text, st) {
       const t = String(text || "").trim();
       try {
-        if (!root.speechSynthesis) return;
-        if (sayTimer) { clearTimeout(sayTimer); sayTimer = null; }
-        root.speechSynthesis.cancel();
+        hush();
         if (!t) return;
         // cancel 之后立刻 speak，Safari 会把上一条的尾巴和这一条搅在一起念
         sayTimer = setTimeout(() => {
           try {
-            const u = new root.SpeechSynthesisUtterance(t);
-            const v = voiceOf(st);
-            if (v.voice) u.voice = v.voice;
-            u.lang = (v.voice && v.voice.lang) || "zh-CN";
-            u.rate = v.rate; u.pitch = v.pitch;
-            root.speechSynthesis.speak(u);
+            const r = R();
+            const id = (st && st.id) || "";
+            // 念这件事全走公共那一层（v68.06）：配了自定义端点就用那张嘴，
+            // 没配或不通照旧系统音色。这儿只负责【按台掷一个种子】和语速。
+            saying = root.RadioVoice.speak(t, { seed: r.seed01(id, "voice"), rate: 0.95 + r.seed01(id, "rate") * 0.12 });
           } catch (e) {}
         }, 140);
       } catch (e) {}
     }
-    function hush() { try { if (sayTimer) { clearTimeout(sayTimer); sayTimer = null; } if (root.speechSynthesis) root.speechSynthesis.cancel(); } catch (e) {} }
+    function hush() {
+      try { if (sayTimer) { clearTimeout(sayTimer); sayTimer = null; } } catch (e) {}
+      try { if (saying) { saying.cancel(); saying = null; } } catch (e) {}
+      try { if (root.speechSynthesis) root.speechSynthesis.cancel(); } catch (e) {}
+    }
     function beat() {
       const v = look();
       if (!v) return;

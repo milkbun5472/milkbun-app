@@ -88,11 +88,59 @@
     return (x % 1000) / 1000;
   }
   const hasEnhanced = () => voices().enhanced > 0;
+
+  // ---- 念一句：先问那张嘴，不行就退回系统音色 ----
+  // ⚠️降级链只有这一份（施工规则/one-public-mechanism.md）：两个电台都从这儿念。
+  //   Mac 没开、端点报错、音频播不出来——统统退回系统音色，**不许哑掉、不许卡住**。
+  //   电台最要紧的是「一直在播」，声音好不好听是第二位的。
+  const mouthOn = () => { try { return typeof voiceMouthReady === "function" && voiceMouthReady(); } catch (e) { return false; } };
+  function speak(text, opts) {
+    const o = opts || {};
+    const done = { at: false };
+    const end = () => { if (!done.at) { done.at = true; if (typeof o.end === "function") o.end(); } };
+    const fail = e => { if (!done.at) { done.at = true; if (typeof o.fail === "function") o.fail(e); } };
+    const t = String(text || "").trim();
+    if (!t) { end(); return { cancel() { done.at = true; } }; }
+    let audio = null, stopped = false;
+    // 系统音色那一条（也是所有失败的落点）
+    const bySystem = () => {
+      if (stopped || done.at) return;
+      try {
+        if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") return fail(new Error("这台设备不会念"));
+        const u = new SpeechSynthesisUtterance(t);
+        const picked = pick(o.seed);
+        if (picked) u.voice = picked;
+        u.lang = (picked && picked.lang) || "zh-CN";
+        u.rate = Number(o.rate) > 0 ? Number(o.rate) : 1;
+        u.pitch = 1;                       // 音高一律不动（「像闹鬼」那次的教训）
+        u.onend = end; u.onerror = () => fail(new Error("念到一半断了"));
+        speechSynthesis.speak(u);
+      } catch (e) { fail(e); }
+    };
+    if (!mouthOn()) { bySystem(); return { cancel() { stopped = true; try { speechSynthesis.cancel(); } catch (e) {} done.at = true; } }; }
+    mouthSpeak(t, { voice: o.voice }).then(blob => {
+      if (stopped || done.at) return;
+      const url = URL.createObjectURL(blob);
+      audio = new Audio(url);
+      const drop = () => { try { URL.revokeObjectURL(url); } catch (e) {} };
+      audio.onended = () => { drop(); end(); };
+      audio.onerror = () => { drop(); audio = null; bySystem(); };
+      const p = audio.play();
+      if (p && typeof p.catch === "function") p.catch(() => { drop(); audio = null; bySystem(); });
+    }).catch(() => { bySystem(); });        // 端点不通＝退回系统音色，不是报错
+    return {
+      cancel() {
+        stopped = true; done.at = true;
+        if (audio) { try { audio.pause(); } catch (e) {} audio = null; }
+        try { if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); } catch (e) {}
+      }
+    };
+  }
   // ⚠️别再劝人去装「高音质／增强」音色了（她 2026-09-13 实测）：
   //   她在 设置 → 辅助功能 → 朗读内容 → 声音 → 中文 里装好了「月（高音质）」，
   //   可网页这头列出来的还是只有 Tingting / Meijia 那两把基础音色——
   //   **iOS 把高音质那几把留给系统朗读和 Siri，不交给 Web Speech**。
   //   那句引导于是成了假消息，会让人白折腾一趟。说实话，别指一条走不通的路。
   const ENHANCED_HINT = "系统里装的「高音质／增强」音色不给网页用，这儿只有基础那几把。";
-  return { pick, hash01, hasEnhanced, options, loadPick, savePick, onVoices, refresh, KEY, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
+  return { pick, hash01, hasEnhanced, speak, mouthOn, options, loadPick, savePick, onVoices, refresh, KEY, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
 });
