@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.26";
+const APP_VERSION = "v68.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3018,6 +3018,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const memShareChar = (aIds, bIds) => { const a = aIds || [], b = bIds || []; if (!a.length || !b.length) return true; return a.some(x => b.includes(x)); };
   // 是否重复（跳过新的）：v48.41 改成【不对称】——只有「新文本没添新信息」才算重复，即新的 ⊆ 已有（被已有包含）或完全相同。
   // 若新的更长、反而包含了旧的（是更详细版），不算重复：放它进来，交给 pruneSubsumed 淘汰旧的含糊版，别再丢细节。
+  // ── 一场线下别往记忆库里写两遍（她 2026-09-14 转来的反馈）──────────────
+  // 有人报「线下的内容是边聊边生成一些，然后结束了重新全部生成，有一些些重复的」。
+  // 是真的：滚动总结每攒够 50 段就把那一段写进记忆库，而结束那一趟是拿【整场】
+  // 重新总结一遍——同一件事被两份不同措辞的文字各记一条，去重闸认不出来（它只认
+  // 字面重合，而两趟是两次独立生成）。
+  // ⚠️不删行：按全库同一套做法把旧的标成 superseded（行还在，只是不再进提示词、
+  //   不再出现在库里）。以【最后那一份】为准——它看的是整场，本来就更全。
+  // ⚠️她自己动过的不碰：手动记的、钉住的、已经被别处收起来的，一律原样留着。
+  const supersedeOfflineRolling = ofsId => {
+    if (!ofsId) return 0;
+    let n = 0;
+    const next = (memLibRef.current || []).map(e => {
+      if (!e || String(e.ofs || "") !== String(ofsId)) return e;
+      if (e.source === "manual" || e.pinned) return e;
+      if ((e.surfaceState || "active") !== "active") return e;
+      n++;
+      return { ...e, surfaceState: "superseded", supersededReason: "offline-final" };
+    });
+    if (n) saveMemLib(next);
+    return n;
+  };
   const isDupMem = (text, charIds, pool, meta = {}) => {
     const n = normMemText(text); if (n.length < 4) return false;
     const rows = pool || memLibRef.current;
@@ -3155,7 +3176,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       ...(Array.isArray(e.knownBy) ? { knownBy: e.knownBy.map(String) } : {}),
       // 哪个群产生的（群侧总结才有）。addMemEntry 是白名单式建对象——不写在这儿，
       // 调用方传了也会被静默丢掉，「清群记录·同步忘却」就永远只能靠 tag 兜底。
-      ...(e.groupId ? { groupId: String(e.groupId) } : {})
+      ...(e.groupId ? { groupId: String(e.groupId) } : {}),
+      // 哪一场线下写的。⚠️白名单式建对象：不写在这儿，调用方传了也会被静默丢掉，
+      //   结束时就认不出「这几条是这一场滚动总结写的」（见 supersedeOfflineRolling）。
+      ...(e.ofs ? { ofs: String(e.ofs) } : {})
     };
     // v51.07：模型把“今晚吃粥”一类普通未来安排也大量标成 open。
     // 自动来源先过机械资格闸；手动勾选不干预。被挡的条目仍作为普通事实保存，不丢记忆。
@@ -5825,9 +5849,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (summ) {
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
-        addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
-        (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
-        (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
+        // ofs：这几条是【这一场】滚动写的。结束那一趟会拿整场重来一遍，到时候按这个号把它们收起来
+        addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
+        (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
+        (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
         pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
@@ -6329,10 +6354,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
+    // ⚠️顺序要紧：**总结真的出来了**才收起滚动那几条。这一枪要是失败（summary 为空），
+    //   收了就等于这一场的记忆全没了——宁可留着重复，不能留空。
+    if (!sideRoom && summary) supersedeOfflineRolling(sess.id);
+    if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
     // 谈话细节逐条入库（她要的：总结之外，具体聊过什么也记得住）；新约定标未了结
-    if (!sideRoom) details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
-    if (!sideRoom) opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
+    if (!sideRoom) details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
+    if (!sideRoom) opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
     // 把这段线下经过回写进线上聊天记录，接上线上/线下的连贯：否则线上角色读不到刚才线下发生了什么，
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
@@ -6617,9 +6645,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
           // groupId：清群记录时要能只摘本群产生的条目，光靠 tags 认不准（她 2026-08-24）
-          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId });
-          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId }));
-          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId }));
+          // ofs：这几条是【这一场】滚动写的（跟单人线下同一条规矩，结束时按这个号收起来）
+          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id });
+          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
+          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
         }
         pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
       }
@@ -6944,11 +6973,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId });
+    // 同上：总结真的出来了，才把这一场滚动写的那几条收起来
+    if (summary && group && interopOn) supersedeOfflineRolling(sess.id);
+    if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId, ofs: sess.id });
     // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
     if (group && interopOn) {
-      details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId }));
-      opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: groupId }));
+      details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId, ofs: sess.id }));
+      opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
     pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
