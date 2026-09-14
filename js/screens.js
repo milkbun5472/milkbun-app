@@ -12920,8 +12920,13 @@ const GACHA_BALLS = [
   [74, 110, 24], [119, 113, 26], [163, 110, 23], [42, 122, 18],
   [63, 71, 21], [108, 66, 23], [152, 70, 22], [188, 76, 19]
 ];
-function GachaMachine({ have, costOne, costTen, spin, onPull, partner }) {
+// 三步：**选这次抽多少 → 一张点数卡滑进投币口 → 扳拉杆才真的转**
+// （她 2026-09-14：「不然现在这俩还是摆设」——投币口和拉杆原来只是画上去的）。
+// ⚠️点数在【真的转完】那一刻才扣（onPull 在动画末尾才调）：选了还没扳的时候反悔、
+//   或者中途退出这一页，一点都不该少。
+function GachaMachine({ have, costOne, costTen, armed, armSeq, spin, onArm, onSpin, partner }) {
   const dim = n => have < n;
+  const ready = !!armed && !spin;
   return h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center" } },
     h("style", null,
       // 摇：整罐蛋一起晃，每一枚再各自错开一点相位，不然像一整块在动
@@ -12937,7 +12942,15 @@ function GachaMachine({ have, costOne, costTen, spin, onPull, partner }) {
       + "70%{transform:translate(51px,124px) scale(1)}"
       + "82%{transform:translate(51px,114px) scale(1.05)}"
       + "100%{transform:translate(51px,122px) scale(1)}}"
-      + "@keyframes gm-glow{0%,58%{opacity:0}72%{opacity:.9}100%{opacity:.4}}"),
+      + "@keyframes gm-glow{0%,58%{opacity:0}72%{opacity:.9}100%{opacity:.4}}"
+      // 投点数：一张小卡片从上面滑下来，插进投币口那道缝里，越插越窄，最后没进去
+      + "@keyframes gm-coin{0%{opacity:0;transform:translate(0,-26px) rotate(-8deg) scaleY(1)}"
+      + "22%{opacity:1;transform:translate(0,-12px) rotate(-3deg) scaleY(1)}"
+      + "62%{opacity:1;transform:translate(0,-1px) rotate(0) scaleY(1)}"
+      + "100%{opacity:.15;transform:translate(0,7px) rotate(0) scaleY(.06)}}"
+      // 投完了：拉杆自己轻轻点两下，告诉她该扳的是这儿
+      + "@keyframes gm-wait{0%,100%{transform:rotate(0)}40%{transform:rotate(11deg)}70%{transform:rotate(-5deg)}}"
+      + "@keyframes gm-halo{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.85;transform:scale(1.14)}}"),
     h("svg", { viewBox: "0 0 240 330", width: "100%", style: { maxWidth: 272, display: "block" }, "aria-hidden": "true" },
       h("defs", null,
         h("linearGradient", { id: "gm-body", x1: "0", y1: "0", x2: ".35", y2: "1" },
@@ -12976,15 +12989,31 @@ function GachaMachine({ have, costOne, costTen, spin, onPull, partner }) {
       h("rect", { x: 30, y: 188, width: 180, height: 9, rx: 4.5, fill: "#e9d8e2" }),
       // ── 面板：左边投点数、中间拉杆 ──
       h("g", null,
-        h("rect", { x: 30, y: 200, width: 84, height: 34, rx: 11, fill: "#fff", stroke: "#e7d6e0", strokeWidth: 1.2 }),
-        h("rect", { x: 58, y: 213, width: 28, height: 6, rx: 3, fill: "#c9aebb" }),
-        h("text", { x: 72, y: 249, textAnchor: "middle", fill: "#b58aa2",
-          style: { fontFamily: F_BODY, fontSize: 9.5 } }, "投点数")),
-      h("g", { style: { transformOrigin: "166px 217px", animation: spin ? "gm-lever 1.3s cubic-bezier(.4,.1,.2,1) both" : "none" } },
-        h("circle", { cx: 166, cy: 217, r: 21, fill: "#fff", stroke: "#e2ccd7", strokeWidth: 1.5 }),
-        h("circle", { cx: 166, cy: 217, r: 6, fill: "#e4d1dc" }),
-        h("rect", { x: 163.2, y: 199, width: 5.6, height: 20, rx: 2.8, fill: "#c9aebb" }),
-        h("circle", { cx: 166, cy: 198, r: 7, fill: "#b98ba4" })),
+        h("rect", { x: 30, y: 200, width: 84, height: 34, rx: 11, fill: "#fff",
+          stroke: armed ? "#d79ab8" : "#e7d6e0", strokeWidth: armed ? 1.8 : 1.2 }),
+        h("rect", { x: 58, y: 213, width: 28, height: 6, rx: 3, fill: armed ? "#b0708a" : "#c9aebb" }),
+        // 那张点数卡：每选一次重放一遍（靠 armSeq 换 key），所以改主意也看得见它又投了一张
+        armed ? h("g", { key: "coin" + armSeq, style: { animation: "gm-coin .72s cubic-bezier(.4,.05,.3,1) both", transformOrigin: "72px 216px" } },
+          h("rect", { x: 57, y: 206, width: 30, height: 15, rx: 3, fill: "#f6dfe8", stroke: "#d79ab8", strokeWidth: 1 }),
+          h("text", { x: 72, y: 217, textAnchor: "middle", fill: "#a74d70", style: { fontFamily: F_BODY, fontSize: 9 } }, armed === 1 ? "单" : "十")) : null,
+        h("text", { x: 72, y: 249, textAnchor: "middle", fill: armed ? "#a74d70" : "#b58aa2",
+          style: { fontFamily: F_BODY, fontSize: 9.5 } }, armed ? (armed === 1 ? "已投 " + costOne : "已投 " + costTen) : "投点数")),
+      // 投完了才亮起来、才扳得动。⚠️热区是另画的一枚透明大圆（r=30≈60px 直径），
+      //   不是那根细杆——手指按不准细杆（施工规则/mobile-ui-layout.md 那条 40px 热区）。
+      // ⚠️这一圈画成【实心】的话就是一坨粉色糊在面板上，还会漫到取物口上去。
+      //   它要的是「这儿可以按」，所以只描一道圈。
+      ready ? h("circle", { cx: 166, cy: 217, r: 25, fill: "none", stroke: "#d79ab8", strokeWidth: 2.4,
+        style: { animation: "gm-halo 1.5s ease-in-out infinite", transformOrigin: "166px 217px" } }) : null,
+      h("g", { style: { transformOrigin: "166px 217px",
+        animation: spin ? "gm-lever 1.3s cubic-bezier(.4,.1,.2,1) both" : ready ? "gm-wait 1.6s ease-in-out infinite" : "none" } },
+        h("circle", { cx: 166, cy: 217, r: 21, fill: "#fff", stroke: ready ? "#d79ab8" : "#e2ccd7", strokeWidth: ready ? 1.9 : 1.5 }),
+        h("circle", { cx: 166, cy: 217, r: 6, fill: ready ? "#edd8e3" : "#e4d1dc" }),
+        h("rect", { x: 163.2, y: 199, width: 5.6, height: 20, rx: 2.8, fill: ready ? "#a74d70" : "#c9aebb" }),
+        h("circle", { cx: 166, cy: 198, r: 7, fill: ready ? "#a74d70" : "#cdb4c2" })),
+      h("circle", { cx: 166, cy: 217, r: 30, fill: "transparent",
+        role: "button", tabIndex: ready ? 0 : -1, "aria-label": ready ? "扳一下拉杆" : "先投点数",
+        style: { cursor: ready ? "pointer" : "default", pointerEvents: ready ? "auto" : "none" },
+        onClick: () => { if (ready) onSpin(); } }),
       // ⚠️这一行原来压在拉杆下面，拉杆一转就叠上去了。挪到面板右侧竖着摆，转多少圈都不碰。
       h("text", { x: 203, y: 213, textAnchor: "middle", fill: "#c39cb2", style: { fontFamily: F_BODY, fontSize: 9 } }, "转"),
       h("text", { x: 203, y: 224, textAnchor: "middle", fill: "#c39cb2", style: { fontFamily: F_BODY, fontSize: 9 } }, "一"),
@@ -13005,12 +13034,18 @@ function GachaMachine({ have, costOne, costTen, spin, onPull, partner }) {
       // 正在出的那一枚：从罐底滚下来，掉进那个圆洞
       spin ? h("g", { style: { animation: "gm-drop 1.2s cubic-bezier(.34,.9,.36,1) .55s both" } },
         gachaCapsule(GACHA_SHAPES[(spin * 7) % GACHA_SHAPES.length], 120, 162, 17, "out")) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", marginTop: 2 } },
-      spin ? (spin > 1 ? "一口气转了十下…" : "转起来了…") : "跟 " + (partner.remark || partner.name) + " 之间的那些，都在里头"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: ready ? "#a74d70" : "#b0708a", marginTop: 2 } },
+      spin ? (spin > 1 ? "一口气转了十下…" : "转起来了…")
+        : ready ? "点数投进去了 · 扳一下那个拉杆"
+          : "跟 " + (partner.remark || partner.name) + " 之间的那些，都在里头"),
     h("div", { className: "flex gap-2 w-full", style: { marginTop: 11 } },
       [[1, "单抽", costOne], [10, "十连", costTen]].map(([n, zh, cost]) =>
-        h("button", { key: zh, onClick: () => onPull(n), disabled: dim(cost) || !!spin, className: "flex-1 active:opacity-70",
-          style: { borderRadius: 14, padding: "11px 0", background: (dim(cost) || spin) ? "#e6d8de" : "#a74d70", color: (dim(cost) || spin) ? "#b09aa2" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+        h("button", { key: zh, onClick: () => onArm(n), disabled: dim(cost) || !!spin, className: "flex-1 active:opacity-70",
+          style: { borderRadius: 14, padding: "11px 0",
+            background: (dim(cost) || spin) ? "#e6d8de" : armed === n ? "#7e3a54" : "#a74d70",
+            color: (dim(cost) || spin) ? "#b09aa2" : "#fff",
+            boxShadow: armed === n && !spin ? "inset 0 0 0 2px rgba(255,255,255,.55)" : "none",
+            fontFamily: F_DISPLAY, fontSize: 15 } },
           zh, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .78, marginLeft: 6 } }, cost + " 点")))));
 }
 function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBack }) {
@@ -13029,10 +13064,18 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBa
   //   这儿选【转完才把卡摆出来】，那一下才叫出货。
   // ⚠️点数不够、或者正在转，按钮自己是禁用的；这儿再挡一道，免得连点两下扣两次。
   const [spin, setSpin] = useState(0);
+  // armed＝这次说好要抽几发（点数卡已经投进去了，但还没扳拉杆）。
+  // ⚠️armed 只是【说好】，一点都还没扣：反悔、改主意、退出这一页，点数一分不少。
+  //   真正扣点是 onPull，而 onPull 在转完那一刻才调。
+  const [armed, setArmed] = useState(0);
+  const [armSeq, setArmSeq] = useState(0);     // 每选一次 +1，让投卡那一下重新播
   const spinTimer = useRef(null);
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current); }, []);
-  const pull = n => {
-    if (spin) return;
+  const arm = n => { if (spin) return; setArmed(n); setArmSeq(x => x + 1); };
+  const doSpin = () => {
+    if (spin || !armed) return;
+    const n = armed;
+    setArmed(0);
     setSpin(n);
     spinTimer.current = setTimeout(() => {
       spinTimer.current = null;
@@ -13056,9 +13099,11 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBa
           h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", lineHeight: 1.6 } },
             h("div", null, "已抽 " + (lk.pulls || 0) + " 次"),
             h("div", null, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk.sinceSSR || 0)) + " 抽保底 SSR"))),
-        h(GachaMachine, { have: have, costOne: K.COST_ONE || 50, costTen: K.COST_TEN || 450, spin: spin, onPull: pull, partner: partner }),
+        h(GachaMachine, { have: have, costOne: K.COST_ONE || 50, costTen: K.COST_TEN || 450,
+          armed: armed, armSeq: armSeq, spin: spin, onArm: arm, onSpin: doSpin, partner: partner }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1808e", marginTop: 10, lineHeight: 1.6 } },
-          "抽卡不花任何调用，十连也是。抽到的是兑换券——点「兑换」才真的发生。和 " + (partner.remark || partner.name) + " 好好待一会儿就攒点数，发几条不影响。")),
+          "先挑这次抽几发，点数卡会投进机器；**扳一下拉杆才真的转**，没扳之前一点都不扣。"
+          + "抽卡不花任何调用，十连也是。抽到的是兑换券——点「兑换」才真的发生。和 " + (partner.remark || partner.name) + " 好好待一会儿就攒点数，发几条不影响。")),
       // 未兑 / 票根全本
       h("div", { className: "flex gap-2", style: { marginTop: 16, marginBottom: 10 } },
         [["open", "还没兑 " + open.length], ["all", "票根 " + mine.length]].map(([k, zh]) =>
