@@ -177,7 +177,8 @@ test("约会券没有另起一套，是抽卡里多一个 act", () => {
   ["x_dateTicket", "x_coupon", "DateTickets"].forEach(k =>
     assert.ok(app.indexOf(k) < 0 && scr.indexOf(k) < 0, "另起了一套券：" + k));
   // 券面那件事必须长在人设上，不然「换个角色照样成立」
-  assert.match(app, /换个角色照样成立的就是写坏了/, "券面没立那条判据");
+  // v68.42 提示词搬进 js/gacha.js 的卡表里了（一行就是一张完整的卡）
+  assert.match(R("gacha.js"), /换个角色照样成立的就是写坏了/, "券面没立那条判据");
 });
 
 // ═══ 惊喜抽屉（言秋提，她 2026-08-31 拍板）═══
@@ -245,7 +246,7 @@ test("印象卡那张改的是真卡，不是自己另存一份", () => {
   assert.match(redeem, /if \(!ok\) \{ toast\([\s\S]*?\); return; \}/, "写不进去也把卡兑掉了");
   assert.match(redeem, /where: "gaze"/, "票根上没写清改的是印象卡");
   // 他本来就看得见自己那张卡（buildBundle 常驻 gazeText），别再抄一遍进提示词
-  const ask = app.slice(app.indexOf("    gaze: \"你心里那张关于她"), app.indexOf("    // 约会券：跟 offline"));
+  const ask = G.askOf("x_gaze");
   assert.match(ask, /上面已经发给你了/, "没说清卡已经在上下文里——模型会以为要从零编一张");
   assert.match(ask, /整块盖掉旧的那版/, "没说清是整块重写，模型会写成补丁");
   assert.match(ask, /换个角色照样成立的就是写坏了/, "没立那条判据");

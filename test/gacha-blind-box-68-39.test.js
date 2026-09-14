@@ -35,10 +35,10 @@ test("第一枪不告诉TA她放了什么——双盲不是靠那句禁令，是
   const i = app.indexOf('if (card.act === "box") {');
   assert.ok(i > 0);
   const fn = app.slice(i, app.indexOf('if (card.act === "boxOpen")', i));
-  assert.match(fn, /GACHA_SSR_ASK\.box_his/);
+  assert.match(fn, /gAsk\("x_box", "his"\)/);
   assert.doesNotMatch(fn, /instruction:[\s\S]{0,400}\bmine\b/, "第一枪把她放的那句发过去了");
   // 提示词那头也写清楚了它不知道
-  const ask = app.slice(app.indexOf("    box_his:"), app.indexOf("    // 双盲秘密盒·第二枪"));
+  const ask = K.askOf("x_box", "his");
   assert.match(ask, /你不知道对方放了什么/);
   assert.match(ask, /别猜、别写成回应对方的东西/);
 });

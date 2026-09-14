@@ -89,7 +89,7 @@ test("双面券两个口子，选了就定了", () => {
   assert.match(scr, /card\.act === "dual"/);
   assert.match(scr, /onRedeem\(\{ \.\.\.card, side: side \}\)/);
   assert.match(app, /const side = card\.side === "tease" \? "tease" : "sweet";/);
-  assert.match(app, /GACHA_SR_ASK\["dual_" \+ side\]/);
+  assert.match(app, /gAsk\("s_dual", side\)/);
 });
 
 test("掉马券摆到TA面前：走翻手机那条现成的链，不另开一条", () => {
@@ -99,13 +99,12 @@ test("掉马券摆到TA面前：走翻手机那条现成的链，不另开一条
 });
 
 test("券的提示词给出口，不下判决（施工规则/bans-make-it-dumber.md）", () => {
-  const i = app.indexOf("    dual_tease:");
-  const ask = app.slice(i, app.indexOf("\n  };", i));
+  // v68.42 提示词搬进卡表了——直接问那张卡要，不再按源码位置去切
+  const ask = K.askOf("s_dual", "tease");
   assert.match(ask, /不是【TA一定会照办】/);
   assert.match(ask, /讨价还价、反将一军/);
   // 掉马券反过来：它要的是【别解释】
-  const d = app.slice(app.indexOf("    drop:   "), app.indexOf("    // 双面券"));
-  assert.match(d, /别替TA解释/);
+  assert.match(K.askOf("s_drop"), /别替TA解释/);
 });
 
 test("新开的四枪 maxTokens 都开满（施工规则/max-tokens-floor.md）", () => {
@@ -126,11 +125,12 @@ test("料全放 system：走 runProbe，不自己拼 user（施工规则/prompt-
 });
 
 test("提示词里没有内容示范（施工规则/prompt-no-content-samples.md）", () => {
-  ["drop", "dual_sweet", "dual_tease"].forEach(k => {
-    const i = app.indexOf("    " + (k === "drop" ? "drop:   " : k + ": "));
-    assert.ok(i > 0, k);
-    const seg = app.slice(i, i + 900);
-    assert.doesNotMatch(seg, /如「|例如「/, k);
+  // 全库每一张卡都核一遍，不只核新加那几张——搬进卡表之后这件事变便宜了
+  K.POOLS.forEach(p => {
+    const a = p.ask;
+    if (!a) return;
+    const all = typeof a === "string" ? [a] : Object.keys(a).map(k => a[k]);
+    all.forEach(x => assert.doesNotMatch(String(x), /如「|例如「/, p.id));
   });
 });
 
@@ -150,11 +150,7 @@ test("掉落进的是现成的抽屉，不另开一叠收藏", () => {
 
 test("秘密筹备：第一枪只出信封，第二枪由她按才花", () => {
   // 第一枪的提示词必须明说不许剧透
-  ["plan_out", "plan_home"].forEach(k => {
-    const i = app.indexOf("    " + k + ":");
-    assert.ok(i > 0, k);
-    assert.match(app.slice(i, i + 700), /⚠️不许写/, k);
-  });
+  ["out", "home"].forEach(k => assert.match(K.askOf("x_plan", k), /⚠️不许写/, k));
   // 到点只解锁，不打第二枪
   assert.match(app, /plan: \{ app: "", unlockOnly: true \}/);
   const sw = app.slice(app.indexOf("const gachaSeedSweep = () => {"), app.indexOf("const gachaSeedSweep = () => {") + 1800);

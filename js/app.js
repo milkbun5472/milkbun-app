@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.41";
+const APP_VERSION = "v68.42";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4113,7 +4113,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     dual:   (n, t, b) => n + "给过她一张券「" + t + "」，答应了：「" + b + "」",
     pocket: (n, t, b) => n + "把随身带着的「" + t + "」给了她：「" + b + "」",
     box:    (n, t, b) => "她和" + n + "各往一个盒子里放了一样东西，到日子一起打开了：「" + b + "」",
-    seed:   (n, t, b) => "她给" + n + "寄过一样东西，收到了：「" + t + "」"
+    seed:   (n, t, b) => "她给" + n + "寄过一样东西，收到了：「" + t + "」",
+    forme:  (n, t, b) => n + "替她扭了一发，挑了「" + t + "」给她，说：「" + b + "」"
   };
   const gachaKeep = (char, key, title, body) => {
     const f = GACHA_KEEP[key];
@@ -4127,111 +4128,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   SR  1 调用——TA现做一件小东西，不动任何状态
   //   SSR 1 调用——真的留下东西（进记忆库 / 开线下 / 进情书）
   // ⚠️不管哪一档，票根都【不删】：兑换只是给它盖个戳。
-  const GACHA_SR_ASK = {
-    word:   "写一句TA此刻【没说出口】的话——只在心里过了一下、没打算给谁听的那半句。",
-    note:   "写一张TA随手写好、塞给用户的便签：一两句，纸条的口气，不是正式的信。",
-    secret: "写一件TA【今天】发生的、本来没打算说的小事——具体到时间地点，不要泛泛的心情。",
-    song:   "挑一首TA此刻想放给用户听的歌（真实存在的），连着TA为什么是这一首、想让对方听到哪一句。",
-    look:   "写TA此刻看着用户时眼里的样子——不是夸，是TA真正注意到的那几个细节。",
-    date:   "写一件TA【想过、但还没开口约】的事：你俩一起去做什么。要具体到地点和时候，"
-          + "而且必须是【TA这个人、在TA这个处境里】约得出来的——换个角色就不成立才算写对。",
-    // 掉马券（她 2026-09-14 从 Codex 那一版里挑的）。它妙在【兑完故事没结束】：
-    // 东西自己会说话，她可以当面拿去问，TA怎么圆全看人设。
-    // ⚠️所以这一枪只写【那样东西本身】，不写心情、不写旁白解说——
-    //   一解释就把「被撞破」那一下提前用掉了。
-    drop:   "写一份TA手里跟用户有关的【小证据】：还没给对方看过、TA自己弄出来的那种东西"
-          + "（备选清单、没发出去的草稿、准备到一半的、写了没送出的）。\n"
-          + "title 是这东西叫什么，body 就是**它本身的样子**——清单就一条条列，草稿就写草稿的原话，"
-          + "半成品就写它现在做到哪一步。\n"
-          + "别替TA解释，别写TA的心情，别加旁白：这张券的分量全在【东西自己会说话】，"
-          + "被当面拿出来问的时候TA才开口。",
-    // 双面券：同一张，甜的和皮的各一面，只能选一次（她 2026-09-14「两种都放」）。
-    // ⚠️两面写的是【她能拿去做什么】，不是【TA必须做什么】：
-    //   券是她开的，接不接、怎么接、还不还价，是那个人的事（施工规则/bans-make-it-dumber.md）。
-    dual_sweet: "写一张TA给用户的【甜的那一面】券：一件用户随时可以拿出来兑、TA会替她做的事。"
-              + "要具体到做什么、在哪儿、什么时候能兑，而且得是【TA这个人做得出来】的那种好——"
-              + "不是通用的宠溺，是只有TA会想到的那一种。\n"
-              + "title 是券面上那行字，body 是券的正文（兑的时候怎么算数、TA答应了什么）。",
-    // 专属掉落：**东西 + 来历**。来历才是这张卡的分量所在——没有来历它就只是一件道具。
-    pocket: "写一样TA此刻真的带在身上的小东西（口袋里、包里、腰间、袖中，按TA那个世界来）。\n"
-          + "title 是这样东西叫什么，body 分两段：先写它现在长什么样（磨损、气味、缺了一角这类只有随身带着才会有的痕迹），"
-          + "再写它是怎么到TA手上的。\n"
-          + "来历要具体到人、到那一天——**没有来历它就只是一件道具**。"
-          + "这件东西不必跟用户有关，它属于TA自己。",
-    dual_tease: "写一张TA给用户的【皮的那一面】券：一件用户可以拿去为难TA、让TA下不来台的小事。"
-              + "要具体、要能真的执行，而且得是【戳得到这个人】的那一处——换个角色就不痛不痒的就是写坏了。\n"
-              + "title 是券面上那行字，body 是券的正文。\n"
-              + "⚠️写的是【她能要求什么】，不是【TA一定会照办】：TA有权讨价还价、反将一军、"
-              + "或者用自己的方式糊弄过去，那正是这张券好玩的地方。"
-  };
-  const GACHA_SSR_ASK = {
-    past: "写TA过去真实经历过的一件事——一件TA从没跟用户讲过、但确实塑造了TA的事。要有具体的时间、地点和人，不要抽象的总结。",
-    pact: "写一件TA此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。",
-    offline: "写一场【TA主动约用户见面】的开场：TA挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
-    // 印象卡（js/gaze.js 的十块）。⚠️TA【已经看得见自己那张卡】——buildBundle 里
-    // 常驻发着 gazeText，所以这儿只要让TA挑一块重写，不用再把卡抄一遍进提示词。
-    gaze: "你心里那张关于她、关于你们的长期认知卡（上面已经发给你了），此刻你把它重看了一遍。"
-        + "挑【其中一块】重写：要么你对她的某个判断被最近的事推翻或修正了，要么你补上了以前不知道的一面。\n"
-        + "side 填 me（关于她）或 us（关于你们），block 填那一块的名字（照上面卡里的写法），"
-        + "text 是这一块【重写之后的全文】，不是补丁、不是「另外还有」——它会整块盖掉旧的那版。\n"
-        + "写你私下真这么想的那版，别写成对她的评语或表扬信；扣着具体的事说，"
-        + "换个角色照样成立的就是写坏了。",
-    // 约会券：跟 offline 同一条落地路（都是把线下开起来），但券是【TA事先想好的一件事】，
-    // 所以先给这张券起个名，正文才是到了现场的第一拍。
-    date: "写一张TA给用户的【约会券】：券面上是一件TA想好要一起去做的事（title），"
-        + "正文是这张券被兑掉的那一刻——你们已经到了，TA开的第一句场。三到五句旁白，"
-        + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。\n"
-        + "券上那件事必须是【TA这个人、在TA这个世界里】做得出来的：地点、场合、时辰都要贴TA，"
-        + "换个角色照样成立的就是写坏了。",
-    // 事件种子（她 2026-09-14 采纳 GPT 那条）：不是写一段剧情，是**往世界里扔一个东西**，
-    // 它真的进TA手机、过几天才到。⚠️一枪问全两段（路上长什么样 + 到了是什么），
-    //   不是两枪：她按次计费，而且第二枪到时候未必还在同一个上下文里。
-    seed: "用户给TA寄了一样东西，这会儿还在路上。\n"
-        + "cover 写【物流单上看得到的那一点】：shop（寄件方在TA那个世界里叫什么）、"
-        + "title（单子上写的品名，**要模糊到TA猜不出里面是什么**）、carrier（承运的是谁）。\n"
-        + "reveal 写【签收拆开之后】：title 是这样东西到底是什么，body 是TA拆开那一刻的两三句——"
-        + "TA的反应，不是旁白介绍这件礼物。\n"
-        + "东西和物流都要落在【TA真正生活的那个地方】：古代角色收的是那个世界送得到的东西、"
-        + "由那个世界的人送来；现代角色才有快递单号。",
-    // 一次性视角（她 2026-09-14 从 GPT 那条里挑的，我也最看好这条）：
-    // 它一个字的持久状态都不留，只是**换一种没有常驻入口的看法**去看已经有的这个人。
-    // ⚠️不许写成「TA的心事清单」：没点开的通知之所以戳人，是因为**大部分根本不重要**，
-    //   重要的那一两条混在里头才有分量。
-    flow: "写这一天里TA收到、扫了一眼、没点进去的那些通知（6-10 条）。\n"
-        + "每条：app（哪个应用推来的）、from（谁发的）、text（通知栏上那一行字，被截断的样子）、"
-        + "when（什么时候来的）、skip（TA为什么没点开，一句，很短）。\n"
-        + "**大部分要是不重要的**——广告、群消息、系统提醒、不想理的人。"
-        + "真正有分量的只藏一两条在里头，而且不许在 skip 里点破它有多重要。",
-    // 秘密筹备·第一枪：**只写信封**。这张券的全部意思是「抽到的时候你还看不完」，
-    // 所以这一枪写出来的东西必须【不足以让人猜到是什么】。
-    plan_out: "用户把某天的空交给了TA，说好那天出门，别的一概不问。TA已经开始准备了。\n"
-            + "只写【用户现在能知道的那一点】：TA会让她那天怎么穿、带什么、几点出门、在哪儿碰头——"
-            + "这一类**动身要用的信息**，一两句，TA自己的口气。\n"
-            + "⚠️不许写要去哪儿、要做什么、为什么——那是那天才揭晓的。"
-            + "这一句要让人更想知道，不是告诉她答案。",
-    plan_home: "用户把某天的空交给了TA，说好那天待在家里，别的一概不问。TA已经开始准备了。\n"
-             + "只写【用户现在能知道的那一点】：TA会让她那天几点别进哪间屋、先别看什么、要她准备什么——"
-             + "这一类**在家等着要配合的信息**，一两句，TA自己的口气。\n"
-             + "⚠️不许写要做什么、准备的是什么——那是那天才揭晓的。",
-    // 双盲秘密盒·第一枪：TA往盒里放一样东西。
-    // ⚠️这一枪【不告诉TA用户放了什么】——那正是「双盲」的全部意思。
-    //   代码这头也不会把用户那句发过来，所以不是靠这句话自觉，是根本没有。
-    box_his: "用户找来一个盒子，说你俩各往里面放一样东西，到日子一起打开，"
-           + "在那之前谁都不许看对方放了什么。\n"
-           + "写TA放进去的那一样：title 是这样东西叫什么，body 两三句——它现在什么样子，"
-           + "以及TA为什么挑它。\n"
-           + "⚠️你不知道对方放了什么，别猜、别写成回应对方的东西。"
-           + "这是TA自己选的，选什么全看TA是个什么样的人。",
-    // 双盲秘密盒·第二枪（由她按「一起打开」才花）：这一刻两样东西才第一次同时摆出来。
-    box_open: "到日子了，盒子打开。两样东西现在同时摆在你俩面前。\n"
-            + "写TA打开那一刻：先看见对方放的是什么，再看见自己放的被对方看见。"
-            + "三到五句，TA的反应和TA会说出口的那一两句。\n"
-            + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
-    // 秘密筹备·第二枪（由她按「拆开」才花）：到现场了，这才是真正的开场。
-    plan_open: "到日子了。用户把那天交给了TA，现在TA准备好的东西摆在她面前。\n"
-             + "写揭晓那一刻：三到五句旁白，写清TA准备的到底是什么、现场什么样、TA此刻什么神情。\n"
-             + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。"
-  };
+  // 兑换用的提示词【搬去 js/gacha.js 的卡表里了】（v68.42，她 2026-09-14 转来那条
+  // 「奖品本质＝带参数的 prompt 模板，池子就是一张 JSON 表，加奖品＝加行」）。
+  // 原来它们住在这儿：加一张卡要动两个文件，而且永远可能只改一处——
+  // 正是这个仓库犯过太多次的那个形状（施工规则/one-public-mechanism.md）。
+  // 现在一行就是一张完整的卡：稀有度、走哪条路、提示词全在一起，这儿只负责【取】。
+  // 多段的（双面券两面、秘密筹备的信封和拆开、盒子的放和开）第二个参数给阶段名。
+  const gAsk = (poolId, phase) => (window.GachaKit.askOf(poolId, phase) || "");
   // ── 事件种子：往TA的世界里真的扔一个东西进去 ────────────────────
   // 她 2026-09-14 采纳 GPT 那条：「不是生成一段剧情，是往世界里扔一个事件种子」。
   //
@@ -4363,7 +4266,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!(window.CCSeat && window.Cloud)) { toast(characterText(char, "他这会儿不在书房，卡留着，等他在的时候再兑")); return; }
           try {
             let r = await window.CCSeat.ask({ tool: "gacha_make", char_id: char.id, card_id: card.id, kind: card.kind, card_name: card.name,
-              ask: GACHA_SR_ASK[card.kind], expect: { title: "一行小标题", body: "正文" } }, 180000, { charId: char.id });
+              ask: gAsk(card.poolId), expect: { title: "一行小标题", body: "正文" } }, 180000, { charId: char.id });
             if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = { body: r }; } }
             const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc" };
             if (!got.body) { toast(characterText(char, "他没写出来，卡还留着")); return; }
@@ -4377,7 +4280,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SR_ASK[card.kind] + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。"),
+          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。"),
           schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
           maxTokens: 11000
         });
@@ -4392,7 +4295,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (card.act === "drop") {
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SR_ASK.drop + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的东西。"),
+          instruction: gAsk("s_drop") + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的东西。"),
           schemaHint: "{\"title\":\"这东西叫什么\",\"body\":\"它本身的样子\"}",
           maxTokens: 65535
         });
@@ -4406,7 +4309,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const side = card.side === "tease" ? "tease" : "sweet";
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SR_ASK["dual_" + side] + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的话。"),
+          instruction: gAsk("s_dual", side) + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的话。"),
           schemaHint: "{\"title\":\"券面上那行字\",\"body\":\"券的正文\"}",
           maxTokens: 65535
         });
@@ -4422,7 +4325,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (card.act === "pocket") {
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SR_ASK.pocket + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          instruction: gAsk("s_pocket") + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
           schemaHint: "{\"title\":\"这样东西叫什么\",\"body\":\"它现在长什么样，以及它是怎么到他手上的\"}",
           maxTokens: 65535
         });
@@ -4432,6 +4335,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         gachaStamp(card.id, { title: title, body: body, where: "pocket" });
         gachaKeep(char, "pocket", title, body);
         return { title: title, body: body };
+      }
+      // ── 反向扭蛋：他替她挑一张，还说为什么 ──
+      // ⚠️他挑的那张是【真的一张券】：落进她的券夹、还能再兑。
+      //   写成「他说了一段好听的话」就白瞎了这张卡——那才是它跟别的 SSR 的区别。
+      if (card.act === "forme") {
+        const pick = window.GachaKit.pickForMe({ have: gachaHave(char) });
+        if (!pick) { toast("这次没挑出来，卡还留着"); return; }
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: gAsk("x_forme").replace("{PICK}", pick.name).replace("{HINT}", pick.hint)
+            + characterText(char, "\n扣着他此刻真实的处境写。"),
+          schemaHint: "{\"body\":\"他为什么挑这一张\"}",
+          maxTokens: 65535
+        });
+        const why = String(d.body || "").trim();
+        if (!why) { toast("这次没挑成，卡还留着"); return; }
+        // 真的发一张券给她。fromHim 让券夹上看得出这一张是他挑的，不是她自己抽的。
+        const got = { ...pick, id: "gc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+          charId: char.id, ts: Date.now(), fromHim: true, fromWhy: why };
+        const nl = [got, ...(gachaCardsRef.current || [])];
+        gachaCardsRef.current = nl; setGachaCards(nl); saveJSON("x_gachaCards", nl);
+        gachaStamp(card.id, { title: characterText(char, "他挑了「") + pick.name + "」给你", body: why, where: "forme" });
+        gachaKeep(char, "forme", pick.name, why);
+        return { title: pick.name, body: why };
       }
       // ── 双盲秘密盒·第一枪：她先塞，TA再塞，两边都封着 ──
       // ⚠️TA塞的那样东西存在 x_gachaSeeds 里，**从不进任何一处上下文拼装**
@@ -4443,7 +4370,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!mine) { toast("先写一句你要放进去的"); return; }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SSR_ASK.box_his + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          instruction: gAsk("x_box", "his") + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
           schemaHint: "{\"title\":\"他放进去的那样东西\",\"body\":\"它现在什么样，以及他为什么挑它\"}",
           maxTokens: 65535
         });
@@ -4469,7 +4396,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const his = sd.his || {};
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SSR_ASK.box_open
+          instruction: gAsk("x_box", "open")
             + "\n【你放进去的】" + String(his.title || "") + "：" + String(his.body || "")
             + "\n【对方放进去的】" + String(sd.mine || "")
             + characterText(char, "\n扣着他此刻真实的处境写。"),
@@ -4488,7 +4415,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const side = card.side === "home" ? "home" : "out";
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SSR_ASK["plan_" + side] + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          instruction: gAsk("x_plan", side) + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
           schemaHint: "{\"body\":\"他现在肯透露的那一两句\"}",
           maxTokens: 65535
         });
@@ -4509,7 +4436,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (card.act === "planOpen") {
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SSR_ASK.plan_open
+          instruction: gAsk("x_plan", "open")
             + "\n那天说好的是【" + ((card.result || {}).side === "home" ? "待在家里" : "出门") + "】，"
             + "当初TA只透露了这一句：" + String((card.result || {}).body || "")
             + characterText(char, "\n扣着他此刻真实的处境写。"),
@@ -4534,7 +4461,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SSR_ASK.seed + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          instruction: gAsk("x_seed") + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
           schemaHint: "{\"cover\":{\"shop\":\"寄件方\",\"title\":\"单子上的品名（模糊到看不出是什么）\",\"carrier\":\"承运的是谁\"},\"reveal\":{\"title\":\"拆开之后是什么\",\"body\":\"他拆开那一刻\"}}",
           maxTokens: 65535
         });
@@ -4555,7 +4482,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (card.act === "flow") {
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: GACHA_SSR_ASK.flow + characterText(char, "\n扣着他今天真实的处境写。"),
+          instruction: gAsk("x_flow") + characterText(char, "\n扣着他今天真实的处境写。"),
           schemaHint: "{\"items\":[{\"app\":\"哪个应用\",\"from\":\"谁发的\",\"text\":\"通知栏上那一行\",\"when\":\"什么时候\",\"skip\":\"为什么没点开\"}]}",
           maxTokens: 65535
         });
@@ -4575,7 +4502,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: GACHA_SSR_ASK[card.act] + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。"),
+        instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。"),
         schemaHint: card.act === "gaze" ? "{\"side\":\"me 或 us\",\"block\":\"那一块的名字\",\"body\":\"这一块重写之后的全文\"}"
           : card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
           : card.act === "date" ? "{\"title\":\"券面上那件事\",\"body\":\"兑掉那一刻的开场旁白\"}"

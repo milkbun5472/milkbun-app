@@ -13172,6 +13172,10 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
               const on = !!openStack[g.key];
               // 同一款只有一张就别摆叠放那一条——那一条是为了收，不是为了多一行字
               return h("div", { key: g.key, style: { display: "flex", flexDirection: "column", gap: 6 } },
+                // 他挑给你的那一张，券夹上要看得出来——不然它跟你自己抽的混在一起，
+                // 反向扭蛋券最值钱的那一点（是他挑的）就没了
+                g.first && g.first.fromHim ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a74d70", padding: "0 3px" } },
+                  characterText(partner, "他挑了这一张给你") + (g.first.fromWhy ? "：" + String(g.first.fromWhy).slice(0, 40) : "")) : null,
                 (g.n > 1 || g.pinned) ? h("div", { className: "flex items-center", style: { gap: 8, padding: "0 3px" } },
                   g.n > 1 ? h("button", { onClick: () => setOpenStack(p => ({ ...p, [g.key]: !on })), className: "active:opacity-60",
                     style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
