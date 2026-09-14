@@ -14671,6 +14671,7 @@ function ChatSettings({
   aShadowPanel,
   dongnianState,
   dongnianElsewhere,
+  dongnianWhy,
   activeRoomId,
   sourceMessages,
   onCreateRoom,
@@ -14790,6 +14791,23 @@ function ChatSettings({
   // 别的场里的思念（v62.12）：一场一行，越想的排越前；没有别的场就整段不出现。
   // 上面那根条从头到尾说的是「TA 想不想找【你】」，TA 在群里想那边的那几份，
   // 以前界面上一个字都没有——看着就像动念只对着她一个人涨。
+  // 上一次归零是被什么清的（她 2026-09-14：想我莫名其妙就没了，我猜了两回都不对——
+  // 与其继续猜，不如让它自己说）。没归过零就不出现，不占地方。
+  const renderDongnianWhy = () => {
+    if (!dongnianWhy || !dongnianWhy.ts) return null;
+    const d = new Date(dongnianWhy.ts);
+    const when = (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 "
+      + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    const g = dongnianWhy.groupName ? "「" + dongnianWhy.groupName + "」" : "某个群";
+    const what = dongnianWhy.kind === "direct" ? "你在私聊里说了话"
+      : dongnianWhy.kind === "offline" ? "你们那场线下里你开了口"
+      : dongnianWhy.kind === "group" || dongnianWhy.kind === "groupSaid" ? "你在" + g + "里开了口"
+      : dongnianWhy.kind === "groupOffline" ? "你在" + g + "的线下场里开了口"
+      : dongnianWhy.kind === "member" ? g + "里有别人说了话"
+      : "别处有人开了口";
+    return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+      "上一次归零：" + when + " · " + what + "。");
+  };
   const renderDongnianElsewhere = () => {
     // ⚠️原来这儿是 `> 0.02` 才显示。看着像在过滤噪音，实际效果是
     //   【刚清零的那一场整行消失】——而群里刚有人说过话，正是最常见的状态。
@@ -14821,6 +14839,7 @@ function ChatSettings({
       h(Eyebrow, null, "现在想你想到哪儿了"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.7 } },
         "还没算出来。开机后十几秒才跑第一轮；和 TA 一条消息都没聊过的话不会算。"),
+      renderDongnianWhy(),
       renderDongnianElsewhere());
     const c = Math.max(0, Math.min(1, Number(dongnianState.connection) || 0));
     const pct = Math.round((c / 0.5) * 100);
@@ -14849,6 +14868,7 @@ function ChatSettings({
       dnNumsOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
         "此刻 " + c.toFixed(3) + "；开口线 0.35，忍不住线 0.50。关着 app 的时间一次最多补 12 小时。"
         + (aPride >= PRIDE_BLOCK ? "　傲娇 " + aPride.toFixed(2) + "（过了 " + PRIDE_BLOCK + " 就先不开口）。" : "")) : null,
+      renderDongnianWhy(),
       renderDongnianElsewhere());
   })());
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },

@@ -20,7 +20,8 @@ test("上次见过的用户消息时间要持久化，不然每次开 app 都清
   const i = app.indexOf("const seenTs = dongnianSeen()[dnKey] || 0;");
   assert.ok(i > 0);
   const seg = app.slice(i, i + 500);
-  assert.match(seg, /if \(seenTs\) \{ try \{ await eng\.resetConnection\(\); \}/,
+  // v68.10：归零那一刻还要写黑匣子，所以这一段换了行；守的还是同一件事
+  assert.match(seg, /if \(seenTs\) \{\s*\n\s*try \{ await eng\.resetConnection\(\); \} catch \(e\) \{\}/,
     "第一次见到这个角色时不许清零——那不是她刚回话，只是我们第一次认识这段历史");
 });
 

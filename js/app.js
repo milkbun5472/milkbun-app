@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.09";
+const APP_VERSION = "v68.10";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5549,6 +5549,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return dongnianLastUserRef.current;
   };
   const dongnianSeenSet = (cid, ts) => { const m = dongnianSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
+  // 归零的黑匣子：一场一条，只留最近那一次。存档键单开一份，别挤进 x_jiwen 那张表。
+  const dongnianWhyRef = useRef(null);
+  const dongnianWhy = () => {
+    if (!dongnianWhyRef.current) dongnianWhyRef.current = loadJSON("x_jiwenWhy", {}) || {};
+    return dongnianWhyRef.current;
+  };
+  const dongnianWhySet = (k, row) => { const m = dongnianWhy(); m[k] = row; saveJSON("x_jiwenWhy", m); };
+  // 她最后一次开口在哪儿（不只是什么时候）——旁观群不算，那儿她不在场
+  const dongnianWhereUserSpoke = charId => {
+    if (!window.InteractionClock || typeof window.InteractionClock.latestUserSharedWhere !== "function") {
+      return { ts: latestUserSharedInteractionTs(charId), kind: "", gid: "" };
+    }
+    const go = {};
+    (groups || []).filter(g => (g.memberIds || []).includes(charId)).forEach(g => {
+      go[g.id] = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []);
+    });
+    return window.InteractionClock.latestUserSharedWhere(charId, {
+      groups, groupSettings, groupChats: groupChatsRef.current, groupOfflines: go,
+      offlines: { [charId]: offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []) }
+    });
+  };
   const dongnianCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
   const dongnianFiredRef = useRef({});     // charId -> 上次 dongnian 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
   // ── 动念分对象（她 2026-09-04：「给 cp 而不是我涨进度那里」）──────────────
@@ -5598,21 +5619,33 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const dnKey = dongnianKey(char.id, gid);
     // 「别人开口了」→ 思念清零。私聊里的别人只有 Lisa；群里是除TA之外的任何人（含 Lisa）。
     // TA自己说话不算——那不解TA的想念，泄压走的是认领时那 -0.28。
-    let otherTs = gid ? 0 : latestUserSharedInteractionTs(char.id);
+    // ⚠️归零必须留痕迹（她 2026-09-14：想我莫名其妙归零，我照着「哪个场最近有人说话」
+    //   猜了两回都不对）。病根不在哪条判据错了，在于【清完就完了，谁也说不出是被什么清的】。
+    //   所以从这一版起：每次归零都记下【什么时候、被哪儿的哪一下】清的，界面上看得见。
+    const elsewhere = gid ? null : dongnianWhereUserSpoke(char.id);
+    let otherTs = elsewhere ? elsewhere.ts : 0;
+    let why = otherTs ? { kind: elsewhere.kind, gid: elsewhere.gid } : null;
     for (let i = arr.length - 1; i >= 0; i--) {
       const m = arr[i]; if (!m || m.recalled || m.kind === "ooc" || m.kind === "system") continue;
       // 群里「别人」＝ Lisa，或另一位角色。旁白/场景不算人开口，别拿它当作有人理了TA。
       const isOther = gid
         ? (m.role === "user" || (m.role === "assistant" && String(m.senderId || "") !== String(char.id)))
         : m.role === "user";
-      if (isOther) { otherTs = Math.max(otherTs, m.ts || 0); break; }
+      if (isOther) {
+        const mine = m.ts || 0;
+        if (mine > otherTs) { otherTs = mine; why = { kind: gid ? (m.role === "user" ? "groupSaid" : "member") : "direct", gid: gid || "", who: m.senderName || "" }; }
+        break;
+      }
     }
     const seenTs = dongnianSeen()[dnKey] || 0;
     if (otherTs && otherTs > seenTs) {
       dongnianSeenSet(dnKey, otherTs);
       // 首次见到这个场（还没有记录）时不清零：那不是「刚有人说话」，
       // 只是我们第一次认识这段历史。清了就等于每装一次 app 都从零开始。
-      if (seenTs) { try { await eng.resetConnection(); } catch (e) {} }
+      if (seenTs) {
+        try { await eng.resetConnection(); } catch (e) {}
+        dongnianWhySet(dnKey, Object.assign({ ts: otherTs }, why || {}));
+      }
     }
     // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，dongnian 内部封顶 60 分钟）
     let baseTs = dongnianTickRef.current[dnKey];
@@ -21302,6 +21335,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!st) return null;
         return { gid: g.id, name: g.name || "一个群", connection: Number(st.connection) || 0 };
       }).filter(Boolean).sort((a, b) => b.connection - a.connection);
+    })(),
+    // 这个角色那根「想我」上一次是被什么清的（她 2026-09-14：莫名其妙就归零了）
+    dongnianWhy: (() => {
+      let m = {};
+      try { m = loadJSON("x_jiwenWhy", {}) || {}; } catch (e) { m = {}; }
+      const row = m[activeChar.id];
+      if (!row || !row.ts) return null;
+      const g = (groups || []).find(x => String(x.id) === String(row.gid || ""));
+      return { ts: row.ts, kind: row.kind || "", groupName: g ? (g.name || "一个群") : "" };
     })(),
     activeRoomId: activeRoomId,
     sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],

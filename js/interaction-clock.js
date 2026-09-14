@@ -41,6 +41,25 @@
     });
     return best;
   }
+  // 「她最后一次开口」是【在哪儿】开的——不只是什么时候。
+  // ⚠️她 2026-09-14 报想我被清零，我照着「哪个场最近有人说话」猜了两回都不对。
+  //   病根不在哪一条判据错了，在于【归零这件事不留痕迹】：清完就完了，
+  //   谁也说不出是被什么清的。所以这一层除了时间，还要交代来源。
+  function latestUserSharedWhere(charId, data) {
+    data = data || {};
+    const fromUser = function (m) { return m && m.kind !== "ooc" && (m.role === "user" || m.role === "narration"); };
+    let best = { ts: maxSessions((data.offlines || {})[charId], fromUser), kind: "offline", gid: "" };
+    if (!best.ts) best = { ts: 0, kind: "", gid: "" };
+    (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
+      if (!g || !(g.memberIds || []).includes(charId)) return;
+      if (watchingOnly(g, data)) return;
+      const inChat = maxMsgs((data.groupChats || {})[g.id], fromUser);
+      if (inChat > best.ts) best = { ts: inChat, kind: "group", gid: g.id };
+      const inOff = maxSessions((data.groupOfflines || {})[g.id], fromUser);
+      if (inOff > best.ts) best = { ts: inOff, kind: "groupOffline", gid: g.id };
+    });
+    return best;
+  }
   function isTogetherNow(charId, data, now) {
     data = data || {}; now = Number(now) || Date.now();
     return (Array.isArray(data.groups) ? data.groups : []).some(function (g) {
@@ -62,6 +81,6 @@
       return s && !s.endTs && ((s.msgs || []).length > 0) && (now - (Number(s.startTs) || 0) < OFFLINE_LIVE_MS);
     });
   }
-  return { watchingOnly: watchingOnly, latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
+  return { watchingOnly: watchingOnly, latestUserSharedWhere: latestUserSharedWhere, latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
     offlineSceneLive: offlineSceneLive };
 });
