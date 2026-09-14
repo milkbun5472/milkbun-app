@@ -2359,7 +2359,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
       has ? h("button", {
         className: "active:opacity-60 shrink-0",
         onClick: () => requestAppConfirm("清空「" + a.zh + "」？",
-          "这个 app 里存的那一份会整份删掉（时间线上属于它的那几条也一起走），下次打开会重新生成一份全新的。当前内容只能从事先导出的备份恢复。\n\n" +
+          characterText(char, "这个 app 里存的那一份会整份删掉（时间线上属于它的那几条也一起走），下次打开会重新生成一份全新的——他这个 app 现在的样子，只有你事先导出的那份备份里还有。\n\n") +
           "⚠️舍不得的话先去 设置 → 数据 → 导入与导出 → 导出全部数据，存成 json 放桌面上，存好了再清。",
           () => onReset && onReset(a.key), "清空"),
         style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "6px 10px", borderRadius: 99, border: "1px solid rgba(159,81,73,.30)" }
@@ -2370,7 +2370,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
-        "这一档对所有角色的新生成内容生效。已有记录、账号和累积名册会保留原文；阅读旧外语内容可以用译文功能。"),
+        "这一档对所有角色生效，下一次刷新开始算。它管的是【往后写出来的字】——已经存着的那些不会被改写（名册和账号改了名字就会攒成两份），想读外语的旧内容点「译」就行。"),
       h("div", { style: { borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } },
         PHONE_LANG_MODES.map((k, i) => h("button", {
           key: k, onClick: () => onLang && onLang(k), className: "w-full text-left active:opacity-65",
@@ -2381,7 +2381,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginTop: 4 } }, LANG_SUB[k])))),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "清空重生"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
-        "想保留现有记录，可以先改上面的语言设置或使用译文。只有确定要从零生成这个 app 时才清空；请先导出备份。"),
+        characterText(char, "刷新不是从零开始的：旧那份会原样发回去当料，所以他这个 app 的样子会一直接着上一份走。只想让往后写的字换个语言，改上面那一档就够了；确定要连现在这一份一起不要了，才来清空——清之前先导出一份备份。")),
       h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map(row))));
 }
 
@@ -7334,7 +7334,16 @@ const PHONE_LANG_MODES = ["persona", "zh", "native"];
 const PHONE_LANG_ZH = { persona: "跟着人设", zh: "一律中文", native: "TA当地的语言" };
 function phoneLangBlock(mode) {
   const head = "\n\n【手机里的字用哪种语言】\n";
-  const carry = "\n· 这一档决定本轮新生成内容的语言，旧内容使用的语言不决定新内容。账号、身份字段和已有记录按各自保留规则沿用；新增正文、更新批注及当前快照按这一档写。";
+  // ⚠️分两句说，不是一句「全改过来」也不是一句「全不动」。
+  //   全改过来会出事：累积层的【名册按名字认人】（phoneGrowList），把一条名册的名字
+  //   译成中文，合并那一步认不出它是同一条，于是原来那条还在、新写的又进来一条，
+  //   攒成两份。全不动也不对：那样 🌱 沿用的那几栏（签名、备注、对她的评价）
+  //   一旦是外语就永远是外语，她换了档也看不出有变化。
+  //   所以界线画在【这个字是内容，还是这一条的身份】上。
+  const carry = "\n· 这一档只管【你这一轮写出来的字】：正文、标题、说出口的话、心里那一句、批注、当前快照，全照这一档写。"
+    + "上面发回给你的旧内容用的是什么语言，**不决定你这一轮写什么**。\n"
+    + "· 只有两样原样照抄、一个字都不译：**账号和号码这类身份字段**，以及**名册里每一条的名字**"
+    + "（会话名、书名、店名、便签抬头、想买的东西这些）——改了名字它就不再是同一条，会被当成新的攒进去，变成两份。";
   if (mode === "zh") return head
     + "· 这台手机里你要写的字**一律写中文**：标题、正文、别人说的话、TA心里那一句，都算。\n"
     + "· 人名、店名、歌名、地名这类专有名词照它本来的样子写，不必硬翻成中文。"

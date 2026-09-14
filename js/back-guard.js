@@ -45,13 +45,25 @@ function backDecide(handled, lastAt, now, window_) {
     }
     return false;
   }
+  // 退出没退成（历史前面没东西了）时把保护装回去。arm 自己会判重，装第二次也不会叠哨兵。
+  function recover() {
+    if (armed) return;
+    try { window.BackGuard.arm({}); } catch (e) {/* 装不回去就算了，总比死循环强 */}
+  }
   function onPop() {
     if (exiting) {
       // 旧版本刷新可能已叠了数枚哨兵，退完这些再离开，不能提前拆掉保护。
       if (window.history.state && window.history.state[MARK]) { window.history.back(); return; }
       armed = false; exiting = false; lastAt = 0;
       window.removeEventListener("popstate", onPop);
-      window.history.back();
+      try { window.history.back(); } catch (e) {/* 退不出去就靠下面那道兜回来 */}
+      // ⚠️这一下【可能什么都没发生】：历史里前面已经没有别的页了（直接打开这个
+      //   网址、或者已经是这个标签页的第一条），back() 不会触发 popstate，人还在原地。
+      //   那时保护已经拆了：监听摘掉、哨兵也没了，再滑一次就真的直接出去，
+      //   连「再滑一次退出」都不会提示。所以等一下还在的话就把保护装回去。
+      // ⚠️走 window.setTimeout 而不是全局那个：这个文件会被塞进只给了 window 的沙箱里跑，
+      //   裸 setTimeout 在那儿是未定义，直接抛在 popstate 处理器里、把整条返回链打断。
+      if (typeof window.setTimeout === "function") window.setTimeout(recover, 600);
       return;
     }
     var act = backDecide(runStack(), lastAt, Date.now(), BACK_EXIT_WINDOW);

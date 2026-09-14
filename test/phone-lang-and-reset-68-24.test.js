@@ -38,11 +38,27 @@ test("默认那一档跟着人设走，没写才中文", () => {
   assert.equal(s, spec("notes", "乱填的"));   // 认不出的一律回默认档
 });
 
-test("三档明确区分新增语言和已有数据，不承诺重写历史", () => {
+// 界线画在【这个字是内容，还是这一条的身份】上——两头都不能一刀切：
+// 「旧的全改过来」会让名册攒成两份（phoneGrowList 按名字认人）；
+// 「已有的一律沿用」又会让 🌱 那几栏一旦是外语就永远是外语。
+test("三档都说清：这一轮写的字照这一档，旧内容的语言不算数", () => {
   K.PHONE_LANG_MODES.forEach(m => {
-    assert.match(spec("notes", m), /旧内容使用的语言不决定新内容/, m);
-    assert.match(spec("notes", m), /已有记录按各自保留规则沿用/, m);
+    const s = spec("notes", m);
+    assert.match(s, /这一档只管【你这一轮写出来的字】/, m);
+    assert.match(s, /不决定你这一轮写什么/, m);
   });
+});
+
+test("名册的名字和身份字段原样照抄——改了名字会攒成两份", () => {
+  K.PHONE_LANG_MODES.forEach(m => {
+    const s = spec("notes", m);
+    assert.match(s, /账号和号码这类身份字段/, m);
+    assert.match(s, /名册里每一条的名字/, m);
+    assert.match(s, /会被当成新的攒进去，变成两份/, m);   // 说了理由，不是光下禁令
+  });
+  // 这条规矩的另一头真的在代码里：名册按名字认人（施工规则/phone-data-layers.md）
+  const src = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+  assert.match(src, /phoneGrowList/);
 });
 
 test("提示词里没有内容示范（施工规则/prompt-no-content-samples.md）", () => {

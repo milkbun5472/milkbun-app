@@ -60,3 +60,29 @@ test("挂进 index.html，而且排在 app 之前", () => {
   const b = indexSrc.indexOf('<script src="js/app.js');
   assert.ok(a > 0 && b > 0 && a < b);
 });
+
+// v68.29：退出那一下可能什么都没发生——历史里前面已经没有别的页了（直接打开这个
+// 网址、或者已经是标签页的第一条）。那时保护已经拆了：监听摘掉、哨兵也没了，
+// 再滑一次就真的直接出去，连提示都没有。
+test("退不出去就把保护装回去，不许留在没人管的状态", async () => {
+  const vm = require("node:vm");
+  let handler = null;
+  const states = [null]; let index = 0;   // 前面没有别的页：back() 什么都不做
+  const win = {
+    history: {
+      get state() { return states[index]; },
+      pushState(s) { states.splice(index + 1); states.push(s); index++; },
+      back() { if (index) { index--; if (handler) handler(); } }   // index===0 → 什么都不发生
+    },
+    addEventListener(k, f) { if (k === "popstate") handler = f; },
+    removeEventListener(k) { if (k === "popstate") handler = null; },
+    setTimeout: (fn) => fn()      // 立刻跑那道兜底，省得测试等 600ms
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(root, "js/back-guard.js"), "utf8"), { window: win, Date, setTimeout: win.setTimeout });
+  win.BackGuard.arm({});
+  assert.equal(typeof handler, "function");
+  handler();                       // 第一下：没人接 → 提示
+  handler();                       // 第二下：确认退出，但退不出去
+  assert.equal(typeof handler, "function", "保护没装回去，下一次侧滑会直接掉出去");
+  assert.equal(win.history.state[win.BackGuard.MARK], 1, "哨兵没补回来");
+});
