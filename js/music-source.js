@@ -35,11 +35,20 @@ const MusicSource = (() => {
     pending.set(key, task);
     try { return await task; } finally { pending.delete(key); }
   }
+  // ⚠️海外 IP 是「填了 Cookie 还是放不了 VIP」最常见的那一条（她 2026-09-14 报）：
+  //   网易云按【请求的来源 IP】判版权，公共 API 实例多半部署在海外，于是就算你
+  //   账号真有 VIP，返回的也还是 30 秒试听或者干脆没有地址。
+  //   接口本身留了 realIP 这一格（NeteaseCloudMusicApi 的标准参数），带上就当作从那儿来。
+  // ⚠️只有这一份：播放地址那一枪在 app.js 里是自己 fetch 的（要 level/回退），
+  //   两处都从这儿要这个值，别各写一个（施工规则/one-public-mechanism.md）。
+  const REAL_IP = "116.25.146.177";
+  const realIP = () => REAL_IP;
   async function request(config, path, { cacheBust = true } = {}) {
     if (config.provider !== "gd") {
       if (!config.base) throw new Error("先配置网易云搜索接口，或开启 GD 音乐试用");
       const extra = [];
       if (config.cookie && !path.startsWith("/search?")) extra.push("cookie=" + encodeURIComponent(config.cookie));
+      extra.push("realIP=" + REAL_IP);
       if (cacheBust) extra.push("timestamp=" + Date.now());
       const r = await fetch(config.base + path + (extra.length ? (path.includes("?") ? "&" : "?") + extra.join("&") : ""));
       if (!r.ok) throw new Error("音乐接口暂时不可用（" + r.status + "）");
@@ -67,5 +76,5 @@ const MusicSource = (() => {
     const d = await gd({ types: "pic", source: "netease", id: picId, size: 300 });
     return https(d && d.url);
   }
-  return { request, cover };
+  return { request, cover, realIP };
 })();

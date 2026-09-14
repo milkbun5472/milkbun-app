@@ -24,8 +24,9 @@ test('中文及特殊字符编码、缓存参数、原始歌曲对象不变', as
   const search = fixture(async url => { urls.push(url); return { json: async () => ({ result: { songs: [song, { id: 2 }] } }) }; });
   assert.equal(await search('歌 & A'), song);
   await search('邀请', { cacheBust: false });
-  assert.equal(urls[0], 'https://music.invalid/search?keywords=' + encodeURIComponent('歌 & A') + '&limit=1&timestamp=123');
-  assert.equal(urls[1], 'https://music.invalid/search?keywords=' + encodeURIComponent('邀请') + '&limit=1');
+  // v68.15 起每条请求都带 realIP（海外 IP 会被网易云按无版权处理，VIP 也放不了）
+  assert.equal(urls[0], 'https://music.invalid/search?keywords=' + encodeURIComponent('歌 & A') + '&limit=1&realIP=116.25.146.177&timestamp=123');
+  assert.equal(urls[1], 'https://music.invalid/search?keywords=' + encodeURIComponent('邀请') + '&limit=1&realIP=116.25.146.177');
 });
 test('空结果返回 null，网络和解析错误按调用策略处理且不自动重试', async () => {
   for (const data of [null, {}, { result: {} }, { result: { songs: [] } }]) {
