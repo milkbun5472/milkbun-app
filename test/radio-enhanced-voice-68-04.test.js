@@ -97,3 +97,20 @@ test("一把中文音色都没有时，那一格也要露面", () => {
   assert.match(ui, /voiceOpts\.length \? "嗓子 · 自动" : "嗓子 · 这台机器没有中文音色"/);
   assert.match(ui, /disabled: busy \|\| !voiceOpts\.length/);
 });
+
+// 她 2026-09-13 在原生壳里拿到「这台机器没有中文音色」——可它明明念得出来。
+// 病根：声音表是【后】填上的，而界面只在某一次渲染时问过一遍，没人叫它再问。
+test("声音表后填上时，界面得能重算", () => {
+  assert.match(V.onVoices.toString(), /subs\.push\(cb\)/);
+  assert.equal(typeof V.refresh, "function");
+  // 退订要真的退掉，不然离开页面还在往一个死组件上喊
+  const off = V.onVoices(() => {});
+  assert.equal(typeof off, "function");
+  off();
+  assert.equal(typeof V.onVoices(null), "function", "传个不是函数的东西也别炸");
+  // 界面这头：订阅 + 过一会儿主动追问两次（有些内核压根不发 voiceschanged）
+  assert.match(ui, /root\.RadioVoice\.onVoices\(bump\)/);
+  assert.match(ui, /root\.RadioVoice\.refresh\(\); bump\(\);/);
+  assert.match(ui, /const t1 = again\(400\), t2 = again\(1600\)/);
+  assert.match(ui, /return \(\) => \{ off\(\); clearTimeout\(t1\); clearTimeout\(t2\); \}/, "走的时候要拆干净");
+});

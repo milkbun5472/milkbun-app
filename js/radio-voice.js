@@ -30,10 +30,23 @@
     cache = scan(list);
     return cache;
   }
-  // 声音表是异步加载的，第一次问常常是空的
+  // 声音表是异步加载的，第一次问常常是空的。
+  // ⚠️光把缓存清掉不够（她 2026-09-13 在原生壳里拿到「这台机器没有中文音色」）：
+  //   界面是在某一次渲染时问的，声音表【后来】才填上，没人叫它再问一遍，
+  //   那一格就永远停在空的那一版。所以这儿要能【喊一声】，让界面重算。
+  const subs = [];
+  const notify = () => subs.slice().forEach(f => { try { f(); } catch (e) {} });
+  function onVoices(cb) {
+    if (typeof cb !== "function") return () => {};
+    subs.push(cb);
+    return () => { const i = subs.indexOf(cb); if (i >= 0) subs.splice(i, 1); };
+  }
+  // 重新问一次系统。有些内核压根不发 voiceschanged，只是【被问过之后】才把表填上，
+  // 所以调用方过一会儿再问一次是必要的，不是保险起见。
+  function refresh() { cache = null; return voices(); }
   try {
     if (typeof speechSynthesis !== "undefined" && speechSynthesis.addEventListener) {
-      speechSynthesis.addEventListener("voiceschanged", () => { cache = null; });
+      speechSynthesis.addEventListener("voiceschanged", () => { cache = null; notify(); });
     }
   } catch (e) {}
   // 她自己指定的那一把（她 2026-09-13：装了增强音色还是默认那把）。
@@ -77,5 +90,5 @@
   const hasEnhanced = () => voices().enhanced > 0;
   // 装增强音色的路（她的机器是 iPhone，先写 iOS 那一条）
   const ENHANCED_HINT = "系统音色偏硬？去 设置 → 辅助功能 → 朗读内容 → 声音 里装一把增强中文音色，这儿会自动用上。";
-  return { pick, hash01, hasEnhanced, options, loadPick, savePick, KEY, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
+  return { pick, hash01, hasEnhanced, options, loadPick, savePick, onVoices, refresh, KEY, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
 });

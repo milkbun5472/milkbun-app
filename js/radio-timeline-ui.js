@@ -160,7 +160,19 @@
     const BRASS = "#c9a15e";
     // 用哪把嗓子：她自己挑（存本机）。空＝自动（优先增强）
     const [voicePick, setVoicePick] = useState(() => (root.RadioVoice ? root.RadioVoice.loadPick() : ""));
-    const voiceOpts = root.RadioVoice ? root.RadioVoice.options() : [];
+    // ⚠️声音表是后填上的：进页面那一刻问，多半问到一张空表（她在原生壳里拿到的
+    //   就是「这台机器没有中文音色」）。所以订一份通知，再过一会儿主动追问两次——
+    //   有些内核不发 voiceschanged，只是【被问过之后】才把表填上。
+    const [voiceTick, bumpVoices] = useState(0);
+    useEffect(() => {
+      if (!root.RadioVoice) return undefined;
+      const bump = () => { if (alive.current) bumpVoices(x => x + 1); };
+      const off = root.RadioVoice.onVoices(bump);
+      const again = ms => setTimeout(() => { root.RadioVoice.refresh(); bump(); }, ms);
+      const t1 = again(400), t2 = again(1600);
+      return () => { off(); clearTimeout(t1); clearTimeout(t2); };
+    }, []);
+    const voiceOpts = root.RadioVoice && voiceTick >= 0 ? root.RadioVoice.options() : [];
     const skin = { background: "linear-gradient(168deg,#3a2d23,#241c16 58%,#181310)", color: NT.ink, fontFamily: F_BODY };
     const inputStyle = { width: "100%", minWidth: 0, boxSizing: "border-box", padding: 11, border: "1px solid " + NT.line,
       borderRadius: 9, background: "rgba(12,10,9,.55)", color: NT.ink, fontSize: 15, fontFamily: F_BODY };
