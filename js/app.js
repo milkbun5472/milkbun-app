@@ -15041,7 +15041,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️手机里那一屏本来就把真聊天并进来显示（actualChats），所以写进 x_phone
     //   反而会多出一条假的、跟真的那条并排站着。真话只该有一份。
     if (where === "wechat" && watchIsMe(char, to) && String(text || "").trim()) {
-      pChat(char.id, p => [...p, { role: "assistant", content: String(text).trim(), ts: Date.now(), fromWatch: true }]);
+      // byUser：这一条是【她替他从他手机上发出去的】（phoneSendAs 那条路），不是他自己发的。
+      // 留个记号是为了以后翻得出来，正文一个字不变。
+      pChat(char.id, p => [...p, { role: "assistant", content: String(text).trim(), ts: Date.now(), fromWatch: true, ...(extra && extra.byUser ? { byUser: true } : {}) }]);
       // ⚠️回一个「真」字：那一屏上她那条聊天是【活的】（liveThread 每帧重认），
       //   这条已经在里面了。播放器再挂一条演出用的气泡就是同一句话出现两遍
       //   （她 2026-09-10：「给我发一条微信看TA玩那会会显示同样的发了两条」）。
@@ -15064,6 +15066,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!cur) return;
     const r = WK.applyReply(cur, name, text, Date.now(), key);
     if (r.wrote) savePhoneApp(char.id, key, r.d, { noArchive: true, patched: true });
+  };
+  // ── 她替他，从他手机上把这一句真的发出去（她 2026-09-14）────────────────
+  // 她原话：「不不不那些生成出来的聊天记录不动，只动那些真的我创建的旁观群
+  //   或者有他的群聊，这些在我的聊天里都已经有记录了」。
+  // 所以能写的只有 phoneWechatActual 长出来的那几条（id 以 actual: 开头）：
+  //   ① actual:private:<charId> → 她跟他的真私聊，落进 x_chat:<id>
+  //   ② actual:group:<groupId>  → 旁观群 / 他在的群，落进 x_gchat:<id>，发完让对面真的回一次
+  // 📚 模型推演出来的那几条会话一个字都不许动——那是手机数据（phone-data-layers），
+  //    不是聊天记录；往那里写等于把假对话喂成真的。
+  // ⚠️两条路都不另开写入口：私聊走 watchSend（「看TA玩」发给她那条路），
+  //    群里走 pGChat + replyGroup（群回复那条现成的链）。
+  const phoneSendAs = (char, session, text) => {
+    const body = String(text || "").trim();
+    const id = String((session && session.id) || "");
+    if (!char || !body || id.indexOf("actual:") !== 0) return false;
+    if (id === "actual:private:" + char.id) {
+      watchSend(char, "wechat", userName(profile), body, { byUser: true });
+      return true;
+    }
+    const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
+    const group = gid ? groups.find(g => g.id === gid) : null;
+    // 他不在这个群里就不该能以他的名义说话——列表那头已经挡过一道，这儿是落盘前最后一道
+    if (!group || !(group.memberIds || []).includes(char.id)) return false;
+    pGChat(gid, p => [...p, {
+      role: "assistant", senderId: char.id, senderName: char.name, content: body,
+      mid: "gm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      ts: Date.now(), byUser: true
+    }]);
+    // 对面真的回：群里那条链自己会挑谁接话、自己兜额度，这儿只负责起头。
+    // ⚠️不 await：她按完发送这一屏就该松手了，回话慢慢冒出来就行。
+    Promise.resolve().then(() => replyGroup(gid)).catch(() => {});
+    return true;
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
   // ⚠️她 2026-09-10：「敲一敲有时候卡住了一直没反应」。三个哑口，一个一个堵：
@@ -20869,6 +20903,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     drawingPhoto: gen.phoneShot || "",
     onWatchStart: genWatchSession,
     onWatchSend: watchSend,
+    // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
+    onSendAs: phoneSendAs,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
     onWatchToast: toast,

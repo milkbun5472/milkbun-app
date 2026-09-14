@@ -28,6 +28,8 @@ function makeEnv(forceState) {
     useTheme: () => ({ ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555", tint: "#c90", accent: "#c90" }),
     F_DISPLAY: "D", F_BODY: "B",
     AV_COLORS: ["#a11", "#1a1", "#11a"],
+    // core.js 里的：微信那一屏要认「她叫什么」才画得出跟她的那条真聊天
+    userName: p => (p && (p.nickname || p.name)) || "你",
     loadJSON: (_k, d) => d,
     saveJSON: () => {},
     safeTop: px => "calc(env(safe-area-inset-top, 0px) + " + px + "px)",
@@ -56,7 +58,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DECOR, PHONE_ACTION_WIDGETS, phoneDesktopLayout, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, PhoneCarry, PhoneApp, renderPhoneModule, PhoneForumView, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, TallyView, MailView, TimelineView, MusicView, LockScreen, STICKY_COLORS, PGlyph, HEALTH_GROUPS, healthGroupOf, HEALTH_SLOTS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { WeChatViewFull, PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DECOR, PHONE_ACTION_WIDGETS, phoneDesktopLayout, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, PhoneCarry, PhoneApp, renderPhoneModule, PhoneForumView, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, TallyView, MailView, TimelineView, MusicView, LockScreen, STICKY_COLORS, PGlyph, HEALTH_GROUPS, healthGroupOf, HEALTH_SLOTS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 

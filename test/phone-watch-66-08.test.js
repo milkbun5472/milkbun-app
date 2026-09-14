@@ -712,7 +712,9 @@ test("他在看他玩里发给她的那一条，是真的发到她手机上", ()
   // ⚠️不许写进 x_phone：手机里那一屏本来就把真聊天并进来显示（actualChats），
   //   写进去会多出一条假的、跟真的那条并排站着——真话只该有一份。
   assert.match(app, /if \(where === "wechat" && watchIsMe\(char, to\) && String\(text \|\| ""\)\.trim\(\)\) \{/);
-  assert.match(app, /pChat\(char\.id, p => \[\.\.\.p, \{ role: "assistant", content: String\(text\)\.trim\(\), ts: Date\.now\(\), fromWatch: true \}\]\)/);
+  // v68.45 起这一行多挂一个 byUser（她替他从手机上发的那条走同一条路，见 phoneSendAs）——
+  // 前面这一截必须一字不变：真聊天只有这一个写入口。
+  assert.match(app, /pChat\(char\.id, p => \[\.\.\.p, \{ role: "assistant", content: String\(text\)\.trim\(\), ts: Date\.now\(\), fromWatch: true,/);
   // ⚠️落进真聊天要回一个「真」字：那一屏上她那条聊天是活的，播放器再挂一条演出气泡
   //   就是同一句话出现两遍（她 2026-09-10：「看他玩那会会显示同样的发了两条」）
   assert.match(app, /\/\/ ⚠️回一个「真」字/);

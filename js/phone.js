@@ -2516,9 +2516,14 @@ function WechatNavIcon({ kind, active }) {
   return h("svg", { width: 24, height: 24, viewBox: "0 0 24 24" }, ...paths);
 }
 
-function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive }) {
+function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
+  // ── 她自己在TA手机上打的那一句（她 2026-09-14）──────────────────────────
+  //   只给【真实会话】：她建的旁观群、有TA的群、她跟TA的私聊——这些在她那头本来就有记录。
+  //   推演出来的那几条会话没有这个口子（那是手机数据，不是聊天记录）。
+  //   气泡本身就是回执：发出去那一下它立刻出现在这一屏上，所以这儿不另做「发送中」的状态。
+  const [asDraft, setAsDraft] = useState("");
   // ── 「看TA玩」在开着的时候，这一屏由外面那串动作驱动（js/phone-watch.js）──
   // ⚠️不另做一份「TA的微信」：TA操作的就是她平时翻的这一屏，这才是这个玩法成立的地方。
   //   所以只加一条同步——drive 变了就把内部状态搬过去，drive 不在时一个像素都没变。
@@ -2542,6 +2547,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     const hit = watchPick(chats, driveChat, c => c && c.name);
     if (hit) setThread(hit);
   }, [driveChat]);
+  useEffect(() => { setAsDraft(""); }, [thread && thread.id]);
   const [publicPage, setPublicPage] = useState(false);
   const [article, setArticle] = useState(null);
   const arr = a => Array.isArray(a) ? a : [];
@@ -2612,11 +2618,32 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const driveSent = (typeof window !== "undefined" && window.PhoneWatch && window.PhoneWatch.dropEchoBubbles)
     ? window.PhoneWatch.dropEchoBubbles((liveThread || {}).messages, driveSent0) : driveSent0;
   const driveTyping = driveOn && drive.typing != null ? String(drive.typing || "") : null;
+  // 真实会话才给她这条口子：id 以 actual: 开头的那几条（app.js phoneWechatActual 长出来的），
+  // 判据只写在【id 前缀】这一处，落盘那头（phoneSendAs）再照同一条判一次。
+  const asCanSend = !!(onSendAs && th && String(th.id || "").indexOf("actual:") === 0 && th.type !== "contact");
+  const asSend = () => {
+    const body = asDraft.trim();
+    if (!body || !asCanSend) return;
+    if (onSendAs(th, body) === false) return;
+    setAsDraft("");
+    // 刚发出去那条在看不见的地方＝等于没发（她 2026-09-10 报过同一个毛病）
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight; }));
+  };
   if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(th.name, th.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(th.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
     return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text))));
   })),
-    // TA正在打字的那一栏：只在「看TA玩」里出现（她自己翻的时候没有理由往TA微信里打字）。
+    // 她自己打的那一栏：只在【没在看TA玩】而且这是一条真实会话时出现。
+    // ⚠️「按了没反应的按钮比没有按钮更糟」——推演出来的会话给不了真回复，所以那儿一栏都不画。
+    !drive && asCanSend ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
+      h("textarea", { value: asDraft, onChange: e => setAsDraft(e.target.value), rows: 1,
+        placeholder: "以" + char.name + "的身份发一条",
+        onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); asSend(); } },
+        className: "flex-1 min-w-0 resize-none",
+        style: { minHeight: 36, maxHeight: 96, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: "#171717", outline: "none" } }),
+      h("button", { onClick: asSend, disabled: !asDraft.trim(),
+        style: { flexShrink: 0, minHeight: 36, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: 13.5, color: asDraft.trim() ? "#fff" : "#9a9a9a", background: asDraft.trim() ? "#07c160" : "#e6e6e6" } }, "发送")) : null,
+    // TA正在打字的那一栏：只在「看TA玩」里出现（那会儿她自己那一栏收起来，屏幕上只有TA的手）。
     // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
     driveTyping != null ? h("div", { "data-watch": "input", className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       h("div", { className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
@@ -5840,7 +5867,7 @@ function renderPhoneModule(key, d, ctx) {
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
-  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive });
+  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -6012,6 +6039,7 @@ function PhoneCarry({
   onGenAll,
   profile,
   actualWechatFor,
+  onSendAs,
   nowSongId,
   forumAccountsFor,
   playlistFor,
@@ -6647,6 +6675,8 @@ function PhoneCarry({
     onGenAnonQuestion: () => onGenAnonQuestion && onGenAnonQuestion(char),
     onAskAnon: q => onAskAnon && onAskAnon(char, q),
     onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
+    // 她在TA手机上以TA的名义真的发一条（只有真实会话给这条口子，见 app.js phoneSendAs）
+    onSendAs: (sess, text) => onSendAs ? onSendAs(char, sess, text) : false,
     // 偷看转发：手机里的东西只有【转发了】才进TA的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk),
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
