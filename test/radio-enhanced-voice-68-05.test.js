@@ -53,8 +53,10 @@ test("挑嗓子只有这一份：两个电台都从公共那层要", () => {
 test("引导只在真的没装时才出现，装了它自己消失", () => {
   assert.match(ui, /root\.RadioVoice && !root\.RadioVoice\.hasEnhanced\(\)/);
   assert.match(ui, /"data-radio-voicehint": true/);
-  assert.match(V.ENHANCED_HINT, /设置 → 辅助功能 → 朗读内容 → 声音/);
-  assert.ok(!/永远|一直/.test(V.ENHANCED_HINT));
+  // v68.05：不再劝人去装高音质音色——她实测装了也拿不到（iOS 把那几把留给系统朗读和
+  // Siri，不交给 Web Speech）。指一条走不通的路比不说还糟。
+  assert.ok(!/去 设置|辅助功能/.test(V.ENHANCED_HINT), "那句引导是假消息，别再发了");
+  assert.match(V.ENHANCED_HINT, /不给网页用/);
 });
 
 // 她 2026-09-13：「我设置了还是默认的嘤」。

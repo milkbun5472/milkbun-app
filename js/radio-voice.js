@@ -88,7 +88,11 @@
     return (x % 1000) / 1000;
   }
   const hasEnhanced = () => voices().enhanced > 0;
-  // 装增强音色的路（她的机器是 iPhone，先写 iOS 那一条）
-  const ENHANCED_HINT = "系统音色偏硬？去 设置 → 辅助功能 → 朗读内容 → 声音 里装一把增强中文音色，这儿会自动用上。";
+  // ⚠️别再劝人去装「高音质／增强」音色了（她 2026-09-13 实测）：
+  //   她在 设置 → 辅助功能 → 朗读内容 → 声音 → 中文 里装好了「月（高音质）」，
+  //   可网页这头列出来的还是只有 Tingting / Meijia 那两把基础音色——
+  //   **iOS 把高音质那几把留给系统朗读和 Siri，不交给 Web Speech**。
+  //   那句引导于是成了假消息，会让人白折腾一趟。说实话，别指一条走不通的路。
+  const ENHANCED_HINT = "系统里装的「高音质／增强」音色不给网页用，这儿只有基础那几把。";
   return { pick, hash01, hasEnhanced, options, loadPick, savePick, onVoices, refresh, KEY, zhVoices: () => voices().all, bestVoices: () => voices().best, scan, isEnhanced, ENHANCED_HINT };
 });
