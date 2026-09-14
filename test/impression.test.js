@@ -460,11 +460,14 @@ test("骰子池里喂光照比喻的两个面退场，换成声音/动静", () =
   assert.equal(m.TAG_ANGLES.length, 12);
 });
 
-test("光照/温度计整族点名禁用，agent 名词取名模子也禁", () => {
-  assert.match(imp, /【意象整族禁用】/);
-  assert.match(imp, /「晨光」「暖阳」「直射光」/, "得点名整族——只禁单个词它就换同族词接着写");
+test("光照/温度计那两族退成兜底，agent 名词取名模子照旧禁", () => {
+  // v67.98：这两族是 2026-08 拿四张卡抓出来的旧经验，会过期。
+  // 有账可查（册子里真有反复出现的词）就让真账说话，册子还空着时它才作为兜底发出去。
+  assert.match(imp, /const BANNED_FALLBACK = /);
+  assert.match(imp, /「晨光」「暖阳」/, "得点名整族——只禁单个词它就换同族词接着写");
   assert.match(imp, /「恒温」「热源」「体温」/);
   assert.match(imp, /除非这个月的记录里真有一件和光或温度直接相关的事/, "留了真事的口子，不是一刀切");
+  assert.match(imp, /overused\.length[\s\S]{0,400}: BANNED_FALLBACK/, "有真账就不发这一段");
   assert.match(imp, /定语\+的\+身份名词/, "「温柔的掌权者」「毫无自觉的惯犯」这个模子要指着说");
   assert.match(imp, /者／家／源／犯／师／体/);
 });

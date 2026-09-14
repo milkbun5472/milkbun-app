@@ -183,12 +183,40 @@
   const BANNED_SHAPE = "\n\n【这些骨架已经用烂了，禁止再用】\n"
     + "「我［推演／分析／计算／设想］了很多种…… → 结果她一句话／一个动作 → 我的［逻辑／防线／线路／计划］全部［破产／失效／崩塌／被切断］」\n"
     + "同义改写也算：换成「所有理性」「全部预设」「精密的推演」照样是它。看到自己在写这个句子，推翻重来。\n"
-    + "【意象整族禁用】「几点钟的光」「某个季节的光／空气」「晨光」「暖阳」「直射光」这一族光照比喻，"
-    + "和「恒温」「热源」「体温」这类温度计词，已经写滥了。除非这个月的记录里真有一件和光或温度直接相关的事，"
-    + "否则整族不许碰——她身上还有别的感官可写：声音、重量、质地、气味、速度。\n"
     + "【取名模子也用满了】「不讲理的X」「不按套路的X」（形容词+抽象名词），"
     + "以及「……的……者／家／源／犯／师／体」（定语+的+身份名词，如「温柔的掌权者」「毫无自觉的惯犯」）——"
     + "这两个模子都不许再灌。可以不用「的」，可以用只属于她的词，怪一点没关系，撞模子不行。";
+  // 册子还空着的时候才发这一段：这两族是 2026-08 她四张卡对照抓出来的旧经验，
+  // 有账可查之后就该让【真账】说话（下面 overusedTerms），而不是让一张会过期的
+  // 死名单一直占着注意力（施工规则/bans-make-it-dumber.md：禁令越多越笨）。
+  const BANNED_FALLBACK = "\n【这几族容易一上手就写】「几点钟的光」「某个季节的光／空气」「晨光」「暖阳」这一族光照比喻，"
+    + "和「恒温」「热源」「体温」这类温度计词。除非这个月的记录里真有一件和光或温度直接相关的事，"
+    + "否则先绕开——她身上还有别的感官可写：声音、重量、质地、气味、速度。\n";
+
+  // ---- 这本册子里【真正】被用滥的那几个词：现算，不是一张写死的名单 ----
+  // ⚠️判据是【出现在几张卡里】，不是出现几次：同一张卡里反复用一个词是那一张的事，
+  //   跨卡还在用才叫"这本册子的口头禅"。
+  const OVERUSE_STOP = "的了是她他你我在有不一个和也就都很又而与之得着过把被让给从但只会要没这那里上下来去说能好还样们时候";
+  const CJK = /[\u4e00-\u9fa5]/;
+  function overusedTerms(cards, min) {
+    const floor = Number(min) || 2, per = new Map();
+    (Array.isArray(cards) ? cards : []).forEach(card => {
+      const text = [card && card.title, (card && Array.isArray(card.tags) ? card.tags.join(" ") : ""), card && card.quote]
+        .filter(Boolean).join(" ");
+      const here = new Set();
+      for (let i = 0; i + 1 < text.length; i++) {
+        const g = text.slice(i, i + 2);
+        if (!CJK.test(g[0]) || !CJK.test(g[1])) continue;
+        if (OVERUSE_STOP.indexOf(g[0]) >= 0 || OVERUSE_STOP.indexOf(g[1]) >= 0) continue;
+        here.add(g);
+      }
+      here.forEach(g => per.set(g, (per.get(g) || 0) + 1));
+    });
+    return [...per.entries()].filter(x => x[1] >= floor)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8)
+      .map(x => ({ word: x[0], cards: x[1] }));
+  }
+
   // 「不够个人化」的病根：不逼它扣住具体的事，它就会写放之四海皆准的漂亮话。
   // 治法和日记那次一样——给一条【可判定】的检验标准，而不是再加一句"要具体"。
   const CONCRETE_RULE = "\n\n【最高优先 · 写「她是什么样的人」，不是「这个月发生了什么」】\n"
@@ -242,6 +270,11 @@
     const lastVer = (opts && opts.last) ? cardText(cardLine(opts.last)) : "";
     // 上一个月那张：按【月份先后】取，不是按生成顺序——补齐历史月份是乱序写的
     const prev = (opts && opts.prev) ? cardLine(opts.prev) : null;
+    // 真正被用滥的那几个词，从这本册子现算（自己的往期 + 别人的卡 + 刚写完那一版）。
+    // 算不出来（册子还空着）才发那张 2026-08 的老名单——有账就别再让死名单占注意力。
+    const overused = overusedTerms(((opts && opts.past) || []).map(cardLine)
+      .concat(((opts && opts.others) || []).map(cardLine))
+      .concat((opts && opts.last) ? [cardLine(opts.last)] : []));
     // 别的角色最近写过的卡：跨角色的八股就是这里漏掉的——每个角色第一次写都只避自己的往期，
     // 于是四个角色各自独立地收敛到同一族光照比喻（她 2026-08-21 四张卡对照抓到的）。
     const others = ((opts && opts.others) || []).filter(x => x && (x.quote || x.title)).slice(0, 8);
@@ -257,6 +290,12 @@
       + (herLines(rows, uName, turn).length ? "\n\n【" + uName + " 这个月说过的话 · quote 可以直接扣住其中一句】\n"
         + herLines(rows, uName, turn).map((x, i) => (i + 1) + ". " + x).join("\n") : "")
       + CONCRETE_RULE + BANNED_SHAPE
+      + (overused.length
+        ? "\n【这本册子自己的口头禅 · 这一次绕开】\n"
+          + overused.map(x => "「" + x.word + "」（" + x.cards + " 张卡里都有）").join("、")
+          + "\n这几个不是坏词，是已经被这本册子用出茧子了。这一次换别的说法；"
+            + "真要用其中一个，它得落在一个和以前完全不同的位置上。\n"
+        : BANNED_FALLBACK)
       + (lastVer ? "\n\n【你刚写完的那一版 · 这次就是要换掉它，最要紧】\n" + lastVer
         + "\n换个说法、换个词都不算换：句子的搭法、取名的模子、用到的那几样东西，一样都不许再出现。" : "")
       + (past.length ? "\n\n【你以往写过的卡 · 骨架和料都不许重复】\n" + past.map((x, i) => (i + 1) + ". " + x).join("\n")
@@ -377,7 +416,7 @@
     moment: d.moment || "", shift: d.shift || "", him: d.him || "", firstShift: !!d.firstShift,
     silhouette: d.silhouette, img: img || null, turn: Number(turn || 0), ts: Date.now() });
 
-  window.Impression = { load, save, genOpts, archiveFor, entryOf, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, sortEntries, monthMaterial, genText, genArt, uid };
+  window.Impression = { load, save, genOpts, overusedTerms, archiveFor, entryOf, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, sortEntries, monthMaterial, genText, genArt, uid };
 })();
 
 // ============================================================
