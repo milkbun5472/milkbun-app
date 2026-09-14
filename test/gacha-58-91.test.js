@@ -99,7 +99,10 @@ test("只活在情侣空间里：主屏一点痕迹都没有", () => {
 // 每个恋爱角色单独一份：这一页只认它自己那位，不再有角色选择条
 test("每个恋人各一份，页面上不再挑角色", () => {
   const ui = scr.slice(scr.indexOf("function Gacha({"));
-  assert.match(ui, /function Gacha\(\{ partner, pts, cards, luck, busy, onPull, onRedeem, onBack \}\)/, "还在自己挑角色");
+  // ⚠️核的是【这一页只认 partner】，不是把参数表冻死：v68.31 加一个 onShow 就把它红了，
+  //   而那跟「会不会自己挑角色」半点关系没有。
+  assert.match(ui, /function Gacha\(\{ partner, /, "这一页不是按恋人开的了");
+  assert.ok(ui.slice(0, ui.indexOf("\n")).indexOf("characters") < 0, "又把整份角色表递进来了");
   assert.match(ui, /c\.charId === partner\.id/, "卡册没按这位恋人筛");
   assert.match(ui, /\(pts \|\| \{\}\)\[partner\.id\]/, "点数没按这位恋人取");
   assert.match(ui, /onPull\(partner, n\)/, "抽的时候没指名是谁");

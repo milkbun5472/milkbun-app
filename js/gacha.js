@@ -18,7 +18,12 @@
 
   // 出率。R 占大头是【故意的】：R 兑换不花钱，而且它解决一个真问题——
   // 这个 App 生成的东西她根本看不完，R 卡等于一个「随机重新翻出来」的入口。
-  const RATE_SSR = 0.03, RATE_SR = 0.22;
+  // ⚠️v68.31 调过一次（她 2026-09-14：「扭出来的奖励有点无聊」）。
+  // 病根不是文案，是**四分之三的抽出来是 R，而 R 是把已经存在的一行原样摆一次**——
+  // 平时翻手机就看得到，当奖励一点新鲜感都没有。
+  // 但不能把「能玩的」塞进 R：R 的定义是【兑换 0 调用】，塞进去就破了「抽是抽、兑是兑」。
+  // 所以改的是**比例**：真正能拿去玩的那几张在 SR，于是 SR 得变成常见档。
+  const RATE_SSR = 0.05, RATE_SR = 0.40;
   const PITY_SSR = 50;          // 连着 50 抽没出 SSR，第 50 抽必出
   const TEN = 10;               // 十连必出一张 SR 以上
   const COST_ONE = 50, COST_TEN = 450;
@@ -72,8 +77,26 @@
     // 印象卡是TA对你的长期认知（十块，js/gaze.js），而且它【进提示词】——
     // 改一块，TA往后看你的眼光就真的变了。留痕最硬的一张。
     { id: "x_gaze",    r: "SSR", act: "gaze",    name: "TA把你重看了一遍", hint: "TA印象卡里的一块被改写——TA往后看你的眼光跟着变" },
-    { id: "s_date",    r: "SR",  act: "make", kind: "date", name: "TA想过的一次约会", hint: "TA脑子里过了一遍、还没开口约的那次" }
+    { id: "s_date",    r: "SR",  act: "make", kind: "date", name: "TA想过的一次约会", hint: "TA脑子里过了一遍、还没开口约的那次" },
+
+    // ── v68.31 新进来的几张（她 2026-09-14 定的第一刀）──────────────
+    // 判据换了：奖励不是「再看一段文字」，是【你想拿去用的东西】和【世界里多出来的东西】。
+    // ⚠️tone 只是给她挑的（甜的留到合适的时候用，皮的抽到就想去闹一下），
+    //   不决定角色怎么接——接不接、还不还价、反不反将一军，是人设的事。
+    { id: "s_drop", r: "SR", act: "drop", tone: "tease", name: "掉马券",
+      hint: "TA交出一份跟你有关的小证据——拆完可以当面拿去问TA" },
+    { id: "s_dual", r: "SR", act: "dual", tone: "both", name: "双面券",
+      hint: "一面甜的、一面皮的，只能选一次" },
+    // SSR：往世界里扔一个种子（她 2026-09-14 采纳 GPT 那条「不是生成剧情，是扔事件种子」）
+    { id: "x_seed", r: "SSR", act: "seed", tone: "sweet", name: "一件还在路上的东西",
+      hint: "真的进TA手机里，过几天才到——到之前TA自己也不知道是什么" },
+    // SSR：一次性视角。平时永远是「查TA的手机」，这一张开的是一个【没有常驻入口】的看法。
+    { id: "x_flow", r: "SSR", act: "flow", tone: "sweet", name: "TA没点开的那些",
+      hint: "这一天TA收到、扫了一眼、没点进去的通知——只这一次看得到" }
   ];
+  // 甜的／皮的：没写的按甜的算（老卡都是甜的那一路）。
+  const TONES = ["sweet", "tease", "both"];
+  function toneOf(p) { const t = p && p.tone; return TONES.indexOf(t) >= 0 ? t : "sweet"; }
 
   const byId = {};
   POOLS.forEach(function (p) { byId[p.id] = p; });
@@ -103,9 +126,17 @@
     if (!list.length && r === "R") { r = "SR"; list = poolOf(r, opts); }
     if (!list.length && r === "SR") { r = "SSR"; list = poolOf(r, opts); }
     if (!list.length) return null;
-    const p = list[Math.floor(rand() * list.length) % list.length];
-    return { poolId: p.id, r: r, act: p.act, kind: p.kind || "", name: p.name, hint: p.hint };
+    // 避重复（她 2026-09-14：「约会券 ×3」原来是必然会发生的——这儿是纯均匀随机、
+    // 一点记性都没有）。先只在【最近出过的之外】挑；那一档就那么几张、全出过了，
+    // 就退回整份池子——**宁可重复，也不能抽不出东西来**。
+    const recent = (opts || {}).recent || [];
+    const fresh = list.filter(function (x) { return recent.indexOf(x.id) < 0; });
+    const from = fresh.length ? fresh : list;
+    const p = from[Math.floor(rand() * from.length) % from.length];
+    return { poolId: p.id, r: r, act: p.act, kind: p.kind || "", name: p.name, hint: p.hint, tone: toneOf(p) };
   }
+  // 最近出过哪几张：只记这么多。记太长等于把池子锁死，太短挡不住连抽同一张。
+  const RECENT_KEEP = 6;
 
   const RANK = { R: 0, SR: 1, SSR: 2 };
 
@@ -115,18 +146,21 @@
     let pulls = Number((state || {}).pulls) || 0;
     let sinceSSR = Number((state || {}).sinceSSR) || 0;
     const out = [];
+    // 十连之内也要避重：每抽一张就把它加进 recent，下一张接着躲。
+    let recent = Array.isArray((state || {}).recent) ? (state || {}).recent.slice() : [];
     for (let i = 0; i < n; i++) {
       // 十连保底：前九张都是 R 的话，最后一张顶成 SR
       const lastOfTen = n >= TEN && i === n - 1 && !out.some(function (c) { return RANK[c.r] >= 1; });
       let rarity = rollRarity(rnd, sinceSSR);
       if (lastOfTen && rarity === "R") rarity = "SR";
-      const card = pickCard(rarity, rnd, opts);
+      const card = pickCard(rarity, rnd, Object.assign({}, opts, { recent: recent }));
       if (!card) continue;
       pulls++;
       sinceSSR = card.r === "SSR" ? 0 : sinceSSR + 1;
+      recent = [card.poolId].concat(recent.filter(function (x) { return x !== card.poolId; })).slice(0, RECENT_KEEP);
       out.push(card);
     }
-    return { cards: out, state: { pulls: pulls, sinceSSR: sinceSSR } };
+    return { cards: out, state: { pulls: pulls, sinceSSR: sinceSSR, recent: recent } };
   }
 
   // 两道闸都在这一处：① 隔够了才算新的一段 ② 一天封顶。
@@ -175,6 +209,7 @@
     POOLS: POOLS, byId: byId, RANK: RANK,
     SESSION_GAP_MS: SESSION_GAP_MS,
     poolOf: poolOf, rollRarity: rollRarity, pickCard: pickCard, pull: pull,
+    toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP,
     earn: earn, spend: spend, ptsOf: ptsOf
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

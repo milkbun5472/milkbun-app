@@ -4463,7 +4463,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4590,7 +4590,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   // 情侣空间子模块：抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
   if (partner && cp[view] && cp[view].status === "together" && sub === "gacha") {
     return h(Gacha, { partner, pts: gachaPts, cards: gachaCards, luck: gachaLuck, busy: gachaBusy,
-      onPull: onGachaPull, onRedeem: onGachaRedeem, onBack: () => setSub(null) });
+      onPull: onGachaPull, onRedeem: onGachaRedeem, onShow: onGachaShow, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：交换日记
   if (partner && cp[view] && cp[view].status === "together" && sub === "exdiary") {
@@ -12775,7 +12775,7 @@ const gachaWhen = ts => {
   const p = n => (n < 10 ? "0" : "") + n;
   return (d.getFullYear() + "").slice(2) + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 };
-function GachaCard({ card, busy, onRedeem, fresh, character }) {
+function GachaCard({ card, busy, onRedeem, onShow, fresh, character }) {
   const t = useTheme();
   const sk = GACHA_SKIN[card.r] || GACHA_SKIN.R;
   const done = !!card.redeemedTs;
@@ -12798,16 +12798,39 @@ function GachaCard({ card, busy, onRedeem, fresh, character }) {
     done
       ? h("div", { style: { marginTop: 9 } },
           res.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, res.title) : null,
+          // ⚠️相册那张 R 卡一直老老实实把 imageRef 取出来了，然后【从来没人画它】
+          //   （Codex 2026-09-14 一眼看出来的）。一张照片奖励只给一行说明，等于没给。
+          res.img ? h("img", { src: typeof phoneImage === "function" ? phoneImage(res.img) : res.img, alt: "",
+            style: { display: "block", width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: 12, marginTop: 7 } }) : null,
           res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
+          // 掉马券：兑完故事还没结束——这一下把东西摆到TA面前（走翻手机那条现成的链）
+          res.where === "drop" && onShow ? h("button", {
+            onClick: () => onShow(card), className: "active:opacity-60",
+            style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: sk.ink, color: "#fff" }
+          }, characterText(character, "摆到他面前问问")) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.tag, marginTop: 7 } },
             "已兑 " + gachaWhen(card.redeemedTs)
-            + (res.where === "memlib" ? characterText(character, " · 已进记忆库，以后他会提起") : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "date" ? " · 这张券已经用掉了，线下开了" : res.where === "letters" ? " · 已进情书" : res.where === "gaze" ? " · 印象卡已改，旧版进了修订史"  : "")))
+            + (res.where === "memlib" ? characterText(character, " · 已进记忆库，以后他会提起") : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "date" ? " · 这张券已经用掉了，线下开了" : res.where === "letters" ? " · 已进情书" : res.where === "gaze" ? " · 印象卡已改，旧版进了修订史"
+            // ⚠️种子这一行要【说实话】：后台不跑代码，它不是半夜自己到的，
+            //   是到点之后她打开 App 的那一下才落地的（施工规则/phone-data-layers.md）。
+            : res.where === "seed" ? (res.arrived ? characterText(character, " · 已经送到他手里了")
+              : " · 还在路上" + (res.dueTs ? "，约 " + Math.max(1, Math.ceil((res.dueTs - Date.now()) / 86400000)) + " 天后到" : "") + "（下次打开就看得到）")
+            : res.where === "drop" ? " · 这东西还没给你看过"
+            : res.where === "dual" ? (res.side === "tease" ? " · 你挑了皮的那一面" : " · 你挑了甜的那一面")
+            : res.where === "flow" ? " · 只这一次看得到"
+            : "")))
       : h("div", { className: "flex items-end justify-between gap-3", style: { marginTop: 8 } },
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, cardHint),
-          h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
-            busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")));
+          // 双面券：两个口子，选了就定了（她 2026-09-14「两种都放」——甜的留着，皮的抽到就想去闹）
+          card.act === "dual"
+            ? h("div", { className: "flex gap-2 shrink-0" }, ["sweet", "tease"].map(side => h("button", {
+                key: side, onClick: () => onRedeem({ ...card, side: side }), disabled: !!busy, className: "active:opacity-60",
+                style: { fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
+              }, busy === card.id ? "…" : side === "sweet" ? "甜的" : "皮的")))
+            : h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
+              busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")));
 }
-function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
+function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBack }) {
   const t = useTheme();
   const [tab, setTab] = useState("open");     // open=还没兑的 / all=票根全本
   const [fresh, setFresh] = useState([]);     // 刚抽到的那几张，描一圈金边
@@ -12846,7 +12869,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
           h("button", { key: k, onClick: () => setTab(k), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 14px", borderRadius: 999, border: "1px solid " + (tab === k ? t.ink : t.line), background: tab === k ? t.ink : "transparent", color: tab === k ? t.bg2 : t.sub } }, zh))),
       shown.length
         ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
-            shown.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, fresh: fresh.indexOf(c.id) >= 0, character: partner })))
+            shown.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, onShow: onShow, fresh: fresh.indexOf(c.id) >= 0, character: partner })))
         : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "26px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
             tab === "open" ? "手上没有还没兑的卡。" : "还没抽过。",
             h("div", { style: { marginTop: 4 } }, "票根会一直留着，抽到的时间也留着。"))));

@@ -991,7 +991,11 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
 //   再往后那一页早该关了、那一单早该到了，还留着就成了坟场。
 const PHONE_WATCH_KEEP = {
   browser: { tabs: 12 },
-  shopping: { cart: 12 },
+  // shipping v68.31 补登记（抽卡的事件种子往这儿种一件在路上的东西）。
+  // 判据还是那一句：**周刷会把他刚做的那一下重写掉吗？** 在途是 ♻️ 当前快照、每次照实重写，
+  // 所以种进去的那一行第二天就没了——盖上 _wk 戳它才留得住。
+  // ⚠️还是只保【盖过戳的那几行】，不是把整栏冻住：这一栏照旧是 ♻️。
+  shopping: { cart: 12, shipping: 6 },
   takeout: { live: 6 }
 };
 const PHONE_WATCH_KEEP_DAYS = 8;

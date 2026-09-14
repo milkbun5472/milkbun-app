@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.33";
+const APP_VERSION = "v68.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -497,6 +497,9 @@ function App() {
   const [gachaCards, setGachaCards] = useState([]);
   const gachaCardsRef = useRef([]); gachaCardsRef.current = gachaCards;
   const [gachaLuck, setGachaLuck] = useState({});
+  // 还在路上的那几件（事件种子）。⚠️不是闹钟：到点之后她下次打开 App 才兑现。
+  const [gachaSeeds, setGachaSeeds] = useState([]);
+  const gachaSeedsRef = useRef([]); gachaSeedsRef.current = gachaSeeds;
   const gachaLuckRef = useRef({}); gachaLuckRef.current = gachaLuck;
   const coupleHomeRef = useRef({}); coupleHomeRef.current = coupleHome;
   // 解除情侣关系记录：{ [charId]: { ts, deducted, affAfter } } —— 一周冷却 + 复合需加回被扣一半
@@ -1349,6 +1352,7 @@ function App() {
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
     setGachaLuck(loadJSON("x_gachaLuck", {}));
+    setGachaSeeds(loadJSON("x_gachaSeeds", []));
     setCoupleBreakup(loadJSON("x_coupleBreakup", {}));
     // 迁移旧单人情侣数据 x_couple → 新多人 x_couples
     let cps = loadJSON("x_couples", null);
@@ -4090,7 +4094,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     song:   "挑一首TA此刻想放给用户听的歌（真实存在的），连着TA为什么是这一首、想让对方听到哪一句。",
     look:   "写TA此刻看着用户时眼里的样子——不是夸，是TA真正注意到的那几个细节。",
     date:   "写一件TA【想过、但还没开口约】的事：你俩一起去做什么。要具体到地点和时候，"
-          + "而且必须是【TA这个人、在TA这个处境里】约得出来的——换个角色就不成立才算写对。"
+          + "而且必须是【TA这个人、在TA这个处境里】约得出来的——换个角色就不成立才算写对。",
+    // 掉马券（她 2026-09-14 从 Codex 那一版里挑的）。它妙在【兑完故事没结束】：
+    // 东西自己会说话，她可以当面拿去问，TA怎么圆全看人设。
+    // ⚠️所以这一枪只写【那样东西本身】，不写心情、不写旁白解说——
+    //   一解释就把「被撞破」那一下提前用掉了。
+    drop:   "写一份TA手里跟用户有关的【小证据】：还没给对方看过、TA自己弄出来的那种东西"
+          + "（备选清单、没发出去的草稿、准备到一半的、写了没送出的）。\n"
+          + "title 是这东西叫什么，body 就是**它本身的样子**——清单就一条条列，草稿就写草稿的原话，"
+          + "半成品就写它现在做到哪一步。\n"
+          + "别替TA解释，别写TA的心情，别加旁白：这张券的分量全在【东西自己会说话】，"
+          + "被当面拿出来问的时候TA才开口。",
+    // 双面券：同一张，甜的和皮的各一面，只能选一次（她 2026-09-14「两种都放」）。
+    // ⚠️两面写的是【她能拿去做什么】，不是【TA必须做什么】：
+    //   券是她开的，接不接、怎么接、还不还价，是那个人的事（施工规则/bans-make-it-dumber.md）。
+    dual_sweet: "写一张TA给用户的【甜的那一面】券：一件用户随时可以拿出来兑、TA会替她做的事。"
+              + "要具体到做什么、在哪儿、什么时候能兑，而且得是【TA这个人做得出来】的那种好——"
+              + "不是通用的宠溺，是只有TA会想到的那一种。\n"
+              + "title 是券面上那行字，body 是券的正文（兑的时候怎么算数、TA答应了什么）。",
+    dual_tease: "写一张TA给用户的【皮的那一面】券：一件用户可以拿去为难TA、让TA下不来台的小事。"
+              + "要具体、要能真的执行，而且得是【戳得到这个人】的那一处——换个角色就不痛不痒的就是写坏了。\n"
+              + "title 是券面上那行字，body 是券的正文。\n"
+              + "⚠️写的是【她能要求什么】，不是【TA一定会照办】：TA有权讨价还价、反将一军、"
+              + "或者用自己的方式糊弄过去，那正是这张券好玩的地方。"
   };
   const GACHA_SSR_ASK = {
     past: "写TA过去真实经历过的一件事——一件TA从没跟用户讲过、但确实塑造了TA的事。要有具体的时间、地点和人，不要抽象的总结。",
@@ -4110,8 +4136,101 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "正文是这张券被兑掉的那一刻——你们已经到了，TA开的第一句场。三到五句旁白，"
         + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。\n"
         + "券上那件事必须是【TA这个人、在TA这个世界里】做得出来的：地点、场合、时辰都要贴TA，"
-        + "换个角色照样成立的就是写坏了。"
+        + "换个角色照样成立的就是写坏了。",
+    // 事件种子（她 2026-09-14 采纳 GPT 那条）：不是写一段剧情，是**往世界里扔一个东西**，
+    // 它真的进TA手机、过几天才到。⚠️一枪问全两段（路上长什么样 + 到了是什么），
+    //   不是两枪：她按次计费，而且第二枪到时候未必还在同一个上下文里。
+    seed: "用户给TA寄了一样东西，这会儿还在路上。\n"
+        + "cover 写【物流单上看得到的那一点】：shop（寄件方在TA那个世界里叫什么）、"
+        + "title（单子上写的品名，**要模糊到TA猜不出里面是什么**）、carrier（承运的是谁）。\n"
+        + "reveal 写【签收拆开之后】：title 是这样东西到底是什么，body 是TA拆开那一刻的两三句——"
+        + "TA的反应，不是旁白介绍这件礼物。\n"
+        + "东西和物流都要落在【TA真正生活的那个地方】：古代角色收的是那个世界送得到的东西、"
+        + "由那个世界的人送来；现代角色才有快递单号。",
+    // 一次性视角（她 2026-09-14 从 GPT 那条里挑的，我也最看好这条）：
+    // 它一个字的持久状态都不留，只是**换一种没有常驻入口的看法**去看已经有的这个人。
+    // ⚠️不许写成「TA的心事清单」：没点开的通知之所以戳人，是因为**大部分根本不重要**，
+    //   重要的那一两条混在里头才有分量。
+    flow: "写这一天里TA收到、扫了一眼、没点进去的那些通知（6-10 条）。\n"
+        + "每条：app（哪个应用推来的）、from（谁发的）、text（通知栏上那一行字，被截断的样子）、"
+        + "when（什么时候来的）、skip（TA为什么没点开，一句，很短）。\n"
+        + "**大部分要是不重要的**——广告、群消息、系统提醒、不想理的人。"
+        + "真正有分量的只藏一两条在里头，而且不许在 skip 里点破它有多重要。"
   };
+  // ── 事件种子：往TA的世界里真的扔一个东西进去 ────────────────────
+  // 她 2026-09-14 采纳 GPT 那条：「不是生成一段剧情，是往世界里扔一个事件种子」。
+  //
+  // ⚠️**这个 App 的后台不跑代码**（施工规则/phone-data-layers.md 里那句
+  //   「每周自动刷一次⚠️不是闹钟」）。所以「三天后它会出现」的真实含义是
+  //   【到点之后，她下一次打开 App 的那一下，它就已经在那儿了】——
+  //   跟行程、钱包补账、查手机周刷同一个形状，不是定时器。
+  //   界面上也不许假装它是半夜发生的。
+  //
+  // ⚠️种下去的那一行会被【周刷抹掉】：shipping 是 ♻️ 当前快照，规矩是每次照实重写。
+  //   仓库里早有这一层（PHONE_WATCH_KEEP + _wk 戳，当初是给「看TA玩」做的），
+  //   所以这儿盖同一个戳，绝不另开一套（施工规则/one-public-mechanism.md）。
+  //
+  // 种类做成一张表：再加「一张票」「一个陌生联系人」时各加一行就行，
+  // 不必再动种／收那两段（第一刀先只做包裹这一种）。
+  const GACHA_SEED_KINDS = {
+    parcel: {
+      app: "shopping",
+      // 种下去：在途多一件。progress 从小处起步——她看得见它在走。
+      plant: (d, cover) => ({ ...d, shipping: [{
+        status: "运输中", eta: "", shop: String(cover.shop || ""), title: String(cover.title || "一个包裹"),
+        progress: 12, carrier: String(cover.carrier || ""), tail: "", amount: null,
+        // _seed 认得出是哪一行是种进来的（到点要把它摘掉）；_wk 是周刷别重写它的那个戳
+        _seed: 1, _wk: 1, _wkAt: Date.now(), _ts: Date.now()
+      }].concat(Array.isArray(d.shipping) ? d.shipping : []).slice(0, 6) }),
+      // 到点：把它从在途里摘掉，作为一单已签收落进 📚 订单（发生过的事就留着）
+      arrive: (d, cover, reveal) => {
+        const rest = (Array.isArray(d.shipping) ? d.shipping : []).filter(x => !(x && x._seed));
+        const orders = Array.isArray(d.orders) ? d.orders : [];
+        return { ...d, shipping: rest, orders: [{
+          id: "gseed_" + Date.now(), shop: String(cover.shop || ""), status: "已收货", time: "刚刚",
+          title: String(reveal.title || cover.title || "送到了"), items: [], ship: 0, paid: null,
+          tags: [], review: "", reason: "", addr: "", _ts: Date.now()
+        }].concat(orders) };
+      }
+    }
+  };
+  const gachaSeedPatch = (charId, appKey, fn) => {
+    const cur = ((phonesRef.current || {})[charId] || {})[appKey];
+    if (!cur) return false;                    // 这个 app 还没生成过，种不进去
+    savePhoneApp(charId, appKey, fn(cur), { noArchive: true, patched: true });
+    return true;
+  };
+  // 到点了没有：只在她打开 App / 切回前台时跑一遍。跑的是【已经过了点、还没兑现】的那些。
+  const gachaSeedSweep = () => {
+    const now = Date.now();
+    const list = gachaSeedsRef.current || [];
+    const due = list.filter(x => x && !x.doneTs && Number(x.dueTs) && Number(x.dueTs) <= now);
+    if (!due.length) return;
+    let changed = false;
+    const next = list.map(sd => {
+      if (due.indexOf(sd) < 0) return sd;
+      const spec = GACHA_SEED_KINDS[sd.kind];
+      if (!spec) return sd;
+      const ok = gachaSeedPatch(sd.charId, spec.app, d => spec.arrive(d, sd.cover || {}, sd.reveal || {}));
+      if (!ok) return sd;                      // 那个 app 被清空了：留着，下次再试
+      changed = true;
+      // 票根上那一格也跟着揭晓——卡一直在那儿，只是从「还在路上」变成写着是什么
+      gachaStamp(sd.cardId, { title: String((sd.reveal || {}).title || "送到了"),
+        body: String((sd.reveal || {}).body || ""), where: "seed", arrived: true });
+      return { ...sd, doneTs: now };
+    });
+    if (!changed) return;
+    gachaSeedsRef.current = next; setGachaSeeds(next); saveJSON("x_gachaSeeds", next);
+    toast("有件东西送到了 · 去情侣空间的票根里看看");
+  };
+  useEffect(() => {
+    if (!loaded) return;
+    const run = () => { try { if (document.visibilityState !== "hidden") gachaSeedSweep(); } catch (e) {} };
+    run();
+    window.addEventListener("focus", run); document.addEventListener("visibilitychange", run);
+    return () => { window.removeEventListener("focus", run); document.removeEventListener("visibilitychange", run); };
+    // eslint-disable-next-line
+  }, [loaded]);
   const gachaRedeem = async card => {
     const char = characters.find(c => c.id === card.charId);
     if (!char) { toast("这张卡的角色已经不在了"); return; }
@@ -4156,6 +4275,76 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
         gachaStamp(card.id, got);
         return got;
+      }
+      // ── 掉马券：一张文字卡，但兑完故事没结束——她可以把它当面摆到TA面前 ──
+      // ⚠️那一下走现成的 forwardPhonePeekToChat（跟翻手机、翻随身物同一条链），
+      //   不另写一条「送进聊天」的路（施工规则/one-public-mechanism.md）。
+      if (card.act === "drop") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SR_ASK.drop + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的东西。"),
+          schemaHint: "{\"title\":\"这东西叫什么\",\"body\":\"它本身的样子\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没翻出东西来，卡还留着"); return; }
+        gachaStamp(card.id, { title: String(d.title || card.name).trim(), body: body, where: "drop" });
+        return { title: String(d.title || card.name).trim(), body: body };
+      }
+      // ── 双面券：甜的和皮的各一面，只能选一次。走 make 同一条路，只是换 kind ──
+      if (card.act === "dual") {
+        const side = card.side === "tease" ? "tease" : "sweet";
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SR_ASK["dual_" + side] + characterText(char, "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的话。"),
+          schemaHint: "{\"title\":\"券面上那行字\",\"body\":\"券的正文\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没写出来，卡还留着"); return; }
+        gachaStamp(card.id, { title: String(d.title || card.name).trim(), body: body, where: "dual", side: side });
+        return { title: String(d.title || card.name).trim(), body: body };
+      }
+      // ── 事件种子：真的种进TA手机，过几天才到 ──
+      if (card.act === "seed") {
+        const kind = "parcel";                       // 第一刀只有这一种；加别的只是 GACHA_SEED_KINDS 多一行
+        const spec = GACHA_SEED_KINDS[kind];
+        if (!((phonesRef.current || {})[char.id] || {})[spec.app]) {
+          toast(characterText(char, "他的网购还没生成过，东西没处送——先去查手机刷一次，卡留着")); return;
+        }
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SSR_ASK.seed + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          schemaHint: "{\"cover\":{\"shop\":\"寄件方\",\"title\":\"单子上的品名（模糊到看不出是什么）\",\"carrier\":\"承运的是谁\"},\"reveal\":{\"title\":\"拆开之后是什么\",\"body\":\"他拆开那一刻\"}}",
+          maxTokens: 65535
+        });
+        const cover = (d && d.cover) || {}, reveal = (d && d.reveal) || {};
+        if (!String(reveal.body || "").trim()) { toast("这次没寄出去，卡还留着"); return; }
+        if (!gachaSeedPatch(char.id, spec.app, dd => spec.plant(dd, cover))) { toast("这次没种进去，卡还留着"); return; }
+        // 几天后到：由代码掷，不问模型——它高兴起来能写「三个月后」。
+        const days = 2 + Math.floor(Math.random() * 3);          // 2-4 天
+        const dueTs = Date.now() + days * 86400000;
+        const sd = { id: "gs_" + Date.now(), charId: char.id, cardId: card.id, kind: kind, cover: cover, reveal: reveal, ts: Date.now(), dueTs: dueTs, doneTs: 0 };
+        const nl = [sd, ...(gachaSeedsRef.current || [])].slice(0, 200);
+        gachaSeedsRef.current = nl; setGachaSeeds(nl); saveJSON("x_gachaSeeds", nl);
+        // 票根先只写【路上那一点】——拆开之前她和TA一样不知道里面是什么
+        gachaStamp(card.id, { title: String(cover.title || "一个还没到的包裹"), body: characterText(char, "已经在他的物流里了，约 ") + days + " 天后到。到之前谁也不知道里面是什么。", where: "seed", dueTs: dueTs });
+        return { title: String(cover.title || "一个还没到的包裹"), body: "已经上路了" };
+      }
+      // ── 一次性视角：不留任何持久状态，只是换一种没有常驻入口的看法 ──
+      if (card.act === "flow") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SSR_ASK.flow + characterText(char, "\n扣着他今天真实的处境写。"),
+          schemaHint: "{\"items\":[{\"app\":\"哪个应用\",\"from\":\"谁发的\",\"text\":\"通知栏上那一行\",\"when\":\"什么时候\",\"skip\":\"为什么没点开\"}]}",
+          maxTokens: 65535
+        });
+        const rows = (Array.isArray(d && d.items) ? d.items : []).filter(x => x && (x.text || x.from));
+        if (!rows.length) { toast("这次没翻出东西来，卡还留着"); return; }
+        const body = rows.map(x => "· " + [String(x.when || ""), String(x.app || ""), String(x.from || "")].filter(Boolean).join(" · ")
+          + "\n  " + String(x.text || "") + (x.skip ? "\n  （" + String(x.skip) + "）" : "")).join("\n");
+        gachaStamp(card.id, { title: characterText(char, "他今天没点开的那些"), body: body, where: "flow" });
+        return { title: characterText(char, "他今天没点开的那些"), body: body };
       }
       // ── SSR：真的留下东西 ──
       if (card.act === "letter") {
@@ -20653,6 +20842,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     gachaBusy: gen.gacha,
     onGachaPull: gachaPull,
     onGachaRedeem: gachaRedeem,
+    // 掉马券兑完之后那一下：摆到TA面前。走翻手机那条现成的链（同一张卡、同一套分寸），
+    // 不另写一条「送进聊天」的路。tier 用 quiet：这东西TA本来没打算给她看。
+    onGachaShow: card => {
+      const c = characters.find(x => x.id === card.charId); const r = card.result || {};
+      if (!c || !r.body) return;
+      forwardPhonePeekToChat(c, { label: String(r.title || "掉马券"), title: String(r.title || ""), text: String(r.body || ""),
+        tier: "quiet", what: "东西", lead: "[我手上有这个]" });
+    },
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
     onReadExDiary: markExDiaryRead
