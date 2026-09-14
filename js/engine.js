@@ -5971,7 +5971,27 @@ async function generateOffline(p, ctx, session) {
   };
 }
 // 结束线下时把整段浓缩成一条记忆（第三人称，供存入记忆库）
-async function summarizeOffline(p, ctx, session) {
+// 这一场已经记进记忆库的那几条（她 2026-09-14：「所以现在记忆库不会重新总结线下总结过的？」）
+// ─────────────────────────────────────────────────────────────
+// 一场线下会往记忆库写两次：滚动总结每攒够一段写一批，结束那一趟拿【整场】再写一批。
+// 同一件事被两次独立生成各记一条，措辞不一样——`isDupMem` 只认字面包含，认不出来。
+// v68.27 试过事后按场次号把滚动写的那几条标 superseded，当天撤了：那一刀会连她手改过的、
+// 钉住的一起收走，还绕过云端那套确认。所以改成【从源头少写一份】：
+// 把这一场已经记过的原文发回去，这一趟只写没记过的。
+// ⚠️这是降概率不是保证（漏网的照旧交给 isDupMem）——它替掉的是一个会误伤存量的机制，
+//   不是又加一道闸。
+// ⚠️单人和群、滚动和收尾，四处用同一份（施工规则/one-public-mechanism.md）：
+//   各写一份的话，哪天改了措辞另外三处永远落单。
+function offlineSummaryAvoidBlock(already) {
+  const rows = (Array.isArray(already) ? already : []).map(x => String(x || "").trim()).filter(Boolean);
+  if (!rows.length) return "";
+  return "\n\n【这一场里，下面这些已经记进记忆库了】\n"
+    + rows.slice(-40).map(t => "· " + t.slice(0, 120)).join("\n")
+    + "\n你这一趟写的是【上面这些没说到的】。同一件事换个说法重写一遍不算新的，那会在库里变成两条。\n"
+    + "details 和 open 只给还没被记过的，一条都没有就给 []。"
+    + "summary 不受这一段限制——它要的是【整场】，该怎么概括还怎么概括。";
+}
+async function summarizeOffline(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const text = (session.msgs || []).filter(m => !isOocMsg(m)).map(m => {
     if (m.role === "char") return ctx.char.name + "：" + (m.content || "");
@@ -5981,7 +6001,7 @@ async function summarizeOffline(p, ctx, session) {
   const system = "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
     "{\"summary\":\"1~3句第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
   const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 12000 });
   const d = extractJSON(raw);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
@@ -6251,7 +6271,7 @@ async function generateOfflineGroup(p, ctx, session) {
   }
   return out;
 }
-async function summarizeOfflineGroup(p, ctx, session) {
+async function summarizeOfflineGroup(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const names = (ctx.members || []).map(c => c.name).join("、");
   const text = (session.msgs || []).filter(m => m.kind !== "ooc").map(m => {
@@ -6263,7 +6283,7 @@ async function summarizeOfflineGroup(p, ctx, session) {
   const system = "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" +
     "{\"summary\":\"1~3句第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
     "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
   const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 12000 });
   const d = extractJSON(raw);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };

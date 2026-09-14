@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.29";
+const APP_VERSION = "v68.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5764,6 +5764,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   useEffect(() => {
     offlinesRef.current = offlines;
   }, [offlines]);
+  // 这一场已经记进记忆库的那几条原文（靠 ofs 场次号认）。
+  // 发回给总结那一枪，让它只写没记过的——一场线下要写两次（滚动 + 收尾），
+  // 两次是独立生成、措辞不一样，isDupMem 只认字面包含，认不出来。
+  // ⚠️只读不写：不碰任何已存的行（她手改的、钉住的一个字都不动）。
+  //   v68.27 那版事后标 superseded 的做法当天就撤了，撤的理由就在这儿。
+  const offlineRecordedOf = sessId => !sessId ? [] :
+    (memLibRef.current || []).filter(e => e && e.ofs === sessId && e.text).map(e => String(e.text));
   const offlinePersonId = scopeKey => window.ChatRooms ? window.ChatRooms.personFromKey(scopeKey) : String(scopeKey);
   const offlineIsRoom = scopeKey => !!(window.ChatRooms && window.ChatRooms.isSideKey(scopeKey));
   // 侧房键会把 personId 串进 "person::room::roomId"，读回来一定是字符串；
@@ -5825,7 +5832,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (block.length < 4) return;
     offSumBusyRef.current[charId] = true;
     try {
-      const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), { ...sess, msgs: block });
+      const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -6332,7 +6339,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     startLane("c:" + scopeKey);
     let summary = "", details = [], opens = [];
     try {
-      if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     // 旧记忆保留，新条交给共享去重/确认候选机制，不按场次自动隐藏。
@@ -6616,7 +6623,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (block.length < 4) return;
     gOffSumBusyRef.current[groupId] = true;
     try {
-      const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), { ...sess, msgs: block });
+      const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -6946,7 +6953,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     startLane("g:" + groupId);
     let summary = "", details = [], opens = [];
     try {
-      if (offlineActive && group) { const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (offlineActive && group) { const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     // 记忆分区：只有开了「记忆互通」的群才把线下总结写进全局记忆库；
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
