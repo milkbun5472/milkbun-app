@@ -5095,13 +5095,28 @@ async function translateLongToZh(text, lang) {
   }
   return { zh: outs.join("\n\n"), by: by };
 }
+// 「翻出来的到底是不是中文」——这一条对每一级都成立，所以写在跑链条那一处，
+// 不塞进某一个引擎里（她 2026-09-14：查手机的日语被翻成了英文）。
+// ⚠️病根是 MyMemory：它的日→中其实是【绕道英语】，绕到一半就把英文交回来了。
+//   与其给它写一条特例，不如立一条谁都得过的判据：**没有汉字的译文不算译文**。
+//   这样将来换任何一家引擎，同一种事故都会被同一道闸挡住。
+function _looksChinese(zh) {
+  const t = String(zh || "");
+  if (!t.trim()) return false;
+  const han = (t.match(/[\u4e00-\u9fff]/g) || []).length;
+  if (!han) return false;                       // 一个汉字都没有：那不是中文
+  const latin = (t.match(/[A-Za-z]/g) || []).length;
+  return han * 2 >= latin;                      // 夹几个英文单词没关系，整段是英文就不行
+}
 async function translateToZh(text, lang) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
+  // MyMemory 只在【源就是英文】时还值得一试：别的语种它一律绕道英语，绕废的概率很高。
+  const myMemoryOk = src === "en" || src === "auto";
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
-    { by: "免费", run: () => _transMyMemory(text, src) },
+    { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
     { by: "模型", run: () => _transModel(text) }
   ];
   const errs = [];
@@ -5109,6 +5124,7 @@ async function translateToZh(text, lang) {
   for (let i = 0; i < chain.length; i++) {
     try {
       const zh = await chain[i].run();
+      if (!_looksChinese(zh)) throw new Error("翻出来的不是中文：" + String(zh).slice(0, 40));
       transCachePut(text, zh, chain[i].by);
       return { zh: zh, by: chain[i].by };
     } catch (e) { errs.push(names[i] + "：" + String((e && e.message) || e).slice(0, 70)); }
