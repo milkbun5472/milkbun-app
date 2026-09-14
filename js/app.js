@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.39";
+const APP_VERSION = "v68.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4082,7 +4082,45 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const cards = gachaCardsRef.current.map(c => c.id === cardId ? { ...c, redeemedTs: Date.now(), result: result } : c);
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
   };
-  // 兑换。三档在这一处分路：
+  // ── 抽卡兑出来的东西怎么喂回聊天（她 2026-09-14 问的那一句）──────────────
+  // 查下来抽卡是「四处一样喂」名单上漏掉的**第九处**：SR 那六张（最常见的一档）
+  // 兑完只是一张文字卡，角色完全不知道发生过；双面券尤其怪——券是他给的，他却不认。
+  //
+  // 这个病仓库里治过一次：情侣空间那几样纸面往来当初也是一个字不进上下文
+  // （「聊天里她提『你上次答的那道题』TA一脸茫然」）。修法现成的，就是 coupleKeep：
+  // **落一条记忆库条目，聊到相关才被检索出来，平时零成本**——不做常驻注入，她按次计费。
+  //
+  // ⚠️她问「每轮都背着不会撑爆吗」：不会。记忆库每轮只按相关度召回 topK 条（默认 5），
+  //   库里是 50 条还是 500 条，prompt 长度一样。真正的代价是**那 5 个名额会被挤占**，
+  //   所以这一层的要紧处不是「少记」，是：
+  //   ① 记得具体（泛话什么话题都能匹配上，专占坑）——照情书那条的形状，带上原话头几十字；
+  //   ② 一条都不许置顶（置顶是 always-in、另开一路）；
+  //   ③ 走 source:"couple" 过现成的去重闸，重复兑同一款不攒重。
+  //
+  // ⚠️两处【故意不记】，理由写在这儿（four-surfaces-same-context 要求漏的那处写明理由）：
+  //   · flow「他没点开的那些」——那是她偷看了一眼，他不知道。记了就等于告诉他她看过。
+  //   · drop「掉马券」——它的全部分量在【被撞破那一下由她挑时机】，卡上那个
+  //     「摆到他面前」按下去才进上下文（走翻手机那条链）。自动记进去等于把这张卡毁了。
+  const GACHA_KEEP = {
+    word:   (n, t, b) => n + "有一句没跟她说出口的话：「" + b + "」",
+    note:   (n, t, b) => n + "给她写过一张便签：「" + b + "」",
+    secret: (n, t, b) => n + "有件没打算说的小事：「" + b + "」",
+    song:   (n, t, b) => n + "想放给她听一首《" + t + "》——「" + b + "」",
+    look:   (n, t, b) => n + "眼里的她是这个样子：「" + b + "」",
+    date:   (n, t, b) => n + "想过约她去做一件事「" + t + "」：「" + b + "」",
+    dual:   (n, t, b) => n + "给过她一张券「" + t + "」，答应了：「" + b + "」",
+    pocket: (n, t, b) => n + "把随身带着的「" + t + "」给了她：「" + b + "」",
+    box:    (n, t, b) => "她和" + n + "各往一个盒子里放了一样东西，到日子一起打开了：「" + b + "」",
+    seed:   (n, t, b) => "她给" + n + "寄过一样东西，收到了：「" + t + "」"
+  };
+  const gachaKeep = (char, key, title, body) => {
+    const f = GACHA_KEEP[key];
+    if (!f || !char) return;
+    const line = f(char.name, cSnip(title, 24), cSnip(body, 70));
+    // tag 用「抽卡」：她哪天嫌吵，在记忆库里搜这两个字就能整批翻出来
+    try { coupleKeep(char.id, line, "抽卡"); } catch (e) {/* 记不上不连累兑换 */}
+  };
+  // 兑换。三档在这一处分路：  // 兑换。三档在这一处分路：
   //   R   0 调用——从TA已经有的东西里翻一件（gachaPickR）
   //   SR  1 调用——TA现做一件小东西，不动任何状态
   //   SSR 1 调用——真的留下东西（进记忆库 / 开线下 / 进情书）
@@ -4278,6 +4316,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 票根上那一格也跟着揭晓——卡一直在那儿，只是从「还在路上」变成写着是什么
       gachaStamp(sd.cardId, { title: String((sd.reveal || {}).title || "送到了"),
         body: String((sd.reveal || {}).body || ""), where: "seed", arrived: true });
+      // ⚠️记在【到货】这一刻，不是兑换那一刻：东西还在路上的时候他并不知道是什么。
+      try { gachaKeep((characters || []).find(c => c.id === sd.charId), "seed",
+        String((sd.reveal || {}).title || ""), String((sd.reveal || {}).body || "")); } catch (e) {}
       return { ...sd, doneTs: now };
     });
     if (!changed) return;
@@ -4325,6 +4366,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc" };
             if (!got.body) { toast(characterText(char, "他没写出来，卡还留着")); return; }
             gachaStamp(card.id, got);
+            gachaKeep(char, card.kind, got.title, got.body);   // 书房那一支也要记，不然只有代笔那半进得去
             return got;
           } catch (e) {
             toast(e && e.code === "CC_SEAT_TIMEOUT" ? characterText(char, "他这会儿没接到票，卡留着，等他在的时候再兑") : "书房那边没接上：" + (e.message || "") + "，卡留着");
@@ -4339,6 +4381,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         });
         const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
         gachaStamp(card.id, got);
+        gachaKeep(char, card.kind, got.title, got.body);
         return got;
       }
       // ── 掉马券：一张文字卡，但兑完故事没结束——她可以把它当面摆到TA面前 ──
@@ -4368,6 +4411,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const body = String(d.body || "").trim();
         if (!body) { toast("这次没写出来，卡还留着"); return; }
         gachaStamp(card.id, { title: String(d.title || card.name).trim(), body: body, where: "dual", side: side });
+        gachaKeep(char, "dual", String(d.title || card.name).trim(), body);
         return { title: String(d.title || card.name).trim(), body: body };
       }
       // ── 专属掉落：TA口袋里的一件小东西，进你俩的抽屉封着，一直留得住 ──
@@ -4384,6 +4428,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!body) { toast("这次没掏出东西来，卡还留着"); return; }
         drawerDrop(char.id, title, body);
         gachaStamp(card.id, { title: title, body: body, where: "pocket" });
+        gachaKeep(char, "pocket", title, body);
         return { title: title, body: body };
       }
       // ── 双盲秘密盒·第一枪：她先塞，TA再塞，两边都封着 ──
@@ -4433,6 +4478,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!body) { toast("这次没打开，盒子还封着，可以再开一次"); return; }
         gachaStamp(card.id, { title: String(d.title || "打开了").trim(), body: body, where: "box",
           ready: false, opened: true, mine: String(sd.mine || ""), his: his });
+        gachaKeep(char, "box", String(his.title || ""), body);
         return { title: String(d.title || "打开了").trim(), body: body };
       }
       // ── 秘密筹备·第一枪：只出一个信封。第二枪等她按「拆开」才花 ──

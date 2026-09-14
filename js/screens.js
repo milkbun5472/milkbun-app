@@ -9813,7 +9813,11 @@ function MemoryLib({
   const pinnedTotal = (entries || []).filter(e => e && !e.archived && e.pinned && (e.surfaceState || "active") === "active" && inScope(e)).length;
   const visibleOpenTotal = (entries || []).filter(e => e && !e.archived && e.open && (e.surfaceState || "active") === "active" && inScope(e)).length;
   const historyTotal = superseded.length + archived.length;
-  const sourceLabelOf = e => ({ manual: "手写", chat: "聊天留下", auto: "聊天留下", import: "旧事导入", monthly: "旧忆精炼", mcp: "角色亲笔" })[e && e.source] || ((e && e.tags || []).includes("群聊") ? "群聊留下" : (e && e.tags || []).includes("线下") ? "线下留下" : "自然记下");
+  // ⚠️抽卡那一档要排在「情侣空间」前面：它俩 source 都是 couple，光看 source 分不出来，
+  //   而她要的正是「一眼看出哪几条是扭蛋留下的」（搜「抽卡」也能整批翻出来）。
+  const sourceLabelOf = e => ((e && e.tags || []).includes("抽卡") ? "扭蛋留下"
+    : ({ manual: "手写", chat: "聊天留下", auto: "聊天留下", import: "旧事导入", monthly: "旧忆精炼", mcp: "角色亲笔", couple: "情侣空间" })[e && e.source]
+    || ((e && e.tags || []).includes("群聊") ? "群聊留下" : (e && e.tags || []).includes("线下") ? "线下留下" : "自然记下"));
   const audienceOf = e => !e.charIds || e.charIds.length === 0 ? "所有角色可见" : e.charIds.map(nameOf).join("、");
   const shortDateOf = e => {
     const d = new Date(e.ts || Date.now());
