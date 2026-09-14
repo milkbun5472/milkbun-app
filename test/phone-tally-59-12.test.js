@@ -58,9 +58,9 @@ test("「他跟谁有账」这一段真的发出去了", () => {
   assert.match(blk, /这本账不是只记用户那一本/, "没说清用户只占其中一份");
   assert.match(blk, /用户占多大篇幅，由上面这一行的真实关系决定/, "没把篇幅跟关系挂上");
   // ② 两个 callsite 都得传（一处传一处不传＝手动刷和自动刷两个样）
-  assert.equal((app.match(/phoneBondBlock\(char\)\)/g) || []).length, 2, "两处 phoneProbeSpec 没都传 bond");
+  assert.equal((app.match(/phoneBondBlock\(char\), phoneLangRef\.current\)/g) || []).length, 2, "两处 phoneProbeSpec 没都传 bond");
   // ③ phone 那端收得到、并且真拼进了 instruction
-  assert.match(ph, /function phoneProbeSpec\(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond\)/, "签名没收 bond");
+  assert.match(ph, /function phoneProbeSpec\(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond, lang\)/, "签名没收 bond");
   assert.match(ph, /const bondBlock = \(key === "tally" && bond\) \? bond : "";/, "bond 没按栏取用");
   // ⚠️别冻「它前后紧挨着谁」——v64.36 中间插进了 OWN_ONLY。要验的是【拼进去了】。
   assert.match(ph, /const _full = spec\.instruction \+ [^\n]*\bbondBlock\b/, "bondBlock 没拼进最终 instruction");

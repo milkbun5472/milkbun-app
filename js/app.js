@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.23";
+const APP_VERSION = "v68.25";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -990,6 +990,11 @@ function App() {
   // 查手机时间线的归档：刷新会整份覆盖某个 app，旧痕迹本来就没了。
   // 覆盖之前先把旧那份抽成时间线条目存这儿，那条线才会越来越长。
   const [phoneArch, setPhoneArch] = useState({});
+  // 手机里的字写哪种语言（persona/zh/native）。全局一份，不分角色——
+  // 它管的是「这个 App 生成出来的字」，不是某个人的口音。
+  const [phoneLang, setPhoneLang] = useState("persona");
+  const phoneLangRef = useRef("persona");
+  phoneLangRef.current = phoneLang;
   // 健康的每日轻量快照：一个综合分 + 几个核心指标，一天一条，留 90 天。
   // 健康报告本身照旧每次重写（它代表今天，不是病历）；趋势另存。
   const [phoneVitals, setPhoneVitals] = useState({});
@@ -1158,6 +1163,7 @@ function App() {
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
     setCalEvents(loadJSON("x_calEvents", []));
     setPhoneArch(loadJSON("x_phoneArch", {}));
+    setPhoneLang(loadJSON("x_phoneLang", "persona"));
     setPhoneVitals(loadJSON("x_phoneVitals", {}));
     { const a = loadJSON("x_phoneAuto", { on: {}, done: {} }); setPhoneAuto({ on: a.on || {}, done: a.done || {} });
       const policy = window.AutoRefreshPolicy.normalize(loadJSON(window.AutoRefreshPolicy.KEY, null), a.on || {});
@@ -6945,6 +6951,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setEditingChar(null);
     setStateCardOpen(false);
   };
+  // 侧滑/系统返回先在这儿接住（js/back-guard.js）。这个 App 不记浏览器历史，
+  // 所以不接的话一滑就是整个退出去——正在打的字和刚发出去那一轮全没了。
+  // ⚠️处理器要读到【当前这一渲染】的状态，所以挂在 ref 上每轮重写；
+  //   useEffect 只注册一次，不然每次 setState 都要注销再注册一遍。
+  const backRef = useRef(null);
+  backRef.current = () => {
+    if (stateCardOpen) { setStateCardOpen(false); return true; }
+    if (offlineChar || offlineGroup) { setOfflineChar(null); setOfflineGroup(null); return true; }
+    if (editingChar) { setEditingChar(null); return true; }
+    if (screen && screen !== "home") { goHome(); return true; }
+    return false;   // 已经在主屏了：交回给 BackGuard，再滑一次才真退出
+  };
+  useEffect(() => {
+    if (!window.BackGuard) return;
+    window.BackGuard.arm({ hint: () => toast("再滑一次退出") });
+    return window.BackGuard.push(() => backRef.current ? backRef.current() === true : false);
+    // eslint-disable-next-line
+  }, []);
   // 文风预设台：线下浮层 / 小剧场 / 同人文都能跳进去，返回时回到原来那一处。
   // 线下是 z-20 的浮层、不是 screen，跳之前得先把浮层收掉，回来时再把它挂回去。
   const styleLabRef = useRef(null);
@@ -12389,6 +12413,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return n;
     });
   };
+  // 清空某个 app：整份删掉，下一次打开从零开始生成（她 2026-09-14）
+  // ⚠️这是全 App 唯一会主动删手机数据的地方，所以它只删【这一个角色的这一个 app】。
+  //   归档和健康趋势是从这个 app 抽出来的，一起走——留着的话时间线上照样翻得到旧的，
+  //   看起来就像没清干净。别的角色、别的 app 一个字都不许动。
+  const resetPhoneApp = (charId, key) => {
+    if (!charId || !key) return;
+    setPhones(p => { const n = window.PhoneKit.resetApp(p, charId, key); saveJSON("x_phone", n); return n; });
+    setPhoneArch(a => {
+      if (!a[charId]) return a;
+      const n = { ...a, [charId]: window.PhoneKit.archDropApp(a[charId], key) };
+      try { saveJSON("x_phoneArch", n); } catch (e) { return a; }
+      return n;
+    });
+    if (key === "health") setPhoneVitals(v => {
+      if (!v[charId]) return v;
+      const n = { ...v }; delete n[charId];
+      try { saveJSON("x_phoneVitals", n); } catch (e) { return v; }
+      return n;
+    });
+    toast(phoneKeyLabel(key) + "已清空，下次打开会重新生成");
+  };
   // 调整角色钱包余额（改 wallet.baseBalance，用于转账）
   // 改我的钱包并记一条流水（delta 正=进账/负=支出）
   const changeWallet = (delta, label, kind) => {
@@ -14176,7 +14221,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
-      const spec = phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char));
+      const spec = phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current);
       let d = await runProbe(bgActive, phoneCtx(char), spec);
       // ⚠️模型会把 schemaHint 里的占位说明原样抄回来当数据（她 2026-09-01：想吃清单
       // 刷完「什么时候会想起它」那句变成了灰的——那不是空，是占位词被逐字照抄，
@@ -14226,7 +14271,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，TA的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, phoneCtx(char), phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
+        const d = await runProbe(bgActive, phoneCtx(char), phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;
@@ -20217,6 +20262,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
     calendarFor: phoneCalendarFor,
     archives: phoneArch,
+    // 清空重生 + 写哪种语言：两样都落在手机里那张「数据」设置页上（PhoneDataSettings）
+    onResetApp: resetPhoneApp,
+    lang: phoneLang,
+    onLang: v => { setPhoneLang(v); saveJSON("x_phoneLang", v); },
     vitalsFor: cid => (phoneVitals || {})[cid] || [],
     monthStatsFor: phoneMonthStatsFor,
     anonFor: cid => (anon || {})[cid] || {},

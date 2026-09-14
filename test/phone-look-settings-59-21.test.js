@@ -20,7 +20,7 @@ test("锁屏、主页与每个 App 图标都能单独换", () => {
   // v59.30：她说「做他们 app 的一个图标，不要放在上面」——外观设置从顶栏挪到
   // 桌面最后一页，跟别的 app 一样是个图标。核的是【进得去】，不是那个按钮在顶栏。
   assert.match(phone, /const lookIcon = \(\) => \{/, "桌面上没有外观这一格");
-  assert.match(phone, /pageIndex === layout\.pages\.length - 1 \? \[lookIcon\(\)\]/, "外观那一格没摆到桌面上");
+  assert.match(phone, /pageIndex === layout\.pages\.length - 1 \? \[lookIcon\(\), dataIcon\(\)\]/, "外观那一格没摆到桌面上");
   assert.ok(phone.indexOf('aria-label": "手机外观设置"') < 0, "顶栏那个按钮还留着，占着搜索的位置");
 });
 
@@ -54,7 +54,8 @@ test("外观设置是完整可滚动子页面，顶底安全区沿用移动端�
 test("默认是他自己的手机，不是她的界面换层皮", () => {
   assert.match(phone, /\{ key: "own", name: "TA自己的"/, "没有「他自己的」这一档");
   // 两处都得默认 own：图标那一处和 widget 卡那一处，漏一处就半深半浅
-  assert.equal((phone.match(/look\.iconPreset \|\| "own"/g) || []).length, 4, "默认还是跟她主屏同一套，或者只改了一部分");
+  // 图标那一处、widget 卡那一处、外观那一格、数据那一格——漏一处就半深半浅
+  assert.equal((phone.match(/look\.iconPreset \|\| "own"/g) || []).length, 5, "默认还是跟她主屏同一套，或者只改了一部分");
   // 一人一个底色：同一个人永远同一个，不同人一定不同。
   // ⚠️这里核的是【行为】不是【色值】——她 2026-09-01 说「颜色太深了」，
   // 上一版把色值写死在断言里，调亮的时候测试红了却什么 bug 都没抓到。
@@ -72,11 +73,11 @@ test("默认是他自己的手机，不是她的界面换层皮", () => {
   // ⚠️底和上层必须配套：底自成一套，widget 卡和图标线条就不能还用她那套彩釉，
   // 否则一半是他的色一半是她的色。核的是「own 走自己那一支」，不是走哪个色值。
   assert.match(phone, /wPreset === "own" \? "[^"]+" : tone\.wash/, "widget 卡没跟着换，字会看不清");
-  assert.equal((phone.match(/preset === "own" \? phoneOwnInk\(char && char\.id\)/g) || []).length, 4,
+  assert.equal((phone.match(/preset === "own" \? phoneOwnInk\(char && char\.id\)/g) || []).length, 6,
     "图标线条／文字没跟着底走");
   assert.match(phone, /function phoneOwnInk\(charId\) \{ return "hsl\(" \+ phoneHue\(charId\)/, "墨色没跟着同一个色相走");
   // 四处外壳都得知道这是谁的手机——漏一处就露出她自己那张纸
-  assert.equal((phone.match(/phonePaper\(char && char\.id, look\)/g) || []).length, 4, "有外壳没传主人，会露出她自己那张底");
+  assert.equal((phone.match(/phonePaper\(char && char\.id, look\)/g) || []).length, 5, "有外壳没传主人，会露出她自己那张底");
   assert.ok(phone.indexOf("phonePaper()") < 0, "还有地方在用不认主人的那一版");
 });
 

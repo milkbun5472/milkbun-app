@@ -1,0 +1,88 @@
+// 侧滑返回不许把人甩出 App（她 2026-09-14 转述朋友：「加了主屏幕还是会侧滑掉」）
+// ─────────────────────────────────────────────────────────────
+// 病根：这个 App 从头到尾只有一个网页，切角色、进设置、开电台，**一次都不往
+// 浏览器历史里记**（全库只有 notify.js 的 replaceState，那一处不进栈）。
+// 于是安卓的系统返回手势 / 浏览器侧滑退的不是「上一屏」，是**整个 App**：
+// 正在打的字、刚发出去还没回来的那一轮，全没了。
+// （存档不会丢——localStorage 按域名存，回来还在。丢的是这一瞬间的现场。）
+//
+// 修法：开机往历史里压一枚哨兵。每接住一次返回就把哨兵补回去，于是历史里永远
+// 还剩一格可退，滑不出去。接住之后交给注册进来的那几个处理器——**栈顶先接手**，
+// 谁接了就停在谁那儿；一个都没接才算「已经在最外面了」，这时再滑一次才真退出。
+//
+// ⚠️只压一枚哨兵，不给每一屏各记一条历史：那等于把整套路由重做一遍，而这个 App
+// 的屏是十几处 setState 拼出来的，对不齐就会出现「退回去但页面没变」。
+// 哨兵这一层只回答一个问题：**这一下返回，谁来接？**
+
+var BACK_EXIT_WINDOW = 2000;   // 连着两下之间隔多久还算「再滑一次」
+
+// 纯判定，好在 node 里核：这一下返回该怎么处置。
+// handled = 有处理器接住了吗；lastAt = 上一次落空是什么时候（0 = 没有）。
+function backDecide(handled, lastAt, now, window_) {
+  if (handled) return "handled";
+  var w = window_ == null ? BACK_EXIT_WINDOW : window_;
+  if (lastAt && now - lastAt < w) return "exit";
+  return "hint";
+}
+
+(function () {
+  if (typeof window === "undefined") return;
+  var MARK = "__milkbunBack";
+  var stack = [];       // 处理器，后进的在栈顶
+  var armed = false;
+  var lastAt = 0;
+  var hint = null;
+
+  function seed() {
+    try { window.history.pushState({ __milkbunBack: 1 }, ""); } catch (e) {/* 没有 history 就算了 */}
+  }
+  function runStack() {
+    for (var i = stack.length - 1; i >= 0; i--) {
+      var took = false;
+      try { took = stack[i]() === true; } catch (e) { took = false; }
+      if (took) return true;
+    }
+    return false;
+  }
+  function onPop() {
+    var act = backDecide(runStack(), lastAt, Date.now(), BACK_EXIT_WINDOW);
+    if (act === "exit") {
+      // 真放行：哨兵刚被这一下吃掉，不再补回去，再退一格就出去了。
+      armed = false;
+      lastAt = 0;
+      window.removeEventListener("popstate", onPop);
+      try { window.history.back(); } catch (e) {/* 退不出去就留在这儿 */}
+      return;
+    }
+    seed();
+    if (act === "handled") { lastAt = 0; return; }
+    lastAt = Date.now();
+    if (typeof hint === "function") { try { hint(); } catch (e) {/* 提示挂了不影响拦截 */} }
+  }
+
+  window.BackGuard = {
+    MARK: MARK,
+    EXIT_WINDOW: BACK_EXIT_WINDOW,
+    decide: backDecide,
+    // hint：一个都没人接住时说一句「再滑一次退出」。不传就静默拦一下。
+    arm: function (opts) {
+      hint = (opts && opts.hint) || hint;
+      if (armed) return;
+      armed = true;
+      seed();
+      window.addEventListener("popstate", onPop);
+    },
+    // 注册一个处理器：返回 true = 我接住了。返回的函数用来注销。
+    push: function (fn) {
+      if (typeof fn !== "function") return function () {};
+      stack.push(fn);
+      return function () {
+        var i = stack.indexOf(fn);
+        if (i >= 0) stack.splice(i, 1);
+      };
+    },
+    _depth: function () { return stack.length; }
+  };
+})();
+
+if (typeof module === "object" && module.exports) module.exports = { backDecide, BACK_EXIT_WINDOW };

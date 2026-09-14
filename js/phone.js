@@ -1188,6 +1188,28 @@ function phoneArchMerge(prev, add, nowTs) {
   out.sort((a, b) => b.ts - a.ts);
   return out.slice(0, PHONE_ARCH_CAP);
 }
+// 清空重生：把某个 app 存的那份整个删掉，下一次刷新从零开始写
+// ─────────────────────────────────────────────────────────────
+// 她 2026-09-14：人设里的英文去掉了，查手机还是接着写英文。
+// 病根是刷新【从来不是从零开始】——旧那份会原样发回去当料（见 phoneLangBlock 那一段）。
+// 语言那一层是治本的，这一层是止血的：她哪天彻底不想要这个 app 现在这副样子了，
+// 得有个出口能把它整份扔掉，而不是只能一遍遍刷、指望它自己走出来。
+// ⚠️连归档一起清：时间线上那一份是从这个 app 抽出来的，留着的话「清空」之后
+//   界面上照样翻得到旧的那几条，看起来就像没清干净。
+// ⚠️别的角色、别的 app 一个字都不许动——这是全库唯一会主动删数据的地方。
+function phoneResetApp(store, charId, key) {
+  const m = (store && typeof store === "object") ? store : {};
+  if (!charId || !key || !m[charId]) return m;
+  const mine = { ...m[charId] };
+  if (!(key in mine)) return m;
+  delete mine[key];
+  return { ...m, [charId]: mine };
+}
+// 归档里属于这个 app 的那几条一起走
+function phoneArchDropApp(list, key) {
+  if (!Array.isArray(list)) return [];
+  return list.filter(r => !(r && r.app === key));
+}
 // 全库超量时按时间从最旧的开始扔（不是按角色平均砍——翻得多的那个角色
 // 本来就该留得多）。返回新的整张表。
 function phoneArchCapAll(map) {
@@ -2284,6 +2306,59 @@ function phonePickLookImage(file, done) {
     done(ref);
   };
   reader.readAsDataURL(file);
+}
+
+// 手机 · 数据：清空重生 + 这台手机里的字写哪种语言
+// ─────────────────────────────────────────────────────────────
+// 两件事摆一页是因为它们是同一个病的两头（她 2026-09-14）：
+// 人设里的英文去掉了、手机还在写英文——语言那一档是治本的（下一轮就照新的写），
+// 清空是止血的（不想等它自己走出来，就整份扔掉重生成）。
+// ⚠️清空是全 App 唯一会主动删手机数据的地方，所以按之前那条事故规矩
+//   （.claude/rules/never-say-delete-first.md）：确认框里必须先说「先导出一份」。
+function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack }) {
+  const apps = PHONE_APPS.filter(a => !a.soon && PHONE_LIVE_KEYS.indexOf(a.key) < 0);
+  const tone = phoneTone("notes");
+  const mode = PHONE_LANG_MODES.indexOf(lang) >= 0 ? lang : "persona";
+  const LANG_SUB = {
+    persona: "人设和世界书里写TA说什么，就写什么；两处都没写的写中文",
+    zh: "不管TA是哪儿人，手机里的字都写中文；人名店名歌名照原样",
+    native: "按TA真正生活的那个地方通行的语言写"
+  };
+  const row = (a, i) => {
+    const has = !!saved[a.key];
+    return h("div", { key: a.key, className: "flex items-center", style: { minHeight: 58, padding: "9px 13px", gap: 11, borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" } },
+      h("div", { style: { width: 36, height: 36, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: phoneTone(a.key).wash, flexShrink: 0 } },
+        h(PGlyph, { k: a.key, size: 18, color: phoneTone(a.key).glyph })),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, a.zh),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, has ? "存着一份" : "还没生成过")),
+      has ? h("button", {
+        className: "active:opacity-60 shrink-0",
+        onClick: () => requestAppConfirm("清空「" + a.zh + "」？",
+          characterText(char, "这个 app 里存的那一份会整份删掉（时间线上属于它的那几条也一起走），下次打开会重新生成一份全新的——他这个 app 现在的样子就找不回来了。\n\n") +
+          "⚠️舍不得的话先去 设置 → 数据 → 导入与导出 → 导出全部数据，存成 json 放桌面上，存好了再清。",
+          () => onReset && onReset(a.key), "清空"),
+        style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "6px 10px", borderRadius: 99, border: "1px solid rgba(159,81,73,.30)" }
+      }, "清空") : null);
+  };
+  return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
+    h(Head, { zh: "手机数据", sub: (char && char.name || "TA") + " 的这一部", bg: "transparent", noLine: true, onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
+        "这一档对所有角色生效，下一次刷新开始算。旧内容跟这一档对不上的，刷新时会顺手改过来。"),
+      h("div", { style: { borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } },
+        PHONE_LANG_MODES.map((k, i) => h("button", {
+          key: k, onClick: () => onLang && onLang(k), className: "w-full text-left active:opacity-65",
+          style: { display: "block", padding: "12px 14px", background: mode === k ? "rgba(255,255,255,.92)" : "transparent", borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" }
+        }, h("div", { className: "flex items-center", style: { gap: 8 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, PHONE_LANG_ZH[k]),
+          mode === k ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: tone.glyph } }, "现在用这一档") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginTop: 4 } }, LANG_SUB[k])))),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "清空重生"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
+        characterText(char, "刷新不是从零开始的：旧那份会原样发回去当料，所以他的口气、用的语言会一直接着上一份走。不想等它自己走出来，就把这个 app 整份扔掉，下次打开重新生成。")),
+      h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map(row))));
 }
 
 function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
@@ -5927,6 +6002,9 @@ function PhoneCarry({
   onAskAnon,
   onDelAnonRecord,
   archives,
+  onResetApp,
+  lang,
+  onLang,
   autoOn,
   weekAt,
   lastAll,
@@ -6374,6 +6452,9 @@ function PhoneCarry({
   // ⚠️必须declare在下面那个 effect 之前：const 有暂时性死区，effect 体里引用它
   // 而它在下面才声明的话，一渲染就抛 ReferenceError 整页白。
   const [lookOpen, setLookOpen] = useState(false);
+  // 数据设置（清空重生 / 写哪种语言）跟外观一样是【整页顶掉桌面】的，所以同一条规矩：
+  // declare 在下面那个 effect 之前，并且写进它的依赖里，不然退回来又弹到第一页。
+  const [dataOpen, setDataOpen] = useState(false);
   // ⚠️这个 effect 必须待在所有 return 上面。它原来写在函数中段（通讯录那个 return
   // 之后），于是列表页少调一次 hook、桌面页多调一次——从列表点进某人手机的那一下，
   // React 数出来的 hook 变多了，直接抛 #310 整页白（她 2026-08-29：查手机页面直接崩了）。
@@ -6383,13 +6464,13 @@ function PhoneCarry({
   // 没有它，就不会重跑，于是永远弹回第一页——她 2026-09-01：「外观退出去又跳回第一页」。
   // 而外观那一格恰好只摆在最后一页，等于每次退出来都跑到离它最远的地方。
   useEffect(() => {
-    if (open || inList || lookOpen || !deskRef.current) return;
+    if (open || inList || lookOpen || dataOpen || !deskRef.current) return;
     const n = deskPageRef.current;
     if (!n) return;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (deskRef.current) deskRef.current.scrollLeft = deskRef.current.clientWidth * n;
     }));
-  }, [open, inList, lookOpen]);
+  }, [open, inList, lookOpen, dataOpen]);
   // 锁屏：拿起TA手机的第一眼，不该直接是一片图标网格
   const [locked, setLocked] = useState(true);
   // 外观只存小引用；图片本体进图片金库。按角色分桶，谁的手机就只改谁。
@@ -6503,6 +6584,12 @@ function PhoneCarry({
               h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "\u203a")))))));
   }
   if (lookOpen) return h(PhoneLookSettings, { char, look, onPatch: patchLook, onBack: () => setLookOpen(false), t });
+  if (dataOpen) return h(PhoneDataSettings, {
+    char, t, look, lang, onLang,
+    saved: phones[char.id] || {},
+    onReset: k => onResetApp && onResetApp(char.id, k),
+    onBack: () => setDataOpen(false)
+  });
   const data = phones[char.id] || {};
   // 真数据这两个不看 phones，看 App 里那份真的
   const liveForum = forumAccountsFor ? forumAccountsFor(char) : null;
@@ -6598,6 +6685,22 @@ function PhoneCarry({
         style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
         h(PGlyph, { k: "settings", size: 24, color: glyph })),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
+  };
+  // 数据那一格：跟外观并排，长得也一样。清空重生和「写哪种语言」都在里面。
+  const dataIcon = () => {
+    const preset = look.iconPreset || "own";
+    const iconBg = preset === "own" ? "rgba(255,255,255,.62)"
+      : preset === "mono" ? "linear-gradient(145deg,#f4f2ed,#d8d5ce)"
+        : preset === "glass" ? "rgba(255,255,255,.38)" : phoneTone("notes").wash;
+    const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : phoneTone("notes").glyph;
+    return h("button", {
+      key: "__data", onClick: () => setDataOpen(true),
+      className: "flex flex-col items-center active:opacity-60", style: { gap: 7, minWidth: 0 }
+    },
+      h("div", { className: "relative flex items-center justify-center",
+        style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
+        h(PGlyph, { k: "notes", size: 24, color: glyph })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "数据"));
   };
   // 「看TA玩」那一层罩子：触控圆点 / TA心里那一句 / 底下那条。
   // 三处 return（app 里、锁屏、桌面）都套同一个——各写一份的话，改一处另两处必然落单。
@@ -7045,7 +7148,7 @@ function PhoneCarry({
       .map(k => appIcon(appByKey(k), false))
       // 外观设置：她 2026-09-01「做他们 app 的一个图标，不要放在上面」。
       // 只摆在最后一页，跟别的 app 一样是个图标——顶栏那一格还给搜索。
-      .concat(pageIndex === layout.pages.length - 1 ? [lookIcon()] : []))));
+      .concat(pageIndex === layout.pages.length - 1 ? [lookIcon(), dataIcon()] : []))));
   return watchSkin(h("div", {
     className: "h-full flex flex-col overflow-hidden",
     style: homeSrc ? {
@@ -7187,6 +7290,33 @@ const PHONE_WORLD_RULE = "\n\n【先认准角色在哪儿，再往手机里填�
   + "· 判据一句话：**这一条搬到另一座城市还成立吗？成立就说明写空了，重写。**\n"
   + "· TA在哪儿由上面【你自己住在哪儿】那一行、人设和世界书说了算；三处都没写才按人设的语感来推，"
   + "**绝不许因为界面是中文的就默认国内**。";
+
+// 手机里的字用哪种语言（她 2026-09-14：「人设是日本人的话放查手机世界书让他们写中文
+// 也没用，只有人设里写他说什么语言才比较稳定」；同一天：「把英文去掉了还是有惯性」）
+// ─────────────────────────────────────────────────────────────
+// 惯性不是模型记性好，是我们自己发回去的：刷新是【在旧那份上往下写】——🔒 钉死的身份、
+// 🌱 演化那几栏、📚 累积和名册，全都原样发回去当料。人设里那句「他说英文」删掉之后，
+// 手机里存着的那一堆英文还在，模型照着它们接着写，看起来就成了「改了没用」。
+// 所以这一层要说的不只是【这一轮写什么语言】，还有【上面发回去那些旧的怎么办】。
+// ⚠️拼在 _full 那一处，不是各 app 的 instruction 里——新加一个 app 时漏不掉
+//   （施工规则/four-surfaces-same-context.md）。
+const PHONE_LANG_MODES = ["persona", "zh", "native"];
+const PHONE_LANG_ZH = { persona: "跟着人设", zh: "一律中文", native: "TA当地的语言" };
+function phoneLangBlock(mode) {
+  const head = "\n\n【手机里的字用哪种语言】\n";
+  const carry = "\n· 上面发回给你的旧内容如果跟这一条对不上，**这一轮照这条改写过来**，别顺着它接着写。";
+  if (mode === "zh") return head
+    + "· 这台手机里你要写的字**一律写中文**：标题、正文、别人说的话、TA心里那一句，都算。\n"
+    + "· 人名、店名、歌名、地名这类专有名词照它本来的样子写，不必硬翻成中文。"
+    + carry;
+  if (mode === "native") return head
+    + "· 用【TA真正生活的那个地方通行的语言】写。TA在哪儿由人设和世界书说了算。"
+    + carry;
+  return head
+    + "· 看人设和世界书里写的**TA自己说什么语言**，照那个写。\n"
+    + "· 两处都没写的，写中文。"
+    + carry;
+}
 
 const PHONE_ANGLE = {
   wechat: "【取材层】有别人在场时的TA。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
@@ -7358,7 +7488,7 @@ function phoneOwnOnlyBlock(name) {
     + "· **绝不许**把别人的职业、专业术语、项目、病人、同事、爱好、行程挪到TA名下写成TA的。判据一句话：这一条要是搬到另一个角色的手机里也照样成立，那它就不该出现在这里。\n"
     + "· 别人可以作为【TA生活里的人】出现（TA跟对方说话、提起对方、和对方约了什么），但事情本身必须是**TA这一头**的。";
 }
-function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
+function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond, lang) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const visitHint = key === "health" ? phoneVisitHint(known) : "";
   // 书架：已经摆好了、而且这是例行刷新，就只问「这一周TA动了哪几本」
@@ -7654,7 +7784,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
   // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
   const bondBlock = (key === "tally" && bond) ? bond : "";
-  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  const _full = spec.instruction + phoneOwnOnlyBlock(char.name) + bondBlock + angle + PHONE_WORLD_RULE + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneWatchDraftBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + phoneLangBlock(lang) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: _full };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
@@ -7666,6 +7796,8 @@ if (typeof window !== "undefined") window.PhoneKit = {
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
   dropDupWechat: phoneDropDupWechat, keptLine: phoneKeptLine,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
-  photoSig: phonePhotoSig
+  photoSig: phonePhotoSig,
+  resetApp: phoneResetApp, archDropApp: phoneArchDropApp,
+  langBlock: phoneLangBlock, LANG_MODES: PHONE_LANG_MODES, LANG_ZH: PHONE_LANG_ZH
 };
-if (typeof module === "object" && module.exports) module.exports = { PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };
+if (typeof module === "object" && module.exports) module.exports = { phoneResetApp, phoneArchDropApp, PHONE_LANG_MODES, PHONE_LANG_ZH, phoneLangBlock, PHONE_ACTION_WIDGETS, phoneTa, charTa, phoneProbeSpec, phoneOwnOnlyBlock, phoneKeptLine, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, phonePhotoSig, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates, phoneGrowMerge, PHONE_RETIRE, PHONE_GROW, PHONE_WATCH_KEEP, PHONE_WATCH_KEEP_DAYS, phoneWatchKeep, phoneWatchDraftBlock, phoneMergeSaved, WATCH_BUY_APPS };

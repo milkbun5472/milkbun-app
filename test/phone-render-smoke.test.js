@@ -732,8 +732,8 @@ test("从 app 退回桌面时回到原来那一页，不弹回第一页", () => 
   // ⚠️v59.36：外观设置也是【整页顶掉桌面】的一层，退回来同样会弹回第一页
   // （她 2026-09-01：「外观退出去又跳回第一页」），所以它也得在依赖里。
   // 核的是【每一层会顶掉桌面的东西都在这份依赖里】，不是某一份写死的依赖表。
-  assert.match(SRC, /\}, \[open, inList, lookOpen\]\);/);
-  assert.match(SRC, /if \(open \|\| inList \|\| lookOpen \|\| !deskRef\.current\) return;/, "归位时没把外观那一层算进去");
+  assert.match(SRC, /\}, \[open, inList, lookOpen, dataOpen\]\);/);
+  assert.match(SRC, /if \(open \|\| inList \|\| lookOpen \|\| dataOpen \|\| !deskRef\.current\) return;/, "归位时没把外观那一层算进去");
   // const 有暂时性死区：读它的 effect 在前、声明在后 = 一渲染就整页白
   assert.ok(SRC.indexOf("const [lookOpen, setLookOpen] = useState(false);") < SRC.indexOf("if (open || inList || lookOpen"),
     "lookOpen 声明在读它的 effect 后面，暂时性死区会让整页白");

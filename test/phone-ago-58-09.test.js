@@ -61,7 +61,11 @@ test("朋友圈那一栏真的用上了它", () => {
 
 test("会写手机数据的只有生成那两条路，没有别的东西在偷偷刷", () => {
   // 这条是她那个问题的底：既然只有这两处能写，那「自己变了」就只可能是它们跑了
-  assert.equal((app.match(/saveJSON\("x_phone", n\);/g) || []).length, 1, "手机数据的写入口不止一个了");
+  // v68.24 起是两处：savePhoneApp（写）和 resetPhoneApp（清空重生，她 2026-09-14）。
+  // 清空是【整份删掉】那一路，不经过分层合并——所以它必须是显式的、点得到的，
+  // 不能混在写入口里悄悄发生。两处之外再多一处就是又开了一条偷偷刷的路。
+  assert.equal((app.match(/saveJSON\("x_phone", n\);/g) || []).length, 2, "手机数据的写入口不止这两个了");
+  assert.match(app, /const resetPhoneApp = \(charId, key\) => \{/, "第二处不是清空重生那一路");
   assert.equal((app.match(/savePhoneApp\(char\.id, key, d\);/g) || []).length, 2, "只该有 genPhoneApp 和 genPhoneAll 两个调用方");
   // 朋友圈是累积层：刷新是【并进去】不是整份重写，所以旧的还在、新的在上面
   assert.match(phone, /wechat: \{ chats: 14, moments: 14,/);
