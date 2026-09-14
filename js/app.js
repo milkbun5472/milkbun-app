@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.16";
+const APP_VERSION = "v68.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7193,7 +7193,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     requestAppConfirm("删掉「" + ((c && (c.name || c.remark)) || "这位角色") + "」的卷宗？",
       "这一下撤不回来。"
       + (kids.length ? "\nTA 身边的 " + kids.length + " 位配角会跟着一起删掉。" : "")
-      + "\n聊天记录和记忆还留着（设置 → 数据 → 找回失联的角色，用原来那个 id 能把人建回来），但这份卷宗没了。"
+      // ⚠️别在这儿提「找回失联的角色」（她 2026-09-14）：那一条是她自己用的，
+      //   公共版里没有。说明书上写着、点过去却没有，比不说更糟。
       + "\n要紧的话先去 设置 → 数据 → 导出全部数据，存一份在自己手上。",
       () => doDelChar(id), "删掉卷宗");
   };
