@@ -199,6 +199,70 @@
     return { box: n, got: got };
   }
 
+  // ── 券夹与纪念册（她 2026-09-14 第三刀）────────────────────────
+  // 她原来两个 tab 是「还没兑」和「票根全本」，两条平铺的长列表。
+  // 券一多就淹了：同款堆在一起，真正想用的那张要往下翻很久。
+  // 收法两条：**没兑的按款叠起来**，**兑过的按月收进纪念册**。
+  // ⚠️叠的是【同一款】，不是同一张：每一张自己的抽取时间照旧留着，展开就看得到。
+  //   票根永不删除那条没变（她原话：「票根永远留痕有时间戳」）。
+  function tsOf(c) { return Number(c && c.ts) || 0; }
+  // 没兑的那些，按款叠。opts: { tone:"sweet|tease|both", order:"new|old" }
+  function stackOpen(cards, opts) {
+    const o = opts || {};
+    const rows = (Array.isArray(cards) ? cards : []).filter(function (c) { return c && !c.redeemedTs; });
+    const box = {};
+    const order = [];
+    rows.forEach(function (c) {
+      const k = String(c.poolId || c.name || "?");
+      if (!box[k]) { box[k] = { key: k, poolId: c.poolId, r: c.r, act: c.act, name: c.name, hint: c.hint, cards: [] }; order.push(k); }
+      box[k].cards.push(c);
+    });
+    let list = order.map(function (k) {
+      const g = box[k];
+      // 同一款里【最早抽到的先用】：券没有新旧之分，先进先出最不容易让人纠结
+      g.cards.sort(function (a, b) { return tsOf(a) - tsOf(b); });
+      g.n = g.cards.length;
+      g.first = g.cards[0];
+      g.pinned = g.cards.some(function (c) { return !!c.pinned; });
+      g.tone = toneOf(byId[g.poolId] || {});
+      return g;
+    });
+    if (o.tone && o.tone !== "all") list = list.filter(function (g) { return g.tone === o.tone || g.tone === "both"; });
+    const newest = function (g) { return Math.max.apply(null, g.cards.map(tsOf)); };
+    const oldest = function (g) { return Math.min.apply(null, g.cards.map(tsOf)); };
+    list.sort(function (a, b) {
+      // 别在最上面的先来（她要的「留到下次」），然后按她挑的那个顺序
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      if (o.order === "old") return oldest(a) - oldest(b);
+      // 默认：稀的在前，同档按最近抽到
+      if (RANK[b.r] !== RANK[a.r]) return (RANK[b.r] || 0) - (RANK[a.r] || 0);
+      return newest(b) - newest(a);
+    });
+    return list;
+  }
+  // 兑过的那些，按月收。封面写的是【真的发生了什么】（result.title），不是券名。
+  function albumOf(cards) {
+    const rows = (Array.isArray(cards) ? cards : []).filter(function (c) { return c && c.redeemedTs; });
+    const box = {}, order = [];
+    rows.forEach(function (c) {
+      const d = new Date(Number(c.redeemedTs) || 0);
+      const k = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      if (!box[k]) { box[k] = { key: k, zh: (d.getMonth() + 1) + " 月", year: d.getFullYear(), cards: [] }; order.push(k); }
+      box[k].cards.push(c);
+    });
+    return order.map(function (k) {
+      box[k].cards.sort(function (a, b) { return (Number(b.redeemedTs) || 0) - (Number(a.redeemedTs) || 0); });
+      box[k].n = box[k].cards.length;
+      return box[k];
+    }).sort(function (a, b) { return a.key < b.key ? 1 : a.key > b.key ? -1 : 0; });
+  }
+  // 留到下次：整叠一起别上／取下。⚠️不设到期、不催——她要的是「别在最上面」，不是待办。
+  function setPinned(cards, poolId, on) {
+    return (Array.isArray(cards) ? cards : []).map(function (c) {
+      return (c && !c.redeemedTs && String(c.poolId) === String(poolId)) ? Object.assign({}, c, { pinned: !!on }) : c;
+    });
+  }
+
   // 抽卡扣点。点数不够就一点都不扣——半途扣掉一半是最恶心的那种 bug。
   function spend(box, charId, cost) {
     const have = ptsOf(box, charId);
@@ -222,6 +286,7 @@
     SESSION_GAP_MS: SESSION_GAP_MS,
     poolOf: poolOf, rollRarity: rollRarity, pickCard: pickCard, pull: pull,
     toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP,
+    stackOpen: stackOpen, albumOf: albumOf, setPinned: setPinned,
     earn: earn, spend: spend, ptsOf: ptsOf
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

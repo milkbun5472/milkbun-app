@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.37";
+const APP_VERSION = "v68.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20961,6 +20961,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGachaRedeem: gachaRedeem,
     // 掉马券兑完之后那一下：摆到TA面前。走翻手机那条现成的链（同一张卡、同一套分寸），
     // 不另写一条「送进聊天」的路。tier 用 quiet：这东西TA本来没打算给她看。
+    // 留到下次：整叠一起别在最上面。⚠️不设到期、不催——她要的是「留着」，不是待办。
+    onGachaPin: (poolId, on) => {
+      const n = window.GachaKit.setPinned(gachaCardsRef.current || [], poolId, on);
+      gachaCardsRef.current = n; setGachaCards(n); saveJSON("x_gachaCards", n);
+    },
     onGachaShow: card => {
       const c = characters.find(x => x.id === card.charId); const r = card.result || {};
       if (!c || !r.body) return;

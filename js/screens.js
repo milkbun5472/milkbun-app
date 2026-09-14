@@ -4463,7 +4463,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4590,7 +4590,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   // 情侣空间子模块：抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
   if (partner && cp[view] && cp[view].status === "together" && sub === "gacha") {
     return h(Gacha, { partner, pts: gachaPts, cards: gachaCards, luck: gachaLuck, busy: gachaBusy,
-      onPull: onGachaPull, onRedeem: onGachaRedeem, onShow: onGachaShow, onBack: () => setSub(null) });
+      onPull: onGachaPull, onRedeem: onGachaRedeem, onShow: onGachaShow, onPin: onGachaPin, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：交换日记
   if (partner && cp[view] && cp[view].status === "together" && sub === "exdiary") {
@@ -12775,7 +12775,7 @@ const gachaWhen = ts => {
   const p = n => (n < 10 ? "0" : "") + n;
   return (d.getFullYear() + "").slice(2) + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 };
-function GachaCard({ card, busy, onRedeem, onShow, fresh, character }) {
+function GachaCard({ card, busy, onRedeem, onShow, fresh, character, stackLeft }) {
   const t = useTheme();
   const sk = GACHA_SKIN[card.r] || GACHA_SKIN.R;
   const done = !!card.redeemedTs;
@@ -12793,6 +12793,8 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character }) {
     h("div", { className: "flex items-center gap-2" },
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: ".1em", color: "#fff", background: sk.tag, borderRadius: 5, padding: "2px 6px" } }, sk.zh),
       h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cardName),
+      // 同款叠着的时候，角上标一句「后面还有几张」——不然收起来看着像卡少了
+      stackLeft ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: sk.tag, borderRadius: 999, padding: "2px 7px", flexShrink: 0 } }, "+" + stackLeft) : null,
       // 票根：什么时候抽到的。兑掉了也留着，这一行永远在
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: sk.tag, flexShrink: 0 } }, gachaWhen(card.ts))),
     done
@@ -13048,14 +13050,20 @@ function GachaMachine({ have, costOne, costTen, armed, armSeq, spin, onArm, onSp
             fontFamily: F_DISPLAY, fontSize: 15 } },
           zh, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .78, marginLeft: 6 } }, cost + " 点")))));
 }
-function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBack }) {
+function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPin, onBack }) {
   const t = useTheme();
-  const [tab, setTab] = useState("open");     // open=还没兑的 / all=票根全本
+  const [tab, setTab] = useState("open");     // open=券夹（还没兑的）/ all=纪念册（兑过的）
+  const [tone, setTone] = useState("all");   // 甜的／皮的
+  const [order, setOrder] = useState("new"); // 最近抽到／最早抽到
+  const [openStack, setOpenStack] = useState({});   // 哪几叠摊开了
+  const [closedMonth, setClosedMonth] = useState({});
   const [fresh, setFresh] = useState([]);     // 刚抽到的那几张，描一圈金边
   const K = window.GachaKit || {};
   const mine = (cards || []).filter(c => c.charId === partner.id);
   const open = mine.filter(c => !c.redeemedTs);
-  const shown = tab === "open" ? open : mine;
+  // 叠放、按月收、置顶——三样都在 GachaKit 那一份纯函数里，这儿只负责画
+  const stacks = K.stackOpen ? K.stackOpen(mine, { tone: tone, order: order }) : [];
+  const album = K.albumOf ? K.albumOf(mine) : [];
   const p = (pts || {})[partner.id];
   const have = p && typeof p === "object" ? (Number(p.pts) || 0) : 0;
   const lk = (luck || {})[partner.id] || { pulls: 0, sinceSSR: 0 };
@@ -13104,16 +13112,61 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onBa
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1808e", marginTop: 10, lineHeight: 1.6 } },
           "先挑这次抽几发，点数卡会投进机器；**扳一下拉杆才真的转**，没扳之前一点都不扣。"
           + "抽卡不花任何调用，十连也是。抽到的是兑换券——点「兑换」才真的发生。和 " + (partner.remark || partner.name) + " 好好待一会儿就攒点数，发几条不影响。")),
-      // 未兑 / 票根全本
+      // 券夹 / 纪念册（她 2026-09-14 第三刀：券一多，真正想用的那张就被同款淹了）
       h("div", { className: "flex gap-2", style: { marginTop: 16, marginBottom: 10 } },
-        [["open", "还没兑 " + open.length], ["all", "票根 " + mine.length]].map(([k, zh]) =>
+        [["open", "券夹 " + open.length], ["all", "纪念册 " + (mine.length - open.length)]].map(([k, zh]) =>
           h("button", { key: k, onClick: () => setTab(k), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 14px", borderRadius: 999, border: "1px solid " + (tab === k ? t.ink : t.line), background: tab === k ? t.ink : "transparent", color: tab === k ? t.bg2 : t.sub } }, zh))),
-      shown.length
-        ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
-            shown.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, onShow: onShow, fresh: fresh.indexOf(c.id) >= 0, character: partner })))
+      tab === "open" ? h(React.Fragment, null,
+        // 筛一筛、换个顺序。⚠️不做「快到期」那种催促——券不设到期（她要的是留着，不是待办）。
+        h("div", { className: "flex items-center", style: { gap: 6, flexWrap: "wrap", marginBottom: 10 } },
+          [["all", "全部"], ["sweet", "甜的"], ["tease", "皮的"]].map(([k, zh]) =>
+            h("button", { key: k, onClick: () => setTone(k), className: "active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (tone === k ? "#a74d70" : t.line), background: tone === k ? "#a74d70" : "transparent", color: tone === k ? "#fff" : t.sub } }, zh)),
+          h("div", { style: { flex: 1 } }),
+          h("button", { onClick: () => setOrder(o => o === "old" ? "new" : "old"), className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 2px" } },
+            order === "old" ? "最早抽到 ⇅" : "最近抽到 ⇅")),
+        stacks.length
+          ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, stacks.map(g => {
+              const on = !!openStack[g.key];
+              // 同一款只有一张就别摆叠放那一条——那一条是为了收，不是为了多一行字
+              return h("div", { key: g.key, style: { display: "flex", flexDirection: "column", gap: 6 } },
+                (g.n > 1 || g.pinned) ? h("div", { className: "flex items-center", style: { gap: 8, padding: "0 3px" } },
+                  g.n > 1 ? h("button", { onClick: () => setOpenStack(p => ({ ...p, [g.key]: !on })), className: "active:opacity-60",
+                    style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+                    "同款 " + g.n + " 张 · " + (on ? "收起" : "摊开")) : null,
+                  h("div", { style: { flex: 1 } }),
+                  h("button", { onClick: () => onPin(g.poolId, !g.pinned), className: "active:opacity-60",
+                    style: { fontFamily: F_BODY, fontSize: 11.5, color: g.pinned ? "#a74d70" : t.fog } },
+                    g.pinned ? "已别在最上面 · 取下" : "留到下次")) : null,
+                // 摊开＝每张各一格；收着＝只摆最早那张（先进先出），后面还剩几张写在角上
+                (on ? g.cards : [g.first]).map(c => h(GachaCard, { key: c.id, card: c,
+                  stackLeft: (!on && g.n > 1) ? g.n - 1 : 0,
+                  busy: busy, onRedeem: onRedeem, onShow: onShow, fresh: fresh.indexOf(c.id) >= 0, character: partner })));
+            }))
+          : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "26px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
+              open.length ? "这一档下面没有券。" : "手上没有还没兑的券。",
+              h("div", { style: { marginTop: 4 } }, "券不会过期，留多久都行。")))
+      : album.length
+        ? h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, album.map((m, i) => {
+            const on = closedMonth[m.key] == null ? i === 0 : !closedMonth[m.key];
+            return h("div", { key: m.key },
+              h("button", { onClick: () => setClosedMonth(p => ({ ...p, [m.key]: on })), className: "w-full active:opacity-60 flex items-center",
+                style: { gap: 8, padding: "2px 3px 8px" } },
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, m.year + " 年 " + m.zh),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, m.n + " 件"),
+                h("div", { style: { flex: 1, height: 1, background: t.line } }),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, on ? "收起" : "摊开")),
+              on ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+                    m.cards.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, onShow: onShow, fresh: false, character: partner })))
+                // 收着的时候只露【真的发生了什么】那一行，不是券名——券名你已经看过了
+                : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.9, padding: "0 3px" } },
+                    m.cards.slice(0, 4).map(c => String((c.result || {}).title || c.name || "").slice(0, 22)).filter(Boolean).join("、")
+                    + (m.n > 4 ? " 等 " + m.n + " 件" : "")));
+          }))
         : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "26px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
-            tab === "open" ? "手上没有还没兑的卡。" : "还没抽过。",
-            h("div", { style: { marginTop: 4 } }, "票根会一直留着，抽到的时间也留着。"))));
+            "还没兑过什么。",
+            h("div", { style: { marginTop: 4 } }, "兑过的券会按月收在这儿，票根一直留着。"))));
 }
 
 // ═══ 情侣空间·惊喜抽屉（言秋提，她 2026-08-31 拍板）═══
