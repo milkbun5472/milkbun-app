@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.31";
+const APP_VERSION = "v68.32";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17366,10 +17366,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }));
         return hit;
       };
+      // ⚠️她一次可以挑好几身（真机截图里他那边就挑了两身）。全都配上原话，这一段能
+      //   长到几百字——那又把提示词撑回去了，等于换个地方再犯一次。
+      //   所以按【一边一个预算】来：排在前面的带原话，超了预算的只留名字。
+      //   一张照片上身超过三身本来也讲不通，顺手收在三身。
+      const DRESS_BUDGET = 220;
       const dressLine = (who, picked, groups) => {
-        const names = String(picked || "").split("、").map(x => x.trim()).filter(Boolean);
+        const names = String(picked || "").split("、").map(x => x.trim()).filter(Boolean).slice(0, 3);
         if (!names.length) return "";
-        return who + "穿：" + names.map(n => { const note = setNote(groups, n); return n + (note ? "（" + note + "）" : ""); }).join("；");
+        let used = 0;
+        const parts = names.map(n => {
+          const note = setNote(groups, n);
+          if (note && used + note.length <= DRESS_BUDGET) { used += note.length; return n + "（" + note + "）"; }
+          return n;
+        });
+        return who + "穿：" + parts.join("；");
       };
       const hisGroups = ((carryRef.current || {})[char.id] || {}).outfit;
       const myGroups = myClosetRef.current;

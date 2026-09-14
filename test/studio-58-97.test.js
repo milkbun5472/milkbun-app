@@ -40,7 +40,10 @@ test("挑好的两身要显式写进画面描述里", () => {
   assert.match(shoot, /const dressLine = \(who, picked, groups\) =>/, "挑中那身的描述没跟过来");
   assert.match(shoot, /dressLine\(char\.name, opt && opt\.theirs/, "他那身没写进画面");
   assert.match(shoot, /dressLine\(me\.name, opt && opt\.mine/, "我那身没写进画面");
-  assert.match(shoot, /n \+ \(note \? "（" \+ note \+ "）" : ""\)/, "只带了名字，没带那一段描述");
+  assert.match(shoot, /note \&\& used \+ note\.length <= DRESS_BUDGET/, "只带了名字，没带那一段描述");
+  // ⚠️她一次能挑好几身：全配上原话又会把提示词撑回去，所以一边一个预算 + 收在三身
+  assert.match(shoot, /const DRESS_BUDGET = 220;/);
+  assert.match(shoot, /\.filter\(Boolean\)\.slice\(0, 3\)/, "挑多少身都照单全收");
   // 挑定了就别再发整柜清单：合照要装两个人，那份清单正是把提示词撑爆的一段
   assert.match(shoot, /closet: hisPicked \? "" : closetTextFor\(char\.id, 320\)/, "挑好了还在发整柜清单");
   assert.match(shoot, /const sceneFull = scene \+ \(fits \? "。" \+ fits : ""\);/, "拼了却没交给出图");
