@@ -84,5 +84,7 @@ test("聊天里那张卡长成一张唱片，不是又一张圆角信息卡", ()
   assert.match(card, /\/\^#\[0-9a-f\]\{6\}\$\/i\.test\(String\(t\.ink/, "没验色号就拼透明度");
   // 接进渲染分支 + 点了能去情侣空间
   assert.match(comp, /if \(m\.kind === "carved"\)/, "没接进消息渲染");
-  assert.match(app, /onOpenUs: \(\) => setScreen\("us"\)/, "点了没地方去");
+  // v68.41：点进去得落到【这个人】的唱片架，不是所有情侣空间那张名册
+  // （她 2026-09-14：「是全部已有情侣空间汇总那一页而不是他自己的情侣空间」）。
+  assert.match(app, /onOpenUs: \(\) => \{ setUsLand\(\{ view: activeChar\.id, sub: "disc" \}\); setScreen\("us"\); \}/, "点了没地方去，或者没说是谁");
 });
