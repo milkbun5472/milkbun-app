@@ -12804,6 +12804,11 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character }) {
             style: { display: "block", width: "100%", maxHeight: 300, objectFit: "cover", borderRadius: 12, marginTop: 7 } }) : null,
           res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
           // 掉马券：兑完故事还没结束——这一下把东西摆到TA面前（走翻手机那条现成的链）
+          // 秘密筹备到日子了：第二枪由她按，绝不在后台背着她打
+          res.where === "plan" && res.ready ? h("button", {
+            onClick: () => onRedeem({ ...card, act: "planOpen" }), disabled: !!busy, className: "active:opacity-60",
+            style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
+          }, busy === card.id ? "拆开中…" : "到日子了 · 拆开") : null,
           res.where === "drop" && onShow ? h("button", {
             onClick: () => onShow(card), className: "active:opacity-60",
             style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: sk.ink, color: "#fff" }
@@ -12818,11 +12823,21 @@ function GachaCard({ card, busy, onRedeem, onShow, fresh, character }) {
             : res.where === "drop" ? " · 这东西还没给你看过"
             : res.where === "dual" ? (res.side === "tease" ? " · 你挑了皮的那一面" : " · 你挑了甜的那一面")
             : res.where === "flow" ? " · 只这一次看得到"
+            : res.where === "pocket" ? characterText(character, " · 已经放进你俩的抽屉，封着")
+            // ⚠️同上：不许假装它是那天自己弹出来的——到点之后她打开 App 才解得开
+            : res.where === "plan" ? (res.opened ? " · 已经拆开了，线下开了" : res.ready ? " · 到日子了，可以拆了"
+              : " · 还没到日子" + (res.dueTs ? "，约 " + Math.max(1, Math.ceil((res.dueTs - Date.now()) / 86400000)) + " 天后" : "") + "（下次打开就看得到）")
             : "")))
       : h("div", { className: "flex items-end justify-between gap-3", style: { marginTop: 8 } },
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, cardHint),
           // 双面券：两个口子，选了就定了（她 2026-09-14「两种都放」——甜的留着，皮的抽到就想去闹）
-          card.act === "dual"
+          // 秘密筹备：你只说出门还是在家，别的TA自己安排
+          card.act === "plan"
+            ? h("div", { className: "flex gap-2 shrink-0" }, ["out", "home"].map(side => h("button", {
+                key: side, onClick: () => onRedeem({ ...card, side: side }), disabled: !!busy, className: "active:opacity-60",
+                style: { fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
+              }, busy === card.id ? "…" : side === "out" ? "那天出门" : "那天在家")))
+          : card.act === "dual"
             ? h("div", { className: "flex gap-2 shrink-0" }, ["sweet", "tease"].map(side => h("button", {
                 key: side, onClick: () => onRedeem({ ...card, side: side }), disabled: !!busy, className: "active:opacity-60",
                 style: { fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
@@ -12889,7 +12904,10 @@ const DRAWER_KIND = {
   word:    { zh: "半句话",     ch: "半", band: "#7d6a86" },
   draw:    { zh: "TA画的",     ch: "画", band: "#7a8a6e" },
   // 悄悄话从 v59.23 起也落这儿（便签墙撤掉，并进来的）
-  whisper: { zh: "一句悄悄话", ch: "悄", band: "#a4736f" }
+  whisper: { zh: "一句悄悄话", ch: "悄", band: "#a4736f" },
+  // 抽卡掉落（v68.35）：TA口袋里的一件。它和「TA捡到的」不是一回事——
+  // 那是路上拾的，这是TA一直带在身上的。
+  drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
 function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
   const t = useTheme();

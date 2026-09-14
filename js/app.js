@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.34";
+const APP_VERSION = "v68.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4112,6 +4112,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               + "要具体到做什么、在哪儿、什么时候能兑，而且得是【TA这个人做得出来】的那种好——"
               + "不是通用的宠溺，是只有TA会想到的那一种。\n"
               + "title 是券面上那行字，body 是券的正文（兑的时候怎么算数、TA答应了什么）。",
+    // 专属掉落：**东西 + 来历**。来历才是这张卡的分量所在——没有来历它就只是一件道具。
+    pocket: "写一样TA此刻真的带在身上的小东西（口袋里、包里、腰间、袖中，按TA那个世界来）。\n"
+          + "title 是这样东西叫什么，body 分两段：先写它现在长什么样（磨损、气味、缺了一角这类只有随身带着才会有的痕迹），"
+          + "再写它是怎么到TA手上的。\n"
+          + "来历要具体到人、到那一天——**没有来历它就只是一件道具**。"
+          + "这件东西不必跟用户有关，它属于TA自己。",
     dual_tease: "写一张TA给用户的【皮的那一面】券：一件用户可以拿去为难TA、让TA下不来台的小事。"
               + "要具体、要能真的执行，而且得是【戳得到这个人】的那一处——换个角色就不痛不痒的就是写坏了。\n"
               + "title 是券面上那行字，body 是券的正文。\n"
@@ -4155,7 +4161,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "每条：app（哪个应用推来的）、from（谁发的）、text（通知栏上那一行字，被截断的样子）、"
         + "when（什么时候来的）、skip（TA为什么没点开，一句，很短）。\n"
         + "**大部分要是不重要的**——广告、群消息、系统提醒、不想理的人。"
-        + "真正有分量的只藏一两条在里头，而且不许在 skip 里点破它有多重要。"
+        + "真正有分量的只藏一两条在里头，而且不许在 skip 里点破它有多重要。",
+    // 秘密筹备·第一枪：**只写信封**。这张券的全部意思是「抽到的时候你还看不完」，
+    // 所以这一枪写出来的东西必须【不足以让人猜到是什么】。
+    plan_out: "用户把某天的空交给了TA，说好那天出门，别的一概不问。TA已经开始准备了。\n"
+            + "只写【用户现在能知道的那一点】：TA会让她那天怎么穿、带什么、几点出门、在哪儿碰头——"
+            + "这一类**动身要用的信息**，一两句，TA自己的口气。\n"
+            + "⚠️不许写要去哪儿、要做什么、为什么——那是那天才揭晓的。"
+            + "这一句要让人更想知道，不是告诉她答案。",
+    plan_home: "用户把某天的空交给了TA，说好那天待在家里，别的一概不问。TA已经开始准备了。\n"
+             + "只写【用户现在能知道的那一点】：TA会让她那天几点别进哪间屋、先别看什么、要她准备什么——"
+             + "这一类**在家等着要配合的信息**，一两句，TA自己的口气。\n"
+             + "⚠️不许写要做什么、准备的是什么——那是那天才揭晓的。",
+    // 秘密筹备·第二枪（由她按「拆开」才花）：到现场了，这才是真正的开场。
+    plan_open: "到日子了。用户把那天交给了TA，现在TA准备好的东西摆在她面前。\n"
+             + "写揭晓那一刻：三到五句旁白，写清TA准备的到底是什么、现场什么样、TA此刻什么神情。\n"
+             + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。"
   };
   // ── 事件种子：往TA的世界里真的扔一个东西进去 ────────────────────
   // 她 2026-09-14 采纳 GPT 那条：「不是生成一段剧情，是往世界里扔一个事件种子」。
@@ -4192,7 +4213,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           tags: [], review: "", reason: "", addr: "", _ts: Date.now()
         }].concat(orders) };
       }
-    }
+    },
+    // 一张票：📚 订单本来就是累积层，天生留得住，所以这一种不必盖 _wk。
+    // 「到点」对票来说是【那一天到了】：在途那一条摘掉，票据留在订单里。
+    ticket: {
+      app: "shopping",
+      plant: (d, cover) => ({ ...d, shipping: [{
+        status: "运输中", eta: "", shop: String(cover.shop || ""), title: String(cover.title || "一张票"),
+        progress: 20, carrier: String(cover.carrier || ""), tail: "", amount: null,
+        _seed: 1, _wk: 1, _wkAt: Date.now(), _ts: Date.now()
+      }].concat(Array.isArray(d.shipping) ? d.shipping : []).slice(0, 6) }),
+      arrive: (d, cover, reveal) => ({ ...d,
+        shipping: (Array.isArray(d.shipping) ? d.shipping : []).filter(x => !(x && x._seed)),
+        orders: [{ id: "gseed_" + Date.now(), shop: String(cover.shop || ""), status: "已收货", time: "刚刚",
+          title: String(reveal.title || cover.title || "一张票"), items: [], ship: 0, paid: null,
+          tags: [], review: "", reason: "", addr: "", _ts: Date.now() }].concat(Array.isArray(d.orders) ? d.orders : []) })
+    },
+    // 秘密筹备：这一种【不往手机里种任何东西】，到点只是把「拆开」这个口子解锁。
+    // ⚠️第二枪绝不在这儿打：她按了才花（她按次计费，背着她调一次是最坏的那种自作主张）。
+    plan: { app: "", unlockOnly: true }
   };
   const gachaSeedPatch = (charId, appKey, fn) => {
     const cur = ((phonesRef.current || {})[charId] || {})[appKey];
@@ -4211,6 +4250,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (due.indexOf(sd) < 0) return sd;
       const spec = GACHA_SEED_KINDS[sd.kind];
       if (!spec) return sd;
+      if (spec.unlockOnly) {
+        // 到日子了：只把「拆开」那个口子打开，第二枪等她自己按。
+        changed = true;
+        gachaStamp(sd.cardId, { ...(sd.stamp || {}), where: "plan", ready: true });
+        return { ...sd, doneTs: now };
+      }
       const ok = gachaSeedPatch(sd.charId, spec.app, d => spec.arrive(d, sd.cover || {}, sd.reveal || {}));
       if (!ok) return sd;                      // 那个 app 被清空了：留着，下次再试
       changed = true;
@@ -4221,7 +4266,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     if (!changed) return;
     gachaSeedsRef.current = next; setGachaSeeds(next); saveJSON("x_gachaSeeds", next);
-    toast("有件东西送到了 · 去情侣空间的票根里看看");
+    toast(due.some(x => x && x.kind === "plan") ? "到日子了 · 去票根里把那张券拆开" : "有件东西送到了 · 去情侣空间的票根里看看");
   };
   useEffect(() => {
     if (!loaded) return;
@@ -4234,7 +4279,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const gachaRedeem = async card => {
     const char = characters.find(c => c.id === card.charId);
     if (!char) { toast("这张卡的角色已经不在了"); return; }
-    if (card.redeemedTs) return;
+    // ⚠️秘密筹备是【两段】的：第二段（拆开）走的是同一张【已经盖过戳】的券，
+    //   所以这道闸不能把它挡掉——它挡的是「同一张券兑两次」，不是「一张券的第二段」。
+    if (card.redeemedTs && card.act !== "planOpen") return;
     // ── R：0 调用 ──
     if (card.act === "peek") {
       const need = (window.GachaKit.byId[card.poolId] || {}).need;
@@ -4305,9 +4352,67 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         gachaStamp(card.id, { title: String(d.title || card.name).trim(), body: body, where: "dual", side: side });
         return { title: String(d.title || card.name).trim(), body: body };
       }
+      // ── 专属掉落：TA口袋里的一件小东西，进你俩的抽屉封着，一直留得住 ──
+      // ⚠️不另开一叠收藏：抽屉本来就是【你俩才有的、封着的、拆开才看得到】那一层
+      //   （施工规则/one-public-mechanism.md）。它连「封着的时候一个字都不露」都做过了。
+      if (card.act === "pocket") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SR_ASK.pocket + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          schemaHint: "{\"title\":\"这样东西叫什么\",\"body\":\"它现在长什么样，以及它是怎么到他手上的\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim(), title = String(d.title || card.name).trim();
+        if (!body) { toast("这次没掏出东西来，卡还留着"); return; }
+        drawerDrop(char.id, title, body);
+        gachaStamp(card.id, { title: title, body: body, where: "pocket" });
+        return { title: title, body: body };
+      }
+      // ── 秘密筹备·第一枪：只出一个信封。第二枪等她按「拆开」才花 ──
+      if (card.act === "plan") {
+        const side = card.side === "home" ? "home" : "out";
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SSR_ASK["plan_" + side] + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          schemaHint: "{\"body\":\"他现在肯透露的那一两句\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没写出来，卡还留着"); return; }
+        const days = 1 + Math.floor(Math.random() * 3);          // 1-3 天后那一天
+        const dueTs = Date.now() + days * 86400000;
+        const title = side === "home" ? "那天待在家里" : "那天出门";
+        const stamp = { title: title, body: body, where: "plan", side: side, dueTs: dueTs, ready: false };
+        const sd = { id: "gp_" + Date.now(), charId: char.id, cardId: card.id, kind: "plan", side: side,
+          ts: Date.now(), dueTs: dueTs, doneTs: 0, stamp: stamp };
+        const nl = [sd, ...(gachaSeedsRef.current || [])].slice(0, 200);
+        gachaSeedsRef.current = nl; setGachaSeeds(nl); saveJSON("x_gachaSeeds", nl);
+        gachaStamp(card.id, stamp);
+        return { title: title, body: body };
+      }
+      // ── 秘密筹备·第二枪：她按了「拆开」才走到这儿 ──
+      if (card.act === "planOpen") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: GACHA_SSR_ASK.plan_open
+            + "\n那天说好的是【" + ((card.result || {}).side === "home" ? "待在家里" : "出门") + "】，"
+            + "当初TA只透露了这一句：" + String((card.result || {}).body || "")
+            + characterText(char, "\n扣着他此刻真实的处境写。"),
+          schemaHint: "{\"title\":\"这一天叫什么\",\"body\":\"揭晓那一刻的开场旁白\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没拆开，券还留着，可以再拆一次"); return; }
+        gachaStamp(card.id, { ...(card.result || {}), title: String(d.title || "那一天").trim(), body: body, where: "plan", ready: false, opened: true });
+        await startOffline(char.id, { opening: body });
+        setOfflineChar(char);
+        return { title: String(d.title || "那一天").trim(), body: body };
+      }
       // ── 事件种子：真的种进TA手机，过几天才到 ──
       if (card.act === "seed") {
-        const kind = "parcel";                       // 第一刀只有这一种；加别的只是 GACHA_SEED_KINDS 多一行
+        // 种哪一样由代码掷（掷轴不掷答案）：模型只负责写内容，不负责挑数据形状。
+        const kinds = ["parcel", "ticket"];
+        const kind = kinds[Math.floor(Math.random() * kinds.length)];
         const spec = GACHA_SEED_KINDS[kind];
         if (!((phonesRef.current || {})[char.id] || {})[spec.app]) {
           toast(characterText(char, "他的网购还没生成过，东西没处送——先去查手机刷一次，卡留着")); return;
@@ -17607,6 +17712,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 了一遍同样的入库代码】；她 2026-08-31 说那面墙鸡肋——情书、交换日记、便签墙
   // 三样都是「TA写字给你」，便签墙只是「短」，没有自己的形状；它唯一独有的是
   // 「TA不请自来贴的那一张」，那正是抽屉在做的事。并过来的同时收成一处。
+  // 抽卡掉落进抽屉（v68.35）。走 drawerWhisper 同一个形状，只是多一个 kind 和一个封面标题：
+  // 掉落是【一样东西】，封面上印它叫什么不算剧透（悄悄话那一路不能有 title，理由见下面那段）。
+  const drawerDrop = (charId, title, text) => {
+    const tt = String(title || "").trim(), tx = String(text || "").trim();
+    if (!charId || !tx) return false;
+    setCoupleDrawer(p => {
+      const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "drop",
+        title: tt, text: tx, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
+      coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+    });
+    return true;
+  };
   const drawerWhisper = (charId, text) => {
     const t = String(text || "").trim();
     if (!charId || !t) return false;

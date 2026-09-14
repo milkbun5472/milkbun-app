@@ -139,3 +139,42 @@ test("几天后到由代码掷，不问模型", () => {
   const sh = app.slice(app.indexOf('schemaHint: "{\\"cover\\"'), 400);
   assert.doesNotMatch(sh, /days/, "把天数交给模型了，它能写「三个月后」");
 });
+
+// ── 第二刀（v68.35）：秘密筹备两段式 + 掉落接进抽屉 + 种子再加一种 ──
+test("掉落进的是现成的抽屉，不另开一叠收藏", () => {
+  assert.match(app, /const drawerDrop = \(charId, title, text\) => \{/);
+  assert.match(app, /kind: "drop",\s*\n\s*title: tt/);
+  assert.doesNotMatch(app, /x_gachaDrops|saveJSON\("x_pocket"/);   // 没有第二个收藏库
+  assert.match(scr, /drop:    \{ zh: "TA身上带的"/, "抽屉里认不出这一类，会掉进默认那一档");
+});
+
+test("秘密筹备：第一枪只出信封，第二枪由她按才花", () => {
+  // 第一枪的提示词必须明说不许剧透
+  ["plan_out", "plan_home"].forEach(k => {
+    const i = app.indexOf("    " + k + ":");
+    assert.ok(i > 0, k);
+    assert.match(app.slice(i, i + 700), /⚠️不许写/, k);
+  });
+  // 到点只解锁，不打第二枪
+  assert.match(app, /plan: \{ app: "", unlockOnly: true \}/);
+  const sw = app.slice(app.indexOf("const gachaSeedSweep = () => {"), app.indexOf("const gachaSeedSweep = () => {") + 1800);
+  assert.match(sw, /if \(spec\.unlockOnly\) \{/);
+  assert.match(sw, /where: "plan", ready: true/);
+  assert.doesNotMatch(sw, /runProbe/, "到点在后台又打了一枪——她按次计费");
+  // 第二枪挂在按钮上
+  assert.match(scr, /onRedeem\(\{ \.\.\.card, act: "planOpen" \}\)/);
+  assert.match(scr, /res\.where === "plan" && res\.ready \? h\("button"/);
+});
+
+test("盖过戳的券还拆得开——那道防重兑的闸不许把第二段挡掉", () => {
+  assert.match(app, /if \(card\.redeemedTs && card\.act !== "planOpen"\) return;/);
+});
+
+test("种哪一样由代码掷，不问模型", () => {
+  assert.match(app, /const kinds = \["parcel", "ticket"\];/);
+  assert.match(app, /const kind = kinds\[Math\.floor\(Math\.random\(\) \* kinds\.length\)\];/);
+  // 表里每一种都要么会种进手机、要么明说自己只解锁
+  const i = app.indexOf("const GACHA_SEED_KINDS = {");
+  const tbl = app.slice(i, app.indexOf("\n  const gachaSeedPatch", i));
+  ["parcel", "ticket", "plan"].forEach(k => assert.match(tbl, new RegExp("\\n    " + k + ": \\{"), k));
+});
