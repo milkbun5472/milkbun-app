@@ -50,3 +50,20 @@ test("日/韩/俄这类源直接跳过 MyMemory，省一次白跑", () => {
   assert.match(seg, /_transGoogle\(text, src\)/);
   assert.match(seg, /_transModel\(text\)/);
 });
+
+// 她 2026-09-14 接着要的：清一下译文缓存。
+test("存过的坏译文读回来就作废，不用她手点也会自己愈合", () => {
+  const seg = eng.slice(eng.indexOf("function transCacheGet(text) {"), eng.indexOf("function transCacheClear()"));
+  assert.match(seg, /if \(!_looksChinese\(row && row\.zh\)\) return null;/,
+    "只挡新翻的、不挡存下来的＝同一句下次点开还是那个英文");
+  // 存进去那一头没变（新译文本来就过了闸才会进来）
+  assert.match(eng, /function transCachePut\(text, zh, by\) \{/);
+});
+
+test("手动那颗按钮：清掉之后说人话，不是静默", () => {
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(eng, /function transCacheClear\(\) \{[\s\S]{0,160}removeItem\(TRANS_CACHE_KEY\)/);
+  assert.match(comp, /"data-clear-trans": true/);
+  assert.match(comp, /清掉了，再点「译」会重新翻/);
+  assert.match(comp, /没清成/, "清失败也要说一声，不能装作成功了");
+});

@@ -9769,6 +9769,7 @@ function OnlineTranslationControl() {
   const t = useTheme();
   const [auto, setAuto] = useOnlineTranslationAuto();
   const [error, setError] = useState(false);
+  const [cleared, setCleared] = useState("");
   const button = h("button", { type: "button", "aria-pressed": auto, title: "全局线上译文显示",
     onClick: () => setError(!setAuto(!auto)),
     style: { color: t.ink, background: t.bg2,
@@ -9778,7 +9779,16 @@ function OnlineTranslationControl() {
     h("div", { className: "flex items-center justify-between gap-3" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "线上译文显示 · 全局"), button),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
-      "即时生效并记住选择，单聊、群聊、语音／视频通话和通话回看共用。每条仍可单独展开或收起。缺少自带译文时会走翻译线路，可能使用额度。"));
+      "即时生效并记住选择，单聊、群聊、语音／视频通话和通话回看共用。每条仍可单独展开或收起。缺少自带译文时会走翻译线路，可能使用额度。"),
+    // 译过的会存在本机，同一句不再翻第二遍。坏译文现在读回来就会被丢掉、自己重翻
+    // （她 2026-09-14 那批日文翻成英文的），这颗按钮是给「想一次扫干净」用的。
+    h("div", { className: "flex items-center justify-between gap-3", style: { marginTop: 10 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "存下来的译文"),
+      h("button", { type: "button", "data-clear-trans": true,
+        onClick: () => { const ok = typeof transCacheClear === "function" && transCacheClear(); setCleared(ok ? "清掉了，再点「译」会重新翻" : "没清成"); },
+        style: { color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 9px", fontFamily: F_BODY, fontSize: 11 } },
+        "清掉重来")),
+    cleared ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, cleared) : null);
 }
 function TransText({ text, isU, zhReady, ink }) {
   const [autoShow] = useOnlineTranslationAuto();

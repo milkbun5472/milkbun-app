@@ -5001,8 +5001,17 @@ function transCacheGet(text) {
   try {
     const v = (JSON.parse(localStorage.getItem(TRANS_CACHE_KEY) || "{}") || {})[_transKey(text)];
     if (!v) return null;
-    return typeof v === "string" ? { zh: v, by: "" } : v;
+    const row = typeof v === "string" ? { zh: v, by: "" } : v;
+    // ⚠️存过的也要过同一道闸（她 2026-09-14：日文被翻成英文，而且【存下来了】，
+    //   于是同一句下次点开还是那个英文）。坏的当作没有，下次自己会重翻一遍——
+    //   不用她去手点「清缓存」，这一条自己就会愈合。
+    if (!_looksChinese(row && row.zh)) return null;
+    return row;
   } catch (e) { return null; }
+}
+// 手动清：她想一次性把旧的坏译文全扫掉时用（设置 → 线上译文显示 那一行）
+function transCacheClear() {
+  try { localStorage.removeItem(TRANS_CACHE_KEY); return true; } catch (e) { return false; }
 }
 function transCachePut(text, zh, by) {
   try {
