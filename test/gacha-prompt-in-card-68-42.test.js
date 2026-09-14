@@ -43,7 +43,9 @@ test("兑换那一头一处都没落下", () => {
   assert.match(app, /gAsk\("x_plan", side\)/);
   assert.match(app, /gAsk\("x_box", "his"\)/);
   // make 那六张和 past/pact/offline/date/gaze 都按 poolId 取，不再按 kind/act 分两路
-  assert.equal((app.match(/gAsk\(card\.poolId\)/g) || []).length, 3, "按卡取那几处数不对");
+  // 按卡取的那几路：SR 的 make、v68.45 的 make1（彩虹屁/冷笑话）、SSR 那几张、CC 书房那一支
+  assert.ok((app.match(/gAsk\(card\.poolId\)/g) || []).length >= 3, "按卡取那几处数不对");
+  assert.match(app, /ask: gAsk\(card\.poolId\)/, "书房那一支没按卡取");
 });
 
 // ── 反向扭蛋券：整份里最好的一张 ──

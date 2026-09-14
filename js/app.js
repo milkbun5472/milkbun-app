@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.44";
+const APP_VERSION = "v68.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4133,7 +4133,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     seed:   (n, t, b) => "她给" + n + "寄过一样东西，收到了：「" + t + "」",
     forme:  (n, t, b) => n + "替她扭了一发，挑了「" + t + "」给她，说：「" + b + "」",
     replay: (n, t, b) => n + "重演过你们的一幕「" + t + "」：「" + b + "」",
-    title:  (n, t, b) => n + "私下管她叫「" + t + "」——" + (b || "他自己起的")
+    title:  (n, t, b) => n + "私下管她叫「" + t + "」——" + (b || "他自己起的"),
+    praise: (n, t, b) => n + "夸过她：「" + b + "」",
+    joke:   (n, t, b) => n + "给她讲过一个笑话：「" + b + "」",
+    truth:  (n, t, b) => "她问过" + n + "「" + t + "」，他答：「" + b + "」",
+    duo:    (n, t, b) => n + "想跟她拍一张合照「" + t + "」——" + (b || "他自己挑的那一张")
   };
   const gachaKeep = (char, key, title, body) => {
     const f = GACHA_KEEP[key];
@@ -4307,6 +4311,53 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         gachaStamp(card.id, got);
         gachaKeep(char, card.kind, got.title, got.body);
         return got;
+      }
+      // ── 彩虹屁 / 冷笑话：一段正文，走 make 同一个形状，只是各自的提示词不同 ──
+      if (card.act === "make1") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写。"),
+          schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
+          maxTokens: 65535
+        });
+        const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
+        if (!got.body) { toast("这次没写出来，卡还留着"); return; }
+        gachaStamp(card.id, got);
+        gachaKeep(char, card.poolId === "s_joke" ? "joke" : "praise", got.title, got.body);
+        return got;
+      }
+      // ── 真心话：题目是她出的，所以先有题才有这一枪 ──
+      if (card.act === "truth") {
+        const q = String(card.q || "").trim();
+        if (!q) { toast("先写你要问的那个问题"); return; }
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: gAsk("s_truth").replace("{Q}", q) + characterText(char, "\n扣着他此刻真实的处境写。"),
+          schemaHint: "{\"body\":\"他的回答\"}",
+          maxTokens: 65535
+        });
+        const body = String(d.body || "").trim();
+        if (!body) { toast("这次没答出来，卡还留着"); return; }
+        gachaStamp(card.id, { title: q, body: body, where: "truth" });
+        gachaKeep(char, "truth", q, body);
+        return { title: q, body: body };
+      }
+      // ── 合照券：先说想拍哪一张（人人可用），想要真图再按一下 ──
+      // ⚠️不另起一套出图：真画那一下走照相馆那条现成的链（studioShoot），
+      //   它已经把「怎么保证不 OOC」办完了，而且两张参考照缺一张会自己拦。
+      if (card.act === "duo") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          voice: true,
+          instruction: gAsk("x_duo") + characterText(char, "\n扣着他此刻真实的处境和他住的地方写。"),
+          schemaHint: "{\"title\":\"这张照片叫什么\",\"scene\":\"画面本身，只写看得见的\",\"why\":\"他为什么想拍这一张\"}",
+          maxTokens: 65535
+        });
+        const scene = String(d.scene || "").trim();
+        if (!scene) { toast("这次没想出来，卡还留着"); return; }
+        const title = String(d.title || card.name).trim();
+        gachaStamp(card.id, { title: title, body: String(d.why || "").trim(), scene: scene, where: "duo" });
+        gachaKeep(char, "duo", title, String(d.why || "").trim());
+        return { title: title, body: scene };
       }
       // ── 他给你起的称呼：抽出来只是【候选】，收下才算数 ──
       // 她 2026-09-14：「万一我不喜欢这个称号咋办」。它会进提示词、往后他真的会这么叫，
@@ -21114,6 +21165,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     // 称呼那张卡上的三个口子。⚠️只有「收下」会写进 x_charTitle——也就是说，
     //   没点它之前这个称呼一个字都不进提示词。
+    // 合照券点「真画出来」：走照相馆那条现成的链。
+    // ⚠️不在这儿另拼一份出图提示词——studioShoot → buildPhotoPrompt(kind:"duo") 里
+    //   已经有身份锁、画风锁、穿着优先级和「两张参考照缺一张就拦下」。
+    //   没配图像 API 或少一张参考照时它自己会说人话，这儿不重复判一遍。
+    onGachaShoot: async card => {
+      const c = (characters || []).find(x => x.id === card.charId);
+      const scene = String((card.result || {}).scene || "").trim();
+      if (!c || !scene) return;
+      await studioShoot(c, { scene: scene });
+    },
     onGachaTitle: (card, how, custom) => {
       const c = (characters || []).find(x => x.id === card.charId);
       const r = card.result || {};

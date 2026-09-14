@@ -162,8 +162,13 @@ test("衣柜驱动出图，但不抢锁死的行头和此刻真穿着", () => {
   // 每一处真出图都要把衣柜带上；小剧场是平行时空，有自己的行头锁，不给。
   // ⚠️别把处数写死（v58.97 多了照相馆那一处）：要证的是【出图几处就得带几处衣柜】，
   // 这样以后再加出图口，忘了带衣柜照样会红。
-  const shotSites = (app.match(/buildPhotoPrompt\(/g) || []).length;
-  const withCloset = (app.match(/closet: closetTextFor\(/g) || []).length;
+  // ⚠️数的是【真的调用】，不是提到这个名字的次数——注释里写一句
+  //   「走 buildPhotoPrompt(kind:"duo")」也会被算成一处出图口，那是假红
+  //   （v68.45 就这么红过一次）。所以先把注释行剔掉再数。
+  const noCmt = app.split("\n").filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
+  const shotSites = (noCmt.match(/buildPhotoPrompt\(/g) || []).length;
+  // 衣柜可以是「挑好了就不发整柜」那种三元式，所以认 closet: 这一栏本身
+  const withCloset = (noCmt.match(/closet: (?:closetTextFor\(|[^,}]*closetTextFor\()/g) || []).length;
   assert.ok(shotSites > 0 && withCloset >= shotSites,
     "有出图的地方没带上衣柜（出图 " + shotSites + " 处，带衣柜 " + withCloset + " 处）");
   const theater = R("theater.js");
