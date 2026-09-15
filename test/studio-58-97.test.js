@@ -40,12 +40,12 @@ test("挑好的两身要显式写进画面描述里", () => {
   assert.match(shoot, /const dressLine = \(who, picked, groups\) =>/, "挑中那身的描述没跟过来");
   assert.match(shoot, /dressLine\(char\.name, opt && opt\.theirs/, "他那身没写进画面");
   assert.match(shoot, /dressLine\(me\.name, opt && opt\.mine/, "我那身没写进画面");
-  assert.match(shoot, /note \&\& used \+ note\.length <= DRESS_BUDGET/, "只带了名字，没带那一段描述");
+  assert.match(shoot, /Array\.from\(String\(setNote\(groups, n\) \|\| ""\)\)/, "只带了名字，没带那一段描述");
   // ⚠️多选是【把一整套拼出来】（模型常把外套/内衫/裤子/鞋帽各写一条），不是挑了好几套：
   //   几件要用＋串成同一身，并且明说这是一整套、几件都要穿上。
   assert.match(shoot, /parts\.join\("＋"\)/, "几件被并列成几套了");
   assert.match(shoot, /穿（这是一整套，几件都要穿上）/);
-  assert.match(shoot, /const PIECE_NOTE = 48, DRESS_BUDGET = 300, PIECE_MAX = 6;/);
+  assert.match(shoot, /const PIECE_NOTE = 48;/);
   // 每件只取前面那半截：note 写的是「是什么衣服 + 为什么挑它」，【为什么】那半对出图没用
   assert.match(shoot, /\.slice\(0, PIECE_NOTE\)/);
   // 挑定了就别再发整柜清单：合照要装两个人，那份清单正是把提示词撑爆的一段

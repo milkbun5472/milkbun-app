@@ -13,10 +13,17 @@ const screens = fs.readFileSync("js/screens.js", "utf8");
 const grab = re => { const m = screens.match(re); assert.ok(m, "找不到：" + re); return m[0]; };
 
 test("点一张脸就换中心；拖完松手不算点", () => {
-  const card = grab(/const card = id => \{[\s\S]*?\n  \};/);
-  assert.match(card, /onClick: \(\) => \{ if \(!onCenter \|\| ptr\.current\.moved \|\| id === centerId\) return; onCenter\(id\); \}/,
-    "不看 ptr.moved 的话，每拖一次位置就会跳走一个人");
-  assert.match(screens, /function TiesBoard\(\{ centerId[^}]*onCenter \}\)/, "板子没收 onCenter，这一页就点不动");
+  const make = new Function("ptr", "centerId", "onCenter", "onSavePos", "key", "setSel",
+    grab(/const onUp = e => \{[\s\S]*?\n  \};/) + "return onUp;");
+  for (const [node, moved, expected, type] of [["b", false, ["b"]], ["b", true, []], ["a", false, []], [null, false, []], ["b", false, [], "pointercancel"]]) {
+    const calls = [], saved = [];
+    const ptr = {current: {pts: {1: {}}, node, moved, live: {x: 10, y: 20}}};
+    make(ptr, "a", id => calls.push(id), (...args) => saved.push(args), id => id, () => {})({pointerId: 1, type});
+    assert.deepEqual(calls, expected);
+    assert.equal(saved.length, moved ? 1 : 0);
+    assert.equal(ptr.current.node, null);
+  }
+
 });
 
 test("返回是退一步，不是直接关掉整页", () => {

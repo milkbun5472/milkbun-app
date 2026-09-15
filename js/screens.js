@@ -838,7 +838,10 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
     if (!Object.keys(p.pts).length) {
       if (p.node && p.moved && p.live && onSavePos) onSavePos(key(p.node), p.live);
       if (!p.moved) setSel(null);
+      // 指针由外壳捕获，click 会落在外壳；在释放指针时按实际落点认一次轻点。
+      const tapped = e.type !== "pointercancel" && !p.moved && p.node && p.node !== centerId ? p.node : null;
       p.node = null; p.live = null;
+      if (tapped && onCenter) onCenter(tapped);
     }
   };
   // ⌖ 只把视野拉回来，【不动她摆好的位置】——一个「归位」键顺手清掉她拖了半天的
@@ -865,9 +868,7 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
     return h("div", {
       key: id,
       onPointerDown: () => { ptr.current.node = id; ptr.current.live = null; },
-      // 点一张脸＝换成看 TA 的关系（她 2026-09-15：「我也喜欢这种点击头像就看他 immediate 关系的」）。
-      // ⚠️拖完松手也会走到 onClick，所以要看 ptr.moved——不看的话每拖一次位置就跳走一个人。
-      onClick: () => { if (!onCenter || ptr.current.moved || id === centerId) return; onCenter(id); },
+      // 轻点与拖动共用外壳的 onUp；拖动不会触发换人。
       style: { position: "absolute", left: p.x, top: p.y, transform: "translate(-50%,-50%)", touchAction: "none",
         cursor: (onCenter && id !== centerId) ? "pointer" : "grab" }
     }, h(TiePhoto, { id, name: nameOf(id), character: byId(id), profile, size,

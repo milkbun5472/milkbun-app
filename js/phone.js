@@ -105,7 +105,10 @@ function phoneAppBg(t) { return { background: t.bg }; }
 function PTX(v) {
   const s = String(v == null ? "" : v);
   if (!s) return s;
-  return typeof TransText === "function" ? h(TransText, { text: s }) : s;
+  return typeof TransText === "function" ? h(TransText, { text: s, ink: "currentColor" }) : s;
+}
+function phoneTextClamp(text, lines) {
+  return typeof translatableLang === "function" && translatableLang(String(text || "")) ? "unset" : lines;
 }
 const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
 // 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
@@ -1672,7 +1675,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     }, S(x.subject) || "（没有主题）"),
     h("div", {
       style: { fontFamily: F_BODY, fontSize: 12, color: MAIL_DIM, marginTop: 2, lineHeight: 1.55,
-        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }
+        display: "-webkit-box", WebkitLineClamp: phoneTextClamp(S(x.preview) || S(x.body), 2), WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }
     }, PTX(S(x.preview) || S(x.body))),
     S(x.kind) && kind === "inbox" ? h("span", {
       style: { display: "inline-block", marginTop: 6, fontFamily: F_BODY, fontSize: 10, padding: "2px 8px", borderRadius: 99, background: "#e7ebf1", color: MAIL_DIM }
@@ -4436,7 +4439,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       v.duration ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "1px 5px" } }, v.duration) : null),
     A(v.myDanmaku).length ? h("span", { style: { position: "absolute", top: 6, left: 6, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(251,114,153,.92)", borderRadius: 4, padding: "2px 6px" } }, "发过弹幕") : null),
   h("div", { style: { padding: "8px 9px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.45, color: BILI_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.45, color: BILI_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(v.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BILI_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
       (v.up || "") + (v.danmaku != null ? " · " + v.danmaku + " 弹幕" : ""))));
   const detail = open ? (function () {
@@ -4627,7 +4630,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     style: { background: "#fff", borderRadius: 12, overflow: "hidden", minWidth: 0 }
   }, h("div", { style: { aspectRatio: "1 / " + (ratio || 1), background: "linear-gradient(150deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")" } }),
   h("div", { style: { padding: "9px 10px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
     h("div", { className: "flex items-center", style: { marginTop: 9, gap: 5 } },
       h("div", { style: { width: 17, height: 17, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 9, color: "#6a6a72" } }, String(it.author || "?").trim().slice(0, 1)),
       h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: PLAZA_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.author || ""),
@@ -4695,7 +4698,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
         }, h("div", { style: { aspectRatio: kind === "draft" ? "1 / 0.6" : "1 / " + [1.2, 0.85, 1.05, 0.95][i % 4], background: kind === "draft" ? "#f4f4f6" : "linear-gradient(150deg," + cover(x.cover != null ? x.cover : i)[0] + "," + cover(x.cover != null ? x.cover : i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
           kind === "draft" ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a8a8b0" } }, "未发布") : null),
         h("div", { style: { padding: "9px 10px 11px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(x.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
           A(x.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: 7 } }, A(x.tags).slice(0, 3).map((tg, j) => h("span", {
             key: j, style: { fontFamily: F_BODY, fontSize: 10, color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "2px 7px" }
           }, "#" + tg))) : null,
@@ -4942,8 +4945,8 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
     }, h("div", { className: "flex items-center", style: { gap: 5, marginBottom: 7 } },
       voice ? h(PGlyph, { k: "mic", size: 11, color: c.ink }) : null,
       h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: c.ink, opacity: .6 } }, (voice && it.duration ? it.duration + " · " : "") + (it.time || ""))),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
-    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: voice ? 3 : 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.body)) : null,
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.body)) : null,
     voice ? wave(c.ink, 20) : null);
   };
   const cols = [[], []];
@@ -5223,7 +5226,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     x.pinned ? h("span", { style: { position: "absolute", left: 7, top: 7, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: BR_BLUE, borderRadius: 5, padding: "2px 7px" } }, "钉住") : null,
     x.age ? h("span", { style: { position: "absolute", right: 7, bottom: 7, fontFamily: F_BODY, fontSize: 9.5, color: isPriv ? "rgba(255,255,255,.7)" : "rgba(40,40,50,.6)", background: isPriv ? "rgba(0,0,0,.4)" : "rgba(255,255,255,.72)", borderRadius: 5, padding: "2px 7px" } }, x.age) : null),
   h("div", { style: { padding: "9px 10px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(x.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: isPriv ? "rgba(230,230,234,.5)" : BR_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.site || "")));
   const tabsPage = tabs.length
     ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, tabs.map((x, i) => tabCard(x, i, false)))

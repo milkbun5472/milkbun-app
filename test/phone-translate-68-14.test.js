@@ -13,7 +13,7 @@ const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 
 test("只包一层壳，不另起一套翻译", () => {
   assert.match(phone, /function PTX\(v\) \{/);
-  assert.match(phone, /typeof TransText === "function" \? h\(TransText, \{ text: s \}\) : s/);
+  assert.match(phone, /typeof TransText === "function" \? h\(TransText, \{ text: s, ink: "currentColor" \}\) : s/);
   // 空字符串原样返回：别给空行挂一颗「译」键
   assert.match(phone, /if \(!s\) return s;/);
   // TransText 得真是全局的（phone.js 拿得到）——照抄用法却没带定义，进页面就白屏
