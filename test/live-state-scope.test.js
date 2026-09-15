@@ -34,8 +34,8 @@ test("值没变就不刷新时间戳，TTL 才会真的到期", () => {
 
 test("action 收成一拍量级；换场景后穿着降级为不知道", () => {
   assert.match(app, /action: 45 \* 60000/, "动作不该按小时活着");
-  assert.match(app, /st\.wearing = null; st\.wearingUpdatedAt = 0;/, "换地方＝换场景，穿着转未知");
-  assert.match(app, /!sameStateValue\(st\.place, _live0\.place\) && !parsed\.wearing/,
+  assert.match(app, /patch\.wearing = null; patch\.wearingUpdatedAt = 0;/, "换地方＝换场景，穿着转未知");
+  assert.match(app, /clearWearingOnMove\(st, _live0, parsed.wearing\)/,
     "同一轮已报新穿着时不要反而清掉它");
 });
 

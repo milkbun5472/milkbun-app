@@ -8,7 +8,7 @@ const cut = (a,b) => { const start=src.indexOf(a),end=src.indexOf(b,start); asse
 function setup(overrides={}) {
   const room=Rooms.normalize({id:'r1',...Rooms.PRESETS.isolated,scenario:'测试房间设定',...overrides},'c1');
   const key=Rooms.chatKey('c1','r1'), writes=[], requests=[], stateWrites=[], memories=[], thoughts=[];
-  const box={window:{ChatRooms:{...Rooms,get:()=>room}},Date,console,loadJSON:(key,fallback)=>fallback,
+  const box={window:{ChatRooms:{...Rooms,get:()=>room},ThoughtVoiceGuard:require("../js/thought-voice-guard")},Date,console,loadJSON:(key,fallback)=>fallback,
     blocksRef:{current:{}}, BLOCK_TOMB_KEEP_MS:30*86400000, profile:{name:'测试用户'},characters:[{id:'c1',name:'测试角色'}],groupAutoCallEpochRef:{current:{}},
     callRef:{current:null}, chatsRef:{current:{c1:[{role:'user',content:'主房私事',ts:1}],[key]:[{role:'user',content:'房内对话',ts:2}]}},
     roomStatesRef:{current:{[key]:{mood:'房内心情'}}}, statesRef:{current:{}}, directives:{c1:[{id:'main_rule',text:'主房准则',ts:1}]},
@@ -28,6 +28,7 @@ function setup(overrides={}) {
     callAI:async (api,sys)=>{requests.push(sys);return JSON.stringify({say:['测试回应'],thought:'房内心声',mood:'房内新心情',wearing:'测试衣服',summary:'房间通话摘要',open:['测试约定']})}
   };
   vm.createContext(box);
+  vm.runInContext(cut("  const sameStateValue =", "  const freshLiveStateValue ="), box);
   const components = fs.readFileSync('js/components.js', 'utf8');
   const audioPref = components.indexOf('function callAutoVoice(');
   vm.runInContext(components.slice(audioPref, components.indexOf('\n}\n', audioPref) + 3), box);
@@ -167,6 +168,7 @@ test('房间状态写入方保存动作穿着与心情，空心声不丢本地�
   const box={window:{ChatRooms:Rooms},Date,roomStatesRef:{current:{}},roomStateHistRef:{current:{}},
     setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:(k,v)=>{saved[k]=JSON.parse(JSON.stringify(v))}};
   vm.createContext(box);
+  vm.runInContext(cut("  const sameStateValue =", "  const freshLiveStateValue ="), box);
   const start=src.indexOf('  const setRoomThought ='),end=src.indexOf('\n  };',start)+5;
   vm.runInContext(src.slice(start,end)+'\nthis.write=setRoomThought;',box);
   box.write(key,'本房心声',{mood:'安静',state:{wearing:'外套',action:'看书',unknown:'不该保存'},turnId:'t1'});

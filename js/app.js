@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.73";
+const APP_VERSION = "v68.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2586,6 +2586,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     patch[key] = v;
     if (!sameStateValue(v, live && live[key])) patch[key + "UpdatedAt"] = now;
     else if (!(Number((live && live[key + "UpdatedAt"]) || 0) > 0)) patch[key + "UpdatedAt"] = now;
+  };
+  const clearWearingOnMove = (patch, live, hasWearing) => {
+    if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
+      patch.wearing = null; patch.wearingUpdatedAt = 0;
+    }
   };
   const freshLiveStateValue = (state, field, now = Date.now()) => {
     const value = String(state && state[field] || "").trim();
@@ -9682,9 +9687,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       putLiveField(st, _live0, "place", parsed.place, stateNow);
       // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替TA编一套,
       // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
-      if (st.place && _live0.place && !sameStateValue(st.place, _live0.place) && !parsed.wearing) {
-        st.wearing = null; st.wearingUpdatedAt = 0;
-      }
+      clearWearingOnMove(st, _live0, parsed.wearing);
       if (parsed.condition && String(parsed.condition).toLowerCase() !== "null") { st.condition = String(parsed.condition).trim(); st.conditionUpdatedAt = stateNow; }
       else if (parsed.condition === null && (statesRef.current[charId] || {}).condition) { st.condition = null; st.conditionUpdatedAt = 0; }
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
@@ -13975,6 +13978,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 电话接通后的头一句：user 那一栏只放一句触发，料全在 system
   //（施工规则/prompt-send-shape.md）。
   const callOpenTrigger = () => ({ role: "user", content: "（电话接通了）" });
+  // 通话过程与挂断后的主线写回共用同一道权限；封闭群只读主线。
+  const callCanWriteMain = (session, field) => {
+    if (session.groupId && !gsFor(session.groupId).memoryInterop) return false;
+    if (field === "memoryCandidate") return !session.room || !!(session.room.writeback && session.room.writeback.memoryCandidate);
+    return !session.room || window.ChatRooms.canWrite(session.room, field);
+  };
   const callSend = async (text, opts) => {
     const cur = callRef.current;
     // opening=TA打来的那一通刚接通，这一轮没有她的话，由TA先说
@@ -13985,7 +13994,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let withUser = cur.msgs;
     if (!opening) {
       const um = { role: "user", content: text.trim(), ts: Date.now() };
-      if (!cur.room) noteTidalUser(um.content, um.ts);
+      if (!cur.room && callCanWriteMain(cur, "state")) noteTidalUser(um.content, um.ts);
       withUser = [...cur.msgs, um];
       setCall(c => c ? { ...c, msgs: withUser } : c);
       callRef.current = { ...cur, msgs: withUser };
@@ -14054,27 +14063,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const pushMsg = line => setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: [...c.msgs, { ts: Date.now(), turnId: callTurnId, ...line }] } : c);
       // 通话的状态卡：字段名和写法都跟线上那份协议一样，出口也是同一个。
       // ⚠️别在这儿另存一份「通话状态」——那样以后改一处得改两处（她 2026-09-06 点名）。
+      const callThoughtDone = new Set();
       const callPutState = (cid, d, turnId) => {
         if (!cid || !d || typeof d !== "object") return;
         if (!callRef.current || callRef.current.sessionId !== cur.sessionId) return;
-        if (cur.room) {
-          setRoomThought(cur.chatKey, d.thought, { mood: d.mood, state: d, turnId });
-          if (!window.ChatRooms.canWrite(cur.room, "state")) return;
-          d = { ...d, thought: null, mood: window.ChatRooms.canWrite(cur.room, "mood") ? d.mood : null };
+        if (cur.room) setRoomThought(cur.chatKey, d.thought, { mood: d.mood, state: d, turnId });
+        const canState = callCanWriteMain(cur, "state"), canMood = callCanWriteMain(cur, "mood");
+        if (!canState && !canMood) return;
+        const now = Date.now(), liveState = statesRef.current[cid] || {}, st = {};
+        if (canState) {
+          ["place", "action", "wearing", "condition"].forEach(k => {
+            const v = d[k] == null ? "" : String(d[k]).trim();
+            if (v && v.toLowerCase() !== "null") putLiveField(st, liveState, k, v, now);
+          });
+          if (d.condition === null) { st.condition = null; st.conditionUpdatedAt = 0; }
+          clearWearingOnMove(st, liveState, st.wearing);
+          if (!cur.room) {
+            const thought = window.ThoughtVoiceGuard.accept(d.thought);
+            if (thought || (!settingsFor(cid).engineerEyes && !callThoughtDone.has(cid))) {
+              Object.assign(st, window.ThoughtVoiceGuard.turnPatch(liveState, thought, now));
+            }
+            if (thought) callThoughtDone.add(cid);
+          }
         }
-        const st = {};
-        ["thought", "place", "action", "wearing", "condition"].forEach(k => {
-          const v = d[k] == null ? "" : String(d[k]).trim();
-          if (v && v.toLowerCase() !== "null") st[k] = v;
-        });
-        if (st.thought) st.thoughtUpdatedAt = Date.now();
-        const ml = d.mood ? String(d.mood).trim() : "";
-        if (!Object.keys(st).length && !ml) return;
-        const liveState = statesRef.current[cid] || {};
-        const ns = { ...liveState, ...st, mood: ml || liveState.mood, ts: Date.now(), turnId: turnId || ("call_" + Date.now()) };
-        setStateFor(cid, ns);
-        pushStateHist(cid, ns);
-        if (ml) { try { setMoodFor(cid, { label: ml, ts: Date.now() }); } catch (e) {} }
+        const rawMood = d.mood == null ? "" : String(d.mood).trim();
+        const ml = canMood && rawMood.toLowerCase() !== "null" ? rawMood : "";
+        if (canState && (Object.keys(st).length || ml)) {
+          const ns = { ...liveState, ...st, mood: ml || liveState.mood, ts: now, turnId: turnId || ("call_" + now) };
+          setStateFor(cid, ns);
+          pushStateHist(cid, ns);
+        }
+        if (ml) { try { setMoodFor(cid, { label: ml, ts: now }); } catch (e) {} }
       };
       const uName = userName(profile);
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
@@ -14296,7 +14315,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (cur.groupId) pGChat(cur.groupId, patch);
           else if (cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, patch);
           // 记忆分区：群里打的通话，只有互通群才写进全局记忆库（同群线下的规矩）
-          if ((!cur.room || cur.room.writeback && cur.room.writeback.memoryCandidate) && (!cur.groupId || gsFor(cur.groupId).memoryInterop)) {
+          if (callCanWriteMain(cur, "memoryCandidate")) {
             addMemEntry({ text: sum, tags: ["通话"], charIds: cur.participants.map(c => c.id), knownBy: cur.participants.map(c => c.id), source: "auto" });
             // 电话里约的事也标未了结进开环（和线下同款）：兑现后 extractMemories 的 resolveOpen 会自动勾掉
             opens.forEach(op => addMemEntry({ text: op, tags: ["通话", "约定"], charIds: cur.participants.map(c => c.id), knownBy: cur.participants.map(c => c.id), source: "auto", open: true }));
