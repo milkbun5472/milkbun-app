@@ -1634,6 +1634,18 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
 //  帖子只有一份，版块是筛选视图；评论懒加载（含楼中楼，回复者随机 NPC/角色）
 // ============================================================
 const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
+// 每个吧自己的规矩（她 2026-09-15 问「5 呢」）。一份写在这儿：置顶那块牌子（下面 Forum 里）
+// 和喂给模型的吧规（app.js 的 forumBoardRuleLines）读的是同一份——两处各抄一份必然有一处过时。
+// ⚠️每个吧的规矩要带着这个吧的脾气：吐槽吧的规矩本身就该有点火气，求助吧的该像个真管事的。
+//   规矩要是六个吧一个腔调，等于没写。
+const FORUM_BOARD_RULES = {
+  "吐槽吧": ["骂事不骂人，点名到具体的人就删", "别在这儿求安慰，要安慰去日常吧", "阴阳怪气可以，伸手要钱不行"],
+  "日常吧": ["随便发，但别把这儿当朋友圈刷屏", "劝人别劝得太用力，人家只是想说说", "晒东西可以，带链接的一律删"],
+  "求助吧": ["标题写清楚你到底卡在哪，「求助急」这种标题会被改", "有人认真答了就回一句，别拿了就跑", "答不上来别硬答，猜的要标明是猜的"],
+  "兴趣吧": ["安利可以，踩别人的爱好不行", "报装备报价格随意，但别装内行", "连载贴请自己顶，别开新帖"],
+  "脑洞吧": ["提问要给得出接的口子，没人接的自己顶", "抬杠归抬杠，别说「这不可能」就完事", "现实问题别发这儿"],
+  "匿名吧": ["这儿不问你是谁，也别去问别人是谁", "扒人一律删帖", "说出来就算了，别追着要下文"]
+};
 // 论坛是一叠正在被翻动的社区小报，不再借用全 App 的通用白底列表。
 // 六个版块只换一处识别色；纸张、墨色和层级共用，免得像六个互不相干的 App。
 const FORUM_SKIN = {
@@ -1725,6 +1737,7 @@ function Forum({
   const [nav, setNav] = useState("home");           // home | search | pm | me
   const [tab, setTab] = useState("吐槽吧");           // 主页版块 或 "关注"
   const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
+  const [rulesOpen, setRulesOpen] = useState(false);  // 置顶吧规那块牌子，默认只露第一条
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(null);            // 打开的帖子
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
@@ -2375,6 +2388,16 @@ function Forum({
       const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     })),
+    // 吧规：常年钉在版块顶上的一块牌子。默认只露第一条（她不是来读规矩的），点开看全。
+    // 这块牌子和喂给模型的那份吧规读同一个 FORUM_BOARD_RULES——规矩改一处，两边一起改。
+    (!inSub && nav === "home" && FORUM_BOARD_RULES[tab]) && h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "shrink-0 text-left active:opacity-70 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.4)" } },
+      h("div", { className: "flex items-start", style: { gap: 7 } },
+        h("span", { style: { flexShrink: 0, marginTop: 1, padding: "1px 6px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 10 } }, "吧规"),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: FORUM_SKIN.sub } },
+          rulesOpen
+            ? FORUM_BOARD_RULES[tab].map((r, i) => h("div", { key: i }, (i + 1) + ". " + r))
+            : h("div", { className: "truncate" }, FORUM_BOARD_RULES[tab][0]))),
+      !rulesOpen && h("div", { style: { marginTop: 2, paddingLeft: 33, fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog } }, "共 " + FORUM_BOARD_RULES[tab].length + " 条 · 点开看全")),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
     (!inSub && nav === "home") && h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),

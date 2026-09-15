@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.53";
+const APP_VERSION = "v68.54";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15479,6 +15479,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const minute = steps[Math.min(index - 3, steps.length - 1)] + ((Number(salt) || 0) % 5);
     return base + minute * 60000;
   };
+  // 每个吧自己的规矩（她 2026-09-15 问「5 呢」）。
+  // ⚠️我原先说「六个吧只是筛选器」是说错了：吧早就有自己的常驻人口（boards）、
+  //   自己的语气（forumBoardVoice）和自己那几对熟面孔的交情。真正缺的只有【规矩】——
+  //   没有规矩，就没人能拿规矩说事，而「这帖该发求助吧」「楼主这违规了吧」
+  //   正是吧和吧不一样的地方长出来的那种话。
+  // ⚠️写死，零调用。规矩本来就该是常年挂在那儿的一块牌子，不是每次现编的。
+  // ⚠️规矩本身那份表在 js/screens.js（挨着 FORUM_BOARDS），因为置顶那块牌子也要照着它渲染——
+  //   一层写在两处，第二处永远跟不上（施工规则/one-public-mechanism.md）。
+  const forumBoardRuleLines = b => {
+    const rules = FORUM_BOARD_RULES[b];
+    if (!rules || !rules.length) return "";
+    return "\n【这个吧的吧规（常年挂在置顶）】\n" + rules.map((r, i) => (i + 1) + ". " + r).join("\n")
+      // ⚠️给出口不给判决（施工规则/bans-make-it-dumber.md）：写成「要监督违规」会出来
+      //   一屋子风纪委员，每层楼都在管人——那比没有吧规还难看。
+      + "\n吧规是【偶尔有人会拿出来说事】的东西，不是每层楼都要执行的纪律："
+      + "多数人根本不提；真提起来的那一条，可以是认真的、也可以是拿它抬杠、还可以是嫌它多余。"
+      + "帖子发得不对地方时，会有人顺口说一句该发哪个吧——说完照样接着聊，不是把人赶走。\n";
+  };
   const forumBoardVoice = b => ({
     "吐槽吧": "「吐槽吧」：网友在这儿发牢骚、阴阳怪气、吐槽不爽。语气刻薄、损、带情绪、标题党，别正能量别说教。",
     "日常吧": "「日常吧」：网友分享兴趣、日常、和谁都无关的琐碎生活。语气松弛随意、有生活气，像随手一发。",
@@ -15596,7 +15614,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️原来写的是「约六成来自固定熟面孔…其余约四成【可以】是路人」。两头的具体度不对等：
     //   熟面孔是一句陈述 + 一份现成名单（填个 id 就行），路人是「可以」+ 还得自己起名字。
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
-    return "\n【论坛人口】**每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）**，一条都别空着。"
+    // ⚠️吧规拼在这一处：发主帖、首轮刷楼、继续盖楼、回她那条——四路都走 forumNpcRule，
+    //   挂在这儿就四路都有（挂在某一路上迟早只剩那一路有，这仓库栽过太多次）。
+    return forumBoardRuleLines(board)
+      + "\n【论坛人口】**每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）**，一条都别空着。"
       + "\n【id 跟TA这条说什么【没有关系】】真论坛里的网名是这个账号本来就有的，不是为这条评论现配的一件戏服——"
       + "别让名字去呼应TA这一楼的内容、也别让它去标注TA是什么人。它可以完全跑题、可以是半句话、可以莫名其妙；"
       + "**一屋子人的名字之间也不该有共同点**：前缀一样、结构一样、都在同一个词类里打转，一眼就看得出是一只手凑的。"
