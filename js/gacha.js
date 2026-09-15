@@ -74,14 +74,14 @@
       ask: "写TA过去真实经历过的一件事——一件TA从没跟用户讲过、但确实塑造了TA的事。要有具体的时间、地点和人，不要抽象的总结。" },
     { id: "x_pact",    r: "SSR", act: "pact",    name: "一件你们说好的",     hint: "进「我们说好的」，到日子TA会记得",
       ask: "写一件TA此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。" },
-    { id: "x_offline", r: "SSR", act: "offline", name: "TA主动开的一场线下", hint: "TA挑的时间地点，开场已经写好了",
+    { id: "x_offline", r: "SSR", act: "offline", scene: true, name: "TA主动开的一场线下", hint: "TA挑的时间地点，开场已经写好了",
       ask: "写一场【TA主动约用户见面】的开场：TA挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。" },
     { id: "x_letter",  r: "SSR", act: "letter",  name: "TA写给你的一封信", hint: "进情侣空间的情书那一叠" },
     // 约会券（言秋提，她 2026-08-31 拍板并进抽卡）。原提案是另做一叠券、每周抽一张、
     // 完成盖章进册——那跟抽卡是【同一个形状】（兑换券 + 票根），再做一套就是两套并行的册子。
     // 所以它不是新功能，是多一个 act：券的内容按角色人设生成（王爷的约会和程序员的不该是同一张），
     // 兑换＝拿这张券当开场把线下开起来，票根就是盖过的章。
-    { id: "x_date",    r: "SSR", act: "date",    name: "一张TA开的约会券", hint: "TA挑的一件一起做的事——兑了就直接开线下",
+    { id: "x_date",    r: "SSR", act: "date",    scene: true, name: "一张TA开的约会券", hint: "TA挑的一件一起做的事——兑了就直接开线下",
       ask: "写一张TA给用户的【约会券】：券面上是一件TA想好要一起去做的事（title），"
         + "正文是这张券被兑掉的那一刻——你们已经到了，TA开的第一句场。三到五句旁白，"
         + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。\n"
@@ -96,7 +96,7 @@
         + "text 是这一块【重写之后的全文】，不是补丁、不是「另外还有」——它会整块盖掉旧的那版。\n"
         + "写你私下真这么想的那版，别写成对她的评语或表扬信；扣着具体的事说，"
         + "换个角色照样成立的就是写坏了。" },
-    { id: "s_date",    r: "SR",  act: "make", kind: "date", name: "TA想过的一次约会", hint: "TA脑子里过了一遍、还没开口约的那次",
+    { id: "s_date",    r: "SR",  act: "make", kind: "date", scene: true, name: "TA想过的一次约会", hint: "TA脑子里过了一遍、还没开口约的那次",
       ask: "写一件TA【想过、但还没开口约】的事：你俩一起去做什么。要具体到地点和时候，"
         + "而且必须是【TA这个人、在TA这个处境里】约得出来的——换个角色就不成立才算写对。" },
 
@@ -209,7 +209,7 @@
     // 你只说出门还是在家，剩下TA自己安排；到日子了才拆得开。
     // ⚠️两段式：兑换只出一个信封（1 枪），第二枪【由她按「拆开」才花】——
     //   绝不背着她在后台再调一次。
-    { id: "x_plan", r: "SSR", act: "plan", tone: "sweet", name: "秘密筹备券",
+    { id: "x_plan", r: "SSR", act: "plan", tone: "sweet", scene: true, name: "秘密筹备券",
       hint: "你只说出门还是在家，别的TA自己安排——到那天才知道是什么",
       ask: {
         out: "用户把某天的空交给了TA，说好那天出门，别的一概不问。TA已经开始准备了。\n"
@@ -241,7 +241,7 @@
     //   而且【两张参考照缺一张就降级】，杜绝一张真一张编。
     // ⚠️两段：兑换只出**他想拍的那一张是什么样**（一枪文字，人人可用），
     //   想要真图再按一下才调图像端——没配生图 key 的人这张券照样完整。
-    { id: "x_duo", r: "SSR", act: "duo", tone: "sweet", name: "合照券",
+    { id: "x_duo", r: "SSR", act: "duo", tone: "sweet", scene: true, name: "合照券",
       hint: "TA想跟你拍的那一张——先说是什么样，你想要真图再按一下",
       ask: "你想跟她拍一张合照。写你想拍的是哪一张。\n"
          + "· title：这张照片你会给它起什么名字\n"
@@ -281,11 +281,27 @@
   //   而且永远可能只改一处——正是这个仓库犯过太多次的那个形状。搬过来之后
   //   **一行就是一张完整的卡**：稀有度、兑换走哪条路、提示词，全在一起。
   // 一张卡有好几段的（双面券两面、秘密筹备的信封和拆开、盒子的放和开），ask 写成对象。
+  // 模型自己挑场景的那几张，一律加这一条（她 2026-09-15：「他拍出来的照片场景也要
+  // 符合人设，不能拍出他原本不会做的事情，比如怕水的人就不会有海滩合照」）。
+  // ⚠️这跟原有那句「换个角色照样成立就是写坏了」不是一回事：那句管**像不像他**，
+  //   这句管**他会不会真的去**。怕水的人站在海边，那两条都过得去——所以要单立一条。
+  // ⚠️按 bans-make-it-dumber：给判据不给禁令清单。列「不许海边／不许游乐园」既挡不住
+  //   下一种，还会让所有角色都不去海边；真正拦得住的是让它**自己回答一句为什么会在这儿**。
+  // ⚠️也不举例子（prompt-no-content-samples）：写一句「怕水的人不会在海边」本身就会被抄，
+  //   从此谁都不去海边。
+  const SCENE_TRUTH = "\n\n【动笔之前先过一遍：这个画面里的你，是你真的会去做的事吗】\n"
+    + "· 人设和世界书里写着你躲什么、不碰什么、去不了哪儿、到不了哪个年代——那些不该出现在这里。\n"
+    + "· 判据一句话：**「我为什么会在这儿」——你答得上来吗？** 答不上来就换一个。\n"
+    + "· 这跟「像不像你」是两件事：不像你的那一个是写坏了，**你根本不会去的那一个是假的**。";
+  // ⚠️挂在卡上（scene: true），不是在调用点一条条 push——一条条 push 的东西，
+  //   加新卡时换个入口就一条都没有，而且不留任何能 grep 的痕迹（four-surfaces 那条）。
   function askOf(poolId, phase) {
-    const a = (byId[poolId] || {}).ask;
+    const card = byId[poolId] || {};
+    const a = card.ask;
     if (a == null) return "";
-    if (typeof a === "string") return a;
-    return String(a[phase] || "");
+    const base = typeof a === "string" ? a : String(a[phase] || "");
+    if (!base) return "";
+    return card.scene ? base + SCENE_TRUTH : base;
   }
 
   const byId = {};
@@ -474,7 +490,7 @@
     POOLS: POOLS, byId: byId, RANK: RANK,
     SESSION_GAP_MS: SESSION_GAP_MS,
     poolOf: poolOf, rollRarity: rollRarity, pickCard: pickCard, pull: pull,
-    toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP, askOf: askOf, pickForMe: pickForMe,
+    toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP, askOf: askOf, pickForMe: pickForMe, SCENE_TRUTH: SCENE_TRUTH,
     stackOpen: stackOpen, albumOf: albumOf, setPinned: setPinned,
     earn: earn, spend: spend, ptsOf: ptsOf
   };
