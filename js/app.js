@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.76";
+const APP_VERSION = "v68.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2623,6 +2623,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!Number.isFinite(updatedAt) || updatedAt <= 0) return "";
     const age = now - updatedAt;
     return age >= 0 && age <= LIVE_STATE_TTL[field] ? value : "";
+  };
+  // 文字群与通话共用状态材料；调用方只选择本场景可读取的字段。
+  const liveStateContext = (state, fields) => {
+    const labels = { wearing: "穿着", action: "上一动作", place: "所在地点", condition: "身体状态" };
+    const bits = fields.map(field => {
+      const value = freshLiveStateValue(state, field);
+      return value ? labels[field] + "=" + value : "";
+    }).filter(Boolean);
+    return bits.length ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + bits.join("；") : "";
   };
   // 心声历史：每次有新想法就存一条，供「看历史记录」
   const pushStateHist = (id, s) => {
@@ -13800,7 +13809,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!c || c.npc) return {};
     const o = opts || {};
     const st = statesRef.current[c.id] || {};
-    const fw = freshLiveStateValue(st, "wearing"), fa = freshLiveStateValue(st, "action");
     const md = window.MoodLabel && window.MoodLabel.settle
       ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
       : { label: (moods[c.id] || {}).label || "", note: "" };
@@ -13811,12 +13819,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   却从没见过上一次填的是什么，**根本没法「原样填写」**，
       //   于是每轮都是一个新动作，代码那道去重闸一次都拦不住（她 2026-09-12 报）。
       //   又是这一格的第三次「一层写在两处」：v67.18 修了措辞，这次是料没给全。
-      live: (function () {
-        const bits = [];
-        if (o.interop && fw) bits.push("穿着=" + fw);
-        if ((o.interop || o.act) && fa) bits.push("上一动作=" + fa);
-        return bits.length ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + bits.join("；") : "";
-      })(),
+      live: liveStateContext(st, [...(o.interop ? ["wearing"] : []), ...(o.interop || o.act ? ["action"] : [])]),
       mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
@@ -14121,7 +14124,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
         const callQuery = withUser.slice(-12).map(m => String(m.content || "")).filter(Boolean).join("\n");
         if (window.ChatRooms.canRead(cur.room, "formalMemory") && typeof primeQueryVec === "function") await primeQueryVec(callQuery);
-        const sys = buildBundle(roomContextFor(char, cur.chatKey || char.id, cur.room, { chat: true, queryText: callQuery })) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**"
+        const sys = buildBundle(roomContextFor(char, cur.chatKey || char.id, cur.room, { chat: true, queryText: callQuery }))
+          + liveStateContext(liveStateForScope(char.id, cur.chatKey), ["wearing", "action", "place", "condition"]) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**"
           + (opening ? "\n【这是接通后的第一句】电话刚接通，是你拨过去的，对方刚把它接起来——**你先开口**。别等对方先说话、别问「喂？怎么不说话」、别当成是 Ta 打给你的。直接说你打这通电话本来要说的那件事。" : "") + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
           // 状态卡跟线上一样【每轮都写】（她 2026-09-06：「既然通话和线上没有区别
           // 那为什么不能每轮都写状态卡呢」）。字段名跟线上那份协议一模一样，

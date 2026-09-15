@@ -28,7 +28,7 @@ function setup(overrides={}) {
     callAI:async (api,sys)=>{requests.push(sys);return JSON.stringify({say:['测试回应'],thought:'房内心声',mood:'房内新心情',wearing:'测试衣服',summary:'房间通话摘要',open:['测试约定']})}
   };
   vm.createContext(box);
-  vm.runInContext(cut("  const sameStateValue =", "  const freshLiveStateValue ="), box);
+  vm.runInContext(cut("const LIVE_STATE_TTL =", "  // 心声历史："), box);
   const components = fs.readFileSync('js/components.js', 'utf8');
   const audioPref = components.indexOf('function callAutoVoice(');
   vm.runInContext(components.slice(audioPref, components.indexOf('\n}\n', audioPref) + 3), box);
@@ -168,7 +168,7 @@ test('房间状态写入方保存动作穿着与心情，空心声不丢本地�
   const box={window:{ChatRooms:Rooms},Date,roomStatesRef:{current:{}},roomStateHistRef:{current:{}},
     setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:(k,v)=>{saved[k]=JSON.parse(JSON.stringify(v))}};
   vm.createContext(box);
-  vm.runInContext(cut("  const sameStateValue =", "  const freshLiveStateValue ="), box);
+  vm.runInContext(cut("const LIVE_STATE_TTL =", "  // 心声历史："), box);
   const start=src.indexOf('  const setRoomThought ='),end=src.indexOf('\n  };',start)+5;
   vm.runInContext(src.slice(start,end)+'\nthis.write=setRoomThought;',box);
   box.write(key,'本房心声',{mood:'安静',state:{wearing:'外套',action:'看书',unknown:'不该保存'},turnId:'t1'});
@@ -225,4 +225,33 @@ test('侧房线下状态与线上、线下拍照、视频画面使用同一房�
   const call=cut('  const runCallShot =','  const markCallBye =');
   assert.match(call,/liveStateForScope\(lead\.id, cur\.chatKey\)/);
   assert.match(call,/liveStateForScope\(p\.id, cur\.chatKey\)/);
+});
+
+test('语音和视频下一轮实际请求读回侧房状态，主房与过期字段不串入',async()=>{
+  for(const mode of ['voice','video']) {
+    const f=setup();
+    f.box.roomStateHistRef={current:{}};
+    f.box.setRoomStates=()=>{};f.box.setRoomStateHist=()=>{};
+    const start=src.indexOf('  const setRoomThought ='),end=src.indexOf('\n  };',start)+5;
+    vm.runInContext(src.slice(start,end),f.box);
+    f.box.statesRef.current.c1={wearing:'主房独有外套',wearingUpdatedAt:Date.now()};
+    f.box.roomStatesRef.current[f.key]={action:'过期动作哨兵',actionUpdatedAt:Date.now()-46*60000};
+    f.box.ops.startCall(f.box.characters,mode,null,'me',f.key);
+    await f.box.ops.callSend('第一轮');
+    assert.doesNotMatch(f.requests[0],/主房独有外套|过期动作哨兵/);
+    assert.equal(f.box.roomStatesRef.current[f.key].wearing,'测试衣服');
+    await f.box.ops.callSend('第二轮');
+    assert.match(f.requests[1],/穿着=测试衣服/);
+    assert.doesNotMatch(f.requests[1],/主房独有外套|过期动作哨兵/);
+  }
+});
+
+test('主房通话读取主线当前状态，空状态不添加空白材料',async()=>{
+  const f=setup();
+  f.box.statesRef.current.c1={place:'主线地点哨兵',placeUpdatedAt:Date.now(),condition:'主线身体哨兵',conditionUpdatedAt:Date.now()};
+  f.box.ops.startCall(f.box.characters,'voice',null,'me','c1');
+  await f.box.ops.callSend('主房通话');
+  assert.match(f.requests[0],/所在地点=主线地点哨兵；身体状态=主线身体哨兵/);
+  vm.runInContext('this.emptyStateText=liveStateContext({}, ["wearing","action","place","condition"]);',f.box);
+  assert.equal(f.box.emptyStateText,'');
 });

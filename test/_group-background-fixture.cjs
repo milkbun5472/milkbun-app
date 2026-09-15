@@ -43,6 +43,7 @@ const collector = cut(app, '  const groupBackgroundFor =', '  const ctxForGroupO
 const now = cut(app, '  const groupNowSegs =', '  // 这位成员最近和用户的单聊');
 const formatter = cut(engine, 'function groupBackgroundSegments(', 'function groupPersonaText(');
 function wire(env) {
+  env.liveStateContext = evaluate(cut(app, "  const liveStateContext =", "  // 心声历史："), env, "liveStateContext");
   env.wishRef = {current:[]};
   env.wishFor = evaluate(cut(app, "  const wishFor =", "  const onMeFor ="), env, "wishFor");
   env.wishLine = evaluate(cut(engine, "function wishLine(", "function onMeLine("), env, "wishLine");

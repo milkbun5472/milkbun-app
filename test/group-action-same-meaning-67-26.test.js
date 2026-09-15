@@ -54,14 +54,14 @@ test("单聊那一行拼出来还是一句读得通的话（v67.35 补了形状�
 
 // ── 第二半：他得知道上一次填的是什么，才谈得上「原样填写」──────────────
 test("上一动作在【动描开着】时也要喂给他，不只互通", () => {
-  const i = A.indexOf("live: (function () {");
-  assert.ok(i > 0, "那一格的形状变了");
-  const blk = A.slice(i, i + 500);
-  assert.match(blk, /if \(\(o\.interop \|\| o\.act\) && fa\) bits\.push\("上一动作=" \+ fa\)/,
-    "只开动描的群，他从没见过上一次填的是什么，没法原样填写");
-  // 穿着照旧只归互通：那是状态卡的事，跟动描没关系
-  assert.match(blk, /if \(o\.interop && fw\) bits\.push\("穿着=" \+ fw\)/);
-  assert.ok(A.indexOf('live: o.interop && (fw || fa) ?') < 0, "老那版还留着");
+  const {wire,fixture}=require('./_group-background-fixture.cjs');
+  const env=wire(fixture()), c=env.members[0];
+  const actionOnly=env.groupNowSegs(c,{interop:false,act:true}).live;
+  assert.match(actionOnly,/上一动作=甲动作/);
+  assert.doesNotMatch(actionOnly,/穿着=/);
+  assert.equal(env.groupNowSegs(c,{interop:false,act:false}).live,'');
+  assert.match(env.groupNowSegs(c,{interop:true,act:false}).live,/穿着=甲衣；上一动作=甲动作/);
+
 });
 
 test("群回复那一处要把动描开关传下去", () => {
