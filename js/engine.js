@@ -2872,6 +2872,10 @@ function buildBundle(ctx, opts) {
     + "**其中要是有一颗是你自己埋的，那更要管住嘴**：那是留给拆开那天的话，现在一个字都不许提前说出来，也别暗示。"
     + "聊到相关的时候可以惦记一句、数数日子；但别每次都提，多数时候它就安安静静埋在那儿。");
   // 她身上带着的东西（v63.98）：见了面才看得见，所以只说「在她身上」，别替TA惊叹
+  // 拉黑这件事（v68.68）：正被拉黑时TA说的话没人收得到，刚解除时那道坎还热着——
+  // 两种都压过日常语气，所以它自己占一段。
+  // ⚠️句子只写在 app.js 的 blockLineFor 一处，这儿只负责发出去。
+  if (ctx.blockLine && String(ctx.blockLine).trim()) parts.push(String(ctx.blockLine).trim());
   if (ctx.onMe && String(ctx.onMe).trim()) parts.push(onMeLine(ctx.onMe, uName));
   // 送出去的东西有了回响（v63.98）：以前TA送完就再没有下文
   if (ctx.usedLog && String(ctx.usedLog).trim()) parts.push("【你送她的这些，她用掉了：" + String(ctx.usedLog).trim() + "】"

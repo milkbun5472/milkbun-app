@@ -41,7 +41,11 @@ test('侧房拉黑、申请及延迟消息在切房后仍只写原房间', async
   f.ops.respondUnblockFromChar('c1',card.cid,true,f.key);
   await f.flush();
   assert.equal(f.saved.x_blocks.c1.iBlocked,true);
-  assert.equal(f.saved.x_blocks[f.key],undefined);
+  // v68.68：解除不再整条删掉（删了就没人知道被拉黑过，TA会「失忆」）——
+  // 留一张墓碑。隔离照旧：旗子必须落干净，主房那条一个字没动。
+  assert.equal(!!f.saved.x_blocks[f.key].iBlocked,false);
+  assert.equal(!!f.saved.x_blocks[f.key].theyBlocked,false);
+  assert.ok(f.saved.x_blocks[f.key].endedTs>0);
   assert.equal(f.box.chatsRef.current.c1.length,1);
   assert.ok(f.lanes.every(k=>k==='c:'+f.key));
   assert.match(f.systems[0],/侧房诉说/);

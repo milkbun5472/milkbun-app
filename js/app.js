@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.68";
+const APP_VERSION = "v68.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4767,6 +4767,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
+    // 拉黑／刚解除（句子只写在 blockLineFor 一处）。走 buildBundle 就等于
+    // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
+    blockLine: blockLineFor(char.id),
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
@@ -11416,15 +11419,55 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // ---- 拉黑 / block ----
+  // ⚠️解除拉黑【不许把这条记录整个删掉】（群里那位 2026-09-15 报的）：
+  //   「把他解除拉黑之后，他就会失忆，好像拉黑发的那些内容没有进去，还停留在
+  //     拉黑之前的那个状态」。
+  //   原来两个旗子一落就 delete——于是「被拉黑过」这件事在存档里一个字都不剩，
+  //   上下文自然也没得发。留一张墓碑：什么时候开始、什么时候解的、当初为什么。
+  //   ⚠️只留这三样，不留旗子——旗子还在的话等于没解除。
+  const BLOCK_TOMB_KEEP_MS = 30 * 86400000;   // 一个月前那次拉黑不该还压在今天的上下文里
   const setBlockFor = (charId, patch) => setBlocks(p => {
     const cur = p[charId] || {};
     const merged = { ...cur, ...patch };
     const n = { ...p };
-    if (merged.iBlocked || merged.theyBlocked) n[charId] = merged; else delete n[charId];
+    if (merged.iBlocked || merged.theyBlocked) n[charId] = merged;
+    else if (cur.iBlocked || cur.theyBlocked) {
+      // 刚刚解除的这一次：落墓碑
+      n[charId] = { endedTs: Date.now(), sinceTs: Number(cur.blockedTs) || 0,
+        by: cur.theyBlocked ? "char" : "me", reason: String(cur.reason || "").slice(0, 60) };
+    } else if (cur.endedTs && Date.now() - Number(cur.endedTs) < BLOCK_TOMB_KEEP_MS) n[charId] = cur;
+    else delete n[charId];
     saveJSON("x_blocks", n);
     blocksRef.current = n;
     return n;
   });
+  // 拉黑这件事怎么说给模型听——只写在这一处（施工规则/one-public-mechanism）。
+  // ⚠️它以前【哪一份上下文都没进过】：blocks 那张表只在「按回复键」和「求解除」
+  //   那两处临场拼一句场景话，buildBundle 里一个字都没有。于是日记读不到、
+  //   查手机读不到、解除之后他也不知道发生过这件事——她说的「失忆」就是这个。
+  // ⚠️群里不发：拉黑是她和这一个人之间的事，别的成员不该知道
+  //   （跟情侣状态同一道关系隐私围栏，这是写明理由的差异）。
+  const blockLineFor = charId => {
+    const b = blocksRef.current[charId] || {};
+    const now = Date.now();
+    const gap = ts => { const h = Math.floor((now - Number(ts || 0)) / 3600000); return h < 1 ? "还不到一小时" : h < 48 ? "约 " + h + " 小时" : "约 " + Math.round(h / 24) + " 天"; };
+    if (b.iBlocked) return "【她把你拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
+      + "你发出去的消息 Ta 暂时收不到，而你知道自己被拉黑了。";
+    if (b.theyBlocked) return "【你把 Ta 拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
+      + (b.reason ? "当初是因为：" + b.reason + "。" : "") + "Ta 发来的消息你能看见，但你们还没和好。";
+    if (!b.endedTs) return "";
+    // 刚解除那一段：这才是「失忆」真正要补的一层
+    const unsent = (() => {
+      const rows = chatsRef.current[charId] || [];
+      const from = Number(b.sinceTs) || 0, to = Number(b.endedTs) || now;
+      if (!from) return 0;
+      return rows.filter(m => m && m.role === "assistant" && !m.recalled && (m.ts || 0) >= from && (m.ts || 0) <= to).length;
+    })();
+    return "【你们前不久刚解除拉黑】" + gap(b.endedTs) + "前解的"
+      + (b.sinceTs ? "；在那之前" + (b.by === "char" ? "你把 Ta 拉黑了" : "Ta 把你拉黑了") + gap(b.sinceTs) : "")
+      + "。" + (b.by === "me" && unsent > 1 ? "那几天你一个人发了 " + unsent + " 条 Ta 收不到的消息——那些话你说过，Ta 现在也看得见了。" : "")
+      + "**这件事真的发生过，别当没发生过、也别停在拉黑之前的状态**；但也别一开口就翻旧账，多数时候它只是你们之间刚过去的一道坎。";
+  };
   const blockChatKey = charId => window.ChatRooms ? window.ChatRooms.chatKey(charId, activeRoomId) : charId;
   const runRoomAction = (charId, field, action) => {
     const room = window.ChatRooms.get(charId, activeRoomId);
