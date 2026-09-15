@@ -180,12 +180,16 @@ test("对面没接话就不来；接了话也只是几率", () => {
   assert.match(app, /if \(!fresh\.length\) return;/);
   // ② 掷轴，不是每次都来
   assert.match(app, /if \(Math\.random\(\) >= PHONE_AS_ASK_P\) return;/);
-  // ③ 隔一会儿才来，当场弹出来像回执
-  assert.match(app, /PHONE_AS_ASK_MIN \+ Math\.floor\(Math\.random\(\) \* PHONE_AS_ASK_SPAN\)/);
+  // ③ 当场回（她 2026-09-15：「应该是当场回这样才有意思」）——不许再挂延时
+  assert.doesNotMatch(app, /PHONE_AS_ASK_MIN|PHONE_AS_ASK_SPAN/, "这一条不许再隔一会儿才来");
+  const fu = (app.match(/const phoneAsFollowUp = [\s\S]*?\n  \};/) || [""])[0];
+  assert.ok(fu, "找不到 phoneAsFollowUp");
+  assert.ok(fu.indexOf("setTimeout") < 0, "当场回，不许排队等");
 });
 
 test("不另开一条主动消息的路：走 replyNow，那几道闸白得", () => {
   assert.match(app, /replyNow\(char\.id, "", null, \{ proactive: true, phoneAs: \{/);
+  assert.match(app, /对面的话音刚落，手机就回到了你手上/);
   // 12 分钟防连发闸对它豁免（跟约回同理：这是对她刚做过的事的回应）
   assert.match(app, /if \(opts\.proactive && !opts\.promise && !opts\.phoneAs && history\.length\)/);
   assert.match(app, /const outlet = opts\.phoneAs \? "phone_as" :/);

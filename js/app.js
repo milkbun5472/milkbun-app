@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.51";
+const APP_VERSION = "v68.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8222,7 +8222,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "「" + (opts.phoneAs.where || "群里") + "」冒出来一条以你的名义发出去的话：「" + (opts.phoneAs.said || "") + "」——"
         + "那是 " + uName + " 拿着你的手机替你发的，你自己一个字都没打过。"
         + (opts.phoneAs.back ? "而且真的有人接了话：\n" + opts.phoneAs.back + "\n" : "")
-        + "你这会儿拿回手机，翻到了这一段，于是来找 " + uName + "。"
+        + "对面的话音刚落，手机就回到了你手上——你当场就看见了这一段，于是立刻来找 " + uName + "。"
         + "开口就从这件事落地——**别当没这回事重新起一个话题**。"
         + "至于你是什么反应，跟平时一样由你这个人和这段关系决定。1~3 条短消息。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
@@ -15116,8 +15116,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   于是「TA是不是睡着了」「你俩此刻在不在一起」「主动消息开没开」那几道闸白得
   //   （施工规则/one-public-mechanism）。
   const PHONE_AS_ASK_P = 0.45;
-  // 隔一会儿才来：当场弹出来像回执，隔二十秒到两分钟才像他刚放下别的事翻到手机。
-  const PHONE_AS_ASK_MIN = 25000, PHONE_AS_ASK_SPAN = 95000;
+  // ⚠️**当场**（她 2026-09-15：「应该是当场回这样才有意思」）。
+  //   v68.51 那版隔了二十秒到两分钟才来，理由是「当场像回执」——想错了：
+  //   她还站在他手机屏幕前，对面刚回完话，这时候他一句「你刚拿我手机干嘛」
+  //   才接得上那一刻；隔两分钟才冒出来，那一刻早就过去了，反倒才像系统补发的。
   const phoneAsFollowUp = (char, group, said, rowsBefore) => {
     if (!char || !group) return;
     const fresh = (groupChatsRef.current[group.id] || []).slice(rowsBefore)
@@ -15125,11 +15127,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!fresh.length) return;                       // 没人接话，这件事还没发生完
     if (Math.random() >= PHONE_AS_ASK_P) return;
     const back = fresh.slice(0, 3).map(m => (m.senderName || "对方") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60)).join("\n");
-    setTimeout(() => {
-      replyNow(char.id, "", null, { proactive: true, phoneAs: {
-        where: group.name || "群里", said: String(said || "").replace(/\s+/g, " ").slice(0, 60), back
-      } });
-    }, PHONE_AS_ASK_MIN + Math.floor(Math.random() * PHONE_AS_ASK_SPAN));
+    replyNow(char.id, "", null, { proactive: true, phoneAs: {
+      where: group.name || "群里", said: String(said || "").replace(/\s+/g, " ").slice(0, 60), back
+    } });
   };
   // 正在等对面回话的那条会话 id（查手机那屏据此画三个点）
   const [phoneAsWait, setPhoneAsWait] = useState("");
