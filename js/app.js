@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.57";
+const APP_VERSION = "v68.58";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12770,6 +12770,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = new Date(ts);
       return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
     };
+    // 表情包那几栏要跟着过去（她 2026-09-15：「微信聊天里面的表情包能不能也渲染成
+    // 聊天真发了的表情包」）。原来这儿只带 text，于是她发的那张表情在TA手机里
+    // 变成一行「[表情] 摸头」——真微信不会长这样。
+    // ⚠️只写在这一处：私聊和群聊两条路都从这儿取（施工规则/one-public-mechanism）。
+    const richOf = m => (m && m.kind === "emote" && m.url) ? { kind: "emote", url: m.url, keyword: m.keyword || "" } : null;
     const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
     // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
@@ -12795,7 +12800,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
     const direct = clean(chatsRef.current[char.id]);
     if (direct.length) {
-      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content), ts: m.ts || 0 }));
+      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content), ts: m.ts || 0, ...(richOf(m) || {}) }));
       const last = messages[messages.length - 1];
       sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
     }
@@ -12819,7 +12824,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           from = m.senderName || (sender && sender.name) || char.name;
         }
         const sender = m.role === "user" ? null : characters.find(c => c.id === m.senderId);
-        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content), ts: m.ts || 0 };
+        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content), ts: m.ts || 0, ...(richOf(m) || {}) };
       });
       const last = messages[messages.length - 1];
       // 这个群里【除他以外】的真人。两个地方要用：群头像的兜底，和下面 phoneTakenNames 的避重名单。

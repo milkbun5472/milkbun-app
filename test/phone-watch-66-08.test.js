@@ -321,7 +321,7 @@ test("新消息要滚到屏幕最底下，而且有冒出来那一下", () => {
   assert.match(phone, /const threadRef = useRef\(null\);/);
   assert.match(phone, /el\.scrollTop = el\.scrollHeight;/);
   // ⚠️两拍：这一帧 React 刚插进气泡，下一帧才量得到新的 scrollHeight
-  assert.match(phone, /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => \{ el\.scrollTop = el\.scrollHeight; \}\)\);/);
+  assert.match(phone, /requestAnimationFrame\(\(\) => requestAnimationFrame\(toEnd\)\);/);
   assert.match(phone, /animation: m\._new \? "wkpop/);
   assert.match(fs.readFileSync("index.html", "utf8"), /@keyframes wkpop/);
 });

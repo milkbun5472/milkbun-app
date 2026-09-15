@@ -2541,8 +2541,19 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     if (!threadRef.current) return;
     const el = threadRef.current;
     // 两拍：这一帧 React 刚把气泡插进去，下一帧才量得到新的 scrollHeight
-    requestAnimationFrame(() => requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }));
-  }, [driveCount, driveChat, actualCount, sendAsWaiting]);
+    const toEnd = () => { el.scrollTop = el.scrollHeight; };
+    requestAnimationFrame(() => requestAnimationFrame(toEnd));
+    // 表情包是图，图是后到的：它一落地整条就变高，刚才那一下就白滚了。
+    // ⚠️只在【她还贴着底】的时候补这一下——她要是已经往上翻了，不许把她拽回来。
+    const tid = setTimeout(() => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) toEnd();
+    }, 320);
+    return () => clearTimeout(tid);
+    // ⚠️thread 也要在这串里（她 2026-09-15：「点进去不是聊天框最下面，返回聊天
+    //   也是到屏幕中间」）。原来只认「看TA玩」那几个量和消息条数——
+    //   她自己点开一条会话时这个 effect 根本不跑，于是停在浏览器给的那个位置。
+    //   真微信点进任何一条对话，都是停在最后一句上。
+  }, [driveCount, driveChat, actualCount, sendAsWaiting, thread && thread.id, thread && thread.name]);
   useEffect(() => { if (drive && driveTab) setTab(driveTab); }, [driveTab]);
   useEffect(() => {
     if (!drive) return;
@@ -2637,7 +2648,13 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   };
   if (thread && thread.type !== "contact") return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#ededed" } }, innerHead(th.name, th.type === "group" ? "群聊" : null, () => setThread(null)), h("div", { ref: threadRef, "data-watch": "thread", className: "flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4" }, arr(th.messages).concat(driveSent).map((m, i) => {
     const self = selfNames.has(m.from);
-    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text))));
+    // 表情包不套气泡：真微信里表情就是光秃秃一张图（走公共那份 EmoteBubble，
+    // 跟主聊天同一颗——她 2026-09-15 要的「渲染成聊天真发了的表情包」）
+    const body = (m.kind === "emote" && m.url)
+      ? h("div", { style: { animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } },
+          h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 108 }))
+      : h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
+    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), body));
   }),
     // 她替他发完、群里那一枪正在跑：屏幕上得看得见（她 2026-09-15）。
     // ⚠️这一颗跟主聊天那三个点是同一份（components.js 的 TypingDots），

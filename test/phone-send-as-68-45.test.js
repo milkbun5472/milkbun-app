@@ -137,7 +137,7 @@ test("等对面回话的时候，末尾挂三个点", () => {
   assert.equal((fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8").match(/rounded-full animate-pulse/g) || []).length, 0);
   assert.match(phone, /h\(TypingDots, \{ color: "#9a9a9a" \}\)/);
   // 新气泡要滚得到（她 2026-09-10 报过的老毛病）
-  assert.match(phone, /\}, \[driveCount, driveChat, actualCount, sendAsWaiting\]\);/);
+  assert.match(phone, /\}, \[driveCount, driveChat, actualCount, sendAsWaiting, thread && thread\.id, thread && thread\.name\]\);/);
 });
 
 test("私聊那一条不挂三个点：她自己的回话由她自己说", () => {
@@ -204,4 +204,41 @@ test("那一段提示词只摆事实，不列对策", () => {
   assert.match(hint, /跟平时一样由你这个人和这段关系决定/);
   ["装作没事", "将错就错", "当场戳穿", "顺着往下说", "质问"].forEach(w =>
     assert.ok(hint.indexOf(w) < 0, "提示里不许出现对策词（会被搬进心声撞守卫）：" + w));
+});
+
+// ── v68.53：点进去停在最后一句；表情包按真表情画 ────────────────────────
+test("点进任何一条会话都停在最后一句上", () => {
+  // 她 2026-09-15：「查手机微信点进去不是聊天框最下面，返回聊天也是到屏幕中间」。
+  // 病根：那个滚到底的 effect 只认「看TA玩」那几个量和消息条数，
+  // 她自己点开一条会话时根本不跑。
+  assert.match(phone, /thread && thread\.id, thread && thread\.name\]\);/);
+  // 表情是图、图是后到的：落地之后整条变高，刚才那一下就白滚了
+  assert.match(phone, /if \(el\.scrollHeight - el\.scrollTop - el\.clientHeight < 160\) toEnd\(\);/);
+  // ⚠️她已经往上翻了就不许把她拽回来
+  assert.match(phone, /不许把她拽回来/);
+  assert.match(phone, /return \(\) => clearTimeout\(tid\);/, "换会话时要把这一下取消掉");
+});
+
+test("表情包画成真表情，不是一行「[表情] 摸头」", () => {
+  // 落盘那一头：kind/url/keyword 要跟着过去，而且只写在一处
+  assert.match(app, /const richOf = m => \(m && m\.kind === "emote" && m\.url\) \? \{ kind: "emote", url: m\.url, keyword: m\.keyword \|\| "" \} : null;/);
+  assert.equal((app.match(/const richOf = /g) || []).length, 1, "私聊和群聊得取同一份");
+  assert.equal((app.match(/\.\.\.\(richOf\(m\) \|\| \{\}\)/g) || []).length, 2, "两条路都要带上");
+  // 画那一头：走公共的 EmoteBubble（跟主聊天同一颗），而且不套气泡
+  assert.match(phone, /h\(EmoteBubble, \{ url: m\.url, keyword: m\.keyword, max: 108 \}\)/);
+  assert.match(phone, /表情包不套气泡/);
+});
+
+test("表情那条消息真的画得出来，也不会把普通消息带坏", () => {
+  const sess = { id: "actual:private:c1", type: "private", name: "Lisa", messages: [
+    { from: "Lisa", text: "[表情] 摸头", ts: 1, kind: "emote", url: "data:image/png;base64,iVBOR", keyword: "摸头" },
+    { from: "沈屿白", text: "干嘛", ts: 2 }
+  ] };
+  let node;
+  assert.doesNotThrow(() => { node = openThread(sess); }, "表情那条把这一屏弄炸了");
+  const all = flat(node);
+  assert.ok(all.find(n => n.type === "EmoteBubble"), "没画成表情");
+  // 两条消息、只有一个气泡：表情那条是光秃秃一张图，没套壳
+  const bubbles = all.filter(n => n.props && n.props.style && n.props.style.padding === "9px 11px");
+  assert.equal(bubbles.length, 1, "表情不该套气泡，普通那条该有气泡");
 });
