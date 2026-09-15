@@ -77,3 +77,21 @@ test("三种状态各说各的，刚解除那一段专治「失忆」", () => {
   // 但别变成每轮翻旧账（给出口不给判决）
   assert.match(seg, /也别一开口就翻旧账/);
 });
+
+// ── v68.70：群里也要知道（她当场推翻了上一版的「群里不发」）────────────
+// 她 2026-09-15：「我觉得应该要发群吧，可以角色在群聊问我为什么拉黑他」。
+// 上一版按「关系隐私」把它挡在群外，挡错了：情侣状态那种是【说出来就穿帮】的私事，
+// 被拉黑不是——那是当事人自己最想问出口的一件事，挡住等于让他在群里若无其事。
+test("群聊两处都给，而且走情侣状态那道私事围栏", () => {
+  // 群线上：并进 cpSeg，摆在最前面
+  assert.match(app, /const l = \[blockLineFor\(c\.id\), coupleLineFor\(c\.id, userName\(profile\)\), nickLineFor\(c\.id, userName\(profile\)\)\]/);
+  // 群线下：同一道围栏、同一个顺序（四处一样喂）
+  assert.match(app, /const both = \[blockLineFor\(id\), l, nk0\]\.filter\(Boolean\)\.join\("\\n"\);/);
+  // 围栏本身没换：只有他本人知道，别的成员并不知情
+  assert.match(app, /〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
+  assert.match(engine, /〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕" \+ ctx\.memberCouple\[c\.id\]/);
+  // 句子仍然只有一份
+  assert.equal((app.match(/const blockLineFor = /g) || []).length, 1);
+  // 上一版那句「群里不发」必须删掉，不然注释和代码打架
+  assert.ok(app.indexOf("⚠️群里不发：拉黑是她和这一个人之间的事") < 0, "旧判断还留在注释里");
+});

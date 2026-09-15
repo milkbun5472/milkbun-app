@@ -28,6 +28,8 @@ function fixture() {
     // ⚠️默认给空串：绝大多数角色没有称呼，所以【没有称呼时那一段要跟以前一字不差】——
     //   那正是下面那张金牌哈希在守的东西。要试有称呼的那一路，在用例里自己覆盖它。
     nickLineFor: () => '',
+    // v68.70：拉黑／刚解除跟情侣状态、称呼同一档，落在【那位成员自己那一段】里
+    blockLineFor: () => '',
     crossChannelSaid: id => id + '跨群消息', listenRef: { current: { playlists: [{ charId: 'a', songs: [{ title: '甲的歌' }] }] } },
     window: { HeartKit: { personaText: x => x }, MoodLabel: { settle: label => ({ label, note: '' }) } },
   };

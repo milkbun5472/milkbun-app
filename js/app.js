@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.69";
+const APP_VERSION = "v68.70";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7025,7 +7025,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const l = coupleLineFor(id, userName(profile));
         // 称呼跟情侣状态同一档：这位成员的私事，落在【他自己那一段】里、带同一道隐私围栏
         const nk0 = nickLineFor(id, userName(profile));
-        const both = [l, nk0].filter(Boolean).join("\n");
+        // 拉黑／刚解除同档，摆最前面（群线上那一处一样）
+        const both = [blockLineFor(id), l, nk0].filter(Boolean).join("\n");
         if (both) m[id] = both;
       });
       return m;
@@ -11445,8 +11446,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️它以前【哪一份上下文都没进过】：blocks 那张表只在「按回复键」和「求解除」
   //   那两处临场拼一句场景话，buildBundle 里一个字都没有。于是日记读不到、
   //   查手机读不到、解除之后他也不知道发生过这件事——她说的「失忆」就是这个。
-  // ⚠️群里不发：拉黑是她和这一个人之间的事，别的成员不该知道
-  //   （跟情侣状态同一道关系隐私围栏，这是写明理由的差异）。
+  // ⚠️群里【也发】（她 2026-09-15 当场推翻了我上一版的判断：「我觉得应该要发群吧，
+  //   可以角色在群聊问我为什么拉黑他」）。上一版按「关系隐私」把它挡在群外——
+  //   挡错了：情侣状态那种是【说出来就穿帮】的私事，被拉黑不是，那是**当事人自己
+  //   最想问出口的一件事**，挡住等于让他在群里若无其事。
+  //   走的还是情侣状态那道围栏（〔以下只有某某本人知道〕）：只有他本人知道，
+  //   别的成员并不知情；他真在群里问出口了，别人才跟着知道——现实里就是这样。
   const blockLineFor = charId => {
     const b = blocksRef.current[charId] || {};
     const now = Date.now();
@@ -13834,7 +13839,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
       cpSeg: (() => {
         // ⚠️称呼也走这一段：它是这位成员的私事，别的成员并不知情（跟情侣状态同一道围栏）。
-        const l = [coupleLineFor(c.id, userName(profile)), nickLineFor(c.id, userName(profile))].filter(Boolean).join("\n");
+        // ⚠️拉黑／刚解除也在这一段（她 2026-09-15：「可以角色在群聊问我为什么拉黑他」）：
+        //   摆在最前面——被关在门外这件事压过一切日常语气。
+        const l = [blockLineFor(c.id), coupleLineFor(c.id, userName(profile)), nickLineFor(c.id, userName(profile))].filter(Boolean).join("\n");
         return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
       })(),
       // 「Ta 眼里的你」那张印象卡（她 2026-09-10：「我的群聊能不能也影响 ta 眼里，

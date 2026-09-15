@@ -79,7 +79,7 @@ test("八处一样喂：白送的那条路 + 群聊两处显式补", () => {
   // 群聊两处不走 buildBundle，所以另有一份，而且落在【那位成员自己那一段】里
   assert.match(app, /const nickLineFor = \(charId, uName\) => \{/);
   assert.equal((app.match(/nickLineFor\(/g) || []).length, 2, "群聊两处没都接上");
-  assert.match(app, /const both = \[l, nk0\]\.filter\(Boolean\)\.join\("\\n"\);/);
+  assert.match(app, /const both = \[blockLineFor\(id\), l, nk0\]\.filter\(Boolean\)\.join\("\\n"\);/);
   assert.match(app, /coupleLineFor\(c\.id, userName\(profile\)\), nickLineFor\(c\.id, userName\(profile\)\)\]/);
   // 隐私围栏跟情侣状态同一道：别的成员并不知情
   assert.match(app, /只有 " \+ c\.name \+ " 本人知道/);
