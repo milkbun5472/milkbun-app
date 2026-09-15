@@ -20,14 +20,19 @@ test("进入论坛不再自动生成楼层", () => {
 });
 
 test("后台未单独选择时跟随主模型，显式选择独立；本体仍走角色线路", () => {
+  // v68.49：三处选路合成了一份 pickRoute，所以这儿要把它一起带上
+  const picker = app.match(/const pickRoute = [^\n]+;/)[0];
   const declaration = app.match(/const bgActive =[^\n]+;/)[0];
-  const resolve = new Function("bgApiId", "apiProfiles", "active", declaration + "return bgActive;");
+  const resolve = new Function("bgApiId", "apiProfiles", "active", picker + declaration + "return bgActive;");
   const main = {id: "main", baseUrl: "https://main.invalid", model: "main"};
   const bg = {id: "bg", baseUrl: "https://bg.invalid", model: "background"};
   assert.equal(resolve(null, [main, bg], main), main);
   assert.equal(resolve("", [main, bg], bg), bg);
   assert.equal(resolve("bg", [main, bg], main), bg);
-  assert.equal(resolve("missing", [main, bg], main), null);
+  // ⚠️这一行 v68.49 翻过来了，翻的是她的报修不是我改坏了：原来「选的那条被删了」返回 null，
+  //   而后台那一堆是硬 guard 在 !bgActive 上的，于是记忆抽取/日程/钱包/查手机/随身物
+  //   一起罢工（她 2026-09-15 报的就是这个）。现在跟 offlineActive / apiFor 一样退回主模型。
+  assert.equal(resolve("missing", [main, bg], main), main, "选的那条没了就该退回主模型");
   assert.equal(resolve(null, [], undefined), null);
   assert.match(app, /saveJSON\("x_bgApi", id\)/);
   assert.match(app, /const bgApiFor = id => apiFor\(id\)/);

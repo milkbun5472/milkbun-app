@@ -7701,8 +7701,12 @@ function ApiConfig({
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 11 } }, sub),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+      // ⚠️选中的那条要是【已经被删掉了】，这儿原来一档都不高亮——看起来就像「我选的是
+      //   跟随主模型」，可存着的 id 还在，行为是另一回事（她 2026-09-15 撞的就是这个）。
+      //   现在认不出来就当没选：显示和实际用的那条（pickRoute 的兜底）对上。
       [{ id: null, name: noneLabel }].concat(list).map(p => {
-        const on = (selectedId || null) === (p.id || null);
+        const live = (list || []).some(x => x && x.id === selectedId) ? selectedId : null;
+        const on = (live || null) === (p.id || null);
         return h("button", { key: p.id || title, onClick: () => setter(p.id || null), className: "active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
       })));

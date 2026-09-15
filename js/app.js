@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.49";
+const APP_VERSION = "v68.50";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -829,7 +829,7 @@ function App() {
   // 于是她一次次去修【聊天】那条——而建卡和复看走的是【后台任务模型】那条，怎么修都修不到点上）。
   // ⚠️bgActive 在没单独选后台线路时就是主模型本身，所以得看 bgApiId 有没有真的选过。
   const gazeRouteZh = p => (!p ? "没有可用线路"
-    : ((bgApiId && bgActive && p.id === bgActive.id) ? "后台任务模型" : "主模型") + "「" + (p.name || "未命名") + "」");
+    : ((routePicked(bgApiId) && bgActive && p.id === bgActive.id) ? "后台任务模型" : "主模型") + "「" + (p.name || "未命名") + "」");
   const gazeCall = async (p, levels, onFallback) => {
     let last = null;
     for (let i = 0; i < levels.length; i++) {
@@ -1556,9 +1556,23 @@ function App() {
   }, []);
   const active = apiProfiles.find(p => p.id === activeId) || apiProfiles[0];
   // 线上/线下全局分流：未选择线下线路时完全沿用旧行为。
-  const offlineActive = (offlineApiId && apiProfiles.find(p => p.id === offlineApiId)) || active;
+  // 选哪条线路：**选了就用选的；没选、或者选的那条已经被删掉了，一律退回主模型**。
+  // ⚠️她 2026-09-15：「随身物是不是没有专门设后台api选择了主模型就用不了」。
+  //   查下来三处里只有 bgActive 是另一种写法——
+  //     offlineActive / apiFor：(id && find(id)) || active  ← 找不到就退回主模型
+  //     bgActive（旧）        ：id ? (find(id) || null) : active  ← **找不到就变成 null**
+  //   而一堆后台活是硬 guard 在 `if (!bgActive)` 上的，于是 bgApiId 指着一条删掉的线路时，
+  //   记忆抽取、日程、钱包、查手机、随身物…一起罢工，报的还是「请先到设置配置后台便宜 API」。
+  //   设置里那一栏这时也不会高亮任何一档（删掉的 id 不在列表里），看起来就像「我选的是
+  //   跟随主模型啊，怎么用不了」——正是她看到的那一幕。
+  // 三处合到这一份（施工规则/one-public-mechanism.md）：以后再加一条线路，兜底是白得的。
+  const pickRoute = (id, fallback) => (id && apiProfiles.find(p => p.id === id)) || fallback || null;
+  // 这条线路是不是【她真的挑过、而且还在】——只用来说话（标签上写主模型还是后台模型），
+  // 不参与选路：选路一律走 pickRoute。
+  const routePicked = id => !!(id && apiProfiles.some(p => p.id === id));
+  const offlineActive = pickRoute(offlineApiId, active);
   // 和设置页同一契约：不选跟随主模型，选了走独立线路；失效的显式选择不偷偷换线路。
-  const bgActive = bgApiId ? (apiProfiles.find(p => p.id === bgApiId) || null) : (active || null);
+  const bgActive = pickRoute(bgApiId, active);
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
 
   const aShadowOwnerId = async () => {
@@ -1612,7 +1626,7 @@ function App() {
   }, [chatSettingsOpen, activeChar && activeChar.id]);
   const generateTemperamentDraft = async anchorsNow => {
     if (!activeChar || temperamentBusy) return;
-    if (!bgActive) { toast("请先到设置配置后台 API"); return; }
+    if (!bgActive) { toast("请先到设置配置 API"); return; }
     setTemperamentBusy(true);
     try {
       // 这几个词要落到本地那张性情词典上才会真的影响脾气，所以把表里认得的说法摆给它看
@@ -2167,9 +2181,9 @@ function App() {
   const stripAiStamp = w => String(w == null ? "" : w).replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "").trim();
   // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定时线上跟随全局线上主线路。
   // 角色专线覆盖所有「这个角色本人开口」的场合；线下无专线角色则由 offlineApiFor 回退全局线下线路。
-  const apiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || active; };
+  const apiFor = id => pickRoute((chatSettings[id] || {}).apiId, active);
   // 角色专线永远优先于全局场景线路：例如只走 Fable 的角色，线上/线下都不会被全局 Gemini 覆盖。
-  const offlineApiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || offlineActive; };
+  const offlineApiFor = id => pickRoute((chatSettings[id] || {}).apiId, offlineActive);
   // 本体文本不是机械活：有角色专线走专线，否则仍由线上主池本人落笔，绝不交给 cheap_required 代写。
   const bgApiFor = id => apiFor(id);
   // 只算【还存在的角色/群】的未读——防幽灵红点（未读挂在已删角色/群等列表里看不到的 key 上，加进总数却清不掉，她 2026-07-23 报）
@@ -3308,7 +3322,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
-    if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
+    if (!bgActive) { toast("请先到设置配置 API"); return; }
     const todo = memLibRef.current.filter(e => e && e.text && typeof e.a !== "number");
     if (!todo.length) { toast("所有记忆都已评估过情绪啦"); return; }
     setEmoBusy(true);
@@ -3349,7 +3363,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const isRefinable = e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= REFINE_OLD_DAYS * 86400000; };
   const refineOldMemories = async (scopeCharId, opts = {}) => {
-    if (!bgActive) { if (!opts.auto) toast("请先到设置配置后台便宜 API"); return 0; }
+    if (!bgActive) { if (!opts.auto) toast("请先到设置配置 API"); return 0; }
     const now = Date.now();
     let pool = memLibRef.current.filter(isRefinable);
     if (scopeCharId && scopeCharId !== "all") pool = pool.filter(e => memShareChar([scopeCharId], e.charIds));
@@ -3467,7 +3481,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
   };
   const extractMemForChar = async charId => {
-    if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
+    if (!bgActive) { toast("请先到设置配置 API"); return; }
     const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40);
     if (msgs.length < 2) { toast("对话太少，先多聊几句"); return; }
     startLane("c:" + charId);
@@ -3518,7 +3532,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 从旧的「长期记忆总结」一次性拆成离散条目导入记忆库（去重）；不删旧总结
   const importOldMemoryToLib = async charId => {
-    if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
+    if (!bgActive) { toast("请先到设置配置 API"); return; }
     const blob = (memories[charId] || "").trim();
     if (!blob) { toast("这个角色没有旧的长期记忆可导入"); return; }
     const char = characters.find(c => c.id === charId);

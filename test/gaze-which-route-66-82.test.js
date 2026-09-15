@@ -20,8 +20,11 @@ const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 test("报错要说清是哪条线路——不说的话她只能挨条去试", () => {
   assert.match(app, /const gazeRouteZh = p =>/);
   // bgActive 在没单独选后台线路时【就是主模型】，所以得看 bgApiId 有没有真的选过
-  assert.match(app, /\(bgApiId && bgActive && p\.id === bgActive\.id\) \? "后台任务模型" : "主模型"/,
-    "不看 bgApiId 的话，没选过后台线路的人也会被告知「后台任务模型坏了」");
+  // v68.49：判据从「bgApiId 非空」收紧成「真的挑过、而且那条还在」（routePicked）——
+  //   选的那条被删掉之后实际走的是主模型，再说「后台任务模型坏了」就是说了假话。
+  assert.match(app, /\(routePicked\(bgApiId\) && bgActive && p\.id === bgActive\.id\) \? "后台任务模型" : "主模型"/,
+    "不看是否真挑过的话，没选过后台线路的人也会被告知「后台任务模型坏了」");
+  assert.match(app, /const routePicked = id => !!\(id && apiProfiles\.some\(p => p\.id === id\)\);/);
   assert.match(app, /p\.name \|\| "未命名"/, "只说「后台任务模型」不说是哪一条，她有好几条的时候还是得挨个试");
   // 三个出口都要带上：卡上那一行、点开的原文、当场那个 toast
   assert.match(app, /markReviewFail\(char\.id, e\.message \|\| "调用没成", gazeRouteZh\(p\)\)/);
