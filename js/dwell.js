@@ -238,6 +238,7 @@
       if (shot) { setShot(""); }
       else if (item) { setItem(null); }
       else if (zone) { setZoneIdx(-1); }
+      else if (view === "room") { setView("place"); }
       else if (view === "place") { setOpenId(null); setZoneIdx(-1); setView("places"); }
       else if (view === "places") { setSelId(""); setView("who"); }
       else if (view === "who") { setOpening(false); setView("door"); }
@@ -433,6 +434,12 @@
     //   原来图底下还铺着一整段台面（每块区域一条，摆着那儿的东西）——那是同一批入口的第二份，
     //   而且它把图挤成了「顶上一张插图」。入口图上已经有了，第二份就只是占地方。
     //   台面这个形状留着，它在【区域页】还是主角（走近了看那一块）。这里只留图。
+    // ── 走进去看看（v68.71，她 2026-09-15 要的那间能拖着看的屋子）──────────
+    // ⚠️零调用：屋里摆的就是这一页上这几块区域里的东西，一件不多一件不少。
+    //   点一件弹出来的那两句，也是去处生成时本来就写好的 note 和 thought。
+    if (view === "room" && open && window.RoomView) {
+      return h(window.RoomView, { place: open, char: char, onBack: function () { setView("place"); } });
+    }
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
       return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK } },
@@ -444,6 +451,13 @@
             // 第一屏的底比底衬暗一档，直接接会拉出一条横线像坏了。这一段顶上补一道压暗，
             // 一百来像素里化开，翻下去是「图糊了」，不是「换了一页」。
             h("div", { className: "px-5", style: { paddingTop: 30, backgroundImage: "linear-gradient(180deg,rgba(5,8,10,.3) 0,rgba(5,8,10,0) 116px)" } },
+              // 「走进去」是这一页的头一件事，所以它单独一行、在那两颗上面。
+              // ⚠️还没有区域／东西的时候不给：进去是一间空屋子，按了等于没反应
+              //（「按了没反应的按钮比没有按钮更糟」）。
+              (open.zones || []).some(function (z) { return (z.items || []).length; }) && window.RoomView
+                ? h("button", { onClick: function () { setView("room"); }, className: "w-full active:opacity-70",
+                    style: { minHeight: 46, borderRadius: 10, marginBottom: 9, background: OVER_INK, color: "#1b2126",
+                      fontFamily: F_DISPLAY, fontSize: 14 } }, "走进去看看") : null,
               h("div", { className: "grid grid-cols-2", style: { gap: 9 } },
                 h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, background: OVER_INK, color: "#1b2126", fontFamily: F_BODY, fontSize: 12 } }, busy ? "正在再看一遍…" : "再去看一遍"),
                 h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, border: "1px solid " + OVER_LINE, background: OVER_CARD, color: OVER_INK, fontFamily: F_BODY, fontSize: 12 } }, drawing ? "正在画这儿…" : (open.img ? "重画这儿的样子" : "画一张这儿的样子"))),
