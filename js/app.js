@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.48";
+const APP_VERSION = "v68.49";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9632,14 +9632,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId });
       } else {
         const _live = statesRef.current[charId] || {};
-        if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") {
-          st.thought = parsed.thought; st.thoughtUpdatedAt = stateNow; st.thoughtSkips = 0;
-        } else if (!_s.engineerEyes) {
+        if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_s.engineerEyes) {
           // 普通角色本轮没有产出有效心声时立刻清掉旧快照，绝不拿上一轮冒充本轮更新。
-          st.thought = null; st.thoughtUpdatedAt = 0;
-          const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
-          st.thoughtSkips = skips;
-          if (skips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
+          // ⚠️这条规矩群聊那一处也要用，所以它住在 ThoughtVoiceGuard.turnPatch 一处。
+          Object.assign(st, window.ThoughtVoiceGuard.turnPatch(_live, parsed.thought, stateNow));
+          if (st.thought == null && st.thoughtSkips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
         } else {
           // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于TA。
           const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
@@ -10550,6 +10547,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   ⚠️额度只是上限：第二次还得【真的跟上一条不一样】（sameActLine 那道）才摆得出来。
         const ACT_PER_TURN = 2;
         const _actOnce = new Map();
+        // 这一轮已经真写下过心声的那几个人（见下面 turnPatch 那一处）
+        const _thoughtOnce = new Set();
         // 回声判定的比对文本：先装她这一整轮，然后随着本批成员依次开口往后累加
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         for (let i = 0; i < safeArr.length; i++) {
@@ -10784,10 +10783,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gThink = rawGThink && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(rawGThink) : rawGThink;
             if (spk && !spk.npc && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
+            // ⚠️同一个人这一轮说了好几条时，只认【第一条真写下心声的那一次】：
+            //   后面那几条没心声，不该反过来把刚写进去的那条清掉。
+            const _thoughtDone = _thoughtOnce.has(spk && spk.id);
+            if (spk && gThink) _thoughtOnce.add(spk.id);
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
               const stateNow = Date.now();
-              const ns = { ...liveState, ...(gThink ? { thought: gThink, thoughtUpdatedAt: stateNow, thoughtSkips: 0 } : {}), ...(gWear ? { wearing: gWear, wearingUpdatedAt: stateNow } : {}), ...(gAction ? { action: gAction, actionUpdatedAt: stateNow } : {}), mood: moodLabel || liveState.mood, ts: stateNow, turnId: gTurnId, affinityBefore };
+              // 这一轮没有有效心声就【清掉旧的】，绝不沿用上一条——跟单聊同一份规矩
+              //（ThoughtVoiceGuard.turnPatch）。守卫拒一次就永远挂着上一条的话，
+              // 状态卡看起来是冻住的（她 2026-09-15：「他心声都不会变了，对方的还会变」）。
+              const tp = (gThink || !_thoughtDone) && window.ThoughtVoiceGuard && window.ThoughtVoiceGuard.turnPatch
+                ? window.ThoughtVoiceGuard.turnPatch(liveState, gThink, stateNow) : {};
+              const ns = { ...liveState, ...tp, ...(gWear ? { wearing: gWear, wearingUpdatedAt: stateNow } : {}), ...(gAction ? { action: gAction, actionUpdatedAt: stateNow } : {}), mood: moodLabel || liveState.mood, ts: stateNow, turnId: gTurnId, affinityBefore };
               setStateFor(spk.id, ns);
               pushStateHist(spk.id, ns);
             }

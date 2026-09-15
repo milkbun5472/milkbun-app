@@ -106,8 +106,13 @@ test("她替他发的那一条，模型看见的是「这不是你打的」", ()
   // 只写在一处，三条载体共用
   assert.match(engine, /const bySomeoneElseMark = \(uName, who\) =>/);
   assert.equal((engine.match(/const bySomeoneElseMark = /g) || []).length, 1);
-  // 给出口不给判决（施工规则/bans-make-it-dumber）：认／戳穿／将错就错都成立
-  assert.match(engine, /没有标准答案，也不必每次都提/);
+  // 给出口不给判决（施工规则/bans-make-it-dumber）：怎么想是他自己的事
+  assert.match(engine, /提不提、怎么想，跟平时一样由/);
+  // ⚠️这儿不许列对策：那几个词会被原样搬进 thought，正好撞上心声守卫的导演稿判据，
+  //   于是他的心声每轮被拒、状态卡冻住（她 2026-09-15 报的）。v68.47 就是这么栽的。
+  const mark = (engine.match(/const bySomeoneElseMark = [\s\S]*?;\n/) || [""])[0];
+  ["装作没事", "将错就错", "当场戳穿", "顺着往下说"].forEach(w =>
+    assert.ok(mark.indexOf(w) < 0, "标注里不许出现对策词：" + w));
   // ① 单聊线上 ② 群聊那一行 ③ recentChat（线下/通话/穿书/匿名箱/解梦馆都从这儿拿）
   assert.match(app, /const byU = m\.byUser \? bySomeoneElseMark\(uName, char\.name\) : "";/);
   assert.match(app, /const ac = stp \+ byU \+/);
@@ -146,4 +151,23 @@ test("群里那一枪跑着的时候，那一屏真的画得出三个点", () =>
   let node;
   assert.doesNotThrow(() => { node = openThread(sess, { onSendAs: () => true, sendAsWaiting: "actual:group:g_1" }); });
   assert.ok(flat(node).find(n => n.props && n.props["aria-label"] === "对面正在回复"), "没画出三个点");
+});
+
+test("守卫拒了一次，不能让那个人的心声永远冻在上一条", () => {
+  // 她 2026-09-15：「他继续接话心声都不会变了，对方的还会变」。
+  // 病根：群里那一处原来是 `...(gThink ? { thought } : {})`——accept() 拒掉之后
+  // 什么都不写，旧念头从 liveState 原样抄回去，于是只有被拒过的那个人冻住。
+  // 单聊早就是「立刻清掉」，又是一层写在两处、第二处没跟上。
+  const guard = require("../js/thought-voice-guard.js");
+  assert.deepEqual(guard.turnPatch({ thought: "旧的", thoughtSkips: 1 }, null, 9),
+    { thought: null, thoughtUpdatedAt: 0, thoughtSkips: 2 }, "没有新心声时旧的必须清掉");
+  assert.deepEqual(guard.turnPatch({ thoughtSkips: 5 }, "她怎么在这儿", 9),
+    { thought: "她怎么在这儿", thoughtUpdatedAt: 9, thoughtSkips: 0 });
+  // 单聊和群聊共用这一份，谁都不许再写第二套
+  assert.match(app, /ThoughtVoiceGuard\.turnPatch\(_live, parsed\.thought, stateNow\)/, "单聊那一处没走公共的");
+  assert.match(app, /window\.ThoughtVoiceGuard\.turnPatch\(liveState, gThink, stateNow\)/, "群聊那一处没走公共的");
+  assert.equal((app.match(/thoughtUpdatedAt: 0/g) || []).length, 1, "别处不许再自己写一遍清空");
+  // 同一个人一轮说好几条：后面几条没心声，不该把刚写下的那条清掉
+  assert.match(app, /const _thoughtOnce = new Set\(\);/);
+  assert.match(app, /const tp = \(gThink \|\| !_thoughtDone\) &&/);
 });

@@ -65,11 +65,16 @@ test("接在单聊气泡流水线上，engineerEyes 照旧跳过", () => {
 test("普通角色每轮强制刷新，言秋仍由自己的协议决定", () => {
   assert.match(app, /【本轮心声·普通角色必填】/);
   assert.match(app, /每轮必须写一句，禁止 null、空串或省略/);
-  assert.match(app, /else if \(!_s\.engineerEyes\)/);
+  // v68.48 起普通角色那一支走公共的 ThoughtVoiceGuard.turnPatch（群聊也要用同一份）
+  assert.match(app, /\|\| !_s\.engineerEyes\) \{/);
+  assert.match(app, /ThoughtVoiceGuard\.turnPatch\(_live, parsed\.thought, stateNow\)/);
   assert.match(app, /言秋由自己的协议决定是否写心声/);
 });
 
 test("缺失计数必须一直数下去，不能只在还挂着旧念头时才数", () => {
+  // 普通角色那一支的计数搬进 turnPatch 一处；言秋那一支仍在 app.js 自己数
+  const guard = fs.readFileSync(path.resolve(__dirname, "..", "js", "thought-voice-guard.js"), "utf8");
+  assert.match(guard, /thoughtSkips: Math\.min\(\(Number\(\(live \|\| \{\}\)\.thoughtSkips\) \|\| 0\) \+ 1, 99\)/);
   assert.match(app, /const skips = Math\.min\(\(Number\(_live\.thoughtSkips\) \|\| 0\) \+ 1, 99\);/);
   assert.match(app, /普通角色本轮没有产出有效心声时立刻清掉旧快照/);
   // 言秋清空旧念头仍只对「确实还挂着」的情况有意义

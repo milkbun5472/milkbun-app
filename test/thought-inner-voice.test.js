@@ -41,7 +41,9 @@ test("旧导演稿不再作为下一轮心声范文回喂", () => {
 test("普通角色心声守卫拒绝时不再冻结旧快照，言秋仍保持自愿", () => {
   assert.match(app, /parsed\.thought = guardedThought/);
   assert.doesNotMatch(app, /guardedThought \|\| \(!_s\.engineerEyes && rawThought/);
-  assert.match(app, /else if \(!_s\.engineerEyes\)/);
-  assert.match(app, /st\.thought = null; st\.thoughtUpdatedAt = 0;/);
+  assert.match(app, /\|\| !_s\.engineerEyes\) \{/);
+  // 「没有新心声就清掉旧的」搬进了公共那一份（群聊那一处原来就缺这条）
+  const guard = fs.readFileSync(require.resolve("../js/thought-voice-guard.js"), "utf8");
+  assert.match(guard, /return \{ thought: null, thoughtUpdatedAt: 0, thoughtSkips:/);
   assert.match(app, /普通角色本轮没有产出有效心声时立刻清掉旧快照/);
 });

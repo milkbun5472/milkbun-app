@@ -81,5 +81,18 @@
     return text;
   }
 
-  return { inspect, accept, normalizeAction, normalizeAppellation };
+  // 这一轮的心声怎么落进状态卡。单聊和群聊共用一份（施工规则/one-public-mechanism）。
+  // ⚠️「这一轮没有有效心声」必须【清掉旧的】，绝不能沿用上一条——
+  //   accept() 拒一次就永远挂着上一条，状态卡看起来是冻住的。
+  //   她 2026-09-15 在群里撞到：「他继续接话心声都不会变了，对方的还会变」——
+  //   群里那一处原来是 `...(gThink ? { thought } : {})`，拒了就什么都不写，
+  //   旧念头从 liveState 里原样抄回去，于是只有守卫拒过的那个人冻住。
+  //   单聊（v?? 起）早就是「立刻清掉」，又是一层写在两处、第二处没跟上。
+  function turnPatch(live, next, now) {
+    const text = clean(next);
+    if (text && text.toLowerCase() !== "null") return { thought: text, thoughtUpdatedAt: now, thoughtSkips: 0 };
+    return { thought: null, thoughtUpdatedAt: 0, thoughtSkips: Math.min((Number((live || {}).thoughtSkips) || 0) + 1, 99) };
+  }
+
+  return { inspect, accept, normalizeAction, normalizeAppellation, turnPatch };
 });
