@@ -51,7 +51,9 @@ test('群线下六张成员表来自同一读取，跟线上/通话的字段一�
   const env = wire(fixture());
   Object.assign(env, {
     group: { memberIds: ['a', 'b', 'npc'] }, groupMembers: () => env.members,
-    groupOfflineMemSplit: () => ({}), rels: [], PERSONA_EVOLVE_IDS: [], wishRef: { current: [] }
+    groupOfflineMemSplit: () => ({}), rels: [], PERSONA_EVOLVE_IDS: [], wishRef: { current: [] },
+    // v68.65：群线下也开始读「她今天身上带着什么」（四处一样喂）
+    inventoryRef: { current: [] }
   });
   const prefix = cut(app, '  const ctxForGroupOffline =', '    // 印象卡跟长期记忆同一档');
   const ctx = evaluate(prefix + '\n});\n};', env, 'ctxForGroupOffline(group)');

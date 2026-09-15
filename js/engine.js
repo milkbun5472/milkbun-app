@@ -2689,6 +2689,16 @@ function coupleArchiveBlock(text, uName) {
 }
 if (typeof window !== "undefined") window.coupleArchiveBlock = coupleArchiveBlock;
 
+// 她今天身上带着的那一两件东西（v63.98 立，v68.65 搬成公共的）。
+// ⚠️原来这句话只内联在 buildBundle 里，于是【只有走 buildBundle 的那几处】看得见：
+//   单聊线上、单人线下、通话有；**群聊线上和群线下一个字都没有**。
+//   群里那位报的正是这个：「我购物完带在身上去见他们，他们好像也没提到我带了东西？」
+//   ——她去见的是【他们】，而那两处恰好是漏的（施工规则/four-surfaces-same-context）。
+//   「她想要什么」早就四处都给了，这一条一直落在单人那两处。
+function onMeLine(onMe, uName) {
+  return "【" + (uName || "她") + "今天身上带着：" + String(onMe).trim() + "】"
+    + "见了面你看得见它。要不要提是你的事——顺口说一句、或者只是心里记下都行，别每次都拿它开场。";
+}
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -2862,8 +2872,7 @@ function buildBundle(ctx, opts) {
     + "**其中要是有一颗是你自己埋的，那更要管住嘴**：那是留给拆开那天的话，现在一个字都不许提前说出来，也别暗示。"
     + "聊到相关的时候可以惦记一句、数数日子；但别每次都提，多数时候它就安安静静埋在那儿。");
   // 她身上带着的东西（v63.98）：见了面才看得见，所以只说「在她身上」，别替TA惊叹
-  if (ctx.onMe && String(ctx.onMe).trim()) parts.push("【她今天身上带着：" + String(ctx.onMe).trim() + "】"
-    + "见了面你看得见它。要不要提是你的事——顺口说一句、或者只是心里记下都行，别每次都拿它开场。");
+  if (ctx.onMe && String(ctx.onMe).trim()) parts.push(onMeLine(ctx.onMe, uName));
   // 送出去的东西有了回响（v63.98）：以前TA送完就再没有下文
   if (ctx.usedLog && String(ctx.usedLog).trim()) parts.push("【你送她的这些，她用掉了：" + String(ctx.usedLog).trim() + "】"
     + "东西是拿来用的，用完了是好事，不是可惜。你知道这件事；聊到相关的自然提一句就够，别追着问好不好吃／好不好用，也别拿它邀功。");
@@ -6191,6 +6200,8 @@ async function generateOfflineGroup(p, ctx, session) {
     "\n\n【在场角色】\n" + memberDesc +
     memberExampleText +
     (ctx.profile && (ctx.profile.name || ctx.profile.persona) ? "\n\n【用户「" + userName + "」的设定】\n" + (ctx.profile.persona || "（未填写）") : "") +
+    // 她今天身上带着什么（四处一样喂）：跟单聊同一句，走公共那一份
+    (ctx.onMe && String(ctx.onMe).trim() ? "\n\n" + onMeLine(ctx.onMe, userName) : "") +
     // 她想要什么（四处一样喂）：用户的信息，群里共享一份
     (ctx.wishLog && ctx.wishLog.trim() ? "\n\n【" + userName + " 最近看上但没买的东西】（她在购物 app 里点了「想要」，在场的人都可能知道。记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；绝不是每轮都该送，也别几个人抢着送，更别把这张单子念出来。）\n" + ctx.wishLog.trim() : "") +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines +
