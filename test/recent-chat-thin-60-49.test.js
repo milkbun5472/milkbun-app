@@ -52,10 +52,11 @@ test("线下那几行带着时刻——他要靠这个知道那场戏发生在�
 });
 
 test("只在【历史会另发一遍】那条路上瘦身，别的调用方照旧拿全文", () => {
-  assert.match(app, /roomContextFor\(char, chatKey, room, \{ chat: true, thinOnline: !_singleHistoryLayout \}\)/);
+  assert.match(app, /roomContextFor\(char, chatKey, room, \{ chat: true, thinOnline: _shape\.thinOnline \}\)/);
+  assert.match(app, /thinOnline: !single,/, "瘦身与否仍然只由「历史会不会另发一遍」决定");
   assert.match(app, /const thinOnline = !!\(ctxOpts && ctxOpts\.thinOnline\);/);
   // anthropic 那条路本来就整块清空，别改成瘦身版（那会白留一块没用的标记）
-  assert.match(app, /_singleHistoryLayout \? \{ \.\.\._gated, recentChat: "" \} : _gated/);
+  assert.match(app, /_shape\.blankRecent \? \{ \.\.\._gated, recentChat: "" \} : _gated/);
 });
 
 test("⚠️不许顺手动『system 从【当前真实时间】劈两半』那条切法", () => {

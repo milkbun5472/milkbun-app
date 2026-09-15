@@ -29,7 +29,10 @@ test("角色内诊断默认锁定本人，开放请求诊断并收起影子总�
 
 test("全局与角色内诊断共用只读 bundle 构建", () => {
   assert.match(app, /const inspectBundleFor = cid =>/);
-  assert.match(app, /buildBundle\(ctxFor\(c, \{ debug: true \}\)\)/);
+  // v68.67 翻的：原来这一页用 ctxFor(char) 现搭一份，不认房间也不认线路方言——
+  //   她在侧房点开，看到的是主聊天几百条之前的尾巴（2026-09-15 圈的那一块）。
+  //   现在照发送那条路搭：同一间房、同一个历史形状。
+  assert.match(app, /roomContextFor\(c, key, room, \{ debug: true, chat: true, thinOnline: shape\.thinOnline \}\)/);
   assert.match(app, /debugBundleFor: inspectBundleFor/);
   assert.match(app, /getBundle: inspectBundleFor/);
 });

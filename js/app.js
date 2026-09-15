@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.67";
+const APP_VERSION = "v68.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8160,14 +8160,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _route = apiFor(charId) || {};
       // 订阅桥不能只看 baseUrl：Max/Fable 的 Anthropic 身份常写在 proxyRef/model。
       // 识别正确后照样发送稳定 system + 历史断点；内容与预算一字不裁。
-      const _histCache = (typeof detectFormat === "function" ? detectFormat(_route) : "openai") === "anthropic";
-      const _singleHistoryLayout = _histCache || _engineerChat;
+      const _shape = chatSendShapeFor(charId, sideRoom);
+      const _singleHistoryLayout = _shape.singleHistoryLayout;
       // 历史会不会另外作为 messages 发一遍，决定【最近对话】要不要留线上原文：
       // _singleHistoryLayout 那条路本来就把 recentChat 整块清空（见下面 buildBundle），
       // 剩下这条（openai 方言，订阅桥就是）才是重复的那个。
-      const _gated = roomContextFor(char, chatKey, room, { chat: true, thinOnline: !_singleHistoryLayout });
-      if (sideRoom) _gated.recentChat = ""; // 本房原文在下方 messages 中发送一次。
-      const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._gated, recentChat: "" } : _gated);
+      const _gated = roomContextFor(char, chatKey, room, { chat: true, thinOnline: _shape.thinOnline });
+      const _bundleFull = buildBundle(_shape.blankRecent ? { ..._gated, recentChat: "" } : _gated);
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
       if (_singleHistoryLayout) {
         const _cutTime = _bundleFull.indexOf("【当前真实时间】");
@@ -11435,6 +11434,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const roomHistoryText = (char, chatKey) => {
     const rows = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
     return rows.slice(-20).map(m => (m.role === "user" ? profile.name || "我" : char.name) + "：" + (m.content || "")).join("\n");
+  };
+  // 【这一轮的历史到底怎么发】——只此一份。
+  // ⚠️她 2026-09-15 抓到：「TA 知道什么」里的【最近对话】是几百条之前的。
+  //   病根是这一层【写在两处，第二处没跟上】：真正发送那条路会按线路方言和房间
+  //   决定「历史另发一份 messages、这一块就不重复」，而诊断页那条路压根不知道有这回事——
+  //   它自己用主聊天现搭了一份，于是她在侧房里看到的是主聊天几百条之前的尾巴。
+  //   要改就改这一处，两边一起变（施工规则/one-public-mechanism.md）。
+  const chatSendShapeFor = (charId, sideRoom) => {
+    const route = apiFor(charId) || {};
+    // 订阅桥不能只看 baseUrl：Max/Fable 的 Anthropic 身份常写在 proxyRef/model
+    const histCache = (typeof detectFormat === "function" ? detectFormat(route) : "openai") === "anthropic";
+    const single = histCache || !!settingsFor(charId).engineerEyes;
+    return {
+      singleHistoryLayout: single,
+      thinOnline: !single,          // 线上那半压成位置标记，线下原样留着
+      blankRecent: single || !!sideRoom  // 这一块整个不发：原文就在 messages 里
+    };
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
@@ -20546,10 +20562,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
 
   // ---- routing ----
   // 上下文诊断共用同一条只读构建口：全局设置可总览，角色聊天设置则把当前角色锁进去。
+  // 「查上一轮真的发了什么」——那就得【真的】照发送那条路搭一遍：同一间房、同一个历史形状。
+  // ⚠️原来这儿是 buildBundle(ctxFor(c, {debug:true}))：不认房间、不认线路方言，
+  //   于是她在侧房里点开，看到的是主聊天几百条之前的尾巴（她 2026-09-15 圈出来的那一块）。
   const inspectBundleFor = cid => {
     try {
       const c = characters.find(x => x.id === cid);
-      return c ? buildBundle(ctxFor(c, { debug: true })) : "";
+      if (!c) return "";
+      const rooms = window.ChatRooms;
+      const key = rooms ? rooms.chatKey(cid, activeRoomId) : cid;
+      const room = rooms ? rooms.get(cid, activeRoomId) : null;
+      const shape = chatSendShapeFor(cid, !!(room && !room.main));
+      const gated = roomContextFor(c, key, room, { debug: true, chat: true, thinOnline: shape.thinOnline });
+      // 这一块真的没发——但直接留空她会以为是坏了。写清楚它去哪儿了：
+      // 这一页答的是「发了什么」，「这一块为什么不在」也是答案的一部分。
+      if (shape.blankRecent) gated.recentChat = "（这一轮没有这一块：聊天记录是作为单独的消息记录发出去的，没有在这儿重复第二份。）";
+      return buildBundle(gated);
     } catch (e) { return "生成失败：" + (e.message || e); }
   };
   const activeOfflineScopeKey = offlineChar

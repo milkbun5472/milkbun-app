@@ -63,9 +63,11 @@ test("ordinary characters use stable protocol v2 and a minimal per-turn task", (
 
 test("engineerEyes subscription chat caches one full-budget history copy", () => {
   assert.match(source, /\? \{ maxChars: 7000, maxMessages: 48 \}/);
-  assert.match(source, /const _singleHistoryLayout = _histCache \|\| _engineerChat/);
+  // v68.67：方言 + engineerEyes 这两条合进 chatSendShapeFor，行为不变
+  assert.match(source, /const single = histCache \|\| !!settingsFor\(charId\)\.engineerEyes;/);
+  assert.match(source, /const _singleHistoryLayout = _shape\.singleHistoryLayout;/);
   assert.match(source, /recentChat: ""/);
-  assert.match(source, /detectFormat\(_route\)/);
+  assert.match(source, /detectFormat\(route\) : "openai"\) === "anthropic"/);
   // ⚠️言秋那一支（3000）是他的专线，钉死；普通角色那一支只要求【够写完】，不冻具体数
   //   （v59.96 全 app 抬到 ≥8000，见 施工规则/max-tokens-floor.md）
   // ⚠️v59.98：她亲口说「言秋的也给足吧，不然他也不够思考的」，

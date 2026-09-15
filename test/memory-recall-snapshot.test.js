@@ -26,7 +26,8 @@ test("真实聊天留下可读但不持久化的最终召回快照", () => {
 });
 
 test("上下文诊断只读重建且展示上一轮具体命中", () => {
-  assert.match(app, /buildBundle\(ctxFor\(c, \{ debug: true \}\)\)/);
+  // v68.67：诊断页改成照发送那条路搭（认房间、认线路方言），debug 仍然是只读的那把
+  assert.match(app, /roomContextFor\(c, key, room, \{ debug: true, chat: true/);
   assert.match(app, /touch: !\(ctxOpts && ctxOpts\.debug === true\)/);
   assert.match(screens, /上一轮真实召回/);
   assert.match(screens, /MemoryRecallSnapshot\.get\(id\)/);
