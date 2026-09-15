@@ -24,3 +24,14 @@ assert.deepEqual(G.splitBubbles("一句里有逗号，但仍然完整"), ["一�
 assert.deepEqual(G.splitBubbles("先等等……我想想。"), ["先等等……", "我想想。"]);
 
 console.log("group identity guard tests passed");
+
+// 她 2026-09-15：「群聊那个提醒说漏嘴的 toast 也去掉吧宝宝，一直误报」。
+// 守卫照旧拦，只是不再弹到她眼前：被拦掉的那条本来就不会出现在屏幕上，
+// 弹出来只是一句她看不懂的报警。想知道拦了什么，看这份测试，别加 toast。
+{
+  const app = require("fs").readFileSync("js/app.js", "utf8");
+  const live = app.split("\n").map(l => l.split("//")[0]).join("\n");
+  assert.ok(live.indexOf("条群聊身份串线") < 0, "那句误报的 toast 又被加回来了");
+  assert.ok(app.indexOf("window.GroupIdentityGuard.sanitize(arr, members, userName(profile))") > 0,
+    "守卫本身不能跟着 toast 一起被删掉——拦是要拦的，只是别吱声");
+}

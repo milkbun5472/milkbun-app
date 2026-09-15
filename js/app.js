@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.56";
+const APP_VERSION = "v68.57";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10555,7 +10555,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️这里原来是 addAutoChatMessages(groupId, safeArr.length)——按【模型交回来几条】记。
         //   现在改成每落一行记一笔（autoTook），因为她数的就是行。safeArr 那一刀照旧留着：
         //   它管的是【这一轮最多几条发言】，跟总行数是两件事。
-        if ((guarded.dropped || []).length || (guarded.thoughtsDropped || []).length) toast("拦住了 " + ((guarded.dropped || []).length + (guarded.thoughtsDropped || []).length) + " 条群聊身份串线");
+        // ⚠️这儿原来会弹一句「拦住了 N 条群聊身份串线」。她 2026-09-15：「提醒说漏嘴的 toast
+        //   去掉吧，一直误报」——守卫照旧拦（拦得对不对是另一回事），但拦这件事是
+        //   【她不需要知道的内务】：她看见的只是一句看不懂的报警，而被拦掉的那条
+        //   本来也不会出现在屏幕上。要查是不是拦多了，去 group-identity-guard 那份测试。
+        //   ⚠️别再加回来：想知道拦了什么就写进诊断，不要弹到她眼前。
         phase = "落地发言";
         tickDirectives(groupId); // 临时规矩每回一轮少一轮，到 0 自动消失
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
