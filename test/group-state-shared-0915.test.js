@@ -18,8 +18,14 @@ test('群线上与群线下共用出口，空/被拒心声清旧快照，后续�
  assert.match(app,/if \(!gOffSealed\) writeGroupLiveState\(characters.find/);
  assert.match(app,/goTurnId, affinityBefore, _offThoughtOnce\)/);
 });
-test('群状态禁止NPC写主线，工程师没主动写心声时保留自主心声',()=>{
- const f=fixture();f.write({id:'n',npc:true},{thought:'配角心声',mood:'开心'});assert.equal(f.states.n,undefined);assert.equal(f.hist.length,0);
+test('NPC心声与动作正常保存，不写心情好感；工程师保留自主心声',()=>{
+ const f=fixture(),npc={id:'n',npc:true};
+ f.write(npc,{thought:'我有点想她。',mood:'开心',wearing:'外套',action:'看书'});
+ assert.equal(f.states.n.thought,'我有点想她。');assert.equal(f.hist[0].id,'n');
+ assert.equal(f.states.n.wearing,'外套');assert.equal(f.states.n.action,'看书');
+ assert.equal(f.states.n.mood,undefined);assert.equal(f.states.n.affinityBefore,undefined);
+ f.write(npc,{action:'放下书'});assert.equal(f.states.n.thought,'我有点想她。');
+ f.seen.clear();f.write(npc,{});assert.equal(f.states.n.thought,null);
  f.states.engineer={thought:'自主心声'};f.write({id:'engineer'},{mood:'平静'});assert.equal(f.states.engineer.thought,'自主心声');
 });
 test('群里反复报告同一套衣服不续时间；换衣刷新，动作保留逐拍规则',()=>{

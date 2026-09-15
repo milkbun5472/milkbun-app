@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.80";
+const APP_VERSION = "v68.81";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2610,15 +2610,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return window.ThoughtVoiceGuard.turnPatch(live, thought, now);
   };
   const writeGroupLiveState = (c, data, turnId, affinityBefore, seen) => {
-    if (!c || c.npc) return;
+    if (!c) return;
     const live = statesRef.current[c.id] || {}, now = Date.now();
     const patch = thoughtTurnPatchFor(c.id, live, data.thought, now, seen);
     putLiveField(patch, live, "wearing", data.wearing, now);
     putLiveField(patch, live, "action", data.action, now);
     // 群文字的动作是本轮新的一拍；穿着仍只在真正变化时更新时钟。
     if (patch.action) patch.actionUpdatedAt = now;
-    if (!Object.keys(patch).length && !data.mood) return;
-    const next = { ...live, ...patch, mood: data.mood || live.mood, ts: now, turnId, affinityBefore };
+    const mood = c.npc ? null : data.mood;
+    if (!Object.keys(patch).length && !mood) return;
+    const next = { ...live, ...patch, ...(c.npc ? {} : { mood: mood || live.mood, affinityBefore }), ts: now, turnId };
     setStateFor(c.id, next);
     pushStateHist(c.id, next);
   };
