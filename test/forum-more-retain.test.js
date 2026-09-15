@@ -13,6 +13,11 @@ function fixture() {
     active: {}, characters: [], isForumCharAuthor: () => false,
     forumPublicNpcOf: x => ({id: x.authorName, name: x.authorName, handle: x.authorName}),
     forumHash: () => 30, forumCommentsRef: ref, forumCInflightRef: lock,
+    // ⚠️照【写的那一头】取，别在测试里另写一个数（施工规则/stub-from-the-writer.md）：
+    //   v68.47 加了这个闸，漏进 deps 的那一版在这儿是 ReferenceError，
+    //   而它被 genMoreComments 自己的 try 吞掉、只表现成「旧楼没放出来」。
+    FORUM_MORE_RELEASE: Number((app.match(/const FORUM_MORE_RELEASE = (\d+);/) || [])[1]),
+    forumCommentVisibleAt: (base, index) => index < 3 ? base : base + (index - 2) * 600000,
     setForumComments: fn => { state = fn(state); ref.current = state; },
     saveForumComments: n => { saved = JSON.parse(JSON.stringify(n)); },
     setGen: () => {}, toast: x => errors.push(x), forumRepliedCharCells: () => [],
@@ -33,12 +38,16 @@ function fixture() {
 test('先放旧楼，模型返回后新楼接后面；等待中用户追评不回滚', async () => {
   const f=fixture(), p=f.run();
   assert.equal(f.state.post.length,3);
+  // v68.47：不再把队列倒空，但队里只有 2 条、少于 FORUM_MORE_RELEASE，所以这一次正好全放出
   assert.ok(f.state.post.every(x=>!x.visibleAt || x.visibleAt<=Date.now()));
   const mine={content:'等待中追评',authorType:'me',ts:Date.now()};
   f.replace({post:f.state.post.map((x,i)=>i===0?{...x,replies:[mine]}:x)});
   await f.run(); assert.equal(f.calls,1,'重复点击不重发');
   f.finish({comments:[{authorName:'新网友',content:'新评论'}]}); await p;
   assert.deepEqual(f.state.post.map(x=>x.content),['旧评论0','旧评论1','旧评论2','新评论']);
+  // 新楼接在旧队列最后一条之后（这一批不再是「生成完就直接显示」）
+  const fresh = f.state.post[3];
+  assert.ok(Number(fresh.visibleAt) >= Number(f.old[2].visibleAt), '新楼插到旧楼前面去了');
   assert.deepEqual(f.state.post[0].replies,[mine]);
   assert.deepEqual(f.saved,f.state);
   assert.equal(f.lock.current.post,false);

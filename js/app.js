@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.47";
+const APP_VERSION = "v68.48";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15408,6 +15408,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 一次生成仍只花一次调用，但不要把整批内容同一秒倒给 Lisa。
   // 前两帖/前三楼立即出现，其余作为本地活动队列按真实时间陆续解锁；旧数据没有 visibleAt 时照常立即可见。
   const FORUM_POST_STAGGER_MS = [0, 0, 20 * 60000, 65 * 60000, 150 * 60000];
+  // 点一次「更多回复」先放出队列最前面这么多条：给个立刻看得到的反馈，
+  // 但绝不把队排空（她 2026-09-15：「我只是想要一部分按顺序来」）。
+  const FORUM_MORE_RELEASE = 5;
   const forumCommentVisibleAt = (base, index, salt) => {
     if (index < 3) return base;
     const steps = [8, 18, 35, 55, 80, 110, 145, 185, 230, 280, 335, 395, 460, 530, 605];
@@ -15946,11 +15949,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const requestedAt = Date.now();
       const beforeFlush = forumFloorOrder(forumCommentsRef.current[post.id] || []);
       let released = 0;
-      // 「更多回复」是用户主动点的：先把首批尚在活动队列里的楼全部 push 出来。
-      // ts 同步落到此刻（并用毫秒保持原顺序），visibleAt=0 表示立即可见；这样新一轮既能
-      // 读到完整旧楼，也一定排在旧楼之后，不会出现新回复在接一段 Lisa 还看不见的空气。
+      // 「更多回复」是用户主动点的，所以要有**立刻看得到的反馈**——但不是把队排空。
+      // ⚠️她 2026-09-15 报的就是这个：「原来有20条，刷新会多刷5条然后把全部25条放出来，
+      //   但是我想要的是生成了放出前面5条，新生成的5条和原本排着队的剩余15条还是随时间出现」。
+      //   原来这儿把【尚在队列里的楼全部】push 出来，一点就全看完了，陆续露面等于没有。
+      // 现在：只放出队列最前面的那几条（该轮到谁就是谁，按 visibleAt 先后），其余照旧排着。
+      // ⚠️当初全 flush 的理由是「别让新回复在接一段她还看不见的空气」——那个顾虑还在，
+      //   但解法不是把旧的倒空，是让**新楼接在旧队列的最后面**（见下面的 base）。
+      //   她看到新回复的时候，它引用的旧楼一定已经出来了。
+      const queued = beforeFlush.filter(f => f && Number(f.visibleAt) > requestedAt)
+        .slice().sort((a, b) => Number(a.visibleAt) - Number(b.visibleAt));
+      const releaseSet = new Set(queued.slice(0, FORUM_MORE_RELEASE).map(f => f.id));
       const existing = beforeFlush.map(f => {
-        if (!f || !f.visibleAt || Number(f.visibleAt) <= requestedAt) return f;
+        if (!f || !releaseSet.has(f.id)) return f;
         const ts = requestedAt + released++;
         return { ...f, visibleAt: 0, ts };
       });
@@ -15970,7 +15981,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "")), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) throw new Error("没有更多");
-      const base = Math.max(Date.now(), existing.reduce((n, f) => Math.max(n, Number(f && f.ts || 0)), 0) + 1);
+      // 新楼从【旧队列最后一条之后】起排：这样它一定排在所有旧楼后面，
+      // 「新回复接一段她看不见的空气」那个顾虑就不成立了，也不必把旧的倒空。
+      const lastQueued = beforeFlush.reduce((n, f) => Math.max(n, Number(f && f.visibleAt || 0)), 0);
+      const base = Math.max(Date.now(), lastQueued + 1,
+        existing.reduce((n, f) => Math.max(n, Number(f && f.ts || 0)), 0) + 1);
       const floorByNum = new Map(existing.map(f => [f.floor, f]));
       const newRaw = [], subInserts = [];   // subInserts: {floorId, reply}
       cs.forEach(x => {
@@ -15981,10 +15996,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } else newRaw.push(x);
       });
       const start = existing.length + 2;
-      const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => ({
-        // 手动请求的这一批生成完就直接显示；陆续露出只属于自动首批。
-        ...f, floor: start + i, visibleAt: 0, ts: base + i
-      }));
+      const moreSalt = forumHash(post.id) % 5;
+      const shortfall = Math.max(0, FORUM_MORE_RELEASE - released);
+      const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => {
+        // ⚠️这一批【也要排队】。原来是 visibleAt:0「生成完就直接显示」——那正是
+        //   「刷一次全看完」的另一半。用 i+3 是为了跳过 forumCommentVisibleAt 里
+        //   「前三楼立刻出现」那一档：即时反馈已经由上面放出的那几条给过了，
+        //   这一批一条都不该插队。
+        // 旧队列不够 FORUM_MORE_RELEASE 条时（比如只剩两条、或者本来就没排队），
+        // 差的那几条用这一批最前面的补上——不然她点一下什么都看不见，会当成坏了。
+        // ⚠️只在【旧的已经放完】的前提下补：旧楼还排着的时候新楼绝不插队，
+        //   那正是「新回复在接一段她看不见的空气」那个顾虑。
+        const at = i < shortfall ? base : forumCommentVisibleAt(base, i - shortfall + 3, moreSalt);
+        return { ...f, floor: start + i, visibleAt: at, ts: at };
+      });
       if (!more.length && !subInserts.length) throw new Error("没有更多");
       setForumComments(prev => {
         // 等待期间即使缓存被清理，也不能用新批次替换刚刚交付的旧楼。
@@ -15997,6 +16022,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
       });
       bumpReplyBy(post.id, more.length + subInserts.length);
+      // 说清楚这一下发生了什么：几条现在就有、几条还排着。不说的话「点了只多两条」
+      // 看起来就像没生成成功。
+      const nowCount = released + Math.min(shortfall, more.length);
+      const waiting = Math.max(0, queued.length - released) + Math.max(0, more.length - shortfall);
+      toast(waiting ? "先放出 " + nowCount + " 条，还有 " + waiting + " 条排着队陆续来"
+        : "又多了 " + more.length + " 条");
     } catch (e) { toast(e.message); }
     finally {
       forumCInflightRef.current[post.id] = false;
