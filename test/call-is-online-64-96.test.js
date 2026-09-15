@@ -50,7 +50,7 @@ test("④ 没有另开一条写状态的路——用的是公共那个出口", (
   assert.match(body, /setStateFor\(cid, ns\);/, "没走公共出口");
   assert.match(body, /pushStateHist\(cid, ns\);/, "没进状态历史");
   assert.match(body, /setMoodFor\(cid, \{ label: ml, ts: now \}\)/, "心情没走公共出口");
-  assert.match(body, /window.ThoughtVoiceGuard.turnPatch\(liveState, thought, now\)/, "心声没盖时间戳");
+  assert.match(body, /thoughtTurnPatchFor\(cid, liveState, d.thought, now, callThoughtDone\)/, "心声没盖时间戳");
   // 1:1 和群通话共用这一个，别各写一份
   assert.equal((app.match(/const callPutState = /g) || []).length, 1, "写了第二份");
   assert.equal((app.match(/callPutState\(/g) || []).length, 2, "调用点数量变了——该只有 1:1 那处和群那处");

@@ -165,11 +165,11 @@ test("守卫拒了一次，不能让那个人的心声永远冻在上一条", ()
     { thought: "她怎么在这儿", thoughtUpdatedAt: 9, thoughtSkips: 0 });
   // 单聊和群聊共用这一份，谁都不许再写第二套
   assert.match(app, /ThoughtVoiceGuard\.turnPatch\(_live, parsed\.thought, stateNow\)/, "单聊那一处没走公共的");
-  assert.match(app, /window\.ThoughtVoiceGuard\.turnPatch\(liveState, gThink, stateNow\)/, "群聊那一处没走公共的");
+  assert.match(app, /window\.ThoughtVoiceGuard\.turnPatch\(live, thought, now\)/, "群聊那一处没走公共的");
   assert.equal((app.match(/thoughtUpdatedAt: 0/g) || []).length, 1, "别处不许再自己写一遍清空");
   // 同一个人一轮说好几条：后面几条没心声，不该把刚写下的那条清掉
   assert.match(app, /const _thoughtOnce = new Set\(\);/);
-  assert.match(app, /const tp = \(gThink \|\| !_thoughtDone\) &&/);
+  assert.match(app, /seen && seen.has\(cid\)/);
 });
 
 // ── v68.50：发完之后他有几率找来私聊 ─────────────────────────────────

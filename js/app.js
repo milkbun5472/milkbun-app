@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.74";
+const APP_VERSION = "v68.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2591,6 +2591,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
       patch.wearing = null; patch.wearingUpdatedAt = 0;
     }
+  };
+  // 群文字、群线下、通话共用：无新心声清旧值，同轮已写的新心声不被后续空气泡抹掉。
+  const thoughtTurnPatchFor = (cid, live, rawThought, now, seen) => {
+    const thought = window.ThoughtVoiceGuard.accept(rawThought);
+    if (!thought && (settingsFor(cid).engineerEyes || (seen && seen.has(cid)))) return {};
+    if (thought && seen) seen.add(cid);
+    return window.ThoughtVoiceGuard.turnPatch(live, thought, now);
+  };
+  const writeGroupLiveState = (c, data, turnId, affinityBefore, seen) => {
+    if (!c || c.npc) return;
+    const live = statesRef.current[c.id] || {}, now = Date.now();
+    const patch = thoughtTurnPatchFor(c.id, live, data.thought, now, seen);
+    putLiveField(patch, live, "wearing", data.wearing, now);
+    putLiveField(patch, live, "action", data.action, now);
+    // 群文字的动作是本轮新的一拍；穿着仍只在真正变化时更新时钟。
+    if (patch.action) patch.actionUpdatedAt = now;
+    if (!Object.keys(patch).length && !data.mood) return;
+    const next = { ...live, ...patch, mood: data.mood || live.mood, ts: now, turnId, affinityBefore };
+    setStateFor(c.id, next);
+    pushStateHist(c.id, next);
   };
   const freshLiveStateValue = (state, field, now = Date.now()) => {
     const value = String(state && state[field] || "").trim();
@@ -7256,6 +7276,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -7302,13 +7323,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
           try { window.Gaze.applyParsed(b.senderId, b.impression); } catch (e) {}
         }
-        // 群线下心声同样过守卫再进共享状态卡（导演稿/演技备注拦在卡外，消息内原文照旧）
-        const gOffThought = b.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(b.thought) : b.thought;
-        if (!gOffSealed && b.senderId && (gOffThought || (b.mood && b.mood.label))) {
-          const liveState = statesRef.current[b.senderId] || {};
-          const ns = { ...liveState, ...(gOffThought ? { thought: gOffThought, thoughtUpdatedAt: Date.now(), thoughtSkips: 0 } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
-          setStateFor(b.senderId, ns); pushStateHist(b.senderId, ns);
-        }
+        if (!gOffSealed) writeGroupLiveState(characters.find(c => c.id === b.senderId), {
+          thought: b.thought, mood: b.mood && b.mood.label
+        }, goTurnId, affinityBefore, _offThoughtOnce);
       }
       // 短期导演便签只在成功生成后消耗；失败/超时不扣。字符串是旧版遗留，只再生效这一轮。
       const usedNoteIds = new Set((effectiveSess.customNotes || []).filter(n => n && typeof n === "object" && Number(n.remaining) > 0).map(n => n.id));
@@ -10845,26 +10862,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // NPC 没有心情、也没有好感度（她 2026-08-25 拍板）：模型照样填了就丢掉
             if (spk && !spk.npc) bumpAff(spk.id, aDelta);
             if (spk && !spk.npc && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
-            // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
-            const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
-            const gThink = rawGThink && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(rawGThink) : rawGThink;
             if (spk && !spk.npc && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
-            // ⚠️同一个人这一轮说了好几条时，只认【第一条真写下心声的那一次】：
-            //   后面那几条没心声，不该反过来把刚写进去的那条清掉。
-            const _thoughtDone = _thoughtOnce.has(spk && spk.id);
-            if (spk && gThink) _thoughtOnce.add(spk.id);
-            if (spk && (gThink || moodLabel || gWear || gAction)) {
-              const liveState = statesRef.current[spk.id] || {};
-              const stateNow = Date.now();
-              // 这一轮没有有效心声就【清掉旧的】，绝不沿用上一条——跟单聊同一份规矩
-              //（ThoughtVoiceGuard.turnPatch）。守卫拒一次就永远挂着上一条的话，
-              // 状态卡看起来是冻住的（她 2026-09-15：「他心声都不会变了，对方的还会变」）。
-              const tp = (gThink || !_thoughtDone) && window.ThoughtVoiceGuard && window.ThoughtVoiceGuard.turnPatch
-                ? window.ThoughtVoiceGuard.turnPatch(liveState, gThink, stateNow) : {};
-              const ns = { ...liveState, ...tp, ...(gWear ? { wearing: gWear, wearingUpdatedAt: stateNow } : {}), ...(gAction ? { action: gAction, actionUpdatedAt: stateNow } : {}), mood: moodLabel || liveState.mood, ts: stateNow, turnId: gTurnId, affinityBefore };
-              setStateFor(spk.id, ns);
-              pushStateHist(spk.id, ns);
-            }
+            writeGroupLiveState(spk, { thought: item.thought, mood: moodLabel, wearing: gWear, action: gAction },
+              gTurnId, affinityBefore, _thoughtOnce);
           }
           // dm 落地（v53.96）：群里承诺的「私聊说」真的进私聊，而不是停在嘴上。
           // 走和普通私聊消息完全一样的形状，所以未读红点、消息列表预览、记忆提取全都照常吃到。
@@ -14079,11 +14079,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (d.condition === null) { st.condition = null; st.conditionUpdatedAt = 0; }
           clearWearingOnMove(st, liveState, st.wearing);
           if (!cur.room) {
-            const thought = window.ThoughtVoiceGuard.accept(d.thought);
-            if (thought || (!settingsFor(cid).engineerEyes && !callThoughtDone.has(cid))) {
-              Object.assign(st, window.ThoughtVoiceGuard.turnPatch(liveState, thought, now));
-            }
-            if (thought) callThoughtDone.add(cid);
+            Object.assign(st, thoughtTurnPatchFor(cid, liveState, d.thought, now, callThoughtDone));
           }
         }
         const rawMood = d.mood == null ? "" : String(d.mood).trim();

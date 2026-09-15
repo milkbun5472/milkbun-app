@@ -37,12 +37,11 @@ test("换称呼之后仍然要过原来的结构闸", () => {
 });
 
 test("四条心声通道都走 accept，所以自动全覆盖", () => {
-  const hits = (app.match(/ThoughtVoiceGuard\.accept\(/g) || []).length;
-  assert.ok(hits >= 4, "线上单聊/单人线下/群线下/群聊都要经过它，现在只有 " + hits + " 处");
+  assert.match(app, /const thought = window\.ThoughtVoiceGuard\.accept\(rawThought\);/, "群与通话共用守卫");
   assert.match(app, /const guardedThought = window\.ThoughtVoiceGuard\.accept\(rawThought\);/, "线上单聊");
   assert.match(app, /ThoughtVoiceGuard\.accept\(res\.thought\)/, "单人线下");
-  assert.match(app, /ThoughtVoiceGuard\.accept\(b\.thought\)/, "群线下");
-  assert.match(app, /ThoughtVoiceGuard\.accept\(rawGThink\)/, "群聊");
+  assert.match(app, /if \(!gOffSealed\) writeGroupLiveState\(characters.find/, "群线下");
+  assert.match(app, /writeGroupLiveState\(spk, \{ thought: item.thought/, "群聊");
 });
 
 test("提示词那条禁令留着——刀是兜底，不是替代", () => {

@@ -25,8 +25,8 @@ test("四条心声写入路径全部过 ThoughtVoiceGuard，群线下不留旁�
   assert.match(app, /const guardedThought = window\.ThoughtVoiceGuard\.accept\(rawThought\)/);
   assert.match(app, /parsed\.thought = guardedThought/);
   assert.match(app, /const offlineThought = res\.thought && window\.ThoughtVoiceGuard \? window\.ThoughtVoiceGuard\.accept\(res\.thought\)/);
-  assert.match(app, /const gThink = rawGThink && window\.ThoughtVoiceGuard \? window\.ThoughtVoiceGuard\.accept\(rawGThink\)/);
-  assert.match(app, /const gOffThought = b\.thought && window\.ThoughtVoiceGuard \? window\.ThoughtVoiceGuard\.accept\(b\.thought\)/);
+  assert.match(app, /const thought = window\.ThoughtVoiceGuard\.accept\(rawThought\)/);
+  assert.match(app, /thought: b\.thought, mood: b\.mood/);
 });
 
 test("旧导演稿不再作为下一轮心声范文回喂", () => {
