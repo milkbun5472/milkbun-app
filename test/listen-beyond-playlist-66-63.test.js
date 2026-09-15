@@ -17,9 +17,10 @@ test("① 那句多余的禁令删掉了，不是留着再补一句", () => {
   assert.ok(app.indexOf("不是这一轮的话题") < 0, "那句又加回来了");
   assert.ok(app.indexOf("先接住他们刚说的那句") < 0);
   // 真正治病的那一条还得在：卡末尾那段守则不许再被腰斩
-  const seg = app.slice(app.indexOf("      gzSeg: (() => {"), app.indexOf("      sbSeg: (() =>", app.indexOf("      gzSeg: (() => {")));
-  assert.match(seg, /cap: GROUP_GAZE_CAP/, "封顶又改回整段 slice 了");
-  assert.ok(seg.indexOf(".slice(0, GROUP_GAZE_CAP)") < 0);
+  const seg = app.slice(app.indexOf("  const gazeFor ="), app.indexOf("  const onMeFor ="));
+  assert.match(seg, /window\.Gaze\.text\(charId, userName\(profile\)\)/);
+  assert.doesNotMatch(seg, /\.slice\(/, "完整卡片与末尾守则都应保留");
+  assert.doesNotMatch(app, /gzSeg/, "群人物段不再额外发送第二份");
 });
 
 test("② 歌单外的歌也能推：两处都说清了", () => {

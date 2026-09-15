@@ -72,16 +72,16 @@ test("群聊线上补上心情/好感/印象卡", () => {
   assert.match(now, /window\.MoodLabel\.settle\(\(moods\[c\.id\] \|\| \{\}\)\.label, \(moods\[c\.id\] \|\| \{\}\)\.ts, Date\.now\(\)\)/);
   // 群聊那一处真的用了这一份（不是各写各的）
   assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop[^)]*\}\);/);
-  // 印象卡属于「发生过什么」，只在开了记忆互通时给，而且要落在本人那一段
-  assert.match(app, /const gz = window\.Gaze && !settingsFor\(c\.id\)\.engineerEyes \? window\.Gaze\.text\(c\.id, userName\(profile\)\) : "";/);
+  // 印象卡读一律给，落在本人私有段
+  assert.match(app, /const gz = gazeFor\(c\.id\);/);
   assert.match(app, /印象卡跟长期记忆同一档/);
 });
 
 test("群聊线下也补上，同样的分档", () => {
   assert.match(app, /memberMood: \(\(\) => \{/);
   assert.match(app, /memberAff: \(\(\) => \{/);
-  assert.match(app, /memberGaze: \(\(\) => \{/);
-  assert.match(app, /      if \(!window\.Gaze\) return m;/, "读一律给：封闭群也拿得到印象卡");
+  assert.match(app, /memberGaze: Object.fromEntries/);
+  assert.match(app, /const gazeFor = charId =>/, "读一律给：封闭群也拿得到印象卡");
   assert.match(engine, /\(ctx\.memberMood && ctx\.memberMood\[c\.id\]\) \? "\\n〔此刻心情〕"/);
   assert.match(engine, /\(ctx\.memberAff && ctx\.memberAff\[c\.id\] != null\)/);
   assert.match(engine, /\(ctx\.memberGaze && ctx\.memberGaze\[c\.id\]\) \? "\\n〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
@@ -89,9 +89,9 @@ test("群聊线下也补上，同样的分档", () => {
 
 test("封闭群的读侧一个都不许挡", () => {
   const i = app.indexOf("memberMood: (() => {");
-  const j = app.indexOf("memberGaze: (() => {");
+  const j = app.indexOf("memberGaze: Object.fromEntries");
   assert.ok(app.slice(i, j).indexOf("memoryInterop") < 0, "心情/好感不该被封闭群挡掉");
-  const k = app.indexOf("memberGaze: (() => {");
+  const k = app.indexOf("memberGaze: Object.fromEntries");
   assert.ok(app.slice(k, k + 400).indexOf("memoryInterop") < 0, "印象卡现在也读一律给");
 });
 
@@ -114,7 +114,7 @@ test("读：封闭群照样拿得到记忆库/印象卡", () => {
   assert.match(app, /【读】一律给（记忆库、长期记忆、印象卡、长出来的自我）/);
   // 群线下的两处读闸也开了
   assert.match(app, /const groupOfflineMemSplit = group => \{\n(?:.*\n)*?    if \(!group\) return null;/);
-  assert.match(app, /      if \(!window\.Gaze\) return m;/);
+  assert.match(app, /const gazeFor = charId =>/);
 });
 
 test("写：封闭群一个字都不回流主线", () => {

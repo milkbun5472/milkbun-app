@@ -24,7 +24,7 @@ test("用掉不是删掉：它进日志，而且送东西的人会知道", () =>
 test("带在身上：有上限，而且见面才看得见", () => {
   assert.match(app, /const ON_ME_CAP = 2;/, "不封顶就不叫「今天带着的」了");
   assert.match(app, /if \(!it\.onMe && cur\.length >= ON_ME_CAP\)/, "上限没兜住");
-  assert.match(app, /onMe: \(inventory \|\| \[\]\)\.filter\(x => x && x\.onMe\)/, "单聊那一处没进上下文");
+  assert.match(app, /onMe: onMeFor\(\)/, "单聊那一处没进上下文");
   // v68.65：这句话搬成公共的 onMeLine，群聊线上和群线下也接上了（四处一样喂）——
   // 群里那位报的就是「带在身上去见他们，他们没提到」：她见的是【他们】，而那两处是漏的。
   assert.match(eng, /function onMeLine\(onMe, uName\) \{/, "上下文那一层没接");
@@ -32,7 +32,7 @@ test("带在身上：有上限，而且见面才看得见", () => {
   assert.match(eng, /别每次都拿它开场/, "他会每轮都惊叹一遍");
   assert.match(app, /const gOnMeHint = \(_gOnMe && !gs\.spectate\) \? "\\n\\n" \+ onMeLine\(_gOnMe, userName\(profile\)\) : "";/, "群线上没接");
   assert.match(app, /\+ gMeBlock \+ gWishHint \+ gOnMeHint \+ gRelRule/, "群线上算出来了却没拼进 sys");
-  assert.match(app, /onMe: \(inventoryRef\.current \|\| \[\]\)\.filter\(x => x && x\.onMe\)/, "群线下没接");
+  assert.match(app, /onMe: onMeFor\(\)/, "群线下没接");
   assert.match(eng, /ctx\.onMe && String\(ctx\.onMe\)\.trim\(\) \? "\\n\\n" \+ onMeLine\(ctx\.onMe, userName\) : ""/, "群线下算出来了却没拼进 sys");
 });
 

@@ -1,0 +1,54 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {app,engine,cut,fixture,wire,evaluate} = require('./_group-background-fixture.cjs');
+const read = cut(app,'  const onMeFor =','  const ctxFor =');
+const format = cut(engine,'function onMeLine(','function buildBundle(');
+test('随身物共用读取真实 onMe 标记和写入端额度，库存变化立即生效',()=>{
+  // toggleOnMe 的 patchInv(id,{onMe:!it.onMe}) 写入布尔标记，物品本身保留 id/name。
+  const env={ON_ME_CAP:Number(app.match(/const ON_ME_CAP = (\d+);/)[1]),inventoryRef:{current:[
+    {id:'1',name:'测试发夹',onMe:true},{id:'2',name:'测试手环',onMe:true},
+    {id:'3',name:'测试围巾',onMe:true},{id:'4',name:'没带的包',onMe:false}]}};
+  const get=evaluate(read,env,'onMeFor');
+  assert.equal(get(),'测试发夹、测试手环');
+  env.inventoryRef.current[0].onMe=false;
+  assert.equal(get(),'测试手环、测试围巾');
+  env.inventoryRef.current=[];assert.equal(get(),'');
+  assert.equal((app.match(/onMe: onMeFor\(\)/g)||[]).length,2);
+  assert.match(app,/const _gOnMe = onMeFor\(\)/);
+  assert.match(app,/const gOnMeHint = \(_gOnMe && !gs.spectate\)/);
+});
+for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发送的 system 使用共用随身物，空库存无空段',async()=>{
+  const env=wire(fixture()); let sent='';
+  Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
+    groupPersonaBudget:()=>6000,directedRelationLines:()=>'',loreText:()=>'',gsFor:()=>({memoryInterop:false,privateCtxN:0}),
+    primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
+    memories:{},settingsFor:()=>({}),memberPrivLines:()=>'',groupContextRows:()=>[],
+    PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',callerIsChar:false,callerName:'',
+    PRIVATE_IS_BACKGROUND_NOT_AMMO:'',active:{},callBiHint:'',callAI:async(_api,sys)=>{sent=sys;return '[]';}});
+  env.window.Gaze={text:id=>'印象卡_'+id+'_完整末尾'};
+  env.onMeLine=evaluate(format,env,'onMeLine');
+  const code=cut(app,'        const gCallCap =','        const arr = extractJSON(raw);');
+  const send=new Function('env','with(env){return (async()=>{'+code+'})();}');
+  env.inventoryRef.current=[{id:'1',name:'只有测试的发夹',onMe:true}];
+  await send(env);assert.match(sent,/今天身上带着：只有测试的发夹/);
+  assert.equal((sent.match(/今天身上带着：/g)||[]).length,1);
+  for(const id of ['a','b']) assert.equal(sent.split('印象卡_'+id+'_完整末尾').length-1,1);
+  assert.match(sent,/见了面你看得见它/);
+  env.inventoryRef.current=[];await send(env);assert.doesNotMatch(sent,/今天身上带着：/);
+});
+
+test('群文字只发送一次完整印象卡，保留各人的私有围栏和工程师例外',()=>{
+  const env=wire(fixture());
+  Object.assign(env,{memories:{},gSplit:{perChar:{}},formatMemLib:()=>'',hist:'',privSegs:{},
+    memberPrivLines:()=>'',crossRecentFor:()=>'',settingsFor:id=>({engineerEyes:id==='b'})});
+  env.window.Gaze={text:id=>'唯一卡片_'+id+'_'+ '内容'.repeat(500)+'_末尾守则'};
+  const members=evaluate(require('./_group-background-fixture.cjs').sections.online,env,'memberDesc');
+  const privateCode=cut(app,'        const memLines = members.map(c => {','        privBlob += memLines;');
+  const privateText=evaluate(privateCode,env,'memLines');
+  const sent=members+privateText;
+  assert.equal(sent.split('唯一卡片_a_').length-1,1);
+  assert.match(sent, /_末尾守则/);
+  assert.doesNotMatch(sent,/唯一卡片_b_|唯一卡片_npc_/);
+  assert.match(privateText,/只有 甲 本人知道，别的成员并不知情/);
+  assert.equal(env.gazeFor('b'),'');assert.equal(env.gazeFor('npc'),'');
+});

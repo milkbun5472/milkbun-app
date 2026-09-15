@@ -13,30 +13,14 @@ const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
 const app = R("js/app.js"), eng = R("js/engine.js"), comp = R("js/components.js");
 
-test("群里把那张印象卡发下去了，模型才有的可改", () => {
-  const seg = app.slice(app.indexOf("      gzSeg: (() => {"), app.indexOf("      sbSeg: (() =>", app.indexOf("      gzSeg: (() => {")));
-  assert.ok(seg.length > 0, "群里那一段没有印象卡");
-  // v66.62：封顶交给 Gaze.text（它只砍内容行、末尾那段守则一个字不砍）
-  assert.match(seg, /window\.Gaze\.text\(c\.id, userName\(profile\), \{ cap: GROUP_GAZE_CAP \}\)/, "没去取这位成员那张卡");
-  // 跟【写】那一半同一道闸：这张卡讲的是「你们之间」，封闭群不给
-  assert.match(seg, /if \(!o\.interop \|\| !window\.Gaze/, "封闭群也把私事发出去了");
-  assert.match(app, /const impressionField = window\.Gaze && gs\.memoryInterop/, "写那一半的闸变了，读这一半要跟着看");
-  // 言秋不塑形（跟单聊 gazeText 同一条判据）
-  assert.match(seg, /settingsFor\(c\.id\)\.engineerEyes/, "言秋那条线也被塑形了");
-  // 别的成员不许知道（同 cpSeg 的隐私铁律）
-  assert.match(seg, /只有 TA 本人知道，别的成员并不知情/, "群里成了公开的心里话");
-  // 封顶：群预算按人数平分，一人一整张卡会把主角色的人设额度吃掉
-  // v66.62：这个数只管【内容那几行】了（守则不在封顶之内），所以放宽到 700
-  assert.match(app, /const GROUP_GAZE_CAP = 700;/);
-  // ⚠️v66.62：封顶不许再整段 slice——砍掉的正好是末尾那段守则（见 Gaze.text 里那条病历）。
-  //   现在封顶交给 Gaze.text，它只砍内容行、按整行收。
-  assert.ok(seg.indexOf(".slice(0, GROUP_GAZE_CAP)") < 0, "又把整段腰斩了，守则会被砍掉");
-  assert.match(seg, /cap: GROUP_GAZE_CAP/, "没封顶");
-  // v66.63：那句她让删了（「有时候又可以接话，应该是模型问题。不然一堆禁令会变笨的」）——
-  //   卡末尾那段守则本来就管着这件事，再加一句是同一件事说两遍。
-  assert.ok(seg.indexOf("不是这一轮的话题") < 0, "那句多余的禁令又加回来了");
-  // 真拼进那位成员那一段了
-  assert.match(app, /\+ cpSeg \+ _now\.gzSeg \+ caSeg \+/, "算了却没拼进去");
+test("印象卡只走私有往来一份，封闭群读主线但不写回", () => {
+  assert.match(app, /const gazeFor = charId =>/);
+  assert.match(app, /gazeText: gazeFor\(char.id\)/);
+  assert.equal((app.match(/const gz = gazeFor\(c.id\)/g) || []).length, 2);
+  assert.doesNotMatch(app, /gzSeg|GROUP_GAZE_CAP/);
+  assert.match(app, /const impressionField = window\.Gaze && gs\.memoryInterop/);
+  assert.match(app, /settingsFor\(charId\).engineerEyes/);
+  assert.match(app, /〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
 });
 
 test("群里的同处一室：句子跟单聊共用一份，只多传一个参数", () => {
