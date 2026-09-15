@@ -193,3 +193,36 @@ test('语音与视频实际发送的上下文携带本房拉黑，不携带主�
     assert.doesNotMatch(f.requests[0],/她把你拉黑了/);
   }
 });
+
+test('侧房真实写入后四字段可读，重复不续期、换地点清旧衣且不串主线',()=>{
+  let now=100000;
+  const key=Rooms.chatKey('c1','r1');
+  const box={window:{ChatRooms:Rooms},Date:{now:()=>now},roomStatesRef:{current:{}},roomStateHistRef:{current:{}},statesRef:{current:{c1:{wearing:'主线衣服',wearingUpdatedAt:now}}},setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:()=>{}};
+  vm.createContext(box);
+  vm.runInContext(cut('const LIVE_STATE_TTL =','  // 心声历史'),box);
+  const start=src.indexOf('  const setRoomThought ='),end=src.indexOf('\n  };',start)+5;
+  vm.runInContext(src.slice(start,end)+'\nthis.write=setRoomThought;this.read=(key,field)=>freshLiveStateValue(liveStateForScope("c1",key),field);',box);
+  box.write(key,null,{state:{wearing:'外套',action:'看书',place:'书房',condition:'疲惫'}});
+  for(const [field,value] of Object.entries({wearing:'外套',action:'看书',place:'书房',condition:'疲惫'})) assert.equal(box.read(key,field),value);
+  now+=1000;
+  box.write(key,null,{state:{wearing:'外套',action:'看书'}});
+  assert.equal(box.roomStatesRef.current[key].wearingUpdatedAt,100000);
+  assert.equal(box.roomStatesRef.current[key].actionUpdatedAt,100000);
+  box.write(key,null,{state:{action:'起身',place:'厨房',condition:' null '}});
+  assert.equal(box.read(key,'wearing'),'');
+  assert.equal(box.read(key,'condition'),'');
+  assert.equal(box.roomStatesRef.current[key].actionUpdatedAt,now);
+  assert.equal(box.read('c1','wearing'),'主线衣服');
+  assert.equal(box.read(Rooms.chatKey('c1','empty'),'wearing'),'');
+  now+=46*60000;
+  assert.equal(box.read(key,'action'),'');
+});
+
+test('侧房线下状态与线上、线下拍照、视频画面使用同一房间状态入口',()=>{
+  assert.match(cut('  const genOfflineFrom =','  const startOffline ='),/setRoomThought\(scopeKey, offlineThought, \{ mood: res\.mood && res\.mood\.label, state: \{ \.\.\.res, action: offlineAction \}/);
+  assert.match(cut('  const runOfflineShot =','  const groupOfflineShotNow ='),/liveStateForScope\(char\.id, scopeKey\)/);
+  assert.match(cut('  const offlineShotNow =','  const genOfflineFrom ='),/liveStateForScope\(charId, scopeKey\)/);
+  const call=cut('  const runCallShot =','  const markCallBye =');
+  assert.match(call,/liveStateForScope\(lead\.id, cur\.chatKey\)/);
+  assert.match(call,/liveStateForScope\(p\.id, cur\.chatKey\)/);
+});

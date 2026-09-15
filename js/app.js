@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.75";
+const APP_VERSION = "v68.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2612,6 +2612,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setStateFor(c.id, next);
     pushStateHist(c.id, next);
   };
+  // 所有状态消费者按当前房间取值；侧房空状态不能回退到主线。
+  const liveStateForScope = (charId, scopeKey) => window.ChatRooms && window.ChatRooms.isSideKey(scopeKey)
+    ? (roomStatesRef.current[scopeKey] || {}) : (statesRef.current[charId] || {});
   const freshLiveStateValue = (state, field, now = Date.now()) => {
     const value = String(state && state[field] || "").trim();
     if (!value) return "";
@@ -2643,8 +2646,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const local = {};
     for (const key of ["action", "wearing", "place", "condition"]) {
       const value = meta && meta.state && meta.state[key];
-      if (typeof value === "string" && value.trim() && value !== "null") local[key] = value.trim();
+      if (typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "null") putLiveField(local, prev, key, value, ts);
+      else if (key === "condition" && (value === null || typeof value === "string" && value.trim().toLowerCase() === "null")) { local.condition = null; local.conditionUpdatedAt = 0; }
     }
+    clearWearingOnMove(local, prev, !!local.wearing);
     const next = clean
       ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null }
       : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null };
@@ -6463,7 +6468,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return groupId ? patchGOffMsg(groupId, sid, q) : patchOffMsg(scopeKey, sid, q);
     };
     try {
-      const st = statesRef.current[char.id] || {};
+      const st = liveStateForScope(char.id, scopeKey);
       const me = { name: (profile && profile.name) || "我", appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
       const freshPlace = freshLiveStateValue(st, "place");
       const freshCond = freshLiveStateValue(st, "condition");
@@ -6533,7 +6538,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char) return;
     if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
     if (kind === "duo" && !offlinePhotoCanDuo(char)) { toast("合照要你俩各自的参考照都在，才能把两张脸都锁住——去「我」那页传一张你的，再给 " + char.name + " 传一张", 9000); return; }
-    const st = statesRef.current[charId] || {};
+    const st = liveStateForScope(charId, scopeKey);
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
     await runOfflineShot({ char, scopeKey, kind, scene });
@@ -6578,8 +6583,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
       oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
-      const currentOfflineState = statesRef.current[charId] || {};
-      const scopedOfflineState = sideRoom ? (roomStatesRef.current[scopeKey] || {}) : currentOfflineState;
+      const scopedOfflineState = liveStateForScope(charId, scopeKey);
       oCtx.curWear = freshLiveStateValue(scopedOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
       oCtx.curAction = freshLiveStateValue(scopedOfflineState, "action"); // 短时活动不跨几个小时硬续
       oCtx.curCondition = freshLiveStateValue(scopedOfflineState, "condition"); // 伤/病/醉/累：12 小时内有效，好了就清
@@ -6703,7 +6707,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         try { maybeAutoReviewGaze(char, ((workSess && workSess.msgs) || []).length); } catch (e) {}
       }
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
-      const liveState = statesRef.current[charId] || {};
+      const liveState = liveStateForScope(charId, scopeKey);
       const ost = {};
       const stateNow = Date.now();
       putLiveField(ost, liveState, "wearing", res.wearing, stateNow);
@@ -6713,7 +6717,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offlineThought = res.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(res.thought) : res.thought;
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
-      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, turnId: offTurnId });
+      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId });
       else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
@@ -8756,7 +8760,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   ⚠️删它顺带暴露出：v2 迁移时有几段【行为指导】没跟过来（发照片的分寸、表情包
       //   频率、随身氛围、一起听歌那两句、言秋的 appVitals）。发照片和表情包这两段
       //   当场补进了 capState；剩下几段登记在屎山台账里，别再让它们假活着。
-      const _liveChatState = sideRoom ? (roomStatesRef.current[chatKey] || {}) : (statesRef.current[charId] || {});
+      const _liveChatState = liveStateForScope(charId, chatKey);
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
       const _liveChatAction = freshLiveStateValue(_liveChatState, "action");
       const _wearBrief = roomClockOn ? schedNowBriefFor(char) : null;
@@ -13914,13 +13918,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setCall(c => c ? { ...c, bgBusy: true } : c);
     try {
       const lead = withRef[0];
-      const st = statesRef.current[lead.id] || {};
+      const st = liveStateForScope(lead.id, cur.chatKey);
       // 电话里每一个人都锁：两个人以上走合影那一路（参考图顺序＝点名顺序，错位脸就串）
       const cast = withRef.length > 1
         ? withRef.slice(0, 4).map(c2 => ({ id: c2.id, name: c2.name, appearance: c2.appearance, refPhoto: c2.refPhoto }))
         : null;
       const bits = (cur.participants || []).map(p => {
-        const s2 = statesRef.current[p.id] || {};
+        const s2 = liveStateForScope(p.id, cur.chatKey);
         const seg = [freshLiveStateValue(s2, "place"), freshLiveStateValue(s2, "action"), freshLiveStateValue(s2, "wearing")]
           .map(x => String(x || "").trim()).filter(Boolean).join("，");
         return seg ? p.name + "：" + seg : "";

@@ -49,7 +49,7 @@ test("计数器归零/累加的判据对得上 thought 那只", () => {
 
 test("计数写完之后才读 liveState，中间也不许再有人写 statesRef", () => {
   const off = app.indexOf("else _moodSkip(charId, false);");
-  const live = app.indexOf("const liveState = statesRef.current[charId] || {};", off);
+  const live = app.indexOf("const liveState = liveStateForScope(charId, scopeKey);", off);
   assert.ok(live > off, "线下：liveState 必须在 _moodSkip 之后读");
   // 中间夹进别的层是允许的（v57.01 把 Ta 眼里的写回放在这儿），但它们不能碰实时状态，
   // 否则 liveState 会读到旧的、再被下一句整份盖回去。
