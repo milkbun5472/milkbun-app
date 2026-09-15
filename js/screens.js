@@ -729,6 +729,31 @@ function TiePhoto({ id, name, character, profile, size, tilt, dim, on }) {
       fontSize: size > 56 ? 12 : 10.5, lineHeight: 1.15, color: "#2a2721",
       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name));
 }
+// 一段关系是哪一类——只看她自己写的那行标签，认得出就上色，认不出就用默认墨色。
+// 她 2026-09-15 的参考图里，恋人是红的、商业朋友是紫的：一眼就看得出这张网里
+// 哪几段是感情线、哪几段是正事。全是同一个墨色时，那张网只剩「谁连着谁」。
+// ⚠️不猜、不调模型：认不出就老老实实用默认色。宁可少上色，不可上错色——
+//   把「前任」画成恋人那种错，比不上色难看得多。
+const TIE_KINDS = [
+  { key: "lover", c: "#c0574e", words: ["恋人", "对象", "爱人", "男friend", "女friend", "男朋友", "女朋友", "夫", "妻", "老公", "老婆", "伴侣", "未婚", "暧昧", "喜欢", "心上人", "情人"] },
+  { key: "kin",   c: "#c98a3c", words: ["父", "母", "爸", "妈", "儿", "女儿", "兄", "弟", "姐", "妹", "家人", "亲", "叔", "姑", "舅", "爷", "奶", "表", "堂", "养"] },
+  { key: "work",  c: "#6a72a8", words: ["同事", "上司", "下属", "老板", "合伙", "生意", "商业", "客户", "搭档", "同僚", "属下", "部下", "主子", "师父", "师傅", "徒", "同门", "师兄", "师姐", "师弟", "师妹", "经纪", "队友"] },
+  { key: "foe",   c: "#7a6a5f", words: ["对头", "仇", "死敌", "宿敌", "情敌", "前任", "前男友", "前女友", "不和", "敌"] },
+  { key: "pal",   c: "#5b8f73", words: ["朋友", "好友", "发小", "同学", "邻居", "网友", "旧识", "熟人", "竹马", "知己"] }
+];
+// ⚠️顺序有讲究：「前任」里带着「任」不带「恋」，可「前男友」里带着「男友」——
+//   所以 foe 必须排在 lover 前面【匹配】。这儿用的是「谁先命中谁算数」，
+//   而上面那张表是给人读的，排序另算一份，别把两件事混在一起。
+const TIE_KIND_ORDER = ["foe", "lover", "kin", "work", "pal"];
+function tieKindColor(label, fallback) {
+  const s = String(label || "");
+  if (!s.trim()) return fallback;
+  for (const key of TIE_KIND_ORDER) {
+    const row = TIE_KINDS.find(x => x.key === key);
+    if (row && row.words.some(w => s.indexOf(w) >= 0)) return row.c;
+  }
+  return fallback;
+}
 function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos, onEditEdge, onCenter }) {
   const t = useTheme();
   const wrapRef = useRef(null);
@@ -892,8 +917,11 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
                 links.map(L => {
                   const c = thread(P(centerId), P(L.other), halfOf(centerId), halfOf(L.other));
                   const lit = !sel || sel === L.other;
-                  return h("path", { key: "l" + L.other, d: c.d, fill: "none", stroke: t.ink,
-                    strokeWidth: 1.1, opacity: lit ? 0.42 : 0.07,
+                  // 认出是哪一类就上那一类的颜色：一眼看得出哪几段是感情线、哪几段是正事
+                  const col = tieKindColor(L.label, t.ink);
+                  const tinted = col !== t.ink;
+                  return h("path", { key: "l" + L.other, d: c.d, fill: "none", stroke: col,
+                    strokeWidth: tinted ? 1.5 : 1.1, opacity: lit ? (tinted ? 0.66 : 0.42) : 0.07,
                     markerEnd: L.both ? undefined : "url(#tieArrow)" });
                 }))),
             // 线上别的那张小标签：只写【中心这个人怎么称呼对方】，一行，长了就截
@@ -905,7 +933,7 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
                 onClick: ev => { ev.stopPropagation(); setSel(s => s === L.other ? null : L.other); },
                 style: { position: "absolute", left: c.mx, top: c.my, transform: "translate(-50%,-50%)",
                   maxWidth: TIE_LABEL_MAX, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  background: t.ink, color: t.bg2, padding: "2px 7px", borderRadius: 3,
+                  background: tieKindColor(L.label, t.ink), color: t.bg2, padding: "2px 7px", borderRadius: 3,
                   fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.4,
                   opacity: lit ? 1 : 0.1, transition: "opacity .18s", cursor: "pointer" } }, L.label);
             }),
