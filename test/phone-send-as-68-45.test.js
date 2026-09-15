@@ -126,7 +126,7 @@ test("等对面回话的时候，末尾挂三个点", () => {
   // 跑完就灭，而且只灭自己那一条（她中途换了会话不该被抹掉）
   assert.match(app, /const done = \(\) => setPhoneAsWait\(w => \(w === id \? "" : w\)\);/);
   // 成败都要灭：失败了还转着圈比不转更糟
-  assert.match(app, /\.then\(\(\) => replyGroup\(gid\)\)\.then\(done, done\);/);
+  assert.match(app, /\.then\(\(\) => \{ done\(\); phoneAsFollowUp\(char, group, body, rowsBefore\); \}, done\)/);
   assert.match(app, /sendAsWaiting: phoneAsWait,/);
   // 那三个点是公共的那一颗（施工规则/one-public-mechanism）
   const comps = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
@@ -170,4 +170,34 @@ test("守卫拒了一次，不能让那个人的心声永远冻在上一条", ()
   // 同一个人一轮说好几条：后面几条没心声，不该把刚写下的那条清掉
   assert.match(app, /const _thoughtOnce = new Set\(\);/);
   assert.match(app, /const tp = \(gThink \|\| !_thoughtDone\) &&/);
+});
+
+// ── v68.50：发完之后他有几率找来私聊 ─────────────────────────────────
+test("对面没接话就不来；接了话也只是几率", () => {
+  assert.match(app, /const PHONE_AS_ASK_P = 0\.45;/);
+  // ① 对面真的接了话（不是他自己那几条）才算这件事发生完
+  assert.match(app, /m\.role === "assistant" && m\.senderId !== char\.id/);
+  assert.match(app, /if \(!fresh\.length\) return;/);
+  // ② 掷轴，不是每次都来
+  assert.match(app, /if \(Math\.random\(\) >= PHONE_AS_ASK_P\) return;/);
+  // ③ 隔一会儿才来，当场弹出来像回执
+  assert.match(app, /PHONE_AS_ASK_MIN \+ Math\.floor\(Math\.random\(\) \* PHONE_AS_ASK_SPAN\)/);
+});
+
+test("不另开一条主动消息的路：走 replyNow，那几道闸白得", () => {
+  assert.match(app, /replyNow\(char\.id, "", null, \{ proactive: true, phoneAs: \{/);
+  // 12 分钟防连发闸对它豁免（跟约回同理：这是对她刚做过的事的回应）
+  assert.match(app, /if \(opts\.proactive && !opts\.promise && !opts\.phoneAs && history\.length\)/);
+  assert.match(app, /const outlet = opts\.phoneAs \? "phone_as" :/);
+  assert.match(app, /const proactiveHint = opts\.phoneAs \? phoneAsHint :/);
+});
+
+test("那一段提示词只摆事实，不列对策", () => {
+  const hint = (app.match(/const phoneAsHint = opts\.phoneAs \?[\s\S]*?: "";/) || [""])[0];
+  assert.ok(hint, "找不到 phoneAsHint");
+  assert.match(hint, /那是 " \+ uName \+ " 拿着你的手机替你发的/);
+  assert.match(hint, /别当没这回事重新起一个话题/);
+  assert.match(hint, /跟平时一样由你这个人和这段关系决定/);
+  ["装作没事", "将错就错", "当场戳穿", "顺着往下说", "质问"].forEach(w =>
+    assert.ok(hint.indexOf(w) < 0, "提示里不许出现对策词（会被搬进心声撞守卫）：" + w));
 });

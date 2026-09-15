@@ -67,7 +67,8 @@ test("几种不该发的情况各自处理：人没了就销约，正在忙就�
 });
 
 test("约回不该被防连发闸拦掉", () => {
-  assert.match(app, /if \(opts\.proactive && !opts\.promise && history\.length\)/);
+  // v68.50 起 phoneAs（她替他发完之后他找来私聊）也一起豁免——同样是事件驱动的
+  assert.match(app, /if \(opts\.proactive && !opts\.promise && !opts\.phoneAs && history\.length\)/);
 });
 
 test("开口方式和「忽然想你」不一样：兑现那句话，别重开话题", () => {
@@ -76,7 +77,7 @@ test("开口方式和「忽然想你」不一样：兑现那句话，别重开�
   const seg = app.slice(i, i + 1800);
   assert.match(seg, /你说好了要回来找 Ta/);
   assert.match(seg, /别当没这回事重新起一个话题/);
-  assert.match(app, /const proactiveHint = opts\.promise \? promiseHint :/, "要顶掉普通主动那套开场白");
+  assert.match(app, /const proactiveHint = opts\.phoneAs \? phoneAsHint : opts\.promise \? promiseHint :/, "要顶掉普通主动那套开场白");
 });
 
 test("角色删了要连约一起清，存储条目也要有名字", () => {

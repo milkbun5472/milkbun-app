@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.50";
+const APP_VERSION = "v68.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8038,7 +8038,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
     if (opts.proactive) {
-      const outlet = opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -8100,7 +8100,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字TA就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
-    if (opts.proactive && !opts.promise && history.length) {
+    // ⚠️phoneAs 跟 promise 同理：它是对【她刚做过的一件事】的回应，不是随机冒泡。
+    //   卡在这儿的话，她刚跟TA聊过天再去用TA手机，这一条就永远发不出来。
+    if (opts.proactive && !opts.promise && !opts.phoneAs && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return null;
     }
@@ -8212,6 +8214,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
         + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
         + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。1~3 条短消息。") : "";
+      // 她拿他手机替他发了一条，对面还真接了话——他拿回手机翻到这一段，来找她（v68.50）。
+      // 她 2026-09-15：「如果发了给别的回复后他还有几率找来私聊我」。
+      // ⚠️只摆事实，不列对策：列一串「认／装傻／顺着说」会被原样搬进心声，
+      //   正好撞上心声守卫的导演稿判据（v68.47 已经栽过一次，见 bySomeoneElseMark）。
+      const phoneAsHint = opts.phoneAs ? ("\n\n【此刻·你手机上有条消息不是你发的】"
+        + "「" + (opts.phoneAs.where || "群里") + "」冒出来一条以你的名义发出去的话：「" + (opts.phoneAs.said || "") + "」——"
+        + "那是 " + uName + " 拿着你的手机替你发的，你自己一个字都没打过。"
+        + (opts.phoneAs.back ? "而且真的有人接了话：\n" + opts.phoneAs.back + "\n" : "")
+        + "你这会儿拿回手机，翻到了这一段，于是来找 " + uName + "。"
+        + "开口就从这件事落地——**别当没这回事重新起一个话题**。"
+        + "至于你是什么反应，跟平时一样由你这个人和这段关系决定。1~3 条短消息。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
       const openerAvoid = (opts.proactive && _openLines.length)
@@ -8219,7 +8232,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + _openLines.map(x => "· " + x).join("\n")
           + "\n避免机械复述已经说过的内容；按此刻的真实来意开口，不为避重编造新事件。"
         : "";
-      const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。这是一段新的聊天开场。\n"
@@ -15093,6 +15106,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const r = WK.applyReply(cur, name, text, Date.now(), key);
     if (r.wrote) savePhoneApp(char.id, key, r.d, { noArchive: true, patched: true });
   };
+  // ── 发完之后，他有几率拿回手机、找到私聊里来（她 2026-09-15 要的）────────
+  // 「如果发了给别的回复后他还有几率找来私聊我」。
+  // ⚠️两道前提，缺一条都不发：
+  //   ① 对面【真的接了话】——没人理的话，「你替我发了条消息」这件事还没发生完；
+  //   ② 掷轴过了。**几率是几率**：每次都来就成了一个必然的回执，那不是他忽然想起来，
+  //      是系统在播报（施工规则/bans-make-it-dumber：该加约束时掷轴、别掷答案）。
+  // ⚠️不另开一条主动消息的路：走 replyNow 那一条（约回／生日／天气都在上面），
+  //   于是「TA是不是睡着了」「你俩此刻在不在一起」「主动消息开没开」那几道闸白得
+  //   （施工规则/one-public-mechanism）。
+  const PHONE_AS_ASK_P = 0.45;
+  // 隔一会儿才来：当场弹出来像回执，隔二十秒到两分钟才像他刚放下别的事翻到手机。
+  const PHONE_AS_ASK_MIN = 25000, PHONE_AS_ASK_SPAN = 95000;
+  const phoneAsFollowUp = (char, group, said, rowsBefore) => {
+    if (!char || !group) return;
+    const fresh = (groupChatsRef.current[group.id] || []).slice(rowsBefore)
+      .filter(m => m && m.role === "assistant" && m.senderId !== char.id && String(m.content || "").trim());
+    if (!fresh.length) return;                       // 没人接话，这件事还没发生完
+    if (Math.random() >= PHONE_AS_ASK_P) return;
+    const back = fresh.slice(0, 3).map(m => (m.senderName || "对方") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60)).join("\n");
+    setTimeout(() => {
+      replyNow(char.id, "", null, { proactive: true, phoneAs: {
+        where: group.name || "群里", said: String(said || "").replace(/\s+/g, " ").slice(0, 60), back
+      } });
+    }, PHONE_AS_ASK_MIN + Math.floor(Math.random() * PHONE_AS_ASK_SPAN));
+  };
   // 正在等对面回话的那条会话 id（查手机那屏据此画三个点）
   const [phoneAsWait, setPhoneAsWait] = useState("");
   // ── 她替他，从他手机上把这一句真的发出去（她 2026-09-14）────────────────
@@ -15129,7 +15167,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   动辄十几秒，屏幕上一声不响的话，跟「发出去没反应」长得一模一样。
     setPhoneAsWait(id);
     const done = () => setPhoneAsWait(w => (w === id ? "" : w));
-    Promise.resolve().then(() => replyGroup(gid)).then(done, done);
+    const rowsBefore = (groupChatsRef.current[gid] || []).length;
+    Promise.resolve().then(() => replyGroup(gid))
+      .then(() => { done(); phoneAsFollowUp(char, group, body, rowsBefore); }, done);
     return true;
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
