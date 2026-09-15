@@ -4911,6 +4911,49 @@ function ttsHelperProfile() {
 // 她在主角色档案里填一句「要谁」——可以是人设里提到的名字（陆闻），
 // 也可以是一个位置（「TA的属下」）——一次调用生成几百字小简介 + 双向关系，
 // 然后就能拉进群一起聊。不做单聊、不做心情好感、不进任何后台循环。
+// 帮她拟一段关系（她 2026-09-15：「如果我想把他连 b 我得自己写了」）。
+// ⚠️两边的人设都要给：B 是谁、干什么的、什么年代、什么脾气，直接决定这两句该写成
+//   「同门师兄」还是「打过一次照面的酒肉朋友」。不给 B 的人设，模型只能照名字瞎编。
+// ⚠️已有的那段关系也要给：他是 A 的副将，就不该跟 B 素不相识。
+// ⚠️必须给出口（施工规则/bans-make-it-dumber.md）：逼它必须写出一段交情，它一定编得出来。
+//   可 A 是古代人、B 是现代人这种在她这儿真会发生，那时正确答案是「根本不该认识」。
+//   所以掷的是轴不是答案：给判据（有没有理由碰上过），四档任它落。
+async function generateRelation(p, a, b, opts) {
+  const o = opts || {};
+  const cut = (t, n) => String(t || "").replace(/\s+/g, " ").slice(0, n);
+  const via = String(o.via || "").trim();   // 已经写好的那段（如「他是 A 的副将」）
+  const sys = "你在为一个角色扮演 App 拟【两个人之间的关系】，供用户过目和修改。\n\n"
+    + "【甲】" + a.name + "\n" + (a.persona ? "【甲的设定】\n" + cut(a.persona, 1800) + "\n" : "")
+    + "\n【乙】" + b.name + "\n" + (b.persona ? "【乙的设定】\n" + cut(b.persona, 1800) + "\n" : "")
+    + (via ? "\n【已经写好的、不许推翻的】" + cut(via, 300) + "\n" : "")
+    + (o.hint ? "\n【用户特别说的】" + cut(o.hint, 200) + "\n" : "")
+    + "\n【先答这一个问题】这两个人有没有理由碰上过，怎么碰上的？照两人的设定（时代、地方、"
+    + "行当、圈子）和上面已经写好的那段老实判断，答案至少有这几档，落在哪档就写哪档：\n"
+    + "· 真有交情（共事、同门、旧友、对头…）；\n"
+    + "· 只是从别人嘴里听说过这个名字，没真打过交道；\n"
+    + "· 本来就是一块儿的（有共同的人或圈子把他们连着）；\n"
+    + "· 时代、世界或处境根本对不上——那就老实说不该认识，别硬造。\n"
+    + "⚠️宁可写「不认识」，也不要为了交差编一段穿越关系。\n"
+    + "⚠️这两句只写【他们俩之间】：不许提到玩家/用户本人，也不许写谁和用户是什么关系"
+    + "（那是各自的私事，写进这儿就等于当众拆穿）。\n"
+    + "\n【怎么写】label 是【两边共用的那一行标签】，4~8 字（例：「旧同学」「老搭档」「只闻其名」"
+    + "「素不相识」）；aToB / bToA 是各自那头的说法，每句 25 字以内，第三人称平着说"
+    + "（例：「共事八年的老搭档，什么都交给他」）。别写小作文、别加评价。\n"
+    + "\n【输出】只输出 JSON，不要代码块：\n"
+    + '{"known":true或false（两人是否真认识）,"label":"两边共用的一行标签","aToB":"甲眼里乙是谁，一句","bToA":"乙眼里甲是谁，一句","why":"你判断的依据，一句，给用户看"}';
+  const raw = await callAI(p, sys, [{ role: "user", content: "拟这两个人的关系。" }], { maxTokens: 8000, timeout: 90000 });
+  const d = parseJSONLoose(raw);
+  if (!d || (!d.label && !d.aToB && !d.bToA)) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
+  return {
+    known: d.known !== false,
+    label: String(d.label || "").trim().slice(0, 20),
+    aToB: String(d.aToB || "").trim().slice(0, 60),
+    bToA: String(d.bToA || "").trim().slice(0, 60),
+    why: String(d.why || "").trim().slice(0, 120)
+  };
+}
+if (typeof window !== "undefined") window.generateRelation = generateRelation;
+
 async function generateNpc(p, hostChar, ask, takenNames) {
   const host = (hostChar && hostChar.name) || "这个角色";
   const persona = String((hostChar && hostChar.persona) || "").replace(/\s+/g, " ").slice(0, 4000);
@@ -6156,7 +6199,10 @@ async function generateOfflineGroup(p, ctx, session) {
     }, userName, { narrative: true });
     return c.npc
     ? "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
-      + ((ctx.npcOwnerName && ctx.npcOwnerName[c.id]) ? "\n〔这是 " + ctx.npcOwnerName[c.id] + " 身边的人，只在群里出场〕" : "")
+      // 配角那一行由 app 的 npcRosterLine 算好递过来（在场的谁跟 TA 有边、认不认识用户，
+      // 四处一样喂）。旧的 npcOwnerName 留作兜底：老存档/别的调用方没递 npcRoster 时照旧。
+      + ((ctx.npcRoster && ctx.npcRoster[c.id]) ? ctx.npcRoster[c.id]
+        : (ctx.npcOwnerName && ctx.npcOwnerName[c.id]) ? "\n〔这是 " + ctx.npcOwnerName[c.id] + " 身边的人，只在群里出场〕" : "")
     : "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap)
     + bg.grownSeg
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有

@@ -4,10 +4,14 @@ const { createHash } = require('node:crypto');
 const { app, engine, cut, fixture, evaluate, wire, sections } = require('./_group-background-fixture.cjs');
 
 // 从重构前真实三条 memberDesc 运行取得，不根据重构后的拼接倒推期望。
+// ⚠️v68.84 online/call 两张换了新的：配角那一行从「这是 X 身边的人，只在群里出场」
+//   改成走公共的 npcRosterLine（在场的谁跟 TA 有边也一并说出来）。
+//   换哈希的同时下面加了一条专门盯配角那一行的断言——光换数字等于把守门的拆了。
+//   ⚠️主角色那两段【一个字都没动】，那才是这三张哈希真正在守的东西。
 const beforeHashes = {
-  online: 'e655e2d51ac1ec8bfae2f102ff133aeea03e386f610d5146540da6ec7aefc859',
-  call: '1b8cb3b0cb57eaa44f0cf322309552a9656e00ee5afcf36f4ac4e2ab46552411',
-  offline: '97df0976a95233a1ef6222e90267c4b0b4f4243431d87a7d87460c683738d03c',
+  online: 'a06e34e6b10cd41c8d6d7a8cb6461b3151b3a49091eb2602757398c971f7c654',
+  call: '7ba5534f78d18b5a940cf569e7d3099eb08abe2a3bc9a60f77fdfebd84ec20c8',
+  offline: '074b43e33d9720371b2e4e9e6cf68bf51cd1a5eb25a8f05e8a734a2ee92eeb77',
 };
 for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景输出与重构前逐字一致', () => {
   const env = wire(fixture());
@@ -22,6 +26,33 @@ for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景
   assert.match(b, /只有 乙 本人知道/);
   assert.ok(!a.includes('b私有档案') && !b.includes('a私有档案'));
   assert.doesNotMatch(text.slice(text.indexOf('【配角】')), /底色|睡眠|私有档案|成长|随身物/);
+  // v68.84：配角那一行现在由 npcRosterLine 写。没有别的边时，说的仍然只有户口那一句。
+  const npcSeg = text.slice(text.indexOf('【配角】'));
+  assert.match(npcSeg, /〔这是 甲 身边的人；只在群里出场〕/);
+  assert.doesNotMatch(npcSeg, /也认得|也认识/, '没有边的时候不许凭空说 TA 认得谁');
+});
+
+test('配角同时认得在场的别人时，那一行要说出来（她 2026-09-15：「万一 npc 跟 ab 都认识呢」）', () => {
+  const env = wire(fixture());
+  env.rels['npc->b'] = { label: '旧同学' };
+  const text = evaluate(sections.online, env, 'memberDesc');
+  const npcSeg = text.slice(text.indexOf('【配角】'));
+  assert.match(npcSeg, /这是 甲 身边的人；在场的这几位 TA 也认得：乙（旧同学）；只在群里出场/,
+    '不说的话，模型只知道 TA 是甲的人，跟乙说话时还是当陌生人');
+  // 户口那一位不重复数进去
+  assert.doesNotMatch(npcSeg, /也认得：甲/);
+});
+
+test('⚠️配角认识用户，不等于知道用户的私事', () => {
+  const env = wire(fixture());
+  env.characters = env.members = env.people = env.members.map(c =>
+    c.npc ? { ...c, knowsUser: true, knowsUserNote: '一块儿打过两年球' } : c);
+  const text = evaluate(sections.online, env, 'memberDesc');
+  const npcSeg = text.slice(text.indexOf('【配角】'));
+  assert.match(npcSeg, /TA 也认识 读者 本人：一块儿打过两年球/);
+  // 共友认识她、又同时认识甲和乙，就是一条现成的泄漏通道——围栏必须贴着这句一起发
+  assert.match(npcSeg, /她跟在场每一位各自是什么关系，TA 一概不知道/);
+  assert.match(npcSeg, /除非那位自己在群里说了出来/);
 });
 
 test('他给她起的称呼落在【那位成员自己那一段】里，别人看不到（v68.43）', () => {

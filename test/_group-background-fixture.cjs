@@ -33,7 +33,14 @@ function fixture() {
     crossChannelSaid: id => id + '跨群消息', listenRef: { current: { playlists: [{ charId: 'a', songs: [{ title: '甲的歌' }] }] } },
     window: { HeartKit: { personaText: x => x }, MoodLabel: { settle: label => ({ label, note: '' }) } },
   };
-  env.ctx = { npcOwnerName: { npc: '甲' } };
+  // v68.84：配角那一行搬成公共的 npcRosterLine（在场的谁跟 TA 有边也要说出来）。
+  // 这儿接【真的那一份】而不是打桩：它现在决定配角在三处成员表里长什么样，打桩就等于没测。
+  env.rels = {};
+  env.npcRosterLine = new Function('characters', 'rels', 'userName', 'profile',
+    cut(app, '  const npcRosterLine =', '  const npcsOf =') + ' return npcRosterLine;'
+  )(members, env.rels, () => '读者', {});
+  // v68.84：群线下那一行也改由 app 算好递过来（ctx.npcRoster）；npcOwnerName 只剩兜底
+  env.ctx = { npcOwnerName: { npc: '甲' }, npcRoster: { npc: env.npcRosterLine(members[2], members.map(x => x.id)) } };
   const maps = { memberGrown: ['甲成长', '乙成长'], memberAMood: ['a底色', 'b底色'], memberSleep: ['a睡眠\n第二行', 'b睡眠\n第二行'], memberHome: ['甲城', '乙城'], memberCarry: ['甲随身物', '乙随身物'], memberCoupleArchive: ['a私有档案', 'b私有档案'] };
   for (const [key, values] of Object.entries(maps)) env.ctx[key] = { a: values[0], b: values[1] };
   return env;

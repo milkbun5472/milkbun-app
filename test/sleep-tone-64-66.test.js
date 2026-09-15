@@ -97,7 +97,8 @@ test("群线上 / 群线下 / 群通话：三处各按人喂，不许合成一�
   assert.match(app, /memberSleep: backgroundMap\("sleep"\)/, "群线下没算");
   assert.match(eng, /ctx\.memberSleep && ctx\.memberSleep\[c\.id\]/, "群线下 engine 没按人取");
   // 群通话
-  const gc = cut(app, "const memberDesc = people.map(c => {\n          if (c.npc) return \"【\" + c.name + \"】\" + groupPersonaText(c.persona, NPC_PERSONA_CAP);", "}).join(\"\\n\\n\");");
+  // v68.84：配角那一行后面多了 npcRosterLine（在场的谁跟 TA 有边），所以这儿别钉死整句
+  const gc = cut(app, "const memberDesc = people.map(c => {\n          if (c.npc) return", "}).join(\"\\n\\n\");");
   assert.match(gc, /groupNowSegs\(c,/, "群通话没接公共背景");
   assert.match(gc, /\+ n\.zSeg/);
 });

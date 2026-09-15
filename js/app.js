@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.84";
+const APP_VERSION = "v68.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4810,6 +4810,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // 配角在群成员表里的那一行。
+  // ⚠️原来只写一句「这是 X 身边的人」——户口报完就完了。可配角是【可以同时认识好几个人】的
+  //   （她 2026-09-15：「万一 npc 跟 ab 都认识呢」）：关系本来就住在 x_rels 那张任意多边的图里，
+  //   卡住的从来不是数据，是这一行只肯说一个名字。在场的谁跟 TA 有边，就一并说出来——
+  //   不说的话，模型只知道 TA 是 A 的人，跟 B 说话时还是当陌生人。
+  // ⚠️「认识她」和「知道她的私事」是两层：认识只是认识，TA 照样不知道她跟 A、跟 B 各自
+  //   是什么关系（那归关系隐私铁律管）。一起放开的话，共友就成了一条现成的泄漏通道。
+  const npcRosterLine = (c, presentIds) => {
+    const owner = characters.find(x => x.id === c.ownerId);
+    const bits = [];
+    if (owner) bits.push("这是 " + owner.name + " 身边的人");
+    const others = (presentIds || []).filter(id => id !== c.id && id !== c.ownerId).map(id => {
+      const o = characters.find(x => x.id === id);
+      if (!o) return null;
+      const e = rels[c.id + "->" + id] || rels[id + "->" + c.id];
+      return e && e.label ? o.name + "（" + String(e.label).slice(0, 14) + "）" : null;
+    }).filter(Boolean);
+    if (others.length) bits.push("在场的这几位 TA 也认得：" + others.join("、"));
+    bits.push("只在群里出场");
+    let line = "\n〔" + bits.join("；") + "〕";
+    if (c.knowsUser) {
+      line += "\n〔TA 也认识 " + userName(profile) + " 本人"
+        + (c.knowsUserNote ? "：" + String(c.knowsUserNote).slice(0, 120) : "")
+        + "。⚠️但 TA【只是认识她这个人】——她跟在场每一位各自是什么关系，TA 一概不知道，"
+        + "也绝不许猜、提起或据此起哄；除非那位自己在群里说了出来。〕";
+    }
+    return line;
+  };
   const npcsOf = hostId => characters.filter(c => c && c.npc && String(c.ownerId) === String(hostId));
   // 「这一轮在不在聊音乐」——只用来决定歌单要不要把歌名铺开（她 2026-09-11）。
   // ⚠️别放「听」：听说、听话、听见全会命中，那就等于没有这道闸。
@@ -7033,7 +7061,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberHome: backgroundMap("home"),
     // 睡没睡（v64.66）：跟 memberAMood 同一个形状——一人一份，各按各的作息。
     memberSleep: backgroundMap("sleep"),
-    // 配角的主人名字：群线下的 memberDesc 用它标一行「这是 X 身边的人」
+    // 配角那一行（四处一样喂）：群线下也走公共的 npcRosterLine，别只报户口
+    npcRoster: (() => {
+      const m = {};
+      const ids = (group.memberIds || []).slice();
+      ids.forEach(id => {
+        const c = characters.find(x => x.id === id);
+        if (!c || !c.npc) return;
+        m[id] = npcRosterLine(c, ids);
+      });
+      return m;
+    })(),
+    // 配角的主人名字：留给没递 npcRoster 的老路当兜底
     npcOwnerName: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
@@ -10202,9 +10241,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 「这个主角色是谁」的层，配角没有，给了反而会演出争宠吃醋那一套。
         // 人设额度另算：群预算是按人数平分的，配角挤进去会把主角色的额度吃掉。
         if (c.npc) {
-          const owner = characters.find(x => x.id === c.ownerId);
           return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
-            + (owner ? "\n〔这是 " + owner.name + " 身边的人，只在群里出场〕" : "");
+            + npcRosterLine(c, members.map(x => x.id));
         }
             // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
         const xgSeg = (() => {
@@ -11110,7 +11148,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gsp = gsFor(groupId);
       const split = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
       const memberDesc = members.map(c => {
-        if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
+        // 配角那一行走公共的 npcRosterLine：在场的谁跟 TA 有边，四处都该看得见（不止群线上）
+        if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcRosterLine(c, members.map(x => x.id));
         const now = groupNowSegs(c, { interop: gsp.memoryInterop });
         const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
         return "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + Object.values(now).join("")
@@ -14244,7 +14283,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //（她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」）。
         const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
         const memberDesc = people.map(c => {
-          if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP);
+          if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcRosterLine(c, people.map(x => x.id));
           const n = groupNowSegs(c, { interop: gcInterop });
           return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
         }).join("\n\n");
@@ -21187,7 +21226,43 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return n;
     }),
     npcsOf: npcsOf,
+    relBusy: !!(busyLanesRef.current || {})["rel:draft"],
+    // 让 TA 拟一版（她 2026-09-15：「如果我想把他连 b 我得自己写了」）。
+    // ⚠️写完交回给 composer 落进输入框【给她改】，绝不直接存。
+    // ⚠️已经写好的那段一并递过去：他是 A 的副将，就不该跟 B 素不相识。
+    onDraftRel: async (aId, bId, done) => {
+      const a = characters.find(x => x.id === aId), b = characters.find(x => x.id === bId);
+      if (!a || !b) return;
+      const p = bgActiveRef.current || active;
+      if (!p) { toast("先去 设置·API 配一条线路"); return; }
+      if (laneBusy("rel:draft")) return;
+      startLane("rel:draft");
+      try {
+        const viaBits = [];
+        [a, b].forEach(who => {
+          const other = who === a ? b : a;
+          if (!who.npc) return;
+          const owner = characters.find(x => x.id === who.ownerId);
+          if (owner && owner.id !== other.id) {
+            const e = rels[who.id + "->" + owner.id] || rels[owner.id + "->" + who.id];
+            viaBits.push(who.name + " 是 " + owner.name + " 身边的人" + (e && e.label ? "（" + e.label + "）" : ""));
+          }
+        });
+        const d = await generateRelation(p, a, b, { via: viaBits.join("；") });
+        done(d);
+      } catch (e) { toast("没拟成：" + ((e && e.message) || e)); }
+      finally { endLane("rel:draft"); }
+    },
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
+    // ⚠️配角原来一律「不认识用户」——那是我当初一刀切死的（generateNpc 里那条铁律）。
+    //   可「我和 A、B 共同的朋友」是个完全正当的形状，现在压根表达不出来：
+    //   一拉他进群，他会当她是陌生人（她 2026-09-15 问到）。
+    //   所以给配角一格：跟她认不认识、什么交情。默认不认识（多数配角确实是角色那边的人）。
+    // ⚠️「认识她」和「知道她的私事」是两层，绝不能一起放开——围栏在 npcKnowsLine 那一处。
+    onSaveNpcKnows: (id, patch) => pC(p => p.map(c => c.id === id ? { ...c,
+      knowsUser: !!patch.knowsUser,
+      knowsUserNote: String(patch.knowsUserNote == null ? (c.knowsUserNote || "") : patch.knowsUserNote).slice(0, 120)
+    } : c)),
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
     onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
     onDeleteNpc: id => {

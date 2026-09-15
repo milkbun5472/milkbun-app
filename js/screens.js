@@ -1223,6 +1223,9 @@ function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, 
 function Ties({
   characters,
   allChars,
+  onSaveNpcKnows,
+  onDraftRel,
+  relBusy,
   rels,
   tiePos,
   onSaveTiePos,
@@ -1242,6 +1245,10 @@ function Ties({
   const [board, setBoard] = useState("me"); // 现在看谁的板子（一人一页）
   const me = profile.name || "我";
   const all = allChars || characters;   // 解析用全量（含 NPC）
+  // ⚠️「角色之间」原来只给 liveChars（把配角滤掉了），于是配角除了建它那一刻自动写下的
+  //   那两条「他↔主人」，再没有入口连第二个人——她 2026-09-15 说的「只能绑定一个人」，
+  //   实际来源就是这一句，不是 ownerId。ownerId 是户口，关系住在 x_rels 那张任意多边的图里。
+  const npcList = (all || []).filter(c => c && c.npc);
   const nameOf = id => id === "me" ? me : (all.find(c => c.id === id) || {}).name || "?";
   const charOf = id => id === "me" ? null : all.find(c => c.id === id);
   const npcOf = id => { const c = all.find(x => x.id === id); return c && c.npc ? c : null; };
@@ -1395,7 +1402,7 @@ function Ties({
               h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, mine.length + " 段关系")),
               mine.map(c => h(DetailRowWrap, { key: c.a + "|" + c.b, selfId: view, card: c })))),
       comp && h(RelComposer, {
-        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy,
+        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
         valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
       }));
   }
@@ -1448,7 +1455,7 @@ function Ties({
     boardId !== "me" ? h("button", { onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy,
+      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
@@ -1457,7 +1464,7 @@ function Ties({
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy }) {
+function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -1549,7 +1556,27 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
         },
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.name),
-            h(NpcBrief, { npc: n, onSave: onSaveNpcBrief, compact: true })),
+            h(NpcBrief, { npc: n, onSave: onSaveNpcBrief, compact: true }),
+            // 跟我认不认识（她 2026-09-15：「万一 npc 是我和 ab 的共友那不认识也不成立」）。
+            // 默认不认识——多数配角确实是角色那边的人；共友是那一小撮，得她自己点亮。
+            onSaveNpcKnows ? h("div", { style: { marginTop: 6 } },
+              h("button", {
+                onClick: () => onSaveNpcKnows(n.id, { knowsUser: !n.knowsUser }),
+                className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999,
+                  border: "1px solid " + (n.knowsUser ? t.tint : t.line),
+                  color: n.knowsUser ? t.tint : t.fog }
+              }, n.knowsUser ? "✓ 也认识我" : "跟我不认识"),
+              n.knowsUser ? h("input", {
+                defaultValue: n.knowsUserNote || "",
+                onBlur: e => onSaveNpcKnows(n.id, { knowsUser: true, knowsUserNote: e.target.value }),
+                placeholder: "你俩什么交情？（一块儿打过两年球…）",
+                className: "w-full bg-transparent outline-none",
+                style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 5,
+                  borderBottom: "1px solid " + t.line, paddingBottom: 3 }
+              }) : null,
+              n.knowsUser ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } },
+                "TA 只是认识你这个人——你跟谁是什么关系，TA 一概不知道。") : null) : null),
           onDeleteNpc ? h("button", { onClick: () => onDeleteNpc(n.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除") : null)))) : null
     ) : h(Fragment, null,
 
@@ -1559,6 +1586,12 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       c.tab === "me"
         ? characters.map(ch => pickCard(ch.id, c.meChar === ch.id, () => set({ meChar: ch.id })))
         : characters.map(ch => pickCard(ch.id, c.pair.includes(ch.id), () => togglePair(ch.id)))),
+    // 配角也能连（她 2026-09-15：「万一 npc 跟 ab 都认识呢」）。单独一组、不跟主角色混在一起：
+    // 它们本来就是另一档东西（只在群里出场、没有心情好感），混着排她会分不清点的是谁。
+    (c.tab === "chars" && npcList && npcList.length) ? h(Fragment, null,
+      h(Eyebrow, { style: { marginBottom: 8 } }, "配角也能连"),
+      h("div", { className: "grid grid-cols-2 gap-2 mb-5" },
+        npcList.map(ch => pickCard(ch.id, c.pair.includes(ch.id), () => togglePair(ch.id))))) : null,
 
     // 关系名称
     h(Eyebrow, { style: { marginBottom: 8 } }, "关系名称"),
@@ -1568,10 +1601,27 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       className: "w-full bg-transparent outline-none pb-2",
       style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
     }),
-    h("div", { className: "flex flex-wrap gap-1.5 mt-3 mb-5" }, REL_PRESETS.map(p => h("button", {
+    h("div", { className: "flex flex-wrap gap-1.5 mt-3 mb-2" }, REL_PRESETS.map(p => h("button", {
       key: p, onClick: () => set({ label: p }),
       style: { fontFamily: F_BODY, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
     }, p))),
+    // 让 TA 写（她 2026-09-15：「如果我想把他连 b 我得自己写了」）。
+    // ⚠️写完落进输入框【给她改】，不是直接存——生成的东西一律先过她的眼睛。
+    // ⚠️不是配角专用：主角色之间同样可以先拟一版（一层写在两处的事今天已经踩过）。
+    (onDraftRel && c.tab === "chars" && c.pair.filter(Boolean).length === 2) ? h("div", { className: "mb-5" },
+      h("button", {
+        onClick: () => onDraftRel(c.pair[0], c.pair[1], d => set({
+          label: d.label || d.aToB || c.label,
+          note: "", noteFwd: d.aToB || "", noteBwd: d.bToA || "",
+          // 两头写得不一样本来就是内容，所以默认摊开成两段；一样的话就不折腾她
+          dir: "double", split: !!(d.aToB && d.bToA && d.aToB !== d.bToA),
+          _why: d.why || "", _known: d.known
+        })),
+        disabled: !!relBusy, className: "active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, opacity: relBusy ? 0.4 : 1 }
+      }, relBusy ? "在想…" : "让 TA 写一版 ✎"),
+      c._why ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 5 } },
+        (c._known === false ? "它判断这俩其实不该认识：" : "它的依据：") + c._why + "（写好的两句在下面，随便改）") : null) : null,
 
     // 关系方向
     h(Eyebrow, { style: { marginBottom: 8 } }, "关系方向"),

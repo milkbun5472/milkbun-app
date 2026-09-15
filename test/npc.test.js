@@ -138,9 +138,20 @@ test("配角长不出印象卡", () => {
   assert.match(app, /gazeOn: .*&& !scc\.npc,/);
 });
 
-test("② 只能进主人的群", () => {
-  assert.match(comp, /c\.npc && !memberIds\.includes\(c\.id\) && memberIds\.includes\(c\.ownerId\)/,
-    "主人不在这个群里，配角就不该出现在加人选单里");
+test("② 只进【在场有人认得 TA】的群", () => {
+  // ⚠️v68.84 从「只进主人的群」放宽成「主人在场，或者在场的谁跟 TA 有关系」。
+  //   配角本来就能同时认识好几个人（她 2026-09-15：「万一 npc 跟 ab 都认识呢」），
+  //   只认户口的话，「A 和 B 共同的那位朋友」永远进不了 B 的群。
+  //   ⚠️闸【没有松】：仍然要求在场有人认得 TA，不是谁的群都能进——这才是这一条守的东西。
+  const pick = comp.match(/const npcOutsiders = \(allChars \|\| \[\]\)\.filter\(c =>[\s\S]*?\)\);/)[0];
+  const fn = new Function("allChars", "memberIds", "rels", pick + " return npcOutsiders;");
+  const npc = { id: "n", npc: true, ownerId: "a" };
+  const all = [npc, { id: "a" }, { id: "b" }];
+  assert.deepEqual(fn(all, ["a"], {}).map(c => c.id), ["n"], "主人在场照旧算数");
+  assert.deepEqual(fn(all, ["b"], {}).map(c => c.id), [], "在场没人认得 TA，就不该出现在选单里");
+  assert.deepEqual(fn(all, ["b"], { "b->n": { label: "旧同学" } }).map(c => c.id), ["n"], "乙认得 TA，就该能拉");
+  assert.deepEqual(fn(all, ["b"], { "n->b": { label: "旧同学" } }).map(c => c.id), ["n"], "反方向那条边也算");
+  assert.deepEqual(fn(all, ["a", "n"], {}).map(c => c.id), [], "已经在群里的不再出现");
   // 建群时也进不来：NewGroupSheet 拿的是 liveChars（不含配角）
   assert.match(comp, /const pool = outsiders\.concat\(npcOutsiders\);/);
   assert.match(comp, /const addable = nearby\.concat\(rest\);/);

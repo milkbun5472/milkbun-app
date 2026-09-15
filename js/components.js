@@ -13971,8 +13971,14 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const outsiders = (characters || []).filter(c => !memberIds.includes(c.id));
   // NPC 只能进【自己主人的】群（她 2026-08-25 拍的）：主人在场才出现在加人选单里。
   // characters 这个 prop 已经是不含 NPC 的 liveChars，所以要从 allChars 里另取。
+  // ⚠️v68.84 放宽：主人在场【或者】在场的谁跟 TA 有关系，都算数。
+  //   配角本来就可以同时认识好几个人（她 2026-09-15：「万一 npc 跟 ab 都认识呢」），
+  //   只认户口的话，「A 和 B 共同的那位朋友」永远进不了 B 的群。
+  //   闸没有松：仍然要求【在场有人认得 TA】，不是谁的群都能进。
   const npcOutsiders = (allChars || []).filter(c =>
-    c && c.npc && !memberIds.includes(c.id) && memberIds.includes(c.ownerId));
+    c && c.npc && !memberIds.includes(c.id)
+    && (memberIds.includes(c.ownerId)
+      || (memberIds || []).some(mid => (rels || {})[mid + "->" + c.id] || (rels || {})[c.id + "->" + mid])));
   // 「进去再拉人，可以从TA已有关系里面拉」（她 2026-08-25）：
   // 和群里某位成员有关系的人排在前面单独一组——这才是她真正会拉的那些人；
   // 其余角色照旧列在下面，不砍掉。
