@@ -2390,18 +2390,19 @@ function Forum({
     })),
     // 吧规：版块顶上一条细横杠，永远只有一行高。
     // ⚠️她 2026-09-15：「吧规叠着太占地方了嘤」——原来那版展开就把三条铺在这儿，
-    //   把帖子流整个往下推。现在点开走浮层，头顶这一行的高度【怎么点都不变】。
+    //   把帖子流整个往下推。现在点开是【贴着这条横杠垂下来的一张小纸条】，浮在帖子上面，
+    //   横杠本身的高度怎么点都不变。
+    // ⚠️不许改成半窗（施工规则/no-half-sheet.md，而且她 2026-09-15 当场又说了一遍
+    //   「我们不要半窗」）：三条规矩糊掉半个屏幕，比不给看还难看。
     // 这块牌子和喂给模型的那份吧规读同一个 FORUM_BOARD_RULES——规矩改一处，两边一起改。
-    (!inSub && nav === "home" && FORUM_BOARD_RULES[tab]) && h("button", { onClick: () => setRulesOpen(true), className: "shrink-0 flex items-center text-left active:opacity-60 px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
-      h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, "吧规"),
-      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, FORUM_BOARD_RULES[tab][0]),
-      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, "共 " + FORUM_BOARD_RULES[tab].length + " 条")),
-    rulesOpen && FORUM_BOARD_RULES[tab] && h(Sheet, { onClose: () => setRulesOpen(false) },
-      h(Eyebrow, { style: { marginBottom: 10 } }, tab + " · 吧规"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: FORUM_SKIN.sub } },
-        FORUM_BOARD_RULES[tab].map((r, k) => h("div", { key: k, className: "flex", style: { gap: 7 } },
-          h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r)))),
-      h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, "常年挂在置顶。多数人根本不提，真提起来的那一条也未必是认真的。")),
+    (!inSub && nav === "home" && FORUM_BOARD_RULES[tab]) && h("div", { className: "shrink-0", style: { position: "relative", zIndex: 20 } },
+      h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "w-full flex items-center text-left active:opacity-60 px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
+        h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, "吧规"),
+        h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, FORUM_BOARD_RULES[tab][0]),
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : "共 " + FORUM_BOARD_RULES[tab].length + " 条")),
+      rulesOpen && h("div", { onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "fadeUp .18s ease both" } },
+        FORUM_BOARD_RULES[tab].map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: FORUM_SKIN.sub } },
+          h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
     (!inSub && nav === "home") && h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
