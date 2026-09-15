@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.62";
+const APP_VERSION = "v68.63";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8578,6 +8578,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西/点外卖/送吃的花礼物惊喜，就**必须**填 gift"
         + "（只嘴上说不填，Ta 收不到）。price 要照你自己的处境和这东西本来的价钱来——"
         + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。");
+      // ⚠️transferAccept（她转过来那一笔收不收）写得很全，可【TA 主动转给她】这一头
+      //   一直只有字典里那句「transfer=转账」——跟语音、电话、红包是同一种空白
+      //   （她 2026-09-15：「发红包和转账这俩也不常用」）。
+      capState.push("transfer：她提到要花钱、手头紧、要打车、生病要买药、加班没吃饭、"
+        + "或者你就是想让她别省着——想转就转，**不必等她开口要**，也不必非得是什么大事。"
+        + "note 写你转这笔的那句话（「打车回去」「别省」），别只丢一个数字。"
+        + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       // 「这间房开了这一样活动吗」——原来一起学、一起玩、一起写各写了一遍同一句，
@@ -10381,6 +10388,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   离输出还更近。所以要治的是那一句，不是把她整个抹掉。
       const gSpec = !!gs.spectate;
       const _uN = userName(profile);
+      // ⚠️旁观群不给 call：这个字段明说是「跟用户发起通话」，而旁观群的身份铁律
+      //   写着「绝不许对着用户说话、@ Ta、把话头扔给 Ta」——两句话直接打架，
+      //   模型收到的是一道自相矛盾的题。语音和红包留着：那两样是他俩【彼此之间】的事
+      //   （红包群里本来就由其他成员自己抢，两个人的房间照样成立）。
+      const gCallField = gSpec ? "" : ",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请——群里拨过去会在用户那边弹来电，所以要有真的理由（有要紧话、三两句说不清、或者这会儿真的很想听见 Ta 的声音），不是随口一响\"";
       const gIdRule = gSpec
         ? "\n\n【身份铁律·旁观】这个群里【只有】上面那几位成员，" + _uN + " **不在这个群里**：Ta 在另一边看着，你们谁也不知道有人在看。"
           + "**绝不许对着 " + _uN + " 说话、@ Ta、向 Ta 提问、请 Ta 评理、把话头扔给 Ta、或者等 Ta 回答**——Ta 听不见，也不会回。"
@@ -10397,7 +10409,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 【关系隐私铁律】旁观群更需要它：两个人都跟她有关系时，正是这条挡住互相拆穿。
       const gRelRule = "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请——群里拨过去会在用户那边弹来电，所以要有真的理由（有要紧话、三两句说不清、或者这会儿真的很想听见 Ta 的声音），不是随口一响\"" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {

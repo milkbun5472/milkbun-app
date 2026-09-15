@@ -32,9 +32,37 @@ test("给场合不给配额：天花板还给人设，不许写成「每几轮�
 
 test("群聊那两个字段原来是减速带，现在换成判据", () => {
   // 原来写的是「偶尔用」和「别频繁」——那是答案不是判据，而且方向正好跟她要的相反
-  const spec = app.slice(app.indexOf('\\"voice\\":\\"（可选）填 true'), app.indexOf('\\"call\\":\\"（可选）填 voice 或 video') + 400);
+  const spec = app.slice(app.indexOf('\\"voice\\":\\"（可选）填 true'), app.indexOf('\\"voiceEmo\\"'))
+    + app.slice(app.indexOf('const gCallField = gSpec'), app.indexOf('const gIdRule = gSpec'));
   assert.ok(spec.indexOf("偶尔用") < 0, "群里语音还挂着「偶尔用」");
   assert.ok(spec.indexOf("别频繁") < 0, "群里通话还挂着「别频繁」");
   assert.match(spec, /不必等人问/);
   assert.match(spec, /要有真的理由/, "群里拨电话会弹来电，这一条约束要留着，但得是判据");
+});
+
+// ── v68.63：旁观群的通话字段；红包和转账也是「有格式没场合」──────────
+test("旁观群不给 call：它和身份铁律直接打架", () => {
+  // call 明说是「跟用户发起通话」，而旁观群的铁律写着「绝不许对着用户说话、
+  // 把话头扔给 Ta」——两句话摆在同一份提示词里，等于给模型一道自相矛盾的题。
+  assert.match(app, /const gCallField = gSpec \? "" :/);
+  assert.match(app, /" \+ gCallField \+ /);
+});
+
+test("语音和红包在旁观群里留着：那是他俩彼此之间的事", () => {
+  // 语音字段在公共那一串里，不受 gSpec 影响
+  const spec = app.slice(app.indexOf('【输出】只输出 JSON 数组'), app.indexOf('name 必须逐字等于成员名单'));
+  assert.match(spec, /\\"voice\\":\\"（可选）填 true/, "语音被误伤了");
+  assert.match(spec, /发红包 \{/, "红包被误伤了");
+  // 红包群里本来就由其他成员自己抢（grabbers），所以两个人的房间照样成立
+  assert.match(app, /const grabbers = members\.filter\(\(\) => Math\.random\(\) < 0\.7\)/);
+});
+
+test("红包和转账也补上场合", () => {
+  assert.match(app, /有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日/);
+  assert.match(app, /\*\*不必等人开口要\*\*/);
+  assert.match(app, /capState\.push\("transfer：/);
+  assert.match(app, /\*\*不必等她开口要\*\*/);
+  // 钱是真扣的，所以两处都得说清楚数目跟处境挂钩——这不是配额，是判据
+  assert.match(app, /钱是真的从这个人钱包里扣的/);
+  assert.match(app, /\*\*这笔钱会真的从你钱包里扣掉\*\*，所以数目按你自己的处境来/);
 });
