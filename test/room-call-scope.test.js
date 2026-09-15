@@ -9,7 +9,7 @@ function setup(overrides={}) {
   const room=Rooms.normalize({id:'r1',...Rooms.PRESETS.isolated,scenario:'测试房间设定',...overrides},'c1');
   const key=Rooms.chatKey('c1','r1'), writes=[], requests=[], stateWrites=[], memories=[], thoughts=[];
   const box={window:{ChatRooms:{...Rooms,get:()=>room}},Date,console,loadJSON:(key,fallback)=>fallback,
-    profile:{name:'测试用户'},characters:[{id:'c1',name:'测试角色'}],groupAutoCallEpochRef:{current:{}},
+    blocksRef:{current:{}}, BLOCK_TOMB_KEEP_MS:30*86400000, profile:{name:'测试用户'},characters:[{id:'c1',name:'测试角色'}],groupAutoCallEpochRef:{current:{}},
     callRef:{current:null}, chatsRef:{current:{c1:[{role:'user',content:'主房私事',ts:1}],[key]:[{role:'user',content:'房内对话',ts:2}]}},
     roomStatesRef:{current:{[key]:{mood:'房内心情'}}}, statesRef:{current:{}}, directives:{c1:[{id:'main_rule',text:'主房准则',ts:1}]},
     ctxFor:(char,opts)=>({char,profile:{name:'测试用户'},recentChat:'主房私事',memory:'主房记忆',moodLabel:'主房心情',timeAware:true}),
@@ -33,7 +33,7 @@ function setup(overrides={}) {
   vm.runInContext(components.slice(audioPref, components.indexOf('\n}\n', audioPref) + 3), box);
   const engine = fs.readFileSync('js/engine.js', 'utf8');
   vm.runInContext(engine.slice(engine.indexOf('function splitBilingual('), engine.indexOf('const TRANS_CACHE_KEY')), box);
-  vm.runInContext(cut('  const roomHistoryText =','  const blockBundleFor =') +
+  vm.runInContext(cut('  const blockLineFor =','  const relationshipLineFor =') + cut('  const roomHistoryText =','  const blockBundleFor =') +
     cut('  const addDirective =','  // 规矩不该只有') + cut('  const oocReply =','  // v61.80 撤走了 reactToMyRecall') +
     cut('  const markCallBye =','  // 随机坐标（位置 stamp 用）')+
     '\nthis.ops={startCall,callSend,endCall,roomContextFor,oocReply};',box);
@@ -179,4 +179,15 @@ test('房间状态写入方保存动作穿着与心情，空心声不丢本地�
   assert.equal(saved.x_roomStates[key].mood,'开心');
   assert.equal(saved.x_states,undefined);
   assert.equal(saved.x_roomStates.c1,undefined);
+});
+
+test('语音与视频实际发送的上下文携带本房拉黑，不携带主房拉黑', async()=>{
+  for (const mode of ['voice','video']) {
+    const f=setup();
+    f.box.blocksRef.current = {c1:{iBlocked:true},[f.key]:{theyBlocked:true,reason:'仅本房的分歧',blockedTs:Date.now()}};
+    f.box.ops.startCall(f.box.characters,mode,null,'me',f.key);
+    await f.box.ops.callSend('本房继续聊');
+    assert.match(f.requests[0],/仅本房的分歧/);
+    assert.doesNotMatch(f.requests[0],/她把你拉黑了/);
+  }
 });

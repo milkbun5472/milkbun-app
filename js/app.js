@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.70";
+const APP_VERSION = "v68.71";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6524,15 +6524,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       let oCtx = ctxFor(char);
       if (sideRoom) {
-        const roomTimeAware = roomTimeAwareFor(sideRoom, charId);
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || [],
           { turns: roomTurnsOf(charId, sideRoom) }) : "";
-        oCtx.timeAware = roomTimeAware;
-        if (roomTimeAware) { oCtx.schedNow = schedNowFor(char); oCtx.geo = prefs.geoAware ? geo : null; }
-        // ⚠️这儿原来是【线上那张黑名单的第二份手抄件】，两处一字不差、也一起漏那 23 栏。
-        //   现在两处都走 ChatRooms.gateCtx 那一张白名单（one-public-mechanism.md）。
-        oCtx = window.ChatRooms.gateCtx(oCtx, roomTimeAware ? { ...sideRoom, cognition: { ...(sideRoom.cognition || {}), schedule: true } } : sideRoom);
+        oCtx = gateRoomContext(oCtx, char, scopeKey, sideRoom);
       }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
       // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
@@ -7022,11 +7017,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (group.memberIds || []).forEach(id => {
         const c = characters.find(x => x.id === id);
         if (!c || c.npc) return;            // 配角跟用户没有关系线
-        const l = coupleLineFor(id, userName(profile));
-        // 称呼跟情侣状态同一档：这位成员的私事，落在【他自己那一段】里、带同一道隐私围栏
-        const nk0 = nickLineFor(id, userName(profile));
-        // 拉黑／刚解除同档，摆最前面（群线上那一处一样）
-        const both = [blockLineFor(id), l, nk0].filter(Boolean).join("\n");
+        const both = relationshipLineFor(id);
         if (both) m[id] = both;
       });
       return m;
@@ -11457,10 +11448,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const now = Date.now();
     const gap = ts => { const h = Math.floor((now - Number(ts || 0)) / 3600000); return h < 1 ? "还不到一小时" : h < 48 ? "约 " + h + " 小时" : "约 " + Math.round(h / 24) + " 天"; };
     if (b.iBlocked) return "【她把你拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
-      + "你发出去的消息 Ta 暂时收不到，而你知道自己被拉黑了。";
+      + "你在这间私聊里发出去的消息 Ta 暂时收不到，而你知道自己被拉黑了。";
     if (b.theyBlocked) return "【你把 Ta 拉黑了】" + (b.blockedTs ? "到现在" + gap(b.blockedTs) + "。" : "")
       + (b.reason ? "当初是因为：" + b.reason + "。" : "") + "Ta 发来的消息你能看见，但你们还没和好。";
-    if (!b.endedTs) return "";
+    if (!b.endedTs || now - Number(b.endedTs) >= BLOCK_TOMB_KEEP_MS) return "";
     // 刚解除那一段：这才是「失忆」真正要补的一层
     const unsent = (() => {
       const rows = chatsRef.current[charId] || [];
@@ -11473,6 +11464,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "。" + (b.by === "me" && unsent > 1 ? "那几天你一个人发了 " + unsent + " 条 Ta 收不到的消息——那些话你说过，Ta 现在也看得见了。" : "")
       + "**这件事真的发生过，别当没发生过、也别停在拉黑之前的状态**；但也别一开口就翻旧账，多数时候它只是你们之间刚过去的一道坎。";
   };
+  const relationshipLineFor = charId => [blockLineFor(charId), coupleLineFor(charId, userName(profile)), nickLineFor(charId, userName(profile))].filter(Boolean).join("\n");
   const blockChatKey = charId => window.ChatRooms ? window.ChatRooms.chatKey(charId, activeRoomId) : charId;
   const runRoomAction = (charId, field, action) => {
     const room = window.ChatRooms.get(charId, activeRoomId);
@@ -11500,6 +11492,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       blankRecent: single || !!sideRoom  // 这一块整个不发：原文就在 messages 里
     };
   };
+  const gateRoomContext = (ctx, char, chatKey, room) => {
+    const clockOn = roomTimeAwareFor(room, char.id);
+    ctx.timeAware = clockOn;
+    if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = prefs.geoAware ? geo : null; }
+    const gated = window.ChatRooms.gateCtx(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
+    // 拉黑按聊天键落库；本房发生的事在主线认知关闭时也应知道，不继承主房的拉黑。
+    gated.blockLine = blockLineFor(chatKey);
+    return gated;
+  };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
     const text = roomHistoryText(char, chatKey);
@@ -11507,10 +11508,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ctx.recentChat = text;
     ctx.directives = [...(ctx.directives || []), ...(directives[chatKey] || [])];
     ctx.worldbook = loreForContext("chat", [char.id], ctxOpts && ctxOpts.queryText || text);
-    const clockOn = roomTimeAwareFor(room, char.id);
-    ctx.timeAware = clockOn;
-    if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = prefs.geoAware ? geo : null; }
-    const gated = window.ChatRooms.gateCtx(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
+    const gated = gateRoomContext(ctx, char, chatKey, room);
     const local = roomStatesRef.current[chatKey] || {};
     if (local.mood) gated.moodLabel = local.mood;
     return gated;
@@ -13841,7 +13839,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️称呼也走这一段：它是这位成员的私事，别的成员并不知情（跟情侣状态同一道围栏）。
         // ⚠️拉黑／刚解除也在这一段（她 2026-09-15：「可以角色在群聊问我为什么拉黑他」）：
         //   摆在最前面——被关在门外这件事压过一切日常语气。
-        const l = [blockLineFor(c.id), coupleLineFor(c.id, userName(profile)), nickLineFor(c.id, userName(profile))].filter(Boolean).join("\n");
+        const l = relationshipLineFor(c.id);
         return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
       })(),
       // 「Ta 眼里的你」那张印象卡（她 2026-09-10：「我的群聊能不能也影响 ta 眼里，

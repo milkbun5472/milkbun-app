@@ -1,0 +1,3 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const app=fs.readFileSync('js/app.js','utf8'),start=app.indexOf('  const blockLineFor = charId => {'),end=app.indexOf('\n  };',start)+5;
+test('解除记录在30天后停止进入上下文，仍被拉黑者不受期限影响',()=>{const now=1800000000000,b={endedTs:now-30*86400000,sinceTs:now-31*86400000,by:'me'};const c={Date:{now:()=>now},BLOCK_TOMB_KEEP_MS:30*86400000,blocksRef:{current:{a:b}},chatsRef:{current:{}}};vm.createContext(c);vm.runInContext(app.slice(start,end)+';this.line=blockLineFor;',c);assert.equal(c.line('a'),'');b.endedTs=now-29*86400000;assert.match(c.line('a'),/刚解除拉黑/);b.iBlocked=true;b.blockedTs=now-60*86400000;assert.match(c.line('a'),/她把你拉黑了/);});

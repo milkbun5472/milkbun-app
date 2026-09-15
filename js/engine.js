@@ -3060,6 +3060,9 @@ function attachMemoryRecallMeta(rows, meta) {
 function copyMemoryRecallMeta(from, to) {
   return attachMemoryRecallMeta(to, from && from.__recallMeta);
 }
+function memoryVisibleTo(e, charId) { return Array.isArray(e.knownBy)
+    ? e.knownBy.indexOf(charId) > -1
+    : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId)); }
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
   const associationLimit = opts.associationLimit == null ? 1 : Math.max(0, Number(opts.associationLimit) || 0);
@@ -3067,9 +3070,7 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   // 而置顶是从这个 list 里另取的，合在这一层才不会被置顶绕过权限。
   //   knownBy 不是数组 → 旧数据，沿用「charIds 为空即全员可见」的老规则
   //   knownBy 是数组   → 只认它；空数组＝只有用户知道，任何角色都召不回
-  const canSee = e => Array.isArray(e.knownBy)
-    ? e.knownBy.indexOf(charId) > -1
-    : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId));
+  const canSee = e => memoryVisibleTo(e, charId);
   const list = (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active" && canSee(e));
   if (list.length === 0) {
     const emptyMeta = { source: opts.source || "", noHit: true, candidateCount: 0, kindById: {} };
@@ -3241,9 +3242,7 @@ function splitGroupMemories(lib, memberIds, queryText, opts = {}) {
   const limit = opts.limit || 6;
   // 每位成员各按自己的身份召回一次，再按名次轮流合并——成员顺序不再决定谁有记忆、谁失忆。
   const pools = ids.map(id => retrieveMemories(lib, id, queryText, Object.assign({}, opts, { limit, touch: false })));
-  const canSee = (e, id) => Array.isArray(e.knownBy)
-    ? e.knownBy.indexOf(id) > -1
-    : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(id));
+  const canSee = memoryVisibleTo;
   const seen = new Set();
   let taken = 0;
   for (let rank = 0; taken < limit && pools.some(pool => rank < pool.length); rank++) {

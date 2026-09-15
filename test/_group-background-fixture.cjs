@@ -43,6 +43,7 @@ const collector = cut(app, '  const groupBackgroundFor =', '  const ctxForGroupO
 const now = cut(app, '  const groupNowSegs =', '  // 这位成员最近和用户的单聊');
 const formatter = cut(engine, 'function groupBackgroundSegments(', 'function groupPersonaText(');
 function wire(env) {
+  env.relationshipLineFor = evaluate(cut(app, '  const relationshipLineFor =', '  const blockChatKey ='), env, 'relationshipLineFor');
   env.groupBackgroundSegments = evaluate(formatter, env, 'groupBackgroundSegments');
   env.groupBackgroundFor = evaluate(collector, env, 'groupBackgroundFor');
   env.groupNowSegs = evaluate(now, env, 'groupNowSegs');

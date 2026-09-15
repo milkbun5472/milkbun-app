@@ -80,7 +80,7 @@ test("侧房认知开关关掉时，A 跟心情/印象卡一起被清空", () =>
   const CR = require("../js/chat-rooms.js");
   assert.ok(CR.CTX_GATE.innerLife.includes("aMood"), "A 没跟心情/印象卡登记在同一档");
   ["moodLabel", "moodNote", "gazeText"].forEach(k => assert.ok(CR.CTX_GATE.innerLife.includes(k), k + " 不在同一档了"));
-  assert.equal((app.match(/ChatRooms\.gateCtx\(/g) || []).length, 2, "两条侧房路径里有一条没过这道闸");
+  assert.equal((app.match(/ChatRooms\.gateCtx\(/g) || []).length, 1, "白名单应只在共用入口调用");
 });
 
 test("旧的那套接线已经删干净，不是留在原地打个叉", () => {

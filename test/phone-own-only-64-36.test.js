@@ -52,7 +52,7 @@ test("这一段写在一处，十几个 app 一起合规", () => {
 
 test("能挡住的和挡不住的，得分清楚", () => {
   // 记忆库有围栏：绑了角色的别人召不回。所以漏过去的只可能是【没绑角色】的那些
-  assert.match(eng, /const canSee = e => Array\.isArray\(e\.knownBy\)/, "记忆库的围栏没了");
+  assert.match(eng, /const canSee = e => memoryVisibleTo\(e, charId\)/, "记忆库的围栏没了");
   assert.match(eng, /\(!e\.charIds \|\| e\.charIds\.length === 0 \|\| e\.charIds\.includes\(charId\)\)/, "「没绑角色＝全员可见」这条规则变了");
   // 世界书同理：没绑角色的条目对谁都开放
   assert.match(eng, /if \(bind\.length && !bind\.some\(id => charIds\.indexOf\(id\) >= 0\)\) return \{ on: false, code: "character"/, "世界书的绑定规则变了");
