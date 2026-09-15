@@ -9155,7 +9155,15 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
   const qlc = q.trim().toLowerCase();
   const list = (entries || []).filter(e => e && e.id && e.text && (!qlc || String(e.text).toLowerCase().indexOf(qlc) >= 0));
   const verify = async () => {
-    if (!(window.Cloud && window.Cloud.ready())) { toast && toast("云服务未就绪，登录后再来"); return; }
+    // ⚠️这儿原来写的是「云服务未就绪，登录后再来」——那是句假话，而且害人。
+    //   `Cloud.ready()` 的全部含义只是【supabase 那个 js 库加载起来了】，
+    //   跟登没登录一点关系都没有：没加载上的人去登一百次，这里还是 false。
+    //   公共版有人照着这句去登录、登完还是同样一句，只能以为「功能坏了」
+    //   （她 2026-09-15 转来的报修）。报错要说真正那一条，别把人支去做没用的事。
+    if (!(window.Cloud && window.Cloud.ready())) {
+      toast && toast("这台设备没跟云端接上（不是没登录，登录也解决不了）——这个功能整条链都在云上");
+      return;
+    }
     setBusy(true); setProblems([]);
     try {
       const fetched = await window.Cloud.memoryRowsFetchByIds(selIds);
@@ -9414,6 +9422,20 @@ function EventShelfSection({ characters, entries }) {
     cands.forEach(c => { if (c.status !== "rejected" && c.status !== "expired") (c.source_memory_ids || []).forEach(id => used.add(id)); });
     setSugs(window.Consolidate.suggestClusters(entries || [], { usedIds: used }));
   }, [entries, cands]);
+  // ⚠️事件层整条链都在云上（挑碎片→读权威行表核对→建候选→执笔→过目），本地一步都走不了。
+  //   原先没有任何前置守卫：建议照常聚、碎片随便挑、按钮一直亮着，
+  //   挑满十五条按下去才告诉你不行——公共版那位就是这么撞上的。
+  //   连不上就在门口说清楚，别让人白挑一遍。
+  const [cloudWhy, setCloudWhy] = useState("");   // "" 通 / "nolink" 没接上 / "nologin" 没登录
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!(window.Cloud && window.Cloud.ready())) { if (alive) setCloudWhy("nolink"); return; }
+      try { const u = await window.Cloud.getUser(); if (alive) setCloudWhy(u ? "" : "nologin"); }
+      catch (e) { if (alive) setCloudWhy("nolink"); }
+    })();
+    return () => { alive = false; };
+  }, []);
   const pendingCands = cands.filter(c => c.status === "requested" || c.status === "drafted");
   return h(React.Fragment, null, h("button", {
     onClick: () => setOpen(!open),
@@ -9424,8 +9446,13 @@ function EventShelfSection({ characters, entries }) {
       h("span", { style: { display: "block", fontFamily: F_BODY, color: t.fog, fontSize: 9.5, letterSpacing: ".08em", marginTop: 2 } }, pendingCands.length ? pendingCands.length + " 份候选等你过目" : "把零散片段收拢成完整的一件事")),
     h("span", { style: { fontFamily: F_BODY, color: t.fog, fontSize: 11 } }, events.length + " 件 " + (open ? "▾" : "›"))),
   open && h("div", { style: { maxHeight: "38vh", overflowY: "auto", marginBottom: 8 } },
-    h("button", { onClick: () => setComposeOpen(true), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, "＋ 挑碎片整理成事件"),
-    sugs.length ? h("div", { style: { marginBottom: 8 } },
+    cloudWhy
+      ? h("div", { className: "w-full rounded-lg py-2 px-3 mb-2", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, textAlign: "center" } },
+          cloudWhy === "nologin"
+            ? "把碎片整理成事件要先登录云端——执笔和存稿都在云上。"
+            : "这台设备没跟云端接上，暂时整理不了事件。（不是没登录：这一版的云端线路没通）")
+      : h("button", { onClick: () => setComposeOpen(true), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, "＋ 挑碎片整理成事件"),
+    (!cloudWhy && sugs.length) ? h("div", { style: { marginBottom: 8 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "2px 0 5px" } }, "🧩 帮你聚了 " + sugs.length + " 摞像一件事的碎片（点开预填，仍由你核对定夺）"),
       sugs.map(s => h("button", {
         key: s.key, onClick: () => { setPreselect(s); setComposeOpen(true); },
