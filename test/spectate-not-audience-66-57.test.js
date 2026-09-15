@@ -65,8 +65,8 @@ test("她不在场 ≠ 她不存在：好感、情侣、关系铁律、她是谁
   assert.match(app, /const gMeBlock = \(profile && \(profile\.name \|\| profile\.persona\)\)/, "旁观群里她是谁被删了");
   assert.match(app, /gSpec \? "他们各自认识的那个人 · 「" \+ _uN \+ "」的设定（Ta 此刻不在这个群里）" : "和大家说话的人/);
   // 想要清单：照给，只把「在场的人」换成「认识她的人」
-  assert.match(app, /const gWishHint = \(wishRef\.current \|\| \[\]\)\.length/);
-  assert.match(app, /gs\.spectate \? "认识她的人都可能知道。" : "在场的人都可能知道。"/);
+  assert.match(app, /const gWishHint = wishLine\(wishFor\(\)/);
+  assert.match(app, /spectate: gs.spectate, gift: true/);
 });
 
 test("撤掉的东西是删掉，不是留个没人读的形参", () => {
@@ -81,6 +81,6 @@ test("普通群一个字都没变（这一轮只动旁观那一支）", () => {
   // 普通群仍要有的那几样
   assert.match(app, /绝不生成用户的新台词、动作或心声/);
   assert.match(app, /每个成员和用户「" \+ _uN \+ "」是什么关系（恋人\/暧昧\/朋友…）【只有该成员本人知道】/);
-  assert.match(app, /【" \+ userName\(profile\) \+ " 最近看上但没买的东西】/);
+  assert.match(app, /wishLine\(wishFor\(\), userName\(profile\)/);
   assert.match(app, /〔对 " \+ userName\(profile\) \+ " 的好感〕/);
 });

@@ -43,6 +43,10 @@ const collector = cut(app, '  const groupBackgroundFor =', '  const ctxForGroupO
 const now = cut(app, '  const groupNowSegs =', '  // 这位成员最近和用户的单聊');
 const formatter = cut(engine, 'function groupBackgroundSegments(', 'function groupPersonaText(');
 function wire(env) {
+  env.wishRef = {current:[]};
+  env.wishFor = evaluate(cut(app, "  const wishFor =", "  const onMeFor ="), env, "wishFor");
+  env.wishLine = evaluate(cut(engine, "function wishLine(", "function onMeLine("), env, "wishLine");
+  env.memberPrivateContextFor = evaluate(cut(app, "  const memberPrivateContextFor =", "  // ---- 通话 / 视频"), env, "memberPrivateContextFor");
   env.gazeFor = evaluate(cut(app, "  const gazeFor =", "  const onMeFor ="), env, "gazeFor");
   env.inventoryRef = {current:[]}; env.ON_ME_CAP = 2;
   env.onMeFor = evaluate(cut(app, "  const onMeFor =", "  const ctxFor ="), env, "onMeFor");

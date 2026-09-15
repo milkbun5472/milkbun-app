@@ -30,7 +30,7 @@ test("实时私聊窗口：给，但照这个群自己的设置给", () => {
   // 她把某个群的私聊窗口关掉是有意的，电话里替她打开＝把私聊漏进群
   assert.match(gc, /const gcPrivN = cgs \? \(Number\(cgs\.privateCtxN\) \|\| 0\) : 6;/);
   assert.match(gc, /const gcInterop = !cur\.groupId \|\| !cgs \|\| cgs\.memoryInterop !== false;/);
-  assert.match(gc, /memberPrivLines\(c, gcPrivN\)/);
+  assert.match(gc, /memberPrivateContextFor\(c, gcSplit, \{ interop: gcInterop, privateCtxN: gcPrivN \}\)/);
   // 围栏一个字都不许少：这是 v55.89 顾朝读到裴照川私聊那次的教训
   assert.match(gc, /⚠️隐私边界铁律/);
   assert.match(gc, /只属于标注的那位成员本人/);
@@ -44,6 +44,6 @@ test("配角照旧不吃这些层", () => {
   const start = gc.indexOf("const gcPriv = gcMembers.map(c => {");
   const end = gc.indexOf("const gcPrivBlock =", start);
   assert.ok(start >= 0 && end > start, "私有段必须只遍历去掉配角的名册");
-  assert.match(gc.slice(start, end), /const lines = gcInterop \? memberPrivLines\(c, gcPrivN\) : "";/,
+  assert.match(gc.slice(start, end), /const seg = memberPrivateContextFor\(c, gcSplit, \{ interop: gcInterop, privateCtxN: gcPrivN \}\);/,
     "配角没有私聊，封闭群也不能读实时私聊");
 });

@@ -6,17 +6,17 @@ const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("群通话：记忆走 splitGroupMemories 分流，不再只按 people[0] 全群共享", () => {
-  const seg = src.slice(src.indexOf("// 群通话：多角色你一言我一语"), src.indexOf("const raw = await callAI(active, sys, hist, { maxTokens: 10400 })"));
+  const seg = src.slice(src.indexOf("// 群通话：多角色你一言我一语"), src.indexOf("const arr = extractJSON(raw);", src.indexOf("// 群通话：多角色你一言我一语")));
   assert.match(seg, /const gcSplit = splitGroupMemories\(/);
-  assert.match(seg, /gcSplit\.perChar\[String\(c\.id\)\]/);
+  assert.match(seg, /memberPrivateContextFor\(c, gcSplit,/);
   assert.doesNotMatch(seg, /retrieveMemories\(memLibRef\.current, people\[0\]/);
 });
 
 test("群通话：五层补齐（长出来的自我/A情绪/随身物/我们的档案/印象卡）+ 用户人设块", () => {
-  const seg = src.slice(src.indexOf("// 群通话：多角色你一言我一语"), src.indexOf("const raw = await callAI(active, sys, hist, { maxTokens: 10400 })"));
+  const seg = src.slice(src.indexOf("// 群通话：多角色你一言我一语"), src.indexOf("const arr = extractJSON(raw);", src.indexOf("// 群通话：多角色你一言我一语")));
   assert.match(seg, /groupNowSegs\(c,/);
   for (const field of ["grownSeg", "aSeg", "cySeg", "caSeg"]) assert.ok(seg.includes("+ n." + field), field + " 未拼进通话");
-  assert.match(seg, /window\.Gaze/);
+  assert.match(seg, /memberPrivateContextFor\(c, gcSplit,/);
   assert.match(seg, /【和大家通话的人/);
 });
 

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.72";
+const APP_VERSION = "v68.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4769,6 +4769,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (settingsFor(charId).engineerEyes || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
     return String(window.Gaze.text(charId, userName(profile)) || "").trim();
   };
+  const wishFor = () => (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、");
   // 所有场景读取同一份随身物；额度与「带上」操作共用 ON_ME_CAP。
   const onMeFor = () => (inventoryRef.current || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, ON_ME_CAP).join("、");
   const ctxFor = (char, ctxOpts) => ({
@@ -4942,9 +4943,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【TA怎么会知道】——
     // 她在购物 app 里点了「想要」的东西，就是TA知道的方式（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色（合法差异，见四处一样喂）。
-    wishLog: (!settingsFor(char.id).engineerEyes && (wishRef.current || []).length)
-      ? (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
-      : "",
+    wishLog: !settingsFor(char.id).engineerEyes ? wishFor() : "",
     // 随身物：TA身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
     // 角色本人不知道自己包里有伞，出图也不知道TA衣柜里有哪几身（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
@@ -7004,8 +7003,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她今天身上带着的（四处一样喂）：以前只有走 buildBundle 的那几处看得见
     onMe: onMeFor(),
     // 她想要什么（四处一样喂）：同线上群聊，共享一份
-    wishLog: (wishRef.current || []).length
-      ? (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、") : "",
+    wishLog: wishFor(),
     // 随身物（四处一样喂）：和线上群聊同一份、同一个额度
     memberCarry: backgroundMap("carry"),
     memberSched: (() => {
@@ -10197,14 +10195,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 只有部分成员知道的（比如 A 私下说了自己受伤、没告诉别人）只落进那几个人各自的私密段。
         const gSplit = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
         const memLines = members.map(c => {
-          const mem = memories[c.id];
-          const onlyMine = formatMemLib(gSplit.perChar[String(c.id)] || []);
-          const priv = gs.memoryInterop ? memberPrivLines(c, gs.privateCtxN) : "";
-          // 单人线下（跨情境近况，v50.66）：这个成员最近和用户单独线下相处的片段，带时间戳，让群线上接得上（own-scoped，仍在本人隐私段里）
-          const offBeats = gs.memoryInterop && gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
-          // 印象卡跟长期记忆同一档：读一律给（封闭群也给），但必须落在这位成员自己那一段里（隐私围栏见上）
-          const gz = gazeFor(c.id);
-          const seg = [mem && "长期记忆：" + mem, gz && gz.trim(), onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
+          const seg = memberPrivateContextFor(c, gSplit, { interop: gs.memoryInterop, privateCtxN: gs.privateCtxN });
           if (seg) privSegs[c.name] = (privSegs[c.name] ? privSegs[c.name] + "\n" : "") + seg;
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
@@ -10382,12 +10373,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️句子走 engine 的 onMeLine 一份，别在这儿另写一版。
       const _gOnMe = onMeFor();
       const gOnMeHint = (_gOnMe && !gs.spectate) ? "\n\n" + onMeLine(_gOnMe, userName(profile)) : "";
-      const gWishHint = (wishRef.current || []).length
-        ? "\n\n【" + userName(profile) + " 最近看上但没买的东西】（她在购物 app 里点了「想要」，"
-          + (gs.spectate ? "认识她的人都可能知道。" : "在场的人都可能知道。")
-          + "记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；想送的人填 gift 就真送到，但绝不是每轮都该送，也别几个人抢着送。别把这张单子念出来。）\n"
-          + (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、")
-        : "";
+      const gWishHint = wishLine(wishFor(), userName(profile), { group: true, spectate: gs.spectate, gift: true });
       // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：句子跟单聊共用同一份，
       // 只多传一个 group 参数。⚠️线下正开着就不发——那一段自己已经把面对面讲清楚了
       // （跟单聊 offlineNow 那处同一条判据）。旁观群不发：她不在场。
@@ -13844,6 +13830,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         .map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? userName(profile) : c.name) + ": " + m.content
           + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n")
     : "");
+  // 群文字与多人通话共用私有背景；实时窗口的开关同时约束线上与线下近况。
+  const memberPrivateContextFor = (c, split, opts) => {
+    if (!c || c.npc) return "";
+    const mem = memories[c.id];
+    const gz = gazeFor(c.id);
+    const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
+    const priv = opts.interop ? memberPrivLines(c, opts.privateCtxN) : "";
+    const offBeats = opts.interop && Number(opts.privateCtxN) > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
+    return [mem && "长期记忆：" + mem, gz,
+      onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(),
+      priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv,
+      offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats
+    ].filter(Boolean).join("\n");
+  };
   // ---- 通话 / 视频（私聊单人 或 群聊多人；发一句回一句，即时）----
   useEffect(() => {
     callRef.current = call;
@@ -14214,12 +14214,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   只有不挂在任何群上的临时多人通话（没有 cgs）才按单聊那一档给。
         const gcPrivN = cgs ? (Number(cgs.privateCtxN) || 0) : 6;
         const gcPriv = gcMembers.map(c => {
-          // 每人的隐私段（照群线上 memLines 的工艺）：长期记忆 + 印象卡 + 只有TA知道的记忆条目 + 最近私聊
-          const mem = memories[c.id];
-          const gz = gazeFor(c.id);
-          const onlyMine = formatMemLib(gcSplit.perChar[String(c.id)] || []);
-          const lines = gcInterop ? memberPrivLines(c, gcPrivN) : "";
-          const seg = [mem && "长期记忆：" + mem, gz && gz.trim(), onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己说出来）：\n" + onlyMine.trim(), lines && "最近和用户的私聊：\n" + lines].filter(Boolean).join("\n");
+          const seg = memberPrivateContextFor(c, gcSplit, { interop: gcInterop, privateCtxN: gcPrivN });
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const gcPrivBlock = gcPriv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在这通电话或群里主动说了出来】。每个成员只凭『自己那一段』和『这通电话里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + gcPriv : "";
@@ -14243,6 +14238,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const sys = groupBans({ echo: true })
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
+          + wishLine(wishFor(), uName, { group: true, gift: false })
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys + callBiHint, hist, { maxTokens: 65535 });
         const arr = extractJSON(raw);

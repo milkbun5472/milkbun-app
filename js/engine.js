@@ -2689,6 +2689,21 @@ function coupleArchiveBlock(text, uName) {
 }
 if (typeof window !== "undefined") window.coupleArchiveBlock = coupleArchiveBlock;
 
+// 心愿清单的场景差异由 group / spectate / gift 明确传入。
+function wishLine(wishLog, uName, opts = {}) {
+  const text = String(wishLog || "").trim();
+  if (!text) return "";
+  if (!opts.group) return "【" + uName + " 最近看上但没买的东西】（她在购物 app 里一件件点了「想要」，你知道这些。\n"
+    + "· **记得** 比 **送** 重要得多：聊到相关的东西时你想得起来「她惦记这个」，那才是你真在意她。\n"
+    + "· 想送就送，是你自己的事——挑个由头（生日、她心情不好、你手头正宽裕、或者干脆没由头），填 gift 就真送到了。\n"
+    + "· 但**绝不是每轮都该送**，也不许一上来就宣布「我给你买了」。手头紧、觉得没必要、或者你就是这种不轻易送东西的人，那就不送。\n"
+    + "· 更不许把这张单子念给她听——她自己写的，她知道。）\n" + text;
+  return "\n\n【" + uName + " 最近看上但没买的东西】（她在购物 app 里点了「想要」，"
+    + (opts.spectate ? "认识她的人都可能知道。" : "在场的人都可能知道。")
+    + "记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；"
+    + (opts.gift ? "想送的人填 gift 就真送到，但" : "")
+    + "绝不是每轮都该送，也别几个人抢着送，更别把这张单子念出来。）\n" + text;
+}
 // 她今天身上带着的那一两件东西（v63.98 立，v68.65 搬成公共的）。
 // ⚠️原来这句话只内联在 buildBundle 里，于是【只有走 buildBundle 的那几处】看得见：
 //   单聊线上、单人线下、通话有；**群聊线上和群线下一个字都没有**。
@@ -2883,11 +2898,7 @@ function buildBundle(ctx, opts) {
   if (ctx.giftLog && ctx.giftLog.trim()) parts.push("【你们之间的礼物往来】（这些礼物真实发生过，你记得。聊到相关话题、或 " + uName + " 提起时可自然想起、回应、道谢或调侃，别生硬罗列）\n" + ctx.giftLog.trim());
   // 她想要什么。⚠️这一段最容易被读成「快去给她买」——那样TA就成了自动贩卖机。
   // 所以把「记得」和「送」拆开：记得是本分，送不送是TA自己的事。
-  if (!ctx.notRoleplay && ctx.wishLog && ctx.wishLog.trim()) parts.push("【" + uName + " 最近看上但没买的东西】（她在购物 app 里一件件点了「想要」，你知道这些。\n"
-    + "· **记得** 比 **送** 重要得多：聊到相关的东西时你想得起来「她惦记这个」，那才是你真在意她。\n"
-    + "· 想送就送，是你自己的事——挑个由头（生日、她心情不好、你手头正宽裕、或者干脆没由头），填 gift 就真送到了。\n"
-    + "· 但**绝不是每轮都该送**，也不许一上来就宣布「我给你买了」。手头紧、觉得没必要、或者你就是这种不轻易送东西的人，那就不送。\n"
-    + "· 更不许把这张单子念给她听——她自己写的，她知道。）\n" + ctx.wishLog.trim());
+  if (!ctx.notRoleplay && ctx.wishLog && ctx.wishLog.trim()) parts.push(wishLine(ctx.wishLog, uName));
   // 随身物：TA身上真带着的东西。给了才掏得出来——以前生成完只有她看得见（v57.83）。
   if (!ctx.notRoleplay && ctx.carryLog && ctx.carryLog.trim()) parts.push("【你身上带着的东西 / 你的衣柜】（这些是你真有的东西，不是道具表。\n"
     + "· 需要用到时你就掏得出来：下雨了你有伞、要写字你有笔、她冷了你有那件外套——别再凭空变出一个新的。\n"
@@ -6206,7 +6217,7 @@ async function generateOfflineGroup(p, ctx, session) {
     // 她今天身上带着什么（四处一样喂）：跟单聊同一句，走公共那一份
     (ctx.onMe && String(ctx.onMe).trim() ? "\n\n" + onMeLine(ctx.onMe, userName) : "") +
     // 她想要什么（四处一样喂）：用户的信息，群里共享一份
-    (ctx.wishLog && ctx.wishLog.trim() ? "\n\n【" + userName + " 最近看上但没买的东西】（她在购物 app 里点了「想要」，在场的人都可能知道。记得比送重要——聊到相关的东西时想得起来「她惦记这个」就够了；绝不是每轮都该送，也别几个人抢着送，更别把这张单子念出来。）\n" + ctx.wishLog.trim() : "") +
+    wishLine(ctx.wishLog, userName, { group: true, gift: false }) +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") +

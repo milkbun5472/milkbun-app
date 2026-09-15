@@ -22,18 +22,28 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
   Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
     groupPersonaBudget:()=>6000,directedRelationLines:()=>'',loreText:()=>'',gsFor:()=>({memoryInterop:false,privateCtxN:0}),
     primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
-    memories:{},settingsFor:()=>({}),memberPrivLines:()=>'',groupContextRows:()=>[],
+    memories:{},settingsFor:()=>({}),memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',crossRecentFor:id=>'线下_'+id,groupContextRows:()=>[],
     PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',callerIsChar:false,callerName:'',
     PRIVATE_IS_BACKGROUND_NOT_AMMO:'',active:{},callBiHint:'',callAI:async(_api,sys)=>{sent=sys;return '[]';}});
   env.window.Gaze={text:id=>'印象卡_'+id+'_完整末尾'};
   env.onMeLine=evaluate(format,env,'onMeLine');
   const code=cut(app,'        const gCallCap =','        const arr = extractJSON(raw);');
   const send=new Function('env','with(env){return (async()=>{'+code+'})();}');
+  env.wishRef.current=[{uid:'w_1',name:'愿望测试书',price:12,desc:'',cat:null,ts:1}];
   env.inventoryRef.current=[{id:'1',name:'只有测试的发夹',onMe:true}];
   await send(env);assert.match(sent,/今天身上带着：只有测试的发夹/);
   assert.equal((sent.match(/今天身上带着：/g)||[]).length,1);
   for(const id of ['a','b']) assert.equal(sent.split('印象卡_'+id+'_完整末尾').length-1,1);
   assert.match(sent,/见了面你看得见它/);
+  assert.match(sent,/愿望测试书（¥12）/);assert.doesNotMatch(sent,/填 gift/);
+  assert.doesNotMatch(sent,/线下_a|私聊_a/);
+  env.gsFor=()=>({memoryInterop:true,privateCtxN:3});
+  await send(env);assert.match(sent,/线下_a/);assert.match(sent,/私聊_a/);
+  const a=sent.slice(sent.indexOf('『甲』'),sent.indexOf('『乙』'));
+  assert.match(a,/线下_a/);assert.doesNotMatch(a,/线下_b/);
+  env.gsFor=()=>({memoryInterop:true,privateCtxN:0});
+  await send(env);assert.doesNotMatch(sent,/线下_a/);
+
   env.inventoryRef.current=[];await send(env);assert.doesNotMatch(sent,/今天身上带着：/);
 });
 

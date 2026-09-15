@@ -16,7 +16,7 @@ const app = R("js/app.js"), eng = R("js/engine.js"), comp = R("js/components.js"
 test("印象卡只走私有往来一份，封闭群读主线但不写回", () => {
   assert.match(app, /const gazeFor = charId =>/);
   assert.match(app, /gazeText: gazeFor\(char.id\)/);
-  assert.equal((app.match(/const gz = gazeFor\(c.id\)/g) || []).length, 2);
+  assert.equal((app.match(/const gz = gazeFor\(c.id\)/g) || []).length, 1);
   assert.doesNotMatch(app, /gzSeg|GROUP_GAZE_CAP/);
   assert.match(app, /const impressionField = window\.Gaze && gs\.memoryInterop/);
   assert.match(app, /settingsFor\(charId\).engineerEyes/);

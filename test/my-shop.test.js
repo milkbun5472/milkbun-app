@@ -104,18 +104,14 @@ test("想要清单进四处的上下文，且不是「快去给她买」", () =>
   assert.match(app, /const \[wish, setWish\] = useState\(\[\]\)/);
   assert.match(app, /const toggleWish = product => \{/);
   // 四处一样喂：单聊经 buildBundle、线上群聊、群线下
-  assert.match(app, /wishLog: \(!settingsFor\(char\.id\)\.engineerEyes && \(wishRef\.current \|\| \[\]\)\.length\)/, "单聊没接");
-  assert.match(engine, /ctx\.wishLog && ctx\.wishLog\.trim\(\)\) parts\.push\("【" \+ uName \+ " 最近看上但没买的东西】/, "buildBundle 里没发");
-  assert.match(app, /const gWishHint = \(wishRef\.current \|\| \[\]\)\.length/, "线上群聊没接");
-  // v66.57：旁观群照发（他们聊起女朋友很正常），只把「在场的人」换成「认识她的人」——她不在那个房间里
-  assert.match(app, /gs\.spectate \? "认识她的人都可能知道。" : "在场的人都可能知道。"/, "旁观群里还写着「在场的人」");
-  assert.match(app, /wishLog: \(wishRef\.current \|\| \[\]\)\.length/, "群线下没接");
-  assert.match(engine, /ctx\.wishLog && ctx\.wishLog\.trim\(\) \? "\\n\\n【" \+ userName \+ " 最近看上但没买的东西】/, "群线下那一段没读");
-  // 言秋不发：他不是被扮演的角色
-  assert.match(app, /!settingsFor\(char\.id\)\.engineerEyes && \(wishRef/);
+  assert.match(app, /wishLog: !settingsFor\(char\.id\).engineerEyes \? wishFor\(\) : ""/);
+  assert.match(engine, /parts\.push\(wishLine\(ctx.wishLog, uName\)\)/);
+  assert.match(app, /const gWishHint = wishLine\(wishFor\(\), userName\(profile\), \{ group: true, spectate: gs.spectate, gift: true \}\)/);
+  assert.match(engine, /opts.spectate \? "认识她的人都可能知道。" : "在场的人都可能知道。"/);
+  assert.match(app, /wishLog: wishFor\(\)/);
+  assert.match(engine, /wishLine\(ctx.wishLog, userName, \{ group: true, gift: false \}\)/);
   assert.match(engine, /!ctx\.notRoleplay && ctx\.wishLog/);
-  // ⚠️这一段最容易被读成「快去给她买」——那样他就成了自动贩卖机
-  const seg = engine.slice(engine.indexOf('parts.push("【" + uName + " 最近看上但没买的东西】'), engine.indexOf("// 随身物：TA身上真带着的东西"));
+  const seg = engine.slice(engine.indexOf('function wishLine('), engine.indexOf('function onMeLine('));
   assert.match(seg, /\*\*记得\*\* 比 \*\*送\*\* 重要得多/);
   assert.match(seg, /绝不是每轮都该送/);
   assert.match(seg, /不许把这张单子念给她听/);
