@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.52";
+const APP_VERSION = "v68.53";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15553,17 +15553,43 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const raw = loadJSON("x_forumPublicTies", { version: 1, items: {} });
     return raw && raw.version === 1 && raw.items && typeof raw.items === "object" ? raw : { version: 1, items: {} };
   };
-  const touchForumPublicTie = npcId => {
+  // dir：这一次是【她去接他的话】(mine) 还是【他来接她的话】(theirs)。
+  // tone：这一句是暖的还是杠的——由模型自己报（那一枪本来就要打，多一个字段不多花钱）。
+  // ⚠️她 2026-09-15：熟面孔「见十次还是见过」。次数只说明认不认得，说明不了【什么交情】。
+  //   所以这儿从一个数变成四个数；说出来的那句话由 forumPublicTieLines 按这四个数现拼。
+  // ⚠️照旧只存计数，不存帖子正文，更不碰私聊——这一层的边界没变。
+  const TIE_TONES = { warm: 1, spar: 1 };
+  const touchForumPublicTie = (npcId, dir, tone) => {
     if (!FORUM_NPC_REGISTRY.some(n => n.id === npcId && !(n.boards || []).includes("匿名吧"))) return;
     const book = forumPublicTies(), old = book.items[npcId] || {};
-    book.items[npcId] = { encounters: Math.min(999, (Number(old.encounters) || 0) + 1), lastTs: Date.now() };
+    const bump = (k, on) => Math.min(999, (Number(old[k]) || 0) + (on ? 1 : 0));
+    book.items[npcId] = {
+      encounters: Math.min(999, (Number(old.encounters) || 0) + 1),
+      mine: bump("mine", dir === "mine"), theirs: bump("theirs", dir === "theirs"),
+      warm: bump("warm", tone === "warm"), spar: bump("spar", tone === "spar"),
+      lastTs: Date.now()
+    };
     saveJSON("x_forumPublicTies", book);
   };
   const forumPublicTieLines = board => {
     const book = forumPublicTies(), handle = forumMe.handle || userName(profile);
     return forumNpcPool(board).map(n => ({ n, tie: book.items[n.id] })).filter(x => x.tie && Number(x.tie.encounters) > 0)
       .sort((a, b) => Number(b.tie.lastTs || 0) - Number(a.tie.lastTs || 0)).slice(0, 5)
-      .map(x => "· 「" + x.n.name + "」曾在公开楼里和 @" + handle + " 碰过 " + Math.min(9, Number(x.tie.encounters) || 1) + " 次；再次正面遇见时可以自然认出账号，但不能声称知道她的私生活");
+      .map(x => {
+        const t = x.tie, n0 = Math.min(9, Number(t.encounters) || 1);
+        const mine = Number(t.mine) || 0, theirs = Number(t.theirs) || 0;
+        const warm = Number(t.warm) || 0, spar = Number(t.spar) || 0;
+        // 谁先开口：差得明显才说，差不多就别硬分（说错了比不说更糟）
+        const who = mine >= theirs * 2 && mine > 1 ? "多半是 @" + handle + " 先去接他的话"
+          : theirs >= mine * 2 && theirs > 1 ? "多半是他主动来接 @" + handle + " 的话" : "";
+        // 什么调子：同上，压倒性才说
+        const how = warm >= spar * 2 && warm > 1 ? "碰上的时候多半是搭得上话的"
+          : spar >= warm * 2 && spar > 1 ? "碰上多半要抬两句杠" : "";
+        return "· 「" + x.n.name + "」曾在公开楼里和 @" + handle + " 碰过 " + n0 + " 次"
+          + (who ? "，" + who : "") + (how ? "，" + how : "")
+          + "；再次正面遇见时可以自然认出账号" + (how ? "、也可以接着这个调子" : "")
+          + "，但不能声称知道她的私生活";
+      });
   };
   const forumNpcRule = board => {
     const ties = forumNpcRelationLines(board), userTies = forumPublicTieLines(board);
@@ -15804,9 +15830,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, forum: board }));
     const anonB = board === "匿名吧";
     try {
+      // 吧里最近在聊的那几件事：给模型看，好让新帖里有一条【接着前头那件事】的。
+      // ⚠️她 2026-09-15：「帖子之间没有关系，论坛没有事」——刷十次就是十堆互不相干的帖，
+      //   而真论坛最好玩的正是同一件事被几个帖从不同角度说（跟风、唱反调、扒皮、澄清）。
+      // ⚠️只给【标题】，不给正文：给正文它会去复述，出来就是同一个帖写两遍。
+      // ⚠️最多一条，而且是「可以」不是「必须」——为了关联而关联的假帖比无关的帖更难看。
+      const hotLately = (forumPostsRef.current || [])
+        .filter(x => x && x.board === board && Date.now() - Number(x.ts || 0) < 4 * 86400000)
+        .sort((a, b) => (Number(b.replyCount) || 0) - (Number(a.replyCount) || 0)).slice(0, 3);
+      const lately = hotLately.length
+        ? "\n【这个吧最近在聊的几件事】\n" + hotLately.map(x => "· 《" + String(x.title || "").slice(0, 40) + "》").join("\n")
+          + "\n这 3-5 条里**最多一条**可以是接着上面某一件往下说的：跟风、唱反调、扒后续、出来澄清、或者「关于那件事我说两句」。"
+          + "接的那一条把 refTitle 填成它接的那个标题（原样照抄），**别复述人家的正文**，写你自己这一条的角度。"
+          + "其余几条照旧各聊各的——**没有非接不可的道理，接不出自然的就一条都别接**。\n"
+        : "";
       const d = await runProbeRetry(active, forumWorldCtx(board), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。",
-        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + lately,
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"}]}",
         maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
@@ -15821,6 +15861,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         authorName: npc.name, authorHandle: npc.handle,
         board, title: x.title, body: x.body || "",
         anon: anonB, triggerSource: "", ts: visibleAt, visibleAt,
+        // 接着哪一条：只认【名单里真有的那几个标题】，模型随口编一个就当没接
+        // （不然会出现「关于《XXX》」而吧里根本没有那个帖）。
+        ...(() => {
+          const want = String(x.refTitle || "").trim();
+          const hit = want && hotLately.find(h0 => String(h0.title || "").trim() === want);
+          return hit ? { refPostId: hit.id, refTitle: hit.title } : {};
+        })(),
         ...forumCounts(npc.id + ":" + x.title + i, Number(x.replyCount))
         });
       });
@@ -16807,7 +16854,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
     const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
-    if (post.authorType === "npc") touchForumPublicTie(post.authorId);
+    if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, fid, text);
   };
@@ -16818,7 +16865,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //    于是我明明在回三楼的路人乙，跳出来答话的却永远是层主（她 2026-09-01 报的那个「接不上话」）。
   const addForumSubReply = (post, floorId, text, toName) => {
     const targetFloor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId);
-    if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId);
+    if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId, "mine");
     const to = String(toName || "").trim();
     setForumComments(prev => {
       const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
@@ -16872,8 +16919,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
           "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
-          "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
-        schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
+          "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。\n"
+          + "④ 常驻熟面孔那几条【顺手标一下 toMe】：这一句冲 @" + (forumMe.handle || profile.name || "我")
+          + " 去的是什么调子——warm（搭上话、附和、帮腔）/ spar（抬杠、呛、唱反调）/ 留空（只是路过，没冲着谁）。"
+          + "**这一栏不许影响你写什么**：先照你想写的写，写完照实标一个；为了标而改内容就本末倒置了。",
+        schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\",\"toMe\":\"warm或spar，只是路过就留空\"}]}",
         maxTokens: FTOK.sub
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
@@ -16897,7 +16947,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex };
       });
       // 同一批里同一熟面孔即使连回两句也只算一次公开碰面，避免生成长度把熟悉度灌高。
-      [...new Set(reps.filter(r => r.authorType === "npc").map(r => r.authorId))].forEach(touchForumPublicTie);
+      // ⚠️调子取【这一批里他第一条】报的那个：同一个人连回两句，调子按第一句算。
+      const toneById = new Map();
+      items.forEach((x, i) => {
+        const r = reps[i];
+        if (!r || r.authorType !== "npc" || !r.authorId || toneById.has(r.authorId)) return;
+        const t = String(x && x.toMe || "").trim();
+        toneById.set(r.authorId, TIE_TONES[t] ? t : "");
+      });
+      [...toneById.keys()].forEach(id => touchForumPublicTie(id, "theirs", toneById.get(id)));
       setForumComments(prev => {
         const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), ...reps] } : f);
         const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;

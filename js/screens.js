@@ -1656,6 +1656,32 @@ function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let 
 // 号改成按真实到场时间现算：还没到点的楼层排在所有已到场楼层之后，空号不存在。
 // 已看过的楼永远不会被重编号（新来的 visibleAt 一定不早于所有已可见的楼）。
 const forumFloorArrivedAt = f => Number((f && (f.visibleAt || f.ts)) || 0);
+
+// 论坛那几个数会长（她 2026-09-15：「数字是假的、而且是死的」）。
+// forumCounts 在建帖那一刻算一次就存死了，bumpReplyBy 只长回复数——所以一个帖火不火，
+// 跟过了多久、跟楼里有多热闹全都没关系，一年后还是那个数。
+// ⚠️这是【显示层】按存着的基数现算：不调模型、不落盘、不改存档。
+// ⚠️同一小时内看多少次必须是同一个数（按小时取整 + 帖子自己的 hash）——
+//   每次渲染都跳一下比不动更假，而且列表排序会跟着乱抖。
+// ⚠️只长不落：热度是随时间【减速】的（新帖长得快，老帖几乎不动），不然十天前那条会涨到天上。
+const forumLiveCounts = (p, now) => {
+  const base = { replyCount: Number(p && p.replyCount) || 0, likeCount: Number(p && p.likeCount) || 0,
+    viewCount: Number(p && p.viewCount) || 0, rtCount: Number(p && p.rtCount) || 0 };
+  const ts = Number(p && p.ts) || 0;
+  if (!ts) return base;
+  const hours = Math.max(0, Math.floor(((Number(now) || Date.now()) - ts) / 3600000));
+  if (hours <= 0) return base;
+  // 前两天长得动，之后基本躺平：log 压一道，再按帖子自己的 hash 给每个帖不同的势头
+  const heat = Math.log1p(Math.min(hours, 72)) + Math.log1p(Math.max(0, hours - 72)) * 0.12;
+  const seed = (forumHash(String(p && p.id || "")) % 7) + 3;     // 3~9，每个帖自己的势头
+  const live = Math.round(base.replyCount * 0.6 + 1);            // 楼里越热闹，外面越多人看
+  return {
+    replyCount: base.replyCount,
+    likeCount: base.likeCount + Math.round(heat * seed * 0.9 + live * 0.7),
+    viewCount: base.viewCount + Math.round(heat * seed * 26 + live * 9),
+    rtCount: base.rtCount + Math.round(heat * seed * 0.12 + live * 0.08)
+  };
+};
 function forumFloorOrder(floors) {
   return (Array.isArray(floors) ? floors : [])
     .map((f, i) => ({ f, i }))
@@ -1776,7 +1802,9 @@ function Forum({
   }, Number(p.ts || 0));
   const postHotScore = p => {
     const ageHours = Math.max(0, forumNow - postLastActivity(p)) / 3600000;
-    const interaction = (Number(p.replyCount) || 0) * 3 + (Number(p.likeCount) || 0) + (Number(p.rtCount) || 0) * 4 + Math.sqrt(Number(p.viewCount) || 0);
+    // 用现算的那份：不然「热」永远停在建帖那一刻，新帖再热闹也翻不上来
+    const lc = forumLiveCounts(p, forumNow);
+    const interaction = (Number(lc.replyCount) || 0) * 3 + (Number(lc.likeCount) || 0) + (Number(lc.rtCount) || 0) * 4 + Math.sqrt(Number(lc.viewCount) || 0);
     return interaction / Math.pow(ageHours + 2, 1.18);
   };
   const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
@@ -1938,14 +1966,16 @@ function Forum({
     const isL = liked.has(p.id);
     const isB = bookmarked.has(p.id);
     const bs = { fontFamily: F_BODY, fontSize: 12, flexShrink: 0, whiteSpace: "nowrap" };
+    // 显示的也用现算那份（同一小时内稳定，不会每次渲染跳一下）
+    const lc = forumLiveCounts(p, forumNow);
     // ⚠️gap-5 是【固定】20px×5＝100px，加上四个数字和两个图标，赞和阅读一上万就顶出去了
     //   （她 2026-09-01 截图：整张卡片超出屏幕、整页跟着往右滑）。
     //   改成 space-between：间距由剩下的空间分，挤不下时先收间距，不会把内容推出去。
     return h("div", { className: "flex items-center mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 10, justifyContent: "space-between", gap: 6, minWidth: 0 } },
-      h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.replyCount || 0))),
-      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.rtCount || 0))),
-      h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((p.likeCount || 0) + (isL ? 1 : 0)))),
-      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(p.viewCount || 0))),
+      h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.replyCount || 0))),
+      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.rtCount || 0))),
+      h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((lc.likeCount || 0) + (isL ? 1 : 0)))),
+      h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.viewCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
       h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
   }
@@ -1968,6 +1998,11 @@ function Forum({
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, flexShrink: 0, whiteSpace: "nowrap" } }, "· " + timeAgo(p.ts)),
                 showBoard && h("span", { style: { flexShrink: 0 } }, tag(p.board)))),
             unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复")),
+          // 接着哪一条：点得进去。有这一行，「同一件事被几个帖说」才看得出来，
+          // 不然那条接话的帖在列表里跟别的一模一样。
+          p.refTitle ? h("button", { onClick: e => { e.stopPropagation(); const t0 = (posts || []).find(x => x && x.id === p.refPostId); if (t0) openPost(t0); },
+            className: "active:opacity-60 text-left", style: { display: "block", maxWidth: "100%", fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, p.title),
           p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
           actBar(p))));

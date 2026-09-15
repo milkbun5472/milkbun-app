@@ -119,10 +119,13 @@ test("熟面孔能记住与用户公开账号碰过几次，但不保存正文�
   assert.match(app, /encounters: Math\.min\(999/);
   assert.match(app, /【与用户公开账号的既往碰面】/);
   assert.match(app, /不能声称知道她的私生活/);
-  const helper = app.match(/const touchForumPublicTie = npcId => \{([\s\S]*?)\n  \};/);
-  assert.ok(helper);
+  // v68.51 起这本账从「一个数」变成四个（次数 / 谁先开口 / 暖 / 杠），签名跟着多两个参数。
+  // ⚠️核的还是那条边界：只存计数，不碰正文、不碰私聊。
+  const helper = app.match(/const touchForumPublicTie = \(npcId, dir, tone\) => \{([\s\S]*?)\n  \};/);
+  assert.ok(helper, "碰面账那个函数找不着了");
   assert.doesNotMatch(helper[1], /content|body|私聊|memLib|memory/);
-  assert.match(app, /if \(post\.authorType === "npc"\) touchForumPublicTie\(post\.authorId\)/);
+  assert.match(helper[1], /mine: bump\("mine", dir === "mine"\), theirs: bump\("theirs", dir === "theirs"\)/);
+  assert.match(app, /if \(post\.authorType === "npc"\) touchForumPublicTie\(post\.authorId, "mine"\)/);
   assert.match(app, /targetFloor && targetFloor\.authorType === "npc"/);
 });
 
