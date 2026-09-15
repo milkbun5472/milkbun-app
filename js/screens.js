@@ -729,7 +729,7 @@ function TiePhoto({ id, name, character, profile, size, tilt, dim, on }) {
       fontSize: size > 56 ? 12 : 10.5, lineHeight: 1.15, color: "#2a2721",
       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name));
 }
-function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos, onEditEdge }) {
+function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos, onEditEdge, onCenter }) {
   const t = useTheme();
   const wrapRef = useRef(null);
   const [k, setK] = useState(1);
@@ -865,7 +865,11 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
     return h("div", {
       key: id,
       onPointerDown: () => { ptr.current.node = id; ptr.current.live = null; },
-      style: { position: "absolute", left: p.x, top: p.y, transform: "translate(-50%,-50%)", touchAction: "none", cursor: "grab" }
+      // 点一张脸＝换成看 TA 的关系（她 2026-09-15：「我也喜欢这种点击头像就看他 immediate 关系的」）。
+      // ⚠️拖完松手也会走到 onClick，所以要看 ptr.moved——不看的话每拖一次位置就跳走一个人。
+      onClick: () => { if (!onCenter || ptr.current.moved || id === centerId) return; onCenter(id); },
+      style: { position: "absolute", left: p.x, top: p.y, transform: "translate(-50%,-50%)", touchAction: "none",
+        cursor: (onCenter && id !== centerId) ? "pointer" : "grab" }
     }, h(TiePhoto, { id, name: nameOf(id), character: byId(id), profile, size,
       tilt: id === centerId ? 0 : tieTilt(id), dim: !!(sel && sel !== id && id !== centerId), on: sel === id }));
   };
@@ -931,6 +935,58 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
           style: { width: 32, height: 32, borderRadius: 10, fontFamily: F_BODY, fontSize: 14, color: t.ink,
             background: "rgba(246,244,239,.92)", border: "1px solid " + t.line, boxShadow: "0 1px 5px rgba(0,0,0,.08)" } }, lb)))));
 }
+// ============================================================
+// 关系图 —— 单独一页，点着头像一路走下去
+// ============================================================
+// 她 2026-09-15：「我想关系图做单独一个视角界面，因为我也喜欢这种点击头像就看他
+// immediate 关系的」。
+//
+// 跟关系页里那块板子的区别只有一条，但那一条是全部：**这一页是用来【走】的**。
+// 板子回答「这个人有哪些关系」，这一页回答「从这个人出发能走到谁」——
+// 所以中心是可以换的，而且换过的路留着，返回键沿原路退回去。
+// ⚠️不许做成半窗（施工规则/no-half-sheet.md）：这一页的正文就是那张网，高度全给它。
+// ⚠️名字不叫 TiesMap：v60.46 那张「所有人挤一张网」的汇总图就叫那个名字，
+//   被她 2026-09-02 点名删掉了（ties-board-60-47 那份测试还钉着它不许回来）。
+//   这一页跟它是反的——一次只看一个人，只是中心能换。别把两件事的名字搅在一起。
+function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, onEditEdge, onClose }) {
+  const t = useTheme();
+  // 走过的路。末尾那个是现在站的地方；返回＝退一步，退到头才是关掉这一页。
+  const [trail, setTrail] = useState([startId]);
+  const centerId = trail[trail.length - 1];
+  const all = allChars || [];
+  const nameOf = id => id === "me" ? me : (all.find(c => c.id === id) || {}).name || "?";
+  // 同一个人在路上出现两次，只保留后面那次——绕回原地不该让返回键越退越长
+  const walkTo = id => setTrail(p => {
+    const cut = p.indexOf(id);
+    return cut >= 0 ? p.slice(0, cut + 1) : p.concat([id]);
+  });
+  const back = () => { if (trail.length <= 1) { onClose(); return; } setTrail(p => p.slice(0, -1)); };
+  const n = Object.keys(rels || {}).reduce((acc, k) => {
+    const [f, g] = k.split("->");
+    if (f !== centerId && g !== centerId) return acc;
+    acc[f === centerId ? g : f] = 1; return acc;
+  }, {});
+  const nCount = Object.keys(n).length;
+  return h("div", { className: "absolute inset-0 z-40 flex flex-col", style: DESK(t.accent) },
+    h(Head, { zh: nameOf(centerId) + " 的关系", bg: "transparent", noLine: true,
+      sub: nCount ? nCount + " 段 · 点别人的脸接着往下走" : "这儿是条死路，没有别人了",
+      onBack: back,
+      right: h("button", { onClick: onClose, className: "active:opacity-60 flex items-center justify-center",
+        style: { width: 40, height: 38, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "退出") }),
+    // 走过的路：不是面包屑装饰，是【她怎么走到这儿的】那条线索，点任意一站直接跳回去
+    trail.length > 1 && h("div", { className: "shrink-0 flex items-center px-4 pb-2",
+      style: { gap: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" } },
+      trail.map((id, i) => h(Fragment, { key: id + "_" + i },
+        i > 0 && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "›"),
+        h("button", { onClick: () => setTrail(p => p.slice(0, i + 1)), className: "shrink-0 active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 11, whiteSpace: "nowrap",
+            color: i === trail.length - 1 ? t.ink : t.sub,
+            padding: "2px 8px", borderRadius: 999,
+            background: i === trail.length - 1 ? "rgba(0,0,0,.06)" : "transparent" } }, nameOf(id))))),
+    h(TiesBoard, { key: centerId, centerId, me, profile, allChars: all, rels,
+      savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge, onCenter: walkTo }));
+}
+
 function Ties({
   characters,
   allChars,
@@ -949,6 +1005,7 @@ function Ties({
   const t = useTheme();
   const [comp, setComp] = useState(null); // composer state | null
   const [view, setView] = useState(null); // null=关系板 / participant id=按条看的详情页
+  const [walkAt, setMapAt] = useState(null); // 关系图那一页站在谁身上；null=没开
   const [board, setBoard] = useState("me"); // 现在看谁的板子（一人一页）
   const me = profile.name || "我";
   const all = allChars || characters;   // 解析用全量（含 NPC）
@@ -1140,13 +1197,19 @@ function Ties({
     h(Head, { zh: (boardId === "me" ? me : nameOf(boardId)) + " 的关系",
       sub: nBoard ? nBoard + " 段 · 点线上的牌子看整句" : "还没有关系",
       bg: "transparent", noLine: true, onBack,
-      right: characters.length > 0 ? h("button", { onClick: openNew, className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) : null }),
+      right: h("div", { className: "flex items-center" },
+        // 明入口：点脸进去是顺手，但只有顺手的入口等于没入口——她得知道有这么一页
+        characters.length > 0 ? h("button", { onClick: () => setMapAt(boardId), className: "active:opacity-50 flex items-center justify-center", style: { height: 38, padding: "0 6px", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "走一圈") : null,
+        characters.length > 0 ? h("button", { onClick: openNew, className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) : null) }),
     faceStrip,
     characters.length === 0
       ? h("div", { className: "flex-1 px-6" }, h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }))
       : h(TiesBoard, {
           key: boardId, centerId: boardId, me, profile, allChars: all, rels,
-          savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge: openEdit
+          savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge: openEdit,
+          // 这块板子上点一张脸，就进那一页接着往下走（她 2026-09-15 要的就是这个动作）。
+          // 板子本身照旧是「这个人有哪些关系」，走网是另一页的事，两件事别挤在一页里。
+          onCenter: id => setMapAt(id)
         }),
     // 配角的简介只有单人页能读全文、能改、能删（她 2026-08-25 定的），入口留在这儿
     boardId !== "me" ? h("button", { onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
@@ -1154,6 +1217,10 @@ function Ties({
     comp && h(RelComposer, {
       comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
+    }),
+    walkAt && h(TiesWalk, {
+      startId: walkAt, me, profile, allChars: all, rels,
+      tiePos, onSaveTiePos, onEditEdge: openEdit, onClose: () => setMapAt(null)
     }));
 }
 
