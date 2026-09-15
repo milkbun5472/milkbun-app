@@ -124,7 +124,7 @@ test("写：封闭群一个字都不回流主线", () => {
   // 群线下的好感/心情/状态卡——以前一道闸都没有
   assert.match(app, /const gOffSealed = groupClosed\(group\.id\);/);
   // v56.03 起同一行还多挡了 NPC（配角没有心情/好感），闭群那道闸原样还在
-  assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId && typeof b\.affinityDelta === "number"\) bumpAff/);
+  assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId\) bumpAff/);
   assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId && b\.mood && b\.mood\.label\) setMoodFor/);
   assert.match(app, /if \(!gOffSealed && b\.senderId && \(gOffThought \|\| \(b\.mood && b\.mood\.label\)\)\)/);
   // 动态计数器：线上线下都要堵

@@ -81,7 +81,7 @@ test("offline null state semantics preserve durable state and clear stale though
   // v55.67：mood 没回来时要计数（她「心情好久不会变」），所以这一句多了个 else 分支
   assert.match(app, /if \(res\.mood && res\.mood\.label\) \{ setMoodFor\(charId, \{ \.\.\.res\.mood, ts: Date\.now\(\) \}\); _moodSkip\(charId, true\); \}/);
   assert.match(app, /else _moodSkip\(charId, false\);/);
-  assert.match(app, /Number\.isFinite\(res\.affinityDelta\)/);
+  assert.match(app, /if \(!sideRoom\) bumpAff\(charId, res\.affinityDelta\)/);
   // v56.100：action 改成每轮必填（线上一直是「每轮都更新」，线下的戏推得更快，不该反而可以不填）
   assert.match(engine, /action 每轮必须填写，禁止 null、空串或省略/);
 });

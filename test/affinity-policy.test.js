@@ -33,12 +33,30 @@ test("关系基线按存档两个方向取最高，别的角色不串入", () =>
 });
 test("0、缺省与非法幅度不写盘，心情不参与好感", () => {
   const f = fixture({ c1: 61.234 });
-  for (const delta of [0, null, undefined, NaN, Infinity, -Infinity, "5", {}]) {
+  for (const delta of [0, null, undefined, NaN, Infinity, -Infinity, "", "很多", {}]) {
     f.bumpAff("c1", delta, "累、烦、开心");
   }
   assert.deepEqual(f.state(), { c1: 61.234 });
   assert.equal(f.writes.length, 0);
 });
+// v68.64：带引号的数字【要算数】。原来这一条把 "5" 跟 {} 一起归进「非法幅度」，
+// 可 JSON 里那一栏带不带引号全看模型高兴——群那一路一直在 Number() 转，单聊这边
+// 却把它整条丢掉：回复照常落地，好感一动不动（她 2026-09-15：「感觉有时候不涨」）。
+// 真正的非法值（空串、说不清的词、对象）照旧读成 0、不落盘。
+test("带引号的数字照样算，读成数这一步只有一份", () => {
+  const f = fixture({ c1: 50 });
+  f.bumpAff("c1", "5");          // → +1
+  f.bumpAff("c1", "+2");         // → +0.4
+  f.bumpAff("c1", " -1 ");       // → -0.2
+  assert.deepEqual(f.state(), { c1: 51.2 });
+  assert.equal(f.affinityStep("3"), .6);
+  assert.equal(f.affinityStep("不知道"), 0);
+  assert.equal(f.affinityStep({}), 0);
+  // 四处原来四种写法（typeof / Number.isFinite / Number() / 不判），现在都问这一份
+  assert.match(app, /const affDelta = v => \{/);
+  assert.equal((app.match(/const affDelta = /g) || []).length, 1);
+});
+
 test("非零幅度按 0.2 换算、正负对称、单次封顶 1", () => {
   const f = fixture();
   for (const [delta, expected] of [[1, .2], [2, .4], [5, 1], [100, 1], [.5, .1]]) {

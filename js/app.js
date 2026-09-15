@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.63";
+const APP_VERSION = "v68.64";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2466,10 +2466,22 @@ function App() {
     saveJSON("x_affinities", n);
     return n;
   });
+  // 模型交回来的 affinityDelta 可能是 2、"2"、"+2"、" -1 "——JSON 里那一栏是不是带引号
+  // 全看模型高兴，何况群那一路的字段说明本身就写成字符串（"affinityDelta":"整数-5到5"）。
+  // 群里一直在 Number() 转，**单聊、线下、群线下、收礼那四处用的是 typeof === "number"**，
+  // 于是带引号的那几种被【整条丢掉】：回复照常落地，好感一动不动
+  //（她 2026-09-15：「感觉有时候不涨」）。
+  // ⚠️同一件事原来有四种写法（typeof / Number.isFinite / Number() / 不判），
+  //   所以收成这一份，五个调用点共用（施工规则/one-public-mechanism）。
+  const affDelta = v => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    const n = Number(String(v == null ? "" : v).trim().replace(/^\+/, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
   // 关系变化按模型给出的幅度结算；0 不落盘，单次最多 ±1，心情独立更新。
   const affinityStep = delta => {
-    if (typeof delta !== "number" || !Number.isFinite(delta)) return 0;
-    return Math.round(Math.max(-5, Math.min(5, delta)) * 0.2 * 1000) / 1000;
+    const d = affDelta(delta);
+    return Math.round(Math.max(-5, Math.min(5, d)) * 0.2 * 1000) / 1000;
   };
   const bumpAff = (charId, aiDelta) => {
     const inc = affinityStep(aiDelta);
@@ -6639,7 +6651,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         (same, note) => pOffline(scopeKey, list => list.map(x => ({ ...x, msgs: (x.msgs || []).map(m => same(m) ? { ...m, seenNote: note } : m) }))));
       if (res.photo && res.photo.scene) runOfflineShot({ char, scopeKey, kind: res.photo.kind, scene: res.photo.scene });
       // 线下相处也影响好感与心情（跟私聊一样）
-      if (!sideRoom && Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta);
+      if (!sideRoom) bumpAff(charId, res.affinityDelta);   // 读成数这一步收在 affDelta 一处
       if (!sideRoom) tickAmbient(charId, {}); // 侧房不推动主时间线的人格/动态生态
       // mood 一直不动的老毛病（她 2026-08-24）：病根是线下协议原本写着「值得更新才填，
       // 否则 null」，示范形状里还直接摆着 "mood":null——模型照着模板填 null，心情就永远冻着。
@@ -7288,7 +7300,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 转头回单聊TA还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
         const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有心情/好感
-        if (!gOffSealed && !_bNpc && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta);
+        if (!gOffSealed && !_bNpc && b.senderId) bumpAff(b.senderId, b.affinityDelta);
         if (!gOffSealed && !_bNpc && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
         if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
@@ -9023,6 +9035,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           });
         }
       } catch (e) {}
+      // ⚠️好感那一栏也要救（她 2026-09-15：「感觉有时候不涨」）。
+      //   上面那句注释写着「坏 JSON 时状态卡就冻住不变……逐个从 raw 里正则抠回来」，
+      //   可救的只有 action/wearing/thought/mood 四样——全是字符串，salvageStr 只认带引号的。
+      //   affinityDelta 是个数，从来没人救过：模型这一轮的 JSON 一旦坏掉，气泡照样发出来，
+      //   好感却悄悄归零，而且屏幕上看不出任何异样。这就是「有时候不涨」的另一半。
+      //   带不带引号、带不带正号都认——反正读成数那一步在 affDelta 一处收着。
+      const salvageNum = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"?\\s*([+-]?\\d+(?:\\.\\d+)?)\\s*"?')); return m ? Number(m[1]) : null; };
+      if (parsed.affinityDelta == null) { const v = salvageNum("affinityDelta"); if (v != null) parsed.affinityDelta = v; }
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
@@ -9633,15 +9653,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动态保底：每轮回复计数，很久没发就强制补一条（不影响本轮已自发的）
       if (!sideRoom && !opts.proactive) tickAmbient(charId, { moment: !!mo, whisper: ambWhisper, forum: ambForum });
       const affinityBefore = affOf(charId);
-      if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta);
+      const _affD = affDelta(parsed.affinityDelta);
+      bumpAff(charId, _affD);   // 0 不落盘，这道判断在 bumpAff 里
       // dongnian 阶段二（v48.80）：把这轮互动的好感增量反喂进动念——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
-      try { if (!sideRoom && typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
+      try { if (!sideRoom && _affD) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, _affD * 0.05)) }); } } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
         setMoodFor(charId, { ...parsed.mood, ts: Date.now() });
         _moodSkip(charId, true);
       } else _moodSkip(charId, false);
       // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
-      if (!sideRoom) observeEmotionAShadow(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
+      if (!sideRoom) observeEmotionAShadow(charId, _affD, parsed.mood && parsed.mood.label);
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。
       if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
@@ -10832,11 +10853,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 记忆互通：这次发言影响该成员对用户的实时好感与心情，并把心声写进【和私聊同一套】的实时状态里（双向影响、可变化）
           if (gs.memoryInterop) {
             const moodLabel = item.mood && String(item.mood).toLowerCase() !== "null" ? String(item.mood).trim() : null;
-            const aDelta = typeof item.affinityDelta === "number" ? item.affinityDelta : Number(item.affinityDelta);
+            const aDelta = affDelta(item.affinityDelta);
             const gWear = item.wearing && String(item.wearing).toLowerCase() !== "null" ? String(item.wearing).trim() : null;
             const gAction = gActionNow;
             // NPC 没有心情、也没有好感度（她 2026-08-25 拍板）：模型照样填了就丢掉
-            if (spk && !spk.npc && Number.isFinite(aDelta)) bumpAff(spk.id, aDelta);
+            if (spk && !spk.npc) bumpAff(spk.id, aDelta);
             if (spk && !spk.npc && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
@@ -19616,7 +19637,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (i > 0) await new Promise(r => setTimeout(r, 400));
         pChat(charId, p => [...p, { role: "assistant", content: words[i], ts: Date.now(), read: false, turnId }]);
       }
-      if (typeof d.affinityDelta === "number") bumpAff(charId, d.affinityDelta);
+      bumpAff(charId, d.affinityDelta);
     } catch (e) {/* silent */}
   };
   // 送的东西值多少钱。模型在同一轮回复里就该给 price（不额外调一次模型）；
