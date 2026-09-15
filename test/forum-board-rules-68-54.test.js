@@ -68,13 +68,20 @@ test("口吻是给出口不给判决，不是纪律", () => {
   assert.match(m, /说完照样接着聊，不是把人赶走/);
 });
 
-test("置顶那块牌子跟着当前吧走，默认只露一条", () => {
+test("吧规那一行永远只有一行高，点开走浮层", () => {
+  // 她 2026-09-15：「吧规叠着太占地方了嘤」——展开就地铺开会把帖子流整个往下推。
   const i = screens.indexOf('(!inSub && nav === "home" && FORUM_BOARD_RULES[tab])');
-  assert.ok(i > 0, "版块页顶上没有吧规那块牌子——规矩只喂给模型、她自己看不见，等于没挂出来");
-  const box = screens.slice(i, i + 1200);
-  assert.match(box, /setRulesOpen\(!rulesOpen\)/, "牌子点不开，第二三条她永远看不到");
-  assert.match(box, /rulesOpen\n?\s*\? FORUM_BOARD_RULES\[tab\]\.map/);
-  assert.match(box, /FORUM_BOARD_RULES\[tab\]\[0\]/, "收起时该只露第一条，不是整块铺开");
-  assert.match(box, /forumBoardSkin\(tab\)/, "牌子不跟着吧换识别色，六个吧看起来是同一块");
+  assert.ok(i > 0, "版块页顶上没有吧规——规矩只喂给模型、她自己看不见，等于没挂出来");
+  const bar = screens.slice(i, i + 1100);
+  assert.match(bar, /height: 26/, "那一行得是钉死的高度，不然展开时又会把帖子顶下去");
+  assert.match(bar, /setRulesOpen\(true\)/);
+  assert.ok(bar.indexOf("FORUM_BOARD_RULES[tab].map") < 0,
+    "三条又被铺回头顶那一行里了——她说的「叠着太占地方」就是这个");
+  assert.match(bar, /FORUM_BOARD_RULES\[tab\]\[0\]/, "横杠上该只露第一条");
+  assert.match(bar, /forumBoardSkin\(tab\)/, "不跟着吧换识别色，六个吧看起来是同一条");
+  // 全文走浮层：飘在帖子上面，收起来什么都不占
+  const sheet = screens.indexOf("rulesOpen && FORUM_BOARD_RULES[tab] && h(Sheet,");
+  assert.ok(sheet > 0, "点开没有浮层，那三条就无处可去");
+  assert.match(screens.slice(sheet, sheet + 900), /FORUM_BOARD_RULES\[tab\]\.map/);
   assert.match(screens, /const \[rulesOpen, setRulesOpen\] = useState\(false\);/, "默认该是收起的——她不是来读规矩的");
 });
