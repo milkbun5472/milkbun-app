@@ -13,9 +13,14 @@ test('随身物共用读取真实 onMe 标记和写入端额度，库存变化�
   env.inventoryRef.current[0].onMe=false;
   assert.equal(get(),'测试手环、测试围巾');
   env.inventoryRef.current=[];assert.equal(get(),'');
-  assert.equal((app.match(/onMe: onMeFor\(\)/g)||[]).length,2);
+  // v68.81：群线下那一处加了旁观群的闸（她不在场，就不该有「她今天身上带着」），
+  //   所以只剩单聊那一处是光秃秃的 onMeFor()
+  assert.equal((app.match(/onMe: onMeFor\(\)/g)||[]).length,1);
+  assert.match(app,/onMe: groupSpectating\(group\) \? "" : onMeFor\(\)/);
   assert.match(app,/const _gOnMe = onMeFor\(\)/);
-  assert.match(app,/const gOnMeHint = \(_gOnMe && !gs.spectate\)/);
+  assert.match(app,/const gOnMeHint = \(_gOnMe && !groupSpectating\(group\)\)/);
+  // 判据只许有一份：两路问同一个函数
+  assert.equal((app.match(/const groupSpectating = group =>/g)||[]).length,1);
 });
 for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发送的 system 使用共用随身物，空库存无空段',async()=>{
   const env=wire(fixture()); let sent='';
@@ -61,4 +66,19 @@ test('群文字只发送一次完整印象卡，保留各人的私有围栏和�
   assert.doesNotMatch(sent,/唯一卡片_b_|唯一卡片_npc_/);
   assert.match(privateText,/只有 甲 本人知道，别的成员并不知情/);
   assert.equal(env.gazeFor('b'),'');assert.equal(env.gazeFor('npc'),'');
+});
+
+// 我 2026-09-15 复查那几版时扫到的漏：线上那路挡了旁观群，群线下那路没挡——
+// 旁观群里她根本不在场（不是群里的一员，只以旁白推剧情），
+// 冒一句「她今天身上带着…」出来，等于凭空把她放进了一场她没去的戏。
+test('旁观群两路都不给「她今天身上带着」', () => {
+  const pick = app.match(/const groupSpectating = group => [^\n]+/)[0];
+  const fn = new Function('gsFor', pick + ';return groupSpectating;');
+  const none = fn(() => ({}));
+  assert.equal(none({ id: 'g1', roomKind: 'spectate' }), true, 'roomKind 记在群自己身上');
+  assert.equal(fn(() => ({ spectate: true }))({ id: 'g1' }), true, 'spectate 记在另一份 groupSettings 里');
+  assert.equal(none({ id: 'g1', roomKind: 'group' }), false);
+  assert.equal(none(null), false);
+  // ⚠️两头都要问：只看其中一头，另一种建群方式立刻漏过去
+  assert.match(pick, /roomKind === "spectate" \|\| \(gsFor\(group\.id\) \|\| \{\}\)\.spectate/);
 });

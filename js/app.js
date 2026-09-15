@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.81";
+const APP_VERSION = "v68.83";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4821,6 +4821,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const wishFor = () => (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、");
   // 所有场景读取同一份随身物；额度与「带上」操作共用 ON_ME_CAP。
+  // 旁观群里【她根本不在场】：不是群里的一员，只以旁白推剧情。
+  // 所以「她今天身上带着什么」这一条在那儿一个字都不该有——她人都没来，谁看得见她带了什么。
+  // ⚠️线上那路 v68.65 挡住了，群线下那路没挡（我 2026-09-15 复查 Codex 那几版时扫到的）。
+  //   判据收在这一处，两路都问它：roomKind 记在群自己身上，spectate 记在另一份 groupSettings 里，
+  //   两头都要问（同 3626 行那一处的写法）。
+  const groupSpectating = group => !!(group && (group.roomKind === "spectate" || (gsFor(group.id) || {}).spectate));
   const onMeFor = () => (inventoryRef.current || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, ON_ME_CAP).join("、");
   const ctxFor = (char, ctxOpts) => ({
     char,
@@ -7050,7 +7056,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return m;
     })(),
     // 她今天身上带着的（四处一样喂）：以前只有走 buildBundle 的那几处看得见
-    onMe: onMeFor(),
+    // ⚠️旁观群她不在场，这一条整个不给——跟线上那路同一个判据
+    onMe: groupSpectating(group) ? "" : onMeFor(),
     // 她想要什么（四处一样喂）：同线上群聊，共享一份
     wishLog: wishFor(),
     // 随身物（四处一样喂）：和线上群聊同一份、同一个额度
@@ -10415,7 +10422,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
       // ⚠️句子走 engine 的 onMeLine 一份，别在这儿另写一版。
       const _gOnMe = onMeFor();
-      const gOnMeHint = (_gOnMe && !gs.spectate) ? "\n\n" + onMeLine(_gOnMe, userName(profile)) : "";
+      const gOnMeHint = (_gOnMe && !groupSpectating(group)) ? "\n\n" + onMeLine(_gOnMe, userName(profile)) : "";
       const gWishHint = wishLine(wishFor(), userName(profile), { group: true, spectate: gs.spectate, gift: true });
       // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：句子跟单聊共用同一份，
       // 只多传一个 group 参数。⚠️线下正开着就不发——那一段自己已经把面对面讲清楚了

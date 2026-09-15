@@ -30,9 +30,10 @@ test("带在身上：有上限，而且见面才看得见", () => {
   assert.match(eng, /function onMeLine\(onMe, uName\) \{/, "上下文那一层没接");
   assert.equal((eng.match(/今天身上带着：/g) || []).length, 1, "这句话只许有一份");
   assert.match(eng, /别每次都拿它开场/, "他会每轮都惊叹一遍");
-  assert.match(app, /const gOnMeHint = \(_gOnMe && !gs\.spectate\) \? "\\n\\n" \+ onMeLine\(_gOnMe, userName\(profile\)\) : "";/, "群线上没接");
+  // v68.81：判据收成 groupSpectating(group)，两路共用一份（线下那路原来根本没挡）
+  assert.match(app, /const gOnMeHint = \(_gOnMe && !groupSpectating\(group\)\) \? "\\n\\n" \+ onMeLine\(_gOnMe, userName\(profile\)\) : "";/, "群线上没接");
   assert.match(app, /\+ gMeBlock \+ gWishHint \+ gOnMeHint \+ gRelRule/, "群线上算出来了却没拼进 sys");
-  assert.match(app, /onMe: onMeFor\(\)/, "群线下没接");
+  assert.match(app, /onMe: groupSpectating\(group\) \? "" : onMeFor\(\)/, "群线下没接，或者旁观群那道闸又没了");
   assert.match(eng, /ctx\.onMe && String\(ctx\.onMe\)\.trim\(\) \? "\\n\\n" \+ onMeLine\(ctx\.onMe, userName\) : ""/, "群线下算出来了却没拼进 sys");
 });
 

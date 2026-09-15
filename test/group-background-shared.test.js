@@ -53,7 +53,9 @@ test('群线下六张成员表来自同一读取，跟线上/通话的字段一�
     group: { memberIds: ['a', 'b', 'npc'] }, groupMembers: () => env.members,
     groupOfflineMemSplit: () => ({}), rels: [], PERSONA_EVOLVE_IDS: [], wishRef: { current: [] },
     // v68.65：群线下也开始读「她今天身上带着什么」（四处一样喂）
-    inventoryRef: { current: [] }
+    inventoryRef: { current: [] },
+    // v68.81：旁观群她不在场，这一条整个不给——判据两路共用
+    groupSpectating: () => false
   });
   const prefix = cut(app, '  const ctxForGroupOffline =', '    // 印象卡读一律给');
   const ctx = evaluate(prefix + '\n});\n};', env, 'ctxForGroupOffline(group)');

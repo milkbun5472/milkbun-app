@@ -758,6 +758,72 @@ function tieKindColor(label, fallback) {
   }
   return fallback;
 }
+// 挪位／双指缩放／拖卡片／轻点换人——关系板和整网图共用这一份。
+// ⚠️抄第二份的话，「拖完松手不算点」那种事迟早只在其中一张图上成立
+//（施工规则/one-public-mechanism.md）。函数体一个字没动，只是搬了家。
+// 两张照片之间那根线，以及线上那张牌子挂在哪儿。
+// ⚠️牌子要挂在两张照片【中间那段空当】的正中，不是两个圆心的正中：
+//   圆心的正中会落在中间那张大照片里头，牌子直接被压住看不见（第一版就是这样）。
+// ⚠️关系板和整网图共用这一份（v68.81 抬上来的），别抄第二份。
+function tieThread(A, B, ra, rb) {
+  const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
+  const bow = Math.min(20, len * 0.08);
+  const ux = dx / len, uy = dy / len;
+  const at = Math.max(ra + 6, Math.min(len - rb - 6, ra + (len - ra - rb) / 2));
+  return { d: "M" + A.x + "," + A.y + " Q" + (mx - uy * bow) + "," + (my + ux * bow) + " " + B.x + "," + B.y,
+    mx: A.x + ux * at - uy * bow / 2, my: A.y + uy * at + ux * bow / 2 };
+}
+function tieBoardPointer(env) {
+  const { ptr, centerId, onCenter, onSavePos, key, setSel, setPan, setDrag, setK, P } = env;
+  const k = env.k;
+  const onDown = e => {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {}
+    const p = ptr.current;
+    p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (Object.keys(p.pts).length === 1) { p.moved = false; p.start = { x: e.clientX, y: e.clientY }; }
+    p.dist = 0;
+  };
+  const onMove = e => {
+    const p = ptr.current;
+    if (!p.pts[e.pointerId]) return;
+    const ids = Object.keys(p.pts);
+    if (ids.length === 1) {
+      const p0 = p.pts[e.pointerId], dx = e.clientX - p0.x, dy = e.clientY - p0.y;
+      if (Math.abs(e.clientX - p.start.x) + Math.abs(e.clientY - p.start.y) > 7) p.moved = true;
+      p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (p.node) {
+        const id = p.node;
+        // ⚠️当前值同时记进 ref：pointermove 比 React 重渲染快得多，松手那下去读渲染
+        // 闭包里的 drag，读到的会是没动过的原位（v60.46 walker 抓到的）。
+        const cur = p.live || P(id);
+        p.live = { x: cur.x + dx / k, y: cur.y + dy / k };
+        setDrag(d => ({ ...d, [key(id)]: p.live }));
+      } else setPan(v => ({ x: v.x + dx, y: v.y + dy }));
+    } else if (ids.length === 2) {
+      p.moved = true;
+      p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      const two = Object.keys(p.pts).map(i => p.pts[i]);
+      const d = Math.hypot(two[0].x - two[1].x, two[0].y - two[1].y);
+      if (p.dist) setK(v => Math.max(0.42, Math.min(2.6, v * (d / p.dist))));
+      p.dist = d;
+    }
+  };
+  const onUp = e => {
+    const p = ptr.current;
+    delete p.pts[e.pointerId];
+    p.dist = 0;
+    if (!Object.keys(p.pts).length) {
+      if (p.node && p.moved && p.live && onSavePos) onSavePos(key(p.node), p.live);
+      if (!p.moved) setSel(null);
+      // 指针由外壳捕获，click 会落在外壳；在释放指针时按实际落点认一次轻点。
+      const tapped = e.type !== "pointercancel" && !p.moved && p.node && p.node !== centerId ? p.node : null;
+      p.node = null; p.live = null;
+      if (tapped && onCenter) onCenter(tapped);
+    }
+  };
+  return { onDown, onMove, onUp };
+}
 function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos, onEditEdge, onCenter }) {
   const t = useTheme();
   const wrapRef = useRef(null);
@@ -828,51 +894,7 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
     setSel(null); fitNow();
   }, [centerId]);
 
-  const onDown = e => {
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {}
-    const p = ptr.current;
-    p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
-    if (Object.keys(p.pts).length === 1) { p.moved = false; p.start = { x: e.clientX, y: e.clientY }; }
-    p.dist = 0;
-  };
-  const onMove = e => {
-    const p = ptr.current;
-    if (!p.pts[e.pointerId]) return;
-    const ids = Object.keys(p.pts);
-    if (ids.length === 1) {
-      const p0 = p.pts[e.pointerId], dx = e.clientX - p0.x, dy = e.clientY - p0.y;
-      if (Math.abs(e.clientX - p.start.x) + Math.abs(e.clientY - p.start.y) > 7) p.moved = true;
-      p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
-      if (p.node) {
-        const id = p.node;
-        // ⚠️当前值同时记进 ref：pointermove 比 React 重渲染快得多，松手那下去读渲染
-        // 闭包里的 drag，读到的会是没动过的原位（v60.46 walker 抓到的）。
-        const cur = p.live || P(id);
-        p.live = { x: cur.x + dx / k, y: cur.y + dy / k };
-        setDrag(d => ({ ...d, [key(id)]: p.live }));
-      } else setPan(v => ({ x: v.x + dx, y: v.y + dy }));
-    } else if (ids.length === 2) {
-      p.moved = true;
-      p.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
-      const two = Object.keys(p.pts).map(i => p.pts[i]);
-      const d = Math.hypot(two[0].x - two[1].x, two[0].y - two[1].y);
-      if (p.dist) setK(v => Math.max(0.42, Math.min(2.6, v * (d / p.dist))));
-      p.dist = d;
-    }
-  };
-  const onUp = e => {
-    const p = ptr.current;
-    delete p.pts[e.pointerId];
-    p.dist = 0;
-    if (!Object.keys(p.pts).length) {
-      if (p.node && p.moved && p.live && onSavePos) onSavePos(key(p.node), p.live);
-      if (!p.moved) setSel(null);
-      // 指针由外壳捕获，click 会落在外壳；在释放指针时按实际落点认一次轻点。
-      const tapped = e.type !== "pointercancel" && !p.moved && p.node && p.node !== centerId ? p.node : null;
-      p.node = null; p.live = null;
-      if (tapped && onCenter) onCenter(tapped);
-    }
-  };
+  const { onDown, onMove, onUp } = tieBoardPointer({ ptr, centerId, onCenter, onSavePos, key, setSel, setPan, setDrag, setK, P, k });
   // ⌖ 只把视野拉回来，【不动她摆好的位置】——一个「归位」键顺手清掉她拖了半天的
   // 布局，那是最气人的那种按钮。清摆法是另一个键，而且只在她真拖过之后才出现。
   const recenter = () => { setSel(null); fitNow(); };
@@ -883,15 +905,7 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
   // 不是两个圆心的正中：圆心的正中会落在中间那张大照片里头，牌子直接被压住看不见
   // （第一版就是这样，她那句「还会插入别的」在这儿也成立）。
   const halfOf = id => { const sz = szOf(id); return sz / 2 + Math.max(5, Math.round(sz * 0.085)); };
-  const thread = (A, B, ra, rb) => {
-    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
-    const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
-    const bow = Math.min(20, len * 0.08);
-    const ux = dx / len, uy = dy / len;
-    const at = Math.max(ra + 6, Math.min(len - rb - 6, ra + (len - ra - rb) / 2));
-    return { d: "M" + A.x + "," + A.y + " Q" + (mx - uy * bow) + "," + (my + ux * bow) + " " + B.x + "," + B.y,
-      mx: A.x + ux * at - uy * bow / 2, my: A.y + uy * at + ux * bow / 2 };
-  };
+  const thread = (A, B, ra, rb) => tieThread(A, B, ra, rb);
   const card = id => {
     const p = P(id), size = szOf(id);
     return h("div", {
@@ -981,10 +995,186 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
 // ⚠️名字不叫 TiesMap：v60.46 那张「所有人挤一张网」的汇总图就叫那个名字，
 //   被她 2026-09-02 点名删掉了（ties-board-60-47 那份测试还钉着它不许回来）。
 //   这一页跟它是反的——一次只看一个人，只是中心能换。别把两件事的名字搅在一起。
+// ============================================================
+// 整网图 —— 所有人一次铺开
+// ============================================================
+// 她 2026-09-15 发来的参考图右上角那个「全部」。
+// 关系板和关系图都是【一次只看一个人】，所以隔着一层的路径永远看不见：
+// 「陈倦之 → 顾清 → 凌峭」这种，只有整网图看得出来。
+// ⚠️这一页不换中心、不讲故事，只回答一个问题：这张网长什么样、谁离谁近。
+//   点一张脸就跳回那个人的关系图接着走——整网图是地图，关系图才是走路。
+
+// 谁挨着谁摆：从连得最多的那个人起，广度优先一圈圈排开，
+// 于是有来往的人自然挨在一起，线不会横穿整张图。
+// ⚠️不做力导向：那玩意每次打开都不一样，她昨天记住的位置今天就没了。
+//   确定的排法可以记得住，也可以被她拖了之后一直保持那样。
+function tieNetOrder(ids, edgeOf) {
+  const deg = {};
+  ids.forEach(a => { deg[a] = ids.filter(b => b !== a && edgeOf(a, b)).length; });
+  const rest = ids.slice().sort((a, b) => (deg[b] - deg[a]) || String(a).localeCompare(String(b)));
+  const out = [], seen = {};
+  while (rest.length) {
+    const seed = rest.find(x => !seen[x]);
+    if (!seed) break;
+    const q = [seed]; seen[seed] = 1;
+    while (q.length) {
+      const cur = q.shift();
+      out.push(cur);
+      rest.filter(x => !seen[x] && edgeOf(cur, x))
+        .sort((a, b) => (deg[b] - deg[a]) || String(a).localeCompare(String(b)))
+        .forEach(x => { seen[x] = 1; q.push(x); });
+    }
+    for (let i = rest.length - 1; i >= 0; i--) if (seen[rest[i]]) rest.splice(i, 1);
+  }
+  return out;
+}
+
+function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen }) {
+  const t = useTheme();
+  const wrapRef = useRef(null);
+  const [k, setK] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [sel, setSel] = useState(null);
+  const [drag, setDrag] = useState({});
+  const ptr = useRef({ pts: {}, dist: 0, moved: false, node: null, start: null, live: null });
+  const all = allChars || [];
+  const byId = id => all.find(c => c.id === id);
+  const nameOf = id => id === "me" ? me : (byId(id) || {}).name || "?";
+  const isNpc = id => !!(byId(id) || {}).npc;
+  const edgeOf = (a, b) => (rels || {})[a + "->" + b] || (rels || {})[b + "->" + a] || null;
+
+  // 这张网上真正有关系的人（一个孤点都不画：她要看的是网，不是花名册）
+  const live = ids.filter(a => ids.some(b => b !== a && edgeOf(a, b)));
+  const order = tieNetOrder(live, edgeOf);
+  const pairs = [];
+  order.forEach((a, i) => order.slice(i + 1).forEach(b => {
+    const out = (rels || {})[a + "->" + b], inc = (rels || {})[b + "->" + a];
+    if (!out && !inc) return;
+    const e = out || inc;
+    pairs.push({ a, b, label: (e && e.label) || "", both: !!(out && inc), out: !!out,
+      note: (e && e.note) || "",
+      backLabel: out && inc && (inc.label || "") !== (out.label || "") ? inc.label : "",
+      backNote: out && inc && (inc.note || "") !== (out.note || "") ? inc.note : "" });
+  }));
+
+  // 摆位：一圈（人多就两圈），按上面排好的顺序；她拖过的按她的来
+  const key = id => "net|" + id;
+  const base = {};
+  const n = order.length;
+  const inner = Math.min(n, Math.max(6, Math.ceil(n / 2)));
+  order.forEach((id, i) => {
+    const ring = i < inner ? 0 : 1;
+    const cnt = ring === 0 ? inner : Math.max(1, n - inner);
+    const idx = ring === 0 ? i : i - inner;
+    const r = ring === 0 ? TIE_R + Math.max(0, inner - 6) * 15 : TIE_R * 2 + Math.max(0, cnt - 6) * 15;
+    const a = -Math.PI / 2 + (idx * 2 * Math.PI) / Math.max(1, cnt) + (ring ? Math.PI / Math.max(1, cnt) : 0);
+    base[id] = { x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) };
+  });
+  const saved = Object.assign({}, savedPos || {}, drag);
+  const P = id => saved[key(id)] || base[id] || { x: 0, y: 0 };
+  const szOf = id => isNpc(id) ? TIE_CARD.npc : TIE_CARD.char;
+  const halfOf = id => { const sz = szOf(id); return sz / 2 + Math.max(5, Math.round(sz * 0.085)); };
+
+  const fitNow = () => {
+    const el = wrapRef.current;
+    if (!el || !order.length) return;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    order.forEach(id => { const p = P(id), r = szOf(id) / 2 + 30;
+      x0 = Math.min(x0, p.x - r); x1 = Math.max(x1, p.x + r); y0 = Math.min(y0, p.y - r); y1 = Math.max(y1, p.y + r); });
+    const rect = el.getBoundingClientRect();
+    const kk = Math.max(0.3, Math.min(1.15, Math.min((rect.width - 24) / Math.max(1, x1 - x0), (rect.height - 24) / Math.max(1, y1 - y0))));
+    setK(kk);
+    setPan({ x: -(x0 + x1) / 2 * kk, y: -(y0 + y1) / 2 * kk });
+  };
+  React.useLayoutEffect(() => { fitNow(); /* eslint-disable-next-line */ }, [order.length]);
+
+  // 手势跟关系板共用那一份；这儿 centerId 传 null＝谁都能点
+  const { onDown, onMove, onUp } = tieBoardPointer({ ptr, centerId: null, onCenter: onOpen, onSavePos,
+    key, setSel, setPan, setDrag, setK, P, k });
+  const moved = Object.keys(savedPos || {}).some(x => x.indexOf("net|") === 0) || Object.keys(drag).length > 0;
+  const selPair = sel ? pairs.find(x => x.a + "|" + x.b === sel) : null;
+
+  return h("div", { ref: wrapRef, className: "flex-1 min-h-0", style: { position: "relative", overflow: "hidden", touchAction: "none" },
+    onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp },
+    !order.length
+      ? h("div", { className: "h-full flex items-center justify-center px-10 text-center",
+          style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } },
+          "还没有任何两个人连起来。\n回上一页给谁加一段关系，这儿就有网了。")
+      : h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 0, height: 0,
+          transform: "translate(" + pan.x + "px," + pan.y + "px) scale(" + k + ")" } },
+          h("svg", { width: 4000, height: 4000, style: { position: "absolute", left: -2000, top: -2000, overflow: "visible", pointerEvents: "none" } },
+            // ⚠️箭头得自己带一份 defs：marker 是按 svg 找的，借不到隔壁那张图里的
+            h("defs", null, h("marker", { id: "tieNetArrow", viewBox: "0 0 8 8", refX: 7, refY: 4, markerWidth: 6, markerHeight: 6, orient: "auto" },
+              h("path", { d: "M0,0 L8,4 L0,8 z", fill: t.ink, opacity: 0.5 }))),
+            h("g", { transform: "translate(2000,2000)" },
+              pairs.map(L => {
+                const c = tieThread(P(L.a), P(L.b), halfOf(L.a), halfOf(L.b));
+                const col = tieKindColor(L.label, t.ink);
+                const tinted = col !== t.ink;
+                const lit = !sel || sel === L.a + "|" + L.b;
+                return h("path", { key: "n" + L.a + L.b, d: c.d, fill: "none", stroke: col,
+                  strokeWidth: tinted ? 1.4 : 1, opacity: lit ? (tinted ? 0.6 : 0.34) : 0.06,
+                  markerEnd: L.both ? undefined : "url(#tieNetArrow)" }); }))),
+          // 整网图上标签只在【点中那一段】时才写出来：几十条线各挂一张牌子就成了一团糊
+          pairs.filter(L => sel === L.a + "|" + L.b && L.label).map(L => {
+            const c = tieThread(P(L.a), P(L.b), halfOf(L.a), halfOf(L.b));
+            return h("div", { key: "nt" + L.a + L.b,
+              style: { position: "absolute", left: c.mx, top: c.my, transform: "translate(-50%,-50%)",
+                maxWidth: TIE_LABEL_MAX, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                background: tieKindColor(L.label, t.ink), color: t.bg2, padding: "2px 7px", borderRadius: 3,
+                fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.4, pointerEvents: "none" } }, L.label);
+          }),
+          order.map(id => h("div", { key: id,
+            onPointerDown: () => { ptr.current.node = id; ptr.current.live = null; },
+            style: { position: "absolute", left: P(id).x, top: P(id).y, transform: "translate(-50%,-50%)", touchAction: "none", cursor: "pointer" } },
+            h(TiePhoto, { id, name: nameOf(id), character: byId(id), profile, size: szOf(id),
+              tilt: tieTilt(id), dim: !!(sel && sel.split("|").indexOf(id) < 0), on: !!(sel && sel.split("|").indexOf(id) >= 0) })))),
+    // 点线：整网图上线太细不好点，所以给每一段挂一颗小点（就挂在牌子该在的位置）
+    order.length ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+      h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 0, height: 0,
+        transform: "translate(" + pan.x + "px," + pan.y + "px) scale(" + k + ")" } },
+        pairs.map(L => {
+          const c = tieThread(P(L.a), P(L.b), halfOf(L.a), halfOf(L.b));
+          const pk = L.a + "|" + L.b;
+          return h("button", { key: "nd" + pk,
+            onPointerDown: ev => { ev.stopPropagation(); ptr.current.node = null; },
+            onClick: ev => { ev.stopPropagation(); setSel(x => x === pk ? null : pk); },
+            style: { position: "absolute", left: c.mx, top: c.my, transform: "translate(-50%,-50%)",
+              width: 13, height: 13, borderRadius: 999, pointerEvents: "auto",
+              background: sel === pk ? tieKindColor(L.label, t.ink) : "rgba(255,255,255,.72)",
+              border: "1px solid " + tieKindColor(L.label, t.ink) } });
+        }))) : null,
+    selPair ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 12,
+      background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
+      boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
+      h("div", { className: "flex items-center", style: { gap: 8 } },
+        h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+          nameOf(selPair.a) + (selPair.both ? " ⇄ " : selPair.out ? " → " : " ← ") + nameOf(selPair.b)),
+        h("button", { onClick: () => onOpen(selPair.a), className: "active:opacity-60 shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "从这儿走"),
+        h("button", { onClick: () => setSel(null), className: "active:opacity-60 shrink-0",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginLeft: 2 } }, "收起")),
+      selPair.label ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 14, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selPair.label) : null,
+      selPair.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, selPair.note) : null,
+      (selPair.backLabel || selPair.backNote) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 } }, nameOf(selPair.b) + "那头写的"),
+        selPair.backLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: t.sub } }, selPair.backLabel) : null,
+        selPair.backNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 2, whiteSpace: "pre-wrap" } }, selPair.backNote) : null) : null) : null,
+    h("div", { style: { position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 6 } },
+      [["＋", () => setK(v => Math.min(2.6, v * 1.35))],
+       ["－", () => setK(v => Math.max(0.3, v / 1.35))],
+       ["⌖", () => { setSel(null); fitNow(); }]].concat(moved ? [["⟲", () => { setDrag({}); setSel(null); if (onSavePos) onSavePos(null, null); setTimeout(fitNow, 0); }]] : [])
+       .map(([lb, fn]) => h("button", { key: lb, onClick: fn, className: "active:opacity-70",
+        style: { width: 32, height: 32, borderRadius: 10, fontFamily: F_BODY, fontSize: 14, color: t.ink,
+          background: "rgba(246,244,239,.92)", border: "1px solid " + t.line, boxShadow: "0 1px 5px rgba(0,0,0,.08)" } }, lb))));
+}
+
 function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, onEditEdge, onClose }) {
   const t = useTheme();
   // 走过的路。末尾那个是现在站的地方；返回＝退一步，退到头才是关掉这一页。
   const [trail, setTrail] = useState([startId]);
+  const [netOpen, setNetOpen] = useState(false);   // 整网图：一次看见所有人
+
   const centerId = trail[trail.length - 1];
   const all = allChars || [];
   const nameOf = id => id === "me" ? me : (all.find(c => c.id === id) || {}).name || "?";
@@ -1001,13 +1191,18 @@ function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, 
   }, {});
   const nCount = Object.keys(n).length;
   return h("div", { className: "absolute inset-0 z-40 flex flex-col", style: DESK(t.accent) },
-    h(Head, { zh: nameOf(centerId) + " 的关系", bg: "transparent", noLine: true,
-      sub: nCount ? nCount + " 段 · 点别人的脸接着往下走" : "这儿是条死路，没有别人了",
+    h(Head, { zh: netOpen ? "这张网" : nameOf(centerId) + " 的关系", bg: "transparent", noLine: true,
+      sub: netOpen ? "点一张脸就从那个人接着走 · 点线上那颗点看这一段"
+        : (nCount ? nCount + " 段 · 点别人的脸接着往下走" : "这儿是条死路，没有别人了"),
       onBack: back,
-      right: h("button", { onClick: onClose, className: "active:opacity-60 flex items-center justify-center",
-        style: { width: 40, height: 38, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "退出") }),
+      right: h("div", { className: "flex items-center" },
+        // 她参考图右上角那个「全部」：走着走着想看看整张网长什么样
+        h("button", { onClick: () => setNetOpen(!netOpen), className: "active:opacity-60 flex items-center justify-center",
+          style: { height: 38, padding: "0 7px", fontFamily: F_BODY, fontSize: 12, color: netOpen ? t.ink : t.tint } }, netOpen ? "回到这个人" : "全部"),
+        h("button", { onClick: onClose, className: "active:opacity-60 flex items-center justify-center",
+          style: { width: 40, height: 38, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "退出")) }),
     // 走过的路：不是面包屑装饰，是【她怎么走到这儿的】那条线索，点任意一站直接跳回去
-    trail.length > 1 && h("div", { className: "shrink-0 flex items-center px-4 pb-2",
+    (!netOpen && trail.length > 1) && h("div", { className: "shrink-0 flex items-center px-4 pb-2",
       style: { gap: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" } },
       trail.map((id, i) => h(Fragment, { key: id + "_" + i },
         i > 0 && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "›"),
@@ -1016,8 +1211,13 @@ function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, 
             color: i === trail.length - 1 ? t.ink : t.sub,
             padding: "2px 8px", borderRadius: 999,
             background: i === trail.length - 1 ? "rgba(0,0,0,.06)" : "transparent" } }, nameOf(id))))),
-    h(TiesBoard, { key: centerId, centerId, me, profile, allChars: all, rels,
-      savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge, onCenter: walkTo }));
+    netOpen
+      // 整网图是地图，关系图才是走路：在地图上点谁，就落回那个人的关系图接着走
+      ? h(TiesNet, { ids: all.map(c => c.id).concat(["me"]), me, profile, allChars: all, rels,
+          savedPos: tiePos, onSavePos: onSaveTiePos,
+          onOpen: id => { walkTo(id); setNetOpen(false); } })
+      : h(TiesBoard, { key: centerId, centerId, me, profile, allChars: all, rels,
+          savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge, onCenter: walkTo }));
 }
 
 function Ties({

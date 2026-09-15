@@ -32,7 +32,8 @@ test("返回是退一步，不是直接关掉整页", () => {
     "走了五层一按返回就回到起点，那条路等于白走");
   assert.match(map, /onBack: back/);
   // 走过的路要看得见，而且点哪一站回哪一站
-  assert.match(map, /trail\.length > 1 && h\("div"/, "没有那条走过的路，她不知道自己是怎么走到这儿的");
+  // v68.81：整网态收起这一条（那一页不讲路，讲的是整张网长什么样）
+  assert.match(map, /\(!netOpen && trail\.length > 1\) && h\("div"/, "没有那条走过的路，她不知道自己是怎么走到这儿的");
   assert.match(map, /onClick: \(\) => setTrail\(p => p\.slice\(0, i \+ 1\)\)/);
 });
 

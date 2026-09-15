@@ -53,7 +53,9 @@ test("截掉的那半在选中面板里看得全，连对方那头怎么写的�
 test("牌子挂在两张照片中间那段空当，不是两个圆心的正中", () => {
   // 圆心正中会落在中间那张大照片里头，牌子直接被压住看不见
   assert.match(board, /const halfOf = id =>/);
-  assert.match(board, /const at = Math\.max\(ra \+ 6, Math\.min\(len - rb - 6, ra \+ \(len - ra - rb\) \/ 2\)\)/);
+  // ⚠️v68.81 这段几何抬成了公共的 tieThread（整网图也要挂牌子，别抄第二份）
+  const geo = scr.slice(scr.indexOf("function tieThread("), scr.indexOf("function tieBoardPointer("));
+  assert.match(geo, /const at = Math\.max\(ra \+ 6, Math\.min\(len - rb - 6, ra \+ \(len - ra - rb\) \/ 2\)\)/);
   assert.match(board, /thread\(P\(centerId\), P\(L\.other\), halfOf\(centerId\), halfOf\(L\.other\)\)/);
 });
 
@@ -79,8 +81,13 @@ test("v60.46 那三条只有真跑才抓得到的防御，一条都不许掉", (
   assert.match(photo, /WebkitTouchCallout: "none"/);
   assert.match(photo.slice(photo.indexOf("pointerEvents: \"none\"")), /^pointerEvents: "none", width: size/);
   // 2. 松手要从 ref 读实时值，不是渲染闭包
-  assert.match(board, /p\.live = \{ x: cur\.x \+ dx \/ k/);
-  assert.match(board, /onSavePos\(key\(p\.node\), p\.live\)/);
+  // ⚠️v68.81 这三只手搬进了公共的 tieBoardPointer（关系板和整网图共用一份，
+  //   免得「拖完松手不算点」只在其中一张图上成立）。函数体一个字没动，只是搬了家。
+  const pointer = scr.slice(scr.indexOf("function tieBoardPointer("), scr.indexOf("function TiesBoard("));
+  assert.match(pointer, /p\.live = \{ x: cur\.x \+ dx \/ k/);
+  assert.match(pointer, /onSavePos\(key\(p\.node\), p\.live\)/);
+  assert.match(board, /tieBoardPointer\(\{ ptr, centerId, onCenter, onSavePos, key, setSel, setPan, setDrag, setK, P, k \}\)/,
+    "关系板没接那一份公共的手势");
   // 3. 节点不是内联组件
   assert.ok(!/const [A-Z]\w* = \(\{ id, kind \}\) =>/.test(board));
   assert.match(board, /const card = id => \{/);
