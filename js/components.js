@@ -354,6 +354,21 @@ function avatarSrcOf(character) {
 //   她自己那颗、群聊里每个人的、卡片上的、转账/礼物/位置卡里的，一个都没挂，
 //   于是页面 CSS 里的圆头像只圆了一颗。一处一处补是补不完的（补完也会漏下一处）。
 //   页面 CSS 本来就按 html[data-lisa-screen] 限定在那一页，所以全 app 挂满不会外溢。
+// 「正在输入」那三个点。原来只长在主聊天那一处，v68.46 查手机里
+// 「她替他发完、等对面回话」也要同一颗（施工规则/one-public-mechanism：
+// 同一个形状要出现第二处时，先抽公共的，已有的那处也搬过来）。
+// ⚠️抽的只是【三个点】：外面那层气泡各屏有各屏的皮（主聊天跟着主题走，
+//   微信那屏是白底 5 圆角），抹平了反而两处都不像自己。
+function TypingDots({ color, size, gap }) {
+  const d = size || 6;
+  return /*#__PURE__*/React.createElement("div", { className: "flex " + (gap || "gap-1") },
+    [0, 1, 2].map(i => /*#__PURE__*/React.createElement("span", {
+      key: i,
+      className: "rounded-full animate-pulse",
+      style: { width: d, height: d, background: color || "#999", animationDelay: i * 0.15 + "s" }
+    })));
+}
+
 function Avatar({
   character,
   size = 40,
@@ -451,16 +466,7 @@ function Spinner({
   const t = useTheme();
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col items-center justify-center py-16 gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5"
-  }, [0, 1, 2].map(i => /*#__PURE__*/React.createElement("span", {
-    key: i,
-    className: "w-2 h-2 rounded-full animate-pulse",
-    style: {
-      background: t.fog,
-      animationDelay: i * 0.15 + "s"
-    }
-  }))), label && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog, size: 8, gap: "gap-1.5" }), label && /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 12,
@@ -8341,16 +8347,7 @@ function ChatThread({
       background: "#fff",
       borderRadius: 14
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1"
-  }, [0, 1, 2].map(i => /*#__PURE__*/React.createElement("span", {
-    key: i,
-    className: "w-1.5 h-1.5 rounded-full animate-pulse",
-    style: {
-      background: t.fog,
-      animationDelay: i * 0.15 + "s"
-    }
-  })))))), selMode ? h("div", {
+  }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })))), selMode ? h("div", {
     className: "flex items-center justify-between px-4 py-3 shrink-0",
     style: {
       background: t.bg2,
@@ -9304,11 +9301,7 @@ function CallScreen({
         role: "status", "aria-live": "polite",
         "aria-label": (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说",
         style: { padding: "10px 14px", borderRadius: 14, background: callBubble(false).background }
-      }, h("div", { className: "flex gap-1" }, [0, 1, 2].map(i => h("span", {
-        key: i,
-        className: "w-1.5 h-1.5 rounded-full animate-pulse",
-        style: { background: "rgba(255,255,255,0.72)", animationDelay: i * 0.15 + "s" }
-      }))))
+      }, h(TypingDots, { color: "rgba(255,255,255,0.72)" }))
     )), liveSt && h("div", {
     className: "px-6 pb-1",
     style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
@@ -12277,7 +12270,7 @@ function OfflineMode({
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
-      sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
+      sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
       // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
@@ -12822,7 +12815,7 @@ function GroupOfflineMode({
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
-      sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
+      sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
@@ -13488,16 +13481,7 @@ function GroupThread({
       background: "#fff",
       borderRadius: 14
     }
-  }, h("div", {
-    className: "flex gap-1"
-  }, [0, 1, 2].map(i => h("span", {
-    key: i,
-    className: "w-1.5 h-1.5 rounded-full animate-pulse",
-    style: {
-      background: t.fog,
-      animationDelay: i * 0.15 + "s"
-    }
-  })))))), panel && h("div", {
+  }, h(TypingDots, { color: t.fog })))), panel && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
     style: {
       background: t.bg2,

@@ -49,9 +49,13 @@ test("那一层是个气泡，长在他下一句会出现的地方", () => {
   assert.ok(!/正在说…/.test(live), "那行灰字要删掉，不是留着再加一个气泡");
   // 三颗跳动的点，和主聊天同一套
   const bub = body.slice(body.indexOf('key: "typing"'), body.indexOf('liveSt &&', body.indexOf('key: "typing"')));
-  assert.match(bub, /\[0, 1, 2\]\.map/, "点数不是三颗");
-  assert.match(bub, /animate-pulse/, "点不会动");
-  assert.match(bub, /animationDelay: i \* 0\.15/, "三颗一起跳，那是一坨不是省略号");
+  // v68.46 起这三颗点搬进公共的 TypingDots（全库六处一起搬）：形状的三条要求
+  // 还在，只是钉在那一处，这儿只认它挂上了、而且底色是自己的。
+  assert.match(bub, /h\(TypingDots, \{ color: "rgba\(255,255,255,0\.72\)" \}\)/, "没挂公共那三颗点");
+  const dots = comp.slice(comp.indexOf("function TypingDots("), comp.indexOf("function Avatar("));
+  assert.match(dots, /\[0, 1, 2\]\.map/, "点数不是三颗");
+  assert.match(dots, /animate-pulse/, "点不会动");
+  assert.match(dots, /animationDelay: i \* 0\.15/, "三颗一起跳，那是一坨不是省略号");
   // v64.43 起两处都走 callBubble(false)（通话皮肤跟不跟气泡走由那一个开关说了算）——
   // 要的还是同一件事：这个气泡的底必须和他那一侧的台词气泡【同一个来源】
   assert.match(bub, /callBubble\(false\)\.background/, "气泡底色要跟他那一侧的台词气泡一致");

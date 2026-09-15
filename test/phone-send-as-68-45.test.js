@@ -48,7 +48,7 @@ test("发完要滚到底，不然等于没发", () => {
 test("这条口子一路递得到微信那一屏", () => {
   assert.match(app, /onSendAs: phoneSendAs,/);
   assert.match(phone, /onSendAs: \(sess, text\) => onSendAs \? onSendAs\(char, sess, text\) : false,/);
-  assert.match(phone, /h\(WeChatViewFull, \{[^\n]*onSendAs: ctx\.onSendAs \}\)/);
+  assert.match(phone, /h\(WeChatViewFull, \{[^\n]*onSendAs: ctx\.onSendAs,/);
 });
 
 // ── 真跑一遍那一屏（v67.04 白屏那次的教训：正则断言拦不住 ReferenceError）──
@@ -98,4 +98,52 @@ test("看他玩开着的时候她那一栏收起来", () => {
   const sess = { id: "actual:private:c1", type: "private", name: "Lisa", messages: [] };
   const node = openThread(sess, { onSendAs: () => true, drive: { tab: "chats", item: "Lisa", typing: "在" } });
   assert.equal(sendBtn(node), undefined, "看他玩里不该出现她自己的输入栏");
+});
+
+// ── v68.46：他得知道这不是他发的；等回话时要有三个点 ──────────────────
+test("她替他发的那一条，模型看见的是「这不是你打的」", () => {
+  const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+  // 只写在一处，三条载体共用
+  assert.match(engine, /const bySomeoneElseMark = \(uName, who\) =>/);
+  assert.equal((engine.match(/const bySomeoneElseMark = /g) || []).length, 1);
+  // 给出口不给判决（施工规则/bans-make-it-dumber）：认／戳穿／将错就错都成立
+  assert.match(engine, /没有标准答案，也不必每次都提/);
+  // ① 单聊线上 ② 群聊那一行 ③ recentChat（线下/通话/穿书/匿名箱/解梦馆都从这儿拿）
+  assert.match(app, /const byU = m\.byUser \? bySomeoneElseMark\(uName, char\.name\) : "";/);
+  assert.match(app, /const ac = stp \+ byU \+/);
+  assert.match(app, /const groupHistLine = m => \(m\.byUser \? bySomeoneElseMark\(userName\(profile\), m\.senderName \|\| "TA"\) : ""\)/);
+  assert.match(app, /\+ \(m\.byUser \? bySomeoneElseMark\(uName, m\.senderName \|\| char\.name\) : ""\);/);
+});
+
+test("等对面回话的时候，末尾挂三个点", () => {
+  assert.match(app, /const \[phoneAsWait, setPhoneAsWait\] = useState\(""\);/);
+  assert.match(app, /setPhoneAsWait\(id\);/);
+  // 跑完就灭，而且只灭自己那一条（她中途换了会话不该被抹掉）
+  assert.match(app, /const done = \(\) => setPhoneAsWait\(w => \(w === id \? "" : w\)\);/);
+  // 成败都要灭：失败了还转着圈比不转更糟
+  assert.match(app, /\.then\(\(\) => replyGroup\(gid\)\)\.then\(done, done\);/);
+  assert.match(app, /sendAsWaiting: phoneAsWait,/);
+  // 那三个点是公共的那一颗（施工规则/one-public-mechanism）
+  const comps = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(comps, /function TypingDots\(\{ color, size, gap \}\)/);
+  // 原来全库散着六份（Spinner、通话「正在说」、两处 sending、群聊、主聊天）——
+  // 抽公共的时候已有的那几处也一起搬了（施工规则/one-public-mechanism）
+  assert.equal((comps.match(/rounded-full animate-pulse/g) || []).length, 1, "三个点只该有一份");
+  assert.equal((fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8").match(/rounded-full animate-pulse/g) || []).length, 0);
+  assert.match(phone, /h\(TypingDots, \{ color: "#9a9a9a" \}\)/);
+  // 新气泡要滚得到（她 2026-09-10 报过的老毛病）
+  assert.match(phone, /\}, \[driveCount, driveChat, actualCount, sendAsWaiting\]\);/);
+});
+
+test("私聊那一条不挂三个点：她自己的回话由她自己说", () => {
+  const sess = { id: "actual:private:c1", type: "private", name: "Lisa", messages: [] };
+  const node = openThread(sess, { onSendAs: () => true, sendAsWaiting: "actual:group:g_1" });
+  assert.equal(flat(node).find(n => n.props && n.props["aria-label"] === "对面正在回复"), undefined);
+});
+
+test("群里那一枪跑着的时候，那一屏真的画得出三个点", () => {
+  const sess = { id: "actual:group:g_1", type: "group", name: "水榭", messages: [{ from: "沈屿白", text: "在", ts: 1 }] };
+  let node;
+  assert.doesNotThrow(() => { node = openThread(sess, { onSendAs: () => true, sendAsWaiting: "actual:group:g_1" }); });
+  assert.ok(flat(node).find(n => n.props && n.props["aria-label"] === "对面正在回复"), "没画出三个点");
 });

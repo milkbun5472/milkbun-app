@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.46";
+const APP_VERSION = "v68.47";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5399,7 +5399,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           : (m.kind === "callend")
           ? "【" + (m.callMode === "video" ? "视频通话" : "语音通话") + "·刚打完】"
             + (m.sum ? String(m.sum).trim() : String(body || "").trim())
-          : speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
+          : speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "")
+            + (m.byUser ? bySomeoneElseMark(uName, m.senderName || char.name) : "");
         const cost = line.length + 1;
         const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
         if (isOff && usedOff && usedOff + cost > offCap) continue; // 线下超了自己那份就跳过，但继续往回找线上的
@@ -8813,7 +8814,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
           // TA自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
-          const ac = stp + ((m.role === "narration" || m.kind === "narration") ? "（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）" + m.content
+          // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
+          const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
+          const ac = stp + byU + ((m.role === "narration" || m.kind === "narration") ? "（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）" + m.content
             : m.kind === "voice" ? "（这条你是用语音说的）" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
@@ -13619,9 +13622,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
-  const groupHistLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
+  const groupHistLine = m => (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
+    + (m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
     + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -15067,6 +15071,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const r = WK.applyReply(cur, name, text, Date.now(), key);
     if (r.wrote) savePhoneApp(char.id, key, r.d, { noArchive: true, patched: true });
   };
+  // 正在等对面回话的那条会话 id（查手机那屏据此画三个点）
+  const [phoneAsWait, setPhoneAsWait] = useState("");
   // ── 她替他，从他手机上把这一句真的发出去（她 2026-09-14）────────────────
   // 她原话：「不不不那些生成出来的聊天记录不动，只动那些真的我创建的旁观群
   //   或者有他的群聊，这些在我的聊天里都已经有记录了」。
@@ -15078,6 +15084,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️两条路都不另开写入口：私聊走 watchSend（「看TA玩」发给她那条路），
   //    群里走 pGChat + replyGroup（群回复那条现成的链）。
   const phoneSendAs = (char, session, text) => {
+
     const body = String(text || "").trim();
     const id = String((session && session.id) || "");
     if (!char || !body || id.indexOf("actual:") !== 0) return false;
@@ -15096,7 +15103,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }]);
     // 对面真的回：群里那条链自己会挑谁接话、自己兜额度，这儿只负责起头。
     // ⚠️不 await：她按完发送这一屏就该松手了，回话慢慢冒出来就行。
-    Promise.resolve().then(() => replyGroup(gid)).catch(() => {});
+    // ⚠️但【等着的那段时间要看得见】（她 2026-09-15 要的三个点）：群里那一枪跑起来
+    //   动辄十几秒，屏幕上一声不响的话，跟「发出去没反应」长得一模一样。
+    setPhoneAsWait(id);
+    const done = () => setPhoneAsWait(w => (w === id ? "" : w));
+    Promise.resolve().then(() => replyGroup(gid)).then(done, done);
     return true;
   };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
@@ -20905,6 +20916,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchSend: watchSend,
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
+    sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
     onWatchToast: toast,

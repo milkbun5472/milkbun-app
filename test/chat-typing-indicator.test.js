@@ -21,6 +21,9 @@ test("生成期间在聊天流末尾显示原来的白色三点气泡", () => {
   assert.match(indicator, /"aria-label": character\.name \+ " 正在输入"/);
   assert.match(indicator, /padding: "12px 14px"/);
   assert.match(indicator, /background: "#fff"/);
-  assert.match(indicator, /\[0, 1, 2\]\.map/);
+  // v68.46 那三个点搬进公共的 TypingDots（查手机那屏也要同一颗），这儿只认它挂上了
+  assert.match(indicator, /React\.createElement\(TypingDots, \{ color: t\.fog \}\)/);
+  assert.match(components, /function TypingDots\(\{ color, size, gap \}\) \{/);
+  assert.match(components, /\[0, 1, 2\]\.map/);
   assert.doesNotMatch(indicator, /}, "正在输入"/, "气泡里不要出现文字");
 });

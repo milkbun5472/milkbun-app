@@ -38,7 +38,9 @@ test("群通话看得见这通电话之前群里刚聊过什么", () => {
 });
 
 test("群聊记录那一行怎么写，群聊和群通话共用一份", () => {
-  assert.match(app, /const groupHistLine = m => m\.kind === "callend"/);
+  // v68.46 起前面多一截「她替他发的」标注（bySomeoneElseMark），正文那一串没动
+  assert.match(app, /const groupHistLine = m => \(m\.byUser \? bySomeoneElseMark\(/);
+  assert.match(app, /\+ \(m\.kind === "callend" \?/);
   assert.match(app, /const fmtGLine = groupHistLine;/, "群聊那一处要用这一份，不是各写各的");
   assert.equal((app.match(/const groupHistLine = /g) || []).length, 1);
 });
