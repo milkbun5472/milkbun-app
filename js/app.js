@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.77";
+const APP_VERSION = "v68.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2587,6 +2587,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sameStateValue(v, live && live[key])) patch[key + "UpdatedAt"] = now;
     else if (!(Number((live && live[key + "UpdatedAt"]) || 0) > 0)) patch[key + "UpdatedAt"] = now;
   };
+  // 身体状态三态共用：省略/空白保留，明确 null 清空，有文本才更新。
+  const putLiveCondition = (patch, live, value, now, refresh = false) => {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (value === null || text.toLowerCase() === "null") {
+      patch.condition = null; patch.conditionUpdatedAt = 0;
+    } else if (text) {
+      putLiveField(patch, live, "condition", text, now);
+      if (refresh) patch.conditionUpdatedAt = now;
+    }
+  };
   const clearWearingOnMove = (patch, live, hasWearing) => {
     if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
       patch.wearing = null; patch.wearingUpdatedAt = 0;
@@ -2653,11 +2663,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const clean = thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(thought) : String(thought || "").trim();
     const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
     const local = {};
-    for (const key of ["action", "wearing", "place", "condition"]) {
+    for (const key of ["action", "wearing", "place"]) {
       const value = meta && meta.state && meta.state[key];
       if (typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "null") putLiveField(local, prev, key, value, ts);
-      else if (key === "condition" && (value === null || typeof value === "string" && value.trim().toLowerCase() === "null")) { local.condition = null; local.conditionUpdatedAt = 0; }
     }
+    putLiveCondition(local, prev, meta && meta.state ? meta.state.condition : undefined, ts);
     clearWearingOnMove(local, prev, !!local.wearing);
     const next = clean
       ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null }
@@ -9718,8 +9728,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替TA编一套,
       // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
       clearWearingOnMove(st, _live0, parsed.wearing);
-      if (parsed.condition && String(parsed.condition).toLowerCase() !== "null") { st.condition = String(parsed.condition).trim(); st.conditionUpdatedAt = stateNow; }
-      else if (parsed.condition === null && (statesRef.current[charId] || {}).condition) { st.condition = null; st.conditionUpdatedAt = 0; }
+      putLiveCondition(st, _live0, parsed.condition, stateNow, true);
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
       if (sideRoom) {
@@ -14079,11 +14088,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!canState && !canMood) return;
         const now = Date.now(), liveState = statesRef.current[cid] || {}, st = {};
         if (canState) {
-          ["place", "action", "wearing", "condition"].forEach(k => {
+          ["place", "action", "wearing"].forEach(k => {
             const v = d[k] == null ? "" : String(d[k]).trim();
             if (v && v.toLowerCase() !== "null") putLiveField(st, liveState, k, v, now);
           });
-          if (d.condition === null) { st.condition = null; st.conditionUpdatedAt = 0; }
+          putLiveCondition(st, liveState, d.condition, now);
           clearWearingOnMove(st, liveState, st.wearing);
           if (!cur.room) {
             Object.assign(st, thoughtTurnPatchFor(cid, liveState, d.thought, now, callThoughtDone));

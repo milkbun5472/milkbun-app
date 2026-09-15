@@ -43,3 +43,20 @@ test('侧房记忆权限独立于状态权限；迟到结果不写新通话',()=
  }
  const f=fixture();f.box.callRef.current={sessionId:'new'};f.put({wearing:'旧通话衣服'});assert.equal(f.states.a,undefined);
 });
+
+test('身体状态清空共用三态规则，通话不把 null 字符串保留成旧病况',()=>{
+ for(const value of [null,'null',' NULL ']){
+  const f=fixture();f.put({condition:'疲惫'});f.tick();f.put({condition:value});
+  assert.equal(f.states.a.condition,null);assert.equal(f.states.a.conditionUpdatedAt,0);
+ }
+ const f=fixture();f.put({condition:'疲惫'});const ts=f.states.a.conditionUpdatedAt;f.tick();
+ for(const value of [undefined,'','  ',{},false]){
+  f.put({condition:value});assert.equal(f.states.a.condition,'疲惫');assert.equal(f.states.a.conditionUpdatedAt,ts);
+ }
+ f.put({condition:'疲惫'});assert.equal(f.states.a.conditionUpdatedAt,ts);
+ const patch={};f.box.patch=patch;
+ vm.runInContext('putLiveCondition(patch, statesRef.current.a, "疲惫", Date.now(), true)',f.box);
+ assert.equal(patch.conditionUpdatedAt,ts+1000);
+ assert.match(app,/putLiveCondition\(st, _live0, parsed.condition, stateNow, true\)/);
+ assert.match(app,/putLiveCondition\(local, prev, meta && meta.state \? meta.state.condition : undefined, ts\)/);
+});
