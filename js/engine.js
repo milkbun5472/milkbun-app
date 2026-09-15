@@ -1756,7 +1756,13 @@ const bubbleProtectNum = x => String(x).replace(/(\d)[，,](?=\d)/g, "$1" + BUBB
 // 收引号后面也不是。不用 lookbehind 是为了不挑运行环境（她是 iPhone PWA）。
 const BUBBLE_QPUNC = "。！？!?，,";
 const BUBBLE_QSEP0 = 0xe000;
-const BUBBLE_QPAIR = [/「([^」]{0,60})」/g, /『([^』]{0,60})』/g, /“([^”]{0,60})”/g, /‘([^’]{0,60})’/g];
+// ⚠️**括号也算一对**（她 2026-09-15 截图，第三次了）。她那几个角色把动作和小声话
+//   写在（……）里，于是「（……把手机还给我！快点按掉不准看！！）」被里头那个感叹号
+//   一切，成了三个气泡——最后那个气泡里**只有一个右括号**。
+//   跟千分位、跟引号是同一个病：句读只在【裸露的】标点上成立，
+//   包在一对括号里的那些是括号内部的结构，不是句子边界。
+const BUBBLE_QPAIR = [/「([^」]{0,60})」/g, /『([^』]{0,60})』/g, /“([^”]{0,60})”/g, /‘([^’]{0,60})’/g,
+  /（([^（）]{0,60})）/g, /\(([^()]{0,60})\)/g];
 const BUBBLE_QFLAT = [/(^|[^A-Za-z0-9])"([^"]{0,60})"(?![A-Za-z0-9])/g, /(^|[^A-Za-z0-9])'([^']{0,60})'(?![A-Za-z0-9])/g];
 const bubbleHidePunc = x => String(x).replace(/[。！？!?，,]/g, c => String.fromCharCode(BUBBLE_QSEP0 + BUBBLE_QPUNC.indexOf(c)));
 function bubbleProtectQuote(x) {
@@ -1852,6 +1858,18 @@ function actLineAs(text, ta, toYou, toTa) {
   return s.replace(new RegExp(HOLD + "([0-2])", "g"), function (_, d) { return ACT_PAIR_BACK[+d]; });
 }
 if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
+// 护不住的时候的最后一道：**没有哪个气泡可以只是一个收尾符号**。
+// 上面那层护的是 60 字以内的成对符号——真有一段超长的引文/括号，它照旧会被拆开
+// （那是故意的，否则会甩出一个巨大的气泡），可拆出来的那一泡要是只剩「）」「」」，
+// 屏幕上就是一个空气泡里吊着半个标点。粘回上一泡，最难看的那一种就没了。
+const BUBBLE_ORPHAN_TAIL = /^[）)」』”’\]】]+[。！？!?…、，,\s]*$/;
+function bubbleGlueOrphans(list) {
+  return list.reduce((a, x) => {
+    if (a.length && BUBBLE_ORPHAN_TAIL.test(String(x).trim())) a[a.length - 1] += x;
+    else a.push(x);
+    return a;
+  }, []);
+}
 function splitLongBubble(s, allowComma) {
   s = bubbleProtectQuote(bubbleProtectNum(String(s == null ? "" : s).trim()));
   if (!s) return [];
@@ -1861,8 +1879,8 @@ function splitLongBubble(s, allowComma) {
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
     out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
-  if (allowComma === false) return out.map(bubbleRestore);
-  return out.reduce((acc, part) => {
+  if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
+  const out2 = out.reduce((acc, part) => {
     if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
     const chunks = [];
@@ -1872,7 +1890,8 @@ function splitLongBubble(s, allowComma) {
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
     return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
-  }, []).map(bubbleRestore);
+  }, []);
+  return bubbleGlueOrphans(out2).map(bubbleRestore);
 }
 // ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
 // 为什么另起一个仓、不塞进 x_schedules 的 seqs：

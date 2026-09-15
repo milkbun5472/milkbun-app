@@ -125,3 +125,40 @@ test("护引号写在函数入口，两个出口都还原", () => {
   assert.match(seg, /bubbleProtectQuote\(bubbleProtectNum\(/, "入口上先护数字再护引号");
   assert.equal((seg.match(/\.map\(bubbleRestore\)/g) || []).length, 2, "两个出口都要还原");
 });
+
+// ── v68.59：括号也是一对（她 2026-09-15 截图）─────────────────────────
+// 她那几个角色把动作和小声话写在（……）里，于是
+// 「（……把手机还给我！快点按掉不准看！！）」被里头那个感叹号一切，成了三个气泡——
+// 最后那个气泡里**只有一个右括号**。跟千分位、跟引号是同一个病，第三次了。
+test("括号里的标点也不是句子边界（她 2026-09-15 截图那条）", () => {
+  const s = "（......把手机还给我！快点按掉不准看！！）";
+  assert.deepEqual(splitLongBubble(s, true), [s]);
+  const t = "木鱼花......（......不准再笑了，把手机给我......！）";
+  assert.deepEqual(splitLongBubble(t, true), [t]);
+  // 半角括号同理（英文那一路）
+  const u = "(Put the phone down right now! Don't you dare look at that!)";
+  assert.deepEqual(splitLongBubble(u, true), [u]);
+  // engineerEyes 那一路（不拆逗号）也不许在括号里断句
+  const v = "他愣住了。（她怎么会翻到那儿去。这下完了。）然后伸手来抢手机";
+  assert.deepEqual(splitLongBubble(v, false), ["他愣住了。", "（她怎么会翻到那儿去。这下完了。）然后伸手来抢手机"]);
+});
+
+test("括号外面的标点照拆，括号整块留在一个气泡里", () => {
+  assert.deepEqual(
+    splitLongBubble("他愣了一下。（她怎么会翻到那儿去）然后伸手来抢手机，脸都红透了。", true),
+    ["他愣了一下。", "（她怎么会翻到那儿去）然后伸手来抢手机", "脸都红透了。"]);
+});
+
+test("超长括号照旧会拆，但绝不许拆出一个只剩收尾符号的气泡", () => {
+  // 护的是 60 字以内的成对符号：真有一段超长的，它照旧会被拆开（否则会甩出一个
+  // 巨大的气泡）。可拆出来的那一泡只剩「）」的话，屏幕上就是一个空气泡吊着半个标点。
+  const s = "（" + "啊".repeat(70) + "！）";
+  const out = splitLongBubble(s, true);
+  out.forEach(x => assert.ok(!/^[）)」』”’\]】]+[。！？!?…、，,\s]*$/.test(x.trim()), "拆出了一个只剩收尾符号的气泡：" + JSON.stringify(x)));
+  assert.equal(out.join(""), s, "粘回去之后一个字都不能少");
+});
+
+test("那道兜底是一份公共的，两条出口都走它", () => {
+  assert.match(engine, /function bubbleGlueOrphans\(list\) \{/);
+  assert.equal((engine.match(/bubbleGlueOrphans\(/g) || []).length, 3, "定义一次、两条出口各用一次");
+});
