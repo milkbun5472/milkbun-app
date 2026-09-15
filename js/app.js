@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.66";
+const APP_VERSION = "v68.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11500,8 +11500,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!_hasAccept(d)) return { ok: false };
     return { ok: true, accept: _yesVal(d.accept), say: Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []), d: d };
   };
-  const queueUnblockSpeech = (chatKey, says, delay) => {
+  // ── 拉黑那几天说的话也要进记忆（群里那位 2026-09-15 报的）────────────
+  // 她原话：「把一个人拉黑，但他还可以一直给你发。私信然后发那个解除申请嘛，
+  //   然后那一段它是不会被生成记忆。还是能够生成比较好是不是？」——是。
+  // 病根：拉黑这条链【整条绕开了 _replyTurn】（它自己 callAI + pChat），
+  //   而「每几轮抽一次记忆」那个节拍器只挂在 _replyTurn 的末尾。
+  //   于是TA被拉黑之后碎碎念、求和、递解除申请、和好那几句——
+  //   整段关系里最见人的一截——一条都不会被抽进记忆库。
+  // ⚠️不另写一套抽取：还是走 maybeAutoExtract 那一份（它自己管节拍、防并发、
+  //   管书签），这儿只负责在最后一泡落地之后叫它一声。
+  // ⚠️只在主聊天叫：侧房有自己的账，maybeAutoExtract 读的是主线那一份。
+  const queueUnblockSpeech = (chatKey, says, delay, charId) => {
     says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), delay + i * 650));
+    if (charId && String(chatKey) === String(charId)) {
+      setTimeout(() => { try { maybeAutoExtract(charId); } catch (e) {} }, delay + says.length * 650 + 1200);
+    }
   };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
   const blockedReaction = async (charId, chatKey = charId) => {
@@ -11512,14 +11525,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-      queueUnblockSpeech(chatKey, says, 250);
+      queueUnblockSpeech(chatKey, says, 250, charId);
       if (d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   // 我处理 TA 发来的解除申请
   const respondUnblockFromChar = (charId, cid, accept, chatKey = charId) => {
     pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
-    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); queueUnblockSpeech(chatKey, ["……谢谢你愿意听我说。"], 300); }
+    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); queueUnblockSpeech(chatKey, ["……谢谢你愿意听我说。"], 300, charId); }
     else { toast("已拒绝"); setTimeout(() => blockedReaction(charId, chatKey), 400); }
   };
   // TA 拉黑我期间，我点某条消息的感叹号→发解除申请（该消息作为诉说），TA 依人设决定
@@ -11557,7 +11570,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const says = r.say;
       if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
-      queueUnblockSpeech(chatKey, says, 300);
+      queueUnblockSpeech(chatKey, says, 300, charId);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   const clearChat = (charId, wipeMem) => {
