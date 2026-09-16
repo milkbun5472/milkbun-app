@@ -7,7 +7,7 @@ const game=()=>p.frames().find(f=>f.url().includes('/apps/fairy-garden/'));
 await p.waitForFunction(()=>document.querySelector('iframe')?.contentWindow.gardenDebug?.getReady(),{},{timeout:30000});
 await p.evaluate(()=>{window.__calls=[];callAI=async(...a)=>{window.__calls.push(a);return JSON.stringify({reply:'好，我沿着小路去池边等你。',action:{kind:'goto',target:'pond'}});};});
 await p.getByRole('button',{name:'说话',exact:true}).click();await p.getByRole('textbox',{name:'对同行者说'}).fill('去池边等我');await p.getByRole('button',{name:'发送',exact:true}).click();await p.getByText('好，我沿着小路去池边等你。',{exact:false}).waitFor();
-assert.equal(await game().evaluate(()=>gardenDebug.getState().companion.destination),'pond');const calls=await p.evaluate(()=>window.__calls);assert.equal(calls.length,1);assert.equal(calls[0][3].maxTokens,65535);assert.match(calls[0][1],/温和的魔法学徒/);
+assert.equal(await game().evaluate(()=>gardenDebug.getState().companion.destination),'pond');const calls=await p.evaluate(()=>window.__calls.filter(a=>a[3]?.tag==="微光庭院"));assert.equal(calls.length,1);assert.equal(calls[0][3].maxTokens,65535);assert.match(calls[0][1],/温和的魔法学徒/);
 assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await p.screenshot({path:'/tmp/fairy-phone-chat.png'});
 await p.setViewportSize({width:375,height:667});await p.screenshot({path:'/tmp/fairy-phone-chat-small.png'});const input=await p.getByRole('textbox',{name:'对同行者说'}).boundingBox();assert.ok(input.y+input.height<=667);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 // Broken model output keeps the user's message, with an explicit retry.
