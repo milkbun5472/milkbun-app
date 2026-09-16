@@ -52,8 +52,10 @@ test("发回去的那份有上限，一条也不许拖太长", () => {
   assert.ok(blockFn(["甲" + "很".repeat(300)]).indexOf("很".repeat(130)) < 0, "单条没截断");
 });
 
-test("四处一样喂：单人/群 × 滚动/收尾，一处都不许漏", () => {
-  assert.equal((app.match(/offlineRecordedOf\(sess\.id\)/g) || []).length, 4, "四个调用点没都带上已记过的那份");
+test("六处一样喂：单人/群 × 滚动/收尾/补总结，一处都不许漏", () => {
+  // v69.05 起多了「重新总结这一场」那两处（单人+群）：补的那一枪同样要把这一场
+  // 已经记进记忆库的发回去，否则补一次就把同一件事又记一遍。
+  assert.equal((app.match(/offlineRecordedOf\(sess\.id\)/g) || []).length, 6, "六个调用点没都带上已记过的那份");
   assert.match(eng, /async function summarizeOffline\(p, ctx, session, already\)/);
   assert.match(eng, /async function summarizeOfflineGroup\(p, ctx, session, already\)/);
   assert.equal((eng.match(/\+ offlineSummaryAvoidBlock\(already\);/g) || []).length, 2, "两个总结函数没都拼上");

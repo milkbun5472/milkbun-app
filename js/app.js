@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.04";
+const APP_VERSION = "v69.05";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6991,7 +6991,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 把这段线下经过回写进线上聊天记录，接上线上/线下的连贯：否则线上角色读不到刚才线下发生了什么，
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
-    if (!sideRoom) pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ts: Date.now() }]);
+    // ofs 认场次：总结失败过的那张卡要能找回它是哪一场，才补得了（见 resummarizeOffline）
+    if (!sideRoom) pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
     endLane("c:" + scopeKey);
     toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」"
@@ -7611,13 +7612,75 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
-    pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
+    pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ofs: sess.id, ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次群聊线下时间段的日程覆盖成这段经过 + 各角色想法。
     endLane("g:" + groupId);
     toast(summary ? (interopOn ? "已记入记忆库" : "已结束（记忆只留在本群）")
       : sumErr ? "这场没记进记忆库：" + sumErr
       : "已结束");
     setOfflineGroup(null);
+  };
+  // ── 重新总结这一场线下（她 2026-09-16：「好宝宝加一个重新总结的按钮」）──
+  // 收尾那一枪打不出去时，逐字记录是全的（存的一直是全的），缺的只有三样：记忆库里
+  // 这场的总结/细节/约定、线上那条经过卡的正文、以及会话自己的 summary。三样都能拿
+  // 存着的 msgs 再打一枪补回来，不用她重聊一遍。
+  // ⚠️单人和群走这同一处：不同的只有【上哪儿找场次、拿哪条线路打、记忆写给谁】，
+  //   其余（认场次、失败说真话、回写卡片）只有一份（施工规则/one-public-mechanism.md）。
+  const offlineLogSessionFor = (list, log) => {
+    const rows = (list || []).filter(s => s && s.endTs);
+    if (log && log.ofs) return rows.find(s => s.id === log.ofs) || null;
+    // v69.05 之前写的卡片没记 ofs：按结束时间就近认，差出十分钟就不认——
+    // 认错场次会把【另一场】的经过写成这一场的总结，宁可让她自己去线下记录里翻。
+    const ts = Number(log && log.ts) || 0;
+    if (!ts) return null;
+    let best = null;
+    rows.forEach(s => {
+      const d = Math.abs((Number(s.endTs) || 0) - ts);
+      if (d <= 10 * 60000 && (!best || d < best.d)) best = { s: s, d: d };
+    });
+    return best ? best.s : null;
+  };
+  const resummarizeOffline = async (kind, ownerId, threadKey, msgIndex) => {
+    const isG = kind === "group";
+    const log = ((isG ? groupChatsRef.current[ownerId] : chatsRef.current[threadKey]) || [])[msgIndex];
+    if (!log || log.kind !== "offlinelog") return;
+    const sess = offlineLogSessionFor(isG ? groupOfflinesRef.current[ownerId] : offlinesRef.current[ownerId], log);
+    if (!sess) { toast("找不到这场线下的记录了，没法补总结"); return; }
+    const group = isG ? groups.find(g => g.id === ownerId) : null;
+    const char = isG ? null : characters.find(c => c.id === ownerId);
+    const route = isG ? offlineActive : offlineApiFor(ownerId);
+    if (!route || (isG && !group) || (!isG && !char)) { toast("请先配置线下线路"); return; }
+    const lane = (isG ? "g:" : "c:") + ownerId;
+    startLane(lane);
+    let r = null, err = "";
+    try {
+      r = isG
+        ? await summarizeOfflineGroup(route, ctxForGroupOffline(group), sess, offlineRecordedOf(sess.id))
+        : await summarizeOffline(route, ctxFor(char), sess, offlineRecordedOf(sess.id));
+    } catch (e) { err = (e && e.message) || String(e); }
+    endLane(lane);
+    const summary = (r && r.summary || "").trim();
+    if (!summary) { toast(err ? "还是没成：" + err : "这一趟没给出总结"); return; }
+    const details = (r.details || []), opens = (r.open || []);
+    if (isG) {
+      // 记忆分区照旧：不互通的群，总结只留在本群这条会话里（和 endOffline 同一条闸）
+      const interopOn = gsFor(ownerId).memoryInterop;
+      pGOffline(ownerId, list => list.map(x => x.id === sess.id ? { ...x, summary: summary } : x));
+      if (interopOn) {
+        addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: ownerId, ofs: sess.id });
+        details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: ownerId, ofs: sess.id }));
+        opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: ownerId, ofs: sess.id }));
+      }
+      pGChat(ownerId, p => p.map((m, i) => i === msgIndex ? { ...m, content: summary, ofs: sess.id } : m));
+      toast(interopOn ? "已补记入记忆库" : "已补上总结（记忆只留在本群）");
+    } else {
+      pOffline(ownerId, list => list.map(x => x.id === sess.id ? { ...x, summary: summary } : x));
+      addMemEntry({ text: summary, tags: ["线下"], charIds: [ownerId], knownBy: [ownerId], source: "auto", ofs: sess.id });
+      details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [ownerId], knownBy: [ownerId], source: "auto", ofs: sess.id }));
+      opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [ownerId], knownBy: [ownerId], source: "auto", open: true, ofs: sess.id }));
+      pChat(threadKey, p => p.map((m, i) => i === msgIndex ? { ...m, content: summary, ofs: sess.id } : m));
+      toast("已补记入记忆库");
+    }
   };
   const goHome = () => {
     setScreen("home");
@@ -21150,6 +21213,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenMoments: () => openMomProfile(activeChar.id, false),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
+    onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     onDeleteMessages: indices => {
       const set = new Set(indices);
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
@@ -21226,6 +21290,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onContinue: () => replyGroup(activeGroup.id),
     onOOC: txt => oocGroup(activeGroup.id, txt),
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
+    onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;

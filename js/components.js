@@ -7420,12 +7420,23 @@ function VoiceEarComposer({ onSend, onClose, senderName, ownerKey, toast }) {
 // ---- chat thread (single) ----
 // 线下经过卡：默认显示短总结（当分隔），点「看完整经过」展开逐条 transcript。
 // 回看展示存下来的逐条记录；模型注入另按 ChatContextWindow 的预算取尾段。
-function OfflineLogCard({ m, t, sel }) {
+// ⚠️「重新总结」这个按钮是给【收尾那一枪失败过】的场次补的（她 2026-09-16）：
+//   逐字记录一直存的是全的，缺的只有总结那三样，所以拿存着的记录再打一枪就能补回来。
+//   按钮常驻、不只在没总结时出现——她也可能就是觉得这条总结写得不像话。
+function OfflineLogCard({ m, t, sel, onResummarize }) {
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const redo = e => {
+    e.stopPropagation();
+    if (busy || !onResummarize) return;
+    setBusy(true);
+    Promise.resolve(onResummarize()).then(() => setBusy(false), () => setBusy(false));
+  };
   return h("div", { "data-wk": "card", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过"),
     m.content,
     m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
+    onResummarize ? h("button", { onClick: redo, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, busy ? "正在重新总结…" : "⟳ 重新总结这一场") : null,
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
 }
 // ── 照片：一张卡，四处共用（她 2026-09-07）─────────────────────────────
@@ -7524,6 +7535,7 @@ function ChatThread({
   onReply,
   onForward,
   onDeleteMessages,
+  onResummarizeOffline,
   onSendRich,
   onPat,
   onStartCall,
@@ -8041,7 +8053,7 @@ function ChatThread({
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "my-4 mx-6"
-    }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i) }));
+    }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
@@ -12967,6 +12979,7 @@ function GroupThread({
   onOOC,
   onMsgAction,
   onDeleteMessages,
+  onResummarizeOffline,
   onForward,
   onSaveSettings,
   sameRoom,
@@ -13279,7 +13292,7 @@ function GroupThread({
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i, className: "my-3 mx-6"
-    }, h(OfflineLogCard, { m: m, t: t }));
+    }, h(OfflineLogCard, { m: m, t: t, onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
     // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
     // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
     //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
