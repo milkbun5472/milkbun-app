@@ -63,12 +63,12 @@ test("字幕跟着这一句的语音走，没时长才退回固定速度", () =>
   //   flex-1 那个撑子没了，下面的输入框会浮到屏幕中间去（她 2026-09-12 当场报的）。
   assert.match(blk, /className: "flex-1 min-h-0 overflow-y-auto px-7"/);
   assert.match(blk, /text \? h\("div", \{/);
-  assert.match(blk, /text\.slice\(0, n\)\) : null\)\);/);
+  assert.match(blk, /text\.slice\(0, n\)\) : null,/);
   assert.ok(blk.indexOf("if (!text) return null;") < 0, "整块 return null 那一版又回来了");
 });
 
 test("这一句的真实时长是从解码出来的音频拿的", () => {
-  assert.match(C, /if \(stream\) setSubLine\(\{ text: m\.content, ms: abuf\.duration \* 1000, at: Date\.now\(\), index: idx \}\);/);
+  assert.match(C, /if \(stream\) setSubLine\(\{ text: m\.content, zh: m\.zh \|\| "", ms: abuf\.duration \* 1000, at: Date\.now\(\), index: idx \}\);/);
   const i = C.indexOf("if (stream) setSubLine({ text: m.content");
   const blk = C.slice(Math.max(0, i - 400), i);
   assert.match(blk, /srcN\.start\(0\);/, "字幕得和开播同一拍，不能早也不能晚");

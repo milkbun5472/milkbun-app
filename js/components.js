@@ -8664,9 +8664,17 @@ function callActionsFor(msgs, index) {
   while (start > 0 && rows[start - 1].role !== "user") start--;
   return rows.slice(start, (index == null ? rows.length - 1 : index) + 1).filter(m => m.act && m.content);
 }
+// ⚠️外语那一句的中译也要上字幕（她 2026-09-16 问：「开了流式通话，对面说日语的话
+//   翻译也会显示在字幕上吗」——原来【不会】）。
+//   双语那一层在通话里本来就有：callBilingualLines 把 zh 挂在这一句上，
+//   **不流式的气泡列表一直在显示它**（TransText 的 zhReady），
+//   偏偏中间这块流式字幕只取了 line.text——又是一层写在两处、第二处没跟上。
+// ⚠️中译跟着原文【同一个进度】铺：真的双语字幕是两行一起走的。
+//   整句先摆出来的话，她一眼读完中文，就不用听他说了。
 function CallSubtitle({ line, onPhoto, actions = [] }) {
   const [n, setN] = useState(0);
   const text = String((line && line.text) || "");
+  const zh = String((line && line.zh) || "");
   useEffect(() => {
     if (!text) { setN(0); return; }
     const at = (line && line.at) || Date.now();
@@ -8698,7 +8706,14 @@ function CallSubtitle({ line, onPhoto, actions = [] }) {
       color: "#fff", whiteSpace: "pre-wrap", wordBreak: "break-word",
       textShadow: onPhoto ? "0 1px 10px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.9)" : "0 1px 8px rgba(0,0,0,.5)"
     }
-  }, text.slice(0, n)) : null));
+  }, text.slice(0, n)) : null,
+    // 中译那一行：小一号、淡一档，压在原文底下——就是字幕本来的样子
+    (text && zh) ? h("div", { "data-call-subtitle-zh": true, style: {
+      width: "100%", alignSelf: "center", maxWidth: 560, textAlign: "center",
+      fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, marginTop: -4,
+      color: "rgba(255,255,255,.72)", whiteSpace: "pre-wrap", wordBreak: "break-word",
+      textShadow: onPhoto ? "0 1px 10px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.9)" : "0 1px 8px rgba(0,0,0,.5)"
+    } }, zh.slice(0, Math.ceil(zh.length * (text.length ? n / text.length : 0)))) : null));
 }
 function CallScreen({
   audioSession,
@@ -9068,7 +9083,7 @@ function CallScreen({
             srcN.onended = () => { clearTimeout(safety); res(); };
             srcN.start(0);
             // ⚠️字幕跟【这一句】走：念几秒字就铺几秒。换句就把上一句整个换掉。
-            if (stream) setSubLine({ text: m.content, ms: abuf.duration * 1000, at: Date.now(), index: idx });
+            if (stream) setSubLine({ text: m.content, zh: m.zh || "", ms: abuf.duration * 1000, at: Date.now(), index: idx });
             setAudioStatus("对方说话中…");
           });
         } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }
