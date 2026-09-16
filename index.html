@@ -9,15 +9,84 @@
 <meta name="theme-color" content="#ece8e1" />
 <script>document.documentElement.classList.add("fonts-pending");</script>
 <link rel="apple-touch-icon" href="icon-192.png?v=61.52" />
-<link rel="manifest" href="manifest.json?v=69.07" />
+<link rel="manifest" href="manifest.json?v=69.08" />
 <title>ARCHIVE</title>
+<!-- ══ 白屏守卫（v68.99，她 2026-09-16 转来两条：「开屏以后是白屏」「加入到了主屏幕，
+     现在没法刷新，抓心挠肝」）══════════════════════════════════════════════
+  病根不在代码，在【有文件没加载进来】：
+  · 某个 <script src> 拉不下来（边缘节点没同步到、网抖了一下、代理掐了），
+    那一整份就是空的 —— 后面谁引用它谁炸，屏幕上一片白。
+  · 而 engine.js 里那道兜底用的是 window.addEventListener("error", …)【不带 capture】，
+    **资源加载失败根本不冒泡到 window**，那道兜底一次都没响过。
+  · 她那边好好的：文件她已经有了。别人第一次拉就差一个。
+    有人过一会儿说「哦哦可以了」——重试就好，正是这个病的签名。
+  所以这一段必须【内联在最前面】：engine.js 自己也可能是没拉下来的那一个。
+  ⚠️它只做两件事：把拉不下来的文件名记下来；两秒后屏幕还是空的就把话说清楚，
+    并给出两颗按钮（主屏幕 App 没有地址栏，没法刷新——那正是她说的抓心挠肝）。
+  ⚠️「清掉离线缓存」只删这个 app 自己的壳缓存（archive-*）和 Service Worker，
+    **一个字的存档都不碰**：聊天、记忆、图都在 localStorage 和 IndexedDB 里，
+    这颗按钮碰不到它们（.claude/rules/never-say-delete-first.md）。 -->
+<script>
+(function () {
+  var bad = [], shown = false;
+  window.__assetFail = bad;
+  // capture:true 是关键——资源加载失败不冒泡，不抓捕获阶段就一条都收不到
+  window.addEventListener("error", function (e) {
+    var el = e && e.target;
+    if (!el || el === window || !el.tagName) return;
+    var u = el.src || el.href;
+    if (!u) return;
+    // ⚠️只认自家的文件：谷歌字体在她们那边本来就常年连不上（这也是为什么字体是
+    //   「等 2.4 秒就先上系统字体」）。把 css2 报成「没加载进来」是吓唬人——
+    //   字体挂了整个 app 照样跑得起来，白屏从来不是它引起的。
+    try { if (new URL(u, location.href).origin !== location.origin) return; } catch (x) { return; }
+    var name = String(u).split("?")[0].split("/").pop();
+    if (bad.indexOf(name) < 0) bad.push(name);
+    show();
+  }, true);
+  function nuke() {
+    var jobs = [];
+    try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+      return Promise.all(rs.map(function (r) { return r.unregister(); })); })); } catch (x) {}
+    try { if (window.caches) jobs.push(caches.keys().then(function (ks) {
+      return Promise.all(ks.filter(function (k) { return k.indexOf("archive-") === 0; }).map(function (k) { return caches.delete(k); })); })); } catch (x) {}
+    Promise.all(jobs).catch(function () {}).then(function () { location.reload(); });
+  }
+  window.__hardReload = nuke;
+  function show() {
+    if (shown) return;
+    setTimeout(function () {
+      var root = document.getElementById("root");
+      if (shown || !bad.length || (root && root.childElementCount > 0)) return;
+      shown = true;
+      window.__bootGuardShown = true;   // engine.js 那条红条就别再叠一层了
+      var d = document.createElement("div");
+      d.setAttribute("data-boot-guard", "1");
+      d.style.cssText = "position:fixed;left:14px;right:14px;top:50%;transform:translateY(-50%);z-index:2147483647;background:#1f2937;color:#f3f4f6;padding:18px 18px 16px;border-radius:14px;font:14px/1.7 -apple-system,system-ui,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.35)";
+      var names = bad.slice(0, 3).join("、");
+      d.innerHTML = '<div style="font-size:15px;margin-bottom:6px">有几个文件没加载进来</div>'
+        + '<div style="font-size:12px;opacity:.75;margin-bottom:12px">' + names
+        + (bad.length > 3 ? " 等 " + bad.length + " 个" : "")
+        + ' 没拉下来，多半是网络抖了一下。<b>你的存档一个字都没少</b>，重新加载就好。</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + '<button id="__bg_r" style="flex:1;min-width:120px;min-height:42px;border:0;border-radius:10px;background:#f3f4f6;color:#1f2937;font:14px -apple-system,system-ui,sans-serif">重新加载</button>'
+        + '<button id="__bg_h" style="flex:1;min-width:120px;min-height:42px;border:1px solid rgba(243,244,246,.35);border-radius:10px;background:transparent;color:#f3f4f6;font:13px -apple-system,system-ui,sans-serif">清掉离线缓存再加载</button>'
+        + '</div>'
+        + '<div style="font-size:11px;opacity:.6;margin-top:10px">还是白屏的话：<a href="rescue.html" style="color:#93c5fd">进救援页</a>（数据都在）</div>';
+      document.body.appendChild(d);
+      document.getElementById("__bg_r").onclick = function () { location.reload(); };
+      document.getElementById("__bg_h").onclick = nuke;
+    }, 2000);
+  }
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=Archivo:wght@400;500;600&family=Dancing+Script:wght@400;600&family=Noto+Serif+SC:wght@400;500&display=swap" rel="stylesheet" />
 <!-- 核心库自托管在仓库 vendor/（不再依赖 CDN，防国内访问 unpkg 抽风时整站白屏） -->
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
-<script src="vendor/tailwind.js?v=69.07"></script>
+<script src="vendor/tailwind.js?v=69.08"></script>
 <link rel="stylesheet" href="vendor/leaflet.css" />
 <style>
   html, body, #root { height: 100vh; margin: 0; padding: 0; overscroll-behavior: none; background: #ece8e1; }
@@ -301,10 +370,10 @@
 <script src="vendor/supabase.js"></script>
 <script src="js/character-pronoun.js?v=67.87"></script>
 <script src="js/back-guard.js?v=68.29"></script>
-<script src="js/core.js?v=69.07"></script>
+<script src="js/core.js?v=69.08"></script>
 <script src="js/auto-refresh-policy.js?v=62.45"></script>
 <script src="js/auto-gate.js?v=65.03"></script>
-<script src="js/style-presets.js?v=69.07"></script>
+<script src="js/style-presets.js?v=69.08"></script>
 <script src="js/content-boundaries.js?v=65.05"></script>
 <script src="js/world-weather.js?v=65.08"></script>
 <script src="js/reply-pacing.js?v=67.86"></script>
@@ -318,17 +387,17 @@
 <script src="js/offline-continuation.js?v=65.05"></script>
 <script src="js/yanqiu-continuity.js?v=50.20"></script>
 <script src="js/recall-cooling.js?v=2"></script>
-<script src="js/engine.js?v=69.07"></script>
+<script src="js/engine.js?v=69.08"></script>
 <script src="js/credential-vault.js?v=52.41"></script>
 <script src="js/background-generation.js?v=53.78"></script>
-<script src="js/cloud.js?v=69.07"></script>
+<script src="js/cloud.js?v=69.08"></script>
 <script src="js/rescue-console.js?v=53.60"></script>
-<script src="js/vps-codex.js?v=69.07"></script>
+<script src="js/vps-codex.js?v=69.08"></script>
 <script src="js/lounge-entry.js?v=54.42"></script>
 <script src="js/chat-ledger-shadow.js?v=65.05"></script>
 <script src="js/cc-memory-auto.js?v=51.57"></script>
 <script src="js/reroll-branch.js?v=49.75"></script>
-<script src="js/inner-life-e-tidal-core.js?v=69.07"></script>
+<script src="js/inner-life-e-tidal-core.js?v=69.08"></script>
 <script src="js/inner-life-e-afterglow-shadow.js?v=61.51"></script>
 <script src="js/inner-life-e-tidal-shadow.js?v=51.56"></script>
 <script src="js/recall-shadow.js?v=51.04"></script>
@@ -341,29 +410,29 @@
 <script src="js/context-budget-shadow.js?v=51.52"></script>
 <script src="js/message-branch-shadow.js?v=51.00"></script>
 <script src="js/insight-candidate-shadow.js?v=50.98"></script>
-<script src="js/memory-v2-shadow.js?v=69.07"></script>
-<script src="js/somatic-review-core.js?v=69.07"></script>
+<script src="js/memory-v2-shadow.js?v=69.08"></script>
+<script src="js/somatic-review-core.js?v=69.08"></script>
 <script src="js/shadow-review.js?v=67.86"></script>
 <script src="js/inner-life-promotion-gate.js?v=55.83"></script>
 <script src="js/ears.js?v=50.00"></script>
-<script src="js/somatic-core.js?v=69.07"></script>
+<script src="js/somatic-core.js?v=69.08"></script>
 <script src="js/somatic-shadow.js?v=51.15"></script>
 <script src="js/mood-label.js?v=67.86"></script>
 <script src="js/interaction-clock.js?v=68.10"></script>
 <script src="js/ambient-material.js?v=55.26"></script>
 <script src="js/schedule-clock.js?v=65.37"></script>
-<script src="js/theater.js?v=69.07"></script>
+<script src="js/theater.js?v=69.08"></script>
 <script src="js/impression.js?v=67.98"></script>
-<script src="js/style-lab.js?v=69.07"></script>
+<script src="js/style-lab.js?v=69.08"></script>
 <script src="js/assistant-manual.js?v=68.95"></script>
-<script src="js/assistant.js?v=69.07"></script>
+<script src="js/assistant.js?v=69.08"></script>
 <script src="js/grown-sync.js?v=67.86"></script>
 <script src="js/gaze.js?v=67.86"></script>
 <script src="js/chat-rooms.js?v=68.69"></script>
-<script src="js/theme-studio.js?v=69.07"></script>
-<script src="js/components.js?v=69.07"></script>
+<script src="js/theme-studio.js?v=69.08"></script>
+<script src="js/components.js?v=69.08"></script>
     <script src="js/phone-watch.js?v=67.86"></script>
-    <script src="js/phone.js?v=69.07"></script>
+    <script src="js/phone.js?v=69.08"></script>
 <script src="js/mcp.js?v=67.86"></script>
 <script src="js/music-source.js?v=68.15"></script>
 <script src="js/axes.js?v=67.86"></script>
@@ -372,14 +441,14 @@
 <script src="js/radio-ui.js?v=68.06"></script>
 <script src="js/radio-timeline.js?v=67.99"></script>
 <script src="js/radio-timeline-ui.js?v=68.06"></script>
-<script src="js/screens.js?v=69.07"></script>
-<script src="js/theme-studio-ui.js?v=69.07"></script>
+<script src="js/screens.js?v=69.08"></script>
+<script src="js/theme-studio-ui.js?v=69.08"></script>
 <script src="js/study.js?v=67.86"></script>
 <script src="js/dreamjournal.js?v=67.86"></script>
 <script src="js/yanqiu.js?v=67.86"></script>
 <script src="js/yanqiu-cc-tools.js?v=54.42"></script>
 <script src="js/cc-seat.js?v=67.86"></script>
-<script src="js/fanfic.js?v=69.07"></script>
+<script src="js/fanfic.js?v=69.08"></script>
 <script src="js/weekly.js?v=67.86"></script>
 <script src="js/read.js?v=67.86"></script>
 <script src="js/debate.js?v=67.86"></script>
@@ -393,13 +462,13 @@
 <script src="js/dwell.js?v=68.84"></script>
 <script src="js/capsule.js?v=67.86"></script>
 <script src="js/pomodoro.js?v=67.86"></script>
-<script src="js/uno-core.js?v=69.07"></script>
+<script src="js/uno-core.js?v=69.08"></script>
 <script src="js/games.js?v=67.86"></script>
 <script src="apps/fairy-garden/rules.js?v=fg-913df0a848e719e3"></script>
 <script src="js/fairy-garden.js?v=68.97"></script>
 <script src="js/trpg.js?v=67.86"></script>
 <script src="js/notify.js?v=66.23"></script>
-<script src="js/codex.js?v=69.07"></script>
+<script src="js/codex.js?v=69.08"></script>
 <script src="js/heart.js?v=69.07"></script>
 <script src="js/dongnian.js?v=67.86"></script>
 <script src="js/inner-life-a-shadow.js?v=64.74"></script>
@@ -409,9 +478,9 @@
      （何时入睡、REM 窗到没到）。v64.34 我把这两行当成死代码删掉，D 就跟着停了，
      而且不报错、不留痕迹：梦境里「角色做的梦」从那天起一条新的都不会再有。
      ⚠️要删 C 之前，先看 js/app.js 里那个 `if (window.SleepShadow)`——D 在它里面。 -->
-<script src="js/inner-life-c-sleep-core.js?v=69.07"></script>
+<script src="js/inner-life-c-sleep-core.js?v=69.08"></script>
 <script src="js/inner-life-c-sleep-shadow.js?v=64.74"></script>
-<script src="js/dream-loop-core.js?v=69.07"></script>
+<script src="js/dream-loop-core.js?v=69.08"></script>
 <script src="js/dream-loop-shadow.js?v=49.70"></script>
 <script src="js/toy.js?v=67.86"></script>
 <script src="vendor/leaflet.js"></script>
@@ -432,7 +501,7 @@
 <script src="js/garden.js?v=67.86"></script>
 <script src="js/ifroom.js?v=67.86"></script>
 <script src="js/makeup.js?v=67.86"></script>
-<script src="js/app.js?v=69.07"></script>
+<script src="js/app.js?v=69.08"></script>
 <script>
   // 注册 Service Worker（锁屏通知用）；点通知回来时通知 app 打开对应聊天
   if ("serviceWorker" in navigator) {

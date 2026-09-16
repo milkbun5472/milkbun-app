@@ -445,7 +445,9 @@ async function ensureLoreVecs(entries, opts) {
     setTimeout(() => {
       try {
         const root = document.getElementById("root");
-        if (shown || !root || root.childElementCount > 0) return;
+        // 内联那道白屏守卫已经把话说清楚了（还带着「是哪个文件」和两颗按钮），
+        // 这条红条再叠一层只会让人更慌
+        if (shown || window.__bootGuardShown || !root || root.childElementCount > 0) return;
         shown = true;
         const d = document.createElement("div");
         d.style.cssText = "position:fixed;left:12px;right:12px;bottom:24px;z-index:99999;background:#7f1d1d;color:#fff;padding:12px 14px;border-radius:12px;font:14px -apple-system,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.4)";
@@ -455,6 +457,17 @@ async function ensureLoreVecs(entries, opts) {
     }, 1500);
   };
   window.addEventListener("error", ev => { log("error", ev && ev.message, (ev && ev.filename || "") + ":" + (ev && ev.lineno || "")); maybeRescue(); });
+  // ⚠️资源加载失败【不冒泡到 window】，上面那一条不带 capture，所以它一次都没响过
+  //（她 2026-09-16 转来的「开屏以后是白屏」正是这一种：某个 js 没拉下来，
+  //  引用它的地方一炸，屏幕一片白，而错误日志里干干净净）。
+  //  屏幕上那道守卫内联在 index.html 最前面（engine.js 自己也可能是没拉下来的那个）；
+  //  这儿只负责把它记进 x_errlog，出事之后翻得到是哪个文件。
+  window.addEventListener("error", ev => {
+    const el = ev && ev.target;
+    if (!el || el === window || !el.tagName) return;
+    const u = el.src || el.href;
+    if (u) log("asset", "没加载成功：" + String(u).split("?")[0].split("/").pop(), String(u).slice(0, 180));
+  }, true);
   window.addEventListener("unhandledrejection", ev => {
     const r = ev && ev.reason;
     log("promise", (r && r.message) || r, r && r.stack ? String(r.stack).slice(0, 200) : "");
