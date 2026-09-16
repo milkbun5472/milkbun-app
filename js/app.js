@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.01";
+const APP_VERSION = "v69.02";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10700,7 +10700,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               || (_arr2.name && (_arr2.text || _arr2.redpacket || _arr2.emote) ? [_arr2] : null);
           }
           if (Array.isArray(_arr2) && _arr2.length) { raw = _raw2; arr = _arr2; }
-          toast("有人说漏了只有别人知道的事（" + _leak.map(x => x.words.join("、")).join("、") + "），重说了一遍");
+          // ⚠️这儿原来会弹一句「有人说漏了只有别人知道的事（…），重说了一遍」。
+          //   她 2026-09-16：「为啥有时候还是会有群聊 toast，我们不是拆了吗」——
+          //   我 v68.57 拆错了一个：拆的是【身份串线】那句，她说的一直是这一句。
+          //   重写这件事是内务：她看见的只是一串莫名其妙的字，而真正被拦下的内容
+          //   本来就不会出现在屏幕上。要查漏了什么，看 group-identity-guard 那份测试。
+          //   ⚠️别再加回来：想知道拦了什么就写进诊断，不要弹到她眼前。
         }
       }
       // ⚠️思考链要在【最终那一枪】之后取：重打过的话，第一枪那份思考属于已经被丢掉的回复。

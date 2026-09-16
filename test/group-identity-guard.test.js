@@ -35,3 +35,18 @@ console.log("group identity guard tests passed");
   assert.ok(app.indexOf("window.GroupIdentityGuard.sanitize(arr, members, userName(profile))") > 0,
     "守卫本身不能跟着 toast 一起被删掉——拦是要拦的，只是别吱声");
 }
+
+// 她 2026-09-16：「为啥有时候还是会有群聊 toast，我们不是拆了吗」。
+// ⚠️我 v68.57 拆错了一个：拆的是【拦住了 N 条群聊身份串线】，
+//   她说的「提醒说漏嘴的 toast」一直是这一句——「有人说漏了只有别人知道的事…重说了一遍」。
+// 查漏和重写照旧跑，只是不再弹到她眼前。
+{
+  const app2 = require("fs").readFileSync("js/app.js", "utf8");
+  const live2 = app2.split("\n").map(l => l.split("//")[0]).join("\n");
+  assert.ok(live2.indexOf("有人说漏了只有别人知道的事") < 0, "那句 toast 又被加回来了");
+  assert.ok(live2.indexOf("重说了一遍") < 0);
+  // 查漏本身不能跟着 toast 一起被删掉
+  assert.ok(app2.indexOf("window.GroupIdentityGuard.privacyScan(arr, privSegs, _pub)") > 0,
+    "查漏是要查的，只是别吱声");
+  assert.ok(app2.indexOf("GroupIdentityGuard.leakRetryNote(_leak)") > 0, "抓到之后那一次重写也要留着");
+}
