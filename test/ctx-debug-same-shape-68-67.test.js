@@ -18,15 +18,25 @@ test("「这一轮怎么发历史」只有一份答案", () => {
   const openai = { id: "r1", baseUrl: "https://x.invalid" };
   const shape = make(() => openai, () => "openai", () => ({}));
   // openai 方言：历史另发一份 messages，所以这一块把线上压成位置标记、线下留着
-  assert.deepEqual(shape("c1", false), { singleHistoryLayout: false, thinOnline: true, blankRecent: false });
+  assert.deepEqual(shape("c1", false), { histCache: false, singleHistoryLayout: false, thinOnline: true, blankRecent: false });
   // 侧房：本房原文就在 messages 里，这一块整个不发
-  assert.deepEqual(shape("c1", true), { singleHistoryLayout: false, thinOnline: true, blankRecent: true });
+  assert.deepEqual(shape("c1", true), { histCache: false, singleHistoryLayout: false, thinOnline: true, blankRecent: true });
   // anthropic 线：整段历史缓存，这一块也整个不发
   const anth = make(() => openai, () => "anthropic", () => ({}));
-  assert.deepEqual(anth("c1", false), { singleHistoryLayout: true, thinOnline: false, blankRecent: true });
+  assert.deepEqual(anth("c1", false), { histCache: true, singleHistoryLayout: true, thinOnline: false, blankRecent: true });
   // 数字生命那条专线同理
   const eng = make(() => openai, () => "openai", () => ({ engineerEyes: true }));
   assert.equal(eng("c1", false).singleHistoryLayout, true);
+});
+
+test("⚠️缓存开关要单独交出去（v68.68 漏掉它，她那边每发一条都炸）", () => {
+  // histCache 是「anthropic 那条线要不要缓存整段历史」；singleHistoryLayout 还含
+  // engineerEyes 那一支。拿后者顶替，等于给数字生命那条线也开了缓存——那是另一回事。
+  const eng = new Function("apiFor", "detectFormat", "settingsFor",
+    grab(/  const chatSendShapeFor = \(charId, sideRoom\) => \{[\s\S]*?\n  \};/) + "return chatSendShapeFor;")(
+      () => ({ id: "r" }), () => "openai", () => ({ engineerEyes: true }));
+  assert.equal(eng("c1", false).singleHistoryLayout, true);
+  assert.equal(eng("c1", false).histCache, false, "数字生命那条线不该被顺手开了历史缓存");
 });
 
 test("发送那条路读的就是它，不许自己再算一遍", () => {

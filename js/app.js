@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.86";
+const APP_VERSION = "v68.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9051,7 +9051,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -9061,7 +9061,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: 14000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -11561,6 +11561,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const histCache = (typeof detectFormat === "function" ? detectFormat(route) : "openai") === "anthropic";
     const single = histCache || !!settingsFor(charId).engineerEyes;
     return {
+      // ⚠️histCache 一定要单独交出去，别拿 singleHistoryLayout 顶替：
+      //   它是【anthropic 那条线要不要缓存整段历史】，而 singleHistoryLayout 还含 engineerEyes 那一支。
+      //   拿后者去当 cacheHistory，等于给数字生命那条线也开了缓存——那是另一回事。
+      //   （v68.68 我把这个变量删掉、却漏了下面两处调用，她那边每发一条都炸
+      //     「Can't find variable: _histCache」，2026-09-16 报的。）
+      histCache: histCache,
       singleHistoryLayout: single,
       thinOnline: !single,          // 线上那半压成位置标记，线下原样留着
       blankRecent: single || !!sideRoom  // 这一块整个不发：原文就在 messages 里

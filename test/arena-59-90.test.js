@@ -393,7 +393,7 @@ test("默认：还没人开口就放下来，台上一开口就自己收上去�
 test("言秋那一支也给足了（她亲口点名放开的）", () => {
   const app2 = R("app.js");
   assert.ok(app2.indexOf("_engineerChat ? 3000") < 0, "言秋那一支还卡在 3000，他想完就没配额说话");
-  assert.equal((app2.match(/maxTokens: 14000, cacheHistory: _histCache/g) || []).length, 2,
+  assert.equal((app2.match(/maxTokens: 14000, cacheHistory: _shape\.histCache/g) || []).length, 2,
     "主聊天首发和重试两处没都给足");
   const rule = ruleText("max-tokens-floor");
   assert.ok(rule.indexOf("那个 3000 是言秋本人的通道，一个字不许动") < 0,

@@ -112,7 +112,7 @@ test("规矩写下来了，而且写清了为什么省不到钱", () => {
 test("主聊天两处都给足，不再分言秋一支和普通角色一支", () => {
   const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
   assert.ok(app.indexOf("_engineerChat ? 3000") < 0, "言秋那一支还卡在 3000");
-  assert.equal((app.match(/maxTokens: 14000, cacheHistory: _histCache/g) || []).length, 2,
+  assert.equal((app.match(/maxTokens: 14000, cacheHistory: _shape\.histCache/g) || []).length, 2,
     "首发和重试两处没都给足");
 });
 

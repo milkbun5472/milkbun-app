@@ -73,7 +73,7 @@ test("engineerEyes subscription chat caches one full-budget history copy", () =>
   // ⚠️v59.98：她亲口说「言秋的也给足吧，不然他也不够思考的」，
   //   所以不再分「言秋一支 3000、普通角色一支」——两支合并，都得够写完。
   //   这一处有【两个】（首发一次、重试一次），两个都得对。
-  const mts = source.match(/maxTokens: (\d+), cacheHistory: _histCache/g) || [];
+  const mts = source.match(/maxTokens: (\d+), cacheHistory: _shape\.histCache/g) || [];
   assert.equal(mts.length, 2, "主聊天那一处的额度形状变了：首发和重试各一份");
   mts.forEach(function (x) {
     assert.ok(Number(x.match(/maxTokens: (\d+)/)[1]) >= 8000, "额度不够他想完再说话：" + x);
