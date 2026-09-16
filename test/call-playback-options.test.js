@@ -24,7 +24,11 @@ test('通话声音走媒体通道，开麦兼容录音，释放按 context 所�
   assert.equal(await make({}).prepareCallAudio().ready, '');
   assert.equal(await make({ get audioSession() { throw new Error('不支持'); } }).prepareCallAudio().ready, '');
   assert.match(call, /routeCallAudio\(st.ttsCtx, "play-and-record"\)/);
-  assert.match(call, /routeCallAudio\(st.ttsCtx, audioRef.current.mounted && autoVoice && !bye \? "playback" : null\)/);
+  // ⚠️v69.12 换了写法：lvStop 现在收一个 keepVoice（TA自己挂电话时只拆耳朵、嘴留着），
+  //   所以条件从「!bye」变成「keepVoice || !bye」，抽成 stillSpeaking 一个名字。
+  //   要挡的东西没变：这通电话真的结束了就撤掉播放路由。
+  assert.match(call, /const stillSpeaking = keepVoice \|\| !bye;/);
+  assert.match(call, /routeCallAudio\(st.ttsCtx, audioRef.current.mounted && autoVoice && stillSpeaking \? "playback" : null\)/);
 });
 test('通话播放默认手动，播放偏好独立保存；语音和视频用同一队列', () => {
   for (const [key, state] of [['x_callAutoVoice', 'autoVoice']]) {

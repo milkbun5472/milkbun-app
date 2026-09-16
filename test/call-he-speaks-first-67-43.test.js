@@ -74,7 +74,11 @@ test("等他把话说完再收线，而且不许永远挂不掉", () => {
   const i = C.indexOf("const byeRef = useRef(false);");
   assert.ok(i > 0, "挂断那一段没了");
   const blk = C.slice(i, i + 1100);
-  assert.match(blk, /lvStop\(\);/, "他要挂了就别再录她说话");
+  // ⚠️v69.12 改成 lvStop({ keepVoice: true })：光 lvStop() 会把【嘴】也一起拆掉
+  //   （stopCallAudio + st.session++ + 撤播放路由），于是下面这一段等到的永远是
+  //   「已经安静了」——这一条 v67.43 立的时候没发现，她 2026-09-16 又报了一次。
+  assert.match(blk, /lvStop\(\{ keepVoice: true \}\);/, "他要挂了就别再录她说话——但嘴得留着");
+  assert.ok(!/lvStop\(\);/.test(blk), "又变回连嘴一起拆的 lvStop() 了");
   assert.match(blk, /const quiet = \(\) => !audioRef\.current\.enabled \|\| \(!st\.speaking && !st\.busy && st\.played >= msgsRef\.current\.length\)/,
     "「说完了没有」要同时看：队列空了、没在念、也没在合成");
   assert.match(blk, /if \(quiet\(\)\) \{\n\s*const tm = setTimeout\(\(\) => onHangup\(secRef\.current, "them"\), 1800\);/,

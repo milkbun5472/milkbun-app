@@ -8804,7 +8804,7 @@ function CallScreen({
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
-    lvStop();                                   // TA要挂了，先别再录她说话
+    lvStop({ keepVoice: true });                // TA要挂了，先别再录她说话——但嘴留着，下面还等着它把最后一句念完
     const st = lv.current;
     const quiet = () => !audioRef.current.enabled || (!st.speaking && !st.busy && st.played >= msgsRef.current.length);
     if (quiet()) {
@@ -9015,19 +9015,33 @@ function CallScreen({
       else await fallbackEar(session, "这台浏览器未能启动原生语音识别");
     } catch (e) { if (st.session === session) { lvStop(); setLiveSt("开不了麦：" + (e && e.message || e)); } }
   };
-  const lvStop = () => {
+  // ⚠️这个函数名字叫「停」，拆的本来是【耳朵】（麦克风、识别），可它顺手把【嘴】
+  //   也一起拆了：stopCallAudio 会 epoch++ 并停掉正在响的那段 buffer，
+  //   st.session += 1 又让播报队列的 valid() 当场失效。
+  //   于是 v67.43 那次「TA自己挂电话时，等TA把话说完再收线」从头到尾没生效过——
+  //   收线那个 effect 的第一行就是 lvStop()，**嘴在它开始等之前已经被拆了**，
+  //   它等到的永远是「已经安静了」，1.8 秒后直接收线
+  //   （她 2026-09-16：「打电话还是如果他挂了最后一轮语音播放不出来」）。
+  //   keepVoice：只拆耳朵，嘴留着——队列念完之后由收线那个 effect 自己关。
+  const lvStop = (opts) => {
+    const keepVoice = !!(opts && opts.keepVoice);
     const st = lv.current;
     liveRef.current = false; clearTimeout(st.watchdog);
-    stopCallAudio();
-    st.session += 1; // 先让识别/TTS 的迟到 promise 全部失效，再拆设备
+    if (!keepVoice) stopCallAudio();
+    st.session += 1; // 先让识别的迟到 promise 全部失效，再拆设备
     recPause(); st.rec = null;
     try { st.node && st.node.disconnect(); } catch (e) {}
     try { st.mute && st.mute.disconnect(); } catch (e) {}
     try { st.ctx && st.ctx.close(); } catch (e) {}
     try { st.stream && st.stream.getTracks().forEach(t2 => t2.stop()); } catch (e) {}
-    try { st.src && st.src.stop(); } catch (e) {}
-    st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false; st.busy = 0; st.speaking = false;
-    routeCallAudio(st.ttsCtx, audioRef.current.mounted && autoVoice && !bye ? "playback" : null);
+    if (!keepVoice) { try { st.src && st.src.stop(); } catch (e) {} }
+    st.buf = []; st.pre = []; st.preSamples = 0; st.talking = false;
+    // busy/speaking 是播报队列在用的两个数：keepVoice 时清掉它们，
+    // 收线那个 effect 的 quiet() 立刻变真——那正是这次要修的那件事。
+    if (!keepVoice) { st.busy = 0; st.speaking = false; }
+    // 嘴还要用（keepVoice），或者这通电话还没结束（只是关了麦），就保持 playback 路由
+    const stillSpeaking = keepVoice || !bye;
+    routeCallAudio(st.ttsCtx, audioRef.current.mounted && autoVoice && stillSpeaking ? "playback" : null);
     setLive(false); setLiveSt("");
   };
   useEffect(() => () => { audioRef.current.mounted = false; audioRef.current.enabled = false; lvStop(); try { lv.current.ttsCtx && lv.current.ttsCtx.close(); } catch (e) {} }, []);
@@ -9038,7 +9052,11 @@ function CallScreen({
     if (!autoVoice || !audioReady) return;
     const st = lv.current;
     const session = st.session, epoch = audioRef.current.epoch;
-    const valid = () => audioRef.current.enabled && audioRef.current.mounted && audioRef.current.epoch === epoch && st.session === session;
+    // ⚠️嘴的有效期只看 epoch（stopCallAudio 那一处在管它），**不看 st.session**：
+    //   st.session 是【耳朵】的计数器，lvStop 关麦时就会 +1。
+    //   挂在它上面的话，「关掉麦克风」和「TA自己挂电话」都会顺手掐掉正在念的那一句
+    //   ——她 2026-09-16 报的那个「最后一轮语音播放不出来」就是后一种。
+    const valid = () => audioRef.current.enabled && audioRef.current.mounted && audioRef.current.epoch === epoch;
     if (st.speaking) return; // 播报锁：防多气泡齐唱
     st.speaking = true;
     (async () => {
