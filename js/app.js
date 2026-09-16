@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.85";
+const APP_VERSION = "v68.86";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -247,10 +247,30 @@ async function idbAudioPut(k, blob) { const db = await idbAudioOpen(); return ne
 async function idbAudioGet(k) { const db = await idbAudioOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readonly"); const rq = tx.objectStore("aud").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 async function idbAudioDel(k) { const db = await idbAudioOpen(); return new Promise(res => { const tx = db.transaction("aud", "readwrite"); tx.objectStore("aud").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
 // 从网易云链接/分享文案/裸ID里抠出歌曲 id
+// ⚠️她 2026-09-16 贴了一条进去，弹「没认出网易云歌曲链接或ID」。
+//   查下来原来只认三种形状，而网易云 App 现在【分享出来的是短链】（163cn.tv/xxxx），
+//   那串里根本没有数字 id——认不出不是判错，是那条链接里真的没有。
+//   所以这一层做两件事：能认的多认几种；认不出的，由调用处说清楚是哪一种认不出。
+// ⚠️`id=` 前面要卡一个分隔符：一整段分享文案里常有 userid=／uid=，
+//   不卡的话会把【用户 id】当成歌曲 id 抠走，加进去一首根本不存在的歌。
 function parseNeteaseId(input) {
   const s = String(input || "");
-  const m = s.match(/id=(\d{3,})/) || s.match(/\/song\/(\d{3,})/) || s.match(/^\s*(\d{3,})\s*$/);
+  const m = s.match(/(?:^|[?&#/])id=(\d{3,})/)               // song?id=123 / 裸 id=123
+    || s.match(/\/song\/media\/outer\/id=(\d{3,})/)          // 外链播放器
+    || s.match(/\/(?:m\/)?song\/(\d{3,})/)                   // /song/123、手机版 /m/song/123
+    || s.match(/songid=(\d{3,})/i)
+    || s.match(/^\s*(\d{3,})\s*$/);                          // 裸 ID
   return m ? m[1] : null;
+}
+// 网易云 App 里「分享」出来的短链：里面没有歌曲 id，谁也抠不出来。
+// 认出它是为了【说人话】——告诉她换哪一个复制，而不是让她对着「没认出」猜。
+function isNeteaseShortLink(input) {
+  return /(?:163cn\.tv|u\.163\.com|y\.music\.163\.com\/m\/share)/i.test(String(input || ""));
+}
+// 分享文案里的《歌名》：短链认不出 id，但歌名往往就在那句话里，配了搜索接口就能救回来
+function neteaseSharedTitle(input) {
+  const m = String(input || "").match(/《(.{1,40}?)》/);
+  return m ? m[1].trim() : "";
 }
 // 内置默认表情：手画 SVG 表情脸，编码成 data URI（不依赖图床，开箱即用）
 function buildDefaultEmotes() {
@@ -19192,9 +19212,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   TA仍然知道你俩在听什么（buildBundle 里那一行是白送的），她问起来接得住，
   //   只是不会自己开口了。
   // 分享文案/裸 ID → 网易云曲目；播放时由当前所选音乐源解析。
-  const addNeteaseSong = (input, title, artist) => {
-    const nid = parseNeteaseId(input);
-    if (!nid) { toast("没认出网易云歌曲链接或ID"); return; }
+  const addNeteaseSong = async (input, title, artist) => {
+    const raw = String(input || "").trim();
+    let nid = parseNeteaseId(raw);
+    if (!nid) {
+      // ⚠️「没认出」这四个字对她没用：她得知道【是哪一种认不出】、下一步该干什么。
+      //   网易云 App 现在分享出来就是短链（163cn.tv/xxxx），那串里根本没有歌曲 id——
+      //   不是我们判错了，是那条链接里真的没有（她 2026-09-16 撞上的就是这个）。
+      const named = neteaseSharedTitle(raw);
+      if (named && musicReady) {
+        // 短链认不出 id，可歌名往往就在那句分享文案里。配了搜索接口就直接替她搜。
+        toast("链接里没有歌曲 ID，替你按《" + named + "》搜一下…");
+        try {
+          const hit = await neteaseSearchOne(named + " " + String(artist || "").trim());
+          if (hit && hit.id) { nid = String(hit.id); title = title || hit.name || named; }
+        } catch (e) {/* 搜不到就落到下面那句人话 */}
+      }
+      if (!nid) {
+        toast(isNeteaseShortLink(raw)
+          ? "这是网易云的短链接，里面没有歌曲 ID。在网易云里点歌曲右上角「分享 → 复制链接」，或者直接把歌曲 ID 贴进来"
+          : (named ? "只认出歌名《" + named + "》，但这儿还没配搜索接口——先贴带 id 的链接，或去上面那行配一个"
+            : "没认出网易云歌曲链接或ID"));
+        return;
+      }
+    }
     const nsong = { id: "sg_" + Date.now(), source: "netease", neteaseId: nid, title: (title || "").trim() || ("网易云歌曲 " + nid), artist: (artist || "").trim(), ts: Date.now() };
     saveListen(p => ({ ...p, songs: [nsong, ...(p.songs || []).filter(x => x.neteaseId !== nid)].slice(0, 40) }));
     backfillSongMeta(nsong); // 刚贴进来就去拿封面/歌名/歌手，不用等到播放
