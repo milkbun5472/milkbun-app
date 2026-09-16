@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-42c6486a5d43d0e3", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-90147ef338c1af61", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
@@ -155,15 +155,16 @@
       : ((d.dialogs || {})[cid] || []).filter(m => m.status === "done");
     // ── 样貌（她 2026-09-16 接着要的）─────────────────────────────────────
     // 一个身体十二款头发，换一款是数据：这儿只管把选择递给游戏，存档由游戏那头写。
-    // 名单从 apps/fairy-garden/hairstyles.json 拿——那一份是美术目录导出来的同一批，
-    // 界面上的名字和模型里的网格永远对得上（另写一份 JS 常量就是又一处要同步的）。
+    // 清单从 apps/fairy-garden/doll.json 拿——发型名单和六个体型参数的上下限都在里面，
+    // 由导模型那一步同时生成。界面上的名字/范围和模型里的网格/形态键永远对得上
+    //（在这儿另写一份 JS 常量就是又一处要同步的）。
     const [dress, setDress] = useState(false);
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
     useEffect(() => {
       let on = true;
-      fetch('apps/fairy-garden/hairstyles.json?v=' + BUILD).then(r => r.json())
+      fetch('apps/fairy-garden/doll.json?v=' + BUILD).then(r => r.json())
         .then(d => { if (on) setStyles(d); }).catch(() => {});
       return () => { on = false; };
     }, []);
@@ -253,7 +254,7 @@
                 : "换的是你自己在这个庭院里的样子。"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
-              Object.entries(styles || {}).map(([key, label]) => {
+              Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
                 const on = ((look[who] || {}).hair || "") === key;
                 return h("button", { key: key, onClick: () => pushLook({ hair: key }), className: "active:opacity-70",
                   style: { padding: "11px 6px", borderRadius: 13, border: "1px solid " + (on ? G.deep : G.line),
@@ -261,6 +262,22 @@
                     fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
               })),
             !styles && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "发型名单还没读进来…"),
+            // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
+            ((styles && styles.dims) || []).length ? h("div", { style: { marginTop: 22 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "体型"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "都从中间那一档开始；拖动时小人当场就变。"),
+              styles.dims.map(d => {
+                const cur = Number(((look[who] || {}).dims || {})[d.key]);
+                const value = isFinite(cur) ? cur : 1;
+                return h("div", { key: d.key, style: { marginBottom: 14 } },
+                  h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 3 } },
+                    h("span", null, d.label),
+                    h("button", { onClick: () => pushLook({ dims: { [d.key]: 1 } }), className: "active:opacity-60",
+                      style: { fontFamily: F_BODY, fontSize: 10.5, color: Math.abs(value - 1) < .005 ? "transparent" : G.deep, background: "transparent" } }, "回到中间")),
+                  h("input", { type: "range", min: d.min, max: d.max, step: .01, value: value,
+                    onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
+                    style: { width: "100%", accentColor: G.deep } }));
+              })) : null,
             [["hairColor", "发色", HAIR_COLORS], ["cloth", "衣服颜色", CLOTH_COLORS]].map(([field, label, palette]) =>
               h("div", { key: field, style: { marginTop: 20 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, label),

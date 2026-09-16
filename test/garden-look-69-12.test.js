@@ -10,14 +10,15 @@ const game = rd('apps/fairy-garden/game.mjs');
 const trav = rd('apps/fairy-garden/traveler.mjs');
 
 test('发型名单只有一个源头：美术目录导出来的那一份', () => {
-  const art = rd('art/fairy-garden/hairstyles.json');
-  const runtime = rd('apps/fairy-garden/hairstyles.json');
-  assert.equal(runtime, art, '运行时那份和美术目录对不上——它是 export_traveler.py 抄过去的，别手改');
-  const keys = Object.keys(JSON.parse(art));
+  // v69.13 起运行时那份并成了 doll.json（发型名单 ＋ 六个体型参数的范围一起出）
+  const art = JSON.parse(rd('art/fairy-garden/hairstyles.json'));
+  const runtime = JSON.parse(rd('apps/fairy-garden/doll.json'));
+  assert.deepEqual(runtime.hair, art, '运行时那份和美术目录对不上——它是 export_traveler.py 抄过去的，别手改');
+  const keys = Object.keys(art);
   const inModel = trav.match(/HAIR_STYLES=\[([^\]]+)\]/)[1].split(',').map(s => s.trim().replace(/'/g, ''));
   assert.deepEqual(keys.slice().sort(), inModel.slice().sort());
   // 界面也去读这一份，不许另抄一张中文名表
-  assert.match(host, /fetch\('apps\/fairy-garden\/hairstyles\.json\?v=' \+ BUILD\)/);
+  assert.match(host, /fetch\('apps\/fairy-garden\/doll\.json\?v=' \+ BUILD\)/);
   assert.doesNotMatch(host, /韩式碎盖|层次狼尾/, '界面里又写死了一份发型名');
 });
 

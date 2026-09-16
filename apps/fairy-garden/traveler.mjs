@@ -4,6 +4,10 @@ import * as T from 'three';
 // ⚠️名字里不能带点：GLTFLoader 会把节点名里的点洗掉，hair.korean 到网页里就认不出来了。
 // ⚠️不要改回 traveler.glb——那一份是 art/fairy-garden 那套脚本自己的输入（doll_hair.SRC 读它）。
 export const HAIR_STYLES=['korean','wolf','mullet','curtains','comma','pixie','bob','hush','airbang','wavy','bun','ponytail'];
+// 体型：六个参数以 1 为中性。形变规则只写在 doll_hair.deform 里，导出成形态键；
+// 这儿只把「值 - 1」送进 morphTargetInfluences，和 Blender 那边同一个算法。
+// ⚠️不要在这儿再实现一遍形变——那就是同一层活在两处。
+const DIMS=['height','shoulder','waist','flare','build','head'];
 const DEFAULT={hair:'korean',hairColor:'#6b4a33',cloth:'#8d5f66'};
 const COMPANION={hair:'wavy',hairColor:'#5b4436',cloth:'#729786'};
 export function createTraveler(source,companion=false,look={}){
@@ -25,6 +29,9 @@ export function createTraveler(source,companion=false,look={}){
   if(isHair(o)){o.material.color.set(want.hairColor);o.material.roughness=.85;}
   else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
+ const applyDims=dims=>{if(!dims)return;model.traverse(o=>{if(!o.isMesh||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
+   for(const key of DIMS){const i=o.morphTargetDictionary[key];if(i==null)continue;const v=Number(dims[key]);o.morphTargetInfluences[i]=isFinite(v)?v-1:0;}});};
+ applyDims(want.dims);
  model.updateMatrixWorld(true);
  // 枢轴按新身体量过：art/fairy-garden/export_traveler.py 的 PIVOTS 里，
  // 袖子 z .636~.989、腿 z .009~.593。旧的 .86/.48 是抬高 .075 之前的数。
@@ -33,8 +40,9 @@ export function createTraveler(source,companion=false,look={}){
  const legs=[];model.traverse(o=>{if(o.isMesh&&/Linen.leggings|Rounded.boots/i.test(o.name))legs.push(o);});for(const side of [-1,1]){const p=new T.Group();p.position.set(side*.115,.555,0);model.add(p);model.updateMatrixWorld(true);for(const o of legs){const v=new T.Vector3();o.getWorldPosition(v);if(Math.sign(v.x)===side)p.attach(o);}rig.push({p,label:side<0?'leftLeg':'rightLeg'});}
  const prop=new T.Group();root.add(prop);prop.visible=false;
  const pages=new T.Mesh(new T.BoxGeometry(.30,.045,.21),new T.MeshStandardMaterial({color:'#ede4c5',roughness:1}));prop.add(pages);const cover=new T.Mesh(new T.BoxGeometry(.32,.025,.23),new T.MeshStandardMaterial({color:'#6f877d',roughness:1}));cover.position.y=-.027;prop.add(cover);prop.position.set(0,.845,.22);prop.rotation.x=.35;
- return {root,setLook(next){const n=Object.assign({},want,next||{});if(HAIR_STYLES.includes(n.hair)){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+n.hair;});}
+ return {root,setLook(next){const n=Object.assign({},want,next||{});if(next&&next.dims)n.dims=Object.assign({},want.dims,next.dims);if(HAIR_STYLES.includes(n.hair)){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+n.hair;});}
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))o.material.color.set(n.hairColor);else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
+   applyDims(n.dims);
    Object.assign(want,n);},
   animate(time,{moving=false,gesture='rest',height=.08}={}){root.position.y=height+(moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.x=moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;}}};
 }

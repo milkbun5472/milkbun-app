@@ -27,6 +27,8 @@ import doll_hair as D
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(os.path.join(HERE, '..', '..', 'apps', 'fairy-garden', 'doll.glb'))
 FACE_BUDGET = 6000          # 每款头发的面数上限
+# 六个体型参数在界面上叫什么（顺序＝滑杆顺序）。范围不写在这儿：那是 doll_hair.LIMITS 的事。
+DIM_LABELS = {'height': '腿长', 'shoulder': '肩宽', 'waist': '腰线', 'flare': '衣摆', 'build': '丰满', 'head': '头身比'}
 RISE = .075                 # load() 把躯干以上抬过这么多，头发要跟上
 
 
@@ -72,6 +74,20 @@ def measure(objs):
 
 def main():
     objs = build()
+    # 六个体型参数导成形态键（glTF morph targets）：形变规则仍然只写在 doll_hair.deform 里，
+    # 网页那头只负责把滑杆的值送进 morphTargetInfluences（value-1，和 Blender 那边同一个算法）。
+    # ⚠️不要在 JS 里再实现一遍 deform——那就是同一层活在两处，改一处永远漏另一处。
+    D.apply_dims(objs, {})
+    # 再把【这个网格根本不动】的那几把形态键摘掉：六个参数里，头发只吃 head 和 height，
+    # 鞋底一个都不吃。空的形态键照样要写一整份顶点数据进 GLB——留着白涨 1.9MB。
+    for o in objs:
+        keys = o.data.shape_keys
+        if not keys:
+            continue
+        basis = keys.key_blocks[0]
+        for key in list(keys.key_blocks)[1:]:
+            if all((a.co - b.co).length < 1e-6 for a, b in zip(key.data, basis.data)):
+                o.shape_key_remove(key)
     info = measure(objs)
     seen = {}
     for o in objs:
@@ -86,12 +102,18 @@ def main():
         o.hide_render = False
         o.hide_viewport = False
     bpy.context.view_layer.objects.active = objs[0]
-    bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True)
-    # 发型名单也从这儿出一份给运行时：名单只有 hairstyles.json 这一个源头，
-    # 界面上那十二个名字和模型里那十二款网格保证是同一批（test/garden-doll 钉了这条）。
-    labels = os.path.abspath(os.path.join(HERE, '..', '..', 'apps', 'fairy-garden', 'hairstyles.json'))
-    with open(os.path.join(HERE, 'hairstyles.json'), encoding='utf-8') as src, open(labels, 'w', encoding='utf-8') as dst:
-        dst.write(src.read())
+    bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True,
+                              export_morph=True, export_morph_normal=False)
+    # 运行时那张清单（apps/fairy-garden/doll.json）也从这儿出：
+    # 发型名单抄 hairstyles.json，体型的范围抄 doll_hair.LIMITS——
+    # 界面上的十二个名字、模型里的十二款网格、六个滑杆的上下限，永远是同一批。
+    # ⚠️中文档名是界面文案，归这儿管；数值范围一个都不许在 JS 里另写。
+    with open(os.path.join(HERE, 'hairstyles.json'), encoding='utf-8') as fh:
+        hair = json.load(fh)
+    dims = [{'key': k, 'label': v, 'min': D.LIMITS[k][0], 'max': D.LIMITS[k][1]} for k, v in DIM_LABELS.items()]
+    with open(os.path.abspath(os.path.join(HERE, '..', '..', 'apps', 'fairy-garden', 'doll.json')), 'w', encoding='utf-8') as fh:
+        json.dump({'hair': hair, 'dims': dims}, fh, ensure_ascii=False, indent=1)
+        fh.write('\n')
     print('WROTE ' + OUT + ' ' + str(round(os.path.getsize(OUT) / 1048576, 2)) + 'MB')
     print('FACES ' + str(sum(len(o.data.polygons) for o in objs)))
     print('MESHES ' + json.dumps(sorted(o.name for o in objs), ensure_ascii=False))
