@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.05";
+const APP_VERSION = "v69.06";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3546,7 +3546,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const applied = window.OpenRepairShadow.applyResolutions(memLibRef.current, repair && repair.resolutions, Date.now());
         if (applied.closed) {
           saveMemLib(applied.entries);
-          toast("已自动了结 " + applied.closed + " 条完成的约定/心事（旧记录仍保留）");
+          // ⚠️提示必须说【去哪看】（她 2026-09-16 转来的反馈：「显示什么什么已了结…
+          //   这个是在哪里看呀？没有情侣空间」）。原来只报个数，而那批东西唯一的
+          //   查看入口挂在情侣空间里——不是情侣的角色照样会产生开环，她就无处可看。
+          toast("已自动了结 " + applied.closed + " 条约定/心事，旧记录仍在：设置 → 记忆库 → 未了");
         }
       } } catch (e) {}
       const now = Date.now();
@@ -17705,21 +17708,58 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }].concat((coupleShotsRef.current || []).filter(x => x && (x.imgKey || x.imgUrl))).slice(0, COUPLE_SHOT_CAP);
     coupleShotsRef.current = next; setCoupleShots(next); saveJSON("x_coupleShots", next);
   };
+  // ── 一张照片的身份证（她 2026-09-16 转来的反馈：「照片里面可不可以弄个删除呀，
+  //   因为有些生成的不是很合心意」）─────────────────────────────────────────
+  // 合照墙不是一个相册，是【四个地方】拼出来的：聊天里拍的、线下拍的、照相馆拍的、
+  // 情侣空间里生的。所以删一张必须回到它真正住的那一处去删，光把墙上那份过滤掉
+  // 等于没删（下次进来还在）。pick 因此要把出处一起带上。
+  // ⚠️她拍板要【真删】：连那条消息带 IndexedDB 里的图一起走。生成的图没有第二份，
+  //   所以删之前一定要确认——这一条是 .claude/rules/never-say-delete-first.md 的落法：
+  //   不可逆的动作，人得先看见「不可逆」三个字。
+  const photoIdOf = x => String((x && (x.imgKey || x.imgUrl)) || (x && x.ts) || "");
   const duoPhotosOf = cid => {
     const ok = m => m && m.kind === "selfie" && m.photoKind === "duo" && !m.pending && !m.failed && (m.imgKey || m.imgUrl);
-    const pick = m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc });
+    const pick = m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc, src: "chat" });
     // 线下那份是【进了线下才加载】的，没开过就还在 localStorage 里躺着——
     // 只读内存等于「今天没进过线下的角色，合照墙上就少一半」。
     const sessions = offlines[cid] || loadJSON("x_offline:" + cid, []);
-    const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(pick)), []);
+    const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(m => ({ ...pick(m), src: "offline" }))), []);
     // 照相馆拍的也上墙：那本来就是「你俩的合照」，没道理只有聊天里随手拍的算数
     const shots = (studioRef.current || []).filter(x => x.charId === cid && (x.imgKey || x.imgUrl))
-      .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.scene }));
+      .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.scene, src: "studio" }));
     // 情侣空间里生出来的图（如果馆的背景图，以及以后任何一处）也上墙
     const mine = (coupleShotsRef.current || []).filter(x => x.charId === cid && (x.imgKey || x.imgUrl))
-      .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.desc }));
+      .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.desc, src: "couple" }));
     return (chats[cid] || []).filter(ok).map(pick).concat(off, shots, mine).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   };
+  // 真删一张照片：回到它住的那一处删掉，再把 IndexedDB 里的图一起删（本机/原生壳/远端三处）。
+  // ⚠️不接受「只从墙上滤掉」：那样下次进来它还在，而她要的是不合心意的别再出现。
+  const deleteDuoPhoto = (cid, photo) => {
+    const hit = photoIdOf(photo);
+    if (!hit) return;
+    const src = (photo && photo.src) || "chat";
+    if (src === "chat") pChat(cid, p => p.filter(m => !(m && m.kind === "selfie" && photoIdOf(m) === hit)));
+    else if (src === "offline") {
+      // ⚠️不能走 pOffline：这个角色的线下没加载过时，它拿到的 prev 是空数组，
+      //   一保存就把存档里那一整份线下记录清空了。先读实档，再写回去。
+      const cur = offlinesRef.current[cid] || loadJSON("x_offline:" + cid, []);
+      const next = (Array.isArray(cur) ? cur : []).map(sess => ({ ...sess, msgs: (sess && sess.msgs || []).filter(m => !(m && m.kind === "selfie" && photoIdOf(m) === hit)) }));
+      saveJSON("x_offline:" + cid, next);
+      setOfflines(p => { const n = { ...p, [cid]: next }; offlinesRef.current = n; return n; });
+    } else if (src === "studio") {
+      const next = (studioRef.current || []).filter(x => photoIdOf(x) !== hit);
+      studioRef.current = next; setStudio(next); saveJSON("x_studio", next);
+    } else if (src === "couple") {
+      const next = (coupleShotsRef.current || []).filter(x => photoIdOf(x) !== hit);
+      coupleShotsRef.current = next; setCoupleShots(next); saveJSON("x_coupleShots", next);
+    }
+    if (photo && photo.imgKey && typeof idbImgDel === "function") idbImgDel(photo.imgKey).catch(() => {});
+    toast("删掉了");
+  };
+  const confirmDeleteDuoPhoto = (cid, photo) => requestAppConfirm(
+    "删掉这张照片？",
+    "这张图会从它所在的地方一起删掉，本机和云端的图也会删。生成的图没有第二份，删了就找不回来了。",
+    () => deleteDuoPhoto(cid, photo), "删掉");
   // 里程碑册：**全部从已有数据推出来，一个钩子都不挂**（挂钩子＝五处会腐烂，
   // 而且在这之前发生过的事永远补不回来）。零调用。
   // ── 情侣空间·花房（v62.33，她 2026-09-04 拍板）────────────────────────────
@@ -21634,6 +21674,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 线上单聊 + 线下都捞（v57.79）——线下当场拍的那些才是真在一块拍的，
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
+    onDeletePhoto: confirmDeleteDuoPhoto,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
     // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，

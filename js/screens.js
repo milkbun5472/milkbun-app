@@ -4211,7 +4211,7 @@ function AlbumPhoto({ photo, full, cover }) {
   if (!src) return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: full ? 40 : 20, opacity: 0.3 } }, "🖼");
   return h("img", { src, loading: "lazy", style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
 }
-function CoupleAlbum({ partner, photos, onBack }) {
+function CoupleAlbum({ partner, photos, onBack, onDelete }) {
   const t = useTheme();
   const [zoom, setZoom] = useState(null);
   const list = (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
@@ -4239,7 +4239,13 @@ function CoupleAlbum({ partner, photos, onBack }) {
     zoom ? h("div", { onClick: () => setZoom(null), style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 } },
       h(AlbumPhoto, { photo: zoom, full: true }),
       zoom.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.85)", marginTop: 14, textAlign: "center", maxWidth: 320, lineHeight: 1.6 } }, zoom.desc) : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 8 } }, new Date(zoom.ts || 0).toLocaleString("zh-CN"))) : null));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 8 } }, new Date(zoom.ts || 0).toLocaleString("zh-CN")),
+      // 删除放在【看大图这一层】：小格子上挂 ✕ 会误触，而误触在这儿是不可逆的
+      onDelete ? h("button", {
+        onClick: e => { e.stopPropagation(); onDelete(zoom); setZoom(null); },
+        className: "active:opacity-60",
+        style: { marginTop: 18, padding: "7px 18px", borderRadius: 999, border: "1px solid rgba(255,255,255,.28)", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.72)" }
+      }, "删掉这张") : null) : null));
 }
 const COUPLE_ARCHIVE_FIELDS = [
   ["nicknames", "彼此称呼", "你怎么叫 TA，TA 又怎么叫你"],
@@ -4876,7 +4882,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4993,7 +4999,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return h(PhotoStudio, { partner, myCloset: myCloset, charCloset: charClosetOf ? charClosetOf(partner.id) : null,
       shots: studioShots, busy: studioBusy, fitBusy: fitBusy, canShoot: !!(studioCanShoot && studioCanShoot(partner)),
       onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o),
-      onShare: shot => onShareShot(partner, shot), onBack: () => setSub(null) });
+      onShare: shot => onShareShot(partner, shot), onBack: () => setSub(null),
+      onDelete: onDeletePhoto ? shot => onDeletePhoto(partner.id, { ...shot, src: "studio" }) : null });
   }
   // 情侣空间子模块：里程碑册
   if (partner && cp[view] && cp[view].status === "together" && sub === "firsts") {
@@ -5028,7 +5035,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   }
   // 情侣空间子模块：合照墙
   if (partner && cp[view] && cp[view].status === "together" && sub === "album") {
-    return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null) });
+    return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null });
   }
   // 情侣空间子模块：情书
   if (partner && cp[view] && cp[view].status === "together" && sub === "letters") {
@@ -13953,7 +13960,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
         : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }
-function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onBack }) {
+function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onBack }) {
   const t = useTheme();
   const [scene, setScene] = useState("");
   // 两边都是【一组】衣服，不是一件（v64.34）：衣柜里外套和鞋常常分开挂着
@@ -13973,7 +13980,9 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
           // 所以聊天历史里自带上下文，以后她说「上次那张」TA接得上
           h("button", { onClick: () => onShare(big), className: "w-full active:opacity-70", style: { marginTop: 16, borderRadius: 14, padding: "12px 0", background: "#6d4d8f", color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
-            "发给 " + (partner.remark || partner.name)))
+            "发给 " + (partner.remark || partner.name)),
+          onDelete ? h("button", { onClick: () => { onDelete(big); setBig(null); }, className: "w-full active:opacity-70", style: { marginTop: 8, borderRadius: 14, padding: "10px 0", background: "transparent", border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } },
+            "删掉这张") : null)
       : h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
           h("div", { style: { borderRadius: 20, border: "1px solid #e2d9ea", background: "linear-gradient(140deg,#faf6fd,#f2ecf7)", padding: "15px 15px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, "这张要拍什么"),
