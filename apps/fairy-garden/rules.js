@@ -1,24 +1,40 @@
 // Shared by the phone host, game simulation and renderer. Model output names existing activities.
 (function(root){
  const START={x:-4.6,z:4.2},TREES=[[-3.9,-1.5],[-3,-3.6],[-.5,-4.2],[2,-3.6],[3.8,-2.2],[4.15,.8],[-4.2,1.2]];
- const NODES=[{id:'herb-a',map:'forest',kind:'herb',x:-2.8,z:.2},{id:'herb-b',map:'forest',kind:'herb',x:.1,z:2},{id:'herb-c',map:'forest',kind:'herb',x:2.5,z:-2.1},{id:'mushroom-a',map:'forest',kind:'mushroom',x:2.6,z:.5},{id:'mushroom-b',map:'forest',kind:'mushroom',x:-1.8,z:-3.1}];
+ // ── 星井（她 2026-09-16 点名要的「井底下潜」）─────────────────────────────
+ // 井底是一层一层的：每层三处矿脉，位置由层数定死（同一层每次下去都在原地），
+ // 采没采过仍然走已有的 picked 那套，不另造一份「这层采过了」。
+ // 越深越容易出月石；月石把【往下的路】再打通两层，这就是下潜的进度感。
+ const DEPTH_MAX=12,DEPTH_BASE=3;
+ const depthNodes=depth=>[0,1,2].map(i=>{
+  // ⚠️别贴着井壁长：采集点是站到 z+.48 去刨的，太靠外那个落脚点就嵌进石壁里了
+  const a=(depth*2.1+i*2.4),r=1.15+((depth*7+i*3)%5)*.22;
+  return {id:'vein-'+depth+'-'+i,map:'depths',depth,kind:(depth>=DEPTH_BASE&&i===((depth+1)%3))?'stone':'sand',
+   x:+(Math.cos(a)*r).toFixed(2),z:+(Math.sin(a)*r).toFixed(2)};
+ });
+ const DEPTH_NODES=Array.from({length:DEPTH_MAX},(_,i)=>depthNodes(i+1)).flat();
+ const NODES=[...DEPTH_NODES,{id:'herb-a',map:'forest',kind:'herb',x:-2.8,z:.2},{id:'herb-b',map:'forest',kind:'herb',x:.1,z:2},{id:'herb-c',map:'forest',kind:'herb',x:2.5,z:-2.1},{id:'mushroom-a',map:'forest',kind:'mushroom',x:2.6,z:.5},{id:'mushroom-b',map:'forest',kind:'mushroom',x:-1.8,z:-3.1}];
  const MAPS={
- garden:{name:'林边村落',decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-90147ef338c1af61',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[{x:4,z:5.7,w:2.2,d:2.3,height:.31}],exits:{travel:{to:'forest'}},
- stations:{well:{x:-2.7,z:3.05},garden:{x:-7.6,z:1.55},brew:{x:-3.6,z:3.8},travel:{x:10,z:-1},rest:{x:-5.4,z:3.55},star:{x:-5.8,z:4.5},lamp:{x:-6.4,z:4.3}},
+ garden:{name:'林边村落',decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-f50a90aaa95b6a46',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[{x:4,z:5.7,w:2.2,d:2.3,height:.31}],exits:{travel:{to:'forest'}},
+ stations:{well:{x:-2.7,z:3.05},dive:{x:-2.7,z:3.05},garden:{x:-7.6,z:1.55},brew:{x:-3.6,z:3.8},travel:{x:10,z:-1},rest:{x:-5.4,z:3.55},star:{x:-5.8,z:4.5},lamp:{x:-6.4,z:4.3}},
  sites:{hall:{label:'公共厅',target:{x:-1,z:-1.65},text:'到了公共厅门前。门廊可以歇脚，讲堂和宿舍还在准备中。'},neighbor1:{label:'左边的邻居屋',target:{x:-8,z:-2.5},text:'邻居屋的门前还空着，之后可以安排角色入住。'},neighbor2:{label:'林后的邻居屋',target:{x:-6,z:-5.6},text:'这是林后的邻居屋，窗边留着一小块花地。'},neighbor3:{label:'右边的邻居屋',target:{x:6,z:-4.5},text:'绕过月潭，就是第三间邻居屋。'},pond:{label:'月潭栈桥',target:{x:3.8,z:5.1},text:'到了月潭边。水面映着小屋的灯，可以在这里慢慢待着。'}},
  interactions:[{kind:'well',x:-2.7,z:2,r:.75},{kind:'garden',x:-7.6,z:.2,w:1.9,d:2.1},{kind:'brew',x:-3.6,z:3,r:.5},{kind:'travel',x:10,z:-1,r:.6},{kind:'star',x:-5.8,z:3.95,r:.4},...Object.entries({hall:[-1,-2.2],neighbor1:[-8,-2.7],neighbor2:[-6,-5.8],neighbor3:[6,-4.8],pond:[4,5.1]}).map(([id,[x,z]])=>({kind:'visit',id,x,z,r:.5}))],
  obstacles:[{x:-5,z:1.6,w:3.5,d:2.9},{x:-1,z:-5,w:6.8,d:4.5},{x:6,z:-6,w:3.15,d:2.55},{x:-6,z:-7,w:2.6,d:2.2},{x:-8,z:-4,w:3.15,d:2.55},{x:5,z:-11,r:1},{x:-2.7,z:2,r:.72},{x:-3.6,z:3,r:.42},{x:-7.6,z:.8,w:1.85,d:1.0},{x:-7.6,z:-.4,w:1.85,d:1},
  {x:4,z:3,rx:4.0,rz:3.35,except:{x:4,z:5.8,w:1.85,d:2.65}},
  ...[[-10,3],[-10,-1],[-9,-5],[-9,-9],[-5,-10],[-1,-11],[3,-11],[7,-10],[10,-7],[10,-3],[10,1],[-11,7]].map(([x,z])=>({x,z,r:.35}))]},
+ depths:{name:'星井',renderer:'depths',background:'#1d2230',light:2.1,radius:3.4,spawn:{x:0,z:2.35},exits:{ladder:{to:'garden',at:{x:-2.7,z:3.05}}},
+ stations:{ladder:{x:0,z:2.6},deeper:{x:0,z:-2.35}},
+ interactions:[{kind:'ladder',x:0,z:2.6,r:.6},{kind:'deeper',x:0,z:-2.35,r:.6}],
+ obstacles:[...Array.from({length:16},(_,i)=>{const a=i*Math.PI/8;return {x:Math.cos(a)*3.55,z:Math.sin(a)*3.55,r:.5};})]},
  forest:{name:'萤光林地',renderer:'forest',background:'#dbe5d6',light:2.4,radius:5.12,spawn:{x:-2.7,z:3.05},exits:{travel:{to:'garden'}},stations:{travel:{x:-2.7,z:3.05},seed:{x:1.7,z:3}},interactions:[{kind:'travel',x:-3.1,z:2.55,r:.55},{kind:'seed',x:1.7,z:2.5,r:.45}],obstacles:[{x:-.7,z:-1.1,r:1.28},...TREES.map(([x,z])=>({x,z,r:.44}))]}
  };
  const ACTIVITIES={
- flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},mushrooms:{map:'forest',target:{x:2.6,z:.98},label:'寻找会发光的蘑菇',gesture:'gather'},pond:{map:'forest',target:{x:-.7,z:.6},label:'在池边观察水纹',gesture:'read'},study:{map:'garden',target:MAPS.garden.sites.hall.target,label:'翻看魔法笔记',gesture:'read'},potion:{map:'garden',target:MAPS.garden.stations.brew,label:'研究炼药锅里的微光',gesture:'read'},glow:{map:'forest',target:{x:1.7,z:3},label:'等草丛里的萤光亮起来',gesture:'rest'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋前歇脚',gesture:'rest'},rain:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋檐下听雨',gesture:'read'},star:{map:'garden',target:MAPS.garden.stations.star,label:'看看星铃花的新芽',gesture:'read'}
+ flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},mushrooms:{map:'forest',target:{x:2.6,z:.98},label:'寻找会发光的蘑菇',gesture:'gather'},pond:{map:'forest',target:{x:-.7,z:.6},label:'在池边观察水纹',gesture:'read'},study:{map:'garden',target:MAPS.garden.sites.hall.target,label:'翻看魔法笔记',gesture:'read'},potion:{map:'garden',target:MAPS.garden.stations.brew,label:'研究炼药锅里的微光',gesture:'read'},glow:{map:'forest',target:{x:1.7,z:3},label:'等草丛里的萤光亮起来',gesture:'rest'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋前歇脚',gesture:'rest'},rain:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋檐下听雨',gesture:'read'},star:{map:'garden',target:MAPS.garden.stations.star,label:'看看星铃花的新芽',gesture:'read'},dive:{map:'garden',target:MAPS.garden.stations.well,label:'在井口往下看看',gesture:'read'}
  };
  const SEASONS=[{name:'春',tint:'#eef5dd',dusk:1080,weather:['晴日','细雨','薄雾','晴日','细雨','晴日','晴日']},{name:'夏',tint:'#e7f5ce',dusk:1140,weather:['晴日','晴日','细雨','晴日','薄雾','晴日','细雨']},{name:'秋',tint:'#efd2a9',dusk:1020,weather:['薄雾','晴日','晴日','细雨','晴日','薄雾','晴日']},{name:'冬',tint:'#dce7ee',dusk:960,weather:['细雪','晴日','薄雾','晴日','细雪','晴日','晴日']}];
  const seasonOf=day=>{const d=Math.max(1,Math.floor(Number(day)||1)),index=Math.floor((d-1)/14);return {...SEASONS[index%4],index,key:String(index),year:Math.floor(index/4)+1,day:(d-1)%14+1,start:index*14+1,end:index*14+14};};
  const weather=day=>{const s=seasonOf(day);return s.weather[(s.day-1+Math.floor((s.day-1)/7)*2+Math.floor(s.index/4))%s.weather.length];};
  function normalizePlan(raw,day){const season=seasonOf(day);if(!raw||!Array.isArray(raw.days)||raw.days.length!==14)throw Error('这一季需要完整的 14 天安排，可以重试。');const seen=new Set();const days=raw.days.map(d=>{if(!Number.isInteger(d.day)||d.day<1||d.day>14||seen.has(d.day)||!Array.isArray(d.activities)||d.activities.length!==3)throw Error('日期或活动数量没有对上，请重试这一季。');seen.add(d.day);return {day:d.day,note:String(d.note||'').slice(0,180),activities:d.activities.map(a=>{if(!a||!Object.hasOwn(ACTIVITIES,a.id))throw Error('有一项活动还不在这个世界里，请重试这一季。');return {id:a.id,note:String(a.note||'').slice(0,120)};})};}).sort((a,b)=>a.day-b.day);return {season:season.index,title:String(raw.title||'一起度过这一季').slice(0,60),days};}
- function hitInteraction(map,p){const m=MAPS[map];if(!m)return null;const n=NODES.find(n=>n.map===map&&Math.hypot(n.x-p.x,n.z-p.z)<.48);if(n)return {kind:'gather',id:n.id};return m.interactions.find(o=>o.r?Math.hypot(p.x-o.x,p.z-o.z)<o.r:Math.abs(p.x-o.x)<o.w/2&&Math.abs(p.z-o.z)<o.d/2)||null;}
- root.FairyGardenRules={START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,seasonOf,weather,normalizePlan,hitInteraction};
+ function hitInteraction(map,p,depth){const m=MAPS[map];if(!m)return null;const n=NODES.find(n=>n.map===map&&(n.depth==null||n.depth===depth)&&Math.hypot(n.x-p.x,n.z-p.z)<.48);if(n)return {kind:'gather',id:n.id};return m.interactions.find(o=>o.r?Math.hypot(p.x-o.x,p.z-o.z)<o.r:Math.abs(p.x-o.x)<o.w/2&&Math.abs(p.z-o.z)<o.d/2)||null;}
+ root.FairyGardenRules={START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction};
 })(globalThis);
