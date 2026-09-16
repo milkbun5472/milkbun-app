@@ -1,0 +1,24 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-aeb847a2a133762a"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-aeb847a2a133762a"}}</script></head><body>
+<main id="app"><canvas id="world" aria-label="点击空地行走，点击花圃或林地植物互动，也可使用下方按钮" tabindex="0"></canvas>
+<header><div class="brand"><span class="eyebrow">一处会慢慢长大的地方</span><h1><span id="place-title">微光庭院</span><small>试玩</small></h1></div><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
+<aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div><button id="host-talk" hidden>说句话</button><button id="rest" title="走回屋前休息，推进一天，林地材料重新生长">睡到明天</button></aside>
+<div id="loading"><div class="loading-card"><div class="leaf">❧</div><h2>推开庭院的门</h2><p id="load-text">正在准备小屋和林地…</p><div class="loading-line"></div></div></div>
+<button id="companion-tag" hidden title="看看同行者的安排"></button>
+<div id="arrival" aria-hidden="true"></div>
+<section class="panel"><div class="statusline"><span class="badge" id="objective">先去井边取一壶水</span><span class="save" id="save">独立试玩存档</span></div><button id="companion-open" class="companion-strip"><span class="companion-dot">❧</span><span id="companion-status">同行者正在准备出门</span><span class="companion-more">看看安排 ›</span></button><p class="narration" id="message" aria-live="polite">林间的小路通了，带着水壶去看看吧。</p><div class="progress-track" hidden id="progress"><div></div></div>
+<div class="actions"><button id="well"></button><button id="garden"></button></div>
+<div class="secondary-actions"><button id="brew">⚗ 炼制月露</button><button id="travel">↗ 前往萤光林地</button></div>
+<div class="bag" aria-label="随身背包"><span>铃叶草 <b id="herbs">0</b></span><span>荧光菇 <b id="mushrooms">0</b></span><span>月露 <b id="potions">0</b></span><span>花藏 <b id="harvest">0</b></span></div>
+<div class="inventory"><span>水壶 <b id="water">○ ○ ○</b></span><span>花圃 <b id="blooms">尚未唤醒</b></span><button id="reset">重新试玩</button></div></section>
+<div class="hint" id="hint">轻点空地行走，也可以直接点植物</div>
+<dialog id="reset-dialog"><h2>重新开始这段生活？</h2><p>仅重置本试玩的天数、背包、花圃、位置和同行者设置。</p><div><button id="cancel-reset">留下进度</button><button id="confirm-reset">重新试玩</button></div></dialog>
+<dialog id="companion-dialog" class="companion-dialog">
+<div class="dialog-title"><h2>一起住在这个世界</h2><button id="companion-close" aria-label="关闭同行者面板">×</button></div>
+<p class="prototype-note">示例同行者 · 可改名与活动偏好，尚未接入角色人设或 API。</p>
+<label for="companion-input">称呼</label><input id="companion-input" maxlength="16" autocomplete="off" placeholder="同行者">
+<label for="companion-type">平时喜欢做什么</label><select id="companion-type"><option value="gardener">爱照料植物</option><option value="explorer">爱到处探索</option><option value="scholar">喜欢安静研究</option></select>
+<div class="schedule-title"><span>今天的安排</span><span id="companion-current-time"></span></div><ol id="companion-schedule"></ol>
+<p id="companion-detail"></p><p class="time-note">页面在前台时，约 1 秒走过游戏里的 1 分钟；离开或打开这个面板会暂停。照料花圃每天最多一次，用的是同行者自己的晨露。</p>
+<button id="host-partner" hidden>选择手机里的同行者</button><div class="companion-controls"><button id="companion-follow">叫来一起走</button><button id="companion-routine">按自己的安排</button><button id="companion-wait">坐一会儿 · 1 小时</button><button id="companion-save">保存偏好</button></div>
+</dialog>
+</main><script type="module" src="game.mjs?v=fg-aeb847a2a133762a"></script></body></html>

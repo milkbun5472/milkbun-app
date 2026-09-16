@@ -5,7 +5,7 @@
 //   · 带 ?v= 的资源＝缓存优先——版本号即指纹，同 URL 内容永不变，缓存天然不脏；
 //     换版本时 URL 变了自然重新拉，旧版本条目就地清理（同路径不同 ?v= 删旧留新）。
 // 断网能干什么：翻聊天/记忆库/图库/记账/日历（全在本机）；callAI 和云同步仍需网。
-const SW_VERSION = "archive-sw-v6";
+const SW_VERSION = "archive-sw-v7";
 const SHELL_CACHE = "archive-shell-" + SW_VERSION;
 
 // 安装即接管，激活即控制所有页面（不等下次刷新）
@@ -25,13 +25,17 @@ function isVersionedAsset(url) {
 function isStaticSameOrigin(url) {
   // webp 是 v61.43 补的：秋秋的头像和图标是 webp（同一张画 png 要 80KB、webp 只要 15KB）。
   // 不写进来的话它俩每次都走网络，离线时秋秋就是两个空框。
-  return url.origin === self.location.origin && /\.(js|css|png|webp|json|ico)$/.test(url.pathname);
+  return url.origin === self.location.origin && (/\.(js|css|png|webp|json|ico)$/.test(url.pathname) || (/\/apps\/fairy-garden\//.test(url.pathname) && /\.(mjs|glb)$/.test(url.pathname)));
 }
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
+  // Main shell and embedded app documents have distinct offline entries.
+  const scope = new URL("./", self.location.href);
+  const mainDocument = url.pathname === scope.pathname || url.pathname === new URL("index.html", scope).pathname;
+  const navigationKey = mainDocument ? "__index__" : "__page__:" + url.origin + url.pathname;
   // 导航：网络优先，断网退缓存
   if (req.mode === "navigate") {
     event.respondWith((async () => {
@@ -40,10 +44,10 @@ self.addEventListener("fetch", (event) => {
         // 导航显式 no-store，保证在线启动不被旧 index.html 黏住。
         const fresh = await fetch(req, { cache: "no-store" });
         const cache = await caches.open(SHELL_CACHE);
-        cache.put("__index__", fresh.clone());
+        if (fresh.ok) await cache.put(navigationKey, fresh.clone());
         return fresh;
       } catch (e) {
-        const cached = await caches.match("__index__");
+        const cached = await caches.match(navigationKey);
         if (cached) return cached;
         throw e;
       }

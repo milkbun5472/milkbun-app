@@ -701,7 +701,7 @@
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon",
     study: "study", fanfic: "fanfic", read: "read", weekly: "weekly", debate: "debate",
     dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", pomodoro: "pomodoro",
-    games: "games", trpg: "trpg", theater: "theater", impression: "impression",
+    games: "games", fairyGarden: "fairyGarden", trpg: "trpg", theater: "theater", impression: "impression",
     yanqiu: "yanqiu", loungeapp: "lounge", rescue: "rescue", vpscodex: "vpscodex",
     forum: "forum", momprofile: "moments", us: "couple",
     favorites: "favorites", emotes: "emotes", stylelab: "stylelab",
