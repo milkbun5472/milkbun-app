@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.00";
+const APP_VERSION = "v69.01";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6573,7 +6573,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     };
     try {
       const st = liveStateForScope(char.id, scopeKey);
-      const me = { name: (profile && profile.name) || "我", appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
+      const me = photoMe("我");
       const freshPlace = freshLiveStateValue(st, "place");
       const freshCond = freshLiveStateValue(st, "condition");
       // 连贯参考图：这一场线下里这个人最近一张已生成的图，只取 6 小时内的。
@@ -6623,7 +6623,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const withRef = groupMembers(group).filter(c => c && c.refPhoto);
     const cast = withRef.slice(0, (profile && profile.refPhoto) ? 3 : 4)
       .map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
-    if (profile && profile.refPhoto) cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto });
+    if (profile && profile.refPhoto) cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto, outfit: (profile && profile.photoOutfit) || "", closet: myClosetText() });
     if (cast.length < 2 || !withRef.length) { toast("合影要在场至少两个人有参考照，才能把脸都锁住——去给他们（或你自己）各传一张", 9000); return; }
     const shooter = withRef[0];
     const st = statesRef.current[shooter.id] || {};
@@ -7427,7 +7427,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (_shooter && b.photo.kind === "group") {
             const withRef = [_shooter].concat((gCtx.members || []).filter(c => c.id !== _shooter.id)).filter(c => c && c.refPhoto);
             _cast = withRef.slice(0, (profile && profile.refPhoto) ? 3 : 4).map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
-            if (profile && profile.refPhoto) _cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto });
+            if (profile && profile.refPhoto) _cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto, outfit: (profile && profile.photoOutfit) || "", closet: myClosetText() });
           }
           if (_shooter) runOfflineShot({ char: _shooter, groupId: group.id, kind: b.photo.kind, scene: b.photo.scene, cast: _cast });
         }
@@ -9570,7 +9570,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         (async () => {
           try {
             const st = states[charId] || {};
-            const me = { name: uName, appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
+            const me = photoMe(uName);
             const freshPlace = freshLiveStateValue(st, "place");
             const freshCond = freshLiveStateValue(st, "condition");
             // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
@@ -10944,7 +10944,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             (async () => {
               try {
                 const st = states[spk.id] || {};
-                const me = { name: (profile && profile.name) || "对方", appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
+                const me = photoMe("对方");
                 // view＝画面里没有人：走空景那条路，一张参考照都不喂（喂了它就会把脸画进去）
                 const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";
                 const gNoFace = gIsView || gIsPart;
@@ -18191,6 +18191,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 照相馆 ──
   const STUDIO_CAP = 200;
   const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
+  // 出图时的「我」只此一份。⚠️原来四处各自手搓 { name, appearance, refPhoto }，
+  //   衣柜和固定服装锁一处都没接上——于是传了脸也没东西兜衣服（她 2026-09-16 提的）。
+  //   角色那条链是 固定锁 ＞ 此刻穿着 ＞ 衣柜 ＞ 人设；我这边补齐 固定锁 ＞ 衣柜 ＞ 外貌。
+  const photoMe = (fallbackName) => ({
+    name: (profile && profile.name) || fallbackName || "我",
+    appearance: profile && profile.appearance,
+    refPhoto: profile && profile.refPhoto,
+    outfit: (profile && profile.photoOutfit) || "",
+    closet: myClosetText()
+  });
   const saveMyCloset = next => { myClosetRef.current = next; setMyCloset(next); saveJSON("x_myCloset", next); };
   // ── 我的衣柜（v59.27，她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
   //    用关键词生成几套，再加上可以自己填」）──────────────────────
@@ -18308,7 +18318,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, studio: true }));
     try {
       const st = statesRef.current[char.id] || {};
-      const me = { name: (profile && profile.name) || "我", appearance: profile && profile.appearance, refPhoto: profile.refPhoto };
+      // 照相馆是她自己挑的衣服（下面 dressLine 已经写进场景里），所以【不塞衣柜】——
+      // 塞了会跟她刚挑的那身打架。固定服装锁照给。
+      const me = { ...photoMe("我"), closet: "" };
       // 两身衣服显式写进画面描述里：写进去才画得出来，光挂在衣柜里图像端读不到
       // ⚠️社区反馈（她 2026-09-14 转来）：「情侣空间拍合照的时候好像提示词有上限，
       //   塞不下那么多衣柜的描述（自动生成的比较长）」。查下来是两件事一起犯：

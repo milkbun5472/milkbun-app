@@ -3863,6 +3863,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 合影点名单（v53.85）：opts.cast = [{name, appearance, outfit}]，顺序【必须】等于参考图顺序。
   // 给它就走多人分支，人数不写死——群合照是「在场角色 + 你」，以后「看看你俩合照」只是换一份名单，
   // 生图这层一个字都不用再改。duo 是两人的老路径，没给 cast 时原样保留（单聊/小剧场都还走它）。
+  // 用户自己的穿着来源，和角色同一条链：固定锁 ＞ 衣柜 ＞（没有就让模型自由搭）
+  const meOutfit = String((me && me.outfit) || "").trim();
+  const meCloset = meOutfit ? "" : String((me && me.closet) || "").trim();
   if (multi) {
     const 序 = ["第一张", "第二张", "第三张", "第四张", "第五张", "第六张"];
     const names = cast.map(x => "「" + String(x.name).trim() + "」");
@@ -3879,8 +3882,12 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     });
     cast.forEach((x, i) => {
       const of = String(x.outfit || "").trim();
+      // 名单里那个「我」（id 为 __me）也要能吃到自己的衣柜，别只有角色有
+      const cl = of ? "" : String(x.closet || (x.id === "__me" ? meCloset : "")).trim();
       parts.push(of
         ? "【" + names[i] + " 的固定服装锁】" + names[i] + "每张图都必须完整穿着：" + of + "。不得换装、不得照搬参考照里的衣服、不得按场景另搭一套。"
+        : cl
+        ? names[i] + "的穿着：**别照搬参考照里的那身衣服**，从 TA 衣柜里【真有的】这几身里挑一套合场景的：\n" + cl + "\n挑一套穿全，别拼、别另编。"
         : names[i] + "的穿着：**别照搬 " + names[i] + " 参考照里的那身衣服**，按当前场景/天气/氛围自然搭配一套合适的衣着，只保留 TA 的长相五官。");
     });
     parts.push("【这 " + cast.length + " 个人的脸都要清楚完整地出现在画面里】，是 " + cast.length +
@@ -3894,8 +3901,18 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     if (char.appearance && char.appearance.trim()) parts.push("「" + cName + "」的外貌（务必贴合）：" + char.appearance.trim() + "。");
     if (me && me.appearance && String(me.appearance).trim()) parts.push("「" + uName + "」的外貌（务必贴合）：" + String(me.appearance).trim() + "。");
     // me.outfit：同一场戏里必须每张都穿同一套（小剧场）。日常合照没有它，仍旧每张随机搭配。
-    parts.push(me && String(me.outfit || "").trim()
-      ? "【" + uName + " 的固定服装锁】「" + uName + "」每张图都必须完整穿着：" + String(me.outfit).trim() + "。不得换装、不得照搬参考照里的衣服、不得按场景另搭一套——同一场戏里这身衣服始终不变。"
+    // ⚠️用户这一路原来只有「固定锁 / 什么都没有」两档——传了脸也没东西兜衣服。
+    //   角色早就有四级（固定锁 ＞ 此刻穿着 ＞ 衣柜 ＞ 人设），这儿补上【衣柜】那一级：
+    //   她衣柜里真挂着的那几身，比让模型随便编一套靠谱得多（她 2026-09-16 提的）。
+    // ⚠️她 2026-09-16 补的判据：**服设也算锚点**，所以「她直接填的那一段」和
+    //   「今天从衣柜里挑一套」是两个档次的东西，不能一个待遇。
+    //   填了的那段是【她这个人长什么样】的一部分（二次元设定尤其如此：那身衣服就是她），
+    //   所以它跟身份锁同级，而且**不许再叫模型「别照搬参考照里的衣服」**——
+    //   参考照里那身多半正是这一段写的那身，照搬才是对的。
+    parts.push(meOutfit
+      ? "【" + uName + " 的服装设定·与脸同级的锚点】「" + uName + "」这身装束不是今天挑的衣服，是设定的一部分：" + meOutfit + "。每张图都必须完整穿着它，不得换装、不得按场景另搭一套——同一场戏里这身衣服始终不变。参考照里若正好是这身，照着画；若不是，以这段文字为准。"
+      : meCloset
+      ? "「" + uName + "」的穿着：**别照搬 " + uName + " 参考照里的那身衣服**，从 TA 自己衣柜里【真有的】这几身里挑一套合场景的穿上：\n" + meCloset + "\n挑一套穿全，别把几套拼在一起，也别另编衣柜里没有的东西。"
       : "「" + uName + "」的穿着：**别照搬 " + uName + " 参考照里的那身衣服**，按当前场景/天气/氛围给 TA 自然搭配一套合适、日常的衣着（每张可以不一样），只保留 TA 的长相五官。");
     parts.push("【两个人的脸都要清楚完整地出现在画面里】，是两个长相不同的人，五官各自清晰可辨——别把两人画成同一张脸、别只画一个人、别缺人、别多出第三个人。");
   } else {

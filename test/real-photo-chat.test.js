@@ -143,7 +143,9 @@ test("剧照 prompt 要过滤明确内容并声明画面尺度", () => {
 // 合照分支原本明写「每张可以不一样」，那是为日常自拍写的，一场戏里是灾难。
 test("给了行头就锁死，没给才每张随机", () => {
   const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-  assert.match(eng, /me && String\(me\.outfit \|\| ""\)\.trim\(\)/, "用户侧要支持固定服装锁");
+  // v69.01：判断提到 duo 分支外面收成 meOutfit（多人合影里的「我」也要用同一份），行为没变
+  assert.match(eng, /const meOutfit = String\(\(me && me\.outfit\) \|\| ""\)\.trim\(\);/, "用户侧要支持固定服装锁");
+  assert.match(eng, /parts\.push\(meOutfit\n/);
   assert.match(eng, /同一场戏里这身衣服始终不变/);
   assert.match(eng, /每张可以不一样/, "没给行头时仍保留日常合照的随机搭配");
 });

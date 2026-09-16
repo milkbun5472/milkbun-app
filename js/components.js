@@ -6177,6 +6177,7 @@ function ProfileSheet({
   const [birthday, setBirthday] = useState(profile.birthday || "");
   const [appearance, setAppearance] = useState(profile.appearance || "");
   const [refPhoto, setRefPhoto] = useState(profile.refPhoto || null);
+  const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
   return /*#__PURE__*/React.createElement(Sheet, {
     onClose: onClose,
     tall: true
@@ -6197,7 +6198,8 @@ function ProfileSheet({
       color,
       birthday: birthday.trim(),
       appearance: appearance.trim(),
-      refPhoto: refPhoto
+      refPhoto: refPhoto,
+      photoOutfit: photoOutfit.trim()
     }))
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
@@ -6255,8 +6257,15 @@ function ProfileSheet({
     h("div", null,
       h("div", { className: "flex items-center gap-3 mb-2" },
         h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张你的参考照(可选)锁住长相；接了图像 API 后，角色发『我俩合照』时会照着画你")),
-      h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 4, placeholder: "你的长相/发型/身材/气质/常穿风格……越具体，合照里的你越像本人。填了才开放『合照』。" }))));
+        // ⚠️说清楚要【什么样的照片】：有人传了全身立绘，脸只剩几十个像素，
+        //   压完图模型根本拿不到五官，合照里就成了另一个人（2026-09-16 报的）。
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张你的参考照(可选)锁住长相——要能看清脸的半身或大头照，别用全身立绘（脸太小，压完就没五官了）")),
+      h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 4, placeholder: "你的长相/发型/身材/气质/常穿风格……越具体，合照里的你越像本人。填了才开放『合照』。" }),
+      // 出图常服：跟角色档案里那一栏同一个意思，只是这回是你自己的。
+      // 优先级：这一栏 ＞ 我的衣柜 ＞ 让模型自由搭。
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 10, marginBottom: 4 } },
+        "出图常服（可选）：填了就每张都穿这一身。不填的话，会从【我的衣柜】里真有的那几套里挑。"),
+      h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 2, placeholder: "每张图都必须保留的服装，例如：白色毛衣＋深蓝格纹围巾" }))));
 }
 // ============================================================
 // MESSAGES — WeChat-style: 聊天 / 通讯录 / 朋友圈
