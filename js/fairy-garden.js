@@ -2,7 +2,7 @@
 // 世界、游戏对话只存 x_fairyGarden；接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ef749ce728ca49b7", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-d4d9c0decefffab4", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = () => { const d = loadJSON(KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {TREES,NODES} from './world.mjs?v=fg-ef749ce728ca49b7';
+import {TREES,NODES} from './world.mjs?v=fg-d4d9c0decefffab4';
 // Reusable geometry and hand-painted pigment textures; no generated-image requests.
 export function makeForest(){
  const root=new T.Group(),nodes=new Map(),glows=[],mats=new Map();let seed=71;
@@ -7,8 +7,7 @@ export function makeForest(){
  function mat(color){if(mats.has(color))return mats.get(color);const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d');c.fillStyle=color;c.fillRect(0,0,128,128);for(let i=0;i<750;i++){c.fillStyle=rnd()>.5?'rgba(255,248,210,.055)':'rgba(22,55,49,.045)';c.beginPath();c.ellipse(rnd()*128,rnd()*128,2+rnd()*10,1+rnd()*3,rnd(),0,Math.PI*2);c.fill();}const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;const m=new T.MeshStandardMaterial({map:tex,color:'#bbc6b0',roughness:1});mats.set(color,m);return m;}
  function mesh(geo,color,x,y,z,sx=1,sy=1,sz=1,parent=root){const m=new T.Mesh(geo,mat(color));m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
  const sphere=new T.IcosahedronGeometry(1,2),cyl=new T.CylinderGeometry(1,1,1,12),cone=new T.ConeGeometry(1,1,10);
- mesh(new T.CylinderGeometry(1,1,1,64),'#6c8860',0,-.23,0,5.64,.58,5.64);
- mesh(new T.CylinderGeometry(1,1,1,64),'#8a9d6a',0,.067,0,5.60,.025,5.60);
+ // Ground and distant woodland are shared with the garden in surroundings.mjs.
  // Still water encircled with irregular mossy stones.
  const water=mesh(cyl,'#739f9d',-.7,.10,-1.1,1.24,.025,1.24);water.material=water.material.clone();water.material.metalness=.12;water.material.roughness=.4;
  for(let i=0;i<20;i++){const a=i*Math.PI/10;mesh(sphere,i%3?'#a8b396':'#7e9675',-.7+Math.cos(a)*1.29,.13,-1.1+Math.sin(a)*1.29,.23,.14,.18);}

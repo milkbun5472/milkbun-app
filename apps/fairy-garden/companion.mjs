@@ -1,4 +1,4 @@
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare} from './world.mjs?v=fg-ef749ce728ca49b7';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare} from './world.mjs?v=fg-d4d9c0decefffab4';
 const activity=ACTIVITIES;
 const timetables={
  gardener:[[420,'home'],[480,'flowers'],[600,'herbs'],[720,'study'],[840,'potion'],[1020,'glow'],[1200,'home']],

@@ -1,19 +1,19 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-ef749ce728ca49b7"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-ef749ce728ca49b7"}}</script></head><body>
-<main id="app"><canvas id="world" aria-label="点击空地行走，点击花圃或林地植物互动，也可使用下方按钮" tabindex="0"></canvas>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-d4d9c0decefffab4"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-d4d9c0decefffab4"}}</script></head><body>
+<main id="app"><canvas id="world" aria-label="轻点空地行走，拖动移动视角，双指缩放，点击植物互动" tabindex="0"></canvas>
 <header><div class="brand"><span class="eyebrow">一处会慢慢长大的地方</span><h1><span id="place-title">微光庭院</span><small>试玩</small></h1></div><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
 <aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div><button id="host-talk" hidden>说句话</button><button id="rest" title="走回屋前休息，推进一天，林地材料重新生长">睡到明天</button></aside>
 <div id="loading"><div class="loading-card"><div class="leaf">❧</div><h2>推开庭院的门</h2><p id="load-text">正在准备小屋和林地…</p><div class="loading-line"></div></div></div>
 <button id="companion-tag" hidden title="看看同行者的安排"></button>
 <div id="arrival" aria-hidden="true"></div>
 <button id="season-open" class="season-open" aria-label="打开季节手册">春 · 1/14 天</button>
-<nav class="map-controls" aria-label="地图缩放"><button id="zoom-out" aria-label="缩小地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button id="zoom-reset" aria-label="恢复默认地图大小" title="恢复默认大小">100%</button><button id="zoom-in" aria-label="放大地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button></nav>
+<nav class="map-controls" aria-label="地图视角"><button id="zoom-out" aria-label="缩小地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button id="zoom-reset" aria-label="恢复默认地图大小" title="恢复默认大小与位置">100%</button><button id="zoom-in" aria-label="放大地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button><button id="view-center" aria-label="回到自己位置" title="回到自己位置"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button></nav>
 <section class="panel" id="action-panel"><button id="panel-toggle" class="panel-toggle" aria-expanded="true" aria-controls="panel-content"><span>收起行动</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div id="panel-content"><div class="statusline"><span class="badge" id="objective">先去井边取一壶水</span><span class="save" id="save">独立试玩存档</span></div><button id="companion-open" class="companion-strip"><span class="companion-dot">❧</span><span id="companion-status">同行者正在准备出门</span><span class="companion-more">看看安排 ›</span></button><p class="narration" id="message" aria-live="polite">林间的小路通了，带着水壶去看看吧。</p><div class="progress-track" hidden id="progress"><div></div></div>
 <div class="actions"><button id="well"></button><button id="garden"></button></div>
 <div class="secondary-actions"><button id="brew">⚗ 炼制月露</button><button id="travel">↗ 前往萤光林地</button></div>
 <div class="secondary-actions magic-actions"><button id="magic-action">种下星铃种子</button><button id="make-lamp">制作星铃灯</button></div>
 <div class="bag" aria-label="随身背包"><span>铃叶草 <b id="herbs">0</b></span><span>荧光菇 <b id="mushrooms">0</b></span><span>月露 <b id="potions">0</b></span><span>花藏 <b id="harvest">0</b></span></div>
 <div class="inventory"><span>水壶 <b id="water">○ ○ ○</b></span><span>花圃 <b id="blooms">尚未唤醒</b></span><button id="reset">重新试玩</button></div></div></section>
-<div class="hint" id="hint">轻点空地行走，也可以直接点植物</div>
+<div class="hint" id="hint">轻点行走 · 拖动画面 · 双指缩放</div>
 <dialog id="reset-dialog"><h2>重新开始这段生活？</h2><p>仅重置本试玩的天数、背包、花圃、位置和同行者设置。</p><div><button id="cancel-reset">留下进度</button><button id="confirm-reset">重新试玩</button></div></dialog>
 <dialog id="companion-dialog" class="companion-dialog">
 <div class="dialog-title"><h2>一起住在这个世界</h2><button id="companion-close" aria-label="关闭同行者面板">×</button></div>
@@ -28,4 +28,4 @@
 <div class="dialog-title"><h2 id="season-title">这一季</h2><button id="season-close" aria-label="关闭季节手册">×</button></div>
 <div class="book-body"><p id="season-summary"></p><button id="season-generate">一起安排这一季</button><p id="season-policy" class="time-note"></p><p id="season-error" role="alert"></p><details id="season-raw" hidden><summary>查看原始回复</summary><pre id="season-error-detail"></pre></details>
 <h3>这十四天</h3><div id="season-days"></div><h3>花谱与小灯</h3><p id="flower-book"></p><p id="flower-recipe"></p><h3>庭院日志</h3><div id="garden-journal"></div></div></dialog>
-</main><script type="module" src="game.mjs?v=fg-ef749ce728ca49b7"></script></body></html>
+</main><script type="module" src="game.mjs?v=fg-d4d9c0decefffab4"></script></body></html>

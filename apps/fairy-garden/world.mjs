@@ -1,4 +1,4 @@
-import './rules.js?v=fg-ef749ce728ca49b7';
+import './rules.js?v=fg-d4d9c0decefffab4';
 export const {START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
 export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;return !MAPS[map].obstacles.some(o=>o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16);}
 const STEP=.24,N=43,half=(N-1)/2;

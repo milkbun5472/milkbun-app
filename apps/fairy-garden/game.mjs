@@ -1,12 +1,13 @@
-import {installSeasonBook} from './season-book.mjs?v=fg-ef749ce728ca49b7';
-import {makeMagicView} from './magic-view.mjs?v=fg-ef749ce728ca49b7';
-import {installViewControls} from './view-controls.mjs?v=fg-ef749ce728ca49b7';
+import {installSeasonBook} from './season-book.mjs?v=fg-d4d9c0decefffab4';
+import {makeMagicView} from './magic-view.mjs?v=fg-d4d9c0decefffab4';
+import {installViewControls} from './view-controls.mjs?v=fg-d4d9c0decefffab4';
 import * as THREE from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-ef749ce728ca49b7';
-import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby} from './world.mjs?v=fg-ef749ce728ca49b7';
-import {makeForest} from './forest.mjs?v=fg-ef749ce728ca49b7';
-import {createTraveler} from './traveler.mjs?v=fg-ef749ce728ca49b7';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-ef749ce728ca49b7';
+import {makeSurroundings} from './surroundings.mjs?v=fg-d4d9c0decefffab4';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-d4d9c0decefffab4';
+import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby} from './world.mjs?v=fg-d4d9c0decefffab4';
+import {makeForest} from './forest.mjs?v=fg-d4d9c0decefffab4';
+import {createTraveler} from './traveler.mjs?v=fg-d4d9c0decefffab4';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-d4d9c0decefffab4';
 const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
@@ -19,11 +20,11 @@ const canvas=$('world');let renderer;
 try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'low-power'});}catch(e){$('load-text').textContent='这个浏览器暂时无法打开立体画面，请换 Safari 或 Chrome 再试。';throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 const scene=new THREE.Scene();scene.background=new THREE.Color('#dfe5d5');scene.fog=new THREE.Fog('#dfe5d5',27,62);
-const camera=new THREE.OrthographicCamera(-7,7,7,-7,.1,80);camera.position.set(10,12,16);camera.lookAt(0,.5,0);
+const camera=new THREE.OrthographicCamera(-7,7,7,-7,.1,80);const cameraPan=new THREE.Vector3();camera.position.set(10,12,16);camera.lookAt(0,.5,0);
 const hemi=new THREE.HemisphereLight('#f7f1d6','#7d9278',2.1);scene.add(hemi);
 const sun=new THREE.DirectionalLight('#fff0d0',3.5);sun.position.set(-4,10,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-8;sun.shadow.camera.right=8;sun.shadow.camera.top=8;sun.shadow.camera.bottom=-8;sun.shadow.normalBias=.035;sun.shadow.bias=-.0001;scene.add(sun);
 const fill=new THREE.DirectionalLight('#d8e9ed',1);fill.position.set(5,4,-5);scene.add(fill);
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshStandardMaterial({color:'#dfe4d4',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.57;floor.receiveShadow=true;scene.add(floor);
+const surroundings=makeSurroundings();scene.add(surroundings.root);
 const factories={forest:makeForest},mapViews={};
 for(const [id,map] of Object.entries(MAPS)){if(factories[map.renderer]){mapViews[id]=factories[map.renderer]();scene.add(mapViews[id].root);mapViews[id].root.visible=false;}}
 const magicView=makeMagicView();scene.add(magicView.seed,magicView.bed,magicView.lamps);let coloredSeason=-1;
@@ -51,13 +52,13 @@ function ui(){
  $('magic-action').textContent=woods?'一起唤醒种子':!data.magic.planted?'种下星铃种子':data.magic.growth>=2?'采收星铃花':'照料星铃花';$('make-lamp').hidden=woods;for(const id of ['magic-action','make-lamp'])$(id).disabled=!!acting;
  grow();refreshTime();updateCompanionUI();blooms.visible=!woods;document.body.classList.toggle('forest',woods);rain.visible=['细雨','细雪'].includes(weather(data.day));
 }
-function showMap(){for(const [id,view] of Object.entries(mapViews))view.root.visible=id===data.map;highlights.forEach(h=>h.visible=data.map==='garden');const map=MAPS[data.map];scene.background.set(map.background);scene.fog.color.set(map.background);sun.intensity=map.light;ui();resize();}
+function showMap(){cameraPan.set(0,0,0);for(const [id,view] of Object.entries(mapViews))view.root.visible=id===data.map;highlights.forEach(h=>h.visible=data.map==='garden');const map=MAPS[data.map];scene.background.set(map.background);scene.fog.color.set(map.background);sun.intensity=map.light;ui();resize();}
 function flash(){ $('arrival').classList.add('flash');setTimeout(()=>$('arrival').classList.remove('flash'),350);}
 function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
-function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=aspect<1?(h<730?14:12.8):Math.max(14,16*aspect);const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.lookAt(0,.5-offset/camera.zoom,0);camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
+function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=aspect<1?(h<730?14:12.8):Math.max(14,16*aspect);const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=new GLTFLoader();const assets=Object.entries(MAPS).filter(([,m])=>m.asset);const loaded=await Promise.all(assets.map(([,m])=>loader.loadAsync(m.asset)));for(let i=0;i<loaded.length;i++){const root=loaded[i].scene;root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});mapViews[assets[i][0]]={root};scene.add(root);}const a=await loader.loadAsync('./traveler.glb?v=fg-ef749ce728ca49b7');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=new GLTFLoader();const assets=Object.entries(MAPS).filter(([,m])=>m.asset);const loaded=await Promise.all(assets.map(([,m])=>loader.loadAsync(m.asset)));for(let i=0;i<loaded.length;i++){const root=loaded[i].scene;root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});mapViews[assets[i][0]]={root};scene.add(root);}const a=await loader.loadAsync('./traveler.glb?v=fg-d4d9c0decefffab4');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap();if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
 function go(target,job=null){if(!ready||acting)return false;const points=findPath({x:actor.position.x,z:actor.position.z},target,data.map);if(!points?.length){say('那边暂时走不过去，换一块空地试试。');return false;}path=points;task=job;targetRing.position.set(target.x,.105,target.z);targetRing.visible=true;$('hint').style.opacity=0;if(!job)say(data.map==='forest'?'脚步轻一点，草叶里藏着小小的光。':'慢慢走，庭院里的路都属于这个下午。');return true;}
 function request(kind,id){if(!ready||acting)return;const err=actionError(data,kind,id);if(err){say(err);return;}const p=targetFor(data,kind,id);if(!p)return;if(go(p,{kind,id}))say(({well:'去井边装一壶清水。',garden:data.blooms===3?'去把开好的月光花收进花藏。':data.potions?'带着月露，去唤醒整圃花。':'沿着小路，去看看花圃。',brew:'带齐材料，去炼药锅旁边。',travel:data.map==='garden'?'沿着庭院小路，走向林间。':'穿过石门，带着收获回家。',seed:'去林地的微光旁，等同行者一起唤醒种子。',star:'去看看星铃花。',lamp:'把花带到屋前，做一盏星铃灯。',gather:'走近一点，摘下这一丛森林的礼物。',rest:'回屋睡一觉，让日子慢慢往前走。'})[kind]);}
@@ -71,14 +72,17 @@ function completeAction(){const {kind,id,intent}=acting;const before=data;data=p
  say(kind==='seed'?'星铃种子 +1。带回庭院种下吧。':kind==='star'?!before.magic.planted?'种子已经住进小花盆，每天用清水照料一次。':before.magic.growth>=2?'星铃花 +1，花谱记住了它。可以和三朵月光花一起制作星铃灯。':'新芽长大了一点，隔一天再来照料吧。':kind==='lamp'?'星铃灯留在屋前了。天色暗下来时，它会亮起。':kind==='travel'?(data.map==='forest'?'林地到了。铃叶草和荧光菇，可以一起炼成月露。':'回家了。炼药需要两份铃叶草、一份荧光菇和一格清水。'):kind==='rest'?`第 ${data.day} 天，${weather(data.day)}。林地的材料重新长好了。${weather(data.day)==='细雨'?'雨水也替花圃浇了一次水。':''}`:kind==='gather'?(NODES.find(n=>n.id===id).kind==='herb'?'铃叶草 +2，收进背包了。':'荧光菇 +1，收进背包了。'):kind==='brew'?'月露 +1。带去花圃，就能让尚未开好的花一起苏醒。':kind==='well'?'水壶装满了，浇花和炼药都可以用。':before.blooms===3?'月光花 +3，收入花藏。花根还在，可以继续照料。':before.potions?'月露散开，整圃月光花都亮了。可以采收啦。':'一朵月光花醒来了，再照料一下旁边的花吧。');}
 function tapMap(clientX,clientY){const r=canvas.getBoundingClientRect();mouse.set((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);ray.setFromCamera(mouse,camera);if(companionAvatar?.root.visible&&ray.intersectObject(companionAvatar.root,true).length){openCompanion();return;}const point=new THREE.Vector3();if(ray.ray.intersectPlane(plane,point)){const picked=mapViews[data.map]?.pick?.(ray);const hit=picked?{kind:'gather',id:picked}:hitInteraction(data.map,point);if(hit){if(hit.kind==='seed'){$('magic-action').click();}else request(hit.kind,hit.id);return;}if(walkable(point.x,point.z,data.map))go({x:point.x,z:point.z});}}
 
-const viewControls=installViewControls({canvas,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onZoom:value=>{camera.zoom=value;resize(false);}});
+function panMap(dx,dy){
+ camera.updateMatrixWorld();const a=new THREE.Vector3(),b=new THREE.Vector3(),r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);if(!r.ray.intersectPlane(plane,a))return;r.setFromCamera(new THREE.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);if(!r.ray.intersectPlane(plane,b))return;cameraPan.add(a.sub(b));cameraPan.y=0;cameraPan.clampLength(0,MAPS[data.map].radius);resize(false);
+}
+const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:()=>{if(actor)cameraPan.set(actor.position.x,0,actor.position.z);resize(false);},onReset:()=>cameraPan.set(0,0,0),onPan:panMap,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onZoom:value=>{camera.zoom=value;resize(false);}});
 canvas.addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d&&actor){e.preventDefault();go({x:actor.position.x+d[0],z:actor.position.z+d[1]});}});
 let lite=false;$('quality').onclick=()=>{lite=!lite;renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.6));renderer.shadowMap.enabled=!lite;$('quality').textContent=lite?'精细画质':'轻量画质';scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});resize();};
 $('reset').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=()=>{path=[];task=null;acting=null;stream.visible=false;$('progress').hidden=true;data={...freshState(),epoch:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};companionController.reset();timeAccumulator=0;lastCompanionEvent='';if(actor)actor.position.set(START.x,.08,START.z);targetRing.visible=false;showMap();save();if(boundPartner)data.companion.name=boundPartner.name;say('新的生活，从一壶清水和一条林间小路开始。');$('reset-dialog').close();};
 function refreshTime(){
  const season=seasonOf(data.day);$('season-open').textContent=`${season.name} · ${season.day}/14 天`; $('date').textContent=`第 ${season.year} 年 · ${season.name} ${season.day} 日 · ${weather(data.day)}`;$('place-subtitle').textContent=`${timeLabel(data.minute)} · ${data.map==='forest'?'萤光与草木':'小屋与月光花'}`;
  const late=data.minute>=season.dusk+90,dusk=data.minute>=season.dusk;hemi.intensity=late?1.3:dusk?1.7:2.1;sun.intensity=MAPS[data.map].light*(late?.40:dusk?.75:1);sun.color.set(late?'#cad8f1':dusk?'#ffcf9e':'#fff0d0');
- const color=late?'#b9c8c3':dusk?'#e1dcc5':MAPS[data.map].background;scene.background.set(color);scene.fog.color.set(color);floor.material.color.set(color).lerp(new THREE.Color(season.tint),.15);
+ const color=late?'#b9c8c3':dusk?'#e1dcc5':MAPS[data.map].background;scene.background.set(color);scene.fog.color.set(color);surroundings.update(data.map,season.tint);
  if(coloredSeason!==season.index){coloredSeason=season.index;for(const view of Object.values(mapViews))view.root.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.color){m.userData.baseTint ??= m.color.getHex();m.color.setHex(m.userData.baseTint).lerp(new THREE.Color(season.tint),.12);}});} rain.material.color.set(weather(data.day)==='细雪'?'#ffffff':'#e4f3ef');rain.material.size=weather(data.day)==='细雪'?.06:.035;rain.visible=['细雨','细雪'].includes(weather(data.day));
 }
 function updateCompanionUI(){const c=data.companion,v=companionController.view();$('companion-status').textContent=`${c.name} · ${c.map===data.map?v.status:MAPS[c.map].name+' · '+v.status}`;$('companion-tag').textContent=c.name;}
@@ -111,7 +115,7 @@ let last=performance.now(),lastRender=0;function frame(now){requestAnimationFram
 addEventListener('pagehide',()=>{if(ready)save();});
 requestAnimationFrame(frame);load();
 // Read-only snapshots make the prototype's movement and persistence testable.
-window.gardenDebug={getView:()=>({zoom:camera.zoom,folded:$('panel-content').hidden}),getState:()=>JSON.parse(JSON.stringify(data)),getPlayer:()=>actor?{x:actor.position.x,z:actor.position.z,moving:!!path.length,acting:acting?.kind||null}:null,project:(x,z)=>{const v=new THREE.Vector3(x,.08,z).project(camera);return {x:(v.x+1)/2*innerWidth,y:(1-v.y)/2*innerHeight};},getCompanion:()=>({...companionController.view(),map:data.companion.map,position:{...data.companion.position},visible:!!companionAvatar?.root.visible}),getReady:()=>ready};
+window.gardenDebug={getView:()=>({pan:{x:cameraPan.x,z:cameraPan.z},zoom:camera.zoom,folded:$('panel-content').hidden}),getState:()=>JSON.parse(JSON.stringify(data)),getPlayer:()=>actor?{x:actor.position.x,z:actor.position.z,moving:!!path.length,acting:acting?.kind||null}:null,project:(x,z)=>{const v=new THREE.Vector3(x,.08,z).project(camera);return {x:(v.x+1)/2*innerWidth,y:(1-v.y)/2*innerHeight};},getCompanion:()=>({...companionController.view(),map:data.companion.map,position:{...data.companion.position},visible:!!companionAvatar?.root.visible}),getReady:()=>ready};
 
 // Only bounded game actions cross this bridge. The model cannot mutate inventory or run code.
 window.FairyGardenGame={
