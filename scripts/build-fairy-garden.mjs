@@ -11,3 +11,5 @@ const build='fg-'+hash.digest('hex').slice(0,16);
 for(const p of files.filter(p=>/\.(mjs|js|html|css)$/.test(p))){const s=strip(readFileSync(p,'utf8')).replace(/(['"])(\.?\/?[\w./-]+\.(?:mjs|js|css|glb))\1/g,(_,q,path)=>q+path+'?v='+build+q);writeFileSync(p,s);}
 writeFileSync(host,readFileSync(host,'utf8').replace(/BUILD = "(?:__GARDEN_BUILD__|fg-[a-f0-9]+)"/,'BUILD = "'+build+'"'));
 writeFileSync(root+'/build.json',JSON.stringify({build},null,2)+'\n');console.log(build);
+
+const phoneIndex=readFileSync('index.html','utf8');writeFileSync('index.html',phoneIndex.replace(/apps\/fairy-garden\/rules\.js\?v=[^"']+/,'apps/fairy-garden/rules.js?v='+build));

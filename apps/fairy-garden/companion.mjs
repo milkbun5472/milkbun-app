@@ -1,21 +1,11 @@
-import {MAPS,COMPANION_DESTINATIONS,weather,findPath,segmentClear,walkable,companionCare} from './world.mjs?v=fg-31a4e10661cbff17';
-const activity={
- flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},
- herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},
- mushrooms:{map:'forest',target:{x:2.6,z:.98},label:'寻找会发光的蘑菇',gesture:'gather'},
- pond:{map:'forest',target:{x:-.7,z:.6},label:'在池边观察水纹',gesture:'read'},
- study:{map:'garden',target:{x:1.5,z:-2.25},label:'翻看魔法笔记',gesture:'read'},
- potion:{map:'garden',target:MAPS.garden.stations.brew,label:'研究炼药锅里的微光',gesture:'read'},
- glow:{map:'forest',target:{x:1.7,z:3.0},label:'等草丛里的萤光亮起来',gesture:'rest'},
- home:{map:'garden',target:{x:-2.0,z:1.15},label:'在屋前歇脚',gesture:'rest'},
- rain:{map:'garden',target:{x:-1,z:1.35},label:'在屋檐下听雨',gesture:'read'}
-};
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare} from './world.mjs?v=fg-ef749ce728ca49b7';
+const activity=ACTIVITIES;
 const timetables={
  gardener:[[420,'home'],[480,'flowers'],[600,'herbs'],[720,'study'],[840,'potion'],[1020,'glow'],[1200,'home']],
  explorer:[[420,'home'],[480,'herbs'],[660,'mushrooms'],[840,'flowers'],[960,'glow'],[1200,'home']],
  scholar:[[420,'home'],[480,'study'],[660,'pond'],[840,'potion'],[1080,'home']]
 };
-export function dailySchedule(s){return timetables[s.companion.temperament].map(([start,id])=>{if(s.day%2===0&&id==='herbs')id='mushrooms';if(weather(s.day)==='细雨'&&activity[id].map==='forest')id='rain';return {start,id,...activity[id]};});}
+export function dailySchedule(s){const season=seasonOf(s.day),plan=s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null;const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]:timetables[s.companion.temperament];return list.map(([start,id,note])=>{if(!plan&&s.day%2===0&&id==='herbs')id='mushrooms';let adjusted=false;if(['细雨','细雪'].includes(weather(s.day))&&activity[id].map==='forest'){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
 export function plannedActivity(s){const list=dailySchedule(s);return list.findLast(item=>s.minute>=item.start)||list[0];}
 export const PERSONAL_SPACE=.58;
 function followPoint(s){
@@ -40,13 +30,13 @@ export function makeCompanionController(){
   const c=s.companion,routine=c.mode==='follow'?null:c.mode==='routine'?plannedActivity(s):companionPlan(s),needsNear=c.mode==='follow'||routine.map===s.map&&Math.hypot(routine.target.x-s.position.x,routine.target.z-s.position.z)<.65;
   const choiceKey=c.mode==='follow'?'follow':`${s.day}:${c.temperament}:${routine.id}:${routine.start}`;let plan;
   if(needsNear){if(!cachedFollow||cachedFollow.key!==choiceKey||cachedFollow.map!==s.map||cachedFollow.fromMap!==c.map||Math.hypot(s.position.x-cachedFollow.anchor.x,s.position.z-cachedFollow.anchor.z)>.25||stuck&&cooldown<=0)cachedFollow={key:choiceKey,plan:c.mode==='goto'?{...routine,target:followPoint(s)}:companionPlan(s),map:s.map,fromMap:c.map,anchor:{...s.position}};plan=cachedFollow.plan;}else{cachedFollow=null;plan=routine;}
-  const cross=c.map!==plan.map,goal=cross?MAPS[c.map].stations.travel:plan.target,avoid=c.map===s.map?[{...s.position,r:PERSONAL_SPACE}]:[];
+  const cross=c.map!==plan.map,exit=cross?exitToward(c.map,plan.map):null;if(cross&&!exit){moving=false;status='这里还没有通往那里的小路';return {state:s,event:null};}const goal=cross?exit.target:plan.target,avoid=c.map===s.map?[{...s.position,r:PERSONAL_SPACE}]:[];
   const key=`${s.day}:${c.mode}:${c.temperament}:${plan.id}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
   if((key!==routeKey||stuck&&cooldown<=0)&&(c.mode!=='follow'||!route.length||cross||cooldown<=0)){cooldown=.65;routeKey=key;route=[];idle=0;stuck=false;const distance=Math.hypot(c.position.x-goal.x,c.position.z-goal.z);if(distance>.12){route=findPath(c.position,goal,c.map,avoid)||[];stuck=!route.length;}}
   let out=s,event=null;moving=route.length>0;gesture='rest';
   if(moving){let budget=Math.max(0,dt)*1.15,pos={...c.position};while(route.length&&budget>0){const q=route[0];if(!segmentClear(pos,q,c.map,avoid)){route=[];routeKey='';cooldown=0;cachedFollow=null;break;}const dx=q.x-pos.x,dz=q.z-pos.z,d=Math.hypot(dx,dz);if(d>.0001)heading=Math.atan2(dx,dz);if(d<=budget){pos={...q};route.shift();budget-=d;}else{pos.x+=dx/d*budget;pos.z+=dz/d*budget;budget=0;}}out={...s,companion:{...c,position:pos}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
   else if(stuck){status='在原地等一条合适的小路';}
-  else if(cross){out={...s,companion:{...c,map:plan.map,position:{...MAPS[plan.map].spawn}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
+  else if(cross){out={...s,companion:{...c,map:exit.to,position:{...MAPS[exit.to].spawn}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
    if(allowCare&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
   }

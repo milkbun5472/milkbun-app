@@ -2,7 +2,7 @@
 // 世界、游戏对话只存 x_fairyGarden；接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-31a4e10661cbff17", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ef749ce728ca49b7", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = () => { const d = loadJSON(KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
@@ -13,13 +13,26 @@
     const a = obj.action || {}, kind = ["none", "follow", "routine", "wait", "goto"].includes(a.kind) ? a.kind : "none";
     return { reply: obj.reply.trim(), action: kind === "goto" && !["pond", "garden", "well", "home"].includes(a.target) ? { kind: "none" } : { kind, target: kind === "goto" ? a.target : undefined } };
   }
+  function sharedStyle() { return [narrativeCore({ intimate: true }), CONDESCENDING_TONE_BAN, REGISTER_FOLLOWS_SCENE, STOCK_REPLY_BAN, OVERREACH_BAN, ECHO_QUESTION_BAN, typeof ReplyPacing !== "undefined" ? ReplyPacing.reading() : ""].filter(Boolean).join("\n\n"); }
+  function roleContext(character, profile) { return ["你就是「" + character.name + "」，正与「" + userName(profile) + "」一起生活在架空的魔法庭院。", "【完整角色人设】\n" + (character.persona || character.name), "【对方的设定】\n" + (profile && profile.persona || "未填写")].join("\n\n"); }
+  async function generateSeason({ active, character, profile, world }) {
+    if (!active) throw new Error("先在设置里配置创作线路，再来安排这一季。");
+    const rules = root.FairyGardenRules, season = rules.seasonOf(world.day);
+    const sys = [sharedStyle(), roleContext(character, profile), "【当前游戏事实与最近日志】\n" + JSON.stringify(world),
+      "【这一季】第 " + season.year + " 年" + season.name + "季，共 14 天。这是一份可以实行的生活安排，日子会继续往后走。围绕你的人设、兴趣和你们的游戏经历，为每天挑三个活动，依次用于上午、下午、傍晚。全天候的移动、雨雪调整、实际到场和材料结算由游戏负责。",
+      "【可实行活动】\n" + JSON.stringify(Object.entries(rules.ACTIVITIES).map(([id,a])=>({id,place:rules.MAPS[a.map].name,activity:a.label}))),
+      "你决定这一季想怎样生活，各天如何变化、哪些日子想独处或一起待着。活动的想法、动机与观察可以自由写；活动标识使用上述清单。涉及尚未建成的事物时把它作为愿望，眼下的安排仍落在已有地点。已经过去的季内日期只列计划，不把计划当已发生的回忆。",
+      '【输出格式】只输出 JSON：{"title":"你为这一季取的短标题","days":[{"day":1,"note":"这天想怎样过","activities":[{"id":"活动标识","note":"这个活动里你想做什么"}]}]}。days 完整包含第 1 到第 14 天，每天恰好三个 activities。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{role:"user",content:"安排这一季。"}], {maxTokens:65535,timeout:180000,tag:"微光庭院季节"});
+    try { return rules.normalizePlan(extractJSON(raw), world.day); } catch(e) { e.detail=String(raw||"").slice(0,1600);throw e; }
+  }
   async function ask({ active, character, profile, world, history, text }) {
     if (!active) throw new Error("先在设置里配置创作线路，再来和角色说话。");
-    const style = [narrativeCore({ intimate: true }), CONDESCENDING_TONE_BAN, REGISTER_FOLLOWS_SCENE, STOCK_REPLY_BAN, OVERREACH_BAN, ECHO_QUESTION_BAN, typeof ReplyPacing !== "undefined" ? ReplyPacing.reading() : ""].filter(Boolean).join("\n\n");
+    const style = sharedStyle();
     const sys = [style,
-      "【微光庭院】你就是「" + character.name + "」。你和「" + userName(profile) + "」正一起生活在独立的童话魔法游戏里。以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。时间、背包、位置与共同经历都属于这个存档。",
-      "【完整角色人设】\n" + (character.persona || character.name),
-      "【对方的设定】\n" + (profile && profile.persona || "未填写"),
+      roleContext(character, profile),
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       "【对方刚说】\n" + text,
@@ -28,7 +41,7 @@
     ].join("\n\n");
     return normalizeReply(await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院" }));
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask };
+  root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme(), initial = useRef(null); if (!initial.current) initial.current = read();
@@ -48,14 +61,39 @@
       try { const old = loadJSON(KEY, null); if (old && old.id !== owner.current) throw new Error("存档已经切换，请重新进入庭院。"); const d = old || initial.current; const next = write({ ...d, partnerId: id || "" }); owner.current = next.id; setEntry(next); setSolo(!id); setPick(false); setLoaded(false); setError(""); setDetail(""); serial.current++; }
       catch (e) { setError(e.message); }
     };
-    const changePartner = () => { try { flush(); serial.current++; setChat(false); setPick(true); } catch (e) { props.toast(e.message); } };
+    const changePartner = () => { if (busyRef.current) { props.toast("等这次回复完成后再换同行者。"); return; } try { flush(); serial.current++; setChat(false); setPick(true); } catch (e) { props.toast(e.message); } };
     const openChat = value => { setChat(value); if (game()) game().setChatOpen(value); };
+    const planKey = (cid, day) => String(cid) + ":" + (current().world?.epoch || "initial") + ":" + root.FairyGardenRules.seasonOf(day).key;
+    async function planSeason(retry) {
+      if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+      const c=partner(); if(!c) throw new Error("先选择手机里的角色，再一起安排这一季。");
+      flush(); const world=game().snapshot(), key=planKey(c.id,world.day), old=(current().plans||{})[key];
+      if(old?.status==="ready")return old.plan;
+      if(old?.status==="pending" && Date.now()-old.at<185000)throw new Error("上次请求还在处理，稍后再看看这一季。");
+      if(old && !retry)throw new Error("上次安排没有完成，可以点重试。日常活动仍会继续。");
+      const epoch=serial.current, request="season_"+Date.now()+"_"+Math.random().toString(36).slice(2), cid=c.id;
+      const accountId=async()=>root.Cloud?.getSessionUser?String((await root.Cloud.getSessionUser().catch(()=>null))?.id||""):"";
+      busyRef.current=true;setBusy(true);
+      try {
+        update(d=>({...d,plans:{...(d.plans||{}),[key]:{status:"pending",at:Date.now(),request}}}));
+        const account=await accountId();if(!alive.current||serial.current!==epoch)throw Error("庭院已离开，这次安排没有写入。");current();
+        const plan=await generateSeason({active:propsRef.current.apiFor?propsRef.current.apiFor(cid):propsRef.current.active,character:c,profile:propsRef.current.profile,world});
+        if(await accountId()!==account||!alive.current||serial.current!==epoch)throw Error("角色或账号已切换，这次安排没有写入。");
+        const latest=current();if(String(latest.partnerId)!==String(cid)||!partner()||latest.plans?.[key]?.request!==request||planKey(cid,game().snapshot().day)!==key)throw Error("存档或季节已改变，这次安排没有写入。");
+        update(d=>({...d,plans:{...(d.plans||{}),[key]:{status:"ready",at:Date.now(),plan}}}));
+        game().refreshSeasonPlan();return plan;
+      } catch(e) {
+        if(alive.current&&serial.current===epoch)try{update(d=>d.plans?.[key]?.request===request?{...d,plans:{...d.plans,[key]:{status:"failed",at:Date.now(),error:e.message,detail:e.detail||""}}}:d);}catch(_){}
+        throw e;
+      } finally {busyRef.current=false;if(alive.current)setBusy(false);}
+    }
     const bind = node => {
       if (frame.current && frame.current !== node) hosts.delete(frame.current.contentWindow); frame.current = node; if (!node) return;
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name } : null; },
         save: world => { if (frame.current !== node) return false; if (JSON.stringify(world).length > 100000) throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write({ ...d, world }); return true; },
         openChat: () => openChat(true), changePartner,
+        planSeason, planState: day => { const d=current(); return (d.plans||{})[planKey(d.partnerId,day)]||null; },
         ready: () => { if (alive.current) setLoaded(true); }
       });
     };
@@ -103,7 +141,7 @@
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         chat && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 10, right: 10, bottom: 0, maxHeight: "45%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid #d1dac2", borderRadius: "18px 18px 0 0", boxShadow: "0 -8px 28px #30442618" } },
-          h("div", { style: { padding: "9px 12px", display: "flex", justifyContent: "space-between", fontSize: 11 } }, h("span", null, char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"), h("button", { onClick: changePartner, disabled: busy }, "换同行者")),
+          h("div", { style: { padding: "9px 12px", display: "flex", alignItems: "center", gap: 12, fontSize: 11 } }, h("span", {style:{maxWidth:"65%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}, char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"), h("button", { onClick: changePartner, disabled: busy }, "换同行者")),
           h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "0 12px", fontSize: 13, lineHeight: 1.7, minHeight: 55, maxHeight: 180 } }, rows.map(m => h("p", { key: m.id, style: { margin: "5px 0 9px", whiteSpace: "pre-wrap", color: m.role === "user" ? "#6e8060" : "#344936" } }, h("small", null, m.role === "user" ? "你：" : (char && (char.remark || char.name) || "同行者") + "："), m.content)), !rows.length && h("p", null, "想聊什么，或者想一起去哪里？"), busy && h("p", { role: "status" }, "正在回应…"), error && h("p", { role: "alert", style: { color: "#a34836" } }, error), detail && h("details", null, h("summary", null, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10 } }, detail))),
           !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("button", { style: { fontSize: 11, padding: 5 }, onClick: () => send(true) }, "重试上次未完成的回复"),
           h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", gap: 8, padding: "8px 10px", paddingBottom: COMPOSER_PAD_BOTTOM } },
