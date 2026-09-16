@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.90";
+const APP_VERSION = "v68.92";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17066,9 +17066,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             if (rep) subInserts.push({ floorId: floorByNum.get(tf).id, reply: rep });
           } else newRaw.push(x);
         });
-        // 这一波是【现在】才发生的，所以直接可见，不再往后铺时间
+        // ⚠️这一波原来写死「直接可见，不再往后铺时间」——那就是【插队】。
+        //   她 2026-09-16 报的「放出楼层不按顺序」就是这个：楼里还排着 8 分钟后、
+        //   18 分钟后才露面的那几条，这一波却当场冒出来；而楼号是按【到场先后】现算的，
+        //   于是新来的占掉小号，她正等着的那几条被顶到后面去，看着就像楼层在乱跳。
+        // ⚠️规矩早就定了，只是写在另一处没跟上（施工规则/one-public-mechanism）：
+        //   **新楼一律接在旧队列的最后面**（genMoreComments 里那个 base 就是这么算的）。
+        //   队列空着的时候 lastQueued=0，这一波照旧当场可见——不耽误「现在才发生」那层意思。
+        const lastQueued = existing.reduce((n, f) => Math.max(n, Number(f && f.visibleAt || 0)), 0);
+        const waveAt = Math.max(base, lastQueued + 1);
         const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(hitId + ":w" + hitIdx) % 9999 + i, post))
-          .filter(Boolean).map((f, i) => ({ ...f, floor: start + i, visibleAt: base, ts: base }));
+          .filter(Boolean).map((f, i) => ({ ...f, floor: start + i, visibleAt: waveAt + i, ts: waveAt + i }));
         if (more.length || subInserts.length) {
           setForumComments(prev => {
             let list = prev[hitId] || [];
