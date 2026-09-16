@@ -37,11 +37,15 @@ b.apply_dims(a,{},root)
 root['height']=1.2; root.update_tag(); bpy.context.view_layer.update()
 assert flat()!=neutral,'Editable root slider did not evaluate'
 for o in base: assert [tuple(v.co) for v in o.data.vertices]==original[o.name],'Source modified'
+assert len(b.HAIR)==12 and list(b.HAIR)==list(b.HAIR_LABELS)
 for style in b.HAIR:
     objects=b.make(style,base=base)
     assert all(len(o.data.vertices)>0 for o in objects)
+    hair=[o for o in objects if o['part'].startswith('hair.')]
+    assert len(hair)==1 and hair[0].data.uv_layers,style
+    assert all(math.isfinite(v) for o in hair for p in o.data.vertices for v in p.co),style
     assert [len(o.data.vertices) for o in objects[:len(base)]]==[len(o.data.vertices) for o in base]
 try: b.apply_dims(a,{'height':4},root)
 except ValueError: pass
 else: raise AssertionError('Unsafe range accepted')
-print('PASS: six morphs at both ends, combined extremes, grounded soles, idempotency, live drivers, exact side identities, isolated meshes/materials, five hairstyles, shared body topology.')
+print('PASS: six morphs at both ends, combined extremes, grounded soles, idempotency, live drivers, exact side identities, isolated meshes/materials, twelve hairstyles, shared body topology.')

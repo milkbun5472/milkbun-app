@@ -1,8 +1,8 @@
-"""Editable fairy doll: one imported face/base, shared body morphs, five hair meshes.
+"""Editable fairy doll: one imported face/base, shared body morphs, twelve hairstyles.
 Art only; this module does not modify or export the runtime traveler.glb.
 Coordinates are Blender Z-up, facing -Y. See README for runtime integration limits.
 """
-import bpy, math, os
+import bpy, math, os, json
 from mathutils import Vector, Matrix
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, 'apps', 'fairy-garden', 'traveler.glb')
@@ -31,12 +31,21 @@ def hair_mat(hexc='#654536', slot='Doll hair'):
     rgb=[lin(int(hexc[i:i+2],16)/255) for i in (1,3,5)]
     m.diffuse_color=(*rgb,1)
     nd=m.node_tree.nodes; lk=m.node_tree.links; bs=nd.get('Principled BSDF')
-    bs.inputs['Roughness'].default_value=.78
+    bs.inputs['Roughness'].default_value=.58 if slot=='Doll hair' else .78
+    bs.inputs['Specular IOR Level'].default_value=.22 if slot=='Doll hair' else .5
     noise=nd.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value=22
+    if slot=='Doll hair':
+        tex=nd.new('ShaderNodeTexCoord'); mapping=nd.new('ShaderNodeVectorMath'); mapping.operation='MULTIPLY'
+        mapping.inputs[1].default_value=(18,.24,1)
+        lk.new(tex.outputs['UV'],mapping.inputs[0]); lk.new(mapping.outputs[0],noise.inputs['Vector'])
     ramp=nd.new('ShaderNodeValToRGB')
-    ramp.color_ramp.elements[0].color=(*[x*.86 for x in rgb],1)
-    ramp.color_ramp.elements[1].color=(*[min(1,x*1.13) for x in rgb],1)
+    ramp.color_ramp.elements[0].color=(*[x*.65 for x in rgb],1)
+    ramp.color_ramp.elements[1].color=(*[min(1,x*1.28) for x in rgb],1)
     lk.new(noise.outputs['Fac'],ramp.inputs[0]); lk.new(ramp.outputs[0],bs.inputs['Base Color'])
+    if slot=='Doll hair':
+        bump=nd.new('ShaderNodeBump'); bump.inputs['Strength'].default_value=.27; bump.inputs['Distance'].default_value=.0016
+        lk.new(noise.outputs['Fac'],bump.inputs['Height']); lk.new(bump.outputs[0],bs.inputs['Normal'])
+
     return m
 
 def loft(name, rings, material):
@@ -54,106 +63,287 @@ def loft(name, rings, material):
     faces.extend([tuple(reversed(range(n))),tuple((len(rings)-1)*n+j for j in range(n))])
     return mesh(name,verts,faces,material)
 
-def lock(name, points, width, depth=.020):
-    """One curved, tapered ribbon-volume, rooted inside the cap; no bead segments."""
-    points=[Vector(p) for p in points]; verts=[]; faces=[]; steps=18; sides=12
+def hair_surface(name, point, width, steps=30, sections=10, depth=.006, normal=None):
+    """A thin sculpted hair sheet. Stable frames follow the actual 3D path.
+
+    The old XZ-only tubes turned into fat leaves and twisted around bends. These
+    ribbons have a broad root, a late taper, and shallow longitudinal grooves.
+    """
+    verts=[]; faces=[]; prev=None
     for i in range(steps+1):
-        t=i/steps; u=1-t
-        p=u**3*points[0]+3*u*u*t*points[1]+3*u*t*t*points[2]+t**3*points[3]
-        tangent=3*u*u*(points[1]-points[0])+6*u*t*(points[2]-points[1])+3*t*t*(points[3]-points[2])
-        across=Vector((-tangent.z,0,tangent.x)).normalized()
-        if across.length<.1: across=Vector((1,0,0))
-        taper=max(.008,(1-t)**.35)*(.10+1.2*math.sin(math.pi*t)**.7)
-        for j in range(sides):
-            a=2*math.pi*j/sides
-            q=p+across*(math.cos(a)*width*taper)+Vector((0,math.sin(a)*depth*taper,0))
+        t=i/steps; p=Vector(point(t)); eps=.0002
+        tangent=(Vector(point(min(1,t+eps)))-Vector(point(max(0,t-eps)))).normalized()
+        n=Vector(normal) if normal else Vector((p.x/.255**2,(p.y+.05)/.209**2,(p.z-1.215)/.285**2))
+        n=n-tangent*n.dot(tangent)
+        if n.length<.01: n=Vector((0,-1,0))-tangent*tangent.dot(Vector((0,-1,0)))
+        n.normalize(); across=tangent.cross(n).normalized()
+        if prev is not None and across.dot(prev)<0: across=-across
+        prev=across
+        taper=(.86+.14*math.sin(math.pi*t))*(max(.018,(1-t)/.30)**.72 if t>.70 else 1)
+        for j in range(sections+1):
+            u=-1+2*j/sections
+            bulge=depth*(1-u*u)+.0007*math.cos(u*math.pi*3)*math.sin(math.pi*t)
+            q=p+across*(u*width*taper)+n*bulge
             verts.append(tuple(q))
     for i in range(steps):
-        for j in range(sides):
-            a=i*sides+j; b=i*sides+(j+1)%sides
-            faces.append((a,b,b+sides,a+sides))
-    faces.extend([tuple(reversed(range(sides))),tuple(steps*sides+j for j in range(sides))])
-    return mesh(name,verts,faces)
+        for j in range(sections):
+            a=i*(sections+1)+j; faces.append((a,a+1,a+sections+2,a+sections+1))
+    o=mesh(name,verts,faces)
+    uv=o.data.uv_layers.new(name='Hair flow')
+    for poly in o.data.polygons:
+        for li in poly.loop_indices:
+            vi=o.data.loops[li].vertex_index
+            uv.data[li].uv=(vi%(sections+1)/sections,vi//(sections+1)/steps)
+    # Thickness stays tiny, including at silhouettes. Bake it so shape keys see it.
+    bpy.context.view_layer.objects.active=o; o.select_set(True)
+    mod=o.modifiers.new('Hair sheet thickness','SOLIDIFY'); mod.thickness=.0035; mod.offset=-1
+    bpy.ops.object.modifier_apply(modifier=mod.name); o.select_set(False)
+    return o
 
-def cap_shell(name='hair.cap'):
-    verts=[]; faces=[]; columns=64; rows=20
+def bezier(points):
+    p=[Vector(x) for x in points]
+    return lambda t: (1-t)**3*p[0]+3*(1-t)**2*t*p[1]+3*(1-t)*t*t*p[2]+t**3*p[3]
+
+def lock(name,points,width,depth=.006,normal=None):
+    return hair_surface(name,bezier(points),width,depth=depth,normal=normal)
+
+def scalp(a,p,lift=0):
+    return Vector(((.253+lift)*math.sin(p)*math.sin(a),
+                   -.05-(.207+lift)*math.sin(p)*math.cos(a),
+                   1.215+(.281+lift)*math.cos(p)))
+
+def cap_shell(name='hair.cap',front=1.10,side=1.59,back=1.93,lift=.005,part=False):
+    verts=[]; faces=[]; rows=26; cols=96
     for i in range(rows+1):
-        t=(i+.002)/(rows+.002)
-        for j in range(columns):
-            a=2*math.pi*j/columns; front=max(0,math.cos(a))
-            end=1.98-1.12*front**3
+        t=(i+.003)/(rows+.003)
+        for j in range(cols):
+            a=j*2*math.pi/cols; c=math.cos(a)
+            end=side+(front-side)*max(0,c)**3+(back-side)*max(0,-c)**2
+            if part: end-=.33*math.exp(-(min(a,2*math.pi-a)/.19)**2)
+            end+=.015*math.sin(11*a)+.009*math.sin(23*a)
             p=t*end
-            verts.append((.250*math.sin(p)*math.sin(a),-.055-.202*math.sin(p)*math.cos(a),1.215+.275*math.cos(p)))
+            q=scalp(a,p,lift+.016+.0015*math.sin(29*a+2*p)*math.sin(p))
+            verts.append(tuple(q))
     for i in range(rows):
-        for j in range(columns):
-            a=i*columns+j; b=i*columns+(j+1)%columns
-            faces.append((a,b,b+columns,a+columns))
-    return mesh(name,verts,faces)
+        for j in range(cols):
+            a=i*cols+j; c=i*cols+(j+1)%cols; faces.append((a,c,c+cols,a+cols))
+    o=mesh(name,verts,[tuple(reversed(f)) for f in faces])
+    uv=o.data.uv_layers.new(name='Hair flow')
+    for poly in o.data.polygons:
+        for li in poly.loop_indices:
+            vi=o.data.loops[li].vertex_index; uv.data[li].uv=(vi%cols/cols*9,vi//cols/rows)
+    bpy.context.view_layer.objects.active=o
+    mod=o.modifiers.new('Root volume','SOLIDIFY'); mod.thickness=.035; mod.offset=-1
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    return o
 
-def fringe(prefix, airy=False, short=False):
+def scalp_lock(name,a,end,width=.038,start=.24,twist=.12,lift=.020):
+    def point(t):
+        p=start+(end-start)*t
+        return scalp(a+twist*(1-t)**1.3,p,lift*(.25+.75*math.sin(math.pi*t)))
+    return hair_surface(name,point,width,depth=.0028)
+
+def crown(prefix,front=1.27,side=1.62,back=1.90,volume=.028,shag=False):
     out=[]
-    # Side part: broad flowing locks overlap at the roots, unequal tapered ends.
-    specs=[(-.13,-.205,1.31,.040),(-.085,-.130,1.325,.054),
-           (-.025,-.050,1.305,.057),(.040,.040,1.333,.048),(.105,.143,1.345,.044)]
-    for i,(start,end,z,w) in enumerate(specs):
-        if airy: w*=.54; z+=.018
-        if short: z+=.027
-        out.append(lock(prefix+f'.fringe{i}',[(start*.55,-.055,1.460),(start+.035,-.235,1.425),
-                        (end-.025,-.275,z+.055),(end,-.250,z)],w,.023 if not airy else .014))
+    for i in range(52):
+        a=2*math.pi*i/52; c=math.cos(a)
+        if front<.95 and c>.85: continue
+        end=side+(front-side)*max(0,c)**3+(back-side)*max(0,-c)**2
+        end+=.065*math.sin(i*2.4)+(.035 if shag else .018)*math.cos(i*4.2)
+        out.append(scalp_lock(prefix+f'.crown{i}',a,end,.020 if shag else .021,
+                   start=.20+.12*(i%3),twist=.19*math.sin(a)+.25,
+                   lift=volume*(1+.17*math.sin(i*1.4))))
     return out
 
-def side_locks(prefix, long=False, shag=False):
+def nape(prefix,length=.93,spread=.20,shag=False):
+    out=[]
+    # Only the rear semicircle: no curtain hanging over the ear.
+    for i in range(13):
+        a=math.pi*.52+math.pi*.96*i/12; side=abs(math.sin(a))
+        end=length+.11*side+.022*math.sin(i*2.7)
+        start=scalp(a,1.05,.009); mid=scalp(a,1.63,.018)
+        x=math.sin(a)*spread
+        out.append(lock(prefix+f'.nape{i}',[start,mid,(x,.12-.085*side,end+.10),
+                        (x*(1.16 if shag else .96),.105-.11*side,end)],.029,.005,
+                        normal=(math.sin(a),-math.cos(a),0)))
+    return out
+
+def face_frame(prefix,length=1.10,spread=.24,layered=False):
     out=[]
     for s in (-1,1):
-        out.append(lock(prefix+f'.temple{s}',[(s*.158,-.065,1.40),(s*.266,-.154,1.31),
-                    (s*.251,-.105,1.16),(s*.221,-.082,1.115)],.046,.033))
-        if long or shag:
-            for j in range(3):
-                end=(.76+j*.045) if long else (1.015+j*.065)
-                out.append(lock(prefix+f'.fall{s}.{j}',[(s*(.10+j*.025),.04,1.40),
-                    (s*(.27+j*.006),.10,1.18),(s*(.235+j*.015),.08,end+.08),
-                    (s*(.18+j*.038),.035,end)],.061 if long else .049,.055))
+        for j in range(3 if layered else 2):
+            a=s*(.85+j*.15); start=scalp(a,.60,.018)
+            z=length+j*.055
+            out.append(lock(prefix+f'.frame{s}.{j}',[start,(s*.28,-.16,1.39),
+                        (s*(spread-.025),-.16,z+.10),(s*spread,-.125,z)],.025,.005,normal=(s*.3,-1,0)))
     return out
 
-def back_locks(prefix, long=False):
-    return [lock(prefix+f'.back{i}',[(x,.12,1.39),(x*1.55,.205,1.21),
-                (x*1.7,.18,.91 if long else 1.08),(x*1.6,.12,.76 if long else .99)],.074,.044)
-            for i,x in enumerate([-.12,-.06,0,.06,.12])]
+def curtains(prefix,split=.025,long=False):
+    out=[]
+    # Parted hair follows the scalp in spherical coordinates. A free Bezier arch
+    # floated above the skull and looked like dog ears in profile.
+    for side in (-1,1):
+        for j in range(8):
+            endp=(1.65 if long else 1.36)+j*.023
+            enda=side*(.67+j*.095)
+            def path(t,side=side,j=j,endp=endp,enda=enda):
+                a=side*(.06+j*.035)*(1-t)+enda*t+split
+                return scalp(a,.21+(endp-.21)*t,.010+.027*math.sin(math.pi*t))
+            out.append(hair_surface(prefix+f'.curtain{side}.{j}',path,.023,depth=.004))
+    return out
 
 def hair_korean():
-    return [cap_shell()]+fringe('hair.korean')+side_locks('hair.korean')
-def hair_wolf():
-    out=[cap_shell()]+fringe('hair.wolf',short=True)+side_locks('hair.wolf',shag=True)+back_locks('hair.wolf')
-    for s in (-1,1):
-        out.append(lock(f'hair.wolf.flick{s}',[(s*.08,.025,1.44),(s*.205,.02,1.38),
-                        (s*.24,.0,1.29),(s*.27,.0,1.24)],.032,.023))
+    out=[cap_shell(front=1.09,side=1.51,back=1.77,lift=.003)]
+    out+=crown('hair.korean',front=1.35,side=1.57,back=1.82,volume=.033)
+
     return out
+
+def hair_wolf():
+    out=[cap_shell(front=.87,side=1.58,back=1.98,lift=.007,part=True)]
+    out+=crown('hair.wolf',front=.84,side=1.82,back=2.00,volume=.043,shag=True)
+    out+=curtains('hair.wolf',split=-.025,long=True)
+    out+=nape('hair.wolf',length=.91,spread=.24,shag=True)
+    # Layered outward tips around the jaw, joined to the crown rather than ears.
+    for s in (-1,1):
+        for j in range(3):
+            out.append(lock(f'hair.wolf.layer{s}.{j}',[scalp(s*(1.2+j*.20),.9,.016),
+                (s*.28,-.01+j*.038,1.31),(s*.23,-.08+j*.03,1.05+j*.045),
+                (s*(.29-j*.009),-.10+j*.04,1.08+j*.06)],.027,.004,normal=(s,-.3,0)))
+    return out
+
 def hair_mullet():
-    return [cap_shell()]+fringe('hair.mullet',short=True)+side_locks('hair.mullet')+back_locks('hair.mullet',long=True)
+    out=[cap_shell(front=1.04,side=1.40,back=1.90,lift=.001)]
+    out+=crown('hair.mullet',front=1.21,side=1.47,back=1.91,volume=.021)
+    out+=nape('hair.mullet',length=.87,spread=.18)
+    return out
+
+def hair_curtains():
+    return [cap_shell(front=.84,side=1.60,back=1.93,part=True)]+crown('hair.curtains',front=.80,side=1.60,back=1.93,volume=.014)+curtains('hair.curtains')
+
+def hair_comma():
+    out=[cap_shell(front=.88,side=1.5,back=1.86,lift=.002)]
+    out+=crown('hair.comma',front=.82,side=1.55,back=1.91,volume=.014)
+    for j in range(8):
+        def path(t,j=j):
+            u=1-t
+            a=.65*u**3+3*.10*u*u*t+3*(-1.20)*u*t*t-.18*t**3+j*.045
+            return scalp(a,.20+(1.17+j*.014)*t,.012+.037*math.sin(math.pi*t))
+        out.append(hair_surface(f'hair.comma.sweep{j}',path,.022,depth=.004))
+    return out
+
+def hair_pixie():
+    out=[cap_shell(front=.95,side=1.36,back=1.78,lift=.001)]
+    out+=crown('hair.pixie',front=1.13,side=1.43,back=1.81,volume=.011)
+    for i in range(5):
+        out.append(scalp_lock(f'hair.pixie.swept{i}',-.7+i*.28,1.19,.028,start=.46,twist=.60,lift=.024))
+    return out
+
+def long_back(prefix,length=.72,wave=0,bob=False):
+    # A continuous rear curtain carries the main volume. Fine carved grooves
+    # follow its fall; separate hanging ribbons otherwise expose root cracks.
+    verts=[]; faces=[]; rows=44; cols=96
+    for i in range(rows+1):
+        t=i/rows
+        for j in range(cols+1):
+            a=.91+(2*math.pi-1.82)*j/cols; x=math.sin(a); y=-math.cos(a)
+            end=length+.010*math.cos(25*a)+(0 if bob else .055*abs(x))
+            if t<=.5:
+                p=.30+(math.pi/2-.30)*t/.5
+                q=scalp(a,p,.017+.0017*math.cos(36*a+2*p))
+            else:
+                u=(t-.5)/.5; ease=u*u*(3-2*u)
+                ripple=.0025*math.cos(36*a+u)
+                radius=.270+wave*math.sin(u*math.pi*2)*math.sin(u*math.pi/2)+ripple-(.050 if bob else .025)*ease
+                q=Vector((x*radius,-.05+y*(.224+ripple-.022*ease),1.215+(end-1.215)*u))
+            verts.append(tuple(q))
+    for i in range(rows):
+        for j in range(cols):
+            a=i*(cols+1)+j; faces.append((a,a+cols+1,a+cols+2,a+1))
+    o=mesh(prefix+'.volume',verts,faces)
+    uv=o.data.uv_layers.new(name='Hair flow')
+    for poly in o.data.polygons:
+        for li in poly.loop_indices:
+            vi=o.data.loops[li].vertex_index; uv.data[li].uv=(vi%(cols+1)/cols*7,vi//(cols+1)/rows)
+    bpy.context.view_layer.objects.active=o
+    mod=o.modifiers.new('Continuous hair volume','SOLIDIFY'); mod.thickness=.014; mod.offset=-1
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    return [o]
+
+def air_fringe(prefix):
+    out=[]
+    for i in range(10):
+        a=-.60+i*.132
+        out.append(scalp_lock(prefix+f'.airy{i}',a,1.28+.055*math.sin(i*1.9),.019,
+                              start=.46,twist=.08,lift=.017))
+    return out
+
+def hair_bob():
+    out=[cap_shell(front=.90,side=1.65,back=1.96)]
+    out+=long_back('hair.bob',length=1.035,bob=True)
+    out+=curtains('hair.bob',long=True)
+    return out
+
+def hair_hush():
+    out=[cap_shell(front=.89,side=1.72,back=1.96)]
+    out+=long_back('hair.hush',length=.73,wave=.012)
+    out+=curtains('hair.hush',long=True)+face_frame('hair.hush',length=.91,spread=.28,layered=True)
+    return out
+
 def hair_airbang():
-    return [cap_shell()]+fringe('hair.air',airy=True)+side_locks('hair.air',long=True)+back_locks('hair.air',long=True)
+    return [cap_shell(front=.89,side=1.68,back=1.96)]+long_back('hair.airbang',length=.65)+air_fringe('hair.airbang')+face_frame('hair.airbang',length=1.05,spread=.231)
+
+def hair_wavy():
+    return [cap_shell(front=.88,side=1.70,back=1.96)]+long_back('hair.wavy',length=.69,wave=.048)+curtains('hair.wavy',long=True)+face_frame('hair.wavy',length=.93,spread=.29,layered=True)
+
+def tied_crown(prefix):
+    out=[cap_shell(front=.85,side=1.58,back=1.94,lift=.002)]
+    out+=crown(prefix,front=.89,side=1.60,back=1.96,volume=.010)
+    out+=air_fringe(prefix)
+    for s in (-1,1):
+        out.append(lock(prefix+f'.wisp{s}',[scalp(s*.80,.9,.01),(s*.24,-.17,1.34),
+                       (s*.22,-.16,1.16),(s*.235,-.14,1.12)],.012,.003,normal=(s*.3,-1,0)))
+    return out
+
 def hair_bun():
-    out=[cap_shell()]+fringe('hair.bun',airy=True)+side_locks('hair.bun')
-    # One compact bun with sculpted winding grooves, attached to the crown.
-    verts=[]; faces=[]; n=40; rings=24
-    for i in range(rings+1):
-        p=math.pi*(i+.001)/(rings+.002)
+    out=tied_crown('hair.bun')
+    # Compact wrapped bun seated in the back of the crown, rather than a top ball.
+    verts=[]; faces=[]; n=48; rows=24
+    for i in range(rows+1):
+        p=math.pi*(i+.002)/(rows+.004)
         for j in range(n):
-            t=j*2*math.pi/n; ripple=1+.035*math.cos(7*t+2*p)
-            verts.append((.093*math.sin(p)*math.cos(t)*ripple,
-                          .075+.081*math.sin(p)*math.sin(t)*ripple,
-                          1.505+.087*math.cos(p)))
-    for i in range(rings):
+            a=j*2*math.pi/n; r=1+.020*math.cos(12*a+3*p)
+            verts.append((.102*math.sin(p)*math.cos(a)*r,.12+.089*math.sin(p)*math.sin(a)*r,1.46+.091*math.cos(p)))
+    for i in range(rows):
         for j in range(n):
             a=i*n+j; c=i*n+(j+1)%n; faces.append((a,c,c+n,a+n))
     out.append(mesh('hair.bun.knot',verts,faces))
     return out
-HAIR=dict(korean=hair_korean,wolf=hair_wolf,mullet=hair_mullet,airbang=hair_airbang,bun=hair_bun)
+
+def hair_ponytail():
+    out=tied_crown('hair.ponytail')
+    for i in range(12):
+        a=2*math.pi*i/12
+        out.append(lock(f'hair.ponytail.tail{i}',[(.024*math.cos(a),.142,1.43),
+                    (.08*math.cos(a),.37,1.43),(.06+.065*math.cos(a),.33,1.09),
+                    (.10+.027*math.cos(a),.28+.016*math.sin(a),.92)],.025,.006,
+                    normal=(math.cos(a),math.sin(a),0)))
+    return out
+
+HAIR=dict(korean=hair_korean,wolf=hair_wolf,mullet=hair_mullet,curtains=hair_curtains,
+          comma=hair_comma,pixie=hair_pixie,bob=hair_bob,hush=hair_hush,
+          airbang=hair_airbang,wavy=hair_wavy,bun=hair_bun,ponytail=hair_ponytail)
+with open(os.path.join(os.path.dirname(__file__),'hairstyles.json'),encoding='utf-8') as _catalog:
+    HAIR_LABELS=json.load(_catalog)
 
 def put_hair(style, hexc='#654536'):
-    m=hair_mat(hexc); out=HAIR[style]()
-    for o in out: o.data.materials.append(m)
-    return out
+    m=hair_mat(hexc); parts=HAIR[style]()
+    # One draw mesh. The volume cap hides roots; keep precise, tapering ends.
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in parts: o.select_set(True)
+    bpy.context.view_layer.objects.active=parts[0]
+    bpy.ops.object.join(); o=bpy.context.object; o.name='hair.'+style; o['part']=o.name
+    o.data.materials.clear(); o.data.materials.append(m)
+    return [o]
 
 def load(strip_hair=True, strip_props=True):
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -168,6 +358,13 @@ def load(strip_hair=True, strip_props=True):
         o['part']=o.name
         mat=o.matrix_basis.copy(); o.parent=None
         o.data.transform(mat); o.matrix_world=Matrix.Identity(4)
+    skin=bpy.data.materials.get('Character warm peach')
+    for side in (-1,1):
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,location=(side*.235,-.015,1.195))
+        o=bpy.context.object; o.name='Ear.'+('L' if side<0 else 'R'); o['part']=o.name
+        o.scale=(.038,.029,.052); o.data.materials.append(skin)
+        o.data.transform(o.matrix_basis.copy()); o.matrix_world=Matrix.Identity(4)
+        for poly in o.data.polygons: poly.use_smooth=True
     cloth=bpy.data.materials.get('Character dusty rose wool')
     for name in ['Tunic skirt','Tunic upper body']:
         bpy.data.objects.remove(bpy.data.objects[name],do_unlink=True)
@@ -195,7 +392,7 @@ def load(strip_hair=True, strip_props=True):
 
 def deform(p, name, key, value):
     p=Vector(p); delta=value-1
-    is_head=name.startswith('hair.') or name in ['Face','Small nose','Small mouth'] or name.startswith(('Dark embroidered eye','Eye catchlight','Soft cheek'))
+    is_head=name.startswith(('hair.','Ear.')) or name in ['Face','Small nose','Small mouth'] or name.startswith(('Dark embroidered eye','Eye catchlight','Soft cheek'))
     if key=='height': p.z+=.30*delta*max(0,min(1,(p.z-.18)/.30))
     elif key=='head' and is_head:
         pivot=Vector((0,-.067,1.025)); p=pivot+(p-pivot)*value
