@@ -249,12 +249,12 @@ def long_back(prefix,length=.72,wave=0,bob=False):
             end=length+.010*math.cos(25*a)+(0 if bob else .055*abs(x))
             if t<=.5:
                 p=.30+(math.pi/2-.30)*t/.5
-                q=scalp(a,p,.017+.0017*math.cos(36*a+2*p))
+                q=scalp(a,p,.027+.0017*math.cos(36*a+2*p))
             else:
                 u=(t-.5)/.5; ease=u*u*(3-2*u)
                 ripple=.0025*math.cos(36*a+u)
-                radius=.270+wave*math.sin(u*math.pi*2)*math.sin(u*math.pi/2)+ripple-(.050 if bob else .025)*ease
-                q=Vector((x*radius,-.05+y*(.224+ripple-.022*ease),1.215+(end-1.215)*u))
+                radius=.280+wave*math.sin(u*math.pi*2)*math.sin(u*math.pi/2)+ripple-(.050 if bob else .025)*ease
+                q=Vector((x*radius,-.05+y*(.234+ripple-.022*ease),1.215+(end-1.215)*u))
             verts.append(tuple(q))
     for i in range(rows):
         for j in range(cols):
@@ -323,7 +323,7 @@ def hair_ponytail():
     out=tied_crown('hair.ponytail')
     for i in range(12):
         a=2*math.pi*i/12
-        out.append(lock(f'hair.ponytail.tail{i}',[(.024*math.cos(a),.142,1.43),
+        out.append(lock(f'hair.ponytail.tail{i}',[(.020*math.cos(a),.085,1.40),
                     (.08*math.cos(a),.37,1.43),(.06+.065*math.cos(a),.33,1.09),
                     (.10+.027*math.cos(a),.28+.016*math.sin(a),.92)],.025,.006,
                     normal=(math.cos(a),math.sin(a),0)))

@@ -22,7 +22,7 @@
 本机已经安装 Blender，无需再安装 `bpy`：
 
 ```sh
-DOLL_OUT=/tmp/fairy-doll-trends /Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/preview.py -- focus trends
+DOLL_OUT=/tmp/fairy-doll-trends /Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/preview.py -- focus trends tied
 /Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/check_model.py
 python3 art/fairy-garden/contact_sheet.py /tmp/fairy-doll-trends
 ```
@@ -32,7 +32,7 @@ python3 art/fairy-garden/contact_sheet.py /tmp/fairy-doll-trends
 默认输出 `/tmp/fairy-doll`，可用 `DOLL_OUT` 指定持久目录。
 
 默认预览任务输出重点三款的 `focus-front` / `focus-profile`，及十二款的 `catalog-1` 至 `catalog-4`，
-每张都有同名 `.blend`。`contact_sheet.py` 用 Pillow 排入中文标题，不重绘模型像素；
+每张都有同名 `.blend`；`tied` 另渲长卷、盘发和马尾侧面。`contact_sheet.py` 用 Pillow 排入中文标题，不重绘模型像素；
 中文字体可通过 `DOLL_FONT` 指定，默认使用本机宋体。图不进 Git。
 
 `dims` 仍可渲同一身体的两组参数交换长短发；`face` 渲单人近景；`hair` 等同十二款目录。
@@ -51,7 +51,7 @@ python3 art/fairy-garden/contact_sheet.py /tmp/fairy-doll-trends
 
 所有参数以 1 为中性值，范围外显式报错，重复应用不会累计变形。
 这是穿衣的童话布偶，不是写实人体解剖模型，也没有独立裸体。
-十二款键和中文名由 `HAIR` / `HAIR_LABELS` 定义；旧五个键保留，色号独立设置。
+十二款键和中文名由 `HAIR` 与共用 `hairstyles.json` 定义；旧五个键保留，色号独立设置。
 
 ## 坐标与脸部边界
 
