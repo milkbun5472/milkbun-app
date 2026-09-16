@@ -1123,5 +1123,11 @@
     if (SPREADS[String(key)]) return true;
     return loadCustomSpreads().some(function (x) { return "custom:" + x.id === String(key); });
   };
+  // 牌面长什么样，只有这一处说了算（施工规则/one-public-mechanism.md）。
+  // 转发进聊天的那张小卡（components.js 的 TarotShareCard）要画真牌面，
+  // 而它手上只有牌名——所以这几样从这儿借出去，别在那边照着 DECK 再抄一份。
+  Tarot.cardImage = cardImage;
+  Tarot.cardLabel = cardLabel;
+  Tarot.NIGHT = NIGHT_BASE;
   window.Tarot = Tarot;
 })();

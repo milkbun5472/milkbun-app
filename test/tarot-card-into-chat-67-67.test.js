@@ -71,13 +71,56 @@ test("带回聊天：先落这张卡，再落那句话和小桌边那几句", ()
   assert.match(seg, /"有人（用户）替你算了一卦塔罗[\s\S]{0,80}牌：" \+ cardsTxt/);
 });
 
-test("卡面：单聊和群聊两处都认得它，长相照同人文那张来", () => {
+test("卡面：单聊和群聊两处都认得它，骨架跟同人文那一族一样", () => {
   assert.match(comp, /function TarotShareCard\(\{ m, isU \}\) \{/);
   // 两处渲染器各一条——只接一处的话，另一处就又是一串光秃秃的气泡
   assert.equal((comp.match(/m\.kind === "tarotshare"/g) || []).length, 2, "两个渲染器里没有各接一条");
   assert.match(comp, /h\(TarotShareCard, \{ m: m, isU: m\.role === "user" \}\)/);
-  // 同一种东西同一种卡面：宽度、圆角、卡面挂点跟 FicShareCard 一样
+  // 同一族：宽度、圆角、卡面挂点跟 FicShareCard 一样（换的是材质，不是骨架）
   const seg = comp.slice(comp.indexOf("function TarotShareCard"), comp.indexOf("function FicShareCard"));
-  assert.match(seg, /"data-wk": "card", style: \{ width: 242, borderRadius: 14/);
-  assert.match(seg, /c\.rev \? "（逆位）" : "（正位）"/, "卡面上看不出正逆");
+  assert.match(seg, /"data-wk": "card", "data-kind": "tarotshare", style: \{ width: 242, borderRadius: 14/);
+  // v68.91：正逆不再靠「（逆位）」三个字说，逆位的牌是【真的倒过来】的
+  assert.match(seg, /transform: c\.rev \? "rotate\(180deg\) scale\(1\.02\)" : "scale\(1\.02\)"/, "逆位没倒过来");
+  assert.match(seg, /\}, "逆"\) : null\)/, "逆位角上那枚小戳没了");
+});
+
+// ── v68.91：把它做成【真的那几张牌】（她 2026-09-16：「做好看点」）─────────
+// v67.67 那一版是基础款：米白底、一行眉标、三行灰字列着「过去 · 星星（正位）」。
+// 换成读书笔记、换成一张收据照样成立——它没长在「这是一副摊开的牌」这件事上。
+// 跟礼物卡那次一模一样的病（那次的解法是：让它真的成为一个盒子）。
+test("牌面从 tarot.js 借，别在卡里照着牌库再抄一份", () => {
+  const tarot = fs.readFileSync(path.join(root, "js/tarot.js"), "utf8");
+  assert.match(tarot, /Tarot\.cardImage = cardImage;/);
+  assert.match(tarot, /Tarot\.NIGHT = NIGHT_BASE;/);
+  const seg = comp.slice(comp.indexOf("const TAROT_TILT"), comp.indexOf("function FicShareCard"));
+  assert.match(seg, /const imgOf = c => \(T && T\.cardImage\) \? T\.cardImage\(c\) : "";/);
+  assert.match(seg, /const N = \(T && T\.NIGHT\) \|\|/, "夜色也该借，不另调一套");
+  // components.js 比 tarot.js 先加载，所以只能在【画的时候】问它要——不许在模块顶上取
+  assert.ok(!/^const\s+\w+\s*=\s*window\.Tarot/m.test(seg), "在模块顶上取 window.Tarot，加载顺序上拿不到");
+  assert.ok(seg.indexOf("assets/tarot-rws") < 0, "卡里自己拼了牌图路径，换牌图就得改两处");
+});
+
+test("牌库查得到：转发只存了牌名，查不到图这张卡就是空的", () => {
+  const tarot = fs.readFileSync(path.join(root, "js/tarot.js"), "utf8");
+  const i = tarot.indexOf("  const MAJORS"), j = tarot.indexOf("  const cardLabel =");
+  const T = new Function(tarot.slice(i, j) + "\nreturn { cardImage, DECK };")();
+  assert.equal(T.DECK.length, 78);
+  // 落盘那头存的就是 DECK 里的名字（tarotShareMsg: name: String(c.name)）
+  ["星星", "高塔", "圣杯二", "权杖国王", "愚者"].forEach(n =>
+    assert.match(T.cardImage({ name: n }), /^assets\/tarot-rws\/.+\.jpg$/, n + " 查不到牌面"));
+  // 查不到也不能炸：卡里退回一个 ✦
+  assert.equal(T.cardImage({ name: "不存在的牌" }), "");
+  const seg = comp.slice(comp.indexOf("const TAROT_TILT"), comp.indexOf("function FicShareCard"));
+  assert.match(seg, /imgOf\(c\) \? h\("img"/, "没图的时候没有退路");
+  assert.match(seg, /\\u2726/, "退路那个符号没了");
+});
+
+test("摊开的样子：牌歪一点、牌位在牌底下、牌多了自己变窄", () => {
+  const seg = comp.slice(comp.indexOf("const TAROT_TILT"), comp.indexOf("function FicShareCard"));
+  assert.match(comp, /const TAROT_TILT = \[-3\.5, 2\.2, -1\.4, 3, -2\.2, 1\.6\];/, "手摊出来的牌不会排得笔直");
+  assert.match(seg, /transform: "rotate\(" \+ \(TAROT_TILT\[k % TAROT_TILT\.length\]\) \+ "deg\)"/);
+  // 六张也得塞进这 242
+  assert.match(seg, /const cw = cards\.length >= 5 \? 33 : cards\.length === 4 \? 38 : cards\.length === 3 \? 44 : 50;/);
+  assert.match(seg, /cards\.slice\(0, 6\)/);
+  assert.match(seg, /c\.pos \? h\("div"/, "牌位没写在牌底下");
 });

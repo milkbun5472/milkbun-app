@@ -21,7 +21,9 @@ const mkMenu = customs => {
   const i = tarot.indexOf("  const SPREADS = {");
   const j = tarot.indexOf("  const SHOP_MOMENTS");
   const k = tarot.indexOf("  Tarot.spreadMenu = function (modeKey) {");
-  const k2 = tarot.indexOf("  window.Tarot = Tarot;");
+  // v68.91 起 window.Tarot 那一行前面多了几条借给聊天卡的导出（cardImage/NIGHT），
+  // 它们引用 SPREADS 之外的东西，切到这儿就够了
+  const k2 = tarot.indexOf("  // 牌面长什么样，只有这一处说了算");
   const body = tarot.slice(i, j) + "\nconst Tarot = {};\n" + tarot.slice(k, k2) + "\nreturn Tarot;";
   return new Function("loadJSON", "saveJSON", body)(() => customs, () => {});
 };

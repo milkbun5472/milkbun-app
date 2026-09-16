@@ -10677,25 +10677,74 @@ function PhonePeekCard({ m, isU, character }) {
         hid && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b6473c", marginTop: 7 } }, characterText(character, "这是他藏起来的")))));
 }
 // 同人文分享卡
-// 塔罗那一卦带进聊天时的那张卡（她 2026-09-13 报：「它不是一张卡，只是聊天记录灌进上下文，
-// 而且牌和解析没跟上」）。⚠️照 FicShareCard 那一套长（同一种东西＝同一种卡面），
-// 不另发明一种卡面。牌面本身是这张卡的主体：几张牌、正逆、位置，一眼看得见。
+// 塔罗那一卦带进聊天时的那张卡。
+// v67.67 第一版照 FicShareCard 那一套长（同一种东西＝同一种卡面），可她 2026-09-16
+// 说「做好看点」——回头看，那一版是【基础款】：米白底、一行眉标、三行灰字列着
+// 「过去 · 星星（正位）」。**换成读书笔记、换成一张收据，照样成立**，它没长在
+// 「这是一副摊开的牌」这件事上（跟礼物卡那次一模一样的病，见下面 GiftCard）。
+//
+// 所以这一版把它做成【真的那几张牌】：
+//   · 底是塔罗那片夜（借 Tarot.NIGHT 那一份，不另调一套颜色）；
+//   · 牌面是真牌面（Tarot.cardImage，逆位真的倒过来转 180°）；
+//   · 每张微微歪一点、压着前一张——手摊出来的牌不会排得笔直；
+//   · 牌位写在牌底下，逆位角上一枚小戳。
+// ⚠️牌面、牌名、夜色这三样都从 tarot.js 借（one-public-mechanism）：
+//   这边照着 DECK 再抄一份的话，以后换牌图就得改两处。
+// ⚠️宽度仍是 242、眉标仍是那一条：跟同人文／聊天记录那几张卡是同一族，
+//   换的是**这一张自己的材质**，不是整族的骨架。
+const TAROT_TILT = [-3.5, 2.2, -1.4, 3, -2.2, 1.6];
 function TarotShareCard({ m, isU }) {
   const t = useTheme();
   const d = m.tarot || {};
+  const T = (typeof window !== "undefined" && window.Tarot) || null;
+  const N = (T && T.NIGHT) || { bg: "#14112a", ink: "#efe9dc", sub: "rgba(239,233,220,.55)",
+    tint: "#b89150", line: "rgba(239,233,220,.13)", fog: "rgba(239,233,220,.38)" };
   const cards = Array.isArray(d.cards) ? d.cards.slice(0, 6) : [];
+  const imgOf = c => (T && T.cardImage) ? T.cardImage(c) : "";
+  // 牌多了就窄一点，六张也塞得下这 242
+  const cw = cards.length >= 5 ? 33 : cards.length === 4 ? 38 : cards.length === 3 ? 44 : 50;
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}` } },
-      h("div", { className: "px-3.5 pt-3 pb-3" },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: t.fog,
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+    h("div", { "data-wk": "card", "data-kind": "tarotshare", style: { width: 242, borderRadius: 14, overflow: "hidden",
+      background: N.bg, border: "1px solid rgba(184,145,80,.28)",
+      boxShadow: "0 6px 18px rgba(12,9,26,.28)" } },
+      // 桌上那一圈晕光：牌是被一盏灯照着摊在桌上的，不是贴在纯色块上
+      h("div", { style: { padding: "11px 13px 13px",
+        backgroundImage: "radial-gradient(120% 78% at 50% 6%, rgba(184,145,80,.14) 0, rgba(184,145,80,0) 62%)" } },
+        // 眉标：跟同人文那一条同一个形状，只是这儿是铜色（不许折行，折了看着像坏了）
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: N.tint,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: .92 } },
           "塔罗" + (d.spreadName ? " · " + d.spreadName : "") + (d.note ? " · " + d.note : "")),
-        d.q ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, color: t.ink, marginTop: 5 } }, d.q) : null,
-        cards.length ? h("div", { style: { marginTop: d.q ? 7 : 6, display: "flex", flexDirection: "column", gap: 3 } },
-          cards.map((c, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: t.sub,
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-            (c.pos ? c.pos + " · " : "") + (c.name || "") + (c.rev ? "（逆位）" : "（正位）")))) : null,
-        d.summary ? h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.ink, marginTop: 7 } }, d.summary) : null)));
+        d.q ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.4, color: N.ink, marginTop: 5 } }, d.q) : null,
+        // ── 摊开的那几张牌 ──
+        cards.length ? h("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-start",
+          gap: cards.length >= 5 ? 2 : 5, marginTop: d.q ? 10 : 8, paddingTop: 2 } },
+          cards.map((c, k) => h("div", { key: k, style: { width: cw, flexShrink: 0,
+            transform: "rotate(" + (TAROT_TILT[k % TAROT_TILT.length]) + "deg)" } },
+            h("div", { style: { position: "relative", width: "100%", aspectRatio: "2/3.4", borderRadius: 4,
+              overflow: "hidden", background: "#2a2440",
+              border: "1px solid " + (c.rev ? "rgba(178,102,118,.55)" : "rgba(184,145,80,.42)"),
+              boxShadow: "0 3px 8px rgba(8,6,18,.45)" } },
+              imgOf(c) ? h("img", { src: imgOf(c), alt: c.name || "", loading: "lazy",
+                style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+                  // 逆位就是真的倒过来——这是这张卡最该一眼看见的东西
+                  transform: c.rev ? "rotate(180deg) scale(1.02)" : "scale(1.02)" } })
+                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center",
+                    justifyContent: "center", color: N.tint, fontSize: 13 } }, "\u2726"),
+              // 压在牌脚的一道暗，把牌名托住
+              h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "46%",
+                background: "linear-gradient(transparent,rgba(16,12,30,.9))" } }),
+              h("div", { style: { position: "absolute", left: 1, right: 1, bottom: 2, textAlign: "center",
+                fontFamily: F_BODY, fontSize: cw >= 44 ? 8.5 : 7.5, lineHeight: 1.15, color: "#fff",
+                textShadow: "0 1px 2px #000", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, c.name || ""),
+              c.rev ? h("div", { style: { position: "absolute", right: 2, top: 2, fontFamily: F_BODY, fontSize: 7,
+                lineHeight: 1, color: "#fff", background: "rgba(137,64,77,.9)", borderRadius: 999,
+                padding: "2px 3px" } }, "逆") : null),
+            c.pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: N.fog, textAlign: "center",
+              marginTop: 4, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, c.pos) : null))) : null,
+        // 收束：隔一道铜色细线，像牌阵底下写的那一句
+        d.summary ? h("div", { style: { marginTop: 11, paddingTop: 9, borderTop: "1px solid rgba(184,145,80,.22)" } },
+          h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6,
+            color: "rgba(239,233,220,.82)" } }, d.summary)) : null)));
 }
 function FicShareCard({ m, isU }) {
   const t = useTheme();
