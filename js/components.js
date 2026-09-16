@@ -8675,6 +8675,7 @@ function CallSubtitle({ line, onPhoto, actions = [] }) {
   const [n, setN] = useState(0);
   const text = String((line && line.text) || "");
   const zh = String((line && line.zh) || "");
+  const who = String((line && line.who) || "");
   useEffect(() => {
     if (!text) { setN(0); return; }
     const at = (line && line.at) || Date.now();
@@ -8699,6 +8700,11 @@ function CallSubtitle({ line, onPhoto, actions = [] }) {
   }, h("div", { style: { minHeight: "100%", display: "flex", flexDirection: "column", gap: 14, padding: "12px 0" } },
     text && actions.length ? h("div", { "data-call-actions": true, style: { color: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, textAlign: "center", whiteSpace: "pre-wrap", overflowWrap: "anywhere", textShadow: "0 1px 8px rgba(0,0,0,.9)" } },
       actions.map((m, i) => h("div", { key: i }, m.content))) : null,
+    (text && who) ? h("div", { "data-call-subtitle-who": true, style: {
+      width: "100%", alignSelf: "center", maxWidth: 560, textAlign: "center", marginBottom: -10,
+      fontFamily: F_BODY, fontSize: 11.5, letterSpacing: .5, color: "rgba(255,255,255,.55)",
+      textShadow: onPhoto ? "0 1px 10px rgba(0,0,0,.75)" : "0 1px 8px rgba(0,0,0,.5)"
+    } }, who) : null,
     text ? h("div", {
     style: {
       flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", alignSelf: "center",
@@ -9083,7 +9089,14 @@ function CallScreen({
             srcN.onended = () => { clearTimeout(safety); res(); };
             srcN.start(0);
             // ⚠️字幕跟【这一句】走：念几秒字就铺几秒。换句就把上一句整个换掉。
-            if (stream) setSubLine({ text: m.content, zh: m.zh || "", ms: abuf.duration * 1000, at: Date.now(), index: idx });
+            // ⚠️群通话的字幕得写上是谁在说（她 2026-09-16 问到群通话时发现的）：
+            //   屏幕中间只有一句话，三个人轮流说，不写名字就分不清是谁。
+            //   单人通话不写——就他一个，写了是废话。
+            //   ⚠️这儿用 participants 不用底下那个 isGroup：那两个 const 声明在这一段
+            //   【后面】，effect 里引得到只是因为跑得晚，那是靠时序侥幸（v59.22 栽过）。
+            if (stream) setSubLine({ text: m.content, zh: m.zh || "",
+              who: (participants || []).length > 1 ? String(m.senderName || "") : "",
+              ms: abuf.duration * 1000, at: Date.now(), index: idx });
             setAudioStatus("对方说话中…");
           });
         } catch (e) { if (valid()) { setAudioStatus("自动播报失败（" + (e && e.name || "Error") + "），可点这句手动播放"); audioRef.current.enabled = false; setAudioReady(false); } break; }

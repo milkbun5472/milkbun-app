@@ -68,7 +68,7 @@ test("字幕跟着这一句的语音走，没时长才退回固定速度", () =>
 });
 
 test("这一句的真实时长是从解码出来的音频拿的", () => {
-  assert.match(C, /if \(stream\) setSubLine\(\{ text: m\.content, zh: m\.zh \|\| "", ms: abuf\.duration \* 1000, at: Date\.now\(\), index: idx \}\);/);
+  assert.match(C, /ms: abuf\.duration \* 1000, at: Date\.now\(\), index: idx \}\);/);
   const i = C.indexOf("if (stream) setSubLine({ text: m.content");
   const blk = C.slice(Math.max(0, i - 400), i);
   assert.match(blk, /srcN\.start\(0\);/, "字幕得和开播同一拍，不能早也不能晚");

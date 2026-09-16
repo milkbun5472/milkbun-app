@@ -67,8 +67,38 @@ test("中译跟原文同一个进度铺：不许一眼读完中文就不用听�
 test("喂进来那一句得带上 zh，而且只有这一个口子", () => {
   assert.match(app, /pushMsg\(\{ role: "char", senderId: char\.id, senderName: char\.name, content: ln\.speech, zh: ln\.zh \}\)/,
     "流式那条路落气泡时没带 zh");
-  assert.match(comp, /setSubLine\(\{ text: m\.content, zh: m\.zh \|\| "", ms: abuf\.duration \* 1000/);
+  assert.match(comp, /setSubLine\(\{ text: m\.content, zh: m\.zh \|\| "",/);
   assert.equal((comp.match(/setSubLine\(\{ text:/g) || []).length, 1, "喂字幕只该有这一处");
   // 不流式那条路本来就在显示中译——两边现在说的是同一件事
   assert.match(comp, /h\(TransText, \{ text: m\.content, isU, zhReady: m\.zh/);
+});
+
+// ── v68.90：群通话的字幕得写上是谁在说 ────────────────────────────────
+// 她 2026-09-16：「那群通话呢宝宝，也是流式的吗」——流式字幕是有的（在场任何一位
+// 开了就开），可屏幕中间只有一句话、三个人轮流说，**不写名字就分不清是谁**。
+test("群通话：字幕上要有名字；单人通话不写（写了是废话）", () => {
+  const who = node => flat(node).find(x => x.props && x.props["data-call-subtitle-who"]);
+  assert.equal(String(who(renderSubtitle({ text: "在呢", who: "陆闻" })).kids), "陆闻");
+  assert.equal(who(renderSubtitle({ text: "在呢", who: "" })), undefined, "单人通话不该写名字");
+  assert.equal(who(renderSubtitle({ text: "", who: "陆闻" })), undefined, "没话的时候名字也别挂着");
+});
+
+test("名字只在群通话喂进去，而且不靠时序侥幸拿 isGroup", () => {
+  assert.match(comp, /who: \(participants \|\| \[\]\)\.length > 1 \? String\(m\.senderName \|\| ""\) : "",/);
+  // ⚠️isGroup / people 那两个 const 声明在这一段【后面】，effect 里引得到只是因为
+  //   跑得晚——那是靠时序侥幸（v59.22 栽过一次）。这儿直接用 props。
+  const i = comp.indexOf("if (stream) setSubLine({");
+  const j = comp.indexOf("const isGroup = people.length > 1;");
+  assert.ok(i > 0 && j > i, "isGroup 现在声明在前面了，这条注释和写法可以回去看看");
+  assert.match(comp, /那是靠时序侥幸/);
+});
+
+test("群通话那一路：中译和名字都拿得到（不然字幕上补了也是空的）", () => {
+  // 群通话落气泡时带 zh 和 senderName
+  assert.match(app, /senderId: spk\.id, senderName: spk\.name, content: ln\.speech, zh: ln\.zh \}\)/);
+  // 双语规则也发给了群通话（callBilingualRule 收的是 people，复数）
+  assert.match(app, /const callBiHint = callBilingualRule\(people, settingsFor\);/);
+  assert.match(app, /callAI\(active, sys \+ callBiHint, hist/);
+  // 流式字幕：在场任何一位开了就开——群通话一样吃得到
+  assert.match(app, /const stream = people\.some\(c => callStreamFor\(c\.id\)\);/);
 });
