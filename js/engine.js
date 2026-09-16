@@ -4417,13 +4417,24 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     //   1) 经典一枪 → 2) 审核拒了才换软化稿再一枪 → 3) 「没收到图」类回话才试新形状一枪 → 报错。
     // 中转站对 multipart 文件字段的兼容并不一致，而且这个偏好必须按站点保存。
     // 单图也不能永远写死 image：有的兼容层只接官方常见的 image[]。
-    const preferredMode = a.refFieldMode === "first" ? "first"
+    // ⚠️"first" 只发 refBlobs[0]——多张参考照时，第二张之后的脸【全被悄悄丢掉】，
+    //   而且返回里还报着「带了 N 张」。有人 2026-09-16 报的「锁脸锁角色可以、锁她自己不行」
+    //   就是这个：合照里角色是第一张所以锁得住，她自己是第二张，整张没发出去。
+    // ⚠️选 "first" 的本意是【我这个站只认 image 这个字段名】，不是「只发一张」。
+    //   repeat 用的也是 image 字段，只是发多次——所以多图时自动走 repeat，
+    //   既尊重他对字段名的选择，又不会把人家的脸丢掉。
+    const rawMode = a.refFieldMode === "first" ? "first"
       : a.refFieldMode === "repeat" ? "repeat"
       : a.refFieldMode === "bracket" ? "bracket"
       : refBlobs.length > 1 ? "bracket" : "first";
+    const preferredMode = (rawMode === "first" && refBlobs.length > 1) ? "repeat" : rawMode;
     const uploadedBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
     const finish = (out, how, mode, legacyShape) => {
-      out.referenceCount = refBlobs.length;
+      // 报数要报【真的发出去了几张】。原来无论如何都写 refBlobs.length，
+      // 于是 first 模式下明明只发了一张，回执上写着两张——排查时全被这个数带偏。
+      out.referenceCount = mode === "first" ? Math.min(1, refBlobs.length) : refBlobs.length;
+      out.referenceDropped = refBlobs.length - out.referenceCount;
+      if (out.referenceDropped > 0) out.degraded = "refs-dropped-" + out.referenceDropped;
       out.referenceBytes = uploadedBytes;
       out.refMode = mode;
       out.refField = mode === "bracket" ? "image[]" : "image";
@@ -4446,7 +4457,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (noImg) {
         // 先只换 multipart 字段名，保持已经实测锁脸成功的经典请求形状；若仍不认，
         // 再分别试带 input_fidelity=high 的两种字段。单图同样必须真的试 image[]。
-        const alternateMode = preferredMode === "bracket" ? "first" : "bracket";
+        // 同上：多图时的「另一种字段名」不能是 first（那是丢脸，不是换字段）
+        const alternateMode = preferredMode === "bracket"
+          ? (refBlobs.length > 1 ? "repeat" : "first") : "bracket";
         try { return finish(await attemptWith(refBlobs, alternateMode, null, ms, true), "alternate-field", alternateMode, true); } catch (e2) { note(e2); }
         for (const mode of [preferredMode, alternateMode]) {
           try { return finish(await attemptWith(refBlobs, mode, null, ms, false), "new-shape", mode, false); } catch (e3) { note(e3); }

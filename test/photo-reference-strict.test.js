@@ -14,14 +14,20 @@ test("参考照失败不会退回无参考生成陌生人", () => {
   const fn = engine.slice(engine.indexOf("async function generateSelfieImage"), engine.indexOf("// ============================================================\n// MiniMax"));
   assert.match(fn, /已停止而没有生成陌生人/);
   assert.ok(fn.indexOf("if (refBlobs.length) {") < fn.indexOf("if (refBlobs.length > 1) {"), "strict identity gate must run before the legacy compatibility ladder");
-  assert.match(fn, /out\.referenceCount = refBlobs\.length/);
+  // v68.98 翻的：原来无论如何都写 refBlobs.length，可 "first" 模式只发第一张——
+  //   回执说带了两张、实际只带了一张，「锁脸锁角色可以、锁她自己不行」就是被这个数盖住的。
+  //   现在报的是【真的发出去了几张】，丢了就标 degraded。
+  assert.match(fn, /out\.referenceCount = mode === "first" \? Math\.min\(1, refBlobs\.length\) : refBlobs\.length;/);
+  assert.match(fn, /if \(out\.referenceDropped > 0\) out\.degraded = "refs-dropped-" \+ out\.referenceDropped;/);
   assert.match(fn, /Math\.min\(Number\(msOverride \|\| 130000\), 300000\)/);
   assert.match(fn, /fd\.append\("input_fidelity", "high"\)/);
   assert.match(fn, /identityVerification = "not-provided"/);
   assert.match(fn, /refFilename/);
   assert.match(fn, /refMode === "first"/, "单图字段必须由 refMode 决定，不能被图片数量短路");
   assert.doesNotMatch(fn, /refBlobs\.length === 1 \|\| refMode === "first"/, "单图也必须能真正尝试 image[]");
-  assert.match(fn, /alternateMode = preferredMode === "bracket" \? "first" : "bracket"/, "没收到图时要轮换 multipart 字段");
+  // v68.98：多图时的「另一种字段名」不能是 first——那不是换字段，那是把第二张脸丢掉。
+  //   repeat 用的也是 image 这个字段名，只是发多次，所以它才是多图时的正确替身。
+  assert.match(fn, /alternateMode = preferredMode === "bracket"\n\s*\? \(refBlobs\.length > 1 \? "repeat" : "first"\) : "bracket"/, "没收到图时要轮换 multipart 字段");
   assert.match(fn, /out\.referenceBytes = uploadedBytes/, "诊断要显示实际送出的参考图字节数");
 });
 
