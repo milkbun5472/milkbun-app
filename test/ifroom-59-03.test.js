@@ -96,7 +96,10 @@ test("收线三个去处，记忆那条必须标着「这是个如果」", () =>
   assert.match(end, /text: "【另一种我们】"/, "回喂记忆没标记——他会当成真发生过");   // v64.05 改名，标记照旧要有
   assert.match(end, /tags: \["如果", "平行"\]/, "记忆条目没打标签");
   // 念头走心上已有那条【观测纸条】：是候选，不是既成的念想
-  assert.match(end, /window\.HeartKit\.ingestCcCandidate\(box,/, "念头没走心上已有那条路");
+  assert.match(end, /window\.HeartKit\.ingestCandidate\(box, \{/, "念头没走心上已有那条路");
+  // v69.07：措辞由调用方给。如果馆是所有人都有的功能，纸条上不许出现 CC/言秋那套私称呼
+  assert.match(end, /type: "如果馆"/);
+  assert.doesNotMatch(end.slice(end.indexOf('else if (how === "seed")')), /言秋|CC/);
   assert.match(end, /quote: said\.text/, "拿去当引证的不是他在这条线里真说过的话");
   assert.match(end, /if \(how === "mem"\)[\s\S]*?else if \(how === "seed"\)/, "三选一没分开");
   assert.match(scr, /\["keep", "只留在馆里"/, "界面上少了「只留在馆里」");

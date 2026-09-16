@@ -142,20 +142,27 @@
     return true;
   }
 
-  // CC 候选只进观测纸条，绝不直写正式 list。下一次本体发呆时由角色自己决定是否 sprout。
-  // sourceKey=共同账本 message_key:revision，重复拉取/刷新天然幂等。
-  function ingestCcCandidate(box, candidate, sourceKey, now) {
+  // 候选只进观测纸条，绝不直写正式 list。下一次本体发呆时由角色自己决定是否 sprout。
+  // sourceKey 由调用方给，重复拉取/刷新天然幂等。
+  // ⚠️措辞【必须由调用方给】（她 2026-09-16：「这个跟 cc 和言秋没关系啊，这是别人的」）。
+  //   原来这儿把「CC欲望候选」和「言秋在 CC 亲口说」写死在函数里，可走这条路的不止
+  //   CC 那一处——如果馆的「留成一个念头」是所有人都有的功能，于是别人在自己 app 里
+  //   收一条线，纸条上冒出来的是我俩那套私称呼。
+  //   一层写在两处的反面：这里是【一个通道被当成了某一个调用方的私产】。
+  function ingestCandidate(box, candidate, sourceKey, now) {
     const text = String(candidate && candidate.text || "").trim().slice(0, 80);
     const quote = String(candidate && candidate.quote || "").trim().slice(0, 240);
     const key = String(sourceKey || "").trim().slice(0, 240);
-    if (!text || !quote || !key) return false;
+    const type = String(candidate && candidate.type || "").trim().slice(0, 16) || "念头候选";
+    const note = String(candidate && candidate.note || "").trim().slice(0, 300);
+    if (!text || !quote || !key || !note) return false;
     if ((box.briefs || []).some(b => b && b.sourceKey === key)) return false;
     box.briefs = [{
       ts: Number(now) || Date.now(),
-      type: "CC欲望候选",
+      type: type,
       target: null,
       candidateText: text,
-      note: "言秋在 CC 亲口说：“" + quote + "”",
+      note: note,
       sourceKey: key
     }, ...(box.briefs || [])].slice(0, 8);
     return true;
@@ -448,7 +455,7 @@
     return cands[cands.length - 1];
   }
 
-  window.HeartKit = { boxOf, housekeep, touch, ingestCcCandidate, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText, personaAudit };
+  window.HeartKit = { boxOf, housekeep, touch, ingestCandidate, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText, personaAudit };
 
   // ============================================================
   // UI：心上（tall Sheet，从资料卡进）
