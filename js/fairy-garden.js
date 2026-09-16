@@ -165,27 +165,52 @@
         if (alive.current && serial.current === epoch) { setError(e.message || "这次没能连上，稍后可以重试。"); setDetail(e.detail || ""); try { update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).map(m => m.request === request ? { ...m, status: "failed" } : m) } })); } catch (_) {} }
       } finally { busyRef.current = false; if (alive.current) setBusy(false); }
     }
-    const buttonStyle = { border: "1px solid #c8d5ba", borderRadius: 12, padding: "12px 14px", background: "#f6f7ea", color: "#426043", fontSize: 13 };
+    // ── 这一页的按键（她 2026-09-16：「那些按键的 ui 好拥挤」）─────────────
+    // 病根是这些按钮从来没装修过：没字体、没圆角、字挤在一条边上，
+    // 跟 app 别处那套（F_BODY + 圆角 + 该留的白）完全不是一家人。
+    // 一份色板 + 三个形状写在这儿，下面各处都取这儿的，不再各写各的行内样式。
+    const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", paper: "#fffef5", deep: "#55704f" };
+    const buttonStyle = { border: "1px solid #c8d5ba", borderRadius: 14, padding: "14px 16px", background: "#f6f7ea", color: "#426043", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, textAlign: "left" };
+    // 描边药丸：顶栏那个「说话」、面板里的「换同行者」「重试」都用它，大小只差一档
+    const pill = (small) => ({
+      border: "1px solid " + G.line, borderRadius: 999,
+      padding: small ? "5px 12px" : "7px 15px",
+      background: "rgba(255,255,255,.55)", color: G.soft,
+      fontFamily: F_BODY, fontSize: small ? 11 : 12.5, lineHeight: 1.4, whiteSpace: "nowrap"
+    });
     if (!props.lockPartnerId && (pick || (!char && !solo))) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: "选一位同行者", bg: "transparent", ink: "#344936", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
-        h("p", { style: { fontSize: 13, lineHeight: 1.8, marginBottom: 18 } }, "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。"),
-        h("div", { style: { display: "grid", gap: 10 } }, (props.characters || []).map(c => h("button", { key: c.id, style: buttonStyle, onClick: () => choose(c.id) }, c.remark || c.name)),
+        h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } }, "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。"),
+        h("div", { style: { display: "grid", gap: 11 } }, (props.characters || []).map(c => h("button", { key: c.id, style: buttonStyle, onClick: () => choose(c.id) }, c.remark || c.name)),
           h("button", { style: buttonStyle, onClick: () => choose("") }, "先和示例同行者试玩")),
-        !(props.characters || []).length && h("p", { style: { marginTop: 16, fontSize: 12 } }, "也可以先去人格档案馆创建角色。"),
-        error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 12 } }, error)));
+        !(props.characters || []).length && h("p", { style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "也可以先去人格档案馆创建角色。"),
+        error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error)));
     return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: char ? "与 " + (char.remark || char.name) + " 同行" : "自由试玩", bg: "transparent", ink: "#344936", onBack: back,
-        right: h("button", { style: { fontSize: 12, padding: 8 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话") }),
+        right: h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话") }),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
-        chat && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 10, right: 10, bottom: 0, maxHeight: "45%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid #d1dac2", borderRadius: "18px 18px 0 0", boxShadow: "0 -8px 28px #30442618" } },
-          h("div", { style: { padding: "9px 12px", display: "flex", alignItems: "center", gap: 12, fontSize: 11 } }, h("span", {style:{maxWidth:"65%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}, char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"), props.lockPartnerId ? null : h("button", { onClick: changePartner, disabled: busy }, "换同行者")),
-          h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "0 12px", fontSize: 13, lineHeight: 1.7, minHeight: 55, maxHeight: 180 } }, rows.map(m => h("p", { key: m.id, style: { margin: "5px 0 9px", whiteSpace: "pre-wrap", color: m.role === "user" ? "#6e8060" : "#344936" } }, h("small", null, m.role === "user" ? "你：" : (char && (char.remark || char.name) || "同行者") + "："), m.content)), !rows.length && h("p", null, "想聊什么，或者想一起去哪里？"), busy && h("p", { role: "status" }, "正在回应…"), error && h("p", { role: "alert", style: { color: "#a34836" } }, error), detail && h("details", null, h("summary", null, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10 } }, detail))),
-          !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("button", { style: { fontSize: 11, padding: 5 }, onClick: () => send(true) }, "重试上次未完成的回复"),
-          h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", gap: 8, padding: "8px 10px", paddingBottom: COMPOSER_PAD_BOTTOM } },
-            h("input", { "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid #d0d9c4", background: "#fffef5", borderRadius: 10, padding: "10px 9px", fontSize: 16 } }),
-            h("button", { type: "submit", disabled: busy || !char || !draft.trim(), style: { padding: "8px 12px", fontSize: 13, color: "#456c48" } }, "发送")))));
+        chat && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
+          // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
+          h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
+          h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },
+            h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
+              char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
+            props.lockPartnerId ? null : h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "换同行者")),
+          h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
+            rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
+              h("div", { style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),
+            !rows.length && h("p", { style: { margin: "6px 0 12px", color: "#93a188" } }, "想聊什么，或者想一起去哪里？"),
+            busy && h("p", { role: "status", style: { margin: "0 0 12px", color: "#93a188" } }, "正在回应…"),
+            error && h("p", { role: "alert", style: { margin: "0 0 10px", color: "#a34836" } }, error),
+            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))),
+          !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { style: { padding: "0 16px 8px" } },
+            h("button", { style: pill(true), onClick: () => send(true) }, "重试上次未完成的回复")),
+          h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
+            h("input", { "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
+            h("button", { type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5, opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
   };
 })(window);
