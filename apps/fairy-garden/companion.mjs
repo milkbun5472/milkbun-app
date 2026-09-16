@@ -1,4 +1,4 @@
-import {MAPS,COMPANION_DESTINATIONS,weather,findPath,segmentClear,walkable,companionCare} from './world.mjs?v=fg-aeb847a2a133762a';
+import {MAPS,COMPANION_DESTINATIONS,weather,findPath,segmentClear,walkable,companionCare} from './world.mjs?v=fg-31a4e10661cbff17';
 const activity={
  flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},
  herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},

@@ -5,6 +5,26 @@ const base=process.env.GARDEN_TEST_URL||'http://127.0.0.1:18893';
 (async()=>{const browser=await chromium.launch({headless:true,channel:'chrome'});try{const p=await browser.newPage({viewport:{width:390,height:844}}),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.route('**/*',r=>r.request().url().startsWith(base)?r.continue():r.abort());await p.addInitScript(()=>{if(!sessionStorage.getItem('garden-test-seeded')){localStorage.setItem('x_characters',JSON.stringify([{id:'garden_test_role',name:'测试同行者',persona:'温和的魔法学徒，喜欢观察草木。',gender:'other'},{id:'garden_other_role',name:'另一位同行者',persona:'喜欢冒险的魔法师。',gender:'other'}]));localStorage.setItem('x_profile',JSON.stringify({name:'测试玩家',persona:'旅行者'}));localStorage.setItem('x_api',JSON.stringify([{id:'fake',name:'测试线路',base:'https://invalid.test',key:'dummy',model:'mock'}]));sessionStorage.setItem('garden-test-seeded','1');}});await p.goto(base);await p.getByText('翻 开',{exact:true}).click({timeout:20000});await p.getByText('微光庭院',{exact:true}).click();await p.getByRole('button',{name:'测试同行者',exact:true}).click();
 const game=()=>p.frames().find(f=>f.url().includes('/apps/fairy-garden/'));
 await p.waitForFunction(()=>document.querySelector('iframe')?.contentWindow.gardenDebug?.getReady(),{},{timeout:30000});
+// View changes remain local UI preferences, with real pointer pinch input in the iframe.
+const f=game();const expanded=await f.locator('#action-panel').boundingBox();
+await f.getByRole('button',{name:'收起行动',exact:true}).click();assert.equal(await f.locator('#panel-content').isVisible(),false);
+const compact=await f.locator('#action-panel').boundingBox();assert.ok(compact.height<65&&compact.height<expanded.height/2);
+await f.getByRole('button',{name:'放大地图'}).click();assert.ok(await f.evaluate(()=>gardenDebug.getView().zoom)>1);
+await f.getByRole('button',{name:'缩小地图'}).click();assert.ok(Math.abs(await f.evaluate(()=>gardenDebug.getView().zoom)-1)<.001);
+const beforePinch=await f.evaluate(()=>gardenDebug.getPlayer());const cdp=await p.context().newCDPSession(p);const rect=await p.locator('iframe').boundingBox();
+const touch=(x,y,id)=>({x:rect.x+x,y:rect.y+y,id,radiusX:4,radiusY:4,force:1});
+await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(140,220,1),touch(240,220,2)]});
+await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(110,220,1),touch(270,220,2)]});
+await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+assert.ok(await f.evaluate(()=>gardenDebug.getView().zoom)>1.3);assert.deepEqual(await f.evaluate(()=>gardenDebug.getPlayer()),beforePinch);
+await p.screenshot({path:'/tmp/fairy-phone-folded-zoom.png'});
+const target=await f.evaluate(()=>gardenDebug.project(0,3));await p.mouse.click(rect.x+target.x,rect.y+target.y);await f.waitForFunction(()=>{const p=gardenDebug.getPlayer();return Math.hypot(p.x,p.z-3)<.15;},{},{timeout:15000});
+await f.getByRole('button',{name:'恢复默认地图大小'}).click();assert.equal(await f.evaluate(()=>gardenDebug.getView().zoom),1);
+await f.getByRole('button',{name:'展开行动',exact:true}).click();assert.equal(await f.locator('#well').isVisible(),true);
+await p.setViewportSize({width:320,height:568});const panel=await f.locator('#action-panel').boundingBox();assert.ok(panel.x>=0&&panel.x+panel.width<=320&&panel.y+panel.height<=568);
+await f.getByRole('button',{name:'收起行动',exact:true}).click();await p.screenshot({path:'/tmp/fairy-phone-folded-small.png'});
+await p.waitForTimeout(180);assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('x_fairyGardenView')).folded),true);
+await p.setViewportSize({width:390,height:844});
 await p.evaluate(()=>{window.__calls=[];callAI=async(...a)=>{window.__calls.push(a);return JSON.stringify({reply:'好，我沿着小路去池边等你。',action:{kind:'goto',target:'pond'}});};});
 await p.getByRole('button',{name:'说话',exact:true}).click();await p.getByRole('textbox',{name:'对同行者说'}).fill('去池边等我');await p.getByRole('button',{name:'发送',exact:true}).click();await p.getByText('好，我沿着小路去池边等你。',{exact:false}).waitFor();
 assert.equal(await game().evaluate(()=>gardenDebug.getState().companion.destination),'pond');const calls=await p.evaluate(()=>window.__calls.filter(a=>a[3]?.tag==="微光庭院"));assert.equal(calls.length,1);assert.equal(calls[0][3].maxTokens,65535);assert.match(calls[0][1],/温和的魔法学徒/);
@@ -16,4 +36,4 @@ await p.evaluate(()=>{callAI=async()=> 'broken reply';});await p.getByRole('text
 const worldBefore=saved.world;await p.getByRole('button',{name:'换同行者'}).click();await p.getByRole('button',{name:'另一位同行者',exact:true}).click();await p.waitForFunction(()=>document.querySelector('iframe')?.contentWindow.gardenDebug?.getReady());await p.getByRole('button',{name:'说话',exact:true}).click();assert.equal(await p.getByText('树梢亮起了小小的灯。',{exact:false}).count(),0);saved=await p.evaluate(()=>JSON.parse(localStorage.getItem('x_fairyGarden')));assert.equal(saved.world.day,worldBefore.day);assert.equal(saved.world.harvest,worldBefore.harvest);
 // A late reply must not write into a replaced save.
 await p.evaluate(()=>{callAI=()=>new Promise(resolve=>window.__finishGardenReply=resolve);});await p.getByRole('textbox',{name:'对同行者说'}).fill('稍后再说');await p.getByRole('button',{name:'发送',exact:true}).click();await p.waitForFunction(()=>!!window.__finishGardenReply);await p.evaluate(()=>{localStorage.setItem('x_fairyGarden',JSON.stringify({version:1,id:'replacement',partnerId:'garden_test_role',world:null,dialogs:{}}));window.__finishGardenReply(JSON.stringify({reply:'旧请求不应写入',action:{kind:'follow'}}));});await p.getByRole('alert').waitFor();assert.deepEqual(await p.evaluate(()=>JSON.parse(localStorage.getItem('x_fairyGarden')).dialogs),{});
-assert.deepEqual(errors,[]);console.log('PASS: phone entry, iframe ready, bounded AI action, persistence, retry, two mobile sizes, role isolation, replaced-save guard; no page errors.');}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
+assert.deepEqual(errors,[]);console.log('PASS: phone entry, folding, buttons, real pinch without walking, walking after zoom, 320/375/390 layouts, bounded AI action, persistence, retry, role isolation, replaced-save guard; no page errors.');}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
