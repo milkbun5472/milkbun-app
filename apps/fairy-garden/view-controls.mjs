@@ -1,5 +1,5 @@
 // One gesture state owns taps, panning and bounded zoom. Multitouch never becomes a walk tap.
-export const MIN_ZOOM=.7,MAX_ZOOM=2.2;
+export const MIN_ZOOM=.45,MAX_ZOOM=2.2;
 export function createMapGesture({initial=1,onZoom=()=>{},onTap=()=>{},onPan=()=>{}}={}){
  let zoom=Number.isFinite(initial)?Math.max(MIN_ZOOM,Math.min(MAX_ZOOM,initial)):1,points=new Map(),pinching=false,distance=0;
  const gap=()=>{const [a,b]=[...points.values()];return a&&b?Math.hypot(a.x-b.x,a.y-b.y):0;};

@@ -19,14 +19,14 @@ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(
 await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(215,285,7)]});
 await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 const draggedPan=await f.evaluate(()=>gardenDebug.getView().pan);assert.ok(Math.hypot(draggedPan.x-initialPan.x,draggedPan.z-initialPan.z)>.1);assert.deepEqual(await f.evaluate(()=>gardenDebug.getPlayer()),beforePinch);const projectionAfter=await f.evaluate(()=>gardenDebug.project(0,0));assert.ok(Math.abs(projectionAfter.x-projectionBefore.x-55)<2&&Math.abs(projectionAfter.y-projectionBefore.y-35)<2);
-await f.getByRole('button',{name:'恢复默认地图大小'}).click();assert.deepEqual(await f.evaluate(()=>gardenDebug.getView().pan),{x:0,z:0});
+await f.getByRole('button',{name:'恢复默认地图大小'}).click();assert.deepEqual(await f.evaluate(()=>gardenDebug.getView().pan),initialPan);
 
 await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(140,220,1),touch(240,220,2)]});
 await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(110,220,1),touch(270,220,2)]});
 await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 assert.ok(await f.evaluate(()=>gardenDebug.getView().zoom)>1.3);assert.deepEqual(await f.evaluate(()=>gardenDebug.getPlayer()),beforePinch);
 await p.screenshot({path:'/tmp/fairy-phone-folded-zoom.png'});
-const target=await f.evaluate(()=>gardenDebug.project(0,3));await p.mouse.click(rect.x+target.x,rect.y+target.y);await f.waitForFunction(()=>{const p=gardenDebug.getPlayer();return !p.moving&&Math.hypot(p.x,p.z-3)<.15;},{},{timeout:15000});
+const target=await f.evaluate(()=>gardenDebug.project(-1,0));await p.mouse.click(rect.x+target.x,rect.y+target.y);await f.waitForFunction(()=>{const p=gardenDebug.getPlayer();return !p.moving&&Math.hypot(p.x+1,p.z)<.15;},{},{timeout:15000});
 await f.getByRole('button',{name:'回到自己位置'}).click();const centered=await f.evaluate(()=>({pan:gardenDebug.getView().pan,player:gardenDebug.getPlayer()}));assert.ok(Math.hypot(centered.pan.x-centered.player.x,centered.pan.z-centered.player.z)<.01);await f.getByRole('button',{name:'恢复默认地图大小'}).click();assert.equal(await f.evaluate(()=>gardenDebug.getView().zoom),1);
 await f.getByRole('button',{name:'展开行动',exact:true}).click();assert.equal(await f.locator('#well').isVisible(),true);
 await p.setViewportSize({width:320,height:568});const panel=await f.locator('#action-panel').boundingBox();assert.ok(panel.x>=0&&panel.x+panel.width<=320&&panel.y+panel.height<=568);

@@ -13,5 +13,5 @@ export function makeSurroundings(){
  for(let i=0;i<count;i++){const angle=i*2.39996,r=8+rnd()*21,h=2.1+rnd()*2.4;let x=Math.cos(angle)*r,z=Math.sin(angle)*r;if(x*.53+z*.85>3){x=-x;z=-z;}dummy.position.set(x,h/2,z);dummy.scale.set(1,h,1);dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix);
   for(let j=0;j<2;j++){dummy.position.set(x+(j? .22:-.22),h+j*.45,z);dummy.scale.set(1.0+j*.12,1.15,1.0);dummy.rotation.y=i;dummy.updateMatrix();crowns.setMatrixAt(i*2+j,dummy.matrix);}}
  trunks.receiveShadow=crowns.receiveShadow=true;root.add(trunks,crowns);let last='';
- return {root,update(map,tint){const key=map+tint;if(last===key)return;last=key;ground.material.color.set(map==='forest'?'#c8d6bd':'#ffffff').lerp(new T.Color(tint),.12);leaves.color.set(map==='forest'?'#627e66':'#728766').lerp(new T.Color(tint),.18);}};
+ return {root,update(map,tint,config={}){const key=map+tint;if(last===key)return;last=key;ground.visible=config.ground!=='asset';const scale=Math.max(1,(config.radius||5.12)/5.12);trunks.scale.set(scale,1,scale);crowns.scale.set(scale,1,scale);ground.material.color.set(map==='forest'?'#c8d6bd':'#ffffff').lerp(new T.Color(tint),.12);leaves.color.set(map==='forest'?'#627e66':'#728766').lerp(new T.Color(tint),.18);}};
 }

@@ -1,0 +1,18 @@
+// Map-sized cached grids and a binary heap keep routes practical as the village grows.
+export function createNavigator(maps,walkable,segmentClear){
+ const grids=new Map(),STEP=.24;
+ const avoids=(p,avoid)=>avoid.every(o=>Math.hypot(p.x-o.x,p.z-o.z)>=o.r);
+ function grid(map){if(grids.has(map))return grids.get(map);const half=Math.ceil(maps[map].radius/STEP),N=half*2+1,points=Array.from({length:N*N},(_,k)=>({x:(Math.floor(k/N)-half)*STEP,z:(k%N-half)*STEP})),free=points.map(p=>walkable(p.x,p.z,map));const g={N,half,points,free};grids.set(map,g);return g;}
+ function nearest(p,map,g,avoid){const i=Math.round(p.x/STEP)+g.half,j=Math.round(p.z/STEP)+g.half;for(let r=0;r<=5;r++){const candidates=[];for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++){if(r&&Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const x=i+di,y=j+dj;if(x<0||y<0||x>=g.N||y>=g.N)continue;const k=x*g.N+y,q=g.points[k];if(g.free[k]&&avoids(q,avoid))candidates.push(k);}candidates.sort((a,b)=>Math.hypot(p.x-g.points[a].x,p.z-g.points[a].z)-Math.hypot(p.x-g.points[b].x,p.z-g.points[b].z));for(const k of candidates)if(segmentClear(p,g.points[k],map,avoid))return k;}return null;}
+ return function findPath(start,target,map='garden',avoid=[]){
+  if(!walkable(start.x,start.z,map)||!walkable(target.x,target.z,map)||!avoids(target,avoid))return null;
+  if(segmentClear(start,target,map,avoid))return [{...target}];
+  const gridData=grid(map),{N,points,free}=gridData,s=nearest(start,map,gridData,avoid),t=nearest(target,map,gridData,avoid);if(s===null||t===null)return null;
+  const heap=[],cost=new Map([[s,0]]),prev=new Map(),done=new Set();
+  const push=(k,f)=>{let i=heap.length;heap.push({k,f});while(i){const p=(i-1)>>1;if(heap[p].f<=f)break;[heap[p],heap[i]]=[heap[i],heap[p]];i=p;}};
+  const pop=()=>{const out=heap[0],end=heap.pop();if(heap.length){heap[0]=end;let i=0;while(true){let c=i*2+1;if(c>=heap.length)break;if(c+1<heap.length&&heap[c+1].f<heap[c].f)c++;if(heap[i].f<=heap[c].f)break;[heap[i],heap[c]]=[heap[c],heap[i]];i=c;}}return out.k;};push(s,0);
+  while(heap.length){const k=pop();if(done.has(k))continue;if(k===t){const path=[{...target}];let cur=k;while(cur!==s){path.push({...points[cur]});cur=prev.get(cur);}path.push({...points[s]});return path.reverse();}done.add(k);const i=Math.floor(k/N),j=k%N,p=points[k];
+   for(const [di,dj]of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const ni=i+di,nj=j+dj;if(ni<0||nj<0||ni>=N||nj>=N)continue;const nk=ni*N+nj,q=points[nk];if(done.has(nk)||!free[nk]||!segmentClear(p,q,map,avoid))continue;const next=cost.get(k)+Math.hypot(di,dj)*STEP;if(next>=(cost.get(nk)??Infinity))continue;cost.set(nk,next);prev.set(nk,k);push(nk,next+Math.hypot(q.x-target.x,q.z-target.z));}
+  }return null;
+ };
+}

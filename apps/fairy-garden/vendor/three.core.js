@@ -44272,7 +44272,7 @@ class FileLoader extends Loader {
  *
  * ```js
  * const loader = new THREE.AnimationLoader();
- * const animations = await loader.loadAsync( 'animations/animation.js?v=fg-d4d9c0decefffab4' );
+ * const animations = await loader.loadAsync( 'animations/animation.js?v=fg-913df0a848e719e3' );
  * ```
  *
  * @augments Loader
