@@ -117,7 +117,12 @@
     everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
     focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, fanfic: true, read: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
     isolated: { label: "不带出门", note: "只在这里成立，不补主线、不改共同状态，也不进入记忆", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
-    alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" }
+    alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
+    // 微光庭院（她 2026-09-16：「专门做一间房只给庭院的…要接主聊天的话也调下设置就行」）。
+    // ⚠️它跟上面几个是同一种东西，不是新机制：一间庭院房＝一个庭院存档，
+    //   进门带什么由 cognition 决定（默认全关＝和以前的架空庭院一模一样），
+    //   出门带什么由 writeback 决定（默认只留自己的记录）。她想接主线就来拨这几个开关。
+    garden: { label: "微光庭院", note: "一间房＝一个庭院存档；默认是架空的，想接主线就拨上面的开关", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen", garden: true }
   };
 
   // 进门先给一句话，别一上来就是十个开关。说的是这两件事：
@@ -175,6 +180,9 @@
       actions: base.main ? bools(GROUPS.actions, false) : { ...base.actions, ...(src.actions || {}) },
       writeback: { ...base.writeback, ...(src.writeback || {}) },
       syncMode: ["follow", "ask", "frozen"].includes(src.syncMode) ? src.syncMode : base.syncMode,
+      // 这间房是不是庭院房。庭院的世界存档挂在房上（x_fairyGarden::<chatKey>），
+      // 所以开几间就有几档，「存档已经切换」那个报错也跟着没了。
+      garden: !!src.garden,
       syncOnce: !!src.syncOnce,
       mainCursorTs: Number(src.mainCursorTs || 0),
       summaryCursorTs: Number(src.summaryCursorTs || 0),
