@@ -11175,6 +11175,22 @@ function PayLaterCard({ m }) {
         h("div", { className: "mt-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.accent } }, "¥" + m.total)),
       h("div", { className: "px-4 py-2", style: { background: t.bg2, fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.04em", color: bc } }, badge)));
 }
+// 转账卡（v69.20 重做，她 2026-09-16：「转账卡好丑改一下」）
+// 原来是一块【写死 #fff 的圆角白卡】：左边一个斜体数字，右边一列竖排小字当印章，
+// 而那列字用的是 t.line（分割线色）——浅得几乎看不见，像卡上蹭脏了一道。
+// 眉标还是英文 CNY（施工规则/no-english-titles.md：眉标里的纯英文一律删）。
+// 按 tabs-not-plain-pills 那把尺子先问：**这东西在现实里是什么？**
+//   是一张【汇款凭条】——从票据本上撕下来的一联：眉头写这是什么单，
+//   中间一栏大写金额，底下一栏写附言，右边压一枚章。章才是这张纸的全部信息：
+//   盖没盖、盖的是什么，一眼就知道这笔钱到哪一步了。
+// 所以这一版：
+//   · 纸是它自己的纸（不是 #fff，也不吃主题底色）——跟礼物盒、情书那几张同一个做法，
+//     它们都是【画出来的一个东西】，不是一块卡面。
+//   · 金额那一栏用骑缝虚线和附言栏分开，虚线两头各咬一个半圆——票据上那个撕口。
+//   · 状态从那列看不见的小字换成一枚真的印：待收＝虚线空印，已收＝按实了，
+//     已退＝按实了再划一道。形状、颜色、笔画三样一起变，不是只换个色
+//     （tabs-not-plain-pills「选中态不能只靠一个色差」那一条，状态同理）。
+// ⚠️data-wk="card" 留着：主题工作室拿它当挂点，撤掉会让她写好的主题失效。
 function TransferCard({
   m,
   isU,
@@ -11186,85 +11202,77 @@ function TransferCard({
   const pending = m.status === "pending";
   const canAct = pending && m.dir === "toMe"; // 我是收款方，可操作
   const statusLabel = m.status === "accepted" ? "已收款" : m.status === "returned" ? "已退回" : m.dir === "toChar" ? "等待 TA 接受" : "待接收";
-  const stamp = m.status === "accepted" ? "已收" : m.status === "returned" ? "已退" : "已发";
-  // 头像跟位置卡同一个摆法：对方的在左、我的在右（她 2026-08-27：「转账旁边没有头像」）
+  // 这张纸自己的颜色：它是一张纸，不跟主题走（同礼物盒 / 情书 / 亲属卡）
+  const PAPER = "#fbf7ee", PAPER_D = "#f3ebdc", RULE = "rgba(70,52,28,.16)";
+  const INK = "#3a3025", FADE = "rgba(58,48,37,.52)";
+  const SEAL = "#b4443c";
+  const done = m.status === "accepted", back = m.status === "returned";
+  // 印：待收是还没盖下去的那一枚（虚线、无色），盖了就实、就是印泥红
+  const sealText = done ? "已收" : back ? "已退" : "待收";
+  const seal = h("div", {
+    "data-wk": "transferseal",
+    style: {
+      position: "relative", width: 46, height: 46, flexShrink: 0,
+      borderRadius: 7, transform: "rotate(-11deg)",
+      border: (done || back ? "2.5px solid " + SEAL : "2px dashed " + RULE),
+      color: done || back ? SEAL : "rgba(70,52,28,.34)",
+      opacity: done ? 0.88 : back ? 0.62 : 0.75,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    }
+  },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, letterSpacing: "0.06em", lineHeight: 1 } }, sealText),
+    // 退回：印按下去之后又划了一道
+    back ? h("div", { style: { position: "absolute", left: -3, right: -3, top: "50%", height: 2, background: SEAL, opacity: .75 } }) : null);
+  // 骑缝：一条虚线，两头各咬掉一个半圆——票据撕口就是这么个形状
+  const notch = side => h("div", { style: Object.assign({
+    position: "absolute", top: -5, width: 10, height: 10, borderRadius: 999,
+    background: PAPER_D, border: "1px solid " + RULE, borderColor: RULE
+  }, side === "l" ? { left: -6 } : { right: -6 }) });
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
   }, !isU && avatar, h("div", { "data-wk": "card",
     style: {
       width: 250,
-      background: "#fff",
-      borderRadius: 16,
+      background: PAPER,
+      borderRadius: 13,
       overflow: "hidden",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-      opacity: m.status === "returned" ? 0.6 : 1
+      border: "1px solid " + RULE,
+      boxShadow: "0 2px 5px rgba(46,38,29,.13)",
+      opacity: back ? 0.72 : 1
     }
-  }, h("div", {
-    className: "flex items-stretch justify-between px-4 pt-4 pb-3"
-  }, h("div", null, h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      letterSpacing: "0.14em",
-      color: t.fog
-    }
-  }, "CNY"), h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 30,
-      color: t.ink,
-      lineHeight: 1.05
-    }
-  }, m.amount), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.fog,
-      marginTop: 4
-    }
-  }, m.note || "转账")), h("div", {
-    "data-wk": "transferribbon",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 9.5,
-      letterSpacing: "0.15em",
-      color: t.line,
-      writingMode: "vertical-rl",
-      transform: "rotate(180deg)",
-      alignSelf: "stretch"
-    }
-  }, stamp)), canAct ? h("div", {
-    className: "flex",
-    style: {
-      borderTop: "1px solid " + t.line
-    }
-  }, h("button", {
-    onClick: () => onRespond(m.tid, false),
-    className: "flex-1 py-2.5 active:opacity-60",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      color: t.sub,
-      borderRight: "1px solid " + t.line
-    }
-  }, "退回"), h("button", {
-    onClick: () => onRespond(m.tid, true),
-    className: "flex-1 py-2.5 active:opacity-70",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink
-    }
-  }, "接受")) : h("div", {
-    className: "px-4 py-2",
-    style: {
-      borderTop: "1px solid " + t.line,
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog
-    }
-  }, statusLabel)), isU && myAvatar);
+  },
+    // ── 眉头：这是一张什么单（中文，原来是 CNY）+ 那枚印 ──
+    h("div", { className: "flex items-start justify-between px-4 pt-3.5 pb-3" },
+      h("div", { style: { minWidth: 0 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, "转账"),
+        h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, "¥"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 32, color: INK, lineHeight: 1, wordBreak: "break-all" } }, m.amount))),
+      seal),
+    // ── 骑缝 ──
+    h("div", { style: { position: "relative", height: 1, margin: "0 14px", background: "transparent", borderTop: "1px dashed " + RULE } },
+      notch("l"), notch("r")),
+    // ── 附言栏：写在单据的横线上 ──
+    h("div", { className: "px-4 pt-3 pb-3.5" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
+        m.note || "（没留话）")),
+    // ── 下沿：要么两格按钮，要么一行状态 ──
+    canAct ? h("div", { className: "flex", style: { borderTop: "1px solid " + RULE, background: PAPER_D } },
+      h("button", {
+        onClick: () => onRespond(m.tid, false),
+        className: "flex-1 active:opacity-60",
+        style: { minHeight: 42, fontFamily: F_BODY, fontSize: 13, color: FADE, background: "transparent",
+          border: "none", borderRight: "1px solid " + RULE }
+      }, "退回"),
+      h("button", {
+        onClick: () => onRespond(m.tid, true),
+        className: "flex-1 active:opacity-70",
+        style: { minHeight: 42, fontFamily: F_DISPLAY, fontSize: 15, color: SEAL, background: "transparent", border: "none" }
+      }, "收下")) : h("div", {
+      className: "px-4",
+      style: { minHeight: 30, display: "flex", alignItems: "center", borderTop: "1px solid " + RULE, background: PAPER_D,
+        fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: FADE }
+    }, statusLabel)), isU && myAvatar);
 }
 // 情侣邀请卡片（用户发出，角色自行接受/婉拒）
 // ⚠️不自动回应：她 2026-08-30「还会自动回复不等我说完」——发出去之后她还想再说几句，

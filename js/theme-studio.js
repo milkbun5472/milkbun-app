@@ -348,7 +348,7 @@
         ["card", "气泡里的卡片（照片、转发、语音）"],
         ["quote", "消息引用块"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
         ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
-        ["transferribbon", "转账卡右侧绶带"],
+        ["transferseal", "转账卡上那枚印章"],
         ["composer", "底部输入栏整条"], ["chatback", "返回键"], ["chatmore", "右上角更多/设置键"],
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
         ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"]

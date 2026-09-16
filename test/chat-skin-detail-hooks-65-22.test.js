@@ -8,7 +8,7 @@ const R = file => fs.readFileSync("js/" + file, "utf8");
 test("单聊和群聊公开每颗聊天键及气泡细分挂点", () => {
   const comp = R("components.js"), recent = R("recent-widget.js"), studio = R("theme-studio.js");
   ["chatback", "chatmore", "chatplus", "chatinput", "send", "chatreply", "chattool",
-    "quote", "voice", "voicebar", "translation", "translatebutton", "translatebody", "transferribbon"].forEach(k => {
+    "quote", "voice", "voicebar", "translation", "translatebutton", "translatebody", "transferseal"].forEach(k => {
     assert.match(studio, new RegExp('\\["' + k + '",'), "工作台没登记 " + k);
     assert.ok(comp.includes('"data-wk": "' + k + '"') || recent.includes('"data-wk": "' + k + '"'), "DOM 没挂 " + k);
   });
