@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-40de915a77c169e3", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ee48044f053e2f07", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
@@ -61,7 +61,8 @@
   }
   root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
-  root.FairyGardenApp = function FairyGardenApp(props) {
+  // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
+  function GardenSession(props) {
     // 存档挂哪儿：庭院房给自己那把钥匙，首页试玩仍是公共那一档
     const storeKey = useRef(null); if (!storeKey.current) storeKey.current = props.storeKey || KEY;
     // 庭院房的同行者就是这间房的角色，没得选：进门那一刻就钉死，免得先闪一下选人页
@@ -308,5 +309,106 @@
           h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
             h("input", { "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
             h("button", { type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5, opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
+  }
+
+  // ── 进门那两页（她 2026-09-16：「先做个进入页面…再来到存档…新建或者开启已有」）──
+  // 一层是【去哪个世界】，一层是【开哪一档】。庭院房那条路不走这儿：
+  // 一间房就是一个世界一个存档，进门直接落到桌上（见 app.js 的 storeKey/lockPartnerId）。
+  const WORLDS = [
+    { id: "garden", name: "微光庭院", note: "种花、下井、和同行者一起把日子过下去", ready: true },
+    { id: "academy", name: "晨雾学院", note: "课表、委托板、校规与同窗" },
+    { id: "market", name: "潮汐集市", note: "赶集、讲价、把东西送给该送的人" },
+    { id: "rail", name: "云上列车", note: "一段路，一车厢陌生人" }
+  ];
+  const INDEX_KEY = "x_fairyGardenSaves";
+  const saveKeyOf = id => id === "legacy" ? KEY : KEY + ":" + id;
+  // 老的那一档（KEY 里躺着的那份）要认回来当一条存档。
+  // ⚠️绝不搬它的内容：搬＝复制一份再删一份，中间任何一步断掉就少一档。
+  //   只在名册里记一笔，它的钥匙仍旧是原来那把。
+  function readSaves() {
+    const rows = (loadJSON(INDEX_KEY, []) || []).filter(x => x && x.id).map(x => ({
+      id: String(x.id), world: String(x.world || "garden"),
+      name: String(x.name || "").slice(0, 24), ts: Number(x.ts) || 0
+    }));
+    const legacy = loadJSON(KEY, null);
+    if (legacy && legacy.id && !rows.some(x => x.id === "legacy")) {
+      rows.unshift({ id: "legacy", world: "garden", name: "原来那一档", ts: 0 });
+      saveJSON(INDEX_KEY, rows);
+    }
+    return rows;
+  }
+  function saveMeta(row) {
+    const d = loadJSON(saveKeyOf(row.id), null) || {};
+    const w = d.world || {};
+    return {
+      day: Number(w.day) || 0,
+      partnerId: String(d.partnerId || ""),
+      fresh: !d.world
+    };
+  }
+  root.FairyGardenApp = function FairyGardenApp(props) {
+    const t = useTheme();
+    // 庭院房那条路：房间就是世界也是存档，不用选
+    if (props.storeKey || props.lockPartnerId) return h(GardenSession, props);
+    const [world, setWorld] = useState(null);
+    const [saves, setSaves] = useState(() => readSaves());
+    const [openId, setOpenId] = useState(null);
+    const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", deep: "#55704f" };
+    const refresh = () => setSaves(readSaves());
+    if (openId) return h(GardenSession, Object.assign({}, props, {
+      key: openId, storeKey: saveKeyOf(openId), onBack: () => { setOpenId(null); refresh(); }
+    }));
+    const card = (onClick, dim, children) => h("button", {
+      onClick: dim ? undefined : onClick, disabled: !!dim, className: dim ? "w-full text-left" : "w-full text-left active:opacity-70",
+      style: { padding: "15px 16px", borderRadius: 16, border: "1px solid " + G.line,
+        background: dim ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.62)", opacity: dim ? .55 : 1 }
+    }, children);
+    const shell = (sub, onBack, body) => h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: G.ink } },
+      h(Head, { zh: "微光庭院", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
+
+    if (!world) return shell("挑一个世界", props.onBack, h(React.Fragment, null,
+      h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 18px" } },
+        "每个世界有自己的时间、地图和存档。现在开着的只有微光庭院，别的还在长。"),
+      h("div", { style: { display: "grid", gap: 11 } }, WORLDS.map(w => card(() => setWorld(w), !w.ready,
+        h(React.Fragment, null,
+          h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: G.ink } }, w.name),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: w.ready ? G.deep : "#93a188" } }, w.ready ? "可以进" : "敬请期待")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } }, w.note)))))));
+
+    const rows = saves.filter(x => x.world === world.id);
+    const create = () => {
+      const id = "g_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+      const next = [{ id, world: world.id, name: "", ts: Date.now() }, ...readSaves()];
+      if (!saveJSON(INDEX_KEY, next)) { props.toast("这次没能记下新存档，先别关。"); return; }
+      setSaves(next); setOpenId(id);
+    };
+    const drop = row => requestAppConfirm("删掉这一档？",
+      "这一档里的日子、背包和聊过的话会一起删掉，找不回来。",
+      () => {
+        const next = readSaves().filter(x => x.id !== row.id);
+        saveJSON(INDEX_KEY, next);
+        try { localStorage.removeItem(saveKeyOf(row.id)); } catch (e) {}
+        setSaves(next);
+      }, "删掉");
+    return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
+      h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 16px" } },
+        "选一档接着过，或者从头开一段新的。"),
+      h("div", { style: { display: "grid", gap: 11 } },
+        rows.map((row, i) => {
+          const meta = saveMeta(row);
+          const partner = (props.characters || []).find(c => String(c.id) === meta.partnerId);
+          return h("div", { key: row.id, style: { position: "relative" } },
+            card(() => setOpenId(row.id), false, h(React.Fragment, null,
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
+                meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
+            h("button", { onClick: () => drop(row), className: "active:opacity-60",
+              style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
+        }),
+        h("button", { onClick: create, className: "w-full active:opacity-70",
+          style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
+          "＋ 新开一段"))));
   };
 })(window);

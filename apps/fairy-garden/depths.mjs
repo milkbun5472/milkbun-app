@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {NODES} from './world.mjs?v=fg-40de915a77c169e3';
+import {NODES} from './world.mjs?v=fg-ee48044f053e2f07';
 // 星井：一口一层层往下的井。手绘质感和林地那支同一套路（画布上刷颜料，不要生成图）。
 // ⚠️每一层的矿脉位置是固定的（rules.js 的 depthNodes 算出来），这里一次把十二层都建好，
 //   update 时只显示当前这一层——不然每下一层就要重建一次场景。
