@@ -63,6 +63,6 @@ test('每一层各刨各的，层数存得住',()=>{
  const b=NODES.filter(n=>n.map==='depths'&&n.depth===3).map(n=>n.id);
  assert.equal(new Set([...a,...b]).size,a.length+b.length,'两层的矿脉不能是同一批 id');
  for(const n of NODES.filter(n=>n.map==='depths'))assert.ok(walkable(n.x,n.z,'depths'),'矿脉长在石壁里了：'+n.id);
- assert.equal(restoreState({version:6,map:'depths',depth:4}).depth,4);
- assert.equal(restoreState({version:6,map:'garden',depth:4}).depth,0,'人在地面上就不该还记着层数');
+ assert.equal(restoreState({version:7,map:'depths',depth:4}).depth,4);
+ assert.equal(restoreState({version:7,map:'garden',depth:4}).depth,0,'人在地面上就不该还记着层数');
 });

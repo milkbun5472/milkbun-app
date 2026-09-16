@@ -1,15 +1,15 @@
-import {installSeasonBook} from './season-book.mjs?v=fg-ee48044f053e2f07';
-import {makeMagicView} from './magic-view.mjs?v=fg-ee48044f053e2f07';
-import {installViewControls} from './view-controls.mjs?v=fg-ee48044f053e2f07';
+import {installSeasonBook} from './season-book.mjs?v=fg-2bce841d8faa1f06';
+import {makeMagicView} from './magic-view.mjs?v=fg-2bce841d8faa1f06';
+import {installViewControls} from './view-controls.mjs?v=fg-2bce841d8faa1f06';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-ee48044f053e2f07';
-import {makeSurroundings} from './surroundings.mjs?v=fg-ee48044f053e2f07';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-ee48044f053e2f07';
-import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,deepestAllowed} from './world.mjs?v=fg-ee48044f053e2f07';
-import {makeForest} from './forest.mjs?v=fg-ee48044f053e2f07';
-import {makeDepths} from './depths.mjs?v=fg-ee48044f053e2f07';
-import {createTraveler} from './traveler.mjs?v=fg-ee48044f053e2f07';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-ee48044f053e2f07';
+import {createMapLoader} from './map-loader.mjs?v=fg-2bce841d8faa1f06';
+import {makeSurroundings} from './surroundings.mjs?v=fg-2bce841d8faa1f06';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-2bce841d8faa1f06';
+import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,deepestAllowed,SEED_KINDS,SEED_DAYS,seedError,sowSeed,readySeeds,keepNotes,pinNote} from './world.mjs?v=fg-2bce841d8faa1f06';
+import {makeForest} from './forest.mjs?v=fg-2bce841d8faa1f06';
+import {makeDepths} from './depths.mjs?v=fg-2bce841d8faa1f06';
+import {createTraveler} from './traveler.mjs?v=fg-2bce841d8faa1f06';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-2bce841d8faa1f06';
 const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
@@ -55,6 +55,9 @@ function ui(){
  $('brew').textContent=data.sand>=3?'⚗ 用星砂炼月露':'⚗ 炼制月露';$('brew').title=data.sand>=3?'星砂 ×3':'铃叶草 ×2 + 荧光菇 ×1 + 清水 ×1；或星砂 ×3';
  $('travel').textContent=down?'↑ 顺着梯子上去':woods?'↙ 返回微光庭院':'↗ 前往萤光林地';
  $('dive').hidden=woods||down;$('dive').textContent='↓ 下到井里';
+ // 花笺：地里开好几株就写几株，一次全收（一次＝一枪）
+ {const n=readySeeds(data).length;$('notes').hidden=woods||down;$('notes').disabled=!!acting||!n;
+  $('notes').textContent=n?'✿ 收花笺 ×'+n:'✿ 花还没开';}
  for(const id of ['well','garden','brew','travel','dive'])$(id).disabled=!!acting;
  $('magic-action').parentElement.hidden=down;$('magic-action').textContent=woods?'一起唤醒种子':!data.magic.planted?'种下星铃种子':data.magic.growth>=2?'采收星铃花':'照料星铃花';$('make-lamp').hidden=woods;for(const id of ['magic-action','make-lamp'])$(id).disabled=!!acting;
  grow();refreshTime();updateCompanionUI();blooms.visible=!woods&&!down;document.body.classList.toggle('forest',woods);document.body.classList.toggle('depths',down);rain.visible=!down&&['细雨','细雪'].includes(weather(data.day));
@@ -65,7 +68,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=aspect<1?(h<730?14:12.8):Math.max(14,16*aspect);const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map);const a=await loader.loadAsync('./doll.glb?v=fg-ee48044f053e2f07');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map);const a=await loader.loadAsync('./doll.glb?v=fg-2bce841d8faa1f06');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap();if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -84,11 +87,24 @@ $('garden').onclick=()=>data.map==='forest'?gather('mushroom'):data.map==='depth
 $('brew').onclick=()=>request('brew');
 $('travel').onclick=()=>request(data.map==='depths'?'ladder':'travel');
 $('dive').onclick=()=>request('dive');
+$('notes').onclick=()=>request('note');
 $('rest').onclick=()=>request('rest');
 for(const [id,site] of Object.entries(MAPS.garden.sites)){const o=document.createElement('option');o.value=id;o.textContent=site.label;$('place-select').append(o);}
 $('visit-place').onclick=()=>request('visit',$('place-select').value);
 function beginAction(job){acting={...job,intent:job.kind==='garden'?gardenIntent(data):null,time:0};actor.rotation.y=job.kind==='brew'?-Math.PI/2:Math.PI;$('progress').hidden=false;$('progress').firstElementChild.style.width='0%';ui();say(job.kind==='visit'?'在这里停一会儿。':({well:'井水晃了一下，清凉地流进壶底。',garden:data.blooms===3?'把开好的花轻轻摘下来，留住花根。':data.potions?'月露落在叶尖，微光沿着叶脉散开。':'一点一点浇下去，叶子舒展开来。',brew:'草叶、荧光菇和清水，在锅里轻轻旋转……',seed:'把手放在微光两侧，等两个人的魔力慢慢汇合。',star:'留一点清水，看看花的变化。',lamp:'把花的微光留进灯罩里。',gather:'轻轻摘下，给它留一点明天生长的余地。',travel:'穿过小路，风里换了一种草木香。',rest:'灯熄了。窗外的风，替你翻过了一页日历。'})[job.kind]);}
 async function completeAction(){if(loadingMap)return;const {kind,id,intent}=acting;
+ // ⚠️花笺这一支不走 perform：那一枪在宿主那侧打（callAI 在父页），
+ //   回来才把结果写进存档。一次把开好的全收了＝一次调用。
+ if(kind==='note'){const rows=readySeeds(data);acting=null;$('progress').hidden=true;
+  if(!rows.length){ui();say('地里还没有开好的花。');return;}
+  if(!host){ui();say('试玩模式里花还开不了——从小手机的庭院进来才有人回。');return;}
+  say('花开了，正在读上面的字…');
+  try{const out=await host.bloom(rows.map(x=>({id:x.id,kind:x.kind,ask:x.ask})));
+   const before=data;data=keepNotes(data,out);
+   if(data===before){ui();say('这次没收上来，花还在地里。');return;}
+   ui();save();say('收到 '+(data.notes.length-(before.notes||[]).length)+' 张花笺。在手机那头的花册里。');}
+  catch(e){ui();say(e&&e.message||'这次没收上来，花还在地里。');}
+  return;}
  // 下井、上来都要先把那张地图准备好（和 travel 同一条路）
  if(kind==='dive'||kind==='ladder'){loadingMap=true;say(kind==='dive'?'正在往下…':'正在爬上去…');
   try{await mapLoader.ensure(kind==='dive'?'depths':'garden');}catch(e){acting=null;$('progress').hidden=true;ui();say('井里那一段没有加载完成，进度留在原地，稍后再试。');return;}finally{loadingMap=false;}}
@@ -160,6 +176,12 @@ window.FairyGardenGame={
  // ⚠️谁的样貌就存在谁名下：我的在 data.look，同行者的在 data.companion.look，
  //   换角色入住时各自跟着自己的存档走，不会串到别人头上。
  getLook:()=>({me:{...(data.look||{})},companion:{...((data.companion&&data.companion.look)||{})}}),
+ // ── 花田：写字和翻花册在手机那一侧，走过去收在游戏这一侧 ──────────────
+ getGarden:()=>({day:data.day,seeds:(data.seeds||[]).filter(x=>!x.done).map(x=>({...x,bloomIn:Math.max(0,SEED_DAYS-(data.day-x.day))})),
+  notes:(data.notes||[]).slice(0,120),ready:readySeeds(data).length,error:seedError(data),kinds:{...SEED_KINDS}}),
+ sow:(kind,ask)=>{if(!ready)return '还没准备好。';const err=seedError(data);if(err)return err;
+  const next=sowSeed(data,kind,ask);if(next===data)return '这一株没种下去。';data=next;ui();save();return '';},
+ pinNote:id=>{data=pinNote(data,id);save();return true;},
  setLook:(who,look)=>{if(!ready||!look)return false;
   const avatar=who==='companion'?companionAvatar:playerAvatar;if(!avatar)return false;
   avatar.setLook(look);

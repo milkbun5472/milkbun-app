@@ -4,7 +4,7 @@ import {restoreState,restoreLook,freshState} from './world.mjs';
 // 病根：restoreState / restoreCompanion 是【白名单式建对象】——存档里有 look，
 // 可这两处没写这一笔，读回来就被静默丢掉。这一份就是钉住那一笔。
 test('样貌要能从存档里读回来，两个人各自一份',()=>{
- const s=restoreState({version:6,look:{hair:'bun',hairColor:'#2b2320',dims:{height:1.2}},
+ const s=restoreState({version:7,look:{hair:'bun',hairColor:'#2b2320',dims:{height:1.2}},
   companion:{look:{hair:'wavy',cloth:'#729786'}}});
  assert.deepEqual(s.look,{hair:'bun',hairColor:'#2b2320',dims:{height:1.2}});
  assert.deepEqual(s.companion.look,{hair:'wavy',cloth:'#729786'});

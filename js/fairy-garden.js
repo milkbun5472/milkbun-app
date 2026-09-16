@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ee48044f053e2f07", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-2bce841d8faa1f06", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
@@ -59,7 +59,40 @@
     ].join("\n\n");
     return normalizeReply(await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院" }));
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason };
+  // ── 花笺：把开好的那几株一次问完（她 2026-09-16 定的种花那条）──────────
+  // ⚠️【一次调用收一批】：开了几朵就在这一枪里一起回，不是一朵一枪。
+  //   这是整条设计能不能落地的那个闸——拆了它，她在庭院点一下午就是几十枪。
+  // ⚠️不许把没发生过的共同经历写成真发生过：花笺是他此刻的感受、想法、
+  //   他自己那边的生活，不是你们的新往事（如果馆那条路已经吃过一次亏）。
+  const SEED_LABELS = { miss: "想你", curious: "好奇", sulk: "委屈", secret: "秘密",
+    today: "今天", later: "以后", what_if: "如果", unsaid: "没说出口" };
+  async function blossoms({ active, character, profile, world, mainline, seeds }) {
+    if (!active) throw new Error("先在设置里配置创作线路，再来收花笺。");
+    const rows = (seeds || []).slice(0, 6);
+    if (!rows.length) throw new Error("地里没有开好的花。");
+    const uName = userName(profile);
+    const sys = [sharedStyle(), roleContext(character, profile, mainline),
+      "【花田】「" + uName + "」把想问你的话种进了庭院的花圃，过了几天开出花来。你现在逐一回它们。",
+      "【当前世界的事实】\n" + JSON.stringify(world),
+      "【开好的花，每一株一句】\n" + rows.map(x => "· " + x.id + "〔" + (SEED_LABELS[x.kind] || "今天") + "〕" + (x.ask || "（她没写字，只放了这个念头）")).join("\n"),
+      "【怎么回】一株一句到三句，是你此刻真实的回应：可以是一个很小的具体瞬间、一个念头、"
+        + "一件你那边刚发生的事，也可以是反问或者沉默着说点别的。别复述她的问题，别每株都同一个调子，"
+        + "别写成情书体。\n"
+        + "⚠️不许把【你们之间没发生过的事】说成真发生过——没有的共同经历就别编；"
+        + "想象和「如果」要让人看得出那是想象。",
+      '【输出格式】只输出 JSON 数组：[{"id":"上面那一行的编号","reply":"你的回应"}]，每株一条，不多不少。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "回这几株。" }], { maxTokens: 20000, timeout: 180000, tag: "微光庭院花笺" });
+    const parsed = extractJSON(raw);
+    const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.notes) ? parsed.notes : null);
+    if (!list) { const e = new Error("这次没读懂花笺，可以重试。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    const want = new Set(rows.map(x => x.id));
+    const out = list.filter(x => x && want.has(String(x.id)) && String(x.reply || "").trim())
+      .map(x => ({ id: String(x.id), reply: String(x.reply).trim().slice(0, 400) }));
+    if (!out.length) { const e = new Error("这次一株都没回上来，可以重试。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return out;
+  }
+  root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason, blossoms, SEED_LABELS };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   function GardenSession(props) {
@@ -120,6 +153,25 @@
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name } : null; },
         save: world => { if (frame.current !== node) return false; if (JSON.stringify(world).length > 100000) throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
         openChat: () => openChat(true), changePartner,
+        // 收花笺：游戏那头走到花圃按下收，生成这一枪在这儿打（callAI 在父页）。
+        // 一次把开好的全回了，回来由游戏自己写进存档。
+        bloom: async rows => {
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const c = partner();
+          if (!c) throw new Error("先选一位同行者，花才有人回。");
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const out = await blossoms({
+              active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+              world: (game() && game().snapshot()) || {}, seeds: rows
+            });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这几张花笺没有写入。");
+            if (String(current().partnerId) !== String(c.id)) throw new Error("同行者已经换过，这几张花笺没有写入。");
+            return out;
+          } finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
         planSeason, planState: day => { const d=current(); return (d.plans||{})[planKey(d.partnerId,day)]||null; },
         ready: () => {
           if (!alive.current) return;
@@ -160,6 +212,12 @@
     // 由导模型那一步同时生成。界面上的名字/范围和模型里的网格/形态键永远对得上
     //（在这儿另写一份 JS 常量就是又一处要同步的）。
     const [dress, setDress] = useState(false);
+    // 花册（她 2026-09-16 定的种花那条）：写字和翻册子在手机这一侧，走过去收在游戏那一侧
+    const [book, setBook] = useState(false);
+    const [garden, setGarden] = useState(null);
+    const [seedKind, setSeedKind] = useState("miss");
+    const [seedAsk, setSeedAsk] = useState("");
+    const pullGarden = () => { const g = game(); if (g && g.getGarden) setGarden(g.getGarden()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -234,13 +292,61 @@
         error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error)));
     return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: char ? "与 " + (char.remark || char.name) + " 同行" : "自由试玩", bg: "transparent", ink: "#344936", onBack: back,
-        right: h("div", { style: { display: "flex", gap: 7 } },
-          h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { if (!dress) pullLook(); setDress(d => !d); }, disabled: !loaded }, dress ? "回庭院" : "样貌"),
-          h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) }),
+        // ⚠️开着花册/样貌时只留一个「回庭院」：三颗药丸并排会把标题挤扁
+        right: (book || dress)
+          ? h("button", { style: pill(), onClick: () => { setBook(false); setDress(false); } }, "回庭院")
+          : h("div", { style: { display: "flex", gap: 7 } },
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); setDress(true); }, disabled: !loaded }, "样貌"),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) }),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
+        book && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+          h("div", { style: { padding: "16px 16px 40px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "把想问的话种进花圃，过三天开花。开好了走到花圃那儿收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
+            // 种下
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "种下一句"),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 } },
+              Object.entries((garden && garden.kinds) || {}).map(([k, label]) =>
+                h("button", { key: k, onClick: () => setSeedKind(k), className: "active:opacity-70",
+                  style: { ...pill(true), borderColor: seedKind === k ? G.deep : G.line, color: seedKind === k ? G.ink : G.soft,
+                    background: seedKind === k ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)" } }, label))),
+            h("textarea", { value: seedAsk, onChange: e => setSeedAsk(e.target.value), rows: 2, maxLength: 120,
+              placeholder: "想问他什么？也可以空着，只种一个念头",
+              style: { width: "100%", border: "1px solid " + G.line, background: G.paper, borderRadius: 14, padding: "10px 12px",
+                fontFamily: F_BODY, fontSize: 14, color: G.ink, outline: "none", resize: "none" } }),
+            h("button", { className: "w-full active:opacity-70",
+              onClick: () => { const g = game(); if (!g || !g.sow) return;
+                const err = g.sow(seedKind, seedAsk);
+                if (err) { props.toast(err); return; }
+                setSeedAsk(""); pullGarden(); props.toast("种下了，三天后开花。"); },
+              style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5 } },
+              "种下去"),
+            garden && garden.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a08d86", marginTop: 7 } }, garden.error) : null,
+            // 地里的
+            ((garden && garden.seeds) || []).length ? h("div", { style: { marginTop: 20 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "地里的"),
+              garden.seeds.map(sd => h("div", { key: sd.id, style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, lineHeight: 1.7, padding: "7px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+                "〔" + (garden.kinds[sd.kind] || "今天") + "〕" + (sd.ask || "（只种了一个念头）") + " · " + (sd.bloomIn > 0 ? "还有 " + sd.bloomIn + " 天开" : "开好了，去花圃收")))) : null,
+            // 花册
+            h("div", { style: { marginTop: 22, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink } }, "花册"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft } },
+                ((garden && garden.notes) || []).length ? "共 " + garden.notes.length + " 张" : "还没有")),
+            h("div", { style: { marginTop: 8, display: "grid", gap: 10 } },
+              ((garden && garden.notes) || []).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(nt =>
+                h("div", { key: nt.id, style: { borderRadius: 14, border: "1px solid " + (nt.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                    "第 " + nt.day + " 天 ·〔" + ((garden.kinds && garden.kinds[nt.kind]) || "今天") + "〕"),
+                  nt.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 4, lineHeight: 1.6 } }, "你问：" + nt.ask) : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, nt.reply),
+                  h("button", { onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
+                    style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
+                    nt.pinned ? "已钉住" : "钉住"))))))
+        ,
         dress && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
           h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
@@ -289,7 +395,7 @@
                     style: { width: 36, height: 36, borderRadius: 999, background: hex,
                       border: on ? "2px solid " + G.ink : "1px solid rgba(0,0,0,.12)", boxShadow: on ? "0 0 0 3px rgba(255,255,255,.75) inset" : "none" } });
                 })))))),
-        chat && !dress && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
+        chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
           h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },
