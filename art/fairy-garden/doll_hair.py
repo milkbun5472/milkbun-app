@@ -5,7 +5,10 @@ Coordinates are Blender Z-up, facing -Y. See README for runtime integration limi
 import bpy, math, os, json
 from mathutils import Vector, Matrix
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SRC = os.path.join(ROOT, 'apps', 'fairy-garden', 'traveler.glb')
+# 美术源住在 art/ 自己家里（2026-09-16 接入时搬的）：原来它指着 apps/ 里那份【运行时模型】，
+# 于是「导出覆盖运行时」这一步会把自己的输入一起烧掉——第一次跑就烧了一次，靠 git 捞回来。
+# 现在两边分开：art/base_traveler.glb 只进不出，apps/doll.glb 只出不进。
+SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'base_traveler.glb')
 SK = Vector((0, -.067, 1.210))
 SKR = Vector((.239, .190, .260))
 BROW = 1.352

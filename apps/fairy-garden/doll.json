@@ -1,0 +1,54 @@
+{
+ "hair": {
+  "korean": "韩式碎盖",
+  "wolf": "层次狼尾",
+  "mullet": "短侧鲻鱼头",
+  "curtains": "蓬松中分",
+  "comma": "逗号刘海",
+  "pixie": "精灵短发",
+  "bob": "法式短波波",
+  "hush": "轻盈羽毛剪",
+  "airbang": "空气刘海长直发",
+  "wavy": "慵懒长卷发",
+  "bun": "松弛盘发",
+  "ponytail": "高马尾"
+ },
+ "dims": [
+  {
+   "key": "height",
+   "label": "腿长",
+   "min": 0.85,
+   "max": 1.25
+  },
+  {
+   "key": "shoulder",
+   "label": "肩宽",
+   "min": 0.85,
+   "max": 1.2
+  },
+  {
+   "key": "waist",
+   "label": "腰线",
+   "min": 0.85,
+   "max": 1.15
+  },
+  {
+   "key": "flare",
+   "label": "衣摆",
+   "min": 0.78,
+   "max": 1.22
+  },
+  {
+   "key": "build",
+   "label": "丰满",
+   "min": 0.85,
+   "max": 1.15
+  },
+  {
+   "key": "head",
+   "label": "头身比",
+   "min": 0.88,
+   "max": 1.1
+  }
+ ]
+}

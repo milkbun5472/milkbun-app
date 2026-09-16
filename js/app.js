@@ -11723,6 +11723,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const roomPromptFor = (charId, room) => !room || !window.ChatRooms ? "" : window.ChatRooms.prompt(
     { ...room, cognition: { ...room.cognition, schedule: roomTimeAwareFor(room, charId) } }, chatsRef.current[charId] || [],
     { turns: roomTurnsOf(charId, room) });
+  // 这间房是不是庭院房（房间那头的 garden 标记；主房永远不是）
+  const gardenRoomOf = (charId, roomId) => {
+    if (!window.ChatRooms || !roomId || roomId === "main") return null;
+    const room = window.ChatRooms.get(charId, roomId);
+    return room && !room.main && room.garden ? room : null;
+  };
   const blockBundleFor = (char, chatKey) => {
     const rooms = window.ChatRooms;
     if (!rooms || !rooms.isSideKey(chatKey)) return buildBundle(ctxFor(char));
@@ -21111,7 +21117,36 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: characters.find(c => c.id === activeCardId),
     onBack: () => setScreen("wallet"),
     onRaise: ask => requestKinshipRaise(activeCardId, ask)
-  });else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
+  });else if (screen === "thread" && activeChar && gardenRoomOf(activeChar.id, activeRoomId)) body = h(window.FairyGardenApp, (() => {
+    // ── 庭院房（她 2026-09-16：「专门做一间房只给庭院的」）─────────────────
+    // 这一支和首页那个架空入口是同一个组件，差别全在这三样 props 上：
+    //   storeKey  一间房一个存档（多开几间就是多档；「存档已经切换」那个报错也没了）
+    //   mainline  进门带什么——已经过这间房认知闸的主线底子；默认全关＝和架空庭院一样
+    //   record    说过的话落在这间房自己的聊天记录里，要出门就开「能进记忆/总结回主线」
+    const room = gardenRoomOf(activeChar.id, activeRoomId);
+    const key = window.ChatRooms.chatKey(activeChar.id, activeRoomId);
+    return {
+      key: "garden::" + key,
+      storeKey: "x_fairyGarden::" + key,
+      lockPartnerId: activeChar.id,
+      apiFor: offlineApiFor,
+      active: offlineActive,
+      characters: liveChars,
+      profile: profile,
+      // ⚠️底子走 buildBundle：那是全库公用的「你是谁＋怎么说话＋这间房准带什么」，
+      //   庭院自己再手写一份就是同一层活在两处。cognition 全关时它只剩人设与文风。
+      mainline: (() => { try { return buildBundle(roomContextFor(activeChar, key, room, { chat: true })) + roomPromptFor(activeChar.id, room); } catch (e) { return ""; } })(),
+      record: {
+        history: (chats[key] || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant"))
+          .map(m => ({ id: m.ts + ":" + m.role, role: m.role, content: m.content, status: "done" })),
+        onTurn: turn => pChat(key, p => [...p,
+          { role: "user", content: turn.text, ts: Date.now(), kind: "garden" },
+          { role: "assistant", content: turn.reply, ts: Date.now() + 1, kind: "garden" }])
+      },
+      toast: toast,
+      onBack: () => setScreen("messages")
+    };
+  })());else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
     key: activeChar.id + "::" + activeRoomId,
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
     unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),

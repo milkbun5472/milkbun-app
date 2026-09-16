@@ -14678,6 +14678,8 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const unsummarized = roomMsgs.filter(m => m && !m.forkSeed && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
   const roomMeta = r => r.main
     ? { label: "日常主线", note: "平时想到什么就聊什么", tint: t.tint }
+    : r.garden
+      ? { label: "微光庭院", note: "一间房一个庭院存档", tint: "#6b8753" }
     : r.scenario
       ? { label: "长篇如果", note: "另一段年龄、处境或关系", tint: "#9b6d78" }
     : r.preset === "focused"
@@ -14713,7 +14715,9 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // 「长篇如果」和「不带出门」原本四组开关逐项相同，唯一差别只是前者强制填写
   // 本房限定设定。并列两扇一模一样的门只会让人以为底下还有隐藏差异；现在合成一扇：
   // 不写设定＝普通隔离房，写了设定＝长篇如果。旧 alternate 房仍由 normalize 兼容。
-  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"]];
+  // ⚠️庭院房和上面三种是同一种东西（她 2026-09-16）：一间房＝一个庭院存档。
+  //   默认架空、什么都不带；想让 TA 在庭院里记得你们，就拨上面那几排开关。
+  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"]];
   if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: "roomHub" },
     h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
       h("div", null,
@@ -14889,7 +14893,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { style: { flexShrink: 0, width: 74, height: 84, marginBottom: 8, borderRadius: "36px 36px 5px 5px", border: "1px dashed " + t.line, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "再开一间"),
         h("div", { className: "flex flex-wrap justify-center", style: { gap: 3, padding: "0 4px" } },
-          [["everyday", "日常"], ["focused", "专注"], ["alternate", "如果"], ["isolated", "隔离"]].map(([preset, label]) =>
+          [["everyday", "日常"], ["focused", "专注"], ["alternate", "如果"], ["isolated", "隔离"], ["garden", "庭院"]].map(([preset, label]) =>
             h("button", { key: preset, onClick: () => add(preset), className: "active:opacity-60", style: { padding: "2px 4px", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "＋" + label))))));
   const content = h("div", null,
     !embedded && h("div", { style: { marginBottom: 8 } },
