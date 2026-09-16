@@ -534,11 +534,21 @@
         //   她 2026-09-06 报的「又试了俩还是没更新但是也没有说为什么没成」就是这个。
         //   ⚠️判据：**有没有话要说，看的是「有没有败因」，不是「自动试过几次」。**
         //   次数只决定那句话怎么措辞（是「自动试了 N 次」还是「上一次」）。
+        // ⚠️「试满了，往后不再自动试」是句假话（她 2026-09-16 指着这行问「这个试满了又是啥」，
+        //   查下来才发现）。复看这一档【不是停死】，reviewDue 那一行白纸黑字写着：
+        //     if (reviewN >= REVIEW_MAX) return t - last >= REVIEW_RETRY_DAYS * 86400000 && n >= REVIEW_FLOOR_MIN;
+        //   ——满了是**退到五天一次、而且还得攒够新消息**，旁边注释自己都写着「不是停死」。
+        //   界面上把「降频」说成「放弃」，她看到会以为坏了、得手动救，其实过几天它自己还会再来。
+        //   ⚠️隔壁建卡那两句里的同一措辞【是真的】（autoSeedDue 满了直接 return false，
+        //   三次是一辈子的上限），所以那两句一个字都不改——四处措辞一样不等于四处说的是同一件事。
+        //   天数和条数都从常量里现取，别在文案里再手抄一份数（抄了下次改常量就对不上）。
+        var reviewCap = "；试满了，往后改成隔 " + REVIEW_RETRY_DAYS + " 天、且又攒够 "
+          + REVIEW_FLOOR_MIN + " 条新消息才自动试一次。想现在就要，点下面那个按钮";
         if (rv.okAt) lines.push("替" + say("他") + "复看过一遍，" + say("他") + "觉得没什么要改的");
         else if (rv.err) lines.push((rv.tries ? "替" + say("他") + "自动复看过 " + rv.tries + " 次，都没成（" : "上一次复看没成（") + rv.err + "）"
-          + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
+          + (rv.tries >= rv.max ? reviewCap : ""));
         else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次"
-          + (rv.tries >= rv.max ? "；试满了，往后不再自动试" : ""));
+          + (rv.tries >= rv.max ? reviewCap : ""));
         if (!lines.length) return null;
         return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
           lines.map(function (x, i) { return h("div", { key: i }, x); }),

@@ -59,7 +59,11 @@ test("界面那两行说人话，而且说清还试不试", () => {
   // ⚠️「2/3 次」这种写法是给我看的日志格式，她要的是「试满了没有」
   assert.doesNotMatch(gaze, /rv\.tries \+ "\/" \+ rv\.max/, "又摆回 n/m 那种日志写法了");
   assert.doesNotMatch(gaze, /st\.tries \+ "\/" \+ st\.max/);
-  assert.match(gaze, /rv\.tries >= rv\.max \? "；试满了，往后不再自动试" : ""/, "试满了不说，她会一直等一个不会来的东西");
+  // ⚠️v69.18 改了复看那两支的措辞：原来写「往后不再自动试」，那是假话——
+  //   复看满了是【退到隔五天 + 又攒够八条新消息】，不是停死（reviewDue 那一行）。
+  //   要钉的东西没变（试满了必须说出来），钉的是它现在说的是实话。
+  assert.match(gaze, /rv\.tries >= rv\.max \? reviewCap : ""/, "试满了不说，她会一直等一个不会来的东西");
+  assert.match(gaze, /var reviewCap = "；试满了，往后改成隔 " \+ REVIEW_RETRY_DAYS/, "复看那句得说清还会再试");
   assert.match(gaze, /st\.tries >= st\.max \? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""/, "空卡那一支还得告诉她能自己按");
   // v64.35：rv.err 存进去的时候就已经是人话了（markReviewFail 里翻好），
   // 这儿再翻一次是白翻——而且「没变」那一支现在根本不走这一句了。
