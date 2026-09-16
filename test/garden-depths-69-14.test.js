@@ -10,13 +10,18 @@ const depths = rd('apps/fairy-garden/depths.mjs');
 
 test('井底不铺草地和远树——外面那层景是关掉的', () => {
   assert.match(game, /surroundings\.root\.visible=!underground/);
-  // 关了就得自己有一块地，不然镜头直接看见空背景
-  assert.match(depths, /mesh\(cyl,'#23252f',0,\.02,0,30,\.04,30\)/);
 });
 
-test('墙只在镜头背面长高', () => {
-  // 四米高的一圈石柱，斜视角下会把井底整个挡住（试出来的）
-  assert.match(depths, /const near=\(x\+z\)>1\.6,h=near\?/);
+// ⚠️井底【长什么样】归 codex（分工：庭院功能我做，模型/场景他做）。
+//   v69.23 他把它重画成了苔光石室，所以这儿只钉【接线那一侧的约定】：
+//   渲染器给出 root/pick/update，update 按 s.depth 只显示这一层、按 picked 收起刨过的。
+test('星井渲染器要守住的那几条：一次建好十二层，按层显示，刨过的收起来', () => {
+  assert.match(depths, /export function makeDepths\(\)/);
+  assert.match(depths, /return \{root,/);
+  assert.match(depths, /pick\(ray\)/, '点不到矿脉就只能按按钮采');
+  assert.match(depths, /row\.g\.visible=depth===s\.depth/);
+  assert.match(depths, /row\.vein\.visible=!s\.picked\.includes\(row\.id\)/);
+  assert.match(depths, /NODES/, '矿脉位置只有 rules.js 那一份，渲染器不许自己编');
 });
 
 test('每一层的矿脉不许长进石壁里', () => {

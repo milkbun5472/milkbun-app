@@ -9,9 +9,15 @@ const shell = host.slice(host.indexOf('  const WORLDS = ['), host.indexOf('  roo
 
 const build = store => {
   const mem = Object.assign({}, store);
-  return new Function('loadJSON', 'saveJSON', 'KEY',
-    shell + ';return {WORLDS,INDEX_KEY,saveKeyOf,readSaves,saveMeta,mem:null};')(
-    (k, d) => (k in mem ? mem[k] : d), (k, v) => { mem[k] = v; return true; }, 'x_fairyGarden');
+  // ⚠️桩照真的那一份写：readSaves 会扫 localStorage 认回没登记的存档
+  const localStorage = {
+    get length() { return Object.keys(mem).length; },
+    key: i => Object.keys(mem)[i],
+    removeItem: k => { delete mem[k]; }
+  };
+  return new Function('loadJSON', 'saveJSON', 'KEY', 'localStorage',
+    shell + ';return {WORLDS,INDEX_KEY,saveKeyOf,readSaves,saveMeta};')(
+    (k, d) => (k in mem ? mem[k] : d), (k, v) => { mem[k] = v; return true; }, 'x_fairyGarden', localStorage);
 };
 
 test('世界页：现在只有一个能进，别的明写敬请期待', () => {
@@ -33,6 +39,23 @@ test('每一档自己一把钥匙，老那一档认回来但绝不搬家', () =>
   assert.equal(rows[0].id, 'legacy');
   // ⚠️搬＝复制一份再删一份，中间断一下就少一档。名册里记一笔就够了
   assert.doesNotMatch(shell, /removeItem\(KEY\)|saveJSON\(KEY,/, '有人在搬老存档的内容');
+});
+
+test('名册对不上时以存档本身为准——不许让一段日子从界面上消失', () => {
+  // 她 2026-09-16：「我回不到有花园的小屋了」。名册只是目录，存档才是那段日子。
+  const { readSaves, saveKeyOf } = build({
+    x_fairyGardenSaves: [],
+    'x_fairyGarden:g_lost': { world: { day: 9 } },
+    'x_fairyGarden::c1::room::r1': { world: { day: 3 } }
+  });
+  const rows = readSaves();
+  assert.equal(rows.length, 2, '扫不回来的存档就等于丢了');
+  const room = rows.find(r => r.key && r.key.indexOf('::room::') > -1);
+  assert.ok(room, '聊天里那间房的存档也要认回来');
+  assert.equal(room.name, '聊天里的庭院房');
+  // ⚠️房间那种键自带冒号，拼不回来——必须整把钥匙一起记
+  assert.equal(saveKeyOf(room), 'x_fairyGarden::c1::room::r1');
+  assert.equal(saveKeyOf(rows.find(r => r.id === 'g_lost')), 'x_fairyGarden:g_lost');
 });
 
 test('名册里的东西当外来数据看', () => {
@@ -57,6 +80,7 @@ test('删一档是不可逆的，必须先让她看见这句话', () => {
 
 test('庭院房那条路不走这两页：一间房就是一个世界一个存档', () => {
   assert.match(host, /if \(props\.storeKey \|\| props\.lockPartnerId\) return h\(GardenSession, props\);/);
-  // 选存档进去要整屏换掉：storeKey 是在 GardenSession 第一次渲染时钉死的
-  assert.match(host, /key: openId, storeKey: saveKeyOf\(openId\)/);
+  // 选存档进去要整屏换掉：storeKey 是在 GardenSession 第一次渲染时钉死的。
+  // openId 存的是整把钥匙（房间那种键拼不回来），所以这儿直接当 storeKey 用。
+  assert.match(host, /key: openId, storeKey: openId/);
 });

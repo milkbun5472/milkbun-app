@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-1fbae21d137dd261", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-6ef0e61f3eb1bc5e", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
@@ -427,7 +427,8 @@
     { id: "rail", name: "云上列车", note: "一段路，一车厢陌生人" }
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
-  const saveKeyOf = id => id === "legacy" ? KEY : KEY + ":" + id;
+  // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
+  const saveKeyOf = row => { const id = typeof row === "string" ? row : (row && row.id); return (row && row.key) || (id === "legacy" ? KEY : KEY + ":" + id); };
   // 老的那一档（KEY 里躺着的那份）要认回来当一条存档。
   // ⚠️绝不搬它的内容：搬＝复制一份再删一份，中间任何一步断掉就少一档。
   //   只在名册里记一笔，它的钥匙仍旧是原来那把。
@@ -441,10 +442,27 @@
       rows.unshift({ id: "legacy", world: "garden", name: "原来那一档", ts: 0 });
       saveJSON(INDEX_KEY, rows);
     }
+    // ⚠️名册对不上时以【存档本身】为准（她 2026-09-16：「我回不到有花园的小屋了」）。
+    //   名册只是一张目录，它丢了一行、或者这一档本来就不是从这儿建的（比如聊天里的
+    //   庭院房），存档都还好好躺在那儿。所以再扫一遍真正存在的键，没登记的认回来——
+    //   宁可多列一行，也不能让一段日子从界面上消失。
+    //   （先例：设置 → 数据 →「找回失联的角色」。）
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || key.indexOf(KEY + ":") !== 0) continue;
+        const id = key.slice(KEY.length + 1);
+        if (!id || rows.some(x => x.id === id)) continue;
+        const room = key.indexOf("::room::") > -1;
+        // ⚠️房间那种键是 x_fairyGarden::角色::room::房号，切出来的 id 自己带冒号。
+        //   所以这一行连【整把钥匙】一起记下来，别再去拼一次（拼错就又打不开了）。
+        rows.push({ id: id, key: key, world: "garden", name: room ? "聊天里的庭院房" : "找回的一档", ts: 0, found: true });
+      }
+    } catch (e) {/* 隐私模式下读不到就算了，不连累这一页 */}
     return rows;
   }
   function saveMeta(row) {
-    const d = loadJSON(saveKeyOf(row.id), null) || {};
+    const d = loadJSON(saveKeyOf(row), null) || {};
     const w = d.world || {};
     return {
       day: Number(w.day) || 0,
@@ -461,8 +479,9 @@
     const [openId, setOpenId] = useState(null);
     const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", deep: "#55704f" };
     const refresh = () => setSaves(readSaves());
+    // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
     if (openId) return h(GardenSession, Object.assign({}, props, {
-      key: openId, storeKey: saveKeyOf(openId), onBack: () => { setOpenId(null); refresh(); }
+      key: openId, storeKey: openId, onBack: () => { setOpenId(null); refresh(); }
     }));
     const card = (onClick, dim, children) => h("button", {
       onClick: dim ? undefined : onClick, disabled: !!dim, className: dim ? "w-full text-left" : "w-full text-left active:opacity-70",
@@ -488,14 +507,14 @@
       const id = "g_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
       const next = [{ id, world: world.id, name: "", ts: Date.now() }, ...readSaves()];
       if (!saveJSON(INDEX_KEY, next)) { props.toast("这次没能记下新存档，先别关。"); return; }
-      setSaves(next); setOpenId(id);
+      setSaves(next); setOpenId(saveKeyOf({ id: id }));
     };
     const drop = row => requestAppConfirm("删掉这一档？",
       "这一档里的日子、背包和聊过的话会一起删掉，找不回来。",
       () => {
         const next = readSaves().filter(x => x.id !== row.id);
         saveJSON(INDEX_KEY, next);
-        try { localStorage.removeItem(saveKeyOf(row.id)); } catch (e) {}
+        try { localStorage.removeItem(saveKeyOf(row)); } catch (e) {}
         setSaves(next);
       }, "删掉");
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
@@ -506,11 +525,12 @@
           const meta = saveMeta(row);
           const partner = (props.characters || []).find(c => String(c.id) === meta.partnerId);
           return h("div", { key: row.id, style: { position: "relative" } },
-            card(() => setOpenId(row.id), false, h(React.Fragment, null,
+            card(() => setOpenId(saveKeyOf(row)), false, h(React.Fragment, null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
-            h("button", { onClick: () => drop(row), className: "active:opacity-60",
+            // 聊天里那间房的存档不给在这儿删：删了那间房就指着一个空壳
+            (row.key && row.key.indexOf("::room::") > -1) ? null : h("button", { onClick: () => drop(row), className: "active:opacity-60",
               style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
         }),
         h("button", { onClick: create, className: "w-full active:opacity-70",
