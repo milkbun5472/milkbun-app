@@ -8234,16 +8234,26 @@ function ChatThread({
       // 外加 data-me="1|0" 分我和TA。这些【只是名字，不带任何样式】——
       // 加了不影响现在的长相，删了才会让别人写好的主题失效，所以别改名。
       "data-wk": "msg", "data-me": isU ? "1" : "0"
-    }, part === 0 && (i === 0 || messages[i - 1].turnId !== m.turnId || m.ts - (messages[i - 1].ts || 0) > 180000) ? /*#__PURE__*/React.createElement("div", {
-      className: "text-center mb-1",
-      "data-wk": "time"
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 10,
-        color: t.fog
-      }
-    }, fmtStamp(m.ts))) : null, /*#__PURE__*/React.createElement("div", {
+    }, part === 0 && (function () {
+      // ⚠️原来这儿是手写的一份：`i===0 || 换轮了 || 间隔 >3 分钟`，文案走 fmtStamp——
+      //   而 fmtStamp 跨天只给「9/15 14:30」，混在满屏时刻里看不出那是新的一天。
+      //   判据和文案都搬去 js/chat-stamp.js 那一份公共的（跟群聊共用，
+      //   施工规则/one-public-mechanism.md）。单聊这边【分寸一个字没改】：
+      //   minGap 还是 3 分钟、同一轮里连发照旧不各带时刻。变的只有跨天那一条——
+      //   它现在写「昨天 14:30」「9月15日 14:30」，并且画成一颗药丸，隔夜看得出来。
+      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000 });
+      if (!st.show) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "text-center mb-1",
+        "data-wk": "time",
+        "data-day": st.day ? "1" : "0",
+        style: st.day ? { margin: "14px 0 8px" } : null
+      }, /*#__PURE__*/React.createElement("span", {
+        style: st.day
+          ? { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: ".04em", padding: "3px 10px", borderRadius: 999, background: t.bg2, border: "1px solid " + t.line }
+          : { fontFamily: F_BODY, fontSize: 10, color: t.fog }
+      }, st.text));
+    })(), /*#__PURE__*/React.createElement("div", {
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start"),
       "data-wk": "row"
     }, !isU && /*#__PURE__*/React.createElement("button", {
@@ -13489,38 +13499,23 @@ function GroupThread({
     }, h(PhotoCard, { m: m, mine: true, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
     const isU = m.role === "user";
     const c = m.senderId ? memberById(m.senderId) : null;
-    const toGroupTime = value => {
-      if (value == null || value === "") return NaN;
-      const numeric = Number(value);
-      if (Number.isFinite(numeric)) return numeric;
-      const parsed = Date.parse(value);
-      return Number.isFinite(parsed) ? parsed : NaN;
-    };
-    let previousTimed = null;
-    for (let j = i - 1; j >= 0; j--) {
-      if (messages[j] && Number.isFinite(toGroupTime(messages[j].ts))) { previousTimed = messages[j]; break; }
-    }
-    const currentTime = toGroupTime(m.ts);
-    const previousTime = previousTimed ? toGroupTime(previousTimed.ts) : NaN;
-    const currentDate = Number.isFinite(currentTime) ? new Date(currentTime) : null;
-    const previousDate = Number.isFinite(previousTime) ? new Date(previousTime) : null;
-    const crossedDay = currentDate && previousDate && (currentDate.getFullYear() !== previousDate.getFullYear() || currentDate.getMonth() !== previousDate.getMonth() || currentDate.getDate() !== previousDate.getDate());
-    const sameTurn = previousTimed && previousTimed.turnId && m.turnId && previousTimed.turnId === m.turnId;
-    const showGroupTime = !!previousTimed && !sameTurn && currentTime > previousTime && (crossedDay || currentTime - previousTime >= 30 * 60 * 1000);
-    let groupTimeLabel = "";
-    if (showGroupTime) {
-      const now = new Date(), pad = n => String(n).padStart(2, "0");
-      const sameToday = currentDate.getFullYear() === now.getFullYear() && currentDate.getMonth() === now.getMonth() && currentDate.getDate() === now.getDate();
-      const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      const sameYesterday = currentDate.getFullYear() === yesterday.getFullYear() && currentDate.getMonth() === yesterday.getMonth() && currentDate.getDate() === yesterday.getDate();
-      const clock = pad(currentDate.getHours()) + ":" + pad(currentDate.getMinutes());
-      groupTimeLabel = sameToday ? clock : sameYesterday ? "昨天 " + clock : (currentDate.getFullYear() === now.getFullYear() ? "" : currentDate.getFullYear() + "年") + (currentDate.getMonth() + 1) + "月" + currentDate.getDate() + "日 " + clock;
-    }
+    // ⚠️原来这儿手写了一份「要不要显示时间戳、写成什么」，跟单聊那份各写各的：
+    //   门槛 30 分钟（群里天天过不去，于是整屏一条时间都没有），
+    //   而且跨天之后对「今天」只给一个裸时刻，看起来跟同一天里隔了半小时一模一样
+    //   ——她 2026-09-16：「群聊没跟上单聊，不会有日期隔离，过多久界面都是像同一天」。
+    //   判据搬去 js/chat-stamp.js 那一份公共的（施工规则/one-public-mechanism.md），
+    //   群里那道 30 分钟的分寸照原样留着，只当参数传进去；跨天那一档两处一样。
+    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000 });
+    const showGroupTime = gStamp.show;
+    const groupTimeLabel = gStamp.text;
     return h("div", {
       key: i,
       "data-wk": "msg", "data-me": isU ? "1" : "0"
-    }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", style: { margin: "13px 0 8px" } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: "0.02em" } }, groupTimeLabel)), h("div", {
+    }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", "data-day": gStamp.day ? "1" : "0",
+      style: { margin: gStamp.day ? "18px 0 10px" : "13px 0 8px" } },
+      h("span", { style: gStamp.day
+        ? { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: "0.04em", padding: "3px 10px", borderRadius: 999, background: t.bg2, border: "1px solid " + t.line }
+        : { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: "0.02em" } }, groupTimeLabel)), h("div", {
       "data-wk": "row",
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
     }, !isU && mAvatar(c), h("div", {
