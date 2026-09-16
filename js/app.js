@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.08";
+const APP_VERSION = "v69.09";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8752,6 +8752,36 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       capState.push("call：三两句说不清、想立刻把话说完、Ta 那边情绪不对、刚落地刚下班想说说话、"
         + "或者只是这会儿很想听见 Ta 的声音——想打就打，**不必等 Ta 提**。"
         + "Ta 没接就是一条未接来电，本来就是这样，不必因此不敢打。");
+      // ── 撤回 / 位置 / 评论朋友圈：有格式，没场合（她 2026-09-16）────────
+      // 她原话：「再列一下单聊所有功能以及它们有没有提示让角色不用我提也可以自己弄」。
+      // 列出来这三样跟上个月的 voice/call 是同一种空白：能力字典里写着长什么样，
+      // 可【什么时候真人会这么做】一个字都没有。
+      // ⚠️先查「已经有人管了吗」(施工规则/bans-make-it-dumber.md ①)：
+      //   上面那条【能力使用总则】确实点了名——「gift、photo、call、voice、moment、recall
+      //   等按当前对话与你自己的真实意愿选择，不必等待特殊时刻」。可它只是把名字列了一排，
+      //   没说任何一样【在什么情境下会想用】。证据就是 call 和 voice 也在那句里，
+      //   她照样报「都是我问才会」——补上场合之后才动。所以这三条补的是场合，不是又一条总则。
+      // ⚠️给场合不给配额（施工规则/bans-make-it-dumber.md）：写的是真人什么时候会这么做，
+      //   不写「每几轮来一次」，也不用判决式收尾。用不用还是这个人自己的性子。
+      // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
+      //   单聊线上 ✅ 就是这里。
+      //   单聊线下 ❌ 【欠的，不是有理由不给】：线下走 OFFLINE_PROTOCOL_V2 那套叙事输出，
+      //     整套能力字段都没有口子（跟 whisper/carve 同一条，要给得单开一条）。
+      //   群聊 ❌ 有真理由：recall/location 是单聊那个「一个人独占 word 数组」的形状，
+      //     群聊数组是几个人共用的、没有这两格；momentComment 本来就在
+      //     ChatRooms.MAIN_ONLY_FIELDS 里（朋友圈是主线的东西，旁观房不写主线）。
+      capState.push("recall：发出去才发现说重了、语气比想的狠、点错了人、想改个说法——"
+        + "**不必等 Ta 问，也不必是什么说漏嘴的大事**，日常改口就够。"
+        + "撤回之前那一秒它是正常显示的，" + uName + " 可能已经看见了，本来就是这样；"
+        + "要补一句就把补的话写进 word。");
+      capState.push("location：约在哪儿见、说好了去接 Ta、报备此刻人在哪、"
+        + "或者你此刻就在一个想让 Ta 也来的地方——**不必等 Ta 问你在哪**。"
+        + "name 写你自己嘴里会怎么称呼这个地方，不是导航软件上那串全称。");
+      if ((moments || []).some(m => m && m.mine)) {
+        capState.push("momentComment：" + uName + " 发的最新那条你已经看见了（上面【朋友圈动态】那一栏）。"
+          + "戳到你了、想让 Ta 知道你看过了、或者你就是想在底下接一句——**不必等 Ta 来问你看没看见**。"
+          + "⚠️评论挂在 Ta 那条底下，刷到的人都看得见：只属于你和 " + uName + " 之间的私事别写进去。");
+      }
       // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让TA以为自己发得出去
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
