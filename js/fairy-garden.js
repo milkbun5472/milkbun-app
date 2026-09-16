@@ -8,11 +8,15 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-24a1e7eb12051540", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-42c6486a5d43d0e3", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
+  // 两排色板：给的是【挑得动手】的十来个颜色，不是取色器。
+  // 布偶是童话质感，饱和度压着走；深浅各来几档，深色头发也照顾到。
+  const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
+  const CLOTH_COLORS = ['#8d5f66', '#729786', '#5f7590', '#a7784c', '#6b6280', '#93684f', '#4f6b5c', '#b0857f'];
   function normalizeReply(raw) {
     const obj = extractJSON(raw);
     if (!obj || typeof obj.reply !== "string" || !obj.reply.trim()) { const e = new Error("这次没读懂角色的回复，可以重试。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
@@ -116,7 +120,27 @@
         save: world => { if (frame.current !== node) return false; if (JSON.stringify(world).length > 100000) throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
         openChat: () => openChat(true), changePartner,
         planSeason, planState: day => { const d=current(); return (d.plans||{})[planKey(d.partnerId,day)]||null; },
-        ready: () => { if (alive.current) setLoaded(true); }
+        ready: () => {
+          if (!alive.current) return;
+          setLoaded(true);
+          // 第一次进来给同行者一身默认：衣色取角色卡上那个色，发型按卡上写的性别。
+          // ⚠️只在【这个存档还没设过】时给，之后一律听她挑的那一份。
+          try {
+            const g = frame.current && frame.current.contentWindow.FairyGardenGame;
+            const c = partner();
+            if (g && g.getLook && c) {
+              const now = g.getLook();
+              if (!now.companion || !now.companion.hair) {
+                const ta = (typeof CharacterPronoun !== "undefined") ? CharacterPronoun.ta(c) : "TA";
+                g.setLook('companion', {
+                  hair: ta === "她" ? 'wavy' : ta === "他" ? 'korean' : 'hush',
+                  cloth: c.color || '#729786'
+                });
+              }
+            }
+            pullLook();
+          } catch (e) {/* 样貌是锦上添花，出错不许拦住进门 */}
+        }
       });
     };
     // ── 说过的话只有一份 ────────────────────────────────────────────────
@@ -129,6 +153,26 @@
     const doneHistory = (d, cid) => record
       ? ((propsRef.current.record && propsRef.current.record.history) || [])
       : ((d.dialogs || {})[cid] || []).filter(m => m.status === "done");
+    // ── 样貌（她 2026-09-16 接着要的）─────────────────────────────────────
+    // 一个身体十二款头发，换一款是数据：这儿只管把选择递给游戏，存档由游戏那头写。
+    // 名单从 apps/fairy-garden/hairstyles.json 拿——那一份是美术目录导出来的同一批，
+    // 界面上的名字和模型里的网格永远对得上（另写一份 JS 常量就是又一处要同步的）。
+    const [dress, setDress] = useState(false);
+    const [who, setWho] = useState('companion');
+    const [styles, setStyles] = useState(null);
+    const [look, setLook] = useState({ me: {}, companion: {} });
+    useEffect(() => {
+      let on = true;
+      fetch('apps/fairy-garden/hairstyles.json?v=' + BUILD).then(r => r.json())
+        .then(d => { if (on) setStyles(d); }).catch(() => {});
+      return () => { on = false; };
+    }, []);
+    const pullLook = () => { const g = game(); if (g && g.getLook) setLook(g.getLook()); };
+    const pushLook = patch => {
+      const g = game(); if (!g || !g.setLook) return;
+      if (!g.setLook(who, patch)) { props.toast("这次没存上，样貌还是原来的。"); return; }
+      pullLook();
+    };
     const char = (props.characters || []).find(c => String(c.id) === String(entry.partnerId));
     const localRows = (entry.dialogs && entry.dialogs[entry.partnerId]) || [];
     const rows = record
@@ -188,11 +232,46 @@
         error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error)));
     return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: char ? "与 " + (char.remark || char.name) + " 同行" : "自由试玩", bg: "transparent", ink: "#344936", onBack: back,
-        right: h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话") }),
+        right: h("div", { style: { display: "flex", gap: 7 } },
+          h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { if (!dress) pullLook(); setDress(d => !d); }, disabled: !loaded }, dress ? "回庭院" : "样貌"),
+          h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) }),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
-        chat && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
+        // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
+        dress && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+          // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
+          h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
+            [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"]].map(([k, label]) =>
+              h("button", { key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
+                style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: who === k ? G.ink : "#93a188",
+                  borderBottom: "2px solid " + (who === k ? G.deep : "transparent"), background: "transparent" } }, label))),
+          h("div", { style: { padding: "16px 16px 40px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              who === "companion" && char
+                ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
+                : "换的是你自己在这个庭院里的样子。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
+            h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
+              Object.entries(styles || {}).map(([key, label]) => {
+                const on = ((look[who] || {}).hair || "") === key;
+                return h("button", { key: key, onClick: () => pushLook({ hair: key }), className: "active:opacity-70",
+                  style: { padding: "11px 6px", borderRadius: 13, border: "1px solid " + (on ? G.deep : G.line),
+                    background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)",
+                    fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
+              })),
+            !styles && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "发型名单还没读进来…"),
+            [["hairColor", "发色", HAIR_COLORS], ["cloth", "衣服颜色", CLOTH_COLORS]].map(([field, label, palette]) =>
+              h("div", { key: field, style: { marginTop: 20 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, label),
+                h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, palette.map(hex => {
+                  const on = String((look[who] || {})[field] || "").toLowerCase() === hex;
+                  return h("button", { key: hex, onClick: () => pushLook({ [field]: hex }), "aria-label": label + hex,
+                    className: "active:opacity-70",
+                    style: { width: 36, height: 36, borderRadius: 999, background: hex,
+                      border: on ? "2px solid " + G.ink : "1px solid rgba(0,0,0,.12)", boxShadow: on ? "0 0 0 3px rgba(255,255,255,.75) inset" : "none" } });
+                })))))),
+        chat && !dress && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
           h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },

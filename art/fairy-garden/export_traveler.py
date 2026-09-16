@@ -87,6 +87,11 @@ def main():
         o.hide_viewport = False
     bpy.context.view_layer.objects.active = objs[0]
     bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True)
+    # 发型名单也从这儿出一份给运行时：名单只有 hairstyles.json 这一个源头，
+    # 界面上那十二个名字和模型里那十二款网格保证是同一批（test/garden-doll 钉了这条）。
+    labels = os.path.abspath(os.path.join(HERE, '..', '..', 'apps', 'fairy-garden', 'hairstyles.json'))
+    with open(os.path.join(HERE, 'hairstyles.json'), encoding='utf-8') as src, open(labels, 'w', encoding='utf-8') as dst:
+        dst.write(src.read())
     print('WROTE ' + OUT + ' ' + str(round(os.path.getsize(OUT) / 1048576, 2)) + 'MB')
     print('FACES ' + str(sum(len(o.data.polygons) for o in objs)))
     print('MESHES ' + json.dumps(sorted(o.name for o in objs), ensure_ascii=False))

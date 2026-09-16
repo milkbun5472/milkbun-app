@@ -1,14 +1,14 @@
-import {installSeasonBook} from './season-book.mjs?v=fg-24a1e7eb12051540';
-import {makeMagicView} from './magic-view.mjs?v=fg-24a1e7eb12051540';
-import {installViewControls} from './view-controls.mjs?v=fg-24a1e7eb12051540';
+import {installSeasonBook} from './season-book.mjs?v=fg-42c6486a5d43d0e3';
+import {makeMagicView} from './magic-view.mjs?v=fg-42c6486a5d43d0e3';
+import {installViewControls} from './view-controls.mjs?v=fg-42c6486a5d43d0e3';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-24a1e7eb12051540';
-import {makeSurroundings} from './surroundings.mjs?v=fg-24a1e7eb12051540';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-24a1e7eb12051540';
-import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight} from './world.mjs?v=fg-24a1e7eb12051540';
-import {makeForest} from './forest.mjs?v=fg-24a1e7eb12051540';
-import {createTraveler} from './traveler.mjs?v=fg-24a1e7eb12051540';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-24a1e7eb12051540';
+import {createMapLoader} from './map-loader.mjs?v=fg-42c6486a5d43d0e3';
+import {makeSurroundings} from './surroundings.mjs?v=fg-42c6486a5d43d0e3';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-42c6486a5d43d0e3';
+import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight} from './world.mjs?v=fg-42c6486a5d43d0e3';
+import {makeForest} from './forest.mjs?v=fg-42c6486a5d43d0e3';
+import {createTraveler} from './traveler.mjs?v=fg-42c6486a5d43d0e3';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-42c6486a5d43d0e3';
 const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
@@ -60,7 +60,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=aspect<1?(h<730?14:12.8):Math.max(14,16*aspect);const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map);const a=await loader.loadAsync('./doll.glb?v=fg-24a1e7eb12051540');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map);const a=await loader.loadAsync('./doll.glb?v=fg-42c6486a5d43d0e3');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap();if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -132,6 +132,16 @@ window.FairyGardenGame={
  refreshSeasonPlan:()=>{refreshSeasonPlan();companionController.reset();},
  snapshot:()=>({epoch:data.epoch,season:seasonOf(data.day),magic:{...data.magic},journal:(data.journal||[]).slice(-14),day:data.day,time:timeLabel(data.minute),weather:weather(data.day),map:MAPS[data.map].name,position:{...data.position},companion:{name:data.companion.name,map:MAPS[data.companion.map].name,position:{...data.companion.position},activity:companionController.view().status},inventory:{water:data.water,herbs:data.herbs,mushrooms:data.mushrooms,potions:data.potions,flowers:data.blooms,harvest:data.harvest}}),
  setChatOpen:value=>{chatting=!!value;document.body.classList.toggle('chatting',chatting);},
+ // 样貌（发型/发色/衣色）：一个身体十二款头发，换一款是数据。
+ // ⚠️谁的样貌就存在谁名下：我的在 data.look，同行者的在 data.companion.look，
+ //   换角色入住时各自跟着自己的存档走，不会串到别人头上。
+ getLook:()=>({me:{...(data.look||{})},companion:{...((data.companion&&data.companion.look)||{})}}),
+ setLook:(who,look)=>{if(!ready||!look)return false;
+  const avatar=who==='companion'?companionAvatar:playerAvatar;if(!avatar)return false;
+  avatar.setLook(look);
+  if(who==='companion')data={...data,companion:{...data.companion,look:{...(data.companion.look||{}),...look}}};
+  else data={...data,look:{...(data.look||{}),...look}};
+  return save();},
  applyAction:action=>{if(!ready||!action)return false;if(action.kind==='none')return true;if(!['follow','routine','wait','goto'].includes(action.kind))return false;if(action.kind==='goto'&&!COMPANION_DESTINATIONS[action.target])return false;data={...data,companion:{...data.companion,mode:action.kind,destination:action.target||data.companion.destination}};companionController.reset();ui();return save();}
 };
 installSeasonBook({getState:()=>data,getHost:()=>host,refresh:()=>{refreshSeasonPlan();companionController.reset();}});
