@@ -57,6 +57,28 @@ const bubbleDecls = S => {
     "border-radius:" + (Number(S.radius) || 0) + "px !important;",
     "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
   ]);
+  // ── 语音条也是一只气泡（她 2026-09-16：「语音条的颜色没跟上设定的气泡颜色和样式」）──
+  // 原来这四层 CSS 只认 [data-wk="bubble"]，而语音条挂的是 data-wk="voice"、
+  // 连 data-me 都没有——于是**这个人那两层（她给某人单挑的气泡）一个字都落不到它身上**，
+  // 全局那层也只靠 VoiceMsg 自己手抄了一个 myBg，文字色、描边、圆角、投影全是写死的。
+  // 判据同 one-public-mechanism：同一样东西（一只气泡的长相）只许有一份规则。
+  // ⚠️不直接把语音条改叫 data-wk="bubble"：主题工作室把「语音消息整块 / 语音条」
+  //   当成两个独立挂点在用（theme-studio.js 那张名单），改名会让她写好的主题失效。
+  //   所以是让皮肤这一层【多认一个选择器】，不是让语音条改名去冒充文字气泡。
+  one('[data-wk="voice"][data-me="1"]', [
+    S.myBg ? "background:" + q(S.myBg) + " !important;" : "",
+    S.myText ? "color:" + q(S.myText) + " !important;" : "",
+    "border:" + (S.myBorder ? q(S.myBorder) : "none") + " !important;",
+    "border-radius:" + (Number(S.radius) || 0) + "px !important;",
+    "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
+  ]);
+  one('[data-wk="voice"][data-me="0"]', [
+    S.charBg ? "background:" + q(S.charBg) + " !important;" : "",
+    S.charText ? "color:" + q(S.charText) + " !important;" : "",
+    "border:" + (S.charBorder ? q(S.charBorder) : "none") + " !important;",
+    "border-radius:" + (Number(S.radius) || 0) + "px !important;",
+    "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
+  ]);
   // 聊天页底色：只在皮肤真设过时才发（留空＝跟主题走，不该抢主题 CSS 的话）
   if (S.chatBg) one('[data-wk="chat"],[data-wk="body"]', ["background:" + q(S.chatBg) + " !important;", "background-image:none !important;"]);
   return out.join("\n");
@@ -8142,7 +8164,7 @@ function ChatThread({
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
-        style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 18 }
+        style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: BUBBLE_SKIN.radius }
       }, h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : character })),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user", who: cName,
@@ -8319,7 +8341,7 @@ function ChatThread({
       className: "flex items-center gap-1.5"
     }, h(Svg, {
       size: 15,
-      color: isU ? "#16330a" : t.tint,
+      color: isU ? "currentColor" : t.tint,   // 跟着气泡自己的字色走（原来写死出厂值 #16330a，她一改 myText 就脱节）
       sw: 1.7
     }, h("path", {
       d: "M12 21s-7-6.3-7-11a7 7 0 1114 0c0 4.7-7 11-7 11z"
@@ -8340,7 +8362,7 @@ function ChatThread({
         justifyContent: "center",
         fontFamily: F_DISPLAY,
         fontSize: 17,
-        color: isU ? "#16330a" : t.ink
+        color: isU ? "currentColor" : t.ink   // 同上：跟着 myText 走，别写死出厂值
       }
     }, "¥"), h("span", null, h("div", {
       style: {
@@ -10016,7 +10038,11 @@ function VoiceMsg({ m, isU, speaker }) {
   useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
   const dur = m.dur || Math.max(1, Math.round(String(m.content || "").replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
-  const fg = isU ? "#16330a" : t.ink;
+  // ⚠️原来这里写死 `isU ? "#16330a" : t.ink`——她把气泡文字色改成别的，
+  //   语音条里的波形、时长、转录文字全部纹丝不动（她 2026-09-16 报的就是这个）。
+  //   现在颜色只由外面那只气泡说了算，里面一律 currentColor 跟着走：
+  //   皮肤 CSS 落下来的也好、内联那份兜底也好，这里都不用知道是哪一个。
+  const fg = "currentColor";
   const bars = voiceBars(m.content, dur);
   const emoZh = VOICE_EMO_ZH[m.emo] || "";
   // 有配语音 API + 这个角色选了音色 → 才显示播放按钮（懒生成：点了才合成收费，缓存后重播免费）
@@ -10041,21 +10067,41 @@ function VoiceMsg({ m, isU, speaker }) {
       setPSt("idle"); setPErr(String((err && err.message) || err)); setOpen(true);
     }
   };
-  const line = isU ? "rgba(0,0,0,0.13)" : t.line;
   // ⚠️没有 minWidth：宽度由内容(播放键+这条自己的波形+时长)自己撑出来，
   //   于是「多长」这件事在列表里一眼看得见——一秒的就是一小截。
-  return h("div", { "data-wk": "voice", onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
+  // ⚠️长相照【文字气泡那一处】原样取（施工规则/one-public-mechanism.md：
+  //   同一样东西只许有一份规则）。原来这儿是自己拼的一份：底色只抄了 myBg、
+  //   TA 那半边干脆用 t.bg2（皮肤里的 charBg 压根没人问）、圆角写死 15、
+  //   描边写死 1px t.line、投影没有、文字色写死——**她在设置里改气泡，语音条纹丝不动**。
+  //   data-me 也是这次补的：没有它，「她给某个人单挑的那套气泡」那两层 CSS
+  //   连选都选不中这一块（选择器是 [data-wk][data-me]）。
+  return h("div", { "data-wk": "voice", "data-me": isU ? "1" : "0",
+    onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer",
+    style: {
+      maxWidth: "100%", overflow: "hidden",
+      background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
+      color: isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
+      border: (isU ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none",
+      borderRadius: BUBBLE_SKIN.radius,
+      boxShadow: BUBBLE_SKIN.shadow || "none"
+    } },
     h("style", null, "@keyframes vm-bar{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1.25)}}"),
     h("div", { "data-wk": "voicebar", className: "flex items-center gap-2.5 px-3.5", style: { minHeight: 42, paddingTop: 8, paddingBottom: 8 } },
+      // ⚠️播放键原来是【实心圆＋挖底色的图标】：那要求这段代码知道气泡底色是什么，
+      //   于是它只能写死 myBg / t.bg2——她换了皮肤，三角形就变成隐形的了。
+      //   改成【半透明的 currentColor 当圆底 + currentColor 的图标】：
+      //   同一个色相，深浅差一档，什么底色上都看得见，而且一个色值都不用猜。
       canTts ? h("button", {
         onClick: playTts, className: "active:opacity-60 shrink-0",
-        style: { width: 27, height: 27, borderRadius: 999, border: "none", background: fg, display: "flex", alignItems: "center", justifyContent: "center" }
-      }, pSt === "gen"
-        ? h("span", { style: { width: 9, height: 9, borderRadius: 2, border: "1.6px solid " + (isU ? BUBBLE_SKIN.myBg : t.bg2), borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
-        : h(Svg, { size: 12, color: isU ? BUBBLE_SKIN.myBg : t.bg2, sw: 0 },
-            pSt === "playing"
-              ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: isU ? BUBBLE_SKIN.myBg : t.bg2 })
-              : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: isU ? BUBBLE_SKIN.myBg : t.bg2 }))) : null,
+        style: { position: "relative", width: 27, height: 27, borderRadius: 999, border: "none", background: "transparent", color: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }
+      }, h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: 999, background: "currentColor", opacity: 0.16 } }),
+        pSt === "gen"
+        ? h("span", { style: { position: "relative", width: 9, height: 9, borderRadius: 2, border: "1.6px solid currentColor", borderTopColor: "transparent", animation: "wk-spin .7s linear infinite" } })
+        : h("span", { style: { position: "relative", display: "flex" } },
+            h(Svg, { size: 12, color: "currentColor", sw: 0 },
+              pSt === "playing"
+                ? h("path", { d: "M8.5 5.5h2.6v13H8.5zM12.9 5.5h2.6v13h-2.6z", fill: "currentColor" })
+                : h("path", { d: "M8.5 5.2l9.5 6.8-9.5 6.8z", fill: "currentColor" })))) : null,
       // 这一条自己的波形：长短起伏都是这句话算出来的，不是七根一成不变的贴纸
       h("div", { className: "flex items-center", style: { gap: 2, height: 16, minWidth: 0, overflow: "hidden", flexShrink: 1 } },
         bars.map((hh, j) => h("span", {
@@ -10066,7 +10112,11 @@ function VoiceMsg({ m, isU, speaker }) {
             animationDelay: pSt === "playing" ? (j * 0.055) + "s" : undefined }
         }))),
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: fg, opacity: 0.7, flexShrink: 0 } }, mmss)),
-    open && h("div", { className: "px-3.5 pb-3", style: { borderTop: `1px solid ${line}` } },
+    // ⚠️这条分隔线不能用 border + currentColor：currentColor 没法带透明度，
+    //   画出来就是一条实线。改成一个 1px 高、压到 .18 的自己的 div——
+    //   什么底色上都是「淡淡一道」，而且照样跟着文字色走。
+    open && h("div", { className: "px-3.5 pb-3" },
+      h("div", { "aria-hidden": "true", style: { height: 1, background: "currentColor", opacity: 0.18, margin: "0 -14px" } }),
       pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "没出声：" + pErr) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: fg, opacity: 0.45, margin: "8px 0 5px" } },
         (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + (emoZh || "说的是")),
@@ -13427,7 +13477,7 @@ function GroupThread({
         onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
-        style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 18 }
+        style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: BUBBLE_SKIN.radius }
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
         h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : memberById(m.senderId) })),
