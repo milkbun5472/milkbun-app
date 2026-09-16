@@ -71,22 +71,18 @@ test("抓到之后那一句是【指着错处说一次】，不是又一条常�
   assert.equal(G.leakRetryNote([]), "", "没漏的时候一个字都不许发——那就成常驻禁令了");
 });
 
-test("接进群聊那一路：两处私密段都收、公开那份要减掉它们、只重打一次", () => {
-  const seg = app.slice(app.indexOf("      // ── 查漏：谁说出了只属于别人的那几个字"), app.indexOf("      // ⚠️思考链要在【最终那一枪】之后取"));
-  assert.ok(seg.length > 300, "没切到那一段");
-  assert.match(seg, /window\.GroupIdentityGuard\.privacyScan\(arr, privSegs, _pub\)/);
-  assert.match(seg, /const _pub = privBlob \? String\(system\)\.replace\(privBlob, " "\) : String\(system\)/,
-    "公开那份没把私密段减掉——那等于自己跟自己比，永远查不出东西");
-  assert.match(seg, /_gShoot\(userContent \+ window\.GroupIdentityGuard\.leakRetryNote\(_leak\)\)/);
-  // 只重打一次：第二枪再漏也按原样发，别把她的群聊卡成空白
-  assert.equal((seg.match(/_gShoot\(/g) || []).length, 1, "重打不止一次");
-  assert.match(seg, /if \(Array\.isArray\(_arr2\) && _arr2\.length\) \{ raw = _raw2; arr = _arr2; \}/, "重打回来空的时候把原来那轮也弄没了");
-  // 两处私密段都要收（开了记忆互通走 interop，没开走 preJoin）
-  assert.match(app, /privSegs\[c\.name\] = \(privSegs\[c\.name\] \? privSegs\[c\.name\] \+ "\\n" : ""\) \+ lines;/, "preJoin 那一处没收");
-  assert.match(app, /if \(seg\) privSegs\[c\.name\] = \(privSegs\[c\.name\] \? privSegs\[c\.name\] \+ "\\n" : ""\) \+ seg;/, "interop 那一处没收");
-  assert.match(app, /privBlob \+= pj;/); assert.match(app, /privBlob \+= memLines;/);
-  // 思考链要挂在最终那一枪上
-  assert.ok(app.indexOf("⚠️思考链要在【最终那一枪】之后取") > app.indexOf("      // ── 查漏：谁说出了只属于别人的那几个字"));
+// ⚠️v69.03：app 侧那一整块接线撤掉了（她 2026-09-16：「直接不要重写了宝宝」）。
+// 理由是它【误报太多，而每次误报都要她多付一次钱】：判据两个字起就算命中，
+// 可中文里「昨天」「晚上」「一起」满地都是，只要碰巧只出现在别人那段私密记录里就算泄密。
+// 下面这些纯函数留着（它们本身是对的、也还有测试），只是 app 不再调用它们。
+test("app 侧不再有「查漏后重打一枪」那一套", () => {
+  const live = app.split("\n").map(l => l.split("//")[0]).join("\n");
+  assert.ok(live.indexOf("privacyScan") < 0, "又接回来了");
+  assert.ok(live.indexOf("leakRetryNote") < 0);
+  assert.ok(live.indexOf("privSegs") < 0 && live.indexOf("privBlob") < 0, "收集代码也要一起撤干净");
+  // 撤的只是「事后重打」；铁律和身份串线那道闸照旧
+  assert.match(app, /隐私边界铁律/);
+  assert.match(app, /window\.GroupIdentityGuard\.sanitize\(arr, members, userName\(profile\)\)/);
 });
 
 test("同处一室那一层补上了缺的半句：人在一起≠看得见她手机上的事", () => {

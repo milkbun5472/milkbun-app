@@ -54,11 +54,13 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
 
 test('群文字只发送一次完整印象卡，保留各人的私有围栏和工程师例外',()=>{
   const env=wire(fixture());
-  Object.assign(env,{memories:{},gSplit:{perChar:{}},formatMemLib:()=>'',hist:'',privSegs:{},
+  Object.assign(env,{memories:{},gSplit:{perChar:{}},formatMemLib:()=>'',hist:'',
     memberPrivLines:()=>'',crossRecentFor:()=>'',settingsFor:id=>({engineerEyes:id==='b'})});
   env.window.Gaze={text:id=>'唯一卡片_'+id+'_'+ '内容'.repeat(500)+'_末尾守则'};
   const members=evaluate(require('./_group-background-fixture.cjs').sections.online,env,'memberDesc');
-  const privateCode=cut(app,'        const memLines = members.map(c => {','        privBlob += memLines;');
+  // ⚠️收尾这一句原来是 `privBlob += memLines;`——v69.03 撤掉「查漏后重打一枪」时
+  //   privBlob 一起没了（它只喂那一路）。这里改成盯下一句真实存在的代码。
+  const privateCode=cut(app,'        const memLines = members.map(c => {','        const groupMem = formatMemLib(gSplit.shared);');
   const privateText=evaluate(privateCode,env,'memLines');
   const sent=members+privateText;
   assert.equal(sent.split('唯一卡片_a_').length-1,1);

@@ -45,8 +45,13 @@ console.log("group identity guard tests passed");
   const live2 = app2.split("\n").map(l => l.split("//")[0]).join("\n");
   assert.ok(live2.indexOf("有人说漏了只有别人知道的事") < 0, "那句 toast 又被加回来了");
   assert.ok(live2.indexOf("重说了一遍") < 0);
-  // 查漏本身不能跟着 toast 一起被删掉
-  assert.ok(app2.indexOf("window.GroupIdentityGuard.privacyScan(arr, privSegs, _pub)") > 0,
-    "查漏是要查的，只是别吱声");
-  assert.ok(app2.indexOf("GroupIdentityGuard.leakRetryNote(_leak)") > 0, "抓到之后那一次重写也要留着");
+  // ⚠️v69.03 她又说「直接不要重写了」——查漏后重打那一整套（privacyScan + leakRetryNote
+  //   + 那一枪）连同 privSegs/privBlob 一起撤了。这儿改成钉住【撤干净了】。
+  assert.ok(live2.indexOf("privacyScan") < 0 && live2.indexOf("leakRetryNote") < 0,
+    "又接回来了：它误报太多，而每次误报都要她多付一次钱");
+  assert.ok(live2.indexOf("privSegs") < 0 && live2.indexOf("privBlob") < 0,
+    "收集代码没人读了还留着，比压根没写更坏");
+  // 隐私本身没有不管：铁律照旧发，身份串线那道本地闸照旧拦
+  assert.ok(app2.indexOf("隐私边界铁律") > 0 && app2.indexOf("关系隐私铁律") > 0);
+  assert.ok(app2.indexOf("window.GroupIdentityGuard.sanitize(arr, members, userName(profile))") > 0);
 }
