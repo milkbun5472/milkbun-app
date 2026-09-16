@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.03";
+const APP_VERSION = "v69.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6975,10 +6975,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return;
     }
     startLane("c:" + scopeKey);
-    let summary = "", details = [], opens = [];
+    let summary = "", details = [], opens = [], sumErr = "";
+    // ⚠️原来这儿是 catch (e) {}：总结那一枪打不出去，界面照旧说「已结束」，
+    //   于是「失败」表现成「这场悄悄没记进记忆库」，连我查都查不出为什么（她 2026-09-16 报）。
+    //   报错要说真话（先例 v68.66 事件层）——她才知道是线路的事还是长度的事。
     try {
       if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
-    } catch (e) {}
+    } catch (e) { sumErr = (e && e.message) || String(e); }
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     // 旧记忆保留，新条交给共享去重/确认候选机制，不按场次自动隐藏。
     if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
@@ -6991,7 +6994,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sideRoom) pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
     endLane("c:" + scopeKey);
-    toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」" : (summary ? "已记入记忆库" : "已结束"));
+    toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」"
+      : summary ? "已记入记忆库"
+      : sumErr ? "这场没记进记忆库：" + sumErr
+      : "已结束");
     setOfflineChar(null);
     setOfflineRoomId("main");
   };
@@ -7588,10 +7594,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return;
     }
     startLane("g:" + groupId);
-    let summary = "", details = [], opens = [];
+    let summary = "", details = [], opens = [], sumErr = "";
+    // 和单人那一路同一个理由：总结失败必须说出来，不许悄悄当成「结束了」。
     try {
       if (offlineActive && group) { const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
-    } catch (e) {}
+    } catch (e) { sumErr = (e && e.message) || String(e); }
     // 记忆分区：只有开了「记忆互通」的群才把线下总结写进全局记忆库；
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
@@ -7607,7 +7614,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次群聊线下时间段的日程覆盖成这段经过 + 各角色想法。
     endLane("g:" + groupId);
-    toast(summary ? (interopOn ? "已记入记忆库" : "已结束（记忆只留在本群）") : "已结束");
+    toast(summary ? (interopOn ? "已记入记忆库" : "已结束（记忆只留在本群）")
+      : sumErr ? "这场没记进记忆库：" + sumErr
+      : "已结束");
     setOfflineGroup(null);
   };
   const goHome = () => {

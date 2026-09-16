@@ -6127,13 +6127,35 @@ function offlineSummaryAvoidBlock(already) {
     + "details 和 open 只给还没被记过的，一条都没有就给 []。"
     + "summary 不受这一段限制——它要的是【整场】，该怎么概括还怎么概括。";
 }
+// 喂进总结的那一段有上限，存档里那一份没有（她 2026-09-16：「宝宝为什么线下总结会失败」）
+// ─────────────────────────────────────────────────────────────
+// 病根和 `js/chat-context-window.js` 顶上那段是同一个，只是这一路当初漏跟了：
+// **记录存全的，喂回模型的只能是尾巴。** 通话记录（callTranscriptForOnline）、
+// 线上注入的 offlinelog.transcript 都早就按这个做，只有线下总结这一路把【整场】
+// 原样塞进一次调用——一场线下聊上几百条就能顶到几万字，直接撞模型的输入上限，
+// 于是整个 callAI 抛错、这一场一个字都没记进记忆库。
+// ⚠️切掉的早段不会丢：滚动总结（maybeSummarizeOffline）每攒够一批就把早段写进
+//   记忆库、并累进 session.summary。所以这里把那份前情提要顶在最前面一起发。
+// ⚠️切法用 ChatContextWindow.transcriptTail 那一份，不另写一把剪刀
+//   （施工规则/one-public-mechanism.md）；拿不到它就整段发，宁可撞上限也不乱切。
+const OFFLINE_SUM_FED_CAP = 24000;
+function offlineSummarySource(session, toLine) {
+  const sess = session || {};
+  const text = (sess.msgs || []).filter(m => !isOocMsg(m)).map(toLine).join("\n");
+  const W = (typeof window !== "undefined" && window.ChatContextWindow) || null;
+  const body = (W && text.length > OFFLINE_SUM_FED_CAP)
+    ? W.transcriptTail(text, OFFLINE_SUM_FED_CAP) : text;
+  const pre = String(sess.summary || "").trim();
+  if (body === text || !pre) return body;
+  return "【这一场前半截的前情提要（早段逐字记录太长，已按下面这段浓缩）】\n" + pre + "\n\n【接下来是逐字记录】\n" + body;
+}
 async function summarizeOffline(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
-  const text = (session.msgs || []).filter(m => !isOocMsg(m)).map(m => {
+  const text = offlineSummarySource(session, m => {
     if (m.role === "char") return ctx.char.name + "：" + (m.content || "");
     if (m.role === "narration") return "【场景】" + (m.content || "");
     return userName + "：" + (m.content || "");
-  }).join("\n");
+  });
   const system = "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
     "{\"summary\":\"1~3句第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
@@ -6415,11 +6437,11 @@ async function generateOfflineGroup(p, ctx, session) {
 async function summarizeOfflineGroup(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const names = (ctx.members || []).map(c => c.name).join("、");
-  const text = (session.msgs || []).filter(m => m.kind !== "ooc").map(m => {
+  const text = offlineSummarySource(session, m => {
     if (m.role === "char") return (m.senderName || "某人") + "：" + (m.content || "");
     if (m.role === "narration") return "【场景】" + (m.content || "");
     return userName + "：" + (m.content || "");
-  }).join("\n");
+  });
   // 和单人 summarizeOffline 同构：总结之外，具体细节/未兑现的约定也逐条出（v47.55 平权）
   const system = "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" +
     "{\"summary\":\"1~3句第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
