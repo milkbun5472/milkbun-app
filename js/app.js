@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.24";
+const APP_VERSION = "v69.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13472,7 +13472,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     try {
       return await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演「" + char.name + characterText(char, "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**"),
+        instruction: "推演「" + char.name + characterText(char, "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出（房租水电话费这类【每月都要交的】，不含吃喝交通）；**这两栏要和底下 dailyPool 那些日常花销对得上账：一个人的月收入得覆盖得住「固定支出 + 一个月的吃喝交通」还余下一点，不然他每个月都在亏空、余额迟早是负的。拮据可以写成余得很少，但别写成月月填不上——那不是拮据，是这份档案自己跟自己打架。**baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**"),
         schemaHint: characterText(char, "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"accounts\":[{\"name\":\"这一处叫什么\",\"kind\":\"什么性质\",\"tail\":\"末四位或编号\",\"hold\":12000,\"primary\":false,\"note\":\"他为什么把钱放这儿\"}],\"debts\":[{\"who\":\"跟谁\",\"amount\":800,\"dir\":\"owe\",\"why\":\"怎么欠上的\",\"since\":\"多久了\"}],\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}"),
         // notes(4段批注)在 JSON 最后，思考型模型截断先丢它→放宽 token 防「刷新后批注没了」
         maxTokens: 12000
@@ -13483,6 +13483,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 首次点进某角色的钱包：生成资产档案，把初始存款设为 running balance 起点（已有转账流水会 rebase 到新起点上）
+  // ── 钱包的月收支不许是 0（她 2026-09-16：「钱包每月收入都没有到账。。他们现在都是负数的钱了」）──
+  // 一条病因解释了她说的两件事：
+  //   `baseBalance` 抠不出来有三级兜底（重试一次 → 从月收入反推 → 带随机的默认值），
+  //   可 `monthlyIncome` / `fixedMonthly` **一级兜底都没有**——抠不出来就是 0，
+  //   而 initCharWallet 即使整份档案是 null 也照样把钱包标成 init:true 建起来了。
+  // 于是这种钱包：1 号那笔 inc = 0 − 0 = 0，`if (inc)` 为假 → **一笔都不记**
+  //   （「每月收入都没有到账」是字面意义上的真），
+  //   而日常消费照样天天扣 → 余额只会单调往下走 → 「他们现在都是负数的钱了」。
+  // ⚠️判据不是「猜一个合理的数」，是【这一栏不许是 0】：
+  //   月收入 0＝这个人不领任何钱，固定支出 0＝他不吃不住——那不是一个人，是一条坏数据。
+  //   所以推的时候也不写死一个数（施工规则/bans-make-it-dumber：掷约束、别掷答案），
+  //   给的是区间和比例，具体落在哪儿由这个角色自己的存款和收入决定。
+  // ⚠️两处建钱包（首开 initCharWallet / 重刷）共用这一份（施工规则/one-public-mechanism.md）。
+  // dailyMonthly：这个钱包【自己账本上】一个月大概花掉的吃喝交通（不含固定支出）。
+  //   传 0 就只保证两栏不是 0；传了真数就还会保证【收得住】。
+  const walletMoneyFloor = (prof, base, dailyMonthly) => {
+    const p = prof || {};
+    let mi = numClean(p.monthlyIncome);
+    // 档案里分项收入还在的话，合计就是月收入——比凭空推一个准得多
+    if (!mi) mi = ((p.incomes || []).reduce((a, x) => a + numClean(x && x.amount), 0)) || 0;
+    // 还是没有：从存款反推。建钱包那头本来就是「存款 ≈ 月收入 ×1.5~4.5」推出来的，
+    // 这里反过来用同一组系数，两边说的是同一件事。
+    if (!mi && base) mi = Math.round(Number(base) / (1.5 + Math.random() * 3));
+    if (!mi) mi = Math.round(4000 + Math.random() * 6000);
+    let fx = numClean(p.fixedMonthly);
+    // 固定支出没有就按收入的一截给：房租水电话费这些，真人不可能是 0。
+    // 给的是比例区间不是一个数——五千月薪和五万月薪的房租本来就不该一样。
+    if (!fx) fx = Math.round(mi * (0.35 + Math.random() * 0.25));
+    // ⚠️光「不是 0」还不够。第一版就栽在这儿：推出月收入 2978、固定支出 1155，
+    //   看着挺正常，可这个人每天还在吃喝交通上花一百多＝一个月三千多，
+    //   于是每个月净亏一千几——补发四个月，余额还是负的。
+    //   **这条链上有三样在花钱：固定支出、日常消费、还有手机上下的单**，
+    //   而原来只让收入跟固定支出比过一次。真人的收入是覆盖得住自己那份日子的，
+    //   所以这里把日常也算进去，保证「收入 − 固定 − 日常 > 0」。
+    //   ⚠️留的余地是个区间不是一个数（施工规则/bans-make-it-dumber：掷约束别掷答案）：
+    //   有人月底刚好清零，有人能攒下小一半，那是人和人的差别，不该由我定死。
+    const need = Math.max(0, Math.round(Number(dailyMonthly) || 0));
+    if (need) {
+      const slack = 1.12 + Math.random() * 0.33;          // 收入要比「固定+日常」高出这么一截
+      if (mi < (fx + need) * slack) {
+        // 先松固定支出：手头紧的人本来就住得便宜，不是靠涨工资去够房租。
+        // ⚠️但松到 0 就又犯了这个函数开头那条——话费水电总是要交的，给一道下限。
+        fx = Math.max(Math.round(mi * (0.08 + Math.random() * 0.06)),
+          Math.round(Math.max(0, mi / slack - need) * (0.55 + Math.random() * 0.35)));
+        // 松完还是不够（日常消费本身就超过收入了）→ 那就是收入推低了，抬上去。
+        // 这一步兜底，所以不管上面怎么松，「收入 − 固定 − 日常 > 0」都成立。
+        if (mi < (fx + need) * slack) mi = Math.round((fx + need) * slack);
+      }
+    }
+    return { monthlyIncome: Math.round(mi), fixedMonthly: Math.round(fx) };
+  };
   const initCharWallet = async char => {
     const ex = charWalletRef.current[char.id];
     if (ex && ex.init) return true;
@@ -13506,8 +13557,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           init: true,
           balance: bal,
           incomes: ((prof && prof.incomes) || []).map(x => ({ ...x, amount: numClean(x.amount) })),
-          monthlyIncome: prof ? numClean(prof.monthlyIncome) : 0,
-          fixedMonthly: prof ? numClean(prof.fixedMonthly) : 0,
+          // ⚠️别再写 `prof ? numClean(...) : 0`：档案抠不出来时那就是 0，
+          //   而 0 的钱包从此永远发不出工资、余额只降不升（v69.25 的病根）。
+          ...walletMoneyFloor(prof, base),
           investAssets: prof ? numClean(prof.investAssets) : 0,
           accounts: walletAccounts(prof),
           debts: walletDebts(prof, cur.debts),
@@ -13551,8 +13603,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const n = { ...p, [char.id]: { ...cur,
           balance: bal,
           incomes: newIncomes,
-          monthlyIncome: numClean(prof.monthlyIncome) || cur.monthlyIncome || 0,
-          fixedMonthly: numClean(prof.fixedMonthly) || cur.fixedMonthly || 0,
+          // 重刷：新生成的优先，其次保留原来的，两样都没有才推一个——但绝不留 0
+          ...walletMoneyFloor({
+            monthlyIncome: numClean(prof.monthlyIncome) || cur.monthlyIncome || 0,
+            fixedMonthly: numClean(prof.fixedMonthly) || cur.fixedMonthly || 0,
+            incomes: (prof.incomes && prof.incomes.length) ? prof.incomes : (cur.incomes || [])
+          }, base),
           investAssets: numClean(prof.investAssets) || cur.investAssets || 0,
           accounts: walletAccounts(prof).length ? walletAccounts(prof) : (cur.accounts || []),
           debts: walletDebts(prof, cur.debts).length ? walletDebts(prof, cur.debts) : (cur.debts || []),
@@ -13802,8 +13858,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       let bal = Number(cur.balance) || 0;
       const chron = []; // 按时间顺序（老→新）
       if (isFirst) {
-        const inc = r2((Number(cur.monthlyIncome) || 0) - (Number(cur.fixedMonthly) || 0));
-        if (inc) { bal = r2(bal + inc); chron.push(mk(inc, "月度收支 · 工资到账 − 固定支出", "monthly", dayTs.getTime() - 1000, bal)); }
+        // ⚠️原来这两样轧成一笔净额记进去（label 叫「工资到账 − 固定支出」）：
+        //   净额小或为负时，账本上看见的是一笔小钱甚至一笔支出——她 2026-09-16 说的
+        //   「每月收入都没有到账」，一半就是这么来的。拆成两笔，工资那一笔单独站着。
+        // ⚠️对账靠 kind："monthly" 只给工资那一笔（老数据里的净额笔也是 monthly，兼容）；
+        //   固定支出另起 "monthlyfix"，不然补发那头会把月数数成两倍。
+        const inc = r2(Number(cur.monthlyIncome) || 0);
+        const fix = r2(Number(cur.fixedMonthly) || 0);
+        if (inc) { bal = r2(bal + inc); chron.push(mk(inc, "工资到账", "monthly", dayTs.getTime() - 2000, bal)); }
+        if (fix) { bal = r2(bal - fix); chron.push(mk(-fix, "每月固定支出 · 房租水电这些", "monthlyfix", dayTs.getTime() - 1000, bal)); }
       }
       // 手机上真下过的单子：kind "order"，带 srcKey 防止补账跑两遍时记重
       const seenSrc = {};
@@ -13845,7 +13908,79 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } finally { walletCatchRunRef.current = false; }
   };
   // 补账：把 lastDailyKey 之后、到【昨天】为止漏掉的每天日常消费补上（最多补 14 天）
+  // ── 存量修复：把漏发的工资对账补上（她 2026-09-16 报的那批负数钱包）──
+  // 上面那道地板只管【以后】：已经建好的那些钱包，monthlyIncome 还是 0，
+  // 而且过去几个月一笔工资都没发过，余额已经被日常消费磨成负的了。
+  // ⚠️不猜、不拍脑袋——**数账本**：
+  //   应发几次 = 这个钱包建立之后到昨天为止，经过了几个 1 号；
+  //   实发几次 = 账本里 kind==="monthly" 的笔数（老的净额笔也算，兼容）。
+  //   差额就是漏发的月数，补一笔。补完差额归零，所以这件事天然只做一次，
+  //   下次再算还是 0——不用另存一个「修过了」的标记（标记会和真相不同步）。
+  const healWalletPay = char => {
+    let rec = charWalletRef.current[char.id];
+    if (!rec || !rec.init) return;
+    // ⚠️先就地补地板再对账。她那批坏钱包 monthlyIncome 和 fixedMonthly 【两样都是 0】，
+    //   要是在这儿早退，它们就永远等不到修——而"等她自己去重刷一遍档案"既要花钱、
+    //   又得她知道该去哪儿点。用同一份 walletMoneyFloor 就地推，一枪都不用打。
+    if (!(Number(rec.monthlyIncome) || 0) && !(Number(rec.fixedMonthly) || 0)) {
+      // 反推用的底：优先那笔「初始资产」，没有就拿当前余额的绝对值兜着
+      const initE = (rec.ledger || []).filter(e => e && e.kind === "init")[0];
+      const base = Math.abs(Number(initE && initE.delta) || Number(rec.balance) || 0);
+      // 这个钱包自己一个月大概花掉多少：只数【日常消费和手机上的单】，
+      // 不数转账/固定支出那些——要问的是「他过日子花多少」。
+      // 数的是账本上真发生过的，不是我猜的。
+      const spends = (rec.ledger || []).filter(e => e && (e.kind === "daily" || e.kind === "order") && Number(e.delta) < 0);
+      let dailyMonthly = 0;
+      if (spends.length) {
+        const ts = spends.map(e => Number(e.ts) || 0).filter(Boolean);
+        const spanDays = Math.max(1, Math.round((Math.max(...ts) - Math.min(...ts)) / 86400000) + 1);
+        const total = spends.reduce((a, e) => a + Math.abs(Number(e.delta) || 0), 0);
+        dailyMonthly = Math.round(total / spanDays * 30);
+      }
+      const floor = walletMoneyFloor({ incomes: rec.incomes || [] }, base, dailyMonthly);
+      setCharWallet(p => {
+        const c = p[char.id]; if (!c) return p;
+        const n = { ...p, [char.id]: { ...c, ...floor } };
+        saveJSON("x_charWallet", n);
+        charWalletRef.current = n;
+        return n;
+      });
+      rec = charWalletRef.current[char.id];
+    }
+    const inc = Number(rec.monthlyIncome) || 0;
+    const fix = Number(rec.fixedMonthly) || 0;
+    if (!inc && !fix) return;
+    const from = Number(rec.createdTs) || 0;
+    if (!from) return;
+    // 建立【之后】到昨天之间经过了几个 1 号（建立当天那个 1 号不算：那天还没这个钱包）
+    const start = new Date(from); start.setHours(0, 0, 0, 0);
+    const end = new Date(Date.now() - 86400000); end.setHours(0, 0, 0, 0);
+    let due = 0;
+    const cur = new Date(start);
+    while (cur < end && due < 120) {             // 120 个月封顶：坏数据别把这里变成死循环
+      cur.setDate(cur.getDate() + 1);
+      if (cur > end) break;
+      if (cur.getDate() === 1) due++;
+    }
+    const paid = (rec.ledger || []).filter(e => e && e.kind === "monthly").length;
+    const miss = due - paid;
+    if (miss <= 0) return;
+    const delta = r2(miss * (inc - fix));
+    if (!delta) return;
+    setCharWallet(p => {
+      const c = p[char.id]; if (!c) return p;
+      const bal = r2((Number(c.balance) || 0) + delta);
+      const e = { id: "cw_heal_" + Date.now(), ts: Date.now(), delta: delta, after: bal,
+        label: "补记 · 之前 " + miss + " 个月的工资和固定支出", kind: "monthly" };
+      const n = { ...p, [char.id]: { ...c, balance: bal, ledger: [e, ...(c.ledger || [])] } };
+      saveJSON("x_charWallet", n);
+      charWalletRef.current = n;
+      return n;
+    });
+  };
   const catchUpWallet = async char => {
+    // ⚠️体检要在下面那道早退【前面】：补账已经补到昨天的钱包照样可能欠着工资
+    healWalletPay(char);
     const rec = charWalletRef.current[char.id];
     if (!rec || !rec.init) return;
     const now = new Date();
