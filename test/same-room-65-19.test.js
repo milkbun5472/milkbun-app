@@ -177,7 +177,7 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   assert.match(app, /const gActionField = ",\\"action\\"/);
   assert.match(app, /: \(_gActDesc \? gActionField : ""\);/, "动描开着时没把 action 加进群协议");
   // 显示不看记忆互通：那是写不写状态卡的事
-  assert.match(app, /const gActionNow = \(_rawGAction && window\.ThoughtVoiceGuard/);
+  assert.match(app, /const gActionNow = TVG\.normalizeAction\(_rawGAction, spk && spk\.name\) \|\| ""/);
   assert.match(app, /const gAction = gActionNow;/, "互通那一支又自己算了一遍");
   assert.equal((app.match(/normalizeAction\(_rawGAction/g) || []).length, 1);
   // 比的是【这个人自己上一次】，不是全群最后一条——不然 A 变了 B 没变会一起漏或一起出

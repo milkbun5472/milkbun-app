@@ -1,8 +1,15 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const app=fs.readFileSync('js/app.js','utf8');
+// v68.88：心声守卫的调用点收成 app.js 里的公共 TVG（守卫没加载时原样放行，不再整轮抛异常）。
+// 这儿接【真的那一份】而不是打桩：它现在是四条心声通道唯一的入口，打桩就等于没测。
+const realTVG = guard => {
+  const src = require('node:fs').readFileSync('js/app.js', 'utf8');
+  const code = src.slice(src.indexOf('const TVG = {'), src.indexOf('\n};', src.indexOf('const TVG = {')) + 3);
+  return new Function('window', code + ' return TVG;')({ ThoughtVoiceGuard: guard });
+};
 function fixture(){
  let now=1000000;const states={},hist=[],seen=new Set();
- const box={window:{ThoughtVoiceGuard:require('../js/thought-voice-guard')},Date:{now:()=>now},settingsFor:id=>({engineerEyes:id==='engineer'}),statesRef:{current:states},setStateFor:(id,s)=>states[id]=s,pushStateHist:(id,s)=>{if(s.thought)hist.push({id,thought:s.thought});}};
+ const box={window:{ThoughtVoiceGuard:require('../js/thought-voice-guard')},TVG:realTVG(require('../js/thought-voice-guard')),Date:{now:()=>now},settingsFor:id=>({engineerEyes:id==='engineer'}),statesRef:{current:states},setStateFor:(id,s)=>states[id]=s,pushStateHist:(id,s)=>{if(s.thought)hist.push({id,thought:s.thought});}};
  vm.createContext(box);const i=app.indexOf('  const sameStateValue ='),j=app.indexOf('  const freshLiveStateValue =',i);
  vm.runInContext(app.slice(i,j)+';this.write=writeGroupLiveState;',box);
  return {states,hist,seen,tick:()=>now+=1000,write:(c,data)=>box.write(c,data,'turn',50,seen)};

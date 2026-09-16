@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v68.87";
+const APP_VERSION = "v68.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -272,6 +272,36 @@ function neteaseSharedTitle(input) {
   const m = String(input || "").match(/《(.{1,40}?)》/);
   return m ? m[1].trim() : "";
 }
+// 心声守卫的唯一入口（她 2026-09-16：「那个 ThoughtVoiceGuard 的保护也收了吧」）。
+// ⚠️原来十一处调用【三种写法混着来】：有的写 `window.ThoughtVoiceGuard && …` 保护，
+//   有的直接点上去。那个脚本在 index.html 里是必加载的，所以平时不出事；
+//   可它哪天没加载上，不带保护的那几处会【整轮抛异常】——跟 _histCache 一模一样的形状：
+//   一条错误就把整条回复毁掉，而屏幕上只剩一句看不懂的报错。
+// ⚠️守卫缺席时【原样放行，不是丢掉】：它的活是「挑出导演腔」，不是「决定有没有心声」。
+//   缺席时把心声全丢掉，比放行一条偶尔出戏的更坏。
+// ⚠️turnPatch 那三行是照抄真实实现：「这一轮没有有效心声就清掉旧的」是铁律，
+//   不能因为守卫没加载就失效——那会让状态卡永远冻在上一句。
+const TVG = {
+  accept(value, pronoun) {
+    const g = typeof window !== "undefined" && window.ThoughtVoiceGuard;
+    if (g && g.accept) return g.accept(value, pronoun);
+    const t = String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+    return (!t || t.toLowerCase() === "null") ? null : t;
+  },
+  normalizeAction(value, characterName) {
+    const g = typeof window !== "undefined" && window.ThoughtVoiceGuard;
+    if (g && g.normalizeAction) return g.normalizeAction(value, characterName);
+    const t = String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+    return (!t || t.toLowerCase() === "null") ? null : t;
+  },
+  turnPatch(live, next, now) {
+    const g = typeof window !== "undefined" && window.ThoughtVoiceGuard;
+    if (g && g.turnPatch) return g.turnPatch(live, next, now);
+    const t = String(next == null ? "" : next).replace(/\s+/g, " ").trim();
+    if (t && t.toLowerCase() !== "null") return { thought: t, thoughtUpdatedAt: now, thoughtSkips: 0 };
+    return { thought: null, thoughtUpdatedAt: 0, thoughtSkips: Math.min((Number((live || {}).thoughtSkips) || 0) + 1, 99) };
+  }
+};
 // 内置默认表情：手画 SVG 表情脸，编码成 data URI（不依赖图床，开箱即用）
 function buildDefaultEmotes() {
   // ⚠必须带 width/height：只有 viewBox 的 SVG 在聊天气泡(EmoteBubble 只给 maxWidth/maxHeight、无尺寸容器)里没有固有尺寸→渲染成 0×0 看不见
@@ -2624,10 +2654,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 群文字、群线下、通话共用：无新心声清旧值，同轮已写的新心声不被后续空气泡抹掉。
   const thoughtTurnPatchFor = (cid, live, rawThought, now, seen) => {
-    const thought = window.ThoughtVoiceGuard.accept(rawThought);
+    const thought = TVG.accept(rawThought);
     if (!thought && (settingsFor(cid).engineerEyes || (seen && seen.has(cid)))) return {};
     if (thought && seen) seen.add(cid);
-    return window.ThoughtVoiceGuard.turnPatch(live, thought, now);
+    return TVG.turnPatch(live, thought, now);
   };
   const writeGroupLiveState = (c, data, turnId, affinityBefore, seen) => {
     if (!c) return;
@@ -2681,7 +2711,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const setRoomThought = (roomKey, thought, meta) => {
     if (!roomKey || !window.ChatRooms || !window.ChatRooms.isSideKey(roomKey)) return;
-    const clean = thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(thought) : String(thought || "").trim();
+    const clean = TVG.accept(thought);
     const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
     const local = {};
     for (const key of ["action", "wearing", "place"]) {
@@ -6785,10 +6815,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const ost = {};
       const stateNow = Date.now();
       putLiveField(ost, liveState, "wearing", res.wearing, stateNow);
-      const offlineAction = res.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(res.action, char && char.name) : res.action;
+      const offlineAction = TVG.normalizeAction(res.action, char && char.name);
       putLiveField(ost, liveState, "action", offlineAction, stateNow);
       // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
-      const offlineThought = res.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(res.thought) : res.thought;
+      const offlineThought = TVG.accept(res.thought);
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
       if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId });
@@ -9166,9 +9196,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!_roomCanWrite("gaze")) { parsed.impression = null; parsed.impressionChecked = null; }
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
-      if (parsed.thought != null && window.ThoughtVoiceGuard) {
+      if (parsed.thought != null) {
         const rawThought = String(parsed.thought == null ? "" : parsed.thought).replace(/\s+/g, " ").trim();
-        const guardedThought = window.ThoughtVoiceGuard.accept(rawThought);
+        const guardedThought = TVG.accept(rawThought);
         // 普通角色的心声是逐轮快照：守卫误判时也不能悄悄沿用上一轮，让状态卡看起来冻住。
         // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
         // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受TA本人自愿留下且通过守卫的 thought。
@@ -9425,7 +9455,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️「没变就别刷屏」这道闸写在【代码】里，不写在提示词里：提示词只降概率，代码才保证。
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
-      const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
+      const onlineAction = TVG.normalizeAction(parsed.action, char && char.name);
       if (_actDesc && onlineAction && String(onlineAction).trim()) {
         const _line = String(onlineAction).trim();
         const _rows = chatsRef.current[chatKey] || [];
@@ -9805,7 +9835,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_s.engineerEyes) {
           // 普通角色本轮没有产出有效心声时立刻清掉旧快照，绝不拿上一轮冒充本轮更新。
           // ⚠️这条规矩群聊那一处也要用，所以它住在 ThoughtVoiceGuard.turnPatch 一处。
-          Object.assign(st, window.ThoughtVoiceGuard.turnPatch(_live, parsed.thought, stateNow));
+          Object.assign(st, TVG.turnPatch(_live, parsed.thought, stateNow));
           if (st.thought == null && st.thoughtSkips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
         } else {
           // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于TA。
@@ -10752,7 +10782,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 这一条发言的人此刻在做什么。⚠️只算一次：动描那一行和状态卡写回共用这一个值，
           //   而且它【不看记忆互通】——互通管的是写不写状态卡，不是显不显示。
           const _rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
-          const gActionNow = (_rawGAction && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(_rawGAction, spk && spk.name) : _rawGAction) || "";
+          const gActionNow = TVG.normalizeAction(_rawGAction, spk && spk.name) || "";
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 780));

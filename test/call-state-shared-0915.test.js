@@ -1,9 +1,16 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const app=fs.readFileSync('js/app.js','utf8'),Rooms=require('../js/chat-rooms'),Guard=require('../js/thought-voice-guard');
 const cut=(a,b)=>{const i=app.indexOf(a),j=app.indexOf(b,i);assert.ok(i>=0&&j>i);return app.slice(i,j);};
+// v68.88：心声守卫的调用点收成 app.js 里的公共 TVG（守卫没加载时原样放行，不再整轮抛异常）。
+// 这儿接【真的那一份】而不是打桩：它现在是四条心声通道唯一的入口，打桩就等于没测。
+const realTVG = guard => {
+  const src = require('node:fs').readFileSync('js/app.js', 'utf8');
+  const code = src.slice(src.indexOf('const TVG = {'), src.indexOf('\n};', src.indexOf('const TVG = {')) + 3);
+  return new Function('window', code + ' return TVG;')({ ThoughtVoiceGuard: guard });
+};
 function fixture(opts={}){
  let now=1000000;const session={sessionId:'call1',...opts},states={},moods=[],history=[],local=[];
- const box={Date:{now:()=>now},cur:session,callRef:{current:session},window:{ChatRooms:Rooms,ThoughtVoiceGuard:Guard},
+ const box={Date:{now:()=>now},cur:session,callRef:{current:session},window:{ChatRooms:Rooms,ThoughtVoiceGuard:Guard},TVG:realTVG(Guard),
   gsFor:()=>({memoryInterop:opts.interop!==false}),settingsFor:()=>({engineerEyes:!!opts.engineer}),statesRef:{current:states},
   setStateFor:(id,v)=>states[id]=v,setMoodFor:(id,v)=>moods.push(v),pushStateHist:(id,v)=>{if(v.thought)history.push(v);},setRoomThought:(...a)=>local.push(a)};
  vm.createContext(box);

@@ -22,10 +22,11 @@ test("每轮都写真实心声，但不强迫它深刻或紧扣话题", () => {
 
 test("四条心声写入路径全部过 ThoughtVoiceGuard，群线下不留旁路", () => {
   // 单聊线上 / 单聊线下 / 群线上 / 群线下 —— 任何一条把 thought 写进状态卡前都必须过守卫
-  assert.match(app, /const guardedThought = window\.ThoughtVoiceGuard\.accept\(rawThought\)/);
+  // v68.88：四条通道都走公共的 TVG（它内部再委托给 window.ThoughtVoiceGuard）
+  assert.match(app, /const guardedThought = TVG\.accept\(rawThought\)/);
   assert.match(app, /parsed\.thought = guardedThought/);
-  assert.match(app, /const offlineThought = res\.thought && window\.ThoughtVoiceGuard \? window\.ThoughtVoiceGuard\.accept\(res\.thought\)/);
-  assert.match(app, /const thought = window\.ThoughtVoiceGuard\.accept\(rawThought\)/);
+  assert.match(app, /const offlineThought = TVG\.accept\(res\.thought\)/);
+  assert.match(app, /const thought = TVG\.accept\(rawThought\)/);
   assert.match(app, /thought: b\.thought, mood: b\.mood/);
 });
 

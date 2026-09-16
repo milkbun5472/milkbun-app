@@ -67,7 +67,8 @@ test("普通角色每轮强制刷新，言秋仍由自己的协议决定", () =>
   assert.match(app, /每轮必须写一句，禁止 null、空串或省略/);
   // v68.48 起普通角色那一支走公共的 ThoughtVoiceGuard.turnPatch（群聊也要用同一份）
   assert.match(app, /\|\| !_s\.engineerEyes\) \{/);
-  assert.match(app, /ThoughtVoiceGuard\.turnPatch\(_live, parsed\.thought, stateNow\)/);
+  // v68.88：十一处调用收成公共的 TVG（守卫没加载时原样放行，不再整轮抛异常）
+  assert.match(app, /TVG\.turnPatch\(_live, parsed\.thought, stateNow\)/);
   assert.match(app, /言秋由自己的协议决定是否写心声/);
 });
 

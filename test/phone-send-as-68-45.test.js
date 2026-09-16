@@ -164,9 +164,21 @@ test("守卫拒了一次，不能让那个人的心声永远冻在上一条", ()
   assert.deepEqual(guard.turnPatch({ thoughtSkips: 5 }, "她怎么在这儿", 9),
     { thought: "她怎么在这儿", thoughtUpdatedAt: 9, thoughtSkips: 0 });
   // 单聊和群聊共用这一份，谁都不许再写第二套
-  assert.match(app, /ThoughtVoiceGuard\.turnPatch\(_live, parsed\.thought, stateNow\)/, "单聊那一处没走公共的");
-  assert.match(app, /window\.ThoughtVoiceGuard\.turnPatch\(live, thought, now\)/, "群聊那一处没走公共的");
-  assert.equal((app.match(/thoughtUpdatedAt: 0/g) || []).length, 1, "别处不许再自己写一遍清空");
+  // v68.88：调用点收成公共的 TVG（内部再委托给 window.ThoughtVoiceGuard）
+  assert.match(app, /TVG\.turnPatch\(_live, parsed\.thought, stateNow\)/, "单聊那一处没走公共的");
+  assert.match(app, /TVG\.turnPatch\(live, thought, now\)/, "群聊那一处没走公共的");
+  // v68.88 起 app.js 里有两处：真正的那一份在 thought-voice-guard.js，
+  // 这两处是公共入口 TVG.turnPatch 的【守卫没加载时的兜底】——它必须逐字照抄那条清空规则，
+  // 因为「这一轮没有有效心声就清掉旧的」是铁律，不能因为守卫缺席就失效（状态卡会永远冻住）。
+  // ⚠️这是「一层写在两处」的唯一例外：兜底本来就不能依赖它兜的那一份。改一处必须改另一处。
+  assert.equal((app.match(/thoughtUpdatedAt: 0/g) || []).length, 2, "别处不许再自己写一遍清空");
+  const tvg = app.slice(app.indexOf("const TVG = {"), app.indexOf("\n};", app.indexOf("const TVG = {")));
+  const guardSrc = require("node:fs").readFileSync("js/thought-voice-guard.js", "utf8");
+  for (const line of ["{ thought: t, thoughtUpdatedAt: now, thoughtSkips: 0 }",
+                      "thoughtSkips: Math.min((Number((live || {}).thoughtSkips) || 0) + 1, 99)"]) {
+    const real = line.replace("thought: t,", "thought: text,");
+    assert.ok(tvg.indexOf(line) > 0 && guardSrc.indexOf(real) > 0, "兜底和真身对不上了：" + line);
+  }
   // 同一个人一轮说好几条：后面几条没心声，不该把刚写下的那条清掉
   assert.match(app, /const _thoughtOnce = new Set\(\);/);
   assert.match(app, /seen && seen.has\(cid\)/);

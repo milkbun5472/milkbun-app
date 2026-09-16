@@ -5,10 +5,17 @@ const vm = require('node:vm');
 const Rooms = require('../js/chat-rooms');
 const src = fs.readFileSync('js/app.js','utf8');
 const cut = (a,b) => { const start=src.indexOf(a),end=src.indexOf(b,start); assert.ok(start>=0&&end>start); return src.slice(start,end); };
+// v68.88：心声守卫的调用点收成 app.js 里的公共 TVG（守卫没加载时原样放行，不再整轮抛异常）。
+// 这儿接【真的那一份】而不是打桩：它现在是四条心声通道唯一的入口，打桩就等于没测。
+const realTVG = guard => {
+  const src = require('node:fs').readFileSync('js/app.js', 'utf8');
+  const code = src.slice(src.indexOf('const TVG = {'), src.indexOf('\n};', src.indexOf('const TVG = {')) + 3);
+  return new Function('window', code + ' return TVG;')({ ThoughtVoiceGuard: guard });
+};
 function setup(overrides={}) {
   const room=Rooms.normalize({id:'r1',...Rooms.PRESETS.isolated,scenario:'测试房间设定',...overrides},'c1');
   const key=Rooms.chatKey('c1','r1'), writes=[], requests=[], stateWrites=[], memories=[], thoughts=[];
-  const box={window:{ChatRooms:{...Rooms,get:()=>room},ThoughtVoiceGuard:require("../js/thought-voice-guard")},Date,console,loadJSON:(key,fallback)=>fallback,
+  const box={window:{ChatRooms:{...Rooms,get:()=>room},ThoughtVoiceGuard:require("../js/thought-voice-guard")},TVG:realTVG(require("../js/thought-voice-guard")),Date,console,loadJSON:(key,fallback)=>fallback,
     blocksRef:{current:{}}, BLOCK_TOMB_KEEP_MS:30*86400000, profile:{name:'测试用户'},characters:[{id:'c1',name:'测试角色'}],groupAutoCallEpochRef:{current:{}},
     callRef:{current:null}, chatsRef:{current:{c1:[{role:'user',content:'主房私事',ts:1}],[key]:[{role:'user',content:'房内对话',ts:2}]}},
     roomStatesRef:{current:{[key]:{mood:'房内心情'}}}, statesRef:{current:{}}, directives:{c1:[{id:'main_rule',text:'主房准则',ts:1}]},
@@ -165,7 +172,7 @@ test('房间OOC对话与新增准则只落本房，下次上下文能读回',asy
 });
 test('房间状态写入方保存动作穿着与心情，空心声不丢本地状态',()=>{
   const key=Rooms.chatKey('c1','r1'), saved={};
-  const box={window:{ChatRooms:Rooms},Date,roomStatesRef:{current:{}},roomStateHistRef:{current:{}},
+  const box={window:{ChatRooms:Rooms},TVG:realTVG(require('../js/thought-voice-guard')),Date,roomStatesRef:{current:{}},roomStateHistRef:{current:{}},
     setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:(k,v)=>{saved[k]=JSON.parse(JSON.stringify(v))}};
   vm.createContext(box);
   vm.runInContext(cut("const LIVE_STATE_TTL =", "  // 心声历史："), box);
@@ -197,7 +204,7 @@ test('语音与视频实际发送的上下文携带本房拉黑，不携带主�
 test('侧房真实写入后四字段可读，重复不续期、换地点清旧衣且不串主线',()=>{
   let now=100000;
   const key=Rooms.chatKey('c1','r1');
-  const box={window:{ChatRooms:Rooms},Date:{now:()=>now},roomStatesRef:{current:{}},roomStateHistRef:{current:{}},statesRef:{current:{c1:{wearing:'主线衣服',wearingUpdatedAt:now}}},setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:()=>{}};
+  const box={window:{ChatRooms:Rooms},TVG:realTVG(require('../js/thought-voice-guard')),Date:{now:()=>now},roomStatesRef:{current:{}},roomStateHistRef:{current:{}},statesRef:{current:{c1:{wearing:'主线衣服',wearingUpdatedAt:now}}},setRoomStates:()=>{},setRoomStateHist:()=>{},saveJSON:()=>{}};
   vm.createContext(box);
   vm.runInContext(cut('const LIVE_STATE_TTL =','  // 心声历史'),box);
   const start=src.indexOf('  const setRoomThought ='),end=src.indexOf('\n  };',start)+5;
