@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-372a82fea78bd942';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot} from './world.mjs?v=fg-372a82fea78bd942';
+import {stepRoute} from './locomotion.mjs?v=fg-ebd6e0552404b0f0';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor} from './world.mjs?v=fg-ebd6e0552404b0f0';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -27,6 +27,11 @@ function homeFor(s,plan){const who=s.companion;if(!who||!who.home)return plan;
 //   （第一版就有，见上面那条），rain 自己就是目的地。
 // ⚠️原来这条只挪林地那几格——于是下雨天他照样坐在小桥上、逛集市，
 //   而「补好屋顶就能进去躲雨」这件事从此没有下文。说错了就删掉重写，不挂「除非」。
+// 他跟着村子一起走快了，但快不过【那座桥容得下的步子】。
+// ⚠️2.0 往上他上不了小岛：芦苇桥只有 1.45 宽，一步迈得太大，那一段就过不去，
+//   他会站在桥头「等一条合适的小路」——codex 那条小岛测试正好钉住了这件事，
+//   以后谁想再调快，先让那条测试过。
+const COMPANION_TOP=1.8;
 const DRY_IN_RAIN=new Set(['home','flowers','rain']);
 const NEIGHBOR_DAY=[[420,'home'],[540,'walk'],[780,'market'],[1020,'bridge'],[1200,'home']];
 // 三个邻居别整齐划一地同时出门：按 charId 把时刻各错开一点
@@ -84,7 +89,7 @@ export function makeCompanionController(){
   const key=`${s.day}:${c.mode}:${plan.id}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
   if((key!==routeKey||stuck&&cooldown<=0)&&(c.mode!=='follow'||!route.length||cross||cooldown<=0)){cooldown=.65;routeKey=key;route=[];idle=0;stuck=false;const distance=Math.hypot(c.position.x-goal.x,c.position.z-goal.z);if(distance>.12){route=findPath(c.position,goal,c.map,avoid,s)||[];stuck=!route.length;}}
   let out=s,event=null;moving=route.length>0;gesture='rest';
-  if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:1.15,iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
+  if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:Math.min(COMPANION_TOP,walkSpeedFor(c.map)*.79),iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
   else if(stuck){status='在原地等一条合适的小路';}
   else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}

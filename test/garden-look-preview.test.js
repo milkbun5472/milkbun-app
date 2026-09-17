@@ -26,7 +26,7 @@ test("窗的高度和游戏那边渲的那条带子是同一个数", () => {
 // 预览里的小人必须是【场上那一个】，不能在这儿另捏一个
 test("预览用的还是同一个 createTraveler、同一份 doll.glb", () => {
   assert.match(game, /previewDolls\[who\]=d;/);
-  assert.match(game, /createTraveler\(dollSource,who==='companion'\)/);
+  assert.match(game, /createTraveler\(dollSource,who!=='me'\)/);
   assert.match(game, /if\(previewDolls\[who\]\)previewDolls\[who\]\.setLook\(look\)/,
     "拖滑杆的时候窗里那个要跟着一起变");
 });
