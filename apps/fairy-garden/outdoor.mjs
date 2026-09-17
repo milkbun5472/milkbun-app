@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MAPS,seasonOf,weather} from './world.mjs?v=fg-71c8bdf880a5a76e';
+import {MAPS,seasonOf,weather} from './world.mjs?v=fg-e4d685c62130c640';
 // One seasonal renderer for every outdoor map, including models loaded after a transition.
 export function makeOutdoor(scene,landscapes=[]){
  const group=new T.Group();group.name='室外四季';scene.add(group);
@@ -10,10 +10,10 @@ export function makeOutdoor(scene,landscapes=[]){
  precipitation.raycast=petals.raycast=()=>{};
  const tracked=new WeakMap();let last='';
  function style(root,season,wet){let entry=tracked.get(root);if(!entry){const materials=new Set();root.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(m?.color)materials.add(m);});entry=[];
-  for(const m of materials){const name=m.name||'',role=m.userData.seasonRole||(/foliage|reeds/i.test(name)?'leaf':/grass|earth/i.test(name)?'ground':/shingles|roof/i.test(name)?'roof':'other');const snow={value:0};entry.push({m,base:m.color.clone(),rough:m.roughness,role,snow});
+  for(const m of materials){const name=m.name||'',role=m.userData.seasonRole||(/foliage|reeds/i.test(name)?'leaf':/grass|earth/i.test(name)?'ground':/shingles|roof/i.test(name)?'roof':/lake.*water/i.test(name)?'water':'other');const snow={value:0};entry.push({m,base:m.color.clone(),rough:m.roughness,role,snow});
    if(['leaf','ground','roof'].includes(role)){const original=m.onBeforeCompile;m.onBeforeCompile=shader=>{original.call(m,shader);shader.uniforms.seasonSnow=snow;shader.vertexShader='varying float seasonUp;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <defaultnormal_vertex>','#include <defaultnormal_vertex>\nseasonUp = normalize(mat3(modelMatrix) * objectNormal).y;');shader.fragmentShader='varying float seasonUp;\nuniform float seasonSnow;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.84,0.91,0.94), seasonSnow * smoothstep(0.15,0.8,seasonUp));');};m.customProgramCacheKey=()=> 'fairy-season-snow-v1';m.needsUpdate=true;}
   }tracked.set(root,entry);}
-  const index=season.index%4;for(const {m,base,rough,role,snow}of entry){m.color.copy(base);if(role==='leaf')m.color.lerp(new T.Color(['#b6d99c','#638b57','#d09853','#9baaad'][index]),index===2?.78:.45);else if(role==='ground')m.color.lerp(new T.Color(['#acc08a','#829d69','#aa9870','#cad9dd'][index]),.35);snow.value=index===3?.9:0;if(Number.isFinite(rough))m.roughness=wet?Math.max(.35,rough-.22):rough;}
+  const index=season.index%4;for(const {m,base,rough,role,snow}of entry){m.color.copy(base);if(role==='leaf')m.color.lerp(new T.Color(['#b6d99c','#638b57','#d09853','#9baaad'][index]),index===2?.78:.45);else if(role==='ground')m.color.lerp(new T.Color(['#acc08a','#829d69','#aa9870','#cad9dd'][index]),.35);if(role==='water')m.color.lerp(new T.Color(['#8dbeac','#70a6a0','#a3b7aa','#c7dfe2'][index]),index===3?.7:.18);snow.value=index===3?.9:0;if(Number.isFinite(rough))m.roughness=wet?Math.max(.35,rough-.22):rough;}
  }
  return {root:group,precipitation,update(s,views,time,center){const outside=!!MAPS[s.map].outdoor;group.visible=outside;if(!outside){precipitation.visible=false;petals.visible=false;scene.fog.near=27;scene.fog.far=62;return;}
   const season=seasonOf(s.day),kind=weather(s.day,s.epoch),index=season.index%4;precipitation.visible=['细雨','细雪'].includes(kind);precipitation.material=kind==='细雪'?snowMat:rainMat;petals.visible=index===0||index===2;petalMat.color.set(index===0?'#f4cecb':'#d49a51');

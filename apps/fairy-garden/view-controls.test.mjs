@@ -6,3 +6,6 @@ test('dragging back to the start, cancellation and extra fingers never trigger w
 
 test('small tap jitter does not pan; a real drag pans and never walks',()=>{const pans=[];let taps=0;const g=createMapGesture({onPan:(x,y)=>pans.push([x,y]),onTap:()=>taps++});g.down(1,20,30);g.move(1,23,32);g.up(1,23,32);assert.equal(taps,1);assert.deepEqual(pans,[]);g.down(2,20,30);g.move(2,40,35);g.move(2,46,33);g.up(2,46,33);assert.deepEqual(pans,[[20,5],[6,-2]]);assert.equal(taps,1);});
 test('two-finger translation pans; finger lift continues without jumping or walking',()=>{const pans=[];let taps=0;const g=createMapGesture({onPan:(x,y)=>pans.push([x,y]),onTap:()=>taps++});g.down(1,0,0);g.down(2,100,0);g.move(1,20,10);g.move(2,120,10);assert.ok(Math.abs(g.getZoom()-1)<1e-9);assert.deepEqual(pans,[[10,5],[10,5]]);g.up(1,20,10);g.move(2,123,12);assert.deepEqual(pans.at(-1),[3,2]);g.up(2,123,12);assert.equal(taps,0);});
+
+// A large phone swipe may move the projected ray's origin below the ground.
+test('large orthographic drags remain valid on either side of the ground plane',async()=>{const {orthographicPanDelta}=await import('./view-controls.mjs');assert.deepEqual(orthographicPanDelta({x:0,y:12,z:16},{x:8,y:-2,z:0},{x:0,y:-.6,z:-.8}),{x:-8,z:16-14*.8/.6});assert.equal(orthographicPanDelta({x:0,y:1,z:0},{x:1,y:1,z:0},{x:1,y:0,z:0}),null);});
