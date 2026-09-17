@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-20b2c1fe0abdab36", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-92e5c5d9d6133002", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -471,7 +471,16 @@
       h(Head, { zh: "微光庭院", sub: "选一位同行者", bg: "transparent", ink: "#344936", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
         h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } }, "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。"),
-        h("div", { style: { display: "grid", gap: 11 } }, (props.characters || []).map(c => h("button", { key: c.id, style: buttonStyle, onClick: () => choose(c.id) }, c.remark || c.name)),
+        // 住在村里的那几位排在前面（她 2026-09-17：「改变同行应该是只能从邻居里面选」）。
+        // ⚠️不是把别人挡掉：新存档村里一个人都没有，挡掉她就谁也选不了。
+        //   选了住在村里的那一位，那间屋就空出来——他现在跟你一起住了，
+        //   不会再变成两个人（那一层在 world.mjs 里，界面怎么点都绕不过去）。
+        h("div", { style: { display: "grid", gap: 11 } },
+          (() => { const live = ((crew && crew.rows) || []).map(n => String(n.charId));
+            const rows = (props.characters || []).slice()
+              .sort((a, b) => live.indexOf(String(b.id)) - live.indexOf(String(a.id)));
+            return rows.map(c => h("button", { key: c.id, style: buttonStyle, onClick: () => choose(c.id) },
+              (c.remark || c.name) + (live.includes(String(c.id)) ? " · 住在村里" : ""))); })(),
           h("button", { style: buttonStyle, onClick: () => choose("") }, "先和示例同行者试玩")),
         !(props.characters || []).length && h("p", { style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "也可以先去人格档案馆创建角色。"),
         error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error)));
@@ -482,7 +491,7 @@
           ? h("button", { style: pill(), onClick: () => { setBook(false); setDress(false); } }, "回庭院")
           : h("div", { style: { display: "flex", gap: 7 } },
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); setDress(true); }, disabled: !loaded }, "样貌"),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) }),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
@@ -709,7 +718,9 @@
           h("div", { style: { position: "absolute", left: 0, right: 0, top: "30%", bottom: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch", pointerEvents: "auto", boxShadow: "0 -12px 30px #30442615" } },
           // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
           h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
-            [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"]].map(([k, label]) =>
+            // 住在村里的那几位也在这一排（她 2026-09-17：「邀请邻居的话改不了外貌」）
+            [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"],
+              ...(((crew && crew.rows) || []).map(n => [String(n.charId), n.name]))].map(([k, label]) =>
               h("button", { key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
                 style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: who === k ? G.ink : "#93a188",
                   borderBottom: "2px solid " + (who === k ? G.deep : "transparent"), background: "transparent" } }, label))),
@@ -717,7 +728,8 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               who === "companion" && char
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
-                : "换的是你自己在这个庭院里的样子。"),
+                : who === "me" ? "换的是你自己在这个庭院里的样子。"
+                : "换的是住在村里那一位在这个庭院里的样子。"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
               Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
