@@ -128,3 +128,14 @@ node scripts/build-fairy-garden.mjs
 场景不包含玩家或同行者模型；木牌、告示纸、展架是空的，不伪造玩家收藏。
 桥面游戏高度 .38；室内地板 .14；林地缓坡中心 (0,-6)、椭圆半径 (2.5,1.85)，
 高度 `.08 + .9 * (1-r²)²`，与规则表/点地寻路共用的 floorHeight 保持一致。
+
+### 双卧室住宅
+
+`build_house.py` 读取 `rules.js` 的 `MAPS.home` 作为墙体、家具和床位的唯一坐标来源；修改布局先改地图表再重建。输入仍是 fairy-cottage 图形源根目录，输出目录置于仓库外：
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/build_house.py -- "$ART_SOURCE" "$ART_OUTPUT"
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/home-interior.blend" apps/fairy-garden/home-interior.glb --detail
+```
+
+晨光与月色卧室各有两枕双人床，另有壁炉客厅与餐厨。隔墙降低方便俯视，模型不烘焙人物；两侧进床点及床上位置由同一地图表提供。

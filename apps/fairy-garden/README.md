@@ -70,3 +70,11 @@
 - 验证：`node --test apps/fairy-garden/*.test.mjs`；隔离浏览器 `scripts/checks/fairy-places-browser.cjs`、`fairy-village-browser.cjs`、`fairy-outdoor-browser.cjs`。指定 PLAYWRIGHT_MODULE 和 GARDEN_TEST_URL，不读取真人存档。
 
 - 场景共用自己的 customDepthMaterial 并随地图释放；防止 Three.js 共用阴影材质在切图后重新上传已销毁贴图。切图测试固定同行者 wait，以隔离首次道具加载与地图资源增长。
+
+### 双卧室的家
+
+原小屋入口进入两卧室、客厅与餐厨。行动栏选择卧室后可一起睡、分房睡或让同行者先睡；点床只选中卧室，再确认安排。玩家可单独起床或走动，同行者留床，叫醒后恢复原行动模式；睡到明天保留床位。仍只支持当前一名同行者。
+
+`MAPS.home` 同时定义建模平面、床、墙、家具障碍与各自进床点。人物逻辑位置留在可走的床边，`traveler.mjs` 只偏移/旋转视觉子节点；不会把不可走的床上位置写入存档。可选 `sleep` 字段兼容原 v8 存档，读档校验床名/玩家位置，重载能恢复躺姿。角色睡觉优先于既有日程，主动更换其行动或叫醒会取消安排。不新增 AI 调用。
+
+回归：`home.test.mjs` 覆盖路径、两种床位、跨图独处、独立起床、旧档与非法床名；`scripts/checks/fairy-house-browser.cjs` 验证真实 GLB 躺姿/起床复位、同床/分房/角色独睡、读档/次日、320px 控件和进出屋。
