@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-bfeb79bac9c887ec';
-import {NODES} from './world.mjs?v=fg-bfeb79bac9c887ec';
+import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-26aeeaa7ab7c90af';
+import {NODES} from './world.mjs?v=fg-26aeeaa7ab7c90af';
 
 // A cutaway of the old well: masonry, roots and a little lamplight, not a ring of pillars.
 // All decoration stays outside the walking disc; node IDs and positions come from the rules.
@@ -104,6 +104,7 @@ export function makeDepths(){
  const dustGeo=new T.BufferGeometry(),dust=[];for(let i=0;i<38;i++)dust.push((rnd()-.5)*6,.3+rnd()*2.3,(rnd()-.5)*6);
  dustGeo.setAttribute('position',new T.Float32BufferAttribute(dust,3));const motes=new T.Points(dustGeo,new T.PointsMaterial({color:'#bddfca',size:.025,transparent:true,opacity:.5,depthWrite:false}));motes.raycast=()=>{};root.add(motes);
  return {root,
+  node(id){for(const rows of layers.values()){const row=rows.find(x=>x.id===id);if(row)return row;}return null;},
   pick(ray){const hit=ray.intersectObjects(root.children,true).find(h=>{for(let o=h.object;o;o=o.parent)if(!o.visible)return false;return true;});let o=hit?.object;while(o&&!o.userData.nodeId)o=o.parent;return o?.userData.nodeId;},
   update(s,time){for(const [depth,rows]of layers)for(const row of rows){row.g.visible=depth===s.depth;row.vein.visible=!s.picked.includes(row.id);}crystalMats.stone.emissiveIntensity=.6+Math.sin(time*.8)*.09;motes.position.y=Math.sin(time*.18)*.065;}
  };
