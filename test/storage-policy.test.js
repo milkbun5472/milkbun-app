@@ -27,7 +27,12 @@ assert.match(app, /await window\.Cloud\.chatArchiveAppend\(archKey, older\)[\s\S
 
 const engine = fs.readFileSync(path.join(__dirname, "../js/engine.js"), "utf8");
 const cloud = fs.readFileSync(path.join(__dirname, "../js/cloud.js"), "utf8");
-assert.match(engine, /IDB_TEXT_PREFIXES = \["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"\]/);
+// 这儿要钉的只有一件事：聊天确实归 IDB 文字仓管，所以上面那几个数跟 5MB 无关。
+// ⚠️别再钉整份名单——名单本来就会长（庭院存档 v69.38 就是加进去的），
+//   钉死它等于每加一个键都要来改一次这条跟它无关的断言。
+const idbPrefixes = engine.match(/const IDB_TEXT_PREFIXES = \[([^\]]*)\]/);
+assert.ok(idbPrefixes, "IDB_TEXT_PREFIXES 还在原地");
+assert.ok(idbPrefixes[1].includes('"x_chat:"') && idbPrefixes[1].includes('"x_gchat:"'), "聊天要归 IDB 文字仓管");
 assert.match(engine, /function storedJSONText\(k\)/);
 assert.match(engine, /back === s && \(!needsLocalJournal \|\| localStorage\.getItem\(k\) === s\)/);
 assert.match(engine, /async function idbTxtApplySnapshot\(data, preserveKeys\)/);

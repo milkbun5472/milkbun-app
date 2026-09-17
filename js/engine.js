@@ -4702,7 +4702,12 @@ const DURABLE_TEXT_KEYS = new Set([
   "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_coupleTrips", "x_coupleGarden", "x_studio", "x_coupleShots", "x_makeup", "x_openers", "x_myCloset", "x_phoneLastAll", "x_ifLines",
   "x_coupleLetterCfg", "x_coupleSweet"
 ]);
-const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"];
+// ⚠️"x_fairyGarden" 同时罩住名册 x_fairyGardenSaves 与每一档 x_fairyGarden[:id]：
+//   一档庭院（日子、背包、碎片、聊过的话）实测就能到零点几 MB，几档下来 localStorage
+//   那 5MB 就见底了，而它一满是【整个 app 都写不进去】，不只是庭院。
+//   搬家本身不在这儿写第二遍：hydrateTxtVault 的那一段就是「复制→逐字读回核对→才删本地」，
+//   任一步不对就原样留在 localStorage 下次再迁（施工规则/one-public-mechanism.md）。
+const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:", "x_fairyGarden"];
 function isIdbTextKey(k) { return typeof k === "string" && (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0)); }
 function isDurableTextKey(k) {
   k = String(k || "");
@@ -7162,6 +7167,17 @@ function loadJSON(k, fb) {
     return v ? JSON.parse(v) : fb;
   } catch {
     return fb;
+  }
+}
+// 真删一个键：localStorage、内存镜像、IDB、WAL 四处都要删干净。
+// ⚠️只 localStorage.removeItem 的话，搬进 IDB 的键删了也会在下次开机被镜像原样端回来——
+//   界面说删掉了、下次它又在，那比不让删更吓人。
+function dropStored(k) {
+  try { localStorage.removeItem(k); } catch (e) {}
+  if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+    try { _txtMirror().delete(k); } catch (e) {}
+    try { idbTxtDel(k).catch(e => console.error("idbTxtDel failed:", k, e)); } catch (e) {}
+    try { if (typeof walDel === "function") Promise.resolve(walDel(k)).catch(() => 0); } catch (e) {}
   }
 }
 function isQuotaError(e) {

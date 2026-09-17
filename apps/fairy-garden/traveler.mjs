@@ -13,7 +13,7 @@ const COMPANION={hair:'wavy',hairColor:'#5b4436',cloth:'#729786'};
 export function createTraveler(source,companion=false,look={}){
  const want=Object.assign({},companion?COMPANION:DEFAULT,look||{});
  const style=HAIR_STYLES.includes(want.hair)?want.hair:(companion?COMPANION.hair:DEFAULT.hair);
- const root=new T.Group(),model=source.clone(true),rig=[];root.add(model);
+ const root=new T.Group(),model=source.clone(true),rig=[];model.name='TravelerVisual';root.add(model);
  // ⚠️clone(true) 只克隆节点，【材质仍然是同一份】：不给每个实例各一份，
  //   改一个人的发色，另一个人的头发会跟着一起变（美术脚本那头也踩过同一个坑）。
  const isHair=o=>/^hair[._]/i.test(o.name),hairName='hair_'+style;
@@ -53,5 +53,5 @@ export function createTraveler(source,companion=false,look={}){
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))o.material.color.set(n.hairColor);else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
    applyDims(n.dims);
    Object.assign(want,n);},
-  animate(time,{moving=false,gesture='rest',height=.08}={}){const seated=!moving&&gesture==='sit',dt=Math.min(.1,Math.max(0,time-lastPoseTime));lastPoseTime=time;sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);root.position.y=height-sitBlend*.34+(moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;const standing=moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;}}};
+  animate(time,{moving=false,gesture='rest',height=.08,sleepPose=null}={}){const lying=!!sleepPose;root.userData.posture=lying?'sleep':gesture;model.rotation.x=lying?-Math.PI/2:0;model.position.set(lying?sleepPose.x-root.position.x:0,0,lying?sleepPose.z-root.position.z:0);if(lying){root.rotation.y=0;height=sleepPose.y;gesture='sleep';moving=false;}const seated=!moving&&gesture==='sit',dt=Math.min(.1,Math.max(0,time-lastPoseTime));lastPoseTime=time;sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);root.position.y=height-sitBlend*.34+(moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;const standing=lying?0:moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;}}};
 }

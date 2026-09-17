@@ -107,3 +107,54 @@ Blender Z 向上、面向 -Y。导入后烘焙零件局部变换，不带旧场�
 
 仍然没做：没有骨骼，行走还是 `traveler.mjs` 那套关节摆动；脸和肤色不可调；
 长发从背面看脖子和头发之间有一道缝（美术那边的事）。
+
+## 村落扩建、小屋内景和许愿树（2026-09-16）
+
+`build_places.py` 在已有 `village-v2/fairy-village-v2.blend` 上扩建，不另建第二个家；
+输出 `village-expanded.blend`、`home-interior.blend`、`wishing-tree.blend` 及对应预览。
+原始图形目录作为第一个参数，输出目录作为第二个参数；脚本复用原始 `build.py` 的造型函数。
+输出默认应放仓库外，只有导出的 GLB 进入 app。
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/build_places.py -- "$ART_SOURCE" "$ART_OUTPUT"
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/village-expanded.blend" apps/fairy-garden/village.glb
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/home-interior.blend" apps/fairy-garden/home-interior.glb --detail
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/wishing-tree.blend" apps/fairy-garden/wishing-tree.glb --detail
+node scripts/build-fairy-garden.mjs
+```
+
+小资产 `--detail` 保留倒角与完整拓扑：薄地板整场减到 28% 会破面。村落仍按原预算减面。
+导出 PNG 颜料时将线性色转换为 sRGB，避免原木和叶子导出后变黑。
+场景不包含玩家或同行者模型；木牌、告示纸、展架是空的，不伪造玩家收藏。
+桥面游戏高度 .38；室内地板 .14；林地缓坡中心 (0,-6)、椭圆半径 (2.5,1.85)，
+高度 `.08 + .9 * (1-r²)²`，与规则表/点地寻路共用的 floorHeight 保持一致。
+
+### 双卧室住宅
+
+`build_house.py` 读取 `rules.js` 的 `MAPS.home` 作为墙体、家具和床位的唯一坐标来源；修改布局先改地图表再重建。输入仍是 fairy-cottage 图形源根目录，输出目录置于仓库外：
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/build_house.py -- "$ART_SOURCE" "$ART_OUTPUT"
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/home-interior.blend" apps/fairy-garden/home-interior.glb --detail
+```
+
+晨光与月色卧室各有两枕双人床，另有壁炉客厅与餐厨。隔墙降低方便俯视，模型不烘焙人物；两侧进床点及床上位置由同一地图表提供。
+
+### 古老许愿树
+
+`build_wishing_tree.py` 单独重建林地地标：连续扭转树干、展开的层叠树冠、垂叶、月牙与空白挂饰。读取 `MAPS.forest.surfaces[0]` 的缓坡参数；人物到访点与树干碰撞保持原值，根部贴地，前方留空。叶材质名称含 foliage，直接参加共享四季染色和冬雪。
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/build_wishing_tree.py -- "$ART_SOURCE" "$ART_OUTPUT"
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/wishing-tree.blend" apps/fairy-garden/wishing-tree.glb --detail
+```
+
+仍是纯场景美术，空牌不代表用户愿望，没有新增许愿数据或 AI 调用。浏览器验证 `scripts/checks/fairy-wishing-tree-browser.cjs` 使用隔离存档验四季、夜间、320px、读档与到访路径。
+
+### 公共厅两层
+
+`build_public_hall.py` 从 `MAPS.hall`/`MAPS.dormitory` 读取长厅家具、宿舍墙/床/房间布局，复用原 primitives 与 house pigment。输出 public-hall.blend、hall-dormitory.blend 及预览，保存在仓库外；两份均使用 export-fairy-village.py 的 --detail 导出。楼下长桌/壁炉/书架/小讲堂，楼上四间空房。前墙和顶板切开方便浏览，人物由游戏实例显示；独立地图过楼梯，不做重叠多层寻路。
+
+### 拾光收藏馆
+
+`build_museum.py` 读取 MAPS.garden.museum 与 MAPS.museum，生成南侧独立外观和展厅。复用 public_hall 的 shell/window/lamp；shell 已按 plan 尺寸铺地板和木梁，既有14×9长厅也沿用此公共函数。输出 museum-exterior.blend / museum-interior.blend 与预览，分别 --detail 导出同名 GLB。花笺框与陈列架本身为空，运行时 museum-view 根据原收藏实例化陈列，不把用户物品烘焙进模型。

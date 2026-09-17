@@ -8,10 +8,26 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-7d9e2061344cd5fe", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-5f875d00861ee46b", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
-  const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
+  // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
+  //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
+  //   那一档原地盖掉了——而她看见的全过程只是「进去发现庭院变新的了」。
+  //   所以空的时候先问一句仓开没开：没开就【什么都不写】，把话说出来让她退出去再进。
+  function vaultStalled(key) {
+    if (typeof isIdbTextKey !== "function" || !isIdbTextKey(key)) return "";
+    let st = null; try { st = typeof txtVaultState === "function" ? txtVaultState() : null; } catch (e) { return ""; }
+    if (!st || (st.done && st.ok)) return "";
+    return "本机的存档仓还没打开" + (st.err ? "（" + st.err + "）" : "") + "，先别在这儿开新的一档——退出去等一下再进来，庭院还在。";
+  }
+  const read = (key) => {
+    const k = key || KEY;
+    const d = loadJSON(k, null);
+    if (d && d.version === 1 && d.id) return d;
+    const stall = vaultStalled(k); if (stall) throw new Error(stall);
+    return { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} };
+  };
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
   // 两排色板：给的是【挑得动手】的十来个颜色，不是取色器。
   // 布偶是童话质感，饱和度压着走；深浅各来几档，深色头发也照顾到。
@@ -97,29 +113,32 @@
   // ⚠️深度只决定【完整度和奇异度】，不决定情感重量——「B1 普通想法、B20 童年创伤」
   //   那种梯子她点名不要。这条在提示词里写死。
   // ⚠️能捞的（回忆/联想/他那边）只许从真东西里长；想象的那几类必须看得出是想象。
-  const SHARD_LABELS = { memory: "回忆", link: "联想", world: "他那边",
-    unsaid: "没说出口", dream: "梦的边角", habit: "旧习惯", sense: "一点声音气味", ahead: "以后" };
+  // ⚠️四类【看得见的东西】（v69.32，codex 提的，她拍板）：先是东西，其次才带着内容。
+  //   「没说出口／以后／他那边」不再自己占一格，而是这几样东西携带的内容。
+  const SHARD_LABELS = { echo: "回声石", dream: "梦屑", sense: "感官晶", relic: "无名遗物" };
   async function shards({ active, character, profile, world, mainline, depth, want }) {
     if (!active) throw new Error("先在设置里配置创作线路，再下井。");
     const n = Math.max(1, Math.min(8, Number(want) || 6));
     const uName = userName(profile);
     const sys = [sharedStyle(), roleContext(character, profile, mainline),
-      "【星井】「" + uName + "」在井底的石头里刨出一些碎片。碎片是【关于你的东西】："
-        + "一小块回忆、一个没说出口的半句、一个梦的边角、一个连你自己都没留意的习惯、"
-        + "一点声音或气味、一个奇怪的联想、一个你偶尔想象过的以后、一件你那边最近的小事。",
+      "【星井】「" + uName + "」在井底的石头里刨出一些【东西】。四种：\n"
+        + "· 回声石 echo：里面封着一段真发生过的小事——只能从上面真给到你的经历里长，没有就别选它。\n"
+        + "· 梦屑 dream：一个梦里的画面，不必解释前因后果。\n"
+        + "· 感官晶 sense：一段声音、一种气味、一点温度，附着它勾起的那一点东西。\n"
+        + "· 无名遗物 relic：一件旧东西——半张地图、一把不知道开哪儿的钥匙、一个奇怪零件。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这一层】第 " + Math.max(1, Number(depth) || 1) + " 层。"
         + "⚠️越深的只是【越完整、越奇怪】，不是越深情、越惨、越隐秘——别按层数往上堆情绪。"
         + "浅处也可以挖到很珍贵的东西，深处也可以只是「突然很想吃烤红薯」。",
-      "【怎么写】每片一两句，短，像碎片：不解释前因后果，不交代是什么时候的事，"
-        + "不写成完整的小故事。别每片都是同一个调子，别都在说她。\n"
-        + "kind 只能取：memory（回忆）｜link（联想）｜world（他那边）｜unsaid（没说出口）｜"
-        + "dream（梦的边角）｜habit（旧习惯）｜sense（一点声音气味）｜ahead（以后）。\n"
-        + "⚠️memory / link / world 这三类【只能从上面真给到你的东西里长】——真没有就别选这三类，"
-        + "换成别的。绝不许编一段你们其实没发生过的共同经历。\n"
-        + "⚠️dream / ahead / unsaid 是你脑子里的东西，不是真发生过的事，写的时候就让人看得出来。",
+      "【怎么写】每片一两句，短：写【这是一件什么东西】，以及它上面／里面有什么。"
+        + "不解释前因后果，不交代是什么时候的事，不写成完整的小故事。别每片一个调子，别都在说她。\n"
+        + "kind 只能取：echo｜dream｜sense｜relic。\n"
+        + "⚠️echo【只能从上面真给到你的经历里长】，真没有就别选它。绝不许编一段你们其实没发生过的事。\n"
+        + "⚠️最要紧的一条：**东西是挖出来的，话是你自己说的**。"
+        + "不许在碎片上替自己宣布「我当时差点说…」「我一直想着…」这种台词——"
+        + "那句话要等你【看见这件东西之后】再决定说不说、怎么说。这里只写那件东西本身。",
       '【输出格式】只输出 JSON 数组，' + n + ' 条：[{"kind":"上面那八个之一","text":"这一片上写着什么","whole":false}]。'
-        + 'whole 只有在这一片本身是完整一件事时才为 true。'
+        + 'whole 只有在这一件本身是完整一件事时才为 true。'
     ].join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "刨开这一层。" }], { maxTokens: 20000, timeout: 180000, tag: "微光庭院碎片" });
     const parsed = extractJSON(raw);
@@ -137,11 +156,16 @@
     // 存档挂哪儿：庭院房给自己那把钥匙，首页试玩仍是公共那一档
     const storeKey = useRef(null); if (!storeKey.current) storeKey.current = props.storeKey || KEY;
     // 庭院房的同行者就是这间房的角色，没得选：进门那一刻就钉死，免得先闪一下选人页
-    const t = useTheme(), initial = useRef(null);
+    const t = useTheme(), initial = useRef(null), stalled = useRef("");
     if (!initial.current) {
-      const d = read(storeKey.current);
-      initial.current = (props.lockPartnerId && String(d.partnerId) !== String(props.lockPartnerId))
-        ? write(storeKey.current, { ...d, partnerId: String(props.lockPartnerId) }) : d;
+      try {
+        const d = read(storeKey.current);
+        initial.current = (props.lockPartnerId && String(d.partnerId) !== String(props.lockPartnerId))
+          ? write(storeKey.current, { ...d, partnerId: String(props.lockPartnerId) }) : d;
+      } catch (e) {
+        stalled.current = e.message;
+        initial.current = { version: 1, id: "", partnerId: "", world: null, dialogs: {} };
+      }
     }
     const [entry, setEntry] = useState(() => initial.current), [pick, setPick] = useState(!initial.current.partnerId), [solo, setSolo] = useState(false), [chat, setChat] = useState(false), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [detail, setDetail] = useState(""), [loaded, setLoaded] = useState(false);
     const frame = useRef(null), alive = useRef(true), busyRef = useRef(false), propsRef = useRef(props), owner = useRef(initial.current.id), serial = useRef(0), messages = useRef(null); propsRef.current = props;
@@ -271,9 +295,13 @@
     const [seedAsk, setSeedAsk] = useState("");
     const [bookTab, setBookTab] = useState("notes");   // notes=花册 / shards=碎片盒
     const [shardBox, setShardBox] = useState(null);
+    const [things, setThings] = useState(null);
+    const [museum, setMuseum] = useState(null);
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
-      if (g.getShards) setShardBox(g.getShards()); };
+      if (g.getShards) setShardBox(g.getShards());
+      if (g.getThings) setThings(g.getThings());
+      if (g.getCollection) setMuseum(g.getCollection()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -295,6 +323,11 @@
       ? (record.history || []).concat(localRows.filter(m => m && m.status !== "done"))
       : localRows;
     useEffect(() => { if (messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [rows.length, chat, busy]);
+    // ⚠️这个提前 return 必须排在【所有 hook 之后】：排前面的话下面的 hook 这一帧不跑，
+    //   React #310 直接白屏（test/hooks-order.test.js 钉着这条）。
+    if (stalled.current) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
+      h(Head, { zh: "微光庭院", sub: "等一下再进来", bg: "transparent", ink: "#344936", onBack: props.onBack }),
+      h("div", { style: { padding: "22px 20px", fontFamily: F_BODY, fontSize: 13, lineHeight: 2 } }, stalled.current));
     async function send(retry) {
       if (busyRef.current || !game()) return;
       const c = partner(); if (!c) { setError("先选一位角色入住庭院。"); return; }
@@ -360,14 +393,79 @@
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         book && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
-          // 两格：花册 / 碎片盒。底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
-          h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
-            [["notes", "花册", ((garden && garden.notes) || []).length], ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length]].map(([k, label, n]) =>
-              h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-70",
-                style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: bookTab === k ? G.ink : "#93a188",
-                  borderBottom: "2px solid " + (bookTab === k ? G.deep : "transparent"), background: "transparent" } },
-                label + (n ? " " + n : "")))),
-          bookTab === "shards" ? h("div", { style: { padding: "16px 16px 40px" } },
+          // ⚠️这一册在现实里就是一本【册子】，所以 tab 长成册子边上伸出来的索引签：
+          //   上圆下方、贴着页边，选中那张满高、纸色，直接长进底下那一页里；
+          //   没选的往下缩一截、暗着，像压在后面几页（施工规则/tabs-not-plain-pills.md）。
+          //   选中态不只靠颜色：高度、纸色、底下那条缝三样一起变。
+          h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, padding: "10px 12px 0", background: "rgba(255,255,255,.3)" } },
+            [["notes", "花册", ((garden && garden.notes) || []).length],
+             ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
+             ["things", "屋里", ((things && things.rows) || []).length],
+             ["museum", "收藏馆", ((museum && museum.rows) || []).length]].map(([k, label, n]) => {
+              const on = bookTab === k;
+              return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
+                style: { padding: on ? "12px 0 13px" : "8px 0 9px", fontFamily: F_BODY, fontSize: on ? 13 : 12,
+                  color: on ? G.ink : "#93a188", background: on ? G.paper : "rgba(226,232,213,.75)",
+                  border: "1px solid " + G.line, borderBottom: on ? "1px solid " + G.paper : "1px solid " + G.line,
+                  borderRadius: "11px 11px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 2 : 1 } },
+                label + (n ? " " + n : "")); })),
+          h("div", { style: { height: 1, background: G.line, marginTop: 0 } }),
+          bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
+            //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "留在收藏馆里的东西会一直摆着——背包会被挤掉，这一份不会。走进村南那间小馆才能留。"),
+            // ⚠️馆里那几件排在前面：笔记有三十行，其中二十多行是「？」，
+            //   摆在上面就把她真正捐进去的那几件压到屏幕外头去了。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
+              "馆里摆着的 " + ((museum && museum.rows) || []).length + " 件"),
+            ((museum && museum.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
+              museum.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, "第 " + t.gaveDay + " 天捐的")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
+                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+                  "还空着。做好一样东西，走进收藏馆把它留在那儿。"),
+            // 炼金笔记：做成过的写出名字，没做成过的只留一行材料——那是线索，不是清单
+            h("div", { style: { marginTop: 24, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink } }, "炼金笔记"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft } },
+                "做成过 " + ((museum && museum.made) || []).length + " / " + ((museum && museum.total) || 0) + " 种")),
+            h("div", { style: { display: "grid", gap: 6, marginTop: 8 } },
+              ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) > -1).map(r =>
+                h("div", { key: r.key, style: { display: "flex", alignItems: "baseline", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(209,218,194,.55)" } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, flex: 1 } }, r.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, r.how)))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 12, lineHeight: 1.9 } },
+              "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
+                .map(r => r.how).join("、")))
+          :           bookTab === "things" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 屋里：锅炼出来的东西。⚠️这一整条链一枪都不打，全是代码算的
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。"),
+            ((things && things.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
+              things.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + (t.spot ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                    (things.ways[t.way] ? things.ways[t.way].label : "") + " · 第 " + t.day + " 天")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
+                  t.ready ? t.note : "还封着，第 " + t.openDay + " 天才能打开。"),
+                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null,
+                t.ready ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
+                  Object.entries(things.spots).map(([k, label]) =>
+                    h("button", { key: k, className: "active:opacity-70",
+                      onClick: () => { const g = game(); if (!g || !g.place) return;
+                        const err = g.place(t.id, t.spot === k ? null : k);
+                        if (err) { props.toast(err); return; } pullGarden(); },
+                      style: { ...pill(true), borderColor: t.spot === k ? G.deep : G.line, color: t.spot === k ? G.ink : G.soft,
+                        background: t.spot === k ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)" } },
+                      t.spot === k ? "已摆在" + label : "摆到" + label))) : null)))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+                  "还没有。下井刨一片碎片回来，走到炼药锅那儿做点东西。"))
+          : bookTab === "shards" ? h("div", { style: { padding: "16px 16px 40px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "井底石头里刨出来的东西。越深的只是越完整、越奇怪，不是越沉重。"),
             ((shardBox && shardBox.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
@@ -525,8 +623,13 @@
     //   宁可多列一行，也不能让一段日子从界面上消失。
     //   （先例：设置 → 数据 →「找回失联的角色」。）
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      // 存档已经搬进 IDB（engine.js 的 IDB_TEXT_PREFIXES），localStorage 里多半只剩
+      // 还没迁完的那几个，所以两边都要扫一遍，谁也别落下。
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      try { (typeof window !== "undefined" && window.__txtMirror ? window.__txtMirror : new Map()).forEach((v, k) => keys.push(k)); } catch (e) {}
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
         if (!key || key.indexOf(KEY + ":") !== 0) continue;
         const id = key.slice(KEY.length + 1);
         if (!id || rows.some(x => x.id === id)) continue;
@@ -569,6 +672,10 @@
       h(Head, { zh: "微光庭院", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
 
+    // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
+    const stall = vaultStalled(INDEX_KEY);
+    if (stall) return shell("等一下再进来", props.onBack,
+      h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
     if (!world) return shell("挑一个世界", props.onBack, h(React.Fragment, null,
       h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 18px" } },
         "每个世界有自己的时间、地图和存档。现在开着的只有微光庭院，别的还在长。"),
@@ -591,7 +698,7 @@
       () => {
         const next = readSaves().filter(x => x.id !== row.id);
         saveJSON(INDEX_KEY, next);
-        try { localStorage.removeItem(saveKeyOf(row)); } catch (e) {}
+        try { dropStored(saveKeyOf(row)); } catch (e) {}
         setSaves(next);
       }, "删掉");
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
