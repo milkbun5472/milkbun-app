@@ -1,6 +1,6 @@
-import './rules.js?v=fg-10351616fc07c051';
+import './rules.js?v=fg-ad77aa7c1c05cc56';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-10351616fc07c051';
+import {createNavigator} from './navigation.mjs?v=fg-ad77aa7c1c05cc56';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -386,6 +386,22 @@ export function craftThing(s, shardId, way, secondId){
     things: [thing, ...(s.things || [])].slice(0, THING_CAP) },
     'made', '在锅里' + CRAFT_WAYS[way].label + '出一样「' + thing.name + '」');
 }
+// 月露倒进锅里（她 2026-09-17）。⚠️月露原来唯一的用处是「代替一壶水浇花」，
+//   谁都不会特地去炼它。现在它管【发酵那一路】：封着的那一样，倒一滴当天就开。
+export const hastenError = (s, id) => {
+  const t = (s.things || []).find(x => x.id === id);
+  if (!t) return '没有这一样东西。';
+  if (!t.openDay || s.day >= t.openDay) return '这一样本来就开着。';
+  if (count(s.potions) < 1) return '没有月露了。井底的星砂三份能炼一颗。';
+  return '';
+};
+export function hastenThing(s, id){
+  if (hastenError(s, id)) return s;
+  const t = (s.things || []).find(x => x.id === id);
+  return noteHappening({ ...s, potions: count(s.potions) - 1,
+    things: (s.things || []).map(x => x.id === id ? { ...x, openDay: s.day } : x) },
+    'made', '倒了一滴月露，「' + t.name + '」提前开了');
+}
 // 发酵的那几样：到日子才算做好（在那之前摆不出去，也读不到）
 export const thingReady = (s, t) => !t.openDay || s.day >= t.openDay;
 export function placeThing(s, id, spot){
@@ -647,7 +663,17 @@ export const SPELLS = {
   relic: { name: '唤醒咒', need: 'relic', note: '把一件说不清的东西叫醒，它会自己待在那儿' }
 };
 // 封在哪儿：都是她本来就会走到的地方
-export const SPELL_PLACES = { eaves: '屋檐下', sill: '窗台', pond: '池边', lamp: '小路那盏灯下', well: '井口', plot: '花圃边' };
+export const SPELL_PLACES = { eaves: '屋檐下', sill: '窗台', pond: '池边', well: '井口', plot: '花圃边',
+  lamp: '屋前的灯下', pathlamp: '小路那盏灯下' };
+// ⚠️后两处要【先有灯】。这是把魔法那条线接进别的线的地方：
+//   屋前那几盏是星铃灯做出来的（月光花那条），小路那盏是委托修好的（公告栏那条）。
+//   灯从此不是终点，是【一处能封咒的地方】——这就是那个四盏灯天花板的拆法。
+export function castPlaceError(s, place){
+  if (!Object.hasOwn(SPELL_PLACES, place)) return '还没有这个地方。';
+  if (place === 'lamp' && !count((s.magic || {}).lamps)) return '屋前还没有灯。先做一盏星铃灯。';
+  if (place === 'pathlamp' && !restoreFixtures(s.fixtures).pathLamp) return '小路那盏灯还坏着。公告栏上有人要修它。';
+  return '';
+}
 const SPELL_ORDER = ['echo', 'dream', 'sense', 'relic'];
 // 这一季的种子教的是哪一个咒（一季一颗，四季轮一圈）
 export const spellOfSeason = index => SPELL_ORDER[Math.max(0, count(index)) % SPELL_ORDER.length];
@@ -663,7 +689,7 @@ export const castAt = (s, place) => restoreCasts(s.casts).find(x => x.place === 
 export function castError(s, spell, shardId, place){
   if (!Object.hasOwn(SPELLS, spell)) return '还没有这个咒。';
   if (!restoreSpells(s.spells).includes(spell)) return '这个咒你还不会——一季一个，跟他一起去林地唤醒种子。';
-  if (!Object.hasOwn(SPELL_PLACES, place)) return '还没有这个地方。';
+  const where = castPlaceError(s, place); if (where) return where;
   if (castAt(s, place)) return SPELL_PLACES[place] + '已经封着一片了，一个地方只留一片。';
   const shard = (s.shards || []).find(x => x.id === shardId);
   if (!shard) return '先挑一片碎片。';
@@ -781,7 +807,7 @@ export function journalText(entry){const facts=Object.entries(entry.actions||{})
 export function companionNearby(s){return s.companion.map===s.map&&Math.hypot(s.companion.position.x-s.position.x,s.companion.position.z-s.position.z)<1.55;}
 export function magicError(s,kind){const m=s.magic||freshMagic();if(kind==='seed'){if(s.map!=='forest')return '去林地寻找沉睡的种子。';if(m.seedSeason===seasonOf(s.day).index)return '这一季的种子已经带回家了，下一季会有新的微光。';return '';}
  if(s.map!=='garden')return '先把森林的礼物带回庭院。';
- if(kind==='lamp')return m.lamps>=4?'屋前四个灯位已经亮起来了。':m.flowers<1||s.harvest<3?'星铃灯需要星铃花 ×1、月光花 ×3。':'';
+ if(kind==='lamp')return m.lamps>=4?'屋前四个灯位都亮了。再想要灯，得等村里别处支起灯杆——小路那盏可以去公告栏接委托修。':m.flowers<1||s.harvest<3?'星铃灯需要星铃花 ×1、月光花 ×3。':'';
  if(!m.planted)return m.seeds?'':'先和同行者去林地唤醒一颗种子。';
  if(m.growth>=2)return '';
  if(m.wateredDay===s.day)return '今天照料过了，明天再来看看新芽。';return s.water>0?'':'先取一壶清水来照料它。';}

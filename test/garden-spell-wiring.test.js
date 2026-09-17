@@ -49,3 +49,28 @@ test("走到封过咒的地方会说出那一句", () => {
   assert.match(game, /const line=where\?castLine\(data,where\):''/);
   assert.match(game, /封在这一处的那片碎片，走到了就该听见/);
 });
+
+// ⚠️点不了的地方要说清【为什么】：不然「灯下」灰着，她只会以为坏了
+test("封不进去的地方要说明白为什么", () => {
+  const fn = game.slice(game.indexOf("function openCast()"), game.indexOf("$('cast-close')"));
+  assert.match(fn, /locked=castPlaceError\(data,key\)/);
+  assert.match(fn, /b\.textContent=taken\?label\+'（封着了）':locked\?label\+'（还不行）':label/);
+  assert.match(fn, /if\(locked\)b\.onclick=\(\)=>say\(locked\)/, "灰着还得点得出那句解释");
+});
+
+// 灯不是终点，是一处能封咒的地方——这就是那个四盏灯天花板的拆法
+test("灯把魔法那条线接进了别的线", () => {
+  assert.match(world, /这就是那个四盏灯天花板的拆法/);
+  assert.match(world, /屋前那几盏是星铃灯做出来的（月光花那条）/);
+  assert.match(world, /小路那盏是委托修好的（公告栏那条）/);
+});
+
+// 月露原来唯一的用处是代替一壶水浇花，谁都不会特地去炼
+test("月露进锅那一路接上了", () => {
+  assert.match(world, /export function hastenThing\(s, id\)/);
+  assert.match(game, /hasten:id=>\{const err=hastenError\(data,id\)/);
+  assert.match(host, /g\.hasten\(t\.id\)/);
+  assert.match(host, /倒一滴月露 · 今天就开/);
+  // 没月露的时候按钮要自己说，不是点了才报错
+  assert.match(host, /倒一滴月露（没有月露了）/);
+});

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-10351616fc07c051", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ad77aa7c1c05cc56", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -567,6 +567,14 @@
                     (things.ways[t.way] ? things.ways[t.way].label : "") + " · 第 " + t.day + " 天")),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                   t.ready ? t.note : "还封着，第 " + t.openDay + " 天才能打开。"),
+                !t.ready ? h("button", { className: "active:opacity-70",
+                  onClick: () => { const g = game(); if (!g || !g.hasten) return;
+                    const err = g.hasten(t.id);
+                    if (err) { props.toast(err); return; } pullGarden(); props.toast("倒了一滴月露，今天就能开。"); },
+                  disabled: !((things && things.potions) > 0),
+                  style: { ...pill(true), marginTop: 8, borderColor: G.line, color: ((things && things.potions) > 0) ? G.deep : "#b3bfa6",
+                    background: "rgba(255,255,255,.55)" } },
+                  ((things && things.potions) > 0) ? "倒一滴月露 · 今天就开" : "倒一滴月露（没有月露了）") : null,
                 t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null,
                 t.ready ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
                   Object.entries(things.spots).map(([k, label]) =>
