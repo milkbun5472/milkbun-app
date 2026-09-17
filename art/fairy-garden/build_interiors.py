@@ -203,7 +203,7 @@ def shell(m,name):
 def furnish(q,base=.14):
  x,z,w,d,kind=q['x'],q['z'],q['w'],q['d'],q['kind']
  if kind=='hearth':place(hearth,x,z,-math.pi/2)
- elif kind in ['sofa','armchair','chair']:place(lambda:chair(w,d,sage if kind!='chair' else rose,kind=='sofa'),x,z)
+ elif kind in ['sofa','armchair','chair']:place(lambda:chair(w,d,sage if kind!='chair' else rose,kind=='sofa'),x,z,q.get('heading',0))
  elif kind in ['table','dining','desk','roundtable','console']:
   place(lambda:table(w,d,.64 if kind=='table' else base+.8,kind in ['table','dining','roundtable']),x,z)
   if kind=='dining':
@@ -224,7 +224,7 @@ def furnish(q,base=.14):
  elif kind=='bench':
   box('Shared upholstered bench',x,z,.58,w,d,.18,sage,.07)
   for xx in [-w*.4,w*.4]:box('Bench trestle foot',x+xx,z,.33,.18,d*.8,.4,wood)
- elif kind=='stool':place(lambda:chair(w,d,blue),x,z)
+ elif kind=='stool':place(lambda:chair(w,d,blue),x,z,q.get('heading',0))
  elif kind=='lectern':
   place(lambda:table(w,d,1.1),x,z);box('Open folio on lectern',x,z,1.18,w*.7,d*.75,.05,paper)
  elif kind=='stairs':
