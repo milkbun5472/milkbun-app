@@ -20,12 +20,22 @@ const groupBans = GB.layers;
 
 // v64.82 又多一层【别揽你接不住的活】：她 2026-09-06 报「所有人我说考试不会都要
 // offer 来帮忙看，就算不会也要来」。它是三件套的近亲，所以跟着一起进这一摞。
+// v70.12 又多两层【别假装看穿她】【她没说过的身体，你没有权限提】：
+// 她 2026-09-17 拿来一份别人的世界书，说「我觉得这些禁令有用因为这些都是高频八股」——
+// 她说得对。那份分了七卷，可里头大量是同一个动作的不同说法，所以归并成两族：
+// 「假装看穿」（贴标签／事后表功／预告服软／揪上一句／翻床事）骨架全是同一个；
+// 「拿她身上不存在的东西开玩笑」跟它不同源，单开。
+// v69.80 又多一层【别说线上兑现不了的话】：她 2026-09-17 从别人的世界书里捞回来的。
+// 它跟上面那两条是一族但谁都盖不住它——三件套挡的是「关心＋方案＋马上过去」那个模板，
+// 别揽活挡的是【揽了接不住的】，这一条挡的是【压根没许诺任何东西】，连"揽"都算不上。
+// 所以跟着一起进这一摞。
 // v64.21 多了一层【她说的这句话他那个世界里有没有这门话】：
 // 她 2026-09-05 问「为什么一个王爷看得懂我的英文」——群里一样，她在群里打英文，
 // 古代那位照样不该懂。这一红正是这份把手要的信号（加层就得有人回来认一次）。
 const CORE = ["<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
   "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
-  "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<RP>"];
+  "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<EMPTY_COMFORT_BAN>",
+  "<SEE_THROUGH_BAN>", "<USER_BODY_BAN>", "<RP>"];
 
 test("三处群共用的那一摞，一层都不许少", () => {
   assert.deepEqual(groupBans({ echo: false }), CORE, "群线上");

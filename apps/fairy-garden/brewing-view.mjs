@@ -1,9 +1,9 @@
 import * as T from 'three';
-import {createBrewSequence} from './brewing.mjs?v=fg-3eab3480d6df2a10';
+import {createBrewSequence} from './brewing.mjs?v=fg-cd0b9e48ee809369';
 // One close-up for both cauldron entrances. The existing world and dolls stay on screen.
 export function makeBrewingView({scene,camera,site,onClose}){
- const dialog=document.createElement('dialog');dialog.id='brewing-dialog';dialog.className='brewing-dialog';dialog.setAttribute('aria-labelledby','brewing-title');
- dialog.innerHTML='<div class="dialog-title"><button id="brewing-close" aria-label="返回庭院">‹</button><h2 id="brewing-title">锅边的魔法</h2><span class="title-spacer"></span></div><div class="brew-body"><div class="brew-caption"><p id="brew-step"></p><p id="brew-instruction" aria-live="polite"></p></div><div id="brew-target" role="button" tabindex="0" aria-label="炼药锅：选好材料后点这里放入；搅拌时可以绕圈拖动"><span></span></div><div class="brew-controls"><div id="brew-ingredients"></div><p id="brew-result" aria-live="polite"></p><button id="brew-assist" hidden>按住慢慢搅拌</button><button id="brew-finish" hidden>收火，装瓶</button><small id="brew-footnote">完成时才使用材料 · 随时可以退出</small></div></div>';
+ const dialog=document.createElement('dialog');dialog.id='brewing-dialog';dialog.className='brewing-dialog scene-activity';dialog.setAttribute('aria-labelledby','brewing-title');
+ dialog.innerHTML='<div class="dialog-title"><button id="brewing-close" class="activity-close" aria-label="返回庭院">‹</button><h2 id="brewing-title">锅边的魔法</h2><span class="title-spacer"></span></div><div class="brew-body"><div class="brew-caption"><p id="brew-step"></p><p id="brew-instruction" aria-live="polite"></p></div><div id="brew-target" role="button" tabindex="0" aria-label="炼药锅：选好材料后点这里放入；搅拌时可以绕圈拖动"><span></span></div><div class="brew-controls"><div id="brew-ingredients"></div><p id="brew-result" aria-live="polite"></p><button id="brew-assist" hidden>按住慢慢搅拌</button><button id="brew-finish" hidden>收火，装瓶</button><small id="brew-footnote">完成时才使用材料 · 随时可以退出</small></div></div>';
  document.body.append(dialog);const $=id=>dialog.querySelector('#'+id),root=new T.Group();root.position.set(site.x,0,site.z);root.visible=false;scene.add(root);
  const mat=(color,extra={})=>new T.MeshStandardMaterial({color,roughness:.55,...extra});
  const mesh=(geo,material,x=0,y=0,z=0,parent=root)=>{const m=new T.Mesh(geo,material);m.position.set(x,y,z);parent.add(m);return m;};
