@@ -2244,6 +2244,7 @@
     if (typeof EMPTY_COMFORT_BAN !== "undefined") parts.push(EMPTY_COMFORT_BAN);   // 同上，这一族一起走
     if (typeof SEE_THROUGH_BAN !== "undefined") parts.push(SEE_THROUGH_BAN);
     if (typeof USER_BODY_BAN !== "undefined") parts.push(USER_BODY_BAN);
+    if (typeof CANNED_PHRASE_BAN !== "undefined") parts.push(CANNED_PHRASE_BAN);
     if (typeof ECHO_QUESTION_BAN !== "undefined") parts.push("【别拿对方刚说的词开口反问】" + ECHO_QUESTION_BAN);
     if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) parts.push(ReplyPacing.reading());
     // ⚠️开宗明义这一句就是整份 system 的定调：说「穿进去」，模型就按穿书写；

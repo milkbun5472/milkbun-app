@@ -20,6 +20,10 @@ const groupBans = GB.layers;
 
 // v64.82 又多一层【别揽你接不住的活】：她 2026-09-06 报「所有人我说考试不会都要
 // offer 来帮忙看，就算不会也要来」。它是三件套的近亲，所以跟着一起进这一摞。
+// v70.15 再多一层【别拿现成的说法替你开口】（投降式敷衍 + 现成的腻歪称呼）。
+// ⚠️它本来要写成两条，写到判据那步发现同根——都是「拿通用手势顶掉该说的那句」，
+//   共用这个库里那句老判据「换个角色还照样成立的，就是写坏了」。同判据就并成一条：
+//   分两条等于同一句话说两遍，两遍都变淡。这一摞两天里已经加了三层，能并的就得并。
 // v70.12 又多两层【别假装看穿她】【她没说过的身体，你没有权限提】：
 // 她 2026-09-17 拿来一份别人的世界书，说「我觉得这些禁令有用因为这些都是高频八股」——
 // 她说得对。那份分了七卷，可里头大量是同一个动作的不同说法，所以归并成两族：
@@ -35,7 +39,7 @@ const groupBans = GB.layers;
 const CORE = ["<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
   "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
   "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<EMPTY_COMFORT_BAN>",
-  "<SEE_THROUGH_BAN>", "<USER_BODY_BAN>", "<RP>"];
+  "<SEE_THROUGH_BAN>", "<USER_BODY_BAN>", "<CANNED_PHRASE_BAN>", "<RP>"];
 
 test("三处群共用的那一摞，一层都不许少", () => {
   assert.deepEqual(groupBans({ echo: false }), CORE, "群线上");
