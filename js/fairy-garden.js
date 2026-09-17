@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-91780ed77e3f1ed1", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-26aeeaa7ab7c90af", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -157,7 +157,7 @@
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这一层】第 " + Math.max(1, Number(depth) || 1) + " 层。"
         + "⚠️越深的只是【越完整、越奇怪】，不是越深情、越惨、越隐秘——别按层数往上堆情绪。"
-        + "浅处也可以很珍贵，深处也可以很日常。",
+        + "浅处也可以挖到很珍贵的东西，深处也可以很日常。",
       "【怎么写】每片一两句，短：写可感知的内容和痕迹；容器外形由游戏里的井潮选择，内容可承载在任一种奇物里。"
         + "不解释前因后果，不交代是什么时候的事，不写成完整的小故事。别每片一个调子，别都在说她。\n"
         + "kind 只能取：echo｜dream｜sense｜relic。\n"
@@ -239,10 +239,18 @@
     const flush = () => { const g = game(); if (g && !g.flush()) throw new Error("进度还没有保存成功，请先留在庭院。"); };
     const back = () => { try { flush(); serial.current++; props.onBack(); } catch (e) { setError(e.message); props.toast(e.message); } };
     const choose = id => {
+      // ⚠️在庭院房里挑了另一个人＝给那个人【新开一间】，不是把这一间的存档换个人。
+      //   一间房＝一个庭院存档是这条线从头定下的；在原地换人会让这一档的过去接到别人身上。
+      if (id && props.lockPartnerId && props.onNewGardenRoom) { setPick(false); props.onNewGardenRoom(id); return; }
       try { const old = loadJSON(storeKey.current, null); if (old && old.id !== owner.current) throw new Error("存档已经切换，请重新进入庭院。"); const d = old || initial.current; const next = write(storeKey.current, { ...d, partnerId: id || "" }); owner.current = next.id; setEntry(next); setSolo(!id); setPick(false); setLoaded(false); setError(""); setDetail(""); serial.current++; }
       catch (e) { setError(e.message); }
     };
-    const changePartner = () => { if (props.lockPartnerId) { props.toast("这间庭院房就是和 TA 的，换人请另开一间。"); return; } if (busyRef.current) { props.toast("等这次回复完成后再换同行者。"); return; } try { flush(); serial.current++; setChat(false); setPick(true); } catch (e) { props.toast(e.message); } };
+    const changePartner = () => {
+      // 她 2026-09-17：「从游戏里开新档它不会主动创建房间」。
+      // ⚠️原来这儿只丢下一句「换人请另开一间」就完了：话是对的，可她得自己退出去、
+      //   翻到房间列表、认出哪个预设是庭院、建一间——那一步本来就该我们替她做。
+      if (props.lockPartnerId) { if (props.onNewGardenRoom) { setPick(true); return; }
+        props.toast("这间庭院房就是和 TA 的，换人请另开一间。"); return; } if (busyRef.current) { props.toast("等这次回复完成后再换同行者。"); return; } try { flush(); serial.current++; setChat(false); setPick(true); } catch (e) { props.toast(e.message); } };
     const openChat = value => { setChat(value); if (game()) game().setChatOpen(value); };
     const planKey = (cid, day) => String(cid) + ":" + (current().world?.epoch || "initial") + ":" + root.FairyGardenRules.seasonOf(day).key;
     async function planSeason(retry) {
@@ -432,6 +440,10 @@
         flush(); const world = game().snapshot();
         const d = update(old => { const previous = (old.dialogs || {})[cid] || [], next = pending ? previous.map(m => m.id === pending.id ? { ...m, request, status: "pending" } : m) : previous.concat({ id: request, request, role: "user", content: text, status: "pending" }); return { ...old, dialogs: { ...old.dialogs, [cid]: next.slice(-200) } }; });
         setDraft("");
+        // 她自己说的那句也浮到她头顶上（她 2026-09-17：「我自己说话也要气泡」）。
+        // ⚠️和他那只走同一个 speak()，只是 who 不同：另写一套的话，
+        //   「一条显示完停一口气再下一条」那条规矩迟早只剩一边还对。
+        try { if (game() && game().speak) game().speak(text, "me"); } catch (e) {}
         const account = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         current();
@@ -467,10 +479,10 @@
       background: "rgba(255,255,255,.55)", color: G.soft,
       fontFamily: F_BODY, fontSize: small ? 11 : 12.5, lineHeight: 1.4, whiteSpace: "nowrap"
     });
-    if (!props.lockPartnerId && (pick || (!char && !solo))) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
-      h(Head, { zh: "微光庭院", sub: "选一位同行者", bg: "transparent", ink: "#344936", onBack: props.onBack }),
+    if ((!props.lockPartnerId || props.onNewGardenRoom) && (pick || (!char && !solo))) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
+      h(Head, { zh: "微光庭院", sub: props.lockPartnerId ? "给谁新开一间" : "选一位同行者", bg: "transparent", ink: "#344936", onBack: props.lockPartnerId ? () => setPick(false) : props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
-        h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } }, "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。"),
+        h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } }, props.lockPartnerId ? "一间房＝一个庭院存档。挑一位，就给 TA 新开一间，这一间和这一档都留着不动。" : "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。"),
         // 住在村里的那几位排在前面（她 2026-09-17：「改变同行应该是只能从邻居里面选」）。
         // ⚠️不是把别人挡掉：新存档村里一个人都没有，挡掉她就谁也选不了。
         //   选了住在村里的那一位，那间屋就空出来——他现在跟你一起住了，
@@ -772,7 +784,7 @@
           h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },
             h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
               char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
-            props.lockPartnerId ? null : h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "换同行者")),
+            h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, props.lockPartnerId ? "另开一间" : "换同行者")),
           h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
             rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),

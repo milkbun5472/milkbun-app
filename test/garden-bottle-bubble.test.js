@@ -54,7 +54,7 @@ test("他说的话浮在头顶上，气泡跟着他走", () => {
   assert.match(html, /id="companion-bubble"/);
   assert.match(css, /#companion-bubble\{[^}]*position:absolute/);
   assert.match(css, /#companion-bubble::after\{/, "气泡要有个指着他的小尖，不然就是一张飘着的卡片");
-  assert.match(game, /speak:text=>\{speak\(text\);return true;\}/);
+  assert.match(game, /speak:\(text,who\)=>\{speak\(text,who\);return true;\}/);
   assert.match(host, /game\(\)\.speak\(result\.parts\)/, "递进去的是拆好的那几条");
   assert.match(game, /bubble\.style\.top=Math\.max\(y-19,/, "让开名字那一行");
   assert.match(game, /bubble\.hidden=offscreen\|\|!speaking/, "他走出画面，气泡要跟着收起来");
