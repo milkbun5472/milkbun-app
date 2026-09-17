@@ -83,3 +83,9 @@ body.embedded .weather{gap:8px}
 /* 「最后一颗加深」原来是拿 :last-child 认的，换行之后那一颗常常落在半路上，
    看着像随机有一颗颜色不一样。整排统一，不再按位置上色。 */
 .secondary-actions button:last-child{background:#f2f2e3;color:#687957}
+/* 花圃那儿的种花弹层：挑一种念头、写一句 */
+#sow-kinds{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px}
+#sow-kinds button{border:1px solid #dbe2cd;border-radius:999px;background:#fbfaf0;color:#687856;font-size:12px;padding:9px 13px;min-height:38px}
+#sow-kinds button[aria-pressed=true]{border-color:#55704f;background:#eef3e6;color:#48604a}
+#sow-text{width:100%;box-sizing:border-box;border:1px solid #dbe2cd;border-radius:12px;background:#fbfaf0;color:#48604a;font:inherit;font-size:13.5px;line-height:1.8;padding:10px 12px;resize:none}
+#sow-go{background:#e4ecdc;color:#48694f}

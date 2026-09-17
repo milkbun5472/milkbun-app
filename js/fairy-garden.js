@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-85e4e8af19049567", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-fe4b3d221c1bce32", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -372,8 +372,6 @@
     // 花册（她 2026-09-16 定的种花那条）：写字和翻册子在手机这一侧，走过去收在游戏那一侧
     const [book, setBook] = useState(false);
     const [garden, setGarden] = useState(null);
-    const [seedKind, setSeedKind] = useState("miss");
-    const [seedAsk, setSeedAsk] = useState("");
     const [bookTab, setBookTab] = useState("notes");   // notes=花册 / shards=碎片盒
     const [shardBox, setShardBox] = useState(null);
     const [things, setThings] = useState(null);
@@ -597,26 +595,7 @@
             shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, color: G.soft } }, "正在读这一层的石头…") : null)
           : h("div", { style: { padding: "16px 16px 40px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "把想问的话种进花圃，过三天开花。开好了走到花圃那儿收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
-            // 种下
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "种下一句"),
-            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 } },
-              Object.entries((garden && garden.kinds) || {}).map(([k, label]) =>
-                h("button", { key: k, onClick: () => setSeedKind(k), className: "active:opacity-70",
-                  style: { ...pill(true), borderColor: seedKind === k ? G.deep : G.line, color: seedKind === k ? G.ink : G.soft,
-                    background: seedKind === k ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)" } }, label))),
-            h("textarea", { value: seedAsk, onChange: e => setSeedAsk(e.target.value), rows: 2, maxLength: 120,
-              placeholder: "想问他什么？也可以空着，只种一个念头",
-              style: { width: "100%", border: "1px solid " + G.line, background: G.paper, borderRadius: 14, padding: "10px 12px",
-                fontFamily: F_BODY, fontSize: 14, color: G.ink, outline: "none", resize: "none" } }),
-            h("button", { className: "w-full active:opacity-70",
-              onClick: () => { const g = game(); if (!g || !g.sow) return;
-                const err = g.sow(seedKind, seedAsk);
-                if (err) { props.toast(err); return; }
-                setSeedAsk(""); pullGarden(); props.toast("种下了，三天后开花。"); },
-              style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5 } },
-              "种下去"),
-            garden && garden.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a08d86", marginTop: 7 } }, garden.error) : null,
+              "走到花圃那儿种一句下去，过三天开花。开好了再走过去收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
             // 地里的
             ((garden && garden.seeds) || []).length ? h("div", { style: { marginTop: 20 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "地里的"),

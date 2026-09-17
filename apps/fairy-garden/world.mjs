@@ -1,6 +1,6 @@
-import './rules.js?v=fg-85e4e8af19049567';
+import './rules.js?v=fg-fe4b3d221c1bce32';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-85e4e8af19049567';
+import {createNavigator} from './navigation.mjs?v=fg-fe4b3d221c1bce32';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -71,7 +71,8 @@ export function restoreNotes(raw){
 }
 export const seedsToday = (s, day) => (s.seeds || []).filter(x => x.day === (day || s.day)).length;
 export const seedError = s =>
-  (s.seeds || []).filter(x => !x.done).length >= SEED_PLOTS ? '地里满了，先把开好的收了。'
+  s.map !== 'garden' ? '花圃在庭院里。'
+  : (s.seeds || []).filter(x => !x.done).length >= SEED_PLOTS ? '地里满了，先把开好的收了。'
   : seedsToday(s) >= SEED_PER_DAY ? '今天种得够多了，明天再来。' : '';
 export function sowSeed(s, kind, ask){
   if (!Object.hasOwn(SEED_KINDS, kind) || seedError(s)) return s;
@@ -577,6 +578,8 @@ export function actionError(s,kind,id){if(kind==='bed')return s.map==='home'&&Ob
  if(kind==='craft')return s.map!=='garden'?'锅在庭院里。':(s.shards||[]).length?'':'背包里没有碎片。下井刨一片回来。';
  // 收花笺：地里有开好的才让走过去（真正那一枪在宿主那侧打）
  if(kind==='note')return s.map!=='garden'?'花圃在庭院里。':readySeeds(s).length?'':'地里还没有开好的花。';
+ // 走到花圃去种一句：种什么在弹层里挑，perform 不动状态
+ if(kind==='sow')return seedError(s);
  if(kind==='dive')return s.map!=='garden'?'先回庭院，井在屋边。':s.minute>1140?'天太晚了，井底看不见路，明天再来。':'';
  if(kind==='ladder')return s.map==='depths'?'':'你不在井里。';
  if(kind==='deeper'){if(s.map!=='depths')return '先下到井里。';
@@ -620,7 +623,7 @@ export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},labe
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',board:'看公告栏',bottle:'捞漂流瓶'};
+const ACTION_NAMES={door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',board:'看公告栏',bottle:'捞漂流瓶'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}
