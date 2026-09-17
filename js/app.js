@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.08";
+const APP_VERSION = "v70.09";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -701,6 +701,10 @@ function App() {
   const [activeRoomId, setActiveRoomId] = useState("main");
   const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
+  // 进庭院房先看聊天，按了才开存档（她 2026-09-17：「不应该直接打开存档而是一个普通聊天」）。
+  // ⚠️和别的 useState 放在一处：那一片 helper 区会被好几条测试单独抽出来跑，
+  //   把 hook 写进去，它们一跑就是 useState is not defined。
+  const [gardenOpen, setGardenOpen] = useState("");
   const [studyEntry, setStudyEntry] = useState(null);
   const [readEntry, setReadEntry] = useState(null);   // 从房间那张「接着读」卡进来时带的落点
   const [gameEntry, setGameEntry] = useState(null);
@@ -21331,7 +21335,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: characters.find(c => c.id === activeCardId),
     onBack: () => setScreen("wallet"),
     onRaise: ask => requestKinshipRaise(activeCardId, ask)
-  });else if (screen === "thread" && activeChar && gardenRoomOf(activeChar.id, activeRoomId)) body = h(window.FairyGardenApp, (() => {
+  });else if (screen === "thread" && activeChar && gardenRoomOf(activeChar.id, activeRoomId) && gardenOpen === activeRoomId) body = h(window.FairyGardenApp, (() => {
     // ── 庭院房（她 2026-09-16：「专门做一间房只给庭院的」）─────────────────
     // 这一支和首页那个架空入口是同一个组件，差别全在这三样 props 上：
     //   storeKey  一间房一个存档（多开几间就是多档；「存档已经切换」那个报错也没了）
@@ -21359,7 +21363,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))])
       },
       toast: toast,
-      onBack: () => setScreen("messages")
+      // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
+      onBack: () => setGardenOpen("")
     };
   })());else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
     key: activeChar.id + "::" + activeRoomId,
@@ -21407,6 +21412,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
+    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? () => setGardenOpen(activeRoomId) : null,
     // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）────────────────
     // 一间房可以放好几本；当前这一本由【最后一次提到的那一本】定，她也可以点着换。
     // ⚠️换书不会把之前聊过的那本冲掉：a 的设定前情是每一轮从 a 身上现拼的，
