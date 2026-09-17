@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-d2b0b233fe223ce7';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-d2b0b233fe223ce7';
+import {stepRoute} from './locomotion.mjs?v=fg-357ad9f39fcdf715';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-357ad9f39fcdf715';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -9,8 +9,28 @@ const activity=ACTIVITIES;
 //   地板表里没有它＝没配线路的人打开游戏，他从此再也不浇花了——这种悄悄没掉的东西最坏。
 //   它不是「性格」，是家门口那件唯一的杂活。
 const FALLBACK=[[420,'home'],[480,'flowers'],[720,'walk'],[1080,'home']];
-export function dailySchedule(s){const season=seasonOf(s.day),plan=s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null;const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]:FALLBACK;return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&activity[id].map==='forest'){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
-export function plannedActivity(s){const list=dailySchedule(s);return list.findLast(item=>s.minute>=item.start)||list[0];}
+// 邻居的「家」是他自己那间屋：⚠️不改这一句的话，三个邻居全会挤在你家门口。
+function spread(id,target,map){
+ let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))>>>0;
+ const a=(h%8)/8*Math.PI*2,r=.55+((h>>3)%3)*.22;
+ const p={x:target.x+Math.cos(a)*r,z:target.z+Math.sin(a)*r};
+ return walkable(p.x,p.z,map)?p:target;
+}
+function homeFor(s,plan){const who=s.companion;if(!who||!who.home)return plan;
+ const h=who.home,site=MAPS.garden.sites[h];
+ // 邻居的「家」是他自己那间屋：不改这一句的话，三个邻居全会挤在你家门口
+ if(site&&['home','rain'].includes(plan.id))
+  return {...plan,map:'garden',target:spread(who.charId,site.target,'garden'),label:'在'+site.label+'门前'};
+ return {...plan,target:spread(who.charId,plan.target,plan.map)};}
+const NEIGHBOR_DAY=[[420,'home'],[540,'walk'],[780,'market'],[1020,'bridge'],[1200,'home']];
+// 三个邻居别整齐划一地同时出门：按 charId 把时刻各错开一点
+const shiftBy=id=>{let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))>>>0;return (h%5)*18;};
+export function dailySchedule(s){const season=seasonOf(s.day),who=s.companion,
+ plan=who&&who.home?null:(s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null);
+ const shift=who&&who.home?shiftBy(who.charId):0;
+ const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]
+  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):FALLBACK);return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&activity[id].map==='forest'){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
+export function plannedActivity(s){const list=dailySchedule(s);return homeFor(s,list.findLast(item=>s.minute>=item.start)||list[0]);}
 export const PERSONAL_SPACE=.58;
 function followPoint(s){
  const p=s.position,c=s.companion,from=c.map===s.map?c.position:MAPS[s.map].spawn,d=Math.hypot(from.x-p.x,from.z-p.z);
@@ -41,9 +61,12 @@ export function makeCompanionController(){
  let speed=0;
  let route=[],routeKey='',idle=0,finishedKey='',moving=false,gesture='rest',heading=0,status='准备出门',stuck=false,cooldown=0,cachedFollow=null;
  function reset(){speed=0;route=[];routeKey='';idle=0;finishedKey='';moving=false;stuck=false;cachedFollow=null;}
- function tick(s,dt,{allowCare=true}={}){
+ // ⚠️autonomous＝这一位是邻居，不是跟你在一起的那个：
+ //   「来找你说话」「去馆里看你留下的东西」「帮你浇花」都是【你和他之间】的事，
+ //   邻居跟着做就荒唐了（三个人排队来找你说话）。走路那一段照旧共用。
+ function tick(s,dt,{allowCare=true,autonomous=false}={}){
   cooldown=Math.max(0,cooldown-dt);
-  const c=s.companion,sleeping=!!MAPS.home.beds[s.sleep?.companion],wants=missIntent(s),routine=wants?{...wants,target:s.position}:(sleeping?companionPlan(s):c.mode==='follow'?null:c.mode==='routine'?plannedActivity(s):companionPlan(s)),needsNear=!sleeping&&(!!wants||c.mode==='follow'||routine.map===s.map&&Math.hypot(routine.target.x-s.position.x,routine.target.z-s.position.z)<.65);
+  const c=s.companion,sleeping=!!MAPS.home.beds[s.sleep?.companion],wants=autonomous?null:missIntent(s),routine=wants?{...wants,target:s.position}:(sleeping?companionPlan(s):c.mode==='follow'?null:c.mode==='routine'?plannedActivity(s):companionPlan(s)),needsNear=!sleeping&&(!!wants||c.mode==='follow'||routine.map===s.map&&Math.hypot(routine.target.x-s.position.x,routine.target.z-s.position.z)<.65);
   const choiceKey=wants?'miss:'+s.day:c.mode==='follow'?'follow:'+String(s.seat):`${s.day}:${routine.id}:${routine.start}`;let plan;
   if(needsNear){if(!cachedFollow||cachedFollow.key!==choiceKey||cachedFollow.map!==s.map||cachedFollow.fromMap!==c.map||Math.hypot(s.position.x-cachedFollow.anchor.x,s.position.z-cachedFollow.anchor.z)>.25||stuck&&cooldown<=0)cachedFollow={key:choiceKey,plan:c.mode==='goto'?{...routine,target:followPoint(s)}:companionPlan(s),map:s.map,fromMap:c.map,anchor:{...s.position}};plan=cachedFollow.plan;}else{cachedFollow=null;plan=routine;}
   const cross=c.map!==plan.map,exit=cross?exitToward(c.map,plan.map):null;if(cross&&!exit){moving=false;status='这里还没有通往那里的小路';return {state:s,event:null};}const goal=cross?exit.target:plan.target,avoid=c.map===s.map?[{...s.position,r:PERSONAL_SPACE}]:[];
@@ -54,8 +77,8 @@ export function makeCompanionController(){
   else if(stuck){status='在原地等一条合适的小路';}
   else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
-   if(allowCare&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
-   if(plan.id==='museum'&&idle>=2.8&&finishedKey!==key){finishedKey=key;
+   if(allowCare&&!autonomous&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
+   if(!autonomous&&plan.id==='museum'&&idle>=2.8&&finishedKey!==key){finishedKey=key;
     const kept=(s.collection||[])[0];
     if(kept){out=noteHappening(addMiss(s,'kept'),'world',c.name+'在馆里站了一会儿，看的是「'+kept.name+'」');
      event=`${c.name}去馆里看了看你留下的东西。`;}

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-d2b0b233fe223ce7", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-357ad9f39fcdf715", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -378,13 +378,15 @@
     const [things, setThings] = useState(null);
     const [museum, setMuseum] = useState(null);
     const [bottles, setBottles] = useState(null);
+    const [crew, setCrew] = useState(null);
     const [bottleText, setBottleText] = useState("");
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
       if (g.getShards) setShardBox(g.getShards());
       if (g.getThings) setThings(g.getThings());
       if (g.getCollection) setMuseum(g.getCollection());
-      if (g.getBottles) setBottles(g.getBottles()); };
+      if (g.getBottles) setBottles(g.getBottles());
+      if (g.getNeighbors) setCrew(g.getNeighbors()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -488,7 +490,8 @@
              ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
              ["things", "屋里", ((things && things.rows) || []).length],
              ["museum", "收藏馆", ((museum && museum.rows) || []).length],
-             ["bottle", "漂流瓶", ((bottles && bottles.floating) || []).length]].map(([k, label, n]) => {
+             ["bottle", "漂流瓶", ((bottles && bottles.floating) || []).length],
+             ["crew", "邻居", ((crew && crew.rows) || []).length]].map(([k, label, n]) => {
               const on = bookTab === k;
               return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
                 style: { padding: on ? "12px 0 13px" : "8px 0 9px", fontFamily: F_BODY, fontSize: on ? 13 : 12,
@@ -497,7 +500,39 @@
                   borderRadius: "11px 11px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 2 : 1 } },
                 label + (n ? " " + n : "")); })),
           h("div", { style: { height: 1, background: G.line, marginTop: 0 } }),
-          bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
+          bookTab === "crew" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
+            // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "村里有三间邻居屋。请谁住进来，谁就在村里过自己的日子——早上出门、去集市、傍晚回自己门前，你走在村里会碰见。"),
+            ((crew && crew.rows) || []).length ? h("div", { style: { display: "grid", gap: 10, marginBottom: 18 } },
+              crew.rows.map(n => h("div", { key: n.charId, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, n.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, n.houseLabel)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5 } },
+                  n.here ? "这会儿跟你在同一张图上" : "这会儿在" + n.map),
+                h("button", { onClick: () => { const g = game(); if (!g || !g.moveOut) return;
+                    const err = g.moveOut(n.charId);
+                    if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。"); },
+                  className: "active:opacity-60",
+                  style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } },
+                  "请 TA 搬走"))))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
+                  "三间屋都空着。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } },
+              (crew && crew.free) ? "请谁搬进来" : "三间都住满了"),
+            (crew && crew.free) ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+              (props.characters || []).filter(c => String(c.id) !== String(entry.partnerId)
+                && !((crew && crew.rows) || []).some(n => String(n.charId) === String(c.id)))
+                .slice(0, 40).map(c => h("button", { key: c.id, className: "active:opacity-70",
+                  onClick: () => { const g = game(); if (!g || !g.moveIn) return;
+                    const err = g.moveIn({ charId: c.id, name: c.remark || c.name, look: {} });
+                    if (err) { props.toast(err); return; } pullGarden(); props.toast((c.remark || c.name) + "搬进来了。"); },
+                  style: { ...pill(true), borderColor: G.line, color: G.soft, background: "rgba(255,255,255,.55)" } },
+                  c.remark || c.name)))
+              : null)
+          :           bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 漂流瓶：⚠️这一条一个字都不生成。漂回来的全是【已经在存档里的东西】，
             //    她自己封的那句，或者以前的花笺、刨到过的碎片、留在馆里的那一件。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
