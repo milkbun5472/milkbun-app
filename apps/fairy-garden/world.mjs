@@ -1,6 +1,6 @@
-import './rules.js?v=fg-6dd39876e81eb33a';
+import './rules.js?v=fg-8fde064777f85a1a';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-6dd39876e81eb33a';
+import {createNavigator} from './navigation.mjs?v=fg-8fde064777f85a1a';
 export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 // Exact rectangle clipping prevents a short diagonal corner cut from passing sampled checks.
 function clipsBox(a,b,o){let lo=0,hi=1;for(const [axis,half]of [['x',o.w/2+.16],['z',o.d/2+.16]]){const min=o[axis]-half+1e-8,max=o[axis]+half-1e-8,d=b[axis]-a[axis];if(Math.abs(d)<1e-12){if(a[axis]<=min||a[axis]>=max)return false;}else{const t1=(min-a[axis])/d,t2=(max-a[axis])/d;lo=Math.max(lo,Math.min(t1,t2));hi=Math.min(hi,Math.max(t1,t2));if(lo>=hi)return false;}}return hi>0&&lo<1;}
@@ -233,7 +233,10 @@ export const lampShelter = s => lampOn(s) && ['细雨', '细雪'].includes(weath
 export const CRAFT_WAYS = {
   distill: { label: '蒸馏', note: '只留下最鲜明的那一点声音、气味或感觉' },
   set: { label: '凝结', note: '做成能摆出来、能拿在手上的东西' },
-  ferment: { label: '发酵', note: '先封起来，过几天回来看它变成了什么', days: 2 }
+  ferment: { label: '发酵', note: '先封起来，过几天回来看它变成了什么', days: 2 },
+  // 合炉要【两片不同种类】的碎片。⚠️它是让那四种碎片互相认识的唯一一处：
+  //   没有它，四种碎片各走各的三条路，攒哪一种都一样。
+  fuse: { label: '合炉', note: '两片不一样的碎片一起下锅，出来的是第三样东西', pair: true }
 };
 // 配方表：材料定大方向，手法定形状。不公开全表，做成过的记进炼金笔记。
 const CRAFT = {
@@ -250,7 +253,65 @@ const CRAFT = {
     set: ['接好的小机关', '缺的那半被补上了，能转起来。'],
     ferment: ['长出东西的遗物', '放了几天，上面长出了不该长的东西。'] }
 };
+// 完整的一片（下到深处才刨得到那种）做出来的是另一样东西。
+// ⚠️这一张是【下潜的回报】：没有它，下到第九层和第一层刨到的碎片做出来一模一样，
+//   那口井就只剩一个数字在变。
+const WHOLE = {
+  echo: { distill: ['一整句留下来的话', '不是片段了。从头到尾，连那口气都在。'],
+    set: ['回声灯 · 长明', '灯罩里那段光不再断，天黑了整夜都亮着。'],
+    ferment: ['会接话的坛子', '封久了它学会了接下半句——虽然接得并不对。'] },
+  dream: { distill: ['一整场梦的余味', '闻得出开头、中间和醒来，顺序都还在。'],
+    set: ['琥珀梦', '整场封在一块琥珀里，转个角度能看见不同的一段。'],
+    ferment: ['醒着的梦', '它不睡了。放在桌上，偶尔自己动一下。'] },
+  sense: { distill: ['一场完整的雨', '从第一滴到停，封在一只细管里。'],
+    set: ['雨铃 · 整场', '挂在屋檐下。下雨时它不是响一声，是把整场雨都响完。'],
+    ferment: ['久放的潮气', '受潮到底了，凑近像站在雨后的院子里。'] },
+  relic: { distill: ['擦亮的整件东西', '不是零件了，看得出它本来是干什么用的。'],
+    set: ['修好的旧物', '缺的都补齐了，能用，也能摆。'],
+    ferment: ['重新长起来的旧物', '放着放着它把自己续上了，续出来的那半不是原来的样子。'] }
+};
+// 合炉：两片【不同种类】的碎片。键是两种类名排过序、用 | 连起来，只有这六种组合。
+const FUSE = {
+  'dream|echo': ['半梦半醒的一句', '一半是梦里的，一半是真说过的，分不出哪句是哪句。'],
+  'dream|relic': ['做梦的旧物', '这件东西在做梦，梦见自己还是新的。'],
+  'dream|sense': ['一场梦的天气', '梦里那天的天气被单独留了下来，摸得到。'],
+  'echo|relic': ['会说话的旧物', '凑近它，它用那件东西自己的声音重复一句。'],
+  'echo|sense': ['带着天气的一句', '那句话连着当时的风声一起留下来了。'],
+  'relic|sense': ['一件东西的手感', '看不见，但握上去确实有那件东西的分量。']
+};
 const ODD = ['一团不知道是什么的东西', '你到底往里面放了什么。'];
+// 一条配方的名字（做成过的会记进炼金笔记，没做成过的只显示「？」和材料）
+const fuseKey = (a, b) => [a, b].sort().join('|');
+export const recipeKey = (kind, way, whole, other) =>
+  way === 'fuse' ? 'f:' + fuseKey(kind, other) : (whole ? 'w:' : '') + kind + ':' + way;
+function recipeRow(kind, way, whole, other){
+  if (way === 'fuse') return FUSE[fuseKey(kind, other)] || ODD;
+  const table = whole ? WHOLE : CRAFT;
+  return (table[kind] && table[kind][way]) || (CRAFT[kind] && CRAFT[kind][way]) || ODD;
+}
+// 炼金笔记的全表：三十种。⚠️只在这一处生成，界面别再抄一份（施工规则/one-public-mechanism.md）
+export function recipeIndex(){
+  const out = [];
+  for (const kind of Object.keys(SHARD_KINDS)) {
+    for (const way of ['distill', 'set', 'ferment']) {
+      out.push({ key: recipeKey(kind, way, false), name: CRAFT[kind][way][0], note: CRAFT[kind][way][1],
+        how: SHARD_KINDS[kind] + ' · ' + CRAFT_WAYS[way].label });
+      out.push({ key: recipeKey(kind, way, true), name: WHOLE[kind][way][0], note: WHOLE[kind][way][1],
+        how: '完整的' + SHARD_KINDS[kind] + ' · ' + CRAFT_WAYS[way].label });
+    }
+  }
+  for (const key of Object.keys(FUSE)) {
+    const [a, b] = key.split('|');
+    out.push({ key: 'f:' + key, name: FUSE[key][0], note: FUSE[key][1],
+      how: SHARD_KINDS[a] + ' ＋ ' + SHARD_KINDS[b] + ' · 合炉' });
+  }
+  return out;
+}
+export const RECIPE_TOTAL = recipeIndex().length;
+export function restoreMade(raw){
+  const all = new Set(recipeIndex().map(r => r.key));
+  return [...new Set((Array.isArray(raw) ? raw : []).filter(k => all.has(k)))];
+}
 export const THING_CAP = 120;
 // 能摆的地方。⚠️位置写在这儿一处，游戏那头照这个找坐标（别再编第二套）
 export const SPOTS = { eaves: '屋檐下', sill: '窗台', pond: '池边' };
@@ -258,23 +319,40 @@ export function restoreThings(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.name).slice(0, THING_CAP).map(x => ({
     id: String(x.id).slice(0, 40), name: trimText(x.name, 24), note: trimText(x.note, 200),
     kind: shardKind(x.kind) || 'relic', way: Object.hasOwn(CRAFT_WAYS, x.way) ? x.way : 'set',
+    recipe: typeof x.recipe === 'string' ? x.recipe.slice(0, 40) : '',
     from: trimText(x.from, 240), day: Math.max(1, count(x.day)),
     openDay: Math.max(0, count(x.openDay)), spot: Object.hasOwn(SPOTS, x.spot) ? x.spot : null
   }));
 }
-export const craftError = (s, shardId, way) =>
-  !Object.hasOwn(CRAFT_WAYS, way) ? '还没有这种做法。'
-  : s.map !== 'garden' ? '锅在庭院里。'
-  : !(s.shards || []).some(x => x.id === shardId) ? '先挑一片碎片。' : '';
-export function craftThing(s, shardId, way){
-  if (craftError(s, shardId, way)) return s;
-  const shard = (s.shards || []).find(x => x.id === shardId);
-  const row = (CRAFT[shard.kind] && CRAFT[shard.kind][way]) || ODD;
+const shardOf = (s, id) => (s.shards || []).find(x => x.id === id) || null;
+export function craftError(s, shardId, way, secondId){
+  if (!Object.hasOwn(CRAFT_WAYS, way)) return '还没有这种做法。';
+  if (s.map !== 'garden') return '锅在庭院里。';
+  const first = shardOf(s, shardId);
+  if (!first) return '先挑一片碎片。';
+  if (!CRAFT_WAYS[way].pair) return '';
+  const second = shardOf(s, secondId);
+  if (!second || second.id === first.id) return '合炉要两片碎片，再挑一片。';
+  if (second.kind === first.kind) return '两片一样的合不出第三样来，换一种。';
+  return '';
+}
+export function craftThing(s, shardId, way, secondId){
+  if (craftError(s, shardId, way, secondId)) return s;
+  const first = shardOf(s, shardId), pair = CRAFT_WAYS[way].pair;
+  const second = pair ? shardOf(s, secondId) : null;
+  // 合炉那一样归在【排在前面那种】名下，免得同一炉按挑的先后算出两个不同的键
+  const kind = pair ? [first.kind, second.kind].sort()[0] : first.kind;
+  const whole = pair ? false : first.whole === true;
+  const row = recipeRow(first.kind, way, whole, second && second.kind);
+  const key = recipeKey(first.kind, way, whole, second && second.kind);
   const days = CRAFT_WAYS[way].days || 0;
+  const used = pair ? first.text + ' ／ ' + second.text : first.text;
   const thing = { id: 'th_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
-    name: row[0], note: row[1], kind: shard.kind, way, from: shard.text, day: s.day,
+    name: row[0], note: row[1], kind, way, recipe: key, from: trimText(used, 240), day: s.day,
     openDay: days ? s.day + days : 0, spot: null };
-  return { ...s, shards: (s.shards || []).filter(x => x.id !== shardId),
+  const gone = new Set([first.id, ...(second ? [second.id] : [])]);
+  return { ...s, shards: (s.shards || []).filter(x => !gone.has(x.id)),
+    made: restoreMade([...(s.made || []), key]),
     things: [thing, ...(s.things || [])].slice(0, THING_CAP) };
 }
 // 发酵的那几样：到日子才算做好（在那之前摆不出去，也读不到）
@@ -291,6 +369,45 @@ export const bellRings = s => {
   const t = placedAt(s, 'eaves');
   return !!(t && t.name === '雨铃' && ['细雨', '细雪'].includes(weather(s.day, s.epoch)));
 };
+// ── 收藏馆（公共厅里，她 2026-09-17 点的）─────────────────────────────
+// ⚠️这一条也一枪都不打。它要解决的是【出口】：屋檐、窗台、池边一共只有三个位置，
+//   做出来的第四样往后全堆在盒子里没去处——挖了炼了也就没意思了。
+//   捐进馆里的东西【永不删除】：背包会被 THING_CAP 挤掉，这一份不会。
+// ⚠️功绩只记【第一次捐进来的那一种】。同一样捐十件不多算一分，
+//   不然它就变成一条刷分的路，而不是一间馆。
+export const COLLECTION_CAP = 200;
+export function restoreCollection(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.name).slice(0, COLLECTION_CAP).map(x => ({
+    id: String(x.id).slice(0, 40), name: trimText(x.name, 24), note: trimText(x.note, 200),
+    kind: shardKind(x.kind) || 'relic', way: Object.hasOwn(CRAFT_WAYS, x.way) ? x.way : 'set',
+    recipe: typeof x.recipe === 'string' ? x.recipe.slice(0, 40) : '',
+    from: trimText(x.from, 240), day: Math.max(1, count(x.day)), gaveDay: Math.max(1, count(x.gaveDay))
+  }));
+}
+export function donateError(s, id){
+  if (s.map !== 'museum') return '先走进收藏馆，再把东西留下。';
+  const t = (s.things || []).find(x => x.id === id);
+  if (!t) return '先挑一样东西。';
+  if (!thingReady(s, t)) return '这一样还封着，等它开了再捐。';
+  if ((s.collection || []).length >= COLLECTION_CAP) return '馆里摆满了。';
+  return '';
+}
+// 算「是不是同一种」用的那一把尺。⚠️v69.41 之前做的东西身上没有 recipe，
+//   光比 recipe 的话它们每一件都算「新的一种」——那就又成了一条刷分的路。
+const sameKindMark = t => t.recipe || ('名:' + t.name);
+export function donate(s, id){
+  if (donateError(s, id)) return s;
+  const t = (s.things || []).find(x => x.id === id);
+  const mark = sameKindMark(t);
+  const first = !(s.collection || []).some(x => sameKindMark(x) === mark);
+  const row = { id: t.id, name: t.name, note: t.note, kind: t.kind, way: t.way,
+    recipe: t.recipe || '', from: t.from, day: t.day, gaveDay: s.day };
+  return { ...s, things: (s.things || []).filter(x => x.id !== id),
+    collection: [row, ...(s.collection || [])].slice(0, COLLECTION_CAP),
+    deeds: count(s.deeds) + (first ? 1 : 0) };
+}
+// 馆里已经有几种（不是几件）：炼金笔记那一页拿它对着 RECIPE_TOTAL 算进度
+export const collectedKinds = s => new Set((s.collection || []).map(sameKindMark)).size;
 // ── 星井（下潜）────────────────────────────────────────────────────────
 // depth   现在在第几层（0＝在地面上）
 // sand    星砂：三份能在炼药锅换一颗月露
@@ -300,10 +417,10 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:8,layout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
-export function restoreState(raw){if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:8,layout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
+export function freshState(){return {version:9,layout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function restoreState(raw){if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 export function nextDay(s){const day=s.day+1;return {...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms};}
 export function advanceTime(s,minutes){let remaining=count(minutes,9600),out=s;while(remaining>0){const span=1380-out.minute;if(remaining<span)return {...out,minute:out.minute+remaining};remaining-=span;out=nextDay(out);}return out;}
 export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
