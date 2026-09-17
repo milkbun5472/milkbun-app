@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-610e15f33b6882ec", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-7d9e2061344cd5fe", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
@@ -93,7 +93,44 @@
     if (!out.length) { const e = new Error("这次一株都没回上来，可以重试。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return out;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason, blossoms, SEED_LABELS };
+  // ── 碎片：下潜时一次生成一批，慢慢挖出来（同花笺那条闸）──────────────
+  // ⚠️深度只决定【完整度和奇异度】，不决定情感重量——「B1 普通想法、B20 童年创伤」
+  //   那种梯子她点名不要。这条在提示词里写死。
+  // ⚠️能捞的（回忆/联想/他那边）只许从真东西里长；想象的那几类必须看得出是想象。
+  const SHARD_LABELS = { memory: "回忆", link: "联想", world: "他那边",
+    unsaid: "没说出口", dream: "梦的边角", habit: "旧习惯", sense: "一点声音气味", ahead: "以后" };
+  async function shards({ active, character, profile, world, mainline, depth, want }) {
+    if (!active) throw new Error("先在设置里配置创作线路，再下井。");
+    const n = Math.max(1, Math.min(8, Number(want) || 6));
+    const uName = userName(profile);
+    const sys = [sharedStyle(), roleContext(character, profile, mainline),
+      "【星井】「" + uName + "」在井底的石头里刨出一些碎片。碎片是【关于你的东西】："
+        + "一小块回忆、一个没说出口的半句、一个梦的边角、一个连你自己都没留意的习惯、"
+        + "一点声音或气味、一个奇怪的联想、一个你偶尔想象过的以后、一件你那边最近的小事。",
+      "【当前世界的事实】\n" + JSON.stringify(world),
+      "【这一层】第 " + Math.max(1, Number(depth) || 1) + " 层。"
+        + "⚠️越深的只是【越完整、越奇怪】，不是越深情、越惨、越隐秘——别按层数往上堆情绪。"
+        + "浅处也可以挖到很珍贵的东西，深处也可以只是「突然很想吃烤红薯」。",
+      "【怎么写】每片一两句，短，像碎片：不解释前因后果，不交代是什么时候的事，"
+        + "不写成完整的小故事。别每片都是同一个调子，别都在说她。\n"
+        + "kind 只能取：memory（回忆）｜link（联想）｜world（他那边）｜unsaid（没说出口）｜"
+        + "dream（梦的边角）｜habit（旧习惯）｜sense（一点声音气味）｜ahead（以后）。\n"
+        + "⚠️memory / link / world 这三类【只能从上面真给到你的东西里长】——真没有就别选这三类，"
+        + "换成别的。绝不许编一段你们其实没发生过的共同经历。\n"
+        + "⚠️dream / ahead / unsaid 是你脑子里的东西，不是真发生过的事，写的时候就让人看得出来。",
+      '【输出格式】只输出 JSON 数组，' + n + ' 条：[{"kind":"上面那八个之一","text":"这一片上写着什么","whole":false}]。'
+        + 'whole 只有在这一片本身是完整一件事时才为 true。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "刨开这一层。" }], { maxTokens: 20000, timeout: 180000, tag: "微光庭院碎片" });
+    const parsed = extractJSON(raw);
+    const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.shards) ? parsed.shards : null);
+    if (!list) { const e = new Error("这次没读懂井里的东西，可以再下一次。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    const out = list.filter(x => x && SHARD_LABELS[String(x.kind)] && String(x.text || "").trim())
+      .map(x => ({ kind: String(x.kind), text: String(x.text).trim().slice(0, 240), whole: x.whole === true })).slice(0, n);
+    if (!out.length) { const e = new Error("这一层什么都没刨出来，可以再下一次。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return out;
+  }
+  root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason, blossoms, shards, SEED_LABELS, SHARD_LABELS };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   function GardenSession(props) {
@@ -156,6 +193,20 @@
         openChat: () => openChat(true), changePartner,
         // 收花笺：游戏那头走到花圃按下收，生成这一枪在这儿打（callAI 在父页）。
         // 一次把开好的全回了，回来由游戏自己写进存档。
+        // 下潜时补一池碎片：一次调用出一批，接下来几层刨到的都是从这池里取
+        dig: async depth => {
+          const c = partner();
+          if (!c) throw new Error("先选一位同行者，井里才有东西。");
+          const epoch = serial.current;
+          return await shards({
+            active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+            character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+            world: (game() && game().snapshot()) || {}, depth: depth
+          }).then(out => {
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这一批碎片没有写入。");
+            return out;
+          });
+        },
         bloom: async rows => {
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
           const c = partner();
@@ -218,7 +269,11 @@
     const [garden, setGarden] = useState(null);
     const [seedKind, setSeedKind] = useState("miss");
     const [seedAsk, setSeedAsk] = useState("");
-    const pullGarden = () => { const g = game(); if (g && g.getGarden) setGarden(g.getGarden()); };
+    const [bookTab, setBookTab] = useState("notes");   // notes=花册 / shards=碎片盒
+    const [shardBox, setShardBox] = useState(null);
+    const pullGarden = () => { const g = game(); if (!g) return;
+      if (g.getGarden) setGarden(g.getGarden());
+      if (g.getShards) setShardBox(g.getShards()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -305,7 +360,29 @@
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         book && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
-          h("div", { style: { padding: "16px 16px 40px" } },
+          // 两格：花册 / 碎片盒。底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
+          h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
+            [["notes", "花册", ((garden && garden.notes) || []).length], ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length]].map(([k, label, n]) =>
+              h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-70",
+                style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: bookTab === k ? G.ink : "#93a188",
+                  borderBottom: "2px solid " + (bookTab === k ? G.deep : "transparent"), background: "transparent" } },
+                label + (n ? " " + n : "")))),
+          bookTab === "shards" ? h("div", { style: { padding: "16px 16px 40px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "井底石头里刨出来的东西。越深的只是越完整、越奇怪，不是越沉重。"),
+            ((shardBox && shardBox.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
+              shardBox.rows.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(sh =>
+                h("div", { key: sh.id, style: { borderRadius: 14, border: "1px solid " + (sh.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                    "〔" + ((shardBox.kinds && shardBox.kinds[sh.kind]) || "碎片") + "〕第 " + sh.depth + " 层 · 第 " + sh.day + " 天" + (sh.whole ? " · 完整的一片" : "")),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, sh.text),
+                  h("button", { onClick: () => { const g = game(); if (g && g.pinShard) { g.pinShard(sh.id); pullGarden(); } }, className: "active:opacity-60",
+                    style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: sh.pinned ? G.deep : "#93a188", background: "transparent" } },
+                    sh.pinned ? "已钉住" : "钉住"))))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+                  "还没有。从屋边那口井下去，石头里有东西。"),
+            shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, color: G.soft } }, "正在读这一层的石头…") : null)
+          : h("div", { style: { padding: "16px 16px 40px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "把想问的话种进花圃，过三天开花。开好了走到花圃那儿收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
             // 种下
@@ -346,8 +423,7 @@
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, nt.reply),
                   h("button", { onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
                     style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
-                    nt.pinned ? "已钉住" : "钉住"))))))
-        ,
+                    nt.pinned ? "已钉住" : "钉住")))))),
         dress && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
           h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },

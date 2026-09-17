@@ -1,6 +1,6 @@
-import './rules.js?v=fg-610e15f33b6882ec';
+import './rules.js?v=fg-7d9e2061344cd5fe';
 export const {START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-610e15f33b6882ec';
+import {createNavigator} from './navigation.mjs?v=fg-7d9e2061344cd5fe';
 export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;return !MAPS[map].obstacles.some(o=>{if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 export function segmentClear(a,b,map='garden',avoid=[]){const minimum=avoid.map(o=>Math.min(o.r,Math.hypot(a.x-o.x,a.z-o.z)));const len=Math.hypot(b.x-a.x,b.z-a.z),n=Math.max(1,Math.ceil(len/.07));for(let i=0;i<=n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(!walkable(x,z,map)||avoid.some((o,j)=>Math.hypot(x-o.x,z-o.z)<minimum[j]-1e-6))return false;}return true;}
 export const floorHeight=(map,p)=>MAPS[map]?.surfaces?.find(s=>Math.abs(p.x-s.x)<s.w/2&&Math.abs(p.z-s.z)<s.d/2)?.height??.08;
@@ -76,15 +76,53 @@ export function keepNotes(s, rows){
 export function pinNote(s, id){
   return { ...s, notes: (s.notes || []).map(n => n.id === id ? { ...n, pinned: !n.pinned } : n) };
 }
+// ── 碎片：井里刨出来的不是矿，是【关于这个人的东西】（她 2026-09-16 定的方向）──
+// ⚠️深度只决定【完整度】，不决定情感重量：B1 普通想法、B20 童年创伤那种梯子
+//   是游戏八股，她点名不要。越深只是越完整、越奇。
+// ⚠️能捞的（回忆/联想/他那边）必须从真东西里长；想象的（梦/以后/没说出口/旧习惯/
+//   感官）永远带着「这是想象」的身份，不进正史。这条在提示词那头写死。
+export const SHARD_KINDS = {
+  memory: '回忆', link: '联想', world: '他那边',
+  unsaid: '没说出口', dream: '梦的边角', habit: '旧习惯', sense: '一点声音气味', ahead: '以后'
+};
+export const SHARD_CAP = 240, VEIN_POOL = 6;
+export function restoreShards(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.text && Object.hasOwn(SHARD_KINDS, x.kind)).slice(0, SHARD_CAP).map(x => ({
+    id: String(x.id).slice(0, 40), kind: x.kind, text: trimText(x.text, 240),
+    whole: x.whole === true, depth: Math.max(0, count(x.depth)), day: Math.max(1, count(x.day)), pinned: x.pinned === true
+  }));
+}
+// 还没被刨出来的那几片（下潜时由宿主一次生成一批填进来，慢慢挖）
+export function restoreVein(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.text && Object.hasOwn(SHARD_KINDS, x.kind)).slice(0, VEIN_POOL * 2)
+    .map(x => ({ kind: x.kind, text: trimText(x.text, 240), whole: x.whole === true }));
+}
+export const veinLow = s => (s.vein || []).length <= 1;
+export function fillVein(s, rows){
+  const add = restoreVein(rows);
+  return add.length ? { ...s, vein: [...(s.vein || []), ...add].slice(0, VEIN_POOL * 2) } : s;
+}
+// 刨到手：池子里有就取一片，没有就给一块没纹路的石头（不调模型，也不让她空手）
+export function takeShard(s, depth){
+  const pool = s.vein || [];
+  const row = pool[0] || { kind: 'sense', text: '一块没有纹路的石头。握久了有点温。', whole: false };
+  const shard = { id: 'sh_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+    kind: row.kind, text: trimText(row.text, 240), whole: !!row.whole,
+    depth: Math.max(0, count(depth)), day: s.day, pinned: false };
+  return { ...s, vein: pool.slice(1), shards: [shard, ...(s.shards || [])].slice(0, SHARD_CAP) };
+}
+export function pinShard(s, id){
+  return { ...s, shards: (s.shards || []).map(x => x.id === id ? { ...x, pinned: !x.pinned } : x) };
+}
 // ── 星井（下潜）────────────────────────────────────────────────────────
 // depth   现在在第几层（0＝在地面上）
 // sand    星砂：三份能在炼药锅换一颗月露
 // stones  月石：每得一颗，往下的路再通两层（这就是下潜的进度）
 export const deepestAllowed=s=>Math.min(DEPTH_MAX,DEPTH_BASE+count(s&&s.stones)*2);
-export function freshState(){return {version:7,epoch:'initial',seat:null,look:{},seeds:[],notes:[],magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
-export function restoreState(raw){const prior=raw&&[1,2,3,4,5,6,7].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:7,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
+export function freshState(){return {version:8,epoch:'initial',seat:null,look:{},seeds:[],notes:[],shards:[],vein:[],magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function restoreState(raw){const prior=raw&&[1,2,3,4,5,6,7,8].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:8,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein)};}
 export function nextDay(s){const day=s.day+1;return {...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms};}
 export function advanceTime(s,minutes){let remaining=count(minutes,9600),out=s;while(remaining>0){const span=1380-out.minute;if(remaining<span)return {...out,minute:out.minute+remaining};remaining-=span;out=nextDay(out);}return out;}
 export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
@@ -121,9 +159,10 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
   :{...s,herbs:s.herbs-2,mushrooms:s.mushrooms-1,water:s.water-1,potions:s.potions+1};
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);
   // 井底那两样：星砂常见、月石稀罕；越深一次刨出来的越多
-  if(n.map==='depths'){const deep=Math.max(1,s.depth);
-   return n.kind==='stone'?{...s,stones:s.stones+1,picked:[...s.picked,id]}
-    :{...s,sand:s.sand+1+Math.floor(deep/3),picked:[...s.picked,id]};}
+  if(n.map==='depths'){
+   // 「沉下去的东西」＝往下的钥匙；别的矿脉刨出来的是碎片（内容那一层）
+   if(n.kind==='stone')return {...s,stones:s.stones+1,picked:[...s.picked,id]};
+   return takeShard({...s,picked:[...s.picked,id]},s.depth);}
   return {...s,[n.kind==='herb'?'herbs':'mushrooms']:s[n.kind==='herb'?'herbs':'mushrooms']+(n.kind==='herb'?2:1),picked:[...s.picked,id]};}
  // 出口把人放在下一张图上【说好的落点】：默认是那张图的 spawn，
  // 爬梯子上来则是井口（exits.ladder.at）——落点写在出口那一处，不在这儿分支。

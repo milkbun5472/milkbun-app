@@ -40,13 +40,13 @@ test('花笺能钉住，也能从存档读回来',()=>{
  assert.equal(s.notes[0].reply,'有一件事我一直没说。','两头的空白要擦掉');
  const id=s.notes[0].id;
  s=pinNote(s,id);assert.equal(s.notes[0].pinned,true);
- const back=restoreState({version:7,...s});
+ const back=restoreState({version:8,...s});
  assert.equal(back.notes.length,1);
  assert.equal(back.notes[0].pinned,true,'钉住的读回来就松了');
  assert.equal(back.seeds.length,1);
  // 存档里的东西当外来数据看
- assert.deepEqual(restoreState({version:7,notes:[{id:'x'},null,{id:'y',reply:'好'}],seeds:[{id:'z',kind:'瞎写'}]}).notes.map(n=>n.id),['y']);
- assert.equal(restoreState({version:7,seeds:[{id:'z',kind:'瞎写'}]}).seeds.length,0);
+ assert.deepEqual(restoreState({version:8,notes:[{id:'x'},null,{id:'y',reply:'好'}],seeds:[{id:'z',kind:'瞎写'}]}).notes.map(n=>n.id),['y']);
+ assert.equal(restoreState({version:8,seeds:[{id:'z',kind:'瞎写'}]}).seeds.length,0);
 });
 test('走到花圃才收得到，地里没开就别走这一趟',()=>{
  let s=freshState();
