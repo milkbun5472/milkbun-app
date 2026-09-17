@@ -89,3 +89,12 @@ test('瓶子和捞到的记录都存得住，旧存档进来是空的', () => {
   assert.deepEqual(old.bottles, []);
   assert.deepEqual(old.drifts, []);
 });
+
+// ⚠️v69.48 起村落按区整体平移（VILLAGE_ZONES）：新站位不给它写区，
+//   rules.js 加载时就会崩（villagePoint 读 undefined.x），整个游戏起不来。
+test('捞漂流瓶那个站位落在月潭那一区，跟栈桥同一个地方', async () => {
+  const { MAPS } = await import('./world.mjs');
+  const st = MAPS.garden.stations.bottle, site = MAPS.garden.sites.pond.target;
+  assert.ok(st, '站位没了，那按钮就走不过去');
+  assert.ok(Math.hypot(st.x - site.x, st.z - site.z) < 1, '按钮走到的地方要就是水边');
+});
