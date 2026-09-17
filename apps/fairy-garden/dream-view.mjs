@@ -1,0 +1,22 @@
+import * as T from 'three';
+import {MAPS,SEED_PLOTS,dreamStage,spotParse,seedPlot} from './world.mjs?v=fg-cf82e1475ffa1625';
+import {makeCurio} from './curio-view.mjs?v=fg-cf82e1475ffa1625';
+export function makeDreamFlower(){
+ const root=new T.Group(),plant=new T.Group(),flower=new T.Group();root.add(plant);plant.add(flower);flower.position.y=.57;
+ const green=new T.MeshStandardMaterial({color:'#729b8d',roughness:.8}),purple=new T.MeshStandardMaterial({color:'#bfa5df',roughness:.7,emissive:'#a688d0',emissiveIntensity:.3}),gold=new T.MeshStandardMaterial({color:'#e9d5a6',roughness:.8});
+ const add=(g,geo,m,x,y,z)=>{const o=new T.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;g.add(o);return o;};
+ add(plant,new T.CylinderGeometry(.024,.035,.55,8),green,0,.28,0);
+ for(const k of [-1,1]){const leaf=add(plant,new T.SphereGeometry(.12,12,8),green,k*.09,.22,0);leaf.scale.set(1.3,.25,.65);leaf.rotation.z=k*.55;}
+ for(let i=0;i<6;i++){const a=i*Math.PI/3,p=add(flower,new T.SphereGeometry(.14,12,8),purple,Math.cos(a)*.14,0,Math.sin(a)*.14);p.scale.set(1,.5,1.4);p.rotation.y=-a;}
+ add(flower,new T.SphereGeometry(.085,12,8),gold,0,.02,0);
+ root.userData.plant=plant;root.userData.flower=flower;return root;
+}
+export function makeDreamGarden(scene,getViews){
+ const root=new T.Group();root.name='梦种花圃';scene.add(root);const plots=[];
+ for(let i=0;i<SEED_PLOTS;i++){const b=MAPS.garden.flowerbeds[(1+Math.floor(i/3))%MAPS.garden.flowerbeds.length],g=new T.Group();g.position.set(b.x+(1-i%3)*b.w*.28,.30,b.z-.23);root.add(g);const model=makeDreamFlower(),seed=makeCurio('seed');seed.scale.setScalar(.32);g.add(model,seed);plots.push({g,model,seed});}
+ const flying=makeCurio('seed');flying.scale.setScalar(.35);root.add(flying);const placed=new Map();let lastThings=null;
+ return {root,update(s,time,job){root.visible=s.map==='garden';flying.visible=job?.kind==='dreamSow';if(flying.visible){const i=Array.from({length:SEED_PLOTS},(_,i)=>i).find(i=>!s.seeds.some(x=>!x.done&&seedPlot(s,x)===i))||0;flying.position.copy(plots[i].g.position);flying.position.y+=Math.max(0,1-job.time/1.5)*.9;flying.rotation.y=time*2;}const active=s.seeds.filter(x=>!x.done);plots.forEach((p,i)=>{const x=active.find(x=>seedPlot(s,x)===i);p.g.visible=!!x?.origin;if(!p.g.visible)return;const stage=dreamStage(s,x);p.seed.visible=stage===0;p.model.visible=stage>0;p.model.scale.setScalar(stage===1?.45:stage===2?.8:1);p.model.userData.flower.scale.setScalar(stage<3?.38:1);p.model.rotation.z=Math.sin(time*1.3+i)*.035;});
+ if(lastThings!==s.things){lastThings=s.things;for(const [id,p]of placed)if(!s.things.some(t=>t.id===id&&t.spot===p.spot)){scene.remove(p.model);p.model.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});placed.delete(id);}for(const t of s.things.filter(t=>t.recipe==='dreamflower'&&t.spot)){if(placed.has(t.id))continue;const parsed=spotParse(t.spot),legacy={sill:MAPS.garden.stations.rest,eaves:MAPS.garden.stations.rest,pond:MAPS.garden.seats.pond},piece=parsed?.piece||legacy[t.spot];if(!piece)continue;const model=makeDreamFlower();model.scale.setScalar(.7);model.position.set(piece.x,(piece.h||piece.height||.7)+.14,piece.z);scene.add(model);placed.set(t.id,{model,map:parsed?.map||'garden',spot:t.spot});}}
+ for(const p of placed.values()){p.model.visible=s.map===p.map;p.model.rotation.z=Math.sin(time)*.025;if(p.model.visible&&p.view!==getViews()[p.map]){p.view=getViews()[p.map];if(p.view){p.view.root.updateMatrixWorld(true);const ray=new T.Raycaster(new T.Vector3(p.model.position.x,8,p.model.position.z),new T.Vector3(0,-1,0));const hit=ray.intersectObject(p.view.root,true).find(h=>h.point.y<3);if(hit)p.model.position.y=hit.point.y+.025;}}}
+ },inspectPlaced(){return [...placed.values()].map(p=>({visible:p.model.visible,x:p.model.position.x,y:p.model.position.y,z:p.model.position.z}));},inspect(){return plots.filter(p=>p.g.visible&&root.visible).map(p=>({x:p.g.position.x,z:p.g.position.z,seed:p.seed.visible,size:p.model.scale.x}));}};
+}
