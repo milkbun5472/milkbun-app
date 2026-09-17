@@ -166,3 +166,11 @@ node scripts/build-fairy-garden.mjs
 输出 assembled village-spacious.blend/png 和八份 village-{ground,home,hall,neighbor1,neighbor2,neighbor3,pond,museum}.blend。导出仍走 export-fairy-village.py；地景使用 `--ratio=.12`，收藏馆使用 `--detail` 保留薄屋顶，其余默认 .28。地景保持常驻，七区建筑和月潭依镜头范围加载/释放，放大后减少加载范围，缩小看全景时自然加载更多。室内继续沿用进门加载机制。所有输出放仓库外，只有 GLB 进 app。
 
 村落可走半径 14→32；建筑体积保持原值。VILLAGE_ZONES 同时变换门口、交互、碰撞、坐席、台阶、出入口和场景装饰。存档 layout=2 只迁移旧室外位置一次，室内床位与收藏不搬动。以后新增区域继续加地图数据/分区资产，别为了塞进一屏压缩邻里间距。
+
+### 六种建筑轮廓（2026-09-16）
+
+`build_architecture.py -- ART_ROOT OUTPUT_DIR` 读取 `spacious-village/village-spacious.blend`，保留地景、月潭、井、炼药锅、花圃与摊位，替换六栋建筑。布局唯一来源 `MAPS.garden.architecture`：房屋主体和侧翼的碰撞也从这张表生成，门前到达点沿用已有机制。
+
+自家为高低屋顶与侧翼的爬藤小屋，公共厅为铃楼长屋；三邻居分别尖顶阁楼、圆塔书斋、带玻璃花房的弯檐屋；收藏馆为金属框架拱顶温室。共享曲面瓦顶、拱窗、门、侧窗、烟囱与木架函数，区别来自体块/屋顶/窗位组合。手绘色差材质名称保留roof/foliage角色，直接参加运行时四季。
+
+输出整体 `village-architecture.blend/png`，各栋 `*-exterior.png` 与 `village-{home,hall,neighbor1,neighbor2,neighbor3,museum}.blend`。六份GLB均 `export-fairy-village.py --detail` 保留薄瓦片、拱顶和门窗边。完成 spacious 的生成后再运行 architecture，不能只重导旧的spacious建筑。地景和月潭资产本轮不重导；屋内的双人床、公共厅/宿舍、收藏馆内景和用户收藏均不变。

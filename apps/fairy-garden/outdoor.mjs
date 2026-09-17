@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MAPS,seasonOf,weather} from './world.mjs?v=fg-e8e9bd175f1dc8b4';
+import {MAPS,seasonOf,weather} from './world.mjs?v=fg-71c8bdf880a5a76e';
 // One seasonal renderer for every outdoor map, including models loaded after a transition.
 export function makeOutdoor(scene,landscapes=[]){
  const group=new T.Group();group.name='室外四季';scene.add(group);
