@@ -239,3 +239,11 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 `build_interiors.py -- OUTPUT_DIR oldTower` 是内景唯一源，读取 `MAPS.oldTower`，导出 `old-tower-interior.blend` → `old-tower-interior.glb --detail`。圆形石厅、中央铜环星仪、四级石阶后的高台、望远镜与星图桌；前墙截低、背墙留残拱。与三个邻居内景共用 `connectInterior` 接门、家具碰撞和同行地图图谱。外门去掉旧锁链，`build_old_tower.py` 重建后只需重导 `village-old-tower.glb`。
 
 墙段旋转走公共 `furnitureFootprint`，栏杆/阶梯/支柱与站点共用数据。地砖与旧木地板共用 `tile_sections`，按真实台阶切分；`furnish` 把整组家具平移到楼面，避免桌腿穿进高台。新场景只参观，星仪/望远镜暂不结算玩法，不调用AI。`observatory.test.mjs` 检查进出/高台可达/四级高度/栏杆/存档和同行；`fairy-observatory-browser.cjs` 用隔离存档实走各点、进出、保存、室外卸载及手机平移。
+
+### 溪畔水磨坊与草药工坊
+
+`build_watermill.py -- OUTPUT_DIR` 从 `MAPS.garden.watermill` 建模；溪水接月湖原出水口，建筑在东侧 (38.5,7.3)，门前 (37.1,10.55)。东岸沿溪小路可直接走来，地图增加「溪畔水磨坊」。`village-watermill.glb` 是单独懒加载分区，使用现有室外四季材质；预览地面不导出。水轮当前是静态场景模型。水轮与室内传动轮共用 `build_architecture.mill_wheel`。
+
+内景仍由 `build_interiors.py -- OUTPUT_DIR watermill` 生成 `watermill-interior.blend`，两份 GLB 均走公共 exporter 的 `--detail`。室内石磨、晾草架、药罐柜、铜壶与长工作台各有共享碰撞占地，后墙柱也在 plan.posts 中。没有新增生产结算或 AI 调用。门、同行进出、存档走 connectInterior；新地图不需要另写切换逻辑。
+
+验证：`watermill.test.mjs` 检查东岸通路、水道阻挡、室内全部站点、读档与同行进出；浏览器复用 `fairy-station-browser.cjs watermill`（室外行走/懒加载/冬夜/手机）和 `fairy-observatory-browser.cjs watermill`（实际进出/走动/存档/室内隔离）。Blender 图片在 OUTPUT_DIR 的 watermill-exterior.png 和 watermill.png。

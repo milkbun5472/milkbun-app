@@ -1,11 +1,11 @@
 """Author the shared, walkable storybook interiors from MAPS (game x/z/height).
-Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1 neighbor2 neighbor3 oldTower]
+Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1 neighbor2 neighbor3 oldTower watermill]
 Art/preview files stay outside the app. Export each .blend with export-fairy-village.py --detail.
 """
 import bpy,bmesh,math,random,ast,json,subprocess,sys
 from pathlib import Path
 from mathutils import Vector
-args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1','neighbor2','neighbor3','oldTower']
+args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1','neighbor2','neighbor3','oldTower','watermill']
 repo=Path(__file__).resolve().parents[2];cfg=json.loads(subprocess.check_output(['/opt/homebrew/bin/node','-e',"require('./apps/fairy-garden/rules.js');process.stdout.write(JSON.stringify(FairyGardenRules.MAPS))"],cwd=repo))
 # Same mesh/material primitives as the village architecture and lake, not another geometry implementation.
 source=repo/'art/fairy-garden/build_architecture.py'
@@ -14,7 +14,7 @@ for n in ast.parse(source.read_text()).body:
 current='interior';wood=material('Interior dark walnut wood',(.18,.115,.085));oak=material('Interior honey oak wood',(.46,.29,.16));cream=material('Interior warm ivory plaster',(.76,.69,.56));stone=material('Interior warm cut limestone',(.57,.53,.43));brass=material('Interior antique brass',(.57,.38,.15),.38,.45);paper=material('Interior warm linen',(.83,.75,.61));sage=material('Interior sage velvet',(.24,.40,.32));rose=material('Interior old rose velvet',(.56,.28,.27));blue=material('Interior dusty blue velvet',(.19,.32,.39));dark=material('Interior shadow recess',(.075,.09,.08));glass=material('Interior morning glass',(.62,.78,.73),.28,.06,.18);glow=material('Interior fire and lamp glow',(.93,.56,.20),.6,0,.6);leaf=material('Interior fern green',(.22,.38,.22));terracotta=material('Interior clay',(.51,.26,.17));boards=[material('Interior oak wood board '+str(i),tuple(c*v for c in (.44,.28,.155))) for i,v in enumerate([.9,.98,1.05,1.12])]
 
 for n in ast.parse(source.read_text()).body:
- if isinstance(n,ast.FunctionDef) and n.name in ['xyz','mesh','box','rod','line','sphere','cylinder','arch','arch_trim']:exec(compile(ast.Module(body=[n],type_ignores=[]),str(source),'exec'))
+ if isinstance(n,ast.FunctionDef) and n.name in ['xyz','mesh','box','rod','line','sphere','cylinder','arch','arch_trim','mill_wheel']:exec(compile(ast.Module(body=[n],type_ignores=[]),str(source),'exec'))
 
 def inside(x,z,outline):
  hit=False
@@ -209,7 +209,7 @@ def shell(m,name):
   x,z,w,d,h=wall['x'],wall['z'],wall['w'],wall['d'],wall['h'];base=floor_height(m,x,z)
   box('Low cutaway room partition',x,z,base+h/2,w,d,h,cream);box('Partition polished cap',x,z,base+h,w+.06,d+.06,.09,oak)
  for a in m['plan'].get('arches',[]):place(lambda:portal(0,0,a['w'],a['h'],a.get('base',.14)),a['x'],a['z'],a.get('heading',0))
- for p in m['plan'].get('posts',[]):rod('Conservatory structural post',(p['x'],p['z'],floor_height(m,p['x'],p['z'])),(p['x'],p['z'],p['height']),p['r'],brass)
+ for p in m['plan'].get('posts',[]):rod('Conservatory structural post',(p['x'],p['z'],floor_height(m,p['x'],p['z'])),(p['x'],p['z'],p['height']),p['r'],wood if p.get('timber') else brass)
  for p in m['plan'].get('plants',[]):plant(p['x'],p['z'],floor_height(m,p['x'],p['z']),p['size'])
 
 def _furnish(q,base=.14):
@@ -264,6 +264,48 @@ def _furnish(q,base=.14):
  elif kind=='stool':place(lambda:chair(w,d,blue),x,z,q.get('heading',0))
  elif kind=='lectern':
   place(lambda:table(w,d,1.1),x,z);box('Open folio on lectern',x,z,1.18,w*.7,d*.75,.05,paper)
+ elif kind=='apothecary':
+  box('Apothecary cabinet back',x,z-d/2+.04,1.49,w,.08,2.7,sage)
+  for sign in [-1,1]:box('Apothecary cabinet side',x+sign*(w/2-.05),z,1.49,.10,d,2.7,oak)
+  for row in range(5):
+   h=.20+row*.63;box('Apothecary oak shelf',x,z,h,w,d,.075,oak)
+   if row==4:continue
+   for col in range(6):
+    xx=x-w*.40+col*w*.16;hh=.26+(col+row)%3*.07
+    cylinder('Glazed labeled apothecary jar',xx,z,h+.045,.115,hh,sage if (col+row)%2 else terracotta,14,.10)
+    cylinder('Jar cork stopper',xx,z,h+.045+hh,.104,.04,oak,12)
+    box('Jar cream paper label',xx,z+.108,h+.15,.13,.018,.12,paper,.004)
+ elif kind=='millstone':
+  cylinder('Mill stone foundation',x,z,.14,1.45,.25,stone,32)
+  cylinder('Lower milling stone',x,z,.39,1.32,.35,stone,40)
+  cylinder('Upper grooved millstone',x,z,.77,1.22,.32,stone,40)
+  for j in range(24):
+   a=j*math.tau/24;line('Millstone radial furrow',[(x+math.cos(a)*.3,z+math.sin(a)*.3,1.096),(x+math.cos(a+.17)*1.12,z+math.sin(a+.17)*1.12,1.096)],.011,wood)
+  cylinder('Millstone central spindle',x,z,1.1,.12,1.55,wood,12)
+  for sign in [-1,1]:box('Milling frame oak upright',x+sign*1.55,z,1.6,.18,.25,2.92,wood)
+  box('Mill overhead drive beam',x,z,2.98,3.35,.30,.26,oak)
+  mill_wheel('Workshop drive wheel',x,z-.75,2.1,.65,.22,oak,brass,False)
+  cylinder('Grain herb hopper',x+.8,z,1.13,.28,.58,oak,4,.55)
+ elif kind=='dryingrack':
+  for sign in [-1,1]:box('Drying rack upright',x+sign*(w/2-.1),z,1.58,.14,.28,2.88,wood)
+  for h in [.5,1.55,2.9]:box('Drying rack cross rail',x,z,h,w,.12,.12,oak)
+  box('Drying rack lower trays',x,z,.52,w,d,.08,oak)
+  for j in range(9):
+   xx=x-w*.42+j*w*.105;hh=2.78-(j%3)*.13
+   rod('Tied herb bundle string',(xx,z,2.88),(xx,z,hh-.25),.012,brass)
+   for k in range(5):
+    a=k*2.399;dx=math.cos(a)*.11;dz=math.sin(a)*.14
+    rod('Hanging herb stem',(xx,z,hh),(xx+dx,z+dz,hh-.62),.012,oak)
+    for n in range(3):sphere('Dried herb leaves',xx+dx,z+dz,hh-.25-n*.14,.10,.065,.07,leaf if j%3 else sage)
+   box('Herb bundle paper tag',xx+.11,z+.12,hh-.16,.13,.025,.18,paper)
+ elif kind=='distiller':
+  cylinder('Alembic tiled pedestal',x,z,.14,.80,.45,stone,24)
+  sphere('Hammered copper alembic',x,z,1.08,.63,.63,.57,brass)
+  cylinder('Alembic copper neck',x,z,1.53,.24,.44,brass,24,.14)
+  line('Alembic swan neck',[(x,z,1.94),(x+.15,z,2.18),(x+.55,z+.12,2.2),(x+.83,z+.33,1.85)],.055,brass)
+  line('Condenser copper coil',[(x+.78+.2*math.cos(i*math.tau/18),z+.36+.2*math.sin(i*math.tau/18),1.84-i*.01) for i in range(55)],.026,brass)
+  cylinder('Condensation receiving flask',x+.78,z+.36,.16,.20,.48,glass,20,.09)
+  arch('Alembic small furnace',x,z+.72,.26,.42,.27,dark,.02)
  elif kind=='stairs':
   for i in range(10):box('Timber stair tread',x,z+d/2-(i+.5)*d/10,.14+(i+1)*.07,w,d/10-.008,(i+1)*.14,oak)
   for sign in [-1,1]:rod('Stair banister',(x+sign*w*.5,z+d/2,.95),(x+sign*w*.5,z-d/2,2.2),.045,wood)
@@ -564,6 +606,30 @@ def oldTower(m):
  box('Tower entry threshold',0,6.95,.16,2.2,.50,.08,pale)
  for sign in [-1,1]:cylinder('Broken entry jamb',sign*1.45,6.82,.14,.16,1.1,oldstone,8)
 
+def watermill(m):
+ shell(m,'Watermill workshop')
+ for q in m['furniture']:furnish(q)
+ # Exposed heavy trusses sit behind the work zones, leaving the center camera sightline open.
+ for post in m['plan']['posts']:
+  x=post['x']
+  line('Workshop arched knee brace',[(x,-6.2,2.5),(x+.35,-6.2,3.15),(x+1,-6.2,3.62)],.09,oak)
+ for x in [-7.8,-3.1,2.0]:window(x,-6.27,1.45,1.6,1.9)
+ # A projecting stream-facing bay, rather than another furnished square room.
+ for z in [-3.3,-.5,2.3]:place(lambda:window(0,0,.7,2.15,2.5),9.85,z,-math.pi/2)
+ for x in [9.85]:rod('Window bay lintel',(x,-4.6,3.36),(x,3.4,3.36),.075,oak)
+ q=next(q for q in m['furniture'] if q['kind']=='island');x,z=q['x'],q['z']
+ # Worktop still life remains inside its solid footprint.
+ cylinder('Apothecary mortar',x-.6,z,1.20,.23,.25,stone,24,.27)
+ rod('Mortar resting pestle',(x-.65,z,1.3),(x-.39,z+.1,1.65),.065,oak)
+ rod('Small copper balance upright',(x+.7,z,1.23),(x+.7,z,1.98),.025,brass)
+ rod('Balance beam',(x+.20,z,1.89),(x+1.2,z,1.89),.028,brass)
+ for xx in [x+.2,x+1.2]:
+  for sign in [-1,1]:rod('Balance fine chain',(xx,z,1.89),(xx+sign*.14,z,1.53),.008,brass)
+  cylinder('Balance pan',xx,z,1.51,.19,.035,brass,20)
+ # Woven runner visually links the entry to the working aisle; no floor obstacle.
+ rug(0,3.3,2.7,2.9,sage)
+ box('Watermill entry threshold',0,6.85,.16,2.8,.35,.07,stone)
+
 def render(name,m):
  sc=bpy.context.scene;sc.render.engine='CYCLES';sc.cycles.samples=24;sc.cycles.use_denoising=True;sc.world.color=(.35,.35,.35)
  sc.world.use_nodes=True;sc.world.node_tree.nodes['Background'].inputs[0].default_value=(.78,.81,.77,1);sc.world.node_tree.nodes['Background'].inputs[1].default_value=.65
@@ -571,7 +637,7 @@ def render(name,m):
   bpy.ops.object.light_add(type='AREA',location=location);o=bpy.context.object;o.data.energy=energy;o.data.shape='DISK';o.data.size=size;o.rotation_euler=(Vector((0,0,0))-o.location).to_track_quat('-Z','Y').to_euler()
  bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else (25 if name in ['neighbor1','neighbor2','neighbor3','oldTower'] else 29);sc.camera=camera
  sc.render.resolution_x=1500;sc.render.resolution_y=1100;sc.render.resolution_percentage=100;sc.view_settings.view_transform='AgX';sc.render.image_settings.file_format='PNG';sc.render.filepath=str(out/(name+'.png'))
- filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior','neighbor2':'neighbor2-interior','neighbor3':'neighbor3-interior','oldTower':'old-tower-interior'}[name]
+ filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior','neighbor2':'neighbor2-interior','neighbor3':'neighbor3-interior','oldTower':'old-tower-interior','watermill':'watermill-interior'}[name]
  bpy.ops.wm.save_as_mainfile(filepath=str(out/(filename+'.blend')));bpy.ops.render.render(write_still=True);print('INTERIOR_READY',name,flush=True)
 for name in targets:
  for o in list(bpy.data.objects):bpy.data.objects.remove(o,do_unlink=True)
