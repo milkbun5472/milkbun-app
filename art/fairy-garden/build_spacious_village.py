@@ -26,7 +26,9 @@ for o in list(bpy.data.objects):
  zone=fixed.get(c);x,z=o.location.x,-o.location.y
  if c=='05':zone='pond'
  elif c=='11':
-  tx,tz=min(oldtrees,key=lambda t:math.hypot(x-t[0],z-t[1]));o.location+=Vector((tx,-tz,0));o['district']='ground';continue
+  name=o.name.split('.')[0];index=int(o.name.rsplit('.',1)[1]) if '.' in o.name else 0
+  tree=index if name=='Forest trunk' else index//5 if name=='Painterly canopy' else index//20 if name=='Leaf cluster' else 12
+  tx,tz=oldtrees[tree];o.location+=Vector((tx,-tz,0));o['district']='ground';continue
  elif c=='10':zone=nearest(x,z)
  elif c=='12':zone=nearest(x,z)
  elif c=='':
