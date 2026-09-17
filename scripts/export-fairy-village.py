@@ -5,6 +5,8 @@ from mathutils import noise,Vector
 # Small interiors retain bevels and full topology; sprawling villages use decimation.
 args=sys.argv[sys.argv.index('--')+1:]
 SOURCE,DEST=map(Path,args[:2]);P=SOURCE.parent;detail='--detail' in args
+ratio=float(next((a.split('=',1)[1] for a in args if a.startswith('--ratio=')),'.28'))
+if not 0 < ratio <= 1:raise ValueError('Mesh ratio must be in (0, 1]')
 def srgb(v):
  v=max(0,min(1,v));return 12.92*v if v<=.0031308 else 1.055*v**(1/2.4)-.055
 bpy.ops.wm.open_mainfile(filepath=str(SOURCE))
@@ -38,7 +40,7 @@ for o in bpy.data.objects:
 bpy.ops.object.select_all(action='SELECT');bpy.context.view_layer.objects.active=next(o for o in bpy.data.objects if o.type=='MESH')
 bpy.ops.object.convert(target='MESH');bpy.ops.object.join();o=bpy.context.object;o.name='Forest hamlet'
 if not detail:
- mod=o.modifiers.new('Mobile triangle budget','DECIMATE');mod.ratio=.28;bpy.ops.object.modifier_apply(modifier=mod.name)
+ mod=o.modifiers.new('Mobile triangle budget','DECIMATE');mod.ratio=ratio;bpy.ops.object.modifier_apply(modifier=mod.name)
 bpy.ops.export_scene.gltf(filepath=str(DEST),export_format='GLB',use_selection=True,export_animations=False,export_cameras=False,export_lights=False)
 print('VILLAGE_EXPORT',DEST.stat().st_size,len(o.data.polygons),flush=True)
 (P/'game-export-report.json').write_text(json.dumps({'bytes':DEST.stat().st_size,'faces':len(o.data.polygons),'source':str(SOURCE),'output':str(DEST)},indent=2))

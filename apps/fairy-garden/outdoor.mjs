@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MAPS,seasonOf,weather} from './world.mjs?v=fg-6050ed6bbbb29cc0';
+import {MAPS,seasonOf,weather} from './world.mjs?v=fg-6dd39876e81eb33a';
 // One seasonal renderer for every outdoor map, including models loaded after a transition.
 export function makeOutdoor(scene,landscapes=[]){
  const group=new T.Group();group.name='室外四季';scene.add(group);
@@ -21,5 +21,6 @@ export function makeOutdoor(scene,landscapes=[]){
   group.position.set(center.x,0,center.z);const snow=kind==='细雪';for(let i=0;i<240;i++){coords[i*3]=Math.sin(i*91.7)*13+(snow?Math.sin(time*.5+i)*.3:0);coords[i*3+1]=((i*.317-time*(snow?.45:5))%8+8)%8;coords[i*3+2]=Math.cos(i*47.3)*13;}geo.attributes.position.needsUpdate=true;
   for(let i=0;i<60;i++){flecks[i*3]=Math.sin(i*43)*11+Math.sin(time*.4+i)*.7;flecks[i*3+1]=((i*.57-time*.2)%5+5)%5;flecks[i*3+2]=Math.cos(i*17)*11+Math.cos(time*.3+i)*.4;}fg.attributes.position.needsUpdate=true;
   const key=s.map+season.index+kind;const view=views[s.map];if(view&&(last!==key||!tracked.has(view.root))){style(view.root,season,kind==='细雨');for(const landscape of landscapes)style(landscape,season,kind==='细雨');last=key;}
+  for(const root of view?.stream?.roots()||[])if(root.userData.weatherKey!==key){style(root,season,kind==='细雨');root.userData.weatherKey=key;}
  },inspect:()=>({outside:group.visible,precipitation:precipitation.visible,petals:petals.visible})};
 }

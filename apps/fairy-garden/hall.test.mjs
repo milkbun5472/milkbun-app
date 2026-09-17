@@ -1,3 +1,4 @@
+import {villagePoint} from './world.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {MAPS,freshState,restoreState,perform,targetFor,exitFor,exitToward,findPath,walkable,segmentClear} from './world.mjs';
 import {makeCompanionController} from './companion.mjs';
@@ -20,4 +21,4 @@ test('following companion crosses both floors and can return from upstairs to ho
  s={...s,map:'home',position:{x:0,z:2}};c.reset();for(let i=0;i<1000;i++)s=c.tick(s,.1).state;assert.equal(s.companion.map,'home');
 });
 
-test('diagonal routes cannot clip a rectangle corner between sample points',()=>{assert.equal(segmentClear({x:-6.96,z:3.12},{x:-6.72,z:3.36},'garden'),false);});
+test('diagonal routes cannot clip a rectangle corner between sample points',()=>{assert.equal(segmentClear(villagePoint({x:-6.96,z:3.12},'home'),villagePoint({x:-6.72,z:3.36},'home'),'garden'),false);});

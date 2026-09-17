@@ -41,6 +41,8 @@ block('Museum blank carved sign',x+.72,front+.5,2.18,.49,.08,.48,sage)
 leaf=uv('Museum carved leaf emblem',pos(x+.72,front+.555,2.18),(.095,.018,.17),gold);leaf.rotation_euler.y=.45
 step=e['step'];block('Museum doorway step',step['x'],step['z'],step['height']-.06,step['w'],step['d'],.12,stone)
 for dx in [-.92,.92]:lantern(x+dx,front+.35,.03)
+for o in bpy.data.objects:
+ if o.type in {'MESH','CURVE'}:o['district_origin_x']=x;o['district_origin_z']=z
 sc=camera('Museum exterior',(x,z,1.6),(x+9,z+12,9),8.7);save_render('museum-exterior',sc)
 # Gallery interior, using the same room shell as the public hall.
 m=cfg['museum'];shell('Museum',m)

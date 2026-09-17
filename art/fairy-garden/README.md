@@ -158,3 +158,11 @@ node scripts/build-fairy-garden.mjs
 ### 拾光收藏馆
 
 `build_museum.py` 读取 MAPS.garden.museum 与 MAPS.museum，生成南侧独立外观和展厅。复用 public_hall 的 shell/window/lamp；shell 已按 plan 尺寸铺地板和木梁，既有14×9长厅也沿用此公共函数。输出 museum-exterior.blend / museum-interior.blend 与预览，分别 --detail 导出同名 GLB。花笺框与陈列架本身为空，运行时 museum-view 根据原收藏实例化陈列，不把用户物品烘焙进模型。
+
+### 松散村落与分区加载
+
+`build_spacious_village.py -- ART_ROOT OUTPUT` 从 scene-expansion/village-expanded.blend 取原始建筑分组，读取 rules.js 的 VILLAGE_ZONES 刚性平移；不拉伸门窗或房屋。月潭连同栈桥/溪流一起移动，草地上的道路重新连接。收藏馆取 museum/museum-exterior.blend；新版源对象记 district_origin_x/z，重复生成也不会二次偏移。
+
+输出 assembled village-spacious.blend/png 和八份 village-{ground,home,hall,neighbor1,neighbor2,neighbor3,pond,museum}.blend。导出仍走 export-fairy-village.py；地景使用 `--ratio=.12`，收藏馆使用 `--detail` 保留薄屋顶，其余默认 .28。地景保持常驻，七区建筑和月潭依镜头范围加载/释放，放大后减少加载范围，缩小看全景时自然加载更多。室内继续沿用进门加载机制。所有输出放仓库外，只有 GLB 进 app。
+
+村落可走半径 14→32；建筑体积保持原值。VILLAGE_ZONES 同时变换门口、交互、碰撞、坐席、台阶、出入口和场景装饰。存档 layout=2 只迁移旧室外位置一次，室内床位与收藏不搬动。以后新增区域继续加地图数据/分区资产，别为了塞进一屏压缩邻里间距。
