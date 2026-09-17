@@ -1,7 +1,8 @@
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-ba4eaa8f1c806738';
-import './rules.js?v=fg-ba4eaa8f1c806738';
+import {brewError,brewResult} from './brewing.mjs?v=fg-372a82fea78bd942';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-372a82fea78bd942';
+import './rules.js?v=fg-372a82fea78bd942';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-ba4eaa8f1c806738';
+import {createNavigator} from './navigation.mjs?v=fg-372a82fea78bd942';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1121,7 +1122,7 @@ export function actionError(s,kind,id){if(kind==='bed')return s.map==='home'&&Ob
   return '';}
  if(kind==='rest')return MAPS[s.map]?.stations.rest?'':'这里没有可以睡觉的地方。';
  if(s.map!=='garden')return '先回庭院吧。';
- if(kind==='brew'){if(s.sand<3&&(s.herbs<2||s.mushrooms<1||s.water<1))return '月露配方：铃叶草 ×2、荧光菇 ×1、清水 ×1；或者星砂 ×3。';}
+ if(kind==='brew')return brewError(s,id);
  else if(kind==='garden'){if(s.blooms<3&&!s.potions&&!s.water)return '水壶空了，先去井边取水；也可以用月露唤醒整圃花。';}
  else if(!['well','rest'].includes(kind))return '这里还不能这样做。';return '';
 }
@@ -1133,8 +1134,7 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
  if(kind==='well')return {...s,water:3};
  if(kind==='garden'){if(intent==='harvest'&&s.blooms===3)return {...s,blooms:0,harvest:s.harvest+3};if(s.blooms>=3)return s;if(intent==='potion'&&s.potions>0)return {...s,blooms:3,potions:s.potions-1};if(intent==='water'&&s.water>0)return {...s,water:s.water-1,blooms:s.blooms+1};return s;}
  // 有星砂先用星砂：那是她特地下井换来的，别让它压在背包里
- if(kind==='brew')return s.sand>=3?{...s,sand:s.sand-3,potions:s.potions+1}
-  :{...s,herbs:s.herbs-2,mushrooms:s.mushrooms-1,water:s.water-1,potions:s.potions+1};
+ if(kind==='brew')return brewResult(s,id);
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);
   // 井底那两样：星砂常见、月石稀罕；越深一次刨出来的越多
   if(n.map==='depths'){
