@@ -15,6 +15,10 @@ replace_collections={'01','02','03','04','07','13'}
 for o in list(bpy.data.objects):
  cols={c.name[:2] for c in o.users_collection}
  if (cols & replace_collections) or o.get('district')=='museum' or o.name.startswith(('Hall extra','Hall window')):bpy.data.objects.remove(o,do_unlink=True)
+def remove_legacy_market():
+ for o in list(bpy.data.objects):
+  if o.name.startswith(('Market ', 'Folded market')):bpy.data.objects.remove(o,do_unlink=True)
+if plan.get('market'):remove_legacy_market()
 M=bpy.data.materials
 
 def material(name,color,rough=.85,metal=0,emit=0):

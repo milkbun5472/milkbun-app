@@ -215,3 +215,9 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 ### 右邻居铃叶花舍
 
 `MAPS.neighbor3` 将木地板起居卧室与石砖花房连成一座房子。`neighbor3` 参数构建，导出 `neighbor3-interior.glb --detail`；种植台、草药架与花房茶桌目前均为场景陈设。继续使用 `connectNeighbor`；花房细柱由 `plan.posts` 同时生成美术与碰撞，低墙由 `lowWalls` 指定。地毯高度支持石砖表面，避免埋到砖下。构建不更改前两间 GLB。
+
+### 公共厅前灯串集市
+
+`build_market.py -- ART_ROOT OUTPUT_DIR` 从 `MAPS.garden.market` 读取四摊、灯柱和铺地；药草弧棚、奇物尖篷、侧向茶摊、小花车留出通往公共厅的中央路。摊位与灯柱占地由同表生成碰撞，旋转复用室内家具轮廓。现阶段是可逛场景，交易与日期开市尚未接入。
+
+在 architecture 之后构建，分别导出输出目录的 `village-market.blend` 与 `village-hall.blend --detail`。后者只清旧空摊；共享 `remove_legacy_market` 也接进完整建筑重建，避免旧模型复活。market 独立懒载，昼夜/天气/季节沿用室外公共渲染。预览使用旧建筑源的地景作位置对照，最终景观以游戏里的常驻地景为准。浏览器验证脚本 `scripts/checks/fairy-market-browser.cjs` 使用独立空白存档，检查摊前走动、同行进出大厅、地图卸载、存读档和手机平移。
