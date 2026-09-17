@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.31";
+const APP_VERSION = "v69.33";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -679,7 +679,25 @@ function App() {
   const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
   const [modelFloatOn, setModelFloatOn] = useState(() => !!loadJSON("x_modelFloatOn", false));
   const [bgApiId, setBgApiId] = useState(null); // 后台任务线路；未单独选择时跟随主模型
-  const [activeChar, setActiveChar] = useState(null);
+  // ── 打开着的这个人，永远取【当下那一份】，不是点进来那一刻的快照 ──
+  // 她 2026-09-16：「我只是更新版本号没有让他重新说就换上了，是不是其实之前保存路径有bug」
+  // ——她判断得对，而且比"换头像有 bug"更准：**保存路径一直是好的，是屏幕在看一张旧快照。**
+  // 原来这里直接 `const [activeChar, setActiveChar] = useState(null)`，存进去的是
+  // 点进聊天那一刻的【角色对象本身】。后台把头像换了（pC 改的是 characters 这份 state），
+  // activeChar 手里还攥着旧的那个对象，于是顶栏头像纹丝不动——
+  // 直到她退出去再进来、或者刷新整个 app，才重新从 characters 里取一份。
+  // ⚠️这不只坑换头像：**任何后台改到这个角色的事**（备注、人设、颜色、状态卡、
+  //   自我成长写回…）在她开着的那个聊天里都看不见。头像只是最显眼的那一个。
+  // 改法：选择器还是那个 state（setActiveChar 的调用点一处都不用动），
+  // 但【读】的时候按 id 去 characters 里现取。找不到就退回快照
+  //（NPC、刚删掉的人这类不在 characters 里的，照旧能显示，不会白屏）。
+  const [activeCharSel, setActiveChar] = useState(null);
+  const activeChar = activeCharSel
+    // ⚠️用 find 不用 filter：这是【按 id 单点取一个】，不是遍历全体。
+    //   （npc.test 那道闸拦的是「把全量 characters 拖进循环」，这一句不是那种；
+    //    而且这里必须走全量——走 liveChars 的话，配角那种条目会静默退回旧快照。）
+    ? (characters.find(c => c && c.id === activeCharSel.id) || activeCharSel)
+    : null;
   const [activeRoomId, setActiveRoomId] = useState("main");
   const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
@@ -692,7 +710,12 @@ function App() {
     notificationRoomRef.current = null;
     setChatRoomsOpen(false);
   }, [activeChar && activeChar.id]);
-  const [activeGroup, setActiveGroup] = useState(null);
+  // 群同上：开着群聊时改了群名/群头像/成员，原来也要退出去再进来才看得见。
+  // 同一个形状的第二处，照同一个改法（施工规则/one-public-mechanism.md）。
+  const [activeGroupSel, setActiveGroup] = useState(null);
+  const activeGroup = activeGroupSel
+    ? (groups.find(g => g && g.id === activeGroupSel.id) || activeGroupSel)
+    : null;
   // 记录此刻在看的聊天，供未读红点判断
   viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
   const [editingChar, setEditingChar] = useState(null);

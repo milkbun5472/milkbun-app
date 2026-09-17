@@ -31,6 +31,21 @@ test("NPC 绝不许掉进任何会花钱的后台循环", () => {
     "这些行还在遍历全量 characters，必须走 liveChars：\n" + stray.map(x => x.n + ": " + x.l.trim().slice(0, 80)).join("\n"));
 });
 
+// v69.31：打开着的那个人改成「按 id 现取」之后，这儿多了一处读全量 characters 的地方。
+// 它**不是**这道闸要拦的那种——闸拦的是「把全体角色拖进后台循环」（那会花钱），
+// 而这是【按 id 单点取一个】，零成本、不遍历。而且这一处必须走全量：
+// 走 liveChars 的话，配角那种条目会取不到、静默退回旧快照，又变回这次要修的毛病。
+// 钉成正面断言，免得下次有人看见「读了全量」就顺手改成 liveChars。
+test("打开着的那个人是按 id 单点取，不是遍历——所以它读全量是对的", () => {
+  const code = codeOnly(app);
+  assert.match(code, /\? \(characters\.find\(c => c && c\.id === activeCharSel\.id\) \|\| activeCharSel\)/);
+  assert.match(code, /\? \(groups\.find\(g => g && g\.id === activeGroupSel\.id\) \|\| activeGroupSel\)/);
+  // 不许改成遍历（那才是这道闸真正要拦的形状）
+  assert.ok(!/characters\.(forEach|map)\(c => c && c\.id === activeCharSel/.test(code));
+  // 也不许改成 liveChars
+  assert.ok(!/liveChars\.find\(c => c && c\.id === activeCharSel/.test(code), "走 liveChars 会让配角退回旧快照");
+});
+
 // 递给 UI 的一律是 liveChars —— 这样「不显示 NPC」是默认，漏一处只是少显示，
 // 而不是 NPC 漏进通讯录/聊天列表/朋友圈。让遗漏往安全那边掉。
 test("递给 UI 的角色列表默认不含 NPC", () => {
