@@ -1,6 +1,6 @@
-import './rules.js?v=fg-d33269d29c06652f';
+import './rules.js?v=fg-a638923bcfb06005';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-d33269d29c06652f';
+import {createNavigator} from './navigation.mjs?v=fg-a638923bcfb06005';
 export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 // Exact rectangle clipping prevents a short diagonal corner cut from passing sampled checks.
 function clipsBox(a,b,o){let lo=0,hi=1;for(const [axis,half]of [['x',o.w/2+.16],['z',o.d/2+.16]]){const min=o[axis]-half+1e-8,max=o[axis]+half-1e-8,d=b[axis]-a[axis];if(Math.abs(d)<1e-12){if(a[axis]<=min||a[axis]>=max)return false;}else{const t1=(min-a[axis])/d,t2=(max-a[axis])/d;lo=Math.max(lo,Math.min(t1,t2));hi=Math.min(hi,Math.max(t1,t2));if(lo>=hi)return false;}}return hi>0&&lo<1;}
@@ -15,7 +15,9 @@ export function groundPoint(map,origin,direction){
 }
 export const findPath=createNavigator(MAPS,walkable,segmentClear);
 const count=(v,max=999999)=>Math.max(0,Math.min(max,Number.isFinite(Number(v))?Math.floor(Number(v)):0));
-export const TEMPERAMENTS={gardener:'爱照料植物',explorer:'爱到处探索',scholar:'喜欢安静研究'};
+// ⚠️三档「性格」v69.55 退役：换个角色照样成立的东西，等于没设计。
+//   他今天做什么由模型按【他自己的人设】排（generateSeason 那一枪），排不出来时才走那张地板表。
+
 // ── 样貌（发型/发色/衣色/体型）─────────────────────────────────────────
 // ⚠️restoreState 和 restoreCompanion 都是【白名单式建对象】：不在这儿写一笔，
 //   存档里那一份就会被静默丢掉——她 2026-09-16 报的「样貌退出不保存」正是这个。
@@ -32,8 +34,8 @@ export function restoreLook(raw){
   if(Object.keys(dims).length)out.dims=dims;}
  return out;
 }
-export function freshCompanion(){return {name:'同行者',temperament:'gardener',mode:'routine',map:'garden',position:villagePoint({x:-3.5,z:4.3},'home'),helpDay:0,destination:'home',look:{}};}
-export function restoreCompanion(raw){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,temperament:Object.hasOwn(TEMPERAMENTS,d.temperament)?d.temperament:c.temperament,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:['pond','garden','well','home'].includes(d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
+export function freshCompanion(){return {name:'同行者',mode:'routine',map:'garden',position:villagePoint({x:-3.5,z:4.3},'home'),helpDay:0,destination:'home',look:{}};}
+export function restoreCompanion(raw){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:['pond','garden','well','home'].includes(d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
 // ── 花田：种下一句话，过几天收一张花笺（她 2026-09-16 定的方向）─────────
 // 种的不是花，是【一句你想问的话】；开花收上来的是他给的一句回应，进花册。
 // ⚠️花册不设「收集完成」：同一个念头隔一阵再种，答案本来就该不一样。

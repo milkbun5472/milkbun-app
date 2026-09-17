@@ -1,11 +1,14 @@
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,missWanting,missGaveUp} from './world.mjs?v=fg-d33269d29c06652f';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,missWanting,missGaveUp} from './world.mjs?v=fg-a638923bcfb06005';
 const activity=ACTIVITIES;
-const timetables={
- gardener:[[420,'home'],[480,'flowers'],[600,'herbs'],[720,'study'],[840,'potion'],[1020,'glow'],[1200,'home']],
- explorer:[[420,'home'],[480,'herbs'],[660,'mushrooms'],[840,'flowers'],[960,'glow'],[1200,'home']],
- scholar:[[420,'home'],[480,'study'],[660,'pond'],[840,'potion'],[1080,'home']]
-};
-export function dailySchedule(s){const season=seasonOf(s.day),plan=s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null;const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]:timetables[s.companion.temperament];return list.map(([start,id,note])=>{if(!plan&&s.day%2===0&&id==='herbs')id='mushrooms';let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&activity[id].map==='forest'){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
+// ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
+//   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
+//   日程一律由模型按【他自己的人设】排（generateSeason 那一枪）；这一张只是排不出来时的
+//   【地板】，一眼看得出是「今天还没排上」，不假装那是他的性格。
+// ⚠️'flowers' 那一格不能省：他每天顺手帮你浇一次花（companionCare）是从第一版就有的。
+//   地板表里没有它＝没配线路的人打开游戏，他从此再也不浇花了——这种悄悄没掉的东西最坏。
+//   它不是「性格」，是家门口那件唯一的杂活。
+const FALLBACK=[[420,'home'],[480,'flowers'],[720,'walk'],[1080,'home']];
+export function dailySchedule(s){const season=seasonOf(s.day),plan=s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null;const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]:FALLBACK;return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&activity[id].map==='forest'){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
 export function plannedActivity(s){const list=dailySchedule(s);return list.findLast(item=>s.minute>=item.start)||list[0];}
 export const PERSONAL_SPACE=.58;
 function followPoint(s){
@@ -35,10 +38,10 @@ export function makeCompanionController(){
  function tick(s,dt,{allowCare=true}={}){
   cooldown=Math.max(0,cooldown-dt);
   const c=s.companion,sleeping=!!MAPS.home.beds[s.sleep?.companion],wants=missPlan(s),routine=wants||(sleeping?companionPlan(s):c.mode==='follow'?null:c.mode==='routine'?plannedActivity(s):companionPlan(s)),needsNear=!sleeping&&(!!wants||c.mode==='follow'||routine.map===s.map&&Math.hypot(routine.target.x-s.position.x,routine.target.z-s.position.z)<.65);
-  const choiceKey=wants?'miss:'+s.day:c.mode==='follow'?'follow:'+String(s.seat):`${s.day}:${c.temperament}:${routine.id}:${routine.start}`;let plan;
+  const choiceKey=wants?'miss:'+s.day:c.mode==='follow'?'follow:'+String(s.seat):`${s.day}:${routine.id}:${routine.start}`;let plan;
   if(needsNear){if(!cachedFollow||cachedFollow.key!==choiceKey||cachedFollow.map!==s.map||cachedFollow.fromMap!==c.map||Math.hypot(s.position.x-cachedFollow.anchor.x,s.position.z-cachedFollow.anchor.z)>.25||stuck&&cooldown<=0)cachedFollow={key:choiceKey,plan:c.mode==='goto'?{...routine,target:followPoint(s)}:companionPlan(s),map:s.map,fromMap:c.map,anchor:{...s.position}};plan=cachedFollow.plan;}else{cachedFollow=null;plan=routine;}
   const cross=c.map!==plan.map,exit=cross?exitToward(c.map,plan.map):null;if(cross&&!exit){moving=false;status='这里还没有通往那里的小路';return {state:s,event:null};}const goal=cross?exit.target:plan.target,avoid=c.map===s.map?[{...s.position,r:PERSONAL_SPACE}]:[];
-  const key=`${s.day}:${c.mode}:${c.temperament}:${plan.id}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
+  const key=`${s.day}:${c.mode}:${plan.id}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
   if((key!==routeKey||stuck&&cooldown<=0)&&(c.mode!=='follow'||!route.length||cross||cooldown<=0)){cooldown=.65;routeKey=key;route=[];idle=0;stuck=false;const distance=Math.hypot(c.position.x-goal.x,c.position.z-goal.z);if(distance>.12){route=findPath(c.position,goal,c.map,avoid)||[];stuck=!route.length;}}
   let out=s,event=null;moving=route.length>0;gesture='rest';
   if(moving){let budget=Math.max(0,dt)*1.15,pos={...c.position};while(route.length&&budget>0){const q=route[0];if(!segmentClear(pos,q,c.map,avoid)){route=[];routeKey='';cooldown=0;cachedFollow=null;break;}const dx=q.x-pos.x,dz=q.z-pos.z,d=Math.hypot(dx,dz);if(d>.0001)heading=Math.atan2(dx,dz);if(d<=budget){pos={...q};route.shift();budget-=d;}else{pos.x+=dx/d*budget;pos.z+=dz/d*budget;budget=0;}}out={...s,companion:{...c,position:pos}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
