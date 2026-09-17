@@ -7628,7 +7628,6 @@ function ChatThread({
   useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(iv); }, []);
   const ref = useRef(null);
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
-  const pressTimer = useRef(null);
   const cName = character.remark || character.name;
   // 「念出来」(v60.25 她要的「气泡转语音」)：不是语音条也能听。
   // 门槛跟语音条那一条完全一样——配了 TTS + 这个角色选了音色，而且只有TA说的话才有嗓子；
@@ -7815,12 +7814,8 @@ function ChatThread({
       onReply("");
     } else onReply(pending);
   };
-  const startPress = idx => {
-    pressTimer.current = setTimeout(() => setMenu(idx), 450);
-  };
-  const endPress = () => {
-    if (pressTimer.current) clearTimeout(pressTimer.current);
-  };
+  // 长按出菜单走公共那一份（滑动/滚动一动就取消；弹出后吞掉抬手那一下）
+  const { startPress, endPress } = useLongPressMenu(setMenu);
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
     "data-wk": "chat",
@@ -9955,6 +9950,76 @@ function TransText({ text, isU, zhReady, ink }) {
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow });
+}
+// ── 长按出菜单：一份公共的（她 2026-09-17 立）─────────────────────────
+// 她原话：**「上下滑的时候很容易误触让那一堆状态栏跳出来然后误触到撤回」**。
+//
+// 两个毛病叠在一起，缺一个都不会这么容易中：
+//  ① 【手指动了不取消】原来只有 touchstart 起表、touchend/mouseup 清表，
+//     **没有任何一处听 touchmove**。于是「按着屏幕往上滑一段」只要超过 450ms
+//     就当成长按——而看聊天记录时这个动作一天要做几百次。
+//  ② 【弹出来那一下正好在她指头底下】菜单是在手指还按着的时候弹的，
+//     她一抬手，那一下 click 就落在刚渲染出来的菜单上——最上面那项往往是撤回。
+//     所以「弹出来」和「点中撤回」其实是同一次触摸的两半。
+//
+// ⚠️同一个形状写了两遍（单聊 / 群聊），照 施工规则/one-public-mechanism.md
+//   抽成这一份，两处都搬过来了，原地不留第二份。
+// ⚠️取消那一路挂在 document 上、不挂在每个气泡上：调用点有十七处，
+//   一处处补 onTouchMove 迟早漏，而且以后新加的气泡还会再漏一次。
+//   闸开在【按下去和抬起来之间】这段时间里，跟有几处调用点无关。
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP = 10;      // 动过这么多像素就不算长按了（iOS 自己也是这个量级）
+const LONG_PRESS_MUTE_MS = 350;  // 菜单弹出后，这段时间里的第一次点击一律吞掉
+function useLongPressMenu(onFire) {
+  const timer = useRef(null);
+  const from = useRef(null);
+  useEffect(() => {
+    // 手指按下的位置从这儿拿：调用点是 startPress(i) 这种不带事件的写法，
+    // 一处处改签名要动十七个地方，而这一只监听器把它们全兜住了。
+    const down = e => {
+      const p = (e.touches && e.touches[0]) || e;
+      if (p) from.current = { x: p.clientX, y: p.clientY };
+    };
+    const move = e => {
+      if (!timer.current || !from.current) return;
+      const p = (e.touches && e.touches[0]) || e;
+      if (!p) return;
+      if (Math.abs(p.clientX - from.current.x) > LONG_PRESS_SLOP
+        || Math.abs(p.clientY - from.current.y) > LONG_PRESS_SLOP) {
+        clearTimeout(timer.current); timer.current = null;
+      }
+    };
+    const off = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+    document.addEventListener("touchstart", down, true);
+    document.addEventListener("mousedown", down, true);
+    document.addEventListener("touchmove", move, { passive: true });
+    document.addEventListener("touchcancel", off, { passive: true });
+    // 惯性滚动时手指已经离开屏幕，touchmove 不再来——滚动本身也得能掐掉
+    document.addEventListener("scroll", off, true);
+    return () => {
+      off();
+      document.removeEventListener("touchstart", down, true);
+      document.removeEventListener("mousedown", down, true);
+      document.removeEventListener("touchmove", move);
+      document.removeEventListener("touchcancel", off);
+      document.removeEventListener("scroll", off, true);
+    };
+  }, []);
+  const startPress = idx => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      // ⚠️菜单是在手指还按着的时候弹的，抬手那一下会直接落在菜单上。
+      //   所以弹出的同时把【下一次点击】吞掉一次：这段时间里的 click
+      //   一定是这次长按的抬手，不是她真想点什么。
+      const swallow = e => { e.stopPropagation(); e.preventDefault(); };
+      document.addEventListener("click", swallow, true);
+      setTimeout(() => document.removeEventListener("click", swallow, true), LONG_PRESS_MUTE_MS);
+      onFire(idx);
+    }, LONG_PRESS_MS);
+  };
+  const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+  return { startPress: startPress, endPress: endPress };
 }
 function TransTextState({ text, isU, zhReady, ink, autoShow = false }) {
   const t = useTheme();
@@ -13154,7 +13219,6 @@ function GroupThread({
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
   const [fwdPick, setFwdPick] = useState(false);
-  const pressTimer = useRef(null);
   const [gRecallView, setGRecallView] = useState(null);
   const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [sheet, setSheet] = useState(null); // "settings"|"poll"|"rp"
@@ -13196,8 +13260,8 @@ function GroupThread({
     }
     onSend(v);
   };
-  const startPress = idx => { pressTimer.current = setTimeout(() => setMenu(idx), 450); };
-  const endPress = () => { if (pressTimer.current) clearTimeout(pressTimer.current); };
+  // 同上，走公共那一份
+  const { startPress, endPress } = useLongPressMenu(setMenu);
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
   const exitSel = () => { setSelMode(false); setSelIds([]); setFwdPick(false); };
   const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };

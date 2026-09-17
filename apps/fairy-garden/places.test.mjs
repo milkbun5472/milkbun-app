@@ -1,3 +1,4 @@
+import {villagePoint} from './world.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MAPS,START,freshState,restoreState,restoreCompanion,findPath,walkable,floorHeight,groundPoint,perform,targetFor,exitToward} from './world.mjs';
@@ -14,7 +15,7 @@ test('home can be entered, slept in, restored and left without spending inventor
 });
 test('new destinations remain reachable and heights match bridge decking and the curved hill',()=>{
  for(const [map,from]of [['garden',START],['forest',MAPS.forest.spawn]])for(const site of Object.values(MAPS[map].sites))assert.ok(findPath(from,site.target,map)?.length,site.label);
- assert.equal(walkable(11.5,3,'garden'),false);assert.equal(walkable(10,3,'garden'),true);assert.equal(floorHeight('garden',{x:10,z:3}),.38);
+ assert.equal(walkable(19.5,8,'garden'),false);assert.equal(walkable(18,8,'garden'),true);assert.equal(floorHeight('garden',{x:18,z:8}),.38);
  assert.equal(floorHeight('home',{x:0,z:1}),.14);assert.equal(floorHeight('forest',{x:0,z:-6}),.98);assert.equal(floorHeight('forest',{x:0,z:-3}),.08);
  assert.ok(floorHeight('forest',MAPS.forest.sites.wishingTree.target)>.3);
 });
@@ -33,7 +34,7 @@ test('a failed additive scene frees partial geometry and keeps the previous acti
 });
 
 test('screen rays land on the visible bridge, hill and indoor floor instead of the flat ground below',()=>{
- for(const [map,p]of [['garden',{x:10,z:3.05}],['forest',{x:0,z:-4.9}],['home',{x:0,z:1}]]){const y=floorHeight(map,p),hit=groundPoint(map,{x:p.x+10,y:y+12,z:p.z+16},{x:-10,y:-12,z:-16});assert.ok(Math.hypot(hit.x-p.x,hit.z-p.z)<.001,map);assert.ok(Math.abs(hit.y-y)<.001);}
+ for(const [map,p]of [['garden',MAPS.garden.sites.bridge.target],['forest',{x:0,z:-4.9}],['home',{x:0,z:1}]]){const y=floorHeight(map,p),hit=groundPoint(map,{x:p.x+10,y:y+12,z:p.z+16},{x:-10,y:-12,z:-16});assert.ok(Math.hypot(hit.x-p.x,hit.z-p.z)<.001,map);assert.ok(Math.abs(hit.y-y)<.001);}
 });
 
 test('shared scene shadow materials release once along with their textures',()=>{

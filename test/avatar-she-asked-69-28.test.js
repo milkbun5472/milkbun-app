@@ -78,8 +78,14 @@ test("提示里把「说了没填＝没换」摆到台面上", () => {
 });
 
 test("一张真照片都没有时，明说做不到——回执是个承诺", () => {
-  assert.match(seg, /if \(_askAvatar && !_avatarMsg\) \{/);
-  const blk = cut('      if (_askAvatar && !_avatarMsg) {', '      // Protocol v2：能力格式');
+  // ⚠️v69.48：这一段从 photoSeen 块里挪到了 capState 声明【后面】。
+  //   原来写在前面＝在 const 声明之前用它，跑起来就是
+  //   「Cannot access 'capState' before initialization」，整条回复发不出去
+  //   （她 2026-09-17 截图）。所以锚点跟着挪，而且顺序本身也得钉住。
+  const app2 = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.ok(app2.indexOf("      const capState = [];") < app2.indexOf('capState.push("换头像：'),
+    "又跑到 capState 声明前面去了");
+  const blk = cut('      if (_askAvatar && !_avatarMsg) {', '      // ── 替她记一笔');
   assert.match(blk, /\*\*这件事你现在做不到\*\*/);
   assert.match(blk, /别说已经换了、也别说等下换/);
   assert.match(blk, /让 " \+ uName \+ " 把照片发给你/);
