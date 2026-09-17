@@ -1,11 +1,11 @@
 """Author the shared, walkable storybook interiors from MAPS (game x/z/height).
-Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1 neighbor2]
+Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1 neighbor2 neighbor3]
 Art/preview files stay outside the app. Export each .blend with export-fairy-village.py --detail.
 """
 import bpy,bmesh,math,random,ast,json,subprocess,sys
 from pathlib import Path
 from mathutils import Vector
-args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1','neighbor2']
+args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1','neighbor2','neighbor3']
 repo=Path(__file__).resolve().parents[2];cfg=json.loads(subprocess.check_output(['/opt/homebrew/bin/node','-e',"require('./apps/fairy-garden/rules.js');process.stdout.write(JSON.stringify(FairyGardenRules.MAPS))"],cwd=repo))
 # Same mesh/material primitives as the village architecture and lake, not another geometry implementation.
 source=repo/'art/fairy-garden/build_architecture.py'
@@ -113,13 +113,13 @@ def lamp(x,z,h=1.2):
  cylinder('Lamp brass foot',x,z,h,.17,.055,brass);rod('Lamp turned stem',(x,z,h),(x,z,h+.4),.028,brass)
  cylinder('Pleated linen lampshade',x,z,h+.3,.28,.32,paper,20,.16);cylinder('Shade brass rim',x,z,h+.3,.285,.025,brass)
 
-def rug(x,z,w,d,mat):
- ellipse('Shaped woven rug',x,z,.166,w/2,d/2,mat)
- for f in [.89,.77]:line('Woven rug border',[(x+math.cos(i*math.tau/64)*w/2*f,z+math.sin(i*math.tau/64)*d/2*f,.183) for i in range(65)],.016,paper)
+def rug(x,z,w,d,mat,height=.166):
+ ellipse('Shaped woven rug',x,z,height,w/2,d/2,mat)
+ for f in [.89,.77]:line('Woven rug border',[(x+math.cos(i*math.tau/64)*w/2*f,z+math.sin(i*math.tau/64)*d/2*f,height+.017) for i in range(65)],.016,paper)
  for i in range(12):
   a=i*math.tau/12;xx=x+math.cos(a)*w*.24;zz=z+math.sin(a)*d*.24
-  line('Embroidered leaf motif',[(xx-.07,zz,.185),(xx,zz-.16,.185),(xx+.07,zz,.185),(xx,zz+.16,.185),(xx-.07,zz,.185)],.013,brass)
- ellipse('Rug centre medallion',x,z,.187,.28,.34,paper,.012)
+  line('Embroidered leaf motif',[(xx-.07,zz,height+.019),(xx,zz-.16,height+.019),(xx+.07,zz,height+.019),(xx,zz+.16,height+.019),(xx-.07,zz,height+.019)],.013,brass)
+ ellipse('Rug centre medallion',x,z,height+.021,.28,.34,paper,.012)
 
 def table(w,d,h=.9,roundtop=False):
  if roundtop:ellipse('Oval carved table top',0,0,h,w/2,d/2,oak,.12)
@@ -194,7 +194,7 @@ def shell(m,name):
  for mat,(v,f) in zip(boards,batches):mesh(name+' fitted floorboards',v,f,mat)
  for i,a in enumerate(outline):
   b=outline[i-1];dx=b['x']-a['x'];dz=b['z']-a['z'];length=math.hypot(dx,dz);x=(a['x']+b['x'])/2;z=(a['z']+b['z'])/2;angle=math.atan2(dz,dx)
-  high=(z<-4.5 or x<-m['plan']['w']*.42 or i in m['plan'].get('tallWalls',[]));height=3.75 if high else .35
+  high=(z<-4.5 or x<-m['plan']['w']*.42 or i in m['plan'].get('tallWalls',[])) and i not in m['plan'].get('lowWalls',[]);height=3.75 if high else .35
   def wall():
    box('Limewashed outer wall',0,0,.14+height/2,length,.18,height,cream)
    for h in [.26, .92 if high else .38]:box('Wall dado moulding',0,.115,h,length,.055,.055,oak,.008)
@@ -206,6 +206,7 @@ def shell(m,name):
   x,z,w,d,h=wall['x'],wall['z'],wall['w'],wall['d'],wall['h'];base=floor_height(m,x,z)
   box('Low cutaway room partition',x,z,base+h/2,w,d,h,cream);box('Partition polished cap',x,z,base+h,w+.06,d+.06,.09,oak)
  for a in m['plan'].get('arches',[]):place(lambda:portal(0,0,a['w'],a['h'],a.get('base',.14)),a['x'],a['z'],a.get('heading',0))
+ for p in m['plan'].get('posts',[]):rod('Conservatory structural post',(p['x'],p['z'],floor_height(m,p['x'],p['z'])),(p['x'],p['z'],p['height']),p['r'],brass)
  for p in m['plan'].get('plants',[]):plant(p['x'],p['z'],floor_height(m,p['x'],p['z']),p['size'])
 
 def furnish(q,base=.14):
@@ -219,6 +220,13 @@ def furnish(q,base=.14):
    cylinder('Dining flower vase',x,z,base+.9,.10,.27,terracotta)
   elif kind in ['desk','console']:box('Desk open journal',x,z,base+.91,.45,.33,.025,paper);lamp(x,z-.5,base+.85)
   else:box('Coffee table clothbound book',x-.25,z,.73,.46,.32,.06,rose)
+ elif kind=='potting':
+  place(lambda:table(w,d,1.0),x,z)
+  box('Potting bench lower shelf',x,z,.4,w-.15,d-.1,.08,oak)
+  for dx in [-w*.3,0,w*.3]:
+   plant(x+dx,z,1.07,.5)
+   cylinder('Spare stacked clay pot',x+dx,z,.45,.15,.25,terracotta,14,.20)
+  box('Potting seed packet',x+w*.35,z+d*.3,1.085,.26,.18,.025,paper)
  elif kind=='bookcase':place(lambda:shelf(w,d,q.get('h',2.9)),x,z,q.get('heading',0))
  elif kind=='stove':
   cylinder('Tiled stove stone plinth',x,z,base,.58,.14,stone,24)
@@ -400,14 +408,55 @@ def neighbor2(m):
   rod('Reading ring suspension',(x,z,4.2),(-3,-.4,5.15),.014,brass)
 
 
+def neighbor3(m):
+ shell(m,'Bellleaf cottage')
+ for b in m['displayBeds']:bed(b)
+ for q in m['furniture']:furnish(q,floor_height(m,q['x'],q['z']))
+ rug(-5.2,2.1,5.5,4.2,rose)
+ # Glazed wing has stone pavers, distinct from the cottage's timber floor.
+ poly=[(p['x'],p['z']) for p in m['plan']['outline']]
+ for i in range(15):
+  for j in range(20):
+   x=3.05+i*.52;z=-5.15+j*.52
+   tile=clipped(poly,x-.245,x+.245,z-.245,z+.245)
+   plate('Greenhouse limestone paver',tile,.17,cream if (i+j)%3 else stone,.025)
+ rug(6.8,2.25,4.9,4.1,sage,.193)
+ round_window(-5.5,-6.56,3.0,.48)
+ # Roof removed for play; rear panes and slender copper ribs retain the conservatory outline.
+ for x in [3.9,6.15,8.4]:window(x,-5.35,.5,1.85,3.0)
+ for z in [-3.0,.2,3.3]:
+  line('Conservatory open roof rib',[(2.9,z,3.8),(6.8,z,4.85),(10.65,z,3.8)],.055,brass)
+ rod('Conservatory wall plate',(2.9,-5.3,3.8),(2.9,3.35,3.8),.055,brass)
+ rod('Conservatory outer wall plate',(10.65,-3,3.8),(10.65,3.35,3.8),.055,brass)
+ rod('Conservatory ridge',(6.8,-5.25,4.85),(6.8,3.35,4.85),.055,brass)
+ # Hanging herb bundles stay above doll height and do not create hidden ground obstacles.
+ rod('Herb drying rail',(3.5,-4.6,3.15),(8.8,-4.6,3.15),.025,wood)
+ for i in range(7):
+  x=3.8+i*.72
+  rod('Herb twine',(x,-4.6,3.15),(x,-4.6,2.9),.012,paper)
+  for j in range(4):
+   dx=(j-1.5)*.05;rod('Dried herb stem',(x,-4.6,2.93),(x+dx,-4.6,2.58),.01,leaf)
+   sphere('Dried herb leaf',x+dx,-4.6,2.66,.045,.045,.15,leaf)
+ for dx in [-.3,.3]:cylinder('Glazed flower tea cup',6.8+dx,2.25,1.0,.085,.13,paper)
+ cylinder('Tea table bud vase',6.8,2.5,1.0,.09,.2,terracotta)
+ rod('Bud stem',(6.8,2.5,1.2),(6.8,2.5,1.5),.012,leaf)
+ for a in range(5):sphere('Small tea flower',6.8+math.cos(a*math.tau/5)*.055,2.5+math.sin(a*math.tau/5)*.055,1.5,.055,.055,.025,rose)
+ # Botanical wall studies beside the bed, away from its canopy.
+ for x in [-1.0,.1,1.2]:
+  box('Botanical study oak frame',x,-5.38,3.15,.7,.06,.95,oak)
+  box('Botanical study linen',x,-5.34,3.15,.59,.02,.83,paper)
+  rod('Pressed botanical stalk',(x,-5.31,2.85),(x,-5.31,3.43),.012,leaf)
+  for sign in [-1,1]:sphere('Pressed botanical leaf',x+sign*.10,-5.30,3.15,.14,.015,.055,leaf)
+
+
 def render(name,m):
  sc=bpy.context.scene;sc.render.engine='CYCLES';sc.cycles.samples=24;sc.cycles.use_denoising=True;sc.world.color=(.35,.35,.35)
  sc.world.use_nodes=True;sc.world.node_tree.nodes['Background'].inputs[0].default_value=(.78,.81,.77,1);sc.world.node_tree.nodes['Background'].inputs[1].default_value=.65
  for location,energy,size in [((4,-3,17),1900,10),((-10,-6,10),1000,10)]:
   bpy.ops.object.light_add(type='AREA',location=location);o=bpy.context.object;o.data.energy=energy;o.data.shape='DISK';o.data.size=size;o.rotation_euler=(Vector((0,0,0))-o.location).to_track_quat('-Z','Y').to_euler()
- bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else (25 if name in ['neighbor1','neighbor2'] else 29);sc.camera=camera
+ bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else (25 if name in ['neighbor1','neighbor2','neighbor3'] else 29);sc.camera=camera
  sc.render.resolution_x=1500;sc.render.resolution_y=1100;sc.render.resolution_percentage=100;sc.view_settings.view_transform='AgX';sc.render.image_settings.file_format='PNG';sc.render.filepath=str(out/(name+'.png'))
- filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior','neighbor2':'neighbor2-interior'}[name]
+ filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior','neighbor2':'neighbor2-interior','neighbor3':'neighbor3-interior'}[name]
  bpy.ops.wm.save_as_mainfile(filepath=str(out/(filename+'.blend')));bpy.ops.render.render(write_still=True);print('INTERIOR_READY',name,flush=True)
 for name in targets:
  for o in list(bpy.data.objects):bpy.data.objects.remove(o,do_unlink=True)

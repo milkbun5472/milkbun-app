@@ -185,7 +185,7 @@ node scripts/build-fairy-garden.mjs
 
 ## 室内大宅（当前场景源）
 
-现役室内统一使用 `build_interiors.py`：家、公共厅、楼上宿舍、收藏馆、左邻居星图阁楼、林后苔灯书塔。
+现役室内统一使用 `build_interiors.py`：家、公共厅、楼上宿舍、收藏馆、左邻居星图阁楼、林后苔灯书塔、右邻居铃叶花舍。
 从 `apps/fairy-garden/rules.js` 的 MAPS 读取轮廓、家具、门、床、展柜、拱柱与植物占地；
 修改布局同时影响美术与导航，勿再用旧 `build_house.py` / `build_public_hall.py` /
 `build_museum.py` 导出现役室内（旧脚本保留为历史造型与旧外景依赖）。
@@ -210,4 +210,8 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 
 ### 林后苔灯书塔
 
-`MAPS.neighbor2` 是圆塔加侧卧室：放射状书柜朝向中心阅读区，写字台靠弧窗，小瓷炉、圆窗卧室和织物箱。构建参数 `neighbor2`，导出 `neighbor2-interior.glb --detail`。`connectNeighbor` 共用两间邻居屋的门、家具旋转轮廓、床边柜、植物与拱柱碰撞；侧向拱门和高墙由地图计划驱动。现有睡眠/入住范围不变。浏览器脚本 `fairy-neighbor-browser.cjs` 默认检查两间，也可以传单个地图 ID。
+`MAPS.neighbor2` 是圆塔加侧卧室：放射状书柜朝向中心阅读区，写字台靠弧窗，小瓷炉、圆窗卧室和织物箱。构建参数 `neighbor2`，导出 `neighbor2-interior.glb --detail`。`connectNeighbor` 共用邻居屋的门、家具旋转轮廓、床边柜、植物与拱柱碰撞；侧向拱门和高墙由地图计划驱动。现有睡眠/入住范围不变。浏览器脚本 `fairy-neighbor-browser.cjs` 默认检查三间，也可以传单个地图 ID。
+
+### 右邻居铃叶花舍
+
+`MAPS.neighbor3` 将木地板起居卧室与石砖花房连成一座房子。`neighbor3` 参数构建，导出 `neighbor3-interior.glb --detail`；种植台、草药架与花房茶桌目前均为场景陈设。继续使用 `connectNeighbor`；花房细柱由 `plan.posts` 同时生成美术与碰撞，低墙由 `lowWalls` 指定。地毯高度支持石砖表面，避免埋到砖下。构建不更改前两间 GLB。
