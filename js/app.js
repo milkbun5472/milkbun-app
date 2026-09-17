@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.47";
+const APP_VERSION = "v69.48";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8692,6 +8692,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : (_seenAvatarOk ? photoSeenAskHint(uName) : "");
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
         : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
+      // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
+      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
+      const capState = [];
+      // ⚠️这一段【必须排在 capState 声明之后】：v69.30 我把它写在上面那个
+      //   photoSeen 块里，而 capState 是 const，于是每次走到这儿都是
+      //   「Cannot access 'capState' before initialization」——整条回复直接发不出去
+      //   （她 2026-09-17 截图：她刚好在试换头像，连着几轮提过「头像」，
+      //    那几轮一条消息都发不出来）。测试全是静态正则，抓不到这种时序错。
       // 她提了头像，可手上一张真照片都没有：明说做不到，别让他圆
       // （「回执是个承诺」——承诺不了的就别让TA开口）
       if (_askAvatar && !_avatarMsg) {
@@ -8699,9 +8707,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + " 发给你的真实照片——**这件事你现在做不到**。别说已经换了、也别说等下换，"
           + "就照实说你手上没有可用的那张，想换的话让 " + uName + " 把照片发给你。");
       }
-      // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
-      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
-      const capState = [];
       // ── 替她记一笔 / 记备忘（她 2026-08-30）────────────────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。
