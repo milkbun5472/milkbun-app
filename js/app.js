@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.77";
+const APP_VERSION = "v69.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5537,7 +5537,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️OFF_VERBATIM 是拉条（她 2026-09-13 要的）；OFF_EXCERPT 不是——
       //   「摘录留多少字」跟「留几拍原文」不是一回事，那一条是手艺，留在代码里。
       const OFF_VERBATIM = Math.max(1, Number(memCfgRef.current.offVerbatim ?? 3)), OFF_EXCERPT = 70;
-      const offCap = Math.min(Math.round(budget * 0.3), 3000);
+      // ⚠️去掉写死那个 3000（她 2026-09-17：「能不能调大点宝宝预算」）。
+      //   护住聊天不被描写挤掉的，本来就是【三成】这一条——它跟着预算按比例走，
+      //   预算多大线下都只占三成。旁边那个 3000 是同一道闸的第二份，
+      //   而且是按「预算最多 16000」那会儿定的（16000×0.3＝4800，所以真正卡住的一直是 3000）。
+      //   现在预算上限放开到 60000，再留着它，拉条拉到头线下还是只有 3000 字——
+      //   拉了等于没拉。一道闸留一处就够（施工规则/one-public-mechanism.md 那条的同一个道理）。
+      const offCap = Math.round(budget * 0.3);
       // 她 2026-08-28 定的取法：**只留对话符里的东西和它前后各一句**，其余全交给滚动摘要。
       // 老拍子里真正影响后面接话的是「谁说了什么、说这句之前之后在干什么」；写景和感官
       // 是这一刻的质感，过了这一刻就只剩占字数。
