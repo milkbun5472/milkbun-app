@@ -74,9 +74,12 @@ test('说过的话只有一份：落定的交给房间，存档里只留在途�
 
 test('庭院房的同行者就是这间房的角色，不给换', () => {
   assert.match(app, /lockPartnerId: activeChar\.id/);
-  assert.match(garden, /if \(props\.lockPartnerId\) \{ props\.toast\("这间庭院房就是和 TA 的/);
-  assert.match(garden, /if \(!props\.lockPartnerId && \(pick \|\| \(!char && !solo\)\)\)/, '锁住了还闪一下选人页');
-  assert.match(garden, /props\.lockPartnerId \? null : h\("button", \{ onClick: changePartner/);
+  assert.match(garden, /props\.toast\("这间庭院房就是和 TA 的/, '没有新开房的能力时，还是那句话');
+  assert.match(garden, /if \(id && props\.lockPartnerId && props\.onNewGardenRoom\) \{ setPick\(false\); props\.onNewGardenRoom\(id\); return; \}/,
+    '在庭院房里挑了另一个人＝给那个人新开一间，不是把这一间的存档换个人');
+  assert.match(garden, /在原地换人会让这一档的过去接到别人身上/);
+  assert.match(garden, /if \(\(!props\.lockPartnerId \|\| props\.onNewGardenRoom\) && \(pick \|\| \(!char && !solo\)\)\)/);
+  assert.match(garden, /props\.lockPartnerId \? "另开一间" : "换同行者"/);
 });
 
 test('建房那一页能选到庭院，房间列表认得出它', () => {

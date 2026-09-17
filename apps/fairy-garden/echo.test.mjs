@@ -11,7 +11,7 @@ const withShard = (kind='echo') => fillVein(freshState(),[{kind,text:'一段回�
 
 test('她做的每一件事都在账上留一行',()=>{
  let s=takeShard(withShard(),2);
- assert.match(recentHappenings(s)[0].text,/从井里第 2 层刨出一片回声石/);
+ assert.match(recentHappenings(s)[0].text,/从井里第 2 层带回回声石/);
  s=craftThing(s,s.shards[0].id,'set');
  assert.match(recentHappenings(s)[0].text,/在锅里凝结出一样/);
  const t=s.things[0];

@@ -1,6 +1,9 @@
+import {makeCurio} from './curio-view.mjs?v=fg-b37f08afc7f0dadc';
+import {makeWellSigns} from './well-view.mjs?v=fg-b37f08afc7f0dadc';
+import {wellFind} from './world.mjs?v=fg-b37f08afc7f0dadc';
 import * as T from 'three';
-import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-cd0b9e48ee809369';
-import {NODES} from './world.mjs?v=fg-cd0b9e48ee809369';
+import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-b37f08afc7f0dadc';
+import {NODES} from './world.mjs?v=fg-b37f08afc7f0dadc';
 
 // A cutaway of the old well: masonry, roots and a little lamplight, not a ring of pillars.
 // All decoration stays outside the walking disc; node IDs and positions come from the rules.
@@ -90,21 +93,18 @@ export function makeDepths(){
  root.updateMatrixWorld(true);const staticMeshes=[];root.traverse(o=>{if(o.isMesh)staticMeshes.push(o);});
  for(const o of staticMeshes){const g=o.geometry.clone().applyMatrix4(o.matrixWorld);if(!batches.has(o.material))batches.set(o.material,[]);batches.get(o.material).push(g);o.removeFromParent();}
  for(const [material,geos]of batches){const g=mergeGeometries(geos.map(g=>g.index?g.toNonIndexed():g));mesh(g,material,0,0,0);for(const geo of geos)geo.dispose();}
- // Shared faceted crystal materials: only the active layer's nodes are visible/pickable.
- const crystalMats={stone:mat('#c8e9e6','#639fad'),sand:mat('#e8c294','#a57644')};
- const crystalGeo=new T.CylinderGeometry(0,.1,.5,5,1),shaftGeo=new T.CylinderGeometry(.1,.105,.3,5,1);
+ const signs=makeWellSigns(root);
  for(const n of NODES.filter(n=>n.map==='depths')){
   const g=new T.Group();g.position.set(n.x,.08,n.z);g.userData.nodeId=n.id;g.visible=false;root.add(g);
-  const vein=new T.Group();g.add(vein);if(!layers.has(n.depth))layers.set(n.depth,[]);layers.get(n.depth).push({g,vein,id:n.id});
+  const vein=new T.Group();g.add(vein);if(!layers.has(n.depth))layers.set(n.depth,[]);layers.get(n.depth).push({g,vein,id:n.id,site:n,form:null});
   mesh(rock,'#637775',0,.035,0,.36,.095,.3,g);
-  for(let j=0;j<4;j++){const a=j*2.4+n.depth,size=j===0?1:.55+j*.07,stem=new T.Group();stem.position.set(Math.cos(a)*.14,.06,Math.sin(a)*.14);stem.rotation.set(Math.sin(a)*.22,0,Math.cos(a)*.24);stem.scale.setScalar(size);vein.add(stem);
-   mesh(shaftGeo,crystalMats[n.kind],0,.15,0,1,1,1,stem);mesh(crystalGeo,crystalMats[n.kind],0,.55,0,1,1,1,stem);
-  }
  }
  const dustGeo=new T.BufferGeometry(),dust=[];for(let i=0;i<38;i++)dust.push((rnd()-.5)*6,.3+rnd()*2.3,(rnd()-.5)*6);
  dustGeo.setAttribute('position',new T.Float32BufferAttribute(dust,3));const motes=new T.Points(dustGeo,new T.PointsMaterial({color:'#bddfca',size:.025,transparent:true,opacity:.5,depthWrite:false}));motes.raycast=()=>{};root.add(motes);
  return {root,
+  node(id){for(const rows of layers.values()){const row=rows.find(x=>x.id===id);if(row)return row;}return null;},
   pick(ray){const hit=ray.intersectObjects(root.children,true).find(h=>{for(let o=h.object;o;o=o.parent)if(!o.visible)return false;return true;});let o=hit?.object;while(o&&!o.userData.nodeId)o=o.parent;return o?.userData.nodeId;},
-  update(s,time){for(const [depth,rows]of layers)for(const row of rows){row.g.visible=depth===s.depth;row.vein.visible=!s.picked.includes(row.id);}crystalMats.stone.emissiveIntensity=.6+Math.sin(time*.8)*.09;motes.position.y=Math.sin(time*.18)*.065;}
+  update(s,time){for(const [depth,rows]of layers)for(const row of rows){row.g.visible=depth===s.depth;if(!row.g.visible)continue;const form=wellFind(s,row.site);if(row.form!==form){row.vein.clear();row.vein.add(makeCurio(form));row.form=form;}row.vein.visible=!s.picked.includes(row.id);}signs.update(s,time);motes.position.y=Math.sin(time*.18)*.065;}
+
  };
 }

@@ -2359,6 +2359,29 @@ function App() {
     setChats(p => { const next = { ...p, [result.key]: result.messages }; chatsRef.current = next; return next; });
     return result.room;
   };
+  // 给某个角色新开一间庭院房（她 2026-09-17：「从游戏里开新档它不会主动创建房间」）。
+  // ⚠️一间房＝一个庭院存档是这条线从头就定下的。原来她在游戏里想换个人重开一档，
+  //   只会被告知「换人请另开一间」，然后得自己退出去、找到房间列表、建一间——
+  //   那句话说的是对的，缺的是替她把这一步做了。
+  // ⚠️房间怎么建不在这儿另写一份：还是 PRESETS.garden ＋ commitStart 那一条路。
+  const openGardenRoomFor = async charId => {
+    const Kit = window.ChatRooms;
+    if (!Kit || !charId) return null;
+    // ⚠️setActiveChar 存的是【角色对象】不是 id（上面那段注释说的就是它）
+    const who = (characters || []).find(c => c && String(c.id) === String(charId));
+    if (!who) { toast("找不到这一位"); return null; }
+    const live = Kit.list(charId).find(r => r && !r.main && r.garden);
+    if (live) { setActiveChar(who); setActiveRoomId(live.id); setScreen("thread"); return live; }
+    const preset = Kit.PRESETS.garden;
+    const draft = Kit.normalize({ id: "room_" + Date.now().toString(36), name: preset.label, preset: "garden", garden: true,
+      ...JSON.parse(JSON.stringify(preset)), createdAt: Date.now() }, charId);
+    const prepared = Kit.prepareStart(charId, draft, Kit.get(charId, "main"), [], "blank", null);
+    const room = prepared ? await createChatRoomFromStart(prepared) : null;
+    if (!room) { toast("这间房没建起来，再试一下"); return null; }
+    setActiveChar(who); setActiveRoomId(room.id); setScreen("thread");
+    toast("给 TA 新开了一间庭院房");
+    return room;
+  };
   const clearChatRoomRecords = async room => {
     if (!window.ChatRooms || !room || room.main) return null;
     const key = window.ChatRooms.chatKey(room.personId, room.id);
@@ -21363,6 +21386,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))])
       },
       toast: toast,
+      onNewGardenRoom: openGardenRoomFor,
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
@@ -22361,6 +22385,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
     profile: profile,
     toast: toast,
+    onNewGardenRoom: openGardenRoomFor,
     onBack: () => setScreen("home")
   });else if (screen === "trpg") body = h(window.TrpgApp, {
     // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,

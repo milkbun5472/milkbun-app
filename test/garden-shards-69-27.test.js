@@ -65,7 +65,7 @@ test('补池子是静悄悄的：失败不拦着她继续挖', () => {
   assert.match(fn, /if\(digging\|\|!host\|\|!host\.dig\)return false/, '没有宿主（试玩）就别打这一枪');
   assert.match(fn, /catch\(e\)\{say\(/);
   // 池子空了照旧给一块没纹路的石头（takeShard 那头），不让她空手
-  assert.match(rd('apps/fairy-garden/world.mjs'), /一块没有纹路的石头/);
+  assert.match(rd('apps/fairy-garden/world.mjs'), /它静静躺在掌心/);
   // 下潜/再往下才补，而且只在快空的时候
   assert.match(game, /\(kind==='dive'\|\|kind==='deeper'\)&&host&&host\.dig&&veinLow\(data\)\)fillPool\(\)/);
 });
