@@ -25,12 +25,13 @@ test("挡不挡路只有一处答案，walkable 和 segmentClear 都问它", () 
   // （注释里那一处不算——把注释也数进来，写句说明就会把测试弄红。）
   const code = world.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   const lines = code.split("\n").filter(l => l.includes("opensWith"));
-  assert.equal(lines.length, 5, [
+  assert.equal(lines.length, 6, [
     "blocksNow：这一块此刻还挡不挡路",
     "openDeck：开了的桥面本身就是路",
     "segmentClear：这张图上有开着的桥面时不许抢跑快筛",
     "floorHeight：没搭起来的桥面还不是地面",
     "openingReady：模型那边有没有标记",
+    "actionError：上锁区域的座位要先开路",
   ].join(" / "));
 });
 

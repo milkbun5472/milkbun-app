@@ -124,3 +124,12 @@ body.embedded .weather{gap:8px}
 /* 衣柜预览：手机那一侧那一页顶上留了一条透明的窗，游戏往窗里渲一个小人。
    这时候游戏自己那套壳要全收起来——不然她看到的是小人后面压着一排按钮。 */
 body.previewing #app > *:not(#world) { display: none !important; }
+
+/* Reuse the season book's full-height shell and single scrolling body. */
+#mill-dialog .dialog-title{padding-top:calc(12px + env(safe-area-inset-top) * .5)}
+body.embedded #mill-dialog .dialog-title{padding-top:12px}
+#mill-dialog .title-spacer{width:40px;flex-shrink:0}#mill-dialog h2{flex:1;text-align:center}
+#mill-dialog .book-body{flex:1}.mill-recipe{padding:12px 0 20px;border-bottom:1px solid #d5ddc7}
+.mill-recipe p{font-size:13px;line-height:1.8;overflow-wrap:anywhere}.mill-recipe button{min-height:44px;width:100%;font-size:14px}
+
+#mill-dialog #mill-list{display:block;margin:0}#mill-dialog .mill-recipe h3{margin-top:12px}

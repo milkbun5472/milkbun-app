@@ -71,19 +71,27 @@ def reedBridge():
    sphere('Reed seed head',xx+.11,zz+.04,h,.032,.032,.16,oak)
    line('Long reed leaf',[(xx,zz,.30),(xx-.14,zz,.55),(xx-.21,zz,.49)],.017,lightleaf)
  def opened():
-  for step in steps:
-   z0,z1=step['z']-step['d']/2,step['z']+step['d']/2
+  for step in [*steps,q['landing']]:
+   cx=step['x'];z0,z1=step['z']-step['d']/2,step['z']+step['d']/2
    for i in range(max(1,math.ceil(step['d']/.09))):
-    zz=z0+(i+.5)*step['d']/max(1,math.ceil(step['d']/.09));rod('Woven reed deck slat',(x-step['w']/2,zz,step['height']-.04),(x+step['w']/2,zz,step['height']-.04),.043,reedmat)
-   for sign in [-1,1]:rod('Reed deck bound edge',(x+sign*step['w']/2,z0,step['height']-.04),(x+sign*step['w']/2,z1,step['height']-.04),.044,wood)
+    zz=z0+(i+.5)*step['d']/max(1,math.ceil(step['d']/.09));rod('Woven reed deck slat',(cx-step['w']/2,zz,step['height']-.04),(cx+step['w']/2,zz,step['height']-.04),.043,reedmat)
+   for sign in [-1,1]:rod('Reed deck bound edge',(cx+sign*step['w']/2,z0,step['height']-.04),(cx+sign*step['w']/2,z1,step['height']-.04),.044,wood)
   # Rails and knot uprights stay beyond the actual walkable width.
   for sign in [-1,1]:
    xx=x+sign*.85
-   for zz in [-2.72,-1.65,-.55,.55,1.55]:
+   for zz in ([-.55,.55,1.55] if sign==1 else [-2.72,-1.65,-.55,.55,1.55]):
     line('Bridge woven upright',[(xx,zz,.35),(xx+sign*.04,zz,1.3),(xx,zz,1.48)],.055,wood)
     for j in range(3):line('Reed lash knot',[(xx-.07,zz-.035,1.18+j*.035),(xx+.07,zz-.035,1.18+j*.035),(xx+.07,zz+.035,1.18+j*.035)],.015,reedmat)
-   for h in [1.08,1.43]:line('Living reed balustrade',[(xx,-2.9+i*4.8/40,h-.11*math.sin(i*math.pi/10)**2) for i in range(41)],.04,reedmat)
-   for j in range(4):leaf_spray(xx,-2.6+j*1.15,1.49,.65)
+   for h in [1.08,1.43]:line('Living reed balustrade',[(xx,(-1.4 if sign==1 else -2.9)+i*(3.3 if sign==1 else 4.8)/40,h-.11*math.sin(i*math.pi/10)**2) for i in range(41)],.04,reedmat)
+   for j in (range(2,4) if sign==1 else range(4)):leaf_spray(xx,-2.6+j*1.15,1.49,.65)
+  landing=q['landing']
+  for dx in [-1,1]:
+   for dz in [-1,1]:
+    xx=landing['x']+dx*(landing['w']/2-.12);zz=landing['z']+dz*(landing['d']/2-.12)
+    cylinder('Island deck support',xx,zz,.05,.075,.61,wood,10)
+  seat=cfg['garden']['seats']['island']
+  for pos in [seat,seat['companion']]:
+   sphere('Woven sitting mat',pos['x'],pos['z'],.715,.34,.31,.035,lightleaf)
  state_group('reedBridge','shut',shut);state_group('reedBridge','open',opened)
  return (x,0,.4),9,'opening-reed-bridge'
 
