@@ -221,3 +221,9 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 `build_market.py -- ART_ROOT OUTPUT_DIR` 从 `MAPS.garden.market` 读取四摊、灯柱和铺地；药草弧棚、奇物尖篷、侧向茶摊、小花车留出通往公共厅的中央路。摊位与灯柱占地由同表生成碰撞，旋转复用室内家具轮廓。现阶段是可逛场景，交易与日期开市尚未接入。
 
 在 architecture 之后构建，分别导出输出目录的 `village-market.blend` 与 `village-hall.blend --detail`。后者只清旧空摊；共享 `remove_legacy_market` 也接进完整建筑重建，避免旧模型复活。market 独立懒载，昼夜/天气/季节沿用室外公共渲染。预览使用旧建筑源的地景作位置对照，最终景观以游戏里的常驻地景为准。浏览器验证脚本 `scripts/checks/fairy-market-browser.cjs` 使用独立空白存档，检查摊前走动、同行进出大厅、地图卸载、存读档和手机平移。
+
+### 北境隐林与旧塔
+
+`build_old_tower.py -- OUTPUT_DIR` 从 `MAPS.garden.oldTower` 构建林缘、深林、旧塔三个分区（village-northwood-edge / village-northwood-deep / village-old-tower，均用 --detail 导出）。旧塔在 (0,-46)，通过公共厅东北的窄泥路连回村落；塔门暂封，只开放外景。树干、密灌木、石塔、落石与通路共用地图数据，切勿只改 Blender 摆放。
+
+garden.walkRegions 保留原半径32的村落，仅向北扩展可走区域；radius55用于镜头/粗边界。寻路网格按实际区域包围盒建立，避免把四周尚未建造的土地一起扩出来。树木和地景使用现有室外四季渲染。精确顶点相连的泥路不会在拐弯处共面重叠，upward复用湖面朝向修复。运行时沿用原常驻草地，构建里的方形地面只供Blender预览，不导出。站点接现有地图步行功能；没有传送、交易或新AI调用。脚本 fairy-old-tower-browser.cjs 在独立存档实走双人往返、分区卸载、读档、手机平移和冬夜。竖屏小倍率的正交镜头会沿原视线后退，并补偿雾距，避免近裁面切掉屏幕下方草地；公共view-controls已有四角裁切回归。
