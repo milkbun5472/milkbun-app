@@ -1,6 +1,6 @@
-import './rules.js?v=fg-fe4b3d221c1bce32';
+import './rules.js?v=fg-a65c69ad19268e31';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-fe4b3d221c1bce32';
+import {createNavigator} from './navigation.mjs?v=fg-a65c69ad19268e31';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -163,32 +163,49 @@ const SEASON_QUESTS = [
   { find: 32, bloom: 26, fix: 22, gather: 12, keep: 8 },   // 秋：寻物、收获、转交
   { keep: 34, fix: 26, gather: 20, find: 12, bloom: 8 }    // 冬：室内、照顾、陪伴
 ];
-export const QUEST_SLOTS = 3, QUEST_TAKEN_MAX = 2;
+export const QUEST_SLOTS = 3, QUEST_TAKEN_MAX = 2, QUEST_CYCLE = 4;
+// 第几块板子（从第 1 天起每 4 天一块）。⚠️只在这一处算，别处一律问它——
+//   板子的号同时管【抽签的种子】【委托的 id】和【过没过期】，各算一遍迟早对不上。
+export const questCycle = day => Math.floor((Math.max(1, count(day)) - 1) / QUEST_CYCLE);
+// 这块板子撕下来的那天：过了这天还没交，就没了
+export const questLastDay = cycle => (Math.max(0, count(cycle)) + 1) * QUEST_CYCLE;
 const hash = str => { let h = 2166136261; for (const ch of String(str)) { h = Math.imul(h ^ ch.charCodeAt(0), 16777619); } h ^= h >>> 16; return h >>> 0; };
 const pickWeighted = (table, seed) => { let draw = (hash(seed) % 1000) / 1000 * 100;
   for (const [key, weight] of Object.entries(table)) { draw -= weight; if (draw < 0) return key; } return Object.keys(table)[0]; };
 const QUEST_NEED = { shard: 1, herbs: 2, harvest: 2, relic: 1, visit: 0 };
 // 这一季的板子：由存档号＋季节算出来，谁看都是这三条，刷新页面也不会变
 export function questBoard(s){
-  const season = seasonOf(s.day), out = [];
+  const season = seasonOf(s.day), cycle = questCycle(s.day), out = [];
+  // ⚠️换板子的节奏是四天，但【抽什么】仍旧跟着季节走：春天容易有人来找东西、
+  //   冬天多陪伴，那一层没变，变的只是多久换一块。
   const table = SEASON_QUESTS[season.index % 4], order = Object.keys(table);
   for (let i = 0; i < QUEST_SLOTS; i++) {
-    const seed = String(s.epoch) + ':quest:' + season.index + ':' + i;
+    const seed = String(s.epoch) + ':quest:' + cycle + ':' + i;
     // ⚠️同一块板子上不许出现两件一样的：抽重了就顺着权重表往下挪一格。
     //   三条里两条「采一点」，看起来就像这个世界只会一件事。
     let kind = pickWeighted(table, seed), guard = 0;
     while (out.some(q => q.kind === kind) && guard++ < order.length) kind = order[(order.indexOf(kind) + 1) % order.length];
-    out.push({ id: 'q_' + season.index + '_' + i, kind,
+    out.push({ id: 'q_' + cycle + '_' + i, kind,
       from: QUEST_FROM[hash(seed + ':from') % QUEST_FROM.length],
-      need: QUEST_NEED[QUEST_KINDS[kind].need], season: season.index });
+      need: QUEST_NEED[QUEST_KINDS[kind].need], season: season.index,
+      cycle: cycle, lastDay: questLastDay(cycle) });
   }
   return out;
 }
 export const questTaken = s => (s.quests || []).filter(q => !q.done);
+// 接了没做的，板子一换就没了（她 2026-09-17：「接了没做也没了」）。
+// ⚠️只在【跨天】那一处真删，别处一律读 questTaken——读的时候顺手算过期的话，
+//   同一件事会在界面上忽隐忽现。
+export const questExpired = (s, q) => !q.done && questCycle(s.day) > count(q.cycle);
+export function expireQuests(s){
+  return (s.quests || []).some(q => questExpired(s, q))
+    ? { ...s, quests: (s.quests || []).filter(q => !questExpired(s, q)) } : s;
+}
 export function restoreQuests(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && Object.hasOwn(QUEST_KINDS, x.kind)).slice(0, 40).map(x => ({
     id: String(x.id).slice(0, 40), kind: x.kind, from: trimText(x.from, 24),
     need: Math.max(0, count(x.need)), season: Math.max(0, count(x.season)),
+    cycle: Math.max(0, count(x.cycle)), lastDay: Math.max(0, count(x.lastDay)),
     day: Math.max(1, count(x.day)), done: x.done === true
   }));
 }
@@ -557,7 +574,7 @@ export function restoreState(raw){if(raw&&raw.layout!==2){raw={...raw,layout:2,p
  depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 // Thaw rescues only positions that are no longer traversable; inventory and relationship data stay intact.
 export function shoreAfterThaw(s){if(lakeFrozen(s))return s;const l=MAPS.garden.lake,at=p=>inPolygon(p.x,p.z,l.shore,.16)&&!walkable(p.x,p.z,'garden',s),p=s.map==='garden'&&at(s.position),c=s.companion.map==='garden'&&at(s.companion.position);if(!p&&!c)return s;return {...s,position:p?{...l.bottle.target}:s.position,companion:c?{...s.companion,position:{x:l.bottle.target.x+.85,z:l.bottle.target.z+.3}}:s.companion};}
-export function nextDay(s){const day=s.day+1;return shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}));}
+export function nextDay(s){const day=s.day+1;return expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms})));}
 export function advanceTime(s,minutes){let remaining=count(minutes,9600),out=s;while(remaining>0){const span=1380-out.minute;if(remaining<span)return {...out,minute:out.minute+remaining};remaining-=span;out=nextDay(out);}return out;}
 export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
 // A companion carries its own morning dew: one visible helping action per game day.

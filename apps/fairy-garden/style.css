@@ -89,3 +89,12 @@ body.embedded .weather{gap:8px}
 #sow-kinds button[aria-pressed=true]{border-color:#55704f;background:#eef3e6;color:#48604a}
 #sow-text{width:100%;box-sizing:border-box;border:1px solid #dbe2cd;border-radius:12px;background:#fbfaf0;color:#48604a;font:inherit;font-size:13.5px;line-height:1.8;padding:10px 12px;resize:none}
 #sow-go{background:#e4ecdc;color:#48694f}
+/* 一张平面的村子图：只说【谁在哪儿】，点了不会把人传送过去——走路本身是这游戏的节奏 */
+#map-plan{margin:4px 0 10px;border:1px solid #dbe2cd;border-radius:14px;background:#f4f6e8;overflow:hidden}
+#map-plan svg{display:block;width:100%;height:auto}
+#map-plan .spot{fill:#c3cdb2}
+#map-plan .spot-label{font-size:9px;fill:#7b8a70}
+#map-plan .me{fill:#55704f}
+#map-plan .them{fill:#a8763f}
+#map-plan .who-label{font-size:10px;font-weight:600}
+#map-where{line-height:1.9}

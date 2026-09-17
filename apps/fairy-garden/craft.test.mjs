@@ -76,7 +76,7 @@ test('走到锅前要有材料，位置表只有一份',()=>{
 });
 
 // ── 公告栏（v69.35）：接委托、做完留下后果 ──────────────────────────────
-import {QUEST_KINDS,QUEST_TAKEN_MAX,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,restoreQuests} from './world.mjs';
+import {QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questCycle,nextDay,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,restoreQuests} from './world.mjs';
 const relic = (id='r1') => ({ id, kind:'relic', text:'一个奇怪零件。', whole:false, depth:3, day:1, pinned:false });
 
 test('板子由存档号＋季节算出来：同一档同一季永远是这三条',()=>{
@@ -133,4 +133,41 @@ test('灯是后果，不是一句谢谢：天黑就亮，雨夜有人来躲',()=
  assert.equal(lampShelter({...on,day:rainyDay}),true);
  const dryDay=[1,2,3,4,5,6,7,8,9,10].find(d=>!['细雨','细雪'].includes(weather(d,on.epoch)));
  assert.equal(lampShelter({...on,day:dryDay}),false);
+});
+
+// 她 2026-09-17：「公告栏搞个时效吧然后四天刷新一次，接了没做也没了」
+test('板子四天一换，抽什么仍旧跟着季节走',()=>{
+ const s={...freshState(),epoch:'save-a'};
+ assert.equal(questCycle(1),0);assert.equal(questCycle(4),0);assert.equal(questCycle(5),1);
+ const a=questBoard({...s,day:1}).map(q=>q.id),d4=questBoard({...s,day:4}).map(q=>q.id);
+ assert.deepEqual(a,d4,'四天之内是同一块板子，刷新页面也不该变');
+ assert.notDeepEqual(a,questBoard({...s,day:5}).map(q=>q.id),'第五天还是老三样');
+ // 同一块板子上不许有两件一样的
+ const kinds=questBoard({...s,day:9}).map(q=>q.kind);
+ assert.equal(new Set(kinds).size,kinds.length);
+});
+
+test('接了没做，板子一换就没了；做完的那条留着',()=>{
+ let s={...freshState(),epoch:'save-a',day:1};
+ s=takeQuest(s,questBoard(s)[0].id);
+ assert.equal(questTaken(s).length,1);
+ assert.equal(questTaken(s)[0].lastDay,4,'到期是哪天要写在这一条上，界面照它说');
+ for(let i=0;i<3;i++)s=nextDay(s);
+ assert.equal(s.day,4);
+ assert.equal(questTaken(s).length,1,'最后一天就撕掉＝少给她一天');
+ s=nextDay(s);
+ assert.equal(questTaken(s).length,0,'接了没做还赖在手上');
+ assert.equal(restoreQuests(s.quests).length,0);
+});
+
+test('做完的那条不会被撕掉，功绩也留着',()=>{
+ let s={...freshState(),epoch:'save-a',day:30};
+ const fix=questBoard(s).find(q=>q.kind==='fix');
+ if(!fix)return;
+ s=takeQuest(s,fix.id);s={...s,shards:[relic()]};
+ s=turnIn(s,fix.id);
+ assert.equal(s.deeds,1);
+ for(let i=0;i<6;i++)s=nextDay(s);
+ assert.equal((s.quests||[]).filter(q=>q.done).length,1,'做完的那条被当成过期撕了');
+ assert.equal(s.deeds,1);
 });
