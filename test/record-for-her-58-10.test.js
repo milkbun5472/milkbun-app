@@ -80,10 +80,17 @@ test("「他能看到这笔」＝只看到这一笔，不是整本账开给他",
 test("触发词表：拆成几个气泡说也认得出，而且不误伤「我记得」这类", () => {
   // ⚠️抠【真正在跑的那一份】出来，不许在测试里另抄一份正则——
   // 抄一份的话，改了代码没改测试，测的就是那份抄件
-  const i = app.indexOf("      const _askedRecord = (function () {");
-  const j = app.indexOf("})();", i) + 5;
-  assert.ok(i > 0 && j > i, "抠不出触发判据");
-  const gate = new Function("history", app.slice(i, j).replace("const _askedRecord =", "return"));
+  // ⚠️v69.28：「她最近几轮开口要了没有」抽成了公共的 askedRecently
+  //（换头像那一处是同一个形状的第二次出现，施工规则/one-public-mechanism.md）。
+  // 钉的东西没变：还是把【真正在跑的那两段】抠出来跑，不在测试里另抄一份正则。
+  const fi = app.indexOf("  const askedRecently = (history, re, turns) =>");
+  const fj = app.indexOf("  const AVATAR_COOLDOWN_MS", fi);
+  assert.ok(fi > 0 && fj > fi, "抠不出 askedRecently");
+  const li = app.indexOf("      const _askedRecord = askedRecently(history, ");
+  const lj = app.indexOf("\n", li);
+  assert.ok(li > 0 && lj > li, "抠不出触发判据");
+  const gate = new Function("history",
+    app.slice(fi, fj) + app.slice(li, lj).replace("const _askedRecord =", "return"));
   const U = t => ({ role: "user", content: t });
   const A = t => ({ role: "assistant", content: t });
   // 她举的例子：关键那句在中间
@@ -104,11 +111,15 @@ test("触发词表：拆成几个气泡说也认得出，而且不误伤「我�
 });
 
 test("按需开放：她没开口让人记的轮次，这两个字段一个字都不发", () => {
-  assert.match(app, /const _askedRecord = \(function \(\) \{/);
-  // 只看最近六条【她说的话】（他的回复不占额度）
+  // v69.28：判据搬进公共的 askedRecently，调用点传 6
+  assert.match(app, /const _askedRecord = askedRecently\(history, \//);
+  assert.match(app, /\/, 6\);/);
+  // 只看最近六【轮】她说的话（他的回复不占额度）
   assert.match(app, /let seen = 0;/);
-  assert.match(app, /i >= 0 && seen < 6/);
+  assert.match(app, /i >= 0 && seen < \(turns \|\| 6\)/);
   assert.match(app, /if \(!m \|\| m\.role !== "user"\) continue;\n\s*seen\+\+;/, "得只数她说的那几条");
+  // 搬完原地不许留第二份（只开公共的、旧的留着是最坏的一种）
+  assert.ok(!/const _askedRecord = \(function \(\) \{/.test(app), "老那份手写判据还留在原地");
   assert.match(app, /if \(_askedRecord && typeof window\.memoAddByChar === "function"\)/);
   assert.match(app, /if \(_askedRecord && typeof window\.ledgerAddByChar === "function"\)/);
   // 字段字典那两行也跟着开关走，不是常驻

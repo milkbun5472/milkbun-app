@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v69.28";
+const APP_VERSION = "v69.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8647,10 +8647,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //     明确对象。要给的话得先定「群里由谁记」。
       // ⚠️按需注入：这一轮她没发照片就一个字都不发（十轮里九轮用不上的层不该常驻，
       //   跟论坛回声同一条判据）。冷却期内连 avatar 那半句都不发下去。
+      // ── 她自己开口要他换头像（她 2026-09-16：「我让他换头像他说换了但是没用」）──
+      // 上面那三道闸防的是【TA 自作主张乱换】，**不是防她自己要**。
+      // 可原来它们一视同仁：她说「把头像换成这张」的时候，往往
+      //   · 那张照片已经不在最近 6 条里了（发完照片又聊了几轮才想起来说），或者
+      //   · 上次换头像还没满 7 天，
+      // 于是 avatar 那一格【压根没发下去】——他手上没有这个能力，却没有任何一句话
+      // 告诉他"你现在换不了"，所以他就顺口圆一句「换好了」。
+      // 这正是「回执是个承诺，承诺不了的就别让TA开口」那条（一起读那一格立过）。
+      // ⚠️判据是现成的，gaze.js 里已经写过一模一样的一句：
+      //   「预算防的是【代码偷偷花钱】，不是防她自己要」——手动那次不占自动额度。
+      //   这里是同一条判据的第二次落地：她开口要，冷却和回看窗口都让路。
+      const _askAvatar = !opts.proactive && askedRecently(history, /头像/, 4);
       const _seenMsg = opts.proactive ? null : freshUserPhoto(charId);
-      const _seenAvatarOk = !!(_seenMsg && avatarCoolOk(charId));
-      const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName) : "";
-      const seenField = _seenMsg ? photoSeenField(_seenAvatarOk) : "";
+      // 她开口要的时候往前多找一段：她多半指的是前面发过的某一张
+      const _askPick = (_askAvatar && !_seenMsg) ? freshPhotoIn((chatsRef.current[charId] || []).slice(-ASK_PHOTO_LOOKBACK)) : null;
+      const _avatarMsg = _seenMsg || _askPick;
+      const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar));
+      // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
+      const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
+        : (_seenAvatarOk ? photoSeenAskHint(uName) : "");
+      const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
+        : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
+      // 她提了头像，可手上一张真照片都没有：明说做不到，别让他圆
+      // （「回执是个承诺」——承诺不了的就别让TA开口）
+      if (_askAvatar && !_avatarMsg) {
+        capState.push("换头像：" + uName + " 提到了头像，可你手上没有 " + uName
+          + " 发给你的真实照片——**这件事你现在做不到**。别说已经换了、也别说等下换，"
+          + "就照实说你手上没有可用的那张，想换的话让 " + uName + " 把照片发给你。");
+      }
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
       const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
@@ -8673,16 +8698,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 窗口取【最近 6 条她说的话】：她习惯拆成几个气泡说
       //（「宝宝」／「帮我记一下」／「下周三10点开会」），
       // 关键那句常常不是最后一句，卡在 3 条就容易正好漏掉。
-      const _askedRecord = (function () {
-        let seen = 0;
-        for (let i = history.length - 1; i >= 0 && seen < 6; i--) {
-          const m = history[i];
-          if (!m || m.role !== "user") continue;
-          seen++;
-          if (/帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)/.test(String(m.content || ""))) return true;
-        }
-        return false;
-      })();
+      const _askedRecord = askedRecently(history, /帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)/, 6);
       const _recordLedgerChoices = _askedRecord && typeof window.ledgerChoices === "function"
         ? window.ledgerChoices()
         : null;
@@ -9628,7 +9644,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // TA刚看见的那张：把画面记成文字写回那条消息（以后「上次那张照片」有得可依），
       // 顺带看TA要不要把它换成头像。⚠️只有这一轮真发了字段才处理——冷却期内 seenField
       // 压根没发下去，模型就算硬填 avatar 也不作数（闸在代码这一道，不在提示词）。
-      if (_seenMsg && parsed.photoSeen) applyPhotoSeen(charId, _seenMsg, parsed.photoSeen, _seenAvatarOk,
+      // ⚠️传 _avatarMsg 不是 _seenMsg：她开口要换头像那一档，要换的是【前面那张】，
+      //   _seenMsg 这时候是 null——还传它的话整个落地会被 `if (!msg)` 挡掉，
+      //   于是又变回「他说换了、实际没换」。note 那半边本来就只在 _seenMsg 时才有。
+      if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
@@ -18122,6 +18141,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   · 冷却 AVATAR_COOLDOWN_MS，冷却里根本不把这个字段发下去；
   //   · 主动问候那种轮次不发（TA没在看照片）。
   // 三道闸之外的「好不好看」才交给模型——这就是「规则降概率，代码才保证」在这一层的落法。
+  // 「她最近几轮里开口要了没有」——同一个形状第二次出现（记账/备忘那一处已经手写过一份），
+  // 按 施工规则/one-public-mechanism.md 抽成公共的，并把已有那处搬了过来。
+  // ⚠️数的是【她说过几轮】不是几条消息：关键那句常常不是最后一句
+  //   （「宝宝」「帮我记一下」「下周三10点开会」——卡在 3 条就正好漏掉）。
+  const askedRecently = (history, re, turns) => {
+    let seen = 0;
+    for (let i = (history || []).length - 1; i >= 0 && seen < (turns || 6); i--) {
+      const m = history[i];
+      if (!m || m.role !== "user") continue;
+      seen++;
+      if (re.test(String(m.content || ""))) return true;
+    }
+    return false;
+  };
   const AVATAR_COOLDOWN_MS = 7 * 86400000;
   const FRESH_PHOTO_LOOKBACK = 6;
   const freshPhotoIn = rows => {
@@ -18139,6 +18172,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return sess ? freshPhotoIn(sess.msgs || []) : null;
   };
   const avatarCoolOk = charId => (Date.now() - Number((avatarSwapRef.current[charId] || {}).ts || 0)) >= AVATAR_COOLDOWN_MS;
+  // 她开口要换头像时往前找多少条（比 FRESH_PHOTO_LOOKBACK 长得多：
+  // 她多半是发完照片又聊了几轮，才想起来说「换成那张吧」）
+  const ASK_PHOTO_LOOKBACK = 40;
+  // 她开口要的那一版：没有 note 那半边（不补记老照片的画面），只问换不换。
+  // ⚠️仍然是【问】不是【命令】：她说了，他也可以不换——那是他这个人的事
+  //   （施工规则/bans-make-it-dumber：给出口，不给判决）。但不许嘴上说换了、实际没换。
+  const photoSeenAskHint = uName =>
+    "\n【photoSeen 换头像】" + uName + "刚提到头像。上面历史里 " + uName
+    + " 发过的那张真实照片你还看得见，要换就填 photoSeen:{\"avatar\":true}，换的就是那一张。"
+    + "\n· 你也可以不换——有的人就是不爱动头像，那就填 false，并且**在话里说清楚你不想换**。"
+    + "\n· ⚠️但【填了 false 就等于没换】：那就绝不许说「换好了」「已经换了」。"
+    + "填 true 才是真的换。说了却没填，她那边一点动静都不会有。";
   const photoSeenHint = (canAvatar, uName) =>
     "\n【photoSeen 你刚看见的那张照片】上面那张真实照片你已经看见了，填 photoSeen："
     + "\n· note：一句话记下画面上【实际有什么】——在哪、有谁、有什么东西、当时是什么样子。"
