@@ -247,3 +247,10 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 内景仍由 `build_interiors.py -- OUTPUT_DIR watermill` 生成 `watermill-interior.blend`，两份 GLB 均走公共 exporter 的 `--detail`。室内石磨、晾草架、药罐柜、铜壶与长工作台各有共享碰撞占地，后墙柱也在 plan.posts 中。没有新增生产结算或 AI 调用。门、同行进出、存档走 connectInterior；新地图不需要另写切换逻辑。
 
 验证：`watermill.test.mjs` 检查东岸通路、水道阻挡、室内全部站点、读档与同行进出；浏览器复用 `fairy-station-browser.cjs watermill`（室外行走/懒加载/冬夜/手机）和 `fairy-observatory-browser.cjs watermill`（实际进出/走动/存档/室内隔离）。Blender 图片在 OUTPUT_DIR 的 watermill-exterior.png 和 watermill.png。
+
+
+## 魔法开路场景源
+
+`build_openings.py -- OUTPUT_DIR [fallenTree reedBridge towerVines]` 在 Blender 中生成三处开关的两种形态，预览与 .blend 留在 OUTPUT_DIR。同一份 MAPS 几何供建模、碰撞和桥面高度使用；倒树清理范围也供 build_old_tower.py 使用，修改后须重导对应林地分区。旧塔露台地板由 build_interiors.py 生成。
+
+导出使用 `scripts/export-fairy-village.py -- source.blend output.glb --detail`，按 `export_group` 或父级 `shut:key` / `open:key` 分组合并；普通场景仍是一组。保存源文件时两种形态均可导出，预览仅在保存后切换 hide_render。每份导出报告以输出文件名命名，避免多个任务覆盖报告。运行时使用 glTF 原名元数据，不依赖 Three 清理后的节点名。

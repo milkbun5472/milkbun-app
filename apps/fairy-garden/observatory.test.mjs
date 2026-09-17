@@ -21,7 +21,7 @@ test('gallery can only be reached using its visible four steps, without height j
  assert.equal(segmentClear({x:0,z:-3.3},{x:0,z:-4.8},'oldTower'),false);
  for(const p of [...m.furniture,...m.plan.posts])assert.equal(walkable(p.x,p.z,'oldTower'),false,'solid '+(p.kind||'pillar'));
  for(const q of m.plan.outerWalls)assert.equal(walkable(q.x,q.z,'oldTower'),false,'stone perimeter');
- assert.equal(walkable(8.5,0,'oldTower'),false);assert.ok(walkable(0,6.5,'oldTower'));
+ assert.equal(walkable(11.5,0,'oldTower'),false);assert.ok(walkable(0,6.5,'oldTower'));
 });
 test('companion uses the existing map graph to follow into and out of the old tower',()=>{
  let s=freshState();s.companion.mode='follow';s.position={...door.target};s.companion.position={x:s.position.x+.7,z:s.position.z+.3};s=perform(s,'door','oldTower');

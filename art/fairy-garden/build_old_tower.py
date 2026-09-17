@@ -64,6 +64,8 @@ for a,b in zip(plan['woods'],plan['woods'][1:]):
   t=i/n;z=a['z']+(b['z']-a['z'])*t;cx=a['x']+(b['x']-a['x'])*t;current=zone(z)
   for sign in [-1,1]:
    x=cx+sign*(plan['width']/2+.60+random.random()*.70)
+   clearing=plan.get('clearing');
+   if clearing and abs(x-clearing['x'])<clearing['w']/2+.6 and abs(z-clearing['z'])<clearing['d']/2+.6:continue
    if i%3!=0:sphere('Deep fern bank',x,z,.25+random.random()*.19,.38+random.random()*.32,.38,.22+random.random()*.19,leaves[(i+int(z))%4])
    for j in range(3):
     ang=j*2.3+sign;pts=[(x,z,.31),(x+math.cos(ang)*.3,z+math.sin(ang)*.3,.61),(x+math.cos(ang)*.60,z+math.sin(ang)*.60,.41)]

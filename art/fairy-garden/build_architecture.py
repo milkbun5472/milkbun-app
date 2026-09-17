@@ -119,6 +119,21 @@ def roof(x,z,w,d,eave,rise,palette='moss',axis='z',skew=0,rows=8):
   bottom=[(a,b,eave-.1) for a,b,_ in arc]
   mesh('Curved plaster gable',bottom+arc,[(j,j+1,j+26,j+25) for j in range(24)],ivory)
 
+def branch(name,points,r,mat):
+ # Continuous bark surface: connected rings avoid cylinder end-cap cracks at bends.
+ verts=[];faces=[];sides=10
+ for i,p in enumerate(points):
+  t=(Vector(points[min(i+1,len(points)-1)])-Vector(points[max(0,i-1)])).normalized()
+  ref=Vector((0,0,1)) if abs(t.z)<.92 else Vector((1,0,0));u=t.cross(ref).normalized();v=t.cross(u).normalized()
+  for j in range(sides):
+   a=j*math.tau/sides;radius=r*(.97+.045*math.sin(j*2.1+i*.53));q=Vector(p)+(u*math.cos(a)+v*math.sin(a))*radius;verts.append(tuple(q))
+  if i:
+   for j in range(sides):faces.append(((i-1)*sides+j,(i-1)*sides+(j+1)%sides,i*sides+(j+1)%sides,i*sides+j))
+ faces.extend([tuple(range(sides-1,-1,-1)),tuple((len(points)-1)*sides+j for j in range(sides))])
+ o=mesh(name,verts,faces,mat)
+ for face in o.data.polygons:face.use_smooth=True
+ return o
+
 def mill_wheel(name,x,z,h,r,d,timber,band,paddles=True):
  # Reused by the exterior waterwheel and the workshop drive wheel. Axis follows game z.
  for side in [-1,1]:

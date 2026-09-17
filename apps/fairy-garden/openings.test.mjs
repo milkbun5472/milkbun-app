@@ -17,18 +17,21 @@ const armed=spell=>({...freshState(),spells:[spell],
 test('三处开口就是三处能封咒的地方，不是第二套魔法',()=>{
  for(const [key,o] of Object.entries(OPENINGS)){
   assert.ok(SPELL_PLACES[key],key+' 要在封咒的地点表里');
-  assert.ok(MAPS.garden.sites[o.site],key+' 的地点要真的存在');
+  assert.ok(Object.values(MAPS).some(m=>m.sites?.[o.site]),key+' 的地点要真的存在');
   assert.ok(SPELLS[o.spell],key+' 要认一个真的咒');
   assert.ok(o.shut&&o.open&&o.done);
  }
 });
 
 // ⚠️封了却走不过去＝骗她
-test('模型还没标记之前，那一处根本不给封',()=>{
+test('临时缺少全部几何标记时，那一处不给封',()=>{
+ const saved=Object.values(MAPS).map(m=>[m,m.obstacles]);for(const [m,obstacles] of saved)m.obstacles=obstacles.filter(o=>!o.opensWith);
+ try{
  const s=armed('relic');
  assert.equal(openingReady('fallenTree'),false);
  assert.match(castPlaceError(s,'fallenTree'),/还没通到这个世界里来/);
  assert.equal(castSpell(s,'relic','s1','fallenTree'),s,'什么都不许变');
+ }finally{for(const [m,obstacles] of saved)m.obstacles=obstacles;}
 });
 
 test('标记一到，这条路自己就开了口，不用再发一版',()=>{
@@ -80,10 +83,10 @@ test('别处的障碍一个都没动',()=>{
  }finally{undo();}
 });
 
-test('没标记的开口不许出现在地点表里当个灰按钮骗点击',()=>{
+test('三处场景标记已落地，可以进入念咒地点表',()=>{
  const s=armed('relic');
  for(const key of Object.keys(OPENINGS))
-  assert.match(castPlaceError(s,key),/还没通到这个世界里来/);
+  assert.equal(castPlaceError(s,key),'');
 });
 
 // ── codex 2026-09-17 对着代码查出来的那几处（他没改代码，只记了问题）──────────
