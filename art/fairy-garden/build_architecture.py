@@ -119,6 +119,26 @@ def roof(x,z,w,d,eave,rise,palette='moss',axis='z',skew=0,rows=8):
   bottom=[(a,b,eave-.1) for a,b,_ in arc]
   mesh('Curved plaster gable',bottom+arc,[(j,j+1,j+26,j+25) for j in range(24)],ivory)
 
+def mill_wheel(name,x,z,h,r,d,timber,band,paddles=True):
+ # Reused by the exterior waterwheel and the workshop drive wheel. Axis follows game z.
+ for side in [-1,1]:
+  zz=z+side*d/2;verts=[];faces=[]
+  for j in range(49):
+   a=j*math.tau/48
+   for radius in [r*.83,r]:verts.append((x+math.cos(a)*radius,zz,h+math.sin(a)*radius))
+   if j:faces.append((j*2-2,j*2,j*2+1,j*2-1))
+  mesh(name+' wooden rim',verts,faces,timber)
+  line(name+' iron hoop',[(x+math.cos(j*math.tau/48)*r*.94,zz,h+math.sin(j*math.tau/48)*r*.94) for j in range(49)],.025,band)
+  for j in range(8):
+   a=j*math.tau/8;rod(name+' spoke',(x,zz,h),(x+math.cos(a)*r*.88,zz,h+math.sin(a)*r*.88),r*.055,timber)
+ if paddles:
+  for j in range(20):
+   a=j*math.tau/20;vertices=[]
+   for zz in [z-d*.6,z+d*.6]:
+    for radius in [r*.82,r*1.04]:vertices.append((x+math.cos(a)*radius,zz,h+math.sin(a)*radius))
+   mesh(name+' scoop paddle',vertices,[(0,1,3,2)],timber,.01)
+ rod(name+' axle',(x,z-d*.85,h),(x,z+d*.85,h),r*.13,timber)
+
 def body(part,mat=ivory):
  x,z,w,d,h=[part[k] for k in ['x','z','w','d','h']];box('Limestone footing',x,z,.24,w+.1,d+.1,.34,stone,.06);box('Hand plastered wall',x,z,h/2+.22,w,d,h,mat,.065)
  for dx in [-w/2+.04,w/2-.04]:

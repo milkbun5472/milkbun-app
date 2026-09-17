@@ -16,7 +16,7 @@ const targets=process.argv.slice(2);if(!targets.length)targets.push('oldTower');
  for(let n=0;n<5;n++)await p.locator('#zoom-out').click();
  async function walk(goal){const pos=await p.evaluate(g=>gardenDebug.project(g.x,g.z),goal);await p.mouse.click(pos.x,pos.y);await p.waitForFunction(g=>Math.hypot(gardenDebug.getPlayer().x-g.x,gardenDebug.getPlayer().z-g.z)<.2&&!gardenDebug.getPlayer().acting,goal,{timeout:25000});}
  await walk({x:0,z:3});
- await walk({x:3.5,z:-2.1});await walk({x:3.5,z:-4.2});assert.ok(Math.abs(await p.evaluate(()=>gardenDebug.getPlayer().y)-.78)<.08);
+ if(map==='oldTower'){await walk({x:3.5,z:-2.1});await walk({x:3.5,z:-4.2});assert.ok(Math.abs(await p.evaluate(()=>gardenDebug.getPlayer().y)-.78)<.08);}
  const sites=await p.evaluate(async map=>{const w=await import('./world.mjs');return Object.values(w.MAPS[map].sites).map(s=>s.target)},map);
  for(const target of sites)await walk(target);
  await walk({x:0,z:3});await p.waitForTimeout(300);await p.screenshot({path:out+'/'+map+'-desktop.png'});

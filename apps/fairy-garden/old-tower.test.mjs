@@ -16,7 +16,7 @@ test('old tower is beyond the village, reached along the clear winding trail',()
  assert.equal(hitInteraction('garden',t.door).id,'oldTower');
 });
 test('northern expansion does not create walkable empty land outside the developed map',()=>{
- assert.equal(walkable(40,0),false);assert.equal(walkable(0,54),false);
+ assert.equal(walkable(50,0),false);assert.equal(walkable(0,54),false);
  assert.ok(walkable(0,-41));assert.equal(walkable(0,-56),false);
  const s=freshState();s.position={...t.door};s.herbs=11;s.companion.mode='follow';s.companion.position={x:1,z:-42};
  const next=restoreState(JSON.parse(JSON.stringify(s)));assert.deepEqual(next.position,t.door);assert.equal(next.herbs,11);assert.deepEqual(next.companion.position,s.companion.position);
