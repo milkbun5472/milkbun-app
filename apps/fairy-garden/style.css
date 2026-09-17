@@ -102,3 +102,8 @@ body.embedded .weather{gap:8px}
 #map-plan .them{fill:#a8763f}
 #map-plan .who-label{font-size:10px;font-weight:600}
 #map-where{line-height:1.9}
+/* 点一件东西弹出来的那几件：条目就是行动栏里那几颗真按钮搬过来的 */
+#spot-list{flex-wrap:wrap;margin:6px 0 12px}
+#spot-list>button{flex:1 1 calc(50% - 6px);min-width:118px;text-align:left}
+#spot-list>button .button-icon{display:none}
+#spot-list>button small{display:block;font-size:10px;opacity:.75;margin-top:2px}
