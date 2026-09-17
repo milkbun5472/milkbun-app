@@ -41,6 +41,10 @@ test("脚步跟着地方的大小走，只写在一处", () => {
   assert.match(world, /export const walkSpeedFor = map =>/);
   assert.match(world, /世界大了四倍腿没跟上/);
   assert.match(game, /walkSpeed:walkSpeedFor\(data\.map\)/);
-  assert.match(comp, /walkSpeed:walkSpeedFor\(c\.map\)\*\.79/, "他那一档一直是她的 .79，村子变大也照这个比例");
+  assert.match(comp, /walkSpeed:Math\.min\(COMPANION_TOP,walkSpeedFor\(c\.map\)\*\.79\)/,
+    "他那一档一直是她的 .79，村子变大也照这个比例——只是有个上限");
+  // ⚠️2.0 往上他上不了小岛：芦苇桥只有 1.45 宽
+  assert.match(comp, /const COMPANION_TOP=1\.8;/);
+  assert.match(comp, /快不过【那座桥容得下的步子】/);
   assert.doesNotMatch(game, /walkSpeed:[\d.]/, "不许在游戏那边给玩家单独调快，不然他永远跟不上");
 });

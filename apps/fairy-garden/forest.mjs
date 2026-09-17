@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {TREES,NODES} from './world.mjs?v=fg-92e5c5d9d6133002';
+import {TREES,NODES} from './world.mjs?v=fg-4d88a62f64eb394d';
 // Reusable geometry and hand-painted pigment textures; no generated-image requests.
 export function makeForest(){
  const root=new T.Group(),nodes=new Map(),glows=[],mats=new Map();let seed=71;

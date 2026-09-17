@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-92e5c5d9d6133002';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor} from './world.mjs?v=fg-92e5c5d9d6133002';
+import {stepRoute} from './locomotion.mjs?v=fg-4d88a62f64eb394d';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor} from './world.mjs?v=fg-4d88a62f64eb394d';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -27,6 +27,11 @@ function homeFor(s,plan){const who=s.companion;if(!who||!who.home)return plan;
 //   （第一版就有，见上面那条），rain 自己就是目的地。
 // ⚠️原来这条只挪林地那几格——于是下雨天他照样坐在小桥上、逛集市，
 //   而「补好屋顶就能进去躲雨」这件事从此没有下文。说错了就删掉重写，不挂「除非」。
+// 他跟着村子一起走快了，但快不过【那座桥容得下的步子】。
+// ⚠️2.0 往上他上不了小岛：芦苇桥只有 1.45 宽，一步迈得太大，那一段就过不去，
+//   他会站在桥头「等一条合适的小路」——codex 那条小岛测试正好钉住了这件事，
+//   以后谁想再调快，先让那条测试过。
+const COMPANION_TOP=1.8;
 const DRY_IN_RAIN=new Set(['home','flowers','rain']);
 const NEIGHBOR_DAY=[[420,'home'],[540,'walk'],[780,'market'],[1020,'bridge'],[1200,'home']];
 // 三个邻居别整齐划一地同时出门：按 charId 把时刻各错开一点
@@ -65,7 +70,7 @@ function missIntent(s){
  return {id:'miss',map:s.map,label:'找你说句话',gesture:'rest'};
 }
 export function missPlan(s){const intent=missIntent(s);return intent?{...intent,target:followPoint(s)}:null;}
-export function companionPlan(s){const b=MAPS.home.beds[s.sleep?.companion];if(b)return {id:'sleep:'+s.sleep.companion,map:'home',target:b.approach.companion,label:'在'+b.label+'休息',gesture:'sleep',heading:0};const miss=missPlan(s);if(miss)return miss;const c=s.companion;const seat=MAPS[s.map].seats?.[s.seat];if(c.mode==='follow'&&seat)return {id:'sit-together',map:s.map,target:seat.companion,label:'在池边陪你坐着',gesture:'sit',heading:seat.heading};if(c.mode==='wait')return {id:'wait',map:c.map,target:{...c.position},label:'留在这里等你',gesture:'rest'};if(c.mode==='goto')return {id:'goto:'+c.destination,...COMPANION_DESTINATIONS[c.destination||'home'],gesture:'rest'};if(c.mode==='follow')return {id:'follow',map:s.map,target:followPoint(s),label:c.map===s.map?'和你一起走':'正沿着小路来找你',gesture:'rest'};const plan=plannedActivity(s);if(plan.map===s.map&&Math.hypot(plan.target.x-s.position.x,plan.target.z-s.position.z)<.65){return {...plan,id:plan.id+'-aside',target:followPoint(s),label:'在一旁陪你',gesture:'rest'};}return plan;}
+export function companionPlan(s){const b=MAPS.home.beds[s.sleep?.companion];if(b)return {id:'sleep:'+s.sleep.companion,map:'home',target:b.approach.companion,label:'在'+b.label+'休息',gesture:'sleep',heading:0};const miss=missPlan(s);if(miss)return miss;const c=s.companion;const seat=MAPS[s.map].seats?.[s.seat];if(c.mode==='follow'&&seat)return {id:'sit-together',map:s.map,target:seat.companion,label:seat.label||'在池边陪你坐着',gesture:'sit',heading:seat.heading};if(c.mode==='wait')return {id:'wait',map:c.map,target:{...c.position},label:'留在这里等你',gesture:'rest'};if(c.mode==='goto')return {id:'goto:'+c.destination,...COMPANION_DESTINATIONS[c.destination||'home'],gesture:'rest'};if(c.mode==='follow')return {id:'follow',map:s.map,target:followPoint(s),label:c.map===s.map?'和你一起走':'正沿着小路来找你',gesture:'rest'};const plan=plannedActivity(s);if(plan.map===s.map&&Math.hypot(plan.target.x-s.position.x,plan.target.z-s.position.z)<.65){return {...plan,id:plan.id+'-aside',target:followPoint(s),label:'在一旁陪你',gesture:'rest'};}return plan;}
 // One movement controller runs on both maps, including the map currently off screen.
 // Paths are rebuilt after loading; only actual position and once-per-day help persist.
 export function makeCompanionController(){
@@ -84,11 +89,12 @@ export function makeCompanionController(){
   const key=`${s.day}:${c.mode}:${plan.id}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
   if((key!==routeKey||stuck&&cooldown<=0)&&(c.mode!=='follow'||!route.length||cross||cooldown<=0)){cooldown=.65;routeKey=key;route=[];idle=0;stuck=false;const distance=Math.hypot(c.position.x-goal.x,c.position.z-goal.z);if(distance>.12){route=findPath(c.position,goal,c.map,avoid,s)||[];stuck=!route.length;}}
   let out=s,event=null;moving=route.length>0;gesture='rest';
-  if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:walkSpeedFor(c.map)*.79,iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
+  if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:Math.min(COMPANION_TOP,walkSpeedFor(c.map)*.79),iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
   else if(stuck){status='在原地等一条合适的小路';}
   else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
    if(allowCare&&!autonomous&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
+   if(!autonomous&&['workshop','workshop-aside'].includes(plan.id)&&idle>=2.8&&finishedKey!==key){out=companionMillHelp(s);if(out!==s){finishedKey=key;event=c.name+'帮忙照看了工坊里的材料。';}}
    if(!autonomous&&plan.id==='museum'&&idle>=2.8&&finishedKey!==key){finishedKey=key;
     const kept=(s.collection||[])[0];
     if(kept){out=noteHappening(addMiss(s,'kept'),'world',c.name+'在馆里站了一会儿，看的是「'+kept.name+'」');
