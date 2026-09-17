@@ -58,7 +58,7 @@ test("住进来这件事有闸", () => {
 
 // 搬进搬出是村里的事，账上要有
 test("搬进来搬出去都记进村里的账", () => {
-  const seg = world.slice(world.indexOf("export function moveIn(s,"), world.indexOf("export const asCompanion"));
+  const seg = world.slice(world.indexOf("export function moveIn(s,"), world.indexOf("// ── 碰见"));
   assert.match(seg, /noteHappening\(/);
   assert.equal((seg.match(/noteHappening\(/g) || []).length, 2, "搬进和搬出各记一笔");
 });

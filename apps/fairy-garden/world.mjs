@@ -1,6 +1,6 @@
-import './rules.js?v=fg-dac37631f73a1063';
+import './rules.js?v=fg-ed4099b820d99d3e';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-dac37631f73a1063';
+import {createNavigator} from './navigation.mjs?v=fg-ed4099b820d99d3e';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -157,8 +157,23 @@ export const QUEST_KINDS = {
   fix: { label: '修东西', need: 'relic', note: '一样坏掉的东西，缺零件', keeps: 'pathLamp' },
   keep: { label: '陪一会儿', need: 'visit', note: '有人想在某处待一会儿，不想一个人' }
 };
-// 谁发的。邻居屋现在还空着，所以先用「屋主人」这种说法，等人住进来再接真名。
-const QUEST_FROM = ['公共厅的告示', '左边邻居屋的主人', '林后那间的主人', '右边那间的主人', '一张没有落款的字条'];
+// 谁发的。三间邻居屋空着的时候只能说「屋主人」；住进人来就落真名——
+// 这句话从 v69.0x 起就写在这儿等着了（「等人住进来再接真名」），邻居做完就该接上。
+// ⚠️抽签仍旧只看存档号＋板子号：谁住进来【不改抽中哪一间】，只改那一间落谁的名字。
+//   把住户也掺进抽签的话，搬一次家整块板子会重抽，她接了一半的委托当场换人。
+const QUEST_FROM = [
+  { text: '公共厅的告示' },
+  { text: '左边邻居屋的主人', home: 'neighbor1' },
+  { text: '林后那间的主人', home: 'neighbor2' },
+  { text: '右边那间的主人', home: 'neighbor3' },
+  { text: '一张没有落款的字条' }
+];
+export function questFrom(s, seed){
+  const pick = QUEST_FROM[hash(seed + ':from') % QUEST_FROM.length];
+  if (!pick.home) return pick.text;
+  const who = restoreNeighbors(s.neighbors).find(n => n.home === pick.home);
+  return who ? who.name : pick.text;
+}
 const SEASON_QUESTS = [
   { find: 34, gather: 26, keep: 20, fix: 12, bloom: 8 },   // 春：找东西、出门、新认识的人
   { gather: 30, keep: 26, bloom: 24, find: 12, fix: 8 },   // 夏：临时邀约、热闹事
@@ -188,7 +203,7 @@ export function questBoard(s){
     let kind = pickWeighted(table, seed), guard = 0;
     while (out.some(q => q.kind === kind) && guard++ < order.length) kind = order[(order.indexOf(kind) + 1) % order.length];
     out.push({ id: 'q_' + cycle + '_' + i, kind,
-      from: QUEST_FROM[hash(seed + ':from') % QUEST_FROM.length],
+      from: questFrom(s, seed),
       need: QUEST_NEED[QUEST_KINDS[kind].need], season: season.index,
       cycle: cycle, lastDay: questLastDay(cycle) });
   }
@@ -588,7 +603,7 @@ export function missMaterial(s){
 //   他排这一季的日程时也读它。记账本身一枪不打。
 // ⚠️只记【真发生过的】：这本账不许写任何没发生的事，否则他就会提起一件不存在的事。
 export const HAPPEN_CAP = 40;
-export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里' };
+export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里', met: '在村里碰见' };
 export function restoreHappenings(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.text && Object.hasOwn(HAPPEN_KINDS, x.kind))
     .slice(0, HAPPEN_CAP).map(x => ({ kind: x.kind, text: trimText(x.text, 120), day: Math.max(1, count(x.day)) }));
@@ -754,6 +769,59 @@ export function moveOut(s, charId){
   return noteHappening({ ...s, neighbors: restoreNeighbors(s.neighbors).filter(n => String(n.charId) !== String(charId)) },
     'world', row.name + '从' + MAPS.garden.sites[row.home].label + '搬走了');
 }
+// ── 碰见（她 2026-09-17：「继续做玩法吧」）────────────────────────────
+// ⚠️三个人住进来了，可她走一整天什么也不会发生——「做了没有回响」在多人这一头
+//   又长了一遍。碰见就是那个回响最小的一份：谁和谁在哪儿照过面，村里的账上有。
+// ⚠️一枪都不打，而且【只记世界看见的事，不替谁说话】：
+//   「在集市碰见阿棠和小满」是真发生的；替阿棠编一句台词就是无中生有。
+// 这个点该叫什么地方。⚠️只写在这一处：碰见、日记、以后要说「他在哪儿」
+//   都得给同一个答案，各算一遍迟早出现「你在月潭碰见他，他却在小桥」。
+export function whereLabel(map, point){
+  const m = MAPS[map]; if (!m || !point) return '村里';
+  let best = null, near = 4.2;
+  for (const [, site] of Object.entries(m.sites || {})){
+    const d = Math.hypot(site.target.x - point.x, site.target.z - point.z);
+    if (d < near){ near = d; best = site.label; }
+  }
+  return best || m.name;
+}
+export const MEET_NEAR = 2.4;          // 两个人算碰上了的距离
+export const MEET_CAP = 24;            // 只记这么多对，满了挤掉最久没碰过的
+// 一天切成六段：同一对人在同一段里只记一次。不这么切的话，两个人并排走
+// 一路就是几十条，村里的账会被一件事塞满。
+export const MEET_SLOTS = 6;
+export const meetSlot = s => Math.floor(Math.max(0, count(s.minute)) / (1440 / MEET_SLOTS));
+export const meetKey = (a, b) => [String(a), String(b)].sort().join('|');
+export function restoreMeets(raw){
+  const seen = new Set();
+  return (Array.isArray(raw) ? raw : []).filter(x => x && typeof x.key === 'string' && !seen.has(x.key) && seen.add(x.key))
+    .map(x => ({ key: x.key, n: count(x.n, 999), day: count(x.day), slot: count(x.slot, MEET_SLOTS) }))
+    .slice(0, MEET_CAP);
+}
+// 处到什么程度了。⚠️只数【她自己碰见的那些】：邻居之间碰得再多也不是她的交情。
+export const MEET_TIERS = [[0, '刚搬来'], [4, '脸熟了'], [12, '处熟了']];
+export const metCount = (s, charId) => (restoreMeets(s.meets).find(r => r.key === meetKey('me', charId)) || {}).n || 0;
+export const closeness = (s, charId) => {
+  const n = metCount(s, charId);
+  let out = MEET_TIERS[0][1];
+  for (const [need, label] of MEET_TIERS) if (n >= need) out = label;
+  return out;
+};
+// 记一次照面。a／b 是 'me'、'companion' 或邻居的 charId；名字由调用方给，
+// 因为名字住在存档里的三个不同地方（她没有名字、同行者一个、邻居各一个）。
+export function noteMeet(s, { a, b, nameA, nameB, place }){
+  if (!a || !b || String(a) === String(b)) return s;
+  const key = meetKey(a, b), slot = meetSlot(s), rows = restoreMeets(s.meets);
+  const row = rows.find(r => r.key === key);
+  if (row && row.day === s.day && row.slot === slot) return s;      // 这一段里已经记过了
+  const next = { key, n: (row ? row.n : 0) + 1, day: s.day, slot };
+  const others = rows.filter(r => r.key !== key);
+  const here = trimText(place, 20) || '村里';
+  const line = String(a) === 'me' ? '你在' + here + '碰见了' + trimText(nameB, 16)
+    : String(b) === 'me' ? '你在' + here + '碰见了' + trimText(nameA, 16)
+    : trimText(nameA, 16) + '和' + trimText(nameB, 16) + '在' + here + '碰上了';
+  return noteHappening({ ...s, meets: [next, ...others].slice(0, MEET_CAP) }, 'met', line);
+}
 // 控制器跑邻居用的那一份适配：让它以为这一位就是同行者。
 // ⚠️不改控制器内部——邻居和同行者用的是同一段走路逻辑，这才是一份实现两处用。
 export const asCompanion = (s, n) => ({ ...s, companion: n, seasonPlan: null, seat: null,
@@ -767,10 +835,10 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){if(raw&&raw.interiorLayout!==2){raw={...raw,interiorLayout:2,companion:raw.companion?{...raw.companion}:raw.companion};for(const who of ['player','companion']){const person=who==='player'?raw:raw.companion;if(!person||!MAPS[person.map]?.interior)continue;const bed=person.map==='home'&&Object.hasOwn(MAPS.home.beds,raw.sleep?.[who])&&MAPS.home.beds[raw.sleep[who]];person.position={...(bed?bed.approach[who]:MAPS[person.map].spawn)};}}if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,interiorLayout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),happenings:restoreHappenings(d.happenings),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),happenings:restoreHappenings(d.happenings),meets:restoreMeets(d.meets),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 // Thaw rescues only positions that are no longer traversable; inventory and relationship data stay intact.
 export function shoreAfterThaw(s){if(lakeFrozen(s))return s;const l=MAPS.garden.lake,at=p=>inPolygon(p.x,p.z,l.shore,.16)&&!walkable(p.x,p.z,'garden',s),p=s.map==='garden'&&at(s.position),c=s.companion.map==='garden'&&at(s.companion.position);if(!p&&!c)return s;return {...s,position:p?{...l.bottle.target}:s.position,companion:c?{...s.companion,position:{x:l.bottle.target.x+.85,z:l.bottle.target.z+.3}}:s.companion};}
 export function nextDay(s){const day=s.day+1;return withDailyNote(expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}))));}

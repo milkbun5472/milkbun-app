@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-dac37631f73a1063", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ed4099b820d99d3e", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -512,14 +512,18 @@
             // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
             // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "村里有三间邻居屋。请谁住进来，谁就在村里过自己的日子——早上出门、去集市、傍晚回自己门前，你走在村里会碰见。"),
+              "村里有三间邻居屋。请谁住进来，谁就在村里过自己的日子——早上出门、去集市、傍晚回自己门前，你走在村里会碰见。碰过面的会记进村里的账，公告栏上的委托也开始落他们的名字。"),
             ((crew && crew.rows) || []).length ? h("div", { style: { display: "grid", gap: 10, marginBottom: 18 } },
               crew.rows.map(n => h("div", { key: n.charId, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, n.name),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, n.houseLabel)),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5 } },
-                  n.here ? "这会儿跟你在同一张图上" : "这会儿在" + n.map),
+                  n.here ? "这会儿在" + (n.where || n.map) : "这会儿在" + n.map),
+                // 碰见：走在村里照过几次面。⚠️这个数只数【她自己碰见的】，
+                //   邻居之间碰得再多也不是她的交情（world.mjs 的 metCount 就是这么算的）。
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 4 } },
+                  n.met ? "碰见过 " + n.met + " 次 · " + n.closeness : "还没在路上碰见过"),
                 h("button", { onClick: () => { const g = game(); if (!g || !g.moveOut) return;
                     const err = g.moveOut(n.charId);
                     if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。"); },
