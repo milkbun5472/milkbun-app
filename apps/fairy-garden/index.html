@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-b37f08afc7f0dadc"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-b37f08afc7f0dadc"}}</script></head><body>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-8293e07843821ea4"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-8293e07843821ea4"}}</script></head><body>
 <main id="app"><canvas id="world" aria-label="轻点空地行走，拖动移动视角，双指缩放，点击植物互动" tabindex="0"></canvas>
 <header><div class="brand"><span class="eyebrow">一处会慢慢长大的地方</span><h1><span id="place-title">微光庭院</span><small>试玩</small></h1></div><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
 <aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div><button id="host-talk" hidden>说句话</button></aside>
@@ -25,7 +25,7 @@
 <div id="home-sleep" hidden><div class="secondary-actions"><select id="bed-select" aria-label="选择卧室"></select><select id="sleep-mode" aria-label="休息安排"><option value="together">一起睡</option><option value="separate">分房睡</option><option value="companion">让 TA 先睡</option></select></div><div class="secondary-actions"><button id="lie-down">去床边休息</button><button id="wake-player" hidden>起床走走</button><button id="wake-companion" hidden>叫 TA 起床</button></div></div>
 <p class="scene-hint" id="scene-hint" hidden></p>
 <details id="blocked" hidden><summary><span id="blocked-count"></span></summary><div id="blocked-list" class="secondary-actions"></div></details>
-<div class="bag" aria-label="随身背包"><span>铃叶草 <b id="herbs">0</b></span><span>荧光菇 <b id="mushrooms">0</b></span><span>月露 <b id="potions">0</b></span><span>花藏 <b id="harvest">0</b></span><span>星砂 <b id="sand">0</b></span><span>井纹 <b id="stones">0</b></span></div>
+<div class="bag" id="bag" aria-label="随身背包"><span>铃叶草 <b id="herbs">0</b></span><span>荧光菇 <b id="mushrooms">0</b></span><span>月露 <b id="potions">0</b></span><span>花藏 <b id="harvest">0</b></span><span>星砂 <b id="sand">0</b></span><span>井纹 <b id="stones">0</b></span></div>
 <div class="inventory"><span>水壶 <b id="water">○ ○ ○</b></span><span>花圃 <b id="blooms">尚未唤醒</b></span><button id="reset">重新试玩</button></div></div></section>
 <div class="hint" id="hint">轻点行走 · 拖动画面 · 双指缩放</div>
 <dialog id="cast-dialog"><h3>许愿树下</h3><p class="craft-hint" id="cast-hint"></p><div id="cast-spells"></div><div id="cast-shards"></div><p class="craft-hint">封进哪儿</p><div id="cast-places" class="secondary-actions"></div><div class="dialog-actions"><button id="cast-close">收起</button></div></dialog>
@@ -53,4 +53,4 @@
 <div class="dialog-title"><h2 id="season-title">这一季</h2><button id="season-close" aria-label="关闭季节手册">×</button></div>
 <div class="book-body"><p id="season-summary"></p><button id="season-generate">一起安排这一季</button><p id="season-policy" class="time-note"></p><p id="season-error" role="alert"></p><details id="season-raw" hidden><summary>查看原始回复</summary><pre id="season-error-detail"></pre></details>
 <h3>这十四天</h3><div id="season-days"></div><h3>花谱与小灯</h3><p id="flower-book"></p><p id="flower-recipe"></p><h3>庭院日志</h3><div id="garden-journal"></div></div></dialog>
-</main><script type="module" src="game.mjs?v=fg-b37f08afc7f0dadc"></script></body></html>
+</main><script type="module" src="game.mjs?v=fg-8293e07843821ea4"></script></body></html>
