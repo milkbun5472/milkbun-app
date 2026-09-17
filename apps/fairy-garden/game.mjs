@@ -1,20 +1,20 @@
-import {stepRoute} from './locomotion.mjs?v=fg-e3910535254471cf';
-import {makeLakeView} from './lake-view.mjs?v=fg-e3910535254471cf';
-import {makeMuseum} from './museum-view.mjs?v=fg-e3910535254471cf';
-import {museumCaption} from './museum.mjs?v=fg-e3910535254471cf';
-import {makeOutdoor} from './outdoor.mjs?v=fg-e3910535254471cf';
-import {installSeasonBook} from './season-book.mjs?v=fg-e3910535254471cf';
-import {makeMagicView} from './magic-view.mjs?v=fg-e3910535254471cf';
-import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-e3910535254471cf';
+import {stepRoute} from './locomotion.mjs?v=fg-237a10e7ef72fceb';
+import {makeLakeView} from './lake-view.mjs?v=fg-237a10e7ef72fceb';
+import {makeMuseum} from './museum-view.mjs?v=fg-237a10e7ef72fceb';
+import {museumCaption} from './museum.mjs?v=fg-237a10e7ef72fceb';
+import {makeOutdoor} from './outdoor.mjs?v=fg-237a10e7ef72fceb';
+import {installSeasonBook} from './season-book.mjs?v=fg-237a10e7ef72fceb';
+import {makeMagicView} from './magic-view.mjs?v=fg-237a10e7ef72fceb';
+import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-237a10e7ef72fceb';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-e3910535254471cf';
-import {makeSurroundings} from './surroundings.mjs?v=fg-e3910535254471cf';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-e3910535254471cf';
-import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-e3910535254471cf';
-import {makeForest} from './forest.mjs?v=fg-e3910535254471cf';
-import {makeDepths} from './depths.mjs?v=fg-e3910535254471cf';
-import {createTraveler} from './traveler.mjs?v=fg-e3910535254471cf';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-e3910535254471cf';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-237a10e7ef72fceb';
+import {makeSurroundings} from './surroundings.mjs?v=fg-237a10e7ef72fceb';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-237a10e7ef72fceb';
+import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-237a10e7ef72fceb';
+import {makeForest} from './forest.mjs?v=fg-237a10e7ef72fceb';
+import {makeDepths} from './depths.mjs?v=fg-237a10e7ef72fceb';
+import {createTraveler} from './traveler.mjs?v=fg-237a10e7ef72fceb';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-237a10e7ef72fceb';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -98,7 +98,7 @@ function ui(){
  for(const id of ['well','garden','brew','travel','dive'])$(id).disabled=!!acting;
  $('magic-action').parentElement.hidden=down||inside;$('magic-action').textContent=woods?'一起唤醒种子':!data.magic.planted?'种下星铃种子':data.magic.growth>=2?'采收星铃花':'照料星铃花';$('make-lamp').hidden=woods;for(const id of ['magic-action','make-lamp'])$(id).disabled=!!acting;
  grow();refreshTime();updateCompanionUI();blooms.visible=data.map==='garden';document.body.classList.toggle('forest',woods);document.body.classList.toggle('depths',down);
- tidyActions();
+ quietPanelButtons();tidyActions();
 }
 // 行动面板收拾一遍（她 2026-09-17 截图：「这个行动也太挤了」）。
 // ⚠️这会儿【做不了】的那些照样要留着——她得看得见还有这么一件事，也得看得见为什么做不了
@@ -113,6 +113,7 @@ function tidyActions(){
   if(!actionHome.has(b))actionHome.set(b,{parent:b.parentElement,next:b.nextElementSibling});
   const home=actionHome.get(b);
   if(home.parent===box)continue;                       // 自己就住在这一格里的不动
+  if(b.classList.contains('from-scene'))continue;
   const away=b.disabled&&!b.hidden&&!acting;
   if(away){blocked++;if(b.parentElement!==box)box.append(b);}
   else if(b.parentElement!==home.parent){home.parent.insertBefore(b,home.next&&home.next.parentElement===home.parent?home.next:null);}
@@ -136,7 +137,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-e3910535254471cf');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-237a10e7ef72fceb');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -424,7 +425,7 @@ const before=data;data=perform(data,kind,id,intent||undefined);acting=null;$('pr
 // ⚠️条目就是行动栏里那几颗【真按钮】本身：名字、能不能点、点了做什么，
 //   全在 ui() 那一处算好了。这儿另写一份文案和判断，就是同一层活在两处。
 // ⚠️只有一件事可做时不弹：为一颗按钮再让她点一下，是白让她多点一下。
-const SPOT_TITLES={well:'井边',garden:'花圃',brew:'炼药锅',board:'公告栏',travel:'林间小路',star:'星铃花',pond:'月潭边'};
+const SPOT_TITLES={well:'井边',garden:'花圃',brew:'炼药锅',board:'公告栏',star:'星铃花',pond:'月潭边'};
 const SPOT_BUTTONS={
  well:['well','dive'],
  garden:['garden','sow','notes'],
@@ -433,6 +434,25 @@ const SPOT_BUTTONS={
  star:['magic-action','make-lamp'],
  pond:['bottle','sit-pond']
 };
+// 这颗按钮归哪一处物件管（从上面那张表倒过来推，不另写一张）
+const BUTTON_SPOT=Object.fromEntries(Object.entries(SPOT_BUTTONS).flatMap(([key,ids])=>ids.map(id=>[id,key])));
+// 这张地图上，那件东西点得到吗。⚠️只有点得到，才把按钮从行动栏里收走——
+//   林地没有井也没有星铃花，在那儿把按钮藏了，那件事就彻底没路可走了。
+function spotOnMap(key){
+ const list=MAPS[data.map].interactions||[];
+ if(key==='pond')return list.some(i=>i.kind==='visit'&&(i.id==='pond'||i.id==='lakeNorth'||i.id==='lakeEast'));
+ return list.some(i=>i.kind===key);
+}
+// 画面里点得到的，就不在行动栏里再摆一颗（她 2026-09-17：「做吧」）
+function quietPanelButtons(){
+ for(const [id,key] of Object.entries(BUTTON_SPOT)){
+  const b=$(id);if(!b)continue;
+  b.classList.toggle('from-scene',spotOnMap(key)&&!b.hidden);
+ }
+ const names=[...new Set(Object.entries(SPOT_TITLES).filter(([k])=>spotOnMap(k)).map(([,v])=>v))];
+ $('scene-hint').hidden=!names.length;
+ $('scene-hint').textContent=names.join('、')+'——在画面里点它们。';
+}
 function spotKeyOf(hit){
  if(!hit)return null;
  if(hit.kind==='visit'&&(hit.id==='pond'||hit.id==='lakeNorth'||hit.id==='lakeEast'))return 'pond';
@@ -445,7 +465,7 @@ function openSpot(key){
  const list=$('spot-list');list.replaceChildren();
  for(const src of live){
   const b=src.cloneNode(true);
-  b.removeAttribute('id');b.removeAttribute('hidden');b.disabled=src.disabled;
+  b.removeAttribute('id');b.removeAttribute('hidden');b.classList.remove('from-scene');b.disabled=src.disabled;
   b.onclick=()=>{$('spot-dialog').close();src.click();};
   list.append(b);
  }

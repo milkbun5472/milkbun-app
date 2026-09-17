@@ -39,3 +39,33 @@ test("做不了的那几件也列出来，灰着但看得见", () => {
   assert.match(fn, /filter\(b=>b&&!b\.hidden\)/, "只看 hidden，不看它这会儿摆在哪儿");
   assert.match(css, /#spot-list>button small\{display:block/, "两行小字要能断开");
 });
+
+// 她 2026-09-17：「做吧」——画面里点得到的，就不在行动栏里再摆一颗
+test("画面里点得到的那几颗从行动栏里收走", () => {
+  assert.match(game, /const BUTTON_SPOT=Object\.fromEntries/, "从 SPOT_BUTTONS 倒推，不另写一张表");
+  assert.match(game, /b\.classList\.toggle\('from-scene',spotOnMap\(key\)&&!b\.hidden\)/);
+  assert.match(css, /\.from-scene\{display:none !important\}/);
+});
+
+// ⚠️林地没有井也没有星铃花：在那儿把按钮藏了，那件事就彻底没路可走了
+test("只有这张地图上点得到，才把按钮收走", () => {
+  assert.match(game, /function spotOnMap\(key\)/);
+  assert.match(game, /在那儿把按钮藏了，那件事就彻底没路可走了/);
+  const fn = game.slice(game.indexOf("function spotOnMap(key)"), game.indexOf("function quietPanelButtons"));
+  assert.match(fn, /MAPS\[data\.map\]\.interactions/, "要问的是【这张地图】有没有那件东西");
+});
+
+// ⚠️用 class 不用 hidden：弹层那份是 clone 的，靠 hidden 判断「这件事还在不在」的地方还得认它
+test("收走用的是样式，不是 hidden", () => {
+  assert.match(game, /b\.classList\.remove\('from-scene'\)/, "clone 进弹层的那份要把类去掉，不然弹层里也看不见");
+  const tidy = game.slice(game.indexOf("function tidyActions()"), game.indexOf("wrap.hidden=!blocked"));
+  assert.match(tidy, /if\(b\.classList\.contains\('from-scene'\)\)continue;/, "它们不是「做不了」，是「在画面里做」");
+});
+
+// 收走了总得告诉她去哪儿点
+test("行动栏里留一句话说去画面里点哪些", () => {
+  assert.match(html, /id="scene-hint"/);
+  assert.match(game, /在画面里点它们。/);
+  // ⚠️这张表只列按钮真搬走了的那几处，别让她去找一件其实不用找的东西
+  assert.doesNotMatch(game, /const SPOT_TITLES=\{[^}]*travel:/);
+});
