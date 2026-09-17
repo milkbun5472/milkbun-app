@@ -86,3 +86,9 @@
 `MAPS.exits` 的命名门声明 action/label/target；`exitFor` 统一玩家目标/加载/结算，`exitToward` 同读出口坐标给同行者。旧家门/林地出口沿用同一机制，新入口按钮按地图生成。`hall`/`dormitory` 数据同时供建模，室内关闭天气。旧存档 v8 直接兼容新地图。
 
 修复矩形障碍角落的采样漏洞：`segmentClear` 对实心矩形先做精确线段裁剪，避免角色在从公共厅回家的斜角重复卡住。带缺口的桥与其它障碍保留原采样。验证 `hall.test.mjs`、`season.test.mjs` 和 `scripts/checks/fairy-hall-browser.cjs`（320/390、失败重试、各房间/上下楼/跟随/读档/资源释放）。
+
+### 拾光收藏馆
+
+村落南边新增独立蓝瓦小馆，行动栏「走进收藏馆」进入展厅。花笺墙、炼金陈列架、碎片柜读取原 notes/things/shards，只显示实际已有物品；未到开封日期的炼金产物不提前展示。每区展示部分收藏，花笺/碎片优先置顶再按日期，完整收藏仍在原花册与屋里；没有完成百分比或新库存，不消耗/搬走物品。
+
+`museum.mjs` 是陈列选择和到访说明的共同来源；`museum-view.mjs` 复用固定几何、只切可见性，随地图统一释放。空存档只有空框和空架；中央展台预留，尚无纪念物系统。外观与内部各单独 GLB，MAPS 提供展位、碰撞、门口与台阶高度，也供 Blender 建模。验证 `museum.test.mjs` 和 `scripts/checks/fairy-museum-browser.cjs`：空档/真实写入收藏/发酵时间/只读/入馆失败/进出读档/320px/资源稳定。

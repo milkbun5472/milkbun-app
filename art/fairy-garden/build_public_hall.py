@@ -17,13 +17,14 @@ sage=pigment('Hall sage velvet',(.24,.38,.30));rose=pigment('Hall muted rose lin
 def shell(name,m):
  empty();w,d=m['plan']['w'],m['plan']['d']
  block(name+' stone foundation',0,0,-.02,w+.2,d+.2,.24,stone)
- for row in range(29):
-  for col in range(9):block(name+' oak floorboard',-6.22+col*1.55,-4.35+row*.307,.105,1.52,.292,.07,oak)
+ rows=math.ceil(d/.31);cols=math.ceil(w/1.55);dx=w/cols;dz=d/rows
+ for row in range(rows):
+  for col in range(cols):block(name+' oak floorboard',-w/2+dx*(col+.5),-d/2+dz*(row+.5),.105,dx-.03,dz-.015,.07,oak)
  block(name+' rear plaster',0,-d/2,1.85,w,.18,3.5,cream);block(name+' west plaster',-w/2,0,1.85,.18,d,3.5,cream)
- for x in [-6.9,-3.5,0,3.5,6.9]:block(name+' oak wall post',x,-4.35,1.85,.14,.16,3.5,wood)
- for h in [.23,3.48]:block(name+' rear beam',0,-4.31,h,w,.18,.14,wood);block(name+' west beam',-6.81,0,h,.18,d,.14,wood)
+ for x in [-w/2+.1,-w/4,0,w/4,w/2-.1]:block(name+' oak wall post',x,-d/2+.15,1.85,.14,.16,3.5,wood)
+ for h in [.23,3.48]:block(name+' rear beam',0,-d/2+.19,h,w,.18,.14,wood);block(name+' west beam',-w/2+.19,0,h,.18,d,.14,wood)
  # Front wall stays cut away; a narrow sill makes the building edge legible.
- for x in [-4.05,4.05]:block(name+' low front sill',x,4.45,.3,5.8,.12,.28,wood)
+ for x in [-(w/4+.55),w/4+.55]:block(name+' low front sill',x,d/2-.05,.3,w/2-1.2,.12,.28,wood)
 def window(x,z,h=2.5,w=1.3):
  block('Leaded window oak frame',x,z,h,w+.16,.12,1.34,wood);block('Leaded window amber panes',x,z+.08,h,w,.05,1.16,glow)
  for dx in [-w/2,0,w/2]:block('Window upright',x+dx,z+.13,h,.05,.06,1.22,oak)

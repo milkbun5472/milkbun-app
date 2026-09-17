@@ -154,3 +154,7 @@ node scripts/build-fairy-garden.mjs
 ### 公共厅两层
 
 `build_public_hall.py` 从 `MAPS.hall`/`MAPS.dormitory` 读取长厅家具、宿舍墙/床/房间布局，复用原 primitives 与 house pigment。输出 public-hall.blend、hall-dormitory.blend 及预览，保存在仓库外；两份均使用 export-fairy-village.py 的 --detail 导出。楼下长桌/壁炉/书架/小讲堂，楼上四间空房。前墙和顶板切开方便浏览，人物由游戏实例显示；独立地图过楼梯，不做重叠多层寻路。
+
+### 拾光收藏馆
+
+`build_museum.py` 读取 MAPS.garden.museum 与 MAPS.museum，生成南侧独立外观和展厅。复用 public_hall 的 shell/window/lamp；shell 已按 plan 尺寸铺地板和木梁，既有14×9长厅也沿用此公共函数。输出 museum-exterior.blend / museum-interior.blend 与预览，分别 --detail 导出同名 GLB。花笺框与陈列架本身为空，运行时 museum-view 根据原收藏实例化陈列，不把用户物品烘焙进模型。
