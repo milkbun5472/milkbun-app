@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-5f875d00861ee46b", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-2f719a3d8620082e", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -297,11 +297,14 @@
     const [shardBox, setShardBox] = useState(null);
     const [things, setThings] = useState(null);
     const [museum, setMuseum] = useState(null);
+    const [bottles, setBottles] = useState(null);
+    const [bottleText, setBottleText] = useState("");
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
       if (g.getShards) setShardBox(g.getShards());
       if (g.getThings) setThings(g.getThings());
-      if (g.getCollection) setMuseum(g.getCollection()); };
+      if (g.getCollection) setMuseum(g.getCollection());
+      if (g.getBottles) setBottles(g.getBottles()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -353,6 +356,9 @@
           propsRef.current.record.onTurn({ text: text, reply: result.reply });
           update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).filter(m => m.request !== request) } }));
         } else update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: old.dialogs[cid].map(m => m.request === request ? { ...m, status: "done" } : m).concat({ id: request + "_reply", role: "assistant", content: result.reply, status: "done" }).slice(-200) } }));
+        // 他刚说的那句话浮到他头顶上（她 2026-09-17）。⚠️只是把已经收到的这句显示一遍，
+        //   不另存一份、也不另发一次——聊天记录仍旧只有上面那一处。
+        try { if (game() && game().speak) game().speak(result.reply); } catch (e) {}
         const accepted = game() && game().applyAction(result.action); if (!accepted) props.toast("回复已保存，这个动作暂时无法执行。");
       } catch (e) {
         if (alive.current && serial.current === epoch) { setError(e.message || "这次没能连上，稍后可以重试。"); setDetail(e.detail || ""); try { update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).map(m => m.request === request ? { ...m, status: "failed" } : m) } })); } catch (_) {} }
@@ -401,7 +407,8 @@
             [["notes", "花册", ((garden && garden.notes) || []).length],
              ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
              ["things", "屋里", ((things && things.rows) || []).length],
-             ["museum", "收藏馆", ((museum && museum.rows) || []).length]].map(([k, label, n]) => {
+             ["museum", "收藏馆", ((museum && museum.rows) || []).length],
+             ["bottle", "漂流瓶", ((bottles && bottles.floating) || []).length]].map(([k, label, n]) => {
               const on = bookTab === k;
               return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
                 style: { padding: on ? "12px 0 13px" : "8px 0 9px", fontFamily: F_BODY, fontSize: on ? 13 : 12,
@@ -410,7 +417,34 @@
                   borderRadius: "11px 11px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 2 : 1 } },
                 label + (n ? " " + n : "")); })),
           h("div", { style: { height: 1, background: G.line, marginTop: 0 } }),
-          bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
+          bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 漂流瓶：⚠️这一条一个字都不生成。漂回来的全是【已经在存档里的东西】，
+            //    她自己封的那句，或者以前的花笺、刨到过的碎片、留在馆里的那一件。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "写一句话封进瓶子里放下水，" + ((bottles && bottles.days) || 7) + " 天以后它会漂回来。走到月潭栈桥那儿捞，一天一只。"),
+            h("textarea", { value: bottleText, onChange: e => setBottleText(e.target.value), rows: 2, maxLength: 120,
+              placeholder: "想对几天后的自己说什么？",
+              style: { width: "100%", border: "1px solid " + G.line, background: G.paper, borderRadius: 14, padding: "10px 12px",
+                fontFamily: F_BODY, fontSize: 14, color: G.ink, outline: "none", resize: "none" } }),
+            h("button", { className: "w-full active:opacity-70",
+              onClick: () => { const g = game(); if (!g || !g.seal) return;
+                const err = g.seal(bottleText);
+                if (err) { props.toast(err); return; }
+                setBottleText(""); pullGarden(); props.toast("放下水了，" + ((bottles && bottles.days) || 7) + " 天以后见。"); },
+              style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5 } },
+              "放下水"),
+            ((bottles && bottles.floating) || []).length ? h("div", { style: { marginTop: 20 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "还在水里的"),
+              bottles.floating.map(b => h("div", { key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+                b.text + " · 还有 " + b.backIn + " 天漂回来"))) : null,
+            ((bottles && bottles.drifts) || []).length ? h("div", { style: { marginTop: 22 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "捞上来过的"),
+              h("div", { style: { display: "grid", gap: 10 } },
+                bottles.drifts.map((d, i) => h("div", { key: (d.id || "") + ":" + i, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                    "第 " + d.day + " 天捞到 · " + (d.kind === "mine" ? "自己封的" : d.kind === "note" ? "旧花笺" : d.kind === "shard" ? "井里的碎片" : "馆里的一件") + "（第 " + d.from + " 天）"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, d.text))))) : null)
+          :           bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
             //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },

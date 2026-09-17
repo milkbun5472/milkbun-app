@@ -1,18 +1,18 @@
-import {makeMuseum} from './museum-view.mjs?v=fg-5f875d00861ee46b';
-import {museumCaption} from './museum.mjs?v=fg-5f875d00861ee46b';
-import {makeOutdoor} from './outdoor.mjs?v=fg-5f875d00861ee46b';
-import {installSeasonBook} from './season-book.mjs?v=fg-5f875d00861ee46b';
-import {makeMagicView} from './magic-view.mjs?v=fg-5f875d00861ee46b';
-import {installViewControls} from './view-controls.mjs?v=fg-5f875d00861ee46b';
+import {makeMuseum} from './museum-view.mjs?v=fg-2f719a3d8620082e';
+import {museumCaption} from './museum.mjs?v=fg-2f719a3d8620082e';
+import {makeOutdoor} from './outdoor.mjs?v=fg-2f719a3d8620082e';
+import {installSeasonBook} from './season-book.mjs?v=fg-2f719a3d8620082e';
+import {makeMagicView} from './magic-view.mjs?v=fg-2f719a3d8620082e';
+import {installViewControls} from './view-controls.mjs?v=fg-2f719a3d8620082e';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-5f875d00861ee46b';
-import {makeSurroundings} from './surroundings.mjs?v=fg-5f875d00861ee46b';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-5f875d00861ee46b';
-import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,seedError,sowSeed,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,QUEST_KINDS,QUEST_TAKEN_MAX,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-5f875d00861ee46b';
-import {makeForest} from './forest.mjs?v=fg-5f875d00861ee46b';
-import {makeDepths} from './depths.mjs?v=fg-5f875d00861ee46b';
-import {createTraveler} from './traveler.mjs?v=fg-5f875d00861ee46b';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-5f875d00861ee46b';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-2f719a3d8620082e';
+import {makeSurroundings} from './surroundings.mjs?v=fg-2f719a3d8620082e';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-2f719a3d8620082e';
+import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,seedError,sowSeed,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,sealBottle,sealError,floating,QUEST_KINDS,QUEST_TAKEN_MAX,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-2f719a3d8620082e';
+import {makeForest} from './forest.mjs?v=fg-2f719a3d8620082e';
+import {makeDepths} from './depths.mjs?v=fg-2f719a3d8620082e';
+import {createTraveler} from './traveler.mjs?v=fg-2f719a3d8620082e';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-2f719a3d8620082e';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -65,6 +65,10 @@ function ui(){
  {const ready=questTaken(data).filter(q=>questPaid(data,q)).length;
   $('board').hidden=!MAPS[data.map].stations.board;$('board').disabled=!!acting;
   $('board').textContent=ready?'📌 公告栏 · 有 '+ready+' 件能交':'📌 看公告栏';}
+ // 漂流瓶：水在庭院里，一天一只。⚠️这一条一个字都不生成，漂回来的全是存档里已经有的东西
+ {const err=driftError(data);
+  $('bottle').hidden=!MAPS[data.map].stations.bottle;$('bottle').disabled=!!acting||!!err;
+  $('bottle').textContent=err?'🫙 今天的已经捞过了':'🫙 捞漂流瓶';}
  // 留下一件：只在馆里才有这个按钮（人已经站在展厅里了，不用再走一趟）。
  // ⚠️捐进去的东西背包挤不掉，这是做东西那条链唯一的出口。
  {const n=(data.things||[]).filter(t=>thingReady(data,t)).length;
@@ -88,12 +92,12 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map);const a=await loader.loadAsync('./doll.glb?v=fg-5f875d00861ee46b');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map);const a=await loader.loadAsync('./doll.glb?v=fg-2f719a3d8620082e');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap();if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
 function go(target,job=null){if(!ready||acting)return false;const points=findPath({x:actor.position.x,z:actor.position.z},target,data.map);if(!points?.length){say('那边暂时走不过去，换一块空地试试。');return false;}data.seat=null;data=wakeSleeper(data);companionController.reset();ui();cameraFollow=true;path=points;task=job;targetRing.position.set(target.x,floorHeight(data.map,target)+.025,target.z);targetRing.visible=true;$('hint').style.opacity=0;if(!job)say(data.map==='depths'?'脚下是碎石，慢一点。':data.map==='forest'?'脚步轻一点，草叶里藏着小小的光。':'慢慢走，庭院里的路都属于这个下午。');return true;}
-function request(kind,id){if(!ready||acting||loadingMap)return;if(kind==='rest'&&sleepPose(data)){beginAction({kind});return;}const err=actionError(data,kind,id);if(err){say(err);return;}const p=targetFor(data,kind,id);if(!p)return;if(go(p,{kind,id,sleepMode:kind==='bed'?$('sleep-mode').value:null}))say(kind==='door'?exitFor(data.map,kind,id).label+'。':kind==='visit'?`去${MAPS[data.map].sites[id].label}看看。`:({bed:'去选好的卧室，慢慢歇下来。',enter:'回到门口，走进自己的小屋。',sit:'去池塘边找个位置坐下。',well:'去井边装一壶清水。',garden:data.blooms===3?'去把开好的月光花收进花藏。':data.potions?'带着月露，去唤醒整圃花。':'沿着小路，去看看花圃。',brew:'带齐材料，去炼药锅旁边。',travel:data.map==='garden'?'沿着庭院小路，走向林间。':'穿过石门，带着收获回家。',dive:'走到井边，扶着绳梯往下。',deeper:'找到那个往下的洞口。',ladder:'走回梯子下面。',seed:'去林地的微光旁，等同行者一起唤醒种子。',star:'去看看星铃花。',lamp:'把花带到屋前，做一盏星铃灯。',gather:'走近一点，摘下这一丛森林的礼物。',rest:'回屋睡一觉，让日子慢慢往前走。',board:'去公共厅门前看看板子上贴着什么。'})[kind]||'');}
+function request(kind,id){if(!ready||acting||loadingMap)return;if(kind==='rest'&&sleepPose(data)){beginAction({kind});return;}const err=actionError(data,kind,id);if(err){say(err);return;}const p=targetFor(data,kind,id);if(!p)return;if(go(p,{kind,id,sleepMode:kind==='bed'?$('sleep-mode').value:null}))say(kind==='door'?exitFor(data.map,kind,id).label+'。':kind==='visit'?`去${MAPS[data.map].sites[id].label}看看。`:({bed:'去选好的卧室，慢慢歇下来。',enter:'回到门口，走进自己的小屋。',sit:'去池塘边找个位置坐下。',well:'去井边装一壶清水。',garden:data.blooms===3?'去把开好的月光花收进花藏。':data.potions?'带着月露，去唤醒整圃花。':'沿着小路，去看看花圃。',brew:'带齐材料，去炼药锅旁边。',travel:data.map==='garden'?'沿着庭院小路，走向林间。':'穿过石门，带着收获回家。',dive:'走到井边，扶着绳梯往下。',deeper:'找到那个往下的洞口。',ladder:'走回梯子下面。',seed:'去林地的微光旁，等同行者一起唤醒种子。',star:'去看看星铃花。',lamp:'把花带到屋前，做一盏星铃灯。',gather:'走近一点，摘下这一丛森林的礼物。',rest:'回屋睡一觉，让日子慢慢往前走。',board:'去公共厅门前看看板子上贴着什么。',bottle:'走到水边，去捞那只漂流瓶。'})[kind]||'');}
 let digging=false;
 async function fillPool(){
  if(digging||!host||!host.dig)return false;
@@ -214,6 +218,20 @@ function openMuseum(){
  if(!rows.length)list.innerHTML='<p class="craft-hint">'+(have?'背包里没有做好的东西了。':'还没有能捐的东西。下井刨一片碎片，去锅那儿做点什么。')+'</p>';
  $('museum-dialog').showModal();
 }
+// ── 漂流瓶（v69.47）：把过去那些东西重新递回来一次，零调用 ──────────────
+const DRIFT_WORDS={mine:'是你自己封进去的那一只',note:'是那天花笺上的一句',shard:'是从井里刨出来过的一片',kept:'是留在收藏馆里的那一件'};
+function openBottle(){
+ const err=driftError(data);if(err){say(err);return;}
+ const row=driftPick(data);
+ const before=data;data=drawBottle(data);if(data===before){say('今天水面上是空的。');return;}
+ if(!row){$('bottle-hint').textContent='捞上来是个空瓶子。';
+  $('bottle-text').textContent='里面什么都没有。往里放一句话吧——'+BOTTLE_DAYS+' 天以后它会漂回来。（在手机的「漂流瓶」里写）';}
+ else {$('bottle-hint').textContent='水面上漂着一只，'+DRIFT_WORDS[row.kind]+'（第 '+row.from+' 天）。';
+  $('bottle-text').textContent=row.text;}
+ ui();save();$('bottle-dialog').showModal();
+}
+$('bottle').onclick=()=>request('bottle');
+$('bottle-close').onclick=()=>$('bottle-dialog').close();
 $('museum').onclick=()=>openMuseum();
 $('museum-close').onclick=()=>$('museum-dialog').close();
 $('craft').onclick=()=>request('craft');
@@ -222,6 +240,7 @@ async function completeAction(){if(loadingMap)return;const {kind,id,intent}=acti
  // 到锅前了：打开弹层让她挑，挑完才真的做（perform 里没有这一支）
  if(kind==='craft'){acting=null;$('progress').hidden=true;ui();openCraft();return;}
  if(kind==='board'){acting=null;$('progress').hidden=true;ui();openBoard();return;}
+ if(kind==='bottle'){acting=null;$('progress').hidden=true;ui();openBottle();return;}
  // ⚠️花笺这一支不走 perform：那一枪在宿主那侧打（callAI 在父页），
  //   回来才把结果写进存档。一次把开好的全收了＝一次调用。
  if(kind==='note'){const rows=readySeeds(data);acting=null;$('progress').hidden=true;
@@ -268,6 +287,16 @@ function refreshTime(){
  if(indoor){hemi.intensity=1.7;sun.intensity=2.1;fill.intensity=.7;sun.color.set('#ffe5bc');scene.background.set(MAPS[data.map].background);scene.fog.color.copy(scene.background);}
  if(MAPS[data.map].outdoor){const kind=weather(data.day,data.epoch);if(kind!=='晴日'){sun.intensity*=kind==='薄雾'?.65:.55;scene.background.lerp(new THREE.Color(kind==='细雪'?'#cbd9e1':'#b4c5c8'),.55);scene.fog.color.copy(scene.background);}}
 }
+// ── 他说的话浮在头顶（她 2026-09-17：「在里面说话角色也可以头上显示气泡」）──
+// ⚠️气泡只是【把手机那侧刚收到的那句话】显示一遍：这儿不生成任何文字，也不存它。
+//   停留时长按字数走——两个字和两百个字读完要的时间不一样。
+let bubbleText='',bubbleUntil=0;
+const BUBBLE_MIN=3200,BUBBLE_PER_CHAR=95,BUBBLE_MAX=15000;
+function speak(text){
+ const line=String(text==null?'':text).replace(/\s+/g,' ').trim().slice(0,120);
+ bubbleText=line;bubbleUntil=line?Date.now()+Math.min(BUBBLE_MAX,BUBBLE_MIN+line.length*BUBBLE_PER_CHAR):0;
+ $('companion-bubble').textContent=line;
+}
 function updateCompanionUI(){const c=data.companion,v=companionController.view();$('companion-status').textContent=`${c.name} · ${c.map===data.map?v.status:MAPS[c.map].name+' · '+v.status}`;$('companion-tag').textContent=c.name;}
 function drawSchedule(){const preview={...data,companion:{...data.companion,temperament:$('companion-type').value}},current=plannedActivity(preview);$('companion-current-time').textContent=`${weather(data.day,data.epoch)} · ${timeLabel(data.minute)}`;$('companion-schedule').replaceChildren();for(const item of dailySchedule(preview)){const li=document.createElement('li'),t=document.createElement('time'),label=document.createElement('span');t.textContent=timeLabel(item.start);label.textContent=item.label+(item.note?' · '+item.note:'');li.append(t,label);li.classList.toggle('current',current.start===item.start);$('companion-schedule').append(li);}}
 function openCompanion(){if(!ready)return;const c=data.companion;$('companion-input').value=c.name;$('companion-input').disabled=!!boundPartner;$('companion-type').value=c.temperament;drawSchedule();$('companion-detail').textContent=`现在在${MAPS[c.map].name}，${companionController.view().status}。${lastCompanionEvent||''}`;$('companion-follow').setAttribute('aria-pressed',c.mode==='follow');$('companion-routine').setAttribute('aria-pressed',c.mode==='routine');$('companion-wait').disabled=!!acting;$('companion-dialog').showModal();}
@@ -283,7 +312,13 @@ function updateWorld(elapsed,dt){
  const result=companionController.tick(data,dt,{allowCare:acting?.kind!=='garden'});data=result.state;if(result.event){lastCompanionEvent=result.event;ui();save();if(!acting)say(result.event);}
  if(clock-lastAutoSave>10){save();lastAutoSave=clock;}}
  const c=data.companion,v=companionController.view(),root=companionAvatar.root;root.visible=c.map===data.map;root.position.set(c.position.x,.08,c.position.z);if(v.moving||v.gesture==='water'||v.gesture==='sit')root.rotation.y+=Math.atan2(Math.sin(v.heading-root.rotation.y),Math.cos(v.heading-root.rotation.y))*Math.min(1,dt*12);companionAvatar.animate(clock,{moving:!paused&&v.moving,gesture:v.gesture,height:floorHeight(c.map,c.position),sleepPose:sleepPose(data,'companion')});
- const point=new THREE.Vector3(sleepPose(data,'companion')?.x??c.position.x,sleepPose(data,'companion')?1.5:1.95,sleepPose(data,'companion')?.z??c.position.z).project(camera),x=(point.x+1)*innerWidth/2,y=(1-point.y)*innerHeight/2;const panelTop=$('action-panel').getBoundingClientRect().top-12;$('companion-tag').hidden=!root.visible||x<15||x>innerWidth-15||y<125||y>panelTop;$('companion-tag').style.left=x+'px';$('companion-tag').style.top=y+'px';
+ const point=new THREE.Vector3(sleepPose(data,'companion')?.x??c.position.x,sleepPose(data,'companion')?1.5:1.95,sleepPose(data,'companion')?.z??c.position.z).project(camera),x=(point.x+1)*innerWidth/2,y=(1-point.y)*innerHeight/2;const panelTop=$('action-panel').getBoundingClientRect().top-12;const offscreen=!root.visible||x<15||x>innerWidth-15||y<125||y>panelTop;
+ $('companion-tag').hidden=offscreen;$('companion-tag').style.left=x+'px';$('companion-tag').style.top=y+'px';
+ // 气泡跟着名字走，再往上让开名字那一行；他走出画面时跟着一起收起来
+ const bubble=$('companion-bubble'),speaking=!!bubbleText&&Date.now()<bubbleUntil;
+ bubble.hidden=offscreen||!speaking;
+ if(!bubble.hidden){bubble.style.left=x+'px';
+  bubble.style.top=Math.max(y-19,118+bubble.offsetHeight)+'px';}
  if(clock-lastCompanionUI>.3){updateCompanionUI();lastCompanionUI=clock;}
 }
 let last=performance.now(),lastRender=0;function frame(now){requestAnimationFrame(frame);if(document.hidden){last=now;return;}const elapsed=Math.min((now-last)/1000,1),dt=Math.min(elapsed,.05);last=now;clock+=dt;if(loadingMap){renderer.render(scene,camera);return;}
@@ -317,6 +352,14 @@ window.FairyGardenGame={
  // 锅：把碎片做成东西。⚠️全程零调用——做出来是什么由配方表算
  craft:(shardId,way,secondId)=>{const err=craftError(data,shardId,way,secondId);if(err)return err;
   const before=data;data=craftThing(data,shardId,way,secondId);if(data===before)return '这一炉没成。';
+  ui();save();return '';},
+ // 他刚说的那句话：显示在头顶，几秒后自己散掉。传空串就是立刻收起来
+ speak:text=>{speak(text);return true;},
+ // 漂流瓶：写字在手机那一侧，走到水边捞在游戏这一侧（跟花笺同一个分法）
+ getBottles:()=>({days:BOTTLE_DAYS,day:data.day,floating:floating(data),
+  drifts:(data.drifts||[]).slice(0,40),error:sealError(data,'x')}),
+ seal:text=>{const err=sealError(data,text);if(err)return err;
+  const before=data;data=sealBottle(data,text);if(data===before)return '这一只没放下去。';
   ui();save();return '';},
  // 收藏馆：捐出去的一份永不删除，炼金笔记的全表只在 world.mjs 那一处生成
  getCollection:()=>({rows:(data.collection||[]).slice(0,COLLECTION_VIEW),kinds:collectedKinds(data),
