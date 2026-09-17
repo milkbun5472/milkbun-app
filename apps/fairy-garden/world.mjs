@@ -1,17 +1,32 @@
-import './rules.js?v=fg-4e1aaf2cb339e175';
+import './rules.js?v=fg-c1d3b16f6a1d9306';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-4e1aaf2cb339e175';
+import {createNavigator} from './navigation.mjs?v=fg-c1d3b16f6a1d9306';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
  let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[j],b=points[i];if(padding>0&&x>=Math.min(a.x,b.x)-padding&&x<=Math.max(a.x,b.x)+padding&&z>=Math.min(a.z,b.z)-padding&&z<=Math.max(a.z,b.z)+padding){const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/l)):0;if((x-a.x-dx*t)**2+(z-a.z-dz*t)**2<padding*padding)return true;}if((a.z>z)!==(b.z>z)&&x<(b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x)inside=!inside;}return inside;}
 export const lakeFrozen=s=>seasonOf(s?.day||1).index%4===3;
 export function onLakeIce(map,p,s){const l=MAPS.garden.lake,d=l.deck;return map==='garden'&&lakeFrozen(s)&&inPolygon(p.x,p.z,l.shore)&&!(Math.abs(p.x-d.x)<d.w/2+.12&&Math.abs(p.z-d.z)<d.d/2+.12)&&((p.x-l.island.x)/(l.island.rx+.16))**2+((p.z-l.island.z)/(l.island.rz+.16))**2>=1;}
-export function walkable(x,z,map='garden',s=null){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;if(MAPS[map].walkRegions&&!MAPS[map].walkRegions.some(a=>a.polygon?inPolygon(x,z,a.polygon):Math.hypot(x-a.x,z-a.z)<=a.r))return false;if(MAPS[map].plan?.outline&&!inPolygon(x,z,MAPS[map].plan.outline))return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.kind==='lake'&&lakeFrozen(s))return false;if(o.opensWith&&opened(s,o.opensWith))return false;if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.polygon?inPolygon(x,z,o.polygon,.16):o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
+export function walkable(x,z,map='garden',s=null){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;if(MAPS[map].walkRegions&&!MAPS[map].walkRegions.some(a=>a.polygon?inPolygon(x,z,a.polygon):Math.hypot(x-a.x,z-a.z)<=a.r))return false;if(MAPS[map].plan?.outline&&!inPolygon(x,z,MAPS[map].plan.outline))return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;if(openDeck(map,x,z,s))return true;return !MAPS[map].obstacles.some(o=>{if(!blocksNow(o,s))return false;if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.polygon?inPolygon(x,z,o.polygon,.16):o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
+// 这一块【此刻】还挡不挡路。⚠️只有这一处答案：walkable 按点问它，segmentClear
+//   按线段问它。原来 segmentClear 那一句抢跑的快筛不问存档，于是「落脚点能走、
+//   跨过去却被拦」——路开了也走不过去（codex 2026-09-17 实测到的）。
+// 开了的桥面。⚠️桥本来就得是一块 surface（不然站上去的高度不对），
+//   所以「什么时候有这块桥」就写在那一条上，不另开一张表：
+//   surfaces:[{x,z,w,d,height,opensWith:'reedBridge'}]。
+// ⚠️桥面【压过挡路的东西】：芦苇桥就是要跨过那片湖水，
+//   不让它压过去的话，桥搭好了也过不去（codex 2026-09-17 点名的那一条）。
+const openDeck=(map,x,z,s)=>(MAPS[map]?.surfaces||[]).some(f=>f.opensWith&&opened(s,f.opensWith)
+ &&Math.abs(x-f.x)<f.w/2&&Math.abs(z-f.z)<f.d/2);
+function blocksNow(o,s){
+ if(o.kind==='lake'&&lakeFrozen(s))return false;
+ if(o.opensWith&&opened(s,o.opensWith))return false;
+ return true;
+}
 // Exact rectangle clipping prevents a short diagonal corner cut from passing sampled checks.
 function clipsBox(a,b,o){let lo=0,hi=1;for(const [axis,half]of [['x',o.w/2+.16],['z',o.d/2+.16]]){const min=o[axis]-half+1e-8,max=o[axis]+half-1e-8,d=b[axis]-a[axis];if(Math.abs(d)<1e-12){if(a[axis]<=min||a[axis]>=max)return false;}else{const t1=(min-a[axis])/d,t2=(max-a[axis])/d;lo=Math.max(lo,Math.min(t1,t2));hi=Math.min(hi,Math.max(t1,t2));if(lo>=hi)return false;}}return hi>0&&lo<1;}
-export function segmentClear(a,b,map='garden',avoid=[],s=null){if(MAPS[map].obstacles.some(o=>o.w&&o.d&&!o.except&&clipsBox(a,b,o)))return false;const minimum=avoid.map(o=>Math.min(o.r,Math.hypot(a.x-o.x,a.z-o.z)));const len=Math.hypot(b.x-a.x,b.z-a.z),n=Math.max(1,Math.ceil(len/.07));for(let i=0;i<=n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(!walkable(x,z,map,s)||avoid.some((o,j)=>Math.hypot(x-o.x,z-o.z)<minimum[j]-1e-6))return false;}return true;}
-export function floorHeight(map,p,state=null){const m=MAPS[map],base=m?.floor??.08;for(const s of m?.surfaces||[]){if(s.kind==='hill'){const r2=((p.x-s.x)/s.rx)**2+((p.z-s.z)/s.rz)**2;if(r2<1)return base+s.height*(1-r2)**2;}else if(Math.abs(p.x-s.x)<s.w/2&&Math.abs(p.z-s.z)<s.d/2)return s.height;}return onLakeIce(map,p,state)?MAPS.garden.lake.iceHeight:base;}
+export function segmentClear(a,b,map='garden',avoid=[],s=null){const deck=(MAPS[map].surfaces||[]).some(f=>f.opensWith&&opened(s,f.opensWith));if(!deck&&MAPS[map].obstacles.some(o=>o.w&&o.d&&!o.except&&blocksNow(o,s)&&clipsBox(a,b,o)))return false;const minimum=avoid.map(o=>Math.min(o.r,Math.hypot(a.x-o.x,a.z-o.z)));const len=Math.hypot(b.x-a.x,b.z-a.z),n=Math.max(1,Math.ceil(len/.07));for(let i=0;i<=n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(!walkable(x,z,map,s)||avoid.some((o,j)=>Math.hypot(x-o.x,z-o.z)<minimum[j]-1e-6))return false;}return true;}
+export function floorHeight(map,p,state=null){const m=MAPS[map],base=m?.floor??.08;for(const s of m?.surfaces||[]){if(s.opensWith&&!opened(state,s.opensWith))continue;if(s.kind==='hill'){const r2=((p.x-s.x)/s.rx)**2+((p.z-s.z)/s.rz)**2;if(r2<1)return base+s.height*(1-r2)**2;}else if(Math.abs(p.x-s.x)<s.w/2&&Math.abs(p.z-s.z)<s.d/2)return s.height;}return onLakeIce(map,p,state)?MAPS.garden.lake.iceHeight:base;}
 // Picking uses the same ground heights as walking, including raised decks and slopes.
 export function groundPoint(map,origin,direction,state=null){
  if(direction.y>=-1e-6)return null;const base=MAPS[map]?.floor??.08,top=Math.max(base,MAPS.garden.lake.iceHeight,...(MAPS[map]?.surfaces||[]).map(s=>s.kind==='hill'?base+s.height:s.height))+.01;
@@ -19,8 +34,14 @@ export function groundPoint(map,origin,direction,state=null){
  const start=Math.max(0,(top-origin.y)/direction.y),end=(base-origin.y)/direction.y;if(end<start)return null;
  let previous=start;for(let i=1;i<=48;i++){const t=start+(end-start)*i/48,p=point(t);if(p.y<=floorHeight(map,p,state)+1e-8){let lo=previous,hi=t;for(let n=0;n<15;n++){const mid=(lo+hi)/2,q=point(mid);if(q.y>floorHeight(map,q,state))lo=mid;else hi=mid;}return point(hi);}previous=t;}return point(end);
 }
-const landNavigator=createNavigator(MAPS,walkable,segmentClear),iceState={day:43},iceNavigator=createNavigator(MAPS,(x,z,m)=>walkable(x,z,m,iceState),(a,b,m,avoid)=>segmentClear(a,b,m,avoid,iceState));
-export const findPath=(a,b,map='garden',avoid=[],s=null)=>(lakeFrozen(s)?iceNavigator:landNavigator)(a,b,map,avoid);
+// 乐观格子用的那份「世界全开」：湖结着冰、三处开口都开了。
+// ⚠️它只喂给建格子的那一次，不参与任何判断——真正挡不挡路由每一步现算。
+// ⚠️用到的时候才拼：OPENINGS 在这个文件下面很远的地方，模块刚开始跑的时候还没有它。
+let openWorld=null;
+const OPEN_WORLD=()=>openWorld||(openWorld={day:43,casts:Object.entries(OPENINGS).map(([place,o])=>
+ ({place,spell:o.spell,kind:SPELLS[o.spell].need,text:'·',day:1}))});
+const navigator=createNavigator(MAPS,walkable,segmentClear,(x,z,map)=>walkable(x,z,map,OPEN_WORLD()));
+export const findPath=(a,b,map='garden',avoid=[],s=null)=>navigator(a,b,map,avoid,s);
 const count=(v,max=999999)=>Math.max(0,Math.min(max,Number.isFinite(Number(v))?Math.floor(Number(v)):0));
 // ⚠️三档「性格」v69.55 退役：换个角色照样成立的东西，等于没设计。
 //   他今天做什么由模型按【他自己的人设】排（generateSeason 那一枪），排不出来时才走那张地板表。
@@ -780,7 +801,9 @@ export const OPENINGS = {
     done: '旧塔里那片藤蔓让开了' }
 };
 export const isOpening = key => Object.hasOwn(OPENINGS, key);
-export const opened = (s, key) => isOpening(key) && !!castAt(s, key);
+// ⚠️s 可以是空的：walkable(x,z,map) 不带存档的调用全库到处都是（寻路器里就有）。
+//   不挡这一下，主寻路器会当场抛错——比「路开了走不过去」更坏。
+export const opened = (s, key) => isOpening(key) && !!s && !!castAt(s, key);
 // 这一处的模型还没有标记＝这条路这一版还没接上。
 // ⚠️不许在这之前就让她封：封了却走不过去，那是骗她。
 //   标记一到（codex 在 obstacles 上加 opensWith），这三处自己就开了口，不用再发一版。

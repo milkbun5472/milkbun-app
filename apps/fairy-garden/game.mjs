@@ -1,20 +1,20 @@
-import {stepRoute} from './locomotion.mjs?v=fg-4e1aaf2cb339e175';
-import {makeLakeView} from './lake-view.mjs?v=fg-4e1aaf2cb339e175';
-import {makeMuseum} from './museum-view.mjs?v=fg-4e1aaf2cb339e175';
-import {museumCaption} from './museum.mjs?v=fg-4e1aaf2cb339e175';
-import {makeOutdoor} from './outdoor.mjs?v=fg-4e1aaf2cb339e175';
-import {installSeasonBook} from './season-book.mjs?v=fg-4e1aaf2cb339e175';
-import {makeMagicView} from './magic-view.mjs?v=fg-4e1aaf2cb339e175';
-import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-4e1aaf2cb339e175';
+import {stepRoute} from './locomotion.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeLakeView} from './lake-view.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeMuseum} from './museum-view.mjs?v=fg-c1d3b16f6a1d9306';
+import {museumCaption} from './museum.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeOutdoor} from './outdoor.mjs?v=fg-c1d3b16f6a1d9306';
+import {installSeasonBook} from './season-book.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeMagicView} from './magic-view.mjs?v=fg-c1d3b16f6a1d9306';
+import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-c1d3b16f6a1d9306';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-4e1aaf2cb339e175';
-import {makeSurroundings} from './surroundings.mjs?v=fg-4e1aaf2cb339e175';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-4e1aaf2cb339e175';
-import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-4e1aaf2cb339e175';
-import {makeForest} from './forest.mjs?v=fg-4e1aaf2cb339e175';
-import {makeDepths} from './depths.mjs?v=fg-4e1aaf2cb339e175';
-import {createTraveler} from './traveler.mjs?v=fg-4e1aaf2cb339e175';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-4e1aaf2cb339e175';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeSurroundings} from './surroundings.mjs?v=fg-c1d3b16f6a1d9306';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-c1d3b16f6a1d9306';
+import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeForest} from './forest.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeDepths} from './depths.mjs?v=fg-c1d3b16f6a1d9306';
+import {createTraveler} from './traveler.mjs?v=fg-c1d3b16f6a1d9306';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-c1d3b16f6a1d9306';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -161,7 +161,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;const pose=orthographicCameraPose(cameraPan,spanY,camera.zoom,offset);camera.position.set(pose.position.x,pose.position.y,pose.position.z);camera.lookAt(pose.target.x,pose.target.y,pose.target.z);camera.far=pose.far;camera.userData.fogOffset=pose.fogOffset;camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-4e1aaf2cb339e175');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-c1d3b16f6a1d9306');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -563,14 +563,22 @@ function meetTick(dt){
 // ⚠️shut: 缺了就是一条空路却走不过去（花圃那次的毛病）；open: 缺了只是把 shut: 藏起来，
 //   看着像树凭空没了——所以两份都要。这儿两种都不崩。
 const OPENING_AT=Object.fromEntries(Object.entries(OPENINGS).map(([k,v])=>[v.site,k]));
+// ⚠️村落是分区流式加载的：倒树、芦苇桥都在【后来才下载下来】的那几块里。
+//   只扫主场景的话，走过去那一块刚加载完，它还是「关着」的那一份
+//   （codex 2026-09-17 点名的那一条）。所以两件事：扫的时候连流式的根一起扫，
+//   而且哪一块新加载进来就重扫一次。
+const openingMark=()=>data.map+'|'+((mapViews[data.map]?.stream?.inspect().loaded||[]).join(','));
+let loadedMark='';
 function syncOpenings(){
- const view=mapViews[data.map];if(!view||!view.root)return;
- view.root.traverse(o=>{
+ const view=mapViews[data.map];if(!view)return;
+ for(const root of [view.root,...(view.stream?.roots()||[])].filter(Boolean))root.traverse(o=>{
   const m=/^(shut|open):(.+)$/.exec(o.name||'');if(!m)return;
   if(!isOpening(m[2]))return;
   o.visible=(m[1]==='open')===opened(data,m[2]);
  });
+ loadedMark=openingMark();
 }
+function watchOpenings(){if(openingMark()!==loadedMark)syncOpenings();}
 // ── 衣柜预览（她 2026-09-17：「为啥感觉体型拉杆没用」）──────────────────
 // 拉杆是有用的，只是她【一个像素都看不见】：换样貌那一页是整页盖住游戏的
 // （iframe 一旦卸载这一局就没了，所以只能盖不能换屏），底下的小人被挡得严严实实，
@@ -784,6 +792,7 @@ let last=performance.now(),lastRender=0;function frame(now){requestAnimationFram
  magic.visible=!!acting&&(acting.kind==='brew'||acting.kind==='garden'&&data.potions>0&&data.blooms<3);if(magic.visible){const site=MAPS.garden.interactions.find(x=>x.kind===(acting.kind==='brew'?'brew':'garden'));magic.position.set(site.x,.65,site.z);magic.children.forEach((m,i)=>{const a=clock*2+i*2.4,r=acting.kind==='brew'?.26:.6;m.position.set(Math.cos(a)*r,((clock*.5+i/18)%1)*.75,Math.sin(a)*r);});}
  const activeView=mapViews[data.map];activeView?.stream?.update(cameraPan,Math.hypot(camera.right,camera.top)*.85/camera.zoom);activeView?.update?.(data,clock);lakeView.update(data,clock,activeView?.stream?.inspect().loaded||[]);magicView.update(data,clock);updateOutdoor();
  highlights.forEach((h,i)=>h.material.opacity=.35+Math.sin(clock*2+i)*.12);blooms.children.forEach((g,i)=>g.rotation.z=Math.sin(clock*1.6+i)*.035);
+ watchOpenings();
  if(now-lastRender>1000/(lite?30:45)){renderer.render(scene,camera);if(previewWho)drawPreview();lastRender=now;}}
 addEventListener('pagehide',()=>{if(ready)save();});
 requestAnimationFrame(frame);load();

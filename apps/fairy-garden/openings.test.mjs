@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {freshState,MAPS,walkable,OPENINGS,isOpening,opened,openingReady,openingLine,
+import {freshState,MAPS,walkable,segmentClear,findPath,floorHeight,OPENINGS,isOpening,opened,openingReady,openingLine,
  SPELL_PLACES,SPELLS,castPlaceError,castError,castSpell,castAt,castLine,recentHappenings,
  restoreState} from './world.mjs';
 // 她 2026-09-17：「先做吧宝宝」——我这半边先做好，等 codex 的网格一到就通
@@ -84,4 +84,51 @@ test('没标记的开口不许出现在地点表里当个灰按钮骗点击',()=
  const s=armed('relic');
  for(const key of Object.keys(OPENINGS))
   assert.match(castPlaceError(s,key),/还没通到这个世界里来/);
+});
+
+// ── codex 2026-09-17 对着代码查出来的那几处（他没改代码，只记了问题）──────────
+
+// 他实测：落脚点判断能走，跨过去仍被拦，自动寻路还会报错
+test('路开了，跨过去和自动寻路都要跟着开',()=>{
+ const wall={x:8,z:-21,w:300,d:1.4,opensWith:'fallenTree'};   // 横着封死整条路
+ MAPS.garden.obstacles.push(wall);
+ try{
+  const A={x:8,z:-18.5},B={x:8,z:-23.5};
+  let s=armed('relic');
+  assert.equal(segmentClear(A,B,'garden',[],s),false,'还挡着的时候跨不过去');
+  assert.equal(findPath(A,B,'garden',[],s),null,'还挡着的时候没有路');
+  s=castSpell(s,'relic','s1','fallenTree');
+  assert.equal(walkable(B.x,B.z,'garden',s),true);
+  assert.equal(segmentClear(A,B,'garden',[],s),true,'开了就跨得过去');
+  assert.ok(findPath(A,B,'garden',[],s),'开了就找得到路');
+ }finally{MAPS.garden.obstacles.splice(MAPS.garden.obstacles.indexOf(wall),1);}
+});
+
+// ⚠️比「走不过去」更坏的一种：walkable(x,z,map) 不带存档的调用全库到处都是
+test('不带存档的那些调用一个都不许炸',()=>{
+ const undo=ready('fallenTree',{x:8,z:-21,w:3.2,d:1.4});
+ try{
+  assert.equal(walkable(8,-21,'garden'),false);
+  assert.equal(opened(null,'fallenTree'),false);
+  assert.equal(segmentClear({x:8,z:-18},{x:8,z:-24},'garden'),false);
+  assert.ok(findPath(MAPS.garden.sites.home.target,MAPS.garden.sites.hall.target,'garden'),'主寻路照旧通');
+ }finally{undo();}
+});
+
+// 他点名的第四条：芦苇桥要真正可走的桥面，还要处理桥下那段湖水
+test('桥面搭起来才算路，没搭之前不许浮在水上',()=>{
+ const deck={x:22,z:8,w:6,d:2.4,height:.35,opensWith:'reedBridge'};
+ MAPS.garden.surfaces.push(deck);
+ const undo=ready('reedBridge',{x:0,z:0,w:.01,d:.01});
+ try{
+  let s={...freshState(),spells:['sense'],shards:[{id:'s1',kind:'sense',text:'一段感觉'}]};
+  assert.equal(walkable(22,8,'garden',s),false,'没搭之前那儿是湖水');
+  assert.equal(floorHeight('garden',{x:22,z:8},s),MAPS.garden.floor??.08,'没搭之前不许有桥面高度');
+  s=castSpell(s,'sense','s1','reedBridge');
+  assert.equal(walkable(22,8,'garden',s),true,'搭好了就站得住');
+  assert.equal(floorHeight('garden',{x:22,z:8},s),deck.height,'站上去的高度是桥面');
+  assert.equal(segmentClear({x:19.5,z:8},{x:24.5,z:8},'garden',[],s),true,'桥上能走过去');
+  // 桥只在桥那一段：旁边还是水（16,8 不在桥面范围里，基线就走不过去）
+  assert.equal(walkable(16,8,'garden',s),false,'桥外面还是湖');
+ }finally{MAPS.garden.surfaces.splice(MAPS.garden.surfaces.indexOf(deck),1);undo();}
 });
