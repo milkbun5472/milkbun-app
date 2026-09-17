@@ -15,8 +15,8 @@
  const DEPTH_NODES=Array.from({length:DEPTH_MAX},(_,i)=>depthNodes(i+1)).flat();
  const NODES=[...DEPTH_NODES,{id:'herb-a',map:'forest',kind:'herb',x:-2.8,z:.2},{id:'herb-b',map:'forest',kind:'herb',x:.1,z:2},{id:'herb-c',map:'forest',kind:'herb',x:2.5,z:-2.1},{id:'mushroom-a',map:'forest',kind:'mushroom',x:2.6,z:.5},{id:'mushroom-b',map:'forest',kind:'mushroom',x:-1.8,z:-3.1}];
  const MAPS={
- garden:{name:'林边村落',outdoor:true,seats:{pond:{x:3.65,z:5.15,heading:Math.PI,companion:{x:4.4,z:5.15}}},decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-7d9e2061344cd5fe',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[{x:4,z:5.7,w:2.2,d:2.3,height:.31}],exits:{travel:{to:'forest'}},
- stations:{well:{x:-2.7,z:3.05},dive:{x:-2.7,z:3.05},garden:{x:-7.6,z:1.55},note:{x:-7.6,z:1.55},brew:{x:-3.6,z:3.8},travel:{x:10,z:-1},rest:{x:-5.4,z:3.55},star:{x:-5.8,z:4.5},lamp:{x:-6.4,z:4.3}},
+ garden:{name:'林边村落',outdoor:true,seats:{pond:{x:3.65,z:5.15,heading:Math.PI,companion:{x:4.4,z:5.15}}},decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-a4f755a2e82727b1',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[{x:4,z:5.7,w:2.2,d:2.3,height:.31}],exits:{travel:{to:'forest'}},
+ stations:{well:{x:-2.7,z:3.05},dive:{x:-2.7,z:3.05},garden:{x:-7.6,z:1.55},note:{x:-7.6,z:1.55},brew:{x:-3.6,z:3.8},craft:{x:-3.6,z:3.8},travel:{x:10,z:-1},rest:{x:-5.4,z:3.55},star:{x:-5.8,z:4.5},lamp:{x:-6.4,z:4.3}},
  // ⚠️「自己的小屋」必须在这张名单里（她 2026-09-16：「我回不了家了」）：
  // 地点下拉是照这张表长的，表里没有家，她就只能靠「睡到明天」才回得去——
  // 那是【结束这一天】，不是【回家】。两件事不能只留一个。

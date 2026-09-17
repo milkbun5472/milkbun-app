@@ -39,20 +39,23 @@ test('深度只决定完整度，不决定情感重量——她点名不要那�
   assert.match(sys, /浅处也可以挖到很珍贵的东西/);
 });
 
-test('能捞的只许从真东西里长，想象的要看得出是想象', async () => {
+test('能捞的只许从真东西里长；话要他自己说，不许矿洞替他宣布', async () => {
   let sys = '';
-  const svc = service(async (p, s) => { sys = s; return '[{"kind":"memory","text":"伞。"}]'; });
+  const svc = service(async (p, s) => { sys = s; return '[{"kind":"echo","text":"伞。"}]'; });
   await svc.shards(args());
-  assert.match(sys, /memory \/ link \/ world 这三类【只能从上面真给到你的东西里长】/);
-  assert.match(sys, /绝不许编一段你们其实没发生过的共同经历/);
-  assert.match(sys, /dream \/ ahead \/ unsaid 是你脑子里的东西/);
+  assert.match(sys, /echo【只能从上面真给到你的经历里长】/);
+  assert.match(sys, /绝不许编一段你们其实没发生过的事/);
+  // v69.32 收紧的一条（codex 提的）：东西是挖出来的，话是他说的
+  assert.match(sys, /东西是挖出来的，话是你自己说的/);
+  assert.match(sys, /不许在碎片上替自己宣布「我当时差点说…」/);
+  assert.match(sys, /kind 只能取：echo｜dream｜sense｜relic/);
 });
 
 test('模型给的一律核对：种类不认识的、空的全丢', async () => {
-  const svc = service(async () => '[{"kind":"memory","text":"好"},{"kind":"胡编的","text":"混进来"},{"kind":"dream","text":"   "}]');
+  const svc = service(async () => '[{"kind":"echo","text":"好"},{"kind":"胡编的","text":"混进来"},{"kind":"dream","text":"   "}]');
   const out = await svc.shards(args());
   assert.equal(out.length, 1);
-  assert.equal(out[0].kind, 'memory');
+  assert.equal(out[0].kind, 'echo');
   const bad = service(async () => '不是 JSON');
   await assert.rejects(() => bad.shards(args()), /没读懂井里的东西/);
 });
@@ -71,4 +74,21 @@ test('碎片盒和花册是两格底线 tab，不是一排药丸', () => {
   assert.match(host, /\[\["notes", "花册",/);
   assert.match(host, /borderBottom: "2px solid " \+ \(bookTab === k \? G\.deep : "transparent"\)/);
   assert.match(host, /越深的只是越完整、越奇怪，不是越沉重/);
+});
+
+// v69.32：锅那条链【一枪都不打】——这是庭院的成本地板。
+// 判据（她定的）：一样东西要么能读、要么能摆、要么能用、要么会引出下一件事。
+test('炼金整条链不许出现模型调用', () => {
+  const world = rd('apps/fairy-garden/world.mjs');
+  const craft = world.slice(world.indexOf('// ── 锅：把碎片做成'), world.indexOf('// ── 星井（下潜）'));
+  assert.doesNotMatch(craft, /callAI|host\.|await /, '炼金那一段一旦开始调模型，成本地板就没了');
+  assert.match(craft, /一枪都不打/);
+  // 弹层也只在本地算：挑碎片、挑做法、出东西
+  assert.match(game, /function openCraft\(\)/);
+  assert.doesNotMatch(game.slice(game.indexOf('function openCraft()'), game.indexOf("$('craft').onclick")), /host\.|callAI/);
+});
+
+test('雨铃响不响是代码说的，不是模型生成的', () => {
+  assert.match(game, /function bellLine\(\)\{return bellRings\(data\)\?/);
+  assert.match(game, /这一句是代码说的，不是模型生成的/);
 });
