@@ -1,13 +1,13 @@
-import './rules.js?v=fg-e751180eb039ce64';
+import './rules.js?v=fg-4e1aaf2cb339e175';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-e751180eb039ce64';
+import {createNavigator} from './navigation.mjs?v=fg-4e1aaf2cb339e175';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
  let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[j],b=points[i];if(padding>0&&x>=Math.min(a.x,b.x)-padding&&x<=Math.max(a.x,b.x)+padding&&z>=Math.min(a.z,b.z)-padding&&z<=Math.max(a.z,b.z)+padding){const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/l)):0;if((x-a.x-dx*t)**2+(z-a.z-dz*t)**2<padding*padding)return true;}if((a.z>z)!==(b.z>z)&&x<(b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x)inside=!inside;}return inside;}
 export const lakeFrozen=s=>seasonOf(s?.day||1).index%4===3;
 export function onLakeIce(map,p,s){const l=MAPS.garden.lake,d=l.deck;return map==='garden'&&lakeFrozen(s)&&inPolygon(p.x,p.z,l.shore)&&!(Math.abs(p.x-d.x)<d.w/2+.12&&Math.abs(p.z-d.z)<d.d/2+.12)&&((p.x-l.island.x)/(l.island.rx+.16))**2+((p.z-l.island.z)/(l.island.rz+.16))**2>=1;}
-export function walkable(x,z,map='garden',s=null){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;if(MAPS[map].walkRegions&&!MAPS[map].walkRegions.some(a=>a.polygon?inPolygon(x,z,a.polygon):Math.hypot(x-a.x,z-a.z)<=a.r))return false;if(MAPS[map].plan?.outline&&!inPolygon(x,z,MAPS[map].plan.outline))return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.kind==='lake'&&lakeFrozen(s))return false;if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.polygon?inPolygon(x,z,o.polygon,.16):o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
+export function walkable(x,z,map='garden',s=null){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;if(MAPS[map].walkRegions&&!MAPS[map].walkRegions.some(a=>a.polygon?inPolygon(x,z,a.polygon):Math.hypot(x-a.x,z-a.z)<=a.r))return false;if(MAPS[map].plan?.outline&&!inPolygon(x,z,MAPS[map].plan.outline))return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.kind==='lake'&&lakeFrozen(s))return false;if(o.opensWith&&opened(s,o.opensWith))return false;if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.polygon?inPolygon(x,z,o.polygon,.16):o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 // Exact rectangle clipping prevents a short diagonal corner cut from passing sampled checks.
 function clipsBox(a,b,o){let lo=0,hi=1;for(const [axis,half]of [['x',o.w/2+.16],['z',o.d/2+.16]]){const min=o[axis]-half+1e-8,max=o[axis]+half-1e-8,d=b[axis]-a[axis];if(Math.abs(d)<1e-12){if(a[axis]<=min||a[axis]>=max)return false;}else{const t1=(min-a[axis])/d,t2=(max-a[axis])/d;lo=Math.max(lo,Math.min(t1,t2));hi=Math.min(hi,Math.max(t1,t2));if(lo>=hi)return false;}}return hi>0&&lo<1;}
 export function segmentClear(a,b,map='garden',avoid=[],s=null){if(MAPS[map].obstacles.some(o=>o.w&&o.d&&!o.except&&clipsBox(a,b,o)))return false;const minimum=avoid.map(o=>Math.min(o.r,Math.hypot(a.x-o.x,a.z-o.z)));const len=Math.hypot(b.x-a.x,b.z-a.z),n=Math.max(1,Math.ceil(len/.07));for(let i=0;i<=n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(!walkable(x,z,map,s)||avoid.some((o,j)=>Math.hypot(x-o.x,z-o.z)<minimum[j]-1e-6))return false;}return true;}
@@ -756,7 +756,38 @@ export const SPELLS = {
 };
 // 封在哪儿：都是她本来就会走到的地方
 export const SPELL_PLACES = { eaves: '屋檐下', sill: '窗台', pond: '池边', well: '井口', plot: '花圃边',
-  lamp: '屋前的灯下', pathlamp: '小路那盏灯下' };
+  lamp: '屋前的灯下', pathlamp: '小路那盏灯下',
+  fallenTree: '林道上那棵倒树', reedBridge: '湖上那片芦苇', towerVines: '封着观星台的藤蔓' };
+// ── 会开的路（她 2026-09-17：「先做吧宝宝」；交接单：庭院工单-会开的路-2026-09-17.md）
+// ⚠️这【不是第二套魔法】：开路就是往那一处封一片碎片——同一个 castSpell、
+//   同一份 casts、同一句「走到那儿还听得见」。区别只在于这三处封完之后，
+//   挡在那儿的东西不再挡路了（施工规则/one-public-mechanism.md）。
+// ⚠️挡不挡路的那一句只改在 walkable 一处，就写在湖结冰那一句旁边——
+//   那一句是 codex 自己发明的同一个形状，这儿只是把它从「湖专用」变成谁都能用。
+// ⚠️碎片照旧【不烧掉】：它是从背包出去、封进世界里的一个位置，还读得到。
+export const OPENINGS = {
+  fallenTree: { site: 'hiddenPath', spell: 'relic',
+    shut: '一棵倒树横在泥路上，树根那头还连着土。',
+    open: '树被抬起来了，底下露出能过人的缝。',
+    done: '林道上那棵倒树被抬了起来，路通到了深林' },
+  reedBridge: { site: 'lakeEast', spell: 'sense',
+    shut: '水从芦苇里流过去，对岸的小岛隔着一段没有路的水面。',
+    open: '芦苇自己编成了一道桥，踩上去会轻轻晃。',
+    done: '湖上的芦苇编成了一道桥，小岛能过去了' },
+  towerVines: { site: 'oldTower', spell: 'dream',
+    shut: '藤蔓把那一处封得很密，叶子底下透出一点光。',
+    open: '藤蔓让开了，像有人替你把门推了一下。',
+    done: '旧塔里那片藤蔓让开了' }
+};
+export const isOpening = key => Object.hasOwn(OPENINGS, key);
+export const opened = (s, key) => isOpening(key) && !!castAt(s, key);
+// 这一处的模型还没有标记＝这条路这一版还没接上。
+// ⚠️不许在这之前就让她封：封了却走不过去，那是骗她。
+//   标记一到（codex 在 obstacles 上加 opensWith），这三处自己就开了口，不用再发一版。
+export const openingReady = key => isOpening(key)
+  && Object.values(MAPS).some(m => (m.obstacles || []).some(o => o.opensWith === key));
+// 走到那儿看见的是哪一句：开了是开了那一句，没开是挡着那一句
+export const openingLine = (s, key) => isOpening(key) ? (opened(s, key) ? OPENINGS[key].open : OPENINGS[key].shut) : '';
 // ⚠️后两处要【先有灯】。这是把魔法那条线接进别的线的地方：
 //   屋前那几盏是星铃灯做出来的（月光花那条），小路那盏是委托修好的（公告栏那条）。
 //   灯从此不是终点，是【一处能封咒的地方】——这就是那个四盏灯天花板的拆法。
@@ -764,6 +795,7 @@ export function castPlaceError(s, place){
   if (!Object.hasOwn(SPELL_PLACES, place)) return '还没有这个地方。';
   if (place === 'lamp' && !count((s.magic || {}).lamps)) return '屋前还没有灯。先做一盏星铃灯。';
   if (place === 'pathlamp' && !workDone(s, 'pathLamp')) return '小路那盏灯还坏着。公告栏上有人要修它。';
+  if (isOpening(place) && !openingReady(place)) return '那一处还没通到这个世界里来。';
   return '';
 }
 const SPELL_ORDER = ['echo', 'dream', 'sense', 'relic'];
@@ -783,6 +815,8 @@ export function castError(s, spell, shardId, place){
   if (!restoreSpells(s.spells).includes(spell)) return '这个咒你还不会——一季一个，跟他一起去林地唤醒种子。';
   const where = castPlaceError(s, place); if (where) return where;
   if (castAt(s, place)) return SPELL_PLACES[place] + '已经封着一片了，一个地方只留一片。';
+  if (isOpening(place) && OPENINGS[place].spell !== spell)
+    return SPELL_PLACES[place] + '要的是' + SPELLS[OPENINGS[place].spell].name + '。';
   const shard = (s.shards || []).find(x => x.id === shardId);
   if (!shard) return '先挑一片碎片。';
   if (shard.kind !== SPELLS[spell].need) return SPELLS[spell].name + '要的是' + SHARD_KINDS[SPELLS[spell].need] + '。';
@@ -795,7 +829,8 @@ export function castSpell(s, spell, shardId, place){
   return noteHappening({ ...s,
     shards: (s.shards || []).filter(x => x.id !== shardId),
     casts: restoreCasts([row, ...(s.casts || [])]) },
-    'world', '在' + SPELL_PLACES[place] + '念了一个' + SPELLS[spell].name);
+    'world', isOpening(place) ? OPENINGS[place].done
+      : '在' + SPELL_PLACES[place] + '念了一个' + SPELLS[spell].name);
 }
 // 走到那儿会看见什么。⚠️用的是碎片自己的原文——这儿不生成任何文字
 export function castLine(s, place){
