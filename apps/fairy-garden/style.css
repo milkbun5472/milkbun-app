@@ -49,3 +49,5 @@ body.embedded .season-open{top:65px}.season-dialog{width:100%;height:100%;max-wi
 #village-places[hidden]{display:none}#place-select{min-width:0;flex:1;border:1px solid #d5dbc6;border-radius:10px;background:#f2f2e3;color:#526c51;font:inherit;font-size:12px;padding:8px}
 
 .secondary-actions[hidden],.actions button[hidden],.secondary-actions button[hidden]{display:none}
+
+#home-sleep[hidden]{display:none}#home-sleep select{min-width:0;flex:1;font:inherit;font-size:12px;padding:8px;border:1px solid #d5dbc6;border-radius:10px;background:#f2f2e3;color:#526c51}
