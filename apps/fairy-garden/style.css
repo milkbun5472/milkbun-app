@@ -120,3 +120,34 @@ body.embedded .weather{gap:8px}
 #cast-shards button[aria-pressed=true]{border-color:#55704f;background:#eef3e6}
 #cast-places{flex-wrap:wrap;margin-top:4px}
 #cast-places>button{flex:1 1 calc(50% - 6px);min-width:110px}
+
+/* 衣柜预览：手机那一侧那一页顶上留了一条透明的窗，游戏往窗里渲一个小人。
+   这时候游戏自己那套壳要全收起来——不然她看到的是小人后面压着一排按钮。 */
+body.previewing #app > *:not(#world) { display: none !important; }
+
+/* Reuse the season book's full-height shell and single scrolling body. */
+#mill-dialog .dialog-title{padding-top:calc(12px + env(safe-area-inset-top) * .5)}
+body.embedded #mill-dialog .dialog-title{padding-top:12px}
+#mill-dialog .title-spacer{width:40px;flex-shrink:0}#mill-dialog h2{flex:1;text-align:center}
+#mill-dialog .book-body{flex:1}.mill-recipe{padding:12px 0 20px;border-bottom:1px solid #d5ddc7}
+.mill-recipe p{font-size:13px;line-height:1.8;overflow-wrap:anywhere}.mill-recipe button{min-height:44px;width:100%;font-size:14px}
+
+#mill-dialog #mill-list{display:block;margin:0}#mill-dialog .mill-recipe h3{margin-top:12px}
+/* The cauldron close-up keeps the live world under a full-screen gesture surface. */
+body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.brewing .map-controls,body.brewing #season-open,body.brewing #companion-tag,body.brewing #companion-bubble,body.brewing #companion-call,body.brewing #hint{visibility:hidden!important}
+#brewing-dialog{position:fixed;inset:0;width:100%;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:linear-gradient(180deg,#f6f0dfed 0,transparent 27%,transparent 61%,#f3edddf5 88%);color:#3e5148;box-shadow:none;overflow:hidden;touch-action:none}
+#brewing-dialog::backdrop{background:transparent}#brewing-dialog[open]{display:flex;flex-direction:column}
+#brewing-dialog .dialog-title{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)*.5) 14px 6px;background:transparent}body.embedded #brewing-dialog .dialog-title{padding-top:10px}
+#brewing-dialog h2{flex:1;text-align:center;font-size:17px;margin:0}#brewing-dialog .title-spacer,#brewing-close{width:40px;flex-shrink:0}#brewing-close{height:40px;font-size:27px;border:0;background:transparent;padding:0}
+.brew-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}.brew-caption{text-align:center;padding:0 24px;pointer-events:none}.brew-caption p{margin:8px auto;max-width:400px}#brew-step{font-size:20px;font-family:Georgia,serif;letter-spacing:3px}#brew-instruction{font-size:13px;line-height:1.6;color:#536459}
+#brew-target{position:fixed;transform:translate(-50%,-50%);border-radius:50%;border:1px dashed #efffd8c9;display:grid;place-items:center;color:#fffce5;text-shadow:0 1px 4px #365345;font-size:12px;cursor:grab;background:radial-gradient(transparent 56%,#dbf3b633 59%,transparent 67%);touch-action:none}#brew-target:focus-visible{outline:3px solid #f5d28e}#brewing-dialog[data-stage="pour"] #brew-target,#brewing-dialog[data-stage="done"] #brew-target{visibility:hidden}
+.brew-controls{margin-top:auto;align-self:center;width:min(100%,520px);padding:14px 18px calc(16px + env(safe-area-inset-bottom)*.4);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:10px}#brew-ingredients{display:flex;gap:10px;justify-content:center;width:100%}#brew-ingredients button{position:relative;flex:1;max-width:135px;min-height:94px;border:1px solid #c2cbb6;border-radius:14px;background:#fffbeded;color:#405346;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 3px;touch-action:none;box-shadow:0 4px 14px #3a554215}#brew-ingredients button[aria-pressed="true"]{outline:2px solid #869e73}#brew-ingredients button:disabled{opacity:.32}#brew-ingredients button.dragging{z-index:10;opacity:.9;pointer-events:auto}
+.ingredient-icon{display:block;width:30px;height:30px;background:var(--ingredient);border:2px solid #fff8;box-shadow:inset 3px 2px 5px #ffffff70,2px 3px 3px #53684922;transform:rotate(-12deg);border-radius:6px 16px 6px 16px}.ingredient-icon.herbs{border-radius:80% 0 80% 0}.ingredient-icon.water{border-radius:55% 55% 55% 5%;transform:rotate(-45deg)}.ingredient-icon.mushrooms{border-radius:50% 50% 12% 12%;height:22px;margin-bottom:8px;position:relative}.ingredient-icon.mushrooms:after{content:'';position:absolute;width:7px;height:12px;left:10px;top:18px;background:#eadbbf}.ingredient-icon.sand{clip-path:polygon(50% 0,100% 40%,75% 100%,20% 85%,0 30%)}
+#brew-assist,#brew-finish{padding:13px 25px;border:1px solid #829782;border-radius:24px;color:#fffbed;background:#617b69;min-height:46px;font:inherit;touch-action:none}#brew-assist{background:#f8f4e8;color:#456150}#brew-result{font-size:14px;line-height:1.7;text-align:center;margin:0;max-width:390px}#brew-footnote{font-size:11px;color:#687569}#brewing-dialog [hidden]{display:none!important}
+@media(max-height:550px){.brew-caption p{margin:2px}.brew-controls{padding-top:4px;padding-bottom:6px;gap:4px}#brew-ingredients button{min-height:64px;flex-direction:row;justify-content:center}.brew-caption #brew-step{font-size:16px}}
+#brewing-dialog::backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}
+.brewing-dialog div{margin-top:0;justify-content:initial}
+.brewing-dialog .brew-caption{display:block;flex-shrink:0}
+.brewing-dialog .brew-controls{margin-top:auto}
+.brewing-dialog #brew-ingredients{justify-content:center}
+.brewing-dialog #brew-target{display:grid;place-items:center}

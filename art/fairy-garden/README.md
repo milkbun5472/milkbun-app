@@ -215,3 +215,42 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 ### 右邻居铃叶花舍
 
 `MAPS.neighbor3` 将木地板起居卧室与石砖花房连成一座房子。`neighbor3` 参数构建，导出 `neighbor3-interior.glb --detail`；种植台、草药架与花房茶桌目前均为场景陈设。继续使用 `connectNeighbor`；花房细柱由 `plan.posts` 同时生成美术与碰撞，低墙由 `lowWalls` 指定。地毯高度支持石砖表面，避免埋到砖下。构建不更改前两间 GLB。
+
+### 公共厅前灯串集市
+
+`build_market.py -- ART_ROOT OUTPUT_DIR` 从 `MAPS.garden.market` 读取四摊、灯柱和铺地；药草弧棚、奇物尖篷、侧向茶摊、小花车留出通往公共厅的中央路。摊位与灯柱占地由同表生成碰撞，旋转复用室内家具轮廓。现阶段是可逛场景，交易与日期开市尚未接入。
+
+在 architecture 之后构建，分别导出输出目录的 `village-market.blend` 与 `village-hall.blend --detail`。后者只清旧空摊；共享 `remove_legacy_market` 也接进完整建筑重建，避免旧模型复活。market 独立懒载，昼夜/天气/季节沿用室外公共渲染。预览使用旧建筑源的地景作位置对照，最终景观以游戏里的常驻地景为准。浏览器验证脚本 `scripts/checks/fairy-market-browser.cjs` 使用独立空白存档，检查摊前走动、同行进出大厅、地图卸载、存读档和手机平移。
+
+### 北境隐林与旧塔
+
+`build_old_tower.py -- OUTPUT_DIR` 从 `MAPS.garden.oldTower` 构建林缘、深林、旧塔三个分区（village-northwood-edge / village-northwood-deep / village-old-tower，均用 --detail 导出）。旧塔在 (0,-46)，通过公共厅东北的窄泥路连回村落；塔门已打开，连接旧塔观星室内景。树干、密灌木、石塔、落石与通路共用地图数据，切勿只改 Blender 摆放。
+
+garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩展可走范围；radius55用于镜头/粗边界。寻路网格按实际区域包围盒建立，避免把四周尚未建造的土地一起扩出来。树木和地景使用现有室外四季渲染。精确顶点相连的泥路不会在拐弯处共面重叠，upward复用湖面朝向修复。运行时沿用原常驻草地，构建里的方形地面只供Blender预览，不导出。站点接现有地图步行功能；没有传送、交易或新AI调用。脚本 fairy-old-tower-browser.cjs 在独立存档实走双人往返、分区卸载、读档、手机平移和冬夜。竖屏小倍率的正交镜头会沿原视线后退，并补偿雾距，避免近裁面切掉屏幕下方草地；公共view-controls已有四角裁切回归。
+
+### 林边车站
+
+`build_station.py -- OUTPUT_DIR` 读取 `MAPS.garden.station`，生成南侧林荫路和车站两块 GLB（`village-station-lane` / `village-station`，用公共 exporter 的 `--detail` 导出）。收藏馆后接石板路，月台中心 (0,39)，地图按钮「林边车站」走到 (.6,40.65)。弧顶雨棚、售票亭、朝铁轨的长椅、行李车、低栏杆与树林；列车/买票/乘坐暂未实现，不承诺班次。
+
+共享表统一月台与矮台阶高度、家具/柱子/树干的碰撞、步行终点、南侧 walkRegions 和加载范围；栏杆可见地阻止走入轨道。复用建筑原语、湖面 upward 与既有四季渲染，预览草地不导出。来源与预览分离，脚本不放 app 包。`station.test.mjs` 验证连通/碰撞/存档/加载释放；`scripts/checks/fairy-station-browser.cjs` 在隔离存档实际步行、同行、回家、读档、手机平移及冬夜验证。
+
+### 旧塔观星室
+
+`build_interiors.py -- OUTPUT_DIR oldTower` 是内景唯一源，读取 `MAPS.oldTower`，导出 `old-tower-interior.blend` → `old-tower-interior.glb --detail`。圆形石厅、中央铜环星仪、四级石阶后的高台、望远镜与星图桌；前墙截低、背墙留残拱。与三个邻居内景共用 `connectInterior` 接门、家具碰撞和同行地图图谱。外门去掉旧锁链，`build_old_tower.py` 重建后只需重导 `village-old-tower.glb`。
+
+墙段旋转走公共 `furnitureFootprint`，栏杆/阶梯/支柱与站点共用数据。地砖与旧木地板共用 `tile_sections`，按真实台阶切分；`furnish` 把整组家具平移到楼面，避免桌腿穿进高台。新场景只参观，星仪/望远镜暂不结算玩法，不调用AI。`observatory.test.mjs` 检查进出/高台可达/四级高度/栏杆/存档和同行；`fairy-observatory-browser.cjs` 用隔离存档实走各点、进出、保存、室外卸载及手机平移。
+
+### 溪畔水磨坊与草药工坊
+
+`build_watermill.py -- OUTPUT_DIR` 从 `MAPS.garden.watermill` 建模；溪水接月湖原出水口，建筑在东侧 (38.5,7.3)，门前 (37.1,10.55)。东岸沿溪小路可直接走来，地图增加「溪畔水磨坊」。`village-watermill.glb` 是单独懒加载分区，使用现有室外四季材质；预览地面不导出。水轮当前是静态场景模型。水轮与室内传动轮共用 `build_architecture.mill_wheel`。
+
+内景仍由 `build_interiors.py -- OUTPUT_DIR watermill` 生成 `watermill-interior.blend`，两份 GLB 均走公共 exporter 的 `--detail`。室内石磨、晾草架、药罐柜、铜壶与长工作台各有共享碰撞占地，后墙柱也在 plan.posts 中。没有新增生产结算或 AI 调用。门、同行进出、存档走 connectInterior；新地图不需要另写切换逻辑。
+
+验证：`watermill.test.mjs` 检查东岸通路、水道阻挡、室内全部站点、读档与同行进出；浏览器复用 `fairy-station-browser.cjs watermill`（室外行走/懒加载/冬夜/手机）和 `fairy-observatory-browser.cjs watermill`（实际进出/走动/存档/室内隔离）。Blender 图片在 OUTPUT_DIR 的 watermill-exterior.png 和 watermill.png。
+
+
+## 魔法开路场景源
+
+`build_openings.py -- OUTPUT_DIR [fallenTree reedBridge towerVines]` 在 Blender 中生成三处开关的两种形态，预览与 .blend 留在 OUTPUT_DIR。同一份 MAPS 几何供建模、碰撞和桥面高度使用；倒树清理范围也供 build_old_tower.py 使用，修改后须重导对应林地分区。旧塔露台地板由 build_interiors.py 生成。
+
+导出使用 `scripts/export-fairy-village.py -- source.blend output.glb --detail`，按 `export_group` 或父级 `shut:key` / `open:key` 分组合并；普通场景仍是一组。保存源文件时两种形态均可导出，预览仅在保存后切换 hide_render。每份导出报告以输出文件名命名，避免多个任务覆盖报告。运行时使用 glTF 原名元数据，不依赖 Three 清理后的节点名。

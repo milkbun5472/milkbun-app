@@ -9,3 +9,13 @@ test('two-finger translation pans; finger lift continues without jumping or walk
 
 // A large phone swipe may move the projected ray's origin below the ground.
 test('large orthographic drags remain valid on either side of the ground plane',async()=>{const {orthographicPanDelta}=await import('./view-controls.mjs');assert.deepEqual(orthographicPanDelta({x:0,y:12,z:16},{x:8,y:-2,z:0},{x:0,y:-.6,z:-.8}),{x:-8,z:16-14*.8/.6});assert.equal(orthographicPanDelta({x:0,y:1,z:0},{x:1,y:1,z:0},{x:1,y:0,z:0}),null);});
+
+test('zoomed-out portrait and landscape cameras keep all four ground corners inside the frustum',async()=>{
+ const T=await import('./vendor/three.module.js'),{orthographicCameraPose}=await import('./view-controls.mjs');
+ for(const [w,h] of [[390,844],[1100,900]])for(const zoom of [MIN_ZOOM,.48,1,MAX_ZOOM]){
+  const spanX=w<h?12.8:16*w/h,spanY=spanX*h/w,pose=orthographicCameraPose({x:0,z:-43},spanY,zoom,w<h?1.4:2.1);
+  const camera=new T.OrthographicCamera(-spanX/2,spanX/2,spanY/2,-spanY/2,.1,pose.far);camera.zoom=zoom;camera.position.copy(pose.position);camera.lookAt(pose.target.x,pose.target.y,pose.target.z);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+  for(const x of [-1,1])for(const y of [-1,1]){const near=new T.Vector3(x,y,-1).unproject(camera),far=new T.Vector3(x,y,1).unproject(camera);assert.ok(near.y>0,`${w} / ${zoom}: near clips ground`);assert.ok(far.y<0,`${w} / ${zoom}: far clips ground`);}
+  assert.ok(pose.fogOffset>=0);
+ }
+});

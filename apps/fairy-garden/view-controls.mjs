@@ -30,3 +30,11 @@ export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,
 // Orthographic dragging uses infinite ground lines: a long swipe can put the shifted
 // ray origin below the plane, which must not turn a valid drag into a no-op.
 export function orthographicPanDelta(origin,shifted,direction){if(Math.abs(direction.y)<1e-8)return null;const dy=origin.y-shifted.y;return {x:origin.x-shifted.x-dy*direction.x/direction.y,z:origin.z-shifted.z-dy*direction.z/direction.y};}
+
+// Pull an orthographic camera back at wide portrait zoom so its near plane never
+// cuts the ground off at the bottom of the screen. Framing and viewing angle stay fixed.
+export function orthographicCameraPose(pan,spanY,zoom,offset){
+ const targetY=.5-offset/zoom,dy=12-targetY,length=Math.hypot(10,dy,16),half=spanY/(2*zoom);
+ const vertical=half*Math.hypot(10,16)/length,scale=Math.max(1,(vertical+2-targetY)/dy);
+ return {position:{x:pan.x+10*scale,y:targetY+dy*scale,z:pan.z+16*scale},target:{x:pan.x,y:targetY,z:pan.z},far:Math.max(80,length*scale+half*2+12),fogOffset:length*(scale-1)};
+}

@@ -22,7 +22,13 @@ test("三档性格退役，存档和界面里都不许再留", () => {
 
 // ⚠️地板表不是「默认作息」，是「今天还没排上」——它不许假装那是他的性格
 test("兜底只剩一张地板表，而且明摆着是还没排上", () => {
-  assert.match(companion, /const FALLBACK=\[\[420,'home'\],\[480,'flowers'\],\[720,'walk'\],\[1080,'home'\]\];/);
+  // 她 2026-09-17 截图：「他这个行动都不会干别的」——原来这四格是钉死的，
+  // 没排过这一季他一年到头就那四件事。现在中间三格每天不一样，
+  // 但挑哪几处【只看今天是第几天】，不许从人设里长出来。
+  assert.match(companion, /const floorDay=s=>/);
+  assert.match(companion, /挑哪几处只看【今天是第几天】/);
+  assert.match(companion, /\[420,'home'\],\[480,'flowers'\]/, "起床和那件杂活是钉子");
+  assert.doesNotMatch(companion, /FLOOR_POOL=\[[^\]]*'flowers'/, "杂活不进抽签池，不然会抽到两次");
   assert.doesNotMatch(companion, /gardener|explorer|scholar/);
   // 那件杂活不能省：没配线路的人打开游戏，他从此再也不浇花了
   assert.match(companion, /他每天顺手帮你浇一次花/);

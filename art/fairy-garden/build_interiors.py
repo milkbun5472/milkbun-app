@@ -1,11 +1,11 @@
 """Author the shared, walkable storybook interiors from MAPS (game x/z/height).
-Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1 neighbor2 neighbor3]
+Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1 neighbor2 neighbor3 oldTower watermill]
 Art/preview files stay outside the app. Export each .blend with export-fairy-village.py --detail.
 """
 import bpy,bmesh,math,random,ast,json,subprocess,sys
 from pathlib import Path
 from mathutils import Vector
-args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1','neighbor2','neighbor3']
+args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1','neighbor2','neighbor3','oldTower','watermill']
 repo=Path(__file__).resolve().parents[2];cfg=json.loads(subprocess.check_output(['/opt/homebrew/bin/node','-e',"require('./apps/fairy-garden/rules.js');process.stdout.write(JSON.stringify(FairyGardenRules.MAPS))"],cwd=repo))
 # Same mesh/material primitives as the village architecture and lake, not another geometry implementation.
 source=repo/'art/fairy-garden/build_architecture.py'
@@ -14,7 +14,7 @@ for n in ast.parse(source.read_text()).body:
 current='interior';wood=material('Interior dark walnut wood',(.18,.115,.085));oak=material('Interior honey oak wood',(.46,.29,.16));cream=material('Interior warm ivory plaster',(.76,.69,.56));stone=material('Interior warm cut limestone',(.57,.53,.43));brass=material('Interior antique brass',(.57,.38,.15),.38,.45);paper=material('Interior warm linen',(.83,.75,.61));sage=material('Interior sage velvet',(.24,.40,.32));rose=material('Interior old rose velvet',(.56,.28,.27));blue=material('Interior dusty blue velvet',(.19,.32,.39));dark=material('Interior shadow recess',(.075,.09,.08));glass=material('Interior morning glass',(.62,.78,.73),.28,.06,.18);glow=material('Interior fire and lamp glow',(.93,.56,.20),.6,0,.6);leaf=material('Interior fern green',(.22,.38,.22));terracotta=material('Interior clay',(.51,.26,.17));boards=[material('Interior oak wood board '+str(i),tuple(c*v for c in (.44,.28,.155))) for i,v in enumerate([.9,.98,1.05,1.12])]
 
 for n in ast.parse(source.read_text()).body:
- if isinstance(n,ast.FunctionDef) and n.name in ['xyz','mesh','box','rod','line','sphere','cylinder','arch','arch_trim']:exec(compile(ast.Module(body=[n],type_ignores=[]),str(source),'exec'))
+ if isinstance(n,ast.FunctionDef) and n.name in ['xyz','mesh','box','rod','line','sphere','cylinder','arch','arch_trim','mill_wheel']:exec(compile(ast.Module(body=[n],type_ignores=[]),str(source),'exec'))
 
 def inside(x,z,outline):
  hit=False
@@ -39,6 +39,15 @@ def floor_height(m,x,z):
  for s in m.get('surfaces',[]):
   if abs(x-s['x'])<s['w']/2 and abs(z-s['z'])<s['d']/2:return s['height']
  return m.get('floor',.14)
+
+def tile_sections(m,x0,x1,z0,z1):
+ xs={x0,x1};zs={z0,z1}
+ for surface in m.get('surfaces',[]):
+  xs.update(x for x in [surface['x']-surface['w']/2,surface['x']+surface['w']/2] if x0<x<x1)
+  zs.update(z for z in [surface['z']-surface['d']/2,surface['z']+surface['d']/2] if z0<z<z1)
+ xs,zs=sorted(xs),sorted(zs)
+ for xa,xb in zip(xs,xs[1:]):
+  for za,zb in zip(zs,zs[1:]):yield xa,xb,za,zb,floor_height(m,(xa+xb)/2,(za+zb)/2)
 
 def plate(name,poly,h,mat,thick=0):
  if len(poly)<3:return
@@ -102,8 +111,8 @@ def shelf(w,d,h=2.8,fill=True,back=True):
   if fill and y<h-.3:books(0,.03,y+.05,w-.25)
  box('Bookcase cornice',0,0,.2+h,w+.22,d+.16,.13,oak)
 
-def plant(x,z,h=.14,size=1):
- cylinder('Terracotta plant pot',x,z,h,.20*size,.34*size,terracotta,16,.28*size)
+def plant(x,z,h=.14,size=1,pot=True):
+ if pot:cylinder('Terracotta plant pot',x,z,h,.20*size,.34*size,terracotta,16,.28*size)
  for i in range(7):
   a=i*2.4;dx=math.cos(a)*.33*size;dz=math.sin(a)*.33*size;top=h+(.7+(i%3)*.14)*size
   rod('Fern stem',(x,z,h+.25*size),(x+dx,z+dz,top),.012*size,leaf)
@@ -183,14 +192,8 @@ def shell(m,name):
    xx=i*1.12+(j%2)*.56;corners=[(xx-.55,zz-.172),(xx+.55,zz-.172),(xx+.55,zz+.172),(xx-.55,zz+.172)]
    if not all(inside(x,z,outline) for x,z in corners):continue
    # Split boards at platform/step edges: a board must not float past its supporting floor.
-   xs={xx-.55,xx+.55};zs={zz-.172,zz+.172}
-   for surface in m.get('surfaces',[]):
-    xs.update(x for x in [surface['x']-surface['w']/2,surface['x']+surface['w']/2] if xx-.55<x<xx+.55)
-    zs.update(z for z in [surface['z']-surface['d']/2,surface['z']+surface['d']/2] if zz-.172<z<zz+.172)
-   xs=sorted(xs);zs=sorted(zs)
-   for xa,xb in zip(xs,xs[1:]):
-    for za,zb in zip(zs,zs[1:]):
-     h=floor_height(m,(xa+xb)/2,(za+zb)/2)+.012;v,f=batches[(j*7+i*3)%4];n=len(v);v.extend([(x,z,h) for x,z in [(xa,za),(xb,za),(xb,zb),(xa,zb)]]);f.append(tuple(range(n,n+4)))
+   for xa,xb,za,zb,base in tile_sections(m,xx-.55,xx+.55,zz-.172,zz+.172):
+    h=base+.012;v,f=batches[(j*7+i*3)%4];n=len(v);v.extend([(x,z,h) for x,z in [(xa,za),(xb,za),(xb,zb),(xa,zb)]]);f.append(tuple(range(n,n+4)))
  for mat,(v,f) in zip(boards,batches):mesh(name+' fitted floorboards',v,f,mat)
  for i,a in enumerate(outline):
   b=outline[i-1];dx=b['x']-a['x'];dz=b['z']-a['z'];length=math.hypot(dx,dz);x=(a['x']+b['x'])/2;z=(a['z']+b['z'])/2;angle=math.atan2(dz,dx)
@@ -206,13 +209,13 @@ def shell(m,name):
   x,z,w,d,h=wall['x'],wall['z'],wall['w'],wall['d'],wall['h'];base=floor_height(m,x,z)
   box('Low cutaway room partition',x,z,base+h/2,w,d,h,cream);box('Partition polished cap',x,z,base+h,w+.06,d+.06,.09,oak)
  for a in m['plan'].get('arches',[]):place(lambda:portal(0,0,a['w'],a['h'],a.get('base',.14)),a['x'],a['z'],a.get('heading',0))
- for p in m['plan'].get('posts',[]):rod('Conservatory structural post',(p['x'],p['z'],floor_height(m,p['x'],p['z'])),(p['x'],p['z'],p['height']),p['r'],brass)
+ for p in m['plan'].get('posts',[]):rod('Conservatory structural post',(p['x'],p['z'],floor_height(m,p['x'],p['z'])),(p['x'],p['z'],p['height']),p['r'],wood if p.get('timber') else brass)
  for p in m['plan'].get('plants',[]):plant(p['x'],p['z'],floor_height(m,p['x'],p['z']),p['size'])
 
-def furnish(q,base=.14):
+def _furnish(q,base=.14):
  x,z,w,d,kind=q['x'],q['z'],q['w'],q['d'],q['kind']
  if kind=='hearth':place(hearth,x,z,-math.pi/2)
- elif kind in ['sofa','armchair','chair']:place(lambda:chair(w,d,sage if kind!='chair' else rose,kind=='sofa'),x,z,q.get('heading',0))
+ elif kind in ['sofa','armchair','chair']:place(lambda:chair(w,d,{'blue':blue,'sage':sage,'rose':rose}.get(q.get('palette'),sage if kind!='chair' else rose),kind=='sofa'),x,z,q.get('heading',0))
  elif kind in ['table','dining','desk','roundtable','console']:
   place(lambda:table(w,d,.64 if kind=='table' else base+.8,kind in ['table','dining','roundtable']),x,z)
   if kind=='dining':
@@ -241,7 +244,7 @@ def furnish(q,base=.14):
   cylinder('Stove flue',x,z,base+2.04,.13,1.8,wood,16)
  elif kind=='chest':
   box('Carved blanket chest',x,z,base+.4,w,d,.65,wood,.06)
-  box('Chest padded linen lid',x,z,base+.76,w+.04,d+.04,.12,rose,.05)
+  box('Chest padded linen lid',x,z,base+.76,w+.04,d+.04,.12,{'blue':blue,'sage':sage}.get(q.get('palette'),rose),.05)
   for dx in [-w*.32,w*.32]:
    box('Chest brass strap',x+dx,z+d/2+.01,base+.41,.055,.028,.61,brass)
   box('Chest brass clasp',x,z+d/2+.035,base+.62,.13,.025,.18,brass)
@@ -261,9 +264,89 @@ def furnish(q,base=.14):
  elif kind=='stool':place(lambda:chair(w,d,blue),x,z,q.get('heading',0))
  elif kind=='lectern':
   place(lambda:table(w,d,1.1),x,z);box('Open folio on lectern',x,z,1.18,w*.7,d*.75,.05,paper)
+ elif kind=='apothecary':
+  box('Apothecary cabinet back',x,z-d/2+.04,1.49,w,.08,2.7,sage)
+  for sign in [-1,1]:box('Apothecary cabinet side',x+sign*(w/2-.05),z,1.49,.10,d,2.7,oak)
+  for row in range(5):
+   h=.20+row*.63;box('Apothecary oak shelf',x,z,h,w,d,.075,oak)
+   if row==4:continue
+   for col in range(6):
+    xx=x-w*.40+col*w*.16;hh=.26+(col+row)%3*.07
+    cylinder('Glazed labeled apothecary jar',xx,z,h+.045,.115,hh,sage if (col+row)%2 else terracotta,14,.10)
+    cylinder('Jar cork stopper',xx,z,h+.045+hh,.104,.04,oak,12)
+    box('Jar cream paper label',xx,z+.108,h+.15,.13,.018,.12,paper,.004)
+ elif kind=='millstone':
+  cylinder('Mill stone foundation',x,z,.14,1.45,.25,stone,32)
+  cylinder('Lower milling stone',x,z,.39,1.32,.35,stone,40)
+  cylinder('Upper grooved millstone',x,z,.77,1.22,.32,stone,40)
+  for j in range(24):
+   a=j*math.tau/24;line('Millstone radial furrow',[(x+math.cos(a)*.3,z+math.sin(a)*.3,1.096),(x+math.cos(a+.17)*1.12,z+math.sin(a+.17)*1.12,1.096)],.011,wood)
+  cylinder('Millstone central spindle',x,z,1.1,.12,1.55,wood,12)
+  for sign in [-1,1]:box('Milling frame oak upright',x+sign*1.55,z,1.6,.18,.25,2.92,wood)
+  box('Mill overhead drive beam',x,z,2.98,3.35,.30,.26,oak)
+  mill_wheel('Workshop drive wheel',x,z-.75,2.1,.65,.22,oak,brass,False)
+  cylinder('Grain herb hopper',x+.8,z,1.13,.28,.58,oak,4,.55)
+ elif kind=='dryingrack':
+  for sign in [-1,1]:box('Drying rack upright',x+sign*(w/2-.1),z,1.58,.14,.28,2.88,wood)
+  for h in [.5,1.55,2.9]:box('Drying rack cross rail',x,z,h,w,.12,.12,oak)
+  box('Drying rack lower trays',x,z,.52,w,d,.08,oak)
+  for j in range(9):
+   xx=x-w*.42+j*w*.105;hh=2.78-(j%3)*.13
+   rod('Tied herb bundle string',(xx,z,2.88),(xx,z,hh-.25),.012,brass)
+   for k in range(5):
+    a=k*2.399;dx=math.cos(a)*.11;dz=math.sin(a)*.14
+    rod('Hanging herb stem',(xx,z,hh),(xx+dx,z+dz,hh-.62),.012,oak)
+    for n in range(3):sphere('Dried herb leaves',xx+dx,z+dz,hh-.25-n*.14,.10,.065,.07,leaf if j%3 else sage)
+   box('Herb bundle paper tag',xx+.11,z+.12,hh-.16,.13,.025,.18,paper)
+ elif kind=='distiller':
+  cylinder('Alembic tiled pedestal',x,z,.14,.80,.45,stone,24)
+  sphere('Hammered copper alembic',x,z,1.08,.63,.63,.57,brass)
+  cylinder('Alembic copper neck',x,z,1.53,.24,.44,brass,24,.14)
+  line('Alembic swan neck',[(x,z,1.94),(x+.15,z,2.18),(x+.55,z+.12,2.2),(x+.83,z+.33,1.85)],.055,brass)
+  line('Condenser copper coil',[(x+.78+.2*math.cos(i*math.tau/18),z+.36+.2*math.sin(i*math.tau/18),1.84-i*.01) for i in range(55)],.026,brass)
+  cylinder('Condensation receiving flask',x+.78,z+.36,.16,.20,.48,glass,20,.09)
+  arch('Alembic small furnace',x,z+.72,.26,.42,.27,dark,.02)
  elif kind=='stairs':
   for i in range(10):box('Timber stair tread',x,z+d/2-(i+.5)*d/10,.14+(i+1)*.07,w,d/10-.008,(i+1)*.14,oak)
   for sign in [-1,1]:rod('Stair banister',(x+sign*w*.5,z+d/2,.95),(x+sign*w*.5,z-d/2,2.2),.045,wood)
+
+ elif kind=='orrery':
+  cylinder('Star instrument octagonal plinth',x,z,base,.91,.20,stone,8)
+  cylinder('Star instrument brass pedestal',x,z,base+.20,.58,.55,brass,16,.38)
+  sphere('Dark lapis celestial globe',x,z,base+1.67,.58,.58,.58,blue)
+  for axis in range(3):
+   pts=[]
+   for i in range(65):
+    a=i*math.tau/64;u,v=math.cos(a)*1.48,math.sin(a)*1.48
+    if axis==0:pts.append((x+u,z,base+1.67+v))
+    elif axis==1:pts.append((x+u*.72,z+u*.69,base+1.67+v))
+    else:pts.append((x+u,z+v*.85,base+1.67+v*.52))
+   line('Nested armillary brass ring',pts,.037,brass)
+  for side in [-1,1]:rod('Armillary fork support',(x+side*.47,z,base+.62),(x+side*1.48,z,base+1.67),.055,wood)
+  for i in range(24):
+   a=i*math.tau/24
+   rod('Armillary engraved tick',(x+1.43*math.cos(a),z+.02,base+1.67+1.43*math.sin(a)),(x+1.51*math.cos(a),z+.02,base+1.67+1.51*math.sin(a)),.012,paper)
+  for i in range(7):
+   a=i*2.399;sphere('Small brass orbiting star',x+math.cos(a)*1.20,z+math.sin(a)*.75,base+1.67+math.sin(a)*.45,.09,.09,.09,brass)
+ elif kind=='telescope':
+  # The barrel, tripod and feet fit the shared footprint, so no decorative leg blocks an unseen route.
+  for i in range(3):
+   a=i*math.tau/3;rod('Telescope carved tripod',(x+math.cos(a)*.82,z+math.sin(a)*.82,base),(x,z,base+1.2),.065,wood)
+  cylinder('Telescope rotating mount',x,z,base+1.08,.22,.32,brass,16)
+  a=Vector((x-.65,z+.42,base+1.15));b=Vector((x+.60,z-.53,base+2.20));axis=b-a
+  rod('Long antique telescope barrel',a,b,.22,brass)
+  rod('Telescope deep blue lens',b,b+axis.normalized()*.025,.19,blue)
+  rod('Telescope eyepiece',a-axis.normalized()*.22,a,.075,wood)
+  for t in [.12,.78,.98]:
+   pos=a+axis*t;rod('Telescope rolled brass collar',pos-axis.normalized()*.035,pos+axis.normalized()*.035,.255,brass)
+
+def furnish(q,base=.14):
+ # Every furniture recipe is built on the same reference floor; raised rooms translate the whole assembly.
+ before=set(bpy.data.objects);_furnish(q)
+ for o in set(bpy.data.objects)-before:
+  if o.type=='MESH':
+   for v in o.data.vertices:v.co.z+=base-.14
+   o.data.update()
 
 def home(m):
  shell(m,'Home')
@@ -449,14 +532,112 @@ def neighbor3(m):
   for sign in [-1,1]:sphere('Pressed botanical leaf',x+sign*.10,-5.30,3.15,.14,.015,.055,leaf)
 
 
+def oldTower(m):
+ p=m['plan'];outline=p['outline'];poly=[(q['x'],q['z']) for q in outline]
+ oldstone=material('Observatory weathered blue limestone',(.35,.41,.40));pale=material('Observatory pale limestone',(.48,.52,.47));moss=material('Observatory climbing moss',(.24,.36,.26));copper=material('Observatory verdigris copper',(.22,.40,.37),.6,.3)
+ tiles=[material('Observatory limestone floor '+str(i),tuple(c*f for c in (.42,.46,.42))) for i,f in enumerate([.88,.96,1.04])]
+ plate('Circular observatory foundations',poly,.14,oldstone,.35)
+ for q in m['surfaces']:
+  plate('Walkable observatory stone level',clipped(poly,q['x']-q['w']/2,q['x']+q['w']/2,q['z']-q['d']/2,q['z']+q['d']/2),q['height'],pale,q['height']-.12)
+ # Tile sections are clipped at each stair edge; nothing floats across an elevation change.
+ for row in range(-12,13):
+  for col in range(-11,15):
+   x=col*.74+(row%2)*.37;z=row*.63
+   if not all(inside(xx,zz,outline) for xx,zz in [(x-.35,z-.3),(x+.35,z-.3),(x+.35,z+.3),(x-.35,z+.3)]):continue
+   for x0,x1,z0,z1,base in tile_sections(m,x-.35,x+.35,z-.3,z+.3):plate('Hand cut limestone floor tile',[(x0,z0),(x1,z0),(x1,z1),(x0,z1)],base+.008,tiles[(row+col)%3],.025)
+ # Back walls rise in a broken arc. Near walls are cut away for an unobstructed playing view.
+ for q in p['outerWalls']:
+  def wall():
+   box('Ancient curved wall core',0,0,.14+q['h']/2,q['w'],q['d'],q['h'],oldstone,.015)
+   rows=max(1,int(q['h']/.42));cols=max(2,int(q['w']/.42))
+   for row in range(rows):
+    for col in range(cols):
+     xx=-q['w']/2+(col+.5)*q['w']/cols;hh=.14+(row+.5)*q['h']/rows
+     box('Weathered radial masonry',xx,.14,hh,q['w']/cols-.025,.06,q['h']/rows-.025,pale if (row+col)%7==0 else oldstone,.012)
+   box('Old wall stone coping',0,0,q['h']+.14,q['w']+.02,.30,.11,pale,.025)
+  place(wall,q['x'],q['z'],q['heading'])
+ # Safe gallery edge and stair handrails use exactly the collider dimensions.
+ for q in m['walls'][:4]:
+  if q['w']>q['d']:
+   for i in range(max(2,int(q['w']/.5))+1):
+    x=q['x']-q['w']/2+i*q['w']/max(2,int(q['w']/.5));cylinder('Stone gallery baluster',x,q['z'],.78,.052,q['h'],pale,8)
+   box('Gallery worn handrail',q['x'],q['z'],.78+q['h'],q['w'],q['d'],.10,pale)
+  else:
+   start=(q['x'],q['z']+q['d']/2,.92);end=(q['x'],q['z']-q['d']/2,1.56);rod('Ascending stair handrail',start,end,.045,brass)
+   for i in range(5):
+    z=q['z']+q['d']/2-i*q['d']/4;h=.30+i*.12;rod('Stair rail upright',(q['x'],z,h),(q['x'],z,.92+i*.16),.03,brass)
+ for q in p['windows']:
+  place(lambda:window(0,0,1.9,q['w'],q['h']),q['x'],q['z'],q['heading'])
+ # Surviving upper ribs suggest a missing dome, without covering the playable floor.
+ for q in p['ribs']:
+  x,z,h=q['x'],q['z'],q['h'];end=(x*.68,z*.68,h+.9)
+  line('Broken observatory dome rib',[(x,z,.20),(x,z,h-.9),(x*.92,z*.92,h-.1),end],.115,oldstone)
+  line('Copper tracing on dome rib',[(x*.985,z*.985,3.8),(x*.91,z*.91,h),(x*.68,z*.68,h+1)],.028,copper)
+ # A flat compass mosaic is decoration, and remains fully walkable around the solid instrument.
+ for r in [2.1,2.85,3.02]:line('Observatory floor compass circle',[(math.cos(i*math.tau/96)*r,-.6+math.sin(i*math.tau/96)*r,.16) for i in range(97)],.012,brass)
+ for i in range(16):
+  a=i*math.tau/16;length=2.9 if i%4==0 else 2.45
+  plate('Compass stone inlay',[(math.cos(a)*length,-.6+math.sin(a)*length),(math.cos(a+.06)*1.96,-.6+math.sin(a+.06)*1.96),(math.cos(a)*2.12,-.6+math.sin(a)*2.12),(math.cos(a-.06)*1.96,-.6+math.sin(a-.06)*1.96)],.163,paper,.008)
+ for q in m['furniture']:furnish(q,floor_height(m,q['x'],q['z']))
+ desk=next(q for q in m['furniture'] if q['kind']=='desk');x,z=desk['x'],desk['z'];h=floor_height(m,x,z)+.87
+ plate('Unrolled astronomical chart',[(x-1.0,z-.36),(x+.85,z-.36),(x+.91,z+.31),(x-.94,z+.31)],h+.04,paper,.014)
+ for i in range(3):line('Ink orbit on parchment',[(x-.1+math.cos(j*math.tau/36)*(.18+i*.12),z+math.sin(j*math.tau/36)*(.11+i*.065),h+.057) for j in range(37)],.008,blue)
+ rod('Star chart brass divider',(x+.6,z,h+.08),(x+.78,z+.19,h+.08),.015,brass);rod('Star chart brass divider',(x+.6,z,h+.08),(x+.88,z-.13,h+.08),.015,brass)
+ for q in p['plants']:plant(q['x'],q['z'],.14-.20*q['size'],q['size'],pot=False)
+ # Ivy is attached to the rear masonry; free floor remains a real clear route.
+ for j,(x,z) in enumerate([(-6.4,-3.6),(-4.5,-5.8),(6,-4.1)]):
+  pts=[]
+  for i in range(12):
+   xx=x+.12*math.sin(i*.8);zz=z+.09*math.cos(i*.8);hh=.3+i*.33;pts.append((xx,zz,hh))
+   for side in [-1,1]:sphere('Observatory ivy leaf',xx+side*.13,zz,hh+.03,.15,.05,.10,moss)
+  line('Observatory ivy stem',pts,.024,wood)
+ # Hanging copper star mobile, suspended over the rear platform.
+ for j in range(5):
+  x=-.7+j*.46;z=-5.95;h=4.4+.28*math.sin(j*1.6)
+  rod('Star mobile suspension',(x,z,5.6),(x,z,h+.16),.008,brass)
+  verts=[]
+  for i in range(10):
+   a=math.pi/2+i*math.pi/5;r=.16 if i%2==0 else .065;verts.append((x+math.cos(a)*r,z,h+math.sin(a)*r))
+  mesh('Suspended copper star',verts,[tuple(range(10))],brass)
+ # Hairline masonry cracks and a few missing floor fragments give the ruin a past.
+ for x,z,h in [(-5.3,-5.1,3.4),(-1.3,-6.8,4.7),(3.3,-6.3,2.4)]:
+  line('Old masonry hairline crack',[(x,z,h),(x+.10,z+.02,h-.24),(x-.04,z+.04,h-.48),(x+.12,z+.05,h-.7)],.009,dark)
+ # The doorway is a clear break in the low front wall, not a freestanding arch through furniture.
+ box('Tower entry threshold',0,6.95,.16,2.2,.50,.08,pale)
+ for sign in [-1,1]:cylinder('Broken entry jamb',sign*1.45,6.82,.14,.16,1.1,oldstone,8)
+
+def watermill(m):
+ shell(m,'Watermill workshop')
+ for q in m['furniture']:furnish(q)
+ # Exposed heavy trusses sit behind the work zones, leaving the center camera sightline open.
+ for post in m['plan']['posts']:
+  x=post['x']
+  line('Workshop arched knee brace',[(x,-6.2,2.5),(x+.35,-6.2,3.15),(x+1,-6.2,3.62)],.09,oak)
+ for x in [-7.8,-3.1,2.0]:window(x,-6.27,1.45,1.6,1.9)
+ # A projecting stream-facing bay, rather than another furnished square room.
+ for z in [-3.3,-.5,2.3]:place(lambda:window(0,0,.7,2.15,2.5),9.85,z,-math.pi/2)
+ for x in [9.85]:rod('Window bay lintel',(x,-4.6,3.36),(x,3.4,3.36),.075,oak)
+ q=next(q for q in m['furniture'] if q['kind']=='island');x,z=q['x'],q['z']
+ # Worktop still life remains inside its solid footprint.
+ cylinder('Apothecary mortar',x-.6,z,1.20,.23,.25,stone,24,.27)
+ rod('Mortar resting pestle',(x-.65,z,1.3),(x-.39,z+.1,1.65),.065,oak)
+ rod('Small copper balance upright',(x+.7,z,1.23),(x+.7,z,1.98),.025,brass)
+ rod('Balance beam',(x+.20,z,1.89),(x+1.2,z,1.89),.028,brass)
+ for xx in [x+.2,x+1.2]:
+  for sign in [-1,1]:rod('Balance fine chain',(xx,z,1.89),(xx+sign*.14,z,1.53),.008,brass)
+  cylinder('Balance pan',xx,z,1.51,.19,.035,brass,20)
+ # Woven runner visually links the entry to the working aisle; no floor obstacle.
+ rug(0,3.3,2.7,2.9,sage)
+ box('Watermill entry threshold',0,6.85,.16,2.8,.35,.07,stone)
+
 def render(name,m):
  sc=bpy.context.scene;sc.render.engine='CYCLES';sc.cycles.samples=24;sc.cycles.use_denoising=True;sc.world.color=(.35,.35,.35)
  sc.world.use_nodes=True;sc.world.node_tree.nodes['Background'].inputs[0].default_value=(.78,.81,.77,1);sc.world.node_tree.nodes['Background'].inputs[1].default_value=.65
  for location,energy,size in [((4,-3,17),1900,10),((-10,-6,10),1000,10)]:
   bpy.ops.object.light_add(type='AREA',location=location);o=bpy.context.object;o.data.energy=energy;o.data.shape='DISK';o.data.size=size;o.rotation_euler=(Vector((0,0,0))-o.location).to_track_quat('-Z','Y').to_euler()
- bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else (25 if name in ['neighbor1','neighbor2','neighbor3'] else 29);sc.camera=camera
+ bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else (25 if name in ['neighbor1','neighbor2','neighbor3','oldTower'] else 29);sc.camera=camera
  sc.render.resolution_x=1500;sc.render.resolution_y=1100;sc.render.resolution_percentage=100;sc.view_settings.view_transform='AgX';sc.render.image_settings.file_format='PNG';sc.render.filepath=str(out/(name+'.png'))
- filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior','neighbor2':'neighbor2-interior','neighbor3':'neighbor3-interior'}[name]
+ filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior','neighbor2':'neighbor2-interior','neighbor3':'neighbor3-interior','oldTower':'old-tower-interior','watermill':'watermill-interior'}[name]
  bpy.ops.wm.save_as_mainfile(filepath=str(out/(filename+'.blend')));bpy.ops.render.render(write_still=True);print('INTERIOR_READY',name,flush=True)
 for name in targets:
  for o in list(bpy.data.objects):bpy.data.objects.remove(o,do_unlink=True)

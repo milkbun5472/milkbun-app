@@ -25,7 +25,12 @@ test('explicit goto reaches the other map and wait survives reload without wande
 test('还没排上日程的时候，他照样顺手浇一次花',()=>{
  const rows=dailySchedule(freshState()).map(p=>p.id);
  assert.ok(rows.includes('flowers'),'地板表里没有那件杂活了');
- assert.ok(rows.length<=4,'地板表要一眼看得出是「还没排上」，不是一份满满的作息');
+ assert.ok(rows.length>=5,'地板表太薄，她看到的就是「他不会干别的」');
+ const drawn=rows.filter(id=>id!=='home'&&id!=='flowers');
+ assert.equal(new Set(drawn).size,drawn.length,'中间抽出来的那几格不许重');
+ const other=dailySchedule({...freshState(),day:9}).map(p=>p.id);
+ assert.notDeepEqual(other,rows,'每天该不一样');
+ assert.ok(other.includes('flowers'),'哪天都得有那件杂活');
 });
 
 // ⚠️新加的那几处有的【在别的地图上】（收藏馆是单独一张图）：

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-d193d35d11467101", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-4e31ba3494a2accf", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -378,13 +378,15 @@
     const [things, setThings] = useState(null);
     const [museum, setMuseum] = useState(null);
     const [bottles, setBottles] = useState(null);
+    const [crew, setCrew] = useState(null);
     const [bottleText, setBottleText] = useState("");
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
       if (g.getShards) setShardBox(g.getShards());
       if (g.getThings) setThings(g.getThings());
       if (g.getCollection) setMuseum(g.getCollection());
-      if (g.getBottles) setBottles(g.getBottles()); };
+      if (g.getBottles) setBottles(g.getBottles());
+      if (g.getNeighbors) setCrew(g.getNeighbors()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -395,6 +397,14 @@
       return () => { on = false; };
     }, []);
     const pullLook = () => { const g = game(); if (g && g.getLook) setLook(g.getLook()); };
+    // 她 2026-09-17：「为啥感觉体型拉杆没用」——拉杆一直是有用的，是这一页【整页盖住了游戏】，
+    // 她拖的时候一个像素都看不见。这一页顶上留一条透明的窗（PREVIEW_BAND=30%），
+    // 底下那一格就是游戏自己往窗里渲的那个小人。开这一页就告诉它渲谁，关了就收。
+    useEffect(() => {
+      const g = game(); if (!g || !g.preview) return;
+      g.preview(dress ? who : null);
+      return () => { const q = game(); if (q && q.preview) q.preview(null); };
+    }, [dress, who, loaded]);
     const pushLook = patch => {
       const g = game(); if (!g || !g.setLook) return;
       if (!g.setLook(who, patch)) { props.toast("这次没存上，样貌还是原来的。"); return; }
@@ -461,7 +471,16 @@
       h(Head, { zh: "微光庭院", sub: "选一位同行者", bg: "transparent", ink: "#344936", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
         h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } }, "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。"),
-        h("div", { style: { display: "grid", gap: 11 } }, (props.characters || []).map(c => h("button", { key: c.id, style: buttonStyle, onClick: () => choose(c.id) }, c.remark || c.name)),
+        // 住在村里的那几位排在前面（她 2026-09-17：「改变同行应该是只能从邻居里面选」）。
+        // ⚠️不是把别人挡掉：新存档村里一个人都没有，挡掉她就谁也选不了。
+        //   选了住在村里的那一位，那间屋就空出来——他现在跟你一起住了，
+        //   不会再变成两个人（那一层在 world.mjs 里，界面怎么点都绕不过去）。
+        h("div", { style: { display: "grid", gap: 11 } },
+          (() => { const live = ((crew && crew.rows) || []).map(n => String(n.charId));
+            const rows = (props.characters || []).slice()
+              .sort((a, b) => live.indexOf(String(b.id)) - live.indexOf(String(a.id)));
+            return rows.map(c => h("button", { key: c.id, style: buttonStyle, onClick: () => choose(c.id) },
+              (c.remark || c.name) + (live.includes(String(c.id)) ? " · 住在村里" : ""))); })(),
           h("button", { style: buttonStyle, onClick: () => choose("") }, "先和示例同行者试玩")),
         !(props.characters || []).length && h("p", { style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "也可以先去人格档案馆创建角色。"),
         error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error)));
@@ -472,7 +491,7 @@
           ? h("button", { style: pill(), onClick: () => { setBook(false); setDress(false); } }, "回庭院")
           : h("div", { style: { display: "flex", gap: 7 } },
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); setDress(true); }, disabled: !loaded }, "样貌"),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) }),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
@@ -488,7 +507,8 @@
              ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
              ["things", "屋里", ((things && things.rows) || []).length],
              ["museum", "收藏馆", ((museum && museum.rows) || []).length],
-             ["bottle", "漂流瓶", ((bottles && bottles.floating) || []).length]].map(([k, label, n]) => {
+             ["bottle", "漂流瓶", ((bottles && bottles.floating) || []).length],
+             ["crew", "邻居", ((crew && crew.rows) || []).length]].map(([k, label, n]) => {
               const on = bookTab === k;
               return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
                 style: { padding: on ? "12px 0 13px" : "8px 0 9px", fontFamily: F_BODY, fontSize: on ? 13 : 12,
@@ -497,7 +517,43 @@
                   borderRadius: "11px 11px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 2 : 1 } },
                 label + (n ? " " + n : "")); })),
           h("div", { style: { height: 1, background: G.line, marginTop: 0 } }),
-          bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
+          bookTab === "crew" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
+            // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "村里有三间邻居屋。请谁住进来，谁就在村里过自己的日子——早上出门、去集市、傍晚回自己门前，你走在村里会碰见。碰过面的会记进村里的账，公告栏上的委托也开始落他们的名字。"),
+            ((crew && crew.rows) || []).length ? h("div", { style: { display: "grid", gap: 10, marginBottom: 18 } },
+              crew.rows.map(n => h("div", { key: n.charId, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, n.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, n.houseLabel)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5 } },
+                  n.here ? "这会儿在" + (n.where || n.map) : "这会儿在" + n.map),
+                // 碰见：走在村里照过几次面。⚠️这个数只数【她自己碰见的】，
+                //   邻居之间碰得再多也不是她的交情（world.mjs 的 metCount 就是这么算的）。
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 4 } },
+                  n.met ? "碰见过 " + n.met + " 次 · " + n.closeness : "还没在路上碰见过"),
+                h("button", { onClick: () => { const g = game(); if (!g || !g.moveOut) return;
+                    const err = g.moveOut(n.charId);
+                    if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。"); },
+                  className: "active:opacity-60",
+                  style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } },
+                  "请 TA 搬走"))))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
+                  "三间屋都空着。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } },
+              (crew && crew.free) ? "请谁搬进来" : "三间都住满了"),
+            (crew && crew.free) ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+              (props.characters || []).filter(c => String(c.id) !== String(entry.partnerId)
+                && !((crew && crew.rows) || []).some(n => String(n.charId) === String(c.id)))
+                .slice(0, 40).map(c => h("button", { key: c.id, className: "active:opacity-70",
+                  onClick: () => { const g = game(); if (!g || !g.moveIn) return;
+                    const err = g.moveIn({ charId: c.id, name: c.remark || c.name, look: {} });
+                    if (err) { props.toast(err); return; } pullGarden(); props.toast((c.remark || c.name) + "搬进来了。"); },
+                  style: { ...pill(true), borderColor: G.line, color: G.soft, background: "rgba(255,255,255,.55)" } },
+                  c.remark || c.name)))
+              : null)
+          :           bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 漂流瓶：⚠️这一条一个字都不生成。漂回来的全是【已经在存档里的东西】，
             //    她自己封的那句，或者以前的花笺、刨到过的碎片、留在馆里的那一件。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -556,9 +612,23 @@
               "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
                 .map(r => r.how).join("、")))
           :           bookTab === "things" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 修好的地方（她 2026-09-17：「做④吧宝宝」）。
+            // ⚠️「还差什么」问的是 world.mjs 那一处（workShort），这儿不另算一遍。
+            ((things && things.works) || []).length ? h("div", { style: { marginBottom: 22 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "修好的地方"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+                "弄好一处，村里就多一处能用的地方——下雨他会去那儿躲，午后他会去那儿坐。材料带齐了，走到那儿就能动手。"),
+              h("div", { style: { display: "grid", gap: 9 } },
+                things.works.map(w => h("div", { key: w.id, style: { borderRadius: 14, border: "1px solid " + (w.done ? G.deep : G.line), background: "rgba(255,255,255,.55)", padding: "10px 13px" } },
+                  h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: G.ink } }, w.label),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: w.done ? G.deep : "#93a188" } },
+                      w.done ? "弄好了" : (w.where || "公告栏"))),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
+                    w.done ? w.hint : w.cost ? (w.short.length ? "还差" + w.short.join("、") : "材料齐了，走过去就能动手") + " · 要" + w.cost : w.hint))))) : null,
             // ── 屋里：锅炼出来的东西。⚠️这一整条链一枪都不打，全是代码算的
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。"),
+              "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。屋里屋外每一件放得住东西的家具都摆得下：走过去点它就行。"),
             ((things && things.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               things.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + (t.spot ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
@@ -577,7 +647,11 @@
                   ((things && things.potions) > 0) ? "倒一滴月露 · 今天就开" : "倒一滴月露（没有月露了）") : null,
                 t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null,
                 t.ready ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
-                  Object.entries(things.spots).map(([k, label]) =>
+                  // ⚠️位置从三个变成了五十二个：一件东西底下铺五十二颗药丸没法用。
+                  //   这儿只留【老三样 ＋ 它现在在的那一处 ＋ 她这会儿站着的那一件】，
+                  //   其余的都在世界里——走过去点那件家具就能摆。那才是「每一处都能交互」。
+                  Object.entries(things.spots).filter(([k]) =>
+                    ["eaves", "sill", "pond"].includes(k) || k === t.spot || k === things.here).map(([k, label]) =>
                     h("button", { key: k, className: "active:opacity-70",
                       onClick: () => { const g = game(); if (!g || !g.place) return;
                         const err = g.place(t.id, t.spot === k ? null : k);
@@ -637,10 +711,16 @@
                   h("button", { onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
                     style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
                     nt.pinned ? "已钉住" : "钉住")))))),
-        dress && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+        dress && h("div", { style: { position: "absolute", inset: 0, background: "transparent", pointerEvents: "none" } },
+          // ⚠️这条 30% 高的窗要【真的透明】：底下就是游戏，游戏往这儿渲要换的那个小人。
+          //   高度必须和 game.mjs 的 PREVIEW_BAND 对上，改一处就得改两处——所以两边都写着对方。
+          h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, height: "30%" } }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, top: "30%", bottom: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch", pointerEvents: "auto", boxShadow: "0 -12px 30px #30442615" } },
           // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
           h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
-            [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"]].map(([k, label]) =>
+            // 住在村里的那几位也在这一排（她 2026-09-17：「邀请邻居的话改不了外貌」）
+            [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"],
+              ...(((crew && crew.rows) || []).map(n => [String(n.charId), n.name]))].map(([k, label]) =>
               h("button", { key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
                 style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: who === k ? G.ink : "#93a188",
                   borderBottom: "2px solid " + (who === k ? G.deep : "transparent"), background: "transparent" } }, label))),
@@ -648,7 +728,8 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               who === "companion" && char
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
-                : "换的是你自己在这个庭院里的样子。"),
+                : who === "me" ? "换的是你自己在这个庭院里的样子。"
+                : "换的是住在村里那一位在这个庭院里的样子。"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
               Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
@@ -684,7 +765,7 @@
                     className: "active:opacity-70",
                     style: { width: 36, height: 36, borderRadius: 999, background: hex,
                       border: on ? "2px solid " + G.ink : "1px solid rgba(0,0,0,.12)", boxShadow: on ? "0 0 0 3px rgba(255,255,255,.75) inset" : "none" } });
-                })))))),
+                }))))))),
         chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),

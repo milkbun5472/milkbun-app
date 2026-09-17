@@ -20,7 +20,7 @@ test("点一件东西弹出这儿能做的那几件", () => {
 
 // ⚠️条目就是行动栏里那几颗真按钮本身：名字、能不能点、点了做什么都在 ui() 那一处算好了
 test("菜单不另写一份文案和判断", () => {
-  const fn = game.slice(game.indexOf("function openSpot(key)"), game.indexOf("$('spot-close')"));
+  const fn = game.slice(game.indexOf("function openSpot(key)"), game.indexOf("// ── 开放交互"));
   assert.match(fn, /const b=src\.cloneNode\(true\)/, "连内部结构一起搬，两行小字才不会挤成一行");
   assert.match(fn, /b\.disabled=src\.disabled/);
   assert.match(fn, /src\.click\(\)/, "点了要走原来那颗按钮的路，不另写一份行为");

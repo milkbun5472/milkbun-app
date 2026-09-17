@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {TREES,NODES} from './world.mjs?v=fg-d193d35d11467101';
+import {TREES,NODES,MAPS} from './world.mjs?v=fg-4e31ba3494a2accf';
 // Reusable geometry and hand-painted pigment textures; no generated-image requests.
 export function makeForest(){
  const root=new T.Group(),nodes=new Map(),glows=[],mats=new Map();let seed=71;
@@ -9,7 +9,7 @@ export function makeForest(){
  const sphere=new T.IcosahedronGeometry(1,2),cyl=new T.CylinderGeometry(1,1,1,12),cone=new T.ConeGeometry(1,1,10);
  // Ground and distant woodland are shared with the garden in surroundings.mjs.
  // Still water encircled with irregular mossy stones.
- const water=mesh(cyl,'#739f9d',-.7,.10,-1.1,1.24,.025,1.24);water.material=water.material.clone();water.material.metalness=.12;water.material.roughness=.4;
+ const pond=MAPS.forest.obstacles.find(o=>Number.isFinite(o.waterHeight));const water=mesh(cyl,'#739f9d',pond.x,pond.waterHeight-.025,pond.z,pond.r-.04,.025,pond.r-.04);water.material=water.material.clone();water.material.userData.seasonRole='water';water.material.metalness=.12;water.material.roughness=.4;
  for(let i=0;i<20;i++){const a=i*Math.PI/10;mesh(sphere,i%3?'#a8b396':'#7e9675',-.7+Math.cos(a)*1.29,.13,-1.1+Math.sin(a)*1.29,.23,.14,.18);}
  for(let i=0;i<5;i++){const a=i*2.4;mesh(cyl,'#9aaf70',-.7+Math.cos(a)*.7,.13,-1.1+Math.sin(a)*.7,.16,.02,.15);}
  for(const [i,[x,z]]of TREES.entries()){

@@ -15,6 +15,10 @@ replace_collections={'01','02','03','04','07','13'}
 for o in list(bpy.data.objects):
  cols={c.name[:2] for c in o.users_collection}
  if (cols & replace_collections) or o.get('district')=='museum' or o.name.startswith(('Hall extra','Hall window')):bpy.data.objects.remove(o,do_unlink=True)
+def remove_legacy_market():
+ for o in list(bpy.data.objects):
+  if o.name.startswith(('Market ', 'Folded market')):bpy.data.objects.remove(o,do_unlink=True)
+if plan.get('market'):remove_legacy_market()
 M=bpy.data.materials
 
 def material(name,color,rough=.85,metal=0,emit=0):
@@ -114,6 +118,41 @@ def roof(x,z,w,d,eave,rise,palette='moss',axis='z',skew=0,rows=8):
   arc=[point(-half+2*half*j/24,v,-.055) for j in range(25)]
   bottom=[(a,b,eave-.1) for a,b,_ in arc]
   mesh('Curved plaster gable',bottom+arc,[(j,j+1,j+26,j+25) for j in range(24)],ivory)
+
+def branch(name,points,r,mat):
+ # Continuous bark surface: connected rings avoid cylinder end-cap cracks at bends.
+ verts=[];faces=[];sides=10
+ for i,p in enumerate(points):
+  t=(Vector(points[min(i+1,len(points)-1)])-Vector(points[max(0,i-1)])).normalized()
+  ref=Vector((0,0,1)) if abs(t.z)<.92 else Vector((1,0,0));u=t.cross(ref).normalized();v=t.cross(u).normalized()
+  for j in range(sides):
+   a=j*math.tau/sides;radius=r*(.97+.045*math.sin(j*2.1+i*.53));q=Vector(p)+(u*math.cos(a)+v*math.sin(a))*radius;verts.append(tuple(q))
+  if i:
+   for j in range(sides):faces.append(((i-1)*sides+j,(i-1)*sides+(j+1)%sides,i*sides+(j+1)%sides,i*sides+j))
+ faces.extend([tuple(range(sides-1,-1,-1)),tuple((len(points)-1)*sides+j for j in range(sides))])
+ o=mesh(name,verts,faces,mat)
+ for face in o.data.polygons:face.use_smooth=True
+ return o
+
+def mill_wheel(name,x,z,h,r,d,timber,band,paddles=True):
+ # Reused by the exterior waterwheel and the workshop drive wheel. Axis follows game z.
+ for side in [-1,1]:
+  zz=z+side*d/2;verts=[];faces=[]
+  for j in range(49):
+   a=j*math.tau/48
+   for radius in [r*.83,r]:verts.append((x+math.cos(a)*radius,zz,h+math.sin(a)*radius))
+   if j:faces.append((j*2-2,j*2,j*2+1,j*2-1))
+  mesh(name+' wooden rim',verts,faces,timber)
+  line(name+' iron hoop',[(x+math.cos(j*math.tau/48)*r*.94,zz,h+math.sin(j*math.tau/48)*r*.94) for j in range(49)],.025,band)
+  for j in range(8):
+   a=j*math.tau/8;rod(name+' spoke',(x,zz,h),(x+math.cos(a)*r*.88,zz,h+math.sin(a)*r*.88),r*.055,timber)
+ if paddles:
+  for j in range(20):
+   a=j*math.tau/20;vertices=[]
+   for zz in [z-d*.6,z+d*.6]:
+    for radius in [r*.82,r*1.04]:vertices.append((x+math.cos(a)*radius,zz,h+math.sin(a)*radius))
+   mesh(name+' scoop paddle',vertices,[(0,1,3,2)],timber,.01)
+ rod(name+' axle',(x,z-d*.85,h),(x,z+d*.85,h),r*.13,timber)
 
 def body(part,mat=ivory):
  x,z,w,d,h=[part[k] for k in ['x','z','w','d','h']];box('Limestone footing',x,z,.24,w+.1,d+.1,.34,stone,.06);box('Hand plastered wall',x,z,h/2+.22,w,d,h,mat,.065)

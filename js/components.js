@@ -7549,6 +7549,7 @@ function ChatThread({
   onOpenSettings,
   room,
   onOpenRooms,
+  onEnterGarden,
   roomFics,        // 这间房放过哪几本同人文（最近的在前）
   roomFicId,       // 现在在聊的是哪一本
   onPickRoomFic,   // 换书
@@ -7899,6 +7900,17 @@ function ChatThread({
     !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.scenario ? "长篇如果" : room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "按需补近况" : "独立时间线"),
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "换房 ›")
   ),
+  // ── 庭院房先是一间普通聊天（她 2026-09-17）───────────────────────────
+  // ⚠️原来点进这间房＝直接开存档：那一屏把整个聊天盖住，她连这间房的设置都进不去
+  //   （「我都没法调能不能有记忆进来出去」）。现在进门看到的是聊天记录——
+  //   庭院里说过的话本来就同步在这儿——想进去玩再按这一条。
+  onEnterGarden && h("button", {
+    onClick: onEnterGarden,
+    className: "shrink-0 w-full flex items-center active:opacity-70",
+    style: { padding: "9px 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line }
+  },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "走进微光庭院"),
+    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: "#6b8753" } }, "这间房的存档 ›")),
   // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）──────────────────
   // 一间房可以放好几本。她当时问的是「讨论了 a 再发 b，想回去聊 a 咋算」——
   // 答案就是这条带子：点一下换回去。a 的设定前情不会丢（那一份每一轮现拼），
@@ -14848,6 +14860,16 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
             className: "w-full text-left", style: { display: "block", padding: "8px 10px", borderBottom: "1px solid " + t.line,
               background: startIndex === index ? t.bg : "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5 } },
             (m.role === "narration" || m.kind === "narration" ? "旁白" : m.role === "user" ? "你" : character.remark || character.name) + "：" + text.replace(/\s+/g, " ").slice(0, 72))))),
+      // ── 权限就在这儿调（她 2026-09-17：「不能创建的时候就能设置房间权限吗」）─────
+      // ⚠️原来这几排开关只长在【已经建好的房】的编辑页里：建之前看不见，
+      //   她得先建出来、进去、再退出来改。开关本身不另写一份，还是上面那个 group()。
+      h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "这扇门带进带出什么"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+          (window.ChatRooms && window.ChatRooms.doorLine ? window.ChatRooms.doorLine(draft) : "") + "现在就能调，建好之后也随时能改。"),
+        group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
+        group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
+        group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
         h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
         h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
