@@ -59,3 +59,8 @@ body.embedded .season-open{top:65px}.season-dialog{width:100%;height:100%;max-wi
    ⚠️气泡是【那句话】的形状，名字退成一行淡字——两个都做成框的话，头顶就是两个标签叠着。 */
 #companion-bubble{position:absolute;transform:translate(-50%,-100%);width:max-content;max-width:min(62vw,250px);padding:10px 13px;border:1px solid #cfdac0;border-radius:15px;background:#fcfbf1f2;color:#3f5a44;font-size:12.5px;line-height:1.75;text-align:left;box-shadow:0 6px 18px #243f2826;pointer-events:none;z-index:5}
 #companion-bubble::after{content:"";position:absolute;left:50%;bottom:-7px;width:12px;height:12px;margin-left:-6px;transform:rotate(45deg);border-right:1px solid #cfdac0;border-bottom:1px solid #cfdac0;background:#fcfbf1f2;border-bottom-right-radius:3px}
+/* 他站在那儿等她点头（她 2026-09-17）。⚠️它跟气泡长得不一样是【故意的】：
+   气泡是他说过的话，这个是「还没说、要不要听」——点下去才花那一枪。 */
+#companion-call{position:absolute;transform:translate(-50%,-100%);padding:9px 14px;border:1px solid #c8b98e;border-radius:999px;background:#fdf8e6f2;color:#7a6434;font-size:12px;line-height:1.4;min-height:40px;box-shadow:0 5px 16px #3f341c26;z-index:6;animation:callbob 2.6s ease-in-out infinite}
+@keyframes callbob{0%,100%{transform:translate(-50%,-100%)}50%{transform:translate(-50%,calc(-100% - 4px))}}
+@media (prefers-reduced-motion:reduce){#companion-call{animation:none}}
