@@ -2240,7 +2240,7 @@
     if (typeof CONDESCENDING_TONE_BAN !== "undefined") parts.push(CONDESCENDING_TONE_BAN);
     if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") parts.push(REGISTER_FOLLOWS_SCENE);
     if (typeof STOCK_REPLY_BAN !== "undefined") parts.push(STOCK_REPLY_BAN);
-    if (typeof OVERREACH_BAN !== "undefined") parts.push(OVERREACH_BAN);   // 三件套的近亲，同进同出
+    // OVERREACH_BAN v70.28 已合并进 STOCK_REPLY_BAN（同一个字符串），这儿不再重复 push
     if (typeof EMPTY_COMFORT_BAN !== "undefined") parts.push(EMPTY_COMFORT_BAN);   // 同上，这一族一起走
     if (typeof SEE_THROUGH_BAN !== "undefined") parts.push(SEE_THROUGH_BAN);
     if (typeof USER_BODY_BAN !== "undefined") parts.push(USER_BODY_BAN);

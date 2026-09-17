@@ -63,8 +63,8 @@ test("这条刀四处都挂上了", () => {
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 施工规则/four-surfaces-same-context.md。
   assert.equal((codeOnly(engine).match(/STOCK_REPLY_BAN/g) || []).length +
-               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 3,
-    "1 处定义 + buildBundle + groupBans（三处群共用；注释不算）");
+               (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 4,
+    "1 处定义 + buildBundle + groupBans（三处群共用）+ OVERREACH_BAN 别名；注释不算");
 });
 
 test("提示词封的是那个位置，不是某个词", () => {
