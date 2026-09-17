@@ -24,7 +24,7 @@ test('下去、刨一处、再往下、爬上来：一圈走得通，时间跟�
 test('往下的路由月石打通，不是想下多深就多深',()=>{
  const s={...freshState(),map:'depths',depth:3};
  assert.equal(deepestAllowed(s),3);
- assert.match(actionError(s,'deeper'),/月石/,'挡住的时候要说清楚怎么才能再往下');
+ assert.match(actionError(s,'deeper'),/井纹残片/,'挡住的时候要说清楚怎么才能再往下');
  assert.equal(act(s,'deeper').depth,3,'挡住了就真的不许下去');
  const rich={...s,stones:2};
  assert.equal(deepestAllowed(rich),7);
@@ -72,7 +72,7 @@ test('碎片从池子里取，池子空了也不让她空手',()=>{
  assert.equal(s.vein.length,0,'取过的还留在池子里＝会重复发');
  s=act(s,'gather',vein[1].id);
  assert.equal(s.shards.length,2,'池子空了就该给一块没纹路的石头，不是什么都不给');
- assert.match(s.shards[0].text,/没有纹路/);
+ assert.match(s.shards[0].text,/静静躺在掌心/);
 });
 
 test('每一层各刨各的，层数存得住',()=>{
