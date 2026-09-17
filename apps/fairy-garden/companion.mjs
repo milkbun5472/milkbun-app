@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-aea70f541f17489c';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-aea70f541f17489c';
+import {stepRoute} from './locomotion.mjs?v=fg-85e4e8af19049567';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-85e4e8af19049567';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
