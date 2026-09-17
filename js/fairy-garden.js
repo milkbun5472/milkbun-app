@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ea89f3dc50c3e485", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e8e9bd175f1dc8b4", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -174,7 +174,38 @@
     if (!out.length) { const e = new Error("这一层什么都没刨出来，可以再下一次。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return out;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, generateSeason, blossoms, shards, SEED_LABELS, SHARD_LABELS };
+  // 他自己走过来、她点了头，才打的那一枪（她 2026-09-17）。
+  // ⚠️这是整个庭院里最值钱的一次调用：别的都躲着不打，这一次是她主动要听。
+  // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
+  // ⚠️手上那几件【全是存档里真发生过的东西】，他只能从这里头挑：
+  //   不给料他就只能说「我想你了」，那句话换个角色照样成立，等于没说。
+  async function missLine({ active, character, profile, mainline, world, material }) {
+    if (!active) throw new Error("先在设置里配置创作线路，他才说得出话。");
+    const rows = (material && material.rows) || [];
+    const quiet = Math.max(0, Number(material && material.quiet) || 0);
+    const sys = [sharedStyle(),
+      roleContext(character, profile, mainline),
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【当前世界的事实】\n" + JSON.stringify(world),
+      "【此刻】你自己放下手里的事，走到她面前站住了。不是她叫你来的——是你自己想找她说句话。"
+        + (quiet ? "你们已经 " + quiet + " 天没正经说过话了。" : ""),
+      rows.length
+        ? "【你手上这几样，都是你们之间真有过的】\n" + rows.map(r => "・〔" + r.kind + "・第 " + r.day + " 天〕" + r.text).join("\n")
+        : "【你手上什么都没有】你们之间还没攒下什么可说的东西。",
+      "【要紧的一条】从上面那几样里【挑一件】说起，或者说这会儿眼前的天气、光线、她正在做的事。"
+        + "⚠️绝不许编一段你们其实没发生过的事。"
+        + "⚠️也别只说一句你想她——那句话谁来说都成立，等于没开口；真要说，也得说清是被什么勾起来的。"
+        + "说完就完，不用替她安排接下来做什么，也不用留个问题等她接。",
+      '【输出格式】只输出 JSON：{"say":["你开口的第一句","接着说的第二句"]}。'
+        + "一条一个意思，她那头是一个一个气泡冒出来的。想说几条由你，一句说得完就一条。"
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "他开口。" }], { maxTokens: 12000, timeout: 180000, tag: "微光庭院找你" });
+    const obj = extractJSON(raw);
+    const parts = obj ? replyParts(obj.say) : [];
+    if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return parts;
+  }
+  root.FairyGardenService = { KEY, normalizeReply, ask, missLine, generateSeason, blossoms, shards, SEED_LABELS, SHARD_LABELS };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   function GardenSession(props) {
@@ -255,6 +286,29 @@
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这一批碎片没有写入。");
             return out;
           });
+        },
+        // 他自己来找你：走过来那一路是游戏算的，这一枪等她点了记号才打
+        miss: async material => {
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const c = partner();
+          if (!c) throw new Error("先选一位同行者。");
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const parts = await missLine({
+              active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+              world: (game() && game().snapshot()) || {}, material: material
+            });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这句话没有写下来。");
+            if (String(current().partnerId) !== String(c.id)) throw new Error("同行者已经换过，这句话没有写下来。");
+            // ⚠️他说的话跟她问出来的那些落在同一处：不另开一本，不然聊天记录就有两份
+            const record = propsRef.current.record;
+            if (record) record.onTurn({ text: "", reply: parts.join("\n"), parts: parts });
+            else update(old => ({ ...old, dialogs: { ...old.dialogs, [c.id]: ((old.dialogs || {})[c.id] || [])
+              .concat(parts.map((part, i) => ({ id: "miss_" + Date.now() + "_" + i, role: "assistant", content: part, status: "done" }))).slice(-200) } }));
+            return parts;
+          } finally { busyRef.current = false; if (alive.current) setBusy(false); }
         },
         bloom: async rows => {
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");

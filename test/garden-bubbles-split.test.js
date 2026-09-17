@@ -77,3 +77,32 @@ test("句号后面的右引号跟着上一句走，不许单独冒一个「」�
   rows.forEach(x => assert.ok(x.replace(/[」』”’"]/g, "").trim(), "冒出一个只有右引号的气泡"));
   assert.deepEqual(guardMod.splitBubbles("「真的吗？」他说。"), ["「真的吗？」", "他说。"]);
 });
+
+// 他自己开口那一枪：料凑得对不对、拆不拆气泡，跟回复走的是同一条路
+test("他开口那一枪照样按条出，手上没有东西也得说得出话", async () => {
+  const calls = [];
+  const svc = (() => {
+    const ctx = { React: { createElement: () => null }, WeakMap, JSON, Error, Math, String, Array, Object, Number, Boolean, isFinite, RegExp,
+      extractJSON: r => { try { return JSON.parse(String(r)); } catch (e) { return null; } },
+      callAI: async (p, sys, msgs, opt) => { calls.push({ sys, msgs, opt }); return JSON.stringify({ say: ["你把伞放在门边了。", "我看见了。"] }); },
+      narrativeCore: () => "", CONDESCENDING_TONE_BAN: "", REGISTER_FOLLOWS_SCENE: "", STOCK_REPLY_BAN: "",
+      OVERREACH_BAN: "", ECHO_QUESTION_BAN: "", userName: p => (p && p.name) || "用户",
+      loadJSON: () => null, saveJSON: () => true, useTheme: () => ({}) };
+    ctx.window = ctx; ctx.globalThis = ctx;
+    vm.runInNewContext(host, ctx);
+    return ctx.FairyGardenService;
+  })();
+  const out = await svc.missLine({ active: {}, character: { name: "甲", persona: "甲的人设" }, profile: { name: "我" },
+    world: { day: 12 }, material: { day: 12, quiet: 3, rows: [{ kind: "花笺", text: "那天你在楼下等我。", day: 4 }] } });
+  assert.equal(calls.length, 1, "他开一次口就该是一枪");
+  assert.deepEqual(Array.from(out), ["你把伞放在门边了。", "我看见了。"]);
+  // 料在 system，user 只有触发那一句
+  assert.match(calls[0].sys, /那天你在楼下等我。/);
+  assert.match(calls[0].sys, /已经 3 天没正经说过话/);
+  assert.equal(calls[0].msgs.length, 1);
+  assert.ok(calls[0].opt.maxTokens >= 8000);
+  // 手上真没东西的时候，不许硬塞一件进去
+  await svc.missLine({ active: {}, character: { name: "甲" }, profile: {}, world: {}, material: { day: 1, quiet: 0, rows: [] } });
+  assert.match(calls[1].sys, /【你手上什么都没有】/);
+  assert.doesNotMatch(calls[1].sys, /没正经说过话/);
+});
