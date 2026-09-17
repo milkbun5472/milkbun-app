@@ -29,7 +29,12 @@ test('走到那儿、带够东西，才动得了手',()=>{
 });
 
 test('弄好之后，他那一天真的改了去处',()=>{
- let s={...atLake(freshState()),herbs:7,harvest:4,minute:800};
+ // ⚠️地板表每天挑的格子不一样：挑一个【今天真的会去湖那边】的日子来问，
+ //   不然这条测试有时候绿有时候红，红的还是测试自己。
+ const day=(()=>{for(let d=1;d<60;d++){
+  const t={...atLake(freshState()),day:d,minute:800};
+  if((WORKS.lakeShade.moves||[]).includes(plannedActivity(t).id))return d;}return 1;})();
+ let s={...atLake(freshState()),day,herbs:7,harvest:4,minute:800};
  const before=plannedActivity(s);
  s=doWork(s,'lakeShade');
  const after=plannedActivity(s);
@@ -46,7 +51,7 @@ test('弄好之后，他那一天真的改了去处',()=>{
 test('旧塔的屋顶补好，雨天他去塔下而不是自家屋檐',()=>{
  let s={...atTower(freshState()),day:wet,minute:800,sand:9,
   shards:[{id:'a',kind:'relic',text:'一'},{id:'b',kind:'relic',text:'二'},{id:'c',kind:'echo',text:'三'}]};
- assert.equal(dailySchedule(s).find(p=>p.start===720).id,'rain','下雨天露天那一格挪到檐下');
+ assert.equal(plannedActivity(s).id,'rain','下雨天露天那一格挪到檐下');
  const eaves=plannedActivity(s).target;
  s=doWork(s,'towerRoof');
  assert.deepEqual(plannedActivity(s).target,MAPS.garden.sites.oldTower.target);
@@ -55,7 +60,7 @@ test('旧塔的屋顶补好，雨天他去塔下而不是自家屋檐',()=>{
  assert.equal((s.shards||[]).length,1,'两片遗物用掉了，别的一片不许动');
  assert.equal(s.shards[0].kind,'echo');
  // 不下雨那天照旧
- assert.equal(dailySchedule({...s,day:dry}).find(p=>p.start===720).id,'walk');
+ assert.notEqual(plannedActivity({...s,day:dry}).id,'rain','不下雨就不该在檐下');
 });
 
 test('小路那盏灯是这张表的第一行，不是它的例外',()=>{

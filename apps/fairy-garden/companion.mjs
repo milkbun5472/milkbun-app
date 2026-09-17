@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-4d88a62f64eb394d';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor} from './world.mjs?v=fg-4d88a62f64eb394d';
+import {stepRoute} from './locomotion.mjs?v=fg-c7b0cebfda7ebd8a';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor} from './world.mjs?v=fg-c7b0cebfda7ebd8a';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -8,7 +8,22 @@ const activity=ACTIVITIES;
 // ⚠️'flowers' 那一格不能省：他每天顺手帮你浇一次花（companionCare）是从第一版就有的。
 //   地板表里没有它＝没配线路的人打开游戏，他从此再也不浇花了——这种悄悄没掉的东西最坏。
 //   它不是「性格」，是家门口那件唯一的杂活。
-const FALLBACK=[[420,'home'],[480,'flowers'],[720,'walk'],[1080,'home']];
+// ⚠️她 2026-09-17 截图：「他这个行动都不会干别的」。原来这张地板表是【钉死的四格】，
+//   没一起排过这一季的话，他一年到头就是 起床／浇花／走走／回屋前——
+//   而这个世界里有二十几处地方可去。
+// ⚠️这仍旧是【地板】，不是他的性格：挑哪几处只看【今天是第几天】（加存档号），
+//   同一天进来几次都一样，也一个字不编他喜欢什么。真正照着他的人设排的那一份，
+//   还是季节手册里那一枪（generateSeason）——这张表只是在那之前别让日子长得一模一样。
+const FLOOR_POOL=['walk','market','bridge','neighbor','board','pond','glow','herbs',
+ 'mushrooms','wish','star','dive','study','potion','hall','museum','bottle'];
+const pickFloor=(seed,n)=>{const pool=[...FLOOR_POOL],out=[];
+ let h=2166136261;for(const ch of String(seed)){h=Math.imul(h^ch.charCodeAt(0),16777619);}
+ for(let i=0;i<n&&pool.length;i++){h=Math.imul(h^(h>>>13),16777619)>>>0;out.push(pool.splice(h%pool.length,1)[0]);}
+ return out;};
+// 起床在屋前、早上那件杂活、天黑回屋前是三根钉子；中间那三格每天不一样。
+// ⚠️'flowers' 那一格不许动（下面那条注释说的就是它）。
+const floorDay=s=>{const [a,b,c]=pickFloor(String(s.epoch)+':floor:'+s.day,3);
+ return [[420,'home'],[480,'flowers'],[660,a],[900,b],[1140,c],[1260,'home']];};
 // 邻居的「家」是他自己那间屋：⚠️不改这一句的话，三个邻居全会挤在你家门口。
 function spread(id,target,map){
  let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))>>>0;
@@ -40,7 +55,10 @@ export function dailySchedule(s){const season=seasonOf(s.day),who=s.companion,
  plan=who&&who.home?null:(s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null);
  const shift=who&&who.home?shiftBy(who.charId):0;
  const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]
-  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):FALLBACK);return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&!MAPS[activity[id].map].interior&&!DRY_IN_RAIN.has(id)){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
+  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):floorDay(s));return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&!MAPS[activity[id].map].interior&&!DRY_IN_RAIN.has(id)){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};})
+ // ⚠️下雨天露天那几格全被挪到檐下，连着三行「在屋檐下听雨」看着像坏了。
+ //   挨着的重复格并成一格：读的人只问「这会儿该在哪儿」，早的那一格本来就管到下一格。
+ .filter((item,i,all)=>i===0||all[i-1].id!==item.id);}
 // 修好的地方改了他这一格去哪儿（旧塔补好了，雨天就去塔檐下，不再是自家屋檐）。
 // ⚠️和 homeFor 一个道理，必须写在 plannedActivity 这一处：tick 在 mode==='routine'
 //   时【绕开 companionPlan 直接用 plannedActivity】，写在 companionPlan 里，

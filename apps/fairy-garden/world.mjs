@@ -1,7 +1,7 @@
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-4d88a62f64eb394d';
-import './rules.js?v=fg-4d88a62f64eb394d';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-c7b0cebfda7ebd8a';
+import './rules.js?v=fg-c7b0cebfda7ebd8a';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-4d88a62f64eb394d';
+import {createNavigator} from './navigation.mjs?v=fg-c7b0cebfda7ebd8a';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -267,11 +267,11 @@ export const WORKS = {
   pathLamp: { label: '小路那盏灯', site: null, by: 'quest',
     hint: '公告栏上那件「修东西」做完，它就一直亮着',
     done: '小路那盏灯修好了，从此天黑就亮着' },
-  towerRoof: { label: '旧塔漏雨的屋顶', site: 'oldTower', need: { relic: 2, sand: 8 }, moves: 'rain',
+  towerRoof: { label: '旧塔漏雨的屋顶', site: 'oldTower', need: { relic: 2, sand: 8 }, moves: ['rain'],
     hint: '补好它，下雨天就能进去躲',
     done: '旧塔那片漏雨的屋顶补好了，下雨天能进去躲雨了',
     there: '塔檐底下是干的，雨声全在外面。' },
-  lakeShade: { label: '月湖北岸的藤棚', site: 'lakeNorth', need: { herbs: 6, harvest: 3 }, moves: 'walk',
+  lakeShade: { label: '月湖北岸的藤棚', site: 'lakeNorth', need: { herbs: 6, harvest: 3 }, moves: ['walk','pond','bottle','glow'],
     hint: '搭起来，午后就有个歇脚的地方',
     done: '月湖北岸搭起了一架藤棚，午后有地方坐了',
     there: '藤叶把日头筛成一地碎光，风从湖面过来。' }
@@ -327,7 +327,9 @@ export function doWork(s, id){
 //   问它要（tick 在 routine 模式绕开 companionPlan，写在别处那一半人就读不到）。
 export function workSpot(s, activityId){
   for (const [id, w] of Object.entries(WORKS)){
-    if (w.moves !== activityId || !workDone(s, id)) continue;
+    // ⚠️moves 是一【组】格子：地板表每天挑的不一样，只认死一格的话，
+    //   她修好的地方十天里有九天白修。
+    if (!(w.moves || []).includes(activityId) || !workDone(s, id)) continue;
     const site = MAPS.garden.sites[w.site]; if (!site) continue;
     return { map: 'garden', target: { ...site.target }, label: w.there ? w.label : site.label };
   }

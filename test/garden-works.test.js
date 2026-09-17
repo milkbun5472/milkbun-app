@@ -13,8 +13,10 @@ test("修好了不是拿到一个勾，是村里多一处能用的地方", () =>
   assert.match(world, /export const WORKS = \{/);
   assert.match(world, /变的是日子，不是一张成就表/);
   // 每一件都得说清楚它改了什么：没有 moves 就只是个勾
-  assert.match(world, /towerRoof:[\s\S]*?moves: 'rain'/);
-  assert.match(world, /lakeShade:[\s\S]*?moves: 'walk'/);
+  assert.match(world, /towerRoof:[\s\S]*?moves: \['rain'\]/);
+  assert.match(world, /lakeShade:[\s\S]*?moves: \['walk','pond','bottle','glow'\]/);
+  assert.match(world, /moves 是一【组】格子/);
+  assert.match(world, /if \(!\(w\.moves \|\| \[\]\)\.includes\(activityId\)/);
 });
 
 // ⚠️小路那盏灯原来散在好几处，现在是这张表的第一行（已有的也要搬过来）
