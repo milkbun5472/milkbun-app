@@ -29,7 +29,7 @@
  fragments:{label:'碎片柜',target:{x:-2.7,z:.8},cabinet:{x:-4,z:.65,w:.65,d:3.5},slots:Array.from({length:6},(_,i)=>({x:-4,z:-.55+(i%3)*1.15,y:1.02+Math.floor(i/3)*.8}))}
  };
  const MAPS={
- garden:{name:'林边村落',outdoor:true,decorAssets:['./museum-exterior.glb?v=fg-ea89f3dc50c3e485'],museum:MUSEUM_EXTERIOR,seats:{pond:{x:3.65,z:5.15,heading:Math.PI,companion:{x:4.4,z:5.15}}},pathLamp:{x:1.6,z:3.4},decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-ea89f3dc50c3e485',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[MUSEUM_EXTERIOR.step,{x:4,z:5.7,w:2.2,d:2.3,height:.31},{x:10,z:3.05,w:1.7,d:2.6,height:.38}],exits:{travel:{to:'forest'},enter:{to:'home'},hall:{to:'hall',action:'door',label:'走进公共厅',target:{x:-1,z:-1.65}},museum:{to:'museum',action:'door',label:'走进收藏馆',target:MUSEUM_EXTERIOR.door}},
+ garden:{name:'林边村落',outdoor:true,decorAssets:['./museum-exterior.glb?v=fg-71c8bdf880a5a76e'],museum:MUSEUM_EXTERIOR,seats:{pond:{x:3.65,z:5.15,heading:Math.PI,companion:{x:4.4,z:5.15}}},pathLamp:{x:1.6,z:3.4},decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-71c8bdf880a5a76e',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[MUSEUM_EXTERIOR.step,{x:4,z:5.7,w:2.2,d:2.3,height:.31},{x:10,z:3.05,w:1.7,d:2.6,height:.38}],exits:{travel:{to:'forest'},enter:{to:'home'},hall:{to:'hall',action:'door',label:'走进公共厅',target:{x:-1,z:-1.65}},museum:{to:'museum',action:'door',label:'走进收藏馆',target:MUSEUM_EXTERIOR.door}},
  stations:{enter:{x:-5.4,z:3.55},well:{x:-2.7,z:3.05},board:{x:-1,z:-1.65},bottle:{x:3.8,z:5.1},dive:{x:-2.7,z:3.05},garden:{x:-7.6,z:1.55},note:{x:-7.6,z:1.55},brew:{x:-3.6,z:3.8},craft:{x:-3.6,z:3.8},travel:{x:10,z:-1},rest:{x:-5.4,z:3.55},star:{x:-5.8,z:4.5},lamp:{x:-6.4,z:4.3}},
  // ⚠️「自己的小屋」必须在这张名单里（她 2026-09-16：「我回不了家了」）：
  // 地点下拉是照这张表长的，表里没有家，她就只能靠「睡到明天」才回得去——
@@ -38,20 +38,20 @@
  interactions:[{kind:'door',id:'museum',...MUSEUM_EXTERIOR.door,r:.65},{kind:'door',id:'hall',x:-1,z:-2.2,r:.42},{kind:'board',x:-1.6,z:-2.1,r:.5},{kind:'visit',id:'bridge',x:10,z:3.05,r:.5},{kind:'visit',id:'square',x:-1,z:-.65,r:.5},{kind:'visit',id:'market',x:-.7,z:1.25,r:.4},{kind:'well',x:-2.7,z:2,r:.75},{kind:'garden',x:-7.6,z:.2,w:1.9,d:2.1},{kind:'brew',x:-3.6,z:3,r:.5},{kind:'travel',x:10,z:-1,r:.6},{kind:'star',x:-5.8,z:3.95,r:.4},...Object.entries({home:[-5.4,3.1],hall:[-1,-2.2],neighbor1:[-8,-2.7],neighbor2:[-6,-5.8],neighbor3:[6,-4.8],pond:[4,5.1]}).map(([id,[x,z]])=>({kind:'visit',id,x,z,r:.5}))],
  obstacles:[MUSEUM_EXTERIOR,{x:11,z:3,w:7.6,d:1.6,except:{x:10,z:3,w:1.55,d:2.5}},{x:-.7,z:2.1,w:1.25,d:.55},{x:-2.3,z:1.45,w:1.25,d:.55},{x:-2.4,z:-1.6,w:1.25,d:.28},{x:-5,z:1.6,w:3.5,d:2.9},{x:-1,z:-5,w:6.8,d:4.5},{x:6,z:-6,w:3.15,d:2.55},{x:-6,z:-7,w:2.6,d:2.2},{x:-8,z:-4,w:3.15,d:2.55},{x:5,z:-11,r:1},{x:-2.7,z:2,r:.72},{x:-3.6,z:3,r:.42},{x:-7.6,z:.8,w:1.85,d:1.0},{x:-7.6,z:-.4,w:1.85,d:1}, {x:4,z:3,rx:4.0,rz:3.35,except:{x:4,z:5.8,w:1.85,d:2.65}},
  ...[[-10,3],[-10,-1],[-9,-5],[-9,-9],[-5,-10],[-1,-11],[3,-11],[7,-10],[10,-7],[10,-3],[10,1],[-11,7]].map(([x,z])=>({x,z,r:.35}))]},
- home:{name:'林间的家',interior:true,asset:'./home-interior.glb?v=fg-ea89f3dc50c3e485',renderer:'glb',background:'#d9cbbb',light:2.1,radius:8,viewSpan:17,bounds:{w:11.5,d:9.5},floor:.14,view:{x:0,z:.5},spawn:{x:0,z:4.35},plan:{w:12,d:10,wallHeight:3,dividerZ:-.6,doorCenters:[-3,3],doorWidth:2},beds:HOME_BEDS,walls:HOME_WALLS,furniture:HOME_FURNITURE,
+ home:{name:'林间的家',interior:true,asset:'./home-interior.glb?v=fg-71c8bdf880a5a76e',renderer:'glb',background:'#d9cbbb',light:2.1,radius:8,viewSpan:17,bounds:{w:11.5,d:9.5},floor:.14,view:{x:0,z:.5},spawn:{x:0,z:4.35},plan:{w:12,d:10,wallHeight:3,dividerZ:-.6,doorCenters:[-3,3],doorWidth:2},beds:HOME_BEDS,walls:HOME_WALLS,furniture:HOME_FURNITURE,
  exits:{travel:{to:'garden',at:{x:-5.4,z:3.55}}},stations:{travel:{x:0,z:4.45},rest:HOME_BEDS.dawn.approach.player},
  sites:{living:{label:'壁炉客厅',target:{x:-1.45,z:2.4},text:'客厅里有软沙发，壁炉边可以慢慢待着。'},kitchen:{label:'餐厨间',target:{x:2,z:2.4},text:'木桌留着两个人的座位，杯子放在一起。'},dawn:{label:'晨光卧室',target:HOME_BEDS.dawn.approach.player,text:'这间是暖粉色的双人床。可以选同床、分房，或者让同行者先睡。'},dusk:{label:'月色卧室',target:HOME_BEDS.dusk.approach.player,text:'这间是鼠尾草绿的双人床，门外是安静的走廊。'}},
  interactions:[{kind:'travel',x:0,z:4.7,r:.55},...Object.entries(HOME_BEDS).map(([id,b])=>({kind:'bed',id,x:b.x,z:b.z,w:b.w,d:b.d}))],
  obstacles:[...HOME_WALLS,...HOME_FURNITURE,...Object.values(HOME_BEDS).map(b=>({x:b.x,z:b.z,w:b.w,d:b.d}))]},
- museum:{name:'拾光收藏馆',interior:true,renderer:'museum',decorAssets:['./museum-interior.glb?v=fg-ea89f3dc50c3e485'],background:'#d5cdbb',light:2.2,radius:7,viewSpan:14.8,bounds:{w:9.5,d:7.5},floor:.14,view:{x:0,z:0},spawn:{x:0,z:3.2},plan:{w:10,d:8},displays:MUSEUM_DISPLAYS,
+ museum:{name:'拾光收藏馆',interior:true,renderer:'museum',decorAssets:['./museum-interior.glb?v=fg-71c8bdf880a5a76e'],background:'#d5cdbb',light:2.2,radius:7,viewSpan:14.8,bounds:{w:9.5,d:7.5},floor:.14,view:{x:0,z:0},spawn:{x:0,z:3.2},plan:{w:10,d:8},displays:MUSEUM_DISPLAYS,
  exits:{travel:{to:'garden',at:MUSEUM_EXTERIOR.door,label:'走出收藏馆'}},stations:{travel:{x:0,z:3.5}},
  sites:Object.fromEntries(Object.entries(MUSEUM_DISPLAYS).map(([id,d])=>[id,{label:d.label,target:d.target,text:'收藏会在这里慢慢留下痕迹。'}])),
  interactions:[{kind:'travel',x:0,z:3.8,r:.55},...Object.entries(MUSEUM_DISPLAYS).map(([id,d])=>({kind:'visit',id,...d.cabinet}))],obstacles:[...Object.values(MUSEUM_DISPLAYS).map(d=>d.cabinet),{x:0,z:-.1,w:1.6,d:1.3}]},
- hall:{name:'炉光公共厅',interior:true,asset:'./public-hall.glb?v=fg-ea89f3dc50c3e485',renderer:'glb',background:'#d7c8b5',light:2.1,radius:9,viewSpan:18,bounds:{w:13.5,d:8.5},floor:.14,view:{x:0,z:0},spawn:{x:0,z:3.85},plan:{w:14,d:9},furniture:HALL_FURNITURE,
+ hall:{name:'炉光公共厅',interior:true,asset:'./public-hall.glb?v=fg-71c8bdf880a5a76e',renderer:'glb',background:'#d7c8b5',light:2.1,radius:9,viewSpan:18,bounds:{w:13.5,d:8.5},floor:.14,view:{x:0,z:0},spawn:{x:0,z:3.85},plan:{w:14,d:9},furniture:HALL_FURNITURE,
  exits:{travel:{to:'garden',at:{x:-1,z:-1.65},label:'走出公共厅'},upstairs:{to:'dormitory',action:'door',label:'上楼去宿舍',target:{x:5.75,z:3.65}}},stations:{travel:{x:0,z:4}},
  sites:{hearth:{label:'壁炉旁',target:{x:-4.9,z:-1.55},text:'壁炉边摆着旧铜壶，暖光照着长桌的一端。'},table:{label:'公共长桌',target:{x:-2,z:3.1},text:'长桌旁留着许多座位，杯子和面包篮已经摆好。'},lesson:{label:'小讲堂',target:{x:3.1,z:1.25},text:'讲台后是一幅星图，矮凳围在一起。课程以后从这里开始。'},books:{label:'公共书架',target:{x:-4.5,z:-2.7},text:'一排魔法书靠着窗，桌角还有没收起的羽毛笔。'}},
  interactions:[{kind:'travel',x:0,z:4.25,r:.6},{kind:'door',id:'upstairs',x:5.75,z:3.2,w:1.7,d:1.6}],obstacles:HALL_FURNITURE},
- dormitory:{name:'公共厅楼上',interior:true,asset:'./hall-dormitory.glb?v=fg-ea89f3dc50c3e485',renderer:'glb',background:'#d6cbbb',light:2,radius:9,viewSpan:18,bounds:{w:13.5,d:8.5},floor:.14,view:{x:0,z:0},spawn:{x:5.7,z:3.3},plan:{w:14,d:9},rooms:DORM_ROOMS,walls:DORM_WALLS,
+ dormitory:{name:'公共厅楼上',interior:true,asset:'./hall-dormitory.glb?v=fg-71c8bdf880a5a76e',renderer:'glb',background:'#d6cbbb',light:2,radius:9,viewSpan:18,bounds:{w:13.5,d:8.5},floor:.14,view:{x:0,z:0},spawn:{x:5.7,z:3.3},plan:{w:14,d:9},rooms:DORM_ROOMS,walls:DORM_WALLS,
  exits:{travel:{to:'hall',at:{x:5.75,z:3.65},label:'下楼回公共厅'}},stations:{travel:{x:5.7,z:3.65}},
  sites:Object.fromEntries(DORM_ROOMS.map(r=>[r.id,{label:r.label,target:r.target,text:r.label+'的床、书桌和窗帘已经布置好。房间还空着，之后可以安排角色入住。'}])),
  interactions:[{kind:'travel',x:5.7,z:3.9,r:.55}],obstacles:[...DORM_WALLS,...DORM_ROOMS.flatMap(r=>[{x:r.x-.2,z:r.z,w:r.w,d:r.d},{x:r.x+.95,z:-3.7,w:.75,d:.7}])]},
@@ -59,7 +59,7 @@
  stations:{ladder:{x:0,z:2.6},deeper:{x:0,z:-2.35}},
  interactions:[{kind:'ladder',x:0,z:2.6,r:.6},{kind:'deeper',x:0,z:-2.35,r:.6}],
  obstacles:[...Array.from({length:16},(_,i)=>{const a=i*Math.PI/8;return {x:Math.cos(a)*3.55,z:Math.sin(a)*3.55,r:.5};})]},
- forest:{name:'萤光林地',outdoor:true,seats:{pond:{x:-.95,z:.65,heading:Math.PI,companion:{x:-.15,z:.65}}},decorAssets:['./wishing-tree.glb?v=fg-ea89f3dc50c3e485'],surfaces:[{kind:'hill',x:0,z:-6,rx:2.5,rz:1.85,height:.9}],sites:{wishingTree:{label:'林后许愿树',target:{x:0,z:-4.9},text:'老树长在缓坡上，枝头的空木牌轻轻晃着。许愿的玩法之后再来。'}},renderer:'forest',background:'#dbe5d6',light:2.4,radius:8.3,spawn:{x:-2.7,z:3.05},exits:{travel:{to:'garden'}},stations:{travel:{x:-2.7,z:3.05},seed:{x:1.7,z:3}},interactions:[{kind:'visit',id:'wishingTree',x:0,z:-4.9,r:.65},{kind:'travel',x:-3.1,z:2.55,r:.55},{kind:'seed',x:1.7,z:2.5,r:.45}],obstacles:[{x:0,z:-6,r:.72},{x:-.7,z:-1.1,r:1.28},...TREES.map(([x,z])=>({x,z,r:.44}))]}
+ forest:{name:'萤光林地',outdoor:true,seats:{pond:{x:-.95,z:.65,heading:Math.PI,companion:{x:-.15,z:.65}}},decorAssets:['./wishing-tree.glb?v=fg-71c8bdf880a5a76e'],surfaces:[{kind:'hill',x:0,z:-6,rx:2.5,rz:1.85,height:.9}],sites:{wishingTree:{label:'林后许愿树',target:{x:0,z:-4.9},text:'老树长在缓坡上，枝头的空木牌轻轻晃着。许愿的玩法之后再来。'}},renderer:'forest',background:'#dbe5d6',light:2.4,radius:8.3,spawn:{x:-2.7,z:3.05},exits:{travel:{to:'garden'}},stations:{travel:{x:-2.7,z:3.05},seed:{x:1.7,z:3}},interactions:[{kind:'visit',id:'wishingTree',x:0,z:-4.9,r:.65},{kind:'travel',x:-3.1,z:2.55,r:.55},{kind:'seed',x:1.7,z:2.5,r:.45}],obstacles:[{x:0,z:-6,r:.72},{x:-.7,z:-1.1,r:1.28},...TREES.map(([x,z])=>({x,z,r:.44}))]}
  };
  // Outdoor district placement is shared with the Blender exporter. Buildings retain their size.
  const VILLAGE_ZONES={home:{x:-8,z:5,cx:-5,cz:2,radius:6},hall:{x:0,z:-8,cx:-1,cz:-4,radius:6},neighbor1:{x:-10,z:-3,cx:-8,cz:-4,radius:3},neighbor2:{x:-7,z:-11,cx:-6,cz:-7,radius:3},neighbor3:{x:10,z:-7,cx:6,cz:-6,radius:3},pond:{x:8,z:5,cx:7,cz:3,radius:9},museum:{x:0,z:11,cx:-1.5,cz:7.25,radius:4}};
@@ -79,13 +79,27 @@
  garden.surfaces=oldGarden.surfaces.map((p,i)=>shiftTree(p,i===0?'museum':'pond'));
  garden.exits={...oldGarden.exits,hall:shiftTree(oldGarden.exits.hall,'hall'),museum:shiftTree(oldGarden.exits.museum,'museum')};
  garden.spawn=villagePoint(oldGarden.spawn,'pond');garden.view=villagePoint(START,'home');garden.radius=32;
- garden.asset='./village-ground.glb?v=fg-ea89f3dc50c3e485';garden.decorAssets=[];
+ garden.asset='./village-ground.glb?v=fg-71c8bdf880a5a76e';garden.decorAssets=[];
  garden.chunks=Object.entries(VILLAGE_ZONES).map(([id,d])=>({id,x:d.cx+d.x,z:d.cz+d.z,radius:d.radius,asset:'./village-'+id+'.glb'}));
  // A literal URL is required for every asset so build-fairy-garden fingerprints references.
- const districtAssets=['./village-home.glb?v=fg-ea89f3dc50c3e485','./village-hall.glb?v=fg-ea89f3dc50c3e485','./village-neighbor1.glb?v=fg-ea89f3dc50c3e485','./village-neighbor2.glb?v=fg-ea89f3dc50c3e485','./village-neighbor3.glb?v=fg-ea89f3dc50c3e485','./village-pond.glb?v=fg-ea89f3dc50c3e485','./village-museum.glb?v=fg-ea89f3dc50c3e485'];
+ const districtAssets=['./village-home.glb?v=fg-71c8bdf880a5a76e','./village-hall.glb?v=fg-71c8bdf880a5a76e','./village-neighbor1.glb?v=fg-71c8bdf880a5a76e','./village-neighbor2.glb?v=fg-71c8bdf880a5a76e','./village-neighbor3.glb?v=fg-71c8bdf880a5a76e','./village-pond.glb?v=fg-71c8bdf880a5a76e','./village-museum.glb?v=fg-71c8bdf880a5a76e'];
  garden.chunks.forEach((c,i)=>c.asset=districtAssets[i]);
  MAPS.garden=garden;Object.assign(START,villagePoint(START,'home'));
  MAPS.home.exits.travel.at=garden.stations.enter;MAPS.hall.exits.travel.at=garden.exits.hall.target;MAPS.museum.exits.travel.at=garden.museum.door;MAPS.depths.exits.ladder.at=garden.stations.well;
+ // Exterior footprints are also read by the Blender architecture builder. Door approaches stay put.
+ garden.architecture={
+ home:{style:'vine-cottage',parts:[{id:'main',x:-13,z:5.8,w:3.5,d:4.5,h:2.65},{id:'wing',x:-10.35,z:4.3,w:2.6,d:3.2,h:2.25}],door:{...garden.stations.enter},porch:{x:-13.4,z:8.36,w:1.6,d:.7,height:.18}},
+ hall:{style:'bell-longhouse',parts:[{id:'main',x:-1,z:-13,w:8.2,d:4.5,h:3.35}],door:{...garden.exits.hall.target}},
+ neighbor1:{style:'steep-attic',parts:[{id:'main',x:-18,z:-7.65,w:3.35,d:3.4,h:2.3}],door:{...garden.sites.neighbor1.target}},
+ neighbor2:{style:'round-study',parts:[{id:'tower',x:-13,z:-18.3,r:1.35,h:3.65},{id:'wing',x:-11.25,z:-18.5,w:1.7,d:2.65,h:2.1}],door:{...garden.sites.neighbor2.target}},
+ neighbor3:{style:'garden-house',parts:[{id:'main',x:16,z:-13.55,w:3.3,d:3.25,h:2.45},{id:'glass',x:18.5,z:-13.9,w:1.7,d:2.7,h:1.65}],door:{...garden.sites.neighbor3.target}},
+ museum:{style:'arched-conservatory',parts:[{id:'main',x:-1.5,z:18.1,w:5.5,d:3.2,h:2.15}],door:{...garden.museum.door},porch:{...garden.museum.step}}
+ };
+ const architectureIndexes={museum:0,home:5,hall:6,neighbor3:7,neighbor2:8,neighbor1:9};
+ for(const [id,building]of Object.entries(garden.architecture)){const [main,...wings]=building.parts;garden.obstacles[architectureIndexes[id]]={...main};garden.obstacles.push(...wings.map(p=>({...p})));}
+ garden.surfaces.push(garden.architecture.home.porch);
+ // More generous bounds include the new side wings and eaves in streaming decisions.
+ for(const chunk of garden.chunks)if(garden.architecture[chunk.id])chunk.radius=Math.max(chunk.radius,6);
  function migrateVillagePosition(p){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return p;let best='home',distance=Infinity;for(const [id,d]of Object.entries(VILLAGE_ZONES)){const dist=Math.hypot(p.x-d.cx,p.z-d.cz);if(dist<distance){best=id;distance=dist;}}return villagePoint(p,best);}
  const ACTIVITIES={
  flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},mushrooms:{map:'forest',target:{x:2.6,z:.98},label:'寻找会发光的蘑菇',gesture:'gather'},pond:{map:'forest',target:{x:-.7,z:.6},label:'在池边观察水纹',gesture:'read'},study:{map:'garden',target:MAPS.garden.sites.hall.target,label:'翻看魔法笔记',gesture:'read'},potion:{map:'garden',target:MAPS.garden.stations.brew,label:'研究炼药锅里的微光',gesture:'read'},glow:{map:'forest',target:{x:1.7,z:3},label:'等草丛里的萤光亮起来',gesture:'rest'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋前歇脚',gesture:'rest'},rain:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋檐下听雨',gesture:'read'},star:{map:'garden',target:MAPS.garden.stations.star,label:'看看星铃花的新芽',gesture:'read'},dive:{map:'garden',target:MAPS.garden.stations.well,label:'在井口往下看看',gesture:'read'}
