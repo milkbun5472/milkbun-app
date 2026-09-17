@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-357ad9f39fcdf715", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-dac37631f73a1063", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -397,6 +397,14 @@
       return () => { on = false; };
     }, []);
     const pullLook = () => { const g = game(); if (g && g.getLook) setLook(g.getLook()); };
+    // 她 2026-09-17：「为啥感觉体型拉杆没用」——拉杆一直是有用的，是这一页【整页盖住了游戏】，
+    // 她拖的时候一个像素都看不见。这一页顶上留一条透明的窗（PREVIEW_BAND=30%），
+    // 底下那一格就是游戏自己往窗里渲的那个小人。开这一页就告诉它渲谁，关了就收。
+    useEffect(() => {
+      const g = game(); if (!g || !g.preview) return;
+      g.preview(dress ? who : null);
+      return () => { const q = game(); if (q && q.preview) q.preview(null); };
+    }, [dress, who, loaded]);
     const pushLook = patch => {
       const g = game(); if (!g || !g.setLook) return;
       if (!g.setLook(who, patch)) { props.toast("这次没存上，样貌还是原来的。"); return; }
@@ -672,7 +680,11 @@
                   h("button", { onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
                     style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
                     nt.pinned ? "已钉住" : "钉住")))))),
-        dress && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+        dress && h("div", { style: { position: "absolute", inset: 0, background: "transparent", pointerEvents: "none" } },
+          // ⚠️这条 30% 高的窗要【真的透明】：底下就是游戏，游戏往这儿渲要换的那个小人。
+          //   高度必须和 game.mjs 的 PREVIEW_BAND 对上，改一处就得改两处——所以两边都写着对方。
+          h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, height: "30%" } }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, top: "30%", bottom: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch", pointerEvents: "auto", boxShadow: "0 -12px 30px #30442615" } },
           // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
           h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
             [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"]].map(([k, label]) =>
@@ -719,7 +731,7 @@
                     className: "active:opacity-70",
                     style: { width: 36, height: 36, borderRadius: 999, background: hex,
                       border: on ? "2px solid " + G.ink : "1px solid rgba(0,0,0,.12)", boxShadow: on ? "0 0 0 3px rgba(255,255,255,.75) inset" : "none" } });
-                })))))),
+                }))))))),
         chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),

@@ -120,3 +120,7 @@ body.embedded .weather{gap:8px}
 #cast-shards button[aria-pressed=true]{border-color:#55704f;background:#eef3e6}
 #cast-places{flex-wrap:wrap;margin-top:4px}
 #cast-places>button{flex:1 1 calc(50% - 6px);min-width:110px}
+
+/* 衣柜预览：手机那一侧那一页顶上留了一条透明的窗，游戏往窗里渲一个小人。
+   这时候游戏自己那套壳要全收起来——不然她看到的是小人后面压着一排按钮。 */
+body.previewing #app > *:not(#world) { display: none !important; }

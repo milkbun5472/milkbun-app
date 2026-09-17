@@ -1,20 +1,20 @@
-import {stepRoute} from './locomotion.mjs?v=fg-357ad9f39fcdf715';
-import {makeLakeView} from './lake-view.mjs?v=fg-357ad9f39fcdf715';
-import {makeMuseum} from './museum-view.mjs?v=fg-357ad9f39fcdf715';
-import {museumCaption} from './museum.mjs?v=fg-357ad9f39fcdf715';
-import {makeOutdoor} from './outdoor.mjs?v=fg-357ad9f39fcdf715';
-import {installSeasonBook} from './season-book.mjs?v=fg-357ad9f39fcdf715';
-import {makeMagicView} from './magic-view.mjs?v=fg-357ad9f39fcdf715';
-import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-357ad9f39fcdf715';
+import {stepRoute} from './locomotion.mjs?v=fg-dac37631f73a1063';
+import {makeLakeView} from './lake-view.mjs?v=fg-dac37631f73a1063';
+import {makeMuseum} from './museum-view.mjs?v=fg-dac37631f73a1063';
+import {museumCaption} from './museum.mjs?v=fg-dac37631f73a1063';
+import {makeOutdoor} from './outdoor.mjs?v=fg-dac37631f73a1063';
+import {installSeasonBook} from './season-book.mjs?v=fg-dac37631f73a1063';
+import {makeMagicView} from './magic-view.mjs?v=fg-dac37631f73a1063';
+import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-dac37631f73a1063';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-357ad9f39fcdf715';
-import {makeSurroundings} from './surroundings.mjs?v=fg-357ad9f39fcdf715';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-357ad9f39fcdf715';
-import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-357ad9f39fcdf715';
-import {makeForest} from './forest.mjs?v=fg-357ad9f39fcdf715';
-import {makeDepths} from './depths.mjs?v=fg-357ad9f39fcdf715';
-import {createTraveler} from './traveler.mjs?v=fg-357ad9f39fcdf715';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-357ad9f39fcdf715';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-dac37631f73a1063';
+import {makeSurroundings} from './surroundings.mjs?v=fg-dac37631f73a1063';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-dac37631f73a1063';
+import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-dac37631f73a1063';
+import {makeForest} from './forest.mjs?v=fg-dac37631f73a1063';
+import {makeDepths} from './depths.mjs?v=fg-dac37631f73a1063';
+import {createTraveler} from './traveler.mjs?v=fg-dac37631f73a1063';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-dac37631f73a1063';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -139,7 +139,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-357ad9f39fcdf715');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-dac37631f73a1063');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -503,6 +503,46 @@ function tickNeighbors(dt){
  });
  if(changed)data={...data,neighbors:next};
 }
+// ── 衣柜预览（她 2026-09-17：「为啥感觉体型拉杆没用」）──────────────────
+// 拉杆是有用的，只是她【一个像素都看不见】：换样貌那一页是整页盖住游戏的
+// （iframe 一旦卸载这一局就没了，所以只能盖不能换屏），底下的小人被挡得严严实实，
+// 「拖动时小人当场就变」这句话她根本没法验证。
+// 那一页顶上留一条透明的窗，这儿就往窗里单独渲一个小人。
+// ⚠️自己一个场景、自己一台相机，不去动世界那一路的可见性——
+//   世界那一路是走路、天气、流式加载共用的，为了一条预览去翻它的可见性太贵了。
+// ⚠️小人还是同一个 createTraveler、同一份 doll.glb：预览里看到的就是场上那一个。
+const PREVIEW_BAND=.3;                     // 和手机那一侧那条透明窗同一个比例
+const previewScene=new THREE.Scene();
+const previewCam=new THREE.OrthographicCamera(-1,1,1,-1,.1,20);
+previewCam.position.set(.9,1.5,4);previewCam.lookAt(0,.82,0);
+previewScene.add(new THREE.HemisphereLight('#ffffff','#c3cfb4',1.9));
+const previewKey=new THREE.DirectionalLight('#fff4e0',1.5);previewKey.position.set(2.2,4,3);previewScene.add(previewKey);
+const previewDolls={};
+let previewWho=null;
+function setPreview(who){
+ // ⚠️预览的时候把游戏自己那套壳（顶栏、天气、缩放、行动面板）全收起来：
+ //   那条窗是透明的，不收的话她看到的是小人后面压着一排按钮。
+ if(who!=='me'&&who!=='companion'){previewWho=null;document.body.classList.remove('previewing');return true;}
+ if(!dollSource)return false;
+ if(!previewDolls[who]){const d=createTraveler(dollSource,who==='companion');
+  previewScene.add(d.root);previewDolls[who]=d;}
+ previewDolls[who].setLook(who==='companion'?(data.companion&&data.companion.look)||{}:data.look||{});
+ for(const [k,d] of Object.entries(previewDolls))d.root.visible=k===who;
+ previewWho=who;document.body.classList.add('previewing');return true;
+}
+function drawPreview(){
+ const doll=previewDolls[previewWho];if(!doll)return;
+ doll.animate(clock,{moving:false,gesture:'rest',height:.08});
+ doll.root.rotation.y=Math.sin(clock*.5)*.5;
+ const w=Math.max(1,innerWidth),h=Math.max(1,Math.round(innerHeight*PREVIEW_BAND)),y=innerHeight-h;
+ const span=2.35,aspect=w/h;
+ previewCam.left=-span*aspect/2;previewCam.right=span*aspect/2;
+ previewCam.top=span/2;previewCam.bottom=-span/2;previewCam.updateProjectionMatrix();
+ renderer.setScissorTest(true);renderer.setScissor(0,y,w,h);renderer.setViewport(0,y,w,h);
+ renderer.setClearColor('#e9ecdd',1);renderer.clear();      // 和那一页同一个底色
+ renderer.render(previewScene,previewCam);
+ renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
+}
 function drawNeighbors(dt){
  const rows=restoreNeighbors(data.neighbors);
  for(const n of rows){ const x=crew.get(String(n.charId));if(!x)continue;
@@ -676,7 +716,7 @@ let last=performance.now(),lastRender=0;function frame(now){requestAnimationFram
  magic.visible=!!acting&&(acting.kind==='brew'||acting.kind==='garden'&&data.potions>0&&data.blooms<3);if(magic.visible){const site=MAPS.garden.interactions.find(x=>x.kind===(acting.kind==='brew'?'brew':'garden'));magic.position.set(site.x,.65,site.z);magic.children.forEach((m,i)=>{const a=clock*2+i*2.4,r=acting.kind==='brew'?.26:.6;m.position.set(Math.cos(a)*r,((clock*.5+i/18)%1)*.75,Math.sin(a)*r);});}
  const activeView=mapViews[data.map];activeView?.stream?.update(cameraPan,Math.hypot(camera.right,camera.top)*.85/camera.zoom);activeView?.update?.(data,clock);lakeView.update(data,clock,activeView?.stream?.inspect().loaded||[]);magicView.update(data,clock);outdoor.update(data,mapViews,clock,cameraPan);
  highlights.forEach((h,i)=>h.material.opacity=.35+Math.sin(clock*2+i)*.12);blooms.children.forEach((g,i)=>g.rotation.z=Math.sin(clock*1.6+i)*.035);
- if(now-lastRender>1000/(lite?30:45)){renderer.render(scene,camera);lastRender=now;}}
+ if(now-lastRender>1000/(lite?30:45)){renderer.render(scene,camera);if(previewWho)drawPreview();lastRender=now;}}
 addEventListener('pagehide',()=>{if(ready)save();});
 requestAnimationFrame(frame);load();
 // Read-only snapshots make the prototype's movement and persistence testable.
@@ -735,9 +775,13 @@ window.FairyGardenGame={
  getGarden:()=>({day:data.day,seeds:(data.seeds||[]).filter(x=>!x.done).map(x=>({...x,bloomIn:Math.max(0,SEED_DAYS-(data.day-x.day))})),
   notes:(data.notes||[]).slice(0,120),ready:readySeeds(data).length,error:seedError(data),kinds:{...SEED_KINDS}}),
  pinNote:id=>{data=pinNote(data,id);save();return true;},
+ // 衣柜那一页顶上那条透明的窗：开的时候告诉游戏渲谁，关了传 null
+ preview:who=>setPreview(who),
  setLook:(who,look)=>{if(!ready||!look)return false;
   const avatar=who==='companion'?companionAvatar:playerAvatar;if(!avatar)return false;
   avatar.setLook(look);
+  // 预览里那一个跟着一起变：不然她拖的是窗里那个小人，变的却是窗外看不见的那个
+  if(previewDolls[who])previewDolls[who].setLook(look);
   // ⚠️dims 是嵌一层的：浅合并会让「只拖一根滑杆」把另外五根打回中性
   const merge=(old={})=>({...old,...look,...(look.dims?{dims:{...(old.dims||{}),...look.dims}}:{})});
   if(who==='companion')data={...data,companion:{...data.companion,look:merge(data.companion.look)}};
