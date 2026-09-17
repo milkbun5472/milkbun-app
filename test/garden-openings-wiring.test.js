@@ -69,7 +69,7 @@ test("场景那一侧按名字切两份网格", () => {
   assert.match(game, /o\.visible=\(tag\.side==='open'\)===opened\(data,tag\.key\)/);
   assert.match(game, /先例是 doll\.glb 那十二款头发/);
   assert.match(game, /function showMap\(atPlayer=false\)\{syncOpenings\(\);/, "换地图、读档之后也要切一次");
-  assert.match(game, /\$\('cast-dialog'\)\.close\(\);syncOpenings\(\);/, "封完当场切");
+  assert.match(game, /data=castSpell\(data,spell,shard,place\);[^\n]*\n syncOpenings\(\);ui\(\);save\(\);/, "施法完成、封存成功后当场切");
 });
 
 // 哪一处地点对着哪一个开口：从 OPENINGS 倒过来推，不另写一张表

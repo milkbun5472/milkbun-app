@@ -41,7 +41,11 @@ test("点的是家具自己的盒子，不是地面落点", () => {
 
 // 她定的规矩：点了自动带路，不传送也不隔空操作
 test("走到了才开菜单", () => {
-  assert.match(game, /if\(go\(spot\)\)\{pendingSpot=key;return true;\}/);
+  assert.match(game, /if\(go\(spot\)\)\{pendingSpot=key;/);
+  // ⚠️走过去要说【往哪儿走】：点了沙发和点了空地一模一样的话，走那几秒里
+  //   她看到的就是「点了没反应」。2026-09-17 查那条「第一次点击」时查出来的真问题。
+  assert.match(game, /say\('往'\+MAPS\[spotParse\(key\)\.map\]\.name\+'的'\+FURNITURE\[spotParse\(key\)\.kind\]\.label\+'那儿走。'\)/);
+  assert.match(game, /点击本身一直是对的/);
   assert.match(game, /function arriveSpot\(\)\{const key=pendingSpot;pendingSpot=null;if\(key\)openFurniture\(key\);\}/);
   assert.match(game, /beginAction\(k\);\}else \{ui\(\);arriveSpot\(\);\}/);
   assert.match(game, /if\(!spot\)\{say\('这一件旁边站不下人。'\);return true;\}/, "站不下也要说一句");
