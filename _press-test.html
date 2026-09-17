@@ -1,0 +1,68 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0">
+<div id="log" style="font:12px monospace;padding:8px"></div>
+<div id="list" style="height:300px;overflow:auto;border:1px solid #ccc"></div>
+<script src="vendor/react.production.min.js"></script>
+<script>
+window.__fired = [];
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP = 10;      // 动过这么多像素就不算长按了（iOS 自己也是这个量级）
+const LONG_PRESS_MUTE_MS = 350;  // 菜单弹出后，这段时间里的第一次点击一律吞掉
+function useLongPressMenu(onFire) {
+  const timer = ({current:null});
+  const from = ({current:null});
+  (function(){
+    // 手指按下的位置从这儿拿：调用点是 startPress(i) 这种不带事件的写法，
+    // 一处处改签名要动十七个地方，而这一只监听器把它们全兜住了。
+    const down = e => {
+      const p = (e.touches && e.touches[0]) || e;
+      if (p) from.current = { x: p.clientX, y: p.clientY };
+    };
+    const move = e => {
+      if (!timer.current || !from.current) return;
+      const p = (e.touches && e.touches[0]) || e;
+      if (!p) return;
+      if (Math.abs(p.clientX - from.current.x) > LONG_PRESS_SLOP
+        || Math.abs(p.clientY - from.current.y) > LONG_PRESS_SLOP) {
+        clearTimeout(timer.current); timer.current = null;
+      }
+    };
+    const off = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+    document.addEventListener("touchstart", down, true);
+    document.addEventListener("mousedown", down, true);
+    document.addEventListener("touchmove", move, { passive: true });
+    document.addEventListener("touchcancel", off, { passive: true });
+    // 惯性滚动时手指已经离开屏幕，touchmove 不再来——滚动本身也得能掐掉
+    document.addEventListener("scroll", off, true);
+    return () => {
+      off();
+      document.removeEventListener("touchstart", down, true);
+      document.removeEventListener("mousedown", down, true);
+      document.removeEventListener("touchmove", move);
+      document.removeEventListener("touchcancel", off);
+      document.removeEventListener("scroll", off, true);
+    };
+  })();
+  const startPress = idx => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      // ⚠️菜单是在手指还按着的时候弹的，抬手那一下会直接落在菜单上。
+      //   所以弹出的同时把【下一次点击】吞掉一次：这段时间里的 click
+      //   一定是这次长按的抬手，不是她真想点什么。
+      const swallow = e => { e.stopPropagation(); e.preventDefault(); };
+      document.addEventListener("click", swallow, true);
+      setTimeout(() => document.removeEventListener("click", swallow, true), LONG_PRESS_MUTE_MS);
+      onFire(idx);
+    }, LONG_PRESS_MS);
+  };
+  const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+  return { startPress: startPress, endPress: endPress };
+}
+
+const lp = useLongPressMenu(idx => { window.__fired.push(idx); });
+const list = document.getElementById("list");
+for (let i=0;i<40;i++){ const d=document.createElement("div"); d.style.padding="14px"; d.textContent="消息 "+i;
+  d.addEventListener("touchstart", ()=>lp.startPress(i));
+  d.addEventListener("touchend", ()=>lp.endPress());
+  list.appendChild(d); }
+</script></body>
