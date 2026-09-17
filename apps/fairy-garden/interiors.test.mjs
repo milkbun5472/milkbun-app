@@ -33,3 +33,12 @@ test('freestanding arch columns do not overlap home or public hall furniture',()
  for(const id of ['home','hall'])for(const a of MAPS[id].plan.arches)for(const side of [-1,1])for(const q of MAPS[id].furniture)
   assert.ok(Math.abs(a.x+side*a.w/2-q.x)>q.w/2+.26||Math.abs(a.z-q.z)>q.d/2+.30,id+' arch intersects '+q.kind);
 });
+test('dining and lecture chairs face their table or lectern instead of turning their backs',()=>{
+ for(const [id,kind,targetKind] of [['home','chair','dining'],['hall','stool','lectern']]){
+  const target=MAPS[id].furniture.find(q=>q.kind===targetKind);
+  for(const q of MAPS[id].furniture.filter(q=>q.kind===kind)){
+   const heading=q.heading||0,dx=target.x-q.x,dz=target.z-q.z;
+   assert.ok((-Math.sin(heading)*dx+Math.cos(heading)*dz)/Math.hypot(dx,dz)>.5,id+' seat faces activity');
+  }
+ }
+});
