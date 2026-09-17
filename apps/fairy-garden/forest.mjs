@@ -1,10 +1,10 @@
 import * as T from 'three';
-import {TREES,NODES} from './world.mjs?v=fg-ed9661e8ab610ceb';
+import {TREES,NODES} from './world.mjs?v=fg-610e15f33b6882ec';
 // Reusable geometry and hand-painted pigment textures; no generated-image requests.
 export function makeForest(){
  const root=new T.Group(),nodes=new Map(),glows=[],mats=new Map();let seed=71;
  const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
- function mat(color){if(mats.has(color))return mats.get(color);const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d');c.fillStyle=color;c.fillRect(0,0,128,128);for(let i=0;i<750;i++){c.fillStyle=rnd()>.5?'rgba(255,248,210,.055)':'rgba(22,55,49,.045)';c.beginPath();c.ellipse(rnd()*128,rnd()*128,2+rnd()*10,1+rnd()*3,rnd(),0,Math.PI*2);c.fill();}const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;const m=new T.MeshStandardMaterial({map:tex,color:'#bbc6b0',roughness:1});mats.set(color,m);return m;}
+ function mat(color){if(mats.has(color))return mats.get(color);const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d');c.fillStyle=color;c.fillRect(0,0,128,128);for(let i=0;i<750;i++){c.fillStyle=rnd()>.5?'rgba(255,248,210,.055)':'rgba(22,55,49,.045)';c.beginPath();c.ellipse(rnd()*128,rnd()*128,2+rnd()*10,1+rnd()*3,rnd(),0,Math.PI*2);c.fill();}const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;const m=new T.MeshStandardMaterial({map:tex,color:'#bbc6b0',roughness:1});if(['#759369','#658d70','#91a477','#9aaf70'].includes(color))m.userData.seasonRole='leaf';mats.set(color,m);return m;}
  function mesh(geo,color,x,y,z,sx=1,sy=1,sz=1,parent=root){const m=new T.Mesh(geo,mat(color));m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
  const sphere=new T.IcosahedronGeometry(1,2),cyl=new T.CylinderGeometry(1,1,1,12),cone=new T.ConeGeometry(1,1,10);
  // Ground and distant woodland are shared with the garden in surroundings.mjs.
@@ -23,7 +23,7 @@ export function makeForest(){
  for(const x of [-3.65,-2.55])mesh(cyl,'#b2b89c',x,.72,2.55,.18,1.35,.19);
  const arch=mesh(new T.TorusGeometry(.55,.16,7,18,Math.PI),'#a6b298',-3.1,1.39,2.55);arch.rotation.z=0;
  const moon=mesh(new T.TorusGeometry(.17,.045,6,16,Math.PI*1.55),'#eadca4',-3.1,1.55,2.54);moon.rotation.z=.8;
- for(const n of NODES){const g=new T.Group();g.position.set(n.x,.1,n.z);g.userData.nodeId=n.id;root.add(g);const plant=new T.Group();g.add(plant);nodes.set(n.id,{g,plant});
+ for(const n of NODES.filter(n=>n.map==='forest')){const g=new T.Group();g.position.set(n.x,.1,n.z);g.userData.nodeId=n.id;root.add(g);const plant=new T.Group();g.add(plant);nodes.set(n.id,{g,plant});
   mesh(sphere,'#77946a',0,0,0,.38,.08,.28,g);
   if(n.kind==='herb'){
    for(let j=0;j<6;j++){const a=j*Math.PI/3;const leaf=mesh(sphere,'#a1c0a0',Math.cos(a)*.15,.2,Math.sin(a)*.15,.065,.26,.095,plant);leaf.rotation.z=Math.sin(a)*.5;leaf.rotation.x=Math.cos(a)*.5;}

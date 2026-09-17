@@ -48,9 +48,10 @@ export function createTraveler(source,companion=false,look={}){
   rig.push({p,label});}
  const prop=new T.Group();root.add(prop);prop.visible=false;
  const pages=new T.Mesh(new T.BoxGeometry(.30,.045,.21),new T.MeshStandardMaterial({color:'#ede4c5',roughness:1}));prop.add(pages);const cover=new T.Mesh(new T.BoxGeometry(.32,.025,.23),new T.MeshStandardMaterial({color:'#6f877d',roughness:1}));cover.position.y=-.027;prop.add(cover);prop.position.set(0,.845,.22);prop.rotation.x=.35;
+ let sitBlend=0,lastPoseTime=0;
  return {root,setLook(next){const n=Object.assign({},want,next||{});if(next&&next.dims)n.dims=Object.assign({},want.dims,next.dims);if(HAIR_STYLES.includes(n.hair)){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+n.hair;});}
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))o.material.color.set(n.hairColor);else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
    applyDims(n.dims);
    Object.assign(want,n);},
-  animate(time,{moving=false,gesture='rest',height=.08}={}){root.position.y=height+(moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.x=moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;}}};
+  animate(time,{moving=false,gesture='rest',height=.08}={}){const seated=!moving&&gesture==='sit',dt=Math.min(.1,Math.max(0,time-lastPoseTime));lastPoseTime=time;sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);root.position.y=height-sitBlend*.34+(moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;const standing=moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;}}};
 }

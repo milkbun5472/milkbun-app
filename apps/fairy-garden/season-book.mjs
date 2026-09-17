@@ -1,4 +1,4 @@
-import {seasonOf,weather,ACTIVITIES,journalText} from './world.mjs?v=fg-ed9661e8ab610ceb';
+import {seasonOf,weather,ACTIVITIES,journalText} from './world.mjs?v=fg-610e15f33b6882ec';
 // This book renders saved plans and local facts; opening it never calls a model.
 export function installSeasonBook({getState,getHost,refresh}){
  const $=id=>document.getElementById(id),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};let busy=false,lastScroll=0;
@@ -7,11 +7,11 @@ export function installSeasonBook({getState,getHost,refresh}){
  $('season-title').textContent=`第 ${season.year} 年 · ${season.name}季`;
  $('season-summary').textContent=plan?plan.title:`每季 14 天，现在是第 ${season.day} 天。你们可以继续自由生活，也可以一起安排这一季。`;
  $('season-generate').disabled=busy||record?.status==='ready';$('season-generate').textContent=busy?'正在一起安排…':record?.status==='ready'?'这一季已安排好':record?'重试这一季':'一起安排这一季';
- $('season-policy').textContent='每位同行者每季生成一次，保存后每天沿用；新季节再由你点开安排。雨雪时会改到屋檐下活动。同行或等候时优先听你的招呼，想继续日程可在同行者面板点「按自己的安排」。';
+ $('season-policy').textContent='本季每天：'+Object.entries(season.weather).map(([kind,weight])=>kind+' '+weight+'%').join('、')+'。同一天刷新不重抽。'+'每位同行者每季生成一次，保存后每天沿用；新季节再由你点开安排。雨雪时会改到屋檐下活动。同行或等候时优先听你的招呼，想继续日程可在同行者面板点「按自己的安排」。';
  $('season-error').textContent=record?.status==='failed'?record.error||'上次没有完成，可以重试。':'';
  $('season-error-detail').textContent=record?.detail||'';$('season-raw').hidden=!record?.detail;
  body.replaceChildren();
- if(plan)for(const day of plan.days){const details=el('details');details.open=day.day===season.day;const summary=el('summary',`${season.name} ${day.day} 日 · ${weather(season.start+day.day-1)}${day.day===season.day?' · 今天':''}`);details.append(summary,el('p',day.note));for(const [i,a]of day.activities.entries())details.append(el('p',`${['上午','下午','傍晚'][i]} · ${ACTIVITIES[a.id].label}${a.note?'：'+a.note:''}`));body.append(details);}
+ if(plan)for(const day of plan.days){const details=el('details');details.open=day.day===season.day;const summary=el('summary',`${season.name} ${day.day} 日 · ${weather(season.start+day.day-1,s.epoch)}${day.day===season.day?' · 今天':''}`);details.append(summary,el('p',day.note));for(const [i,a]of day.activities.entries())details.append(el('p',`${['上午','下午','傍晚'][i]} · ${ACTIVITIES[a.id].label}${a.note?'：'+a.note:''}`));body.append(details);}
  else body.append(el('p','目前沿用同行者的日常偏好。生成安排后，角色会每天去相应地点；日程里的想法不是已经发生的事情。'));
  const m=s.magic;$('flower-book').textContent=m.discovered?`星铃花 · 已发现。花藏 ${m.flowers} 朵，屋前已有 ${m.lamps} 盏星铃灯。`:`星铃花 · 尚未收录。两人去林地唤醒种子，带回种下，隔天用清水照料两次后采收。种子 ${m.seeds} 颗${m.planted?'，新芽 '+m.growth+'/2':''}。`;
  $('flower-recipe').textContent='星铃花 ×1 ＋ 月光花 ×3 → 屋前星铃灯。每季林地会出现一颗新种子；小灯会在入夜后亮起。';

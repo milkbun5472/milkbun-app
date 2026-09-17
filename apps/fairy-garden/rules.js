@@ -15,7 +15,7 @@
  const DEPTH_NODES=Array.from({length:DEPTH_MAX},(_,i)=>depthNodes(i+1)).flat();
  const NODES=[...DEPTH_NODES,{id:'herb-a',map:'forest',kind:'herb',x:-2.8,z:.2},{id:'herb-b',map:'forest',kind:'herb',x:.1,z:2},{id:'herb-c',map:'forest',kind:'herb',x:2.5,z:-2.1},{id:'mushroom-a',map:'forest',kind:'mushroom',x:2.6,z:.5},{id:'mushroom-b',map:'forest',kind:'mushroom',x:-1.8,z:-3.1}];
  const MAPS={
- garden:{name:'林边村落',decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-ed9661e8ab610ceb',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[{x:4,z:5.7,w:2.2,d:2.3,height:.31}],exits:{travel:{to:'forest'}},
+ garden:{name:'林边村落',outdoor:true,seats:{pond:{x:3.65,z:5.15,heading:Math.PI,companion:{x:4.4,z:5.15}}},decor:{blooms:{x:-8.1,z:-.4,y:.32},lamps:Array.from({length:4},(_,i)=>({x:-6.5+i*.5,z:3.7}))},asset:'./village.glb?v=fg-610e15f33b6882ec',renderer:'glb',ground:'asset',background:'#dfe5d5',light:3.5,radius:14,view:{x:-1,z:0},spawn:{x:9.1,z:-1},surfaces:[{x:4,z:5.7,w:2.2,d:2.3,height:.31}],exits:{travel:{to:'forest'}},
  stations:{well:{x:-2.7,z:3.05},dive:{x:-2.7,z:3.05},garden:{x:-7.6,z:1.55},note:{x:-7.6,z:1.55},brew:{x:-3.6,z:3.8},travel:{x:10,z:-1},rest:{x:-5.4,z:3.55},star:{x:-5.8,z:4.5},lamp:{x:-6.4,z:4.3}},
  // ⚠️「自己的小屋」必须在这张名单里（她 2026-09-16：「我回不了家了」）：
  // 地点下拉是照这张表长的，表里没有家，她就只能靠「睡到明天」才回得去——
@@ -29,14 +29,20 @@
  stations:{ladder:{x:0,z:2.6},deeper:{x:0,z:-2.35}},
  interactions:[{kind:'ladder',x:0,z:2.6,r:.6},{kind:'deeper',x:0,z:-2.35,r:.6}],
  obstacles:[...Array.from({length:16},(_,i)=>{const a=i*Math.PI/8;return {x:Math.cos(a)*3.55,z:Math.sin(a)*3.55,r:.5};})]},
- forest:{name:'萤光林地',renderer:'forest',background:'#dbe5d6',light:2.4,radius:5.12,spawn:{x:-2.7,z:3.05},exits:{travel:{to:'garden'}},stations:{travel:{x:-2.7,z:3.05},seed:{x:1.7,z:3}},interactions:[{kind:'travel',x:-3.1,z:2.55,r:.55},{kind:'seed',x:1.7,z:2.5,r:.45}],obstacles:[{x:-.7,z:-1.1,r:1.28},...TREES.map(([x,z])=>({x,z,r:.44}))]}
+ forest:{name:'萤光林地',outdoor:true,seats:{pond:{x:-.95,z:.65,heading:Math.PI,companion:{x:-.15,z:.65}}},renderer:'forest',background:'#dbe5d6',light:2.4,radius:5.12,spawn:{x:-2.7,z:3.05},exits:{travel:{to:'garden'}},stations:{travel:{x:-2.7,z:3.05},seed:{x:1.7,z:3}},interactions:[{kind:'travel',x:-3.1,z:2.55,r:.55},{kind:'seed',x:1.7,z:2.5,r:.45}],obstacles:[{x:-.7,z:-1.1,r:1.28},...TREES.map(([x,z])=>({x,z,r:.44}))]}
  };
  const ACTIVITIES={
  flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},mushrooms:{map:'forest',target:{x:2.6,z:.98},label:'寻找会发光的蘑菇',gesture:'gather'},pond:{map:'forest',target:{x:-.7,z:.6},label:'在池边观察水纹',gesture:'read'},study:{map:'garden',target:MAPS.garden.sites.hall.target,label:'翻看魔法笔记',gesture:'read'},potion:{map:'garden',target:MAPS.garden.stations.brew,label:'研究炼药锅里的微光',gesture:'read'},glow:{map:'forest',target:{x:1.7,z:3},label:'等草丛里的萤光亮起来',gesture:'rest'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋前歇脚',gesture:'rest'},rain:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋檐下听雨',gesture:'read'},star:{map:'garden',target:MAPS.garden.stations.star,label:'看看星铃花的新芽',gesture:'read'},dive:{map:'garden',target:MAPS.garden.stations.well,label:'在井口往下看看',gesture:'read'}
  };
- const SEASONS=[{name:'春',tint:'#eef5dd',dusk:1080,weather:['晴日','细雨','薄雾','晴日','细雨','晴日','晴日']},{name:'夏',tint:'#e7f5ce',dusk:1140,weather:['晴日','晴日','细雨','晴日','薄雾','晴日','细雨']},{name:'秋',tint:'#efd2a9',dusk:1020,weather:['薄雾','晴日','晴日','细雨','晴日','薄雾','晴日']},{name:'冬',tint:'#dce7ee',dusk:960,weather:['细雪','晴日','薄雾','晴日','细雪','晴日','晴日']}];
+ const SEASONS=[
+  {name:'春',tint:'#d8ecc0',dusk:1080,weather:{'晴日':45,'细雨':35,'薄雾':20}},
+  {name:'夏',tint:'#afd08f',dusk:1140,weather:{'晴日':65,'细雨':25,'薄雾':10}},
+  {name:'秋',tint:'#d4a16b',dusk:1020,weather:{'晴日':50,'细雨':20,'薄雾':30}},
+  {name:'冬',tint:'#dfeaf0',dusk:960,weather:{'晴日':30,'细雪':50,'薄雾':20}}
+ ];
  const seasonOf=day=>{const d=Math.max(1,Math.floor(Number(day)||1)),index=Math.floor((d-1)/14);return {...SEASONS[index%4],index,key:String(index),year:Math.floor(index/4)+1,day:(d-1)%14+1,start:index*14+1,end:index*14+14};};
- const weather=day=>{const s=seasonOf(day);return s.weather[(s.day-1+Math.floor((s.day-1)/7)*2+Math.floor(s.index/4))%s.weather.length];};
+ // A seeded daily draw: saved epoch + absolute day, independent of refresh, map and calls.
+ const weather=(day,epoch='initial')=>{const d=Math.max(1,Math.floor(Number(day)||1));let h=2166136261;for(const ch of String(epoch)+':weather:'+d){h=Math.imul(h^ch.charCodeAt(0),16777619);}h^=h>>>16;h=Math.imul(h,0x7feb352d);h^=h>>>15;h=Math.imul(h,0x846ca68b);h^=h>>>16;let draw=(h>>>0)/4294967296*100;for(const [kind,weight]of Object.entries(seasonOf(d).weather)){draw-=weight;if(draw<0)return kind;}return '晴日';};
  function normalizePlan(raw,day){const season=seasonOf(day);if(!raw||!Array.isArray(raw.days)||raw.days.length!==14)throw Error('这一季需要完整的 14 天安排，可以重试。');const seen=new Set();const days=raw.days.map(d=>{if(!Number.isInteger(d.day)||d.day<1||d.day>14||seen.has(d.day)||!Array.isArray(d.activities)||d.activities.length!==3)throw Error('日期或活动数量没有对上，请重试这一季。');seen.add(d.day);return {day:d.day,note:String(d.note||'').slice(0,180),activities:d.activities.map(a=>{if(!a||!Object.hasOwn(ACTIVITIES,a.id))throw Error('有一项活动还不在这个世界里，请重试这一季。');return {id:a.id,note:String(a.note||'').slice(0,120)};})};}).sort((a,b)=>a.day-b.day);return {season:season.index,title:String(raw.title||'一起度过这一季').slice(0,60),days};}
  function hitInteraction(map,p,depth){const m=MAPS[map];if(!m)return null;const n=NODES.find(n=>n.map===map&&(n.depth==null||n.depth===depth)&&Math.hypot(n.x-p.x,n.z-p.z)<.48);if(n)return {kind:'gather',id:n.id};return m.interactions.find(o=>o.r?Math.hypot(p.x-o.x,p.z-o.z)<o.r:Math.abs(p.x-o.x)<o.w/2&&Math.abs(p.z-o.z)<o.d/2)||null;}
  root.FairyGardenRules={START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction};

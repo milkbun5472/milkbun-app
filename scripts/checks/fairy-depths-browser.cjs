@@ -7,7 +7,7 @@ try{
  const p=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
  p.on('pageerror',e=>errors.push(e.message));await p.route('**/*',r=>r.request().url().startsWith(base)?r.continue():r.abort());
  await p.goto(base+'/apps/fairy-garden/');await p.waitForFunction(()=>window.gardenDebug?.getReady());
- const fixture=await p.evaluate(async()=>{const w=await import('./world.mjs');let s=w.freshState();s=w.advanceTime(s,900);return w.perform({...s,position:w.targetFor(s,'dive')},'dive');});
+ const fixture=await p.evaluate(async()=>{const w=await import('./world.mjs');let s=w.freshState();s.companion.mode='wait';s=w.advanceTime(s,900);return w.perform({...s,position:w.targetFor(s,'dive')},'dive');});
  await p.addInitScript(s=>{if(!sessionStorage.getItem('well-test-seeded')){localStorage.setItem('fairy-garden-prototype-v1',JSON.stringify(s));sessionStorage.setItem('well-test-seeded','1');}},fixture);
  await p.reload();await p.waitForFunction(()=>window.gardenDebug?.getReady());
  assert.equal(await p.evaluate(()=>gardenDebug.getState().map),'depths');
