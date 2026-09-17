@@ -64,8 +64,8 @@ test("开口只认它自己那个咒，而且说得出为什么", () => {
 
 // 名字即契约，先例是 doll.glb 那十二款头发
 test("场景那一侧按名字切两份网格", () => {
-  assert.match(game, /const m=\/\^\(shut\|open\):\(\.\+\)\$\/\.exec\(o\.name\|\|''\)/);
-  assert.match(game, /o\.visible=\(m\[1\]==='open'\)===opened\(data,m\[2\]\)/);
+  assert.match(game, /const tag=openingTag\(o\)/);
+  assert.match(game, /o\.visible=\(tag\.side==='open'\)===opened\(data,tag\.key\)/);
   assert.match(game, /先例是 doll\.glb 那十二款头发/);
   assert.match(game, /function showMap\(atPlayer=false\)\{syncOpenings\(\);/, "换地图、读档之后也要切一次");
   assert.match(game, /\$\('cast-dialog'\)\.close\(\);syncOpenings\(\);/, "封完当场切");

@@ -1,12 +1,12 @@
-import './rules.js?v=fg-ba6ffc6b02ddaf34';
+import './rules.js?v=fg-fea041812ebfb87d';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-ba6ffc6b02ddaf34';
+import {createNavigator} from './navigation.mjs?v=fg-fea041812ebfb87d';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
  let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[j],b=points[i];if(padding>0&&x>=Math.min(a.x,b.x)-padding&&x<=Math.max(a.x,b.x)+padding&&z>=Math.min(a.z,b.z)-padding&&z<=Math.max(a.z,b.z)+padding){const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/l)):0;if((x-a.x-dx*t)**2+(z-a.z-dz*t)**2<padding*padding)return true;}if((a.z>z)!==(b.z>z)&&x<(b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x)inside=!inside;}return inside;}
 export const lakeFrozen=s=>seasonOf(s?.day||1).index%4===3;
-export function onLakeIce(map,p,s){const l=MAPS.garden.lake,d=l.deck;return map==='garden'&&lakeFrozen(s)&&inPolygon(p.x,p.z,l.shore)&&!(Math.abs(p.x-d.x)<d.w/2+.12&&Math.abs(p.z-d.z)<d.d/2+.12)&&((p.x-l.island.x)/(l.island.rx+.16))**2+((p.z-l.island.z)/(l.island.rz+.16))**2>=1;}
+export function onLakeIce(map,p,s){const l=MAPS.garden.lake,d=l.deck;return map==='garden'&&lakeFrozen(s)&&!openDeck(map,p.x,p.z,s)&&inPolygon(p.x,p.z,l.shore)&&!(Math.abs(p.x-d.x)<d.w/2+.12&&Math.abs(p.z-d.z)<d.d/2+.12)&&((p.x-l.island.x)/(l.island.rx+.16))**2+((p.z-l.island.z)/(l.island.rz+.16))**2>=1;}
 export function walkable(x,z,map='garden',s=null){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;if(MAPS[map].walkRegions&&!MAPS[map].walkRegions.some(a=>a.polygon?inPolygon(x,z,a.polygon):Math.hypot(x-a.x,z-a.z)<=a.r))return false;if(MAPS[map].plan?.outline&&!inPolygon(x,z,MAPS[map].plan.outline))return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;if(openDeck(map,x,z,s))return true;return !MAPS[map].obstacles.some(o=>{if(!blocksNow(o,s))return false;if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.polygon?inPolygon(x,z,o.polygon,.16):o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 // 这一块【此刻】还挡不挡路。⚠️只有这一处答案：walkable 按点问它，segmentClear
 //   按线段问它。原来 segmentClear 那一句抢跑的快筛不问存档，于是「落脚点能走、
@@ -787,15 +787,15 @@ export const SPELL_PLACES = { eaves: '屋檐下', sill: '窗台', pond: '池边'
 //   那一句是 codex 自己发明的同一个形状，这儿只是把它从「湖专用」变成谁都能用。
 // ⚠️碎片照旧【不烧掉】：它是从背包出去、封进世界里的一个位置，还读得到。
 export const OPENINGS = {
-  fallenTree: { site: 'hiddenPath', spell: 'relic',
+  fallenTree: { site: 'fallenTree', spell: 'relic',
     shut: '一棵倒树横在泥路上，树根那头还连着土。',
     open: '树被抬起来了，底下露出能过人的缝。',
     done: '林道上那棵倒树被抬了起来，路通到了深林' },
-  reedBridge: { site: 'lakeEast', spell: 'sense',
+  reedBridge: { site: 'reedBridge', spell: 'sense',
     shut: '水从芦苇里流过去，对岸的小岛隔着一段没有路的水面。',
     open: '芦苇自己编成了一道桥，踩上去会轻轻晃。',
     done: '湖上的芦苇编成了一道桥，小岛能过去了' },
-  towerVines: { site: 'oldTower', spell: 'dream',
+  towerVines: { site: 'towerVines', spell: 'dream',
     shut: '藤蔓把那一处封得很密，叶子底下透出一点光。',
     open: '藤蔓让开了，像有人替你把门推了一下。',
     done: '旧塔里那片藤蔓让开了' }

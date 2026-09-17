@@ -541,7 +541,7 @@ def oldTower(m):
   plate('Walkable observatory stone level',clipped(poly,q['x']-q['w']/2,q['x']+q['w']/2,q['z']-q['d']/2,q['z']+q['d']/2),q['height'],pale,q['height']-.12)
  # Tile sections are clipped at each stair edge; nothing floats across an elevation change.
  for row in range(-12,13):
-  for col in range(-11,12):
+  for col in range(-11,15):
    x=col*.74+(row%2)*.37;z=row*.63
    if not all(inside(xx,zz,outline) for xx,zz in [(x-.35,z-.3),(x+.35,z-.3),(x+.35,z+.3),(x-.35,z+.3)]):continue
    for x0,x1,z0,z1,base in tile_sections(m,x-.35,x+.35,z-.3,z+.3):plate('Hand cut limestone floor tile',[(x0,z0),(x1,z0),(x1,z1),(x0,z1)],base+.008,tiles[(row+col)%3],.025)
