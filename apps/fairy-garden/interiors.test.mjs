@@ -20,3 +20,16 @@ test('prior indoor layout relocates safely without changing possessions or sleep
  assert.deepEqual(restoreState(JSON.parse(JSON.stringify(next))),next);assert.equal(old.interiorLayout,undefined);
  assert.doesNotThrow(()=>restoreState({...old,sleep:{player:'__proto__',companion:'constructor'}}));
 });
+test('gallery arch feet clear the full cabinet cornices and leave access to displays',()=>{
+ const m=MAPS.museum;
+ for(const a of m.plan.arches)for(const side of [-1,1])for(const d of Object.values(m.displays)){
+  const q=d.cabinet,x=a.x+side*a.w/2;
+  // Actual foot half-depth .185, cornice overhang .11 plus visible clearance .12.
+  assert.ok(Math.abs(x-q.x)>q.w/2+.26||Math.abs(a.z-q.z)>q.d/2+.415,'arch foot intersects '+d.label);
+ }
+ for(const d of Object.values(m.displays))assert.ok(findPath(m.spawn,d.target,'museum')?.length);
+});
+test('freestanding arch columns do not overlap home or public hall furniture',()=>{
+ for(const id of ['home','hall'])for(const a of MAPS[id].plan.arches)for(const side of [-1,1])for(const q of MAPS[id].furniture)
+  assert.ok(Math.abs(a.x+side*a.w/2-q.x)>q.w/2+.26||Math.abs(a.z-q.z)>q.d/2+.30,id+' arch intersects '+q.kind);
+});
