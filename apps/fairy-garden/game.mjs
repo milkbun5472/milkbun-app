@@ -176,6 +176,13 @@ function ui(){
    b.textContent=short.length?w.label+'（还差'+short.join('、')+'）':'修好'+w.label;
    b.title=w.hint+'：'+workCost(id);}
  })();
+(() => {
+  // ⚠️那条「轻点行走·拖动画面·双指缩放」原来按固定像素摆，行动面板一封顶就压在面板上
+  //   （她 2026-09-17 那一版正好盖住同行者那一条）。百分比也不行：它的包含块不是整屏。
+  //   所以照【面板此刻的上沿】摆——面板多高，它就退到哪儿，只有这一处算位置。
+  const panel=$('action-panel'),hint=$('hint');
+  if(panel&&hint)hint.style.bottom=(innerHeight-panel.getBoundingClientRect().top+10)+'px';
+ })();
  quietPanelButtons();tidyActions();
 }
 // 行动面板收拾一遍（她 2026-09-17 截图：「这个行动也太挤了」）。
@@ -206,7 +213,28 @@ function tidyActions(){
 }
 // 雨铃：真下雨、真挂在屋檐下才响。⚠️这一句是代码说的，不是模型生成的
 // Named doors use the same exit metadata as player travel and companion routing.
-let doorsMap='';function fillDoors(){const box=$('map-doors');if(doorsMap!==data.map){doorsMap=data.map;box.replaceChildren();for(const [id,e]of Object.entries(MAPS[data.map].exits)){if(e.action!=='door')continue;const b=document.createElement('button');b.textContent=e.label;b.dataset.door=id;b.onclick=()=>request('door',id);box.append(b);}}box.hidden=!box.children.length;for(const b of box.children)b.disabled=!!acting;}
+// ── 门收成一颗（她 2026-09-17：「整理一下 ui」）──────────────────────────
+// ⚠️codex 每盖好一间屋，这儿就多一颗「走进 X」——她截图那一版已经七颗，占掉半屏，
+//   而且只会越来越长。三颗以上就收成一颗「进屋去…」，点开再挑。
+// ⚠️门在场景里本来就走得到（门就在那儿点得到），这一颗只是给「懒得找门」留的路，
+//   跟她早先定的「撤掉场景里点得到的按钮」是同一条：不删路，只是不摊在台面上。
+const DOORS_INLINE=3;
+let doorsMap='';
+const doorsOf=()=>Object.entries(MAPS[data.map].exits||{}).filter(([,e])=>e.action==='door');
+function openDoors(){
+ const list=$('spot-list');list.replaceChildren();
+ for(const [id,e] of doorsOf()){const b=document.createElement('button');b.textContent=e.label;
+  b.disabled=!!acting;b.onclick=()=>{$('spot-dialog').close();request('door',id);};list.append(b);}
+ $('spot-title').textContent='进屋去';$('spot-note').hidden=true;
+ $('spot-dialog').showModal();
+}
+function fillDoors(){const box=$('map-doors'),doors=doorsOf();
+ if(doorsMap!==data.map){doorsMap=data.map;box.replaceChildren();
+  if(doors.length>DOORS_INLINE){const b=document.createElement('button');
+   b.textContent='进屋去… '+doors.length+' 处';b.dataset.door='more';b.onclick=openDoors;box.append(b);}
+  else for(const [id,e]of doors){const b=document.createElement('button');b.textContent=e.label;
+   b.dataset.door=id;b.onclick=()=>request('door',id);box.append(b);}}
+ box.hidden=!box.children.length;for(const b of box.children)b.disabled=!!acting;}
 // 修好的那几处：走到了就该看出来是弄过的（跟灯下那句同一个道理）
 function workLine(){
  if(data.map!=='garden')return '';
@@ -874,7 +902,11 @@ function tapMap(clientX,clientY){chasing=false;const r=canvas.getBoundingClientR
 function panMap(dx,dy){cameraFollow=false;chatFollow=false;
  camera.updateMatrixWorld();const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);const origin=r.ray.origin.clone();r.setFromCamera(new THREE.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);const delta=orthographicPanDelta(origin,r.ray.origin,r.ray.direction);if(!delta)return;cameraPan.x+=delta.x;cameraPan.z+=delta.z;cameraPan.y=0;cameraPan.clampLength(0,MAPS[data.map].radius);resize(false);
 }
-const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:()=>{cameraFollow=true;chatFollow=true;if(actor)cameraPan.set(actor.position.x,0,actor.position.z);resize(false);},onReset:()=>{cameraFollow=false;const p=MAPS[data.map].view||{x:0,z:0};cameraPan.set(p.x,0,p.z);},onPan:panMap,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onZoom:value=>{camera.zoom=value;resize(false);}});
+const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:()=>{cameraFollow=true;chatFollow=true;if(actor)cameraPan.set(actor.position.x,0,actor.position.z);resize(false);},onReset:()=>{cameraFollow=false;const p=MAPS[data.map].view||{x:0,z:0};cameraPan.set(p.x,0,p.z);},onPan:panMap,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onZoom:value=>{camera.zoom=value;resize(false);
+ // ⚠️−／100%／＋ 三颗横着占掉两百像素、压在标题上（她 2026-09-17 点名的就是这块）。
+ //   双指本来就能缩放（提示里写着），所以默认只留「地图」和「回到自己」两颗；
+ //   真的缩放过了，那三颗才冒出来——她需要的是【退回去】，不是一直摆着三颗。
+ const off=Math.abs(value-1)>.02;$('zoom-reset').hidden=!off;$('zoom-reset').textContent=Math.round(value*100)+'%';$('zoom-in').hidden=!off;$('zoom-out').hidden=!off;}});
 canvas.addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d&&actor){e.preventDefault();go({x:actor.position.x+d[0],z:actor.position.z+d[1]});}});
 $('quality').onclick=()=>{lite=!lite;renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.6));renderer.shadowMap.enabled=!lite;$('quality').textContent=lite?'精细画质':'轻量画质';scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});resize();};
 $('reset').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=async()=>{if(loadingMap)return;loadingMap=true;try{await mapLoader.ensure('garden',START);}catch(e){say('小屋暂时没有加载成功，原来的进度还在。');return;}finally{loadingMap=false;}path=[];task=null;acting=null;stream.visible=false;$('progress').hidden=true;data={...freshState(),epoch:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};companionController.reset();timeAccumulator=0;lastCompanionEvent='';if(actor)actor.position.set(START.x,.08,START.z);targetRing.visible=false;showMap();mapLoader.keep('garden');save();if(boundPartner)data.companion.name=boundPartner.name;say('新的生活，从一壶清水和一条林间小路开始。');$('reset-dialog').close();};
