@@ -43,17 +43,22 @@ test("她不点，他回自己的日程，思念一分不扣", () => {
 
 // ⚠️计划有两处在定：companionPlan，以及 tick 在 routine 模式下直接用的 plannedActivity。
 //   只改前一处的话，他最常处的那个模式里永远不会来（2026-09-17 实机抓到）。
-test("他自己要来那一版计划只有一份，两处都认它", () => {
-  assert.match(companion, /export function missPlan\(s\)/);
-  const plan = companion.slice(companion.indexOf("export function companionPlan"), companion.indexOf("// One movement controller"));
-  assert.ok(plan.indexOf("missPlan(s)") < plan.indexOf("c.mode==='follow'"),
-    "排在后面的话，她点过一次「按自己的安排」，他就永远来不了");
-  // tick 那一处也得先问它，不能绕过去
-  assert.match(companion, /wants=missPlan\(s\),routine=wants\|\|\(sleeping\?companionPlan\(s\)/);
-  assert.match(companion, /choiceKey=wants\?'miss:'\+s\.day/, "换成来找你之后旧路线还缓存着，他会站在原地");
-  // 睡着的不叫起来
-  assert.match(companion, /MAPS\.home\.beds\[s\.sleep\?\.companion\]\|\|!missWanting\(s\)/);
-  assert.match(world, /!\(s\.sleep && s\.sleep\.companion\)/);
+test("他自己要来那一版计划只有一份，两处都认它", async () => {
+  const w = await import("../apps/fairy-garden/world.mjs");
+  const c = await import("../apps/fairy-garden/companion.mjs");
+  let winter = w.freshState();
+  for (let i = 0; i < 42; i++) winter = w.advanceTime(winter, 1380 - winter.minute);
+  for (const mode of ["routine", "follow", "wait", "goto"]) {
+    let state = {...winter, position: {x:12,z:5}, companion: {...winter.companion, mode, position:{x:12,z:7.8}}};
+    assert.equal(c.companionPlan(state).id, "miss", mode);
+    const controller = c.makeCompanionController();
+    for(let i=0;i<100;i++) state = controller.tick(state,.05,{allowCare:false}).state;
+    assert.ok(w.companionNearby(state), mode+"：冰面上的到访也必须走到身边");
+    assert.match(controller.view().status, /找你说句话|像是有话要说/, mode);
+    assert.ok(w.onLakeIce("garden",state.companion.position,state));
+  }
+  const bed = Object.keys(w.MAPS.home.beds)[0];
+  assert.equal(c.missPlan({...winter,sleep:{player:null,companion:bed}}),null);
 });
 
 test("记号是能点的，气泡不是——两个不能是同一个东西", () => {

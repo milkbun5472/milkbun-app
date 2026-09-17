@@ -174,3 +174,11 @@ node scripts/build-fairy-garden.mjs
 自家为高低屋顶与侧翼的爬藤小屋，公共厅为铃楼长屋；三邻居分别尖顶阁楼、圆塔书斋、带玻璃花房的弯檐屋；收藏馆为金属框架拱顶温室。共享曲面瓦顶、拱窗、门、侧窗、烟囱与木架函数，区别来自体块/屋顶/窗位组合。手绘色差材质名称保留roof/foliage角色，直接参加运行时四季。
 
 输出整体 `village-architecture.blend/png`，各栋 `*-exterior.png` 与 `village-{home,hall,neighbor1,neighbor2,neighbor3,museum}.blend`。六份GLB均 `export-fairy-village.py --detail` 保留薄瓦片、拱顶和门窗边。完成 spacious 的生成后再运行 architecture，不能只重导旧的spacious建筑。地景和月潭资产本轮不重导；屋内的双人床、公共厅/宿舍、收藏馆内景和用户收藏均不变。
+
+### 林间月湖（2026-09-16）
+
+`build_lake.py -- ART_ROOT OUTPUT_DIR` 在 architecture-v2/village-architecture.blend 上扩建湖岸。`MAPS.garden.lake` 是湖岸采样、多边形水域、河道、树干占地、瓶子与到达点的共同来源；湖中岛只是景物，不开放步行。保留原栈桥两人坐点、溪桥和林地出口，水域覆盖旧备用出生点后统一回屋前。
+
+输出 village-lake.blend/预览及 village-{ground,pond,lake-far}.blend。ground 仍 `--ratio=.12`，pond/lake-far `--detail`；其余六栋建筑文件不重导。水面先三角化再沿 z=2 裁切，两个懒加载区共边，无跨水域的独立碰撞硬编码；河口水面略低避免与湖面共面闪烁。重建顺序 spacious → architecture → lake。
+
+`lake-view.mjs` 只画瓶子与水纹，按实际分区加载和 driftError 控制显示；点模型和原按钮都转交 request('bottle')，仍由 drawBottle 结算，每日一次，空瓶也占一次。冬季水色走共享 outdoor；无新增AI调用、库存或存档体系。

@@ -26,3 +26,7 @@ export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,
  globalThis.addEventListener('blur',()=>gesture.cancel());
  fold();gesture.setZoom(gesture.getZoom());return gesture;
 }
+
+// Orthographic dragging uses infinite ground lines: a long swipe can put the shifted
+// ray origin below the plane, which must not turn a valid drag into a no-op.
+export function orthographicPanDelta(origin,shifted,direction){if(Math.abs(direction.y)<1e-8)return null;const dy=origin.y-shifted.y;return {x:origin.x-shifted.x-dy*direction.x/direction.y,z:origin.z-shifted.z-dy*direction.z/direction.y};}
