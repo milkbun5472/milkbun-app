@@ -18,7 +18,7 @@ test('expanded districts preserve connected doors and navigable lawns',()=>{
  assert.equal(MAPS.garden.radius,32);assert.deepEqual(START,{x:-12.6,z:9.2});
  assert.ok(Math.hypot(MAPS.garden.sites.home.target.x-MAPS.garden.sites.hall.target.x,MAPS.garden.sites.home.target.z-MAPS.garden.sites.hall.target.z)>20);
  for(const site of Object.values(MAPS.garden.sites))assert.ok(findPath(START,site.target),'unreachable '+site.label);
- assert.ok(walkable(0,3));assert.ok(walkable(-5,5));assert.equal(MAPS.garden.obstacles[5].w,3.5);assert.equal(MAPS.garden.obstacles[6].w,MAPS.garden.architecture.hall.parts[0].w);
+ assert.ok(walkable(0,3));assert.ok(walkable(-5,5));for(const id of ['home','hall']){const part=MAPS.garden.architecture[id].parts[0];assert.ok(MAPS.garden.obstacles.some(q=>q.x===part.x&&q.z===part.z&&q.w===part.w&&q.d===part.d),id+' visible building remains blocked');}
 });
 test('v69.43 outdoor save positions migrate once while collections, date and indoor bed positions survive',()=>{
  // v69.43 freshState writer uses version 8, no layout field, and these outdoor positions.
