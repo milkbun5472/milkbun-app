@@ -44,3 +44,24 @@ test("那条提示按面板此刻的上沿摆，只有一处算位置", () => {
   assert.doesNotMatch(css, /\.hint\{bottom:352px\}/, "后写的那条会压过前面，两处写同一个位置本来就是错的");
   assert.equal((css.match(/\.hint\{bottom:/g) || []).length, 0, "位置只许 JS 那一处算");
 });
+
+// 收起来的时候那条提示原来停在小人脸上
+test("收起／展开之后提示跟着面板走", () => {
+  const vc = require("node:fs").readFileSync("apps/fairy-garden/view-controls.mjs", "utf8");
+  assert.match(vc, /onFold=\(\)=>\{\}/);
+  assert.match(vc, /persist\(\);onFold\(folded\);\}/);
+  assert.match(game, /onFold:\(\)=>placeHint\(\),/);
+  assert.match(game, /function placeHint\(\)\{/);
+  assert.equal((game.match(/placeHint\(\)/g) || []).length, 3, "一次定义，ui() 和收起那一下各叫一次");
+  assert.match(game, /只有这一处算位置/);
+  // ⚠️那个百分比 view-controls 自己已经在写了
+  assert.doesNotMatch(game, /\$\('zoom-reset'\)\.textContent=/, "两处写同一个字，迟早对不上");
+});
+
+// 开局六样全是 0，占掉一整行说「你什么都没有」
+test("背包只显示真的有的那几样", () => {
+  assert.match(html, /<div class="bag" id="bag"/);
+  assert.match(game, /const n=count0\(data\[k\]\),cell=\$\(k\)\.parentElement;/);
+  assert.match(game, /cell\.hidden=!n;if\(n\)carried\+\+;/);
+  assert.match(game, /\$\('bag'\)\.hidden=!carried;/);
+});

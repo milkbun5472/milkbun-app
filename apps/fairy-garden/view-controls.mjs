@@ -11,12 +11,12 @@ export function createMapGesture({initial=1,onZoom=()=>{},onTap=()=>{},onPan=()=
  cancel(){points.clear();pinching=false;distance=0;}
  };
 }
-export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,reset,center,onCenter=()=>{},onReset=()=>{},onPan,onZoom,onTap,storage=globalThis.localStorage}){
+export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,reset,center,onCenter=()=>{},onReset=()=>{},onPan,onZoom,onTap,onFold=()=>{},storage=globalThis.localStorage}){
  const key='x_fairyGardenView';let pref={};try{pref=JSON.parse(storage.getItem(key)||'{}')||{};}catch{}
  let folded=pref.folded===true,saveTimer;
  const persist=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{storage.setItem(key,JSON.stringify({folded,zoom:gesture.getZoom()}));}catch{}},120);};
  const gesture=createMapGesture({initial:pref.zoom,onTap,onPan,onZoom:value=>{onZoom(value);reset.textContent=Math.round(value*100)+'%';zoomIn.disabled=value>=MAX_ZOOM;zoomOut.disabled=value<=MIN_ZOOM;persist();}});
- function fold(){content.hidden=folded;panel.classList.toggle('folded',folded);toggle.setAttribute('aria-expanded',String(!folded));toggle.querySelector('span').textContent=folded?'展开行动':'收起行动';persist();}
+ function fold(){content.hidden=folded;panel.classList.toggle('folded',folded);toggle.setAttribute('aria-expanded',String(!folded));toggle.querySelector('span').textContent=folded?'展开行动':'收起行动';persist();onFold(folded);}
  toggle.onclick=()=>{folded=!folded;fold();};zoomIn.onclick=()=>gesture.setZoom(gesture.getZoom()*1.2);zoomOut.onclick=()=>gesture.setZoom(gesture.getZoom()/1.2);reset.onclick=()=>{onReset();gesture.setZoom(1);};if(center)center.onclick=onCenter;
  canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;gesture.down(e.pointerId,e.clientX,e.clientY);try{canvas.setPointerCapture(e.pointerId);}catch{}});
  canvas.addEventListener('pointermove',e=>gesture.move(e.pointerId,e.clientX,e.clientY));

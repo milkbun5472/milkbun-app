@@ -123,7 +123,13 @@ function ui(){
  $('dream-open').hidden=data.map!=='garden';$('dream-open').disabled=!!acting;
  $('home-sleep').hidden=data.map!=='home';$('wake-player').hidden=!data.sleep?.player;$('wake-companion').hidden=!data.sleep?.companion;for(const id of ['lie-down','bed-select','sleep-mode','wake-player','wake-companion'])$(id).disabled=!!acting;
  const woods=data.map==='forest',down=data.map==='depths',inside=!!MAPS[data.map].interior;refreshSeasonPlan();$('water').textContent='● '.repeat(data.water)+'○ '.repeat(3-data.water);$('blooms').textContent=['幼苗','一朵苏醒','两朵苏醒','可以采收'][data.blooms];
- for(const k of ['herbs','mushrooms','potions','harvest','sand','stones'])$(k).textContent=data[k];
+// ⚠️背包那一行原来六样常驻，开局全是 0——占掉一整行，说的全是「你什么都没有」。
+//   有的才显示；一样都没有时整行收起来。数还是同一处写，只是空的那几样不摆出来。
+ {let carried=0;
+  for(const k of ['herbs','mushrooms','potions','harvest','sand','stones']){
+   const n=count0(data[k]),cell=$(k).parentElement;
+   $(k).textContent=n;cell.hidden=!n;if(n)carried++;}
+  $('bag').hidden=!carried;}
  $('place-title').textContent=MAPS[data.map].name;const season=seasonOf(data.day);$('season-open').textContent=`${season.name} · ${season.day}/14 天`; $('date').textContent=`第 ${season.year} 年 · ${season.name} ${season.day} 日 · ${weather(data.day,data.epoch)}`;const currentWeather=weather(data.day,data.epoch);$('weather-icon').textContent=down?'◇':({'晴日':'☼','细雨':'☂','细雪':'❄','薄雾':'≋'})[currentWeather];$('rest').disabled=!MAPS[data.map].stations.rest||!!acting;$('rest').title=woods?'回到庭院后可以休息':'走回屋前休息，进入下一天';
  $('well-tide').hidden=!['garden','depths'].includes(data.map);$('well-tide').textContent=wellContext(data).tide.name+' · 随身小物';
  $('objective').textContent=inside?'在'+MAPS[data.map].name+'走走歇歇':down?(data.stones?'再往深处找找井纹残片':'在这几层找到第一颗井纹残片'):woods?'带一些森林的微光回家':data.blooms===3?'月光花开了，可以采收':data.potions?'用月露唤醒整圃月光花':data.herbs>=2&&data.mushrooms?'材料齐了，试试炼制月露':'沿着庭院小路，去林间采集';
@@ -181,13 +187,7 @@ function ui(){
    b.textContent=short.length?w.label+'（还差'+short.join('、')+'）':'修好'+w.label;
    b.title=w.hint+'：'+workCost(id);}
  })();
-(() => {
-  // ⚠️那条「轻点行走·拖动画面·双指缩放」原来按固定像素摆，行动面板一封顶就压在面板上
-  //   （她 2026-09-17 那一版正好盖住同行者那一条）。百分比也不行：它的包含块不是整屏。
-  //   所以照【面板此刻的上沿】摆——面板多高，它就退到哪儿，只有这一处算位置。
-  const panel=$('action-panel'),hint=$('hint');
-  if(panel&&hint)hint.style.bottom=(innerHeight-panel.getBoundingClientRect().top+10)+'px';
- })();
+ placeHint();
  quietPanelButtons();tidyActions();
 }
 // 行动面板收拾一遍（她 2026-09-17 截图：「这个行动也太挤了」）。
@@ -259,6 +259,15 @@ function flash(){ $('arrival').classList.add('flash');setTimeout(()=>$('arrival'
 //   「我要打开展开行动才能看到提示」。收起来的时候在画面底上再浮一条。
 //   ⚠️只有这一处写提示：两处各写一份，迟早一处改了另一处还留着旧话。
 let sayTimer=0;
+// ⚠️那条「轻点行走·拖动画面·双指缩放」原来按固定像素摆，行动面板一封顶就压在面板上
+//   （她 2026-09-17 那一版正好盖住同行者那一条）。百分比也不行：它的包含块不是整屏。
+//   所以照【面板此刻的上沿】摆——面板多高，它就退到哪儿。
+// ⚠️只有这一处算位置：ui() 和收起／展开那一下都叫它，收起来时它才不会停在小人脸上。
+const count0=v=>Math.max(0,Number.isFinite(Number(v))?Math.floor(Number(v)):0);
+function placeHint(){
+ const panel=$('action-panel'),hint=$('hint');
+ if(panel&&hint)hint.style.bottom=(innerHeight-panel.getBoundingClientRect().top+10)+'px';
+}
 function say(s){
  $('message').textContent=s;
  const note=$('say-note'),folded=$('panel-content').hidden;
@@ -909,11 +918,12 @@ function tapMap(clientX,clientY){chasing=false;const r=canvas.getBoundingClientR
 function panMap(dx,dy){cameraFollow=false;chatFollow=false;
  camera.updateMatrixWorld();const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);const origin=r.ray.origin.clone();r.setFromCamera(new THREE.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);const delta=orthographicPanDelta(origin,r.ray.origin,r.ray.direction);if(!delta)return;cameraPan.x+=delta.x;cameraPan.z+=delta.z;cameraPan.y=0;cameraPan.clampLength(0,MAPS[data.map].radius);resize(false);
 }
-const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:()=>{cameraFollow=true;chatFollow=true;if(actor)cameraPan.set(actor.position.x,0,actor.position.z);resize(false);},onReset:()=>{cameraFollow=false;const p=MAPS[data.map].view||{x:0,z:0};cameraPan.set(p.x,0,p.z);},onPan:panMap,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onZoom:value=>{camera.zoom=value;resize(false);
+const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:()=>{cameraFollow=true;chatFollow=true;if(actor)cameraPan.set(actor.position.x,0,actor.position.z);resize(false);},onReset:()=>{cameraFollow=false;const p=MAPS[data.map].view||{x:0,z:0};cameraPan.set(p.x,0,p.z);},onPan:panMap,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onFold:()=>placeHint(),
+ onZoom:value=>{camera.zoom=value;resize(false);
  // ⚠️−／100%／＋ 三颗横着占掉两百像素、压在标题上（她 2026-09-17 点名的就是这块）。
  //   双指本来就能缩放（提示里写着），所以默认只留「地图」和「回到自己」两颗；
  //   真的缩放过了，那三颗才冒出来——她需要的是【退回去】，不是一直摆着三颗。
- const off=Math.abs(value-1)>.02;$('zoom-reset').hidden=!off;$('zoom-reset').textContent=Math.round(value*100)+'%';$('zoom-in').hidden=!off;$('zoom-out').hidden=!off;}});
+ const off=Math.abs(value-1)>.02;$('zoom-reset').hidden=!off;$('zoom-in').hidden=!off;$('zoom-out').hidden=!off;}});
 canvas.addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d&&actor){e.preventDefault();go({x:actor.position.x+d[0],z:actor.position.z+d[1]});}});
 $('quality').onclick=()=>{lite=!lite;renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.6));renderer.shadowMap.enabled=!lite;$('quality').textContent=lite?'精细画质':'轻量画质';scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});resize();};
 $('reset').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=async()=>{if(loadingMap)return;loadingMap=true;try{await mapLoader.ensure('garden',START);}catch(e){say('小屋暂时没有加载成功，原来的进度还在。');return;}finally{loadingMap=false;}path=[];task=null;acting=null;stream.visible=false;$('progress').hidden=true;data={...freshState(),epoch:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};companionController.reset();timeAccumulator=0;lastCompanionEvent='';if(actor)actor.position.set(START.x,.08,START.z);targetRing.visible=false;showMap();mapLoader.keep('garden');save();if(boundPartner)data.companion.name=boundPartner.name;say('新的生活，从一壶清水和一条林间小路开始。');$('reset-dialog').close();};
