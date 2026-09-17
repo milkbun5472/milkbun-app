@@ -149,23 +149,23 @@
     const n = Math.max(1, Math.min(8, Number(want) || 6));
     const uName = userName(profile);
     const sys = [sharedStyle(), roleContext(character, profile, mainline),
-      "【星井】「" + uName + "」在井底的石头里刨出一些【东西】。四种：\n"
-        + "· 回声石 echo：里面封着一段真发生过的小事——只能从上面真给到你的经历里长，没有就别选它。\n"
-        + "· 梦屑 dream：一个梦里的画面，不必解释前因后果。\n"
-        + "· 感官晶 sense：一段声音、一种气味、一点温度，附着它勾起的那一点东西。\n"
-        + "· 无名遗物 relic：一件旧东西——半张地图、一把不知道开哪儿的钥匙、一个奇怪零件。",
+      "【星井】「" + uName + "」在井底发现奇物。外形由游戏决定，这里生成其中承载的内容，四种性质：\n"
+        + "· 回声 echo：一段真发生过的小事——只能从上面真给到你的经历里长，没有就别选它。\n"
+        + "· 梦境 dream：一个梦里的画面，不必解释前因后果。\n"
+        + "· 留感 sense：一段声音、一种气味、一点温度，附着它勾起的那一点东西。\n"
+        + "· 旧物印记 relic：曾经使用、遗落或保存留下的痕迹，来历可以不完整。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这一层】第 " + Math.max(1, Number(depth) || 1) + " 层。"
         + "⚠️越深的只是【越完整、越奇怪】，不是越深情、越惨、越隐秘——别按层数往上堆情绪。"
-        + "浅处也可以挖到很珍贵的东西，深处也可以只是「突然很想吃烤红薯」。",
-      "【怎么写】每片一两句，短：写【这是一件什么东西】，以及它上面／里面有什么。"
+        + "浅处也可以很珍贵，深处也可以很日常。",
+      "【怎么写】每片一两句，短：写可感知的内容和痕迹；容器外形由游戏里的井潮选择，内容可承载在任一种奇物里。"
         + "不解释前因后果，不交代是什么时候的事，不写成完整的小故事。别每片一个调子，别都在说她。\n"
         + "kind 只能取：echo｜dream｜sense｜relic。\n"
         + "⚠️echo【只能从上面真给到你的经历里长】，真没有就别选它。绝不许编一段你们其实没发生过的事。\n"
         + "⚠️最要紧的一条：**东西是挖出来的，话是你自己说的**。"
         + "不许在碎片上替自己宣布「我当时差点说…」「我一直想着…」这种台词——"
         + "那句话要等你【看见这件东西之后】再决定说不说、怎么说。这里只写那件东西本身。",
-      '【输出格式】只输出 JSON 数组，' + n + ' 条：[{"kind":"上面那八个之一","text":"这一片上写着什么","whole":false}]。'
+      '【输出格式】只输出 JSON 数组，' + n + ' 条：[{"kind":"echo｜dream｜sense｜relic","text":"这一片上写着什么","whole":false}]。'
         + 'whole 只有在这一件本身是完整一件事时才为 true。'
     ].join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "刨开这一层。" }], { maxTokens: 20000, timeout: 180000, tag: "微光庭院碎片" });
@@ -663,12 +663,12 @@
                   "还没有。下井刨一片碎片回来，走到炼药锅那儿做点东西。"))
           : bookTab === "shards" ? h("div", { style: { padding: "16px 16px 40px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "井底石头里刨出来的东西。越深的只是越完整、越奇怪，不是越沉重。"),
+              "井潮带来的奇物，里面留着不同的片段。越深的只是越完整、越奇怪，不是越沉重。"),
             ((shardBox && shardBox.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               shardBox.rows.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(sh =>
                 h("div", { key: sh.id, style: { borderRadius: 14, border: "1px solid " + (sh.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
-                    "〔" + ((shardBox.kinds && shardBox.kinds[sh.kind]) || "碎片") + "〕第 " + sh.depth + " 层 · 第 " + sh.day + " 天" + (sh.whole ? " · 完整的一片" : "")),
+                    "〔" + ((shardBox.curios && shardBox.curios[sh.curio] && shardBox.curios[sh.curio].name) || (shardBox.kinds && shardBox.kinds[sh.kind]) || "碎片") + "〕第 " + sh.depth + " 层 · 第 " + sh.day + " 天" + (sh.whole ? " · 完整的一片" : "")),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, sh.text),
                   h("button", { onClick: () => { const g = game(); if (g && g.pinShard) { g.pinShard(sh.id); pullGarden(); } }, className: "active:opacity-60",
                     style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: sh.pinned ? G.deep : "#93a188", background: "transparent" } },
