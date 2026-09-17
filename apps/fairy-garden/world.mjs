@@ -1,6 +1,6 @@
-import './rules.js?v=fg-1da92177083eb3ef';
+import './rules.js?v=fg-b99ea897b9e17f80';
 export const {START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-1da92177083eb3ef';
+import {createNavigator} from './navigation.mjs?v=fg-b99ea897b9e17f80';
 export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 export function segmentClear(a,b,map='garden',avoid=[]){const minimum=avoid.map(o=>Math.min(o.r,Math.hypot(a.x-o.x,a.z-o.z)));const len=Math.hypot(b.x-a.x,b.z-a.z),n=Math.max(1,Math.ceil(len/.07));for(let i=0;i<=n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(!walkable(x,z,map)||avoid.some((o,j)=>Math.hypot(x-o.x,z-o.z)<minimum[j]-1e-6))return false;}return true;}
 export function floorHeight(map,p){const m=MAPS[map],base=m?.floor??.08;for(const s of m?.surfaces||[]){if(s.kind==='hill'){const r2=((p.x-s.x)/s.rx)**2+((p.z-s.z)/s.rz)**2;if(r2<1)return base+s.height*(1-r2)**2;}else if(Math.abs(p.x-s.x)<s.w/2&&Math.abs(p.z-s.z)<s.d/2)return s.height;}return base;}
@@ -129,6 +129,99 @@ export function takeShard(s, depth){
 export function pinShard(s, id){
   return { ...s, shards: (s.shards || []).map(x => x.id === id ? { ...x, pinned: !x.pinned } : x) };
 }
+// ── 公告栏：接委托，做完会在世界里留下东西（她 2026-09-17 点的下一件）────
+// ⚠️这一版也【一枪都不打】：委托是谁发的、要什么、做完留下什么，全是代码算的。
+//   模型只留给最值钱的那一下——他站在那盏灯下说的那句话（还没接，留了口子）。
+// ⚠️季节改的不是委托皮肤，是【这个世界在这个季节更容易发生什么】：
+//   春天容易有人来找东西、夏天容易有临时邀约、秋天多寻物与转交、冬天多陪伴与囤东西。
+// ⚠️做完要【留下后果】，而且后果落在她看得见的地方（修好的灯会一直亮着），
+//   不是发一句「谢谢你」——这是 codex 那封信里最值得认真做的一条。
+export const QUEST_KINDS = {
+  find: { label: '找东西', need: 'shard', note: '有人丢了一样东西，帮他从井里刨出来' },
+  gather: { label: '采一点', need: 'herbs', note: '要几株林子里的草' },
+  bloom: { label: '送花', need: 'harvest', note: '想要几朵开好的月光花' },
+  fix: { label: '修东西', need: 'relic', note: '一样坏掉的东西，缺零件', keeps: 'pathLamp' },
+  keep: { label: '陪一会儿', need: 'visit', note: '有人想在某处待一会儿，不想一个人' }
+};
+// 谁发的。邻居屋现在还空着，所以先用「屋主人」这种说法，等人住进来再接真名。
+const QUEST_FROM = ['公共厅的告示', '左边邻居屋的主人', '林后那间的主人', '右边那间的主人', '一张没有落款的字条'];
+const SEASON_QUESTS = [
+  { find: 34, gather: 26, keep: 20, fix: 12, bloom: 8 },   // 春：找东西、出门、新认识的人
+  { gather: 30, keep: 26, bloom: 24, find: 12, fix: 8 },   // 夏：临时邀约、热闹事
+  { find: 32, bloom: 26, fix: 22, gather: 12, keep: 8 },   // 秋：寻物、收获、转交
+  { keep: 34, fix: 26, gather: 20, find: 12, bloom: 8 }    // 冬：室内、照顾、陪伴
+];
+export const QUEST_SLOTS = 3, QUEST_TAKEN_MAX = 2;
+const hash = str => { let h = 2166136261; for (const ch of String(str)) { h = Math.imul(h ^ ch.charCodeAt(0), 16777619); } h ^= h >>> 16; return h >>> 0; };
+const pickWeighted = (table, seed) => { let draw = (hash(seed) % 1000) / 1000 * 100;
+  for (const [key, weight] of Object.entries(table)) { draw -= weight; if (draw < 0) return key; } return Object.keys(table)[0]; };
+const QUEST_NEED = { shard: 1, herbs: 2, harvest: 2, relic: 1, visit: 0 };
+// 这一季的板子：由存档号＋季节算出来，谁看都是这三条，刷新页面也不会变
+export function questBoard(s){
+  const season = seasonOf(s.day), out = [];
+  const table = SEASON_QUESTS[season.index % 4], order = Object.keys(table);
+  for (let i = 0; i < QUEST_SLOTS; i++) {
+    const seed = String(s.epoch) + ':quest:' + season.index + ':' + i;
+    // ⚠️同一块板子上不许出现两件一样的：抽重了就顺着权重表往下挪一格。
+    //   三条里两条「采一点」，看起来就像这个世界只会一件事。
+    let kind = pickWeighted(table, seed), guard = 0;
+    while (out.some(q => q.kind === kind) && guard++ < order.length) kind = order[(order.indexOf(kind) + 1) % order.length];
+    out.push({ id: 'q_' + season.index + '_' + i, kind,
+      from: QUEST_FROM[hash(seed + ':from') % QUEST_FROM.length],
+      need: QUEST_NEED[QUEST_KINDS[kind].need], season: season.index });
+  }
+  return out;
+}
+export const questTaken = s => (s.quests || []).filter(q => !q.done);
+export function restoreQuests(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && Object.hasOwn(QUEST_KINDS, x.kind)).slice(0, 40).map(x => ({
+    id: String(x.id).slice(0, 40), kind: x.kind, from: trimText(x.from, 24),
+    need: Math.max(0, count(x.need)), season: Math.max(0, count(x.season)),
+    day: Math.max(1, count(x.day)), done: x.done === true
+  }));
+}
+export function restoreFixtures(raw){
+  const d = raw && typeof raw === 'object' ? raw : {};
+  return { pathLamp: d.pathLamp === true };
+}
+export const takeError = (s, id) =>
+  questTaken(s).length >= QUEST_TAKEN_MAX ? '手上这两件先做完吧。'
+  : (s.quests || []).some(q => q.id === id) ? '这一件已经接过了。'
+  : !questBoard(s).some(q => q.id === id) ? '板子上没有这一件。' : '';
+export function takeQuest(s, id){
+  if (takeError(s, id)) return s;
+  const row = questBoard(s).find(q => q.id === id);
+  return { ...s, quests: [...(s.quests || []), { ...row, day: s.day, done: false }] };
+}
+// 交得出去吗：身上有没有它要的东西
+export function questPaid(s, q){
+  const need = QUEST_KINDS[q.kind].need;
+  if (need === 'shard') return (s.shards || []).length >= q.need;
+  if (need === 'relic') return (s.shards || []).filter(x => x.kind === 'relic').length >= q.need;
+  if (need === 'herbs') return count(s.herbs) >= q.need;
+  if (need === 'harvest') return count(s.harvest) >= q.need;
+  if (need === 'visit') return true;          // 陪一会儿：走到公告栏就算数
+  return false;
+}
+export function turnIn(s, id){
+  const q = (s.quests || []).find(x => x.id === id && !x.done);
+  if (!q || s.map !== 'garden' || !questPaid(s, q)) return s;
+  const need = QUEST_KINDS[q.kind].need;
+  let out = { ...s };
+  if (need === 'shard') out.shards = (s.shards || []).slice(q.need);
+  if (need === 'relic') { let left = q.need; out.shards = (s.shards || []).filter(x => !(x.kind === 'relic' && left-- > 0)); }
+  if (need === 'herbs') out.herbs = count(s.herbs) - q.need;
+  if (need === 'harvest') out.harvest = count(s.harvest) - q.need;
+  // 后果：修东西那一件会把小路上那盏灯修好，从此它一直亮着
+  const keeps = QUEST_KINDS[q.kind].keeps;
+  if (keeps) out.fixtures = { ...restoreFixtures(s.fixtures), [keeps]: true };
+  out.deeds = count(s.deeds) + 1;
+  out.quests = (s.quests || []).map(x => x.id === id ? { ...x, done: true, doneDay: s.day } : x);
+  return out;
+}
+// 灯修好之后：天黑了它就亮着；雨天的晚上，发委托的人会站在灯下避雨
+export const lampOn = s => !!(restoreFixtures(s.fixtures).pathLamp && s.minute >= 1020);
+export const lampShelter = s => lampOn(s) && ['细雨', '细雪'].includes(weather(s.day, s.epoch));
 // ── 锅：把碎片做成【东西】（她 2026-09-17 拍板走 codex 那版）──────────────
 // ⚠️这一整条链【一枪都不打】：做出来是什么、叫什么、摆在哪儿、雨天响不响，
 //   全是代码算的。模型只用在最值钱的那一下——他路过停下来说的那句话。
@@ -201,10 +294,10 @@ export const bellRings = s => {
 // sand    星砂：三份能在炼药锅换一颗月露
 // stones  月石：每得一颗，往下的路再通两层（这就是下潜的进度）
 export const deepestAllowed=s=>Math.min(DEPTH_MAX,DEPTH_BASE+count(s&&s.stones)*2);
-export function freshState(){return {version:8,epoch:'initial',seat:null,look:{},seeds:[],notes:[],shards:[],vein:[],things:[],magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function freshState(){return {version:8,epoch:'initial',seat:null,look:{},seeds:[],notes:[],shards:[],vein:[],things:[],quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){const prior=raw&&[1,2,3,4,5,6,7,8].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:8,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 export function nextDay(s){const day=s.day+1;return {...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms};}
 export function advanceTime(s,minutes){let remaining=count(minutes,9600),out=s;while(remaining>0){const span=1380-out.minute;if(remaining<span)return {...out,minute:out.minute+remaining};remaining-=span;out=nextDay(out);}return out;}
 export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
@@ -217,6 +310,8 @@ export function actionError(s,kind,id){if(kind==='sit')return MAPS[s.map]?.seats
   if(s.picked.includes(id))return n.map==='depths'?'这一处的矿脉已经采空了。':'这一丛今天采过了，明天会重新长出来。';return '';}
  if(kind==='travel'||kind==='enter')return MAPS[s.map]?.exits[kind]?'':'这里没有通往别处的小路。';
  // 下潜三件事：从井口下去、再往下一层、顺着梯子上来
+ // 走到公告栏：接委托／交委托都在弹层里做，perform 不动状态
+ if(kind==='board')return s.map!=='garden'?'公告栏在公共厅门前。':'';
  // 走到锅前做东西：有碎片才让走这一趟（做什么由弹层选，不在 perform 里）
  if(kind==='craft')return s.map!=='garden'?'锅在庭院里。':(s.shards||[]).length?'':'背包里没有碎片。下井刨一片回来。';
  // 收花笺：地里有开好的才让走过去（真正那一枪在宿主那侧打）
@@ -264,7 +359,7 @@ export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},labe
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺'};
+const ACTION_NAMES={enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',board:'看公告栏'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}

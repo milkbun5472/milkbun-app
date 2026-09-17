@@ -92,3 +92,33 @@ test('雨铃响不响是代码说的，不是模型生成的', () => {
   assert.match(game, /function bellLine\(\)\{return bellRings\(data\)\?/);
   assert.match(game, /这一句是代码说的，不是模型生成的/);
 });
+
+// ── 公告栏（v69.35）：也是一枪都不打 ────────────────────────────────────
+test('委托整条链不许出现模型调用', () => {
+  const world = rd('apps/fairy-garden/world.mjs');
+  const quest = world.slice(world.indexOf('// ── 公告栏：接委托'), world.indexOf('// ── 锅：把碎片做成'));
+  assert.doesNotMatch(quest, /callAI|host\.|await /, '委托一旦开始调模型，成本地板就没了');
+  assert.match(quest, /这一版也【一枪都不打】/);
+  const dialog = game.slice(game.indexOf('function questLine(q)'), game.indexOf("$('board').onclick"));
+  assert.doesNotMatch(dialog, /host\.|callAI/);
+});
+
+test('季节改的是「这个世界更容易发生什么」，不是委托皮肤', () => {
+  const world = rd('apps/fairy-garden/world.mjs');
+  assert.match(world, /const SEASON_QUESTS = \[/);
+  // 四季各一张权重表，而且各不相同
+  const tables = world.slice(world.indexOf('const SEASON_QUESTS'), world.indexOf('export const QUEST_SLOTS'));
+  const rows = tables.match(/\{ [^}]*\}/g) || [];
+  assert.equal(rows.length, 4, '四季没配齐');
+  assert.equal(new Set(rows).size, 4, '有两季的权重表一模一样');
+});
+
+test('做完要留下能看见的后果，不是一句谢谢', () => {
+  const world = rd('apps/fairy-garden/world.mjs');
+  assert.match(world, /keeps: 'pathLamp'/);
+  assert.match(world, /export const lampOn = s =>/);
+  assert.match(world, /export const lampShelter = s =>/);
+  // 灯的位置只写在 rules 那一份，渲染那头照它找（别再编第二套坐标）
+  assert.match(rd("apps/fairy-garden/rules.js"), /pathLamp:\{x:1\.6,z:3\.4\}/);
+  assert.match(game, /function lampLine\(\)/);
+});

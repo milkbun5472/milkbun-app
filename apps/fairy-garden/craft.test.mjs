@@ -74,3 +74,63 @@ test('走到锅前要有材料，位置表只有一份',()=>{
  assert.match(actionError({...freshState(),map:'forest',shards:[shard('sense')]},'craft'),/锅在庭院里/);
  assert.deepEqual(Object.keys(SPOTS),['eaves','sill','pond']);
 });
+
+// ── 公告栏（v69.35）：接委托、做完留下后果 ──────────────────────────────
+import {QUEST_KINDS,QUEST_TAKEN_MAX,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,restoreQuests} from './world.mjs';
+const relic = (id='r1') => ({ id, kind:'relic', text:'一个奇怪零件。', whole:false, depth:3, day:1, pinned:false });
+
+test('板子由存档号＋季节算出来：同一档同一季永远是这三条',()=>{
+ const s=freshState();
+ const a=questBoard(s),b2=questBoard({...s,day:s.day});
+ assert.equal(a.length,3);
+ assert.deepEqual(a.map(q=>q.id+q.kind+q.from),b2.map(q=>q.id+q.kind+q.from),'同一季刷出来不一样＝刷新一次换一批');
+ // 换一季就是另一批，换一档也是
+ assert.notDeepEqual(a.map(q=>q.id),questBoard({...s,day:30}).map(q=>q.id));
+ const other=questBoard({...s,epoch:'另一档'});
+ assert.ok(a.some((q,i)=>q.kind!==other[i].kind||q.from!==other[i].from),'不同存档刷出一模一样的板子');
+ a.forEach(q=>assert.ok(QUEST_KINDS[q.kind],'刷出了名单外的委托'));
+});
+
+test('手上最多两件，接过的不再出现在板子上',()=>{
+ let s=freshState();
+ const board=questBoard(s);
+ s=takeQuest(s,board[0].id);
+ assert.equal(questTaken(s).length,1);
+ assert.match(takeError(s,board[0].id),/已经接过/);
+ s=takeQuest(s,board[1].id);
+ assert.match(takeError(s,board[2].id),/先做完/);
+ assert.equal(takeQuest(s,board[2].id),s,'超了还接得下＝闸是假的');
+ assert.equal(questTaken(s).length,QUEST_TAKEN_MAX);
+ assert.match(takeError(s,'板子上没有的'),/先做完|没有这一件/);
+});
+
+test('交委托要真交出东西，交不出就不许算完',()=>{
+ let s={...freshState(),day:30};
+ const fix=questBoard(s).find(q=>q.kind==='fix');
+ if(!fix)return;                                   // 这一季没刷出修东西就跳过
+ s=takeQuest(s,fix.id);
+ assert.equal(questPaid(s,questTaken(s)[0]),false,'手上没有遗物也能交＝白拿');
+ assert.equal(turnIn(s,fix.id),s);
+ s={...s,shards:[relic()]};
+ assert.equal(questPaid(s,questTaken(s)[0]),true);
+ const done=turnIn(s,fix.id);
+ assert.equal(done.shards.length,0,'交了东西却还留在背包里');
+ assert.equal(done.deeds,1);
+ assert.equal(questTaken(done).length,0);
+ // ⚠️后果：修东西那一件会把小路那盏灯修好，而且一直留着
+ assert.equal(done.fixtures.pathLamp,true);
+ assert.equal(restoreQuests(done.quests).length,1,'做完的那一件也要存得住');
+});
+
+test('灯是后果，不是一句谢谢：天黑就亮，雨夜有人来躲',()=>{
+ const off={...freshState(),minute:1100};
+ assert.equal(lampOn(off),false,'没修就不该亮');
+ const on={...off,fixtures:{pathLamp:true}};
+ assert.equal(lampOn(on),true);
+ assert.equal(lampOn({...on,minute:600}),false,'大白天亮着就不对了');
+ // 雨夜才有人站在灯下（天气由存档自己抽，这儿只认「雨或雪」）
+ const rainyDay=[1,2,3,4,5,6,7,8,9,10].find(d=>['细雨','细雪'].includes(weather(d,on.epoch)));
+ assert.equal(lampShelter({...on,day:rainyDay}),true);
+ const dryDay=[1,2,3,4,5,6,7,8,9,10].find(d=>!['细雨','细雪'].includes(weather(d,on.epoch)));
+ assert.equal(lampShelter({...on,day:dryDay}),false);
+});
