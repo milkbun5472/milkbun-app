@@ -37,7 +37,15 @@ export function createTraveler(source,companion=false,look={}){
  // 袖子 z .636~.989、腿 z .009~.593。旧的 .86/.48 是抬高 .075 之前的数。
  function part(label,match,pivot){const p=new T.Group();p.name=label;p.position.copy(pivot);model.add(p);model.updateMatrixWorld(true);const picked=[];model.traverse(o=>{if(o.isMesh&&match.test(o.name))picked.push(o);});picked.forEach(o=>p.attach(o));rig.push({p,label});}
  part('leftArm',/Left.sleeve|Left.hand/i,new T.Vector3(-.19,.935,0));part('rightArm',/Right.sleeve|Right.hand|Held.herb/i,new T.Vector3(.19,.935,0));
- const legs=[];model.traverse(o=>{if(o.isMesh&&/Linen.leggings|Rounded.boots/i.test(o.name))legs.push(o);});for(const side of [-1,1]){const p=new T.Group();p.position.set(side*.115,.555,0);model.add(p);model.updateMatrixWorld(true);for(const o of legs){const v=new T.Vector3();o.getWorldPosition(v);if(Math.sign(v.x)===side)p.attach(o);}rig.push({p,label:side<0?'leftLeg':'rightLeg'});}
+ // Exported doll parts have baked vertices and identical object origins (0,0,0).
+ // Classify the actual mesh centre in model space, not the object's translation.
+ const legs=[];model.traverse(o=>{if(o.isMesh&&/Linen.leggings|Rounded.boots/i.test(o.name)){
+  const centre=new T.Box3().setFromObject(o,true).getCenter(new T.Vector3());
+  legs.push({mesh:o,side:Math.sign(model.worldToLocal(centre).x)});
+ }});
+ for(const side of [-1,1]){const p=new T.Group(),label=side<0?'leftLeg':'rightLeg';p.name=label;p.position.set(side*.115,.555,0);model.add(p);model.updateMatrixWorld(true);
+  for(const item of legs)if(item.side===side)p.attach(item.mesh);
+  rig.push({p,label});}
  const prop=new T.Group();root.add(prop);prop.visible=false;
  const pages=new T.Mesh(new T.BoxGeometry(.30,.045,.21),new T.MeshStandardMaterial({color:'#ede4c5',roughness:1}));prop.add(pages);const cover=new T.Mesh(new T.BoxGeometry(.32,.025,.23),new T.MeshStandardMaterial({color:'#6f877d',roughness:1}));cover.position.y=-.027;prop.add(cover);prop.position.set(0,.845,.22);prop.rotation.x=.35;
  return {root,setLook(next){const n=Object.assign({},want,next||{});if(next&&next.dims)n.dims=Object.assign({},want.dims,next.dims);if(HAIR_STYLES.includes(n.hair)){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+n.hair;});}

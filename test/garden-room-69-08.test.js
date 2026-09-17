@@ -36,9 +36,12 @@ test('garden 标记能存住——不然进门认不出这是庭院房', () => {
 test('一间房一个存档：存档键跟着房走', () => {
   assert.match(app, /storeKey: "x_fairyGarden::" \+ key/);
   assert.match(app, /const key = window\.ChatRooms\.chatKey\(activeChar\.id, activeRoomId\)/);
-  // 组件里所有读写都得认这把钥匙，漏一处就会去动公共那一档
-  assert.doesNotMatch(garden, /loadJSON\(KEY,/, '还有地方直接读公共存档');
-  assert.doesNotMatch(garden, /write\(\{ \.\.\.d/, '还有地方直接写公共存档');
+  // 【一局庭院】里所有读写都得认这把钥匙，漏一处就会去动公共那一档。
+  // ⚠️只看 GardenSession：v69.21 起外面那层选择页会读 KEY 一次，那是为了把
+  //   老的那一档认回名册（只记一笔、不搬内容），不是在动这一局的存档。
+  const session = garden.slice(garden.indexOf('function GardenSession(props)'), garden.indexOf('const WORLDS = ['));
+  assert.doesNotMatch(session, /loadJSON\(KEY,/, '还有地方直接读公共存档');
+  assert.doesNotMatch(session, /write\(\{ \.\.\.d/, '还有地方直接写公共存档');
 });
 
 test('进门带什么走这间房的认知闸，不另写一份底子', () => {

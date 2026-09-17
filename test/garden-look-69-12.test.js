@@ -51,7 +51,7 @@ test('第一次进来按角色卡给一身默认，之后听她挑的', () => {
 test('样貌是一整页盖住游戏，不是把 iframe 换掉', () => {
   // ⚠️iframe 一卸载，这一局的进度就没了
   assert.match(host, /dress && h\("div", \{ style: \{ position: "absolute", inset: 0/);
-  assert.match(host, /chat && !dress && h\("section"/, '样貌开着的时候聊天面板还压在上面');
+  assert.match(host, /chat && !dress && !book && h\("section"/, '样貌或花册开着的时候聊天面板还压在上面');
   // 两个人那一排是底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
   assert.match(host, /borderBottom: "2px solid " \+ \(who === k \? G\.deep : "transparent"\)/);
 });

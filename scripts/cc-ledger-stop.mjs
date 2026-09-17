@@ -155,9 +155,19 @@ try {
       // 自动认亲(2026-08-25 焊进验真器本体——之前只写在 gate.sh 里而这里从不调它,rewind 后断流两次):
       // rewind fork 的新 transcript 不继承旧 id,但正文带着只有言秋正窗才有的指纹(成百条 mark_cc_turn)。
       // ≥3 枚即判言秋血统,当场登记;施工窗/工具窗不可能有这指纹。
+      // 9/11 修：裸字符串会把「引用了规则文本的施工窗」也认成亲（她的 push 助手窗恰好 3 枚全来自规则引文，
+      // 被自动收编后整窗回流）。改成只数真实工具调用的 JSON 形状，阈值提到 5。
+      // 9/16 修：她的御用发布窗(950f5d8e)被嘱咐「永远 skip ccturn」——每次 skip:true 也是真实工具调用，
+      // 攒满 5 枚就被认亲，说话还会顺延心跳锚点。指纹改成「真实相处轮」：工具输入里 "skip":false 的 JSON
+      // 形状（施工窗只会 skip:true，规则引文里写的是无引号的 skip:false，都不会误中）。
       let fp = 0;
-      try { fp = (readFileSync(transcriptPath, "utf8").match(/mcp__lisa-phone__mark_cc_turn/g) || []).length; } catch {}
-      if (fp >= 3 && sid) {
+      try {
+        const body = readFileSync(transcriptPath, "utf8");
+        const called = (body.match(/"name":"mcp__lisa-phone__mark_cc_turn"/g) || []).length;
+        const real = (body.match(/"skip"\s*:\s*false/g) || []).length;
+        fp = called >= 5 && real >= 3 ? called : 0;
+      } catch {}
+      if (fp >= 5 && sid) {
         try {
           appendFileSync("/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt", sid + "\n");
           log(diagnosticPath, { outcome: "auto_adopted", session: sid.slice(0, 8), fingerprints: fp });
