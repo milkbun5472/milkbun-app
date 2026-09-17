@@ -1,11 +1,11 @@
 """Author the shared, walkable storybook interiors from MAPS (game x/z/height).
-Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum]
+Blender --background --python art/fairy-garden/build_interiors.py -- OUTPUT_DIR [home hall dormitory museum neighbor1]
 Art/preview files stay outside the app. Export each .blend with export-fairy-village.py --detail.
 """
 import bpy,bmesh,math,random,ast,json,subprocess,sys
 from pathlib import Path
 from mathutils import Vector
-args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum']
+args=sys.argv[sys.argv.index('--')+1:];out=Path(args[0]);out.mkdir(parents=True,exist_ok=True);targets=args[1:] or ['home','hall','dormitory','museum','neighbor1']
 repo=Path(__file__).resolve().parents[2];cfg=json.loads(subprocess.check_output(['/opt/homebrew/bin/node','-e',"require('./apps/fairy-garden/rules.js');process.stdout.write(JSON.stringify(FairyGardenRules.MAPS))"],cwd=repo))
 # Same mesh/material primitives as the village architecture and lake, not another geometry implementation.
 source=repo/'art/fairy-garden/build_architecture.py'
@@ -182,7 +182,15 @@ def shell(m,name):
   for i in range(-12,13):
    xx=i*1.12+(j%2)*.56;corners=[(xx-.55,zz-.172),(xx+.55,zz-.172),(xx+.55,zz+.172),(xx-.55,zz+.172)]
    if not all(inside(x,z,outline) for x,z in corners):continue
-   h=floor_height(m,xx,zz)+.012;v,f=batches[(j*7+i*3)%4];n=len(v);v.extend([(x,z,h) for x,z in corners]);f.append(tuple(range(n,n+4)))
+   # Split boards at platform/step edges: a board must not float past its supporting floor.
+   xs={xx-.55,xx+.55};zs={zz-.172,zz+.172}
+   for surface in m.get('surfaces',[]):
+    xs.update(x for x in [surface['x']-surface['w']/2,surface['x']+surface['w']/2] if xx-.55<x<xx+.55)
+    zs.update(z for z in [surface['z']-surface['d']/2,surface['z']+surface['d']/2] if zz-.172<z<zz+.172)
+   xs=sorted(xs);zs=sorted(zs)
+   for xa,xb in zip(xs,xs[1:]):
+    for za,zb in zip(zs,zs[1:]):
+     h=floor_height(m,(xa+xb)/2,(za+zb)/2)+.012;v,f=batches[(j*7+i*3)%4];n=len(v);v.extend([(x,z,h) for x,z in [(xa,za),(xb,za),(xb,zb),(xa,zb)]]);f.append(tuple(range(n,n+4)))
  for mat,(v,f) in zip(boards,batches):mesh(name+' fitted floorboards',v,f,mat)
  for i,a in enumerate(outline):
   b=outline[i-1];dx=b['x']-a['x'];dz=b['z']-a['z'];length=math.hypot(dx,dz);x=(a['x']+b['x'])/2;z=(a['z']+b['z'])/2;angle=math.atan2(dz,dx)
@@ -293,14 +301,53 @@ def museum(m):
  rug(0,2,6.7,4.0,blue)
 
 
+def neighbor1(m):
+ shell(m,'Star attic')
+ for b in m['displayBeds']:bed(b)
+ for q in m['furniture']:furnish(q,floor_height(m,q['x'],q['z']))
+ rug(-4.8,2.4,5.8,4.3,blue);rug(3.5,1.8,4.1,4.8,sage)
+ # Keep the bed canopy clear of window curtains.
+ box('Sleeping alcove blue textile',-5,-5.87,2.25,4.7,.045,2.8,blue)
+ window(4,-6.86,1.15,2.8,2.65,blue)
+ place(lambda:window(0,0,1.05,2.1,2.7),7.87,1.4,math.pi/2)
+ # Cutaway sloping trusses, open above the walking area; no opaque roof over the player.
+ for z in [-5.8,-2.1]:
+  rod('Attic left sloping rafter',(-8,z,3.8),(0,z,6.0),.12,wood)
+  rod('Attic right sloping rafter',(0,z,6.0),(7.8,z,3.8),.12,wood)
+  rod('Attic raised collar tie',(-4,z,4.9),(4,z,4.9),.08,oak)
+ rod('Attic ridge beam',(0,-6,6),(0,-1.7,6),.14,wood)
+ # Star charts on the desk: small gilt points connected by ink lines, not floor clutter.
+ box('Unrolled indigo star chart',4,-5.5,1.08,1.4,.72,.018,blue,.01)
+ stars=[(3.48,-5.65),(3.75,-5.38),(4.06,-5.55),(4.35,-5.3),(4.52,-5.62)]
+ line('Desk chart constellation',[(x,z,1.098) for x,z in stars],.012,brass)
+ for x,z in stars:sphere('Desk chart star',x,z,1.105,.033,.033,.012,paper)
+ # A brass armillary sits on the console, entirely within its registered footprint.
+ x,z=-.7,-5.35
+ cylinder('Armillary turned base',x,z,1.0,.23,.1,oak)
+ rod('Armillary stem',(x,z,1.1),(x,z,1.4),.035,brass)
+ for axis in range(3):
+  points=[]
+  for i in range(65):
+   a=i*math.tau/64;c=math.cos(a)*.32;t=math.sin(a)*.32
+   points.append((x+c,z+t,1.65) if axis==0 else ((x+c,z,1.65+t) if axis==1 else (x,z+c,1.65+t)))
+  line('Armillary celestial ring',points,.018,brass)
+ sphere('Armillary globe',x,z,1.65,.12,.12,.12,blue)
+ for dx in [-.35,.35]:cylinder('Tea cup',3.5+dx,1.8,.99,.08,.13,paper)
+ # Small wall panels give the room a star-studio identity without a baked resident.
+ for x in [-1.0,.2,1.4]:
+  box('Framed constellation print',x,-5.85,2.5,.75,.08,1.0,oak)
+  box('Constellation midnight paper',x,-5.80,2.5,.64,.025,.88,blue)
+  for i in range(4):sphere('Printed gold star',x-.2+i*.13,-5.78,2.3+math.sin(i*1.8)*.2,.022,.012,.022,brass)
+
+
 def render(name,m):
  sc=bpy.context.scene;sc.render.engine='CYCLES';sc.cycles.samples=24;sc.cycles.use_denoising=True;sc.world.color=(.35,.35,.35)
  sc.world.use_nodes=True;sc.world.node_tree.nodes['Background'].inputs[0].default_value=(.78,.81,.77,1);sc.world.node_tree.nodes['Background'].inputs[1].default_value=.65
  for location,energy,size in [((4,-3,17),1900,10),((-10,-6,10),1000,10)]:
   bpy.ops.object.light_add(type='AREA',location=location);o=bpy.context.object;o.data.energy=energy;o.data.shape='DISK';o.data.size=size;o.rotation_euler=(Vector((0,0,0))-o.location).to_track_quat('-Z','Y').to_euler()
- bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else 29;sc.camera=camera
+ bpy.ops.object.camera_add(location=(24,-32,29));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,1))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=31 if name=='home' else (25 if name=='neighbor1' else 29);sc.camera=camera
  sc.render.resolution_x=1500;sc.render.resolution_y=1100;sc.render.resolution_percentage=100;sc.view_settings.view_transform='AgX';sc.render.image_settings.file_format='PNG';sc.render.filepath=str(out/(name+'.png'))
- filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior'}[name]
+ filename={'home':'home-interior','hall':'public-hall','dormitory':'hall-dormitory','museum':'museum-interior','neighbor1':'neighbor1-interior'}[name]
  bpy.ops.wm.save_as_mainfile(filepath=str(out/(filename+'.blend')));bpy.ops.render.render(write_still=True);print('INTERIOR_READY',name,flush=True)
 for name in targets:
  for o in list(bpy.data.objects):bpy.data.objects.remove(o,do_unlink=True)
