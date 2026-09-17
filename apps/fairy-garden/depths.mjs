@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-af76e1a1730b6e25';
-import {NODES} from './world.mjs?v=fg-af76e1a1730b6e25';
+import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-9307f9306f03a9ff';
+import {NODES} from './world.mjs?v=fg-9307f9306f03a9ff';
 
 // A cutaway of the old well: masonry, roots and a little lamplight, not a ring of pillars.
 // All decoration stays outside the walking disc; node IDs and positions come from the rules.

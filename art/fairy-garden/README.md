@@ -201,5 +201,5 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 
 ### 花圃恢复（2026-09-17）
 
-`build_flowerbeds.py` 从 `MAPS.garden.flowerbeds`（原障碍盒的引用）生成两畦永久可见的土面和木框，尺寸/位置不变；清掉畦内旧的烘焙花、灌木，花量仍由游戏状态控制。
+`build_flowerbeds.py` 从 `MAPS.garden.flowerbeds`（原障碍盒的引用）生成两畦永久可见的土面和木框，两畦按用户要求搬到住宅右边，尺寸不变；站位/互动/开花锚点一起平移，清掉原址和新址的旧烘焙花、灌木，花量仍由游戏状态控制。
 可对 `moon-lake/village-ground.blend` 单独补建，输出仓库外，然后用 `export-fairy-village.py --ratio=.12` 重导 `village-ground.glb`。`build_lake.py` 也调用同一个构建函数，完整重建不会再漏畦。花圃随常驻地景加载，不依赖住宅分区或 blooms 数量。

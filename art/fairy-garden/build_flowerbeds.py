@@ -20,7 +20,7 @@ def add_flowerbeds(plan):
   # Legacy baked flowers/shrubs cannot represent an empty or freshly harvested bed.
   if o.type=='MESH' and o.name.startswith(('Flower fine stem','Flower golden heart','Painted flower petal','Garden shrub')):
    vs=[o.matrix_world@Vector(v) for v in o.bound_box];x=sum(v.x for v in vs)/8;z=-sum(v.y for v in vs)/8
-   if any(abs(x-p['x'])<p['w']/2+.30 and abs(z-p['z'])<p['d']/2+.20 for p in plan['flowerbeds']):bpy.data.objects.remove(o,do_unlink=True)
+   if any(abs(x-p['x'])<p['w']/2+.30 and abs(z-p['z'])<p['d']/2+.20 for p in [*plan['flowerbeds'],*[p['former'] for p in plan['flowerbeds'] if p.get('former')]]):bpy.data.objects.remove(o,do_unlink=True)
  for p in plan['flowerbeds']:
   before=set(bpy.data.objects);x,z,w,d=p['x'],p['z'],p['w'],p['d'];t=.10
   box('Flowerbed soil',x,z,.21,w-t*2,d-t*2,.14,soil,.02)
@@ -38,6 +38,7 @@ if __name__=='__main__':
  repo=Path(__file__).resolve().parents[2];plan=json.loads(subprocess.check_output(['/opt/homebrew/bin/node','-e',"require('./apps/fairy-garden/rules.js');console.log(JSON.stringify(FairyGardenRules.MAPS.garden))"],cwd=repo))
  bpy.ops.wm.open_mainfile(filepath=str(source));assert add_flowerbeds(plan)==2
  sc=bpy.context.scene;sc.render.engine='CYCLES';sc.cycles.samples=20;sc.cycles.use_denoising=True
- sc.camera.location=(-10,-12,8);sc.camera.rotation_euler=(Vector((-15.6,-5.2,.1))-sc.camera.location).to_track_quat('-Z','Y').to_euler();sc.camera.data.ortho_scale=5
+ x=sum(p['x'] for p in plan['flowerbeds'])/2;z=sum(p['z'] for p in plan['flowerbeds'])/2
+ sc.camera.location=(x+5,-z-7,8);sc.camera.rotation_euler=(Vector((x,-z,.1))-sc.camera.location).to_track_quat('-Z','Y').to_euler();sc.camera.data.ortho_scale=5
  sc.render.resolution_x=1100;sc.render.resolution_y=1000;sc.render.resolution_percentage=100;sc.render.filepath=str(out/'empty-flowerbeds.png')
  bpy.ops.wm.save_as_mainfile(filepath=str(out/'village-ground.blend'));bpy.ops.render.render(write_still=True)
