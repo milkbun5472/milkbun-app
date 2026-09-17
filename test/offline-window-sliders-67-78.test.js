@@ -32,7 +32,9 @@ test("拼上下文那一处真的去读它了，没读到就落回老数字", ()
 
 test("留在代码里的那两样【没有】跟着变成拉条", () => {
   assert.match(app, /OFF_EXCERPT = 70;/, "摘录字数被顺手做成拉条了");
-  assert.match(app, /const offCap = Math\.min\(Math\.round\(budget \* 0\.3\), 3000\);/, "三成封顶被顺手做成拉条了");
+  // ⚠️v69.50：写死那个 3000 去掉了（她要把预算调大，而 3000 正是卡住她的那道墙）。
+  //   这一条钉的意思没变——**这个比例不许也做成一根旋钮**，它仍然是常数。
+  assert.match(app, /const offCap = Math\.round\(budget \* 0\.3\);/, "三成被顺手做成拉条了");
   assert.ok(!/offExcerpt|offCapCfg/.test(screens), "召回设置里多出了不该给的旋钮");
 });
 
@@ -94,6 +96,13 @@ test("拧一拧真的算数：回看几拍、几拍给原文，都跟着变", ()
   assert.equal(recent(short(60), {}).lines.length, 40, "老存档的默认不再是 40 拍了");
   assert.equal(recent(short(60), { offBeats: 15 }).lines.length, 15);
 
-  // ④ 拉到底也挤不到聊天头上：线下那份限额还在（三成 / 封顶 3000）
-  assert.ok(recent(beats(60), { offBeats: 120 }).usedOff <= 3000, "拉大之后线下把预算吃穿了");
+  // ④ 拉到底也挤不到聊天头上：线下那份限额还在。
+  //    ⚠️v69.50 起它是【纯三成】，不再有写死的 3000——所以这里按预算算，
+  //      不拿常数当标尺（拿常数的话，以后谁调了比例这条就悄悄测不到东西了）。
+  const BUD = 16000, CAP = Math.round(BUD * 0.3);   // 上面那只桩就是 16000
+  const r = recent(beats(60), { offBeats: 120 });
+  assert.ok(r.usedOff <= CAP, "拉大之后线下把预算吃穿了：" + r.usedOff + " > " + CAP);
+  // 这一条真正要保的是【聊天还剩得下】：线下吃满也得给聊天留七成
+  assert.ok(BUD - r.usedOff >= Math.round(BUD * 0.7) - 1,
+    "线下把聊天的份额也占了：聊天只剩 " + (BUD - r.usedOff));
 });

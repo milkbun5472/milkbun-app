@@ -73,12 +73,31 @@ test("线下不再占掉 ctxN 的名额：五十条聊天记录一条都不许�
   assert.equal(onlineChars, alone.used, "开着线下之后，线上拿到的字数变少了");
 });
 
-test("线下最多拿走三成预算、封顶 3000 字", () => {
-  assert.match(app, /const offCap = Math\.min\(Math\.round\(budget \* 0\.3\), 3000\);/);
-  [8000, 16000].forEach(b => {
+test("线下最多拿走三成预算——护栏是【比例】，不是一个写死的数", () => {
+  // ⚠️v69.50 去掉了旁边那个写死的 3000：护住聊天不被描写挤掉的本来就是「三成」，
+  //   它跟着预算按比例走。那个 3000 是同一道闸的第二份，按「预算最多 16000」定的，
+  //   于是预算上限放开到 60000 之后，拉条拉到头线下还是只有 3000 字，拉了等于没拉。
+  assert.match(app, /const offCap = Math\.round\(budget \* 0\.3\);/);
+  assert.ok(!/Math\.min\(Math\.round\(budget \* 0\.3\), 3000\)/.test(app), "写死那个 3000 又回来了");
+  [8000, 16000, 60000].forEach(b => {
     const r = recent(ONLINE, OFFLINE, b);
-    assert.ok(r.usedOff <= Math.min(Math.round(b * 0.3), 3000), b + " 预算下线下超额：" + r.usedOff);
+    assert.ok(r.usedOff <= Math.round(b * 0.3), b + " 预算下线下超额：" + r.usedOff);
   });
+  // 比例这条得真的跟着预算长。
+  // ⚠️桩只放 30 拍：offSlice 只取最近 OFF_BEATS(40) 拍，放 80 拍的话卡住线下的
+  //   是【拍数】不是预算，量出来的就不是这一条（第一版我就是这么写错的）。
+  const fat = Array.from({ length: 30 }, () => mk("assistant", 900, "offline"));
+  const small = recent([], fat, 8000).usedOff;      // offCap 2400
+  const big = recent([], fat, 40000).usedOff;       // offCap 12000
+  assert.ok(small <= 2400 && big <= 12000, "超过各自那三成了");
+  assert.ok(big > small * 2, "预算调大了线下却没跟着长：" + small + " → " + big);
+});
+
+test("拉条上限放开到 60000，不然这一条改了也拉不到", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  assert.match(scr, /slider\("短期窗字符预算", c\.recentBudget \|\| 8000, 3000, 60000, 1000/);
+  // 说明里得写清楚这根和线下的关系——不写的话没人知道要拉这一根
+  assert.match(scr, /线下描写最多占走这里的三成/);
 });
 
 test("线下超了自己那份要继续往回找线上的，不是整个循环停掉", () => {
@@ -98,7 +117,7 @@ const BEAT = "画的那道墨痕在夜风里彻底发硬了，笑一下都扯着
 test("最近三拍给原文，更早的只留对话和它前后各一句", () => {
   // 要先跑得够长、线下那份限额装不下原文，摘录才会触发（短线下一个字都不摘）
   const beats = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 500 + k, _surface: "offline", content: k + "｜" + BEAT }));
-  const r = recent([], beats, 16000);
+  const r = recent([], beats, 8000);
   const tail = r.lines.slice(-3), head = r.lines.slice(0, -3);
   tail.forEach(l => assert.ok(l.indexOf("窗外更漏敲了三下") > 0, "最近三拍必须是原文：" + l));
   assert.ok(head.length >= 4, "老拍子太少，测不出来");
@@ -114,7 +133,7 @@ test("最近三拍给原文，更早的只留对话和它前后各一句", () =>
 test("整拍一句对话都没有时只留首句——不整条丢掉，滚动摘要总落后几拍", () => {
   const mute = "他起身走到窗边，把半开的窗合上。夜风一下子断了，烛火重新立直。墙上的影子不再晃。".repeat(3);
   const beats = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 600 + k, _surface: "offline", content: k + "｜" + mute }));
-  const head = recent([], beats, 16000).lines.slice(0, -3);
+  const head = recent([], beats, 8000).lines.slice(0, -3);   // 同上：8000 → 限额 2400，摘录才触发
   head.forEach(l => {
     assert.ok(l.indexOf("他起身走到窗边") > 0, "首句该留：" + l);
     assert.ok(l.indexOf("墙上的影子不再晃") < 0, "后面的写景该压掉：" + l);
@@ -205,7 +224,13 @@ test("摘录换来的是往回看得更远，不只是省字数", () => {
   // 钉的还是同一件事——默认仍然是 40 拍，读不到设置就落回它。
   assert.match(app, /const OFF_BEATS = Math\.max\(1, Number\(memCfgRef\.current\.offBeats \?\? 40\)\);/);
   const long = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 800 + k, _surface: "offline", content: k + "｜" + BEAT }));
-  const r = recent([], long, 16000);
+  // ⚠️v69.50 起限额是纯三成（不再有写死的 3000），所以这里【按预算算】那条线，
+  //   不再拿 3000 当常数——拿常数的话，以后谁调了比例这条就悄悄测不到东西了。
+  const BUD = 8000, CAP = Math.round(BUD * 0.3);
+  const r = recent([], long, BUD);
   assert.ok(r.lines.length >= 15, "摘完之后带进来的拍数反而变少了：" + r.lines.length);
-  assert.ok(r.usedOff <= 3000, "线下仍要卡在自己那份限额里：" + r.usedOff);
+  assert.ok(r.usedOff <= CAP, "线下仍要卡在自己那份限额里：" + r.usedOff);
+  // 同样的字数，全给原文装不下这么多拍——这才是摘录换来的东西
+  const verbatim = recent([], long.slice(-3), BUD);
+  assert.ok(r.lines.length > verbatim.lines.length * 3, "摘录没换来更远的回看");
 });
