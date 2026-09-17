@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-40aeca271d96b54b", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-c6c46c82583ce6ab", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -603,6 +603,20 @@
               "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
                 .map(r => r.how).join("、")))
           :           bookTab === "things" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 修好的地方（她 2026-09-17：「做④吧宝宝」）。
+            // ⚠️「还差什么」问的是 world.mjs 那一处（workShort），这儿不另算一遍。
+            ((things && things.works) || []).length ? h("div", { style: { marginBottom: 22 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "修好的地方"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+                "弄好一处，村里就多一处能用的地方——下雨他会去那儿躲，午后他会去那儿坐。材料带齐了，走到那儿就能动手。"),
+              h("div", { style: { display: "grid", gap: 9 } },
+                things.works.map(w => h("div", { key: w.id, style: { borderRadius: 14, border: "1px solid " + (w.done ? G.deep : G.line), background: "rgba(255,255,255,.55)", padding: "10px 13px" } },
+                  h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: G.ink } }, w.label),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: w.done ? G.deep : "#93a188" } },
+                      w.done ? "弄好了" : (w.where || "公告栏"))),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
+                    w.done ? w.hint : w.cost ? (w.short.length ? "还差" + w.short.join("、") : "材料齐了，走过去就能动手") + " · 要" + w.cost : w.hint))))) : null,
             // ── 屋里：锅炼出来的东西。⚠️这一整条链一枪都不打，全是代码算的
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。"),

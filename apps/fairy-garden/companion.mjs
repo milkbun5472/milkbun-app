@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-40aeca271d96b54b';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-40aeca271d96b54b';
+import {stepRoute} from './locomotion.mjs?v=fg-c6c46c82583ce6ab';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot} from './world.mjs?v=fg-c6c46c82583ce6ab';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -22,6 +22,12 @@ function homeFor(s,plan){const who=s.companion;if(!who||!who.home)return plan;
  if(site&&['home','rain'].includes(plan.id))
   return {...plan,map:'garden',target:spread(who.charId,site.target,'garden'),label:'在'+site.label+'门前'};
  return {...plan,target:spread(who.charId,plan.target,plan.map)};}
+// 下雨下雪那天，没有遮头的那几格都挪到檐下。
+// ⚠️这三格例外是【本来就有遮头】的：屋前那一格就是檐下，浇花是自家门口那件杂活
+//   （第一版就有，见上面那条），rain 自己就是目的地。
+// ⚠️原来这条只挪林地那几格——于是下雨天他照样坐在小桥上、逛集市，
+//   而「补好屋顶就能进去躲雨」这件事从此没有下文。说错了就删掉重写，不挂「除非」。
+const DRY_IN_RAIN=new Set(['home','flowers','rain']);
 const NEIGHBOR_DAY=[[420,'home'],[540,'walk'],[780,'market'],[1020,'bridge'],[1200,'home']];
 // 三个邻居别整齐划一地同时出门：按 charId 把时刻各错开一点
 const shiftBy=id=>{let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))>>>0;return (h%5)*18;};
@@ -29,8 +35,13 @@ export function dailySchedule(s){const season=seasonOf(s.day),who=s.companion,
  plan=who&&who.home?null:(s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null);
  const shift=who&&who.home?shiftBy(who.charId):0;
  const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]
-  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):FALLBACK);return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&activity[id].map==='forest'){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
-export function plannedActivity(s){const list=dailySchedule(s);return homeFor(s,list.findLast(item=>s.minute>=item.start)||list[0]);}
+  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):FALLBACK);return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&!MAPS[activity[id].map].interior&&!DRY_IN_RAIN.has(id)){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};});}
+// 修好的地方改了他这一格去哪儿（旧塔补好了，雨天就去塔檐下，不再是自家屋檐）。
+// ⚠️和 homeFor 一个道理，必须写在 plannedActivity 这一处：tick 在 mode==='routine'
+//   时【绕开 companionPlan 直接用 plannedActivity】，写在 companionPlan 里，
+//   他最常见的那个模式一次都读不到——这一课这一季已经栽过两次了。
+const worksFor=(s,plan)=>{const spot=workSpot(s,plan.id);return spot?{...plan,...spot}:plan;};
+export function plannedActivity(s){const list=dailySchedule(s);return homeFor(s,worksFor(s,list.findLast(item=>s.minute>=item.start)||list[0]));}
 export const PERSONAL_SPACE=.58;
 function followPoint(s){
  const p=s.position,c=s.companion,from=c.map===s.map?c.position:MAPS[s.map].spawn,d=Math.hypot(from.x-p.x,from.z-p.z);

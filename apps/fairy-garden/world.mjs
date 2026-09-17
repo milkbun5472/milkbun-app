@@ -1,6 +1,6 @@
-import './rules.js?v=fg-40aeca271d96b54b';
+import './rules.js?v=fg-c6c46c82583ce6ab';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-40aeca271d96b54b';
+import {createNavigator} from './navigation.mjs?v=fg-c6c46c82583ce6ab';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -226,10 +226,87 @@ export function restoreQuests(raw){
     day: Math.max(1, count(x.day)), done: x.done === true
   }));
 }
+// ── 修好的地方（她 2026-09-17：「做④吧宝宝」）────────────────────────
+// ⚠️「做过的事真的改变生活」是这一条的全部：修好了不是拿到一个勾，
+//   是【村里从此多了一处能用的地方】——下雨他会去那儿，午后他会去那儿，
+//   她走到那儿也有句话。变的是日子，不是一张成就表。
+// ⚠️小路那盏灯是这张表的【第一行】，不是它的例外。原来它散在
+//   QUEST_KINDS.fix.keeps / restoreFixtures / lampOn / dailySeeds 好几处，
+//   现在这几处一律走这张表（施工规则/one-public-mechanism.md：已有的也要搬过来）。
+// ⚠️地点全是村里【本来就有】的那几处（codex 那边已经盖好的旧塔、北岸）：
+//   这一版一个新景都不加，只是让盖好的东西真的能用。
+export const WORKS = {
+  pathLamp: { label: '小路那盏灯', site: null, by: 'quest',
+    hint: '公告栏上那件「修东西」做完，它就一直亮着',
+    done: '小路那盏灯修好了，从此天黑就亮着' },
+  towerRoof: { label: '旧塔漏雨的屋顶', site: 'oldTower', need: { relic: 2, sand: 8 }, moves: 'rain',
+    hint: '补好它，下雨天就能进去躲',
+    done: '旧塔那片漏雨的屋顶补好了，下雨天能进去躲雨了',
+    there: '塔檐底下是干的，雨声全在外面。' },
+  lakeShade: { label: '月湖北岸的藤棚', site: 'lakeNorth', need: { herbs: 6, harvest: 3 }, moves: 'walk',
+    hint: '搭起来，午后就有个歇脚的地方',
+    done: '月湖北岸搭起了一架藤棚，午后有地方坐了',
+    there: '藤叶把日头筛成一地碎光，风从湖面过来。' }
+};
+export const WORK_NEEDS = { relic: '无名遗物', sand: '星砂', herbs: '铃叶草', harvest: '月光花' };
 export function restoreFixtures(raw){
   const d = raw && typeof raw === 'object' ? raw : {};
-  return { pathLamp: d.pathLamp === true };
+  const out = {};
+  for (const id of Object.keys(WORKS)) out[id] = d[id] === true;
+  return out;
 }
+export const workDone = (s, id) => restoreFixtures(s.fixtures)[id] === true;
+export const workHave = (s, need) => need === 'relic'
+  ? (s.shards || []).filter(x => x.kind === 'relic').length : count(s[need]);
+// 缺什么，缺多少。⚠️只算在这一处：按钮上那行小字、点不动时那句解释、
+//   界面上那张单子，读的都是它，各写一份迟早三处对不上。
+export function workShort(s, id){
+  const w = WORKS[id]; if (!w || !w.need) return [];
+  return Object.entries(w.need).filter(([k, n]) => workHave(s, k) < n)
+    .map(([k, n]) => WORK_NEEDS[k] + ' ×' + (n - workHave(s, k)));
+}
+export const workCost = id => Object.entries(WORKS[id]?.need || {})
+  .map(([k, n]) => WORK_NEEDS[k] + ' ×' + n).join('、');
+// 站在这儿能动手的那一件（没有就是 null）。⚠️「够不够得着」只写在这儿
+export function workHere(s){
+  for (const [id, w] of Object.entries(WORKS)){
+    if (!w.site || w.by === 'quest' || workDone(s, id)) continue;
+    const site = MAPS[s.map]?.sites?.[w.site]; if (!site) continue;
+    if (Math.hypot(site.target.x - s.position.x, site.target.z - s.position.z) <= 2.4) return id;
+  }
+  return null;
+}
+export function workError(s, id){
+  const w = WORKS[id];
+  if (!w) return '这儿没有这一件活。';
+  if (workDone(s, id)) return w.label + '已经弄好了。';
+  if (w.by === 'quest') return w.hint + '。';
+  if (workHere(s) !== id) return '要走到' + w.label + '那儿才动得了手。';
+  const short = workShort(s, id);
+  return short.length ? '还差' + short.join('、') + '。' : '';
+}
+export function doWork(s, id){
+  if (workError(s, id)) return s;
+  const w = WORKS[id];
+  let out = { ...s, fixtures: { ...restoreFixtures(s.fixtures), [id]: true } };
+  for (const [k, n] of Object.entries(w.need || {})){
+    if (k === 'relic'){ let left = n; out.shards = (out.shards || []).filter(x => !(x.kind === 'relic' && left-- > 0)); }
+    else out[k] = count(out[k]) - n;
+  }
+  return noteHappening(out, 'world', w.done);
+}
+// 这一件活改了他哪一格去哪儿。⚠️只有一处答案：companion.mjs 的 plannedActivity
+//   问它要（tick 在 routine 模式绕开 companionPlan，写在别处那一半人就读不到）。
+export function workSpot(s, activityId){
+  for (const [id, w] of Object.entries(WORKS)){
+    if (w.moves !== activityId || !workDone(s, id)) continue;
+    const site = MAPS.garden.sites[w.site]; if (!site) continue;
+    return { map: 'garden', target: { ...site.target }, label: w.there ? w.label : site.label };
+  }
+  return null;
+}
+export const worksDone = s => Object.entries(WORKS).filter(([id]) => workDone(s, id))
+  .map(([id, w]) => ({ id, label: w.label, done: w.done }));
 export const takeError = (s, id) =>
   questTaken(s).length >= QUEST_TAKEN_MAX ? '手上这两件先做完吧。'
   : (s.quests || []).some(q => q.id === id) ? '这一件已经接过了。'
@@ -267,7 +344,7 @@ export function turnIn(s, id){
     + (QUEST_KINDS[q.kind].keeps ? '，小路那盏灯从此亮着' : ''));
 }
 // 灯修好之后：天黑了它就亮着；雨天的晚上，发委托的人会站在灯下避雨
-export const lampOn = s => !!(restoreFixtures(s.fixtures).pathLamp && s.minute >= 1020);
+export const lampOn = s => workDone(s, 'pathLamp') && s.minute >= 1020;
 export const lampShelter = s => lampOn(s) && ['细雨', '细雪'].includes(weather(s.day, s.epoch));
 // ── 锅：把碎片做成【东西】（她 2026-09-17 拍板走 codex 那版）──────────────
 // ⚠️这一整条链【一枪都不打】：做出来是什么、叫什么、摆在哪儿、雨天响不响，
@@ -628,7 +705,7 @@ function dailySeeds(s){
   const rows = [], day = s.day;
   const notes = (s.notes || []), shards = (s.shards || []), kept = (s.collection || []);
   const things = (s.things || []).filter(t => t.spot), bottles = (s.bottles || []).filter(b => b.taken);
-  const lamp = restoreFixtures(s.fixtures).pathLamp;
+  const lamp = workDone(s, 'pathLamp');
   if (kept.length) rows.push('馆里那件「' + kept[0].name + '」被人挪正了一点，像是有人站着看过。');
   if (things.length) rows.push('摆在' + SPOTS[things[0].spot] + '的「' + things[0].name + '」上落了一层薄灰，擦一擦还是老样子。');
   if (notes.length) rows.push('第 ' + notes[0].day + ' 天那张花笺被风翻了过来，背面什么也没写。');
@@ -686,7 +763,7 @@ export const SPELL_PLACES = { eaves: '屋檐下', sill: '窗台', pond: '池边'
 export function castPlaceError(s, place){
   if (!Object.hasOwn(SPELL_PLACES, place)) return '还没有这个地方。';
   if (place === 'lamp' && !count((s.magic || {}).lamps)) return '屋前还没有灯。先做一盏星铃灯。';
-  if (place === 'pathlamp' && !restoreFixtures(s.fixtures).pathLamp) return '小路那盏灯还坏着。公告栏上有人要修它。';
+  if (place === 'pathlamp' && !workDone(s, 'pathLamp')) return '小路那盏灯还坏着。公告栏上有人要修它。';
   return '';
 }
 const SPELL_ORDER = ['echo', 'dream', 'sense', 'relic'];
@@ -835,7 +912,7 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:restoreFixtures(null),deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){if(raw&&raw.interiorLayout!==2){raw={...raw,interiorLayout:2,companion:raw.companion?{...raw.companion}:raw.companion};for(const who of ['player','companion']){const person=who==='player'?raw:raw.companion;if(!person||!MAPS[person.map]?.interior)continue;const bed=person.map==='home'&&Object.hasOwn(MAPS.home.beds,raw.sleep?.[who])&&MAPS.home.beds[raw.sleep[who]];person.position={...(bed?bed.approach[who]:MAPS[person.map].spawn)};}}if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,interiorLayout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
  depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),happenings:restoreHappenings(d.happenings),meets:restoreMeets(d.meets),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
