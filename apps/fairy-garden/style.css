@@ -167,3 +167,10 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
 #ritual-surface{position:absolute;inset:20% 0 24%;margin:0;touch-action:none;cursor:crosshair}#ritual-help,#ritual-send{min-height:46px;padding:12px 22px;border-radius:24px;background:#617b69;color:#fffbed;border:1px solid #829782;font:inherit;touch-action:none}#ritual-message{font-size:13px;line-height:1.7;text-align:center;max-width:380px;overflow-wrap:anywhere}#ritual-destination{font-size:12px;color:#63716a}
 
 #excavate-surface{position:absolute;inset:23% 0 26%;margin:0;touch-action:none;cursor:grab}#excavate-help,#excavate-finish{min-height:46px;padding:12px 22px;border-radius:24px;background:#617b69;color:#fffbed;border:1px solid #829782;font:inherit;touch-action:none}#excavate-result{font-size:13px;line-height:1.65;text-align:center;max-width:390px;overflow-wrap:anywhere;touch-action:pan-y}#excavate-progress{font-size:12px;color:#63716a}
+/* Same full-page book shell; clear selection for reusable descent kits. */
+#well-dialog .book-body{flex:1}#well-dialog .time-note{font-size:12px}
+#well-kits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#well-kits button{min-height:44px;white-space:normal}
+#well-kits button[aria-pressed="true"]{background:#56725f;color:#fff;border-color:#56725f}
+#well-finds{display:block;margin:12px 0;font-size:12px;color:#617257}
+#well-finds p{padding:10px 0;border-bottom:1px solid #d5ddc7}

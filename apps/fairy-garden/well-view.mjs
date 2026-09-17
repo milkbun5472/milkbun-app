@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MAPS,wellContext,wellTide,WELL_CURIOS} from './world.mjs?v=fg-91780ed77e3f1ed1';
+import {MAPS,wellContext,wellTide,WELL_CURIOS} from './world.mjs?v=fg-d84fb430c48842da';
 // Low-cost silhouettes make the tide legible even with effects reduced.
 export function makeWellSigns(parent,{mouth=false}={}){
  const root=new T.Group();root.name='井潮征兆';root.userData.seasonTint=false;parent.add(root);
@@ -7,6 +7,8 @@ export function makeWellSigns(parent,{mouth=false}={}){
  const groups={},materials=[];
  for(const [id,form]of [['echo','shell'],['dream','seed'],['weave','thread'],['old','relic']]){
   const g=new T.Group();root.add(g);groups[id]=g;const m=new T.MeshBasicMaterial({color:WELL_CURIOS[form].color,transparent:true,opacity:.7,side:T.DoubleSide,depthWrite:false});materials.push(m);
+  if(id==='dream'){const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const ctx=canvas.getContext('2d'),fade=ctx.createRadialGradient(32,32,0,32,32,32);fade.addColorStop(0,'rgba(255,255,255,.7)');fade.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=fade;ctx.fillRect(0,0,64,64);m.map=new T.CanvasTexture(canvas);}
+
   for(let i=0;i<5;i++){
    let geo,x=0,y=.03,z=0;
    if(id==='echo'){geo=new T.RingGeometry(.18+i*.12,.195+i*.12,40);}
@@ -17,5 +19,5 @@ export function makeWellSigns(parent,{mouth=false}={}){
   }
  }
  if(!mouth)root.position.set(0,.12,-2.2);
- return {root,update(s,time){root.visible=mouth?s.map==='garden':s.map==='depths';if(!root.visible)return;const id=mouth?wellTide(s).id:wellContext(s).local.id;for(const [k,g]of Object.entries(groups))g.visible=k===id;materials.forEach(m=>m.opacity=.52+Math.sin(time*1.5)*.13);groups.echo.rotation.y=time*.1;groups.dream.position.y=Math.sin(time*.8)*.06;}};
+ return {root,update(s,time){root.visible=mouth?s.map==='garden':s.map==='depths';if(!root.visible)return;const id=mouth?wellTide(s).id:wellContext(s).local.id;for(const [k,g]of Object.entries(groups))g.visible=k===id;materials.forEach(m=>m.opacity=.52+Math.sin(time*1.5)*.13);groups.echo.children.forEach((o,i)=>{o.scale.setScalar(.92+Math.sin(time*1.4-i*.7)*.08);});groups.dream.position.y=Math.sin(time*.8)*.06;}};
 }
