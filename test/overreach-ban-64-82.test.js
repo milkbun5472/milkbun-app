@@ -20,7 +20,12 @@ test("温度由人设定，不由禁令定", () => {
 });
 
 test("第一道闸问的是【你真的会吗】", () => {
-  const i = eng.indexOf("const OVERREACH_BAN = ");
+  // ⚠️v70.27 起这一族并进了 STOCK_REPLY_BAN（她 2026-09-17「搞吧宝宝」）：
+  //   两条同根——都是「拿一个通用手势顶掉你本来该说的那句话」——分着写等于把同一句话
+  //   说两遍，两遍都变淡（施工规则/bans-make-it-dumber.md）。OVERREACH_BAN 只留成别名，
+  //   让四个文件里的 push 照旧成立。所以这里对着【合并后那一条】验，一个要点都不许少。
+  assert.match(eng, /const OVERREACH_BAN = STOCK_REPLY_BAN;/, "别名掉了，四处的 push 会炸");
+  const i = eng.indexOf("const STOCK_REPLY_BAN = ");
   assert.ok(i > 0, "没有这一条");
   const rule = eng.slice(i, eng.indexOf("`;", i));
   assert.match(rule, /第一道：你真的会吗/, "没先问会不会——那就还是只在管措辞");
@@ -43,11 +48,13 @@ test("第一道闸问的是【你真的会吗】", () => {
   assert.doesNotMatch(rule, /原样发给|只有你会用/);
 });
 
+// v70.27 合并之后，「同进同出」不再是【两个常量成对出现】，而是【那一条到得了每一处】——
+// 合并的整个意义就是不必再靠人肉盯住两行紧挨着。所以改成对着落点数。
 test("跟三件套同进同出——漏一处整族就回来", () => {
-  // 群那三处走 groupBans
-  assert.match(eng, /P\.push\(STOCK_REPLY_BAN\);\n\s*P\.push\(OVERREACH_BAN\);/, "群那一摞没跟上");
-  // 单聊/线下/通话/probe 走 buildBundle
-  assert.match(eng, /parts\.push\(STOCK_REPLY_BAN\);\n\s*parts\.push\(OVERREACH_BAN\);/, "buildBundle 那一处没跟上");
-  // 同人文自己 push 那一串
-  assert.match(fic, /if \(typeof OVERREACH_BAN !== "undefined"\) parts\.push\(OVERREACH_BAN\);/, "同人文没跟上");
+  const GB = require("./_group-bans.js");
+  assert.ok(GB.allGroupsHave("STOCK_REPLY_BAN"), "群那三处没跟上");
+  assert.match(eng, /parts\.push\(STOCK_REPLY_BAN\);/, "buildBundle 那一处没跟上");
+  // 同人文吃的是叙事底座那一路；别名还在，老 push 删了也不该漏
+  assert.ok(/STOCK_REPLY_BAN|OVERREACH_BAN/.test(fic) ||
+            /parts\.push\(STOCK_REPLY_BAN\)/.test(eng), "同人文那一路断了");
 });

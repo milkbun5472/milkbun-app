@@ -1,8 +1,8 @@
-import {brewError,brewResult} from './brewing.mjs?v=fg-8293e07843821ea4';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-8293e07843821ea4';
-import './rules.js?v=fg-8293e07843821ea4';
+import {brewError,brewResult} from './brewing.mjs?v=fg-f39bdff08210998e';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-f39bdff08210998e';
+import './rules.js?v=fg-f39bdff08210998e';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-8293e07843821ea4';
+import {createNavigator} from './navigation.mjs?v=fg-f39bdff08210998e';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -86,10 +86,14 @@ export const SEED_PER_DAY = 2;       // 一天最多种两株：这一层是【�
 export const NOTE_CAP = 300;
 const trimText = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 export function restoreSeeds(raw){
-  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && Object.hasOwn(SEED_KINDS, x.kind)).slice(-SEED_PLOTS * 4).map(x => ({
-    id: String(x.id).slice(0, 40), kind: x.kind, ask: trimText(x.ask, 120),
-    day: Math.max(1, count(x.day)), done: x.done === true
-  }));
+ const valid=(Array.isArray(raw)?raw:[]).filter(x=>x&&x.id&&Object.hasOwn(SEED_KINDS,x.kind));
+ const keep=new Set([...valid.filter(x=>x.done!==true).slice(0,SEED_PLOTS),...valid.filter(x=>x.done===true).slice(-SEED_PLOTS*3)]),used=new Set();
+ const rows=valid.filter(x=>keep.has(x)).map(x=>{const origin=restoreShards([x.origin])[0];return {
+  id:String(x.id).slice(0,40),kind:x.kind,ask:trimText(x.ask,120),day:Math.max(1,count(x.day)),done:x.done===true,
+  ...(Number.isInteger(x.plot)&&x.plot>=0&&x.plot<SEED_PLOTS?{plot:x.plot}:{}),...(origin?.curio==='seed'?{origin}:{})};});
+ for(const x of rows.filter(x=>!x.done)){if(!Number.isInteger(x.plot)||used.has(x.plot))delete x.plot;else used.add(x.plot);}
+ for(const x of rows.filter(x=>!x.done&&!Number.isInteger(x.plot))){x.plot=Array.from({length:SEED_PLOTS},(_,i)=>i).find(i=>!used.has(i));used.add(x.plot);}
+ return rows;
 }
 export function restoreNotes(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.reply).slice(-NOTE_CAP).map(x => ({
@@ -106,11 +110,11 @@ export const seedError = s =>
 export function sowSeed(s, kind, ask){
   if (!Object.hasOwn(SEED_KINDS, kind) || seedError(s)) return s;
   const seed = { id: 'sd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
-    kind, ask: trimText(ask, 120), day: s.day, done: false };
+    kind, plot:freeSeedPlot(s), ask: trimText(ask, 120), day: s.day, done: false };
   return addMiss({ ...s, seeds: [...(s.seeds || []), seed] }, 'seed');
 }
 // 开好了的那几株。⚠️一次全收：收一次＝打一枪，不管开了几朵（钱闸在这儿）
-export const readySeeds = s => (s.seeds || []).filter(x => !x.done && s.day - x.day >= SEED_DAYS);
+export const readySeeds = s => (s.seeds || []).filter(x => !x.done && !x.origin && s.day - x.day >= SEED_DAYS);
 export function keepNotes(s, rows){
   const ready = new Set(readySeeds(s).map(x => x.id));
   const notes = (Array.isArray(rows) ? rows : []).filter(r => r && ready.has(r.id) && trimText(r.reply, 400))
@@ -121,6 +125,25 @@ export function keepNotes(s, rows){
   return noteHappening({ ...s, seeds: (s.seeds || []).map(x => kept.has(x.id) ? { ...x, done: true } : x),
     notes: [...notes, ...(s.notes || [])].slice(0, NOTE_CAP) },
     'grew', '地里开了 ' + notes.length + ' 株，花笺收回来了');
+}
+// Dream seeds share the same six plots and daily sowing limit as question flowers.
+export const seedPlot=(s,x)=>Number.isInteger(x.plot)?x.plot:(s.seeds||[]).filter(v=>!v.done).indexOf(x);
+const freeSeedPlot=s=>Array.from({length:SEED_PLOTS},(_,i)=>i).find(i=>!(s.seeds||[]).some(x=>!x.done&&seedPlot(s,x)===i));
+export const growingDreams=s=>(s.seeds||[]).filter(x=>!x.done&&x.origin);
+export const dreamStage=(s,x)=>Math.min(SEED_DAYS,Math.max(0,s.day-x.day));
+export function dreamError(s,id,harvest=false){
+ if(s.map!=='garden')return '梦种要种在家旁边的花圃。';
+ if(harvest){const x=growingDreams(s).find(x=>x.id===id);return !x?'这株已经收回来了。':dreamStage(s,x)<SEED_DAYS?'花还没有开，再让它长一会儿。':s.things.length>=THING_CAP?'屋里的东西放满了，先摆进收藏馆再来收。':'';}
+ const sh=s.shards.find(x=>x.id===id);return !sh||sh.curio!=='seed'?'先挑一颗井里带回的梦种。':sh.pinned?'这颗梦种钉住了，先在收藏里取消钉住再种。':seedError(s);
+}
+function sowDream(s,id){
+ const origin=s.shards.find(x=>x.id===id),seed={id:'ds_'+origin.id,kind:'what_if',plot:freeSeedPlot(s),ask:origin.text.slice(0,120),day:s.day,done:false,origin:{...origin}};
+ return noteHappening({...s,shards:s.shards.filter(x=>x.id!==id),seeds:[...s.seeds,seed]},'grew','把井里带回的梦种种进花圃，原来的片段留在种子里');
+}
+function harvestDream(s,id){
+ const seed=growingDreams(s).find(x=>x.id===id),sh=seed.origin;
+ const thing={id:'fl_'+sh.id,name:'梦花',note:'从井底梦种长出的花，夜里会泛起微光。花心留着种下时的那一片。',kind:sh.kind,way:'set',recipe:'dreamflower',from:sh.text,day:s.day,openDay:0,spot:null};
+ return noteHappening({...s,seeds:s.seeds.map(x=>x.id===id?{...x,done:true}:x),things:[thing,...s.things]},'grew','收回一株梦花，可以摆在家具上或留在收藏馆');
 }
 export function pinNote(s, id){
   return { ...s, notes: (s.notes || []).map(n => n.id === id ? { ...n, pinned: !n.pinned } : n) };
@@ -1105,8 +1128,8 @@ export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}
 // A companion carries its own morning dew: one visible helping action per game day.
 export function companionCare(s){const c=s.companion,p=MAPS.garden.stations.garden;if(c.map!=='garden'||c.helpDay===s.day||s.blooms>=3||Math.hypot(c.position.x-p.x,c.position.z-p.z)>.5)return s;return {...s,blooms:s.blooms+1,companion:{...c,helpDay:s.day}};}
 export function exitFor(map,kind,id){const key=kind==='door'?id:kind;if(!['door','travel','enter'].includes(kind)||!Object.hasOwn(MAPS[map]?.exits||{},key))return null;const e=MAPS[map].exits[key];if(kind==='door'&&e.action!=='door')return null;return {...e,target:e.target||MAPS[map].stations[key]};}
-export function targetFor(state,kind,id){const exit=exitFor(state.map,kind,id);if(exit)return exit.target;if(kind==='bed')return state.map==='home'?MAPS.home.beds[id]?.approach.player||null:null;if(kind==='rest'&&state.map==='home'&&state.sleep?.player)return MAPS.home.beds[state.sleep.player].approach.player;if(kind==='sit'){const seat=MAPS[state.map]?.seats?.[id||'pond'];return seat?{x:seat.x,z:seat.z}:null;}if(kind==='visit')return MAPS[state.map]?.sites?.[id]?.target||null;if(kind==='gather'){const n=NODES.find(n=>n.id===id);return n?{x:n.x,z:n.z+.48}:null;}return MAPS[state.map]?.stations[kind]||null;}
-export function actionError(s,kind,id){if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=MAPS[s.map]?.seats?.[id||'pond'];return !seat?'这里没有座位。':seat.opensWith&&!opened(s,seat.opensWith)?'先在许愿树下用留感咒编起芦苇桥。':'';}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit')return MAPS[s.map]?.sites?.[id]?'':'这里还没有开放这处地方。';
+export function targetFor(state,kind,id){if(kind==='repair')return state.map==='watermill'?MAPS.watermill.stations.mill:null;if(['dreamSow','dreamHarvest'].includes(kind))return MAPS[state.map]?.stations.sow||null;const exit=exitFor(state.map,kind,id);if(exit)return exit.target;if(kind==='bed')return state.map==='home'?MAPS.home.beds[id]?.approach.player||null:null;if(kind==='rest'&&state.map==='home'&&state.sleep?.player)return MAPS.home.beds[state.sleep.player].approach.player;if(kind==='sit'){const seat=MAPS[state.map]?.seats?.[id||'pond'];return seat?{x:seat.x,z:seat.z}:null;}if(kind==='visit')return MAPS[state.map]?.sites?.[id]?.target||null;if(kind==='gather'){const n=NODES.find(n=>n.id===id);return n?{x:n.x,z:n.z+.48}:null;}return MAPS[state.map]?.stations[kind]||null;}
+export function actionError(s,kind,id){if(kind==='repair')return repairError(s,id);if(['dreamSow','dreamHarvest'].includes(kind))return dreamError(s,id,kind==='dreamHarvest');if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=MAPS[s.map]?.seats?.[id||'pond'];return !seat?'这里没有座位。':seat.opensWith&&!opened(s,seat.opensWith)?'先在许愿树下用留感咒编起芦苇桥。':'';}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit')return MAPS[s.map]?.sites?.[id]?'':'这里还没有开放这处地方。';
  if(['seed','star','lamp'].includes(kind))return magicError(s,kind);
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);if(!n||s.map!==n.map||(n.depth!=null&&n.depth!==s.depth))return '这里没有这种材料。';
   if(s.picked.includes(id))return n.map==='depths'?'这一处的矿脉已经采空了。':'这一丛今天采过了，明天会重新长出来。';return '';}
@@ -1138,6 +1161,8 @@ export function actionError(s,kind,id){if(kind==='bed')return s.map==='home'&&Ob
 export const gardenIntent=s=>s.blooms===3?'harvest':s.potions?'potion':'water';
 function performAction(s,kind,id,intent=gardenIntent(s)){
  if(actionError(s,kind,id))return s;const p=targetFor(s,kind,id);if(!p||Math.hypot(s.position.x-p.x,s.position.z-p.z)>.65)return s;
+ if(kind==='repair')return repairRelic(s,id);
+ if(kind==='dreamSow')return sowDream(s,id);if(kind==='dreamHarvest')return harvestDream(s,id);
  if(['seed','star','lamp'].includes(kind))return performMagic(s,kind);
  if(kind==='bed')return arrangeSleep(s,id,intent);if(kind==='sit')return {...s,seat:id||'pond'};if(kind==='visit')return {...s};
  if(kind==='well')return {...s,water:3};
@@ -1171,7 +1196,7 @@ export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},labe
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶'};
+const ACTION_NAMES={repair:'修复旧物',dreamSow:'种下梦种',dreamHarvest:'收回梦花',door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}
@@ -1200,3 +1225,10 @@ export function perform(s,kind,id,intent=gardenIntent(s)){const out=performActio
 export function exitToward(from,to){const queue=[{map:from,first:null}],seen=new Set([from]);while(queue.length){const step=queue.shift();if(step.map===to)return step.first;for(const [id,exit]of Object.entries(MAPS[step.map]?.exits||{})){if(seen.has(exit.to)||!MAPS[exit.to])continue;seen.add(exit.to);queue.push({map:exit.to,first:step.first||{id,to:exit.to,at:exit.at,target:exit.target||MAPS[from].stations[id]}});}}return null;}
 
 export function chooseWellKit(s,key){return s.map!=='depths'&&Object.hasOwn(WELL_KITS,key)?{...s,wellKit:key}:s;}
+
+export function repairError(s,id){
+ if(s.map!=='watermill')return '修复用的工作台在水磨坊里。';
+ const sh=s.shards.find(x=>x.id===id);
+ return !sh||sh.curio!=='relic'?'先挑一件井里带回的沉睡旧物。':sh.pinned?'这件旧物钉住了，先在收藏里解除钉住。':s.things.length>=THING_CAP?'屋里的东西放满了，先留一些到收藏馆再修。':'';
+}
+function repairRelic(s,id){const sh=s.shards.find(x=>x.id===id),thing={id:'rr_'+sh.id,name:'修好的留光匣',note:'松开的匣盖重新扣合，裂缝用金线接住；里面仍留着井底带回的那一片。',kind:sh.kind,way:'set',recipe:'repairedrelic',from:sh.text,day:s.day,openDay:0,spot:null};return noteHappening({...s,shards:s.shards.filter(x=>x.id!==id),things:[thing,...s.things]},'made','在水磨坊修好了一只留光匣');}

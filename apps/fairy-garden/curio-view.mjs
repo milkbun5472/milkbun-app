@@ -21,9 +21,10 @@ export function makeCurio(form){
   for(const y of [.08,.37])mesh(new T.CylinderGeometry(.22,.22,.045,20),gold,0,y,0);
   for(let j=0;j<7;j++){const o=mesh(new T.TorusGeometry(.145,.017,6,24),light,0,.11+j*.035,0);o.rotation.x=Math.PI/2;}
   tube([new T.Vector3(.15,.25,0),new T.Vector3(.35,.2,.05),new T.Vector3(.28,.08,.25),new T.Vector3(.05,.075,.3)],.018,light);
- }else if(form==='relic'){
+ }else if(form==='relic'||form==='restored'){
   const o=mesh(new T.BoxGeometry(.43,.31,.3),dark,0,.22,0);o.rotation.y=.15;
-  mesh(new T.BoxGeometry(.47,.07,.34),gold,0,.4,0).rotation.y=.15;
+  const lid=mesh(new T.BoxGeometry(.47,.07,.34),gold,0,.4,0);lid.name='relic-lid';lid.rotation.y=.15;
+  if(form==='restored'){tube([new T.Vector3(-.18,.3,.16),new T.Vector3(-.05,.2,.17),new T.Vector3(.05,.27,.17),new T.Vector3(.18,.16,.17)],.012,gold);mesh(new T.OctahedronGeometry(.055),light,0,.45,0);}
   mesh(new T.TorusGeometry(.075,.017,6,20),gold,.015,.23,.17);
   mesh(new T.SphereGeometry(.038,10,8),light,.015,.23,.18);
  }else{

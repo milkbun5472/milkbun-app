@@ -175,3 +175,6 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
 #well-kits button[aria-pressed="true"]{background:#56725f;color:#fff;border-color:#56725f}
 #well-finds{display:block;margin:12px 0;font-size:12px;color:#617257}
 #well-finds p{padding:10px 0;border-bottom:1px solid #d5ddc7}
+
+
+.keepsake-book .book-body{flex:1}.keepsake-list{display:block;margin:12px 0;font-size:13px}.keepsake-list article{padding:8px 0 16px;border-bottom:1px solid #d5ddc7}.keepsake-list button{min-height:44px;width:100%}.keepsake-list .time-note{font-size:13px;white-space:pre-wrap}
