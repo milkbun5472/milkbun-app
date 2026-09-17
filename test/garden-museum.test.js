@@ -10,15 +10,17 @@ const rules = rd("apps/fairy-garden/rules.js");
 const html = rd("apps/fairy-garden/index.html");
 
 // 她 2026-09-17：「收藏馆和配方都做吧宝宝」
-test("收藏馆借公共厅那栋楼，不另起一座（模型那边归 codex）", () => {
-  assert.match(rules, /museum:\{x:-\.2,z:-1\.65\}/, "站位写在地图这一处");
-  assert.match(rules, /\{kind:'museum',x:-\.3,z:-2\.1,r:\.5\}/);
-  assert.match(world, /if\(kind==='museum'\)return s\.map!=='garden'\?'收藏馆在公共厅里。':''/);
-  assert.match(world, /museum:'去收藏馆'/, "日记里也要认得这一趟");
+test("捐东西就在 codex 那栋收藏馆里发生，不另开第二个入口", () => {
+  // ⚠️我原来在公共厅门口开过一个「收藏馆」入口，跟 codex v69.43 那栋真的馆撞了。
+  //   同一件事两个门就是同一层活在两处（施工规则/one-public-mechanism.md），所以撤掉我那个。
+  assert.match(rules, /sites:\{museum:\{label:'收藏馆'/, "门是他们那栋小馆的门");
+  assert.doesNotMatch(rules, /\{kind:'museum',/, "不许再有第二个入口");
+  assert.doesNotMatch(world, /museum:'去收藏馆'/);
+  assert.match(world, /if \(s\.map !== 'museum'\) return '先走进收藏馆，再把东西留下。'/);
+  assert.match(game, /\$\('museum'\)\.hidden=data\.map!=='museum'/, "按钮只在馆里出现");
+  assert.match(game, /\$\('museum'\)\.onclick=\(\)=>openMuseum\(\)/, "人已经在展厅里了，不用再走一趟");
   assert.match(html, /id="museum-dialog"/);
-  assert.match(game, /\$\('museum'\)\.onclick=\(\)=>request\('museum'\)/);
 });
-
 // ⚠️成本地板：这两条都是纯代码算的。哪天这儿开始打枪，庭院就从「不花钱也好玩」
 //   变成「每挖一下都要钱」。
 test("配方和收藏馆整条链不许出现模型调用", () => {
@@ -39,7 +41,7 @@ test("炼金笔记的全表只有一份，界面不许自己再抄一张", () =>
 
 test("收藏馆在花册里占一格，捐东西要走到公共厅", () => {
   assert.match(host, /\["museum", "收藏馆"/);
-  assert.match(host, /走到公共厅门口才能捐/);
+  assert.match(host, /走进村南那间小馆才能留/);
   assert.match(host, /背包会被挤掉，这一份不会/);
 });
 

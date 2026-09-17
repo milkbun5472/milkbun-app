@@ -7,6 +7,8 @@ import {freshState,restoreState,SHARD_KINDS,CRAFT_WAYS,craftError,craftThing,rec
 // 收藏馆那一半是【出口】：屋檐、窗台、池边一共三个位置，第四样往后没地方去。
 const shard = (kind, id, whole=false) => ({ id, kind, text: '一段'+kind+'。', whole, depth: 2, day: 1, pinned: false });
 const withShards = (...rows) => ({ ...freshState(), shards: rows });
+// ⚠️捐在馆里发生（codex v69.43 那栋楼），做东西还在庭院的锅前：两处地图不一样
+const inMuseum = s => ({ ...s, map: 'museum' });
 
 test('配方一共三十种：十二 ＋ 完整的十二 ＋ 合炉六', () => {
   const rows = recipeIndex();
@@ -61,8 +63,8 @@ test('做成过的记进炼金笔记，重复做不会记第二遍', () => {
 test('捐进馆里的东西永不删除，背包腾出来', () => {
   let s = craftThing(withShards(shard('sense', 's1')), 's1', 'set');
   const t = s.things[0];
-  assert.equal(donateError(s, t.id), '');
-  s = donate(s, t.id);
+  assert.equal(donateError(inMuseum(s), t.id), '');
+  s = donate(inMuseum(s), t.id);
   assert.equal(s.things.length, 0, '捐了还占着背包＝没有出口');
   assert.equal(s.collection.length, 1);
   assert.equal(s.collection[0].gaveDay, s.day);
@@ -73,20 +75,20 @@ test('还封着的发酵物捐不出去，不在庭院里也捐不了', () => {
   const s = craftThing(withShards(shard('dream', 's1')), 's1', 'ferment');
   const t = s.things[0];
   assert.equal(thingReady(s, t), false);
-  assert.match(donateError(s, t.id), /还封着/);
-  assert.equal(donate(s, t.id), s);
-  assert.match(donateError({ ...s, map: 'home' }, t.id), /公共厅/);
-  assert.match(donateError(s, '没有这一件'), /先挑/);
+  assert.match(donateError(inMuseum(s), t.id), /还封着/);
+  assert.deepEqual(donate(inMuseum(s), t.id), inMuseum(s), '拦住了还捐得出去＝闸是假的');
+  assert.match(donateError(s, t.id), /先走进收藏馆/, '站在庭院里就能捐＝那栋楼白盖了');
+  assert.match(donateError(inMuseum(s), '没有这一件'), /先挑/);
 });
 
 test('功绩只记第一次进馆的那一种，捐十件一样的不多算一分', () => {
   let s = { ...freshState(), shards: [shard('sense', 's1'), shard('sense', 's2'), shard('echo', 's3')] };
-  s = craftThing(s, 's1', 'set'); s = donate(s, s.things[0].id);
+  s = craftThing(s, 's1', 'set'); s = donate(inMuseum(s), s.things[0].id);
   assert.equal(s.deeds, 1);
-  s = craftThing(s, 's2', 'set'); s = donate(s, s.things[0].id);
+  s = craftThing({ ...s, map: 'garden' }, 's2', 'set'); s = donate(inMuseum(s), s.things[0].id);
   assert.equal(s.deeds, 1, '同一种捐第二件还加分＝这就成了一条刷分的路');
   assert.equal(collectedKinds(s), 1);
-  s = craftThing(s, 's3', 'set'); s = donate(s, s.things[0].id);
+  s = craftThing({ ...s, map: 'garden' }, 's3', 'set'); s = donate(inMuseum(s), s.things[0].id);
   assert.equal(s.deeds, 2);
   assert.equal(collectedKinds(s), 2);
   assert.equal(s.collection.length, 3, '件数照记，只有种数不重复算');
@@ -95,8 +97,8 @@ test('功绩只记第一次进馆的那一种，捐十件一样的不多算一�
 test('馆里摆满了就说摆满了，不悄悄挤掉最早那一件', () => {
   const full = Array.from({ length: COLLECTION_CAP }, (_, i) => ({ id: 'c' + i, name: '旧物' + i, kind: 'relic', way: 'set', day: 1, gaveDay: 1 }));
   let s = craftThing({ ...withShards(shard('relic', 's1')), collection: full }, 's1', 'set');
-  assert.match(donateError(s, s.things[0].id), /摆满/);
-  assert.equal(donate(s, s.things[0].id), s);
+  assert.match(donateError(inMuseum(s), s.things[0].id), /摆满/);
+  assert.deepEqual(donate(inMuseum(s), s.things[0].id), inMuseum(s), '摆满了还悄悄塞进去＝最早那件被挤掉了');
 });
 
 test('旧存档进来照样有笔记和馆，一件东西都不丢', () => {
@@ -110,9 +112,21 @@ test('旧存档进来照样有笔记和馆，一件东西都不丢', () => {
 test('v69.41 之前做的老东西没有配方号，也不许一件一分', () => {
   const legacy = { id: 't1', name: '雨铃', note: '挂在屋檐下。', kind: 'sense', way: 'set', day: 2 };
   let s = { ...freshState(), things: [legacy, { ...legacy, id: 't2' }] };
-  s = donate(s, 't1');
+  s = donate(inMuseum(s), 't1');
   assert.equal(s.deeds, 1);
-  s = donate(s, 't2');
+  s = donate(inMuseum(s), 't2');
   assert.equal(s.deeds, 1, '没有配方号就每件都算新的一种＝又一条刷分的路');
   assert.equal(collectedKinds(s), 1);
+});
+
+// ⚠️留下的那几件必须还在展架上。donate 会把它们从 things 里拿走，
+//   museumCollection 只读 things 的话，「留下一件」的结果是它当场从架子上消失——正好是反的。
+test('留在馆里的那几件照样摆在炼金陈列架上', async () => {
+  const { museumCollection, museumCaption } = await import('./museum.mjs');
+  let s = craftThing({ ...freshState(), shards: [{ id: 's1', kind: 'echo', text: '一段回声。', whole: false, depth: 1, day: 1, pinned: false }] }, 's1', 'set');
+  const name = s.things[0].name;
+  s = donate({ ...s, map: 'museum' }, s.things[0].id);
+  assert.equal(s.things.length, 0);
+  assert.deepEqual(museumCollection(s).alchemy.map(x => x.name), [name], '捐完就从架子上没了');
+  assert.match(museumCaption(s, 'alchemy'), /留在这儿的/);
 });

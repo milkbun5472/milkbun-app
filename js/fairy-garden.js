@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-8819c0c2e674d772", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-6050ed6bbbb29cc0", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -414,7 +414,7 @@
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
             //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "捐进公共厅那间馆里的东西会一直摆着——背包会被挤掉，这一份不会。走到公共厅门口才能捐。"),
+              "留在收藏馆里的东西会一直摆着——背包会被挤掉，这一份不会。走进村南那间小馆才能留。"),
             // ⚠️馆里那几件排在前面：笔记有三十行，其中二十多行是「？」，
             //   摆在上面就把她真正捐进去的那几件压到屏幕外头去了。
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
@@ -427,7 +427,7 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
                 t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
-                  "还空着。做好一样东西，走到公共厅门口把它捐进去。"),
+                  "还空着。做好一样东西，走进收藏馆把它留在那儿。"),
             // 炼金笔记：做成过的写出名字，没做成过的只留一行材料——那是线索，不是清单
             h("div", { style: { marginTop: 24, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink } }, "炼金笔记"),
