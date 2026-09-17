@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MAPS,freshState,perform,restoreState,findPath,segmentClear,floorHeight,hitInteraction,exitToward,walkable} from './world.mjs';
 import {makeCompanionController} from './companion.mjs';
-for(const map of ['neighbor1','neighbor2']){
+for(const map of ['neighbor1','neighbor2','neighbor3']){
 test(map+' is entered through the existing neighbour door and every room is reachable',()=>{
  const door=MAPS.garden.exits[map];
  assert.deepEqual(door.target,MAPS.garden.sites[map].target);
@@ -50,4 +50,18 @@ test('tower arc bookcases face into the reading circle and keep their rotated co
   const x=a.x+sign*a.w/2*Math.cos(a.heading),z=a.z+sign*a.w/2*Math.sin(a.heading);
   for(const q of m.furniture)assert.ok(Math.abs(x-q.x)>q.w/2+.26||Math.abs(z-q.z)>q.d/2+.30,'arch overlaps '+q.kind);
  }
+});
+
+test('greenhouse supports match collision posts and tea chairs face one another',()=>{
+ const m=MAPS.neighbor3;
+ for(const p of m.plan.posts){
+  assert.equal(walkable(p.x,p.z,'neighbor3'),false);
+  for(const q of m.furniture)assert.ok(Math.abs(p.x-q.x)>q.w/2+p.r+.08||Math.abs(p.z-q.z)>q.d/2+p.r+.08,'post intersects '+q.kind);
+ }
+ const table=m.furniture.find(q=>q.kind==='roundtable');
+ for(const q of m.furniture.filter(q=>q.kind==='armchair'&&q.x>0)){
+  const dx=table.x-q.x,dz=table.z-q.z;
+  assert.ok((-Math.sin(q.heading)*dx+Math.cos(q.heading)*dz)/Math.hypot(dx,dz)>.99);
+ }
+ assert.ok(!m.interactions.some(q=>['bed','garden','sow'].includes(q.kind)),'new room remains scenery, without shadow sleep or planting mechanics');
 });

@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const base=process.env.GARDEN_TEST_URL||'http://127.0.0.1:18894',out=process.env.GARDEN_TEST_OUTPUT||'/tmp';
-const targets=process.argv.slice(2);if(!targets.length)targets.push('neighbor1','neighbor2');
+const targets=process.argv.slice(2);if(!targets.length)targets.push('neighbor1','neighbor2','neighbor3');
 (async()=>{const browser=await chromium.launch({headless:true,channel:'chrome'});try{
  for(const map of targets){
  const ctx=await browser.newContext({viewport:{width:1100,height:850}}),p=await ctx.newPage(),errors=[];
