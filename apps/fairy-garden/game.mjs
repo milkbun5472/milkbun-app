@@ -1,20 +1,20 @@
-import {stepRoute} from './locomotion.mjs?v=fg-95540e6df26a7f33';
-import {makeLakeView} from './lake-view.mjs?v=fg-95540e6df26a7f33';
-import {makeMuseum} from './museum-view.mjs?v=fg-95540e6df26a7f33';
-import {museumCaption} from './museum.mjs?v=fg-95540e6df26a7f33';
-import {makeOutdoor} from './outdoor.mjs?v=fg-95540e6df26a7f33';
-import {installSeasonBook} from './season-book.mjs?v=fg-95540e6df26a7f33';
-import {makeMagicView} from './magic-view.mjs?v=fg-95540e6df26a7f33';
-import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-95540e6df26a7f33';
+import {stepRoute} from './locomotion.mjs?v=fg-90878dd76978e3b2';
+import {makeLakeView} from './lake-view.mjs?v=fg-90878dd76978e3b2';
+import {makeMuseum} from './museum-view.mjs?v=fg-90878dd76978e3b2';
+import {museumCaption} from './museum.mjs?v=fg-90878dd76978e3b2';
+import {makeOutdoor} from './outdoor.mjs?v=fg-90878dd76978e3b2';
+import {installSeasonBook} from './season-book.mjs?v=fg-90878dd76978e3b2';
+import {makeMagicView} from './magic-view.mjs?v=fg-90878dd76978e3b2';
+import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-90878dd76978e3b2';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-95540e6df26a7f33';
-import {makeSurroundings} from './surroundings.mjs?v=fg-95540e6df26a7f33';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-95540e6df26a7f33';
-import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-95540e6df26a7f33';
-import {makeForest} from './forest.mjs?v=fg-95540e6df26a7f33';
-import {makeDepths} from './depths.mjs?v=fg-95540e6df26a7f33';
-import {createTraveler} from './traveler.mjs?v=fg-95540e6df26a7f33';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-95540e6df26a7f33';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-90878dd76978e3b2';
+import {makeSurroundings} from './surroundings.mjs?v=fg-90878dd76978e3b2';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-90878dd76978e3b2';
+import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-90878dd76978e3b2';
+import {makeForest} from './forest.mjs?v=fg-90878dd76978e3b2';
+import {makeDepths} from './depths.mjs?v=fg-90878dd76978e3b2';
+import {createTraveler} from './traveler.mjs?v=fg-90878dd76978e3b2';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-90878dd76978e3b2';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -64,7 +64,7 @@ function ui(){
  $('sit-pond').hidden=!MAPS[data.map].seats;$('sit-pond').textContent=data.seat?'起身走走':data.map==='garden'?'去月湖栈桥坐下':'去池边坐下';$('sit-pond').disabled=!!acting;$('brew').hidden=data.map!=='garden';$('well').hidden=inside;$('garden').hidden=inside;$('enter-home').hidden=!MAPS[data.map].exits.enter;$('enter-home').disabled=!!acting;
  $('brew').textContent=data.sand>=3?'⚗ 用星砂炼月露':'⚗ 炼制月露';$('brew').title=data.sand>=3?'星砂 ×3':'铃叶草 ×2 + 荧光菇 ×1 + 清水 ×1；或星砂 ×3';
  $('travel').textContent=MAPS[data.map].exits.travel?.label||(inside?'走出小屋':down?'↑ 顺着梯子上去':woods?'↙ 返回微光庭院':'↗ 前往萤光林地');fillDoors();
- $('dive').hidden=data.map!=='garden';$('dive').textContent='↓ 下到井里';
+ $('dive').hidden=data.map!=='garden';$('dive').textContent=diveWet(data)?'↓ 下到井里 · 井壁湿滑，慢一截':'↓ 下到井里';
  // 锅里做东西：背包里有碎片才亮
  {const n=(data.shards||[]).length;$('craft').hidden=data.map!=='garden';$('craft').disabled=!!acting||!n;
   $('craft').textContent=n?'⚗ 用碎片做东西 ×'+n:'⚗ 锅里还没材料';}
@@ -136,7 +136,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-95540e6df26a7f33');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-90878dd76978e3b2');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -311,9 +311,14 @@ function openMap(){
  const box=planBox(),esc=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
  const at=p=>({x:((p.x-box.minX)*box.scale).toFixed(1),y:((p.z-box.minZ)*box.scale).toFixed(1)});
  let svg='<svg viewBox="0 0 '+box.w+' '+box.h.toFixed(1)+'" role="img" aria-label="村子平面图">';
+ // ⚠️雾天只标近的那几处：这是「今天看得见什么」真的变了，不是给地图加个滤镜
+ const fog=mapFoggy(data),here=data.map==='garden'?data.position:null;
+ let hidden=0;
  for(const [kind,id,name] of MAP_SPOTS){
   const src=kind==='site'?MAPS.garden.sites[id]:null,pos=src?src.target:MAPS.garden.stations[id];
-  if(!pos)continue;const p=at(pos),label=name||(src&&src.label)||id;
+  if(!pos)continue;
+  if(fog&&here&&Math.hypot(pos.x-here.x,pos.z-here.z)>MAP_FOG_RANGE){hidden++;continue;}
+  const p=at(pos),label=name||(src&&src.label)||id;
   const dy=kind==='site'?13:-7;
   svg+='<g class="spot-hit" role="button" tabindex="0" data-x="'+pos.x+'" data-z="'+pos.z+'" data-label="'+esc(label)+'">'
     +'<title>走过去：'+esc(label)+'</title>'
@@ -332,7 +337,7 @@ function openMap(){
  }
  svg+='</svg>';
  $('map-plan').innerHTML=svg;
- $('map-where').textContent=rows.join('')+'点一处，他会带你走过去——是走过去，不是一下子到。';
+ $('map-where').textContent=rows.join('')+(hidden?'雾大，远处那 '+hidden+' 处这会儿看不清。':'')+'点一处，他会带你走过去——是走过去，不是一下子到。';
  $('map-dialog').showModal();
 }
 // 我跟着他走（她 2026-09-17）。⚠️不是传送：还是一步一步走过去的，
@@ -490,7 +495,7 @@ $('companion-wait').onclick=()=>{if(acting)return;applyCompanion();path=[];task=
 function syncThaw(){if(!actor)return;if(Math.hypot(actor.position.x-data.position.x,actor.position.z-data.position.z)>.01){actor.position.x=data.position.x;actor.position.z=data.position.z;path=[];task=null;playerSpeed=0;targetRing.visible=false;companionController.reset();say('春天到了，湖冰渐渐化开。你们回到了岸边。');}}
 function updateWorld(elapsed,dt){
  if(!ready||!actor)return;const paused=isMenuOpen();
- if(!paused){data.position={x:actor.position.x,z:actor.position.z};if(!chatting)timeAccumulator+=elapsed;if(timeAccumulator>=1){const oldDay=data.day,oldTaken=questTaken(data).length,minutes=Math.floor(timeAccumulator);timeAccumulator-=minutes;data=advanceTime(data,minutes);if(data.day!==oldDay){const dropped=Math.max(0,oldTaken-questTaken(data).length);syncThaw();ui();save();if(!acting)say(`第 ${data.day} 天，${weather(data.day,data.epoch)}。林地又长出了新的材料。`+(dropped?`板子换了，没做完的 ${dropped} 件撕下来了。`:''));}else refreshTime();}
+ if(!paused){data.position={x:actor.position.x,z:actor.position.z};if(!chatting)timeAccumulator+=elapsed;if(timeAccumulator>=1){const oldDay=data.day,oldTaken=questTaken(data).length,minutes=Math.floor(timeAccumulator);timeAccumulator-=minutes;data=advanceTime(data,minutes);if(data.day!==oldDay){const dropped=Math.max(0,oldTaken-questTaken(data).length);syncThaw();ui();save();if(!acting)say(`第 ${data.day} 天，${weather(data.day,data.epoch)}。`+((recentHappenings(data,1)[0]||{}).text||'林地又长出了新的材料。')+(dropped?`板子换了，没做完的 ${dropped} 件撕下来了。`:''));}else refreshTime();}
  const result=companionController.tick(data,dt,{allowCare:acting?.kind!=='garden'});data=result.state;if(result.event){lastCompanionEvent=result.event;ui();save();if(!acting)say(result.event);}
   missTick();chaseTick();
  if(clock-lastAutoSave>10){save();lastAutoSave=clock;}}
@@ -528,7 +533,7 @@ window.gardenDebug={getLake:()=>lakeView.inspect(),getDistricts:()=>mapViews[dat
 window.FairyGardenGame={
  flush:()=>ready&&save(),
  refreshSeasonPlan:()=>{refreshSeasonPlan();companionController.reset();},
- snapshot:()=>({epoch:data.epoch,season:seasonOf(data.day),magic:{...data.magic},journal:(data.journal||[]).slice(-14),day:data.day,time:timeLabel(data.minute),weather:weather(data.day,data.epoch),map:MAPS[data.map].name,position:{...data.position},companion:{name:data.companion.name,map:MAPS[data.companion.map].name,position:{...data.companion.position},activity:companionController.view().status},inventory:{water:data.water,herbs:data.herbs,mushrooms:data.mushrooms,potions:data.potions,flowers:data.blooms,harvest:data.harvest}}),
+ snapshot:()=>({epoch:data.epoch,season:seasonOf(data.day),lately:recentHappenings(data,6),magic:{...data.magic},journal:(data.journal||[]).slice(-14),day:data.day,time:timeLabel(data.minute),weather:weather(data.day,data.epoch),map:MAPS[data.map].name,position:{...data.position},companion:{name:data.companion.name,map:MAPS[data.companion.map].name,position:{...data.companion.position},activity:companionController.view().status},inventory:{water:data.water,herbs:data.herbs,mushrooms:data.mushrooms,potions:data.potions,flowers:data.blooms,harvest:data.harvest}}),
  setChatOpen:value=>{chatting=!!value;document.body.classList.toggle('chatting',chatting);},
  // 样貌（发型/发色/衣色）：一个身体十二款头发，换一款是数据。
  // ⚠️谁的样貌就存在谁名下：我的在 data.look，同行者的在 data.companion.look，

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-95540e6df26a7f33", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-90878dd76978e3b2", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -78,6 +78,7 @@
       "【这一季】第 " + season.year + " 年" + season.name + "季，共 14 天。这是一份可以实行的生活安排，日子会继续往后走。围绕你的人设、兴趣和你们的游戏经历，为每天挑三个活动，依次用于上午、下午、傍晚。全天候的移动、雨雪调整、实际到场和材料结算由游戏负责。",
       "【这一份就是你全部的日子】游戏这边没有另一套「默认作息」垫着——你没排的时段，他就只是待在屋前。所以这十四天是什么样，全看你怎么排。",
       "【她一个人做的那些事，你也去得了】井、告示板、收藏馆、月潭边、集市、小桥、许愿树、邻居屋门前，都在清单里。⚠️收藏馆里摆着的是【她自己留下的东西】，你去看，就是在看她。",
+      (world.lately && world.lately.length ? "【村里最近发生的事】\n" + world.lately.map(x => "・第 " + x.day + " 天：" + x.text).join("\n") : ""),
       "【本季每日天气】\n" + JSON.stringify(Array.from({length:14},(_,i)=>({day:i+1,weather:rules.weather(season.start+i,world.epoch)}))),
       "【可实行活动】\n" + JSON.stringify(Object.entries(rules.ACTIVITIES).map(([id,a])=>({id,place:rules.MAPS[a.map].name,activity:a.label}))),
       "你决定这一季想怎样生活，各天如何变化、哪些日子想独处或一起待着。活动的想法、动机与观察可以自由写；活动标识使用上述清单。涉及尚未建成的事物时把它作为愿望，眼下的安排仍落在已有地点。已经过去的季内日期只列计划，不把计划当已发生的回忆。",

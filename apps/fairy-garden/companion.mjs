@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-95540e6df26a7f33';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-95540e6df26a7f33';
+import {stepRoute} from './locomotion.mjs?v=fg-90878dd76978e3b2';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp} from './world.mjs?v=fg-90878dd76978e3b2';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -55,6 +55,11 @@ export function makeCompanionController(){
   else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
    if(allowCare&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
+   if(plan.id==='museum'&&idle>=2.8&&finishedKey!==key){finishedKey=key;
+    const kept=(s.collection||[])[0];
+    if(kept){out=noteHappening(addMiss(s,'kept'),'world',c.name+'在馆里站了一会儿，看的是「'+kept.name+'」');
+     event=`${c.name}去馆里看了看你留下的东西。`;}
+    else {out=noteHappening(s,'world',c.name+'去馆里转了一圈，架子还空着');event=`${c.name}去了馆里，架子上还什么都没有。`;}}
   }
   return {state:out,event};
  }

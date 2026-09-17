@@ -1,6 +1,6 @@
-import './rules.js?v=fg-95540e6df26a7f33';
+import './rules.js?v=fg-90878dd76978e3b2';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-95540e6df26a7f33';
+import {createNavigator} from './navigation.mjs?v=fg-90878dd76978e3b2';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -89,8 +89,9 @@ export function keepNotes(s, rows){
       return { id: r.id, kind: seed.kind, ask: seed.ask, reply: trimText(r.reply, 400), day: s.day, pinned: false }; });
   if (!notes.length) return s;
   const kept = new Set(notes.map(n => n.id));
-  return { ...s, seeds: (s.seeds || []).map(x => kept.has(x.id) ? { ...x, done: true } : x),
-    notes: [...notes, ...(s.notes || [])].slice(0, NOTE_CAP) };
+  return noteHappening({ ...s, seeds: (s.seeds || []).map(x => kept.has(x.id) ? { ...x, done: true } : x),
+    notes: [...notes, ...(s.notes || [])].slice(0, NOTE_CAP) },
+    'grew', '地里开了 ' + notes.length + ' 株，花笺收回来了');
 }
 export function pinNote(s, id){
   return { ...s, notes: (s.notes || []).map(n => n.id === id ? { ...n, pinned: !n.pinned } : n) };
@@ -136,7 +137,8 @@ export function takeShard(s, depth){
   const shard = { id: 'sh_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
     kind: row.kind, text: trimText(row.text, 240), whole: !!row.whole,
     depth: Math.max(0, count(depth)), day: s.day, pinned: false };
-  return { ...s, vein: pool.slice(1), shards: [shard, ...(s.shards || [])].slice(0, SHARD_CAP) };
+  return noteHappening({ ...s, vein: pool.slice(1), shards: [shard, ...(s.shards || [])].slice(0, SHARD_CAP) },
+    'dug', '从井里第 ' + shard.depth + ' 层刨出一片' + SHARD_KINDS[shard.kind] + (shard.whole ? '（完整的一片）' : ''));
 }
 export function pinShard(s, id){
   return { ...s, shards: (s.shards || []).map(x => x.id === id ? { ...x, pinned: !x.pinned } : x) };
@@ -246,7 +248,8 @@ export function turnIn(s, id){
   if (keeps) out.fixtures = { ...restoreFixtures(s.fixtures), [keeps]: true };
   out.deeds = count(s.deeds) + 1;
   out.quests = (s.quests || []).map(x => x.id === id ? { ...x, done: true, doneDay: s.day } : x);
-  return out;
+  return noteHappening(out, 'quest', '替' + q.from + '做完了一件「' + QUEST_KINDS[q.kind].label + '」'
+    + (QUEST_KINDS[q.kind].keeps ? '，小路那盏灯从此亮着' : ''));
 }
 // 灯修好之后：天黑了它就亮着；雨天的晚上，发委托的人会站在灯下避雨
 export const lampOn = s => !!(restoreFixtures(s.fixtures).pathLamp && s.minute >= 1020);
@@ -378,9 +381,10 @@ export function craftThing(s, shardId, way, secondId){
     name: row[0], note: row[1], kind, way, recipe: key, from: trimText(used, 240), day: s.day,
     openDay: days ? s.day + days : 0, spot: null };
   const gone = new Set([first.id, ...(second ? [second.id] : [])]);
-  return { ...s, shards: (s.shards || []).filter(x => !gone.has(x.id)),
+  return noteHappening({ ...s, shards: (s.shards || []).filter(x => !gone.has(x.id)),
     made: restoreMade([...(s.made || []), key]),
-    things: [thing, ...(s.things || [])].slice(0, THING_CAP) };
+    things: [thing, ...(s.things || [])].slice(0, THING_CAP) },
+    'made', '在锅里' + CRAFT_WAYS[way].label + '出一样「' + thing.name + '」');
 }
 // 发酵的那几样：到日子才算做好（在那之前摆不出去，也读不到）
 export const thingReady = (s, t) => !t.openDay || s.day >= t.openDay;
@@ -429,9 +433,9 @@ export function donate(s, id){
   const first = !(s.collection || []).some(x => sameKindMark(x) === mark);
   const row = { id: t.id, name: t.name, note: t.note, kind: t.kind, way: t.way,
     recipe: t.recipe || '', from: t.from, day: t.day, gaveDay: s.day };
-  return addMiss({ ...s, things: (s.things || []).filter(x => x.id !== id),
+  return noteHappening(addMiss({ ...s, things: (s.things || []).filter(x => x.id !== id),
     collection: [row, ...(s.collection || [])].slice(0, COLLECTION_CAP),
-    deeds: count(s.deeds) + (first ? 1 : 0) }, 'kept');
+    deeds: count(s.deeds) + (first ? 1 : 0) }, 'kept'), 'kept', '把「' + t.name + '」留在了馆里');
 }
 // 馆里已经有几种（不是几件）：炼金笔记那一页拿它对着 RECIPE_TOTAL 算进度
 export const collectedKinds = s => new Set((s.collection || []).map(sameKindMark)).size;
@@ -556,9 +560,79 @@ export function missMaterial(s){
   const shards = (s.shards || []).filter(x => x.pinned).slice(0, 2).map(x => ({ kind: '她钉住的碎片', text: x.text, day: x.day }));
   const drift = (s.drifts || []).slice(0, 1).map(x => ({ kind: '她今天从水里捞到的', text: x.text, day: x.day }));
   const placed = (s.things || []).filter(x => x.spot).slice(0, 2).map(x => ({ kind: '摆在' + SPOTS[x.spot] + '的', text: x.name + '。' + x.note, day: x.day }));
+  const lately = recentHappenings(s, 5).map(x => ({ kind: HAPPEN_KINDS[x.kind], text: x.text, day: x.day }));
   return { day: s.day, quiet: Math.max(0, s.day - restoreMiss(s.miss).since),
-    rows: [...drift, ...kept, ...placed, ...shards, ...notes].filter(x => x.text) };
+    rows: [...lately, ...drift, ...kept, ...placed, ...shards, ...notes].filter(x => x.text) };
 }
+// ── 村里的事（她 2026-09-17：「做 AbC 吧」的 A）─────────────────────────
+// ⚠️病根不是「事情少」，是【做了没有回响】：她捐了东西进馆、挖到一片他说过的话、
+//   替谁做完一件委托——他一件都不知道。十件事里九件是她一个人在做。
+// ⚠️所以这儿只做一件事：把【真发生过的事】记成一本村里的账。
+//   它是那几条链子和他之间唯一的接口——他开口时手上的料从这儿取，
+//   他排这一季的日程时也读它。记账本身一枪不打。
+// ⚠️只记【真发生过的】：这本账不许写任何没发生的事，否则他就会提起一件不存在的事。
+export const HAPPEN_CAP = 40;
+export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里' };
+export function restoreHappenings(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.text && Object.hasOwn(HAPPEN_KINDS, x.kind))
+    .slice(0, HAPPEN_CAP).map(x => ({ kind: x.kind, text: trimText(x.text, 120), day: Math.max(1, count(x.day)) }));
+}
+// ⚠️一律走这一处记。散在各处各写一句 push，迟早有人改漏（AutoGate 那次的形状）
+export function noteHappening(s, kind, text){
+  const line = trimText(text, 120);
+  if (!Object.hasOwn(HAPPEN_KINDS, kind) || !line) return s;
+  const rows = restoreHappenings(s.happenings);
+  if (rows.some(x => x.day === s.day && x.kind === kind && x.text === line)) return s;   // 同一天同一件不记两遍
+  return { ...s, happenings: [{ kind, text: line, day: s.day }, ...rows].slice(0, HAPPEN_CAP) };
+}
+export const recentHappenings = (s, n = 6) => restoreHappenings(s.happenings).slice(0, Math.max(1, count(n, 40)));
+// ── 世界自己长的那一件小事（她 2026-09-17：「做 AbC 吧」的 B）──────────
+// ⚠️「回来看看变了什么」是放置类的全部乐趣。现在她回来，变的只有天数。
+// ⚠️一枪都不打，而且【只从她自己的存档里长】：说的每一句都是真有的东西，
+//   绝不凭空编一件没发生过的事（那是这个库最深的一条线）。
+// ⚠️挑中哪一件由存档号＋天数定死：同一天进来几次都是同一件，不是摇奖机。
+function dailySeeds(s){
+  // ⚠️只从她自己的存档里长：挑存档的那几句都先问过「有没有」，
+  //   剩下那几句不挑存档但也只说这个村子本来就有的东西。一句都不许编。
+  const rows = [], day = s.day;
+  const notes = (s.notes || []), shards = (s.shards || []), kept = (s.collection || []);
+  const things = (s.things || []).filter(t => t.spot), bottles = (s.bottles || []).filter(b => b.taken);
+  const lamp = restoreFixtures(s.fixtures).pathLamp;
+  if (kept.length) rows.push('馆里那件「' + kept[0].name + '」被人挪正了一点，像是有人站着看过。');
+  if (things.length) rows.push('摆在' + SPOTS[things[0].spot] + '的「' + things[0].name + '」上落了一层薄灰，擦一擦还是老样子。');
+  if (notes.length) rows.push('第 ' + notes[0].day + ' 天那张花笺被风翻了过来，背面什么也没写。');
+  if (shards.length) rows.push('背包里那片' + SHARD_KINDS[shards[0].kind] + '今早是凉的，昨天还不是。');
+  if (bottles.length) rows.push('水边多了一只空瓶子，不是你放下去的那只。');
+  if (lamp) rows.push('小路那盏灯昨夜亮了一整晚，没人去关。');
+  if ((s.seeds || []).some(x => !x.done)) rows.push('地里那几株比昨天高了一点，还没到开的时候。');
+  rows.push('公告栏边上多了一张没署名的纸，字被雨泡开了，看不清。');
+  rows.push('井口的绳子被人盘好了，盘得比你平时整齐。');
+  rows.push('屋后有一串脚印，从小路那头来，到门口就停了。');
+  rows.push('溪上那座小桥的木头昨夜响了一宿，今早又没事了。');
+  rows.push('公共厅的门虚掩着，里面没人，炉子却是温的。');
+  rows.push('月潭边的石头上摆着三颗小果子，摆得很整齐。');
+  rows.push('林子那头的雾今天散得比平常晚。');
+  return rows;
+}
+export function dailyNote(s){
+  // ⚠️先把最近说过的那几句划掉再抽：连着三天同一句，「世界在动」立刻就假了。
+  //   都划完了（存档还很空）才退回整份名单——宁可重复，也不许一天都没有。
+  const rows = dailySeeds(s);
+  const said = new Set(restoreHappenings(s.happenings).filter(x => x.kind === 'world').slice(0, 5).map(x => x.text));
+  const fresh = rows.filter(x => !said.has(x));
+  const pool = fresh.length ? fresh : rows;
+  return pool[hash(String(s.epoch) + ':daily:' + s.day) % pool.length];
+}
+// ── 天气真的改变今天能做什么（她 2026-09-17：「做 AbC 吧」的 C）──────────
+// ⚠️原来天气只改两样：他的日程和雨铃响不响——那是【滤镜】，不是玩法。
+//   下面这几条各自改掉一件她今天真的会做的事，全都是代码算的。
+// 雨雪天井壁湿滑：下去和往下都慢一截（不是不让下——不许拿「今天不行」堵她的路）
+export const DIVE_WET = 1.6;
+export const diveWeight = s => ['细雨', '细雪'].includes(weather(s.day, s.epoch)) ? DIVE_WET : 1;
+export const diveWet = s => diveWeight(s) > 1;
+// 雾天看不清远处：地图上只标近的那几处（游戏那头照这个画）
+export const MAP_FOG_RANGE = 17;
+export const mapFoggy = s => weather(s.day, s.epoch) === '薄雾';
 // ── 星井（下潜）────────────────────────────────────────────────────────
 // depth   现在在第几层（0＝在地面上）
 // sand    星砂：三份能在炼药锅换一颗月露
@@ -568,13 +642,15 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){if(raw&&raw.interiorLayout!==2){raw={...raw,interiorLayout:2,companion:raw.companion?{...raw.companion}:raw.companion};for(const who of ['player','companion']){const person=who==='player'?raw:raw.companion;if(!person||!MAPS[person.map]?.interior)continue;const bed=person.map==='home'&&Object.hasOwn(MAPS.home.beds,raw.sleep?.[who])&&MAPS.home.beds[raw.sleep[who]];person.position={...(bed?bed.approach[who]:MAPS[person.map].spawn)};}}if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,interiorLayout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),happenings:restoreHappenings(d.happenings),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 // Thaw rescues only positions that are no longer traversable; inventory and relationship data stay intact.
 export function shoreAfterThaw(s){if(lakeFrozen(s))return s;const l=MAPS.garden.lake,at=p=>inPolygon(p.x,p.z,l.shore,.16)&&!walkable(p.x,p.z,'garden',s),p=s.map==='garden'&&at(s.position),c=s.companion.map==='garden'&&at(s.companion.position);if(!p&&!c)return s;return {...s,position:p?{...l.bottle.target}:s.position,companion:c?{...s.companion,position:{x:l.bottle.target.x+.85,z:l.bottle.target.z+.3}}:s.companion};}
-export function nextDay(s){const day=s.day+1;return expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms})));}
+export function nextDay(s){const day=s.day+1;return withDailyNote(expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}))));}
+// 新的一天：世界自己长出来那一件，记进村里的账（他开口时手上就有今天这一件）
+function withDailyNote(s){ return noteHappening(s, 'world', dailyNote(s)); }
 export function advanceTime(s,minutes){let remaining=count(minutes,9600),out=s;while(remaining>0){const span=1380-out.minute;if(remaining<span)return {...out,minute:out.minute+remaining};remaining-=span;out=nextDay(out);}return out;}
 export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
 // A companion carries its own morning dew: one visible helping action per game day.
@@ -630,8 +706,8 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
  if(['travel','enter','door'].includes(kind)){const e=exitFor(s.map,kind,id);return {...s,seat:null,map:e.to,position:{...(e.at||MAPS[e.to].spawn)}};}
  // 下去一趟要花时间：第一层 45 分钟，再往下每层 35 分钟，爬上来 20 分钟。
  // ⚠️时间一律走 advanceTime——它自己会跨天，别在这儿另算一遍日期。
- if(kind==='dive')return advanceTime({...s,map:'depths',depth:1,position:{...MAPS.depths.spawn}},45);
- if(kind==='deeper')return advanceTime({...s,depth:s.depth+1,position:{...MAPS.depths.spawn}},35);
+ if(kind==='dive')return advanceTime({...s,map:'depths',depth:1,position:{...MAPS.depths.spawn}},Math.round(45*diveWeight(s)));
+ if(kind==='deeper')return advanceTime({...s,depth:s.depth+1,position:{...MAPS.depths.spawn}},Math.round(35*diveWeight(s)));
  if(kind==='ladder'){const e=MAPS.depths.exits.ladder;return advanceTime({...s,map:e.to,depth:0,position:{...(e.at||MAPS[e.to].spawn)}},20);}
  if(kind==='rest')return nextDay(s);return s;
 }
