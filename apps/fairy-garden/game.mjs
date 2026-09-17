@@ -1,20 +1,20 @@
-import {stepRoute} from './locomotion.mjs?v=fg-4fdb022423c4056f';
-import {makeLakeView} from './lake-view.mjs?v=fg-4fdb022423c4056f';
-import {makeMuseum} from './museum-view.mjs?v=fg-4fdb022423c4056f';
-import {museumCaption} from './museum.mjs?v=fg-4fdb022423c4056f';
-import {makeOutdoor} from './outdoor.mjs?v=fg-4fdb022423c4056f';
-import {installSeasonBook} from './season-book.mjs?v=fg-4fdb022423c4056f';
-import {makeMagicView} from './magic-view.mjs?v=fg-4fdb022423c4056f';
-import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-4fdb022423c4056f';
+import {stepRoute} from './locomotion.mjs?v=fg-53f916426495c476';
+import {makeLakeView} from './lake-view.mjs?v=fg-53f916426495c476';
+import {makeMuseum} from './museum-view.mjs?v=fg-53f916426495c476';
+import {museumCaption} from './museum.mjs?v=fg-53f916426495c476';
+import {makeOutdoor} from './outdoor.mjs?v=fg-53f916426495c476';
+import {installSeasonBook} from './season-book.mjs?v=fg-53f916426495c476';
+import {makeMagicView} from './magic-view.mjs?v=fg-53f916426495c476';
+import {installViewControls,orthographicPanDelta} from './view-controls.mjs?v=fg-53f916426495c476';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-4fdb022423c4056f';
-import {makeSurroundings} from './surroundings.mjs?v=fg-4fdb022423c4056f';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-4fdb022423c4056f';
-import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-4fdb022423c4056f';
-import {makeForest} from './forest.mjs?v=fg-4fdb022423c4056f';
-import {makeDepths} from './depths.mjs?v=fg-4fdb022423c4056f';
-import {createTraveler} from './traveler.mjs?v=fg-4fdb022423c4056f';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-4fdb022423c4056f';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-53f916426495c476';
+import {makeSurroundings} from './surroundings.mjs?v=fg-53f916426495c476';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-53f916426495c476';
+import {START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-53f916426495c476';
+import {makeForest} from './forest.mjs?v=fg-53f916426495c476';
+import {makeDepths} from './depths.mjs?v=fg-53f916426495c476';
+import {createTraveler} from './traveler.mjs?v=fg-53f916426495c476';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-53f916426495c476';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -61,7 +61,7 @@ function ui(){
  else if(woods){button('well','❧','采铃叶草','每丛 2 份 · 炼药材料');button('garden','✧','采荧光菇','每丛 1 份 · 炼药材料');}
  else{button('well','♧','井边取水','走过去 · 装满水壶');button('garden','✿',data.blooms===3?'采收月光花':data.potions?'月露浇灌':'照料花圃',data.blooms===3?'收入花藏 · 留根再生':data.potions?'消耗月露 ×1 · 整圃开花':'消耗清水 ×1 · 唤醒一朵');}
  $('skate-lake').hidden=data.map!=='garden'||!lakeFrozen(data);$('skate-lake').disabled=!!acting;
- $('sit-pond').hidden=!MAPS[data.map].seats;$('sit-pond').textContent=data.seat?'起身走走':data.map==='garden'?'去月湖栈桥坐下':'去池边坐下';$('sit-pond').disabled=!!acting;$('village-places').hidden=!MAPS[data.map].sites;fillPlaces();$('brew').hidden=data.map!=='garden';$('well').hidden=inside;$('garden').hidden=inside;$('enter-home').hidden=!MAPS[data.map].exits.enter;$('enter-home').disabled=!!acting;
+ $('sit-pond').hidden=!MAPS[data.map].seats;$('sit-pond').textContent=data.seat?'起身走走':data.map==='garden'?'去月湖栈桥坐下':'去池边坐下';$('sit-pond').disabled=!!acting;$('brew').hidden=data.map!=='garden';$('well').hidden=inside;$('garden').hidden=inside;$('enter-home').hidden=!MAPS[data.map].exits.enter;$('enter-home').disabled=!!acting;
  $('brew').textContent=data.sand>=3?'⚗ 用星砂炼月露':'⚗ 炼制月露';$('brew').title=data.sand>=3?'星砂 ×3':'铃叶草 ×2 + 荧光菇 ×1 + 清水 ×1；或星砂 ×3';
  $('travel').textContent=MAPS[data.map].exits.travel?.label||(inside?'走出小屋':down?'↑ 顺着梯子上去':woods?'↙ 返回微光庭院':'↗ 前往萤光林地');fillDoors();
  $('dive').hidden=data.map!=='garden';$('dive').textContent='↓ 下到井里';
@@ -121,7 +121,7 @@ function tidyActions(){
  if(!blocked)wrap.open=false;
  // 空了的那几行别在面板里占一条缝
  for(const row of $('panel-content').querySelectorAll('.secondary-actions')){
-  if(row===box||row.id==='village-places'||row.id==='map-doors')continue;
+  if(row===box||row.id==='map-doors')continue;
   row.hidden=![...row.children].some(x=>!x.hidden);
  }
 }
@@ -136,7 +136,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-4fdb022423c4056f');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-53f916426495c476');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -166,15 +166,6 @@ $('travel').onclick=()=>request(data.map==='depths'?'ladder':'travel');
 $('dive').onclick=()=>request('dive');
 $('notes').onclick=()=>request('note');
 $('rest').onclick=()=>request('rest');
-function fillPlaces(){const select=$('place-select');if(select.dataset.map===data.map)return;select.replaceChildren();for(const [id,site]of Object.entries(MAPS[data.map].sites||{})){const o=document.createElement('option');o.value=id;o.textContent=site.label;select.append(o);}select.dataset.map=data.map;}
-for(const [id,b]of Object.entries(MAPS.home.beds)){const o=document.createElement('option');o.value=id;o.textContent=b.label;$('bed-select').append(o);}
-$('lie-down').onclick=()=>request('bed',$('bed-select').value);
-$('wake-player').onclick=()=>{if(acting)return;data=wakeSleeper(data);ui();save();say('起床了，今天慢慢来。');};
-$('wake-companion').onclick=()=>{if(acting)return;data=wakeSleeper(data,'companion');companionController.reset();ui();save();say('轻轻叫 TA 起床。');};
-$('enter-home').onclick=()=>request('enter');
-$('skate-lake').onclick=()=>{if(go(MAPS.garden.lake.skateStart)){say('走上月湖就会换上冰鞋；点冰面滑过去，点岸边回到小路。想一起滑，可以叫同行者跟随。');}};
-$('sit-pond').onclick=()=>{if(data.seat){data.seat=null;companionController.reset();save();ui();say('站起来，慢慢走一走。');}else request('sit');};
-$('visit-place').onclick=()=>request('visit',$('place-select').value);
 function beginAction(job){acting={...job,intent:job.kind==='bed'?job.sleepMode:job.kind==='garden'?gardenIntent(data):null,time:0};actor.rotation.y=job.kind==='brew'?-Math.PI/2:Math.PI;$('progress').hidden=false;$('progress').firstElementChild.style.width='0%';ui();say(job.kind==='visit'?'在这里停一会儿。':({door:'推开门，往里面走。',bed:'把枕头放好，床铺暖暖的。',enter:'推开门，屋里的光暖暖的。',sit:'在水边慢慢坐下来。',well:'井水晃了一下，清凉地流进壶底。',garden:data.blooms===3?'把开好的花轻轻摘下来，留住花根。':data.potions?'月露落在叶尖，微光沿着叶脉散开。':'一点一点浇下去，叶子舒展开来。',brew:'草叶、荧光菇和清水，在锅里轻轻旋转……',seed:'把手放在微光两侧，等两个人的魔力慢慢汇合。',star:'留一点清水，看看花的变化。',lamp:'把花的微光留进灯罩里。',gather:'轻轻摘下，给它留一点明天生长的余地。',travel:'穿过小路，风里换了一种草木香。',rest:'灯熄了。窗外的风，替你翻过了一页日历。'})[job.kind]);}
 // ── 公告栏（v69.35）：接委托、交委托。⚠️也是一枪都不打，文案由表拼
 // 还有几天撕板子。⚠️这一句必须说出来：接了没做就没了，不告诉她就是坑她
