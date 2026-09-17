@@ -8,10 +8,26 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-b99ea897b9e17f80", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-f9d0451173c50779", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
-  const read = (key) => { const d = loadJSON(key || KEY, null); return d && d.version === 1 && d.id ? d : { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} }; };
+  // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
+  //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
+  //   那一档原地盖掉了——而她看见的全过程只是「进去发现庭院变新的了」。
+  //   所以空的时候先问一句仓开没开：没开就【什么都不写】，把话说出来让她退出去再进。
+  function vaultStalled(key) {
+    if (typeof isIdbTextKey !== "function" || !isIdbTextKey(key)) return "";
+    let st = null; try { st = typeof txtVaultState === "function" ? txtVaultState() : null; } catch (e) { return ""; }
+    if (!st || (st.done && st.ok)) return "";
+    return "本机的存档仓还没打开" + (st.err ? "（" + st.err + "）" : "") + "，先别在这儿开新的一档——退出去等一下再进来，庭院还在。";
+  }
+  const read = (key) => {
+    const k = key || KEY;
+    const d = loadJSON(k, null);
+    if (d && d.version === 1 && d.id) return d;
+    const stall = vaultStalled(k); if (stall) throw new Error(stall);
+    return { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} };
+  };
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
   // 两排色板：给的是【挑得动手】的十来个颜色，不是取色器。
   // 布偶是童话质感，饱和度压着走；深浅各来几档，深色头发也照顾到。
@@ -140,11 +156,16 @@
     // 存档挂哪儿：庭院房给自己那把钥匙，首页试玩仍是公共那一档
     const storeKey = useRef(null); if (!storeKey.current) storeKey.current = props.storeKey || KEY;
     // 庭院房的同行者就是这间房的角色，没得选：进门那一刻就钉死，免得先闪一下选人页
-    const t = useTheme(), initial = useRef(null);
+    const t = useTheme(), initial = useRef(null), stalled = useRef("");
     if (!initial.current) {
-      const d = read(storeKey.current);
-      initial.current = (props.lockPartnerId && String(d.partnerId) !== String(props.lockPartnerId))
-        ? write(storeKey.current, { ...d, partnerId: String(props.lockPartnerId) }) : d;
+      try {
+        const d = read(storeKey.current);
+        initial.current = (props.lockPartnerId && String(d.partnerId) !== String(props.lockPartnerId))
+          ? write(storeKey.current, { ...d, partnerId: String(props.lockPartnerId) }) : d;
+      } catch (e) {
+        stalled.current = e.message;
+        initial.current = { version: 1, id: "", partnerId: "", world: null, dialogs: {} };
+      }
     }
     const [entry, setEntry] = useState(() => initial.current), [pick, setPick] = useState(!initial.current.partnerId), [solo, setSolo] = useState(false), [chat, setChat] = useState(false), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [detail, setDetail] = useState(""), [loaded, setLoaded] = useState(false);
     const frame = useRef(null), alive = useRef(true), busyRef = useRef(false), propsRef = useRef(props), owner = useRef(initial.current.id), serial = useRef(0), messages = useRef(null); propsRef.current = props;
@@ -300,6 +321,11 @@
       ? (record.history || []).concat(localRows.filter(m => m && m.status !== "done"))
       : localRows;
     useEffect(() => { if (messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [rows.length, chat, busy]);
+    // ⚠️这个提前 return 必须排在【所有 hook 之后】：排前面的话下面的 hook 这一帧不跑，
+    //   React #310 直接白屏（test/hooks-order.test.js 钉着这条）。
+    if (stalled.current) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
+      h(Head, { zh: "微光庭院", sub: "等一下再进来", bg: "transparent", ink: "#344936", onBack: props.onBack }),
+      h("div", { style: { padding: "22px 20px", fontFamily: F_BODY, fontSize: 13, lineHeight: 2 } }, stalled.current));
     async function send(retry) {
       if (busyRef.current || !game()) return;
       const c = partner(); if (!c) { setError("先选一位角色入住庭院。"); return; }
@@ -554,8 +580,13 @@
     //   宁可多列一行，也不能让一段日子从界面上消失。
     //   （先例：设置 → 数据 →「找回失联的角色」。）
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      // 存档已经搬进 IDB（engine.js 的 IDB_TEXT_PREFIXES），localStorage 里多半只剩
+      // 还没迁完的那几个，所以两边都要扫一遍，谁也别落下。
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      try { (typeof window !== "undefined" && window.__txtMirror ? window.__txtMirror : new Map()).forEach((v, k) => keys.push(k)); } catch (e) {}
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
         if (!key || key.indexOf(KEY + ":") !== 0) continue;
         const id = key.slice(KEY.length + 1);
         if (!id || rows.some(x => x.id === id)) continue;
@@ -598,6 +629,10 @@
       h(Head, { zh: "微光庭院", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
 
+    // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
+    const stall = vaultStalled(INDEX_KEY);
+    if (stall) return shell("等一下再进来", props.onBack,
+      h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
     if (!world) return shell("挑一个世界", props.onBack, h(React.Fragment, null,
       h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 18px" } },
         "每个世界有自己的时间、地图和存档。现在开着的只有微光庭院，别的还在长。"),
@@ -620,7 +655,7 @@
       () => {
         const next = readSaves().filter(x => x.id !== row.id);
         saveJSON(INDEX_KEY, next);
-        try { localStorage.removeItem(saveKeyOf(row)); } catch (e) {}
+        try { dropStored(saveKeyOf(row)); } catch (e) {}
         setSaves(next);
       }, "删掉");
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
