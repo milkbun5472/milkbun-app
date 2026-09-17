@@ -1,6 +1,6 @@
-import './rules.js?v=fg-ba6ffc6b02ddaf34';
+import './rules.js?v=fg-8a97b350a9f13f15';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-ba6ffc6b02ddaf34';
+import {createNavigator} from './navigation.mjs?v=fg-8a97b350a9f13f15';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -457,14 +457,124 @@ export function restoreMade(raw){
 }
 export const THING_CAP = 120;
 // 能摆的地方。⚠️位置写在这儿一处，游戏那头照这个找坐标（别再编第二套）
+// ── 开放交互：每一处的家具都点得到（她 2026-09-17：「每一个地方的家具都能交互」）
+// ⚠️这张表【只按 kind】：家具本身住在 rules.js 的 MAPS[map].furniture 里，是 codex 那边
+//   随着房间一间间长出来的。按 kind 认，他新盖一间屋、摆一张同样的桌子，这边不用改一个字。
+//   在这儿另抄一份「哪间屋有哪几件家具」，就是同一层活在两处
+//   （施工规则/one-public-mechanism.md），而且他每加一间我就漏一间。
+// ⚠️holds＝这上面摆得下东西。原来能摆的只有屋檐、窗台、池边【三个位置】，
+//   做出来的第四样往后全堆在盒子里没去处——那句话就写在下面 COLLECTION 那一段的注释里，
+//   这一版就是去解它。
+export const FURNITURE = {
+  hearth:     { label: '壁炉',     look: '炉膛里是昨天的灰，还留着一点温。', holds: true },
+  sofa:       { label: '长沙发',   look: '坐垫塌下去一块，那是常坐的那一头。' },
+  armchair:   { label: '单人扶手椅', look: '扶手被磨得发亮。' },
+  chair:      { label: '椅子',     look: '椅子朝外摆着，像是有人刚站起来。' },
+  bench:      { label: '长凳',     look: '长凳够坐下好几个人。' },
+  stool:      { label: '矮凳',     look: '矮凳矮得正好，能把下巴搁在膝盖上。' },
+  table:      { label: '桌子',     look: '桌面上有几圈杯底留下的印子。', holds: true },
+  roundtable: { label: '圆桌',     look: '圆桌边上谁坐都不算主位。', holds: true },
+  dining:     { label: '餐桌',     look: '餐桌擦得干干净净，两副碗筷收在一起。', holds: true },
+  island:     { label: '料理台',   look: '台面上留着一点面粉。', holds: true },
+  kitchen:    { label: '灶台',     look: '锅还温着，水汽在锅盖边上转。', holds: true },
+  desk:       { label: '书桌',     look: '桌上摊着写了一半的东西，压着一支笔。', holds: true },
+  console:    { label: '边柜',     look: '边柜上空着一块地方，像是特意留出来的。', holds: true },
+  shelf:      { label: '架子',     look: '架子上一层一层，最上面那层够不太到。', holds: true },
+  bookcase:   { label: '书柜',     look: '书脊高高低低，有几本是倒着塞进去的。', holds: true },
+  chest:      { label: '箱子',     look: '箱盖合着，搭扣没扣上。', holds: true },
+  wardrobe:   { label: '衣柜',     look: '柜门虚掩着，里面是叠好的衣服。' },
+  vanity:     { label: '梳妆台',   look: '镜子擦过了，边角还有一点水痕。', holds: true },
+  bath:       { label: '浴缸',     look: '缸沿是凉的，水早就放掉了。' },
+  lectern:    { label: '讲台',     look: '讲台上摊着一页没讲完的东西。', holds: true },
+  stairs:     { label: '楼梯',     look: '楼梯往上，第三级踩上去会响。' },
+  potting:    { label: '花台',     look: '台面上撒着土，指印还在。', holds: true },
+  stove:      { label: '小火炉',   look: '炉子上坐着一只壶，壶嘴朝里。', holds: true },
+  apothecary: { label: '药柜',     look: '一格一格的小抽屉，标签的字都褪了。', holds: true },
+  distiller:  { label: '蒸馏台',   look: '玻璃管里还剩一点没走完的水。', holds: true },
+  dryingrack: { label: '晾草架',   look: '一束一束倒挂着，干得发脆。', holds: true },
+  millstone:  { label: '水磨',     look: '磨盘停着，缝里卡着几粒没磨完的。', holds: true },
+  orrery:     { label: '星仪',     look: '铜环各转各的，推一下会自己走很久。', holds: true },
+  telescope:  { label: '望远镜',   look: '镜筒朝着北边，有人调好了没再动。' }
+};
+// 一件家具的钥匙：哪张图、什么东西、第几件。⚠️钥匙只在这一处拼，
+//   存档里记的就是它——换个拼法，她以前摆出去的东西就全掉了。
+export const spotKey = (map, kind, index) => map + ':' + kind + ':' + index;
+export const spotParse = key => {
+  const [map, kind, index] = String(key || '').split(':');
+  return MAPS[map] && FURNITURE[kind] && (MAPS[map].furniture || [])[Number(index)]?.kind === kind
+    ? { map, kind, index: Number(index), piece: MAPS[map].furniture[Number(index)] } : null;
+};
+// 老的三个位置一个都不能丢：她已经把东西摆在上面了（雨铃还挂在屋檐下）。
 export const SPOTS = { eaves: '屋檐下', sill: '窗台', pond: '池边' };
+// 全世界摆得下东西的位置：老三样 ＋ 每间屋里每一件放得住东西的家具。
+export function spotsAll(){
+  const out = { ...SPOTS };
+  for (const [map, m] of Object.entries(MAPS))
+    (m.furniture || []).forEach((f, i) => { if (FURNITURE[f.kind]?.holds)
+      out[spotKey(map, f.kind, i)] = m.name + '的' + FURNITURE[f.kind].label; });
+  return out;
+}
+export const isSpot = key => Object.hasOwn(SPOTS, key) || !!(spotParse(key) && FURNITURE[spotParse(key).kind].holds);
+export const spotLabel = key => Object.hasOwn(SPOTS, key) ? SPOTS[key]
+  : (spotParse(key) ? MAPS[spotParse(key).map].name + '的' + FURNITURE[spotParse(key).kind].label : '');
+// 站在这儿，够得着的是哪一件。⚠️只有这一处答案：点它、看它、往上摆东西都问它
+export function furnitureHere(s, reach = 1.5){
+  const list = MAPS[s.map]?.furniture || [];
+  let best = null, near = reach;
+  list.forEach((f, i) => { if (!FURNITURE[f.kind]) return;
+    const dx = Math.max(0, Math.abs(f.x - s.position.x) - f.w / 2), dz = Math.max(0, Math.abs(f.z - s.position.z) - f.d / 2);
+    const d = Math.hypot(dx, dz);
+    if (d < near){ near = d; best = spotKey(s.map, f.kind, i); } });
+  return best;
+}
+// 点在了哪一件上。⚠️家具本身是障碍，点上去 walkable 一定是 false——
+//   所以这一步必须在「走过去」之前问，不然点沙发就是什么都不会发生。
+// ⚠️pad 给得大一点，而且要挑【最近的那一件】：镜头是斜的，她点在沙发靠背上，
+//   射线落到地面已经是沙发【后面】那一块了。pad 小了就成了「点了没反应」——
+//   那正是她说的「不能交互」。挑最近的，是因为放宽之后两件挨着的家具会同时认领。
+export function furnitureAtPoint(map, point, pad = .9){
+  const list = MAPS[map]?.furniture || [];
+  let best = null, near = Infinity;
+  list.forEach((f, i) => { if (!FURNITURE[f.kind]) return;
+    const dx = Math.max(0, Math.abs(f.x - point.x) - f.w / 2), dz = Math.max(0, Math.abs(f.z - point.z) - f.d / 2);
+    const d = Math.hypot(dx, dz);
+    if (d <= pad && d < near){ near = d; best = spotKey(map, f.kind, i); } });
+  return best;
+}
+// 站到它旁边的哪一点。⚠️绕着它一圈找【真的站得住】的那一点：
+//   凭一个方向硬算，迟早把她送进墙里或者另一件家具里。
+export function approachSpot(s, key){
+  const at = spotParse(key); if (!at) return null;
+  const f = at.piece, out = [];
+  for (let ring = 0; ring < 3; ring++){
+    const gap = .55 + ring * .45;
+    for (let a = 0; a < 16; a++){
+      const t = a / 16 * Math.PI * 2;
+      const p = { x: f.x + Math.cos(t) * (f.w / 2 + gap), z: f.z + Math.sin(t) * (f.d / 2 + gap) };
+      if (walkable(p.x, p.z, at.map, s)) out.push(p);
+    }
+    if (out.length) break;
+  }
+  if (!out.length) return null;
+  return out.sort((a, b) => Math.hypot(a.x - s.position.x, a.z - s.position.z)
+    - Math.hypot(b.x - s.position.x, b.z - s.position.z))[0];
+}
+// 看一眼。⚠️一枪都不打，而且【先说她自己的东西】：摆在上面的那一样、封在那儿的那一片，
+//   都是她真放上去的。没有她的东西时才说这件家具本来的样子——一句都不编。
+export function lookText(s, key){
+  const at = spotParse(key); if (!at) return '';
+  const thing = placedAt(s, key);
+  const lines = [FURNITURE[at.kind].look];
+  if (thing) lines.push('「' + thing.name + '」就摆在上面。');
+  return lines.join('');
+}
 export function restoreThings(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.name).slice(0, THING_CAP).map(x => ({
     id: String(x.id).slice(0, 40), name: trimText(x.name, 24), note: trimText(x.note, 200),
     kind: shardKind(x.kind) || 'relic', way: Object.hasOwn(CRAFT_WAYS, x.way) ? x.way : 'set',
     recipe: typeof x.recipe === 'string' ? x.recipe.slice(0, 40) : '',
     from: trimText(x.from, 240), day: Math.max(1, count(x.day)),
-    openDay: Math.max(0, count(x.openDay)), spot: Object.hasOwn(SPOTS, x.spot) ? x.spot : null
+    openDay: Math.max(0, count(x.openDay)), spot: isSpot(x.spot) ? x.spot : null
   }));
 }
 const shardOf = (s, id) => (s.shards || []).find(x => x.id === id) || null;
@@ -519,7 +629,7 @@ export function hastenThing(s, id){
 export const thingReady = (s, t) => !t.openDay || s.day >= t.openDay;
 export function placeThing(s, id, spot){
   const t = (s.things || []).find(x => x.id === id);
-  if (!t || !thingReady(s, t) || (spot && !Object.hasOwn(SPOTS, spot))) return s;
+  if (!t || !thingReady(s, t) || (spot && !isSpot(spot))) return s;
   return { ...s, things: (s.things || []).map(x => x.id === id ? { ...x, spot: spot || null }
     : (spot && x.spot === spot ? { ...x, spot: null } : x)) };   // 一个位置只摆一样
 }

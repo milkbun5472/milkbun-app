@@ -49,7 +49,7 @@ test("修这件事发生在那个地方，不在行动栏里常驻", () => {
   assert.match(game, /b\.textContent=short\.length\?w\.label\+'（还差'\+short\.join\('、'\)\+'）':'修好'\+w\.label/);
   assert.match(game, /\$\('fix-place'\)\.onclick=\(\)=>\{const id=workHere\(data\);/);
   // 走到了要重算一次行动栏，不然她站在那儿也看不见
-  assert.match(game, /if\(task\)\{const k=task;task=null;beginAction\(k\);\}else ui\(\);/);
+  assert.match(game, /if\(task\)\{const k=task;task=null;beginAction\(k\);\}else \{ui\(\);arriveSpot\(\);\}/);
 });
 
 // 「还差什么」只算一处

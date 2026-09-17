@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ba6ffc6b02ddaf34", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-8a97b350a9f13f15", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -619,7 +619,7 @@
                     w.done ? w.hint : w.cost ? (w.short.length ? "还差" + w.short.join("、") : "材料齐了，走过去就能动手") + " · 要" + w.cost : w.hint))))) : null,
             // ── 屋里：锅炼出来的东西。⚠️这一整条链一枪都不打，全是代码算的
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。"),
+              "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。屋里屋外每一件放得住东西的家具都摆得下：走过去点它就行。"),
             ((things && things.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               things.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + (t.spot ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
@@ -638,7 +638,11 @@
                   ((things && things.potions) > 0) ? "倒一滴月露 · 今天就开" : "倒一滴月露（没有月露了）") : null,
                 t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null,
                 t.ready ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
-                  Object.entries(things.spots).map(([k, label]) =>
+                  // ⚠️位置从三个变成了五十二个：一件东西底下铺五十二颗药丸没法用。
+                  //   这儿只留【老三样 ＋ 它现在在的那一处 ＋ 她这会儿站着的那一件】，
+                  //   其余的都在世界里——走过去点那件家具就能摆。那才是「每一处都能交互」。
+                  Object.entries(things.spots).filter(([k]) =>
+                    ["eaves", "sill", "pond"].includes(k) || k === t.spot || k === things.here).map(([k, label]) =>
                     h("button", { key: k, className: "active:opacity-70",
                       onClick: () => { const g = game(); if (!g || !g.place) return;
                         const err = g.place(t.id, t.spot === k ? null : k);
