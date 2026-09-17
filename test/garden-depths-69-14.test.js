@@ -8,8 +8,11 @@ const game = rd('apps/fairy-garden/game.mjs');
 const rules = rd('apps/fairy-garden/rules.js');
 const depths = rd('apps/fairy-garden/depths.mjs');
 
-test('井底不铺草地和远树——外面那层景是关掉的', () => {
-  assert.match(game, /surroundings\.root\.visible=!underground/);
+test('只有室外地图铺草地和远树，井底和小屋都关闭外围景观', async () => {
+  const {MAPS}=await import('../apps/fairy-garden/world.mjs');
+  assert.match(game, /surroundings\.root\.visible=!!MAPS\[data\.map\]\.outdoor/);
+  assert.equal(!!MAPS.depths.outdoor,false);assert.equal(!!MAPS.home.outdoor,false);
+  assert.equal(MAPS.garden.outdoor,true);assert.equal(MAPS.forest.outdoor,true);
 });
 
 // ⚠️井底【长什么样】归 codex（分工：庭院功能我做，模型/场景他做）。

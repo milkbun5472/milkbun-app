@@ -1,9 +1,16 @@
-import './rules.js?v=fg-7d9e2061344cd5fe';
+import './rules.js?v=fg-7b571cbd113377b9';
 export const {START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-7d9e2061344cd5fe';
-export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;return !MAPS[map].obstacles.some(o=>{if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
+import {createNavigator} from './navigation.mjs?v=fg-7b571cbd113377b9';
+export function walkable(x,z,map='garden'){if(!MAPS[map]||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x,z)>MAPS[map].radius)return false;const bounds=MAPS[map].bounds;if(bounds&&(Math.abs(x)>bounds.w/2||Math.abs(z)>bounds.d/2))return false;return !MAPS[map].obstacles.some(o=>{if(o.except&&Math.abs(x-o.except.x)<o.except.w/2&&Math.abs(z-o.except.z)<o.except.d/2)return false;return o.rx?((x-o.x)/(o.rx+.16))**2+((z-o.z)/(o.rz+.16))**2<1:o.r?Math.hypot(x-o.x,z-o.z)<o.r+.16:Math.abs(x-o.x)<o.w/2+.16&&Math.abs(z-o.z)<o.d/2+.16;});}
 export function segmentClear(a,b,map='garden',avoid=[]){const minimum=avoid.map(o=>Math.min(o.r,Math.hypot(a.x-o.x,a.z-o.z)));const len=Math.hypot(b.x-a.x,b.z-a.z),n=Math.max(1,Math.ceil(len/.07));for(let i=0;i<=n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(!walkable(x,z,map)||avoid.some((o,j)=>Math.hypot(x-o.x,z-o.z)<minimum[j]-1e-6))return false;}return true;}
-export const floorHeight=(map,p)=>MAPS[map]?.surfaces?.find(s=>Math.abs(p.x-s.x)<s.w/2&&Math.abs(p.z-s.z)<s.d/2)?.height??.08;
+export function floorHeight(map,p){const m=MAPS[map],base=m?.floor??.08;for(const s of m?.surfaces||[]){if(s.kind==='hill'){const r2=((p.x-s.x)/s.rx)**2+((p.z-s.z)/s.rz)**2;if(r2<1)return base+s.height*(1-r2)**2;}else if(Math.abs(p.x-s.x)<s.w/2&&Math.abs(p.z-s.z)<s.d/2)return s.height;}return base;}
+// Picking uses the same ground heights as walking, including raised decks and slopes.
+export function groundPoint(map,origin,direction){
+ if(direction.y>=-1e-6)return null;const base=MAPS[map]?.floor??.08,top=Math.max(base,...(MAPS[map]?.surfaces||[]).map(s=>s.kind==='hill'?base+s.height:s.height))+.01;
+ const point=t=>({x:origin.x+direction.x*t,y:origin.y+direction.y*t,z:origin.z+direction.z*t});
+ const start=Math.max(0,(top-origin.y)/direction.y),end=(base-origin.y)/direction.y;if(end<start)return null;
+ let previous=start;for(let i=1;i<=48;i++){const t=start+(end-start)*i/48,p=point(t);if(p.y<=floorHeight(map,p)+1e-8){let lo=previous,hi=t;for(let n=0;n<15;n++){const mid=(lo+hi)/2,q=point(mid);if(q.y>floorHeight(map,q))lo=mid;else hi=mid;}return point(hi);}previous=t;}return point(end);
+}
 export const findPath=createNavigator(MAPS,walkable,segmentClear);
 const count=(v,max=999999)=>Math.max(0,Math.min(max,Number.isFinite(Number(v))?Math.floor(Number(v)):0));
 export const TEMPERAMENTS={gardener:'爱照料植物',explorer:'爱到处探索',scholar:'喜欢安静研究'};
@@ -24,7 +31,7 @@ export function restoreLook(raw){
  return out;
 }
 export function freshCompanion(){return {name:'同行者',temperament:'gardener',mode:'routine',map:'garden',position:{x:-3.5,z:4.3},helpDay:0,destination:'home',look:{}};}
-export function restoreCompanion(raw){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,temperament:Object.hasOwn(TEMPERAMENTS,d.temperament)?d.temperament:c.temperament,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:['pond','garden','well','home'].includes(d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS.forest.spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
+export function restoreCompanion(raw){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,temperament:Object.hasOwn(TEMPERAMENTS,d.temperament)?d.temperament:c.temperament,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:['pond','garden','well','home'].includes(d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
 // ── 花田：种下一句话，过几天收一张花笺（她 2026-09-16 定的方向）─────────
 // 种的不是花，是【一句你想问的话】；开花收上来的是他给的一句回应，进花册。
 // ⚠️花册不设「收集完成」：同一个念头隔一阵再种，答案本来就该不一样。
@@ -133,7 +140,7 @@ export function actionError(s,kind,id){if(kind==='sit')return MAPS[s.map]?.seats
  if(['seed','star','lamp'].includes(kind))return magicError(s,kind);
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);if(!n||s.map!==n.map||(n.depth!=null&&n.depth!==s.depth))return '这里没有这种材料。';
   if(s.picked.includes(id))return n.map==='depths'?'这一处的矿脉已经采空了。':'这一丛今天采过了，明天会重新长出来。';return '';}
- if(kind==='travel')return MAPS[s.map]?.exits.travel?'':'这里没有通往别处的小路。';
+ if(kind==='travel'||kind==='enter')return MAPS[s.map]?.exits[kind]?'':'这里没有通往别处的小路。';
  // 下潜三件事：从井口下去、再往下一层、顺着梯子上来
  // 收花笺：地里有开好的才让走过去（真正那一枪在宿主那侧打）
  if(kind==='note')return s.map!=='garden'?'花圃在庭院里。':readySeeds(s).length?'':'地里还没有开好的花。';
@@ -142,6 +149,7 @@ export function actionError(s,kind,id){if(kind==='sit')return MAPS[s.map]?.seats
  if(kind==='deeper'){if(s.map!=='depths')return '先下到井里。';
   if(s.depth>=deepestAllowed(s))return s.stones?'再往下是塌掉的岩层。带回一颗月石，路会再通两层。':'再往下就看不见路了。先在这几层找到一颗月石。';
   return '';}
+ if(kind==='rest')return MAPS[s.map]?.stations.rest?'':'这里没有可以睡觉的地方。';
  if(s.map!=='garden')return '先回庭院吧。';
  if(kind==='brew'){if(s.sand<3&&(s.herbs<2||s.mushrooms<1||s.water<1))return '月露配方：铃叶草 ×2、荧光菇 ×1、清水 ×1；或者星砂 ×3。';}
  else if(kind==='garden'){if(s.blooms<3&&!s.potions&&!s.water)return '水壶空了，先去井边取水；也可以用月露唤醒整圃花。';}
@@ -166,7 +174,7 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
   return {...s,[n.kind==='herb'?'herbs':'mushrooms']:s[n.kind==='herb'?'herbs':'mushrooms']+(n.kind==='herb'?2:1),picked:[...s.picked,id]};}
  // 出口把人放在下一张图上【说好的落点】：默认是那张图的 spawn，
  // 爬梯子上来则是井口（exits.ladder.at）——落点写在出口那一处，不在这儿分支。
- if(kind==='travel'){const e=MAPS[s.map].exits.travel;return {...s,map:e.to,position:{...(e.at||MAPS[e.to].spawn)}};}
+ if(kind==='travel'||kind==='enter'){const e=MAPS[s.map].exits[kind];return {...s,map:e.to,position:{...(e.at||MAPS[e.to].spawn)}};}
  // 下去一趟要花时间：第一层 45 分钟，再往下每层 35 分钟，爬上来 20 分钟。
  // ⚠️时间一律走 advanceTime——它自己会跨天，别在这儿另算一遍日期。
  if(kind==='dive')return advanceTime({...s,map:'depths',depth:1,position:{...MAPS.depths.spawn}},45);
@@ -179,7 +187,7 @@ export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},labe
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺'};
+const ACTION_NAMES={enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}
@@ -199,4 +207,4 @@ function performMagic(s,kind){const m=s.magic||freshMagic();if(kind==='seed'){if
 export function perform(s,kind,id,intent=gardenIntent(s)){const out=performAction(s,kind,id,intent);if(out===s)return out;if(kind==='rest')return {...out,seat:null};return {...out,seat:kind==='sit'?out.seat:null,today:{...(out.today||{}),[kind]:((out.today||{})[kind]||0)+1}};}
 
 // Find the first physical exit on a route; companions never jump across disconnected maps.
-export function exitToward(from,to){const queue=[{map:from,first:null}],seen=new Set([from]);while(queue.length){const step=queue.shift();if(step.map===to)return step.first;for(const [id,exit]of Object.entries(MAPS[step.map]?.exits||{})){if(seen.has(exit.to)||!MAPS[exit.to])continue;seen.add(exit.to);queue.push({map:exit.to,first:step.first||{id,to:exit.to,target:MAPS[from].stations[id]}});}}return null;}
+export function exitToward(from,to){const queue=[{map:from,first:null}],seen=new Set([from]);while(queue.length){const step=queue.shift();if(step.map===to)return step.first;for(const [id,exit]of Object.entries(MAPS[step.map]?.exits||{})){if(seen.has(exit.to)||!MAPS[exit.to])continue;seen.add(exit.to);queue.push({map:exit.to,first:step.first||{id,to:exit.to,at:exit.at,target:MAPS[from].stations[id]}});}}return null;}
