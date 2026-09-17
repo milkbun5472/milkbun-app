@@ -1,18 +1,18 @@
-import {makeMuseum} from './museum-view.mjs?v=fg-8bd0e12cc153272a';
-import {museumCaption} from './museum.mjs?v=fg-8bd0e12cc153272a';
-import {makeOutdoor} from './outdoor.mjs?v=fg-8bd0e12cc153272a';
-import {installSeasonBook} from './season-book.mjs?v=fg-8bd0e12cc153272a';
-import {makeMagicView} from './magic-view.mjs?v=fg-8bd0e12cc153272a';
-import {installViewControls} from './view-controls.mjs?v=fg-8bd0e12cc153272a';
+import {makeMuseum} from './museum-view.mjs?v=fg-ea89f3dc50c3e485';
+import {museumCaption} from './museum.mjs?v=fg-ea89f3dc50c3e485';
+import {makeOutdoor} from './outdoor.mjs?v=fg-ea89f3dc50c3e485';
+import {installSeasonBook} from './season-book.mjs?v=fg-ea89f3dc50c3e485';
+import {makeMagicView} from './magic-view.mjs?v=fg-ea89f3dc50c3e485';
+import {installViewControls} from './view-controls.mjs?v=fg-ea89f3dc50c3e485';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-8bd0e12cc153272a';
-import {makeSurroundings} from './surroundings.mjs?v=fg-8bd0e12cc153272a';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-8bd0e12cc153272a';
-import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,seedError,sowSeed,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,sealBottle,sealError,floating,QUEST_KINDS,QUEST_TAKEN_MAX,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-8bd0e12cc153272a';
-import {makeForest} from './forest.mjs?v=fg-8bd0e12cc153272a';
-import {makeDepths} from './depths.mjs?v=fg-8bd0e12cc153272a';
-import {createTraveler} from './traveler.mjs?v=fg-8bd0e12cc153272a';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-8bd0e12cc153272a';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-ea89f3dc50c3e485';
+import {makeSurroundings} from './surroundings.mjs?v=fg-ea89f3dc50c3e485';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-ea89f3dc50c3e485';
+import {START,MAPS,NODES,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,seedError,sowSeed,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,craftError,craftThing,placeThing,placedAt,thingReady,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,sealBottle,sealError,floating,QUEST_KINDS,QUEST_TAKEN_MAX,questBoard,questTaken,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter} from './world.mjs?v=fg-ea89f3dc50c3e485';
+import {makeForest} from './forest.mjs?v=fg-ea89f3dc50c3e485';
+import {makeDepths} from './depths.mjs?v=fg-ea89f3dc50c3e485';
+import {createTraveler} from './traveler.mjs?v=fg-ea89f3dc50c3e485';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-ea89f3dc50c3e485';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -92,7 +92,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;camera.position.set(10+cameraPan.x,12,16+cameraPan.z);camera.lookAt(cameraPan.x,.5-offset/camera.zoom,cameraPan.z);camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-8bd0e12cc153272a');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-ea89f3dc50c3e485');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -290,12 +290,22 @@ function refreshTime(){
 // ── 他说的话浮在头顶（她 2026-09-17：「在里面说话角色也可以头上显示气泡」）──
 // ⚠️气泡只是【把手机那侧刚收到的那句话】显示一遍：这儿不生成任何文字，也不存它。
 //   停留时长按字数走——两个字和两百个字读完要的时间不一样。
-let bubbleText='',bubbleUntil=0;
-const BUBBLE_MIN=3200,BUBBLE_PER_CHAR=95,BUBBLE_MAX=15000;
-function speak(text){
- const line=String(text==null?'':text).replace(/\s+/g,' ').trim().slice(0,120);
- bubbleText=line;bubbleUntil=line?Date.now()+Math.min(BUBBLE_MAX,BUBBLE_MIN+line.length*BUBBLE_PER_CHAR):0;
+let bubbleText='',bubbleUntil=0,bubbleQueue=[],bubbleTimer=0;
+const BUBBLE_MIN=3200,BUBBLE_PER_CHAR=95,BUBBLE_MAX=15000,BUBBLE_GAP=520;
+function bubbleHold(line){return Math.min(BUBBLE_MAX,BUBBLE_MIN+line.length*BUBBLE_PER_CHAR);}
+function nextBubble(){
+ const line=bubbleQueue.shift();
+ if(!line){bubbleText='';bubbleUntil=0;$('companion-bubble').textContent='';return;}
+ bubbleText=line;bubbleUntil=Date.now()+bubbleHold(line);
  $('companion-bubble').textContent=line;
+ bubbleTimer=setTimeout(nextBubble,bubbleHold(line)+BUBBLE_GAP);
+}
+// 一轮话可能有好几条：一条显示完、收起来停一口气，再冒下一条（她 2026-09-17 点的）
+function speak(lines){
+ clearTimeout(bubbleTimer);
+ bubbleQueue=(Array.isArray(lines)?lines:[lines])
+  .map(x=>String(x==null?'':x).replace(/\s+/g,' ').trim().slice(0,120)).filter(Boolean).slice(0,12);
+ nextBubble();
 }
 function updateCompanionUI(){const c=data.companion,v=companionController.view();$('companion-status').textContent=`${c.name} · ${c.map===data.map?v.status:MAPS[c.map].name+' · '+v.status}`;$('companion-tag').textContent=c.name;}
 function drawSchedule(){const preview={...data,companion:{...data.companion,temperament:$('companion-type').value}},current=plannedActivity(preview);$('companion-current-time').textContent=`${weather(data.day,data.epoch)} · ${timeLabel(data.minute)}`;$('companion-schedule').replaceChildren();for(const item of dailySchedule(preview)){const li=document.createElement('li'),t=document.createElement('time'),label=document.createElement('span');t.textContent=timeLabel(item.start);label.textContent=item.label+(item.note?' · '+item.note:'');li.append(t,label);li.classList.toggle('current',current.start===item.start);$('companion-schedule').append(li);}}

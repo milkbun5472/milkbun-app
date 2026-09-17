@@ -55,12 +55,13 @@ test("他说的话浮在头顶上，气泡跟着他走", () => {
   assert.match(css, /#companion-bubble\{[^}]*position:absolute/);
   assert.match(css, /#companion-bubble::after\{/, "气泡要有个指着他的小尖，不然就是一张飘着的卡片");
   assert.match(game, /speak:text=>\{speak\(text\);return true;\}/);
+  assert.match(host, /game\(\)\.speak\(result\.parts\)/, "递进去的是拆好的那几条");
   assert.match(game, /bubble\.style\.top=Math\.max\(y-19,/, "让开名字那一行");
   assert.match(game, /bubble\.hidden=offscreen\|\|!speaking/, "他走出画面，气泡要跟着收起来");
   // 停留时长按字数走：两个字和两百个字读完要的时间不一样
   assert.match(game, /BUBBLE_MIN\+line\.length\*BUBBLE_PER_CHAR/);
   // ⚠️只是把已经收到的那句显示一遍，不另存、也不另发
-  assert.match(host, /game\(\)\.speak\(result\.reply\)/);
+
   const seg = game.slice(game.indexOf("function speak(text)"), game.indexOf("function updateCompanionUI"));
   assert.doesNotMatch(seg, /save\(\)|host\.|callAI/, "气泡不许自己存一份聊天记录");
 });

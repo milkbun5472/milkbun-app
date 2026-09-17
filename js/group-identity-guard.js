@@ -102,7 +102,7 @@
   function splitBubbles(text) {
     const out = [];
     String(text || "").split(/\n+/).map(x => x.trim()).filter(Boolean).forEach(line => {
-      const pieces = line.match(/.*?(?:……|\.\.\.|[。！？!?]+[”’"]?)(?=\s*|$)|.+$/gu) || [line];
+      const pieces = line.match(/.*?(?:……|\.\.\.|[。！？!?]+[”’"」』]*)(?=\s*|$)|.+$/gu) || [line];
       pieces.map(x => x.trim()).filter(Boolean).forEach(x => out.push(x));
     });
     return out;

@@ -62,12 +62,14 @@ test('进门带什么走这间房的认知闸，不另写一份底子', () => {
 
 test('说过的话只有一份：落定的交给房间，存档里只留在途的', () => {
   const send = garden.slice(garden.indexOf('async function send(retry)'), garden.indexOf('const buttonStyle'));
-  assert.match(send, /propsRef\.current\.record\.onTurn\(\{ text: text, reply: result\.reply \}\)/);
+  assert.match(send, /propsRef\.current\.record\.onTurn\(\{ text: text, reply: result\.reply, parts: result\.parts \}\)/);
   assert.match(send, /\.filter\(m => m\.request !== request\)/, '交给房间之后没把在途那条撤掉＝存了两份');
   // 顺序不能反：先给房间，再撤在途的
   assert.ok(send.indexOf('record.onTurn') < send.indexOf('m.request !== request'), '中间那一瞬这句话谁都没有');
   // 父页那头写进的是这间房的聊天记录本身
   assert.match(app, /onTurn: turn => pChat\(key, p => \[\.\.\.p,/);
+  // 一条一个气泡：房间里记下的条数跟他真说了几条一致（她 2026-09-17 报庭院回一大段）
+  assert.match(app, /\(turn\.parts && turn\.parts\.length \? turn\.parts : \[turn\.reply\]\)/);
 });
 
 test('庭院房的同行者就是这间房的角色，不给换', () => {

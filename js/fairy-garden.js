@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-8bd0e12cc153272a", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ea89f3dc50c3e485", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -33,11 +33,33 @@
   // 布偶是童话质感，饱和度压着走；深浅各来几档，深色头发也照顾到。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
   const CLOTH_COLORS = ['#8d5f66', '#729786', '#5f7590', '#a7784c', '#6b6280', '#93684f', '#4f6b5c', '#b0857f'];
+  // 一轮话拆成几个气泡（她 2026-09-17：「他回复一大段是不是没用分气泡」）。
+  // ⚠️拆气泡全库只有一处实现：GroupIdentityGuard.splitBubbles ＋ engine.js 的 splitLongBubble。
+  //   庭院自己再写一个切句子的函数，就是同一层活在两处（施工规则/one-public-mechanism.md）。
+  // ⚠️只有【真的长到成墙】的那一条才动刀（80 字往上，而且只在句号处断）：
+  //   庭院这边是成段叙事，照即时通讯那个 22 字的尺子切，会把一段描写剁成碎片。
+  const BUBBLE_WALL = 80;
+  function replyParts(raw) {
+    const G = (typeof window !== "undefined" && window.GroupIdentityGuard) || null;
+    const lines = [];
+    (Array.isArray(raw) ? raw : [raw]).forEach(row => {
+      const text = String(row == null ? "" : row).trim(); if (!text) return;
+      (G ? G.splitBubbles(text) : text.split(/\n+/)).forEach(x => { const t = String(x).trim(); if (t) lines.push(t); });
+    });
+    const out = [];
+    lines.forEach(line => {
+      if (line.length <= BUBBLE_WALL || typeof splitLongBubble !== "function") { out.push(line); return; }
+      const cut = splitLongBubble(line, false).filter(Boolean);
+      (cut.length ? cut : [line]).forEach(x => out.push(x));
+    });
+    return out.slice(0, 12);
+  }
   function normalizeReply(raw) {
     const obj = extractJSON(raw);
-    if (!obj || typeof obj.reply !== "string" || !obj.reply.trim()) { const e = new Error("这次没读懂角色的回复，可以重试。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    const parts = obj ? replyParts(obj.reply) : [];
+    if (!parts.length) { const e = new Error("这次没读懂角色的回复，可以重试。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     const a = obj.action || {}, kind = ["none", "follow", "routine", "wait", "goto"].includes(a.kind) ? a.kind : "none";
-    return { reply: obj.reply.trim(), action: kind === "goto" && !["pond", "garden", "well", "home"].includes(a.target) ? { kind: "none" } : { kind, target: kind === "goto" ? a.target : undefined } };
+    return { parts, reply: parts.join("\n"), action: kind === "goto" && !["pond", "garden", "well", "home"].includes(a.target) ? { kind: "none" } : { kind, target: kind === "goto" ? a.target : undefined } };
   }
   function sharedStyle() { return [narrativeCore({ intimate: true }), CONDESCENDING_TONE_BAN, REGISTER_FOLLOWS_SCENE, STOCK_REPLY_BAN, OVERREACH_BAN, ECHO_QUESTION_BAN, typeof ReplyPacing !== "undefined" ? ReplyPacing.reading() : ""].filter(Boolean).join("\n\n"); }
   // mainline＝父页按【这间房的认知闸】拼好的主线底子（buildBundle 那一份）。
@@ -72,7 +94,10 @@
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       "【对方刚说】\n" + text,
       "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 pond（林地池边）、garden（庭院花圃）、well（水井）、home（屋前）。动作只控制你自己，用户的小人由用户操作。路径与到达由游戏执行，回复表达眼下的意愿与举动；物品变动以游戏实际结算为准。你可以按性格答应、犹豫、商量或拒绝。",
-      '【输出格式】只输出 JSON：{"reply":"你对对方说的话，可带必要的动作描写","action":{"kind":"动作标识","target":"仅 goto 时填写地点标识"}}。本轮只选择一个能落实的动作，其余内容可以继续聊天。'
+      '【输出格式】只输出 JSON：{"reply":["你说的第一句","接着说的第二句"],"action":{"kind":"动作标识","target":"仅 goto 时填写地点标识"}}。'
+      + "reply 是一个数组，一条一个意思：她那头是一个一个气泡冒出来的，一口气说完的整段塞进一条就是一堵字墙。"
+      + "想说几条由你，短就一条；动作描写跟着它所属的那一句走，别单独攒成一条。"
+      + "本轮只选择一个能落实的动作，其余内容可以继续聊天。"
     ].join("\n\n");
     return normalizeReply(await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院" }));
   }
@@ -353,12 +378,12 @@
         if (record) {
           // 先把这一轮交给房间（它才是记录），再把存档里那条在途的撤掉——
           // 顺序反过来的话，中间那一瞬这句话谁都没有。
-          propsRef.current.record.onTurn({ text: text, reply: result.reply });
+          propsRef.current.record.onTurn({ text: text, reply: result.reply, parts: result.parts });
           update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).filter(m => m.request !== request) } }));
-        } else update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: old.dialogs[cid].map(m => m.request === request ? { ...m, status: "done" } : m).concat({ id: request + "_reply", role: "assistant", content: result.reply, status: "done" }).slice(-200) } }));
+        } else update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: old.dialogs[cid].map(m => m.request === request ? { ...m, status: "done" } : m).concat(result.parts.map((part, i) => ({ id: request + "_reply" + (i ? "_" + i : ""), role: "assistant", content: part, status: "done" }))).slice(-200) } }));
         // 他刚说的那句话浮到他头顶上（她 2026-09-17）。⚠️只是把已经收到的这句显示一遍，
         //   不另存一份、也不另发一次——聊天记录仍旧只有上面那一处。
-        try { if (game() && game().speak) game().speak(result.reply); } catch (e) {}
+        try { if (game() && game().speak) game().speak(result.parts); } catch (e) {}
         const accepted = game() && game().applyAction(result.action); if (!accepted) props.toast("回复已保存，这个动作暂时无法执行。");
       } catch (e) {
         if (alive.current && serial.current === epoch) { setError(e.message || "这次没能连上，稍后可以重试。"); setDetail(e.detail || ""); try { update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).map(m => m.request === request ? { ...m, status: "failed" } : m) } })); } catch (_) {} }
