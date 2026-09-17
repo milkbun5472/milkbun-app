@@ -139,3 +139,14 @@ node scripts/build-fairy-garden.mjs
 ```
 
 晨光与月色卧室各有两枕双人床，另有壁炉客厅与餐厨。隔墙降低方便俯视，模型不烘焙人物；两侧进床点及床上位置由同一地图表提供。
+
+### 古老许愿树
+
+`build_wishing_tree.py` 单独重建林地地标：连续扭转树干、展开的层叠树冠、垂叶、月牙与空白挂饰。读取 `MAPS.forest.surfaces[0]` 的缓坡参数；人物到访点与树干碰撞保持原值，根部贴地，前方留空。叶材质名称含 foliage，直接参加共享四季染色和冬雪。
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/build_wishing_tree.py -- "$ART_SOURCE" "$ART_OUTPUT"
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- "$ART_OUTPUT/wishing-tree.blend" apps/fairy-garden/wishing-tree.glb --detail
+```
+
+仍是纯场景美术，空牌不代表用户愿望，没有新增许愿数据或 AI 调用。浏览器验证 `scripts/checks/fairy-wishing-tree-browser.cjs` 使用隔离存档验四季、夜间、320px、读档与到访路径。
