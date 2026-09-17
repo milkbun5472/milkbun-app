@@ -226,4 +226,10 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 
 `build_old_tower.py -- OUTPUT_DIR` 从 `MAPS.garden.oldTower` 构建林缘、深林、旧塔三个分区（village-northwood-edge / village-northwood-deep / village-old-tower，均用 --detail 导出）。旧塔在 (0,-46)，通过公共厅东北的窄泥路连回村落；塔门暂封，只开放外景。树干、密灌木、石塔、落石与通路共用地图数据，切勿只改 Blender 摆放。
 
-garden.walkRegions 保留原半径32的村落，仅向北扩展可走区域；radius55用于镜头/粗边界。寻路网格按实际区域包围盒建立，避免把四周尚未建造的土地一起扩出来。树木和地景使用现有室外四季渲染。精确顶点相连的泥路不会在拐弯处共面重叠，upward复用湖面朝向修复。运行时沿用原常驻草地，构建里的方形地面只供Blender预览，不导出。站点接现有地图步行功能；没有传送、交易或新AI调用。脚本 fairy-old-tower-browser.cjs 在独立存档实走双人往返、分区卸载、读档、手机平移和冬夜。竖屏小倍率的正交镜头会沿原视线后退，并补偿雾距，避免近裁面切掉屏幕下方草地；公共view-controls已有四角裁切回归。
+garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩展可走范围；radius55用于镜头/粗边界。寻路网格按实际区域包围盒建立，避免把四周尚未建造的土地一起扩出来。树木和地景使用现有室外四季渲染。精确顶点相连的泥路不会在拐弯处共面重叠，upward复用湖面朝向修复。运行时沿用原常驻草地，构建里的方形地面只供Blender预览，不导出。站点接现有地图步行功能；没有传送、交易或新AI调用。脚本 fairy-old-tower-browser.cjs 在独立存档实走双人往返、分区卸载、读档、手机平移和冬夜。竖屏小倍率的正交镜头会沿原视线后退，并补偿雾距，避免近裁面切掉屏幕下方草地；公共view-controls已有四角裁切回归。
+
+### 林边车站
+
+`build_station.py -- OUTPUT_DIR` 读取 `MAPS.garden.station`，生成南侧林荫路和车站两块 GLB（`village-station-lane` / `village-station`，用公共 exporter 的 `--detail` 导出）。收藏馆后接石板路，月台中心 (0,39)，地图按钮「林边车站」走到 (.6,40.65)。弧顶雨棚、售票亭、朝铁轨的长椅、行李车、低栏杆与树林；列车/买票/乘坐暂未实现，不承诺班次。
+
+共享表统一月台与矮台阶高度、家具/柱子/树干的碰撞、步行终点、南侧 walkRegions 和加载范围；栏杆可见地阻止走入轨道。复用建筑原语、湖面 upward 与既有四季渲染，预览草地不导出。来源与预览分离，脚本不放 app 包。`station.test.mjs` 验证连通/碰撞/存档/加载释放；`scripts/checks/fairy-station-browser.cjs` 在隔离存档实际步行、同行、回家、读档、手机平移及冬夜验证。
