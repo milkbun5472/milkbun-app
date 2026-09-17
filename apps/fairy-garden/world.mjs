@@ -1,3 +1,4 @@
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-1c98a59e79899a17';
 import {brewError,brewResult} from './brewing.mjs?v=fg-1c98a59e79899a17';
 import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-1c98a59e79899a17';
 import './rules.js?v=fg-1c98a59e79899a17';
@@ -64,6 +65,8 @@ export function restoreLook(raw){
  const d=raw&&typeof raw==='object'?raw:{},out={};
  if(typeof d.hair==='string'&&/^[a-z]{2,16}$/.test(d.hair))out.hair=d.hair;
  for(const k of ['hairColor','cloth'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
+ if(Object.hasOwn(OUTFITS,d.outfit))out.outfit=d.outfit;
+ const wardrobe=restoreWardrobe(d.wardrobe);if(Object.keys(wardrobe).length)out.wardrobe=wardrobe;
  if(d.dims&&typeof d.dims==='object'){const dims={};
   for(const [k,v]of Object.entries(d.dims)){const n=Number(v);
    if(/^[a-z]{2,16}$/.test(k)&&Number.isFinite(n))dims[k]=Math.max(0,Math.min(2,n));}

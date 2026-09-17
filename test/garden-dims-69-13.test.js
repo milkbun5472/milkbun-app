@@ -41,10 +41,14 @@ test('空的形态键要摘掉——留着白涨接近两兆', () => {
   assert.match(exp, /\(a\.co - b\.co\)\.length < 1e-6/);
 });
 
-test('只拖一根滑杆，另外五根不许被打回中性', () => {
+test('只拖一根滑杆，另外五根不许被打回中性', async () => {
+  const {mergeLook} = await import('../apps/fairy-garden/wardrobe.mjs');
+  const old = {dims:{height:1.2,shoulder:1.1,waist:.9,flare:1.1,build:.95,head:.98}};
+  assert.deepEqual(mergeLook(old,{dims:{waist:1}}).dims,{...old.dims,waist:1});
+  assert.equal(old.dims.waist,.9);
   const fn = game.slice(game.indexOf(' setLook:(who,look)=>{'), game.indexOf(' applyAction:'));
-  assert.match(fn, /dims:\{\.\.\.\(old\.dims\|\|\{\}\),\.\.\.look\.dims\}/, 'dims 是嵌一层的，浅合并会把别的滑杆抹掉');
-  assert.match(trav, /if\(next&&next\.dims\)n\.dims=Object\.assign\(\{\},want\.dims,next\.dims\)/);
+  assert.match(fn, /mergeLook\(old,look\)/);
+  assert.match(trav, /mergeLook\(want,next\|\|\{\}\)/);
 });
 
 test('每根滑杆都能单独回到中间', () => {

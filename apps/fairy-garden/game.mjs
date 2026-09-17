@@ -1,3 +1,4 @@
+import {mergeLook,outfitColors,outfitId,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-1c98a59e79899a17';
 import {repairError} from './world.mjs?v=fg-1c98a59e79899a17';
 import {makeCurio} from './curio-view.mjs?v=fg-1c98a59e79899a17';
 import {makePlacedKeepsakes} from './keepsake-view.mjs?v=fg-1c98a59e79899a17';
@@ -1109,9 +1110,10 @@ window.FairyGardenGame={
  pinNote:id=>{data=pinNote(data,id);save();return true;},
  // 衣柜那一页顶上那条透明的窗：开的时候告诉游戏渲谁，关了传 null
  preview:who=>setPreview(who),
+ getOutfit:who=>{const look=neighborOf(data,who)?.look||(who==='companion'?data.companion.look:data.look)||{};return {id:outfitId(look),colors:outfitColors({...((who==='me')?DEFAULT_LOOK:COMPANION_LOOK),...look})};},
  setLook:(who,look)=>{if(!ready||!look)return false;
   // ⚠️dims 是嵌一层的：浅合并会让「只拖一根滑杆」把另外五根打回中性
-  const merge=(old={})=>({...old,...look,...(look.dims?{dims:{...(old.dims||{}),...look.dims}}:{})});
+  const merge=(old={})=>mergeLook(old,look);
   // 住在村里的那几位也能换样貌（她 2026-09-17：「邀请邻居的话改不了外貌」）。
   // ⚠️走的是同一段：同一个 setLook、同一份 merge、同一个预览小人。
   //   给邻居另写一套，六根滑杆那条链就活在两处了。
