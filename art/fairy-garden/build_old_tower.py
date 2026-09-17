@@ -108,15 +108,13 @@ for row in range(23):
   wedge('Weathered masonry block',a,b,r-.24,r+(.045 if row%5==0 else 0),.12+row*.40,.49+row*.40,stone2 if (row*3+col)%7==0 else stone)
 for h in [.36,3.05,5.95,8.42]:
  for j in range(24):wedge('Old carved stone belt',j*math.tau/24,(j+1)*math.tau/24,r-.05,r+.13,h,h+.12,stone2)
-# A sealed arched door at the near face. The interior is scenery, never a fake doorway.
+# An open arched threshold leads to the shared oldTower interior.
 front=tz+r+.08
-arch('Deep sealed tower arch',tx,front,.11,1.48,2.18,dark,.14)
-arch('Weathered locked oak door',tx,front+.055,.14,1.18,1.99,oak,.07)
+arch('Open old tower arch',tx,front,.11,1.48,2.18,dark,.14)
 arch_trim(tx,front+.13,.1,1.54,2.2,stone2,.13)
-for dx in [-.4,-.2,0,.2,.4]:rod('Old door plank', (tx+dx,front+.102,.18),(tx+dx,front+.102,1.70),.012,wood)
-for h in [.6,1.25]:box('Old iron door strap',tx,front+.14,h,1.10,.05,.07,brass)
-line('Crossed sealed chain',[(tx-.52,front+.17,1.55),(tx+.48,front+.17,.72)],.025,brass)
-box('Antique locked clasp',tx+.08,front+.20,1.02,.19,.09,.24,brass)
+# The old door is now open: a narrow timber leaf rests at the side of the dark threshold.
+box('Opened old oak door leaf',tx-.65,front-.18,1.04,.09,.70,1.82,oak)
+box('Unlatched old iron strap',tx-.59,front-.18,.9,.025,.65,.06,brass)
 # Narrow gothic lancet, worn star medallion, and partly surviving copper roof above.
 arch('High recessed lancet',tx,front-.03,3.32,.72,1.80,dark,.08);arch_trim(tx,front+.045,3.3,.88,1.91,stone2,.09)
 rod('Lancet stone mullion',(tx,front+.1,3.4),(tx,front+.1,4.85),.037,stone2)
