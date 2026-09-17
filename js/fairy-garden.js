@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-237a10e7ef72fceb", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-b537c4e90f20a485", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -593,7 +593,19 @@
                     sh.pinned ? "已钉住" : "钉住"))))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
                   "还没有。从屋边那口井下去，石头里有东西。"),
-            shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, color: G.soft } }, "正在读这一层的石头…") : null)
+            shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, color: G.soft } }, "正在读这一层的石头…") : null,
+            // ⚠️封出去的那几片【还读得到】——施法不烧掉碎片，这是它的另一半
+            ((shardBox && shardBox.casts) || []).length ? h("div", { style: { marginTop: 22 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "封出去的"),
+              h("div", { style: { display: "grid", gap: 10 } },
+                shardBox.casts.map((c, i) => h("div", { key: c.place + ":" + i, style: { borderRadius: 14, border: "1px dashed " + G.line, background: "rgba(255,255,255,.45)", padding: "11px 13px" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                    "〔" + c.spell + "〕封在" + c.place + " · 第 " + c.day + " 天"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.soft, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, c.text))))) : null,
+            ((shardBox && shardBox.spells) || []).length ? h("div", { style: { marginTop: 20 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "会念的咒"),
+              shardBox.spells.map(sp => h("div", { key: sp.id, style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, padding: "5px 0" } },
+                sp.name + " · 要" + sp.need + " —— " + sp.note))) : null)
           : h("div", { style: { padding: "16px 16px 40px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "走到花圃那儿种一句下去，过三天开花。开好了再走过去收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),

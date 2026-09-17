@@ -111,3 +111,12 @@ body.embedded .weather{gap:8px}
    弹层那份是 clone 出来的，靠 hidden 判断「这件事还在不在」的地方还得认它。 */
 .from-scene{display:none !important}
 .scene-hint{margin:9px 2px 0;font-size:10.5px;line-height:1.7;color:#8a9880}
+/* 许愿树下：挑一个咒、一片碎片、一个地方 */
+#cast-spells{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+#cast-spells button{border:1px solid #dbe2cd;border-radius:999px;background:#fbfaf0;color:#687856;font-size:12px;padding:9px 13px;min-height:38px}
+#cast-spells button[aria-pressed=true]{border-color:#55704f;background:#eef3e6;color:#48604a}
+#cast-shards{display:grid;gap:8px;max-height:30vh;overflow-y:auto;margin-bottom:12px}
+#cast-shards button{text-align:left;border:1px solid #dbe2cd;border-radius:12px;background:#fbfaf0;color:#54684c;font-size:12.5px;line-height:1.6;padding:10px 12px}
+#cast-shards button[aria-pressed=true]{border-color:#55704f;background:#eef3e6}
+#cast-places{flex-wrap:wrap;margin-top:4px}
+#cast-places>button{flex:1 1 calc(50% - 6px);min-width:110px}

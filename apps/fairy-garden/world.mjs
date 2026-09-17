@@ -1,6 +1,6 @@
-import './rules.js?v=fg-237a10e7ef72fceb';
+import './rules.js?v=fg-b537c4e90f20a485';
 export const {VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-237a10e7ef72fceb';
+import {createNavigator} from './navigation.mjs?v=fg-b537c4e90f20a485';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -633,6 +633,62 @@ export const diveWet = s => diveWeight(s) > 1;
 // 雾天看不清远处：地图上只标近的那几处（游戏那头照这个画）
 export const MAP_FOG_RANGE = 17;
 export const mapFoggy = s => weather(s.day, s.epoch) === '薄雾';
+// ── 念咒（她 2026-09-17 想要的那种「能 cast spell」的魔法）─────────────
+// ⚠️这条线的材料是【碎片】——那是你们之间真说过的话、真做过的梦。
+//   所以魔法自动就是「关系相关」的，不用另造一个好感度数字。
+// ⚠️施法【不烧掉那片碎片】。烧掉「那天他在楼下等你」去换一场雨，感觉是坏的，
+//   也违背这个库最深的一条：东西不会凭空没了。
+//   它是【从背包出去、封进世界里的一个位置】：还读得到，但不能再拿去合炉或进锅。
+// ⚠️一枪都不打：封进去之后那句话是碎片自己的原文，不是生成的。
+export const SPELLS = {
+  echo: { name: '回声咒', need: 'echo', note: '把一句听过的话留在一个地方，走到那儿还听得见' },
+  dream: { name: '假寐咒', need: 'dream', note: '让一个地方夜里有一场不是真的天气' },
+  sense: { name: '留感咒', need: 'sense', note: '把一段感觉留在一个地方，摸得到' },
+  relic: { name: '唤醒咒', need: 'relic', note: '把一件说不清的东西叫醒，它会自己待在那儿' }
+};
+// 封在哪儿：都是她本来就会走到的地方
+export const SPELL_PLACES = { eaves: '屋檐下', sill: '窗台', pond: '池边', lamp: '小路那盏灯下', well: '井口', plot: '花圃边' };
+const SPELL_ORDER = ['echo', 'dream', 'sense', 'relic'];
+// 这一季的种子教的是哪一个咒（一季一颗，四季轮一圈）
+export const spellOfSeason = index => SPELL_ORDER[Math.max(0, count(index)) % SPELL_ORDER.length];
+export function restoreSpells(raw){
+  return [...new Set((Array.isArray(raw) ? raw : []).filter(x => Object.hasOwn(SPELLS, x)))];
+}
+export function restoreCasts(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && Object.hasOwn(SPELL_PLACES, x.place) && Object.hasOwn(SPELLS, x.spell) && x.text)
+    .slice(0, 12).map(x => ({ place: x.place, spell: x.spell, kind: shardKind(x.kind) || SPELLS[x.spell].need,
+      text: trimText(x.text, 240), day: Math.max(1, count(x.day)) }));
+}
+export const castAt = (s, place) => restoreCasts(s.casts).find(x => x.place === place) || null;
+export function castError(s, spell, shardId, place){
+  if (!Object.hasOwn(SPELLS, spell)) return '还没有这个咒。';
+  if (!restoreSpells(s.spells).includes(spell)) return '这个咒你还不会——一季一个，跟他一起去林地唤醒种子。';
+  if (!Object.hasOwn(SPELL_PLACES, place)) return '还没有这个地方。';
+  if (castAt(s, place)) return SPELL_PLACES[place] + '已经封着一片了，一个地方只留一片。';
+  const shard = (s.shards || []).find(x => x.id === shardId);
+  if (!shard) return '先挑一片碎片。';
+  if (shard.kind !== SPELLS[spell].need) return SPELLS[spell].name + '要的是' + SHARD_KINDS[SPELLS[spell].need] + '。';
+  return '';
+}
+export function castSpell(s, spell, shardId, place){
+  if (castError(s, spell, shardId, place)) return s;
+  const shard = (s.shards || []).find(x => x.id === shardId);
+  const row = { place, spell, kind: shard.kind, text: shard.text, day: s.day };
+  return noteHappening({ ...s,
+    shards: (s.shards || []).filter(x => x.id !== shardId),
+    casts: restoreCasts([row, ...(s.casts || [])]) },
+    'world', '在' + SPELL_PLACES[place] + '念了一个' + SPELLS[spell].name);
+}
+// 走到那儿会看见什么。⚠️用的是碎片自己的原文——这儿不生成任何文字
+export function castLine(s, place){
+  const row = castAt(s, place);
+  if (!row) return '';
+  const where = SPELL_PLACES[place];
+  if (row.spell === 'echo') return where + '又响起那一句：「' + row.text + '」';
+  if (row.spell === 'dream') return where + '这一片不太对劲，像是谁的梦漏了出来：' + row.text;
+  if (row.spell === 'sense') return where + '还留着那个感觉：' + row.text;
+  return where + '那件东西醒着：' + row.text;
+}
 // ── 星井（下潜）────────────────────────────────────────────────────────
 // depth   现在在第几层（0＝在地面上）
 // sand    星砂：三份能在炼药锅换一颗月露
@@ -642,10 +698,10 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],happenings:[],spells:[],casts:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:{pathLamp:false},deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){if(raw&&raw.interiorLayout!==2){raw={...raw,interiorLayout:2,companion:raw.companion?{...raw.companion}:raw.companion};for(const who of ['player','companion']){const person=who==='player'?raw:raw.companion;if(!person||!MAPS[person.map]?.interior)continue;const bed=person.map==='home'&&Object.hasOwn(MAPS.home.beds,raw.sleep?.[who])&&MAPS.home.beds[raw.sleep[who]];person.position={...(bed?bed.approach[who]:MAPS[person.map].spawn)};}}if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,interiorLayout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),happenings:restoreHappenings(d.happenings),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),happenings:restoreHappenings(d.happenings),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 // Thaw rescues only positions that are no longer traversable; inventory and relationship data stay intact.
 export function shoreAfterThaw(s){if(lakeFrozen(s))return s;const l=MAPS.garden.lake,at=p=>inPolygon(p.x,p.z,l.shore,.16)&&!walkable(p.x,p.z,'garden',s),p=s.map==='garden'&&at(s.position),c=s.companion.map==='garden'&&at(s.companion.position);if(!p&&!c)return s;return {...s,position:p?{...l.bottle.target}:s.position,companion:c?{...s.companion,position:{x:l.bottle.target.x+.85,z:l.bottle.target.z+.3}}:s.companion};}
 export function nextDay(s){const day=s.day+1;return withDailyNote(expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}))));}
@@ -673,6 +729,8 @@ export function actionError(s,kind,id){if(kind==='bed')return s.map==='home'&&Ob
  if(kind==='note')return s.map!=='garden'?'花圃在庭院里。':readySeeds(s).length?'':'地里还没有开好的花。';
  // 走到花圃去种一句：种什么在弹层里挑，perform 不动状态
  if(kind==='sow')return seedError(s);
+ // 走到许愿树下念咒：挑什么在弹层里，perform 不动状态
+ if(kind==='cast')return s.map!=='forest'?'那棵许愿树在林地。':(restoreSpells(s.spells).length?'':'你还不会念咒——跟他一起去唤醒一颗种子。');
  if(kind==='dive')return s.map!=='garden'?'先回庭院，井在屋边。':s.minute>1140?'天太晚了，井底看不见路，明天再来。':'';
  if(kind==='ladder')return s.map==='depths'?'':'你不在井里。';
  if(kind==='deeper'){if(s.map!=='depths')return '先下到井里。';
@@ -716,7 +774,7 @@ export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},labe
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',board:'看公告栏',bottle:'捞漂流瓶'};
+const ACTION_NAMES={door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}
@@ -727,7 +785,11 @@ export function magicError(s,kind){const m=s.magic||freshMagic();if(kind==='seed
  if(!m.planted)return m.seeds?'':'先和同行者去林地唤醒一颗种子。';
  if(m.growth>=2)return '';
  if(m.wateredDay===s.day)return '今天照料过了，明天再来看看新芽。';return s.water>0?'':'先取一壶清水来照料它。';}
-function performMagic(s,kind){const m=s.magic||freshMagic();if(kind==='seed'){if(!companionNearby(s))return s;return {...s,magic:{...m,seeds:m.seeds+1,seedSeason:seasonOf(s.day).index}};}
+function performMagic(s,kind){const m=s.magic||freshMagic();if(kind==='seed'){if(!companionNearby(s))return s;
+ // ⚠️醒来的不只是一颗种子，还有【一个咒】——这才是那场戏的分量所在
+ const learn=spellOfSeason(seasonOf(s.day).index);
+ const out={...s,magic:{...m,seeds:m.seeds+1,seedSeason:seasonOf(s.day).index},spells:restoreSpells([...(s.spells||[]),learn])};
+ return (s.spells||[]).includes(learn)?out:noteHappening(out,'world','和'+s.companion.name+'一起唤醒了一颗种子，学会了'+SPELLS[learn].name);}
  if(kind==='lamp')return {...s,harvest:s.harvest-3,magic:{...m,flowers:m.flowers-1,lamps:m.lamps+1}};
  if(!m.planted)return {...s,magic:{...m,seeds:m.seeds-1,planted:true,growth:0,wateredDay:0}};
  if(m.growth>=2)return {...s,magic:{...m,planted:false,growth:0,flowers:m.flowers+1,discovered:true}};
