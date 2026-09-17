@@ -8,14 +8,21 @@ const html = rd("apps/fairy-garden/index.html");
 const css = rd("apps/fairy-garden/style.css");
 const world = rd("apps/fairy-garden/world.mjs");
 
-// 她 2026-09-17：「地图要不要单独右上角做个 tab，然后可以显示角色和我分别在哪儿」「就先走路」
-test("地图只说谁在哪儿，点了不会把人传送过去", () => {
+// 她 2026-09-17：「地图要不要单独右上角做个 tab，然后可以显示角色和我分别在哪儿」
+//              「就先走路」→「或者不传送但是点击可以自动带路」
+test("图上点一处会带路，但走的是路，不是传送", () => {
   assert.match(html, /id="map-open"/);
   assert.match(html, /id="map-dialog"/);
-  const fn = game.slice(game.indexOf("function openMap()"), game.indexOf("$('map-dialog').showModal();"));
-  assert.doesNotMatch(fn, /go\(|request\(|perform\(/, "图上能点着走＝它成了传送盘，走路那点节奏就没了");
-  assert.match(game, /这张图只看，不带路/);
-  assert.doesNotMatch(fn, /host\.|callAI/, "一枪都不打：地名坐标全是 MAPS 里现成的");
+  const draw = game.slice(game.indexOf("function openMap()"), game.indexOf("$('map-dialog').showModal();"));
+  assert.doesNotMatch(draw, /host\.|callAI/, "一枪都不打：地名坐标全是 MAPS 里现成的");
+  const tap = game.slice(game.indexOf("$('map-plan').addEventListener"), game.indexOf("$('map-open').onclick"));
+  // ⚠️走的是 go()：从现在站的地方一步步过去。绝不许直接改 position——那就是传送
+  assert.match(tap, /if\(go\(target\)\)/);
+  assert.doesNotMatch(tap, /data\.position *=|actor\.position\.set/, "直接落点＝传送，走路那点节奏就没了");
+  // 到了就是到了，不替她做任何事（要浇要种，她自己点）
+  assert.doesNotMatch(tap, /perform\(|request\(/);
+  assert.match(tap, /chasing=false/, "她指了别处，就不该还跟着他走");
+  assert.match(game, /是走过去，不是一下子到/);
 });
 
 // 人不在这张图上时要说清他在哪儿，不能让那个点凭空消失

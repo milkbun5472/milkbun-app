@@ -93,6 +93,10 @@ body.embedded .weather{gap:8px}
 #map-plan{margin:4px 0 10px;border:1px solid #dbe2cd;border-radius:14px;background:#f4f6e8;overflow:hidden}
 #map-plan svg{display:block;width:100%;height:auto}
 #map-plan .spot{fill:#c3cdb2}
+#map-plan .spot-tap{fill:transparent}
+#map-plan .spot-hit{cursor:pointer}
+#map-plan .spot-hit:hover .spot,#map-plan .spot-hit:focus-visible .spot{fill:#8aa07c}
+#map-plan .spot-hit:hover .spot-label{fill:#4f6449}
 #map-plan .spot-label{font-size:9px;fill:#7b8a70}
 #map-plan .me{fill:#55704f}
 #map-plan .them{fill:#a8763f}
