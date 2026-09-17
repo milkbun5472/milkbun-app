@@ -148,6 +148,20 @@
  const nearLake=garden.chunks.find(c=>c.id==='pond');Object.assign(nearLake,{x:20,z:8,radius:16});
  garden.chunks.push({id:'lake-far',x:18,z:-2,radius:12,asset:'./village-lake-far.glb?v=fg-b537c4e90f20a485'});
  function migrateVillagePosition(p){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return p;let best='home',distance=Infinity;for(const [id,d]of Object.entries(VILLAGE_ZONES)){const dist=Math.hypot(p.x-d.cx,p.z-d.cz);if(dist<distance){best=id;distance=dist;}}return villagePoint(p,best);}
+ // The first neighbour's attic shares its floor plan with the art builder and routing.
+ const attic=MAPS.neighbor1={name:'星图阁楼',interior:true,renderer:'glb',asset:'./neighbor1-interior.glb?v=fg-becae051b54042f1',background:'#cbc8c2',light:2.1,radius:13,bounds:{w:20,d:15},viewSpan:13.8,floor:.14,view:{x:0,z:0},spawn:{x:0,z:5.9},
+ plan:{w:19,d:14,outline:[[-8,-6],[2,-6],[2,-7],[6,-7],[8,-5],[8,4],[5,6],[2,6],[2,7],[-2,7],[-2,6],[-8,6],[-9,4],[-9,-3]].map(([x,z])=>({x,z})),arches:[],plants:[{x:-7.7,z:4.4,size:1},{x:6.5,z:3.5,size:1.1}]},
+ surfaces:[{x:-5,z:-1.4,w:3,d:.4,height:.26},{x:-5,z:-1.8,w:3,d:.4,height:.38},{x:-4.6,z:-4,w:6.6,d:4,height:.5}],
+ walls:[{x:-7.4,z:-2,w:1.2,d:.18,h:.9},{x:-2.4,z:-2,w:2.2,d:.18,h:.9}],
+ furniture:[{kind:'hearth',x:-8,z:1,w:1.12,d:2.55},{kind:'sofa',x:-4.4,z:.6,w:2.8,d:1.05},{kind:'table',x:-4.4,z:2.35,w:1.85,d:1},{kind:'armchair',x:-2.2,z:2.4,w:1,d:1,heading:Math.PI/2},{kind:'desk',x:4,z:-5.6,w:2.7,d:1.05},{kind:'chair',x:4,z:-4.25,w:.7,d:.75,heading:Math.PI},{kind:'shelf',x:7.15,z:-1.5,w:.7,d:4.2},{kind:'roundtable',x:3.5,z:1.8,w:1.5,d:1.3},{kind:'armchair',x:3.5,z:3.25,w:.85,d:.85,heading:Math.PI},{kind:'armchair',x:3.5,z:.35,w:.85,d:.85},{kind:'console',x:-.7,z:-5.35,w:.7,d:1.6}],
+ displayBeds:[{x:-5,z:-4.3,w:2.7,d:2.7,palette:'sage',base:.5}],
+ exits:{travel:{to:'garden',at:{...garden.sites.neighbor1.target},label:'走出星图阁楼'}},stations:{travel:{x:0,z:6.35}},
+ sites:{hearth:{label:'炉边会客角',target:{x:-5.8,z:3.5},text:'炉火照着软椅和旧织毯，窗外的树影慢慢摇。'},study:{label:'星图工作台',target:{x:2,z:-4.2},text:'凸窗下铺着星图，铜仪和空白笔记等着屋主回来。'},bedroom:{label:'半层睡眠间',target:{x:-3,z:-2.8},text:'两级宽台阶通向帷幔后的床铺。这间邻居屋还没有安排入住。'},tea:{label:'窗边茶桌',target:{x:5.2,z:1.8},text:'两张椅子朝着同一张小圆桌，茶杯留在桌上。'}},interactions:[{kind:'travel',x:0,z:6.7,r:.6}],obstacles:[]};
+ attic.obstacles=[...attic.walls,...attic.furniture,...attic.displayBeds.flatMap(b=>[{x:b.x,z:b.z,w:b.w,d:b.d},...[-1,1].map(sign=>({x:b.x+sign*(b.w/2+.35),z:b.z-1,w:.52,d:.54}))]),...attic.plan.plants.map(p=>({x:p.x,z:p.z,r:p.size*.28}))];
+ attic.interactions.push(...Object.entries(attic.sites).map(([id,s])=>({kind:'visit',id,...s.target,r:.45})));
+ garden.exits.neighbor1={to:'neighbor1',action:'door',label:'走进星图阁楼',target:{...garden.sites.neighbor1.target}};
+ garden.interactions=garden.interactions.map(p=>p.id==='neighbor1'?{...p,kind:'door'}:p);
+ garden.sites.neighbor1.text='尖顶屋里是星图阁楼，可以进去看看；还没有安排角色入住。';
  const ACTIVITIES={
  flowers:{map:'garden',target:MAPS.garden.stations.garden,label:'照料月光花',gesture:'water'},herbs:{map:'forest',target:{x:.1,z:2.48},label:'观察铃叶草',gesture:'gather'},mushrooms:{map:'forest',target:{x:2.6,z:.98},label:'寻找会发光的蘑菇',gesture:'gather'},pond:{map:'forest',target:{x:-.7,z:.6},label:'在池边观察水纹',gesture:'read'},study:{map:'garden',target:MAPS.garden.sites.hall.target,label:'翻看魔法笔记',gesture:'read'},potion:{map:'garden',target:MAPS.garden.stations.brew,label:'研究炼药锅里的微光',gesture:'read'},glow:{map:'forest',target:{x:1.7,z:3},label:'等草丛里的萤光亮起来',gesture:'rest'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋前歇脚',gesture:'rest'},rain:{map:'garden',target:MAPS.garden.stations.rest,label:'在屋檐下听雨',gesture:'read'},star:{map:'garden',target:MAPS.garden.stations.star,label:'看看星铃花的新芽',gesture:'read'},dive:{map:'garden',target:MAPS.garden.stations.well,label:'在井口往下看看',gesture:'read'},
   // v69.55 补：她那一路做出来的地方，他原来一个都够不着（公告栏、收藏馆、水边、集市、桥、许愿树、邻居屋）

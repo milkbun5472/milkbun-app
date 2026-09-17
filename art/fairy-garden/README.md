@@ -185,7 +185,7 @@ node scripts/build-fairy-garden.mjs
 
 ## 室内大宅（当前场景源）
 
-四个现役室内统一使用 `build_interiors.py`：家、公共厅、楼上宿舍、收藏馆。
+现役室内统一使用 `build_interiors.py`：家、公共厅、楼上宿舍、收藏馆、左邻居星图阁楼。
 从 `apps/fairy-garden/rules.js` 的 MAPS 读取轮廓、家具、门、床、展柜、拱柱与植物占地；
 修改布局同时影响美术与导航，勿再用旧 `build_house.py` / `build_public_hall.py` /
 `build_museum.py` 导出现役室内（旧脚本保留为历史造型与旧外景依赖）。
@@ -203,3 +203,7 @@ PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内�
 
 `build_flowerbeds.py` 从 `MAPS.garden.flowerbeds`（原障碍盒的引用）生成两畦永久可见的土面和木框，两畦按用户要求搬到住宅右边，尺寸不变；站位/互动/开花锚点一起平移，清掉原址和新址的旧烘焙花、灌木，花量仍由游戏状态控制。
 可对 `moon-lake/village-ground.blend` 单独补建，输出仓库外，然后用 `export-fairy-village.py --ratio=.12` 重导 `village-ground.glb`。`build_lake.py` 也调用同一个构建函数，完整重建不会再漏畦。花圃随常驻地景加载，不依赖住宅分区或 blooms 数量。
+
+### 左邻居星图阁楼
+
+`MAPS.neighbor1` 声明非矩形内景、半层睡眠区、窗边书桌、会客区和茶桌，沿用既有尖顶外景门口进出。单独构建传 `neighbor1`，导出 `neighbor1-interior.glb --detail`；图和 blend 留仓库外。平台地板在台阶边界分割，避免伸出悬空。入住尚未开放，床只是陈设；不改自家两张床的睡眠安排。同行/保存/地图卸载走共用机制。
