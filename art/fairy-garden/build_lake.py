@@ -137,6 +137,9 @@ for x,z,length in [(13,4.5,1.2),(11,2,.7),(18,-1,1.3),(24,-.1,.9),(14,-2,.8)]:
 # Low stepping stones leading to the bottle's actual reach point.
 current='pond';p=lake['bottle']['target']
 for i in range(4):sphere('Bottle shore stepping stone',p['x']-.1+i*.29,p['z']+.4+i*.2,.105,.19,.15,.035,rock)
+# Ground beds must survive every full lake/landscape rebuild.
+import runpy
+runpy.run_path(str(repo/'art/fairy-garden/build_flowerbeds.py'))['add_flowerbeds'](plan)
 scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=24;scene.render.resolution_x=1500;scene.render.resolution_y=1100;scene.render.resolution_percentage=100
 bpy.ops.object.camera_add(location=xyz(36,33,30));camera=bpy.context.object;camera.rotation_euler=(Vector(xyz(16,1,0))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=36;scene.camera=camera
 bpy.ops.wm.save_as_mainfile(filepath=str(out/'village-lake.blend'));scene.render.filepath=str(out/'moon-lake.png');bpy.ops.render.render(write_still=True)
