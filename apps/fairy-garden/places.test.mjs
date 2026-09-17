@@ -10,7 +10,7 @@ test('home can be entered, slept in, restored and left without spending inventor
  assert.deepEqual(restoreState(s),s);assert.ok(findPath(s.position,MAPS.home.stations.rest,'home'));
  s=perform({...s,position:MAPS.home.stations.rest},'rest');assert.equal(s.day,2);assert.equal(s.map,'home');assert.equal(s.harvest,8);
  s=perform({...s,position:MAPS.home.stations.travel},'travel');assert.equal(s.map,'garden');assert.deepEqual(s.position,MAPS.garden.stations.enter);
- assert.equal(walkable(0,5.1,'home'),false);assert.equal(walkable(-3,-3.35,'home'),false);assert.equal(walkable(0,1,'home'),true);
+ assert.equal(walkable(0,8.7,'home'),false);assert.equal(walkable(MAPS.home.beds.dawn.x,MAPS.home.beds.dawn.z,'home'),false);assert.equal(walkable(0,1,'home'),true);
  assert.deepEqual(restoreCompanion({map:'home',position:{x:50,z:50}}).position,MAPS.home.spawn);
 });
 test('new destinations remain reachable and heights match bridge decking and the curved hill',()=>{

@@ -129,7 +129,7 @@ node scripts/build-fairy-garden.mjs
 桥面游戏高度 .38；室内地板 .14；林地缓坡中心 (0,-6)、椭圆半径 (2.5,1.85)，
 高度 `.08 + .9 * (1-r²)²`，与规则表/点地寻路共用的 floorHeight 保持一致。
 
-### 双卧室住宅
+### 双卧室住宅（历史源，当前改用下方室内大宅）
 
 `build_house.py` 读取 `rules.js` 的 `MAPS.home` 作为墙体、家具和床位的唯一坐标来源；修改布局先改地图表再重建。输入仍是 fairy-cottage 图形源根目录，输出目录置于仓库外：
 
@@ -151,11 +151,11 @@ node scripts/build-fairy-garden.mjs
 
 仍是纯场景美术，空牌不代表用户愿望，没有新增许愿数据或 AI 调用。浏览器验证 `scripts/checks/fairy-wishing-tree-browser.cjs` 使用隔离存档验四季、夜间、320px、读档与到访路径。
 
-### 公共厅两层
+### 公共厅两层（历史源，当前改用下方室内大宅）
 
 `build_public_hall.py` 从 `MAPS.hall`/`MAPS.dormitory` 读取长厅家具、宿舍墙/床/房间布局，复用原 primitives 与 house pigment。输出 public-hall.blend、hall-dormitory.blend 及预览，保存在仓库外；两份均使用 export-fairy-village.py 的 --detail 导出。楼下长桌/壁炉/书架/小讲堂，楼上四间空房。前墙和顶板切开方便浏览，人物由游戏实例显示；独立地图过楼梯，不做重叠多层寻路。
 
-### 拾光收藏馆
+### 拾光收藏馆（历史源，现役内景改用下方室内大宅）
 
 `build_museum.py` 读取 MAPS.garden.museum 与 MAPS.museum，生成南侧独立外观和展厅。复用 public_hall 的 shell/window/lamp；shell 已按 plan 尺寸铺地板和木梁，既有14×9长厅也沿用此公共函数。输出 museum-exterior.blend / museum-interior.blend 与预览，分别 --detail 导出同名 GLB。花笺框与陈列架本身为空，运行时 museum-view 根据原收藏实例化陈列，不把用户物品烘焙进模型。
 
@@ -182,3 +182,19 @@ node scripts/build-fairy-garden.mjs
 输出 village-lake.blend/预览及 village-{ground,pond,lake-far}.blend。ground 仍 `--ratio=.12`，pond/lake-far `--detail`；其余六栋建筑文件不重导。水面先三角化再沿 z=2 裁切，两个懒加载区共边，无跨水域的独立碰撞硬编码；河口水面略低避免与湖面共面闪烁。重建顺序 spacious → architecture → lake。
 
 `lake-view.mjs` 只画瓶子与水纹，按实际分区加载和 driftError 控制显示；点模型和原按钮都转交 request('bottle')，仍由 drawBottle 结算，每日一次，空瓶也占一次。冬季水色走共享 outdoor；无新增AI调用、库存或存档体系。
+
+## 室内大宅（当前场景源）
+
+四个现役室内统一使用 `build_interiors.py`：家、公共厅、楼上宿舍、收藏馆。
+从 `apps/fairy-garden/rules.js` 的 MAPS 读取轮廓、家具、门、床、展柜、拱柱与植物占地；
+修改布局同时影响美术与导航，勿再用旧 `build_house.py` / `build_public_hall.py` /
+`build_museum.py` 导出现役室内（旧脚本保留为历史造型与旧外景依赖）。
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python art/fairy-garden/build_interiors.py -- /tmp/garden-interiors
+# 分别导出 home-interior / public-hall / hall-dormitory / museum-interior
+/Applications/Blender.app/Contents/MacOS/Blender --background --python scripts/export-fairy-village.py -- /tmp/garden-interiors/home-interior.blend apps/fairy-garden/home-interior.glb --detail
+```
+
+PNG、blend、导出报告只留仓库外。`interiorLayout:2` 迁移旧室内坐标到新门厅/对应床边；
+床 ID、睡眠安排与物资不变。室内采用凹多边形边界与近景镜头，可平移探索。

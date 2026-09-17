@@ -4,9 +4,9 @@ import {makeCompanionController} from './companion.mjs';
 const arrived=(id='dawn')=>({...freshState(),map:'home',position:{...MAPS.home.beds[id].approach.player},companion:{...freshState().companion,map:'home',mode:'routine',position:{x:0,z:3.8}}});
 const settle=s=>{const c=makeCompanionController();for(let i=0;i<1000;i++)s=c.tick(s,.1).state;return {s,c};};
 test('two double beds in different rooms, all doorways and furniture paths are navigable',()=>{
- const beds=Object.values(MAPS.home.beds);assert.equal(beds.length,2);assert.ok(beds.every(b=>b.w>=2.4&&b.d>=2.8));assert.ok(beds[0].x<0&&beds[1].x>0);
+ const beds=Object.values(MAPS.home.beds);assert.equal(beds.length,2);assert.ok(beds.every(b=>b.w>=2.4&&b.d>=2.8));assert.ok(Math.abs(beds[0].x-beds[1].x)>6);
  for(const b of beds)for(const who of ['player','companion']){const p=b.approach[who],path=findPath(MAPS.home.spawn,p,'home');assert.ok(path?.length,b.label+' '+who);let last=MAPS.home.spawn;for(const q of path){assert.ok(segmentClear(last,q,'home'));last=q;}assert.equal(walkable(b.x,b.z,'home'),false);}
- assert.equal(walkable(0,-2,'home'),false);assert.ok(findPath(beds[0].approach.player,beds[1].approach.player,'home')?.length);
+ assert.equal(walkable(-2,-4,'home'),false);assert.ok(findPath(beds[0].approach.player,beds[1].approach.player,'home')?.length);
 });
 test('together and separate arrangements actually route the companion to the selected bedroom and preserve safe save coordinates',()=>{
  for(const id of ['dawn','dusk'])for(const mode of ['together','separate']){let s=perform(arrived(id),'bed',id,mode);assert.equal(s.sleep.player,id);assert.equal(s.sleep.companion,mode==='together'?id:id==='dawn'?'dusk':'dawn');const result=settle(s);s=result.s;assert.equal(result.c.view().gesture,'sleep');assert.ok(sleepPose(s));assert.ok(sleepPose(s,'companion'));assert.notEqual(sleepPose(s).x,sleepPose(s,'companion').x);assert.ok(walkable(s.position.x,s.position.z,'home'));assert.deepEqual(restoreState(JSON.parse(JSON.stringify(s))),s);}
