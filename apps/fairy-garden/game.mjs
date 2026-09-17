@@ -1,25 +1,26 @@
-import {BREWS,brewKey} from './brewing.mjs?v=fg-33d5ee5f40e66e30';
-import {makeBrewingView} from './brewing-view.mjs?v=fg-33d5ee5f40e66e30';
-import {MILL_RECIPES,materialLine,millRemaining,millError} from './workshop.mjs?v=fg-33d5ee5f40e66e30';
-import {makeWorkshopView} from './workshop-view.mjs?v=fg-33d5ee5f40e66e30';
-import {openingTag} from './opening-view.mjs?v=fg-33d5ee5f40e66e30';
-import {stepRoute} from './locomotion.mjs?v=fg-33d5ee5f40e66e30';
-import {makeLakeView} from './lake-view.mjs?v=fg-33d5ee5f40e66e30';
-import {makeMuseum} from './museum-view.mjs?v=fg-33d5ee5f40e66e30';
-import {museumCaption} from './museum.mjs?v=fg-33d5ee5f40e66e30';
-import {makeOutdoor} from './outdoor.mjs?v=fg-33d5ee5f40e66e30';
-import {installSeasonBook} from './season-book.mjs?v=fg-33d5ee5f40e66e30';
-import {makeMagicView} from './magic-view.mjs?v=fg-33d5ee5f40e66e30';
-import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-33d5ee5f40e66e30';
+import {weatherLook} from './weather-look.mjs?v=fg-4e31ba3494a2accf';
+import {BREWS,brewKey} from './brewing.mjs?v=fg-4e31ba3494a2accf';
+import {makeBrewingView} from './brewing-view.mjs?v=fg-4e31ba3494a2accf';
+import {MILL_RECIPES,materialLine,millRemaining,millError} from './workshop.mjs?v=fg-4e31ba3494a2accf';
+import {makeWorkshopView} from './workshop-view.mjs?v=fg-4e31ba3494a2accf';
+import {openingTag} from './opening-view.mjs?v=fg-4e31ba3494a2accf';
+import {stepRoute} from './locomotion.mjs?v=fg-4e31ba3494a2accf';
+import {makeLakeView} from './lake-view.mjs?v=fg-4e31ba3494a2accf';
+import {makeMuseum} from './museum-view.mjs?v=fg-4e31ba3494a2accf';
+import {museumCaption} from './museum.mjs?v=fg-4e31ba3494a2accf';
+import {makeOutdoor} from './outdoor.mjs?v=fg-4e31ba3494a2accf';
+import {installSeasonBook} from './season-book.mjs?v=fg-4e31ba3494a2accf';
+import {makeMagicView} from './magic-view.mjs?v=fg-4e31ba3494a2accf';
+import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-4e31ba3494a2accf';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-33d5ee5f40e66e30';
-import {makeSurroundings} from './surroundings.mjs?v=fg-33d5ee5f40e66e30';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-33d5ee5f40e66e30';
-import {millAction,millAt,islandLightError,floatIslandLight,START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,spotsAll,spotKey,isSpot,spotLabel,spotParse,FURNITURE,furnitureAtPoint,approachSpot,lookText,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,walkSpeedFor} from './world.mjs?v=fg-33d5ee5f40e66e30';
-import {makeForest} from './forest.mjs?v=fg-33d5ee5f40e66e30';
-import {makeDepths} from './depths.mjs?v=fg-33d5ee5f40e66e30';
-import {createTraveler} from './traveler.mjs?v=fg-33d5ee5f40e66e30';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-33d5ee5f40e66e30';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-4e31ba3494a2accf';
+import {makeSurroundings} from './surroundings.mjs?v=fg-4e31ba3494a2accf';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-4e31ba3494a2accf';
+import {millAction,millAt,islandLightError,floatIslandLight,START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,spotsAll,spotKey,isSpot,spotLabel,spotParse,FURNITURE,furnitureAtPoint,approachSpot,lookText,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,walkSpeedFor} from './world.mjs?v=fg-4e31ba3494a2accf';
+import {makeForest} from './forest.mjs?v=fg-4e31ba3494a2accf';
+import {makeDepths} from './depths.mjs?v=fg-4e31ba3494a2accf';
+import {createTraveler} from './traveler.mjs?v=fg-4e31ba3494a2accf';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-4e31ba3494a2accf';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -45,7 +46,7 @@ const fill=new THREE.DirectionalLight('#d8e9ed',1);fill.position.set(5,4,-5);sce
 const surroundings=makeSurroundings();scene.add(surroundings.root);
 const assetLoader=new GLTFLoader();
 const mapLoader=createMapLoader({maps:MAPS,loadAsset:async url=>{const root=(await assetLoader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});return root;},factories:{forest:makeForest,depths:makeDepths,museum:makeMuseum},attach:root=>{const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});root.traverse(o=>{if(o.isMesh)o.customDepthMaterial=depth;});scene.add(root);},detach:root=>scene.remove(root)}),mapViews=mapLoader.views;
-let loadingMap=false,cameraFollow=false,chatFollow=true;
+let lite=false,loadingMap=false,cameraFollow=false,chatFollow=true;
 const lakeView=makeLakeView();scene.add(lakeView.root);
 const magicView=makeMagicView();scene.add(magicView.seed,magicView.bed,magicView.lamps);
 function refreshSeasonPlan(){try{data.seasonPlan=host?.planState(data.day)?.plan||null;}catch{data.seasonPlan=null;}}
@@ -66,7 +67,7 @@ function openBrewing(options){
 function openDew(){const key=brewKey(data),recipe=BREWS[key];openBrewing({title:recipe.name,items:recipe.items,commit:()=>{const before=data;data=perform(data,'brew',key);ui();save();return data===before?'材料发生变化，这炉未结算，原材料保留。':'月露 +1，已经装好。带去花圃，可以唤醒尚未开好的花。';}});}
 const highlights=[];for(const p of [MAPS.garden.stations.well,MAPS.garden.stations.garden,MAPS.garden.stations.travel]){const ring=new THREE.Mesh(new THREE.RingGeometry(.26,.29,40),new THREE.MeshBasicMaterial({color:'#f9e9b8',transparent:true,opacity:.75,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(p.x,.105,p.z);scene.add(ring);highlights.push(ring);}
 const outdoor=makeOutdoor(scene,[surroundings.root]),rain=outdoor.precipitation;
-function updateOutdoor(){outdoor.update(data,mapViews,clock,cameraPan);scene.fog.near+=camera.userData.fogOffset||0;scene.fog.far+=camera.userData.fogOffset||0;}
+function updateOutdoor(){outdoor.update(data,mapViews,clock,cameraPan,{lite,span:Math.max(camera.right-camera.left,camera.top-camera.bottom)/camera.zoom});scene.fog.near+=camera.userData.fogOffset||0;scene.fog.far+=camera.userData.fogOffset||0;}
 const blooms=new THREE.Group();scene.add(blooms);
 const stream=new THREE.Group();scene.add(stream);stream.visible=false;for(let i=0;i<12;i++){const d=new THREE.Mesh(new THREE.SphereGeometry(.026,6,5),new THREE.MeshBasicMaterial({color:'#bcebee',transparent:true,opacity:.8}));stream.add(d);}
 const magic=new THREE.Group();scene.add(magic);magic.visible=false;const sparkGeo=new THREE.SphereGeometry(.035,6,4),sparkMat=new THREE.MeshBasicMaterial({color:'#e2efb2'});for(let i=0;i<18;i++)magic.add(new THREE.Mesh(sparkGeo,sparkMat));
@@ -184,7 +185,7 @@ function say(s){$('message').textContent=s;}
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;const pose=orthographicCameraPose(cameraPan,spanY,camera.zoom,offset);camera.position.set(pose.position.x,pose.position.y,pose.position.z);camera.lookAt(pose.target.x,pose.target.y,pose.target.z);camera.far=pose.far;camera.userData.fogOffset=pose.fogOffset;camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-33d5ee5f40e66e30');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-4e31ba3494a2accf');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -820,7 +821,7 @@ function panMap(dx,dy){cameraFollow=false;chatFollow=false;
 }
 const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:()=>{cameraFollow=true;chatFollow=true;if(actor)cameraPan.set(actor.position.x,0,actor.position.z);resize(false);},onReset:()=>{cameraFollow=false;const p=MAPS[data.map].view||{x:0,z:0};cameraPan.set(p.x,0,p.z);},onPan:panMap,panel:$('action-panel'),content:$('panel-content'),toggle:$('panel-toggle'),zoomIn:$('zoom-in'),zoomOut:$('zoom-out'),reset:$('zoom-reset'),onTap:tapMap,onZoom:value=>{camera.zoom=value;resize(false);}});
 canvas.addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d&&actor){e.preventDefault();go({x:actor.position.x+d[0],z:actor.position.z+d[1]});}});
-let lite=false;$('quality').onclick=()=>{lite=!lite;renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.6));renderer.shadowMap.enabled=!lite;$('quality').textContent=lite?'精细画质':'轻量画质';scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});resize();};
+$('quality').onclick=()=>{lite=!lite;renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.6));renderer.shadowMap.enabled=!lite;$('quality').textContent=lite?'精细画质':'轻量画质';scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});resize();};
 $('reset').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=async()=>{if(loadingMap)return;loadingMap=true;try{await mapLoader.ensure('garden',START);}catch(e){say('小屋暂时没有加载成功，原来的进度还在。');return;}finally{loadingMap=false;}path=[];task=null;acting=null;stream.visible=false;$('progress').hidden=true;data={...freshState(),epoch:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};companionController.reset();timeAccumulator=0;lastCompanionEvent='';if(actor)actor.position.set(START.x,.08,START.z);targetRing.visible=false;showMap();mapLoader.keep('garden');save();if(boundPartner)data.companion.name=boundPartner.name;say('新的生活，从一壶清水和一条林间小路开始。');$('reset-dialog').close();};
 function refreshTime(){
  refreshLeisure();
@@ -830,7 +831,7 @@ function refreshTime(){
  // Outdoor materials and particles share one renderer; underground keeps its own palette.
  updateOutdoor();
  if(indoor){hemi.intensity=1.7;sun.intensity=2.1;fill.intensity=.7;sun.color.set('#ffe5bc');scene.background.set(MAPS[data.map].background);scene.fog.color.copy(scene.background);}
- if(MAPS[data.map].outdoor){const kind=weather(data.day,data.epoch);if(kind!=='晴日'){sun.intensity*=kind==='薄雾'?.65:.55;scene.background.lerp(new THREE.Color(kind==='细雪'?'#cbd9e1':'#b4c5c8'),.55);scene.fog.color.copy(scene.background);}}
+ if(MAPS[data.map].outdoor){const look=weatherLook(data);sun.intensity*=look.sunScale;hemi.intensity*=look.ambientScale;sun.color.lerp(new THREE.Color(look.sunColor),late?.15:dusk?.35:.85);scene.background.lerp(new THREE.Color(look.sky),late?.18:dusk?.3:.8);scene.fog.color.copy(scene.background);}
 }
 // ── 他说的话浮在头顶（她 2026-09-17：「在里面说话角色也可以头上显示气泡」）──
 // ⚠️气泡只是【把手机那侧刚收到的那句话】显示一遍：这儿不生成任何文字，也不存它。
