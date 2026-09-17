@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-86f19fc009455c8f", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-8819c0c2e674d772", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -296,10 +296,12 @@
     const [bookTab, setBookTab] = useState("notes");   // notes=花册 / shards=碎片盒
     const [shardBox, setShardBox] = useState(null);
     const [things, setThings] = useState(null);
+    const [museum, setMuseum] = useState(null);
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
       if (g.getShards) setShardBox(g.getShards());
-      if (g.getThings) setThings(g.getThings()); };
+      if (g.getThings) setThings(g.getThings());
+      if (g.getCollection) setMuseum(g.getCollection()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
     const [look, setLook] = useState({ me: {}, companion: {} });
@@ -391,14 +393,55 @@
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         book && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
-          // 两格：花册 / 碎片盒。底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
-          h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
-            [["notes", "花册", ((garden && garden.notes) || []).length], ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length], ["things", "屋里", ((things && things.rows) || []).length]].map(([k, label, n]) =>
-              h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-70",
-                style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: bookTab === k ? G.ink : "#93a188",
-                  borderBottom: "2px solid " + (bookTab === k ? G.deep : "transparent"), background: "transparent" } },
-                label + (n ? " " + n : "")))),
-          bookTab === "things" ? h("div", { style: { padding: "16px 16px 40px" } },
+          // ⚠️这一册在现实里就是一本【册子】，所以 tab 长成册子边上伸出来的索引签：
+          //   上圆下方、贴着页边，选中那张满高、纸色，直接长进底下那一页里；
+          //   没选的往下缩一截、暗着，像压在后面几页（施工规则/tabs-not-plain-pills.md）。
+          //   选中态不只靠颜色：高度、纸色、底下那条缝三样一起变。
+          h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, padding: "10px 12px 0", background: "rgba(255,255,255,.3)" } },
+            [["notes", "花册", ((garden && garden.notes) || []).length],
+             ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
+             ["things", "屋里", ((things && things.rows) || []).length],
+             ["museum", "收藏馆", ((museum && museum.rows) || []).length]].map(([k, label, n]) => {
+              const on = bookTab === k;
+              return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
+                style: { padding: on ? "12px 0 13px" : "8px 0 9px", fontFamily: F_BODY, fontSize: on ? 13 : 12,
+                  color: on ? G.ink : "#93a188", background: on ? G.paper : "rgba(226,232,213,.75)",
+                  border: "1px solid " + G.line, borderBottom: on ? "1px solid " + G.paper : "1px solid " + G.line,
+                  borderRadius: "11px 11px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 2 : 1 } },
+                label + (n ? " " + n : "")); })),
+          h("div", { style: { height: 1, background: G.line, marginTop: 0 } }),
+          bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
+            //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+              "捐进公共厅那间馆里的东西会一直摆着——背包会被挤掉，这一份不会。走到公共厅门口才能捐。"),
+            // ⚠️馆里那几件排在前面：笔记有三十行，其中二十多行是「？」，
+            //   摆在上面就把她真正捐进去的那几件压到屏幕外头去了。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
+              "馆里摆着的 " + ((museum && museum.rows) || []).length + " 件"),
+            ((museum && museum.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
+              museum.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, "第 " + t.gaveDay + " 天捐的")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
+                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+                  "还空着。做好一样东西，走到公共厅门口把它捐进去。"),
+            // 炼金笔记：做成过的写出名字，没做成过的只留一行材料——那是线索，不是清单
+            h("div", { style: { marginTop: 24, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink } }, "炼金笔记"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft } },
+                "做成过 " + ((museum && museum.made) || []).length + " / " + ((museum && museum.total) || 0) + " 种")),
+            h("div", { style: { display: "grid", gap: 6, marginTop: 8 } },
+              ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) > -1).map(r =>
+                h("div", { key: r.key, style: { display: "flex", alignItems: "baseline", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(209,218,194,.55)" } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, flex: 1 } }, r.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, r.how)))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 12, lineHeight: 1.9 } },
+              "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
+                .map(r => r.how).join("、")))
+          :           bookTab === "things" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 屋里：锅炼出来的东西。⚠️这一整条链一枪都不打，全是代码算的
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。"),

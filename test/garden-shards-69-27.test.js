@@ -70,9 +70,16 @@ test('补池子是静悄悄的：失败不拦着她继续挖', () => {
   assert.match(game, /\(kind==='dive'\|\|kind==='deeper'\)&&host&&host\.dig&&veinLow\(data\)\)fillPool\(\)/);
 });
 
-test('碎片盒和花册是两格底线 tab，不是一排药丸', () => {
+// v69.41 改成册子边上的索引签：底线 tab 也是「基础款」的一种
+// （施工规则/tabs-not-plain-pills.md：一行字加一条下划线，只靠填色区分选中）。
+test('花册那几格长成册子的索引签，不是一排药丸、也不是一条下划线', () => {
   assert.match(host, /\[\["notes", "花册",/);
-  assert.match(host, /borderBottom: "2px solid " \+ \(bookTab === k \? G\.deep : "transparent"\)/);
+  assert.doesNotMatch(host, /borderBottom: "2px solid " \+ \(bookTab === k \? G\.deep : "transparent"\)/,
+    '下划线那版已经换掉了');
+  assert.match(host, /borderRadius: "11px 11px 0 0"/, '上圆下方，贴着页边');
+  // 选中态不只靠颜色：高度、纸色、底下那条缝三样一起变（色弱和阳光下只剩形状可依）
+  assert.match(host, /padding: on \? "12px 0 13px" : "8px 0 9px"/);
+  assert.match(host, /borderBottom: on \? "1px solid " \+ G\.paper/);
   assert.match(host, /越深的只是越完整、越奇怪，不是越沉重/);
 });
 
