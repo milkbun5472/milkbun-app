@@ -176,4 +176,5 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
 #well-finds{display:block;margin:12px 0;font-size:12px;color:#617257}
 #well-finds p{padding:10px 0;border-bottom:1px solid #d5ddc7}
 
-#dream-dialog .book-body{flex:1}#dream-list{display:block;margin:12px 0;font-size:13px}#dream-list article{padding:8px 0 16px;border-bottom:1px solid #d5ddc7}#dream-list button{min-height:44px;width:100%}#dream-list .time-note{font-size:13px;white-space:pre-wrap}
+
+.keepsake-book .book-body{flex:1}.keepsake-list{display:block;margin:12px 0;font-size:13px}.keepsake-list article{padding:8px 0 16px;border-bottom:1px solid #d5ddc7}.keepsake-list button{min-height:44px;width:100%}.keepsake-list .time-note{font-size:13px;white-space:pre-wrap}
