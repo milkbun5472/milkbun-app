@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-e80904d7d47074e4';
-import {brewError,brewResult} from './brewing.mjs?v=fg-e80904d7d47074e4';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-e80904d7d47074e4';
-import './rules.js?v=fg-e80904d7d47074e4';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-889d70de4a4db0b3';
+import {brewError,brewResult} from './brewing.mjs?v=fg-889d70de4a4db0b3';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-889d70de4a4db0b3';
+import './rules.js?v=fg-889d70de4a4db0b3';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-e80904d7d47074e4';
+import {createNavigator} from './navigation.mjs?v=fg-889d70de4a4db0b3';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -703,7 +703,9 @@ export const MARKET_GOODS = {
 };
 export const MARKET_REACH = 2.6;
 export const marketOpen = s => count(s.deeds) > 0 || count(s.spent) > 0;
-export const atMarket = s => s.map === 'garden' && Math.hypot(s.position.x - MAPS.garden.sites.market.target.x, s.position.z - MAPS.garden.sites.market.target.z) <= MARKET_REACH;
+// 站在集市中间、或任何一座摊子跟前，都算到了集市（摊子几何来自 rules 的 garden.market.stalls）
+export const atMarket = s => s.map === 'garden' && (Math.hypot(s.position.x - MAPS.garden.sites.market.target.x, s.position.z - MAPS.garden.sites.market.target.z) <= MARKET_REACH
+  || (MAPS.garden.market?.stalls || []).some(st => Math.hypot(s.position.x - st.x, s.position.z - st.z) <= Math.max(st.w, st.d) / 2 + 1.1));
 export function marketError(s, id){
   const g = MARKET_GOODS[id];
   if (!g) return '摊上没有这一样。';
