@@ -960,8 +960,15 @@
              ["bond", "相处", bond ? bond.kinds.filter(k => k.count).length : 0, "#e6d4cf"]].map(([k, label, n, tint]) => {
               const on = bookTab === k;
               return h("button", { key: k, onClick: () => setBookTab(k), className: "active:opacity-80", "aria-pressed": on,
-                style: { writingMode: "vertical-rl", minHeight: 48, minWidth: on ? 44 : 38, padding: on ? "12px 7px 12px 8px" : "10px 6px 10px 7px",
-                  fontFamily: F_BODY, fontSize: on ? 13 : 12, letterSpacing: 1.5, lineHeight: 1,
+                // ⚠️flexShrink:0 + nowrap 这两条【不许删】（她 2026-09-18 抓到：「你的字怎么是
+                //   从右往左读的」）。外面那个 flex 列是 height:0 的 sticky 壳，可用主轴尺寸＝0，
+                //   于是默认的 flex-shrink:1 会把每张签压到 min-content——竖排的 min-content
+                //   就是【一列一个字】，「花册」当场断成两列。而中文竖排的列序是右→左，
+                //   两列读起来就成了「册花」。看着像我把字写反了，其实是被挤的。
+                //   nowrap 是第二道：以后谁把 height:0 拿掉，它也不会再断列。
+                style: { writingMode: "vertical-rl", whiteSpace: "nowrap", flexShrink: 0,
+                  minHeight: 56, minWidth: on ? 46 : 40, padding: on ? "13px 8px 13px 9px" : "11px 7px 11px 8px",
+                  fontFamily: F_BODY, fontSize: on ? 14 : 13, letterSpacing: 1.5, lineHeight: 1,
                   color: on ? G.ink : "#7d8b72", background: on ? G.paper : tint,
                   border: "1px solid " + G.line, borderRight: 0, borderLeft: on ? "1px solid " + G.paper : "1px solid " + G.line,
                   borderRadius: "10px 0 0 10px", transform: on ? "translateX(0)" : "translateX(7px)",
