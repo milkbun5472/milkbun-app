@@ -5,7 +5,7 @@
 此目录的美术源是 `base_traveler.glb`（只进不出）。预览脚本只出图；
 `export_traveler.py` 是唯一给运行时用的一支，导出 `apps/fairy-garden/doll.glb`（只出不进）。
 源脚本留在 `art/`，避免触发 `apps/fairy-garden/` 整包缓存指纹变化。
-原稿保存在 Git 提交 `d6cb63c`；图和 `.blend` 输出到仓库之外。
+原稿保存在 Git 提交 `d6cb63c`；全部现有 `.blend` 已归档在 [blend/](blend/README.md)，图仍输出到仓库之外。
 
 ## 这一稿
 
