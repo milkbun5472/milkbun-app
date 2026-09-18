@@ -266,11 +266,9 @@ test("挂衣杆铺满整行，页面本身不横滚", () => {
 test("列表和详情画的是同一件衣服——剪影只有一份", () => {
   assert.match(screens, /function clothFigure\(o\) \{/);
   // 两处都调它，谁也别再自己画一遍
-  // v70.98 起第三处：收到的礼物里【是衣服的那些】也画成衣服（她 2026-09-18
-  //   「能不能渲染成衣服的形状」）。⚠️这个数【往上长是对的】——它数的是
-  //   「有几处共用这一份剪影」，该红的是有人另画一个衣服形状，那种情况这个数不会动。
-  assert.equal((screens.match(/clothFigure\(\{/g) || []).length, 3, "列表一处、详情一处、礼物一处");
-  assert.match(screens, /clothFigure\(\{ tone: clothTone\(\{ name: g\.name, note: "" \}, gi\)/, "礼物那一处没走共用那份");
+  // ⚠️v71.02 撤回 2（她 2026-09-18 纠正：「我说的是礼物那边不动」）：
+  //   衣服的样子属于【衣柜】那一栏，收到的礼物那一栏照旧是礼盒。
+  assert.equal((screens.match(/clothFigure\(\{/g) || []).length, 2, "列表一处、详情一处，多出来的就是又抄了一遍");
   // 别冻宽度——两处的尺寸以后还会调。守的是【都走同一个 clothFigure、都把钉住态传进去】。
   assert.match(screens, /clothFigure\(\{ tone: c, long, w: \d+, pinned: isPinned\(it\), t \}\)/, "列表没走共用那份");
   assert.match(screens, /clothFigure\(\{ tone, long: sheet\._long, w: \d+, pinned: isPinned\(sheet\), t \}\)/, "详情没走共用那份");

@@ -13123,21 +13123,14 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
                 className: "w-full text-left flex items-center active:opacity-70",
                 style: { gap: 11, background: t.bg2, borderRadius: 11, padding: "9px 11px", marginBottom: 8, boxShadow: "0 1px 3px " + carryTint("gifts", .16) }
               },
-                // 是衣服就画成【衣服】，不是就还是礼盒（她 2026-09-18：「能不能渲染成衣服的形状」）。
-                // ⚠️认不认是衣服走 closetGiftLike ——跟「这件能不能挂进衣柜」是同一把尺子
-                //   （one-public-mechanism.md）。不然会出现「按钮说能挂、图上却是个盒子」。
-                // ⚠️不是一律画成衣服：这一栏里还有桂花糖、唱片、手链。全画成衣服就是说谎。
-                // 挂衣杆去掉（hanger:false）：这是一列 40 宽的小格子，杆子画上去只剩两三像素。
-                closetGiftLike(g.name, g.cat)
-                  // ⚠️装在一个 40×40 的格子里居中缩放：clothFigure 自己的外壳是 122×k 高
-                  //   （40 宽那一版＝55），直接摆进去这一行会比别的行高一截，一列下来参差。
-                  ? h("div", { className: "shrink-0 flex items-center justify-center", style: { width: 40, height: 40 } },
-                      h("div", { style: { transform: "scale(.72)", transformOrigin: "center" } },
-                        clothFigure({ tone: clothTone({ name: g.name, note: "" }, gi), long: CLOTH_LONG.test(String(g.name || "")), w: 40, hanger: false, t: t })))
-                  : h("div", { className: "shrink-0 relative", style: { width: 40, height: 40, borderRadius: 7, background: c ? "linear-gradient(150deg," + c.light + "," + c.base + " 58%," + c.dark + ")" : t.line, overflow: "hidden" } },
-                      h("span", { style: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 5, marginLeft: -2.5, background: "rgba(255,255,255,.55)" } }),
-                      h("span", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 5, marginTop: -2.5, background: "rgba(255,255,255,.55)" } }),
-                      h("span", { style: { position: "absolute", left: "50%", top: "50%", width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, borderRadius: 999, background: "rgba(255,255,255,.85)" } })),
+                // 礼盒：品类色的小方块 + 一条十字丝带
+                // ⚠️这一栏【不改】（她 2026-09-18 纠正我：「我说的是礼物那边不动」）。
+                //   我一度把是衣服的礼物画成了衣服——放错地方了：这一栏是【收到的东西】，
+                //   衣服的样子属于衣柜那一栏。挂进衣柜之后它本来就画成衣服。
+                h("div", { className: "shrink-0 relative", style: { width: 40, height: 40, borderRadius: 7, background: c ? "linear-gradient(150deg," + c.light + "," + c.base + " 58%," + c.dark + ")" : t.line, overflow: "hidden" } },
+                  h("span", { style: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 5, marginLeft: -2.5, background: "rgba(255,255,255,.55)" } }),
+                  h("span", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 5, marginTop: -2.5, background: "rgba(255,255,255,.55)" } }),
+                  h("span", { style: { position: "absolute", left: "50%", top: "50%", width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, borderRadius: 999, background: "rgba(255,255,255,.85)" } })),
                 h("div", { className: "flex-1 min-w-0" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, g.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },

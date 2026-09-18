@@ -30,17 +30,23 @@ test("「你送的」不许跟着进出图提示词", () => {
   assert.match(app, /sets: \[\{ name: nm, note: "你送的" \}\]/);
 });
 
-// ── ② 是衣服的礼物画成衣服 ──────────────────────────────────
-test("是衣服就画成衣服，不是就还是礼盒", () => {
-  assert.match(scr, /closetGiftLike\(g\.name, g\.cat\)\n\s*\/\/ ⚠️装在一个 40×40 的格子里居中缩放/);
-  assert.match(scr, /clothFigure\(\{ tone: clothTone\(\{ name: g\.name, note: "" \}, gi\), long: CLOTH_LONG\.test/);
-  // ⚠️不是一律画成衣服：这一栏里还有桂花糖、唱片、手链，全画成衣服就是说谎
-  assert.match(scr, /: h\("div", \{ className: "shrink-0 relative", style: \{ width: 40, height: 40, borderRadius: 7/, "礼盒那一路没留着");
-  // 认不认是衣服跟「能不能挂进衣柜」是同一把尺子——不然会出现「按钮说能挂、图上却是个盒子」
-  assert.equal((scr.match(/function closetGiftLike\(/g) || []).length, 1);
-  assert.match(scr, /closetGiftLike\(openGift\.name, openGift\.cat\)/, "挂衣柜那个判定换了别的尺子");
+// ── ② 挂进衣柜之后，它在衣柜里就是一件衣服 ──────────────────────
+// ⚠️她 2026-09-18 纠正过我一次：「我说的是礼物那边不动」——
+//   我一度把【收到的礼物】那一栏里是衣服的画成了衣服，放错地方了。
+//   衣服的样子属于衣柜那一栏；礼物那一栏照旧是礼盒。
+test("礼物那一栏不动，还是礼盒", () => {
+  const i = scr.indexOf("礼盒：品类色的小方块");
+  assert.ok(i > 0, "礼盒那一路被换掉了");
+  const seg = scr.slice(i, i + 900);
+  assert.ok(!/clothFigure/.test(seg), "又把礼物画成衣服了（她说过这边不动）");
+  assert.match(seg, /我一度把是衣服的礼物画成了衣服——放错地方了/, "把为什么不动记下来，免得下次又改回去");
 });
 
-test("小格子里那件衣服要跟礼盒一样高，不然一列下来行高参差", () => {
-  assert.match(scr, /style: \{ width: 40, height: 40 \} \},\n\s*h\("div", \{ style: \{ transform: "scale\(\.72\)", transformOrigin: "center" \} \}/);
+test("挂进衣柜之后，它跟别的衣服走同一套画法", () => {
+  // 衣柜那一栏每一身都走 clothTone + CLOTH_LONG + clothFigure，挂进来的礼物也是其中一身
+  assert.match(scr, /const c = clothTone\(it, seq\);/);
+  assert.match(scr, /const long = CLOTH_LONG\.test\(String\(it\.name \|\| ""\) \+ " " \+ String\(it\.note \|\| ""\)\);/);
+  assert.match(scr, /clothFigure\(\{ tone: c, long, w: \d+, pinned: isPinned\(it\), t \}\)/);
+  // 挂礼物落的就是 outfit 里的一身，所以它自动吃到上面那一套
+  assert.match(app, /closet: \[\{ occasion: String\(occ \|\| "日常"\)\.trim\(\) \|\| "日常", sets: \[\{ name: nm, note: "你送的" \}\] \}\]/);
 });
