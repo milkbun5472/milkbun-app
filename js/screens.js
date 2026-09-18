@@ -11654,10 +11654,18 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   const inMonth = ts => { const d = new Date(ts); return d.getMonth() === _now.getMonth() && d.getFullYear() === _now.getFullYear(); };
   const monthlyIncome = (rec && rec.monthlyIncome) || 0;
   const fixedMonthly = (rec && rec.fixedMonthly) || 0;
-  const monthDaily = ledger.filter(e => e.kind === "daily" && inMonth(e.ts)).reduce((a, e) => a + Math.abs(e.delta), 0);
+  // ⚠️「过日子花的钱」＝日常消费【和手机上真下过的单】（她 2026-09-18：
+  //   「钱包的日常消费里面为什么没有购物」）。外卖和网购落的 kind 是 "order"，
+  //   原来这儿只数 "daily"——于是那些钱从余额里扣掉了，却既不在列表里、
+  //   也不算进本月花费，剩余可用因此永远偏高。
+  // ⚠️退款那几笔 delta 是正的（钱退回来），要从花销里减掉而不是加上，
+  //   所以这儿按 delta 求和再取负，不是一律 Math.abs。
+  const SPEND_KINDS = ["daily", "order"];
+  const isSpend = e => e && SPEND_KINDS.indexOf(e.kind) >= 0;
+  const monthDaily = ledger.filter(e => isSpend(e) && inMonth(e.ts)).reduce((a, e) => a - Number(e.delta || 0), 0);
   const monthSpend = Math.round((fixedMonthly + monthDaily) * 100) / 100;
   const monthRemain = Math.round((monthlyIncome - monthSpend) * 100) / 100;
-  const dailyEntries = ledger.filter(e => e.kind === "daily");
+  const dailyEntries = ledger.filter(isSpend);
   const visibleDailyEntries = dailyDate ? dailyEntries.filter(e => schedDayKey(new Date(e.ts)) === dailyDate) : dailyEntries;
   const flowEntries = ledger.filter(e => ["transfer", "redpacket", "kinship", "gift"].indexOf(e.kind) >= 0);
   const sumRow = (label, value, color, sub) => h("div", { key: label, className: "flex items-center justify-between py-2.5", style: { borderTop: "1px solid " + t.line } },
@@ -11847,8 +11855,14 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
               : visibleDailyEntries.map((e, i) => h("div", { key: e.id, className: "py-2.5", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
                 h("div", { className: "flex items-baseline justify-between gap-3" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, whiteSpace: "nowrap" } }, "−" + fmtMoney(Math.abs(e.delta), char.id))),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, marginTop: 2, lineHeight: 1.5 } }, (e.label || "").replace(/^日常消费 · /, ""))))
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: e.delta > 0 ? "#3f8a54" : t.accent, whiteSpace: "nowrap" } }, (e.delta > 0 ? "+" : "−") + fmtMoney(Math.abs(e.delta), char.id))),
+                h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
+                  // 手机上真下过的单挂个小牌子：这一条是【她能在查手机里翻到的那一单】，
+                  // 不是模型推演出来的。两种混在一列里，得一眼分得出。
+                  e.kind === "order" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "1px 5px", flexShrink: 0 } },
+                    /外卖$/.test(e.label || "") ? "外卖" : "网购") : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: e.delta > 0 ? "#3f8a54" : t.ink, lineHeight: 1.5 } },
+                    (e.label || "").replace(/^日常消费 · /, "").replace(/ · (外卖|网购)$/, "")))))
         ) : null,
         dailyOpen ? note(notes.spending) : null
       ]),

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.70";
+const APP_VERSION = "v70.71";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13896,7 +13896,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!amt) return;
       out.push({ item: String(o.title || o.shop || "网购").slice(0, 30), amount: amt, src: "shopping", key: fp(o, amt) });
     });
-    return out.slice(0, 8);
+    // ⚠️这个封顶决定【一天最多认几单】。原来是 8：手机上看得见的第 9 单，钱包里
+    //   一分不扣，而 phoneReconcile 用的是同一个函数，所以它也永远补不上——
+    //   两边对不上就是从这儿来的（她 2026-09-18：「看看查手机的外卖能不能跟钱包对上」）。
+    //   留着封顶是防手机数据成片坏掉时一口气扣穿余额；抬到 20，正常购物日够用。
+    return out.slice(0, 20);
   };
   // ── 核账：只补差额，不整份重算（Codex 2026-08-29 提）──────
   // 钱包每天只结算到昨天，结过的日期不再回扫——这条规矩不动（否则会把那天的
