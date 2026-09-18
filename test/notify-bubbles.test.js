@@ -41,10 +41,13 @@ test('app notification routing retains unloaded target and rejects deleted side 
   const src=fs.readFileSync('js/app.js','utf8');
   const start=src.indexOf('    window.__openFromNotif =');
   const code=src.slice(start,src.indexOf('    if (window.__pendingNotif)',start));
+  // ⚠️「带着某一间房进屋」只有一处机制，这儿把真的那一段切进来跑，不照着它另编一个桩
+  const es=src.indexOf('  const enterRoom = (who, roomId) => {');
+  const enter=src.slice(es,src.indexOf('\n  };',es)+5);
   const seen={}, context={window:{__pendingNotif:{charId:'c'},ChatRooms:{get:(_c,id)=>({id:id==='side'?'side':'main'}),chatKey:(c,r)=>c+':'+r}},
-    characters:[],notificationRoomRef:{current:null},toast:s=>seen.toast=s,
+    characters:[],notificationRoomRef:{current:null},activeChar:null,toast:s=>seen.toast=s,
     setActiveChar:c=>seen.char=c.id,setActiveRoomId:r=>seen.room=r,setChatRoomsOpen:()=>{},clearUnread:k=>seen.unread=k,setScreen:s=>seen.screen=s};
-  vm.runInNewContext(code,context);
+  vm.runInNewContext(enter+'\n'+code,context);
   context.window.__openFromNotif('c','','side');assert.ok(context.window.__pendingNotif);assert.equal(seen.screen,undefined);
   context.characters.push({id:'c'});context.window.__openFromNotif('c','','side');
   assert.equal(seen.room,'side');assert.equal(seen.screen,'thread');assert.equal(seen.unread,'c:side');

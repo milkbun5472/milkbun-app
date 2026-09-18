@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.02";
+const APP_VERSION = "v71.03";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -725,6 +725,14 @@ function App() {
   const [studyEntry, setStudyEntry] = useState(null);
   const [readEntry, setReadEntry] = useState(null);   // 从房间那张「接着读」卡进来时带的落点
   const [gameEntry, setGameEntry] = useState(null);
+  // 带着某一间房进屋只有这一处机制：先把要落的那间记在 ref 上，再换角色——
+  // 换角色那个 effect 会把 activeRoomId 打回 "main"，直接 setActiveRoomId 会被它当场清掉。
+  // ⚠️本来就在这一位身上时那个 effect 不会跑，ref 要是留着，下次换到这一位会莫名其妙
+  //   落进这间房——所以只在【真的换人】那一下才记（施工规则/one-public-mechanism.md）。
+  const enterRoom = (who, roomId) => {
+    if (!activeChar || String(activeChar.id) !== String(who.id)) notificationRoomRef.current = { charId: who.id, roomId };
+    setActiveChar(who); setActiveRoomId(roomId);
+  };
   useEffect(() => {
     const pending = notificationRoomRef.current;
     setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
@@ -1626,8 +1634,7 @@ function App() {
         const rid = roomId || "main";
         const target = window.ChatRooms && window.ChatRooms.get(c.id, rid);
         if (rid !== "main" && (!target || target.id !== rid)) { toast("通知对应的房间已不存在"); return; }
-        notificationRoomRef.current = { charId: c.id, roomId: rid };
-        setActiveChar(c); setActiveRoomId(rid); setChatRoomsOpen(false);
+        enterRoom(c, rid); setChatRoomsOpen(false);
         clearUnread(window.ChatRooms ? window.ChatRooms.chatKey(c.id, rid) : c.id);
         setScreen("thread");
       }
@@ -2392,7 +2399,10 @@ function App() {
     const who = (characters || []).find(c => c && String(c.id) === String(charId));
     if (!who) { toast("找不到这一位"); return null; }
     const live = Kit.list(charId).find(r => r && !r.main && r.garden);
-    if (live) { setActiveChar(who); setActiveRoomId(live.id); setScreen("thread"); return live; }
+    // ⚠️换角色那个 effect 会把 activeRoomId 打回 "main"：只 setActiveRoomId 的话，
+    //   她点开的是庭院房、落地的却是主聊天（她 2026-09-18 报的第二遍就是这个）。
+    //   带房间进屋只有一处机制——通知那条路留下的这个 ref，照它走，不另写一份。
+    if (live) { enterRoom(who, live.id); setScreen("thread"); return live; }
     // ⚠️不许在这儿照着 PRESETS 自己拼一份房间悄悄建掉：那样她一次都设不了权限，
     //   而「房间要能在创建的时候就设权限」是她 2026-09-17 点名要的，别处已经做到了。
     //   同一件事在这儿另走一条路＝同一层活在两处（施工规则/one-public-mechanism.md），
