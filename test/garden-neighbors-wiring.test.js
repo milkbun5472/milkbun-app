@@ -36,7 +36,7 @@ test("「他家在哪儿」只有一处实现，companionPlan 和 tick 都读得
 // 「来找你说话」「去馆里看你留下的东西」「帮你浇花」都是【你和他之间】的事
 test("邻居不来找你说话、不进收藏馆、不浇你的花", () => {
   assert.match(comp, /autonomous＝这一位是邻居/);
-  assert.match(comp, /wants=autonomous\?null:missIntent\(s\)/);
+  assert.match(comp, /wants=autonomous\?null:\(missIntent\(s\)\|\|guideIntent\(s\)\)/, "来找你、带路，邻居一样都不做");
   assert.match(comp, /if\(allowCare&&!autonomous&&plan\.id==='flowers'/);
   assert.match(comp, /if\(!autonomous&&plan\.id==='museum'/);
   assert.match(comp, /const NEIGHBOR_DAY=\[\[420,'home'\],\[540,'walk'\],\[780,'market'\],\[1020,'bridge'\],\[1200,'home'\]\]/,

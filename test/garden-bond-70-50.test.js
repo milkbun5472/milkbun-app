@@ -232,7 +232,7 @@ test("喜好那一枪：一位角色只打一次，料在 system、user 一句�
 test("手机那一册有「相处」这一页，画的是 getBond 那一份", () => {
   assert.match(host, /\["bond", "相处",/);
   assert.match(host, /if \(g\.getBond\) setBond\(g\.getBond\(\)\);/);
-  assert.match(game, /getBond:\(\)=>\(\{\.\.\.bondBook\(data\),gifts:giftBook\(data\)\}\)/);
+  assert.match(game, /getBond:\(\)=>\(\{\.\.\.bondBook\(data\),gifts:giftBook\(data\),guide:/);
   assert.match(host, /bond\.gifts\.families\.map\(/);
   assert.match(host, /bond\.kinds\.map\(/);
   // 标题不留英文

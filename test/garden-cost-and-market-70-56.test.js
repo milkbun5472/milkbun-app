@@ -13,25 +13,38 @@ const W = () => import("../apps/fairy-garden/world.mjs");
 const nearby = s => ({ ...s, companion: { ...s.companion, map: s.map, position: { ...s.position } } });
 
 // ── 5 ────────────────────────────────────────────────────────────────────
-test("集市：功绩是钱，得走到摊前；没攒过功绩摊位空着；买的真进背包", async () => {
+test("集市：功绩是钱，得走到摊前；集市日才开、货按日子换；买的真进背包", async () => {
   const w = await W();
   const s = w.freshState();
   assert.equal(w.marketError(s, "herb"), "先走到灯串集市。");
   const at = { ...s, position: { ...w.MAPS.garden.sites.market.target } };
   assert.ok(w.atMarket(at));
-  assert.match(w.marketError(at, "herb"), /摊位还空着/);
-  assert.equal(w.buy(at, "herb"), at);
-  const rich = { ...at, deeds: 3 };
-  const b = w.buy(rich, "dew");
-  assert.equal(b.deeds, 1); assert.equal(b.potions, 1); assert.equal(b.spent, 2);
-  assert.match(b.happenings[0].text, /茶摊.*月露/);
-  assert.match(w.marketError(b, "sand"), /功绩不够/);
-  assert.equal(w.buy(b, "herb").herbs, 2);
-  assert.ok(w.marketOpen(w.buy(w.buy(rich, "flower"), "flower")), "花光了功绩摊主也不走");
-  assert.equal(w.restoreState(JSON.parse(JSON.stringify(b))).spent, 2);
+  assert.match(w.marketError(at, "herb"), /今天不是集市日，下次是第 4 天/);
+  assert.equal(w.buy({ ...at, deeds: 3 }, "herb").herbs, 0, "不是集市日买不到");
+  // 每季 4、8、12 日；上摊的货按存档号＋日子抽三样常货加一样稀罕货
+  assert.deepEqual([1, 4, 8, 12, 14, 18].map(d => w.marketDay(d)), [false, true, true, true, false, true]);
+  assert.equal(w.nextMarketDay(1), 4); assert.equal(w.nextMarketDay(12), 18);
+  const day4 = { ...at, day: 4, deeds: 3 }, stock = w.marketStock(day4);
+  assert.equal(stock.length, 4); assert.ok(stock.some(id => w.MARKET_RARE[id]), "每次集市有一样稀罕货");
+  assert.notDeepEqual(w.marketStock({ ...at, day: 8 }), stock, "下一次集市货不一样");
+  assert.deepEqual(w.marketStock({ ...at, day: 5 }), []);
+  const off = Object.keys(w.MARKET_GOODS).find(id => !stock.includes(id));
+  assert.match(w.marketError(day4, off), /今天没上摊/);
+  const rare = stock.find(id => w.MARKET_RARE[id]), got = w.buy(day4, rare);
+  assert.equal(got.shards.length, 1); assert.equal(got.deeds, 0, "稀罕货三分");
+  if (rare === "seed") assert.equal(got.shards[0].curio, "seed"); else assert.equal(got.shards[0].whole, true);
+  const good = stock.find(id => w.MARKET_GOODS[id]), g = w.MARKET_GOODS[good];
+  const b = w.buy(day4, good);
+  assert.equal(b.deeds, 3 - g.cost); assert.equal(b.spent, g.cost);
+  for (const [k, n] of Object.entries(g.give)) assert.equal(b[k], n);
+  assert.match(b.happenings[0].text, new RegExp(g.stall + ".*" + g.label));
+  assert.match(w.marketError({ ...day4, deeds: 0 }, good), /功绩不够/);
+  assert.ok(w.marketOpen(b), "花光了功绩集市日照旧开着");
+  assert.equal(w.restoreState(JSON.parse(JSON.stringify(b))).spent, g.cost);
   // 游戏那头：货和价照 world.MARKET_GOODS 画，走到集市才有那颗按钮；功绩露在背包上
-  assert.match(game, /for\(const \[id,gd\] of Object\.entries\(MARKET_GOODS\)\)/);
+  assert.match(game, /for\(const id of marketStock\(data\)\)\{const gd=marketGood\(id\);/);
   assert.match(game, /\$\('market-open'\)\.hidden=!atMarket\(data\);/);
+  assert.match(game, /'下次集市 · 第 '\+nextMarketDay\(data\.day\)\+' 天'/);
   assert.match(html, /<span>功绩 <b id="deeds">0<\/b><\/span>/);
   assert.match(html, /<dialog id="market-dialog">/);
 });

@@ -55,7 +55,8 @@ test("星图那一夜：六片拖到位才亮，拼齐才结算，中途关掉�
 });
 
 test("集市摊面：货和摊主在场景里，点货走过去买，摊位几何来自 rules", () => {
-  assert.match(market, /import \{MAPS,MARKET_GOODS,marketOpen,marketError\} from '\.\/world\.mjs/);
+  assert.match(market, /import \{MAPS,MARKET_GOODS,MARKET_RARE,marketStock,marketOpen,marketError\} from '\.\/world\.mjs/);
+  assert.match(market, /g\.group\.visible=stock\.includes\(id\)/, "没上摊的货不摆出来");
   assert.match(market, /const stalls=Object\.fromEntries\(MAPS\.garden\.market\.stalls\.map\(s=>\[s\.kind,s\]\)\)/);
   assert.doesNotMatch(market, /cost:\s*\d/, "价钱只在 world.MARKET_GOODS 一处");
   assert.match(market, /setDoll\(source\)/);
