@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.76";
+const APP_VERSION = "v70.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18664,6 +18664,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("背景没画成：" + (e.message || "重试")); return false; }
     finally { setGen(g => ({ ...g, ifBg: null })); }
   };
+  // 拿一张【已经有的合照】当这条线的背景（她 2026-09-18：「另一个我们的背景也能用合照」）。
+  // ⚠️不重新生成、不复制图：直接指向那张照片自己的 imgKey/imgUrl——
+  //   合照墙那份和这儿是同一张图，删照片那一路照旧管得到它。
+  const ifBgFromPhoto = (lineId, photo) => {
+    if (!lineId || !photo || !(photo.imgKey || photo.imgUrl)) return false;
+    ifSave(ifLinesRef.current.map(x => x.id === lineId
+      ? { ...x, bgKey: photo.imgKey || null, bgUrl: photo.imgUrl || null } : x));
+    return true;
+  };
   // 拍一张【我俩在那个世界的】合照（她 2026-09-06）。
   // ⚠️跟上面那张背景图是两件事，别混：背景图走 buildScenePrompt，是【纯空景】——
   //   那是这一页要压字的底板，它没有脸是对的。她要的这张是【合照】，
@@ -18682,7 +18691,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .filter(Boolean).join(" ");
     const scene = "这是一条【如果】里的世界：" + line.title + (line.premise ? "——" + line.premise : "")
       + (last ? "。此刻：" + last.slice(0, 200) : "");
-    return await studioShoot(char, { scene: scene, ifTitle: line.title });
+    const row = await studioShoot(char, { scene: scene, ifTitle: line.title });
+    // ⚠️拍完顺手当这条线的背景（她 2026-09-18：「拍张我俩完成后只在合照显示」）——
+    //   在这一页拍的照片，看不见在这一页才怪。旧背景那张图不会被删（它有自己的 key），
+    //   想换回去从下面那个「用合照当背景」里挑就是了。
+    if (row && (row.imgKey || row.imgUrl)) ifBgFromPhoto(lineId, row);
+    return row;
   };
   // 收线。三个去处她 2026-08-31 说都要。
   //  keep  只留在馆里——主线一个字都不知道
@@ -22269,6 +22283,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onIfAdvance: ifAdvance,
     onIfBg: ifBg,
     onIfShot: ifShot,
+    onIfBgPick: ifBgFromPhoto,
     onIfEnd: ifEnd,
     onIfDrop: ifDrop,
     // 和好间

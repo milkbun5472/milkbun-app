@@ -4882,7 +4882,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4992,6 +4992,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return h(IfRoom, { partner, lines: ifLines, uName: (profile || {}).name || "我", busy: ifBusy, bgBusy: ifBgBusy,
       onOpen: hint => onIfOpen(partner, hint), onAdvance: onIfAdvance, onBg: onIfBg, onEnd: onIfEnd, onDrop: onIfDrop,
       shotBusy: studioBusy, onShot: onIfShot,
+      // 背景也能从已经有的合照里挑一张（她 2026-09-18）。名单跟合照墙是同一份，
+      // 不在这儿另攒一个列表——duoPhotosFor 已经把聊天/线下/照相馆/情侣空间四处合流了。
+      photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBgPick: onIfBgPick,
       onBack: () => setSub(null) });
   }
   // 情侣空间子模块：照相馆
@@ -14289,7 +14292,7 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MK_DIM, lineHeight: 1.7, marginTop: 4 } }, sub))),
         h("button", { onClick: () => setEnding(false), className: "w-full active:opacity-70", style: { marginTop: 12, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13, color: MK_DIM } }, "还没完"))) : null);
 }
-function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvance, onBg, onShot, onEnd, onDrop, onBack }) {
+function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen, onAdvance, onBg, onShot, onBgPick, onEnd, onDrop, onBack }) {
   const t = useTheme();
   const mine = (lines || []).filter(x => x.charId === partner.id);
   const [openId, setOpenId] = useState(null);
@@ -14298,6 +14301,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
   const [drafts, setDrafts] = useState([]);            // 我攒着还没发的几条
   const [typing, setTyping] = useState("");
   const [side, setSide] = useState(false);
+  const [pick, setPick] = useState(false);   // 从合照里挑一张当背景
   const [ending, setEnding] = useState(false);
   const [endId, setEndId] = useState(null);    // 在列表上收哪一条
   const [dropId, setDropId] = useState(null);  // 删哪一条（删是不可逆的，问一句）
@@ -14466,9 +14470,33 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, onOpen, onAdvan
           // ⚠️跟上面那颗是两件事：背景图是【纯空景】（这一页要压字的底板，没有人是对的），
           //   这一颗才是你俩的脸。她 2026-09-06 问「为什么生图不出脸」，问的是那一张。
           h("button", { onClick: () => onShot(line.id), disabled: !!shotBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } },
-            shotBusy ? "拍着…" : "拍张我俩")),
+            shotBusy ? "拍着…" : "拍张我俩"),
+          // 背景也能从已经有的合照里挑（她 2026-09-18）。没合照就不摆这颗，
+          // 免得点开是一片空——「还没有」这件事上一层（墙上那张拍立得）已经说了。
+          (photos || []).length ? h("button", { onClick: () => setPick(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "用合照当背景") : null),
         line.endedAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "这条已经收了")
           : h("button", { onClick: () => setEnding(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "就到这儿"))),
+    // 从合照里挑一张当背景（她 2026-09-18：「另一个我们的背景也能用合照」）。
+    // ⚠️名单就是合照墙那一份（duoPhotosFor 已经把聊天/线下/照相馆/情侣空间四处合流），
+    //   不在这儿另攒一个列表。点一张就换，不确认——换错了再点一张就是。
+    pick ? h("div", { onClick: () => setPick(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 24 } },
+      h("div", { onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "72%", background: "#1b1726", borderTop: "1px solid " + IF_LINE, borderTopLeftRadius: 18, borderTopRightRadius: 18 } },
+        h("div", { className: "shrink-0 flex items-center justify-between px-4", style: { paddingTop: 14, paddingBottom: 10, borderBottom: "1px solid " + IF_LINE } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, "挑一张当这条线的底"),
+          h("button", { onClick: () => setPick(false), style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM } }, "关掉")),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-3" },
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } },
+            (photos || []).map((x, i) => h("button", {
+              key: (x.imgKey || x.imgUrl || i) + "",
+              onClick: () => { onBgPick && onBgPick(line.id, x); setPick(false); },
+              className: "active:opacity-70",
+              style: { position: "relative", paddingTop: "100%", borderRadius: 8, overflow: "hidden", border: "1px solid " + IF_LINE, background: "#0f0d17" }
+            },
+              h("div", { style: { position: "absolute", inset: 0 } }, h(AlbumPhoto, { photo: x, cover: true })),
+              (x.imgKey && x.imgKey === line.bgKey) || (x.imgUrl && x.imgUrl === line.bgUrl)
+                ? h("div", { style: { position: "absolute", inset: 0, border: "2px solid " + IF_ACCENT, borderRadius: 8 } }) : null))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, textAlign: "center", marginTop: 12, lineHeight: 1.7 } },
+            "换的只是这一条线的底，照片本身不动"))) ) : null,
     // 侧栏：翻已经过去的那些拍
     side ? h("div", { onClick: () => setSide(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 20 } },
       h("div", { onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "78%", background: "#15121e", borderLeft: "1px solid " + IF_LINE } },
