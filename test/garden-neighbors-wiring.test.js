@@ -40,8 +40,11 @@ test("邻居不来找你说话、不进收藏馆、不浇你的花", () => {
   assert.match(comp, /wants=autonomous\?null:\(missIntent\(s\)\|\|guideIntent\(s\)\)/, "来找你、带路，邻居一样都不做");
   assert.match(comp, /if\(allowCare&&!autonomous&&plan\.id==='flowers'/);
   assert.match(comp, /if\(!autonomous&&plan\.id==='museum'/);
-  assert.match(comp, /const NEIGHBOR_DAY=\[\[420,'home'\],\[540,'walk'\],\[780,'market'\],\[1020,'bridge'\],\[1200,'home'\]\]/,
-    "邻居有自己的一天：FALLBACK 里那个 flowers 是【你家】的活儿");
+  assert.match(comp, /const NEIGHBOR_DAY=\[\[420,'home'\],\[540,'walk'\],\[780,'market'\],\[1020,'indoors'\],\[1200,'home'\]\]/,
+    "邻居有自己的一天：flowers 是【你家】的活儿，不进这张表");
+  assert.doesNotMatch(comp, /const NEIGHBOR_DAY=\[[^\]]*'flowers'/);
+  // 邻居那条日程原来绕开了池子那道季节闸：同行者非集市日不去，邻居天天去
+  assert.match(comp, /NEIGHBOR_DAY\.map\(\(\[t,id\]\)=>\[t\+shift,inSeason\(id,s\)\?id:'walk'\]\)/);
 });
 
 // 三个人挤在同一个点上，看着就是坏的

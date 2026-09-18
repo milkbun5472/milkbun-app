@@ -7,6 +7,12 @@ import {plannedActivity,companionPlan,dailySchedule} from './companion.mjs';
 
 const dry=(()=>{for(let d=1;d<60;d++)if(!['细雨','细雪'].includes(weather(d,'initial')))return d;})();
 const wet=(()=>{for(let d=1;d<60;d++)if(['细雨','细雪'].includes(weather(d,'initial')))return d;})();
+// ⚠️要的是【雨天而且 800 分那一格本来在露天】的日子：抽到室内那一格就不会挪到檐下，
+//   而抽哪一格是按天算的——地板池一变（这一版多了餐桌和冰面），原来钉死的那天就不算数。
+const wetOutdoor=(()=>{for(let d=1;d<120;d++){
+ if(!['细雨','细雪'].includes(weather(d,'initial')))continue;
+ const row=dailySchedule({...freshState(),day:d});
+ if((row.findLast(x=>800>=x.start)||{}).id==='rain')return d;}})();
 const atLake=s=>({...s,position:{...MAPS.garden.sites.lakeNorth.target}});
 const atTower=s=>({...s,position:{...MAPS.garden.sites.oldTower.target}});
 
@@ -49,7 +55,7 @@ test('弄好之后，他那一天真的改了去处',()=>{
 });
 
 test('旧塔的屋顶补好，雨天他去塔下而不是自家屋檐',()=>{
- let s={...atTower(freshState()),day:wet,minute:800,sand:9,
+ let s={...atTower(freshState()),day:wetOutdoor,minute:800,sand:9,
   shards:[{id:'a',kind:'relic',text:'一'},{id:'b',kind:'relic',text:'二'},{id:'c',kind:'echo',text:'三'}]};
  assert.equal(plannedActivity(s).id,'rain','下雨天露天那一格挪到檐下');
  const eaves=plannedActivity(s).target;

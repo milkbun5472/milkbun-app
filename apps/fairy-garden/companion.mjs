@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-7bfef52454e37d55';
-import {seatsOf,nightMarketDay,festivalDay,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-7bfef52454e37d55';
+import {stepRoute} from './locomotion.mjs?v=fg-c2fe62726d22d4c3';
+import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-c2fe62726d22d4c3';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -26,7 +26,16 @@ const FLOOR_NAILS=new Set(['home','flowers','rain']);
 const reachable=(id,s)=>{const need=activity[id].opensWith;return !need||opened(s,need);};
 // 集市只在集市日排（不是集市日摊子空着，他去了也只是站在空摊前）
 // 夜市不进抽签池：一季只有那两晚，而且得是天黑那一格——floorDay 在那两天直接把它钉在最后一格
-const floorPool=s=>Object.keys(activity).filter(id=>!FLOOR_NAILS.has(id)&&id!=='fair'&&id!=='festival'&&reachable(id,s)&&(id!=='market'||marketDay(s.day)));
+// 这一格【今天成不成立】。⚠️原来「集市日才逛集市」是写死在下面那一行里的一个从句，
+//   再来一格带季节的（冰面）就得在那儿再挂一个——收成一张表，那一行只问一句。
+//   ⚠️为什么在这儿而不是跟着活动走：判据（marketDay／lakeFrozen）住在 world.mjs，
+//     而 rules.js 是它的上游，看不见它们。这儿是唯一同时看得见两边的地方。
+const ACTIVITY_WHEN={market:s=>marketDay(s.day),ice:s=>lakeFrozen(s),
+ // 「回自己屋里」只有住在村里的人成立：同行者跟你同住，他没有「自己那间屋」
+ indoors:s=>!!(s.companion&&s.companion.home)};
+const inSeason=(id,s)=>!ACTIVITY_WHEN[id]||ACTIVITY_WHEN[id](s);
+// ⚠️fair／festival 不进池子是另一回事：它们不靠抽签，到日子直接插进傍晚那一格（见下面）。
+const floorPool=s=>Object.keys(activity).filter(id=>!FLOOR_NAILS.has(id)&&id!=='fair'&&id!=='festival'&&reachable(id,s)&&inSeason(id,s));
 const pickFloor=(seed,n,s)=>{const pool=floorPool(s),out=[];
  let h=2166136261;for(const ch of String(seed)){h=Math.imul(h^ch.charCodeAt(0),16777619);}
  for(let i=0;i<n&&pool.length;i++){h=Math.imul(h^(h>>>13),16777619)>>>0;out.push(pool.splice(h%pool.length,1)[0]);}
@@ -47,6 +56,10 @@ function homeFor(s,plan){const who=s.companion;if(!who||!who.home)return plan;
  // 邻居的「家」是他自己那间屋：不改这一句的话，三个邻居全会挤在你家门口
  if(site&&['home','rain'].includes(plan.id))
   return {...plan,map:'garden',target:spread(who.charId,site.target,'garden'),label:'在'+site.label+'门前'};
+ // 真的进屋里去。⚠️那三间屋的内部地图 id 就是房子 id（connectInterior 那一处定的），
+ //   所以这一句不用另存一张「谁住哪间屋对应哪张图」的表。
+ if(plan.id==='indoors'&&MAPS[h])
+  return {...plan,map:h,target:{...MAPS[h].spawn},label:'在'+MAPS[h].name+'里'};
  return {...plan,target:spread(who.charId,plan.target,plan.map)};}
 // 下雨下雪那天，没有遮头的那几格都挪到檐下。
 // ⚠️这三格例外是【本来就有遮头】的：屋前那一格就是檐下，浇花是自家门口那件杂活
@@ -59,15 +72,18 @@ function homeFor(s,plan){const who=s.companion;if(!who||!who.home)return plan;
 //   以后谁想再调快，先让那条测试过。
 const COMPANION_TOP=1.8;
 // 集市和夜市的摊子有棚，雨天照常
-const DRY_IN_RAIN=new Set(['home','flowers','rain','market','fair','festival']);
-const NEIGHBOR_DAY=[[420,'home'],[540,'walk'],[780,'market'],[1020,'bridge'],[1200,'home']];
+const DRY_IN_RAIN=new Set(['home','flowers','rain','market','fair','festival','indoors']);
+// ⚠️邻居这一天走的是【另一条分支】，不过上面那个池子——所以池子那边的门
+//   （集市日才逛集市）原来对邻居不生效：同行者非集市日不去，邻居天天去。
+//   这儿显式过同一道 inSeason，不许两套说法。
+const NEIGHBOR_DAY=[[420,'home'],[540,'walk'],[780,'market'],[1020,'indoors'],[1200,'home']];
 // 三个邻居别整齐划一地同时出门：按 charId 把时刻各错开一点
 const shiftBy=id=>{let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))>>>0;return (h%5)*18;};
 export function dailySchedule(s){const season=seasonOf(s.day),who=s.companion,
  plan=who&&who.home?null:(s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null);
  const shift=who&&who.home?shiftBy(who.charId):0;
  const list0=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]
-  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):floorDay(s));
+  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,inSeason(id,s)?id:'walk']):floorDay(s));
  // 夜市那两晚（一季一回的节日）：一起排的那一季不知道这一天有夜市，天黑那一格改去逛夜市；邻居那两晚是摊主，游戏那头安排
  const list=plan&&festivalDay(s.day)?list0.map(([t,id,note])=>t===1080?[t,'festival','今晚是换季的灯会。']:[t,id,note])
   :plan&&nightMarketDay(s.day)?list0.map(([t,id,note])=>t===1080?[t,'fair','今晚村里有夜市。']:[t,id,note]):list0;
@@ -109,7 +125,7 @@ const AREA_VERB={rest:'待着',sit:'坐着',read:'翻着东西',gather:'翻找',
 //   「他到了水磨工坊却再也不帮忙照看材料了」这种悄悄没掉的东西（最坏的一种）。
 //   「换了地方」挂在 spot 上，下面路线键那边显式带上它。
 function areaFor(s,plan,start,end){
- const spots=areaSpots(plan.map,plan.target);
+ const spots=areaSpots(plan.map,plan.target,plan.reach);
  if(spots.length<2)return plan;
  const who=s.companion?.charId||s.partnerId||'';
  // ⚠️这一格【本来那个点】必须留着，而且排第一：有几件活儿是钉死在那个点上的——

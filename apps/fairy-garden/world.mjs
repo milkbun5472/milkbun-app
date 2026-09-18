@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-7bfef52454e37d55';
-import {brewError,brewResult} from './brewing.mjs?v=fg-7bfef52454e37d55';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-7bfef52454e37d55';
-import './rules.js?v=fg-7bfef52454e37d55';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-c2fe62726d22d4c3';
+import {brewError,brewResult} from './brewing.mjs?v=fg-c2fe62726d22d4c3';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-c2fe62726d22d4c3';
+import './rules.js?v=fg-c2fe62726d22d4c3';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-7bfef52454e37d55';
+import {createNavigator} from './navigation.mjs?v=fg-c2fe62726d22d4c3';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -655,9 +655,9 @@ const SPOT_GESTURE = {
 };
 // 这一带有哪几处可待。⚠️只此一份：他的日程和以后别人要用的都问它。
 //   sites 也算（她 2026-09-18 点名：「算上sites」）——不算的话室外那些地方一个点都没有。
-export function areaSpots(map, center){
+export function areaSpots(map, center, reach = areaReach(map)){
   const m = MAPS[map]; if (!m || !center) return [];
-  const reach = areaReach(map), out = [], seen = new Set();
+  const out = [], seen = new Set();
   const near = q => Math.hypot(q.x - center.x, q.z - center.z) <= reach;
   // ⚠️挨得太近的不算第二处：公共厅的「壁炉旁」(site) 和「壁炉」(家具) 就是同一块地方，
   //   都收进来的话他会在原地挪半米，看着像抽搐。

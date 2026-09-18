@@ -82,7 +82,7 @@ test("日程：小路的灯、夜市、自己家里面、公共厅楼上都排�
   // 雨天：集市／夜市不改到檐下
   const rainy = [..."abcdefghijklmnopqrstuvwxyz"].map(ch => ch + "9").find(ep => w.weather(13, ep) === "细雨");
   if (rainy){ const wet = c.dailySchedule({ ...s, day: 13, epoch: rainy }); assert.ok(wet.some(x => x.id === "fair"), "夜市雨天照常"); }
-  assert.match(comp, /const DRY_IN_RAIN=new Set\(\['home','flowers','rain','market','fair','festival'\]\);/);
+  assert.match(comp, /const DRY_IN_RAIN=new Set\(\['home','flowers','rain','market','fair','festival','indoors'\]\);/);
   assert.match(comp, /\[1140,festivalDay\(s\.day\)\?'festival':nightMarketDay\(s\.day\)\?'fair':c\]/);
   assert.match(comp, /id!=='fair'&&id!=='festival'&&reachable\(id,s\)/, "夜市和灯会不进抽签池");
 });
