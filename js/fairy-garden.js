@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-f074ea52b99e8ae9", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-b661d5ca35fe17cc", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -1348,11 +1348,11 @@
   // ── 进门那两页（她 2026-09-16：「先做个进入页面…再来到存档…新建或者开启已有」）──
   // 一层是【去哪个世界】，一层是【开哪一档】。庭院房那条路不走这儿：
   // 一间房就是一个世界一个存档，进门直接落到桌上（见 app.js 的 storeKey/lockPartnerId）。
+  // ⚠️她 2026-09-18：占位的那三个世界全删了。原来摆在那儿是「这地方以后会长」的意思，
+  //   可它们许的是三件谁都没在做的事——别人打开秋秋机，看见的就是三张空头支票。
+  //   撤掉一件东西就把它删掉，不许留在原地当死代码（那三行连着灰卡片那一档渲染一起走）。
   const WORLDS = [
-    { id: "garden", name: "微光庭院", note: "种花、下井、和同行者一起把日子过下去", ready: true },
-    { id: "academy", name: "晨雾学院", note: "课表、委托板、校规与同窗" },
-    { id: "market", name: "潮汐集市", note: "赶集、讲价、把东西送给该送的人" },
-    { id: "rail", name: "云上列车", note: "一段路，一车厢陌生人" }
+    { id: "garden", name: "微光庭院", note: "种花、下井、和同行者一起把日子过下去" }
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
@@ -1419,10 +1419,10 @@
       key: openId, storeKey: openId, startSolo: openSolo,
       onBack: () => { setOpenId(null); setOpenSolo(false); refresh(); }
     }));
-    const card = (onClick, dim, children) => h("button", {
-      onClick: dim ? undefined : onClick, disabled: !!dim, className: dim ? "w-full text-left" : "w-full text-left active:opacity-70",
+    const card = (onClick, children) => h("button", {
+      onClick: onClick, className: "w-full text-left active:opacity-70",
       style: { padding: "15px 16px", borderRadius: 16, border: "1px solid " + G.line,
-        background: dim ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.62)", opacity: dim ? .55 : 1 }
+        background: "rgba(255,255,255,.62)" }
     }, children);
     // ⚠️只有【壳】叫小世界（她 2026-09-18 定的）：它装着好几个世界，再叫「微光庭院」
     //   就成了「一个叫微光庭院的地方，进去挑世界，第一个世界也叫微光庭院」。
@@ -1437,12 +1437,12 @@
       h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
     if (!world) return shell("挑一个世界", props.onBack, h(React.Fragment, null,
       h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 18px" } },
-        "每个世界有自己的时间、地图和存档。现在开着的只有微光庭院，别的还在长。"),
-      h("div", { style: { display: "grid", gap: 11 } }, WORLDS.map(w => card(() => setWorld(w), !w.ready,
+        "每个世界有自己的时间、地图和存档，进去挑一位角色一起过。"),
+      h("div", { style: { display: "grid", gap: 11 } }, WORLDS.map(w => card(() => setWorld(w),
         h(React.Fragment, null,
           h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: G.ink } }, w.name),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: w.ready ? G.deep : "#93a188" } }, w.ready ? "可以进" : "敬请期待")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } }, w.note)))))));
 
     const rows = saves.filter(x => x.world === world.id);
@@ -1476,7 +1476,7 @@
           return h("div", { key: row.id, style: { position: "relative" } },
             // ⚠️以前开的示例档没有同行者：直接进去接着玩，别摆一张【它逃不掉的】选人页
             //   ——那一页现在只剩「挑一位」，一挑就跑去开新房间，这一档就被撂下了。
-            card(() => { setOpenSolo(!meta.partnerId); setOpenId(saveKeyOf(row)); }, false, h(React.Fragment, null,
+            card(() => { setOpenSolo(!meta.partnerId); setOpenId(saveKeyOf(row)); }, h(React.Fragment, null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),

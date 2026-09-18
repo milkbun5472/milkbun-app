@@ -20,14 +20,16 @@ const build = store => {
     (k, d) => (k in mem ? mem[k] : d), (k, v) => { mem[k] = v; return true; }, 'x_fairyGarden', localStorage);
 };
 
-test('世界页：现在只有一个能进，别的明写敬请期待', () => {
+// 她 2026-09-18：「这块没删其他的」——占位的那三个世界全撤了。
+// ⚠️许了三件谁都没在做的事，别人打开看见的就是三张空头支票。
+test('世界页：只列真进得去的，占位的一个都不许留', () => {
   const { WORLDS } = build({});
-  assert.equal(WORLDS.filter(w => w.ready).length, 1, '开着的世界不止一个？');
+  assert.equal(WORLDS.length, 1, '又摆上占位的世界了？');
   assert.equal(WORLDS[0].id, 'garden');
-  assert.ok(WORLDS.length >= 3, '占位太少，看不出这是个可以长的地方');
-  WORLDS.filter(w => !w.ready).forEach(w => assert.ok(w.note, w.id + ' 连一句说明都没有'));
-  assert.match(host, /w\.ready \? "可以进" : "敬请期待"/);
-  assert.match(host, /onClick: dim \? undefined : onClick, disabled: !!dim/, '占位卡还点得动');
+  assert.ok(WORLDS[0].note, '连一句说明都没有');
+  assert.doesNotMatch(host, /敬请期待/, '「敬请期待」那一档渲染要跟着那三行一起走');
+  assert.doesNotMatch(host, /晨雾学院|潮汐集市|云上列车/);
+  assert.doesNotMatch(host, /disabled: !!dim/, '点不动的卡片没有对象了，不许留着当死代码');
 });
 
 test('每一档自己一把钥匙，老那一档认回来但绝不搬家', () => {
