@@ -703,6 +703,13 @@ function App() {
   const [activeRoomId, setActiveRoomId] = useState("main");
   const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
+  // 带着预设打开房间面板＝直接落到【新建那一页】（庭院里「给 TA 新开一间」走这条）。
+  // ⚠️和别的 useState 放在一处，理由见下面那条。
+  const [chatRoomsPreset, setChatRoomsPreset] = useState("");
+  // ⚠️意图要放在 ref 里跨过下面那次重置：换角色是「给 TA 新开一间」自己干的第一步，
+  //   而那个 effect 一看见角色变了就把面板关掉——直接 setState 会被它当场清掉。
+  //   （和旁边 notificationRoomRef 同一个形状，照同一个写法。）
+  const roomPresetIntentRef = useRef("");
   // 进庭院房先看聊天，按了才开存档（她 2026-09-17：「不应该直接打开存档而是一个普通聊天」）。
   // ⚠️和别的 useState 放在一处：那一片 helper 区会被好几条测试单独抽出来跑，
   //   把 hook 写进去，它们一跑就是 useState is not defined。
@@ -714,7 +721,8 @@ function App() {
     const pending = notificationRoomRef.current;
     setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
     notificationRoomRef.current = null;
-    setChatRoomsOpen(false);
+    const intent = roomPresetIntentRef.current; roomPresetIntentRef.current = "";
+    setChatRoomsOpen(!!intent); setChatRoomsPreset(intent);
   }, [activeChar && activeChar.id]);
   // 群同上：开着群聊时改了群名/群头像/成员，原来也要退出去再进来才看得见。
   // 同一个形状的第二处，照同一个改法（施工规则/one-public-mechanism.md）。
@@ -2375,15 +2383,17 @@ function App() {
     if (!who) { toast("找不到这一位"); return null; }
     const live = Kit.list(charId).find(r => r && !r.main && r.garden);
     if (live) { setActiveChar(who); setActiveRoomId(live.id); setScreen("thread"); return live; }
-    const preset = Kit.PRESETS.garden;
-    const draft = Kit.normalize({ id: "room_" + Date.now().toString(36), name: preset.label, preset: "garden", garden: true,
-      ...JSON.parse(JSON.stringify(preset)), createdAt: Date.now() }, charId);
-    const prepared = Kit.prepareStart(charId, draft, Kit.get(charId, "main"), [], "blank", null);
-    const room = prepared ? await createChatRoomFromStart(prepared) : null;
-    if (!room) { toast("这间房没建起来，再试一下"); return null; }
-    setActiveChar(who); setActiveRoomId(room.id); setScreen("thread");
-    toast("给 TA 新开了一间庭院房");
-    return room;
+    // ⚠️不许在这儿照着 PRESETS 自己拼一份房间悄悄建掉：那样她一次都设不了权限，
+    //   而「房间要能在创建的时候就设权限」是她 2026-09-17 点名要的，别处已经做到了。
+    //   同一件事在这儿另走一条路＝同一层活在两处（施工规则/one-public-mechanism.md），
+    //   而且这一处永远落后（她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
+    //   所以这儿只负责【把她送到那一页】，房间由那一页按她设的建。
+    roomPresetIntentRef.current = "garden";
+    setActiveChar(who); setActiveRoomId("main"); setScreen("thread");
+    // 本来就在这一位身上时那个 effect 不会跑，所以这儿也直接开一次
+    setChatRoomsPreset("garden"); setChatRoomsOpen(true);
+    toast("先给这间庭院房定好设定，建好就进去");
+    return null;
   };
   const clearChatRoomRecords = async room => {
     if (!window.ChatRooms || !room || room.main) return null;
@@ -23183,9 +23193,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onCreateRoom: createChatRoomFromStart,
     onClearRoom: clearChatRoomRecords,
-    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) setChatRoomsOpen(false); },
+    initialPreset: chatRoomsPreset,
+    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) { setChatRoomsOpen(false); setChatRoomsPreset(""); } },
     onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
-    onClose: () => setChatRoomsOpen(false)
+    onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
     settings: settingsFor(activeChar.id),

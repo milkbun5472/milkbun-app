@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {seasonOf,MAPS} from './world.mjs?v=fg-e80904d7d47074e4';
+import {seasonOf,MAPS} from './world.mjs?v=fg-ea6f41a9a6ab8153';
 export function makeMagicView(){
  const seed=new T.Group(),bed=new T.Group(),lamps=new T.Group();const seedSite=MAPS.forest.interactions.find(x=>x.kind==='seed'),bedSite=MAPS.garden.interactions.find(x=>x.kind==='star');seed.position.set(seedSite.x,.1,seedSite.z);bed.position.set(bedSite.x,.1,bedSite.z);
  const mat=(color,glow=false)=>new T.MeshStandardMaterial({color,roughness:.9,emissive:glow?color:'#000000',emissiveIntensity:glow?.45:0});
@@ -14,5 +14,8 @@ export function makeMagicView(){
  for(let i=0;i<5;i++){const a=i*Math.PI*2/5;const p=add(flower,new T.SphereGeometry(.1,10,7),petal,Math.cos(a)*.1,0,Math.sin(a)*.1);p.scale.y=.6;}
  add(flower,new T.SphereGeometry(.045,8,6),gold,0,.03,0);
  const lights=[];for(const spot of MAPS.garden.decor.lamps){const lamp=new T.Group();lamp.position.set(spot.x,.08,spot.z);lamps.add(lamp);add(lamp,new T.CylinderGeometry(.04,.05,.8,8),gold,0,.4,0);const bulb=add(lamp,new T.IcosahedronGeometry(.14,2),petal,0,.86,0);add(lamp,new T.ConeGeometry(.23,.15,8),gold,0,1.04,0);const light=new T.PointLight('#e5d4ff',0,2.3,2);light.position.y=.9;lamp.add(light);lights.push({lamp,light,bulb});}
- return {seed,bed,lamps,update(s,time){const m=s.magic,season=seasonOf(s.day),night=s.minute>=season.dusk;seed.visible=s.map==='forest'&&m.seedSeason!==season.index;pearl.position.y=.32+Math.sin(time*1.8)*.06;pearl.rotation.y=time*.6;bed.visible=s.map==='garden';plant.visible=m.planted;plant.scale.setScalar(.55+m.growth*.23);flower.visible=m.growth>=2;lamps.visible=s.map==='garden';lights.forEach(({lamp,light,bulb},i)=>{lamp.visible=i<m.lamps;light.intensity=night?1.3:0;bulb.scale.setScalar(night?1+Math.sin(time*2+i)*.06:.85);});petal.emissiveIntensity=night?1.2:.4;}};
+ let droop=0,last=0;const leafHealthy=new T.Color('#73977e'),leafWilted=new T.Color('#a09a7a');
+ return {seed,bed,lamps,update(s,time){const m=s.magic,season=seasonOf(s.day),night=s.minute>=season.dusk;
+  // 蔫了看得见：茎慢慢垂下去、叶子发灰；浇回来再慢慢抬起来（她 2026-09-18：代价得看得见）
+  const dt=Math.min(.1,Math.max(0,time-last));last=time;droop+=((m.wilted?1:0)-droop)*Math.min(1,dt*1.6);plant.rotation.z=droop*.62;plant.rotation.x=droop*.18;leaf.color.copy(leafHealthy).lerp(leafWilted,droop);petal.color.copy(new T.Color('#d6c8f0')).lerp(new T.Color('#b9b3c4'),droop);seed.visible=s.map==='forest'&&m.seedSeason!==season.index;pearl.position.y=.32+Math.sin(time*1.8)*.06;pearl.rotation.y=time*.6;bed.visible=s.map==='garden';plant.visible=m.planted;plant.scale.setScalar(.55+m.growth*.23);flower.visible=m.growth>=2;lamps.visible=s.map==='garden';lights.forEach(({lamp,light,bulb},i)=>{lamp.visible=i<m.lamps;light.intensity=night?1.3:0;bulb.scale.setScalar(night?1+Math.sin(time*2+i)*.06:.85);});petal.emissiveIntensity=night?1.2:.4;}};
 }

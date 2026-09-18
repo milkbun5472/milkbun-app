@@ -190,3 +190,12 @@ workshop.mjs 共管游戏时间、配方、批次恢复、扣料/领取和水灯
 - **星铃花三天没浇会蔫**：不枯死，浇一次救回来，救回来那一浇不长。
 - 存档新增 `wishes`、`spent`、`starNights`，`magic` 多 `plantedDay`、`wilted`。回归：`test/garden-cost-and-market-70-56.test.js`。
 
+### 不只是点点点（v70.61）
+她 2026-09-18：「有什么动作是可以有屏幕动画或者新界面查看进度之类的，不然一直点点点好单调」。这一批五件：
+- **一天的时钟环**：行动栏顶上一枚小环，七点到二十三点走一圈，天黑前九十分钟变暖色，夜里变蓝；每分钟跟着走（`drawDayRing`，挂在 `ui()` 和 `refreshTime()`）。地面动作开始花时间之后，这是「今天用掉多少」唯一看得见的地方。
+- **星图那一夜做成近景**：`starchart.mjs`（状态机：六片散着，拖到自己的位置才亮，拼齐→摊开→结算，中途关掉零消耗，按住有辅助）＋ `starchart-view.mjs`（走画咒那套 `scene-activity` 外壳）。点「摊开星图」先进近景，拼齐那一刻才 `keepStarNight`，他那一枪在那之后。`gardenDebug.getStarChart()`。
+- **集市做成场景**：`market-view.mjs`：货真摆在四座摊子的摊面上（几何来自 rules 的 `garden.market.stalls`），北边两座摊后站着摊主（复用布偶），点货物就走到那座摊子跟前买，买到的货飞进背包。货和价仍只在 `world.MARKET_GOODS`；`atMarket` 站在任何一座摊前也算。「逛集市」按钮还在，是列表版。`gardenDebug.getMarket()`。
+- **蔫花看得见**：`magic-view` 里星铃花蔫了茎慢慢垂下去、叶子发灰，浇回来慢慢抬起。
+- **取水拉井绳、做灯举灯罩、唤醒种子两个人都伸手**：`doll-life` 新增 `draw`／`lamp` 两个姿势和桶、灯罩两件道具；唤醒种子时同行者面向她做 `hold`。
+- 回归：`test/garden-feel-70-57.test.js`；隔离浏览器烟雾（时钟环、点货购买、星图拼齐结算、蔫花、拉井绳）在本地 Chromium 跑过一遍，零报错。
+
