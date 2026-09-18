@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.73";
+const APP_VERSION = "v70.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11831,14 +11831,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       blankRecent: single || !!sideRoom  // 这一块整个不发：原文就在 messages 里
     };
   };
+  // ⚠️全库只有这一处过那道白名单：主聊天、线下、以及请进村的邻居，三条路都从这儿过。
+  //   test/room-ctx-gate-65-04 就是数这个数的——多一处手抄件，改一处永远漏另一处
+  //   （施工规则/one-public-mechanism.md）。
+  const gateByDoor = (ctx, door) => {
+    return window.ChatRooms.gateCtx(ctx, door);
+  };
   const gateRoomContext = (ctx, char, chatKey, room) => {
     const clockOn = roomTimeAwareFor(room, char.id);
     ctx.timeAware = clockOn;
     if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = prefs.geoAware ? geo : null; }
-    const gated = window.ChatRooms.gateCtx(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
+    const gated = gateByDoor(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
     // 拉黑按聊天键落库；本房发生的事在主线认知关闭时也应知道，不继承主房的拉黑。
     gated.blockLine = blockLineFor(chatKey);
     return gated;
+  };
+  // 请进村的那位邻居带着什么（她 2026-09-18 的 b／a）。
+  // ⚠️走的是【房间那道闸】：门上开了哪几条存在庭院存档的邻居那一行上，
+  //   这儿把它当成一间房的 cognition 递给 gateCtx——不另写一套过滤
+  //   （施工规则/one-public-mechanism.md）。全关＝只剩人设和文风地板。
+  // ⚠️这道闸只管【TA 自己的主线记忆】。这一档里你和同行者之间的私事是另一道闸，
+  //   在 world.mjs 的 neighborView 那一处裁，两边都不许替对方把关。
+  const neighborBundleFor = (charId, door) => {
+    try {
+      const char = (characters || []).find(c => c && String(c.id) === String(charId));
+      if (!char) return "";
+      const gated = gateByDoor(ctxFor(char, { chat: true }), { cognition: { ...(door || {}) } });
+      return buildBundle(gated);
+    } catch (e) { return ""; }
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
@@ -21546,6 +21566,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       },
       toast: toast,
       onNewGardenRoom: openGardenRoomFor,
+      neighborBundle: neighborBundleFor,
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
@@ -22547,6 +22568,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     toast: toast,
     onNewGardenRoom: openGardenRoomFor,
+    neighborBundle: neighborBundleFor,
     onBack: () => setScreen("home")
   });else if (screen === "trpg") body = h(window.TrpgApp, {
     // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
