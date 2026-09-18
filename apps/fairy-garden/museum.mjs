@@ -1,4 +1,4 @@
-import {MAPS,thingReady,SHARD_KINDS,shardName} from './world.mjs?v=fg-1624392ca5caaadd';
+import {MAPS,thingReady,SHARD_KINDS,shardName} from './world.mjs?v=fg-5d2ce0321b5107f9';
 // A read-only view of the existing collection, never a second inventory or completion counter.
 export function museumCollection(s){const first=rows=>[...(rows||[])].sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned)||b.day-a.day);return {flowers:first(s.notes),alchemy:[...(s.collection||[]).map(t=>({...t,kept:true})),...(s.things||[]).filter(t=>thingReady(s,t))],fragments:first(s.shards)};}
 export function museumCaption(s,id){const rows=museumCollection(s)[id],display=MAPS.museum.displays[id];if(!rows||!display)return '';if(!rows.length)return display.label+'还空着。以后带回来的收藏会出现在这里。';const row=rows[0],text=id==='flowers'?row.reply:id==='alchemy'?(row.kept?'〔留在这儿的〕':'')+row.name+'。'+row.note:shardName(row)+'：'+row.text;return display.label+' · 已留存 '+rows.length+' 件。第 '+row.day+' 天：'+text+'（这里陈列部分收藏，完整内容仍在花册与屋里。）';}
