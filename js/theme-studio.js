@@ -474,15 +474,18 @@
     const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
     return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".webp" : "";
   };
-  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, fonts: { body: "", display: "" }, globalCSS: "", pageCSS: {}, pageTokens: {}, updatedAt: 0 });
+  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, fonts: { body: "", display: "" }, customFonts: [], globalCSS: "", pageCSS: {}, pageTokens: {}, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
     const iconPack = ICON_PACKS[x.iconPack] ? String(x.iconPack) : "";
     const pageTokens = {};
     Object.keys(x.pageTokens || {}).forEach(k => { const c = cleanTokens(x.pageTokens[k]); if (Object.keys(c).length) pageTokens[k] = c; });
     // 字体那两支照 FontChoice 洗（认不出的落回默认）；它没加载出来就当没挑过。
-    const fonts = g.FontChoice ? g.FontChoice.clean(x.fonts) : { body: "", display: "" };
-    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens };
+    // ⚠️顺序要紧：先把她自己传的那几支洗干净，再拿【洗完的名单】去认那两支——
+    //   反过来的话，删掉一支自定义字体之后，变量还指着一个不存在的字族。
+    const customFonts = g.FontChoice ? g.FontChoice.customList(x.customFonts).map(f => f.custom) : [];
+    const fonts = g.FontChoice ? g.FontChoice.clean(x.fonts, customFonts) : { body: "", display: "" };
+    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, customFonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   const save = p => { const n = normalize({ ...p, updatedAt: Date.now() }); localStorage.setItem(KEY, JSON.stringify(n)); return n; };
@@ -531,7 +534,7 @@
     p = normalize(p); const blocks = [];
     const bad = unsafeReason(p.globalCSS); if (bad) throw new Error(bad);
     // 换字体排在最前面：它只写 :root 那两个变量，她自己写的 CSS 想盖照样盖得住。
-    const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts) : "";
+    const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts, p.customFonts, g.resolveImg) : "";
     if (fontCSS) blocks.push("/* fonts */\n" + fontCSS);
     if (p.globalCSS) blocks.push("/* global */\n" + p.globalCSS);
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
@@ -549,7 +552,7 @@
   const apply = p => {
     const n = normalize(p), css = safeMode() ? "" : compile(n);
     // 字体文件得真去拉一次，光有变量是空头支票。safe-theme 那一路不拉。
-    if (!safeMode() && g.FontChoice) { try { g.FontChoice.ensure(n.fonts); } catch (_) {} }
+    if (!safeMode() && g.FontChoice) { try { g.FontChoice.ensure(n.fonts, n.customFonts); } catch (_) {} }
     let st = document.getElementById(STYLE_ID);
     if (!st) { st = document.createElement("style"); st.id = STYLE_ID; document.head.appendChild(st); }
     st.textContent = css; active = n; emit(); return n;
@@ -576,7 +579,9 @@
   const exportPackage = async extras => {
     const profile = normalize(extras && extras.profile || load()), assets = {};
     const cssRefs = cssImageRefs(profile.globalCSS).concat(...Object.values(profile.pageCSS || {}).map(cssImageRefs));
-    const refs = [...new Set([...Object.values(profile.icons || {}), extras && extras.wallpaper, ...cssRefs].filter(x => /^iv_/.test(x)))];
+    // 她自己传的字体文件也在同一个保险箱里，所以它跟图标走同一条打包路（one-public-mechanism）。
+    const fontRefs = g.FontChoice ? g.FontChoice.fileRefs(profile.fonts, profile.customFonts) : [];
+    const refs = [...new Set([...Object.values(profile.icons || {}), extras && extras.wallpaper, ...cssRefs, ...fontRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -590,6 +595,8 @@
     const map = {};
     for (const [oldRef, data] of Object.entries(pkg.assets || {})) { try { map[oldRef] = await g.imgToVault(data); } catch (_) {} }
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
+    // 字体文件进了新机器的保险箱，键会变——不换过来的话，导进来的主题字体是哑的
+    (p.customFonts || []).forEach(f => { if (f && map[f.ref]) f.ref = map[f.ref]; });
     p.globalCSS = remapCSSImages(p.globalCSS, map);
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
