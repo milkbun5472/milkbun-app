@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-737485a66a34ed23';
-export const actionDuration=job=>job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
-export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(job.kind==='dreamSow'||job.kind==='gather')return 'gather';return 'rest';}
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-d0e60d81e8657608';
+export const actionDuration=job=>job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
+export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
 export function makeDollLife(root,model,rig,book){
  const group=new T.Group();group.name='DailyActionProps';model.add(group);
@@ -12,18 +12,38 @@ export function makeDollLife(root,model,rig,book){
  const lip=mesh(can,new T.CylinderGeometry(.037,.022,.032,12),cream,0,.02,.24);lip.rotation.x=Math.PI/2;
  const cup=new T.Group();cup.name='TeaCup';group.add(cup);mesh(cup,new T.CylinderGeometry(.058,.042,.085,18),cream,0,0,0);mesh(cup,new T.CircleGeometry(.046,18),tea,0,.044,0).rotation.x=-Math.PI/2;mesh(cup,new T.TorusGeometry(.033,.008,6,16),cream,.056,0,0);
  const flower=makeHeldFlower();group.add(flower);
+ const packet=new T.Group();packet.name='SeedPacket';group.add(packet);mesh(packet,new T.BoxGeometry(.11,.14,.045),cream);mesh(packet,new T.SphereGeometry(.028,8,6),metal,0,.01,.03);
+ const grains=new T.Group();grains.name='SowingGrains';group.add(grains);const seedMat=mat('#ddbd72');for(let i=0;i<7;i++)mesh(grains,new T.SphereGeometry(.018,6,4),seedMat);
+
  const drops=new T.Group();drops.name='WaterDrops';group.add(drops);const water=mat('#9ed9e1');for(let i=0;i<16;i++)mesh(drops,new T.SphereGeometry(.009,6,4),water);
  const page=new T.Group();page.name='TurningPage';book.add(page);mesh(page,new T.BoxGeometry(.13,.002,.19),cream,.065,.028,0);
  const legacy=[];model.traverse(o=>{if(o.isMesh&&/^Held.herb/i.test(o.name))legacy.push(o);});
  const hands={};model.traverse(o=>{if(o.isMesh&&/^(Left|Right).hand/i.test(o.name))hands[o.name.startsWith('Left')?'left':'right']=o;});
+ const feet=[];model.traverse(o=>{if(o.isMesh&&(/Rounded.boots/i.test(o.name)||o.userData.colorSlot==='boots'))feet.push(o);});
  const box=new T.Box3(),v=new T.Vector3(),tip=new T.Vector3();
  function handPoint(side='right'){model.updateWorldMatrix(true,true);return box.setFromObject(hands[side],true).getCenter(new T.Vector3());}
  const arms=Object.fromEntries(rig.map(x=>[x.label,x.p]));
  function atHand(prop,side='right'){prop.position.copy(model.worldToLocal(handPoint(side)));}
- return {handPoint,update(time,{gesture='rest',progress=0,moving=false,seated=false}={}){
-  const active=!moving,watering=active&&gesture==='water',picking=active&&['harvest','gather'].includes(gesture),reading=active&&gesture==='read',drinking=active&&gesture==='tea',giving=active&&['give','receive'].includes(gesture);
+ return {handPoint,update(time,{gesture='rest',progress=0,moving=false,seated=false,height=.08}={}){
+  const active=!moving,planting=active&&gesture==='plant',waving=active&&gesture==='wave',stretching=active&&gesture==='stretch',watering=active&&gesture==='water',picking=active&&['harvest','gather'].includes(gesture),reading=active&&gesture==='read',drinking=active&&gesture==='tea',giving=active&&['give','receive'].includes(gesture);
   legacy.forEach(o=>o.visible=model.userData.outfit==='traveler'&&(!active||gesture==='rest'||gesture==='sit'));
   can.visible=drops.visible=watering;cup.visible=drinking;flower.visible=active&&(gesture==='flower'||gesture==='harvest'&&progress>.55);book.visible=reading;
+  packet.visible=planting;grains.visible=planting&&progress>.2&&progress<.65;
+  const p=Math.max(0,Math.min(1,progress)),ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
+  const envelope=ease(p/.2)*ease((1-p)/.22);
+  if(waving){arms.rightArm.rotation.x=-2.35*envelope;arms.rightArm.rotation.z=(.45+Math.sin(p*Math.PI*10)*.22)*envelope;arms.leftArm.rotation.x=-.12*envelope;model.rotation.z=Math.sin(p*Math.PI*2)*.025*envelope;}
+  if(stretching){for(const [name,sign] of [['leftArm',1],['rightArm',-1]]){arms[name].rotation.x=-2.8*envelope;arms[name].rotation.z=-sign*.45*envelope;}model.rotation.x=-.10*envelope;model.rotation.z=Math.sin(p*Math.PI*2)*.055*envelope;}
+  if(planting){
+   model.rotation.x=.4*envelope;arms.leftLeg.rotation.x=arms.rightLeg.rotation.x=-.9*envelope;
+   arms.leftArm.rotation.x=-.8*envelope;arms.rightArm.rotation.x=(-.85+Math.sin(p*Math.PI*8)*.18)*envelope;
+   arms.rightArm.rotation.z=Math.sin(p*Math.PI*6)*.22*envelope;
+   model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=.35*envelope;});
+   // Pin visible soles to the floor while lowering the hips, including morphed bodies and different boots.
+   model.updateWorldMatrix(true,true);let bottom=Infinity;for(const f of feet)if(f.visible)bottom=Math.min(bottom,box.setFromObject(f,true).min.y);
+   if(Number.isFinite(bottom))root.position.y+=height-bottom;
+   atHand(packet,'left');packet.rotation.z=-.25;
+   if(grains.visible){const from=handPoint();root.updateWorldMatrix(true,false);grains.children.forEach((g,i)=>{const q=Math.max(0,Math.min(1,(p-.2-i*.023)/.28));const end=new T.Vector3((i-3)*.04,height-root.position.y,.46+i*.012);root.localToWorld(end);g.position.copy(group.worldToLocal(from.clone().lerp(end,q)));g.visible=q>0&&q<1;});}
+  }
   if(watering){arms.rightArm.rotation.x=-.85;arms.rightArm.rotation.z=-.13;}
   if(picking){const bend=Math.sin(Math.PI*Math.min(1,progress/.7));model.rotation.x=.32*Math.max(0,bend);root.position.y-=.11*Math.max(0,bend);arms.rightArm.rotation.x=-.45-.55*Math.max(0,bend);}
   if(reading){arms.leftArm.rotation.x=arms.rightArm.rotation.x=-.7;page.rotation.z=-Math.PI*((time*.18)%1);}
@@ -34,6 +54,6 @@ export function makeDollLife(root,model,rig,book){
   if(cup.visible){atHand(cup);cup.rotation.x=-Math.max(0,Math.sin(time*1.1))*.35;}
   if(flower.visible)atHand(flower);
   if(reading){const l=handPoint('left'),r=handPoint();book.position.copy(root.worldToLocal(l.add(r).multiplyScalar(.5)));book.position.y+=.02;book.rotation.x=.25;}
-  root.userData.dailyAction={gesture,can:can.visible,drops:drops.visible,flower:flower.visible,cup:cup.visible,book:book.visible,page:page.rotation.z,seated};
+  root.userData.dailyAction={gesture,packet:packet.visible,grains:grains.visible,waving,stretching,can:can.visible,drops:drops.visible,flower:flower.visible,cup:cup.visible,book:book.visible,page:page.rotation.z,seated};
  }};
 }
