@@ -153,3 +153,53 @@ test("收入来源那一行：名目让步，金额一个字都不许折", () =>
   assert.match(seg, /textOverflow: "ellipsis", whiteSpace: "nowrap" \} \}, s\.name\)/, "名目该省略号，不该换行");
   assert.match(seg, /color: t\.ink, flexShrink: 0, whiteSpace: "nowrap" \} \}, "\+" \+ fmtMoney\(s\.amount, char\.id\)\)/, "金额那半边会被挤折");
 });
+
+// ── A 类：她和【某一个角色】之间的钱，一处都不许再写死 ¥（她 2026-09-18「先a吧」）──
+test("亲属卡整条链跟着角色的币种走", () => {
+  // 卡面、刷卡通知、提额申请单
+  assert.match(comp, /mTight\(remain == null \? \(limit \|\| 0\) : remain, character && character\.id\)/, "卡面额度");
+  assert.match(comp, /"已用 " \+ mTight\(used \|\| 0, character && character\.id\)/, "已用/总额度");
+  assert.match(comp, /"-" \+ mTight\(m\.amount \|\| 0, c && c\.id\)/, "刷卡通知的金额");
+  assert.match(comp, /"账上扣除 · 还剩 " \+ mTight\(m\.remain, c && c\.id\)/);
+  assert.match(comp, /"已加 " \+ mTight\(m\.add \|\| 0, c && c\.id\)/, "提额批复");
+  assert.match(comp, /"想加 " \+ mTight\(m\.ask, c && c\.id\)/);
+  // 喂给模型那几句也要换，不然他嘴里说的数跟卡上写的对不上
+  assert.match(app, /"，想加 " \+ moneyText\(m\.ask, charId\)/);
+  assert.match(app, /"；你加了 " \+ moneyText\(m\.add \|\| 0, charId\)/);
+  assert.match(app, /"」，" \+ moneyText\(m\.amount \|\| 0, charId\) \+ " 从你账上扣了"/);
+  // 商城结账那一屏的剩余额度
+  assert.match(screens, /"剩余额度 " \+ \(\(typeof Money !== "undefined" && Money\) \? Money\.say\(remaining, cd\.charId\)/);
+});
+
+test("他手机里的购物、心愿单、问他这件东西、结欠账，都按他那边的钱", () => {
+  assert.match(phone, /const shopMoney = \(n, charId\) => \(typeof Money !== "undefined" && Money\)/);
+  const bareShop = (phone.match(/shopMoney\((?:[^()]|\([^()]*\))*\)/g) || [])
+    .filter(x => !/char\.id/.test(x) && !/\(n, charId\)/.test(x));
+  assert.deepEqual(bareShop, [], "他手机里还有不知道是谁的钱：" + bareShop.join(" / "));
+  assert.match(app, /const wishFor = charId =>/, "心愿单是念给某个角色听的");
+  assert.match(app, /wishFor\(char\.id\)/);
+  assert.match(app, /\(isFinite\(price\) \? "｜" \+ moneyText\(price, charId\) : ""\)/, "问他这件商品");
+  assert.match(app, /\+ moneyText\(Math\.round\(amt\), charId\) \+ "，已记进余额"/, "结欠账那句 toast");
+  assert.match(app, /转给「" \+ who \+ "」" \+ moneyText\(m\.amount, m\.toId\)/, "群里转账喂给模型那句");
+});
+
+test("代付：清单、合计、他的余额一律同一个单位——最怕的是混着", () => {
+  const seg = app.slice(app.indexOf("用你自己的钱帮 Ta 结账"), app.indexOf("用你自己的钱帮 Ta 结账") + 400);
+  assert.match(seg, /moneyText\(x\.price, charId\)/, "清单");
+  assert.match(seg, /"，合计 " \+ moneyText\(total, charId\)/);
+  assert.match(seg, /"。你当前余额约 " \+ moneyText\(Math\.round\(bal\), charId\)/);
+  assert.ok(!/合计 ¥" \+ total \+ "。你当前余额约 ¥/.test(app), "还混着两种单位，他没法拿余额跟合计比");
+});
+
+// ⚠️B 类是【定下来不收】的，不是漏的：说不清这笔钱是谁的。
+//   哪天要收，得先定它跟谁走（群红包按发的人还是按抢的人？）。
+test("B 类仍旧是人民币，而且是有意的", () => {
+  assert.match(comp, /"我的余额 ¥"/, "她自己的钱包");
+  assert.match(app, /toast\("红包已发出 ¥" \+ a\)/, "红包发给一群人，说不清是谁的币");
+  assert.match(screens, /"钱包里还有 ¥"/, "商城是她在逛");
+});
+
+// C 类：入口方向，删了就坏了
+test("解析模型交回来的金额时照旧吃掉 ¥——那是【进来】的方向", () => {
+  assert.match(app, /replace\(\/\[,，\\s¥￥\$元\]\/g, ""\)/);
+});

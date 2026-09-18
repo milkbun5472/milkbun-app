@@ -823,6 +823,10 @@ function useKbLift() {
 // ⚠️数的是【宽度】不是【字符数】：「円」「원」这种是全角，一个顶两个。
 //   只按 length 算的话，"-273,362 円" 会被当成 10 个字放行，实际占 11 格，照样掉行。
 // fits＝这个字号下大概放得下几格；超了按比例缩，缩到 min 为止。
+// 窄格子里的钱（亲属卡、刷卡通知、引用条那些）：不带千分位，跟原来的长相一致。
+// ⚠️只是转交口，规则在 js/money.js 一处（施工规则/one-public-mechanism.md）。
+const mTight = (n, charId) => (typeof Money !== "undefined" && Money) ? Money.say(n, charId) : "¥" + (n == null ? 0 : n);
+
 const _wideChar = c => {
   const x = c.charCodeAt(0);
   return (x >= 0x1100 && x <= 0x115f) || (x >= 0x2e80 && x <= 0xa4cf) ||
@@ -8468,7 +8472,7 @@ function ChatThread({
         fontFamily: F_DISPLAY,
         fontSize: 16
       }
-    }, "¥" + m.amount), h("div", {
+    }, mTight(m.amount, character && character.id)), h("div", {
       style: {
         fontFamily: F_BODY,
         fontSize: 10.5,
@@ -10541,7 +10545,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "emote" ? "表情" : null;
-  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " ¥" + m.amount : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
+  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
   const hits = (kw || typeF) ? msgs.filter(x => matchType(x.m) && (!kw || String(textOf(x.m)).indexOf(kw) >= 0)) : [];
@@ -11116,9 +11120,9 @@ function KinshipCardFace({ character, limit, used, note, width }) {
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.22em", opacity: 0.8 } }, "副卡"),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, opacity: 0.95, maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "")),
         h("div", { className: "flex items-baseline", style: { gap: 7 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em" } }, "¥" + (remain == null ? (limit || 0) : remain)),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em", whiteSpace: "nowrap" } }, mTight(remain == null ? (limit || 0) : remain, character && character.id)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, opacity: 0.82 } }, remain == null ? "额度" : "还能刷")),
-        remain == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.7, marginTop: 4 } }, "已用 ¥" + (used || 0) + " · 总额度 ¥" + (limit || 0)))),
+        remain == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.7, marginTop: 4 } }, "已用 " + mTight(used || 0, character && character.id) + " · 总额度 " + mTight(limit || 0, character && character.id)))),
     // 签名条：真卡背面那条，TA把话签在上面
     h("div", { style: {
       padding: "8px 14px 9px",
@@ -11168,9 +11172,9 @@ function KinshipSpendCard({ m, character }) {
                 "刷了" + (c.name || "TA") + "的亲属卡")),
             h("div", { className: "flex items-end", style: { gap: 10 } },
               h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, color: t.ink } }, m.item || "一笔消费"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.ink, whiteSpace: "nowrap" } }, "-¥" + (m.amount || 0)))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.ink, whiteSpace: "nowrap" } }, "-" + mTight(m.amount || 0, c && c.id)))),
           h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } },
-            m.remain == null ? "已从" + (c.name || "TA") + "账上扣除" : "已从" + (c.name || "TA") + "账上扣除 · 还剩 ¥" + m.remain)))));
+            m.remain == null ? "已从" + (c.name || "TA") + "账上扣除" : "已从" + (c.name || "TA") + "账上扣除 · 还剩 " + mTight(m.remain, c && c.id))))));
 }
 // 提额申请单（v60.52）
 // 她 2026-09-02：「这个申请额度通知略敷衍」。原来是一句加了括号的粉气泡
@@ -11186,7 +11190,7 @@ function KinshipRaiseCard({ m, character }) {
   const ink = c.color || "#6b7a8f";
   const st = m.status || "pending";
   const done = st === "approved" || st === "declined";
-  const foot = st === "approved" ? "已加 ¥" + (m.add || 0) + " · 现在额度 ¥" + (m.newLimit || 0)
+  const foot = st === "approved" ? "已加 " + mTight(m.add || 0, c && c.id) + " · 现在额度 " + mTight(m.newLimit || 0, c && c.id)
     : st === "declined" ? (c.name || "TA") + "没有加"
     : st === "failed" ? "没送出去，回头再试"
     : "等" + (c.name || "TA") + "回话";
@@ -11202,10 +11206,10 @@ function KinshipRaiseCard({ m, character }) {
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 "向" + (c.name || "TA") + "的卡申请提额")),
             h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "现在 ¥" + (m.limit || 0)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "现在 " + mTight(m.limit || 0, c && c.id)),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "→"),
               m.ask
-                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.1, color: t.ink } }, "想加 ¥" + m.ask)
+                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.1, color: t.ink } }, "想加 " + mTight(m.ask, c && c.id))
                 : h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: t.ink } }, "你看着加"))),
           h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: fc } },
             (done ? "" : "· ") + foot)),

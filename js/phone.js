@@ -3370,7 +3370,11 @@ const SHOP_INK = "#1f2733";      // 靛墨
 const SHOP_DIM = "#8b95a3";      // 冷灰
 const SHOP_BODY = "#414d5e";     // 正文
 const SHOP_LINE = "#e3e8ee";     // 分隔线
-const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// ⚠️跟 fmtMoney 同一条路：规则在 js/money.js 一处，这儿只是转交口。
+// 第二个参数是【这是谁的钱】——这一屏是 ShoppingView({ d, char })，永远传 char.id。
+const shopMoney = (n, charId) => (typeof Money !== "undefined" && Money)
+  ? Money.fmt(n, charId)
+  : "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
 function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats, drive }) {
   const [tab, setTab] = useState("home");
@@ -3441,7 +3445,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     },
       h("div", { className: "flex items-baseline", style: { gap: 10 } },
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title)),
-        it.amount != null ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: SHOP_MARK } }, shopMoney(it.amount)) : null),
+        it.amount != null ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: SHOP_MARK } }, shopMoney(it.amount, char.id)) : null),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } },
         [it.eta, it.shop].filter(Boolean).join(" · ")),
       it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: SHOP_BODY, marginTop: 7 } }, it.why) : null)))) : null;
@@ -3454,8 +3458,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, PTX(it.title)),
         it.spec ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 4 } }, it.spec) : null,
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 8 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_MARK } }, shopMoney(it.price)),
-          Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was)) : null,
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_MARK } }, shopMoney(it.price, char.id)),
+          Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was, char.id)) : null,
           // ⚠️「满减／限时」那枚促销标不画：那是货架上的标签，不是TA的事。
           // TA为什么把这件东西一直停在车里，写在下面 why 那一行。
           null,
@@ -3479,7 +3483,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         // 朱砂圈：程序画的空心圈，不是图标字体也不是 emoji
         h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 9, height: 9, borderRadius: 99, border: "1.4px solid " + SHOP_MARK, transform: "translateY(-1px)" } }),
         h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title)),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: SHOP_MARK, whiteSpace: "nowrap" } }, shopMoney(it.price))),
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: SHOP_MARK, whiteSpace: "nowrap" } }, shopMoney(it.price, char.id))),
       it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 4, paddingLeft: 18 } }, it.shop) : null,
       it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: SHOP_BODY, marginTop: 6, paddingLeft: 18, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.why) : null)))) : null;
   // ── 我的订单 ──
@@ -3501,11 +3505,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid " + SHOP_LINE : "none", marginTop: j ? 10 : 0 } },
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: SHOP_BODY } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_BODY, flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price))))) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_BODY, flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price, char.id))))) : null,
       h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 13 } },
         // 运费单列是收据的排版，不是这个人的事；只留TA真花掉的那个数
         h("span", null),
-        Number(o.paid) > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SHOP_MARK } }, shopMoney(o.paid)) : null),
+        Number(o.paid) > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: SHOP_MARK } }, shopMoney(o.paid, char.id)) : null),
       A(o.tags).length ? h("div", { key: "g", className: "flex gap-2 flex-wrap", style: { marginTop: 12 } }, A(o.tags).map(tag)) : null,
       // ⚠️她 2026-09-01：「现在啥格式都去掉太平了，看不出来哪些是啥」。
       // 撤掉白卡是对的（那是电商的排版），但**层次不能跟着一起撤**——
@@ -3554,7 +3558,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.45, color: SHOP_INK } }, v.title || ""),
         v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 5 } }, v.shop) : null),
       h("div", { style: { flexShrink: 0, textAlign: "right" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_MARK } }, shopMoney(v.price)),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_MARK } }, shopMoney(v.price, char.id)),
         v.time ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 4 } }, v.time) : null)))))  : null;
   // ── 收货地址（不是自己家的那条走 hidden） ──
   const addrs = A(data.addrs);
@@ -3584,8 +3588,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 空钱包等同于没建档：退回模型那份；两份都没有就整句不出现，不硬报一个数。
   const msReal = ms && (Number(ms.spend) > 0 || Number(ms.orders) > 0) ? ms : null;
   const spendLine = msReal
-    ? "这一阵花掉 " + shopMoney(msReal.spend) + "，" + shopInt(msReal.orders) + " 单"
-    : (Number(acc.monthSpend) > 0 ? "这一阵花掉 " + shopMoney(acc.monthSpend) + (Number(acc.monthOrders) > 0 ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
+    ? "这一阵花掉 " + shopMoney(msReal.spend, char.id) + "，" + shopInt(msReal.orders) + " 单"
+    : (Number(acc.monthSpend) > 0 ? "这一阵花掉 " + shopMoney(acc.monthSpend, char.id) + (Number(acc.monthOrders) > 0 ? "，" + shopInt(acc.monthOrders) + " 单" : "") : "");
   // acc.persona（TA买东西的毛病）原来挂在账户卡上。账户卡撤了，这句得有地方去——
   // 它本来就属于「合起来看」：那一段说的正是TA这个人怎么花钱。
   const monthSec = (data.monthNote || data.tail || spendLine || acc.persona) ? h("section", { key: "mn" }, secTitle("合起来看", characterText(char, "这一阵他是这么花钱的")),
@@ -3655,11 +3659,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
             h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.45, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title))),
           h("div", { className: "flex items-baseline", style: { gap: 10, marginTop: 9, paddingLeft: 20, paddingBottom: 12, borderBottom: "1px solid " + SHOP_FRAME } },
             it.shop ? h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, it.shop) : h("div", { style: { flex: 1 } }),
-            h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 19, color: SHOP_MARK } }, shopMoney(it.price))),
+            h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 19, color: SHOP_MARK } }, shopMoney(it.price, char.id))),
           it.why ? h("div", { style: { marginTop: 16 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 8 } }, T("他为什么想买")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2.05, color: SHOP_BODY, whiteSpace: "pre-wrap", textIndent: "2em" } }, it.why)) : null,
-          peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜")))));
+          peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price, char.id) : "", it.why].filter(Boolean).join("｜")))));
   })() : null;
   // 叶码：册页每一叶底下都有一个。中文数字，不是「1 / 3」——那是分页控件。
   const YE = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];

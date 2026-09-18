@@ -14,14 +14,16 @@ function makeWallet(store, chars) {
   ].join("\n");
   const st = { w: JSON.parse(JSON.stringify(store)), toasts: [] };
   const ref = { current: st.w };
-  const api = new Function("charWalletRef", "characters", "liveChars", "setCharWallet", "saveJSON", "numClean", "r2", "toast",
+  // v70.61：结清那句 toast 里的金额过 moneyText（一人一个币种）。桩＝人民币原样。
+  const api = new Function("charWalletRef", "characters", "liveChars", "setCharWallet", "saveJSON", "numClean", "r2", "toast", "moneyText",
     src + "\nreturn { walletDebts, settleDebt, debtSig, walletDebtPeer };")(
     ref, chars, chars.filter(c => !c.npc),
     fn => { const n = fn(ref.current); if (n) { ref.current = n; st.w = n; } },
     () => {},
     v => { const n = Number(v); return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0; },
     v => Math.round(v * 100) / 100,
-    m => st.toasts.push(m));
+    m => st.toasts.push(m),
+    (n) => "¥" + n);
   return { api, st };
 }
 const CHARS = [{ id: "c1", name: "江识" }, { id: "c2", name: "裴照川", remark: "王爷" }];

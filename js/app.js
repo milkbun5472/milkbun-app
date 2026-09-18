@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.60";
+const APP_VERSION = "v70.63";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2647,6 +2647,10 @@ function App() {
     return touched ? { aff, applied, fixed } : null;
   };
   const affOf = charId => affinities[charId] != null ? affinities[charId] : baseAff(charId);
+  // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
+  // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
+  // ⚠️定义放这么早，是因为亲属卡那几条喂模型的话在 9200 一带就用上了。
+  const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
   const setMoodFor = (id, m) => setMoods(p => {
     const cleanMood = window.MoodLabel ? window.MoodLabel.normalizeMood(m) : m;
     const n = {
@@ -4235,7 +4239,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       case "album":  return one(arr((ph.album || {}).items), x => ({ title: x.caption || "一张照片", body: [x.date, x.place, x.note].filter(Boolean).join(" · "), img: x.imageRef || null }));
       case "notes":  return one(arr((ph.notes || {}).items), x => ({ title: x.title || "一条便签", body: x.content || x.body || "" }));
       case "search": return one(arr((ph.browser || {}).searches), x => ({ title: x.q || "搜过的", body: [x.when, x.why].filter(Boolean).join(" · ") }));
-      case "order":  return one(arr((ph.shopping || {}).orders), x => ({ title: x.title || "买过的", body: [x.price != null ? "¥" + x.price : "", x.date, x.why].filter(Boolean).join(" · ") }));
+      case "order":  return one(arr((ph.shopping || {}).orders), x => ({ title: x.title || "买过的", body: [x.price != null ? moneyText(x.price, char && char.id) : "", x.date, x.why].filter(Boolean).join(" · ") }));
       case "reading": {
         const books = arr((ph.reading || {}).shelves).reduce((a, sh) => a.concat(arr(sh.books).map(b => ({ b: b, sh: sh }))), []);
         return one(books, x => ({ title: x.b.title || "一本书", body: [x.sh.name, x.b.author, x.b.note].filter(Boolean).join(" · ") }));
@@ -4969,7 +4973,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (settingsFor(charId).engineerEyes || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
     return String(window.Gaze.text(charId, userName(profile)) || "").trim();
   };
-  const wishFor = () => (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、");
+  // ⚠️心愿单是【念给某个角色听】的，所以按他那边的钱写（她 2026-09-18 收 A 类）。
+  //   群里那一路说不清是谁，不传就是人民币。
+  const wishFor = charId => (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（" + moneyText(x.price, charId) + "）" : "")).join("、");
   // 所有场景读取同一份随身物；额度与「带上」操作共用 ON_ME_CAP。
   // 旁观群里【她根本不在场】：不是群里的一员，只以旁白推剧情。
   // 所以「她今天身上带着什么」这一条在那儿一个字都不该有——她人都没来，谁看得见她带了什么。
@@ -5149,7 +5155,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【TA怎么会知道】——
     // 她在购物 app 里点了「想要」的东西，就是TA知道的方式（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色（合法差异，见四处一样喂）。
-    wishLog: !settingsFor(char.id).engineerEyes ? wishFor() : "",
+    wishLog: !settingsFor(char.id).engineerEyes ? wishFor(char.id) : "",
     // 随身物：TA身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
     // 角色本人不知道自己包里有伞，出图也不知道TA衣柜里有哪几身（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
@@ -9214,10 +9220,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物")
               + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
-            : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 ¥" + m.ask : "（没说数目，让你看着办）") + "（当时额度 ¥" + (m.limit || 0) + "）"
-              + (m.status === "approved" ? "；你加了 ¥" + (m.add || 0) + "，现在额度 ¥" + (m.newLimit || 0) : m.status === "declined" ? "；你没有加" : "")
+            : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
+              + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
-            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，¥" + (m.amount || 0) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 ¥" + m.remain) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
+            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，" + moneyText(m.amount || 0, charId) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 " + moneyText(m.remain, charId)) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -10641,7 +10647,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gTfHint = gPendingTf.length
         ? "\n【有转账挂着没点】" + gPendingTf.map(m => {
             const who = (members.find(c => c.id === m.toId) || {}).name || m.toName || "某位成员";
-            return "· " + gUName + " 转给「" + who + "」¥" + m.amount + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
+            return "· " + gUName + " 转给「" + who + "」" + moneyText(m.amount, m.toId) + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
           }).join("\n")
           + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：TA缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
           + "\n要表态就在【TA自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句TA自己的话；这一轮没顾上就省略，卡继续挂着。"
@@ -13837,7 +13843,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (linked) post(peer.id, -mineDelta, (d.dir === "owed" ? "还钱 · " : "收回欠款 · ") + me.name);
     toast(linked
       ? "结清了：" + me.name + " 和 " + peer.name + " 两边的钱包都动了"
-      : (d.dir === "owed" ? "收回 " : "还出 ") + "¥" + Math.round(amt) + "，已记进余额");
+      : (d.dir === "owed" ? "收回 " : "还出 ") + moneyText(Math.round(amt), charId) + "，已记进余额");
   };
   // 生成某天的日常消费（按当天日程+人设，逐笔列具体买了什么），无 API/失败则用固定支出估算兜底
   // 那一天TA手机上【真的下过】的单子：外卖和购物。
@@ -14221,7 +14227,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (window.Money) window.Money.setBook(n);
     return n;
   });
-  const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
   // 转账：联动我的钱包和角色钱包，并在聊天里留一条转账消息
   // 我转给 TA：入队一张待处理转账卡，钱在 TA 接受后才动
   const sendTransfer = (charId, amount, note) => {
@@ -17069,7 +17074,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       role: "user", kind: "shopask",
       ask: { name, price: isFinite(price) ? price : null, desc },
       content: "[我在逛购物 app，把一件东西拿给你看]《" + name + "》"
-        + (desc ? "｜" + desc : "") + (isFinite(price) ? "｜¥" + price : "")
+        + (desc ? "｜" + desc : "") + (isFinite(price) ? "｜" + moneyText(price, charId) : "")
         + "｜（她在问你的意见，不是在通知你。按你的人设和你俩的关系来：真觉得好就说好、"
         + "觉得贵／没必要／她已经有一个了就直说、也可以借机说要给她买、或者压根不懂这东西是干嘛的。"
         + "**别当客服念参数**，也别一律附和。）",
@@ -20446,7 +20451,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pushGroupRich(target.id, { role: "user", ...card, content: "[代付请求] 合计 ¥" + total });
       setTimeout(() => decideGroupPayLater(target.id, pid, items, total), 1400);
     } else {
-      pChat(target.id, p => [...p, { role: "user", ...card, content: "[代付请求] 合计 ¥" + total, ts: Date.now(), read: true }]);
+      pChat(target.id, p => [...p, { role: "user", ...card, content: "[代付请求] 合计 " + moneyText(total, target.id), ts: Date.now(), read: true }]);
       setTimeout(() => decidePayLater(target.id, pid, items, total), 1400);
     }
     toast("代付请求已发出，等对方决定");
@@ -20461,8 +20466,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const bal = charBalanceOf(charId);
     try {
       const bundle = buildBundle(ctxFor(char));
-      const system = bundle + "\n\n【任务】用户把一份购物清单发给你，请求你「代付」——用你自己的钱帮 Ta 结账。清单：" + items.map(x => x.name + " ¥" + x.price).join("、") + "，合计 ¥" + total + "。你当前余额约 ¥" + Math.round(bal) + "。请完全代入「" + char.name + "」，依据人设、对用户的好感、你们的关系、以及你的经济状况，决定要不要帮 Ta 付。愿意就 agree:true；不愿意/嫌贵/想逗 Ta/囊中羞涩就 agree:false。无论同不同意都用即时通讯口吻回几句(say)，短句多气泡。\n【输出】只输出 JSON：{\"agree\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}";
-      const raw = await callAI(active, system, [{ role: "user", content: "[代付请求] " + items.map(x => x.name).join("、") + " 合计 ¥" + total }]);
+      const system = bundle + "\n\n【任务】用户把一份购物清单发给你，请求你「代付」——用你自己的钱帮 Ta 结账。清单：" + items.map(x => x.name + " " + moneyText(x.price, charId)).join("、") + "，合计 " + moneyText(total, charId) + "。你当前余额约 " + moneyText(Math.round(bal), charId) + "。请完全代入「" + char.name + "」，依据人设、对用户的好感、你们的关系、以及你的经济状况，决定要不要帮 Ta 付。愿意就 agree:true；不愿意/嫌贵/想逗 Ta/囊中羞涩就 agree:false。无论同不同意都用即时通讯口吻回几句(say)，短句多气泡。\n【输出】只输出 JSON：{\"agree\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}";
+      const raw = await callAI(active, system, [{ role: "user", content: "[代付请求] " + items.map(x => x.name).join("、") + " 合计 " + moneyText(total, charId) }]);
       const d = extractJSON(raw) || { agree: false, say: ["……让我想想。"] };
       const agree = !!d.agree && bal >= total;
       pChat(charId, p => p.map(m => m.kind === "paylater" && m.pid === pid ? { ...m, status: agree ? "paid" : "declined" } : m));

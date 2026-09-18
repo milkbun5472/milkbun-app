@@ -3236,7 +3236,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
           h(Avatar, { character: c, size: 38, radius: 9 }),
           h("div", { className: "flex-1 text-left" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name || "亲属卡"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: remaining >= selTotal ? t.fog : t.accent } }, "剩余额度 ¥" + remaining)));
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: remaining >= selTotal ? t.fog : t.accent } }, "剩余额度 " + ((typeof Money !== "undefined" && Money) ? Money.say(remaining, cd.charId) : "¥" + remaining))));
       })));
   } else if (invItem) {
     // 已入库那件东西的几个动词（她 2026-09-05：「送了收到了没用了」）。

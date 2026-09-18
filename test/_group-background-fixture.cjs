@@ -50,6 +50,9 @@ const collector = cut(app, '  const groupBackgroundFor =', '  const ctxForGroupO
 const now = cut(app, '  const groupNowSegs =', '  // 这位成员最近和用户的单聊');
 const formatter = cut(engine, 'function groupBackgroundSegments(', 'function groupPersonaText(');
 function wire(env) {
+  // v70.61 起钱都过 moneyText（一人一个币种，js/money.js）。桩按【没设过币种】那一档来，
+  // 也就是人民币原样——这些用例验的不是钱怎么写，是那几段有没有拼进去。
+  if (!env.moneyText) env.moneyText = (n, id) => "¥" + n;
   env.liveStateContext = evaluate(cut(app, "  const liveStateContext =", "  // 心声历史："), env, "liveStateContext");
   env.wishRef = {current:[]};
   env.wishFor = evaluate(cut(app, "  const wishFor =", "  const onMeFor ="), env, "wishFor");

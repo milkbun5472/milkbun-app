@@ -17,7 +17,7 @@ test("不再是一句加括号的话，而是一张申请单", () => {
   assert.match(comp, /if \(m\.kind === "kinraise"\) return h\(KinshipRaiseCard/);
   // 该说清的四件事：谁的卡、现在多少、想加多少、批没批
   assert.match(card, /Avatar/);
-  assert.match(card, /"现在 ¥" \+ \(m\.limit \|\| 0\)/);
+  assert.match(card, /"现在 " \+ mTight\(m\.limit \|\| 0, c && c\.id\)/);
   assert.match(card, /m\.ask/);
   assert.match(card, /m\.status \|\| "pending"/);
 });
@@ -37,7 +37,7 @@ test("调用失败也要落个状态，不许永远挂着「等他回话」", ()
 test("四种状态各说各的话，不是只换个颜色", () => {
   ["approved", "declined", "failed", "pending"].forEach(k =>
     assert.ok(card.indexOf(k) > 0, "少了状态：" + k));
-  assert.match(card, /"已加 ¥" \+ \(m\.add \|\| 0\) \+ " · 现在额度 ¥" \+ \(m\.newLimit \|\| 0\)/,
+  assert.match(card, /"已加 " \+ mTight\(m\.add \|\| 0, c && c\.id\) \+ " · 现在额度 " \+ mTight\(m\.newLimit \|\| 0, c && c\.id\)/,
     "批了要说清加了多少、现在多少");
   // 色弱和阳光下只剩形状/文字可依：不许只靠 fc 那个色差区分
   assert.match(card, /const foot = /);
@@ -54,7 +54,8 @@ test("他下一轮读得懂这张单子，也知道自己批了没有", () => {
   const line = ser.slice(i, i + 520);
   assert.ok(i > 0, "序列化里没这一支");
   assert.ok(line.includes("这是 Ta 按的一个申请，不是 Ta 说的一句话"));
-  assert.ok(line.includes("你加了 ¥") && line.includes("你没有加"), "结果也要带给他");
+  // v70.61：金额过 moneyText（一人一个币种），所以钉的是【这句话还在说结果】，不是那个 ¥ 字
+  assert.ok(line.includes('你加了 " + moneyText(m.add') && line.includes("你没有加"), "结果也要带给他");
   assert.ok(line.includes("让你看着办"), "没说数目那一档");
 });
 

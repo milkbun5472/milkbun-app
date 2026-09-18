@@ -10,7 +10,7 @@ test('心愿清单所有入口共用最新八条；单人措辞、旁观身份�
  assert.match(env.wishLine(text,'我',{group:true,gift:true}),/填 gift/);
  assert.doesNotMatch(env.wishLine(text,'我',{group:true,gift:false}),/填 gift/);
  env.wishRef.current=[];assert.equal(env.wishLine(env.wishFor(),'我',{group:true}),'');
- assert.match(app,/wishLog: !settingsFor\(char.id\).engineerEyes \? wishFor\(\) : ""/);
+ assert.match(app,/wishLog: !settingsFor\(char.id\).engineerEyes \? wishFor\(char\.id\) : ""/);
  assert.match(app,/wishLog: wishFor\(\)/);
  assert.match(engine,/wishLine\(ctx.wishLog, userName, \{ group: true, gift: false \}\)/);
 });
