@@ -84,7 +84,9 @@ test("灯会写在日历、今天想做的、季节手册上，前三天就提�
   assert.match(html, /<dialog id="festival-dialog">/); assert.match(html, /<div id="season-festival" class="festival"/);
   assert.match(book, /const f=festivalBook\(s\),box=\$\('season-festival'\)/);
   assert.match(lake, /if\(lamp\.where==='deck'\)g\.position\.set\(12\.3\+i\*\.26\+drift\*\.4,/);
-  assert.match(keep, /export const isKeepsake=t=>\['dreamflower','repairedrelic','festivallantern'\]\.includes\(t\?\.recipe\);/);
+  // ⚠️2026-09-18 起【每一样摆上去的东西都有模型】（她：「是真的有模型摆上去吗」）：
+  //   这三样各有各的样子，别的按它出自井里的哪一类给一个小物件。
+  assert.match(keep, /\['dreamflower','repairedrelic','festivallantern'\]\.includes\(t\.recipe\)\|\|!!KIND_FORM\[t\.kind\]/);
   assert.match(keep, /t\.recipe==='festivallantern'\?makeLantern\(\)/);
 });
 
