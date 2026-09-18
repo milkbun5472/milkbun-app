@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.72";
+const APP_VERSION = "v70.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2389,7 +2389,11 @@ function App() {
     //   而且这一处永远落后（她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
     //   所以这儿只负责【把她送到那一页】，房间由那一页按她设的建。
     roomPresetIntentRef.current = "garden";
-    setActiveChar(who); setActiveRoomId("main"); setScreen("thread");
+    // ⚠️不切屏：房间面板是画在外壳上的，哪一屏都盖得住。原来这儿先 setScreen("thread")，
+    //   于是设定页出来之前先闪一眼主聊天，点了「算了」还被丢在主聊天上——
+    //   她是从庭院过来的，取消就该还在庭院里（她 2026-09-18 报的就是这个）。
+    //   建好之后才去那间房，那一步在下面 onSelect 里。
+    setActiveChar(who);
     // 本来就在这一位身上时那个 effect 不会跑，所以这儿也直接开一次
     setChatRoomsPreset("garden"); setChatRoomsOpen(true);
     toast("先给这间庭院房定好设定，建好就进去");
@@ -23198,7 +23202,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onCreateRoom: createChatRoomFromStart,
     onClearRoom: clearChatRoomRecords,
     initialPreset: chatRoomsPreset,
-    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) { setChatRoomsOpen(false); setChatRoomsPreset(""); } },
+    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) { if (chatRoomsPreset) setScreen("thread"); setChatRoomsOpen(false); setChatRoomsPreset(""); } },
     onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
