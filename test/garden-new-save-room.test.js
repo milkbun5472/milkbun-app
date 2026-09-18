@@ -87,9 +87,8 @@ test("从游戏开新档不切屏：设定页浮在庭院上面，不先闪一�
   assert.doesNotMatch(make, /setScreen\("thread"\);\s*\n?\s*\/\/ 本来就在这一位身上/, "又在设定页之前切屏了");
   assert.match(make, /⚠️不切屏：房间面板是画在外壳上的/);
   // 已经有一间庭院房的那条路仍旧直接进那间房
-  // ⚠️直接 setActiveRoomId 会被换角色那个 effect 打回 main（她 2026-09-18 报了第二遍），
-  //   所以这一路改走公共的 enterRoom
-  assert.match(make, /if \(live\) \{ enterRoom\(who, live\.id\); setScreen\("thread"\); return live; \}/);
+  // ⚠️已经有一间庭院房也不抄近路进去了（她 2026-09-18 第三遍：「开新档也是跳到旧存档房间」）
+  assert.doesNotMatch(make, /if \(live\)/);
   // 建好了才去那间房
   assert.match(app, /if \(close\) \{ if \(chatRoomsPreset\) setScreen\("thread"\);/);
 });

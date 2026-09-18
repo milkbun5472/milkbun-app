@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.03";
+const APP_VERSION = "v71.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2398,11 +2398,10 @@ function App() {
     // ⚠️setActiveChar 存的是【角色对象】不是 id（上面那段注释说的就是它）
     const who = (characters || []).find(c => c && String(c.id) === String(charId));
     if (!who) { toast("找不到这一位"); return null; }
-    const live = Kit.list(charId).find(r => r && !r.main && r.garden);
-    // ⚠️换角色那个 effect 会把 activeRoomId 打回 "main"：只 setActiveRoomId 的话，
-    //   她点开的是庭院房、落地的却是主聊天（她 2026-09-18 报的第二遍就是这个）。
-    //   带房间进屋只有一处机制——通知那条路留下的这个 ref，照它走，不另写一份。
-    if (live) { enterRoom(who, live.id); setScreen("thread"); return live; }
+    // ⚠️她 2026-09-18（第三遍）：「我有别的存档开新档也是跳到旧存档房间」。
+    //   原来这儿先找一间已有的庭院房、有就直接进去——可这一路的名字就叫【新开一档】，
+    //   而一间房＝一个庭院存档：跳进旧那间，等于她要的那一档根本没开出来，
+    //   设定也一次都没让她设。已经有的那几间从房间列表进，不从这儿抄近路。
     // ⚠️不许在这儿照着 PRESETS 自己拼一份房间悄悄建掉：那样她一次都设不了权限，
     //   而「房间要能在创建的时候就设权限」是她 2026-09-17 点名要的，别处已经做到了。
     //   同一件事在这儿另走一条路＝同一层活在两处（施工规则/one-public-mechanism.md），

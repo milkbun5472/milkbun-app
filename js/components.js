@@ -14815,11 +14815,19 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // （她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
   // ⚠️这两个 hook 必须排在下面那个提前 return 【前面】：排在后面就是 React #310 白屏。
   const presetStarted = useRef(false);
+  // ⚠️同一位可以有好几间庭院房（一间房＝一个庭院存档），名字重了她自己分不出哪间是哪间。
+  //   开新房间只有这两处（预设进来的、和下面 add 那颗按钮），两处都从这儿取名。
+  const freshName = label => {
+    const used = new Set((Kit ? Kit.list(character.id) : []).map(r => r && r.name));
+    if (!used.has(label)) return label;
+    let n = 2; while (used.has(label + " " + n)) n++;
+    return label + " " + n;
+  };
   useEffect(() => {
     if (presetStarted.current || !initialPreset || !Kit || !Kit.PRESETS[initialPreset]) return;
     presetStarted.current = true;
     const p = Kit.PRESETS[initialPreset];
-    const d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset: initialPreset,
+    const d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: freshName(p.label), preset: initialPreset,
       ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
   }, [initialPreset]);
@@ -14874,7 +14882,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     return saved;
   };
   const add = preset => {
-    const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
+    const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: freshName(p.label), preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
   };
 
