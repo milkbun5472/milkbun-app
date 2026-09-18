@@ -1,7 +1,14 @@
-import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks,festivalBook} from './world.mjs?v=fg-5d2ce0321b5107f9';
+import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks,festivalBook,villageRules} from './world.mjs?v=fg-2b31fc9769f83a61';
 // This book renders saved plans and local facts; opening it never calls a model.
 export function installSeasonBook({getState,getHost,refresh}){
  const $=id=>document.getElementById(id),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};let busy=false,lastScroll=0;
+ // 两条丝带书签（她 2026-09-18：「简易版攻略」→「村里的规矩」）：第一次翻开落在规矩页，之后落在日历。
+ // ⚠️「看过没有」只是这台设备的小方便，存 localStorage；读不到就当没看过（隐私窗口、清过数据都会这样）
+ const SEEN='fairy-garden-rules-seen';let page=(()=>{try{return localStorage.getItem(SEEN)?'calendar':'rules';}catch(e){return 'rules';}})();
+ function showPage(next){page=next;$('season-page-calendar').hidden=page!=='calendar';$('season-page-rules').hidden=page!=='rules';for(const [id,key] of [['season-tab-calendar','calendar'],['season-tab-rules','rules']]){const b=$(id);b.classList.toggle('on',page===key);b.setAttribute('aria-selected',String(page===key));}
+  if(page==='rules'){try{localStorage.setItem(SEEN,'1');}catch(e){}}}
+ $('season-tab-calendar').onclick=()=>showPage('calendar');$('season-tab-rules').onclick=()=>showPage('rules');
+ function drawRules(){const box=$('season-rules');box.replaceChildren();for(const r of villageRules()){const row=el('div');row.className='rule';row.append(el('b',r.head),el('span',r.text));box.append(row);}}
  function recordFor(host,day){try{return host?.planState(day);}catch(e){return {status:'failed',error:e.message};}}
  function draw(){const s=getState(),season=seasonOf(s.day),host=getHost(),record=recordFor(host,s.day),plan=record?.plan,body=$('season-days'),scroller=$('season-dialog').querySelector('.book-body'),scroll=$('season-dialog').open?scroller.scrollTop:lastScroll;
  $('season-title').textContent=`第 ${season.year} 年 · ${season.name}季`;
@@ -22,7 +29,7 @@ export function installSeasonBook({getState,getHost,refresh}){
  const journal=$('garden-journal');journal.replaceChildren();for(const entry of [...s.journal].reverse().slice(0,30)){const when=seasonOf(entry.day);journal.append(el('p',`第 ${when.year} 年 ${when.name} ${when.day} 日 · ${journalText(entry)}`));}if(!s.journal.length)journal.append(el('p','睡到明天后，这一天真实发生的采集和制作会留在这里。显示最近 30 天，存档保留最近 120 天。'));
  scroller.scrollTop=scroll;
  }
- $('season-open').onclick=()=>{draw();$('season-dialog').showModal();$('season-dialog').querySelector('.book-body').scrollTop=lastScroll;};const rememberScroll=()=>{lastScroll=$('season-dialog').querySelector('.book-body').scrollTop;};$('season-close').onclick=()=>{rememberScroll();$('season-dialog').close();};$('season-dialog').addEventListener('cancel',rememberScroll);
+ $('season-open').onclick=()=>{draw();drawRules();showPage(page);$('season-dialog').showModal();$('season-dialog').querySelector('.book-body').scrollTop=lastScroll;};const rememberScroll=()=>{lastScroll=$('season-dialog').querySelector('.book-body').scrollTop;};$('season-close').onclick=()=>{rememberScroll();$('season-dialog').close();};$('season-dialog').addEventListener('cancel',rememberScroll);
  $('season-generate').onclick=async()=>{if(busy)return;const host=getHost();if(!host?.planSeason){$('season-error').textContent='从小手机进入并选择角色，就能一起安排这一季。';return;}busy=true;draw();try{await host.planSeason(!!recordFor(host,getState().day));refresh();}catch(e){$('season-error').textContent=e.message;}$('season-generate').disabled=false;busy=false;const message=$('season-error').textContent;draw();if(message&&!$('season-error').textContent)$('season-error').textContent=message;};
  return {draw};
 }

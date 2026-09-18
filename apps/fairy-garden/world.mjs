@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-5d2ce0321b5107f9';
-import {brewError,brewResult} from './brewing.mjs?v=fg-5d2ce0321b5107f9';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-5d2ce0321b5107f9';
-import './rules.js?v=fg-5d2ce0321b5107f9';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-2b31fc9769f83a61';
+import {brewError,brewResult} from './brewing.mjs?v=fg-2b31fc9769f83a61';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-2b31fc9769f83a61';
+import './rules.js?v=fg-2b31fc9769f83a61';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-5d2ce0321b5107f9';
+import {createNavigator} from './navigation.mjs?v=fg-2b31fc9769f83a61';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1060,6 +1060,29 @@ export function festivalBook(s){
   const season = seasonOf(s.day);
   return { day: FESTIVAL_DAY, tonight: festivalDay(s.day), open: festivalOpen(s), done: festivalDone(s), next: nextFestival(s.day), season: season.name,
     needs: FESTIVAL_NEEDS.map(n => ({ id: n.id, label: n.label, hint: n.hint, have: n.have(s) })), ready: festivalReady(s), held: restoreFestivals(s.festivals).length };
+}
+// ── 村里的规矩（她 2026-09-18：「要不要写一份简易版攻略」→ 写规律，不写结果）────────
+// ⚠️只写【规律】，不写【结果】：写「集市每季 4、8、12 日」，不写奇物摊上有什么；写「星图攒够六片夜里去旧塔」，
+//   不写那一夜发生什么——让她自己撞见才好玩。
+// ⚠️数字一个都不手写：全从这个文件里的表取（MARKET_EVERY、NIGHT_MARKET_DAYS、FESTIVAL_DAY、SEED_DAYS、
+//   GIFT_PER_DAY、BOND_TIERS……），规则改了这一页自己跟着变，不会像 README 那样写死过时。零调用。
+export function villageRules(){
+  const m = k => ACTION_MINUTES[k], days = Array.from({ length: 14 }, (_, i) => i + 1);
+  return [
+    { head: '一天', text: '从早上七点到夜里十一点。做事都花时间：取水 ' + m('well') + ' 分、采集 ' + m('gather') + ' 分、炼露 ' + m('brew') + ' 分、做东西 ' + m('craft') + ' 分、念咒 ' + m('cast') + ' 分。天黑了还在做，会自己睡到明天。' },
+    { head: '一季', text: '十四天，一年四季，天气每天不一样。这一季哪天有事，看手册最上面那张日历。' },
+    { head: '花圃', text: '一壶水浇三次，开了采三朵月光花。想问他什么，就在花圃种下一句，' + SEED_DAYS + ' 天开花。星铃花三天没浇会蔫，浇一次救回来。' },
+    { head: '公告栏', text: '每 ' + QUEST_CYCLE + ' 天换一次板子，一次最多接 ' + QUEST_TAKEN_MAX + ' 件。做完交了才有功绩；到期没交会撕掉，委托人是邻居的话交情退。' },
+    { head: '集市', text: '每季 ' + days.filter(d => marketDay(d)).join('、') + ' 日开，功绩就是钱。每次上摊的货不一样。' },
+    { head: '夜市', text: '每季 ' + NIGHT_MARKET_DAYS.join('、') + ' 日天黑后开，卖吃的和做法；功绩不够拿材料换。篮子最多装 ' + PANTRY_CAP + ' 样。吃过的记进食谱册，他在跟前就是一起吃的；会做的在自己家灶台上做。' },
+    { head: '灯会', text: '每季第 ' + FESTIVAL_DAY + ' 天晚上，在月潭栈桥。要带' + FESTIVAL_NEEDS.map(n => n.label).join('、') + '，两个人一起放。攒不齐就等下一季。' },
+    { head: '递东西', text: '走到他身边递，一天只递 ' + GIFT_PER_DAY + ' 样。递过一类，才知道他对这一类是什么态度；第一次接过时他说的话记在礼物簿里。' },
+    { head: '相处册', text: '按一起做过几种不同的事算，不按次数：' + BOND_TIERS.map(([n, l]) => l + '（' + n + ' 种）').join(' → ') + '。处熟了，他愿意陪你去的地方更多。' },
+    { head: '井', text: '从屋边那口井下去，往下最多 ' + DEPTH_MAX + ' 层，石头里有东西。井纹残片第 ' + STAR_CHART_FROM + ' 颗以后每一颗是一片星图，攒够 ' + STAR_CHART_NEED + ' 片，夜里两个人去旧塔。雨雪天下井慢，喝过热汤就不慢。' },
+    { head: '漂流瓶', text: '在月潭边捞。写下的瓶子 ' + BOTTLE_DAYS + ' 天到；放水灯时留的那句，哪天也会漂回来。' },
+    { head: '邻居', text: '村里有 ' + NEIGHBOR_HOUSES.length + ' 间邻居屋，请谁住进来，谁就在村里过自己的日子。走近了能挥手、递东西、说句话；处得近了公告栏上才落他们的名字。夜市那两晚他们是摊主。' },
+    { head: '他', text: '他有自己的日程，也会约你、送你东西、拒绝你。行动栏里能叫他一起走、跟着他走；地图上点一处，他会带你走过去。薄雾天远处看不清。' }
+  ];
 }
 export const COLLECTION_CAP = 200;
 export function restoreCollection(raw){

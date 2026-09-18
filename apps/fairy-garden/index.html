@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-5d2ce0321b5107f9"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-5d2ce0321b5107f9"}}</script></head><body>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-2b31fc9769f83a61"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-2b31fc9769f83a61"}}</script></head><body>
 <main id="app"><canvas id="world" aria-label="轻点空地行走，拖动移动视角，双指缩放，点击植物互动" tabindex="0"></canvas>
 <header><h1 id="place-title">微光庭院</h1><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
 <aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div></aside>
@@ -64,6 +64,7 @@
 </dialog>
 <dialog id="season-dialog" class="season-dialog">
 <div class="dialog-title"><h2 id="season-title">这一季</h2><button id="season-close" aria-label="关闭季节手册">×</button></div>
-<div class="book-body"><p id="season-summary"></p><div id="season-calendar" class="calendar" aria-label="这一季的日历"></div><div id="season-festival" class="festival" aria-label="换季那晚的灯会"></div><button id="season-generate">一起安排这一季</button><p id="season-policy" class="time-note"></p><p id="season-error" role="alert"></p><details id="season-raw" hidden><summary>查看原始回复</summary><pre id="season-error-detail"></pre></details>
-<h3>这十四天</h3><div id="season-days"></div><h3>花谱与小灯</h3><p id="flower-book"></p><p id="flower-recipe"></p><h3>庭院日志</h3><div id="garden-journal"></div></div></dialog>
-</main><script type="module" src="game.mjs?v=fg-5d2ce0321b5107f9"></script></body></html>
+<div class="ribbons" role="tablist" aria-label="手册的两条书签"><button class="ribbon" id="season-tab-calendar" role="tab">这一季</button><button class="ribbon" id="season-tab-rules" role="tab">村里的规矩</button></div>
+<div class="book-body"><div id="season-page-calendar"><p id="season-summary"></p><div id="season-calendar" class="calendar" aria-label="这一季的日历"></div><div id="season-festival" class="festival" aria-label="换季那晚的灯会"></div><button id="season-generate">一起安排这一季</button><p id="season-policy" class="time-note"></p><p id="season-error" role="alert"></p><details id="season-raw" hidden><summary>查看原始回复</summary><pre id="season-error-detail"></pre></details>
+<h3>这十四天</h3><div id="season-days"></div><h3>花谱与小灯</h3><p id="flower-book"></p><p id="flower-recipe"></p><h3>庭院日志</h3><div id="garden-journal"></div></div><div id="season-page-rules" hidden><p class="rules-lead">村里怎么过日子，都在这一页。只写规律，不写会遇上什么——那些自己撞见才好。</p><div id="season-rules" class="rules"></div></div></div></dialog>
+</main><script type="module" src="game.mjs?v=fg-2b31fc9769f83a61"></script></body></html>

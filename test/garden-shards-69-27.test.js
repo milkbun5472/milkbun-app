@@ -76,10 +76,16 @@ test('花册那几格长成册子的索引签，不是一排药丸、也不是�
   assert.match(host, /\[\["notes", "花册",/);
   assert.doesNotMatch(host, /borderBottom: "2px solid " \+ \(bookTab === k \? G\.deep : "transparent"\)/,
     '下划线那版已经换掉了');
-  assert.match(host, /borderRadius: "11px 11px 0 0"/, '上圆下方，贴着页边');
-  // 选中态不只靠颜色：高度、纸色、底下那条缝三样一起变（色弱和阳光下只剩形状可依）
-  assert.match(host, /padding: on \? "12px 0 13px" : "8px 0 9px"/);
-  assert.match(host, /borderBottom: on \? "1px solid " \+ G\.paper/);
+  // v71.23 再改一次：横排七张挤成一排药丸、最后一张还被挤出屏幕（她 2026-09-18 截图），
+  //   换成册子右边伸出来的一列竖排索引签：每张一个色、选中那张纸色、跟页面连成一片、往外拉出来
+  assert.match(host, /writingMode: "vertical-rl"/, '竖排索引签');
+  assert.match(host, /borderRadius: "10px 0 0 10px"/, '左圆右方，贴着右页边');
+  // 选中态不只靠颜色：位置、宽度、纸色、连不连着页面四样一起变（色弱和阳光下只剩形状可依）
+  assert.match(host, /transform: on \? "translateX\(0\)" : "translateX\(7px\)"/);
+  assert.match(host, /minWidth: on \? 44 : 38/);
+  assert.match(host, /borderLeft: on \? "1px solid " \+ G\.paper/);
+  assert.match(host, /position: "sticky", top: headH \+ 10, height: 0/, '跟着页面滚也钉在右上');
+  assert.match(host, /padding: "16px 54px 40px 16px"/, '页面右边给索引签让出位置');
   assert.match(host, /越深的只是越完整、越奇怪，不是越沉重/);
 });
 
