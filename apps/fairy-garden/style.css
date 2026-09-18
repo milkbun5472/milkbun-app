@@ -227,3 +227,15 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
 body.embedded dialog{position:fixed;left:0;right:0;top:calc(var(--head-clear,0px) + 8px);bottom:8px;margin:auto;
  max-height:calc(100dvh - var(--head-clear,0px) - 16px)}
 body.embedded .companion-dialog,body.embedded .season-dialog{top:var(--head-clear,0px);bottom:0;margin:0;height:auto;max-height:none}
+
+/* 去别处的那个口子在地上看不出来（她 2026-09-18：「萤光林地的入口在哪儿啊」「做一个入口吧」）。
+   ⚠️不动模型：在那个点上立一块【路牌】，位置和同行者名字牌同一套算法（世界坐标投到屏幕）。
+   点它＝行动栏「前往…」那一颗，走的是同一个 request('travel')，不另开一条路。 */
+.exit-tag{position:absolute;transform:translate(-50%,-100%);display:flex;align-items:center;gap:5px;
+ min-height:34px;padding:7px 12px;border:1px solid #ffffffb0;border-radius:999px;
+ background:#fffdf0e8;color:#4c6b4f;font-size:11.5px;white-space:nowrap;
+ box-shadow:0 5px 16px #2c3f2620;z-index:5}
+.exit-tag[hidden]{display:none}
+.exit-tag:disabled{opacity:.5}
+/* ⚠️第一天不许藏：头一天她最需要有人指路（travel 本来就在 FIRST_DAY_KEEP 里） */
+body.chatting .exit-tag{display:none}
