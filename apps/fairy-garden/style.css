@@ -32,7 +32,7 @@ body.forest .panel{background:#f5f8ecef}body.forest .badge{background:#dae8d6}bo
 @media(max-width:600px){.companion-strip{font-size:10px;margin-top:6px;min-height:31px;padding:4px 6px}.companion-more{font-size:8px}.companion-dialog{padding:18px}.narration{min-height:32px}.weather small{font-size:8px}.weather button{min-height:36px}}
 @media(max-height:720px) and (max-width:600px){.companion-strip{min-height:29px;margin-top:5px}.narration{min-height:30px;margin:5px 0}.bag{margin-top:5px}.companion-dialog{max-height:90dvh}.companion-dialog li{padding:4px 6px}}
 
-body.embedded header{display:none}body.embedded .weather{top:calc(10px + var(--head-clear,0px));left:16px}body.embedded .panel{bottom:calc(6px + env(safe-area-inset-bottom) * .4)}body.embedded .hint{display:none}body.chatting .panel{visibility:hidden;pointer-events:none}body.chatting #companion-tag{display:none}body.embedded .companion-dialog{width:100%;max-width:none;height:100%;max-height:none;border:0;border-radius:0;margin:0;padding:20px;overflow-y:auto}body.embedded .companion-dialog .dialog-title{position:sticky;top:-20px;background:#fffdf1;z-index:1;padding:8px 0}#host-partner{width:100%;margin-top:10px}#host-talk{background:#dae7ce}
+body.embedded header{display:none}body.embedded .weather{top:calc(10px + var(--head-clear,0px));left:16px}body.embedded .panel{bottom:calc(6px + env(safe-area-inset-bottom) * .4)}body.embedded .hint{display:none}body.chatting .panel{visibility:hidden;pointer-events:none}body.chatting #companion-tag{display:none}body.embedded .companion-dialog{width:100%;max-width:none;height:100%;max-height:none;border:0;border-radius:0;margin:0;padding:20px;overflow-y:auto}body.embedded .companion-dialog .dialog-title{position:sticky;top:-20px;background:#fffdf1;z-index:1;padding:8px 0}#host-partner{width:100%;margin-top:10px}#companion-give{width:100%;margin-top:10px;background:#e4ecdc;color:#48694f}#companion-give[hidden]{display:none}#host-talk{background:#dae7ce}
 
 /* One compact handle remains reachable when the action content is folded. */
 .panel{padding-top:0;max-height:min(var(--panel-cap),calc(100% - 100px));display:flex;flex-direction:column;overflow:hidden}
@@ -221,5 +221,9 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
    <dialog> 开在这个 iframe 自己的顶层里，z-index 再高也追不上父页面那条栏——
    所以让开这件事只能由这边做：弹窗自己往下挪，标题和那颗 × 不许压在栏底下
    （她 2026-09-18：「你把顶部拆掉后实际页面滑太上去了点不到了」）。 */
-body.embedded dialog{margin-top:calc(var(--head-clear,0px) + 8px);max-height:calc(100dvh - var(--head-clear,0px) - 16px)}
-body.embedded .companion-dialog,body.embedded .season-dialog{margin-top:var(--head-clear,0px);height:calc(100% - var(--head-clear,0px));max-height:none}
+/* ⚠️让开归让开，小窗还是要【在剩下那块地方的正中】（她 2026-09-18：「这个太高了」）：
+   只压一个 margin-top 的话，所有弹窗都被顶到最上边去了。改成把可用的那一块
+   （顶栏底下到屏幕底）用 inset 圈出来，再 margin:auto 在里面居中。 */
+body.embedded dialog{position:fixed;left:0;right:0;top:calc(var(--head-clear,0px) + 8px);bottom:8px;margin:auto;
+ max-height:calc(100dvh - var(--head-clear,0px) - 16px)}
+body.embedded .companion-dialog,body.embedded .season-dialog{top:var(--head-clear,0px);bottom:0;margin:0;height:auto;max-height:none}

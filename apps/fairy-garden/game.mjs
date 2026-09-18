@@ -1,42 +1,42 @@
-import {festivalDay,festivalOpen,festivalError,festivalMissing,festivalDone,holdFestival,festivalBook,atFestival,seatsOf,SEAT_KINDS,FOODS,RECIPE_COST,BAG_LABELS,foodOf,recipeOf,nightMarketDay,nightMarketOpen,nextNightMarket,nightStock,vendorAt,vendorOfFood,vendorSpot,VENDOR_STALLS,foodError,foodPay,foodLabel,buyFood,eatError,eat,cookError,cook,foodBook,restorePantry,giftOptions,giftError,giveGift,giftBook,bondBook,companionDestinations,himGiveError,himGive,inviteError,invite,inviteMet,keepInvite,refuse,neighborNear,NEIGHBOR_REACH,neighborTalkError,noteNeighborTalk,neighborView,neighborWaveError,waveAtNeighbor,neighborGiftError,giveToNeighbor,neighborPairs,NEIGHBOR_HAND,MARKET_GOODS,marketOpen,atMarket,marketError,buy,starNightReady,keepStarNight,starChartPieces,STAR_CHART_NEED,spendTime,ACTION_MINUTES,guideStep,guideTarget,guideAdvance,guideSaid,markGuideSaid,setGuide,restoreGuide,todayHints,calendarMarks,marketDay,nextMarketDay,marketStock,marketGood,isBirthday} from './world.mjs?v=fg-d5a4a2b08c894730';
-import {actionGesture,actionDuration,makeHeldFlower} from './doll-life.mjs?v=fg-d5a4a2b08c894730';
-import {mergeLook,outfitColors,outfitId,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-d5a4a2b08c894730';
-import {repairError} from './world.mjs?v=fg-d5a4a2b08c894730';
-import {makeCurio} from './curio-view.mjs?v=fg-d5a4a2b08c894730';
-import {makePlacedKeepsakes} from './keepsake-view.mjs?v=fg-d5a4a2b08c894730';
-import {growingDreams,dreamStage,dreamError,SEED_PLOTS} from './world.mjs?v=fg-d5a4a2b08c894730';
-import {makeDreamGarden} from './dream-view.mjs?v=fg-d5a4a2b08c894730';
-import {WELL_CURIOS,WELL_KITS,wellTide,wellContext,chooseWellKit,shardName} from './world.mjs?v=fg-d5a4a2b08c894730';
-import {makeWellSigns} from './well-view.mjs?v=fg-d5a4a2b08c894730';
-import {makeExcavatingView} from './excavating-view.mjs?v=fg-d5a4a2b08c894730';
-import {makeStarChartView} from './starchart-view.mjs?v=fg-d5a4a2b08c894730';
-import {makeMarketView} from './market-view.mjs?v=fg-d5a4a2b08c894730';
-import {villagePlan,installMapZoom} from './village-map.mjs?v=fg-d5a4a2b08c894730';
-import {makeRitualView} from './ritual-view.mjs?v=fg-d5a4a2b08c894730';
-import {makeScoopingView} from './scooping-view.mjs?v=fg-d5a4a2b08c894730';
-import {weatherLook} from './weather-look.mjs?v=fg-d5a4a2b08c894730';
-import {BREWS,brewKey} from './brewing.mjs?v=fg-d5a4a2b08c894730';
-import {makeBrewingView} from './brewing-view.mjs?v=fg-d5a4a2b08c894730';
-import {MILL_RECIPES,materialLine,millRemaining,millError} from './workshop.mjs?v=fg-d5a4a2b08c894730';
-import {makeWorkshopView} from './workshop-view.mjs?v=fg-d5a4a2b08c894730';
-import {openingTag} from './opening-view.mjs?v=fg-d5a4a2b08c894730';
-import {stepRoute} from './locomotion.mjs?v=fg-d5a4a2b08c894730';
-import {makeLakeView} from './lake-view.mjs?v=fg-d5a4a2b08c894730';
-import {makeMuseum} from './museum-view.mjs?v=fg-d5a4a2b08c894730';
-import {museumCaption} from './museum.mjs?v=fg-d5a4a2b08c894730';
-import {makeOutdoor} from './outdoor.mjs?v=fg-d5a4a2b08c894730';
-import {installSeasonBook} from './season-book.mjs?v=fg-d5a4a2b08c894730';
-import {makeMagicView} from './magic-view.mjs?v=fg-d5a4a2b08c894730';
-import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-d5a4a2b08c894730';
+import {festivalDay,festivalOpen,festivalError,festivalMissing,festivalDone,holdFestival,festivalBook,atFestival,seatsOf,SEAT_KINDS,FOODS,RECIPE_COST,BAG_LABELS,foodOf,recipeOf,nightMarketDay,nightMarketOpen,nextNightMarket,nightStock,vendorAt,vendorOfFood,vendorSpot,VENDOR_STALLS,foodError,foodPay,foodLabel,buyFood,eatError,eat,cookError,cook,foodBook,restorePantry,giftOptions,giftError,giveGift,giftBook,bondBook,companionDestinations,himGiveError,himGive,inviteError,invite,inviteMet,keepInvite,refuse,neighborNear,NEIGHBOR_REACH,neighborTalkError,noteNeighborTalk,neighborView,neighborWaveError,waveAtNeighbor,neighborGiftError,giveToNeighbor,neighborPairs,NEIGHBOR_HAND,MARKET_GOODS,marketOpen,atMarket,marketError,buy,starNightReady,keepStarNight,starChartPieces,STAR_CHART_NEED,spendTime,ACTION_MINUTES,guideStep,guideTarget,guideAdvance,guideSaid,markGuideSaid,setGuide,restoreGuide,todayHints,calendarMarks,marketDay,nextMarketDay,marketStock,marketGood,isBirthday} from './world.mjs?v=fg-5d2ce0321b5107f9';
+import {actionGesture,actionDuration,makeHeldFlower} from './doll-life.mjs?v=fg-5d2ce0321b5107f9';
+import {mergeLook,outfitColors,outfitId,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-5d2ce0321b5107f9';
+import {repairError} from './world.mjs?v=fg-5d2ce0321b5107f9';
+import {makeCurio} from './curio-view.mjs?v=fg-5d2ce0321b5107f9';
+import {makePlacedKeepsakes} from './keepsake-view.mjs?v=fg-5d2ce0321b5107f9';
+import {growingDreams,dreamStage,dreamError,SEED_PLOTS} from './world.mjs?v=fg-5d2ce0321b5107f9';
+import {makeDreamGarden} from './dream-view.mjs?v=fg-5d2ce0321b5107f9';
+import {WELL_CURIOS,WELL_KITS,wellTide,wellContext,chooseWellKit,shardName} from './world.mjs?v=fg-5d2ce0321b5107f9';
+import {makeWellSigns} from './well-view.mjs?v=fg-5d2ce0321b5107f9';
+import {makeExcavatingView} from './excavating-view.mjs?v=fg-5d2ce0321b5107f9';
+import {makeStarChartView} from './starchart-view.mjs?v=fg-5d2ce0321b5107f9';
+import {makeMarketView} from './market-view.mjs?v=fg-5d2ce0321b5107f9';
+import {villagePlan,installMapZoom} from './village-map.mjs?v=fg-5d2ce0321b5107f9';
+import {makeRitualView} from './ritual-view.mjs?v=fg-5d2ce0321b5107f9';
+import {makeScoopingView} from './scooping-view.mjs?v=fg-5d2ce0321b5107f9';
+import {weatherLook} from './weather-look.mjs?v=fg-5d2ce0321b5107f9';
+import {BREWS,brewKey} from './brewing.mjs?v=fg-5d2ce0321b5107f9';
+import {makeBrewingView} from './brewing-view.mjs?v=fg-5d2ce0321b5107f9';
+import {MILL_RECIPES,materialLine,millRemaining,millError} from './workshop.mjs?v=fg-5d2ce0321b5107f9';
+import {makeWorkshopView} from './workshop-view.mjs?v=fg-5d2ce0321b5107f9';
+import {openingTag} from './opening-view.mjs?v=fg-5d2ce0321b5107f9';
+import {stepRoute} from './locomotion.mjs?v=fg-5d2ce0321b5107f9';
+import {makeLakeView} from './lake-view.mjs?v=fg-5d2ce0321b5107f9';
+import {makeMuseum} from './museum-view.mjs?v=fg-5d2ce0321b5107f9';
+import {museumCaption} from './museum.mjs?v=fg-5d2ce0321b5107f9';
+import {makeOutdoor} from './outdoor.mjs?v=fg-5d2ce0321b5107f9';
+import {installSeasonBook} from './season-book.mjs?v=fg-5d2ce0321b5107f9';
+import {makeMagicView} from './magic-view.mjs?v=fg-5d2ce0321b5107f9';
+import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-5d2ce0321b5107f9';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-d5a4a2b08c894730';
-import {makeSurroundings} from './surroundings.mjs?v=fg-d5a4a2b08c894730';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-d5a4a2b08c894730';
-import {millAction,millAt,islandLightError,floatIslandLight,START,MAPS,NODES,gestureError,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,destinationChoices,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,spotsAll,spotKey,isSpot,spotLabel,spotParse,FURNITURE,furnitureAtPoint,approachSpot,lookText,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,keepBottleReply,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,PAIR_WATCH,pairTalkError,pairView,notePairTalk,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,bottleBook,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,walkSpeedFor,STAR_SPOTS,STAR_ROLES,starError,takeStarRole,starLeave,starLive,starOther,turnStar,starGap,starReading,starAligned,alignStar,starDone,restoreStar,setNeighborDoor} from './world.mjs?v=fg-d5a4a2b08c894730';
-import {makeForest} from './forest.mjs?v=fg-d5a4a2b08c894730';
-import {makeDepths} from './depths.mjs?v=fg-d5a4a2b08c894730';
-import {createTraveler} from './traveler.mjs?v=fg-d5a4a2b08c894730';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-d5a4a2b08c894730';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-5d2ce0321b5107f9';
+import {makeSurroundings} from './surroundings.mjs?v=fg-5d2ce0321b5107f9';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-5d2ce0321b5107f9';
+import {millAction,millAt,islandLightError,floatIslandLight,START,MAPS,NODES,gestureError,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,destinationChoices,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,spotsAll,spotKey,isSpot,spotLabel,spotParse,FURNITURE,furnitureAtPoint,approachSpot,lookText,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,keepBottleReply,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,PAIR_WATCH,pairTalkError,pairView,notePairTalk,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,bottleBook,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,walkSpeedFor,STAR_SPOTS,STAR_ROLES,starError,takeStarRole,starLeave,starLive,starOther,turnStar,starGap,starReading,starAligned,alignStar,starDone,restoreStar,setNeighborDoor} from './world.mjs?v=fg-5d2ce0321b5107f9';
+import {makeForest} from './forest.mjs?v=fg-5d2ce0321b5107f9';
+import {makeDepths} from './depths.mjs?v=fg-5d2ce0321b5107f9';
+import {createTraveler} from './traveler.mjs?v=fg-5d2ce0321b5107f9';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-5d2ce0321b5107f9';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -344,7 +344,7 @@ function say(s){
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;const pose=orthographicCameraPose(cameraPan,spanY,camera.zoom,offset);camera.position.set(pose.position.x,pose.position.y,pose.position.z);camera.lookAt(pose.target.x,pose.target.y,pose.target.z);camera.far=pose.far;camera.userData.fogOffset=pose.fogOffset;camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-d5a4a2b08c894730');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;marketView.setDoll(dollSource);syncNeighbors();
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-5d2ce0321b5107f9');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;marketView.setDoll(dollSource);syncNeighbors();
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -502,7 +502,7 @@ function refreshLeisure(){trimFirstDay();
   $('neighbor-say').textContent=sayingTo?'TA 正在想…':(nb?'跟'+nb.name+'说句话':'跟邻居说句话');}
  for(const id of ['seat-tea','seat-read','seat-idle']){$(id).hidden=!data.seat;$(id).disabled=!!acting;}
  for(const kind of ['wave','stretch']){const err=gestureError(data,kind);$('gesture-'+kind).disabled=!!acting||!!err;$('gesture-'+kind).title=err;}
- $('give-flower').hidden=data.map!==data.companion.map&&!neighborNear(data,NEIGHBOR_HAND);$('give-flower').disabled=!!acting||!!giftGate();$('give-flower').title=giftGate();
+ $('give-flower').hidden=data.map!==data.companion.map&&!neighborNear(data,NEIGHBOR_HAND);$('give-flower').disabled=!!acting;$('give-flower').title=giftGate();
  $('festival').hidden=!(festivalDay(data.day)&&data.map==='garden'&&!festivalDone(data));$('festival').disabled=!!acting||!festivalOpen(data);$('festival').textContent=festivalOpen(data)?(festivalMissing(data).length?'放灯会的灯（还差'+festivalMissing(data).map(n=>n.label).join('、')+'）':'放灯会的灯'):'灯会天黑才开';$('festival').title=festivalError(data);
  $('sit-island').hidden=data.map!=='garden';$('sit-island').disabled=!!acting;
  $('sit-island').textContent=data.seat==='island'?'从小岛起身':'去小岛坐坐';
@@ -1026,6 +1026,9 @@ function watchOpenings(){if(openingMark()!==loadedMark)syncOpenings();}
 //   世界那一路是走路、天气、流式加载共用的，为了一条预览去翻它的可见性太贵了。
 // ⚠️小人还是同一个 createTraveler、同一份 doll.glb：预览里看到的就是场上那一个。
 const PREVIEW_BAND=.3;                     // 和手机那一侧那条透明窗同一个比例
+// 手机那条标题栏浮在场景上面，预览这一条也要让开它，不然小人的头被栏压住
+// （她 2026-09-18：「这个也太高了」）。⚠️还是同一个数：setHeadClear 报进来的那个。
+let headClear=0;
 const previewScene=new THREE.Scene();
 const previewCam=new THREE.OrthographicCamera(-1,1,1,-1,.1,20);
 previewCam.position.set(.9,1.5,4);previewCam.lookAt(0,.82,0);
@@ -1049,7 +1052,8 @@ function drawPreview(){
  const doll=previewDolls[previewWho];if(!doll)return;
  doll.animate(clock,{moving:false,gesture:'rest',height:.08});
  doll.root.rotation.y=Math.sin(clock*.5)*.5;
- const w=Math.max(1,innerWidth),h=Math.max(1,Math.round(innerHeight*PREVIEW_BAND)),y=innerHeight-h;
+ const clear=Math.max(0,Math.min(headClear,innerHeight*PREVIEW_BAND-60));
+ const w=Math.max(1,innerWidth),h=Math.max(1,Math.round(innerHeight*PREVIEW_BAND-clear)),y=Math.max(0,innerHeight-h-clear);
  const span=2.35,aspect=w/h;
  previewCam.left=-span*aspect/2;previewCam.right=span*aspect/2;
  previewCam.top=span/2;previewCam.bottom=-span/2;previewCam.updateProjectionMatrix();
@@ -1352,9 +1356,18 @@ function drawSchedule(){const preview=data,current=plannedActivity(preview);$('c
  const planned=!!preview.seasonPlan;
  $('companion-plan-note').hidden=planned;$('companion-plan').hidden=planned;
  if(!planned)$('companion-plan-note').textContent='这一季还没一起安排过。上面这几格是没排过时的日子——每天不一样，但不是照着 TA 的人设排的。';}
-function openCompanion(){if(!ready)return;const c=data.companion;$('companion-input').value=c.name;$('companion-input').disabled=!!boundPartner;drawSchedule();$('companion-detail').textContent=`现在在${MAPS[c.map].name}，${companionController.view().status}。${lastCompanionEvent||''}`;$('companion-follow').setAttribute('aria-pressed',c.mode==='follow');$('companion-routine').setAttribute('aria-pressed',c.mode==='routine');$('companion-wait').disabled=!!acting;$('companion-dialog').showModal();}
+function openCompanion(){if(!ready)return;const c=data.companion;$('companion-input').value=c.name;$('companion-input').disabled=!!boundPartner;drawSchedule();$('companion-detail').textContent=`现在在${MAPS[c.map].name}，${companionController.view().status}。${lastCompanionEvent||''}`;$('companion-follow').setAttribute('aria-pressed',c.mode==='follow');$('companion-routine').setAttribute('aria-pressed',c.mode==='routine');$('companion-wait').disabled=!!acting;
+ // 他在同一张图上才递得着（和行动栏那颗同一个条件，不另写一份）；
+ // 递不出去的时候不做成死按钮——按钮上直接写着为什么
+ {const near=data.map===data.companion.map,gate=giftGate();
+  $('companion-give').hidden=!near;$('companion-give').disabled=!!acting;
+  $('companion-give').textContent=gate||('递一样东西给'+c.name);}
+ $('companion-dialog').showModal();}
 function applyCompanion(mode=data.companion.mode){if(mode!==data.companion.mode)data=wakeSleeper(data,'companion');data={...data,companion:{...data.companion,name:$('companion-input').value.trim().slice(0,16)||'同行者',mode}};companionController.reset();save();updateCompanionUI();}
 $('companion-plan').onclick=()=>{$('companion-dialog').close();$('season-open').click();};
+// 递东西这件事她会先在【他这一页】上找（她 2026-09-18：「怎么把手上的东西给他啊」）。
+// ⚠️不在这儿另开一条路：点下去就是行动栏那颗，挑什么、递不递得出去还是那一处说了算。
+$('companion-give').onclick=()=>{$('companion-dialog').close();$('give-flower').click();};
 $('companion-open').onclick=openCompanion;$('companion-tag').onclick=openCompanion;$('companion-close').onclick=()=>$('companion-dialog').close();
 $('companion-save').onclick=()=>{applyCompanion();$('companion-dialog').close();say(`${data.companion.name}会按新的偏好安排接下来的日子。`);};
 $('companion-follow').onclick=()=>{data=wakeSleeper(data,'companion');applyCompanion('follow');$('companion-dialog').close();say(`${data.companion.name}听见了，会沿着小路过来和你同行。`);};
@@ -1453,7 +1466,7 @@ window.FairyGardenGame={
  // 手机那条标题栏浮在场景上面（她 2026-09-18：「不要做这个框挡住场景了」）：
  // 它多高由那边量了报过来，这儿只记一个变量，贴着顶边的那几样照它往下让。
  setHeadClear:px=>{const n=Math.max(0,Math.min(300,Number(px)||0));
-  document.documentElement.style.setProperty('--head-clear',n+'px');return n;},
+  headClear=n;document.documentElement.style.setProperty('--head-clear',n+'px');return n;},
  setChatOpen:value=>{chatting=!!value;if(chatting)chatFollow=true;document.body.classList.toggle('chatting',chatting);},
  // 样貌（发型/发色/衣色）：一个身体十二款头发，换一款是数据。
  // ⚠️谁的样貌就存在谁名下：我的在 data.look，同行者的在 data.companion.look，
