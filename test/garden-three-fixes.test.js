@@ -24,7 +24,8 @@ test("她自己说的那句也浮在她头顶上", () => {
   assert.match(html, /id="player-bubble"/);
   assert.match(css, /#player-bubble\{background/);
   assert.match(game, /function speak\(lines,who='companion'\)\{/);
-  assert.match(game, /bubbleWho=who==='me'\?'me':'companion';/);
+  // ⚠️谁说的就挂谁头上：她、同行者，或者路上那位邻居
+  assert.match(game, /bubbleWho=who==='me'\?'me':\(who&&restoreNeighbors\(data\.neighbors\)\.some/);
   assert.match(game, /mine\.hidden=!speaking\|\|bubbleWho!=='me'\|\|!actor;/);
   assert.match(host, /game\(\)\.speak\(text, "me"\)/);
   // ⚠️两只气泡走同一段队列、同一套停顿
