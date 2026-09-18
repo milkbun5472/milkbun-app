@@ -20237,12 +20237,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 标记聊天里的礼物卡已送达
       pChat(g.charId, p => p.map(m => m.kind === "gift" && m.giftId === g.id ? { ...m, delivered: true } : m));
       // 永久存进 TA 的随身物品
-      setCarryGifts(prev => {
-        const list = prev[g.charId] || [];
-        const n = { ...prev, [g.charId]: [{ id: g.id, name: g.name, receivedTs: now }, ...list] };
-        carryGiftsRef.current = n; saveJSON("x_carryGifts", n);
-        return n;
-      });
+      recordGiftReceived(g.charId, { id: g.id, name: g.name, cat: g.cat || null, ts: now });
       // 【不自动回复】她要送完接着说自己的话——送达只翻卡片状态；礼物在 ctxFor 的 giftLog 里，
       // 下次她按「回复」TA 自然会提收到了（charReceiveGiftReact 保留成死代码不再自动调）
     });
@@ -20342,6 +20337,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   后台定时器还会替她开一次群聊。所以群里送＝把东西递过去，hand 那条老路一个字不用改。
   //   礼物的归属照旧是【收礼那个人】：carryGifts 落在TA名下，giftLog、随身物品全接得上，
   //   变的只是这张卡摆在哪张聊天里。
+  // 礼物落进 TA 名下这一笔只有这一处（她 2026-09-18：礼物要能直接挂进衣柜）。
+  // 原来当面给和快递送达各写了一份一模一样的 setCarryGifts，于是【品类只在快递那一份里存过】——
+  // 转赠的那件一落地就没有 cat，衣柜那条路只能靠名字猜。合成一处之后两条路都带着 cat 落盘。
+  // ⚠️老礼物没有 cat（存档里已经有了），所以认衣服那把尺子必须名字也能单独认（closetGiftLike）。
+  const recordGiftReceived = (charId, g) => setCarryGifts(prev => {
+    const list = prev[charId] || [];
+    const n = { ...prev, [charId]: [{ id: g.id, name: g.name, cat: g.cat || null, receivedTs: g.ts || Date.now() }, ...list] };
+    carryGiftsRef.current = n; saveJSON("x_carryGifts", n);
+    return n;
+  });
   const sendGiftToChar = (charId, itemName, cat, hand, groupId) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
@@ -20355,12 +20360,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (inGroup) pushGroupRich(groupId, { ...card, toId: charId, toName: toName, content: "[礼物] 当着大家的面把「" + itemName + "」送给了" + toName });
     else pChat(charId, p => [...p, { ...card, content: "[礼物] " + (handNow ? "当面给你：" : "送给你：") + itemName }]);
     if (handNow) {
-      setCarryGifts(prev => {
-        const list = prev[charId] || [];
-        const n = { ...prev, [charId]: [{ id: giftId, name: itemName, receivedTs: now }, ...list] };
-        carryGiftsRef.current = n; saveJSON("x_carryGifts", n);
-        return n;
-      });
+      recordGiftReceived(charId, { id: giftId, name: itemName, cat: cat || null, ts: now });
       toast(inGroup ? "当着大家的面送给 " + toName + " 了" : "已转交给 " + toName + "，东西现在在 Ta 手上");
       return;
     }
@@ -20805,18 +20805,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 🔒 她钉住的那几件：刷新时一件都不许掉。随身物没有「号码/账号 id」那种客观硬字段，
   // 唯一说得清「这件绝不许换」的人是她（施工规则/phone-data-layers.md）。
-  const toggleCarryPin = (charId, key, name) => setCarryPins(p => {
+  // 钉／取消钉只有这一处：on 省略＝翻面（界面上那个 ◆），on 给死＝一定钉上／一定拿掉
+  //（挂进衣柜那条路要的是【一定钉上】，不是翻面——翻面会把已经钉着的那件取消掉）。
+  const setCarryPin = (charId, key, name, on) => setCarryPins(p => {
     const nm = String(name || "").trim();
     if (!nm) return p;
     const box = { ...(p[charId] || {}) };
     const list = (box[key] || []).slice();
     const i = list.findIndex(x => String(x).replace(/\s+/g, "") === nm.replace(/\s+/g, ""));
-    if (i >= 0) list.splice(i, 1); else list.push(nm);
+    const want = on === undefined ? i < 0 : !!on;
+    if (want === (i >= 0)) return p;
+    if (want) list.push(nm); else list.splice(i, 1);
     box[key] = list;
     const n = { ...p, [charId]: box };
     saveJSON("x_carryPins", n);
     return n;
   });
+  const toggleCarryPin = (charId, key, name) => setCarryPin(charId, key, name);
   const carryPinsFor = (charId, key) => ((carryPinsRef.current || {})[charId] || {})[key] || [];
   // ---- 表情包字典 ----
   // 先确认落盘成功、再更新页面。旧逻辑反过来：localStorage 写满时页面会假装导入成功，
@@ -20971,6 +20976,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } finally {
       setGen(g => ({ ...g, closetMore: null }));
     }
+  };
+  // 把她送的那件东西直接挂进 TA 的衣柜（她 2026-09-18：「他收到礼物那里能不能做一个订进衣柜」）。
+  //
+  // ⚠️为什么要有这条路：礼物本来只进 carryMaterialFor 当【提示词素材】，让模型自己写进衣柜——
+  //   于是她买的那件不一定出现，出现了名字也常被改写。她的原话是「他们有的人的审美堪忧，看了着急」，
+  //   要的就是【这一件、原名原样、由我说了算】。所以这一条不经过模型。
+  // 落盘走 closetMerge（只添不换，老的一身不动），跟「再添几套」是同一层，不另写一套合并。
+  // 挂完顺手钉住：不钉的话下一次「重新翻一遍」（carryEvolveMerge 一次换两件）有机会把它换掉，
+  //   而她亲手挂进去的那件被模型换掉，跟没做这个功能是一样的。
+  const closetGiftToChar = (charId, name, occ) => {
+    const nm = String(name || "").trim();
+    if (!nm) return false;
+    const known = (carryRef.current[charId] || {}).outfit || null;
+    if (closetRoom(known) <= 0) { toast("衣柜已经挂满了"); return false; }
+    const merged = closetMerge(known, { closet: [{ occasion: String(occ || "日常").trim() || "日常", sets: [{ name: nm, note: "你送的" }] }] });
+    // 假回执防线同 genClosetMore：撞名会被 closetMerge 静默挡掉，没真挂上就不许报「挂好了」
+    if (closetCount(merged) - closetCount(known) <= 0) { toast("衣柜里已经有这一身了"); return false; }
+    saveCarrySection(charId, "outfit", merged);
+    setCarryPin(charId, "outfit", nm, true);
+    toast("挂进衣柜了，刷新不会换掉");
+    return true;
   };
   // 收到的礼物：角色对某件礼物的想法/批注（点开时懒生成）
   const genGiftThought = async (charId, giftId, name) => {
@@ -22017,7 +22043,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGen: genCarrySection,
     onGenAll: genCarryAll,
     onGenClosetMore: genClosetMore,
-    onGenGiftThought: genGiftThought
+    onGenGiftThought: genGiftThought,
+    onClosetGift: closetGiftToChar
   });else if (screen === "cwallet") body = h(CharWallet, {
     characters: liveChars,
     charWallet: charWallet,

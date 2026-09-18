@@ -12197,6 +12197,18 @@ function closetMerge(oldData, addData) {
 // 所以渲染和喂上下文时都过一遍这个函数——认出场合名就退回 note 的头一句。
 // 规则降概率，代码才保证。
 const GARMENT_RE = /[衣裤裙衫袍褂鞋靴帽袄巾襦裳氅]|T恤|外套|夹克|卫衣|西装|毛衣|针织|大衣|风衣|背心|马甲|长衫|旗袍|衬衫|羽绒|开衫|连帽|牛仔|短打|劲装/;
+// 这件礼物看着像不像一身能挂的衣服（她 2026-09-18 问的就是这个：「不知道怎么判定是不是衣物类」）。
+//
+// ⚠️它只决定【那个按钮默不默认露出来】，永远不决定【能不能挂】。
+//   判错的代价必须是零：猜是、其实不是 → 多一个按钮，不点就完事；
+//   猜不是、其实是 → 界面上那条「不是衣服？也挂进去」的路永远在。
+//   做成「判定为衣物才允许挂」的话，正则漏一个词就是一堵她绕不过去的墙。
+// 两把尺子都是现成的，不新开第三把：购物 app 的品类（SHOP_CATS 的 fashion＝「穿的」）
+// 认新礼物，GARMENT_RE 认名字——存档里那些老礼物没有 cat，只能靠名字。
+function closetGiftLike(name, cat) {
+  if (String(cat || "") === "fashion") return true;
+  return GARMENT_RE.test(String(name || ""));
+}
 function outfitLabel(set, occasion) {
   const name = String((set && set.name) || "").trim();
   const note = String((set && set.note) || "").trim();
@@ -12701,7 +12713,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -12780,19 +12792,22 @@ function CarryAll(props) {
           h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint(x.key, .3) + ",rgba(0,0,0,0))" } })),
         h(CarrySection, {
           embedded: true, char, sectionKey: x.key, data: data[x.key], gifts,
+          // 礼物那一栏要往衣柜里挂东西，所以它也得看得见衣柜现在有哪几个场合
+          closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack
+          onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack, embedded }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
   const loading = busyKey === sectionKey;
   const [sheet, setSheet] = useState(null); // {name,note,thought} AI 物品
   const [openGiftId, setOpenGiftId] = useState(null);
+  const [giftOccOpen, setGiftOccOpen] = useState(false);   // 「不是衣服？也挂进去」展开了没
   // 打开非礼物版块：没内容就直接生成，失败退回上一级。
   // ⚠️嵌在整页里的时候不走这条——那一页是【四栏一次调用】一起生成的，
   // 五个嵌入块各自触发一次的话就又回到一栏一刀了。
@@ -12804,6 +12819,19 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     // eslint-disable-next-line
   }, [sectionKey, embedded]);
   const openGift = (gifts || []).find(g => g.id === openGiftId) || null;
+  // 换一件礼物就收回去：上一件展开过，不该让下一件也开着
+  useEffect(() => { setGiftOccOpen(false); }, [openGiftId]);
+  // 挂进哪个场合：先摆 TA 衣柜里【真有的】那几个场合，再补几个常见的。
+  // 先有的排前面是有意的——她挂进去的那件要落在柜子里已经成立的秩序上，
+  // 而不是每次都新开一个只有一身的场合（closetMerge 的场合上限是 10 个，开一个少一个）。
+  const closetOccs = (() => {
+    const out = [];
+    const seen = new Set();
+    const put = o => { const k = String(o || "").trim(); if (k && !seen.has(k)) { seen.add(k); out.push(k); } };
+    closetGroups(closetData).forEach(g => put(g.occasion));
+    ["日常", "约会", "正式", "在家"].forEach(put);
+    return out.slice(0, 8);
+  })();
   const pinSet = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
   const isPinned = it => pinSet.has(carryItemKey(it));
   // 钉住＝这件东西不许被下一次刷新换掉。随身物没有「号码/账号 id」那种客观硬字段，
@@ -13104,6 +13132,26 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         : openGift.thought
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, openGift.thought)
           : h("button", { onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法"),
+      // 挂进衣柜：她买的那件原名原样进 TA 的柜子，不经过模型（她 2026-09-18
+      //「他们有的人的审美堪忧，看了着急」）。看着像衣服就直接把场合摆出来，
+      // 看着不像也留一条路——判定只管默不默认露出来，不管能不能挂（closetGiftLike 上面那段）。
+      onClosetGift ? h("div", { style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
+        (closetGiftLike(openGift.name, openGift.cat) || giftOccOpen)
+          ? h(React.Fragment, null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 8 } }, "挂进 " + char.name + " 的衣柜，放在哪个场合"),
+              h("div", { className: "flex flex-wrap", style: { gap: 7 } },
+                closetOccs.map(occ => h("button", {
+                  key: occ,
+                  onClick: () => { if (onClosetGift(char.id, openGift.name, occ) !== false) setOpenGiftId(null); },
+                  className: "active:opacity-60",
+                  style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 13px" }
+                }, occ))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "挂上去就钉住了，以后重新翻衣柜也不会被换掉"))
+          : h("button", {
+              onClick: () => setGiftOccOpen(true),
+              className: "w-full py-2.5 active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
+            }, "这是件衣服？挂进衣柜 ›")) : null,
       // 礼物是你送的，TA本来就知道你知道——所以这一条走 open 档，不带「被撞破」那层
       onPeek ? h("div", { style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
         h("button", {
@@ -13133,7 +13181,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     sheetNode,
     giftNode);
 }
-function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onTogglePin, onPeek }) {
+function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onTogglePin, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -13218,7 +13266,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought,
+    onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

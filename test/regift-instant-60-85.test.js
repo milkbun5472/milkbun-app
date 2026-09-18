@@ -26,7 +26,7 @@ test("转赠是当面转手：不再从头跑一遍快递", () => {
   // 不进在途表：进了的话轮询还会再「送达」一次，卡片和随身物品都会重复
   const handBranch = gift.slice(gift.indexOf("if (handNow) {"), gift.indexOf("setGiftOut("));
   assert.ok(handBranch.indexOf("setGiftOut") < 0, "转手这一路不许进在途表");
-  assert.match(handBranch, /setCarryGifts\(prev => \{/, "转手要当场存进 TA 的随身物品");
+  assert.match(handBranch, /recordGiftReceived\(charId, \{/, "转手要当场存进 TA 的随身物品");
   assert.match(handBranch, /return;/, "转手这一路要就此收住，别掉进下面的下单流程");
   assert.match(gift, /"已转交给 " \+ toName \+ "，东西现在在 Ta 手上"/);
 });

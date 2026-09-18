@@ -169,7 +169,7 @@ test("衣柜那一栏底下真有这个按钮，空柜子那一屏上也有", ()
 
 test("prop 一路传到底（漏一处就是个点不动的按钮）", () => {
   assert.match(S, /function CarrySection\(\{[^}]*onGenClosetMore, closetBusy,/, "CarrySection 没收");
-  assert.match(S, /onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack\n\s*\}\)\)\)\)\);/, "CarryAll 没往下传");
+  assert.match(S, /onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought,[^\n]*onBack\n\s*\}\)\)\)\)\);/, "CarryAll 没往下传");
   assert.match(S, /const \{ char, data, gifts, busyKey, giftBusy, carryPins[^}]*onGenClosetMore, closetBusy,/, "CarryAll 没收");
   assert.match(S, /char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,/, "Carry 没往 CarryAll 传");
   assert.match(A, /onGenClosetMore: genClosetMore,/, "app 没接上");
