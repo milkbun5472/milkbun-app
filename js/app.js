@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.31";
+const APP_VERSION = "v71.32";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4343,6 +4343,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
     return made;
   };
+  // 点歌那张券要接上云村（她 2026-09-18：「点歌也没接网易云，应该要可以刻到情侣空间唱片」）。
+  // ⚠️正文照旧是他自己的话，这儿只是【额外】要一串【搜索用】的歌名歌手：
+  //   正文里那首歌的名字多半带着书名号、带着一整句话，直接拿去搜什么都搜不到。
+  // ⚠️只对点歌那一张加这一栏。别的券多一个字段就是白让模型多想一件事
+  //   （施工规则/bans-make-it-dumber 的同一条道理：注意力是有限的）。
+  const _gSongAsk = card => card && card.kind === "song"
+    ? "\n另外把这首歌【单独】写进 song 一栏：只写「歌名 歌手」，不要书名号、不要别的话——这一栏会原样拿去云村搜。"
+    : "";
+  const _gSongExpect = card => card && card.kind === "song"
+    ? { title: "一行小标题", body: "正文", song: "歌名 歌手" }
+    : { title: "一行小标题", body: "正文" };
   const gachaStamp = (cardId, result) => {
     const cards = gachaCardsRef.current.map(c => c.id === cardId ? { ...c, redeemedTs: Date.now(), result: result } : c);
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
@@ -4535,9 +4546,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!(window.CCSeat && window.Cloud)) { toast(characterText(char, "他这会儿不在书房，卡留着，等他在的时候再兑")); return; }
           try {
             let r = await window.CCSeat.ask({ tool: "gacha_make", char_id: char.id, card_id: card.id, kind: card.kind, card_name: card.name,
-              ask: gAsk(card.poolId), expect: { title: "一行小标题", body: "正文" } }, 180000, { charId: char.id });
+              ask: gAsk(card.poolId) + _gSongAsk(card), expect: _gSongExpect(card), }, 180000, { charId: char.id });
             if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = { body: r }; } }
-            const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc" };
+            const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc",
+              ...(card.kind === "song" ? { song: String(r && r.song || "").replace(/[《》"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) } : {}) };
             if (!got.body) { toast(characterText(char, "他没写出来，卡还留着")); return; }
             gachaStamp(card.id, got);
             gachaKeep(char, card.kind, got.title, got.body);   // 书房那一支也要记，不然只有代笔那半进得去
@@ -4549,11 +4561,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。"),
-          schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
+          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
+          schemaHint: card.kind === "song"
+            ? "{\"title\":\"一行小标题\",\"body\":\"正文\",\"song\":\"歌名 歌手\"}"
+            : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
           maxTokens: 11000
         });
-        const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
+        const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim(),
+          ...(card.kind === "song" ? { song: String(d.song || "").replace(/[《》"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) } : {}) };
         gachaStamp(card.id, got);
         gachaKeep(char, card.kind, got.title, got.body);
         return got;
@@ -22535,6 +22550,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!r.title && !body) { toast("这张券没有可以说的正文"); return; }
       forwardPhonePeekToChat(c, { label: name, title: String(r.title || ""), text: body,
         tier: "given", what: "东西", lead: "[" + name + "]你给我的这个，我拿来跟你说：" });
+    },
+    // 点歌那张券刻进你俩的唱片（她 2026-09-18：「点歌也没接网易云，应该要可以刻到情侣空间唱片」）。
+    // ⚠️走的是【现成那一支】discAdd——聊天里 carve 那条能力、唱片架手动加，都从这儿过
+    //   （one-public-mechanism）。它自己会去云村搜、会把真歌名真歌手真封面取回来。
+    // ⚠️刻上了才盖戳：云村没搜到时 discAdd 返回 false 并自己 toast 过了，
+    //   这时候显示「刻好了」就是骗她——而她多半不会再去唱片架上核对（跟 carve 那条同一个道理）。
+    onGachaCarve: async card => {
+      const c = characters.find(x => x.id === card.charId); const r = card.result || {};
+      const q = String(r.song || "").trim();
+      if (!c || !q) { toast("这张券没写清是哪首歌"); return; }
+      setGen(g => ({ ...g, gacha: card.id }));
+      try {
+        const sg = await discAdd(c.id, q, String(r.title || "").slice(0, 40));
+        if (!sg) return;
+        gachaStamp(card.id, { ...r, carved: { title: sg.title, artist: sg.artist, ts: Date.now() } });
+        toast("刻进你俩的唱片了：" + sg.title);
+      } finally { setGen(g => ({ ...g, gacha: null })); }
     },
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
