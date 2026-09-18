@@ -4896,6 +4896,11 @@ function GardenPlant({ g, size }) {
 // 没有任何数值进度条——长到哪儿看它自己）；开完一茬收一枚干花，盆空出来等下一种。
 function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
   const t = useTheme();
+  // 干花册里点开一枚看全文（她 2026-09-18 转小红书群里读者 ! YOLO：
+  //   「干花册里面看不到完整的详情文字，能不能点开能够弹出来，或者就是直接展示区更大一些」）
+  // ⚠️不另开一个弹层：册子本来就是一册一册翻的，点开那一枚就地摊开最像它自己。
+  //   也不无脑全展开——那句是TA挑这种花的理由，长短不一，全摊开册子就没法一眼扫完了。
+  const [openFlower, setOpenFlower] = useState(-1);
   const g = data || {};
   const kept = Array.isArray(g.kept) ? g.kept : [];
   const st = (typeof GardenKit !== "undefined" && g.species) ? GardenKit.stageOf(g.fed) : null;
@@ -4928,12 +4933,25 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
           gen ? partner.name + " 挑着…" : "让 " + partner.name + " 挑一种花")),
       kept.length ? h("div", { style: { marginTop: 24 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 9 } }, "干花册"),
-        kept.map((k, i) => h("div", { key: i, className: "flex items-center", style: { gap: 11, padding: "11px 2px", borderBottom: "1px solid " + t.line } },
-          h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, k.species),
-            k.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + k.why + "」") : null),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, fmtD(k.ts) + " 收")))) : null));
+        kept.map((k, i) => {
+          const on = openFlower === i;
+          // 没有理由那一句的，点开也没有第二层，就别做成按钮（点了没反应比不能点更糟）
+          const row = h("div", { className: "flex items-center", style: { gap: 11, padding: "11px 2px", borderBottom: on ? "none" : "1px solid " + t.line } },
+            h("span", { "aria-hidden": "true", style: { width: 11, height: 11, borderRadius: "50% 50% 50% 0", background: k.color || "#c98a9e", opacity: 0.8, flexShrink: 0, transform: "rotate(-45deg)" } }),
+            h("div", { className: "flex-1 min-w-0 text-left" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, k.species),
+              // 收起时一行带省略号；点开时整段摊开（pre-wrap + break-word，长句不撑破册子）
+              k.why ? h("div", { style: on
+                ? { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }
+                : { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                "「" + k.why + "」") : null),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, fmtD(k.ts) + " 收"));
+          if (!k.why) return h("div", { key: i }, row);
+          return h("button", { key: i, onClick: () => setOpenFlower(on ? -1 : i),
+            className: "w-full active:opacity-70",
+            "aria-expanded": on ? "true" : "false",
+            style: on ? { display: "block", borderBottom: "1px solid " + t.line, paddingBottom: 4 } : { display: "block" } }, row);
+        })) : null));
 }
 
 // ── 情侣空间·旅行（v62.26，她 2026-09-04 拍板）──────────────────────────────

@@ -51,7 +51,17 @@ body.embedded .map-controls{top:calc(65px + var(--head-clear,0px))}body.chatting
    这儿再印一遍「春 · 1/14 天」是同一句话占了第二块地方。 */
 .season-open{display:grid;place-items:center;min-width:38px;height:38px;padding:5px;border:0;background:none;color:#526c51}
 .season-dialog{width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;border-radius:0;padding:0;overflow:hidden;background:#f8f8e9}
-.season-dialog[open]{display:flex;flex-direction:column}.season-dialog .dialog-title{margin:0;padding:12px 18px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #d5ddc7}
+.season-dialog[open]{display:flex;flex-direction:column;position:relative}
+/* 手册顶上垂下来的两条丝带书签（施工规则/tabs-not-plain-pills：这本在现实里是一本手册，手册的分页就是丝带）。⚠️dialog div 那条通用样式会抢 display 和 margin，这儿都写死 */
+.season-dialog .ribbons{position:absolute;right:62px;top:0;display:flex;gap:8px;margin:0;z-index:3;align-items:flex-start}
+.season-dialog .ribbon{display:block;margin:0;min-width:40px;padding:14px 9px 16px;writing-mode:vertical-rl;letter-spacing:2px;font-size:12px;color:#f7faf2;background:#b3c3a1;border:0;border-radius:0 0 4px 4px;box-shadow:0 2px 3px rgba(52,73,54,.18);clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),50% 100%,0 calc(100% - 8px));transition:padding .18s ease,background .18s ease}
+.season-dialog .ribbon.on{background:#55704f;padding-top:34px;padding-bottom:20px;font-size:13px}
+/* ⚠️两页的外框也要写死 display：dialog div 那条通用样式会把它们抢成 flex 横排，hidden 也压不住 */
+.season-dialog #season-page-calendar,.season-dialog #season-page-rules{display:block;margin:0}.season-dialog #season-page-calendar[hidden],.season-dialog #season-page-rules[hidden]{display:none}
+.season-dialog #season-summary,.season-dialog .rules-lead{padding-right:104px;min-height:56px}
+.season-dialog .rules{display:block;margin:6px 0 20px}.season-dialog .rule{display:block;margin:0 0 10px;padding:10px 12px 11px;border:1px solid #d6dfc9;border-radius:12px;background:#fbfaf0}
+.season-dialog .rule b{display:block;font-size:13px;color:#344436;margin-bottom:3px}.season-dialog .rule span{display:block;font-size:12px;color:#54684c;line-height:1.75}
+.season-dialog .rules-lead{font-size:12px;color:#7b8a71;line-height:1.7;margin:0 0 10px}.season-dialog .dialog-title{margin:0;padding:12px 18px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #d5ddc7}
 .season-dialog .dialog-title h2{font-size:16px}.season-dialog .book-body{display:block;min-height:0;overflow-y:auto;margin:0;padding:10px 20px calc(14px + env(safe-area-inset-bottom) * .4)}
 .season-dialog #season-days,.season-dialog #garden-journal{display:block;margin:12px 0}.season-dialog h3{font-size:14px;font-weight:500;margin-top:24px}.season-dialog details{border:1px solid #d6dfc9;border-radius:12px;padding:10px 12px;margin:8px 0}.season-dialog summary{font-size:12px;cursor:pointer}.season-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}.season-dialog #season-generate{width:100%;min-height:44px}.season-dialog #season-error{color:#a55745}.season-dialog button:disabled{opacity:.55}.season-dialog .time-note{font-size:11px;color:#7b876b;line-height:1.7}
 

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0fa4d02be9d6af65", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-f074ecbbbab15c50", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -945,27 +945,29 @@
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
-          // ⚠️这一册在现实里就是一本【册子】，所以 tab 长成册子边上伸出来的索引签：
-          //   上圆下方、贴着页边，选中那张满高、纸色，直接长进底下那一页里；
-          //   没选的往下缩一截、暗着，像压在后面几页（施工规则/tabs-not-plain-pills.md）。
-          //   选中态不只靠颜色：高度、纸色、底下那条缝三样一起变。
-          h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, padding: "10px 12px 0", background: "rgba(255,255,255,.3)" } },
-            [["notes", "花册", ((garden && garden.notes) || []).length],
-             ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
-             ["things", "屋里", ((things && things.rows) || []).length],
-             ["museum", "收藏馆", ((museum && museum.rows) || []).length],
-             ["bottle", "漂流瓶", ((bottles && bottles.waiting) || []).length],
-             ["crew", "邻居", ((crew && crew.rows) || []).length],
-             ["bond", "相处", bond ? bond.kinds.filter(k => k.count).length : 0]].map(([k, label, n]) => {
+          // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
+          //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
+          //   没选的往边上缩进去、暗着，像压在后面几页。七张竖着排也放得下，不会像横排那样把最后一张挤出屏幕。
+          //   选中态不只靠颜色：位置、宽度、纸色、连不连着页面四样一起变。可点区 48px 高。
+          //   sticky＋height 0：跟着页面滚也钉在右上，不用把滚动容器拆成两层。
+          h("div", { style: { position: "sticky", top: headH + 10, height: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, margin: 0 } },
+            [["notes", "花册", ((garden && garden.notes) || []).length, "#e6d6c3"],
+             ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length, "#dfe3c9"],
+             ["things", "屋里", ((things && things.rows) || []).length, "#e4d9df"],
+             ["museum", "收藏馆", ((museum && museum.rows) || []).length, "#d7e0e3"],
+             ["bottle", "漂流瓶", ((bottles && bottles.waiting) || []).length, "#e7e1c9"],
+             ["crew", "邻居", ((crew && crew.rows) || []).length, "#d9e5d7"],
+             ["bond", "相处", bond ? bond.kinds.filter(k => k.count).length : 0, "#e6d4cf"]].map(([k, label, n, tint]) => {
               const on = bookTab === k;
-              return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
-                style: { padding: on ? "12px 0 13px" : "8px 0 9px", fontFamily: F_BODY, fontSize: on ? 13 : 12,
-                  color: on ? G.ink : "#93a188", background: on ? G.paper : "rgba(226,232,213,.75)",
-                  border: "1px solid " + G.line, borderBottom: on ? "1px solid " + G.paper : "1px solid " + G.line,
-                  borderRadius: "11px 11px 0 0", marginBottom: on ? -1 : 0, position: "relative", zIndex: on ? 2 : 1 } },
+              return h("button", { key: k, onClick: () => setBookTab(k), className: "active:opacity-80", "aria-pressed": on,
+                style: { writingMode: "vertical-rl", minHeight: 48, minWidth: on ? 44 : 38, padding: on ? "12px 7px 12px 8px" : "10px 6px 10px 7px",
+                  fontFamily: F_BODY, fontSize: on ? 13 : 12, letterSpacing: 1.5, lineHeight: 1,
+                  color: on ? G.ink : "#7d8b72", background: on ? G.paper : tint,
+                  border: "1px solid " + G.line, borderRight: 0, borderLeft: on ? "1px solid " + G.paper : "1px solid " + G.line,
+                  borderRadius: "10px 0 0 10px", transform: on ? "translateX(0)" : "translateX(7px)",
+                  boxShadow: on ? "-2px 2px 5px rgba(52,73,54,.12)" : "none", position: "relative", zIndex: on ? 2 : 1, transition: "transform .15s ease" } },
                 label + (n ? " " + n : "")); })),
-          h("div", { style: { height: 1, background: G.line, marginTop: 0 } }),
-          bookTab === "bond" ? h("div", { style: { padding: "16px 16px 40px" } },
+          bookTab === "bond" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
             // ── 相处册（她 2026-09-18：「做1和2」）。刻度按【一起做过几种事】走，不是分数。
             // ⚠️名单、档位、礼物的类别与态度都问 world.mjs 那一处要（getBond），这儿只画。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -1022,7 +1024,7 @@
                       (it.tasted ? it.note : it.season != null ? "只在一季的夜市有" : it.cook ? "夜市上有，也能自己做" : "夜市上有") + (it.cook ? (it.known ? " · 会做" : " · 还不会做") : "") + (it.tasted && it.buff ? " · " + it.buff : ""))))))
               : null)
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft } }, "还没读到这一册。"))
-          : bookTab === "crew" ? (invite ? h("div", { style: { padding: "16px 16px 40px" } },
+          : bookTab === "crew" ? (invite ? h("div", { style: { padding: "16px 54px 40px 16px" } },
             // ── 请 TA 搬进来之前先把话说清（她 2026-09-18：「邀请邻居进来是不是也能直接设置」）──
             // ⚠️开关那几条【不在这儿另写一份】：名字和措辞都问 ChatRooms.GROUPS.cognition，
             //   全库的房间用的就是那一份（施工规则/one-public-mechanism.md）。
@@ -1073,7 +1075,7 @@
                     style: { padding: "11px 15px", borderRadius: 12, border: "1px solid " + G.line,
                       background: "transparent", color: G.soft, fontFamily: F_BODY, fontSize: 12.5 } }, "算了")));
             })())
-          : h("div", { style: { padding: "16px 16px 40px" } },
+          : h("div", { style: { padding: "16px 54px 40px 16px" } },
             // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
             // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -1116,7 +1118,7 @@
                   style: { ...pill(true), borderColor: G.line, color: G.soft, background: "rgba(255,255,255,.55)" } },
                   c.remark || c.name)))
               : null))
-          :           bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
+          :           bookTab === "bottle" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
             // 回信与原信沿用同一本漂流瓶记录。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "写一句话封进瓶子里放下水，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，可能捞到同行者的回信，也可能只有原信。到月湖栈桥捞，一天一只；读新回信会使用创作线路。"),
@@ -1154,7 +1156,7 @@
               bottles?.pages>1 && h("div", {style:{display:"flex",justifyContent:"space-between",gap:12,marginTop:16}},
                 h("button", {disabled:bottles.page===0,onClick:()=>readBottleBook({page:bottles.page-1},true),style:{...pill(),minHeight:44}}, "上一页"),
                 h("button", {disabled:bottles.page>=bottles.pages-1,onClick:()=>readBottleBook({page:bottles.page+1},true),style:{...pill(),minHeight:44}}, "下一页"))))
-          :           bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
+          :           bookTab === "museum" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
             //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -1185,7 +1187,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 12, lineHeight: 1.9 } },
               "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
                 .map(r => r.how).join("、")))
-          :           bookTab === "things" ? h("div", { style: { padding: "16px 16px 40px" } },
+          :           bookTab === "things" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
             // ── 修好的地方（她 2026-09-17：「做④吧宝宝」）。
             // ⚠️「还差什么」问的是 world.mjs 那一处（workShort），这儿不另算一遍。
             ((things && things.works) || []).length ? h("div", { style: { marginBottom: 22 } },
@@ -1235,7 +1237,7 @@
                       t.spot === k ? "已摆在" + label : "摆到" + label))) : null)))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
                   "还没有。下井刨一片碎片回来，走到炼药锅那儿做点东西。"))
-          : bookTab === "shards" ? h("div", { style: { padding: "16px 16px 40px" } },
+          : bookTab === "shards" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "井潮带来的奇物，里面留着不同的片段。越深的只是越完整、越奇怪，不是越沉重。"),
             ((shardBox && shardBox.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
@@ -1262,7 +1264,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "会念的咒"),
               shardBox.spells.map(sp => h("div", { key: sp.id, style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, padding: "5px 0" } },
                 sp.name + " · 要" + sp.need + " —— " + sp.note))) : null)
-          : h("div", { style: { padding: "16px 16px 40px" } },
+          : h("div", { style: { padding: "16px 54px 40px 16px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "走到花圃那儿种一句下去，过三天开花。开好了再走过去收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
             // 地里的
@@ -1298,7 +1300,7 @@
               h("button", { key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
                 style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: who === k ? G.ink : "#93a188",
                   borderBottom: "2px solid " + (who === k ? G.deep : "transparent"), background: "transparent" } }, label))),
-          h("div", { style: { padding: "16px 16px 40px" } },
+          h("div", { style: { padding: "16px 54px 40px 16px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               who === "companion" && char
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
