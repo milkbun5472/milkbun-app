@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.44";
+const APP_VERSION = "v70.53";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -620,6 +620,7 @@ function App() {
   wishRef.current = wish;
   carryRef.current = carry;
   schedulesRef.current = schedules;
+  const moodsRef = useRef({}); moodsRef.current = moods;
   const [unreadMap, setUnreadMap] = useState({});
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
   const [ambientCount, setAmbientCount] = useState({});
@@ -3805,6 +3806,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     saveJSON("x_pinnedChats", n);
     return n;
   });
+  // 角色此刻正在做的那一段是什么 type（sleep / work / meal …）。
+  // schedNowFor 下面那几行本来就在算同一件事，抽出来一份给思念速率用，别再写第二遍。
+  const schedNowTypeFor = char => {
+    if (!char) return "";
+    const plans = schedulesRef.current[char.id] || {};
+    const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return "";
+    const disp = schedDisplaySeqs(char, s0.seqs);
+    const idx = schedCurrentSeqIdx(disp, true, char);
+    return idx >= 0 && disp[idx] ? String(disp[idx].type || "") : "";
+  };
   // 角色此刻的行程（给聊天/心情联动用）
   const schedNowFor = char => {
     const plans = schedulesRef.current[char.id] || {};
@@ -6301,6 +6313,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️私聊那一场的键仍旧是纯 charId：x_jiwen 里已经在涨的那份不许改名（改名＝集体失忆，
   //   跟这个文件顶上「存档键不许跟着改名」是同一条）。群那一场才加 @gid 后缀。
   const dongnianKey = (charId, gid) => gid ? charId + "@" + gid : charId;
+  // 性情锚点那份是异步存的，思念速率那个回调是同步的——在这儿存一份读得到的副本。
+  // 十分钟一刷：性情是她在设置里手改的东西，不会一分钟一变。
+  const dongnianTemperRef = useRef({});
+  const dongnianTemperAtRef = useRef({});
+  const dongnianTemperSync = async charId => {
+    if (!charId || !window.InnerLifeAShadow) return;
+    const now = Date.now();
+    if (now - (dongnianTemperAtRef.current[charId] || 0) < 600000) return;
+    dongnianTemperAtRef.current[charId] = now;
+    try {
+      const ownerId = await aShadowOwnerId();
+      const row = await window.InnerLifeAShadow.get(ownerId, charId);
+      dongnianTemperRef.current[charId] = (row && row.emotion && row.emotion.temperament) || null;
+    } catch (e) {}
+  };
   const getDongnian = (char, gid) => {
     if (!char || typeof createDongnian !== "function") return null;
     const dnKey = dongnianKey(char.id, gid);
@@ -6314,13 +6341,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         for (let i = arr.length - 1; i >= 0; i--) { const m = arr[i]; if (m && m.content && !m.recalled) return { id: m.ts || i, role: m.role, content: String(m.content), timestamp: new Date(m.ts || Date.now()).toISOString() }; }
         return null;
       },
+      // 思念涨多快：一人一个数（她 2026-09-18：「不应该每个人都一样的」）。
+      // 原来这儿是四个硬写的常量，只认最后一条消息里的关键词——换谁来都是那四个数。
+      // 现在算在公共的 js/longing-rate.js 里，这儿只负责把手上现成的料递进去。
+      // ⚠️性情那份是异步读的（IndexedDB），而这个回调是同步的：所以在 dongnianTickOne
+      //   里预取、缓存在 dongnianTemperRef 上，这儿只读缓存。读不到就是少一个倍率，不会塌。
       connectionRateFn: lastMsg => {
-        if (!lastMsg) return 0.0007;
-        const c = lastMsg.content || "";
-        if (/晚安|睡了|去睡|睡觉/.test(c)) return 0.0003;          // 好好道过晚安 → 思念涨得慢
-        if (/出门|上班|开会|上课|忙|有事/.test(c)) return 0.0005;   // 知道对方在忙 → 慢一点
-        if (c.length < 8) return 0.0010;                          // 敷衍短句 → 涨得快
-        return 0.0007;
+        if (typeof window === "undefined" || !window.LongingRate) return 0.0007;
+        return window.LongingRate.compute({
+          charId: char.id,
+          lastMessage: lastMsg,
+          temperament: dongnianTemperRef.current[char.id] || null,
+          // 群里那一场思念冲的是群里的人，不是 Lisa——好感那一档就不该掺进来
+          affinity: gid ? 50 : affOf(char.id),
+          moodLabel: (moodsRef.current[char.id] || {}).label || "",
+          seqType: schedNowTypeFor(char)
+        });
       },
       onLoad: async () => { try { return (loadJSON("x_jiwen", {}) || {})[dnKey] || null; } catch (e) { return null; } },
       onSave: async st => { try { const m = loadJSON("x_jiwen", {}) || {}; m[dnKey] = st; saveJSON("x_jiwen", m); } catch (e) {} }
@@ -6334,6 +6370,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const arr = (gid ? groupChatsRef.current[gid] : chatsRef.current[char.id]) || [];
     if (!arr.length) return;                                  // 这个场里一句话都没有，不跑
     const eng = getDongnian(char, gid); if (!eng) return;
+    await dongnianTemperSync(char.id);
     const dnKey = dongnianKey(char.id, gid);
     // 「别人开口了」→ 思念清零。私聊里的别人只有 Lisa；群里是除TA之外的任何人（含 Lisa）。
     // TA自己说话不算——那不解TA的想念，泄压走的是认领时那 -0.28。
