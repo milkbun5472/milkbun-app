@@ -14735,7 +14735,7 @@ function RoomResume({ room, messages, character }) {
     (room.startFrom || room.fork) && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } },
       "进门时从「" + (room.startFrom || room.fork).sourceRoomName + "」带来 " + (room.startFrom || room.fork).seedCount + " 条聊天"));
 }
-function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded }) {
+function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded, initialPreset }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
@@ -14747,6 +14747,19 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const [createBusy, setCreateBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
+  // 带着预设直接落到【新建那一页】：别处（庭院里「给 TA 新开一间」）要的就是这一页，
+  // 而不是自己照着 PRESETS 再拼一份房间悄悄建掉——那样她一次都设不了权限
+  // （她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
+  // ⚠️这两个 hook 必须排在下面那个提前 return 【前面】：排在后面就是 React #310 白屏。
+  const presetStarted = useRef(false);
+  useEffect(() => {
+    if (presetStarted.current || !initialPreset || !Kit || !Kit.PRESETS[initialPreset]) return;
+    presetStarted.current = true;
+    const p = Kit.PRESETS[initialPreset];
+    const d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset: initialPreset,
+      ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
+    setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
+  }, [initialPreset]);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
@@ -14801,6 +14814,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
   };
+
   const sourceRows = Array.isArray(sourceMessages) ? sourceMessages : [];
   const startChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text).slice(-16);
   const chooseStartMode = mode => {

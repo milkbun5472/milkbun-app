@@ -19,7 +19,9 @@ test("同行者是谁，世界这边必须知道", () => {
 // 她 2026-09-17：「改变同行应该是只能从邻居里面选」
 test("住在村里的那几位排在选人那一页前面", () => {
   assert.match(host, /住在村里的那几位排在前面/);
-  assert.match(host, /live\.includes\(String\(c\.id\)\) \? " · 住在村里" : ""/);
+  assert.match(host, /seated\.includes\(String\(c\.id\)\) \? " · 住在村里" : ""/);
+  assert.match(host, /function partnerPickBody\(/, "这一页只留一份，两处都来用它");
+  assert.equal((host.match(/住在村里的那几位排在前面/g) || []).length, 1, "同一份分寸不许再抄第二份");
   assert.match(host, /不是把别人挡掉：新存档村里一个人都没有/);
 });
 
