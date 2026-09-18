@@ -15,7 +15,8 @@ test('下去、刨一处、再往下、爬上来：一圈走得通，时间跟�
  assert.equal(s.shards.length,1,'第一层刨出来的应该是一片碎片');
  assert.ok(SHARD_KINDS[s.shards[0].kind],'碎片的种类不在名单里');
  assert.equal(act(s,'gather',vein.id).shards.length,1,'同一处不许刨两次');
- s=act(s,'deeper');assert.equal(s.depth,2);assert.equal(s.minute,480+45+35);
+ // v70.56 起地面上的事也花时间：刨一处 10 分钟（world.ACTION_MINUTES 一处）
+ s=act(s,'deeper');assert.equal(s.depth,2);assert.equal(s.minute,480+45+10+35);
  s=act(s,'ladder');
  assert.equal(s.map,'garden');assert.equal(s.depth,0,'上来了就不该还记着层数');
  assert.deepEqual(s.position,MAPS.depths.exits.ladder.at,'爬上来该站在井口，不是村口');
