@@ -105,6 +105,77 @@
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .65, marginTop: 4 } }, sub));
     };
+    // ── 字体（v71.03，她 2026-09-18 转小红书里读者问「怎么换字体」）──────────
+    // 全 App 的字体只有正文和标题两支，都在 core.js 里写成了 CSS 变量，
+    // 所以这一栏改的就是那两个变量本身——没有一处界面代码认识「字体」这件事。
+    // ⚠️名单问 FontChoice 要，这儿不另抄（one-public-mechanism）。
+    // 画法：每一支【用它自己的字写自己的名字】，一张字样卡。
+    // 不是一排药丸——药丸搬到哪个 app 都成立，一张写着自己名字的字样卡只有这一处成立。
+    const FC = g.FontChoice;
+    const customFonts = draft.customFonts || [];
+    const faces = FC ? FC.facesWith(customFonts) : [];
+    // 进这一栏就把名单里的字体全拉下来，否则字样卡上全是同一支字、等于没得看。
+    // 她自己传的那几支也要：文件那一路得先有 @font-face 才画得出字样。
+    useEffect(() => {
+      if (section !== "fonts" || !FC) return;
+      try { faces.forEach(f => FC.ensure({ body: f.key }, customFonts)); } catch (_) {}
+      try {
+        let st = document.getElementById("lisa-font-specimen");
+        if (!st) { st = document.createElement("style"); st.id = "lisa-font-specimen"; document.head.appendChild(st); }
+        st.textContent = FC.faceBlocks(customFonts, g.resolveImg);
+      } catch (_) {}
+    }, [section, JSON.stringify(customFonts)]);
+    // 她 2026-09-18：「能不能搞一个可以上传自定义字体的，不知道一般这是啥格式？」
+    // 两条路都给：文件进保险箱（断网也在，但中文字体动辄十几兆），链接不占地方（但断网就没有）。
+    const fontFile = useRef(null);
+    const newId = () => Math.random().toString(36).slice(2, 10);
+    const putCustom = e => patchDraft({ customFonts: [...customFonts, e].slice(0, (FC && FC.CUSTOM_MAX) || 8) });
+    const chooseFontFile = async ev => {
+      const f = ev.target.files && ev.target.files[0]; ev.target.value = ""; if (!f) return;
+      const ext = ((String(f.name).match(/\.[^.]+$/) || [""])[0] || "").toLowerCase();
+      if (((FC && FC.FILE_EXT) || []).indexOf(ext) < 0) { toast("只认 woff2 / woff / ttf / otf 这四种"); return; }
+      if (f.size > 30 * 1024 * 1024) { toast("这份有 " + Math.round(f.size / 1048576) + "M，太大了；找个 woff2 的版本"); return; }
+      try {
+        const dataUrl = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
+        const ref = await imgToVault(dataUrl);
+        if (String(ref).indexOf("iv_") !== 0) { toast("存不进保险箱，没加上"); return; }
+        const name = String(f.name).replace(/\.[^.]+$/, "");
+        putCustom({ id: newId(), kind: "file", name, ref });
+        toast("加好了：" + name + "，在下面挑它");
+      } catch (err) { toast("读不出来：" + (err.message || err)); }
+    };
+    const addFontLink = () => {
+      requestAppPrompt("贴一条字体链接", "要的是一条 https 开头的 CSS 链接（Google Fonts、中文网字计划那种「引入代码」里的那条）。", "", href => {
+        href = String(href || "").trim();
+        if (!/^https:\/\//.test(href)) { toast("得是 https:// 开头的链接"); return; }
+        requestAppPrompt("这支字叫什么", "填 CSS 里 font-family 写的那个名字，一个字都不能差（大小写也算）。", "", fam => {
+          const family = FC ? FC.safeFamily(fam) : String(fam || "").trim();
+          if (!family) { toast("没填名字，没加上"); return; }
+          putCustom({ id: newId(), kind: "link", name: family, family, href });
+          toast("加好了：" + family + "，在下面挑它");
+        }, "加上去", { maxLength: 40 });
+      }, "下一步", { maxLength: 400 });
+    };
+    // 删一支：挑中的正好是它的话，那一头要跟着落回默认（不然变量指着一个没有的字族）
+    const dropCustom = c => {
+      const key = "u:" + c.id, fonts = { ...(draft.fonts || {}) };
+      if (fonts.body === key) fonts.body = "";
+      if (fonts.display === key) fonts.display = "";
+      patchDraft({ customFonts: customFonts.filter(x => x.id !== c.id), fonts });
+      toast("删掉了：" + c.name);
+    };
+    const fontCard = (kind, f) => {
+      const on = String((draft.fonts || {})[kind] || "") === f.key;
+      return h("button", { key: f.key || "_default", onClick: () => patchDraft({ fonts: { ...(draft.fonts || {}), [kind]: f.key } }),
+        className: "active:opacity-70", "aria-pressed": on ? "true" : "false",
+        style: { textAlign: "left", padding: "11px 12px", borderRadius: 10,
+          border: "1px solid " + (on ? t.ink : t.line),
+          background: on ? t.bg2 : "rgba(127,127,127,.05)",
+          boxShadow: on ? "0 5px 14px -9px rgba(0,0,0,.6)" : "none" } },
+        h("div", { style: { fontFamily: f.stack || (kind === "display" ? "'Fraunces',serif" : "'Archivo','Noto Serif SC',system-ui,sans-serif"), fontSize: 19, color: t.ink, lineHeight: 1.35 } }, f.zh),
+        h("div", { style: { fontFamily: f.stack || "'Archivo','Noto Serif SC',system-ui,sans-serif", fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.5 } }, "今天也想你 · 0123"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, f.hint));
+    };
     const [slots, setSlots] = useState(() => studio.pageSlots(page));
     useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");
@@ -131,7 +202,7 @@
     //   还是对不上：预览里对的东西上机不对，比没有预览更坏（她照着它调）。
     //   真正管用的是旁边那颗「先预览 30 秒」——它改的是【真 app 本身】。
     return h("div", null,
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("fonts","字体","全 App 换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
       section === "icons" && h("div", null,
         // ── 整套换（v62.42）：仓库自带的几套，点一下整套换掉；她单独换过的那几张不动 ──
         // 每一套画成【一张贴纸纸】：三张缩略贴在纸上、纸角翘一点；选中的那张纸压在最上面（墨色边、不翘角）。
@@ -298,6 +369,40 @@
                   }, "存进去", { maxLength: 12 });
               }, className: "active:opacity-70",
               style: { minHeight: 40, padding: "6px 13px", borderRadius: 10, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "＋ 存成新的一套")])))),
+      section === "fonts" && h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } },
+          "换的是整个 App 的字，聊天、日记、查手机全都跟着变。挑完先预览看看，再点正式应用。"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "正文"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 18 } },
+          faces.map(f => fontCard("body", f))),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "标题"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginBottom: 7 } }, "页眉、栏目名、按钮上那些大一号的字。"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 12 } },
+          faces.map(f => fontCard("display", f))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginBottom: 18 } },
+          "写着「自带」的那几支用手机里本来就有的字，断网也在；其余几支第一次用要联网下载一下。"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "自己加的字"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.75, marginBottom: 9 } },
+          "传文件：woff2 / woff / ttf / otf 都行，woff2 最小，中文字体优先找它。传进来就存在这台机器上，断网也在，导出主题包会一起打包。",
+          h("br"), "贴链接：中文网字计划、Google Fonts 那种「引入代码」里的 CSS 链接。不占地方、按用到的字下载所以快，但断网就没有。"),
+        h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
+          h("button", { onClick: () => fontFile.current && fontFile.current.click(), className: "flex-1 py-3",
+            style: { borderRadius: 11, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "传字体文件"),
+          h("button", { onClick: addFontLink, className: "flex-1 py-3",
+            style: { borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "贴一条链接")),
+        h("input", { ref: fontFile, type: "file", accept: ".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf", onChange: chooseFontFile, style: { display: "none" } }),
+        customFonts.length
+          ? h("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
+              customFonts.map(c => h("div", { key: c.id, className: "flex items-center",
+                style: { gap: 8, padding: "8px 10px", borderRadius: 9, border: "1px solid " + t.line } },
+                h("div", { className: "flex-1 min-w-0" },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, c.kind === "file" ? "文件 · 存在这台机器上" : "链接 · 要联网")),
+                h("button", { onClick: () => dropCustom(c), className: "active:opacity-70", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "4px 8px" } }, "删掉"))))
+          : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7 } },
+          "最多 " + ((FC && FC.CUSTOM_MAX) || 8) + " 支。加完的字会出现在上面那两栏里，跟内置的一起挑。",
+          h("br"), "⚠️字体是有版权的东西，商用字体别往外发主题包。")),
       section === "package" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
         h("div", { className: "flex gap-2" }, h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"), h("button", { onClick: () => importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")), h("input", { ref: importFile, type: "file", accept: ".json,application/json", onChange: importTheme, style: { display: "none" } })),

@@ -18,9 +18,15 @@ function studio() {
   return global.window.ThemeStudio;
 }
 
-test("工作台还是三栏，没有单开的气泡皮肤页", () => {
+test("气泡皮肤没有单开的一栏，格子数跟抽屉数对得上", () => {
   assert.ok(ui.indexOf('tab("skin"') < 0, "那一栏又被加回来了");
-  assert.match(ui, /gridTemplateColumns: "repeat\(3,minmax\(0,1fr\)\)"/);
+  // ⚠️原来这儿钉的是「repeat(3)」。v71.09 加了字体那一栏，它就红了——
+  //   可红的不是气泡皮肤（这条测的东西），是格子数。所以改成钉【那一排自己前后对不对得上】：
+  //   以后再加一栏，只要格子数跟着改，这条就不该拦路（anchor-on-code）。
+  const cols = Number((ui.slice(ui.indexOf("gridTemplateColumns: \"repeat(")).match(/repeat\((\d+),minmax/) || [])[1]);
+  const tabs = (ui.slice(ui.indexOf("marginBottom: 14 } }"), ui.indexOf('section === "icons"')).match(/tab\("/g) || []).length;
+  assert.ok(cols > 0 && tabs > 0, "抠不出那一排抽屉");
+  assert.equal(cols, tabs, "格子数和抽屉数对不上，会空一格或者挤成两行");
 });
 
 test("点内置预设＝把 CSS 灌进编辑框，之后还能自己改", () => {
