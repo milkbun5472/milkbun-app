@@ -4563,13 +4563,17 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
       h("div", { style: { position: "relative", borderRadius: 3, border: "1px dashed " + PLINE2, background: "rgba(250,244,230,.5)", padding: "13px 14px", marginBottom: 16 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: PFOG, marginBottom: 8 } }, "自己先记一条"),
         h("input", { value: txt, onChange: e => setTxt(e.target.value), placeholder: "你们说好了什么", style: inp }),
+        // ⚠️日期／时间／按钮【不许挤一排】（她 2026-09-18：「这里记下也是超了的」）。
+        //   input[type=date] 在 iOS 上有个缩不下去的最小宽度（要摆得下「年/月/日」），
+        //   flex:1 拉不动它，于是整行被撑宽、最右边那颗按钮被顶出屏幕。
+        //   日期和时间一行（日期给 minWidth:0，真的能让步），按钮自己占一行。
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 9 } },
-          h("input", { type: "date", value: day, onChange: e => setDay(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
+          h("input", { type: "date", value: day, onChange: e => setDay(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }) }),
           // 几点：填了日子才有意义，所以没填日子时它是灰的
           h("input", { type: "time", value: dayHm, disabled: !day, "aria-label": "几点", onChange: e => setDayHm(e.target.value),
-            style: Object.assign({}, inp, { width: 104, flexShrink: 0, opacity: day ? 1 : .45 }) }),
-          h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day, dayHm) : 0); setTxt(""); setDay(""); setDayHm(COUPLE_DUE_DEFAULT_HM); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70 disabled:opacity-40",
-            style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 18px", minHeight: 44 } }, "记下")),
+            style: Object.assign({}, inp, { width: 104, flexShrink: 0, opacity: day ? 1 : .45 }) })),
+        h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day, dayHm) : 0); setTxt(""); setDay(""); setDayHm(COUPLE_DUE_DEFAULT_HM); }, disabled: !txt.trim(), className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "11px 0", minHeight: 44, marginTop: 9 } }, "记下"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7 } }, characterText(partner, "日子可以不填。填了到那天【那个点】他会主动来找你说这件事；不改钟点就是早上九点。"))),
       open.length ? open.map(m => {
         const d = dueOf(m.id);
@@ -4609,13 +4613,15 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
                     boxShadow: on ? "0 2px 5px rgba(120,40,30,.24)" : "none" } },
                   k === "chat" ? "来找你说" : k === "voice" ? "打给你" : "视频找你");
               })),
+            // 同上：这一行本来是【四个】挤一排，比上面那处更容易顶出去
             h("div", { className: "flex items-center", style: { gap: 8 } },
-              h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: Object.assign({}, inp, { flex: 1 }) }),
-              h("input", { type: "time", value: dueHm, "aria-label": "几点", onChange: e => setDueHm(e.target.value), style: Object.assign({}, inp, { width: 104, flexShrink: 0 }) }),
-              h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal, dueHm), dueVia); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
-                style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "10px 16px", minHeight: 44 } }, "就这天"),
+              h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }) }),
+              h("input", { type: "time", value: dueHm, "aria-label": "几点", onChange: e => setDueHm(e.target.value), style: Object.assign({}, inp, { width: 104, flexShrink: 0 }) })),
+            h("div", { className: "flex items-center", style: { gap: 8, marginTop: 9 } },
+              h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal, dueHm), dueVia); setDueFor(null); } }, className: "flex-1 active:opacity-70",
+                style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: "#8d7440", borderRadius: 4, padding: "11px 0", minHeight: 44 } }, "就这天"),
               d ? h("button", { onClick: () => { onSetDue(m.id, m.text, 0); setDueFor(null); }, className: "shrink-0 active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 44, padding: "0 4px" } }, "不催了") : null),
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: PFOG, minHeight: 44, padding: "0 12px" } }, "不催了") : null),
             dueVia === "chat" ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginTop: 7, lineHeight: 1.6 } },
               "到那天电话会直接响。接了才进通话（那一步才调模型）；没接就是一条未接来电，不花钱。")) : null,
           // 办到了＝盖一枚朱印；作罢是一句小字，不跟它抢分量
@@ -5440,10 +5446,13 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                 onSetSince ? h("button", { onClick: () => { const d = new Date(cp[view].since || Date.now()); setSinceVal(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); setSinceEdit(v => !v); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, sinceEdit ? "收起" : h("span", { className: "flex items-center", style: { gap: 4 } }, h(IPencil, { size: 11, color: t.tint }), "起始日")) : null)),
             h("button", { onClick: () => onCheckinSweet(partner), disabled: sweetDone, className: "active:opacity-70 disabled:opacity-100", style: { background: sweetDone ? t.line : "#ffd0dc", color: sweetDone ? t.fog : "#c02a52", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 20px", borderRadius: 999, flexShrink: 0 } },
               sweetDone ? "已打卡" : h("span", { className: "flex items-center", style: { gap: 5 } }, h(IHeart, { size: 13, color: "#c02a52", filled: true }), "打卡"))),
-          sinceEdit ? h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
-            h("input", { type: "date", value: sinceVal, onChange: e => setSinceVal(e.target.value), className: "outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-            h("button", { onClick: () => { if (sinceVal) { onSetSince(partner.id, sinceVal); setSinceEdit(false); } }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "8px 18px", borderRadius: 10 } }, "保存"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第几天 / 时间轴起点跟着变")) : null,
+          // 同「我们说好的」那两处：日期框缩不下去，挤一排会把最右边顶出屏幕。
+          // 日期＋保存一行（日期 minWidth:0 才真让得动），那句说明自己一行。
+          sinceEdit ? h("div", { style: { marginTop: 10 } },
+            h("div", { className: "flex items-center gap-2" },
+              h("input", { type: "date", value: sinceVal, onChange: e => setSinceVal(e.target.value), className: "outline-none px-3 py-2 rounded-lg", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+              h("button", { onClick: () => { if (sinceVal) { onSetSince(partner.id, sinceVal); setSinceEdit(false); } }, className: "shrink-0 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "8px 18px", borderRadius: 10 } }, "保存")),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "第几天 / 时间轴起点跟着变")) : null,
           // —— 情侣空间首页：把已有模块重新织成「今天 / 最近 / 长期共同层」——
           h("section", { style: { marginTop: 22 } },
             h("div", { className: "flex items-end justify-between", style: { marginBottom: 10 } },

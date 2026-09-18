@@ -85,3 +85,26 @@ test("书架那一层：三本摆出来，点一本才进去", () => {
   // 从一本里退出来是回书架，不是一步退出问答小本
   assert.match(scr, /h\(Head, \{ zh: "问答小本", en: partner\.name, onBack: \(\) => setBook\(null\), bg: "transparent",/);
 });
+
+// ── 日期框那一排会顶出屏幕（她 2026-09-18：「这里记下也是超了的」）──────────
+// ⚠️病根是 input[type=date] 有个缩不下去的最小宽度（要摆得下「年/月/日」）：
+//   光给 flex:1 拉不动它，整行被撑宽，最右边那颗按钮被顶出去。
+//   两件事一起治：日期框给 minWidth:0（真让得动），按钮别跟它挤一排。
+test("有日期框的那几排，日期都能让步", () => {
+  const rows = scr.match(/h\("input", \{ type: "date",[\s\S]{0,420}?\}\)/g) || [];
+  assert.ok(rows.length >= 5, "date 输入框找不全了：" + rows.length);
+  rows.forEach(r => {
+    if (/flex: 1/.test(r)) assert.match(r, /minWidth: 0/, "这个日期框 flex:1 却没 minWidth:0，缩不动：" + r.slice(0, 90));
+  });
+});
+
+test("我们说好的：两处按钮都从日期那一排挪下来了", () => {
+  const i = scr.indexOf("function CouplePacts({");
+  const seg = scr.slice(i, scr.indexOf("function CoupleWishes({", i));
+  // 自己记一条：「记下」整行
+  assert.match(seg, /className: "w-full active:opacity-70 disabled:opacity-40"[\s\S]{0,260}?"记下"/);
+  assert.ok(!/flexShrink: 0, opacity: day \? 1 : \.45 \}\) \}\),\n\s*h\("button"/.test(seg), "记下又挤回日期那一排了");
+  // 挑日子：「就这天」和「不催了」自己一行
+  assert.match(seg, /h\("div", \{ className: "flex items-center", style: \{ gap: 8, marginTop: 9 \} \},\n\s*h\("button", \{ onClick: \(\) => \{ if \(dueVal\)/);
+  assert.match(seg, /style: \{ fontFamily: F_BODY, fontSize: 11\.5, color: PFOG, minHeight: 44, padding: "0 12px" \} \}, "不催了"/);
+});
