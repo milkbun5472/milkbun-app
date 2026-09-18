@@ -1,37 +1,39 @@
-import {mergeLook,outfitColors,outfitId,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-147992fd87ef6145';
-import {repairError} from './world.mjs?v=fg-147992fd87ef6145';
-import {makeCurio} from './curio-view.mjs?v=fg-147992fd87ef6145';
-import {makePlacedKeepsakes} from './keepsake-view.mjs?v=fg-147992fd87ef6145';
-import {growingDreams,dreamStage,dreamError,SEED_PLOTS} from './world.mjs?v=fg-147992fd87ef6145';
-import {makeDreamGarden} from './dream-view.mjs?v=fg-147992fd87ef6145';
-import {WELL_CURIOS,WELL_KITS,wellTide,wellContext,chooseWellKit,shardName} from './world.mjs?v=fg-147992fd87ef6145';
-import {makeWellSigns} from './well-view.mjs?v=fg-147992fd87ef6145';
-import {makeExcavatingView} from './excavating-view.mjs?v=fg-147992fd87ef6145';
-import {makeRitualView} from './ritual-view.mjs?v=fg-147992fd87ef6145';
-import {makeScoopingView} from './scooping-view.mjs?v=fg-147992fd87ef6145';
-import {weatherLook} from './weather-look.mjs?v=fg-147992fd87ef6145';
-import {BREWS,brewKey} from './brewing.mjs?v=fg-147992fd87ef6145';
-import {makeBrewingView} from './brewing-view.mjs?v=fg-147992fd87ef6145';
-import {MILL_RECIPES,materialLine,millRemaining,millError} from './workshop.mjs?v=fg-147992fd87ef6145';
-import {makeWorkshopView} from './workshop-view.mjs?v=fg-147992fd87ef6145';
-import {openingTag} from './opening-view.mjs?v=fg-147992fd87ef6145';
-import {stepRoute} from './locomotion.mjs?v=fg-147992fd87ef6145';
-import {makeLakeView} from './lake-view.mjs?v=fg-147992fd87ef6145';
-import {makeMuseum} from './museum-view.mjs?v=fg-147992fd87ef6145';
-import {museumCaption} from './museum.mjs?v=fg-147992fd87ef6145';
-import {makeOutdoor} from './outdoor.mjs?v=fg-147992fd87ef6145';
-import {installSeasonBook} from './season-book.mjs?v=fg-147992fd87ef6145';
-import {makeMagicView} from './magic-view.mjs?v=fg-147992fd87ef6145';
-import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-147992fd87ef6145';
+import {flowerGiftError,giveMoonFlower} from './world.mjs?v=fg-14322dff8059f999';
+import {actionGesture,actionDuration,makeHeldFlower} from './doll-life.mjs?v=fg-14322dff8059f999';
+import {mergeLook,outfitColors,outfitId,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-14322dff8059f999';
+import {repairError} from './world.mjs?v=fg-14322dff8059f999';
+import {makeCurio} from './curio-view.mjs?v=fg-14322dff8059f999';
+import {makePlacedKeepsakes} from './keepsake-view.mjs?v=fg-14322dff8059f999';
+import {growingDreams,dreamStage,dreamError,SEED_PLOTS} from './world.mjs?v=fg-14322dff8059f999';
+import {makeDreamGarden} from './dream-view.mjs?v=fg-14322dff8059f999';
+import {WELL_CURIOS,WELL_KITS,wellTide,wellContext,chooseWellKit,shardName} from './world.mjs?v=fg-14322dff8059f999';
+import {makeWellSigns} from './well-view.mjs?v=fg-14322dff8059f999';
+import {makeExcavatingView} from './excavating-view.mjs?v=fg-14322dff8059f999';
+import {makeRitualView} from './ritual-view.mjs?v=fg-14322dff8059f999';
+import {makeScoopingView} from './scooping-view.mjs?v=fg-14322dff8059f999';
+import {weatherLook} from './weather-look.mjs?v=fg-14322dff8059f999';
+import {BREWS,brewKey} from './brewing.mjs?v=fg-14322dff8059f999';
+import {makeBrewingView} from './brewing-view.mjs?v=fg-14322dff8059f999';
+import {MILL_RECIPES,materialLine,millRemaining,millError} from './workshop.mjs?v=fg-14322dff8059f999';
+import {makeWorkshopView} from './workshop-view.mjs?v=fg-14322dff8059f999';
+import {openingTag} from './opening-view.mjs?v=fg-14322dff8059f999';
+import {stepRoute} from './locomotion.mjs?v=fg-14322dff8059f999';
+import {makeLakeView} from './lake-view.mjs?v=fg-14322dff8059f999';
+import {makeMuseum} from './museum-view.mjs?v=fg-14322dff8059f999';
+import {museumCaption} from './museum.mjs?v=fg-14322dff8059f999';
+import {makeOutdoor} from './outdoor.mjs?v=fg-14322dff8059f999';
+import {installSeasonBook} from './season-book.mjs?v=fg-14322dff8059f999';
+import {makeMagicView} from './magic-view.mjs?v=fg-14322dff8059f999';
+import {installViewControls,orthographicPanDelta,orthographicCameraPose} from './view-controls.mjs?v=fg-14322dff8059f999';
 import * as THREE from 'three';
-import {createMapLoader} from './map-loader.mjs?v=fg-147992fd87ef6145';
-import {makeSurroundings} from './surroundings.mjs?v=fg-147992fd87ef6145';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-147992fd87ef6145';
-import {millAction,millAt,islandLightError,floatIslandLight,START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,spotsAll,spotKey,isSpot,spotLabel,spotParse,FURNITURE,furnitureAtPoint,approachSpot,lookText,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,walkSpeedFor} from './world.mjs?v=fg-147992fd87ef6145';
-import {makeForest} from './forest.mjs?v=fg-147992fd87ef6145';
-import {makeDepths} from './depths.mjs?v=fg-147992fd87ef6145';
-import {createTraveler} from './traveler.mjs?v=fg-147992fd87ef6145';
-import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-147992fd87ef6145';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
+import {createMapLoader} from './map-loader.mjs?v=fg-14322dff8059f999';
+import {makeSurroundings} from './surroundings.mjs?v=fg-14322dff8059f999';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-14322dff8059f999';
+import {millAction,millAt,islandLightError,floatIslandLight,START,MAPS,NODES,lakeFrozen,onLakeIce,weather,targetFor,actionError,walkable,findPath,perform,restoreState,freshState,COMPANION_DESTINATIONS,advanceTime,timeLabel,gardenIntent,seasonOf,hitInteraction,journalText,companionNearby,floorHeight,groundPoint,exitFor,sleepPose,wakeSleeper,deepestAllowed,SEED_KINDS,SEED_DAYS,SEED_PER_DAY,seedError,sowSeed,seedsToday,readySeeds,keepNotes,pinNote,SHARD_KINDS,VEIN_POOL,veinLow,fillVein,pinShard,CRAFT_WAYS,SPOTS,spotsAll,spotKey,isSpot,spotLabel,spotParse,FURNITURE,furnitureAtPoint,approachSpot,lookText,craftError,craftThing,placeThing,placedAt,thingReady,hastenError,hastenThing,bellRings,donate,donateError,collectedKinds,recipeIndex,RECIPE_TOTAL,driftPick,driftError,drawBottle,keepBottleReply,BOTTLE_DAYS,recentHappenings,diveWet,mapFoggy,MAP_FOG_RANGE,restoreNeighbors,asCompanion,moveIn,moveOut,moveInError,neighborOf,freeHouse,NEIGHBOR_HOUSES,OPENINGS,isOpening,opened,openingLine,openingReady,WORKS,workHere,workError,workShort,workCost,doWork,workDone,worksDone,noteMeet,whereLabel,metCount,closeness,MEET_NEAR,SPELLS,SPELL_PLACES,restoreSpells,castError,castSpell,castAt,castLine,castPlaceError,spellOfSeason,sealBottle,sealError,floating,missArrived,missWaiting,missGaveUp,missLetGo,missTaken,missMaterial,talkedWith,QUEST_KINDS,QUEST_TAKEN_MAX,QUEST_CYCLE,questBoard,questTaken,questCycle,questPaid,takeError,takeQuest,turnIn,lampOn,lampShelter,walkSpeedFor} from './world.mjs?v=fg-14322dff8059f999';
+import {makeForest} from './forest.mjs?v=fg-14322dff8059f999';
+import {makeDepths} from './depths.mjs?v=fg-14322dff8059f999';
+import {createTraveler} from './traveler.mjs?v=fg-14322dff8059f999';
+import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-14322dff8059f999';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -61,12 +63,14 @@ let lite=false,loadingMap=false,cameraFollow=false,chatFollow=true;
 const lakeView=makeLakeView();scene.add(lakeView.root);
 const magicView=makeMagicView();scene.add(magicView.seed,magicView.bed,magicView.lamps);
 function refreshSeasonPlan(){try{data.seasonPlan=host?.planState(data.day)?.plan||null;}catch{data.seasonPlan=null;}}
-function isMenuOpen(){return !!document.querySelector('.scene-activity[open]')||$('companion-dialog').open||$('reset-dialog').open||$('season-dialog').open||$('mill-dialog').open||$('well-dialog').open||$('dream-dialog').open||$('repair-dialog').open;}
+function isMenuOpen(){return bottleReading||$('bottle-dialog').open||!!document.querySelector('.scene-activity[open]')||$('companion-dialog').open||$('reset-dialog').open||$('season-dialog').open||$('mill-dialog').open||$('well-dialog').open||$('dream-dialog').open||$('repair-dialog').open;}
 const companionController=makeCompanionController();let playerAvatar,companionAvatar,timeAccumulator=0,lastAutoSave=0,lastCompanionUI=0,lastCompanionEvent='';
+let seatActivity='sit',receivedUntil=-Infinity;
+const giftFlower=makeHeldFlower();giftFlower.visible=false;scene.add(giftFlower);
 let actor,moving=false,path=[],task=null,acting=null,clock=0,ready=false;const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();
 const targetRing=new THREE.Mesh(new THREE.RingGeometry(.13,.19,32),new THREE.MeshBasicMaterial({color:'#faf9ce',transparent:true,opacity:.9,side:THREE.DoubleSide}));targetRing.rotation.x=-Math.PI/2;targetRing.position.y=.1;targetRing.visible=false;scene.add(targetRing);
 const workshopView=makeWorkshopView();scene.add(workshopView.root);
-function avatarHand(root){const hand=root.getObjectByName('rightArm');root.updateMatrixWorld(true);return hand.localToWorld(new THREE.Vector3(.06,-.21,.04));}
+function avatarHand(root){const avatar=root===actor?playerAvatar:companionAvatar;return avatar.handPoint();}
 function restoreActivityView(view){cameraPan.copy(view.pan);camera.zoom=view.zoom;actor.rotation.y=view.heading;companionAvatar.root.rotation.y=view.companionHeading;resize(false);ui();}
 const brewing=makeBrewingView({scene,camera,site:MAPS.garden.interactions.find(x=>x.kind==='brew'),onClose:restoreActivityView});
 const scooping=makeScoopingView({scene,camera,lake:lakeView,onClose:restoreActivityView});
@@ -112,7 +116,6 @@ const highlights=[];for(const p of [MAPS.garden.stations.well,MAPS.garden.statio
 const outdoor=makeOutdoor(scene,[surroundings.root]),rain=outdoor.precipitation;
 function updateOutdoor(){outdoor.update(data,mapViews,clock,cameraPan,{lite,span:Math.max(camera.right-camera.left,camera.top-camera.bottom)/camera.zoom});scene.fog.near+=camera.userData.fogOffset||0;scene.fog.far+=camera.userData.fogOffset||0;}
 const blooms=new THREE.Group();scene.add(blooms);
-const stream=new THREE.Group();scene.add(stream);stream.visible=false;for(let i=0;i<12;i++){const d=new THREE.Mesh(new THREE.SphereGeometry(.026,6,5),new THREE.MeshBasicMaterial({color:'#bcebee',transparent:true,opacity:.8}));stream.add(d);}
 const magic=new THREE.Group();scene.add(magic);magic.visible=false;const sparkGeo=new THREE.SphereGeometry(.035,6,4),sparkMat=new THREE.MeshBasicMaterial({color:'#e2efb2'});for(let i=0;i<18;i++)magic.add(new THREE.Mesh(sparkGeo,sparkMat));
 function grow(){blooms.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});blooms.clear();for(let i=0;i<data.blooms;i++){const group=new THREE.Group();const site=MAPS.garden.decor.blooms;group.position.set(site.x+i*.5,site.y,site.z+.23);const stem=new THREE.Mesh(new THREE.CylinderGeometry(.018,.023,.52,6),new THREE.MeshStandardMaterial({color:'#769876'}));stem.position.y=.26;group.add(stem);for(let j=0;j<5;j++){const p=new THREE.Mesh(new THREE.SphereGeometry(.10,10,7),new THREE.MeshStandardMaterial({color:'#b9ddd4',emissive:'#74bdaa',emissiveIntensity:.2,roughness:.85}));p.scale.set(1, .45,1.4);p.position.set(Math.cos(j*Math.PI*2/5)*.105,.55,Math.sin(j*Math.PI*2/5)*.105);group.add(p);}const c=new THREE.Mesh(new THREE.SphereGeometry(.055,10,7),new THREE.MeshStandardMaterial({color:'#f9e4a5',emissive:'#e5ce7a',emissiveIntensity:.25}));c.position.y=.56;group.add(c);blooms.add(group);}}
 function button(id,icon,label,detail){$(id).innerHTML=`<span class="button-icon">${icon}</span><span>${label}<small>${detail}</small></span>`;}
@@ -155,7 +158,7 @@ function ui(){
   $('walk-together').textContent=following?'不用跟着我了':'叫他一起走';
   $('follow-him').hidden=!same;$('follow-him').disabled=!!acting||following;
   $('follow-him').textContent=chasing?'不跟了':'我跟着他走';}
- // 漂流瓶：水在庭院里，一天一只。⚠️这一条一个字都不生成，漂回来的全是存档里已经有的东西
+ // 漂流瓶：水在庭院里，一天一只。
  {const err=driftError(data);
   $('bottle').hidden=!MAPS[data.map].stations.bottle;$('bottle').disabled=!!acting||!!err;
   $('bottle').textContent=err?'🫙 今天的已经捞过了':'🫙 捞漂流瓶';}
@@ -279,7 +282,7 @@ function say(s){
 function save(){if(actor)data.position={x:actor.position.x,z:actor.position.z};try{if(host){if(boundPartner)data.companion.name=boundPartner.name;const {seasonPlan,...saved}=data;if(!host.save(saved))throw Error('存档窗口已切换');}else {const {seasonPlan,...saved}=data;localStorage.setItem(KEY,JSON.stringify(saved));}saveOK=true;$('save').textContent='已保存在这台设备';}catch{saveOK=false;$('save').textContent='存储失败 · 暂勿关闭页面';}return saveOK;}
 function resize(updateSize=true){const w=innerWidth,h=innerHeight;if(updateSize)renderer.setSize(w,h,false);const aspect=w/h;const spanX=MAPS[data.map].viewSpan|| (aspect<1?(h<730?14:12.8):Math.max(14,16*aspect));const spanY=spanX/aspect;const offset=aspect<1?(h<730?2.0:1.4):2.1;const pose=orthographicCameraPose(cameraPan,spanY,camera.zoom,offset);camera.position.set(pose.position.x,pose.position.y,pose.position.z);camera.lookAt(pose.target.x,pose.target.y,pose.target.z);camera.far=pose.far;camera.userData.fogOffset=pose.fogOffset;camera.updateMatrixWorld();camera.left=-spanX/2;camera.right=spanX/2;camera.top=spanY/2;camera.bottom=-spanY/2;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
-async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-147992fd87ef6145');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
+async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.map,data.position);const a=await loader.loadAsync('./doll.glb?v=fg-14322dff8059f999');playerAvatar=createTraveler(a.scene);actor=playerAvatar.root;actor.name='Player';scene.add(actor);companionAvatar=createTraveler(a.scene,true);companionAvatar.root.name='Companion';scene.add(companionAvatar.root);dollSource=a.scene;syncNeighbors();
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
@@ -310,13 +313,17 @@ $('make-lamp').onclick=()=>request('lamp');
 $('well').onclick=()=>data.map==='forest'?gather('herb'):data.map==='depths'?gather('vein'):request('well');
 $('garden').onclick=()=>data.map==='forest'?gather('mushroom'):data.map==='depths'?request('deeper'):request('garden');
 $('brew').onclick=()=>request('brew');
-function sitAt(id){if(data.seat===id){data={...data,seat:null};companionController.reset();ui();save();return;}request('sit',id);}
+for(const [id,activity] of [['seat-tea','tea'],['seat-read','read'],['seat-idle','sit']])$(id).onclick=()=>{if(data.seat&&!acting){seatActivity=activity;say(activity==='tea'?'捧起杯子，慢慢喝一口。':activity==='read'?'把书放在手边，慢慢翻一页。':'收好东西，坐着看看水面。');}};
+$('give-flower').onclick=()=>{if(!ready||acting)return;data.position={x:actor.position.x,z:actor.position.z};const err=flowerGiftError(data);if(err){say(err);return;}path=[];task=null;moving=false;targetRing.visible=false;beginAction({kind:'gift',giftTo:data.partnerId||data.companion.name});say('把月光花递过去，等 TA 接住。');};
+function sitAt(id){seatActivity='sit';if(data.seat===id){data={...data,seat:null};companionController.reset();ui();save();return;}request('sit',id);}
 $('sit-pond').onclick=()=>sitAt(data.seat||'pond');
 $('sit-island').onclick=()=>sitAt('island');
 $('water-light').onclick=()=>{const err=islandLightError(data);if(err){say(err);return;}data=floatIslandLight(data);ui();save();say(lakeFrozen(data)?'小灯留在冰面上，暖光慢慢晃着。':'小灯落在水上，缓缓漂向湖心。');};
 $('mill-open').onclick=()=>request('mill');
 $('mill-close').onclick=()=>$('mill-dialog').close();
 function refreshLeisure(){
+ for(const id of ['seat-tea','seat-read','seat-idle']){$(id).hidden=!data.seat;$(id).disabled=!!acting;}
+ $('give-flower').hidden=data.map!==data.companion.map;$('give-flower').disabled=!!acting||!!flowerGiftError(data);$('give-flower').title=flowerGiftError(data);
  $('sit-island').hidden=data.map!=='garden';$('sit-island').disabled=!!acting;
  $('sit-island').textContent=data.seat==='island'?'从小岛起身':'去小岛坐坐';
  $('water-light').hidden=data.map!=='garden'||data.seat!=='island';$('water-light').disabled=!!acting||!!islandLightError(data);
@@ -434,17 +441,35 @@ function openMuseum(){
  if(!rows.length)list.innerHTML='<p class="craft-hint">'+(have?'背包里没有做好的东西了。':'还没有能捐的东西。下井刨一片碎片，去锅那儿做点什么。')+'</p>';
  $('museum-dialog').showModal();
 }
-// ── 漂流瓶（v69.47）：把过去那些东西重新递回来一次，零调用 ──────────────
-const DRIFT_WORDS={mine:'是你自己封进去的那一只',note:'是那天花笺上的一句',shard:'是从井里刨出来过的一片',kept:'是留在收藏馆里的那一件'};
-function openBottle(){
+// ── 漂流瓶：捞瓶完成后才拆信；生成失败不消耗次数，也不把失败当作没有回信。
+const DRIFT_WORDS={reply:'里面多了一封回信',mine:'是你自己封进去的那一只，这次没有附信',note:'是那天花笺上的一句',shard:'是从井里刨出来过的一片',kept:'是留在收藏馆里的那一件'};
+let bottleReading=false;
+async function openBottle(){
+ if(bottleReading)return;
  const err=driftError(data);if(err){say(err);return;}
- const row=driftPick(data);
- const before=data;data=drawBottle(data);if(data===before){say('今天水面上是空的。');return;}
+ let row=driftPick(data);
+ $('bottle-retry').hidden=true;
+ if(!$('bottle-dialog').open)$('bottle-dialog').showModal();
+ if(row?.pending){
+  bottleReading=true;
+  $('bottle-hint').textContent='瓶里多了一张纸，正在展开……';
+  $('bottle-text').textContent='你放下的：'+row.original;
+  try{
+   if(!host?.bottleReply)throw Error('从小手机进入并选好同行者，才能读新回信。瓶子会留着。');
+   const out=await host.bottleReply(row);
+   if(driftPick(data)?.id!==row.id||driftError(data))throw Error('这只瓶子的状态已经改变，请重新捞取。');
+   data=keepBottleReply(data,row.id,out.reply,out.sender);
+   row=driftPick(data);
+   if(row?.pending)throw Error('回信没有写完整，瓶子还留着。');
+  }catch(e){$('bottle-hint').textContent='这次没能展开回信';$('bottle-text').textContent=e.message;$('bottle-retry').hidden=false;return;}
+  finally{bottleReading=false;}
+ }
+ const before=data;data=drawBottle(data);if(data===before)return;
  if(!row){$('bottle-hint').textContent='捞上来是个空瓶子。';
-  $('bottle-text').textContent='里面什么都没有。往里放一句话吧——'+BOTTLE_DAYS+' 天以后它会漂回来。（在手机的「漂流瓶」里写）';}
- else {$('bottle-hint').textContent='水面上漂着一只，'+DRIFT_WORDS[row.kind]+'（第 '+row.from+' 天）。';
-  $('bottle-text').textContent=row.text;}
- ui();save();$('bottle-dialog').showModal();
+  $('bottle-text').textContent='往里面放一句话吧，过 '+BOTTLE_DAYS+' 个游戏日再来看看，也许会收到回信。（在手机的「漂流瓶」里写）';}
+ else {$('bottle-hint').textContent=DRIFT_WORDS[row.kind]+'（原信第 '+row.from+' 天）'+(row.sender?' · '+row.sender:'');
+  $('bottle-text').textContent=(row.original?'你放下的：'+row.original+'\n\n':'')+row.text;}
+ ui();save();
 }
 // ── 种下一句（v69.58）：走到花圃那儿种。写字仍在这一层，只是地方换了 ──────
 let sowKind='miss';
@@ -562,12 +587,14 @@ $('sow').onclick=()=>request('sow');
 $('cast').onclick=()=>request('cast');
 $('sow-close').onclick=()=>$('sow-dialog').close();
 $('bottle').onclick=()=>request('bottle');
+$('bottle-retry').onclick=()=>openBottle();
 $('bottle-close').onclick=()=>$('bottle-dialog').close();
 $('museum').onclick=()=>openMuseum();
 $('museum-close').onclick=()=>$('museum-dialog').close();
 $('craft').onclick=()=>request('craft');
 $('craft-close').onclick=()=>$('craft-dialog').close();
 async function completeAction(){if(loadingMap)return;const {kind,id,intent}=acting;
+ if(kind==='gift'){const before=data;const same=acting.giftTo===(data.partnerId||data.companion.name);if(same)data=giveMoonFlower(data);acting=null;giftFlower.visible=false;$('progress').hidden=true;if(data!==before){receivedUntil=clock+4;save();say(data.companion.name+'接过了月光花，低头看了看。');}else say(flowerGiftError(data)||'同行者换了，这朵花仍在花藏里。');ui();return;}
  // 到锅前了：打开弹层让她挑，挑完才真的做（perform 里没有这一支）
  if(kind==='mill'){acting=null;$('progress').hidden=true;ui();openMill();return;}
  if(kind==='craft'){acting=null;$('progress').hidden=true;ui();openCraft();return;}
@@ -591,7 +618,7 @@ async function completeAction(){if(loadingMap)return;const {kind,id,intent}=acti
  if(kind==='dive'||kind==='ladder'){loadingMap=true;say(kind==='dive'?'正在往下…':'正在爬上去…');
   try{await mapLoader.ensure(kind==='dive'?'depths':'garden',kind==='dive'?undefined:MAPS.garden.stations.well);}catch(e){acting=null;$('progress').hidden=true;ui();say('井里那一段没有加载完成，进度留在原地，稍后再试。');return;}finally{loadingMap=false;}}
  if(exitFor(data.map,kind,id)){loadingMap=true;say('正在打开前方的小路…');try{await mapLoader.ensure(exitFor(data.map,kind,id).to,exitFor(data.map,kind,id).at);}catch(e){acting=null;$('progress').hidden=true;ui();say('前方场景没有加载完成，进度留在原地，稍后再试。');return;}finally{loadingMap=false;}}
-const before=data;data=perform(data,kind,id,intent||undefined);acting=null;$('progress').hidden=true;stream.visible=false;if(data===before){ui();say('这次行动没有完成，材料和进度都保留了。');return;}
+const before=data;data=perform(data,kind,id,intent||undefined);acting=null;$('progress').hidden=true;if(data===before){ui();say('这次行动没有完成，材料和进度都保留了。');return;}
  if(exitFor(before.map,kind,id)||kind==='dive'||kind==='ladder'){actor.position.set(data.position.x,.08,data.position.z);flash();showMap(true);mapLoader.keep(data.map);}
  else if(kind==='deeper'){actor.position.set(data.position.x,.08,data.position.z);flash();showMap(true);}
  // 下到井里／再往下：池子快空了就补一批（一次调用出一批，接下来几层都从这池里取）
@@ -778,7 +805,7 @@ function drawNeighbors(dt){
   if(!root.visible)continue;
   root.position.set(n.position.x,.08,n.position.z);
   if(v.moving)root.rotation.y+=Math.atan2(Math.sin(v.heading-root.rotation.y),Math.cos(v.heading-root.rotation.y))*Math.min(1,dt*12);
-  x.avatar.animate(clock,{moving:v.moving,gesture:v.gesture,height:floorHeight(n.map,n.position,data)});
+  x.avatar.animate(clock,{moving:v.moving,gesture:v.gesture,progress:(clock*.3)%1,height:floorHeight(n.map,n.position,data)});
  }
 }
 // ── 点东西弹出「这儿能做什么」（她 2026-09-17）──────────────────────────
@@ -926,7 +953,7 @@ const viewControls=installViewControls({canvas,center:$('view-center'),onCenter:
  const off=Math.abs(value-1)>.02;$('zoom-reset').hidden=!off;$('zoom-in').hidden=!off;$('zoom-out').hidden=!off;}});
 canvas.addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d&&actor){e.preventDefault();go({x:actor.position.x+d[0],z:actor.position.z+d[1]});}});
 $('quality').onclick=()=>{lite=!lite;renderer.setPixelRatio(Math.min(devicePixelRatio,lite?1:1.6));renderer.shadowMap.enabled=!lite;$('quality').textContent=lite?'精细画质':'轻量画质';scene.traverse(o=>{if(o.material)o.material.needsUpdate=true;});resize();};
-$('reset').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=async()=>{if(loadingMap)return;loadingMap=true;try{await mapLoader.ensure('garden',START);}catch(e){say('小屋暂时没有加载成功，原来的进度还在。');return;}finally{loadingMap=false;}path=[];task=null;acting=null;stream.visible=false;$('progress').hidden=true;data={...freshState(),epoch:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};companionController.reset();timeAccumulator=0;lastCompanionEvent='';if(actor)actor.position.set(START.x,.08,START.z);targetRing.visible=false;showMap();mapLoader.keep('garden');save();if(boundPartner)data.companion.name=boundPartner.name;say('新的生活，从一壶清水和一条林间小路开始。');$('reset-dialog').close();};
+$('reset').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=async()=>{if(loadingMap)return;loadingMap=true;try{await mapLoader.ensure('garden',START);}catch(e){say('小屋暂时没有加载成功，原来的进度还在。');return;}finally{loadingMap=false;}path=[];task=null;acting=null;$('progress').hidden=true;data={...freshState(),epoch:Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)};companionController.reset();timeAccumulator=0;lastCompanionEvent='';if(actor)actor.position.set(START.x,.08,START.z);targetRing.visible=false;showMap();mapLoader.keep('garden');save();if(boundPartner)data.companion.name=boundPartner.name;say('新的生活，从一壶清水和一条林间小路开始。');$('reset-dialog').close();};
 function refreshTime(){
  refreshLeisure();
  const season=seasonOf(data.day);$('season-open').textContent=`${season.name} · ${season.day}/14 天`; $('date').textContent=`第 ${season.year} 年 · ${season.name} ${season.day} 日 · ${weather(data.day,data.epoch)}`;$('place-subtitle').textContent=`${timeLabel(data.minute)} · ${data.map==='depths'?'第 '+data.depth+' 层 · 往下还通 '+Math.max(0,deepestAllowed(data)-data.depth)+' 层':MAPS[data.map].interior?MAPS[data.map].name:data.map==='forest'?'萤光与草木':'小屋与月光花'}`;
@@ -1005,16 +1032,16 @@ $('companion-routine').onclick=()=>{data=wakeSleeper(data,'companion');applyComp
 $('companion-wait').onclick=()=>{if(acting)return;applyCompanion();path=[];task=null;targetRing.visible=false;data.position={x:actor.position.x,z:actor.position.z};for(let i=0;i<60;i++){data=advanceTime(data,1);const result=companionController.tick(data,1);data=result.state;if(result.event)lastCompanionEvent=result.event;}syncThaw();timeAccumulator=0;$('companion-dialog').close();showMap();save();say(`歇了一会儿，现在是 ${timeLabel(data.minute)}。${data.companion.name}${companionController.view().status}。`);};
 function syncThaw(){if(!actor)return;if(Math.hypot(actor.position.x-data.position.x,actor.position.z-data.position.z)>.01){actor.position.x=data.position.x;actor.position.z=data.position.z;path=[];task=null;playerSpeed=0;targetRing.visible=false;companionController.reset();say('春天到了，湖冰渐渐化开。你们回到了岸边。');}}
 function updateWorld(elapsed,dt){
- if(!ready||!actor)return;const paused=isMenuOpen();
+ if(!ready||!actor)return;const paused=isMenuOpen()||acting?.kind==='gift';
  if(!paused){data.position={x:actor.position.x,z:actor.position.z};
   // ⚠️走着说话，日子照走；站定了说话，时间停下来等她（她 2026-09-17）。
   //   原来只要在打字时间就停，于是「边走边聊」这件事在这游戏里等于不存在。
   if(!chatting||moving)timeAccumulator+=elapsed;if(timeAccumulator>=1){const oldDay=data.day,oldTaken=questTaken(data).length,minutes=Math.floor(timeAccumulator);timeAccumulator-=minutes;data=advanceTime(data,minutes);if(data.day!==oldDay){const dropped=Math.max(0,oldTaken-questTaken(data).length);syncThaw();ui();save();if(!acting)say(`第 ${data.day} 天，${weather(data.day,data.epoch)}。`+((recentHappenings(data,1)[0]||{}).text||'林地又长出了新的材料。')+(dropped?`板子换了，没做完的 ${dropped} 件撕下来了。`:''));}else refreshTime();}
- const result=companionController.tick(data,dt,{allowCare:acting?.kind!=='garden'});data=result.state;if(result.event){lastCompanionEvent=result.event;ui();save();if(!acting)say(result.event);}
+ const result=receivedUntil>clock?{state:data,event:null}:companionController.tick(data,dt,{allowCare:acting?.kind!=='garden'});data=result.state;if(result.event){lastCompanionEvent=result.event;ui();save();if(!acting)say(result.event);}
   missTick();chaseTick();tickNeighbors(dt);meetTick(dt);
  if(clock-lastAutoSave>10){save();lastAutoSave=clock;}}
  drawNeighbors(dt);
- const c=data.companion,v=companionController.view(),root=companionAvatar.root;root.visible=c.map===data.map;root.position.set(c.position.x,.08,c.position.z);if(v.moving||v.gesture==='water'||v.gesture==='sit')root.rotation.y+=Math.atan2(Math.sin(v.heading-root.rotation.y),Math.cos(v.heading-root.rotation.y))*Math.min(1,dt*(onLakeIce(c.map,c.position,data)?4:12));companionAvatar.animate(clock,{skating:onLakeIce(c.map,c.position,data),moving:!paused&&v.moving,gesture:v.gesture,height:floorHeight(c.map,c.position,data),sleepPose:sleepPose(data,'companion')});
+ const c=data.companion,v=companionController.view(),root=companionAvatar.root;root.visible=c.map===data.map;root.position.set(c.position.x,.08,c.position.z);if(v.moving||v.gesture==='water'||v.gesture==='sit')root.rotation.y+=Math.atan2(Math.sin(v.heading-root.rotation.y),Math.cos(v.heading-root.rotation.y))*Math.min(1,dt*(onLakeIce(c.map,c.position,data)?4:12));companionAvatar.animate(clock,{skating:onLakeIce(c.map,c.position,data),moving:!paused&&v.moving,gesture:v.gesture,progress:(clock*.3)%1,height:floorHeight(c.map,c.position,data),sleepPose:sleepPose(data,'companion')});
  const point=new THREE.Vector3(sleepPose(data,'companion')?.x??c.position.x,sleepPose(data,'companion')?1.5:1.95,sleepPose(data,'companion')?.z??c.position.z).project(camera),x=(point.x+1)*innerWidth/2,y=(1-point.y)*innerHeight/2;const panelTop=$('action-panel').getBoundingClientRect().top-12;const offscreen=!root.visible||x<15||x>innerWidth-15||y<125||y>panelTop;
  $('companion-tag').hidden=offscreen;$('companion-tag').style.left=x+'px';$('companion-tag').style.top=y+'px';
  // 气泡跟着名字走，再往上让开名字那一行；他走出画面时跟着一起收起来
@@ -1039,16 +1066,22 @@ function updateWorld(elapsed,dt){
 let playerSpeed=0;
 let last=performance.now(),lastRender=0;function frame(now){requestAnimationFrame(frame);if(document.hidden){last=now;return;}const elapsed=Math.min((now-last)/1000,1),dt=Math.min(elapsed,.05);last=now;clock+=dt;if(loadingMap){renderer.render(scene,camera);return;}
  if(actor&&!isMenuOpen()){moving=path.length>0;if(moving){const step=stepRoute(actor.position,path,dt,{speed:playerSpeed,walkSpeed:walkSpeedFor(data.map),skating:onLakeIce(data.map,actor.position,data)});playerSpeed=step.speed;actor.position.x=step.position.x;actor.position.z=step.position.z;if(step.heading!==null){const k=onLakeIce(data.map,actor.position,data)?4:13;actor.rotation.y+=Math.atan2(Math.sin(step.heading-actor.rotation.y),Math.cos(step.heading-actor.rotation.y))*Math.min(1,dt*k);}if(!path.length){targetRing.visible=false;save();if(task){const k=task;task=null;beginAction(k);}else {ui();arriveSpot();}}}else playerSpeed=0;
- if(data.seat&&!moving)actor.rotation.y=MAPS[data.map].seats[data.seat].heading;playerAvatar.animate(clock,{moving,skating:onLakeIce(data.map,actor.position,data),gesture:data.seat?'sit':acting?'water':'rest',height:floorHeight(data.map,{x:actor.position.x,z:actor.position.z},data),sleepPose:sleepPose(data)});
- if(acting){const together=acting.kind!=='seed'||companionNearby(data);if(together)acting.time+=dt;else {acting.wait=(acting.wait||0)+dt;say('等同行者走到身边，再一起唤醒种子。');if(acting.wait>35){acting=null;$('progress').hidden=true;ui();say('这次没等到同行者到场，种子还在，可以再叫他一起过来。');}}if(acting){const duration=acting.kind==='brew'?2.5:acting.kind==='rest'?2:acting.kind==='travel'?.5:1.5;$('progress').firstElementChild.style.width=Math.min(100,acting.time/duration*100)+'%';if(acting.kind==='garden'&&data.blooms<3){stream.visible=true;stream.position.set(actor.position.x+.22,.5,actor.position.z-.4);stream.children.forEach((d,i)=>{const p=(clock*1.5+i/12)%1;d.position.set(Math.sin(i*2.4)*.10,.55-p*.55,-p*.35);});}if(acting.time>=duration)completeAction();}}}
+ if(data.seat&&!moving)actor.rotation.y=MAPS[data.map].seats[data.seat].heading;playerAvatar.animate(clock,{moving,skating:onLakeIce(data.map,actor.position,data),gesture:data.seat?seatActivity:actionGesture(acting),seated:!!data.seat,progress:acting?acting.time/actionDuration(acting):0,height:floorHeight(data.map,{x:actor.position.x,z:actor.position.z},data),sleepPose:sleepPose(data)});
+ if(acting){const together=acting.kind!=='seed'||companionNearby(data);if(together)acting.time+=dt;else {acting.wait=(acting.wait||0)+dt;say('等同行者走到身边，再一起唤醒种子。');if(acting.wait>35){acting=null;$('progress').hidden=true;ui();say('这次没等到同行者到场，种子还在，可以再叫他一起过来。');}}if(acting){const duration=actionDuration(acting);$('progress').firstElementChild.style.width=Math.min(100,acting.time/duration*100)+'%';if(acting.time>=duration)completeAction();}}}
  // 打字的时候镜头跟着他走：不然他走出画面，她一边打字一边看不见人。
  // ⚠️她自己拖过画面就不跟了——那是把主动权收回去（跟点地面取消「跟着他走」同一个道理）。
  if(actor&&moving&&(cameraFollow||chatting&&chatFollow)){cameraPan.lerp(new THREE.Vector3(actor.position.x,0,actor.position.z),1-Math.exp(-dt*4));resize(false);}
  updateWorld(elapsed,dt);
  magic.visible=!!acting&&(acting.kind==='brew'||acting.kind==='garden'&&data.potions>0&&data.blooms<3);if(magic.visible){const site=MAPS.garden.interactions.find(x=>x.kind===(acting.kind==='brew'?'brew':'garden'));magic.position.set(site.x,.65,site.z);magic.children.forEach((m,i)=>{const a=clock*2+i*2.4,r=acting.kind==='brew'?.26:.6;m.position.set(Math.cos(a)*r,((clock*.5+i/18)%1)*.75,Math.sin(a)*r);});}
+ giftFlower.visible=acting?.kind==='gift';
+ if(giftFlower.visible){const c=data.companion,p=acting.time/actionDuration(acting),other=companionAvatar.root;
+  actor.rotation.y=Math.atan2(c.position.x-actor.position.x,c.position.z-actor.position.z);other.rotation.y=actor.rotation.y+Math.PI;
+  playerAvatar.animate(clock,{gesture:'give',height:floorHeight(data.map,actor.position,data)});companionAvatar.animate(clock,{gesture:'receive',height:floorHeight(c.map,c.position,data)});
+  const t=Math.max(0,Math.min(1,(p-.3)/.45)),ease=t*t*(3-2*t);giftFlower.position.copy(playerAvatar.handPoint()).lerp(companionAvatar.handPoint(),ease);giftFlower.rotation.y=actor.rotation.y;
+ }else if(companionAvatar&&receivedUntil>clock&&data.companion.map===data.map){companionAvatar.animate(clock,{gesture:'flower',height:floorHeight(data.map,data.companion.position,data)});}
  const activeView=mapViews[data.map];activeView?.stream?.update(cameraPan,Math.hypot(camera.right,camera.top)*.85/camera.zoom);activeView?.update?.(data,clock);dreamGarden.update(data,clock,acting);placedKeepsakes.update(data,clock);wellSigns.update(data,clock);lakeView.update(data,clock,activeView?.stream?.inspect().loaded||[]);magicView.update(data,clock);workshopView.update(data,clock);updateOutdoor();
  highlights.forEach((h,i)=>h.material.opacity=.35+Math.sin(clock*2+i)*.12);blooms.children.forEach((g,i)=>g.rotation.z=Math.sin(clock*1.6+i)*.035);
- if(brewing.active){if(brewing.stage==='done')actor.rotation.y=Math.atan2(camera.position.x-actor.position.x,camera.position.z-actor.position.z);brewing.update(dt,clock);playerAvatar.animate(clock,{gesture:brewing.stage==='done'?'hold':brewing.stage==='stir'?'stir':'water',height:floorHeight(data.map,actor.position,data)});if(brewing.helping){const site=MAPS.garden.interactions.find(x=>x.kind==='brew');companionAvatar.root.rotation.y=Math.atan2(site.x-data.companion.position.x,site.z-data.companion.position.z);companionAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,data.companion.position,data)});}}
+ if(brewing.active){if(brewing.stage==='done')actor.rotation.y=Math.atan2(camera.position.x-actor.position.x,camera.position.z-actor.position.z);brewing.update(dt,clock);playerAvatar.animate(clock,{gesture:brewing.stage==='stir'?'stir':'hold',height:floorHeight(data.map,actor.position,data)});if(brewing.helping){const site=MAPS.garden.interactions.find(x=>x.kind==='brew');companionAvatar.root.rotation.y=Math.atan2(site.x-data.companion.position.x,site.z-data.companion.position.z);companionAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,data.companion.position,data)});}}
  if(scooping.active){scooping.update(dt,clock);playerAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,actor.position,data)});if(scooping.helping){const site=MAPS.garden.lake.bottle;companionAvatar.root.rotation.y=Math.atan2(site.x-data.companion.position.x,site.z-data.companion.position.z);companionAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,data.companion.position,data)});}}
  if(ritual.active){ritual.update(dt,clock);playerAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,actor.position,data)});if(ritual.helping)companionAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,data.companion.position,data)});}
  if(excavating.active){excavating.update(dt,clock);playerAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,actor.position,data)});if(excavating.helping)companionAvatar.animate(clock,{gesture:'hold',height:floorHeight(data.map,data.companion.position,data)});}
@@ -1057,7 +1090,7 @@ let last=performance.now(),lastRender=0;function frame(now){requestAnimationFram
 addEventListener('pagehide',()=>{if(ready)save();});
 requestAnimationFrame(frame);load();
 // Read-only snapshots make the prototype's movement and persistence testable.
-window.gardenDebug={getDreams:()=>dreamGarden.inspect(),getDreamPlaced:()=>placedKeepsakes.inspect(),getWell:()=>({context:wellContext(data),nodes:NODES.filter(n=>n.depth===data.depth).map(n=>({id:n.id,form:mapViews.depths?.node(n.id)?.form})),mouthVisible:wellSigns.root.visible}),getExcavating:()=>excavating.inspect(),getRitual:()=>ritual.inspect(),getScooping:()=>scooping.inspect(),getBrewing:()=>brewing.inspect(),getWorkshop:()=>workshopView.inspect(),getOpenings:()=>{const items=[];const v=mapViews[data.map];for(const root of [v?.root,...(v?.stream?.roots()||[])].filter(Boolean))root.traverse(o=>{const tag=openingTag(o);if(tag)items.push({...tag,visible:o.visible,name:o.name,sourceName:o.userData.name});});return items;},getLake:()=>lakeView.inspect(),getDistricts:()=>mapViews[data.map]?.stream?.inspect()||null,getMuseum:()=>mapViews.museum?.inspect?.()||null,getEnvironment:()=>({rain:rain.visible,hemi:hemi.intensity,sun:sun.intensity,fill:fill.intensity,seasonTint:mapViews[data.map]?.root.userData.seasonTint!==false,weather:weather(data.day,data.epoch),fog:scene.fog.far,...outdoor.inspect()}),getView:()=>({pan:{x:cameraPan.x,z:cameraPan.z},zoom:camera.zoom,folded:$('panel-content').hidden}),getState:()=>JSON.parse(JSON.stringify(data)),getPlayer:()=>actor?{skating:onLakeIce(data.map,actor.position,data),speed:playerSpeed,x:actor.position.x,z:actor.position.z,y:actor.position.y,seat:data.seat,posture:actor.userData.posture,bed:sleepPose(data),visualTilt:actor.getObjectByName('TravelerVisual')?.rotation.x,leg:actor.getObjectByName('leftLeg')?.rotation.x,moving:!!path.length,acting:acting?.kind||null}:null,project:(x,z)=>{const v=new THREE.Vector3(x,floorHeight(data.map,{x,z},data),z).project(camera);return {x:(v.x+1)/2*innerWidth,y:(1-v.y)/2*innerHeight};},getCompanion:()=>({skating:onLakeIce(data.companion.map,data.companion.position,data),...companionController.view(),posture:companionAvatar?.root.userData.posture,bed:sleepPose(data,'companion'),visualTilt:companionAvatar?.root.getObjectByName('TravelerVisual')?.rotation.x,map:data.companion.map,position:{...data.companion.position},visible:!!companionAvatar?.root.visible}),getRenderStats:()=>({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,maps:Object.keys(mapViews)}),getReady:()=>ready,setLook:(who,look)=>{const a=who==='companion'?companionAvatar:playerAvatar;if(a)a.setLook(look);return !!a;}};
+window.gardenDebug={getDreams:()=>dreamGarden.inspect(),getDreamPlaced:()=>placedKeepsakes.inspect(),getWell:()=>({context:wellContext(data),nodes:NODES.filter(n=>n.depth===data.depth).map(n=>({id:n.id,form:mapViews.depths?.node(n.id)?.form})),mouthVisible:wellSigns.root.visible}),getExcavating:()=>excavating.inspect(),getRitual:()=>ritual.inspect(),getScooping:()=>scooping.inspect(),getBrewing:()=>brewing.inspect(),getWorkshop:()=>workshopView.inspect(),getOpenings:()=>{const items=[];const v=mapViews[data.map];for(const root of [v?.root,...(v?.stream?.roots()||[])].filter(Boolean))root.traverse(o=>{const tag=openingTag(o);if(tag)items.push({...tag,visible:o.visible,name:o.name,sourceName:o.userData.name});});return items;},getLake:()=>lakeView.inspect(),getDistricts:()=>mapViews[data.map]?.stream?.inspect()||null,getMuseum:()=>mapViews.museum?.inspect?.()||null,getEnvironment:()=>({rain:rain.visible,hemi:hemi.intensity,sun:sun.intensity,fill:fill.intensity,seasonTint:mapViews[data.map]?.root.userData.seasonTint!==false,weather:weather(data.day,data.epoch),fog:scene.fog.far,...outdoor.inspect()}),getView:()=>({pan:{x:cameraPan.x,z:cameraPan.z},zoom:camera.zoom,folded:$('panel-content').hidden}),getState:()=>JSON.parse(JSON.stringify(data)),getDailyActions:()=>({player:actor?.userData.dailyAction,companion:companionAvatar?.root.userData.dailyAction,gift:giftFlower.visible,giftAt:giftFlower.position.toArray(),seatActivity}),getPlayer:()=>actor?{skating:onLakeIce(data.map,actor.position,data),speed:playerSpeed,x:actor.position.x,z:actor.position.z,y:actor.position.y,seat:data.seat,posture:actor.userData.posture,bed:sleepPose(data),visualTilt:actor.getObjectByName('TravelerVisual')?.rotation.x,leg:actor.getObjectByName('leftLeg')?.rotation.x,moving:!!path.length,acting:acting?.kind||null}:null,project:(x,z)=>{const v=new THREE.Vector3(x,floorHeight(data.map,{x,z},data),z).project(camera);return {x:(v.x+1)/2*innerWidth,y:(1-v.y)/2*innerHeight};},getCompanion:()=>({skating:onLakeIce(data.companion.map,data.companion.position,data),...companionController.view(),posture:companionAvatar?.root.userData.posture,bed:sleepPose(data,'companion'),visualTilt:companionAvatar?.root.getObjectByName('TravelerVisual')?.rotation.x,map:data.companion.map,position:{...data.companion.position},visible:!!companionAvatar?.root.visible}),getRenderStats:()=>({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,maps:Object.keys(mapViews)}),getReady:()=>ready,setLook:(who,look)=>{const a=who==='companion'?companionAvatar:playerAvatar;if(a)a.setLook(look);return !!a;}};
 
 // Only bounded game actions cross this bridge. The model cannot mutate inventory or run code.
 window.FairyGardenGame={
@@ -1120,6 +1153,7 @@ window.FairyGardenGame={
  pinNote:id=>{data=pinNote(data,id);save();return true;},
  // 衣柜那一页顶上那条透明的窗：开的时候告诉游戏渲谁，关了传 null
  preview:who=>setPreview(who),
+ getDyes:who=>{const look=neighborOf(data,who)?.look||(who==='companion'?data.companion.look:data.look)||{},defaults=who==='me'?DEFAULT_LOOK:COMPANION_LOOK;return {skin:look.skin||defaults.skin,hairColor:look.hairColor||defaults.hairColor};},
  getOutfit:who=>{const look=neighborOf(data,who)?.look||(who==='companion'?data.companion.look:data.look)||{};return {id:outfitId(look),colors:outfitColors({...((who==='me')?DEFAULT_LOOK:COMPANION_LOOK),...look})};},
  setLook:(who,look)=>{if(!ready||!look)return false;
   // ⚠️dims 是嵌一层的：浅合并会让「只拖一根滑杆」把另外五根打回中性

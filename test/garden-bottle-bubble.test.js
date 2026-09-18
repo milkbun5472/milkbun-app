@@ -20,13 +20,10 @@ test("捞漂流瓶要走到水边，一天一只", () => {
   assert.match(html, /id="bottle-dialog"/);
 });
 
-// ⚠️成本地板：这一条是最零的一条——漂回来的全是存档里已经有的东西
-test("漂流瓶整条链一个字都不生成", () => {
-  const seg = world.slice(world.indexOf("// ── 漂流瓶"), world.indexOf("// ── 星井（下潜）"));
-  assert.doesNotMatch(seg, /callAI|host\.|await /);
-  assert.match(seg, /一个字都不生成/);
-  const dialog = game.slice(game.indexOf("function openBottle()"), game.indexOf("$('bottle').onclick"));
-  assert.doesNotMatch(dialog, /host\.|callAI/);
+test("新回信经宿主生成，捞瓶沿用原结算与存档", () => {
+  assert.match(game, /await host.bottleReply\(row\)/);
+  assert.match(game, /data=keepBottleReply\(data,row.id,out.reply,out.sender\)/);
+  assert.match(host, /tag:"庭院漂流瓶回信"/);
 });
 
 // 当天就能捞到自己刚写的，那是记事本不是漂流瓶

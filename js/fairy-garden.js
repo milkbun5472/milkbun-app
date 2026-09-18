@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-147992fd87ef6145", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-14322dff8059f999", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -31,6 +31,20 @@
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
   // 发色沿用色板；衣柜提供逐套保存的自由配色。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
+  // 衣服、肤色、发色共用取色与色号输入，验证规则只写一份。
+  function DyeControl({label, value, onChange, palette}) {
+    const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";
+    return h("div", { style: { marginBottom: 6 } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48 } },
+        h("span", { style: { flex: 1, fontSize: 12, color: "#344936" } }, label),
+        h("input", { type: "color", value: hex, "aria-label": "自定义" + label, onChange: e => onChange(e.target.value), style: { width: 44, height: 44, border: 0, background: "transparent", padding: 0 } }),
+        h("input", { key: hex, type: "text", defaultValue: hex, "aria-label": label + "色号", maxLength: 7, spellCheck: false,
+          onBlur: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) onChange(v); else e.target.value = hex; },
+          style: { width: 86, minHeight: 44, padding: "6px", border: "1px solid #cbd4bd", borderRadius: 7, background: "#f8f7ee", color: "#344936", fontSize: 14 } })),
+      palette && h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, margin: "8px 0 14px" } },
+        palette.map(color => h("button", { key: color, "aria-label": label + color, "aria-pressed": hex.toLowerCase() === color, onClick: () => onChange(color),
+          style: { width: 44, height: 44, borderRadius: 999, background: color, border: hex.toLowerCase() === color ? "2px solid #344936" : "1px solid #cbd4bd" } }))));
+  }
   // 一轮话拆成几个气泡（她 2026-09-17：「他回复一大段是不是没用分气泡」）。
   // ⚠️拆气泡全库只有一处实现：GroupIdentityGuard.splitBubbles ＋ engine.js 的 splitLongBubble。
   //   庭院自己再写一个切句子的函数，就是同一层活在两处（施工规则/one-public-mechanism.md）。
@@ -109,6 +123,20 @@
   //   他自己那边的生活，不是你们的新往事（如果馆那条路已经吃过一次亏）。
   const SEED_LABELS = { miss: "想你", curious: "好奇", sulk: "委屈", secret: "秘密",
     today: "今天", later: "以后", what_if: "如果", unsaid: "没说出口" };
+  async function bottleReply({active,character,profile,mainline,world,bottle}) {
+    if(!active) throw new Error("先在设置里配置创作线路，再来读回信。瓶子会等着你。");
+    const sys=[sharedStyle(),roleContext(character,profile,mainline),
+      "【庭院事实】\n"+JSON.stringify(world),
+      "【数日前放下水的原信】\n"+JSON.stringify({text:bottle.original,day:bottle.from}),
+      "你在这个架空庭院里捡到了这封漂流瓶，隔了几天才把回应封回瓶里。以自己的口吻写一小段回信，回应原句；可从庭院日常生发具体感受。共同经历以提供的事实为依据，想象就以想象表达。署名由程序填入。",
+      '只输出 JSON：{"reply":"回信正文"}。'].join("\n\n");
+    const raw=await callAI(active,sys,[{role:"user",content:"写这封回信。"}],{maxTokens:65535,timeout:180000,tag:"庭院漂流瓶回信"});
+    const result=extractJSON(raw);
+    if(!result||typeof result.reply!=="string"||!result.reply.trim()){
+      const e=new Error("这次没读懂回信，瓶子还留着，可以再试。");e.detail=String(raw||"").slice(0,1200);throw e;
+    }
+    return {reply:result.reply.trim().slice(0,600),sender:character.name};
+  }
   async function blossoms({ active, character, profile, world, mainline, seeds }) {
     if (!active) throw new Error("先在设置里配置创作线路，再来收花笺。");
     const rows = (seeds || []).slice(0, 6);
@@ -206,7 +234,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, missLine, generateSeason, blossoms, shards, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, generateSeason, blossoms, shards, SEED_LABELS, SHARD_LABELS };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   function GardenSession(props) {
@@ -318,6 +346,18 @@
               .concat(parts.map((part, i) => ({ id: "miss_" + Date.now() + "_" + i, role: "assistant", content: part, status: "done" }))).slice(-200) } }));
             return parts;
           } finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
+        bottleReply: async bottle => {
+          if(busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const c=partner();if(!c)throw new Error("先选一位同行者，回信才有人写。瓶子会留着。");
+          const epoch=serial.current;busyRef.current=true;setBusy(true);
+          try {
+            const out=await bottleReply({active:propsRef.current.apiFor?propsRef.current.apiFor(c.id):propsRef.current.active,
+              character:c,profile:propsRef.current.profile,mainline:propsRef.current.mainline,
+              world:(game()&&game().snapshot())||{},bottle});
+            if(!alive.current||serial.current!==epoch||String(current().partnerId)!==String(c.id))throw new Error("庭院或同行者已切换，这次回信没有写入。");
+            return out;
+          }catch(e){if(alive.current){setError(e.message);setDetail(e.detail||"");}throw e;}finally{busyRef.current=false;if(alive.current)setBusy(false);}
         },
         bloom: async rows => {
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
@@ -564,31 +604,31 @@
                   c.remark || c.name)))
               : null)
           :           bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
-            // ── 漂流瓶：⚠️这一条一个字都不生成。漂回来的全是【已经在存档里的东西】，
-            //    她自己封的那句，或者以前的花笺、刨到过的碎片、留在馆里的那一件。
+            // 回信与原信沿用同一本漂流瓶记录。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
-              "写一句话封进瓶子里放下水，" + ((bottles && bottles.days) || 7) + " 天以后它会漂回来。走到月潭栈桥那儿捞，一天一只。"),
+              "写一句话封进瓶子里放下水，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，可能捞到同行者的回信，也可能只有原信。到月湖栈桥捞，一天一只；读新回信会使用创作线路。"),
             h("textarea", { value: bottleText, onChange: e => setBottleText(e.target.value), rows: 2, maxLength: 120,
-              placeholder: "想对几天后的自己说什么？",
+              placeholder: "想放进瓶子里的那一句话……",
               style: { width: "100%", border: "1px solid " + G.line, background: G.paper, borderRadius: 14, padding: "10px 12px",
                 fontFamily: F_BODY, fontSize: 14, color: G.ink, outline: "none", resize: "none" } }),
             h("button", { className: "w-full active:opacity-70",
               onClick: () => { const g = game(); if (!g || !g.seal) return;
                 const err = g.seal(bottleText);
                 if (err) { props.toast(err); return; }
-                setBottleText(""); pullGarden(); props.toast("放下水了，" + ((bottles && bottles.days) || 7) + " 天以后见。"); },
+                setBottleText(""); pullGarden(); props.toast("放下水了，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，去水边看看。"); },
               style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5 } },
               "放下水"),
             ((bottles && bottles.floating) || []).length ? h("div", { style: { marginTop: 20 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "还在水里的"),
               bottles.floating.map(b => h("div", { key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
-                b.text + " · 还有 " + b.backIn + " 天漂回来"))) : null,
+                b.text + " · 还有 " + b.backIn + " 个游戏日到水边看看"))) : null,
             ((bottles && bottles.drifts) || []).length ? h("div", { style: { marginTop: 22 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "捞上来过的"),
               h("div", { style: { display: "grid", gap: 10 } },
                 bottles.drifts.map((d, i) => h("div", { key: (d.id || "") + ":" + i, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
-                    "第 " + d.day + " 天捞到 · " + (d.kind === "mine" ? "自己封的" : d.kind === "note" ? "旧花笺" : d.kind === "shard" ? "井里的碎片" : "馆里的一件") + "（第 " + d.from + " 天）"),
+                    "第 " + d.day + " 天捞到 · " + (d.kind === "reply" ? (d.sender || "同行者") + "的回信" : d.kind === "mine" ? "自己封的" : d.kind === "note" ? "旧花笺" : d.kind === "shard" ? "井里的碎片" : "馆里的一件") + "（第 " + d.from + " 天）"),
+                  d.original && h("div", {style:{fontSize:12,color:G.soft,marginTop:8}}, "你放下的：" + d.original),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, d.text))))) : null)
           :           bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
@@ -740,6 +780,8 @@
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
                 : who === "me" ? "换的是你自己在这个庭院里的样子。"
                 : "换的是住在村里那一位在这个庭院里的样子。"),
+            h(DyeControl, { key: who + "skin", label: "肤色", value: game() && game().getDyes ? game().getDyes(who).skin : null,
+              onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
             h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
               h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
@@ -752,12 +794,7 @@
               [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]].map(([slot, label]) => {
                 const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
                 const hex = selected && selected.colors[slot] || "#8d5f66";
-                return h("div", { key: slot, style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48 } },
-                  h("span", { style: { flex: 1, fontSize: 12, color: G.ink } }, label),
-                  h("input", { type: "color", value: hex, "aria-label": label, onChange: e => pushLook({ outfitColors: { [slot]: e.target.value } }), style: { width: 44, height: 40, border: 0, background: "transparent", padding: 0 } }),
-                  h("input", { key: who + slot + hex, type: "text", defaultValue: hex, "aria-label": label + "色号", maxLength: 7, spellCheck: false,
-                    onBlur: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) pushLook({ outfitColors: { [slot]: v } }); else e.target.value = hex; },
-                    style: { width: 86, minHeight: 40, padding: "6px", border: "1px solid " + G.line, borderRadius: 7, background: "#f8f7ee", color: G.ink, fontSize: 14 } }));
+                return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
               })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
@@ -785,16 +822,8 @@
                     onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
                     style: { width: "100%", accentColor: G.deep } }));
               })) : null,
-            [["hairColor", "发色", HAIR_COLORS]].map(([field, label, palette]) =>
-              h("div", { key: field, style: { marginTop: 20 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, label),
-                h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, palette.map(hex => {
-                  const on = String((look[who] || {})[field] || "").toLowerCase() === hex;
-                  return h("button", { key: hex, onClick: () => pushLook({ [field]: hex }), "aria-label": label + hex,
-                    className: "active:opacity-70",
-                    style: { width: 36, height: 36, borderRadius: 999, background: hex,
-                      border: on ? "2px solid " + G.ink : "1px solid rgba(0,0,0,.12)", boxShadow: on ? "0 0 0 3px rgba(255,255,255,.75) inset" : "none" } });
-                }))))))),
+            h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
+              onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS })))),
         chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),

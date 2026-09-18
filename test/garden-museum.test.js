@@ -27,7 +27,7 @@ test("配方和收藏馆整条链不许出现模型调用", () => {
   const seg = world.slice(world.indexOf("// ── 锅：把碎片做成"), world.indexOf("// ── 星井（下潜）"));
   assert.doesNotMatch(seg, /callAI|host\.|await /);
   assert.match(seg, /一枪都不打/);
-  const dialog = game.slice(game.indexOf("function openMuseum()"), game.indexOf("$('museum').onclick"));
+  const dialog = game.slice(game.indexOf("function openMuseum()"), game.indexOf("const DRIFT_WORDS"));
   assert.doesNotMatch(dialog, /host\.|callAI/);
 });
 
