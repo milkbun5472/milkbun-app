@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-abbd8764bdff5068';
-import {brewError,brewResult} from './brewing.mjs?v=fg-abbd8764bdff5068';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-abbd8764bdff5068';
-import './rules.js?v=fg-abbd8764bdff5068';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-6f142a58585918a8';
+import {brewError,brewResult} from './brewing.mjs?v=fg-6f142a58585918a8';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-6f142a58585918a8';
+import './rules.js?v=fg-6f142a58585918a8';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-abbd8764bdff5068';
+import {createNavigator} from './navigation.mjs?v=fg-6f142a58585918a8';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -611,16 +611,34 @@ export function approachSpot(s, key){
 // 落点：绕着家具找第一个站得住的点（从朝屋子出生点那一侧起找），面朝外坐；他坐的那一点是同一圈上
 //   离她六十公分到一米二的下一个点——找不到就不算一处座位，不许把他叠在她身上。
 export const SEAT_KINDS = ['sofa', 'armchair', 'chair', 'bench', 'stool', 'bath'];
+// 坐下去【坐面有多高】：原来一律按地板算，人就浮在沙发前面（她 2026-09-18：
+// 「沙发坐下去对不上建模」）。⚠️这张表只写高度，位置由下面从家具本身推。
+export const SEAT_RISE = { sofa: .40, armchair: .42, chair: .45, bench: .40, stool: .36, bath: .30 };
+// 挨着坐得下几个人：长的那边够长才坐得下两个，不然他只能在旁边站着
+const SEAT_SHARE = 1.7;
 const seatCache = new Map();
 function seatFromPiece(map, f, key){
   const spawn = MAPS[map].spawn || { x: 0, z: 0 }, t0 = Math.atan2(spawn.z - f.z, spawn.x - f.x), ring = [];
   for (let a = 0; a < 16; a++){ const t = t0 + (a % 2 ? -1 : 1) * Math.ceil(a / 2) * Math.PI / 8;
-    const p = { x: f.x + Math.cos(t) * (f.w / 2 + .55), z: f.z + Math.sin(t) * (f.d / 2 + .55) };
+    const p = { x: f.x + Math.cos(t) * (f.w / 2 + .55), z: f.z + Math.sin(t) * (f.d / 2 + .55), t };
     if (walkable(p.x, p.z, map)) ring.push(p); }
-  const seat = ring[0]; if (!seat) return null;
-  const beside = ring.find(p => { const d = Math.hypot(p.x - seat.x, p.z - seat.z); return d >= .6 && d <= 1.2; });
+  const stand = ring[0]; if (!stand) return null;
+  const beside = ring.find(p => { const d = Math.hypot(p.x - stand.x, p.z - stand.z); return d >= .6 && d <= 1.2; });
   if (!beside) return null;
-  return { x: seat.x, z: seat.z, heading: Math.atan2(seat.x - f.x, seat.z - f.z), companion: beside,
+  // ⚠️坐下那一下人要落在【坐面上】，不是在家具旁边的地上：
+  //   从她走过来的那一侧往里收一点，落在这件家具自己的坐垫上，再抬到坐面高度。
+  const dir = { x: Math.cos(stand.t), z: Math.sin(stand.t) };
+  const inset = Math.min(f.w, f.d) * .22;
+  const on = { x: f.x + dir.x * inset, z: f.z + dir.z * inset };
+  const rise = SEAT_RISE[f.kind] || 0;
+  // 长沙发、长凳坐得下两个人：他坐在同一张上，沿着长的那边错开
+  const long = f.w >= f.d, span = long ? f.w : f.d;
+  const side = long ? { x: 1, z: 0 } : { x: 0, z: 1 };
+  const share = span >= SEAT_SHARE
+    ? { x: on.x + side.x * .62, z: on.z + side.z * .62, rise }
+    : { ...beside, rise: 0 };
+  return { x: on.x, z: on.z, rise, approach: { x: stand.x, z: stand.z },
+    heading: Math.atan2(stand.x - f.x, stand.z - f.z), companion: share,
     label: '在' + FURNITURE[f.kind].label + '边陪你坐着', piece: key };
 }
 export function seatsOf(map){
@@ -2105,7 +2123,7 @@ export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}
 // A companion carries its own morning dew: one visible helping action per game day.
 export function companionCare(s){const c=s.companion,p=MAPS.garden.stations.garden;if(c.map!=='garden'||c.helpDay===s.day||s.blooms>=3||Math.hypot(c.position.x-p.x,c.position.z-p.z)>.5)return s;return {...s,blooms:s.blooms+1,companion:{...c,helpDay:s.day}};}
 export function exitFor(map,kind,id){const key=kind==='door'?id:kind;if(!['door','travel','enter'].includes(kind)||!Object.hasOwn(MAPS[map]?.exits||{},key))return null;const e=MAPS[map].exits[key];if(kind==='door'&&e.action!=='door')return null;return {...e,target:e.target||MAPS[map].stations[key]};}
-export function targetFor(state,kind,id){if(kind==='repair')return state.map==='watermill'?MAPS.watermill.stations.mill:null;if(['dreamSow','dreamHarvest'].includes(kind))return MAPS[state.map]?.stations.sow||null;const exit=exitFor(state.map,kind,id);if(exit)return exit.target;if(kind==='bed')return state.map==='home'?MAPS.home.beds[id]?.approach.player||null:null;if(kind==='rest'&&state.map==='home'&&state.sleep?.player)return MAPS.home.beds[state.sleep.player].approach.player;if(kind==='sit'){const seat=seatsOf(state.map)[id||'pond'];return seat?{x:seat.x,z:seat.z}:null;}if(kind==='visit')return MAPS[state.map]?.sites?.[id]?.target||null;if(kind==='gather'){const n=NODES.find(n=>n.id===id);return n?{x:n.x,z:n.z+.48}:null;}return MAPS[state.map]?.stations[kind]||null;}
+export function targetFor(state,kind,id){if(kind==='repair')return state.map==='watermill'?MAPS.watermill.stations.mill:null;if(['dreamSow','dreamHarvest'].includes(kind))return MAPS[state.map]?.stations.sow||null;const exit=exitFor(state.map,kind,id);if(exit)return exit.target;if(kind==='bed')return state.map==='home'?MAPS.home.beds[id]?.approach.player||null:null;if(kind==='rest'&&state.map==='home'&&state.sleep?.player)return MAPS.home.beds[state.sleep.player].approach.player;if(kind==='sit'){const seat=seatsOf(state.map)[id||'pond'];return seat?{x:(seat.approach||seat).x,z:(seat.approach||seat).z}:null;}if(kind==='visit')return MAPS[state.map]?.sites?.[id]?.target||null;if(kind==='gather'){const n=NODES.find(n=>n.id===id);return n?{x:n.x,z:n.z+.48}:null;}return MAPS[state.map]?.stations[kind]||null;}
 export function actionError(s,kind,id){if(kind==='repair')return repairError(s,id);if(['dreamSow','dreamHarvest'].includes(kind))return dreamError(s,id,kind==='dreamHarvest');if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=seatsOf(s.map)[id||'pond'];return !seat?'这里没有座位。':shutError(s,seat.opensWith);}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit'){const site=MAPS[s.map]?.sites?.[id];return site?shutError(s,site.opensWith):'这里还没有开放这处地方。';}
  if(['seed','star','lamp'].includes(kind))return magicError(s,kind);
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);if(!n||s.map!==n.map||(n.depth!=null&&n.depth!==s.depth))return '这里没有这种材料。';
@@ -2141,7 +2159,7 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
  if(kind==='repair')return repairRelic(s,id);
  if(kind==='dreamSow')return sowDream(s,id);if(kind==='dreamHarvest')return harvestDream(s,id);
  if(['seed','star','lamp'].includes(kind))return performMagic(s,kind);
- if(kind==='bed')return arrangeSleep(s,id,intent);if(kind==='sit')return {...s,seat:id||'pond'};if(kind==='visit')return {...s};
+ if(kind==='bed')return arrangeSleep(s,id,intent);if(kind==='sit'){const key=id||'pond',seat=seatsOf(s.map)[key];return {...s,seat:key,position:seat?{x:seat.x,z:seat.z}:s.position};}if(kind==='visit')return {...s};
  if(kind==='well')return {...s,water:3};
  if(kind==='garden'){if(intent==='harvest'&&s.blooms===3)return {...s,blooms:0,harvest:s.harvest+3};if(s.blooms>=3)return s;if(intent==='potion'&&s.potions>0)return {...s,blooms:3,potions:s.potions-1};if(intent==='water'&&s.water>0)return {...s,water:s.water-1,blooms:s.blooms+1};return s;}
  // 有星砂先用星砂：那是她特地下井换来的，别让它压在背包里

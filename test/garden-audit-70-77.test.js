@@ -18,11 +18,15 @@ test("座位只此一份：地图写死的几处加从家具推出来的；每�
     for (const [id, seat] of Object.entries(seats)){
       const s = { ...w.freshState(), map };
       if (seat.opensWith) continue;
-      assert.ok(w.walkable(seat.x, seat.z, map, s), map + ":" + id + " 站不住");
-      assert.ok(w.walkable(seat.companion.x, seat.companion.z, map, s), map + ":" + id + " 他那一点站不住");
+      // ⚠️2026-09-18 起分成两点：走过去停在【站得住的那一点】（approach），
+      //   坐下落在【坐垫上】（seat.x/z，家具本身不walkable，这正是对的）。
+      const stand = seat.approach || seat;
+      assert.ok(w.walkable(stand.x, stand.z, map, s), map + ":" + id + " 站不住");
+      if (!seat.companion.rise) assert.ok(w.walkable(seat.companion.x, seat.companion.z, map, s), map + ":" + id + " 他那一点站不住");
       const d = Math.hypot(seat.x - seat.companion.x, seat.z - seat.companion.z);
       assert.ok(d >= .55 && d <= 1.25, map + ":" + id + " 两个人隔 " + d);
-      assert.ok(w.findPath(w.MAPS[map].spawn, seat, map, [], s), map + ":" + id + " 走不到");
+      assert.ok(w.findPath(w.MAPS[map].spawn, stand, map, [], s), map + ":" + id + " 走不到");
+      if (seat.piece) assert.ok(seat.rise > .2, map + ":" + id + " 坐面没有高度，人会浮在家具前面");
       assert.equal(typeof seat.heading, "number");
     }
   }
@@ -43,7 +47,8 @@ test("坐：走 sit 那一条老路（起身／喝茶／翻书／他来坐旁边
   const s = w.freshState(), key = Object.keys(w.seatsOf("home")).find(k => k.includes(":sofa:"));
   let h = { ...s, map: "home", position: { ...w.MAPS.home.spawn }, companion: { ...s.companion, map: "home", mode: "follow", position: { ...w.MAPS.home.spawn } } };
   assert.equal(w.actionError(h, "sit", key), "");
-  assert.deepEqual(w.targetFor(h, "sit", key), { x: w.seatsOf("home")[key].x, z: w.seatsOf("home")[key].z });
+  const sofa = w.seatsOf("home")[key];
+  assert.deepEqual(w.targetFor(h, "sit", key), { x: sofa.approach.x, z: sofa.approach.z }, "走过去停在家具旁边站得住的那一点");
   h = w.perform({ ...h, position: w.targetFor(h, "sit", key) }, "sit", key);
   assert.equal(h.seat, key);
   assert.equal(w.restoreState(J(h)).seat, key, "读档座位还在");
@@ -57,7 +62,11 @@ test("坐：走 sit 那一条老路（起身／喝茶／翻书／他来坐旁边
   assert.match(game, /if\(SEAT_KINDS\.includes\(at\.kind\)&&seatsOf\(at\.map\)\[key\]\)\{const b=document\.createElement\('button'\);b\.textContent=data\.seat===key\?'起身':'坐一会儿';/);
   assert.match(game, /if\(\['wardrobe','vanity'\]\.includes\(at\.kind\)\)\{const b=document\.createElement\('button'\);b\.textContent='换样貌';/);
   assert.match(game, /if\(hit\.kind==='visit'&&openSeatSite\(hit\.id\)\)return;if\(hit\.kind==='visit'&&data\.map==='museum'\)\{say\(MAPS\.museum\.sites\[hit\.id\]\?\.text\|\|''\);openMuseum\(\);return;\}/);
-  assert.match(game, /actor\.rotation\.y=seatsOf\(data\.map\)\[data\.seat\]\?\.heading\?\?actor\.rotation\.y;/);
+  // ⚠️坐下要真落在坐面上（她 2026-09-18：「沙发坐下去对不上建模」）：朝向照旧，
+  //   另外把人挪到坐垫上、按 rise 抬起来。
+  assert.match(game, /const mySeat=data\.seat\?seatsOf\(data\.map\)\[data\.seat\]:null;/);
+  assert.match(game, /actor\.position\.x\+=\(mySeat\.x-actor\.position\.x\)\*Math\.min\(1,dt\*8\);/);
+  assert.match(game, /height:floorHeight\(data\.map,\{x:actor\.position\.x,z:actor\.position\.z\},data\)\+\(mySeat&&!moving\?\(mySeat\.rise\|\|0\):0\)/);
   assert.doesNotMatch(game, /MAPS\[data\.map\]\.seats\[data\.seat\]/, "座位一律问 seatsOf");
   assert.match(host, /openWardrobe: \(\) => \{ pullLook\(\); pullGarden\(\); setDress\(true\); \},/);
   assert.match(comp, /const seat=seatsOf\(s\.map\)\[s\.seat\];/);
