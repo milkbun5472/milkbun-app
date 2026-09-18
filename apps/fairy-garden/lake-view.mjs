@@ -1,7 +1,7 @@
-import {activeWaterLights,gameMinute} from './workshop.mjs?v=fg-a724e4821561c629';
-import {makeIceView} from './ice-view.mjs?v=fg-a724e4821561c629';
+import {activeWaterLights,gameMinute} from './workshop.mjs?v=fg-21a6d69b08509d10';
+import {makeIceView} from './ice-view.mjs?v=fg-21a6d69b08509d10';
 import * as T from 'three';
-import {MAPS,driftError,seasonOf} from './world.mjs?v=fg-a724e4821561c629';
+import {MAPS,driftError,seasonOf} from './world.mjs?v=fg-21a6d69b08509d10';
 // Artwork only: button and bottle mesh both call the existing request('bottle') transaction.
 // No inventory, daily counter, or generated content lives in this renderer.
 export function makeLakeView(){
