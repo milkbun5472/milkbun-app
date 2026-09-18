@@ -24,7 +24,7 @@ test("座位只此一份：地图写死的几处加从家具推出来的；每�
       assert.ok(w.walkable(stand.x, stand.z, map, s), map + ":" + id + " 站不住");
       if (!seat.companion.rise) assert.ok(w.walkable(seat.companion.x, seat.companion.z, map, s), map + ":" + id + " 他那一点站不住");
       const d = Math.hypot(seat.x - seat.companion.x, seat.z - seat.companion.z);
-      assert.ok(d >= .55 && d <= 1.25, map + ":" + id + " 两个人隔 " + d);
+      assert.ok(d >= .55 && d <= 1.45, map + ":" + id + " 两个人隔 " + d);
       assert.ok(w.findPath(w.MAPS[map].spawn, stand, map, [], s), map + ":" + id + " 走不到");
       if (seat.piece) assert.ok(seat.rise > .2, map + ":" + id + " 坐面没有高度，人会浮在家具前面");
       assert.equal(typeof seat.heading, "number");

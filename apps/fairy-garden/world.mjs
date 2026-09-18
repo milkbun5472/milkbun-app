@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-333acfc662169d44';
-import {brewError,brewResult} from './brewing.mjs?v=fg-333acfc662169d44';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-333acfc662169d44';
-import './rules.js?v=fg-333acfc662169d44';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-cbe20c9de81940b5';
+import {brewError,brewResult} from './brewing.mjs?v=fg-cbe20c9de81940b5';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-cbe20c9de81940b5';
+import './rules.js?v=fg-cbe20c9de81940b5';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-333acfc662169d44';
+import {createNavigator} from './navigation.mjs?v=fg-cbe20c9de81940b5';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -618,22 +618,44 @@ export const SEAT_RISE = { sofa: .40, armchair: .42, chair: .45, bench: .40, sto
 const SEAT_SHARE = 1.7;
 const seatCache = new Map();
 function seatFromPiece(map, f, key){
-  const spawn = MAPS[map].spawn || { x: 0, z: 0 }, t0 = Math.atan2(spawn.z - f.z, spawn.x - f.x), ring = [];
-  for (let a = 0; a < 16; a++){ const t = t0 + (a % 2 ? -1 : 1) * Math.ceil(a / 2) * Math.PI / 8;
-    const p = { x: f.x + Math.cos(t) * (f.w / 2 + .55), z: f.z + Math.sin(t) * (f.d / 2 + .55), t };
-    if (walkable(p.x, p.z, map)) ring.push(p); }
+  // ⚠️座位记在【家具自己的坐标系】里：相对它的前后左右，加上它自己的朝向。
+  //   世界坐标是每次现算的——家具搬到哪儿、转成什么角度，座位跟着走，
+  //   以后加一百张沙发也不用再碰这一段（言秋 2026-09-18 的方子）。
+  const yaw = Number.isFinite(f.heading) ? f.heading : derivedYaw(map, f);
+  const fwd = { x: Math.sin(yaw), z: Math.cos(yaw) };            // 它的正面
+  const right = { x: Math.cos(yaw), z: -Math.sin(yaw) };          // 它的右手边
+  const deep = Math.abs(fwd.x) * f.w + Math.abs(fwd.z) * f.d;      // 前后厚度
+  const wide = Math.abs(right.x) * f.w + Math.abs(right.z) * f.d;  // 左右长度
+  const on = { x: f.x + fwd.x * deep * .18, z: f.z + fwd.z * deep * .18 };
+  // 走过去先站哪儿：从正面往外一步；正面站不住就绕着找（家具挪进墙角时的兜底）
+  const ring = [];
+  for (let a = 0; a < 16; a++){
+    const t = Math.atan2(fwd.x, fwd.z) + (a % 2 ? -1 : 1) * Math.ceil(a / 2) * Math.PI / 8;
+    const out = { x: Math.sin(t), z: Math.cos(t) };
+    const reach = (Math.abs(out.x) * f.w + Math.abs(out.z) * f.d) / 2 + .55;
+    const p = { x: f.x + out.x * reach, z: f.z + out.z * reach };
+    if (walkable(p.x, p.z, map)) ring.push(p);
+  }
   const stand = ring[0]; if (!stand) return null;
-  const beside = ring.find(p => { const d = Math.hypot(p.x - stand.x, p.z - stand.z); return d >= .6 && d <= 1.2; });
-  if (!beside) return null;
-  // ⚠️朝向【看它摆在那儿是冲着什么】，不看她从哪一边走过来（她 2026-09-18 报了两遍：
-  //   「坐下来为什么朝向还是不对」「喂这不对吧」）。两条道理：
-  //   ① 长沙发、长凳的长边是靠背和坐垫，人只会冲短边那一侧坐；方方正正的椅子两轴都行。
-  //   ② 屋里摆家具就是围着一张桌子、一个壁炉坐——所以先看哪一侧有可看的东西，
-  //      没有可看的才挑更空的那一侧。只问「站不站得住」是不够的：沙发背后贴着墙
-  //      也常常有半步能站，照那个挑，人就背对茶几冲着空墙坐。
+  const rise = SEAT_RISE[f.kind] || 0;
+  // 长沙发、长凳坐得下两个：他坐在同一张上，沿着它自己的左右方向错开；
+  // ⚠️坐不下两个的（单人椅、矮凳）才要在旁边找一块站得住的地方——找不到就不算一处座位。
+  const beside = ring.find(p => { const d = Math.hypot(p.x - stand.x, p.z - stand.z); return d >= .6 && d <= 1.4; });
+  const share = wide >= SEAT_SHARE
+    ? { x: on.x + right.x * .62, z: on.z + right.z * .62, rise }
+    : beside ? { ...beside, rise: 0 } : null;
+  if (!share) return null;
+  return { x: on.x, z: on.z, rise, approach: { x: stand.x, z: stand.z },
+    heading: yaw, companion: share,
+    label: '在' + FURNITURE[f.kind].label + '边陪你坐着', piece: key };
+}
+// 家具没写朝向时替它推一个（80 件里有 23 件写了）。⚠️这是兜底不是依据：
+//   ① 长沙发、长凳的长边是靠背，人冲短边那一侧坐；② 屋里摆家具是围着桌子、壁炉坐，
+//   所以先看哪一侧有可看的东西，都没有才挑更空的那一侧。
+const FACING = new Set(['table', 'roundtable', 'dining', 'desk', 'hearth', 'island', 'kitchen']);
+function derivedYaw(map, f){
   const long = f.w >= f.d, square = Math.abs(f.w - f.d) < .25;
   const axes = square ? [{ x: 0, z: 1 }, { x: 1, z: 0 }] : [long ? { x: 0, z: 1 } : { x: 1, z: 0 }];
-  const FACING = new Set(['table', 'roundtable', 'dining', 'desk', 'hearth', 'island', 'kitchen']);
   const score = dir => {
     const half = Math.abs(dir.x) ? f.w / 2 : f.d / 2, wide = Math.abs(dir.x) ? f.d / 2 : f.w / 2;
     const look = (MAPS[map].furniture || []).reduce((n, q) => {
@@ -644,30 +666,11 @@ function seatFromPiece(map, f, key){
     }, 0);
     const open = [.7, 1.3, 2, 2.8].reduce((n, d) =>
       n + (walkable(f.x + dir.x * (half + d), f.z + dir.z * (half + d), map) ? 1 : 0), 0);
-    const toStand = ((stand.x - f.x) * dir.x + (stand.z - f.z) * dir.z) > 0 ? 1 : 0;
-    return look * 100 + open * 4 + toStand;
+    return look * 100 + open;
   };
-  const face = axes.flatMap(a => [a, { x: -a.x, z: -a.z }])
-    .sort((p, q) => score(q) - score(p))[0];
-  const long2 = Math.abs(face.x) ? false : true;   // 坐面沿着【和朝向垂直】那条边铺开
-  // ⚠️坐下那一下人要落在【坐面上】，不是在家具旁边的地上：
-  //   从冲外那一侧往里收一点，落在这件家具自己的坐垫上，再抬到坐面高度。
-  const inset = Math.min(f.w, f.d) * .18;
-  const on = { x: f.x + face.x * inset, z: f.z + face.z * inset };
-  const rise = SEAT_RISE[f.kind] || 0;
-  // 长沙发、长凳坐得下两个人：他坐在同一张上，沿着坐面那条边错开
-  const span = long2 ? f.w : f.d;
-  const side = long2 ? { x: 1, z: 0 } : { x: 0, z: 1 };
-  const share = span >= SEAT_SHARE
-    ? { x: on.x + side.x * .62, z: on.z + side.z * .62, rise }
-    : { ...beside, rise: 0 };
-  return { x: on.x, z: on.z, rise, approach: { x: stand.x, z: stand.z },
-    heading: Math.atan2(face.x, face.z), companion: share,
-    label: '在' + FURNITURE[f.kind].label + '边陪你坐着', piece: key };
+  const face = axes.flatMap(a => [a, { x: -a.x, z: -a.z }]).sort((p, q) => score(q) - score(p))[0];
+  return Math.atan2(face.x, face.z);
 }
-// 手指落在哪一处座位上（她 2026-09-18：「这个池塘坐不了啊」——池边本来就有一处座位，
-// 只是【点不着】：行动栏那颗按钮之外，地上没有任何可点的地方）。
-// ⚠️只此一份：地图写死的和从家具推出来的都在 seatsOf 里，这儿一起认。
 export function seatAt(map, p, pad = 1.3){
   if (!p) return '';
   let best = '', near = Infinity;

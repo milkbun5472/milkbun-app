@@ -32,11 +32,15 @@ test("两条路进来都看得到这间房的记录，而且只取最近 100 条
 // 她 2026-09-18：「坐下来为什么朝向还是不对」「坐上去下不来了，显示没有空地可以走」
 test("朝向看它摆在那儿是冲着什么，不看她从哪边走过来", () => {
   // 她 2026-09-18 报了两遍：「坐下来为什么朝向还是不对」「喂这不对吧」
-  assert.match(world, /const long = f\.w >= f\.d, square = Math\.abs\(f\.w - f\.d\) < \.25;/, "方方正正的椅子两轴都要考虑");
+  // ⚠️2026-09-18 改成治本那一版（言秋的方子）：座位记在家具自己的坐标系里，
+  //   家具写了 heading 就照它；没写的才用下面这套推一个。
+  assert.match(world, /const yaw = Number\.isFinite\(f\.heading\) \? f\.heading : derivedYaw\(map, f\);/);
+  assert.match(world, /function derivedYaw\(map, f\)\{/);
   assert.match(world, /const FACING = new Set\(\['table', 'roundtable', 'dining', 'desk', 'hearth', 'island', 'kitchen'\]\);/);
-  assert.match(world, /return look \* 100 \+ open \* 4 \+ toStand;/, "先看有没有可看的，再看空不空，最后才看她从哪边来");
-  assert.match(world, /heading: Math\.atan2\(face\.x, face\.z\)/);
+  assert.match(world, /return look \* 100 \+ open;/, "先看有没有可看的，再看空不空");
+  assert.match(world, /heading: yaw, companion: share,/, "坐着的朝向就是家具自己的朝向");
   assert.doesNotMatch(world, /heading: Math\.atan2\(stand\.x - f\.x, stand\.z - f\.z\)/, "又按走过来的方向定朝向了");
+  assert.match(world, /const on = \{ x: f\.x \+ fwd\.x \* deep \* \.18, z: f\.z \+ fwd\.z \* deep \* \.18 \};/, "坐垫是相对它自己算出来的");
 });
 
 test("坐着也走得掉：起身先回到坐下之前站的那一点", () => {
