@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-0476cab482ab41c6';
-import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-0476cab482ab41c6';
+import {stepRoute} from './locomotion.mjs?v=fg-333acfc662169d44';
+import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-333acfc662169d44';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -205,7 +205,7 @@ export function makeCompanionController(){
   let out=s,event=null;moving=route.length>0;gesture='rest';
   if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:Math.min(COMPANION_TOP,walkSpeedFor(c.map)*.79),iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
   else if(stuck){status='在原地等一条合适的小路';}
-  else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
+  else if(cross){out={...s,companion:{...c,map:exit.to,position:{...landingOf(exit)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id.startsWith('guide:')){status='在这儿等你';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
    if(allowCare&&!autonomous&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
    // 并肩坐下来了：相处册记一笔（同一天只记一次，坐一下午不是坐了四十次）

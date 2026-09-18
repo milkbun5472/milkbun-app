@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0476cab482ab41c6", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-333acfc662169d44", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -114,7 +114,7 @@
     const style = sharedStyle();
     const sys = [style,
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。时间、背包、位置与共同经历都属于这个存档。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       "【对方刚说】\n" + text,
@@ -275,7 +275,7 @@
     if (!active) throw new Error("先在设置里配置创作线路，他才带得了路。");
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【此刻】她刚搬进这个村子，你先住了一阵，村里的路你熟。头一天你带她走一圈，每到一处先站在那儿等她，她走到跟前你说一句。换季那天也各有一站。",
       "【十站】\n" + JSON.stringify(GUIDE_STOPS),
@@ -290,7 +290,7 @@
     const rules = root.FairyGardenRules, quota = rules.giftQuota(catalogue.length);
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【她在这个村里能递给你的东西，一样一样都在这儿】\n"
         + JSON.stringify(catalogue.map(x => ({ key: x.key, name: x.name, note: x.note || "" }))),
@@ -315,7 +315,7 @@
     const rules = root.FairyGardenRules;
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式。⚠️这是你们在玩的一个小游戏：可以入戏，但别把它当成现实里真发生过的事。",
       "【她刚递给你的这一样】\n" + JSON.stringify({ name: item.name, note: item.note || "", 来历: item.from || "" }),
       "【你对它的态度】" + rules.GIFT_STANCES[stance] + "。这一条已经定了，照它写。",
       "【要写的】你接过它那一刻说出口的一两句。⚠️只写这一刻：不编你们没发生过的往事，也不替她安排接下来做什么。",
@@ -405,7 +405,7 @@
     if (!active) throw new Error("先在设置里配置创作线路，他才报得出方向。");
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【此刻】旧塔观星室。她在楼下转铜环，你站在残顶观测台上看光落在哪儿——"
         + "她手里只有环，看不见光，全靠你报。你们要把光对到今晚那道刻痕上。",
       "【四种情况】\n" + JSON.stringify(STAR_BANDS.map(([band, what]) => ({ band, what }))),
@@ -460,7 +460,7 @@
     const quiet = Math.max(0, Number(material && material.quiet) || 0);
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       material && material.starNight
         ? "【此刻】你们在旧塔的星图桌前，把她一趟趟从井底带回来的星图碎片拼在了一起，天已经黑了，星图摊开在桌上。这一夜只有这一次，说你此刻真想说的。"

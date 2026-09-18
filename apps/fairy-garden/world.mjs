@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-0476cab482ab41c6';
-import {brewError,brewResult} from './brewing.mjs?v=fg-0476cab482ab41c6';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-0476cab482ab41c6';
-import './rules.js?v=fg-0476cab482ab41c6';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-333acfc662169d44';
+import {brewError,brewResult} from './brewing.mjs?v=fg-333acfc662169d44';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-333acfc662169d44';
+import './rules.js?v=fg-333acfc662169d44';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-0476cab482ab41c6';
+import {createNavigator} from './navigation.mjs?v=fg-333acfc662169d44';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -2221,7 +2221,11 @@ export function actionError(s,kind,id){if(kind==='repair')return repairError(s,i
  if(kind==='deeper'){if(s.map!=='depths')return '先下到井里。';
   if(s.depth>=deepestAllowed(s))return s.stones?'再往下是塌掉的岩层。带回一片井纹残片，路会再通两层。':'再往下就看不见路了。先在这几层找到一片井纹残片。';
   return '';}
- if(kind==='rest')return MAPS[s.map]?.stations.rest?'':'这里没有可以睡觉的地方。';
+ if(kind==='rest'){if(!MAPS[s.map]?.stations.rest)return '这里没有可以睡觉的地方。';
+  // ⚠️说好一起睡，就等他也上床（她 2026-09-18：「我选一起睡就等他也上床了才过到下一天」）
+  const with_=s.sleep?.companion&&s.sleep.companion===s.sleep.player;
+  if(with_&&!sleepPose(s,'companion'))return s.companion.map==='home'?'他还没上床，等他一会儿。':'他还没回来，等他一起睡。';
+  return '';}
  if(s.map!=='garden')return '先回庭院吧。';
  if(kind==='brew')return brewError(s,id);
  else if(kind==='garden'){if(s.blooms<3&&!s.potions&&!s.water)return '水壶空了，先去井边取水；也可以用月露唤醒整圃花。';}
@@ -2247,12 +2251,7 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
   return {...s,[n.kind==='herb'?'herbs':'mushrooms']:s[n.kind==='herb'?'herbs':'mushrooms']+(n.kind==='herb'?2:1),picked:[...s.picked,id]};}
  // 出口把人放在下一张图上【说好的落点】：默认是那张图的 spawn，
  // 爬梯子上来则是井口（exits.ladder.at）——落点写在出口那一处，不在这儿分支。
- if(['travel','enter','door'].includes(kind)){const e=exitFor(s.map,kind,id);
-  // ⚠️穿过小路是【从这张图的口子走到那张图的口子】，不是回家门口（她 2026-09-18：
-  //   「为啥从林地回来是传送回家门口而不是回到传送点那里」）。屋门那两种照旧落在 spawn：
-  //   屋子的 spawn 本来就是门口。
-  const at=e.at||(kind==='travel'&&MAPS[e.to].stations?.travel)||MAPS[e.to].spawn;
-  return {...s,seat:null,map:e.to,position:{...at}};}
+ if(['travel','enter','door'].includes(kind)){const e=exitFor(s.map,kind,id);return {...s,seat:null,map:e.to,position:{...landingOf(e,kind)}};}
  // 下去一趟要花时间：第一层 45 分钟，再往下每层 35 分钟，爬上来 20 分钟。
  // ⚠️时间一律走 advanceTime——它自己会跨天，别在这儿另算一遍日期。
  if(kind==='dive')return advanceTime({...s,wellTrip:{day:s.day,kit:s.wellKit||'none'},map:'depths',depth:1,position:{...MAPS.depths.spawn}},Math.round(45*diveWeight(s)));
@@ -2321,6 +2320,11 @@ export function perform(s,kind,id,intent=gardenIntent(s)){const out0=performActi
  if(kind==='rest')return {...near,seat:null};return {...near,seat:kind==='sit'?near.seat:null,today:{...(near.today||{}),[kind]:((near.today||{})[kind]||0)+1}};}
 
 // Find the first physical exit on a route; companions never jump across disconnected maps.
+// 穿过一道口子落在哪儿：【这张图的口子 → 那张图的口子】，不是回家门口
+// （她 2026-09-18：「为啥从林地回来是传送回家门口」「从林间回来角色还是传送回家」）。
+// ⚠️她和他共用这一处；屋门那两种照旧落在 spawn——屋子的 spawn 本来就是门口。
+export const landingOf=(exit,kind='travel')=>exit&&exit.at?exit.at
+  :(kind==='travel'&&MAPS[exit.to].stations&&MAPS[exit.to].stations.travel)||MAPS[exit.to].spawn;
 export function exitToward(from,to){const queue=[{map:from,first:null}],seen=new Set([from]);while(queue.length){const step=queue.shift();if(step.map===to)return step.first;for(const [id,exit]of Object.entries(MAPS[step.map]?.exits||{})){if(seen.has(exit.to)||!MAPS[exit.to])continue;seen.add(exit.to);queue.push({map:exit.to,first:step.first||{id,to:exit.to,at:exit.at,target:exit.target||MAPS[from].stations[id]}});}}return null;}
 
 export function chooseWellKit(s,key){return s.map!=='depths'&&Object.hasOwn(WELL_KITS,key)?{...s,wellKit:key}:s;}
