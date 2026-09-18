@@ -825,6 +825,39 @@ function useKbLift() {
 // fits＝这个字号下大概放得下几格；超了按比例缩，缩到 min 为止。
 // 窄格子里的钱（亲属卡、刷卡通知、引用条那些）：不带千分位，跟原来的长相一致。
 // ⚠️只是转交口，规则在 js/money.js 一处（施工规则/one-public-mechanism.md）。
+// 聊天一次画多少条（她 2026-09-18 定 200）。往上翻自动再补一批，能一路翻到第一条。
+//
+// 原来单聊和群聊都是把整份 messages 铺进 DOM：聊得猛的那天上千条一起画，
+// 每发一条新消息整个列表重画一遍，于是越聊越卡（小红书那位读者 2026-09-18 报的就是这个）。
+// ⚠️数据一条没少，这只是【画多少】的事。
+//
+// ⚠️这一层只许有这一份（施工规则/one-public-mechanism.md）：单聊、群聊都问它要
+//   winStart，别在各自那头再写一遍窗口和滚动补偿。
+const CHAT_WINDOW = 200;
+function useChatWindow(ref, total, resetKey) {
+  const [winN, setWinN] = useState(CHAT_WINDOW);
+  // 换个人／换个房间／换个群：窗口收回去，别把上一处翻开的那一大段带过来
+  useEffect(() => { setWinN(CHAT_WINDOW); }, [resetKey]);
+  const winStart = Math.max(0, total - winN);
+  // 往上补一段。⚠️补完要把滚动位置顶回原处：DOM 前面凭空多出几百条，
+  //   不补这一下，她正在看的那一段会当场往下窜掉一大截。
+  const growRef = useRef(0);
+  const growMore = () => {
+    const el = ref.current;
+    if (!el || winStart <= 0) return;
+    growRef.current = el.scrollHeight - el.scrollTop;
+    setWinN(n => n + CHAT_WINDOW);
+  };
+  // ⚠️走 React.useLayoutEffect：core.js 那份解构里没有 useLayoutEffect，写裸的会是 undefined
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !growRef.current) return;
+    el.scrollTop = el.scrollHeight - growRef.current;
+    growRef.current = 0;
+  }, [winN]);
+  // growing()＝这一拍是【她在往上翻】，不是来了新消息：滚到底那一下要躲开它
+  return { winStart, growMore, growing: () => !!growRef.current };
+}
 const mTight = (n, charId) => (typeof Money !== "undefined" && Money) ? Money.say(n, charId) : "¥" + (n == null ? 0 : n);
 
 const _wideChar = c => {
@@ -7873,6 +7906,7 @@ function ChatThread({
     if (picked.length) onForward(picked, destination);
     exitSel();
   };
+  const { winStart, growMore, growing } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""));
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -7880,6 +7914,8 @@ function ChatThread({
       inited.current = true;
       return pinToBottom(el); // 首次进入：钉到底，直到图片/字体都加载完或她自己上翻
     }
+    // ⚠️正在往上补那一下【不许】滚到底：那是她在翻旧的，把她甩回最新的等于白翻
+    if (growing()) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
   // 送信：对话=入队消息；旁白注入=注入一段旁白；OOC=直接问模型
@@ -8077,15 +8113,25 @@ function ChatThread({
   }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
     ref: ref,
     "data-wk": "body",
+    // 翻到顶上那一小段就自动补下一批（她手指还在滑的时候就补好，不用等她撞到头）
+    onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-1"
-  }, archCount > 0 ? h("button", {
+  }, winStart > 0 ? h("button", {
+    onClick: growMore, className: "w-full active:opacity-70",
+    style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0", marginBottom: 2 }
+  }, "↑ 上面还有 " + winStart + " 条 · 点开或往上翻") : null,
+  archCount > 0 ? h("button", {
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder(character.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
     className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "6px 0", marginBottom: 4 }
   }, archView === "loading" ? "加载中…" : ("☁ 更早的 " + archCount + " 条聊天在云端 · 点开查看")) : null,
   messages.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "和 " + character.name + " 的对话由此开始"
   }), messages.flatMap((m, i) => {
+    // ⚠️窗口外的直接不画。**用 early-return，不用 slice**：i 是这条消息在
+    //   messages 里的【原始下标】，撤回、多选、编辑、转发全靠它定位
+    //   （selIds.map(i => messages[i])）。切一刀重新编号，错一位就是删错消息。
+    if (i < winStart) return [];
     // 账本回流（CC/Stack-chan）的一行可能是逐字摘录的长段落：显示时按空行拆成多个气泡，数据不动
     if (m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
       const parts = m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
@@ -13321,6 +13367,8 @@ function GroupThread({
   const ref = useRef(null);
   const inited = useRef(false);
   const gs = settings || {};
+  // 跟单聊共用那一份窗口（施工规则/one-public-mechanism.md）：群聊更容易攒到上千条
+  const { winStart, growMore, growing } = useChatWindow(ref, messages.length, group && group.id);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -13328,6 +13376,7 @@ function GroupThread({
       inited.current = true;
       return pinToBottom(el); // 首次进入群聊：同上
     }
+    if (growing()) return;   // 她正在往上翻，别把她甩回最新的
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
   const send = () => {
@@ -13495,9 +13544,14 @@ function GroupThread({
   }))), h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
+    onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     "data-wk": "body",
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
-  }, archCount > 0 ? h("button", {
+  }, winStart > 0 ? h("button", {
+    onClick: growMore, className: "w-full active:opacity-70",
+    style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0", marginBottom: 2 }
+  }, "↑ 上面还有 " + winStart + " 条 · 点开或往上翻") : null,
+  archCount > 0 ? h("button", {
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder("g_" + group.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
     className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "6px 0", marginBottom: 4 }
   }, archView === "loading" ? "加载中…" : ("☁ 更早的 " + archCount + " 条群聊在云端 · 点开查看")) : null,
@@ -13519,6 +13573,9 @@ function GroupThread({
     text: "群聊已创建",
     sub: gs.spectate ? "用旁白（下方输入）推动，成员们会互动" : "发条消息，成员们会陆续回应"
   }), messages.map((m, i) => {
+    // ⚠️窗口外的不画。**early-return，不切片**：i 是原始下标，撤回/多选/删除
+    //   全靠它定位（onDeleteMessages([i])），重新编号错一位就是删错消息。
+    if (i < winStart) return null;
     // 系统提示这一族全走 SysNote（v63.49）：和单聊、线下同一个长相，右上角都能 ✕ 掉
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
