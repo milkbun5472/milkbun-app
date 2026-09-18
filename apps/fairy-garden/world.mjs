@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-3cf8ad36480ed8d6';
-import {brewError,brewResult} from './brewing.mjs?v=fg-3cf8ad36480ed8d6';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-3cf8ad36480ed8d6';
-import './rules.js?v=fg-3cf8ad36480ed8d6';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-c92c6cbdbec99917';
+import {brewError,brewResult} from './brewing.mjs?v=fg-c92c6cbdbec99917';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-c92c6cbdbec99917';
+import './rules.js?v=fg-c92c6cbdbec99917';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-3cf8ad36480ed8d6';
+import {createNavigator} from './navigation.mjs?v=fg-c92c6cbdbec99917';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1076,7 +1076,7 @@ export function villageRules(){
     { head: '集市', text: '每季 ' + days.filter(d => marketDay(d)).join('、') + ' 日开，功绩就是钱。每次上摊的货不一样。' },
     { head: '夜市', text: '每季 ' + NIGHT_MARKET_DAYS.join('、') + ' 日天黑后开，卖吃的和做法；功绩不够拿材料换。篮子最多装 ' + PANTRY_CAP + ' 样。吃过的记进食谱册，他在跟前就是一起吃的；会做的在自己家灶台上做。' },
     { head: '灯会', text: '每季第 ' + FESTIVAL_DAY + ' 天晚上，在月潭栈桥。要带' + FESTIVAL_NEEDS.map(n => n.label).join('、') + '，两个人一起放。攒不齐就等下一季。' },
-    { head: '递东西', text: '走到他身边递，一天只递 ' + GIFT_PER_DAY + ' 样。递过一类，才知道他对这一类是什么态度；第一次接过时他说的话记在礼物簿里。' },
+    { head: '递东西', text: '走到他身边递，一天只递 ' + GIFT_PER_DAY + ' 样。递过一类，才知道他对这一类是什么态度；第一次接过时他说的话记在礼物簿里——礼物簿在手机那一册的「相处」里，和相处册同一页。' },
     { head: '相处册', text: '按一起做过几种不同的事算，不按次数：' + BOND_TIERS.map(([n, l]) => l + '（' + n + ' 种）').join(' → ') + '。处熟了，他愿意陪你去的地方更多。' },
     { head: '井', text: '从屋边那口井下去，往下最多 ' + DEPTH_MAX + ' 层，石头里有东西。井纹残片第 ' + STAR_CHART_FROM + ' 颗以后每一颗是一片星图，攒够 ' + STAR_CHART_NEED + ' 片，夜里两个人去旧塔。雨雪天下井慢，喝过热汤就不慢。' },
     { head: '漂流瓶', text: '在月潭边捞。写下的瓶子 ' + BOTTLE_DAYS + ' 天到；放水灯时留的那句，哪天也会漂回来。' },

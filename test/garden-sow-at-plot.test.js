@@ -13,7 +13,12 @@ const html = rd("apps/fairy-garden/index.html");
 test("种一句要走到花圃那儿种，不在册子里种", () => {
   assert.match(world, /s\.map !== 'garden' \? '花圃在庭院里。'/);
   assert.match(world, /if\(kind==='sow'\)return seedError\(s\)/);
-  assert.match(rules, /sow:\{x:-7\.6,z:1\.55\}/, "跟收花笺同一个站位");
+  // ⚠️钉的是「三件事同一个站位」，不是那个坐标本身——坐标 2026-09-18 往南挪过
+  //   0.4（她：「种后面的花圃会穿模」），钉死数字的话挪一次就红一次。
+  const three = rules.match(/garden:(\{x:[-\d.]+,z:[-\d.]+\}),note:(\{x:[-\d.]+,z:[-\d.]+\}),sow:(\{x:[-\d.]+,z:[-\d.]+\})/);
+  assert.ok(three, "garden／note／sow 三件事不在同一处写着了");
+  assert.equal(three[2], three[1], "跟收花笺同一个站位");
+  assert.equal(three[3], three[1], "跟收花笺同一个站位");
   assert.match(rules, /note:'home',sow:'home'/, "新站位不写清在哪一区，rules.js 加载当场就崩");
   assert.match(html, /id="sow-dialog"/);
   assert.match(game, /\$\('sow'\)\.onclick=\(\)=>request\('sow'\)/);
