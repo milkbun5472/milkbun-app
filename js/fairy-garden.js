@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-3915a13bb1499558", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-4ff0d554e4619471", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -317,6 +317,39 @@
     const raw = await callAI(active, sys, [{ role: "user", content: "应一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院邻居" });
     return normalizeHello(raw);
   }
+  // ── 走近了跟邻居说句话（她 2026-09-18：「Ab 都做吧」的 a）──────────────
+  // ⚠️邻居是【别人的角色】，所以这一枪有两道闸，而且它们管的不是同一件事：
+  //   ① 门（door）＝TA 自己的主线记忆带不带进这个村子。开了哪几条由她在邻居那一页
+  //      拨，走的是房间那道闸（ChatRooms.gateCtx），不另写一套。
+  //   ② 世界那一份＝【这一档里的私事】。发给 TA 的是 world.mjs 的 neighborView，
+  //      不是那份 snapshot——同行者的位置、礼物、相处册、委托，门开得再大也一个字不给。
+  //   开了①就顺手漏②，是这条线上最容易犯的错。
+  // ⚠️反八股那一堆照给：那不是记忆，是文风地板，在哪儿都该有
+  //   （施工规则/four-surfaces-same-context.md：「沙盒身份不构成砍掉它们的理由」）。
+  // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
+  async function neighborLine({ active, character, profile, bundle, view }) {
+    if (!active) throw new Error("先在设置里配置创作线路，TA 才开得了口。");
+    const sys = [sharedStyle(),
+      "你就是「" + character.name + "」，住在魔法庭院的村子里，是「" + userName(profile) + "」的邻居。",
+      "【完整角色人设】\n" + (character.persona || character.name),
+      bundle || "",
+      "【对方的设定】\n" + (profile && profile.persona || "未填写"),
+      "【此刻这个村子】\n" + JSON.stringify(view),
+      "【此刻】她走到你跟前，像是想跟你说句话。你开口。",
+      "【要紧的】就着此刻说——这个时候、这个地方、这个天气，你手头在做什么，你们碰见过几次。"
+        + "你和她是邻居，不是她的谁：熟到什么程度上面写着，别越过它。"
+        + "⚠️你不知道她和同住那位之间的事，一个字都别提，也别打听。"
+        + "⚠️不编你们没发生过的往事，不替她安排接下来做什么，不问「你怎么了」这种回声式的反问。",
+      '【输出格式】只输出 JSON：{"lines":["你说的第一句","接着说的第二句"]}。'
+        + "一条一个意思，她那头是一个一个气泡冒出来的；一句说得完就一条，最多三条。"
+    ].filter(Boolean).join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "说句话。" }],
+      { maxTokens: 65535, timeout: 180000, tag: "微光庭院邻居" });
+    const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
+    const out = rows.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
+    if (!out.length) { const e = new Error("这次没听清 TA 说什么，明天再找 TA 聊。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return out;
+  }
   // 他自己走过来、她点了头，才打的那一枪（她 2026-09-17）。
   // ⚠️这是整个庭院里最值钱的一次调用：别的都躲着不打，这一次是她主动要听。
   // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
@@ -352,7 +385,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   // 一份色板：原来 GardenSession 和 FairyGardenApp 各写了一份，改一处永远漏一处。
@@ -500,6 +533,8 @@
         },
         // 礼物簿那张表：这位角色一辈子只问一次，问过就存在这一档里（跟季节安排一个放法）
         hasTastes: () => { const c = partner(); const d = current(); return !!(c && d.tastes && d.tastes[String(c.id)] && d.tastes[String(c.id)].status === "ready"); },
+        // 屋里点衣柜／梳妆台（审计，她 2026-09-18）：开的就是季节手册那一页「样貌」，不另做一个换装界面
+        openWardrobe: () => { pullLook(); pullGarden(); setDress(true); },
         // 他带路那十句：一位角色问一次，存在这一档的 guides[charId]
         guideLines: async () => {
           const c = partner(); if (!c) throw new Error("先选一位同行者。");
@@ -514,6 +549,24 @@
             if (String(current().partnerId) !== cid) throw new Error("同行者已经换过，这几句没有写下来。");
             update(old => ({ ...old, guides: { ...(old.guides || {}), [cid]: { status: "ready", at: Date.now(), rows } } }));
             return rows;
+          } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
+          finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
+        // 走近了跟邻居说句话（她 2026-09-18 的 a）：一天一位一次，每次现打。
+        // ⚠️两道闸各管各的：door → 那位自己的主线记忆（走房间那道 gateCtx）；
+        //   view → 这一档里能给 TA 看的（同行者那条线一个字都不在里头，见 neighborView）。
+        neighborSay: async ({ charId, door, view }) => {
+          const cid = String(charId), c = (propsRef.current.characters || []).find(x => String(x.id) === cid);
+          if (!c) throw new Error("这位邻居不在手机里了。");
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const bundle = propsRef.current.neighborBundle ? propsRef.current.neighborBundle(cid, door) : "";
+            const lines = await neighborLine({ active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, bundle, view });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这几句没算数。");
+            return lines;
           } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
           finally { busyRef.current = false; if (alive.current) setBusy(false); }
         },
@@ -630,6 +683,8 @@
     const [book, setBook] = useState(false);
     const [garden, setGarden] = useState(null);
     const [bookTab, setBookTab] = useState("notes");   // notes=花册 / shards=碎片盒
+    // 请谁搬进来／改谁的门禁：这一页开着的时候，装的是那位的草稿（她 2026-09-18 的 b）
+    const [invite, setInvite] = useState(null);
     const [shardBox, setShardBox] = useState(null);
     const [bond, setBond] = useState(null);           // 相处册＋礼物簿（game.getBond）
     const [things, setThings] = useState(null);
@@ -829,7 +884,58 @@
                       (it.tasted ? it.note : it.season != null ? "只在一季的夜市有" : it.cook ? "夜市上有，也能自己做" : "夜市上有") + (it.cook ? (it.known ? " · 会做" : " · 还不会做") : "") + (it.tasted && it.buff ? " · " + it.buff : ""))))))
               : null)
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft } }, "还没读到这一册。"))
-          : bookTab === "crew" ? h("div", { style: { padding: "16px 16px 40px" } },
+          : bookTab === "crew" ? (invite ? h("div", { style: { padding: "16px 16px 40px" } },
+            // ── 请 TA 搬进来之前先把话说清（她 2026-09-18：「邀请邻居进来是不是也能直接设置」）──
+            // ⚠️开关那几条【不在这儿另写一份】：名字和措辞都问 ChatRooms.GROUPS.cognition，
+            //   全库的房间用的就是那一份（施工规则/one-public-mechanism.md）。
+            //   「回这间房先补看主聊天」那一条没有对象——邻居不住在一间房里，所以只有它被摘掉。
+            (() => {
+              const Kit = root.ChatRooms;
+              const rows = ((Kit && Kit.GROUPS && Kit.GROUPS.cognition) || []).filter(([k]) => k !== "mainDelta");
+              const who = (props.characters || []).find(c => String(c.id) === String(invite.charId));
+              const flip = k => setInvite(v => ({ ...v, door: { ...v.door, [k]: !v.door[k] } }));
+              return h(React.Fragment, null,
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: G.ink } },
+                  invite.fresh ? "请 " + (who ? (who.remark || who.name) : "TA") + " 搬进村里" : "改" + invite.name + "的设定"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, margin: "6px 0 14px" } },
+                  "住进来之后 TA 在村里过自己的日子，你走在村里会碰见。这几条现在就能定，之后也随时能改。"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "村里叫 TA 什么"),
+                h("input", { value: invite.name, maxLength: 16,
+                  onChange: e => setInvite(v => ({ ...v, name: e.target.value })),
+                  style: { width: "100%", padding: "10px 11px", borderRadius: 11, border: "1px solid " + G.line,
+                    background: "rgba(255,255,255,.7)", color: G.ink, fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginTop: 6, lineHeight: 1.7 } },
+                  "样子搬进来之后在「样貌」那一页换，和同行者走同一套。"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, margin: "18px 0 4px" } }, "TA 进这个村子时带着什么"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, lineHeight: 1.7, marginBottom: 6 } },
+                  "默认什么都不带——请进来的是别人的角色，带什么由你一条条拨开。"),
+                rows.map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between",
+                  style: { padding: "11px 0", borderBottom: "1px solid " + G.line, gap: 12 } },
+                  h("div", null,
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, label),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft, marginTop: 2, lineHeight: 1.45 } }, note)),
+                  h("button", { onClick: () => flip(k), className: "active:opacity-70", "aria-pressed": !!invite.door[k],
+                    style: { flexShrink: 0, width: 46, height: 27, borderRadius: 999, border: "1px solid " + G.line,
+                      background: invite.door[k] ? G.deep : "rgba(255,255,255,.6)", padding: 2, display: "flex",
+                      justifyContent: invite.door[k] ? "flex-end" : "flex-start" } },
+                    h("span", { style: { width: 21, height: 21, borderRadius: 999, background: invite.door[k] ? "#fffef5" : "#c6d0b8", display: "block" } })))),
+                h("div", { className: "flex", style: { gap: 9, marginTop: 20 } },
+                  h("button", { onClick: () => {
+                      const g = game(); if (!g) return;
+                      const err = invite.fresh
+                        ? g.moveIn({ charId: invite.charId, name: invite.name, look: {}, door: invite.door })
+                        : g.setNeighborDoor(invite.charId, invite.door, invite.name);
+                      if (err) { props.toast(err); return; }
+                      setInvite(null); pullGarden();
+                      props.toast(invite.fresh ? invite.name + "搬进来了。" : "改好了。"); },
+                    style: { flex: 1, padding: "11px 0", borderRadius: 12, border: 0, background: G.deep,
+                      color: "#f6f7ea", fontFamily: F_BODY, fontSize: 13 } },
+                    invite.fresh ? "请 TA 搬进来" : "保存"),
+                  h("button", { onClick: () => setInvite(null),
+                    style: { padding: "11px 15px", borderRadius: 12, border: "1px solid " + G.line,
+                      background: "transparent", color: G.soft, fontFamily: F_BODY, fontSize: 12.5 } }, "算了")));
+            })())
+          : h("div", { style: { padding: "16px 16px 40px" } },
             // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
             // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -849,12 +955,17 @@
                 //   邻居之间碰得再多也不是她的交情（world.mjs 的 metCount 就是这么算的）。
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 4 } },
                   n.met ? "碰见过 " + n.met + " 次 · " + n.closeness : "还没在路上碰见过"),
-                h("button", { onClick: () => { const g = game(); if (!g || !g.moveOut) return;
-                    const err = g.moveOut(n.charId);
-                    if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。"); },
-                  className: "active:opacity-60",
-                  style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } },
-                  "请 TA 搬走"))))
+                h("div", { className: "flex items-center", style: { gap: 14, marginTop: 8 } },
+                  h("button", { onClick: () => setInvite({ charId: n.charId, name: n.name, door: { ...(n.door || {}) }, fresh: false }),
+                    className: "active:opacity-60",
+                    style: { fontFamily: F_BODY, fontSize: 10.5, color: G.deep, background: "transparent", padding: 0 } },
+                    "设定 ›"),
+                  h("button", { onClick: () => { const g = game(); if (!g || !g.moveOut) return;
+                      const err = g.moveOut(n.charId);
+                      if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。房间和聊天都留着。"); },
+                    className: "active:opacity-60",
+                    style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent", padding: 0 } },
+                    "请 TA 搬走")))))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
                   "三间屋都空着。"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } },
@@ -863,12 +974,10 @@
               (props.characters || []).filter(c => String(c.id) !== String(entry.partnerId)
                 && !((crew && crew.rows) || []).some(n => String(n.charId) === String(c.id)))
                 .slice(0, 40).map(c => h("button", { key: c.id, className: "active:opacity-70",
-                  onClick: () => { const g = game(); if (!g || !g.moveIn) return;
-                    const err = g.moveIn({ charId: c.id, name: c.remark || c.name, look: {} });
-                    if (err) { props.toast(err); return; } pullGarden(); props.toast((c.remark || c.name) + "搬进来了。"); },
+                  onClick: () => setInvite({ charId: c.id, name: c.remark || c.name, door: {}, fresh: true }),
                   style: { ...pill(true), borderColor: G.line, color: G.soft, background: "rgba(255,255,255,.55)" } },
                   c.remark || c.name)))
-              : null)
+              : null))
           :           bookTab === "bottle" ? h("div", { style: { padding: "16px 16px 40px" } },
             // 回信与原信沿用同一本漂流瓶记录。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },

@@ -72,7 +72,9 @@ test("花册有邻居那一页", () => {
   assert.match(host, /"crew", "邻居"/);
   assert.match(host, /村里有三间邻居屋/);
   assert.match(host, /g\.moveOut\(n\.charId\)/);
-  assert.match(host, /g\.moveIn\(\{ charId: c\.id/);
+  assert.match(host, /g\.moveIn\(\{ charId: invite\.charId, name: invite\.name, look: \{\}, door: invite\.door \}\)/,
+    "请谁搬进来现在先开一张设定页，搬那一下把门一起带过去");
+  assert.match(host, /onClick: \(\) => setInvite\(\{ charId: c\.id, name: c\.remark \|\| c\.name, door: \{\}, fresh: true \}\)/);
   assert.match(game, /getNeighbors:\(\)=>/);
 });
 
