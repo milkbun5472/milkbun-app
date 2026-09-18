@@ -8,7 +8,7 @@ const rules = fs.readFileSync("apps/fairy-garden/rules.js", "utf8");
 
 // 她 2026-09-18：「一个时间段能不能圈出一个活动范围」
 test("范围照 sites 和 furniture 推导，不另开一张点位表", () => {
-  assert.match(world, /export function areaSpots\(map, center\)/);
+  assert.match(world, /export function areaSpots\(map, center, reach = areaReach\(map\)\)/);
   assert.match(world, /范围【推导】出来，不手写一张点位表/);
   assert.doesNotMatch(world, /const AREA_SPOTS *= *\{/, "又写了一张要养的表");
   // sites 也算（她点名：「算上sites」）
@@ -54,4 +54,23 @@ test("id 不许改，换了地方挂在 spot 上", () => {
 test("三格不许转同一圈：翻笔记挪进厅里那排书架", () => {
   assert.match(rules, /study:\{map:'hall',target:MAPS\.hall\.sites\.books\.target/);
   assert.match(rules, /三格转的是同一圈/);
+});
+
+// 她 2026-09-18：「还有什么…现在还是个装饰地点」
+test("摊开的那几处单独放宽半径，不是把所有地方一起调大", () => {
+  const rules = fs.readFileSync("apps/fairy-garden/rules.js", "utf8");
+  assert.match(rules, /market:\{map:'garden',target:\{x:MAPS\.garden\.market\.paving\.x,z:MAPS\.garden\.market\.paving\.z\},reach:6/);
+  assert.match(rules, /upstairs:\{map:'dormitory',target:\{x:\.8,z:-1\.25\},reach:8\.5/);
+  assert.match(rules, /museum:\{map:'museum',target:\{x:0,z:-1\.6\}/);
+  assert.match(world, /export function areaSpots\(map, center, reach = areaReach\(map\)\)/);
+  // ⚠️一起调大就会「从湖北岸溜达进集市」——那正是当初把室外压到 5 米的原因
+  assert.match(world, /export const AREA_REACH = \{ interior: 7\.5, outdoor: 5 \}/);
+});
+
+// ⚠️「今天成不成立」原来是写死在池子那一行里的一个从句
+test("季节闸收成一张表，池子那一行只问一句", () => {
+  assert.match(comp, /const ACTIVITY_WHEN=\{market:s=>marketDay\(s\.day\),ice:s=>lakeFrozen\(s\)/);
+  assert.match(comp, /const inSeason=\(id,s\)=>!ACTIVITY_WHEN\[id\]\|\|ACTIVITY_WHEN\[id\]\(s\)/);
+  assert.doesNotMatch(comp, /id!=='market'\|\|marketDay/, "旧那个从句还挂在池子上");
+  assert.match(comp, /判据（marketDay／lakeFrozen）住在 world\.mjs/, "为什么放这儿要写明白");
 });

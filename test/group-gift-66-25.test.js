@@ -47,7 +47,9 @@ test("群里送＝当面递过去：不走快递，东西照旧记在收礼那�
   assert.match(gift, /else pChat\(charId, p => \[\.\.\.p, \{ \.\.\.card, content: "\[礼物\] " \+ \(handNow \? "当面给你：" : "送给你："\) \+ itemName \}\]\);/, "私聊那张被改坏了");
   // 归属：carryGifts 落在收礼那个人名下（giftLog / 随身物品全靠它接上）
   const hand = gift.slice(gift.indexOf("if (handNow) {"), gift.indexOf("setGiftOut("));
-  assert.match(hand, /\[charId\]: \[\{ id: giftId, name: itemName, receivedTs: now \}/, "东西没记在收礼那个人名下");
+  // v67.40 起这一笔落盘归了 recordGiftReceived 一处（当面给 / 快递送达共用），
+  // 这里要证的还是同一条：收礼那个人是 charId
+  assert.match(hand, /recordGiftReceived\(charId, \{ id: giftId, name: itemName,/, "东西没记在收礼那个人名下");
   assert.ok(hand.indexOf("groupId") < 0, "随身物品按群存了——那就没人拥有它");
 });
 

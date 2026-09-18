@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {withOpenPaths} from '../../test/_fairy-open.mjs';
 import {freshState,restoreState,MAPS,ACTIVITIES,OPENINGS,opened,walkable,findPath,
- COMPANION_DESTINATIONS,destinationChoices,journalText,restoreCompanion,noteBond,BOND_KINDS,
+ COMPANION_DESTINATIONS,destinationChoices,journalText,restoreCompanion,moveIn,neighborOf,noteBond,BOND_KINDS,
  whereLabel,shutError,actionError} from './world.mjs';
 import {dailySchedule,plannedActivity,makeCompanionController} from './companion.mjs';
 // 她 2026-09-18：「然后把新加的场景的动作交互也补上吧宝宝」
@@ -26,6 +26,10 @@ test('地板表不是手抄的：ACTIVITIES 里每一处都会被排到',()=>{
  const s=allOpen(freshState());
  const seen=new Set();
  for(let day=1;day<=120;day++)for(const item of dailySchedule({...s,day}))seen.add(item.id);
+ // 「回自己屋里」只有住在村里的人成立：同行者跟你同住，他没有「自己那间屋」
+ const nb=moveIn(s,{charId:'c1',name:'阿甲',look:{},door:{}});
+ const who=neighborOf(nb,'c1');
+ for(let day=1;day<=28;day++)for(const item of dailySchedule({...nb,day,companion:who}))seen.add(item.id);
  for(const id of Object.keys(ACTIVITIES))
   assert.ok(seen.has(id)||NAILS.includes(id),id+' 在这个世界里，他却一天都不会去');
 });
