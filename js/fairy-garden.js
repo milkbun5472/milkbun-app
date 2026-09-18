@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-8698ba017fa6cdd4", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-84328ee857dca406", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -221,16 +221,24 @@
   // ⚠️类别在 rules.js（游戏那侧按同一张表结算）；这儿只问【态度】和【第一次接过时他会说的话】。
   // ⚠️不塞任何内容示范（施工规则/prompt-no-content-samples.md）：喜欢什么由他的人设长出来。
   // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
-  function normalizeTastes(raw) {
-    const rules = root.FairyGardenRules, obj = extractJSON(raw);
-    const rows = obj && Array.isArray(obj.tastes) ? obj.tastes : [];
-    const out = Object.keys(rules.GIFT_FAMILIES).map(family => {
-      const r = rows.find(x => x && x.family === family) || {};
-      const stance = Object.hasOwn(rules.GIFT_STANCES, r.stance) ? r.stance : "";
-      return { family, stance, words: replyParts(r.words).slice(0, 3) };
+  function normalizeTastes(raw, catalogue) {
+    const obj = extractJSON(raw), rows = obj && Array.isArray(obj.items) ? obj.items : [];
+    const keys = catalogue.map(x => x.key);
+    // 他排的先后（只认单子上有的、去重），排漏的按单子原序补在后面
+    const order = [];
+    for (const r of rows){ const k = r && String(r.key || "").trim();
+      if (keys.includes(k) && !order.includes(k)) order.push(k); }
+    if (order.length < Math.ceil(keys.length / 2)) {
+      const e = new Error("这次没读出他喜欢什么，可以再试一次。"); e.detail = String(raw || "").slice(0, 1200); throw e;
+    }
+    for (const k of keys) if (!order.includes(k)) order.push(k);
+    // ⚠️分布由代码切（施工规则/bans-make-it-dumber.md：掷轴，不掷答案）：
+    //   他说了什么算「他排在前面」，但「前面能站几个」不是他说了算。
+    const byKey = root.FairyGardenRules.stanceByRank(order, keys.length);
+    return catalogue.map(item => {
+      const r = rows.find(x => x && String(x.key || "").trim() === item.key) || {};
+      return { key: item.key, family: item.family, stance: byKey[item.key] || "meh", words: replyParts(r.words).slice(0, 2) };
     });
-    if (!out.some(x => x.stance)) { const e = new Error("这次没读出他的喜好，可以再递一次。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
-    return out;
   }
   // 生日：人格档案馆里那一栏（公历或农历）换算成村里的一天。⚠️解析只用 engine 那几处现成的函数，不另写一套
   function gameBirthdayOf(c) {
@@ -277,22 +285,46 @@
     const raw = await callAI(active, sys, [{ role: "user", content: "带路。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院带路" });
     return normalizeGuide(raw);
   }
-  async function tastes({ active, character, profile, mainline, world }) {
+  async function tastes({ active, character, profile, mainline, world, catalogue }) {
     if (!active) throw new Error("先在设置里配置创作线路，他才说得出喜欢什么。");
-    const rules = root.FairyGardenRules;
+    const rules = root.FairyGardenRules, quota = rules.giftQuota(catalogue.length);
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
       "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
       "【当前世界的事实】\n" + JSON.stringify(world),
-      "【她在这个村里能递给你的东西，分这几类】\n" + JSON.stringify(Object.entries(rules.GIFT_FAMILIES).map(([id, f]) => ({ family: id, label: f.label, what: f.what }))),
-      "【要你定的】每一类你是什么态度，以及第一次从她手里接过这一类东西时你会说出口的话。态度四档：" + Object.entries(rules.GIFT_STANCES).map(([k, v]) => k + "=" + v).join("／")
-        + "。按你自己的人设定，不用四档都占，也不必讨好她：有人就是不爱花，有人偏偏稀罕井里那些脏兮兮的旧物。"
-        + "⚠️那几句只写你接过东西那一刻说出口的：不编你们没发生过的往事，也不替她安排接下来做什么。",
-      '【输出格式】只输出 JSON：{"tastes":[{"family":"类别标识","stance":"四档之一","words":["接过时说的第一句","要是还有第二句"]}]}。'
-        + "每一类都要有一条。words 一条一个意思，她那头是一个一个气泡冒出来的；一句说得完就一条。"
+      "【她在这个村里能递给你的东西，一样一样都在这儿】\n"
+        + JSON.stringify(catalogue.map(x => ({ key: x.key, name: x.name, note: x.note || "" }))),
+      "【要你定的】把这些东西【从你最想要的排到你最不想要的】，一样都不许漏、不许并列。"
+        + "按你自己的人设排：有人就是不爱花，有人偏偏稀罕井里那些脏兮兮的旧物；"
+        + "同一类里也该有分别——一样是花，你未必两种都一样喜欢。"
+        + "⚠️不用管每一档能站几个人，那不归你定；你只管这个先后。",
+      "【还要写的】给排在最前面那几样和最后面那几样，各写一两句【第一次从她手里接过它时你会说出口的话】。"
+        + "中间那些可以不写。⚠️只写接过东西那一刻说出口的：不编你们没发生过的往事，也不替她安排接下来做什么。",
+      '【输出格式】只输出 JSON：{"items":[{"key":"东西的标识","words":["接过时说的话"]}]}。'
+        + "items 的【顺序就是你的先后】，从最想要排到最不想要，共 " + catalogue.length + " 条。words 没有就留空数组。"
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "定下来。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院喜好" });
-    return normalizeTastes(raw);
+    const raw = await callAI(active, sys, [{ role: "user", content: "排下来。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院喜好" });
+    void quota;
+    return normalizeTastes(raw, catalogue);
+  }
+  // 井里挖出来、做出来的那一样：名字是这一档现长的，没法提前问。
+  // ⚠️档位【由代码掷】（rolledStance，同一个人同一样东西永远掷出同一档），
+  //   这一枪只问他接过时说什么——掷轴不掷答案。
+  async function tasteWords({ active, character, profile, mainline, item, stance }) {
+    if (!active) throw new Error("先在设置里配置创作线路，他才说得出话。");
+    const rules = root.FairyGardenRules;
+    const sys = [sharedStyle(),
+      roleContext(character, profile, mainline),
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式。",
+      "【她刚递给你的这一样】\n" + JSON.stringify({ name: item.name, note: item.note || "", 来历: item.from || "" }),
+      "【你对它的态度】" + rules.GIFT_STANCES[stance] + "。这一条已经定了，照它写。",
+      "【要写的】你接过它那一刻说出口的一两句。⚠️只写这一刻：不编你们没发生过的往事，也不替她安排接下来做什么。",
+      '【输出格式】只输出 JSON：{"words":["第一句","要是还有第二句"]}。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "说一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院喜好一样" });
+    const obj = extractJSON(raw), words = replyParts(obj && obj.words).slice(0, 2);
+    if (!words.length) { const e = new Error("这次没听清他说什么。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return words;
   }
   // ── 邻居打招呼那句（她 2026-09-18：「做3和4」的 4）：一位邻居一辈子一枪，
   //   三档各一句（刚搬来／脸熟了／处熟了），之后她每次挥手都是查表。零内容示范。
@@ -452,7 +484,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, tasteWords, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
   // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
   //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
   //   换成三颗大小不一的星子：只说「好几个小世界」。
@@ -706,7 +738,11 @@
           if (!c) throw new Error("先选一位同行者，才知道 TA 喜欢什么。");
           const cid = String(c.id), have = (current().tastes || {})[cid];
           // ⚠️类别表长了（v70.74 加了「吃的」）：老档那张表缺哪一类就再问一次，不缺就一辈子只问一次
-          if (have && have.status === "ready" && Object.keys(root.FairyGardenRules.GIFT_FAMILIES).every(f => (have.rows || []).some(r => r && r.family === f))) return have.rows;
+          // ⚠️2026-09-18 起这张表是【一样一样】的：老档那份按类的键对不上，重问一次。
+          //   单子以后再长（新加一样吃的），缺哪一样也重问——不缺就一辈子只问一次。
+          const want = ((game() && game().giftCatalogue && game().giftCatalogue()) || []).map(x => x.key);
+          if (have && have.status === "ready" && want.length
+            && want.every(k => (have.rows || []).some(r => r && r.key === k))) return have.rows;
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
           const epoch = serial.current;
           busyRef.current = true; setBusy(true);
@@ -714,12 +750,35 @@
             const rows = await tastes({
               active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
               character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
-              world: (game() && game().snapshot()) || {}
+              world: (game() && game().snapshot()) || {},
+              catalogue: (game() && game().giftCatalogue && game().giftCatalogue()) || []
             });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这张表没有写下来。");
             if (String(current().partnerId) !== cid) throw new Error("同行者已经换过，这张表没有写下来。");
             update(old => ({ ...old, tastes: { ...(old.tastes || {}), [cid]: { status: "ready", at: Date.now(), rows } } }));
             return rows;
+          } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
+          finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
+        // 井里挖出来／做出来的那一样：第一次递出去那一下现问，问过就存在这一档里。
+        // ⚠️档位是游戏那侧掷好了传过来的（rolledStance），这一枪只问他说什么。
+        tasteOne: async ({ key, item, stance }) => {
+          const c = partner();
+          if (!c) throw new Error("先选一位同行者，才知道 TA 怎么想。");
+          const cid = String(c.id), box = (current().tastes || {})[cid] || {};
+          const had = (box.extra || {})[key];
+          if (had && Array.isArray(had.words)) return had.words;
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const words = await tasteWords({
+              active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline, item, stance });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这一句没有写下来。");
+            update(old => { const all = old.tastes || {}, mine = all[cid] || {};
+              return { ...old, tastes: { ...all, [cid]: { ...mine, extra: { ...(mine.extra || {}), [key]: { stance, words, at: Date.now() } } } } }; });
+            return words;
           } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
           finally { busyRef.current = false; if (alive.current) setBusy(false); }
         },
@@ -1005,7 +1064,7 @@
               // ── 礼物簿：七类各自摸清了没有。⚠️他喜欢什么是他自己定的，这儿只显示她已经试出来的那几类
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "礼物簿"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
-                "在庭院里走到他身边点「递一样东西」。一天只递一样。递过一类，才知道他对这一类是什么态度；第一次接过时他说的话会留在这儿。"),
+                "在庭院里走到他身边点「递一样东西」。一天只递一样。每一样东西他都各有各的态度——递过才知道；第一次接过那一样时他说的话会留在这儿。"),
               ((bond.gifts.fromHim || []).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "他递给你的：" + bond.gifts.fromHim.map(r => r.name + "（第 " + r.day + " 天）").join("、")) : null,
               h("div", { style: { display: "grid", gap: 8 } },
@@ -1015,7 +1074,15 @@
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: f.stance === "love" || f.stance === "like" ? G.deep : "#93a188" } },
                       f.stance ? bond.gifts.stances[f.stance] + (f.count > 1 ? " · 递过 " + f.count + " 次" : "") : f.count ? "他没说" : "？")),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 3, lineHeight: 1.6 } }, f.what),
-                  f.said && f.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, "第一次接过时他说：" + f.said.join("\n")) : null))),
+                  // ⚠️同一类里【一样一样】各自一行（她 2026-09-18：「每一档都单独吧」）：
+                  //   一样是花，月光花和星铃花未必一个待遇；他说的话也各是各的。
+                  (f.items || []).length ? h("div", { style: { display: "grid", gap: 6, marginTop: 7 } },
+                    f.items.map(it => h("div", { key: it.key, style: { borderTop: "1px solid rgba(209,218,194,.55)", paddingTop: 6 } },
+                      h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.name),
+                        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it.stance === "love" || it.stance === "like" ? G.deep : "#93a188" } },
+                          (it.stance ? bond.gifts.stances[it.stance] : "他没说") + (it.count > 1 ? " · 递过 " + it.count + " 次" : ""))),
+                      it.said && it.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 3, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, it.said.join("\n")) : null))) : null))),
               // ── 食谱册（她 2026-09-18：「夜市卖的跟吃的有关」）：十二样尝没尝过、会不会做。⚠️全从 world.foodBook 来，这儿只画
               bond.food ? h("div", { style: { marginTop: 20 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "食谱册 · 尝过 " + bond.food.tasted + " / " + bond.food.total),

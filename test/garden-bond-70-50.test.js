@@ -193,40 +193,54 @@ test("七类只写在 rules.js 一处，手机和游戏都问它", () => {
   assert.match(rules, /const GIFT_FAMILIES=\{flower:/);
   assert.match(rules, /const GIFT_STANCES=\{love:/);
   assert.match(world, /export const \{COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,/);
-  assert.match(host, /Object\.keys\(rules\.GIFT_FAMILIES\)\.map\(family =>/);
+  // ⚠️2026-09-18 起态度是【一样一样】的：类别表还在 rules.js 这一处，
+  //   但那一枪问的是 world.mjs 那张单子（吃的在那儿），配额和切法在 rules.js。
+  assert.match(rules, /const GIFT_ORDER=\['love','like','meh','dislike'\];/);
+  assert.match(rules, /function stanceByRank\(order,n=order\.length\)\{/);
+  assert.match(world, /export const giftCatalogue = \(\) => \[\.\.\.GIFT_BASICS,/);
+  assert.match(host, /root\.FairyGardenRules\.stanceByRank\(order, keys\.length\)/);
   assert.doesNotMatch(host, /flower:\s*\{\s*label/, "手机那侧不许另抄一份类别表");
   // 喜欢什么不写在代码里：类别表里只有「这一类是什么」，没有态度
   const seg = rules.slice(rules.indexOf("const GIFT_FAMILIES="), rules.indexOf("const GIFT_STANCES="));
   assert.doesNotMatch(seg, /love|like|dislike|喜欢/);
 });
 
-test("喜好那一枪：一位角色只打一次，料在 system、user 一句触发、maxTokens 开满、不塞内容示范", async () => {
+test("喜好那一枪：一样一样地排，分布由代码切；一位角色只打一次，料在 system、user 一句触发", async () => {
+  // 她 2026-09-18：「每一档都单独吧，这样才有新鲜感，送出不同的东西可以看到不同反应」
+  const w = await W();
+  const cat = w.giftCatalogue();
   let calls = 0, args;
-  const svc = service(async (...a) => { calls++; args = a; return JSON.stringify({ tastes: [
-    { family: "flower", stance: "dislike", words: ["拿走。"] }, { family: "relic", stance: "love", words: ["这个留下。", "哪儿挖的。"] },
-    { family: "dew", stance: "meh", words: [] }, { family: "bogus", stance: "love", words: ["x"] }, { family: "echo", stance: "evil", words: ["y"] } ] }); });
-  const rows = await svc.tastes({ active: { id: 1 }, character: { name: "他", persona: "全文人设" }, profile: { name: "她", persona: "p" }, world: { day: 1 } });
+  // 他把每一样都说成「最喜欢」也没用：他给的只是【先后】，几个人能站在哪一档是代码切的
+  const svc = service(async (...a) => { calls++; args = a; return JSON.stringify({
+    items: cat.map((x, i) => ({ key: x.key, words: i < 2 ? ["这个留下。"] : [] })) }); });
+  const rows = await svc.tastes({ active: { id: 1 }, character: { name: "他", persona: "全文人设" },
+    profile: { name: "她", persona: "p" }, world: { day: 1 }, catalogue: cat });
   assert.equal(calls, 1);
-  assert.equal(rows.length, 8, "八类都得有一条（没答的就是不知道）");
-  // ⚠️vm 另一个 realm 里的对象原型不同，deepStrictEqual 会因此红；按 JSON 比
-  assert.equal(JSON.stringify(rows.find(r => r.family === "relic")), JSON.stringify({ family: "relic", stance: "love", words: ["这个留下。", "哪儿挖的。"] }));
-  assert.equal(rows.find(r => r.family === "echo").stance, "", "四档之外的态度不认");
-  assert.ok(!rows.some(r => r.family === "bogus"));
+  assert.equal(rows.length, cat.length, "单子上每一样都要有一条");
+  const tally = {};
+  for (const r of rows) tally[r.stance] = (tally[r.stance] || 0) + 1;
+  const quota = w.giftQuota(cat.length);
+  assert.deepEqual(tally, { love: quota.love, like: quota.like, meh: quota.meh, dislike: quota.dislike },
+    "四档都得有人占——「他什么都喜欢」在结构上就出不来");
+  assert.equal(rows[0].stance, "love", "他排在最前面的那一样就是真心喜欢");
+  assert.equal(rows[rows.length - 1].stance, "dislike", "排在最后的那一样就是不太想要");
   const [, sys, messages, opts] = args;
   assert.match(sys, /全文人设/);
-  assert.match(sys, /GIFT|类别标识|family/);
+  assert.match(sys, /从你最想要的排到你最不想要的/);
+  assert.match(sys, /不用管每一档能站几个人/, "配额不许让他自己定");
   assert.equal(messages.length, 1); assert.ok(messages[0].content.length <= 8, "user 只留一句触发");
   assert.equal(opts.maxTokens, 65535);
-  // 全是「？」的回复不算读到
-  const bad = service(async () => JSON.stringify({ tastes: [] }));
-  await assert.rejects(() => bad.tastes({ active: {}, character: { name: "他" }, profile: {}, world: {} }), /没读出/);
-  // 存在这一档里，跟季节安排一个放法；hasTastes 只认 ready
+  // 一样都没排出来不算读到
+  const bad = service(async () => JSON.stringify({ items: [] }));
+  await assert.rejects(() => bad.tastes({ active: {}, character: { name: "他" }, profile: {}, world: {}, catalogue: cat }), /没读出/);
+  // 存在这一档里，跟季节安排一个放法
   assert.match(host, /tastes: \{ \.\.\.\(old\.tastes \|\| \{\}\), \[cid\]: \{ status: "ready", at: Date\.now\(\), rows \} \}/);
-  assert.match(host, /if \(have && have\.status === "ready"\) return have\.rows;/, "问过一次就不再打");
-  // 游戏那侧：先问表再递，表没读到这一样就还在手上
-  assert.match(game, /const rows=await host\.tastes\(\);taste=\(rows\|\|\[\]\)\.find\(r=>r\.family===o\.family\)\|\|null;\}catch\(e\)\{say\(e\.message\);return;\}/);
+  assert.match(host, /want\.every\(k => \(have\.rows \|\| \[\]\)\.some\(r => r && r\.key === k\)\)/, "单子上每一样都问过了才不再打");
+  // 游戏那侧：固定那些查这张表，井里那些第一次递时现问一句
+  assert.match(game, /if\(fixed\)\{const rows=await host\.tastes\(\);taste=\(rows\|\|\[\]\)\.find\(r=>r\.key===key\)\|\|null;\}/);
+  assert.match(game, /const stance=rolledStance\(String\(data\.partnerId\|\|''\)\+':'\+key\);/);
   assert.match(game, /if\(same\)data=giveGift\(data,acting\.ref,acting\.taste\);/);
-  assert.match(game, /if\(row&&row\.said&&row\.said\.length\)speak\(row\.said\);/, "第一次接过这一类，他那几句得说出口");
+  assert.match(game, /if\(row&&row\.said&&row\.said\.length\)speak\(row\.said\);/, "第一次接过这一样，他那几句得说出口");
 });
 
 test("手机那一册有「相处」这一页，画的是 getBond 那一份", () => {

@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-8698ba017fa6cdd4';
-import {brewError,brewResult} from './brewing.mjs?v=fg-8698ba017fa6cdd4';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-8698ba017fa6cdd4';
-import './rules.js?v=fg-8698ba017fa6cdd4';
-export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-8698ba017fa6cdd4';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-84328ee857dca406';
+import {brewError,brewResult} from './brewing.mjs?v=fg-84328ee857dca406';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-84328ee857dca406';
+import './rules.js?v=fg-84328ee857dca406';
+export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
+import {createNavigator} from './navigation.mjs?v=fg-84328ee857dca406';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1454,12 +1454,40 @@ export const GIFT_KEEP = ['flower', 'starflower', 'dreamflower', 'dew', 'herb', 
 export function restoreGifts(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && Object.hasOwn(GIFT_FAMILIES, x.family) && x.name)
     .slice(0, GIFT_CAP).map(x => ({ day: Math.max(1, count(x.day)), name: trimText(x.name, 24),
-      family: x.family, stance: Object.hasOwn(GIFT_STANCES, x.stance) ? x.stance : '', from: x.from === 'him' ? 'him' : 'me',
+      family: x.family, key: trimText(x.key, 48), stance: Object.hasOwn(GIFT_STANCES, x.stance) ? x.stance : '', from: x.from === 'him' ? 'him' : 'me',
       said: (Array.isArray(x.said) ? x.said : []).slice(0, 3).map(t => trimText(t, 200)).filter(Boolean) }));
 }
 export const giftsToday = s => restoreGifts(s.gifts).filter(x => x.day === s.day && x.from !== 'him').length;
 // 一件东西归哪一类。⚠️碎片和它做出来的东西归同一类：他不喜欢梦屑，就也不会喜欢玻璃梦
 const familyOfKind = kind => Object.hasOwn(GIFT_FAMILIES, kind) ? kind : 'relic';
+// ── 一样一样地喜欢（她 2026-09-18：「每一档都单独吧，这样才有新鲜感，送出不同的
+//   东西可以看到不同反应」）───────────────────────────────────────────────
+// ⚠️原来态度是【按类】的：递月光花和递星铃花是同一句反应，八类摸完就再没有新鲜的了。
+//   现在每一样东西自己一档。东西分两种：
+//   ① 固定那些（花、月露、草木、井水边长出来的那几样 ＋ 吃的整张单子）——开局问一次，
+//      一次问完这一整张单子。
+//   ② 井里挖出来、做出来的那些——名字是这一档现长的，没法提前列表：第一次递出去
+//      那一下现问那一样，之后查表。
+// ⚠️「怎么保证他不是什么都喜欢」：分布【由代码定】（见 giftQuota），模型只排先后。
+//   这是 施工规则/bans-make-it-dumber.md 那条：该加约束时掷轴，不掷答案。
+export const giftKey = it => !it ? '' : it.type === 'food' ? 'food:' + (it.id || '')
+  : it.type === 'thing' ? 'thing:' + it.id : it.type === 'shard' ? 'shard:' + it.id : it.type;
+export const GIFT_BASICS = [
+  { key: 'flower', name: '月光花', family: 'flower' },
+  { key: 'starflower', name: '星铃花', family: 'flower' },
+  { key: 'dew', name: '月露', family: 'dew' },
+  { key: 'herb', name: '一束铃叶草', family: 'herb' },
+  { key: 'mushroom', name: '荧光菇', family: 'herb' }
+];
+// 开局问那一枪问的就是这一整张单子（配额和切法在 rules.js，两侧共用同一张）
+export const giftCatalogue = () => [...GIFT_BASICS,
+  ...Object.entries(FOODS).map(([id, f]) => ({ key: 'food:' + id, name: f.label, family: 'food', note: f.note }))];
+// 他排好先后，代码照配额切：前几样算真心喜欢，最后几样算不太想要。
+// 井里长出来的那一样：档位照同一个配比掷轴（同一档、同一个人、同一样东西，掷出来永远一样）
+export function rolledStance(seed){
+  const quota = giftQuota(20), bag = GIFT_ORDER.flatMap(k => Array(quota[k]).fill(k));
+  return bag[hash(String(seed)) % bag.length];
+}
 export function giftItem(s, ref){
   const type = ref && ref.type;
   if (type === 'flower') return count(s.harvest) > 0 ? { type, name: '月光花', family: 'flower' } : null;
@@ -1471,7 +1499,7 @@ export function giftItem(s, ref){
     return t && thingReady(s, t) ? { type, id: t.id, name: t.name, family: t.recipe === 'dreamflower' ? 'flower' : familyOfKind(t.kind), note: t.note } : null; }
   if (type === 'shard'){ const sh = (s.shards || []).find(x => x.id === ref.id);
     return sh && !sh.pinned ? { type, id: sh.id, name: shardName(sh), family: familyOfKind(sh.kind), note: sh.text } : null; }
-  if (type === 'food'){ const p = pantryItem(s, ref.uid); return p ? { type, uid: p.uid, name: FOODS[p.id].label, family: 'food', note: FOODS[p.id].note } : null; }
+  if (type === 'food'){ const p = pantryItem(s, ref.uid); return p ? { type, uid: p.uid, id: p.id, name: FOODS[p.id].label, family: 'food', note: FOODS[p.id].note } : null; }
   return null;
 }
 // 她手上此刻能递的（游戏那头的挑选页照这个画；空手就是空的）
@@ -1507,9 +1535,11 @@ export function giveGift(s, ref, taste){
   if (giftError(s, ref)) return s;
   const it = giftItem(s, ref), rows = restoreGifts(s.gifts);
   const stance = taste && Object.hasOwn(GIFT_STANCES, taste.stance) ? taste.stance : '';
-  const first = !rows.some(x => x.family === it.family);
+  // ⚠️「第一次」按【这一样东西】算，不按类（她 2026-09-18：「每一档都单独」）：
+  //   递月光花和递星铃花是两件事，各有各的第一次、各有各的那几句。
+  const key = giftKey(it), first = !rows.some(x => x.key === key);
   const said = first && taste ? (Array.isArray(taste.words) ? taste.words : []).slice(0, 3).map(t => trimText(t, 200)).filter(Boolean) : [];
-  const row = { day: s.day, name: it.name, family: it.family, stance, said, from: 'me' };
+  const row = { day: s.day, name: it.name, family: it.family, key, stance, said, from: 'me' };
   const birthday = isBirthday(s);
   const line = (birthday ? '他生日这天，' : '') + '把「' + it.name + '」递给了' + s.companion.name + (stance ? '，' + (stance === 'dislike' ? '他不太想要' : stance === 'meh' ? '他收下了' : '他' + GIFT_STANCES[stance]) : '');
   const out = noteHappening(noteBond({ ...takeGift(s, it), gifts: [row, ...rows].slice(0, GIFT_CAP) }, 'gift', line), 'gift', line);
@@ -1521,7 +1551,15 @@ export function giftBook(s){
   return { perDay: GIFT_PER_DAY, today: giftsToday(s), stances: { ...GIFT_STANCES }, fromHim: all.filter(x => x.from === 'him').slice(0, 20),
     families: Object.entries(GIFT_FAMILIES).map(([id, f]) => {
       const mine = rows.filter(x => x.family === id), known = mine.find(x => x.stance);
+      // ⚠️这一类里她试过的【每一样】各自一行：同一类里也有他偏爱的和不待见的
+      const seen = new Map();
+      for (const r of mine){ const k = r.key || r.name;
+        if (!seen.has(k)) seen.set(k, { key: k, name: r.name, stance: r.stance, said: r.said, count: 0, day: r.day });
+        const row = seen.get(k); row.count++;
+        if (!row.stance && r.stance) row.stance = r.stance;
+        if (!row.said.length && r.said.length) row.said = r.said; }
       return { id, label: f.label, what: f.what, count: mine.length, stance: known ? known.stance : '',
+        items: [...seen.values()],
         said: (mine.find(x => x.said.length) || { said: [] }).said, last: mine.length ? mine[0].name : '' }; }),
     rows: rows.slice(0, 20) };
 }
