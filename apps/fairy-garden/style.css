@@ -213,3 +213,10 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
 #neighbor-box button{border:0;border-radius:16px;padding:8px 14px;background:#e4ecdc;color:#48694f;font-size:13px;min-height:36px}
 #neighbor-box button:disabled{opacity:.45}
 #neighbor-box #neighbor-cancel{background:transparent;color:#9aa78f;padding:8px 6px;font-size:16px;min-width:40px}
+
+/* ⚠️手机那条标题栏是浮在场景上面的（高度报进来落成 --head-clear）。
+   <dialog> 开在这个 iframe 自己的顶层里，z-index 再高也追不上父页面那条栏——
+   所以让开这件事只能由这边做：弹窗自己往下挪，标题和那颗 × 不许压在栏底下
+   （她 2026-09-18：「你把顶部拆掉后实际页面滑太上去了点不到了」）。 */
+body.embedded dialog{margin-top:calc(var(--head-clear,0px) + 8px);max-height:calc(100dvh - var(--head-clear,0px) - 16px)}
+body.embedded .companion-dialog,body.embedded .season-dialog{margin-top:var(--head-clear,0px);height:calc(100% - var(--head-clear,0px));max-height:none}
