@@ -817,6 +817,31 @@ function useKbLift() {
 // ⚠️opts.danger：那枚红印只该长在【真的会毁掉东西】的那几下上（删卷宗、清数据）。
 //   不给就当危险——这一层十之八九是删东西用的，宁可多一枚印，也不能让删东西的框
 //   看着像在问「要不要保存」。克隆、导出这种不毁东西的，调用时传 { danger: false }。
+// 一行放不下就把字缩小，不换行（她 2026-09-18：日元一换算位数就多，
+// 38 号字的余额掉到了第二行；韩元 ×190 会更长）。
+//
+// ⚠️数的是【宽度】不是【字符数】：「円」「원」这种是全角，一个顶两个。
+//   只按 length 算的话，"-273,362 円" 会被当成 10 个字放行，实际占 11 格，照样掉行。
+// fits＝这个字号下大概放得下几格；超了按比例缩，缩到 min 为止。
+const _wideChar = c => {
+  const x = c.charCodeAt(0);
+  return (x >= 0x1100 && x <= 0x115f) || (x >= 0x2e80 && x <= 0xa4cf) ||
+         (x >= 0xac00 && x <= 0xd7a3) || (x >= 0xf900 && x <= 0xfaff) ||
+         (x >= 0xfe30 && x <= 0xfe6f) || (x >= 0xff00 && x <= 0xff60) ||
+         (x >= 0xffe0 && x <= 0xffe6);
+};
+function textCells(text) {
+  const s = String(text == null ? "" : text);
+  let n = 0;
+  for (let i = 0; i < s.length; i++) n += _wideChar(s[i]) ? 2 : 1;
+  return n;
+}
+function fitFont(text, base, fits, min) {
+  const n = textCells(text);
+  if (!n || n <= fits) return base;
+  return Math.max(min == null ? Math.round(base * 0.55) : min, Math.round(base * fits / n * 10) / 10);
+}
+
 function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts) {
   if (typeof onConfirm !== "function") return false;
   const open = typeof window !== "undefined" && window.__appConfirmOpen;
@@ -11397,7 +11422,9 @@ function TransferCard({
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, "转账"),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 32, color: INK, lineHeight: 1, wordBreak: "break-all" } }, _tfAmt),
+          // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
+          // 折在千分位逗号上是最难认的那种——「1,0」换行「00」。
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: fitFont(String(_tfAmt), 32, 8, 16), color: INK, lineHeight: 1, whiteSpace: "nowrap" } }, _tfAmt),
           _tfCur.pos === "post" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1, marginLeft: 2 } }, _tfCur.symbol) : null)),
       seal),
     // ── 骑缝 ──

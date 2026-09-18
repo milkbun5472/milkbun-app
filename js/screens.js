@@ -11690,7 +11690,12 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       noteStack([
         h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, (char.remark || char.name) + " · 余额"),
         h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 38, lineHeight: 1, color: NOTE_INK } }, fmtMoney(rec ? rec.balance : 0, char.id)),
+          (() => {
+            // 换成日元/韩元之后位数一下多出好几位（她 2026-09-18：「这个塞不下一行咋办」）。
+            // 缩字号 + 不许换行：宁可小一号，也别让「円」自己掉到第二行去。
+            const txt = fmtMoney(rec ? rec.balance : 0, char.id);
+            return h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(txt, 38, 9, 20), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap" } }, txt);
+          })(),
           h("button", { onClick: () => { setAmt(String((typeof Money !== "undefined" && Money) ? Money.conv(rec ? rec.balance : 0, char.id) : (rec ? rec.balance : 0))); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额")),
         rec && rec.monthlyIncome ? h("div", { key: "m", style: { fontFamily: F_BODY, fontSize: 11, color: NOTE_FOG, marginTop: 8 } }, "月收入 " + fmtMoney(rec.monthlyIncome, char.id) + (rec.fixedMonthly ? " · 月固定支出 " + fmtMoney(rec.fixedMonthly, char.id) : "")) : null]),
       // 手动改余额
@@ -11703,20 +11708,22 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       // 收入来源
       incomes.length ? cardBox([
         h("div", { key: "h", className: "flex items-center justify-between mb-1" }, secTitle("收入来源"),
-          monthlyIncome ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 2, padding: "3px 10px" } }, "月合计 " + fmtMoney(monthlyIncome, char.id)) : null),
+          monthlyIncome ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0 } }, "月合计 " + fmtMoney(monthlyIncome, char.id)) : null),
         incomes.map((s, i) => h("div", { key: i, className: "flex items-center justify-between py-2", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
-          h("div", { className: "flex items-center min-w-0" },
-            h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 7, background: AV[i % AV.length], marginRight: 8 } }),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.name),
-            s.category ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 8 } }, s.category) : null),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "+" + fmtMoney(s.amount, char.id)))),
+          // ⚠️名目那半边要能让步（min-w-0 + 省略号），金额那半边一个字都不许折：
+          //   日元的位数比人民币多，原来两边都硬着，结果两边一起换行（她 2026-09-18 截图）。
+          h("div", { className: "flex items-center min-w-0", style: { flex: 1, marginRight: 10 } },
+            h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 7, flexShrink: 0, background: AV[i % AV.length], marginRight: 8 } }),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+            s.category ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 8, flexShrink: 0, whiteSpace: "nowrap" } }, s.category) : null),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, flexShrink: 0, whiteSpace: "nowrap" } }, "+" + fmtMoney(s.amount, char.id)))),
         note(notes.income)
       ]) : null,
       // 存款概览（当前余额 + 每月固定支出 + 本月收入/花费/剩余可用）
       cardBox([
         secTitle("存款概览"),
         h("div", { key: "bal", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "当前余额"),
-        h("div", { key: "balv", style: { fontFamily: F_DISPLAY, fontSize: 28, color: t.ink, margin: "2px 0 6px" } }, fmtMoney(rec ? rec.balance : 0, char.id)),
+        h("div", { key: "balv", style: { fontFamily: F_DISPLAY, fontSize: fitFont(fmtMoney(rec ? rec.balance : 0, char.id), 28, 14, 17), color: t.ink, margin: "2px 0 6px", whiteSpace: "nowrap" } }, fmtMoney(rec ? rec.balance : 0, char.id)),
         fixedMonthly ? h("div", { key: "fx", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "每月固定支出 " + fmtMoney(fixedMonthly, char.id) + "（房租、交通、订阅等）") : null,
         sumRow("本月收入", "+" + fmtMoney(monthlyIncome, char.id), "#3f8a54"),
         sumRow("本月花费", "−" + fmtMoney(monthSpend, char.id), t.accent),
@@ -11727,7 +11734,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       (rec && rec.investAssets) || notes.invest ? cardBox([
         secTitle("理财"),
         h("div", { key: "iv", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "持有资产"),
-        h("div", { key: "ivv", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 2 } }, fmtMoney((rec && rec.investAssets) || 0, char.id)),
+        h("div", { key: "ivv", style: { fontFamily: F_DISPLAY, fontSize: fitFont(fmtMoney((rec && rec.investAssets) || 0, char.id), 24, 15, 15), color: t.ink, marginTop: 2, whiteSpace: "nowrap" } }, fmtMoney((rec && rec.investAssets) || 0, char.id)),
         note(notes.invest)
       ]) : null,
       // 钱分几处放着。一个人把钱分几处、各放多少，本身就在说TA是什么人——
@@ -11735,7 +11742,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       // 随身可动用的那笔就是上面的余额；这里列的是【另外存着的】，两边不重复计。
       acctRows.length ? cardBox([
         h("div", { key: "ah", className: "flex items-center justify-between mb-1" }, secTitle("钱放在哪儿"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "总共 " + fmtMoney(assetTotal, char.id))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "总共 " + fmtMoney(assetTotal, char.id))),
         h("div", { key: "ab", className: "space-y-2" }, acctRows.map((a, i) => h("div", {
           key: i, style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },
@@ -11744,7 +11751,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
             [a.kind, a.tail ? "尾号 " + a.tail : "", a.primary ? "随身 · 流水走这儿" : ""].filter(Boolean).join(" · ")),
           a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, a.note) : null),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flexShrink: 0, paddingTop: 1 } }, fmtMoney(a.hold, char.id)))))
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flexShrink: 0, paddingTop: 1, whiteSpace: "nowrap" } }, fmtMoney(a.hold, char.id)))))
       ]) : null,
       // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
       // v58.38 起这一栏【真的会动余额】：点「收回」/「还清」就记一笔流水。

@@ -110,3 +110,46 @@ test("这本册子存得下、开机读得回、改完立刻推给公共层", ()
   assert.match(app, /loadJSON\("x_charCurrency", \{\}\); setCharCur\(cc\); if \(window\.Money\) window\.Money\.setBook\(cc\);/);
   assert.equal((app.match(/window\.Money\.setBook\(/g) || []).length, 2, "开机一处、改完一处；多出来的那处多半又抄了一遍");
 });
+
+// ── 换算之后位数变多，一行放不下（她 2026-09-18：「还有这个塞不下一行咋办」）──
+const vm = require("node:vm");
+const fitCtx = (() => {
+  const i = comp.indexOf("const _wideChar");
+  const seg = comp.slice(i, comp.indexOf("function requestAppConfirm"));
+  const c = {}; vm.createContext(c);
+  vm.runInContext(seg + "\nthis.fit = fitFont; this.cells = textCells;", c);
+  return c;
+})();
+
+test("数的是宽度不是字符数：円、원 这种一个顶两个", () => {
+  assert.equal(fitCtx.cells("1000"), 4);
+  assert.equal(fitCtx.cells("円"), 2, "只按 length 算的话全角字会被少算一半，照样掉行");
+  assert.equal(fitCtx.cells("원"), 2);
+  assert.equal(fitCtx.cells("-273,362 円"), 11);
+  assert.equal(fitCtx.cells("¥1,000.00"), 9, "¥ 是窄的（U+00A5），别当全角");
+});
+
+test("放得下就不动，放不下才缩，缩到地板为止", () => {
+  assert.equal(fitCtx.fit("¥1,000.00", 38, 9, 20), 38, "本来放得下的被缩了");
+  assert.ok(fitCtx.fit("-273,362 円", 38, 9, 20) < 38);
+  assert.ok(fitCtx.fit("-2,597,000 원", 38, 9, 20) < fitCtx.fit("-273,362 円", 38, 9, 20), "越长该越小");
+  assert.equal(fitCtx.fit("-".repeat(400), 38, 9, 20), 20, "再长也不许小过地板");
+  assert.equal(fitCtx.fit("", 38, 9, 20), 38);
+  assert.equal(fitCtx.fit(null, 38, 9, 20), 38, "没有数的时候别算出 NaN 字号");
+});
+
+test("钱包那几个大数都接上了缩放，而且一律不许换行", () => {
+  assert.match(screens, /fontSize: fitFont\(txt, 38, 9, 20\), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap"/, "大余额");
+  assert.match(screens, /fitFont\(fmtMoney\(rec \? rec\.balance : 0, char\.id\), 28, 14, 17\)/, "存款概览");
+  assert.match(screens, /fitFont\(fmtMoney\(\(rec && rec\.investAssets\) \|\| 0, char\.id\), 24, 15, 15\)/, "投资");
+  assert.match(comp, /fontSize: fitFont\(String\(_tfAmt\), 32, 8, 16\), color: INK, lineHeight: 1, whiteSpace: "nowrap"/, "转账卡");
+  // ⚠️卡上那个数不许再用 break-all：折在千分位逗号上是最难认的那种
+  assert.ok(!/wordBreak: "break-all" \} \}, _tfAmt\)/.test(comp));
+});
+
+test("收入来源那一行：名目让步，金额一个字都不许折", () => {
+  const seg = screens.slice(screens.indexOf('secTitle("收入来源")'), screens.indexOf('secTitle("收入来源")') + 1400);
+  assert.match(seg, /className: "flex items-center min-w-0", style: \{ flex: 1, marginRight: 10 \}/, "名目那半边不会让步");
+  assert.match(seg, /textOverflow: "ellipsis", whiteSpace: "nowrap" \} \}, s\.name\)/, "名目该省略号，不该换行");
+  assert.match(seg, /color: t\.ink, flexShrink: 0, whiteSpace: "nowrap" \} \}, "\+" \+ fmtMoney\(s\.amount, char\.id\)\)/, "金额那半边会被挤折");
+});
