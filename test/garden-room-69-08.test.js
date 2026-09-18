@@ -81,7 +81,9 @@ test('庭院房的同行者就是这间房的角色，不给换', () => {
     '挂着 lockPartnerId 的话，从首页那个入口挑人就一间房都不会有');
   assert.match(garden, /在原地换人会让这一档的过去接到别人身上/);
   assert.match(garden, /if \(\(!props\.lockPartnerId \|\| props\.onNewGardenRoom\) && \(pick \|\| \(!char && !solo\)\)\)/);
-  assert.match(garden, /props\.lockPartnerId \? "另开一间" : "换同行者"/);
+  // 挑了人一律去开一间新房（一间房＝一个庭院存档），所以哪一边都不是「换」
+  assert.match(garden, /\}, "另开一间"\)\)/);
+  assert.doesNotMatch(garden, /"换同行者"/);
 });
 
 test('建房那一页能选到庭院，房间列表认得出它', () => {
