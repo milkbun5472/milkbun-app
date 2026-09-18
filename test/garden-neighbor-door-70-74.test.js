@@ -50,7 +50,9 @@ test("走近了才说得上话，一天一位一次，而且重开也挡得住",
   assert.match(world, /neighborTalks\|\|\{\}|neighborTalks \|\| \{\}/);
   assert.match(world, /neighborTalks:restoreDayMarks\(d\.neighborTalks\)/, "restoreState 不收＝刷新一下就能再打一枪");
   assert.match(html, /id="neighbor-say"/);
-  assert.match(game, /\$\('neighbor-say'\)\.onclick=sayToNeighbor/);
+  // ⚠️现在这一下先开打字框（她 2026-09-18 的 ③），说出去那一步在 sayToNeighbor
+  assert.match(game, /\$\('neighbor-say'\)\.onclick=openNeighborBox;/);
+  assert.match(game, /\$\('neighbor-send'\)\.onclick=sayToNeighbor;/);
   // ⚠️这一枪要打十几秒，回来之后得重新核一遍
   assert.match(game, /if\(neighborTalkError\(data,nb\.charId\)\)\{say\('说话的劲头过去了/);
 });

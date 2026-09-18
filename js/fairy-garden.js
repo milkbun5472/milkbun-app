@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-6066337cb4ed8b7e", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-f074ea52b99e8ae9", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -327,7 +327,7 @@
   // ⚠️反八股那一堆照给：那不是记忆，是文风地板，在哪儿都该有
   //   （施工规则/four-surfaces-same-context.md：「沙盒身份不构成砍掉它们的理由」）。
   // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
-  async function neighborLine({ active, character, profile, bundle, view }) {
+  async function neighborLine({ active, character, profile, bundle, view, said }) {
     if (!active) throw new Error("先在设置里配置创作线路，TA 才开得了口。");
     const sys = [sharedStyle(),
       "你就是「" + character.name + "」，住在魔法庭院的村子里，是「" + userName(profile) + "」的邻居。",
@@ -335,7 +335,8 @@
       bundle || "",
       "【对方的设定】\n" + (profile && profile.persona || "未填写"),
       "【此刻这个村子】\n" + JSON.stringify(view),
-      "【此刻】她走到你跟前，像是想跟你说句话。你开口。",
+      (said ? "【她刚说】\n" + said : "【此刻】她走到你跟前，像是想跟你说句话。你开口。"),
+      (said ? "【要紧的】接着她这句说，别把她的话原样复述一遍。" : ""),
       "【要紧的】就着此刻说——这个时候、这个地方、这个天气，你手头在做什么，你们碰见过几次。"
         + "你和她是邻居，不是她的谁：熟到什么程度上面写着，别越过它。"
         + "⚠️你不知道她和同住那位之间的事，一个字都别提，也别打听。"
@@ -348,6 +349,72 @@
     const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
     const out = rows.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     if (!out.length) { const e = new Error("这次没听清 TA 说什么，明天再找 TA 聊。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return out;
+  }
+  // ── 他在台上报方向那四句（她 2026-09-18 的 ①）────────────────────────
+  // ⚠️门开不开【由代码判】：差多少、往哪边，都是数（world.mjs 的 starBand／starGap）。
+  //   这一枪只换【他怎么说那前半句】——往左往右不许模型编，那是他俩配合的凭据。
+  // ⚠️一位角色一辈子一枪，存在这一档的 stars[charId]（照 hello 那条的先例）：
+  //   她转一格就打一次的话，一晚上十几枪，而这件事本来是零成本的。
+  const STAR_BANDS = [["far", "光还偏得远，得转好几格"], ["near", "快了，再转一两格就到"],
+    ["close", "就差一格"], ["done", "光正落在刻痕上，对上了"]];
+  function normalizeStar(raw) {
+    const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
+    const out = {};
+    for (const [band] of STAR_BANDS) {
+      const r = rows.find(x => x && x.band === band) || {};
+      const t = String(r.text || "").trim().slice(0, 60);
+      if (t) out[band] = t;
+    }
+    if (!Object.keys(out).length) { const e = new Error("这次没读出 TA 会怎么报方向，照旧用白话那几句。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return out;
+  }
+  async function starLines({ active, character, profile, mainline }) {
+    if (!active) throw new Error("先在设置里配置创作线路，他才报得出方向。");
+    const sys = [sharedStyle(),
+      roleContext(character, profile, mainline),
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【此刻】旧塔观星室。她在楼下转铜环，你站在残顶观测台上看光落在哪儿——"
+        + "她手里只有环，看不见光，全靠你报。你们要把光对到今晚那道刻痕上。",
+      "【四种情况】\n" + JSON.stringify(STAR_BANDS.map(([band, what]) => ({ band, what }))),
+      "【要紧的】每种写一句你会喊下去的话，用你自己的口气。"
+        + "⚠️只写【差多少】那半句，**不要写往左往右**——方向由游戏接在你这句后面，写了会重复。"
+        + "⚠️是喊给楼下的人听的：短，能听清。不编你们没发生过的往事，也不替她安排接下来做什么。",
+      '【输出格式】只输出 JSON：{"lines":[{"band":"档位标识","text":"你喊的那句"}]}，四种都要有。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "报方向。" }],
+      { maxTokens: 65535, timeout: 180000, tag: "微光庭院对星" });
+    return normalizeStar(raw);
+  }
+  // ── 路上撞见：两位邻居站住说两句（她 2026-09-18 的 ②）──────────────────
+  // ⚠️一枪里坐着【两个角色】，所以围栏比别处更要紧：
+  //   ① 每个人的人设落在【他自己那一段】里，绝不合成一块共享注入
+  //      （群聊那条规矩：私有层必须分段，见 four-surfaces-same-context.md）。
+  //   ② 【谁的主线记忆都不给】——没法把 A 的记忆挡在 B 眼睛外面。宁可少给，不许漏。
+  //   ③ 她和同住那位之间的事，两个人都不知道（world.mjs 的 pairView 已经裁过一遍）。
+  // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
+  async function pairLines({ active, profile, a, b, view }) {
+    if (!active) throw new Error("先在设置里配置创作线路，他们才说得上话。");
+    const seg = (who, label) => "【" + label + "：" + who.name + "】\n" + (who.persona || who.name);
+    const sys = [sharedStyle(),
+      "村里两位住户在路上撞见了，站住说了两句。你把这两句都写出来，各用各的口气。",
+      seg(a, "先开口的那位"),
+      seg(b, "接话的那位"),
+      "【这个村子此刻】\n" + JSON.stringify(view),
+      "【他们和「" + userName(profile) + "」的关系】两位都是住在同一个村子里的邻居，仅此而已。",
+      "【要紧的】就着此刻说——这个天气、这个地方、他们照过几次面。"
+        + "两句话，一人一句，是那种路上碰见随口说的：短，具体，不寒暄客套。"
+        + "⚠️他们互相之间不熟到能聊私事，也不知道对方家里的事，别编。"
+        + "⚠️更不知道「" + userName(profile) + "」和她同住那位之间的任何事，一个字都别提。"
+        + "⚠️不编他们没发生过的往事，不替谁安排接下来做什么。",
+      '【输出格式】只输出 JSON：{"lines":[{"who":"' + a.name + '","text":"第一句"},{"who":"' + b.name + '","text":"接的那句"}]}。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "他们说了什么。" }],
+      { maxTokens: 65535, timeout: 180000, tag: "微光庭院邻里" });
+    const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
+    const out = rows.map(x => ({ who: String((x && x.who) || "").trim(), text: String((x && x.text) || "").trim() }))
+      .filter(x => x.text).slice(0, 2);
+    if (!out.length) { const e = new Error("这次没听清他们说什么。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return out;
   }
   // 他自己走过来、她点了头，才打的那一枪（她 2026-09-17）。
@@ -385,7 +452,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
   // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
   //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
   //   换成三颗大小不一的星子：只说「好几个小世界」。
@@ -567,7 +634,7 @@
         // 走近了跟邻居说句话（她 2026-09-18 的 a）：一天一位一次，每次现打。
         // ⚠️两道闸各管各的：door → 那位自己的主线记忆（走房间那道 gateCtx）；
         //   view → 这一档里能给 TA 看的（同行者那条线一个字都不在里头，见 neighborView）。
-        neighborSay: async ({ charId, door, view }) => {
+        neighborSay: async ({ charId, door, view, said }) => {
           const cid = String(charId), c = (propsRef.current.characters || []).find(x => String(x.id) === cid);
           if (!c) throw new Error("这位邻居不在手机里了。");
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
@@ -576,10 +643,44 @@
           try {
             const bundle = propsRef.current.neighborBundle ? propsRef.current.neighborBundle(cid, door) : "";
             const lines = await neighborLine({ active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, bundle, view });
+              character: c, profile: propsRef.current.profile, bundle, view, said });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这几句没算数。");
             return lines;
           } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
+          finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
+        // 他报方向那四句：一位角色问一次，存在这一档的 stars[charId]（照 hello 的先例）
+        starVoice: async () => {
+          const c = partner(); if (!c) return null;
+          const cid = String(c.id), have = (current().stars || {})[cid];
+          if (have && have.status === "ready") return have.lines;
+          if (busyRef.current) return null;     // ⚠️别在这儿抛：她正在转环，报不出就先用白话那几句
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const lines = await starLines({ active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline });
+            if (!alive.current || serial.current !== epoch) return null;
+            update(old => ({ ...old, stars: { ...(old.stars || {}), [cid]: { status: "ready", at: Date.now(), lines } } }));
+            return lines;
+          } catch (e) { if (alive.current) { setDetail(e.detail || ""); } return null; }
+          finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
+        // 路上撞见两位住户站住说两句：一对一天一次，每次现打（她在场才叫得到这儿）
+        pairSay: async ({ a, b, view }) => {
+          const list = propsRef.current.characters || [];
+          const who = id => String(id) === "companion" ? partner() : list.find(x => String(x.id) === String(id));
+          const ca = who(a), cb = who(b);
+          if (!ca || !cb) throw new Error("这两位有一位不在手机里了。");
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const lines = await pairLines({ active: propsRef.current.apiFor ? propsRef.current.apiFor(ca.id) : propsRef.current.active,
+              profile: propsRef.current.profile, a: ca, b: cb, view });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这两句没算数。");
+            return lines;
+          } catch (e) { if (alive.current) { setDetail(e.detail || ""); } throw e; }
           finally { busyRef.current = false; if (alive.current) setBusy(false); }
         },
         // 邻居打招呼那三句：一位邻居问一次，存在这一档的 hellos[charId]

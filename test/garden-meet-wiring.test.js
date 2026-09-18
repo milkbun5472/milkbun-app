@@ -10,10 +10,10 @@ const host = rd("js/fairy-garden.js");
 // 她 2026-09-17：「继续做玩法吧宝宝」
 test("碰见记在世界那一处，场上只负责谁站在哪儿", () => {
   assert.match(world, /export function noteMeet\(s, \{ a, b, nameA, nameB, place \}\)/);
-  const seg = game.slice(game.indexOf("function meetTick"), game.indexOf("// ── 衣柜预览"));
+  const seg = game.slice(game.indexOf("function meetTick"), game.indexOf("async function pairTalk"));
   assert.match(seg, /data=noteMeet\(data,\{a:a\.id,b:b\.id/);
   assert.doesNotMatch(seg, /happenings|meets:/, "怎么记是世界的事，这儿不许自己往账上写");
-  assert.doesNotMatch(seg, /callAI|host\./, "一枪都不打");
+  assert.doesNotMatch(seg, /callAI|host\./, "一枪都不打：撞见记账是白算的，说不说话由 pairTalk 自己判");
 });
 
 // ⚠️每帧算六对就是白烧电，她的手机要撑一整天
