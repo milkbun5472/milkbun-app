@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-21a6d69b08509d10';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay} from './world.mjs?v=fg-21a6d69b08509d10';
+import {stepRoute} from './locomotion.mjs?v=fg-0a6ba51aff5eff37';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-0a6ba51aff5eff37';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -90,8 +90,41 @@ function starFor(s){
  return {id:'star:'+key,map:'oldTower',target:{...site.target},
   label:key==='watch'?'在台上替你看光':'在楼下替你转铜环',gesture:'read'};
 }
+// 一格时间＝一小片地方，不是一个点（她 2026-09-18：「圈出一个活动范围」）。
+// ⚠️和 homeFor／worksFor／starFor 同一个道理，必须写在 plannedActivity 这一处：
+//   tick 在 mode==='routine' 时【绕开 companionPlan 直接用 plannedActivity】。
+//   这一课这一季栽过四次了，这是第五处要挂在这儿的东西。
+// ⚠️这一带只有一处可待（室外大半都是）就原样返回：不许为了热闹编一个动作出来。
+const AREA_STOPS=3;
+// 站在那一件旁边，那句话怎么说。⚠️认不出来的一律「待着」——不许为了好看编一个动作。
+const AREA_VERB={rest:'待着',sit:'坐着',read:'翻着东西',gather:'翻找',water:'浇水',stir:'忙着'};
+// ⚠️id 一个字都不许改：tick 里有 plan.id==='flowers'／'museum'、
+//   ['workshop','workshop-aside'].includes(plan.id) 这几处判断——改了 id 就是
+//   「他到了水磨工坊却再也不帮忙照看材料了」这种悄悄没掉的东西（最坏的一种）。
+//   「换了地方」挂在 spot 上，下面路线键那边显式带上它。
+function areaFor(s,plan,start,end){
+ const spots=areaSpots(plan.map,plan.target);
+ if(spots.length<2)return plan;
+ const who=s.companion?.charId||s.partnerId||'';
+ // ⚠️这一格【本来那个点】必须留着，而且排第一：有几件活儿是钉死在那个点上的——
+ //   companionMillHelp 要他站进长工作台 1.25 米内才算帮上忙，companionCare 也一样。
+ //   只按范围抽的话，他哪天没抽到那儿，那件活儿就今天没做，而且不报任何错。
+ //   这正是「他从此再也不浇花了」那一种悄悄没掉的东西（最坏的一种）。
+ const home={key:'plan:'+plan.id,label:'',target:{...plan.target},gesture:plan.gesture};
+ const rest=spots.filter(q=>Math.hypot(q.target.x-plan.target.x,q.target.z-plan.target.z)>1.2);
+ const picks=[home,...areaPick(s,who,rest,String(s.epoch)+':area:'+s.day+':'+start+':'+plan.id,AREA_STOPS-1)];
+ // 这一格从 start 到 end，均分给挑中的那几处；停在哪一处只看【现在几点】，
+ // 所以同一天同一时刻进来几次都一样（重开不瞬移，也不用在存档里记状态）。
+ const span=Math.max(1,end-start),at=picks[Math.min(picks.length-1,
+  Math.floor((Math.max(start,Math.min(end-1,s.minute))-start)/span*picks.length))];
+ return at.label?{...plan,spot:at.key,target:{...at.target},gesture:at.gesture,
+  label:'在'+at.label+'那儿'+(AREA_VERB[at.gesture]||'待着')}:plan;
+}
 export function plannedActivity(s){const star=starFor(s);if(star)return star;
- const list=dailySchedule(s);return homeFor(s,worksFor(s,list.findLast(item=>s.minute>=item.start)||list[0]));}
+ const list=dailySchedule(s);
+ const i=list.findLastIndex(item=>s.minute>=item.start),at=i<0?0:i;
+ const start=list[at].start,end=at+1<list.length?list[at+1].start:1440;
+ return homeFor(s,areaFor(s,worksFor(s,list[at]),start,end));}
 export const PERSONAL_SPACE=.58;
 function followPoint(s){
  const p=s.position,c=s.companion,from=c.map===s.map?c.position:MAPS[s.map].spawn,d=Math.hypot(from.x-p.x,from.z-p.z);
@@ -139,10 +172,10 @@ export function makeCompanionController(){
  function tick(s,dt,{allowCare=true,autonomous=false}={}){
   cooldown=Math.max(0,cooldown-dt);
   const c=s.companion,sleeping=!!MAPS.home.beds[s.sleep?.companion],wants=autonomous?null:(missIntent(s)||guideIntent(s)),routine=wants?{...wants,target:s.position}:(sleeping?companionPlan(s):c.mode==='follow'?null:c.mode==='routine'?plannedActivity(s):companionPlan(s)),needsNear=!sleeping&&(!!wants||c.mode==='follow'||routine.map===s.map&&Math.hypot(routine.target.x-s.position.x,routine.target.z-s.position.z)<.65);
-  const choiceKey=wants?'miss:'+s.day:c.mode==='follow'?'follow:'+String(s.seat):`${s.day}:${routine.id}:${routine.start}`;let plan;
+  const choiceKey=wants?'miss:'+s.day:c.mode==='follow'?'follow:'+String(s.seat):`${s.day}:${routine.id}:${routine.spot||''}:${routine.start}`;let plan;
   if(needsNear){if(!cachedFollow||cachedFollow.key!==choiceKey||cachedFollow.map!==s.map||cachedFollow.fromMap!==c.map||Math.hypot(s.position.x-cachedFollow.anchor.x,s.position.z-cachedFollow.anchor.z)>.25||stuck&&cooldown<=0)cachedFollow={key:choiceKey,plan:c.mode==='goto'?{...routine,target:followPoint(s)}:companionPlan(s),map:s.map,fromMap:c.map,anchor:{...s.position}};plan=cachedFollow.plan;}else{cachedFollow=null;plan=routine;}
   const cross=c.map!==plan.map,exit=cross?exitToward(c.map,plan.map):null;if(cross&&!exit){moving=false;status='这里还没有通往那里的小路';return {state:s,event:null};}const goal=cross?exit.target:plan.target,avoid=c.map===s.map?[{...s.position,r:PERSONAL_SPACE}]:[];
-  const key=`${s.day}:${c.mode}:${plan.id}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
+  const key=`${s.day}:${c.mode}:${plan.id}:${plan.spot||''}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
   if((key!==routeKey||stuck&&cooldown<=0)&&(c.mode!=='follow'||!route.length||cross||cooldown<=0)){cooldown=.65;routeKey=key;route=[];idle=0;stuck=false;const distance=Math.hypot(c.position.x-goal.x,c.position.z-goal.z);if(distance>.12){route=findPath(c.position,goal,c.map,avoid,s)||[];stuck=!route.length;}}
   let out=s,event=null;moving=route.length>0;gesture='rest';
   if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:Math.min(COMPANION_TOP,walkSpeedFor(c.map)*.79),iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}

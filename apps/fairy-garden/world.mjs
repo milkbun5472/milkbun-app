@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-21a6d69b08509d10';
-import {brewError,brewResult} from './brewing.mjs?v=fg-21a6d69b08509d10';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-21a6d69b08509d10';
-import './rules.js?v=fg-21a6d69b08509d10';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-0a6ba51aff5eff37';
+import {brewError,brewResult} from './brewing.mjs?v=fg-0a6ba51aff5eff37';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-0a6ba51aff5eff37';
+import './rules.js?v=fg-0a6ba51aff5eff37';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-21a6d69b08509d10';
+import {createNavigator} from './navigation.mjs?v=fg-0a6ba51aff5eff37';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -606,6 +606,79 @@ export function approachSpot(s, key){
 }
 // 看一眼。⚠️一枪都不打，而且【先说她自己的东西】：摆在上面的那一样、封在那儿的那一片，
 //   都是她真放上去的。没有她的东西时才说这件家具本来的样子——一句都不编。
+// ── 一格时间＝一小片地方，不是一个点（她 2026-09-18：「能不能圈出一个活动范围」）──
+// 原来一格时间只有一个落点，走到就站到下一格，所以同一格里他永远在做同一件事。
+// ⚠️范围【推导】出来，不手写一张点位表：`MAPS[map].sites` 和 `furniture` 已经在那儿了，
+//   codex 那边新盖一间屋、摆几件家具，那间屋的活动范围自己就长出来
+//   （施工规则/one-public-mechanism.md）。手写的话就是又一张我每次都会漏的表。
+// ⚠️室外半径不能大：实测 8 米时「月湖北岸」会把集市那几个摊位算进来（坐标上挨着），
+//   他会从湖边溜达进集市——那不是「在湖北岸活动」，那是乱跑。
+// ⚠️室内反过来要放宽：屋子本来就是一个整体（水磨工坊 20×14），
+//   而且室内够不到别的地图，走到屋子那头也还是「在这间屋里」，漏不出去。
+export const AREA_REACH = { interior: 7.5, outdoor: 5 };
+export const areaReach = map => MAPS[map]?.interior ? AREA_REACH.interior : AREA_REACH.outdoor;
+// 站在这一件旁边，人在做什么。⚠️按 kind 认，和 FURNITURE 一张表同一个形状。
+//   认不出来的一律 'rest'（站着待一会儿）——不许为了热闹给它编一个动作。
+const SPOT_GESTURE = {
+  desk: 'read', lectern: 'read', bookcase: 'read', shelf: 'read', console: 'read',
+  chair: 'sit', stool: 'sit', bench: 'sit', sofa: 'sit', armchair: 'sit',
+  potting: 'water', dryingrack: 'gather', apothecary: 'gather', chest: 'gather',
+  kitchen: 'stir', island: 'stir', distiller: 'stir', millstone: 'stir',
+  orrery: 'read', telescope: 'read', hearth: 'rest', vanity: 'rest'
+};
+// 这一带有哪几处可待。⚠️只此一份：他的日程和以后别人要用的都问它。
+//   sites 也算（她 2026-09-18 点名：「算上sites」）——不算的话室外那些地方一个点都没有。
+export function areaSpots(map, center){
+  const m = MAPS[map]; if (!m || !center) return [];
+  const reach = areaReach(map), out = [], seen = new Set();
+  const near = q => Math.hypot(q.x - center.x, q.z - center.z) <= reach;
+  // ⚠️挨得太近的不算第二处：公共厅的「壁炉旁」(site) 和「壁炉」(家具) 就是同一块地方，
+  //   都收进来的话他会在原地挪半米，看着像抽搐。
+  const apart = q => out.every(x => Math.hypot(x.target.x - q.x, x.target.z - q.z) > 1.2);
+  for (const [id, site] of Object.entries(m.sites || {})){
+    if (!site.target || !near(site.target) || !apart(site.target)) continue;
+    const beside = (m.furniture || []).find(q => FURNITURE[q.kind]
+      && Math.hypot(q.x - site.target.x, q.z - site.target.z) <= 2.5);
+    out.push({ key: 'site:' + map + ':' + id, label: site.label, target: { ...site.target },
+      gesture: (beside && SPOT_GESTURE[beside.kind]) || 'rest' });
+    seen.add(site.label);
+  }
+  (m.furniture || []).forEach((f, i) => {
+    const kind = FURNITURE[f.kind]; if (!kind || !near(f)) return;
+    // ⚠️名字套着名字的也是同一样东西：「星仪」⊂「铜环星仪」、「壁炉」⊂「壁炉旁」。
+    //   位置差着两米，可名字一前一后念出来就是同一处，读着像重复。
+    if ([...seen].some(x => x.includes(kind.label) || kind.label.includes(x))) return;
+    // 家具本身是障碍，落点要站到它旁边去；站不住的就不算一处
+    const at = approachSpot({ map, position: center }, spotKey(map, f.kind, i));
+    if (!at || !apart(at)) return;
+    out.push({ key: spotKey(map, f.kind, i), label: kind.label, target: at, gesture: SPOT_GESTURE[f.kind] || 'rest' });
+    seen.add(kind.label);
+  });
+  return out;
+}
+// ── 他偏爱哪几处（她 2026-09-18：「有些东西就会有些人干得多有些人干得少」）──
+// ⚠️不许用轮盘：「每一处都被公平地轮到」正是人不会有的样子。真人是那把椅子天天坐、
+//   磨盘一个月碰一次。所以按【稳定的权重】抽：同一个存档里每次都一样，认得出是习惯；
+//   冷门那几处稀、但永远不为零，不会结构性地「永远临幸不到」。
+// ⚠️⚠️这一层【不是他的性格】，和 companion.mjs 那张地板表同一个待遇：
+//   它只负责「别每次都一样」，一个字都不编他喜欢什么——纯 hash 出来的偏好换个角色
+//   照样成立，而「换个角色还照样成立的就是写坏了」（v69.55 撤掉按性格分的三张表那次）。
+//   真正照着人设来的那一份在季节手册那一枪里；这张表只是在那之前别让一格时间长得一模一样。
+// ⚠️种子带 charId：三个邻居住同一间屋，各有各的习惯位置；换个同行者，这间屋的用法就变了。
+export const spotWeight = (s, who, key) => 1 + hash((s?.epoch || 'initial') + ':taste:' + (who || '') + ':' + key) % 7;
+// 这一格里挨着待的那几处。⚠️不放回，免得同一格里重复；只看第几天和第几格，
+//   所以同一天同一格进来几次都一样（重开不瞬移，也不用在存档里记状态）。
+export function areaPick(s, who, spots, seed, n){
+  const pool = spots.slice(), out = [];
+  for (let i = 0; i < n && pool.length; i++){
+    const total = pool.reduce((sum, q) => sum + spotWeight(s, who, q.key), 0);
+    let roll = hash(seed + ':' + i) % total;
+    let at = pool.length - 1;
+    for (let j = 0; j < pool.length; j++){ roll -= spotWeight(s, who, pool[j].key); if (roll < 0){ at = j; break; } }
+    out.push(pool.splice(at, 1)[0]);
+  }
+  return out;
+}
 export function lookText(s, key){
   const at = spotParse(key); if (!at) return '';
   const thing = placedAt(s, key);

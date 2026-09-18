@@ -26,7 +26,8 @@ test("邻居就是同行者那一份东西，没有第二套走路逻辑", () =>
 //   所以「邻居的家在哪儿」必须放进两个调用方都会读的那一处＝plannedActivity。
 test("「他家在哪儿」只有一处实现，companionPlan 和 tick 都读得到", () => {
   assert.match(comp, /export function plannedActivity\(s\)\{const star=starFor\(s\);if\(star\)return star;/);
-  assert.match(comp, /const list=dailySchedule\(s\);return homeFor\(s,worksFor\(s,/);
+  assert.match(comp, /return homeFor\(s,areaFor\(s,worksFor\(s,list\[at\]\),start,end\)\);/,
+    "homeFor 必须包在最外层：他家在哪儿是最后一句话");
   assert.match(comp, /邻居的「家」是他自己那间屋/);
   // homeFor 只被 plannedActivity 叫一次：多一处就是同一层活在两处
   const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
