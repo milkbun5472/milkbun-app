@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-c967724666ff79a3';
-import {brewError,brewResult} from './brewing.mjs?v=fg-c967724666ff79a3';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-c967724666ff79a3';
-import './rules.js?v=fg-c967724666ff79a3';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-737485a66a34ed23';
+import {brewError,brewResult} from './brewing.mjs?v=fg-737485a66a34ed23';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-737485a66a34ed23';
+import './rules.js?v=fg-737485a66a34ed23';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-c967724666ff79a3';
+import {createNavigator} from './navigation.mjs?v=fg-737485a66a34ed23';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -74,7 +74,7 @@ export function restoreLook(raw){
  return out;
 }
 export function freshCompanion(){return {name:'同行者',mode:'routine',map:'garden',position:villagePoint({x:-3.5,z:4.3},'home'),helpDay:0,destination:'home',look:{}};}
-export function restoreCompanion(raw,state=null){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:['pond','garden','well','home'].includes(d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map,state)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
+export function restoreCompanion(raw,state=null){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:Object.hasOwn(COMPANION_DESTINATIONS,d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map,state)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
 // ── 花田：种下一句话，过几天收一张花笺（她 2026-09-16 定的方向）─────────
 // 种的不是花，是【一句你想问的话】；开花收上来的是他给的一句回应，进花册。
 // ⚠️花册不设「收集完成」：同一个念头隔一阵再种，答案本来就该不一样。
@@ -978,6 +978,11 @@ export const openingReady = key => isOpening(key)
   && Object.values(MAPS).some(m => (m.obstacles || []).some(o => o.opensWith === key));
 // 走到那儿看见的是哪一句：开了是开了那一句，没开是挡着那一句
 export const openingLine = (s, key) => isOpening(key) ? (opened(s, key) ? OPENINGS[key].open : OPENINGS[key].shut) : '';
+// 路还封着的时候，走到那儿该看见的那一句。⚠️只此一份：座位（sit）和散步到访（visit）
+//   都来问它。原来芦苇桥那一句是写死在 sit 那一支里的「先在许愿树下用留感咒编起芦苇桥。」——
+//   倒树和藤蔓照着再抄两句，就是同一层活在三处（施工规则/one-public-mechanism.md）。
+export const shutError = (s, key) => !isOpening(key) || opened(s, key) ? ''
+  : OPENINGS[key].shut + '先用' + SPELLS[OPENINGS[key].spell].name + '把它打开。';
 // ⚠️后两处要【先有灯】。这是把魔法那条线接进别的线的地方：
 //   屋前那几盏是星铃灯做出来的（月光花那条），小路那盏是委托修好的（公告栏那条）。
 //   灯从此不是终点，是【一处能封咒的地方】——这就是那个四盏灯天花板的拆法。
@@ -1231,7 +1236,7 @@ export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}
 export function companionCare(s){const c=s.companion,p=MAPS.garden.stations.garden;if(c.map!=='garden'||c.helpDay===s.day||s.blooms>=3||Math.hypot(c.position.x-p.x,c.position.z-p.z)>.5)return s;return {...s,blooms:s.blooms+1,companion:{...c,helpDay:s.day}};}
 export function exitFor(map,kind,id){const key=kind==='door'?id:kind;if(!['door','travel','enter'].includes(kind)||!Object.hasOwn(MAPS[map]?.exits||{},key))return null;const e=MAPS[map].exits[key];if(kind==='door'&&e.action!=='door')return null;return {...e,target:e.target||MAPS[map].stations[key]};}
 export function targetFor(state,kind,id){if(kind==='repair')return state.map==='watermill'?MAPS.watermill.stations.mill:null;if(['dreamSow','dreamHarvest'].includes(kind))return MAPS[state.map]?.stations.sow||null;const exit=exitFor(state.map,kind,id);if(exit)return exit.target;if(kind==='bed')return state.map==='home'?MAPS.home.beds[id]?.approach.player||null:null;if(kind==='rest'&&state.map==='home'&&state.sleep?.player)return MAPS.home.beds[state.sleep.player].approach.player;if(kind==='sit'){const seat=MAPS[state.map]?.seats?.[id||'pond'];return seat?{x:seat.x,z:seat.z}:null;}if(kind==='visit')return MAPS[state.map]?.sites?.[id]?.target||null;if(kind==='gather'){const n=NODES.find(n=>n.id===id);return n?{x:n.x,z:n.z+.48}:null;}return MAPS[state.map]?.stations[kind]||null;}
-export function actionError(s,kind,id){if(kind==='repair')return repairError(s,id);if(['dreamSow','dreamHarvest'].includes(kind))return dreamError(s,id,kind==='dreamHarvest');if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=MAPS[s.map]?.seats?.[id||'pond'];return !seat?'这里没有座位。':seat.opensWith&&!opened(s,seat.opensWith)?'先在许愿树下用留感咒编起芦苇桥。':'';}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit')return MAPS[s.map]?.sites?.[id]?'':'这里还没有开放这处地方。';
+export function actionError(s,kind,id){if(kind==='repair')return repairError(s,id);if(['dreamSow','dreamHarvest'].includes(kind))return dreamError(s,id,kind==='dreamHarvest');if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=MAPS[s.map]?.seats?.[id||'pond'];return !seat?'这里没有座位。':shutError(s,seat.opensWith);}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit'){const site=MAPS[s.map]?.sites?.[id];return site?shutError(s,site.opensWith):'这里还没有开放这处地方。';}
  if(['seed','star','lamp'].includes(kind))return magicError(s,kind);
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);if(!n||s.map!==n.map||(n.depth!=null&&n.depth!==s.depth))return '这里没有这种材料。';
   if(s.picked.includes(id))return n.map==='depths'?'这一处的矿脉已经采空了。':'这一丛今天采过了，明天会重新长出来。';return '';}
@@ -1294,11 +1299,31 @@ export function millAction(s,key,collect=false){if(!millAt(s))return s;const out
 export function companionMillHelp(s){const p=MAPS.watermill.stations.mill,c=s.companion;if(c.map!=='watermill'||Math.hypot(c.position.x-p.x,c.position.z-p.z)>1.25)return s;const key=Object.keys(MILL_RECIPES).find(k=>millRemaining(s,k)>0&&!s.workshop?.jobs?.[k]?.helper);if(!key)return s;const out=helpMill(s,key);return out===s?s:noteHappening(out,'world',c.name+'帮忙照看了'+MILL_RECIPES[key].name+'，这一批提前半小时做好');}
 export function islandLightError(s){if(s.map!=='garden'||s.seat!=='island'||Math.hypot(s.position.x-MAPS.garden.seats.island.x,s.position.z-MAPS.garden.seats.island.z)>.2||!opened(s,'reedBridge'))return '先在小岛水灯台坐下来。';return waterLightError(s);}
 export function floatIslandLight(s){if(islandLightError(s))return s;const out=releaseWaterLight(s,companionNearby(s));return noteHappening(out,'world',companionNearby(s)?'和'+s.companion.name+'在小岛放下一盏水灯':'在小岛放下一盏水灯');}
-export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},label:'去池边坐一会儿'},garden:{map:'garden',target:MAPS.garden.stations.garden,label:'去看看月光花'},well:{map:'garden',target:MAPS.garden.stations.well,label:'去井边'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'回屋前等你'}};
+// 他答应「我去某处等你」时能落实的地点。⚠️这张表是【唯一一份】：
+//   存档白名单（restoreCompanion）、游戏那头的 applyAction、写给模型的那句清单，
+//   三处都来问它。原来白名单是手抄的四个 id、提示词里又抄了一遍中文名——
+//   于是这儿加一处，那两处各漏一次（施工规则/one-public-mechanism.md）。
+// ⚠️只放【路一直是通的】那几处：芦苇桥、倒树那种要先开路的地方不进来，
+//   不然他答应得好好的，然后走到封口前面站住。
+export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},label:'去池边坐一会儿'},garden:{map:'garden',target:MAPS.garden.stations.garden,label:'去看看月光花'},well:{map:'garden',target:MAPS.garden.stations.well,label:'去井边'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'回屋前等你'},
+ // v70.49 补：codex 这一季长出来的地方，他一处都答应不了——她说「把新加的场景的动作交互也补上」
+ market:{map:'garden',target:MAPS.garden.sites.market.target,label:'去灯串集市上等你'},
+ railway:{map:'garden',target:MAPS.garden.station.target,label:'去林边车站的雨棚下'},
+ lake:{map:'garden',target:MAPS.garden.sites.lakeNorth.target,label:'去月湖北岸'},
+ tower:{map:'garden',target:MAPS.garden.sites.oldTower.target,label:'去林尽头的旧塔底下'},
+ mill:{map:'watermill',target:MAPS.watermill.sites.workbench.target,label:'去水磨工坊等你'},
+ hall:{map:'hall',target:MAPS.hall.sites.hearth.target,label:'去公共厅的炉边'}};
+// 写给模型的那一句「target 能填什么」。⚠️照上面那张表长，不另抄一份中文名。
+export const destinationChoices=()=>Object.entries(COMPANION_DESTINATIONS).map(([id,d])=>id+'（'+d.label.replace(/^去|^回/,'').replace(/等你$/,'')+'）').join('、');
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={repair:'修复旧物',dreamSow:'种下梦种',dreamHarvest:'收回梦花',door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶'};
+const ACTION_NAMES={repair:'修复旧物',dreamSow:'种下梦种',dreamHarvest:'收回梦花',door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶',
+ // ⚠️这张表就是日记的【读的那一半】：restoreToday 照它筛，journalText 照它取名。
+ //   perform 写进 today 的 kind 只要不在这儿，重开一次就没了，重开之前还会印成
+ //   「undefined 次」——mill（水磨工坊碾料）就这么漏了一整季
+ //   （施工规则/stub-from-the-writer.md：写的那一半和读的那一半是同一层的两瓣）。
+ mill:'在水磨工坊碾料'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}

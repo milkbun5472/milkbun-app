@@ -1,6 +1,7 @@
 import {villagePoint} from './world.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {withOpenPaths} from '../../test/_fairy-open.mjs';
 import {MAPS,START,freshState,restoreState,restoreCompanion,findPath,walkable,floorHeight,groundPoint,perform,targetFor,exitToward} from './world.mjs';
 import {makeCompanionController} from './companion.mjs';
 import {createMapLoader,disposeMap} from './map-loader.mjs';
@@ -14,7 +15,8 @@ test('home can be entered, slept in, restored and left without spending inventor
  assert.deepEqual(restoreCompanion({map:'home',position:{x:50,z:50}}).position,MAPS.home.spawn);
 });
 test('new destinations remain reachable and heights match bridge decking and the curved hill',()=>{
- for(const [map,from]of [['garden',START],['forest',MAPS.forest.spawn]])for(const site of Object.values(MAPS[map].sites))assert.ok(findPath(from,site.target,map)?.length,site.label);
+ const open=withOpenPaths();
+ for(const [map,from]of [['garden',START],['forest',MAPS.forest.spawn]])for(const site of Object.values(MAPS[map].sites))assert.ok(findPath(from,site.target,map,[],open)?.length,site.label);
  assert.equal(walkable(19.5,8,'garden'),false);assert.equal(walkable(18,8,'garden'),true);assert.equal(floorHeight('garden',{x:18,z:8}),.38);
  assert.equal(floorHeight('home',{x:0,z:1}),.14);assert.equal(floorHeight('forest',{x:0,z:-6}),.98);assert.equal(floorHeight('forest',{x:0,z:-3}),.08);
  assert.ok(floorHeight('forest',MAPS.forest.sites.wishingTree.target)>.3);
