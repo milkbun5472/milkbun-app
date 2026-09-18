@@ -16,6 +16,9 @@ test("日子只写在天气卡上一处，季节手册并进地图那一排", ()
   assert.match(game, /\$\('season-open'\)\.title=`季节手册 · \$\{season\.name\} \$\{season\.day\}\/14 天`/,
     "日子退到 title 里，点不着也说得清");
   assert.doesNotMatch(css, /\.season-open\{position:absolute/, "它不再自己占一块地方");
+  // 她 2026-09-18：「地图这个胶囊还是太下了」——和天气那几行并排，不自己再占一行
+  assert.match(css, /body\.embedded \.map-controls\{top:calc\(6px \+ var\(--head-clear,0px\)\)\}/);
+  assert.match(css, /body\.embedded \.weather\{max-width:calc\(100% - 150px\)\}/, "窄屏上天气那几行要让出位置，不许压到一起");
 });
 
 // 她 2026-09-18：「现在他叫我打水我点击不了啊，一点就点到他身上」
