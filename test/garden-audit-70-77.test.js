@@ -66,7 +66,10 @@ test("坐：走 sit 那一条老路（起身／喝茶／翻书／他来坐旁边
   //   另外把人挪到坐垫上、按 rise 抬起来。
   assert.match(game, /const mySeat=data\.seat\?seatsOf\(data\.map\)\[data\.seat\]:null;/);
   assert.match(game, /actor\.position\.x\+=\(mySeat\.x-actor\.position\.x\)\*Math\.min\(1,dt\*8\);/);
-  assert.match(game, /height:floorHeight\(data\.map,\{x:actor\.position\.x,z:actor\.position\.z\},data\)\+\(mySeat&&!moving\?\(mySeat\.rise\|\|0\):0\)/);
+  // ⚠️坐面多高【量模型】，SEAT_RISE 只是量不到时的兜底（她 2026-09-18：「基本上所有坐下的都对不上」）
+  assert.match(game, /const myRise=mySeat\?\(mySeat\.piece\?\(seatTop\(data\.seat,mySeat\)\?\?mySeat\.rise\?\?0\):\(mySeat\.rise\|\|0\)\):0;/);
+  assert.match(game, /height:floorHeight\(data\.map,\{x:actor\.position\.x,z:actor\.position\.z\},data\)\+\(mySeat&&!moving\?myRise:0\)/);
+  assert.match(game, /const hit=r\.intersectObject\(view\.root,true\)\.find\(h=>h\.point\.y>floor\+\.1&&h\.point\.y<floor\+1\.2\);/);
   assert.doesNotMatch(game, /MAPS\[data\.map\]\.seats\[data\.seat\]/, "座位一律问 seatsOf");
   assert.match(host, /openWardrobe: \(\) => \{ pullLook\(\); pullGarden\(\); setDress\(true\); \},/);
   assert.match(comp, /const seat=seatsOf\(s\.map\)\[s\.seat\];/);
