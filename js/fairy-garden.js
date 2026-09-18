@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-c6478e32487f1624", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-b77f4350a0c5d289", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -791,6 +791,14 @@
     // 清单从 apps/fairy-garden/doll.json 拿——发型名单和六个体型参数的上下限都在里面，
     // 由导模型那一步同时生成。界面上的名字/范围和模型里的网格/形态键永远对得上
     //（在这儿另写一份 JS 常量就是又一处要同步的）。
+    // ⚠️顶栏浮在场景上面（她 2026-09-18：「上面又有框，不要做这个框挡住场景了」）。
+    //   这是对 施工规则/mobile-ui-layout.md「顶栏自己占一条」的一处明写例外：
+    //   庭院整屏是一张 3D 画布，横一条实心栏就等于把画剪掉一截。栏还是那条 Head
+    //   （返回、标题、三颗药丸都没动），只是不再占位——底色换成一层往下化开的薄纱。
+    //   ⚠️游戏那头的天气、地图控件本来贴着顶边，得让开这条栏：量出来的高度报进去，
+    //   那边只有 --head-clear 这一个变量在用（不在两处各写一个数）。
+    const headRef = useRef(null);
+    const [headH, setHeadH] = useState(0);
     const [dress, setDress] = useState(false);
     // 花册（她 2026-09-16 定的种花那条）：写字和翻册子在手机这一侧，走过去收在游戏那一侧
     const [book, setBook] = useState(false);
@@ -798,6 +806,18 @@
     const [bookTab, setBookTab] = useState("notes");   // notes=花册 / shards=碎片盒
     // 请谁搬进来／改谁的门禁：这一页开着的时候，装的是那位的草稿（她 2026-09-18 的 b）
     const [invite, setInvite] = useState(null);
+    // 量一次那条栏有多高：字号、安全区、机型都能改它，写死一个数迟早对不上
+    useEffect(() => {
+      const el = headRef.current; if (!el) return;
+      const set = () => setHeadH(Math.round(el.getBoundingClientRect().height));
+      set();
+      if (!window.ResizeObserver) return;
+      const ro = new ResizeObserver(set); ro.observe(el);
+      return () => ro.disconnect();
+    }, [pick, book, dress]);
+    // 报给游戏：它那头的天气和地图控件照这个数往下让
+    useEffect(() => { const g = game(); if (loaded && g && g.setHeadClear) g.setHeadClear(headH); }, [headH, loaded]);
+
     const [shardBox, setShardBox] = useState(null);
     const [bond, setBond] = useState(null);           // 相处册＋礼物簿（game.getBond）
     const [things, setThings] = useState(null);
@@ -906,7 +926,11 @@
       partnerPickBody({ characters: props.characters, live: ((crew && crew.rows) || []).map(n => n.charId), error,
         note: props.lockPartnerId ? "一间房＝一个庭院存档。挑一位，就给 TA 新开一间，这一间和这一档都留着不动。" : "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。",
         onPick: choose }));
-    return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
+    return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936", position: "relative" } },
+      // ⚠️浮在场景上面、不占位（见上面 headRef 那段注释）：薄纱往下化开，字还看得清，
+      //   画面从屏幕最上边就开始。pointerEvents 只在栏本身上打开，别把场景的拖动吃掉。
+      h("div", { ref: headRef, style: { position: "absolute", left: 0, right: 0, top: 0, zIndex: 5,
+        background: "linear-gradient(180deg, rgba(228,233,215,.92), rgba(228,233,215,.62) 62%, rgba(228,233,215,0))" } },
       h(Head, { zh: "微光庭院", sub: char ? "与 " + (char.remark || char.name) + " 同行" : "自由试玩", bg: "transparent", ink: "#344936", onBack: back,
         // ⚠️开着花册/样貌时只留一个「回庭院」：三颗药丸并排会把标题挤扁
         right: (book || dress)
@@ -914,12 +938,13 @@
           : h("div", { style: { display: "flex", gap: 7 } },
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) }),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) })),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
-        book && h("div", { style: { position: "absolute", inset: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+        // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
+        book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           // ⚠️这一册在现实里就是一本【册子】，所以 tab 长成册子边上伸出来的索引签：
           //   上圆下方、贴着页边，选中那张满高、纸色，直接长进底下那一页里；
           //   没选的往下缩一截、暗着，像压在后面几页（施工规则/tabs-not-plain-pills.md）。

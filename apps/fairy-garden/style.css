@@ -32,7 +32,7 @@ body.forest .panel{background:#f5f8ecef}body.forest .badge{background:#dae8d6}bo
 @media(max-width:600px){.companion-strip{font-size:10px;margin-top:6px;min-height:31px;padding:4px 6px}.companion-more{font-size:8px}.companion-dialog{padding:18px}.narration{min-height:32px}.weather small{font-size:8px}.weather button{min-height:36px}}
 @media(max-height:720px) and (max-width:600px){.companion-strip{min-height:29px;margin-top:5px}.narration{min-height:30px;margin:5px 0}.bag{margin-top:5px}.companion-dialog{max-height:90dvh}.companion-dialog li{padding:4px 6px}}
 
-body.embedded header{display:none}body.embedded .weather{top:10px;left:16px}body.embedded .panel{bottom:calc(6px + env(safe-area-inset-bottom) * .4)}body.embedded .hint{display:none}body.chatting .panel{visibility:hidden;pointer-events:none}body.chatting #companion-tag{display:none}body.embedded .companion-dialog{width:100%;max-width:none;height:100%;max-height:none;border:0;border-radius:0;margin:0;padding:20px;overflow-y:auto}body.embedded .companion-dialog .dialog-title{position:sticky;top:-20px;background:#fffdf1;z-index:1;padding:8px 0}#host-partner{width:100%;margin-top:10px}#host-talk{background:#dae7ce}
+body.embedded header{display:none}body.embedded .weather{top:calc(10px + var(--head-clear,0px));left:16px}body.embedded .panel{bottom:calc(6px + env(safe-area-inset-bottom) * .4)}body.embedded .hint{display:none}body.chatting .panel{visibility:hidden;pointer-events:none}body.chatting #companion-tag{display:none}body.embedded .companion-dialog{width:100%;max-width:none;height:100%;max-height:none;border:0;border-radius:0;margin:0;padding:20px;overflow-y:auto}body.embedded .companion-dialog .dialog-title{position:sticky;top:-20px;background:#fffdf1;z-index:1;padding:8px 0}#host-partner{width:100%;margin-top:10px}#host-talk{background:#dae7ce}
 
 /* One compact handle remains reachable when the action content is folded. */
 .panel{padding-top:0;max-height:min(var(--panel-cap),calc(100% - 100px));display:flex;flex-direction:column;overflow:hidden}
@@ -42,12 +42,12 @@ body.embedded header{display:none}body.embedded .weather{top:10px;left:16px}body
 #panel-content{min-height:0;overflow-y:auto}#panel-content[hidden]{display:none}
 .map-controls{position:absolute;right:16px;top:132px;display:flex;align-items:center;gap:0;background:#fffdf0ed;border:1px solid #ffffffa0;border-radius:18px;box-shadow:0 3px 14px #293e2510;overflow:hidden}
 .map-controls button{display:grid;place-items:center;min-width:38px;height:38px;padding:5px;border:0;background:none;color:#526c51;font-size:11px}.map-controls button[hidden]{display:none}.map-controls button:disabled{opacity:.35}
-body.embedded .map-controls{top:65px}body.chatting .map-controls{visibility:visible}
+body.embedded .map-controls{top:calc(65px + var(--head-clear,0px))}body.chatting .map-controls{visibility:visible}
 @media(max-width:600px){.map-controls{top:126px;right:16px}.panel{padding-top:0}}
 @media(max-height:590px){.map-controls{top:12px;right:16px}.panel{max-width:calc(100% - 30px)}}
 
 .season-open{position:absolute;left:16px;top:132px;min-height:40px;padding:8px 14px;border:1px solid #fff9;border-radius:18px;background:#fffdf0ed;color:#526c51;font-size:11px}
-body.embedded .season-open{top:65px}.season-dialog{width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;border-radius:0;padding:0;overflow:hidden;background:#f8f8e9}
+body.embedded .season-open{top:calc(65px + var(--head-clear,0px))}.season-dialog{width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;border-radius:0;padding:0;overflow:hidden;background:#f8f8e9}
 .season-dialog[open]{display:flex;flex-direction:column}.season-dialog .dialog-title{margin:0;padding:12px 18px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #d5ddc7}
 .season-dialog .dialog-title h2{font-size:16px}.season-dialog .book-body{display:block;min-height:0;overflow-y:auto;margin:0;padding:10px 20px calc(14px + env(safe-area-inset-bottom) * .4)}
 .season-dialog #season-days,.season-dialog #garden-journal{display:block;margin:12px 0}.season-dialog h3{font-size:14px;font-weight:500;margin-top:24px}.season-dialog details{border:1px solid #d6dfc9;border-radius:12px;padding:10px 12px;margin:8px 0}.season-dialog summary{font-size:12px;cursor:pointer}.season-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}.season-dialog #season-generate{width:100%;min-height:44px}.season-dialog #season-error{color:#a55745}.season-dialog button:disabled{opacity:.55}.season-dialog .time-note{font-size:11px;color:#7b876b;line-height:1.7}
