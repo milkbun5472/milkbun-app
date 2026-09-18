@@ -21,7 +21,7 @@ test("游戏里的弹窗自己让开那条浮着的标题栏", () => {
 test("让开多少还是只认 --head-clear 那一个数", () => {
   // 贴着顶边的那几样各让一次：天气、地图那一排、弹窗、整屏那两种
   for (const who of [/\.weather\{top:calc\(10px \+ var\(--head-clear,0px\)\)/,
-    /\.map-controls\{top:calc\(65px \+ var\(--head-clear,0px\)\)/,
+    /\.map-controls\{top:calc\(6px \+ var\(--head-clear,0px\)\)/,
     /body\.embedded dialog\{[^}]*var\(--head-clear,0px\)/,
     /body\.embedded \.companion-dialog[^}]*var\(--head-clear,0px\)/]) assert.match(css, who);
   assert.doesNotMatch(css, /margin-top:\s*(5[0-9]|1[01][0-9])px/, "又拍了一个固定高度进去");

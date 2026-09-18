@@ -42,7 +42,11 @@ body.embedded header{display:none}body.embedded .weather{top:calc(10px + var(--h
 #panel-content{min-height:0;overflow-y:auto}#panel-content[hidden]{display:none}
 .map-controls{position:absolute;right:16px;top:132px;display:flex;align-items:center;gap:0;background:#fffdf0ed;border:1px solid #ffffffa0;border-radius:18px;box-shadow:0 3px 14px #293e2510;overflow:hidden}
 .map-controls button{display:grid;place-items:center;min-width:38px;height:38px;padding:5px;border:0;background:none;color:#526c51;font-size:11px}.map-controls button[hidden]{display:none}.map-controls button:disabled{opacity:.35}
-body.embedded .map-controls{top:calc(65px + var(--head-clear,0px))}body.chatting .map-controls{visibility:visible}
+/* ⚠️和天气那几行并排站在同一行上（她 2026-09-18：「地图这个胶囊还是太下了」）：
+   顶栏浮上去以后这一排本来就跟着往下让了一整条，再自己占一行就沉到画面中间去了。 */
+body.embedded .map-controls{top:calc(6px + var(--head-clear,0px))}
+body.embedded .weather{max-width:calc(100% - 150px)}
+body.embedded .weather span,body.embedded .weather small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}body.chatting .map-controls{visibility:visible}
 @media(max-width:600px){.map-controls{top:126px;right:16px}.panel{padding-top:0}}
 @media(max-height:590px){.map-controls{top:12px;right:16px}.panel{max-width:calc(100% - 30px)}}
 
