@@ -28,9 +28,9 @@ test("每一栏的内容仍然由 CarrySection 画，没有第二份渲染", () 
   assert.match(seg, /h\(CarrySection, \{\n\s*embedded: true, char, sectionKey: x\.key/);
   // 嵌入模式：外壳/皮肤/标题栏都由整页画，这里只交内容 + 自己那两个弹层
   assert.match(screens, /if \(embedded\) return h\(React\.Fragment, null, content, sheetNode, giftNode\);/);
-  // ⚠️别钉整串参数表（v70.81 中间插了 onDeleteItem）：这条守的是
-  //   「CarrySection 还是那个收 sectionKey/data/gifts 的组件」，不是参数的排列。
-  assert.match(screens, /function CarrySection\(\{ char, sectionKey, data, gifts, busyKey, giftBusy, pinned,/);
+  // ⚠️别钉整串参数表（v70.81 中间插了 onDeleteItem，v70.85 又加了 closetData/onClosetGift）：
+  //   这条守的是「CarrySection 还是那个收 sectionKey/data/gifts 的组件」，不是参数的排列。
+  assert.match(screens, /function CarrySection\(\{ char, sectionKey, data, gifts,/);
   // 弹层得是 fixed：嵌进滚动容器之后，absolute 要看祖先链上谁碰巧是 positioned
   assert.match(screens, /className: "fixed inset-0 flex items-center justify-center z-50 px-6"/);
   assert.doesNotMatch(screens, /className: "absolute inset-0 flex items-center justify-center z-50 px-6"/);
