@@ -55,5 +55,8 @@ test('输入和确认共享同一 portal，输入回调和遮罩取消保持独�
     p.node.props.onClick();
   }
   assert.deepEqual(calls, ['草稿', 'cancel', '草稿', 'cancel']);
-  assert.equal((src.match(/return appDialogPortal\(/g) || []).length, 2);
+  // v70.67 起第三位用户：转账那个框（她 2026-09-18：「我让你做框你给我做了个什么东西」）。
+  // ⚠️这个数【往上长是对的】——它数的是「有几处共用这一层挂载」，不是「有几个弹窗」。
+  //   该红的是有人另写一个居中的盒子，那种情况这个数不会动、下面那条审计才会逮到。
+  assert.equal((src.match(/return appDialogPortal\(/g) || []).length, 3);
 });

@@ -205,18 +205,27 @@ test("解析模型交回来的金额时照旧吃掉 ¥——那是【进来】�
 });
 
 // ── 转账那一屏（她 2026-09-18：「转账是个半窗改一下，还有那个 cny 也改成符号」）──
-test("转账整页，不是半窗", () => {
+// ⚠️v70.67 改口径，这一条上一版钉错了。她说「转账是个半窗改一下」，我照
+//   no-half-sheet.md 改成了整页——可那条规矩的判据是「需不需要同时看见底下那一层」，
+//   而这一层只有金额和附言两样，正是它自己写明的例外：「选一下就走的」。
+//   何况改出来的连整页都不是：h-full 长在聊天区的 flex 里，只占输入栏底下那一半，
+//   下面空掉一大截（她 2026-09-18：「我让你做框你给我做了个什么东西」）。
+//   现在是【居中的框】，走全库共用的 appDialogPortal。
+test("转账是个居中的框，而且走公共那一层挂载", () => {
   const seg = comp.slice(comp.indexOf("function TransferComposeSheet("), comp.indexOf("// 发位置:写一个地名"));
-  assert.ok(!/h\(Sheet, \{/.test(seg), "还是半窗（施工规则/no-half-sheet.md）");
-  assert.match(seg, /h\("div", \{ className: "h-full flex flex-col"/);
-  assert.match(seg, /h\(Head, \{ zh: "转账给 " \+ cName/, "顶栏要走公共 Head（mobile-ui-layout.md §1）");
-  assert.match(seg, /className: "flex-1 min-h-0 overflow-y-auto/, "正文少了 min-h-0");
+  assert.ok(!/h\(Sheet, \{/.test(seg), "又变回半窗了");
+  assert.match(seg, /return appDialogPortal\(/, "自己写了一个居中的盒子——那就是第二份挂载层");
+  assert.ok(!/h-full flex flex-col/.test(seg), "整页那一版又回来了：它会长在聊天区的 flex 里，只占半屏");
+  assert.ok(!/h\(Head, \{/.test(seg), "框不需要顶栏");
+  assert.match(seg, /onClick: e => e\.stopPropagation\(\)/, "点框里面会把框点没");
+  assert.match(seg, /appDialogPortal\([\s\S]*?,\n    onClose\);/, "点遮罩关不掉");
 });
 
-test("整屏统一按对方的币种，不再一处 CNY 一处 ¥ 一处 円", () => {
+test("整个框统一按对方的币种，不再一处 CNY 一处 ¥ 一处 円", () => {
   const seg = comp.slice(comp.indexOf("function TransferComposeSheet("), comp.indexOf("// 发位置:写一个地名"));
   assert.ok(!/"CNY"/.test(seg), "写死的 CNY 还在");
-  assert.match(seg, /cur\.pos === "pre" \? h\("span"[\s\S]{0,180}?cur\.symbol\) : null/, "符号要跟着前后位置走");
+  assert.match(seg, /cur\.pos === "pre" \? sym : null/, "符号要跟着前后位置走");
+  assert.match(seg, /cur\.pos === "post" \? sym : null/);
   assert.match(seg, /const balText = myBalance == null \? "—" : \(M \? M\.fmt\(myBalance, charId\) : "¥" \+ myBalance\)/, "余额还写死 ¥");
   // 两个调用点都得告诉它对方是谁
   assert.match(comp, /charId: character && character\.id,\n    myBalance: myBalance,/, "单聊那个入口");
