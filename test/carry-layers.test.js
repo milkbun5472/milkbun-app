@@ -503,7 +503,11 @@ test("判词跟着翻的是什么走，不再写死「手机」", () => {
   assert.doesNotMatch(app, /const PHONE_PEEK_TAG = \{/, "旧的写死版还在");
   assert.match(app, /是她自己翻你" \+ what \+ "翻到的/);
   // 卡片上那行小字同理
-  assert.match(R("components.js"), /characterText\(character, "翻他"\) \+ \(p\.what \|\| "手机"\) \+ " · "/);
+  // v71.27 前面多了一档 given（抽卡券是【他给的】，不是翻到的）；
+  // 这儿要钉的仍是那句老规矩：翻的是什么，眉标就跟着写什么，不许写死「手机」。
+  assert.match(R("components.js"), /characterText\(character, "翻他"\) \+ \(p\.what \|\| "手机"\)/);
+  assert.match(R("components.js"), /p\.tier === "given" \? characterText\(character, "他给的"\)/,
+    "他给的那一档又被写成「翻他东西」了——当着她的面把这件事说反了");
 });
 
 // 她 2026-08-29 真机截图抓出来的三个

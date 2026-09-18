@@ -4343,6 +4343,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
     return made;
   };
+  // 点歌那张券要接上云村（她 2026-09-18：「点歌也没接网易云，应该要可以刻到情侣空间唱片」）。
+  // ⚠️正文照旧是他自己的话，这儿只是【额外】要一串【搜索用】的歌名歌手：
+  //   正文里那首歌的名字多半带着书名号、带着一整句话，直接拿去搜什么都搜不到。
+  // ⚠️只对点歌那一张加这一栏。别的券多一个字段就是白让模型多想一件事
+  //   （施工规则/bans-make-it-dumber 的同一条道理：注意力是有限的）。
+  const _gSongAsk = card => card && card.kind === "song"
+    ? "\n另外把这首歌【单独】写进 song 一栏：只写「歌名 歌手」，不要书名号、不要别的话——这一栏会原样拿去云村搜。"
+    : "";
+  const _gSongExpect = card => card && card.kind === "song"
+    ? { title: "一行小标题", body: "正文", song: "歌名 歌手" }
+    : { title: "一行小标题", body: "正文" };
   const gachaStamp = (cardId, result) => {
     const cards = gachaCardsRef.current.map(c => c.id === cardId ? { ...c, redeemedTs: Date.now(), result: result } : c);
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
@@ -4535,9 +4546,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!(window.CCSeat && window.Cloud)) { toast(characterText(char, "他这会儿不在书房，卡留着，等他在的时候再兑")); return; }
           try {
             let r = await window.CCSeat.ask({ tool: "gacha_make", char_id: char.id, card_id: card.id, kind: card.kind, card_name: card.name,
-              ask: gAsk(card.poolId), expect: { title: "一行小标题", body: "正文" } }, 180000, { charId: char.id });
+              ask: gAsk(card.poolId) + _gSongAsk(card), expect: _gSongExpect(card), }, 180000, { charId: char.id });
             if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = { body: r }; } }
-            const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc" };
+            const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc",
+              ...(card.kind === "song" ? { song: String(r && r.song || "").replace(/[《》"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) } : {}) };
             if (!got.body) { toast(characterText(char, "他没写出来，卡还留着")); return; }
             gachaStamp(card.id, got);
             gachaKeep(char, card.kind, got.title, got.body);   // 书房那一支也要记，不然只有代笔那半进得去
@@ -4549,11 +4561,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。"),
-          schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
+          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
+          schemaHint: card.kind === "song"
+            ? "{\"title\":\"一行小标题\",\"body\":\"正文\",\"song\":\"歌名 歌手\"}"
+            : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
           maxTokens: 11000
         });
-        const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
+        const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim(),
+          ...(card.kind === "song" ? { song: String(d.song || "").replace(/[《》"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) } : {}) };
         gachaStamp(card.id, got);
         gachaKeep(char, card.kind, got.title, got.body);
         return got;
@@ -17007,7 +17022,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️这段判词以前把「手机」写死在里面（v57.96 之前）。随身物也走这条链之后，
   // 翻的是TA的包，模型收到的却是「她翻过我手机」——对不上就演不对。
   // what＝她翻的是什么（手机／包／衣柜），hiddenWhat＝这一档「藏起来」在这个语境里长什么样。
+  // given（v71.27，她 2026-09-18：「用了这些券之后没办法发到他聊天啊」）：
+  // ⚠️这一档不是 open 的同义词，所以得单开。open 说的是「这东西你没瞒着她」——
+  //   前提仍然是【她那头看到的】；抽卡券反过来：**这是TA自己给出去的**，
+  //   她只是拿回来提起。混进 quiet／open 都会让TA往「她怎么知道的」上演，
+  //   而那正是这张券最不该有的反应。
   const phonePeekTag = (tier, what, hiddenWhat) => ({
+    given: "｜（这是TA自己给她的，她现在拿来跟你说。**不是她翻到的、也不是她打听来的**，别往「被撞破」或者「你怎么知道」那边演。按你当初给出去时的心思接。）",
     open: "｜（这东西TA本来就没瞒着你，就当她随口提起。）",
     quiet: "｜（**TA没告诉过你这个，是她自己翻你" + what + "翻到的。**TA此刻在意的多半不是这条内容本身，而是「她翻过我" + what + "、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
     hidden: "｜（**这是TA藏起来的东西**：" + (hiddenWhat || "匿名的／小号的／深夜的／删掉的／设了私密的") + "。TA从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「TA被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
@@ -17016,7 +17037,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // peek.lead：整句话的开头，随身物那边不套「在你的〈X〉里看到了」这个句式。
   const forwardPhonePeekToChat = (char, peek) => {
     if (!char || !peek) return;
-    const tier = ["open", "quiet", "hidden"].includes(peek.tier) ? peek.tier : "quiet";
+    const tier = ["given", "open", "quiet", "hidden"].includes(peek.tier) ? peek.tier : "quiet";
     const label = String(peek.label || "手机");
     const what = String(peek.what || "手机");
     const title = String(peek.title || "").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -22507,11 +22528,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         toast("那就不用这个");
       }
     },
+    // 兑出来的东西拿回聊天里说（她 2026-09-18：「用了这些券之后没办法发到他聊天啊」）。
+    // ⚠️走的是【现成那条链】forwardPhonePeekToChat——翻手机、翻随身物都从这儿过
+    //   （one-public-mechanism）。原来这儿只接了掉马券一张，别的券兑完就是一张
+    //   死卡片，角色完全不知道发生过。
+    // ⚠️掉马券照旧走 quiet：那张的戏就是【他不小心露的马脚被摆到台面上】。
+    //   其余的券是【他自己给出去的东西】，走新开的 given 那一档。
     onGachaShow: card => {
       const c = characters.find(x => x.id === card.charId); const r = card.result || {};
-      if (!c || !r.body) return;
-      forwardPhonePeekToChat(c, { label: String(r.title || "掉马券"), title: String(r.title || ""), text: String(r.body || ""),
-        tier: "quiet", what: "东西", lead: "[我手上有这个]" });
+      if (!c) return;
+      if (r.where === "drop") {
+        if (!r.body) return;
+        forwardPhonePeekToChat(c, { label: String(r.title || "掉马券"), title: String(r.title || ""), text: String(r.body || ""),
+          tier: "quiet", what: "东西", lead: "[我手上有这个]" });
+        return;
+      }
+      const tpl = (window.GachaKit && window.GachaKit.byId && window.GachaKit.byId[card.poolId]) || null;
+      const name = String((tpl ? characterText(c, tpl.name) : card.name) || "这张券");
+      // 幕后那一轨也带上：它跟正文是【场里的他】和【场外的他】，只带正文会把落差抹平
+      const body = [r.body, r.track ? "（幕后）" + r.track : "", r.scene].filter(Boolean).join("\n").trim();
+      if (!r.title && !body) { toast("这张券没有可以说的正文"); return; }
+      forwardPhonePeekToChat(c, { label: name, title: String(r.title || ""), text: body,
+        tier: "given", what: "东西", lead: "[" + name + "]你给我的这个，我拿来跟你说：" });
+    },
+    // 点歌那张券刻进你俩的唱片（她 2026-09-18：「点歌也没接网易云，应该要可以刻到情侣空间唱片」）。
+    // ⚠️走的是【现成那一支】discAdd——聊天里 carve 那条能力、唱片架手动加，都从这儿过
+    //   （one-public-mechanism）。它自己会去云村搜、会把真歌名真歌手真封面取回来。
+    // ⚠️刻上了才盖戳：云村没搜到时 discAdd 返回 false 并自己 toast 过了，
+    //   这时候显示「刻好了」就是骗她——而她多半不会再去唱片架上核对（跟 carve 那条同一个道理）。
+    onGachaCarve: async card => {
+      const c = characters.find(x => x.id === card.charId); const r = card.result || {};
+      const q = String(r.song || "").trim();
+      if (!c || !q) { toast("这张券没写清是哪首歌"); return; }
+      setGen(g => ({ ...g, gacha: card.id }));
+      try {
+        const sg = await discAdd(c.id, q, String(r.title || "").slice(0, 40));
+        if (!sg) return;
+        gachaStamp(card.id, { ...r, carved: { title: sg.title, artist: sg.artist, ts: Date.now() } });
+        toast("刻进你俩的唱片了：" + sg.title);
+      } finally { setGen(g => ({ ...g, gacha: null })); }
     },
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
