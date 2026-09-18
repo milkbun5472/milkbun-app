@@ -35,7 +35,10 @@ test("要脸的那张走照相馆现成的真 duo 路，不另拼一份提示词
   const i = app.indexOf("const ifShot = async lineId =>");
   assert.ok(i > 0, "没有这个动作");
   const body = app.slice(i, app.indexOf("// 收线。三个去处", i));
-  assert.match(body, /return await studioShoot\(char, \{ scene: scene, ifTitle: line\.title \}\);/, "在如果馆这儿又拼了一份出图提示词");
+  // v70.77 起拍完顺手当这条线的背景（她 2026-09-18：「拍张我俩完成后只在合照显示」）。
+  // 钉的还是【走的是照相馆那条真 duo 路】，不是那一行的排版。
+  assert.match(body, /const row = await studioShoot\(char, \{ scene: scene, ifTitle: line\.title \}\);/, "不走照相馆那条路了");
+  assert.match(body, /if \(row && \(row\.imgKey \|\| row\.imgUrl\)\) ifBgFromPhoto\(lineId, row\);/, "拍完还是只在合照里看得见");
   assert.ok(body.indexOf("buildPhotoPrompt") < 0 && body.indexOf("generateSelfieImage") < 0, "绕过了照相馆那条链");
   // 两张参考照的门槛由 studioShoot 统一兜（说清楚缺什么，不是默默画个陌生人）
   assert.match(app, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\)\) \{ toast\("合照要你俩都设了参考照/, "锁脸那道闸没了");

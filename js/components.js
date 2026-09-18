@@ -823,6 +823,10 @@ function useKbLift() {
 // ⚠️数的是【宽度】不是【字符数】：「円」「원」这种是全角，一个顶两个。
 //   只按 length 算的话，"-273,362 円" 会被当成 10 个字放行，实际占 11 格，照样掉行。
 // fits＝这个字号下大概放得下几格；超了按比例缩，缩到 min 为止。
+// 窄格子里的钱（亲属卡、刷卡通知、引用条那些）：不带千分位，跟原来的长相一致。
+// ⚠️只是转交口，规则在 js/money.js 一处（施工规则/one-public-mechanism.md）。
+const mTight = (n, charId) => (typeof Money !== "undefined" && Money) ? Money.say(n, charId) : "¥" + (n == null ? 0 : n);
+
 const _wideChar = c => {
   const x = c.charCodeAt(0);
   return (x >= 0x1100 && x <= 0x115f) || (x >= 0x2e80 && x <= 0xa4cf) ||
@@ -8468,7 +8472,7 @@ function ChatThread({
         fontFamily: F_DISPLAY,
         fontSize: 16
       }
-    }, "¥" + m.amount), h("div", {
+    }, mTight(m.amount, character && character.id)), h("div", {
       style: {
         fontFamily: F_BODY,
         fontSize: 10.5,
@@ -8708,6 +8712,7 @@ function ChatThread({
               h("div", { style: { maxWidth: "82%", padding: "7px 11px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, body));
           }))), descView && h(PhotoSheet, { m: typeof descView === "object" ? descView : { desc: descView }, toast: toast, onClose: () => setDescView(null) }), transferOpen && h(TransferComposeSheet, {
     cName: cName,
+    charId: character && character.id,
     myBalance: myBalance,
     onClose: () => setTransferOpen(false),
     onSend: (amount, note) => {
@@ -10541,7 +10546,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "emote" ? "表情" : null;
-  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " ¥" + m.amount : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
+  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
   const hits = (kw || typeF) ? msgs.filter(x => matchType(x.m) && (!kw || String(textOf(x.m)).indexOf(kw) >= 0)) : [];
@@ -11116,9 +11121,9 @@ function KinshipCardFace({ character, limit, used, note, width }) {
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.22em", opacity: 0.8 } }, "副卡"),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, opacity: 0.95, maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "")),
         h("div", { className: "flex items-baseline", style: { gap: 7 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em" } }, "¥" + (remain == null ? (limit || 0) : remain)),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, letterSpacing: "-0.01em", whiteSpace: "nowrap" } }, mTight(remain == null ? (limit || 0) : remain, character && character.id)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, opacity: 0.82 } }, remain == null ? "额度" : "还能刷")),
-        remain == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.7, marginTop: 4 } }, "已用 ¥" + (used || 0) + " · 总额度 ¥" + (limit || 0)))),
+        remain == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: 0.7, marginTop: 4 } }, "已用 " + mTight(used || 0, character && character.id) + " · 总额度 " + mTight(limit || 0, character && character.id)))),
     // 签名条：真卡背面那条，TA把话签在上面
     h("div", { style: {
       padding: "8px 14px 9px",
@@ -11168,9 +11173,9 @@ function KinshipSpendCard({ m, character }) {
                 "刷了" + (c.name || "TA") + "的亲属卡")),
             h("div", { className: "flex items-end", style: { gap: 10 } },
               h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, color: t.ink } }, m.item || "一笔消费"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.ink, whiteSpace: "nowrap" } }, "-¥" + (m.amount || 0)))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.ink, whiteSpace: "nowrap" } }, "-" + mTight(m.amount || 0, c && c.id)))),
           h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } },
-            m.remain == null ? "已从" + (c.name || "TA") + "账上扣除" : "已从" + (c.name || "TA") + "账上扣除 · 还剩 ¥" + m.remain)))));
+            m.remain == null ? "已从" + (c.name || "TA") + "账上扣除" : "已从" + (c.name || "TA") + "账上扣除 · 还剩 " + mTight(m.remain, c && c.id))))));
 }
 // 提额申请单（v60.52）
 // 她 2026-09-02：「这个申请额度通知略敷衍」。原来是一句加了括号的粉气泡
@@ -11186,7 +11191,7 @@ function KinshipRaiseCard({ m, character }) {
   const ink = c.color || "#6b7a8f";
   const st = m.status || "pending";
   const done = st === "approved" || st === "declined";
-  const foot = st === "approved" ? "已加 ¥" + (m.add || 0) + " · 现在额度 ¥" + (m.newLimit || 0)
+  const foot = st === "approved" ? "已加 " + mTight(m.add || 0, c && c.id) + " · 现在额度 " + mTight(m.newLimit || 0, c && c.id)
     : st === "declined" ? (c.name || "TA") + "没有加"
     : st === "failed" ? "没送出去，回头再试"
     : "等" + (c.name || "TA") + "回话";
@@ -11202,10 +11207,10 @@ function KinshipRaiseCard({ m, character }) {
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 "向" + (c.name || "TA") + "的卡申请提额")),
             h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "现在 ¥" + (m.limit || 0)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "现在 " + mTight(m.limit || 0, c && c.id)),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "→"),
               m.ask
-                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.1, color: t.ink } }, "想加 ¥" + m.ask)
+                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.1, color: t.ink } }, "想加 " + mTight(m.ask, c && c.id))
                 : h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: t.ink } }, "你看着加"))),
           h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: fc } },
             (done ? "" : "· ") + foot)),
@@ -11608,97 +11613,61 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
     isU && myAvatar);
 }
 // 我转给 TA 的输入卡（只有「我转给 TA」，接受由对方决定）
-function TransferComposeSheet({
-  cName,
-  myBalance,
-  onClose,
-  onSend
-}) {
+// 转账（她 2026-09-18：「转账是个半窗改一下」「我让你做框你给我做了个什么东西」）
+//
+// ⚠️她要的是【框】，不是整页。我第一版照 no-half-sheet.md 改成了整页——可那条规矩的
+//   判据是「这一层的内容需不需要同时看见底下那一层」，而这一层只有【金额 + 附言】
+//   两样，正是那条规矩自己写明的例外：「选一下就走的」。更糟的是改出来的东西连整页
+//   都不是：`h-full` 长在聊天区的 flex 里，只占到输入栏底下那一半，下面空掉一大截。
+//
+// ⚠️所以走 appDialogPortal——全库十几处弹窗共用的那一份（portal 到 body、压暗背景、
+//   居中）。它是【公共那一层】，别再自己写一个居中的盒子。
+function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
   const t = useTheme();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const submit = () => {
-    const a = Number(amount);
-    if (a > 0) onSend(a, note.trim());
-  };
-  return h(Sheet, {
-    onClose: onClose,
-    tall: true
-  }, h("div", {
-    className: "text-center mb-1"
-  }, h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 22,
-      color: t.ink
-    }
-  }, "转账给 " + cName)), h("div", {
-    className: "flex items-end gap-2 mt-5 mb-1",
-    style: {
-      borderBottom: "1px solid " + t.line,
-      paddingBottom: 8
-    }
-  }, h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      letterSpacing: "0.12em",
-      color: t.fog,
-      marginBottom: 6
-    }
-  }, "CNY"), h("input", {
-    value: amount,
-    onChange: e => setAmount(e.target.value.replace(/[^0-9.]/g, "")),
-    inputMode: "decimal",
-    autoFocus: true,
-    placeholder: "0.00",
-    className: "flex-1 outline-none",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 32,
-      color: t.ink,
-      background: "transparent"
-    }
-  })), h("input", {
-    value: note,
-    onChange: e => setNote(e.target.value),
-    placeholder: "附言（如：诚意金）",
-    className: "w-full outline-none rounded-xl px-4 py-3 mt-3 mb-2",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 14,
-      background: t.bg,
-      color: t.ink
-    }
-  }), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11.5,
-      color: t.fog,
-      marginBottom: 16
-    }
-  }, "我的余额 ¥" + (myBalance != null ? myBalance : "—") + " · TA 接受后才扣款"), h("div", {
-    className: "flex gap-3"
-  }, h("button", {
-    onClick: onClose,
-    className: "flex-1 rounded-full py-3",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      background: t.bg,
-      color: t.sub
-    }
-  }, "取消"), h("button", {
-    onClick: submit,
-    className: "flex-1 rounded-full py-3",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      background: t.ink,
-      color: t.bg2
-    }
-  }, "确认转账")));
+  const M = typeof Money !== "undefined" && Money ? Money : null;
+  const cur = M ? M.of(charId) : { symbol: "¥", pos: "pre", dec: 2, rate: 1 };
+  const isCNY = !M || M.isDefault(charId);
+  // 她敲的是【他那边的数】，送出去之前折回人民币——存档永远是人民币
+  const cny = M ? M.parse(amount, charId) : (Number(amount) || null);
+  const enough = cny != null && cny > 0 && (myBalance == null || cny <= Number(myBalance) + 1e-9);
+  const submit = () => { if (enough) onSend(cny, note.trim()); };
+  const balText = myBalance == null ? "—" : (M ? M.fmt(myBalance, charId) : "¥" + myBalance);
+  const sym = h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog, lineHeight: 1 } }, cur.symbol);
+  return appDialogPortal(
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, textAlign: "center" } }, "转账给 " + cName),
+      isCNY ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "center", marginTop: 4 } }, "按 " + cur.symbol + " 记 · TA 那边的钱"),
+      // 金额那一行
+      h("div", { className: "flex items-baseline justify-center gap-2", style: { marginTop: 18, paddingBottom: 10, borderBottom: "1px solid " + t.line } },
+        cur.pos === "pre" ? sym : null,
+        h("input", {
+          value: amount,
+          onChange: e => setAmount(e.target.value.replace(/[^0-9.]/g, "")),
+          inputMode: "decimal", autoFocus: true,
+          placeholder: cur.dec ? "0.00" : "0",
+          className: "outline-none min-w-0",
+          style: { width: amount ? Math.min(190, Math.max(60, amount.length * 19 + 10)) : 90, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 32, color: t.ink, background: "transparent", textAlign: "center" }
+        }),
+        cur.pos === "post" ? sym : null),
+      // ⚠️不是人民币时要说清【真正从她钱包里出去多少】：她按他那边的数转，扣的是另一个数
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, textAlign: "center", marginTop: 7, minHeight: 16 } },
+        !isCNY && cny != null ? "从你钱包扣 ¥" + cny.toFixed(2) : ""),
+      h("input", {
+        value: note, onChange: e => setNote(e.target.value),
+        placeholder: "附言（如：诚意金）",
+        className: "w-full outline-none",
+        style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", marginTop: 10 }
+      }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: cny != null && !enough ? t.accent : t.fog, textAlign: "center", marginTop: 10 } },
+        cny != null && !enough && myBalance != null ? "余额不够 · 你有 " + balText
+          : "我的余额 " + balText + " · TA 接受后才扣款"),
+      h("div", { className: "flex gap-3", style: { marginTop: 16 } },
+        h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
+        // ⚠️字色 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色
+        h("button", { onClick: submit, disabled: !enough, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, "确认转账"))),
+    onClose);
 }
 // 发位置:写一个地名,或者点一个你之前发过的(v60.12)
 //
@@ -14053,6 +14022,7 @@ function GroupThread({
     style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink }
   }, c.name))))), xferMember && h(TransferComposeSheet, {
     cName: xferMember.name,
+    charId: xferMember.id,
     myBalance: myBalance,
     onClose: () => setXferMember(null),
     onSend: (amount, note) => {
@@ -14771,7 +14741,7 @@ function RoomResume({ room, messages, character }) {
     (room.startFrom || room.fork) && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } },
       "进门时从「" + (room.startFrom || room.fork).sourceRoomName + "」带来 " + (room.startFrom || room.fork).seedCount + " 条聊天"));
 }
-function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded }) {
+function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded, initialPreset }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
@@ -14783,6 +14753,19 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const [createBusy, setCreateBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
+  // 带着预设直接落到【新建那一页】：别处（庭院里「给 TA 新开一间」）要的就是这一页，
+  // 而不是自己照着 PRESETS 再拼一份房间悄悄建掉——那样她一次都设不了权限
+  // （她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
+  // ⚠️这两个 hook 必须排在下面那个提前 return 【前面】：排在后面就是 React #310 白屏。
+  const presetStarted = useRef(false);
+  useEffect(() => {
+    if (presetStarted.current || !initialPreset || !Kit || !Kit.PRESETS[initialPreset]) return;
+    presetStarted.current = true;
+    const p = Kit.PRESETS[initialPreset];
+    const d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset: initialPreset,
+      ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
+    setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
+  }, [initialPreset]);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
@@ -14837,6 +14820,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
   };
+
   const sourceRows = Array.isArray(sourceMessages) ? sourceMessages : [];
   const startChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text).slice(-16);
   const chooseStartMode = mode => {
@@ -14905,14 +14889,20 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // ⚠️庭院房和上面三种是同一种东西（她 2026-09-16）：一间房＝一个庭院存档。
   //   默认架空、什么都不带；想让 TA 在庭院里记得你们，就拨上面那几排开关。
   const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"]];
-  if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: "roomHub" },
+  // ⚠️她 2026-09-18：「从游戏新开档怎么跳回主聊天了，能不能调到设置房间那屏幕上」。
+  //   带着预设来的那一次，她要的是【把这间房设好】这一件事，不是房间总览——
+  //   房间列表、主聊天那几行、另外三个预设，一个都不该在这一屏上出现。
+  const soloCreate = !!initialPreset;
+  if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: soloCreate ? "roomNew" : "roomHub" },
     h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "和 " + (character.remark || character.name) + " 的小房间"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "主聊天照常流动；想长期继续的一件事，单独留在这里。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } },
+          soloCreate ? "新开一间" + (Kit.PRESETS[initialPreset] || {}).label : "和 " + (character.remark || character.name) + " 的小房间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+          soloCreate ? "先把这间房的设定定好，建好就进去。" : "主聊天照常流动；想长期继续的一件事，单独留在这里。")),
       h("button", { onClick: onClose, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 19, color: t.fog, padding: "0 2px" } }, "×")),
-    h(Eyebrow, { style: { marginTop: 18, marginBottom: 8 } }, "进去继续"),
-    h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, rooms.map(r => {
+    soloCreate ? null : h(Eyebrow, { style: { marginTop: 18, marginBottom: 8 } }, "进去继续"),
+    soloCreate ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, rooms.map(r => {
       const meta = roomMeta(r), active = r.id === activeRoomId, pending = !r.main ? pendingFor(r).length : 0;
       return h("div", { key: r.id, style: { padding: "12px 13px", borderRadius: 16, border: "1px solid " + (active ? meta.tint : t.line), background: active ? meta.tint + "12" : t.bg2 } },
         h("button", { onClick: () => onSelect(r.id, true), className: "w-full active:opacity-70 text-left" },
@@ -14931,8 +14921,8 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
           r.syncMode === "ask" && h("button", { onClick: () => requestMainCatchup(r), disabled: !!r.syncOnce, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: r.syncOnce ? t.fog : t.tint } }, r.syncOnce ? "已等下轮补近况" : "下轮补看主聊天"),
           r.writeback && r.writeback.mainSummary && h("button", { disabled: !pending || summaryBusy, onClick: async () => { if (!pending || !onSummarize || summaryBusy) return; setSummaryBusy(r.id); try { const saved = await onSummarize(r, r.summaryFrame || ""); if (saved) { setRooms(Kit.list(character.id)); if (draft.id === saved.id) setDraft(saved); } } finally { setSummaryBusy(false); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: pending ? t.tint : t.fog } }, summaryBusy === r.id ? "整理中…" : pending ? "把这 " + pending + " 条带回主线" : "没有待带回内容")));
     })),
-    h(Eyebrow, { style: { marginTop: 22, marginBottom: 8 } }, "新留一间"),
-    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, purposeChoices.map(([preset, title, note]) => h("button", { key: preset, onClick: () => add(preset), className: "w-full active:opacity-70 text-left", style: { padding: "11px 13px", borderRadius: 14, border: "1px dashed " + (creating && draft.preset === preset ? t.ink : t.line), background: creating && draft.preset === preset ? t.bg : "transparent" } },
+    soloCreate ? null : h(Eyebrow, { style: { marginTop: 22, marginBottom: 8 } }, "新留一间"),
+    soloCreate ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, purposeChoices.map(([preset, title, note]) => h("button", { key: preset, onClick: () => add(preset), className: "w-full active:opacity-70 text-left", style: { padding: "11px 13px", borderRadius: 14, border: "1px dashed " + (creating && draft.preset === preset ? t.ink : t.line), background: creating && draft.preset === preset ? t.bg : "transparent" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "＋ " + title),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 3 } }, note)))),
     creating && h("div", { style: { marginTop: 10, padding: "13px", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2 } },
@@ -14975,7 +14965,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
         h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
-        h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
+        h("button", { onClick: () => { if (soloCreate) return onClose(); setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
     h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, characterText(character, "他带什么进门、这儿的事出不出门，都能在聊天设置的「几间房」里逐条改。")));
   const editor = h("div", { style: { minWidth: 0 } },
     h("div", { className: "flex items-center justify-between" }, h("div", null,

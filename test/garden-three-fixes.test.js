@@ -36,8 +36,11 @@ test("她自己说的那句也浮在她头顶上", () => {
 test("在庭院里挑另一个人，就替她把那间房开出来", () => {
   assert.match(app, /const openGardenRoomFor = async charId =>/);
   assert.match(app, /const live = Kit\.list\(charId\)\.find\(r => r && !r\.main && r\.garden\);/, "已经有一间就进那一间，不重复建");
-  assert.match(app, /Kit\.PRESETS\.garden/);
-  assert.match(app, /房间怎么建不在这儿另写一份/);
+  assert.match(app, /setChatRoomsPreset\("garden"\); setChatRoomsOpen\(true\);/,
+    "要把她送到【新建那一页】，不是在这儿照着 PRESETS 自己拼一份悄悄建掉");
+  assert.doesNotMatch(app, /Kit\.PRESETS\.garden/, "房间怎么建只有那一页说了算");
+  assert.match(app, /roomPresetIntentRef\.current = "garden";/,
+    "换角色那个 effect 一看见角色变了就关面板，意图得放在 ref 里跨过去");
   assert.equal((app.match(/onNewGardenRoom: openGardenRoomFor/g) || []).length, 2, "首页那个入口和房间里那个都要能开");
   // ⚠️setActiveChar 存的是角色对象不是 id
   assert.match(app, /const who = \(characters \|\| \[\]\)\.find\(c => c && String\(c\.id\) === String\(charId\)\);/);

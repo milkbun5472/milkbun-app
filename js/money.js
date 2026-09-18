@@ -54,7 +54,7 @@
   // 反过来：她在界面上按那个币种敲的数 → 人民币（存档用）
   function parse(input, charId) {
     const c = of(charId);
-    const s = String(input == null ? "" : input).replace(/[,，\s¥￥$€£₩円元]/g, "");
+    const s = String(input == null ? "" : input).replace(/[,，\s¥￥$€£₩円元원]/g, "");
     // ⚠️空的要返回 null，不是 0：Number("") 是 0，直接存下去就是把她的余额清零。
     if (!s) return null;
     const v = Number(s);
@@ -70,7 +70,9 @@
     const v = conv(amountCNY, charId);
     return wrap(v.toLocaleString("en-US", { minimumFractionDigits: c.dec, maximumFractionDigits: c.dec }), c);
   }
-  // 喂给模型：不带千分位（逗号会被当成分隔符读岔）
+  // 紧凑写法：不带千分位。两个用处——
+  //   ① 喂给模型（逗号会被当成分隔符读岔）；
+  //   ② 卡面上那些窄格子（亲属卡、刷卡通知、引用条），那儿本来就没写过千分位。
   function say(amountCNY, charId) {
     const c = of(charId);
     return wrap(String(conv(amountCNY, charId)), c);

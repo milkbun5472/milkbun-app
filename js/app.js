@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.61";
+const APP_VERSION = "v70.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -452,6 +452,13 @@ function App() {
   const [coupleNotes, setCoupleNotes] = useState([]);
   // 情侣空间·问答自定义题库：{ [charId]: ["题目",...] }，各角色各一份、不互通
   const [coupleQACustom, setCoupleQACustom] = useState({});
+  const [coupleQABooks, setCoupleQABooks] = useState({});   // {charId:{bookKey:{title,tint,coverKey}}}
+  // 自己加的题分成几本（她 2026-09-18：「我想要能多开几本自己按类型分」）。
+  // ⚠️x_coupleQACustom 那份扁平数组【不许停写】：第一本的题目照旧回写过去，
+  //   旧版本读回去还是原来的样子（存档键不许跟着改名，这个文件顶上那条老规矩）。
+  const [coupleQACustomBooks, setCoupleQACustomBooks] = useState({});
+  const coupleQABooksRef = useRef({}); coupleQABooksRef.current = coupleQABooks;
+  const coupleQATitleRef = useRef({});
   // 情侣空间·交换日记：一本两人轮流写的本子 {id,characterId,author:'user'|charId,content,mood,weather,date,ts,dueTs?,replied?,replyToId?,unread?}
   const [coupleExDiary, setCoupleExDiary] = useState([]);
   const coupleExDiaryRef = useRef([]); coupleExDiaryRef.current = coupleExDiary;
@@ -621,6 +628,7 @@ function App() {
   wishRef.current = wish;
   carryRef.current = carry;
   schedulesRef.current = schedules;
+  coupleQATitleRef.current = coupleQATitle;
   const moodsRef = useRef({}); moodsRef.current = moods;
   const [unreadMap, setUnreadMap] = useState({});
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
@@ -703,6 +711,13 @@ function App() {
   const [activeRoomId, setActiveRoomId] = useState("main");
   const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
+  // 带着预设打开房间面板＝直接落到【新建那一页】（庭院里「给 TA 新开一间」走这条）。
+  // ⚠️和别的 useState 放在一处，理由见下面那条。
+  const [chatRoomsPreset, setChatRoomsPreset] = useState("");
+  // ⚠️意图要放在 ref 里跨过下面那次重置：换角色是「给 TA 新开一间」自己干的第一步，
+  //   而那个 effect 一看见角色变了就把面板关掉——直接 setState 会被它当场清掉。
+  //   （和旁边 notificationRoomRef 同一个形状，照同一个写法。）
+  const roomPresetIntentRef = useRef("");
   // 进庭院房先看聊天，按了才开存档（她 2026-09-17：「不应该直接打开存档而是一个普通聊天」）。
   // ⚠️和别的 useState 放在一处：那一片 helper 区会被好几条测试单独抽出来跑，
   //   把 hook 写进去，它们一跑就是 useState is not defined。
@@ -714,7 +729,8 @@ function App() {
     const pending = notificationRoomRef.current;
     setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
     notificationRoomRef.current = null;
-    setChatRoomsOpen(false);
+    const intent = roomPresetIntentRef.current; roomPresetIntentRef.current = "";
+    setChatRoomsOpen(!!intent); setChatRoomsPreset(intent);
   }, [activeChar && activeChar.id]);
   // 群同上：开着群聊时改了群名/群头像/成员，原来也要退出去再进来才看得见。
   // 同一个形状的第二处，照同一个改法（施工规则/one-public-mechanism.md）。
@@ -1390,6 +1406,8 @@ function App() {
       saveJSON("x_notesToDrawer", true);
     }
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
+    setCoupleQABooks(loadJSON("x_coupleQABooks", {}));
+    setCoupleQACustomBooks(loadJSON("x_coupleQACustomBooks", {}));
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleRecall(loadJSON("x_coupleRecall", []));
@@ -2375,15 +2393,21 @@ function App() {
     if (!who) { toast("找不到这一位"); return null; }
     const live = Kit.list(charId).find(r => r && !r.main && r.garden);
     if (live) { setActiveChar(who); setActiveRoomId(live.id); setScreen("thread"); return live; }
-    const preset = Kit.PRESETS.garden;
-    const draft = Kit.normalize({ id: "room_" + Date.now().toString(36), name: preset.label, preset: "garden", garden: true,
-      ...JSON.parse(JSON.stringify(preset)), createdAt: Date.now() }, charId);
-    const prepared = Kit.prepareStart(charId, draft, Kit.get(charId, "main"), [], "blank", null);
-    const room = prepared ? await createChatRoomFromStart(prepared) : null;
-    if (!room) { toast("这间房没建起来，再试一下"); return null; }
-    setActiveChar(who); setActiveRoomId(room.id); setScreen("thread");
-    toast("给 TA 新开了一间庭院房");
-    return room;
+    // ⚠️不许在这儿照着 PRESETS 自己拼一份房间悄悄建掉：那样她一次都设不了权限，
+    //   而「房间要能在创建的时候就设权限」是她 2026-09-17 点名要的，别处已经做到了。
+    //   同一件事在这儿另走一条路＝同一层活在两处（施工规则/one-public-mechanism.md），
+    //   而且这一处永远落后（她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
+    //   所以这儿只负责【把她送到那一页】，房间由那一页按她设的建。
+    roomPresetIntentRef.current = "garden";
+    // ⚠️不切屏：房间面板是画在外壳上的，哪一屏都盖得住。原来这儿先 setScreen("thread")，
+    //   于是设定页出来之前先闪一眼主聊天，点了「算了」还被丢在主聊天上——
+    //   她是从庭院过来的，取消就该还在庭院里（她 2026-09-18 报的就是这个）。
+    //   建好之后才去那间房，那一步在下面 onSelect 里。
+    setActiveChar(who);
+    // 本来就在这一位身上时那个 effect 不会跑，所以这儿也直接开一次
+    setChatRoomsPreset("garden"); setChatRoomsOpen(true);
+    toast("先给这间庭院房定好设定，建好就进去");
+    return null;
   };
   const clearChatRoomRecords = async room => {
     if (!window.ChatRooms || !room || room.main) return null;
@@ -2647,6 +2671,10 @@ function App() {
     return touched ? { aff, applied, fixed } : null;
   };
   const affOf = charId => affinities[charId] != null ? affinities[charId] : baseAff(charId);
+  // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
+  // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
+  // ⚠️定义放这么早，是因为亲属卡那几条喂模型的话在 9200 一带就用上了。
+  const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
   const setMoodFor = (id, m) => setMoods(p => {
     const cleanMood = window.MoodLabel ? window.MoodLabel.normalizeMood(m) : m;
     const n = {
@@ -4235,7 +4263,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       case "album":  return one(arr((ph.album || {}).items), x => ({ title: x.caption || "一张照片", body: [x.date, x.place, x.note].filter(Boolean).join(" · "), img: x.imageRef || null }));
       case "notes":  return one(arr((ph.notes || {}).items), x => ({ title: x.title || "一条便签", body: x.content || x.body || "" }));
       case "search": return one(arr((ph.browser || {}).searches), x => ({ title: x.q || "搜过的", body: [x.when, x.why].filter(Boolean).join(" · ") }));
-      case "order":  return one(arr((ph.shopping || {}).orders), x => ({ title: x.title || "买过的", body: [x.price != null ? "¥" + x.price : "", x.date, x.why].filter(Boolean).join(" · ") }));
+      case "order":  return one(arr((ph.shopping || {}).orders), x => ({ title: x.title || "买过的", body: [x.price != null ? moneyText(x.price, char && char.id) : "", x.date, x.why].filter(Boolean).join(" · ") }));
       case "reading": {
         const books = arr((ph.reading || {}).shelves).reduce((a, sh) => a.concat(arr(sh.books).map(b => ({ b: b, sh: sh }))), []);
         return one(books, x => ({ title: x.b.title || "一本书", body: [x.sh.name, x.b.author, x.b.note].filter(Boolean).join(" · ") }));
@@ -4969,7 +4997,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (settingsFor(charId).engineerEyes || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
     return String(window.Gaze.text(charId, userName(profile)) || "").trim();
   };
-  const wishFor = () => (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（¥" + x.price + "）" : "")).join("、");
+  // ⚠️心愿单是【念给某个角色听】的，所以按他那边的钱写（她 2026-09-18 收 A 类）。
+  //   群里那一路说不清是谁，不传就是人民币。
+  const wishFor = charId => (wishRef.current || []).slice(0, 8).map(x => x.name + (Number(x.price) ? "（" + moneyText(x.price, charId) + "）" : "")).join("、");
   // 所有场景读取同一份随身物；额度与「带上」操作共用 ON_ME_CAP。
   // 旁观群里【她根本不在场】：不是群里的一员，只以旁白推剧情。
   // 所以「她今天身上带着什么」这一条在那儿一个字都不该有——她人都没来，谁看得见她带了什么。
@@ -5149,7 +5179,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【TA怎么会知道】——
     // 她在购物 app 里点了「想要」的东西，就是TA知道的方式（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色（合法差异，见四处一样喂）。
-    wishLog: !settingsFor(char.id).engineerEyes ? wishFor() : "",
+    wishLog: !settingsFor(char.id).engineerEyes ? wishFor(char.id) : "",
     // 随身物：TA身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
     // 角色本人不知道自己包里有伞，出图也不知道TA衣柜里有哪几身（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
@@ -9214,10 +9244,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物")
               + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
-            : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 ¥" + m.ask : "（没说数目，让你看着办）") + "（当时额度 ¥" + (m.limit || 0) + "）"
-              + (m.status === "approved" ? "；你加了 ¥" + (m.add || 0) + "，现在额度 ¥" + (m.newLimit || 0) : m.status === "declined" ? "；你没有加" : "")
+            : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
+              + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
-            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，¥" + (m.amount || 0) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 ¥" + m.remain) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
+            : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，" + moneyText(m.amount || 0, charId) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 " + moneyText(m.remain, charId)) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -10641,7 +10671,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gTfHint = gPendingTf.length
         ? "\n【有转账挂着没点】" + gPendingTf.map(m => {
             const who = (members.find(c => c.id === m.toId) || {}).name || m.toName || "某位成员";
-            return "· " + gUName + " 转给「" + who + "」¥" + m.amount + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
+            return "· " + gUName + " 转给「" + who + "」" + moneyText(m.amount, m.toId) + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
           }).join("\n")
           + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：TA缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
           + "\n要表态就在【TA自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句TA自己的话；这一轮没顾上就省略，卡继续挂着。"
@@ -11811,14 +11841,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       blankRecent: single || !!sideRoom  // 这一块整个不发：原文就在 messages 里
     };
   };
+  // ⚠️全库只有这一处过那道白名单：主聊天、线下、以及请进村的邻居，三条路都从这儿过。
+  //   test/room-ctx-gate-65-04 就是数这个数的——多一处手抄件，改一处永远漏另一处
+  //   （施工规则/one-public-mechanism.md）。
+  const gateByDoor = (ctx, door) => {
+    return window.ChatRooms.gateCtx(ctx, door);
+  };
   const gateRoomContext = (ctx, char, chatKey, room) => {
     const clockOn = roomTimeAwareFor(room, char.id);
     ctx.timeAware = clockOn;
     if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = prefs.geoAware ? geo : null; }
-    const gated = window.ChatRooms.gateCtx(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
+    const gated = gateByDoor(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
     // 拉黑按聊天键落库；本房发生的事在主线认知关闭时也应知道，不继承主房的拉黑。
     gated.blockLine = blockLineFor(chatKey);
     return gated;
+  };
+  // 请进村的那位邻居带着什么（她 2026-09-18 的 b／a）。
+  // ⚠️走的是【房间那道闸】：门上开了哪几条存在庭院存档的邻居那一行上，
+  //   这儿把它当成一间房的 cognition 递给 gateCtx——不另写一套过滤
+  //   （施工规则/one-public-mechanism.md）。全关＝只剩人设和文风地板。
+  // ⚠️这道闸只管【TA 自己的主线记忆】。这一档里你和同行者之间的私事是另一道闸，
+  //   在 world.mjs 的 neighborView 那一处裁，两边都不许替对方把关。
+  const neighborBundleFor = (charId, door) => {
+    try {
+      const char = (characters || []).find(c => c && String(c.id) === String(charId));
+      if (!char) return "";
+      const gated = gateByDoor(ctxFor(char, { chat: true }), { cognition: { ...(door || {}) } });
+      return buildBundle(gated);
+    } catch (e) { return ""; }
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
@@ -13837,7 +13887,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (linked) post(peer.id, -mineDelta, (d.dir === "owed" ? "还钱 · " : "收回欠款 · ") + me.name);
     toast(linked
       ? "结清了：" + me.name + " 和 " + peer.name + " 两边的钱包都动了"
-      : (d.dir === "owed" ? "收回 " : "还出 ") + "¥" + Math.round(amt) + "，已记进余额");
+      : (d.dir === "owed" ? "收回 " : "还出 ") + moneyText(Math.round(amt), charId) + "，已记进余额");
   };
   // 生成某天的日常消费（按当天日程+人设，逐笔列具体买了什么），无 API/失败则用固定支出估算兜底
   // 那一天TA手机上【真的下过】的单子：外卖和购物。
@@ -13880,7 +13930,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!amt) return;
       out.push({ item: String(o.title || o.shop || "网购").slice(0, 30), amount: amt, src: "shopping", key: fp(o, amt) });
     });
-    return out.slice(0, 8);
+    // ⚠️这个封顶决定【一天最多认几单】。原来是 8：手机上看得见的第 9 单，钱包里
+    //   一分不扣，而 phoneReconcile 用的是同一个函数，所以它也永远补不上——
+    //   两边对不上就是从这儿来的（她 2026-09-18：「看看查手机的外卖能不能跟钱包对上」）。
+    //   留着封顶是防手机数据成片坏掉时一口气扣穿余额；抬到 20，正常购物日够用。
+    return out.slice(0, 20);
   };
   // ── 核账：只补差额，不整份重算（Codex 2026-08-29 提）──────
   // 钱包每天只结算到昨天，结过的日期不再回扫——这条规矩不动（否则会把那天的
@@ -14221,7 +14275,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (window.Money) window.Money.setBook(n);
     return n;
   });
-  const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
   // 转账：联动我的钱包和角色钱包，并在聊天里留一条转账消息
   // 我转给 TA：入队一张待处理转账卡，钱在 TA 接受后才动
   const sendTransfer = (charId, amount, note) => {
@@ -17069,7 +17122,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       role: "user", kind: "shopask",
       ask: { name, price: isFinite(price) ? price : null, desc },
       content: "[我在逛购物 app，把一件东西拿给你看]《" + name + "》"
-        + (desc ? "｜" + desc : "") + (isFinite(price) ? "｜¥" + price : "")
+        + (desc ? "｜" + desc : "") + (isFinite(price) ? "｜" + moneyText(price, charId) : "")
         + "｜（她在问你的意见，不是在通知你。按你的人设和你俩的关系来：真觉得好就说好、"
         + "觉得贵／没必要／她已经有一个了就直说、也可以借机说要给她买、或者压根不懂这东西是干嘛的。"
         + "**别当客服念参数**，也别一律附和。）",
@@ -18641,6 +18694,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("背景没画成：" + (e.message || "重试")); return false; }
     finally { setGen(g => ({ ...g, ifBg: null })); }
   };
+  // 拿一张【已经有的合照】当这条线的背景（她 2026-09-18：「另一个我们的背景也能用合照」）。
+  // ⚠️不重新生成、不复制图：直接指向那张照片自己的 imgKey/imgUrl——
+  //   合照墙那份和这儿是同一张图，删照片那一路照旧管得到它。
+  const ifBgFromPhoto = (lineId, photo) => {
+    if (!lineId || !photo || !(photo.imgKey || photo.imgUrl)) return false;
+    ifSave(ifLinesRef.current.map(x => x.id === lineId
+      ? { ...x, bgKey: photo.imgKey || null, bgUrl: photo.imgUrl || null } : x));
+    return true;
+  };
   // 拍一张【我俩在那个世界的】合照（她 2026-09-06）。
   // ⚠️跟上面那张背景图是两件事，别混：背景图走 buildScenePrompt，是【纯空景】——
   //   那是这一页要压字的底板，它没有脸是对的。她要的这张是【合照】，
@@ -18659,7 +18721,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .filter(Boolean).join(" ");
     const scene = "这是一条【如果】里的世界：" + line.title + (line.premise ? "——" + line.premise : "")
       + (last ? "。此刻：" + last.slice(0, 200) : "");
-    return await studioShoot(char, { scene: scene, ifTitle: line.title });
+    const row = await studioShoot(char, { scene: scene, ifTitle: line.title });
+    // ⚠️拍完顺手当这条线的背景（她 2026-09-18：「拍张我俩完成后只在合照显示」）——
+    //   在这一页拍的照片，看不见在这一页才怪。旧背景那张图不会被删（它有自己的 key），
+    //   想换回去从下面那个「用合照当背景」里挑就是了。
+    if (row && (row.imgKey || row.imgUrl)) ifBgFromPhoto(lineId, row);
+    return row;
   };
   // 收线。三个去处她 2026-08-31 说都要。
   //  keep  只留在馆里——主线一个字都不知道
@@ -19093,6 +19160,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGen(g => ({ ...g, coupleQA: false }));
     }
   };
+  // ── 问答小本拆成三本（她 2026-09-18：「单开一本单独放题，可以自定义封面，
+  //    然后把角色问的题显示单独一本」）────────────────────────────
+  // 三本的分法在 screens.js 的 QA_BOOKS 一处定义，这儿只管【每本的封面长什么样】。
+  // ⚠️存档键不许跟着改名：x_coupleQATitle 里原来是 { charId: "标题" }（只有一本时的写法）。
+  //   那一份照旧读得出来——saveQABook 写新结构时把老标题当成【关于我们】那本的标题，
+  //   不迁移、不清掉。改了名她的旧存档就读不出来了（这个文件顶上那条老规矩）。
+  const qaBookCfg = (charId, bookKey) => {
+    const box = (coupleQABooksRef.current || {})[charId] || {};
+    if (box[bookKey]) return box[bookKey];
+    const legacy = (coupleQATitleRef.current || {})[charId];
+    if (bookKey === "all" && typeof legacy === "string" && legacy.trim()) return { title: legacy.trim() };
+    return {};
+  };
+  const saveQABook = (charId, bookKey, patch) => setCoupleQABooks(p => {
+    const box = { ...(p[charId] || {}) };
+    box[bookKey] = { ...(box[bookKey] || qaBookCfg(charId, bookKey)), ...(patch || {}) };
+    const n = { ...p, [charId]: box };
+    coupleQABooksRef.current = n;
+    saveJSON("x_coupleQABooks", n);
+    return n;
+  });
+  // 老入口留着：只有【关于我们】那本会走到它（改名时两边一起写，老存档不落单）
   const saveQATitle = (charId, title) => setCoupleQATitle(p => {
     const n = { ...p, [charId]: title };
     saveJSON("x_coupleQATitle", n);
@@ -19105,6 +19194,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她贴纸条／TA回纸条／删纸条这几路一并删掉——情书那一路已经覆盖「她写字给TA」，
   // 悄悄话那一路并进了抽屉。
   // 保存某角色的自定义问答题库（arr = 题目字符串数组）
+  const saveCoupleQACustomBooks = (charId, list) => setCoupleQACustomBooks(p => {
+    const clean = (Array.isArray(list) ? list : []).filter(x => x && x.id).map(x => ({
+      id: String(x.id), name: String(x.name || "自己加的题").slice(0, 20),
+      tint: x.tint || "", qs: (Array.isArray(x.qs) ? x.qs : []).filter(q => q && String(q).trim()).map(q => String(q).trim())
+    }));
+    const n = { ...p, [charId]: clean };
+    saveJSON("x_coupleQACustomBooks", n);
+    return n;
+  });
   const saveCoupleQACustom = (charId, arr) => setCoupleQACustom(p => {
     const n = { ...p, [charId]: arr.filter(s => s && s.trim()).map(s => s.trim()) };
     saveJSON("x_coupleQACustom", n);
@@ -20446,7 +20544,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pushGroupRich(target.id, { role: "user", ...card, content: "[代付请求] 合计 ¥" + total });
       setTimeout(() => decideGroupPayLater(target.id, pid, items, total), 1400);
     } else {
-      pChat(target.id, p => [...p, { role: "user", ...card, content: "[代付请求] 合计 ¥" + total, ts: Date.now(), read: true }]);
+      pChat(target.id, p => [...p, { role: "user", ...card, content: "[代付请求] 合计 " + moneyText(total, target.id), ts: Date.now(), read: true }]);
       setTimeout(() => decidePayLater(target.id, pid, items, total), 1400);
     }
     toast("代付请求已发出，等对方决定");
@@ -20461,8 +20559,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const bal = charBalanceOf(charId);
     try {
       const bundle = buildBundle(ctxFor(char));
-      const system = bundle + "\n\n【任务】用户把一份购物清单发给你，请求你「代付」——用你自己的钱帮 Ta 结账。清单：" + items.map(x => x.name + " ¥" + x.price).join("、") + "，合计 ¥" + total + "。你当前余额约 ¥" + Math.round(bal) + "。请完全代入「" + char.name + "」，依据人设、对用户的好感、你们的关系、以及你的经济状况，决定要不要帮 Ta 付。愿意就 agree:true；不愿意/嫌贵/想逗 Ta/囊中羞涩就 agree:false。无论同不同意都用即时通讯口吻回几句(say)，短句多气泡。\n【输出】只输出 JSON：{\"agree\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}";
-      const raw = await callAI(active, system, [{ role: "user", content: "[代付请求] " + items.map(x => x.name).join("、") + " 合计 ¥" + total }]);
+      const system = bundle + "\n\n【任务】用户把一份购物清单发给你，请求你「代付」——用你自己的钱帮 Ta 结账。清单：" + items.map(x => x.name + " " + moneyText(x.price, charId)).join("、") + "，合计 " + moneyText(total, charId) + "。你当前余额约 " + moneyText(Math.round(bal), charId) + "。请完全代入「" + char.name + "」，依据人设、对用户的好感、你们的关系、以及你的经济状况，决定要不要帮 Ta 付。愿意就 agree:true；不愿意/嫌贵/想逗 Ta/囊中羞涩就 agree:false。无论同不同意都用即时通讯口吻回几句(say)，短句多气泡。\n【输出】只输出 JSON：{\"agree\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}";
+      const raw = await callAI(active, system, [{ role: "user", content: "[代付请求] " + items.map(x => x.name).join("、") + " 合计 " + moneyText(total, charId) }]);
       const d = extractJSON(raw) || { agree: false, say: ["……让我想想。"] };
       const agree = !!d.agree && bal >= total;
       pChat(charId, p => p.map(m => m.kind === "paylater" && m.pid === pid ? { ...m, status: agree ? "paid" : "declined" } : m));
@@ -20783,6 +20881,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_carry", n);
     return n;
   });
+  // 单个删掉一件随身物（她 2026-09-18：「角色随身物这些能不能也都可以单个删除」）。
+  //
+  // ⚠️**删的时候必须连钉子一起拔。** 钉住的那几件由 carryEvolveMerge 的
+  //   `missingPins` 原样补回去——只把条目删掉、钉子留着的话，下次刷新它自己就回来了，
+  //   而她会以为是删除坏了。这两件事必须同进同出。
+  // ⚠️衣柜是分组的（closet:[{occasion,sets}]），别的栏是平的（items:[]）——
+  //   一个出口吃两种形状，别在界面那头分两条路走（one-public-mechanism.md）。
+  const carryItemName = it => String((it && it.name) || it || "").replace(/\s+/g, "").trim();
+  const carryDeleteItem = (charId, key, item) => {
+    const nm = carryItemName(item);
+    if (!charId || !key || !nm) return false;
+    let hit = false;
+    setCarry(p => {
+      const cur = p[charId] || {};
+      const data = cur[key];
+      if (!data) return p;
+      let next;
+      if (key === "outfit") {
+        const groups = (Array.isArray(data.closet) ? data.closet : []).map(g => ({
+          ...g, sets: (Array.isArray(g && g.sets) ? g.sets : []).filter(x => carryItemName(x) !== nm)
+        }));
+        // 那一组的衣服全删光了就把空格子也收掉，别留一排空场合
+        const left = groups.filter(g => (g.sets || []).length);
+        if (left.length === (Array.isArray(data.closet) ? data.closet : []).length
+          && left.reduce((a, g) => a + g.sets.length, 0) === (Array.isArray(data.closet) ? data.closet : []).reduce((a, g) => a + ((g && g.sets) || []).length, 0)) return p;
+        hit = true;
+        next = { ...data, closet: left };
+      } else {
+        const items = (Array.isArray(data.items) ? data.items : []);
+        const kept = items.filter(x => carryItemName(x) !== nm);
+        if (kept.length === items.length) return p;
+        hit = true;
+        next = { ...data, items: kept };
+      }
+      const n = { ...p, [charId]: { ...cur, [key]: next } };
+      carryRef.current = n;
+      saveJSON("x_carry", n);
+      return n;
+    });
+    // 钉子跟着拔——留着的话下次刷新 carryEvolveMerge 会把它原样补回来
+    setCarryPins(p => {
+      const box = p[charId] || {};
+      const list = (box[key] || []).filter(x => carryItemName(x) !== nm);
+      if (list.length === (box[key] || []).length) return p;
+      const n = { ...p, [charId]: { ...box, [key]: list } };
+      carryPinsRef.current = n;
+      saveJSON("x_carryPins", n);
+      return n;
+    });
+    return hit;
+  };
   // 随身物的素材：TA网购真签收的 + 她送到的礼物。喂进去让模型自然写进包里/衣柜里，
   // 而不是直接塞条目——直接塞就长成一座只进不出的坟场（她 2026-08-29：和购物/钱包接上）。
   const carryMaterialFor = charId => {
@@ -21549,6 +21698,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       },
       toast: toast,
       onNewGardenRoom: openGardenRoomFor,
+      neighborBundle: neighborBundleFor,
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
@@ -22033,6 +22183,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     carryGifts: carryGifts,
     carryPins: carryPins,
     onTogglePin: toggleCarryPin,
+    onDeleteItem: carryDeleteItem,
     onPeek: forwardCarryToChat,
     selId: selCarry,
     busyKey: gen.carrySec,
@@ -22222,6 +22373,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     qaGen: gen.coupleQA,
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,
+    coupleQABooks: coupleQABooks,
+    coupleQACustomBooks: coupleQACustomBooks,
+    onSaveQACustomBooks: saveCoupleQACustomBooks,
+    onSaveQABook: saveQABook,
+    onSaveQACustom: saveCoupleQACustom,
     coupleQACustom: coupleQACustom,
     // 情侣空间首页那格看的是TA【真实】的心情（跟着真的聊过的天走、会自己平复），
     // 不再是「心情打卡」那次瞎猜的调用。0 调用，而且和提示词里发给TA的是同一份读数。
@@ -22273,6 +22429,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onIfAdvance: ifAdvance,
     onIfBg: ifBg,
     onIfShot: ifShot,
+    onIfBgPick: ifBgFromPhoto,
     onIfEnd: ifEnd,
     onIfDrop: ifDrop,
     // 和好间
@@ -22551,6 +22708,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     toast: toast,
     onNewGardenRoom: openGardenRoomFor,
+    neighborBundle: neighborBundleFor,
     onBack: () => setScreen("home")
   });else if (screen === "trpg") body = h(window.TrpgApp, {
     // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
@@ -23205,9 +23363,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     sourceMessages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onCreateRoom: createChatRoomFromStart,
     onClearRoom: clearChatRoomRecords,
-    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) setChatRoomsOpen(false); },
+    initialPreset: chatRoomsPreset,
+    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) { if (chatRoomsPreset) setScreen("thread"); setChatRoomsOpen(false); setChatRoomsPreset(""); } },
     onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
-    onClose: () => setChatRoomsOpen(false)
+    onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
     settings: settingsFor(activeChar.id),

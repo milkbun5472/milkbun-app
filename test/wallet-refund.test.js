@@ -94,7 +94,8 @@ test("本月消费/单数从钱包流水求和，不用模型编的那两个数"
   // ⚠️v59.38：那一排「本月消费／本月订单／积分」统计块删掉了（电商「我的」页的部件），
   // 但这条不变——**同一屏不许两处说着不同的钱**。数改成一句话摆在「合起来看」里，
   // 核的还是【以钱包为准、钱包没建档才退回模型那份】这个先后。
-  assert.match(phone, /const spendLine = msReal\s*\n\s*\? "这一阵花掉 " \+ shopMoney\(msReal\.spend\)/, "购物页没改用钱包的数");
+  // v70.61 起 shopMoney 多收一个「这是谁的钱」（一人一个币种，js/money.js）
+  assert.match(phone, /const spendLine = msReal\s*\n\s*\? "这一阵花掉 " \+ shopMoney\(msReal\.spend, char\.id\)/, "购物页没改用钱包的数");
   // ⚠️v59.51：钱包只有【记着东西】的时候才算数。ms.spend 是 0 也 isFinite，
   // 于是空钱包被当成权威，屏幕上写出「花掉 ¥0.00，0 单」——那不是「他没花钱」，
   // 是我们还不知道他花了多少（她 2026-09-01：「这里 bug 了怎么是 0」）。
@@ -103,7 +104,9 @@ test("本月消费/单数从钱包流水求和，不用模型编的那两个数"
   // 两份都没有就整句不出现，不硬报一个数
   const i = phone.indexOf("const msReal = ms &&");
   const src = phone.slice(i, phone.indexOf("// acc.persona", i));
-  const shopMoney = n => "¥" + Number(n || 0).toFixed(2), shopInt = n => String(Number(n || 0));
+  // 桩按【没设过币种】那一档：人民币原样。这条验的是「拿哪份数」，不是钱怎么写。
+  const shopMoney = (n, id) => "¥" + Number(n || 0).toFixed(2), shopInt = n => String(Number(n || 0));
+  const char = { id: "c1" };
   const run = (ms, acc) => { let out; eval(src.replace("const msReal", "var msReal").replace("const spendLine", "var spendLine") + ";out=spendLine;"); return out; };
   assert.equal(run(null, { monthSpend: 0, monthOrders: 0 }), "", "两份都没有时还硬报了一个数");
   assert.equal(run({ spend: 0, orders: 0 }, { monthSpend: 1180, monthOrders: 22 }), "这一阵花掉 ¥1180.00，22 单", "空钱包盖过了模型那份");

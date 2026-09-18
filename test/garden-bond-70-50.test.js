@@ -180,7 +180,7 @@ test("第一次接过这一类他说的话记进册子；不知道就是不知�
   assert.equal(unknown.gifts[0].stance, "");
   assert.doesNotMatch(unknown.happenings[0].text, /喜欢|想要/, "不知道就不替他说");
   const book = w.giftBook(w.restoreState(JSON.parse(JSON.stringify(s))));
-  assert.equal(book.families.length, 7);
+  assert.equal(book.families.length, 8, "七类加 v70.74 的「吃的」");
   const flower = book.families.find(f => f.id === "flower");
   assert.equal(flower.stance, "like"); assert.equal(flower.count, 2); assert.deepEqual(flower.said, ["哦。", "放着吧。"]);
   assert.equal(book.families.find(f => f.id === "dew").stance, "");
@@ -207,7 +207,7 @@ test("喜好那一枪：一位角色只打一次，料在 system、user 一句�
     { family: "dew", stance: "meh", words: [] }, { family: "bogus", stance: "love", words: ["x"] }, { family: "echo", stance: "evil", words: ["y"] } ] }); });
   const rows = await svc.tastes({ active: { id: 1 }, character: { name: "他", persona: "全文人设" }, profile: { name: "她", persona: "p" }, world: { day: 1 } });
   assert.equal(calls, 1);
-  assert.equal(rows.length, 7, "七类都得有一条（没答的就是不知道）");
+  assert.equal(rows.length, 8, "八类都得有一条（没答的就是不知道）");
   // ⚠️vm 另一个 realm 里的对象原型不同，deepStrictEqual 会因此红；按 JSON 比
   assert.equal(JSON.stringify(rows.find(r => r.family === "relic")), JSON.stringify({ family: "relic", stance: "love", words: ["这个留下。", "哪儿挖的。"] }));
   assert.equal(rows.find(r => r.family === "echo").stance, "", "四档之外的态度不认");
@@ -232,7 +232,7 @@ test("喜好那一枪：一位角色只打一次，料在 system、user 一句�
 test("手机那一册有「相处」这一页，画的是 getBond 那一份", () => {
   assert.match(host, /\["bond", "相处",/);
   assert.match(host, /if \(g\.getBond\) setBond\(g\.getBond\(\)\);/);
-  assert.match(game, /getBond:\(\)=>\(\{\.\.\.bondBook\(data\),gifts:giftBook\(data\)\}\)/);
+  assert.match(game, /getBond:\(\)=>\(\{\.\.\.bondBook\(data\),gifts:giftBook\(data\),food:foodBook\(data\),guide:/);
   assert.match(host, /bond\.gifts\.families\.map\(/);
   assert.match(host, /bond\.kinds\.map\(/);
   // 标题不留英文

@@ -104,7 +104,7 @@ test("想要清单进四处的上下文，且不是「快去给她买」", () =>
   assert.match(app, /const \[wish, setWish\] = useState\(\[\]\)/);
   assert.match(app, /const toggleWish = product => \{/);
   // 四处一样喂：单聊经 buildBundle、线上群聊、群线下
-  assert.match(app, /wishLog: !settingsFor\(char\.id\).engineerEyes \? wishFor\(\) : ""/);
+  assert.match(app, /wishLog: !settingsFor\(char\.id\).engineerEyes \? wishFor\(char\.id\) : ""/);
   assert.match(engine, /parts\.push\(wishLine\(ctx.wishLog, uName\)\)/);
   assert.match(app, /const gWishHint = wishLine\(wishFor\(\), userName\(profile\), \{ group: true, spectate: gs.spectate, gift: true \}\)/);
   assert.match(engine, /opts.spectate \? "认识她的人都可能知道。" : "在场的人都可能知道。"/);

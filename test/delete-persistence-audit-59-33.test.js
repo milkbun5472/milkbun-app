@@ -17,7 +17,10 @@ test("全 App 删除确认走自绘层，不依赖会被 iOS 吞掉的系统 con
   assert.match(app, /appConfirm && h\(ConfirmDialog/);
   assert.match(app, /const fn = appConfirm\.onCancel; setAppConfirm\(null\); if \(typeof fn === "function"\)/, "点取消必须通知发起方解锁");
   assert.match(components, /function appDialogPortal\(content, onCancel\)/, "确认和输入共用挂载层");
-  assert.equal((components.match(/return appDialogPortal\(/g) || []).length, 2);
+  // v70.67 起第三位用户：转账那个框（她 2026-09-18：「我让你做框你给我做了个什么东西」）。
+  // ⚠️这个数【往上长是对的】——它数的是「有几处共用这一层挂载」，不是「有几个弹窗」。
+  //   该红的是有人另写一个居中的盒子，那种情况这个数不会动、下面那条审计才会逮到。
+  assert.equal((components.match(/return appDialogPortal\(/g) || []).length, 3);
 
   const audited = fs.readdirSync(path.join(__dirname, "..", "js"))
     .filter(name => name.endsWith(".js")).map(read).join("\n");

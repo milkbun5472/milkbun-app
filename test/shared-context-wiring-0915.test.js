@@ -16,7 +16,7 @@ test('侧房上下文读取本房拉黑，主线认知关闭也保留本房事�
   const box = {window:{ChatRooms:Rooms}, blocksRef:{current:blocks}, chatsRef:{current:{}},
     BLOCK_TOMB_KEEP_MS:30*86400000, roomTimeAwareFor:()=>false};
   vm.createContext(box);
-  vm.runInContext(declaration('blockLineFor') + declaration('gateRoomContext') + ';this.gate=gateRoomContext;', box);
+  vm.runInContext(declaration('blockLineFor') + declaration('gateByDoor') + declaration('gateRoomContext') + ';this.gate=gateRoomContext;', box);
   const gate = () => box.gate({blockLine:'主房拉黑', coupleStatus:'主房恋人'}, {id:'a'}, key, room);
   assert.match(gate().blockLine, /侧房分歧/);
   assert.doesNotMatch(gate().blockLine, /她把你拉黑了/);
