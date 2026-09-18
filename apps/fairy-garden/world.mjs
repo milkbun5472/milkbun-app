@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-8310313b47ad0de4';
-import {brewError,brewResult} from './brewing.mjs?v=fg-8310313b47ad0de4';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-8310313b47ad0de4';
-import './rules.js?v=fg-8310313b47ad0de4';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-c967724666ff79a3';
+import {brewError,brewResult} from './brewing.mjs?v=fg-c967724666ff79a3';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-c967724666ff79a3';
+import './rules.js?v=fg-c967724666ff79a3';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-8310313b47ad0de4';
+import {createNavigator} from './navigation.mjs?v=fg-c967724666ff79a3';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -717,16 +717,16 @@ export function donate(s, id){
 export const collectedKinds = s => new Set((s.collection || []).map(sameKindMark)).size;
 // 它不是第二个背包：回信只入漂流记录，不产生物资。
 // 漂流瓶：新瓶有固定的回信机会，旧瓶保留原来的归还规则。概率不随刷新重抽。
-export const BOTTLE_DAYS = 7, BOTTLE_CAP = 60, DRIFT_CAP = 60;
+export const BOTTLE_DAYS = 7, BOTTLE_CAP = 60, DRIFT_PAGE_SIZE = 20;
 export function restoreBottles(raw){
-  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.text).slice(0, BOTTLE_CAP).map(x => ({
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.text).map(x => ({
     id: String(x.id).slice(0, 40), text: trimText(x.text, 120),
     day: Math.max(1, count(x.day)), openDay: Math.max(1, count(x.openDay)), taken: x.taken === true,
     ...(x.replyWanted === true ? {replyWanted:true, reply:trimText(x.reply,600), sender:trimText(x.sender,60)} : {})
   }));
 }
 export function restoreDrifts(raw){
-  return (Array.isArray(raw) ? raw : []).filter(x => x && x.text).slice(0, DRIFT_CAP).map(x => ({
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.text).map(x => ({
     id: String(x.id || '').slice(0, 40), kind: ['reply', 'mine', 'note', 'shard', 'kept'].includes(x.kind) ? x.kind : 'note',
     ...(x.kind === 'reply' ? {original:trimText(x.original,120),sender:trimText(x.sender,60)} : {}),
     text: trimText(x.text, 600), day: Math.max(1, count(x.day)), from: Math.max(0, count(x.from))
@@ -736,13 +736,13 @@ export const sealedToday = s => (s.bottles || []).some(b => b.day === s.day);
 export const sealError = (s, text) =>
   !trimText(text, 120) ? '空着的瓶子漂不动，写一句再封。'
   : sealedToday(s) ? '今天已经放了一只下去了，明天再来。'
-  : (s.bottles || []).length >= BOTTLE_CAP ? '水里的瓶子够多了。' : '';
+  : (s.bottles || []).filter(b=>!b.taken).length >= BOTTLE_CAP ? '水里还有六十只没捞回来的瓶子，先去月湖捞一只吧。' : '';
 export function sealBottle(s, text){
   if (sealError(s, text)) return s;
   const bottle = { id: 'bo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
     text: trimText(text, 120), day: s.day, openDay: s.day + BOTTLE_DAYS, taken: false,
     ...(hash(String(s.epoch)+':bottle-reply:'+s.day+':'+trimText(text,120))%100 < 65 ? {replyWanted:true,reply:'',sender:''} : {}) };
-  return { ...s, bottles: [bottle, ...(s.bottles || [])].slice(0, BOTTLE_CAP) };
+  return { ...s, bottles: [bottle, ...(s.bottles || [])] };
 }
 // 今天水里能捞到什么：自己封的到日子了就先还她自己那一只，
 // 否则从【已经有的东西】里按存档号＋天数定一片，同一天捞几次都是同一片。
@@ -783,6 +783,18 @@ export function keepBottleReply(s,id,reply,sender){
 // 还在水里漂着、没到日子的那几只（界面照这个说「还有几天」）
 export const floating = s => (s.bottles || []).filter(b => !b.taken && s.day < b.openDay)
   .map(b => ({ ...b, backIn: b.openDay - s.day }));
+// 信件保留在原存档，只分页取出展示；搜索、待捞状态均由此处统一计算。
+export function bottleBook(s,options={}){
+  const query=String(options?.query||'').trim().toLocaleLowerCase();
+  const repliesOnly=options?.repliesOnly===true,all=s.drifts||[];
+  const matched=all.filter(d=>(!repliesOnly||d.kind==='reply')&&(!query||[d.text,d.original,d.sender].some(t=>String(t||'').toLocaleLowerCase().includes(query))));
+  const pages=Math.max(1,Math.ceil(matched.length/DRIFT_PAGE_SIZE));
+  const page=Math.min(pages-1,Math.max(0,count(options?.page)));
+  const waiting=(s.bottles||[]).filter(b=>!b.taken).map(b=>({id:b.id,text:b.text,day:b.day,backIn:Math.max(0,b.openDay-s.day)}));
+  return {days:BOTTLE_DAYS,day:s.day,floating:floating(s),waiting,ready:waiting.filter(b=>b.backIn===0).length,
+    drifts:matched.slice(page*DRIFT_PAGE_SIZE,(page+1)*DRIFT_PAGE_SIZE).map(d=>({...d})),
+    total:all.length,matches:matched.length,page,pages,error:sealError(s,'x')};
+}
 // ── 他自己来找你（她 2026-09-17 点的）─────────────────────────────────────
 // ⚠️这是庭院里唯一一处【他有主动性】的地方：别的模式（跟着走／等着／去哪儿）
 //   全是她在指挥他。所以这一条的形状很要紧——它决定了他是个东西还是个人。

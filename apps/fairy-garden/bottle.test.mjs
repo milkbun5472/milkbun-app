@@ -24,7 +24,7 @@ test('一天只封一只，空话封不动', () => {
   assert.match(sealError(s, '再来一句'), /今天已经放了一只/);
   assert.equal(sealBottle(s, '再来一句'), s);
   assert.match(sealError(freshState(), '   '), /写一句再封/);
-  assert.match(sealError({ ...freshState(), day: 99, bottles: Array.from({length:BOTTLE_CAP},(_,i)=>({id:'b'+i,text:'x',day:1,openDay:2,taken:true})) }, '还想放'), /够多了/);
+  assert.match(sealError({ ...freshState(), day: 99, bottles: Array.from({length:BOTTLE_CAP},(_,i)=>({id:'b'+i,text:'x',day:1,openDay:2,taken:false})) }, '还想放'), /六十只/);
 });
 
 test('捞上来的是旧东西，一天一只，同一天捞的永远是同一片', () => {
