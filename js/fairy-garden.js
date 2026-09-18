@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-cbe20c9de81940b5", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-7b824b2acc4d570b", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -317,6 +317,13 @@
       roleContext(character, profile, mainline),
       "【微光庭院】以本轮人设保留性格、声纹和相处方式。⚠️这是你们在玩的一个小游戏：可以入戏，但别把它当成现实里真发生过的事。",
       "【她刚递给你的这一样】\n" + JSON.stringify({ name: item.name, note: item.note || "", 来历: item.from || "" }),
+      // ⚠️井里那些是【他自己的东西】：一段他经历过的事、做过的梦、留下的印记。
+      //   递过来的时候他要认得出那是什么，而不是当成一块石头（她 2026-09-18：
+      //   「奇物对我们的关系主题有啥用」——用处就在这一下，别把它写成道具）。
+      item.fromWell ? "【⚠️这一样是从星井里捞上来的】井底那些东西都是【你自己的】：一段你经历过的事、一个你做过的梦、"
+        + "一点你留下的痕迹。上面【那一段正文就是它承载的内容】。她把它捞上来、有的还做成了别的东西，"
+        + "现在递到你手上。你认得出它是什么，先反应【这是什么】，再反应她把它递过来这件事。"
+        + "⚠️不解释前因后果，不替她说她为什么给你，不编一段你们没发生过的往事。" : "",
       "【你对它的态度】" + rules.GIFT_STANCES[stance] + "。这一条已经定了，照它写。",
       "【要写的】你接过它那一刻说出口的一两句。⚠️只写这一刻：不编你们没发生过的往事，也不替她安排接下来做什么。",
       '【输出格式】只输出 JSON：{"words":["第一句","要是还有第二句"]}。'
