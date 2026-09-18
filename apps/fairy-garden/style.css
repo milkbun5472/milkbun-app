@@ -107,17 +107,33 @@ body.embedded .weather{gap:8px}
 #sow-text{width:100%;box-sizing:border-box;border:1px solid #dbe2cd;border-radius:12px;background:#fbfaf0;color:#48604a;font:inherit;font-size:13.5px;line-height:1.8;padding:10px 12px;resize:none}
 #sow-go{background:#e4ecdc;color:#48694f}
 /* 一张平面的村子图：只说【谁在哪儿】，点了不会把人传送过去——走路本身是这游戏的节奏 */
-#map-plan{margin:4px 0 10px;border:1px solid #dbe2cd;border-radius:14px;background:#f4f6e8;overflow:hidden}
-#map-plan svg{display:block;width:100%;height:auto}
-#map-plan .spot{fill:#c3cdb2}
+/* 村子平面图（她 2026-09-18：「略丑，做好看一点，也可以放大缩小」）。⚠️dialog div 那条通用样式会抢 display 和 margin，这儿都写死 */
+#map-dialog{width:min(100vw - 20px,600px);max-width:none}
+#map-plan{position:relative;display:block;margin:4px 0 10px;height:min(62vh,560px);border:1px solid #d2dcc0;border-radius:16px;background:#e9eddb;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#map-view{display:block;margin:0;width:100%;height:100%;transform-origin:0 0;will-change:transform}
+#map-plan svg{display:block;width:100%;height:100%}
+.map-zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;margin:0;z-index:2}
+.map-zoom button{width:34px;height:34px;padding:0;border-radius:10px;border:1px solid #cfd8bf;background:#fbfaf0d9;color:#4f6449;font-size:15px;line-height:1;font-variant-numeric:tabular-nums}
+.map-zoom #map-zoom-reset{font-size:9.5px;width:auto;min-width:34px;padding:0 5px}
+#map-plan .paper{fill:#e9eddb}#map-plan .land{fill:#dbe5c4;stroke:#c9d6ad;stroke-width:1.2}#map-plan .woods{fill:#c9d8b0;opacity:.75}
+#map-plan .path{fill:none;stroke:#f1e8d2;stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+#map-plan .water{fill:#b7d5d3;stroke:#9cc2bf;stroke-width:1.5}#map-plan .island{stroke:#c3cf9f}#map-plan .creek{fill:none;stroke:#b7d5d3;stroke-linecap:round;stroke-linejoin:round}
+#map-plan .rail{fill:none;stroke:#b3ada0;stroke-width:2;stroke-dasharray:4 3}
+#map-plan .wood{fill:#d8bf98;stroke:#bfa47b;stroke-width:.8}#map-plan .stone{fill:#e3e0d3;stroke:#c9c4b3;stroke-width:.8}#map-plan .roof{fill:#d9c9b6;opacity:.8}
+#map-plan .house{fill:#dcc3b3;stroke:#b0968a;stroke-width:1.2}#map-plan .wheel{fill:none;stroke:#b0968a;stroke-width:1.4}#map-plan .tower{fill:#cfc8bd;stroke:#a8a094;stroke-width:1.4}#map-plan .log{fill:#b5906a}
+#map-plan .stall{fill:#efd3ad;stroke:#cfa778;stroke-width:1}#map-plan .bed{fill:#ecc9d3;stroke:#d7a4b3;stroke-width:.8}
+#map-plan .tree{fill:#a2bd8f;stroke:#88a475;stroke-width:.7}#map-plan .lamp{fill:#f3d78a;stroke:#d9b45e;stroke-width:.6}
+#map-plan .spot{fill:#f7f5ea;stroke:#6f8a66;stroke-width:1.8}
 #map-plan .spot-tap{fill:transparent}
-#map-plan .spot-hit{cursor:pointer}
+#map-plan .spot-hit{cursor:pointer;outline:none}
 #map-plan .spot-hit:hover .spot,#map-plan .spot-hit:focus-visible .spot{fill:#8aa07c}
-#map-plan .spot-hit:hover .spot-label{fill:#4f6449}
-#map-plan .spot-label{font-size:9px;fill:#7b8a70}
+#map-plan .spot-hit:hover .spot-label{fill:#344436}
+#map-plan .spot-label{font-size:11px;fill:#4f6449;paint-order:stroke;stroke:#f2f4e6;stroke-width:3px;stroke-linejoin:round;font-weight:500}
 #map-plan .me{fill:#55704f}
 #map-plan .them{fill:#a8763f}
-#map-plan .who-label{font-size:10px;font-weight:600}
+#map-plan .ring{fill:none;stroke-width:2.5;opacity:.55;transform-box:fill-box;transform-origin:center;animation:map-pulse 1.8s ease-out infinite}#map-plan .ring.me{stroke:#55704f}#map-plan .ring.them{stroke:#a8763f}
+@keyframes map-pulse{0%{transform:scale(.55);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+#map-plan .who-label{font-size:12px;font-weight:700;paint-order:stroke;stroke:#f2f4e6;stroke-width:3.5px;stroke-linejoin:round}
 #map-where{line-height:1.9}
 /* 点一件东西弹出来的那几件：条目就是行动栏里那几颗真按钮搬过来的 */
 #spot-list{flex-wrap:wrap;margin:6px 0 12px}
