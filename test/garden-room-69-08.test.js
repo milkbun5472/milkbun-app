@@ -62,7 +62,9 @@ test('进门带什么走这间房的认知闸，不另写一份底子', () => {
 
 test('说过的话只有一份：落定的交给房间，存档里只留在途的', () => {
   const send = garden.slice(garden.indexOf('async function send(retry)'), garden.indexOf('const buttonStyle'));
-  assert.match(send, /propsRef\.current\.record\.onTurn\(\{ text: text, reply: result\.reply, parts: result\.parts \}\)/);
+  // ⚠️回调里读 recordRef：从小世界那条路进来时 props.record 是空的（她 2026-09-18 撞到
+  //   「undefined is not an object … record.onTurn」），两条路都得拿到同一份。
+  assert.match(send, /recordRef\.current\.onTurn\(\{ text: text, reply: result\.reply, parts: result\.parts \}\)/);
   assert.match(send, /\.filter\(m => m\.request !== request\)/, '交给房间之后没把在途那条撤掉＝存了两份');
   // 顺序不能反：先给房间，再撤在途的
   assert.ok(send.indexOf('record.onTurn') < send.indexOf('m.request !== request'), '中间那一瞬这句话谁都没有');

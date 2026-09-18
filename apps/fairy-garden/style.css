@@ -242,3 +242,9 @@ body.embedded dialog{position:fixed;left:0;right:0;top:calc(var(--head-clear,0px
  max-height:calc(100dvh - var(--head-clear,0px) - 16px)}
 body.embedded .companion-dialog,body.embedded .season-dialog{top:var(--head-clear,0px);bottom:0;margin:0;height:auto;max-height:none}
 
+
+/* 整页长按会弹出 iOS 那条 Copy／Look Up（她 2026-09-18：「这个页面整体长按就是很容易
+   被 highlight 出 copy paste 那堆」）：这是一个游戏画面，不是一篇能划的文章。
+   ⚠️输入框和它里面的字照旧能选——那儿本来就要选。 */
+#app{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app input,#app textarea{-webkit-user-select:text;user-select:text}

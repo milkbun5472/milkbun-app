@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-6c0289620104728d", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-0476cab482ab41c6", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -526,6 +526,7 @@
   function GardenSession(props) {
     // 存档挂哪儿：庭院房给自己那把钥匙，首页试玩仍是公共那一档
     const storeKey = useRef(null); if (!storeKey.current) storeKey.current = props.storeKey || KEY;
+    const recordRef = useRef(null);
     // 庭院房的同行者就是这间房的角色，没得选：进门那一刻就钉死，免得先闪一下选人页
     const t = useTheme(), initial = useRef(null), stalled = useRef("");
     if (!initial.current) {
@@ -639,7 +640,7 @@
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这句话没有写下来。");
             if (String(current().partnerId) !== String(c.id)) throw new Error("同行者已经换过，这句话没有写下来。");
             // ⚠️他说的话跟她问出来的那些落在同一处：不另开一本，不然聊天记录就有两份
-            const record = propsRef.current.record;
+            const record = recordRef.current;
             if (record) record.onTurn({ text: "", reply: parts.join("\n"), parts: parts });
             else update(old => ({ ...old, dialogs: { ...old.dialogs, [c.id]: ((old.dialogs || {})[c.id] || [])
               .concat(parts.map((part, i) => ({ id: "miss_" + Date.now() + "_" + i, role: "assistant", content: part, status: "done" }))).slice(-200) } }));
@@ -848,8 +849,9 @@
     // ⚠️从房间进来时 app.js 直接给 record；从【小世界那条路】进来时它给的是 recordFor，
     //   按这一档的钥匙现取（她 2026-09-18：「从游戏界面进是不显示聊天记录的」）。
     const record = props.record || (props.recordFor ? props.recordFor(storeKey.current) : null) || null;
+    recordRef.current = record;   // ⚠️回调里一律读这一份：props.record 只有从房间进来才有
     const doneHistory = (d, cid) => record
-      ? ((propsRef.current.record && propsRef.current.record.history) || [])
+      ? ((recordRef.current && recordRef.current.history) || [])
       : ((d.dialogs || {})[cid] || []).filter(m => m.status === "done");
     // ── 样貌（她 2026-09-16 接着要的）─────────────────────────────────────
     // 一个身体十二款头发，换一款是数据：这儿只管把选择递给游戏，存档由游戏那头写。
@@ -964,7 +966,7 @@
         if (record) {
           // 先把这一轮交给房间（它才是记录），再把存档里那条在途的撤掉——
           // 顺序反过来的话，中间那一瞬这句话谁都没有。
-          propsRef.current.record.onTurn({ text: text, reply: result.reply, parts: result.parts });
+          recordRef.current.onTurn({ text: text, reply: result.reply, parts: result.parts });
           update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).filter(m => m.request !== request) } }));
         } else update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: old.dialogs[cid].map(m => m.request === request ? { ...m, status: "done" } : m).concat(result.parts.map((part, i) => ({ id: request + "_reply" + (i ? "_" + i : ""), role: "assistant", content: part, status: "done" }))).slice(-200) } }));
         // 他刚说的那句话浮到他头顶上（她 2026-09-17）。⚠️只是把已经收到的这句显示一遍，
@@ -1128,7 +1130,7 @@
                   "样子搬进来之后在「样貌」那一页换，和同行者走同一套。"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, margin: "18px 0 4px" } }, "TA 进这个村子时带着什么"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, lineHeight: 1.7, marginBottom: 6 } },
-                  "默认什么都不带——请进来的是别人的角色，带什么由你一条条拨开。"),
+                  "默认什么都不带。TA 是你手机里的角色，带哪些进来由你一条条拨开。"),
                 rows.map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between",
                   style: { padding: "11px 0", borderBottom: "1px solid " + G.line, gap: 12 } },
                   h("div", null,
