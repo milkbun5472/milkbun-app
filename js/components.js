@@ -897,6 +897,40 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts)
 //   走的是 `nm === "" → return`，于是按钮按下去什么都不发生。
 //   debate.js 里已经为这件事记过一次教训（「和 confirm 一样会被 iOS/PWA 永久吞掉」），
 //   可全库还有六处在用它——又是「一层写在六处，五处没跟上」。
+// ── 复制到剪贴板：全库唯一一处（v71.12 把手写的那四处搬了过来）────────────
+// 原来四处各写各的：单聊长按复制、群聊长按复制、主屏布局、跑团打包模组。
+// 搬过来是因为它们各自都缺一块，而缺的还不是同一块：
+//   · 单聊/群聊那两处【没等结果就报「已复制」】——navigator.clipboard 在
+//     非 https 下压根不存在，`a && a.writeText()` 这种写法一声不吭地什么都没做，
+//     屏幕上却写着已复制。她那群里「复制没反应」多半就是这个。
+//   · 主屏布局那处等了结果，但没有退路。
+// 所以这一层做两件事：**等真的写进去了才算数**，写不进去时**再用老办法试一次**
+// （藏一个 textarea + execCommand，iOS 上那条路往往还通）。
+// ⚠️只管「复制这件事成没成」，不管提示说什么：四处的措辞和停留时长各有各的分寸，
+//   抹平成一句就是把它们将就了。所以它返回 true/false，提示各家自己发。
+async function copyText(text) {
+  const s = String(text == null ? "" : text);
+  if (!s) return false;
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(s);
+      return true;
+    }
+  } catch (e) {/* 落到下面那条老路再试一次 */}
+  try {
+    if (typeof document === "undefined" || !document.execCommand) return false;
+    const ta = document.createElement("textarea");
+    ta.value = s;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, s.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch (e) { return false; }
+}
+
 function requestAppPrompt(title, body, defaultValue, onOk, okLabel, opts) {
   if (typeof onOk !== "function") return false;
   const open = typeof window !== "undefined" && window.__appPromptOpen;

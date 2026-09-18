@@ -9570,8 +9570,7 @@ function HomeLayoutProbe({ toast }) {
   const go = async () => {
     const s = build();
     setText(s);
-    try { await navigator.clipboard.writeText(s); toast && toast("主屏布局已复制，直接粘给言秋"); }
-    catch (e) { toast && toast("复制不了，长按下面那段自己选"); }
+    toast && toast(await copyText(s) ? "主屏布局已复制，直接粘给言秋" : "复制不了，长按下面那段自己选");
   };
   return h("div", null,
     h("button", { onClick: go, className: "w-full py-3 active:opacity-70",
@@ -10016,7 +10015,22 @@ function EventShelfSection({ characters, entries }) {
     h(Eyebrow, { style: { marginBottom: 6 } }, detail.event.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } },
       "执笔：" + nameOf(detail.event.author_char_id) + (detail.event.edited_by_user ? " · 你改过" : "") + " · 关联碎片 " + (detail.links || []).filter(l => !l.deleted).length + " 条"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } }, detail.event.narrative)));
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } }, detail.event.narrative),
+    // 复制出去（她 2026-09-18 转小红书群里读者 ! YOLO 的许愿池：
+    //   「记忆总结成事件以后，可不可以把那个事件给我一个复制按钮，然后我加到记忆库里面去。
+    //     因为有的时候我是觉得记忆他太多了，我想精简一下，才把它总结成事件的」）
+    // ⚠️这儿【只给复制】，不替她往记忆库里写：记忆库是只进不出的，自动塞进去
+    //   等于把「精简」变成「又多一条」，而且删不掉。粘哪条、粘不粘，归她。
+    // 梗概和全文分开两颗：她要的是精简，多半只粘梗概那一句；全文留给想存整段的时候。
+    h("div", { className: "flex", style: { gap: 8, marginTop: 12 } },
+      detail.event.synopsis ? h("button", {
+        onClick: async () => { const ok = await copyText(detail.event.title + "：" + detail.event.synopsis); window.__toast && window.__toast(ok ? "梗概已复制，去记忆库粘一条" : "复制不了，长按上面那段自己选"); },
+        className: "flex-1 py-2.5 active:opacity-70",
+        style: { border: "1px solid " + t.line, borderRadius: 9, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "复制梗概") : null,
+      h("button", {
+        onClick: async () => { const ok = await copyText(detail.event.title + "\n\n" + (detail.event.narrative || "")); window.__toast && window.__toast(ok ? "全文已复制" : "复制不了，长按上面那段自己选"); },
+        className: "flex-1 py-2.5 active:opacity-70",
+        style: { border: "1px solid " + t.line, borderRadius: 9, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "复制全文"))));
 }
 
 // P1-3 纠错过目台：只有 Lisa 明确确认才把旧条标 superseded；拒绝不碰两条记忆。
