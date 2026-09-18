@@ -54,7 +54,7 @@
   // 反过来：她在界面上按那个币种敲的数 → 人民币（存档用）
   function parse(input, charId) {
     const c = of(charId);
-    const s = String(input == null ? "" : input).replace(/[,，\s¥￥$€£₩円元]/g, "");
+    const s = String(input == null ? "" : input).replace(/[,，\s¥￥$€£₩円元원]/g, "");
     // ⚠️空的要返回 null，不是 0：Number("") 是 0，直接存下去就是把她的余额清零。
     if (!s) return null;
     const v = Number(s);
