@@ -474,13 +474,15 @@
     const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
     return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".webp" : "";
   };
-  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, globalCSS: "", pageCSS: {}, pageTokens: {}, updatedAt: 0 });
+  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, fonts: { body: "", display: "" }, globalCSS: "", pageCSS: {}, pageTokens: {}, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
     const iconPack = ICON_PACKS[x.iconPack] ? String(x.iconPack) : "";
     const pageTokens = {};
     Object.keys(x.pageTokens || {}).forEach(k => { const c = cleanTokens(x.pageTokens[k]); if (Object.keys(c).length) pageTokens[k] = c; });
-    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, pageCSS: { ...(x.pageCSS || {}) }, pageTokens };
+    // 字体那两支照 FontChoice 洗（认不出的落回默认）；它没加载出来就当没挑过。
+    const fonts = g.FontChoice ? g.FontChoice.clean(x.fonts) : { body: "", display: "" };
+    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   const save = p => { const n = normalize({ ...p, updatedAt: Date.now() }); localStorage.setItem(KEY, JSON.stringify(n)); return n; };
@@ -528,6 +530,9 @@
   const compile = p => {
     p = normalize(p); const blocks = [];
     const bad = unsafeReason(p.globalCSS); if (bad) throw new Error(bad);
+    // 换字体排在最前面：它只写 :root 那两个变量，她自己写的 CSS 想盖照样盖得住。
+    const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts) : "";
+    if (fontCSS) blocks.push("/* fonts */\n" + fontCSS);
     if (p.globalCSS) blocks.push("/* global */\n" + p.globalCSS);
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
       if (!css || page === "all") return;
@@ -543,6 +548,8 @@
   const emit = () => g.dispatchEvent(new CustomEvent("lisa-theme-change", { detail: active }));
   const apply = p => {
     const n = normalize(p), css = safeMode() ? "" : compile(n);
+    // 字体文件得真去拉一次，光有变量是空头支票。safe-theme 那一路不拉。
+    if (!safeMode() && g.FontChoice) { try { g.FontChoice.ensure(n.fonts); } catch (_) {} }
     let st = document.getElementById(STYLE_ID);
     if (!st) { st = document.createElement("style"); st.id = STYLE_ID; document.head.appendChild(st); }
     st.textContent = css; active = n; emit(); return n;

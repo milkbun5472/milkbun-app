@@ -105,6 +105,27 @@
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .65, marginTop: 4 } }, sub));
     };
+    // ── 字体（v71.03，她 2026-09-18 转小红书里读者问「怎么换字体」）──────────
+    // 全 App 的字体只有正文和标题两支，都在 core.js 里写成了 CSS 变量，
+    // 所以这一栏改的就是那两个变量本身——没有一处界面代码认识「字体」这件事。
+    // ⚠️名单问 FontChoice 要，这儿不另抄（one-public-mechanism）。
+    // 画法：每一支【用它自己的字写自己的名字】，一张字样卡。
+    // 不是一排药丸——药丸搬到哪个 app 都成立，一张写着自己名字的字样卡只有这一处成立。
+    const faces = (g.FontChoice && g.FontChoice.FACES) || [];
+    // 进这一栏就把名单里的字体全拉下来，否则字样卡上全是同一支字、等于没得看。
+    useEffect(() => { if (section === "fonts" && g.FontChoice) { try { faces.forEach(f => g.FontChoice.ensure({ body: f.key })); } catch (_) {} } }, [section]);
+    const fontCard = (kind, f) => {
+      const on = String((draft.fonts || {})[kind] || "") === f.key;
+      return h("button", { key: f.key || "_default", onClick: () => patchDraft({ fonts: { ...(draft.fonts || {}), [kind]: f.key } }),
+        className: "active:opacity-70", "aria-pressed": on ? "true" : "false",
+        style: { textAlign: "left", padding: "11px 12px", borderRadius: 10,
+          border: "1px solid " + (on ? t.ink : t.line),
+          background: on ? t.bg2 : "rgba(127,127,127,.05)",
+          boxShadow: on ? "0 5px 14px -9px rgba(0,0,0,.6)" : "none" } },
+        h("div", { style: { fontFamily: f.stack || (kind === "display" ? "'Fraunces',serif" : "'Archivo','Noto Serif SC',system-ui,sans-serif"), fontSize: 19, color: t.ink, lineHeight: 1.35 } }, f.zh),
+        h("div", { style: { fontFamily: f.stack || "'Archivo','Noto Serif SC',system-ui,sans-serif", fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.5 } }, "今天也想你 · 0123"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, f.hint));
+    };
     const [slots, setSlots] = useState(() => studio.pageSlots(page));
     useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");
@@ -131,7 +152,7 @@
     //   还是对不上：预览里对的东西上机不对，比没有预览更坏（她照着它调）。
     //   真正管用的是旁边那颗「先预览 30 秒」——它改的是【真 app 本身】。
     return h("div", null,
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6, marginBottom: 14 } }, tab("icons","图标","逐个替换"), tab("fonts","字体","全 App 换"), tab("css","页面 CSS","限定页面"), tab("package","主题包","带图搬家")),
       section === "icons" && h("div", null,
         // ── 整套换（v62.42）：仓库自带的几套，点一下整套换掉；她单独换过的那几张不动 ──
         // 每一套画成【一张贴纸纸】：三张缩略贴在纸上、纸角翘一点；选中的那张纸压在最上面（墨色边、不翘角）。
@@ -298,6 +319,18 @@
                   }, "存进去", { maxLength: 12 });
               }, className: "active:opacity-70",
               style: { minHeight: 40, padding: "6px 13px", borderRadius: 10, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "＋ 存成新的一套")])))),
+      section === "fonts" && h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } },
+          "换的是整个 App 的字，聊天、日记、查手机全都跟着变。挑完先预览看看，再点正式应用。"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "正文"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 18 } },
+          faces.map(f => fontCard("body", f))),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "标题"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginBottom: 7 } }, "页眉、栏目名、按钮上那些大一号的字。"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 12 } },
+          faces.map(f => fontCard("display", f))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
+          "写着「自带」的那几支用手机里本来就有的字，断网也在；其余几支第一次用要联网下载一下。")),
       section === "package" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
         h("div", { className: "flex gap-2" }, h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"), h("button", { onClick: () => importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")), h("input", { ref: importFile, type: "file", accept: ".json,application/json", onChange: importTheme, style: { display: "none" } })),

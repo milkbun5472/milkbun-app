@@ -49,8 +49,12 @@ function paletteAlpha(color, alpha) {
     : "color-mix(in srgb, " + text + " " + (parseInt(alpha, 16) / 255 * 100) + "%, transparent)";
 }
 const AV_COLORS = ["#c25a4a", "#5a6357", "#4f5a63", "#7a6a5a", "#6d5a78", "#33322e"];
-const F_DISPLAY = "'Fraunces',serif";
-const F_BODY = "'Archivo','Noto Serif SC',system-ui,sans-serif";
+// 这两支是全 App 唯一的字体出口（四十来个文件、五千来处行内样式都从这儿取）。
+// 写成 CSS 变量之后，「换字体」就只是改这两个变量——界面代码一处都不用动。
+// ⚠️var() 里那串是兜底：没挑过字体、或者主题 CSS 没加载出来时，原样还是原来那套。
+// 名单和变量怎么写在 js/font-choice.js，这儿不另抄一份。
+const F_DISPLAY = "var(--f-display,'Fraunces',serif)";
+const F_BODY = "var(--f-body,'Archivo','Noto Serif SC',system-ui,sans-serif)";
 // wk：主题工作室的挂点（不传就没有）。stroke 是【属性】不是行内样式，
 // 所以皮肤那边 `stroke: X !important` 盖得住 color 传进来的那个值。
 function Svg({
