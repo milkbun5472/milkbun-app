@@ -6918,7 +6918,6 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
 }
 
-// 设置·情侣问答自定义题库：为每个角色单独加题（各角色不互通，内置 60 题仍共用）
 // 创作小稿（原「思维链 COT」）设置：开关 + 检查方式 + 预设存取。
 // ⚠️实际在用它的只有这四处（v62.31 对着代码核过一遍）：
 //   同人文（fanfic.js 两处）／梦境（dream.js 四处）／群聊线下（engine.js）／
@@ -8086,7 +8085,7 @@ function Config(props) {
     home: "设置", api: "接哪些模型", apiText: "文字模型",
     apiImage: "图像 API", apiTts: "语音 API", apiEmbed: "向量记忆",
     apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
-    cot: "创作小稿", qa: "情侣问答", look: "这个 app 长什么样",
+    cot: "创作小稿", look: "这个 app 长什么样",
     theme: "外观与壁纸", themeStudio: "主题工作台",
     bubble: "聊天气泡", write: "他们写出来的东西",
     auto: "谁会自己动、多久动一次", data: "我的东西存在哪",
@@ -8130,10 +8129,11 @@ function Config(props) {
       state: () => { const st = (window.Cloud && window.Cloud.pushState) ? window.Cloud.pushState() : null;
         if (!st || !window.Cloud.ready()) return "备份、导出、迁移与清理";
         return st.summary; } },
+    // ⚠️这一栏里现在只剩创作小稿一样东西：情侣问答 v70.84 搬去问答小本右上角了，
+    //   副标题也得跟着改——不然这一页还在替一个已经不在的入口打广告
+    //   （她 2026-09-18：「这里情侣问答你还是没删掉」）。
     { key: "write", char: "写", title: "他们写出来的东西", tint: "#d97c86",
-      state: () => { const q = props.coupleQACustom || {};
-        const n = Object.keys(q).reduce((a, k) => a + ((q[k] || []).length || 0), 0);
-        return "线下小稿的写法 · 情侣问答" + (n ? " " + n + " 题" : ""); } },
+      state: () => "线下小稿的写法" },
     { key: "debug", char: "查", title: "上一轮到底发了什么", tint: "#8a8378",
       state: () => "只读：模型这一轮实际收到的全文" }
   ];

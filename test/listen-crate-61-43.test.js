@@ -20,7 +20,13 @@ const CRATE = src.slice(i, src.indexOf("    cvAddSheet,", i));
 // ⚠️「不许出现 X」这类断言必须对着【剥掉注释的代码】问：注释里正写着
 //   「不挂 backgroundAttachment」「默认那个 #c25a4a」，直接 grep 会把说明当违规抓出来。
 const CODE = CRATE.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("// 设置·情侣问答自定义题库"));
+// ⚠️切片的两头一律钉【函数名】，不钉注释：v70.89 我删掉一句注释，这一头的
+//   indexOf 变成 -1，slice 一路吃到文件末尾，红得跟真回退一样（这个坑一天里踩了三次）。
+//   注释是会被改掉、被删掉的东西；函数名不是。见 施工规则/anchor-on-code.md。
+const LTi = src.indexOf("function ListenTogether(");
+const LTj = src.indexOf("function CotConfig(", LTi);
+assert.ok(LTi > 0 && LTj > LTi, "抠不出 ListenTogether");
+const LT = src.slice(LTi, LTj);
 
 test("封面就是这一页：挂在外壳上、透到顶栏后面、往下淡进纯底（v63.54）", () => {
   // 她 2026-09-05：「封面整个代替掉页面」「纹理背景方向错了，放在听歌软件里不好看」。
