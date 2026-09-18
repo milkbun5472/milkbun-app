@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-147992fd87ef6145';
-import {brewError,brewResult} from './brewing.mjs?v=fg-147992fd87ef6145';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-147992fd87ef6145';
-import './rules.js?v=fg-147992fd87ef6145';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-5ed78fbf66e1adb4';
+import {brewError,brewResult} from './brewing.mjs?v=fg-5ed78fbf66e1adb4';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-5ed78fbf66e1adb4';
+import './rules.js?v=fg-5ed78fbf66e1adb4';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-147992fd87ef6145';
+import {createNavigator} from './navigation.mjs?v=fg-5ed78fbf66e1adb4';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -64,7 +64,7 @@ const count=(v,max=999999)=>Math.max(0,Math.min(max,Number.isFinite(Number(v))?M
 export function restoreLook(raw){
  const d=raw&&typeof raw==='object'?raw:{},out={};
  if(typeof d.hair==='string'&&/^[a-z]{2,16}$/.test(d.hair))out.hair=d.hair;
- for(const k of ['hairColor','cloth'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
+ for(const k of ['hairColor','cloth','skin'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
  if(Object.hasOwn(OUTFITS,d.outfit))out.outfit=d.outfit;
  const wardrobe=restoreWardrobe(d.wardrobe);if(Object.keys(wardrobe).length)out.wardrobe=wardrobe;
  if(d.dims&&typeof d.dims==='object'){const dims={};

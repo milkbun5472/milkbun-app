@@ -1,4 +1,4 @@
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-147992fd87ef6145';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-5ed78fbf66e1adb4';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -25,12 +25,13 @@ export function createTraveler(source,companion=false,look={}){
   o.castShadow=true;o.receiveShadow=true;
   if(!mine.has(o.material))mine.set(o.material,o.material.clone());
   o.material=mine.get(o.material);
-  if(o.userData.colorSlot){o.material=o.material.clone();o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
+  if(o.material.name==='Character warm peach')o.userData.skin=true;
+  if(o.userData.colorSlot||o.userData.skin){o.material=o.material.clone();o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
   // 头发的纹理材质进不了 GLB（GLTF 只收基础 PBR），颜色一律在这儿给
   if(isHair(o)){o.material.color.set(want.hairColor);o.material.roughness=.85;}
   else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
- const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.traverse(o=>{if(!o.isMesh)return;if(o.userData.outfit)o.visible=o.userData.outfit===id;if(o.userData.colorSlot)o.material.color.set(colors[o.userData.colorSlot]);});};
+ const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.traverse(o=>{if(!o.isMesh)return;if(o.userData.skin)o.material.color.set(look.skin);if(o.userData.outfit)o.visible=o.userData.outfit===id;if(o.userData.colorSlot)o.material.color.set(colors[o.userData.colorSlot]);});};
  dress(want);
  const applyDims=dims=>{if(!dims)return;model.traverse(o=>{if(!o.isMesh||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
    for(const key of DIMS){const i=o.morphTargetDictionary[key];if(i==null)continue;const v=Number(dims[key]);o.morphTargetInfluences[i]=isFinite(v)?v-1:0;}});};

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createBrewSequence} from './brewing.mjs?v=fg-147992fd87ef6145';
+import {createBrewSequence} from './brewing.mjs?v=fg-5ed78fbf66e1adb4';
 // One close-up for both cauldron entrances. The existing world and dolls stay on screen.
 export function makeBrewingView({scene,camera,site,onClose}){
  const dialog=document.createElement('dialog');dialog.id='brewing-dialog';dialog.className='brewing-dialog scene-activity';dialog.setAttribute('aria-labelledby','brewing-title');
