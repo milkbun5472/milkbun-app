@@ -12718,7 +12718,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -12799,11 +12799,11 @@ function CarryAll(props) {
           embedded: true, char, sectionKey: x.key, data: data[x.key], gifts,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack
+          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onBack, embedded }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -13019,7 +13019,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   const sheetNode = sheet && (() => {
       const tone = sheet._tone || sheet._stuff || null;   // 有色的才走柜门框
       const isCloth = !!sheet._tone;
-      const pinRow = (onTogglePin || onPeek) ? h("div", { style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
+      const pinRow = (onTogglePin || onPeek || onDeleteItem) ? h("div", { style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h("div", { className: "flex", style: { gap: 8 } },
           onTogglePin ? h("button", {
             onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
@@ -13037,6 +13037,16 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
             className: "flex-1 py-2.5 active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
           }, characterText(char, "摆到他面前")) : null),
+        // 删掉这一件（她 2026-09-18：「角色随身物这些能不能也都可以单个删除」）。
+        // ⚠️单独一行、不跟上面那两颗挤在一排：那两颗是【留下它】的动作，这颗是反的。
+        onDeleteItem ? h("button", {
+          onClick: () => requestAppConfirm("删掉「" + sheet.name + "」？",
+            (isPinned(sheet) ? "这一件是钉住的，删掉时钉子也一起拔掉——不然下次刷新它会被补回来。\n" : "")
+            + "删掉之后 " + (char.remark || char.name) + " 身上就没有这件东西了，聊天里也不会再提到它。",
+            () => { onDeleteItem(char.id, sectionKey, sheet.name); setSheet(null); }, "删掉"),
+          className: "w-full py-2.5 active:opacity-70",
+          style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid #c25a4a55", color: "#c25a4a" }
+        }, "删掉这一件") : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
           (onTogglePin ? "钉住的东西刷新时不会被换掉，没钉住的一次最多换两件。" : "")
           + (onPeek ? characterText(char, "「摆到他面前」会在聊天里发一条——他会知道你翻过。") : ""))) : null;
@@ -13150,7 +13160,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     sheetNode,
     giftNode);
 }
-function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onTogglePin, onPeek }) {
+function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -13235,7 +13245,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought,
+    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

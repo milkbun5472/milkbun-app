@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.80";
+const APP_VERSION = "v70.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20840,6 +20840,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_carry", n);
     return n;
   });
+  // 单个删掉一件随身物（她 2026-09-18：「角色随身物这些能不能也都可以单个删除」）。
+  //
+  // ⚠️**删的时候必须连钉子一起拔。** 钉住的那几件由 carryEvolveMerge 的
+  //   `missingPins` 原样补回去——只把条目删掉、钉子留着的话，下次刷新它自己就回来了，
+  //   而她会以为是删除坏了。这两件事必须同进同出。
+  // ⚠️衣柜是分组的（closet:[{occasion,sets}]），别的栏是平的（items:[]）——
+  //   一个出口吃两种形状，别在界面那头分两条路走（one-public-mechanism.md）。
+  const carryItemName = it => String((it && it.name) || it || "").replace(/\s+/g, "").trim();
+  const carryDeleteItem = (charId, key, item) => {
+    const nm = carryItemName(item);
+    if (!charId || !key || !nm) return false;
+    let hit = false;
+    setCarry(p => {
+      const cur = p[charId] || {};
+      const data = cur[key];
+      if (!data) return p;
+      let next;
+      if (key === "outfit") {
+        const groups = (Array.isArray(data.closet) ? data.closet : []).map(g => ({
+          ...g, sets: (Array.isArray(g && g.sets) ? g.sets : []).filter(x => carryItemName(x) !== nm)
+        }));
+        // 那一组的衣服全删光了就把空格子也收掉，别留一排空场合
+        const left = groups.filter(g => (g.sets || []).length);
+        if (left.length === (Array.isArray(data.closet) ? data.closet : []).length
+          && left.reduce((a, g) => a + g.sets.length, 0) === (Array.isArray(data.closet) ? data.closet : []).reduce((a, g) => a + ((g && g.sets) || []).length, 0)) return p;
+        hit = true;
+        next = { ...data, closet: left };
+      } else {
+        const items = (Array.isArray(data.items) ? data.items : []);
+        const kept = items.filter(x => carryItemName(x) !== nm);
+        if (kept.length === items.length) return p;
+        hit = true;
+        next = { ...data, items: kept };
+      }
+      const n = { ...p, [charId]: { ...cur, [key]: next } };
+      carryRef.current = n;
+      saveJSON("x_carry", n);
+      return n;
+    });
+    // 钉子跟着拔——留着的话下次刷新 carryEvolveMerge 会把它原样补回来
+    setCarryPins(p => {
+      const box = p[charId] || {};
+      const list = (box[key] || []).filter(x => carryItemName(x) !== nm);
+      if (list.length === (box[key] || []).length) return p;
+      const n = { ...p, [charId]: { ...box, [key]: list } };
+      carryPinsRef.current = n;
+      saveJSON("x_carryPins", n);
+      return n;
+    });
+    return hit;
+  };
   // 随身物的素材：TA网购真签收的 + 她送到的礼物。喂进去让模型自然写进包里/衣柜里，
   // 而不是直接塞条目——直接塞就长成一座只进不出的坟场（她 2026-08-29：和购物/钱包接上）。
   const carryMaterialFor = charId => {
@@ -22065,6 +22116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     carryGifts: carryGifts,
     carryPins: carryPins,
     onTogglePin: toggleCarryPin,
+    onDeleteItem: carryDeleteItem,
     onPeek: forwardCarryToChat,
     selId: selCarry,
     busyKey: gen.carrySec,

@@ -276,6 +276,9 @@ test("列表和详情画的是同一件衣服——剪影只有一份", () => {
   assert.equal((screens.match(/polygon\(34% 0/g) || []).length, 2, "剪影的坐标不许再抄第三份");
 });
 
+// ⚠️下面三处拿 "const pinRow = (onTogglePin" 当切片起点，【只钉到函数名为止】：
+//   v70.81 那一行的条件里加了 onDeleteItem，钉整串的话 indexOf 直接 -1、窗口整个错位，
+//   红得跟真回退一样（同一个坑 v58.15 踩过一次，注释就在下面）。
 test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不许糊掉", () => {
   ["月白常服", "素色朝服", "藕荷寝衣", "绯色官袍", "玄色劲装", "青灰直裰"].forEach((n, i) => {
     const c = F2.clothTone({ name: n, note: "" }, i);
@@ -286,7 +289,7 @@ test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不�
   assert.ok(!F2.clothIsDark(pale.dark), "先确认 dark 确实不够深（所以才需要 ink）");
   // clothShift 要返回 hex，算出来的色才能再兑透明度
   assert.match(F2.clothShift("#b8433c", -0.5), /^#[0-9a-f]{6}$/);
-  const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
+  const i = screens.indexOf("      const pinRow = (onTogglePin");
   // ⚠️结束标记跟着重构变过：v58.15 把这块从行内表达式抽成了 const sheetNode = …;
   // 收尾从「    })(),」变成了「    })();」。切不准的话窗口会一路吃到礼物那个
   // Sheet 和整页那一段，红得跟真回退一样（这次就踩到了）。
@@ -296,7 +299,7 @@ test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不�
 });
 
 test("详情页把这件衣服本身画进去，底色也取自它自己", () => {
-  const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
+  const i = screens.indexOf("      const pinRow = (onTogglePin");
   // ⚠️结束标记跟着重构变过：v58.15 把这块从行内表达式抽成了 const sheetNode = …;
   // 收尾从「    })(),」变成了「    })();」。切不准的话窗口会一路吃到礼物那个
   // Sheet 和整页那一段，红得跟真回退一样（这次就踩到了）。
@@ -332,7 +335,7 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
 
 // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
 test("随身物详情是居中的一扇柜门，不是从底下滑上来的半页", () => {
-  const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
+  const i = screens.indexOf("      const pinRow = (onTogglePin");
   assert.ok(i > 0, "找不到详情那一段");
   // ⚠️结束标记跟着重构变过：v58.15 把这块从行内表达式抽成了 const sheetNode = …;
   // 收尾从「    })(),」变成了「    })();」。切不准的话窗口会一路吃到礼物那个
