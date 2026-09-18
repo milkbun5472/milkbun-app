@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-4f326597fd151343", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-bb93ff38b286d93a", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -29,10 +29,22 @@
     return { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} };
   };
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
-  // 两排色板：给的是【挑得动手】的十来个颜色，不是取色器。
-  // 布偶是童话质感，饱和度压着走；深浅各来几档，深色头发也照顾到。
+  // 发色沿用色板；衣柜提供逐套保存的自由配色。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
-  const CLOTH_COLORS = ['#8d5f66', '#729786', '#5f7590', '#a7784c', '#6b6280', '#93684f', '#4f6b5c', '#b0857f'];
+  // 衣服、肤色、发色共用取色与色号输入，验证规则只写一份。
+  function DyeControl({label, value, onChange, palette}) {
+    const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";
+    return h("div", { style: { marginBottom: 6 } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48 } },
+        h("span", { style: { flex: 1, fontSize: 12, color: "#344936" } }, label),
+        h("input", { type: "color", value: hex, "aria-label": "自定义" + label, onChange: e => onChange(e.target.value), style: { width: 44, height: 44, border: 0, background: "transparent", padding: 0 } }),
+        h("input", { key: hex, type: "text", defaultValue: hex, "aria-label": label + "色号", maxLength: 7, spellCheck: false,
+          onBlur: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) onChange(v); else e.target.value = hex; },
+          style: { width: 86, minHeight: 44, padding: "6px", border: "1px solid #cbd4bd", borderRadius: 7, background: "#f8f7ee", color: "#344936", fontSize: 14 } })),
+      palette && h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, margin: "8px 0 14px" } },
+        palette.map(color => h("button", { key: color, "aria-label": label + color, "aria-pressed": hex.toLowerCase() === color, onClick: () => onChange(color),
+          style: { width: 44, height: 44, borderRadius: 999, background: color, border: hex.toLowerCase() === color ? "2px solid #344936" : "1px solid #cbd4bd" } }))));
+  }
   // 一轮话拆成几个气泡（她 2026-09-17：「他回复一大段是不是没用分气泡」）。
   // ⚠️拆气泡全库只有一处实现：GroupIdentityGuard.splitBubbles ＋ engine.js 的 splitLongBubble。
   //   庭院自己再写一个切句子的函数，就是同一层活在两处（施工规则/one-public-mechanism.md）。
@@ -742,6 +754,22 @@
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
                 : who === "me" ? "换的是你自己在这个庭院里的样子。"
                 : "换的是住在村里那一位在这个庭院里的样子。"),
+            h(DyeControl, { key: who + "skin", label: "肤色", value: game() && game().getDyes ? game().getDyes(who).skin : null,
+              onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
+            h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
+              h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
+                Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
+                  const on = ((look[who] || {}).outfit || "traveler") === id;
+                  return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
+                    style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
+                })),
+              h("p", { style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"),
+              [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]].map(([slot, label]) => {
+                const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
+                const hex = selected && selected.colors[slot] || "#8d5f66";
+                return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
+              })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
               Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
@@ -768,16 +796,8 @@
                     onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
                     style: { width: "100%", accentColor: G.deep } }));
               })) : null,
-            [["hairColor", "发色", HAIR_COLORS], ["cloth", "衣服颜色", CLOTH_COLORS]].map(([field, label, palette]) =>
-              h("div", { key: field, style: { marginTop: 20 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, label),
-                h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, palette.map(hex => {
-                  const on = String((look[who] || {})[field] || "").toLowerCase() === hex;
-                  return h("button", { key: hex, onClick: () => pushLook({ [field]: hex }), "aria-label": label + hex,
-                    className: "active:opacity-70",
-                    style: { width: 36, height: 36, borderRadius: 999, background: hex,
-                      border: on ? "2px solid " + G.ink : "1px solid rgba(0,0,0,.12)", boxShadow: on ? "0 0 0 3px rgba(255,255,255,.75) inset" : "none" } });
-                }))))))),
+            h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
+              onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS })))),
         chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),

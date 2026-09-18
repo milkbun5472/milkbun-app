@@ -76,7 +76,7 @@ test("线上那段提示词一个字没被我改坏", () => {
   const out = new Function(g("ECHO_QUESTION_BAN") + "\n" + g("ONLINE_CHAT_RULE_V2") + "\nreturn ONLINE_CHAT_RULE_V2;")();
   assert.ok(out.indexOf("这种回声式开场不是反应，是复述") > 0);
   assert.ok(out.indexOf("把开头那个反问删掉——句子照样成立") > 0);
-  assert.ok(out.indexOf("把它和后半句挤进同一条消息里也一样是回声") > 0, "堵合并那条口子的话不许丢");
+  // v70.31：合并型那半句撤了，由 strip 在展示前实削（见 echo-and-thought.test.js）。
 });
 
 test("线下叙事准则里要点名正文形态那种写法", () => {
