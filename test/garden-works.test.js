@@ -32,7 +32,9 @@ test("路灯搬进了同一张表，没有留下第二处", () => {
 // ⚠️这一课这一季栽过三次：tick 在 routine 模式绕开 companionPlan
 test("「修好的地方改了他去哪儿」只写在 plannedActivity 一处", () => {
   assert.match(comp, /const worksFor=\(s,plan\)=>\{const spot=workSpot\(s,plan\.id\)/);
-  assert.match(comp, /return homeFor\(s,worksFor\(s,list\.findLast/);
+  assert.match(comp, /return homeFor\(s,areaFor\(s,worksFor\(s,list\[at\]\),start,end\)\);/,
+    "worksFor 仍旧在 plannedActivity 这一处，只是外面又包了一层活动范围");
+  assert.match(comp, /const i=list\.findLastIndex\(item=>s\.minute>=item\.start\)/);
   const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.equal((code.match(/worksFor/g) || []).length, 2, "一次定义一次调用，多了就是抄了第二份");
   assert.match(world, /export function workSpot\(s, activityId\)/);

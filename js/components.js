@@ -14889,14 +14889,20 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // ⚠️庭院房和上面三种是同一种东西（她 2026-09-16）：一间房＝一个庭院存档。
   //   默认架空、什么都不带；想让 TA 在庭院里记得你们，就拨上面那几排开关。
   const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"]];
-  if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: "roomHub" },
+  // ⚠️她 2026-09-18：「从游戏新开档怎么跳回主聊天了，能不能调到设置房间那屏幕上」。
+  //   带着预设来的那一次，她要的是【把这间房设好】这一件事，不是房间总览——
+  //   房间列表、主聊天那几行、另外三个预设，一个都不该在这一屏上出现。
+  const soloCreate = !!initialPreset;
+  if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: soloCreate ? "roomNew" : "roomHub" },
     h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "和 " + (character.remark || character.name) + " 的小房间"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "主聊天照常流动；想长期继续的一件事，单独留在这里。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } },
+          soloCreate ? "新开一间" + (Kit.PRESETS[initialPreset] || {}).label : "和 " + (character.remark || character.name) + " 的小房间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+          soloCreate ? "先把这间房的设定定好，建好就进去。" : "主聊天照常流动；想长期继续的一件事，单独留在这里。")),
       h("button", { onClick: onClose, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 19, color: t.fog, padding: "0 2px" } }, "×")),
-    h(Eyebrow, { style: { marginTop: 18, marginBottom: 8 } }, "进去继续"),
-    h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, rooms.map(r => {
+    soloCreate ? null : h(Eyebrow, { style: { marginTop: 18, marginBottom: 8 } }, "进去继续"),
+    soloCreate ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, rooms.map(r => {
       const meta = roomMeta(r), active = r.id === activeRoomId, pending = !r.main ? pendingFor(r).length : 0;
       return h("div", { key: r.id, style: { padding: "12px 13px", borderRadius: 16, border: "1px solid " + (active ? meta.tint : t.line), background: active ? meta.tint + "12" : t.bg2 } },
         h("button", { onClick: () => onSelect(r.id, true), className: "w-full active:opacity-70 text-left" },
@@ -14915,8 +14921,8 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
           r.syncMode === "ask" && h("button", { onClick: () => requestMainCatchup(r), disabled: !!r.syncOnce, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: r.syncOnce ? t.fog : t.tint } }, r.syncOnce ? "已等下轮补近况" : "下轮补看主聊天"),
           r.writeback && r.writeback.mainSummary && h("button", { disabled: !pending || summaryBusy, onClick: async () => { if (!pending || !onSummarize || summaryBusy) return; setSummaryBusy(r.id); try { const saved = await onSummarize(r, r.summaryFrame || ""); if (saved) { setRooms(Kit.list(character.id)); if (draft.id === saved.id) setDraft(saved); } } finally { setSummaryBusy(false); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: pending ? t.tint : t.fog } }, summaryBusy === r.id ? "整理中…" : pending ? "把这 " + pending + " 条带回主线" : "没有待带回内容")));
     })),
-    h(Eyebrow, { style: { marginTop: 22, marginBottom: 8 } }, "新留一间"),
-    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, purposeChoices.map(([preset, title, note]) => h("button", { key: preset, onClick: () => add(preset), className: "w-full active:opacity-70 text-left", style: { padding: "11px 13px", borderRadius: 14, border: "1px dashed " + (creating && draft.preset === preset ? t.ink : t.line), background: creating && draft.preset === preset ? t.bg : "transparent" } },
+    soloCreate ? null : h(Eyebrow, { style: { marginTop: 22, marginBottom: 8 } }, "新留一间"),
+    soloCreate ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, purposeChoices.map(([preset, title, note]) => h("button", { key: preset, onClick: () => add(preset), className: "w-full active:opacity-70 text-left", style: { padding: "11px 13px", borderRadius: 14, border: "1px dashed " + (creating && draft.preset === preset ? t.ink : t.line), background: creating && draft.preset === preset ? t.bg : "transparent" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "＋ " + title),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 3 } }, note)))),
     creating && h("div", { style: { marginTop: 10, padding: "13px", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2 } },
@@ -14959,7 +14965,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
         h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
-        h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
+        h("button", { onClick: () => { if (soloCreate) return onClose(); setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
     h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, characterText(character, "他带什么进门、这儿的事出不出门，都能在聊天设置的「几间房」里逐条改。")));
   const editor = h("div", { style: { minWidth: 0 } },
     h("div", { className: "flex items-center justify-between" }, h("div", null,

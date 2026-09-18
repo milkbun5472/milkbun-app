@@ -32,7 +32,10 @@ test("新开一间是【先设定、再建】，不是替她悄悄建掉", () =>
 test("带着预设换过去，面板不会被换角色那一下清掉", () => {
   assert.match(app, /const roomPresetIntentRef = useRef\(""\);/);
   assert.match(app, /const intent = roomPresetIntentRef\.current; roomPresetIntentRef\.current = "";\s*\n\s*setChatRoomsOpen\(!!intent\); setChatRoomsPreset\(intent\);/);
-  assert.match(app, /roomPresetIntentRef\.current = "garden";\s*\n\s*setActiveChar\(who\);/);
+  const make = app.slice(app.indexOf("const openGardenRoomFor"), app.indexOf("const clearChatRoomRecords"));
+  const ref = make.indexOf('roomPresetIntentRef.current = "garden";');
+  assert.ok(ref > -1 && ref < make.lastIndexOf("setActiveChar(who);"),
+    "意图要在换角色【之前】立好，不然那个 effect 跑的时候读不到");
 });
 
 // ⚠️hook 排在提前 return 后面＝React #310 白屏（test/hooks-order.test.js 那条也盯着）
@@ -73,4 +76,26 @@ test("选人那一页只有一份", () => {
   assert.equal((garden.match(/\}, "先和示例同行者试玩"\)/g) || []).length, 1, "那一颗按钮也只许画一处");
   // ⚠️写成函数：好几条测试把这个文件按段抠出来在 vm 里跑，模块加载就取 F_BODY 会当场红
   assert.match(garden, /const pickButtonStyle = \(\) => \(\{/);
+});
+
+// 她 2026-09-18：「从游戏新开档怎么跳回主聊天了，能不能调到设置房间那屏幕上」
+test("从游戏开新档不切屏：设定页浮在庭院上面，不先闪一眼主聊天", () => {
+  const make = app.slice(app.indexOf("const openGardenRoomFor"), app.indexOf("const clearChatRoomRecords"));
+  assert.doesNotMatch(make, /setScreen\("thread"\);\s*\n?\s*\/\/ 本来就在这一位身上/, "又在设定页之前切屏了");
+  assert.match(make, /⚠️不切屏：房间面板是画在外壳上的/);
+  // 已经有一间庭院房的那条路仍旧直接进那间房
+  assert.match(make, /if \(live\) \{ setActiveChar\(who\); setActiveRoomId\(live\.id\); setScreen\("thread"\); return live; \}/);
+  // 建好了才去那间房
+  assert.match(app, /if \(close\) \{ if \(chatRoomsPreset\) setScreen\("thread"\);/);
+});
+
+// ⚠️她要的是【把这间房设好】这一件事，不是房间总览
+test("带着预设来的那一屏只有设定，没有房间列表和另外三个预设", () => {
+  assert.match(comp, /const soloCreate = !!initialPreset;/);
+  assert.match(comp, /soloCreate \? null : h\(Eyebrow, \{ style: \{ marginTop: 18, marginBottom: 8 \} \}, "进去继续"\)/);
+  assert.match(comp, /soloCreate \? null : h\(Eyebrow, \{ style: \{ marginTop: 22, marginBottom: 8 \} \}, "新留一间"\)/);
+  assert.match(comp, /soloCreate \? "新开一间" \+ \(Kit\.PRESETS\[initialPreset\] \|\| \{\}\)\.label/);
+  assert.match(comp, /soloCreate \? "先把这间房的设定定好，建好就进去。"/);
+  // 「算了」在这一屏上＝退出去（这一屏根本没有总览可退）
+  assert.match(comp, /if \(soloCreate\) return onClose\(\); setCreating\(false\); pick\(activeRoomId \|\| "main"\);/);
 });
