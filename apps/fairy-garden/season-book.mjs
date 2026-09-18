@@ -1,4 +1,4 @@
-import {seasonOf,weather,ACTIVITIES,journalText} from './world.mjs?v=fg-ea6f41a9a6ab8153';
+import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks} from './world.mjs?v=fg-21a6d69b08509d10';
 // This book renders saved plans and local facts; opening it never calls a model.
 export function installSeasonBook({getState,getHost,refresh}){
  const $=id=>document.getElementById(id),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};let busy=false,lastScroll=0;
@@ -8,6 +8,8 @@ export function installSeasonBook({getState,getHost,refresh}){
  $('season-summary').textContent=plan?plan.title:`每季 14 天，现在是第 ${season.day} 天。你们可以继续自由生活，也可以一起安排这一季。`;
  $('season-generate').disabled=busy||record?.status==='ready';$('season-generate').textContent=busy?'正在一起安排…':record?.status==='ready'?'这一季已安排好':record?'重试这一季':'一起安排这一季';
  $('season-policy').textContent='本季每天：'+Object.entries(season.weather).map(([kind,weight])=>kind+' '+weight+'%').join('、')+'。同一天刷新不重抽。'+'每位同行者每季生成一次，保存后每天沿用；新季节再由你点开安排。雨雪时会改到屋檐下活动。同行或等候时优先听你的招呼，想继续日程可在同行者面板点「按自己的安排」。';
+ // 这一季的日历（她 2026-09-18）：集市日、换板子、他约你、花开、开封、瓶子到、他的生日，全从存档算
+ {const cal=$('season-calendar');cal.replaceChildren();const marks=calendarMarks(s,s.birthday);for(let d=1;d<=14;d++){const cell=el('div');cell.className='cell'+(d===season.day?' today':d<season.day?' past':'');cell.append(el('b',String(d)));const w=el('span',weather(season.start+d-1,s.epoch));w.className='mark';cell.append(w);for(const m of marks[d]||[]){const mk=el('span',m);mk.className='mark'+(m==='集市'?' market':m==='他的生日'?' birthday':'');cell.append(mk);}cal.append(cell);}}
  $('season-error').textContent=record?.status==='failed'?record.error||'上次没有完成，可以重试。':'';
  $('season-error-detail').textContent=record?.detail||'';$('season-raw').hidden=!record?.detail;
  body.replaceChildren();

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ea6f41a9a6ab8153", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-21a6d69b08509d10", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -232,6 +232,51 @@
     if (!out.some(x => x.stance)) { const e = new Error("这次没读出他的喜好，可以再递一次。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return out;
   }
+  // 生日：人格档案馆里那一栏（公历或农历）换算成村里的一天。⚠️解析只用 engine 那几处现成的函数，不另写一套
+  function gameBirthdayOf(c) {
+    try {
+      const bd = String((c && c.birthday) || "").trim(); if (!bd) return 0;
+      const rules = root.FairyGardenRules; let mo = 0, d = 0;
+      const lu = typeof parseLunarBirthday === "function" ? parseLunarBirthday(bd) : null;
+      if (lu && typeof lunarToSolar === "function") { const dt = lunarToSolar(new Date().getFullYear(), lu.m, lu.d, lu.isLeap); if (dt) { mo = dt.getMonth() + 1; d = dt.getDate(); } }
+      else { const p = typeof parseBirthDate === "function" ? parseBirthDate(bd) : null; if (p) { mo = p.mo; d = p.d; } else { const m = bd.match(/(\d{1,2})\s*[-/.月]\s*(\d{1,2})/); if (m) { mo = +m[1]; d = +m[2]; } } }
+      return mo && d ? gameBirthday(mo, d) : 0;
+    } catch (e) { return 0; }
+  }
+  // 村里的一年：四季各十四天。⚠️同一个换算写在 world.mjs 的 gameBirthday；这儿只是宿主拿不到 ESM 时的同一份算法
+  function gameBirthday(mo, d) {
+    const season = mo >= 3 && mo <= 5 ? 0 : mo >= 6 && mo <= 8 ? 1 : mo >= 9 && mo <= 11 ? 2 : 3;
+    const start = [3, 6, 9, 12][season], within = ((mo - start + 12) % 12) * 31 + (d - 1);
+    return season * 14 + Math.min(14, 1 + Math.floor(within / 93 * 14));
+  }
+  // ── 他带路那十句（她 2026-09-18）：七件事各一句、换季三站各一句，一位角色一辈子一枪。零内容示范。
+  const GUIDE_STOPS = [
+    { step: "well", what: "带她去井边取一壶清水" }, { step: "garden", what: "带她给花圃浇一次水" }, { step: "herbs", what: "带她去林地采一束铃叶草" },
+    { step: "gift", what: "让她把手上的东西递一样给你，一天一样" }, { step: "sow", what: "带她在花圃种下一句想问你的话，三天开花" },
+    { step: "board", what: "带她去公告栏接一件委托，做完交了有功绩，集市日拿去换东西" }, { step: "sit", what: "带她去池边一起坐一会儿" },
+    { step: "season:1", what: "夏天第一天，带她去看溪畔的水磨坊，那儿能磨星砂、蒸月露" }, { step: "season:2", what: "秋天第一天，带她去林后的许愿树，学会的咒在那儿念" },
+    { step: "season:3", what: "冬天第一天，月湖结冰了，带她上冰面" }
+  ];
+  function normalizeGuide(raw) {
+    const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
+    const out = GUIDE_STOPS.map(g => { const r = rows.find(x => x && x.step === g.step) || {}; return { step: g.step, text: String(r.text || "").trim().slice(0, 160) }; }).filter(x => x.text);
+    if (out.length < 5) { const e = new Error("这次没读出他带路要说的话。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return out;
+  }
+  async function guideLines({ active, character, profile, mainline, world }) {
+    if (!active) throw new Error("先在设置里配置创作线路，他才带得了路。");
+    const sys = [sharedStyle(),
+      roleContext(character, profile, mainline),
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【当前世界的事实】\n" + JSON.stringify(world),
+      "【此刻】她刚搬进这个村子，你先住了一阵，村里的路你熟。头一天你带她走一圈，每到一处先站在那儿等她，她走到跟前你说一句。换季那天也各有一站。",
+      "【十站】\n" + JSON.stringify(GUIDE_STOPS),
+      "【要紧的】每一站只写你站在那儿、她走过来时说出口的那一句（可以两句）：说清这儿能做什么、为什么值得做，用你自己的口气。不编你们没发生过的往事，不替她安排接下来做什么。十句得看得出是同一个人说的。",
+      '【输出格式】只输出 JSON：{"lines":[{"step":"站的标识","text":"你说的那句"}]}，十站都要有。'
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "带路。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院带路" });
+    return normalizeGuide(raw);
+  }
   async function tastes({ active, character, profile, mainline, world }) {
     if (!active) throw new Error("先在设置里配置创作线路，他才说得出喜欢什么。");
     const rules = root.FairyGardenRules;
@@ -307,7 +352,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
   root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   // 一份色板：原来 GardenSession 和 FairyGardenApp 各写了一份，改一处永远漏一处。
@@ -408,7 +453,7 @@
     const bind = node => {
       if (frame.current && frame.current !== node) hosts.delete(frame.current.contentWindow); frame.current = node; if (!node) return;
       hosts.set(node.contentWindow, {
-        load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name } : null; },
+        load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name, birthday: gameBirthdayOf(c) } : null; },
         save: world => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
         openChat: () => openChat(true), changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
@@ -455,6 +500,23 @@
         },
         // 礼物簿那张表：这位角色一辈子只问一次，问过就存在这一档里（跟季节安排一个放法）
         hasTastes: () => { const c = partner(); const d = current(); return !!(c && d.tastes && d.tastes[String(c.id)] && d.tastes[String(c.id)].status === "ready"); },
+        // 他带路那十句：一位角色问一次，存在这一档的 guides[charId]
+        guideLines: async () => {
+          const c = partner(); if (!c) throw new Error("先选一位同行者。");
+          const cid = String(c.id), have = (current().guides || {})[cid];
+          if (have && have.status === "ready") return have.rows;
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const epoch = serial.current; busyRef.current = true; setBusy(true);
+          try {
+            const rows = await guideLines({ active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline, world: (game() && game().snapshot()) || {} });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这几句没有写下来。");
+            if (String(current().partnerId) !== cid) throw new Error("同行者已经换过，这几句没有写下来。");
+            update(old => ({ ...old, guides: { ...(old.guides || {}), [cid]: { status: "ready", at: Date.now(), rows } } }));
+            return rows;
+          } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
+          finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
         // 邻居打招呼那三句：一位邻居问一次，存在这一档的 hellos[charId]
         hello: async charId => {
           const cid = String(charId), c = (propsRef.current.characters || []).find(x => String(x.id) === cid);
@@ -721,6 +783,15 @@
                   bond.next ? "再一起做 " + bond.next.need + " 种没做过的事，就是「" + bond.next.label + "」。" : "能一起做的事，都一起做过了。"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 6, lineHeight: 1.7 } },
                   "现在他愿意陪你去：" + bond.canGo.map(x => x.label).join("、"))),
+              // 他带路的开关（她 2026-09-18：「开了的话就让角色带着过一遍」）
+              bond.guide ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderRadius: 12, border: "1px solid " + G.line, background: "rgba(255,255,255,.55)", padding: "9px 12px", marginBottom: 14 } },
+                h("div", null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, "他带路"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginTop: 2, lineHeight: 1.6 } },
+                    bond.guide.on ? (bond.guide.step ? "现在带你：" + bond.guide.step.label : "这一圈带完了，换季那天他还会带你看一处") : "关着。开了他会先走到该去的地方等你。")),
+                h("button", { className: "active:opacity-70", onClick: () => { const g = game(); if (!g || !g.setGuide) return; g.setGuide(!bond.guide.on); pullGarden(); },
+                  style: { ...pill(true), borderColor: bond.guide.on ? G.deep : G.line, color: bond.guide.on ? "#f7faf2" : G.soft, background: bond.guide.on ? G.deep : "rgba(255,255,255,.55)" } },
+                  bond.guide.on ? "开着" : "关着")) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "一起做过的"),
               h("div", { style: { display: "grid", gap: 8, marginBottom: 20 } },
                 bond.kinds.map(k => h("div", { key: k.kind, style: { borderRadius: 12, border: "1px solid " + (k.count ? G.line : "rgba(209,218,194,.5)"), background: k.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: k.count ? 1 : .55 } },

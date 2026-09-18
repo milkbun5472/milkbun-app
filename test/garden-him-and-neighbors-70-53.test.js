@@ -58,7 +58,7 @@ test("他约她：先自己去那儿等，她到了才算赴约；隔天作废�
   assert.equal(w.restoreState(JSON.parse(JSON.stringify(inv))).invite.place, "market");
   assert.equal(w.restoreState({ ...inv, invite: { place: "secret", day: 1 } }).invite, null);
   // 游戏那头：赴约那一枪走「他来找你」同一条路，她点了才打
-  assert.match(game, /const dating=inviteMet\(data\),starry=!dating&&starNightReady\(data\);call\.textContent=dating\?'他约你来的':starry\?'摊开星图':'他好像有话要说';/);
+  assert.match(game, /const dating=inviteMet\(data\),starry=!dating&&starNightReady\(data\),guiding=!dating&&!starry&&guideTalkReady\(\);call\.textContent=dating\?'他约你来的':starry\?'摊开星图':guiding\?'他带你看看':'他好像有话要说';/);
   assert.match(game, /if\(inviteMet\(data\)\)\{askDate\(\);return;\}/);
   assert.match(game, /data=keepInvite\(data\);ui\(\);save\(\);/, "先记上再打，点两下不许两枪");
   assert.match(host, /material && material\.invite\s*\?\s*"【此刻】是你约她来"/);
