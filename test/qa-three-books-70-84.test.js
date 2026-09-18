@@ -108,3 +108,21 @@ test("我们说好的：两处按钮都从日期那一排挪下来了", () => {
   assert.match(seg, /h\("div", \{ className: "flex items-center", style: \{ gap: 8, marginTop: 9 \} \},\n\s*h\("button", \{ onClick: \(\) => \{ if \(dueVal\)/);
   assert.match(seg, /style: \{ fontFamily: F_BODY, fontSize: 11\.5, color: PFOG, minHeight: 44, padding: "0 12px" \} \}, "不催了"/);
 });
+
+// 她 2026-09-18 第二张截图：「到那天他 · 来找你说 / 打给你 / 视频找你」挤同一排，
+// 三个四字词各自被折成两行（「来找你／说」）。卡里侧只有三百来像素，摆不下。
+test("「到那天他」那三枚印平分整宽，一个字都不折", () => {
+  const i = scr.indexOf("function CouplePacts({");
+  const seg = scr.slice(i, scr.indexOf("function CoupleWishes({", i));
+  // 那句话挪到上面自己一行了
+  assert.match(seg, /h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 10\.5, color: PFOG, marginBottom: 6 \} \}, characterText\(partner, "到那天他"\)\)/);
+  assert.ok(!/marginRight: 2 \} \}, characterText\(partner, "到那天他"\)\),/.test(seg), "又挤回那一排了");
+  // 三枚印平分、不折行
+  assert.match(seg, /className: "flex-1 min-w-0 active:opacity-75"/);
+  assert.match(seg, /minHeight: 40, padding: "0 4px", whiteSpace: "nowrap"/);
+  // 选中那枚仍旧是【盖下去的朱印】：形状/底/字色/歪不歪四样都变，不是只填个色
+  // （tabs-not-plain-pills.md），别为了不折行把这个一起改没了
+  assert.match(seg, /transform: on \? "rotate\(-3deg\)" : "none"/);
+  assert.match(seg, /background: on \? "#a83c30" : "transparent"/);
+  assert.match(seg, /"aria-pressed": on \? "true" : "false"/, "读屏读不出选了哪一个");
+});

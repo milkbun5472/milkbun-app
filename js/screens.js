@@ -4600,13 +4600,16 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
             // 「怎么来」：三枚小印。选中那枚是【盖下去的朱印】——实底、白字、微歪、
             // 带一点压痕；没选的只是描在纸上的一个框。形状/底/字色/歪不歪四样都变，
             // 不是靠填个色区分（tabs-not-plain-pills）。
-            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 9 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginRight: 2 } }, characterText(partner, "到那天他")),
+            // ⚠️「到那天他」那句原来跟三枚印挤同一排（她 2026-09-18 截图）：
+            //   这张卡里侧只有三百来像素，标题占掉一截，三个四字词各自被折成两行
+            //   （「来找你／说」）。把那句挪到上面单独一行，三枚印平分整宽、一律不折。
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: PFOG, marginBottom: 6 } }, characterText(partner, "到那天他")),
+            h("div", { className: "flex items-stretch", style: { gap: 7, marginBottom: 9 } },
               ["chat", "voice", "video"].map(k => {
                 const on = dueVia === k;
                 return h("button", { key: k, onClick: () => setDueVia(k), "aria-pressed": on ? "true" : "false",
-                  className: "active:opacity-75",
-                  style: { fontFamily: on ? F_DISPLAY : F_BODY, fontSize: on ? 13 : 12, minHeight: 40, padding: "0 12px",
+                  className: "flex-1 min-w-0 active:opacity-75",
+                  style: { fontFamily: on ? F_DISPLAY : F_BODY, fontSize: on ? 13 : 12, minHeight: 40, padding: "0 4px", whiteSpace: "nowrap",
                     borderRadius: 3, transform: on ? "rotate(-3deg)" : "none",
                     background: on ? "#a83c30" : "transparent", color: on ? "#fff5f0" : PFOG,
                     border: on ? "1.5px solid #8c2f25" : "1px solid " + PLINE2,
