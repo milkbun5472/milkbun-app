@@ -106,15 +106,15 @@ test("线上线下群聊共用同一套判据，别再各写一份", () => {
 // （曾经还做过「把旧回声从送进模型的历史里削掉」，她 2026-08-24 说不用，撤了：
 //   她宁可自己手动删，也不想让模型看到的内容跟她看到的不一样。）
 
-test("提示词里要说清：记录里有旧回声不代表那是他的习惯", () => {
-  assert.match(ONLINE, /【这一条不跟聊天记录走】上面的记录里要是有你自己「某某？」开场的旧消息/);
-  assert.match(ONLINE, /不是你的口头禅、不是你的语气标记、也不是这段关系里的默契/);
-  assert.match(ONLINE, /记录里出现过几次，就说明它错了几次，不说明它对/);
-  // 线下叙事准则那份也吃得到（共用 ECHO_QUESTION_BAN）
-  const i = engine.indexOf("const OFFLINE_NARRATIVE_RUNTIME = `");
-  const g = n => { const j = engine.indexOf("const " + n + " = `"); return engine.slice(j, engine.indexOf("`;", j) + 2); };
-  const off = new Function(g("ECHO_QUESTION_BAN") + "\n" + engine.slice(i, engine.indexOf("`;", i) + 2) + "\nreturn OFFLINE_NARRATIVE_RUNTIME;")();
-  assert.match(off, /不说明它对/);
+// ⚠️v70.31 整段撤了（她 2026-09-18：「有一些我怀疑现在不适用了，可以适当放松点」）。
+//   ①这件事已经有人管了：漏出去的旧回声她本来就手动删，而新的那些 strip 在展示前就削掉了，
+//     进不了记录，也就不存在「被当成习惯喂回去」的量。
+//   ②v70.19 标点那条同款的一段已经按同一个理由删过，这儿是最后一份。
+//   剩下的核心判据（「把开头那个反问删掉，句子照样成立」）还在，下面那条钉着。
+test("回声那条的核心判据还在，撤掉的只是补丁", () => {
+  assert.match(ONLINE, /这种回声式开场不是反应，是复述/);
+  assert.match(ONLINE, /把开头那个反问删掉——句子照样成立/);
+  assert.ok(!/这一条不跟聊天记录走/.test(ONLINE), "撤掉的那段又回来了");
 });
 
 // —— 她 2026-08-24 的截图：一轮连发三条，他回声了中间那条 ——
@@ -231,7 +231,5 @@ test("翻个人称不算添了新东西", () => {
   assert.equal(f.echoOpening("邀请你", said), undefined);
 });
 
-test("提示词那半边也要点破这个花招", () => {
-  assert.match(ONLINE, /别拿人称当遮掩/);
-  assert.match(ONLINE, /她说「有没有人邀请我」，你回「邀请你？」/);
-});
+// v70.31：提示词那半边撤了——人称调包由上面这个 echoOpening 在展示前真的认出来并削掉，
+// 不靠模型自觉（bans-make-it-dumber.md ①「已经有人管了吗」）。代码那一刀由上面几条钉着。
