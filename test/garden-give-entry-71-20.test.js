@@ -23,3 +23,13 @@ test("递不出去就把原因写在按钮上，不是灰着不动", () => {
   assert.match(game, /const gate=giftGate\(\);if\(gate&&!giftOptions\(data\)\.length\)\{say\(gate\);return;\}openGift\(\);/,
     "点下去要说得出为什么，而不是一按没反应");
 });
+
+// 她 2026-09-18：「送了礼物在哪儿看礼物簿啊宝宝，花册没有啊」
+// ⚠️礼物簿就住在花册的「相处」那一页里；签上只写「相处」，所以要在【她正要递的那一刻】
+//   和【村里的规矩】那张卡上都说清楚它在哪儿。签本身不能改成四个字：
+//   七张竖签排下来会长出屏幕（test/garden-rail-vertical-71-24.test.js 钉着这条）。
+test("礼物簿在哪儿这件事，两处都说得出口", () => {
+  const world = fs.readFileSync("apps/fairy-garden/world.mjs", "utf8");
+  assert.match(game, /递过的都记在花册的「相处」那一页。/, "挑东西那一页要说清楚记去哪儿了");
+  assert.match(world, /礼物簿在手机那一册的「相处」里，和相处册同一页。/, "规矩那张卡上也要说");
+});
