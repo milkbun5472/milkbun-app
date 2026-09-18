@@ -1,8 +1,8 @@
-import {brewError,brewResult} from './brewing.mjs?v=fg-f39bdff08210998e';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-f39bdff08210998e';
-import './rules.js?v=fg-f39bdff08210998e';
+import {brewError,brewResult} from './brewing.mjs?v=fg-4f326597fd151343';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-4f326597fd151343';
+import './rules.js?v=fg-4f326597fd151343';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-f39bdff08210998e';
+import {createNavigator} from './navigation.mjs?v=fg-4f326597fd151343';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1048,6 +1048,85 @@ export function moveOut(s, charId){
   return noteHappening({ ...s, neighbors: restoreNeighbors(s.neighbors).filter(n => String(n.charId) !== String(charId)) },
     'world', row.name + '从' + MAPS.garden.sites[row.home].label + '搬走了');
 }
+// ── 一起转星仪（她 2026-09-18：「做吧宝宝」；codex 提的②：两个人需要配合）──────
+// ⚠️这是全库第一件【两个人各做一半、合起来才成】的事。原来「两个人」只有一种形状：
+//   他在旁边，于是好一点（唤醒种子、水磨帮一把、并肩放水灯）。那是加成，不是配合。
+// ⚠️旧塔观星室是 codex 盖好的现成舞台：楼下站着铜环星仪，台阶上去是残顶观测台。
+//   一个人在下面转环，一个人在台上看光落在哪儿——这一版一个新景都不加。
+// ⚠️门开不开【由代码判】：对没对准是个数字。模型只负责他怎么开口报方向，
+//   那一枪等这副骨架立住了再接（她 2026-09-18 拍的板：先不打枪）。
+export const STAR_MARKS = 12;                       // 铜环一圈十二格
+export const STAR_SPOTS = { dial: 'orrery', watch: 'telescope' };
+export const STAR_ROLES = { dial: '在楼下转铜环', watch: '在台上看光' };
+export const STAR_REACH = 2.2;
+// 今晚对哪一格：由存档号＋天数定死。同一天进来几次都是那一格，不是摇奖机。
+export const starTarget = s => hash(String(s.epoch) + ':star:' + Math.max(1, count(s.day))) % STAR_MARKS;
+export function restoreStar(raw){
+  const d = raw && typeof raw === 'object' ? raw : {};
+  return { angle: count(d.angle) % STAR_MARKS, role: Object.hasOwn(STAR_ROLES, d.role) ? d.role : '',
+    day: count(d.day), doneDay: count(d.doneDay) };
+}
+export const starDone = s => restoreStar(s.star).doneDay === s.day;
+const atSpot = (p, map, key) => {
+  const site = MAPS[map]?.sites?.[STAR_SPOTS[key]];
+  return !!site && Math.hypot(site.target.x - p.x, site.target.z - p.z) <= STAR_REACH;
+};
+// 这会儿这一局成不成立：两个人都在塔里、她占了一头、今晚还没对上
+export const starLive = s => s.map === 'oldTower' && s.companion.map === 'oldTower'
+  && !!restoreStar(s.star).role && !starDone(s);
+export const starOther = role => role === 'dial' ? 'watch' : role === 'watch' ? 'dial' : '';
+export function starError(s, role){
+  if (s.map !== 'oldTower') return '这件事在旧塔的观星室里。';
+  if (!Object.hasOwn(STAR_ROLES, role)) return '先挑一头。';
+  if (starDone(s)) return '今晚已经对上过了，明晚再来。';
+  if (s.companion.map !== 'oldTower') return s.companion.name + '还没上来，叫上 TA 一起。';
+  if (!atSpot(s.position, s.map, role)) return '先走到' + MAPS.oldTower.sites[STAR_SPOTS[role]].label + '那儿。';
+  return '';
+}
+// 她占一头，他就去另一头。⚠️「他去哪儿」只写在 companion.mjs 的 plannedActivity 那一处
+//   （tick 在 routine 模式绕开 companionPlan——这一课这一季栽过三次了）。
+export function takeStarRole(s, role){
+  if (starError(s, role)) return s;
+  const star = restoreStar(s.star);
+  return { ...s, star: { ...star, role, day: s.day, angle: star.day === s.day ? star.angle : 0 } };
+}
+export const starLeave = s => ({ ...s, star: { ...restoreStar(s.star), role: '' } });
+// 差几格、偏哪边。⚠️【只有站在台上的那一位看得见】：转的人看不见这个数，
+//   看的人转不动那个环——这一句就是「配合」本身，两边谁都不能一个人做完。
+export function starGap(s){
+  const star = restoreStar(s.star);
+  let gap = (starTarget(s) - star.angle) % STAR_MARKS;
+  if (gap > STAR_MARKS / 2) gap -= STAR_MARKS;
+  if (gap < -STAR_MARKS / 2) gap += STAR_MARKS;
+  return gap;
+}
+export const starAligned = s => starGap(s) === 0;
+// 台上那个人看到的：差得远、差一点、对上了，再加偏哪边
+export function starReading(s){
+  const gap = starGap(s), near = Math.abs(gap);
+  if (!near) return '光正落在刻痕上。';
+  const side = gap > 0 ? '右' : '左';
+  return (near > 3 ? '光还偏得远，往' : near > 1 ? '快了，再往' : '就差一点，往') + side + '边。';
+}
+// 转一格。⚠️谁在转要分清楚：她占 dial 就是她自己转，她占 watch 就是【她指挥他转】。
+//   两种都从这一处走，不然「他转」那一路迟早自己长出一套。
+export function turnStar(s, step){
+  if (!starLive(s)) return s;
+  const star = restoreStar(s.star);
+  const raw = Number.isFinite(Number(step)) ? Math.trunc(Number(step)) : 1;
+  const by = (raw < 0 ? -1 : 1) * Math.min(3, Math.abs(raw) || 1);
+  return { ...s, star: { ...star, angle: ((star.angle + by) % STAR_MARKS + STAR_MARKS) % STAR_MARKS } };
+}
+// 对上了。⚠️一天一次，而且【两个人都得在位置上】——一个人把环转对了不算数。
+export function alignStar(s){
+  if (!starLive(s) || !starAligned(s)) return s;
+  const star = restoreStar(s.star);
+  if (!atSpot(s.position, s.map, star.role)) return s;
+  if (!atSpot(s.companion.position, s.companion.map, starOther(star.role))) return s;
+  return noteHappening({ ...s, star: { ...star, doneDay: s.day },
+    stones: count(s.stones) + 1 },
+    'world', '你们把铜环对上了今晚那一格，残顶落下一道光');
+}
 // ── 碰见（她 2026-09-17：「继续做玩法吧」）────────────────────────────
 // ⚠️三个人住进来了，可她走一整天什么也不会发生——「做了没有回响」在多人这一头
 //   又长了一遍。碰见就是那个回响最小的一份：谁和谁在哪儿照过面，村里的账上有。
@@ -1114,10 +1193,10 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',wellKit:'none',wellTrip:null,workshop:restoreWorkshop(null),waterLights:[],seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],partnerId:'',happenings:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:restoreFixtures(null),deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',wellKit:'none',wellTrip:null,workshop:restoreWorkshop(null),waterLights:[],seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],partnerId:'',star:restoreStar(null),happenings:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:restoreFixtures(null),deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){if(raw&&raw.interiorLayout!==2){raw={...raw,interiorLayout:2,companion:raw.companion?{...raw.companion}:raw.companion};for(const who of ['player','companion']){const person=who==='player'?raw:raw.companion;if(!person||!MAPS[person.map]?.interior)continue;const bed=person.map==='home'&&Object.hasOwn(MAPS.home.beds,raw.sleep?.[who])&&MAPS.home.beds[raw.sleep[who]];person.position={...(bed?bed.approach[who]:MAPS[person.map].spawn)};}}if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,interiorLayout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',wellKit:Object.hasOwn(WELL_KITS,d.wellKit)?d.wellKit:'none',wellTrip:map==='depths'?{day:Math.max(1,Math.min(count(d.day)||1,count(d.wellTrip?.day)||count(d.day)||1)),kit:Object.hasOwn(WELL_KITS,d.wellTrip?.kit)?d.wellTrip.kit:(Object.hasOwn(WELL_KITS,d.wellKit)?d.wellKit:'none')}:null,workshop:restoreWorkshop(d.workshop),waterLights:restoreWaterLights(d.waterLights),magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),partnerId:typeof d.partnerId==='string'?d.partnerId.slice(0,64):'',happenings:restoreHappenings(d.happenings),meets:restoreMeets(d.meets),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),partnerId:typeof d.partnerId==='string'?d.partnerId.slice(0,64):'',star:restoreStar(d.star),happenings:restoreHappenings(d.happenings),meets:restoreMeets(d.meets),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 // Thaw rescues only positions that are no longer traversable; inventory and relationship data stay intact.
 export function shoreAfterThaw(s){if(lakeFrozen(s))return s;const l=MAPS.garden.lake,at=p=>inPolygon(p.x,p.z,l.shore,.16)&&!walkable(p.x,p.z,'garden',s),p=s.map==='garden'&&at(s.position),c=s.companion.map==='garden'&&at(s.companion.position);if(!p&&!c)return s;return {...s,position:p?{...l.bottle.target}:s.position,companion:c?{...s.companion,position:{x:l.bottle.target.x+.85,z:l.bottle.target.z+.3}}:s.companion};}
 export function nextDay(s){const day=s.day+1;return withDailyNote(expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}))));}

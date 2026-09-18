@@ -25,10 +25,12 @@ test("邻居就是同行者那一份东西，没有第二套走路逻辑", () =>
 // ⚠️这一课这一季栽过两次：tick 在 mode==='routine' 时绕开 companionPlan，
 //   所以「邻居的家在哪儿」必须放进两个调用方都会读的那一处＝plannedActivity。
 test("「他家在哪儿」只有一处实现，companionPlan 和 tick 都读得到", () => {
-  assert.match(comp, /export function plannedActivity\(s\)\{const list=dailySchedule\(s\);return homeFor\(s,/);
+  assert.match(comp, /export function plannedActivity\(s\)\{const star=starFor\(s\);if\(star\)return star;/);
+  assert.match(comp, /const list=dailySchedule\(s\);return homeFor\(s,worksFor\(s,/);
   assert.match(comp, /邻居的「家」是他自己那间屋/);
   // homeFor 只被 plannedActivity 叫一次：多一处就是同一层活在两处
-  assert.equal((comp.match(/homeFor\(/g) || []).length, 2, "一次定义一次调用，多了就是抄了第二份");
+  const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.equal((code.match(/homeFor\(/g) || []).length, 2, "一次定义一次调用，多了就是抄了第二份");
 });
 
 // 「来找你说话」「去馆里看你留下的东西」「帮你浇花」都是【你和他之间】的事
@@ -58,9 +60,10 @@ test("住进来这件事有闸", () => {
 
 // 搬进搬出是村里的事，账上要有
 test("搬进来搬出去都记进村里的账", () => {
-  const seg = world.slice(world.indexOf("export function moveIn(s,"), world.indexOf("// ── 碰见"));
-  assert.match(seg, /noteHappening\(/);
-  assert.equal((seg.match(/noteHappening\(/g) || []).length, 2, "搬进和搬出各记一笔");
+  const inSeg = world.slice(world.indexOf("export function moveIn(s,"), world.indexOf("export function moveOut(s,"));
+  const outSeg = world.slice(world.indexOf("export function moveOut(s,"), world.indexOf("export function moveOut(s,") + 400);
+  assert.equal((inSeg.match(/noteHappening\(/g) || []).length, 1, "搬进记一笔");
+  assert.equal((outSeg.match(/noteHappening\(/g) || []).length, 1, "搬出记一笔");
 });
 
 // 花册里看得见谁住在村里、此刻在哪儿
