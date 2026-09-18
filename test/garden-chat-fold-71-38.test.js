@@ -30,9 +30,11 @@ test("两条路进来都看得到这间房的记录，而且只取最近 100 条
 });
 
 // 她 2026-09-18：「坐下来为什么朝向还是不对」「坐上去下不来了，显示没有空地可以走」
-test("朝向看家具的形状，不看她从哪边走过来", () => {
-  assert.match(world, /const long = f\.w >= f\.d;/);
-  assert.match(world, /const out = long \? \{ x: 0, z: 1 \} : \{ x: 1, z: 0 \};/);
+test("朝向看它摆在那儿是冲着什么，不看她从哪边走过来", () => {
+  // 她 2026-09-18 报了两遍：「坐下来为什么朝向还是不对」「喂这不对吧」
+  assert.match(world, /const long = f\.w >= f\.d, square = Math\.abs\(f\.w - f\.d\) < \.25;/, "方方正正的椅子两轴都要考虑");
+  assert.match(world, /const FACING = new Set\(\['table', 'roundtable', 'dining', 'desk', 'hearth', 'island', 'kitchen'\]\);/);
+  assert.match(world, /return look \* 100 \+ open \* 4 \+ toStand;/, "先看有没有可看的，再看空不空，最后才看她从哪边来");
   assert.match(world, /heading: Math\.atan2\(face\.x, face\.z\)/);
   assert.doesNotMatch(world, /heading: Math\.atan2\(stand\.x - f\.x, stand\.z - f\.z\)/, "又按走过来的方向定朝向了");
 });

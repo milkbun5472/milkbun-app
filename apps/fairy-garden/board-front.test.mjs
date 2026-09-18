@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {MAPS,walkable,findPath,freshState,hitInteraction} from './world.mjs';
+import {MAPS,walkable,findPath,freshState,hitInteraction,seatsOf} from './world.mjs';
 // 她 2026-09-18：「带我来公告栏不是应该站牌子前面吗，还有牌子点击也打不开公告」
 const g = MAPS.garden;
 const panel = g.obstacles.find(o => Math.abs(o.x + 2.4) < .01 && Math.abs(o.z + 9.6) < .3);
@@ -28,4 +28,22 @@ test('点牌子点得开', () => {
   for (const z of [ring.z - .3, ring.z, ring.z + .4])
     assert.equal(hitInteraction('garden', { x: panel.x, z })?.kind, 'board', 'z=' + z.toFixed(2) + ' 点不到');
   assert.ok(Math.hypot(spot.x - ring.x, spot.z - ring.z) <= ring.r, '站定的地方不在圈里');
+});
+
+// 她 2026-09-18：「坐下来为什么朝向还是不对」「喂这不对吧」
+// ⚠️屋里摆家具就是围着一张桌子坐：坐下的朝向要冲着那张桌子，不是冲着空墙。
+test('屋里每一处座位都冲着近旁那张桌子／壁炉坐', () => {
+  const FACING = ['table', 'roundtable', 'dining', 'desk', 'hearth', 'island', 'kitchen'];
+  for (const map of ['home', 'hall', 'neighbor1', 'neighbor2', 'neighbor3']){
+    const pieces = (MAPS[map].furniture || []).filter(q => FACING.includes(q.kind));
+    for (const [id, seat] of Object.entries(seatsOf(map))){
+      if (!seat.piece) continue;
+      const fx = Math.sin(seat.heading), fz = Math.cos(seat.heading);
+      const near = pieces.map(q => ({ d: Math.hypot(q.x - seat.x, q.z - seat.z),
+        ahead: (q.x - seat.x) * fx + (q.z - seat.z) * fz }))
+        .sort((a, b) => a.d - b.d)[0];
+      if (!near || near.d > 3) continue;        // 边上没东西可看的那几处不算
+      assert.ok(near.ahead > 0, map + ':' + id + ' 背对着 ' + near.d.toFixed(1) + ' 米外那张桌子坐');
+    }
+  }
 });
