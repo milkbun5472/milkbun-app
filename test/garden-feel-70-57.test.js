@@ -55,14 +55,14 @@ test("星图那一夜：六片拖到位才亮，拼齐才结算，中途关掉�
 });
 
 test("集市摊面：货和摊主在场景里，点货走过去买，摊位几何来自 rules", () => {
-  assert.match(market, /import \{MAPS,MARKET_GOODS,MARKET_RARE,marketStock,marketOpen,marketError\} from '\.\/world\.mjs/);
-  assert.match(market, /g\.group\.visible=stock\.includes\(id\)/, "没上摊的货不摆出来");
+  assert.match(market, /import \{MAPS,MARKET_GOODS,MARKET_RARE,FOODS,marketStock,marketOpen,marketError,nightStock,nightMarketOpen,foodError,stallOf,vendorAt,vendorSpot\} from '\.\/world\.mjs/);
+  assert.match(market, /g\.group\.visible=g\.night===night&&stock\.includes\(id\)/, "没上摊的货不摆出来；白天一排夜里一排");
   assert.match(market, /const stalls=Object\.fromEntries\(MAPS\.garden\.market\.stalls\.map\(s=>\[s\.kind,s\]\)\)/);
   assert.doesNotMatch(market, /cost:\s*\d/, "价钱只在 world.MARKET_GOODS 一处");
   assert.match(market, /setDoll\(source\)/);
   assert.match(game, /const good=marketView\.pick\(ray\);if\(good\)\{buyGood\(good\);return;\}/);
   assert.match(game, /if\(go\(front,\{kind:'buy',id\}\)\)/);
-  assert.match(game, /if\(kind==='buy'\)\{const id=acting\.id;acting=null;\$\('progress'\)\.hidden=true;const err=marketError\(data,id\);if\(err\)\{say\(err\);ui\(\);return;\}data=buy\(data,id\);marketView\.fly\(id,/);
+  assert.match(game, /if\(kind==='buy'\)\{const id=acting\.id;acting=null;\$\('progress'\)\.hidden=true;const food=!!\(foodOf\(id\)\|\|recipeOf\(id\)\);const err=food\?foodError\(data,id\):marketError\(data,id\);if\(err\)\{say\(err\);ui\(\);return;\}data=food\?buyFood\(data,id\):buy\(data,id\);marketView\.fly\(id,/);
   assert.match(game, /dollSource=a\.scene;marketView\.setDoll\(dollSource\);/);
   assert.match(game, /marketView\.update\(data,clock,dt\);/);
 });

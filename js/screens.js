@@ -11501,7 +11501,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
 const CUR_PRESETS = [
   { code: "CNY", symbol: "¥", rate: 1, pos: "pre", dec: 2, zh: "人民币" },
   { code: "JPY", symbol: "円", rate: 20, pos: "post", dec: 0, zh: "日元" },
-  { code: "KRW", symbol: "원", rate: 190, pos: "post", dec: 0, zh: "韩元" },
+  { code: "KRW", symbol: "₩", rate: 190, pos: "pre", dec: 0, zh: "韩元" },
   { code: "USD", symbol: "$", rate: 0.14, pos: "pre", dec: 2, zh: "美元" }
 ];
 function CurrencyBook({ char, cur, onSave, onBack }) {
@@ -11543,7 +11543,7 @@ function CurrencyBook({ char, cur, onSave, onBack }) {
           style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999,
             border: "1px solid " + (code === pz.code ? t.ink : t.line), color: code === pz.code ? t.ink : t.sub } },
           pz.zh + " " + pz.symbol))),
-      field("符号", input(sym, v => setSym(String(v).slice(0, 4))), "想填什么都行——円、원、$、G、枚、灵石。"),
+      field("符号", input(sym, v => setSym(String(v).slice(0, 4))), "想填什么都行——円、₩、$、G、枚、灵石。"),
       field("1 元人民币 = 多少", input(rate, setRate, { type: "number", inputMode: "decimal" }),
         "这个数由你定，不联网、不会自己变。日元大概填 20，韩元 190。"),
       field("符号放哪边", h("div", { className: "flex gap-2" },

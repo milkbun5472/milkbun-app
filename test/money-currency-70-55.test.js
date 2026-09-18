@@ -125,6 +125,9 @@ test("数的是宽度不是字符数：円、원 这种一个顶两个", () => {
   assert.equal(fitCtx.cells("1000"), 4);
   assert.equal(fitCtx.cells("円"), 2, "只按 length 算的话全角字会被少算一半，照样掉行");
   assert.equal(fitCtx.cells("원"), 2);
+  // ⚠️₩（U+20A9）跟「원」不一样，它是窄的——韩元预设 v70.72 换成了它
+  //   （她 2026-09-18：「韩元 换这个₩ 就更好了」），别跟着当全角算。
+  assert.equal(fitCtx.cells("₩"), 1);
   assert.equal(fitCtx.cells("-273,362 円"), 11);
   assert.equal(fitCtx.cells("¥1,000.00"), 9, "¥ 是窄的（U+00A5），别当全角");
 });
@@ -132,7 +135,7 @@ test("数的是宽度不是字符数：円、원 这种一个顶两个", () => {
 test("放得下就不动，放不下才缩，缩到地板为止", () => {
   assert.equal(fitCtx.fit("¥1,000.00", 38, 9, 20), 38, "本来放得下的被缩了");
   assert.ok(fitCtx.fit("-273,362 円", 38, 9, 20) < 38);
-  assert.ok(fitCtx.fit("-2,597,000 원", 38, 9, 20) < fitCtx.fit("-273,362 円", 38, 9, 20), "越长该越小");
+  assert.ok(fitCtx.fit("₩-25,970,000", 38, 9, 20) < fitCtx.fit("-273,362 円", 38, 9, 20), "越长该越小");
   assert.equal(fitCtx.fit("-".repeat(400), 38, 9, 20), 20, "再长也不许小过地板");
   assert.equal(fitCtx.fit("", 38, 9, 20), 38);
   assert.equal(fitCtx.fit(null, 38, 9, 20), 38, "没有数的时候别算出 NaN 字号");
@@ -242,4 +245,21 @@ test("她敲的数要折回人民币再送出去，而且当场告诉她钱包�
   // 余额不够就按不下去——原来一按就是一条「余额不足」的 toast，钱先发出去了才知道
   assert.match(seg, /const enough = cny != null && cny > 0 && \(myBalance == null \|\| cny <= Number\(myBalance\) \+ 1e-9\);/);
   assert.match(seg, /disabled: !enough/);
+});
+
+test("韩元预设用 ₩，而且是前置的（₩1,000，不是 1,000 ₩）", () => {
+  assert.match(screens, /\{ code: "KRW", symbol: "₩", rate: 190, pos: "pre", dec: 0, zh: "韩元" \}/);
+  assert.ok(!/symbol: "원"/.test(screens), "원 那一版还在");
+  M.setBook({ k: { code: "KRW", symbol: "₩", rate: 190, pos: "pre", dec: 0 } });
+  assert.equal(M.fmt(3000, "k"), "₩570,000");
+  assert.equal(M.say(50, "k"), "₩9500");
+});
+
+test("改余额那个框里，各家的符号都要认得出来", () => {
+  M.setBook({ k: { symbol: "₩", rate: 190, dec: 0 }, j: { symbol: "円", rate: 20, pos: "post", dec: 0 } });
+  assert.equal(M.parse("₩570,000", "k"), 3000);
+  assert.equal(M.parse("570000", "k"), 3000);
+  // 她手敲一个「원」进来也得认——预设换成 ₩ 了，可键盘上打出来的多半还是这个
+  assert.equal(M.parse("9,500 원", "k"), 50);
+  assert.equal(M.parse("1,000 円", "j"), 50);
 });
