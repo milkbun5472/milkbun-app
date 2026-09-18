@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0afec07e6f6b4a0a", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-21aeb0b762001390", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -306,7 +306,7 @@
       if (frame.current && frame.current !== node) hosts.delete(frame.current.contentWindow); frame.current = node; if (!node) return;
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name } : null; },
-        save: world => { if (frame.current !== node) return false; if (JSON.stringify(world).length > 100000) throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
+        save: world => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
         openChat: () => openChat(true), changePartner,
         // 收花笺：游戏那头走到花圃按下收，生成这一枪在这儿打（callAI 在父页）。
         // 一次把开好的全回了，回来由游戏自己写进存档。
@@ -426,12 +426,18 @@
     const [bottles, setBottles] = useState(null);
     const [crew, setCrew] = useState(null);
     const [bottleText, setBottleText] = useState("");
+    const bottleView=useRef({query:"",repliesOnly:false,page:0}),bottleArchive=useRef(null);
+    const readBottleBook=(patch,scroll=false)=>{
+      bottleView.current={...bottleView.current,...patch};
+      const g=game();if(g?.getBottles)setBottles(g.getBottles(bottleView.current));
+      if(scroll)requestAnimationFrame(()=>bottleArchive.current?.scrollIntoView({block:"start"}));
+    };
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
       if (g.getShards) setShardBox(g.getShards());
       if (g.getThings) setThings(g.getThings());
       if (g.getCollection) setMuseum(g.getCollection());
-      if (g.getBottles) setBottles(g.getBottles());
+      if (g.getBottles) setBottles(g.getBottles(bottleView.current));
       if (g.getNeighbors) setCrew(g.getNeighbors()); };
     const [who, setWho] = useState('companion');
     const [styles, setStyles] = useState(null);
@@ -557,7 +563,7 @@
              ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length],
              ["things", "屋里", ((things && things.rows) || []).length],
              ["museum", "收藏馆", ((museum && museum.rows) || []).length],
-             ["bottle", "漂流瓶", ((bottles && bottles.floating) || []).length],
+             ["bottle", "漂流瓶", ((bottles && bottles.waiting) || []).length],
              ["crew", "邻居", ((crew && crew.rows) || []).length]].map(([k, label, n]) => {
               const on = bookTab === k;
               return h("button", { key: k, onClick: () => setBookTab(k), className: "flex-1 active:opacity-80",
@@ -618,18 +624,29 @@
                 setBottleText(""); pullGarden(); props.toast("放下水了，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，去水边看看。"); },
               style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5 } },
               "放下水"),
-            ((bottles && bottles.floating) || []).length ? h("div", { style: { marginTop: 20 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "还在水里的"),
-              bottles.floating.map(b => h("div", { key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
-                b.text + " · 还有 " + b.backIn + " 个游戏日到水边看看"))) : null,
-            ((bottles && bottles.drifts) || []).length ? h("div", { style: { marginTop: 22 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "捞上来过的"),
-              h("div", { style: { display: "grid", gap: 10 } },
-                bottles.drifts.map((d, i) => h("div", { key: (d.id || "") + ":" + i, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+            ((bottles && bottles.waiting) || []).length ? h("div", { style: { marginTop: 20 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
+                bottles.ready ? "有 " + bottles.ready + " 只已到月湖，去栈桥捞捞看" : "还在水里的"),
+              bottles.waiting.map(b => h("div", { key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+                b.text + (b.backIn ? " · 还有 " + b.backIn + " 个游戏日" : " · 已到月湖，待捞")))) : null,
+            h("section", {ref:bottleArchive,"aria-label":"漂流信册",style:{marginTop:22}},
+              h("div", {style:{fontFamily:F_BODY,fontSize:12,color:G.ink,marginBottom:8}}, "捞上来过的 · 共 " + (bottles?.total||0) + " 封"),
+              h("input", {type:"search","aria-label":"搜索漂流信",placeholder:"搜原句、回信或署名",value:bottleView.current.query,
+                onChange:e=>readBottleBook({query:e.target.value,page:0}),
+                style:{width:"100%",minHeight:44,border:"1px solid "+G.line,borderRadius:10,padding:"10px 12px",background:G.paper,color:G.ink,fontSize:14}}),
+              h("label", {style:{display:"flex",alignItems:"center",gap:8,minHeight:44,fontSize:12,color:G.ink}},
+                h("input", {type:"checkbox",checked:bottleView.current.repliesOnly,onChange:e=>readBottleBook({repliesOnly:e.target.checked,page:0})}), "只看回信"),
+              h("div", {role:"status",style:{fontSize:11,color:G.soft,marginBottom:10}},
+                bottles?.matches ? "找到 " + bottles.matches + " 封 · 第 " + (bottles.page+1) + " / " + bottles.pages + " 页" : bottles?.total ? "没有找到相符的信，换个词看看。" : "捞到的信会留在这里。"),
+              h("div", {style:{display:"grid",gap:10}},
+                (bottles?.drifts||[]).map((d,i)=>h("article", {key:(d.id||"")+":"+d.day+":"+i,style:{borderRadius:14,border:"1px solid "+G.line,background:"rgba(255,255,255,.6)",padding:"11px 13px"}},
+                  h("div", {style:{fontFamily:F_BODY,fontSize:10.5,color:"#93a188"}},
                     "第 " + d.day + " 天捞到 · " + (d.kind === "reply" ? (d.sender || "同行者") + "的回信" : d.kind === "mine" ? "自己封的" : d.kind === "note" ? "旧花笺" : d.kind === "shard" ? "井里的碎片" : "馆里的一件") + "（第 " + d.from + " 天）"),
                   d.original && h("div", {style:{fontSize:12,color:G.soft,marginTop:8}}, "你放下的：" + d.original),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, d.text))))) : null)
+                  h("div", {style:{fontFamily:F_BODY,fontSize:13.5,color:G.ink,marginTop:6,lineHeight:1.85,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},d.text)))),
+              bottles?.pages>1 && h("div", {style:{display:"flex",justifyContent:"space-between",gap:12,marginTop:16}},
+                h("button", {disabled:bottles.page===0,onClick:()=>readBottleBook({page:bottles.page-1},true),style:{...pill(),minHeight:44}}, "上一页"),
+                h("button", {disabled:bottles.page>=bottles.pages-1,onClick:()=>readBottleBook({page:bottles.page+1},true),style:{...pill(),minHeight:44}}, "下一页"))))
           :           bookTab === "museum" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
             //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
