@@ -70,5 +70,14 @@ test("换个人／换个群，窗口收回去", () => {
 test("这一层只有一份，单聊群聊都问它要", () => {
   assert.equal((comp.match(/function useChatWindow\(/g) || []).length, 1);
   assert.equal((comp.match(/useChatWindow\(ref, messages\.length/g) || []).length, 2, "有一处没搬过来，或者又多写了一份");
-  assert.equal((comp.match(/const \[winN, setWinN\] = useState/g) || []).length, 1, "窗口状态被抄了第二份");
+  // v71.15 旁边多了一支 useListWindow（记忆库那种往【下】长的名单），它自己也有 winN。
+  // 所以这儿改成只看聊天那一支的身体里有没有第二份——原来数全文，加个兄弟就误伤。
+  const i = comp.indexOf("function useChatWindow(ref, total, resetKey)");
+  const j = comp.indexOf("const LIST_WINDOW =", i);
+  assert.ok(i > 0 && j > i, "抠不出 useChatWindow");
+  assert.equal((comp.slice(i, j).match(/const \[winN, setWinN\] = useState/g) || []).length, 1, "窗口状态被抄了第二份");
+  // ⚠️那一支不许长出滚动补偿：聊天往上长要把滚动位置顶回去，名单往下长不用，
+  //   两边补法是反的（所以当初没合成一支）。
+  const k = comp.indexOf("function useListWindow(total, resetKey)");
+  assert.ok(k > 0 && !/scrollTop/.test(comp.slice(k, comp.indexOf("const mTight =", k))), "往下长的那支混进了往上长的补法");
 });

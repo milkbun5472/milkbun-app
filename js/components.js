@@ -113,6 +113,12 @@ function applyChatLook(next) {
   };
   // ① 这个人的皮肤：压在主题那张（全局皮肤）上面。CSS 由 App 那头限好页面再传进来。
   put("wk-char-skin-css", scope ? (L.skinCSS || "") : "");
+  // ①.5 这个人自己的字体（她 2026-09-18：「聊天里的字体按角色单独设置」）。
+  //   全 App 的字只有 --f-body / --f-display 两个变量（见 core.js），所以「只给 TA 换字」
+  //   就是【在这一个聊天窗的作用域里把那两个变量改掉】——一处气泡代码都不用动。
+  //   ⚠️作用域选择器比 :root 具体，所以压得过主题工作台那份全局的；离开这个聊天窗
+  //     它整块发空，别人的窗口一个字都不受影响。
+  put("wk-char-font-css", (scope && L.fontCSS) ? L.fontCSS : "");
   // ② 全局气泡：压在皮肤上面（她 2026-09-03 定的老规矩，这一层不限页面）
   put("wk-skin-css", bubbleDecls(BUBBLE_SKIN));
   // ③ 这个人皮肤那层【底】再压一次：气泡预设里也带着一个 chatBg，不压回来的话，
@@ -857,6 +863,34 @@ function useChatWindow(ref, total, resetKey) {
   }, [winN]);
   // growing()＝这一拍是【她在往上翻】，不是来了新消息：滚到底那一下要躲开它
   return { winStart, growMore, growing: () => !!growRef.current };
+}
+// 长名单只画一截，往下翻到底再续一截（她 2026-09-18：「记忆库记忆多的话也会很卡
+// 有没有办法也做懒加载啊」）。记忆库两千条全画出来，光是 DOM 就要几万个节点，
+// 搜一下、点一下都要卡半秒。
+//
+// ⚠️为什么不跟上面那支 useChatWindow 合成一个：**两边长的方向是反的**。
+//   聊天是往【上】长（旧的在前面），所以它必须在补完之后把滚动位置顶回去，
+//   不然她正在看的那一段会当场往下窜掉一大截；记忆库是往【下】长，前面什么都没多，
+//   压根没有那一下要补。硬合成一支的话，那支就得同时表达两种补法——
+//   而补错方向的那一下，是屏幕上当场看得出来的。所以是两支，住在一起。
+const LIST_WINDOW = 60;
+function useListWindow(total, resetKey) {
+  const [winN, setWinN] = useState(LIST_WINDOW);
+  // 换了筛选／换了搜索词：窗口收回去，别让上一摞翻开的长度带过来
+  useEffect(() => { setWinN(LIST_WINDOW); }, [resetKey]);
+  const shown = Math.min(total, winN);
+  const more = Math.max(0, total - shown);
+  // 底下那根哨子进视野就续一截。用 IntersectionObserver 而不是监听滚动：
+  // 这一摞外面是哪一层在滚，各页不一样，盯哨子跟谁在滚无关。
+  const sentinel = useRef(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !more || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) setWinN(n => n + LIST_WINDOW); });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [more]);
+  return { shown, more, sentinel };
 }
 const mTight = (n, charId) => (typeof Money !== "undefined" && Money) ? Money.say(n, charId) : "¥" + (n == null ? 0 : n);
 
@@ -15269,6 +15303,13 @@ function ChatSettings({
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
+  // 这个人自己的字体（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）。
+  // 跟皮肤同一个形状：空＝跟随全局，挑了就只盖这一个聊天窗。名单还是问 FontChoice 要。
+  const [font, setFont] = useState(() => {
+    const F = typeof window !== "undefined" && window.FontChoice;
+    const cus = (window.ThemeStudio && window.ThemeStudio.current() || {}).customFonts || [];
+    return F ? F.clean(settings.font, cus) : { body: "", display: "" };
+  });
   const [bubble, setBubble] = useState((settings.bubble && typeof settings.bubble === "object") ? settings.bubble : null);
   const [bubOpen, setBubOpen] = useState(false);
   // 细调一栏＝在【当前实际显示的那一套】上改：跟随全局时先把全局那份铺开当底，
@@ -15527,6 +15568,7 @@ function ChatSettings({
       describeMe,
       chatBg,
       skin,
+      font,
       bubble,
       apiId,
       engineerEyes,
@@ -15710,6 +15752,34 @@ function ChatSettings({
             style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
               background: skin === v ? t.ink : "transparent", color: skin === v ? t.bg2 : t.fog,
               border: "1px solid " + (skin === v ? t.ink : t.line) } }, label)))),
+    // ── 只给 TA 换字（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）──
+    // 跟上面那两格同一个形状：第一档永远是「跟随全局」，不然改一次就退不回去了。
+    // 名单问 FontChoice 要（内置那十支 + 她在主题工作台自己传的），这儿不另抄一份。
+    // 每一支仍旧【用它自己的字写自己的名字】，跟工作台那边一样认得出。
+    (() => {
+      const F = typeof window !== "undefined" && window.FontChoice;
+      if (!F) return null;
+      const cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
+      const list = F.facesWith(cus);
+      const row = (kind, label) => h("div", { style: { marginTop: 8 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 5 } }, label),
+        h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+          list.map(f => {
+            const on = String(font[kind] || "") === f.key;
+            return h("button", {
+              key: (f.key || "_") + kind,
+              onClick: () => setFont(p => Object.assign({}, p, { [kind]: f.key })),
+              className: "active:opacity-70",
+              style: { fontFamily: f.stack || F_BODY, fontSize: 13, padding: "6px 12px", borderRadius: 999,
+                background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
+                border: "1px solid " + (on ? t.ink : t.line) } }, f.key ? f.zh : "跟随全局");
+          })));
+      return h("div", { className: "pt-5" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换字"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+          "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
+        row("body", "正文"), row("display", "标题"));
+    })(),
     h("div", { className: "pt-5" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换气泡"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
