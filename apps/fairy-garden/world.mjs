@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-bb93ff38b286d93a';
-import {brewError,brewResult} from './brewing.mjs?v=fg-bb93ff38b286d93a';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-bb93ff38b286d93a';
-import './rules.js?v=fg-bb93ff38b286d93a';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-47dc1f2b54a18343';
+import {brewError,brewResult} from './brewing.mjs?v=fg-47dc1f2b54a18343';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-47dc1f2b54a18343';
+import './rules.js?v=fg-47dc1f2b54a18343';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-bb93ff38b286d93a';
+import {createNavigator} from './navigation.mjs?v=fg-47dc1f2b54a18343';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1314,3 +1314,12 @@ export function repairError(s,id){
  return !sh||sh.curio!=='relic'?'先挑一件井里带回的沉睡旧物。':sh.pinned?'这件旧物钉住了，先在收藏里解除钉住。':s.things.length>=THING_CAP?'屋里的东西放满了，先留一些到收藏馆再修。':'';
 }
 function repairRelic(s,id){const sh=s.shards.find(x=>x.id===id),thing={id:'rr_'+sh.id,name:'修好的留光匣',note:'松开的匣盖重新扣合，裂缝用金线接住；里面仍留着井底带回的那一片。',kind:sh.kind,way:'set',recipe:'repairedrelic',from:sh.text,day:s.day,openDay:0,spot:null};return noteHappening({...s,shards:s.shards.filter(x=>x.id!==id),things:[thing,...s.things]},'made','在水磨坊修好了一只留光匣');}
+
+// A gift is settled only after the visible handover; no main-chat affection or memory changes.
+export function flowerGiftError(s){
+ if(s.harvest<1)return '先收获一朵月光花，再拿给同行者。';
+ if(s.seat||sleepPose(s)||sleepPose(s,'companion'))return '先起身，面对面递给 TA。';
+ if(s.map!==s.companion.map||Math.hypot(s.position.x-s.companion.position.x,s.position.z-s.companion.position.z)>1.65)return '靠近同行者一点，再把花递过去。';
+ return '';
+}
+export function giveMoonFlower(s){if(flowerGiftError(s))return s;return noteHappening({...s,harvest:s.harvest-1},'world','把一朵月光花递给了'+s.companion.name);}
