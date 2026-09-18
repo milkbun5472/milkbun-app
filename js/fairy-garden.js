@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-3915a13bb1499558", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-4edb7706b6dfbc0a", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -500,6 +500,8 @@
         },
         // 礼物簿那张表：这位角色一辈子只问一次，问过就存在这一档里（跟季节安排一个放法）
         hasTastes: () => { const c = partner(); const d = current(); return !!(c && d.tastes && d.tastes[String(c.id)] && d.tastes[String(c.id)].status === "ready"); },
+        // 屋里点衣柜／梳妆台（审计，她 2026-09-18）：开的就是季节手册那一页「样貌」，不另做一个换装界面
+        openWardrobe: () => { pullLook(); pullGarden(); setDress(true); },
         // 他带路那十句：一位角色问一次，存在这一档的 guides[charId]
         guideLines: async () => {
           const c = partner(); if (!c) throw new Error("先选一位同行者。");
