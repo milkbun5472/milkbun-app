@@ -92,7 +92,7 @@ test('炼金整条链不许出现模型调用', () => {
   assert.match(craft, /一枪都不打/);
   // 弹层也只在本地算：挑碎片、挑做法、出东西
   assert.match(game, /function openCraft\(\)/);
-  assert.doesNotMatch(game.slice(game.indexOf('function openCraft()'), game.indexOf("$('craft').onclick")), /host\.|callAI/);
+  assert.doesNotMatch(game.slice(game.indexOf('function openCraft()'), game.indexOf("function openMuseum()")), /host\.|callAI/);
 });
 
 test('雨铃响不响是代码说的，不是模型生成的', () => {

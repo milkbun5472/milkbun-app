@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-fa87b205aeda5b4f';
-import {brewError,brewResult} from './brewing.mjs?v=fg-fa87b205aeda5b4f';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-fa87b205aeda5b4f';
-import './rules.js?v=fg-fa87b205aeda5b4f';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-14322dff8059f999';
+import {brewError,brewResult} from './brewing.mjs?v=fg-14322dff8059f999';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-14322dff8059f999';
+import './rules.js?v=fg-14322dff8059f999';
 export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-fa87b205aeda5b4f';
+import {createNavigator} from './navigation.mjs?v=fg-14322dff8059f999';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -715,23 +715,21 @@ export function donate(s, id){
 }
 // 馆里已经有几种（不是几件）：炼金笔记那一页拿它对着 RECIPE_TOTAL 算进度
 export const collectedKinds = s => new Set((s.collection || []).map(sameKindMark)).size;
-// ── 漂流瓶（她 2026-09-17 点的）─────────────────────────────────────────
-// ⚠️这一条是【零调用】里最零的一条：它一个字都不生成，只把【已经在存档里的东西】
-//   重新递回来一次——过去的花笺、刨到过的碎片、留在馆里的东西，还有她自己封进去的那句话。
-// ⚠️它不是第二个背包：捞上来【不产生任何新库存】，原来那一片还在原来那儿，
-//   这儿只留一条「第几天捞到过什么」的记录（先例：codex 的收藏馆也是只读陈列）。
-// ⚠️自己封的那只要过几天才漂回来——【当天就能捞到自己刚写的】就不是漂流瓶，是记事本。
+// 它不是第二个背包：回信只入漂流记录，不产生物资。
+// 漂流瓶：新瓶有固定的回信机会，旧瓶保留原来的归还规则。概率不随刷新重抽。
 export const BOTTLE_DAYS = 7, BOTTLE_CAP = 60, DRIFT_CAP = 60;
 export function restoreBottles(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.text).slice(0, BOTTLE_CAP).map(x => ({
     id: String(x.id).slice(0, 40), text: trimText(x.text, 120),
-    day: Math.max(1, count(x.day)), openDay: Math.max(1, count(x.openDay)), taken: x.taken === true
+    day: Math.max(1, count(x.day)), openDay: Math.max(1, count(x.openDay)), taken: x.taken === true,
+    ...(x.replyWanted === true ? {replyWanted:true, reply:trimText(x.reply,600), sender:trimText(x.sender,60)} : {})
   }));
 }
 export function restoreDrifts(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.text).slice(0, DRIFT_CAP).map(x => ({
-    id: String(x.id || '').slice(0, 40), kind: ['mine', 'note', 'shard', 'kept'].includes(x.kind) ? x.kind : 'note',
-    text: trimText(x.text, 240), day: Math.max(1, count(x.day)), from: Math.max(0, count(x.from))
+    id: String(x.id || '').slice(0, 40), kind: ['reply', 'mine', 'note', 'shard', 'kept'].includes(x.kind) ? x.kind : 'note',
+    ...(x.kind === 'reply' ? {original:trimText(x.original,120),sender:trimText(x.sender,60)} : {}),
+    text: trimText(x.text, 600), day: Math.max(1, count(x.day)), from: Math.max(0, count(x.from))
   }));
 }
 export const sealedToday = s => (s.bottles || []).some(b => b.day === s.day);
@@ -742,7 +740,8 @@ export const sealError = (s, text) =>
 export function sealBottle(s, text){
   if (sealError(s, text)) return s;
   const bottle = { id: 'bo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
-    text: trimText(text, 120), day: s.day, openDay: s.day + BOTTLE_DAYS, taken: false };
+    text: trimText(text, 120), day: s.day, openDay: s.day + BOTTLE_DAYS, taken: false,
+    ...(hash(String(s.epoch)+':bottle-reply:'+s.day+':'+trimText(text,120))%100 < 65 ? {replyWanted:true,reply:'',sender:''} : {}) };
   return { ...s, bottles: [bottle, ...(s.bottles || [])].slice(0, BOTTLE_CAP) };
 }
 // 今天水里能捞到什么：自己封的到日子了就先还她自己那一只，
@@ -750,7 +749,9 @@ export function sealBottle(s, text){
 export function driftPick(s){
   const mine = (s.bottles || []).filter(b => !b.taken && s.day >= b.openDay)
     .sort((a, b) => a.openDay - b.openDay)[0];
-  if (mine) return { id: mine.id, kind: 'mine', text: mine.text, from: mine.day };
+  if (mine) return mine.replyWanted
+    ? {id:mine.id,kind:'reply',text:mine.reply,original:mine.text,sender:mine.sender,from:mine.day,pending:!mine.reply}
+    : { id: mine.id, kind: 'mine', text: mine.text, from: mine.day };
   const pool = [
     ...(s.notes || []).filter(n => n.reply).map(n => ({ id: n.id, kind: 'note', text: n.reply, from: n.day })),
     ...(s.shards || []).map(x => ({ id: x.id, kind: 'shard', text: x.text, from: x.day })),
@@ -765,12 +766,19 @@ export const driftError = s =>
 export function drawBottle(s){
   if (driftError(s)) return s;
   const row = driftPick(s);
+  if(row?.pending)return s;
   const today = { ...(s.today || {}), bottle: count((s.today || {}).bottle) + 1 };
   if (!row) return { ...s, today };          // 空瓶子也算捞过：不让她今天一直捞下去
   return addMiss({ ...s, today,
-    bottles: row.kind === 'mine'
+    bottles: ['mine','reply'].includes(row.kind)
       ? (s.bottles || []).map(b => b.id === row.id ? { ...b, taken: true } : b) : (s.bottles || []),
     drifts: restoreDrifts([{ ...row, day: s.day }, ...(s.drifts || [])]) }, 'drift');
+}
+export function keepBottleReply(s,id,reply,sender){
+  const b=(s.bottles||[]).find(x=>x.id===id);
+  const text=trimText(reply,600);
+  if(!b||b.taken||!b.replyWanted||b.reply||s.day<b.openDay||!text)return s;
+  return {...s,bottles:s.bottles.map(x=>x.id===id?{...x,reply:text,sender:trimText(sender,60)}:x)};
 }
 // 还在水里漂着、没到日子的那几只（界面照这个说「还有几天」）
 export const floating = s => (s.bottles || []).filter(b => !b.taken && s.day < b.openDay)
