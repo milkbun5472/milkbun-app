@@ -194,7 +194,7 @@ test("代付：清单、合计、他的余额一律同一个单位——最怕�
 // ⚠️B 类是【定下来不收】的，不是漏的：说不清这笔钱是谁的。
 //   哪天要收，得先定它跟谁走（群红包按发的人还是按抢的人？）。
 test("B 类仍旧是人民币，而且是有意的", () => {
-  assert.match(comp, /"我的余额 ¥"/, "她自己的钱包");
+  assert.match(comp, /"钱包余额 ¥"/, "她自己的钱包（发红包那一屏）");
   assert.match(app, /toast\("红包已发出 ¥" \+ a\)/, "红包发给一群人，说不清是谁的币");
   assert.match(screens, /"钱包里还有 ¥"/, "商城是她在逛");
 });
@@ -202,4 +202,35 @@ test("B 类仍旧是人民币，而且是有意的", () => {
 // C 类：入口方向，删了就坏了
 test("解析模型交回来的金额时照旧吃掉 ¥——那是【进来】的方向", () => {
   assert.match(app, /replace\(\/\[,，\\s¥￥\$元\]\/g, ""\)/);
+});
+
+// ── 转账那一屏（她 2026-09-18：「转账是个半窗改一下，还有那个 cny 也改成符号」）──
+test("转账整页，不是半窗", () => {
+  const seg = comp.slice(comp.indexOf("function TransferComposeSheet("), comp.indexOf("// 发位置:写一个地名"));
+  assert.ok(!/h\(Sheet, \{/.test(seg), "还是半窗（施工规则/no-half-sheet.md）");
+  assert.match(seg, /h\("div", \{ className: "h-full flex flex-col"/);
+  assert.match(seg, /h\(Head, \{ zh: "转账给 " \+ cName/, "顶栏要走公共 Head（mobile-ui-layout.md §1）");
+  assert.match(seg, /className: "flex-1 min-h-0 overflow-y-auto/, "正文少了 min-h-0");
+});
+
+test("整屏统一按对方的币种，不再一处 CNY 一处 ¥ 一处 円", () => {
+  const seg = comp.slice(comp.indexOf("function TransferComposeSheet("), comp.indexOf("// 发位置:写一个地名"));
+  assert.ok(!/"CNY"/.test(seg), "写死的 CNY 还在");
+  assert.match(seg, /cur\.pos === "pre" \? h\("span"[\s\S]{0,180}?cur\.symbol\) : null/, "符号要跟着前后位置走");
+  assert.match(seg, /const balText = myBalance == null \? "—" : \(M \? M\.fmt\(myBalance, charId\) : "¥" \+ myBalance\)/, "余额还写死 ¥");
+  // 两个调用点都得告诉它对方是谁
+  assert.match(comp, /charId: character && character\.id,\n    myBalance: myBalance,/, "单聊那个入口");
+  assert.match(comp, /charId: xferMember\.id,\n    myBalance: myBalance,/, "群里那个入口");
+});
+
+// ⚠️这一条是会真的转错钱的地方：她按【他那边的数】敲，扣的是人民币。
+test("她敲的数要折回人民币再送出去，而且当场告诉她钱包会扣多少", () => {
+  const seg = comp.slice(comp.indexOf("function TransferComposeSheet("), comp.indexOf("// 发位置:写一个地名"));
+  assert.match(seg, /const cny = M \? M\.parse\(amount, charId\) : \(Number\(amount\) \|\| null\);/);
+  assert.match(seg, /const submit = \(\) => \{ if \(enough\) onSend\(cny, note\.trim\(\)\); \};/, "把没折算的数直接送出去了");
+  assert.ok(!/onSend\(a, note\.trim\(\)\)/.test(seg), "旧的 Number(amount) 那条路还在");
+  assert.match(seg, /"从你钱包扣 ¥" \+ cny\.toFixed\(2\)/, "不是人民币时没说清真正扣多少");
+  // 余额不够就按不下去——原来一按就是一条「余额不足」的 toast，钱先发出去了才知道
+  assert.match(seg, /const enough = cny != null && cny > 0 && \(myBalance == null \|\| cny <= Number\(myBalance\) \+ 1e-9\);/);
+  assert.match(seg, /disabled: !enough/);
 });

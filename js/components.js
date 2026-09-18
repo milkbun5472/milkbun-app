@@ -8712,6 +8712,7 @@ function ChatThread({
               h("div", { style: { maxWidth: "82%", padding: "7px 11px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, body));
           }))), descView && h(PhotoSheet, { m: typeof descView === "object" ? descView : { desc: descView }, toast: toast, onClose: () => setDescView(null) }), transferOpen && h(TransferComposeSheet, {
     cName: cName,
+    charId: character && character.id,
     myBalance: myBalance,
     onClose: () => setTransferOpen(false),
     onSend: (amount, note) => {
@@ -11612,97 +11613,60 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
     isU && myAvatar);
 }
 // 我转给 TA 的输入卡（只有「我转给 TA」，接受由对方决定）
-function TransferComposeSheet({
-  cName,
-  myBalance,
-  onClose,
-  onSend
-}) {
+// 转账（她 2026-09-18：「转账是个半窗改一下，还有那个 cny 也改成符号」）
+//
+// ⚠️整页，不是半窗（施工规则/no-half-sheet.md）：这一层不需要同时看见底下那段聊天，
+//   而且它有金额、附言、余额、两颗键——半屏一挡，输入法一弹就没地方了。
+//
+// ⚠️整屏统一按【对方的币种】记（跟转账卡同一个口径，她 2026-09-18 定的）：
+//   原来金额那栏写死 CNY、余额写死 ¥，而卡面已经按他那边的钱写了——
+//   同一件事三处两个单位。现在输入、余额、预览全用他的符号。
+//   ⚠️她敲进去的是他那边的数，送出去之前必须折回人民币（Money.parse）——
+//   存档永远是人民币，这是全库唯一允许折回去的两个地方之一。
+function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
   const t = useTheme();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const submit = () => {
-    const a = Number(amount);
-    if (a > 0) onSend(a, note.trim());
-  };
-  return h(Sheet, {
-    onClose: onClose,
-    tall: true
-  }, h("div", {
-    className: "text-center mb-1"
-  }, h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 22,
-      color: t.ink
-    }
-  }, "转账给 " + cName)), h("div", {
-    className: "flex items-end gap-2 mt-5 mb-1",
-    style: {
-      borderBottom: "1px solid " + t.line,
-      paddingBottom: 8
-    }
-  }, h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      letterSpacing: "0.12em",
-      color: t.fog,
-      marginBottom: 6
-    }
-  }, "CNY"), h("input", {
-    value: amount,
-    onChange: e => setAmount(e.target.value.replace(/[^0-9.]/g, "")),
-    inputMode: "decimal",
-    autoFocus: true,
-    placeholder: "0.00",
-    className: "flex-1 outline-none",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontStyle: "italic",
-      fontSize: 32,
-      color: t.ink,
-      background: "transparent"
-    }
-  })), h("input", {
-    value: note,
-    onChange: e => setNote(e.target.value),
-    placeholder: "附言（如：诚意金）",
-    className: "w-full outline-none rounded-xl px-4 py-3 mt-3 mb-2",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 14,
-      background: t.bg,
-      color: t.ink
-    }
-  }), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11.5,
-      color: t.fog,
-      marginBottom: 16
-    }
-  }, "我的余额 ¥" + (myBalance != null ? myBalance : "—") + " · TA 接受后才扣款"), h("div", {
-    className: "flex gap-3"
-  }, h("button", {
-    onClick: onClose,
-    className: "flex-1 rounded-full py-3",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      background: t.bg,
-      color: t.sub
-    }
-  }, "取消"), h("button", {
-    onClick: submit,
-    className: "flex-1 rounded-full py-3",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 16,
-      background: t.ink,
-      color: t.bg2
-    }
-  }, "确认转账")));
+  const M = typeof Money !== "undefined" && Money ? Money : null;
+  const cur = M ? M.of(charId) : { symbol: "¥", pos: "pre", dec: 2, rate: 1 };
+  const isCNY = !M || M.isDefault(charId);
+  // 她敲的数 → 人民币（真正会从她钱包扣掉的那个数）
+  const cny = M ? M.parse(amount, charId) : (Number(amount) || null);
+  const enough = cny != null && cny > 0 && (myBalance == null || cny <= Number(myBalance) + 1e-9);
+  const submit = () => { if (enough) onSend(cny, note.trim()); };
+  const balText = myBalance == null ? "—" : (M ? M.fmt(myBalance, charId) : "¥" + myBalance);
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg2 } },
+    h(Head, { zh: "转账给 " + cName, sub: isCNY ? "" : "按 " + cur.symbol + " 记 · TA 那边的钱", bg: "transparent", onBack: onClose }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
+      h("div", { className: "flex items-end gap-2 mt-4 mb-1", style: { borderBottom: "1px solid " + t.line, paddingBottom: 8 } },
+        cur.pos === "pre" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog, marginBottom: 5 } }, cur.symbol) : null,
+        h("input", {
+          value: amount,
+          onChange: e => setAmount(e.target.value.replace(/[^0-9.]/g, "")),
+          inputMode: "decimal", autoFocus: true,
+          placeholder: cur.dec ? "0.00" : "0",
+          className: "flex-1 outline-none min-w-0",
+          style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 32, color: t.ink, background: "transparent" }
+        }),
+        cur.pos === "post" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog, marginBottom: 5 } }, cur.symbol) : null),
+      // ⚠️不是人民币的时候要说清【真正从她钱包里出去多少】——
+      //   不然她按着他那边的数转，扣的却是另一个数，事后对不上账。
+      !isCNY && cny != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 7 } },
+        "从你钱包扣 ¥" + cny.toFixed(2)) : null,
+      h("input", {
+        value: note, onChange: e => setNote(e.target.value),
+        placeholder: "附言（如：诚意金）",
+        className: "w-full outline-none rounded-xl px-4 py-3 mt-3 mb-2",
+        style: { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink }
+      }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: cny != null && !enough ? t.accent : t.fog, marginBottom: 18 } },
+        cny != null && !enough && myBalance != null ? "余额不够 · 你有 " + balText
+          : "我的余额 " + balText + " · TA 接受后才扣款"),
+      h("div", { className: "flex gap-3" },
+        h("button", { onClick: onClose, className: "flex-1 rounded-full py-3",
+          style: { fontFamily: F_DISPLAY, fontSize: 16, background: t.bg, color: t.sub } }, "取消"),
+        h("button", { onClick: submit, disabled: !enough, className: "flex-1 rounded-full py-3 disabled:opacity-40",
+          style: { fontFamily: F_DISPLAY, fontSize: 16, background: t.ink, color: t.bg2 } }, "确认转账"))));
 }
 // 发位置:写一个地名,或者点一个你之前发过的(v60.12)
 //
@@ -14057,6 +14021,7 @@ function GroupThread({
     style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink }
   }, c.name))))), xferMember && h(TransferComposeSheet, {
     cName: xferMember.name,
+    charId: xferMember.id,
     myBalance: myBalance,
     onClose: () => setXferMember(null),
     onSend: (amount, note) => {
