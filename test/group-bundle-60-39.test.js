@@ -39,7 +39,8 @@ const groupBans = GB.layers;
 const CORE = ["<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
   "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
   "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<EMPTY_COMFORT_BAN>",
-  "<SEE_THROUGH_BAN>", "<USER_BODY_BAN>", "<CANNED_PHRASE_BAN>", "<RP>"];
+  // v71.17 关系上的高位那一条：跟 SEE_THROUGH（认知上的高位）同进同出
+  "<SEE_THROUGH_BAN>", "<LEVERAGE_BAN>", "<USER_BODY_BAN>", "<CANNED_PHRASE_BAN>", "<RP>"];
 
 test("三处群共用的那一摞，一层都不许少", () => {
   assert.deepEqual(groupBans({ echo: false }), CORE, "群线上");

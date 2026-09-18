@@ -2243,6 +2243,7 @@
     // OVERREACH_BAN v70.28 已合并进 STOCK_REPLY_BAN（同一个字符串），这儿不再重复 push
     if (typeof EMPTY_COMFORT_BAN !== "undefined") parts.push(EMPTY_COMFORT_BAN);   // 同上，这一族一起走
     if (typeof SEE_THROUGH_BAN !== "undefined") parts.push(SEE_THROUGH_BAN);
+    if (typeof LEVERAGE_BAN !== "undefined") parts.push(LEVERAGE_BAN);
     if (typeof USER_BODY_BAN !== "undefined") parts.push(USER_BODY_BAN);
     if (typeof CANNED_PHRASE_BAN !== "undefined") parts.push(CANNED_PHRASE_BAN);
     if (typeof ECHO_QUESTION_BAN !== "undefined") parts.push("【别拿对方刚说的词开口反问】" + ECHO_QUESTION_BAN);
