@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {MAPS} from './world.mjs?v=fg-b77f4350a0c5d289';
-import {weatherLook,rainSurface} from './weather-look.mjs?v=fg-b77f4350a0c5d289';
+import {MAPS} from './world.mjs?v=fg-9ea33d38bce964e4';
+import {weatherLook,rainSurface} from './weather-look.mjs?v=fg-9ea33d38bce964e4';
 // One seasonal renderer for every outdoor map and late-arriving streamed chunk.
 export function makeOutdoor(scene,landscapes=[]){
  const group=new T.Group();group.name='室外四季';scene.add(group);
