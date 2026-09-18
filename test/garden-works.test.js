@@ -43,7 +43,7 @@ test("「修好的地方改了他去哪儿」只写在 plannedActivity 一处", 
 // 说错了就删掉重写，不挂「除非」（施工规则/no-yes-unless.md）
 test("下雨天没有遮头的那几格都挪到檐下", () => {
   // v70.77：集市和夜市的摊子有棚，雨天照常
-  assert.match(comp, /const DRY_IN_RAIN=new Set\(\['home','flowers','rain','market','fair'\]\)/);
+  assert.match(comp, /const DRY_IN_RAIN=new Set\(\['home','flowers','rain','market','fair','festival'\]\)/);
   assert.match(comp, /!MAPS\[activity\[id\]\.map\]\.interior&&!DRY_IN_RAIN\.has\(id\)/);
   assert.match(comp, /原来这条只挪林地那几格/);
 });

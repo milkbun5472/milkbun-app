@@ -1,4 +1,4 @@
-import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks} from './world.mjs?v=fg-4ff0d554e4619471';
+import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks,festivalBook} from './world.mjs?v=fg-7bfef52454e37d55';
 // This book renders saved plans and local facts; opening it never calls a model.
 export function installSeasonBook({getState,getHost,refresh}){
  const $=id=>document.getElementById(id),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};let busy=false,lastScroll=0;
@@ -9,6 +9,8 @@ export function installSeasonBook({getState,getHost,refresh}){
  $('season-generate').disabled=busy||record?.status==='ready';$('season-generate').textContent=busy?'正在一起安排…':record?.status==='ready'?'这一季已安排好':record?'重试这一季':'一起安排这一季';
  $('season-policy').textContent='本季每天：'+Object.entries(season.weather).map(([kind,weight])=>kind+' '+weight+'%').join('、')+'。同一天刷新不重抽。'+'每位同行者每季生成一次，保存后每天沿用；新季节再由你点开安排。雨雪时会改到屋檐下活动。同行或等候时优先听你的招呼，想继续日程可在同行者面板点「按自己的安排」。';
  // 这一季的日历（她 2026-09-18）：集市日、换板子、他约你、花开、开封、瓶子到、他的生日，全从存档算
+ // 换季那晚的灯会：这一季要带的三样攒到哪儿了（全从 world.festivalBook 来）
+ {const f=festivalBook(s),box=$('season-festival');box.replaceChildren();box.append(el('b',f.done?'这一季的灯放过了':'第 '+f.day+' 天晚上 · 换季的灯会'+(f.tonight?(f.open?'（开着）':'（今晚）'):'')));if(!f.done){for(const n of f.needs){const row=el('span',n.label+(n.have?'':' · '+n.hint));row.className='need'+(n.have?' have':'');box.append(row);}box.append(el('small',f.ready?'东西齐了。那晚天黑后到月潭栈桥，他也会去。':'攒不齐就等下一季；放成了相处册一格、家里多一盏灯笼。'));}else box.append(el('small','放过 '+f.held+' 回。下一回是第 '+f.next+' 天。'));}
  {const cal=$('season-calendar');cal.replaceChildren();const marks=calendarMarks(s,s.birthday);for(let d=1;d<=14;d++){const cell=el('div');cell.className='cell'+(d===season.day?' today':d<season.day?' past':'');cell.append(el('b',String(d)));const w=el('span',weather(season.start+d-1,s.epoch));w.className='mark';cell.append(w);for(const m of marks[d]||[]){const mk=el('span',m);mk.className='mark'+(m==='集市'?' market':m==='他的生日'?' birthday':'');cell.append(mk);}cal.append(cell);}}
  $('season-error').textContent=record?.status==='failed'?record.error||'上次没有完成，可以重试。':'';
  $('season-error-detail').textContent=record?.detail||'';$('season-raw').hidden=!record?.detail;

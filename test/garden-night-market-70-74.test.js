@@ -151,7 +151,7 @@ test("吃的接进已有的三处进度：礼物簿多「吃的」一类、他�
   const w = await W();
   assert.match(rules, /food:\{label:'吃的',what:'夜市上买的、自家灶上做的/);
   assert.equal(Object.keys(w.GIFT_FAMILIES).length, 8);
-  assert.deepEqual(Object.keys(w.BOND_KINDS).slice(-2), ["meal", "fair"]);
+  assert.deepEqual(Object.keys(w.BOND_KINDS).slice(-3), ["meal", "fair", "festival"]);
   // 递吃的给他：走礼物簿那条路，类别是「吃的」
   const g = nearby({ ...w.freshState(), pantry: [{ uid: "f1", id: "cake", day: 1, from: "home" }] });
   assert.deepEqual(w.giftOptions(g).map(x => [x.name, x.family]), [["铃叶糕", "food"]]);
@@ -171,7 +171,7 @@ test("吃的接进已有的三处进度：礼物簿多「吃的」一类、他�
   // 日历、今天想做的
   const marks = w.calendarMarks({ ...w.freshState(), day: 13 });
   assert.ok(marks[13].includes("夜市")); assert.ok(marks[14].includes("夜市")); assert.ok(!(marks[12] || []).includes("夜市"));
-  assert.deepEqual(w.todayHints({ ...w.freshState(), day: 13 }).map(h => h.kind), ["fair"]);
+  assert.deepEqual(w.todayHints({ ...w.freshState(), day: 13 }).map(h => h.kind), ["fair", "festival"], "第十三天起灯会也提醒（v70.81）");
   assert.match(w.todayHints({ ...w.freshState(), day: 13, minute: 1200 })[0].text, /夜市开了/);
   assert.equal(w.todayHints({ ...w.freshState(), day: 12 }).some(h => h.kind === "fair"), false);
   // 手机那一册：喜好表长了一类，老档缺这一类再问一次；食谱册从 getBond 的 food 画

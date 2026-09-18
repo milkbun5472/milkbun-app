@@ -126,7 +126,8 @@ body.embedded .weather{gap:8px}
 #spot-list>button small{display:block;font-size:10px;opacity:.75;margin-top:2px}
 /* 画面里点得到的那几件，不在行动栏里再摆一颗。⚠️用 class 不用 hidden：
    弹层那份是 clone 出来的，靠 hidden 判断「这件事还在不在」的地方还得认它。 */
-.from-scene{display:none !important}
+.from-scene{display:none !important}.first-day-hide{display:none !important}
+.festival{display:block;margin:0 0 14px;border:1px solid #dbe2cd;border-radius:12px;background:#fbfaf0;padding:9px 12px}.festival b{display:block;font-size:12.5px;color:#54684c;margin-bottom:4px}.festival .need{display:block;margin:0;font-size:11.5px;color:#687655;line-height:1.7}.festival .need.have{color:#55704f}.festival .need::before{content:'○ ';color:#a3b291}.festival .need.have::before{content:'● '}.festival small{display:block;margin-top:4px;font-size:11px;color:#93a188;line-height:1.6}
 .scene-hint{margin:9px 2px 0;font-size:10.5px;line-height:1.7;color:#8a9880}
 /* 许愿树下：挑一个咒、一片碎片、一个地方 */
 #cast-spells{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}

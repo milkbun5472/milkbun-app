@@ -70,7 +70,7 @@ test("日程：小路的灯、夜市、自己家里面、公共厅楼上都排�
   const s = w.freshState();
   const days = [];
   for (let d = 1; d <= 56; d++){ const list = c.dailySchedule({ ...s, day: d }); const at = list.find(x => x.id === "fair"); if (at) days.push([d, at.start]); }
-  assert.deepEqual(days.map(x => x[0]), [13, 14, 27, 28, 41, 42, 55, 56], "一季两晚");
+  assert.deepEqual(days.map(x => x[0]), [13, 27, 41, 55], "一季两晚里第一晚排夜市，第二晚是换季的灯会（v70.81）");
   assert.ok(days.every(x => x.start === undefined || x[1] === 1140), "天黑那一格");
   assert.ok(!c.dailySchedule({ ...s, day: 3 }).some(x => x.id === "fair"));
   // 一起排过这一季的，那两晚天黑那一格也改去夜市
@@ -82,7 +82,7 @@ test("日程：小路的灯、夜市、自己家里面、公共厅楼上都排�
   // 雨天：集市／夜市不改到檐下
   const rainy = [..."abcdefghijklmnopqrstuvwxyz"].map(ch => ch + "9").find(ep => w.weather(13, ep) === "细雨");
   if (rainy){ const wet = c.dailySchedule({ ...s, day: 13, epoch: rainy }); assert.ok(wet.some(x => x.id === "fair"), "夜市雨天照常"); }
-  assert.match(comp, /const DRY_IN_RAIN=new Set\(\['home','flowers','rain','market','fair'\]\);/);
-  assert.match(comp, /\[1140,nightMarketDay\(s\.day\)\?'fair':c\]/);
-  assert.match(comp, /id!=='fair'&&reachable\(id,s\)/, "夜市不进抽签池");
+  assert.match(comp, /const DRY_IN_RAIN=new Set\(\['home','flowers','rain','market','fair','festival'\]\);/);
+  assert.match(comp, /\[1140,festivalDay\(s\.day\)\?'festival':nightMarketDay\(s\.day\)\?'fair':c\]/);
+  assert.match(comp, /id!=='fair'&&id!=='festival'&&reachable\(id,s\)/, "夜市和灯会不进抽签池");
 });
