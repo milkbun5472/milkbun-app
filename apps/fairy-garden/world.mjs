@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-8e4cf43f63195ef9';
-import {brewError,brewResult} from './brewing.mjs?v=fg-8e4cf43f63195ef9';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-8e4cf43f63195ef9';
-import './rules.js?v=fg-8e4cf43f63195ef9';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-6c0289620104728d';
+import {brewError,brewResult} from './brewing.mjs?v=fg-6c0289620104728d';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-6c0289620104728d';
+import './rules.js?v=fg-6c0289620104728d';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-8e4cf43f63195ef9';
+import {createNavigator} from './navigation.mjs?v=fg-6c0289620104728d';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -2247,7 +2247,12 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
   return {...s,[n.kind==='herb'?'herbs':'mushrooms']:s[n.kind==='herb'?'herbs':'mushrooms']+(n.kind==='herb'?2:1),picked:[...s.picked,id]};}
  // 出口把人放在下一张图上【说好的落点】：默认是那张图的 spawn，
  // 爬梯子上来则是井口（exits.ladder.at）——落点写在出口那一处，不在这儿分支。
- if(['travel','enter','door'].includes(kind)){const e=exitFor(s.map,kind,id);return {...s,seat:null,map:e.to,position:{...(e.at||MAPS[e.to].spawn)}};}
+ if(['travel','enter','door'].includes(kind)){const e=exitFor(s.map,kind,id);
+  // ⚠️穿过小路是【从这张图的口子走到那张图的口子】，不是回家门口（她 2026-09-18：
+  //   「为啥从林地回来是传送回家门口而不是回到传送点那里」）。屋门那两种照旧落在 spawn：
+  //   屋子的 spawn 本来就是门口。
+  const at=e.at||(kind==='travel'&&MAPS[e.to].stations?.travel)||MAPS[e.to].spawn;
+  return {...s,seat:null,map:e.to,position:{...at}};}
  // 下去一趟要花时间：第一层 45 分钟，再往下每层 35 分钟，爬上来 20 分钟。
  // ⚠️时间一律走 advanceTime——它自己会跨天，别在这儿另算一遍日期。
  if(kind==='dive')return advanceTime({...s,wellTrip:{day:s.day,kit:s.wellKit||'none'},map:'depths',depth:1,position:{...MAPS.depths.spawn}},Math.round(45*diveWeight(s)));
