@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-84328ee857dca406';
-import {brewError,brewResult} from './brewing.mjs?v=fg-84328ee857dca406';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-84328ee857dca406';
-import './rules.js?v=fg-84328ee857dca406';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-e1f76c0941717831';
+import {brewError,brewResult} from './brewing.mjs?v=fg-e1f76c0941717831';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-e1f76c0941717831';
+import './rules.js?v=fg-e1f76c0941717831';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-84328ee857dca406';
+import {createNavigator} from './navigation.mjs?v=fg-e1f76c0941717831';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -625,20 +625,30 @@ function seatFromPiece(map, f, key){
   const stand = ring[0]; if (!stand) return null;
   const beside = ring.find(p => { const d = Math.hypot(p.x - stand.x, p.z - stand.z); return d >= .6 && d <= 1.2; });
   if (!beside) return null;
+  // ⚠️朝向【看家具的形状】，不看她从哪一边走过来（她 2026-09-18：「坐下来为什么朝向
+  //   还是不对」）。长沙发的长边是靠背和坐垫，人当然是冲着短边那一侧坐；
+  //   照走过来的方向定，从侧面绕过去就会变成面朝扶手坐。
+  const long = f.w >= f.d;                       // 长边是 x 还是 z
+  const out = long ? { x: 0, z: 1 } : { x: 1, z: 0 };   // 坐着冲外那一边
+  // 冲哪一头：哪一侧站得住就冲哪一侧；两侧都行就挑离她走过来那一点近的
+  const sideOk = k => walkable(f.x + out.x * k * (f.d / 2 + .7), f.z + out.z * k * (f.d / 2 + .7), map)
+    || walkable(f.x + out.x * k * (f.w / 2 + .7), f.z + out.z * k * (f.w / 2 + .7), map);
+  const toStand = (stand.x - f.x) * out.x + (stand.z - f.z) * out.z;
+  const sign = sideOk(1) && sideOk(-1) ? (toStand >= 0 ? 1 : -1) : sideOk(1) ? 1 : -1;
+  const face = { x: out.x * sign, z: out.z * sign };
   // ⚠️坐下那一下人要落在【坐面上】，不是在家具旁边的地上：
-  //   从她走过来的那一侧往里收一点，落在这件家具自己的坐垫上，再抬到坐面高度。
-  const dir = { x: Math.cos(stand.t), z: Math.sin(stand.t) };
-  const inset = Math.min(f.w, f.d) * .22;
-  const on = { x: f.x + dir.x * inset, z: f.z + dir.z * inset };
+  //   从冲外那一侧往里收一点，落在这件家具自己的坐垫上，再抬到坐面高度。
+  const inset = Math.min(f.w, f.d) * .18;
+  const on = { x: f.x + face.x * inset, z: f.z + face.z * inset };
   const rise = SEAT_RISE[f.kind] || 0;
   // 长沙发、长凳坐得下两个人：他坐在同一张上，沿着长的那边错开
-  const long = f.w >= f.d, span = long ? f.w : f.d;
+  const span = long ? f.w : f.d;
   const side = long ? { x: 1, z: 0 } : { x: 0, z: 1 };
   const share = span >= SEAT_SHARE
     ? { x: on.x + side.x * .62, z: on.z + side.z * .62, rise }
     : { ...beside, rise: 0 };
   return { x: on.x, z: on.z, rise, approach: { x: stand.x, z: stand.z },
-    heading: Math.atan2(stand.x - f.x, stand.z - f.z), companion: share,
+    heading: Math.atan2(face.x, face.z), companion: share,
     label: '在' + FURNITURE[f.kind].label + '边陪你坐着', piece: key };
 }
 export function seatsOf(map){

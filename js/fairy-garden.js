@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-84328ee857dca406", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e1f76c0941717831", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -569,7 +569,11 @@
       //   翻到房间列表、认出哪个预设是庭院、建一间——那一步本来就该我们替她做。
       if (props.lockPartnerId) { if (props.onNewGardenRoom) { setPick(true); return; }
         props.toast("这间庭院房就是和 TA 的，换人请另开一间。"); return; } if (busyRef.current) { props.toast("等这次回复完成后再换同行者。"); return; } try { flush(); serial.current++; setChat(false); setPick(true); } catch (e) { props.toast(e.message); } };
-    const openChat = value => { setChat(value); if (game()) game().setChatOpen(value); };
+    // 说话那一层分三档（她 2026-09-18：「能不能再做一层折叠，要点开才会展开高一点，
+    //   平时就对话框加一个小箭头，说话也不会自动弹出只有我手动才弹出」）：
+    //   false＝收着 / 'bar'＝只留输入那一条 / 'tall'＝展开看记录。
+    // ⚠️永远只由她点开：这一层不会因为他说了什么自己弹出来（他说的话在头顶的气泡里）。
+    const openChat = value => { setChat(value); if (game()) game().setChatOpen(!!value); };
     const planKey = (cid, day) => String(cid) + ":" + (current().world?.epoch || "initial") + ":" + root.FairyGardenRules.seasonOf(day).key;
     async function planSeason(retry) {
       if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
@@ -599,7 +603,7 @@
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name, birthday: gameBirthdayOf(c) } : null; },
         save: world => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
-        openChat: () => openChat(true), changePartner,
+        changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
         // 悬浮播放器就不会默认停在它头上（js/components.js 的 FloatKeepClear）。
         floatClear: px => { if (window.FloatKeepClear) window.FloatKeepClear.set(px); },
@@ -841,7 +845,9 @@
     // 存档里只留还没落定的那几条（pending/failed）——重试要靠它认领，
     // 落定之后立刻交给房间，不在这儿留第二份。
     // 首页试玩没有房间可写，仍旧全存在自己的存档里（行为不变）。
-    const record = props.record || null;
+    // ⚠️从房间进来时 app.js 直接给 record；从【小世界那条路】进来时它给的是 recordFor，
+    //   按这一档的钥匙现取（她 2026-09-18：「从游戏界面进是不显示聊天记录的」）。
+    const record = props.record || (props.recordFor ? props.recordFor(storeKey.current) : null) || null;
     const doneHistory = (d, cid) => record
       ? ((propsRef.current.record && propsRef.current.record.history) || [])
       : ((d.dialogs || {})[cid] || []).filter(m => m.status === "done");
@@ -997,7 +1003,7 @@
           : h("div", { style: { display: "flex", gap: 7 } },
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) })),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(chat ? false : "bar"), disabled: !loaded }, chat ? "收起" : "说话")) })),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
@@ -1427,19 +1433,23 @@
         chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
-          h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },
+          // ⚠️那个小箭头就是【要不要看记录】：平时只留一条输入，点开才长高
+          h("div", { style: { padding: "6px 10px 6px 16px", display: "flex", alignItems: "center", gap: 8 } },
             h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
               char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
-            h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间")),
-          h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
+            chat === "tall" ? h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间") : null,
+            h("button", { "aria-label": chat === "tall" ? "收起聊天记录" : "看看聊天记录", onClick: () => openChat(chat === "tall" ? "bar" : "tall"),
+              style: { border: 0, background: "transparent", color: G.soft, fontSize: 15, minWidth: 40, minHeight: 34, lineHeight: 1 } },
+              chat === "tall" ? "⌄" : "⌃")),
+          chat === "tall" ? h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
             rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
               h("div", { style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),
             !rows.length && h("p", { style: { margin: "6px 0 12px", color: "#93a188" } }, "想聊什么，或者想一起去哪里？"),
             busy && h("p", { role: "status", style: { margin: "0 0 12px", color: "#93a188" } }, "正在回应…"),
             error && h("p", { role: "alert", style: { margin: "0 0 10px", color: "#a34836" } }, error),
-            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))),
-          !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { style: { padding: "0 16px 8px" } },
+            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))) : null,
+          chat === "tall" && !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { style: { padding: "0 16px 8px" } },
             h("button", { style: pill(true), onClick: () => send(true) }, "重试上次未完成的回复")),
           h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
             h("input", { "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),

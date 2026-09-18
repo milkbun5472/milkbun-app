@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.37";
+const APP_VERSION = "v71.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2403,6 +2403,24 @@ function App() {
   //   只会被告知「换人请另开一间」，然后得自己退出去、找到房间列表、建一间——
   //   那句话说的是对的，缺的是替她把这一步做了。
   // ⚠️房间怎么建不在这儿另写一份：还是 PRESETS.garden ＋ commitStart 那一条路。
+  // 庭院那层小面板里的聊天记录：两条路（从房间进、从小世界进）共用这一处，
+  // 只取最近这些条——整本几千条塞进去就是开局白屏（她 2026-09-18 报的卡）。
+  const GARDEN_LOG = 100;
+  const gardenHistory = key => (chats[key] || [])
+    .filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant"))
+    .slice(-GARDEN_LOG)
+    .map(m => ({ id: m.ts + ":" + m.role, role: m.role, content: m.content, status: "done" }));
+  // 小世界那条路进来时，这一档的钥匙反过来就是那间房的聊天键
+  const gardenRecordFor = storeKey => {
+    const k = String(storeKey || "");
+    const key = k.startsWith("x_fairyGarden::") ? k.slice("x_fairyGarden::".length) : "";
+    if (!key || !window.ChatRooms) return null;
+    return { history: gardenHistory(key),
+      onTurn: turn => pChat(key, p => [...p,
+        ...(String(turn.text || "").trim() ? [{ role: "user", content: turn.text, ts: Date.now(), kind: "garden" }] : []),
+        ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
+          .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))]) };
+  };
   const openGardenRoomFor = async charId => {
     const Kit = window.ChatRooms;
     if (!Kit || !charId) return null;
@@ -21733,8 +21751,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   庭院自己再手写一份就是同一层活在两处。cognition 全关时它只剩人设与文风。
       mainline: (() => { try { return buildBundle(roomContextFor(activeChar, key, room, { chat: true })) + roomPromptFor(activeChar.id, room); } catch (e) { return ""; } })(),
       record: {
-        history: (chats[key] || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant"))
-          .map(m => ({ id: m.ts + ":" + m.role, role: m.role, content: m.content, status: "done" })),
+        // ⚠️只给最近 GARDEN_LOG 条：整本聊天记录几千条塞进这层小面板，开局就卡
+        //   （她 2026-09-18：「只显示最近100条，不然加载很卡」）。
+        history: gardenHistory(key),
         onTurn: turn => pChat(key, p => [...p,
           ...(String(turn.text || "").trim() ? [{ role: "user", content: turn.text, ts: Date.now(), kind: "garden" }] : []),
           ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
@@ -22787,6 +22806,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onNewGardenRoom: openGardenRoomFor,
     neighborBundle: neighborBundleFor,
+    // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
+    recordFor: gardenRecordFor,
     onBack: () => setScreen("home")
   });else if (screen === "trpg") body = h(window.TrpgApp, {
     // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
