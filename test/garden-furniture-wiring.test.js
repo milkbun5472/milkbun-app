@@ -22,7 +22,7 @@ test("点家具要排在「走过去」前面", () => {
   assert.match(game, /const furn=furnitureAtPoint\(data\.map,point\);/);
   assert.match(game, /if\(walkable\(point\.x,point\.z,data\.map,data\)\)go\(\{x:point\.x,z:point\.z\}\);/);
   // 射线真打中一件家具，是这一串里最准的信号，排在最前面
-  assert.ok(game.indexOf("const box=pickFurniture(ray)") < game.indexOf("hitInteraction(data.map,point"));
+  assert.ok(game.indexOf("const box=pickFurniture(ray)") < game.indexOf("nearInteraction(data.map,point"));
   assert.ok(game.indexOf("const furn=furnitureAtPoint") < game.indexOf("if(walkable(point.x,point.z,data.map,data))go("),
     "先问家具，再走地面；反过来点沙发就永远没反应");
   // 走过去开菜单只写一段，两个入口共用

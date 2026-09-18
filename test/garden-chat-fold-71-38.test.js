@@ -46,3 +46,22 @@ test("坐着也走得掉：起身先回到坐下之前站的那一点", () => {
     "从家具上找路当然找不出来——先起身再找");
   assert.match(game, /function sitAt\(id\)\{seatActivity='sit';if\(data\.seat===id\)\{leaveSeat\(\);/);
 });
+
+// 她 2026-09-18：「这个池塘坐不了啊」「他人在公告板前还是很难点到，范围能不能扩大点」
+test("座位点得着：地上那一处也能点，不是只有行动栏那颗按钮", () => {
+  const world2 = fs.readFileSync("apps/fairy-garden/world.mjs", "utf8");
+  assert.match(world2, /export function seatAt\(map, p, pad = 1\.3\)\{/);
+  assert.match(game, /\{const id=seatAt\(data\.map,point\);if\(id&&!acting\)\{if\(openSeatSite\(id\)\)return;sitAt\(id\);return;\}\}/);
+  // ⚠️只此一份：写死的和从家具推出来的都在 seatsOf 里，这儿一起认
+  assert.match(world2, /for \(const \[id, seat\] of Object\.entries\(seatsOf\(map\)\)\)\{/);
+});
+
+test("点的时候放宽一圈，走路和动作那两道闸照旧用原来的圈", () => {
+  const rules = fs.readFileSync("apps/fairy-garden/rules.js", "utf8");
+  assert.match(rules, /function nearInteraction\(map,p,depth,pad\)\{/);
+  assert.match(game, /const TAP_PAD=\.9;/);
+  assert.match(game, /nearInteraction\(data\.map,point,data\.depth,TAP_PAD\)/);
+  // 判定本身没被放宽：actionError／targetFor 那条路仍旧问 hitInteraction
+  assert.match(rules, /function hitInteraction\(map,p,depth\)\{/);
+  assert.doesNotMatch(game, /hitInteraction\([^)]*TAP_PAD/);
+});

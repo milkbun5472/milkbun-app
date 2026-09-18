@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-98021afe9ea126eb';
-import {brewError,brewResult} from './brewing.mjs?v=fg-98021afe9ea126eb';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-98021afe9ea126eb';
-import './rules.js?v=fg-98021afe9ea126eb';
-export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-98021afe9ea126eb';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-8e4cf43f63195ef9';
+import {brewError,brewResult} from './brewing.mjs?v=fg-8e4cf43f63195ef9';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-8e4cf43f63195ef9';
+import './rules.js?v=fg-8e4cf43f63195ef9';
+export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
+import {createNavigator} from './navigation.mjs?v=fg-8e4cf43f63195ef9';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -664,6 +664,18 @@ function seatFromPiece(map, f, key){
   return { x: on.x, z: on.z, rise, approach: { x: stand.x, z: stand.z },
     heading: Math.atan2(face.x, face.z), companion: share,
     label: '在' + FURNITURE[f.kind].label + '边陪你坐着', piece: key };
+}
+// 手指落在哪一处座位上（她 2026-09-18：「这个池塘坐不了啊」——池边本来就有一处座位，
+// 只是【点不着】：行动栏那颗按钮之外，地上没有任何可点的地方）。
+// ⚠️只此一份：地图写死的和从家具推出来的都在 seatsOf 里，这儿一起认。
+export function seatAt(map, p, pad = 1.3){
+  if (!p) return '';
+  let best = '', near = Infinity;
+  for (const [id, seat] of Object.entries(seatsOf(map))){
+    const d = Math.hypot(seat.x - p.x, seat.z - p.z);
+    if (d < pad && d < near){ near = d; best = id; }
+  }
+  return best;
 }
 export function seatsOf(map){
   if (!MAPS[map]) return {};

@@ -28,7 +28,8 @@ test("地上那些能做的事排在他前面", () => {
   assert.match(fn, /const tappedCompanion=!!\(companionAvatar\?\.root\.visible&&ray\.intersectObject\(companionAvatar\.root,true\)\.length\);/);
   // 判他这一下必须排在「地上有没有东西」之后
   const decide = fn.indexOf("const tappedCompanion");
-  const ground = fn.indexOf("hitInteraction(data.map,point,data.depth)");
+  // ⚠️点的时候放宽一圈（她 2026-09-18：「范围能不能扩大点」）：走路和动作那两道闸照旧
+  const ground = fn.indexOf("nearInteraction(data.map,point,data.depth,TAP_PAD)");
   const open = fn.indexOf("if(tappedCompanion){openCompanion();return;}");
   assert.ok(decide < ground && ground < open, "又把他排回最前面了");
   // 什么都没点着的时候还是开他那一页（点他这件事不能丢）
