@@ -212,4 +212,4 @@ body.brewing #app>header,body.brewing .weather,body.brewing #action-panel,body.b
 #neighbor-box input{flex:1;min-width:0;border:0;background:transparent;outline:none;color:#3c4c38;font:inherit;font-size:14px;padding:6px 8px}
 #neighbor-box button{border:0;border-radius:16px;padding:8px 14px;background:#e4ecdc;color:#48694f;font-size:13px;min-height:36px}
 #neighbor-box button:disabled{opacity:.45}
-#neighbor-box #neighbor-cancel{background:transparent;color:#9aa78f;padding:8px 6px;font-size:16px}
+#neighbor-box #neighbor-cancel{background:transparent;color:#9aa78f;padding:8px 6px;font-size:16px;min-width:40px}
