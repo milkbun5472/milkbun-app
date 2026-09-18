@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-af48051f92bb73e6"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-af48051f92bb73e6"}}</script></head><body>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-1624392ca5caaadd"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-1624392ca5caaadd"}}</script></head><body>
 <main id="app"><canvas id="world" aria-label="轻点空地行走，拖动移动视角，双指缩放，点击植物互动" tabindex="0"></canvas>
 <header><h1 id="place-title">微光庭院</h1><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
 <aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div></aside>
@@ -60,10 +60,10 @@
 <div class="schedule-title"><span>今天的安排</span><span id="companion-current-time"></span></div><ol id="companion-schedule"></ol>
 <p class="craft-hint" id="companion-plan-note" hidden></p><button id="companion-plan" hidden>和 TA 一起安排这一季</button>
 <p id="companion-detail"></p><p class="time-note">页面在前台时，约 1 秒走过游戏里的 1 分钟；离开或打开这个面板会暂停。照料花圃每天最多一次，用的是同行者自己的晨露。</p>
-<button id="host-partner" hidden>选择手机里的同行者</button><div class="companion-controls"><button id="companion-follow">叫来一起走</button><button id="companion-routine">按自己的安排</button><button id="companion-wait">坐一会儿 · 1 小时</button><button id="companion-save">保存偏好</button></div>
+<button id="host-partner" hidden>选择手机里的同行者</button><button id="companion-give" hidden>递一样东西给 TA</button><div class="companion-controls"><button id="companion-follow">叫来一起走</button><button id="companion-routine">按自己的安排</button><button id="companion-wait">坐一会儿 · 1 小时</button><button id="companion-save">保存偏好</button></div>
 </dialog>
 <dialog id="season-dialog" class="season-dialog">
 <div class="dialog-title"><h2 id="season-title">这一季</h2><button id="season-close" aria-label="关闭季节手册">×</button></div>
 <div class="book-body"><p id="season-summary"></p><div id="season-calendar" class="calendar" aria-label="这一季的日历"></div><div id="season-festival" class="festival" aria-label="换季那晚的灯会"></div><button id="season-generate">一起安排这一季</button><p id="season-policy" class="time-note"></p><p id="season-error" role="alert"></p><details id="season-raw" hidden><summary>查看原始回复</summary><pre id="season-error-detail"></pre></details>
 <h3>这十四天</h3><div id="season-days"></div><h3>花谱与小灯</h3><p id="flower-book"></p><p id="flower-recipe"></p><h3>庭院日志</h3><div id="garden-journal"></div></div></dialog>
-</main><script type="module" src="game.mjs?v=fg-af48051f92bb73e6"></script></body></html>
+</main><script type="module" src="game.mjs?v=fg-1624392ca5caaadd"></script></body></html>
