@@ -563,7 +563,7 @@ const SCREEN_ZH = {
   diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答",
   study: "一起学", fanfic: "同人文", read: "一起读", weekly: "周刊", debate: "擂台",
   dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", pomodoro: "番茄钟",
-  games: "小游戏", fairyGarden: "微光庭院", trpg: "跑团", theater: "小剧场", impression: "月度印象",
+  games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象",
   yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
   forum: "论坛", momprofile: "朋友圈个人页", us: "情侣空间",
   favorites: "收藏", emotes: "表情包", stylelab: "文风台",

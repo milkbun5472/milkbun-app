@@ -4785,7 +4785,7 @@ function Home({
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
     games: { kind: "app", zh: "小游戏", G: GGame },
-    fairyGarden: { kind: "app", zh: "微光庭院", G: window.GFairyGarden || GGame },
+    fairyGarden: { kind: "app", zh: "小世界", G: window.GFairyGarden || GGame },
     dreamjournal: { kind: "app", zh: "解梦馆", G: window.GDreamBook || GDream },
     yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary },
     rescue: { kind: "app", zh: "互救台", G: GRescue },

@@ -386,7 +386,11 @@
     return parts;
   }
   root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
-  root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
+  // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
+  //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
+  //   换成三颗大小不一的星子：只说「好几个小世界」。
+  root.GFairyGarden = p => h(Svg, p, h("path", {
+    d: "M5 14a4 4 0 1 0 8 0a4 4 0 1 0 -8 0M13 7.5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M3.9 6.2a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   // 一份色板：原来 GardenSession 和 FairyGardenApp 各写了一份，改一处永远漏一处。
   const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", paper: "#fffef5", deep: "#55704f" };
@@ -1311,8 +1315,11 @@
       style: { padding: "15px 16px", borderRadius: 16, border: "1px solid " + G.line,
         background: dim ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.62)", opacity: dim ? .55 : 1 }
     }, children);
+    // ⚠️只有【壳】叫小世界（她 2026-09-18 定的）：它装着好几个世界，再叫「微光庭院」
+    //   就成了「一个叫微光庭院的地方，进去挑世界，第一个世界也叫微光庭院」。
+    //   进了某个世界以后那几处 Head 仍旧是那个世界自己的名字（GardenSession 里那三处别动）。
     const shell = (sub, onBack, body) => h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: G.ink } },
-      h(Head, { zh: "微光庭院", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
+      h(Head, { zh: "小世界", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
 
     // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
