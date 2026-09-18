@@ -33,7 +33,8 @@ test("路灯搬进了同一张表，没有留下第二处", () => {
 test("「修好的地方改了他去哪儿」只写在 plannedActivity 一处", () => {
   assert.match(comp, /const worksFor=\(s,plan\)=>\{const spot=workSpot\(s,plan\.id\)/);
   assert.match(comp, /return homeFor\(s,worksFor\(s,list\.findLast/);
-  assert.equal((comp.match(/worksFor/g) || []).length, 2, "一次定义一次调用，多了就是抄了第二份");
+  const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.equal((code.match(/worksFor/g) || []).length, 2, "一次定义一次调用，多了就是抄了第二份");
   assert.match(world, /export function workSpot\(s, activityId\)/);
 });
 

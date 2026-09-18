@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-14322dff8059f999';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor} from './world.mjs?v=fg-14322dff8059f999';
+import {stepRoute} from './locomotion.mjs?v=fg-0afec07e6f6b4a0a';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS} from './world.mjs?v=fg-0afec07e6f6b4a0a';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -64,7 +64,19 @@ export function dailySchedule(s){const season=seasonOf(s.day),who=s.companion,
 //   时【绕开 companionPlan 直接用 plannedActivity】，写在 companionPlan 里，
 //   他最常见的那个模式一次都读不到——这一课这一季已经栽过两次了。
 const worksFor=(s,plan)=>{const spot=workSpot(s,plan.id);return spot?{...plan,...spot}:plan;};
-export function plannedActivity(s){const list=dailySchedule(s);return homeFor(s,worksFor(s,list.findLast(item=>s.minute>=item.start)||list[0]));}
+// 一起转星仪的时候，他去另一头（她在楼下转，他就上台上看；反过来也一样）。
+// ⚠️和 homeFor／worksFor 同一个道理，必须写在 plannedActivity 这一处：
+//   tick 在 mode==='routine' 时【绕开 companionPlan 直接用 plannedActivity】——
+//   写在 companionPlan 里，他最常见的那个模式一次都读不到。这一课这一季栽过三次了。
+function starFor(s){
+ if(!starLive(s))return null;
+ const key=starOther(restoreStar(s.star).role),site=MAPS.oldTower.sites[STAR_SPOTS[key]];
+ if(!site)return null;
+ return {id:'star:'+key,map:'oldTower',target:{...site.target},
+  label:key==='watch'?'在台上替你看光':'在楼下替你转铜环',gesture:'read'};
+}
+export function plannedActivity(s){const star=starFor(s);if(star)return star;
+ const list=dailySchedule(s);return homeFor(s,worksFor(s,list.findLast(item=>s.minute>=item.start)||list[0]));}
 export const PERSONAL_SPACE=.58;
 function followPoint(s){
  const p=s.position,c=s.companion,from=c.map===s.map?c.position:MAPS[s.map].spawn,d=Math.hypot(from.x-p.x,from.z-p.z);

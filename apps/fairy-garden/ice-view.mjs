@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MAPS,lakeFrozen,onLakeIce} from './world.mjs?v=fg-14322dff8059f999';
+import {MAPS,lakeFrozen,onLakeIce} from './world.mjs?v=fg-0afec07e6f6b4a0a';
 // One small procedural surface shares the Blender shoreline; no second winter GLB or generated image.
 export function makeIceView(){
  const l=MAPS.garden.lake,root=new T.Group();root.name='冬日月湖';root.visible=false;
