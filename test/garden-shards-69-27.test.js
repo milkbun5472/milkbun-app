@@ -82,7 +82,9 @@ test('花册那几格长成册子的索引签，不是一排药丸、也不是�
   assert.match(host, /borderRadius: "10px 0 0 10px"/, '左圆右方，贴着右页边');
   // 选中态不只靠颜色：位置、宽度、纸色、连不连着页面四样一起变（色弱和阳光下只剩形状可依）
   assert.match(host, /transform: on \? "translateX\(0\)" : "translateX\(7px\)"/);
-  assert.match(host, /minWidth: on \? 44 : 38/);
+  // ⚠️宽度是会被调的（v71.24 她要「做大点」）：钉「选中的比没选的宽」，不钉具体数
+  const mw = /minWidth: on \? (\d+) : (\d+)/.exec(host);
+  assert.ok(mw && Number(mw[1]) > Number(mw[2]), "选中那张不再更宽——选中态少了一样可依靠的形状");
   assert.match(host, /borderLeft: on \? "1px solid " \+ G\.paper/);
   assert.match(host, /position: "sticky", top: headH \+ 10, height: 0/, '跟着页面滚也钉在右上');
   assert.match(host, /padding: "16px 54px 40px 16px"/, '页面右边给索引签让出位置');

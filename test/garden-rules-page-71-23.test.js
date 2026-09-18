@@ -53,7 +53,13 @@ test("季节手册：两条丝带书签切页；第一次翻开落在规矩页�
 
 test("花册的 tab：册子右边伸出来的一列竖排索引签，不再是横排一行挤到屏幕外", () => {
   const seg = host.slice(host.indexOf('[["notes", "花册"'), host.indexOf('bookTab === "bond" ?'));
-  assert.match(seg, /writingMode: "vertical-rl"/); assert.match(seg, /minHeight: 48/);
+  assert.match(seg, /writingMode: "vertical-rl"/);
+  // ⚠️别钉死 minHeight 的数字：v71.24 她说「三个字的塞不下，做大点」，那个数就该能调。
+  //   要钉的是【可点区不许比 48 矮】和【高度由内容撑、不许封顶】。
+  const mh = /minHeight: (\d+)/.exec(seg);
+  assert.ok(mh && Number(mh[1]) >= 48, "可点区矮过 48 了");
+  assert.doesNotMatch(seg, /maxHeight/, "给签子封了顶——封了顶三个字就又塞不下了");
+  assert.match(seg, /flexShrink: 0/, "壳是 height:0，不关掉 shrink 会被压到一列一个字（字看着从右往左读）");
   assert.match(seg, /background: on \? G\.paper : tint/, "每张一个色，选中那张纸色");
   assert.match(seg, /transform: on \? "translateX\(0\)" : "translateX\(7px\)"/, "没选的往边上缩进去");
   assert.match(seg, /"aria-pressed": on/);
