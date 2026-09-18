@@ -11,8 +11,9 @@ test("「他能去哪儿」那句话照 COMPANION_DESTINATIONS 长，宿主不�
   assert.match(host, /target 取 " \+ \(destinations \|\| /);
   assert.doesNotMatch(host, /pond（林地池边）/, "手抄那一份已经退役了");
   assert.match(host, /destinations: \(game\(\) && game\(\)\.destinations && game\(\)\.destinations\(\)\)/);
-  assert.match(game, /destinations:\(\)=>destinationChoices\(\)/);
-  assert.match(world, /export const destinationChoices=\(\)=>Object\.entries\(COMPANION_DESTINATIONS\)/);
+  // v70.52 起按存档筛（处熟了名单才长），表本身仍只有 rules.js 那一份
+  assert.match(game, /destinations:\(\)=>destinationChoices\(data\)/);
+  assert.match(world, /export const destinationChoices=s=>Object\.entries\(companionDestinations\(s\)\)/);
 });
 
 // ⚠️存档白名单是同一张表的第二瓣：手抄的那一版加一处就漏一次

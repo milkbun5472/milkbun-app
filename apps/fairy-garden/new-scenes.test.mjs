@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {withOpenPaths} from '../../test/_fairy-open.mjs';
 import {freshState,restoreState,MAPS,ACTIVITIES,OPENINGS,opened,walkable,findPath,
- COMPANION_DESTINATIONS,destinationChoices,journalText,restoreCompanion,
+ COMPANION_DESTINATIONS,destinationChoices,journalText,restoreCompanion,noteBond,BOND_KINDS,
  whereLabel,shutError,actionError} from './world.mjs';
 import {dailySchedule,plannedActivity,makeCompanionController} from './companion.mjs';
 // 她 2026-09-18：「然后把新加的场景的动作交互也补上吧宝宝」
@@ -67,8 +67,11 @@ test('她能把他约到新场景去，白名单和提示词都照同一张表',
  for(const id of Object.keys(COMPANION_DESTINATIONS))
   assert.equal(restoreCompanion({mode:'goto',destination:id}).destination,id);
  assert.equal(restoreCompanion({mode:'goto',destination:'没有这个地方'}).destination,'home');
- const line=destinationChoices();
+ // v70.52 起那句照【处到哪一档】长：全处熟了每一处都在，刚住到一起只有四处地板
+ let far=freshState();for(const k of Object.keys(BOND_KINDS))far=noteBond(far,k,k);
+ const line=destinationChoices(far);
  for(const id of Object.keys(COMPANION_DESTINATIONS))assert.match(line,new RegExp(id+'（'));
+ assert.equal(destinationChoices(freshState()).split('、').length,4);
  // 写给模型的那句照这张表长，不许再在 js/fairy-garden.js 里手抄一份中文地名
  const host=fs.readFileSync(new URL('../../js/fairy-garden.js',import.meta.url),'utf8');
  assert.match(host,/target 取 " \+ \(destinations \|\| /);
