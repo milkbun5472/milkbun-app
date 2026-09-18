@@ -18929,8 +18929,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const dressLine = (who, picked, groups) => {
         const names = String(picked || "").split("、").map(x => x.trim()).filter(Boolean);
         if (!names.length) return "";
+        // ⚠️「你送的」不许进出图提示词（她 2026-09-18 让我确认礼物挂进衣柜能不能用在合照时查到的）：
+        //   closetGiftToChar 挂礼物时写的 note 就是这三个字——它在衣柜界面上是有用的，
+        //   可这一行是【画面描述】，出图那头读到「你送的」多半会给这件衣服配个礼盒或缎带。
+        //   note 这一栏本来装的就是款式颜色料子，不是来路。
         const parts = names.map(n => {
-          const note = Array.from(String(setNote(groups, n) || "")).slice(0, PIECE_NOTE).join("");
+          const raw = String(setNote(groups, n) || "").trim();
+          const note = raw === "你送的" ? "" : Array.from(raw).slice(0, PIECE_NOTE).join("");
           return note ? n + "（" + note + "）" : n;
         });
         // 一身里的几件用＋串起来，图像那头才知道这是一套，不是让它在几套里挑

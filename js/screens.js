@@ -13124,6 +13124,9 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
                 style: { gap: 11, background: t.bg2, borderRadius: 11, padding: "9px 11px", marginBottom: 8, boxShadow: "0 1px 3px " + carryTint("gifts", .16) }
               },
                 // 礼盒：品类色的小方块 + 一条十字丝带
+                // ⚠️这一栏【不改】（她 2026-09-18 纠正我：「我说的是礼物那边不动」）。
+                //   我一度把是衣服的礼物画成了衣服——放错地方了：这一栏是【收到的东西】，
+                //   衣服的样子属于衣柜那一栏。挂进衣柜之后它本来就画成衣服。
                 h("div", { className: "shrink-0 relative", style: { width: 40, height: 40, borderRadius: 7, background: c ? "linear-gradient(150deg," + c.light + "," + c.base + " 58%," + c.dark + ")" : t.line, overflow: "hidden" } },
                   h("span", { style: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 5, marginLeft: -2.5, background: "rgba(255,255,255,.55)" } }),
                   h("span", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 5, marginTop: -2.5, background: "rgba(255,255,255,.55)" } }),

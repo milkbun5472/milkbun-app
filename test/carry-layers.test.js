@@ -266,6 +266,8 @@ test("挂衣杆铺满整行，页面本身不横滚", () => {
 test("列表和详情画的是同一件衣服——剪影只有一份", () => {
   assert.match(screens, /function clothFigure\(o\) \{/);
   // 两处都调它，谁也别再自己画一遍
+  // ⚠️v71.02 撤回 2（她 2026-09-18 纠正：「我说的是礼物那边不动」）：
+  //   衣服的样子属于【衣柜】那一栏，收到的礼物那一栏照旧是礼盒。
   assert.equal((screens.match(/clothFigure\(\{/g) || []).length, 2, "列表一处、详情一处，多出来的就是又抄了一遍");
   // 别冻宽度——两处的尺寸以后还会调。守的是【都走同一个 clothFigure、都把钉住态传进去】。
   assert.match(screens, /clothFigure\(\{ tone: c, long, w: \d+, pinned: isPinned\(it\), t \}\)/, "列表没走共用那份");
