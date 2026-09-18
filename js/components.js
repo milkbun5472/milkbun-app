@@ -2670,7 +2670,7 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek }) {
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek }) {
   const t = useTheme();
   const today = new Date();
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
@@ -2966,6 +2966,23 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       fab && h("div", { style: { position: "absolute", right: 0, bottom: 62, width: 190, background: t.bg2, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
         h("button", { onClick: () => { setFab(false); setForm({ owner: view, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
         isCharView && h("button", { onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
+        // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
+        // 「删除」两个字底下藏着多少东西，得让她在按之前就看见。
+        isCharView && (() => {
+          const keys = typeof schedWeekKeys === "function" ? (schedWeekKeys(curChar) || []) : [];
+          const have = keys.filter(k => ((schedules || {})[curChar.id] || {})[k]).length;
+          return h("button", {
+            onClick: () => {
+              setFab(false);
+              requestAppConfirm("删掉 " + (curChar.remark || curChar.name) + " 这 " + have + " 天 AI 排的日程？",
+                "删的是今天到周日、AI 排的那几天，手填的日程和过去那几天不动。删完不会自动再排，想重排点「AI 排剩下这几天」。",
+                () => onDelSchedWeek && onDelSchedWeek(curChar), "删掉");
+            },
+            disabled: !have,
+            className: "w-full text-left active:opacity-60 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 14, color: have ? "#c25a4a" : t.fog, padding: "13px 16px", borderTop: "1px solid " + t.line }
+          }, have ? "🗑　删掉 AI 排的这 " + have + " 天" : "　　这几天没有 AI 排的");
+        })(),
         // 角色那档不再给这个：他们的日子现在由「AI 排剩下这几天」整天整天地排出来，
         // 再来一层月度事件是重复的（她 2026-08-26）。手填照常，旧数据照常显示、照常喂给角色。
         // 世界大事是另一回事——所有角色都知道的公共事件，留在「我」这档。
@@ -2995,6 +3012,17 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
             near.map((m, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, (m.time || "") + "　" + m.text))) : null;
         })(),
         calPlanLoadLine(schedules, view, dayEv.dk, isCharView, t),
+        // AI 排的那种没法一段一段编辑（整天是一次推演出来的），所以这儿给的是【删掉这一整天】——
+        // 她 2026-09-18 要的「单独删」就是这个粒度：哪天排歪了，点开那天任一段就能整天清掉。
+        dayEv.b.ai && isCharView && h("button", {
+          onClick: () => {
+            const dk = dayEv.dk, a = String(dk).split("-");
+            requestAppConfirm("删掉 " + Number(a[1]) + "月" + Number(a[2]) + "日 AI 排的日程？",
+              "这一整天 AI 排的时间线和碎碎念都会删掉，手填的日程不动。删完不会自动再排。",
+              () => { onDelSchedDay && onDelSchedDay(curChar, dk); setDayEv(null); }, "删掉");
+          },
+          className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" }
+        }, "删掉这天 AI 排的日程"),
         !dayEv.b.ai && h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => { setForm(Object.assign({}, dayEv.b.ev)); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "编辑"),
           h("button", { onClick: () => { onDelTimed && onDelTimed(dayEv.b.ev.id); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除")))),

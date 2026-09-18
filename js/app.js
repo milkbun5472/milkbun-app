@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.36";
+const APP_VERSION = "v70.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12147,6 +12147,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_schedules", n);
     return n;
   });
+  // ── 删掉 AI 排的日程（她 2026-09-18：「做ai生成的日程可以删除吧，both individually
+  //    for each 角色的日程或者角色整周生成的，每个角色单独弄」）──
+  //
+  // ⚠️删除口子只有这一个：单天删和整周删都从这儿走（施工规则/one-public-mechanism.md）。
+  //   整周那档只是多传几个 dayKey——别在界面那头再手写一份 setSchedules，
+  //   不然哪天存档结构改了，两处必漏一处。
+  // ⚠️删了【不会】自动再排：AutoGate 那一格这周已经记成 ok，`due` 直接返回 false。
+  //   所以删掉就是删掉，不会半夜自己烧一枪把它补回来；想重排走「AI 排剩下这几天」。
+  const delSchedDays = (charId, dayKeys) => {
+    const keys = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean);
+    const cur = (schedulesRef.current || {})[charId] || {};
+    const hit = keys.filter(k => cur[k]);
+    if (!hit.length) return 0;
+    const left = {};
+    Object.keys(cur).forEach(k => { if (hit.indexOf(k) < 0) left[k] = cur[k]; });
+    setSchedules(p => {
+      const n = { ...p, [charId]: left };
+      schedulesRef.current = n;
+      saveJSON("x_schedules", n);
+      return n;
+    });
+    return hit.length;
+  };
+  // 「这几天」＝跟「AI 排剩下这几天」写的是同一段：今天到本周日。
+  // 过去那几天不在里面——它们带着碎碎念和偏差，是回看的料，要删得一天一天点。
+  const schedWeekKeysFrom = char => {
+    const today = schedLocalDayKey(char), dowMon = (schedParseKey(today).getDay() + 6) % 7;
+    return Array.from({ length: 7 - dowMon }, (_, i) => schedShiftDayKey(today, i));
+  };
   // ── 两个人的日程要对得上（她 2026-08-31：「有关系的两个人日程生成的时候会参考
   // 对方的，比如说 10 点去咖啡厅两边都会写」）──
   //
@@ -22716,6 +22745,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const today = schedLocalDayKey(c), dowMon = (schedParseKey(today).getDay() + 6) % 7;
       const ok = await genScheduleWeek(c, { force: true, from: today, count: 7 - dowMon });
       window.AutoGate.mark("schedule|" + c.id, schedMondayOf(today), ok);
+    },
+    // 删：单天一处、整周一处，都落到同一个 delSchedDays 上
+    schedWeekKeys: schedWeekKeysFrom,
+    onDelSchedDay: (c, dayKey) => {
+      const n = delSchedDays(c.id, dayKey);
+      if (n) toast((c.remark || c.name) + " 这天 AI 排的日程删了");
+    },
+    onDelSchedWeek: c => {
+      const n = delSchedDays(c.id, schedWeekKeysFrom(c));
+      toast(n ? (c.remark || c.name) + " 今天到周日 AI 排的日程删了（" + n + " 天）" : "这几天本来就没有 AI 排的日程");
     }
   });else if (screen === "config") body = /*#__PURE__*/React.createElement(Config, {
     // 预览台回来时直接落在主题工作台那一栏，不用她再翻一次（v65.00）
