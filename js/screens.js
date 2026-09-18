@@ -11502,8 +11502,7 @@ const CUR_PRESETS = [
   { code: "CNY", symbol: "¥", rate: 1, pos: "pre", dec: 2, zh: "人民币" },
   { code: "JPY", symbol: "円", rate: 20, pos: "post", dec: 0, zh: "日元" },
   { code: "KRW", symbol: "원", rate: 190, pos: "post", dec: 0, zh: "韩元" },
-  { code: "USD", symbol: "$", rate: 0.14, pos: "pre", dec: 2, zh: "美元" },
-  { code: "TWD", symbol: "NT$", rate: 4.4, pos: "pre", dec: 0, zh: "新台币" }
+  { code: "USD", symbol: "$", rate: 0.14, pos: "pre", dec: 2, zh: "美元" }
 ];
 function CurrencyBook({ char, cur, onSave, onBack }) {
   const t = useTheme();
