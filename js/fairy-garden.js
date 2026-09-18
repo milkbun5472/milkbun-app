@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-a6962789a46b0e01", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e80904d7d47074e4", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -283,7 +283,9 @@
       roleContext(character, profile, mainline),
       "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
       "【当前世界的事实】\n" + JSON.stringify(world),
-      material && material.invite
+      material && material.starNight
+        ? "【此刻】你们在旧塔的星图桌前，把她一趟趟从井底带回来的星图碎片拼在了一起，天已经黑了，星图摊开在桌上。这一夜只有这一次，说你此刻真想说的。"
+        : material && material.invite
         ? "【此刻】是你约她来" + String(material.invite.place || "这儿") + "的" + (material.invite.note ? "（你当时说的是：" + material.invite.note + "）" : "") + "，她真的来了，这会儿就站在你跟前。这一段只有这一次。"
         : "【此刻】你自己放下手里的事，走到她面前站住了。不是她叫你来的——是你自己想找她说句话。"
         + (quiet ? "你们已经 " + quiet + " 天没正经说过话了。" : ""),
@@ -797,7 +799,7 @@
               h("div", {style:{display:"grid",gap:10}},
                 (bottles?.drifts||[]).map((d,i)=>h("article", {key:(d.id||"")+":"+d.day+":"+i,style:{borderRadius:14,border:"1px solid "+G.line,background:"rgba(255,255,255,.6)",padding:"11px 13px"}},
                   h("div", {style:{fontFamily:F_BODY,fontSize:10.5,color:"#93a188"}},
-                    "第 " + d.day + " 天捞到 · " + (d.kind === "reply" ? (d.sender || "同行者") + "的回信" : d.kind === "mine" ? "自己封的" : d.kind === "note" ? "旧花笺" : d.kind === "shard" ? "井里的碎片" : "馆里的一件") + "（第 " + d.from + " 天）"),
+                    "第 " + d.day + " 天捞到 · " + (d.kind === "reply" ? (d.sender || "同行者") + "的回信" : d.kind === "mine" ? "自己封的" : d.kind === "wish" ? "水灯上留的那句" : d.kind === "note" ? "旧花笺" : d.kind === "shard" ? "井里的碎片" : "馆里的一件") + "（第 " + d.from + " 天）"),
                   d.original && h("div", {style:{fontSize:12,color:G.soft,marginTop:8}}, "你放下的：" + d.original),
                   h("div", {style:{fontFamily:F_BODY,fontSize:13.5,color:G.ink,marginTop:6,lineHeight:1.85,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},d.text)))),
               bottles?.pages>1 && h("div", {style:{display:"flex",justifyContent:"space-between",gap:12,marginTop:16}},
