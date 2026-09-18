@@ -13,8 +13,8 @@ test("从游戏里挑手机里的一位，两个入口都去开房间", () => {
   //   首页那个入口挑人只把 partnerId 写进公共那一档——一间房都没有。
   assert.match(garden, /if \(id && props\.onNewGardenRoom\) \{ setPick\(false\); props\.onNewGardenRoom\(id\); return; \}/);
   assert.doesNotMatch(garden, /props\.lockPartnerId && props\.onNewGardenRoom\) \{ setPick/);
-  // 「先和示例同行者试玩」(id 为空) 才留在公共那一档，那一档本来就不属于谁
-  assert.match(garden, /挑示例同行者（id 为空）才走下面那条：那一档本来就不属于谁，所以不挂房间/);
+  // 现在没有「不挑人」那条路了：挑了谁，就给谁开一间
+
   assert.equal((app.match(/onNewGardenRoom: openGardenRoomFor/g) || []).length, 2, "两个入口都要接上");
 });
 
@@ -51,20 +51,23 @@ test("那一页接预设的两个 hook 排在提前 return 前面", () => {
 //   它原来直接写一条 g_xxx 进庭院自己那张名册就开了——那一档不属于任何人、
 //   也不挂任何房间：没有聊天、没有记忆进出、没有一处能设权限。
 test("「＋ 新开一段」先问给谁开，挑了人就去开房间", () => {
-  assert.match(garden, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id\); else createSolo\(\); \};/);
-  assert.match(garden, /onClick: \(\) => \(props\.onNewGardenRoom \? setPicking\(true\) : createSolo\(\)\)/,
-    "没有开房能力时（旧入口）还得能开示例档，不能点了没反应");
+  assert.match(garden, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id\); \};/,
+    "示例同行者那条路撤了：挑了人才有下文，没有 else 那一支");
+  assert.match(garden, /onClick: \(\) => setPicking\(true\)/, "「＋ 新开一段」只剩挑人这一条路");
   assert.match(garden, /if \(picking\) return shell\("给谁开一段"/);
   assert.match(garden, /那一档【不属于任何人、也不挂任何房间】/);
 });
 
-// 「先和示例同行者试玩」本身就是一次回答，进去不许再问一遍
-test("示例档直接进去，不再摆第二张选人页", () => {
+// ⚠️「这一步执行完，有没有哪一份数据只剩一个副本了」——以前开的那些示例档不许弄没
+test("以前开的示例档照样列着、照样进得去", () => {
   assert.match(garden, /\[pick, setPick\] = useState\(!initial\.current\.partnerId && !props\.startSolo\)/);
   assert.match(garden, /\[solo, setSolo\] = useState\(!!props\.startSolo\)/);
   assert.match(garden, /startSolo: openSolo/);
-  // ⚠️那一档得当场落下来：原来是进去那次选人顺手写的，现在没人写它＝一进去就「存档已经切换」
-  assert.match(garden, /try \{ write\(saveKeyOf\(\{ id: id \}\), blankSave\(\)\); \}/);
+  assert.match(garden, /card\(\(\) => \{ setOpenSolo\(!meta\.partnerId\); setOpenId\(saveKeyOf\(row\)\); \}/,
+    "没有同行者的旧档要直接进去，不能摆一张它逃不掉的选人页");
+  // 撤掉一件东西就把它删掉，不许留在原地当死代码
+  assert.doesNotMatch(garden, /const createSolo = /);
+  // read() 兜底那份空存档还要留着
   assert.match(garden, /const blankSave = \(\) => \(\{ version: 1, id: "garden_"/);
   assert.equal((garden.match(/version: 1, id: "garden_"/g) || []).length, 1, "空存档长什么样只许写在一处");
 });
@@ -73,7 +76,7 @@ test("示例档直接进去，不再摆第二张选人页", () => {
 test("选人那一页只有一份", () => {
   assert.match(garden, /function partnerPickBody\(\{ characters, live, note, onPick, error \}\)/);
   assert.equal((garden.match(/partnerPickBody\(\{/g) || []).length, 3, "定义一处、两处调用");
-  assert.equal((garden.match(/\}, "先和示例同行者试玩"\)/g) || []).length, 1, "那一颗按钮也只许画一处");
+  assert.doesNotMatch(garden, /\}, "先和示例同行者试玩"\)/, "那条出口撤了");
   // ⚠️写成函数：好几条测试把这个文件按段抠出来在 vm 里跑，模块加载就取 F_BODY 会当场红
   assert.match(garden, /const pickButtonStyle = \(\) => \(\{/);
 });

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-c2fe62726d22d4c3", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-6066337cb4ed8b7e", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -386,7 +386,11 @@
     return parts;
   }
   root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
-  root.GFairyGarden = p => h(Svg, p, h("path", { d: "M4 12l8-8 8 8M6 10v10h12V10M10 20v-6h4v6M18 3v4M16 5h4M3 17c2-3 4-2 4 0" }));
+  // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
+  //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
+  //   换成三颗大小不一的星子：只说「好几个小世界」。
+  root.GFairyGarden = p => h(Svg, p, h("path", {
+    d: "M5 14a4 4 0 1 0 8 0a4 4 0 1 0 -8 0M13 7.5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M3.9 6.2a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   // 一份色板：原来 GardenSession 和 FairyGardenApp 各写了一份，改一处永远漏一处。
   const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", paper: "#fffef5", deep: "#55704f" };
@@ -396,6 +400,12 @@
   // 「挑一位同行者」那一页的正文：新开一段和在庭院里另开一间，用的是同一份。
   // ⚠️只此一份：这一页上「住在村里的排前面」「没有角色时提示去档案馆」这些分寸，
   //   照着再抄一份就会各改各的（施工规则/one-public-mechanism.md）。
+  // ⚠️没有「先和示例同行者试玩」那条路了（她 2026-09-18：「直接把示例同行者删了吧，
+  //   玩秋秋机的都是有角色的。所以主要 focus 还是角色互动和关系」）。
+  //   那条路本来就是残的：没有角色时井里刨不出碎片 → 做不了东西 → 收藏馆空 →
+  //   念不了咒 → 三条会开的路一条都开不了。摆着它＝请人去玩一个阉割版。
+  //   ⚠️【以前开的那些示例档不动】：照样列在选档页上、照样进得去，只是不能再新建
+  //   （施工规则外那条也管这儿：这一步执行完，有没有哪一份数据只剩一个副本了）。
   function partnerPickBody({ characters, live, note, onPick, error }) {
     const seated = (live || []).map(String);
     // 住在村里的那几位排在前面（她 2026-09-17：「改变同行应该是只能从邻居里面选」）。
@@ -404,12 +414,14 @@
     //   不会再变成两个人（那一层在 world.mjs 里，界面怎么点都绕不过去）。
     const rows = (characters || []).slice().sort((a, b) => seated.indexOf(String(b.id)) - seated.indexOf(String(a.id)));
     return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
-      h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } }, note),
+      h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } },
+        // ⚠️一个角色都没有的时候「挑一位」没有对象，而下面那句「也可以先去…」
+        //   还暗示着本来有别的选择——那条选择（示例同行者）已经撤掉了。空的时候换一句话说。
+        rows.length ? note : "这个世界是和你手机里的角色一起过的。先去人格档案馆创建一位，再回来开一段。"),
       h("div", { style: { display: "grid", gap: 11 } },
         rows.map(c => h("button", { key: c.id, style: pickButtonStyle(), onClick: () => onPick(c.id) },
-          (c.remark || c.name) + (seated.includes(String(c.id)) ? " · 住在村里" : ""))),
-        h("button", { style: pickButtonStyle(), onClick: () => onPick("") }, "先和示例同行者试玩")),
-      !rows.length && h("p", { style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "也可以先去人格档案馆创建角色。"),
+          (c.remark || c.name) + (seated.includes(String(c.id)) ? " · 住在村里" : "")))),
+
       error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error));
   }
   function GardenSession(props) {
@@ -1216,7 +1228,7 @@
           h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },
             h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
               char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
-            h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, props.lockPartnerId ? "另开一间" : "换同行者")),
+            h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间")),
           h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
             rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
@@ -1311,8 +1323,11 @@
       style: { padding: "15px 16px", borderRadius: 16, border: "1px solid " + G.line,
         background: dim ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.62)", opacity: dim ? .55 : 1 }
     }, children);
+    // ⚠️只有【壳】叫小世界（她 2026-09-18 定的）：它装着好几个世界，再叫「微光庭院」
+    //   就成了「一个叫微光庭院的地方，进去挑世界，第一个世界也叫微光庭院」。
+    //   进了某个世界以后那几处 Head 仍旧是那个世界自己的名字（GardenSession 里那三处别动）。
     const shell = (sub, onBack, body) => h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: G.ink } },
-      h(Head, { zh: "微光庭院", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
+      h(Head, { zh: "小世界", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
 
     // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
@@ -1330,22 +1345,14 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } }, w.note)))))));
 
     const rows = saves.filter(x => x.world === world.id);
-    // 开一段【示例档】：它不属于谁，所以不挂房间，仍旧住在庭院自己那张名册里。
-    const createSolo = () => {
-      const id = "g_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
-      const next = [{ id, world: world.id, name: "", ts: Date.now() }, ...readSaves()];
-      if (!saveJSON(INDEX_KEY, next)) { props.toast("这次没能记下新存档，先别关。"); return; }
-      // ⚠️这一档要【当场落下来】：原来是进去以后那一次选人顺手写的，
-      //   现在示例档不再问第二遍，没人写它——一进去就是「存档已经切换」。
-      try { write(saveKeyOf({ id: id }), blankSave()); }
-      catch (e) { props.toast(e.message); return; }
-      setSaves(next); setOpenSolo(true); setOpenId(saveKeyOf({ id: id }));
-    };
+    // ⚠️不再有「开一段不挑人的」：新的一段一律要挑一位（她 2026-09-18 定的）。
+    //   以前开的那些示例档照样列在上面、照样进得去，只是不能再新建——
+    //   撤掉一件东西就把它删掉，不许留在原地当死代码。
     // ⚠️她 2026-09-18：「从游戏开了一档根本没连房间」。原来「＋ 新开一段」直接写一条
     //   g_xxx 进庭院自己那张名册就开了——那一档【不属于任何人、也不挂任何房间】：
     //   没有聊天、没有记忆进出、没有一处能设权限。挑了手机里的一位，就该是一间房
     //   （一间房＝一个庭院存档，这条线从头就是这么定的），而且先让她把设定定好。
-    const pickForNew = id => { setPicking(false); if (id) props.onNewGardenRoom(id); else createSolo(); };
+    const pickForNew = id => { setPicking(false); if (id) props.onNewGardenRoom(id); };
     const drop = row => requestAppConfirm("删掉这一档？",
       "这一档里的日子、背包和聊过的话会一起删掉，找不回来。",
       () => {
@@ -1354,11 +1361,10 @@
         try { dropStored(saveKeyOf(row)); } catch (e) {}
         setSaves(next);
       }, "删掉");
-    // 挑人那一页：挑了手机里的一位就去开一间房（先设定、再建），
-    // 挑「示例同行者」才留在庭院自己这张名册里。
+    // 挑人那一页：挑了手机里的一位就去开一间房（先设定、再建）。
     if (picking) return shell("给谁开一段", () => setPicking(false),
       partnerPickBody({ characters: props.characters, live: [], onPick: pickForNew,
-        note: "挑一位，就给 TA 开一间庭院房——房间的设定先让你定好，定完这一段就开在那间房里。想先随便逛逛，就挑最下面那一条。" }));
+        note: "挑一位，就给 TA 开一间庭院房——房间的设定先让你定好，定完这一段就开在那间房里。" }));
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
       h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 16px" } },
         "选一档接着过，或者从头开一段新的。"),
@@ -1367,7 +1373,9 @@
           const meta = saveMeta(row);
           const partner = (props.characters || []).find(c => String(c.id) === meta.partnerId);
           return h("div", { key: row.id, style: { position: "relative" } },
-            card(() => { setOpenSolo(false); setOpenId(saveKeyOf(row)); }, false, h(React.Fragment, null,
+            // ⚠️以前开的示例档没有同行者：直接进去接着玩，别摆一张【它逃不掉的】选人页
+            //   ——那一页现在只剩「挑一位」，一挑就跑去开新房间，这一档就被撂下了。
+            card(() => { setOpenSolo(!meta.partnerId); setOpenId(saveKeyOf(row)); }, false, h(React.Fragment, null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
@@ -1375,7 +1383,7 @@
             (row.key && row.key.indexOf("::room::") > -1) ? null : h("button", { onClick: () => drop(row), className: "active:opacity-60",
               style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
         }),
-        h("button", { onClick: () => (props.onNewGardenRoom ? setPicking(true) : createSolo()), className: "w-full active:opacity-70",
+        h("button", { onClick: () => setPicking(true), className: "w-full active:opacity-70",
           style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
           "＋ 新开一段"))));
   };
