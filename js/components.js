@@ -2670,7 +2670,7 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek }) {
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq }) {
   const t = useTheme();
   const today = new Date();
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
@@ -3012,8 +3012,17 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
             near.map((m, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, (m.time || "") + "　" + m.text))) : null;
         })(),
         calPlanLoadLine(schedules, view, dayEv.dk, isCharView, t),
-        // AI 排的那种没法一段一段编辑（整天是一次推演出来的），所以这儿给的是【删掉这一整天】——
-        // 她 2026-09-18 要的「单独删」就是这个粒度：哪天排歪了，点开那天任一段就能整天清掉。
+        // 两个粒度并排：左边只删这一段、右边整天清掉。
+        // ⚠️「只删这一段」只在有 raw 时给——凌晨那条是【昨晚睡过来的】那一截（carry），
+        //   它不是今天 seqs 里的一段，删它得回到昨天那一天去删。
+        dayEv.b.ai && isCharView && dayEv.b.raw && dayEv.b.raw.seq && h("button", {
+          onClick: () => {
+            requestAppConfirm("只删掉「" + (dayEv.b.title || "这一段") + "」？",
+              "这一天别的安排都留着，时间线上会空出这一段。",
+              () => { onDelSchedSeq && onDelSchedSeq(curChar, dayEv.dk, dayEv.b.raw.seq); setDayEv(null); }, "删掉");
+          },
+          className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" }
+        }, "只删这一段"),
         dayEv.b.ai && isCharView && h("button", {
           onClick: () => {
             const dk = dayEv.dk, a = String(dk).split("-");
@@ -3021,7 +3030,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
               "这一整天 AI 排的时间线和碎碎念都会删掉，手填的日程不动。删完不会自动再排。",
               () => { onDelSchedDay && onDelSchedDay(curChar, dk); setDayEv(null); }, "删掉");
           },
-          className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" }
+          className: "w-full active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" }
         }, "删掉这天 AI 排的日程"),
         !dayEv.b.ai && h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => { setForm(Object.assign({}, dayEv.b.ev)); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "编辑"),

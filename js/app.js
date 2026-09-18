@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.43";
+const APP_VERSION = "v70.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12170,6 +12170,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     return hit.length;
   };
+  // 单独删一段（她 2026-09-18「对就是这个」，接着上面那一条）。
+  // ⚠️还是同一个删除口子的一部分：删空了就转交给 delSchedDays 把这一天整个拿掉——
+  //   留一个 seqs:[] 的空壳不行，那在聊天那头是「今天排了、只是此刻没事做」，
+  //   跟「今天没排」是两回事。
+  // ⚠️estTime 删成 null，不是照着剩下的块重算一个：那个数是模型给【整天】的估计，
+  //   她动过之后我们就不知道它该是多少了。**一个诚实的空比一个算出来的假数好**
+  //   （施工规则/one-public-mechanism.md 记账那一节，同一条道理）。
+  const delSchedSeq = (charId, dayKey, seqNo) => {
+    const cur = (schedulesRef.current || {})[charId] || {};
+    const plan = cur[dayKey];
+    if (!plan || !Array.isArray(plan.seqs)) return 0;
+    const left = plan.seqs.filter(q => q && q.seq !== seqNo);
+    if (left.length === plan.seqs.length) return 0;
+    if (!left.length) return delSchedDays(charId, dayKey);
+    // 重新编号：saveSchedDay 落的就是连续的 seq: i + 1，删完得还是那个形状
+    const next = { ...plan, estTime: null, seqs: left.map((q, i) => ({ ...q, seq: i + 1 })) };
+    setSchedules(p => {
+      const n = { ...p, [charId]: { ...cur, [dayKey]: next } };
+      schedulesRef.current = n;
+      saveJSON("x_schedules", n);
+      return n;
+    });
+    return 1;
+  };
   // 「这几天」＝跟「AI 排剩下这几天」写的是同一段：今天到本周日。
   // 过去那几天不在里面——它们带着碎碎念和偏差，是回看的料，要删得一天一天点。
   const schedWeekKeysFrom = char => {
@@ -22748,6 +22772,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     // 删：单天一处、整周一处，都落到同一个 delSchedDays 上
     schedWeekKeys: schedWeekKeysFrom,
+    onDelSchedSeq: (c, dayKey, seqNo) => {
+      const n = delSchedSeq(c.id, dayKey, seqNo);
+      if (n) toast("这一段删了");
+    },
     onDelSchedDay: (c, dayKey) => {
       const n = delSchedDays(c.id, dayKey);
       if (n) toast((c.remark || c.name) + " 这天 AI 排的日程删了");
