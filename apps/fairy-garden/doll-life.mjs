@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-0a6ba51aff5eff37';
-export const actionDuration=job=>job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
-export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';return 'rest';}
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-3915a13bb1499558';
+export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
+export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
 export function makeDollLife(root,model,rig,book){
  const group=new T.Group();group.name='DailyActionProps';model.add(group);
@@ -15,6 +15,8 @@ export function makeDollLife(root,model,rig,book){
  // 取水的桶、做灯的灯罩（她 2026-09-18：这三样原来是「站着不动一根条」）
  const bucket=new T.Group();bucket.name='WellBucket';group.add(bucket);mesh(bucket,new T.CylinderGeometry(.075,.06,.11,14),metal,0,-.03,0);mesh(bucket,new T.TorusGeometry(.07,.008,6,18),cream,0,.04,0).rotation.x=Math.PI/2;const rope=mesh(bucket,new T.CylinderGeometry(.006,.006,.5,6),cream,0,.3,0);
  const lampProp=new T.Group();lampProp.name='StarLamp';group.add(lampProp);mesh(lampProp,new T.ConeGeometry(.11,.08,8),cream,0,.09,0);const bulb=mesh(lampProp,new T.IcosahedronGeometry(.07,1),new T.MeshStandardMaterial({color:'#d6c8f0',emissive:'#d6c8f0',emissiveIntensity:0,roughness:.6}),0,0,0);mesh(lampProp,new T.TorusGeometry(.045,.007,6,14),metal,0,.14,0);
+ // 吃东西的那只碗（她 2026-09-18：「搞个吃东西的动作」）：左手托碗，右手一下一下往嘴边送
+ const bowl=new T.Group();bowl.name='FoodBowl';group.add(bowl);mesh(bowl,new T.CylinderGeometry(.075,.05,.06,16),cream,0,0,0);mesh(bowl,new T.CircleGeometry(.066,16),tea,0,.031,0).rotation.x=-Math.PI/2;const chop=mesh(bowl,new T.CylinderGeometry(.006,.006,.2,6),mat('#b89661'),.03,.09,0);chop.rotation.z=.4;
  const packet=new T.Group();packet.name='SeedPacket';group.add(packet);mesh(packet,new T.BoxGeometry(.11,.14,.045),cream);mesh(packet,new T.SphereGeometry(.028,8,6),metal,0,.01,.03);
  const grains=new T.Group();grains.name='SowingGrains';group.add(grains);const seedMat=mat('#ddbd72');for(let i=0;i<7;i++)mesh(grains,new T.SphereGeometry(.018,6,4),seedMat);
 
@@ -28,9 +30,9 @@ export function makeDollLife(root,model,rig,book){
  const arms=Object.fromEntries(rig.map(x=>[x.label,x.p]));
  function atHand(prop,side='right'){prop.position.copy(model.worldToLocal(handPoint(side)));}
  return {handPoint,update(time,{gesture='rest',progress=0,moving=false,seated=false,height=.08}={}){
-  const active=!moving,drawing=active&&gesture==='draw',lamping=active&&gesture==='lamp',planting=active&&gesture==='plant',waving=active&&gesture==='wave',stretching=active&&gesture==='stretch',watering=active&&gesture==='water',picking=active&&['harvest','gather'].includes(gesture),reading=active&&gesture==='read',drinking=active&&gesture==='tea',giving=active&&['give','receive'].includes(gesture);
+  const active=!moving,drawing=active&&gesture==='draw',lamping=active&&gesture==='lamp',planting=active&&gesture==='plant',waving=active&&gesture==='wave',stretching=active&&gesture==='stretch',watering=active&&gesture==='water',picking=active&&['harvest','gather'].includes(gesture),reading=active&&gesture==='read',drinking=active&&gesture==='tea',eating=active&&gesture==='eat',giving=active&&['give','receive'].includes(gesture);
   legacy.forEach(o=>o.visible=model.userData.outfit==='traveler'&&(!active||gesture==='rest'||gesture==='sit'));
-  bucket.visible=drawing;lampProp.visible=lamping;can.visible=drops.visible=watering;cup.visible=drinking;flower.visible=active&&(gesture==='flower'||gesture==='harvest'&&progress>.55);book.visible=reading;
+  bucket.visible=drawing;lampProp.visible=lamping;bowl.visible=eating;can.visible=drops.visible=watering;cup.visible=drinking;flower.visible=active&&(gesture==='flower'||gesture==='harvest'&&progress>.55);book.visible=reading;
   packet.visible=planting;grains.visible=planting&&progress>.2&&progress<.65;
   const p=Math.max(0,Math.min(1,progress)),ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
   const envelope=ease(p/.2)*ease((1-p)/.22);
@@ -54,13 +56,15 @@ export function makeDollLife(root,model,rig,book){
   if(lamping){arms.rightArm.rotation.x=arms.leftArm.rotation.x=(-2.1-p*.5)*envelope;arms.rightArm.rotation.z=-.25*envelope;arms.leftArm.rotation.z=.25*envelope;const l=handPoint('left'),r=handPoint();lampProp.position.copy(group.worldToLocal(l.add(r).multiplyScalar(.5)));lampProp.position.y+=.04;lampProp.rotation.y=time*.8;bulb.material.emissiveIntensity=ease(p)*1.4;}
   if(picking){const bend=Math.sin(Math.PI*Math.min(1,progress/.7));model.rotation.x=.32*Math.max(0,bend);root.position.y-=.11*Math.max(0,bend);arms.rightArm.rotation.x=-.45-.55*Math.max(0,bend);}
   if(reading){arms.leftArm.rotation.x=arms.rightArm.rotation.x=-.7;page.rotation.z=-Math.PI*((time*.18)%1);}
+  if(eating){const bite=Math.max(0,Math.sin(time*2.2));arms.leftArm.rotation.x=-1.05;arms.leftArm.rotation.z=.35;arms.rightArm.rotation.x=-1.1-bite*.9;arms.rightArm.rotation.z=-.2;model.rotation.x=.05*bite;}
   if(drinking){const sip=Math.max(0,Math.sin(time*1.1));arms.rightArm.rotation.x=-.9-sip*1.25;arms.rightArm.rotation.z=-sip*.6;}
   if(giving){arms.rightArm.rotation.x=-1.25;arms.leftArm.rotation.x=-.25;}
   // A real hand mesh carries the prop, so height/build morphs affect the grip as well.
   if(can.visible){atHand(can);can.position.y-=.025;can.rotation.x=.3+Math.sin(time*2)*.07;can.rotation.z=0;model.updateWorldMatrix(true,true);tip.set(0,.02,.255);can.localToWorld(tip);group.worldToLocal(tip);drops.children.forEach((d,i)=>{const f=(time*1.7+i/16)%1;d.position.copy(tip).add(v.set(Math.sin(i*2.4)*.025,-f*.52,f*.12));});}
+  if(bowl.visible){atHand(bowl,'left');bowl.position.y-=.02;chop.rotation.x=-Math.max(0,Math.sin(time*2.2))*.6;}
   if(cup.visible){atHand(cup);cup.rotation.x=-Math.max(0,Math.sin(time*1.1))*.35;}
   if(flower.visible)atHand(flower);
   if(reading){const l=handPoint('left'),r=handPoint();book.position.copy(root.worldToLocal(l.add(r).multiplyScalar(.5)));book.position.y+=.02;book.rotation.x=.25;}
-  root.userData.dailyAction={gesture,packet:packet.visible,grains:grains.visible,waving,stretching,can:can.visible,drops:drops.visible,flower:flower.visible,cup:cup.visible,book:book.visible,page:page.rotation.z,seated};
+  root.userData.dailyAction={gesture,packet:packet.visible,grains:grains.visible,waving,stretching,can:can.visible,drops:drops.visible,flower:flower.visible,cup:cup.visible,bowl:bowl.visible,book:book.visible,page:page.rotation.z,seated};
  }};
 }

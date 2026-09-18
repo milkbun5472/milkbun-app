@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0a6ba51aff5eff37", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-3915a13bb1499558", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -78,7 +78,7 @@
     const text = v => String(v == null ? "" : v).trim().slice(0, 80);
     let action = { kind };
     if (kind === "goto" || kind === "invite") action = known(a.target) ? { kind, target: a.target, note: kind === "invite" ? text(a.note) : undefined } : { kind: "none" };
-    else if (kind === "gift") action = ["herb", "mushroom", "flower"].includes(a.item) ? { kind, item: a.item } : { kind: "none" };
+    else if (kind === "gift") action = ["herb", "mushroom", "flower", "food"].includes(a.item) ? { kind, item: a.item } : { kind: "none" };
     else if (kind === "refuse") action = { kind, why: text(a.why) };
     else action = { kind, target: undefined };
     return { parts, reply: parts.join("\n"), action };
@@ -120,7 +120,7 @@
       "【对方刚说】\n" + text,
       "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
         + "另外三种真会发生的事：invite=你约她去一个地点（target 同上，note 写你约她时说的那句），你先过去等，她到了才有下文；"
-        + "gift=你把手边顺手采到的一样递给她，item 取 herb（一束铃叶草）／mushroom（荧光菇）／flower（月光花），得她就在你跟前，一天一样；"
+        + "gift=你把手边顺手采到的一样递给她，item 取 herb（一束铃叶草）／mushroom（荧光菇）／flower（月光花），得她就在你跟前，一天一样；food 是你在夜市上给她买一样吃的，只有世界事实里 food.open 为 true、两个人都在灯串集市时才做得到；"
         + "refuse=她提了什么你没答应，why 写你没答应的那一句，然后你回自己的日程。"
         + "动作只控制你自己，用户的小人由用户操作。路径与到达由游戏执行，回复表达眼下的意愿与举动；物品变动以游戏实际结算为准。答应、犹豫、商量、拒绝、主动约她，都按你的性格来。",
       '【输出格式】只输出 JSON：{"reply":["你说的第一句","接着说的第二句"],"action":{"kind":"动作标识","target":"goto／invite 时的地点标识","note":"invite 时你约她的那句","item":"gift 时的东西标识","why":"refuse 时的那一句"}}。用不到的字段不写。'
@@ -539,7 +539,8 @@
           const c = partner();
           if (!c) throw new Error("先选一位同行者，才知道 TA 喜欢什么。");
           const cid = String(c.id), have = (current().tastes || {})[cid];
-          if (have && have.status === "ready") return have.rows;
+          // ⚠️类别表长了（v70.74 加了「吃的」）：老档那张表缺哪一类就再问一次，不缺就一辈子只问一次
+          if (have && have.status === "ready" && Object.keys(root.FairyGardenRules.GIFT_FAMILIES).every(f => (have.rows || []).some(r => r && r.family === f))) return have.rows;
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
           const epoch = serial.current;
           busyRef.current = true; setBusy(true);
@@ -812,7 +813,21 @@
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: f.stance === "love" || f.stance === "like" ? G.deep : "#93a188" } },
                       f.stance ? bond.gifts.stances[f.stance] + (f.count > 1 ? " · 递过 " + f.count + " 次" : "") : f.count ? "他没说" : "？")),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 3, lineHeight: 1.6 } }, f.what),
-                  f.said && f.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, "第一次接过时他说：" + f.said.join("\n")) : null))))
+                  f.said && f.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, "第一次接过时他说：" + f.said.join("\n")) : null))),
+              // ── 食谱册（她 2026-09-18：「夜市卖的跟吃的有关」）：十二样尝没尝过、会不会做。⚠️全从 world.foodBook 来，这儿只画
+              bond.food ? h("div", { style: { marginTop: 20 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "食谱册 · 尝过 " + bond.food.tasted + " / " + bond.food.total),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+                  (bond.food.open ? "夜市开着，去灯串集市。" : bond.food.tonight ? "今晚有夜市，天黑后开。" : "夜市一季一次、两晚，下次是第 " + bond.food.next + " 天。") + "会做的在自己家灶台上做；吃的也能递给他，是礼物簿里单独一类。"),
+                bond.food.pantry.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+                  "篮子里：" + bond.food.pantry.map(p => p.label + (p.from === "him" ? "（他买的）" : p.from === "home" ? "（自己做的）" : "")).join("、")) : null,
+                bond.food.buffs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.deep, marginBottom: 10, lineHeight: 1.7 } }, bond.food.buffs.join("；")) : null,
+                h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
+                  bond.food.items.map(it => h("div", { key: it.id, style: { borderRadius: 12, border: "1px solid " + (it.tasted ? G.line : "rgba(209,218,194,.5)"), background: it.tasted ? "rgba(255,255,255,.6)" : "transparent", padding: "8px 10px", opacity: it.tasted ? 1 : .6 } },
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.tasted ? it.label : "？"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188", marginTop: 3, lineHeight: 1.6 } },
+                      (it.tasted ? it.note : it.season != null ? "只在一季的夜市有" : it.cook ? "夜市上有，也能自己做" : "夜市上有") + (it.cook ? (it.known ? " · 会做" : " · 还不会做") : "") + (it.tasted && it.buff ? " · " + it.buff : ""))))))
+              : null)
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft } }, "还没读到这一册。"))
           : bookTab === "crew" ? h("div", { style: { padding: "16px 16px 40px" } },
             // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
