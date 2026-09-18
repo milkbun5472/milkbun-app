@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
+import {withOpenPaths} from '../../test/_fairy-open.mjs';
 import {MAPS,START,findPath,walkable,segmentClear,hitInteraction,floorHeight,freshState,restoreState,perform,targetFor} from './world.mjs';
 test('six distinct building plans share their actual footprints with navigation',()=>{
  const plans=MAPS.garden.architecture;assert.equal(new Set(Object.values(plans).map(p=>p.style)).size,6);
@@ -9,8 +10,10 @@ test('six distinct building plans share their actual footprints with navigation'
  assert.equal(plans.home.parts.length,2);assert.equal(plans.neighbor2.parts[0].r,1.35);assert.ok(plans.hall.parts[0].w>plans.home.parts[0].w*2);
 });
 test('well, flowerbeds, doorways, steps and seats remain usable beside new exterior volumes',()=>{
+ // ⚠️带一份【路已经开了】的存档：小岛和倒树后的空地封着的时候本来就走不过去，那是玩法。
+ const open=withOpenPaths();
  const targets=[...Object.values(MAPS.garden.stations),...Object.values(MAPS.garden.sites).map(s=>s.target),MAPS.garden.seats.pond];
- for(const target of targets){const route=findPath(START,target);assert.ok(route?.length,JSON.stringify(target));let prior=START;for(const p of route){assert.ok(segmentClear(prior,p));prior=p;}}
+ for(const target of targets){const route=findPath(START,target,'garden',[],open);assert.ok(route?.length,JSON.stringify(target));let prior=START;for(const p of route){assert.ok(segmentClear(prior,p,'garden',[],open));prior=p;}}
  assert.equal(floorHeight('garden',MAPS.garden.stations.enter),.18);assert.equal(floorHeight('garden',MAPS.garden.museum.door),.22);
  for(const [kind,id,map]of [['enter',undefined,'home'],['door','hall','hall'],['door','museum','museum']]){let s=freshState();s=perform({...s,position:targetFor(s,kind,id)},kind,id);assert.equal(s.map,map);s=perform({...s,position:MAPS[map].stations.travel},'travel');assert.equal(s.map,'garden');assert.ok(walkable(s.position.x,s.position.z));}
 });

@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-0afec07e6f6b4a0a';
-import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS} from './world.mjs?v=fg-0afec07e6f6b4a0a';
+import {stepRoute} from './locomotion.mjs?v=fg-e9fb38d607a456e0';
+import {MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond} from './world.mjs?v=fg-e9fb38d607a456e0';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -14,15 +14,24 @@ const activity=ACTIVITIES;
 // ⚠️这仍旧是【地板】，不是他的性格：挑哪几处只看【今天是第几天】（加存档号），
 //   同一天进来几次都一样，也一个字不编他喜欢什么。真正照着他的人设排的那一份，
 //   还是季节手册里那一枪（generateSeason）——这张表只是在那之前别让日子长得一模一样。
-const FLOOR_POOL=['walk','market','bridge','neighbor','board','pond','glow','herbs',
- 'mushrooms','wish','star','dive','study','potion','hall','museum','bottle'];
-const pickFloor=(seed,n)=>{const pool=[...FLOOR_POOL],out=[];
+// ⚠️她 2026-09-18：「把新加的场景的动作交互也补上吧」。原来这儿是【手抄的一串 id】，
+//   于是 codex 每长出一处地方，这张表就漏一处：水磨工坊的 workshop 早就在 ACTIVITIES 里、
+//   companionMillHelp 也早就写好了，可地板表里没有它，他从来没被排去过一次。
+//   现在这串照 ACTIVITIES 长——那一张才是「这个世界里他能去的地方」的唯一一份
+//   （施工规则/one-public-mechanism.md）。以后那边加一处，这边不用改一个字。
+// ⚠️三根钉子不进池子：起床/天黑那两格是 home，早上那件杂活是 flowers，
+//   rain 是雨雪天的落脚处、不是一件可以排的事。
+const FLOOR_NAILS=new Set(['home','flowers','rain']);
+// 路还没打开的那几处不排：排了他也只会走到封口前面，然后「在原地等一条合适的小路」。
+const reachable=(id,s)=>{const need=activity[id].opensWith;return !need||opened(s,need);};
+const floorPool=s=>Object.keys(activity).filter(id=>!FLOOR_NAILS.has(id)&&reachable(id,s));
+const pickFloor=(seed,n,s)=>{const pool=floorPool(s),out=[];
  let h=2166136261;for(const ch of String(seed)){h=Math.imul(h^ch.charCodeAt(0),16777619);}
  for(let i=0;i<n&&pool.length;i++){h=Math.imul(h^(h>>>13),16777619)>>>0;out.push(pool.splice(h%pool.length,1)[0]);}
  return out;};
 // 起床在屋前、早上那件杂活、天黑回屋前是三根钉子；中间那三格每天不一样。
 // ⚠️'flowers' 那一格不许动（下面那条注释说的就是它）。
-const floorDay=s=>{const [a,b,c]=pickFloor(String(s.epoch)+':floor:'+s.day,3);
+const floorDay=s=>{const [a,b,c]=pickFloor(String(s.epoch)+':floor:'+s.day,3,s);
  return [[420,'home'],[480,'flowers'],[660,a],[900,b],[1140,c],[1260,'home']];};
 // 邻居的「家」是他自己那间屋：⚠️不改这一句的话，三个邻居全会挤在你家门口。
 function spread(id,target,map){
@@ -55,7 +64,12 @@ export function dailySchedule(s){const season=seasonOf(s.day),who=s.companion,
  plan=who&&who.home?null:(s.seasonPlan?.season===season.index?s.seasonPlan.days.find(d=>d.day===season.day):null);
  const shift=who&&who.home?shiftBy(who.charId):0;
  const list=plan?[[420,'home'],...plan.activities.map((a,i)=>[[480,840,1080][i],a.id,a.note]),[1260,'home']]
-  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):floorDay(s));return list.map(([start,id,note])=>{let adjusted=false;if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&!MAPS[activity[id].map].interior&&!DRY_IN_RAIN.has(id)){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};})
+  :(who&&who.home?NEIGHBOR_DAY.map(([t,id])=>[t+shift,id]):floorDay(s));return list.map(([start,id,note])=>{let adjusted=false;
+ // 一起排这一季的时候模型不知道哪几条路还封着（normalizePlan 只认「这个世界里有没有这处地方」）。
+ // 排到封着的那一处就换成屋前——不换的话他会走到封口前面站一整天，界面上只有一句
+ // 「在原地等一条合适的小路」，看着就是坏了。
+ if(!reachable(id,s)){id='home';note='那条路还没打开，今天先待在屋前。';}
+ if(['细雨','细雪'].includes(weather(s.day,s.epoch))&&!MAPS[activity[id].map].interior&&!DRY_IN_RAIN.has(id)){id='rain';adjusted=true;}return {start,id,...activity[id],note:adjusted?'雨雪天改在屋檐下活动。':note||''};})
  // ⚠️下雨天露天那几格全被挪到檐下，连着三行「在屋檐下听雨」看着像坏了。
  //   挨着的重复格并成一格：读的人只问「这会儿该在哪儿」，早的那一格本来就管到下一格。
  .filter((item,i,all)=>i===0||all[i-1].id!==item.id);}
@@ -100,7 +114,7 @@ function missIntent(s){
  return {id:'miss',map:s.map,label:'找你说句话',gesture:'rest'};
 }
 export function missPlan(s){const intent=missIntent(s);return intent?{...intent,target:followPoint(s)}:null;}
-export function companionPlan(s){const b=MAPS.home.beds[s.sleep?.companion];if(b)return {id:'sleep:'+s.sleep.companion,map:'home',target:b.approach.companion,label:'在'+b.label+'休息',gesture:'sleep',heading:0};const miss=missPlan(s);if(miss)return miss;const c=s.companion;const seat=MAPS[s.map].seats?.[s.seat];if(c.mode==='follow'&&seat)return {id:'sit-together',map:s.map,target:seat.companion,label:seat.label||'在池边陪你坐着',gesture:'sit',heading:seat.heading};if(c.mode==='wait')return {id:'wait',map:c.map,target:{...c.position},label:'留在这里等你',gesture:'rest'};if(c.mode==='goto')return {id:'goto:'+c.destination,...COMPANION_DESTINATIONS[c.destination||'home'],gesture:'rest'};if(c.mode==='follow')return {id:'follow',map:s.map,target:followPoint(s),label:c.map===s.map?'和你一起走':'正沿着小路来找你',gesture:'rest'};const plan=plannedActivity(s);if(plan.map===s.map&&Math.hypot(plan.target.x-s.position.x,plan.target.z-s.position.z)<.65){return {...plan,id:plan.id+'-aside',target:followPoint(s),label:'在一旁陪你',gesture:'rest'};}return plan;}
+export function companionPlan(s){const b=MAPS.home.beds[s.sleep?.companion];if(b)return {id:'sleep:'+s.sleep.companion,map:'home',target:b.approach.companion,label:'在'+b.label+'休息',gesture:'sleep',heading:0};const miss=missPlan(s);if(miss)return miss;const c=s.companion;const seat=MAPS[s.map].seats?.[s.seat];if(c.mode==='follow'&&seat)return {id:'sit-together',map:s.map,target:seat.companion,label:seat.label||'在池边陪你坐着',gesture:'sit',heading:seat.heading};if(c.mode==='wait')return {id:'wait',map:c.map,target:{...c.position},label:'留在这里等你',gesture:'rest'};if(c.mode==='goto')return {id:'goto:'+c.destination,gesture:'rest',...(destinationOf(s,c.destination)||COMPANION_DESTINATIONS.home)};if(c.mode==='follow')return {id:'follow',map:s.map,target:followPoint(s),label:c.map===s.map?'和你一起走':'正沿着小路来找你',gesture:'rest'};const plan=plannedActivity(s);if(plan.map===s.map&&Math.hypot(plan.target.x-s.position.x,plan.target.z-s.position.z)<.65){return {...plan,id:plan.id+'-aside',target:followPoint(s),label:'在一旁陪你',gesture:'rest'};}return plan;}
 // One movement controller runs on both maps, including the map currently off screen.
 // Paths are rebuilt after loading; only actual position and once-per-day help persist.
 export function makeCompanionController(){
@@ -124,6 +138,8 @@ export function makeCompanionController(){
   else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
    if(allowCare&&!autonomous&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
+   // 并肩坐下来了：相处册记一笔（同一天只记一次，坐一下午不是坐了四十次）
+   if(!autonomous&&plan.id==='sit-together'&&idle>=2.8&&finishedKey!==key){finishedKey=key;out=noteBond(s,'sit','和你并肩'+(plan.label||'坐了一会儿'));}
    if(!autonomous&&['workshop','workshop-aside'].includes(plan.id)&&idle>=2.8&&finishedKey!==key){out=companionMillHelp(s);if(out!==s){finishedKey=key;event=c.name+'帮忙照看了工坊里的材料。';}}
    if(!autonomous&&plan.id==='museum'&&idle>=2.8&&finishedKey!==key){finishedKey=key;
     const kept=(s.collection||[])[0];

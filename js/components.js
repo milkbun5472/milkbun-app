@@ -2334,6 +2334,31 @@ function MusicCardEdit({ onClose }) {
 // （实测：✕ 中心 (353,272)，药丸停在 (142,257) 242×64 —— 正中。）
 // 悬浮小工具不许盖住整页的操作位，这是通则，不是跑团一家的事。
 const MINI_PLAYER_Z = 45;
+// ── 悬浮小工具的禁区（她 2026-09-18：「音乐栏压着画面」）─────────────────
+// 上面那句「悬浮小工具不许盖住整页的操作位，这是通则」原来只是一句话，没有落点——
+// 于是每来一个全屏壳（跑团、庭院）都要重新想起它一次，漏掉是常态。
+// 现在它是一层：屏幕下方有自己操作条的整页，报一个高度上来，
+// 悬浮播放器的【默认位置和拖动边界】都照它算，落不进那一条里。
+// ⚠️不是「拖进去再弹回来」：禁区就是可落区的一部分边界，和视口那道边界同一个性质，
+//   所以不存在「拖得进去但会被挪走」这种会让人以为坏了的中间态。
+let floatKeepClear = 0;
+const FLOAT_KEEP_CLEAR = "wk-float-keepclear";
+function setFloatKeepClear(px) {
+  const v = Math.max(0, Math.min(2000, Math.round(Number(px) || 0)));
+  if (v === floatKeepClear) return;
+  floatKeepClear = v;
+  try { window.dispatchEvent(new CustomEvent(FLOAT_KEEP_CLEAR)); } catch (e) {}
+}
+function useFloatKeepClear() {
+  const [v, set] = useState(floatKeepClear);
+  useEffect(() => {
+    const fn = () => set(floatKeepClear);
+    window.addEventListener(FLOAT_KEEP_CLEAR, fn); fn();
+    return () => window.removeEventListener(FLOAT_KEEP_CLEAR, fn);
+  }, []);
+  return v;
+}
+window.FloatKeepClear = { set: setFloatKeepClear, get: () => floatKeepClear };
 function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose }) {
   const t = useTheme();
   const [pos, setPos] = useState(function () { try { const s = JSON.parse(localStorage.getItem("x_miniPos")); if (s && typeof s.x === "number") return s; } catch (e) {} return null; });
@@ -2341,6 +2366,11 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   const drag = useRef(null);
   const didDrag = useRef(false);
   const [folded, setFolded] = useState(() => { try { return localStorage.getItem("x_miniFolded") === "1"; } catch (e) { return false; } });
+  const declared = useFloatKeepClear();
+  // ⚠️那条操作条可能占掉大半个屏（庭院的行动栏展开时就是）。禁区照单全收的话，
+  //   这颗药丸会被顶到画面正中央——比压在操作条上更碍事。所以留一条：
+  //   顶上那 150px 永远算可落区，它至多被推到那儿为止。
+  const keepClear = Math.min(declared, Math.max(0, window.innerHeight - 150));
   const fold = value => { setFolded(value); try { localStorage.setItem("x_miniFolded", value ? "1" : "0"); } catch (e) {} };
   React.useLayoutEffect(() => {
     const fit = () => {
@@ -2349,13 +2379,13 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
       setPos(p => {
         if (!p) return p;
         const x = Math.max(6, Math.min(window.innerWidth - el.offsetWidth - 6, p.x));
-        const y = Math.max(44, Math.min(window.innerHeight - el.offsetHeight - 8, p.y));
+        const y = Math.max(44, Math.min(window.innerHeight - el.offsetHeight - 8 - keepClear, p.y));
         return x === p.x && y === p.y ? p : {x, y};
       });
     };
     fit(); window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, [folded, !!song]);
+  }, [folded, !!song, keepClear]);
   if (!song) return null;
   const cover = song.cover || null;
   const btnStop = (e, fn) => { e.stopPropagation(); fn(); };
@@ -2368,13 +2398,13 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
     if (e.cancelable) e.preventDefault();
     const el = elRef.current, w = el.offsetWidth, hh = el.offsetHeight;
     const nx = Math.max(6, Math.min(window.innerWidth - w - 6, drag.current.ox + dx));
-    const ny = Math.max(44, Math.min(window.innerHeight - hh - 8, drag.current.oy + dy));
+    const ny = Math.max(44, Math.min(window.innerHeight - hh - 8 - keepClear, drag.current.oy + dy));
     setPos({ x: nx, y: ny });
   };
   const onUp = e => { if (drag.current && drag.current.moved) { didDrag.current = true; try { localStorage.setItem("x_miniPos", JSON.stringify(pos)); } catch (x) {} setTimeout(() => { didDrag.current = false; }, 60); } drag.current = null; };
   // 点一下(没拖动)=跳回播放器；拖过就不触发跳转
   const onClick = () => { if (!didDrag.current) { if (folded) fold(false); else onOpen(); } };
-  const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 };
+  const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 + keepClear };
   // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）────────────────────
   // 原来整条是一块近黑的板子（rgba(28,26,24,.92)），压在她那张暖色壁纸上像贴了张膏药。
   // ⚠️病不在「有黑」，在【整块都是黑的】：这条子上真正该黑的只有一样东西——唱片本身。

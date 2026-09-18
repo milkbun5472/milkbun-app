@@ -8,9 +8,12 @@ const html = fs.readFileSync("apps/fairy-garden/index.html", "utf8");
 
 // 她 2026-09-17 截图：「他这个行动都不会干别的」
 test("没排过这一季的日子，每天也不一样", () => {
-  assert.match(comp, /const FLOOR_POOL=\[/);
+  // ⚠️v70.49 起这个池子【照 ACTIVITIES 长】，不再是手抄的一串 id——
+  //   手抄的那一版让 workshop 在表里躺了一整季没人排（她 2026-09-18 那一轮查出来的）。
+  assert.match(comp, /const floorPool=s=>Object\.keys\(activity\)\.filter\(/);
+  assert.doesNotMatch(comp, /const FLOOR_POOL=\[/, "手抄那一版已经退役了");
   assert.match(comp, /const floorDay=s=>/);
-  assert.match(comp, /pickFloor\(String\(s\.epoch\)\+':floor:'\+s\.day,3\)/, "挑哪几处只看今天是第几天");
+  assert.match(comp, /pickFloor\(String\(s\.epoch\)\+':floor:'\+s\.day,3,s\)/, "挑哪几处只看今天是第几天");
   assert.doesNotMatch(comp, /const FALLBACK=/, "钉死那四格已经退役了");
 });
 
@@ -21,7 +24,8 @@ test("地板不许假装成他的性格", () => {
   assert.doesNotMatch(comp, /gardener|explorer|scholar/);
   // 那件杂活是钉子，而且不进抽签池（抽进去会排两遍）
   assert.match(comp, /\[420,'home'\],\[480,'flowers'\]/);
-  assert.doesNotMatch(comp, /FLOOR_POOL=\[[^\]]*'flowers'/);
+  assert.match(comp, /const FLOOR_NAILS=new Set\(\['home','flowers','rain'\]\)/, "三根钉子不进抽签池");
+  assert.match(comp, /!FLOOR_NAILS\.has\(id\)/);
 });
 
 // 连着三行「在屋檐下听雨」看着像坏了

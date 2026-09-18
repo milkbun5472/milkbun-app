@@ -53,7 +53,7 @@ test("他说的话浮在头顶上，气泡跟着他走", () => {
   assert.match(css, /#companion-bubble::after\{/, "气泡要有个指着他的小尖，不然就是一张飘着的卡片");
   assert.match(game, /speak:\(text,who\)=>\{speak\(text,who\);return true;\}/);
   assert.match(host, /game\(\)\.speak\(result\.parts\)/, "递进去的是拆好的那几条");
-  assert.match(game, /bubble\.style\.top=Math\.max\(y-19,/, "让开名字那一行");
+  assert.match(game, /bubble\.style\.top=bubbleTop\(bubble,y\)/, "让开名字那一行");
   assert.match(game, /bubble\.hidden=offscreen\|\|!speaking/, "他走出画面，气泡要跟着收起来");
   // 停留时长按字数走：两个字和两百个字读完要的时间不一样
   assert.match(game, /BUBBLE_MIN\+line\.length\*BUBBLE_PER_CHAR/);
@@ -80,6 +80,7 @@ test("气泡的宽度按内容算，不被他站的位置掐住", () => {
 });
 
 // top 是气泡的【底边】：他站在画面很上面时，整只气泡会跑到屏幕外头去
-test("他站得太靠上时气泡压下来，不许顶出屏幕", () => {
-  assert.match(game, /Math\.max\(y-19,118\+bubble\.offsetHeight\)/);
+test("他站得太靠上时气泡压下来，太靠下时也不许贴着那张纸的边", () => {
+  assert.match(game, /Math\.max\(y-19,SCENE_TOP\+el\.offsetHeight\)/, "上不许顶出屏幕");
+  assert.match(game, /floor=bottom-Math\.max\(12,\(bottom-SCENE_TOP\)\*\.18\)/, "下不许贴着边");
 });

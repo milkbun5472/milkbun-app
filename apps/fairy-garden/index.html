@@ -1,7 +1,7 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-0afec07e6f6b4a0a"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-0afec07e6f6b4a0a"}}</script></head><body>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#edf0df"><title>微光庭院 · 同行者的一天</title><link rel="stylesheet" href="style.css?v=fg-e9fb38d607a456e0"><script type="importmap">{"imports":{"three":"./vendor/three.module.js?v=fg-e9fb38d607a456e0"}}</script></head><body>
 <main id="app"><canvas id="world" aria-label="轻点空地行走，拖动移动视角，双指缩放，点击植物互动" tabindex="0"></canvas>
-<header><div class="brand"><span class="eyebrow">一处会慢慢长大的地方</span><h1><span id="place-title">微光庭院</span><small>试玩</small></h1></div><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
-<aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div><button id="host-talk" hidden>说句话</button></aside>
+<header><h1 id="place-title">微光庭院</h1><button class="view-button" id="quality" aria-label="切换轻量画质">轻量画质</button></header>
+<aside class="weather"><span class="sun" id="weather-icon">☼</span><div><span id="date">第 1 天 · 晴日</span><small id="place-subtitle">小屋与月光花</small></div></aside>
 <div id="loading"><div class="loading-card"><div class="leaf">❧</div><h2>推开庭院的门</h2><p id="load-text">正在准备小屋和林地…</p><div class="loading-line"></div></div></div>
 <button id="companion-tag" hidden title="看看同行者的安排"></button>
 <div id="companion-bubble" hidden aria-live="polite"></div>
@@ -20,7 +20,7 @@
 <div class="secondary-actions"><button id="fix-place" hidden>修一修这儿</button></div>
 <div class="secondary-actions"><button id="walk-together">叫他一起走</button><button id="follow-him">我跟着他走</button></div>
 <div class="secondary-actions"><button id="rest" title="走回屋前休息，推进一天，林地材料重新生长">睡到明天</button><button id="enter-home">走进小屋</button><button id="skate-lake" hidden>⛸ 去月湖滑冰</button><button id="sit-pond">去池边坐下</button></div>
-<div class="secondary-actions"><button id="seat-tea" hidden>坐着喝茶</button><button id="seat-read" hidden>坐着翻书</button><button id="seat-idle" hidden>收好东西</button><button id="give-flower" hidden>递一朵月光花</button></div>
+<div class="secondary-actions"><button id="gesture-wave">挥手打招呼</button><button id="gesture-stretch">伸个懒腰</button><button id="seat-tea" hidden>坐着喝茶</button><button id="seat-read" hidden>坐着翻书</button><button id="seat-idle" hidden>收好东西</button><button id="give-flower" hidden>递一样东西</button></div>
 <div class="secondary-actions"><button id="sit-island" hidden>去小岛坐坐</button><button id="water-light" hidden>放一盏水灯</button><button id="repair-open" hidden>修复沉睡旧物</button><button id="mill-open" hidden>看看工坊加工</button></div>
 <div id="map-doors" class="secondary-actions" hidden></div>
 <div id="home-sleep" hidden><div class="secondary-actions"><select id="bed-select" aria-label="选择卧室"></select><select id="sleep-mode" aria-label="休息安排"><option value="together">一起睡</option><option value="separate">分房睡</option><option value="companion">让 TA 先睡</option></select></div><div class="secondary-actions"><button id="lie-down">去床边休息</button><button id="wake-player" hidden>起床走走</button><button id="wake-companion" hidden>叫 TA 起床</button></div></div>
@@ -44,6 +44,7 @@
 <dialog id="dream-dialog" class="season-dialog keepsake-book" aria-labelledby="dream-title"><div class="dialog-title"><button id="dream-close" aria-label="返回花圃">‹</button><h2 id="dream-title">花圃里的梦</h2><span class="title-spacer" aria-hidden="true"></span></div><div class="book-body"><p id="dream-hint" class="time-note"></p><div id="dream-list" class="keepsake-list"></div></div></dialog>
 <dialog id="well-dialog" class="season-dialog" aria-labelledby="well-title"><div class="dialog-title"><button id="well-close" aria-label="返回庭院">‹</button><h2 id="well-title">井潮手记</h2><span class="title-spacer" aria-hidden="true"></span></div><div class="book-body"><p id="well-sign" class="time-note"></p><p id="well-layer" class="time-note"></p><h3>带一件随身小物</h3><p id="well-kit-note" class="time-note"></p><div id="well-kits" class="secondary-actions"></div><h3>最近带回的奇物</h3><div id="well-finds"></div><p class="time-note">井潮、这一层的环境和随身小物一起影响发现。每种奇物始终都有机会，井纹残片的位置不受影响。下井后这一趟的井况会保留，刷新不会重抽。手记打开时暂停。</p></div></dialog>
 <dialog id="mill-dialog" class="season-dialog" aria-labelledby="mill-title"><div class="dialog-title"><button id="mill-close" aria-label="返回工坊">‹</button><h2 id="mill-title">水磨草药工坊</h2><span class="title-spacer" aria-hidden="true"></span></div><div class="book-body"><p class="time-note">放入后可以出去逛，也可以挂机。加工按游戏时间推进，睡到明天也会做好；离开页面时暂停。此页打开时暂停，关上后继续。</p><div id="mill-list"></div><p class="time-note">同行者安排到工坊活动、走到工作台后，会每天帮忙照看一批，提前半小时做好。</p></div></dialog>
+<dialog id="gift-dialog"><h3>递一样东西</h3><p class="craft-hint" id="gift-hint"></p><div id="gift-list"></div><div class="dialog-actions"><button id="gift-close">收起</button></div></dialog>
 <dialog id="craft-dialog"><h3>锅里</h3><p class="craft-hint" id="craft-hint">挑一片碎片，再挑一种做法。</p><div id="craft-list"></div><div id="craft-ways"></div><div class="dialog-actions"><button id="craft-close">收起</button></div></dialog>
 <dialog id="reset-dialog"><h2>重新开始这段生活？</h2><p>仅重置本试玩的天数、背包、花圃、位置和同行者设置。</p><div><button id="cancel-reset">留下进度</button><button id="confirm-reset">重新试玩</button></div></dialog>
 <dialog id="companion-dialog" class="companion-dialog">
@@ -60,4 +61,4 @@
 <div class="dialog-title"><h2 id="season-title">这一季</h2><button id="season-close" aria-label="关闭季节手册">×</button></div>
 <div class="book-body"><p id="season-summary"></p><button id="season-generate">一起安排这一季</button><p id="season-policy" class="time-note"></p><p id="season-error" role="alert"></p><details id="season-raw" hidden><summary>查看原始回复</summary><pre id="season-error-detail"></pre></details>
 <h3>这十四天</h3><div id="season-days"></div><h3>花谱与小灯</h3><p id="flower-book"></p><p id="flower-recipe"></p><h3>庭院日志</h3><div id="garden-journal"></div></div></dialog>
-</main><script type="module" src="game.mjs?v=fg-0afec07e6f6b4a0a"></script></body></html>
+</main><script type="module" src="game.mjs?v=fg-e9fb38d607a456e0"></script></body></html>

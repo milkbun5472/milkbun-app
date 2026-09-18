@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-0afec07e6f6b4a0a';
-import {brewError,brewResult} from './brewing.mjs?v=fg-0afec07e6f6b4a0a';
-import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-0afec07e6f6b4a0a';
-import './rules.js?v=fg-0afec07e6f6b4a0a';
-export const {WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-0afec07e6f6b4a0a';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-e9fb38d607a456e0';
+import {brewError,brewResult} from './brewing.mjs?v=fg-e9fb38d607a456e0';
+import {restoreWorkshop,restoreWaterLights,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-e9fb38d607a456e0';
+import './rules.js?v=fg-e9fb38d607a456e0';
+export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction}=globalThis.FairyGardenRules;
+import {createNavigator} from './navigation.mjs?v=fg-e9fb38d607a456e0';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -74,7 +74,7 @@ export function restoreLook(raw){
  return out;
 }
 export function freshCompanion(){return {name:'同行者',mode:'routine',map:'garden',position:villagePoint({x:-3.5,z:4.3},'home'),helpDay:0,destination:'home',look:{}};}
-export function restoreCompanion(raw,state=null){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:['pond','garden','well','home'].includes(d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map,state)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
+export function restoreCompanion(raw,state=null){const d=raw||{},c=freshCompanion(),map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {...c,name:typeof d.name==='string'?d.name.trim().slice(0,16)||c.name:c.name,mode:['follow','wait','goto'].includes(d.mode)?d.mode:'routine',destination:Object.hasOwn(COMPANION_DESTINATIONS,d.destination)?d.destination:'home',map,position:d.position&&walkable(d.position.x,d.position.z,map,state)?{x:d.position.x,z:d.position.z}:map==='garden'?c.position:{...MAPS[map].spawn},helpDay:count(d.helpDay),look:restoreLook(d.look)};}
 // ── 花田：种下一句话，过几天收一张花笺（她 2026-09-16 定的方向）─────────
 // 种的不是花，是【一句你想问的话】；开花收上来的是他给的一句回应，进花册。
 // ⚠️花册不设「收集完成」：同一个念头隔一阵再种，答案本来就该不一样。
@@ -125,8 +125,8 @@ export function keepNotes(s, rows){
       return { id: r.id, kind: seed.kind, ask: seed.ask, reply: trimText(r.reply, 400), day: s.day, pinned: false }; });
   if (!notes.length) return s;
   const kept = new Set(notes.map(n => n.id));
-  return noteHappening({ ...s, seeds: (s.seeds || []).map(x => kept.has(x.id) ? { ...x, done: true } : x),
-    notes: [...notes, ...(s.notes || [])].slice(0, NOTE_CAP) },
+  return noteHappening(noteBond({ ...s, seeds: (s.seeds || []).map(x => kept.has(x.id) ? { ...x, done: true } : x),
+    notes: [...notes, ...(s.notes || [])].slice(0, NOTE_CAP) }, 'note', '他答了你种下的那句「' + (notes[0].ask || SEED_KINDS[notes[0].kind] || '') + '」'),
     'grew', '地里开了 ' + notes.length + ' 株，花笺收回来了');
 }
 // Dream seeds share the same six plots and daily sowing limit as question flowers.
@@ -349,7 +349,7 @@ export function doWork(s, id){
     if (k === 'relic'){ let left = n; out.shards = (out.shards || []).filter(x => !(x.kind === 'relic' && left-- > 0)); }
     else out[k] = count(out[k]) - n;
   }
-  return noteHappening(out, 'world', w.done);
+  return noteHappening(companionNearby(s) ? noteBond(out, 'work', '和' + s.companion.name + '一起' + w.done) : out, 'world', w.done);
 }
 // 这一件活改了他哪一格去哪儿。⚠️只有一处答案：companion.mjs 的 plannedActivity
 //   问它要（tick 在 routine 模式绕开 companionPlan，写在别处那一半人就读不到）。
@@ -717,16 +717,16 @@ export function donate(s, id){
 export const collectedKinds = s => new Set((s.collection || []).map(sameKindMark)).size;
 // 它不是第二个背包：回信只入漂流记录，不产生物资。
 // 漂流瓶：新瓶有固定的回信机会，旧瓶保留原来的归还规则。概率不随刷新重抽。
-export const BOTTLE_DAYS = 7, BOTTLE_CAP = 60, DRIFT_CAP = 60;
+export const BOTTLE_DAYS = 7, BOTTLE_CAP = 60, DRIFT_PAGE_SIZE = 20;
 export function restoreBottles(raw){
-  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.text).slice(0, BOTTLE_CAP).map(x => ({
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.text).map(x => ({
     id: String(x.id).slice(0, 40), text: trimText(x.text, 120),
     day: Math.max(1, count(x.day)), openDay: Math.max(1, count(x.openDay)), taken: x.taken === true,
     ...(x.replyWanted === true ? {replyWanted:true, reply:trimText(x.reply,600), sender:trimText(x.sender,60)} : {})
   }));
 }
 export function restoreDrifts(raw){
-  return (Array.isArray(raw) ? raw : []).filter(x => x && x.text).slice(0, DRIFT_CAP).map(x => ({
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.text).map(x => ({
     id: String(x.id || '').slice(0, 40), kind: ['reply', 'mine', 'note', 'shard', 'kept'].includes(x.kind) ? x.kind : 'note',
     ...(x.kind === 'reply' ? {original:trimText(x.original,120),sender:trimText(x.sender,60)} : {}),
     text: trimText(x.text, 600), day: Math.max(1, count(x.day)), from: Math.max(0, count(x.from))
@@ -736,13 +736,13 @@ export const sealedToday = s => (s.bottles || []).some(b => b.day === s.day);
 export const sealError = (s, text) =>
   !trimText(text, 120) ? '空着的瓶子漂不动，写一句再封。'
   : sealedToday(s) ? '今天已经放了一只下去了，明天再来。'
-  : (s.bottles || []).length >= BOTTLE_CAP ? '水里的瓶子够多了。' : '';
+  : (s.bottles || []).filter(b=>!b.taken).length >= BOTTLE_CAP ? '水里还有六十只没捞回来的瓶子，先去月湖捞一只吧。' : '';
 export function sealBottle(s, text){
   if (sealError(s, text)) return s;
   const bottle = { id: 'bo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
     text: trimText(text, 120), day: s.day, openDay: s.day + BOTTLE_DAYS, taken: false,
     ...(hash(String(s.epoch)+':bottle-reply:'+s.day+':'+trimText(text,120))%100 < 65 ? {replyWanted:true,reply:'',sender:''} : {}) };
-  return { ...s, bottles: [bottle, ...(s.bottles || [])].slice(0, BOTTLE_CAP) };
+  return { ...s, bottles: [bottle, ...(s.bottles || [])] };
 }
 // 今天水里能捞到什么：自己封的到日子了就先还她自己那一只，
 // 否则从【已经有的东西】里按存档号＋天数定一片，同一天捞几次都是同一片。
@@ -778,11 +778,23 @@ export function keepBottleReply(s,id,reply,sender){
   const b=(s.bottles||[]).find(x=>x.id===id);
   const text=trimText(reply,600);
   if(!b||b.taken||!b.replyWanted||b.reply||s.day<b.openDay||!text)return s;
-  return {...s,bottles:s.bottles.map(x=>x.id===id?{...x,reply:text,sender:trimText(sender,60)}:x)};
+  return noteBond({...s,bottles:s.bottles.map(x=>x.id===id?{...x,reply:text,sender:trimText(sender,60)}:x)},'reply','你放下水的那句「'+b.text+'」，他回了信');
 }
 // 还在水里漂着、没到日子的那几只（界面照这个说「还有几天」）
 export const floating = s => (s.bottles || []).filter(b => !b.taken && s.day < b.openDay)
   .map(b => ({ ...b, backIn: b.openDay - s.day }));
+// 信件保留在原存档，只分页取出展示；搜索、待捞状态均由此处统一计算。
+export function bottleBook(s,options={}){
+  const query=String(options?.query||'').trim().toLocaleLowerCase();
+  const repliesOnly=options?.repliesOnly===true,all=s.drifts||[];
+  const matched=all.filter(d=>(!repliesOnly||d.kind==='reply')&&(!query||[d.text,d.original,d.sender].some(t=>String(t||'').toLocaleLowerCase().includes(query))));
+  const pages=Math.max(1,Math.ceil(matched.length/DRIFT_PAGE_SIZE));
+  const page=Math.min(pages-1,Math.max(0,count(options?.page)));
+  const waiting=(s.bottles||[]).filter(b=>!b.taken).map(b=>({id:b.id,text:b.text,day:b.day,backIn:Math.max(0,b.openDay-s.day)}));
+  return {days:BOTTLE_DAYS,day:s.day,floating:floating(s),waiting,ready:waiting.filter(b=>b.backIn===0).length,
+    drifts:matched.slice(page*DRIFT_PAGE_SIZE,(page+1)*DRIFT_PAGE_SIZE).map(d=>({...d})),
+    total:all.length,matches:matched.length,page,pages,error:sealError(s,'x')};
+}
 // ── 他自己来找你（她 2026-09-17 点的）─────────────────────────────────────
 // ⚠️这是庭院里唯一一处【他有主动性】的地方：别的模式（跟着走／等着／去哪儿）
 //   全是她在指挥他。所以这一条的形状很要紧——它决定了他是个东西还是个人。
@@ -833,7 +845,7 @@ export const missGaveUp = s => {
 };
 // 她点头了：今天这一次记上（无论那一枪成不成，都不许再打第二次）
 export function missTaken(s){
-  return withMiss(s, { day: s.day, cameAt: 0, score: Math.max(0, restoreMiss(s.miss).score - MISS_READY) });
+  return noteBond(withMiss(s, { day: s.day, cameAt: 0, score: Math.max(0, restoreMiss(s.miss).score - MISS_READY) }), 'talk', s.companion.name + '自己走过来找你说了句话');
 }
 export function missLetGo(s){ return withMiss(s, { cameAt: 0, day: s.day }); }
 // 他要说的那句话得【带着一件具体的东西】，否则每次都是「我想你了」——
@@ -845,8 +857,9 @@ export function missMaterial(s){
   const drift = (s.drifts || []).slice(0, 1).map(x => ({ kind: '她今天从水里捞到的', text: x.text, day: x.day }));
   const placed = (s.things || []).filter(x => x.spot).slice(0, 2).map(x => ({ kind: '摆在' + SPOTS[x.spot] + '的', text: x.name + '。' + x.note, day: x.day }));
   const lately = recentHappenings(s, 5).map(x => ({ kind: HAPPEN_KINDS[x.kind], text: x.text, day: x.day }));
+  const gifts = restoreGifts(s.gifts).slice(0, 2).map(x => ({ kind: '她递给你的', text: x.name + (x.stance ? '，你' + GIFT_STANCES[x.stance] : ''), day: x.day }));
   return { day: s.day, quiet: Math.max(0, s.day - restoreMiss(s.miss).since),
-    rows: [...lately, ...drift, ...kept, ...placed, ...shards, ...notes].filter(x => x.text) };
+    rows: [...lately, ...gifts, ...drift, ...kept, ...placed, ...shards, ...notes].filter(x => x.text) };
 }
 // ── 村里的事（她 2026-09-17：「做 AbC 吧」的 A）─────────────────────────
 // ⚠️病根不是「事情少」，是【做了没有回响】：她捐了东西进馆、挖到一片他说过的话、
@@ -856,7 +869,7 @@ export function missMaterial(s){
 //   他排这一季的日程时也读它。记账本身一枪不打。
 // ⚠️只记【真发生过的】：这本账不许写任何没发生的事，否则他就会提起一件不存在的事。
 export const HAPPEN_CAP = 40;
-export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里', met: '在村里碰见' };
+export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里', met: '在村里碰见', gift: '递给他的' };
 export function restoreHappenings(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.text && Object.hasOwn(HAPPEN_KINDS, x.kind))
     .slice(0, HAPPEN_CAP).map(x => ({ kind: x.kind, text: trimText(x.text, 120), day: Math.max(1, count(x.day)) }));
@@ -870,6 +883,126 @@ export function noteHappening(s, kind, text){
   return { ...s, happenings: [{ kind, text: line, day: s.day }, ...rows].slice(0, HAPPEN_CAP) };
 }
 export const recentHappenings = (s, n = 6) => restoreHappenings(s.happenings).slice(0, Math.max(1, count(n, 40)));
+// ── 相处册（她 2026-09-18：「做1和2」的 1）──────────────────────────────
+// ⚠️审计那天查出来的：邻居有「刚搬来→脸熟了→处熟了」，天天跟她同住的这一位
+//   反而是全村唯一没有刻度的人。这本册子就是给他的那一条。
+// ⚠️刻度按【一起做过几种不同的事】走，不按次数：递一百朵花还是一格，
+//   一起唤醒过种子、同睡过一晚、对过铜环、他来找过你……每一种才算一格。
+//   按次数走它当场就变成一根刷条（思念那个数不给她看，也是这个道理）。
+// ⚠️只记【真发生过的】，每一条带那天的原话；一枪都不打。
+export const BOND_KINDS = { seed: '一起唤醒过种子', star: '一起对过铜环', bed: '同睡过一张床', gift: '接过你递的东西',
+  sit: '并肩坐过', note: '答过你种下的话', reply: '回过你的漂流瓶', talk: '他来找过你说话',
+  work: '一起修好过一处', help: '替你照看过一炉', light: '一起放过水灯', cast: '陪你念过一个咒' };
+export const BOND_CAP = 200;
+export const BOND_TIERS = [[0, '刚住到一起'], [2, '有了一起做的事'], [5, '处熟了'], [8, '过成一家了']];
+export function restoreBond(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && Object.hasOwn(BOND_KINDS, x.kind))
+    .slice(0, BOND_CAP).map(x => ({ kind: x.kind, day: Math.max(1, count(x.day)), text: trimText(x.text, 120) }));
+}
+// 记一笔。⚠️一律走这一处（同一天同一种只记一次：并肩坐一下午不是坐了四十次）
+export function noteBond(s, kind, text){
+  if (!Object.hasOwn(BOND_KINDS, kind)) return s;
+  const rows = restoreBond(s.bond);
+  if (rows.some(x => x.day === s.day && x.kind === kind)) return s;
+  return { ...s, bond: [{ kind, day: s.day, text: trimText(text, 120) || BOND_KINDS[kind] }, ...rows].slice(0, BOND_CAP) };
+}
+export const bondKinds = s => new Set(restoreBond(s && s.bond).map(x => x.kind));
+export function bondTier(s){
+  const n = bondKinds(s).size;
+  let tier = 0;
+  BOND_TIERS.forEach(([need], i) => { if (n >= need) tier = i; });
+  return tier;
+}
+export const bondLabel = s => BOND_TIERS[bondTier(s)][1];
+// 手机那一册和模型看的都是这一份
+export function bondBook(s){
+  const rows = restoreBond(s.bond), done = bondKinds(s), tier = bondTier(s);
+  return { tier, label: BOND_TIERS[tier][1],
+    next: tier + 1 < BOND_TIERS.length ? { need: BOND_TIERS[tier + 1][0] - done.size, label: BOND_TIERS[tier + 1][1] } : null,
+    kinds: Object.entries(BOND_KINDS).map(([kind, label]) => {
+      const mine = rows.filter(x => x.kind === kind);
+      return { kind, label, count: mine.length, day: mine.length ? mine[0].day : 0, text: mine.length ? mine[0].text : '' }; }),
+    rows: rows.slice(0, 30),
+    canGo: Object.entries(companionDestinations(s)).map(([id, d]) => ({ id, label: d.label })) };
+}
+// ── 礼物簿（她 2026-09-18：「做1和2」的 2）─────────────────────────────
+// ⚠️原来只能递月光花，而且递十朵和递一朵一样，明天他也不记得。
+//   现在背包里的东西都能递：花、月露、草木、井里的碎片、锅里做出来的东西。
+// ⚠️他喜不喜欢【不写在代码里】：那是他自己的人设长出来的一张表（手机那侧一枪，
+//   一位角色一辈子只打一次），这儿只按类别查表结算。查不到（试玩、还没问过）就是不知道。
+// ⚠️不喜欢【不罚她】：没有扣分这回事。这一册记的是「你知道了他什么」，不是分数。
+// ⚠️一天递一样：递东西才有分量。这一层是【意义闸】，不是钱闸（结算一枪不打）。
+export const GIFT_PER_DAY = 1, GIFT_CAP = 120;
+export const GIFT_KEEP = ['flower', 'starflower', 'dreamflower', 'dew', 'herb', 'mushroom', 'thing', 'shard'];
+export function restoreGifts(raw){
+  return (Array.isArray(raw) ? raw : []).filter(x => x && Object.hasOwn(GIFT_FAMILIES, x.family) && x.name)
+    .slice(0, GIFT_CAP).map(x => ({ day: Math.max(1, count(x.day)), name: trimText(x.name, 24),
+      family: x.family, stance: Object.hasOwn(GIFT_STANCES, x.stance) ? x.stance : '',
+      said: (Array.isArray(x.said) ? x.said : []).slice(0, 3).map(t => trimText(t, 200)).filter(Boolean) }));
+}
+export const giftsToday = s => restoreGifts(s.gifts).filter(x => x.day === s.day).length;
+// 一件东西归哪一类。⚠️碎片和它做出来的东西归同一类：他不喜欢梦屑，就也不会喜欢玻璃梦
+const familyOfKind = kind => Object.hasOwn(GIFT_FAMILIES, kind) ? kind : 'relic';
+export function giftItem(s, ref){
+  const type = ref && ref.type;
+  if (type === 'flower') return count(s.harvest) > 0 ? { type, name: '月光花', family: 'flower' } : null;
+  if (type === 'starflower') return count(s.magic && s.magic.flowers) > 0 ? { type, name: '星铃花', family: 'flower' } : null;
+  if (type === 'dew') return count(s.potions) > 0 ? { type, name: '月露', family: 'dew' } : null;
+  if (type === 'herb') return count(s.herbs) >= 2 ? { type, name: '一束铃叶草', family: 'herb' } : null;
+  if (type === 'mushroom') return count(s.mushrooms) > 0 ? { type, name: '荧光菇', family: 'herb' } : null;
+  if (type === 'thing'){ const t = (s.things || []).find(x => x.id === ref.id);
+    return t && thingReady(s, t) ? { type, id: t.id, name: t.name, family: t.recipe === 'dreamflower' ? 'flower' : familyOfKind(t.kind), note: t.note } : null; }
+  if (type === 'shard'){ const sh = (s.shards || []).find(x => x.id === ref.id);
+    return sh && !sh.pinned ? { type, id: sh.id, name: shardName(sh), family: familyOfKind(sh.kind), note: sh.text } : null; }
+  return null;
+}
+// 她手上此刻能递的（游戏那头的挑选页照这个画；空手就是空的）
+export function giftOptions(s){
+  const out = [];
+  for (const type of ['flower', 'starflower', 'dew', 'herb', 'mushroom']){ const it = giftItem(s, { type }); if (it) out.push({ ref: { type }, ...it }); }
+  for (const t of (s.things || []).filter(x => !x.spot)){ const it = giftItem(s, { type: 'thing', id: t.id }); if (it) out.push({ ref: { type: 'thing', id: t.id }, ...it }); }
+  for (const sh of (s.shards || [])){ const it = giftItem(s, { type: 'shard', id: sh.id }); if (it) out.push({ ref: { type: 'shard', id: sh.id }, ...it }); }
+  return out.map(x => ({ ...x, familyLabel: GIFT_FAMILIES[x.family].label }));
+}
+// 递得出去吗。⚠️只有面对面才算：这一下是看得见的交接，不是背包之间转账
+export function giftError(s, ref){
+  if (giftsToday(s) >= GIFT_PER_DAY) return '今天已经递过一样了，明天再递。';
+  if (!giftItem(s, ref)) return ref && ref.type === 'flower' ? '先收获一朵月光花，再拿给同行者。' : '手上没有这一样。';
+  if (s.seat || sleepPose(s) || sleepPose(s, 'companion')) return '先起身，面对面递给 TA。';
+  if (s.map !== s.companion.map || Math.hypot(s.position.x - s.companion.position.x, s.position.z - s.companion.position.z) > 1.65) return '靠近同行者一点，再把东西递过去。';
+  return '';
+}
+function takeGift(s, it){
+  if (it.type === 'flower') return { ...s, harvest: s.harvest - 1 };
+  if (it.type === 'starflower') return { ...s, magic: { ...s.magic, flowers: s.magic.flowers - 1 } };
+  if (it.type === 'dew') return { ...s, potions: s.potions - 1 };
+  if (it.type === 'herb') return { ...s, herbs: s.herbs - 2 };
+  if (it.type === 'mushroom') return { ...s, mushrooms: s.mushrooms - 1 };
+  if (it.type === 'thing') return { ...s, things: (s.things || []).filter(x => x.id !== it.id) };
+  return { ...s, shards: (s.shards || []).filter(x => x.id !== it.id) };
+}
+// 结算。taste＝他对这一类的态度 { stance, words }（手机那侧查出来递进来的），没有就是不知道。
+// ⚠️他说的那句只在【第一次接过这一类】时记进册子：这一类他以后再收，只是接过，不再说一遍。
+export function giveGift(s, ref, taste){
+  if (giftError(s, ref)) return s;
+  const it = giftItem(s, ref), rows = restoreGifts(s.gifts);
+  const stance = taste && Object.hasOwn(GIFT_STANCES, taste.stance) ? taste.stance : '';
+  const first = !rows.some(x => x.family === it.family);
+  const said = first && taste ? (Array.isArray(taste.words) ? taste.words : []).slice(0, 3).map(t => trimText(t, 200)).filter(Boolean) : [];
+  const row = { day: s.day, name: it.name, family: it.family, stance, said };
+  const line = '把「' + it.name + '」递给了' + s.companion.name + (stance ? '，' + (stance === 'dislike' ? '他不太想要' : stance === 'meh' ? '他收下了' : '他' + GIFT_STANCES[stance]) : '');
+  return noteHappening(noteBond({ ...takeGift(s, it), gifts: [row, ...rows].slice(0, GIFT_CAP) }, 'gift', line), 'gift', line);
+}
+// 手机那一册：七类各自摸清了没有、他说过什么、递过几次
+export function giftBook(s){
+  const rows = restoreGifts(s.gifts);
+  return { perDay: GIFT_PER_DAY, today: giftsToday(s), stances: { ...GIFT_STANCES },
+    families: Object.entries(GIFT_FAMILIES).map(([id, f]) => {
+      const mine = rows.filter(x => x.family === id), known = mine.find(x => x.stance);
+      return { id, label: f.label, what: f.what, count: mine.length, stance: known ? known.stance : '',
+        said: (mine.find(x => x.said.length) || { said: [] }).said, last: mine.length ? mine[0].name : '' }; }),
+    rows: rows.slice(0, 20) };
+}
 // ── 世界自己长的那一件小事（她 2026-09-17：「做 AbC 吧」的 B）──────────
 // ⚠️「回来看看变了什么」是放置类的全部乐趣。现在她回来，变的只有天数。
 // ⚠️一枪都不打，而且【只从她自己的存档里长】：说的每一句都是真有的东西，
@@ -966,6 +1099,11 @@ export const openingReady = key => isOpening(key)
   && Object.values(MAPS).some(m => (m.obstacles || []).some(o => o.opensWith === key));
 // 走到那儿看见的是哪一句：开了是开了那一句，没开是挡着那一句
 export const openingLine = (s, key) => isOpening(key) ? (opened(s, key) ? OPENINGS[key].open : OPENINGS[key].shut) : '';
+// 路还封着的时候，走到那儿该看见的那一句。⚠️只此一份：座位（sit）和散步到访（visit）
+//   都来问它。原来芦苇桥那一句是写死在 sit 那一支里的「先在许愿树下用留感咒编起芦苇桥。」——
+//   倒树和藤蔓照着再抄两句，就是同一层活在三处（施工规则/one-public-mechanism.md）。
+export const shutError = (s, key) => !isOpening(key) || opened(s, key) ? ''
+  : OPENINGS[key].shut + '先用' + SPELLS[OPENINGS[key].spell].name + '把它打开。';
 // ⚠️后两处要【先有灯】。这是把魔法那条线接进别的线的地方：
 //   屋前那几盏是星铃灯做出来的（月光花那条），小路那盏是委托修好的（公告栏那条）。
 //   灯从此不是终点，是【一处能封咒的地方】——这就是那个四盏灯天花板的拆法。
@@ -1004,9 +1142,8 @@ export function castSpell(s, spell, shardId, place){
   if (castError(s, spell, shardId, place)) return s;
   const shard = (s.shards || []).find(x => x.id === shardId);
   const row = { place, spell, kind: shard.kind, text: shard.text, day: s.day };
-  return noteHappening({ ...s,
-    shards: (s.shards || []).filter(x => x.id !== shardId),
-    casts: restoreCasts([row, ...(s.casts || [])]) },
+  const out = { ...s, shards: (s.shards || []).filter(x => x.id !== shardId), casts: restoreCasts([row, ...(s.casts || [])]) };
+  return noteHappening(companionNearby(s) ? noteBond(out, 'cast', s.companion.name + '陪你在许愿树下念了一个' + SPELLS[spell].name) : out,
     'world', isOpening(place) ? OPENINGS[place].done
       : '在' + SPELL_PLACES[place] + '念了一个' + SPELLS[spell].name);
 }
@@ -1134,8 +1271,8 @@ export function alignStar(s){
   const star = restoreStar(s.star);
   if (!atSpot(s.position, s.map, star.role)) return s;
   if (!atSpot(s.companion.position, s.companion.map, starOther(star.role))) return s;
-  return noteHappening({ ...s, star: { ...star, doneDay: s.day },
-    stones: count(s.stones) + 1 },
+  return noteHappening(noteBond({ ...s, star: { ...star, doneDay: s.day },
+    stones: count(s.stones) + 1 }, 'star', '在旧塔一起把铜环对上了今晚那一格'),
     'world', '你们把铜环对上了今晚那一格，残顶落下一道光');
 }
 // ── 碰见（她 2026-09-17：「继续做玩法吧」）────────────────────────────
@@ -1204,13 +1341,24 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
-export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',wellKit:'none',wellTrip:null,workshop:restoreWorkshop(null),waterLights:[],seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],partnerId:'',star:restoreStar(null),happenings:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:restoreFixtures(null),deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
+// Cosmetic gestures never change inventory, relationship or the character's routine.
+export function gestureError(s,kind){
+ if(s.seat||sleepPose(s))return '先站起来，再活动一下。';
+ if(kind==='stretch')return '';
+ if(kind!=='wave')return '这个动作还不会。';
+ if(s.companion.map!==s.map||Math.hypot(s.position.x-s.companion.position.x,s.position.z-s.companion.position.z)>4)return '走近同行者一点，再挥挥手。';
+ if(sleepPose(s,'companion'))return 'TA 正在休息，等醒来再打招呼。';
+ return '';
+}
+export function freshState(){return {version:9,layout:2,interiorLayout:2,epoch:'initial',wellKit:'none',wellTrip:null,workshop:restoreWorkshop(null),waterLights:[],seat:null,sleep:{player:null,companion:null},look:{},seeds:[],notes:[],shards:[],vein:[],things:[],made:[],collection:[],bottles:[],drifts:[],partnerId:'',star:restoreStar(null),happenings:[],bond:[],gifts:[],meets:[],spells:[],casts:[],neighbors:[],miss:{score:0,day:0,since:1,cameAt:0},quests:[],fixtures:restoreFixtures(null),deeds:0,magic:freshMagic(),today:{},journal:[],map:'garden',day:1,minute:480,water:0,blooms:0,herbs:0,mushrooms:0,potions:0,harvest:0,sand:0,stones:0,depth:0,picked:[],position:{...START},companion:freshCompanion()};}
 export function restoreState(raw){if(raw&&raw.interiorLayout!==2){raw={...raw,interiorLayout:2,companion:raw.companion?{...raw.companion}:raw.companion};for(const who of ['player','companion']){const person=who==='player'?raw:raw.companion;if(!person||!MAPS[person.map]?.interior)continue;const bed=person.map==='home'&&Object.hasOwn(MAPS.home.beds,raw.sleep?.[who])&&MAPS.home.beds[raw.sleep[who]];person.position={...(bed?bed.approach[who]:MAPS[person.map].spawn)};}}if(raw&&raw.layout!==2){raw={...raw,layout:2,position:raw.map==='garden'?migrateVillagePosition(raw.position):raw.position,companion:raw.companion?{...raw.companion,position:raw.companion.map==='garden'?migrateVillagePosition(raw.companion.position):raw.companion.position}:raw.companion};}const prior=raw&&[1,2,3,4,5,6,7,8,9].includes(raw.version)?raw:freshState(),d=prior.version<5?{...prior,position:prior.map==='forest'?prior.position:{...START},companion:prior.companion?.map==='forest'?prior.companion:{...prior.companion,position:freshCompanion().position}}:prior,map=Object.hasOwn(MAPS,d.map)?d.map:'garden';return {version:9,layout:2,interiorLayout:2,epoch:typeof d.epoch==='string'?d.epoch.slice(0,80):'initial',wellKit:Object.hasOwn(WELL_KITS,d.wellKit)?d.wellKit:'none',wellTrip:map==='depths'?{day:Math.max(1,Math.min(count(d.day)||1,count(d.wellTrip?.day)||count(d.day)||1)),kit:Object.hasOwn(WELL_KITS,d.wellTrip?.kit)?d.wellTrip.kit:(Object.hasOwn(WELL_KITS,d.wellKit)?d.wellKit:'none')}:null,workshop:restoreWorkshop(d.workshop),waterLights:restoreWaterLights(d.waterLights),magic:restoreMagic(d.magic),today:restoreToday(d.today),journal:restoreJournal(d.journal),map,sleep:restoreSleep(d.sleep,map,d.position),seat:MAPS[map].seats?.[d.seat]&&d.position&&Math.hypot(d.position.x-MAPS[map].seats[d.seat].x,d.position.z-MAPS[map].seats[d.seat].z)<.2?d.seat:null,day:Math.max(1,count(d.day)),minute:d.version>=3?Math.max(420,count(d.minute,1379)):480,water:count(d.water,3),blooms:count(d.blooms,3),herbs:count(d.herbs),mushrooms:count(d.mushrooms),potions:count(d.potions),harvest:count(d.harvest),sand:count(d.sand),stones:count(d.stones),
  // 旧存档没有 depth；人从井里出来才算数，所以不在井底就一律 0
- depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),partnerId:typeof d.partnerId==='string'?d.partnerId.slice(0,64):'',star:restoreStar(d.star),happenings:restoreHappenings(d.happenings),meets:restoreMeets(d.meets),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
+ depth:map==='depths'?Math.max(1,Math.min(DEPTH_MAX,count(d.depth))):0,picked:[...new Set(Array.isArray(d.picked)?d.picked.filter(id=>NODES.some(n=>n.id===id)):[])],position:d.position&&walkable(d.position.x,d.position.z,map,d)?{x:d.position.x,z:d.position.z}:{...MAPS[map].spawn},companion:restoreCompanion(d.companion,d),look:restoreLook(d.look),seeds:restoreSeeds(d.seeds),notes:restoreNotes(d.notes),shards:restoreShards(d.shards),vein:restoreVein(d.vein),things:restoreThings(d.things),made:restoreMade(d.made),collection:restoreCollection(d.collection),bottles:restoreBottles(d.bottles),drifts:restoreDrifts(d.drifts),partnerId:typeof d.partnerId==='string'?d.partnerId.slice(0,64):'',star:restoreStar(d.star),happenings:restoreHappenings(d.happenings),bond:restoreBond(d.bond),gifts:restoreGifts(d.gifts),meets:restoreMeets(d.meets),neighbors:restoreNeighbors(d.neighbors),spells:restoreSpells(d.spells),casts:restoreCasts(d.casts),miss:restoreMiss(d.miss),quests:restoreQuests(d.quests),fixtures:restoreFixtures(d.fixtures),deeds:count(d.deeds)};}
 // Thaw rescues only positions that are no longer traversable; inventory and relationship data stay intact.
 export function shoreAfterThaw(s){if(lakeFrozen(s))return s;const l=MAPS.garden.lake,at=p=>inPolygon(p.x,p.z,l.shore,.16)&&!walkable(p.x,p.z,'garden',s),p=s.map==='garden'&&at(s.position),c=s.companion.map==='garden'&&at(s.companion.position);if(!p&&!c)return s;return {...s,position:p?{...l.bottle.target}:s.position,companion:c?{...s.companion,position:{x:l.bottle.target.x+.85,z:l.bottle.target.z+.3}}:s.companion};}
-export function nextDay(s){const day=s.day+1;return withDailyNote(expireQuests(shoreAfterThaw(missNewDay({...s,day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}))));}
+// 同睡一张床的那一晚记进相处册（各睡各的不记：分房睡不是坏事，也不是一起做的事）
+const withBedNight=s=>s.sleep&&s.sleep.player&&s.sleep.player===s.sleep.companion&&MAPS.home.beds[s.sleep.player]?noteBond(s,'bed','在'+MAPS.home.beds[s.sleep.player].label+'一起睡了一晚'):s;
+export function nextDay(s){const day=s.day+1;return withDailyNote(expireQuests(shoreAfterThaw(missNewDay({...withBedNight(s),day,minute:420,picked:[],today:{},journal:[...(s.journal||[]),{day:s.day,weather:weather(s.day,s.epoch),actions:s.today||{},partner:s.companion.name}].slice(-120),blooms:weather(day,s.epoch)==='细雨'?Math.min(3,s.blooms+1):s.blooms}))));}
 // 新的一天：世界自己长出来那一件，记进村里的账（他开口时手上就有今天这一件）
 function withDailyNote(s){ return noteHappening(s, 'world', dailyNote(s)); }
 export function advanceTime(s,minutes){let remaining=count(minutes,9600),out=s;while(remaining>0){const span=1380-out.minute;if(remaining<span)return {...out,minute:out.minute+remaining};remaining-=span;out=nextDay(out);}return out;}
@@ -1219,7 +1367,7 @@ export const timeLabel=minute=>`${String(Math.floor(minute/60)).padStart(2,'0')}
 export function companionCare(s){const c=s.companion,p=MAPS.garden.stations.garden;if(c.map!=='garden'||c.helpDay===s.day||s.blooms>=3||Math.hypot(c.position.x-p.x,c.position.z-p.z)>.5)return s;return {...s,blooms:s.blooms+1,companion:{...c,helpDay:s.day}};}
 export function exitFor(map,kind,id){const key=kind==='door'?id:kind;if(!['door','travel','enter'].includes(kind)||!Object.hasOwn(MAPS[map]?.exits||{},key))return null;const e=MAPS[map].exits[key];if(kind==='door'&&e.action!=='door')return null;return {...e,target:e.target||MAPS[map].stations[key]};}
 export function targetFor(state,kind,id){if(kind==='repair')return state.map==='watermill'?MAPS.watermill.stations.mill:null;if(['dreamSow','dreamHarvest'].includes(kind))return MAPS[state.map]?.stations.sow||null;const exit=exitFor(state.map,kind,id);if(exit)return exit.target;if(kind==='bed')return state.map==='home'?MAPS.home.beds[id]?.approach.player||null:null;if(kind==='rest'&&state.map==='home'&&state.sleep?.player)return MAPS.home.beds[state.sleep.player].approach.player;if(kind==='sit'){const seat=MAPS[state.map]?.seats?.[id||'pond'];return seat?{x:seat.x,z:seat.z}:null;}if(kind==='visit')return MAPS[state.map]?.sites?.[id]?.target||null;if(kind==='gather'){const n=NODES.find(n=>n.id===id);return n?{x:n.x,z:n.z+.48}:null;}return MAPS[state.map]?.stations[kind]||null;}
-export function actionError(s,kind,id){if(kind==='repair')return repairError(s,id);if(['dreamSow','dreamHarvest'].includes(kind))return dreamError(s,id,kind==='dreamHarvest');if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=MAPS[s.map]?.seats?.[id||'pond'];return !seat?'这里没有座位。':seat.opensWith&&!opened(s,seat.opensWith)?'先在许愿树下用留感咒编起芦苇桥。':'';}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit')return MAPS[s.map]?.sites?.[id]?'':'这里还没有开放这处地方。';
+export function actionError(s,kind,id){if(kind==='repair')return repairError(s,id);if(['dreamSow','dreamHarvest'].includes(kind))return dreamError(s,id,kind==='dreamHarvest');if(kind==='bed')return s.map==='home'&&Object.hasOwn(MAPS.home.beds,id)?'':'先回家选一张床。';if(kind==='sit'){const seat=MAPS[s.map]?.seats?.[id||'pond'];return !seat?'这里没有座位。':shutError(s,seat.opensWith);}if(kind==='mill')return s.map==='watermill'?'':'先走进水磨工坊。';if(kind==='visit'){const site=MAPS[s.map]?.sites?.[id];return site?shutError(s,site.opensWith):'这里还没有开放这处地方。';}
  if(['seed','star','lamp'].includes(kind))return magicError(s,kind);
  if(kind==='gather'){const n=NODES.find(n=>n.id===id);if(!n||s.map!==n.map||(n.depth!=null&&n.depth!==s.depth))return '这里没有这种材料。';
   if(s.picked.includes(id))return n.map==='depths'?'这一处的矿脉已经采空了。':'这一丛今天采过了，明天会重新长出来。';return '';}
@@ -1279,14 +1427,27 @@ function performAction(s,kind,id,intent=gardenIntent(s)){
 
 export function millAt(s){const p=MAPS.watermill.stations.mill;return s.map==='watermill'&&Math.hypot(s.position.x-p.x,s.position.z-p.z)<.75;}
 export function millAction(s,key,collect=false){if(!millAt(s))return s;const out=collect?collectMill(s,key):startMill(s,key);return out===s?s:noteHappening(out,'world',(collect?'取走了':'在水磨工坊放入了')+MILL_RECIPES[key].name);}
-export function companionMillHelp(s){const p=MAPS.watermill.stations.mill,c=s.companion;if(c.map!=='watermill'||Math.hypot(c.position.x-p.x,c.position.z-p.z)>1.25)return s;const key=Object.keys(MILL_RECIPES).find(k=>millRemaining(s,k)>0&&!s.workshop?.jobs?.[k]?.helper);if(!key)return s;const out=helpMill(s,key);return out===s?s:noteHappening(out,'world',c.name+'帮忙照看了'+MILL_RECIPES[key].name+'，这一批提前半小时做好');}
+export function companionMillHelp(s){const p=MAPS.watermill.stations.mill,c=s.companion;if(c.map!=='watermill'||Math.hypot(c.position.x-p.x,c.position.z-p.z)>1.25)return s;const key=Object.keys(MILL_RECIPES).find(k=>millRemaining(s,k)>0&&!s.workshop?.jobs?.[k]?.helper);if(!key)return s;const out=helpMill(s,key);return out===s?s:noteHappening(noteBond(out,'help',c.name+'替你照看了工坊里那一批'+MILL_RECIPES[key].name),'world',c.name+'帮忙照看了'+MILL_RECIPES[key].name+'，这一批提前半小时做好');}
 export function islandLightError(s){if(s.map!=='garden'||s.seat!=='island'||Math.hypot(s.position.x-MAPS.garden.seats.island.x,s.position.z-MAPS.garden.seats.island.z)>.2||!opened(s,'reedBridge'))return '先在小岛水灯台坐下来。';return waterLightError(s);}
-export function floatIslandLight(s){if(islandLightError(s))return s;const out=releaseWaterLight(s,companionNearby(s));return noteHappening(out,'world',companionNearby(s)?'和'+s.companion.name+'在小岛放下一盏水灯':'在小岛放下一盏水灯');}
-export const COMPANION_DESTINATIONS={pond:{map:'forest',target:{x:-.7,z:.6},label:'去池边坐一会儿'},garden:{map:'garden',target:MAPS.garden.stations.garden,label:'去看看月光花'},well:{map:'garden',target:MAPS.garden.stations.well,label:'去井边'},home:{map:'garden',target:MAPS.garden.stations.rest,label:'回屋前等你'}};
+export function floatIslandLight(s){if(islandLightError(s))return s;const together=companionNearby(s),out=releaseWaterLight(s,together);return noteHappening(together?noteBond(out,'light','和'+s.companion.name+'在小岛一起放了一盏水灯'):out,'world',together?'和'+s.companion.name+'在小岛放下一盏水灯':'在小岛放下一盏水灯');}
+// 他答应「我去某处等你」时能落实的地点。⚠️那张表是【唯一一份】，住在 rules.js 的
+//   COMPANION_DESTINATIONS（手机白名单也要认它）：存档白名单（restoreCompanion）、
+//   游戏那头的 applyAction、写给模型的那句清单，三处都来问它。
+// ⚠️处到哪一档才去得了（表上每处的 tier），由相处册那一段的 bondTier 定：
+//   四处地板一直开着，处熟了名单才长。这儿按存档筛，别处不许再抄一份档位。
+export function companionDestinations(s){const tier=bondTier(s);return Object.fromEntries(Object.entries(COMPANION_DESTINATIONS).filter(([,d])=>(d.tier||0)<=tier));}
+export const destinationOf=(s,id)=>companionDestinations(s)[id]||null;
+// 写给模型的那一句「target 能填什么」。⚠️照上面那张表长，不另抄一份中文名。
+export const destinationChoices=s=>Object.entries(companionDestinations(s)).map(([id,d])=>id+'（'+d.label.replace(/^去|^回/,'').replace(/等你$/,'')+'）').join('、');
 
 export function freshMagic(){return {seeds:0,seedSeason:-1,planted:false,growth:0,wateredDay:0,flowers:0,discovered:false,lamps:0};}
 export function restoreMagic(d){const m=d||{};return {seeds:count(m.seeds),seedSeason:Number.isInteger(m.seedSeason)&&m.seedSeason>=0?m.seedSeason:-1,planted:m.planted===true,growth:count(m.growth,2),wateredDay:count(m.wateredDay),flowers:count(m.flowers),discovered:m.discovered===true,lamps:count(m.lamps,4)};}
-const ACTION_NAMES={repair:'修复旧物',dreamSow:'种下梦种',dreamHarvest:'收回梦花',door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶'};
+const ACTION_NAMES={repair:'修复旧物',dreamSow:'种下梦种',dreamHarvest:'收回梦花',door:'走过门与楼梯',bed:'回卧室休息',enter:'回小屋歇脚',sit:'在池边坐下',visit:'散步到访',well:'取水',garden:'照料或采收月光花',brew:'炼月露',gather:'采集',seed:'一起唤醒种子',star:'照料或采收星铃花',lamp:'制作星铃灯',travel:'穿过小路',craft:'在锅前做东西',dive:'下到井里',deeper:'再往下一层',ladder:'从井里上来',note:'收花笺',sow:'种下一句',cast:'念一个咒',board:'看公告栏',bottle:'捞漂流瓶',
+ // ⚠️这张表就是日记的【读的那一半】：restoreToday 照它筛，journalText 照它取名。
+ //   perform 写进 today 的 kind 只要不在这儿，重开一次就没了，重开之前还会印成
+ //   「undefined 次」——mill（水磨工坊碾料）就这么漏了一整季
+ //   （施工规则/stub-from-the-writer.md：写的那一半和读的那一半是同一层的两瓣）。
+ mill:'在水磨工坊碾料'};
 function restoreToday(d){return Object.fromEntries(Object.keys(ACTION_NAMES).filter(k=>d&&count(d[k])>0).map(k=>[k,count(d[k],999)]));}
 function restoreJournal(d){return (Array.isArray(d)?d:[]).slice(-120).filter(x=>Number.isInteger(x?.day)&&x.day>0).map(x=>({day:x.day,weather:['晴日','细雨','薄雾','细雪'].includes(x.weather)?x.weather:weather(x.day),partner:String(x.partner||'同行者').slice(0,16),actions:restoreToday(x.actions)}));}
 export function journalText(entry){const facts=Object.entries(entry.actions||{}).map(([k,v])=>`${ACTION_NAMES[k]} ${v} 次`);return `${entry.weather}，与${entry.partner}同住。${facts.length?facts.join('，')+'。':'这天没有留下采集或制作记录。'}`;}
@@ -1301,7 +1462,8 @@ function performMagic(s,kind){const m=s.magic||freshMagic();if(kind==='seed'){if
  // ⚠️醒来的不只是一颗种子，还有【一个咒】——这才是那场戏的分量所在
  const learn=spellOfSeason(seasonOf(s.day).index);
  const out={...s,magic:{...m,seeds:m.seeds+1,seedSeason:seasonOf(s.day).index},spells:restoreSpells([...(s.spells||[]),learn])};
- return (s.spells||[]).includes(learn)?out:noteHappening(out,'world','和'+s.companion.name+'一起唤醒了一颗种子，学会了'+SPELLS[learn].name);}
+ const bonded=noteBond(out,'seed','和'+s.companion.name+'一起唤醒了一颗种子');
+ return (s.spells||[]).includes(learn)?bonded:noteHappening(bonded,'world','和'+s.companion.name+'一起唤醒了一颗种子，学会了'+SPELLS[learn].name);}
  if(kind==='lamp')return {...s,harvest:s.harvest-3,magic:{...m,flowers:m.flowers-1,lamps:m.lamps+1}};
  if(!m.planted)return {...s,magic:{...m,seeds:m.seeds-1,planted:true,growth:0,wateredDay:0}};
  if(m.growth>=2)return {...s,magic:{...m,planted:false,growth:0,flowers:m.flowers+1,discovered:true}};
@@ -1323,11 +1485,6 @@ export function repairError(s,id){
 }
 function repairRelic(s,id){const sh=s.shards.find(x=>x.id===id),thing={id:'rr_'+sh.id,name:'修好的留光匣',note:'松开的匣盖重新扣合，裂缝用金线接住；里面仍留着井底带回的那一片。',kind:sh.kind,way:'set',recipe:'repairedrelic',from:sh.text,day:s.day,openDay:0,spot:null};return noteHappening({...s,shards:s.shards.filter(x=>x.id!==id),things:[thing,...s.things]},'made','在水磨坊修好了一只留光匣');}
 
-// A gift is settled only after the visible handover; no main-chat affection or memory changes.
-export function flowerGiftError(s){
- if(s.harvest<1)return '先收获一朵月光花，再拿给同行者。';
- if(s.seat||sleepPose(s)||sleepPose(s,'companion'))return '先起身，面对面递给 TA。';
- if(s.map!==s.companion.map||Math.hypot(s.position.x-s.companion.position.x,s.position.z-s.companion.position.z)>1.65)return '靠近同行者一点，再把花递过去。';
- return '';
-}
-export function giveMoonFlower(s){if(flowerGiftError(s))return s;return noteHappening({...s,harvest:s.harvest-1},'world','把一朵月光花递给了'+s.companion.name);}
+// 递月光花是礼物簿那一套的其中一样（旧名留着给老调用方）；主线好感、记忆照旧一个字不碰。
+export const flowerGiftError=s=>giftError(s,{type:'flower'});
+export const giveMoonFlower=(s,taste=null)=>giveGift(s,{type:'flower'},taste);

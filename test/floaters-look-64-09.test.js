@@ -37,7 +37,8 @@ test("播放条上那张碟还是碟——黑留在该黑的那一样东西上",
 });
 
 test("位置、拖动、层级一个都没动（那几样是修过很多次的）", () => {
-  assert.match(mini, /\{ right: 12, bottom: 84 \}/, "默认位置被挪了");
+  assert.match(mini, /\{ right: 12, bottom: 84 \+ keepClear \}/, "默认位置被挪了");
+  assert.match(mini, /const keepClear = Math\.min\(declared,/, "禁区没有上限，会被顶到画面正中");
   assert.match(mini, /zIndex: MINI_PLAYER_Z/, "层级被改写死了");
   assert.match(mini, /localStorage\.setItem\("x_miniPos"/, "拖完记不住位置了");
   assert.match(app, /top: pos \? pos\.top : "42%"/, "旋钮的默认位置被挪了");
