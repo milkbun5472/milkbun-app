@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.26";
+const APP_VERSION = "v71.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17007,7 +17007,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️这段判词以前把「手机」写死在里面（v57.96 之前）。随身物也走这条链之后，
   // 翻的是TA的包，模型收到的却是「她翻过我手机」——对不上就演不对。
   // what＝她翻的是什么（手机／包／衣柜），hiddenWhat＝这一档「藏起来」在这个语境里长什么样。
+  // given（v71.27，她 2026-09-18：「用了这些券之后没办法发到他聊天啊」）：
+  // ⚠️这一档不是 open 的同义词，所以得单开。open 说的是「这东西你没瞒着她」——
+  //   前提仍然是【她那头看到的】；抽卡券反过来：**这是TA自己给出去的**，
+  //   她只是拿回来提起。混进 quiet／open 都会让TA往「她怎么知道的」上演，
+  //   而那正是这张券最不该有的反应。
   const phonePeekTag = (tier, what, hiddenWhat) => ({
+    given: "｜（这是TA自己给她的，她现在拿来跟你说。**不是她翻到的、也不是她打听来的**，别往「被撞破」或者「你怎么知道」那边演。按你当初给出去时的心思接。）",
     open: "｜（这东西TA本来就没瞒着你，就当她随口提起。）",
     quiet: "｜（**TA没告诉过你这个，是她自己翻你" + what + "翻到的。**TA此刻在意的多半不是这条内容本身，而是「她翻过我" + what + "、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
     hidden: "｜（**这是TA藏起来的东西**：" + (hiddenWhat || "匿名的／小号的／深夜的／删掉的／设了私密的") + "。TA从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「TA被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
@@ -17016,7 +17022,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // peek.lead：整句话的开头，随身物那边不套「在你的〈X〉里看到了」这个句式。
   const forwardPhonePeekToChat = (char, peek) => {
     if (!char || !peek) return;
-    const tier = ["open", "quiet", "hidden"].includes(peek.tier) ? peek.tier : "quiet";
+    const tier = ["given", "open", "quiet", "hidden"].includes(peek.tier) ? peek.tier : "quiet";
     const label = String(peek.label || "手机");
     const what = String(peek.what || "手机");
     const title = String(peek.title || "").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -22507,11 +22513,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         toast("那就不用这个");
       }
     },
+    // 兑出来的东西拿回聊天里说（她 2026-09-18：「用了这些券之后没办法发到他聊天啊」）。
+    // ⚠️走的是【现成那条链】forwardPhonePeekToChat——翻手机、翻随身物都从这儿过
+    //   （one-public-mechanism）。原来这儿只接了掉马券一张，别的券兑完就是一张
+    //   死卡片，角色完全不知道发生过。
+    // ⚠️掉马券照旧走 quiet：那张的戏就是【他不小心露的马脚被摆到台面上】。
+    //   其余的券是【他自己给出去的东西】，走新开的 given 那一档。
     onGachaShow: card => {
       const c = characters.find(x => x.id === card.charId); const r = card.result || {};
-      if (!c || !r.body) return;
-      forwardPhonePeekToChat(c, { label: String(r.title || "掉马券"), title: String(r.title || ""), text: String(r.body || ""),
-        tier: "quiet", what: "东西", lead: "[我手上有这个]" });
+      if (!c) return;
+      if (r.where === "drop") {
+        if (!r.body) return;
+        forwardPhonePeekToChat(c, { label: String(r.title || "掉马券"), title: String(r.title || ""), text: String(r.body || ""),
+          tier: "quiet", what: "东西", lead: "[我手上有这个]" });
+        return;
+      }
+      const tpl = (window.GachaKit && window.GachaKit.byId && window.GachaKit.byId[card.poolId]) || null;
+      const name = String((tpl ? characterText(c, tpl.name) : card.name) || "这张券");
+      // 幕后那一轨也带上：它跟正文是【场里的他】和【场外的他】，只带正文会把落差抹平
+      const body = [r.body, r.track ? "（幕后）" + r.track : "", r.scene].filter(Boolean).join("\n").trim();
+      if (!r.title && !body) { toast("这张券没有可以说的正文"); return; }
+      forwardPhonePeekToChat(c, { label: name, title: String(r.title || ""), text: body,
+        tier: "given", what: "东西", lead: "[" + name + "]你给我的这个，我拿来跟你说：" });
     },
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,

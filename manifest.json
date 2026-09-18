@@ -1,7 +1,7 @@
 {
   "name": "ARCHIVE",
   "short_name": "ARCHIVE",
-  "start_url": "./index.html?launch=71.26",
+  "start_url": "./index.html?launch=71.30",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

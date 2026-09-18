@@ -13805,6 +13805,17 @@ function GachaCard({ card, busy, onRedeem, onShow, onTitle, onShoot, shooting, f
             onClick: () => onShow(card), className: "active:opacity-60",
             style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999, background: sk.ink, color: "#fff" }
           }, characterText(character, "摆到他面前问问")) : null,
+          // 拿去跟他说（她 2026-09-18：「用了这些券之后没办法发到他聊天啊」）。
+          // ⚠️原来只有掉马券那一张有出口，别的券兑完就停在这张卡片上，角色完全不知道
+          //   发生过——尤其双面券最怪：券是他给的，他却不认。
+          // ⚠️只在【真有正文可说】的时候出现：没有正文还摆一颗按钮，点下去发出去的是空话。
+          //   有些券本来就落在别处（进了记忆库／线下开了／情书），那几张也照样给——
+          //   「落了档」和「现在就想跟他说这个」是两件事。
+          res.where !== "drop" && onShow && (res.title || res.body || res.track || res.scene) ? h("button", {
+            onClick: () => onShow(card), className: "active:opacity-60",
+            style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 14px", borderRadius: 999,
+              border: "1px solid " + sk.bd, background: "transparent", color: sk.ink }
+          }, characterText(character, "拿去跟他说")) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.tag, marginTop: 7 } },
             "已兑 " + gachaWhen(card.redeemedTs)
             + (res.where === "memlib" ? characterText(character, " · 已进记忆库，以后他会提起") : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "date" ? " · 这张券已经用掉了，线下开了" : res.where === "letters" ? " · 已进情书" : res.where === "gaze" ? " · 印象卡已改，旧版进了修订史"

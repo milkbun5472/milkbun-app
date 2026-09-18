@@ -85,7 +85,11 @@ test("没主动说的日常内容走 quiet 档", () => {
 test("聊天里这条渲染成偷看卡，藏起来的那档一眼看得出不一样", () => {
   assert.match(comp, /function PhonePeekCard\(\{ m, isU, character \}\)/);
   assert.match(comp, /const hid = p\.tier === "hidden";/);
-  assert.match(comp, /characterText\(character, "翻他"\) \+ \(p\.what \|\| "手机"\) \+ " · "/);
+  // v71.27 前面多了一档 given（抽卡券是【他给的】，不是翻到的）；
+  // 这儿要钉的仍是那句老规矩：翻的是什么，眉标就跟着写什么，不许写死「手机」。
+  assert.match(comp, /characterText\(character, "翻他"\) \+ \(p\.what \|\| "手机"\)/);
+  assert.match(comp, /p\.tier === "given" \? characterText\(character, "他给的"\)/,
+    "他给的那一档又被写成「翻他东西」了——当着她的面把这件事说反了");
   assert.match(comp, /if \(m\.kind === "phonepeek"\)/);
   // 卡片读 m.peek，不把带反应指令的 content 原样显示出来
   assert.match(comp, /const p = m\.peek \|\| \{\};/);

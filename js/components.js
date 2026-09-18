@@ -11058,7 +11058,10 @@ function PhonePeekCard({ m, isU, character }) {
     h("div", { "data-wk": "card", style: { width: 242, borderRadius: 14, overflow: "hidden", background: hid ? "rgba(182,71,60,.07)" : t.bg2, border: "1px solid " + (hid ? "rgba(182,71,60,.32)" : t.line) } },
       h("div", { className: "px-3.5 pt-3 pb-3" },
         // what：翻的是手机还是TA的包／衣柜（v57.96 随身物也能摆到TA面前了）
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } }, characterText(character, "翻他") + (p.what || "手机") + " · " + (p.label || "")),
+        // ⚠️眉标不许一律写「翻他X」（v71.27）：抽卡券那一路是【他自己给的】，
+        //   写成「翻他东西」等于当着她的面把这件事说反了。
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } },
+          (p.tier === "given" ? characterText(character, "他给的") : characterText(character, "翻他") + (p.what || "手机")) + " · " + (p.label || "")),
         p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title),
         p.text && h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 4 } }, p.text),
         hid && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b6473c", marginTop: 7 } }, characterText(character, "这是他藏起来的")))));
