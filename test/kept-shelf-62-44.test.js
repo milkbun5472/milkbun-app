@@ -78,7 +78,9 @@ test("收着的每一本都有自己的底，而且都铺在外壳上、顶栏�
     // 换成"用的是那处共用皮"，渐变本身另有一条单独钉着（见文件末尾）。
     ["情书", cut(scr, "  // 底纹铺在【外壳】上（v62.44", "// 情侣空间·合照墙"), "style: letterSkin(t)"],
     ["交换日记", cut(scr, "function CoupleExDiary({", "\nconst COUPLE_MOODS"), "repeating-linear-gradient(135deg"],
-    ["问答小本", cut(scr, "  // 这一本躺在【点阵纸】上", "// 情侣空间·情书"), "radial-gradient(circle,rgba(120,110,80,.14)"],
+    // ⚠️v70.84 问答小本拆成三本，点阵纸那一层抽成了 deskSkin（书架和封面共用一份），
+    //   所以窗口要从【书架】那一段起切，不然切不到那串 radial-gradient。
+    ["问答小本", cut(scr, "  // —— 书架：三本摆在一起", "// 情侣空间·情书"), "radial-gradient"],
     ["他记得的", cut(scr, "  // 底纹（v62.44）：这一页摊的是", "// 情侣空间·我们说好的"), "linear-gradient(90deg,rgba(0,0,0,0) calc(50% - 6px)"],
     ["说好的", cut(scr, "function CouplePacts({", "function CoupleWishes({"), "repeating-linear-gradient(90deg,rgba(140,115,70,.05)"],
     ["时光胶囊", cap, "const STRATA ="]
@@ -88,7 +90,7 @@ test("收着的每一本都有自己的底，而且都铺在外壳上、顶栏�
     assert.ok(blk.indexOf(mark) >= 0, zh + " 没有自己的底纹");
     // ⚠️底纹必须铺在【最外那个 h-full 外壳】上，不是铺在滚动区上——
     //   铺在滚动区上，顶栏那一条还是平色，顶上横着一道没盖住的带子。
-    assert.match(blk, /className: "h-full flex flex-col", style: (\{ background: t\.bg|letterSkin\(t\))/, zh + " 的底纹没铺在外壳上");
+    assert.match(blk, /className: "h-full flex flex-col", style: (\{ background: t\.bg|letterSkin\(t\)|deskSkin)/, zh + " 的底纹没铺在外壳上");
     assert.ok(/bg: "transparent"/.test(blk) || zh === "情书", zh + " 的顶栏没透上来");
   });
   // 底不跟着滚：内容在动，底不该动

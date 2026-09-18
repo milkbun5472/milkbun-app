@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.83";
+const APP_VERSION = "v70.84";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -452,6 +452,9 @@ function App() {
   const [coupleNotes, setCoupleNotes] = useState([]);
   // 情侣空间·问答自定义题库：{ [charId]: ["题目",...] }，各角色各一份、不互通
   const [coupleQACustom, setCoupleQACustom] = useState({});
+  const [coupleQABooks, setCoupleQABooks] = useState({});   // {charId:{bookKey:{title,tint,coverKey}}}
+  const coupleQABooksRef = useRef({}); coupleQABooksRef.current = coupleQABooks;
+  const coupleQATitleRef = useRef({});
   // 情侣空间·交换日记：一本两人轮流写的本子 {id,characterId,author:'user'|charId,content,mood,weather,date,ts,dueTs?,replied?,replyToId?,unread?}
   const [coupleExDiary, setCoupleExDiary] = useState([]);
   const coupleExDiaryRef = useRef([]); coupleExDiaryRef.current = coupleExDiary;
@@ -621,6 +624,7 @@ function App() {
   wishRef.current = wish;
   carryRef.current = carry;
   schedulesRef.current = schedules;
+  coupleQATitleRef.current = coupleQATitle;
   const moodsRef = useRef({}); moodsRef.current = moods;
   const [unreadMap, setUnreadMap] = useState({});
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
@@ -1398,6 +1402,7 @@ function App() {
       saveJSON("x_notesToDrawer", true);
     }
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
+    setCoupleQABooks(loadJSON("x_coupleQABooks", {}));
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleRecall(loadJSON("x_coupleRecall", []));
@@ -19150,6 +19155,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGen(g => ({ ...g, coupleQA: false }));
     }
   };
+  // ── 问答小本拆成三本（她 2026-09-18：「单开一本单独放题，可以自定义封面，
+  //    然后把角色问的题显示单独一本」）────────────────────────────
+  // 三本的分法在 screens.js 的 QA_BOOKS 一处定义，这儿只管【每本的封面长什么样】。
+  // ⚠️存档键不许跟着改名：x_coupleQATitle 里原来是 { charId: "标题" }（只有一本时的写法）。
+  //   那一份照旧读得出来——saveQABook 写新结构时把老标题当成【关于我们】那本的标题，
+  //   不迁移、不清掉。改了名她的旧存档就读不出来了（这个文件顶上那条老规矩）。
+  const qaBookCfg = (charId, bookKey) => {
+    const box = (coupleQABooksRef.current || {})[charId] || {};
+    if (box[bookKey]) return box[bookKey];
+    const legacy = (coupleQATitleRef.current || {})[charId];
+    if (bookKey === "all" && typeof legacy === "string" && legacy.trim()) return { title: legacy.trim() };
+    return {};
+  };
+  const saveQABook = (charId, bookKey, patch) => setCoupleQABooks(p => {
+    const box = { ...(p[charId] || {}) };
+    box[bookKey] = { ...(box[bookKey] || qaBookCfg(charId, bookKey)), ...(patch || {}) };
+    const n = { ...p, [charId]: box };
+    coupleQABooksRef.current = n;
+    saveJSON("x_coupleQABooks", n);
+    return n;
+  });
+  // 老入口留着：只有【关于我们】那本会走到它（改名时两边一起写，老存档不落单）
   const saveQATitle = (charId, title) => setCoupleQATitle(p => {
     const n = { ...p, [charId]: title };
     saveJSON("x_coupleQATitle", n);
@@ -22305,6 +22332,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     qaGen: gen.coupleQA,
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,
+    coupleQABooks: coupleQABooks,
+    onSaveQABook: saveQABook,
+    onSaveQACustom: saveCoupleQACustom,
     coupleQACustom: coupleQACustom,
     // 情侣空间首页那格看的是TA【真实】的心情（跟着真的聊过的天走、会自己平复），
     // 不再是「心情打卡」那次瞎猜的调用。0 调用，而且和提示词里发给TA的是同一份读数。

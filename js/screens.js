@@ -3423,6 +3423,37 @@ const COUPLE_QA_BANK = [
 
 // 字符串稳定哈希（自定义题给个稳定 id，用于已答判重）
 const qhash = s => { let x = 0; for (let i = 0; i < s.length; i++) { x = (x * 31 + s.charCodeAt(i)) | 0; } return (x >>> 0).toString(36); };
+// ── 问答小本拆成三本（她 2026-09-18）────────────────────────────
+// 「单开一本单独放题，可以自定义封面，然后把角色问的题显示单独一本」。
+// ⚠️分法只写在这一处：哪一本收哪几条、抽题从哪个池子抽，都从这张表推
+//   （one-public-mechanism.md）。界面那头不许再自己判一次「这条是谁出的」。
+// ⚠️「他出的题」不是新数据：那些条目落库时就带着 byCharacter: true
+//   （app.js 里 TA出的题那一路写的），这儿只是筛出来。
+// 布面受光那一档：同一个色提亮一点，书脊和书签带跟着它走。
+// ⚠️只吃六位色号；她自己填了别的写法就原样退回去，别拼出个废值把整块底弄没
+//   （深色主题下 t.ink 那个坑同一个道理）。
+const clothLift = (hex, amt) => {
+  if (!/^#[0-9a-f]{6}$/i.test(String(hex || ""))) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const up = v => Math.max(0, Math.min(255, Math.round(v + (255 - v) * amt)));
+  return "#" + [up(n >> 16 & 255), up(n >> 8 & 255), up(n & 255)].map(v => v.toString(16).padStart(2, "0")).join("");
+};
+const QA_BOOKS = [
+  { key: "all", zh: "关于我们", hint: "题库里的那六十道", tint: "#5e2635" },
+  { key: "custom", zh: "自己加的题", hint: "你写进去的那些", tint: "#2f4a3f" },
+  { key: "his", zh: "他出的题", hint: "他反过来问你的", tint: "#3b3560" }
+];
+// 一条已答记录属于哪一本
+const qaBookOf = e => (e && e.byCharacter) ? "his"
+  : (String((e && e.qid) || "").indexOf("cx_") === 0 ? "custom" : "all");
+// 这一本的题池（还没答的）。他出的题不由她抽——那是他递过来的，没有池子。
+function qaPoolOf(bookKey, bank, customQ, answered) {
+  if (bookKey === "his") return [];
+  const src = bookKey === "custom"
+    ? (customQ || []).map(q => ({ id: "cx_" + qhash(q), cat: "自己加的", q: q }))
+    : (bank || []);
+  return src.filter(b => !answered.has(b.id));
+}
 // 情侣空间·问答小本：翻页书 —— 封面(可改标题)/翻页看过往(编辑·reroll·删除)/翻新题作答
 // ── 情侣空间那几扇门的底（v62.85，审美审计还债④第二批）─────────────────
 // 审计的「乙组」：这几页的部件早就合格了（布面本子、挂历页、照片、盆栽、登机牌、唱机），
@@ -3464,17 +3495,26 @@ const cpSkin = (t, kind) => {
   }[kind] || [];
   return { background: t.bg, backgroundImage: layers.join(",") };
 };
-function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
+function CoupleQABook({ partner, bank, customQ, entries, title, books, onSaveBook, onSaveCustom, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
   const t = useTheme();
-  const mine = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
-  const answered = new Set(mine.map(e => e.qid));
-  const fullBank = bank.concat((customQ || []).map(q => ({ id: "cx_" + qhash(q), cat: "自定义", q: q })));
-  const pool = fullBank.filter(b => !answered.has(b.id));
-  // 「已答 X / Y」的分母：自定义题在设置里删掉后，已答的那条还在（该在），
-  // 光用 fullBank.length 会出现 X > Y。答过但已不在题库里的也算进总数。
-  const bankTotal = fullBank.length + mine.filter(e => !fullBank.some(b => b.id === e.qid)).length;
-  const bookTitle = title || "关于我们";
+  const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
+  const answered = new Set(all.map(e => e.qid));
+  // 现在开着哪一本。null＝还在书架上（她 2026-09-18 要的「单独一本」就是这一层）。
+  const [book, setBook] = useState(null);
+  const cfgOf = k => ((books || {})[k] || (k === "all" && typeof title === "string" && title.trim() ? { title: title.trim() } : {}));
+  const bookKey = book || "all";
+  const cfg = cfgOf(bookKey);
+  const spec = QA_BOOKS.find(x => x.key === bookKey) || QA_BOOKS[0];
+  const mine = all.filter(e => qaBookOf(e) === bookKey);
+  const pool = qaPoolOf(bookKey, bank, customQ, answered);
+  // 「已答 X / Y」的分母：自己加的题删掉之后，已答的那条还在（该在），
+  // 光用池子长度会出现 X > Y。答过但已不在题库里的也算进总数。
+  const bankTotal = pool.length + mine.length;
+  const bookTitle = cfg.title || spec.zh;
+  const cloth = cfg.tint || spec.tint;
   const [mode, setMode] = useState("cover"); // cover / pages / draw
+  const [shelfOpen, setShelfOpen] = useState(false);   // 封面设置
+  const [addOpen, setAddOpen] = useState(false);       // 加新题（原来在设置里）
   const [pageIdx, setPageIdx] = useState(0);
   const [cur, setCur] = useState(null);
   const [ans, setAns] = useState("");
@@ -3491,7 +3531,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
   // 而且那一枪看不到你写的（见 app.js 的 answerCoupleQA 注释）。
   const submit = () => {
     if (!cur || !ans.trim() || gen) return;
-    const ok = onSeal(partner, { qid: cur.id, question: cur.q, myAnswer: ans.trim(), source: "题库" });
+    const ok = onSeal(partner, { qid: cur.id, question: cur.q, myAnswer: ans.trim(), source: bookKey === "custom" ? "自己加的" : "题库" });
     if (ok) { setCur(null); setAns(""); setPageIdx(9999); setMode("pages"); }
   };
 
@@ -3564,19 +3604,59 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
           h("button", { onClick: () => setPageIdx(Math.min(mine.length - 1, idx + 1)), disabled: idx >= mine.length - 1, className: "active:opacity-60 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "下一题 ›")) : null));
   }
 
+  // —— 书架：三本摆在一起，挑一本进去（她 2026-09-18）——
+  // 桌上那张点阵纸不换，换的是纸上摆着几本。
+  const deskSkin = { background: t.bg,
+    backgroundImage: "radial-gradient(circle,rgba(120,110,80,.14) 1px,rgba(0,0,0,0) 1.2px)", backgroundSize: "17px 17px" };
+  if (!book) {
+    return h("div", { className: "h-full flex flex-col", style: deskSkin },
+      h(Head, { zh: "问答小本", en: partner.name, onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "6px 0 16px", lineHeight: 1.7 } },
+          characterText(partner, "三本摆在这儿：题库那本、你自己写的那本、他反过来问你的那本。")),
+        QA_BOOKS.map(bk => {
+          const c2 = cfgOf(bk.key);
+          const cl = c2.tint || bk.tint;
+          const rows = all.filter(e => qaBookOf(e) === bk.key);
+          const left = qaPoolOf(bk.key, bank, customQ, answered).length;
+          return h("button", { key: bk.key, onClick: () => { setBook(bk.key); setMode("cover"); },
+            className: "w-full text-left active:opacity-85",
+            style: { position: "relative", display: "block", marginBottom: 14, minHeight: 92,
+              borderRadius: "4px 12px 12px 4px", padding: "16px 16px 15px 38px", overflow: "hidden",
+              backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px), linear-gradient(140deg," + clothLift(cl, 0.22) + "," + cl + ")",
+              boxShadow: "0 10px 24px rgba(50,30,40,.28)" } },
+            // 书脊那一条：跟大封面同一个做法，缩一号
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 20, background: "linear-gradient(90deg,rgba(0,0,0,.26),rgba(255,255,255,.05))" } }),
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 24, top: 7, bottom: 7, borderLeft: "1px solid rgba(0,0,0,.2)" } }),
+            c2.coverKey || c2.coverUrl ? h("div", { style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "42%", opacity: .5,
+              maskImage: "linear-gradient(to left,#000 0%,transparent 88%)", WebkitMaskImage: "linear-gradient(to left,#000 0%,transparent 88%)" } },
+              h(AlbumPhoto, { photo: { imgKey: c2.coverKey, imgUrl: c2.coverUrl }, cover: true })) : null,
+            h("div", { style: { position: "relative" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".26em", color: "rgba(255,255,255,.5)" } }, bk.hint),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#f2e6cf", marginTop: 5, textShadow: "0 1px 1px rgba(0,0,0,.35)" } }, c2.title || bk.zh),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.58)", marginTop: 7 } },
+                rows.length + " 页" + (bk.key === "his" ? "" : " · 还剩 " + left + " 题没翻")))); })));
+  }
+
   // —— 书封面（默认）——
   // 这一本躺在【点阵纸】上（v62.44）：本子是本子，桌上那张纸是纸——
   // 底纹铺外壳、顶栏透上来（mobile-ui-layout §3.5），也不跟着滚。
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
-    backgroundImage: "radial-gradient(circle,rgba(120,110,80,.14) 1px,rgba(0,0,0,0) 1.2px)", backgroundSize: "17px 17px" } },
-    h(Head, { zh: "问答小本", en: partner.name, onBack, bg: "transparent" }),
+  return h("div", { className: "h-full flex flex-col", style: deskSkin },
+    h(Head, { zh: "问答小本", en: partner.name, onBack: () => setBook(null), bg: "transparent",
+      // 加新题原来在【设置】里（她 2026-09-18：「能不能把它搬到问答小本的右上角」）。
+      // ⚠️「他出的题」那本没有加题这回事——那是他递过来的，不是她写的池子。
+      right: h("div", { className: "flex items-center gap-3" },
+        bookKey === "custom" ? h("button", { onClick: () => setAddOpen(true), className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "加题") : null,
+        h("button", { onClick: () => setShelfOpen(true), className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "封面")) }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       // ── 封面重做（v62.13）：原来是粉紫渐变卡 + 「OUR Q&A」+ 白圆加号——换个 app 照样成立。
       // 它是一本【本子】，就长成一本布面精装本：织纹布面、左侧真书脊（凹槽压线）、
       // 标题烫在压印框里、右侧一条松紧系带。功能一样没动：点标题改名、右下角翻新题。
       h("div", { style: { position: "relative", marginTop: 18, borderRadius: "5px 14px 14px 5px", padding: "30px 24px 24px 44px", minHeight: 300, display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden",
         // 布面：两道极淡的斜纹叠出织物经纬，底色深酒红
-        backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px), linear-gradient(140deg,#8a4757,#63313f)",
+        backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px), linear-gradient(140deg," + clothLift(cloth, 0.22) + "," + cloth + ")",
         boxShadow: "0 14px 34px rgba(90,45,60,0.35)" } },
         // 书脊：左侧一条受光不同的带，加一道铰线——布包过书板的那道折
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 26, background: "linear-gradient(90deg, rgba(0,0,0,.30), rgba(0,0,0,.10) 55%, rgba(255,255,255,.07) 78%, rgba(0,0,0,.16))" } }),
@@ -3602,12 +3682,80 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
       // 底下一个燕尾缺口。
       mine.length ? h("button", { onClick: () => { setPageIdx(0); setMode("pages"); }, className: "active:opacity-80",
         style: { position: "relative", display: "block", width: "58%", margin: "0 auto", minHeight: 44,
-          background: "linear-gradient(180deg,#7a3548,#5e2635)", color: "#e8c98a", fontFamily: F_DISPLAY, fontSize: 14.5,
+          background: "linear-gradient(180deg," + clothLift(cloth, 0.12) + "," + cloth + ")", color: "#e8c98a", fontFamily: F_DISPLAY, fontSize: 14.5,
           padding: "12px 0 20px", borderRadius: "0 0 2px 2px", boxShadow: "0 8px 18px rgba(60,20,32,.26)",
           clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 11px), 0 100%)" } }, "翻开看过往（" + mine.length + "）") : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 16 } }, "还没答过题——点封面右下角 ＋ 翻第一张"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } }, "想加只属于你俩的专属题？设置 → 「问答」→ 选 " + partner.name)));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } },
+        bookKey === "custom" ? "想加专属题就点右上角「加题」" : bookKey === "his" ? characterText(partner, "这一本由他往里写——他哪天想问你什么，就会多一页") : "右上角可以换这本的封面"),
+      // ── 加新题：原来在【设置 → 问答】里，v70.84 搬过来（她 2026-09-18）──
+      // ⚠️搬＝设置那一处删掉，不是两处都留（one-public-mechanism.md：
+      //   只开新的、旧的留在原地是最坏的一种，从此同一件事活在两处）。
+      addOpen ? h(Sheet, { onClose: () => setAddOpen(false), tall: true, skin: { background: "#fdfaf1", handle: "rgba(90,70,50,.3)" } },
+        h(QAAddSheet, { partner, customQ, onSave: arr => { onSaveCustom && onSaveCustom(partner.id, arr); setAddOpen(false); }, onClose: () => setAddOpen(false) })) : null,
+      shelfOpen ? h(Sheet, { onClose: () => setShelfOpen(false), tall: true, skin: { background: "#fdfaf1", handle: "rgba(90,70,50,.3)" } },
+        h(QACoverSheet, { partner, spec, cfg, onSave: patch => { onSaveBook && onSaveBook(partner.id, bookKey, patch);
+            // 「关于我们」那本改名时把老存档那份也一起写，免得它落单
+            if (bookKey === "all" && patch && patch.title && onSaveTitle) onSaveTitle(partner.id, patch.title);
+            setShelfOpen(false); },
+          onClose: () => setShelfOpen(false) })) : null));
 }
 
+// 加新题（原来在设置 → 问答那一栏，v70.84 搬来问答小本右上角）。
+// ⚠️写法跟原来那一份一样：一行一题、整份存下去。她习惯的是这个，别换成一条条加。
+function QAAddSheet({ partner, customQ, onSave, onClose }) {
+  const t = useTheme();
+  const [text, setText] = useState((customQ || []).join("\n"));
+  const count = text.split("\n").filter(x => x.trim()).length;
+  return h("div", { className: "px-1 pb-2" },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#3a3226" } }, "加只属于你俩的题"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8b8169", marginTop: 5, marginBottom: 12, lineHeight: 1.7 } },
+      characterText(partner, "一行一题。加进来的题会进「自己加的题」那一本，翻到了他照常回答。")),
+    h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 9,
+      placeholder: "一行一题，例如：\n那年在车站你其实想说什么\n我们第一次吵架你在想什么",
+      className: "w-full outline-none",
+      style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#3a3226", background: "#fffdf6",
+        border: "1px solid #e6dcc4", borderRadius: 6, padding: "11px 12px", resize: "vertical" } }),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 10 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8b8169" } }, count + " 题"),
+      h("div", { className: "flex gap-2" },
+        h("button", { onClick: onClose, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#8b8169", padding: "9px 14px" } }, "取消"),
+        h("button", { onClick: () => onSave(text.split("\n")), className: "active:opacity-80",
+          style: { fontFamily: F_BODY, fontSize: 13, color: "#fdfaf1", background: "#5e2635", borderRadius: 999, padding: "9px 20px" } }, "存起来"))),
+    // ⚠️删掉的题，答过的那几页还在（该在）——说清楚，免得她以为连答案一起删了
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a3987e", marginTop: 10, lineHeight: 1.6 } },
+      "删掉一行只是不再抽到它；已经答过的那一页还留在本子里。"));
+}
+// 自定义封面（她 2026-09-18：「可以自定义封面」）：改名 + 换布面色 + 可选一张照片。
+// ⚠️照片指向的是【已经有的那张合照】自己的 imgKey，不复制一份——跟「另一种我们」
+//   那一处同一个做法，删照片那一路照旧管得到它。
+const QA_CLOTHS = ["#5e2635", "#2f4a3f", "#3b3560", "#6b4a2a", "#2b3d52", "#5a2f4e", "#3f4a2e", "#4a3b33"];
+function QACoverSheet({ partner, spec, cfg, onSave, onClose }) {
+  const t = useTheme();
+  const [title, setTitle] = useState(cfg.title || "");
+  const [tint, setTint] = useState(cfg.tint || spec.tint);
+  return h("div", { className: "px-1 pb-2" },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#3a3226" } }, "这一本的封面"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8b8169", marginTop: 5, marginBottom: 14 } }, spec.hint),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8b8169", marginBottom: 6 } }, "名字"),
+    h("input", { value: title, onChange: e => setTitle(e.target.value.slice(0, 20)), placeholder: spec.zh,
+      className: "w-full outline-none",
+      style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#3a3226", background: "#fffdf6", border: "1px solid #e6dcc4", borderRadius: 6, padding: "10px 12px" } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8b8169", margin: "16px 0 8px" } }, "布面"),
+    h("div", { className: "flex flex-wrap", style: { gap: 10 } },
+      QA_CLOTHS.map(c => h("button", { key: c, onClick: () => setTint(c), className: "active:opacity-70",
+        style: { width: 38, height: 38, borderRadius: "3px 8px 8px 3px",
+          backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px), linear-gradient(140deg," + clothLift(c, .22) + "," + c + ")",
+          boxShadow: tint === c ? "0 0 0 2px #3a3226" : "0 2px 6px rgba(0,0,0,.2)" } }))),
+    // 预览：改完立刻看得见，不用存了退出去才知道
+    h("div", { style: { marginTop: 18, borderRadius: "4px 12px 12px 4px", padding: "18px 16px 16px 34px", minHeight: 96, position: "relative", overflow: "hidden",
+      backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px), linear-gradient(140deg," + clothLift(tint, .22) + "," + tint + ")" } },
+      h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 20, background: "linear-gradient(90deg,rgba(0,0,0,.26),rgba(255,255,255,.05))" } }),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#f2e6cf" } }, (title || "").trim() || spec.zh)),
+    h("div", { className: "flex gap-2", style: { marginTop: 16 } },
+      h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#8b8169", padding: "11px 0", border: "1px solid #e6dcc4", borderRadius: 999 } }, "取消"),
+      h("button", { onClick: () => onSave({ title: (title || "").trim(), tint: tint }), className: "flex-1 active:opacity-80",
+        style: { fontFamily: F_BODY, fontSize: 13, color: "#fdfaf1", background: "#5e2635", borderRadius: 999, padding: "12px 0" } }, "就这样")));
+}
 // 情侣空间·交换日记（v47.77 借 LNChat）：一本两人轮流写的本子——我随时写一页，TA 三天内挑个时候
 // 按【TA 回复当天】的处境回一页（呼应我写的+没说出口的潜台词）。头部带日期/天气/心情的仪式感
 function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
@@ -4882,7 +5030,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -4970,7 +5118,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
@@ -6670,25 +6818,6 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
 }
 
 // 设置·情侣问答自定义题库：为每个角色单独加题（各角色不互通，内置 60 题仍共用）
-function CoupleQAConfig({ characters, custom, onSave, toast }) {
-  const t = useTheme();
-  const chars = characters || [];
-  const [selId, setSelId] = useState(chars[0] ? chars[0].id : "");
-  const [text, setText] = useState("");
-  useEffect(() => { setText(((custom || {})[selId] || []).join("\n")); }, [selId, custom]);
-  const cur = chars.find(c => c.id === selId);
-  const count = text.split("\n").filter(s => s.trim()).length;
-  const save = () => { onSave(selId, text.split("\n")); toast("已保存 " + count + " 题"); };
-  if (!chars.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingTop: 8 } }, "还没有角色，先去人格档案馆录入一位。");
-  return h("div", null,
-    h(Eyebrow, { style: { marginBottom: 8 } }, "情侣问答 · 自定义题库"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog, marginBottom: 12 } }, "为某个角色添加只属于你俩的问题——一行一题。内置 60 题所有角色共用；这里加的题只出现在你和该角色的问答小本，各角色之间不互通。"),
-    h("div", { className: "flex gap-2 flex-wrap mb-3" }, chars.map(c => h("button", { key: c.id, onClick: () => setSelId(c.id), className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, background: selId === c.id ? t.ink : t.bg2, color: selId === c.id ? t.bg2 : t.sub, border: "1px solid " + (selId === c.id ? t.ink : t.line) } }, c.name))),
-    h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 8, placeholder: "一行一题，例如：\n你还记得我们第一次牵手是在哪里吗？\n如果周末去露营，你负责扎营还是生火？", style: { width: "100%", outline: "none", resize: "vertical", padding: "10px 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-    h("div", { className: "flex items-center justify-between mt-2" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, count + " 题 · " + (cur ? cur.name : "")),
-      h("button", { onClick: save, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "保存")));
-}
 // 创作小稿（原「思维链 COT」）设置：开关 + 检查方式 + 预设存取。
 // ⚠️实际在用它的只有这四处（v62.31 对着代码核过一遍）：
 //   同人文（fanfic.js 两处）／梦境（dream.js 四处）／群聊线下（engine.js）／
@@ -7867,7 +7996,7 @@ function Config(props) {
   const back = page === "home" ? props.onBack : () => {
     if (/^api[A-Z]/.test(page)) return setPage("api");
     if (page === "theme" || page === "themeStudio" || page === "bubble") return setPage("look");
-    if (page === "cot" || page === "qa") return setPage("write");
+    if (page === "cot") return setPage("write");
     setPage("home");
   };
   // ── 分类（v61.99 重排，她 2026-09-04：「设置页也还是好乱找不到东西」）──────
@@ -7949,7 +8078,11 @@ function Config(props) {
         h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包；改完能直接跳到那一页看", onClick: () => setPage("themeStudio"), wide: true })),
       page === "write" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "稿", tint: "#8a7a4f", title: "创作小稿", sub: "线下写正文前先打的那份草稿：写法、预设与模型保险", onClick: () => setPage("cot"), wide: true }),
-        h(ConfigTile, { icon: "问", tint: "#a3617c", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa"), wide: true })),
+        // ⚠️「情侣问答 · 自定义题目」这一格 v70.84 删掉了（她 2026-09-18：
+        //   「能不能把它搬到问答小本的右上角」）。搬＝这儿删掉，不是两处都留——
+        //   只开新的、旧的留在原地是最坏的一种（one-public-mechanism.md）。
+        //   现在的入口：情侣空间 → 问答小本 → 「自己加的题」那本 → 右上角「加题」。
+        ),
       page === "api" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
@@ -7967,7 +8100,6 @@ function Config(props) {
       page === "apiCache" && section(h(CacheStatCard, null)),
       page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
-      page === "qa" && section(h(CoupleQAConfig, { characters: props.characters, custom: props.coupleQACustom, onSave: props.onSaveCustomQA, toast: props.toast })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
