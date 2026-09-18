@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-d0e60d81e8657608", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-67620882e9b01afa", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -254,7 +254,9 @@
     }
     const [entry, setEntry] = useState(() => initial.current), [pick, setPick] = useState(!initial.current.partnerId), [solo, setSolo] = useState(false), [chat, setChat] = useState(false), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [detail, setDetail] = useState(""), [loaded, setLoaded] = useState(false);
     const frame = useRef(null), alive = useRef(true), busyRef = useRef(false), propsRef = useRef(props), owner = useRef(initial.current.id), serial = useRef(0), messages = useRef(null); propsRef.current = props;
-    useEffect(() => { alive.current = true; return () => { alive.current = false; serial.current++; if (frame.current) hosts.delete(frame.current.contentWindow); }; }, []);
+    // ⚠️禁区要跟着这一屏一起走：不撤的话，出了庭院悬浮播放器还悬在半空，
+    //   而外面根本没有那条行动栏——那就成了「哪儿都躲着一条看不见的东西」。
+    useEffect(() => { alive.current = true; return () => { alive.current = false; serial.current++; if (window.FloatKeepClear) window.FloatKeepClear.set(0); if (frame.current) hosts.delete(frame.current.contentWindow); }; }, []);
     const current = () => {
       if (!alive.current) throw new Error("这个庭院页面已经离开了。");
       const d = loadJSON(storeKey.current, null); if (!d || d.id !== owner.current) throw new Error("存档已经切换，请重新进入庭院。"); return d;
@@ -308,6 +310,9 @@
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name } : null; },
         save: world => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
         openChat: () => openChat(true), changePartner,
+        // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
+        // 悬浮播放器就不会默认停在它头上（js/components.js 的 FloatKeepClear）。
+        floatClear: px => { if (window.FloatKeepClear) window.FloatKeepClear.set(px); },
         // 收花笺：游戏那头走到花圃按下收，生成这一枪在这儿打（callAI 在父页）。
         // 一次把开好的全回了，回来由游戏自己写进存档。
         // 下潜时补一池碎片：一次调用出一批，接下来几层刨到的都是从这池里取

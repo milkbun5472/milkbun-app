@@ -4,7 +4,7 @@ const code=src.slice(src.indexOf('function MiniPlayer('),src.indexOf('// 全屏�
 test('fold persists, expands without navigation, and never changes audio state',()=>{
   const states=[],refs=[],store=new Map(),calls=[];let si=0,ri=0;
   const h=(type,props,...children)=>({type,props,children});
-  const ctx={h,React:{Fragment:'fragment',useLayoutEffect:()=>{}},useTheme:()=>({ink:'#222222',bg2:'#ffffff'}),
+  const ctx={h,React:{Fragment:'fragment',useLayoutEffect:()=>{}},useTheme:()=>({ink:'#222222',bg2:'#ffffff'}),useFloatKeepClear:()=>0,window:{innerHeight:844},
     useState:init=>{const i=si++;if(!(i in states))states[i]=typeof init==='function'?init():init;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},
     useRef:init=>{const i=ri++;return refs[i]||(refs[i]={current:init});},localStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},
     skinAlpha:(s,a)=>s+a,MINI_PLAYER_Z:45,F_BODY:'',F_DISPLAY:''};
