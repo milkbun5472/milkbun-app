@@ -9997,7 +9997,22 @@ function EventShelfSection({ characters, entries }) {
     events.length > 3 ? h("input", { value: evQ, onChange: e => setEvQ(e.target.value), placeholder: "搜事件：标题 / 梗概 / 主题…", className: "w-full outline-none px-3 py-2 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }) : null,
     events.filter(ev => { const q = evQ.trim().toLowerCase(); if (!q) return true; return (String(ev.title || "") + " " + String(ev.synopsis || "") + " " + (ev.themes || []).join(" ")).toLowerCase().indexOf(q) >= 0; }).map(ev => h("button", {
       key: ev.id,
-      onClick: async () => { const d = window.MemoryEvents ? await window.MemoryEvents.getEvent(ev.id) : null; if (d) setDetail(d); },
+      // ⚠️点了必须【先开窗】（她 2026-09-18 报：「我怎么点不了记忆库事件了」）。
+      //   正文是故意不落缓存的，只在打开时直连云取——所以没登录／断网／云抽一下，
+      //   原来那句 `if (d) setDetail(d)` 就什么都不做，一个字都不说。
+      //   书架上明明列着这件事（列表读的是本地镜像），点下去却像坏了。
+      //   现在先拿镜像里已有的那份开窗，正文在窗里慢慢来，取不到就在窗里说为什么。
+      onClick: async () => {
+        setDetail({ event: ev, links: [], loading: true, why: "" });
+        if (!window.MemoryEvents) { setDetail({ event: ev, links: [], loading: false, why: "事件层没加载出来，刷新一下再试" }); return; }
+        try {
+          const d = await window.MemoryEvents.getEvent(ev.id);
+          if (d) setDetail({ event: Object.assign({}, ev, d.event), links: d.links || [], loading: false, why: "" });
+          else setDetail({ event: ev, links: [], loading: false, why: "正文在云上，这会儿取不回来——没登录或者没网。梗概还在下面。" });
+        } catch (e) {
+          setDetail({ event: ev, links: [], loading: false, why: "正文取不回来：" + (e.message || e) });
+        }
+      },
       className: "w-full text-left rounded-xl p-3 mb-2 active:opacity-70",
       style: { border: "1px solid " + t.line, background: t.bg2 }
     },
@@ -10014,8 +10029,12 @@ function EventShelfSection({ characters, entries }) {
   detail && h(Sheet, { onClose: () => setDetail(null) },
     h(Eyebrow, { style: { marginBottom: 6 } }, detail.event.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } },
-      "执笔：" + nameOf(detail.event.author_char_id) + (detail.event.edited_by_user ? " · 你改过" : "") + " · 关联碎片 " + (detail.links || []).filter(l => !l.deleted).length + " 条"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } }, detail.event.narrative),
+      "执笔：" + nameOf(detail.event.author_char_id) + (detail.event.edited_by_user ? " · 你改过" : "")
+      + (detail.loading ? " · 正在取正文…" : " · 关联碎片 " + (detail.links || []).filter(l => !l.deleted).length + " 条")),
+    detail.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 10, lineHeight: 1.7 } }, detail.why) : null,
+    // 正文取不回来时退到梗概：镜像里一直有它，总好过一片空白
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: detail.event.narrative ? t.ink : t.sub, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } },
+      detail.event.narrative || detail.event.synopsis || (detail.loading ? "" : "（这件事还没有正文）")),
     // 复制出去（她 2026-09-18 转小红书群里读者 ! YOLO 的许愿池：
     //   「记忆总结成事件以后，可不可以把那个事件给我一个复制按钮，然后我加到记忆库里面去。
     //     因为有的时候我是觉得记忆他太多了，我想精简一下，才把它总结成事件的」）
@@ -10527,6 +10546,11 @@ function MemoryLib({
     && inScope(e)
     && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0))
     .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  // 懒加载（她 2026-09-18：「记忆库记忆多的话也会很卡有没有办法也做懒加载啊」）：
+  // 先画一截，往下翻到底再续。⚠️窗口只切【画出来的那几张】——list 本身仍是全量，
+  // 上面那排数字、搜索、筛选都还是按全部算的；切了 list 的话「这一摞 N 张」会当场变成骗人的数。
+  // 换筛选／换搜索词就收回去（resetKey），别让上一摞翻开的长度带过来。
+  const { shown: memShown, more: memMore, sentinel: memSentinel } = useListWindow(list.length, statusFilter + "|" + filter + "|" + qlc);
   const activeTotal = (entries || []).filter(e => e && !e.archived && (e.surfaceState || "active") === "active" && inScope(e)).length;
   const pinnedTotal = (entries || []).filter(e => e && !e.archived && e.pinned && (e.surfaceState || "active") === "active" && inScope(e)).length;
   const visibleOpenTotal = (entries || []).filter(e => e && !e.archived && e.open && (e.surfaceState || "active") === "active" && inScope(e)).length;
@@ -10785,7 +10809,7 @@ function MemoryLib({
       text: qlc ? "没找到这段记忆" : statusFilter === "open" ? "没有未了的事" : statusFilter === "pinned" ? "还没有常驻记忆" : "还没有记忆",
       sub: qlc ? "换个说法、角色名或标签试试" : "点右上角 + 手动记下，聊天也会自动沉淀"
     }),
-    list.map((e, index) => {
+    list.slice(0, memShown).map((e, index) => {
       const d = shortDateOf(e);
       const tags = (e.tags || []).slice(0, 2);
       const faded = isFading(e);
@@ -10833,6 +10857,10 @@ function MemoryLib({
             (e.tags || []).length > 2 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "+" + ((e.tags || []).length - 2)) : null,
             trace ? h("span", { title: "原件仍在归档里", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "由 " + trace + " 条旧忆收拢") : null) : null));
     }),
+    // 还剩几张没画：这根哨子进视野就自己续一截。
+    // ⚠️还要写一句话给她看——一声不吭地停在第 60 条，看着像「后面的记忆没了」。
+    memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", padding: "14px 0" } },
+      "还有 " + memMore + " 条，往下翻") : null,
     (superseded.length || archived.length) ? h("div", { style: { marginTop: 18, paddingTop: 13, borderTop: "1px solid " + t.line } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "历史索引"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, "不参与日常召回，但仍留得下出处和原文。"),
