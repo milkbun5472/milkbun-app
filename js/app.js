@@ -10261,8 +10261,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const m = msgs[idx];
     if (act === "fav") { addFavorite(activeChar.id, m); return; }
     if (act === "copy") {
-      navigator.clipboard && navigator.clipboard.writeText(m.content);
-      toast("已复制");
+      copyText(m.content).then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
       const orig = m;
       pChat(threadKey, p => {
@@ -11339,8 +11338,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!m) return;
     if (act === "fav") { addFavorite(m.senderId || null, m); return; }
     if (act === "copy") {
-      navigator.clipboard && navigator.clipboard.writeText(m.content || "");
-      toast("已复制");
+      copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
       pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, origText: x.content, reason: x.reason || "" } : x));
     } else if (act === "edit") {
