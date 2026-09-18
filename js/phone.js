@@ -1484,10 +1484,13 @@ const PHONE_ICON_PRESETS = [
   { key: "mono", name: "墨色", sub: "低饱和黑白图标" },
   { key: "glass", name: "透明玻璃", sub: "让壁纸透出来" }
 ];
-const fmtMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
-});
+// ⚠️只是个转交口：真正的换算和符号全在 js/money.js 那一份里
+//   （她 2026-09-18：「把钱收入公共然后后续任何交易都走一层汇率」）。
+//   第二个参数是【这是谁的钱】——不给就是人民币，跟以前一模一样。
+//   别在这儿补规则，也别在页面里自己拼 "¥" + n：那就又是一层活在两处。
+const fmtMoney = (n, charId) => (typeof Money !== "undefined" && Money)
+  ? Money.fmt(n, charId)
+  : "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtMD = d => d.getMonth() + 1 + "月" + d.getDate() + "日";
 const ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 // 根据财务档案 + 生成日期，推算「跑动余额」：每天扣一笔日常消费，每月1号进月收入/扣固定支出
@@ -3800,7 +3803,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     (ms || acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f3f1ec" } },
       // 同上：以钱包流水为准，没建档才用模型那份
       [[ms ? ms.orders : (acc.monthOrders != null ? acc.monthOrders : "--"), "本月单数"],
-       [ms ? fmtMoney(ms.spend) : (acc.monthSpend != null ? fmtMoney(acc.monthSpend) : "--"), "本月吃掉"]].map(([n, l], i) =>
+       [ms ? fmtMoney(ms.spend, char.id) : (acc.monthSpend != null ? fmtMoney(acc.monthSpend, char.id) : "--"), "本月吃掉"]].map(([n, l], i) =>
         h("div", { key: i, className: "flex-1" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: TAKE_INK } }, n),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginTop: 3 } }, l)))) : null,
@@ -3834,7 +3837,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       // 大号红价格 + 绿色状态胶囊是收银台的语言。这一顿真正的内容是那句备注，
       // 所以钱和状态降成一行小字，备注留在下面当落点。
       (today.amount != null || today.status) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 13 } },
-        [today.amount != null ? fmtMoney(today.amount) : "", today.status || ""].filter(Boolean).join(" · ")) : null,
+        [today.amount != null ? fmtMoney(today.amount, char.id) : "", today.status || ""].filter(Boolean).join(" · ")) : null,
       today.note ? noteLine(today.note) : null,
       h("div", null, peekBtn("quiet", T("他今天点的"), today.shop, [today.main, today.note].filter(Boolean).join("｜"))))) : null;
   // ── 常点商家（横滑）──
@@ -3866,7 +3869,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           // 只留一行「等到几点」。
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 13 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, it.eta ? "等到 " + it.eta : ""),
-            it.amount != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, fmtMoney(it.amount)) : null),
+            it.amount != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, fmtMoney(it.amount, char.id)) : null),
           it.note ? noteLine(it.note) : null));
     })) : null;
   // ── 吃过的记录：默认是紧凑时间档案，点开才看收据细节 ──
@@ -3883,13 +3886,13 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-start justify-between", style: { gap: 10 } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.4, color: TAKE_INK } }, o.shop || ""),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: TAKE_CORAL, flexShrink: 0 } }, o.amount != null ? fmtMoney(o.amount) : "")),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: TAKE_CORAL, flexShrink: 0 } }, o.amount != null ? fmtMoney(o.amount, char.id) : "")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 4 } }, [o.time, o.status].filter(Boolean).join(" · ")),
               o.main ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: TAKE_BODY, marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" } }, o.main) : null)),
           h("div", { style: { marginLeft: 56, marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: TAKE_DIM } }, expanded ? "收起这一顿 ↑" : "展开这一顿 ↓")),
         expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: TAKE_SOFT } },
           A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: 12.5, color: TAKE_BODY } },
-            h("span", { className: "flex-1 min-w-0" }, x.name || ""), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price)))),
+            h("span", { className: "flex-1 min-w-0" }, x.name || ""), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price, char.id)))),
           // 星星不画：那是给平台看的刻度。TA亲口写的那句评价才是TA说的话。
           o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + TAKE_LINE, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_BODY } }, o.rating) : null,
           o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,

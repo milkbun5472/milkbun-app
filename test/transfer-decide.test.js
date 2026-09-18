@@ -56,7 +56,10 @@ test("群里同样接上，而且只结算转给他本人那一笔", () => {
 
 // 她 2026-08-27：「转账旁边没有头像」
 test("转账卡带头像，和位置卡同一个摆法", () => {
-  assert.match(comp, /function TransferCard\(\{\n  m,\n  isU,\n  onRespond,\n  avatar,\n  myAvatar\n\}\)/, "卡片没收头像");
+  // v70.55 多收一个 charId：卡面按【对方】的币种写（她 2026-09-18）。
+  // 钉的还是「头像那两个参数在」，不是钉整串参数的排版。
+  assert.match(comp, /function TransferCard\(\{[\s\S]{0,120}?avatar,\n  myAvatar,?\n/, "卡片没收头像");
+  assert.match(comp, /  charId\n\}\)/, "卡片没收币种——那就永远按人民币写");
   const i = comp.indexOf("function TransferCard(");
   const seg = comp.slice(i, comp.indexOf("\nfunction ", i + 10));
   assert.match(seg, /className: "py-1 flex items-start gap-2 "/, "没照位置卡那套排");

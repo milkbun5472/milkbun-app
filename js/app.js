@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.51";
+const APP_VERSION = "v70.60";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -579,6 +579,7 @@ function App() {
   const [walletLog, setWalletLog] = useState([]); // 我的钱包流水 {id,ts,delta,after,label,kind}
   // 角色钱包（独立 app，持久 running balance）：{charId:{init,balance,incomes,monthlyIncome,fixedMonthly,investAssets,notes,ledger:[{id,ts,delta,after,label,kind}],lastDailyKey,createdTs}}
   const [charWallet, setCharWallet] = useState({});
+  const [charCur, setCharCur] = useState({});   // 角色币种：{charId:{symbol,rate,pos,dec,code}}
   const charWalletRef = useRef({});
   charWalletRef.current = charWallet;
   const [selCWallet, setSelCWallet] = useState(null); // 钱包 app 选中的角色
@@ -620,6 +621,7 @@ function App() {
   wishRef.current = wish;
   carryRef.current = carry;
   schedulesRef.current = schedules;
+  const moodsRef = useRef({}); moodsRef.current = moods;
   const [unreadMap, setUnreadMap] = useState({});
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
   const [ambientCount, setAmbientCount] = useState({});
@@ -1468,6 +1470,7 @@ function App() {
     setWallet(loadJSON("x_wallet", 200));
     setWalletLog(loadJSON("x_walletLog", []));
     setCharWallet(loadJSON("x_charWallet", {}));
+    { const cc = loadJSON("x_charCurrency", {}); setCharCur(cc); if (window.Money) window.Money.setBook(cc); }
     // 迁移：旧版内置 SVG 表情的 url 没写 width/height→聊天里 0×0 看不见。按 id 把 em_def_* 的 url 换成修好的，保留用户自建/删改
     const _defUrl = {}; buildDefaultEmotes().forEach(e => { _defUrl[e.id] = e.url; });
     const _packs = loadJSON("x_emotePacks", [{ id: "ep_default", name: "默认表情包", global: true, mine: true, charIds: [], emotes: buildDefaultEmotes() }])
@@ -3815,6 +3818,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     saveJSON("x_pinnedChats", n);
     return n;
   });
+  // 角色此刻正在做的那一段是什么 type（sleep / work / meal …）。
+  // schedNowFor 下面那几行本来就在算同一件事，抽出来一份给思念速率用，别再写第二遍。
+  const schedNowTypeFor = char => {
+    if (!char) return "";
+    const plans = schedulesRef.current[char.id] || {};
+    const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return "";
+    const disp = schedDisplaySeqs(char, s0.seqs);
+    const idx = schedCurrentSeqIdx(disp, true, char);
+    return idx >= 0 && disp[idx] ? String(disp[idx].type || "") : "";
+  };
   // 角色此刻的行程（给聊天/心情联动用）
   const schedNowFor = char => {
     const plans = schedulesRef.current[char.id] || {};
@@ -6311,6 +6325,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️私聊那一场的键仍旧是纯 charId：x_jiwen 里已经在涨的那份不许改名（改名＝集体失忆，
   //   跟这个文件顶上「存档键不许跟着改名」是同一条）。群那一场才加 @gid 后缀。
   const dongnianKey = (charId, gid) => gid ? charId + "@" + gid : charId;
+  // 性情锚点那份是异步存的，思念速率那个回调是同步的——在这儿存一份读得到的副本。
+  // 十分钟一刷：性情是她在设置里手改的东西，不会一分钟一变。
+  const dongnianTemperRef = useRef({});
+  const dongnianTemperAtRef = useRef({});
+  const dongnianTemperSync = async charId => {
+    if (!charId || !window.InnerLifeAShadow) return;
+    const now = Date.now();
+    if (now - (dongnianTemperAtRef.current[charId] || 0) < 600000) return;
+    dongnianTemperAtRef.current[charId] = now;
+    try {
+      const ownerId = await aShadowOwnerId();
+      const row = await window.InnerLifeAShadow.get(ownerId, charId);
+      dongnianTemperRef.current[charId] = (row && row.emotion && row.emotion.temperament) || null;
+    } catch (e) {}
+  };
   const getDongnian = (char, gid) => {
     if (!char || typeof createDongnian !== "function") return null;
     const dnKey = dongnianKey(char.id, gid);
@@ -6324,13 +6353,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         for (let i = arr.length - 1; i >= 0; i--) { const m = arr[i]; if (m && m.content && !m.recalled) return { id: m.ts || i, role: m.role, content: String(m.content), timestamp: new Date(m.ts || Date.now()).toISOString() }; }
         return null;
       },
+      // 思念涨多快：一人一个数（她 2026-09-18：「不应该每个人都一样的」）。
+      // 原来这儿是四个硬写的常量，只认最后一条消息里的关键词——换谁来都是那四个数。
+      // 现在算在公共的 js/longing-rate.js 里，这儿只负责把手上现成的料递进去。
+      // ⚠️性情那份是异步读的（IndexedDB），而这个回调是同步的：所以在 dongnianTickOne
+      //   里预取、缓存在 dongnianTemperRef 上，这儿只读缓存。读不到就是少一个倍率，不会塌。
       connectionRateFn: lastMsg => {
-        if (!lastMsg) return 0.0007;
-        const c = lastMsg.content || "";
-        if (/晚安|睡了|去睡|睡觉/.test(c)) return 0.0003;          // 好好道过晚安 → 思念涨得慢
-        if (/出门|上班|开会|上课|忙|有事/.test(c)) return 0.0005;   // 知道对方在忙 → 慢一点
-        if (c.length < 8) return 0.0010;                          // 敷衍短句 → 涨得快
-        return 0.0007;
+        if (typeof window === "undefined" || !window.LongingRate) return 0.0007;
+        return window.LongingRate.compute({
+          charId: char.id,
+          lastMessage: lastMsg,
+          temperament: dongnianTemperRef.current[char.id] || null,
+          // 群里那一场思念冲的是群里的人，不是 Lisa——好感那一档就不该掺进来
+          affinity: gid ? 50 : affOf(char.id),
+          moodLabel: (moodsRef.current[char.id] || {}).label || "",
+          seqType: schedNowTypeFor(char)
+        });
       },
       onLoad: async () => { try { return (loadJSON("x_jiwen", {}) || {})[dnKey] || null; } catch (e) { return null; } },
       onSave: async st => { try { const m = loadJSON("x_jiwen", {}) || {}; m[dnKey] = st; saveJSON("x_jiwen", m); } catch (e) {} }
@@ -6344,6 +6382,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const arr = (gid ? groupChatsRef.current[gid] : chatsRef.current[char.id]) || [];
     if (!arr.length) return;                                  // 这个场里一句话都没有，不跑
     const eng = getDongnian(char, gid); if (!eng) return;
+    await dongnianTemperSync(char.id);
     const dnKey = dongnianKey(char.id, gid);
     // 「别人开口了」→ 思念清零。私聊里的别人只有 Lisa；群里是除TA之外的任何人（含 Lisa）。
     // TA自己说话不算——那不解TA的想念，泄压走的是认领时那 -0.28。
@@ -8483,7 +8522,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const tfHint = _pendingTf
         ? "\n【她给你转了钱·这笔还挂着没处理】" + uName + " 转了一笔过来" + (_pendingTf.note ? "（附言：" + _pendingTf.note + "）" : "") + "，卡还在那儿等你点。"
           + "收不收【由你这个人和此刻的情形定，不是默认收】：你缺不缺这笔、你俩什么关系、她为什么转、你要不要面子、你是不是正跟她别扭着——都算数。"
-          + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 ¥" + _pendingTf.amount + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
+          + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 " + moneyText(_pendingTf.amount, charId) + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
           + "\n· 收也好退也好，word 里都要有你自己的话——别只丢一个动作。退回尤其得让她知道你为什么退。"
           + "\n· 你【还没点开就先说了一句】的话可以放在第一条（那时你不知道金额，别出现数字），点开之后的反应从第二条起。"
           + "\n· 这一轮还顾不上处理就【省略 transferAccept】，卡继续挂着，下次再说。"
@@ -13993,24 +14032,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const already = phoneOrdersOnDay(char.id, dayKey);
     const buys = await genDailySpend(char, dayKey, rec, already);
     const parts = schedParseKey(dayKey);
-    const isFirst = parts.getDate() === 1;
     const dayTs = new Date(parts); dayTs.setHours(23, 0, 0, 0);
     const mk = (delta, label, kind, ts, after) => ({ id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000), ts, delta, after, label, kind });
     setCharWallet(p => {
       const cur = p[char.id]; if (!cur) return p;
       let bal = Number(cur.balance) || 0;
       const chron = []; // 按时间顺序（老→新）
-      if (isFirst) {
-        // ⚠️原来这两样轧成一笔净额记进去（label 叫「工资到账 − 固定支出」）：
-        //   净额小或为负时，账本上看见的是一笔小钱甚至一笔支出——她 2026-09-16 说的
-        //   「每月收入都没有到账」，一半就是这么来的。拆成两笔，工资那一笔单独站着。
-        // ⚠️对账靠 kind："monthly" 只给工资那一笔（老数据里的净额笔也是 monthly，兼容）；
-        //   固定支出另起 "monthlyfix"，不然补发那头会把月数数成两倍。
-        const inc = r2(Number(cur.monthlyIncome) || 0);
-        const fix = r2(Number(cur.fixedMonthly) || 0);
-        if (inc) { bal = r2(bal + inc); chron.push(mk(inc, "工资到账", "monthly", dayTs.getTime() - 2000, bal)); }
-        if (fix) { bal = r2(bal - fix); chron.push(mk(-fix, "每月固定支出 · 房租水电这些", "monthlyfix", dayTs.getTime() - 1000, bal)); }
-      }
+      // ⚠️月度那两笔【搬去 applyWalletMonthly 了】，这儿一个字都不许再记。
+      //   它是纯本地的，不该挂在上面那一枪后面（施工规则/one-public-mechanism.md：
+      //   搬过去就不许在原地留一份，两处各记一笔＝双倍工资）。
       // 手机上真下过的单子：kind "order"，带 srcKey 防止补账跑两遍时记重
       const seenSrc = {};
       (cur.ledger || []).forEach(e => { if (e && e.srcKey) seenSrc[e.srcKey] = 1 });
@@ -14039,6 +14069,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她不去翻就永远不结算。挂到跨天那一拍上，全员补一次；一人一天一次调用，走便宜池。
   const walletCatchRunRef = useRef(false);
   const walletCatchAllToday = async () => {
+    // ⚠️工资月结【排在自动刷新那道闸前面】，而且不受它管：它是纯本地算术，一枪都不打。
+    //   她 2026-09-18 要的正是这个——工资不该因为「没配 API / 那一枪失败 / 开关关着」
+    //   就不到账。日常消费那条链照旧在闸后面（那一条是真要花钱的）。
+    liveChars.forEach(c => {
+      const rec = charWalletRef.current[c.id];
+      if (rec && rec.init) applyWalletMonthly(c);
+    });
     if (walletCatchRunRef.current || !autoRefreshOn("wallet")) return;
     walletCatchRunRef.current = true;
     try {
@@ -14059,6 +14096,66 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   实发几次 = 账本里 kind==="monthly" 的笔数（老的净额笔也算，兼容）。
   //   差额就是漏发的月数，补一笔。补完差额归零，所以这件事天然只做一次，
   //   下次再算还是 0——不用另存一个「修过了」的标记（标记会和真相不同步）。
+  // ── 工资月结：纯本地，不打枪（她 2026-09-18：「能不能也改成跑本地到了日期自动加一笔进去」）──
+  //
+  // 原来这段写在 applyWalletDay 里，而那个函数第一句就 `await genDailySpend`（一枪 API）。
+  // 于是工资虽然是本地算术，却挂在那一枪后面：没配 API、网断、那一枪失败、
+  // 自动刷新关着 —— 工资就不到账。而 catchUpWallet 里那句 `if (r !== "ok") break;`
+  // 让它更死：1 号之前随便哪一天卡住，后面全不补，工资永远到不了。
+  //
+  // ⚠️去重认【哪几个月发过】，不认【发过几笔】。老那版 healWalletPay 数的是笔数，
+  //   而它自己补发时写的是一笔覆盖 N 个月的账——于是欠 3 个月会被发成 3+2+1＝6 个月。
+  //   现在每笔都盖 monthKey，一个月只许有一笔。
+  const monthKeyOf = ts => { const d = new Date(ts); return d.getFullYear() + "-" + pad2(d.getMonth() + 1); };
+  // 这本账上哪几个月已经发过了。
+  // ⚠️老的「补记 · 之前 N 个月」那种笔说不清覆盖了哪几个月，一律当成【到它那一刻为止全付过】——
+  //   她 2026-09-18 定的是【不倒扣】，那对称地也不该趁机重发：宁可少补，不许重复发。
+  const walletPaidMonths = rec => {
+    const paid = {}; let healUntil = 0;
+    (rec.ledger || []).forEach(e => {
+      if (!e) return;
+      if (e.monthKey) { paid[e.monthKey] = 1; return; }
+      if (e.kind !== "monthly") return;
+      if (/^补记/.test(String(e.label || ""))) healUntil = Math.max(healUntil, Number(e.ts) || 0);
+      else paid[monthKeyOf(e.ts)] = 1;
+    });
+    return { paid, healUntil };
+  };
+  const applyWalletMonthly = char => {
+    const rec = charWalletRef.current[char.id];
+    if (!rec || !rec.init) return 0;
+    const inc = r2(Number(rec.monthlyIncome) || 0), fix = r2(Number(rec.fixedMonthly) || 0);
+    if (!inc && !fix) return 0;
+    const from = Number(rec.createdTs) || 0;
+    if (!from) return 0;
+    const { paid, healUntil } = walletPaidMonths(rec);
+    const rows = [];
+    let bal = Number(rec.balance) || 0;
+    // 建档那个月的 1 号不算：那天还没有这个钱包
+    const cur = new Date(from); cur.setDate(1); cur.setHours(0, 0, 0, 0); cur.setMonth(cur.getMonth() + 1);
+    const now = Date.now();
+    let guard = 0;
+    while (cur.getTime() <= now && guard < 120) {   // 120 个月封顶：坏数据别变成死循环
+      guard++;
+      const mk = monthKeyOf(cur.getTime());
+      if (!paid[mk] && cur.getTime() > healUntil) {
+        const dayTs = new Date(cur); dayTs.setHours(23, 0, 0, 0);
+        const mk2 = (delta, label, kind, ts, after) => ({ id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000), ts, delta, after, label, kind, monthKey: mk });
+        if (inc) { bal = r2(bal + inc); rows.push(mk2(inc, "工资到账", "monthly", dayTs.getTime() - 2000, bal)); }
+        if (fix) { bal = r2(bal - fix); rows.push(mk2(-fix, "每月固定支出 · 房租水电这些", "monthlyfix", dayTs.getTime() - 1000, bal)); }
+      }
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    if (!rows.length) return 0;
+    setCharWallet(p => {
+      const c = p[char.id]; if (!c) return p;
+      const n = { ...p, [char.id]: { ...c, balance: bal, ledger: [...rows.reverse(), ...(c.ledger || [])] } };
+      saveJSON("x_charWallet", n);
+      charWalletRef.current = n;
+      return n;
+    });
+    return rows.length;
+  };
   const healWalletPay = char => {
     let rec = charWalletRef.current[char.id];
     if (!rec || !rec.init) return;
@@ -14090,36 +14187,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       rec = charWalletRef.current[char.id];
     }
-    const inc = Number(rec.monthlyIncome) || 0;
-    const fix = Number(rec.fixedMonthly) || 0;
-    if (!inc && !fix) return;
-    const from = Number(rec.createdTs) || 0;
-    if (!from) return;
-    // 建立【之后】到昨天之间经过了几个 1 号（建立当天那个 1 号不算：那天还没这个钱包）
-    const start = new Date(from); start.setHours(0, 0, 0, 0);
-    const end = new Date(Date.now() - 86400000); end.setHours(0, 0, 0, 0);
-    let due = 0;
-    const cur = new Date(start);
-    while (cur < end && due < 120) {             // 120 个月封顶：坏数据别把这里变成死循环
-      cur.setDate(cur.getDate() + 1);
-      if (cur > end) break;
-      if (cur.getDate() === 1) due++;
-    }
-    const paid = (rec.ledger || []).filter(e => e && e.kind === "monthly").length;
-    const miss = due - paid;
-    if (miss <= 0) return;
-    const delta = r2(miss * (inc - fix));
-    if (!delta) return;
-    setCharWallet(p => {
-      const c = p[char.id]; if (!c) return p;
-      const bal = r2((Number(c.balance) || 0) + delta);
-      const e = { id: "cw_heal_" + Date.now(), ts: Date.now(), delta: delta, after: bal,
-        label: "补记 · 之前 " + miss + " 个月的工资和固定支出", kind: "monthly" };
-      const n = { ...p, [char.id]: { ...c, balance: bal, ledger: [e, ...(c.ledger || [])] } };
-      saveJSON("x_charWallet", n);
-      charWalletRef.current = n;
-      return n;
-    });
+    // ⚠️补发那一段整个删了，换成 applyWalletMonthly：它按【哪几个月】去重、一月一笔。
+    //   老那版数的是【笔数】，而它自己补发写的是一笔覆盖 N 个月的账——欠 3 个月会被
+    //   发成 3+2+1＝6 个月，每翻一次钱包就多发一轮。这儿只剩「把地板补上」那半。
+    applyWalletMonthly(char);
   };
   const catchUpWallet = async char => {
     // ⚠️体检要在下面那道早退【前面】：补账已经补到昨天的钱包照样可能欠着工资
@@ -14149,6 +14220,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (r !== "ok") break;   // 这一天没补成就别往后补了，顺序断了后面全是错的
     }
   };
+  // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
+  // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
+  // 每个角色一个币种（她 2026-09-18）。存的是 {symbol, rate, pos, dec}，
+  // ⚠️余额、账本、模型交回来的金额永远是人民币——这张册子只管【怎么显示】。
+  const setCharCurrency = (charId, cur) => setCharCur(p => {
+    const n = { ...p };
+    if (!cur) delete n[charId]; else n[charId] = cur;
+    saveJSON("x_charCurrency", n);
+    if (window.Money) window.Money.setBook(n);
+    return n;
+  });
+  const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
   // 转账：联动我的钱包和角色钱包，并在聊天里留一条转账消息
   // 我转给 TA：入队一张待处理转账卡，钱在 TA 接受后才动
   const sendTransfer = (charId, amount, note) => {
@@ -14168,7 +14251,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] 你向 " + char.name + " 转了 ¥" + a + (note ? "（" + note + "）" : ""),
+      content: "[转账] 你向 " + char.name + " 转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
       read: false
     }]);
@@ -14200,7 +14283,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] " + char.name + " 向你转了 ¥" + a + (note ? "（" + note + "）" : ""),
+      content: "[转账] " + char.name + " 向你转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
       read: false
     }]);
@@ -14225,8 +14308,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } : m));
     const nm = char ? char.name : "对方";
     const line = accept
-      ? (card.dir === "toChar" ? nm + " 领取了你的转账 ¥" + card.amount : "你领取了 " + nm + " 的转账 ¥" + card.amount)
-      : (card.dir === "toChar" ? nm + " 退回了你的转账 ¥" + card.amount : "你退回了 " + nm + " 的转账 ¥" + card.amount);
+      ? (card.dir === "toChar" ? nm + " 领取了你的转账 " + moneyText(card.amount, charId) : "你领取了 " + nm + " 的转账 " + moneyText(card.amount, charId))
+      : (card.dir === "toChar" ? nm + " 退回了你的转账 " + moneyText(card.amount, charId) : "你退回了 " + nm + " 的转账 " + moneyText(card.amount, charId));
     pChat(charId, p => [...p, { role: "system", kind: "system", content: line, ts: Date.now() }]);
   };
   // ---- 群聊转账（我转给群里某个指定成员）----
@@ -14249,7 +14332,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] 你向 " + (member ? member.name : "成员") + " 转了 ¥" + a + (note ? "（" + note + "）" : "")
+      content: "[转账] 你向 " + (member ? member.name : "成员") + " 转了 " + moneyText(a, member && member.id) + (note ? "（" + note + "）" : "")
     });
     // 同单聊：挂着等 TA 点，收不收由 TA 在下一轮群发言里自己决定（见 replyGroup 的 transferAccept）
     toast("转账已发出，等 TA 点开");
@@ -21959,7 +22042,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetBalance: setCharWalletTo,
     onSettleDebt: settleDebt,
     debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
-    onRefresh: refreshCharAssets
+    onRefresh: refreshCharAssets,
+    charCur: charCur,
+    onSetCurrency: setCharCurrency
   });else if (screen === "emotes") body = h(EmoteMatrix, {
     packs: emotePacks,
     characters: liveChars,
