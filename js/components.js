@@ -8160,7 +8160,7 @@ function ChatThread({
       className: "flex " + (m.role === "user" ? "justify-end" : "justify-start"),
       style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
     }, h(TransferCard, {
-      m: m, isU: m.role === "user", onRespond: onRespondTransfer,
+      m: m, isU: m.role === "user", onRespond: onRespondTransfer, charId: character && character.id,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
     }));
@@ -11335,12 +11335,16 @@ function PayLaterCard({ m }) {
 //     已退＝按实了再划一道。形状、颜色、笔画三样一起变，不是只换个色
 //     （tabs-not-plain-pills「选中态不能只靠一个色差」那一条，状态同理）。
 // ⚠️data-wk="card" 留着：主题工作室拿它当挂点，撤掉会让她写好的主题失效。
+// ⚠️charId＝【对方】是谁（她 2026-09-18：「按对方币种写」）。这张卡是她和这个角色之间的，
+//   所以两个方向都按他那个世界的钱写——她转出去的时候看到的就是他会收到的那个数。
+//   内部记账仍旧是人民币：m.amount 一个字没动，只是显示前过一次 Money（js/money.js）。
 function TransferCard({
   m,
   isU,
   onRespond,
   avatar,
-  myAvatar
+  myAvatar,
+  charId
 }) {
   const t = useTheme();
   const pending = m.status === "pending";
@@ -11372,6 +11376,8 @@ function TransferCard({
     position: "absolute", top: -5, width: 10, height: 10, borderRadius: 999,
     background: PAPER_D, border: "1px solid " + RULE, borderColor: RULE
   }, side === "l" ? { left: -6 } : { right: -6 }) });
+  const _tfCur = typeof Money !== "undefined" && Money ? Money.of(charId) : { symbol: "¥", pos: "pre" };
+  const _tfAmt = typeof Money !== "undefined" && Money ? Money.conv(m.amount, charId) : m.amount;
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
   }, !isU && avatar, h("div", { "data-wk": "card",
@@ -11390,8 +11396,9 @@ function TransferCard({
       h("div", { style: { minWidth: 0 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, "转账"),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, "¥"),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 32, color: INK, lineHeight: 1, wordBreak: "break-all" } }, m.amount))),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 32, color: INK, lineHeight: 1, wordBreak: "break-all" } }, _tfAmt),
+          _tfCur.pos === "post" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1, marginLeft: 2 } }, _tfCur.symbol) : null)),
       seal),
     // ── 骑缝 ──
     h("div", { style: { position: "relative", height: 1, margin: "0 14px", background: "transparent", borderTop: "1px dashed " + RULE } },
@@ -13669,6 +13676,8 @@ function GroupThread({
       m: m,
       isU: m.role === "user",
       onRespond: onRespondTransfer,
+      // 群里那张卡的「对方」＝收款的那位（她转出去）或者发款的那位（成员转给她）
+      charId: m.toId || m.senderId,
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
     }));

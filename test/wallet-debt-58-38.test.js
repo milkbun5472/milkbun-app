@@ -120,7 +120,7 @@ test("为你花的能收起来，收起来的时候仍然看得见总额", () =>
   assert.match(sec, /transform: forHerOpen \? "rotate\(180deg\)"/, "没有那个箭头");
   // 收起来也得看得见总额和笔数，否则收起来等于把信息藏没了
   const head = sec.slice(0, sec.indexOf("forHerOpen ? h(\"div\", { key: \"fb\""));
-  assert.match(head, /fmtMoney\(forHerTotal\)/, "收起来之后连总额都看不见了");
+  assert.match(head, /fmtMoney\(forHerTotal, char\.id\)/, "收起来之后连总额都看不见了");
   assert.match(head, /forHer\.length \+ " 笔"/, "收起来之后看不出有几笔");
 });
 

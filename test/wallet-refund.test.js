@@ -108,6 +108,6 @@ test("本月消费/单数从钱包流水求和，不用模型编的那两个数"
   assert.equal(run(null, { monthSpend: 0, monthOrders: 0 }), "", "两份都没有时还硬报了一个数");
   assert.equal(run({ spend: 0, orders: 0 }, { monthSpend: 1180, monthOrders: 22 }), "这一阵花掉 ¥1180.00，22 单", "空钱包盖过了模型那份");
   assert.equal(run({ spend: 3260.5, orders: 8 }, { monthSpend: 1180, monthOrders: 22 }), "这一阵花掉 ¥3260.50，8 单", "钱包有数时没以钱包为准");
-  assert.match(phone, /ms \? fmtMoney\(ms\.spend\) : \(acc\.monthSpend/, "外卖页没改用钱包的数");
+  assert.match(phone, /ms \? fmtMoney\(ms\.spend, char\.id\) : \(acc\.monthSpend/, "外卖页没改用钱包的数");
   assert.match(phone, /这两个只是占位，界面会用钱包的真实流水覆盖它们/, "提示词没说明这两个数会被覆盖");
 });

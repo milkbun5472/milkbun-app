@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.54";
+const APP_VERSION = "v70.57";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -579,6 +579,7 @@ function App() {
   const [walletLog, setWalletLog] = useState([]); // 我的钱包流水 {id,ts,delta,after,label,kind}
   // 角色钱包（独立 app，持久 running balance）：{charId:{init,balance,incomes,monthlyIncome,fixedMonthly,investAssets,notes,ledger:[{id,ts,delta,after,label,kind}],lastDailyKey,createdTs}}
   const [charWallet, setCharWallet] = useState({});
+  const [charCur, setCharCur] = useState({});   // 角色币种：{charId:{symbol,rate,pos,dec,code}}
   const charWalletRef = useRef({});
   charWalletRef.current = charWallet;
   const [selCWallet, setSelCWallet] = useState(null); // 钱包 app 选中的角色
@@ -1461,6 +1462,7 @@ function App() {
     setWallet(loadJSON("x_wallet", 200));
     setWalletLog(loadJSON("x_walletLog", []));
     setCharWallet(loadJSON("x_charWallet", {}));
+    { const cc = loadJSON("x_charCurrency", {}); setCharCur(cc); if (window.Money) window.Money.setBook(cc); }
     // 迁移：旧版内置 SVG 表情的 url 没写 width/height→聊天里 0×0 看不见。按 id 把 em_def_* 的 url 换成修好的，保留用户自建/删改
     const _defUrl = {}; buildDefaultEmotes().forEach(e => { _defUrl[e.id] = e.url; });
     const _packs = loadJSON("x_emotePacks", [{ id: "ep_default", name: "默认表情包", global: true, mine: true, charIds: [], emotes: buildDefaultEmotes() }])
@@ -8510,7 +8512,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const tfHint = _pendingTf
         ? "\n【她给你转了钱·这笔还挂着没处理】" + uName + " 转了一笔过来" + (_pendingTf.note ? "（附言：" + _pendingTf.note + "）" : "") + "，卡还在那儿等你点。"
           + "收不收【由你这个人和此刻的情形定，不是默认收】：你缺不缺这笔、你俩什么关系、她为什么转、你要不要面子、你是不是正跟她别扭着——都算数。"
-          + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 ¥" + _pendingTf.amount + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
+          + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 " + moneyText(_pendingTf.amount, charId) + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
           + "\n· 收也好退也好，word 里都要有你自己的话——别只丢一个动作。退回尤其得让她知道你为什么退。"
           + "\n· 你【还没点开就先说了一句】的话可以放在第一条（那时你不知道金额，别出现数字），点开之后的反应从第二条起。"
           + "\n· 这一轮还顾不上处理就【省略 transferAccept】，卡继续挂着，下次再说。"
@@ -14176,6 +14178,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (r !== "ok") break;   // 这一天没补成就别往后补了，顺序断了后面全是错的
     }
   };
+  // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
+  // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
+  // 每个角色一个币种（她 2026-09-18）。存的是 {symbol, rate, pos, dec}，
+  // ⚠️余额、账本、模型交回来的金额永远是人民币——这张册子只管【怎么显示】。
+  const setCharCurrency = (charId, cur) => setCharCur(p => {
+    const n = { ...p };
+    if (!cur) delete n[charId]; else n[charId] = cur;
+    saveJSON("x_charCurrency", n);
+    if (window.Money) window.Money.setBook(n);
+    return n;
+  });
+  const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
   // 转账：联动我的钱包和角色钱包，并在聊天里留一条转账消息
   // 我转给 TA：入队一张待处理转账卡，钱在 TA 接受后才动
   const sendTransfer = (charId, amount, note) => {
@@ -14195,7 +14209,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] 你向 " + char.name + " 转了 ¥" + a + (note ? "（" + note + "）" : ""),
+      content: "[转账] 你向 " + char.name + " 转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
       read: false
     }]);
@@ -14227,7 +14241,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] " + char.name + " 向你转了 ¥" + a + (note ? "（" + note + "）" : ""),
+      content: "[转账] " + char.name + " 向你转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
       read: false
     }]);
@@ -14252,8 +14266,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } : m));
     const nm = char ? char.name : "对方";
     const line = accept
-      ? (card.dir === "toChar" ? nm + " 领取了你的转账 ¥" + card.amount : "你领取了 " + nm + " 的转账 ¥" + card.amount)
-      : (card.dir === "toChar" ? nm + " 退回了你的转账 ¥" + card.amount : "你退回了 " + nm + " 的转账 ¥" + card.amount);
+      ? (card.dir === "toChar" ? nm + " 领取了你的转账 " + moneyText(card.amount, charId) : "你领取了 " + nm + " 的转账 " + moneyText(card.amount, charId))
+      : (card.dir === "toChar" ? nm + " 退回了你的转账 " + moneyText(card.amount, charId) : "你退回了 " + nm + " 的转账 " + moneyText(card.amount, charId));
     pChat(charId, p => [...p, { role: "system", kind: "system", content: line, ts: Date.now() }]);
   };
   // ---- 群聊转账（我转给群里某个指定成员）----
@@ -14276,7 +14290,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       amount: a,
       note: note || "",
       status: "pending",
-      content: "[转账] 你向 " + (member ? member.name : "成员") + " 转了 ¥" + a + (note ? "（" + note + "）" : "")
+      content: "[转账] 你向 " + (member ? member.name : "成员") + " 转了 " + moneyText(a, member && member.id) + (note ? "（" + note + "）" : "")
     });
     // 同单聊：挂着等 TA 点，收不收由 TA 在下一轮群发言里自己决定（见 replyGroup 的 transferAccept）
     toast("转账已发出，等 TA 点开");
@@ -21986,7 +22000,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetBalance: setCharWalletTo,
     onSettleDebt: settleDebt,
     debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
-    onRefresh: refreshCharAssets
+    onRefresh: refreshCharAssets,
+    charCur: charCur,
+    onSetCurrency: setCharCurrency
   });else if (screen === "emotes") body = h(EmoteMatrix, {
     packs: emotePacks,
     characters: liveChars,
