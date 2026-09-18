@@ -16,36 +16,53 @@ const F = (() => {
   const j = scr.indexOf("// 情侣空间·问答小本：翻页书", i);
   const ctx = { qhash: s => String(s).length };   // 只要稳定就行，这几条不验哈希本身
   vm.createContext(ctx);
-  vm.runInContext(scr.slice(i, j) + "\nthis.o = { QA_BOOKS, qaBookOf, qaPoolOf, clothLift };", ctx);
+  vm.runInContext(scr.slice(i, j) + "\nthis.o = { QA_FIXED, qaCustomBooks, qaAllBooks, qaBookOf, qaPoolOf, clothLift };", ctx);
   return ctx.o;
 })();
 
-test("三本：题库的、自己加的、他出的", () => {
-  assert.deepEqual(F.QA_BOOKS.map(x => x.key).join(","), "all,custom,his");
+// ⚠️v70.88 起「自己加的题」是【几本】，由她自己开（她 2026-09-18：
+//   「我想要能多开几本自己按类型分」）。固定的只有题库那本和他出的那本。
+test("书架：题库那本 → 自己加的那几本 → 他出的那本", () => {
+  assert.equal(F.QA_FIXED.map(x => x.key).join(","), "all,his");
+  // 一本都没开过（或者老存档）：那份扁平数组就是第一本
+  assert.equal(F.qaAllBooks(["甲"], null).map(x => x.key).join(","), "all,cxb_cx,his");
+  // 开了三本
+  const cbs = [{ id: "b1", name: "轻的" }, { id: "b2", name: "重的" }, { id: "b3", name: "没敢问的" }];
+  assert.equal(F.qaAllBooks([], cbs).map(x => x.key).join(","), "all,cxb_b1,cxb_b2,cxb_b3,his");
+  assert.equal(F.qaAllBooks([], cbs).map(x => x.zh).join(","), "关于我们,轻的,重的,没敢问的,他出的题");
+  // 每本自己一个布面色，别三本一个样
+  const tints = F.qaCustomBooks([], cbs).map(x => x.tint);
+  assert.equal(new Set(tints).size, 3, "几本用了同一个布面色");
 });
 
 // ⚠️「他出的题」不是新数据：那些条目落库时就带着 byCharacter: true
-test("一条记录归哪一本，只看它自己身上的标记", () => {
-  assert.equal(F.qaBookOf({ qid: "q07" }), "all");
-  assert.equal(F.qaBookOf({ qid: "cx_abc" }), "custom");
-  assert.equal(F.qaBookOf({ qid: "his_123", byCharacter: true }), "his");
+test("一条记录归哪一本", () => {
+  const cbs = F.qaCustomBooks([], [{ id: "b1", name: "轻的", qs: ["甲"] }, { id: "b2", name: "重的", qs: ["乙乙"] }]);
+  assert.equal(F.qaBookOf({ qid: "q07" }, cbs), "all");
+  assert.equal(F.qaBookOf({ qid: "his_123", byCharacter: true }, cbs), "his");
   // 他出的题即使 qid 看着像别的，也还是他那本——标记优先
-  assert.equal(F.qaBookOf({ qid: "cx_zzz", byCharacter: true }), "his");
-  assert.equal(F.qaBookOf(null), "all", "脏数据别把整本弄崩");
+  assert.equal(F.qaBookOf({ qid: "cx_zzz", byCharacter: true }, cbs), "his");
+  // ⚠️自定义题的 id 只跟【题目原文】有关，所以挪到别本，答过的那一页跟着走
+  assert.equal(F.qaBookOf({ qid: "cx_" + 1 }, cbs), "cxb_b1", "「甲」在第一本");
+  assert.equal(F.qaBookOf({ qid: "cx_" + 2 }, cbs), "cxb_b2", "「乙乙」在第二本");
+  // 题目被删了：归到第一本，别让答过的那一页凭空消失
+  assert.equal(F.qaBookOf({ qid: "cx_999" }, cbs), "cxb_b1");
+  assert.equal(F.qaBookOf(null, cbs), "all", "脏数据别把整本弄崩");
   // app.js 那头确实是这么落的
   assert.match(app, /source: characterText\(char, "他出的"\), sealed: true, byCharacter: true/);
 });
 
 test("抽题：各本抽各本的，他出的那本没有池子", () => {
   const bank = [{ id: "q01", q: "甲" }, { id: "q02", q: "乙" }];
-  const custom = ["丙", "丁"];
+  const cbs = F.qaCustomBooks([], [{ id: "b1", name: "轻的", qs: ["丙", "丁"] }, { id: "b2", name: "重的", qs: ["戊"] }]);
   const answered = new Set(["q01"]);
-  assert.equal(F.qaPoolOf("all", bank, custom, answered).map(x => x.id).join(","), "q02");
-  const cp = F.qaPoolOf("custom", bank, custom, answered);
+  assert.equal(F.qaPoolOf("all", bank, cbs, answered).map(x => x.id).join(","), "q02");
+  const cp = F.qaPoolOf("cxb_b1", bank, cbs, answered);
   assert.equal(cp.map(x => x.q).join(","), "丙,丁");
+  assert.equal(F.qaPoolOf("cxb_b2", bank, cbs, answered).map(x => x.q).join(","), "戊", "抽到别本的题去了");
   assert.ok(cp.every(x => String(x.id).indexOf("cx_") === 0), "自己加的题 id 要带 cx_ 前缀，不然归本会归错");
   // ⚠️比长度不比数组：vm 里造出来的是另一个 realm 的 Array，deepEqual 会因为原型不同而红
-  assert.equal(F.qaPoolOf("his", bank, custom, answered).length, 0, "他出的题不该由她抽");
+  assert.equal(F.qaPoolOf("his", bank, cbs, answered).length, 0, "他出的题不该由她抽");
 });
 
 test("布面提亮只吃六位色号，别的原样退回去", () => {
@@ -55,8 +72,8 @@ test("布面提亮只吃六位色号，别的原样退回去", () => {
 });
 
 test("加新题搬到了右上角，设置里那一份删干净了", () => {
-  assert.match(scr, /bookKey === "custom" \? h\("button", \{ onClick: \(\) => setAddOpen\(true\)/, "右上角没有加题");
-  assert.match(scr, /function QAAddSheet\(\{ partner, customQ, onSave, onClose \}\)/);
+  assert.match(scr, /isCustom \? h\("button", \{ onClick: \(\) => setAddOpen\(true\)/, "右上角没有加题");
+  assert.match(scr, /function QAAddSheet\(\{ partner, bookName, customQ, onSave, onClose \}\)/);
   // 搬＝删掉旧的，不是两处都留
   assert.ok(!/function CoupleQAConfig\(/.test(scr), "设置里那份还在——同一件事活两处");
   assert.ok(!/page === "qa"/.test(scr), "设置里还有问答那一层");
@@ -64,7 +81,7 @@ test("加新题搬到了右上角，设置里那一份删干净了", () => {
 });
 
 test("封面能改：名字 + 布面色，改完立刻看得见", () => {
-  assert.match(scr, /function QACoverSheet\(\{ partner, spec, cfg, onSave, onClose \}\)/);
+  assert.match(scr, /function QACoverSheet\(\{ partner, spec, cfg, ownBook, onDelete, onSave, onClose \}\)/);
   assert.match(scr, /onSave\(\{ title: \(title \|\| ""\)\.trim\(\), tint: tint \}\)/);
   assert.match(scr, /const QA_CLOTHS = \[/);
   assert.match(app, /const saveQABook = \(charId, bookKey, patch\) =>/);
@@ -80,7 +97,7 @@ test("老存档里那个标题还读得出来，而且改名时两边一起写",
 
 test("书架那一层：三本摆出来，点一本才进去", () => {
   assert.match(scr, /if \(!book\) \{/);
-  assert.match(scr, /QA_BOOKS\.map\(bk => \{/);
+  assert.match(scr, /shelf\.map\(bk => \{/);
   assert.match(scr, /onClick: \(\) => \{ setBook\(bk\.key\); setMode\("cover"\); \}/);
   // 从一本里退出来是回书架，不是一步退出问答小本
   assert.match(scr, /h\(Head, \{ zh: "问答小本", en: partner\.name, onBack: \(\) => setBook\(null\), bg: "transparent",/);
@@ -125,4 +142,48 @@ test("「到那天他」那三枚印平分整宽，一个字都不折", () => {
   assert.match(seg, /transform: on \? "rotate\(-3deg\)" : "none"/);
   assert.match(seg, /background: on \? "#a83c30" : "transparent"/);
   assert.match(seg, /"aria-pressed": on \? "true" : "false"/, "读屏读不出选了哪一个");
+});
+
+// ── 自己加的题：多开几本按类型分（她 2026-09-18）─────────────────────────
+// ⚠️存的形状变了，但存档键不许跟着改名：x_coupleQACustom 原来是 {charId:["题"]}，
+//   那一份照旧读得出来、也照旧【被写】，旧版本读回去还是原来那个数组。
+test("老存档那份扁平数组：读得出来，而且不停写", () => {
+  assert.equal(F.qaCustomBooks(["甲", "乙"], null)[0].qs.join(","), "甲,乙", "老存档读不出来了");
+  assert.equal(F.qaCustomBooks(["甲"], [])[0].key, "cxb_cx", "一本都没开时也得有一本兜着");
+  // 有分本数据时以分本为准，老数组不再参与
+  assert.equal(F.qaCustomBooks(["甲"], [{ id: "b1", name: "轻的", qs: ["丙"] }])[0].qs.join(","), "丙");
+  // 界面那头每次存分本，都把第一本回写成那个扁平数组
+  assert.match(scr, /if \(onSaveCustom\) onSaveCustom\(partner\.id, \(next\[0\] && next\[0\]\.qs\) \|\| \[\]\);/);
+  assert.match(app, /saveJSON\("x_coupleQACustomBooks", n\)/);
+  assert.match(app, /saveJSON\("x_coupleQACustom", n\)/, "老键停写了，旧版本读回去会空一片");
+});
+
+test("脏数据别把书架弄崩", () => {
+  assert.equal(F.qaCustomBooks(null, null).length, 1);
+  assert.equal(F.qaCustomBooks(["", "  ", "甲"], null)[0].qs.join(","), "甲", "空行也当成题了");
+  // 没有 id 的那种不算一本
+  assert.equal(F.qaCustomBooks([], [{ name: "没 id" }])[0].key, "cxb_cx");
+  assert.equal(F.qaCustomBooks([], [{ id: "b1" }])[0].qs.length, 0, "qs 不是数组时应该当空的");
+});
+
+test("再开一本 / 改名 / 删本，都从同一个出口走", () => {
+  const i = scr.indexOf("function CoupleQABook({");
+  const seg = scr.slice(i, scr.indexOf("function QAAddSheet(", i));
+  assert.match(seg, /const putCustomBooks = next => \{/, "存题本的路不只一条");
+  assert.equal((seg.match(/onSaveCustomBooks\(partner\.id/g) || []).length, 1, "界面里又多写了一处存法");
+  assert.match(seg, /"＋ 再开一本　"/);
+  // 自己开的那几本，名字和布面色存在【题本自己身上】，不走封面那份配置——
+  // 不然书架上读一处、翻开读另一处，迟早对不上
+  assert.match(seg, /ownBook: isCustom,/);
+  assert.match(seg, /\? \{ id: b\.id, name: \(patch\.title \|\| ""\)\.trim\(\) \|\| b\.zh, tint: patch\.tint \|\| b\.tint, qs: b\.qs \}/);
+  // 最后一本不许删
+  assert.match(seg, /onDelete: isCustom && cbs\.length > 1 \?/);
+  assert.match(seg, /requestAppConfirm\("删掉「" \+ spec\.zh \+ "」这一本？"/);
+});
+
+test("加题只动当前这一本，不会把别本的题冲掉", () => {
+  const i = scr.indexOf("function CoupleQABook({");
+  const seg = scr.slice(i, scr.indexOf("function QAAddSheet(", i));
+  assert.match(seg, /putCustomBooks\(cbs\.map\(b => b\.key === bookKey\n\s*\? \{ id: b\.id, name: b\.zh, tint: b\.tint, qs: arr\./, "存的时候没按本分");
+  assert.match(seg, /customQ: \(curCB && curCB\.qs\) \|\| \[\],/, "加题框里装的不是这一本的题");
 });

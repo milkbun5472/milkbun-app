@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v70.87";
+const APP_VERSION = "v70.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -453,6 +453,10 @@ function App() {
   // 情侣空间·问答自定义题库：{ [charId]: ["题目",...] }，各角色各一份、不互通
   const [coupleQACustom, setCoupleQACustom] = useState({});
   const [coupleQABooks, setCoupleQABooks] = useState({});   // {charId:{bookKey:{title,tint,coverKey}}}
+  // 自己加的题分成几本（她 2026-09-18：「我想要能多开几本自己按类型分」）。
+  // ⚠️x_coupleQACustom 那份扁平数组【不许停写】：第一本的题目照旧回写过去，
+  //   旧版本读回去还是原来的样子（存档键不许跟着改名，这个文件顶上那条老规矩）。
+  const [coupleQACustomBooks, setCoupleQACustomBooks] = useState({});
   const coupleQABooksRef = useRef({}); coupleQABooksRef.current = coupleQABooks;
   const coupleQATitleRef = useRef({});
   // 情侣空间·交换日记：一本两人轮流写的本子 {id,characterId,author:'user'|charId,content,mood,weather,date,ts,dueTs?,replied?,replyToId?,unread?}
@@ -1403,6 +1407,7 @@ function App() {
     }
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
     setCoupleQABooks(loadJSON("x_coupleQABooks", {}));
+    setCoupleQACustomBooks(loadJSON("x_coupleQACustomBooks", {}));
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleRecall(loadJSON("x_coupleRecall", []));
@@ -19189,6 +19194,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她贴纸条／TA回纸条／删纸条这几路一并删掉——情书那一路已经覆盖「她写字给TA」，
   // 悄悄话那一路并进了抽屉。
   // 保存某角色的自定义问答题库（arr = 题目字符串数组）
+  const saveCoupleQACustomBooks = (charId, list) => setCoupleQACustomBooks(p => {
+    const clean = (Array.isArray(list) ? list : []).filter(x => x && x.id).map(x => ({
+      id: String(x.id), name: String(x.name || "自己加的题").slice(0, 20),
+      tint: x.tint || "", qs: (Array.isArray(x.qs) ? x.qs : []).filter(q => q && String(q).trim()).map(q => String(q).trim())
+    }));
+    const n = { ...p, [charId]: clean };
+    saveJSON("x_coupleQACustomBooks", n);
+    return n;
+  });
   const saveCoupleQACustom = (charId, arr) => setCoupleQACustom(p => {
     const n = { ...p, [charId]: arr.filter(s => s && s.trim()).map(s => s.trim()) };
     saveJSON("x_coupleQACustom", n);
@@ -22333,6 +22347,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,
     coupleQABooks: coupleQABooks,
+    coupleQACustomBooks: coupleQACustomBooks,
+    onSaveQACustomBooks: saveCoupleQACustomBooks,
     onSaveQABook: saveQABook,
     onSaveQACustom: saveCoupleQACustom,
     coupleQACustom: coupleQACustom,
