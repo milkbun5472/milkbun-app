@@ -45,10 +45,12 @@ const runLook = look => {
 
 const SCOPE = 'html[data-lisa-screen="thread"][data-lisa-char="c1"]';
 
-test("六层按这个顺序挂上去，一层都不许换位", () => {
+test("这几层按这个顺序挂上去，一层都不许换位", () => {
   const { order } = runLook({ scope: SCOPE, skinCSS: SCOPE + ' [data-wk="chat"]{background-color:#ededed !important;}',
-    bubble: { myBg: "#95ec69" }, chatBg: "iv_abc" });
-  assert.deepEqual(order, ["wk-char-skin-css", "wk-skin-css", "wk-char-skin-bg-css", "wk-char-bubble-css", "wk-chat-bg-css"],
+    fontCSS: SCOPE + " {--f-body: 'X';}", bubble: { myBg: "#95ec69" }, chatBg: "iv_abc" });
+  // v71.13 在皮肤后面插了「只给 TA 换字」。它只写 --f-body / --f-display 两个变量，
+  // 不跟底色气泡抢任何一条声明，所以插在哪儿都不改谁盖谁——但顺序本身仍旧钉死。
+  assert.deepEqual(order, ["wk-char-skin-css", "wk-char-font-css", "wk-skin-css", "wk-char-skin-bg-css", "wk-char-bubble-css", "wk-chat-bg-css"],
     "顺序变了——后挂的赢，换位就等于换了谁盖谁");
 });
 
@@ -129,18 +131,23 @@ test("App 那头把三样都算好传进来，且皮肤 CSS 跟主题用同一�
     "限法里没有人——别人的窗口也是 thread，只限页面等于没限");
   assert.match(app, /setAttribute\("data-lisa-char", inChat \? String\(activeChar\.id\) : ""\)/,
     "没往 <html> 上挂当前是谁，选择器就永远选不中");
-  assert.match(app, /applyChatLook\(\{\s*scope: scope,\s*skinCSS: charSkinCSS\(s\.skin, scope\),/, "没把这个人的皮肤传下去");
+  assert.match(app, /applyChatLook\(\{\s*scope: scope,\s*fontCSS: charFontCSS\(s\.font, scope\),\s*skinCSS: charSkinCSS\(s\.skin, scope\),/, "没把这个人的皮肤／字体传下去");
   assert.match(app, /bubble: \(s\.bubble && typeof s\.bubble === "object"\) \? s\.bubble : null,/, "没把这个人的气泡传下去");
   assert.match(app, /\}, \[activeChar && activeChar\.id, chatSettings, screen\]\);/, "换人／改设置／换页时不重算，等于改了不生效");
   // 存得下来才算数
   assert.match(app, /skin: s\.skin \|\| "",/, "没存这个人的皮肤");
   assert.match(app, /bubble: \(s\.bubble && typeof s\.bubble === "object"\) \? s\.bubble : null,\s*\n\s*apiId:/, "没存这个人的气泡");
+  assert.match(app, /\n            font: \(window\.FontChoice/, "没存这个人的字");
 });
 
 test("两个选择器都留着【跟随全局】那一档，不然退不回去", () => {
   const i = comp.indexOf('h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换皮肤")');
   assert.ok(i > 0, "只给 TA 换皮肤那一格没了");
-  const seg = comp.slice(i, i + 2600);
+  // ⚠️别用「往后数 2600 个字」当终点（施工规则/anchor-on-code）：v71.13 在这两格
+  //   中间插了「只给 TA 换字」，气泡那格当场被挤出窗口，红的不是代码是锚。
+  const end = comp.indexOf('h(BubbleSkinFields, { s: Object.assign({}, BUBBLE_SKIN, bubble || {})', i);
+  assert.ok(end > i, "抠不出这两格");
+  const seg = comp.slice(i, end);
   assert.match(seg, /\[\["", "跟随全局"\]\]\.concat\(/, "皮肤那格没有跟随全局");
   assert.match(seg, /\{ key: "", name: "跟随全局"/, "气泡那格没有跟随全局");
   assert.match(seg, /onClick: \(\) => setBubble\(o\.key \? Object\.assign\(\{ _preset: o\.key \}, bubblePresetSkin\(o\.key\)\) : null\)/,

@@ -101,7 +101,10 @@
       return "@font-face {\n  font-family: '" + f.family + "';\n  src: url(\"" + String(url).replace(/["\\\n\r]/g, "") + "\");\n  font-display: swap;\n}";
     }).filter(Boolean).join("\n");
 
-  const cssVars = (fonts, custom, resolve) => {
+  // selector 不传就是 :root（全 App）。传进来的是一个更具体的选择器时，
+  // 这一份就只管那一块——「只给某个人的聊天窗换字」走的就是这条路。
+  // ⚠️@font-face 永远不加作用域：它是【声明一支字】，不是给谁用；加了作用域就没有任何字族被声明。
+  const cssVars = (fonts, custom, resolve, selector) => {
     const c = clean(fonts, custom), rows = [], faces = [], seen = {};
     // 传文件那一路要先有 @font-face，变量才指得着。
     // ⚠️保险箱里找不到那份文件时【整支跳过】，不写 @font-face 也不写变量——
@@ -122,7 +125,8 @@
     const body = c.body ? pick(c.body) : "", display = c.display ? pick(c.display) : "";
     if (body) rows.push("  --f-body: " + body + ";");
     if (display) rows.push("  --f-display: " + display + ";");
-    const varBlock = rows.length ? ":root {\n" + rows.join("\n") + "\n}" : "";
+    const sel = String(selector || ":root").trim() || ":root";
+    const varBlock = rows.length ? sel + " {\n" + rows.join("\n") + "\n}" : "";
     return [faces.join("\n"), varBlock].filter(Boolean).join("\n");
   };
 

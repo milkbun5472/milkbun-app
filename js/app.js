@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.12";
+const APP_VERSION = "v71.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1924,8 +1924,19 @@ function App() {
     document.documentElement.setAttribute("data-lisa-char", inChat ? String(activeChar.id) : "");
     const s = inChat ? settingsFor(activeChar.id) : {};
     const scope = inChat ? lookScope(activeChar.id) : "";
+    // 只给 TA 换字（她 2026-09-18）：名单和自己传的那几支都问主题那份要——
+    // 聊天窗这儿不另存一份字体名单（one-public-mechanism）。
+    const _prof = (window.ThemeStudio && window.ThemeStudio.current()) || {};
+    const charFontCSS = (font, sc) => {
+      if (!sc || !window.FontChoice) return "";
+      try {
+        window.FontChoice.ensure(font, _prof.customFonts);
+        return window.FontChoice.cssVars(font, _prof.customFonts, window.resolveImg, sc);
+      } catch (e) { return ""; }
+    };
     applyChatLook({
       scope: scope,
+      fontCSS: charFontCSS(s.font, scope),
       skinCSS: charSkinCSS(s.skin, scope),
       bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
       chatBg: s.chatBg || ""
@@ -23462,6 +23473,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             describeMe: s.describeMe,
             chatBg: s.chatBg,
             skin: s.skin || "",
+            // 这个人自己的字（她 2026-09-18）。存进来之前先洗一遍：她在主题工作台
+            // 删掉一支自己传的字体之后，某个人身上不许还留着一个指不着的键。
+            font: (window.FontChoice
+              ? window.FontChoice.clean(s.font, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts)
+              : { body: "", display: "" }),
             bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
             apiId: s.apiId || null,
             engineerEyes: !!s.engineerEyes,
