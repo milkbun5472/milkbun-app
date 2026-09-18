@@ -254,3 +254,11 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 `build_openings.py -- OUTPUT_DIR [fallenTree reedBridge towerVines]` 在 Blender 中生成三处开关的两种形态，预览与 .blend 留在 OUTPUT_DIR。同一份 MAPS 几何供建模、碰撞和桥面高度使用；倒树清理范围也供 build_old_tower.py 使用，修改后须重导对应林地分区。旧塔露台地板由 build_interiors.py 生成。
 
 导出使用 `scripts/export-fairy-village.py -- source.blend output.glb --detail`，按 `export_group` 或父级 `shut:key` / `open:key` 分组合并；普通场景仍是一组。保存源文件时两种形态均可导出，预览仅在保存后切换 hide_render。每份导出报告以输出文件名命名，避免多个任务覆盖报告。运行时使用 glTF 原名元数据，不依赖 Three 清理后的节点名。
+
+## 六套衣柜（2026-09-17）
+
+`outfits.json` 是衣服名称与默认配色的源，`doll_outfits.py` 生成五套新衣服，原野旅人装保留。运行 Blender 的 `export_traveler.py` 一次导出 `doll.glb`、`doll.json` 与 `outfits.mjs`；不要手改后三者。衣服通过 GLB extras 的 `outfit` / `colorSlot` / `rigPart` 接运行时，同一套网格共享原体型 morph 与手臂枢轴；`deformPart` 使用 doll_hair 原算法，`seated` 为裙摆坐姿。自定义色材质不乘原先有底色的贴图，避免浅色鞋仍发黑。
+
+`wardrobe.mjs` 统一每套配色的合并、校验和默认值；用户、同行者、邻居和预览都走原 setLook。原 cloth 字段仅作为旅人装旧档默认色，各套新颜色存 look.wardrobe[款式]，换装不覆盖其它套配色。衣柜宿主从 doll.json 读取款式，通过 getOutfit 取实际色，原位更新四个色槽。
+
+验证：`fairy-outfits-browser.cjs` 渲运行时六套/坐姿并验证换色、实例隔离与手臂；`fairy-wardrobe-host-browser.cjs` 使用独立浏览器的临时存档，验证真实宿主页选装/色号/横竖屏滚动/重新载入，不接触用户存档。

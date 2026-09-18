@@ -426,7 +426,7 @@ def apply_dims(objs, d, root=None):
             basis=o.shape_key_add(name='Basis')
             for key in DIMS:
                 target=o.shape_key_add(name=key); target.slider_min=-1; target.slider_max=1
-                for src,dst in zip(basis.data,target.data): dst.co=deform(src.co,o['part'],key,2.)
+                for src,dst in zip(basis.data,target.data): dst.co=deform(src.co,o.get('deformPart',o['part']),key,2.)
                 if root:
                     driver=target.driver_add('value').driver; driver.expression='dimension - 1'
                     var=driver.variables.new(); var.name='dimension'; var.targets[0].id=root

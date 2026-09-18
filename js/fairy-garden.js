@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-1c98a59e79899a17", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-147992fd87ef6145", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -29,10 +29,8 @@
     return { version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} };
   };
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
-  // 两排色板：给的是【挑得动手】的十来个颜色，不是取色器。
-  // 布偶是童话质感，饱和度压着走；深浅各来几档，深色头发也照顾到。
+  // 发色沿用色板；衣柜提供逐套保存的自由配色。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
-  const CLOTH_COLORS = ['#8d5f66', '#729786', '#5f7590', '#a7784c', '#6b6280', '#93684f', '#4f6b5c', '#b0857f'];
   // 一轮话拆成几个气泡（她 2026-09-17：「他回复一大段是不是没用分气泡」）。
   // ⚠️拆气泡全库只有一处实现：GroupIdentityGuard.splitBubbles ＋ engine.js 的 splitLongBubble。
   //   庭院自己再写一个切句子的函数，就是同一层活在两处（施工规则/one-public-mechanism.md）。
@@ -742,6 +740,25 @@
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
                 : who === "me" ? "换的是你自己在这个庭院里的样子。"
                 : "换的是住在村里那一位在这个庭院里的样子。"),
+            h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
+              h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
+                Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
+                  const on = ((look[who] || {}).outfit || "traveler") === id;
+                  return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
+                    style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
+                })),
+              h("p", { style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"),
+              [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]].map(([slot, label]) => {
+                const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
+                const hex = selected && selected.colors[slot] || "#8d5f66";
+                return h("div", { key: slot, style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48 } },
+                  h("span", { style: { flex: 1, fontSize: 12, color: G.ink } }, label),
+                  h("input", { type: "color", value: hex, "aria-label": label, onChange: e => pushLook({ outfitColors: { [slot]: e.target.value } }), style: { width: 44, height: 40, border: 0, background: "transparent", padding: 0 } }),
+                  h("input", { key: who + slot + hex, type: "text", defaultValue: hex, "aria-label": label + "色号", maxLength: 7, spellCheck: false,
+                    onBlur: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) pushLook({ outfitColors: { [slot]: v } }); else e.target.value = hex; },
+                    style: { width: 86, minHeight: 40, padding: "6px", border: "1px solid " + G.line, borderRadius: 7, background: "#f8f7ee", color: G.ink, fontSize: 14 } }));
+              })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
               Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
@@ -768,7 +785,7 @@
                     onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
                     style: { width: "100%", accentColor: G.deep } }));
               })) : null,
-            [["hairColor", "发色", HAIR_COLORS], ["cloth", "衣服颜色", CLOTH_COLORS]].map(([field, label, palette]) =>
+            [["hairColor", "发色", HAIR_COLORS]].map(([field, label, palette]) =>
               h("div", { key: field, style: { marginTop: 20 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, label),
                 h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, palette.map(hex => {
