@@ -1,4 +1,4 @@
-import {MAPS} from './world.mjs?v=fg-dc36e8b35453ab8a';
+import {MAPS} from './world.mjs?v=fg-e9482dea5a30fab7';
 // 村子平面图（她 2026-09-18：「地图这里略丑，做好看一点，也可以放大缩小」）。
 // ⚠️画的全是 rules 里本来就有的几何：湖岸、溪、屋子的脚印、摊子、栈桥、树、小路、铁轨——
 //   一个坐标都不另抄（施工规则/one-public-mechanism.md）。codex 挪一间屋，图跟着走。

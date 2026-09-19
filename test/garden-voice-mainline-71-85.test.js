@@ -14,7 +14,7 @@ test("念出来这个开关有，而且念完这句才冒下一句", () => {
   const fn = game.slice(game.indexOf("function nextBubble(){"), game.indexOf("// 一轮话可能有好几条"));
   assert.ok(fn.length > 300, "抠不出 nextBubble");
   assert.match(fn, /host\.readAloud\(line\)\.then/, "没等念完就翻下一只气泡了");
-  assert.match(fn, /bubbleTimer=setTimeout\(nextBubble,BUBBLE_GAP\)/, "念完之后没接着冒下一句");
+  assert.match(fn, /bubbleTimer=setTimeout\(nextBubble,VOICE_GAP\)/, "念完之后没接着冒下一句");
 });
 
 // ⚠️念不了（没配语音 API / 他没有音色 / 合成失败）不许把气泡卡死。
