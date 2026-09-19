@@ -2134,6 +2134,7 @@ function Forum({
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
+
   const [composer, setComposer] = useState(false);   // 我发帖
   const [cbBoard, setCbBoard] = useState("日常吧");
   const [cbTitle, setCbTitle] = useState("");
@@ -2400,8 +2401,9 @@ function Forum({
   function postRow(p, showBoard) {
     const unread = unreadFloors(p.id);
     const bs = forumBoardSkin(p.board);
-    // ⚠️v71.76 撤掉了长按：长按是隐形的，而且在一条条滑过去的列表里，
-    //   长按十次有八次被当成滚动。删帖那一颗改摆在 actBar 末尾（看得见、列表和详情页共用）。
+    // ⚠️删帖【只有 actBar 末尾那颗 ✕ 这一条路】（她 2026-09-19 两次定：先说长按也要
+    //   二次确认，隔一句又「算了长按删除去掉不要了，就留叉」）。
+    //   别再加回长按：看得见的那一颗就够了，而且列表里长按十次有八次被当成滚动。
     return h("div", { key: p.id, role: "button", onClick: () => openPost(p),
       className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
       h("div", { className: "flex gap-3" },

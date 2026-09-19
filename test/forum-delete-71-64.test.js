@@ -37,8 +37,18 @@ test("删帖那颗要看得见，而且列表和详情页共用一处", () => {
   assert.ok(/onDeletePost \? h\("button", \{ onClick: e => \{ e\.stopPropagation\(\); askDelPost\(p\); \}/.test(seg),
     "那一排末尾没有删除那一颗");
   assert.ok(seg.includes('title: "删掉这一帖"'), "没有提示文案");
-  // 长按那一版不许留着：留着就是两套并行
-  assert.ok(!/startForumPress|useLongPressMenu/.test(screens), "长按那一版还在——两套并行迟早只改一处");
+});
+
+// ⚠️她 2026-09-19 两次定：先说「长按删除也要二次确认」，隔一句又
+//   「算了长按删除去掉不要了，就留叉」。最终就是【只有那颗 ✕ 一条路】。
+test("删帖只有那颗 ✕ 一条路，而且绕不过确认", () => {
+  assert.ok(!/startForumPress|useLongPressMenu/.test(screens), "长按那一版又回来了——她明确说了不要");
+  // ⚠️谁也不许绕过确认直接删：全库调 onDeletePost 的地方都该在确认回调里
+  const calls = (screens.match(/onDeletePost\(p\.id\)/g) || []).length;
+  assert.equal(calls, 2, "有人绕过 askDelPost 直接删了（两处都该在确认回调里）");
+  const i = screens.indexOf("  function askDelPost(p) {"), j = screens.indexOf("\n  }", i);
+  assert.equal((screens.slice(i, j).match(/onDeletePost\(p\.id\)/g) || []).length, 2,
+    "那两处调用不在 askDelPost 里——说明别处有一条直通的删除");
 });
 
 // ⚠️她自己写的回不来；网友的帖子刷新一下就重新生成
