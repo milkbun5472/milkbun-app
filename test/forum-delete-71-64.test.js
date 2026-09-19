@@ -104,14 +104,25 @@ test("两条路都接上了，中间没掉层", () => {
 
 
 
-// ⚠️「关注」「收藏」是视图不是版块：清空它们没有意义，而且很容易点错
-test("清空那颗只在真版块上出现", () => {
-  assert.ok(/onClearBoard && tab !== "关注" && tab !== "收藏" && arr\.length > 0/.test(screens),
-    "在「关注」「收藏」上也摆了清空按钮");
-  assert.ok(screens.includes('"清空「" + tab + "」这个版块（" + arr.length + " 帖）"'), "没写清要清掉几帖");
+// ⚠️v71.80：这颗原来躺在帖子流【最底下】——要滑过整版帖子才够得着，底下还压着
+//   一条固定导航栏，等于根本不存在（她「整个版块在哪儿删啊」）。
+//   现在它跟吧规并排坐在那条横杠上：版块级的横杠永远一行高、永远在屏幕上。
+test("清空那颗长在吧规横杠上，不在滚动列表里", () => {
+  assert.ok(screens.includes('h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60"'),
+    "清空那颗不在横杠上（或者又被塞回滚动列表里了）");
+  assert.equal((screens.match(/onClearBoard\(tab\)/g) || []).length, 1, "该只有一个入口");
+  // 横杠整条只在真版块上渲染（FORUM_BOARD_RULES 没有「关注」「收藏」这两个键），
+  // 所以清空那颗也就天然不会出现在那两个视图上。
+  assert.ok(/nav === "home" && FORUM_BOARD_RULES\[tab\]\) && h\("div"/.test(screens),
+    "横杠的渲染条件变了——清空那颗可能漏到「关注」「收藏」上");
+  assert.ok(!/FORUM_BOARD_RULES = \{[^}]*关注/.test(screens), "吧规表里多了「关注」，清空会跟着漏出去");
+  // 吧规和清空是两颗并排的兄弟按钮：套在一起点哪儿都会展开吧规
+  assert.ok(/onClick: \(\) => setRulesOpen\(!rulesOpen\), className: "flex-1 min-w-0/.test(screens),
+    "吧规那颗不是 flex-1 的独立按钮——清空可能被套在它里面");
 });
 
-test("底下那行小字要说清单删在哪儿——不然她只会看见整版清空", () => {
-  assert.ok(screens.includes("每一帖右下角那个 ✕ 可以单独删掉它"), "没有任何地方提示单删这条路");
+test("底下那行小字要说清单删在哪儿、整版清空在哪儿", () => {
+  assert.ok(screens.includes("整版清空在吧规那条横杠右边"), "没告诉她整版清空搬去哪儿了");
+  assert.ok(/单独删它|单独删掉它/.test(screens), "没有任何地方提示单删这条路");
   assert.ok(!screens.includes("长按一帖可以单独删掉"), "还在教她长按，可那一版已经撤了");
 });

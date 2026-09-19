@@ -2760,15 +2760,8 @@ function Forum({
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
       shown.map(p => postRow(p, false)),
       arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
-      // 清空这个版块（她 2026-09-19）。⚠️只在【真的是一个版块】时出现：
-      //   「关注」「收藏」是视图不是版块，清空它们没有意义，也很容易点错。
-      //   长按单帖删一条，这一颗是整版扫掉；两条路都有，她要哪种自己挑。
-      onClearBoard && tab !== "关注" && tab !== "收藏" && arr.length > 0
-        ? h("button", { onClick: () => onClearBoard(tab), className: "w-full py-3 active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "清空「" + tab + "」这个版块（" + arr.length + " 帖）")
-        : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
-        "每一帖右下角那个 ✕ 可以单独删掉它"));
+        "每一帖右上角那个 ✕ 单独删它；整版清空在吧规那条横杠右边"));
   }
 
   // ---- 搜索：四版块之外的吧 ----
@@ -2823,10 +2816,16 @@ function Forum({
     //   「我们不要半窗」）：三条规矩糊掉半个屏幕，比不给看还难看。
     // 这块牌子和喂给模型的那份吧规读同一个 FORUM_BOARD_RULES——规矩改一处，两边一起改。
     (!inSub && nav === "home" && FORUM_BOARD_RULES[tab]) && h("div", { className: "shrink-0", style: { position: "relative", zIndex: 20 } },
-      h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "w-full flex items-center text-left active:opacity-60 px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
-        h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, "吧规"),
-        h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, FORUM_BOARD_RULES[tab][0]),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : "共 " + FORUM_BOARD_RULES[tab].length + " 条")),
+      // ⚠️「清空本版」这颗跟吧规并排坐在这条横杠上（她 2026-09-19：「整个版块在哪儿删啊」）。
+      //   之前它躺在帖子流【最底下】——底下还压着导航栏，等于根本不存在。
+      //   这条横杠是版块级的、永远一行高、永远在屏幕上，所以版块级的动作就该长在这儿；
+      //   它和吧规是两颗并排的兄弟按钮，不是套在一起的（套着点哪儿都会展开吧规）。
+      h("div", { className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
+        h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "flex-1 min-w-0 flex items-center text-left active:opacity-60", style: { gap: 6 } },
+          h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, "吧规"),
+          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, FORUM_BOARD_RULES[tab][0]),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : "共 " + FORUM_BOARD_RULES[tab].length + " 条")),
+        onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
       rulesOpen && h("div", { onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "fadeUp .18s ease both" } },
         FORUM_BOARD_RULES[tab].map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
