@@ -35,7 +35,12 @@ test("不必非得是一件具体的事", () => {
 test("三枪都换成他本人在打字（voice），不再走分析师那一路", () => {
   // runProbe 默认的开场白是「你是角色状态推演引擎，不要扮演角色，冷静推演」——
   // 分析师交上来的必然是【关于他的一句提炼】。跟解梦馆那次一模一样的形状。
-  const seg = app.slice(app.indexOf("const openAnon = async char"), app.indexOf("const anonAsk") > 0 ? app.indexOf("const anonAsk") : app.indexOf("const openAnon = async char") + 9000);
+  // ⚠️末锚原来是「const anonAsk」——那个名字全库根本不存在，于是它一直走的是
+  //   「往后数 9000 字」那条兜底路。v71.67 在那个窗口里加了新东西，它当场红了——
+  //   红的不是代码是锚（施工规则/anchor-on-code）。换成钉真实存在的下一个函数。
+  const a = app.indexOf("const openAnon = async char"), b = app.indexOf("const askAnonMe = async charId", a);
+  assert.ok(a > 0 && b > a, "抠不出 openAnon 那一段");
+  const seg = app.slice(a, b);
   assert.equal((seg.match(/voice: true,/g) || []).length, 3, "第一次生成 / 撞名字补发 / 刷新马甲，三枪都要换");
   assert.match(app, /你现在在一个匿名树洞 App 上注册一个号/);
   assert.match(app, /刚填的那个网名跟别人重了，页面让你换一个/);

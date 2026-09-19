@@ -9700,7 +9700,10 @@ function anonNightBg() {
 }
 // 匿名问答正门：全角色聚合。详情仍复用原来的单角色匿名主页，旧 x_anon 数据原样沿用。
 // 布局遵守 mobile-ui-layout：紧凑顶栏 + 唯一主滚动容器；滚动位置离开后可恢复。
-function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) {
+// ⚠️她自己那张卡也摆在这张九宫格里（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
+//   原来她的马甲只藏在【进了某个角色之后】那一屏里——可这一页的意思是
+//   「每个人的匿名主页」，她也是这里面的一个人，不该只能从别人家门口看到自己。
+function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, onOpenMe, onBrew, onOpen, onBack }) {
   const t = useTheme();
   const A = ANON_INK;
   const scrollRef = useRef(null);
@@ -9728,7 +9731,22 @@ function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) 
             "写这些问题的人不知道会是谁收到——所以它问不出你的身份，也没法照着答案倒着编。抽空了会自己补。")),
         h("button", { onClick: onBrew, disabled: busy, className: "shrink-0 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 11.5, color: A.ink, border: `1px solid ${A.line}`, borderRadius: 999, padding: "6px 13px", opacity: busy ? .5 : 1 } }, busy ? "…" : "攒一批")),
-      rows.length ? h("div", { className: "grid grid-cols-2 gap-3" }, rows.map(function (row) {
+      h("div", { className: "grid grid-cols-2 gap-3" },
+        // 她自己那一张：跟角色的卡同一个形状（同一种东西＝同一种卡面），
+        // 只在眉标上写明这是「你的」——不另画一张，不然这一页会变成两种卡拼起来的。
+        h("button", { onClick: onOpenMe, className: "text-left active:opacity-70",
+          style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: "1px solid " + A.line, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
+          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
+            h("div", { style: { width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17 } }, "你"),
+            h("div", { style: { minWidth: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (myMask && myMask.name) || "你的马甲"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, ((myBox && myBox.records) || []).length + " 则问答"))),
+          h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+              (myMask && myMask.bio) || "还没有马甲——点开生成一个，这是你在树洞里挂的身份"),
+            h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: "1px solid " + A.line, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+              (((myBox && myBox.records) || [])[0] || {}).q || "这是你自己的匿名主页"))),
+      rows.map(function (row) {
         const r = row.latest;
         return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
           h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#7b6690,#3f6d8c)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
@@ -9739,9 +9757,82 @@ function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) 
           h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
             h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: `1px solid ${A.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? A.sub : A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
-      })) : h(Empty, { text: "还没有可以问的人" })));
+      })),
+      // 还没有角色时也不是空页——她自己那张卡一直在上面
+      rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: A.fog, textAlign: "center", padding: "16px 8px" } }, "还没有别人可以问")));
 }
 
+// 她自己的匿名主页（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
+// ⚠️跟角色那一屏是【同一种东西】，所以长一样：上面是马甲，下面是收到的问答。
+//   差别只有一个，而且是结构性的：角色那屏有「匿名问 Ta 一句」，她这屏没有——
+//   往她箱子里投问题的是【角色】，不是她自己。那条路还没做（她说「再想想咋弄题目」），
+//   所以这儿先把箱子和门立起来，空着也老实说清为什么空，不装成一个坏掉的页面。
+function AnonMeBox({ mask, box, busy, characters, onGenMask, onAsk, onAnswer, onReveal, onDrop, onBack }) {
+  const A = ANON_INK;
+  const records = (box && box.records) || [];
+  const [pick, setPick] = useState(false);     // 展开「指定谁来问」那一排
+  const [draft, setDraft] = useState({});      // 每条各自的答案草稿
+  const line = { fontFamily: F_BODY, fontSize: 11.5, color: A.fog };
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
+    h(Head, { zh: "我的匿名主页", onBack: onBack, ink: A.ink, lineInk: A.line, bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
+      h("div", { style: { borderRadius: 16, overflow: "hidden", background: A.card, border: "1px solid " + A.line, marginBottom: 14 } },
+        h("div", { style: { padding: "16px 15px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19 } }, (mask && mask.name) || "还没有马甲"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .82, marginTop: 5, lineHeight: 1.6 } },
+            (mask && mask.bio) || "这是你在树洞里挂的身份——别人只看得见这个网名和这句签名。")),
+        h("div", { className: "flex items-center justify-between", style: { padding: "10px 13px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, "跟你匿名问别人时用的是同一张面具"),
+          h("button", { onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 11, color: A.cool, border: "1px solid " + A.line, borderRadius: 8, padding: "3px 11px" } },
+            busy ? "…" : mask ? "换一个" : "生成"))),
+      // ── 叫人来问（她 2026-09-19：「可以指定谁来问，也可以选随机」）──────────
+      // ⚠️随机排在前面、而且是主按钮：随机才是这件事的默认玩法——
+      //   指定了谁，那一问就少了「猜是谁」那一半。
+      h("div", { style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "11px 12px", marginBottom: 16 } },
+        h("div", { className: "flex items-center", style: { gap: 8 } },
+          h("button", { onClick: () => onAsk && onAsk(), disabled: busy, className: "flex-1 active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", borderRadius: 999, padding: "8px 0" } },
+            busy ? "在想…" : "随便谁来问我一句"),
+          h("button", { onClick: () => setPick(v => !v), disabled: busy, className: "active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 12, color: A.cool, border: "1px solid " + A.line, borderRadius: 999, padding: "8px 13px" } },
+            pick ? "收起" : "指定谁")),
+        pick ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 10 } },
+          (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPick(false); onAsk && onAsk(c.id); }, disabled: busy,
+            className: "active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 12, color: A.ink, border: "1px solid " + A.line, borderRadius: 999, padding: "5px 12px" } },
+            c.remark || c.name))) : null,
+        h("div", { style: { ...line, fontSize: 10, marginTop: 9, lineHeight: 1.6 } },
+          "他不知道你会怎么答，你也看不见是谁问的——只有一张马甲。答完可以翻开看是谁。")),
+      h(Eyebrow, { style: { marginBottom: 8 } }, "收到的提问"),
+      records.length
+        ? h("div", { style: { display: "grid", gap: 10 } }, records.map(r => {
+            const who = (characters || []).find(c => c.id === r.charId);
+            return h("div", { key: r.id, style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "12px 13px" } },
+              h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 6 } },
+                h("div", { style: { ...line, fontSize: 10, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  r.revealed ? ((who && (who.remark || who.name)) || "已经不在了的谁") + " 问的" : (r.maskName || "一个陌生人")),
+                h("button", { onClick: () => onDrop && onDrop(r.id), className: "active:opacity-60 shrink-0",
+                  style: { ...line, fontSize: 11, padding: "0 2px" } }, "撕了")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: A.ink, lineHeight: 1.75 } }, r.q),
+              r.a
+                ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: A.sub, lineHeight: 1.8, marginTop: 9, paddingTop: 9, borderTop: "1px solid " + A.line, whiteSpace: "pre-wrap" } }, r.a)
+                : h("div", { style: { marginTop: 9 } },
+                    h("textarea", { value: draft[r.id] || "", onChange: e => setDraft(p => ({ ...p, [r.id]: e.target.value })),
+                      placeholder: "答一句…", rows: 2,
+                      style: { width: "100%", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: A.ink, background: "transparent",
+                        border: "1px solid " + A.line, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "none" } }),
+                    h("button", { onClick: () => { const v = (draft[r.id] || "").trim(); if (!v) return; onAnswer && onAnswer(r.id, v); setDraft(p => ({ ...p, [r.id]: "" })); },
+                      className: "active:opacity-70",
+                      style: { fontFamily: F_BODY, fontSize: 11.5, color: A.cool, border: "1px solid " + A.line, borderRadius: 999, padding: "5px 14px", marginTop: 7 } }, "答了")),
+              // ⚠️翻开这一下只在【答完之后】给：先知道是谁再答，就成了照着人答，
+              //   「猜是谁」那一半整个没了。
+              (r.a && !r.revealed) ? h("button", { onClick: () => onReveal && onReveal(r.id), className: "active:opacity-70",
+                style: { ...line, fontSize: 11, marginTop: 9, color: A.cool } }, "翻开看是谁问的") : null);
+          }))
+        : h("div", { style: { borderRadius: 14, border: "1px dashed " + A.line, padding: "20px 16px", fontFamily: F_BODY, fontSize: 11.5, color: A.fog, lineHeight: 1.85, textAlign: "center" } },
+            "还没有人问过你。", h("br"), "点上面那颗，让谁来问你一句。")));
+}
 // 匿名箱：仿 QQ 主页 + 匿名问答，记录永久保留
 function AnonBox({
   char,
@@ -13505,6 +13596,8 @@ function GroupThread({
     const r = onClaim(i);
     setRpView(i);
     if (typeof r === "number") toast && toast("领到 ¥" + r);
+    // ⚠️专属给别人的那张，要当场说清楚为什么没领到——不说的话点下去毫无反应，像坏了
+    else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"]];
@@ -14081,9 +14174,10 @@ function GroupThread({
     onClose: () => setSheet(null)
   }), sheet === "rp" && h(RedPacketComposeSheet, {
     memberCount: members.length,
+    members: members,
     myBalance: myBalance,
-    onSubmit: (total, count, message) => {
-      onSendRedPacket(total, count, message);
+    onSubmit: (total, count, message, toId) => {
+      onSendRedPacket(total, count, message, toId);
       setSheet(null);
     },
     onClose: () => setSheet(null)
@@ -14281,54 +14375,56 @@ function PollCard({
     onGenVotes ? h("button", { onClick: onGenVotes, className: "mx-3 mb-3 px-3 py-2 rounded-lg active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line } }, "请成员投票 / 重试") : null);
 }
-function RedPacketCard({
-  rp,
-  onClick
-}) {
-  const done = rp.claims.length >= rp.count;
+// 专属红包（她 2026-09-19）：点名给一个人的那种。
+// ⚠️「只给 XXX」必须写在卡面上——不然别人点下去才发现领不了，那一下像是坏了。
+// ── 红包那张卡（v71.66 重画，她 2026-09-19：「不要emoji宝宝，还有被截断了……
+//    整体红包样式改改」）────────────────────────────────────────────────────
+// 原来是：一条橙色的横杠 + 一个白方块里摆着 🧧，祝福语一行 nowrap 截断。
+// 三样都得改，而且病根是同一个——**它没长在「红包是什么」这件事上**：
+//   · emoji 是借来的形状，跟这个 app 里别的卡（礼物盒、亲属卡、唱片）不是一路；
+//     那几张都是【画出来的那样东西】。
+//   · 橙色也不是红包，是提示条的颜色。
+//   · 「【只给 Lisa】」挤在祝福语前面，把本来就只有一行的地方吃掉一半。
+// 现在按 tabs-not-plain-pills 那把尺子先问：红包在现实里是什么？
+//   是一个【红封】——红底、烫金、上面压着一道封口，封口正中一枚圆印；领完了封口掀起来。
+//   所以这张卡就画这几样：封口那道横压边、正中那枚金印、右下角一个折角。
+//   ⚠️「只给 XXX」提到封口上面单做一枚小标签，不跟祝福语抢宽度；
+//     祝福语给两行（clamp 2），长了才收，而不是一行就断。
+function RedPacketCard({ rp, onClick }) {
+  const done = (rp.claims || []).length >= rp.count;
+  const only = rp.toId ? (rp.toName || "某位") : "";
+  // 点名给别人的：她碰不到，整张暗下去（跟「已被领完」同一档）
+  const locked = !!(rp.toId && rp.toId !== "me" && !rp.byMe);
+  const dim = done || locked;
+  const RED = dim ? "#9c5a52" : "#c3372c", RED_D = dim ? "#7e4740" : "#9d251c";
+  const GOLD = dim ? "#d8c39c" : "#f2d79a";
   return h("button", {
-    onClick: onClick,
-    className: "flex items-stretch rounded-xl overflow-hidden my-1 active:opacity-90",
-    style: {
-      width: 220,
-      background: done ? "#c88a3a" : "#f5a623",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.12)"
-    }
-  }, h("div", {
-    className: "flex items-center justify-center px-3",
-    style: {
-      background: "rgba(0,0,0,0.06)"
-    }
-  }, h("div", {
-    style: {
-      width: 30,
-      height: 30,
-      borderRadius: 6,
-      background: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 16
-    }
-  }, "🧧")), h("div", {
-    className: "flex-1 px-3 py-2.5 text-left"
-  }, h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13.5,
-      color: "#fff",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
-  }, rp.message || "恭喜发财，大吉大利"), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: "rgba(255,255,255,0.85)",
-      marginTop: 1
-    }
-  }, done ? "已被领完" : "领取红包")));
+    onClick: onClick, className: "my-1 active:opacity-90",
+    style: { width: 232, borderRadius: 13, overflow: "hidden", position: "relative", textAlign: "left",
+      background: "linear-gradient(160deg," + RED + "," + RED_D + ")",
+      boxShadow: "0 2px 7px rgba(90,25,18,.22)" }
+  },
+    // 封口：压在上半截的一道，比封身暗一档——红包最认得出的那个记号
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 46,
+      background: "linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.10))",
+      borderBottom: "1px solid rgba(0,0,0,.16)" } }),
+    // 封口正中那枚金印：双环 + 中心一点。不写字——写「福」就又变成借来的符号了
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 17, top: 12, width: 24, height: 24, borderRadius: 999,
+      border: "1.5px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { width: 12, height: 12, borderRadius: 999, border: "1px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
+        h("div", { style: { width: 4, height: 4, borderRadius: 999, background: GOLD } }))),
+    // 右下角那个折角
+    h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0,
+      borderLeft: "14px solid transparent", borderBottom: "14px solid rgba(0,0,0,.13)" } }),
+    h("div", { style: { position: "relative", padding: "12px 13px 11px 49px" } },
+      // 「只给 XXX」单做一枚小标签，不跟祝福语抢宽度
+      only ? h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".04em",
+        color: RED_D, background: GOLD, borderRadius: 999, padding: "1.5px 8px", marginBottom: 5 } }, "只给 " + only) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.45, color: "#fff",
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" } },
+        rp.message || "恭喜发财，大吉大利"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.82)", marginTop: 5 } },
+        done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
 function PollComposeSheet({ onSubmit, onClose }) {
@@ -14353,11 +14449,15 @@ function PollComposeSheet({ onSubmit, onClose }) {
     h("button", { onClick: () => { if (canSend) onSubmit(title.trim(), okOpts, anon); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: t.ink, color: t.bg2, borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "发起投票"));
 }
 // 发红包（群聊 +面板 → 红包）——同样原来缺实现
-function RedPacketComposeSheet({ memberCount, myBalance, onSubmit, onClose }) {
+// 专属红包（她 2026-09-19：「群聊能发专属红包」）：点名给一个人，别人碰不到。
+// ⚠️不做成第二个弹层：它跟拼手气红包是【同一件事的两种发法】，分成两个入口，
+//   她每次都得先想「我要发哪种」。所以就在这一张里多一排人头，谁都不选＝拼手气。
+function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onClose }) {
   const t = useTheme();
   const [total, setTotal] = useState("");
   const [count, setCount] = useState(String(Math.max(1, memberCount || 1)));
   const [message, setMessage] = useState("");
+  const [toId, setToId] = useState("");   // ""＝拼手气，谁都能抢
   const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
   const a = Math.round(Number(total) * 100) / 100;
   const c = Math.max(1, parseInt(count, 10) || 1);
@@ -14370,12 +14470,24 @@ function RedPacketComposeSheet({ memberCount, myBalance, onSubmit, onClose }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "钱包余额 ¥" + (myBalance || 0))),
     h("div", { style: lbl }, "总金额（¥）"),
     h("input", { value: total, onChange: e => setTotal(e.target.value.replace(/[^0-9.]/g, "")), inputMode: "decimal", placeholder: "0.00", style: field }),
-    h("div", { style: lbl }, "个数（拼手气，随机分）"),
-    h("input", { value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field }),
+    h("div", { style: lbl }, "给谁"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      [["", "谁都能抢"]].concat(((members || []).map(c => [c.id, c.remark || c.name])))
+        .map(([v, zh]) => h("button", {
+          key: v || "_all", onClick: () => setToId(v), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999,
+            background: toId === v ? "#c3372c" : "transparent", color: toId === v ? "#fff" : t.fog,
+            border: "1px solid " + (toId === v ? "#c3372c" : t.line) } }, zh))),
+    // 专属就是一份：给一个人还分好几份，那不是专属，是普通红包写了个名字
+    toId ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
+      "专属红包只有 Ta 能领，别人点开会看到「不是给你的」。金额不拆，整份给 Ta。")
+      : h(Fragment, null,
+        h("div", { style: lbl }, "个数（拼手气，随机分）"),
+        h("input", { value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field })),
     h("div", { style: lbl }, "祝福语（可选）"),
     h("input", { value: message, onChange: e => setMessage(e.target.value), placeholder: "恭喜发财，大吉大利", style: field }),
     insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "余额不足") : null,
-    h("button", { onClick: () => { if (canSend) onSubmit(a, c, message.trim()); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "#f5a623", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
+    h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "linear-gradient(160deg,#c3372c,#9d251c)", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
 }
 // 打开红包 / 看领取详情
 function RedPacketOpenSheet({ rp, meName, onClose }) {
@@ -14384,7 +14496,14 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
   const done = claims.length >= rp.count;
   return h(Sheet, { onClose: onClose },
     h("div", { className: "flex flex-col items-center", style: { padding: "6px 0 14px" } },
-      h("div", { style: { fontSize: 30 } }, "🧧"),
+      // ⚠️不用 emoji（她 2026-09-19：「不要emoji宝宝」）：跟卡面上那枚金印同一个画法，
+      //   大一号摆在这儿。这个 app 里的东西都是画出来的，借一个 emoji 会当场露怯。
+      h("div", { "aria-hidden": "true", style: { width: 46, height: 46, borderRadius: 999,
+        background: "linear-gradient(160deg,#c3372c,#9d251c)", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "0 2px 7px rgba(90,25,18,.24)" } },
+        h("div", { style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid #f2d79a", display: "flex", alignItems: "center", justifyContent: "center" } },
+          h("div", { style: { width: 11, height: 11, borderRadius: 999, border: "1px solid #f2d79a", display: "flex", alignItems: "center", justifyContent: "center" } },
+            h("div", { style: { width: 4, height: 4, borderRadius: 999, background: "#f2d79a" } })))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 6, textAlign: "center" } }, rp.message || "恭喜发财，大吉大利"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, "来自 " + (rp.by || "某人") + " · 共 ¥" + rp.total + " · " + rp.count + " 个")),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, borderTop: "1px solid " + t.line, paddingTop: 10, marginBottom: 6 } }, done ? "已被领完" : "已领 " + claims.length + " / " + rp.count),

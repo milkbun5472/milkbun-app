@@ -92,7 +92,9 @@ test("楼层写不进盘要当面说，别等下次开机重新生成一套", ()
   assert.match(blk, /下次打开会重新生成一套/, "得说清后果，不然她不知道这句话要她干嘛");
   // 所有落盘点都走它，别有哪一处还在直接 saveJSON
   // 定义那一行是 `= next => {`，名字后面不带括号，所以不会被这条数进来
-  assert.equal((A.match(/saveForumComments\(/g) || []).length, 9, "九个落盘点都要走它");
+  // ⚠️别钉死「几个落盘点」：每加一个删帖/清空的入口这个数就变，而红的不是它要管的事。
+  //   要钉的是【没有谁绕过去直接存】——那一条下面就是，而且它才是这条测试的意思。
+  assert.ok((A.match(/saveForumComments\(/g) || []).length >= 9, "落盘点少了，多半有一处被删了或改成直接存了");
   assert.equal((A.match(/saveJSON\("x_forumComments"/g) || []).length, 1, "还有地方绕过去直接存");
 });
 

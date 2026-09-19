@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.68";
+const APP_VERSION = "v71.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1102,6 +1102,7 @@ function App() {
   const offlineTsRef = useRef({});
   const [offlineTsSeed, setOfflineTsSeed] = useState(0); // 触发一次重排（种子算好后）
   const [anon, setAnon] = useState({});
+  const anonRef = useRef({}); anonRef.current = anon;
   const [anonChar, setAnonChar] = useState(null);
   const [anonBusy, setAnonBusy] = useState(false);
   // 拉黑：{ [charId]: { iBlocked, theyBlocked } }
@@ -10868,7 +10869,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 【关系隐私铁律】旁观群更需要它：两个人都跟她有关系时，正是这条挡住互相拆穿。
       const gRelRule = "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -11102,7 +11103,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           }
           if (item.redpacket && Number(item.redpacket.total) > 0) {
             const rp = item.redpacket;
-            postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
+            postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利", rp.to);
             autoTook();
           } else if (item.recall === true && item.text) {
             const mid = "grc_" + Date.now() + "_" + i;
@@ -11549,58 +11550,90 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我发红包
   // 记忆不互通的群=封闭空间：红包/转账都是过家家，不动任何真钱包（我的 + 角色的都不结算）
   const groupClosed = gid => !gsFor(gid).memoryInterop;
-  const sendRedPacket = (groupId, total, count, message) => {
+  const rpNpcCount = (groupId, senderId) => {
+    const g = groups.find(x => x.id === groupId);
+    if (!g) return 0;
+    return (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== senderId).length;
+  };
+  // toId：专属红包（她 2026-09-19「群聊能发专属红包」）——点名给一个人，别人碰不到。
+  // ⚠️专属就是【一份】：给一个人还分好几份，那不是专属，是普通红包写了个名字。
+  const sendRedPacket = (groupId, total, count, message, toId) => {
     const a = Math.round(Number(total) * 100) / 100;
     if (a <= 0) return;
+    const to = toId ? characters.find(c => c.id === toId) : null;
+    if (toId && !to) { toast("点名的那个人不在这个群里"); return; }
     const closed = groupClosed(groupId);
     if (!closed) {
       if (wallet < a) { toast("余额不足"); return; }
       changeWallet(-a, "发红包", "redpacket");
     }
-    const splits = splitRedPacket(a, count);
+    const splits = splitRedPacket(a, to ? 1 : count);
     const rpId = "rp_" + Date.now();
     pushGroupRich(groupId, {
+      // ⚠️role 不能省（她 2026-09-19 报：「为什么我发红包头像是在另一边没有我的头像」）。
+      //   群里那一行判的是 m.role === "user"；不写就是 undefined，于是我发的红包被
+      //   当成别人发的——靠左排、还套了个别人的头像。角色那条碰巧没事，因为它走的是
+      //   反面那一支（!== "user"）。两边都写明，别再让谁靠默认值蒙对。
+      role: "user",
       kind: "redpacket",
       rpId: rpId,
       byMe: true,
       by: profile.name || "我",
+      toId: to ? to.id : null,
+      toName: to ? (to.remark || to.name) : "",
       total: a,
       count: splits.length,
-      message: message || "恭喜发财，大吉大利",
+      message: message || (to ? "给你的" : "恭喜发财，大吉大利"),
       splits: splits,
       claims: [],
-      content: "[红包] " + (message || "恭喜发财，大吉大利")
+      content: "[红包] " + (to ? "（只给 " + (to.remark || to.name) + "）" : "") + (message || "恭喜发财，大吉大利")
     });
-    toast("红包已发出 ¥" + a);
-    // 群成员随机来抢
-    setTimeout(() => autoGrabRedPacket(groupId, rpId), 1200);
+    toast(to ? "专属红包已发给 " + (to.remark || to.name) : "红包已发出 ¥" + a);
+    // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
+    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), rpHeadstart({ count: splits.length }, rpNpcCount(groupId, null)));
   };
   const postClaimLine = (groupId, claimer, owner) => pushGroupRich(groupId, {
     role: "system",
     content: claimer + " 领取了 " + owner + " 的红包"
   });
   // 角色发红包（AI 触发）：钱在被领取时才结算
-  const postRedPacket = (groupId, char, total, count, message) => {
+  const postRedPacket = (groupId, char, total, count, message, toId) => {
     const a = Math.round(Number(total) * 100) / 100;
     if (a <= 0) return;
     if (!groupClosed(groupId)) adjustCharBalance(char.id, -a, "发红包", "redpacket");
-    const splits = splitRedPacket(a, count);
+    // 他点名给谁（她 2026-09-19「群聊能发专属红包」）：模型写的是【成员名】，这儿才解析。
+    // ⚠️认不出来、点给自己、点了不在群里的人，一律退回普通红包——绝不猜。
+    //   猜错的后果是这份钱卡在一个谁都领不了的名字上。
+    const to = (() => {
+      const nm = String(toId == null ? "" : toId).trim();
+      if (!nm) return null;
+      if (nm === (profile.name || "我") || nm === "我" || nm === "用户") return { id: "me", name: profile.name || "我" };
+      const g0 = groups.find(x => x.id === groupId);
+      const ids = (g0 && g0.memberIds) || [];
+      const c = characters.find(x => ids.indexOf(x.id) >= 0 && x.id !== char.id && (x.name === nm || x.remark === nm));
+      return c ? { id: c.id, name: c.remark || c.name } : null;
+    })();
+    const splits = splitRedPacket(a, to ? 1 : count);
     const rpId = "rp_" + Date.now() + "_" + char.id;
     pushGroupRich(groupId, {
+      role: "assistant",
       kind: "redpacket",
       rpId: rpId,
       byMe: false,
       by: char.name,
       senderId: char.id,
+      senderName: char.name,
+      toId: to ? to.id : null,
+      toName: to ? to.name : "",
       total: a,
       count: splits.length,
-      message: message || "恭喜发财，大吉大利",
+      message: message || (to ? "给你的" : "恭喜发财，大吉大利"),
       splits: splits,
       claims: [],
-      content: "[红包] " + (message || "恭喜发财，大吉大利")
+      content: "[红包] " + (to ? "（只给 " + to.name + "）" : "") + (message || "恭喜发财，大吉大利")
     });
-    // 其他成员（除发红包者）也会来抢
-    setTimeout(() => autoGrabRedPacket(groupId, rpId), 1400);
+    // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
+    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), rpHeadstart({ count: splits.length }, rpNpcCount(groupId, char.id)));
   };
   // 我领红包（我发的不能领；角色发的可以领）
   const claimRedPacket = (groupId, msgIdx) => {
@@ -11608,6 +11641,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const rp = (groupChatsRef.current[groupId] || [])[msgIdx];
     if (!rp || rp.kind !== "redpacket") return null;
     if (rp.byMe) return "own";
+    // 专属红包：点名给别人的，她碰不到（"me" 才是给她的）
+    if (rp.toId && rp.toId !== "me") return "notyours";
     if (rp.claims.some(c => c.me)) return "claimed";
     if (rp.claims.length >= rp.count) return "empty";
     const amt = rp.splits[rp.claims.length];
@@ -11624,32 +11659,49 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     postClaimLine(groupId, meName, rp.by);
     return amt;
   };
-  // 群成员随机抢某个红包（按 rpId 定位；排除发红包者本人）
+  // ── 群成员来抢（她 2026-09-19：「现在群里发红包只有一个的话模型是不是必定让
+  //    另一个领到这样我根本没机会」）────────────────────────────────────────
+  // 是真的，而且比看上去狠：原来是【每个成员独立掷 70%】，所以人越多越必中——
+  // 两个人 91%、三个人 97%；再加上 1.2 秒就开抢，单个红包她确实一次都碰不到。
+  // 两处一起改：
+  //   ① 先手窗口：发出去之后这么久【只有她能抢】，过了 NPC 才动。
+  //      名额越紧窗口越长——名额比人还多的时候她本来就抢得到，不用干等。
+  //   ② 整体只掷一次：抢不抢是这【一个红包】的一次判定，不随群里人数膨胀。
+  //      掷中了才按人抢；没掷中就留着，她晚点回来照样领得到。
+  // ⚠️专属红包（toId）压根不进这条路：那是点名给某个人的，别人碰都碰不到。
+  const RP_HEADSTART_TIGHT = 12000;   // 名额 ≤ 在场 NPC 数：给她十二秒
+  const RP_HEADSTART_LOOSE = 3000;    // 名额比人还多：她本来就有份，不用久等
+  const RP_NPC_CHANCE = 0.7;          // 这一个红包会不会被 NPC 抢走（整体一次）
+  const rpHeadstart = (rp, npcN) => (rp && rp.count > npcN) ? RP_HEADSTART_LOOSE : RP_HEADSTART_TIGHT;
   const autoGrabRedPacket = (groupId, rpId) => {
     const gchat = groupChatsRef.current[groupId] || [];
     const idx = gchat.map((m, i) => m.kind === "redpacket" && m.rpId === rpId ? i : -1).filter(i => i >= 0).pop();
     if (idx == null || idx < 0) return;
     const rp = gchat[idx];
+    // 专属红包只有被点名那位能领——这条路一步都不许走
+    if (rp.toId) return;
+    if ((rp.claims || []).length >= rp.count) return;   // 她已经在窗口里抢光了
     const group = groups.find(g => g.id === groupId);
+    if (!group) return;
     const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== rp.senderId);
-    const grabbers = members.filter(() => Math.random() < 0.7).slice(0, rp.count - rp.claims.length);
-    let claims = [...rp.claims];
+    if (!members.length) return;
+    // ⚠️整体只掷这一次。原来是每人一掷，等于「群里人数」悄悄变成了她的对手数。
+    if (Math.random() >= RP_NPC_CHANCE) return;
+    // 掷中了：随机挑几个来抢，但【永远留一份给她】——除非这个红包本来就只有一份。
+    const left = rp.count - (rp.claims || []).length;
+    const room = rp.count > 1 ? Math.max(1, left - 1) : left;
+    const pool = members.slice().sort(() => Math.random() - 0.5);
+    const grabbers = pool.slice(0, Math.min(room, pool.length));
+    let claims = [...(rp.claims || [])];
     const closed = groupClosed(groupId);
     grabbers.forEach(c => {
       if (claims.length >= rp.count) return;
       const amt = rp.splits[claims.length];
       if (!closed) adjustCharBalance(c.id, amt, "抢到红包", "redpacket");
-      claims.push({
-        name: c.name,
-        id: c.id,
-        amount: amt,
-        ts: Date.now()
-      });
+      claims.push({ name: c.name, id: c.id, amount: amt, ts: Date.now() });
     });
-    pGChat(groupId, p => p.map((m, i) => i === idx ? {
-      ...m,
-      claims
-    } : m));
+    if (!grabbers.length) return;
+    pGChat(groupId, p => p.map((m, i) => i === idx ? { ...m, claims } : m));
     grabbers.forEach(c => postClaimLine(groupId, c.name, rp.by));
   };
   // ---- 群聊总结存入记忆库（关联所有成员）----
@@ -14477,7 +14529,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -15077,6 +15129,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 同一个陌生人在好几个箱子里都问过,TA才有机会认出来。
   const loadAnonMe = () => { try { const v = JSON.parse(localStorage.getItem("x_anonMe") || "null"); return (v && v.name) ? v : null; } catch (e) { return null; } };
   const [anonMe, setAnonMe] = useState(loadAnonMe);
+  // 她自己收到的匿名提问（她 2026-09-19：「我的也跟角色的一起放吧」）。
+  // ⚠️现在只是个空箱子：往里投问题的那条路（角色来问她）还没做——她说「再想想咋弄题目」。
+  //   先把箱子和它的门立起来，题目那一层定了再接进来，不然这张卡点开是一片空白。
+  const [anonMeBox, setAnonMeBox] = useState(() => { try { const v = JSON.parse(localStorage.getItem("x_anonMeBox") || "null"); return (v && typeof v === "object") ? v : { records: [] }; } catch (e) { return { records: [] }; } });
+  const anonMeBoxRef = useRef({ records: [] }); anonMeBoxRef.current = anonMeBox;
   const saveAnonMe = v => { setAnonMe(v); saveJSON("x_anonMe", v); };
   // ── 架空世界（x_worlds）─────────────────────────────────────────────────
   // 造世界这一枪【不喂任何角色人设】：喂了它就会把世界往那个人身上拧，
@@ -15351,6 +15408,100 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   · 摇三颗骰子:谁在问 × 想撬什么 × 怎么开口。前两颗定料,第三颗定形状——
   //     整批一个味通常坏在开口的形状上,不在题材上。
   //   · 日常一封信仍然只花一次调用(角色作答那一枪);出题的成本被几十题摊掉。
+  // ── 他来问你（v71.67，她 2026-09-19：「匿名可以按你说的来试试。然后可以指定谁来问，
+  //    也可以选随机」）──────────────────────────────────────────────────────
+  // ⚠️这条跟上面那条【隔离的方向是反的】，所以不能照抄：
+  //   网友出题那一枪，隔离是为了让出题的人**不知道她是谁**（第一枪压根不给人设）；
+  //   而角色来问她，他**本来就认识她**——那不是漏洞，那正是这一路好玩的地方：
+  //   他的问题会很具体、很戳。所以这一枪【带全套上下文】，跟他平时说话那一枪一样。
+  //   藏起来的只有一样：**是谁问的**。她看到的只有一张马甲，得自己猜。
+  // ⚠️不直接让他「出一道题」——那必然是「你今天开心吗」。照电台那条路来
+  //   （施工规则/bans-make-it-dumber：掷约束，不掷答案）：摇两根轴让他去凑，
+  //   每根轴留一格「你自己想一个」，代码只关一部分门，天花板还给他。
+  const ANON_ME_WHY = [
+    "他这会儿心里有个没底的事，想确认一下",
+    "他有点不痛快，但不打算直说是为什么",
+    "他单纯好奇，想知道一件跟他没关系的事",
+    "他在试探——想看看你会怎么答，而不是想知道答案",
+    "他想起了你俩之间的某一件事，一直没问出口",
+    "他今天过得不怎么样，想找个人说话，但不想让你知道是他",
+    "你自己想一个他此刻会想问的理由"
+  ];
+  const ANON_ME_ANGLE = [
+    "你最近真做过的某一件具体的事",
+    "你俩之间发生过的某一件事",
+    "你这个人——他观察到但没说破的某一点",
+    "一件他怎么想都想不透的小事",
+    "一个他其实知道答案、但想听你自己说的问题",
+    "你自己挑一块他真会想问的"
+  ];
+  const ANON_ME_CAP = 60;   // 她那箱子留最近这么多条
+  const saveAnonMeBox = v => { setAnonMeBox(v); saveJSON("x_anonMeBox", v); return v; };
+  // charId 不传＝随机挑一个（她要的那两档：指定谁来问 / 随机）
+  const askAnonMe = async charId => {
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    const pool = liveChars.filter(c => c && !c.archived);
+    if (!pool.length) { toast("还没有人可以来问你"); return false; }
+    const char = charId ? pool.find(c => c.id === charId) : pool[Math.floor(Math.random() * pool.length)];
+    if (!char) { toast("这个人不在了"); return false; }
+    setAnonBusy(true);
+    try {
+      const why = ANON_ME_WHY[Math.floor(Math.random() * ANON_ME_WHY.length)];
+      const angle = ANON_ME_ANGLE[Math.floor(Math.random() * ANON_ME_ANGLE.length)];
+      const had = ((anonMeBoxRef.current || {}).records || []).slice(0, 12).map(r => r.q).filter(Boolean);
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你往" + (profile.name || "她") + "的匿名提问箱里投一个问题。\n"
+          + "【她看不见是你投的】她只看得到一个网名和一句签名，不知道是谁。所以别落款、别写只有你会说的口头禅当签名、"
+          + "也别在问题里点破你是谁——但话该带着你自己的性子，她猜得出来是你、还是猜不出来，那是她的事，不是你要控制的。\n"
+          + "【这一回你为什么想问】" + why + "\n"
+          + "【这一问冲着哪儿去】" + angle + "\n"
+          + "这两条是你这一问的底子，不是两个可选项——照着它们去想「我此刻真想问她的那句是什么」。\n"
+          + "⚠️只问【一件事】，一句到两句。别一口气塞三个问号，也别写成一段感想末了才挂一个问句。\n"
+          + "⚠️问的得是你【真不知道答案】的：你已经知道的事拿来问，是在考她，不是在问她。"
+          + (had.length ? "\n【你之前投过这些，一句都不要重复，也别换个说法再问一遍】" + had.join(" / ") : ""),
+        schemaHint: "{\"q\":\"你要投进去的那一问\"}",
+        maxTokens: 9000
+      });
+      const q = String((d && d.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      if (!q) { toast(characterText(char, "他没问出来，再试一次")); return false; }
+      // 马甲用他自己那张（匿名箱里已经有了）；没有就先给个占位，别为这个再烧一枪
+      const mask = ((anonRef.current || {})[char.id]) || {};
+      const rec = { id: "am_" + Date.now(), q, a: "", charId: char.id,
+        maskName: mask.netname || "一个陌生人", maskBio: mask.bio || "", ts: Date.now(), revealed: false };
+      const cur = anonMeBoxRef.current || { records: [] };
+      saveAnonMeBox({ ...cur, records: [rec, ...(cur.records || [])].slice(0, ANON_ME_CAP) });
+      toast("有人往你箱子里投了一个问题");
+      return true;
+    } catch (e) { toast("没投进来：" + (e.message || e)); return false; }
+    finally { setAnonBusy(false); }
+  };
+  const answerAnonMe = (id, text) => {
+    const a = String(text || "").trim();
+    if (!a) return;
+    const cur = anonMeBoxRef.current || { records: [] };
+    const rec = (cur.records || []).find(r => r.id === id);
+    saveAnonMeBox({ ...cur, records: (cur.records || []).map(r => r.id === id ? { ...r, a, aTs: Date.now() } : r) });
+    // ⚠️答完要留下痕迹，不然这一问一答只活在这一页里，他永远不知道她答了什么。
+    //   走记忆库那条现成的路（跟情侣空间那几样纸面往来同一条）：平时零成本，
+    //   聊到相关才被召回。knownBy 只给问的那个人——别人没在场。
+    if (rec && rec.charId) {
+      try {
+        addMemEntry({ text: "匿名提问箱里有人问「" + rec.q + "」，" + (profile.name || "她") + "答：" + a,
+          tags: ["匿名箱"], charIds: [rec.charId], knownBy: [rec.charId], source: "anonme" });
+      } catch (e) {/* 记不上不连累她这一答 */}
+    }
+    toast("答好了");
+  };
+  const revealAnonMe = id => {
+    const cur = anonMeBoxRef.current || { records: [] };
+    saveAnonMeBox({ ...cur, records: (cur.records || []).map(r => r.id === id ? { ...r, revealed: true } : r) });
+  };
+  const dropAnonMe = id => {
+    const cur = anonMeBoxRef.current || { records: [] };
+    saveAnonMeBox({ ...cur, records: (cur.records || []).filter(r => r.id !== id) });
+    toast("撕了");
+  };
   const ANON_POOL_BATCH = 90;   // 一次备多少题(她 2026-08-31:反正没有 token 上限,别每次按最少来写)
   const ANON_POOL_PER_ROLL = 10; // 一次扔管几题——扔的次数跟着批量长,不写死
   const ANON_POOL_LOW = 8;      // 低于这个数就顺手补一批
@@ -16354,6 +16505,42 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("这些楼没保存成功：本地空间满了。先去 设置·数据 归档/导出，不然下次打开会重新生成一套");
     }
     return false;
+  };
+  // ── 删帖（她 2026-09-19 转小红书群里：「论坛的帖子可以删除吗？」「我就是删不了尴尬死了」）──
+  // 查下来确实一个入口都没有：Forum 只收 onBack/onStartPM/onPostMine/onRefreshPMs。
+  // 会自己消失的只有 NPC 帖（版块封顶时淘汰），而那段淘汰**明确跳过非 NPC 的帖子**，
+  // 所以她自己发的那几条永远躺在那儿。
+  // ⚠️楼要跟着一起删——那段孤儿评论的清理是现成的（NPC 淘汰那儿写过一次），
+  //   别只删帖不删楼：每留一条就是 1~3KB 永远躺在本地空间里。
+  const forumDropPosts = ids => {
+    const kill = new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean));
+    if (!kill.size) return 0;
+    const next = (forumPostsRef.current || []).filter(x => !kill.has(x.id));
+    saveJSON("x_forumPosts", next); setForumPosts(next); forumPostsRef.current = next;
+    const cur = forumCommentsRef.current || {}, keep = {};
+    Object.keys(cur).forEach(pid => { if (!kill.has(pid)) keep[pid] = cur[pid]; });
+    saveForumComments(keep); setForumComments(keep);
+    return kill.size;
+  };
+  const deleteForumPost = id => {
+    const p0 = (forumPostsRef.current || []).find(x => x.id === id);
+    if (!p0) return;
+    forumDropPosts([id]);
+    toast("删了：《" + String(p0.title || "这帖").slice(0, 14) + "》");
+  };
+  // 清空一个版块。⚠️这一下没得撤，所以【先把要删的数报清楚，尤其是她自己发的那几条】——
+  //   NPC 帖点一下刷新就回来了，她自己写的回不来（施工规则外那条：会让数据消失的，先说清）。
+  const clearForumBoard = board => {
+    const b = String(board || "");
+    const hit = (forumPostsRef.current || []).filter(x => x && x.board === b);
+    if (!hit.length) { toast("「" + b + "」本来就是空的"); return; }
+    const mine = hit.filter(x => x.authorType === "me").length;
+    requestAppConfirm("清空「" + b + "」",
+      "这个版块里共 " + hit.length + " 帖"
+      + (mine ? "，其中 " + mine + " 帖是你自己发的——网友的帖子刷新一下会重新生成，你写的这 " + mine + " 帖删了就回不来了。" : "（都是网友发的，刷新一下会重新生成）。")
+      + "楼里的回复也会一起删掉。",
+      () => { const n = forumDropPosts(hit.map(x => x.id)); toast("「" + b + "」清空了，删掉 " + n + " 帖"); },
+      "清空");
   };
   const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
   // 网名那两栏（她 2026-09-12：「以前名字跟TA发的内容没有关系很灵的。
@@ -22104,7 +22291,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
     onVote: (idx, optIdx) => castVote(activeGroup.id, idx, optIdx, profile.name || "我"),
-    onSendRedPacket: (total, count, message) => sendRedPacket(activeGroup.id, total, count, message),
+    onSendRedPacket: (total, count, message, toId) => sendRedPacket(activeGroup.id, total, count, message, toId),
     onClaim: idx => claimRedPacket(activeGroup.id, idx),
     onSummarize: () => summarizeGroupToMem(activeGroup.id),
     onAddMember: charId => addGroupMember(activeGroup.id, charId),
@@ -22207,9 +22394,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     data: anon,
     busy: anonBusy,
     poolCount: (anonPool || []).length,
+    // 她自己那张卡也摆在这张九宫格里（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
+    // ⚠️马甲用的仍是 x_anonMe 那一个，不另立一个身份——同一个人戴同一张面具。
+    myMask: anonMe,
+    myBox: anonMeBox,
+    onGenMask: genAnonMe,
+    onOpenMe: () => setScreen("anonme"),
     onBrew: refillAnonPool,
     onOpen: openAnon,
     onBack: goHome
+  });else if (screen === "anonme") body = h(AnonMeBox, {
+    mask: anonMe,
+    box: anonMeBox,
+    busy: anonBusy,
+    characters: liveChars,
+    onGenMask: genAnonMe,
+    onAsk: askAnonMe,          // 不传 charId＝随机挑一个来问
+    onAnswer: answerAnonMe,
+    onReveal: revealAnonMe,
+    onDrop: dropAnonMe,
+    onBack: () => setScreen("anon")
   });else if (screen === "phone") body = /*#__PURE__*/React.createElement(PhoneCarry, {
     characters: liveChars,
     phones: phones,
@@ -22363,6 +22567,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForwardToChat: forwardPostToChat,
     onForwardToGroup: forwardPostToGroup,
     onRefreshPMs: refreshForumPMs,
+    onDeletePost: deleteForumPost,
+    onClearBoard: clearForumBoard,
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,
