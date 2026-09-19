@@ -31,7 +31,7 @@ test("住在村里的那几位走的是同一套换样貌", () => {
   assert.match(game, /if\(x\)x\.avatar\.setLook\(look\);/);
   assert.match(game, /给邻居另写一套，六根滑杆那条链就活在两处了/);
   // 同一份 merge：浅合并会把另外五根滑杆打回中性
-  const fn = game.slice(game.indexOf(" setLook:(who,look)=>"), game.indexOf(" applyAction:"));
+  const fn = game.slice(game.indexOf('const applyLook=(who,look)=>{'), game.indexOf('window.FairyGardenGame={'));
   assert.equal((fn.match(/const merge=/g) || []).length, 1, "merge 只许有一份");
   assert.match(game, /\.\.\.Object\.fromEntries\(restoreNeighbors\(data\.neighbors\)\.map\(n=>\[String\(n\.charId\),\{\.\.\.\(n\.look\|\|\{\}\)\}\]\)\)/);
   assert.match(host, /\.\.\.\(\(\(crew && crew\.rows\) \|\| \[\]\)\.map\(n => \[String\(n\.charId\), n\.name\]\)\)/);

@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {createScoop} from './scooping.mjs?v=fg-3495a25de4ed3f21';
-import {MAPS,lakeFrozen} from './world.mjs?v=fg-3495a25de4ed3f21';
+import {createScoop} from './scooping.mjs?v=fg-69e08f03e3cb8db8';
+import {MAPS,lakeFrozen} from './world.mjs?v=fg-69e08f03e3cb8db8';
 export function makeScoopingView({scene,camera,lake,onClose}){
  const site=MAPS.garden.lake.bottle,root=new T.Group();root.visible=false;scene.add(root);
  const wood=new T.MeshStandardMaterial({color:'#ba9060',roughness:.75}),thread=new T.LineBasicMaterial({color:'#eadcc0',transparent:true,opacity:.7});

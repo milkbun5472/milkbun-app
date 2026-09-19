@@ -957,7 +957,12 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
             }),
             [centerId].concat(links.map(L => L.other)).map(card)),
       // 选中一段：整句写在这儿（标签上截掉的那部分在这里看得全）
-      selLink ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 12,
+      // ⚠️这块面板长在板子【里面】，而板子 onPointerDown 里做了 setPointerCapture：
+      //   手指一按下去，这根指针就被板子捕获走，pointerup 投递给板子而不是这颗按钮，
+      //   浏览器于是根本不产生 click——「编辑」按下去纹丝不动（她 2026-09-19 报，
+      //   截图是 Lisa → 沈屿白 那一段）。旁边的关系牌子早就写了同一句，只有这儿漏了。
+      //   ⚠️鼠标和 .click() 都试不出来：合成事件不走指针捕获那条路，只有真手指才复现。
+      selLink ? h("div", { onPointerDown: ev => ev.stopPropagation(), style: { position: "absolute", left: 12, right: 12, bottom: 12,
         background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
         boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
         h("div", { className: "flex items-center", style: { gap: 8 } },
@@ -1144,7 +1149,11 @@ function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen
               background: sel === pk ? tieKindColor(L.label, t.ink) : "rgba(255,255,255,.72)",
               border: "1px solid " + tieKindColor(L.label, t.ink) } });
         }))) : null,
-    selPair ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 12,
+    // ⚠️跟 TiesBoard 那块面板同一个病（她 2026-09-19 报的是那一处，这儿是同一份代码的
+    //   第三处）：这张网也走 tieBoardPointer，onPointerDown 里 setPointerCapture，
+    //   而这块面板长在网里面——不挡的话指针被网捕获走，面板上这几颗按钮全都按不动。
+    //   牌子那一处早就写了这一句，面板这两处当初都漏了。
+    selPair ? h("div", { onPointerDown: ev => ev.stopPropagation(), style: { position: "absolute", left: 12, right: 12, bottom: 12,
       background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
       boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
@@ -1276,19 +1285,24 @@ function Ties({
   });
   const openEdit = (a, b) => {
     const fwd = edge(a, b), bwd = edge(b, a);
-    const both = !!fwd && !!bwd;
-    const only = fwd ? "fwd" : "bwd";
-    const s = both && ((fwd.note || "") !== (bwd.note || ""));
+    // 两头都有，但【不是每一种都叫双向】：双向那条路写下去的是两头同一个 label
+    // （见 doSave 的 double 分支），所以**两头 label 不一样 = 她分别设的两条单向**
+    // （她 2026-09-19 要的那个：一边兄妹、一边暗恋）。把它当双向打开，一存就并成一条。
+    // 判据照着【写入方】来，不照着这儿以为的样子——stub-from-the-writer 那一条。
+    const isDouble = !!fwd && !!bwd && ((fwd.label || "") === (bwd.label || ""));
+    // 两条单向时，编辑的是她点进来的这一头（a → b）；另一头原地不动。
+    const one = isDouble ? null : (fwd ? "fwd" : "bwd");
+    const e = isDouble ? fwd : (fwd || bwd);
     setComp({
       edit: true, orig: { a, b },
       tab: a === "me" ? "me" : "chars",
       meChar: a === "me" ? b : (characters[0] ? characters[0].id : ""),
       pair: a === "me" ? [characters[0] ? characters[0].id : "", ""] : [a, b],
-      label: (fwd || bwd || {}).label || "",
-      dir: both ? "double" : "single",
-      single: both ? "fwd" : only,
-      split: s,
-      note: (fwd || bwd || {}).note || "",
+      label: (e || {}).label || "",
+      dir: isDouble ? "double" : "single",
+      single: isDouble ? "fwd" : one,
+      split: isDouble && ((fwd.note || "") !== (bwd.note || "")),
+      note: (e || {}).note || "",
       noteFwd: (fwd || {}).note || "",
       noteBwd: (bwd || {}).note || ""
     });
@@ -1296,6 +1310,14 @@ function Ties({
 
   // resolve idA / idB from composer
   const idsOf = c => c.tab === "me" ? { A: "me", B: c.meChar } : { A: c.pair[0], B: c.pair[1] };
+  // 打开编辑的那一刻，这一对人是不是两头都有？（用 orig 那一对问存档，不问 composer 里
+  // 已经被她改过的 dir——她可能正把双向改成单向，那时 c.dir 已经是 single 了。）
+  const origBwdOf = c => {
+    if (!c.edit || !c.orig) return false;
+    const f = edge(c.orig.a, c.orig.b), b = edge(c.orig.b, c.orig.a);
+    // 跟 openEdit 用同一条判据：两头同名才算双向。她另外设的那条单向不能被当成半截双向抹掉。
+    return !!f && !!b && ((f.label || "") === (b.label || ""));
+  };
   const validComp = c => {
     const { A, B } = idsOf(c);
     return A && B && A !== B && c.label.trim();
@@ -1314,17 +1336,32 @@ function Ties({
       onSave(A + "->" + B, lb, c.split ? c.noteFwd : c.note);
       onSave(B + "->" + A, lb, c.split ? c.noteBwd : c.note);
     } else {
+      // 单向只写自己这一头，【不碰反方向】（她 2026-09-19：「搞关系可以设置两条单向」，
+      // 她设了「裴郁 → 宁溪 兄妹」，再想设「宁溪 → 裴郁 暗恋」，前一条被抹掉了）。
+      // 原来这儿会把反方向清空，于是一对人永远只剩一条单向。存档 x_rels 本来就是按
+      // "a->b" 分开存的，两条单向天然放得下——拦着的一直是这一行。
+      // ⚠️从双向改成单向时，反方向那条要清掉：它是这次双向自己写下的另一半，
+      //   留着就会变成一条她没设过的关系。判据是【原来是不是双向】，不是「反方向有没有东西」——
+      //   后者会把她另外设的那条单向也当成半截双向抹掉。
       const fwd = c.single === "fwd";
+      const wasDouble = c.edit && c.orig && !!origBwdOf(c);
       onSave((fwd ? A : B) + "->" + (fwd ? B : A), lb, c.note);
-      onSave((fwd ? B : A) + "->" + (fwd ? A : B), "", ""); // clear opposite
+      if (wasDouble) onSave((fwd ? B : A) + "->" + (fwd ? A : B), "", "");
     }
     setComp(null);
   };
   const doDelete = () => {
     const c = comp;
     if (c.edit && c.orig) {
-      onSave(c.orig.a + "->" + c.orig.b, "", "");
-      onSave(c.orig.b + "->" + c.orig.a, "", "");
+      // 双向是一段关系的两半，删就两半一起删；**两条单向是两段关系**，
+      // 删她正在编辑的这一条，另一条原地不动（判据跟 openEdit / doSave 同一份）。
+      if (origBwdOf(c)) {
+        onSave(c.orig.a + "->" + c.orig.b, "", "");
+        onSave(c.orig.b + "->" + c.orig.a, "", "");
+      } else {
+        const fwd = c.single !== "bwd";
+        onSave((fwd ? c.orig.a : c.orig.b) + "->" + (fwd ? c.orig.b : c.orig.a), "", "");
+      }
     }
     setComp(null);
   };

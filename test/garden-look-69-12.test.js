@@ -23,7 +23,7 @@ test('发型名单只有一个源头：美术目录导出来的那一份', () =>
 });
 
 test('谁的样貌存在谁名下，而且真的落盘', () => {
-  const fn = game.slice(game.indexOf(' setLook:(who,look)=>{'), game.indexOf(' applyAction:'));
+  const fn = game.slice(game.indexOf('const applyLook=(who,look)=>{'), game.indexOf('window.FairyGardenGame={'));
   assert.match(fn, /who==='companion'\?companionAvatar:playerAvatar/);
   assert.match(fn, /data=\{\.\.\.data,companion:\{\.\.\.data\.companion,look:/);
   assert.match(fn, /else data=\{\.\.\.data,look:/);
@@ -41,11 +41,15 @@ test('藏起来的十一款头发也各自一份材质', () => {
   assert.match(ctor, /if\(!mine\.has\(o\.material\)\)mine\.set/);
 });
 
+// v71.52 起这件事搬进了游戏里的 ensureLook：宿主只回答「这一位是他还是她」，
+// 「还没设过才补」和「配哪一身」都在那一处（施工规则/one-public-mechanism.md）。
 test('第一次进来按角色卡给一身默认，之后听她挑的', () => {
-  const seed = host.slice(host.indexOf('ready: () => {'), host.indexOf('const char = (props.characters'));
-  assert.match(seed, /if \(!now\.companion \|\| !now\.companion\.hair\)/, '每次进门都覆盖＝她挑的白挑');
+  const seed = host.slice(host.indexOf('const taOf = c =>'), host.indexOf('const pushLook'));
+  assert.ok(seed.length > 200, '抠不出 ensureLooks');
   assert.match(seed, /CharacterPronoun\.ta\(c\)/, '性别要读那张唯一的判断表');
-  assert.match(seed, /cloth: c\.color \|\| '#729786'/);
+  assert.match(seed, /cloth: c\.color \|\| '#729786'/, '衣色不再取角色卡上那个色了');
+  const game2 = require('node:fs').readFileSync('apps/fairy-garden/game.mjs', 'utf8');
+  assert.match(game2, /if\(cur&&cur\.hair\)return false;/, '每次进门都覆盖＝她挑的白挑');
 });
 
 test('样貌是一整页盖住游戏，不是把 iframe 换掉', () => {

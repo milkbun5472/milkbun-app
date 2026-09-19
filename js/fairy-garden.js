@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-3495a25de4ed3f21", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-69e08f03e3cb8db8", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -828,23 +828,7 @@
         ready: () => {
           if (!alive.current) return;
           setLoaded(true);
-          // 第一次进来给同行者一身默认：衣色取角色卡上那个色，发型按卡上写的性别。
-          // ⚠️只在【这个存档还没设过】时给，之后一律听她挑的那一份。
-          try {
-            const g = frame.current && frame.current.contentWindow.FairyGardenGame;
-            const c = partner();
-            if (g && g.getLook && c) {
-              const now = g.getLook();
-              if (!now.companion || !now.companion.hair) {
-                const ta = (typeof CharacterPronoun !== "undefined") ? CharacterPronoun.ta(c) : "TA";
-                g.setLook('companion', {
-                  hair: ta === "她" ? 'wavy' : ta === "他" ? 'korean' : 'hush',
-                  cloth: c.color || '#729786'
-                });
-              }
-            }
-            pullLook();
-          } catch (e) {/* 样貌是锦上添花，出错不许拦住进门 */}
+          ensureLooks();
         }
       });
     };
@@ -892,6 +876,20 @@
     }, [pick, book, dress]);
     // 报给游戏：它那头的天气和地图控件照这个数往下让
     useEffect(() => { const g = game(); if (loaded && g && g.setHeadClear) g.setHeadClear(headH); }, [headH, loaded]);
+    // 底下那条同理：聊天面板盖住多少就报多少，游戏那头照它算「他还看得见吗」
+    // （她 2026-09-19：「现在气泡只显示最后一句话了」——他被判成出画面，气泡整串不冒）。
+    const chatRef = useRef(null);
+    const [chatH, setChatH] = useState(0);
+    useEffect(() => {
+      const el = chatRef.current;
+      if (!el) { setChatH(0); return; }
+      const set = () => setChatH(Math.round(el.getBoundingClientRect().height));
+      set();
+      if (!window.ResizeObserver) return;
+      const ro = new ResizeObserver(set); ro.observe(el);
+      return () => ro.disconnect();
+    }, [chat, dress, book]);
+    useEffect(() => { const g = game(); if (loaded && g && g.setChatClear) g.setChatClear(chatH); }, [chatH, loaded]);
 
     const [shardBox, setShardBox] = useState(null);
     const [bond, setBond] = useState(null);           // 相处册＋礼物簿（game.getBond）
@@ -924,9 +922,32 @@
       return () => { on = false; };
     }, []);
     const pullLook = () => { const g = game(); if (g && g.getLook) setLook(g.getLook()); };
+    // 这一侧还没设过样貌，就按性别补一份（她 2026-09-19：「为啥男的进去是默认女体我是男体」）。
+    // ⚠️原来这件事只在进门那一瞬间试一次，而且只管同行者：那会儿角色还没就位就永远错过，
+    //   他一直留着那头长卷发；她自己则连试都没试过，永远是写死的那身短发。
+    // ⚠️她 2026-09-19：「不要设置性别！！！男的不许玩！！！」——这个 app 是给她用的，
+    //   她自己那一侧【永远是女生】，写死在这儿，不做成设置项、也不去读任何人设字段。
+    //   （我上一版自作主张往「我的面具」里加了一项，是加多了，已经撤掉。）
+    // 配哪一身（头发＋六根形体参数）由游戏里那一份 GENDER_LOOKS 说了算，
+    // 宿主只负责回答「这一位是他还是她」。
+    const taOf = c => (typeof CharacterPronoun !== "undefined") ? CharacterPronoun.ta(c) : "TA";
+    const ensureLooks = () => {
+      try {
+        const g = game();
+        if (!g || !g.ensureLook) return;
+        const c = partner();
+        // 衣色仍旧取角色卡上那个色：性别那份只管头发和身形。
+        if (c) g.ensureLook('companion', taOf(c), { cloth: c.color || '#729786' });
+        g.ensureLook('me', "她");
+        pullLook();
+      } catch (e) {/* 样貌是锦上添花，出错不许拦住进门 */}
+    };
     // 她 2026-09-17：「为啥感觉体型拉杆没用」——拉杆一直是有用的，是这一页【整页盖住了游戏】，
     // 她拖的时候一个像素都看不见。这一页顶上留一条透明的窗（PREVIEW_BAND=30%），
     // 底下那一格就是游戏自己往窗里渲的那个小人。开这一页就告诉它渲谁，关了就收。
+    // 角色或用户人设【后来才就位】时再补一次：进门那一瞬间拿不到人，不该就这么算了。
+    useEffect(() => { if (loaded) ensureLooks(); },
+      [loaded, entry.partnerId]);
     useEffect(() => {
       const g = game(); if (!g || !g.preview) return;
       g.preview(dress ? who : null);
@@ -1440,7 +1461,7 @@
               })) : null,
             h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
               onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS })))),
-        chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
+        chat && !dress && !book && h("section", { ref: chatRef, "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
           // ⚠️那个小箭头就是【要不要看记录】：平时只留一条输入，点开才长高
