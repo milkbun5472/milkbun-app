@@ -15,10 +15,10 @@ test("缓存钥匙只留一份，别在外面另算一遍", () => {
   // ⚠️原来整段推导埋在 ttsSpeak 里。在外面另写一份必然漂走，
   //   到时候标着「听过」的一点又去合成一次、真花了钱，比不标还坏。
   assert.match(eng, /function ttsKeyFor\(text, voiceId, opts\)/);
-  assert.match(eng, /const _k = ttsKeyFor\(text, voiceId, opts\);/, "ttsSpeak 自己也得用这一份");
-  const speak = eng.slice(eng.indexOf("async function ttsSpeak("), eng.indexOf("async function ttsSpeak(") + 2500);
-  assert.ok(!/const key = ttsCacheKey\(/.test(speak), "ttsSpeak 里不该再有第二份推导");
-  const cached = eng.slice(eng.indexOf("async function ttsCached("), eng.indexOf("async function ttsSpeak("));
+  assert.match(eng, /const _k = ttsKeyFor\(text, voiceId, opts\);/, "真去合成那一段自己也得用这一份");
+  const speak = eng.slice(eng.indexOf("async function ttsSynth("), eng.indexOf("async function ttsSynth(") + 2500);
+  assert.ok(!/const key = ttsCacheKey\(/.test(speak), "合成那段里不该再有第二份推导");
+  const cached = eng.slice(eng.indexOf("async function ttsCached("), eng.indexOf("async function ttsSynth("));
   assert.match(cached, /ttsKeyFor\(text, voiceId, opts\)/);
   assert.match(cached, /idbAudGet\(d\.key\)/, "只读缓存");
   assert.ok(!/fetch\(/.test(cached), "查一下缓存不许打上游——那就花钱了");

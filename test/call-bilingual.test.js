@@ -34,7 +34,7 @@ test('流式、尾部对账和群通话均走同一拆分出口，字幕随真�
   const writer = app.match(/const log = \(cur.msgs \|\| \[\]\).map\(m => \((.*?)\)\);/)[1];
   const saved = new Function('m', 'return (' + writer + ')')({role:'char',content:'Hello',zh:'你好',ts:1});
   assert.equal(saved.content, 'Hello'); assert.equal(saved.zh, '你好');
-  assert.match(app, /ttsSpeak\(ln.speech, char.voiceId\)/);
+  assert.match(app, /ttsWarm\(ln.speech, char.voiceId\)/);
 });
 test('通话现场与两处回看复用译键，深色通话传自己的前景色', () => {
   assert.match(comp, /h\(TransText, \{ text: m.content, isU, zhReady: m.zh, ink: callBubble\(isU\).color \}\)/);

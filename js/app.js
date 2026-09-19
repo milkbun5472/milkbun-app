@@ -14897,9 +14897,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             if (ln.act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: ln.act });
             else {
               pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: ln.speech, zh: ln.zh });
-              // v56.70 首句提速：气泡落地瞬间就预热 TTS 合成（ttsSpeak 自带缓存），
+              // v56.70 首句提速：气泡落地瞬间就预热 TTS 合成（ttsWarm 自带缓存与合流），
               // 播放循环轮到它时直接缓存命中——首句等待从「合成+播放」缩到只剩「播放」
-              try { if (char.voiceId && typeof ttsSpeak === "function") ttsSpeak(ln.speech, char.voiceId).catch(() => {}); } catch (e) {}
+              try { if (char.voiceId && typeof ttsWarm === "function") ttsWarm(ln.speech, char.voiceId); } catch (e) {}
             }
             streamedLines++;
           }

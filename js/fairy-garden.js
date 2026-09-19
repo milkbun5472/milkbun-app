@@ -657,6 +657,15 @@
             return true;
           } catch (e) { return false; }
         },
+        // 上一条还在念的时候，把下一条先合成掉（她 2026-09-19：「气泡之间还是有点延迟，
+        // 能不能跟语音通话一样流畅」）。走的是通话那条同一个 ttsWarm——
+        // 它按缓存钥匙合流，等这条真轮到要播时拿到的是同一枪，不会再花一次钱。
+        warmAloud: text => {
+          const line = String(text || "").trim(), c = partner();
+          if (!line || !c || !c.voiceId || typeof ttsWarm !== "function") return false;
+          try { ttsWarm(line, c.voiceId); } catch (e) {}
+          return true;
+        },
         stopAloud: () => { stopAloud(); return true; },
         changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
@@ -1038,6 +1047,12 @@
         if (!alive.current || serial.current !== epoch) return;
         const latest = current();
         if (String(latest.partnerId) !== String(cid) || !partner() || String(account && account.id || "") !== String(accountNow && accountNow.id || "") || !(latest.dialogs[cid] || []).some(m => m.request === request && m.status === "pending")) throw new Error("角色或存档已变更，这次回复没有写入。");
+        // 第一只气泡的那段静默（她 2026-09-19：「第一个气泡也是」）：
+        // 下面还要写房间、写存档、过一遍 React，之后才轮到 speak() 去念。
+        // 那几步跟合成没有先后关系，所以在这儿就先把头一句发出去合成——
+        // 等真要念的时候，ttsWarm 那把钥匙已经在飞或已经落进缓存了。
+        // ⚠️放在校验【之后】：校验没过的那一轮压根不该花这笔钱。
+        try { const first = (result.parts || [])[0]; const g0 = game(); if (first && g0 && g0.warmVoice) g0.warmVoice(first); } catch (e) {}
         if (record) {
           // 先把这一轮交给房间（它才是记录），再把存档里那条在途的撤掉——
           // 顺序反过来的话，中间那一瞬这句话谁都没有。

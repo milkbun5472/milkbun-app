@@ -1367,7 +1367,7 @@ function refreshTime(){
 // ⚠️气泡只是【把手机那侧刚收到的那句话】显示一遍：这儿不生成任何文字，也不存它。
 //   停留时长按字数走——两个字和两百个字读完要的时间不一样。
 let bubbleText='',bubbleUntil=0,bubbleQueue=[],bubbleTimer=0;
-const BUBBLE_MIN=3200,BUBBLE_PER_CHAR=95,BUBBLE_MAX=15000,BUBBLE_GAP=520;
+const BUBBLE_MIN=3200,BUBBLE_PER_CHAR=95,BUBBLE_MAX=15000,BUBBLE_GAP=520,VOICE_GAP=140;
 function bubbleHold(line){return Math.min(BUBBLE_MAX,BUBBLE_MIN+line.length*BUBBLE_PER_CHAR);}
 // 谁在说这一串：'companion' 是他，'me' 是她自己（她 2026-09-17：「我自己说话也要气泡」）。
 // ⚠️两只气泡走同一段队列、同一套停顿：各写一套的话，分段那条规矩迟早只剩一边还对。
@@ -1401,6 +1401,12 @@ function bedtimeCheck(){
 // ⚠️走的是聊天里那条同一个 ttsSpeak（宿主那侧，自带缓存）：另写一套合成就是又开一处要付钱的地方。
 // 只念他那只气泡——她自己说的话是她刚打出来的，没必要再念一遍给她听。
 // 念不了（没配语音 API、他没有音色、合成失败）就原样退回定时那一套，不卡住。
+// 队里下一条先合成掉；她自己说的那几只不念，也就不用预热。
+function warmNext(){
+ if(!voiceOn||!host||!host.warmAloud||bubbleWho==='me')return;
+ const next=bubbleQueue[0];
+ if(next)try{host.warmAloud(next);}catch(e){}
+}
 function nextBubble(){
  const line=bubbleQueue.shift();
  if(!line){bubbleText='';bubbleUntil=0;$('companion-bubble').textContent='';$('player-bubble').textContent='';return;}
@@ -1408,11 +1414,16 @@ function nextBubble(){
  bubbleEl().textContent=line;
  const mine=++bubbleTurn;
  if(voiceOn&&host&&host.readAloud&&bubbleWho!=='me'){
+  // 这一条开口的同时就把下一条合成掉（她 2026-09-19：「气泡之间还是有点延迟，
+  // 能不能跟语音通话一样流畅」）。原来是彻底串行的：念完才去合成下一条，
+  // 于是每两条之间必定空掉一次网络往返。合成完全可以躲在上一条的播放里跑。
+  warmNext();
   // 念着的时候先别让气泡自己收起来：长句子念得比 bubbleHold 久，收早了就成了念空气。
   bubbleUntil=Date.now()+BUBBLE_MAX*4;
   const fallback=()=>{if(mine===bubbleTurn){bubbleUntil=Date.now()+bubbleHold(line);bubbleTimer=setTimeout(nextBubble,bubbleHold(line)+BUBBLE_GAP);}};
   host.readAloud(line).then(ok=>{if(mine!==bubbleTurn)return;if(!ok){fallback();return;}
-   bubbleUntil=Date.now()+220;bubbleTimer=setTimeout(nextBubble,BUBBLE_GAP);}).catch(fallback);
+   // 念完到下一条只留一口气：那 520ms 是给【读字】留的，念出来的时候它就是一段死空档。
+   bubbleUntil=Date.now()+VOICE_GAP;bubbleTimer=setTimeout(nextBubble,VOICE_GAP);}).catch(fallback);
   return;}
  bubbleTimer=setTimeout(nextBubble,bubbleHold(line)+BUBBLE_GAP);
 }
@@ -1631,6 +1642,9 @@ const applyLook=(who,look)=>{if(!ready||!look)return false;
 
 window.FairyGardenGame={
  flush:()=>ready&&save(),
+ // 还没轮到 speak() 就先把头一句合成掉（宿主那边一拿到回复就喊这一声）。
+ // ⚠️开关关着的时候一枪都不许发：语音按次收费。
+ warmVoice:line=>{if(!voiceOn||!host||!host.warmAloud)return false;try{host.warmAloud(line);}catch(e){}return true;},
  refreshSeasonPlan:()=>{refreshSeasonPlan();companionController.reset();},
  // 相处册与礼物簿：他答应「去哪儿」的名单也从这儿出（处熟了名单才长）
  snapshot:()=>({bond:(b=>({label:b.label,together:b.kinds.filter(k=>k.count).map(k=>k.label),notYet:b.kinds.filter(k=>!k.count).map(k=>k.label)}))(bondBook(data)),invite:data.invite?{place:COMPANION_DESTINATIONS[data.invite.place]?.label,note:data.invite.note,met:inviteMet(data)}:null,starChart:{pieces:starChartPieces(data),need:STAR_CHART_NEED,nights:data.starNights||0},festival:(f=>({tonight:f.tonight,open:f.open,done:f.done,ready:f.ready,missing:f.needs.filter(n=>!n.have).map(n=>n.label),next:f.next,held:f.held}))(festivalBook(data)),deeds:data.deeds||0,marketDay:marketDay(data.day),nextMarket:nextMarketDay(data.day),food:(f=>({pantry:f.pantry.map(p=>p.label),tasted:f.tasted,total:f.total,tonight:f.tonight,open:f.open,nextFair:f.next,buffs:f.buffs}))(foodBook(data)),birthday:data.birthday?{today:isBirthday(data),gameDay:data.birthday}:null,guide:guideStep(data)?guideStep(data).label:null,gifts:(g=>({today:g.today,perDay:g.perDay,known:g.families.filter(f=>f.stance).map(f=>({family:f.label,stance:g.stances[f.stance]})),recent:g.rows.slice(0,5).map(r=>({day:r.day,name:r.name}))}))(giftBook(data)),dreams:growingDreams(data).map(x=>({day:x.day,stage:dreamStage(data,x),from:x.origin.text})),well:wellContext(data),workshop:Object.keys(data.workshop?.jobs||{}).map(key=>({name:MILL_RECIPES[key].name,remaining:millRemaining(data,key)})),seat:data.seat,epoch:data.epoch,season:seasonOf(data.day),lately:recentHappenings(data,6),magic:{...data.magic},journal:(data.journal||[]).slice(-14),day:data.day,time:timeLabel(data.minute),weather:weather(data.day,data.epoch),map:MAPS[data.map].name,position:{...data.position},companion:{name:data.companion.name,map:MAPS[data.companion.map].name,position:{...data.companion.position},activity:companionController.view().status},inventory:{water:data.water,herbs:data.herbs,mushrooms:data.mushrooms,potions:data.potions,flowers:data.blooms,harvest:data.harvest}}),
