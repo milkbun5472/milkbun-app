@@ -1149,7 +1149,11 @@ function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen
               background: sel === pk ? tieKindColor(L.label, t.ink) : "rgba(255,255,255,.72)",
               border: "1px solid " + tieKindColor(L.label, t.ink) } });
         }))) : null,
-    selPair ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 12,
+    // ⚠️跟 TiesBoard 那块面板同一个病（她 2026-09-19 报的是那一处，这儿是同一份代码的
+    //   第三处）：这张网也走 tieBoardPointer，onPointerDown 里 setPointerCapture，
+    //   而这块面板长在网里面——不挡的话指针被网捕获走，面板上这几颗按钮全都按不动。
+    //   牌子那一处早就写了这一句，面板这两处当初都漏了。
+    selPair ? h("div", { onPointerDown: ev => ev.stopPropagation(), style: { position: "absolute", left: 12, right: 12, bottom: 12,
       background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
       boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
       h("div", { className: "flex items-center", style: { gap: 8 } },

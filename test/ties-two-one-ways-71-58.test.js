@@ -88,6 +88,14 @@ test("删除：双向删两半，两条单向只删正在编辑的那一条", ()
   assert.match(ties, /if \(origBwdOf\(c\)\) \{/, "删除要跟 openEdit/doSave 用同一份判据");
 });
 
+test("整张网那一页的面板也要挡——同一份代码的第三处", () => {
+  const ni = scr.indexOf("function TiesNet("), nj = scr.indexOf("function TiesWalk(", ni);
+  assert.ok(ni > 0 && nj > ni, "抠不出 TiesNet");
+  const net = scr.slice(ni, nj);
+  assert.match(net, /selPair \? h\("div", \{ onPointerDown: ev => ev\.stopPropagation\(\)/,
+    "TiesNet 也走 tieBoardPointer，不挡的话面板上几颗按钮全按不动");
+});
+
 test("关系面板挡住板子的指针捕获，否则「编辑」按不动", () => {
   // 板子 onPointerDown 里 setPointerCapture，面板长在板子里面：
   // 不挡的话 pointerup 投给板子、按钮拿不到 click（她 2026-09-19 报）
