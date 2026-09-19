@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-54be1261042bf388", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-3495a25de4ed3f21", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -1524,6 +1524,47 @@
       fresh: !d.world
     };
   }
+  // ── 小世界入口那条路（她 2026-09-19：「第一个世界是一个 svg 填色房子在左边，
+  //    然后后续第二个（可以先做一个圆圈占位）再做两个点之间有小脚印的线状连起来，
+  //    以后第三个又在左边」）──────────────────────────────────────────────
+  // 一条从上往下、左右交替的小路：每个世界是路上的一站，站与站之间是一串脚印。
+  // 站在哪一侧只看它排第几（单数在左、双数在右），所以以后加世界不用再动排版。
+  const NODE = 112;
+  const worldHouse = () => h("svg", { width: NODE, height: NODE, viewBox: "0 0 104 104", "aria-hidden": "true" },
+    h("ellipse", { cx: 52, cy: 89, rx: 38, ry: 8.5, fill: "#cfdcba" }),
+    h("rect", { x: 67, y: 25, width: 9, height: 20, rx: 2, fill: "#b58f76" }),
+    h("path", { d: "M52 20 L88 51 L16 51 Z", fill: "#94ae82" }),
+    h("path", { d: "M52 27 L79 51 L25 51 Z", fill: "#a6bd92" }),
+    h("rect", { x: 25, y: 50, width: 54, height: 35, rx: 3.5, fill: "#fbf8e9", stroke: "#c9d5b3", strokeWidth: 1.6 }),
+    h("rect", { x: 45, y: 62, width: 15, height: 23, rx: 7.2, fill: "#c9906b" }),
+    h("circle", { cx: 56.4, cy: 74, r: 1.5, fill: "#f7e8cb" }),
+    [30, 65].map(x => h("g", { key: x },
+      h("rect", { x: x, y: 58, width: 11, height: 11, rx: 2.4, fill: "#f4dca7", stroke: "#cbb88c", strokeWidth: 1.2 }),
+      h("path", { d: "M" + (x + 5.5) + " 58 v11 M" + x + " 63.5 h11", stroke: "#cbb88c", strokeWidth: 1 }))),
+    [22, 84].map(x => h("circle", { key: x, cx: x, cy: 84, r: 3.2, fill: "#e6b9c6" })));
+  // 占位那一站【没有名字也没有介绍】：她 2026-09-18 把三个占位世界删掉，
+  // 就是因为「许的是三件谁都没在做的事」。一个空圈只说「路还没走完」，不许一张空头支票。
+  const worldSoon = () => h("svg", { width: NODE, height: NODE, viewBox: "0 0 104 104", "aria-hidden": "true" },
+    h("circle", { cx: 52, cy: 54, r: 29, fill: "rgba(255,255,255,.34)", stroke: "#c3d1af", strokeWidth: 2, strokeDasharray: "5 7", strokeLinecap: "round" }));
+  // 两站之间的一串脚印。每一枚是一张独立的小图，不跟着容器拉伸——
+  // 整条路画成一张按宽度缩放的 svg 的话，脚印会被压扁。
+  const footTrail = (toRight, key) => {
+    const n = 5;
+    return h("div", { key: key, "aria-hidden": "true", style: { position: "relative", height: 62, margin: "2px 0" } },
+      Array.from({ length: n }, (_, i) => {
+        const t = i / (n - 1);
+        const x = (toRight ? 24 + t * 52 : 76 - t * 52) + (i % 2 ? (toRight ? 3.5 : -3.5) : 0);
+        const turn = (toRight ? 132 : -132) + (i % 2 ? 9 : -9);
+        return h("svg", { key: i, width: 15, height: 19, viewBox: "0 0 16 20",
+          style: { position: "absolute", left: "calc(" + x + "% - 7.5px)", top: (5 + t * 68) + "%",
+            transform: "rotate(" + turn + "deg)", opacity: .34 + i * .045 } },
+          h("ellipse", { cx: 8, cy: 12.6, rx: 4.3, ry: 6, fill: "#9fb28a" }),
+          h("circle", { cx: 4.3, cy: 4.9, r: 1.5, fill: "#9fb28a" }),
+          h("circle", { cx: 8, cy: 3.5, r: 1.6, fill: "#9fb28a" }),
+          h("circle", { cx: 11.7, cy: 5.1, r: 1.5, fill: "#9fb28a" }));
+      }));
+  };
+
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
@@ -1556,15 +1597,35 @@
     const stall = vaultStalled(INDEX_KEY);
     if (stall) return shell("等一下再进来", props.onBack,
       h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
-    if (!world) return shell("挑一个世界", props.onBack, h(React.Fragment, null,
-      h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 18px" } },
-        "每个世界有自己的时间、地图和存档，进去挑一位角色一起过。"),
-      h("div", { style: { display: "grid", gap: 11 } }, WORLDS.map(w => card(() => setWorld(w),
-        h(React.Fragment, null,
-          h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: G.ink } }, w.name),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } }, w.note)))))));
+    if (!world) {
+      // 路上的站：先是已经能进的那几个世界，末尾留一个空圈——路还没走完。
+      const stops = WORLDS.concat([null]);
+      const stop = (w, i) => {
+        const left = i % 2 === 0;
+        const label = h("div", { style: { flex: 1, minWidth: 0, textAlign: left ? "left" : "right" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: w ? 16.5 : 13.5, color: w ? G.ink : G.soft } },
+            w ? w.name : "还没有下一个"),
+          w ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.65 } }, w.note) : null,
+          w ? h("span", { style: { display: "inline-block", marginTop: 10, padding: "3.5px 10px", borderRadius: 999,
+            border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
+            fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
+        const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? worldHouse() : worldSoon()), label);
+        return w
+          ? h("button", { key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
+              style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
+          : h("div", { key: "soon", style: { padding: "4px 2px" } }, inner);
+      };
+      const path = [];
+      stops.forEach((w, i) => {
+        if (i) path.push(footTrail(i % 2 === 1, "trail" + i));
+        path.push(stop(w, i));
+      });
+      return shell("挑一个世界", props.onBack, h(React.Fragment, null,
+        h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
+          "每个世界有自己的时间、地图和存档，进去挑一位角色一起过。"),
+        h("div", null, path)));
+    }
 
     const rows = saves.filter(x => x.world === world.id);
     // ⚠️不再有「开一段不挑人的」：新的一段一律要挑一位（她 2026-09-18 定的）。
@@ -1575,8 +1636,17 @@
     //   没有聊天、没有记忆进出、没有一处能设权限。挑了手机里的一位，就该是一间房
     //   （一间房＝一个庭院存档，这条线从头就是这么定的），而且先让她把设定定好。
     const pickForNew = id => { setPicking(false); if (id) props.onNewGardenRoom(id); };
+    // ⚠️她 2026-09-19：「好像超过三个第四个存档删不掉」。不是「超过三个」——
+    //   原来这里靠 `row.key` 认「聊天里那间房的存档」，而 `key` 只有【扫回来的】
+    //   那几档才带：同样是庭院房，登记在名册里的那张有「删掉」，扫回来的那张没有。
+    //   同一条规矩在同一页上两种结果，看着就像随机坏掉。
+    //   现在一律给删。删掉的只是这一段日子，聊天里那间房本身还在，再进去是新的第一天。
+    const roomSave = row => saveKeyOf(row).indexOf("::room::") > -1;
     const drop = row => requestAppConfirm("删掉这一档？",
-      "这一档里的日子、背包和聊过的话会一起删掉，找不回来。",
+      (roomSave(row)
+        ? "这是聊天里那间庭院房的存档。房间还在，但里面的日子、背包和聊过的话会从头开始。"
+        : "这一档里的日子、背包和聊过的话会一起删掉。")
+      + "找不回来——要留底，先去 设置 → 数据 → 导出全部数据，存成 json 放好再删。",
       () => {
         const next = readSaves().filter(x => x.id !== row.id);
         saveJSON(INDEX_KEY, next);
@@ -1601,8 +1671,7 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
-            // 聊天里那间房的存档不给在这儿删：删了那间房就指着一个空壳
-            (row.key && row.key.indexOf("::room::") > -1) ? null : h("button", { onClick: () => drop(row), className: "active:opacity-60",
+            h("button", { onClick: () => drop(row), className: "active:opacity-60",
               style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
         }),
         h("button", { onClick: () => setPicking(true), className: "w-full active:opacity-70",
