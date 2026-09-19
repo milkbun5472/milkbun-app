@@ -26,8 +26,30 @@ test("摇轴，不直接要题；每根轴留一格自由", () => {
   assert.ok(why.includes("你自己想一个"), "为什么问那根轴没留自由格——代码不是关门，是关一部分门");
   assert.ok(ang.includes("你自己挑一块"), "问哪儿那根轴没留自由格");
   assert.ok((why.match(/\n\s*"/g) || []).length >= 5 && (ang.match(/\n\s*"/g) || []).length >= 5, "轴上的格子太少，组合空间还不如一张表");
-  // 两根轴一起进提示词，而且明说是底子不是可选项
+});
+
+// ⚠️她 2026-09-19：「还有你这轴也太 serious 了吧！有时候心情好也是会问莫名其妙的
+//   问题的（人设允许范围内）」——原来那六格全是心事：没底、不痛快、试探、今天不好过。
+//   人好好的时候也会开口，而且那时候问出来的东西才是最没防备的。
+test("轴上得有人好好的时候那几格", () => {
+  const why = app.slice(app.indexOf("const ANON_ME_WHY = ["), app.indexOf("];", app.indexOf("const ANON_ME_WHY = [")));
+  const ang = app.slice(app.indexOf("const ANON_ME_ANGLE = ["), app.indexOf("];", app.indexOf("const ANON_ME_ANGLE = [")));
+  ["心情不错", "手欠", "好奇"].forEach(k => assert.ok(why.includes(k), "为什么问那根轴上没有轻的那一头：" + k));
+  ["跟你俩都没关系的破事", "二选一"].forEach(k => assert.ok(ang.includes(k), "问哪儿那根轴全冲着你俩去：" + k));
+  // 轻的格子得占得住一半左右，不然抽到的还是心事
+  const light = (why.match(/心情不错|闲着|破事|好奇|手欠/g) || []).length;
+  assert.ok(light >= 4, "轻的那一头只有 " + light + " 格，抽十次还是九次心事");
+});
+
+// ⚠️「人设允许范围内」是她那句话的后半截，而且是要紧的那半：
+//   轴给的是【此刻的心境】，不是让他换一个人。不写的话，抽到「手欠」那一格，
+//   一个话少的人会突然变得话痨。
+test("轴是心境不是换人，而且明说问句不必句句有深意", () => {
   const seg = ask();
+  assert.ok(seg.includes("不是让你换一个人"), "没说清轴只改心境——抽到轻的那格他会变个人");
+  assert.ok(seg.includes("话少的人心情好也不会突然话痨"), "没给出反面，它会往「开朗」上演");
+  assert.ok(seg.includes("问句不必句句有深意"), "没许他问蠢问题，他还是会每句都端着");
+  // 两根轴一起进提示词，而且明说是底子不是可选项
   assert.ok(seg.includes("【这一回你为什么想问】") && seg.includes("【这一问冲着哪儿去】"), "轴没发下去");
   assert.ok(seg.includes("不是两个可选项"), "没说清这是底子——说成选项它会挑一个忽略另一个");
 });
