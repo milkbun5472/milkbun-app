@@ -30,13 +30,21 @@ test("楼跟着帖一起删，不留孤儿评论", () => {
 
 // ⚠️v71.76：长按是隐形的（她「宝宝没看到删帖啊」「这里也没有删除」），而且在一条条
 //   滑过去的列表里，长按十次有八次被当成滚动。改成那一排图标末尾一颗看得见的 ✕。
-test("删帖那颗要看得见，而且列表和详情页共用一处", () => {
-  const i = screens.indexOf("  function actBar(p) {"), j = screens.indexOf("  // ---- 帖子行（推特式）----", i);
+// ⚠️v71.79：我先把这颗 ✕ 塞进了 actBar 末尾，当场又把那一排顶出屏幕
+//   （她「这个叉在屏幕外」）。那一排本来就挤——上面那条注释写着她 2026-09-01
+//   报过同一件事（赞和阅读一上万就顶出去）。space-between 只管间距，管不了总宽度。
+//   删除不该跟那几个数字抢宽度，挪到卡片右上角就永远不用抢。
+test("删帖那颗在卡片右上角，不进那一排数字", () => {
+  const i = screens.indexOf("  function actBar(p) {"), j = screens.indexOf("  function delBtn(p) {", i);
   assert.ok(i > 0 && j > i, "抠不出 actBar");
-  const seg = screens.slice(i, j);
-  assert.ok(/onDeletePost \? h\("button", \{ onClick: e => \{ e\.stopPropagation\(\); askDelPost\(p\); \}/.test(seg),
-    "那一排末尾没有删除那一颗");
-  assert.ok(seg.includes('title: "删掉这一帖"'), "没有提示文案");
+  assert.ok(!/askDelPost/.test(screens.slice(i, j)), "又把删除塞回那一排了——它会再顶出去一次");
+  // 一处画、两处用：列表卡片和详情页头部
+  assert.ok(screens.includes("  function delBtn(p) {"), "没抽成一处");
+  assert.equal((screens.match(/delBtn\(p\)/g) || []).length, 3, "该是一处定义、两处调用（列表 + 详情页）");
+  assert.ok(screens.includes('title: "删掉这一帖"'), "没有提示文案");
+  // ⚠️它跟「+N 新回复」并排，所以那一格得是 flexShrink:0，不然长标题会把它挤走
+  assert.ok(/h\("div", \{ className: "flex items-center", style: \{ flexShrink: 0 \} \},\n\s*unread > 0/.test(screens),
+    "右上角那一格没写 flexShrink:0——长标题会把它挤出去");
 });
 
 // ⚠️她 2026-09-19 两次定：先说「长按删除也要二次确认」，隔一句又

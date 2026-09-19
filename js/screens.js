@@ -2379,15 +2379,18 @@ function Forum({
       h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((lc.likeCount || 0) + (isL ? 1 : 0)))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.viewCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
-      h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })),
-      // 删掉这一帖（她 2026-09-19：「宝宝没看到删帖啊」「这里也没有删除」）。
-      // ⚠️v71.64 我只做了【长按】——长按是隐形的：她根本不知道能按，
-      //   而且在一条条滑过去的列表里，长按十次有八次被当成滚动。
-      //   所以改成那一排图标末尾一颗看得见的×。
-      // ⚠️放在 actBar 里＝列表和详情页一处就够（两边共用这一排）。
-      onDeletePost ? h("button", { onClick: e => { e.stopPropagation(); askDelPost(p); },
-        title: "删掉这一帖", className: "flex items-center active:opacity-60",
-        style: { ...bs, fontSize: 15, lineHeight: 1, color: FORUM_SKIN.fog } }, "✕") : null);
+      h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
+  }
+  // 删掉这一帖：摆在卡片【右上角】，不进那一排数字。
+  // ⚠️v71.76 我把它塞进了 actBar 末尾，当场又把那一排顶出屏幕（她 2026-09-19：
+  //   「这个叉在屏幕外」）——那一排本来就挤，上面那条注释写着她 2026-09-01 报过
+  //   同一件事（赞和阅读一上万就顶出去）。space-between 只管间距，管不了总宽度，
+  //   我又给它加了第七个。删除不该跟那几个数字抢宽度，挪到右上角就永远不用抢。
+  function delBtn(p) {
+    if (!onDeletePost) return null;
+    return h("button", { onClick: e => { e.stopPropagation(); askDelPost(p); },
+      title: "删掉这一帖", className: "shrink-0 active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 4 } }, "✕");
   }
   // 删一帖之前要不要问一句：自己写的删了回不来，网友的刷新就回来了
   function askDelPost(p) {
@@ -2418,7 +2421,9 @@ function Forum({
                 !p.anon && h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + (p.authorHandle || p.authorName)),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, flexShrink: 0, whiteSpace: "nowrap" } }, "· " + timeAgo(p.ts)),
                 showBoard && h("span", { style: { flexShrink: 0 } }, tag(p.board)))),
-            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复")),
+            h("div", { className: "flex items-center", style: { flexShrink: 0 } },
+              unread > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复") : null,
+              delBtn(p))),
           // 接着哪一条：点得进去。有这一行，「同一件事被几个帖说」才看得出来，
           // 不然那条接话的帖在列表里跟别的一模一样。
           p.refTitle ? h("button", { onClick: e => { e.stopPropagation(); const t0 = (posts || []).find(x => x && x.id === p.refPostId); if (t0) openPost(t0); },
@@ -2499,7 +2504,8 @@ function Forum({
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
               h("div", { className:"flex items-center gap-1.5 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } },
                 h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")), accountBadge(p)),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts))),
+            delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
           h("div", { className: "mt-3" }, tag(p.board)),
