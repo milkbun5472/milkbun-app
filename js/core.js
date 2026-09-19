@@ -707,3 +707,30 @@ function userName(profile) {
   return (profile && String(profile.name || "").trim()) || "用户";
 }
 if (typeof module !== "undefined" && module.exports) module.exports.userName = userName;
+
+// 传进来的文本文件到底是什么编码（v71.89，她 2026-09-19：「为啥一起读放 txt 会乱码」）。
+// ⚠️`File.text()` 和 `FileReader.readAsText()` 都【只按 UTF-8 解】，而且解不动也不报错——
+//   无效字节被静默换成 U+FFFD。中文 txt 十有八九不是 UTF-8：网上下的小说、Windows
+//   记事本存的、聊天软件传的，基本都是 GBK/GB2312（都是 GB18030 的子集）。
+//   于是整本书全是方块，而代码一路绿灯。
+// 认的顺序：BOM 说了算 → 没 BOM 就拿 fatal 的 UTF-8 试一次（解得通就是它，UTF-8 的
+// 字节形状很挑，中文 GBK 几乎不可能碰巧通过）→ 还不行才退 GB18030。
+// 一处开好给三个入口用：一起读的书、线下文风/设定集、表情包导入（one-public-mechanism.md）。
+function decodeTextBytes(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const dec = (enc, from) => new TextDecoder(enc).decode(b.subarray(from || 0));
+  if (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return dec("utf-8", 3);
+  if (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE) return dec("utf-16le", 2);
+  if (b.length >= 2 && b[0] === 0xFE && b[1] === 0xFF) return dec("utf-16be", 2);
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(b); } catch (_) {}
+  // gb18030 是浏览器规范里的必备编码；真碰上不认的环境（老 Node 少 ICU）也不能整个卡住，
+  // 退回宽松的 UTF-8——那正是改这一层之前的老样子，不会比原来更坏。
+  try { return dec("gb18030"); } catch (_) { return dec("utf-8"); }
+}
+async function readTextFileSmart(file) {
+  return decodeTextBytes(await file.arrayBuffer());
+}
+if (typeof module !== "undefined" && module.exports) {
+  module.exports.decodeTextBytes = decodeTextBytes;
+  module.exports.readTextFileSmart = readTextFileSmart;
+}

@@ -12236,7 +12236,8 @@ function StateCard({
 async function readOfflineStyleDocument(file) {
   const name = String(file && file.name || "").toLowerCase();
   if (!name.endsWith(".docx")) {
-    const text = String(await file.text()).trim();
+    // 同上：txt 的编码不一定是 UTF-8，走 core.js 那一处认编码（她 2026-09-19 报的乱码）
+    const text = String(await readTextFileSmart(file)).trim();
     if (text.length > 250000) throw new Error("文风文件超过 25 万字，请拆小后导入");
     return text;
   }

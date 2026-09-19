@@ -385,7 +385,8 @@
           text = await extractPdfText(f, function (p, n) { if (p === 1 || p % 20 === 0 || p === n) props.toast && props.toast("解析 PDF " + p + "/" + n + " 页…"); });
           if (!text || !text.trim()) { props.toast && props.toast("没读到文字——这份 PDF 可能是没 OCR 的扫描图，先 OCR 成带文本层的 PDF 再传"); return; }
         } else {
-          text = await f.text();
+          // 不用 f.text()：它只按 UTF-8 解，GBK 的中文 txt 会整本变成方块（core.js 那一处）
+          text = await readTextFileSmart(f);
           if (!text.trim()) { props.toast && props.toast("这个文件是空的"); return; }
         }
         const id = "bk_" + Date.now();
