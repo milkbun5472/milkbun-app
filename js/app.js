@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.32";
+const APP_VERSION = "v71.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9012,7 +9012,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，TA自然会乱送。
       capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西/点外卖/送吃的花礼物惊喜，就**必须**填 gift"
         + "（只嘴上说不填，Ta 收不到）。price 要照你自己的处境和这东西本来的价钱来——"
-        + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。");
+        + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。"
+        // 寄语（她 2026-09-19 转小红书群里读者 Sunghoon 的建议：「一点开就是你要的那个
+        // 东西的名称，还有寄语」）。原来送礼这条只有名字和价钱——送礼里最像人的那半
+        // 【为什么送这个】整个是缺的，于是她收到的永远是「给你寄了：一条围巾」。
+        // ⚠️不给例句（施工规则/prompt-no-content-samples）：一给它就被逐字抄走，
+        //   十个角色寄十条围巾会写出同一句话。只说这一栏该承担什么。
+        + "note 是你【随盒子附的那张小卡片】：为什么挑这个给 Ta，或者你想让 Ta 拿到时想起什么。"
+        + "一两句，用你自己的话；没什么想说的就别填，空着比凑一句客套话强。");
       // ⚠️transferAccept（她转过来那一笔收不收）写得很全，可【TA 主动转给她】这一头
       //   一直只有字典里那句「transfer=转账」——跟语音、电话、红包是同一种空白
       //   （她 2026-09-15：「发红包和转账这俩也不常用」）。
@@ -9148,7 +9155,7 @@ affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受�
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
@@ -9277,6 +9284,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 还有多久到也要说（她 2026-09-03：「礼物TA好像不知道还有多久到」）——
             // 只写「还在路上」，TA就只能干等着，问TA还要多久也答不上来
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物")
+              + ((m.item && m.item.note) ? "（你随盒子写的那张卡片：「" + m.item.note + "」）" : "")
               + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
@@ -9997,7 +10005,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
-      if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price); delivered = true; }
+      if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.location && parsed.location.name) {
         pChat(chatKey, p => [...p, {
         role: "assistant",
@@ -20570,13 +20578,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 角色主动买东西送我（replyNow embed）：进我的待发货，走同一套送达逻辑。
   // ⚠️v58.39 起【真的花钱】：以前 price 写死 0、钱包一分不动，所以「给你买杯咖啡」
   // 既不扣TA的钱、也不会出现在「为你花的」里（她 2026-08-30 报的就是这个）。
-  const postCharGift = (charId, name, rawPrice) => {
+  const postCharGift = (charId, name, rawPrice, rawNote) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !name) return;
     const price = giftPrice(charId, name, rawPrice);
     const meName = userName(profile);
+    const note = String(rawNote == null ? "" : rawNote).replace(/\s+/g, " ").trim().slice(0, 80);
     walletSpend(charId, price, "给 " + meName + " 买的 " + name, "gift");
-    pChat(charId, p => [...p, { role: "assistant", kind: "gift", dir: "toMe", item: { name, price }, content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now() }]);
+    // opened:false＝盒子还封着（她 2026-09-19）。⚠️名字【也】进不了吊牌，拆开才露——
+    //   原来盒子是合着的、名字却印在吊牌上，等于既没拆的动作也没藏住东西，两头不靠。
+    pChat(charId, p => [...p, { role: "assistant", kind: "gift", dir: "toMe", item: { name, price, note }, opened: false,
+      content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now() }]);
     addOrder({ name, price, fromCharId: charId, cat: null, payLabel: (char.remark || char.name) + " 送的" });
   };
 
@@ -21926,6 +21938,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     myBalance: wallet,
     onSendTransfer: (amount, note) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note)),
     onRespondTransfer: (tid, accept) => runRoomAction(activeChar.id, "transferAccept", () => respondTransfer(activeChar.id, tid, accept)),
+    // 拆开TA寄来的那个盒子（她 2026-09-19）。盖子掀开这件事只发生一次，记在那条消息上——
+    // ⚠️认的是 turnId 不是数组下标：聊天会删消息、会翻旧的，下标一变就拆错了那一盒。
+    onOpenGift: msg => {
+      const key = msg && msg.turnId;
+      if (!key) return;
+      pChat(activeChar.id, p => p.map(x => (x.kind === "gift" && x.turnId === key) ? { ...x, opened: true } : x));
+    },
     onOpenMoments: () => openMomProfile(activeChar.id, false),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),

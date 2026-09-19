@@ -7772,6 +7772,7 @@ function ChatThread({
   ficWriting,
   onSendTransfer,
   onRespondTransfer,
+  onOpenGift,          // 拆开TA寄来的那个盒子（她 2026-09-19）
   onOpenMoments,
   onOffline,
   onOOC,
@@ -8315,7 +8316,7 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
     });
-    if (m.kind === "gift") return h(GiftCard, { key: i, m: m, isU: m.role === "user", now: now,
+    if (m.kind === "gift") return h(GiftCard, { key: i, m: m, isU: m.role === "user", now: now, onOpenGift: onOpenGift,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
@@ -11157,14 +11158,26 @@ function FicShareCard({ m, isU }) {
 // 现在它真的是【一个盒子】：牛皮纸的盒身、一条压过盖子的丝带、系在丝带上的一张吊牌。
 // 状态不靠换颜色，靠【盖子】：在路上＝盖子严丝合缝盖着；送到了＝盖子掀起一角，
 // 里头露出一线暗，丝带松了。一眼就看得出这份礼物到没到。
-function GiftCard({ m, isU, now, avatar, myAvatar }) {
+// 拆开那一下（她 2026-09-19 转小红书群里读者 Sunghoon 的建议：「一开始是一个礼包的
+// 图案，一点开就是你要的那个东西的名称，还有寄语」）。
+// ⚠️盒子和掀盖那一档【本来就有】，只是掀盖只给「她送他、已送达」那一路用。
+//   他送她的那一路是【盖子一直合着，可名字已经印在吊牌上】——既没有拆的动作，
+//   也没藏住东西，两头不靠。这次就是把那一路接上已有的掀盖，不是新做一个动画。
+// ⚠️拆过就一直是开的（opened 存在消息上）。每次进来重新合上，它就从惊喜变成烦。
+function GiftCard({ m, isU, now, avatar, myAvatar, onOpenGift }) {
   const t = useTheme();
   const name = (m.item && m.item.name) || m.name || "礼物";
+  const note = (m.item && m.item.note) || "";
   const toChar = m.dir === "toChar";
-  const open = toChar ? !!m.delivered : false;
+  // 她送他的那一路口径一个字不变；他送她的才有「拆」这件事。
+  // ⚠️只有【带着 opened 这个字段】的才算封着的盒子。她存档里早就收下的那些礼物
+  //   没有这个字段——不这么认的话，这一版一上线，过去收到的每一份都会变回没拆过。
+  const sealed = !!m && Object.prototype.hasOwnProperty.call(m, "opened");
+  const canOpen = !toChar && sealed && !m.opened && typeof onOpenGift === "function";
+  const open = toChar ? !!m.delivered : (!sealed || !!m.opened);
   let footer;
   if (toChar) footer = m.hand ? "当面交到 TA 手上" : (m.delivered ? "已送达 · TA 收到了" : (m.arriveTs ? "在路上 · 还有 " + giftFmtLeft(m.arriveTs - (now || Date.now())) : "已送出"));
-  else footer = "TA 给你寄的 · 在「我的」查看物流";
+  else footer = canOpen ? "TA 给你寄的 · 点一下拆开" : "TA 给你寄的 · 在「我的」查看物流";
   // ⚠️礼物这一张【故意不挂 data-wk="card"】：它不是一块圆角卡面，是盒身／丝带／盖子
   //   分层画出来的一个包裹。套上统一圆角只会把这张画切坏。
   const KRAFT = "#e6d8bd", KRAFT_D = "#d8c6a3", RIBBON = "#b8443c", RIBBON_D = "#93332d";
@@ -11173,7 +11186,8 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
     background: "linear-gradient(90deg," + RIBBON_D + "," + RIBBON + " 42%," + RIBBON_D + ")" }, extra) });
   return h("div", { className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
     !isU && avatar ? avatar : null,
-    h("div", { style: { width: 224 } },
+    h(canOpen ? "button" : "div", Object.assign({ style: { width: 224, textAlign: "left" } },
+      canOpen ? { onClick: () => onOpenGift(m), className: "active:opacity-80", "aria-label": "拆开这份礼物" } : {}),
       h("div", { style: { position: "relative", height: 118, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))" } },
         // 盒身
         h("div", { style: { position: "absolute", left: 0, right: 0, top: 28, bottom: 0, borderRadius: "3px 3px 9px 9px",
@@ -11196,8 +11210,11 @@ function GiftCard({ m, isU, now, avatar, myAvatar }) {
           boxShadow: "0 1px 2px rgba(46,38,29,.10)", transform: "rotate(-1.2deg)" } },
           // 吊牌上只写名字（她 2026-09-03：「礼物盒上这个英文 for u 不要了」）。
           // 名字长了就两行打住：吊牌撑破盒子就不是吊牌了
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: "#3a3025", wordBreak: "break-word",
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, name),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: canOpen ? "#8b7d66" : "#3a3025", wordBreak: "break-word",
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, canOpen ? "给你的" : name),
+          // 寄语＝随盒子附的那张小卡片。拆开才有，而且只在他寄来的那一路上
+          (open && note) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.65, color: "#6d5f4b", marginTop: 6,
+            paddingTop: 6, borderTop: "1px dashed rgba(70,52,28,.22)", wordBreak: "break-word" } }, note) : null,
           // 吊牌上打的那个孔
           h("div", { style: { position: "absolute", left: 6, top: "50%", marginTop: -2.5, width: 5, height: 5, borderRadius: 999, background: "rgba(70,52,28,.22)" } }))),
       h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.04em", color: t.fog, textAlign: isU ? "right" : "left" } }, footer)),
