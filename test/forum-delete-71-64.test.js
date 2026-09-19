@@ -28,14 +28,41 @@ test("楼跟着帖一起删，不留孤儿评论", () => {
   assert.ok(/forumPostsRef\.current = next;/.test(seg), "ref 没跟上，连删两次会把第一次删掉的又带回来");
 });
 
+// ⚠️v71.76：长按是隐形的（她「宝宝没看到删帖啊」「这里也没有删除」），而且在一条条
+//   滑过去的列表里，长按十次有八次被当成滚动。改成那一排图标末尾一颗看得见的 ✕。
+test("删帖那颗要看得见，而且列表和详情页共用一处", () => {
+  const i = screens.indexOf("  function actBar(p) {"), j = screens.indexOf("  // ---- 帖子行（推特式）----", i);
+  assert.ok(i > 0 && j > i, "抠不出 actBar");
+  const seg = screens.slice(i, j);
+  assert.ok(/onDeletePost \? h\("button", \{ onClick: e => \{ e\.stopPropagation\(\); askDelPost\(p\); \}/.test(seg),
+    "那一排末尾没有删除那一颗");
+  assert.ok(seg.includes('title: "删掉这一帖"'), "没有提示文案");
+  // 长按那一版不许留着：留着就是两套并行
+  assert.ok(!/startForumPress|useLongPressMenu/.test(screens), "长按那一版还在——两套并行迟早只改一处");
+});
+
 // ⚠️她自己写的回不来；网友的帖子刷新一下就重新生成
-test("删自己发的要问一句，删网友的不用", () => {
-  const i = screens.indexOf("    const askDel = () => {"), j = screens.indexOf("    };", i);
-  assert.ok(i > 0 && j > i, "抠不出那一步");
+test("两种都问一句，但说的后果不一样", () => {
+  const i = screens.indexOf("  function askDelPost(p) {"), j = screens.indexOf("\n  }", i);
+  assert.ok(i > 0 && j > i, "抠不出 askDelPost");
   const seg = screens.slice(i, j);
   assert.ok(/p\.authorType === "me"\) requestAppConfirm/.test(seg), "删自己的帖不问就删了");
-  assert.ok(seg.includes("删了回不来"), "没说清后果");
-  assert.ok(/else onDeletePost\(p\.id\);/.test(seg), "删网友的帖也拦一道——那种刷新就回来了，问了是白问");
+  assert.ok(seg.includes("删了回不来"), "没说清自己那帖的后果");
+  assert.ok(seg.includes("刷新一下还会有新的"), "没说清网友那帖的后果");
+  // ⚠️摆到明面上之后两种都得问：一颗一直亮着的 ✕ 比长按好点得多，误触也就更容易
+  assert.equal((seg.match(/requestAppConfirm/g) || []).length, 2, "有一种不问就删了");
+});
+
+// ⚠️她 2026-09-19 截图：「发送」两个字断成两行、还被切掉一半
+test("回复栏的发送键不许被挤出去", () => {
+  const i = screens.indexOf("      h(\"div\", { className: \"shrink-0\", style: { borderTop: \"1px solid \" + FORUM_SKIN.line");
+  assert.ok(i > 0, "抠不出回复栏");
+  const seg = screens.slice(i, i + 1600);
+  assert.ok(/className: "shrink-0 px-4 py-2 rounded-full active:opacity-70"/.test(seg),
+    "按钮没写 shrink-0——输入框是 flex-1，它会被压到比两个字还窄");
+  assert.ok(/whiteSpace: "nowrap"/.test(seg), "没拦换行，「发送」会断成两行");
+  assert.ok(/className: "flex-1 min-w-0 outline-none/.test(seg), "输入框没写 min-w-0，它会撑着不肯让");
+  assert.ok(seg.includes("env(safe-area-inset-right)"), "右边距没吃安全区");
 });
 
 test("整版清空要把数报清楚，尤其是她自己那几帖", () => {
@@ -57,12 +84,7 @@ test("两条路都接上了，中间没掉层", () => {
   assert.ok(screens.includes("onDeletePost(p.id)"), "长按删那一路没接上");
 });
 
-// 长按走公共那支：跟聊天长按、随身物长按同一套手感，不另写一套
-test("长按走的是已有的那支 useLongPressMenu", () => {
-  assert.ok(screens.includes("useLongPressMenu(() => {"), "自己另写了一套长按");
-  assert.ok(/onTouchStart: \(\) => startForumPress\(askDel\), onTouchEnd: endForumPress/.test(screens), "手机上按不出来");
-  assert.ok(/onMouseDown: \(\) => startForumPress\(askDel\)/.test(screens), "桌面上按不出来");
-});
+
 
 // ⚠️「关注」「收藏」是视图不是版块：清空它们没有意义，而且很容易点错
 test("清空那颗只在真版块上出现", () => {
@@ -71,6 +93,7 @@ test("清空那颗只在真版块上出现", () => {
   assert.ok(screens.includes('"清空「" + tab + "」这个版块（" + arr.length + " 帖）"'), "没写清要清掉几帖");
 });
 
-test("告诉她还能长按单删——不然她只会看见整版清空", () => {
-  assert.ok(screens.includes("长按一帖可以单独删掉"), "没有任何地方提示单删这条路");
+test("底下那行小字要说清单删在哪儿——不然她只会看见整版清空", () => {
+  assert.ok(screens.includes("每一帖右下角那个 ✕ 可以单独删掉它"), "没有任何地方提示单删这条路");
+  assert.ok(!screens.includes("长按一帖可以单独删掉"), "还在教她长按，可那一版已经撤了");
 });
