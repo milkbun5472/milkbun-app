@@ -26,7 +26,7 @@ test('炼金炉的模型占地和 brew 点判绑在一起，搬一个就得搬�
   const ring = g.interactions.find(i => i.kind === 'brew');
   assert.ok(stove, '找不到炼金炉那块占地');
   assert.ok(inside(ring, stove), 'brew 点判跑到炉子外面去了——锅和点判又各走各的了');
-  assert.ok(stove.w >= 1.5 && stove.d >= 1.3, '占地比炉子小，立柱会被走穿');
+  assert.ok((stove.r ?? Math.min(stove.w, stove.d) / 2) >= .36, '占地比锅还小，会被走穿');
 });
 
 test('煮药的站位站得住，而且不在炉子里', () => {

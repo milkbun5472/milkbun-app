@@ -96,4 +96,4 @@ Lisa 要求保留全部现有 `.blend` 供 Opus 继续编辑；包含早期稿�
 
 ## 炼金炉（2026-09-18）
 
-`alchemy-stove/` 两份是同一次改动的两个坐标系：`village-expanded.blend` 是分区平移前的旧坐标系（上游源），`village-ground.blend` 是当前出图用的新坐标系。炉子本身由 `art/fairy-garden/build_alchemy_stove.py` 生成，两边共用同一份构建器，位置由 `MAPS.garden` 的 brew 交互点给。重导：`export-fairy-village.py --ratio=.12`。
+`alchemy-stove/` 两份是同一次改动的两个坐标系：`village-expanded.blend` 是分区平移前的旧坐标系（上游源），`village-ground.blend` 是当前出图用的新坐标系。锅是 Codex 的原件，只被 `art/fairy-garden/build_alchemy_stove.py` 整组平移到 `MAPS.garden` 的 brew 交互点上，造型没动。重导：`export-fairy-village.py --ratio=.12`。

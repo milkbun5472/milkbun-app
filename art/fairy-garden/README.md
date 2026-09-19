@@ -263,19 +263,20 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 
 验证：`fairy-outfits-browser.cjs` 渲运行时六套/坐姿并验证换色、实例隔离与手臂；`fairy-wardrobe-host-browser.cjs` 使用独立浏览器的临时存档，验证真实宿主页选装/色号/横竖屏滚动/重新载入，不接触用户存档。
 
-## build_alchemy_stove.py（炼金炉）
+## build_alchemy_stove.py（炼金炉搬位）
 
-她 2026-09-18：「我的锅看不见啊能不能移动一下」。两件事叠在一起：旧的
-`Cottage round cauldron` 只有 0.72 宽 0.68 高、平放在草地上，村落改到 radius 32
-的镜头后在草里就是个点；而且「扩建童话大宅」之后小屋本体占到
-x∈[-14.75,-11.25]、z∈[3.55,8.05]，锅在 (-11.6,8) 整个埋在房子里——锅随 home 区
-整体平移，brew 站位另走一条路，两边错开了没人报错。
+她 2026-09-18：「我的锅看不见啊能不能移动一下」。不是锅做得不对，是它整个埋在房子里：
+锅在 (-11.6, 8)，而「扩建童话大宅」之后小屋本体占到 x∈[-14.75,-11.25]、z∈[3.55,8.05]，
+正好把它罩住；旁边那口井看得见，只是因为它恰好落在房子外面。
 
-`build_alchemy_stove.py -- SOURCE.blend DEST.blend X Y` 重建一口 2.4 米高的炉子：
-石砌炉膛、朝她那一面的炉门和火光、铁锅和药汤、和井同料的胡桃木立柱加铜吊臂。
-位置只有一个来源——调用方把 `MAPS.garden` 里 brew 交互点的坐标传进来，以后
-brew 搬到哪儿锅就跟到哪儿。上游 `scene-expansion/village-expanded.blend`（旧坐标系）
-和出图用的 `flowerbeds-right/village-ground.blend`（新坐标系）共用这一份构建器，
+⚠️她 2026-09-19 看过我另画的一口之后：「你这个炉好丑能不能用回 codex 的啊」。
+所以 `build_alchemy_stove.py -- SOURCE.blend DEST.blend X Y` **只搬不画**：
+`Cottage round cauldron` / `Cauldron lip` / `Glowing brew` 是 Codex 的原件，
+一个点都不改，只把整组平移到调用方给的位置。想让它更显眼也不要在这儿重新造型。
+
+位置只有一个来源——调用方把 `MAPS.garden` 里 brew 交互点的坐标传进来，以后 brew
+搬到哪儿锅就跟到哪儿。上游 `scene-expansion/village-expanded.blend`（旧坐标系）和
+出图用的 `flowerbeds-right/village-ground.blend`（新坐标系）共用这一份搬运器，
 输出都放在 `blend/alchemy-stove/`；只重导 `village-ground.glb --ratio=.12`，
 其余分区 GLB 不动。`apps/fairy-garden/alchemy-stove.test.mjs` 常驻审计
 「庭院里能走过去的点一个都不许埋在房子轮廓里」。
