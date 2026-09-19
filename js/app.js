@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.67";
+const APP_VERSION = "v71.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11545,11 +11545,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我发红包
   // 记忆不互通的群=封闭空间：红包/转账都是过家家，不动任何真钱包（我的 + 角色的都不结算）
   const groupClosed = gid => !gsFor(gid).memoryInterop;
-  const rpNpcCount = (groupId, senderId) => {
-    const g = groups.find(x => x.id === groupId);
-    if (!g) return 0;
-    return (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== senderId).length;
-  };
   // toId：专属红包（她 2026-09-19「群聊能发专属红包」）——点名给一个人，别人碰不到。
   // ⚠️专属就是【一份】：给一个人还分好几份，那不是专属，是普通红包写了个名字。
   const sendRedPacket = (groupId, total, count, message, toId) => {
@@ -11585,7 +11580,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     toast(to ? "专属红包已发给 " + (to.remark || to.name) : "红包已发出 ¥" + a);
     // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
-    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), rpHeadstart({ count: splits.length }, rpNpcCount(groupId, null)));
+    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), RP_GRAB_DELAY);
   };
   const postClaimLine = (groupId, claimer, owner) => pushGroupRich(groupId, {
     role: "system",
@@ -11628,7 +11623,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content: "[红包] " + (to ? "（只给 " + to.name + "）" : "") + (message || "恭喜发财，大吉大利")
     });
     // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
-    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), rpHeadstart({ count: splits.length }, rpNpcCount(groupId, char.id)));
+    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), RP_GRAB_DELAY);
   };
   // 我领红包（我发的不能领；角色发的可以领）
   const claimRedPacket = (groupId, msgIdx) => {
@@ -11654,50 +11649,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     postClaimLine(groupId, meName, rp.by);
     return amt;
   };
-  // ── 群成员来抢（她 2026-09-19：「现在群里发红包只有一个的话模型是不是必定让
-  //    另一个领到这样我根本没机会」）────────────────────────────────────────
-  // 是真的，而且比看上去狠：原来是【每个成员独立掷 70%】，所以人越多越必中——
-  // 两个人 91%、三个人 97%；再加上 1.2 秒就开抢，单个红包她确实一次都碰不到。
-  // 两处一起改：
-  //   ① 先手窗口：发出去之后这么久【只有她能抢】，过了 NPC 才动。
-  //      名额越紧窗口越长——名额比人还多的时候她本来就抢得到，不用干等。
-  //   ② 整体只掷一次：抢不抢是这【一个红包】的一次判定，不随群里人数膨胀。
-  //      掷中了才按人抢；没掷中就留着，她晚点回来照样领得到。
+  // ── 群成员来抢（她 2026-09-19 两次报，是两件不同的事）──────────────────────
+  // ① 「只有一个的话模型是不是必定让另一个领到，我根本没机会」——角色发的那张。
+  // ② 「我发的没掷到 70 也没人领了啊」——这是我 v71.62 修出来的新毛病：
+  //    **她自己发的红包她领不了**（byMe → "own"），所以那 30% 没掷中就成了一个
+  //    谁也不领的死包。一个没人领的红包比被抢走还糟。
+  //
+  // 她定的规矩：「所有红包三秒后角色开抢，如果数量不够人头的话就随机决定谁抢得到」。
+  // 照做，只加一句她那条规矩里本来就含着的意思：**她也是一个人头**。
+  //   · 角色发的：座位 = 在场角色 + 她。随机抽 left 个座位——抽中她的那一份
+  //     就【留着不动】，等她自己点开领；抽中角色的当场领走。
+  //     于是「一个红包两个角色」不再是她必输，而是三个人抽一个座位。
+  //   · 她发的：她本来就领不了自己的，所以座位里没有她 → 角色必抢，绝不留死包。
+  // ⚠️不再掷「这个红包会不会被抢」那一下：那一下正是①的解药、也正是②的病因。
+  //   现在一定有人抢，只是抽签决定抽到谁——两件事一起解决。
   // ⚠️专属红包（toId）压根不进这条路：那是点名给某个人的，别人碰都碰不到。
-  const RP_HEADSTART_TIGHT = 12000;   // 名额 ≤ 在场 NPC 数：给她十二秒
-  const RP_HEADSTART_LOOSE = 3000;    // 名额比人还多：她本来就有份，不用久等
-  const RP_NPC_CHANCE = 0.7;          // 这一个红包会不会被 NPC 抢走（整体一次）
-  const rpHeadstart = (rp, npcN) => (rp && rp.count > npcN) ? RP_HEADSTART_LOOSE : RP_HEADSTART_TIGHT;
+  const RP_GRAB_DELAY = 3000;   // 她定的：所有红包三秒后开抢
   const autoGrabRedPacket = (groupId, rpId) => {
     const gchat = groupChatsRef.current[groupId] || [];
     const idx = gchat.map((m, i) => m.kind === "redpacket" && m.rpId === rpId ? i : -1).filter(i => i >= 0).pop();
     if (idx == null || idx < 0) return;
     const rp = gchat[idx];
-    // 专属红包只有被点名那位能领——这条路一步都不许走
-    if (rp.toId) return;
-    if ((rp.claims || []).length >= rp.count) return;   // 她已经在窗口里抢光了
+    if (rp.toId) return;                                   // 专属：只有被点名那位能领
+    const left = rp.count - ((rp.claims || []).length);
+    if (left <= 0) return;                                 // 她在三秒里已经抢光了
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== rp.senderId);
     if (!members.length) return;
-    // ⚠️整体只掷这一次。原来是每人一掷，等于「群里人数」悄悄变成了她的对手数。
-    if (Math.random() >= RP_NPC_CHANCE) return;
-    // 掷中了：随机挑几个来抢，但【永远留一份给她】——除非这个红包本来就只有一份。
-    const left = rp.count - (rp.claims || []).length;
-    const room = rp.count > 1 ? Math.max(1, left - 1) : left;
-    const pool = members.slice().sort(() => Math.random() - 0.5);
-    const grabbers = pool.slice(0, Math.min(room, pool.length));
+    // 座位：角色们 ＋（角色发的时候）她。她发的那张她领不了，所以不占座。
+    const seats = members.map(c => ({ c })).concat(rp.byMe ? [] : [{ me: true }]);
+    for (let i = seats.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); const t = seats[i]; seats[i] = seats[k]; seats[k] = t; }
+    const winners = seats.slice(0, left);
     let claims = [...(rp.claims || [])];
     const closed = groupClosed(groupId);
-    grabbers.forEach(c => {
+    const got = [];
+    winners.forEach(w => {
       if (claims.length >= rp.count) return;
+      if (w.me) return;                                    // 抽中她：那一份留着，等她自己点开
       const amt = rp.splits[claims.length];
-      if (!closed) adjustCharBalance(c.id, amt, "抢到红包", "redpacket");
-      claims.push({ name: c.name, id: c.id, amount: amt, ts: Date.now() });
+      if (!closed) adjustCharBalance(w.c.id, amt, "抢到红包", "redpacket");
+      claims.push({ name: w.c.name, id: w.c.id, amount: amt, ts: Date.now() });
+      got.push(w.c);
     });
-    if (!grabbers.length) return;
+    if (!got.length) return;                               // 这一轮全抽给她了，什么都不改
     pGChat(groupId, p => p.map((m, i) => i === idx ? { ...m, claims } : m));
-    grabbers.forEach(c => postClaimLine(groupId, c.name, rp.by));
+    got.forEach(c => postClaimLine(groupId, c.name, rp.by));
   };
   // ---- 群聊总结存入记忆库（关联所有成员）----
   const summarizeGroupToMem = async groupId => {

@@ -17,30 +17,43 @@ const grab = () => {
   return app.slice(i, j);
 };
 
-// ⚠️这一条是整个修复：抢不抢是【这一个红包】的一次判定，不是每人一次
-test("整体只掷一次，不随群里人数膨胀", () => {
+// ⚠️v71.68 她推翻了「整体掷 70%」那一版，而且理由是对的：
+//   **她自己发的红包她领不了**（byMe → "own"），所以那 30% 没掷中就成了一个
+//   谁也不领的死包——比被抢走还糟。她定的新规矩：
+//   「所有红包三秒后角色开抢，如果数量不够人头的话就随机决定谁抢得到」。
+//   照做，并把她算成一个人头（她那条规矩里本来就含着这个意思）。
+test("一定有人抢，不再掷「抢不抢」那一下", () => {
   const seg = grab();
-  assert.ok(/if \(Math\.random\(\) >= RP_NPC_CHANCE\) return;/.test(seg), "又变回每人一掷了");
-  assert.ok(!/members\.filter\(\(\) => Math\.random\(\)/.test(app), "旧那句每人独立掷还在");
-  assert.match(app, /const RP_NPC_CHANCE = 0\.7;/);
-  // 掷中之后挑谁抢是随机的，但那一步不许再掺概率
-  assert.ok(/pool\.slice\(0, Math\.min\(room, pool\.length\)\)/.test(seg), "挑人那一步又掺进了概率");
+  // 只看抢红包这一段：别处（查手机那条）也有 Math.random() >= 的写法，跟这儿无关
+  assert.ok(!/RP_NPC_CHANCE/.test(app), "那一下又回来了——她发的包会没人领");
+  assert.ok(!/Math\.random\(\) >= /.test(seg), "抢红包这一段又掷了一次「抢不抢」");
+  assert.ok(!/members\.filter\(\(\) => Math\.random\(\)/.test(app), "每人独立掷那一版更不能回来");
+  assert.match(app, /const RP_GRAB_DELAY = 3000;/, "她定的是三秒");
+  assert.equal((app.match(/autoGrabRedPacket\(groupId, rpId\), RP_GRAB_DELAY\)/g) || []).length, 2,
+    "两条发红包的路要用同一个三秒");
 });
 
-test("先给她一段先手窗口，名额越紧越长", () => {
-  assert.match(app, /const RP_HEADSTART_TIGHT = 12000;/);
-  assert.match(app, /const RP_HEADSTART_LOOSE = 3000;/);
-  assert.match(app, /const rpHeadstart = \(rp, npcN\) => \(rp && rp\.count > npcN\) \? RP_HEADSTART_LOOSE : RP_HEADSTART_TIGHT;/);
-  // 两条发红包的路都要用它，旧那个写死的 1200/1400 不许留
-  assert.equal((app.match(/rpHeadstart\(\{ count: splits\.length \}/g) || []).length, 2, "有一条路还在用写死的延时");
-  assert.ok(!/autoGrabRedPacket\(groupId, rpId\), 1200\)|autoGrabRedPacket\(groupId, rpId\), 1400\)/.test(app), "写死的 1.2/1.4 秒还在");
+// ⚠️「数量不够人头就随机决定谁抢得到」——她也是一个人头
+test("角色发的：她占一个座，抽中她那一份就留着", () => {
+  const seg = grab();
+  assert.ok(/const seats = members\.map\(c => \(\{ c \}\)\)\.concat\(rp\.byMe \? \[\] : \[\{ me: true \}\]\);/.test(seg),
+    "她没占座——一个红包两个角色，她又是必输");
+  assert.ok(/if \(w\.me\) return;/.test(seg), "抽中她还是被角色领走了");
+  assert.ok(/for \(let i = seats\.length - 1; i > 0; i--\)/.test(seg), "没洗牌，座位顺序就是成员顺序");
 });
 
-test("多份的时候永远留一份给她", () => {
+// ⚠️这是她这次报的那一条：她发的红包她自己领不了，所以绝不能留下死包
+test("她发的：她不占座，角色必抢，不留死包", () => {
   const seg = grab();
-  assert.ok(/const room = rp\.count > 1 \? Math\.max\(1, left - 1\) : left;/.test(seg),
-    "多份红包被 NPC 抢光了——她点进去只剩「已被领完」");
+  assert.ok(/rp\.byMe \? \[\] : \[\{ me: true \}\]/.test(seg), "她发的包里她还占着座——那一份永远没人领");
 });
+
+test("她已经抢光了就别再动", () => {
+  const seg = grab();
+  assert.ok(/if \(left <= 0\) return;/.test(seg), "三秒里她抢光了，角色还会再抢一遍");
+  assert.ok(/if \(!got\.length\) return;/.test(seg), "一份都没给出去还是写了一次存档");
+});
+
 
 // ── 专属红包 ─────────────────────────────────────────────────────────────
 test("专属红包压根不走随机抢那条路", () => {
