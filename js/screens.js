@@ -12306,11 +12306,12 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
   useEffect(() => { if (list.length && !list.find(p => p.id === selId)) setSelId(list[0].id); }, [packs]);
   const chars = characters || [];
   const total = list.reduce((n, p) => n + ((p.emotes || []).length), 0);
-  const readFile = e => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    const r = new FileReader();
-    r.onload = () => setImportText(prev => (prev ? prev + "\n" : "") + String(r.result || ""));
-    r.readAsText(f); e.target.value = "";
+  // 不用 FileReader.readAsText：它只按 UTF-8 解，GBK 存的表情包清单会整份变成方块
+  // （跟一起读、线下文风是同一处病，编码都交给 core.js 的 readTextFileSmart）
+  const readFile = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    const text = String(await readTextFileSmart(f) || "");
+    setImportText(prev => (prev ? prev + "\n" : "") + text);
   };
   // 印在离型纸上的那行说明：一句中文 + 一道横线拉到头，右边挂这一栏自己的操作
   const note = (zh, right, top) => h("div", { className: "flex items-center gap-3", style: { marginTop: top === undefined ? 22 : top, marginBottom: 10 } },
