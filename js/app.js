@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.63";
+const APP_VERSION = "v71.64";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16391,6 +16391,42 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     return false;
   };
+  // ── 删帖（她 2026-09-19 转小红书群里：「论坛的帖子可以删除吗？」「我就是删不了尴尬死了」）──
+  // 查下来确实一个入口都没有：Forum 只收 onBack/onStartPM/onPostMine/onRefreshPMs。
+  // 会自己消失的只有 NPC 帖（版块封顶时淘汰），而那段淘汰**明确跳过非 NPC 的帖子**，
+  // 所以她自己发的那几条永远躺在那儿。
+  // ⚠️楼要跟着一起删——那段孤儿评论的清理是现成的（NPC 淘汰那儿写过一次），
+  //   别只删帖不删楼：每留一条就是 1~3KB 永远躺在本地空间里。
+  const forumDropPosts = ids => {
+    const kill = new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean));
+    if (!kill.size) return 0;
+    const next = (forumPostsRef.current || []).filter(x => !kill.has(x.id));
+    saveJSON("x_forumPosts", next); setForumPosts(next); forumPostsRef.current = next;
+    const cur = forumCommentsRef.current || {}, keep = {};
+    Object.keys(cur).forEach(pid => { if (!kill.has(pid)) keep[pid] = cur[pid]; });
+    saveForumComments(keep); setForumComments(keep);
+    return kill.size;
+  };
+  const deleteForumPost = id => {
+    const p0 = (forumPostsRef.current || []).find(x => x.id === id);
+    if (!p0) return;
+    forumDropPosts([id]);
+    toast("删了：《" + String(p0.title || "这帖").slice(0, 14) + "》");
+  };
+  // 清空一个版块。⚠️这一下没得撤，所以【先把要删的数报清楚，尤其是她自己发的那几条】——
+  //   NPC 帖点一下刷新就回来了，她自己写的回不来（施工规则外那条：会让数据消失的，先说清）。
+  const clearForumBoard = board => {
+    const b = String(board || "");
+    const hit = (forumPostsRef.current || []).filter(x => x && x.board === b);
+    if (!hit.length) { toast("「" + b + "」本来就是空的"); return; }
+    const mine = hit.filter(x => x.authorType === "me").length;
+    requestAppConfirm("清空「" + b + "」",
+      "这个版块里共 " + hit.length + " 帖"
+      + (mine ? "，其中 " + mine + " 帖是你自己发的——网友的帖子刷新一下会重新生成，你写的这 " + mine + " 帖删了就回不来了。" : "（都是网友发的，刷新一下会重新生成）。")
+      + "楼里的回复也会一起删掉。",
+      () => { const n = forumDropPosts(hit.map(x => x.id)); toast("「" + b + "」清空了，删掉 " + n + " 帖"); },
+      "清空");
+  };
   const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
   // 网名那两栏（她 2026-09-12：「以前名字跟TA发的内容没有关系很灵的。
   // 你去研究一下固定 npc 时代前」）。翻了 ce1e3ac「feat(forum): add recurring regulars」
@@ -22380,6 +22416,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForwardToChat: forwardPostToChat,
     onForwardToGroup: forwardPostToGroup,
     onRefreshPMs: refreshForumPMs,
+    onDeletePost: deleteForumPost,
+    onClearBoard: clearForumBoard,
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,

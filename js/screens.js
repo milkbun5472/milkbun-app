@@ -2118,7 +2118,8 @@ function Forum({
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
-  onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar
+  onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
+  onDeletePost, onClearBoard   // 删帖（她 2026-09-19）：一条一条删，或者整版清空
 }) {
   const t = useTheme();
   const [nav, setNav] = useState("home");           // home | search | pm | me
@@ -2133,6 +2134,14 @@ function Forum({
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
+  // 长按删帖：走公共那支（跟聊天长按、随身物长按同一套手感）。
+  // ⚠️useLongPressMenu 收的是「按住之后干什么」，所以这儿用一个 ref 转交当前这一帖的动作。
+  const forumPressAct = useRef(null);
+  const forumPress = useLongPressMenu(() => {
+    const fn = forumPressAct.current; forumPressAct.current = null; if (fn) fn();
+  });
+  const startForumPress = fn => { forumPressAct.current = fn; forumPress.startPress(); };
+  const endForumPress = () => forumPress.endPress();
   const [composer, setComposer] = useState(false);   // 我发帖
   const [cbBoard, setCbBoard] = useState("日常吧");
   const [cbTitle, setCbTitle] = useState("");
@@ -2384,7 +2393,19 @@ function Forum({
   function postRow(p, showBoard) {
     const unread = unreadFloors(p.id);
     const bs = forumBoardSkin(p.board);
-    return h("div", { key: p.id, role: "button", onClick: () => openPost(p), className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
+    // 长按删掉这一帖（她 2026-09-19：读者「我就是删不了尴尬死了」）。
+    // ⚠️走公共那支 useLongPressMenu，跟聊天里长按、随身物长按同一套手感，不另写一套。
+    // ⚠️自己发的那帖删了回不来，所以问一句再删；网友的帖子刷新就回来了，不用问。
+    const askDel = () => {
+      if (!onDeletePost) return;
+      const title = String(p.title || "这帖").slice(0, 14);
+      if (p.authorType === "me") requestAppConfirm("删掉《" + title + "》", "这帖是你自己发的，删了回不来。楼里的回复也一起删。", () => onDeletePost(p.id), "删掉");
+      else onDeletePost(p.id);
+    };
+    return h("div", { key: p.id, role: "button", onClick: () => openPost(p),
+      onTouchStart: () => startForumPress(askDel), onTouchEnd: endForumPress,
+      onMouseDown: () => startForumPress(askDel), onMouseUp: endForumPress, onMouseLeave: endForumPress,
+      className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
       h("div", { className: "flex gap-3" },
         avatarBtn(p, 40, p.anon),
         h("div", { className: "flex-1 min-w-0" },
@@ -2728,7 +2749,16 @@ function Forum({
       tab !== "关注" && tab !== "收藏" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
       shown.map(p => postRow(p, false)),
-      arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"));
+      arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
+      // 清空这个版块（她 2026-09-19）。⚠️只在【真的是一个版块】时出现：
+      //   「关注」「收藏」是视图不是版块，清空它们没有意义，也很容易点错。
+      //   长按单帖删一条，这一颗是整版扫掉；两条路都有，她要哪种自己挑。
+      onClearBoard && tab !== "关注" && tab !== "收藏" && arr.length > 0
+        ? h("button", { onClick: () => onClearBoard(tab), className: "w-full py-3 active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "清空「" + tab + "」这个版块（" + arr.length + " 帖）")
+        : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
+        "长按一帖可以单独删掉"));
   }
 
   // ---- 搜索：四版块之外的吧 ----
