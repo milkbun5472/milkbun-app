@@ -96,3 +96,13 @@ test("那颗按钮只碰这个 app 自己的壳缓存，一个字的存档都不
   assert.ok(seg.indexOf("localStorage") < 0 && seg.indexOf("indexedDB") < 0, "碰到存档了");
   assert.match(html, /一个字的存档都不碰/);
 });
+
+// 她 2026-09-19：「为啥有些人在国内打不开，重新加载的按钮也没用点不了」
+test("谷歌字体不许挡渲染——国内连不上时它是挂着等超时，不是立刻失败", () => {
+  const line = html.split("\n").find(l => l.includes("fonts.googleapis.com/css2"));
+  assert.ok(line, "找不到字体那一行");
+  assert.match(line, /media="print"/,
+    "rel=stylesheet 是阻塞渲染的：连不上就白屏，连白屏守卫那颗按钮都点不动");
+  assert.match(line, /onload="this\.media='all'"/,
+    "拉到了要翻成 all，不然连得上的人也用不上字体");
+});
