@@ -33,19 +33,14 @@ test("一定有人抢，不再掷「抢不抢」那一下", () => {
     "两条发红包的路要用同一个三秒");
 });
 
-// ⚠️「数量不够人头就随机决定谁抢得到」——她也是一个人头
-test("角色发的：她占一个座，抽中她那一份就留着", () => {
+// ⚠️v71.72 她拍板：「三秒后照抢不误吧宝宝」——我提的「抽中她就给她留一份」被否了。
+//   她的机会就是那三秒，手快是她自己的事。代码里不许再有任何给她留份的暗档。
+test("三秒后照抢不误：座位里没有她", () => {
   const seg = grab();
-  assert.ok(/const seats = members\.map\(c => \(\{ c \}\)\)\.concat\(rp\.byMe \? \[\] : \[\{ me: true \}\]\);/.test(seg),
-    "她没占座——一个红包两个角色，她又是必输");
-  assert.ok(/if \(w\.me\) return;/.test(seg), "抽中她还是被角色领走了");
+  assert.ok(/const seats = members\.slice\(\);/.test(seg), "座位里又混进了别的东西");
+  assert.ok(!/\{ me: true \}|w\.me|rp\.byMe \?/.test(seg), "又偷偷给她留了一格");
   assert.ok(/for \(let i = seats\.length - 1; i > 0; i--\)/.test(seg), "没洗牌，座位顺序就是成员顺序");
-});
-
-// ⚠️这是她这次报的那一条：她发的红包她自己领不了，所以绝不能留下死包
-test("她发的：她不占座，角色必抢，不留死包", () => {
-  const seg = grab();
-  assert.ok(/rp\.byMe \? \[\] : \[\{ me: true \}\]/.test(seg), "她发的包里她还占着座——那一份永远没人领");
+  assert.ok(/const winners = seats\.slice\(0, left\);/.test(seg), "名额不够人头时没抽签");
 });
 
 test("她已经抢光了就别再动", () => {

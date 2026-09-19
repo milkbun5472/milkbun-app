@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.71";
+const APP_VERSION = "v71.72";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11662,10 +11662,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //
   // 她定的规矩：「所有红包三秒后角色开抢，如果数量不够人头的话就随机决定谁抢得到」。
   // 照做，只加一句她那条规矩里本来就含着的意思：**她也是一个人头**。
-  //   · 角色发的：座位 = 在场角色 + 她。随机抽 left 个座位——抽中她的那一份
-  //     就【留着不动】，等她自己点开领；抽中角色的当场领走。
-  //     于是「一个红包两个角色」不再是她必输，而是三个人抽一个座位。
-  //   · 她发的：她本来就领不了自己的，所以座位里没有她 → 角色必抢，绝不留死包。
+  //   · 三秒后角色照抢不误，一个都不留（她 2026-09-19 拍板，我提的「给她留一格」被否了）。
+  //   · 名额不够人头就抽签：洗牌取前 left 个，随机决定谁抢得到。
+  //   · 她的机会就是那三秒——手快是她自己的事，代码不替她留份。
   // ⚠️不再掷「这个红包会不会被抢」那一下：那一下正是①的解药、也正是②的病因。
   //   现在一定有人抢，只是抽签决定抽到谁——两件事一起解决。
   // ⚠️专属红包（toId）压根不进这条路：那是点名给某个人的，别人碰都碰不到。
@@ -11682,20 +11681,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!group) return;
     const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== rp.senderId);
     if (!members.length) return;
-    // 座位：角色们 ＋（角色发的时候）她。她发的那张她领不了，所以不占座。
-    const seats = members.map(c => ({ c })).concat(rp.byMe ? [] : [{ me: true }]);
+    // 座位只有角色（她 2026-09-19 拍板：「三秒后照抢不误吧宝宝」）。
+    // ⚠️我一度给她留了一格「抽中她就不抢」，她明确不要——三秒就是三秒，
+    //   手快是她自己的事。这一版没有任何给她留份的暗档，别再偷偷加回来。
+    const seats = members.slice();
     for (let i = seats.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); const t = seats[i]; seats[i] = seats[k]; seats[k] = t; }
-    const winners = seats.slice(0, left);
+    const winners = seats.slice(0, left);                  // 数量不够人头：随机决定谁抢得到
     let claims = [...(rp.claims || [])];
     const closed = groupClosed(groupId);
     const got = [];
-    winners.forEach(w => {
+    winners.forEach(c => {
       if (claims.length >= rp.count) return;
-      if (w.me) return;                                    // 抽中她：那一份留着，等她自己点开
       const amt = rp.splits[claims.length];
-      if (!closed) adjustCharBalance(w.c.id, amt, "抢到红包", "redpacket");
-      claims.push({ name: w.c.name, id: w.c.id, amount: amt, ts: Date.now() });
-      got.push(w.c);
+      if (!closed) adjustCharBalance(c.id, amt, "抢到红包", "redpacket");
+      claims.push({ name: c.name, id: c.id, amount: amt, ts: Date.now() });
+      got.push(c);
     });
     if (!got.length) return;                               // 这一轮全抽给她了，什么都不改
     pGChat(groupId, p => p.map((m, i) => i === idx ? { ...m, claims } : m));
