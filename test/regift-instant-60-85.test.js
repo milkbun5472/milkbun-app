@@ -55,7 +55,10 @@ test("礼物卡改成一个真的盒子：盒身、丝带、吊牌", () => {
 
 test("到没到不靠换颜色，靠盖子掀没掀", () => {
   const card = comp.slice(comp.indexOf("function GiftCard("), comp.indexOf("\n// 亲属卡的卡面"));
-  assert.match(card, /const open = toChar \? !!m\.delivered : false/);
+  // v71.52 他寄来的那一路也有了「拆」这件事（读者 Sunghoon 的建议），所以右半边不再写死
+  // false。这条测的是【她送出去】那一路：到没到仍旧只看 delivered。
+  assert.match(card, /const open = toChar \? !!m\.delivered :/);
+  assert.match(card, /const canOpen = !toChar &&/, "她送出去的盒子不该变成可以点开的");
   assert.match(card, /top: open \? 2 : 18/, "送到了盖子要抬起来");
   assert.match(card, /transform: open \? "rotate\(-2\.4deg\)" : "none"/, "而且歪一点，像刚被掀开");
   assert.match(card, /open \? h\("div", \{ style: \{ position: "absolute", left: 6, right: 6, top: 26, height: 8[^}]*background: "#2a2119"/, "掀开后底下要露出一线暗");
