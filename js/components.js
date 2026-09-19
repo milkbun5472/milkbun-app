@@ -9767,9 +9767,12 @@ function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, 
 //   差别只有一个，而且是结构性的：角色那屏有「匿名问 Ta 一句」，她这屏没有——
 //   往她箱子里投问题的是【角色】，不是她自己。那条路还没做（她说「再想想咋弄题目」），
 //   所以这儿先把箱子和门立起来，空着也老实说清为什么空，不装成一个坏掉的页面。
-function AnonMeBox({ mask, box, busy, onGenMask, onBack }) {
+function AnonMeBox({ mask, box, busy, characters, onGenMask, onAsk, onAnswer, onReveal, onDrop, onBack }) {
   const A = ANON_INK;
   const records = (box && box.records) || [];
+  const [pick, setPick] = useState(false);     // 展开「指定谁来问」那一排
+  const [draft, setDraft] = useState({});      // 每条各自的答案草稿
+  const line = { fontFamily: F_BODY, fontSize: 11.5, color: A.fog };
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
     h(Head, { zh: "我的匿名主页", onBack: onBack, ink: A.ink, lineInk: A.line, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
@@ -9783,15 +9786,52 @@ function AnonMeBox({ mask, box, busy, onGenMask, onBack }) {
           h("button", { onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40",
             style: { fontFamily: F_BODY, fontSize: 11, color: A.cool, border: "1px solid " + A.line, borderRadius: 8, padding: "3px 11px" } },
             busy ? "…" : mask ? "换一个" : "生成"))),
+      // ── 叫人来问（她 2026-09-19：「可以指定谁来问，也可以选随机」）──────────
+      // ⚠️随机排在前面、而且是主按钮：随机才是这件事的默认玩法——
+      //   指定了谁，那一问就少了「猜是谁」那一半。
+      h("div", { style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "11px 12px", marginBottom: 16 } },
+        h("div", { className: "flex items-center", style: { gap: 8 } },
+          h("button", { onClick: () => onAsk && onAsk(), disabled: busy, className: "flex-1 active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", borderRadius: 999, padding: "8px 0" } },
+            busy ? "在想…" : "随便谁来问我一句"),
+          h("button", { onClick: () => setPick(v => !v), disabled: busy, className: "active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 12, color: A.cool, border: "1px solid " + A.line, borderRadius: 999, padding: "8px 13px" } },
+            pick ? "收起" : "指定谁")),
+        pick ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 10 } },
+          (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPick(false); onAsk && onAsk(c.id); }, disabled: busy,
+            className: "active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 12, color: A.ink, border: "1px solid " + A.line, borderRadius: 999, padding: "5px 12px" } },
+            c.remark || c.name))) : null,
+        h("div", { style: { ...line, fontSize: 10, marginTop: 9, lineHeight: 1.6 } },
+          "他不知道你会怎么答，你也看不见是谁问的——只有一张马甲。答完可以翻开看是谁。")),
       h(Eyebrow, { style: { marginBottom: 8 } }, "收到的提问"),
       records.length
-        ? h("div", { style: { display: "grid", gap: 10 } }, records.map((r, i) =>
-            h("div", { key: r.id || i, style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "12px 13px" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: A.ink, lineHeight: 1.7 } }, r.q),
-              r.a ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: A.sub, lineHeight: 1.75, marginTop: 8, paddingTop: 8, borderTop: "1px solid " + A.line, whiteSpace: "pre-wrap" } }, r.a)
-                  : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: A.fog, marginTop: 6 } }, "你还没答"))))
+        ? h("div", { style: { display: "grid", gap: 10 } }, records.map(r => {
+            const who = (characters || []).find(c => c.id === r.charId);
+            return h("div", { key: r.id, style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "12px 13px" } },
+              h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 6 } },
+                h("div", { style: { ...line, fontSize: 10, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  r.revealed ? ((who && (who.remark || who.name)) || "已经不在了的谁") + " 问的" : (r.maskName || "一个陌生人")),
+                h("button", { onClick: () => onDrop && onDrop(r.id), className: "active:opacity-60 shrink-0",
+                  style: { ...line, fontSize: 11, padding: "0 2px" } }, "撕了")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: A.ink, lineHeight: 1.75 } }, r.q),
+              r.a
+                ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: A.sub, lineHeight: 1.8, marginTop: 9, paddingTop: 9, borderTop: "1px solid " + A.line, whiteSpace: "pre-wrap" } }, r.a)
+                : h("div", { style: { marginTop: 9 } },
+                    h("textarea", { value: draft[r.id] || "", onChange: e => setDraft(p => ({ ...p, [r.id]: e.target.value })),
+                      placeholder: "答一句…", rows: 2,
+                      style: { width: "100%", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: A.ink, background: "transparent",
+                        border: "1px solid " + A.line, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "none" } }),
+                    h("button", { onClick: () => { const v = (draft[r.id] || "").trim(); if (!v) return; onAnswer && onAnswer(r.id, v); setDraft(p => ({ ...p, [r.id]: "" })); },
+                      className: "active:opacity-70",
+                      style: { fontFamily: F_BODY, fontSize: 11.5, color: A.cool, border: "1px solid " + A.line, borderRadius: 999, padding: "5px 14px", marginTop: 7 } }, "答了")),
+              // ⚠️翻开这一下只在【答完之后】给：先知道是谁再答，就成了照着人答，
+              //   「猜是谁」那一半整个没了。
+              (r.a && !r.revealed) ? h("button", { onClick: () => onReveal && onReveal(r.id), className: "active:opacity-70",
+                style: { ...line, fontSize: 11, marginTop: 9, color: A.cool } }, "翻开看是谁问的") : null);
+          }))
         : h("div", { style: { borderRadius: 14, border: "1px dashed " + A.line, padding: "20px 16px", fontFamily: F_BODY, fontSize: 11.5, color: A.fog, lineHeight: 1.85, textAlign: "center" } },
-            "还没有人问过你。", h("br"), "「让角色匿名来问你」那条路还在想——问题从哪儿来这件事没定好之前，先不接。")));
+            "还没有人问过你。", h("br"), "点上面那颗，让谁来问你一句。")));
 }
 // 匿名箱：仿 QQ 主页 + 匿名问答，记录永久保留
 function AnonBox({

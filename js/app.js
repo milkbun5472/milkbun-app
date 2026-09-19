@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.66";
+const APP_VERSION = "v71.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1102,6 +1102,7 @@ function App() {
   const offlineTsRef = useRef({});
   const [offlineTsSeed, setOfflineTsSeed] = useState(0); // 触发一次重排（种子算好后）
   const [anon, setAnon] = useState({});
+  const anonRef = useRef({}); anonRef.current = anon;
   const [anonChar, setAnonChar] = useState(null);
   const [anonBusy, setAnonBusy] = useState(false);
   // 拉黑：{ [charId]: { iBlocked, theyBlocked } }
@@ -15124,6 +15125,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️现在只是个空箱子：往里投问题的那条路（角色来问她）还没做——她说「再想想咋弄题目」。
   //   先把箱子和它的门立起来，题目那一层定了再接进来，不然这张卡点开是一片空白。
   const [anonMeBox, setAnonMeBox] = useState(() => { try { const v = JSON.parse(localStorage.getItem("x_anonMeBox") || "null"); return (v && typeof v === "object") ? v : { records: [] }; } catch (e) { return { records: [] }; } });
+  const anonMeBoxRef = useRef({ records: [] }); anonMeBoxRef.current = anonMeBox;
   const saveAnonMe = v => { setAnonMe(v); saveJSON("x_anonMe", v); };
   // ── 架空世界（x_worlds）─────────────────────────────────────────────────
   // 造世界这一枪【不喂任何角色人设】：喂了它就会把世界往那个人身上拧，
@@ -15398,6 +15400,100 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   · 摇三颗骰子:谁在问 × 想撬什么 × 怎么开口。前两颗定料,第三颗定形状——
   //     整批一个味通常坏在开口的形状上,不在题材上。
   //   · 日常一封信仍然只花一次调用(角色作答那一枪);出题的成本被几十题摊掉。
+  // ── 他来问你（v71.67，她 2026-09-19：「匿名可以按你说的来试试。然后可以指定谁来问，
+  //    也可以选随机」）──────────────────────────────────────────────────────
+  // ⚠️这条跟上面那条【隔离的方向是反的】，所以不能照抄：
+  //   网友出题那一枪，隔离是为了让出题的人**不知道她是谁**（第一枪压根不给人设）；
+  //   而角色来问她，他**本来就认识她**——那不是漏洞，那正是这一路好玩的地方：
+  //   他的问题会很具体、很戳。所以这一枪【带全套上下文】，跟他平时说话那一枪一样。
+  //   藏起来的只有一样：**是谁问的**。她看到的只有一张马甲，得自己猜。
+  // ⚠️不直接让他「出一道题」——那必然是「你今天开心吗」。照电台那条路来
+  //   （施工规则/bans-make-it-dumber：掷约束，不掷答案）：摇两根轴让他去凑，
+  //   每根轴留一格「你自己想一个」，代码只关一部分门，天花板还给他。
+  const ANON_ME_WHY = [
+    "他这会儿心里有个没底的事，想确认一下",
+    "他有点不痛快，但不打算直说是为什么",
+    "他单纯好奇，想知道一件跟他没关系的事",
+    "他在试探——想看看你会怎么答，而不是想知道答案",
+    "他想起了你俩之间的某一件事，一直没问出口",
+    "他今天过得不怎么样，想找个人说话，但不想让你知道是他",
+    "你自己想一个他此刻会想问的理由"
+  ];
+  const ANON_ME_ANGLE = [
+    "你最近真做过的某一件具体的事",
+    "你俩之间发生过的某一件事",
+    "你这个人——他观察到但没说破的某一点",
+    "一件他怎么想都想不透的小事",
+    "一个他其实知道答案、但想听你自己说的问题",
+    "你自己挑一块他真会想问的"
+  ];
+  const ANON_ME_CAP = 60;   // 她那箱子留最近这么多条
+  const saveAnonMeBox = v => { setAnonMeBox(v); saveJSON("x_anonMeBox", v); return v; };
+  // charId 不传＝随机挑一个（她要的那两档：指定谁来问 / 随机）
+  const askAnonMe = async charId => {
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    const pool = liveChars.filter(c => c && !c.archived);
+    if (!pool.length) { toast("还没有人可以来问你"); return false; }
+    const char = charId ? pool.find(c => c.id === charId) : pool[Math.floor(Math.random() * pool.length)];
+    if (!char) { toast("这个人不在了"); return false; }
+    setAnonBusy(true);
+    try {
+      const why = ANON_ME_WHY[Math.floor(Math.random() * ANON_ME_WHY.length)];
+      const angle = ANON_ME_ANGLE[Math.floor(Math.random() * ANON_ME_ANGLE.length)];
+      const had = ((anonMeBoxRef.current || {}).records || []).slice(0, 12).map(r => r.q).filter(Boolean);
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你往" + (profile.name || "她") + "的匿名提问箱里投一个问题。\n"
+          + "【她看不见是你投的】她只看得到一个网名和一句签名，不知道是谁。所以别落款、别写只有你会说的口头禅当签名、"
+          + "也别在问题里点破你是谁——但话该带着你自己的性子，她猜得出来是你、还是猜不出来，那是她的事，不是你要控制的。\n"
+          + "【这一回你为什么想问】" + why + "\n"
+          + "【这一问冲着哪儿去】" + angle + "\n"
+          + "这两条是你这一问的底子，不是两个可选项——照着它们去想「我此刻真想问她的那句是什么」。\n"
+          + "⚠️只问【一件事】，一句到两句。别一口气塞三个问号，也别写成一段感想末了才挂一个问句。\n"
+          + "⚠️问的得是你【真不知道答案】的：你已经知道的事拿来问，是在考她，不是在问她。"
+          + (had.length ? "\n【你之前投过这些，一句都不要重复，也别换个说法再问一遍】" + had.join(" / ") : ""),
+        schemaHint: "{\"q\":\"你要投进去的那一问\"}",
+        maxTokens: 9000
+      });
+      const q = String((d && d.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      if (!q) { toast(characterText(char, "他没问出来，再试一次")); return false; }
+      // 马甲用他自己那张（匿名箱里已经有了）；没有就先给个占位，别为这个再烧一枪
+      const mask = ((anonRef.current || {})[char.id]) || {};
+      const rec = { id: "am_" + Date.now(), q, a: "", charId: char.id,
+        maskName: mask.netname || "一个陌生人", maskBio: mask.bio || "", ts: Date.now(), revealed: false };
+      const cur = anonMeBoxRef.current || { records: [] };
+      saveAnonMeBox({ ...cur, records: [rec, ...(cur.records || [])].slice(0, ANON_ME_CAP) });
+      toast("有人往你箱子里投了一个问题");
+      return true;
+    } catch (e) { toast("没投进来：" + (e.message || e)); return false; }
+    finally { setAnonBusy(false); }
+  };
+  const answerAnonMe = (id, text) => {
+    const a = String(text || "").trim();
+    if (!a) return;
+    const cur = anonMeBoxRef.current || { records: [] };
+    const rec = (cur.records || []).find(r => r.id === id);
+    saveAnonMeBox({ ...cur, records: (cur.records || []).map(r => r.id === id ? { ...r, a, aTs: Date.now() } : r) });
+    // ⚠️答完要留下痕迹，不然这一问一答只活在这一页里，他永远不知道她答了什么。
+    //   走记忆库那条现成的路（跟情侣空间那几样纸面往来同一条）：平时零成本，
+    //   聊到相关才被召回。knownBy 只给问的那个人——别人没在场。
+    if (rec && rec.charId) {
+      try {
+        addMemEntry({ text: "匿名提问箱里有人问「" + rec.q + "」，" + (profile.name || "她") + "答：" + a,
+          tags: ["匿名箱"], charIds: [rec.charId], knownBy: [rec.charId], source: "anonme" });
+      } catch (e) {/* 记不上不连累她这一答 */}
+    }
+    toast("答好了");
+  };
+  const revealAnonMe = id => {
+    const cur = anonMeBoxRef.current || { records: [] };
+    saveAnonMeBox({ ...cur, records: (cur.records || []).map(r => r.id === id ? { ...r, revealed: true } : r) });
+  };
+  const dropAnonMe = id => {
+    const cur = anonMeBoxRef.current || { records: [] };
+    saveAnonMeBox({ ...cur, records: (cur.records || []).filter(r => r.id !== id) });
+    toast("撕了");
+  };
   const ANON_POOL_BATCH = 90;   // 一次备多少题(她 2026-08-31:反正没有 token 上限,别每次按最少来写)
   const ANON_POOL_PER_ROLL = 10; // 一次扔管几题——扔的次数跟着批量长,不写死
   const ANON_POOL_LOW = 8;      // 低于这个数就顺手补一批
@@ -22284,7 +22380,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     mask: anonMe,
     box: anonMeBox,
     busy: anonBusy,
+    characters: liveChars,
     onGenMask: genAnonMe,
+    onAsk: askAnonMe,          // 不传 charId＝随机挑一个来问
+    onAnswer: answerAnonMe,
+    onReveal: revealAnonMe,
+    onDrop: dropAnonMe,
     onBack: () => setScreen("anon")
   });else if (screen === "phone") body = /*#__PURE__*/React.createElement(PhoneCarry, {
     characters: liveChars,
