@@ -30,9 +30,12 @@ test("寄语一路通到底：能力字典 → 存档 → 卡面 → 喂回上�
 
 // ⚠️给例句就会被逐字抄走：十个角色寄十条围巾会写出同一句话
 test("只说这一栏承担什么，不给例句", () => {
-  const i = app.indexOf("note 是你【随盒子附的那张小卡片】"), j = app.indexOf('");', i);
+  // ⚠️窗口只圈【note 那一栏的说明】。v71.75 后面接了另一条（她没开口要也可以送），
+  //   那一条里「这种时候该送什么」是在【点名一个模子】，跟这条要管的内容示范不是一回事。
+  const i = app.indexOf("note 是你【随盒子附的那张小卡片】"), j = app.indexOf("她没开口要，你也可以自己给", i);
   assert.ok(i > 0 && j > i, "那段说明没了");
-  const seg = app.slice(i, j);
+  // ⚠️只看真代码：中间那段病历注释里引着她的原话和被禁的写法，那些不是提示词内容。
+  const seg = app.slice(i, j).split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
   assert.ok(!/「[^」]{6,}」/.test(seg), "给了例句（prompt-no-content-samples）");
   assert.ok(seg.includes("空着比凑一句客套话强"), "没给「可以不填」那个出口，它会每次都硬凑一句");
 });
