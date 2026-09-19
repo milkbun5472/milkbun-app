@@ -137,7 +137,9 @@ test("答的那一枪才带上下文,问题已经写死,倒推不了", () => {
 
 test("题库摆在【选角色之前】那一页——出题跟谁都无关,它就该长在那儿", () => {
   const hub = grab(comp, "function AnonHub({", "// 匿名箱：仿 QQ 主页");
-  assert.match(hub, /poolCount, onBrew/, "题库没接到列表页上");
+  // v71.65 签名里多了她自己那张卡的几个参数；钉的仍是「题库接在【列表页】上」
+  assert.match(hub, /poolCount,/, "题库没接到列表页上");
+  assert.match(hub, /onBrew,/, "补库那颗没接到列表页上");
   assert.match(hub, /"匿名题库 · 还剩 " \+ \(poolCount \|\| 0\) \+ " 条"/, "看不见库存");
   assert.match(hub, /写这些问题的人不知道会是谁收到/, "没跟她说清这条保证是怎么来的");
   assert.match(app, /poolCount: \(anonPool \|\| \[\]\)\.length/, "库存没递给界面");

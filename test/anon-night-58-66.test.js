@@ -24,7 +24,9 @@ const contrast = (a, b) => { const l1 = relLum(a), l2 = relLum(b); return (Math.
 // 病因：<button> 上写了 min-height，浏览器就把内容【竖直居中】——量出来顶上空了 11.7px，
 // 而左右只有 1px 的描边，所以那条彩色抬头浮在卡片里、对不齐。
 test("卡片是 flex 列，抬头才贴着卡片顶边", () => {
-  const card = grab('return h("button", { key: row.char.id', "h(Empty, { text: \"还没有可以问的人\" })", 2600);
+  // ⚠️末锚原来钉的是「还没有可以问的人」那句文案，v71.65 把它改写了就红——
+  //   红的不是卡片是锚。换成钉代码（施工规则/anchor-on-code）。
+  const card = grab('return h("button", { key: row.char.id', "})),", 2600);
   // ⚠️必须盯【按钮自己那一行】：里面正文那层也是 flex 列，松着写会被它顶过去
   const btnStyle = card.split("\n")[0];
   assert.match(btnStyle, /minHeight: 174/, "卡片的最小高度没了（那正是会触发居中的那一条）");
@@ -42,7 +44,12 @@ test("匿名问答自己是一块夜色，不是白天那套", () => {
   assert.ok((bg.match(/radial-gradient/g) || []).length >= 3, "那两团光和压边没了");
   assert.match(bg, /repeating-linear-gradient/, "那层极细的横扫线没了");
   assert.match(bg, /linear-gradient\(168deg/, "底色那层没了");
-  assert.equal((hub + box).match(/background: anonNightBg\(\)/g).length, 2, "正门和匿名箱要用同一块夜色");
+  // ⚠️别钉死「两屏」：v71.65 她自己那张匿名主页是第三屏（AnonMeBox）。
+  //   要钉的是【匿名这几屏一块都不许自己另调底色】，所以数的是「有几屏」对「用了几次」。
+  const screens = (comp.match(/function Anon\w*\(/g) || []).length;
+  assert.ok(screens >= 3, "匿名那几屏少了一屏？只数到 " + screens);
+  assert.equal((comp.match(/background: anonNightBg\(\)/g) || []).length, screens,
+    "有一屏没用这块夜色——那一屏会在别的屏中间白出来");
 });
 
 test("夜色上的字够亮——不然是一屏看不见的字", () => {

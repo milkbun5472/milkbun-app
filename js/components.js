@@ -9700,7 +9700,10 @@ function anonNightBg() {
 }
 // 匿名问答正门：全角色聚合。详情仍复用原来的单角色匿名主页，旧 x_anon 数据原样沿用。
 // 布局遵守 mobile-ui-layout：紧凑顶栏 + 唯一主滚动容器；滚动位置离开后可恢复。
-function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) {
+// ⚠️她自己那张卡也摆在这张九宫格里（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
+//   原来她的马甲只藏在【进了某个角色之后】那一屏里——可这一页的意思是
+//   「每个人的匿名主页」，她也是这里面的一个人，不该只能从别人家门口看到自己。
+function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, onOpenMe, onBrew, onOpen, onBack }) {
   const t = useTheme();
   const A = ANON_INK;
   const scrollRef = useRef(null);
@@ -9728,7 +9731,22 @@ function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) 
             "写这些问题的人不知道会是谁收到——所以它问不出你的身份，也没法照着答案倒着编。抽空了会自己补。")),
         h("button", { onClick: onBrew, disabled: busy, className: "shrink-0 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 11.5, color: A.ink, border: `1px solid ${A.line}`, borderRadius: 999, padding: "6px 13px", opacity: busy ? .5 : 1 } }, busy ? "…" : "攒一批")),
-      rows.length ? h("div", { className: "grid grid-cols-2 gap-3" }, rows.map(function (row) {
+      h("div", { className: "grid grid-cols-2 gap-3" },
+        // 她自己那一张：跟角色的卡同一个形状（同一种东西＝同一种卡面），
+        // 只在眉标上写明这是「你的」——不另画一张，不然这一页会变成两种卡拼起来的。
+        h("button", { onClick: onOpenMe, className: "text-left active:opacity-70",
+          style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: "1px solid " + A.line, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
+          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
+            h("div", { style: { width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17 } }, "你"),
+            h("div", { style: { minWidth: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (myMask && myMask.name) || "你的马甲"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, ((myBox && myBox.records) || []).length + " 则问答"))),
+          h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+              (myMask && myMask.bio) || "还没有马甲——点开生成一个，这是你在树洞里挂的身份"),
+            h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: "1px solid " + A.line, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+              (((myBox && myBox.records) || [])[0] || {}).q || "这是你自己的匿名主页"))),
+      rows.map(function (row) {
         const r = row.latest;
         return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
           h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#7b6690,#3f6d8c)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
@@ -9739,9 +9757,42 @@ function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) 
           h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
             h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: `1px solid ${A.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? A.sub : A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
-      })) : h(Empty, { text: "还没有可以问的人" })));
+      })),
+      // 还没有角色时也不是空页——她自己那张卡一直在上面
+      rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: A.fog, textAlign: "center", padding: "16px 8px" } }, "还没有别人可以问")));
 }
 
+// 她自己的匿名主页（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
+// ⚠️跟角色那一屏是【同一种东西】，所以长一样：上面是马甲，下面是收到的问答。
+//   差别只有一个，而且是结构性的：角色那屏有「匿名问 Ta 一句」，她这屏没有——
+//   往她箱子里投问题的是【角色】，不是她自己。那条路还没做（她说「再想想咋弄题目」），
+//   所以这儿先把箱子和门立起来，空着也老实说清为什么空，不装成一个坏掉的页面。
+function AnonMeBox({ mask, box, busy, onGenMask, onBack }) {
+  const A = ANON_INK;
+  const records = (box && box.records) || [];
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
+    h(Head, { zh: "我的匿名主页", onBack: onBack, ink: A.ink, lineInk: A.line, bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
+      h("div", { style: { borderRadius: 16, overflow: "hidden", background: A.card, border: "1px solid " + A.line, marginBottom: 14 } },
+        h("div", { style: { padding: "16px 15px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19 } }, (mask && mask.name) || "还没有马甲"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .82, marginTop: 5, lineHeight: 1.6 } },
+            (mask && mask.bio) || "这是你在树洞里挂的身份——别人只看得见这个网名和这句签名。")),
+        h("div", { className: "flex items-center justify-between", style: { padding: "10px 13px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, "跟你匿名问别人时用的是同一张面具"),
+          h("button", { onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 11, color: A.cool, border: "1px solid " + A.line, borderRadius: 8, padding: "3px 11px" } },
+            busy ? "…" : mask ? "换一个" : "生成"))),
+      h(Eyebrow, { style: { marginBottom: 8 } }, "收到的提问"),
+      records.length
+        ? h("div", { style: { display: "grid", gap: 10 } }, records.map((r, i) =>
+            h("div", { key: r.id || i, style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "12px 13px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: A.ink, lineHeight: 1.7 } }, r.q),
+              r.a ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: A.sub, lineHeight: 1.75, marginTop: 8, paddingTop: 8, borderTop: "1px solid " + A.line, whiteSpace: "pre-wrap" } }, r.a)
+                  : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: A.fog, marginTop: 6 } }, "你还没答"))))
+        : h("div", { style: { borderRadius: 14, border: "1px dashed " + A.line, padding: "20px 16px", fontFamily: F_BODY, fontSize: 11.5, color: A.fog, lineHeight: 1.85, textAlign: "center" } },
+            "还没有人问过你。", h("br"), "「让角色匿名来问你」那条路还在想——问题从哪儿来这件事没定好之前，先不接。")));
+}
 // 匿名箱：仿 QQ 主页 + 匿名问答，记录永久保留
 function AnonBox({
   char,

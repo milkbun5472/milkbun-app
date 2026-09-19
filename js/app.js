@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.64";
+const APP_VERSION = "v71.65";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15113,6 +15113,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 同一个陌生人在好几个箱子里都问过,TA才有机会认出来。
   const loadAnonMe = () => { try { const v = JSON.parse(localStorage.getItem("x_anonMe") || "null"); return (v && v.name) ? v : null; } catch (e) { return null; } };
   const [anonMe, setAnonMe] = useState(loadAnonMe);
+  // 她自己收到的匿名提问（她 2026-09-19：「我的也跟角色的一起放吧」）。
+  // ⚠️现在只是个空箱子：往里投问题的那条路（角色来问她）还没做——她说「再想想咋弄题目」。
+  //   先把箱子和它的门立起来，题目那一层定了再接进来，不然这张卡点开是一片空白。
+  const [anonMeBox, setAnonMeBox] = useState(() => { try { const v = JSON.parse(localStorage.getItem("x_anonMeBox") || "null"); return (v && typeof v === "object") ? v : { records: [] }; } catch (e) { return { records: [] }; } });
   const saveAnonMe = v => { setAnonMe(v); saveJSON("x_anonMe", v); };
   // ── 架空世界（x_worlds）─────────────────────────────────────────────────
   // 造世界这一枪【不喂任何角色人设】：喂了它就会把世界往那个人身上拧，
@@ -22260,9 +22264,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     data: anon,
     busy: anonBusy,
     poolCount: (anonPool || []).length,
+    // 她自己那张卡也摆在这张九宫格里（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
+    // ⚠️马甲用的仍是 x_anonMe 那一个，不另立一个身份——同一个人戴同一张面具。
+    myMask: anonMe,
+    myBox: anonMeBox,
+    onGenMask: genAnonMe,
+    onOpenMe: () => setScreen("anonme"),
     onBrew: refillAnonPool,
     onOpen: openAnon,
     onBack: goHome
+  });else if (screen === "anonme") body = h(AnonMeBox, {
+    mask: anonMe,
+    box: anonMeBox,
+    busy: anonBusy,
+    onGenMask: genAnonMe,
+    onBack: () => setScreen("anon")
   });else if (screen === "phone") body = /*#__PURE__*/React.createElement(PhoneCarry, {
     characters: liveChars,
     phones: phones,
