@@ -59,8 +59,9 @@ test("她领不了的那一张要当场说清楚，不是点了没反应", () =>
   assert.ok(comp.includes('r === "notyours"'), "点下去一声不吭，像坏了");
   assert.ok(comp.includes("这是专属红包，只有 "), "没说清是谁的");
   // 卡面上就该看得出来，别等点开才知道
-  assert.ok(comp.includes('"【只给 " + only + "】"'), "卡面上没写只给谁");
-  assert.ok(comp.includes("专属 · 不是给你的"), "卡面底注没交代");
+  // v71.66 重画时它从祝福语里拎出来，单做了一枚标签（原来挤在前面把那一行吃掉一半）
+  assert.ok(comp.includes('"只给 " + only'), "卡面上没写只给谁");
+  assert.ok(comp.includes("不是给你的"), "卡面底注没交代");   // v71.66 重画后「只给谁」上移成标签，底注就只留这一句
 });
 
 test("他也能发专属给她：名字解析不出来就退回普通红包，绝不猜", () => {

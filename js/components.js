@@ -14337,58 +14337,54 @@ function PollCard({
 }
 // 专属红包（她 2026-09-19）：点名给一个人的那种。
 // ⚠️「只给 XXX」必须写在卡面上——不然别人点下去才发现领不了，那一下像是坏了。
-function RedPacketCard({
-  rp,
-  onClick,
-  mine
-}) {
-  const done = rp.claims.length >= rp.count;
+// ── 红包那张卡（v71.66 重画，她 2026-09-19：「不要emoji宝宝，还有被截断了……
+//    整体红包样式改改」）────────────────────────────────────────────────────
+// 原来是：一条橙色的横杠 + 一个白方块里摆着 🧧，祝福语一行 nowrap 截断。
+// 三样都得改，而且病根是同一个——**它没长在「红包是什么」这件事上**：
+//   · emoji 是借来的形状，跟这个 app 里别的卡（礼物盒、亲属卡、唱片）不是一路；
+//     那几张都是【画出来的那样东西】。
+//   · 橙色也不是红包，是提示条的颜色。
+//   · 「【只给 Lisa】」挤在祝福语前面，把本来就只有一行的地方吃掉一半。
+// 现在按 tabs-not-plain-pills 那把尺子先问：红包在现实里是什么？
+//   是一个【红封】——红底、烫金、上面压着一道封口，封口正中一枚圆印；领完了封口掀起来。
+//   所以这张卡就画这几样：封口那道横压边、正中那枚金印、右下角一个折角。
+//   ⚠️「只给 XXX」提到封口上面单做一枚小标签，不跟祝福语抢宽度；
+//     祝福语给两行（clamp 2），长了才收，而不是一行就断。
+function RedPacketCard({ rp, onClick }) {
+  const done = (rp.claims || []).length >= rp.count;
   const only = rp.toId ? (rp.toName || "某位") : "";
-  // 点名给别人的：她碰不到，卡面就该暗下去（跟「已被领完」同一档灰）
+  // 点名给别人的：她碰不到，整张暗下去（跟「已被领完」同一档）
   const locked = !!(rp.toId && rp.toId !== "me" && !rp.byMe);
+  const dim = done || locked;
+  const RED = dim ? "#9c5a52" : "#c3372c", RED_D = dim ? "#7e4740" : "#9d251c";
+  const GOLD = dim ? "#d8c39c" : "#f2d79a";
   return h("button", {
-    onClick: onClick,
-    className: "flex items-stretch rounded-xl overflow-hidden my-1 active:opacity-90",
-    style: {
-      width: 220,
-      background: (done || locked) ? "#c88a3a" : "#f5a623",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.12)"
-    }
-  }, h("div", {
-    className: "flex items-center justify-center px-3",
-    style: {
-      background: "rgba(0,0,0,0.06)"
-    }
-  }, h("div", {
-    style: {
-      width: 30,
-      height: 30,
-      borderRadius: 6,
-      background: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 16
-    }
-  }, "🧧")), h("div", {
-    className: "flex-1 px-3 py-2.5 text-left"
-  }, h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13.5,
-      color: "#fff",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
-  }, (only ? "【只给 " + only + "】" : "") + (rp.message || "恭喜发财，大吉大利")), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: "rgba(255,255,255,0.85)",
-      marginTop: 1
-    }
-  }, done ? "已被领完" : locked ? "专属 · 不是给你的" : "领取红包")));
+    onClick: onClick, className: "my-1 active:opacity-90",
+    style: { width: 232, borderRadius: 13, overflow: "hidden", position: "relative", textAlign: "left",
+      background: "linear-gradient(160deg," + RED + "," + RED_D + ")",
+      boxShadow: "0 2px 7px rgba(90,25,18,.22)" }
+  },
+    // 封口：压在上半截的一道，比封身暗一档——红包最认得出的那个记号
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 46,
+      background: "linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.10))",
+      borderBottom: "1px solid rgba(0,0,0,.16)" } }),
+    // 封口正中那枚金印：双环 + 中心一点。不写字——写「福」就又变成借来的符号了
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 17, top: 12, width: 24, height: 24, borderRadius: 999,
+      border: "1.5px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { width: 12, height: 12, borderRadius: 999, border: "1px solid " + GOLD, display: "flex", alignItems: "center", justifyContent: "center" } },
+        h("div", { style: { width: 4, height: 4, borderRadius: 999, background: GOLD } }))),
+    // 右下角那个折角
+    h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0,
+      borderLeft: "14px solid transparent", borderBottom: "14px solid rgba(0,0,0,.13)" } }),
+    h("div", { style: { position: "relative", padding: "12px 13px 11px 49px" } },
+      // 「只给 XXX」单做一枚小标签，不跟祝福语抢宽度
+      only ? h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".04em",
+        color: RED_D, background: GOLD, borderRadius: 999, padding: "1.5px 8px", marginBottom: 5 } }, "只给 " + only) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.45, color: "#fff",
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" } },
+        rp.message || "恭喜发财，大吉大利"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.82)", marginTop: 5 } },
+        done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
 function PollComposeSheet({ onSubmit, onClose }) {
@@ -14440,8 +14436,8 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
         .map(([v, zh]) => h("button", {
           key: v || "_all", onClick: () => setToId(v), className: "active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999,
-            background: toId === v ? "#f5a623" : "transparent", color: toId === v ? "#fff" : t.fog,
-            border: "1px solid " + (toId === v ? "#f5a623" : t.line) } }, zh))),
+            background: toId === v ? "#c3372c" : "transparent", color: toId === v ? "#fff" : t.fog,
+            border: "1px solid " + (toId === v ? "#c3372c" : t.line) } }, zh))),
     // 专属就是一份：给一个人还分好几份，那不是专属，是普通红包写了个名字
     toId ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
       "专属红包只有 Ta 能领，别人点开会看到「不是给你的」。金额不拆，整份给 Ta。")
@@ -14451,7 +14447,7 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
     h("div", { style: lbl }, "祝福语（可选）"),
     h("input", { value: message, onChange: e => setMessage(e.target.value), placeholder: "恭喜发财，大吉大利", style: field }),
     insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "余额不足") : null,
-    h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "#f5a623", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
+    h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "linear-gradient(160deg,#c3372c,#9d251c)", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
 }
 // 打开红包 / 看领取详情
 function RedPacketOpenSheet({ rp, meName, onClose }) {
@@ -14460,7 +14456,14 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
   const done = claims.length >= rp.count;
   return h(Sheet, { onClose: onClose },
     h("div", { className: "flex flex-col items-center", style: { padding: "6px 0 14px" } },
-      h("div", { style: { fontSize: 30 } }, "🧧"),
+      // ⚠️不用 emoji（她 2026-09-19：「不要emoji宝宝」）：跟卡面上那枚金印同一个画法，
+      //   大一号摆在这儿。这个 app 里的东西都是画出来的，借一个 emoji 会当场露怯。
+      h("div", { "aria-hidden": "true", style: { width: 46, height: 46, borderRadius: 999,
+        background: "linear-gradient(160deg,#c3372c,#9d251c)", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "0 2px 7px rgba(90,25,18,.24)" } },
+        h("div", { style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid #f2d79a", display: "flex", alignItems: "center", justifyContent: "center" } },
+          h("div", { style: { width: 11, height: 11, borderRadius: 999, border: "1px solid #f2d79a", display: "flex", alignItems: "center", justifyContent: "center" } },
+            h("div", { style: { width: 4, height: 4, borderRadius: 999, background: "#f2d79a" } })))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 6, textAlign: "center" } }, rp.message || "恭喜发财，大吉大利"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, "来自 " + (rp.by || "某人") + " · 共 ¥" + rp.total + " · " + rp.count + " 个")),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, borderTop: "1px solid " + t.line, paddingTop: 10, marginBottom: 6 } }, done ? "已被领完" : "已领 " + claims.length + " / " + rp.count),

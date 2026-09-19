@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.65";
+const APP_VERSION = "v71.66";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11564,6 +11564,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const splits = splitRedPacket(a, to ? 1 : count);
     const rpId = "rp_" + Date.now();
     pushGroupRich(groupId, {
+      // ⚠️role 不能省（她 2026-09-19 报：「为什么我发红包头像是在另一边没有我的头像」）。
+      //   群里那一行判的是 m.role === "user"；不写就是 undefined，于是我发的红包被
+      //   当成别人发的——靠左排、还套了个别人的头像。角色那条碰巧没事，因为它走的是
+      //   反面那一支（!== "user"）。两边都写明，别再让谁靠默认值蒙对。
+      role: "user",
       kind: "redpacket",
       rpId: rpId,
       byMe: true,
@@ -11605,11 +11610,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const splits = splitRedPacket(a, to ? 1 : count);
     const rpId = "rp_" + Date.now() + "_" + char.id;
     pushGroupRich(groupId, {
+      role: "assistant",
       kind: "redpacket",
       rpId: rpId,
       byMe: false,
       by: char.name,
       senderId: char.id,
+      senderName: char.name,
       toId: to ? to.id : null,
       toName: to ? to.name : "",
       total: a,
