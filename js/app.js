@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.73";
+const APP_VERSION = "v71.74";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15456,7 +15456,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const why = ANON_ME_WHY[Math.floor(Math.random() * ANON_ME_WHY.length)];
       const angle = ANON_ME_ANGLE[Math.floor(Math.random() * ANON_ME_ANGLE.length)];
-      const had = ((anonMeBoxRef.current || {}).records || []).slice(0, 12).map(r => r.q).filter(Boolean);
+      // ⚠️她 2026-09-19：「那这个怎么保障同一个人不会反反复复问同一件事」——原来保障不了：
+      //   喂进去的是【全箱混着的最近 12 条】，他自己问过的早被别的角色挤出去了；
+      //   而且比的是【问句原文】，换个说法再问同一件事照样过。
+      //   两处都改：只喂【他自己】问过的（全部，不截），而且连【主题】一起喂。
+      const mine = ((anonMeBoxRef.current || {}).records || []).filter(r => r && r.charId === char.id);
+      const had = mine.map(r => r.q).filter(Boolean).slice(0, 30);
+      const hadTopics = [...new Set(mine.map(r => String(r.topic || "").trim()).filter(Boolean))];
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你往" + (profile.name || "她") + "的匿名提问箱里投一个问题。\n"
@@ -15488,8 +15494,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "短的、直白的、只有半句的、反问的、干脆就一个词的，都行。\n"
           + "⚠️只问【一件事】，一句到两句。别一口气塞三个问号，也别写成一段感想末了才挂一个问句。\n"
           + "⚠️问的得是你【真不知道答案】的：你已经知道的事拿来问，是在考她，不是在问她。"
-          + (had.length ? "\n【你之前投过这些，一句都不要重复，也别换个说法再问一遍】" + had.join(" / ") : ""),
-        schemaHint: "{\"q\":\"你要投进去的那一问\"}",
+          + (had.length ? "\n【你之前投过这些，一句都不要重复】" + had.join(" / ") : "")
+          // ⚠️光禁「别重复」只管得住字面：他换个说法就能把同一件事再问一遍。
+          //   所以让他自己给这一问贴一个【主题】标签，然后把他用过的主题整张单子摆出来——
+          //   判的是「问的是哪件事」，不是「这句话长得像不像」。
+          + (hadTopics.length ? "\n【下面这些你已经问过了，这一回换一件别的——不是换个说法，是换一件事】"
+              + hadTopics.join("、") : "")
+          + "\n【另外交一个 topic】用两到六个字说清这一问问的是【哪件事】（不是这句话的摘要，是它的题目）。"
+          + "同一件事换十种说法，topic 也该是同一个；问的是另一件事，topic 就该不一样。",
+        schemaHint: "{\"q\":\"你要投进去的那一问\",\"topic\":\"两到六个字，这一问问的是哪件事\"}",
         maxTokens: 9000
       });
       let q = String((d && d.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -15497,25 +15510,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   正是这个形状：整句没有一个「你」，或者把她写成「这种人」「有个人」。
       //   ⚠️只兜一次：她按次计费，为了一句问话连打三枪不值。兜不回来就收下——
       //     一条别扭的问题，好过为它烧掉三次调用。
+      let topic = String((d && d.topic) || "").replace(/\s+/g, "").trim().slice(0, 12);
+      // ⚠️两道判定【并成一次返工】：她按次计费，一个人称、一个撞题各打一枪就是三枪。
       const _vague = t => !/你/.test(t) || /身边有(个|一个)人|这种人|有的人|有个朋友/.test(t);
-      if (q && _vague(q)) {
+      // 撞题：topic 一样，或者把标点去掉之后问句跟旧的一模一样（他有时不给 topic）
+      const _bare = t => String(t || "").replace(/[\s，。？！、,.?!"'「」『』（）()]/g, "");
+      const _dup = (t, tp) => (tp && hadTopics.indexOf(tp) >= 0) || had.some(o => _bare(o) === _bare(t));
+      const why2 = q ? (_vague(q) ? "vague" : (_dup(q, topic) ? "dup" : "")) : "";
+      if (why2) {
         try {
           const d2 = await runProbe(apiFor(char.id), ctxFor(char), {
             voice: true,
-            instruction: "刚才那一问写成了「" + q + "」——它把她写成了「有个人」「这种人」那样的泛指，"
-              + "或者整句里压根没有「你」。**重写一遍：直接问她，用「你」，从头到尾只有「我」和「你」。**"
-              + "匿名只是不署名，不是假装不认识她。问的还是同一件事，只是把人称摆回来。",
-            schemaHint: "{\"q\":\"重写后的那一问\"}",
+            instruction: (why2 === "vague"
+              ? "刚才那一问写成了「" + q + "」——它把她写成了「有个人」「这种人」那样的泛指，"
+                + "或者整句里压根没有「你」。**重写一遍：直接问她，用「你」，从头到尾只有「我」和「你」。**"
+                + "匿名只是不署名，不是假装不认识她。问的还是同一件事，只是把人称摆回来。"
+              : "刚才那一问「" + q + "」问的是你已经问过的那件事（" + (topic || "同一件事") + "）。"
+                + "**换一件【别的】事问**——不是换个说法，是换一件你还没问过的。"
+                + (hadTopics.length ? "你问过的是：" + hadTopics.join("、") + "。" : ""))
+              + "\n还是只问一件事，一到两句，直接用「你」；另外交一个 topic（两到六个字，说清问的是哪件事）。",
+            schemaHint: "{\"q\":\"重写后的那一问\",\"topic\":\"两到六个字\"}",
             maxTokens: 9000
           });
           const q2 = String((d2 && d2.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
-          if (q2) q = q2;
+          const t2 = String((d2 && d2.topic) || "").replace(/\s+/g, "").trim().slice(0, 12);
+          // ⚠️只兜一次：第二枪还是撞题就收下。一条重复的问题，好过为它连打三枪。
+          if (q2) { q = q2; topic = t2 || topic; }
         } catch (e) {/* 兜不回来就用原来那句，别为这个把整轮废掉 */}
       }
       if (!q) { toast(characterText(char, "他没问出来，再试一次")); return false; }
       // 马甲用他自己那张（匿名箱里已经有了）；没有就先给个占位，别为这个再烧一枪
       const mask = ((anonRef.current || {})[char.id]) || {};
-      const rec = { id: "am_" + Date.now(), q, a: "", charId: char.id,
+      const rec = { id: "am_" + Date.now(), q, topic, a: "", charId: char.id,
         maskName: mask.netname || "一个陌生人", maskBio: mask.bio || "", ts: Date.now(), revealed: false };
       const cur = anonMeBoxRef.current || { records: [] };
       saveAnonMeBox({ ...cur, records: [rec, ...(cur.records || [])].slice(0, ANON_ME_CAP) });
