@@ -46,7 +46,7 @@ test('只拖一根滑杆，另外五根不许被打回中性', async () => {
   const old = {dims:{height:1.2,shoulder:1.1,waist:.9,flare:1.1,build:.95,head:.98}};
   assert.deepEqual(mergeLook(old,{dims:{waist:1}}).dims,{...old.dims,waist:1});
   assert.equal(old.dims.waist,.9);
-  const fn = game.slice(game.indexOf(' setLook:(who,look)=>{'), game.indexOf(' applyAction:'));
+  const fn = game.slice(game.indexOf('const applyLook=(who,look)=>{'), game.indexOf('window.FairyGardenGame={'));
   assert.match(fn, /mergeLook\(old,look\)/);
   assert.match(trav, /mergeLook\(want,next\|\|\{\}\)/);
 });

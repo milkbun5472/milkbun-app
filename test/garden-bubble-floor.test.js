@@ -16,7 +16,11 @@ test("气泡有上限也有下限，不许贴着下面那张纸的边", () => {
 // ⚠️聊天开着的时候盖住画面的是手机那一侧那张纸，不是行动栏
 test("「画面露出多少」只有一处答案", () => {
   assert.match(game, /function sceneBottom\(\)\{/);
-  assert.match(game, /if\(chatting\)return innerHeight\*\(1-CHAT_SHEET\);/);
+  // v71.52 起不再写死半屏：聊天有三档高度，盖住多少由宿主量出来报进来
+  // （她 2026-09-19：「现在气泡只显示最后一句话了」）。
+  assert.match(game, /return Math\.min\(byPanel,innerHeight-chatClear\);/);
+  assert.doesNotMatch(game, /innerHeight\*\(1-CHAT_SHEET\)/, '又按写死的半屏算了');
+  assert.match(game, / setChatClear:px=>/, '底下那条让位没有入口');
   assert.match(game, /行动栏那时是 visibility:hidden/);
   // 藏不藏气泡那一道闸也问它，不然会出现「气泡还在，人却判成看不见了」
   assert.match(game, /const panelTop=sceneBottom\(\)-12;const offscreen=/);
