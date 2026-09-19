@@ -9,6 +9,8 @@ Lisa 要求保留全部现有 `.blend` 供 Opus 继续编辑；包含早期稿�
 
 ## 全部源文件
 
+- [alchemy-stove/village-expanded.blend](alchemy-stove/village-expanded.blend)
+- [alchemy-stove/village-ground.blend](alchemy-stove/village-ground.blend)
 - [architecture-v2/village-architecture.blend](architecture-v2/village-architecture.blend)
 - [architecture-v2/village-hall.blend](architecture-v2/village-hall.blend)
 - [architecture-v2/village-home.blend](architecture-v2/village-home.blend)
@@ -91,3 +93,7 @@ Lisa 要求保留全部现有 `.blend` 供 Opus 继续编辑；包含早期稿�
 - [woodland-station/village-station-lane.blend](woodland-station/village-station-lane.blend)
 - [woodland-station/village-station.blend](woodland-station/village-station.blend)
 - [woodland-station/woodland-station.blend](woodland-station/woodland-station.blend)
+
+## 炼金炉（2026-09-18）
+
+`alchemy-stove/` 两份是同一次改动的两个坐标系：`village-expanded.blend` 是分区平移前的旧坐标系（上游源），`village-ground.blend` 是当前出图用的新坐标系。炉子本身由 `art/fairy-garden/build_alchemy_stove.py` 生成，两边共用同一份构建器，位置由 `MAPS.garden` 的 brew 交互点给。重导：`export-fairy-village.py --ratio=.12`。

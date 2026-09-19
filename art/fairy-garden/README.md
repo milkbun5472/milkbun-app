@@ -262,3 +262,20 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 `wardrobe.mjs` 统一每套配色的合并、校验和默认值；用户、同行者、邻居和预览都走原 setLook。原 cloth 字段仅作为旅人装旧档默认色，各套新颜色存 look.wardrobe[款式]，换装不覆盖其它套配色。衣柜宿主从 doll.json 读取款式，通过 getOutfit 取实际色，原位更新四个色槽。
 
 验证：`fairy-outfits-browser.cjs` 渲运行时六套/坐姿并验证换色、实例隔离与手臂；`fairy-wardrobe-host-browser.cjs` 使用独立浏览器的临时存档，验证真实宿主页选装/色号/横竖屏滚动/重新载入，不接触用户存档。
+
+## build_alchemy_stove.py（炼金炉）
+
+她 2026-09-18：「我的锅看不见啊能不能移动一下」。两件事叠在一起：旧的
+`Cottage round cauldron` 只有 0.72 宽 0.68 高、平放在草地上，村落改到 radius 32
+的镜头后在草里就是个点；而且「扩建童话大宅」之后小屋本体占到
+x∈[-14.75,-11.25]、z∈[3.55,8.05]，锅在 (-11.6,8) 整个埋在房子里——锅随 home 区
+整体平移，brew 站位另走一条路，两边错开了没人报错。
+
+`build_alchemy_stove.py -- SOURCE.blend DEST.blend X Y` 重建一口 2.4 米高的炉子：
+石砌炉膛、朝她那一面的炉门和火光、铁锅和药汤、和井同料的胡桃木立柱加铜吊臂。
+位置只有一个来源——调用方把 `MAPS.garden` 里 brew 交互点的坐标传进来，以后
+brew 搬到哪儿锅就跟到哪儿。上游 `scene-expansion/village-expanded.blend`（旧坐标系）
+和出图用的 `flowerbeds-right/village-ground.blend`（新坐标系）共用这一份构建器，
+输出都放在 `blend/alchemy-stove/`；只重导 `village-ground.glb --ratio=.12`，
+其余分区 GLB 不动。`apps/fairy-garden/alchemy-stove.test.mjs` 常驻审计
+「庭院里能走过去的点一个都不许埋在房子轮廓里」。

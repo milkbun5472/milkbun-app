@@ -1,4 +1,4 @@
-import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks,festivalBook,villageRules} from './world.mjs?v=fg-7b824b2acc4d570b';
+import {seasonOf,weather,ACTIVITIES,journalText,calendarMarks,festivalBook,villageRules} from './world.mjs?v=fg-dc8e777e9c757dfd';
 // This book renders saved plans and local facts; opening it never calls a model.
 export function installSeasonBook({getState,getHost,refresh}){
  const $=id=>document.getElementById(id),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};let busy=false,lastScroll=0;
