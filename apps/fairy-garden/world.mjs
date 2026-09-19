@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-06cafed5415b1737';
-import {brewError,brewResult} from './brewing.mjs?v=fg-06cafed5415b1737';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-06cafed5415b1737';
-import './rules.js?v=fg-06cafed5415b1737';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-54be1261042bf388';
+import {brewError,brewResult} from './brewing.mjs?v=fg-54be1261042bf388';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-54be1261042bf388';
+import './rules.js?v=fg-54be1261042bf388';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-06cafed5415b1737';
+import {createNavigator} from './navigation.mjs?v=fg-54be1261042bf388';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -2185,7 +2185,7 @@ export function keepStarNight(s){if(!starNightReady(s))return s;return noteHappe
 export function restoreSleep(raw,map,position){const valid=id=>typeof id==='string'&&Object.hasOwn(MAPS.home.beds,id)?id:null,player=valid(raw?.player),companion=valid(raw?.companion),p=player&&MAPS.home.beds[player].approach.player;return {player:map==='home'&&p&&position&&Math.hypot(position.x-p.x,position.z-p.z)<.3?player:null,companion};}
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 // 一起睡时两个人之间留的距离；各睡各的是床位本来的 1.2 米。
-export const SLEEP_HUG_GAP=.46;
+export const SLEEP_HUG_GAP=.66;
 function bedSlot(s,who){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return {slot:b.slots[who],bed:b};}
 // 相拥而眠（她 2026-09-18：「然后在床上能不能搞个相拥而眠的动作」）：
 // 只有【同一张床】而且【两个人都已经躺下】才算——他还没上床时抱着空气最难看。
@@ -2197,7 +2197,7 @@ export function sleepPose(s,who='player'){
  if(!together)return slot;
  const mid=(bed.slots.player.x+bed.slots.companion.x)/2;
  const toward=slot.x<mid?1:-1; // 对方在 +x 还是 -x
- return {...slot,x:mid-toward*SLEEP_HUG_GAP/2,hug:true,toward};
+ return {...slot,x:mid-toward*SLEEP_HUG_GAP/2,hug:true,toward,hugArm:who==='companion'};
 }
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
 // Cosmetic gestures never change inventory, relationship or the character's routine.
