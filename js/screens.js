@@ -8398,6 +8398,10 @@ function ApiConfig({
     ...p,
     ...patch
   } : p));
+  // 存进去之前把接口地址洗一遍：手机上粘贴网址常捎一个尾空格或零宽字符，
+  // 眼睛完全看不出来，但发消息那一路会判它「填得不对」（她 2026-09-19 群里 nini 撞上：
+  // 模型列表拉得出来，一说话就说地址错）。洗法只有 engine.js 的 cleanBaseUrl 一份。
+  const tidy = l => l.map(p => Object.assign({}, p, { baseUrl: typeof cleanBaseUrl === "function" ? cleanBaseUrl(p.baseUrl) : p.baseUrl }));
   const addNew = () => {
     const np = {
       id: "p_" + Date.now(),
@@ -8428,7 +8432,7 @@ function ApiConfig({
       const nl = list.filter(p => p.id !== source.id);
       const nextCur = curId === source.id ? nl[0].id : curId;
       const nextActive = activeId === source.id ? nl[0].id : activeId;
-      if (await onSave(nl, nextActive) === false) return;
+      if (await onSave(tidy(nl), nextActive) === false) return;
       setList(nl); setCurId(nextCur); if (editing && curId === source.id) setEditing(false);
     }, "删除");
   };
@@ -8498,7 +8502,7 @@ function ApiConfig({
           // 主用是一颗单选章，不是「谁最后被保存过」——那两件事以前是同一个动作
           p.id === activeId
             ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "2px 8px" } }, "主用中")
-            : h("button", { onClick: e => { e.stopPropagation(); onSave(list, p.id); toast && toast("这条现在是线上主 API 了"); }, className: "active:opacity-60", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, "设为主用"))))),
+            : h("button", { onClick: e => { e.stopPropagation(); onSave(tidy(list), p.id); toast && toast("这条现在是线上主 API 了"); }, className: "active:opacity-60", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, "设为主用"))))),
     routeBox("线下与创作模型", "单人/群线下、小游戏、日记、同人文与穿越互动统一从这里选，不再绑在某一张 API 编辑卡里。", offlineApiId, onSetOfflineApi, "跟随线上主模型"),
     // ⚠️「Ta 眼里」这一句不许省（她 2026-09-11 报「来来回回修了那么多次都当天好了以后又不行了」）：
     //   v64.43 起【建卡和复看】也走这条线，可这一栏的说明还停在「记忆、日程、钱包、便签」，
@@ -8702,7 +8706,7 @@ function ApiConfig({
     //   原来这颗按钮写着「保存并设为线上主 API」，第二个参数直接把 activeId 换成了 curId。
     //   现在它只存这一条；主用还是原来那条（一条主用都没有时才由它顶上）。
     onClick: async () => {
-      await onSave(list, list.some(p => p.id === activeId) ? activeId : curId);
+      await onSave(tidy(list), list.some(p => p.id === activeId) ? activeId : curId);
       toast && toast(activeId === curId ? "存好了（这条就是主用的）" : "存好了 · 主用还是原来那条");
     },
     className: "flex-1 py-3",
@@ -8716,7 +8720,7 @@ function ApiConfig({
     }
   }, "保存"), curId !== activeId && /*#__PURE__*/React.createElement("button", {
     // 要拿这条当主用，是另外一句话——所以它是另外一颗按钮
-    onClick: async () => { await onSave(list, curId); toast && toast("这条现在是线上主 API 了"); },
+    onClick: async () => { await onSave(tidy(list), curId); toast && toast("这条现在是线上主 API 了"); },
     className: "py-3 px-4",
     style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.ink, borderRadius: 6 }
   }, "设为主用"), list.length > 1 && /*#__PURE__*/React.createElement("button", {

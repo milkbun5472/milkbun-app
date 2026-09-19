@@ -99,5 +99,5 @@ test("其余本机删除也必须先写成，失败时不准退出详情或改�
   assert.match(fanfic, /if \(persistFics\([\s\S]{0,180}\)\) props\.toast/);
   assert.match(impression, /if \(!M\.save\(next\)\) return[\s\S]{0,120}setBook\(next\); setCardId\(null\)/);
   assert.match(rooms, /return !!write\(all\)/);
-  assert.match(screens, /if \(await onSave\(nl, nextActive\) === false\) return/);
+  assert.match(screens, /if \(await onSave\([a-z]+\(?nl\)?, nextActive\) === false\) return/);
 });

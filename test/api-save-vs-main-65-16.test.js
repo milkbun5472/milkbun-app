@@ -17,15 +17,15 @@ test("文字 API：保存只保存，不顺手换掉主用", () => {
   assert.ok(TEXT.indexOf('} }, "保存并设为线上主 API")') < 0, "那颗二合一的按钮还在");
   assert.match(TEXT, /\}, "保存"\), curId !== activeId/);
   // 保存传回去的是原来的 activeId；一条主用都没有时才由当前这条顶上
-  assert.match(TEXT, /await onSave\(list, list\.some\(p => p\.id === activeId\) \? activeId : curId\);/);
+  assert.match(TEXT, /await onSave\([a-z]+\(?list\)?, list\.some\(p => p\.id === activeId\) \? activeId : curId\);/);
   // 「设为主用」是另外一颗按钮，而且只在这条还不是主用时才出现
   assert.match(TEXT, /curId !== activeId && \/\*#__PURE__\*\/React\.createElement\("button", \{/);
-  assert.match(TEXT, /onClick: async \(\) => \{ await onSave\(list, curId\); toast && toast\("这条现在是线上主 API 了"\); \}/);
+  assert.match(TEXT, /await onSave\([a-z]+\(?list\)?, curId\); toast && toast\("这条现在是线上主 API 了"\)/);
 });
 
 test("文字 API：列表上主用是一颗单选章，不是「谁最后被保存过」", () => {
   assert.match(TEXT, /p\.id === activeId\n\s+\? h\("span", .*"主用中"\)/s);
-  assert.match(TEXT, /onSave\(list, p\.id\); toast && toast\("这条现在是线上主 API 了"\)/);
+  assert.match(TEXT, /onSave\([a-z]+\(?list\)?, p\.id\); toast && toast\("这条现在是线上主 API 了"\)/);
 });
 
 test("图像 API：编辑哪一站 ≠ 主用哪一站", () => {

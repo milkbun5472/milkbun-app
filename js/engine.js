@@ -29,8 +29,17 @@ function isCatsImageProvider(value) {
     return host === "catsapi.com" || host.endsWith(".catsapi.com");
   } catch (e) { return /(?:^|\.)catsapi\.com(?=[:/]|$)/i.test(String(value || "")); }
 }
+// ⚠️接口地址只许在这一处清洗（她 2026-09-19 群里 nini 报：「我拉取的了模型/但是告诉我不行！」）。
+//   病根是【拉模型那条路洗了、真正发消息那条路没洗】：normalizedOpenAIBase 开头有 .trim()，
+//   callAI 只写了 .replace(/\/$/,"")。手机上粘贴网址十次有九次带一个尾空格（iOS 选中复制会捎上），
+//   于是模型列表拉得出来，一说话就被 /^https?:\/\/\S+$/ 里的 \S+ 判成「填得不对」——
+//   报的还是「别留空格」，而她眼睛看见的那一行确实没空格，于是怎么看都看不出错在哪。
+//   trim() 收不掉零宽字符（U+200B/200C/200D/2060），从网页复制的地址常夹着，所以先拆它们。
+function cleanBaseUrl(value) {
+  return String(value == null ? "" : value).replace(/[\u200B-\u200D\u2060]/g, "").trim().replace(/\/+$/, "");
+}
 function normalizedOpenAIBase(value) {
-  let base = String(value || "").trim().replace(/\/+$/, "");
+  let base = cleanBaseUrl(value);
   // CatsAPI 的设置曾被旧版把 endpoint 回写进 baseUrl，甚至累积成
   // /api/v1/models/v1/models。它的 API 根是固定的 /api/v1：只要认出
   // Cats 主机，就从路径中第一个 /api/v1 截断，彻底清掉历史脏尾巴。
@@ -162,7 +171,7 @@ function neteaseTrackInfo(s, { preferShort = false } = {}) {
 // 检测这个 API 支不支持 embedding（向量记忆的前提）：真调一次 /embeddings，返回 { ok, dim, model, msg }
 // 只走 openai 兼容格式（中转站基本都是这个）；anthropic 原生没 embedding、gemini 端点不同——都提示换法
 async function testEmbedding(p) {
-  const base = (p.baseUrl || "").replace(/\/$/, "");
+  const base = cleanBaseUrl(p.baseUrl);
   const fmt = detectFormat(base);
   if (fmt === "anthropic") return { ok: false, msg: "Anthropic 原生不提供 embedding。若你用的是中转站，把地址换成它的 OpenAI 兼容端点(通常 .../v1)再测。" };
   if (fmt === "gemini") return { ok: false, msg: "Gemini 的 embedding 端点是 :embedContent，和这里不同。多数中转站有 OpenAI 兼容的 /v1/embeddings，把地址换成那个再测。" };
@@ -227,7 +236,7 @@ async function embedTexts(texts, opts) {
   opts = opts || {};
   const c = loadEmbApi();
   if (!(c.enabled && c.baseUrl && c.apiKey && c.model)) return null;
-  const base = c.baseUrl.replace(/\/$/, "");
+  const base = cleanBaseUrl(c.baseUrl);
   const root = base.endsWith("/v1") ? base : base + "/v1";
   const isBge = /bge/i.test(c.model);
   // bge 单条输入上限 512 token：中文按字截 420 字兜底（加上前缀仍在限内）
@@ -652,7 +661,7 @@ async function callAI(p, system, messages, opts) {
   };
   const _promptChars = String(system || "").length
     + (messages || []).reduce((n, m) => n + String((m && m.content) || "").length, 0);
-  const base = (p.baseUrl || "").replace(/\/$/, "");
+  const base = cleanBaseUrl(p.baseUrl);
   const fmt = detectFormat(p);
   const model = p.model;
   const temp = typeof p.temperature === "number" ? p.temperature : 0.75;
@@ -688,7 +697,7 @@ async function callAI(p, system, messages, opts) {
   if (!model) throw new Error("尚未指定模型");
   // baseUrl 没填对（空/没 http 前缀/残留中文占位或空格）时，浏览器 fetch 会抛天书 DOMException
   // 「the string did not match the expected pattern」——这里提前拦成看得懂的话，指到具体线路。
-  if (!p.proxyRef && !/^https?:\/\/\S+$/i.test(base)) throw new Error("这条线路的接口地址填得不对：「" + (p.baseUrl || "（空）") + "」——去设置·API 检查【" + (p.name || model || "该线路") + "】的 baseUrl（要以 http(s):// 开头，别留空格或中文占位）");
+  if (!p.proxyRef && !/^https?:\/\/\S+$/i.test(base)) throw new Error("这条线路的接口地址填得不对：「" + (base || "（空）") + "」——去设置·API 检查【" + (p.name || model || "该线路") + "】的 baseUrl（要以 http(s):// 开头，别留空格或中文占位）");
   // ⚠️记账数在这一处：全库所有调用（runProbe 也是）都从 callAI 过，一处数完就是全的；
   //   各功能自己数一份的话，漏掉哪一处永远不知道——她 2026-09-06 问「我昨天都在修 bug，
   //   绝对没调用 800 次」，而当时 app 里根本答不了这句话。
@@ -4687,7 +4696,7 @@ function loadTtsApi() {
   let a = def;
   try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
   // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
-  a.baseUrl = String(a.baseUrl || "").trim();
+  a.baseUrl = cleanBaseUrl(a.baseUrl);
   a.groupId = String(a.groupId || "").trim();
   a.apiKey = String(a.apiKey || "").replace(/\s+/g, "");
   return a;
@@ -5494,7 +5503,7 @@ async function ttsSpeak(text, voiceId, opts) {
   // 缓存没命中才真去转假名（转换也缓存进最终音频，重听免费）
   let synthTxt = txt;
   if (wantKana) { try { synthTxt = await jpKanaReading(txt); } catch (e) {} }
-  const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
+  const base = cleanBaseUrl(a.baseUrl) || "https://api.minimax.io";
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 60000);
   let r;
@@ -5534,7 +5543,7 @@ async function ttsCloneVoice(fileBlob, customVoiceId) {
   if (!ttsReady(a)) throw new Error("先在设置里配置语音 API");
   const vid = String(customVoiceId || "").trim();
   if (!/^[A-Za-z][A-Za-z0-9_-]{7,}$/.test(vid)) throw new Error("voice_id 需以字母开头、8 位以上字母/数字（如 GuChao2026）");
-  const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
+  const base = cleanBaseUrl(a.baseUrl) || "https://api.minimax.io";
   const fd = new FormData();
   fd.append("purpose", "voice_clone");
   fd.append("file", fileBlob, fileBlob.name || "voice.mp3");
