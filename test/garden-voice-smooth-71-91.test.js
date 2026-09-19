@@ -65,9 +65,10 @@ test('念着这一条的时候，下一条已经在合成了', () => {
   const warm = game.slice(i, j);
   assert.match(warm, /bubbleWho==='me'/, '她自己那几只不该念，也就不该预热');
   assert.match(warm, /bubbleQueue\[0\]/, '预热的不是队里下一条');
+  assert.match(warm, /next\.say/, '预热的是气泡上那副收拾过的字');
   assert.match(warm, /if\(!voiceOn/, '开关关着还在花钱合成');
   // 预热这一声要在【开口的时候】喊，不是念完才喊——念完再喊就等于没提前
-  const k = game.indexOf('host.readAloud(line).then');
+  const k = game.indexOf('host.readAloud(item.say).then');
   assert.ok(game.lastIndexOf('warmNext();', k) > game.indexOf('const mine=++bubbleTurn;'),
     'warmNext 没有排在 readAloud 之前');
 });
@@ -88,4 +89,23 @@ test('第一只气泡：回复一落地就去合成，不等写完存档', () =>
   const warm = host.indexOf('g0.warmVoice(first)');
   const speak = host.indexOf('game().speak(result.parts)');
   assert.ok(guard > 0 && warm > guard && speak > warm, '预热的位置不对');
+});
+
+// 她 2026-09-19：「这几句存回房间也是缓存了的吧」——只有【合成的那串字】和
+// 【房间里存下的那串字】一模一样才算数：缓存钥匙是照文本算的，差一个换行就是两笔钱。
+// 房间存的是原样那一句（app.js 的 onTurn 直接存 part），所以念的也必须是原样那一句。
+test('念出来的和存回房间的是同一串字', () => {
+  const app = read('js/app.js');
+  assert.match(app, /\.map\(\(part, i\) => \(\{ role: "assistant", content: part,/, '房间存的不再是原样那一句了');
+  const i = game.indexOf('const bubbleShow='), j = game.indexOf('function warmNext(){', i);
+  assert.ok(i > 0 && j > i, '抠不出这两副样子');
+  const { bubbleShow, bubbleSay } = new Function(game.slice(i, j) + ';return {bubbleShow,bubbleSay};')();
+  const part = '  今天井里\n捞上来一个奇怪的东西。' + 'x'.repeat(200);
+  assert.equal(bubbleSay(part), part.trim(), '拿去合成的被收拾过了——房间里那句对不上，等于又花一次钱');
+  assert.ok(bubbleShow(part).length <= 120 && bubbleShow(part).indexOf('\n') < 0, '气泡上那副没收拾干净');
+  // 气泡那副只许用来显示
+  assert.match(game, /bubbleEl\(\)\.textContent=line;/);
+  assert.match(game, /host\.readAloud\(item\.say\)/, '拿去念的是气泡那副');
+  assert.match(game, /host\.warmAloud\(next\.say\)/, '预热的是气泡那副');
+  assert.match(host, /g0\.warmVoice\(first\)/, '预热的不是原样那一句');
 });

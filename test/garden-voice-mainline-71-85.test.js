@@ -13,7 +13,7 @@ test("念出来这个开关有，而且念完这句才冒下一句", () => {
   assert.match(game, /const VOICE_KEY='x_fairyGardenVoice';/, "开关不记在这台设备上");
   const fn = game.slice(game.indexOf("function nextBubble(){"), game.indexOf("// 一轮话可能有好几条"));
   assert.ok(fn.length > 300, "抠不出 nextBubble");
-  assert.match(fn, /host\.readAloud\(line\)\.then/, "没等念完就翻下一只气泡了");
+  assert.match(fn, /host\.readAloud\(item\.say\)\.then/, "没等念完就翻下一只气泡了");
   assert.match(fn, /bubbleTimer=setTimeout\(nextBubble,VOICE_GAP\)/, "念完之后没接着冒下一句");
 });
 
