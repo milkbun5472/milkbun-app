@@ -91,7 +91,7 @@ def main():
     for arg in sys.argv[2:]:
         key, path = arg.split("=", 1)
         key = key.strip()
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", key): print("appKey 不合法：" + key); sys.exit(1)
+        if not re.fullmatch(r"[a-z][A-Za-z0-9_]*", key): print("appKey 不合法：" + key); sys.exit(1)   # 驼峰也算数：fairyGarden
         im = Image.open(path)
         im = trim_halo(knock_out_corners(im))
         im = crop_to_content(im).resize((SIZE, SIZE), Image.LANCZOS)
