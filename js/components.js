@@ -13505,6 +13505,8 @@ function GroupThread({
     const r = onClaim(i);
     setRpView(i);
     if (typeof r === "number") toast && toast("领到 ¥" + r);
+    // ⚠️专属给别人的那张，要当场说清楚为什么没领到——不说的话点下去毫无反应，像坏了
+    else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"]];
@@ -14081,9 +14083,10 @@ function GroupThread({
     onClose: () => setSheet(null)
   }), sheet === "rp" && h(RedPacketComposeSheet, {
     memberCount: members.length,
+    members: members,
     myBalance: myBalance,
-    onSubmit: (total, count, message) => {
-      onSendRedPacket(total, count, message);
+    onSubmit: (total, count, message, toId) => {
+      onSendRedPacket(total, count, message, toId);
       setSheet(null);
     },
     onClose: () => setSheet(null)
@@ -14281,17 +14284,23 @@ function PollCard({
     onGenVotes ? h("button", { onClick: onGenVotes, className: "mx-3 mb-3 px-3 py-2 rounded-lg active:opacity-60",
     style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line } }, "请成员投票 / 重试") : null);
 }
+// 专属红包（她 2026-09-19）：点名给一个人的那种。
+// ⚠️「只给 XXX」必须写在卡面上——不然别人点下去才发现领不了，那一下像是坏了。
 function RedPacketCard({
   rp,
-  onClick
+  onClick,
+  mine
 }) {
   const done = rp.claims.length >= rp.count;
+  const only = rp.toId ? (rp.toName || "某位") : "";
+  // 点名给别人的：她碰不到，卡面就该暗下去（跟「已被领完」同一档灰）
+  const locked = !!(rp.toId && rp.toId !== "me" && !rp.byMe);
   return h("button", {
     onClick: onClick,
     className: "flex items-stretch rounded-xl overflow-hidden my-1 active:opacity-90",
     style: {
       width: 220,
-      background: done ? "#c88a3a" : "#f5a623",
+      background: (done || locked) ? "#c88a3a" : "#f5a623",
       boxShadow: "0 1px 3px rgba(0,0,0,0.12)"
     }
   }, h("div", {
@@ -14321,14 +14330,14 @@ function RedPacketCard({
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
     }
-  }, rp.message || "恭喜发财，大吉大利"), h("div", {
+  }, (only ? "【只给 " + only + "】" : "") + (rp.message || "恭喜发财，大吉大利")), h("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 10.5,
       color: "rgba(255,255,255,0.85)",
       marginTop: 1
     }
-  }, done ? "已被领完" : "领取红包")));
+  }, done ? "已被领完" : locked ? "专属 · 不是给你的" : "领取红包")));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
 function PollComposeSheet({ onSubmit, onClose }) {
@@ -14353,11 +14362,15 @@ function PollComposeSheet({ onSubmit, onClose }) {
     h("button", { onClick: () => { if (canSend) onSubmit(title.trim(), okOpts, anon); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: t.ink, color: t.bg2, borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "发起投票"));
 }
 // 发红包（群聊 +面板 → 红包）——同样原来缺实现
-function RedPacketComposeSheet({ memberCount, myBalance, onSubmit, onClose }) {
+// 专属红包（她 2026-09-19：「群聊能发专属红包」）：点名给一个人，别人碰不到。
+// ⚠️不做成第二个弹层：它跟拼手气红包是【同一件事的两种发法】，分成两个入口，
+//   她每次都得先想「我要发哪种」。所以就在这一张里多一排人头，谁都不选＝拼手气。
+function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onClose }) {
   const t = useTheme();
   const [total, setTotal] = useState("");
   const [count, setCount] = useState(String(Math.max(1, memberCount || 1)));
   const [message, setMessage] = useState("");
+  const [toId, setToId] = useState("");   // ""＝拼手气，谁都能抢
   const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
   const a = Math.round(Number(total) * 100) / 100;
   const c = Math.max(1, parseInt(count, 10) || 1);
@@ -14370,12 +14383,24 @@ function RedPacketComposeSheet({ memberCount, myBalance, onSubmit, onClose }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "钱包余额 ¥" + (myBalance || 0))),
     h("div", { style: lbl }, "总金额（¥）"),
     h("input", { value: total, onChange: e => setTotal(e.target.value.replace(/[^0-9.]/g, "")), inputMode: "decimal", placeholder: "0.00", style: field }),
-    h("div", { style: lbl }, "个数（拼手气，随机分）"),
-    h("input", { value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field }),
+    h("div", { style: lbl }, "给谁"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      [["", "谁都能抢"]].concat(((members || []).map(c => [c.id, c.remark || c.name])))
+        .map(([v, zh]) => h("button", {
+          key: v || "_all", onClick: () => setToId(v), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999,
+            background: toId === v ? "#f5a623" : "transparent", color: toId === v ? "#fff" : t.fog,
+            border: "1px solid " + (toId === v ? "#f5a623" : t.line) } }, zh))),
+    // 专属就是一份：给一个人还分好几份，那不是专属，是普通红包写了个名字
+    toId ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
+      "专属红包只有 Ta 能领，别人点开会看到「不是给你的」。金额不拆，整份给 Ta。")
+      : h(Fragment, null,
+        h("div", { style: lbl }, "个数（拼手气，随机分）"),
+        h("input", { value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field })),
     h("div", { style: lbl }, "祝福语（可选）"),
     h("input", { value: message, onChange: e => setMessage(e.target.value), placeholder: "恭喜发财，大吉大利", style: field }),
     insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "余额不足") : null,
-    h("button", { onClick: () => { if (canSend) onSubmit(a, c, message.trim()); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "#f5a623", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
+    h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "#f5a623", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
 }
 // 打开红包 / 看领取详情
 function RedPacketOpenSheet({ rp, meName, onClose }) {

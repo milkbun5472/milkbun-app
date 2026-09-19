@@ -83,7 +83,8 @@ test("每一种真落地的行，紧接着就得记一笔", () => {
   // ⚠️断言要贴着那一行写。原来用的是「这一行后面 700 字里有没有 autoTook」——
   //   隔壁分支的那一笔就在窗口里，于是把自己这一行的删掉照样绿（写这条测试时当场撞见）。
   [["拆出来的每一泡", /ReactDOM\.flushSync\(reveal\); else reveal\(\);\n\s*autoTook\(\);/],
-   ["红包", /rp\.message \|\| "恭喜发财，大吉大利"\);\n\s*autoTook\(\);/],
+   // v71.62 这一行末尾多了 rp.to（专属红包）；钉的仍是「红包那一行紧跟着记一笔」
+   ["红包", /rp\.message \|\| "恭喜发财，大吉大利", rp\.to\);\n\s*autoTook\(\);/],
    ["撤回的那条", /content: item\.text, mid, ts: Date\.now\(\), turnId: gTurnId \}\]\);\n\s*autoTook\(\);/],
    ["语音", /mid: "gvm_" \+ Date\.now\(\) \+ "_" \+ i, ts: Date\.now\(\), turnId: gTurnId \}\]\);\n\s*autoTook\(\);/],
    ["自拍", /photoKind: gPhotoKind, ts: Date\.now\(\), turnId: gTurnId \}\]\);\n\s*autoTook\(\);/],
