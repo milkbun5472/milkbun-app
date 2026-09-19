@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-69e08f03e3cb8db8';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-69e08f03e3cb8db8';
+import {makeDollLife} from './doll-life.mjs?v=fg-e69020e9199c9dc0';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-e69020e9199c9dc0';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。

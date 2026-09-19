@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-69e08f03e3cb8db8", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e69020e9199c9dc0", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -22,7 +22,12 @@
     return "本机的存档仓还没打开" + (st.err ? "（" + st.err + "）" : "") + "，先别在这儿开新的一档——退出去等一下再进来，庭院还在。";
   }
   // 一份空存档长什么样，只写在这一处：read 兜底和「新开一段」建档都来拿。
-  const blankSave = () => ({ version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, dialogs: {} });
+  // 一条记录＝【一段旅程】：同一位同行者，底下挂着好几个世界各自的进度
+  // （她 2026-09-19：「每个庭院档连一个列车档连一个别的什么档」）。
+  // ⚠️她拍板各走各的进度，所以天数/地图/材料都在 worlds[世界] 自己那一份里；
+  //   journey 只装跟世界无关的那几样（谁、长什么样、随身袋），由 world.mjs 的
+  //   JOURNEY_SHAPE 一张表说了算，这儿不判断哪样归哪层。
+  const blankSave = () => ({ version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, worlds: {}, journey: {}, dialogs: {} });
   const read = (key) => {
     const k = key || KEY;
     const d = loadJSON(k, null);
@@ -611,7 +616,9 @@
       if (frame.current && frame.current !== node) hosts.delete(frame.current.contentWindow); frame.current = node; if (!node) return;
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name, birthday: gameBirthdayOf(c) } : null; },
-        save: world => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
+        save: (world, worldId, journey) => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); const w = String(worldId || "garden"); write(storeKey.current, { ...d, journey: { ...(d.journey || {}), ...(journey && typeof journey === "object" ? journey : {}) }, worlds: { ...(d.worlds || {}), [w]: world }, // ⚠️庭院那一份同时写回老位置：万一回滚到旧版本，她的日子还在。
+          //   等列车上线、她也刷过几版之后，这条镜像才可以撤。
+          world: w === "garden" ? world : d.world }); return true; },
         changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
         // 悬浮播放器就不会默认停在它头上（js/components.js 的 FloatKeepClear）。
@@ -1498,6 +1505,13 @@
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
+  // 这一档里某个世界那一份进度。⚠️只有这一处答案：老档把庭院存在 `world` 上，
+  //   新档存在 `worlds.garden` 里——读的人不该知道这件事。
+  const worldOf = (rec, id) => {
+    const w = String(id || "garden");
+    const slot = rec && rec.worlds && rec.worlds[w];
+    return slot || (w === "garden" ? (rec && rec.world) || null : null);
+  };
   const saveKeyOf = row => { const id = typeof row === "string" ? row : (row && row.id); return (row && row.key) || (id === "legacy" ? KEY : KEY + ":" + id); };
   // 老的那一档（KEY 里躺着的那份）要认回来当一条存档。
   // ⚠️绝不搬它的内容：搬＝复制一份再删一份，中间任何一步断掉就少一档。
@@ -1538,11 +1552,11 @@
   }
   function saveMeta(row) {
     const d = loadJSON(saveKeyOf(row), null) || {};
-    const w = d.world || {};
+    const w = worldOf(d, "garden") || {};
     return {
       day: Number(w.day) || 0,
       partnerId: String(d.partnerId || ""),
-      fresh: !d.world
+      fresh: !worldOf(d, "garden")
     };
   }
   // ── 小世界入口那条路（她 2026-09-19：「第一个世界是一个 svg 填色房子在左边，

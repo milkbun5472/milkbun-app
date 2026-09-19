@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-69e08f03e3cb8db8';
-import {brewError,brewResult} from './brewing.mjs?v=fg-69e08f03e3cb8db8';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-69e08f03e3cb8db8';
-import './rules.js?v=fg-69e08f03e3cb8db8';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-e69020e9199c9dc0';
+import {brewError,brewResult} from './brewing.mjs?v=fg-e69020e9199c9dc0';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-e69020e9199c9dc0';
+import './rules.js?v=fg-e69020e9199c9dc0';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-69e08f03e3cb8db8';
+import {createNavigator} from './navigation.mjs?v=fg-e69020e9199c9dc0';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -1327,6 +1327,39 @@ export const fromWell = x => !!x && (x.type === 'shard' || x.type === 'thing'
   || !!(typeof x.from === 'string' && x.from.trim()));
 // 标给他看的那一句：这几样是他自己的东西，不是她捡来的小玩意。
 export const MINE_TAG = '、你自己的东西';
+// ── 一段旅程 vs 一个世界（她 2026-09-19：「比如庭院的车站可以坐车然后跳转到新世界的
+//    列车玩法…每个庭院档连一个列车档连一个别的什么档」）──────────────────────
+// 她拍板：**各走各的进度**——「设定上就是每一个都是不同游戏，当然不应该共享进度」。
+// 所以天数、季节、地图、这个世界的材料和建筑，一律留在各世界自己那一档里。
+//
+// 跟着人走的只有【跟世界无关】的那几样：她和他长什么样、随身那一小袋。
+// ⚠️只有这一张表回答「哪一样在哪一层」。以后要把一样东西挪到另一层，改这张表就行，
+//   任何读写都不用动（施工规则/one-public-mechanism.md）。
+// ⚠️关系那几样（gifts / bond / happenings / miss）【故意不在这层】：它们每一条都带着
+//   「第几天」，而天数是各走各的——搬过去就对不上。等列车真做出来、需要「车上送的礼
+//   回庭院他还记得」时，那一步要先把关系记录换成绝对日期，而不是世界天数。
+export const JOURNEY_SHAPE = {
+  look:          { from: s => s.look,             into: (s, v) => ({ ...s, look: v }) },
+  companionLook: { from: s => s.companion?.look,  into: (s, v) => ({ ...s, companion: { ...s.companion, look: v } }) },
+  // 随身那一小袋：从这个世界的馆里/背包里显式放进来的东西，跟着人上车。
+  // 现在是空的——列车还没做，这一层先备好，做的时候不用再动存储。
+  carry:         { from: s => s.carry,            into: (s, v) => ({ ...s, carry: v }) },
+};
+export const JOURNEY_KEYS = Object.keys(JOURNEY_SHAPE);
+// 从一份世界存档里【抄出】跟着人走的那几样（不改原件）。
+export function takeJourney(s){
+  const out = {};
+  for (const [k, f] of Object.entries(JOURNEY_SHAPE)) { const v = f.from(s || {}); if (v !== undefined) out[k] = v; }
+  return out;
+}
+// 把旅程那一份【盖回】世界存档上。世界档里那几份是没人读的旧影子（留着只为回滚），
+// 以权威的这一份为准。
+export function putJourney(s, journey){
+  if (!journey || typeof journey !== 'object') return s;
+  return Object.entries(JOURNEY_SHAPE).reduce((acc, [k, f]) =>
+    journey[k] === undefined ? acc : f.into(acc, journey[k]), s);
+}
+
 export function missMaterial(s){
   const notes = (s.notes || []).slice(0, 2).map(n => ({ kind: '花笺', text: n.reply, day: n.day }));
   const kept = (s.collection || []).slice(0, 2).map(x => ({ kind: '她留在收藏馆里的' + (fromWell(x) ? MINE_TAG : ''), text: x.name + '。' + x.note, day: x.gaveDay }));
