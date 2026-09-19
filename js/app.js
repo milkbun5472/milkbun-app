@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.61";
+const APP_VERSION = "v71.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2325,6 +2325,9 @@ function App() {
     saveJSON("x_characters", n);
     return n;
   });
+  // 【朋友圈动态】那一栏每条留多少字（她 2026-09-19：「朋友圈那 40 字截得挺狠」）。
+  // 只有这一处：正文和评论各一个数，别在拼字符串那儿各写一个魔数。
+  const MOMENT_LOG_LEN = 90, MOMENT_LOG_COMMENT_LEN = 45;
   const MOMENTS_CAP = 240; // v62.42（审计 P1）：朋友圈无 cap 会把 5MB 池子吃穿——写满那天坏的是旁边的好感度和心情
   const pMom = u => setMoments(p => {
     let n = typeof u === "function" ? u(p) : u;
@@ -5238,6 +5241,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 言秋不发：TA不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
     carryLog: (typeof carryContextText === "function" && !settingsFor(char.id).engineerEyes)
       ? carryContextText(carryRef.current[char.id], carryPinsRef.current[char.id]) : "",
+    // ⚠️她 2026-09-19：原来正文只截 40 字、评论 30 字——长一点的动态他只看得见开头，
+    //   聊到后半段就一脸茫然。这一栏是【常驻】的（每轮都在），所以放宽也要有个准数。
     momentLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
@@ -5248,12 +5253,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (liked) acts.push("你点了赞");
         if (myC.length) acts.push("你评论了「" + myC.join("；") + "」");
         if (!acts.length) acts.push("你没点赞也没评论");
-        out.push("· 用户发的「" + String(m.content || "").slice(0, 40) + "」：" + acts.join("，"));
+        out.push("· 用户发的「" + String(m.content || "").slice(0, MOMENT_LOG_LEN) + "」：" + acts.join("，"));
       });
       // 你自己发过的动态 + 评论区摘要（不然用户在你帖子下回了你、聊天里你却一脸茫然）
       (moments || []).filter(m => !m.mine && m.characterId === char.id).slice(0, 2).forEach(m => {
-        const cs = (m.comments || []).slice(-4).map(cm => (cm.author || "某人") + "说「" + String(cm.text || "").slice(0, 30) + "」").join("；");
-        out.push("· 你自己发的「" + String(m.content || "").slice(0, 40) + "」" + (cs ? "，评论区：" + cs : "，还没人评论"));
+        const cs = (m.comments || []).slice(-4).map(cm => (cm.author || "某人") + "说「" + String(cm.text || "").slice(0, MOMENT_LOG_COMMENT_LEN) + "」").join("；");
+        out.push("· 你自己发的「" + String(m.content || "").slice(0, MOMENT_LOG_LEN) + "」" + (cs ? "，评论区：" + cs : "，还没人评论"));
       });
       return out.join("\n");
     })(),
@@ -14469,6 +14474,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const groupHistLine = m => (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
     + (m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
     + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
+    // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
+    //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
+    //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
     : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
@@ -17027,8 +17035,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return (isOwnAnon ? "｜（这条其实是你自己匿名发的——认不认随你人设）" : (isOwnPost ? "｜（这帖就是你自己发的）" : ""))
       + (mine.length ? "｜（你本人在这帖里回过：" + mine.slice(0, 3).map(x => "“" + String(x).replace(/\s+/g, " ").slice(0, 40) + "”").join("；") + "——认得出是你自己说过的话）" : "");
   };
+  // 楼里在吵什么（她 2026-09-19：「主要就是得确定转发论坛进来后他能看到啥」）。
+  // ⚠️原来转发只给楼主那一段：板块、标题、正文前 160 字、作者名。她转一个帖多半
+  //   就是想让他看【楼里怎么说】，结果他只看得见楼主，一句「你看评论区」就接不住。
+  // ⚠️只报 authorName——匿名和小号在论坛里本来显示的就是「匿名用户／匿名者」，
+  //   这儿照抄显示名，不去还原是谁（js/app.js 那条围栏：小号／匿名一个字都不许漏）。
+  // 转发是【转的那一刻的快照】：之后楼里再长出来的话不会追进这条消息里。
+  const FORUM_SHARE_FLOORS = 5, FORUM_SHARE_FLOOR_LEN = 48;
+  const forumShareFloors = post => {
+    const rows = forumCommentsRef.current[post.id] || [];
+    if (!rows.length) return "｜（楼里还没人回）";
+    const say = x => (x.authorName || "有人") + "：" + String(x.content || "").replace(/\s+/g, " ").slice(0, FORUM_SHARE_FLOOR_LEN);
+    const shown = rows.slice(-FORUM_SHARE_FLOORS).map(f => {
+      const back = (f.replies || []).slice(-1)[0];
+      return say(f) + (back ? "（有人回：" + say(back) + "）" : "");
+    });
+    const rest = rows.length - shown.length;
+    return "｜楼里：" + shown.join("；") + (rest > 0 ? "（前面还有 " + rest + " 层没列）" : "");
+  };
   const forumShareText = (post, tags) => "[转发了一条贴吧帖]「" + post.board + "」《" + post.title + "》｜"
-    + String(post.body || "").replace(/\s+/g, " ").slice(0, 160) + "｜作者显示：" + post.authorName + (tags || "");
+    + String(post.body || "").replace(/\s+/g, " ").slice(0, 160) + "｜作者显示：" + post.authorName
+    + forumShareFloors(post) + (tags || "");
   const forwardPostToChat = (post, toChar) => {
     pChat(toChar.id, p => [...p, {
       role: "user", kind: "forumshare",
