@@ -9,7 +9,7 @@ const game = fs.readFileSync("apps/fairy-garden/game.mjs", "utf8");
 // 她 2026-09-19：「为啥男的进去是默认女体我是男体」
 test("两边都按性别配默认样貌，不再只管同行者", () => {
   assert.match(host, /g\.ensureLook\('companion', taOf\(c\),/, "同行者那一侧没接上");
-  assert.match(host, /g\.ensureLook\('me', taOf\(/, "她自己那一侧没接上");
+  assert.match(host, /g\.ensureLook\('me',/, "她自己那一侧没接上");
   assert.doesNotMatch(host, /hair: ta === "她" \? 'wavy'/,
     "写死的那份发型还在——发型又在替身形说话了");
 });
@@ -17,17 +17,15 @@ test("两边都按性别配默认样貌，不再只管同行者", () => {
 // ⚠️原来只在进门那一瞬间试一次：那会儿角色还没就位就永远错过。
 test("角色或人设后来才就位时还要再补一次", () => {
   assert.match(host, /if \(loaded\) ensureLooks\(\);/, "只剩进门那一次了");
-  assert.match(host, /\[loaded, entry\.partnerId, \(props\.profile \|\| \{\}\)\.gender\]/,
-    "换人或改了性别之后不再补");
+  assert.match(host, /\[loaded, entry\.partnerId\]\);/, "换了同行者之后不再补");
 });
 
-// 她 2026-09-19：「我永远是女生」——没填按女算，不去猜
-// （js/character-pronoun.js：不从姓名、头像或自由文本猜性别）。
-test("用户人设里有性别，空着就按女算", () => {
-  assert.match(host, /me\.gender \|\| ""\)\.trim\(\) \|\| "女"/, "庭院这边没兜底成女");
-  assert.match(comp, /useState\(profile\.gender \|\| "女"\)/, "我的面具里没有性别这一项");
-  const save = comp.slice(comp.indexOf("function ProfileSheet("), comp.indexOf("function ProfileSheet(") + 2600);
-  assert.match(save, /\n      gender,\n/, "选了性别却没存进人设");
+// 她 2026-09-19：「不要设置性别！！！男的不许玩！！！」
+// ——她自己那一侧永远是女生，写死，不做成设置项也不读任何人设字段。
+test("她自己永远是女生，而且不做成设置", () => {
+  assert.match(host, /g\.ensureLook\('me', "她"\)/, "她自己那一侧不再写死成女生了");
+  assert.doesNotMatch(host, /profile[^\n]*gender|me\.gender/, "又去读人设里的性别了");
+  assert.doesNotMatch(comp, /gender/, "「我的面具」里又冒出性别这一项了");
 });
 
 // 施工规则/one-public-mechanism.md：换样貌只许有一处落点。

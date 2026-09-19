@@ -6394,9 +6394,6 @@ function ProfileSheet({
   const [avatarImage, setAvatarImage] = useState(profile.avatarImage || null);
   const [color, setColor] = useState(profile.color || AV_COLORS[0]);
   const [birthday, setBirthday] = useState(profile.birthday || "");
-  // ⚠️她 2026-09-19：「我永远是女生」。没填就是【女】，不从昵称或人设正文里猜
-  //   （js/character-pronoun.js 顶上那条）。庭院的小人按这个配头发和身形。
-  const [gender, setGender] = useState(profile.gender || "女");
   const [appearance, setAppearance] = useState(profile.appearance || "");
   const [refPhoto, setRefPhoto] = useState(profile.refPhoto || null);
   const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
@@ -6418,7 +6415,6 @@ function ProfileSheet({
       persona,
       avatarImage,
       color,
-      gender,
       birthday: birthday.trim(),
       appearance: appearance.trim(),
       refPhoto: refPhoto,
@@ -6458,24 +6454,6 @@ function ProfileSheet({
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
-    zh: "性别"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-1.5"
-  }, [["女", "女生"], ["男", "男生"], ["TA", "都不是"]].map(o => /*#__PURE__*/React.createElement("button", {
-    key: o[0],
-    type: "button",
-    onClick: () => setGender(o[0]),
-    className: "active:opacity-70",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12.5,
-      padding: "6px 14px",
-      borderRadius: 999,
-      background: gender === o[0] ? t.ink : t.bg,
-      color: gender === o[0] ? t.bg2 : t.sub,
-      border: "1px solid " + t.line
-    }
-  }, o[1])))), /*#__PURE__*/React.createElement(LineField, {
     zh: "生日",
     en: "Birthday"
   }, /*#__PURE__*/React.createElement(LineInput, {

@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0c692e422fee39ef", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-d7684d2927e07a56", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -925,8 +925,9 @@
     // 这一侧还没设过样貌，就按性别补一份（她 2026-09-19：「为啥男的进去是默认女体我是男体」）。
     // ⚠️原来这件事只在进门那一瞬间试一次，而且只管同行者：那会儿角色还没就位就永远错过，
     //   他一直留着那头长卷发；她自己则连试都没试过，永远是写死的那身短发。
-    // ⚠️她 2026-09-19：「我永远是女生」——用户人设没填性别时按【女】算，不去猜。
-    //   （js/character-pronoun.js 顶上那条：不从姓名、头像或自由文本猜性别。）
+    // ⚠️她 2026-09-19：「不要设置性别！！！男的不许玩！！！」——这个 app 是给她用的，
+    //   她自己那一侧【永远是女生】，写死在这儿，不做成设置项、也不去读任何人设字段。
+    //   （我上一版自作主张往「我的面具」里加了一项，是加多了，已经撤掉。）
     // 配哪一身（头发＋六根形体参数）由游戏里那一份 GENDER_LOOKS 说了算，
     // 宿主只负责回答「这一位是他还是她」。
     const taOf = c => (typeof CharacterPronoun !== "undefined") ? CharacterPronoun.ta(c) : "TA";
@@ -937,8 +938,7 @@
         const c = partner();
         // 衣色仍旧取角色卡上那个色：性别那份只管头发和身形。
         if (c) g.ensureLook('companion', taOf(c), { cloth: c.color || '#729786' });
-        const me = propsRef.current.profile || {};
-        g.ensureLook('me', taOf({ gender: String(me.gender || "").trim() || "女" }));
+        g.ensureLook('me', "她");
         pullLook();
       } catch (e) {/* 样貌是锦上添花，出错不许拦住进门 */}
     };
@@ -947,7 +947,7 @@
     // 底下那一格就是游戏自己往窗里渲的那个小人。开这一页就告诉它渲谁，关了就收。
     // 角色或用户人设【后来才就位】时再补一次：进门那一瞬间拿不到人，不该就这么算了。
     useEffect(() => { if (loaded) ensureLooks(); },
-      [loaded, entry.partnerId, (props.profile || {}).gender]);
+      [loaded, entry.partnerId]);
     useEffect(() => {
       const g = game(); if (!g || !g.preview) return;
       g.preview(dress ? who : null);
