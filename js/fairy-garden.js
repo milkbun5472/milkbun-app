@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-e69020e9199c9dc0", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-dc36e8b35453ab8a", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -563,6 +563,24 @@
     };
     const partner = () => (propsRef.current.characters || []).find(c => String(c.id) === String(current().partnerId)) || null;
     const update = fn => { const next = write(storeKey.current, fn(current())); setEntry(next); return next; };
+    // 这一局那位同行者的主线底子（buildBundle 那一份：人设、心情、记忆、反八股…）。
+    // ⚠️她 2026-09-19 问「小世界里也知道在放啥歌」时查出来的：房间那条路一直传着
+    //   mainline，小世界这条路【从来没传过】——角色在小世界里是薄的，只有人设正文，
+    //   没有心情、没有记忆、没有一起听、也没有反八股那一堆。
+    //   这正是 施工规则/four-surfaces-same-context.md 记的那个形状（群聊变霸总、
+    //   解梦馆变心理测试）：一层写在一处，别处没跟上。
+    // 小世界这条路的同行者是按存档挑的、会换人，所以要的是【一个函数】不是一段字：
+    //   问它要谁的，它就现拼谁的。房间那条路锁死一个人，传进来的那段照旧直接用。
+    const mainlineNow = () => {
+      const fixed = String(propsRef.current.mainline || "").trim();
+      if (fixed) return fixed;
+      const c = partner(); if (!c) return "";
+      try { return String(propsRef.current.mainlineFor ? propsRef.current.mainlineFor(c.id) : "") || ""; }
+      catch (e) { return ""; }
+    };
+    // 正在念的那一条；重开一轮或者她关掉开关时要立刻掐掉
+    let aloud = null;
+    const stopAloud = () => { try { if (aloud) { aloud.pause(); aloud.src = ""; } } catch (e) {} aloud = null; };
     const game = () => frame.current && frame.current.contentWindow.FairyGardenGame;
     const flush = () => { const g = game(); if (g && !g.flush()) throw new Error("进度还没有保存成功，请先留在庭院。"); };
     const back = () => { try { flush(); serial.current++; props.onBack(); } catch (e) { setError(e.message); props.toast(e.message); } };
@@ -602,7 +620,7 @@
       try {
         update(d=>({...d,plans:{...(d.plans||{}),[key]:{status:"pending",at:Date.now(),request}}}));
         const account=await accountId();if(!alive.current||serial.current!==epoch)throw Error("庭院已离开，这次安排没有写入。");current();
-        const plan=await generateSeason({active:propsRef.current.apiFor?propsRef.current.apiFor(cid):propsRef.current.active,character:c,profile:propsRef.current.profile,world,mainline:propsRef.current.mainline});
+        const plan=await generateSeason({active:propsRef.current.apiFor?propsRef.current.apiFor(cid):propsRef.current.active,character:c,profile:propsRef.current.profile,world,mainline:mainlineNow()});
         if(await accountId()!==account||!alive.current||serial.current!==epoch)throw Error("角色或账号已切换，这次安排没有写入。");
         const latest=current();if(String(latest.partnerId)!==String(cid)||!partner()||latest.plans?.[key]?.request!==request||planKey(cid,game().snapshot().day)!==key)throw Error("存档或季节已改变，这次安排没有写入。");
         update(d=>({...d,plans:{...(d.plans||{}),[key]:{status:"ready",at:Date.now(),plan}}}));
@@ -619,6 +637,27 @@
         save: (world, worldId, journey) => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); const w = String(worldId || "garden"); write(storeKey.current, { ...d, journey: { ...(d.journey || {}), ...(journey && typeof journey === "object" ? journey : {}) }, worlds: { ...(d.worlds || {}), [w]: world }, // ⚠️庭院那一份同时写回老位置：万一回滚到旧版本，她的日子还在。
           //   等列车上线、她也刷过几版之后，这条镜像才可以撤。
           world: w === "garden" ? world : d.world }); return true; },
+        // 念出来：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
+        // （她 2026-09-19：「开了就每个气泡念完再到下一个气泡念」）。
+        // ⚠️和聊天里那条语音走【同一个 ttsSpeak】：它自带 idb 缓存，另写一套合成
+        //   就是又开一处要付钱的地方（施工规则/one-public-mechanism.md）。
+        // 念不了就老老实实返回 false，让游戏退回原来的定时——不许把气泡卡死在那儿。
+        readAloud: async text => {
+          const line = String(text || "").trim(), c = partner();
+          if (!line || !c || !c.voiceId || typeof ttsSpeak !== "function") return false;
+          try {
+            const blob = await ttsSpeak(line, c.voiceId);
+            if (frame.current !== node) return false;
+            stopAloud();
+            const url = URL.createObjectURL(blob), a = new Audio(url); aloud = a;
+            try { await a.play(); } catch (e) { try { URL.revokeObjectURL(url); } catch (_) {} aloud = null; return false; }
+            await new Promise(done => { a.onended = done; a.onerror = done; });
+            try { URL.revokeObjectURL(url); } catch (e) {}
+            if (aloud === a) aloud = null;
+            return true;
+          } catch (e) { return false; }
+        },
+        stopAloud: () => { stopAloud(); return true; },
         changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
         // 悬浮播放器就不会默认停在它头上（js/components.js 的 FloatKeepClear）。
@@ -632,7 +671,7 @@
           const epoch = serial.current;
           return await shards({
             active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-            character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+            character: c, profile: propsRef.current.profile, mainline: mainlineNow(),
             world: (game() && game().snapshot()) || {}, depth: depth
           }).then(out => {
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这一批碎片没有写入。");
@@ -649,7 +688,7 @@
           try {
             const parts = await missLine({
               active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+              character: c, profile: propsRef.current.profile, mainline: mainlineNow(),
               world: (game() && game().snapshot()) || {}, material: material
             });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这句话没有写下来。");
@@ -675,7 +714,7 @@
           const epoch = serial.current; busyRef.current = true; setBusy(true);
           try {
             const rows = await guideLines({ active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline, world: (game() && game().snapshot()) || {} });
+              character: c, profile: propsRef.current.profile, mainline: mainlineNow(), world: (game() && game().snapshot()) || {} });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这几句没有写下来。");
             if (String(current().partnerId) !== cid) throw new Error("同行者已经换过，这几句没有写下来。");
             update(old => ({ ...old, guides: { ...(old.guides || {}), [cid]: { status: "ready", at: Date.now(), rows } } }));
@@ -711,7 +750,7 @@
           busyRef.current = true; setBusy(true);
           try {
             const lines = await starLines({ active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline });
+              character: c, profile: propsRef.current.profile, mainline: mainlineNow() });
             if (!alive.current || serial.current !== epoch) return null;
             update(old => ({ ...old, stars: { ...(old.stars || {}), [cid]: { status: "ready", at: Date.now(), lines } } }));
             return lines;
@@ -769,7 +808,7 @@
           try {
             const rows = await tastes({
               active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+              character: c, profile: propsRef.current.profile, mainline: mainlineNow(),
               world: (game() && game().snapshot()) || {},
               catalogue: (game() && game().giftCatalogue && game().giftCatalogue()) || []
             });
@@ -794,7 +833,7 @@
           try {
             const words = await tasteWords({
               active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline, item, stance });
+              character: c, profile: propsRef.current.profile, mainline: mainlineNow(), item, stance });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这一句没有写下来。");
             update(old => { const all = old.tastes || {}, mine = all[cid] || {};
               return { ...old, tastes: { ...all, [cid]: { ...mine, extra: { ...(mine.extra || {}), [key]: { stance, words, at: Date.now() } } } } }; });
@@ -808,7 +847,7 @@
           const epoch=serial.current;busyRef.current=true;setBusy(true);
           try {
             const out=await bottleReply({active:propsRef.current.apiFor?propsRef.current.apiFor(c.id):propsRef.current.active,
-              character:c,profile:propsRef.current.profile,mainline:propsRef.current.mainline,
+              character:c,profile:propsRef.current.profile,mainline:mainlineNow(),
               world:(game()&&game().snapshot())||{},bottle});
             if(!alive.current||serial.current!==epoch||String(current().partnerId)!==String(c.id))throw new Error("庭院或同行者已切换，这次回信没有写入。");
             return out;
@@ -823,7 +862,7 @@
           try {
             const out = await blossoms({
               active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
-              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
+              character: c, profile: propsRef.current.profile, mainline: mainlineNow(),
               world: (game() && game().snapshot()) || {}, seeds: rows
             });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这几张花笺没有写入。");
@@ -994,7 +1033,7 @@
         const account = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         current();
-        const result = await ask({ active: propsRef.current.apiFor ? propsRef.current.apiFor(cid) : propsRef.current.active, character: c, profile: propsRef.current.profile, world, history: doneHistory(d, cid).slice(-30), text, mainline: propsRef.current.mainline, destinations: (game() && game().destinations && game().destinations()) || "" });
+        const result = await ask({ active: propsRef.current.apiFor ? propsRef.current.apiFor(cid) : propsRef.current.active, character: c, profile: propsRef.current.profile, world, history: doneHistory(d, cid).slice(-30), text, mainline: mainlineNow(), destinations: (game() && game().destinations && game().destinations()) || "" });
         const accountNow = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         const latest = current();

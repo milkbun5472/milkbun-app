@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.84";
+const APP_VERSION = "v71.86";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23139,6 +23139,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "fairyGarden") body = h(window.FairyGardenApp, {
+    // 小世界这条路的同行者是按存档挑的、会换人，所以给的是【一个函数】：
+    // 问哪一位就现拼哪一位的主线底子（人设、心情、记忆、一起听、反八股…）。
+    // ⚠️房间那条路早就传着 mainline，这条路一直没传——角色在小世界里是薄的
+    //   （施工规则/four-surfaces-same-context.md）。她 2026-09-19 问「小世界里
+    //   也知道在放啥歌」时查出来的。
+    mainlineFor: charId => { try { const c = (characters || []).find(x => String(x.id) === String(charId)); return c ? buildBundle(ctxFor(c, { chat: true })) : ""; } catch (e) { return ""; } },
     apiFor: offlineApiFor,
     // 架空游戏与小剧场同类：全文人设、独立世界；不接主线记忆/好感/日程写回。
     active: offlineActive,
