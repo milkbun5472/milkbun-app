@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-d7684d2927e07a56';
-import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-d7684d2927e07a56';
+import {stepRoute} from './locomotion.mjs?v=fg-d39a3254c95fc109';
+import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-d39a3254c95fc109';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -199,7 +199,12 @@ export function makeCompanionController(){
   const c=s.companion,sleeping=!!MAPS.home.beds[s.sleep?.companion],wants=autonomous?null:(missIntent(s)||guideIntent(s)),routine=wants?{...wants,target:s.position}:(sleeping?companionPlan(s):c.mode==='follow'?null:c.mode==='routine'?plannedActivity(s):companionPlan(s)),needsNear=!sleeping&&(!!wants||c.mode==='follow'||routine.map===s.map&&Math.hypot(routine.target.x-s.position.x,routine.target.z-s.position.z)<.65);
   const choiceKey=wants?'miss:'+s.day:c.mode==='follow'?'follow:'+String(s.seat):`${s.day}:${routine.id}:${routine.spot||''}:${routine.start}`;let plan;
   if(needsNear){if(!cachedFollow||cachedFollow.key!==choiceKey||cachedFollow.map!==s.map||cachedFollow.fromMap!==c.map||Math.hypot(s.position.x-cachedFollow.anchor.x,s.position.z-cachedFollow.anchor.z)>.25||stuck&&cooldown<=0)cachedFollow={key:choiceKey,plan:c.mode==='goto'?{...routine,target:followPoint(s)}:companionPlan(s),map:s.map,fromMap:c.map,anchor:{...s.position}};plan=cachedFollow.plan;}else{cachedFollow=null;plan=routine;}
-  const cross=c.map!==plan.map,exit=cross?exitToward(c.map,plan.map):null;if(cross&&!exit){moving=false;status='这里还没有通往那里的小路';return {state:s,event:null};}const goal=cross?exit.target:plan.target,avoid=c.map===s.map?[{...s.position,r:PERSONAL_SPACE}]:[];
+  const cross=c.map!==plan.map,exit=cross?exitToward(c.map,plan.map):null;if(cross&&!exit){moving=false;status='这里还没有通往那里的小路';return {state:s,event:null};}const goal=cross?exit.target:plan.target,avoid=c.map===s.map&&!cross?[{...s.position,r:PERSONAL_SPACE}]:[];
+  // ⚠️去门口那一趟不把她的身位当障碍（她转群友 2026-09-19：「同行的人会卡在林间小路门口反复横跳」）。
+  //   小路口就那么窄，她往门口一站，他唯一那条路就从她的私人空间里过：findPath 要么找不出路，
+  //   要么找出一条一步就被挡住的——被挡住就清 routeKey 下一帧重算，看上去就是在门口来回蹭。
+  //   口子是【要去的那个点】，不是要绕开的人，所以这一趟不设这道空隙。
+
   const key=`${s.day}:${c.mode}:${plan.id}:${plan.spot||''}:${plan.map}:${goal.x.toFixed(1)}:${goal.z.toFixed(1)}`;
   if((key!==routeKey||stuck&&cooldown<=0)&&(c.mode!=='follow'||!route.length||cross||cooldown<=0)){cooldown=.65;routeKey=key;route=[];idle=0;stuck=false;const distance=Math.hypot(c.position.x-goal.x,c.position.z-goal.z);if(distance>.12){route=findPath(c.position,goal,c.map,avoid,s)||[];stuck=!route.length;}}
   let out=s,event=null;moving=route.length>0;gesture='rest';

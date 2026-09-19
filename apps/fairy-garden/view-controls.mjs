@@ -16,7 +16,12 @@ export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,
  let folded=pref.folded===true,saveTimer;
  const persist=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{storage.setItem(key,JSON.stringify({folded,zoom:gesture.getZoom()}));}catch{}},120);};
  const gesture=createMapGesture({initial:pref.zoom,onTap,onPan,onZoom:value=>{onZoom(value);reset.textContent=Math.round(value*100)+'%';zoomIn.disabled=value>=MAX_ZOOM;zoomOut.disabled=value<=MIN_ZOOM;persist();}});
- function fold(){content.hidden=folded;panel.classList.toggle('folded',folded);toggle.setAttribute('aria-expanded',String(!folded));toggle.querySelector('span').textContent=folded?'展开行动':'收起行动';persist();onFold(folded);}
+ // ⚠️收起来的时候，这条栏上要写着【此刻该干嘛】（她转群友 2026-09-19：「水井在哪儿呀，怎么取水」）。
+ //   井边取水那颗按钮和目标条都在行动面板里，而面板在手机上默认是收起的——
+ //   新人看到的只有「展开行动」四个字，于是既找不到井也不知道怎么取水。
+ //   ⚠️那句话只有一处来源：ui() 算好了用 setFoldNote 递过来，这儿不自己拼第二份。
+ let foldNote='';
+ function fold(){content.hidden=folded;panel.classList.toggle('folded',folded);toggle.setAttribute('aria-expanded',String(!folded));toggle.querySelector('span').textContent=folded?(foldNote?'展开行动 · '+foldNote:'展开行动'):'收起行动';persist();onFold(folded);}
  toggle.onclick=()=>{folded=!folded;fold();};zoomIn.onclick=()=>gesture.setZoom(gesture.getZoom()*1.2);zoomOut.onclick=()=>gesture.setZoom(gesture.getZoom()/1.2);reset.onclick=()=>{onReset();gesture.setZoom(1);};if(center)center.onclick=onCenter;
  canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;gesture.down(e.pointerId,e.clientX,e.clientY);try{canvas.setPointerCapture(e.pointerId);}catch{}});
  canvas.addEventListener('pointermove',e=>gesture.move(e.pointerId,e.clientX,e.clientY));
@@ -24,7 +29,9 @@ export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,
  for(const name of ['pointercancel','lostpointercapture'])canvas.addEventListener(name,e=>gesture.up(e.pointerId,e.clientX,e.clientY,true));
  canvas.addEventListener('wheel',e=>{e.preventDefault();const amount=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?canvas.clientHeight:1);gesture.setZoom(gesture.getZoom()*Math.exp(-Math.max(-240,Math.min(240,amount))*.002));},{passive:false});
  globalThis.addEventListener('blur',()=>gesture.cancel());
- fold();gesture.setZoom(gesture.getZoom());return gesture;
+ fold();gesture.setZoom(gesture.getZoom());
+ gesture.setFoldNote=text=>{const next=String(text||'').slice(0,18);if(next===foldNote)return;foldNote=next;if(folded)fold();};
+ return gesture;
 }
 
 // Orthographic dragging uses infinite ground lines: a long swipe can put the shifted
