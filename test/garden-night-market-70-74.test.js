@@ -175,7 +175,10 @@ test("吃的接进已有的三处进度：礼物簿多「吃的」一类、他�
   assert.match(w.todayHints({ ...w.freshState(), day: 13, minute: 1200 })[0].text, /夜市开了/);
   assert.equal(w.todayHints({ ...w.freshState(), day: 12 }).some(h => h.kind === "fair"), false);
   // 手机那一册：喜好表长了一类，老档缺这一类再问一次；食谱册从 getBond 的 food 画
-  assert.match(host, /Object\.keys\(root\.FairyGardenRules\.GIFT_FAMILIES\)\.every\(f => \(have\.rows \|\| \[\]\)\.some\(r => r && r\.family === f\)\)/);
+  // ⚠️2026-09-18 起那张表是【一样一样】的：问过没问过看单子上每一样，不看类
+  //   （她：「每一档都单独吧」）。新加一样吃的，单子长了，也会自己再问一次。
+  assert.match(host, /want\.every\(k => \(have\.rows \|\| \[\]\)\.some\(r => r && r\.key === k\)\)/);
+  assert.match(rd("apps/fairy-garden/world.mjs"), /\.\.\.Object\.entries\(FOODS\)\.map\(\(\[id, f\]\) => \(\{ key: 'food:' \+ id/, "吃的每一样都在那张单子上");
   assert.match(host, /"食谱册 · 尝过 " \+ bond\.food\.tasted \+ " \/ " \+ bond\.food\.total/);
   assert.match(game, /getBond:\(\)=>\(\{\.\.\.bondBook\(data\),gifts:giftBook\(data\),food:foodBook\(data\),/);
   assert.match(game, /food:\(f=>\(\{pantry:f\.pantry\.map\(p=>p\.label\),tasted:f\.tasted,total:f\.total,tonight:f\.tonight,open:f\.open,nextFair:f\.next,buffs:f\.buffs\}\)\)\(foodBook\(data\)\)/);

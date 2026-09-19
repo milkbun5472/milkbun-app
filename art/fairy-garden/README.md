@@ -5,7 +5,7 @@
 此目录的美术源是 `base_traveler.glb`（只进不出）。预览脚本只出图；
 `export_traveler.py` 是唯一给运行时用的一支，导出 `apps/fairy-garden/doll.glb`（只出不进）。
 源脚本留在 `art/`，避免触发 `apps/fairy-garden/` 整包缓存指纹变化。
-原稿保存在 Git 提交 `d6cb63c`；图和 `.blend` 输出到仓库之外。
+原稿保存在 Git 提交 `d6cb63c`；全部现有 `.blend` 已归档在 [blend/](blend/README.md)，图仍输出到仓库之外。
 
 ## 这一稿
 
@@ -262,3 +262,26 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 `wardrobe.mjs` 统一每套配色的合并、校验和默认值；用户、同行者、邻居和预览都走原 setLook。原 cloth 字段仅作为旅人装旧档默认色，各套新颜色存 look.wardrobe[款式]，换装不覆盖其它套配色。衣柜宿主从 doll.json 读取款式，通过 getOutfit 取实际色，原位更新四个色槽。
 
 验证：`fairy-outfits-browser.cjs` 渲运行时六套/坐姿并验证换色、实例隔离与手臂；`fairy-wardrobe-host-browser.cjs` 使用独立浏览器的临时存档，验证真实宿主页选装/色号/横竖屏滚动/重新载入，不接触用户存档。
+
+## build_alchemy_stove.py（炼金炉搬位）
+
+她 2026-09-18：「我的锅看不见啊能不能移动一下」。不是锅做得不对，是它整个埋在房子里：
+锅在 (-11.6, 8)，而「扩建童话大宅」之后小屋本体占到 x∈[-14.75,-11.25]、z∈[3.55,8.05]，
+正好把它罩住；旁边那口井看得见，只是因为它恰好落在房子外面。
+
+⚠️她 2026-09-19 看过我另画的一口之后：「你这个炉好丑能不能用回 codex 的啊」。
+所以 `build_alchemy_stove.py -- SOURCE.blend DEST.blend X Y` **只搬不画**：
+`Cottage round cauldron` / `Cauldron lip` / `Glowing brew` 是 Codex 的原件，
+一个点都不改，只把整组平移到调用方给的位置。想让它更显眼也不要在这儿重新造型。
+
+位置只有一个来源——调用方把 `MAPS.garden` 里 brew 交互点的坐标传进来，以后 brew
+搬到哪儿锅就跟到哪儿。上游 `scene-expansion/village-expanded.blend`（旧坐标系）和
+出图用的 `architecture-v2/village-home.blend`（新坐标系）共用这一份搬运器，
+输出都放在 `blend/alchemy-stove/`；只重导 `village-home.glb --detail`，
+地景和其余分区 GLB 不动。
+
+⚠️锅住在**小屋分区块**里，不在地景里。我照着名字去改 `village-ground.blend`
+连错两版：那份是整场装配稿，5684 个网格里 4143 个标着 `hide_render`（井、锅
+全在内），导出脚本正是靠这个只把地面导出来——在那份里搬锅，搬了也永远进不了
+游戏，而且不会有任何报错。改村落里任何一件东西，先确认它归哪个分区块。`apps/fairy-garden/alchemy-stove.test.mjs` 常驻审计
+「庭院里能走过去的点一个都不许埋在房子轮廓里」。

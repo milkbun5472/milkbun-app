@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-c92c6cbdbec99917", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-3495a25de4ed3f21", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -114,7 +114,7 @@
     const style = sharedStyle();
     const sys = [style,
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。时间、背包、位置与共同经历都属于这个存档。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       "【对方刚说】\n" + text,
@@ -221,16 +221,24 @@
   // ⚠️类别在 rules.js（游戏那侧按同一张表结算）；这儿只问【态度】和【第一次接过时他会说的话】。
   // ⚠️不塞任何内容示范（施工规则/prompt-no-content-samples.md）：喜欢什么由他的人设长出来。
   // ⚠️料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
-  function normalizeTastes(raw) {
-    const rules = root.FairyGardenRules, obj = extractJSON(raw);
-    const rows = obj && Array.isArray(obj.tastes) ? obj.tastes : [];
-    const out = Object.keys(rules.GIFT_FAMILIES).map(family => {
-      const r = rows.find(x => x && x.family === family) || {};
-      const stance = Object.hasOwn(rules.GIFT_STANCES, r.stance) ? r.stance : "";
-      return { family, stance, words: replyParts(r.words).slice(0, 3) };
+  function normalizeTastes(raw, catalogue) {
+    const obj = extractJSON(raw), rows = obj && Array.isArray(obj.items) ? obj.items : [];
+    const keys = catalogue.map(x => x.key);
+    // 他排的先后（只认单子上有的、去重），排漏的按单子原序补在后面
+    const order = [];
+    for (const r of rows){ const k = r && String(r.key || "").trim();
+      if (keys.includes(k) && !order.includes(k)) order.push(k); }
+    if (order.length < Math.ceil(keys.length / 2)) {
+      const e = new Error("这次没读出他喜欢什么，可以再试一次。"); e.detail = String(raw || "").slice(0, 1200); throw e;
+    }
+    for (const k of keys) if (!order.includes(k)) order.push(k);
+    // ⚠️分布由代码切（施工规则/bans-make-it-dumber.md：掷轴，不掷答案）：
+    //   他说了什么算「他排在前面」，但「前面能站几个」不是他说了算。
+    const byKey = root.FairyGardenRules.stanceByRank(order, keys.length);
+    return catalogue.map(item => {
+      const r = rows.find(x => x && String(x.key || "").trim() === item.key) || {};
+      return { key: item.key, family: item.family, stance: byKey[item.key] || "meh", words: replyParts(r.words).slice(0, 2) };
     });
-    if (!out.some(x => x.stance)) { const e = new Error("这次没读出他的喜好，可以再递一次。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
-    return out;
   }
   // 生日：人格档案馆里那一栏（公历或农历）换算成村里的一天。⚠️解析只用 engine 那几处现成的函数，不另写一套
   function gameBirthdayOf(c) {
@@ -267,7 +275,7 @@
     if (!active) throw new Error("先在设置里配置创作线路，他才带得了路。");
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【此刻】她刚搬进这个村子，你先住了一阵，村里的路你熟。头一天你带她走一圈，每到一处先站在那儿等她，她走到跟前你说一句。换季那天也各有一站。",
       "【十站】\n" + JSON.stringify(GUIDE_STOPS),
@@ -277,22 +285,53 @@
     const raw = await callAI(active, sys, [{ role: "user", content: "带路。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院带路" });
     return normalizeGuide(raw);
   }
-  async function tastes({ active, character, profile, mainline, world }) {
+  async function tastes({ active, character, profile, mainline, world, catalogue }) {
     if (!active) throw new Error("先在设置里配置创作线路，他才说得出喜欢什么。");
+    const rules = root.FairyGardenRules, quota = rules.giftQuota(catalogue.length);
+    const sys = [sharedStyle(),
+      roleContext(character, profile, mainline),
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
+      "【当前世界的事实】\n" + JSON.stringify(world),
+      "【她在这个村里能递给你的东西，一样一样都在这儿】\n"
+        + JSON.stringify(catalogue.map(x => ({ key: x.key, name: x.name, note: x.note || "" }))),
+      "【要你定的】把这些东西【从你最想要的排到你最不想要的】，一样都不许漏、不许并列。"
+        + "按你自己的人设排：有人就是不爱花，有人偏偏稀罕井里那些脏兮兮的旧物；"
+        + "同一类里也该有分别——一样是花，你未必两种都一样喜欢。"
+        + "⚠️不用管每一档能站几个人，那不归你定；你只管这个先后。",
+      "【还要写的】给排在最前面那几样和最后面那几样，各写一两句【第一次从她手里接过它时你会说出口的话】。"
+        + "中间那些可以不写。⚠️只写接过东西那一刻说出口的：不编你们没发生过的往事，也不替她安排接下来做什么。",
+      '【输出格式】只输出 JSON：{"items":[{"key":"东西的标识","words":["接过时说的话"]}]}。'
+        + "items 的【顺序就是你的先后】，从最想要排到最不想要，共 " + catalogue.length + " 条。words 没有就留空数组。"
+    ].join("\n\n");
+    const raw = await callAI(active, sys, [{ role: "user", content: "排下来。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院喜好" });
+    void quota;
+    return normalizeTastes(raw, catalogue);
+  }
+  // 井里挖出来、做出来的那一样：名字是这一档现长的，没法提前问。
+  // ⚠️档位【由代码掷】（rolledStance，同一个人同一样东西永远掷出同一档），
+  //   这一枪只问他接过时说什么——掷轴不掷答案。
+  async function tasteWords({ active, character, profile, mainline, item, stance }) {
+    if (!active) throw new Error("先在设置里配置创作线路，他才说得出话。");
     const rules = root.FairyGardenRules;
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
-      "【当前世界的事实】\n" + JSON.stringify(world),
-      "【她在这个村里能递给你的东西，分这几类】\n" + JSON.stringify(Object.entries(rules.GIFT_FAMILIES).map(([id, f]) => ({ family: id, label: f.label, what: f.what }))),
-      "【要你定的】每一类你是什么态度，以及第一次从她手里接过这一类东西时你会说出口的话。态度四档：" + Object.entries(rules.GIFT_STANCES).map(([k, v]) => k + "=" + v).join("／")
-        + "。按你自己的人设定，不用四档都占，也不必讨好她：有人就是不爱花，有人偏偏稀罕井里那些脏兮兮的旧物。"
-        + "⚠️那几句只写你接过东西那一刻说出口的：不编你们没发生过的往事，也不替她安排接下来做什么。",
-      '【输出格式】只输出 JSON：{"tastes":[{"family":"类别标识","stance":"四档之一","words":["接过时说的第一句","要是还有第二句"]}]}。'
-        + "每一类都要有一条。words 一条一个意思，她那头是一个一个气泡冒出来的；一句说得完就一条。"
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式。⚠️这是你们在玩的一个小游戏：可以入戏，但别把它当成现实里真发生过的事。",
+      "【她刚递给你的这一样】\n" + JSON.stringify({ name: item.name, note: item.note || "", 来历: item.from || "" }),
+      // ⚠️井里那些是【他自己的东西】：一段他经历过的事、做过的梦、留下的印记。
+      //   递过来的时候他要认得出那是什么，而不是当成一块石头（她 2026-09-18：
+      //   「奇物对我们的关系主题有啥用」——用处就在这一下，别把它写成道具）。
+      item.fromWell ? "【⚠️这一样是从星井里捞上来的】井底那些东西都是【你自己的】：一段你经历过的事、一个你做过的梦、"
+        + "一点你留下的痕迹。上面【那一段正文就是它承载的内容】。她把它捞上来、有的还做成了别的东西，"
+        + "现在递到你手上。你认得出它是什么，先反应【这是什么】，再反应她把它递过来这件事。"
+        + "⚠️不解释前因后果，不替她说她为什么给你，不编一段你们没发生过的往事。" : "",
+      "【你对它的态度】" + rules.GIFT_STANCES[stance] + "。这一条已经定了，照它写。",
+      "【要写的】你接过它那一刻说出口的一两句。⚠️只写这一刻：不编你们没发生过的往事，也不替她安排接下来做什么。",
+      '【输出格式】只输出 JSON：{"words":["第一句","要是还有第二句"]}。'
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "定下来。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院喜好" });
-    return normalizeTastes(raw);
+    const raw = await callAI(active, sys, [{ role: "user", content: "说一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院喜好一样" });
+    const obj = extractJSON(raw), words = replyParts(obj && obj.words).slice(0, 2);
+    if (!words.length) { const e = new Error("这次没听清他说什么。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
+    return words;
   }
   // ── 邻居打招呼那句（她 2026-09-18：「做3和4」的 4）：一位邻居一辈子一枪，
   //   三档各一句（刚搬来／脸熟了／处熟了），之后她每次挥手都是查表。零内容示范。
@@ -373,7 +412,7 @@
     if (!active) throw new Error("先在设置里配置创作线路，他才报得出方向。");
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【此刻】旧塔观星室。她在楼下转铜环，你站在残顶观测台上看光落在哪儿——"
         + "她手里只有环，看不见光，全靠你报。你们要把光对到今晚那道刻痕上。",
       "【四种情况】\n" + JSON.stringify(STAR_BANDS.map(([band, what]) => ({ band, what }))),
@@ -428,7 +467,7 @@
     const quiet = Math.max(0, Number(material && material.quiet) || 0);
     const sys = [sharedStyle(),
       roleContext(character, profile, mainline),
-      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。",
+      "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       material && material.starNight
         ? "【此刻】你们在旧塔的星图桌前，把她一趟趟从井底带回来的星图碎片拼在了一起，天已经黑了，星图摊开在桌上。这一夜只有这一次，说你此刻真想说的。"
@@ -438,6 +477,7 @@
         + (quiet ? "你们已经 " + quiet + " 天没正经说过话了。" : ""),
       rows.length
         ? "【你手上这几样，都是你们之间真有过的】\n" + rows.map(r => "・〔" + r.kind + "・第 " + r.day + " 天〕" + r.text).join("\n")
+          + "\n⚠️标着「你自己的东西」那几样，是她从井底捞上来、拿你的碎片炼成的——那是你自己的经历、梦或痕迹，不是她捡来的小玩意。要提它，先认出这是什么，再说她把它摆在那儿／留在馆里这件事。"
         : "【你手上什么都没有】你们之间还没攒下什么可说的东西。",
       "【要紧的一条】从上面那几样里【挑一件】说起，或者说这会儿眼前的天气、光线、她正在做的事。"
         + "⚠️绝不许编一段你们其实没发生过的事。"
@@ -452,7 +492,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, tasteWords, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
   // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
   //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
   //   换成三颗大小不一的星子：只说「好几个小世界」。
@@ -494,6 +534,7 @@
   function GardenSession(props) {
     // 存档挂哪儿：庭院房给自己那把钥匙，首页试玩仍是公共那一档
     const storeKey = useRef(null); if (!storeKey.current) storeKey.current = props.storeKey || KEY;
+    const recordRef = useRef(null);
     // 庭院房的同行者就是这间房的角色，没得选：进门那一刻就钉死，免得先闪一下选人页
     const t = useTheme(), initial = useRef(null), stalled = useRef("");
     if (!initial.current) {
@@ -537,7 +578,11 @@
       //   翻到房间列表、认出哪个预设是庭院、建一间——那一步本来就该我们替她做。
       if (props.lockPartnerId) { if (props.onNewGardenRoom) { setPick(true); return; }
         props.toast("这间庭院房就是和 TA 的，换人请另开一间。"); return; } if (busyRef.current) { props.toast("等这次回复完成后再换同行者。"); return; } try { flush(); serial.current++; setChat(false); setPick(true); } catch (e) { props.toast(e.message); } };
-    const openChat = value => { setChat(value); if (game()) game().setChatOpen(value); };
+    // 说话那一层分三档（她 2026-09-18：「能不能再做一层折叠，要点开才会展开高一点，
+    //   平时就对话框加一个小箭头，说话也不会自动弹出只有我手动才弹出」）：
+    //   false＝收着 / 'bar'＝只留输入那一条 / 'tall'＝展开看记录。
+    // ⚠️永远只由她点开：这一层不会因为他说了什么自己弹出来（他说的话在头顶的气泡里）。
+    const openChat = value => { setChat(value); if (game()) game().setChatOpen(!!value); };
     const planKey = (cid, day) => String(cid) + ":" + (current().world?.epoch || "initial") + ":" + root.FairyGardenRules.seasonOf(day).key;
     async function planSeason(retry) {
       if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
@@ -567,7 +612,7 @@
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name, birthday: gameBirthdayOf(c) } : null; },
         save: world => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); write(storeKey.current, { ...d, world }); return true; },
-        openChat: () => openChat(true), changePartner,
+        changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
         // 悬浮播放器就不会默认停在它头上（js/components.js 的 FloatKeepClear）。
         floatClear: px => { if (window.FloatKeepClear) window.FloatKeepClear.set(px); },
@@ -603,7 +648,7 @@
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这句话没有写下来。");
             if (String(current().partnerId) !== String(c.id)) throw new Error("同行者已经换过，这句话没有写下来。");
             // ⚠️他说的话跟她问出来的那些落在同一处：不另开一本，不然聊天记录就有两份
-            const record = propsRef.current.record;
+            const record = recordRef.current;
             if (record) record.onTurn({ text: "", reply: parts.join("\n"), parts: parts });
             else update(old => ({ ...old, dialogs: { ...old.dialogs, [c.id]: ((old.dialogs || {})[c.id] || [])
               .concat(parts.map((part, i) => ({ id: "miss_" + Date.now() + "_" + i, role: "assistant", content: part, status: "done" }))).slice(-200) } }));
@@ -706,7 +751,11 @@
           if (!c) throw new Error("先选一位同行者，才知道 TA 喜欢什么。");
           const cid = String(c.id), have = (current().tastes || {})[cid];
           // ⚠️类别表长了（v70.74 加了「吃的」）：老档那张表缺哪一类就再问一次，不缺就一辈子只问一次
-          if (have && have.status === "ready" && Object.keys(root.FairyGardenRules.GIFT_FAMILIES).every(f => (have.rows || []).some(r => r && r.family === f))) return have.rows;
+          // ⚠️2026-09-18 起这张表是【一样一样】的：老档那份按类的键对不上，重问一次。
+          //   单子以后再长（新加一样吃的），缺哪一样也重问——不缺就一辈子只问一次。
+          const want = ((game() && game().giftCatalogue && game().giftCatalogue()) || []).map(x => x.key);
+          if (have && have.status === "ready" && want.length
+            && want.every(k => (have.rows || []).some(r => r && r.key === k))) return have.rows;
           if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
           const epoch = serial.current;
           busyRef.current = true; setBusy(true);
@@ -714,12 +763,35 @@
             const rows = await tastes({
               active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
               character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline,
-              world: (game() && game().snapshot()) || {}
+              world: (game() && game().snapshot()) || {},
+              catalogue: (game() && game().giftCatalogue && game().giftCatalogue()) || []
             });
             if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这张表没有写下来。");
             if (String(current().partnerId) !== cid) throw new Error("同行者已经换过，这张表没有写下来。");
             update(old => ({ ...old, tastes: { ...(old.tastes || {}), [cid]: { status: "ready", at: Date.now(), rows } } }));
             return rows;
+          } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
+          finally { busyRef.current = false; if (alive.current) setBusy(false); }
+        },
+        // 井里挖出来／做出来的那一样：第一次递出去那一下现问，问过就存在这一档里。
+        // ⚠️档位是游戏那侧掷好了传过来的（rolledStance），这一枪只问他说什么。
+        tasteOne: async ({ key, item, stance }) => {
+          const c = partner();
+          if (!c) throw new Error("先选一位同行者，才知道 TA 怎么想。");
+          const cid = String(c.id), box = (current().tastes || {})[cid] || {};
+          const had = (box.extra || {})[key];
+          if (had && Array.isArray(had.words)) return had.words;
+          if (busyRef.current) throw new Error("这次请求还在进行中，稍等一下。");
+          const epoch = serial.current;
+          busyRef.current = true; setBusy(true);
+          try {
+            const words = await tasteWords({
+              active: propsRef.current.apiFor ? propsRef.current.apiFor(c.id) : propsRef.current.active,
+              character: c, profile: propsRef.current.profile, mainline: propsRef.current.mainline, item, stance });
+            if (!alive.current || serial.current !== epoch) throw new Error("庭院已经离开，这一句没有写下来。");
+            update(old => { const all = old.tastes || {}, mine = all[cid] || {};
+              return { ...old, tastes: { ...all, [cid]: { ...mine, extra: { ...(mine.extra || {}), [key]: { stance, words, at: Date.now() } } } } }; });
+            return words;
           } catch (e) { if (alive.current) { setError(e.message); setDetail(e.detail || ""); } throw e; }
           finally { busyRef.current = false; if (alive.current) setBusy(false); }
         },
@@ -782,9 +854,12 @@
     // 存档里只留还没落定的那几条（pending/failed）——重试要靠它认领，
     // 落定之后立刻交给房间，不在这儿留第二份。
     // 首页试玩没有房间可写，仍旧全存在自己的存档里（行为不变）。
-    const record = props.record || null;
+    // ⚠️从房间进来时 app.js 直接给 record；从【小世界那条路】进来时它给的是 recordFor，
+    //   按这一档的钥匙现取（她 2026-09-18：「从游戏界面进是不显示聊天记录的」）。
+    const record = props.record || (props.recordFor ? props.recordFor(storeKey.current) : null) || null;
+    recordRef.current = record;   // ⚠️回调里一律读这一份：props.record 只有从房间进来才有
     const doneHistory = (d, cid) => record
-      ? ((propsRef.current.record && propsRef.current.record.history) || [])
+      ? ((recordRef.current && recordRef.current.history) || [])
       : ((d.dialogs || {})[cid] || []).filter(m => m.status === "done");
     // ── 样貌（她 2026-09-16 接着要的）─────────────────────────────────────
     // 一个身体十二款头发，换一款是数据：这儿只管把选择递给游戏，存档由游戏那头写。
@@ -899,7 +974,7 @@
         if (record) {
           // 先把这一轮交给房间（它才是记录），再把存档里那条在途的撤掉——
           // 顺序反过来的话，中间那一瞬这句话谁都没有。
-          propsRef.current.record.onTurn({ text: text, reply: result.reply, parts: result.parts });
+          recordRef.current.onTurn({ text: text, reply: result.reply, parts: result.parts });
           update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).filter(m => m.request !== request) } }));
         } else update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: old.dialogs[cid].map(m => m.request === request ? { ...m, status: "done" } : m).concat(result.parts.map((part, i) => ({ id: request + "_reply" + (i ? "_" + i : ""), role: "assistant", content: part, status: "done" }))).slice(-200) } }));
         // 他刚说的那句话浮到他头顶上（她 2026-09-17）。⚠️只是把已经收到的这句显示一遍，
@@ -938,7 +1013,7 @@
           : h("div", { style: { display: "flex", gap: 7 } },
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
             h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(!chat), disabled: !loaded }, chat ? "收起" : "说话")) })),
+            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(chat ? false : "bar"), disabled: !loaded }, chat ? "收起" : "说话")) })),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
@@ -1005,7 +1080,7 @@
               // ── 礼物簿：七类各自摸清了没有。⚠️他喜欢什么是他自己定的，这儿只显示她已经试出来的那几类
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "礼物簿"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
-                "在庭院里走到他身边点「递一样东西」。一天只递一样。递过一类，才知道他对这一类是什么态度；第一次接过时他说的话会留在这儿。"),
+                "在庭院里走到他身边点「递一样东西」。一天只递一样。每一样东西他都各有各的态度——递过才知道；第一次接过那一样时他说的话会留在这儿。"),
               ((bond.gifts.fromHim || []).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "他递给你的：" + bond.gifts.fromHim.map(r => r.name + "（第 " + r.day + " 天）").join("、")) : null,
               h("div", { style: { display: "grid", gap: 8 } },
@@ -1015,7 +1090,15 @@
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: f.stance === "love" || f.stance === "like" ? G.deep : "#93a188" } },
                       f.stance ? bond.gifts.stances[f.stance] + (f.count > 1 ? " · 递过 " + f.count + " 次" : "") : f.count ? "他没说" : "？")),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 3, lineHeight: 1.6 } }, f.what),
-                  f.said && f.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, "第一次接过时他说：" + f.said.join("\n")) : null))),
+                  // ⚠️同一类里【一样一样】各自一行（她 2026-09-18：「每一档都单独吧」）：
+                  //   一样是花，月光花和星铃花未必一个待遇；他说的话也各是各的。
+                  (f.items || []).length ? h("div", { style: { display: "grid", gap: 6, marginTop: 7 } },
+                    f.items.map(it => h("div", { key: it.key, style: { borderTop: "1px solid rgba(209,218,194,.55)", paddingTop: 6 } },
+                      h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+                        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.name),
+                        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it.stance === "love" || it.stance === "like" ? G.deep : "#93a188" } },
+                          (it.stance ? bond.gifts.stances[it.stance] : "他没说") + (it.count > 1 ? " · 递过 " + it.count + " 次" : ""))),
+                      it.said && it.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 3, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, it.said.join("\n")) : null))) : null))),
               // ── 食谱册（她 2026-09-18：「夜市卖的跟吃的有关」）：十二样尝没尝过、会不会做。⚠️全从 world.foodBook 来，这儿只画
               bond.food ? h("div", { style: { marginTop: 20 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "食谱册 · 尝过 " + bond.food.tasted + " / " + bond.food.total),
@@ -1055,7 +1138,7 @@
                   "样子搬进来之后在「样貌」那一页换，和同行者走同一套。"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, margin: "18px 0 4px" } }, "TA 进这个村子时带着什么"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, lineHeight: 1.7, marginBottom: 6 } },
-                  "默认什么都不带——请进来的是别人的角色，带什么由你一条条拨开。"),
+                  "默认什么都不带。TA 是你手机里的角色，带哪些进来由你一条条拨开。"),
                 rows.map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between",
                   style: { padding: "11px 0", borderBottom: "1px solid " + G.line, gap: 12 } },
                   h("div", null,
@@ -1360,19 +1443,23 @@
         chat && !dress && !book && h("section", { "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
-          h("div", { style: { padding: "9px 16px 8px", display: "flex", alignItems: "center", gap: 10 } },
+          // ⚠️那个小箭头就是【要不要看记录】：平时只留一条输入，点开才长高
+          h("div", { style: { padding: "6px 10px 6px 16px", display: "flex", alignItems: "center", gap: 8 } },
             h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
               char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
-            h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间")),
-          h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
+            chat === "tall" ? h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间") : null,
+            h("button", { "aria-label": chat === "tall" ? "收起聊天记录" : "看看聊天记录", onClick: () => openChat(chat === "tall" ? "bar" : "tall"),
+              style: { border: 0, background: "transparent", color: G.soft, fontSize: 15, minWidth: 40, minHeight: 34, lineHeight: 1 } },
+              chat === "tall" ? "⌄" : "⌃")),
+          chat === "tall" ? h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
             rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
               h("div", { style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),
             !rows.length && h("p", { style: { margin: "6px 0 12px", color: "#93a188" } }, "想聊什么，或者想一起去哪里？"),
             busy && h("p", { role: "status", style: { margin: "0 0 12px", color: "#93a188" } }, "正在回应…"),
             error && h("p", { role: "alert", style: { margin: "0 0 10px", color: "#a34836" } }, error),
-            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))),
-          !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { style: { padding: "0 16px 8px" } },
+            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))) : null,
+          chat === "tall" && !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { style: { padding: "0 16px 8px" } },
             h("button", { style: pill(true), onClick: () => send(true) }, "重试上次未完成的回复")),
           h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
             h("input", { "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
@@ -1437,6 +1524,47 @@
       fresh: !d.world
     };
   }
+  // ── 小世界入口那条路（她 2026-09-19：「第一个世界是一个 svg 填色房子在左边，
+  //    然后后续第二个（可以先做一个圆圈占位）再做两个点之间有小脚印的线状连起来，
+  //    以后第三个又在左边」）──────────────────────────────────────────────
+  // 一条从上往下、左右交替的小路：每个世界是路上的一站，站与站之间是一串脚印。
+  // 站在哪一侧只看它排第几（单数在左、双数在右），所以以后加世界不用再动排版。
+  const NODE = 112;
+  const worldHouse = () => h("svg", { width: NODE, height: NODE, viewBox: "0 0 104 104", "aria-hidden": "true" },
+    h("ellipse", { cx: 52, cy: 89, rx: 38, ry: 8.5, fill: "#cfdcba" }),
+    h("rect", { x: 67, y: 25, width: 9, height: 20, rx: 2, fill: "#b58f76" }),
+    h("path", { d: "M52 20 L88 51 L16 51 Z", fill: "#94ae82" }),
+    h("path", { d: "M52 27 L79 51 L25 51 Z", fill: "#a6bd92" }),
+    h("rect", { x: 25, y: 50, width: 54, height: 35, rx: 3.5, fill: "#fbf8e9", stroke: "#c9d5b3", strokeWidth: 1.6 }),
+    h("rect", { x: 45, y: 62, width: 15, height: 23, rx: 7.2, fill: "#c9906b" }),
+    h("circle", { cx: 56.4, cy: 74, r: 1.5, fill: "#f7e8cb" }),
+    [30, 65].map(x => h("g", { key: x },
+      h("rect", { x: x, y: 58, width: 11, height: 11, rx: 2.4, fill: "#f4dca7", stroke: "#cbb88c", strokeWidth: 1.2 }),
+      h("path", { d: "M" + (x + 5.5) + " 58 v11 M" + x + " 63.5 h11", stroke: "#cbb88c", strokeWidth: 1 }))),
+    [22, 84].map(x => h("circle", { key: x, cx: x, cy: 84, r: 3.2, fill: "#e6b9c6" })));
+  // 占位那一站【没有名字也没有介绍】：她 2026-09-18 把三个占位世界删掉，
+  // 就是因为「许的是三件谁都没在做的事」。一个空圈只说「路还没走完」，不许一张空头支票。
+  const worldSoon = () => h("svg", { width: NODE, height: NODE, viewBox: "0 0 104 104", "aria-hidden": "true" },
+    h("circle", { cx: 52, cy: 54, r: 29, fill: "rgba(255,255,255,.34)", stroke: "#c3d1af", strokeWidth: 2, strokeDasharray: "5 7", strokeLinecap: "round" }));
+  // 两站之间的一串脚印。每一枚是一张独立的小图，不跟着容器拉伸——
+  // 整条路画成一张按宽度缩放的 svg 的话，脚印会被压扁。
+  const footTrail = (toRight, key) => {
+    const n = 5;
+    return h("div", { key: key, "aria-hidden": "true", style: { position: "relative", height: 62, margin: "2px 0" } },
+      Array.from({ length: n }, (_, i) => {
+        const t = i / (n - 1);
+        const x = (toRight ? 24 + t * 52 : 76 - t * 52) + (i % 2 ? (toRight ? 3.5 : -3.5) : 0);
+        const turn = (toRight ? 132 : -132) + (i % 2 ? 9 : -9);
+        return h("svg", { key: i, width: 15, height: 19, viewBox: "0 0 16 20",
+          style: { position: "absolute", left: "calc(" + x + "% - 7.5px)", top: (5 + t * 68) + "%",
+            transform: "rotate(" + turn + "deg)", opacity: .34 + i * .045 } },
+          h("ellipse", { cx: 8, cy: 12.6, rx: 4.3, ry: 6, fill: "#9fb28a" }),
+          h("circle", { cx: 4.3, cy: 4.9, r: 1.5, fill: "#9fb28a" }),
+          h("circle", { cx: 8, cy: 3.5, r: 1.6, fill: "#9fb28a" }),
+          h("circle", { cx: 11.7, cy: 5.1, r: 1.5, fill: "#9fb28a" }));
+      }));
+  };
+
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
@@ -1469,15 +1597,35 @@
     const stall = vaultStalled(INDEX_KEY);
     if (stall) return shell("等一下再进来", props.onBack,
       h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
-    if (!world) return shell("挑一个世界", props.onBack, h(React.Fragment, null,
-      h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 18px" } },
-        "每个世界有自己的时间、地图和存档，进去挑一位角色一起过。"),
-      h("div", { style: { display: "grid", gap: 11 } }, WORLDS.map(w => card(() => setWorld(w),
-        h(React.Fragment, null,
-          h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: G.ink } }, w.name),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } }, w.note)))))));
+    if (!world) {
+      // 路上的站：先是已经能进的那几个世界，末尾留一个空圈——路还没走完。
+      const stops = WORLDS.concat([null]);
+      const stop = (w, i) => {
+        const left = i % 2 === 0;
+        const label = h("div", { style: { flex: 1, minWidth: 0, textAlign: left ? "left" : "right" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: w ? 16.5 : 13.5, color: w ? G.ink : G.soft } },
+            w ? w.name : "还没有下一个"),
+          w ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.65 } }, w.note) : null,
+          w ? h("span", { style: { display: "inline-block", marginTop: 10, padding: "3.5px 10px", borderRadius: 999,
+            border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
+            fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
+        const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? worldHouse() : worldSoon()), label);
+        return w
+          ? h("button", { key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
+              style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
+          : h("div", { key: "soon", style: { padding: "4px 2px" } }, inner);
+      };
+      const path = [];
+      stops.forEach((w, i) => {
+        if (i) path.push(footTrail(i % 2 === 1, "trail" + i));
+        path.push(stop(w, i));
+      });
+      return shell("挑一个世界", props.onBack, h(React.Fragment, null,
+        h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
+          "每个世界有自己的时间、地图和存档，进去挑一位角色一起过。"),
+        h("div", null, path)));
+    }
 
     const rows = saves.filter(x => x.world === world.id);
     // ⚠️不再有「开一段不挑人的」：新的一段一律要挑一位（她 2026-09-18 定的）。
@@ -1488,8 +1636,17 @@
     //   没有聊天、没有记忆进出、没有一处能设权限。挑了手机里的一位，就该是一间房
     //   （一间房＝一个庭院存档，这条线从头就是这么定的），而且先让她把设定定好。
     const pickForNew = id => { setPicking(false); if (id) props.onNewGardenRoom(id); };
+    // ⚠️她 2026-09-19：「好像超过三个第四个存档删不掉」。不是「超过三个」——
+    //   原来这里靠 `row.key` 认「聊天里那间房的存档」，而 `key` 只有【扫回来的】
+    //   那几档才带：同样是庭院房，登记在名册里的那张有「删掉」，扫回来的那张没有。
+    //   同一条规矩在同一页上两种结果，看着就像随机坏掉。
+    //   现在一律给删。删掉的只是这一段日子，聊天里那间房本身还在，再进去是新的第一天。
+    const roomSave = row => saveKeyOf(row).indexOf("::room::") > -1;
     const drop = row => requestAppConfirm("删掉这一档？",
-      "这一档里的日子、背包和聊过的话会一起删掉，找不回来。",
+      (roomSave(row)
+        ? "这是聊天里那间庭院房的存档。房间还在，但里面的日子、背包和聊过的话会从头开始。"
+        : "这一档里的日子、背包和聊过的话会一起删掉。")
+      + "找不回来——要留底，先去 设置 → 数据 → 导出全部数据，存成 json 放好再删。",
       () => {
         const next = readSaves().filter(x => x.id !== row.id);
         saveJSON(INDEX_KEY, next);
@@ -1514,8 +1671,7 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
-            // 聊天里那间房的存档不给在这儿删：删了那间房就指着一个空壳
-            (row.key && row.key.indexOf("::room::") > -1) ? null : h("button", { onClick: () => drop(row), className: "active:opacity-60",
+            h("button", { onClick: () => drop(row), className: "active:opacity-60",
               style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
         }),
         h("button", { onClick: () => setPicking(true), className: "w-full active:opacity-70",

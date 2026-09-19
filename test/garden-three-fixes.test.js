@@ -25,7 +25,9 @@ test("她自己说的那句也浮在她头顶上", () => {
   assert.match(css, /#player-bubble\{background/);
   assert.match(game, /function speak\(lines,who='companion'\)\{/);
   // ⚠️谁说的就挂谁头上：她、同行者，或者路上那位邻居
-  assert.match(game, /bubbleWho=who==='me'\?'me':\(who&&restoreNeighbors\(data\.neighbors\)\.some/);
+  assert.match(game, /const from=who==='me'\?'me':\(who&&restoreNeighbors\(data\.neighbors\)\.some/);
+  // ⚠️同一个人还在说就接在后面，别把没冒完的冲掉（她 2026-09-18：「最后一个气泡不会显示」）
+  assert.match(game, /if\(talking\)\{bubbleQueue=\[\.\.\.bubbleQueue,\.\.\.rows\]\.slice\(0,12\);return;\}/);
   assert.match(game, /mine\.hidden=!speaking\|\|bubbleWho!=='me'\|\|!actor;/);
   assert.match(host, /game\(\)\.speak\(text, "me"\)/);
   // ⚠️两只气泡走同一段队列、同一套停顿

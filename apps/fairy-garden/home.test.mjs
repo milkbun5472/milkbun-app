@@ -16,6 +16,10 @@ test('companion can sleep alone while the player explores; waking only one perso
  s=perform(arrived(),'bed','dawn','together');s=wakeSleeper(s);assert.equal(s.sleep.player,null);assert.equal(s.sleep.companion,'dawn');
 });
 test('sleeping overnight keeps the arrangement; invalid input and old saves cannot create a broken or remote bed pose',()=>{
- let s=perform(arrived(),'bed','dawn','together');s=perform(s,'rest');assert.equal(s.day,2);assert.equal(s.sleep.player,'dawn');assert.ok(sleepPose(s));s=advanceTime(s,960);assert.equal(s.day,3);assert.equal(s.sleep.companion,'dawn');
+ // ⚠️2026-09-18 起：说好一起睡，就要等他也上床（她：「我选一起睡就等他也上床了才过到下一天」）
+ let s=perform(arrived(),'bed','dawn','together');
+ assert.equal(perform(s,'rest').day,1,'他还没上床，这一天不许过去');
+ s=settle(s).s;assert.ok(sleepPose(s,'companion'),'他该自己走到床上');
+ s=perform(s,'rest');assert.equal(s.day,2);assert.equal(s.sleep.player,'dawn');assert.ok(sleepPose(s));s=advanceTime(s,960);assert.equal(s.day,3);assert.equal(s.sleep.companion,'dawn');
  const old=arrived();delete old.sleep;assert.deepEqual(restoreState(old).sleep,{player:null,companion:null});assert.deepEqual(restoreState({...old,sleep:{player:'__proto__',companion:'constructor'}}).sleep,{player:null,companion:null});assert.equal(arrangeSleep(old,'__proto__','together'),old);assert.equal(arrangeSleep({...old,map:'garden'},'dawn','together').sleep,undefined);assert.equal(restoreState({...old,position:{x:0,z:3},sleep:{player:'dawn',companion:'dusk'}}).sleep.player,null);
 });

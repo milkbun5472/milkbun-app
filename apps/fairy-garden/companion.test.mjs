@@ -53,3 +53,23 @@ test('按计划他真能走进收藏馆，不是站在门口喊没有路',()=>{
  assert.equal(s.companion.map,'museum','他到不了收藏馆');
  assert.ok(!/还没有通往/.test(ctrl.view().status),ctrl.view().status);
 });
+
+// 她 2026-09-18：「我叫他跟着我跟不了啊我都回来了他还在林地」「我自己坐完不成和他一起坐」
+test('叫他跟着比带路优先：她换了图他就跟过去，她坐下他就来坐旁边', async () => {
+  const w = await import('./world.mjs');
+  const her = { ...w.freshState(), map: 'garden',
+    companion: { ...w.freshState().companion, map: 'forest', mode: 'follow' } };
+  assert.equal(companionPlan(her).id, 'follow', '她回庭院了，他还钉在带路那个点上');
+  const sat = { ...w.freshState(), map: 'forest', position: { ...w.MAPS.forest.seats.pond }, seat: 'pond',
+    companion: { ...w.freshState().companion, map: 'forest', mode: 'follow' } };
+  assert.equal(companionPlan(sat).id, 'sit-together', '她先坐下了，他得过来坐——不然那一步永远完不成');
+});
+
+// 她 2026-09-18：「为啥从林地回来是传送回家门口而不是回到传送点那里」
+test('穿过小路是从这张图的口子走到那张图的口子', async () => {
+  const w = await import('./world.mjs');
+  const back = w.perform({ ...w.freshState(), map: 'forest', position: { ...w.MAPS.forest.stations.travel } }, 'travel');
+  assert.deepEqual(back.position, { ...w.MAPS.garden.stations.travel });
+  const go = w.perform({ ...w.freshState(), map: 'garden', position: { ...w.MAPS.garden.stations.travel } }, 'travel');
+  assert.deepEqual(go.position, { ...w.MAPS.forest.stations.travel });
+});

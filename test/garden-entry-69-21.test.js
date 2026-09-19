@@ -75,9 +75,13 @@ test('存档卡上写得出「这一档过到哪儿了」', () => {
   assert.equal(saveMeta({ id: 'g_none' }).fresh, true, '没开始过的要看得出来');
 });
 
+// ⚠️钉的是【这句话要保住什么】，不是整句原文：措辞她随时会改
+// （施工规则/anchor-on-code.md）。要保的两件——说清删不回来、先叫她导出一份
+// （.claude/rules/never-say-delete-first.md）。
 test('删一档是不可逆的，必须先让她看见这句话', () => {
   assert.match(host, /requestAppConfirm\("删掉这一档？"/);
-  assert.match(host, /这一档里的日子、背包和聊过的话会一起删掉，找不回来。/);
+  assert.match(host, /找不回来/, '没说清这是删不回来的');
+  assert.match(host, /导出全部数据/, '没先叫她导出一份就让她删');
 });
 
 test('庭院房那条路不走这两页：一间房就是一个世界一个存档', () => {

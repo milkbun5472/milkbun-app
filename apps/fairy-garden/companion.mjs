@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-c92c6cbdbec99917';
-import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-c92c6cbdbec99917';
+import {stepRoute} from './locomotion.mjs?v=fg-3495a25de4ed3f21';
+import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-3495a25de4ed3f21';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -181,7 +181,10 @@ function guideIntent(s){
  return {id:'guide:'+step.id,map:at?at.map:s.map,label:'在这儿等你，带你看看',gesture:'rest',fixed:beside};
 }
 export function guidePlan(s){const intent=guideIntent(s);if(!intent)return null;const {fixed,...rest}=intent;return {...rest,target:fixed||followPoint(s)};}
-export function companionPlan(s){const b=MAPS.home.beds[s.sleep?.companion];if(b)return {id:'sleep:'+s.sleep.companion,map:'home',target:b.approach.companion,label:'在'+b.label+'休息',gesture:'sleep',heading:0};const miss=missPlan(s);if(miss)return miss;const guide=guidePlan(s);if(guide)return guide;const c=s.companion;const seat=seatsOf(s.map)[s.seat];if(c.mode==='follow'&&seat)return {id:'sit-together',map:s.map,target:seat.companion,label:seat.label||'在池边陪你坐着',gesture:'sit',heading:seat.heading};if(c.mode==='wait')return {id:'wait',map:c.map,target:{...c.position},label:'留在这里等你',gesture:'rest'};if(c.mode==='goto')return {id:'goto:'+c.destination,gesture:'rest',...(destinationOf(s,c.destination)||COMPANION_DESTINATIONS.home)};if(c.mode==='follow')return {id:'follow',map:s.map,target:followPoint(s),label:c.map===s.map?'和你一起走':'正沿着小路来找你',gesture:'rest'};const plan=plannedActivity(s);if(plan.map===s.map&&Math.hypot(plan.target.x-s.position.x,plan.target.z-s.position.z)<.65){return {...plan,id:plan.id+'-aside',target:followPoint(s),label:'在一旁陪你',gesture:'rest'};}return plan;}
+// ⚠️「叫他一起走」比【带路】优先（她 2026-09-18：「我叫他跟着我跟不了啊我都回来了他还在林地」，
+//   「我自己坐完不成和他一起坐」）：带路是他领着走，但她开口叫了、或者她自己先坐下了，
+//   人就该过来——不然那一步永远完不成。
+export function companionPlan(s){const b=MAPS.home.beds[s.sleep?.companion];if(b)return {id:'sleep:'+s.sleep.companion,map:'home',target:b.approach.companion,label:'在'+b.label+'休息',gesture:'sleep',heading:0};const miss=missPlan(s);if(miss)return miss;const c=s.companion;const seat=seatsOf(s.map)[s.seat];if(c.mode==='follow'&&seat)return {id:'sit-together',map:s.map,target:seat.companion,label:seat.label||'在池边陪你坐着',gesture:'sit',heading:seat.heading};if(c.mode==='follow'&&c.map!==s.map)return {id:'follow',map:s.map,target:followPoint(s),label:'正沿着小路来找你',gesture:'rest'};const guide=guidePlan(s);if(guide)return guide;if(c.mode==='wait')return {id:'wait',map:c.map,target:{...c.position},label:'留在这里等你',gesture:'rest'};if(c.mode==='goto')return {id:'goto:'+c.destination,gesture:'rest',...(destinationOf(s,c.destination)||COMPANION_DESTINATIONS.home)};if(c.mode==='follow')return {id:'follow',map:s.map,target:followPoint(s),label:c.map===s.map?'和你一起走':'正沿着小路来找你',gesture:'rest'};const plan=plannedActivity(s);if(plan.map===s.map&&Math.hypot(plan.target.x-s.position.x,plan.target.z-s.position.z)<.65){return {...plan,id:plan.id+'-aside',target:followPoint(s),label:'在一旁陪你',gesture:'rest'};}return plan;}
 // One movement controller runs on both maps, including the map currently off screen.
 // Paths are rebuilt after loading; only actual position and once-per-day help persist.
 export function makeCompanionController(){
@@ -202,7 +205,7 @@ export function makeCompanionController(){
   let out=s,event=null;moving=route.length>0;gesture='rest';
   if(moving){const step=stepRoute(c.position,route,dt,{speed,skating:onLakeIce(c.map,c.position,s),walkSpeed:Math.min(COMPANION_TOP,walkSpeedFor(c.map)*.79),iceSpeed:3.05,clear:(a,b)=>segmentClear(a,b,c.map,avoid,s)});speed=step.speed;if(step.heading!==null)heading=step.heading;if(step.blocked){routeKey='';cooldown=0;cachedFollow=null;}out={...s,companion:{...c,position:step.position}};status=cross?`正在走向${MAPS[plan.map].name}`:`正去${plan.label}`;}
   else if(stuck){status='在原地等一条合适的小路';}
-  else if(cross){out={...s,companion:{...c,map:exit.to,position:{...(exit.at||MAPS[exit.to].spawn)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
+  else if(cross){out={...s,companion:{...c,map:exit.to,position:{...landingOf(exit)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id.startsWith('guide:')){status='在这儿等你';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
    if(allowCare&&!autonomous&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
    // 并肩坐下来了：相处册记一笔（同一天只记一次，坐一下午不是坐了四十次）
