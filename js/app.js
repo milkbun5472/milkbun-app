@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.87";
+const APP_VERSION = "v71.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5496,11 +5496,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } catch (e) { return ""; }
     })(),
     memoNote: (typeof memoNoteFor === "function" ? memoNoteFor(char.id) : ""),
-    listenLog: (() => {
+    // ⚠️她 2026-09-19：「正在放什么歌」和「一起听过哪些歌」原来挤在 listenLog 一栏里、
+    //   共用同一道认知闸（归在「你们一起经历过的事」那一组）。于是关了记忆的房间
+    //   ——「不带出门」「长篇如果」、还有默认全关的庭院房——连【同一间屋里正响着的歌】
+    //   都听不见。前者是【此刻在场看得见的东西】，后者才是记忆，不该同生共死。
+    //   拆成两栏：nowPlaying 跟着「在场」走（哪间房都给），listenLog 留在记忆那一组。
+    nowPlaying: (() => {
       const L = listenRef.current || {};
       const uName = userName(profile);
       const lines = [];
-      // 正和这个角色一起听 → 无论开没开自动评论，TA 都「知道」在放什么（被问起能接住）；开了自动评论才额外鼓励主动聊
       if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID) {
         const cur = resolveSong(player.songId);
         if (cur) {
@@ -5510,6 +5514,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (lyr && lyr.trim()) lines.push("【这首歌的歌词（你听得到、记得住，聊到时可自然接一两句/被某句打动，别整首背出来）】\n" + lyr.trim());
         }
       }
+      return lines.join("\n");
+    })(),
+    listenLog: (() => {
+      const L = listenRef.current || {};
+      const uName = userName(profile);
+      const lines = [];
       // 一起听过的歌 → 记忆。带粗时间（v54.49 她点头）：不带的话上个月的歌和昨晚的歌
       // 在 TA 眼里一样近，会把旧歌当刚听过的聊
       const ago = ts => { if (!ts) return ""; const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "（今天）" : d === 1 ? "（昨天）" : d <= 30 ? "（" + d + "天前）" : "（一个多月前）"; };
@@ -20535,7 +20545,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const existing = discSongsOf(char.id);
       const existingIds = new Set(existing.map(s => s.neteaseId).filter(Boolean));
       const avoidStr = existing.length ? "\n**这张唱片上已经有这些了，别再给、也别给重复的：** " + existing.map(s => s.title).filter(Boolean).slice(0, 40).join("、") : "";
-      const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", momentLog: "", forumEcho: "", giftLog: "" });
+      const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", nowPlaying: "", momentLog: "", forumEcho: "", giftLog: "" });
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
@@ -20580,7 +20590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const existingTitles = existingSongs.map(s => s.title).filter(Boolean);
       const avoidStr = existingTitles.length ? "\n**这张歌单里已经有这些歌了，别再推荐它们、也别推重复的，给全新的：** " + existingTitles.slice(0, 50).join("、") : "";
       // 用干净上下文：去掉手机在听/最近听歌/朋友圈等会污染推荐的字段（否则角色只会照抄用户刚搜的、或查手机里那两首）
-      const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
+      const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", nowPlaying: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {

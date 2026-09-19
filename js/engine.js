@@ -3055,6 +3055,9 @@ function buildBundle(ctx, opts) {
       + uName + " 在贴吧上私信了你的【大号】，你俩都知道对面是谁——这不是陌生人搭讪，是换了个地方说话。\n"
       + "这段和你们平时的聊天、线下见面属于同一段关系：聊到时自然接得上、记得说过什么；"
       + "别把它当成另一个人的事，也别一上来就复述一遍。）\n" + ctx.forumPmLog.trim());
+  // 正在放什么＝【此刻在场看得见的东西】，哪间房都给（她 2026-09-19 拍板拆开的）；
+  // 一起听过哪些＝记忆，归在认知闸的「你们一起经历过的事」那一组里。
+  if (ctx.nowPlaying && ctx.nowPlaying.trim()) parts.push("【此刻正放着的歌】\n" + ctx.nowPlaying.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
   if (ctx.periodNote && ctx.periodNote.trim()) parts.push("【" + uName + " 的生理期】" + ctx.periodNote.trim());
   if (ctx.dateNote && ctx.dateNote.trim()) parts.push("【今天 / 临近的特别日子】（下面是今天或快到的特别日期——生日、纪念日、世界大事、你或 " + uName + " 日历上的安排。像真人那样把它自然织进对话，别为提而提、别机械报日期、别每句都念）\n" + ctx.dateNote.trim());
@@ -3079,7 +3082,7 @@ function leanWriteCtx(ctx) {
   if (!ctx) return ctx;
   return Object.assign({}, ctx, {
     worldbook: "", memLib: [], groupEcho: "", giftLog: "", dreamKeep: "", carryLog: "", wishLog: "",
-    momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "",
+    momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "", nowPlaying: "",
     financeNote: "", memoNote: "", dateNote: "", periodNote: ""
   });
 }

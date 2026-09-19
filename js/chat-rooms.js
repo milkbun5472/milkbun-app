@@ -63,7 +63,8 @@
       "directives",   // 这一轮的提示词指令
       "homeCity",     // TA自己住哪儿——属于TA这个人
       "worldbook",    // 世界书是【世界的设定】，不是你俩的过去
-      "recentChat"    // 房间自己那份（调用点已经按房换过了）
+      "recentChat",   // 房间自己那份（调用点已经按房换过了）
+      "nowPlaying"    // 此刻正放着的歌：同一间屋里响着的东西，关了记忆的房间也该听得见
     ],
     // 你们一起经历过的事
     formalMemory: [
