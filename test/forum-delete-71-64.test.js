@@ -28,14 +28,59 @@ test("楼跟着帖一起删，不留孤儿评论", () => {
   assert.ok(/forumPostsRef\.current = next;/.test(seg), "ref 没跟上，连删两次会把第一次删掉的又带回来");
 });
 
+// ⚠️v71.76：长按是隐形的（她「宝宝没看到删帖啊」「这里也没有删除」），而且在一条条
+//   滑过去的列表里，长按十次有八次被当成滚动。改成那一排图标末尾一颗看得见的 ✕。
+// ⚠️v71.79：我先把这颗 ✕ 塞进了 actBar 末尾，当场又把那一排顶出屏幕
+//   （她「这个叉在屏幕外」）。那一排本来就挤——上面那条注释写着她 2026-09-01
+//   报过同一件事（赞和阅读一上万就顶出去）。space-between 只管间距，管不了总宽度。
+//   删除不该跟那几个数字抢宽度，挪到卡片右上角就永远不用抢。
+test("删帖那颗在卡片右上角，不进那一排数字", () => {
+  const i = screens.indexOf("  function actBar(p) {"), j = screens.indexOf("  function delBtn(p) {", i);
+  assert.ok(i > 0 && j > i, "抠不出 actBar");
+  assert.ok(!/askDelPost/.test(screens.slice(i, j)), "又把删除塞回那一排了——它会再顶出去一次");
+  // 一处画、两处用：列表卡片和详情页头部
+  assert.ok(screens.includes("  function delBtn(p) {"), "没抽成一处");
+  assert.equal((screens.match(/delBtn\(p\)/g) || []).length, 3, "该是一处定义、两处调用（列表 + 详情页）");
+  assert.ok(screens.includes('title: "删掉这一帖"'), "没有提示文案");
+  // ⚠️它跟「+N 新回复」并排，所以那一格得是 flexShrink:0，不然长标题会把它挤走
+  assert.ok(/h\("div", \{ className: "flex items-center", style: \{ flexShrink: 0 \} \},\n\s*unread > 0/.test(screens),
+    "右上角那一格没写 flexShrink:0——长标题会把它挤出去");
+});
+
+// ⚠️她 2026-09-19 两次定：先说「长按删除也要二次确认」，隔一句又
+//   「算了长按删除去掉不要了，就留叉」。最终就是【只有那颗 ✕ 一条路】。
+test("删帖只有那颗 ✕ 一条路，而且绕不过确认", () => {
+  assert.ok(!/startForumPress|useLongPressMenu/.test(screens), "长按那一版又回来了——她明确说了不要");
+  // ⚠️谁也不许绕过确认直接删：全库调 onDeletePost 的地方都该在确认回调里
+  const calls = (screens.match(/onDeletePost\(p\.id\)/g) || []).length;
+  assert.equal(calls, 2, "有人绕过 askDelPost 直接删了（两处都该在确认回调里）");
+  const i = screens.indexOf("  function askDelPost(p) {"), j = screens.indexOf("\n  }", i);
+  assert.equal((screens.slice(i, j).match(/onDeletePost\(p\.id\)/g) || []).length, 2,
+    "那两处调用不在 askDelPost 里——说明别处有一条直通的删除");
+});
+
 // ⚠️她自己写的回不来；网友的帖子刷新一下就重新生成
-test("删自己发的要问一句，删网友的不用", () => {
-  const i = screens.indexOf("    const askDel = () => {"), j = screens.indexOf("    };", i);
-  assert.ok(i > 0 && j > i, "抠不出那一步");
+test("两种都问一句，但说的后果不一样", () => {
+  const i = screens.indexOf("  function askDelPost(p) {"), j = screens.indexOf("\n  }", i);
+  assert.ok(i > 0 && j > i, "抠不出 askDelPost");
   const seg = screens.slice(i, j);
   assert.ok(/p\.authorType === "me"\) requestAppConfirm/.test(seg), "删自己的帖不问就删了");
-  assert.ok(seg.includes("删了回不来"), "没说清后果");
-  assert.ok(/else onDeletePost\(p\.id\);/.test(seg), "删网友的帖也拦一道——那种刷新就回来了，问了是白问");
+  assert.ok(seg.includes("删了回不来"), "没说清自己那帖的后果");
+  assert.ok(seg.includes("刷新一下还会有新的"), "没说清网友那帖的后果");
+  // ⚠️摆到明面上之后两种都得问：一颗一直亮着的 ✕ 比长按好点得多，误触也就更容易
+  assert.equal((seg.match(/requestAppConfirm/g) || []).length, 2, "有一种不问就删了");
+});
+
+// ⚠️她 2026-09-19 截图：「发送」两个字断成两行、还被切掉一半
+test("回复栏的发送键不许被挤出去", () => {
+  const i = screens.indexOf("      h(\"div\", { className: \"shrink-0\", style: { borderTop: \"1px solid \" + FORUM_SKIN.line");
+  assert.ok(i > 0, "抠不出回复栏");
+  const seg = screens.slice(i, i + 1600);
+  assert.ok(/className: "shrink-0 px-4 py-2 rounded-full active:opacity-70"/.test(seg),
+    "按钮没写 shrink-0——输入框是 flex-1，它会被压到比两个字还窄");
+  assert.ok(/whiteSpace: "nowrap"/.test(seg), "没拦换行，「发送」会断成两行");
+  assert.ok(/className: "flex-1 min-w-0 outline-none/.test(seg), "输入框没写 min-w-0，它会撑着不肯让");
+  assert.ok(seg.includes("env(safe-area-inset-right)"), "右边距没吃安全区");
 });
 
 test("整版清空要把数报清楚，尤其是她自己那几帖", () => {
@@ -57,20 +102,27 @@ test("两条路都接上了，中间没掉层", () => {
   assert.ok(screens.includes("onDeletePost(p.id)"), "长按删那一路没接上");
 });
 
-// 长按走公共那支：跟聊天长按、随身物长按同一套手感，不另写一套
-test("长按走的是已有的那支 useLongPressMenu", () => {
-  assert.ok(screens.includes("useLongPressMenu(() => {"), "自己另写了一套长按");
-  assert.ok(/onTouchStart: \(\) => startForumPress\(askDel\), onTouchEnd: endForumPress/.test(screens), "手机上按不出来");
-  assert.ok(/onMouseDown: \(\) => startForumPress\(askDel\)/.test(screens), "桌面上按不出来");
+
+
+// ⚠️v71.80：这颗原来躺在帖子流【最底下】——要滑过整版帖子才够得着，底下还压着
+//   一条固定导航栏，等于根本不存在（她「整个版块在哪儿删啊」）。
+//   现在它跟吧规并排坐在那条横杠上：版块级的横杠永远一行高、永远在屏幕上。
+test("清空那颗长在吧规横杠上，不在滚动列表里", () => {
+  assert.ok(screens.includes('h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60"'),
+    "清空那颗不在横杠上（或者又被塞回滚动列表里了）");
+  assert.equal((screens.match(/onClearBoard\(tab\)/g) || []).length, 1, "该只有一个入口");
+  // 横杠整条只在真版块上渲染（FORUM_BOARD_RULES 没有「关注」「收藏」这两个键），
+  // 所以清空那颗也就天然不会出现在那两个视图上。
+  assert.ok(/nav === "home" && FORUM_BOARD_RULES\[tab\]\) && h\("div"/.test(screens),
+    "横杠的渲染条件变了——清空那颗可能漏到「关注」「收藏」上");
+  assert.ok(!/FORUM_BOARD_RULES = \{[^}]*关注/.test(screens), "吧规表里多了「关注」，清空会跟着漏出去");
+  // 吧规和清空是两颗并排的兄弟按钮：套在一起点哪儿都会展开吧规
+  assert.ok(/onClick: \(\) => setRulesOpen\(!rulesOpen\), className: "flex-1 min-w-0/.test(screens),
+    "吧规那颗不是 flex-1 的独立按钮——清空可能被套在它里面");
 });
 
-// ⚠️「关注」「收藏」是视图不是版块：清空它们没有意义，而且很容易点错
-test("清空那颗只在真版块上出现", () => {
-  assert.ok(/onClearBoard && tab !== "关注" && tab !== "收藏" && arr\.length > 0/.test(screens),
-    "在「关注」「收藏」上也摆了清空按钮");
-  assert.ok(screens.includes('"清空「" + tab + "」这个版块（" + arr.length + " 帖）"'), "没写清要清掉几帖");
-});
-
-test("告诉她还能长按单删——不然她只会看见整版清空", () => {
-  assert.ok(screens.includes("长按一帖可以单独删掉"), "没有任何地方提示单删这条路");
+test("底下那行小字要说清单删在哪儿、整版清空在哪儿", () => {
+  assert.ok(screens.includes("整版清空在吧规那条横杠右边"), "没告诉她整版清空搬去哪儿了");
+  assert.ok(/单独删它|单独删掉它/.test(screens), "没有任何地方提示单删这条路");
+  assert.ok(!screens.includes("长按一帖可以单独删掉"), "还在教她长按，可那一版已经撤了");
 });

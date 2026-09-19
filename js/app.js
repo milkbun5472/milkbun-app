@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.81";
+const APP_VERSION = "v71.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9043,7 +9043,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // ⚠️不给例句（施工规则/prompt-no-content-samples）：一给它就被逐字抄走，
         //   十个角色寄十条围巾会写出同一句话。只说这一栏该承担什么。
         + "note 是你【随盒子附的那张小卡片】：为什么挑这个给 Ta，或者你想让 Ta 拿到时想起什么。"
-        + "一两句，用你自己的话；没什么想说的就别填，空着比凑一句客套话强。");
+        + "一两句，用你自己的话；没什么想说的就别填，空着比凑一句客套话强。"
+        // ── 她没开口要，你自己想给（v71.75，她 2026-09-19 转小红书群里读者那段：
+        //    「你就很挂念他嘛，然后这个意思其实言外之意就是期待你的角色给你送礼物」）
+        // ⚠️原来这一条通篇只管【你说了就得真做】——那是一道防他放空炮的闸，
+        //   「她话里有话、你自己想给她买点什么」这一档一个字都没有，
+        //   末尾那句「别频繁乱送」还在往回拉。所以这件事几乎不会自己发生。
+        // ⚠️但绝不能写成「她说想你就送」：那换谁都成立，而且会把她的话降级成一张
+        //   兑奖券——她以后每说一次想你，都知道会掉东西出来。
+        //   所以给的是判据不是触发词（施工规则/bans-make-it-dumber：给出口，不给判决）。
+        // ⚠️也绝不写送什么（prompt-no-content-samples）：写了项链耳环，
+        //   十个角色就都送这三样；送什么该从【你知道她喜欢什么】长出来。
+        + "\n· **她没开口要，你也可以自己给。** 她拐着弯说、话里有话、或者你就是突然想给她买点什么——"
+        + "想给就去买，不用等她说出口。判据只有一句：**这一下是你想给她，还是你在处理她那句话？**"
+        + "前者随时可以；后者不行——她抱怨一句你就买一样东西堵上去，那还是那个三件套，只是这回用的是钱包。"
+        + "\n  送什么由【你是谁】和【你知道她喜欢什么】定，不是由「这种时候该送什么」定。"
+        + "你本来就不爱买东西、或者手头紧，那就不送——不送也是答案。");
       // ⚠️transferAccept（她转过来那一笔收不收）写得很全，可【TA 主动转给她】这一头
       //   一直只有字典里那句「transfer=转账」——跟语音、电话、红包是同一种空白
       //   （她 2026-09-15：「发红包和转账这俩也不常用」）。
@@ -11550,11 +11565,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我发红包
   // 记忆不互通的群=封闭空间：红包/转账都是过家家，不动任何真钱包（我的 + 角色的都不结算）
   const groupClosed = gid => !gsFor(gid).memoryInterop;
-  const rpNpcCount = (groupId, senderId) => {
-    const g = groups.find(x => x.id === groupId);
-    if (!g) return 0;
-    return (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== senderId).length;
-  };
   // toId：专属红包（她 2026-09-19「群聊能发专属红包」）——点名给一个人，别人碰不到。
   // ⚠️专属就是【一份】：给一个人还分好几份，那不是专属，是普通红包写了个名字。
   const sendRedPacket = (groupId, total, count, message, toId) => {
@@ -11590,7 +11600,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     toast(to ? "专属红包已发给 " + (to.remark || to.name) : "红包已发出 ¥" + a);
     // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
-    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), rpHeadstart({ count: splits.length }, rpNpcCount(groupId, null)));
+    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), RP_GRAB_DELAY);
   };
   const postClaimLine = (groupId, claimer, owner) => pushGroupRich(groupId, {
     role: "system",
@@ -11633,7 +11643,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content: "[红包] " + (to ? "（只给 " + to.name + "）" : "") + (message || "恭喜发财，大吉大利")
     });
     // 专属红包不走随机抢那条路；普通的先给她留一段先手窗口
-    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), rpHeadstart({ count: splits.length }, rpNpcCount(groupId, char.id)));
+    if (!to) setTimeout(() => autoGrabRedPacket(groupId, rpId), RP_GRAB_DELAY);
   };
   // 我领红包（我发的不能领；角色发的可以领）
   const claimRedPacket = (groupId, msgIdx) => {
@@ -11659,50 +11669,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     postClaimLine(groupId, meName, rp.by);
     return amt;
   };
-  // ── 群成员来抢（她 2026-09-19：「现在群里发红包只有一个的话模型是不是必定让
-  //    另一个领到这样我根本没机会」）────────────────────────────────────────
-  // 是真的，而且比看上去狠：原来是【每个成员独立掷 70%】，所以人越多越必中——
-  // 两个人 91%、三个人 97%；再加上 1.2 秒就开抢，单个红包她确实一次都碰不到。
-  // 两处一起改：
-  //   ① 先手窗口：发出去之后这么久【只有她能抢】，过了 NPC 才动。
-  //      名额越紧窗口越长——名额比人还多的时候她本来就抢得到，不用干等。
-  //   ② 整体只掷一次：抢不抢是这【一个红包】的一次判定，不随群里人数膨胀。
-  //      掷中了才按人抢；没掷中就留着，她晚点回来照样领得到。
+  // ── 群成员来抢（她 2026-09-19 两次报，是两件不同的事）──────────────────────
+  // ① 「只有一个的话模型是不是必定让另一个领到，我根本没机会」——角色发的那张。
+  // ② 「我发的没掷到 70 也没人领了啊」——这是我 v71.62 修出来的新毛病：
+  //    **她自己发的红包她领不了**（byMe → "own"），所以那 30% 没掷中就成了一个
+  //    谁也不领的死包。一个没人领的红包比被抢走还糟。
+  //
+  // 她定的规矩：「所有红包三秒后角色开抢，如果数量不够人头的话就随机决定谁抢得到」。
+  // 照做，只加一句她那条规矩里本来就含着的意思：**她也是一个人头**。
+  //   · 三秒后角色照抢不误，一个都不留（她 2026-09-19 拍板，我提的「给她留一格」被否了）。
+  //   · 名额不够人头就抽签：洗牌取前 left 个，随机决定谁抢得到。
+  //   · 她的机会就是那三秒——手快是她自己的事，代码不替她留份。
+  // ⚠️不再掷「这个红包会不会被抢」那一下：那一下正是①的解药、也正是②的病因。
+  //   现在一定有人抢，只是抽签决定抽到谁——两件事一起解决。
   // ⚠️专属红包（toId）压根不进这条路：那是点名给某个人的，别人碰都碰不到。
-  const RP_HEADSTART_TIGHT = 12000;   // 名额 ≤ 在场 NPC 数：给她十二秒
-  const RP_HEADSTART_LOOSE = 3000;    // 名额比人还多：她本来就有份，不用久等
-  const RP_NPC_CHANCE = 0.7;          // 这一个红包会不会被 NPC 抢走（整体一次）
-  const rpHeadstart = (rp, npcN) => (rp && rp.count > npcN) ? RP_HEADSTART_LOOSE : RP_HEADSTART_TIGHT;
+  const RP_GRAB_DELAY = 3000;   // 她定的：所有红包三秒后开抢
   const autoGrabRedPacket = (groupId, rpId) => {
     const gchat = groupChatsRef.current[groupId] || [];
     const idx = gchat.map((m, i) => m.kind === "redpacket" && m.rpId === rpId ? i : -1).filter(i => i >= 0).pop();
     if (idx == null || idx < 0) return;
     const rp = gchat[idx];
-    // 专属红包只有被点名那位能领——这条路一步都不许走
-    if (rp.toId) return;
-    if ((rp.claims || []).length >= rp.count) return;   // 她已经在窗口里抢光了
+    if (rp.toId) return;                                   // 专属：只有被点名那位能领
+    const left = rp.count - ((rp.claims || []).length);
+    if (left <= 0) return;                                 // 她在三秒里已经抢光了
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).filter(c => c.id !== rp.senderId);
     if (!members.length) return;
-    // ⚠️整体只掷这一次。原来是每人一掷，等于「群里人数」悄悄变成了她的对手数。
-    if (Math.random() >= RP_NPC_CHANCE) return;
-    // 掷中了：随机挑几个来抢，但【永远留一份给她】——除非这个红包本来就只有一份。
-    const left = rp.count - (rp.claims || []).length;
-    const room = rp.count > 1 ? Math.max(1, left - 1) : left;
-    const pool = members.slice().sort(() => Math.random() - 0.5);
-    const grabbers = pool.slice(0, Math.min(room, pool.length));
+    // 座位只有角色（她 2026-09-19 拍板：「三秒后照抢不误吧宝宝」）。
+    // ⚠️我一度给她留了一格「抽中她就不抢」，她明确不要——三秒就是三秒，
+    //   手快是她自己的事。这一版没有任何给她留份的暗档，别再偷偷加回来。
+    const seats = members.slice();
+    for (let i = seats.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); const t = seats[i]; seats[i] = seats[k]; seats[k] = t; }
+    const winners = seats.slice(0, left);                  // 数量不够人头：随机决定谁抢得到
     let claims = [...(rp.claims || [])];
     const closed = groupClosed(groupId);
-    grabbers.forEach(c => {
+    const got = [];
+    winners.forEach(c => {
       if (claims.length >= rp.count) return;
       const amt = rp.splits[claims.length];
       if (!closed) adjustCharBalance(c.id, amt, "抢到红包", "redpacket");
       claims.push({ name: c.name, id: c.id, amount: amt, ts: Date.now() });
+      got.push(c);
     });
-    if (!grabbers.length) return;
+    if (!got.length) return;                               // 这一轮全抽给她了，什么都不改
     pGChat(groupId, p => p.map((m, i) => i === idx ? { ...m, claims } : m));
-    grabbers.forEach(c => postClaimLine(groupId, c.name, rp.by));
+    got.forEach(c => postClaimLine(groupId, c.name, rp.by));
   };
   // ---- 群聊总结存入记忆库（关联所有成员）----
   const summarizeGroupToMem = async groupId => {
@@ -15421,10 +15433,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const ANON_ME_WHY = [
     "他这会儿心里有个没底的事，想确认一下",
     "他有点不痛快，但不打算直说是为什么",
-    "他单纯好奇，想知道一件跟他没关系的事",
     "他在试探——想看看你会怎么答，而不是想知道答案",
     "他想起了你俩之间的某一件事，一直没问出口",
     "他今天过得不怎么样，想找个人说话，但不想让你知道是他",
+    // ⚠️上面那几格全是心事（她 2026-09-19：「你这轴也太 serious 了吧！」）——
+    //   人好好的时候也会开口，而且那时候问出来的东西才是最没防备的。
+    //   下面这几格补的就是那一头：心情好、闲着、手欠、突然想起一件破事。
+    "他心情不错，纯粹闲着没事，想找个人问句废话",
+    "他刚看到／想到一件毫不相干的破事，想拉个人一起说道说道",
+    "他突然对一件很小很怪的事好奇起来，自己也说不清为什么想知道",
+    "他有点手欠，就想问个没头没尾的问题看看对面怎么接",
+    "他单纯好奇，想知道一件跟他没关系的事",
     "你自己想一个他此刻会想问的理由"
   ];
   const ANON_ME_ANGLE = [
@@ -15433,6 +15452,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "你这个人——他观察到但没说破的某一点",
     "一件他怎么想都想不透的小事",
     "一个他其实知道答案、但想听你自己说的问题",
+    // 同上：不是每一问都得冲着「你俩」去。允许问一件八竿子打不着的
+    "一件跟你俩都没关系的破事——纯闲聊，纯好奇",
+    "一个没什么道理的二选一，或者一个假设性的怪问题",
+    "一件他自己也拿不准算不算事的小毛病／小习惯",
     "你自己挑一块他真会想问的"
   ];
   const ANON_ME_CAP = 60;   // 她那箱子留最近这么多条
@@ -15448,26 +15471,92 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const why = ANON_ME_WHY[Math.floor(Math.random() * ANON_ME_WHY.length)];
       const angle = ANON_ME_ANGLE[Math.floor(Math.random() * ANON_ME_ANGLE.length)];
-      const had = ((anonMeBoxRef.current || {}).records || []).slice(0, 12).map(r => r.q).filter(Boolean);
+      // ⚠️她 2026-09-19：「那这个怎么保障同一个人不会反反复复问同一件事」——原来保障不了：
+      //   喂进去的是【全箱混着的最近 12 条】，他自己问过的早被别的角色挤出去了；
+      //   而且比的是【问句原文】，换个说法再问同一件事照样过。
+      //   两处都改：只喂【他自己】问过的（全部，不截），而且连【主题】一起喂。
+      const mine = ((anonMeBoxRef.current || {}).records || []).filter(r => r && r.charId === char.id);
+      const had = mine.map(r => r.q).filter(Boolean).slice(0, 30);
+      const hadTopics = [...new Set(mine.map(r => String(r.topic || "").trim()).filter(Boolean))];
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你往" + (profile.name || "她") + "的匿名提问箱里投一个问题。\n"
           + "【她看不见是你投的】她只看得到一个网名和一句签名，不知道是谁。所以别落款、别写只有你会说的口头禅当签名、"
           + "也别在问题里点破你是谁——但话该带着你自己的性子，她猜得出来是你、还是猜不出来，那是她的事，不是你要控制的。\n"
+          // ⚠️她 2026-09-19 截图：出来的全是「如果身边有个人…」「这种人到底是…」
+          //   「觉得对方拿她没办法」——他把自己和她都写成了第三人称的泛指，
+          //   还在同一句里「你」和「她」串着用。
+          //   病因是上面那句：我把【匿名】写成了【假装不认识】，于是他为了不暴露身份，
+          //   把人称整个推远，变成树洞里「我有个朋友」那种腔调。
+          //   ⚠️匿名只是【不署名】，不是失忆：他照常认识她，照常可以直接问她。
+          + "⚠️**直接问她，用「你」**。不许写成「如果身边有个人……」「这种人到底是……」「有的人就是……」"
+          + "这种假装泛指的问法——那是树洞里「我有个朋友」的腔调，不是你在问她。\n"
+          + "同一句里人称也别串：从头到尾只有「我」和「你」，不许中途把她改口成「她」「对方」「这种人」。\n"
+          + "**匿名只是不署名，不是失忆**：你照常认识她，照常可以提你俩之间真发生过的事——"
+          + "只是别把那件事说得只有你才知道，说到她一看就知道是谁的地步。\n"
           + "【这一回你为什么想问】" + why + "\n"
           + "【这一问冲着哪儿去】" + angle + "\n"
           + "这两条是你这一问的底子，不是两个可选项——照着它们去想「我此刻真想问她的那句是什么」。\n"
+          // ⚠️她 2026-09-19：「有时候心情好也是会问莫名其妙的问题的（人设允许范围内）」。
+          //   轴给的是【此刻的心境】，不是让他换一个人——冷的人心情好，也还是那个冷的人心情好。
+          //   这句不写的话，抽到「手欠」那一格，一个话少的人会突然变得话痨。
+          + "⚠️这两条说的是你【此刻的心境】，不是让你换一个人：心情好的你还是你，"
+          + "话少的人心情好也不会突然话痨，嘴毒的人闲着问废话照样带刺。按你自己的性子说这句话。\n"
+          + "⚠️问句不必句句有深意。真到了闲着没事那一格，问一句莫名其妙的、没头没尾的、甚至有点蠢的，都对。\n"
+          // ⚠️同一张截图里两条都是「到底是 A，还是 B？」的长对偶句——那是「想确认／想试探」
+          //   那两格最顺手的形状，一顺手就整批一个味。
+          + "⚠️也别每句都做成「到底是 A，还是 B？」那种二选一的长句——那只是其中一种问法。"
+          + "短的、直白的、只有半句的、反问的、干脆就一个词的，都行。\n"
           + "⚠️只问【一件事】，一句到两句。别一口气塞三个问号，也别写成一段感想末了才挂一个问句。\n"
           + "⚠️问的得是你【真不知道答案】的：你已经知道的事拿来问，是在考她，不是在问她。"
-          + (had.length ? "\n【你之前投过这些，一句都不要重复，也别换个说法再问一遍】" + had.join(" / ") : ""),
-        schemaHint: "{\"q\":\"你要投进去的那一问\"}",
+          + (had.length ? "\n【你之前投过这些，一句都不要重复】" + had.join(" / ") : "")
+          // ⚠️光禁「别重复」只管得住字面：他换个说法就能把同一件事再问一遍。
+          //   所以让他自己给这一问贴一个【主题】标签，然后把他用过的主题整张单子摆出来——
+          //   判的是「问的是哪件事」，不是「这句话长得像不像」。
+          + (hadTopics.length ? "\n【下面这些你已经问过了，这一回换一件别的——不是换个说法，是换一件事】"
+              + hadTopics.join("、") : "")
+          + "\n【另外交一个 topic】用两到六个字说清这一问问的是【哪件事】（不是这句话的摘要，是它的题目）。"
+          + "同一件事换十种说法，topic 也该是同一个；问的是另一件事，topic 就该不一样。",
+        schemaHint: "{\"q\":\"你要投进去的那一问\",\"topic\":\"两到六个字，这一问问的是哪件事\"}",
         maxTokens: 9000
       });
-      const q = String((d && d.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      let q = String((d && d.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      // ⚠️提示词只能降概率，代码才保证（这仓库的老规矩）。她 2026-09-19 抓到的那两条
+      //   正是这个形状：整句没有一个「你」，或者把她写成「这种人」「有个人」。
+      //   ⚠️只兜一次：她按次计费，为了一句问话连打三枪不值。兜不回来就收下——
+      //     一条别扭的问题，好过为它烧掉三次调用。
+      let topic = String((d && d.topic) || "").replace(/\s+/g, "").trim().slice(0, 12);
+      // ⚠️两道判定【并成一次返工】：她按次计费，一个人称、一个撞题各打一枪就是三枪。
+      const _vague = t => !/你/.test(t) || /身边有(个|一个)人|这种人|有的人|有个朋友/.test(t);
+      // 撞题：topic 一样，或者把标点去掉之后问句跟旧的一模一样（他有时不给 topic）
+      const _bare = t => String(t || "").replace(/[\s，。？！、,.?!"'「」『』（）()]/g, "");
+      const _dup = (t, tp) => (tp && hadTopics.indexOf(tp) >= 0) || had.some(o => _bare(o) === _bare(t));
+      const why2 = q ? (_vague(q) ? "vague" : (_dup(q, topic) ? "dup" : "")) : "";
+      if (why2) {
+        try {
+          const d2 = await runProbe(apiFor(char.id), ctxFor(char), {
+            voice: true,
+            instruction: (why2 === "vague"
+              ? "刚才那一问写成了「" + q + "」——它把她写成了「有个人」「这种人」那样的泛指，"
+                + "或者整句里压根没有「你」。**重写一遍：直接问她，用「你」，从头到尾只有「我」和「你」。**"
+                + "匿名只是不署名，不是假装不认识她。问的还是同一件事，只是把人称摆回来。"
+              : "刚才那一问「" + q + "」问的是你已经问过的那件事（" + (topic || "同一件事") + "）。"
+                + "**换一件【别的】事问**——不是换个说法，是换一件你还没问过的。"
+                + (hadTopics.length ? "你问过的是：" + hadTopics.join("、") + "。" : ""))
+              + "\n还是只问一件事，一到两句，直接用「你」；另外交一个 topic（两到六个字，说清问的是哪件事）。",
+            schemaHint: "{\"q\":\"重写后的那一问\",\"topic\":\"两到六个字\"}",
+            maxTokens: 9000
+          });
+          const q2 = String((d2 && d2.q) || "").replace(/\s+/g, " ").trim().slice(0, 120);
+          const t2 = String((d2 && d2.topic) || "").replace(/\s+/g, "").trim().slice(0, 12);
+          // ⚠️只兜一次：第二枪还是撞题就收下。一条重复的问题，好过为它连打三枪。
+          if (q2) { q = q2; topic = t2 || topic; }
+        } catch (e) {/* 兜不回来就用原来那句，别为这个把整轮废掉 */}
+      }
       if (!q) { toast(characterText(char, "他没问出来，再试一次")); return false; }
       // 马甲用他自己那张（匿名箱里已经有了）；没有就先给个占位，别为这个再烧一枪
       const mask = ((anonRef.current || {})[char.id]) || {};
-      const rec = { id: "am_" + Date.now(), q, a: "", charId: char.id,
+      const rec = { id: "am_" + Date.now(), q, topic, a: "", charId: char.id,
         maskName: mask.netname || "一个陌生人", maskBio: mask.bio || "", ts: Date.now(), revealed: false };
       const cur = anonMeBoxRef.current || { records: [] };
       saveAnonMeBox({ ...cur, records: [rec, ...(cur.records || [])].slice(0, ANON_ME_CAP) });

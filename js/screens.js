@@ -2134,14 +2134,7 @@ function Forum({
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
-  // 长按删帖：走公共那支（跟聊天长按、随身物长按同一套手感）。
-  // ⚠️useLongPressMenu 收的是「按住之后干什么」，所以这儿用一个 ref 转交当前这一帖的动作。
-  const forumPressAct = useRef(null);
-  const forumPress = useLongPressMenu(() => {
-    const fn = forumPressAct.current; forumPressAct.current = null; if (fn) fn();
-  });
-  const startForumPress = fn => { forumPressAct.current = fn; forumPress.startPress(); };
-  const endForumPress = () => forumPress.endPress();
+
   const [composer, setComposer] = useState(false);   // 我发帖
   const [cbBoard, setCbBoard] = useState("日常吧");
   const [cbTitle, setCbTitle] = useState("");
@@ -2388,23 +2381,33 @@ function Forum({
       h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
       h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
   }
+  // 删掉这一帖：摆在卡片【右上角】，不进那一排数字。
+  // ⚠️v71.76 我把它塞进了 actBar 末尾，当场又把那一排顶出屏幕（她 2026-09-19：
+  //   「这个叉在屏幕外」）——那一排本来就挤，上面那条注释写着她 2026-09-01 报过
+  //   同一件事（赞和阅读一上万就顶出去）。space-between 只管间距，管不了总宽度，
+  //   我又给它加了第七个。删除不该跟那几个数字抢宽度，挪到右上角就永远不用抢。
+  function delBtn(p) {
+    if (!onDeletePost) return null;
+    return h("button", { onClick: e => { e.stopPropagation(); askDelPost(p); },
+      title: "删掉这一帖", className: "shrink-0 active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 4 } }, "✕");
+  }
+  // 删一帖之前要不要问一句：自己写的删了回不来，网友的刷新就回来了
+  function askDelPost(p) {
+    if (!onDeletePost) return;
+    const title = String(p.title || "这帖").slice(0, 14);
+    if (p.authorType === "me") requestAppConfirm("删掉《" + title + "》", "这帖是你自己发的，删了回不来。楼里的回复也一起删。", () => onDeletePost(p.id), "删掉");
+    else requestAppConfirm("删掉《" + title + "》", "楼里的回复会一起删。网友的帖子刷新一下还会有新的。", () => onDeletePost(p.id), "删掉");
+  }
 
   // ---- 帖子行（推特式）----
   function postRow(p, showBoard) {
     const unread = unreadFloors(p.id);
     const bs = forumBoardSkin(p.board);
-    // 长按删掉这一帖（她 2026-09-19：读者「我就是删不了尴尬死了」）。
-    // ⚠️走公共那支 useLongPressMenu，跟聊天里长按、随身物长按同一套手感，不另写一套。
-    // ⚠️自己发的那帖删了回不来，所以问一句再删；网友的帖子刷新就回来了，不用问。
-    const askDel = () => {
-      if (!onDeletePost) return;
-      const title = String(p.title || "这帖").slice(0, 14);
-      if (p.authorType === "me") requestAppConfirm("删掉《" + title + "》", "这帖是你自己发的，删了回不来。楼里的回复也一起删。", () => onDeletePost(p.id), "删掉");
-      else onDeletePost(p.id);
-    };
+    // ⚠️删帖【只有 actBar 末尾那颗 ✕ 这一条路】（她 2026-09-19 两次定：先说长按也要
+    //   二次确认，隔一句又「算了长按删除去掉不要了，就留叉」）。
+    //   别再加回长按：看得见的那一颗就够了，而且列表里长按十次有八次被当成滚动。
     return h("div", { key: p.id, role: "button", onClick: () => openPost(p),
-      onTouchStart: () => startForumPress(askDel), onTouchEnd: endForumPress,
-      onMouseDown: () => startForumPress(askDel), onMouseUp: endForumPress, onMouseLeave: endForumPress,
       className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
       h("div", { className: "flex gap-3" },
         avatarBtn(p, 40, p.anon),
@@ -2418,7 +2421,9 @@ function Forum({
                 !p.anon && h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + (p.authorHandle || p.authorName)),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, flexShrink: 0, whiteSpace: "nowrap" } }, "· " + timeAgo(p.ts)),
                 showBoard && h("span", { style: { flexShrink: 0 } }, tag(p.board)))),
-            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复")),
+            h("div", { className: "flex items-center", style: { flexShrink: 0 } },
+              unread > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复") : null,
+              delBtn(p))),
           // 接着哪一条：点得进去。有这一行，「同一件事被几个帖说」才看得出来，
           // 不然那条接话的帖在列表里跟别的一模一样。
           p.refTitle ? h("button", { onClick: e => { e.stopPropagation(); const t0 = (posts || []).find(x => x && x.id === p.refPostId); if (t0) openPost(t0); },
@@ -2499,7 +2504,8 @@ function Forum({
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
               h("div", { className:"flex items-center gap-1.5 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } },
                 h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")), accountBadge(p)),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts))),
+            delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
           h("div", { className: "mt-3" }, tag(p.board)),
@@ -2513,11 +2519,15 @@ function Forum({
         !loadingC && waitingFloors > 0 && h("div", { className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
         !loadingC && list.length === 0 && h(Empty, { text: "还没有楼层", sub: "点上面「更多回复」让大家来" }),
         list.map((cm, i) => floorRow(p, cm, i))),
-      h("div", { className: "shrink-0 px-3", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.95)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM } },
+      // ⚠️「发送」被挤出屏幕右边（她 2026-09-19 截图：两个字断成两行、还切掉一半）。
+      //   病根是那颗按钮【没写 shrink-0】：输入框是 flex-1，按钮跟着被压到比内容还窄，
+      //   于是「发送」换行、又被圆角裁掉。min-w-0 也得给输入框，不然它撑着不肯让。
+      //   右边距顺手吃掉安全区：横屏和带圆角的机器上那几像素本来就不该占。
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.95)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
         replyTo && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "0 4px 4px" } }, "回复 " + replyTo.name + " · ", h("button", { onClick: () => setReplyTo(null), style: { color: t.accent } }, "取消")),
-        h("div", { className: "flex gap-2" },
-          h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
-          h("button", { onClick: sendReply, className: "px-4 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, "发送"))));
+        h("div", { className: "flex items-center gap-2", style: { minWidth: 0 } },
+          h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
+          h("button", { onClick: sendReply, className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, "发送"))));
   }
 
   // ---- 角色/我 主页 ----
@@ -2750,15 +2760,8 @@ function Forum({
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
       shown.map(p => postRow(p, false)),
       arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
-      // 清空这个版块（她 2026-09-19）。⚠️只在【真的是一个版块】时出现：
-      //   「关注」「收藏」是视图不是版块，清空它们没有意义，也很容易点错。
-      //   长按单帖删一条，这一颗是整版扫掉；两条路都有，她要哪种自己挑。
-      onClearBoard && tab !== "关注" && tab !== "收藏" && arr.length > 0
-        ? h("button", { onClick: () => onClearBoard(tab), className: "w-full py-3 active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "清空「" + tab + "」这个版块（" + arr.length + " 帖）")
-        : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
-        "长按一帖可以单独删掉"));
+        "每一帖右上角那个 ✕ 单独删它；整版清空在吧规那条横杠右边"));
   }
 
   // ---- 搜索：四版块之外的吧 ----
@@ -2813,10 +2816,16 @@ function Forum({
     //   「我们不要半窗」）：三条规矩糊掉半个屏幕，比不给看还难看。
     // 这块牌子和喂给模型的那份吧规读同一个 FORUM_BOARD_RULES——规矩改一处，两边一起改。
     (!inSub && nav === "home" && FORUM_BOARD_RULES[tab]) && h("div", { className: "shrink-0", style: { position: "relative", zIndex: 20 } },
-      h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "w-full flex items-center text-left active:opacity-60 px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
-        h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, "吧规"),
-        h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, FORUM_BOARD_RULES[tab][0]),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : "共 " + FORUM_BOARD_RULES[tab].length + " 条")),
+      // ⚠️「清空本版」这颗跟吧规并排坐在这条横杠上（她 2026-09-19：「整个版块在哪儿删啊」）。
+      //   之前它躺在帖子流【最底下】——底下还压着导航栏，等于根本不存在。
+      //   这条横杠是版块级的、永远一行高、永远在屏幕上，所以版块级的动作就该长在这儿；
+      //   它和吧规是两颗并排的兄弟按钮，不是套在一起的（套着点哪儿都会展开吧规）。
+      h("div", { className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
+        h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "flex-1 min-w-0 flex items-center text-left active:opacity-60", style: { gap: 6 } },
+          h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, "吧规"),
+          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, FORUM_BOARD_RULES[tab][0]),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : "共 " + FORUM_BOARD_RULES[tab].length + " 条")),
+        onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
       rulesOpen && h("div", { onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "fadeUp .18s ease both" } },
         FORUM_BOARD_RULES[tab].map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),

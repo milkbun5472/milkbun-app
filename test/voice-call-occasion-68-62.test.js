@@ -56,8 +56,11 @@ test("语音和红包在旁观群里留着：那是他俩彼此之间的事", ()
   // 红包群里本来就由其他成员自己抢（grabbers），所以两个人的房间照样成立。
   // ⚠️v71.62 抢法改了：原来每人独立掷 70%（人越多越必中，她一次都抢不到），
   //   现在是【整体一掷】＋先给她一段先手窗口。这条钉的是「有人会来抢」，不是那句写法。
-  assert.match(app, /const grabbers = pool\.slice\(0, Math\.min\(room, pool\.length\)\);/);
-  assert.match(app, /const RP_NPC_CHANCE = 0\.7;/);
+  // v71.68 又改了一版（她：「我发的没掷到70也没人领了啊」——她自己领不了自己的包，
+  //   那 30% 就成了死包）。现在是【一定有人抢】，抽签决定抽到谁。
+  //   这条钉的仍是「有人会来抢」，不是当天那句写法。
+  assert.match(app, /const winners = seats\.slice\(0, left\);/);
+  assert.match(app, /const RP_GRAB_DELAY = 3000;/);
 });
 
 test("红包和转账也补上场合", () => {

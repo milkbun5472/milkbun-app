@@ -9,6 +9,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+const chr34 = String.fromCharCode(34);
 const app = P("js/app.js"), comp = P("js/components.js");
 
 const ask = () => {
@@ -26,8 +27,30 @@ test("摇轴，不直接要题；每根轴留一格自由", () => {
   assert.ok(why.includes("你自己想一个"), "为什么问那根轴没留自由格——代码不是关门，是关一部分门");
   assert.ok(ang.includes("你自己挑一块"), "问哪儿那根轴没留自由格");
   assert.ok((why.match(/\n\s*"/g) || []).length >= 5 && (ang.match(/\n\s*"/g) || []).length >= 5, "轴上的格子太少，组合空间还不如一张表");
-  // 两根轴一起进提示词，而且明说是底子不是可选项
+});
+
+// ⚠️她 2026-09-19：「还有你这轴也太 serious 了吧！有时候心情好也是会问莫名其妙的
+//   问题的（人设允许范围内）」——原来那六格全是心事：没底、不痛快、试探、今天不好过。
+//   人好好的时候也会开口，而且那时候问出来的东西才是最没防备的。
+test("轴上得有人好好的时候那几格", () => {
+  const why = app.slice(app.indexOf("const ANON_ME_WHY = ["), app.indexOf("];", app.indexOf("const ANON_ME_WHY = [")));
+  const ang = app.slice(app.indexOf("const ANON_ME_ANGLE = ["), app.indexOf("];", app.indexOf("const ANON_ME_ANGLE = [")));
+  ["心情不错", "手欠", "好奇"].forEach(k => assert.ok(why.includes(k), "为什么问那根轴上没有轻的那一头：" + k));
+  ["跟你俩都没关系的破事", "二选一"].forEach(k => assert.ok(ang.includes(k), "问哪儿那根轴全冲着你俩去：" + k));
+  // 轻的格子得占得住一半左右，不然抽到的还是心事
+  const light = (why.match(/心情不错|闲着|破事|好奇|手欠/g) || []).length;
+  assert.ok(light >= 4, "轻的那一头只有 " + light + " 格，抽十次还是九次心事");
+});
+
+// ⚠️「人设允许范围内」是她那句话的后半截，而且是要紧的那半：
+//   轴给的是【此刻的心境】，不是让他换一个人。不写的话，抽到「手欠」那一格，
+//   一个话少的人会突然变得话痨。
+test("轴是心境不是换人，而且明说问句不必句句有深意", () => {
   const seg = ask();
+  assert.ok(seg.includes("不是让你换一个人"), "没说清轴只改心境——抽到轻的那格他会变个人");
+  assert.ok(seg.includes("话少的人心情好也不会突然话痨"), "没给出反面，它会往「开朗」上演");
+  assert.ok(seg.includes("问句不必句句有深意"), "没许他问蠢问题，他还是会每句都端着");
+  // 两根轴一起进提示词，而且明说是底子不是可选项
   assert.ok(seg.includes("【这一回你为什么想问】") && seg.includes("【这一问冲着哪儿去】"), "轴没发下去");
   assert.ok(seg.includes("不是两个可选项"), "没说清这是底子——说成选项它会挑一个忽略另一个");
 });
@@ -42,6 +65,57 @@ test("带全套上下文，不是那种失忆的一枪", () => {
   // 只问一件事：不然箱子里全是三连问
   assert.ok(seg.includes("只问【一件事】"), "没限一问一件事");
   assert.ok(seg.includes("你已经知道的事拿来问，是在考她"), "他会拿知道答案的事来考她");
+});
+
+// ⚠️她 2026-09-19 截图：出来的是「如果身边有个人……」「这种人到底是……」
+//   「觉得对方拿她没办法」——他把自己和她都写成了第三人称的泛指，同一句里
+//   「你」和「她」还串着用。病因是我把【匿名】写成了【假装不认识】。
+test("匿名只是不署名，不是失忆：得直接问她", () => {
+  const seg = ask();
+  // ⚠️兜底那一枪里也有同一句话，所以钉主提示词里那个带星号的写法，不然改坏了测不出来
+  assert.ok(seg.includes("⚠️**直接问她，用「你」**"), "主提示词里没让他直接问");
+  assert.ok(seg.includes("如果身边有个人"), "没点名那种假装泛指的问法——它是最顺手的一种");
+  assert.ok(seg.includes("匿名只是不署名，不是失忆"), "没说清匿名到底藏的是什么");
+  assert.ok(seg.includes("不许中途把她改口成"), "人称串了没人管");
+});
+
+// ⚠️规则只能降概率，代码才保证（这仓库的老规矩）
+test("代码兜一道，而且只兜一次", () => {
+  const seg = ask();
+  assert.ok(/const _vague = t => !\/你\/\.test\(t\) \|\| \/身边有\(个\|一个\)人\|这种人\|有的人\|有个朋友\//.test(seg),
+    "没有代码那一道——提示词写得再清楚也只是降概率");
+  assert.ok(seg.includes("重写一遍：直接问她"), "兜的那一枪没说清要改什么");
+  // 她按次计费：人称和撞题【并成一次返工】，绝不各打一枪
+  assert.equal((seg.match(/runProbe\(/g) || []).length, 2, "为一句问话打了超过两枪");
+  assert.ok(/const why2 = q \? \(_vague\(q\) \? "vague" : \(_dup\(q, topic\) \? "dup" : ""\)\) : "";/.test(seg),
+    "两道判定没并成一次——各打一枪就是三枪");
+  assert.ok(/catch \(e\) \{\/\* 兜不回来就用原来那句/.test(seg), "兜的那一枪失败会把整轮废掉");
+});
+
+// ⚠️她 2026-09-19：「那这个怎么保障同一个人不会反反复复问同一件事」——原来保障不了。
+test("防重复：只看他自己问过的，而且判的是「哪件事」不是「这句话」", () => {
+  const seg = ask();
+  // ① 原来喂的是全箱混着的最近 12 条，他自己问过的会被别的角色挤出去
+  assert.ok(/\.filter\(r => r && r\.charId === char\.id\)/.test(seg), "喂的还是全箱混着的——别人问的挤掉了他自己的");
+  assert.ok(!/\.records \|\| \[\]\)\.slice\(0, 12\)/.test(seg), "旧那句全箱截 12 条还在");
+  // ② 光比问句原文管不住「换个说法再问一遍」，所以让他给这一问贴个主题
+  assert.ok(seg.includes("【另外交一个 topic】"), "没要主题标签——换个说法就能再问一遍同一件事");
+  assert.ok(seg.includes("同一件事换十种说法，topic 也该是同一个"), "没说清 topic 该怎么给");
+  assert.ok(seg.includes("不是换个说法，是换一件事"), "把用过的主题摆出来了，却没说清要换的是什么");
+  assert.ok(seg.includes(String.fromCharCode(92) + chr34 + "topic" + String.fromCharCode(92) + chr34), "schema 里没有 topic，模型不会交");
+  // ③ 代码那一道：撞主题、或者去掉标点后跟旧的一模一样，都算撞
+  assert.ok(/const _dup = \(t, tp\) => \(tp && hadTopics\.indexOf\(tp\) >= 0\) \|\| had\.some/.test(seg),
+    "撞题没有代码兜——提示词只降概率");
+  assert.ok(/replace\(\/\[\\s，。？！、,\.\?!/.test(seg), "比原文时没去标点，加个问号就绕过去了");
+  // ④ 存得下来才拦得住下一次
+  assert.ok(/const rec = \{ id: "am_" \+ Date\.now\(\), q, topic,/.test(seg.length ? app : app), "topic 没存进记录，下次照样撞");
+});
+
+// 同一张截图里两条都是「到底是 A，还是 B？」的长对偶句
+test("别每句都做成二选一的长句", () => {
+  const seg = ask();
+  assert.ok(seg.includes("也别每句都做成「到底是 A，还是 B？」"), "没拦那个最顺手的句式");
+  assert.ok(seg.includes("干脆就一个词的，都行"), "只禁不给出口，它会缩回更安全的写法");
 });
 
 test("指定谁来问 / 随机，两档都有", () => {
