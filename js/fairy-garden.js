@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-015385b919571757", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-06cafed5415b1737", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -477,6 +477,7 @@
         + (quiet ? "你们已经 " + quiet + " 天没正经说过话了。" : ""),
       rows.length
         ? "【你手上这几样，都是你们之间真有过的】\n" + rows.map(r => "・〔" + r.kind + "・第 " + r.day + " 天〕" + r.text).join("\n")
+          + "\n⚠️标着「你自己的东西」那几样，是她从井底捞上来、拿你的碎片炼成的——那是你自己的经历、梦或痕迹，不是她捡来的小玩意。要提它，先认出这是什么，再说她把它摆在那儿／留在馆里这件事。"
         : "【你手上什么都没有】你们之间还没攒下什么可说的东西。",
       "【要紧的一条】从上面那几样里【挑一件】说起，或者说这会儿眼前的天气、光线、她正在做的事。"
         + "⚠️绝不许编一段你们其实没发生过的事。"

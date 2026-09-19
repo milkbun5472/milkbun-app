@@ -1,9 +1,9 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-015385b919571757';
-import {brewError,brewResult} from './brewing.mjs?v=fg-015385b919571757';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-015385b919571757';
-import './rules.js?v=fg-015385b919571757';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-06cafed5415b1737';
+import {brewError,brewResult} from './brewing.mjs?v=fg-06cafed5415b1737';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-06cafed5415b1737';
+import './rules.js?v=fg-06cafed5415b1737';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-015385b919571757';
+import {createNavigator} from './navigation.mjs?v=fg-06cafed5415b1737';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -833,8 +833,11 @@ export const thingReady = (s, t) => !t.openDay || s.day >= t.openDay;
 export function placeThing(s, id, spot){
   const t = (s.things || []).find(x => x.id === id);
   if (!t || !thingReady(s, t) || (spot && !isSpot(spot))) return s;
-  return { ...s, things: (s.things || []).map(x => x.id === id ? { ...x, spot: spot || null }
+  const out = { ...s, things: (s.things || []).map(x => x.id === id ? { ...x, spot: spot || null }
     : (spot && x.spot === spot ? { ...x, spot: null } : x)) };   // 一个位置只摆一样
+  // 她摆出来这件事要有回响（她 2026-09-18：「摆在家里他路过会看见并提起」）。
+  // 收回来不记——那不是一件发生过的事，只是撤掉。
+  return spot ? noteHappening(out, 'set', '把「' + t.name + '」摆在' + (spotLabel(spot) || '家里') + '了') : out;
 }
 export const placedAt = (s, spot) => (s.things || []).find(x => x.spot === spot) || null;
 // 雨铃：真下雨、真挂在屋檐下，才会响。天气由游戏那头算，这儿只回答「响不响」
@@ -1203,7 +1206,8 @@ export function sealBottle(s, text){
   const bottle = { id: 'bo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
     text: trimText(text, 120), day: s.day, openDay: s.day + BOTTLE_DAYS, taken: false,
     ...(hash(String(s.epoch)+':bottle-reply:'+s.day+':'+trimText(text,120))%100 < 65 ? {replyWanted:true,reply:'',sender:''} : {}) };
-  return { ...s, bottles: [bottle, ...(s.bottles || [])] };
+  // 封进瓶子放走也要有回响：她写了一句话交给水，这本身就是一件发生过的事。
+  return noteHappening({ ...s, bottles: [bottle, ...(s.bottles || [])] }, 'sent', '把一句话封进瓶子放走了：' + bottle.text);
 }
 // 今天水里能捞到什么：自己封的到日子了就先还她自己那一只，
 // 否则从【已经有的东西】里按存档号＋天数定一片，同一天捞几次都是同一片。
@@ -1312,12 +1316,23 @@ export function missTaken(s){
 export function missLetGo(s){ return withMiss(s, { cameAt: 0, day: s.day }); }
 // 他要说的那句话得【带着一件具体的东西】，否则每次都是「我想你了」——
 // 那就又是那句「换个角色照样成立的就是写坏了」。这儿只负责把料凑齐，话由他自己说。
+// 这一件是不是【从井底捞上来的、他自己的东西】。奇物是拿他的碎片炼的，来头原文
+// 就抄在 from 里；她种出来、买来的没有这一段。井里的碎片本身带 curio，背包里
+// 那两类带 type。
+// ⚠️只有这一处答案：递给他、摆在家里、留在收藏馆里，都问它
+// （她 2026-09-18：「那奇物 in general 对我们的『关系』主题有啥用」——
+//  用处就是：这些东西本来就是他的，他得认得出来）。
+export const fromWell = x => !!x && (x.type === 'shard' || x.type === 'thing'
+  || Object.hasOwn(WELL_CURIOS, x.curio || '')
+  || !!(typeof x.from === 'string' && x.from.trim()));
+// 标给他看的那一句：这几样是他自己的东西，不是她捡来的小玩意。
+export const MINE_TAG = '、你自己的东西';
 export function missMaterial(s){
   const notes = (s.notes || []).slice(0, 2).map(n => ({ kind: '花笺', text: n.reply, day: n.day }));
-  const kept = (s.collection || []).slice(0, 2).map(x => ({ kind: '她留在收藏馆里的', text: x.name + '。' + x.note, day: x.gaveDay }));
-  const shards = (s.shards || []).filter(x => x.pinned).slice(0, 2).map(x => ({ kind: '她钉住的碎片', text: x.text, day: x.day }));
+  const kept = (s.collection || []).slice(0, 2).map(x => ({ kind: '她留在收藏馆里的' + (fromWell(x) ? MINE_TAG : ''), text: x.name + '。' + x.note, day: x.gaveDay }));
+  const shards = (s.shards || []).filter(x => x.pinned).slice(0, 2).map(x => ({ kind: '她钉住的碎片' + (fromWell(x) ? MINE_TAG : ''), text: x.text, day: x.day }));
   const drift = (s.drifts || []).slice(0, 1).map(x => ({ kind: '她今天从水里捞到的', text: x.text, day: x.day }));
-  const placed = (s.things || []).filter(x => x.spot).slice(0, 2).map(x => ({ kind: '摆在' + SPOTS[x.spot] + '的', text: x.name + '。' + x.note, day: x.day }));
+  const placed = (s.things || []).filter(x => x.spot).slice(0, 2).map(x => ({ kind: '她摆在' + (spotLabel(x.spot) || '家里') + '的' + (fromWell(x) ? MINE_TAG : ''), text: x.name + '。' + x.note, day: x.day }));
   const lately = recentHappenings(s, 5).map(x => ({ kind: HAPPEN_KINDS[x.kind], text: x.text, day: x.day }));
   const gifts = restoreGifts(s.gifts).slice(0, 2).map(x => ({ kind: x.from === 'him' ? '你递给她的' : '她递给你的', text: x.name + (x.stance ? '，你' + GIFT_STANCES[x.stance] : ''), day: x.day }));
   return { day: s.day, quiet: Math.max(0, s.day - restoreMiss(s.miss).since),
@@ -1331,7 +1346,7 @@ export function missMaterial(s){
 //   他排这一季的日程时也读它。记账本身一枪不打。
 // ⚠️只记【真发生过的】：这本账不许写任何没发生的事，否则他就会提起一件不存在的事。
 export const HAPPEN_CAP = 40;
-export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里', met: '在村里碰见', gift: '递给他的' };
+export const HAPPEN_KINDS = { kept: '留在馆里', dug: '井里刨到', made: '锅里做出', quest: '替人做完', grew: '地里长出', world: '村里', met: '在村里碰见', gift: '递给他的', set: '她摆出来的', sent: '她封进瓶子放走的' };
 export function restoreHappenings(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.text && Object.hasOwn(HAPPEN_KINDS, x.kind))
     .slice(0, HAPPEN_CAP).map(x => ({ kind: x.kind, text: trimText(x.text, 120), day: Math.max(1, count(x.day)) }));
@@ -2169,7 +2184,21 @@ export const starNightReady=s=>starChartPieces(s)>=STAR_CHART_NEED&&s.map==='old
 export function keepStarNight(s){if(!starNightReady(s))return s;return noteHappening(noteBond({...s,starNights:count(s.starNights)+1},'night','在旧塔一起摊开星图看了一夜'),'world','把攒下的星图碎片拼在一起，和'+s.companion.name+'看了一夜');}
 export function restoreSleep(raw,map,position){const valid=id=>typeof id==='string'&&Object.hasOwn(MAPS.home.beds,id)?id:null,player=valid(raw?.player),companion=valid(raw?.companion),p=player&&MAPS.home.beds[player].approach.player;return {player:map==='home'&&p&&position&&Math.hypot(position.x-p.x,position.z-p.z)<.3?player:null,companion};}
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
-export function sleepPose(s,who='player'){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return b.slots[who];}
+// 一起睡时两个人之间留的距离；各睡各的是床位本来的 1.2 米。
+export const SLEEP_HUG_GAP=.46;
+function bedSlot(s,who){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return {slot:b.slots[who],bed:b};}
+// 相拥而眠（她 2026-09-18：「然后在床上能不能搞个相拥而眠的动作」）：
+// 只有【同一张床】而且【两个人都已经躺下】才算——他还没上床时抱着空气最难看。
+// 躺姿这一份是她和他共用的，所以靠哪一侧、往哪边侧身都从这里算，渲染那边不再自己猜。
+export function sleepPose(s,who='player'){
+ const mine=bedSlot(s,who);if(!mine)return null;
+ const {slot,bed}=mine;
+ const together=!!(s.sleep?.player&&s.sleep.player===s.sleep.companion&&bedSlot(s,'player')&&bedSlot(s,'companion'));
+ if(!together)return slot;
+ const mid=(bed.slots.player.x+bed.slots.companion.x)/2;
+ const toward=slot.x<mid?1:-1; // 对方在 +x 还是 -x
+ return {...slot,x:mid-toward*SLEEP_HUG_GAP/2,hug:true,toward};
+}
 export function arrangeSleep(s,id,mode){const b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null;if(s.map!=='home'||!b||!['together','separate','companion'].includes(mode)||Math.hypot(s.position.x-b.approach.player.x,s.position.z-b.approach.player.z)>.65)return s;const other=Object.keys(MAPS.home.beds).find(k=>k!==id);return {...s,seat:null,sleep:{player:mode==='companion'?null:id,companion:mode==='separate'?other:id}};}
 // Cosmetic gestures never change inventory, relationship or the character's routine.
 export function gestureError(s,kind){
