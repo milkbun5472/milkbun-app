@@ -276,7 +276,12 @@ garden.walkRegions 保留原半径32的村落，按已建造的南北区域扩�
 
 位置只有一个来源——调用方把 `MAPS.garden` 里 brew 交互点的坐标传进来，以后 brew
 搬到哪儿锅就跟到哪儿。上游 `scene-expansion/village-expanded.blend`（旧坐标系）和
-出图用的 `flowerbeds-right/village-ground.blend`（新坐标系）共用这一份搬运器，
-输出都放在 `blend/alchemy-stove/`；只重导 `village-ground.glb --ratio=.12`，
-其余分区 GLB 不动。`apps/fairy-garden/alchemy-stove.test.mjs` 常驻审计
+出图用的 `architecture-v2/village-home.blend`（新坐标系）共用这一份搬运器，
+输出都放在 `blend/alchemy-stove/`；只重导 `village-home.glb --detail`，
+地景和其余分区 GLB 不动。
+
+⚠️锅住在**小屋分区块**里，不在地景里。我照着名字去改 `village-ground.blend`
+连错两版：那份是整场装配稿，5684 个网格里 4143 个标着 `hide_render`（井、锅
+全在内），导出脚本正是靠这个只把地面导出来——在那份里搬锅，搬了也永远进不了
+游戏，而且不会有任何报错。改村落里任何一件东西，先确认它归哪个分区块。`apps/fairy-garden/alchemy-stove.test.mjs` 常驻审计
 「庭院里能走过去的点一个都不许埋在房子轮廓里」。
