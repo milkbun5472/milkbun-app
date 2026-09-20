@@ -105,7 +105,7 @@ function phoneAppBg(t) { return { background: t.bg }; }
 function PTX(v) {
   const s = String(v == null ? "" : v);
   if (!s) return s;
-  return typeof TransText === "function" ? h(TransText, { text: s, ink: "currentColor" }) : s;
+  return typeof TransText === "function" ? h(TransText, { text: s, ink: "currentColor", inline: true }) : s;
 }
 function phoneTextClamp(text, lines) {
   return typeof translatableLang === "function" && translatableLang(String(text || "")) ? "unset" : lines;
