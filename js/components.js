@@ -39,6 +39,17 @@ const BUBBLE_SKIN = {
 //   所以【必须一次按顺序全部重排】：只 append 其中一张，别的就落到它前面去了。
 //   这也是为什么这几层只能有这一个出口——各写各的 append，顺序必然乱。
 let CHAT_LOOK = {};          // 当前这个聊天窗自己那几层（换人/改设置时由 App 传进来）
+// 此刻真正生效的那一套气泡：全局打底，当前这个聊天窗自己那层盖上去。
+// ⚠️只有一个出口：CSS 那几层（bubbleDecls）和画在 React 里的那几样（贴纸、通话屏）
+//   说的必须是同一套，否则「底色换了、贴纸没换」这种半生效永远抓不到。
+//   不在单聊窗里（群聊、通话、设置页）时 scope 是空的，拿到的就是全局那一份。
+function bubbleSkinNow() {
+  const L = CHAT_LOOK || {};
+  return (L.scope && L.bubble) ? Object.assign({}, BUBBLE_SKIN, L.bubble) : BUBBLE_SKIN;
+}
+// 贴纸那一栏可以是图片保险箱的 iv_ 门牌，也可以是 assets/xx.png 或 https 地址。
+// 换成真实地址只有这一处：聊天里那只气泡和设置里的试衣镜共用它。
+function stickerSrc(v) { return v ? (typeof resolveImg === "function" ? resolveImg(v) : v) : ""; }
 const bubbleDecls = S => {
   const q = v => String(v == null ? "" : v).replace(/[<>{}]/g, "");   // 只允许当值用，别让它带出括号
   const out = [];
@@ -249,11 +260,13 @@ function BubbleSkinFields({ s, set }) {
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.tint } }, String(s[key]))),
     h("input", { type: "range", min: min, max: max, step: 1, value: Number(s[key]) || 0, onChange: e => set({ [key]: Number(e.target.value) }), style: { width: "100%" } }));
   // 试衣镜：两只气泡实时读草稿——还没保存就能看效果
+  // ⚠️贴纸地址跟聊天里那只气泡走同一支 resolveImg（iv_ 门牌→真实地址）：
+  //   试衣镜里是裂图、聊天里好的，或者反过来，都会让她以为是自己填错了。
   const bub = (mine, text) => h("div", { className: "flex " + (mine ? "justify-end" : "justify-start"), style: { margin: "8px 0" } },
     h("div", { style: { position: "relative", maxWidth: "78%", padding: "9px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5,
       background: mine ? s.myBg : s.charBg, color: mine ? s.myText : (s.charText || t.ink),
       border: (mine ? s.myBorder : s.charBorder) || "none", borderRadius: Number(s.radius) || 0, boxShadow: s.shadow || "none" } },
-      (mine ? s.mySticker : s.charSticker) ? h("img", { src: mine ? s.mySticker : s.charSticker, alt: "", style: { position: "absolute", top: -(Number(s.stickerSize) || 52) / 2, right: mine ? -10 : "auto", left: mine ? "auto" : -10, width: Number(s.stickerSize) || 52, height: Number(s.stickerSize) || 52, objectFit: "contain", pointerEvents: "none", transform: mine ? "none" : "scaleX(-1)" } }) : null,
+      (mine ? s.mySticker : s.charSticker) ? h("img", { src: stickerSrc(mine ? s.mySticker : s.charSticker), alt: "", style: { position: "absolute", top: -(Number(s.stickerSize) || 52) / 2, right: mine ? -10 : "auto", left: mine ? "auto" : -10, width: Number(s.stickerSize) || 52, height: Number(s.stickerSize) || 52, objectFit: "contain", pointerEvents: "none", transform: mine ? "none" : "scaleX(-1)" } }) : null,
       text));
   return h(React.Fragment, null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, marginBottom: 10 } },
@@ -357,10 +370,16 @@ function SysNote({ label, text, tone, onClose, title }) {
           fontFamily: F_BODY, fontSize: 12, lineHeight: 1, color: t.fog, background: "transparent", border: "none" } }, "✕") : null));
 }
 // 气泡角落贴纸：绝对定位悬在气泡外沿（我的在右上、TA 的在左上并水平翻转），不挡点击
+// ⚠️贴纸跟底色/圆角是同一只气泡的同一套设定，所以它读的必须是 bubbleSkinNow()
+//   那一份【此刻真正生效的皮肤】：原来这儿只认全局 BUBBLE_SKIN，于是
+//   「只给 TA 换气泡」里贴的那张在聊天里一次都没出现过（底色换得了、贴纸换不了）。
+// ⚠️图片地址一律过 resolveImg：贴纸可以是图片保险箱的 iv_ 门牌（秋秋改气泡那一路
+//   engine.js BUBBLE_AI_STICKER_KEYS 明说了只许填 iv_），不换成真实地址就是一张裂图。
 function bubbleSticker(isU) {
-  const src = isU ? BUBBLE_SKIN.mySticker : BUBBLE_SKIN.charSticker;
+  const S = bubbleSkinNow();
+  const src = stickerSrc(isU ? S.mySticker : S.charSticker);
   if (!src) return null;
-  const sz = BUBBLE_SKIN.stickerSize || 52;
+  const sz = S.stickerSize || 52;
   const pos = { position: "absolute", top: -sz / 2, width: sz, height: sz, objectFit: "contain", pointerEvents: "none", zIndex: 2 };
   if (isU) pos.right = -10; else { pos.left = -10; pos.transform = "scaleX(-1)"; }
   return h("img", { src: src, alt: "", style: pos });
