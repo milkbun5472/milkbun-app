@@ -40,3 +40,13 @@ test("study：控制台装了收件口，收下写进课程自己的存档", () 
   // 界面上真的有这一栏
   assert.match(console_, /言秋的投递/);
 });
+
+test("study：收下的投递自带作业纸，答案写回同一条记录", () => {
+  const console_ = slice(study, "function CurriculumConsole(", "function NewCurriculum(");
+  // 作业存进收下那条投递自己身上：{ ...x, answer, answeredAt }，不新开存档键
+  assert.match(console_, /\{ \.\.\.x, answer: String\(d\._draft != null \? d\._draft : \(d\.answer \|\| ""\)\), answeredAt: Date\.now\(\) \}/);
+  // 存之前重读最新课程，不拿旧引用盖档
+  const saves = console_.split("findCurriculum(cur.id) || cur").length - 1;
+  assert.ok(saves >= 2, "收货和存作业都要先重读课程再写回");
+  assert.match(console_, /存作业/);
+});

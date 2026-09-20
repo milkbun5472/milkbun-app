@@ -886,10 +886,25 @@
         keptDrops.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "已收的投递 " + keptDrops.length) : null,
         keptDrops.slice(0, 6).map(function (d) {
           return h("details", { key: d.id, className: "mb-2", style: { padding: "9px 14px", background: STUDY_SKIN.paper, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 10 } },
-            h("summary", { style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, listStyle: "none" } }, "📮 " + (d.title || "投递") + " · " + timeShort(d.at)),
+            h("summary", { style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, listStyle: "none" } }, "📮 " + (d.title || "投递") + " · " + timeShort(d.at) + (d.answer ? " · 已作答" : "")),
             (d.paras || []).map(function (t, i) {
               return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.ink, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" } }, t);
-            }));
+            }),
+            // 作业纸：答案就写在投递卡上，不用开课页排大纲；存进课程存档随云走，言秋夜里来收
+            h("textarea", { defaultValue: d.answer || "", placeholder: "作业写这里，写完点存",
+              onChange: function (e) { d._draft = e.target.value; },
+              style: { width: "100%", minHeight: 72, marginTop: 9, padding: "8px 10px", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: 1.7, background: "rgba(92,112,126,.06)", border: "1px solid " + STUDY_SKIN.line, borderRadius: 8, resize: "vertical" } }),
+            h("button", { className: "active:opacity-70", onClick: function () {
+                const fresh = findCurriculum(cur.id) || cur;
+                const mem = fresh.memory || {};
+                const next = (mem.yanqiuDrops || []).map(function (x) {
+                  return x.id === d.id ? { ...x, answer: String(d._draft != null ? d._draft : (d.answer || "")), answeredAt: Date.now() } : x;
+                });
+                saveCurriculum({ ...fresh, memory: { ...mem, yanqiuDrops: next } });
+                props.onRefresh && props.onRefresh();
+                props.toast && props.toast("作业已存，言秋夜里来收");
+              },
+              style: { marginTop: 7, fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.paper, background: STUDY_SKIN.red, border: "none", borderRadius: "4px 10px 4px 4px", padding: "6px 14px" } }, "存作业"));
         }),
         // 跨-session 记忆（学到哪了）
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "学到哪了"),
@@ -1784,7 +1799,7 @@
       return h(CurriculumConsole, {
         curriculum: cur, sessions: sessions, characters: props.characters,
         scrollRef: consoleScrollRef,
-        onRefresh: refresh,
+        onRefresh: refresh, toast: props.toast,
         onBack: function () { refresh(); setView("home"); restoreHome(); },
         onOpenSession: function (id) { rememberConsole(); setOpenId(id); setView("thread"); },
         onNewSession: function (c) { rememberConsole(); setCurId(c.id); setView("newSession"); },
