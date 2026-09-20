@@ -4901,9 +4901,18 @@ function isDurableTextKey(k) {
 }
 // 单/群聊天可能远超 localStorage 的 5MB：它们以 WAL 本身作同步 journal，不能再要求
 // localStorage 也塞下一整份；其余核心文字键继续保留 localStorage + WAL + IDB 三重核对。
+// ⚠️v72.02 把【线下剧情】也放进这份名单（她 2026-09-20：「线下记录为什么存不了 20w」）。
+//   理由跟聊天一字不差——一场线下能写到二十万字，那一份 JSON 根本塞不进 5MB。
+//   当初只免了聊天，线下没跟上，于是它长到某个大小之后：
+//     ① localStorage.setItem 抛 quota，而那一行是 `try {} catch (e) {}`，**一声不吭**；
+//     ② IDB/WAL 照常写进新版，可校验里那句 localStorage.getItem(k) === s 永远不成立；
+//     ③ 最要命的是【赖在 localStorage 里的那份旧 journal】——开机 hydrateTxtVault 会把它
+//        当成「更新的版本」搬回 IDB，把后面写的全盖掉。
+//   表现就是她说的那样：能存到某个大小，再写就回退到那个大小。
 function durableTextNeedsLocalJournal(k) {
   k = String(k || "");
-  return k.indexOf("x_chat:") !== 0 && k.indexOf("x_gchat:") !== 0;
+  return k.indexOf("x_chat:") !== 0 && k.indexOf("x_gchat:") !== 0
+    && k.indexOf("x_offline:") !== 0 && k.indexOf("x_goffline:") !== 0;
 }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
@@ -4958,11 +4967,29 @@ async function hydrateTxtVault() {
   const mir = _txtMirror();
   try {
     const entries = await idbTxtAll();
-    entries.forEach(([k, v]) => { if (k && v != null) mir.set(k, v); });
+    // ⚠️救出来的那些老 journal（x_lsjournal_rescue:…）只躺在 IDB 里备查，不进内存镜像：
+    //   镜像会被上云和导出整份带走（cloud.js 那一处 forEach），放进去等于把旧副本也推上去。
+    entries.forEach(([k, v]) => { if (k && v != null && String(k).indexOf("x_lsjournal_rescue:") !== 0) mir.set(k, v); });
     const toMig = [];
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (isIdbTextKey(k)) toMig.push(k); }
     for (const k of toMig) {
       const s = localStorage.getItem(k); if (s == null) continue;
+      // ⚠️不再写 journal 的那几类（聊天／线下）：localStorage 里还剩着的这一份必然是【老版本】——
+      //   它正是当初写不进去、又没人清掉的那一份。照原路搬回 IDB，就是拿旧的盖掉新的
+      //   （她 2026-09-20「线下记录存不了 20w」的最后一环）。
+      //   所以这几类以 WAL／IDB 现有的那版为准；老 journal **不销毁**，挪进 IDB 存着，
+      //   只是不许它再回到主路上（「先查还剩什么，别急着说没了」）。
+      if (!durableTextNeedsLocalJournal(k)) {
+        try {
+          const fromWal = await walGetRaw(k);
+          const live = fromWal != null ? fromWal : await idbTxtGet(k);
+          if (live != null && live !== s) {
+            await idbTxtPut("x_lsjournal_rescue:" + k + ":" + Date.now(), s);
+            localStorage.removeItem(k);
+            continue;   // 剩下的交给下面那段 WAL 回收
+          }
+        } catch (e) { continue; }   // 拿不准就原样留着，下次开机再说
+      }
       try {
         if (isDurableTextKey(k) && !(await walPutVerified(k, s))) continue;
         await idbTxtPut(k, s); const back = await idbTxtGet(k);
@@ -7406,7 +7433,9 @@ function saveJSON(k, v) {
         // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
         // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
         const needsLocalJournal = durableTextNeedsLocalJournal(k);
-        if (needsLocalJournal) try { localStorage.setItem(k, s); } catch (e) {}
+        // ⚠️写不进去也不能中断（WAL+IDB 才是主路），但不许再一声不吭：
+        //   journal 悄悄写失败正是上面那条「存不了 20w」能活这么久的原因。
+        if (needsLocalJournal) try { localStorage.setItem(k, s); } catch (e) { console.error("local journal skipped (quota?):", k, s.length); }
         try {
           const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
           staged.then(ok => {
