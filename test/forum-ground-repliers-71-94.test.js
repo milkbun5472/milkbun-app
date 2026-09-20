@@ -30,22 +30,23 @@ assert.match(ground, /String\(extraQuery \|\| ""\)/, "检索词没把调用方�
 const stale = app.split("\n").filter(l => l.includes("forumOpGroundingFor") && !l.trim().startsWith("//"));
 assert.strictEqual(stale.length, 0, "还有地方在用老的 forumOpGroundingFor：\n" + stale.join("\n"));
 
-// ---- 3. 三处该接的都接上了 ----
-// 第二轮追评：楼主 + 这帖里已经回过话的角色
-assert.match(app, /forumCharGrounding\(opChar, post, "楼主"\)/, "第二轮没给楼主接上");
-assert.match(app, /replied\.slice\(0, FORUM_GROUND_MAX\)/, "第二轮没给已经冒泡过的角色接上");
-assert.match(app, /forumCharGrounding\(c, post, "这帖里已经回过话的"\)/, "已经回过话的角色拿不到真实背景");
+// ---- 3. 四处该接的都接上了 ----
+// 两轮刷楼：楼主 + 这帖里可能开口的每一个角色（不挑人、不封顶）
+assert.match(app, /forumCharGrounding\(opChar, post, "楼主"\)/, "没给楼主接上");
+const grounds = app.match(/poolChars\.map\(c => forumCharGrounding\(c, post, "这帖里可能开口的"\)\)/g) || [];
+assert.strictEqual(grounds.length, 2, "两轮刷楼里只有 " + grounds.length + " 轮给了全体角色背景");
 // 她评论之后那几条楼中楼：帖主 + 必回她的那个层主，检索带上她刚说的那句
 assert.match(app, /forumCharGrounding\(oc, post, "楼主", myText\)/, "楼中楼那一处楼主的检索词没带她刚说的那句");
 assert.match(app, /forumCharGrounding\(ownerChar, post, "这层楼的层主", myText\)/,
   "【必回她的那个人】还是没有真实背景——她报的正是这一处");
 
-// ---- 4. 第一轮不接，但必须写着为什么（four-surfaces：漏的那处要写明理由）----
-const r1 = app.indexOf("    // ── 第一轮（首次点进帖）");
-assert.ok(r1 > 0, "第一轮那段的位置找不到了");
-assert.match(app.slice(r1, r1 + 400), /故意/, "第一轮不注入背景这件事没写理由");
+// 她评论之后那几条楼中楼里，允许冒出来接话的角色同样要有
+assert.match(app, /forumCharGrounding\(c, post, "这层楼里可能开口的", myText\)/,
+  "楼中楼里冒出来接话的角色还是没有背景");
 
-// ---- 5. 封顶还在：一帖里真正说话的就那么几个，别拿预算喂不会出场的人 ----
-assert.match(app, /const FORUM_GROUND_MAX = 3;/, "没有封顶，一池子角色每人一份会把预算吃光");
+// ---- 4. 不许再按「只给已知会说话的那几个」挑人 ----
+// 赌对了才准，赌错的那个一开口就现编；她 2026-09-20 明确说了不要想着省钱。
+assert.ok(!/FORUM_GROUND_MAX/.test(app), "又按人数封顶了——被筛掉的那个角色一开口就会现编");
+assert.ok(!/故意.{0,40}不注入/.test(app), "还留着「第一轮故意不给背景」那条");
 
-console.log("✓ 论坛：楼主、已回过话的角色、必回她的层主都拿得到真实背景＋最近相处");
+console.log("✓ 论坛：两轮刷楼＋她评论之后的楼中楼，可能开口的每个角色都拿得到真实背景＋最近相处");

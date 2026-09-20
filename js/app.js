@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.93";
+const APP_VERSION = "v71.94";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17105,16 +17105,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   （施工规则/four-surfaces-same-context.md 的老形状：一层写在一处，别处没跟上）。
   // ⚠️光给记忆库不够：记忆是【抽取】出来的，今天刚在聊天里说的「今天调班」多半还没进库。
   //   所以同时带一段最近相处——口子用发帖那处用的同一个 ambientMaterialFor，不另写一份。
-  const FORUM_GROUND_LIVED = 10;   // 最近相处带几行
+  // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
+  const FORUM_GROUND_LIVED = 16;   // 最近相处带几行
   const forumCharGrounding = (ch, post, role, extraQuery) => {
     if (!ch) return "";
     const q = (post.title || "") + " " + (post.body || "") + " " + String(extraQuery || "");
     let mems = [];
-    try { mems = retrieveMemories(memLibRef.current, ch.id, q, { limit: 5, touch: false, vec: false }); } catch (e) {}
-    const memText = (mems || []).map(m => "· " + String(m.text || "").replace(/\s+/g, " ").slice(0, 80)).join("\n");
+    try { mems = retrieveMemories(memLibRef.current, ch.id, q, { limit: 8, touch: false, vec: false }); } catch (e) {}
+    const memText = (mems || []).map(m => "· " + String(m.text || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
     let lived = "";
-    try { lived = String(ambientMaterialFor(ch, { limit: FORUM_GROUND_LIVED }) || "").slice(-700); } catch (e) {}
-    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 200);
+    try { lived = String(ambientMaterialFor(ch, { limit: FORUM_GROUND_LIVED }) || "").slice(-1400); } catch (e) {}
+    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
     return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
       + (memText ? "\n相关真实记忆：\n" + memText : "")
       + (lived ? "\n最近真的发生过的事（你本来就知道，别照抄原话、也别在楼里复述成流水账）：\n" + lived : "")
@@ -17172,10 +17173,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 楼主要依据真实背景，楼里【已经冒泡过的那几个角色】同样要——这一轮的追评几乎全是他们写的，
       // 而他们原来手上只有 80 字人设（她 2026-09-20 报的「细节没对上」就落在这儿）。
       // 封顶三个人：一帖里真正在说话的就那么几个，再多是拿预算换不会出场的人。
-      const FORUM_GROUND_MAX = 3;
+      // 楼主要依据真实背景，【这一帖里可能开口的每个角色】同样要——回帖的是他们，编细节的也是他们。
+      // ⚠️不封顶、不挑人（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱，
+      //   差别一分钱都不到」）。原来这儿按「已经回过话的前三个」筛，筛掉的那几个一开口就现编。
       const opGround = forumCharGrounding(opChar, post, "楼主")
-        + replied.slice(0, FORUM_GROUND_MAX).filter(c => !opChar || c.id !== opChar.id)
-            .map(c => forumCharGrounding(c, post, "这帖里已经回过话的")).join("");
+        + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("");
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       const opRule2Full = opRule2 + meRule;
       return {
@@ -17185,15 +17187,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
     }
     // ── 第一轮（首次点进帖）：不必全员回复，路人为主、真关心的角色偶尔冒泡 ──
-    // ⚠️这一轮【故意】不注入角色的真实背景：谁会冒泡是模型当场决定的，事先谁都不知道，
-    //   给全池子每人来一份记忆＋最近相处，绝大部分花在不会出场的人身上（她按次计费）。
-    //   楼主这轮也不回楼（见上面 opRule）。真要依据真实细节的是【第二轮追评】和
-    //   【她评论之后那几条楼中楼】——那两处谁在说话是已知的，背景就补在那儿。
+    // 这一轮同样把每个角色的真实背景给足：谁会冒泡是模型当场决定的，所以【事先谁都得有】——
+    // 只给「已知会说话的那几个」，等于赌对了才准，赌错的那个一开口就现编。
     const who = isSearch
       ? "**楼里是常驻熟面孔与一次性路人的混合**，**不要出现你认识的任何角色**——这是搜来的陌生话题吧。"
       : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色可以按性格选择 identity=main（大号）、alt（固定小号）或 anonymous（匿名）；小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
     return {
-      instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是常驻网友" : "，可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
+      instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock
+        + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
+        + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是常驻网友" : "，可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
       schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\",\"replies\":[]}]}",
       maxTokens: FTOK.floors
     };
@@ -18122,8 +18124,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 帖主是角色时注入其真实背景，回复细节别现编
       // 帖主要背景，【必回我的那个人】更要：她就是冲着那个人说的话去的，
       // 而检索词里必须带上她刚说的那句（她提的「调班」只在这句里，帖子标题正文一个字都没有）。
+      const groundedR = new Set([oc && oc.id, ownerChar && ownerChar.id].filter(Boolean));
       const opGroundR = forumCharGrounding(oc, post, "楼主", myText)
-        + (ownerChar && (!oc || ownerChar.id !== oc.id) ? forumCharGrounding(ownerChar, post, "这层楼的层主", myText) : "");
+        + (ownerChar && (!oc || ownerChar.id !== oc.id) ? forumCharGrounding(ownerChar, post, "这层楼的层主", myText) : "")
+        // ③ 那一栏允许「此刻真的会关心这个话题的角色」冒出来接话——他们也得有背景，
+        //    不然接得上话、细节全是编的（她 2026-09-20 报的就是这条路）。
+        + (isSearch ? "" : forumActiveChars().filter(c => !groundedR.has(c.id))
+            .map(c => forumCharGrounding(c, post, "这层楼里可能开口的", myText)).join(""));
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText), {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
