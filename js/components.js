@@ -8582,11 +8582,11 @@ function ChatThread({
       radius: 10
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col",
-      style: {
+      style: Object.assign({
         alignItems: isU ? "flex-end" : "flex-start",
         maxWidth: "72%",
         minWidth: 0
-      }
+      }, (cardLayout(m.content) || {}).col)
     }, m.replyTo && h("div", {
       "data-wk": "quote",
       style: {
@@ -8610,8 +8610,8 @@ function ChatThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
-      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
-      style: {
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      style: Object.assign({
         position: "relative", // 贴纸的锚点：贴纸对着气泡自己定位
         padding: m.kind === "photo" ? "8px 10px" : "9px 13px",
         fontFamily: F_BODY,
@@ -8629,8 +8629,8 @@ function ChatThread({
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
-      }
-    }, bubbleSticker(isU), m.kind === "location" ? h("span", {
+      }, (cardLayout(m.content) || {}).bubble)
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.kind === "location" ? h("span", {
       className: "flex items-center gap-1.5"
     }, h(Svg, {
       size: 15,
@@ -10373,6 +10373,21 @@ function htmlCardDoc(html, tok) {
     + 'body{overflow-x:hidden}img{max-width:100%}'
     + '#wk-wrap{display:flow-root}</style></head><body>'
     + '<div id="wk-wrap">' + html + '</div>' + HTML_CARD_BOOT(tok) + '</body></html>';
+}
+// 卡片不套气泡（她 2026-09-20 报「格式难看」）：
+// 气泡那层皮是给【一句话】设计的——72% 宽、自己的底色、自己的圆角和内边距。
+// 卡片自带底色、自带边距、模板里往往还写着 max-width:400px，套进去就是：
+// 双层圆角、两层底色，而且被挤到两百多宽，「高考成绩通知单」断成两行，
+// 一张卡要滑三屏才看完。所以卡片这一条整行铺开，气泡那层皮整个撤掉。
+// ⚠️只有一处判据：同一个 htmlCardOf。单聊和群聊都从这儿要样式，不许各写一份
+//   （施工规则/one-public-mechanism.md）。
+function cardLayout(content) {
+  if (typeof htmlCardOf !== "function" || !htmlCardOf(content)) return null;
+  return {
+    col: { maxWidth: "100%", minWidth: 0 },
+    // 撤皮要撤干净：底色、边框、影子、圆角、内边距，留一样都会露出来
+    bubble: { padding: 0, background: "transparent", border: "none", boxShadow: "none", borderRadius: 0 }
+  };
 }
 function HtmlCard({ html }) {
   const t = useTheme();
@@ -14142,11 +14157,11 @@ function GroupThread({
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
     }, !isU && mAvatar(c), h("div", {
       className: "flex flex-col",
-      style: {
+      style: Object.assign({
         alignItems: isU ? "flex-end" : "flex-start",
         maxWidth: "72%",
         minWidth: 0
-      }
+      }, (cardLayout(m.content) || {}).col)
     }, !isU && h("span", {
       style: {
         fontFamily: F_BODY,
@@ -14180,8 +14195,8 @@ function GroupThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
-      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
-      style: {
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      style: Object.assign({
         position: "relative", // 贴纸锚点
         padding: "9px 13px",
         fontFamily: F_BODY,
@@ -14199,8 +14214,8 @@ function GroupThread({
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
-      }
-    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+      }, (cardLayout(m.content) || {}).bubble)
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。

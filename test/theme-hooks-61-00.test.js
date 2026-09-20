@@ -18,7 +18,11 @@ test("单聊那一屏该有的挂点，一个都不许少", () => {
 test("我和他分得开，图片那种气泡也认得出", () => {
   // 气泡和整条消息都带 data-me，CSS 才能只改一侧
   assert.match(comp, /"data-wk": "msg", "data-me": isU \? "1" : "0"/);
-  assert.match(comp, /"data-wk": "bubble", "data-me": isU \? "1" : "0", "data-kind": m\.kind \|\| "text"/);
+  // 守的是【气泡带 data-me 和 data-kind，且 kind 仍跟着 m.kind 走】，
+  // 不钉整串表达式：v72.27 给卡片加了 "htmlcard" 这一档，钉死就断（anchor-on-code.md）
+  const bub = comp.match(/"data-wk": "bubble", "data-me": isU \? "1" : "0", "data-kind": ([^\n]*),/g) || [];
+  assert.ok(bub.length >= 2, "单聊/群聊的气泡没都带上 data-me + data-kind");
+  bub.forEach(x => assert.ok(/m\.kind \|\| "text"/.test(x), "data-kind 不再跟着 m.kind 走：" + x));
 });
 
 test("挂点只是一个写死的名字，夹带不了任何东西", () => {
