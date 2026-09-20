@@ -8876,8 +8876,9 @@ function BubbleSkinConfig({ toast }) {
   const [s, setS] = useState(() => Object.assign({}, BUBBLE_SKIN)); // 草稿：从当前皮肤复制一份
   const [folded, setFolded] = useState(true); // v48.38：默认折起，点标题展开（试衣镜太长）
   const set = patch => setS(p => Object.assign({}, p, patch));
-  const save = () => { Object.assign(BUBBLE_SKIN, s); try { localStorage.setItem("x_bubbleSkin", JSON.stringify(s)); } catch (e) {} if (typeof applyBubbleSkinCSS === "function") applyBubbleSkinCSS(); toast && toast("皮肤已保存，聊天页立即生效"); };
-  const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); Object.assign(BUBBLE_SKIN, d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} if (typeof applyBubbleSkinCSS === "function") applyBubbleSkinCSS(); toast && toast("已恢复出厂皮肤"); };
+  // 落盘只走 components.js 的 writeBubbleSkin 那一处（主题包导入也走它）
+  const save = () => { writeBubbleSkin(s); toast && toast("皮肤已保存，聊天页立即生效"); };
+  const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); writeBubbleSkin(d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} toast && toast("已恢复出厂皮肤"); };
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "2px 0" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "聊天气泡"),

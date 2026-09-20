@@ -295,13 +295,19 @@ function bubblePresetSkin(key) {
   const p = BUBBLE_PRESETS.find(x => x.key === key);
   return Object.assign({}, BUBBLE_SKIN_DEFAULTS, (p && p.patch) || {});
 }
-function applyBubblePreset(key) {
-  const next = bubblePresetSkin(key);
-  Object.assign(BUBBLE_SKIN, next);
-  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(next)); } catch (e) {}
+// 气泡皮肤只有这一处读、这一处写（one-public-mechanism）。
+// ⚠️以前「换一套预设」和「设置页保存」各写了一份 Object.assign + setItem + 重刷 CSS；
+//   2026-09-20 主题包也要带上气泡，那就是第三份了——先合成一处再接。
+function bubbleSkinSnapshot() { return Object.assign({}, BUBBLE_SKIN); }
+function writeBubbleSkin(next) {
+  // 盖在出厂值上，不是盖在当前值上：否则上一套残留的描边/贴纸会跟着新皮肤留下来
+  const merged = Object.assign({}, BUBBLE_SKIN_DEFAULTS, next || {});
+  Object.assign(BUBBLE_SKIN, merged);
+  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(merged)); } catch (e) {}
   applyBubbleSkinCSS();
-  return next;
+  return merged;
 }
+function applyBubblePreset(key) { return writeBubbleSkin(bubblePresetSkin(key)); }
 // 那一整排细调字段 + 试衣镜：三处共用（设置→聊天气泡、单聊 ••• 里「只给 TA 换气泡」）。
 // ⚠️跟 BubbleSkinPresets 同一条道理——一处画、多处用。各写一份的话，
 //   加一个新字段就只会加在其中一处，另一处永远少一栏（「一层写在两处，第二处没跟上」）。

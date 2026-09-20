@@ -9,6 +9,9 @@
     //   看一眼，工作台是重新挂载的——照旧 load() 的话，她刚写的 CSS 当场没了（v65.00）。
     const [draft, setDraft] = useState(() => (studio.isPreviewing() && studio.current) ? studio.current() : studio.load());
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
+    // 导进来的那一包先摊在这儿，勾了哪几样才合进草稿（她 2026-09-20：不是全有全无）
+    const [incoming, setIncoming] = useState(null), [pendingBubble, setPendingBubble] = useState(null);
+    const [pick, setPick] = useState({ css: true, icons: true, fonts: true, base: true, wall: true, bubble: true });
     const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
     useEffect(() => { lastSpot = null; }, []);
     const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast"), [pasting, setPasting] = useState(false), [pasteText, setPasteText] = useState("");
@@ -20,7 +23,7 @@
     useEffect(() => () => { clearTimeout(previewTimer.current); }, []);
     const patchDraft = p => setDraft(d => studio.normalize({ ...d, ...p }));
     const preview = () => { try { studio.preview(draft); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已临时预览；30 秒后自动撤销"); } catch (e) { toast("不能预览：" + e.message); } };
-    const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); setPendingBase(null); setPendingWallpaper(undefined); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
+    const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); if (pendingBubble && typeof writeBubbleSkin === "function") writeBubbleSkin(pendingBubble); setPendingBase(null); setPendingWallpaper(undefined); setPendingBubble(null); setIncoming(null); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
     const cancel = () => { clearTimeout(previewTimer.current); studio.cancelPreview(); setPreviewing(false); toast("已撤销预览"); };
     // ── 预览台（v65.00）：去这一页看看 ───────────────────────────────
     // 她 2026-09-06：「设置页里也没有预览台，要跑出去看效果也很麻烦」。
@@ -69,7 +72,8 @@
     };
     const exportTheme = async () => {
       // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
-      try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper });
+      try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
+          bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null });
         const via = await window.saveTextFile("lisa-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
         toast(via === "cancel" ? "导出取消了" : via === "share" ? "主题包已交给分享面板（含真实图标素材），在里面选「存储到文件」" : "主题包已导出（含真实图标素材）"); }
       catch (e) { toast("导出失败：" + e.message); }
@@ -77,10 +81,40 @@
     // 装包那一份文本 → 预览。文件选一份、或者直接贴一份，两条路都走这里
     // （她 2026-09-20：「导入主题包是死的按钮按不动」——手机上挑不开文件的时候，
     //   贴一份 JSON 是那条永远死不了的路）。
-    const applyPack = async text => {
-      try { const pack = await studio.importPackage(text); setDraft(pack.profile); setPendingBase(pack.baseTheme || null); setPendingWallpaper(pack.wallpaper); studio.preview(pack.profile); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已导入并临时预览；基础颜色与壁纸只会在确认后落盘"); return true; }
-      catch (err) { toast("导入失败：" + (err.message || err)); return false; }
+    // 勾了哪几样，就把那几样从包里合到【她现在这份】上——没勾的原样留着。
+    // ⚠️一定是合到当前那份上，不是拿包整个顶掉：她自己调了半天的别处不该被一份包抹平。
+    const mergePick = (pack, sel) => {
+      const cur = studio.normalize(studio.load()), inc = pack.profile;
+      return Object.assign({}, cur, {
+        name: inc.name || cur.name,
+        globalCSS: sel.css ? inc.globalCSS : cur.globalCSS,
+        pageCSS: sel.css ? inc.pageCSS : cur.pageCSS,
+        pageTokens: sel.css ? inc.pageTokens : cur.pageTokens,
+        icons: sel.icons ? inc.icons : cur.icons,
+        iconPack: sel.icons ? inc.iconPack : cur.iconPack,
+        iconBare: sel.icons ? inc.iconBare : cur.iconBare,
+        fonts: sel.fonts ? inc.fonts : cur.fonts,
+        customFonts: sel.fonts ? inc.customFonts : cur.customFonts
+      });
     };
+    const livePick = (pack, sel) => {
+      const next = mergePick(pack, sel);
+      setDraft(next);
+      setPendingBase(sel.base ? (pack.baseTheme || null) : null);
+      setPendingWallpaper(sel.wall && typeof pack.wallpaper === "string" ? pack.wallpaper : undefined);
+      setPendingBubble(sel.bubble ? (pack.bubbleSkin || null) : null);
+      try { studio.preview(next); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); } catch (_) {}
+    };
+    const applyPack = async text => {
+      try {
+        const pack = await studio.importPackage(text);
+        const sel = { css: true, icons: true, fonts: true, base: true, wall: true, bubble: true };
+        setIncoming(pack); setPick(sel); livePick(pack, sel);
+        toast("已导入并临时预览；下面可以挑要哪几样，确认后才落盘");
+        return true;
+      } catch (err) { toast("导入失败：" + (err.message || err)); return false; }
+    };
+    const togglePick = k => { const sel = Object.assign({}, pick, { [k]: !pick[k] }); setPick(sel); if (incoming) livePick(incoming, sel); };
     const importTheme = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
       let text = "";
@@ -421,6 +455,23 @@
           //   文件选择器可能整个弹不出来。备份恢复那一处（能用的那一处）就是 MIME 在前。
           h("button", { onClick: () => importFile.current && importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")),
         h("input", { ref: importFile, type: "file", accept: "application/json,.json", className: "hidden", onChange: importTheme }),
+        // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。
+        // 勾一下就立刻改预览，所以她是【看着】挑的，不是盲选完再按确认。
+        incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } },
+            "这份包里带了这些，勾掉的不会动你现在的："),
+          [["css", "页面／全局 CSS", !!(incoming.profile && (incoming.profile.globalCSS || Object.keys(incoming.profile.pageCSS || {}).length || Object.keys(incoming.profile.pageTokens || {}).length))],
+           ["icons", "图标", !!(incoming.profile && (incoming.profile.iconPack || Object.keys(incoming.profile.icons || {}).length))],
+           ["fonts", "字体", !!(incoming.profile && ((incoming.profile.fonts && (incoming.profile.fonts.body || incoming.profile.fonts.display)) || (incoming.profile.customFonts || []).length))],
+           ["base", "基础配色", !!incoming.baseTheme],
+           ["wall", "壁纸", typeof incoming.wallpaper === "string" && !!incoming.wallpaper],
+           ["bubble", "聊天气泡", !!incoming.bubbleSkin]].map(([k, label, has]) =>
+            h("button", { key: k, onClick: () => has && togglePick(k), disabled: !has, className: "w-full flex items-center active:opacity-70 disabled:opacity-40",
+              style: { gap: 9, minHeight: 40, textAlign: "left" } },
+              h("span", { style: { flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: "1px solid " + (has && pick[k] ? t.ink : t.line), background: has && pick[k] ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "16px", textAlign: "center" } }, has && pick[k] ? "✓" : ""),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: has ? t.ink : t.fog } }, label + (has ? "" : "（这份包里没有）")))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+            "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。")) : null,
         // 贴一份：手机上挑不开文件的时候，这条路永远死不了（照表情包「贴上去」那个先例）
         h("div", { style: { marginTop: 12 } },
           !pasting
