@@ -72,5 +72,7 @@ test('真正卡片覆盖自身白底，预览和主屏走同一内部组件',()=
   assert.match(src,/value: homeWidgetGroundTheme\(t, lookOf\(key\)\.ground\)/);
   assert.match(src,/Object\.assign\(pvShell, decorGroundStyle\(PV\)\)/);
   assert.match(src,/Object\.assign\(presetStyle, decorGroundStyle\(look\)\)/);
-  assert.match(src,/aria-label": "自定义底色"/);
+  // v72.05：取色器归公共色圈 ColorDot（她 2026-09-20「全都改成色圈」），
+  // 这儿只钉【这一件的底接上了它】——彩虹圈和 aria 名字归 color-dot-one-public 那份钉。
+  assert.match(src,/h\(ColorDot, \{ value: gCol, off: !!gImg, label: "底色"/);
 });

@@ -39,18 +39,16 @@
   // 发色沿用色板；衣柜提供逐套保存的自由配色。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
   // 衣服、肤色、发色共用取色与色号输入，验证规则只写一份。
+  // ⚠️色圈本身归 components.js 的 ColorDot 管（施工规则/one-public-mechanism.md，
+  //   她 2026-09-20：「全都改成色圈，这样以后不会改一处坏一处」）。庭院不吃主题色，
+  //   所以那几支绿的靠 tone 传进去；只认六位色号这条靠 hexOnly。
   function DyeControl({label, value, onChange, palette}) {
     const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";
-    return h("div", { style: { marginBottom: 6 } },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48 } },
-        h("span", { style: { flex: 1, fontSize: 12, color: "#344936" } }, label),
-        h("input", { type: "color", value: hex, "aria-label": "自定义" + label, onChange: e => onChange(e.target.value), style: { width: 44, height: 44, border: 0, background: "transparent", padding: 0 } }),
-        h("input", { key: hex, type: "text", defaultValue: hex, "aria-label": label + "色号", maxLength: 7, spellCheck: false,
-          onBlur: e => { const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) onChange(v); else e.target.value = hex; },
-          style: { width: 86, minHeight: 44, padding: "6px", border: "1px solid #cbd4bd", borderRadius: 7, background: "#f8f7ee", color: "#344936", fontSize: 14 } })),
-      palette && h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, margin: "8px 0 14px" } },
-        palette.map(color => h("button", { key: color, "aria-label": label + color, "aria-pressed": hex.toLowerCase() === color, onClick: () => onChange(color),
-          style: { width: 44, height: 44, borderRadius: 999, background: color, border: hex.toLowerCase() === color ? "2px solid #344936" : "1px solid #cbd4bd" } }))));
+    const tone = { line: "#cbd4bd", ink: "#344936", bg2: "#f8f7ee", field: "#f8f7ee", ink2: "#344936" };
+    return h("div", { style: { marginBottom: 14 } },
+      h("div", { style: { fontSize: 12, color: "#344936", marginBottom: 4 } }, label),
+      h(ColorDot, { value: hex, onChange: onChange, label: label, size: 44, palette: palette,
+        hexField: true, hexOnly: true, tone: tone }));
   }
   // 一轮话拆成几个气泡（她 2026-09-17：「他回复一大段是不是没用分气泡」）。
   // ⚠️拆气泡全库只有一处实现：GroupIdentityGuard.splitBubbles ＋ engine.js 的 splitLongBubble。

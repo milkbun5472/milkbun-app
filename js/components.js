@@ -47,6 +47,64 @@ function bubbleSkinNow() {
   const L = CHAT_LOOK || {};
   return (L.scope && L.bubble) ? Object.assign({}, BUBBLE_SKIN, L.bubble) : BUBBLE_SKIN;
 }
+// ── 色圈：全 App 挑颜色只有这一颗（她 2026-09-20 立）────────────────────────
+// 她原话：「这个现在是硬编码能不能改成色圈，还有其他地方的这种颜色硬编码也收到
+//   公共的全都改成色圈，这样以后不会改一处坏一处」。
+// 原来取色器有六处各画各的（庭院染色、角色底色、主题那八支色、这一页单独换色、
+// 装饰的底与强调色、气泡皮肤那一排手打色号），圆点多大、选中怎么显、填了废值怎么兜
+// 每处都不一样——改一处永远漏五处（施工规则/one-public-mechanism.md）。
+// ⚠️色圈自己就是取色器：原生 <input type="color"> 透明地压在圆点上。
+//   全库的 type:"color" 只许出现在这一处，有回归测试钉着。
+// ⚠️值不一定是六位色号（渐变、留空、"跟随全局"）：圆点照样把它当 background 画，
+//   喂给原生取色器的那一份必须是六位色号，所以一律过 colorDotHex()。
+//   抠色号只有 skinFirstHex 那一份，这儿不另写一个正则。
+const COLOR_DOT_FALLBACK = "#f3ece0";
+function colorDotHex(v, fallback) {
+  const one = typeof skinFirstHex === "function" ? skinFirstHex(v) : "";
+  return one || colorDotHex._f(fallback) || COLOR_DOT_FALLBACK;
+}
+colorDotHex._f = v => (/^#[0-9a-fA-F]{6}$/.test(String(v || "")) ? String(v).toLowerCase() : "");
+// palette 里可以放色号字符串，也可以放 { value, swatch, name }（「原样」那种空值档就靠它）。
+const colorDotItem = x => (x && typeof x === "object")
+  ? { value: x.value == null ? "" : x.value, swatch: x.swatch || x.value || "", name: x.name || "" }
+  : { value: x, swatch: x, name: x };
+// size：圆点直径（默认 30）。整行仍按 44 的可点高度走（施工规则/mobile-ui-layout.md）。
+// tone：庭院那套绿的不吃主题色，只有它需要传。
+// hexField：跟一格能手打的色号输入（庭院、气泡皮肤要，一排小圆点的地方不要）。
+// off：这一格此刻被别的东西接管了（比如装饰的底改放了一张图），谁都不高亮。
+function ColorDot({ value, onChange, label, palette, size, tone, hexField, placeholder, off, hexOnly }) {
+  const th = useTheme();
+  const c = Object.assign({ line: th.line, ink: th.ink, bg2: th.bg2, field: th.bg2, ink2: th.ink }, tone || {});
+  // 手打那一格要能打到一半（"#ab" 还不是颜色）：草稿留在本地，够格了才往外送。
+  // hexOnly＝只认六位色号（庭院染色）；默认连渐变一起原样送出去（气泡底色）。
+  const [draft, setDraft] = useState(String(value == null ? "" : value));
+  useEffect(() => { setDraft(String(value == null ? "" : value)); }, [value]);
+  const typeText = v => { setDraft(v); const t2 = v.trim(); if (!hexOnly || !t2 || /^#[0-9a-fA-F]{6}$/.test(t2)) onChange(t2); };
+  const d = Number(size) || 30;
+  const cur = String(value == null ? "" : value);
+  const list = (palette || []).map(colorDotItem);
+  const on = x => !off && String(x.value).toLowerCase() === cur.toLowerCase();
+  const picked = list.some(on);
+  const ring = act => ({ width: d, height: d, borderRadius: 999, flexShrink: 0,
+    border: act ? "3px solid " + c.ink : "1px solid " + c.line,
+    boxShadow: act ? "0 0 0 2px " + c.bg2 : "none" });
+  return h("div", { className: "flex items-center flex-wrap", style: { gap: 9, minHeight: 44 } },
+    list.map(x => h("button", { key: x.value || "_none", type: "button", "aria-label": (label || "颜色") + " " + (x.name || x.value || "原样"),
+      "aria-pressed": on(x), onClick: () => onChange(x.value),
+      style: Object.assign(ring(on(x)), { background: x.swatch || "transparent" }) })),
+    // 自选：没选中任何一格预设时给它套一圈彩虹，一眼看出「现在用的是自定义的」
+    h("label", { "aria-label": "自定义" + (label || "颜色"), style: Object.assign(ring(list.length ? (!off && !picked) : false), {
+        position: "relative", overflow: "hidden", display: "block", cursor: "pointer",
+        background: cur || (list.length ? "conic-gradient(from 210deg,#c25a4a,#c9a227,#5a8f57,#3f6d8c,#6d5a78,#c25a4a)" : c.bg2) }) },
+      h("input", { type: "color", value: colorDotHex(cur, c.ink), onChange: e => onChange(e.target.value),
+        style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, border: "none", padding: 0, cursor: "pointer" } }),
+      cur ? null : h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#fff", fontSize: Math.round(d / 2), lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,.5)", pointerEvents: "none" } }, "+")),
+    hexField ? h("input", { value: draft, onChange: e => typeText(e.target.value), onBlur: () => setDraft(cur), placeholder: placeholder || "#f7b6c2",
+      spellCheck: false, className: "flex-1 min-w-0",
+      style: { minWidth: 96, minHeight: 40, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5,
+        background: c.field, color: c.ink2, border: "1px solid " + c.line } }) : null);
+}
 // 贴纸那一栏可以是图片保险箱的 iv_ 门牌，也可以是 assets/xx.png 或 https 地址。
 // 换成真实地址只有这一处：聊天里那只气泡和设置里的试衣镜共用它。
 function stickerSrc(v) { return v ? (typeof resolveImg === "function" ? resolveImg(v) : v) : ""; }
@@ -254,6 +312,11 @@ function BubbleSkinFields({ s, set }) {
   const row = (label, key, ph) => h("div", { key: key, className: "mb-2.5" },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 3 } }, label),
     h("input", { value: s[key] == null ? "" : String(s[key]), onChange: e => set({ [key]: e.target.value }), placeholder: ph || "", style: inSt }));
+  // 颜色那几栏是【色圈 + 还能手打的色号】：手打那格留着，因为底色可以是一整段渐变，
+  // 色圈只挑得出纯色（施工规则/one-public-mechanism.md：色圈全 App 只有 ColorDot 一颗）。
+  const colorRow = (label, key, ph) => h("div", { key: key, className: "mb-2.5" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 3 } }, label),
+    h(ColorDot, { value: s[key] == null ? "" : String(s[key]), onChange: v => set({ [key]: v }), label: label, hexField: true, placeholder: ph }));
   const numRow = (label, key, min, max) => h("div", { key: key, className: "mb-2.5" },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 3 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, label),
@@ -274,17 +337,17 @@ function BubbleSkinFields({ s, set }) {
     h("div", { style: { padding: "14px 14px 10px", borderRadius: 12, background: s.chatBg || t.bg, border: "1px solid " + t.line, marginBottom: 12, overflow: "hidden" } },
       bub(false, "试衣镜：TA 的气泡"),
       bub(true, "试衣镜：我的气泡")),
-    row("我的气泡底色（可渐变）", "myBg", "#f7b6c2"),
-    row("TA 的气泡底色（可渐变）", "charBg", "#a8c8e8"),
+    colorRow("我的气泡底色（可渐变）", "myBg", "#f7b6c2"),
+    colorRow("TA 的气泡底色（可渐变）", "charBg", "#a8c8e8"),
     numRow("圆角", "radius", 0, 30),
-    row("我的文字色", "myText", "#16330a"),
+    colorRow("我的文字色", "myText", "#16330a"),
     row("我的描边", "myBorder", "2px solid #f56a91"),
     row("我的贴纸", "mySticker", ""),
-    row("TA文字色", "charText", "#16330a"),
+    colorRow("TA文字色", "charText", "#16330a"),
     row("TA描边", "charBorder", "2px solid #75b0eb"),
     row("TA的贴纸", "charSticker", ""),
     row("投影", "shadow", "0 6px 18px rgba(141,189,255,0.3)"),
-    row("聊天背景", "chatBg", "#dadbc9"),
+    colorRow("聊天背景", "chatBg", "#dadbc9"),
     numRow("贴纸大小", "stickerSize", 32, 72));
 }
 const BUBBLE_SKIN_DEFAULTS = Object.assign({}, BUBBLE_SKIN);
@@ -4617,15 +4680,10 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
   var groundRow = onGround ? h("div", null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "这一件的底"),
     h("div", { style: { display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" } },
-      HOME_DECOR_GROUNDS.map(function (g) {
-        var active = !gImg && (gCol || "") === g.id;
-        return h("button", { key: g.id || "none", type: "button", onClick: function () { onGround(g.id ? { color: g.id } : null); }, "aria-label": g.name,
-          style: { width: 29, height: 29, borderRadius: 999, background: g.swatch || g.id, border: active ? "3px solid " + t.ink : "2px solid " + t.bg2,
-            boxShadow: active ? "0 0 0 2px " + t.bg2 + ",0 0 0 3px " + t.ink : "0 0 0 1px " + t.line } });
-      }),
-      h("label", { style: { position: "relative", width: 32, height: 32, borderRadius: 999, overflow: "hidden", background: gCol || t.accent, border: "1px solid " + t.line } },
-        h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(gCol) ? gCol : "#f3ece0", "aria-label": "自定义底色", onChange: function (e) { onGround({ color: e.target.value }); }, style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: .01 } }),
-        h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", pointerEvents: "none", textShadow: "0 1px 3px #333" } }, "+")),
+      // 色圈全 App 只有 ColorDot 那一颗（施工规则/one-public-mechanism.md）
+      h(ColorDot, { value: gCol, off: !!gImg, label: "底色", size: 29,
+        palette: HOME_DECOR_GROUNDS.map(function (g) { return { value: g.id, swatch: g.swatch || g.id, name: g.name }; }),
+        onChange: function (v) { onGround(v ? { color: v } : null); } }),
       onGroundPhoto ? h("label", { style: { height: 29, borderRadius: 999, padding: "0 11px", display: "inline-flex", alignItems: "center",
           border: "1px solid " + (gImg ? t.ink : t.line), background: gImg ? t.ink : t.bg2, color: gImg ? t.bg2 : t.ink,
           fontFamily: F_BODY, fontSize: 10.5, opacity: busy ? .5 : 1 } },
@@ -4642,11 +4700,8 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 15, marginBottom: 9 } }, "边线（可完全透明）"),
     choiceRow(HOME_DECOR_BORDERS, borderMode || "line", onBorderMode),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginTop: 15, marginBottom: 9 } }, "强调色"),
-    h("div", { style: { display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" } },
-      HOME_DECOR_ACCENTS.map(function (c) { var active = (accent || HOME_DECOR_ACCENTS[0]).toLowerCase() === c.toLowerCase(); return h("button", { key: c, type: "button", onClick: function () { onAccent(c); }, "aria-label": "使用颜色 " + c, style: { width: 29, height: 29, borderRadius: 999, background: c, border: active ? "3px solid " + t.ink : "2px solid " + t.bg2, boxShadow: active ? "0 0 0 2px " + t.bg2 + ",0 0 0 3px " + t.ink : "0 0 0 1px " + t.line } }); }),
-      h("label", { style: { width: 32, height: 32, borderRadius: 999, overflow: "hidden", border: "1px solid " + t.line, position: "relative", background: accent || HOME_DECOR_ACCENTS[0] } },
-        h("input", { type: "color", value: accent || HOME_DECOR_ACCENTS[0], onChange: function (e) { onAccent(e.target.value); }, "aria-label": "自定义强调色", style: { position: "absolute", inset: -8, width: 48, height: 48, opacity: .01, cursor: "pointer" } }),
-        h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15, textShadow: "0 1px 3px rgba(0,0,0,.5)", pointerEvents: "none" } }, "+"))),
+    h(ColorDot, { value: accent || HOME_DECOR_ACCENTS[0], label: "强调色", size: 29,
+      palette: HOME_DECOR_ACCENTS, onChange: function (v) { onAccent(v); } }),
     // 「文字对齐」只对装饰有意义：它的正文是这一层画的。组件自己画自己的字，
     // 所以 onAlign 不传时这一格整个不画，角标独占一行（onGround / onMark 同一个写法）。
     h("div", { style: { display: "grid", gridTemplateColumns: onAlign ? "1fr 1.25fr" : "1fr", gap: 9, marginTop: 15 } },

@@ -123,14 +123,13 @@ test("每一块分区是活页，不是白板：页签、引线、纸纹、三�
 
 // 她 2026-08-30：「在选择底色那里加一个可以自定义颜色底块的」
 test("底色那排最后有一块自定义色", () => {
-  assert.match(form, /type: "color"/, "没有取色器");
-  assert.match(form, /onChange: e => setColor\(e\.target\.value\)/, "选了颜色没写回去");
+  // v72.05 起色圈只有 components.js 的 ColorDot 那一颗（她 2026-09-20：
+  // 「其他地方的这种颜色硬编码也收到公共的全都改成色圈」）。这一页只剩【接上它】
+  // 和【那行色号】两件事；彩虹圈、盖满色块的取色器归 color-dot-one-public 那份钉。
+  assert.match(form, /h\(ColorDot, \{ value: color, onChange: setColor/, "没接上公共色圈");
+  assert.match(form, /palette: AV_COLORS/, "预设那排底色没了");
   assert.match(form, /const isPreset = AV_COLORS\.indexOf\(color\) >= 0;/, "分不清现在用的是预设还是自定义");
-  assert.match(form, /conic-gradient/, "自定义那块没给个一眼认得出的样子");
-  assert.match(form, /isPreset \? "none" : "2px solid " \+ t\.ink/, "用着自定义色时那块不高亮，看不出选中的是它");
   assert.match(form, /String\(color \|\| ""\)\.toUpperCase\(\)/, "改完看不见色号");
-  // 取色器盖满那块色块本身——不许在旁边另开一个小按钮
-  assert.match(form, /position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0/);
 });
 
 // ── 情侣邀请 ────────────────────────────────────────────
