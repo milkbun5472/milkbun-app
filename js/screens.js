@@ -524,23 +524,10 @@ function CastForm({
     } finally { setAvBusy(false); }
   } : null;
   const isPreset = AV_COLORS.indexOf(color) >= 0;
+  // 色圈全 App 只有 components.js 的 ColorDot 那一颗（施工规则/one-public-mechanism.md）：
+  // 预设那一排、自选那颗彩虹圈、选中的那道圈，都归它画。
   const palette = h("div", null,
-    h("div", { className: "flex items-center gap-3 flex-wrap" },
-      AV_COLORS.map(c => h("button", {
-        key: c, onClick: () => setColor(c), "aria-label": "使用底色 " + c,
-        style: { width: 28, height: 28, borderRadius: 8, background: c, boxShadow: "inset 0 1px 1px rgba(255,255,255,.35), 0 1px 3px rgba(46,38,29,.22)", outline: color === c ? "2px solid " + t.ink : "none", outlineOffset: 2 }
-      })),
-      // 自选：色块本身就是取色器。没选预设时给它套一圈彩虹，一眼看出「现在用的是自定义的」
-      h("label", {
-        "aria-label": "自定义底色",
-        style: { position: "relative", width: 28, height: 28, borderRadius: 8, display: "block", cursor: "pointer", padding: 2,
-                 background: isPreset ? "conic-gradient(from 210deg, #c25a4a, #c9a227, #5a8f57, #3f6d8c, #6d5a78, #c25a4a)" : color,
-                 outline: isPreset ? "none" : "2px solid " + t.ink, outlineOffset: 2, boxShadow: "0 1px 3px rgba(46,38,29,.22)" } },
-        h("span", { style: { position: "absolute", inset: 2, borderRadius: 6, background: isPreset ? "transparent" : color, boxShadow: "inset 0 1px 1px rgba(255,255,255,.35)" } }),
-        isPreset ? h("span", { className: "flex items-center justify-center", style: { position: "absolute", inset: 6, borderRadius: 5, background: "rgba(255,255,255,.9)", fontFamily: F_BODY, fontSize: 12, lineHeight: 1, color: t.sub } }, "+") : null,
-        h("input", { type: "color", value: /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#8a8577",
-          onChange: e => setColor(e.target.value),
-          style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, border: "none", padding: 0, cursor: "pointer" } }))),
+    h(ColorDot, { value: color, onChange: setColor, label: "底色", size: 28, palette: AV_COLORS }),
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".1em", color: t.fog, marginTop: 8 } },
       String(color || "").toUpperCase() + (isPreset ? "" : " · 自定义")));
   const timezone = h("div", null,
@@ -9028,18 +9015,10 @@ function ThemeConfig({
       fontSize: 11,
       color: t.fog
     }
-  }, th[k]), /*#__PURE__*/React.createElement("input", {
-    type: "color",
+  }, th[k]), h(ColorDot, {
     value: th[k],
-    onChange: e => setTh({
-      ...th,
-      [k]: e.target.value
-    }),
-    style: {
-      width: 30,
-      height: 30,
-      borderRadius: 999
-    }
+    label: l,
+    onChange: v => setTh({ ...th, [k]: v })
   })))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"
   }, /*#__PURE__*/React.createElement("button", {

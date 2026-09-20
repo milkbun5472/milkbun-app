@@ -265,7 +265,6 @@
             if (Object.keys(one).length) all[page] = one; else delete all[page];
             patchDraft({ pageTokens: all });
           };
-          const hexish = v => /^#[0-9a-f]{6}$/i.test(String(v || "")) ? v : "#ffffff";
           return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
             h("div", { className: "flex items-center justify-between", style: { marginBottom: 3 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "这一页单独换几支色"),
@@ -278,9 +277,8 @@
                 const k = tk[0], on = !!cur[k], val = on ? cur[k] : (t[k] || "#ffffff");
                 return h("label", { key: k, className: "flex items-center", style: { gap: 8, minHeight: 44, padding: "6px 9px", borderRadius: 11,
                     border: "1px solid " + (on ? t.ink : t.line), background: t.bg } },
-                  h("span", { style: { width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: val, border: "1px solid " + t.line, position: "relative", overflow: "hidden" } },
-                    h("input", { type: "color", value: hexish(val), onChange: e => put(k, e.target.value),
-                      style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, border: "none", padding: 0 } })),
+                  // 色圈全 App 只有 components.js 的 ColorDot 那一颗（施工规则/one-public-mechanism.md）
+                  h(ColorDot, { value: val, onChange: v => put(k, v), label: tk[1], size: 24 }),
                   h("span", { style: { minWidth: 0, flex: 1 } },
                     h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, tk[1]),
                     h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 9.5, color: t.fog } }, on ? val : "跟随全局")),
