@@ -104,7 +104,9 @@ test("看得见：每一档上次是什么时候，「从来没有过」要写�
   assert.match(scr, /"他自己走过的那几档 · 上次"/, "抽屉页没有这一栏");
   assert.match(scr, /"还没有过"/, "没出现过的那几档不说话，等于还是看不见");
   assert.match(scr, /mn \? "（你叫过 " \+ mn \+ " 次）" : ""/, "她手动叫的次数没分开显示");
-  assert.match(scr, /function CoupleDrawer\(\{ partner, items, onOpen, ledger, kinds, onBack \}\)/, "账没传进抽屉页");
+  // ⚠️v72.08 多了一格 onDrop（抽屉里的东西可以单个拿掉）。这条守的是【账传进来了】，
+  //   不是签名一字不变——所以钉 ledger/kinds 这两格，别钉整行参数表（anchor-on-code.md）。
+  assert.match(scr, /function CoupleDrawer\(\{ partner, items, onOpen,[^}]*ledger, kinds, onBack \}\)/, "账没传进抽屉页");
   assert.match(app, /outletLedger: \(typeof outletLog === "function" \? outletLog\(\) : \{\}\)/, "账没往界面传");
 });
 

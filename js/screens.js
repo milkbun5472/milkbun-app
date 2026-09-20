@@ -5209,7 +5209,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -5338,7 +5338,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer,
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer,
       ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
   }
   // 情侣空间子模块：我们的唱片
@@ -14286,8 +14286,28 @@ const DRAWER_KIND = {
   // 那是路上拾的，这是TA一直带在身上的。
   drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
-function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, onDrop, ledger, kinds, onBack }) {
   const t = useTheme();
+  // 拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
+  // ⚠️不做成长按：她 2026-09-19 为论坛删帖定过同一件事——「算了长按删除去掉不要了，就留叉」。
+  //   理由写在那儿：长按是隐形的（她「这里也没有删除」），而且在一条条滑过去的列表里，
+  //   长按十次有八次被当成滚动。抽屉正是这种列表，所以照那次的结论来：一颗看得见的 ✕。
+  const askDrop = function (x) {
+    const what = x.openedTs
+      ? "「" + String(x.title || x.text || "").replace(/\s+/g, " ").slice(0, 24) + "…」"
+      : "这样还没拆的东西";
+    requestAppConfirm("从抽屉里拿掉" + what + "？",
+      x.openedTs ? "拿掉之后就没有了。" : "它还封着——拿掉就再也不知道里面是什么了。",
+      function () { onDrop && onDrop(x.id); }, "拿掉");
+  };
+  // 那颗 ✕：压在右上角，跟纸面同色系、不抢眼，但一直看得见
+  const dropX = function (x) {
+    return h("button", { onClick: function (e) { e.stopPropagation(); askDrop(x); },
+      "aria-label": "拿掉这一样", className: "active:opacity-60",
+      style: { position: "absolute", right: 2, top: 2, width: 30, height: 30, zIndex: 2,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: "rgba(122,99,56,.5)" } }, "✕");
+  };
   const mine = (items || []).filter(x => x.characterId === partner.id);
   const unopened = mine.filter(x => !x.openedTs).length;
   const nm = partner.remark || partner.name;
@@ -14343,7 +14363,8 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
               const sealed = !x.openedTs;
               if (sealed) {
                 // 封着的：一个折起来、封了口的纸包。正面什么都没写。
-                return h("button", { key: x.id, onClick: () => onOpen(x.id),
+                return h("div", { key: x.id, style: { position: "relative" } }, dropX(x),
+                  h("button", { onClick: () => onOpen(x.id),
                   className: "w-full text-left active:opacity-80", style: { position: "relative", padding: "17px 16px 16px",
                     background: "linear-gradient(158deg,#f8f0dc,#efe3c6)", borderRadius: 2,
                     boxShadow: "0 7px 16px rgba(96,72,40,.20)", transform: "rotate(" + tilt(i) + "deg)", overflow: "hidden" } },
@@ -14363,12 +14384,13 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
                     boxShadow: "0 2px 4px rgba(80,30,24,.34), inset 0 0 0 3px rgba(255,255,255,.10), inset 0 -3px 5px rgba(60,20,16,.35)" } }),
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#7a6338", paddingRight: 44 } }, "还没拆"),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a08b5d", marginTop: 5, paddingRight: 44 } },
-                    nm + "在 " + gachaWhen(x.ts) + " 放进来的"));
+                    nm + "在 " + gachaWhen(x.ts) + " 放进来的")));
               }
               // 拆开的：摊平的那张纸
               return h("div", { key: x.id, style: { position: "relative", padding: "13px 15px 15px",
                 background: "#fffdf6", borderRadius: 2, boxShadow: "0 3px 9px rgba(96,72,40,.11)",
                 transform: "rotate(" + (tilt(i) / 2) + "deg)" } },
+                dropX(x),
                 h("div", { className: "flex items-center", style: { gap: 7 } },
                   h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                     background: k.band, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",

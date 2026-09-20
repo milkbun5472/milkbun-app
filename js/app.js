@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.07";
+const APP_VERSION = "v72.15";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19471,6 +19471,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
     coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
   });
+  // 从抽屉里拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
+  // ⚠️只动这一条，不碰别的：抽屉是【你俩才有的那一层】，一次误删没有第二份。
+  //   界面那头长按会先问一句，确认了才走到这儿。
+  const dropDrawerItem = id => setCoupleDrawer(p => {
+    const n = p.filter(x => x.id !== id);
+    coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+  });
   // ── 情侣空间的纸面往来凝进记忆库（v62.09，她 2026-09-04 同意）───────────────
   // 问答揭晓、交换日记回页、情书——全 app 最浓的关系素材，原来一个字不进上下文：
   // 聊天里她提「你上次答的那道题」TA一脸茫然。不做常驻注入（每轮白烧 token，她按次计费），
@@ -22943,6 +22950,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMakeupSay: makeupSay,
     onMakeupClose: makeupClose,
     onOpenDrawer: openDrawerItem,
+    onDropDrawer: dropDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,

@@ -6,30 +6,22 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const read = fs.readFileSync(__dirname + "/../js/read.js", "utf8");
-const dream = fs.readFileSync(__dirname + "/../js/dream.js", "utf8");
+const components = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 
-// ⚠️v72.01 起这一套是【公共的】：批注也要长按删，形状出现第二处就抽出来，
-//   书架那份也搬了过去（施工规则/one-public-mechanism.md）。所以这儿改钉公共那一份。
-test("自己计时判长按，别只靠 contextmenu", () => {
-  const i = read.indexOf("function useLongPress()");
-  assert.ok(i > 0, "公共那一份没了——长按这套又被各写一遍了");
-  const lp = read.slice(i, read.indexOf("\n  }", i));
-  assert.match(lp, /const timer = useRef\(null\), fired = useRef\(false\);/, "没有那两个 ref");
-  assert.match(lp, /onTouchStart: function \(\) \{ start\(fire\); \}, onTouchEnd: cancel, onTouchMove: cancel, onTouchCancel: cancel,/,
-    "手指那条链没接全——移开/被打断了还会照删");
-  assert.match(lp, /timer\.current = setTimeout\(function \(\) \{ fired\.current = true; fire\(\); \}, 550\);/, "计时没了");
-  // 桌面右键那条留着，两条各管各的
-  assert.match(lp, /onContextMenu: function \(e\) \{ e\.preventDefault\(\); fire\(\); \}/, "桌面右键那条丢了");
-  // 550 跟梦境/塔罗那两处一样：同一个手势在这个 app 里手感必须一致
-  assert.ok(dream.indexOf("}, 550);") > 0, "参照的那一处变了，这儿也该跟着对一遍");
-  // ⚠️列表里每行各调一次 hook＝hook 数量跟着条数变，React 会炸；所以是 bind 那一行的动作
-  assert.match(lp, /bind: function \(fire\)/, "改回按行调 hook 的话，翻一页就白屏");
-});
-
-test("长按之后松手别把书打开", () => {
-  assert.match(read, /tap: function \(onTap\) \{ return function \(\) \{ if \(fired\.current\) \{ fired\.current = false; return; \} onTap && onTap\(\); \}; \}/,
-    "弹完确认框松手那一下又把书点开了");
-  assert.match(read, /onClick: lp\.tap\(function \(\) \{ setOpenId\(b\.id\); \}\)/, "书架没走公共那一份");
+// ⚠️v72.08 起不再有 read.js 自己那一份：全库长按只剩 components.js 的 useLongPressMenu
+//   （气泡菜单本来就在用它，而且比这儿原来那套稳——认「手指动了就不算」、滚动能掐掉、
+//   还会把抬手那一下的误点吞掉）。开了公共的就把已有的搬过去，不许并存两套。
+test("长按走全库那一份，read.js 不留第二套", () => {
+  assert.ok(!/function useLongPress\(\)/.test(read), "read.js 里又长出自己那一份了");
+  assert.match(components, /function useLongPressMenu\(onFire\) \{/, "公共那一份没了");
+  // 三处都接上了：书架封面、正文页上那两张卡、批注册每一行
+  assert.match(read, /const \{ startPress, endPress \} = useLongPressMenu\(askDrop\);/, "书架没接上");
+  assert.match(read, /const pagePressProps = function \(fire\)/, "正文页那两张卡没接上");
+  assert.match(read, /useLongPressMenu\(function \(r\) \{ askDropRow\(r\); \}\)/, "批注册那一行没接上");
+  // 桌面右键是另一条路：iOS 长按 <button> 压根不发 contextmenu，两条各管各的
+  assert.match(read, /onContextMenu: function \(e\) \{ e\.preventDefault\(\); askDrop\(b\); \}/, "桌面右键那条丢了");
+  // 550 那个数现在住在公共那一份里，跟梦境/塔罗对齐这件事由它自己守
+  assert.match(components, /const LONG_PRESS_MS = \d+;/, "长按时长那个数没了");
 });
 
 test("iOS 自己那套长按行为要关掉", () => {

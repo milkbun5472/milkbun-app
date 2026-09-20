@@ -226,7 +226,9 @@ test("抽屉那一格不许剧透", () => {
 });
 
 test("拆开只改一次，时间戳留着", () => {
-  const op = app.slice(app.indexOf("  const openDrawerItem = id =>"), app.indexOf("  const sealCoupleQA"));
+  // ⚠️切到【紧挨着的下一个函数】：v72.08 起 dropDrawerItem（单个拿掉）就在它后面，
+  //   末界写成 sealCoupleQA 会把那个 filter 一起数进来（anchor-on-code.md）。
+  const op = app.slice(app.indexOf("  const openDrawerItem = id =>"), app.indexOf("  const dropDrawerItem = id =>"));
   assert.match(op, /x\.id === id && !x\.openedTs \? \{ \.\.\.x, openedTs: Date\.now\(\) \} : x/, "重复点会把拆开时间刷掉");
   assert.ok(op.indexOf("filter") < 0, "拆开把东西删了");
   assert.match(app, /saveJSON\("x_coupleDrawer", n\)/, "没落盘");
