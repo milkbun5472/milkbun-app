@@ -5255,24 +5255,35 @@ async function generateRelation(p, a, b, opts) {
 }
 if (typeof window !== "undefined") window.generateRelation = generateRelation;
 
-async function generateNpc(p, hostChar, ask, takenNames) {
+// mine=true：这位配角是【用户本人】身边的人（她的闺蜜、发小、同事），不是某个角色的人。
+// ⚠️那条「TA不认识用户」的铁律在这一支里必须反过来——TA 就是她的朋友，认识她是前提。
+//   但「认识她」和「知道她跟那些角色的事」仍是两层，后者照旧一个字都不许写（关系隐私）。
+async function generateNpc(p, hostChar, ask, takenNames, opts) {
+  const mine = !!(opts && opts.mine);
   const host = (hostChar && hostChar.name) || "这个角色";
   const persona = String((hostChar && hostChar.persona) || "").replace(/\s+/g, " ").slice(0, 4000);
   const taken = (takenNames || []).filter(Boolean);
+  const who = mine ? "【这位配角属于谁】用户本人（" + host + "）——这是 TA 自己生活里的人：朋友、同事、家人之类。\n"
+    : "";
   const sys = "你在为一个角色扮演 App 补一位【配角】。这位配角只会出现在群聊里，不会单独出场。\n\n"
-    + "【主角色】" + host + "\n" + (persona ? "【主角色的人设】\n" + persona + "\n" : "")
+    + who
+    + (mine ? "【用户本人】" : "【主角色】") + host + "\n" + (persona ? (mine ? "【用户本人的人设】\n" : "【主角色的人设】\n") + persona + "\n" : "")
     + "\n【要生成谁】用户填的是：「" + String(ask || "").trim() + "」。\n"
     + "· 如果这是【人设里已经提到过的人】，就按人设里已有的信息把TA补完整，绝不改写人设里已经写死的事。\n"
     + "· 如果这是一个【位置或身份】（如「TA的属下」「她的师姐」），就为这个位置造一个具体的人，起一个和主角色同一个时代、同一个世界的名字。\n"
     + (taken.length ? "· 已经有这几位了，名字和身份都别重复：" + taken.join("、") + "。\n" : "")
     + "\n【怎么写】\n"
-    + "· brief 写 300~500 字，第二人称写给这位配角本人看（「你是…」）：TA是谁、做什么的、和主角色怎么认识的、性格什么样、说话什么调子、此刻大概在忙什么。\n"
+    + "· brief 写 300~500 字，第二人称写给这位配角本人看（「你是…」）：TA是谁、做什么的、和" + (mine ? "用户本人" : "主角色") + "怎么认识的、性格什么样、说话什么调子、此刻大概在忙什么。\n"
     + "· 要具体到能照着演：给TA一两个只属于TA的习惯、口头禅或在意的事，别写成「忠心耿耿、办事得力」这种履历。\n"
     + "· 世界观、时代、称谓一律跟着主角色走：主角色是古代人，配角就不能有手机；主角色是现代人，配角就别说「属下」。\n"
-    + "· ⚠️TA不认识用户，也不知道用户和主角色是什么关系——绝不许在简介里写任何关于用户的事。\n"
-    + "· ⚠️不许给TA安排和用户的感情线、不许写TA暗恋谁、不许写TA和主角色的暧昧。TA就是个配角。\n"
+    + (mine
+      ? "· TA 认识用户本人——这本来就是 TA 的朋友/家人/同事，怎么认识的、平时怎么处，照用户填的那句写具体。\n"
+        + "· ⚠️但 TA【只知道用户这个人】：用户和那些角色各自是什么关系，TA 一概不知道，简介里一个字都不许提到那些角色。\n"
+        + "· ⚠️不许给 TA 安排暗恋用户、不许写成暧昧对象。朋友就是朋友。\n"
+      : "· ⚠️TA不认识用户，也不知道用户和主角色是什么关系——绝不许在简介里写任何关于用户的事。\n"
+        + "· ⚠️不许给TA安排和用户的感情线、不许写TA暗恋谁、不许写TA和主角色的暧昧。TA就是个配角。\n")
     + "\n【输出】只输出 JSON，不要代码块：\n"
-    + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话（如：我的副将，跟了我八年）","relToHost":"这个人眼里主角色是谁，一句话（如：我的主子，也是把我从死人堆里拖出来的人）"}';
+    + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"' + (mine ? "用户本人" : "主角色") + '眼里这个人是谁，一句话","relToHost":"这个人眼里' + (mine ? "用户本人" : "主角色") + '是谁，一句话"}';
   const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 10000, timeout: 90000 });
   const d = parseJSONLoose(raw);
   if (!d || !d.name || !d.brief) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");

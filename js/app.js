@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.28";
+const APP_VERSION = "v72.29";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5072,9 +5072,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️「认识她」和「知道她的私事」是两层：认识只是认识，TA 照样不知道她跟 A、跟 B 各自
   //   是什么关系（那归关系隐私铁律管）。一起放开的话，共友就成了一条现成的泄漏通道。
   const npcRosterLine = (c, presentIds) => {
-    const owner = characters.find(x => x.id === c.ownerId);
+    // 主人可能是她本人（ownerId === "me"）——那一支在 characters 里当然找不到
+    const mine = String(c.ownerId) === "me";
+    const owner = mine ? null : characters.find(x => x.id === c.ownerId);
     const bits = [];
-    if (owner) bits.push("这是 " + owner.name + " 身边的人");
+    if (mine) bits.push("这是 " + userName(profile) + " 自己生活里的人（朋友/家人/同事那一类），不是谁的配角");
+    else if (owner) bits.push("这是 " + owner.name + " 身边的人");
     const others = (presentIds || []).filter(id => id !== c.id && id !== c.ownerId).map(id => {
       const o = characters.find(x => x.id === id);
       if (!o) return null;
@@ -8179,21 +8182,28 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // NPC：她填一句「要谁」，一次调用生成简介+双向关系，落成一个 npc:true 的角色。
   // 走后台线路（和记忆整理、翻译同一条），不占聊天线路。
+  // ⚠️hostId 可以是 "me"（她 2026-09-20：「能不能给我也搞可以加 npc，比如闺蜜朋友之类的」）。
+  //   她本人在关系图里本来就是 "me" 这个节点（x_rels 里「me->某角色」一直是这么存的），
+  //   所以这一支不另起一套：只是把【主人】换成她，其余（npc:true、ownerId、双向关系）原样。
   const createNpc = async (hostId, ask) => {
-    const host = characters.find(c => c.id === hostId);
+    const mine = String(hostId) === "me";
+    const host = mine
+      ? { id: "me", name: userName(profile), persona: String((profile && profile.persona) || "") }
+      : characters.find(c => c.id === hostId);
     if (!host) return;
-    if (!String(ask || "").trim()) { toast("先写要生成谁，比如「陆闻」或「TA的属下」"); return; }
+    if (!String(ask || "").trim()) { toast(mine ? "先写要生成谁，比如「我闺蜜小鱼」或「我同事」" : "先写要生成谁，比如「陆闻」或「TA的属下」"); return; }
     const p = bgActiveRef.current || active;
     if (!p) { toast("先去 设置·API 配一条线路"); return; }
     if (laneBusy("npc:" + hostId)) return;
     startLane("npc:" + hostId);
     try {
-      const r = await generateNpc(p, host, ask, npcsOf(hostId).map(c => c.name));
+      const r = await generateNpc(p, host, ask, npcsOf(hostId).map(c => c.name), { mine: mine });
       const id = "c_" + Date.now() + "_npc";
-      pC(prev => [...prev, CharacterPronoun.newCharacter({
+      pC(prev => [...prev, CharacterPronoun.newCharacter(Object.assign({
         id: id, name: r.name, persona: r.brief,
         npc: true, ownerId: hostId          // ← 这两个字段是全部区别
-      })]);
+      // 她自己的人「认识她」是前提，不用她再去点亮那颗（角色那边默认不认识，是因为多数配角确实不认识）
+      }, mine ? { knowsUser: true, knowsUserNote: String(r.relFromHost || "").slice(0, 120) } : null))]);
       // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
       if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
       if (r.relToHost) saveRel(id + "->" + hostId, r.relToHost, "");
