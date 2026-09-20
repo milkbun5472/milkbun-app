@@ -1230,6 +1230,7 @@ function Ties({
   onBack,
   onSave,
   onCreateNpc,
+  onAddMyNpc,
   onDeleteNpc,
   npcsOf,
   npcBusy
@@ -1426,7 +1427,7 @@ function Ties({
               h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, mine.length + " 段关系")),
               mine.map(c => h(DetailRowWrap, { key: c.a + "|" + c.b, selfId: view, card: c })))),
       comp && h(RelComposer, {
-        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
         valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
       }));
   }
@@ -1479,7 +1480,7 @@ function Ties({
     boardId !== "me" ? h("button", { onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
@@ -1488,7 +1489,7 @@ function Ties({
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
+function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -1561,25 +1562,59 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       h("div", { className: "grid grid-cols-2 gap-2 mb-5" },
         [pickCard("me", c.meChar === "me", () => set({ meChar: "me" }))].concat(
           characters.map(ch => pickCard(ch.id, c.meChar === ch.id, () => set({ meChar: ch.id }))))),
-      h(Eyebrow, { style: { marginBottom: 8 } }, "要生成谁"),
-      h("input", {
-        value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
-        placeholder: c.meChar === "me" ? "我闺蜜小鱼 / 我同事 / 我表妹" : "陆闻 / TA的属下 / 她师姐",
-        className: "w-full bg-transparent outline-none pb-2",
-        style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
-      }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
-        c.meChar === "me"
-          ? "写一个名字，或者一个位置（「我同事」「我表妹」）。会按你自己的人设生成一份几百字的小简介，并自动建好你俩的关系。\nTA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。"
-          : "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
+      // ⚠️她 2026-09-20：「给我自己的 npc 就让我自己写就行了，不用生成」。
+      //   所以这一栏按主人分成两支：角色身边的人照旧【一枪生成】（她不认识那个世界里的人，
+      //   让模型照人设编才省事）；她自己身边的人【她自己写】——闺蜜是什么样她比谁都清楚，
+      //   让模型编一份反而是替她瞎想，还白花一枪。
+      c.meChar === "me" ? h(Fragment, null,
+        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 叫什么"),
+        h("input", {
+          value: c.npcName || "", onChange: e => set({ npcName: e.target.value.slice(0, 24) }),
+          placeholder: "名字或称呼",
+          className: "w-full bg-transparent outline-none pb-2",
+          style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+        }),
+        h(Eyebrow, { style: { margin: "16px 0 8px" } }, "你俩什么关系"),
+        h("input", {
+          value: c.npcRel || "", onChange: e => set({ npcRel: e.target.value.slice(0, 60) }),
+          placeholder: "我闺蜜 / 我表妹 / 一个办公室的同事（可以不填）",
+          className: "w-full bg-transparent outline-none pb-2",
+          style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, borderBottom: "1px solid " + t.line }
+        }),
+        h(Eyebrow, { style: { margin: "16px 0 8px" } }, "TA 是个什么人"),
+        h("textarea", {
+          value: c.npcBrief || "", onChange: e => set({ npcBrief: e.target.value.slice(0, 4000) }), rows: 6,
+          placeholder: "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、你俩怎么认识的。",
+          className: "w-full bg-transparent outline-none resize-none",
+          style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" }
+        }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+          "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。"),
+        h("button", {
+          onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
+            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
+          className: "w-full active:opacity-70",
+          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+            opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
+        }, "加进来")
+      ) : h(Fragment, null,
+        h(Eyebrow, { style: { marginBottom: 8 } }, "要生成谁"),
+        h("input", {
+          value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
+          placeholder: "陆闻 / TA的属下 / 她师姐",
+          className: "w-full bg-transparent outline-none pb-2",
+          style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+        }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+          "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
             + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
             + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
-      h("button", {
-        onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
-        className: "w-full active:opacity-70",
-        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
-          opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
-      }, npcBusy ? "生成中…" : "生成"),
+        h("button", {
+          onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
+          className: "w-full active:opacity-70",
+          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+            opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
+        }, npcBusy ? "生成中…" : "生成")),
       (npcsOf ? npcsOf(c.meChar) : []).length ? h("div", { style: { marginTop: 18 } },
         h(Eyebrow, { style: { marginBottom: 8 } }, (c.meChar === "me" ? "我" : nameOf(c.meChar)) + " 身边已有的"),
         h("div", { className: "space-y-2" }, npcsOf(c.meChar).map(n => h("div", {
