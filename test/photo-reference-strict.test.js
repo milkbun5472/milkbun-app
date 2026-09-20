@@ -70,7 +70,10 @@ test("照片类型在审核降级后仍保持：自拍是自拍，抓拍仍允�
   const end = engine.indexOf("\nfunction ", start + 1);
   assert.ok(start >= 0 && end > start);
   const prompt = engine.slice(start, end);
-  assert.match(prompt, /【第一人称自拍】手臂伸出去、前置摄像头拍的自拍构图/);
+  // ⚠️原来这儿钉的是「手臂伸出去、前置摄像头拍的自拍构图；脸清楚地对着镜头」整句。
+  //   那句话本身就是「每张都一个角度」的来源（她 2026-09-20 报的），机位改成现掷之后它没了。
+  //   这条要守的是【降级之后自拍还是自拍】，所以只钉那个题目（见 photo-shot-roll-71-97）。
+  assert.match(prompt, /【第一人称自拍】本人手持手机拍的自拍构图/);
   assert.match(prompt, /【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角/);
 });
 

@@ -3960,6 +3960,50 @@ function buildMinimalPhotoPrompt(char, opts) {
 const OUTFIT_LOCK_GESTURE = "锁住的是【这是哪一身】，不是【这一身必须原样穿好】：掀起衣摆、撩起下摆、撸起袖子、解开一两颗扣子、外套搭在臂弯上、衣领松开——这些是这个人此刻的动作，衣服还是这一身，照画就好。只有换成【另一身衣服】才算违反这把锁。";
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   opts = opts || {};
+  // 每一张【现掷一个机位】（她 2026-09-20：「生图还是太过于偏向锁脸的那个角度，
+  // 我之前调过的还是走一样的角度」）。
+  // ⚠️她 2026-08-25 那次加的「参考图只锁人，不锁镜头」是一句【请求】，而有参考照时走的是
+  //   /v1/images/edits + input_fidelity=high——那个接口的本职就是【保住输入】。
+  //   跟一个专门负责「别改」的接口讲道理，它十次有八次不改。
+  //   所以这儿掷轴不掷答案：由代码替这一张点名机位、距离、朝向，模型只负责画。
+  //   （施工规则/bans-make-it-dumber.md：该加约束时掷轴、别掷答案。）
+  // ⚠️掷的是【镜头】，不是【这是谁】：五官、脸型、发色瞳色那几条锁一个字都不动。
+  const PHOTO_SHOTS = [
+    "手机举高一点、镜头略微俯视，脸略仰",
+    "手机放低、镜头略微仰视，下颌线和脖颈进画",
+    "手臂伸直、平视，标准的一臂距离",
+    "很近的近距离特写，脸占满大半个画面",
+    "拉远一点的半身，能看见身处的环境",
+    "侧过身、越过肩膀回头看镜头",
+    "站在镜子前拍，手机在画面里",
+    "视线没看镜头，看向别处或手里的东西",
+    "低着头、目光朝下，只露出小半张脸",
+    "斜着拿手机，画面有点歪，像随手一按",
+    "半张脸在画面边缘，另一半被裁掉",
+    "逆着光，脸的一侧偏暗"
+  ];
+  const PHOTO_SHOTS_OTHER = [
+    "远一点的全身，人在环境里",
+    "从侧面拍的半身，没看镜头",
+    "走动中被抓拍的一张",
+    "坐着，镜头略低，从下往上",
+    "背对镜头回头的一瞬",
+    "站着平视的日常人像",
+    "俯拍，人在画面中下方",
+    "近一点的上半身，视线偏开"
+  ];
+  // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
+  // 而「还是走一样的角度」正是她报的那句话。
+  function photoShotLine(kind, seed) {
+    const list = kind === "self" || kind === "duo" ? PHOTO_SHOTS : PHOTO_SHOTS_OTHER;
+    const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
+    let idx = n % list.length;
+    if (idx === buildPhotoPrompt._lastShot) idx = (idx + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+    buildPhotoPrompt._lastShot = idx;
+    return "【这一张的机位·由这次拍摄决定，不许沿用参考图】" + list[idx]
+      + "。**这一条比参考图里的角度优先**：参考图只决定这是谁，机位、脸的朝向、视线看哪儿、表情一律照这句来，"
+      + "哪怕参考图里是另一个角度也要换过来。";
+  }
   const kind = ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
   // 合影点名单（v53.85）：详见下面的多人分支。必须在这里就声明——底下有好几处措辞要用它判断，
   // 声明写在使用点后面会直接 TDZ 崩掉（小剧场那次 prevPhoto 就是这么炸的）。
@@ -4085,7 +4129,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (st && st.mood && kind !== "duo" && !multi) parts.push("神情情绪：" + st.mood + "。");
   // —— 构图/视角，按类型分流 ——
   if (kind === "self") {
-    parts.push("【第一人称自拍】手臂伸出去、前置摄像头拍的自拍构图（selfie）；TA 的脸清楚地对着镜头出现在画面里（正脸或半侧脸，五官清晰），画面里只有 TA 一个人。就算在描述某个场景，也要把 TA 本人带脸拍进去，不是纯风景照。");
+    // ⚠️别再写死「脸清楚地对着镜头（正脸或半侧脸）」：那句话本身就是「每张都一个角度」的来源之一。
+    //   要的只有两件事——是自拍、脸在画面里；朝哪边、看哪儿交给这一张自己的机位。
+    parts.push("【第一人称自拍】本人手持手机拍的自拍构图（selfie），画面里只有 TA 一个人；TA 的脸要在画面里、认得出是谁，但不必正对镜头。就算在描述某个场景，也要把 TA 本人拍进去，不是纯风景照。");
   } else if (kind === "other") {
     parts.push("【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角，TA 手里没拿相机/手机自拍。姿势和构图要自然多变——站姿、坐姿、走动、回眸、侧身、半身或全身、带环境的生活人像都可以，别永远是怼脸的正面近照。TA 的样子清晰可见（除非是刻意的背影/侧影氛围照）。");
   } else {
@@ -4104,6 +4150,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const _hasIdRef = !!(char && char.refPhoto) || (kind === "duo" && opts && opts.me && opts.me.refPhoto);
   if (_hasIdRef) parts.push("【参考图只锁人，不锁镜头】人物参考照只用来确定【这是谁】——五官、脸型、发型发色、瞳色、肤色、体型、标志性配饰，照它来。但【机位、头的朝向、视线看哪里、表情、姿势、取景范围】一律按这次的场景和动作【重新决定】，不许沿用参考照里的那一套。参考照里那个角度（微微仰头看镜头、低头平视、固定的歪头或侧脸）是【那一张照片】的信息，不是这个人天生的姿态；每张新照片都该有自己的机位。");
   if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
+  parts.push(photoShotLine(kind, opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
