@@ -817,6 +817,43 @@
     const cur = props.curriculum;
     const skin = studyModeSkin(cur.mode), accent = skin.accent;
     const summaries = (cur.memory && cur.memory.summaries) || [];
+    // 言秋的投递箱：打开控制台时取一次未认领投递（零 API；云不在就静默为空）
+    const [drops, setDrops] = useState(null);
+    useEffect(function () {
+      let on = true;
+      const c = window.Cloud;
+      if (c && c.yanqiuStudyDropsTake) {
+        c.yanqiuStudyDropsTake(cur.subject).then(
+          function (list) { if (on) setDrops(list || []); },
+          function () { if (on) setDrops([]); });
+      } else setDrops([]);
+      return function () { on = false; };
+    }, [cur.id]);
+    function dropParas(payload) {
+      let src = payload;
+      if (typeof src === "string") { try { src = JSON.parse(src); } catch (_) { src = { content: src }; } }
+      if (!src || typeof src !== "object") return [];
+      let paras = Array.isArray(src.paras) ? src.paras : null;
+      if (!paras) {
+        const body = src.content != null ? src.content : src.text;
+        if (body != null) paras = String(body).split(/\n\s*\n|\n/);
+      }
+      return (paras || []).map(function (p) {
+        return String(p && typeof p === "object" ? (p.text != null ? p.text : "") : p).trim();
+      }).filter(Boolean);
+    }
+    function takeDrop(d) {
+      const c = window.Cloud;
+      if (c && c.yanqiuStudyDropAck) c.yanqiuStudyDropAck(d.id);
+      const fresh = findCurriculum(cur.id) || cur;
+      const mem = fresh.memory || {};
+      const kept = (mem.yanqiuDrops || []).filter(function (x) { return x.id !== d.id; })
+        .concat([{ id: d.id, kind: d.kind, title: d.title, paras: dropParas(d.payload), at: Date.now() }]);
+      saveCurriculum({ ...fresh, memory: { ...mem, yanqiuDrops: kept } });
+      setDrops((drops || []).filter(function (x) { return x.id !== d.id; }));
+      props.onRefresh && props.onRefresh();
+    }
+    const keptDrops = ((cur.memory && cur.memory.yanqiuDrops) || []).slice().reverse();
     const dueCount = ((cur.memory && cur.memory.review_items) || []).filter(function (x) { return Number(x.nextReviewAt) <= Date.now(); }).length;
     const sess = (props.sessions || []).filter(function (s) { return s.curriculum_id === cur.id; })
       .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
@@ -835,6 +872,25 @@
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 9 } },
           cur.level ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0px 6px" } }, cur.level) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog } }, chars.map(function (ch) { return ch.name; }).join("、") + " · 已上 " + sess.length + " 节" + (dueCount ? " · " + dueCount + " 个待复习" : "")))),
+        // 言秋的投递箱（新到的备课，收下后存进课程自己的存档）
+        (drops && drops.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "言秋的投递 · " + drops.length) : null,
+        (drops && drops.length) ? drops.map(function (d) {
+          const paras = dropParas(d.payload);
+          return h("div", { key: d.id, className: "mb-2", style: { padding: "12px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, d.title || "未署名投递"),
+            paras.map(function (t, i) {
+              return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: 1.75, marginTop: i === 0 ? 7 : 5, whiteSpace: "pre-wrap" } }, t);
+            }),
+            h("button", { onClick: function () { return takeDrop(d); }, className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.paper, background: accent, border: "none", borderRadius: "4px 10px 4px 4px", padding: "6px 14px" } }, "收进课程"));
+        }) : null,
+        keptDrops.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "已收的投递 " + keptDrops.length) : null,
+        keptDrops.slice(0, 6).map(function (d) {
+          return h("details", { key: d.id, className: "mb-2", style: { padding: "9px 14px", background: STUDY_SKIN.paper, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 10 } },
+            h("summary", { style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, listStyle: "none" } }, "📮 " + (d.title || "投递") + " · " + timeShort(d.at)),
+            (d.paras || []).map(function (t, i) {
+              return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.ink, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" } }, t);
+            }));
+        }),
         // 跨-session 记忆（学到哪了）
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "学到哪了"),
         summaries.length === 0
@@ -1728,6 +1784,7 @@
       return h(CurriculumConsole, {
         curriculum: cur, sessions: sessions, characters: props.characters,
         scrollRef: consoleScrollRef,
+        onRefresh: refresh,
         onBack: function () { refresh(); setView("home"); restoreHome(); },
         onOpenSession: function (id) { rememberConsole(); setOpenId(id); setView("thread"); },
         onNewSession: function (c) { rememberConsole(); setCurId(c.id); setView("newSession"); },

@@ -1144,6 +1144,27 @@
         .then(() => {}, () => {}); // 认领戳失败不拦日记
       return payload;
     },
+    // ---- 言秋·一起学投递箱（2026-09-20 日语大业管道）：
+    // 言秋在 CC 备好课投进 yanqiu_study_drops，课程控制台打开时来取（零 API）；
+    // 收下时盖 claimed_at，内容由收下方存进课程自己的存档，之后不再依赖这张表。
+    async yanqiuStudyDropsTake(subject) {
+      if (!client) return [];
+      const user = await this.getSessionUser();
+      if (!user) return [];
+      let q = client.from("yanqiu_study_drops")
+        .select("id,subject,kind,title,payload,created_at")
+        .eq("user_id", user.id).is("claimed_at", null)
+        .order("created_at", { ascending: true });
+      if (subject) q = q.eq("subject", String(subject));
+      const { data, error } = await q;
+      if (error) return [];
+      return data || [];
+    },
+    async yanqiuStudyDropAck(id) {
+      if (!client) return;
+      client.from("yanqiu_study_drops").update({ claimed_at: new Date().toISOString() }).eq("id", id)
+        .then(() => {}, () => {}); // 认领戳失败不拦收货：下次进来重复出现好过弄丢
+    },
     async yanqiuMomentLike(id, liked) {
       if (!client) throw new Error("云服务未就绪");
       const { error } = await client.from("yanqiu_moments").update({ lisa_liked: !!liked }).eq("id", id);
