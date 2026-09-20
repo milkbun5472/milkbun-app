@@ -36,7 +36,9 @@ test("那个按钮不再叫「刷新」——它只删不生成，生成在齿�
 });
 
 test("两个累积层都封了顶（phone-data-layers：满了挤掉最旧的）", () => {
-  assert.match(app, /const WALLET_LOG_KEEP = 500;/);
+  // ⚠️v72.19：这个数不再是空间上限（x_walletLog 已搬进 IndexedDB），只当跑飞写入的保险丝。
+  //   这条守的是【闸还在】，不是那个数（见 no-space-caps-72-19）。
+  assert.match(app, /const WALLET_LOG_KEEP = \d+;/);
   assert.match(app, /const nl = \[entry, \.\.\.log\]\.slice\(0, WALLET_LOG_KEEP\);/, "钱包流水还是只进不出");
   assert.match(fic, /const FIC_KEEP = 150;/);
   // 受保护的不占额度

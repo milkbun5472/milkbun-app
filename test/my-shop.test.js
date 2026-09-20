@@ -125,7 +125,9 @@ test("东西到手了，想要清单里那条要消掉", () => {
   const seg = app.slice(i, app.indexOf("\n  };", i));
   assert.match(seg, /if \(o && o\.name\) dropWish\(o\.name\)/, "下单/收礼都走 addOrder，消单该挂在这儿");
   // 上限：单子无限长会把上下文撑爆，而她按次计费
-  assert.match(app, /const WISH_CAP = 30/);
+  // ⚠️v72.19：这个数不再是空间上限（键已搬进 IndexedDB），只当跑飞写入的保险丝。
+  //   这条守的是【闸还在】，不是那个数（见 no-space-caps-72-19）。
+  assert.match(app, /const WISH_CAP = \d+/);
   assert.match(app, /\.slice\(0, WISH_CAP\)/);
   // 喂进上下文的只取前几条
   assert.match(app, /\.slice\(0, 8\)\.map\(x => x\.name/);

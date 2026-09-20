@@ -4886,7 +4886,13 @@ const DURABLE_TEXT_KEYS = new Set([
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
   "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_coupleTrips", "x_coupleGarden", "x_studio", "x_coupleShots", "x_makeup", "x_openers", "x_myCloset", "x_phoneLastAll", "x_ifLines",
-  "x_coupleLetterCfg", "x_coupleSweet"
+  "x_coupleLetterCfg", "x_coupleSweet",
+  // v72.19（她 2026-09-20：「全都带进 indexdb 取消上限」）：这一批同样是【会一直长大的她的东西】，
+  // 却还留在 5MB 那个池子里，于是各自被一个上限挤着——而那些上限本来就是为 localStorage 定的。
+  // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
+  //   x_capsules 时光胶囊 / x_promises 我们说好的 / x_moments 朋友圈 /
+  //   x_walletLog 钱包流水 / x_anonMine 她那箱匿名信 / x_shopWish 心愿 / x_forumPMs 贴吧私信
+  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs"
 ]);
 // ⚠️"x_fairyGarden" 同时罩住名册 x_fairyGardenSaves 与每一档 x_fairyGarden[:id]：
 //   一档庭院（日子、背包、碎片、聊过的话）实测就能到零点几 MB，几档下来 localStorage
@@ -4911,8 +4917,12 @@ function isDurableTextKey(k) {
 //   表现就是她说的那样：能存到某个大小，再写就回退到那个大小。
 function durableTextNeedsLocalJournal(k) {
   k = String(k || "");
+  // ⚠️v72.19：新搬进来的这批同样会长大，一并免掉 journal——不免的话就是 v72.02 那个坑
+  //   原样重演一遍（journal 写不进去→旧的那份赖着→开机拿旧的盖新的）。
+  const BIG = ["x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs"];
   return k.indexOf("x_chat:") !== 0 && k.indexOf("x_gchat:") !== 0
-    && k.indexOf("x_offline:") !== 0 && k.indexOf("x_goffline:") !== 0;
+    && k.indexOf("x_offline:") !== 0 && k.indexOf("x_goffline:") !== 0
+    && BIG.indexOf(k) < 0;
 }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }

@@ -21,7 +21,9 @@ test("群通话：五层补齐（长出来的自我/A情绪/随身物/我们的�
 });
 
 test("四个自动日志全部封顶：朋友圈/论坛NPC总量/匿名箱三处/搜索帖走同一道闸", () => {
-  assert.match(src, /const MOMENTS_CAP = 240/);
+  // ⚠️v72.19：这个数不再是空间上限（键已搬进 IndexedDB），只当跑飞写入的保险丝。
+  //   这条守的是【闸还在】，不是那个数（见 no-space-caps-72-19）。
+  assert.match(src, /const MOMENTS_CAP = \d+/);
   assert.match(src, /FORUM_NPC_TOTAL_CAP = 240/);
   assert.equal((src.match(/records: \[[^\n]*\.slice\(0, 200\)/g) || []).length >= 2, true);
   assert.match(src, /appendForumPosts\(recs, board\); \/\/ v62\.42/);

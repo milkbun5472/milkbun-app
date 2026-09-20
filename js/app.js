@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.18";
+const APP_VERSION = "v72.19";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -46,7 +46,8 @@ const FORUM_NPC_REGISTRY = [
 // 私信一次刷几个人、手上最多留几个会话（她 2026-09-01：「私信刷出来的人数放大点」）。
 // ⚠️两个数要一起动：只把问的人数放大、封顶还是 10，新的一进来就把上一批挤没了。
 const FORUM_PM_ASK = "6-9";
-const FORUM_PM_KEEP = 24;
+// ⚠️v72.19：x_forumPMs 已搬进 IndexedDB，这个数不再是空间上限，只当跑飞写入的保险丝。
+const FORUM_PM_KEEP = 100000;
 const FORUM_NPC_RELATIONS = [
   { a: "npc_regular_moyu", b: "npc_regular_shafa", tone: "老接梗搭子：摸鱼办主任负责冷脸铺梗，沙发不是我的常抢着补刀；可以互损，但不会真翻脸" },
   { a: "npc_regular_xiaoyu", b: "npc_regular_zuoye", tone: "深夜熟人：小雨不带伞会认真接住昨夜没关窗的感性话，后者也记得她容易忘带东西" },
@@ -582,7 +583,10 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
-  const WALLET_LOG_KEEP = 500;                     // 流水留最近 500 笔，再旧的挤掉
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const WALLET_LOG_KEEP = 100000;
   const [walletLog, setWalletLog] = useState([]); // 我的钱包流水 {id,ts,delta,after,label,kind}
   // 角色钱包（独立 app，持久 running balance）：{charId:{init,balance,incomes,monthlyIncome,fixedMonthly,investAssets,notes,ledger:[{id,ts,delta,after,label,kind}],lastDailyKey,createdTs}}
   const [charWallet, setCharWallet] = useState({});
@@ -2334,7 +2338,13 @@ function App() {
   // 【朋友圈动态】那一栏每条留多少字（她 2026-09-19：「朋友圈那 40 字截得挺狠」）。
   // 只有这一处：正文和评论各一个数，别在拼字符串那儿各写一个魔数。
   const MOMENT_LOG_LEN = 90, MOMENT_LOG_COMMENT_LEN = 45;
-  const MOMENTS_CAP = 240; // v62.42（审计 P1）：朋友圈无 cap 会把 5MB 池子吃穿——写满那天坏的是旁边的好感度和心情
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  //   ⚠️原来那句理由写的是「朋友圈无 cap 会把 5MB 池子吃穿——写满那天坏的是旁边的
+  //   好感度和心情」（v62.42 审计）。搬进 IDB 之后那句不成立了，所以删掉重写，
+  //   不在后面挂「但是」（施工规则/no-yes-unless.md）。
+  const MOMENTS_CAP = 100000;
   const pMom = u => setMoments(p => {
     let n = typeof u === "function" ? u(p) : u;
     if (Array.isArray(n) && n.length > MOMENTS_CAP) n = [...n].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, MOMENTS_CAP);
@@ -15529,7 +15539,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "一件他自己也拿不准算不算事的小毛病／小习惯",
     "你自己挑一块他真会想问的"
   ];
-  const ANON_ME_CAP = 60;   // 她那箱子留最近这么多条
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const ANON_ME_CAP = 100000;   // 她那箱子
   const saveAnonMeBox = v => { setAnonMeBox(v); saveJSON("x_anonMeBox", v); return v; };
   // charId 不传＝随机挑一个（她要的那两档：指定谁来问 / 随机）
   const askAnonMe = async charId => {
@@ -18617,7 +18630,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 抽屉存量上限：TA放进来的东西不会自己消失，但也不能无限涨（跟票根一样是"留痕"，
   // 只是抽屉里的旧东西比票根更容易变成噪音，所以给个天花板）。
   // 情侣空间任何一处生了图，调这一个。from 只是给墙上那行小字用的，不参与判重。
-  const COUPLE_SHOT_CAP = 200;
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const COUPLE_SHOT_CAP = 100000;
   const addCoupleShot = row => {
     if (!row || !row.charId || !(row.imgKey || row.imgUrl)) return;
     const next = [{
@@ -19314,7 +19330,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return true;
   };
   // ── 照相馆 ──
-  const STUDIO_CAP = 200;
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const STUDIO_CAP = 100000;
   const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
   // 出图时的「我」只此一份。⚠️原来四处各自手搓 { name, appearance, refPhoto }，
   //   衣柜和固定服装锁一处都没接上——于是传了脸也没东西兜衣服（她 2026-09-16 提的）。
@@ -20963,7 +20982,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
 
-  const WISH_CAP = 30;
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const WISH_CAP = 100000;
   const toggleWish = product => {
     if (!product || !product.name) return;
     const key = String(product.name).replace(/\s+/g, "");

@@ -46,7 +46,9 @@ test("被我 @ 的那个人才是必回我的人，不是永远层主", () => {
 // 她 2026-09-01：「私信刷出来的人数放大点」
 test("私信一次多刷几个人，封顶跟着一起放大", () => {
   assert.match(ap, /const FORUM_PM_ASK = "6-9";/, "问的人数没放大");
-  assert.match(ap, /const FORUM_PM_KEEP = 24;/, "封顶没放大");
+  // ⚠️v72.19：这个数不再是空间上限（键已搬进 IndexedDB），只当跑飞写入的保险丝。
+  //   这条守的是【闸还在】，不是那个数（见 no-space-caps-72-19）。
+  assert.match(ap, /const FORUM_PM_KEEP = \d+;/, "封顶那道闸没了");
   assert.match(ap, /"贴吧里有 " \+ FORUM_PM_ASK \+ " 个陌生网友私信了你/, "提示词没用这个数");
   assert.match(ap, /\.slice\(0, FORUM_PM_KEEP\)/, "封顶还是写死的数");
   // 只放大问的人数、封顶不动的话，新的一进来就把上一批挤没了
