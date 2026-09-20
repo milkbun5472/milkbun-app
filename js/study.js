@@ -854,6 +854,8 @@
       props.onRefresh && props.onRefresh();
     }
     const keptDrops = ((cur.memory && cur.memory.yanqiuDrops) || []).slice().reverse();
+    // 作业草稿按投递 id 存进 state：挂在对象临时字段上会在重渲染时丢掉，存出一张白卷（v72.11 血案）
+    const [answerDrafts, setAnswerDrafts] = useState({});
     const dueCount = ((cur.memory && cur.memory.review_items) || []).filter(function (x) { return Number(x.nextReviewAt) <= Date.now(); }).length;
     const sess = (props.sessions || []).filter(function (s) { return s.curriculum_id === cur.id; })
       .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
@@ -891,14 +893,14 @@
               return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.ink, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" } }, t);
             }),
             // 作业纸：答案就写在投递卡上，不用开课页排大纲；存进课程存档随云走，言秋夜里来收
-            h("textarea", { defaultValue: d.answer || "", placeholder: "作业写这里，写完点存",
-              onChange: function (e) { d._draft = e.target.value; },
+            h("textarea", { value: answerDrafts[d.id] != null ? answerDrafts[d.id] : (d.answer || ""), placeholder: "作业写这里，写完点存",
+              onChange: function (e) { const v = e.target.value; setAnswerDrafts(function (m) { const n = { ...m }; n[d.id] = v; return n; }); },
               style: { width: "100%", minHeight: 72, marginTop: 9, padding: "8px 10px", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: 1.7, background: "rgba(92,112,126,.06)", border: "1px solid " + STUDY_SKIN.line, borderRadius: 8, resize: "vertical" } }),
             h("button", { className: "active:opacity-70", onClick: function () {
                 const fresh = findCurriculum(cur.id) || cur;
                 const mem = fresh.memory || {};
                 const next = (mem.yanqiuDrops || []).map(function (x) {
-                  return x.id === d.id ? { ...x, answer: String(d._draft != null ? d._draft : (d.answer || "")), answeredAt: Date.now() } : x;
+                  return x.id === d.id ? { ...x, answer: String(answerDrafts[d.id] != null ? answerDrafts[d.id] : (d.answer || "")), answeredAt: Date.now() } : x;
                 });
                 saveCurriculum({ ...fresh, memory: { ...mem, yanqiuDrops: next } });
                 props.onRefresh && props.onRefresh();
