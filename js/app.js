@@ -9388,6 +9388,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "paylater" ? "【" + uName + "把一张购物清单推给你，让你决定要不要替 Ta 付："
               + (m.items || []).map(x => x.name).join("、").slice(0, 60) + "，合计 " + moneyText(m.total || 0, charId)
               + "。" + (m.status === "paid" ? "你已经付了" : m.status === "declined" ? "你没有付" : "还等着你决定") + "。这是 Ta 按的一个请求，不是 Ta 说的一句话】"
+            : m.kind === "kinunbind" ? "【" + uName + "把你给 Ta 的那张亲属卡退回去了（当时额度 " + moneyText(m.limit || 0, charId) + "，总共刷过 " + moneyText(m.used || 0, charId) + "）"
+              + (m.reason ? "，Ta 在退卡时留了一句：「" + m.reason + "」" : "，什么也没说") + "。卡已经作废，Ta 再也刷不了你的钱了。"
+              + "这不是 Ta 跟你说的一句话，是 Ta 做的一件事——在你心里这算什么、要不要提、用什么口气提，全看你的人设、你俩现在的关系和此刻心情："
+              + "可以追问、可以受伤、可以松一口气、可以觉得 Ta 是在跟你划清界限、也完全可以什么都不说】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -18677,6 +18681,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 情侣空间·花房（v62.33，她 2026-09-04 拍板）────────────────────────────
   // 花靠你们真实的相处长（gachaEarn 那头顺手喂），不靠浇水按钮；机制注释在 js/garden.js 顶上。
   // 这儿只有四件事：存、喂、TA挑种（全程唯一花调用的一步）、收干花再种。
+  // 以前种过的每一盆＋当时他说的那句话（长期 avoid 单子）。
+  // ⚠️她 2026-09-20 当场纠正过一次：「有时候确实一种有纪念意义的花他就是会多选几次啊，
+  //   轴可以留着，我只是不想每次说的话都是一个意思换几个字」——
+  //   **要避的是那句话，不是那种花**。所以这张单子记的是 {花名, 当时那句话}：
+  //   同一种花随便他种几次，但那句 why 不许是上一句的换字版。
+  //   （我上一版把花名本身当成了 avoid 单子，等于顺手禁掉了「纪念」这件事。）
+  // 老存档没有 said 这一格，就从干花册里补出来（干花册本来就存着 species + why）。
+  const gardenPastOf = g => {
+    const out = [];
+    const push = (sp, why) => {
+      const a = String(sp || "").trim(); if (!a) return;
+      const b = String(why || "").trim();
+      if (out.some(x => x.species === a && x.why === b)) return;
+      out.push({ species: a, why: b });
+    };
+    (Array.isArray(g && g.said) ? g.said : []).forEach(x => push(x && x.species, x && x.why));
+    (Array.isArray(g && g.kept) ? g.kept : []).forEach(k => push(k && k.species, k && k.why));
+    push(g && g.species, g && g.why);
+    return out;
+  };
+  const gardenPastText = past => past.slice(-12).map(x => "· " + x.species + (x.why ? "，当时你说「" + x.why + "」" : "，当时你没说为什么")).join("\n");
   const saveGarden = updater => setCoupleGarden(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleGardenRef.current = n; saveJSON("x_coupleGarden", n); return n;
@@ -18688,17 +18713,63 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const next = window.GardenKit.feed(g, amount, Date.now());
     if (next !== g) saveGarden(p => ({ ...p, [charId]: next }));
   };
+  // ⚠️她 2026-09-20：「花房怎么每次都是同一种花说的话也差不多」。
+  //   原来这一枪只说「挑一种花」——无约束＝塌回先验中心，于是永远是那几种
+  //   （茉莉／向日葵／薄荷），连那句 why 都长得一样。照施工规则/bans-make-it-dumber
+  //   的后半条来：**掷约束，不掷答案**，摇三根互相独立的轴让他去凑，每根留一格
+  //   「你自己想一个」。写死一张花名表是相反的做法——那样天花板就永远是我们能想到的那几种。
+  const GARDEN_AXIS = [
+    { key: "from", zh: "这一盆是打哪儿来的", opts: [
+      "你自己从别处掐了一枝回来扦的",
+      "你在花市上挑剩的那一盆里拎出来的",
+      "别人送的、你本来没打算养",
+      "你小时候家里就有这个",
+      "你养死过一次，这是第二回",
+      "路过什么地方看见的，记了很久"
+    ] },
+    { key: "trait", zh: "它是个什么脾气", opts: [
+      "难伺候，得天天看着",
+      "泼辣，怎么折腾都活",
+      "长得快到有点烦人",
+      "一年才开那么一次",
+      "开得不好看，但味道好闻",
+      "几乎不开花，你要的就是那片叶子",
+      "得晒足太阳，不然就不给你面子",
+      "夜里才有动静"
+    ] },
+    { key: "why", zh: "那句「为什么是它」从哪儿来", opts: [
+      "你俩之间真发生过的某一件小事",
+      "一个只有你们才懂的说法或外号",
+      "你对 Ta 的某个没说出口的担心",
+      "你自己的一点私心",
+      "Ta 说过的一句你一直记着的话",
+      "这盆花会替你干一件你自己不好意思干的事"
+    ] }
+  ];
   const gardenPlantGen = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGardenGen(char.id);
     try {
+      // 挑过的长期记着（只存名字，一年也就几百字节）——这个机制要越用越好，不是越用越旧
+      const g0 = (coupleGardenRef.current || {})[char.id] || {};
+      const past = gardenPastOf(g0);
+      const rolled = window.Axes ? window.Axes.roll(GARDEN_AXIS, [char.id, "garden", past.length, Date.now()]) : null;
+      const axisText = window.Axes ? window.Axes.text(rolled, {
+        on: "这一盆得同时满足下面这几条（是给你的落点，不是给你的答案——想一种真的同时对得上这几条的植物）：",
+        off: "这一盆没有任何附加条件，你完全自己挑。"
+      }) : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你们是恋人。你们共同的空间里要种下一盆花，由你来挑。以「" + char.name + "」的身份：\n"
           + "· species：一种真实存在的花或植物——你真会想跟 Ta 一起养的那一种，不是花语大全里最好听的那一种。\n"
           + "· why：为什么是它，说给 Ta 听的一句。判据：**换一对情侣照样成立的那一句，就是挑坏了**——"
           + "它得连着你俩之间真实发生过的某件事、或某个只有你们才有的偏好。\n"
-          + "· color：它开出来的主色，给一个十六进制色号。",
+          + "· color：它开出来的主色，给一个十六进制色号。\n"
+          + (past.length ? "\n你们以前种过这些，以及你当时说的话：\n" + gardenPastText(past)
+              + "\n⚠️同一种花你完全可以再选一次——真有分量的那一种，种几次都对。"
+              + "但【那句 why 不许是上面某一句的换字版】：要是又选了同一种，就说一件上面没说过的"
+              + "（这一次是为什么又是它、这中间发生了什么、或者这回你想起的是另一件事）。\n" : "")
+          + (axisText ? "\n" + axisText : ""),
         schemaHint: "{\"species\":\"花名\",\"why\":\"为什么是它——说给 Ta 听的一句\",\"color\":\"#RRGGBB\"}",
         maxTokens: 8000
       });
@@ -18709,7 +18780,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const old = p[char.id] || {};
         return { ...p, [char.id]: { species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80),
           color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
-          kept: Array.isArray(old.kept) ? old.kept : [] } };
+          kept: Array.isArray(old.kept) ? old.kept : [],
+          // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
+          said: gardenPastOf(old).concat([{ species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80) }]).slice(-24) } };
       });
       coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
     } catch (e) { toast("失败：" + (e.message || "重试")); }
@@ -18720,6 +18793,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const g = (coupleGardenRef.current || {})[charId];
     if (!g || !g.bloomTs) return;
     saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false,
+      said: gardenPastOf(g),
       kept: [{ species: g.species, why: g.why, color: g.color, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
     coupleKeep(charId, "你们一起养的那盆" + g.species + "开完了这一茬，压成干花收进了册子", "花房");
     toast("收好了一枚干花");
@@ -21349,6 +21423,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast(add > 0 ? char.name + " 把额度加了 ¥" + add : char.name + " 没有加额度");
     } catch (e) { stamp({ status: "failed" }); toast("加额度失败：" + e.message); }
   };
+  // 退卡（她 2026-09-19：「亲属卡能不能做一个解绑功能然后解绑的时候可以落一张通知卡到聊天」）。
+  // ⚠️这张卡不是一条消息，是一件【她做的事】：所以它跟刷卡单、提额单一样落进聊天，
+  //   等她下次说话时一并喂给 TA——TA 是在聊天里知道这件事的，不是被系统通知的。
+  // ⚠️流水跟卡一起走：解绑之后账单页就没了，删之前要说清楚（never-say-delete-first 的同一条判据——
+  //   这一下之后这几笔流水只剩一个副本，而那个副本就是要被删的这一份）。
+  const unbindKinship = (charId, reason) => {
+    const char = characters.find(c => c.id === charId);
+    const card = kinshipCardsRef.current.find(c => c.charId === charId);
+    if (!char || !card) { toast("没有这张亲属卡"); return; }
+    const why = String(reason || "").trim().slice(0, 60);
+    const used = Math.round((card.used || 0) * 100) / 100;
+    const n = (card.ledger || []).length;
+    requestAppConfirm("把「" + (card.cardName || (char.name + " 的亲属卡")) + "」退回去？",
+      "退了之后这张卡就刷不了了，卡上这 " + n + " 笔流水也跟着没有（已经扣掉的钱不退回 " + char.name + " 账上——那些是真花掉了）。"
+      + char.name + "会在聊天里看到这件事，等你下次说话时由 Ta 自己决定怎么反应。",
+      () => {
+        saveKinship(p => p.filter(c => c.charId !== charId));
+        if (activeCardId === charId) setScreen("wallet");
+        pChat(charId, p => [...p, { role: "user", kind: "kinunbind", charId, read: true, ts: Date.now(),
+          turnId: "ku_" + Date.now(), limit: card.limit || 0, used: used, reason: why,
+          content: "[亲属卡] 把" + char.name + "的亲属卡退回去了" + (why ? "：" + why : "") }]);
+        toast("已解绑 · " + char.name + "会在聊天里看到");
+      }, "解绑");
+  };
   // ============================================================
   // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
   // ============================================================
@@ -22151,7 +22249,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     card: kinshipCards.find(c => c.charId === activeCardId),
     character: characters.find(c => c.id === activeCardId),
     onBack: () => setScreen("wallet"),
-    onRaise: ask => requestKinshipRaise(activeCardId, ask)
+    onRaise: ask => requestKinshipRaise(activeCardId, ask),
+    onUnbind: why => unbindKinship(activeCardId, why)
   });else if (screen === "thread" && activeChar && gardenRoomOf(activeChar.id, activeRoomId) && gardenOpen === activeRoomId) body = h(window.FairyGardenApp, (() => {
     // ── 庭院房（她 2026-09-16：「专门做一间房只给庭院的」）─────────────────
     // 这一支和首页那个架空入口是同一个组件，差别全在这三样 props 上：

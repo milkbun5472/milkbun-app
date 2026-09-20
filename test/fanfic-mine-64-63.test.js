@@ -11,28 +11,53 @@ const fan = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8
 const cut = (a, b) => { const i = fan.indexOf(a), j = fan.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出 " + a); return fan.slice(i, j); };
 
 // ── ① 每一篇能单独删 ────────────────────────────────────────────────
-test("deleteFic 只删点名那一篇，别的原样留下", () => {
-  const seg = cut("    function deleteFic(", "\n    function toggleShelf(");
-  const sandbox = { saved: null, fics: [{ id: "a" }, { id: "b" }, { id: "c" }] };
+// ⚠️v72.14 起这条路只有一份（她 2026-09-20：「为啥清空不了，能不能搞个强制单个删除」）。
+//   原来「我发布的」那一页自己长了一颗删除键＋自己那份确认；feed 那边也要能删之后，
+//   同一个形状就有了两处 → 照 施工规则/one-public-mechanism 抽成 removeFic 一处，
+//   **旧的那处也搬了过来**（不是只开公共的、把旧的留在原地）。
+test("removeFic 只删点名那一篇，别的原样留下", () => {
+  const seg = cut("    function removeFic(f) {", "\n    // 发布（onShelf=false");
+  const sandbox = { saved: null, fics: [{ id: "a" }, { id: "b" }, { id: "c" }], openId: null, props: { toast() {} } };
   sandbox.loadFics = () => sandbox.fics;
-  sandbox.persistFics = next => { sandbox.saved = next; };
+  sandbox.loadRead = () => ({});
+  sandbox.persistFics = next => { sandbox.saved = next; return true; };
+  sandbox.setOpenId = () => {};
+  sandbox.requestAppConfirm = (title, body, ok) => { sandbox.asked = { title, body }; ok(); };
   vm.createContext(sandbox);
-  vm.runInContext(seg + "\nthis.deleteFic = deleteFic;", sandbox);
-  sandbox.deleteFic("b");
+  vm.runInContext(seg + "\nthis.removeFic = removeFic;", sandbox);
+  sandbox.removeFic({ id: "b", title: "某篇" });
   assert.equal(sandbox.saved.map(f => f.id).join(","), "a,c");
+  assert.ok(sandbox.asked, "删之前没问一句");
 });
 
-test("删除口子只接到【我发布的】那一页，feed 的卡片一个字不动", () => {
+// ⚠️保护（收藏／自己写的／点过赞／在追的）是【清空】的本分，不该拦这一颗——
+//   拦了的话她那一版就一篇都删不掉，而她报的正是这件事。
+test("这一颗不看保护，但要说清这篇为什么一直留着", () => {
+  const seg = cut("    function removeFic(f) {", "\n    // 发布（onShelf=false");
+  assert.ok(!/protectedFic/.test(seg), "单删又去问 protectedFic 了——收藏/在追的就永远删不掉");
+  assert.match(seg, /这是你自己写的——删了回不来/, "自己写的那句没说重");
+  assert.match(seg, /连同 " \+ chN \+ " 章一起没了/, "多章的没说清一起没");
+  assert.match(seg, /在你书架上收着|点过赞|正在追/, "没说清它为什么被留着");
+});
+
+test("两页共用同一颗 ✕：卡片上那一颗", () => {
   const mine = cut("  function MinePublished(", "  // CP 预设管理（独立页）");
-  assert.match(mine, /props\.onDelete \?/, "我发布的这一页要有删除口");
-  assert.match(mine, /requestAppConfirm\(/, "删之前必须确认——删了找不回来");
-  assert.match(mine, /minHeight: 40/, "点得着：不低于 40px（tabs-not-plain-pills.md §2）");
-  // 传下来那一路：FanficApp → Mine → MinePublished
-  assert.match(fan, /onDeleteFic: deleteFic/, "FanficApp 要把 deleteFic 传下去");
-  assert.match(fan, /onDelete: props\.onDeleteFic/, "Mine 要把它接给 MinePublished");
-  // feed 的卡片自己不许长出删除键：那是别人的文
+  assert.match(mine, /onDelete: props\.onDelete \? function \(\) \{ props\.onDelete\(f\); \} : null/, "我发布的没接上卡片那颗");
+  assert.ok(!/requestAppConfirm\(/.test(mine), "这一页又自己写了一份确认——那就是两处了");
+  assert.ok(!/删掉这一篇/.test(mine), "那根单独的删除行还在");
   const card = cut("  function FicCard(", "  // ---------- 掀开封面");
-  assert.ok(!/删掉这一篇/.test(card), "FicCard 自己不许有删除键");
+  assert.match(card, /props\.onDelete \? h\("span", \{/, "卡片上没有那颗 ✕");
+  assert.match(card, /e\.stopPropagation\(\); props\.onDelete\(\);/, "点 ✕ 会顺手把这一篇翻开");
+  // ⚠️论坛那次的教训（v71.76「这个叉在屏幕外」）：这一排必须能换行，才轮不到它被顶出去
+  assert.match(card, /className: "flex items-center flex-wrap"/, "这一排不换行的话 ✕ 会被顶出屏幕");
+  assert.match(fan, /onDeleteFic: removeFic/, "FanficApp 要把 removeFic 传下去");
+  assert.match(fan, /onDelete: props\.onDeleteFic/, "Mine 要把它接给 MinePublished");
+});
+
+// 清不掉的时候得告诉她还有哪条路——她就是对着这句 toast 来问的
+test("「本版没有可清的」那句要指出单删在哪儿", () => {
+  const seg = cut("    function clearTab() {", "\n    // 删掉某一篇");
+  assert.match(seg, /要删某一篇，点那一篇右下角的 ✕/, "只说了清不了，没说还能怎么删");
 });
 
 // ── ② 空状态那句话跟着新入口改 ──────────────────────────────────────
