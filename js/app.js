@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.92";
+const APP_VERSION = "v71.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17096,16 +17096,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const npc = forumPublicNpcOf(x, (post && post.board) || "日常吧", "reply");
     return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, ts: Date.now() };
   };
-  // 楼主是角色时的「真实背景」注入：人设 + 按帖子话题检索到的真实记忆——楼主回帖补细节时必须依据这些，别现编。
-  // （根治「楼主回复细节时开始编而不是参考实际发生的事」：原来论坛全走通用「论坛网友」ctx，楼主没自己的记忆可依据。）
-  const forumOpGroundingFor = (opChar, post) => {
-    if (!opChar) return "";
-    const q = (post.title || "") + " " + (post.body || "");
+  // 这帖里某个角色的「真实背景」：人设 + 按话题检索到的真实记忆 + 最近真的一起经历过的事。
+  // 回帖补细节时必须依据这些，别现编。
+  // ⚠️原来这一份【只给楼主】（叫 forumOpGroundingFor）。可楼下回话的角色一条都没有——
+  //   她 2026-09-20 转来的那条：「我哥应该是知道我今天调班的」，哥正是在楼里回她的那个人，
+  //   手上却只有 80 字人设加一个心情标签，今天发生的事一个字都没有。
+  //   发帖那一处（forumProbe）早就带着「最近亲历的共同相处」，楼里回复这一处从来没跟上
+  //   （施工规则/four-surfaces-same-context.md 的老形状：一层写在一处，别处没跟上）。
+  // ⚠️光给记忆库不够：记忆是【抽取】出来的，今天刚在聊天里说的「今天调班」多半还没进库。
+  //   所以同时带一段最近相处——口子用发帖那处用的同一个 ambientMaterialFor，不另写一份。
+  const FORUM_GROUND_LIVED = 10;   // 最近相处带几行
+  const forumCharGrounding = (ch, post, role, extraQuery) => {
+    if (!ch) return "";
+    const q = (post.title || "") + " " + (post.body || "") + " " + String(extraQuery || "");
     let mems = [];
-    try { mems = retrieveMemories(memLibRef.current, opChar.id, q, { limit: 6, touch: false, vec: false }); } catch (e) {}
+    try { mems = retrieveMemories(memLibRef.current, ch.id, q, { limit: 5, touch: false, vec: false }); } catch (e) {}
     const memText = (mems || []).map(m => "· " + String(m.text || "").replace(/\s+/g, " ").slice(0, 80)).join("\n");
-    const persona = String(opChar.persona || "").replace(/\s+/g, " ").slice(0, 200);
-    return "\n【楼主「" + opChar.name + "」本人的真实设定与经历——楼主回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona + (memText ? "\n相关真实记忆：\n" + memText : "") + "\n";
+    let lived = "";
+    try { lived = String(ambientMaterialFor(ch, { limit: FORUM_GROUND_LIVED }) || "").slice(-700); } catch (e) {}
+    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 200);
+    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
+      + (memText ? "\n相关真实记忆：\n" + memText : "")
+      + (lived ? "\n最近真的发生过的事（你本来就知道，别照抄原话、也别在楼里复述成流水账）：\n" + lived : "")
+      + "\n";
   };
   const forumCommentProbe = (post, n, opts = {}) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
@@ -17156,7 +17169,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? "【楼主是角色「" + opName + "」本人】这一轮楼主**可以回来回帖**（贴吧楼主常回楼：回应质疑、道谢、补充说明）——但楼主的发言只能是【针对楼里已经有人说的话】去回应：把 reply_to_floor 设成要回的那层楼号、is_op 设 true。**楼主回复里的任何细节都必须符合下方【楼主真实设定】里的真实经历与人设，绝不许现编、不许无中生有捏造没发生过的事**。别自问自答、别开一个跟原帖无关的新话题。"
         : "【楼主网名「" + opName + "」】楼主这轮可以回楼回应大家（针对已有楼层，reply_to_floor + is_op=true），别自问自答开新话题。"
           + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
-      const opGround = forumOpGroundingFor(opChar, post);
+      // 楼主要依据真实背景，楼里【已经冒泡过的那几个角色】同样要——这一轮的追评几乎全是他们写的，
+      // 而他们原来手上只有 80 字人设（她 2026-09-20 报的「细节没对上」就落在这儿）。
+      // 封顶三个人：一帖里真正在说话的就那么几个，再多是拿预算换不会出场的人。
+      const FORUM_GROUND_MAX = 3;
+      const opGround = forumCharGrounding(opChar, post, "楼主")
+        + replied.slice(0, FORUM_GROUND_MAX).filter(c => !opChar || c.id !== opChar.id)
+            .map(c => forumCharGrounding(c, post, "这帖里已经回过话的")).join("");
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       const opRule2Full = opRule2 + meRule;
       return {
@@ -17166,6 +17185,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
     }
     // ── 第一轮（首次点进帖）：不必全员回复，路人为主、真关心的角色偶尔冒泡 ──
+    // ⚠️这一轮【故意】不注入角色的真实背景：谁会冒泡是模型当场决定的，事先谁都不知道，
+    //   给全池子每人来一份记忆＋最近相处，绝大部分花在不会出场的人身上（她按次计费）。
+    //   楼主这轮也不回楼（见上面 opRule）。真要依据真实细节的是【第二轮追评】和
+    //   【她评论之后那几条楼中楼】——那两处谁在说话是已知的，背景就补在那儿。
     const who = isSearch
       ? "**楼里是常驻熟面孔与一次性路人的混合**，**不要出现你认识的任何角色**——这是搜来的陌生话题吧。"
       : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色可以按性格选择 identity=main（大号）、alt（固定小号）或 anonymous（匿名）；小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
@@ -18097,7 +18120,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const relLinesR = isSearch ? [] : forumRelLines(forumActiveChars().filter(c => !oc || c.id !== oc.id), oc);
       const relBlockR = relLinesR.length ? "【在场角色之间的关系（按真实身份接话，别当陌生人）】\n" + relLinesR.slice(0, 20).join("\n") + "\n" : "";
       // 帖主是角色时注入其真实背景，回复细节别现编
-      const opGroundR = forumOpGroundingFor(oc, post);
+      // 帖主要背景，【必回我的那个人】更要：她就是冲着那个人说的话去的，
+      // 而检索词里必须带上她刚说的那句（她提的「调班」只在这句里，帖子标题正文一个字都没有）。
+      const opGroundR = forumCharGrounding(oc, post, "楼主", myText)
+        + (ownerChar && (!oc || ownerChar.id !== oc.id) ? forumCharGrounding(ownerChar, post, "这层楼的层主", myText) : "");
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText), {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
