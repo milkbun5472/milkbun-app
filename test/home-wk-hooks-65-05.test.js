@@ -67,7 +67,9 @@ test("编辑器把这一页抓得住的挂点列给她看，名单只问 ThemeSt
   assert.match(css, /studio\.WK_COMMON \|\| \[\]/, "没列每页都有的那几个");
   assert.match(css, /\(studio\.WK_SCOPED \|\| \[\]\)\.filter/, "没按当前这一页去表里找专有的那一组");
   // ⚠️名单不许在这儿另抄一份（抄了迟早跟表对不上）
-  assert.ok(!/\["icon", "/.test(ui) && !/\["bubble", "/.test(ui), "编辑器里又抄了一份钩子表");
+  // ⚠️只查【CSS 编辑器那一段】：全文查的话，别处任何一张 [key, 中文] 的表都会误伤
+  //   （2026-09-20 主题包那张「要导入哪几样」的勾选表就撞上了 ["bubble", …]）。
+  assert.ok(!/\["icon", "/.test(css) && !/\["bubble", "/.test(css), "编辑器里又抄了一份钩子表");
   assert.match(css, /每一条声明都要带 !important/, "没告诉她内联样式压不过");
   assert.match(css, /这一页只有上面这几个通用的/, "没在没有专有挂点的页面上说实话");
 });

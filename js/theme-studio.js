@@ -588,7 +588,10 @@
         if (blob) assets[ref] = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
       } catch (_) {}
     }
-    return JSON.stringify({ kind: "lisa-theme", format: 1, exportedAt: new Date().toISOString(), profile, baseTheme: extras && extras.baseTheme, wallpaper: extras && extras.wallpaper, assets }, null, 2);
+    // 气泡皮肤（她 2026-09-20：「界面美化分享给别人」）——它不住在 profile 里，
+    // 是单独一份存档，所以这儿显式带上；对面导入时默认不盖，勾了才盖。
+    const bubbleSkin = extras && extras.bubbleSkin ? extras.bubbleSkin : null;
+    return JSON.stringify({ kind: "lisa-theme", format: 1, exportedAt: new Date().toISOString(), profile, baseTheme: extras && extras.baseTheme, wallpaper: extras && extras.wallpaper, bubbleSkin, assets }, null, 2);
   };
   const importPackage = async text => {
     const pkg = JSON.parse(text); if (!pkg || pkg.kind !== "lisa-theme") throw new Error("不是这个 app 的主题包");
@@ -599,7 +602,8 @@
     (p.customFonts || []).forEach(f => { if (f && map[f.ref]) f.ref = map[f.ref]; });
     p.globalCSS = remapCSSImages(p.globalCSS, map);
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
-    return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper };
+    const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? pkg.bubbleSkin : null;
+    return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
   };
   g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });

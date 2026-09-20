@@ -2011,7 +2011,36 @@ function bubbleGlueOrphans(list) {
     return a;
   }, []);
 }
+const HTML_CARD_MIN = 80;   // 比这短的不当卡片看：避免把「<3」「<哭>」这种误判成 HTML
+// 认卡片：必须是一整块元素起头的 HTML，不是句子里夹了个尖括号。
+function htmlCardOf(text) {
+  const s = String(text == null ? "" : text).trim();
+  if (s.length < HTML_CARD_MIN) return null;
+  if (!/^<(!doctype\s+html|html|div|section|article|main|table|style|svg|figure)\b/i.test(s)) return null;
+  if (!/<\/\s*[a-z][\w-]*\s*>/i.test(s)) return null;   // 得有闭合标签，半截的不画
+  return s;
+}
+// 把模型吐的一段切成「气泡候选」：整块 HTML 原样留一条，其余照常按换行拆。
+// ⚠️这一步必须排在按换行拆【之前】：模型常把 HTML 打成多行，先拆就再也拼不回来了。
+//   （她 2026-09-20 真机报：一张高考成绩单被切成十几个气泡，第一个气泡只有「<!」——
+//    那是 splitLongBubble 按「！」断句断的。）
+function splitCardsAndLines(s) {
+  const str = String(s == null ? "" : s);
+  const whole = htmlCardOf(str);
+  if (whole) return [whole];
+  // 前面先说了一句话、后面才跟着整块 HTML：话归话、卡归卡，两边都不丢。
+  // （模型最常见的破法就是这个：「好的，这是你的成绩单：<div…」）
+  const i = str.search(/<(!doctype\s+html|html|div|section|article|main|table|figure)\b/i);
+  if (i > 0) {
+    const tail = htmlCardOf(str.slice(i));
+    if (tail) return str.slice(0, i).split(/\n+/).map(x => x.trim()).filter(Boolean).concat([tail]);
+  }
+  return str.split(/\n+/).map(x => x.trim()).filter(Boolean);
+}
 function splitLongBubble(s, allowComma) {
+  // 整块 HTML 卡片是一条消息，一刀都不许下（见上面 splitCardsAndLines 那段的由来）
+  const _card = htmlCardOf(s);
+  if (_card) return [_card];
   s = bubbleProtectQuote(bubbleProtectNum(String(s == null ? "" : s).trim()));
   if (!s) return [];
   const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;
