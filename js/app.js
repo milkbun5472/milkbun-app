@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.16";
+const APP_VERSION = "v72.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1391,7 +1391,10 @@ function App() {
         // 所以留成没拆的，让积压的这些终于能被打开一次。
         text: String(w.content || "").trim(), ts: w.ts || Date.now(), openedTs: null
       })).filter(x => x.text && x.characterId && !_have0.has(x.id));
-      if (rescued.length) saveJSON("x_coupleDrawer", rescued.concat(_dw0).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 120));
+      // ⚠️这儿原来也写死 120，跟 DRAWER_CAP 各是一份（改一处永远漏另一处）。
+      //   这一步在 App 组件外面，拿不到 drawerTrim，所以只排序不裁——裁由下一次
+      //   drawerPush 按【每个角色各自】的规矩来，绝不在迁移这一步就先挤掉一批。
+      if (rescued.length) saveJSON("x_coupleDrawer", rescued.concat(_dw0).sort((a, b) => (b.ts || 0) - (a.ts || 0)));
       saveJSON("x_whispersMigrated", true);
     }
     setCoupleQA(loadJSON("x_coupleQA", []));
@@ -1409,7 +1412,9 @@ function App() {
         text: String(n.content || "").trim(), ts: n.createdAt || Date.now(), openedTs: n.createdAt || Date.now()
       })).filter(x => x.text && !_have.has(x.id));
       if (moved.length) {
-        const merged = moved.concat(_dw).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 120);
+        // ⚠️这儿原来也写死 120（跟 DRAWER_CAP 各一份）。搬家这一步不裁：
+        //   她上星期的东西不该在一次迁移里被挤掉，裁由 drawerPush 按【每个角色各自】的规矩来。
+        const merged = moved.concat(_dw).sort((a, b) => (b.ts || 0) - (a.ts || 0));
         setCoupleDrawer(merged); saveJSON("x_coupleDrawer", merged);
       }
       saveJSON("x_notesToDrawer", true);
@@ -18603,11 +18608,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   认不出来的一律当抽屉落，绝不许再变成第四个悄悄话。
         const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
         outletNote(char.id, kind, !!manual);
-        setCoupleDrawer(p => {
-          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
-            title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-          coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-        });
+        drawerPush({ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
+          title: "", text: txt, ts: Date.now(), openedTs: null });
       }
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
@@ -19510,7 +19512,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     } finally { setGen(g => ({ ...g, studio: false })); }
   };
-  const DRAWER_CAP = 120;
+  // 抽屉封顶（她 2026-09-20：「抽屉是会被清理吗，为什么我上个星期前的记录都没了」）。
+  // ⚠️原来是 120，而且是【整份数组】封顶——x_coupleDrawer 里装着【所有角色】的东西，
+  //   render 时才按 characterId 筛。角色一多，120 个名额是抢的：别人那边掉两样，
+  //   她这边上个星期的就被挤出去了，而且不留任何痕迹。
+  //   改成两条：① 每个角色各自算；② 【还没拆的永远不挤】——封着的那一样掉了，
+  //   就永远不知道他放进来的是什么，那跟拆过的看一眼不一样。
+  const DRAWER_CAP = 300;
+  const drawerTrim = list => {
+    const seen = new Map();
+    return (list || []).filter(x => {
+      const k = (x && x.characterId) || "";
+      const n = (seen.get(k) || 0) + 1;
+      seen.set(k, n);
+      return n <= DRAWER_CAP || !(x && x.openedTs);
+    });
+  };
+  // 三处放东西进抽屉（心声掉落 / 专属掉落 / 悄悄话）共用这一个口，
+  // 别再各写一遍 [新的, ...旧的].slice(...)（施工规则/one-public-mechanism.md）。
+  const drawerPush = item => setCoupleDrawer(p => {
+    const n = drawerTrim([item, ...p]);
+    coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+  });
   // 悄悄话往抽屉里放一样东西。v59.23 之前它贴在一整面「便签墙」上，而且【四处各写
   // 了一遍同样的入库代码】；她 2026-08-31 说那面墙鸡肋——情书、交换日记、便签墙
   // 三样都是「TA写字给你」，便签墙只是「短」，没有自己的形状；它唯一独有的是
@@ -19520,25 +19543,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const drawerDrop = (charId, title, text) => {
     const tt = String(title || "").trim(), tx = String(text || "").trim();
     if (!charId || !tx) return false;
-    setCoupleDrawer(p => {
-      const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "drop",
-        title: tt, text: tx, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-      coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-    });
+    drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "drop",
+      title: tt, text: tx, ts: Date.now(), openedTs: null });
     return true;
   };
   const drawerWhisper = (charId, text) => {
     const t = String(text || "").trim();
     if (!charId || !t) return false;
-    setCoupleDrawer(p => {
-      // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
-      //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
-      //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
-      //   免得哪天别处又把 title 拿出来显示。悄悄话本来也不需要标题，正文就是全部。
-      const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
-        title: "", text: t, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-      coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-    });
+    // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
+    //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
+    //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
+    //   免得哪天别处又把 title 拿出来显示。悄悄话本来也不需要标题，正文就是全部。
+    drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
+      title: "", text: t, ts: Date.now(), openedTs: null });
     return true;
   };
   const openDrawerItem = id => setCoupleDrawer(p => {

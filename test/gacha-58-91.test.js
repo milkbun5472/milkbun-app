@@ -194,10 +194,16 @@ test("抽屉挂在已有的思念出口上，不是新开一条调用链", () =>
   // v61.35 收成两档（note 那一档的便签墙 v59.23 就撤了，见 couple-leave-outlets-61-35）
   // v66.15：档由代码挑（她：另外几种从来没收到过），落点仍是抽屉那一支
   assert.match(leave, /往你俩的抽屉里放/, "落点里没有抽屉");
-  assert.match(leave, /saveJSON\("x_coupleDrawer", n\)/, "抽屉那一支没接上");
+  // v72.17：落盘收进公共那个口 drawerPush（按角色各自封顶、还没拆的不挤），
+  //   这儿钉【走那个口】，不再钉 saveJSON 那一行。
+  assert.match(leave, /drawerPush\(\{ id: "dw_" \+ Date\.now\(\), characterId: char\.id, kind: kind,/, "抽屉那一支没接上");
   assert.match(leave, /\["thing", "word", "draw"\]\.indexOf\(_pick\) >= 0 \? _pick : "thing"/, "kind 没兜底,挑错就存了个野值");
   assert.match(leave, /openedTs: null/, "放进来就是拆开的状态——那还惊喜什么");
-  assert.match(leave, /\.slice\(0, DRAWER_CAP\)/, "抽屉没有天花板");
+  // 天花板还在，只是搬进了公共那个口：drawerTrim 按【每个角色各自】封顶，
+  // 而且还没拆的永远不挤（她 2026-09-20：「为什么我上个星期前的记录都没了」——
+  // 原来那个 slice 是对整份数组做的，角色一多就互相抢名额）。见 drawer-cap-per-char-72-17。
+  assert.match(app, /const DRAWER_CAP = \d+;/, "抽屉没有天花板");
+  assert.match(app, /const drawerTrim = list =>/, "天花板不是按角色各自算的");
 });
 
 // ⚠️这一格【故意】不报红点、不显示还剩几件没拆：报了就跟 App 里其余通知一个样，

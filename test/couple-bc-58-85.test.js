@@ -68,7 +68,9 @@ test("留下的东西落进的是【已经会渲染它】的那两个地方", ()
   // 它的产物却被当成悄悄话塞进抽屉，等于三个出口里两个通向同一样东西。
   // 现在认不出 where 的一律当 drawer 落，所以这里改盯【落进抽屉】这件事本身。
   // v66.15：档由代码挑，抽屉那三档共用一个落点（kind 就是挑中的那一档）
-  assert.match(leave, /kind: kind,[\s\S]{0,300}saveJSON\("x_coupleDrawer", n\)/, "他留的那一张没落进抽屉");
+  // v72.17：三处放东西的口收成一个 drawerPush（按角色各自封顶、还没拆的不挤），
+  //   所以这儿钉的是【走那个口落进抽屉】，不再钉 saveJSON 那一行。
+  assert.match(leave, /drawerPush\(\{[\s\S]{0,200}kind: kind,/, "他留的那一张没落进抽屉");
   assert.match(scr, /whisper: \{ zh: "一句悄悄话"/, "抽屉不认这一类，渲染出来是「他捡到的」");
   assert.match(leave, /byCharacter: true, unread: true/, "时光轴那条没标成他写的");
   assert.match(scr, /ev\.byCharacter \?/, "时光轴不认 byCharacter 了");
