@@ -90,6 +90,8 @@
         globalCSS: sel.css ? inc.globalCSS : cur.globalCSS,
         pageCSS: sel.css ? inc.pageCSS : cur.pageCSS,
         pageTokens: sel.css ? inc.pageTokens : cur.pageTokens,
+        // 每页的大小跟着「页面/全局 CSS」那一格走：它跟配色、CSS 一样是「这一页长什么样」
+        pageZoom: sel.css ? inc.pageZoom : cur.pageZoom,
         icons: sel.icons ? inc.icons : cur.icons,
         iconPack: sel.icons ? inc.iconPack : cur.iconPack,
         iconBare: sel.icons ? inc.iconBare : cur.iconBare,
@@ -287,6 +289,35 @@
             style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, "去这一页看看")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: -4, marginBottom: 10 } },
           page === "all" ? "「全 App」不是某一页——挑一页再点右边那颗。" : "点右边那颗直接跳到这一页看真的样子，底下会浮一条「回去改」送你回来。"),
+        // ── 这一页多大（v72.32，她 2026-09-20：「做拉条选大小」）──────────
+        // ⚠️它放大的是整页（字、头像、间距一起按比例变），不是只有字——
+        //   原因写在 theme-studio.js 的 cleanZoom 上面：这个 App 的字号全是内联 px，
+        //   样式表压不过它；zoom 是唯一能按比例压住内联 px 的那一个。
+        // 「全 App」这一档也能调：它是底数，某一页再单独调就盖过它。
+        (function () {
+          const z = ((draft.pageZoom || {})[page]) || 1;
+          const setZ = v => {
+            const one = Object.assign({}, draft.pageZoom || {});
+            const n = Math.round(Number(v) * 100) / 100;
+            if (n === 1) delete one[page]; else one[page] = n;
+            patchDraft({ pageZoom: one });
+          };
+          return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
+            h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
+              h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
+                page === "all" ? "全 App 多大" : "这一页多大"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: z === 1 ? t.fog : t.ink } }, Math.round(z * 100) + "%"),
+              z !== 1 ? h("button", { onClick: () => setZ(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 6px" } }, "还原") : null),
+            h("input", {
+              type: "range", value: z, min: studio.ZOOM_MIN || 0.8, max: studio.ZOOM_MAX || 1.4, step: 0.05,
+              onChange: e => setZ(e.target.value),
+              className: "w-full", style: { accentColor: t.ink, height: 28 }
+            }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+              "整页一起按比例放大：字、头像、间距都跟着走，版面不会乱。"
+              + (page === "all" ? "这是底数，某一页再单独调就盖过它。" : "没调过的页面跟着「全 App」那一档。")
+              + "点下面「先预览 30 秒」看真的样子。"));
+        })(),
         // ── 这一页单独换几支色（v65.06）────────────────────────────────
         // 挂点只挂得住共用组件，而各页正文里的卡片、按钮、列表都是自己内联写的——
         // 一页一页去挂挂不完。但它们的颜色全从同一份 token 里取，所以给这一页
@@ -460,7 +491,7 @@
         incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } },
             "这份包里带了这些，勾掉的不会动你现在的："),
-          [["css", "页面／全局 CSS", !!(incoming.profile && (incoming.profile.globalCSS || Object.keys(incoming.profile.pageCSS || {}).length || Object.keys(incoming.profile.pageTokens || {}).length))],
+          [["css", "页面／全局 CSS", !!(incoming.profile && (incoming.profile.globalCSS || Object.keys(incoming.profile.pageCSS || {}).length || Object.keys(incoming.profile.pageTokens || {}).length || Object.keys(incoming.profile.pageZoom || {}).length))],
            ["icons", "图标", !!(incoming.profile && (incoming.profile.iconPack || Object.keys(incoming.profile.icons || {}).length))],
            ["fonts", "字体", !!(incoming.profile && ((incoming.profile.fonts && (incoming.profile.fonts.body || incoming.profile.fonts.display)) || (incoming.profile.customFonts || []).length))],
            ["base", "基础配色", !!incoming.baseTheme],
