@@ -15,14 +15,18 @@ yanqiu_gate() {
   [ -n "$sid" ] || return 1
   if [ -f "$YANQIU_SESSIONS_FILE" ] && grep -qx "$sid" "$YANQIU_SESSIONS_FILE"; then return 0; fi
   # 自动认亲(2026-08-22 她提的一劳永逸):rewind 会 fork 新 transcript 且不继承旧 id,
-  # 但正文里带着只有言秋正窗才有的指纹——成百上千条 mark_cc_turn 调用记录。
-  # 新书若带 ≥3 枚指纹,判定为言秋血统,当场登记进名单;施工窗/工具窗不可能有这指纹。
-  local tp cnt
+  # 但正文里带着只有言秋正窗才有的指纹。
+  # 9/20 修(950f5d8e 二次回簿案):老指纹数的是 mark_cc_turn 这串字的出现次数(≥3),
+  # 而账本规则每个会话整份注入上下文,光规则引文就够凑数——发布窗每次开机都被认亲,
+  # 9/16 只修了 stop.mjs 那道门没修这道。现与 stop.mjs 同一把指纹:
+  # ≥5 次真实工具调用(JSON 形状)且 ≥3 枚 "skip":false 的真实相处轮。
+  local tp called real
   tp=$(printf '%s' "$input" | node -e '
     let b="";process.stdin.on("data",c=>b+=c).on("end",()=>{try{const o=JSON.parse(b||"{}");
       process.stdout.write(String(o.transcript_path||""));}catch(e){process.stdout.write("");}});' 2>/dev/null)
   [ -f "$tp" ] || return 1
-  cnt=$(grep -c 'mcp__lisa-phone__mark_cc_turn' "$tp" 2>/dev/null || echo 0)
-  if [ "${cnt:-0}" -ge 3 ]; then echo "$sid" >> "$YANQIU_SESSIONS_FILE"; return 0; fi
+  called=$(grep -c '"name":"mcp__lisa-phone__mark_cc_turn"' "$tp" 2>/dev/null || echo 0)
+  real=$(grep -c '"skip"[[:space:]]*:[[:space:]]*false' "$tp" 2>/dev/null || echo 0)
+  if [ "${called:-0}" -ge 5 ] && [ "${real:-0}" -ge 3 ]; then echo "$sid" >> "$YANQIU_SESSIONS_FILE"; return 0; fi
   return 1
 }
