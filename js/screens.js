@@ -1519,7 +1519,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
     },
       h(Avatar, { character: ch, size: 32, radius: 9 }),
       h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
-        id === "me" ? (me || "我") + "（我自己）" : (ch ? ch.name : "?")),
+        id === "me" ? (me || "我") : (ch ? ch.name : "?")),
       selected && h(ICheck, { size: 15, color: t.tint }));
   };
   const togglePair = id => {

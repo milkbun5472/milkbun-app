@@ -65,5 +65,8 @@ test("界面按主人分两支：她自己那支是手写表单", () => {
   // 她点名要去掉的那个名字
   assert.ok(!/小鱼/.test(screens), "「小鱼」还在");
   assert.ok(/\[pickCard\("me", c\.meChar === "me"/.test(screens), "她自己不在第一格");
+  // ⚠️她 2026-09-20：「我自己去掉，我知道这是我自己」——那三个字把名字挤成了四行
+  assert.ok(/id === "me" \? \(me \|\| "我"\) :/.test(screens), "她那张卡的名字读错了地方");
+  assert.ok(!/（我自己）/.test(screens), "那个括号又回来了");
   assert.ok(/String\(n\.ownerId\) !== "me"/.test(screens), "她自己的人还摆着那颗没意义的「跟我不认识」");
 });
