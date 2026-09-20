@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.89";
+const APP_VERSION = "v71.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2717,6 +2717,24 @@ function App() {
   // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
   // ⚠️定义放这么早，是因为亲属卡那几条喂模型的话在 9200 一带就用上了。
   const moneyText = (amountCNY, charId) => (window.Money ? window.Money.say(amountCNY, charId) : "¥" + amountCNY);
+  // 转账喂给模型的那一份：一律点名谁给谁，一个第二人称都不留
+  // （她 2026-09-20：「他给我转钱老是说是我给他」）。
+  // ⚠️屏幕上那句「你向 XX 转了 ¥200」是写给【她】看的旁白，可它原样进了模型历史——
+  //   而在一条 role:"user" 的消息里，「你」按全库惯例指的是【角色】（送礼那条「当面给你：」
+  //   就是这个惯例）。于是每一笔她转出去的钱，在他读来都是「你向你自己转了钱」，
+  //   自相矛盾；他自己转的那条又用第三人称自称（「沈清和 向你转了」），像在转述别人的事。
+  //   两条摆在一起，几轮之后认反几乎是必然的。这儿只改【喂过去的那一份】，屏幕上不动。
+  // ⚠️状态也要带上：收了/退了那条是 kind:"system"，而 system 那一类压根不进模型历史
+  //   （见 replyNow 里 history 那道过滤，亲属卡 kinbill 的注释里写着同一个坑）。
+  //   所以状态写进卡本身这一句——卡是原地改 status 的，它在历史里，system 那条不在。
+  const transferLineForModel = (m, fromName, toName, charId) => {
+    const note = m.note ? "，附言「" + String(m.note).slice(0, 60) + "」" : "";
+    const st = m.status === "accepted" ? "这笔已经收下了"
+      : m.status === "returned" ? "这笔被退回了"
+      : "这笔还挂着没点";
+    return "【转账：" + fromName + " 把 " + moneyText(m.amount, charId) + " 转给 " + toName + note
+      + "。" + st + "。这是做过的一件事，不是谁说的一句话】";
+  };
   const setMoodFor = (id, m) => setMoods(p => {
     const cleanMood = window.MoodLabel ? window.MoodLabel.normalizeMood(m) : m;
     const n = {
@@ -5733,7 +5751,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : (m.senderName || char.name));
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
-        const body = (isOff && offNeedsDigest && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
+        // ⚠️转账那一条不能照原文走：存下来的「你向 XX 转了 ¥200」是写给她看的旁白，
+        //   喂给模型时那个「你」会翻个个儿（她 2026-09-20：「他给我转钱老是说是我给他」）。
+        //   这一层是 buildBundle 白送的，所以补在这儿等于单聊线上/线下/通话/穿书/匿名箱/
+        //   解梦馆一次全有（施工规则/four-surfaces-same-context.md）。
+        const body = m.kind === "transfer"
+          ? transferLineForModel(m, m.dir === "toMe" ? (m.senderName || char.name) : uName, m.dir === "toMe" ? uName : (m.senderName || char.name), char.id)
+          : (isOff && offNeedsDigest && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
         // 通话（她 2026-09-06：「语音视频聊天好像不挂进上下文」）：这条回执的 content
         // 只有「视频通话 已结束 · 时长 02:01」，通话里说了什么全在 sum 那一栏，
         // 而 sum 从来没人读——于是TA打完电话回到聊天，跟没打过一样。
@@ -9340,6 +9364,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
             : m.kind === "kinbill" ? "【" + uName + "刷了你给 Ta 的亲属卡，买了「" + (m.item || "") + "」，" + moneyText(m.amount || 0, charId) + " 从你账上扣了" + (m.remain == null ? "" : "，这张卡还剩 " + moneyText(m.remain, charId)) + "。这不是 Ta 跟你说的一句话，是 Ta 做的一件事——要不要提、拿什么态度提，看你的人设和此刻心情，也完全可以不提】"
+            : m.kind === "transfer" ? transferLineForModel(m, uName, char.name, charId)
+            : m.kind === "paylater" ? "【" + uName + "把一张购物清单推给你，让你决定要不要替 Ta 付："
+              + (m.items || []).map(x => x.name).join("、").slice(0, 60) + "，合计 " + moneyText(m.total || 0, charId)
+              + "。" + (m.status === "paid" ? "你已经付了" : m.status === "declined" ? "你没有付" : "还等着你决定") + "。这是 Ta 按的一个请求，不是 Ta 说的一句话】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -9363,7 +9391,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
-            : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]" : (m.content || ""));
+            : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]"
+            // 自己做过的事也点名：这一条原来是「沈清和 向你转了 ¥200」，他自述里叫自己名字，像在转述别人
+            : m.kind === "transfer" ? transferLineForModel(m, "你（" + char.name + "）", uName, charId)
+            : m.kind === "kinship" ? "【你给 " + uName + " 发了一张亲属卡，额度 " + moneyText(m.limit || 0, charId) + (m.note ? "，你当时说「" + String(m.note).slice(0, 60) + "」" : "") + "。这是你做过的一件事】"
+            : (m.content || ""));
           if (l && l.role === "assistant" && l._t === m.turnId) l.content += "\n" + ac;else g.push({
             role: "assistant",
             content: ac,
@@ -14551,7 +14583,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
