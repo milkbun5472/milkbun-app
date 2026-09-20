@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.19";
+const APP_VERSION = "v72.20";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4010,6 +4010,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       if (!char || !char.id) return "awake";
       if (settingsFor(char.id).engineerEyes) return "awake";
+      // ⚠️关了时间感知的角色【不许有睡意】（她 2026-09-20 转来的：「我把时间感知关掉了，
+      //   但是他们好像还是从大概 11 点多开始到半夜就半死不活的聊两句，就要催我睡觉」）。
+      //   那个开关本来就是「这个人不知道现在几点」：时间块、行程、时刻戳三处都认它，
+      //   唯独睡意这一层从上线起就没接上——于是到点照样发【此刻你快睡了】那一段
+      //   （「回得比平时短、比平时慢，注意力是散的」），正是她说的半死不活。
+      //   ⚠️而且没排作息的角色还有个 8–23 的兜底：一过 23 点一律算睡着，一个都跑不掉。
+      //   收在这一处就够：睡意那一段（sleepToneOf）和主动开口那道闸都只问它。
+      if (!timeAwareFor(char.id)) return "awake";
       // ① 睡没睡，以 charAwakeState 为准。它直接读那一段的 end，最稳。
       //    ⚠️不许反过来让 C 说了算：C 要【明天那份日程】才知道今晚这觉睡到几点，
       //      而日程是一天一份的——22:00 排了睡觉，22:30 去问 C，它答「醒着」

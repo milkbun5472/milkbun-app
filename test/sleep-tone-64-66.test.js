@@ -16,7 +16,10 @@ const cut = (src, a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); as
 // sleepPhaseOf / sleepToneOf 抠出来真跑
 function load(ctx) {
   const seg = cut(app, "  const sleepPhaseOf = char =>", "  // 过了 0 点那一截");
-  const sandbox = Object.assign({ window: {}, settingsFor: () => ({}), charAwakeState: () => "awake" }, ctx);
+  // ⚠️v72.20 起 sleepPhaseOf 还要问一句【这个角色开着时间感知吗】——关了就一律 awake
+  //   （见 sleep-respects-clock-off-72-20）。默认开着，不然这几条测的就不是原来那件事了。
+  const sandbox = Object.assign({ window: {}, settingsFor: () => ({}), charAwakeState: () => "awake",
+    timeAwareFor: () => true }, ctx);
   vm.createContext(sandbox);
   vm.runInContext(seg + "\nthis.phase = sleepPhaseOf; this.tone = sleepToneOf; this.TONE = SLEEP_TONE;", sandbox);
   return sandbox;
@@ -130,4 +133,11 @@ test("C 真算得出四相：睡熟 / 快睡了 / 刚醒 / 醒着", () => {
   assert.equal(at(8, 20).state.phase, "waking", "刚醒（起床后 45 分钟）");
   assert.equal(at(14, 0).state.phase, "awake", "大白天");
   assert.equal(at(3, 0).audit.source, "schedule", "得是按作息算的，不是猜的");
+});
+
+test("关了时间感知就一律醒着（她 2026-09-20：到点半死不活、催她睡觉）", () => {
+  // 那个开关的意思就是【这个人不知道现在几点】，所以睡意这一层也不该有
+  const s = load({ charAwakeState: () => "asleep", timeAwareFor: () => false });
+  assert.equal(s.phase(C1), "awake", "关了时间感知还在判睡着");
+  assert.equal(s.tone(C1), "", "关了时间感知还在发那段睡意");
 });

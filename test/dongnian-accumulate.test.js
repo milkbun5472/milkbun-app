@@ -70,7 +70,9 @@ test("按 TA 今天的作息判醒没醒，没行程才退回 8-23", () => {
   //   sleepPhaseOf（它自己第一件事就是问 charAwakeState），不再直接问旧尺子。
   //   各调各的话，排了作息的角色会有两个答案，drowsy/waking 那两截能差出一个多小时。
   assert.match(proactive, /sleepPhaseOf\(c\) === "asleep"/);
-  assert.match(app, /const sleepPhaseOf = char =>[\s\S]{0,600}charAwakeState\(char\) === "asleep"/,
+  // ⚠️v72.20 在它前面多挡了一道【关了时间感知就一律醒着】的闸，窗口放宽到 1200
+  //   （那道闸带着一整段为什么，见 sleep-respects-clock-off-72-20）。
+  assert.match(app, /const sleepPhaseOf = char =>[\s\S]{0,1200}charAwakeState\(char\) === "asleep"/,
     "sleepPhaseOf 得把旧尺子包在里面，不能绕开它");
 });
 
