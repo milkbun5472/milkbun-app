@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.98";
+const APP_VERSION = "v71.99";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10835,7 +10835,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "【自检】如果这句话在群里公开说也完全没问题，那它就该留在 text 里，不要用 dm。想跟 TA 亲近不是理由——群里也能亲近。\n"
         + "写法：在你那条发言对象里加 \"dm\":[\"第一条\",\"第二条\"]。\n"
         + "⚠️它是【一个数组，一条一个气泡】，和 text 同一个规矩：私聊里没人会把一整段话憋成一条发出去。"
-        + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；通常 1~3 条，真有话要说才更多。**绝不要把整段塞进一条**。\n"
+        + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；说了几句就发几条。**绝不要把整段塞进一条**。\n"
         + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
       const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选·多数轮次不填）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
       // 动描（她 2026-09-09：「群聊也接上动作吧」）。按群存，跟单聊那个开关同名同义。

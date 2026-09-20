@@ -40,4 +40,24 @@ assert.match(groupSpec, /一个人连着发好几条/, "「一个人可以连发
 assert.match(eng, /一轮说几条、总共说多长，没有固定格式/, "管条数的那句没了");
 assert.match(eng, /话多的人连发几条、絮絮叨叨、主动分享和追问/, "「话多是常态不是毛病」这半句没了");
 
-console.log("✓ 气泡条数：格式照旧说清楚，提示词里不再留一个可抄的数字");
+// ---- 3. ⚠️同一句话【写在三处】，删一处不算完（她 2026-09-20：「怎么还是这样 3 句，
+//     单独开了个房间还是」——上一版只删了 JSON 协议里那个，真正每轮都发的
+//     ONLINE_CHAT_RULE_V2 里还躺着一句一模一样的「想说三句就发三条」）----
+const rule = eng.slice(eng.indexOf("const ONLINE_CHAT_RULE_V2 = "), eng.indexOf("const OFFLINE_", eng.indexOf("const ONLINE_CHAT_RULE_V2 = ")));
+assert.ok(rule.length > 200, "抠不出 ONLINE_CHAT_RULE_V2");
+assert.match(rule, /一条消息＝一句话/, "「一条＝一句」这个格式说明丢了");
+assert.match(rule, /说了几句就发几条/, "没说清楚句子和气泡的对应关系");
+assert.ok(!/想说三句就发三条/.test(rule), "每轮真发的那一份里还留着「想说三句就发三条」");
+assert.ok(!/拆成两条发/.test(rule), "「拆成两条」也是个可抄的数字");
+
+// 群私聊那一格同理（它也是一条一个气泡）
+const dm = app.slice(app.indexOf("⚠️它是【一个数组，一条一个气泡】"), app.indexOf("它和 text 是两回事"));
+assert.ok(dm.length > 50, "抠不出群私聊 dm 那一格");
+assert.ok(!/1~3 条/.test(dm), "群私聊那一格还留着「通常 1~3 条」");
+
+// 全库扫一遍：提示词正文里不许再有这一族数字（注释不算，注释是病历）
+const promptLines = (eng + "\n" + app).split("\n").filter(l => !l.trim().startsWith("//"));
+const bad = promptLines.filter(l => /想说三句|三个元素|连发三条|拆成两条发/.test(l));
+assert.strictEqual(bad.length, 0, "提示词正文里又长出了可抄的条数：\n" + bad.join("\n").slice(0, 400));
+
+console.log("✓ 气泡条数：三处写法都不再留可抄的数字，格式说明照旧");
