@@ -16,6 +16,30 @@ test("没配图像通道也把能力给他", () => {
   assert.match(app, /const canSelfieImg = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/, "分不出有没有图像通道了");
 });
 
+test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
+  // 她 2026-09-20 顺着问出来的：「比如我要他发他狗狗的照片」——狗是 view 档、本来就不要脸；
+  // 可「没外貌就不许发自拍」那道闸当时把拍人那几档一起锁了，而没有像素时根本没脸可串。
+  assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/,
+    "没接图像通道时还卡着「有没有脸可锁」");
+  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && profile && profile\.refPhoto\) : true;/,
+    "合照那一档同理");
+  // ⚠️顺序：canSelfieImg 必须排在这两个前面，写反了就是 TDZ 白屏
+  const i = app.indexOf("const canSelfieImg ="), f = app.indexOf("const canFace ="), d = app.indexOf("const canDuo =");
+  assert.ok(i > 0 && i < f && i < d, "canSelfieImg 声明在用它的地方后面——一进聊天就白屏");
+});
+
+test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
+  // 她 2026-09-20 顺着问出来的：「比如我要他发他狗狗的照片」——狗是 view 档、本来就不要脸；
+  // 可「没外貌就不许发自拍」那道闸当时把拍人那几档一起锁了，而没有像素时根本没脸可串。
+  assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/,
+    "没接图像通道时还卡着「有没有脸可锁」");
+  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && profile && profile\.refPhoto\) : true;/,
+    "合照那一档同理");
+  // ⚠️顺序：canSelfieImg 必须排在这两个前面，写反了就是 TDZ 白屏
+  const i = app.indexOf("const canSelfieImg ="), f = app.indexOf("const canFace ="), d = app.indexOf("const canDuo =");
+  assert.ok(i > 0 && i < f && i < d, "canSelfieImg 声明在用它的地方后面——一进聊天就白屏");
+});
+
 test("画不出像素就落成只有描述的那一张，而不是什么都不发", () => {
   assert.match(app, /const _canDraw = photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady\(\)/, "单聊那条判断没了");
   assert.match(app, /if \(photoScene && photoKind && !_canDraw\) \{/, "单聊画不出时还是什么都不发");

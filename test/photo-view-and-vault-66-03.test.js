@@ -66,7 +66,10 @@ test("发照片那一格挂在真正在跑的那条协议上，不是那条死�
 
 test("聊天发图不再必须有脸：多一种【画面里没有人】的", () => {
   // 门槛拆成两条：拍人要有脸可锁，拍照不用
-  assert.match(app, /const canFace = \(char\.appearance \|\| char\.refPhoto\);/);
+  // ⚠️v72.29：这道门槛只在【真要画像素】时才成立——没接图像通道时发的是一张
+  //   只有描述的相卡，没脸可串，所以那时候一律放行（见 photo-without-img-api-72-23）。
+  //   这条守的仍是「拍人要有脸可锁，拍照不用」。
+  assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/);
   // ⚠️v72.23 改名并换了角色：有没有图像通道决定的是【出不出像素】，不再是【给不给能力】
   //   （她 2026-09-20：没配图 api 也要能发假图带描述）。这条守的仍是「拍东西不要脸」。
   assert.match(app, /const canSelfieImg = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/,

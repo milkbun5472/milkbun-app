@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.28";
+const APP_VERSION = "v72.32";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8837,16 +8837,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   「放开聊天生图必须要人脸吧，就是有脸正常锁脸都是不一定每张图都要脸
       //     有时候他们也可以发点别的图」）。窗外的雨、桌上的猫、刚做好的菜，
       //   这些图里本来就没有脸要锁。
-      const canFace = (char.appearance || char.refPhoto);
+      // ⚠️「有没有脸可锁」只在【真要画像素】时才是问题：画出来是另一个人，那才叫出戏。
+      //   没接图像通道的时候根本不画，发的是一张只有描述的相卡——这时候再卡着
+      //   「你没有外貌所以不许发自拍」就说不通了（她 2026-09-20 那句「发他狗狗的照片」
+      //   顺着问出来的：狗是 view 档、本来就不要脸；可自拍那几档不该跟着一起被锁死）。
       // ⚠️没配图像通道也让他发（她 2026-09-20：「没配图 api 走跟我一样的假图带描述」）。
       //   原来这一格要求 imgApiReady()，没配就【连能力都不给】——于是她要照片，
       //   TA 只能打哈哈，看起来像「他不想拍」。可她自己发的假图早就有一张好看的卡了
       //   （PhotoCard：没有像素时画一张相纸，把那句描述印在上面），角色这一侧没接上而已。
       //   现在能力照给：有图像通道就真出图；没有就落成同一张卡，descOnly。
+      // ⚠️这一个必须排在 canFace／canDuo 前面：它俩现在要读它，写在后面就是 TDZ 白屏
+      //   （下面那条注释记着，今天已经在别处踩到两次同一个坑）。
       const canSelfieImg = (typeof imgApiReady === "function") && imgApiReady();
       const canSelfie = !photoCooldown.cooling;
+      const canFace = canSelfieImg ? !!(char.appearance || char.refPhoto) : true;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
-      const canDuo = !!(char.refPhoto && profile && profile.refPhoto);
+      const canDuo = canSelfieImg ? !!(char.refPhoto && profile && profile.refPhoto) : true;
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
       //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
       const _canCarve = !sideRoom && !!(isCouple && musicReady);
