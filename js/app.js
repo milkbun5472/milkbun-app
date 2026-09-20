@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.22";
+const APP_VERSION = "v72.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8838,8 +8838,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //     有时候他们也可以发点别的图」）。窗外的雨、桌上的猫、刚做好的菜，
       //   这些图里本来就没有脸要锁。
       const canFace = (char.appearance || char.refPhoto);
-      const canSelfieBase = (typeof imgApiReady === "function") && imgApiReady();
-      const canSelfie = canSelfieBase && !photoCooldown.cooling;
+      // ⚠️没配图像通道也让他发（她 2026-09-20：「没配图 api 走跟我一样的假图带描述」）。
+      //   原来这一格要求 imgApiReady()，没配就【连能力都不给】——于是她要照片，
+      //   TA 只能打哈哈，看起来像「他不想拍」。可她自己发的假图早就有一张好看的卡了
+      //   （PhotoCard：没有像素时画一张相纸，把那句描述印在上面），角色这一侧没接上而已。
+      //   现在能力照给：有图像通道就真出图；没有就落成同一张卡，descOnly。
+      const canSelfieImg = (typeof imgApiReady === "function") && imgApiReady();
+      const canSelfie = !photoCooldown.cooling;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
       const canDuo = !!(char.refPhoto && profile && profile.refPhoto);
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
@@ -9444,6 +9449,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
+            // 只有描述、没有像素的那一张（没配图像通道时走的那条路）：跟真发过一样记着，
+            // 不然他下一轮会说「我还没拍」或者把同一张再发一遍。
+            : (m.kind === "photo" && m.descOnly) ? "【你在这里已经实际发出一张照片；这是你亲手做过的事，不得说自己没发过或马上重复发】\n照片内容：" + (m.desc || "")
             : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]"
             // 自己做过的事也点名：这一条原来是「沈清和 向你转了 ¥200」，他自述里叫自己名字，像在转述别人
             : m.kind === "transfer" ? transferLineForModel(m, "你（" + char.name + "）", uName, charId)
@@ -9995,10 +10003,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (_nf) photoKind = _nf;
         }
       }
-      // ⚠️没有外貌也没有参考照时，【拍人】那三种照旧不放行（没脸可锁，画出来是另一个人）；
-      //   view 不受这一条管——它画的本来就是东西和地方。
-      if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
-          && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto)) {
+      // 画不出像素的那几种情形，落成【一张只有描述的照片】——跟她自己发的假图同一张卡
+      //   （她 2026-09-20：「没配图 api 走跟我一样的假图带描述」）。
+      // ⚠️两种情形共用这一条路：① 压根没配图像通道；② 配了，但这个角色既没外貌也没
+      //   参考照，而这一张又是【拍人】的——没脸可锁，画出来是另一个人，那一条老规矩不动。
+      //   不许再像以前那样【什么都不发】：她那头看到的是「TA 打了个哈哈」，
+      //   分不清是不想拍还是发不出来。
+      const _canDraw = photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
+        && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto);
+      if (photoScene && photoKind && !_canDraw) {
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "photo", descOnly: true,
+          desc: photoScene, photoKind: photoKind,
+          content: "[照片] " + photoScene, ts: Date.now(), turnId, read: false }]);
+      }
+      if (_canDraw) {
         const sid = "sf_" + Date.now();
         await new Promise(r => setTimeout(r, 420));
         pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
@@ -11349,8 +11367,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             if (roster.length >= 2) gCast = roster; else gPhotoKind = "other";
           }
           // view 不受「有脸可锁」那一条管——它画的本来就是东西和地方（跟单聊同一条）
-          if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady()
-              && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto)) {
+          // 画不出像素就落成【只有描述的那一张】，跟单聊同一条路、同一张卡
+          //（four-surfaces：单聊有的，群里也得有）
+          const _gCanDraw = gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady()
+            && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto);
+          if (gPhotoScene && gPhotoKind && !_gCanDraw) {
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name,
+              kind: "photo", descOnly: true, desc: gPhotoScene, photoKind: gPhotoKind,
+              content: "[照片] " + gPhotoScene, ts: Date.now(), turnId: gTurnId }]);
+          }
+          if (_gCanDraw) {
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
             checkAutoCall();
@@ -14636,7 +14662,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，

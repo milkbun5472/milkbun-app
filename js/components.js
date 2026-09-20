@@ -14037,18 +14037,27 @@ function GroupThread({
         h(SelfieBubble, { m: m })));
     // 照片走公共那一张卡（PhotoCard）。原来这儿有图一种画法、没图一个灰方块＋
     // 描述整段摊在气泡里，而且【压根点不开】——「点开看描述」四处只有一处有。
-    if (m.kind === "photo") return h("div", {
-      key: i,
-      className: "flex justify-end py-1"
-    }, h("div", {
-      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
-      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-      style: {
-        maxWidth: "72%", borderRadius: 12,
-        outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
-        outlineOffset: 2
-      }
-    }, h(PhotoCard, { m: m, mine: true, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
+    // ⚠️原来这儿写死 justify-end + mine:true——群里只有她会发图那会儿是对的。
+    //   v72.23 起没配图像通道时角色也发照片（只有描述的那一张），写死就会贴错边、
+    //   而且看不出是谁发的（她 2026-09-20 要的那件事）。照单聊那张卡的做法认 role。
+    if (m.kind === "photo") {
+      const pMine = m.role === "user";
+      const pCh = m.senderId ? memberById(m.senderId) : null;
+      return h("div", { key: i, className: "flex py-1 " + (pMine ? "justify-end" : "items-start gap-2 justify-start") },
+        !pMine && pCh ? h(Avatar, { character: pCh, size: 36, radius: 10 }) : null,
+        h("div", {
+          onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+          onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+          style: {
+            maxWidth: "72%", borderRadius: 12,
+            outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
+            outlineOffset: 2
+          }
+        },
+          // 群里得看得出是谁发的——名字跟别的气泡一个位置
+          !pMine && m.senderName ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName) : null,
+          h(PhotoCard, { m: m, mine: pMine, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
+    }
     const isU = m.role === "user";
     const c = m.senderId ? memberById(m.senderId) : null;
     // ⚠️原来这儿手写了一份「要不要显示时间戳、写成什么」，跟单聊那份各写各的：
