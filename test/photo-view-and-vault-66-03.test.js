@@ -143,7 +143,11 @@ test("拍手/背影：有身体没有脸，走它自己那条路", () => {
   assert.match(bp, /生成一张【不露脸的局部照片】：画面里【不出现任何人的脸和头】。/);
   assert.ok(bp.indexOf("生成一张【不露脸的局部照片】") < bp.indexOf("画风是"), "题目要排在最前面");
   assert.match(bp, /no face, no head, no facial features/, "中英双写钉一次，图像模型认英文否定词");
-  assert.match(bp, /\*\*允许而且应该出现身体的那一小部分\*\*/, "不写这句它会连手一起拒绝画");
+  // ⚠️原来这句写的是「身体的那一小部分（手、手指、手腕、肩背、背影的一角）」，
+  //   于是躯干被这句话本身挡在外面——她 2026-09-20 报的「腹肌照一直不给」就落在这儿。
+  //   现在允许的是【身体】，硬条件只剩一条：头不在画面里（见 abs-photo-71-96）。
+  assert.match(bp, /\*\*允许而且应该出现身体\*\*/, "不写这句它会连手一起拒绝画");
+  assert.match(bp, /腰腹、胸膛、躯干/, "躯干又被关回去了");
   // 走 buildScenePrompt 是错的：那份禁的正是手和身体
   assert.match(eng, /no people, no person, no human, no figure, no silhouette, no crowd, no hands, no body parts/);
   assert.match(app, /isPart \? buildScenePrompt\(char, photoScene, \{ body: true \}\) :/);
