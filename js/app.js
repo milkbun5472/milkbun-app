@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.12";
+const APP_VERSION = "v72.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18681,15 +18681,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 情侣空间·花房（v62.33，她 2026-09-04 拍板）────────────────────────────
   // 花靠你们真实的相处长（gachaEarn 那头顺手喂），不靠浇水按钮；机制注释在 js/garden.js 顶上。
   // 这儿只有四件事：存、喂、TA挑种（全程唯一花调用的一步）、收干花再种。
-  // 已经挑过哪些（长期 avoid 单子）：老存档没有 seen 这一格，就从干花册和盆里现有那盆补出来
-  const gardenSeenOf = g => {
+  // 以前种过的每一盆＋当时他说的那句话（长期 avoid 单子）。
+  // ⚠️她 2026-09-20 当场纠正过一次：「有时候确实一种有纪念意义的花他就是会多选几次啊，
+  //   轴可以留着，我只是不想每次说的话都是一个意思换几个字」——
+  //   **要避的是那句话，不是那种花**。所以这张单子记的是 {花名, 当时那句话}：
+  //   同一种花随便他种几次，但那句 why 不许是上一句的换字版。
+  //   （我上一版把花名本身当成了 avoid 单子，等于顺手禁掉了「纪念」这件事。）
+  // 老存档没有 said 这一格，就从干花册里补出来（干花册本来就存着 species + why）。
+  const gardenPastOf = g => {
     const out = [];
-    const push = v => { const x = String(v || "").trim(); if (x && out.indexOf(x) < 0) out.push(x); };
-    (Array.isArray(g && g.seen) ? g.seen : []).forEach(push);
-    (Array.isArray(g && g.kept) ? g.kept : []).forEach(k => push(k && k.species));
-    push(g && g.species);
+    const push = (sp, why) => {
+      const a = String(sp || "").trim(); if (!a) return;
+      const b = String(why || "").trim();
+      if (out.some(x => x.species === a && x.why === b)) return;
+      out.push({ species: a, why: b });
+    };
+    (Array.isArray(g && g.said) ? g.said : []).forEach(x => push(x && x.species, x && x.why));
+    (Array.isArray(g && g.kept) ? g.kept : []).forEach(k => push(k && k.species, k && k.why));
+    push(g && g.species, g && g.why);
     return out;
   };
+  const gardenPastText = past => past.slice(-12).map(x => "· " + x.species + (x.why ? "，当时你说「" + x.why + "」" : "，当时你没说为什么")).join("\n");
   const saveGarden = updater => setCoupleGarden(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleGardenRef.current = n; saveJSON("x_coupleGarden", n); return n;
@@ -18740,8 +18752,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       // 挑过的长期记着（只存名字，一年也就几百字节）——这个机制要越用越好，不是越用越旧
       const g0 = (coupleGardenRef.current || {})[char.id] || {};
-      const seen = gardenSeenOf(g0);
-      const rolled = window.Axes ? window.Axes.roll(GARDEN_AXIS, [char.id, "garden", seen.length, Date.now()]) : null;
+      const past = gardenPastOf(g0);
+      const rolled = window.Axes ? window.Axes.roll(GARDEN_AXIS, [char.id, "garden", past.length, Date.now()]) : null;
       const axisText = window.Axes ? window.Axes.text(rolled, {
         on: "这一盆得同时满足下面这几条（是给你的落点，不是给你的答案——想一种真的同时对得上这几条的植物）：",
         off: "这一盆没有任何附加条件，你完全自己挑。"
@@ -18753,7 +18765,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "· why：为什么是它，说给 Ta 听的一句。判据：**换一对情侣照样成立的那一句，就是挑坏了**——"
           + "它得连着你俩之间真实发生过的某件事、或某个只有你们才有的偏好。\n"
           + "· color：它开出来的主色，给一个十六进制色号。\n"
-          + (seen.length ? "⚠️这几种你们已经养过了，这次换一种别的：" + seen.slice(0, 30).join("、") + "。\n" : "")
+          + (past.length ? "\n你们以前种过这些，以及你当时说的话：\n" + gardenPastText(past)
+              + "\n⚠️同一种花你完全可以再选一次——真有分量的那一种，种几次都对。"
+              + "但【那句 why 不许是上面某一句的换字版】：要是又选了同一种，就说一件上面没说过的"
+              + "（这一次是为什么又是它、这中间发生了什么、或者这回你想起的是另一件事）。\n" : "")
           + (axisText ? "\n" + axisText : ""),
         schemaHint: "{\"species\":\"花名\",\"why\":\"为什么是它——说给 Ta 听的一句\",\"color\":\"#RRGGBB\"}",
         maxTokens: 8000
@@ -18766,8 +18781,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return { ...p, [char.id]: { species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80),
           color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
           kept: Array.isArray(old.kept) ? old.kept : [],
-          // ⚠️seen 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
-          seen: gardenSeenOf(old).concat([sp]).filter((x, i, a) => a.indexOf(x) === i).slice(-40) } };
+          // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
+          said: gardenPastOf(old).concat([{ species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80) }]).slice(-24) } };
       });
       coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
     } catch (e) { toast("失败：" + (e.message || "重试")); }
@@ -18778,7 +18793,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const g = (coupleGardenRef.current || {})[charId];
     if (!g || !g.bloomTs) return;
     saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false,
-      seen: gardenSeenOf(g),
+      said: gardenPastOf(g),
       kept: [{ species: g.species, why: g.why, color: g.color, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
     coupleKeep(charId, "你们一起养的那盆" + g.species + "开完了这一茬，压成干花收进了册子", "花房");
     toast("收好了一枚干花");

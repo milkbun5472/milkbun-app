@@ -20,7 +20,7 @@ const seg = (() => {
 })();
 
 test("挑花这一枪掷的是轴，不是一张写死的花名表", () => {
-  assert.ok(/const rolled = window\.Axes \? window\.Axes\.roll\(GARDEN_AXIS, \[char\.id, "garden", seen\.length, Date\.now\(\)\]\)/.test(seg),
+  assert.ok(/const rolled = window\.Axes \? window\.Axes\.roll\(GARDEN_AXIS, \[char\.id, "garden", past\.length, Date\.now\(\)\]\)/.test(seg),
     "没走公共那份掷轴，或者种子里少了 char.id／Date.now()——少一个就会每次掷出同一组");
   assert.ok(/window\.Axes\.text\(rolled,/.test(seg), "掷完没拼成话");
   assert.ok(/\(axisText \? "\\n" \+ axisText : ""\)/.test(seg), "掷出来的落点没喂进这一枪的 instruction——掷了也白掷");
@@ -50,20 +50,33 @@ test("真掷起来不会永远是同一组", () => {
   assert.ok(out.size >= 30, "六十次只掷出 " + out.size + " 种组合——种子选得不对（同一个 charId 每次都该不一样）");
 });
 
-// ⚠️「把已经出现过的记下来当 avoid 单子，而且长期记」——这个机制要越用越好，不是越用越旧
-test("挑过的花长期记着，下次不许再挑", () => {
-  assert.ok(/这几种你们已经养过了，这次换一种别的/.test(seg), "没有 avoid 单子");
-  assert.ok(/seen\.slice\(0, 30\)/.test(seg), "avoid 单子没封长度");
-  const i = app.indexOf("  const gardenSeenOf = g => {");
-  assert.ok(i > 0, "抠不出 gardenSeenOf");
-  const src = app.slice(i + "  const gardenSeenOf = ".length, app.indexOf("\n  };", i) + 4);
-  const fn = new Function("return (" + src + ")")();
-  // 老存档没有 seen 这一格：得从干花册和盆里现有那盆补出来，不然这条改动对她是空的
-  assert.deepEqual(fn({ kept: [{ species: "茉莉" }, { species: "薄荷" }], species: "风信子" }), ["茉莉", "薄荷", "风信子"]);
-  assert.deepEqual(fn({ seen: ["茉莉"], kept: [{ species: "茉莉" }], species: "" }), ["茉莉"], "重复的名字该合成一个");
+// ⚠️她 2026-09-20 当场纠正（v72.13）：「有时候确实一种有纪念意义的花他就是会多选几次啊，
+//   轴可以留着，我只是不想每次说的话都是一个意思换几个字」。
+//   上一版我把【花名】当成了 avoid 单子——那等于顺手禁掉了「纪念」这件事。
+//   要避的是那句话：同一种花随便种几次，但那句 why 不许是上一句的换字版。
+test("避的是那句话，不是那种花", () => {
+  assert.ok(/同一种花你完全可以再选一次/.test(seg), "又把同一种花禁掉了——她明确说过纪念性的花就是会重复选");
+  assert.ok(!/这次换一种别的/.test(seg), "旧的「换一种别的」还在");
+  assert.ok(/那句 why 不许是上面某一句的换字版/.test(seg), "没拦住换字版——她报的就是这一条");
+  assert.ok(/说一件上面没说过的/.test(seg), "只说了不许，没给出口（要是又选同一种，他该说什么）");
+  // 单子上必须带着【当时那句话】，不然模型无从知道自己上次说了什么
+  assert.ok(/你们以前种过这些，以及你当时说的话/.test(seg), "avoid 单子只报了花名，没报当时那句话");
+});
+
+test("以前那几盆连话一起长期记着", () => {
+  assert.ok(/gardenPastText\(past\)/.test(seg), "没把以前那几盆喂进去");
+  const i = app.indexOf("  const gardenPastOf = g => {");
+  assert.ok(i > 0, "抠不出 gardenPastOf");
+  const fn = new Function("return (" + app.slice(i + "  const gardenPastOf = ".length, app.indexOf("\n  };", i) + 4) + ")")();
+  // 老存档没有 said 这一格：干花册本来就存着 species + why，从那儿补
+  assert.deepEqual(fn({ kept: [{ species: "茉莉", why: "那天阳台上就剩它还活着" }], species: "茉莉", why: "又是它" }),
+    [{ species: "茉莉", why: "那天阳台上就剩它还活着" }, { species: "茉莉", why: "又是它" }],
+    "同一种花的两句不同的话得都留着——这正是她要的那种重复");
+  assert.deepEqual(fn({ said: [{ species: "茉莉", why: "a" }], kept: [{ species: "茉莉", why: "a" }], species: "" }),
+    [{ species: "茉莉", why: "a" }], "一模一样的一条该合成一个");
   assert.deepEqual(fn(null), [], "空存档该给空单子");
-  // 收干花会把盆清空——seen 不许跟着一起没
   const k = app.indexOf("  const gardenKeep = charId => {");
-  assert.ok(/seen: gardenSeenOf\(g\)/.test(app.slice(k, app.indexOf("\n  };", k))), "收干花时把 avoid 单子丢了");
-  assert.ok(/seen: gardenSeenOf\(old\)\.concat\(\[sp\]\)/.test(seg), "新种下的这一种没记进 avoid 单子");
+  assert.ok(/said: gardenPastOf\(g\)/.test(app.slice(k, app.indexOf("\n  };", k))), "收干花时把 avoid 单子丢了");
+  assert.ok(/said: gardenPastOf\(old\)\.concat/.test(seg), "新种下的这一盆没记进 avoid 单子");
+  assert.ok(/\.slice\(-24\)/.test(seg), "avoid 单子没封长度");
 });
