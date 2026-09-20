@@ -6402,7 +6402,8 @@ function offlineSummaryPartLine(part, userName) {
   if (part === "merge") return "【下面是同一场线下【分段总结】出来的几段，按时间先后排好了。把它们串成一条线，写成一份【整场】的归档；别只复述最后一段，也别把同一件事写两遍。】\n";
   return "【这是同一场线下的第 " + part.i + " 段（共 " + part.n + " 段），只是其中一截，不是整场。就事论事地归档你看到的这一截；别去猜前后发生了什么，也别写成「整场总结」。】\n";
 }
-const OFFLINE_SUM_FED_CAP = 24000;
+const OFFLINE_SUM_FED_CAP = 24000;      // 退路：一枪打不出去时拆成这么大的块
+const OFFLINE_SUM_ONE_SHOT = 50000;     // 一枪吃得下多少：五万字以内不拆，超了才分段
 // ⚠️v72.03 起这儿【不再切尾巴】：切了的那一版（只喂最后 24000 字＋一份被压过的前情提要）
 //   代价就是她 2026-09-20 转来的那条——「总结丢上文，基本上只剩后半段的剧情」。
 //   现在整场原样交出去，由下面的 offlineSummaryRun 按块分段跑，每一段都真的有人看过。
@@ -6440,18 +6441,45 @@ async function offlineSummaryCall(p, system, body, quota) {
   if (d && d.summary) return { summary: String(d.summary).trim(), details: take(d.details, q.details), open: take(d.open, q.open) };
   return { summary: String(raw || "").trim(), details: [], open: [] };
 }
+// 一块打一枪；这一枪要是撞上限（或者线路本身吃不下这么长），就按 24000 拆小再来。
+// ⚠️「撞上限」是不看错误文案的：不管它报什么，拆小重来总比这一场一个字都没记下强。
+//   拆到 24000 还打不出去，那就是真出事了，照实抛出去——app 那头会把原因说给她听。
+async function offlineSummaryRunBlock(p, systemFor, body, quota, part) {
+  try {
+    return await offlineSummaryCall(p, systemFor(quota, part), body, quota);
+  } catch (e) {
+    const small = offlineSummaryChunks(body, OFFLINE_SUM_FED_CAP);
+    if (small.length <= 1) throw e;
+    console.warn("线下总结一枪没打出去，拆成", small.length, "块重来：", (e && e.message) || e);
+    const got = [];
+    for (let i = 0; i < small.length; i++) {
+      const q = offlineSummaryQuota(small[i].length);
+      got.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: small.length }), small[i], q));
+    }
+    const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
+    return {
+      summary: got.map((x, i) => "第 " + (i + 1) + " 段：" + x.summary).join("\n"),
+      details: dedupe([].concat.apply([], got.map(x => x.details))).slice(0, quota.details),
+      open: dedupe([].concat.apply([], got.map(x => x.open))).slice(0, quota.open)
+    };
+  }
+}
 // 太长就分段跑，最后再合成一份（她 2026-09-20 拍的：「分段跑」，「别想着省钱」）。
 // 五万字＝3 枪，二十万字＝9 枪。好处是【没有任何一段是没人看过的】，前后密度一样。
 // systemFor(quota, part)：part 为 null＝整场一枪；{i,n}＝第 i 块；"merge"＝最后合成那一枪。
 async function offlineSummaryRun(p, systemFor, text) {
   const full = String(text || "");
-  const chunks = offlineSummaryChunks(full, OFFLINE_SUM_FED_CAP);
+  // ⚠️分几块，看的是【一枪吃得下多少】，不是 24000（她 2026-09-20：「不能 B 做 5w 字、
+  //   上限放大，然后 A 再超过 5w 字的调用第二枪吗」——对，五万字本来就是多数模型一枪
+  //   吃得下的，没必要让每一场都多花两枪）。
+  //   24000 退居【退路上的块大小】：一枪真撞了上限，就按它拆小再来（见下面 runBlock）。
+  const chunks = offlineSummaryChunks(full, OFFLINE_SUM_ONE_SHOT);
   const quota = offlineSummaryQuota(full.length);
-  if (chunks.length <= 1) return await offlineSummaryCall(p, systemFor(quota, null), chunks[0], quota);
+  if (chunks.length <= 1) return await offlineSummaryRunBlock(p, systemFor, chunks[0], quota, null);
   const parts = [];
   for (let i = 0; i < chunks.length; i++) {
     const q = offlineSummaryQuota(chunks[i].length);
-    parts.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: chunks.length }), chunks[i], q));
+    parts.push(await offlineSummaryRunBlock(p, systemFor, chunks[i], q, { i: i + 1, n: chunks.length }));
   }
   const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
   const details = dedupe([].concat.apply([], parts.map(x => x.details))).slice(0, quota.details);

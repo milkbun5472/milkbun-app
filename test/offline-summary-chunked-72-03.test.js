@@ -45,6 +45,31 @@ test("按行切块，一行都不许劈开", () => {
   assert.ok(one.some(c => c.length >= 24000), "超长的那一行被劈了");
 });
 
+test("五万字以内一枪打完，超了才分段（她 2026-09-20 提的：别让每一场都多花两枪）", () => {
+  const fn = grab("offlineSummaryChunks", "// 场次越长");
+  const chunks = new Function("OFFLINE_SUM_FED_CAP", fn + "; return offlineSummaryChunks;")(24000);
+  assert.match(eng, /const OFFLINE_SUM_ONE_SHOT = 50000;/, "一枪吃多少这个数没了");
+  assert.match(eng, /const OFFLINE_SUM_FED_CAP = 24000;/, "退路上那个块大小没了");
+  const run = grab("offlineSummaryRun", "async function summarizeOffline");
+  assert.match(run, /offlineSummaryChunks\(full, OFFLINE_SUM_ONE_SHOT\)/, "还在按 24000 切——五万字的场次会白花两枪");
+  // 五万字以内不该切
+  const line = "甲：" + "字".repeat(99);
+  const text = Array.from({ length: 400 }, () => line).join("\n");   // 四万字
+  assert.ok(text.length < 50000 && text.length > 24000, "这个桩得落在两个上限中间");
+  assert.strictEqual(chunks(text, 50000).length, 1, "五万字以内被切开了");
+  assert.ok(chunks(text, 24000).length > 1, "退路那个块大小算错了");
+});
+
+test("一枪撞上限就自动拆小重来，别让这一场什么都不剩", () => {
+  const blk = grab("offlineSummaryRunBlock", "// 太长就分段跑");
+  assert.match(blk, /catch \(e\) \{/, "一枪失败就整场抛了");
+  assert.match(blk, /offlineSummaryChunks\(body, OFFLINE_SUM_FED_CAP\)/, "退路上没按小块拆");
+  assert.match(blk, /if \(small\.length <= 1\) throw e;/, "拆到最小还失败时得照实抛，别装作成功");
+  assert.match(blk, /console\.warn\("线下总结一枪没打出去/, "退路走没走过不留痕");
+  // 两条路都得回一样形状的东西，不然上面合成那一步会读到空的
+  ["summary:", "details:", "open:"].forEach(k => assert.ok(blk.indexOf(k) > 0, "退路少回了 " + k));
+});
+
 test("额度跟着场次长度走，不再是写死的 1~3 句 / 6 条", () => {
   const fn = grab("offlineSummaryQuota", "async function offlineSummaryCall");
   const quota = new Function(fn + "; return offlineSummaryQuota;")();
