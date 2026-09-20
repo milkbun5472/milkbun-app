@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.17";
+const APP_VERSION = "v72.18";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19518,7 +19518,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   她这边上个星期的就被挤出去了，而且不留任何痕迹。
   //   改成两条：① 每个角色各自算；② 【还没拆的永远不挤】——封着的那一样掉了，
   //   就永远不知道他放进来的是什么，那跟拆过的看一眼不一样。
-  const DRAWER_CAP = 300;
+  // ⚠️v72.18 起这个数【不再是空间上限】（她 2026-09-20：「这些不能搬到 indexdb 然后
+  //   不上限吗」——它早就在里面了）：x_coupleDrawer 在 engine.js 的 DURABLE_TEXT_KEYS
+  //   名单上，那批键「绝不进 localStorage」，压根不撞那堵 5MB 的墙。120 是搬家之前
+  //   留下的遗物，搬完没人回来撤它。
+  //   现在留的这个数只当【跑飞的写入】的保险丝：哪天某条链循环往里灌，总得有个地方停下来。
+  //   一万条＝她一天收十样也要三年，对人来说就是没有上限。
+  const DRAWER_CAP = 10000;
   const drawerTrim = list => {
     const seen = new Map();
     return (list || []).filter(x => {
