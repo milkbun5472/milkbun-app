@@ -6395,16 +6395,72 @@ function offlineSummaryAvoidBlock(already) {
 //   记忆库、并累进 session.summary。所以这里把那份前情提要顶在最前面一起发。
 // ⚠️切法用 ChatContextWindow.transcriptTail 那一份，不另写一把剪刀
 //   （施工规则/one-public-mechanism.md）；拿不到它就整段发，宁可撞上限也不乱切。
+// 分段跑的时候得让它知道自己在看第几段——不说的话，每一段都会被当成「整场」来概括，
+// 合起来就是三份各自号称完整的总结。合成那一枪读到的是几段总结，不是原文，也要说清楚。
+function offlineSummaryPartLine(part, userName) {
+  if (!part) return "";
+  if (part === "merge") return "【下面是同一场线下【分段总结】出来的几段，按时间先后排好了。把它们串成一条线，写成一份【整场】的归档；别只复述最后一段，也别把同一件事写两遍。】\n";
+  return "【这是同一场线下的第 " + part.i + " 段（共 " + part.n + " 段），只是其中一截，不是整场。就事论事地归档你看到的这一截；别去猜前后发生了什么，也别写成「整场总结」。】\n";
+}
 const OFFLINE_SUM_FED_CAP = 24000;
+// ⚠️v72.03 起这儿【不再切尾巴】：切了的那一版（只喂最后 24000 字＋一份被压过的前情提要）
+//   代价就是她 2026-09-20 转来的那条——「总结丢上文，基本上只剩后半段的剧情」。
+//   现在整场原样交出去，由下面的 offlineSummaryRun 按块分段跑，每一段都真的有人看过。
 function offlineSummarySource(session, toLine) {
   const sess = session || {};
-  const text = (sess.msgs || []).filter(m => !isOocMsg(m)).map(toLine).join("\n");
-  const W = (typeof window !== "undefined" && window.ChatContextWindow) || null;
-  const body = (W && text.length > OFFLINE_SUM_FED_CAP)
-    ? W.transcriptTail(text, OFFLINE_SUM_FED_CAP) : text;
-  const pre = String(sess.summary || "").trim();
-  if (body === text || !pre) return body;
-  return "【这一场前半截的前情提要（早段逐字记录太长，已按下面这段浓缩）】\n" + pre + "\n\n【接下来是逐字记录】\n" + body;
+  return (sess.msgs || []).filter(m => !isOocMsg(m)).map(toLine).join("\n");
+}
+// 按行切块：一行都不许劈开——线下一拍常常是一整段叙事，从中间切断会让这一段两头都读不懂。
+function offlineSummaryChunks(text, cap) {
+  const limit = Math.max(2000, Number(cap) || OFFLINE_SUM_FED_CAP);
+  const out = [];
+  let cur = "";
+  String(text || "").split("\n").forEach(ln => {
+    if (cur && cur.length + ln.length + 1 > limit) { out.push(cur); cur = ""; }
+    cur = cur ? cur + "\n" + ln : ln;
+    if (cur.length >= limit) { out.push(cur); cur = ""; }   // 单独一行就超长：它自己占一块
+  });
+  if (cur.trim()) out.push(cur);
+  return out.length ? out : [""];
+}
+// 场次越长，能留下的东西就该越多（原来写死「1~3 句 / 6 条」——那是按一场普通线下定的，
+// 五万字的场次照这个额度总结，等于让它自己决定扔掉九成）。
+function offlineSummaryQuota(len) {
+  const n = Number(len) || 0;
+  if (n > 120000) return { sents: "8~14 句", details: 40, open: 16 };
+  if (n > 60000) return { sents: "6~10 句", details: 28, open: 12 };
+  if (n > 24000) return { sents: "4~7 句", details: 18, open: 10 };
+  return { sents: "1~3 句", details: 6, open: 6 };
+}
+async function offlineSummaryCall(p, system, body, quota) {
+  const q = quota || {};
+  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + body }], { maxTokens: 12000 });
+  const d = extractJSON(raw);
+  const take = (v, n) => (Array.isArray(v) ? v : []).map(x => String(x).trim()).filter(Boolean).slice(0, n || 6);
+  if (d && d.summary) return { summary: String(d.summary).trim(), details: take(d.details, q.details), open: take(d.open, q.open) };
+  return { summary: String(raw || "").trim(), details: [], open: [] };
+}
+// 太长就分段跑，最后再合成一份（她 2026-09-20 拍的：「分段跑」，「别想着省钱」）。
+// 五万字＝3 枪，二十万字＝9 枪。好处是【没有任何一段是没人看过的】，前后密度一样。
+// systemFor(quota, part)：part 为 null＝整场一枪；{i,n}＝第 i 块；"merge"＝最后合成那一枪。
+async function offlineSummaryRun(p, systemFor, text) {
+  const full = String(text || "");
+  const chunks = offlineSummaryChunks(full, OFFLINE_SUM_FED_CAP);
+  const quota = offlineSummaryQuota(full.length);
+  if (chunks.length <= 1) return await offlineSummaryCall(p, systemFor(quota, null), chunks[0], quota);
+  const parts = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const q = offlineSummaryQuota(chunks[i].length);
+    parts.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: chunks.length }), chunks[i], q));
+  }
+  const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
+  const details = dedupe([].concat.apply([], parts.map(x => x.details))).slice(0, quota.details);
+  const open = dedupe([].concat.apply([], parts.map(x => x.open))).slice(0, quota.open);
+  const joined = parts.map((x, i) => "第 " + (i + 1) + " 段：" + x.summary).join("\n");
+  // 合成那一枪只读各段的总结，不再读原文——它要干的是【把几段串成一条线】，不是重新概括。
+  let merged = { summary: "" };
+  try { merged = await offlineSummaryCall(p, systemFor(quota, "merge"), joined, quota); } catch (e) {}
+  return { summary: merged.summary || joined, details: details, open: open };
 }
 async function summarizeOffline(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -6413,14 +6469,12 @@ async function summarizeOffline(p, ctx, session, already) {
     if (m.role === "narration") return "【场景】" + (m.content || "");
     return userName + "：" + (m.content || "");
   });
-  const system = "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
-    "{\"summary\":\"1~3句第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
-    "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
+  const systemFor = (q, part) => offlineSummaryPartLine(part, userName)
+    + "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
+    "{\"summary\":\"" + q.sents + "第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
+    "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
     "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
-  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 12000 });
-  const d = extractJSON(raw);
-  if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
-  return { summary: String(raw || "").trim(), details: [], open: [] };
+  return await offlineSummaryRun(p, systemFor, text);
 }
 // ------- 群聊线下模式（多角色同处一地的面对面叙事）-------
 // 把群聊线下 msgs 映射成 API 对话：char beat 归 assistant（带发言人名），narration/user 归 user，合并连发
@@ -6700,14 +6754,12 @@ async function summarizeOfflineGroup(p, ctx, session, already) {
     return userName + "：" + (m.content || "");
   });
   // 和单人 summarizeOffline 同构：总结之外，具体细节/未兑现的约定也逐条出（v47.55 平权）
-  const system = "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" +
-    "{\"summary\":\"1~3句第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
-    "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
+  const systemFor = (q, part) => offlineSummaryPartLine(part, userName)
+    + "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" +
+    "{\"summary\":\"" + q.sents + "第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
+    "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
     "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
-  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 12000 });
-  const d = extractJSON(raw);
-  if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
-  return { summary: String(raw || "").trim(), details: [], open: [] };
+  return await offlineSummaryRun(p, systemFor, text);
 }
 // 生成一段静音 WAV 的 data URI（用于后台保活：循环播放占住 iOS 音频会话）
 function makeSilentWav(seconds) {

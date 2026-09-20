@@ -15,33 +15,37 @@ const src = engine.slice(
   engine.indexOf('const OFFLINE_SUM_FED_CAP'),
   engine.indexOf('async function summarizeOffline(p, ctx, session, already)'));
 const build = win => new Function('window', 'isOocMsg',
-  src + ';return { offlineSummarySource: offlineSummarySource, CAP: OFFLINE_SUM_FED_CAP };')(
+  src + ';return { offlineSummarySource: offlineSummarySource, offlineSummaryChunks: offlineSummaryChunks, CAP: OFFLINE_SUM_FED_CAP };')(
   win, m => !!(m && m.kind === 'ooc'));
 
 const line = m => '甲：' + (m.content || '');
 const msgs = n => Array.from({ length: n }, (_, i) => ({ role: 'char', content: '第' + i + '句' + '字'.repeat(60) }));
 
-test('线下总结喂回去的那一段有上限，超了只发尾巴', () => {
-  const { offlineSummarySource, CAP } = build({ ChatContextWindow });
-  const long = { msgs: msgs(400), summary: '' };
-  const out = offlineSummarySource(long, line);
-  assert.ok(out.length <= CAP, '切完还超上限：' + out.length);
-  // 切的是头不是尾：最后一句必须在，第一句必须不在
-  assert.match(out, /第399句/);
-  assert.doesNotMatch(out, /第0句字/);
-});
-
-test('切掉的早段由前情提要顶上，没切时不多插一段', () => {
+// ⚠️v72.03：治「撞上限」的办法从【切尾巴】换成了【分段跑】（她 2026-09-20 拍的 A）。
+//   切尾巴那一版的代价是她转来的那条反馈：总结丢上文、基本上只剩后半段的剧情。
+//   所以这两条改钉新的契约：整场原样交出去，谁都不许被跳过；分块由 offlineSummaryChunks 做，
+//   每一块仍然不超上限——撞上限那个老毛病照样治住了。
+test('整场原样交给总结那一层，一句都不许先被切掉', () => {
   const { offlineSummarySource } = build({ ChatContextWindow });
-  const pre = '滚动总结攒下的前情提要';
-  assert.match(offlineSummarySource({ msgs: msgs(400), summary: pre }, line), new RegExp(pre));
-  // 短的一场原样发，不该凭空多出「前情提要」那一段（她点开看的完整经过不是这条路，但别让模型读到假分段）
-  const short = offlineSummarySource({ msgs: msgs(3), summary: pre }, line);
-  assert.doesNotMatch(short, /前情提要/);
-  assert.match(short, /第0句/);
+  const out = offlineSummarySource({ msgs: msgs(400), summary: '' }, line);
+  assert.match(out, /第0句/);
+  assert.match(out, /第399句/);
 });
 
-test('拿不到公共那把剪刀就整段发，不自己乱切', () => {
+test('长场次按块切，每块都不超上限，而且一个字不丢', () => {
+  const { offlineSummarySource, offlineSummaryChunks, CAP } = build({ ChatContextWindow });
+  const text = offlineSummarySource({ msgs: msgs(400), summary: '' }, line);
+  assert.ok(text.length > CAP, '这个桩本来就该超上限，不然这条测试什么都没测');
+  const chunks = offlineSummaryChunks(text, CAP);
+  assert.ok(chunks.length > 1, '超了上限却没切块，那就会整枪撞上限抛错');
+  chunks.forEach(c => assert.ok(c.length <= CAP + 200, '有一块超了上限：' + c.length));
+  assert.equal(chunks.join('\n').length, text.length, '切完字数对不上——丢字了');
+  assert.match(chunks[0], /第0句/);
+  assert.match(chunks[chunks.length - 1], /第399句/);
+});
+
+// 这一条留着：不管有没有那把剪刀，交出去的都是整场（以前是「拿不到剪刀才整段发」）
+test('拿不到公共那把剪刀也照样是整场', () => {
   const { offlineSummarySource } = build({});
   const out = offlineSummarySource({ msgs: msgs(400), summary: '' }, line);
   assert.match(out, /第0句/);

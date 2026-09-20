@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.02";
+const APP_VERSION = "v72.06";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5651,7 +5651,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
         // 老拍子被摘掉的那些（写景、感官、没带对话的过场）不是丢了——本场的滚动摘要
         // （maybeSummarizeOffline 攒的 sess.summary）就是它们的去处，这里把它带上来。
-        offSummary = (active && active.summary ? String(active.summary).trim() : "").slice(-1200);
+        // ⚠️这儿原来是【第二道】静默的 .slice(-1200)：前情提要本来就攒了上万字，
+        //   到这一步又被砍成 1200，而且同样不留痕。放宽到 6000，真砍到了就带一行记号，
+        //   让他自己知道「更早的部分没给我」，别把没看见的当成没发生过。
+        const _pre = (active && active.summary ? String(active.summary).trim() : "");
+        offSummary = _pre.length > 6000
+          ? "〔这一场更早的前情提要太长，下面是靠后的一段〕\n" + _pre.slice(_pre.length - 6000)
+          : _pre;
         offEnded = !!(active && active.endTs);
       }
       const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));
@@ -6685,6 +6691,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   最早那批浓缩进【记忆库】(addMemEntry) + 累进 session.summary 当前情提要，并推进 lastSummarizedCount（喂模型时
   //   只喂前情提要+近窗明细，见 genOfflineFrom）。结束时的整场总结照旧，两者各司其职。
   const OFF_SUM_THRESH = 50, OFF_SUM_BUFFER = 15;
+  // 这一场的前情提要（滚动总结攒的那一份）留多长。它进的是【线下进行中】的 prompt，
+  // 归档那一枪已经改成分段跑、整场都看得到，不再靠它兜底。
+  // ⚠️原来是写死的 .slice(-4000)，而且是【静默】切：切掉的是最早那几段，谁都不知道。
+  //   现在放宽到 16000，并且真切掉的时候在开头留一行记号——有记号才知道要不要再放宽。
+  const OFF_PRE_CAP = 16000;
+  const OFF_PRE_MARK = "〔更早的前情提要太长，已经被截掉——归档总结不受影响，它读的是整场〕";
+  const offlinePreCap = text => {
+    const s = String(text || "");
+    if (s.length <= OFF_PRE_CAP) return s;
+    console.warn("线下前情提要被截：", s.length, "→", OFF_PRE_CAP);
+    return OFF_PRE_MARK + "\n" + s.slice(s.length - OFF_PRE_CAP);
+  };
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async scopeKey => {
     if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
@@ -6710,7 +6728,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
         (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
         (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
-        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
+        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
@@ -7509,7 +7527,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
           (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
         }
-        pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
+        // ⚠️群线下这一份当初照着单人那一份抄了一遍，于是单人放宽、留记号，它又落单了
+        //   （施工规则/one-public-mechanism.md 的老形状）。现在两处共用 offlinePreCap。
+        pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
       }
     } catch (e) {/* 静默 */ }
     finally { gOffSumBusyRef.current[groupId] = false; }

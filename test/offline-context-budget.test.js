@@ -149,7 +149,15 @@ test("切句不许切进引号里——台词里的句号是台词的", () => {
 });
 
 test("被摘掉的那些不是丢了：本场滚动摘要要带上来", () => {
-  assert.match(app, /offSummary = \(active && active\.summary \? String\(active\.summary\)\.trim\(\) : ""\)\.slice\(-1200\)/);
+  // ⚠️v72.03：原来这儿钉的是 .slice(-1200)——那是【第二道静默截断】，前情提要攒了上万字
+  //   到这一步又被砍成 1200，而且不留痕。现在放宽到 6000，真砍到了带一行记号
+  //   （她 2026-09-20：「记号全都做了吧」）。这条守的是「摘要要带上来」，不是那个数。
+  assert.match(app, /const _pre = \(active && active\.summary \? String\(active\.summary\)\.trim\(\) : ""\);/);
+  assert.match(app, /offSummary = _pre\.length > 6000/);
+  assert.match(app, /〔这一场更早的前情提要太长，下面是靠后的一段〕/, "砍了不留记号");
+  // 注释里提它没关系（那是病历），代码里不许再有
+  assert.ok(!app.split("\n").some(l => !l.trim().startsWith("//") && l.includes(".slice(-1200)")),
+    "又把那个静默的 1200 写回去了");
   // v60.49 起 unshift 落在 rendered 上（瘦身版和全文版都指向它），
   // 所以两条路都带得上这份摘要——名字变了，这件事没变。
   // v64.92 起收过线的那一场也带得进来，所以抬头分两种说法——带摘要这件事没变
