@@ -180,3 +180,37 @@ test("单聊和群聊两条流水线都接上了（四处一样喂）", () => {
   // 双语那一刀按「|」劈，HTML 里正好有竖线——两条线都得放行卡片
   assert.equal((app.match(/htmlCardOf\((w|x)\)\) return acc\.concat\(\[\1\]\)/g) || []).length, 2);
 });
+
+// ⚠️她 2026-09-20 看到真卡之后报「格式难看」：卡被套在气泡里，
+// 72% 宽 + 气泡自己的底色圆角内边距 → 双层圆角两层底色，
+// 「高考成绩通知单」断成两行，一张卡要滑三屏。卡片这一条得整行铺开、气泡皮撤掉。
+test("卡片不套气泡：列宽放开、气泡皮撤干净", () => {
+  const i = comp.indexOf("function cardLayout(");
+  const j = comp.indexOf("function HtmlCard(", i);
+  assert.ok(i > 0 && j > i, "抠不出 cardLayout");
+  const src = 'const htmlCardOf = s => (String(s||"").indexOf("<div") === 0 ? s : null);'
+    + comp.slice(i, j) + "\nreturn cardLayout;";
+  const cardLayout = new Function(src)();
+  assert.equal(cardLayout("就是一句话"), null, "普通消息不许被改样式");
+  const L = cardLayout("<div>x</div>");
+  assert.ok(L, "卡片没拿到布局");
+  assert.equal(L.col.maxWidth, "100%");
+  // 撤皮要撤干净：留一样都会在卡片底下露出来
+  assert.equal(L.bubble.padding, 0);
+  assert.equal(L.bubble.background, "transparent");
+  assert.equal(L.bubble.border, "none");
+  assert.equal(L.bubble.boxShadow, "none");
+  assert.equal(L.bubble.borderRadius, 0);
+});
+
+test("单聊和群聊都问同一个 cardLayout，不各写一份", () => {
+  // 两处列宽 + 两处气泡样式 + 两处贴纸，各一次
+  assert.equal((comp.match(/\(cardLayout\(m\.content\) \|\| \{\}\)\.col/g) || []).length, 2);
+  assert.equal((comp.match(/\(cardLayout\(m\.content\) \|\| \{\}\)\.bubble/g) || []).length, 2);
+  // 卡片上不贴气泡贴纸：卡自带长相，贴纸会糊在它脸上
+  assert.equal((comp.match(/cardLayout\(m\.content\) \? null : bubbleSticker\(isU\)/g) || []).length, 2);
+  // 判据只有一个 htmlCardOf，cardLayout 里不许另立一套
+  const i = comp.indexOf("function cardLayout(");
+  const seg = comp.slice(i, comp.indexOf("function HtmlCard(", i));
+  assert.match(seg, /htmlCardOf\(content\)/);
+});
