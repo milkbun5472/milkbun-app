@@ -8396,6 +8396,7 @@ function ChatThread({
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
     if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
     if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
+    if (m.kind === "kinunbind") return h(KinshipUnbindCard, { key: i, m: m, character: character });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
@@ -11484,6 +11485,35 @@ function KinshipSpendCard({ m, character }) {
 //      过一会儿回头看这段聊天，只看得见她开口要钱，看不见结果。
 // 现实里对应的东西是【提额申请】：报上现在多少、想加多少，递过去，等主卡那头批复，
 // 批完那张单子上要盖个戳。所以按那个来，颜色和卡面同一套（TA的颜色、TA的脸）。
+// 退卡通知（她 2026-09-19：「解绑的时候可以落一张通知卡到聊天，然后我回到聊天说完话
+// 让他回复他就知道我解绑了然后做出反应」）。
+// 跟提额单同一侧（右沿＝这是她按的一个键），但那一道颜色断成虚线：卡还在那儿，只是不通了。
+// ⚠️这张卡上不许写她「为什么」的推测，也不许替 TA 写反应——那两件事一个归她填的那行字，
+//   一个归 TA 下一轮自己说（bans-make-it-dumber：掷约束，别掷答案）。
+function KinshipUnbindCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const ink = c.color || "#6b7a8f";
+  return h("div", { className: "py-1 flex justify-end" },
+    h("div", { "data-wk": "card", style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
+      h("div", { className: "flex" },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { padding: "10px 13px 11px" } },
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 8 } },
+              h(Avatar, { character: c, size: 20, radius: 6 }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                "把" + (c.name || "TA") + "的亲属卡退了")),
+            h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.fog, textDecoration: "line-through" } }, mTight(m.limit || 0, c && c.id)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "共刷过 " + mTight(m.used || 0, c && c.id))),
+            m.reason
+              ? h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.45, color: t.ink } }, "「" + m.reason + "」")
+              : null),
+          h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+            "这张卡已经不能再刷了")),
+        // 断成虚线的那一道：卡还在，只是不通了
+        h("div", { style: { width: 3, flexShrink: 0, backgroundImage: "repeating-linear-gradient(to bottom," + ink + " 0 5px,transparent 5px 10px)" } }))));
+}
 function KinshipRaiseCard({ m, character }) {
   const t = useTheme();
   const c = character || {};

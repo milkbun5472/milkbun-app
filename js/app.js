@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.07";
+const APP_VERSION = "v72.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9388,6 +9388,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "paylater" ? "【" + uName + "把一张购物清单推给你，让你决定要不要替 Ta 付："
               + (m.items || []).map(x => x.name).join("、").slice(0, 60) + "，合计 " + moneyText(m.total || 0, charId)
               + "。" + (m.status === "paid" ? "你已经付了" : m.status === "declined" ? "你没有付" : "还等着你决定") + "。这是 Ta 按的一个请求，不是 Ta 说的一句话】"
+            : m.kind === "kinunbind" ? "【" + uName + "把你给 Ta 的那张亲属卡退回去了（当时额度 " + moneyText(m.limit || 0, charId) + "，总共刷过 " + moneyText(m.used || 0, charId) + "）"
+              + (m.reason ? "，Ta 在退卡时留了一句：「" + m.reason + "」" : "，什么也没说") + "。卡已经作废，Ta 再也刷不了你的钱了。"
+              + "这不是 Ta 跟你说的一句话，是 Ta 做的一件事——在你心里这算什么、要不要提、用什么口气提，全看你的人设、你俩现在的关系和此刻心情："
+              + "可以追问、可以受伤、可以松一口气、可以觉得 Ta 是在跟你划清界限、也完全可以什么都不说】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -21342,6 +21346,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast(add > 0 ? char.name + " 把额度加了 ¥" + add : char.name + " 没有加额度");
     } catch (e) { stamp({ status: "failed" }); toast("加额度失败：" + e.message); }
   };
+  // 退卡（她 2026-09-19：「亲属卡能不能做一个解绑功能然后解绑的时候可以落一张通知卡到聊天」）。
+  // ⚠️这张卡不是一条消息，是一件【她做的事】：所以它跟刷卡单、提额单一样落进聊天，
+  //   等她下次说话时一并喂给 TA——TA 是在聊天里知道这件事的，不是被系统通知的。
+  // ⚠️流水跟卡一起走：解绑之后账单页就没了，删之前要说清楚（never-say-delete-first 的同一条判据——
+  //   这一下之后这几笔流水只剩一个副本，而那个副本就是要被删的这一份）。
+  const unbindKinship = (charId, reason) => {
+    const char = characters.find(c => c.id === charId);
+    const card = kinshipCardsRef.current.find(c => c.charId === charId);
+    if (!char || !card) { toast("没有这张亲属卡"); return; }
+    const why = String(reason || "").trim().slice(0, 60);
+    const used = Math.round((card.used || 0) * 100) / 100;
+    const n = (card.ledger || []).length;
+    requestAppConfirm("把「" + (card.cardName || (char.name + " 的亲属卡")) + "」退回去？",
+      "退了之后这张卡就刷不了了，卡上这 " + n + " 笔流水也跟着没有（已经扣掉的钱不退回 " + char.name + " 账上——那些是真花掉了）。"
+      + char.name + "会在聊天里看到这件事，等你下次说话时由 Ta 自己决定怎么反应。",
+      () => {
+        saveKinship(p => p.filter(c => c.charId !== charId));
+        if (activeCardId === charId) setScreen("wallet");
+        pChat(charId, p => [...p, { role: "user", kind: "kinunbind", charId, read: true, ts: Date.now(),
+          turnId: "ku_" + Date.now(), limit: card.limit || 0, used: used, reason: why,
+          content: "[亲属卡] 把" + char.name + "的亲属卡退回去了" + (why ? "：" + why : "") }]);
+        toast("已解绑 · " + char.name + "会在聊天里看到");
+      }, "解绑");
+  };
   // ============================================================
   // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
   // ============================================================
@@ -22144,7 +22172,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     card: kinshipCards.find(c => c.charId === activeCardId),
     character: characters.find(c => c.id === activeCardId),
     onBack: () => setScreen("wallet"),
-    onRaise: ask => requestKinshipRaise(activeCardId, ask)
+    onRaise: ask => requestKinshipRaise(activeCardId, ask),
+    onUnbind: why => unbindKinship(activeCardId, why)
   });else if (screen === "thread" && activeChar && gardenRoomOf(activeChar.id, activeRoomId) && gardenOpen === activeRoomId) body = h(window.FairyGardenApp, (() => {
     // ── 庭院房（她 2026-09-16：「专门做一间房只给庭院的」）─────────────────
     // 这一支和首页那个架空入口是同一个组件，差别全在这三样 props 上：

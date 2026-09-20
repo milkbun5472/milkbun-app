@@ -3378,10 +3378,12 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
 // ---- 亲属卡账单（每卡流水 + 申请加额度）----
 // v60.45 撤掉了每笔下面那条「角色评论」：它靠刷卡时现调一次模型来填，
 // 而买东西不该调用（她 2026-09-02）。TA要说什么，在聊天里说。
-function KinshipBill({ card, character, onBack, onRaise }) {
+function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
   const [amt, setAmt] = useState("");
+  const [quitting, setQuitting] = useState(false);
+  const [why, setWhy] = useState("");
   if (!card) return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) }, h(Head, { zh: "亲属卡", bg: "transparent", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "卡片不存在"));
   const c = character || {};
   const ledger = card.ledger || [];
@@ -3413,7 +3415,19 @@ function KinshipBill({ card, character, onBack, onRaise }) {
                 h("div", { className: "min-w-0 flex-1" },
                   h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, l.item),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(l.ts))),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount)))))));
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount))))),
+      // 退卡（她 2026-09-19）。摆在账单最后、卡面和流水都看过之后，不跟「申请加额度」并排——
+      // 那两件事方向相反，并排放迟早会点错。留一行字可以填：那句话会跟着通知卡落进聊天，
+      // TA 下一轮就看得见；不填也行，卡照退。
+      onUnbind ? h("div", { className: "px-5 pb-12" },
+        !quitting
+          ? h("button", { onClick: () => setQuitting(true), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999 } }, "把这张卡退回去")
+          : h("div", { className: "p-4", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, "要不要留一句话？" + (c.name || "TA") + "会在聊天里看到这张退卡通知，等你下次说话时由 Ta 自己反应。"),
+              h("input", { value: why, onChange: e => setWhy(e.target.value), maxLength: 60, placeholder: "想说的话（可以不填）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+              h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
+                h("button", { onClick: () => { onUnbind(why); setQuitting(false); setWhy(""); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "解绑"),
+                h("button", { onClick: () => { setQuitting(false); setWhy(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "再想想")))) : null));
 }
 
 // ============================================================
