@@ -5492,7 +5492,33 @@ async function ttsCached(text, voiceId, opts) {
     return !!(hit && hit.size > 0);
   } catch (e) { return false; }
 }
-async function ttsSpeak(text, voiceId, opts) {
+// 同一句话同一个音色，同时只发一枪（v71.89）。
+// 她 2026-09-19：「小世界里语音气泡之间还是有点延迟，能不能跟语音通话一样流畅」。
+// 修法是【上一条还在念的时候就把下一条合成掉】——可那样「预热那次」和「真要播那次」
+// 是两次调用，idb 缓存要等第一次【回来】才存得进去，两次同时在飞就会各发一枪：
+// 延迟没了、钱翻倍。所以在这儿按同一把钥匙合流，两边拿到的是同一个 Promise。
+const _ttsFlight = new Map();
+function ttsSpeak(text, voiceId, opts) {
+  let key = null;
+  try { const d = ttsKeyFor(text, voiceId, opts); key = d && d.key; } catch (e) {}
+  if (!key) return ttsSynth(text, voiceId, opts);
+  const live = _ttsFlight.get(key);
+  if (live) return live;
+  const task = ttsSynth(text, voiceId, opts);
+  _ttsFlight.set(key, task);
+  const drop = () => { if (_ttsFlight.get(key) === task) _ttsFlight.delete(key); };
+  task.then(drop, drop);
+  return task;
+}
+// 提前把下一条合成出来（v56.70 通话首句提速那一招，v71.89 搬成公共的一层：
+// 通话逐气泡播报、庭院气泡念出来，谁要提速都走这儿，不许各自再写一遍）。
+// ⚠️只提前【一条】：语音按次收费，她中途关掉开关最多白花一条。
+// ⚠️永远吞掉失败——预热那条可能根本没人 await，让它炸出未处理拒绝是白给自己添乱。
+function ttsWarm(text, voiceId, opts) {
+  try { const t = ttsSpeak(text, voiceId, opts); t.catch(() => {}); return t; }
+  catch (e) { return Promise.resolve(null); }
+}
+async function ttsSynth(text, voiceId, opts) {
   opts = opts || {};
   const a = loadTtsApi();
   if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
