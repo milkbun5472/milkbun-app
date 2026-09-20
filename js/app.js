@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v71.94";
+const APP_VERSION = "v71.95";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17106,19 +17106,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️光给记忆库不够：记忆是【抽取】出来的，今天刚在聊天里说的「今天调班」多半还没进库。
   //   所以同时带一段最近相处——口子用发帖那处用的同一个 ambientMaterialFor，不另写一份。
   // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
-  const FORUM_GROUND_LIVED = 16;   // 最近相处带几行
   const forumCharGrounding = (ch, post, role, extraQuery) => {
     if (!ch) return "";
     const q = (post.title || "") + " " + (post.body || "") + " " + String(extraQuery || "");
     let mems = [];
     try { mems = retrieveMemories(memLibRef.current, ch.id, q, { limit: 8, touch: false, vec: false }); } catch (e) {}
     const memText = (mems || []).map(m => "· " + String(m.text || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
+    // 「最近发生了什么」直接用聊天那一份【真的上下文】（她 2026-09-20：「为什么不直接带上下文？」）。
+    // ⚠️别在这儿另攒一份：ctxFor(...).recentChat 就是单聊线上/线下/通话共用的那一块——
+    //   它认她自己设的【聊天记录带几条】和【短期窗覆盖天数】，线下按时间合流、通话摊平成
+    //   一条条消息、预算也是同一份。上一版我在这儿用 ambientMaterialFor 另接了一根管子，
+    //   带 16 行就截断，等于又造了一套只有论坛认的上下文（one-public-mechanism.md）。
     let lived = "";
-    try { lived = String(ambientMaterialFor(ch, { limit: FORUM_GROUND_LIVED }) || "").slice(-1400); } catch (e) {}
+    try { lived = String((ctxFor(ch) || {}).recentChat || ""); } catch (e) {}
     const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
     return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
       + (memText ? "\n相关真实记忆：\n" + memText : "")
-      + (lived ? "\n最近真的发生过的事（你本来就知道，别照抄原话、也别在楼里复述成流水账）：\n" + lived : "")
+      + (lived ? "\n你最近真实经历过的（和" + userName(profile) + "的私聊、群聊、线下、通话，你本来就知道这些事；别照抄原话，也别在楼里把它复述成流水账）：\n" + lived : "")
       + "\n";
   };
   const forumCommentProbe = (post, n, opts = {}) => {

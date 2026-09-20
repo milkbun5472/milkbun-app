@@ -20,8 +20,11 @@ const ground = app.slice(i, j);
 
 // ---- 1. 这一份里到底有什么 ----
 assert.match(ground, /retrieveMemories\(memLibRef\.current, ch\.id, q,/, "没按话题检索这个人的真实记忆");
-assert.match(ground, /ambientMaterialFor\(ch, \{ limit: FORUM_GROUND_LIVED \}\)/,
-  "没带最近相处——只有记忆库的话，今天刚说的事还没进库就等于没有");
+// 「最近发生了什么」必须是聊天那一份真的上下文，不许在论坛里另攒一份
+assert.match(ground, /ctxFor\(ch\) \|\| \{\}\)\.recentChat/,
+  "没直接带上下文——只有记忆库的话，今天刚说的事还没进库就等于没有");
+assert.ok(!/ambientMaterialFor\(ch,/.test(ground),
+  "又在论坛里另接了一根只有论坛认的上下文管子");
 assert.match(ground, /ch\.persona/, "人设没带");
 // 检索词必须吃得下调用方额外给的那句（她那句「调班」只在评论里，帖子标题正文一个字都没有）
 assert.match(ground, /String\(extraQuery \|\| ""\)/, "检索词没把调用方多给的那句话算进去");
