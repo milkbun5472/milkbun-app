@@ -23,6 +23,11 @@ test("一颗一直看得见的 ✕，不是长按", () => {
   assert.ok(!/pressProps|startPress/.test(c), "又做成长按了——她明确说过这种列表里不要");
   // 点 ✕ 不能顺手把东西拆开
   assert.match(c, /onClick: function \(e\) \{ e\.stopPropagation\(\); askDrop\(x\); \}/, "点 ✕ 会连带把它拆开");
+  // ⚠️热区 30×30 是给指头的，可热区一居中那个叉就掉到卡片中间去了
+  //   （她 2026-09-20：「这个❌有点太下了」）。热区不动，用负 top 把它提到跟第一行字齐平。
+  assert.match(c, /width: 30, height: 30/, "热区被缩小了，指头点不准");
+  assert.match(c, /top: -7/, "叉又掉下去了");
+  assert.match(c, /gap: 7, paddingRight: 22/, "抬头没给叉让位，时间戳会跟它叠在一起");
 });
 
 test("删之前先问，而且问得出是哪一样", () => {

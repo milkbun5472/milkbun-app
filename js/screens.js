@@ -14318,7 +14318,10 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, ledger, kinds, onBack })
   const dropX = function (x) {
     return h("button", { onClick: function (e) { e.stopPropagation(); askDrop(x); },
       "aria-label": "拿掉这一样", className: "active:opacity-60",
-      style: { position: "absolute", right: 2, top: 2, width: 30, height: 30, zIndex: 2,
+      // ⚠️往上提（她 2026-09-20：「这个❌有点太下了」）：30×30 是为了指头点得到的热区，
+      //   可热区一居中，那个叉看起来就掉到卡片中间去了。所以热区不动，用负 top 把它
+      //   提到跟第一行字齐平——纸是歪着的，再靠下一点就压到正文上了。
+      style: { position: "absolute", right: 0, top: -7, width: 30, height: 30, zIndex: 2,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: "rgba(122,99,56,.5)" } }, "✕");
   };
@@ -14405,7 +14408,8 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, ledger, kinds, onBack })
                 background: "#fffdf6", borderRadius: 2, boxShadow: "0 3px 9px rgba(96,72,40,.11)",
                 transform: "rotate(" + (tilt(i) / 2) + "deg)" } },
                 dropX(x),
-                h("div", { className: "flex items-center", style: { gap: 7 } },
+                // 抬头右边空出一截：时间戳原来正好落在叉底下，两个叠着谁都看不清
+                h("div", { className: "flex items-center", style: { gap: 7, paddingRight: 22 } },
                   h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                     background: k.band, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
                     fontFamily: F_DISPLAY, fontSize: 11.5 } }, k.ch),
