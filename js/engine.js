@@ -5255,6 +5255,8 @@ async function generateRelation(p, a, b, opts) {
 }
 if (typeof window !== "undefined") window.generateRelation = generateRelation;
 
+// ⚠️这一枪只管【角色身边的人】。她自己身边的人（闺蜜、同事）由她手写，不走这儿——
+//   她 2026-09-20：「给我自己的 npc 就让我自己写就行了，不用生成」。
 async function generateNpc(p, hostChar, ask, takenNames) {
   const host = (hostChar && hostChar.name) || "这个角色";
   const persona = String((hostChar && hostChar.persona) || "").replace(/\s+/g, " ").slice(0, 4000);

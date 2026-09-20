@@ -5072,9 +5072,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️「认识她」和「知道她的私事」是两层：认识只是认识，TA 照样不知道她跟 A、跟 B 各自
   //   是什么关系（那归关系隐私铁律管）。一起放开的话，共友就成了一条现成的泄漏通道。
   const npcRosterLine = (c, presentIds) => {
-    const owner = characters.find(x => x.id === c.ownerId);
+    // 主人可能是她本人（ownerId === "me"）——那一支在 characters 里当然找不到
+    const mine = String(c.ownerId) === "me";
+    const owner = mine ? null : characters.find(x => x.id === c.ownerId);
     const bits = [];
-    if (owner) bits.push("这是 " + owner.name + " 身边的人");
+    if (mine) bits.push("这是 " + userName(profile) + " 自己生活里的人（朋友/家人/同事那一类），不是谁的配角");
+    else if (owner) bits.push("这是 " + owner.name + " 身边的人");
     const others = (presentIds || []).filter(id => id !== c.id && id !== c.ownerId).map(id => {
       const o = characters.find(x => x.id === id);
       if (!o) return null;
@@ -8179,6 +8182,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // NPC：她填一句「要谁」，一次调用生成简介+双向关系，落成一个 npc:true 的角色。
   // 走后台线路（和记忆整理、翻译同一条），不占聊天线路。
+  // ⚠️她本人在关系图里本来就是 "me" 这个节点（x_rels 里「me->某角色」一直是这么存的），
+  //   所以她身边的人不另起一套存法：ownerId 收 "me"，npc:true、双向关系、只在群里出场全照旧。
+  // 她自己身边的人：她自己写，零调用（她 2026-09-20：「给我自己的 npc 就让我自己写就行了，
+  // 不用生成」）。⚠️不是把 createNpc 加个开关——那一枪整条都是「拿主人的人设去编一个人」，
+  // 她这一支压根不需要编；共用的是【落成什么】，不是【怎么来的】，所以只共用下面这三行。
+  const addMyNpc = (name, brief, relLabel) => {
+    const nm = String(name || "").trim().slice(0, 24);
+    if (!nm) { toast("先写个名字"); return false; }
+    const id = "c_" + Date.now() + "_npc";
+    const note = String(relLabel || "").trim().slice(0, 60);
+    pC(prev => [...prev, CharacterPronoun.newCharacter({
+      id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000),
+      npc: true, ownerId: "me", knowsUser: true, knowsUserNote: note
+    })]);
+    if (note) { saveRel("me->" + id, note, ""); saveRel(id + "->me", note, ""); }
+    toast("已加入「" + nm + "」，去群里拉上TA");
+    return true;
+  };
+  // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc（她自己写，零调用）。
   const createNpc = async (hostId, ask) => {
     const host = characters.find(c => c.id === hostId);
     if (!host) return;
@@ -22777,6 +22799,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } : c)),
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
     onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
+    onAddMyNpc: addMyNpc,
     onDeleteNpc: id => {
       pC(p => p.filter(c => c.id !== id));
       setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
