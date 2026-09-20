@@ -11,16 +11,27 @@ const fs = require("node:fs");
 const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
-// 真跑认卡片那一段：锚只钉常量名/函数名（施工规则/anchor-on-code.md）
+// 认卡片那一层住在 engine.js（拆气泡的流水线在那儿，比 UI 低一层）
 const load = () => {
-  const a = comp.indexOf("const HTML_CARD_MIN = ");
-  const b = comp.indexOf("function HtmlCard(", a);
+  const a = eng.indexOf("const HTML_CARD_MIN = ");
+  const b = eng.indexOf("function splitLongBubble(", a);
   assert.ok(a > 0 && b > a, "抠不出 htmlCardOf 那一段");
-  const src = comp.slice(a, b) + "\nreturn { htmlCardOf, htmlCardDoc, HTML_CARD_BOOT };";
+  const src = eng.slice(a, b) + "\nreturn { htmlCardOf, splitCardsAndLines };";
   return new Function(src)();
 };
-const { htmlCardOf, htmlCardDoc } = load();
+const { htmlCardOf, splitCardsAndLines } = load();
+// 画卡那两个还在 components.js
+const loadUI = () => {
+  const a = comp.indexOf("// 卡片自己报身高");
+  const b = comp.indexOf("function TransText(", a);
+  assert.ok(a > 0 && b > a, "抠不出 HtmlCard 那一段");
+  const src = "const htmlCardOf = () => null;" + comp.slice(a, b) + "\nreturn { htmlCardDoc, HTML_CARD_BOOT };";
+  return new Function(src)();
+};
+const { htmlCardDoc } = loadUI();
 
 // 桩照【真的会喂进来的东西】写：这是她拿来的那份世界书模板里的高考成绩单卡，
 // 原样保留单行、内联 style、onclick 和尾巴上的 <style>（施工规则/stub-from-the-writer.md）
@@ -123,4 +134,49 @@ test("不许挂常驻定时器：一屏十张卡就是十个永动机", () => {
   const boot = comp.slice(i, j);
   assert.ok(!/setInterval/.test(boot), "卡片里挂了 setInterval");
   assert.match(boot, /ResizeObserver/);
+});
+
+// ⚠️她 2026-09-20 真机报「不行啊」：卡片被切成十几个气泡，头一个气泡只有「<!」。
+// 那一刀是 splitLongBubble 按「！」断句断的——而在它之前还有一刀按换行拆。
+// 所以「整块 HTML 算一条」必须做在【按换行拆之前】，而且两条流水线（单聊/群聊）都要接。
+const CARD_ML = '<!DOCTYPE html>\n<html lang="zh">\n<body>\n'
+  + '<div id="gaokao-report-container" style="max-width:400px">\n'
+  + '<div style="font-size:24px">高考成绩通知单</div>\n<div style="font-size:60px">687</div>\n'
+  + '</div>\n</body>\n</html>';
+
+test("整块 HTML 不许被换行拆开", () => {
+  const out = splitCardsAndLines(CARD_ML);
+  assert.equal(out.length, 1, "卡片被拆成了 " + out.length + " 条");
+  assert.ok(out[0].indexOf("<!DOCTYPE html>") === 0 && out[0].indexOf("687") > 0);
+});
+
+test("整块 HTML 不许被句末标点拆开（<! 那一刀）", () => {
+  const i = eng.indexOf("function splitLongBubble(");
+  const j = eng.indexOf("const LONG = ", i);
+  assert.ok(i > 0 && j > i, "抠不出 splitLongBubble 开头");
+  // 认卡片那一步必须排在 bubbleProtectQuote 那一串【之前】，否则已经被改过了
+  const head = eng.slice(i, j);
+  assert.match(head, /const _card = htmlCardOf\(s\);/);
+  assert.ok(head.indexOf("htmlCardOf") < head.indexOf("bubbleProtectQuote"), "认卡片排到清洗后面去了");
+});
+
+test("话在前、卡在后：两边都不丢", () => {
+  const out = splitCardsAndLines('好的，这是你的成绩单：' + CARD_ML.replace(/\n/g, ""));
+  assert.equal(out.length, 2);
+  assert.equal(out[0], "好的，这是你的成绩单：");
+  assert.ok(out[1].indexOf("<!DOCTYPE html>") === 0);
+});
+
+test("普通消息照常按换行拆，一条没少", () => {
+  assert.deepEqual(splitCardsAndLines("第一句\n第二句\n\n第三句"), ["第一句", "第二句", "第三句"]);
+  assert.deepEqual(splitCardsAndLines(""), []);
+});
+
+test("单聊和群聊两条流水线都接上了（四处一样喂）", () => {
+  // 单聊：按换行还原那一步走公共的
+  assert.match(app, /splitCardsAndLines\(w\)/);
+  // 群聊：进 splitBubbles 之前先认一次
+  assert.match(app, /const _gCard = typeof htmlCardOf === "function" \? htmlCardOf\(item\.text\) : null;/);
+  // 双语那一刀按「|」劈，HTML 里正好有竖线——两条线都得放行卡片
+  assert.equal((app.match(/htmlCardOf\((w|x)\)\) return acc\.concat\(\[\1\]\)/g) || []).length, 2);
 });

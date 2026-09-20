@@ -10352,15 +10352,9 @@ function OnlineTranslationControl() {
 //       父页面的 DOM 碰不到。按钮照样能按。
 //     · 再叠一条 CSP 把出网整个掐掉（default-src 'none'），连信标都发不出去。
 //   这两道缺一不可：沙盒挡「读」，CSP 挡「送」。
-const HTML_CARD_MIN = 80;   // 比这短的不当卡片看：避免把「<3」「<哭>」这种误判成 HTML
-// 认卡片：必须是一整块元素起头的 HTML，不是句子里夹了个尖括号。
-function htmlCardOf(text) {
-  const s = String(text == null ? "" : text).trim();
-  if (s.length < HTML_CARD_MIN) return null;
-  if (!/^<(!doctype\s+html|html|div|section|article|main|table|style|svg|figure)\b/i.test(s)) return null;
-  if (!/<\/\s*[a-z][\w-]*\s*>/i.test(s)) return null;   // 得有闭合标签，半截的不画
-  return s;
-}
+// ⚠️认卡片那一层搬去了 engine.js（施工规则/one-public-mechanism.md）：
+//   拆气泡的流水线在 engine.js/app.js 里，比这儿低一层，得先认出「这是一整块卡片」
+//   才知道不许拆。两边各留一份＝改一处永远漏一处，所以这儿不留第二份。
 // 卡片自己报身高：不给 same-origin 就读不到 contentDocument，只能让里头喊一声。
 // 每张卡发一个一次性 token，父层只认自己那一张（一屏可能同时开着好几张）。
 const HTML_CARD_BOOT = tok => '<script>(function(){function r(){try{var w=document.getElementById("wk-wrap");'

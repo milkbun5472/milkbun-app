@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.24";
+const APP_VERSION = "v72.25";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9673,7 +9673,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!words.length) { const sal = salvageWords(); if (sal.length) words = sal; else if (!looksLikeJSON && String(raw).trim()) words = [String(raw).trim()]; }
       // 拆气泡放在兜底【之后】——这样连 raw/抠出来的一整段也一并拆开，不会「分好行的一大段全挤在一个气泡里」（掉格式）
       // ① 先按换行还原成多条：模型常把本该多条气泡的内容用换行塞进一个字符串
-      words = words.reduce((acc, w) => acc.concat(String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
+      words = words.reduce((acc, w) => acc.concat(typeof splitCardsAndLines === "function"
+        ? splitCardsAndLines(w)
+        : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).filter(Boolean);
       // ①.8 双语（v56.56）：把「原文 | 中文」劈开——中译单独收着，原文照常往下走拆泡那一串。
@@ -9683,6 +9685,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
       words = words.reduce((acc, w) => {
+        // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
+        if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _bilingualOn ? splitBilingual(w) : null;
         const parts = splitLongBubble(bi ? bi.text : w, !_s.engineerEyes);
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
@@ -11228,7 +11232,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             autoTook();
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
-            const rawLines = window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/);
+            // 整块 HTML 卡片先认一次：splitBubbles 按换行拆，会把卡片碾碎（四处一样喂）
+            const _gCard = typeof htmlCardOf === "function" ? htmlCardOf(item.text) : null;
+            const rawLines = _gCard ? [_gCard]
+              : (window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/));
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
@@ -11236,6 +11243,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gBiZh = new Map();
             const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean)
               .reduce((acc, x) => {
+                if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x) : null;
                 const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
                 if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
