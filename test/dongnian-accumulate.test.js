@@ -53,13 +53,20 @@ test("引擎攒得起来：普通对话八九个小时就该想找人", async ()
 
 // 她 2026-08-26：「应该改成大部分时间按他们醒着的时间，不止是 8-23 点，
 // 偶尔要是半夜突然想念了也能发一句」
-test("按 TA 今天的作息判醒没醒，没行程才退回 8-23", () => {
+test("按 TA 今天的作息判醒没醒；没排作息就不猜", () => {
   const i = app.indexOf("const charAwakeState = char =>");
   assert.ok(i > 0);
   const seg = app.slice(i, app.indexOf("const schedNowBriefFor", i));
-  assert.match(seg, /q\.type === "sleep" \? "asleep" : "awake"/);
-  assert.match(seg, /if \(first != null && nowMin < first\) return "asleep"/, "今天第一段之前＝昨晚那觉还没醒");
-  assert.match(seg, /hr >= 8 && hr <= 23\) \? "awake" : "asleep"/, "没行程时的老尺子留着兜底");
+  // ⚠️只看代码行：注释里会引用那句被删掉的旧写法（留着当病历），
+  //   连注释一起 match 的话，这条会对着病历打钩——它就是这么假绿过一次的。
+  const code = seg.split("\n").filter(l => !l.trim().startsWith("//")).join("\n");
+  assert.match(code, /q\.type === "sleep" \? "asleep" : "awake"/);
+  assert.match(code, /if \(first != null && nowMin < first\) return "asleep"/, "今天第一段之前＝昨晚那觉还没醒");
+  // v72.22（她 2026-09-20：「那个 8-23 点兜底也去掉」）：没排作息就一律醒着。
+  // 那句兜底是拿钟点替一个没有作息的人编了一份作息——一过 23 点全世界一律判睡着。
+  // 要他有夜里的样子，就给他排作息。
+  assert.ok(!/hr >= 8 && hr <= 23/.test(code), "8–23 那句又写回来了——它会替没排作息的人编一份作息");
+  assert.match(code, /return "awake";\s*\n\s*\} catch \(e\) \{ return "awake"; \}/, "没排作息时不是一律醒着");
   // 睡着时留一条窄缝，别变成半夜刷屏
   assert.match(app, /if \(!forced \|\| Math\.random\(\) > 0\.12\) continue;/);
   assert.match(app, /t\.action === "contact" && t\.forced/, "只有思念很重那一档才有资格半夜发");

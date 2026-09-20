@@ -4,7 +4,9 @@
 // 那个开关的意思就是【这个人不知道现在几点】。时间块、行程、时刻戳三处都认它，
 // 唯独睡意这一层从上线起就没接上——于是到点照样发「【此刻你快睡了】……回得比平时短、
 // 比平时慢，注意力是散的」，正是她说的半死不活。
-// ⚠️而且没排作息的角色还有个 8–23 的兜底：一过 23 点一律算睡着，一个都跑不掉。
+// ⚠️当时没排作息的角色还有个 8–23 的兜底：一过 23 点一律算睡着，一个都跑不掉。
+//   那句 v72.22 已经整个删掉了（她：「那个 8-23 点兜底也去掉」「没有时间感知的意思
+//   就是我半夜说现在是早上他也能接得上」）——见 dongnian-accumulate 那条。。
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
@@ -19,8 +21,9 @@ test("关了时间感知的角色不许有睡意", () => {
   const fn = app.slice(i, j);
   assert.match(fn, /if \(!timeAwareFor\(char\.id\)\) return "awake";/, "睡意那一层还是不认时间感知开关");
   // ⚠️要挡在【问 charAwakeState 之前】：它自带 8–23 的兜底，晚一步就已经判成睡着了
+  // 顺序仍然要紧：charAwakeState 会读【排了作息的】那份日程，晚一步就已经判睡着了
   assert.ok(fn.indexOf('!timeAwareFor(char.id)') < fn.indexOf('charAwakeState(char) === "asleep"'),
-    "闸挡晚了——charAwakeState 的 8–23 兜底会先把人判睡着");
+    "闸挡晚了——排了作息的角色会先被 charAwakeState 判睡着");
   // 言秋那条豁免别被顺手删了
   assert.match(fn, /engineerEyes\) return "awake";/, "言秋不睡觉那条没了");
 });

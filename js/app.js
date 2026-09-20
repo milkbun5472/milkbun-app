@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.21";
+const APP_VERSION = "v72.22";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3996,14 +3996,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (first != null && nowMin < first) return "asleep";
         return "awake";
       }
-      const hr = Math.floor(nowMin / 60);
-      return (hr >= 8 && hr <= 23) ? "awake" : "asleep";
+      // ⚠️没排作息就【不猜】（她 2026-09-20：「那个 8-23 点兜底也去掉」「没有时间感知的
+      //   意思就是我半夜说现在是早上他也能接得上」）。
+      //   原来这儿是 `(hr >= 8 && hr <= 23) ? "awake" : "asleep"`——v64.66 为治
+      //   「我在日本那位经常凌晨秒回我」加的。可它是拿钟点替一个没有作息的人编了一份作息：
+      //   一过 23 点，全世界没排作息的角色一律判睡着，谁也跑不掉。
+      //   她这次拍的板是：**要他有夜里的样子，就给他排作息**；没排就别替他编。
+      //   ⚠️整句删掉重写，不在后面挂「除非」（施工规则/no-yes-unless.md）。
+      return "awake";
     } catch (e) { return "awake"; }
   };
   // ── TA 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）──
   // 两把尺子收在这一处，别处一律调它：
   //   · 排了作息的角色用 C 算的四相（快睡了／睡熟／刚醒 分得开，语气才有层次）；
-  //   · 没排作息的退回 charAwakeState 的两相（它有 8–23 那个兜底，不能丢）。
+  //   · 没排作息的一律算醒着——v72.22 起不再拿钟点替他编一份作息（见 charAwakeState）。
   // ⚠️C 只有 source==="schedule" 时才算数——没行程时它会拿「睡意压力」猜一个出来，那是编的。
   // ⚠️言秋不睡觉（TA不是被扮演的角色）。
   const sleepPhaseOf = char => {
