@@ -5208,6 +5208,44 @@ function ttsEmotionOf(text) {
 }
 // MiniMax 认的 emotion 值（校验作者标注用）
 const TTS_EMOS = ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"];
+// ── 语气标记：说给 TTS 听的，不给她看（她 2026-09-21 拿别家截图来问）────────────
+// 她原话：「他们语音还会让模型输出语气，我们能不能也弄语气但是不让模型显示出来」。
+// 那套 (chuckle) <#0.4#> 就是 MiniMax T2A v2 自己的语法——我们用的是同一个引擎
+// （speech-02-hd / v1/t2a_v2），一直只用了粗的那一半：voice_setting.emotion 整条一个情绪。
+// inline 标记是逐句的，而且 <#秒#> 能插停顿——那正好治我们语音「一口气连珠炮念完」。
+//
+// ⚠️这一份只有一个出口：合成走【带标记的原文】，显示走【剥干净的】。
+//   四处要剥（单聊语音条、群聊语音条、通话逐句播报、庭院念气泡），各写一份的话
+//   迟早漏一处，而漏掉的那一处正好把标记显示出来——那恰恰是她要躲的（one-public-mechanism）。
+// ⚠️剥标记走【白名单】，不认「凡是半角括号里的英文」：
+//   漏剥最多是显示出一个标记（难看，但一个字没丢）；误剥是把她角色真说的话吃掉。
+//   宁可漏判别误判——跟 noFaceKindFor 那道闸同一条判据。
+const TTS_MARK_TAGS = ["laughs", "laughing", "laugh", "chuckles", "chuckle", "chuckling",
+  "giggles", "giggle", "sighs", "sigh", "sighing", "gasps", "gasp",
+  "whispers", "whispering", "whisper", "softly", "quietly", "excited", "surprised",
+  "crying", "sobs", "sniffles", "breathing", "breathes", "inhale", "inhales", "exhale", "exhales",
+  "clears throat", "coughs", "humming", "hums", "yawns", "kisses", "kiss", "pauses", "mumbles"];
+const TTS_MARK_PAUSE = /<#\s*\d+(?:\.\d+)?\s*#>/g;
+const TTS_MARK_TAG_RE = new RegExp("\\(\\s*(?:" + TTS_MARK_TAGS.join("|") + ")\\s*\\)", "gi");
+// 剥干净给人看的那一份。⚠️剥完要收拾空白：标记两边本来各有一个空格，
+//   不收拾的话气泡里会留下一串空洞（她截图那家就是没剥，整串都露在外面）。
+function ttsMarkStrip(text) {
+  const s = String(text == null ? "" : text);
+  if (!s) return "";
+  return s.replace(TTS_MARK_PAUSE, " ").replace(TTS_MARK_TAG_RE, " ")
+    .replace(/[ \t\u3000]+/g, " ")
+    .replace(/\s+([，。！？、；：」』）])/g, "$1")
+    .replace(/\s+$/gm, "")
+    .trim();
+}
+// 这段文字里到底有没有标记（界面上要据此说「听到的和看到的不一样」）
+// ⚠️别拿上面那两个带 g 的正则直接 .test()：带 g 的 test 会推着 lastIndex 走，
+//   同一段字连问两次会时真时假。所以判有没有就问【剥完是不是变短了】——
+//   只有一份判据，也不可能跟 ttsMarkStrip 漂走。
+function ttsHasMark(text) {
+  const s = String(text == null ? "" : text);
+  return !!s && ttsMarkStrip(s) !== s.trim();
+}
 // 按台词自动选发音矫正 language_boost（v47.92）：治「日语角色被中文矫正带偏口音」。
 // 假名(ひらがな/カタカナ)是日语铁证、中文里不会出现→有假名走 Japanese，谚文走 Korean，纯 ASCII 走 English，其余默认 Chinese
 function ttsLangBoost(text) {

@@ -7272,6 +7272,15 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   const [testing, setTesting] = useState(false);
   const [testErr, setTestErr] = useState(null);
   const testAudRef = useRef(null);
+  // 语气标记验货台（v72.39，她 2026-09-21：「能不能也弄语气但是不让模型显示出来」）。
+  // ⚠️第一步只做这一格：MiniMax 认不认 (chuckle) 这类标记，我替她猜没有意义——
+  //   认了就是更细的语气，不认就会【把 chuckle 这个词念出来】，比现在还糟。
+  //   所以先让她自己听一条，听过了再决定要不要让模型去写标记。
+  const [markTxt, setMarkTxt] = useState("(chuckle) 你回来啦 <#0.5#> 我等好久了 (softly) 饿不饿");
+  const [markVid, setMarkVid] = useState("");
+  const [markBusy, setMarkBusy] = useState(false);
+  const [markErr, setMarkErr] = useState(null);
+  const markAudRef = useRef(null);
   // 克隆音色
   const [cloneFile, setCloneFile] = useState(null);
   const [cloneId, setCloneId] = useState("");
@@ -7313,6 +7322,23 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     } catch (e) { setTestErr(String((e && e.message) || e)); }
     finally { setTesting(false); }
   };
+  const runMark = async () => {
+    if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
+    const raw = String(markTxt || "").trim();
+    if (!raw) { toast && toast("先写一句带标记的话"); return; }
+    const aud = new Audio();
+    markAudRef.current = aud;
+    aud.play().catch(() => {});
+    setMarkBusy(true); setMarkErr(null);
+    try {
+      // ⚠️合成送的是【带标记的原文】，不是剥过的那一份——这一格验的就是标记本身
+      const blob = await ttsSpeak(raw, String(markVid || "").trim() || "female-shaonv");
+      const url = URL.createObjectURL(blob);
+      aud.src = url; aud.onended = () => URL.revokeObjectURL(url);
+      await aud.play();
+    } catch (e) { setMarkErr(String((e && e.message) || e)); }
+    finally { setMarkBusy(false); }
+  };
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
@@ -7337,6 +7363,30 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("option", { value: "speech-01-turbo" }, "speech-01-turbo"))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。"),
       h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
+      // ---- 语气标记验货台（v72.39）----
+      // 她 2026-09-21 拿别家截图来问：那套 (chuckle) <#0.4#> 正是 MiniMax 自己的语法，
+      // 我们用的是同一个引擎，一直只用了粗的那一半（整条一个 emotion）。
+      // ⚠️但【认不认】只有真听一条才知道：不认的话它会把 chuckle 这个词念出来。
+      //   所以先做这一格，别急着让模型去写标记。
+      h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
+          "MiniMax 自己的语法：圆括号里的英文是语气（laughs / chuckle / softly / whispering / sighs…），<#秒数#> 是停顿。"
+          + "这一格把【原样带标记的文本】送去合成——听听 TA 是真的照着演，还是把「chuckle」这个词念了出来。"
+          + "⚠️这一格按字符计费，跟平时听语音一样。"),
+        h("textarea", { value: markTxt, onChange: e => setMarkTxt(e.target.value), rows: 3,
+          style: Object.assign({}, inSt, { resize: "vertical", lineHeight: 1.6, marginBottom: 8 }) }),
+        h("input", { value: markVid, onChange: e => setMarkVid(e.target.value), placeholder: "音色 voice_id（留空用预置的 female-shaonv）", style: Object.assign({}, inSt, { marginBottom: 8 }) }),
+        // 听到的 vs 看到的：剥标记只有 engine 那一支 ttsMarkStrip，这儿不另写一份
+        h("div", { style: { padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, marginBottom: 8 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } },
+            (typeof ttsHasMark === "function" && ttsHasMark(markTxt))
+              ? "气泡里会显示成（标记剥掉之后）"
+              : "这句里没有标记——听到的和看到的会是同一份"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" } },
+            (typeof ttsMarkStrip === "function" ? ttsMarkStrip(markTxt) : markTxt) || "（空）")),
+        h("button", { onClick: runMark, disabled: markBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, markBusy ? "合成中…" : "🔊 按原文合成（带标记）"),
+        markErr ? h("div", { style: { marginTop: 8, padding: "9px 11px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, markErr) : null),
       // ---- 克隆音色：传人声样本 → 得到专属 voice_id → 填进角色档案 ----
       h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "🎤 克隆音色"),
