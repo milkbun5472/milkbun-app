@@ -12,7 +12,7 @@ function fixture() {
   const env = {
     SCHEDULE_CONTEXT_RULE: new Function(engine.match(/^const SCHEDULE_CONTEXT_RULE = .*;$/m)[0] + ' return SCHEDULE_CONTEXT_RULE;')(),
     members, people: members, characters: members, phones: {}, groupId: 'g', profile: {},
-    gs: { memoryInterop: true }, gcInterop: true, gPersonaCap: 6000, gCallCap: 6000, NPC_PERSONA_CAP: 900,
+    gs: { memoryInterop: true }, gcInterop: true, gPersonaCap: 6000, gCallCap: 6000, NPC_PERSONA_CAP: 3000,
     userName: () => '读者', groupPersonaText: (p, cap) => p.slice(0, cap),
     statesRef: { current: { a: { wearing: '甲衣', action: '甲动作' }, b: { wearing: '乙衣' } } },
     moods: { a: { label: '甲心情', ts: 1 }, b: { label: '乙心情', ts: 2 } },
@@ -65,6 +65,10 @@ function wire(env) {
   env.groupBackgroundSegments = evaluate(formatter, env, 'groupBackgroundSegments');
   env.groupBackgroundFor = evaluate(collector, env, 'groupBackgroundFor');
   env.groupNowSegs = evaluate(now, env, 'groupNowSegs');
+  // v72.06：配角那一整段（户口 + 心情／想法／穿着／动作）由公共的 npcGroupLine 拼，
+  // 三条群路和群线下共用。跟 npcRosterLine 一样接【真的那一份】，打桩就等于没测。
+  env.npcGroupLine = evaluate(cut(app, '  const npcGroupLine =', '  const npcsOf ='), env, 'npcGroupLine');
+  env.ctx.npcRoster = { npc: env.npcGroupLine(env.members[2], env.members.map(x => x.id)) };
   return env;
 }
 const sections = {

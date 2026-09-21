@@ -41,7 +41,7 @@ test("四条心声通道都走 accept，所以自动全覆盖", () => {
   assert.match(app, /const thought = TVG\.accept\(rawThought\);/, "群与通话共用守卫");
   assert.match(app, /const guardedThought = TVG\.accept\(rawThought\);/, "线上单聊");
   assert.match(app, /TVG\.accept\(res\.thought\)/, "单人线下");
-  assert.match(app, /if \(!gOffSealed\) writeGroupLiveState\(characters.find/, "群线下");
+  assert.match(app, /if \(!gOffSealed \|\| _bNpc\) writeGroupLiveState\(characters.find/, "群线下");
   assert.match(app, /writeGroupLiveState\(spk, \{ thought: item.thought/, "群聊");
 });
 

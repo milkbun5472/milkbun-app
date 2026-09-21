@@ -60,13 +60,18 @@ test("四处都要真的拼进去，不能再只是声明", () => {
   assert.equal(seq.indexOf("<MOOD_TURN_RULE>"), seq.indexOf("<PERSONA_REGISTER_ANCHOR>") + 1, "群线下");
   // 会写心情的才要：群线上的 mood 跟着字段走（在 common 里），通话不写心情
   assert.ok(!GB.has(GB.CALL, "MOOD_TURN_RULE"), "通话不写心情，别白发一层");
+  // v72.06 多了一处：闭群里有配角时那一份【配角的状态卡】——配角那四样不看互通开关，
+  // 心情怎么写仍旧只有 MOOD_TURN_RULE 一份（她 2026-09-20）。
+  assert.match(app, /其余成员这一轮不填这几样。\\n" \+ MOOD_TURN_RULE/, "群线上·配角那一份");
   assert.equal((engine.match(/MOOD_TURN_RULE/g) || []).length +
-               (app.match(/MOOD_TURN_RULE/g) || []).length, 5,
-    "1 处定义 + groupBans + 单人线下 + 单聊线上 v2 + 群线上（v66.12 删掉了那条不再发送的 A/B 基线，少一处）");
+               (app.match(/MOOD_TURN_RULE/g) || []).length, 6,
+    "1 处定义 + groupBans + 单人线下 + 单聊线上 v2 + 群线上 + 群线上配角那一份");
 });
 
-// 心声历史只存档、不回灌进提示词——所以唯一的反馈源就是【你此刻的心情】那一行，
-// 新规则正对着它。这条钉住这个前提：哪天历史被喂回去了，就得重新想这条够不够。
+// 心声【历史】只存档、不回灌进提示词。回去的只有最新那一条（v72.06 起，
+// 跟「上一动作」同一个道理：规则里写着「和上一条不一样」，就得让它看得见上一条），
+// 以及【你此刻的心情】那一行。这条钉住的是：整摞历史不许进提示词——
+// 一摞记录会变成投票，规则再硬也压不过它。
 test("心声历史不许被喂回提示词，否则规则再硬也会被记录投票压过去", () => {
   const uses = app.split("\n")
     .map((l, n) => ({ l, n: n + 1 }))

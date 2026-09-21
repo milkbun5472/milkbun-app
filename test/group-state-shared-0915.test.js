@@ -22,15 +22,18 @@ test('群线上与群线下共用出口，空/被拒心声清旧快照，后续�
  f.write(b,{thought:'我需要表现出一种镇定的感觉'});assert.equal(f.states.b.thought,null);
  const next=fixture();next.states.a={thought:'上一轮'};next.write(a,{});assert.equal(next.states.a.thought,null);
  assert.match(app,/writeGroupLiveState\(spk, \{ thought: item.thought/);
- assert.match(app,/if \(!gOffSealed\) writeGroupLiveState\(characters.find/);
+ // v72.06：配角那四样不看闭群那道闸（她 2026-09-20）——闭群里的好兄弟也该有情绪
+ assert.match(app,/if \(!gOffSealed \|\| _bNpc\) writeGroupLiveState\(characters.find/);
  assert.match(app,/goTurnId, affinityBefore, _offThoughtOnce\)/);
 });
-test('NPC心声与动作正常保存，不写心情好感；工程师保留自主心声',()=>{
+// v72.06（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）：
+// 心情从「填了就丢」改成真的存下来；好感仍旧不给配角（affinityBefore 不落）。
+test('NPC心情心声穿着动作四样都保存，不写好感；工程师保留自主心声',()=>{
  const f=fixture(),npc={id:'n',npc:true};
  f.write(npc,{thought:'我有点想她。',mood:'开心',wearing:'外套',action:'看书'});
  assert.equal(f.states.n.thought,'我有点想她。');assert.equal(f.hist[0].id,'n');
  assert.equal(f.states.n.wearing,'外套');assert.equal(f.states.n.action,'看书');
- assert.equal(f.states.n.mood,undefined);assert.equal(f.states.n.affinityBefore,undefined);
+ assert.equal(f.states.n.mood,'开心');assert.equal(f.states.n.affinityBefore,undefined);
  f.write(npc,{action:'放下书'});assert.equal(f.states.n.thought,'我有点想她。');
  f.seen.clear();f.write(npc,{});assert.equal(f.states.n.thought,null);
  f.states.engineer={thought:'自主心声'};f.write({id:'engineer'},{mood:'平静'});assert.equal(f.states.engineer.thought,'自主心声');

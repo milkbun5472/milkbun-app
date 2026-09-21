@@ -386,6 +386,26 @@
   const okColor = v => /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(v || "").trim())
     || /^(rgb|rgba|hsl|hsla)\([0-9.,%\s/]+\)$/i.test(String(v || "").trim())
     || /^[a-z]{3,20}$/i.test(String(v || "").trim());
+  // ── 一页一个大小（她 2026-09-20：「字体大小能不能自定义啊每一个 app 单独，
+  //    就跟 css 一样可以每个 app 单独调，然后做拉条选大小」）────────────────
+  // ⚠️为什么是 zoom 而不是 font-size：这个 App 的字号【全是内联 px】（fontSize: 13 这种），
+  //   而内联样式压得过任何样式表规则；就算用 !important 硬压，那也是把满页大小不一的字
+  //   统统拍成同一个数——版面当场就塌了。要按【比例】放大，CSS 里唯一压得住内联 px 的
+  //   就是 zoom：它是整块一起缩放，字、头像、间距按原比例一起变大，版面不会乱。
+  //   所以这一格的名字叫「这一页多大」，不叫「字号」——它放大的是整页，不只是字。
+  const ZOOM_MIN = 0.8, ZOOM_MAX = 1.4;
+  const okZoom = v => { const n = Number(v); return isFinite(n) && n >= ZOOM_MIN && n <= ZOOM_MAX; };
+  const cleanZoom = obj => {
+    const out = {};
+    Object.keys(obj || {}).forEach(k => {
+      const key = String(k).replace(/[^a-zA-Z0-9_-]/g, "");
+      if (!key) return;
+      const n = Math.round(Number(obj[k]) * 100) / 100;
+      if (okZoom(n) && n !== 1) out[key] = n;   // 1 就是没调过，不必存
+    });
+    return out;
+  };
+  const zoomFor = page => (cleanZoom((current() || {}).pageZoom))[page] || 1;
   const cleanTokens = obj => {
     const out = {};
     Object.keys(obj || {}).forEach(k => {
@@ -474,18 +494,19 @@
     const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
     return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".webp" : "";
   };
-  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, fonts: { body: "", display: "" }, customFonts: [], globalCSS: "", pageCSS: {}, pageTokens: {}, updatedAt: 0 });
+  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, fonts: { body: "", display: "" }, customFonts: [], globalCSS: "", pageCSS: {}, pageTokens: {}, pageZoom: {}, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
     const iconPack = ICON_PACKS[x.iconPack] ? String(x.iconPack) : "";
     const pageTokens = {};
     Object.keys(x.pageTokens || {}).forEach(k => { const c = cleanTokens(x.pageTokens[k]); if (Object.keys(c).length) pageTokens[k] = c; });
+    const pageZoom = cleanZoom(x.pageZoom);
     // 字体那两支照 FontChoice 洗（认不出的落回默认）；它没加载出来就当没挑过。
     // ⚠️顺序要紧：先把她自己传的那几支洗干净，再拿【洗完的名单】去认那两支——
     //   反过来的话，删掉一支自定义字体之后，变量还指着一个不存在的字族。
     const customFonts = g.FontChoice ? g.FontChoice.customList(x.customFonts).map(f => f.custom) : [];
     const fonts = g.FontChoice ? g.FontChoice.clean(x.fonts, customFonts) : { body: "", display: "" };
-    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, customFonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens };
+    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, customFonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens, pageZoom };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   const save = p => { const n = normalize({ ...p, updatedAt: Date.now() }); localStorage.setItem(KEY, JSON.stringify(n)); return n; };
@@ -537,6 +558,11 @@
     const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts, p.customFonts, g.resolveImg) : "";
     if (fontCSS) blocks.push("/* fonts */\n" + fontCSS);
     if (p.globalCSS) blocks.push("/* global */\n" + p.globalCSS);
+    // 大小排在她自己写的 CSS 【前面】：她想在 CSS 里再压一道，照样压得住。
+    Object.entries(cleanZoom(p.pageZoom)).forEach(([page, z]) => {
+      blocks.push("/* zoom " + page + " */\n"
+        + (page === "all" ? "body" : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";}");
+    });
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
       if (!css || page === "all") return;
       blocks.push("/* " + page + " */\n" + scopeCSS(css, 'html[data-lisa-screen="' + page.replace(/[^a-zA-Z0-9_-]/g, "") + '"]'));
@@ -605,7 +631,7 @@
     const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? pkg.bubbleSkin : null;
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);
