@@ -44,7 +44,8 @@ test("③ 每轮都写状态卡，字段跟线上那份协议一样", () => {
 });
 
 test("④ 没有另开一条写状态的路——用的是公共那个出口", () => {
-  const i = app.indexOf("const callPutState = (cid, d, turnId) => {");
+  // v72.06 多了一个 isNpc：配角那四样不看闭群那道闸（她 2026-09-20）
+  const i = app.indexOf("const callPutState = (cid, d, turnId, isNpc) => {");
   assert.ok(i > 0, "没有这个公共小函数");
   const body = app.slice(i, app.indexOf("\n      };", i));
   assert.match(body, /setStateFor\(cid, ns\);/, "没走公共出口");

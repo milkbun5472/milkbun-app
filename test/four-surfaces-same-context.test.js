@@ -28,18 +28,21 @@ test("规矩写在 .claude/rules 里，不是只活在某一次对话里", () =>
 
 const B = (() => {
   const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
-  return new Function("const GROUP_PERSONA_BUDGET = 30000, GROUP_PERSONA_EACH_MAX = 6000;" + g("function groupPersonaBudget(")
+  // ⚠️常量从 engine 里【原样取】，别在测试里另抄一份数字：抄了之后那头一改，
+  //   这儿还绿着（施工规则/stub-from-the-writer.md 是同一个形状）。
+  const consts = engine.match(/^const GROUP_PERSONA_BUDGET = .*$/m)[0];
+  return new Function(consts + g("function groupPersonaBudget(")
     + g("function groupPersonaText(") + "\nreturn { groupPersonaBudget, groupPersonaText };")();
 })();
 
 test("人设按在场人数分预算，小群直接给全文", () => {
-  assert.equal(B.groupPersonaBudget(3), 6000);
-  assert.ok(B.groupPersonaBudget(40) >= 1500, "人再多也得有个地板");
+  assert.equal(B.groupPersonaBudget(3), 10000);
+  assert.ok(B.groupPersonaBudget(40) >= 2500, "人再多也得有个地板");
   // 两三个人的群，两千字的人设一个字不砍
   const p = "甲".repeat(2000);
   assert.equal(B.groupPersonaText(p, B.groupPersonaBudget(3)), p);
   // 超了才截，而且要说明是被截的
-  const long = "乙".repeat(9000);
+  const long = "乙".repeat(15000);
   const cut = B.groupPersonaText(long, B.groupPersonaBudget(3));
   assert.ok(cut.length < long.length);
   assert.match(cut, /〔人设过长，按在场人数分到的额度截断〕$/);
@@ -125,8 +128,10 @@ test("写：封闭群一个字都不回流主线", () => {
   assert.match(app, /const gOffSealed = groupClosed\(group\.id\);/);
   // v56.03 起同一行还多挡了 NPC（配角没有心情/好感），闭群那道闸原样还在
   assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId\) bumpAff/);
-  assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId && b\.mood && b\.mood\.label\) setMoodFor/);
-  assert.match(app, /if \(!gOffSealed\) writeGroupLiveState\(characters.find/);
+  // v72.06：配角那四样（心情／想法／穿着／动作）不看闭群那道闸——他不回流主线，
+  // 状态卡只活在群里（她 2026-09-20）。主角色照旧被闭群封死。
+  assert.match(app, /if \(\(!gOffSealed \|\| _bNpc\) && b\.senderId && b\.mood && b\.mood\.label\) setMoodFor/);
+  assert.match(app, /if \(!gOffSealed \|\| _bNpc\) writeGroupLiveState\(characters.find/);
   // 动态计数器：线上线下都要堵
   assert.match(app, /if \(!groupClosed\(groupId\)\) _gspoke\.forEach/, "群聊线上");
   assert.match(app, /if \(!groupClosed\(group\.id\)\) _spoke\.forEach/, "群线下");
@@ -145,12 +150,16 @@ test("实时私聊窗口仍归互通群，别和 preJoin 叠加", () => {
   assert.match(app, /否则同一段私聊会进两遍/);
 });
 
+// v72.06 又往上抬了一档（她 2026-09-20：「万一以后用得上改了吧，反正现在没影响改了也没伤」）：
+// 每人 6000→10000、总预算 30000→50000 都是【天花板】，人设没那么长就一分钱都不多花；
+// 当场就有用的是地板 1500→2500——十个人的群原来每人只剩 3000，那正是「只剩一张标签」那一档。
 test("人设额度放宽到她的实际长度：每人 4500+ 不该被砍", () => {
-  assert.equal(B.groupPersonaBudget(3), 6000);
-  assert.equal(B.groupPersonaBudget(5), 6000);
-  assert.equal(B.groupPersonaBudget(10), 3000);
-  assert.ok(B.groupPersonaBudget(40) >= 1500, "地板");
+  assert.equal(B.groupPersonaBudget(3), 10000);
+  assert.equal(B.groupPersonaBudget(5), 10000);
+  assert.equal(B.groupPersonaBudget(10), 5000);
+  assert.ok(B.groupPersonaBudget(40) >= 2500, "地板");
   const p = "甲".repeat(4500);
   assert.equal(B.groupPersonaText(p, B.groupPersonaBudget(5)), p, "五人以内一个字不砍");
+  assert.equal(B.groupPersonaText(p, B.groupPersonaBudget(10)), p, "十个人的群也不该再砍到 3000");
   assert.match(engine, /她的人设每个都 4500\+/);
 });

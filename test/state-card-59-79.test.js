@@ -35,7 +35,8 @@ test("五个分栏不再是参考里那一套", () => {
 
 test("心情长在抬头那一行上，不再单独占一张卡", () => {
   const head = card.slice(card.indexOf("const head = h("), card.indexOf("const tabs ="));
-  assert.match(head, /\(!isNpc && dm\) \? h\("span", \{ style: \{ color: t\.accent \} \}, dm\.label\)/, "心情没挨着名字");
+  // v72.06：配角也有真会动的心情了，所以这一行不再按 isNpc 藏（见 npc.test.js 那条）
+  assert.match(head, /: dm \? h\("span", \{ style: \{ color: t\.accent \} \}, dm\.label\)/, "心情没挨着名字");
   assert.match(head, /dm && dm\.def \? "聊几句就会变"/, "默认心情没交代");
   assert.match(head, /dm && dm\.faded \? "已经平复下去了"/, "平复过的没交代");
   assert.match(head, /timeAgo\(dm\.ts\) \+ "变的"/, "看不出这心情是什么时候写的");

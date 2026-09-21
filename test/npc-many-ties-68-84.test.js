@@ -42,8 +42,11 @@ test("② 群成员表那一行跟着关系走，不只报户口", () => {
     "不说的话，模型只知道 TA 是甲的人，跟乙说话时还是当陌生人");
   // 不在场的人不提（她只关心这一场里的关系）
   assert.doesNotMatch(make(chars, { "n->b": { label: "旧同学" } })(npc, ["a", "n"]), /乙/);
-  // 四处一样喂：群线上 / 群线下 / 群通话 / 旁观群 都读这一份
-  assert.equal((app.match(/npcRosterLine\(c, /g) || []).length, 4, "四处少了一处：群线上 / 旁观群 / 群通话 / 群线下（递进 ctx 那一处）");
+  // 四处一样喂：群线上 / 群线下 / 群通话 / 旁观群 都读这一份。
+  // ⚠️v72.06 起它们读的是【外面那一层 npcGroupLine】（户口那一行 + 配角那四样），
+  //   所以 npcRosterLine 本身只被调一次——四处共用这件事改由下面那条盯着。
+  assert.equal((app.match(/npcRosterLine\(c, /g) || []).length, 1, "户口那一行只许有一个调用点（收在 npcGroupLine 里）");
+  assert.equal((app.match(/npcGroupLine\(c, /g) || []).length, 4, "四处少了一处：群线上 / 旁观群 / 群通话 / 群线下（递进 ctx 那一处）");
   assert.match(app, /npcRoster: \(\(\) => \{/, "群线下那一路没把它递进 ctx");
   assert.match(engine, /\(ctx\.npcRoster && ctx\.npcRoster\[c\.id\]\) \? ctx\.npcRoster\[c\.id\]/);
 });

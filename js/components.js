@@ -12210,8 +12210,10 @@ function StateCard({
     h("div", { className: "flex-1 min-w-0" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, character.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
-        roomName ? h("span", { style: { color: t.accent } }, roomName + " · 心声只留在本房") : (!isNpc && dm) ? h("span", { style: { color: t.accent } }, dm.label) : null,
-        (!roomName && !isNpc && dm) ? " · " : "",
+        // ⚠️配角的心情也显示（她 2026-09-20：「心情想法穿着动作这四样放 npc 状态卡」）。
+        //   原来这两处拿 isNpc 把心情那一行整个藏了；好感那颗心照旧不给配角（见下面的 scale）。
+        roomName ? h("span", { style: { color: t.accent } }, roomName + " · 心声只留在本房") : dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        (!roomName && dm) ? " · " : "",
         roomName ? "" : dm && dm.def ? "聊几句就会变"
           : dm && dm.faded ? "已经平复下去了"
             : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"))),
@@ -13245,6 +13247,8 @@ function GroupOfflineMode({
   const kbLift = useKbLift(); // iOS 键盘弹起时把底部输入栏顶上来（v47.91）
   const gName = group.name;
   // 群线下：点成员头像看心声（和线上群一样，由 app 决定开不开互通时才传 onOpenMemberState）
+  // ⚠️谁点得开由 app 那一处判（闭群里只有配角点得开，他那四样不看互通开关）：
+  //   这儿的 settings 是【这场线下自己的设置】，里头没有 memoryInterop，判不了。
   const offOpenState = onOpenMemberState ? (sp => sp && onOpenMemberState(sp.id)) : undefined;
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
@@ -13658,8 +13662,10 @@ function GroupThread({
   const memberById = id => (allChars || characters).find(c => c.id === id);
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
-  const canPeek = gsp.memoryInterop && onOpenMemberState;
-  const mAvatar = (character, size) => (canPeek && character && character.id)
+  // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
+  //   所以闭群里也点得开——否则料写进去了，她一眼都看不到。
+  const canPeek = onOpenMemberState && (c => gsp.memoryInterop || !!(c && c.npc));
+  const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
     : h(Avatar, { character: character, size: size || 34, radius: 8 });
   const openRp = i => {

@@ -71,7 +71,9 @@ test('共享背景排除 NPC；空字段不产生空壳段落', () => {
   const env = wire(fixture());
   env.aMoodTextOf = () => { throw Error('NPC 不得访问角色背景'); };
   assert.deepEqual(env.groupBackgroundFor(env.members[2]), {});
-  assert.deepEqual(env.groupNowSegs(env.members[2]), {});
+  // v72.06：配角有了那四样（心情／想法／穿着／动作），所以这儿不再是空对象——
+  // 但也【只有这两格】：好感、年龄、情侣、行程、背景六层一个都不许长出来。
+  assert.deepEqual(Object.keys(env.groupNowSegs(env.members[2])).sort(), ["live", "mdSeg"]);
   for (const c of [env.members[0], env.members[2]]) {
     const segs = env.groupBackgroundSegments(c, {}, '读者');
     assert.ok(Object.values(segs).every(s => s === ''));
@@ -107,4 +109,34 @@ test('背景格式只在公共段定义，保留闭群即时状态开关', () =>
   for (const field of ['grownSeg', 'aSeg', 'zSeg', 'hcSeg', 'cySeg', 'caSeg']) assert.equal(closed[field], open[field]);
   assert.equal((app.match(/const grownSeg =|const aSeg = aMoodTextOf|const zSeg = sleepToneOf|const hcSeg =/g) || []).length, 0);
   assert.equal((engine.match(/function groupBackgroundSegments\(/g) || []).length, 1);
+});
+
+// v72.06（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）——
+// 她报的是「角色和他的好兄弟们互动差点意思」：配角原来连「此刻」都没有，
+// 只能对着屏幕上最后几句话反应。
+test('配角那四样拼进三处成员表，别的层一个都不许跟着来', () => {
+  const env = wire(fixture());
+  env.moods.npc = { label: '配角心情', ts: 3 };
+  env.statesRef.current.npc = { wearing: '配角衣', action: '配角动作', thought: '配角心声' };
+  env.ctx.npcRoster = { npc: env.npcGroupLine(env.members[2], env.members.map(x => x.id)) };
+  for (const surface of ['online', 'call', 'offline']) {
+    const text = evaluate(sections[surface], env, 'memberDesc');
+    const npcSeg = text.slice(text.indexOf('【配角】'));
+    assert.match(npcSeg, /〔此刻心情〕配角心情/, surface + '：配角没有心情');
+    assert.match(npcSeg, /穿着=配角衣/, surface + '：配角没有穿着');
+    assert.match(npcSeg, /上一动作=配角动作/, surface + '：配角没有动作');
+    assert.match(npcSeg, /上一条心声=配角心声/, surface + '：配角没有上一条心声');
+    // 这几层照旧不给配角（她 2026-08-25 拍的板，v72.06 没动）
+    assert.doesNotMatch(npcSeg, /好感|年龄|行程|底色|睡眠|私有档案|成长|随身物/, surface + '：多喂了不该给配角的层');
+  }
+});
+
+// 上一条心声原来【只写不读】：提示词里写着「和这个成员上一条心声不一样」，
+// 而模型从来没见过上一条（她 2026-09-20 点头补上）。主角色这一头也要有。
+test('主角色也看得见自己上一条心声', () => {
+  const env = wire(fixture());
+  env.statesRef.current.a = { wearing: '甲衣', action: '甲动作', thought: '甲的上一条心声' };
+  const text = evaluate(sections.online, env, 'memberDesc');
+  const a = text.slice(text.indexOf('【甲】'), text.indexOf('【乙】'));
+  assert.match(a, /上一条心声=甲的上一条心声/);
 });

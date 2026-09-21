@@ -175,7 +175,10 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // ⚠️action 那一格原来只挂在【记忆互通】上：群里开了动描没开互通，模型压根不会填它，
   //   开关点了什么都不出现——正是「说改好了其实没变」那一类
   assert.match(app, /const gActionField = ",\\"action\\"/);
-  assert.match(app, /: \(_gActDesc \? gActionField : ""\);/, "动描开着时没把 action 加进群协议");
+  // v72.06 中间多了一档：闭群里有配角时，配角那四样也要发（她 2026-09-20）。
+  // 没有配角的闭群照旧只跟着动描走。
+  assert.match(app, /: \(_gActDesc \? gActionField : ""\)\);/, "动描开着时没把 action 加进群协议");
+  assert.match(app, /\? ",\\"thought\\":\\"（只有配角填）/, "闭群里的配角没被要求填那四样");
   // 显示不看记忆互通：那是写不写状态卡的事
   assert.match(app, /const gActionNow = TVG\.normalizeAction\(_rawGAction, spk && spk\.name\) \|\| ""/);
   assert.match(app, /const gAction = gActionNow;/, "互通那一支又自己算了一遍");

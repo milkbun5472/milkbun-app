@@ -39,9 +39,10 @@ test("实时私聊窗口：给，但照这个群自己的设置给", () => {
 });
 
 test("配角照旧不吃这些层", () => {
-  // v68.84：配角那一行多了「在场的谁跟 TA 有边」（npcRosterLine，四处共用一份）——
-  //   但吃不吃心情/好感/私聊那些层，一条都没变：还是只有人设 + 那一行。
-  assert.match(gc, /if \(c\.npc\) return "【" \+ c\.name \+ "】" \+ groupPersonaText\(c\.persona, NPC_PERSONA_CAP\) \+ npcRosterLine\(c, people\.map\(x => x\.id\)\);/);
+  // v68.84：配角那一行多了「在场的谁跟 TA 有边」；v72.06 又多了他那四样
+  //   （心情／想法／穿着／动作，走公共的 npcGroupLine）。
+  //   好感、印象卡、私聊、年龄、行程那些层【一条都没变】：配角照旧不吃。
+  assert.match(gc, /if \(c\.npc\) return "【" \+ c\.name \+ "】" \+ groupPersonaText\(c\.persona, NPC_PERSONA_CAP\) \+ npcGroupLine\(c, people\.map\(x => x\.id\)\);/);
   assert.match(gc, /const gcMembers = people\.filter\(c => !c\.npc\);/);
   const start = gc.indexOf("const gcPriv = gcMembers.map(c => {");
   const end = gc.indexOf("const gcPrivBlock =", start);

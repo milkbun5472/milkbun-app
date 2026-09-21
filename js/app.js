@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.05";
+const APP_VERSION = "v72.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2813,9 +2813,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     putLiveField(patch, live, "action", data.action, now);
     // 群文字的动作是本轮新的一拍；穿着仍只在真正变化时更新时钟。
     if (patch.action) patch.actionUpdatedAt = now;
-    const mood = c.npc ? null : data.mood;
+    // ⚠️NPC 也有心情了（她 2026-09-20：「心情想法穿着动作这四样放 npc 状态卡」）。
+    //   原来这一行把 NPC 的心情单独拦掉，于是他在群里只有动作没有情绪——
+    //   而好感【仍然不给】：那一层是「他跟用户之间」的事，配角有了会演出争宠吃醋
+    //   （她 2026-08-25 拍的板，这次没动）。
+    const mood = data.mood;
     if (!Object.keys(patch).length && !mood) return;
-    const next = { ...live, ...patch, ...(c.npc ? {} : { mood: mood || live.mood, affinityBefore }), ts: now, turnId };
+    const next = { ...live, ...patch, mood: mood || live.mood, ...(c.npc ? {} : { affinityBefore }), ts: now, turnId };
     setStateFor(c.id, next);
     pushStateHist(c.id, next);
   };
@@ -2833,7 +2837,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 文字群与通话共用状态材料；调用方只选择本场景可读取的字段。
   const liveStateContext = (state, fields) => {
-    const labels = { wearing: "穿着", action: "上一动作", place: "所在地点", condition: "身体状态" };
+    // ⚠️「上一条心声」原来只写不读：提示词里写着「和这个成员上一条心声不一样」，
+    //   可模型从来没见过上一条（她 2026-09-20 点头补上）。跟上一动作是同一个病。
+    const labels = { wearing: "穿着", action: "上一动作", thought: "上一条心声", place: "所在地点", condition: "身体状态" };
     const bits = fields.map(field => {
       const value = freshLiveStateValue(state, field);
       return value ? labels[field] + "=" + value : "";
@@ -5062,6 +5068,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "也绝不许猜、提起或据此起哄；除非那位自己在群里说了出来。〕";
     }
     return line;
+  };
+  // 配角在群里那一整段的【户口＋此刻】（四处一样喂）：户口那一行 + 他那四样
+  // （心情／想法／穿着／动作，她 2026-09-20 点的）。三条群路和群线下共用这一份——
+  // 原来各拼各的，加一样就只加在其中一处（施工规则/one-public-mechanism.md）。
+  // ⚠️人设那一截不收进来：群线下由 engine 那头按自己的额度拼，收进来会变成两处各拼一半。
+  const npcGroupLine = (c, presentIds) => {
+    const now = groupNowSegs(c, {});
+    return npcRosterLine(c, presentIds) + (now.mdSeg || "") + (now.live || "");
   };
   const npcsOf = hostId => characters.filter(c => c && c.npc && String(c.ownerId) === String(hostId));
   // 「这一轮在不在聊音乐」——只用来决定歌单要不要把歌名铺开（她 2026-09-11）。
@@ -7321,7 +7335,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberMood: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
-        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有心情
+        // 配角的心情不走这一份：他那四样整段由 npcGroupLine 拼好（见 npcRoster），
+        // 两边都给就是同一层写在两处（施工规则/one-public-mechanism.md）。
+        if ((characters.find(x => x.id === id) || {}).npc) return;
         const cur = moods[id] || {};
         const st = window.MoodLabel && window.MoodLabel.settle
           ? window.MoodLabel.settle(cur.label, cur.ts, Date.now()) : { label: cur.label || "", note: "" };
@@ -7351,7 +7367,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       ids.forEach(id => {
         const c = characters.find(x => x.id === id);
         if (!c || !c.npc) return;
-        m[id] = npcRosterLine(c, ids);
+        m[id] = npcGroupLine(c, ids);
       });
       return m;
     })(),
@@ -7669,14 +7685,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
         // 转头回单聊TA还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
-        const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有心情/好感
+        const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有好感、没有印象卡
+        // ⚠️配角那四样（心情／想法／穿着／动作）不看闭群那道闸（她 2026-09-20，同群线上）：
+        //   他不回流主线，状态卡只活在群里。好感和印象卡照旧只给主角色、且闭群封死。
         if (!gOffSealed && !_bNpc && b.senderId) bumpAff(b.senderId, b.affinityDelta);
-        if (!gOffSealed && !_bNpc && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        if ((!gOffSealed || _bNpc) && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
         if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
           try { window.Gaze.applyParsed(b.senderId, b.impression); } catch (e) {}
         }
-        if (!gOffSealed) writeGroupLiveState(characters.find(c => c.id === b.senderId), {
+        if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === b.senderId), {
           thought: b.thought, mood: b.mood && b.mood.label
         }, goTurnId, affinityBefore, _offThoughtOnce);
       }
@@ -10669,7 +10687,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 人设额度另算：群预算是按人数平分的，配角挤进去会把主角色的额度吃掉。
         if (c.npc) {
           return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
-            + npcRosterLine(c, members.map(x => x.id));
+            + npcGroupLine(c, members.map(x => x.id));
         }
             // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
         const xgSeg = (() => {
@@ -10851,9 +10869,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   ⚠️措辞取的就是上面那一份 G_ACTION_SPEC——这两处上一轮只改好了这一处，
       //   另一处还在反着说，她当天就又报了一次。
       const gActionField = ",\"action\":\"" + G_ACTION_SPEC + "\"";
+      // 配角那四样（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）。
+      // ⚠️【不挂记忆互通那个开关】：配角不回流主线（不进记忆库、不动好感、不写印象卡），
+      //   他的状态卡只活在群里——闭群里的好兄弟也该有情绪
+      //   （她：「反正他们也不会互通其他群聊记忆」）。互通群走上面那一份，本来就带着这四样。
+      const _gHasNpc = members.some(c => c && c.npc);
+      const npcStateHint = (!gs.memoryInterop && _gHasNpc) ? "\n【配角的状态卡】这个群里有配角（" + members.filter(c => c && c.npc).map(c => c.name).join("、") + "）。"
+        + "本轮真正发言的【配角】各给一份：\"thought\"（此刻没说出口的心声，一句话，第一人称『我』就是这个配角本人）、"
+        + "\"mood\"（中文心情词）、\"wearing\"、\"action\"。这四样只更新后台状态，绝不写进 text 气泡。"
+        + "其余成员这一轮不填这几样。\n" + MOOD_TURN_RULE : "";
       const thoughtField = gs.memoryInterop
         ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
-        : (_gActDesc ? gActionField : "");
+        : (_gHasNpc
+          ? ",\"thought\":\"（只有配角填）没说出口的心声\",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
+          : (_gActDesc ? gActionField : ""));
       // 互通群复用单聊更新标准；封闭群不写回。
       const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
@@ -10926,7 +10955,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 【关系隐私铁律】旁观群更需要它：两个人都跟她有关系时，正是这条挡住互相拆穿。
       const gRelRule = "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -11334,15 +11363,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             })();
           }
           // 记忆互通：这次发言影响该成员对用户的实时好感与心情，并把心声写进【和私聊同一套】的实时状态里（双向影响、可变化）
-          if (gs.memoryInterop) {
+          // ⚠️NPC 那四样（心情／想法／穿着／动作）【不看这个开关】（她 2026-09-20：
+          //   「A 我觉得可以开，反正他们也不会互通其他群聊记忆」）：配角不回流主线
+          //   ——不进记忆库、不动好感、不写印象卡——他的状态卡只活在群里，
+          //   所以闭群里的好兄弟也该有情绪。主角色照旧只在互通群写回。
+          const _npcSpk = !!(spk && spk.npc);
+          if (gs.memoryInterop || _npcSpk) {
             const moodLabel = item.mood && String(item.mood).toLowerCase() !== "null" ? String(item.mood).trim() : null;
             const aDelta = affDelta(item.affinityDelta);
             const gWear = item.wearing && String(item.wearing).toLowerCase() !== "null" ? String(item.wearing).trim() : null;
             const gAction = gActionNow;
-            // NPC 没有心情、也没有好感度（她 2026-08-25 拍板）：模型照样填了就丢掉
-            if (spk && !spk.npc) bumpAff(spk.id, aDelta);
-            if (spk && !spk.npc && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
-            if (spk && !spk.npc && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
+            // 好感度和印象卡仍旧不给 NPC（她 2026-08-25 拍板：配角有了会演出争宠吃醋那一套）
+            if (spk && !_npcSpk) bumpAff(spk.id, aDelta);
+            if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
+            if (spk && !_npcSpk && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
             writeGroupLiveState(spk, { thought: item.thought, mood: moodLabel, wearing: gWear, action: gAction },
               gTurnId, affinityBefore, _thoughtOnce);
           }
@@ -11560,7 +11594,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const split = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
       const memberDesc = members.map(c => {
         // 配角那一行走公共的 npcRosterLine：在场的谁跟 TA 有边，四处都该看得见（不止群线上）
-        if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcRosterLine(c, members.map(x => x.id));
+        if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, members.map(x => x.id));
         const now = groupNowSegs(c, { interop: gsp.memoryInterop });
         const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
         return "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + Object.values(now).join("")
@@ -14591,8 +14625,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 也不知道她刚在私聊里说过什么，只能瞎猜她在哪儿。
   // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
   const groupNowSegs = (c, opts) => {
-    if (!c || c.npc) return {};
+    if (!c) return {};
     const o = opts || {};
+    // 配角那四样（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）。
+    // ⚠️只有这四样：好感、印象卡、年龄生日、行程、长出来的自我、随身物一律不给——
+    //   那些是「这个主角色跟用户之间是谁」的层，配角有了会演出争宠吃醋那一套。
+    // ⚠️不看记忆互通开关：配角不回流主线，他的状态卡只活在群里。
+    if (c.npc) {
+      const st0 = statesRef.current[c.id] || {};
+      const md0 = window.MoodLabel && window.MoodLabel.settle
+        ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
+        : { label: (moods[c.id] || {}).label || "", note: "" };
+      return {
+        live: liveStateContext(st0, ["wearing", "action", "thought"]),
+        mdSeg: md0.label ? "\n〔此刻心情〕" + md0.label : (md0.note ? "\n〔心情〕" + md0.note : "")
+      };
+    }
     const st = statesRef.current[c.id] || {};
     const md = window.MoodLabel && window.MoodLabel.settle
       ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
@@ -14604,7 +14652,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   却从没见过上一次填的是什么，**根本没法「原样填写」**，
       //   于是每轮都是一个新动作，代码那道去重闸一次都拦不住（她 2026-09-12 报）。
       //   又是这一格的第三次「一层写在两处」：v67.18 修了措辞，这次是料没给全。
-      live: liveStateContext(st, [...(o.interop ? ["wearing"] : []), ...(o.interop || o.act ? ["action"] : [])]),
+      live: liveStateContext(st, [...(o.interop ? ["wearing"] : []), ...(o.interop || o.act ? ["action"] : []), ...(o.interop ? ["thought"] : [])]),
       mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
@@ -14856,11 +14904,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 通话的状态卡：字段名和写法都跟线上那份协议一样，出口也是同一个。
       // ⚠️别在这儿另存一份「通话状态」——那样以后改一处得改两处（她 2026-09-06 点名）。
       const callThoughtDone = new Set();
-      const callPutState = (cid, d, turnId) => {
+      const callPutState = (cid, d, turnId, isNpc) => {
         if (!cid || !d || typeof d !== "object") return;
         if (!callRef.current || callRef.current.sessionId !== cur.sessionId) return;
         if (cur.room) setRoomThought(cur.chatKey, d.thought, { mood: d.mood, state: d, turnId });
-        const canState = callCanWriteMain(cur, "state"), canMood = callCanWriteMain(cur, "mood");
+        // ⚠️配角那四样（心情／想法／穿着／动作）不看闭群那道闸（她 2026-09-20，同群线上）：
+        //   他不回流主线，状态卡只活在群里。好感和印象卡这一路本来就不写，不受影响。
+        const canState = callCanWriteMain(cur, "state") || !!isNpc, canMood = callCanWriteMain(cur, "mood") || !!isNpc;
         if (!canState && !canMood) return;
         const now = Date.now(), liveState = statesRef.current[cid] || {}, st = {};
         if (canState) {
@@ -15012,7 +15062,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //（她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」）。
         const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
         const memberDesc = people.map(c => {
-          if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcRosterLine(c, people.map(x => x.id));
+          if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, people.map(x => x.id));
           const n = groupNowSegs(c, { interop: gcInterop });
           return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
         }).join("\n\n");
@@ -15058,7 +15108,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gl = callLines(arr[i].text, spk);
             for (const ln of gl) pushMsg(ln.act ? { role: "char", act: true, senderId: spk.id, senderName: spk.name, content: ln.act } : { role: "char", senderId: spk.id, senderName: spk.name, content: ln.speech, zh: ln.zh });
             // 状态卡：跟群线上同一个出口（那边也是一人一条各写各的）
-            if (spk && !spk.npc) callPutState(spk.id, arr[i], "gcall_" + Date.now() + "_" + i);
+            if (spk) callPutState(spk.id, arr[i], "gcall_" + Date.now() + "_" + i, spk.npc);
             if (arr[i].hangup && String(arr[i].hangup).toLowerCase() !== "null") { markCallBye(spk.id, spk.name, String(arr[i].hangup), cur.sessionId); break; }
           }
         }
@@ -24160,7 +24210,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     settings: osFor("g_" + offlineGroup.id),
     onSaveSettings: patch => saveOfflineSettings("g_" + offlineGroup.id, patch),
     // 群线下点头像看心声：和线上群一样，只有开了互通(states 才共享/会变)才可点
-    onOpenMemberState: gsFor(offlineGroup.id).memoryInterop ? (memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } }) : undefined
+    // ⚠️配角例外：他那四样不看互通开关（她 2026-09-20），闭群里也点得开。
+    //   谁点得开由组件那一处判（跟群线上同一份判法），这儿只负责把口子递过去。
+    onOpenMemberState: (gsFor(offlineGroup.id).memoryInterop || groupMembers(offlineGroup).some(c => c && c.npc))
+      ? (memberId => {
+          const c = characters.find(x => x.id === memberId);
+          if (!c || (!gsFor(offlineGroup.id).memoryInterop && !c.npc)) return;
+          setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true);
+        }) : undefined
   }), appConfirm && h(ConfirmDialog, {
     title: appConfirm.title,
     body: appConfirm.body,

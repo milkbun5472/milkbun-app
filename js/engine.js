@@ -5797,12 +5797,19 @@ function offlineStyleExamplesBlock(examples, label, maxItems) {
 // 她的人设每个都 4500+，9000 的总预算在三人群里就开始截了（2026-08-24）。
 // 她按次计费，上下文长一点不多花钱；每人给到 6000 封顶、总预算 30000，
 // 五个人以内谁都不用被砍。人再多才按份额收，地板 1500。
-const GROUP_PERSONA_BUDGET = 30000, GROUP_PERSONA_EACH_MAX = 6000;
-// NPC 是配角，几百字就够；不参与按人数平分，也别把主角色的额度吃掉。
-const NPC_PERSONA_CAP = 900;
+// v72.06（她 2026-09-20：「万一以后用得上，改了吧，反正现在没影响改了也没伤」）：
+// 这三个数都是【天花板】，人设没那么长就一分钱都不多花。所以按「以后写长了也不砍」来定：
+// 每人 6000→10000、总预算 30000→50000。真正当场就有用的是【地板】1500→2500——
+// 十个人的群原来每人只剩 3000、二十人剩 1500，那正是 v55.87「只剩一张标签」的那一档。
+const GROUP_PERSONA_BUDGET = 50000, GROUP_PERSONA_EACH_MAX = 10000, GROUP_PERSONA_FLOOR = 2500;
+// NPC 是配角，不参与按人数平分，也别把主角色的额度吃掉。
+// ⚠️900 太狠了（她 2026-09-20 报「角色和他的好兄弟们互动差点意思」）：她的人设普遍 4500+，
+//   900 字之后剩下的是「好兄弟」这个标签，空白由训练先验补上，那就是起哄那一套通用腔。
+//   跟主角不同档是有理由的（配角不该吃掉主角额度），但 3000 字才够写出一个有脾气的人。
+const NPC_PERSONA_CAP = 3000;
 function groupPersonaBudget(memberCount) {
   const n = Math.max(1, Number(memberCount) || 1);
-  return Math.min(GROUP_PERSONA_EACH_MAX, Math.max(1500, Math.floor(GROUP_PERSONA_BUDGET / n)));
+  return Math.min(GROUP_PERSONA_EACH_MAX, Math.max(GROUP_PERSONA_FLOOR, Math.floor(GROUP_PERSONA_BUDGET / n)));
 }
 // 群文字、群通话、群线下的六层背景只在这里拼接。
 // 线下成长段保留原有叙事措辞；档案始终带本人隐私围栏，NPC 一律空段。

@@ -26,7 +26,8 @@ test("五个入口都还在（别把闸一起拆了）", () => {
   assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId\) bumpAff\(b\.senderId, b\.affinityDelta\);/, "群线下·闭群仍封死");
   assert.match(app, /const _affD = affDelta\(parsed\.affinityDelta\);\s*\n\s*bumpAff\(charId, _affD\);/, "单聊线上");
   assert.match(app, /const aDelta = affDelta\(item\.affinityDelta\);/, "群线上");
-  assert.match(app, /if \(spk && !spk\.npc\) bumpAff\(spk\.id, aDelta\);/, "群线上·配角仍没有好感");
+  // v72.06 配角有了心情，好感这一层【照旧没有】——判据从 spk.npc 换成同一轮算好的 _npcSpk
+  assert.match(app, /if \(spk && !_npcSpk\) bumpAff\(spk\.id, aDelta\);/, "群线上·配角仍没有好感");
   assert.match(app, /bumpAff\(charId, d\.affinityDelta\);/, "收到礼物那一枪");
   // 动念和 A 系统跟着用同一个数，别各自再转一遍
   assert.match(app, /if \(!sideRoom && _affD\) \{ const eng = getDongnian\(char\)/);

@@ -58,12 +58,17 @@ test("递给 UI 的角色列表默认不含 NPC", () => {
   assert.match(comp, /const memberById = id => \(allChars \|\| characters\)\.find/);
 });
 
-test("① 没有心情、没有好感度", () => {
-  assert.match(app, /if \(spk && !spk\.npc\) bumpAff/, "群线上");
-  assert.match(app, /if \(spk && !spk\.npc && moodLabel\) setMoodFor/, "群线上");
+// v72.06（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）：
+// 配角从「一层都没有」改成【只有那四样】。好感、印象卡、年龄生日、行程、情侣状态
+// 照旧一概不给——那几层是「这个主角色跟用户之间是谁」，配角有了会演出争宠吃醋
+// （她 2026-08-25 拍的板，这一次没动）。
+test("① 有心情，但没有好感度", () => {
+  assert.match(app, /if \(spk && !_npcSpk\) bumpAff/, "群线上：好感仍旧不给配角");
+  assert.match(app, /if \(spk && moodLabel\) setMoodFor/, "群线上：心情现在也给配角");
   assert.match(app, /const _bNpc = .*\.npc;/, "群线下");
-  // 上下文也别喂：配角没有心情/好感/印象卡/年龄/行程/情侣状态这些层
-  ["配角没有心情", "配角没有好感度", "配角没有印象卡", "配角没有年龄这一层", "配角跟用户没有关系线"]
+  assert.match(app, /if \(\(!gOffSealed \|\| _bNpc\) && b\.senderId && b\.mood/, "群线下：配角的心情不看闭群那道闸");
+  // 上下文也别喂：配角没有好感/印象卡/年龄/行程/情侣状态这些层
+  ["配角没有好感度", "配角没有印象卡", "配角没有年龄这一层", "配角跟用户没有关系线"]
     .forEach(x => assert.ok(app.indexOf(x) > 0, "群线下 ctx 少挡了一层：" + x));
   // ⚠️行程这一层别再靠注释原文来认（v60.18 时间感知改成按角色/按房开关，
   //   那句注释顺带改了一个词，这条就红了——行为一个字没变）。对着【代码里的那道闸】问。
@@ -136,11 +141,13 @@ test("简介能展开看全文，也能就地改", () => {
 // 三样是真写的（穿着/动作/心声，跟群里那一轮同一次调用带回来，白得的，留着）；
 // 两样是【假的】——心情显示默认「平静」、好感显示默认 50，而写入早被挡掉了，
 // 它们永远不会动。卡上还写着「默认，聊几句会变化」——那是在骗人，比不显示更坏。
-test("配角的状态卡不许摆出永远不会动的心情和好感", () => {
+test("配角的状态卡摆真会动的心情，不摆永远不动的好感", () => {
   assert.match(app, /isNpc: !!scc\.npc,/);
   // ⚠️v59.77 心声卡重做：心情长在抬头那一行上、好感度改成一条刻度。
   // 要证的还是【配角这两样都不摆】——他们的心情和好感永远不会动，摆出来是假的。
-  assert.match(comp, /\(!isNpc && dm\) \? h\("span", \{ style: \{ color: t\.accent \} \}, dm\.label\)/, "配角也摆了心情");
+  // v72.06：心情现在是真的会动了（她点头开的），所以配角这一行要【摆出来】；
+  // 好感仍旧是假的（写入一直挡着），照旧不摆。
+  assert.match(comp, /: dm \? h\("span", \{ style: \{ color: t\.accent \} \}, dm\.label\)/, "配角的心情没摆出来");
   // ⚠️别冻整个条件：v60.15 起副本房也不摆（那间房的好感不是主线的）
   assert.match(comp, /const scale = \(?isNpc[^:]{0,24}\? null :/, "配角也摆了好感度");
   // 穿着/动作/心声照旧显示——那些是真的
@@ -149,7 +156,7 @@ test("配角的状态卡不许摆出永远不会动的心情和好感", () => {
 
 // 印象卡是「从私下往来长出来的」，而配角跟她根本没有私聊——这一处的【写】之前漏挡了
 test("配角长不出印象卡", () => {
-  assert.match(app, /if \(spk && !spk\.npc && item\.impression && window\.Gaze/);
+  assert.match(app, /if \(spk && !_npcSpk && item\.impression && window\.Gaze/);
   assert.match(app, /gazeOn: .*&& !scc\.npc,/);
 });
 
@@ -191,7 +198,10 @@ test("记忆归主角色，配角只记得自己在场的那些", () => {
 });
 
 test("人设额度：配角走小额度，不参与按人数平分", () => {
-  assert.match(engine, /const NPC_PERSONA_CAP = 900;/);
+  // v72.06 900→3000（她 2026-09-20 报「角色和他的好兄弟们互动差点意思」）：
+  // 她的人设普遍 4500+，900 字之后剩下的是「好兄弟」这张标签，空白由训练先验补上。
+  // 仍旧【不参与按人数平分】——那才是这一条守的东西。
+  assert.match(engine, /const NPC_PERSONA_CAP = 3000;/);
   assert.equal((app.match(/groupPersonaBudget\(members\.filter\(c => !c\.npc\)\.length\)/g) || []).length, 1, "群线上");
   assert.equal((engine.match(/groupPersonaBudget\(members\.filter\(c => !c\.npc\)\.length\)/g) || []).length, 1, "群线下");
 });
