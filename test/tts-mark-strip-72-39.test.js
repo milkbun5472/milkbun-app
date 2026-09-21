@@ -16,7 +16,7 @@ const load = () => {
   const i = engine.indexOf("const TTS_MARK_TAGS = [");
   const j = engine.indexOf("function ttsLangBoost(", i);
   assert.ok(i > 0 && j > i, "抠不出剥标记那一段");
-  return new Function(engine.slice(i, j) + "\nreturn { ttsMarkStrip, ttsHasMark, TTS_MARK_TAGS };")();
+  return new Function(engine.slice(i, j) + "\nreturn { ttsMarkStrip, ttsMarkForSynth, ttsHasMark, TTS_MARK_TAGS, VOICE_PAUSE_MARK };")();
 };
 
 test("标记剥干净，字一个不少", () => {
@@ -70,4 +70,48 @@ test("验货台送去合成的是【带标记的原文】，不是剥过的那�
   assert.match(fn, /const raw = String\(markTxt \|\| ""\)\.trim\(\);/);
   assert.match(fn, /ttsSpeak\(raw,/, "验的就是标记本身，送剥过的等于没验");
   assert.ok(!/ttsMarkStrip/.test(fn), "合成那一路不许剥标记");
+});
+
+// ⭐v72.40 实测（她 2026-09-21 在验货台听的）：**停顿认，情感标记不认**——
+// <#0.5#> 真的停了半秒，而 (chuckle)(softly) 被当成单词念了出来。
+// 所以这一层分成两支，判据是【这个标记送上去会不会变成声音】。
+test("送去合成的那一份：情感标记剥掉，停顿留着", () => {
+  const F = load();
+  const raw = "(chuckle) 你回来啦 <#0.5#> 我等好久了 (softly) 饿不饿";
+  assert.equal(F.ttsMarkForSynth(raw), "你回来啦 <#0.5#> 我等好久了 饿不饿");
+  // 给人看的那一份两样都剥
+  assert.equal(F.ttsMarkStrip(raw), "你回来啦 我等好久了 饿不饿");
+});
+
+// ⚠️合成那一支不是可选的：模型偶尔自己就会写 (笑)(laughs)，不剥就会被念出来。
+test("合成前剥标记收在 ttsKeyFor 一处，钥匙和真送上去的文本是同一份", () => {
+  const key = engine.slice(engine.indexOf("function ttsKeyFor("), engine.indexOf("async function ttsCached("));
+  assert.match(key, /const txt = ttsMarkForSynth\(String\(text \|\| ""\)\)\.slice\(0, 800\);/);
+  const synth = engine.slice(engine.indexOf("async function ttsSynth("), engine.indexOf("async function ttsCloneVoice("));
+  assert.match(synth, /const txt = ttsMarkForSynth\(String\(text \|\| ""\)\)\.slice\(0, 800\);/,
+    "合成那一路自己剥了一份，迟早跟钥匙对不上");
+  assert.equal((engine.match(/function ttsMarkForSynth\(/g) || []).length, 1);
+});
+
+test("教模型写停顿那一句只有一份，单聊群聊都接上了", () => {
+  const F = load();
+  assert.match(F.VOICE_PAUSE_MARK, /<#0\.5#>/, "没告诉它停顿怎么写");
+  assert.match(F.VOICE_PAUSE_MARK, /别写 \(laughs\)/, "没说英文标记会被念出来");
+  assert.equal((engine.match(/const VOICE_PAUSE_MARK = /g) || []).length, 1);
+  const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
+  assert.match(app, /=语音（\$\{VOICE_PAUSE_MARK\}）/, "单聊那一处没接上");
+  assert.match(app, /习惯来" \+ VOICE_PAUSE_MARK \+ "/, "群聊那一处没接上");
+});
+
+// 波形和秒数也按剥干净的那一份算：不剥的话那几个标记会把时长算长
+test("语音条的波形/时长/转录都用剥过的那一份", () => {
+  const comp = fs.readFileSync(path.join(root, "js", "components.js"), "utf8");
+  const i = comp.indexOf("function VoiceMsg(");
+  const j = comp.indexOf("function ", i + 10);
+  const vm = comp.slice(i, j);
+  assert.match(vm, /const say = typeof ttsMarkStrip === "function" \? ttsMarkStrip\(m\.content\)/);
+  assert.match(vm, /voiceBars\(say, dur\)/);
+  assert.match(vm, /Math\.round\(say\.replace/);
+  // ⚠️合成仍旧送原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 那一处统一说了算
+  assert.match(vm, /ttsSpeak\(m\.content, speaker\.voiceId/);
 });

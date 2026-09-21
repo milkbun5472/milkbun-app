@@ -5229,6 +5229,25 @@ const TTS_MARK_PAUSE = /<#\s*\d+(?:\.\d+)?\s*#>/g;
 const TTS_MARK_TAG_RE = new RegExp("\\(\\s*(?:" + TTS_MARK_TAGS.join("|") + ")\\s*\\)", "gi");
 // 剥干净给人看的那一份。⚠️剥完要收拾空白：标记两边本来各有一个空格，
 //   不收拾的话气泡里会留下一串空洞（她截图那家就是没剥，整串都露在外面）。
+// ⭐实测结论（她 2026-09-21 在验货台听的）：**停顿认，情感标记不认**——
+//   <#0.5#> 真的停了半秒，而 (chuckle)(softly) 被【当成单词念了出来】。
+//   所以这一层从此分成两支，判据是【这个标记送上去会不会变成声音】：
+//   · ttsMarkForSynth：送去合成之前用。只剥会被念出来的那些，**停顿留着**。
+//   · ttsMarkStrip：给人看之前用。两样都剥干净。
+// ⚠️合成那一支不是可选的：模型偶尔自己就会在正文里写 (笑)(laughs)，
+//   不剥就会被念出来——这道闸现在是【必须的】，不只是为了好看。
+// 教模型怎么在语音里插停顿。单聊和群聊共用这一句——各写一份的话，
+// 哪天改了措辞另一处永远落单（施工规则/one-public-mechanism.md）。
+// ⚠️只教【认得出的那一样】：实测 MiniMax 认 <#秒#>，不认 (chuckle) 那类词。
+//   所以这句话里那半句「别写英文标记」不是多余的禁令，是【实测过的事实】——
+//   模型本来就爱写，写了就会被念出来。
+const VOICE_PAUSE_MARK = "这条语音的内容里可以插停顿：写成 <#0.5#>（井号之间是秒数，0.1~2 之间），放在换气、想一下、说到一半顿住的地方。一条里最多两三个，只在真该顿的地方放——它是说话的节奏，不是标点，每句都塞反而把话说碎了。⚠️别写 (laughs)(softly)(whispering) 这类英文括号标记：那些不会变成语气，会被当成单词念出来。";
+function ttsMarkForSynth(text) {
+  const s = String(text == null ? "" : text);
+  if (!s) return "";
+  return s.replace(TTS_MARK_TAG_RE, " ").replace(/[ \t\u3000]+/g, " ")
+    .replace(/\s+([，。！？、；：」』）])/g, "$1").trim();
+}
 function ttsMarkStrip(text) {
   const s = String(text == null ? "" : text);
   if (!s) return "";
@@ -5634,7 +5653,11 @@ async function jpKanaReading(text) {
 function ttsKeyFor(text, voiceId, opts) {
   opts = opts || {};
   const vid = voiceId || "female-shaonv";
-  const txt = String(text || "").trim().slice(0, 800);
+  // ⚠️送去合成之前先剥掉会被念出来的那些标记（停顿留着）。收在这儿一处：
+  //   ttsKeyFor 是所有合成路径的共同上游（语音条、通话播报、庭院、验货台都走它），
+  //   所以钥匙和真正送上去的文本永远是同一份——在外面各剥各的，
+  //   迟早出现「钥匙按带标记的算、音频按剥过的合成」那种对不上（v60.29 那次的教训）。
+  const txt = ttsMarkForSynth(String(text || "")).slice(0, 800);
   if (!txt) return null;
   // per-voice 沉稳调校（v47.86）：克隆音色若素材本身亢奋（如杨昕燃配的挏马酒），在音色库开「沉稳」——
   // 降语速+降音调+锁 neutral 情绪，把那股端着的兴奋劲压下去；只影响这一个音色
@@ -5710,7 +5733,9 @@ async function ttsSynth(text, voiceId, opts) {
   const a = loadTtsApi();
   if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
   const vid = voiceId || "female-shaonv";
-  const txt = String(text || "").trim().slice(0, 800);
+  // ⚠️剥标记跟钥匙用同一支（ttsMarkForSynth）：各剥各的就会出现
+  //   「钥匙按这一份算、音频按那一份合成」，缓存从此对不上。
+  const txt = ttsMarkForSynth(String(text || "")).slice(0, 800);
   if (!txt) throw new Error("这条语音没有文字内容");
   const _k = ttsKeyFor(text, voiceId, opts);
   const ve = _k.ve, emo = _k.emo, spd = _k.spd, slowed = _k.slowed, pit = _k.pit, boost = _k.boost, wantKana = _k.wantKana, key = _k.key;

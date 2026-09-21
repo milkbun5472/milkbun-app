@@ -10585,14 +10585,19 @@ function VoiceMsg({ m, isU, speaker }) {
   const [pErr, setPErr] = useState(null);
   const audRef = useRef(null);
   useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
-  const dur = m.dur || Math.max(1, Math.round(String(m.content || "").replace(/\s/g, "").length / 3));
+  // 语气标记是【说给 TTS 听的】，不给她看（v72.40，她 2026-09-21）：
+  // 转录文字、波形、时长全按【剥干净的那一份】算——不剥的话，标记会跟着一起显示出来，
+  // 而且那几个字还会把波形和秒数算长。剥标记只有 engine 那一支 ttsMarkStrip。
+  // ⚠️合成走的是 m.content 原文：停顿 <#秒#> 要留给 MiniMax，剥不剥由 ttsKeyFor 那一处统一说了算。
+  const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(m.content) : String(m.content || "");
+  const dur = m.dur || Math.max(1, Math.round(say.replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
   // ⚠️原来这里写死 `isU ? "#16330a" : t.ink`——她把气泡文字色改成别的，
   //   语音条里的波形、时长、转录文字全部纹丝不动（她 2026-09-16 报的就是这个）。
   //   现在颜色只由外面那只气泡说了算，里面一律 currentColor 跟着走：
   //   皮肤 CSS 落下来的也好、内联那份兜底也好，这里都不用知道是哪一个。
   const fg = "currentColor";
-  const bars = voiceBars(m.content, dur);
+  const bars = voiceBars(say, dur);
   const emoZh = VOICE_EMO_ZH[m.emo] || "";
   // 有配语音 API + 这个角色选了音色 → 才显示播放按钮（懒生成：点了才合成收费，缓存后重播免费）
   const canTts = !isU && speaker && speaker.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
@@ -10669,7 +10674,7 @@ function VoiceMsg({ m, isU, speaker }) {
       pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "没出声：" + pErr) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: fg, opacity: 0.45, margin: "8px 0 5px" } },
         (isU ? "我" : (window.PhonePronoun && speaker ? window.PhonePronoun.ta(speaker) : "TA")) + (emoZh || "说的是")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, h(TransText, { text: m.content || "", isU, zhReady: m.zh, ink: fg }))));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, h(TransText, { text: say, isU, zhReady: m.zh, ink: fg }))));
 }
 // 气泡上的播放键(v60.29 她 2026-09-02 要的)
 // 「能不能给TA气泡上面显示一个播放键跟比如塔罗差不多，这样我才知道哪些是缓存过的，

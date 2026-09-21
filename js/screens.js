@@ -7276,7 +7276,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   // ⚠️第一步只做这一格：MiniMax 认不认 (chuckle) 这类标记，我替她猜没有意义——
   //   认了就是更细的语气，不认就会【把 chuckle 这个词念出来】，比现在还糟。
   //   所以先让她自己听一条，听过了再决定要不要让模型去写标记。
-  const [markTxt, setMarkTxt] = useState("(chuckle) 你回来啦 <#0.5#> 我等好久了 (softly) 饿不饿");
+  const [markTxt, setMarkTxt] = useState("你回来啦 <#0.5#> 我等好久了 <#0.3#> 饿不饿");
   const [markVid, setMarkVid] = useState("");
   const [markBusy, setMarkBusy] = useState(false);
   const [markErr, setMarkErr] = useState(null);
@@ -7371,9 +7371,10 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
-          "MiniMax 自己的语法：圆括号里的英文是语气（laughs / chuckle / softly / whispering / sighs…），<#秒数#> 是停顿。"
-          + "这一格把【原样带标记的文本】送去合成——听听 TA 是真的照着演，还是把「chuckle」这个词念了出来。"
-          + "⚠️这一格按字符计费，跟平时听语音一样。"),
+          "⭐实测过了（她 2026-09-21 在这儿听的）：**停顿 <#0.5#> 认，(chuckle)(softly) 这类英文标记不认**——"
+          + "那几个词会被当成单词念出来。所以现在只让角色写停顿；英文标记就算模型自己写了，也会在送去合成之前剥掉。"
+          + "这一格仍旧把【你写的原文】原样送上去，想再验一次、或者换个模型再试都行。"
+          + "⚠️按字符计费，跟平时听语音一样。"),
         h("textarea", { value: markTxt, onChange: e => setMarkTxt(e.target.value), rows: 3,
           style: Object.assign({}, inSt, { resize: "vertical", lineHeight: 1.6, marginBottom: 8 }) }),
         h("input", { value: markVid, onChange: e => setMarkVid(e.target.value), placeholder: "音色 voice_id（留空用预置的 female-shaonv）", style: Object.assign({}, inSt, { marginBottom: 8 }) }),
