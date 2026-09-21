@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -463,7 +464,56 @@ def enqueue_heartbeat() -> None:
     )
 
 
+def evict_stale_sentinels() -> None:
+    """Only one live claimer may exist; the newest `wait` evicts every other.
+
+    2026-09-20 twice-missed-wake incident: a rewound/dead session leaves its
+    `while true; do wake_queue.py wait; done` shell loop running. That orphan
+    keeps claiming tickets and prints them where nobody listens, so Lisa's
+    wake-ups vanish silently. Cursor-based claiming cannot tell a live
+    sentinel from an orphan, so eviction happens here at arm time: kill every
+    other `wake_queue.py wait` process AND its loop shell (the shell's cmdline
+    carries the same marker), sparing only self and own parent. `serve` /
+    `watchdog` never match the " wait" suffix and are untouched.
+    """
+    keep = {os.getpid(), os.getppid()}
+    # Loop shells may quote the path (`"…/wake_queue.py" wait`), so match the
+    # broad marker first and let the per-pid command check decide.
+    claimer = re.compile(r'wake_queue\.py"? +wait')
+    try:
+        found = subprocess.run(
+            ["pgrep", "-f", "wake_queue.py"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        return
+    for raw in found:
+        try:
+            pid = int(raw)
+        except ValueError:
+            continue
+        if pid in keep:
+            continue
+        try:
+            command = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                capture_output=True, text=True, timeout=5,
+            ).stdout
+        except (OSError, subprocess.SubprocessError):
+            continue
+        # pgrep -f can match itself and unrelated readers; only claimers die
+        # (`serve`/`watchdog`/`status` never carry the ` wait` suffix).
+        if not claimer.search(command) or "pgrep" in command:
+            continue
+        try:
+            os.kill(pid, 15)
+            print(f"evicted stale sentinel pid {pid}", file=sys.stderr, flush=True)
+        except OSError:
+            pass
+
+
 def wait_for_one(expected_session_id: str = "") -> None:
+    evict_stale_sentinels()
     while True:
         state = load_state()
         for name, path in SOURCES.items():
