@@ -96,7 +96,12 @@ test("合成前剥标记收在 ttsKeyFor 一处，钥匙和真送上去的文本
 test("教模型写停顿那一句只有一份，单聊群聊都接上了", () => {
   const F = load();
   assert.match(F.VOICE_PAUSE_MARK, /<#0\.5#>/, "没告诉它停顿怎么写");
-  assert.match(F.VOICE_PAUSE_MARK, /别写 \(laughs\)/, "没说英文标记会被念出来");
+  // ⚠️这一句【只给许可，不加禁令】（她 2026-09-21 当场纠正 v72.40 第一版）：
+  //   「别写 (laughs) 这类标记」那半句删了——那件事代码已经管了（ttsMarkForSynth），
+  //   模型本来也没在写，而禁令里点名那几个词等于第一次把这个形状介绍给它。
+  assert.ok(!/别写|不许|禁止|绝不/.test(F.VOICE_PAUSE_MARK), "又在这句话后面挂禁令了");
+  assert.ok(!/laughs|chuckle|softly|whispering/i.test(F.VOICE_PAUSE_MARK),
+    "把标记名写进提示词＝把这个形状介绍给它（prompt-no-content-samples）");
   assert.equal((engine.match(/const VOICE_PAUSE_MARK = /g) || []).length, 1);
   const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
   assert.match(app, /=语音（\$\{VOICE_PAUSE_MARK\}）/, "单聊那一处没接上");
