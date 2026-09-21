@@ -151,8 +151,11 @@ test("最简稿要短，但【身份信息一个都不能少】", () => {
   const one = minimal(char, { kind: "self" });
   assert.ok(one.length < 320, "还是要短，现在 " + one.length + " 字");
   assert.match(one, /画面里的人必须严格就是参考图里的那一位/);
-  assert.match(one, /必须是本人自拍/);
-  assert.match(one, /自拍透视/);
+  // v72.38：写死的「自拍透视／前置摄像头／一臂距离」删了（她 2026-09-21：
+  // 「不需要每次都看出他是在自拍」）。守的仍然是【这张是 TA 自己拍自己的】那个题目。
+  assert.match(one, /TA 自己拍自己的一张/);
+  assert.match(one, /没有别人在替 TA 拍/);
+  assert.ok(!/自拍透视|前置摄像头/.test(one), "又把那套写死的母题写回来了");
   assert.match(one, /背景简单干净/);
   assert.ok(!/酒|刀|血|烟|伤/.test(one), "最简稿里不许有触发词");
   // ⚠️v54.92 血泪教训：上一版把身份也删光了，中转站一旦没真用上参考照

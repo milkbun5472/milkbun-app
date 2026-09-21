@@ -56,12 +56,33 @@ assert.match(buildPhotoPrompt(char, "在楼下便利店", null, { kind: "self" }
 assert.match(eng, /五官、脸型、发型发色、瞳色、肤色、体型、标志性配饰，照它来/, "参考图锁人那一条被动了");
 assert.match(eng, /【最高优先级·就是这个人】/, "身份锁被动了");
 
-// ---- 4. 自拍那一档不许再写死「正脸对着镜头」----
-// 那句话本身就是「每张都一个角度」的来源之一；要的只有【是自拍】和【脸在画面里】。
-const selfBranch = eng.slice(eng.indexOf("【第一人称自拍】"), eng.indexOf("【这是别人帮 TA 拍的照片"));
+// ---- 4. 自拍那一档不许再写死「正脸对着镜头」，也不许写死「自拍构图」----
+// 「脸清楚地对着镜头」和「自拍构图（selfie）」都是【每张都一个样】的来源：
+// 前者定死了朝向，后者定死了那个举着手臂的母题，而且它会把机位轮盘抵消掉——
+// 轮盘掷到「怼脸特写」「低头只露半张脸」时，模型为了同时满足 selfie 又把手臂塞回来
+// （她 2026-09-21：「不需要每次都看出他是在自拍，有时候可以就是近距离的脸」）。
+const selfBranch = eng.slice(eng.indexOf("【TA 自己拍自己的一张】画面里只有 TA 一个人，没有别人在替 TA 拍——"), eng.indexOf("【这是别人帮 TA 拍的照片"));
+assert.ok(selfBranch.length > 0, "抠不出自拍那一档");
 assert.ok(!/脸清楚地对着镜头/.test(selfBranch), "自拍那一档还写死着「脸清楚地对着镜头」");
+assert.ok(!/自拍构图/.test(selfBranch), "自拍那一档又写死了「自拍构图」——那正是举手臂的来源");
+assert.match(selfBranch, /不必让人一眼看出这是自拍/, "没说明不必看出是自拍");
+assert.match(selfBranch, /由上面那一句机位说了算/, "手臂要不要入镜没交给机位决定");
 assert.match(selfBranch, /不必正对镜头/, "没说明脸可以不正对镜头");
 assert.match(selfBranch, /脸要在画面里/, "脸得在画面里这条丢了——那是自拍的题目");
+// ⚠️锚还在：删干净会滑成「别人帮拍」，那就跟 other 那一档混了
+assert.match(selfBranch, /没有别人在替 TA 拍/, "没有第三个人在拍这条锚丢了");
+
+// ---- 4.5 合照那一档也不许把「一条手臂入镜」写成默认 ----
+const duoBranch = eng.slice(eng.indexOf("【两人合照】"), eng.indexOf("【两人合照】") + 400);
+assert.ok(!/一条手臂入镜/.test(duoBranch), "合照那一档还把「一条手臂入镜」写在默认写法里");
+assert.match(duoBranch, /手臂和手机要不要入镜由这一张的机位决定/);
+
+// ---- 4.8 最简稿（审核降级那一份）是同一层，别落单 ----
+// 同一句话写在两处，改一处另一处永远落单（施工规则/one-public-mechanism.md）
+const minimal = eng.slice(eng.indexOf("function buildMinimalPhotoPrompt("), eng.indexOf("function buildPhotoPrompt("));
+assert.ok(!/自拍透视|前置摄像头/.test(minimal), "最简稿里还写死着自拍透视");
+assert.match(minimal, /不必看出是自拍/);
+assert.match(minimal, /没有别人在替 TA 拍/, "最简稿丢了「没有第三个人在拍」那条锚");
 
 // ---- 5. 这句话真的被拼进去了，不是定义完没人用 ----
 // （v55.95 那个形状：声明了但从没被引用，比压根没写更坏）
