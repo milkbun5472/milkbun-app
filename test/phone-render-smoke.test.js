@@ -327,7 +327,11 @@ test("购物的推演任务把「为什么想买」和「不是自己家的地�
   assert.match(spec.instruction, /gifts 相关往来 \*\*3-5 条\*\*/);
   // 值钱的那几栏
   assert.match(spec.instruction, /why 这一栏是整个 app 里最重要的东西/);
-  assert.match(spec.instruction, /不许写「质量好」「性价比高」这种/);
+  assert.match(spec.instruction, /「质量好」「性价比高」这种/);
+  // v72.42 把那三个内容示范换成了判据（原来的「府里那张被陆闻拍裂了一条缝」
+  //   是她的私人角色名，跟着出货到了公共版）——守的是【判据还在】
+  assert.match(spec.instruction, /换个角色还照样成立的，就是写坏了/);
+  assert.ok(spec.instruction.indexOf("陆闻") < 0, "提示词里又把真角色名写回示范了");
   assert.match(spec.instruction, /绝不买什么.*这一条比常买更像人/s);
   assert.match(spec.instruction, /其中一条应当是「他常去的另一个地方」/);
   assert.match(spec.instruction, /看了没买的东西和购物车里的要错开/);
