@@ -66,7 +66,8 @@ test("一段都没讲过就什么都不发，别白占上下文", () => {
 test("单聊线下和群线下都要挂上这条尾巴，数字生命不发", () => {
   const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)[0];
   assert.match(single, /const flashbackTail = isDigital \? "" : offlineFlashbackBlock\(/, "言秋那条线不发扮演类规则");
-  assert.match(single, /characterSupplyTail \+ flashbackTail \+ styleTail/, "拼进去了才算发");
+  // v72.37 中间插了导演便签那一句（文风仍排最末，见 offline-style-and-reroll 那条）
+  assert.match(single, /characterSupplyTail \+ flashbackTail \+ directorTail \+ styleTail/, "拼进去了才算发");
   const group = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)[0];
   assert.match(group, /const gFlashbackTail = offlineFlashbackBlock\(/);
   assert.match(group, /content: hist\[hist\.length - 1\]\.content \+ gFlashbackTail \+ gTail/);

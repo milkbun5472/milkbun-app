@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.36";
+const APP_VERSION = "v72.37";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7115,6 +7115,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
+      // 短期导演便签扣一轮（跟群线下同一支；失败/超时不扣，所以放在这儿不是 finally 里）
+      const _dn = directorNotesConsume(workSess.customNotes, workSess.startTs);
+      if (_dn) {
+        pOffline(scopeKey, list => list.map(x => x.id === workSess.id ? { ...x, customNotes: _dn.next } : x));
+        directorNoteToast(_dn.left);
+      }
       setTimeout(() => maybeSummarizeOffline(scopeKey), 120); // 侧房函数内硬隔离，不进入主记忆
       setTimeout(() => maybeAutoExtractOffline(scopeKey), 200);
     } catch (e) {
@@ -7238,10 +7244,43 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const rerollAvoid = removed.filter(m => m && m.role === "char" && m.content).map(m => String(m.content)).join("\n---\n");
     await genOfflineFrom(scopeKey, { ...sess, msgs: truncated, rerollAvoid });
   };
-  const offlineAddNote = (scopeKey, note) => {
-    pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), note] } : s));
-    toast("已加入提示");
+  // ── 短期导演便签：单人线下和群线下共用这一份（v72.37）────────────────────
+  // 她 2026-09-21 转来的反馈：「线下模式那个导演模式，我每次发完他好像不会立刻听我的话，
+  //   要过两轮才听」。病根不是模型笨，是这一层【在群线下做全了、单人线下落单】：
+  //   · 单人线下存的是一个【裸字符串】（没有 id、没有 remaining），所以永不过期、
+  //     不扣轮、界面上也看不见还剩几轮；
+  //   · 单人线下只在 system 中段写了一句【临时导演提示】，而群线下还在【最后那条
+  //     user 消息的尾巴上】再说一遍——离生成最近的那句才压得住（同 styleTail v55.41）。
+  //   两处各写一份就是这个下场，所以新建、消耗、提示语都收进这里（one-public-mechanism）。
+  const DIRECTOR_NOTE_TURNS = 2;   // 她 2026-09-21 定：两处都是 2 轮
+  const directorNoteNew = text => {
+    const t = String(text || "").trim();
+    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: DIRECTOR_NOTE_TURNS, createdAt: Date.now() } : null;
   };
+  // 成功生成之后扣一轮；失败/超时不扣（所以只在生成成功那一处调用）。
+  // 字符串是旧版遗留：认下来、只再生效这一轮，然后就地转成对象。
+  // 没有可扣的就返回 null——调用方据此决定发不发那句 toast。
+  const directorNotesConsume = (notes, sessStartTs) => {
+    const list = notes || [];
+    const usedIds = new Set(list.filter(n => n && typeof n === "object" && Number(n.remaining) > 0).map(n => n.id));
+    const legacy = list.some(n => typeof n === "string");
+    if (!usedIds.size && !legacy) return null;
+    const next = list.map(n => {
+      if (typeof n === "string") return { id: "legacy_note_" + memVecHash(n), text: n, remaining: 0, createdAt: sessStartTs || Date.now() };
+      return usedIds.has(n.id) ? { ...n, remaining: Math.max(0, Number(n.remaining || 0) - 1) } : n;
+    });
+    const left = Math.max(0, ...next.filter(n => usedIds.has(n.id)).map(n => Number(n.remaining) || 0));
+    return { next: next, left: left };
+  };
+  const directorNoteToast = left => toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
+  const offlineAddNote = (scopeKey, note) => {
+    const item = directorNoteNew(note);
+    if (!item) return;
+    pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
+    toast("已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
+  };
+  const offlineDeleteNote = (scopeKey, noteId) => pOffline(scopeKey, list => list.map(s => !s.endTs
+    ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 线下进行中随时切换文风（不同剧情段落用不同笔调）
   const offlineSetStyle = (scopeKey, patch) => {
     const charId = offlinePersonId(scopeKey);
@@ -7750,15 +7789,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           thought: b.thought, mood: b.mood && b.mood.label
         }, goTurnId, affinityBefore, _offThoughtOnce);
       }
-      // 短期导演便签只在成功生成后消耗；失败/超时不扣。字符串是旧版遗留，只再生效这一轮。
-      const usedNoteIds = new Set((effectiveSess.customNotes || []).filter(n => n && typeof n === "object" && Number(n.remaining) > 0).map(n => n.id));
-      pGOffline(group.id, list => list.map(s => s.id === workSess.id ? { ...s, customNotes: (s.customNotes || []).map(n => {
-        if (typeof n === "string") return { id: "legacy_note_" + memVecHash(n), text: n, remaining: 0, createdAt: s.startTs || Date.now() };
-        return usedNoteIds.has(n.id) ? { ...n, remaining: Math.max(0, Number(n.remaining || 0) - 1) } : n;
-      }) } : s));
-      if (usedNoteIds.size || (effectiveSess.customNotes || []).some(n => typeof n === "string")) {
-        const left = Math.max(0, ...(effectiveSess.customNotes || []).map(n => typeof n === "string" ? 0 : (usedNoteIds.has(n.id) ? Number(n.remaining || 0) - 1 : 0)));
-        toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
+      // 短期导演便签只在成功生成后消耗；失败/超时不扣。新建/消耗/提示语都在 directorNote* 那一处。
+      const _gDn = directorNotesConsume(effectiveSess.customNotes, effectiveSess.startTs);
+      if (_gDn) {
+        pGOffline(group.id, list => list.map(s => s.id === workSess.id ? { ...s, customNotes: _gDn.next } : s));
+        directorNoteToast(_gDn.left);
       }
       // 封闭群不驱动朋友圈/论坛/悄悄话这些对外的东西（线上那处 v55.79 已堵，群线下漏了）
       if (!groupClosed(group.id)) _spoke.forEach(id => tickAmbient(id, {}));
@@ -7848,10 +7883,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note) => {
-    const item = { id: "gonote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: String(note || "").trim(), remaining: 2, createdAt: Date.now() };
-    if (!item.text) return;
+    const item = directorNoteNew(note);
+    if (!item) return;
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
-    toast("已加入提示 · 接下来 2 轮生效");
+    toast("已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
   };
   const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
@@ -24415,6 +24450,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onReply: txt => offlineReply(activeOfflineScopeKey, txt),
     onOOC: txt => offlineOOC(activeOfflineScopeKey, txt),
     onAddNote: n => offlineAddNote(activeOfflineScopeKey, n),
+    onDeleteNote: id => offlineDeleteNote(activeOfflineScopeKey, id),
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),

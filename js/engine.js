@@ -6103,6 +6103,14 @@ function reasoningFromBody(text) {
   // 没有收尾标记＝模型忘了闭合或被截断，后面整段都算思考
   return (close < 0 ? after : after.slice(0, close)).trim();
 }
+// 短期导演便签的【尾部重申】：单人线下和群线下共用这一句（v72.37）。
+// 她 2026-09-21 转来的反馈：「导演模式我每次发完他好像不会立刻听我的话，要过两轮才听」。
+// 病根不是模型笨：便签只写在 system 中段，夹在人设、文风和一大堆叙事准则中间就被稀释了。
+// 群线下早就在最后那条 user 消息的尾巴上又说了一遍，单人线下没有——落单的是它。
+// ⚠️这跟 styleTail（v55.41 长文风尾部重申）是同一招：真正要紧的约束要放在离生成最近的位置。
+function directorNoteTail(notes) {
+  return (notes && notes.length) ? "本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "";
+}
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -6226,7 +6234,14 @@ async function generateOffline(p, ctx, session) {
   // 已经讲过的往事摆回它面前（放尾部：这条只有离生成最近才压得住）。数字生命不发。
   const flashbackTail = isDigital ? "" : offlineFlashbackBlock(
     (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + flashbackTail + styleTail;
+  // 导演便签摆在【最后】：离生成最近的那一句才压得住（同 styleTail 那条道理）。
+  // system 中段那一份照旧留着——两处说的是同一段字，走同一个 notes。
+  const directorLine = directorNoteTail(notes);
+  const directorTail = directorLine ? "\n\n〔幕后提醒，绝不出现在正文里〕" + directorLine : "";
+  // ⚠️文风仍旧排在【最末】（v55.41 那条：它和通用叙事准则冲突时以它为准，所以离生成最近）。
+  //   导演便签插在它前面——比原来那个「system 中段」近了几万字，已经够压住了，
+  //   不必为了抢最后一格把文风那条挤走（那是两件事，不是一件事的两种写法）。
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + flashbackTail + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -6740,7 +6755,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const gBudget = Math.min(window.StylePresets.OUT_CEILING,
     Math.max(Number(session.maxTokens) || 1900, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true, userName) : "";
-  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
+  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥" + directorNoteTail(notes) : "") + "〕";
   // 群线下同理：回忆是最便宜的填充，人多了只会更容易各自翻各自的老账
   const gFlashbackTail = offlineFlashbackBlock(
     (session.msgs || []).filter(m => m && m.role === "char" && m.kind !== "ooc").map(m => m.content));
