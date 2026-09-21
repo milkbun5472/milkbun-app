@@ -10585,10 +10585,8 @@ function VoiceMsg({ m, isU, speaker }) {
   const [pErr, setPErr] = useState(null);
   const audRef = useRef(null);
   useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
-  // 语气标记是【说给 TTS 听的】，不给她看（v72.40，她 2026-09-21）：
-  // 转录文字、波形、时长全按【剥干净的那一份】算——不剥的话，标记会跟着一起显示出来，
-  // 而且那几个字还会把波形和秒数算长。剥标记只有 engine 那一支 ttsMarkStrip。
-  // ⚠️合成走的是 m.content 原文：停顿 <#秒#> 要留给 MiniMax，剥不剥由 ttsKeyFor 那一处统一说了算。
+  // 转录、波形、时长都按剥干净的那一份算（标记会跟着显示，还会把秒数算长）。
+  // 合成仍走 m.content 原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 一处说了算。
   const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(m.content) : String(m.content || "");
   const dur = m.dur || Math.max(1, Math.round(say.replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
