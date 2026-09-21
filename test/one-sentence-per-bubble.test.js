@@ -50,7 +50,10 @@ test("数量仍旧自由——不是把话多的人一起收了", () => {
 // 代码兜底只当急救，门槛不动——降到十几字会把「嗯，好，知道了」这种碎句切烂
 test("兜底门槛照旧 22，靠提示词管风格、靠代码管急救", () => {
   const i = eng.indexOf("function splitLongBubble(s, allowComma)");
-  const seg = eng.slice(i, i + 300);
+  // 窗口钉到【下一个函数】为止，不写死 300 字：函数开头一加东西（v72.24 加了
+  // 认卡片那一步）门槛就被顶出窗口，红的不是门槛而是这把尺（施工规则/anchor-on-code.md）
+  const seg = eng.slice(i, eng.indexOf("\nfunction ", i + 10));
+  assert.ok(seg.length > 0, "抠不出 splitLongBubble");
   assert.match(seg, /const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;/, "门槛被动过了");
   // v57.78 起函数上面还有三个千分位小工具，得一起带上
   const helpers = eng.slice(eng.indexOf("const BUBBLE_NUMSEP"), i);

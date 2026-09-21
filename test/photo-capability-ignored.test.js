@@ -30,5 +30,7 @@ test("连着两轮才提示：偶尔一轮不拍是人物反应，不是故障",
 test("冷却轮不算数——那轮能力本来就没给模型，怪不到模型头上", () => {
   // canSelfie 已经含 !cooling，这里再显式排一次，读代码时一眼看得出前提
   assert.match(app, /!photoScene && canSelfie && !photoCooldown\.cooling/);
-  assert.match(app, /const canSelfie = canSelfieBase && !photoCooldown\.cooling;/);
+  // ⚠️v72.23：canSelfie 不再要求有图像通道（没配也能发只有描述的那一张，见
+  //   photo-without-img-api-72-23）。它现在只剩冷却这一个前提——这条守的正是那件事。
+  assert.match(app, /const canSelfie = !photoCooldown\.cooling;/);
 });

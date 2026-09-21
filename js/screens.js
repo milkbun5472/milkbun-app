@@ -1230,6 +1230,7 @@ function Ties({
   onBack,
   onSave,
   onCreateNpc,
+  onAddMyNpc,
   onDeleteNpc,
   npcsOf,
   npcBusy
@@ -1426,7 +1427,7 @@ function Ties({
               h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, mine.length + " 段关系")),
               mine.map(c => h(DetailRowWrap, { key: c.a + "|" + c.b, selfId: view, card: c })))),
       comp && h(RelComposer, {
-        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
         valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
       }));
   }
@@ -1479,7 +1480,7 @@ function Ties({
     boardId !== "me" ? h("button", { onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
@@ -1488,7 +1489,7 @@ function Ties({
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
+function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -1504,8 +1505,10 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
     }
   }, txt);
 
+  // id 可以是 "me"（她自己）——她在关系图里本来就是这个节点，头像走 profile 那张
   const pickCard = (id, selected, onClick) => {
-    const ch = characters.find(x => x.id === id);
+    // ⚠️me 是一个名字字符串，不是一张卡：头像得读 profile，名字读 me
+    const ch = id === "me" ? profile : characters.find(x => x.id === id);
     return h("button", {
       key: id, onClick, className: "flex items-center gap-2.5 active:opacity-70",
       style: {
@@ -1515,7 +1518,8 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       }
     },
       h(Avatar, { character: ch, size: 32, radius: 9 }),
-      h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ch ? ch.name : "?"),
+      h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+        id === "me" ? (me || "我") : (ch ? ch.name : "?")),
       selected && h(ICheck, { size: 15, color: t.tint }));
   };
   const togglePair = id => {
@@ -1552,28 +1556,67 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
     // NPC 分支：不是填关系，是生成一个只在群里出场的配角。
     // 它除了人设什么都没有——没有单聊、没有心情好感、不进任何后台生成。
     c.tab === "npc" ? h(Fragment, null,
+      // ⚠️她 2026-09-20：「能不能给我也搞可以加 npc，比如闺蜜朋友之类的」——
+      //   所以这一格的第一张是她自己。她在关系图里本来就是 "me" 这个节点，不另起一套。
       h(Eyebrow, { style: { marginBottom: 10 } }, "算在谁身边"),
       h("div", { className: "grid grid-cols-2 gap-2 mb-5" },
-        characters.map(ch => pickCard(ch.id, c.meChar === ch.id, () => set({ meChar: ch.id })))),
-      h(Eyebrow, { style: { marginBottom: 8 } }, "要生成谁"),
-      h("input", {
-        value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
-        placeholder: "陆闻 / TA的属下 / 她师姐",
-        className: "w-full bg-transparent outline-none pb-2",
-        style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
-      }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
-        "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
-        + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
-        + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
-      h("button", {
-        onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
-        className: "w-full active:opacity-70",
-        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
-          opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
-      }, npcBusy ? "生成中…" : "生成"),
+        [pickCard("me", c.meChar === "me", () => set({ meChar: "me" }))].concat(
+          characters.map(ch => pickCard(ch.id, c.meChar === ch.id, () => set({ meChar: ch.id }))))),
+      // ⚠️她 2026-09-20：「给我自己的 npc 就让我自己写就行了，不用生成」。
+      //   所以这一栏按主人分成两支：角色身边的人照旧【一枪生成】（她不认识那个世界里的人，
+      //   让模型照人设编才省事）；她自己身边的人【她自己写】——闺蜜是什么样她比谁都清楚，
+      //   让模型编一份反而是替她瞎想，还白花一枪。
+      c.meChar === "me" ? h(Fragment, null,
+        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 叫什么"),
+        h("input", {
+          value: c.npcName || "", onChange: e => set({ npcName: e.target.value.slice(0, 24) }),
+          placeholder: "名字或称呼",
+          className: "w-full bg-transparent outline-none pb-2",
+          style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+        }),
+        h(Eyebrow, { style: { margin: "16px 0 8px" } }, "你俩什么关系"),
+        h("input", {
+          value: c.npcRel || "", onChange: e => set({ npcRel: e.target.value.slice(0, 60) }),
+          placeholder: "我闺蜜 / 我表妹 / 一个办公室的同事（可以不填）",
+          className: "w-full bg-transparent outline-none pb-2",
+          style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, borderBottom: "1px solid " + t.line }
+        }),
+        h(Eyebrow, { style: { margin: "16px 0 8px" } }, "TA 是个什么人"),
+        h("textarea", {
+          value: c.npcBrief || "", onChange: e => set({ npcBrief: e.target.value.slice(0, 4000) }), rows: 6,
+          placeholder: "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、你俩怎么认识的。",
+          className: "w-full bg-transparent outline-none resize-none",
+          style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" }
+        }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+          "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。"),
+        h("button", {
+          onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
+            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
+          className: "w-full active:opacity-70",
+          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+            opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
+        }, "加进来")
+      ) : h(Fragment, null,
+        h(Eyebrow, { style: { marginBottom: 8 } }, "要生成谁"),
+        h("input", {
+          value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
+          placeholder: "陆闻 / TA的属下 / 她师姐",
+          className: "w-full bg-transparent outline-none pb-2",
+          style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+        }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+          "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
+            + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
+            + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
+        h("button", {
+          onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
+          className: "w-full active:opacity-70",
+          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+            opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
+        }, npcBusy ? "生成中…" : "生成")),
       (npcsOf ? npcsOf(c.meChar) : []).length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 8 } }, nameOf(c.meChar) + " 身边已有的"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, (c.meChar === "me" ? "我" : nameOf(c.meChar)) + " 身边已有的"),
         h("div", { className: "space-y-2" }, npcsOf(c.meChar).map(n => h("div", {
           key: n.id,
           style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
@@ -1583,7 +1626,8 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
             h(NpcBrief, { npc: n, onSave: onSaveNpcBrief, compact: true }),
             // 跟我认不认识（她 2026-09-15：「万一 npc 是我和 ab 的共友那不认识也不成立」）。
             // 默认不认识——多数配角确实是角色那边的人；共友是那一小撮，得她自己点亮。
-            onSaveNpcKnows ? h("div", { style: { marginTop: 6 } },
+            // 她自己的人天然认识她——那颗开关只对【角色身边的人】有意义
+            (onSaveNpcKnows && String(n.ownerId) !== "me") ? h("div", { style: { marginTop: 6 } },
               h("button", {
                 onClick: () => onSaveNpcKnows(n.id, { knowsUser: !n.knowsUser }),
                 className: "active:opacity-60",
@@ -3378,10 +3422,12 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
 // ---- 亲属卡账单（每卡流水 + 申请加额度）----
 // v60.45 撤掉了每笔下面那条「角色评论」：它靠刷卡时现调一次模型来填，
 // 而买东西不该调用（她 2026-09-02）。TA要说什么，在聊天里说。
-function KinshipBill({ card, character, onBack, onRaise }) {
+function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
   const [amt, setAmt] = useState("");
+  const [quitting, setQuitting] = useState(false);
+  const [why, setWhy] = useState("");
   if (!card) return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) }, h(Head, { zh: "亲属卡", bg: "transparent", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "卡片不存在"));
   const c = character || {};
   const ledger = card.ledger || [];
@@ -3413,7 +3459,19 @@ function KinshipBill({ card, character, onBack, onRaise }) {
                 h("div", { className: "min-w-0 flex-1" },
                   h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, l.item),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(l.ts))),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount)))))));
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount))))),
+      // 退卡（她 2026-09-19）。摆在账单最后、卡面和流水都看过之后，不跟「申请加额度」并排——
+      // 那两件事方向相反，并排放迟早会点错。留一行字可以填：那句话会跟着通知卡落进聊天，
+      // TA 下一轮就看得见；不填也行，卡照退。
+      onUnbind ? h("div", { className: "px-5 pb-12" },
+        !quitting
+          ? h("button", { onClick: () => setQuitting(true), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999 } }, "把这张卡退回去")
+          : h("div", { className: "p-4", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, "要不要留一句话？" + (c.name || "TA") + "会在聊天里看到这张退卡通知，等你下次说话时由 Ta 自己反应。"),
+              h("input", { value: why, onChange: e => setWhy(e.target.value), maxLength: 60, placeholder: "想说的话（可以不填）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+              h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
+                h("button", { onClick: () => { onUnbind(why); setQuitting(false); setWhy(""); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "解绑"),
+                h("button", { onClick: () => { setQuitting(false); setWhy(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "再想想")))) : null));
 }
 
 // ============================================================
@@ -5209,7 +5267,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -5338,7 +5396,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer,
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer,
       ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
   }
   // 情侣空间子模块：我们的唱片
@@ -8862,8 +8920,9 @@ function BubbleSkinConfig({ toast }) {
   const [s, setS] = useState(() => Object.assign({}, BUBBLE_SKIN)); // 草稿：从当前皮肤复制一份
   const [folded, setFolded] = useState(true); // v48.38：默认折起，点标题展开（试衣镜太长）
   const set = patch => setS(p => Object.assign({}, p, patch));
-  const save = () => { Object.assign(BUBBLE_SKIN, s); try { localStorage.setItem("x_bubbleSkin", JSON.stringify(s)); } catch (e) {} if (typeof applyBubbleSkinCSS === "function") applyBubbleSkinCSS(); toast && toast("皮肤已保存，聊天页立即生效"); };
-  const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); Object.assign(BUBBLE_SKIN, d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} if (typeof applyBubbleSkinCSS === "function") applyBubbleSkinCSS(); toast && toast("已恢复出厂皮肤"); };
+  // 落盘只走 components.js 的 writeBubbleSkin 那一处（主题包导入也走它）
+  const save = () => { writeBubbleSkin(s); toast && toast("皮肤已保存，聊天页立即生效"); };
+  const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); writeBubbleSkin(d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} toast && toast("已恢复出厂皮肤"); };
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "2px 0" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "聊天气泡"),
@@ -14286,8 +14345,31 @@ const DRAWER_KIND = {
   // 那是路上拾的，这是TA一直带在身上的。
   drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
-function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, onDrop, ledger, kinds, onBack }) {
   const t = useTheme();
+  // 拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
+  // ⚠️不做成长按：她 2026-09-19 为论坛删帖定过同一件事——「算了长按删除去掉不要了，就留叉」。
+  //   理由写在那儿：长按是隐形的（她「这里也没有删除」），而且在一条条滑过去的列表里，
+  //   长按十次有八次被当成滚动。抽屉正是这种列表，所以照那次的结论来：一颗看得见的 ✕。
+  const askDrop = function (x) {
+    const what = x.openedTs
+      ? "「" + String(x.title || x.text || "").replace(/\s+/g, " ").slice(0, 24) + "…」"
+      : "这样还没拆的东西";
+    requestAppConfirm("从抽屉里拿掉" + what + "？",
+      x.openedTs ? "拿掉之后就没有了。" : "它还封着——拿掉就再也不知道里面是什么了。",
+      function () { onDrop && onDrop(x.id); }, "拿掉");
+  };
+  // 那颗 ✕：压在右上角，跟纸面同色系、不抢眼，但一直看得见
+  const dropX = function (x) {
+    return h("button", { onClick: function (e) { e.stopPropagation(); askDrop(x); },
+      "aria-label": "拿掉这一样", className: "active:opacity-60",
+      // ⚠️往上提（她 2026-09-20：「这个❌有点太下了」）：30×30 是为了指头点得到的热区，
+      //   可热区一居中，那个叉看起来就掉到卡片中间去了。所以热区不动，用负 top 把它
+      //   提到跟第一行字齐平——纸是歪着的，再靠下一点就压到正文上了。
+      style: { position: "absolute", right: 0, top: -7, width: 30, height: 30, zIndex: 2,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: "rgba(122,99,56,.5)" } }, "✕");
+  };
   const mine = (items || []).filter(x => x.characterId === partner.id);
   const unopened = mine.filter(x => !x.openedTs).length;
   const nm = partner.remark || partner.name;
@@ -14343,7 +14425,8 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
               const sealed = !x.openedTs;
               if (sealed) {
                 // 封着的：一个折起来、封了口的纸包。正面什么都没写。
-                return h("button", { key: x.id, onClick: () => onOpen(x.id),
+                return h("div", { key: x.id, style: { position: "relative" } }, dropX(x),
+                  h("button", { onClick: () => onOpen(x.id),
                   className: "w-full text-left active:opacity-80", style: { position: "relative", padding: "17px 16px 16px",
                     background: "linear-gradient(158deg,#f8f0dc,#efe3c6)", borderRadius: 2,
                     boxShadow: "0 7px 16px rgba(96,72,40,.20)", transform: "rotate(" + tilt(i) + "deg)", overflow: "hidden" } },
@@ -14363,13 +14446,15 @@ function CoupleDrawer({ partner, items, onOpen, ledger, kinds, onBack }) {
                     boxShadow: "0 2px 4px rgba(80,30,24,.34), inset 0 0 0 3px rgba(255,255,255,.10), inset 0 -3px 5px rgba(60,20,16,.35)" } }),
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#7a6338", paddingRight: 44 } }, "还没拆"),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a08b5d", marginTop: 5, paddingRight: 44 } },
-                    nm + "在 " + gachaWhen(x.ts) + " 放进来的"));
+                    nm + "在 " + gachaWhen(x.ts) + " 放进来的")));
               }
               // 拆开的：摊平的那张纸
               return h("div", { key: x.id, style: { position: "relative", padding: "13px 15px 15px",
                 background: "#fffdf6", borderRadius: 2, boxShadow: "0 3px 9px rgba(96,72,40,.11)",
                 transform: "rotate(" + (tilt(i) / 2) + "deg)" } },
-                h("div", { className: "flex items-center", style: { gap: 7 } },
+                dropX(x),
+                // 抬头右边空出一截：时间戳原来正好落在叉底下，两个叠着谁都看不清
+                h("div", { className: "flex items-center", style: { gap: 7, paddingRight: 22 } },
                   h("span", { "aria-hidden": "true", style: { width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                     background: k.band, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
                     fontFamily: F_DISPLAY, fontSize: 11.5 } }, k.ch),

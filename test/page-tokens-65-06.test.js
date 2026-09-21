@@ -65,7 +65,9 @@ test("没换过色的页面，拿到的还是【原来那一个对象】", () =>
 test("读的是【此刻正生效的那份】，不是存档——不然预览时颜色纹丝不动", () => {
   assert.match(studio, /const tokensFor = page => cleanTokens\(\(\(current\(\) \|\| \{\}\)\.pageTokens \|\| \{\}\)\[page\]\);/);
   // 存档结构里也要有这一栏，否则存进去下次就没了
-  assert.match(studio, /pageCSS: \{\}, pageTokens: \{\}, updatedAt: 0/);
+  // ⚠️只钉「新存档里有 pageTokens 这一栏」，别钉整行长什么样：
+  //   v72.32 这一行后面又多了一格 pageZoom（每页多大）。
+  assert.match(studio, /pageCSS: \{\}, pageTokens: \{\}/);
   assert.match(studio, /Object\.keys\(x\.pageTokens \|\| \{\}\)\.forEach/, "normalize 没洗这一栏");
 });
 

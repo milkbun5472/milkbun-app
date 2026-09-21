@@ -28,7 +28,9 @@ test('旧档无性别沿用他，新建明确存TA，已选性别与原对象不
   const app = fs.readFileSync('js/app.js','utf8');
   assert.ok(app.includes(': [...p, CharacterPronoun.newCharacter(c)]'));
   assert.ok(app.includes('CharacterPronoun.newCharacter({ id, name: (parsed.name'));
-  assert.ok(app.includes('pC(prev => [...prev, CharacterPronoun.newCharacter({'));
+  // ⚠️只查【新建角色必须过 newCharacter】这一件事，别钉那一行长什么样：
+  //   v72.27 她自己的配角那一支给它包了一层 Object.assign（多带 knowsUser 两个字段）。
+  assert.ok(/pC\(prev => \[\.\.\.prev, CharacterPronoun\.newCharacter\(/.test(app));
   assert.ok(app.includes('pC(p => p.some(x => x.id === c.id) ? p : [...p, c])'), '找回旧角色不当成新建');
 });
 

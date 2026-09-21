@@ -353,8 +353,10 @@
     // ⚠️病因：这儿原来只挂了 onContextMenu。桌面右键会发它，**iOS 长按一个 <button>
     //   压根不发这个事件**——弹的是系统那个选择/预览菜单。所以这行「长按封面可移除」
     //   在她手机上从上线起就是句空话，而且不报任何错。
-    // 照梦境/塔罗那两处现成的做法：touch 计时 550ms 自己判长按，contextmenu 留给桌面。
-    const lp = useLongPress();
+    // 照梦境/塔罗那两处现成的做法：touch 自己计时判长按，contextmenu 留给桌面。
+    // 长按走全局那一份（components.js 的 useLongPressMenu）：它认「手指动了就不算」、
+    // 滚动能掐掉、还会把抬手那一下的误点吞掉——比这儿原来自己写的那套稳。
+    const { startPress, endPress } = useLongPressMenu(askDrop);
     // 房间里点了「接着读《X》」那张卡：直接翻开那一本，别把她扔回书架自己找。
     // ⚠️取完就报一声，让上层把 entry 清掉——不然下次自己进书架又会被拽进同一本。
     const tookEntry = useRef("");
@@ -438,9 +440,14 @@
       // ⚠️夹住 0~100：page 比总页数大时这儿会算出「107%」印在封面上
       const pct = Math.max(0, Math.min(100, Math.round(((b.page || 0) / Math.max(1, pages - 1 || 1)) * 100)));
       return h("div", { key: b.id },
-        h("button", Object.assign({ onClick: lp.tap(function () { setOpenId(b.id); }) }, lp.bind(function () { askDrop(b); }), {
-          style: Object.assign({}, lp.style, { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" })
-        }),
+        h("button", {
+          onClick: function () { setOpenId(b.id); },
+          onContextMenu: function (e) { e.preventDefault(); askDrop(b); },
+          onTouchStart: function () { startPress(b); }, onTouchEnd: endPress, onTouchMove: endPress, onTouchCancel: endPress,
+          onMouseDown: function () { startPress(b); }, onMouseUp: endPress, onMouseLeave: endPress,
+          // ⚠️不关掉 iOS 自己那套长按行为，系统菜单会盖在确认框前面
+          style: Object.assign({ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }, { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" })
+        },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),
           h("div", null,
             (b.annotations && b.annotations.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.75)" } }, "批注 " + b.annotations.length) : null,
@@ -563,7 +570,16 @@
     // 删掉批注册里的一条。讲解存在 explains 的「页_段」键上，批注是 annotations 里的一条，
     // 两种来路各删各的——别为了「统一」把它们先拍平再存回去，那会把没被删的那些一起重写。
     // ⚠️批注没有 id，所以按【页＋段＋时间戳＋是谁写的】认：同一段上同一毫秒不会有第二条。
-    const lpPage = useLongPress();
+    // 这一页上两种卡片（讲解／批注）共用同一副计时器，绑的动作各不相同：
+    // onFire 收到的就是那张卡自己的删除动作，直接调。
+    const { startPress: startPagePress, endPress: endPagePress } = useLongPressMenu(function (fire) { fire(); });
+    const pagePressProps = function (fire) {
+      return {
+        onContextMenu: function (e) { e.preventDefault(); fire(); },
+        onTouchStart: function () { startPagePress(fire); }, onTouchEnd: endPagePress, onTouchMove: endPagePress, onTouchCancel: endPagePress,
+        onMouseDown: function () { startPagePress(fire); }, onMouseUp: endPagePress, onMouseLeave: endPagePress
+      };
+    };
     const dropAnnoRow = function (r) {
       if (r.kind === "ex") {
         props.onPatch(function (b) {
@@ -898,10 +914,10 @@
                 borderLeft: hot ? ("2px " + (anns.length ? "solid" : "dotted") + " " + skinAlpha(t.tint, anns.length ? "bb" : "77")) : "2px solid transparent",
                 WebkitUserSelect: "text", userSelect: "text" } }, p),
               // 中译中·逐段讲解卡片
-              ex ? h("div", Object.assign({ key: "ex_" + i }, lpPage.bind(function () {
+              ex ? h("div", Object.assign({ key: "ex_" + i }, pagePressProps(function () {
                   requestAppConfirm("删掉这条讲解？", String(ex.text || "").replace(/\s+/g, " ").slice(0, 40) + "…",
                     function () { dropAnnoRow({ kind: "ex", page: pageIdx, para: i }); }, "删除");
-                }), { style: Object.assign({}, lpPage.style, { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: t.tint + "16", borderRadius: 10 }) }),
+                }), { style: Object.assign({ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }, { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: t.tint + "16", borderRadius: 10 }) }),
                 exCh ? h(Avatar, { character: exCh, size: 18, radius: 6 }) : null,
                 h("div", { style: { flex: 1 } },
                   h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 3 } },
@@ -914,11 +930,11 @@
               anns.map(function (a) {
                 const ch = chOf(a.charId);
                 const isRead = a.channel === "read"; // 言秋 CC 亲读写回的
-                return h("div", Object.assign({ key: a.id }, lpPage.bind(function () {
+                return h("div", Object.assign({ key: a.id }, pagePressProps(function () {
                   requestAppConfirm(a.who === "user" ? "删掉你记的这条？" : "删掉这条批注？",
                     String(a.note || "").replace(/\s+/g, " ").slice(0, 40) + "…",
                     function () { dropAnnoRow({ kind: a.who === "user" ? "me" : "ann", page: a.page || 0, para: a.para || 0, ts: a.ts || 0, who: a.who || "" }); }, "删除");
-                }), { style: Object.assign({}, lpPage.style, isRead
+                }), { style: Object.assign({ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }, isRead
                   ? { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: "#3f6ea80e", border: "1px solid #3f6ea855", borderRadius: 10 }
                   : { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.tint, borderRadius: "0 8px 8px 0" }) }),
                   ch ? h(Avatar, { character: ch, size: 18, radius: 6 }) : null,
@@ -975,35 +991,8 @@
     );
   }
 
-  // ---- 长按删除：一处开好，书架和批注册共用 ----------------------
-  // 她 2026-09-06「一起读长按封面删不了」那次学到的两条，别再各写一遍：
-  //  ① iOS 长按 <button> **不发 contextmenu**，弹的是系统菜单——所以 touch 自己计时 550ms，
-  //     contextmenu 只留给桌面右键；
-  //  ② 不关掉 iOS 那套长按行为（WebkitTouchCallout/userSelect），系统菜单会盖在确认框前面。
-  // ⚠️长按弹过确认框之后，松手那一下不许再当成点击（lpFired 这一闸）。
-  // ⚠️一个组件只调一次这个 hook（列表里每行各调一次＝hook 数量跟着条数变，React 会炸）。
-  //   所以要长按的是哪一行，由 bind(那一行的动作) 在渲染时绑，共用同一副计时器。
-  function useLongPress() {
-    const timer = useRef(null), fired = useRef(false);
-    const cancel = function () { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
-    useEffect(function () { return cancel; }, []);
-    const start = function (fire) {
-      fired.current = false; cancel();
-      timer.current = setTimeout(function () { fired.current = true; fire(); }, 550);
-    };
-    return {
-      // 点击要先问一句「刚才是不是长按」
-      tap: function (onTap) { return function () { if (fired.current) { fired.current = false; return; } onTap && onTap(); }; },
-      bind: function (fire) {
-        return {
-          onContextMenu: function (e) { e.preventDefault(); fire(); },
-          onTouchStart: function () { start(fire); }, onTouchEnd: cancel, onTouchMove: cancel, onTouchCancel: cancel,
-          onMouseDown: function () { start(fire); }, onMouseUp: cancel, onMouseLeave: cancel
-        };
-      },
-      style: { WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }
-    };
-  }
+  // ⚠️长按删除那一套搬去 components.js 了（v72.08）：情侣空间抽屉是第三处用到它。
+  //   这儿直接用全局那一份 useLongPress，不留第二份。
 
   // ---- 批注册 ----------------------------------------------------
   // 她 2026-09-05：「我觉得有点单调」。单调的另一半不在提示词，在于——
@@ -1018,7 +1007,7 @@
     // 长按删掉一条（她 2026-09-20：「一起读批注删除不了」）。
     // ⚠️原来这一册【只能看】：删只有书架上「长按封面」那一处，删的是整本。
     //   写错一条、不想要TA那句讲解，唯一的办法是把整本书连正文一起扔掉。
-    const lp = useLongPress();
+    const { startPress, endPress } = useLongPressMenu(function (r) { askDropRow(r); });
     const askDropRow = function (r) {
       const what = r.kind === "ex" ? "这条讲解" : r.kind === "me" ? "你记的这条" : "这条批注";
       requestAppConfirm("删掉" + what + "？", String(r.text || "").replace(/\s+/g, " ").slice(0, 40) + "…",
@@ -1076,8 +1065,12 @@
                         pa.items.map(function (r, i) {
                           const ch = r.charId ? props.chOf(r.charId) : null;
                           const tone = TONE[r.kind] || t.tint;
-                          return h("div", Object.assign({ key: i }, lp.bind(function () { askDropRow(r); }), {
-                            style: Object.assign({}, lp.style, { marginBottom: 8, paddingLeft: 9, borderLeft: "2px solid " + skinAlpha(tone, "55") }) }),
+                          return h("div", Object.assign({ key: i }, {
+                            onContextMenu: function (e) { e.preventDefault(); askDropRow(r); },
+                            onTouchStart: function () { startPress(r); }, onTouchEnd: endPress, onTouchMove: endPress, onTouchCancel: endPress,
+                            onMouseDown: function () { startPress(r); }, onMouseUp: endPress, onMouseLeave: endPress
+                          }, {
+                            style: Object.assign({ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }, { marginBottom: 8, paddingLeft: 9, borderLeft: "2px solid " + skinAlpha(tone, "55") }) }),
                             h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 2 } },
                               ch ? h(Avatar, { character: ch, size: 14, radius: 5 }) : null,
                               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),

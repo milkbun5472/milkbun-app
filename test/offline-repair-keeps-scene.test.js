@@ -16,8 +16,10 @@ const sp = fs.readFileSync(path.join(__dirname, "..", "js/style-presets.js"), "u
 
 test("一轮线下就是一次生成调用，没有补写那一路", () => {
   assert.ok(!/ensureOfflineMinimumScene/.test(engine), "补写函数和它的调用都要拆干净");
+  // ⚠️切片的下界钉的是【紧挨着的下一个函数】，不是 summarizeOffline：v72.03 归档总结那几个
+  //   helper 插在这两者中间，末界写成 summarizeOffline 会把它们的 callAI 一起数进来。
   const gen = engine.slice(engine.indexOf("async function generateOffline(p, ctx, session)"),
-    engine.indexOf("async function summarizeOffline"));
+    engine.indexOf("function offlineSummaryPartLine"));
   // 正文生成只有主调用和「模型不吐 JSON」的纯文本兜底，没有第三次
   const calls = gen.split("await callAI(").length - 1;
   assert.ok(calls <= 2, "generateOffline 里有 " + calls + " 处 callAI，多出来的那次是在花她的钱");

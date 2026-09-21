@@ -66,8 +66,13 @@ test("发照片那一格挂在真正在跑的那条协议上，不是那条死�
 
 test("聊天发图不再必须有脸：多一种【画面里没有人】的", () => {
   // 门槛拆成两条：拍人要有脸可锁，拍照不用
-  assert.match(app, /const canFace = \(char\.appearance \|\| char\.refPhoto\);/);
-  assert.match(app, /const canSelfieBase = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/,
+  // ⚠️v72.29：这道门槛只在【真要画像素】时才成立——没接图像通道时发的是一张
+  //   只有描述的相卡，没脸可串，所以那时候一律放行（见 photo-without-img-api-72-23）。
+  //   这条守的仍是「拍人要有脸可锁，拍照不用」。
+  assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/);
+  // ⚠️v72.23 改名并换了角色：有没有图像通道决定的是【出不出像素】，不再是【给不给能力】
+  //   （她 2026-09-20：没配图 api 也要能发假图带描述）。这条守的仍是「拍东西不要脸」。
+  assert.match(app, /const canSelfieImg = \(typeof imgApiReady === "function"\) && imgApiReady\(\);/,
     "拍东西还卡在「必须有脸」上");
   // 提示词里那几种 kind 按【有没有脸可锁】给，view 永远在
   assert.match(eng, /none（画面里一个人都没有：窗外、桌上的东西、刚做好的菜）/);
@@ -78,7 +83,8 @@ test("聊天发图不再必须有脸：多一种【画面里没有人】的", ()
   assert.match(eng, /kind 填 none 时一律 false/);
   assert.match(app, /\["self", "other", "duo", "view", "part", "none"\]\.includes/);
   // 执行时 view 绕开「有脸」那道闸，人像那几种照旧要
-  assert.match(app, /&& \(photoKind === "view" \|\| photoKind === "part" \|\| char\.appearance \|\| char\.refPhoto\)\) \{/);
+  // v72.23：这个条件挪进了 _canDraw（画不出像素就落成只有描述的那一张），判据一字未改
+  assert.match(app, /&& \(photoKind === "view" \|\| photoKind === "part" \|\| char\.appearance \|\| char\.refPhoto\);/);
 });
 
 // 提示词那条路她试了两版都没治住：他在气泡里自己说「刚出炉的纯风景」，
@@ -179,7 +185,8 @@ test("群聊同一套，不许只做单聊那一半", () => {
   assert.match(app, /const gDuoMembers = \(profile && profile\.refPhoto\) \? gFaceMembers\.filter/,
     "合照名单要从【有脸的】里挑，不是从全员里挑");
   assert.match(app, /\["self", "other", "duo", "group", "view", "part", "none"\]\.includes/);
-  assert.match(app, /&& \(gPhotoKind === "view" \|\| gPhotoKind === "part" \|\| spk\.appearance \|\| spk\.refPhoto\)\) \{/);
+  // v72.23：这个条件挪进了 _gCanDraw（画不出像素就落成只有描述的那一张），判据一字未改
+  assert.match(app, /&& \(gPhotoKind === "view" \|\| gPhotoKind === "part" \|\| spk\.appearance \|\| spk\.refPhoto\);/);
   assert.match(app, /const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";/);
   assert.match(app, /const prompt = gIsView \? buildScenePrompt\(spk, gPhotoScene, \{ forText: false \}\)/);
 });

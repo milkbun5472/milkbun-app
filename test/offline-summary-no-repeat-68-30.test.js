@@ -63,8 +63,13 @@ test("六处一样喂：单人/群 × 滚动/收尾/补总结，一处都不许�
 
 test("拼在 system 里，不是塞进 user（施工规则/prompt-send-shape.md）", () => {
   // system 是「料」，user 只留那一句【线下经过】
-  [/const system = "把下面这段/, /const system = "把下面『/].forEach(re => assert.match(eng, re));
-  assert.equal((eng.match(/content: "【线下经过】\\n" \+ text/g) || []).length, 2);
+  // ⚠️v72.03 起两处都改成 systemFor(quota, part)：归档总结要分段跑，system 得按【这是第几段】
+  //   现拼一份（见 offline-summary-chunked-72-03）。摆的位置没变，还是 system 装料。
+  [/const systemFor = \(q, part\) => offlineSummaryPartLine\(part, userName\)\s*\+ "把下面这段/,
+   /const systemFor = \(q, part\) => offlineSummaryPartLine\(part, userName\)\s*\+ "把下面『/].forEach(re => assert.match(eng, re));
+  // 发整场经过那一句只许有一处（公共的 offlineSummaryCall），user 那头仍然只有它
+  assert.equal((eng.match(/content: "【线下经过】\\n" \+ body/g) || []).length, 1);
+  assert.equal((eng.match(/content: "【线下经过】/g) || []).length, 1, "又有第二条路在发整场经过");
 });
 
 test("靠 ofs 场次号认人，而且只读不写", () => {

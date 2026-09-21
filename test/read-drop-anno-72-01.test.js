@@ -38,11 +38,11 @@ test("row 身上要带得走身份，不然删的时候认不出是哪一条", (
 });
 
 test("两处都能删：正文页上那张卡片，和批注册里那一行", () => {
-  // 正文页：讲解卡片 + 批注卡片
-  assert.match(read, /lpPage\.bind\(function \(\) \{\s*requestAppConfirm\("删掉这条讲解？"/, "正文页上的讲解卡片长按没反应");
+  // 正文页：讲解卡片 + 批注卡片（v72.08 起走全库那一份 useLongPressMenu）
+  assert.match(read, /pagePressProps\(function \(\) \{\s*requestAppConfirm\("删掉这条讲解？"/, "正文页上的讲解卡片长按没反应");
   assert.match(read, /requestAppConfirm\(a\.who === "user" \? "删掉你记的这条？" : "删掉这条批注？"/, "正文页上的批注卡片长按没反应");
   // 批注册：每一行
-  assert.match(read, /lp\.bind\(function \(\) \{ askDropRow\(r\); \}\)/, "批注册里那一行长按没反应");
+  assert.match(read, /useLongPressMenu\(function \(r\) \{ askDropRow\(r\); \}\)/, "批注册里那一行长按没反应");
   assert.match(read, /const askDropRow = function \(r\) \{/, "批注册没有自己那句确认文案");
   // 删之前必须问一句——这是会让东西消失的动作
   assert.equal((read.match(/requestAppConfirm\(/g) || []).length, 4, "有哪一处删东西没先问一句，或者又多写了一份确认");

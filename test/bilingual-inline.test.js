@@ -111,7 +111,9 @@ test("开关按角色存得住", () => {
 
 // 她 2026-08-26：「我喜欢在旁边可以按翻译，不要放长按里面」——位置和交互一个字不许改
 test("自带中译走的还是气泡旁边那个译键，不另起一套 UI", () => {
-  assert.ok(/function TransText\(\{ text, isU, zhReady, ink \}\)/.test(compCode), "TransText 没接自带中译");
+  // 锚收到【函数名 + 它收了 zhReady】为止：整串参数表是会被加 prop 的东西
+  // （施工规则/anchor-on-code.md；v72.24 加 inline 时这条就断过一次）
+  assert.ok(/function TransText\(\{[^}]*\bzhReady\b[^}]*\}\)/.test(compCode), "TransText 没接自带中译");
   assert.ok(/zhReady \|\| \(cached && cached\.zh\)/.test(compCode), "有现成中译时该直接用");
   assert.ok(/zhReady \? \(_lang \|\| "外语"\)/.test(compCode), "探不出语种时也得给译键");
   const hits = compCode.match(/zhReady: m\.zh/g) || [];

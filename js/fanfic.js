@@ -2905,7 +2905,17 @@
         (f.reviews || []).length ? dot("评 " + (f.reviews || []).length, "r") : null,
         h("span", { style: { flex: 1 } }),
         props.readAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, props.readAt) : null,
-        f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "★") : null);
+        f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "★") : null,
+        // 单篇删除（她 2026-09-20：「为啥清空不了，能不能搞个强制单个删除」）。
+        // 「清空」只清没被留下的那些，所以她那一版【一篇都清不掉】——全是追过/赞过/收藏的。
+        // 这一颗不问保护不保护，但每一篇都二次确认，自己写的那句说得更重。
+        // ⚠️摆在这一排末尾是安全的：这一排是 flex-wrap，挤了就换行，不会像论坛那排一样被顶出屏幕
+        //   （那一排是 nowrap + space-between，v71.76 就是那么把 ✕ 顶到屏幕外的）。
+        props.onDelete ? h("span", {
+          onClick: function (e) { e.stopPropagation(); props.onDelete(); },
+          role: "button", title: "删掉这一篇", className: "active:opacity-50",
+          style: { flexShrink: 0, marginLeft: 2, padding: "0 5px", fontFamily: F_BODY, fontSize: 12, lineHeight: "18px", color: t.fog }
+        }, "✕") : null);
     };
     // ⚠️v61.19：目录行是对的，但它【平在纸上】（她 2026-09-03：「还是一块平的」）。
     // 一篇同人文在现实里是一本【订起来的薄册子】，所以每一篇就照薄册子来画：
@@ -4124,20 +4134,14 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
         props.fics.length ? props.fics.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).map(function (f, i) {
           // 「我发布的」不摆头条：这一页每一篇都是她自己写的，挑一篇出来当头条没有意义
-          return h("div", { key: f.id },
-            h(FicCard, { fic: f, index: i, noLead: true, characters: props.characters, userName: props.userName, onOpen: function () { props.onOpen(f.id); }, onLike: function () {} }),
-            // 删掉这一篇（v64.63 她点名）：只在【我发布的】这一页有，
-            // feed 那边的卡片一个字不动——那是别人的文，没有删的道理。
-            // ⚠️这一行要明显【贴着上面那张卡】：上下留白一样宽的话，
-            //   它看着既像上一篇的、又像下一篇的（第一版就是这样）。
-            props.onDelete ? h("div", { className: "flex justify-end", style: { margin: "-16px 2px 22px" } },
-              h("button", { onClick: function () {
-                requestAppConfirm("删掉《" + (f.title || "这一篇") + "》？",
-                  ((f.chapters || []).length > 1 ? "连同 " + f.chapters.length + " 章一起没了。" : "") + "删了就找不回来了。",
-                  function () { props.onDelete(f.id); }, "删掉");
-              }, className: "active:opacity-60",
-                style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 12px", background: "transparent", border: "none",
-                  fontFamily: F_BODY, fontSize: 11.5, color: "#b34f43" } }, "删掉这一篇")) : null);
+          // 删这一篇走卡片上那同一颗 ✕（v72.14）。
+            // ⚠️v64.63 这一页自己长了一颗删除键＋自己那份确认；
+            //   2026-09-20 feed 那边也要能删了，同一个形状就有了两处——
+            //   照 施工规则/one-public-mechanism：抽成一处，**旧的那处也搬过来**，
+            //   不许只开公共的、把旧的留在原地（那是最坏的一种：从此两处各改各的）。
+          return h(FicCard, { key: f.id, fic: f, index: i, noLead: true, characters: props.characters, userName: props.userName,
+            onOpen: function () { props.onOpen(f.id); }, onLike: function () {},
+            onDelete: props.onDelete ? function () { props.onDelete(f); } : null });
         }) : h(Empty, { text: "还没发布过", sub: "在上一页点「自己写一篇」，写完就会出现在这里" })));
   }
 
@@ -5276,9 +5280,6 @@
     // 单篇删除（v64.63，她 2026-09-06：「要每一篇文可以单独删除」）。
     // ⚠️只从存档里拿掉这一篇，别动别的；删完不弹 toast——列表当场少一行，
     //   那比一句话更清楚（确认框已经问过一次了）。
-    function deleteFic(id) {
-      persistFics(loadFics().filter(function (f) { return f.id !== id; }));
-    }
     function toggleShelf(id) {
       updateFic(id, function (f) { f.onShelf = !f.onShelf; return f; });
       props.toast && props.toast("已" + (loadFics().find(function (f) { return f.id === id; }).onShelf ? "收藏" : "取消收藏"));
@@ -5390,11 +5391,33 @@
     function clearTab() {
       const here = loadFics().filter(function (f) { return f.tabId === curTab.id; });
       const doomed = here.filter(function (f) { return !protectedFic(f); });
-      if (!doomed.length) { props.toast && props.toast("本版没有可清的：剩下的都是收藏／自己写的／点过赞／在追的"); return; }
+      if (!doomed.length) { props.toast && props.toast("本版没有可清的：剩下的都是收藏／自己写的／点过赞／在追的。要删某一篇，点那一篇右下角的 ✕"); return; }
       const kept = here.length - doomed.length;
       requestAppConfirm("清空【" + curTab.name + "】里的 " + doomed.length + " 篇？",
         (kept ? "另外 " + kept + " 篇会留下（收藏／自己写的／点过赞／在追的）。\n" : "") + "清完这一版是空的，要新的文请点齿轮生成。",
         function () { if (persistFics(loadFics().filter(function (f) { return f.tabId !== curTab.id || protectedFic(f); }))) props.toast && props.toast("已清空 " + doomed.length + " 篇"); }, "清空");
+    }
+
+    // 删掉某一篇（她 2026-09-20：「为啥清空不了，能不能搞个强制单个删除」）。
+    // ⚠️它跟「清空」是两条不同的路，不是同一条的两个尺度：
+    //   清空＝把这一版里【没被留下的】扫掉，保护是它的本分；
+    //   这一颗＝她指着某一篇说「就删这个」，保护不该拦她——拦了就等于这篇永远删不掉。
+    //   所以这儿不看 protectedFic，只在问那一句时把「它为什么被留着」说出来。
+    function removeFic(f) {
+      if (!f) return;
+      const chN = (f.chapters || []).length;
+      const why = f.source === "user" ? ((chN > 1 ? "连同 " + chN + " 章一起没了。" : "") + "这是你自己写的——删了回不来（别处没有副本）。")
+        : f.onShelf ? "这篇在你书架上收着。"
+        : f.liked ? "这篇你点过赞。"
+        : (loadRead()[f.id] && loadRead()[f.id].chap > 0) ? "这篇你正在追。"
+        : "删了之后这一版会少一篇，点齿轮能生成新的。";
+      requestAppConfirm("删掉《" + (f.title || "这一篇") + "》？", why + "楼里的书评也会一起删掉。",
+        function () {
+          if (persistFics(loadFics().filter(function (x) { return String(x.id) !== String(f.id); }))) {
+            if (String(openId) === String(f.id)) setOpenId(null);
+            props.toast && props.toast("删掉了");
+          }
+        }, "删掉");
     }
 
     // 发布（onShelf=false → 留在 feed + 我发布的；source=user 刷新受保护不会被清）
@@ -5461,7 +5484,7 @@
       inner = h(Mine, { characters: cast, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, active: props.active, toast: props.toast,
         onPaper: setPaperId,
         onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP, onWrite: function () { setView("publish"); },
-        onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn, onDeleteFic: deleteFic });
+        onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn, onDeleteFic: removeFic });
     } else if (view === "rp") {
       inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast, onBack: function () { setView("feed"); }, startFicId: rpStart, onStartUsed: function () { setRpStart(null); },
         // ⚠️这两条原来【一条都没传】：收尾那段代码写着 if (props.onShelveFic)，
@@ -5552,7 +5575,8 @@
               index: i, leadLabel: view === "shelf" ? "架上这一本" : "圈子里最上面那一篇",
               readAt: rd ? (chN > 1 && rd.chap > 0 ? "读到 " + (rd.chap + 1) + "/" + chN : "读过") : "",
               onTag: function (tag) { setTagFilter(tag === tagFilter ? "" : tag); },
-              onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });
+              onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); },
+              onDelete: function () { removeFic(f); } });
           }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或在「我的 → 自己写一篇」里自己写" }))));
     }
 

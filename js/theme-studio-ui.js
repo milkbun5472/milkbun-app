@@ -9,9 +9,12 @@
     //   看一眼，工作台是重新挂载的——照旧 load() 的话，她刚写的 CSS 当场没了（v65.00）。
     const [draft, setDraft] = useState(() => (studio.isPreviewing() && studio.current) ? studio.current() : studio.load());
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
+    // 导进来的那一包先摊在这儿，勾了哪几样才合进草稿（她 2026-09-20：不是全有全无）
+    const [incoming, setIncoming] = useState(null), [pendingBubble, setPendingBubble] = useState(null);
+    const [pick, setPick] = useState({ css: true, icons: true, fonts: true, base: true, wall: true, bubble: true });
     const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
     useEffect(() => { lastSpot = null; }, []);
-    const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
+    const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast"), [pasting, setPasting] = useState(false), [pasteText, setPasteText] = useState("");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
     //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
@@ -20,7 +23,7 @@
     useEffect(() => () => { clearTimeout(previewTimer.current); }, []);
     const patchDraft = p => setDraft(d => studio.normalize({ ...d, ...p }));
     const preview = () => { try { studio.preview(draft); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已临时预览；30 秒后自动撤销"); } catch (e) { toast("不能预览：" + e.message); } };
-    const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); setPendingBase(null); setPendingWallpaper(undefined); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
+    const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); if (pendingBubble && typeof writeBubbleSkin === "function") writeBubbleSkin(pendingBubble); setPendingBase(null); setPendingWallpaper(undefined); setPendingBubble(null); setIncoming(null); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
     const cancel = () => { clearTimeout(previewTimer.current); studio.cancelPreview(); setPreviewing(false); toast("已撤销预览"); };
     // ── 预览台（v65.00）：去这一页看看 ───────────────────────────────
     // 她 2026-09-06：「设置页里也没有预览台，要跑出去看效果也很麻烦」。
@@ -69,15 +72,56 @@
     };
     const exportTheme = async () => {
       // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
-      try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper });
+      try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
+          bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null });
         const via = await window.saveTextFile("lisa-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
         toast(via === "cancel" ? "导出取消了" : via === "share" ? "主题包已交给分享面板（含真实图标素材），在里面选「存储到文件」" : "主题包已导出（含真实图标素材）"); }
       catch (e) { toast("导出失败：" + e.message); }
     };
+    // 装包那一份文本 → 预览。文件选一份、或者直接贴一份，两条路都走这里
+    // （她 2026-09-20：「导入主题包是死的按钮按不动」——手机上挑不开文件的时候，
+    //   贴一份 JSON 是那条永远死不了的路）。
+    // 勾了哪几样，就把那几样从包里合到【她现在这份】上——没勾的原样留着。
+    // ⚠️一定是合到当前那份上，不是拿包整个顶掉：她自己调了半天的别处不该被一份包抹平。
+    const mergePick = (pack, sel) => {
+      const cur = studio.normalize(studio.load()), inc = pack.profile;
+      return Object.assign({}, cur, {
+        name: inc.name || cur.name,
+        globalCSS: sel.css ? inc.globalCSS : cur.globalCSS,
+        pageCSS: sel.css ? inc.pageCSS : cur.pageCSS,
+        pageTokens: sel.css ? inc.pageTokens : cur.pageTokens,
+        // 每页的大小跟着「页面/全局 CSS」那一格走：它跟配色、CSS 一样是「这一页长什么样」
+        pageZoom: sel.css ? inc.pageZoom : cur.pageZoom,
+        icons: sel.icons ? inc.icons : cur.icons,
+        iconPack: sel.icons ? inc.iconPack : cur.iconPack,
+        iconBare: sel.icons ? inc.iconBare : cur.iconBare,
+        fonts: sel.fonts ? inc.fonts : cur.fonts,
+        customFonts: sel.fonts ? inc.customFonts : cur.customFonts
+      });
+    };
+    const livePick = (pack, sel) => {
+      const next = mergePick(pack, sel);
+      setDraft(next);
+      setPendingBase(sel.base ? (pack.baseTheme || null) : null);
+      setPendingWallpaper(sel.wall && typeof pack.wallpaper === "string" ? pack.wallpaper : undefined);
+      setPendingBubble(sel.bubble ? (pack.bubbleSkin || null) : null);
+      try { studio.preview(next); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); } catch (_) {}
+    };
+    const applyPack = async text => {
+      try {
+        const pack = await studio.importPackage(text);
+        const sel = { css: true, icons: true, fonts: true, base: true, wall: true, bubble: true };
+        setIncoming(pack); setPick(sel); livePick(pack, sel);
+        toast("已导入并临时预览；下面可以挑要哪几样，确认后才落盘");
+        return true;
+      } catch (err) { toast("导入失败：" + (err.message || err)); return false; }
+    };
+    const togglePick = k => { const sel = Object.assign({}, pick, { [k]: !pick[k] }); setPick(sel); if (incoming) livePick(incoming, sel); };
     const importTheme = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-      try { const pack = await studio.importPackage(await f.text()); setDraft(pack.profile); setPendingBase(pack.baseTheme || null); setPendingWallpaper(pack.wallpaper); studio.preview(pack.profile); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已导入并临时预览；基础颜色与壁纸只会在确认后落盘"); }
-      catch (err) { toast("导入失败：" + (err.message || err)); }
+      let text = "";
+      try { text = await f.text(); } catch (err) { toast("这份文件读不出来：" + (err.message || err)); return; }
+      await applyPack(text);
     };
     // ── 三栏＝工坊里三个抽屉的抽屉面（v62.68）─────────────────────────
     // 审美审计 2026-09-04：这三格是圆角 16 的填色卡，只靠底色区分选中——
@@ -235,7 +279,7 @@
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, flex: 1 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
           h("button", { onClick: () => iconFiles.current && iconFiles.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "一次选多张")),
-        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], packSrc = studio.packIconSrc(draft.iconPack, key), src = ref ? resolveImg(ref) : packSrc; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { onClick: () => { setPickKey(key); iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left" } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], packSrc = studio.packIconSrc(draft.iconPack, key), src = ref ? resolveImg(ref) : packSrc; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { onClick: () => { setPickKey(key); iconFile.current && iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left" } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
         h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } }),
         h("input", { ref: iconFiles, type: "file", accept: "image/*", multiple: true, onChange: chooseIcons, style: { display: "none" } })),
       section === "css" && h("div", null,
@@ -245,6 +289,35 @@
             style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, "去这一页看看")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: -4, marginBottom: 10 } },
           page === "all" ? "「全 App」不是某一页——挑一页再点右边那颗。" : "点右边那颗直接跳到这一页看真的样子，底下会浮一条「回去改」送你回来。"),
+        // ── 这一页多大（v72.32，她 2026-09-20：「做拉条选大小」）──────────
+        // ⚠️它放大的是整页（字、头像、间距一起按比例变），不是只有字——
+        //   原因写在 theme-studio.js 的 cleanZoom 上面：这个 App 的字号全是内联 px，
+        //   样式表压不过它；zoom 是唯一能按比例压住内联 px 的那一个。
+        // 「全 App」这一档也能调：它是底数，某一页再单独调就盖过它。
+        (function () {
+          const z = ((draft.pageZoom || {})[page]) || 1;
+          const setZ = v => {
+            const one = Object.assign({}, draft.pageZoom || {});
+            const n = Math.round(Number(v) * 100) / 100;
+            if (n === 1) delete one[page]; else one[page] = n;
+            patchDraft({ pageZoom: one });
+          };
+          return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
+            h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
+              h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
+                page === "all" ? "全 App 多大" : "这一页多大"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: z === 1 ? t.fog : t.ink } }, Math.round(z * 100) + "%"),
+              z !== 1 ? h("button", { onClick: () => setZ(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 6px" } }, "还原") : null),
+            h("input", {
+              type: "range", value: z, min: studio.ZOOM_MIN || 0.8, max: studio.ZOOM_MAX || 1.4, step: 0.05,
+              onChange: e => setZ(e.target.value),
+              className: "w-full", style: { accentColor: t.ink, height: 28 }
+            }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+              "整页一起按比例放大：字、头像、间距都跟着走，版面不会乱。"
+              + (page === "all" ? "这是底数，某一页再单独调就盖过它。" : "没调过的页面跟着「全 App」那一档。")
+              + "点下面「先预览 30 秒」看真的样子。"));
+        })(),
         // ── 这一页单独换几支色（v65.06）────────────────────────────────
         // 挂点只挂得住共用组件，而各页正文里的卡片、按钮、列表都是自己内联写的——
         // 一页一页去挂挂不完。但它们的颜色全从同一份 token 里取，所以给这一页
@@ -403,7 +476,42 @@
           h("br"), "⚠️字体是有版权的东西，商用字体别往外发主题包。")),
       section === "package" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
-        h("div", { className: "flex gap-2" }, h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"), h("button", { onClick: () => importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")), h("input", { ref: importFile, type: "file", accept: ".json,application/json", onChange: importTheme, style: { display: "none" } })),
+        h("div", { className: "flex gap-2" },
+          h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"),
+          // ⚠️这一颗以前是 `importFile.current.click()`——没有那一道 `&&`。
+          //   ref 还没挂上的那一下点下去就是抛在事件回调里的 TypeError：
+          //   页面不报错、什么也不发生，看上去就是「死的按钮」（她 2026-09-20 报的就是这个）。
+          //   全库别处的文件口子（图标、字体、页面 CSS、备份恢复）都写着那一道 &&，只有这一颗漏了。
+          // ⚠️accept 的写法也跟着别处统一成 MIME 在前：iOS 上第一个 token 是它认不出的扩展名时，
+          //   文件选择器可能整个弹不出来。备份恢复那一处（能用的那一处）就是 MIME 在前。
+          h("button", { onClick: () => importFile.current && importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")),
+        h("input", { ref: importFile, type: "file", accept: "application/json,.json", className: "hidden", onChange: importTheme }),
+        // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。
+        // 勾一下就立刻改预览，所以她是【看着】挑的，不是盲选完再按确认。
+        incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } },
+            "这份包里带了这些，勾掉的不会动你现在的："),
+          [["css", "页面／全局 CSS", !!(incoming.profile && (incoming.profile.globalCSS || Object.keys(incoming.profile.pageCSS || {}).length || Object.keys(incoming.profile.pageTokens || {}).length || Object.keys(incoming.profile.pageZoom || {}).length))],
+           ["icons", "图标", !!(incoming.profile && (incoming.profile.iconPack || Object.keys(incoming.profile.icons || {}).length))],
+           ["fonts", "字体", !!(incoming.profile && ((incoming.profile.fonts && (incoming.profile.fonts.body || incoming.profile.fonts.display)) || (incoming.profile.customFonts || []).length))],
+           ["base", "基础配色", !!incoming.baseTheme],
+           ["wall", "壁纸", typeof incoming.wallpaper === "string" && !!incoming.wallpaper],
+           ["bubble", "聊天气泡", !!incoming.bubbleSkin]].map(([k, label, has]) =>
+            h("button", { key: k, onClick: () => has && togglePick(k), disabled: !has, className: "w-full flex items-center active:opacity-70 disabled:opacity-40",
+              style: { gap: 9, minHeight: 40, textAlign: "left" } },
+              h("span", { style: { flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: "1px solid " + (has && pick[k] ? t.ink : t.line), background: has && pick[k] ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "16px", textAlign: "center" } }, has && pick[k] ? "✓" : ""),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: has ? t.ink : t.fog } }, label + (has ? "" : "（这份包里没有）")))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+            "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。")) : null,
+        // 贴一份：手机上挑不开文件的时候，这条路永远死不了（照表情包「贴上去」那个先例）
+        h("div", { style: { marginTop: 12 } },
+          !pasting
+            ? h("button", { onClick: () => setPasting(true), className: "w-full py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 } }, "挑不开文件？把主题包 JSON 贴进来")
+            : h("div", null,
+                h("textarea", { value: pasteText, onChange: e => setPasteText(e.target.value), placeholder: "把导出的那份 .json 整个贴在这儿", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px" } }),
+                h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+                  h("button", { onClick: async () => { if (!pasteText.trim()) { toast("先把 JSON 贴进来"); return; } if (await applyPack(pasteText)) { setPasteText(""); setPasting(false); } }, className: "flex-1 py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "贴上去"),
+                  h("button", { onClick: () => { setPasting(false); setPasteText(""); }, className: "px-4 py-2.5 active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"))))),
       h("div", { style: { position: "sticky", bottom: 8, zIndex: 5, display: "flex", gap: 7, marginTop: 18, padding: 8, borderRadius: 16, background: "rgba(248,245,238,.92)", backdropFilter: "blur(18px)", border: "1px solid " + t.line, boxShadow: "0 8px 28px rgba(30,25,20,.12)" } }, h("button", { onClick: preview, className: "flex-1 py-3", style: { borderRadius: 11, border: "1px solid " + t.ink, fontFamily: F_BODY, color: t.ink } }, "先预览 30 秒"), previewing ? h("button", { onClick: cancel, className: "py-3 px-3", style: { color: t.accent, fontFamily: F_BODY } }, "撤销") : null, h("button", { onClick: commit, className: "flex-1 py-3", style: { borderRadius: 11, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "正式应用")));
   }
   g.ThemeStudioConfig = ThemeStudioConfig;
