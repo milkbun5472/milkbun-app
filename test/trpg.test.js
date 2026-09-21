@@ -297,7 +297,10 @@ test("need 剥掉持有人/数量尾巴,hasItem 互相包含(有药不再显示�
   assert.ok(hasItem(items, "浓缩催吐解毒剂(陆衍)"));
   assert.ok(hasItem(items, "解毒剂"), "简称也认(互相包含)");
   assert.ok(!hasItem(items, "铜钥匙"));
-  assert.match(src, /只写物品名本身】——绝不带持有人和数量/, "并且明令守密人别写尾巴");
+  assert.match(src, /只写物品名本身】——绝不带持有人/, "并且明令守密人别写尾巴");
+  // ⚠️那句原来拿「浓缩催吐解毒剂(陆衍)」当示范，跟着 bundle 出货到了公共版。
+  //   v72.42 删掉示范只留形状（施工规则/prompt-no-content-samples.md）。
+  assert.ok(src.indexOf("浓缩催吐解毒剂(陆衍)") < 0, "提示词里又把真角色名写回示范了");
 });
 
 test("休整贴场景:室内不支帐篷", () => {
