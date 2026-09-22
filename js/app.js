@@ -7184,17 +7184,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _want = res.minimumLengthShortTarget || 0;
         toast("这篇只写到 " + _got + " 字" + (_want ? "，没到你设的 " + _want + " 字" : "") + "（" + res.minimumLengthShortBecause + "）。正文已经保留——想更长就对这条点重写，或把最低字数调低一点", 9000);
       }
-      // ⚠️网文腔这一分原来【只记不用】：offlineRendererScore 每轮都在给正文打分，
-      //   分数进了诊断面板，然后就没有然后了（她 2026-09-22 转群里读者：「线上说话挺正常的，
-      //   到线下他就是总是会流露出那种霸总气息」）。
-      //   现在让它有牙：这一拍真写出了网文腔，下一拍就自动多走一道自我修订——
-      //   那一道是【折叠进同一次请求】的（首稿→改写在一枪里），所以不多花一次调用。
-      // ⚠️看的是【真写出来的正文】，不是角色卡里的词：人设里没有「霸道」二字、
-      //   照样可能写出那套腔；反过来卡里写着强势的人也不该被无条件多改一道。
-      if (!offlineIsRoom(scopeKey)) {
-        const _nwHot = (Number(res.rendererScoreAfter) || 0) >= 2;
-        pOffline(scopeKey, list => list.map(x => !x.endTs ? { ...x, nwHot: _nwHot } : x));
-      }
+      // ⚠️offlineRendererScore（网文腔那一分）是【只记不用】的，这是故意的，不是漏接。
+      //   分数只进诊断面板给人看，不许拿去自动点着自我修订那一道
+      //   （她 2026-09-22：「不要这个！这是之前特意没接上的！」）。
+      //   要改腔调走人设/文风那条明路，别让一个打分器在背后偷偷加工她的正文。
       setOfflineRegisterTelemetry(p => ({ ...p, [scopeKey]: {
         transitionBefore: !!res.registerTransitionBefore,
         transitionAfter: !!res.registerTransitionAfter,
@@ -9569,7 +9562,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 
 【生成与输出协议】
 你就是 TA 本人。开口之前先以 TA 的第一人称把眼前这件事想一遍：她刚才那句话在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——word 从那个判断里长出来。不是先想「这种人该说什么」再往人设上凑。
-mood、thought、action、wearing、affinityDelta 与能力字段只记录已经形成的反应、状态或决定，不用来提前铺排剧情，也不用来给 word 补一段解释；没有真实变化或实际触发时，不要为了填字段制造内容。
+mood、thought、action、wearing 与能力字段只记录已经形成的反应、状态或决定，不用来提前铺排剧情，也不用来给 word 补一段解释；没有真实变化或实际触发时，不要为了填字段制造内容。
 只输出一个合法 JSON 对象，不要代码块。
 【核心字段】
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
@@ -9577,10 +9570,10 @@ mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；�
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}
 【实时动作字段·普通角色每轮必填】
-action: string，每轮回复完成后${ACT_MEANING}或在 word 中报备。
+action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
-affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
+affinityDelta: ${AFFINITY_DELTA_SPEC}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
@@ -9698,11 +9691,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             + (_ct ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + _ct : "") });
           continue;
         }
-        if ((m.role === "narration" || m.kind === "narration") && m.who !== "char") {
+        if (m.role === "narration" || m.kind === "narration") {
           // API 只有 user/assistant 两个对话侧可用，但语义上这是无说话人的场景事实。
           // 用明确边界包装，禁止模型把它理解成 Lisa 的台词、动作或内心。
-          const nc = stp + "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content +
-            "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】";
+          // ⚠️TA自己那一行动作（动描摆出来的）也走这一侧，【绝不许再放回 assistant 那一边】：
+          //   原来它就挂在同一轮气泡的同一条 assistant 消息里，只靠一句括号旁注隔开。
+          //   于是每一轮，模型在【自己的输出通道】里都看见自己写了一段身体动作散文——
+          //   v72.82 它连那句旁注都照抄进气泡了，可见它读成的是「我的输出格式」。
+          //   看够了就往 word 里写，那就是她 2026-09-22 那张样张：整轮全是动作、一句话没说。
+          //   动描本来只是【把状态卡那一格也摆出来看一眼】，不该反过来教TA多写一段。
+          const _actRow = m.who === "char";
+          const nc = stp + (_actRow
+            ? "【场景旁注｜" + char.name + " 当时正在做的动作，不是任何人说出口的话】\n" + m.content
+              + "\n【这是当时的状态读数，不是你的发言格式：不得把它当成自己发出去过的消息，也不要照着它再写一段动作。】"
+            : "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content
+              + "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】");
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
         } else if (m.role === "user") {
@@ -9744,11 +9747,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } else {
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
-          // TA自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
           // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
+          // ⚠️动作行不在这儿了（v72.96 搬去了旁白那一侧，理由写在上面）。
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
-          const ac = stp + byU + ((m.role === "narration" || m.kind === "narration") ? "【这一条是你此刻的动作／你那边的动静，不是你发出去的消息；这是旁注，别把它抄进你的正文】" + m.content
-            : m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
+          const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
@@ -10041,6 +10043,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           return true;
         });
       }
+      // 掉格式兜底（她 2026-09-22 给的读者样张）：整整一轮全是身体动作描写、
+      //   一句话都没说，四条白气泡条条带已读——那不是消息，是一段线下正文被塞进了聊天框。
+      //   提示词里那条（ONLINE_CHAT_RULE_V2「不写旁白、动作、神态」）早就发到了还漏，
+      //   所以这一刀落在代码里。挪进动作行，不删、不改字，只是别冒充「发出去的话」。
+      // ⚠️称谓设成第三人称的场次不落刀：那儿的「她」本来就是对的。
+      const _actGuard = window.BubbleActGuard
+        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta" })
+        : { words: words, acts: [] };
+      words = _actGuard.words;
+      const rescuedActLines = _actGuard.acts;
       // 她转过来那一笔的结算（v56.88）：由 TA 这一轮自己表的态，不再掷骰子。
       // 省略这个字段＝这轮没顾上点开，卡继续挂着。
       let _tfTook = false;
@@ -10204,7 +10216,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
       const onlineAction = TVG.normalizeAction(parsed.action, char && char.name);
-      if (_actDesc && onlineAction && String(onlineAction).trim()) {
+      // 被救回来的那几行先摆：它们是这一轮【真写出来的】正文，比状态卡那一格更贴这一拍。
+      // ⚠️不看动描开关：开关管的是「要不要把 action 那一格也摆出来」，
+      //   而这几行本来就要显示——不摆就等于把她收到的东西吞了。
+      if (rescuedActLines.length) {
+        rescuedActLines.forEach((line, k) => pChat(chatKey, p => [...p, {
+          role: "narration", kind: "narration", who: "char", content: line,
+          ts: Math.max(0, _tsOf(0) - rescuedActLines.length + k), turnId
+        }]));
+      } else if (_actDesc && onlineAction && String(onlineAction).trim()) {
         const _line = String(onlineAction).trim();
         const _rows = chatsRef.current[chatKey] || [];
         let _prevAct = "";
@@ -11196,7 +11216,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
       const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
       // 群↔私聊打通（v53.96）：TA在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
@@ -11239,7 +11259,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\"mood\"（中文心情词）、\"wearing\"、\"action\"。这四样只更新后台状态，绝不写进 text 气泡。"
         + "其余成员这一轮不填这几样。\n" + MOOD_TURN_RULE : "";
       const thoughtField = gs.memoryInterop
-        ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
+        ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）" + AFFINITY_DELTA_SPEC + "\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
         : (_gHasNpc
           ? ",\"thought\":\"（只有配角填）没说出口的心声\",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
           : (_gActDesc ? gActionField : ""));
@@ -11582,7 +11602,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
                 return acc.concat(parts);
               }, []);
-            const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
+            // 默认就是第二人称。
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
+            gBubbles = _gGuard.words;
+            const gRescuedActs = _gGuard.acts;
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
@@ -11590,7 +11615,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
-            if (_gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
+            // 被救回来的那几行先摆，跟单聊同一个分寸：它们是这个人这一拍真写出来的正文，
+            // 不看动描开关——不摆就等于把发言吞了。
+            if (gRescuedActs.length && spk) {
+              gRescuedActs.forEach(line => pGChat(groupId, p => [...p, {
+                role: "narration", kind: "narration", who: "char",
+                senderId: spk.id, senderName: spk.name, content: line,
+                mid: "gact_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId
+              }]));
+            }
+            if (!gRescuedActs.length && _gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
               // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一条比】的事，
               //   「这一轮TA已经用掉一次机会了」是另一回事。写在 if 里面就会漏，
               //   TA前几条没变、最后一条换了个新的照样能把额度花光。

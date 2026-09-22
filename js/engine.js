@@ -1949,7 +1949,12 @@ const bubbleRestore = x => String(x)
 // 也永远拦不住：她看到的就是群里每轮都挂着一行动作。
 // ⚠️这是「一层写在两处」里最难看出来的一种：两边都写得挺像回事，
 //   只有并排读才发现说的根本不是同一样东西。所以这一句从此只有一份。
-// ⚠️尾巴不带句号：单聊那头还要接一句「或在 word 中报备」。
+// ⚠️尾巴不带句号：单聊那头还要在后面接一句话。
+//   （v72.94 之前接的是「或在 word 中报备」——那个【或】给了模型两条一样合法的路：
+//    填进这一格，或者写进 word。她家里的模型走第一条，公共版用户各带各的模型，
+//    弱一点的就走第二条，动作于是变成了气泡（她 2026-09-22 报）。
+//    删它的理由不止「显示不显示」，是她当场补的那句：**「报备」本身就不是人话**——
+//    真人说完一段不会再补一句交代自己在干嘛。所以不分动描开关，两种情况都不许报。）
 // ⚠️这一格原来只说了「填什么」，没说【长什么样】，于是模型按它最熟的那个体裁填——
 //   一段言情场面描写（她 2026-09-12 截图）。而那样一来，上面那句「事实没变就原样填写」
 //   也跟着失效：一段场面描写永远不会「原表述仍准确」，下巴动一下、嘴角动一下就得重写，
@@ -1965,6 +1970,15 @@ const ACT_MEANING = "如实填写角色此刻真正正在做的事或所处的�
 //    v67.35 是动描那一族反八股，这次是 thought。所以这一回抠成公共的一份。）
 // ⚠️里头不写死字段名（线上说出口的是 word、线下是 scene 里的对白），
 //   这样两边才能逐字共用同一段，不必各留一份。
+// 好感这一格怎么填（她 2026-09-22 转来：「那个好感我就没涨过，只有情侣空间开通和关系填情侣
+// 加了到80就不动了」）。原来单聊和线下都写着「仅当本轮确实足以改变长期关系感受时填写；
+// 普通愉快、关心和日常聊天不改变长期关系」——那是一句【判决】，模型只会往安全那边缩，
+// 日常一律交 0。而代码这头还要再乘 0.2（一轮最多 ±1），三层叠下来就是「永远不动」：
+// 80 是「恋人」那条关系的起点，不是上限，她卡住的是那个起点。
+// ⚠️改的是判据不是天花板：乘 0.2 那一步留着（一轮最多 ±1 是对的），这儿只把门槛换成
+//   一条【每轮都答得出来】的轴——往哪边动了一点点就 ±1，转折才 ±3~5。
+//   见 施工规则/bans-make-it-dumber.md「掷约束，别掷答案」。
+const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪边动了一点点，就填 ±1——聊得开心、被照顾到、有来有往、说了句戳心窝的话都算，不用等大事；真正的转折（表白、吵架、被戳到痛处、第一次交底）才给 ±3~5；确实什么都没发生才 0。";
 const THOUGHT_MEANING = "写角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头；不要求重要、深刻或紧扣话题，走神、身体感受、没头没尾的碎念都可以。不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』『这人真是无法无天了』『回去看我怎么收拾她』『回头跟她算账』）——那是旁白在结案，不是人在想事情。⚠️「回头再收拾你」这类狠话本来就是【说得出口的】：真要撂就让 TA 听见，别塞进心声——心声只留真正咽下去、说不出口的那一点。\n⚠️**心声可以没有结尾**。一句没说完的、半截的、跑题的念头就够了。别每轮都在最后补一句「回头我要怎样怎样」把它收口——**不管那句是狠话还是甜话**（收拾她／捏她脸／亲她一下／买点什么回去），那个【位置】本身就是旁白在结案。真人心里想到一半就被别的事岔开了，那才是心声。心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）；那是内心戏体裁自带的默认，不是你的人设。⚠️**别把上一条心声换个说法再写一遍**：这一格要么是新冒出来的念头，要么就照实写回同一件事——同一个意思换几个词重说，比重复更难看。心声里对 TA 的称呼必须是【你自己的】：你平时怎么叫 TA、心里就怎么想 TA（名字、昵称、或你俩之间那个称呼，直接用「你」也行）——「这女人」「这个女人」「小东西」「小家伙」这类网文叙事者打量角色用的第三人称称谓，不是一个在乎 TA 的人心里的话，整族禁用（除非你的人设本来就这么说话）。⚠️心声不是嘴的替身：想说的话仍要用这个人自己的方式说出口；这一格只留真正咽下去没说的那一小部分。";
 const ACT_TAIL = /[了着过呢吧啊呀嘛哦噢的]+$/;
 function sameActLine(a, b) {
@@ -2629,9 +2643,9 @@ const OFFLINE_USER_IS_PRESENT = `【她说的话是当面说出口的，不是�
 
 const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 你就是 TA 本人。落笔之前先以 TA 的第一人称把此刻这一幕想一遍：眼前发生的事在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——scene 从那个判断里长出来，不是先想「这种人该有什么反应」再往人设上凑。
-thought、mood、wearing、action、affinityDelta 等附属字段只记录已经形成的场景与角色状态，不用来提前铺排剧情，也不用来给 scene 补一段解释。wearing、affinityDelta、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
+thought、mood、wearing、action 等附属字段只记录已经形成的场景与角色状态，不用来提前铺排剧情，也不用来给 scene 补一段解释。wearing、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
 
-只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta 只有本轮确实足以改变长期关系感受时才非 0，普通日常通常为 0。toy 仅在已授权且本轮实际触发时填写，否则 null。
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
 
 输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的一句真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
 先想清楚 TA 怎么看这一刻，场景再发生；系统最后记录。`;
@@ -6262,9 +6276,9 @@ async function generateOffline(p, ctx, session) {
   // JSON 字段按 draftScene → scene 排列；模型生成 scene 时，首稿已经成为它最近的上下文，
   // 但网络层只发生一次请求。未命中时仍沿用普通单稿协议，不给所有线下轮次平白加倍输出。
   const explicitRevisionRequested = !isDigital && !!rewriteRequested;
-  // nwHot＝上一拍真写出了网文腔（app 那头按 offlineRendererScore 打的分存回本场）。
-  // 卡里的词是「风险」，写出来的正文是「证据」——证据也该能点着这一道自我修订。
-  const archetypeRevisionRequested = !isDigital && (!!archetypePerformanceRisk || !!session.nwHot);
+  // ⚠️这一道只看人设卡里的风险词。不许再把 offlineRendererScore 那一分接进来：
+  //   那一分是故意只记不用的（她 2026-09-22：「不要这个！这是之前特意没接上的！」）。
+  const archetypeRevisionRequested = !isDigital && !!archetypePerformanceRisk;
   rewriteRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionProtocol = explicitRevisionRequested
@@ -6935,7 +6949,7 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。" + sameNameNote(members);
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。" + sameNameNote(members);
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
