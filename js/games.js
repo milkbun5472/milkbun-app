@@ -820,11 +820,11 @@
     useEffect(function () {
       if (phase !== "result" || !winner || !players.length) return;
       const spies = players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; });
-      const lisa = players.find(function (p) { return p.isUser; });
+      const userSeat = players.find(function (p) { return p.isUser; });
       ccGameResult("spy", gameRunId.current, players, cfg,
         "《谁是卧底》" + (winner === "spy" ? "卧底获胜" : "平民获胜") + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + (p.role === "spy" ? "卧底" : "平民"); }).join("；") + "。\n"
-        + "卧底：" + spies.join("、") + "。" + ((lisa && lisa.name) || "用户") + "：" + (lisa ? (lisa.role === "spy" ? "卧底" : "平民") + (lisa.alive ? "，留到终局" : "，已出局") : "本局观战") + "。",
+        + "卧底：" + spies.join("、") + "。" + ((userSeat && userSeat.name) || "用户") + "：" + (userSeat ? (userSeat.role === "spy" ? "卧底" : "平民") + (userSeat.alive ? "，留到终局" : "，已出局") : "本局观战") + "。",
         function (say, seat) { pushLog([{ type: "clue", name: seat.name, text: say }]); });
     }, [phase, winner]);
 
@@ -1693,11 +1693,11 @@
     }, [phase, cycle]);
     useEffect(function () {
       if (phase !== "result" || !winner || !players.length) return;
-      const lisa = players.find(function (p) { return p.isUser; });
+      const userSeat = players.find(function (p) { return p.isUser; });
       ccResultPromiseRef.current = ccGameResult("werewolf", gameRunId.current, players, cfg,
         "《狼人杀》" + (winner === "wolf" ? "狼人阵营获胜" : "好人阵营获胜") + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + roleZh(p.role) + (p.alive ? "(存活)" : "(出局)"); }).join("；") + "。\n"
-        + ((lisa && lisa.name) || "用户") + "：" + (lisa ? roleZh(lisa.role) + (lisa.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
+        + ((userSeat && userSeat.name) || "用户") + "：" + (userSeat ? roleZh(userSeat.role) + (userSeat.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
         + "终局前公开记录：\n" + log.slice(-8).map(function (x) { return x.text || x.say || x.name || ""; }).filter(Boolean).join("\n"));
     }, [phase, winner]);
     // 终局复盘：把狼队各夜的密谈亮出来（活着时一个字都看不到的那部分）
@@ -3563,11 +3563,11 @@
     useEffect(function(){
       if(phase!=="result"||!players.length)return;
       const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});
-      const lisa=players.find(function(p){return p.isUser;});
+      const userSeat=players.find(function(p){return p.isUser;});
       ccGameResult("monopoly",gameRunId.current,players,cfg,
         "《大富翁》结算，"+(ranking[0]?ranking[0].name:"无人")+" 获胜。\n"
         +"最终排名："+ranking.map(function(p,i){return(i+1)+". "+p.name+"，总资产 $"+monoNetWorth(p,owners,levels)+(p.bankrupt?"（破产）":"");}).join("；")+"。\n"
-        +((lisa && lisa.name) || "用户")+"："+(lisa?("第 "+(ranking.indexOf(lisa)+1)+" 名，总资产 $"+monoNetWorth(lisa,owners,levels)) : "本局观战")+"。\n"
+        +((userSeat && userSeat.name) || "用户")+"："+(userSeat?("第 "+(ranking.indexOf(userSeat)+1)+" 名，总资产 $"+monoNetWorth(userSeat,owners,levels)) : "本局观战")+"。\n"
         +"最后记录：\n"+logs.slice(-8).map(function(x){return x.say||"";}).filter(Boolean).join("\n"));
     },[phase,winner]);
     function standings(ps,os){return ps.map(function(p){return p.name+" $"+p.cash+"/地"+Object.keys(os).filter(function(k){return os[k]===p.key;}).length+(p.bankrupt?"(破产)":"");}).join("；");}
@@ -3631,9 +3631,9 @@
     let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners,levels);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"),
       h(KeepMemBtn,{t:t,toast:props.toast,keep:function(){
         if(!props.keepGameMemory)return false;
-        const lisa=players.find(function(p){return p.isUser;});
+        const userSeat=players.find(function(p){return p.isUser;});
         return props.keepGameMemory(realCharIds(players),
-          "一起玩了「大富翁」，"+(winner?winner.name:ranking[0].name)+" 赢下这座城"+(lisa?("；她排第 "+(ranking.indexOf(lisa)+1)+" 名，总资产 $"+monoNetWorth(lisa,owners,levels)):"")+"。");
+          "一起玩了「大富翁」，"+(winner?winner.name:ranking[0].name)+" 赢下这座城"+(userSeat?("；"+userSeat.name+" 排第 "+(ranking.indexOf(userSeat)+1)+" 名，总资产 $"+monoNetWorth(userSeat,owners,levels)):"")+"。");
       }}));}
     else if(pending&&pending.kind==="trade"){
       const tile=MONO_BOARD[pending.tile],owner=players.find(function(p){return p.key===owners[pending.tile];}),me2=players.find(function(p){return p.isUser;});
@@ -3891,13 +3891,13 @@
     useEffect(function () { if (phase === "result") clearGameSave("avalon"); }, [phase]);
     useEffect(function () {
       if (phase !== "result" || !winner || !players.length) return;
-      const lisa = players.find(function (p) { return p.isUser; });
+      const userSeat = players.find(function (p) { return p.isUser; });
       ccGameResult("avalon", gameRunId.current, players, cfg,
         "《阿瓦隆》" + (winner === "good" ? "好人阵营获胜" : "坏人阵营获胜") + "。\n"
         + "任务比分：好人成功 " + score.good + "，任务失败 " + score.evil + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + AV_ROLE_ZH[p.role]; }).join("；") + "。\n"
         + (assassinPick ? "刺客最终指认了 " + assassinPick + "。\n" : "")
-        + ((lisa && lisa.name) || "用户") + "：" + (lisa ? AV_ROLE_ZH[lisa.role] + "，属于" + (lisa.side === "good" ? "好人" : "坏人") + "阵营" : "本局观战") + "。",
+        + ((userSeat && userSeat.name) || "用户") + "：" + (userSeat ? AV_ROLE_ZH[userSeat.role] + "，属于" + (userSeat.side === "good" ? "好人" : "坏人") + "阵营" : "本局观战") + "。",
         function (say, seat) { pushLog([{ type: "talk", name: seat.name, say: say }]); });
     }, [phase, winner]);
     // 存档：在每次「进入某个任务的组队」前存一份干净断点（续局从 startQuest 重进该轮，不复读已发生的）
@@ -4500,11 +4500,11 @@
     useEffect(function () {
       if (state.status !== "finished") return;
       const winnerP = state.players.find(function (p) { return p.key === state.winner; });
-      const lisa = state.players.find(function (p) { return p.isUser; });
+      const userSeat = state.players.find(function (p) { return p.isUser; });
       const finalLines = state.log.slice(-10).map(function (x) { return x.text; }).join("\n");
       ccGameResult("uno", state.id, state.players, cfg,
         "《UNO》" + ((winnerP && winnerP.name) || "未知玩家") + " 获胜。\n"
-        + ((lisa && lisa.name) || "用户") + "：" + (lisa && lisa.key === state.winner ? "获胜" : "未获胜") + "。\n"
+        + ((userSeat && userSeat.name) || "用户") + "：" + (userSeat && userSeat.key === state.winner ? "获胜" : "未获胜") + "。\n"
         + "最终余牌：" + state.players.map(function (p) { return p.name + "=" + p.hand.length + " 张"; }).join("；") + "。\n"
         + "最后几手：\n" + finalLines,
         function (say, seat) { setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: seat.key, text: seat.name + "：“" + say + "”" }); return n; }); },
