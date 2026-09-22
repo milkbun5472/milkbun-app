@@ -10,19 +10,26 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), engine = R("engine.js"), screens = R("screens.js");
 const vm = require("node:vm");
 const bare = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-const slice = (src, from, to) => src.slice(src.indexOf(from), src.indexOf(to, src.indexOf(from)));
+// ⚠️indexOf 找不到返回 -1，而 slice(-1, …) 不报错、只是一路切到文件末尾 ——
+//   红得跟真回退一样，其实是锚断了（施工规则/anchor-on-code，2026-09-18 一天踩三次）。
+const slice = (src, from, to) => {
+  const i = src.indexOf(from); const j = src.indexOf(to, i);
+  assert.ok(i >= 0, "抠不出：" + from);
+  assert.ok(j > i, "抠不出：" + to);
+  return src.slice(i, j);
+};
 
 // ── #7 导出／导入的图库对称 ───────────────────────────────────
 // 「先导出一份」是所有数据规矩的地基（never-say-delete-first.md）。
 // 地基本身能悄悄少图、导入本身能清光图库，那条规矩就是空的。
 test("图库一张都没读出来、存档里却引用着 iv_ 门牌 → 拒绝导出", () => {
-  const fn = bare(slice(app, "const buildExportPack = async ()", "const doExport = async ()"));
+  const fn = bare(slice(app, "const buildExportPack = ", "const doExport = "));
   // idbVaultEntries 的 tx.onerror 是 res([])：读失败和「真没有图」返回值一模一样
   assert.match(engine, /async function idbVaultEntries\(\)[\s\S]{0,800}tx\.onerror = \(\) => res\(\[\]\)/,
     "静默那一段变了，这条交叉核对的前提要重新想一遍");
   assert.match(fn, /const ivRefs = new Set\(\);/);
   assert.match(fn, /match\(\/iv_\[A-Za-z0-9_-\]\+\/g\)/);
-  assert.match(fn, /if \(ivRefs\.size > 0 && vaultCount === 0\) \{/);
+  assert.match(fn, /if \(!noImages && ivRefs\.size > 0 && vaultCount === 0\) \{/);   // v72.79：复制那条明说不带图，不归它管
   assert.match(fn, /toast\("没有导出：/, "光记日志没用，得当场拦住并说出来");
   assert.match(fn, /return null;/);   // v72.72：它现在要返回 null，复制那条路也靠它拦
   // 只是少几张（引用指向已删的图）不该拦，说一声就行
@@ -30,18 +37,18 @@ test("图库一张都没读出来、存档里却引用着 iv_ 门牌 → 拒绝�
 });
 
 test("album 目录要进备份——导入那一路会把它连图一起清掉", () => {
-  const fn = bare(slice(app, "const buildExportPack = async ()", "const doExport = async ()"));
-  assert.match(fn, /idbAlbumEntries\(\)/, "照片说明从来没进过备份");
+  const fn = bare(slice(app, "const buildExportPack = ", "const doExport = "));
+  assert.match(fn, /!noImages && typeof idbAlbumEntries === "function"/, "照片说明从来没进过备份，或者没跟着图一起走");
   assert.match(fn, /album: album/);
   assert.match(fn, /version: 4/, "格式变了得升版本号");
   // 清仓那一下确实会连 album 一起清——这才是必须备份它的理由
   assert.match(engine, /async function idbVaultClear\(\)[\s\S]{0,300}objectStore\("album"\)\.clear\(\)/);
-  const imp = bare(slice(app, "const doImportText = async raw", "// ---- routing ----"));
+  const imp = bare(slice(app, "const doImportText = ", "// ---- routing ----"));
   assert.match(imp, /Array\.isArray\(parsed\.album\) && typeof idbAlbumPut === "function"/);
 });
 
 test("备份里 vault 是空对象时不许清仓——`{}` 是真值", () => {
-  const imp = bare(slice(app, "const doImportText = async raw", "// ---- routing ----"));
+  const imp = bare(slice(app, "const doImportText = ", "// ---- routing ----"));
   assert.match(imp, /const vaultRows = parsed\.vault \? Object\.entries\(parsed\.vault\) : \[\];/);
   assert.match(imp, /if \(vaultRows\.length && typeof idbVaultPut === "function"/,
     "又变回 `if (parsed.vault)` 了——空对象照样能把本机图库清光");
@@ -52,7 +59,7 @@ test("备份里 vault 是空对象时不许清仓——`{}` 是真值", () => {
 test("网易云 Cookie 不许进导出文件——上云那一路早排掉了", () => {
   const cloud = R("cloud.js");
   assert.match(cloud, /k\.startsWith\("x_"\) && k !== "x_neteaseCookie"/, "上云那一路的口径没了");
-  const fn = bare(slice(app, "const buildExportPack = async ()", "const doExport = async ()"));
+  const fn = bare(slice(app, "const buildExportPack = ", "const doExport = "));
   assert.match(fn, /k\.startsWith\("x_"\) && k !== "x_neteaseCookie"/,
     "导出这一路又把账号 cookie 打进文件了——两处口径必须一样");
 });

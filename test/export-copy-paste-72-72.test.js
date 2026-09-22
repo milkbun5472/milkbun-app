@@ -12,8 +12,8 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const screens = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
 
 test("备份文本只攒一份，存文件和复制都问它要", () => {
-  assert.match(app, /const buildExportPack = async \(\) => \{/, "没有公共那一份");
-  const i = app.indexOf("const doExport = async () => {"), j = app.indexOf("const inAppBrowser = ()", i);
+  assert.match(app, /const buildExportPack = async \(opts\) => \{/, "没有公共那一份");
+  const i = app.indexOf("const doExport = "), j = app.indexOf("const inAppBrowser = ", i);
   assert.ok(i > 0 && j > i, "抠不出 doExport");
   const seg = app.slice(i, j);
   assert.match(seg, /const pack = await buildExportPack\(\)/, "存文件那条自己又攒了一份");
@@ -21,19 +21,35 @@ test("备份文本只攒一份，存文件和复制都问它要", () => {
   // 图库读失败那道闸还在，而且现在要返回 null（不然复制那条会照样吐出一份残档）
   assert.match(app, /图库却一张都读不出来/);
   assert.match(app, /return null;\n {4}\}/, "那道闸没有返回 null，复制那条会绕过它");
-  const cp = app.slice(app.indexOf("const doCopyExport = async () => {"), app.indexOf("// ⚠️导入分两条路"));
-  assert.match(cp, /const pack = await buildExportPack\(\)/, "复制那条自己又攒了一份");
+  const cp = app.slice(app.indexOf("const doCopyExport = "), app.indexOf("// ⚠️导入分两条路"));
+  assert.match(cp, /const pack = await buildExportPack\(\{ noImages: true \}\)/, "复制那条自己又攒了一份，或者又把图打进去了");
   assert.match(cp, /if \(!pack\) return;/, "复制那条没认那道闸");
 });
 
 // ⚠️复制这件事 v71.12 刚把全库四处手写的搬进 components.js 的 copyText。
 //   这儿再手写一份就是第五处（新接口 → execCommand 老路那两段会各缺各的）。
 test("复制走公共那一处，不自己再写一份", () => {
-  const cp = app.slice(app.indexOf("const doCopyExport = async () => {"), app.indexOf("// ⚠️导入分两条路"));
+  const cp = app.slice(app.indexOf("const doCopyExport = "), app.indexOf("// ⚠️导入分两条路"));
   assert.match(cp, /const ok = await copyText\(pack\.text\)/, "没走公共那处复制");
   assert.doesNotMatch(app, /navigator\.clipboard/, "又有人自己写 navigator.clipboard 了");
   assert.match(cp, /这个浏览器不让复制这么大一段/, "复制失败闷着不吭声 —— 又一颗看着像死的按钮");
   assert.match(cp, /数据还在，没有丢/, "没说清失败之后数据怎么样");
+});
+
+// 她 2026-09-22：「复制直接崩了」——图是 base64 塞进 JSON 的，一份几十 MB，
+// 往剪贴板／textarea 里塞，手机上就是把页面撑崩。
+test("复制那一份不带图，而且太大了要先说一声", () => {
+  const cp = app.slice(app.indexOf("const doCopyExport = "), app.indexOf("// ⚠️导入分两条路"));
+  assert.match(cp, /noImages: true/, "复制又去打包图库了 —— 那正是崩的原因");
+  assert.match(cp, /const COPY_MAX = 8 \* 1024 \* 1024;|pack\.text\.length > COPY_MAX/, "没有大小闸，够大照样崩");
+  assert.match(cp, /复制会把页面撑崩/, "太大的时候没当面说，她只会以为又坏了");
+  // 不带图这件事必须写在脸上，不许悄悄少图
+  assert.match(app, /只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍/);
+  assert.match(screens, /不含图片和自拍/, "界面上没说这一份没带图");
+  // ⚠️最要命的一条：拿这份不含图的备份去恢复，绝不许把本机的图清空
+  const imp = app.slice(app.indexOf("const doImportText = "), app.indexOf("// ---- routing ----"));
+  assert.match(imp, /const vaultRows = parsed\.vault \? Object\.entries\(parsed\.vault\) : \[\];/);
+  assert.match(imp, /if \(vaultRows\.length &&/, "备份里没带图也照样清仓 —— 那会把她的头像壁纸全清光");
 });
 
 test("导入两条路只有一份实现", () => {
@@ -53,7 +69,7 @@ test("失败要返回 false，她贴的那一大段不许被清掉", () => {
 });
 
 test("界面：复制那一颗和贴那一格都在，内置浏览器多一句提醒", () => {
-  assert.match(screens, /复制整份备份（下载不下来时用这个）/);
+  assert.match(screens, /复制文字备份（下载不下来时用这个）/);
   assert.match(screens, /贴一份备份（复制来的那一大段）/);
   assert.match(screens, /window\.ThemePackPasteBox/, "又自己画了一个贴框");
   assert.match(screens, /你现在是在 QQ／微信这类 app 自带的浏览器里打开的/);
@@ -61,7 +77,7 @@ test("界面：复制那一颗和贴那一格都在，内置浏览器多一句�
   ["MicroMessenger", "QQBrowser", "Weibo", "baiduboxapp"].forEach(ua =>
     assert.ok(app.includes(ua), "UA 名单里少了：" + ua));
   // ⚠️复制那颗不许藏在「判出内置浏览器才显示」后面：UA 永远判不全
-  const i = screens.indexOf("复制整份备份（下载不下来时用这个）");
+  const i = screens.indexOf("复制文字备份（下载不下来时用这个）");
   const before = screens.slice(i - 300, i);
   assert.doesNotMatch(before, /inAppBrowser \?[^:]*$/, "复制那颗被藏进 UA 判断里了");
 });

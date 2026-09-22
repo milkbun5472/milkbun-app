@@ -9893,9 +9893,14 @@ function DataConfig({
         "你现在是在 QQ／微信这类 app 自带的浏览器里打开的。这里点下载，文件多半会被它收进自己的沙盒，你再也找不着。"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 4 } },
         "要么右上角「⋯」→ 用系统浏览器打开再导出；要么直接用下面那颗「复制整份备份」。")) : null,
-    button("复制整份备份（下载不下来时用这个）", onCopyExport, false),
+    button("复制文字备份（下载不下来时用这个）", onCopyExport, false),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "4px 2px 0" } },
       "复制完去微信／QQ 发给自己，或者存进备忘录。要恢复的时候用下面的「贴一份备份」。"),
+    // ⚠️必须当面说清楚这一份没带图：图是 base64 塞进 JSON 的，一份几十 MB，
+    //   往剪贴板里塞会把页面直接撑崩（她 2026-09-22：「复制直接崩了」）。
+    //   带不带图是两回事，不许悄悄少图（never-say-delete-first 那条的地基）。
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: "#c0503f", margin: "3px 2px 0" } },
+      "⚠️复制的这一份只有文字（角色、聊天、记忆、手机、情侣空间这些），不含图片和自拍——图太大，塞进剪贴板会把页面撑崩。图要带走只能用上面的导出文件。"),
     button("导入备份恢复", () => ref.current && ref.current.click(), false),
     // 贴一份：跟主题包那条路同一个组件（施工规则/one-public-mechanism）
     typeof window !== "undefined" && window.ThemePackPasteBox && onImportText

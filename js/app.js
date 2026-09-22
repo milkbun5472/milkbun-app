@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.78";
+const APP_VERSION = "v72.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22319,7 +22319,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ---- export / import ----（整包：localStorage 的 x_ 数据 + IndexedDB 图片仓库 x_imgvault）
   // 备份那一份文本【只在这儿攒一次】：存文件、复制到剪贴板两条路都用它。
   // ⚠️各攒各的话，哪天加了一层新数据只会加在其中一条路上——另一条导出的就是残的。
-  const buildExportPack = async () => {
+  // opts.noImages：不把图库和自拍打进来（复制走那条路专用）。
+  // ⚠️图是 base64 塞进 JSON 的，一份几十 MB 很常见；那么大一段往剪贴板或者
+  //   textarea 里塞，手机上直接把页面撑崩（她 2026-09-22：「复制直接崩了」）。
+  //   所以复制那条路只带文字，而且【当面说清楚没带图】——不是悄悄少图。
+  const buildExportPack = async (opts) => {
+    const noImages = !!(opts && opts.noImages);
     const dump = {};
     // ⚠️x_neteaseCookie 是账号凭据，界面上写着「只存这台设备」。
     //   上云那一路（cloud.js 的 collect）早就排掉它了，导出这一路没跟上——
@@ -22334,7 +22339,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 图本身在 vault 里、不随普通备份走；这里把 vault 里每张图 base64 化装进 JSON，换设备导入后图才不丢。
     let vault = {}, vaultCount = 0;
     try {
-      if (typeof idbVaultEntries === "function" && typeof blobToDataUrl === "function") {
+      if (!noImages && typeof idbVaultEntries === "function" && typeof blobToDataUrl === "function") {
         const entries = await idbVaultEntries();
         for (const [k, b] of entries) { try { vault[k] = await blobToDataUrl(b); vaultCount++; } catch (e) {} }
       }
@@ -22343,7 +22348,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只有图片门牌、没有像素的假完整备份；数据安全优先，备份可以大但不能悄悄缺图。
     let selfies = {}, selfieCount = 0;
     try {
-      if (typeof idbImgEntries === "function" && typeof blobToDataUrl === "function") {
+      if (!noImages && typeof idbImgEntries === "function" && typeof blobToDataUrl === "function") {
         const sEntries = await idbImgEntries();
         for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
       }
@@ -22358,14 +22363,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   地基本身能悄悄少图的话，那条规矩就是空的。
     const ivRefs = new Set();
     try { (JSON.stringify(dump).match(/iv_[A-Za-z0-9_-]+/g) || []).forEach(x => ivRefs.add(x)); } catch (e) {}
-    if (ivRefs.size > 0 && vaultCount === 0) {
+    // ⚠️这道闸防的是【悄悄少图】。复制那条路是明说不带图的，不归它管。
+    if (!noImages && ivRefs.size > 0 && vaultCount === 0) {
       toast("没有导出：存档里引用着 " + ivRefs.size + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
       return null;
     }
     // album 目录（照片的说明、来源、照片桥索引）原来【从不进备份】，
     // 而导入那一路 idbVaultClear() 会把它连同图一起清掉——只清不备，导一次少一次。
     let album = [];
-    try { if (typeof idbAlbumEntries === "function") album = await idbAlbumEntries(); } catch (e) {}
+    // 照片说明是跟着图一起回去的（导入那头就写在图库那一支里），不带图就别带它
+    try { if (!noImages && typeof idbAlbumEntries === "function") album = await idbAlbumEntries(); } catch (e) {}
     const blob = new Blob([JSON.stringify({
       __archive: 1,
       version: 4,
@@ -22378,7 +22385,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       type: "application/json"
     });
     const missing = (() => { let n = 0; ivRefs.forEach(k => { if (!(k in vault)) n++; }); return n; })();
-    const what = "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
+    const what = noImages
+      ? "（只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍）"
+      : "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
       + (album.length ? "、" + album.length + " 条照片说明" : "")
       + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
@@ -22401,14 +22410,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 这种时候唯一一条走得通的路是【复制走】——剪贴板不归它管。
   const inAppBrowser = () => /MicroMessenger|QQ\/|QQBrowser|MQQBrowser|Weibo|TikTok|DouYin|Quark|baiduboxapp|Alipay/i.test(
     (typeof navigator !== "undefined" && navigator.userAgent) || "");
+  // 剪贴板放得下多少：8MB 是个保守线。再多，新接口和那条 textarea 老路都可能
+  // 把手机上的页面直接撑崩——崩之前先告诉她，别让她白按一下。
+  // （这儿不写那个接口的名字：全库「谁都不许自己写一份复制」那两条测试是按字面查的。）
+  const COPY_MAX = 8 * 1024 * 1024;
   const doCopyExport = async () => {
-    const pack = await buildExportPack();
+    const pack = await buildExportPack({ noImages: true });
     if (!pack) return;
     const kb = Math.round(pack.text.length / 1024);
+    if (pack.text.length > COPY_MAX) {
+      toast("这份文字备份约 " + Math.round(kb / 1024) + "MB，太大了，复制会把页面撑崩——用系统浏览器打开再导出文件，或者先开云同步");
+      return;
+    }
     // ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路，
     //   写不进去会老老实实返回 false）。这儿再手写一份就是第五处（v71.12 刚把四处搬完）。
     const ok = await copyText(pack.text);
-    if (ok) toast("整份备份已复制（约 " + kb + "KB" + pack.what + "）——现在去微信／QQ 发给自己，或者存进备忘录");
+    if (ok) toast("文字备份已复制（约 " + kb + "KB" + pack.what + "）——去微信／QQ 发给自己，或者存进备忘录");
     else toast("这个浏览器不让复制这么大一段——数据还在，没有丢；换系统浏览器打开再试");
   };
   // ⚠️导入分两条路：选文件、和【把整份 JSON 贴进来】（她 2026-09-22 转来的：
