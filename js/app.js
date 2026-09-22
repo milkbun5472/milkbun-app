@@ -7184,6 +7184,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _want = res.minimumLengthShortTarget || 0;
         toast("这篇只写到 " + _got + " 字" + (_want ? "，没到你设的 " + _want + " 字" : "") + "（" + res.minimumLengthShortBecause + "）。正文已经保留——想更长就对这条点重写，或把最低字数调低一点", 9000);
       }
+      // ⚠️网文腔这一分原来【只记不用】：offlineRendererScore 每轮都在给正文打分，
+      //   分数进了诊断面板，然后就没有然后了（她 2026-09-22 转群里读者：「线上说话挺正常的，
+      //   到线下他就是总是会流露出那种霸总气息」）。
+      //   现在让它有牙：这一拍真写出了网文腔，下一拍就自动多走一道自我修订——
+      //   那一道是【折叠进同一次请求】的（首稿→改写在一枪里），所以不多花一次调用。
+      // ⚠️看的是【真写出来的正文】，不是角色卡里的词：人设里没有「霸道」二字、
+      //   照样可能写出那套腔；反过来卡里写着强势的人也不该被无条件多改一道。
+      if (!offlineIsRoom(scopeKey)) {
+        const _nwHot = (Number(res.rendererScoreAfter) || 0) >= 2;
+        pOffline(scopeKey, list => list.map(x => !x.endTs ? { ...x, nwHot: _nwHot } : x));
+      }
       setOfflineRegisterTelemetry(p => ({ ...p, [scopeKey]: {
         transitionBefore: !!res.registerTransitionBefore,
         transitionAfter: !!res.registerTransitionAfter,
