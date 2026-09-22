@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.57";
+const APP_VERSION = "v72.59";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5233,6 +5233,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   两头都要问（同 3626 行那一处的写法）。
   const groupSpectating = group => !!(group && (group.roomKind === "spectate" || (gsFor(group.id) || {}).spectate));
   const onMeFor = () => (inventoryRef.current || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, ON_ME_CAP).join("、");
+  // ── 我在 TA 面前是谁（她 2026-09-22 转群里读者：「是只能一个 user 面具吗？」）──
+  // 全 App 原来只有一张「我的面具」（x_profile），所有角色看到的都是同一个我。
+  // 现在每个角色可以单独盖一张：名字、人设各自可空，空着就跟着主面具走。
+  // ⚠️只有这一处合成（one-public-mechanism）：ctxFor 是单聊线上/线下、通话、日记、
+  //   查手机、穿书、匿名箱、解梦馆共用的那一口，接在这儿就是八处一起有了。
+  // 【四处一样喂 · 差异登记】群聊 ❌ 有真理由：一个群里好几个角色同时在场，
+  //   同一句话不可能对着不同的人戴不同的脸——群里一律用主面具。
+  const profileFor = charId => {
+    const st = settingsFor(charId) || {};
+    const nm = String(st.meName || "").trim(), ps = String(st.mePersona || "").trim();
+    if (!nm && !ps) return profile;
+    return Object.assign({}, profile, nm ? { name: nm } : null, ps ? { persona: ps } : null);
+  };
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -5268,7 +5281,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚TA（她 2026-07-13 点名）
     yanqiuWall: yanqiuWallFor(char, ctxOpts),
     ccContinuity: ccContinuityFor(char),
-    profile,
+    profile: profileFor(char.id),
     affinity: Math.round(affOf(char.id)),
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
@@ -24470,7 +24483,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 而 js/app.js:7596 那句 `!!_s.webSearch` 一直在读它——
             // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。
             webSearch: !!s.webSearch,
-            timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit"
+            timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
+            // 我在 TA 面前是谁（她 2026-09-22）：两栏各自可空，空着就跟主面具。
+            // 洗一遍再存：长度封顶，纯空白当没填（不然 profileFor 那头要多认一种空）
+            meName: String(s.meName || "").trim().slice(0, 24),
+            mePersona: String(s.mePersona || "").trim().slice(0, 4000)
           }
         };
         saveJSON("x_chatSettings", n);

@@ -15684,6 +15684,9 @@ function ChatSettings({
   const [selfP, setSelfP] = useState(settings.selfP || "first");
   const [userP, setUserP] = useState(settings.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
+  // 我在 TA 面前是谁（她 2026-09-22）：空着就跟着「我的面具」那张走
+  const [meName, setMeName] = useState(settings.meName || "");
+  const [mePersona, setMePersona] = useState(settings.mePersona || "");
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
@@ -15964,7 +15967,9 @@ function ChatSettings({
       callStream,
       actPerson,
       userPerson,
-      timeAwareMode
+      timeAwareMode,
+      meName,
+      mePersona
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
@@ -16022,6 +16027,24 @@ function ChatSettings({
     innerLifeImpact.shadow.length ? h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, null, "还没派上用场"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text))) : null),
+  // ⚠️这一栏归「TA 知道什么」：它改的正是【TA 眼里的我是谁】。
+  //   两栏各自可空——只换名字（别人叫我小鱼）、或只换人设（TA 只知道我是学生）都成立。
+  show("know", { title: "我在 " + cNm + " 面前是谁", ...sec("me-mask") }, h("div", { className: "pt-3" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
+      "留空就跟着「我的面具」那一张走。只填一栏也行：只换名字、或者只换人设。\n"
+      + "⚠️只在这个人的单聊、线下、通话、日记、查手机这些一对一的地方生效；"
+      + "群里大家都在场，同一句话没法对不同的人戴不同的脸，所以群聊一律用主面具。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 4 } }, "TA 怎么称呼我"),
+    h("input", { value: meName, onChange: e => setMeName(e.target.value.slice(0, 24)),
+      placeholder: "留空＝跟着主面具", className: "w-full bg-transparent outline-none pb-2",
+      style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, borderBottom: "1px solid " + t.line } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "16px 0 4px" } }, "TA 认识的我是什么样"),
+    h("textarea", { value: mePersona, onChange: e => setMePersona(e.target.value.slice(0, 4000)), rows: 6,
+      placeholder: "留空＝跟着主面具。可以只写 TA 该知道的那一面。",
+      className: "w-full bg-transparent outline-none resize-none",
+      style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" } }),
+    (meName || mePersona) ? h("button", { onClick: () => { setMeName(""); setMePersona(""); },
+      className: "active:opacity-60", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "都清掉，跟着主面具") : null)),
   show("know", { title: "时间感知 · TA 知不知道今天几号", ...sec("time-aware") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, paddingTop: 8 } },
       "单独决定 " + cNm + " 是否知道现实中的日期、时段与自己的当前行程。房间还可以再覆盖一次；长篇如果默认关闭。"),
