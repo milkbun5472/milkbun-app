@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.05";
+const APP_VERSION = "v73.06";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11224,7 +11224,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
       const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
+        // 闭群：只要心声那一栏（先想后说），不要心情／好感／穿着——那些是写回主线的，闭群只进不出
+        : "\n【心声】给【本轮真正开口的】成员各加一条 \"thought\"：此刻没说出口的真实心声，一句话。"
+          + "**先把这一句想清楚，再写 TA 说出口的那句**——话从这句心声里长出来，不从「这种人设一般怎么说话」里长出来。"
+          + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人；心里怎么称呼别人就用平时那个称呼，"
+          + "别写成「这女人」「那家伙」这类旁观点评腔；每条都要贴合当下、和这个成员上一条心声不一样；没什么内心活动的可以省略。"
+          + "心声只留在这个群里，不会带回别处。";
       // 群↔私聊打通（v53.96）：TA在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
@@ -11268,9 +11274,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "其余成员这一轮不填这几样。\n" + MOOD_TURN_RULE : "";
       const thoughtField = gs.memoryInterop
         ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）" + AFFINITY_DELTA_SPEC + "\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
-        : (_gHasNpc
-          ? ",\"thought\":\"（只有配角填）没说出口的心声\",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
-          : (_gActDesc ? gActionField : ""));
+        // ⚠️闭群也要心声（她 2026-09-22：「没开互通的时候人物刻板印象还很油腻」）。
+        //   互通群一直要求每人写一句心声，等于逼模型先想清楚【这个人此刻心里真在想什么】
+        //   再开口；闭群因为状态卡不回流，这一栏整个关了，模型就直接从标签开口。
+        //   心声只挂在群里这条气泡上，不写主线的状态卡——mood／wearing 那两栏照旧只给配角，
+        //   因为它们是往状态卡里写的（只进不出）。
+        : ",\"thought\":\"（可选）没说出口的心声\""
+          + (_gHasNpc
+            ? ",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
+            : (_gActDesc ? gActionField : ""));
       // 互通群复用单聊更新标准；封闭群不写回。
       const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
@@ -11616,8 +11628,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             const gRescuedActs = _gGuard.acts;
-            // 记忆互通时把心声挂在末条气泡上显示
-            const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
+            // 心声挂在末条气泡上显示。闭群也挂：它是这个群自己的内容，不回流主线
+            //（往主线状态卡写的那一步在下面，照旧只认互通群和配角）。
+            const gThought = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
             // 动描：这一条发言的人此刻在做什么，摆在TA这几泡【前面】。
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
