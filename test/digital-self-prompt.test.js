@@ -46,9 +46,15 @@ test("digital context keeps recent facts but omits the continuity command", () =
 test("ordinary characters use stable protocol v2 and a minimal per-turn task", () => {
   const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
   assert.match(source, /const _normalProtocolStable = `/);
-  assert.match(source, /先产生角色此刻真正会发送的消息/);
+  // v72.51：这句原来写的是「先产生角色此刻真正会发送的消息…thought 等不得反向塑造 word」，
+  // 等于明文禁止「先想后说」——模型只能扫一遍人设抓关键词造句（她 2026-09-22：
+  // 「能抓到人设关键词造句，但并不能按照人设理解来」）。改成先以 TA 的第一人称想一遍。
+  assert.match(source, /你就是 TA 本人。开口之前先以 TA 的第一人称把眼前这件事想一遍/);
+  assert.match(source, /word 从那个判断里长出来/);
+  assert.ok(!/不得用于提前规划、解释或反向塑造 word/.test(source), "那半句堵死了先想后说，不许写回来");
   assert.match(source, /未发生、未改变的按需字段直接省略/);
-  assert.match(source, /const _normalTaskV2 = .*聊天先发生，状态随后记录/);
+  assert.match(source, /const _normalTaskV2 = [\s\S]{0,200}先想一下 TA 此刻怎么看她刚说的这句话/);
+  assert.match(source, /聊天先发生，状态随后记录/);
   assert.match(source, /const _liveChatState = liveStateForScope\(charId, chatKey\)/);
   assert.match(source, /【一次性状态建档】App 还没有/);
   assert.match(source, /_stateBootstrapHint \+ _wearRefreshHint \+ paceHint/);
