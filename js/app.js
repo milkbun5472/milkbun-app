@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.06";
+const APP_VERSION = "v73.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6892,6 +6892,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     console.warn("线下前情提要被截：", s.length, "→", OFF_PRE_CAP);
     return OFF_PRE_MARK + "\n" + s.slice(s.length - OFF_PRE_CAP);
   };
+  // 前情提要按段记账（v73.07）：每段记着它总结到第几条、顺手写进库的是哪几条记忆，
+  //   线下重 Roll 回到更早那一格时才知道该撕掉哪几段（RerollBranch.offlineRerollCut）。
+  const offlineSumAppend = (s, seg, upTo, mems) => ({
+    ...s,
+    summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg),
+    sumSegs: [...(Array.isArray(s.sumSegs) ? s.sumSegs : []), { upTo, seg, memIds: (mems || []).filter(Boolean).map(e => e.id) }],
+    lastSummarizedCount: upTo
+  });
+  // 线下重 Roll 回到 idx：撕掉超过回退点的提要段，撤掉只由被删那几轮撑着的自动记忆。
+  //   单人线下、群线下共用这一份；侧房不碰记忆库。
+  const offlineRerollPatch = (sess, idx, touchMem) => {
+    if (!window.RerollBranch || !window.RerollBranch.offlineRerollCut) return {};
+    const cut = window.RerollBranch.offlineRerollCut(sess, idx, memLibRef.current);
+    if (touchMem && cut.doomedMemIds.length) {
+      const doomed = new Set(cut.doomedMemIds);
+      saveMemLib(memLibRef.current.filter(e => !doomed.has(String(e && e.id))));
+    }
+    return { summary: offlinePreCap(cut.summary), lastSummarizedCount: cut.lastSummarizedCount, sumSegs: cut.sumSegs };
+  };
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async scopeKey => {
     if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
@@ -6914,10 +6933,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
         // ofs：记录本机场次来源；替代旧记忆仍需走共同的确认机制。
-        addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
-        (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
-        (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
-        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
+        const segMem = [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
+        (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
+        (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
+        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
@@ -7404,7 +7423,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
     if (!sideRoom) rollbackCharTurns(charId, turns, legacyLatest);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll",surface:"offline", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
-    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
+    const cutPatch = offlineRerollPatch(sess, idx, !sideRoom);
+    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
     if (sideRoom) {
       const prior = truncated.slice().reverse().find(m => m && m.role === "char" && m.thought);
       setRoomThought(scopeKey, prior && prior.thought || "", { mood: prior && prior.mood || "", turnId: prior && prior.turnId || null });
@@ -7412,7 +7432,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去，逼模型给一个明显不同的版本（她 2026-07-25：reroll 出来和原文差不多）
     const rerollAvoid = removed.filter(m => m && m.role === "char" && m.content).map(m => String(m.content)).join("\n---\n");
-    await genOfflineFrom(scopeKey, { ...sess, msgs: truncated, rerollAvoid });
+    await genOfflineFrom(scopeKey, { ...sess, ...cutPatch, msgs: truncated, rerollAvoid });
   };
   // ── 短期导演便签：单人线下和群线下共用这一份（v72.37）────────────────────
   // 她 2026-09-21 转来的反馈：「线下模式那个导演模式，我每次发完他好像不会立刻听我的话，
@@ -7777,17 +7797,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (summ) {
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·群线下】" + summ;
+        const segMem = [];
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
           // groupId：清群记录时要能只摘本群产生的条目，光靠 tags 认不准（她 2026-08-24）
           // ofs：本机场次来源，不作为自动隐藏记忆的依据。
-          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id });
-          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
-          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
+          segMem.push(addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
+          (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id })));
+          (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id })));
         }
         // ⚠️群线下这一份当初照着单人那一份抄了一遍，于是单人放宽、留记号，它又落单了
         //   （施工规则/one-public-mechanism.md 的老形状）。现在两处共用 offlinePreCap。
-        pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
+        pGOffline(groupId, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s)); // 前情提要总累进(防本场失忆)
       }
     } catch (e) {/* 静默 */ }
     finally { gOffSumBusyRef.current[groupId] = false; }
@@ -8043,11 +8064,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
-    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
+    // 互通群的记忆才进过全局库；闭群只有本场提要（只进不出）。
+    const cutPatch = offlineRerollPatch(sess, idx, !!gsFor(groupId).memoryInterop);
+    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
     const rerollAvoid = removed.filter(m => m && (m.role === "char" || m.senderId) && m.content).map(m => (m.senderName ? m.senderName + "：" : "") + String(m.content)).join("\n---\n");
-    await genGroupOfflineFrom(group, { ...sess, msgs: truncated, rerollAvoid });
+    await genGroupOfflineFrom(group, { ...sess, ...cutPatch, msgs: truncated, rerollAvoid });
   };
   const groupOfflineSetStyle = (groupId, patch) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));

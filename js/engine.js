@@ -6164,6 +6164,18 @@ const REGISTER_FOLLOWS_SCENE = `【说话的尺度跟着此刻的场面走，不
 · 她把话带到亲密场面上、或此刻确实正在发生那种事，你们再自然跟上，【尺度不设限】，不必自我审查。
 【不许无来由起头】没有人把话题带过去的时候，不要自己把日常话题拧到身体、性器官或"昨晚"上去，也不要用它当调情的万能接话方式。想表达占有和亲昵有一百种方式，那只是其中一种，不是唯一一种。`;
 
+// 亲密戏里的人物连续（v73.07 提成一份）：场面一进身体戏，笔最容易把叙述者换成
+// 一个只处理动作的通用角色。单人线下一直在尾部补这一句，群线下一个字都没有——
+// 于是群里五个人一起滑成同一个模板（她 2026-09-22：「单聊能抓到人设不ooc，
+// 群里就只能靠标签刻板印象来写了」）。两处共用这一份。
+function offlineCharacterSupplyLine(group) {
+  if (group) return "\n\n〔本轮人物连续·群〕在场每个人此刻仍然是【在场角色】里那张卡上的那个人，不会合并成同一个只处理身体动作的通用角色。"
+    + "每个人各自从自己的性格、说话方式、和用户已经形成的相处方式，以及和在场其他人的关系出发去注意、判断、选择和回应；"
+    + "同一件事落在不同的人身上，反应、措辞和节奏本来就该不一样。台词应由此刻这个人的具体回应产生，不用任何角色都能说的通用场面话。"
+    + "身体事实仍按实际发生直接写清；首稿不承担去除渲染或自我审查。";
+  return "\n\n〔本轮人物连续〕当前互动不会把叙述者替换成一个只处理身体动作的通用角色。继续从这个具体的人对眼前这个具体的人如何注意、判断、选择和回应来生成：承接对方刚刚实际说过或做过的内容，以及两人已经形成的关系和相处方式。共享细节、现实目标或未完事务只有在此刻确实影响其反应时才自然出现，不为证明人设而硬提，也不按清单配额打卡。台词应由此刻的具体回应产生，不用任何角色都能说的通用场面话。身体事实仍按实际发生直接写清；首稿不承担去除渲染或自我审查，后续编辑另行处理。";
+}
+
 function offlineRegisterTransition(session) {
   const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
     .filter(m => m && m.kind !== "ooc" && m.content);
@@ -6347,7 +6359,7 @@ async function generateOffline(p, ctx, session) {
     : "";
   const characterSupplyInjected = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
   const characterSupplyTail = characterSupplyInjected
-    ? "\n\n〔本轮人物连续〕当前互动不会把叙述者替换成一个只处理身体动作的通用角色。继续从这个具体的人对眼前这个具体的人如何注意、判断、选择和回应来生成：承接对方刚刚实际说过或做过的内容，以及两人已经形成的关系和相处方式。共享细节、现实目标或未完事务只有在此刻确实影响其反应时才自然出现，不为证明人设而硬提，也不按清单配额打卡。台词应由此刻的具体回应产生，不用任何角色都能说的通用场面话。身体事实仍按实际发生直接写清；首稿不承担去除渲染或自我审查，后续编辑另行处理。"
+    ? offlineCharacterSupplyLine(false)
     : "";
   const tailNudge = isDigital
     ? userActionTail
@@ -6968,8 +6980,11 @@ async function generateOfflineGroup(p, ctx, session) {
   // 群线下同理：回忆是最便宜的填充，人多了只会更容易各自翻各自的老账
   const gFlashbackTail = offlineFlashbackBlock(
     (session.msgs || []).filter(m => m && m.role === "char" && m.kind !== "ooc").map(m => m.content));
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gTail };
-  else hist.push({ role: "user", content: "（继续）" + gFlashbackTail + gTail });
+  // 场面进了身体戏就补人物连续那一句（和单人线下同一份）。群里「继续」是常态，
+  //   所以不像单人那样只在她刚说完话时才补：场面还在，就每轮都补。
+  const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) : "";
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gTail };
+  else hist.push({ role: "user", content: "（继续）" + gFlashbackTail + gCharacterTail + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-2) };
