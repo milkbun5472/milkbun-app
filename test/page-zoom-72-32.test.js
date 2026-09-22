@@ -47,8 +47,10 @@ test("存档里带着它，也跟着主题包走", () => {
   assert.ok(/pageCSS: \{ \.\.\.\(x\.pageCSS \|\| \{\}\) \}, pageTokens, pageZoom \}/.test(studioSrc), "normalize 没把它带出来");
   // 导入勾选：它跟配色、CSS 同属「这一页长什么样」，所以跟 css 那一格走
   assert.ok(/pageZoom: sel\.css \? inc\.pageZoom : cur\.pageZoom/.test(ui), "导入时它没跟着 css 那一格走");
-  assert.ok(/Object\.keys\(incoming\.profile\.pageZoom \|\| \{\}\)\.length/.test(ui),
+  // v72.52：「这一样有没有」搬进了 ThemeStudio.packHas（导出挑、导入勾、气泡那页单收都问它）
+  assert.ok(/Object\.keys\(p\.pageZoom \|\| \{\}\)\.length/.test(studioSrc),
     "包里只有大小、没有 CSS 时，那一格会被标成「这份包里没有」");
+  assert.ok(/pageZoom: sel\.css \? p\.pageZoom : blank\.pageZoom/.test(studioSrc), "导出时它没跟着 css 那一格走");
 });
 
 test("拉条：每页一根，能还原，改完立刻进草稿", () => {

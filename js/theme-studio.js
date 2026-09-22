@@ -606,12 +606,61 @@
   const packIcon = key => packIconSrc(active.iconPack, key);
   // 图标自带底、不套主屏那块玻璃（只对「有图」的 app 生效，线稿照旧在玻璃上）
   const iconBare = () => !!active.iconBare;
+  // ── 主题包分成哪几样（她 2026-09-22：「没有单独导入导出某一种美化的选项」）──
+  // 导出挑哪几样、导入勾哪几样、聊天气泡那一页单独收发哪一样，三处都问这一份要。
+  // ⚠️各写一份的话，以后加一样（比如贴纸）就只会加在其中一处
+  //   —— 导入那头原来就是一张写死在界面里的表（one-public-mechanism）。
+  const PACK_PARTS = [
+    { key: "css", zh: "页面／全局 CSS" },
+    { key: "icons", zh: "图标" },
+    { key: "fonts", zh: "字体" },
+    { key: "base", zh: "基础配色" },
+    { key: "wall", zh: "壁纸" },
+    { key: "bubble", zh: "聊天气泡" }
+  ];
+  const PACK_KEYS = PACK_PARTS.map(x => x.key);
+  // 一份包（或一份【当前草稿】，形状一样：{profile, baseTheme, wallpaper, bubbleSkin}）
+  // 里这一样到底有没有东西。导出拿它决定能挑哪几样，导入拿它决定能勾哪几样。
+  const packHas = (pack, key) => {
+    const p = (pack && pack.profile) || {};
+    if (key === "css") return !!(p.globalCSS || Object.keys(p.pageCSS || {}).length || Object.keys(p.pageTokens || {}).length || Object.keys(p.pageZoom || {}).length);
+    if (key === "icons") return !!(p.iconPack || Object.keys(p.icons || {}).length);
+    if (key === "fonts") return !!((p.fonts && (p.fonts.body || p.fonts.display)) || (p.customFonts || []).length);
+    if (key === "base") return !!(pack && pack.baseTheme);
+    if (key === "wall") return typeof (pack && pack.wallpaper) === "string" && !!pack.wallpaper;
+    if (key === "bubble") return !!(pack && pack.bubbleSkin);
+    return false;
+  };
+  const packParts = pack => PACK_PARTS.map(x => ({ key: x.key, zh: x.zh, has: packHas(pack, x.key) }));
+  // 没传 pick 就是整套都要（存量那条路一个字都不用改）
+  const cleanPick = pick => {
+    const out = {};
+    PACK_KEYS.forEach(k => { out[k] = pick && typeof pick === "object" ? !!pick[k] : true; });
+    return out;
+  };
+  // 只留她挑的那几样：没挑的退回出厂空值，而不是留在包里
+  // （留着的话，对面勾一下「图标」就会连着把没打算给的 CSS 一起装走）。
+  const pickProfile = (profile, sel) => {
+    const blank = fresh(), p = normalize(profile);
+    return Object.assign({}, p, {
+      globalCSS: sel.css ? p.globalCSS : blank.globalCSS,
+      pageCSS: sel.css ? p.pageCSS : blank.pageCSS,
+      pageTokens: sel.css ? p.pageTokens : blank.pageTokens,
+      pageZoom: sel.css ? p.pageZoom : blank.pageZoom,
+      icons: sel.icons ? p.icons : blank.icons,
+      iconPack: sel.icons ? p.iconPack : blank.iconPack,
+      iconBare: sel.icons ? p.iconBare : blank.iconBare,
+      fonts: sel.fonts ? p.fonts : blank.fonts,
+      customFonts: sel.fonts ? p.customFonts : blank.customFonts
+    });
+  };
   const exportPackage = async extras => {
-    const profile = normalize(extras && extras.profile || load()), assets = {};
+    const sel = cleanPick(extras && extras.pick);
+    const profile = pickProfile(extras && extras.profile || load(), sel), assets = {};
     const cssRefs = cssImageRefs(profile.globalCSS).concat(...Object.values(profile.pageCSS || {}).map(cssImageRefs));
     // 她自己传的字体文件也在同一个保险箱里，所以它跟图标走同一条打包路（one-public-mechanism）。
     const fontRefs = g.FontChoice ? g.FontChoice.fileRefs(profile.fonts, profile.customFonts) : [];
-    const refs = [...new Set([...Object.values(profile.icons || {}), extras && extras.wallpaper, ...cssRefs, ...fontRefs].filter(x => /^iv_/.test(x)))];
+    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -620,8 +669,11 @@
     }
     // 气泡皮肤（她 2026-09-20：「界面美化分享给别人」）——它不住在 profile 里，
     // 是单独一份存档，所以这儿显式带上；对面导入时默认不盖，勾了才盖。
-    const bubbleSkin = extras && extras.bubbleSkin ? extras.bubbleSkin : null;
-    return JSON.stringify({ kind: "lisa-theme", format: 1, exportedAt: new Date().toISOString(), profile, baseTheme: extras && extras.baseTheme, wallpaper: extras && extras.wallpaper, bubbleSkin, assets }, null, 2);
+    const bubbleSkin = sel.bubble && extras && extras.bubbleSkin ? extras.bubbleSkin : null;
+    return JSON.stringify({ kind: "lisa-theme", format: 1, exportedAt: new Date().toISOString(), profile,
+      baseTheme: sel.base ? (extras && extras.baseTheme) : undefined,
+      wallpaper: sel.wall ? (extras && extras.wallpaper) : undefined,
+      bubbleSkin, assets }, null, 2);
   };
   const importPackage = async text => {
     const pkg = JSON.parse(text); if (!pkg || pkg.kind !== "lisa-theme") throw new Error("不是这个 app 的主题包");
@@ -635,7 +687,7 @@
     const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? pkg.bubbleSkin : null;
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
+  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

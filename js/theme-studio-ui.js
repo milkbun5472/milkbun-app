@@ -1,5 +1,24 @@
 (function (g) {
   "use strict";
+  // 「挑不开文件？把 JSON 贴进来」——手机上挑不开文件时那条永远死不了的路
+  // （照表情包「贴上去」那个先例）。主题工作台和聊天气泡那一页共用这一份：
+  // 各画一份的话，哪天改了提示语或者加了一道校验，只会改在其中一处。
+  function ThemePackPasteBox({ onText, open: openZh, ph }) {
+    const t = useTheme();
+    const [pasting, setPasting] = useState(false), [text, setText] = useState("");
+    if (!pasting) return h("button", { onClick: () => setPasting(true), className: "w-full py-2.5 active:opacity-70",
+      style: { minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 } },
+      openZh || "挑不开文件？把主题包 JSON 贴进来");
+    return h("div", null,
+      h("textarea", { value: text, onChange: e => setText(e.target.value), placeholder: ph || "把导出的那份 .json 整个贴在这儿", rows: 5, className: "w-full outline-none",
+        style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px" } }),
+      h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+        h("button", { onClick: async () => { if (!text.trim()) return; if (await onText(text)) { setText(""); setPasting(false); } },
+          className: "flex-1 py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "贴上去"),
+        h("button", { onClick: () => { setPasting(false); setText(""); }, className: "px-4 py-2.5 active:opacity-60",
+          style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消")));
+  }
+  g.ThemePackPasteBox = ThemePackPasteBox;
   // 预览台跳出去再回来时，落回她刚才那一栏、那一页（v65.00）。
   // ⚠️不进存档：它只是「上一秒在哪儿」，关掉 app 就该忘掉。
   let lastSpot = null;
@@ -11,10 +30,13 @@
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     // 导进来的那一包先摊在这儿，勾了哪几样才合进草稿（她 2026-09-20：不是全有全无）
     const [incoming, setIncoming] = useState(null), [pendingBubble, setPendingBubble] = useState(null);
-    const [pick, setPick] = useState({ css: true, icons: true, fonts: true, base: true, wall: true, bubble: true });
+    const [pick, setPick] = useState(() => studio.cleanPick(null));
+    // 导出也要能只挑一样（她 2026-09-22：「没有单独导入导出某一种美化的选项，
+    // 比如只导入 app 图标 或者只导入背景」）。默认整套，取消勾的那几样不进包。
+    const [xPick, setXPick] = useState(() => studio.cleanPick(null));
     const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
     useEffect(() => { lastSpot = null; }, []);
-    const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast"), [pasting, setPasting] = useState(false), [pasteText, setPasteText] = useState("");
+    const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
     //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
@@ -72,8 +94,9 @@
     };
     const exportTheme = async () => {
       // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
+      if (!studio.PACK_KEYS.some(k => xPick[k])) { toast("至少挑一样再导出"); return; }
       try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
-          bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null });
+          bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick: xPick });
         const via = await window.saveTextFile("lisa-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
         toast(via === "cancel" ? "导出取消了" : via === "share" ? "主题包已交给分享面板（含真实图标素材），在里面选「存储到文件」" : "主题包已导出（含真实图标素材）"); }
       catch (e) { toast("导出失败：" + e.message); }
@@ -110,13 +133,23 @@
     const applyPack = async text => {
       try {
         const pack = await studio.importPackage(text);
-        const sel = { css: true, icons: true, fonts: true, base: true, wall: true, bubble: true };
+        // ⚠️只勾这份包【真的带了】的那几样。全勾是错的：单挑一样导出的包
+        //   （只有图标的那种）里，CSS 那一格是空的，勾着它就把她现在的 CSS 抹平了。
+        const sel = {}; studio.packParts(pack).forEach(x => { sel[x.key] = x.has; });
         setIncoming(pack); setPick(sel); livePick(pack, sel);
         toast("已导入并临时预览；下面可以挑要哪几样，确认后才落盘");
         return true;
       } catch (err) { toast("导入失败：" + (err.message || err)); return false; }
     };
     const togglePick = k => { const sel = Object.assign({}, pick, { [k]: !pick[k] }); setPick(sel); if (incoming) livePick(incoming, sel); };
+    // 「挑哪几样」那一排：导出和导入共用这一份（方块、禁用态、「这份包里没有」都只画在这儿）。
+    // parts 来自 studio.packParts()，名字和有没有都是它说了算。
+    const partRows = (parts, sel, onToggle, missZh) => parts.map(x =>
+      h("button", { key: x.key, onClick: () => x.has && onToggle(x.key), disabled: !x.has,
+        className: "w-full flex items-center active:opacity-70 disabled:opacity-40",
+        style: { gap: 9, minHeight: 40, textAlign: "left" } },
+        h("span", { style: { flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: "1px solid " + (x.has && sel[x.key] ? t.ink : t.line), background: x.has && sel[x.key] ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "16px", textAlign: "center" } }, x.has && sel[x.key] ? "✓" : ""),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: x.has ? t.ink : t.fog } }, x.zh + (x.has ? "" : missZh))));
     const importTheme = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
       let text = "";
@@ -476,6 +509,13 @@
           h("br"), "⚠️字体是有版权的东西，商用字体别往外发主题包。")),
       section === "package" && h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
+        // 只导出一样（她 2026-09-22：「比如只导入 app 图标 或者只导入背景」）。
+        // 跟导入那头共用同一份名单和同一排方块——这儿是【发】，那儿是【收】。
+        h("div", { style: { marginBottom: 12, padding: "11px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } }, "这次导出带上哪几样："),
+          partRows(studio.packParts({ profile: draft, baseTheme: theme, wallpaper: wallpaper,
+            bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null }),
+            xPick, k => setXPick(p => Object.assign({}, p, { [k]: !p[k] })), "（你还没弄过）")),
         h("div", { className: "flex gap-2" },
           h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"),
           // ⚠️这一颗以前是 `importFile.current.click()`——没有那一道 `&&`。
@@ -491,27 +531,11 @@
         incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } },
             "这份包里带了这些，勾掉的不会动你现在的："),
-          [["css", "页面／全局 CSS", !!(incoming.profile && (incoming.profile.globalCSS || Object.keys(incoming.profile.pageCSS || {}).length || Object.keys(incoming.profile.pageTokens || {}).length || Object.keys(incoming.profile.pageZoom || {}).length))],
-           ["icons", "图标", !!(incoming.profile && (incoming.profile.iconPack || Object.keys(incoming.profile.icons || {}).length))],
-           ["fonts", "字体", !!(incoming.profile && ((incoming.profile.fonts && (incoming.profile.fonts.body || incoming.profile.fonts.display)) || (incoming.profile.customFonts || []).length))],
-           ["base", "基础配色", !!incoming.baseTheme],
-           ["wall", "壁纸", typeof incoming.wallpaper === "string" && !!incoming.wallpaper],
-           ["bubble", "聊天气泡", !!incoming.bubbleSkin]].map(([k, label, has]) =>
-            h("button", { key: k, onClick: () => has && togglePick(k), disabled: !has, className: "w-full flex items-center active:opacity-70 disabled:opacity-40",
-              style: { gap: 9, minHeight: 40, textAlign: "left" } },
-              h("span", { style: { flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: "1px solid " + (has && pick[k] ? t.ink : t.line), background: has && pick[k] ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "16px", textAlign: "center" } }, has && pick[k] ? "✓" : ""),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: has ? t.ink : t.fog } }, label + (has ? "" : "（这份包里没有）")))),
+          partRows(studio.packParts(incoming), pick, togglePick, "（这份包里没有）"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
             "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。")) : null,
         // 贴一份：手机上挑不开文件的时候，这条路永远死不了（照表情包「贴上去」那个先例）
-        h("div", { style: { marginTop: 12 } },
-          !pasting
-            ? h("button", { onClick: () => setPasting(true), className: "w-full py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 } }, "挑不开文件？把主题包 JSON 贴进来")
-            : h("div", null,
-                h("textarea", { value: pasteText, onChange: e => setPasteText(e.target.value), placeholder: "把导出的那份 .json 整个贴在这儿", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px" } }),
-                h("div", { className: "flex gap-2", style: { marginTop: 8 } },
-                  h("button", { onClick: async () => { if (!pasteText.trim()) { toast("先把 JSON 贴进来"); return; } if (await applyPack(pasteText)) { setPasteText(""); setPasting(false); } }, className: "flex-1 py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "贴上去"),
-                  h("button", { onClick: () => { setPasting(false); setPasteText(""); }, className: "px-4 py-2.5 active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"))))),
+        h("div", { style: { marginTop: 12 } }, h(ThemePackPasteBox, { onText: applyPack }))),
       h("div", { style: { position: "sticky", bottom: 8, zIndex: 5, display: "flex", gap: 7, marginTop: 18, padding: 8, borderRadius: 16, background: "rgba(248,245,238,.92)", backdropFilter: "blur(18px)", border: "1px solid " + t.line, boxShadow: "0 8px 28px rgba(30,25,20,.12)" } }, h("button", { onClick: preview, className: "flex-1 py-3", style: { borderRadius: 11, border: "1px solid " + t.ink, fontFamily: F_BODY, color: t.ink } }, "先预览 30 秒"), previewing ? h("button", { onClick: cancel, className: "py-3 px-3", style: { color: t.accent, fontFamily: F_BODY } }, "撤销") : null, h("button", { onClick: commit, className: "flex-1 py-3", style: { borderRadius: 11, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "正式应用")));
   }
   g.ThemeStudioConfig = ThemeStudioConfig;
