@@ -44,8 +44,13 @@ test("好感和印象卡照旧不给配角（她 2026-08-25 拍的板，这次�
 });
 
 test("这四样她看得见：闭群里配角的头像也点得开", () => {
-  assert.match(comp, /const canPeek = onOpenMemberState && \(c => gsp\.memoryInterop \|\| !!\(c && c\.npc\)\)/, "群线上");
-  assert.match(app, /if \(!c \|\| \(!gsFor\(offlineGroup\.id\)\.memoryInterop && !c\.npc\)\) return;/, "群线下");
+  // v73.02：判据搬进 app 的 memberStatePeekable 一处，线上线下都问它
+  //（原来线上在组件、线下在 app 各判各的：闭群里有配角时，线下所有头像都成了
+  // 按钮，点普通成员却没反应 —— 她报的「群线下点不开状态卡」就是这个）。
+  assert.match(app, /const memberStatePeekable = \(gid, c\) => !!\(c && \(gsFor\(gid\)\.memoryInterop \|\| c\.npc\)\);/);
+  assert.match(app, /canPeekMember: c => memberStatePeekable\(activeGroup\.id, c\)/, "群线上");
+  assert.match(app, /canPeekMember: c => memberStatePeekable\(offlineGroup\.id, c\)/, "群线下");
+  assert.match(app, /if \(!c \|\| !memberStatePeekable\(offlineGroup\.id, c\)\) return;/, "群线下落地那一步");
 });
 
 test("人设额度：配角 3000，仍旧不参与按人数平分", () => {

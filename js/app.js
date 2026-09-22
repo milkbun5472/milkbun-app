@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.01";
+const APP_VERSION = "v73.02";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12048,6 +12048,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我发红包
   // 记忆不互通的群=封闭空间：红包/转账都是过家家，不动任何真钱包（我的 + 角色的都不结算）
   const groupClosed = gid => !gsFor(gid).memoryInterop;
+  // 谁的头像点得开心声卡：互通群里人人都行，闭群里只有配角（他那四样不看互通开关）。
+  // ⚠️这条判据只有这一处：群线上、群线下都问它（施工规则/one-public-mechanism）。
+  //   原来线上写在组件里、线下写在 app 里，两份各判各的——于是闭群里只要有一个配角，
+  //   线下【所有人】的头像都变成按钮，点普通成员却什么都不发生（她 2026-09-22：
+  //   「群线下怎么点不开状态卡」，看着就是点不开）。
+  const memberStatePeekable = (gid, c) => !!(c && (gsFor(gid).memoryInterop || c.npc));
   // toId：专属红包（她 2026-09-19「群聊能发专属红包」）——点名给一个人，别人碰不到。
   // ⚠️专属就是【一份】：给一个人还分好几份，那不是专属，是普通红包写了个名字。
   const sendRedPacket = (groupId, total, count, message, toId) => {
@@ -23209,6 +23215,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (Object.keys(rest).length) saveGroupSettings(activeGroup.id, rest);
     },
     onOpenMemberState: memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } },
+    canPeekMember: c => memberStatePeekable(activeGroup.id, c),
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
     onVote: (idx, optIdx) => castVote(activeGroup.id, idx, optIdx, profile.name || "我"),
@@ -24972,12 +24979,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 群线下点头像看心声：和线上群一样，只有开了互通(states 才共享/会变)才可点
     // ⚠️配角例外：他那四样不看互通开关（她 2026-09-20），闭群里也点得开。
     //   谁点得开由组件那一处判（跟群线上同一份判法），这儿只负责把口子递过去。
-    onOpenMemberState: (gsFor(offlineGroup.id).memoryInterop || groupMembers(offlineGroup).some(c => c && c.npc))
-      ? (memberId => {
-          const c = characters.find(x => x.id === memberId);
-          if (!c || (!gsFor(offlineGroup.id).memoryInterop && !c.npc)) return;
-          setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true);
-        }) : undefined
+    // ⚠️一律传：谁点得开按人判（canPeekMember），不再按「这群里有没有配角」一刀切 ——
+    //   那一刀切的结果是闭群里所有头像都成了按钮，点普通成员却没反应。
+    onOpenMemberState: memberId => {
+      const c = characters.find(x => x.id === memberId);
+      if (!c || !memberStatePeekable(offlineGroup.id, c)) return;
+      setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true);
+    },
+    canPeekMember: c => memberStatePeekable(offlineGroup.id, c)
   }), appConfirm && h(ConfirmDialog, {
     title: appConfirm.title,
     body: appConfirm.body,

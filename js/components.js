@@ -12665,7 +12665,7 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
 // 往期只读详情；群聊用显式参数保留导演便签与成员状态入口。
-function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
+function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, canOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
@@ -12677,7 +12677,7 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
           (session.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
         ),
-        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, char, editable: false, onOpenState }))));
+        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }))));
 }
 
 // 往期列表只接当前会话的记录；筛选排序不修改原数组。
@@ -13378,7 +13378,7 @@ function offCardSkin(t, accent) {
     padding: "14px 16px"
   };
 }
-function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
+function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -13441,7 +13441,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
     (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m, off: showReason === false }) : null,
     h("div", { style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
-        isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? (onOpenState ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
+        isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
         // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
@@ -13489,6 +13489,7 @@ function GroupOfflineMode({
   settings,
   onSaveSettings,
   onOpenMemberState,
+  canPeekMember,
   onOpenStyleLab
   , showReason
 }) {
@@ -13500,6 +13501,9 @@ function GroupOfflineMode({
   // ⚠️谁点得开由 app 那一处判（闭群里只有配角点得开，他那四样不看互通开关）：
   //   这儿的 settings 是【这场线下自己的设置】，里头没有 memoryInterop，判不了。
   const offOpenState = onOpenMemberState ? (sp => sp && onOpenMemberState(sp.id)) : undefined;
+  // 谁点得开：跟群线上问的是同一份判据（app 的 memberStatePeekable）。
+  // 没传就当都能点——单人线下那条路本来就没有这道闸。
+  const offCanPeek = canPeekMember || null;
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
   const [sBg, setSBg] = useState(os.bg || "");
@@ -13573,7 +13577,7 @@ function GroupOfflineMode({
   }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
 
   // ---- 往期回看 ----
-  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
 
   // ---- setup ----
   if (view === "setup") {
@@ -13687,7 +13691,7 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState, canOpenState: offCanPeek })),
       sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
@@ -13764,6 +13768,7 @@ function GroupThread({
   sameRoom,
   onToggleSameRoom,
   onOpenMemberState,
+  canPeekMember,
   onStartPoll,
   onGenVotes,
   onVote,
@@ -13903,7 +13908,9 @@ function GroupThread({
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
   //   所以闭群里也点得开——否则料写进去了，她一眼都看不到。
-  const canPeek = onOpenMemberState && (c => gsp.memoryInterop || !!(c && c.npc));
+  // 判据在 app 的 memberStatePeekable 那一处（互通群人人可点、闭群只有配角）。
+  // ⚠️别在这儿再写一份：线下那头原来就是各判各的，结果闭群里点普通成员没反应。
+  const canPeek = onOpenMemberState && (canPeekMember || (c => gsp.memoryInterop || !!(c && c.npc)));
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
     : h(Avatar, { character: character, size: size || 34, radius: 8 });
