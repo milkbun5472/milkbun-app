@@ -9916,6 +9916,10 @@ function DataConfig({
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.ink } },
             "这份备份切成了 " + copyParts.parts.length + " 段。按顺序点一段、发一段——" +
             "恢复的时候把每一段都贴回下面那个框里，贴齐了自己会合起来。"),
+          copyParts.parts.length > 12
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: "#c0503f", marginTop: 4 } },
+                "⚠️这么多段，手动发一遍是真的累。能换 Chrome／夸克打开这个网址导出文件、或者开云同步的话，那条路轻松得多——这儿的段是没有别的办法时才用的。")
+            : null,
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
             copyParts.parts.map((_, k) => h("button", {
               key: k, onClick: () => onCopyExport(k + 1), className: "active:opacity-70",

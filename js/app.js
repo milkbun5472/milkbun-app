@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.81";
+const APP_VERSION = "v72.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22413,7 +22413,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 剪贴板放得下多少：8MB 是个保守线。再多，新接口和那条 textarea 老路都可能
   // 把手机上的页面直接撑崩——崩之前先告诉她，别让她白按一下。
   // （这儿不写那个接口的名字：全库「谁都不许自己写一份复制」那两条测试是按字面查的。）
-  const COPY_MAX = 8 * 1024 * 1024;
+  // ⚠️这儿原来是「超过 8MB 就不给复制」。分段做好之后那道闸就错了：
+  //   一次往剪贴板里塞的从来只有一段（200KB），整份多大跟崩不崩没关系了。
+  //   她 2026-09-22 按下去只看见「约 10MB，太大了」，连段都没切——正是被它拦的。
+  //   现在只留一个真正的天花板：再大就不是剪贴板该干的活了（拼 base64 本身会吃内存）。
+  const COPY_MAX = 64 * 1024 * 1024;
   // ⚠️一整段复制得动、【粘贴不动】（她 2026-09-22：「太大了可以复制但是粘贴不了」）：
   //   微信输入框、备忘录、包括我们自己这个文本框，对一次粘贴多大都有各自的脾气。
   //   所以整份切成 200KB 一段，一段一段发；导入那头认段头、自己拼回去。
@@ -22427,7 +22431,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const pack = await buildExportPack({ noImages: true });
       if (!pack) return;
       if (pack.text.length > COPY_MAX) {
-        toast("这份文字备份约 " + Math.round(pack.text.length / 1048576) + "MB，太大了——换 Chrome／夸克那类浏览器打开这个网址再导出文件，或者先开云同步");
+        toast("这份文字备份约 " + Math.round(pack.text.length / 1048576) + "MB——这么大就别走剪贴板了：换 Chrome／夸克那类浏览器打开这个网址导出文件，或者开云同步");
         return;
       }
       const id = "b" + Date.now().toString(36);
@@ -22443,7 +22447,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       box = { id: id, parts: parts, what: pack.what, done: {} };
       setCopyParts(box);
       if (parts.length > 1) {
-        toast("这份备份有 " + parts.length + " 段，一段一段复制、一段一段发——下面按顺序点");
+        // 段数多到离谱的时候要说实话：能换浏览器就换，别让她手动发五十几段
+        toast(parts.length > 12
+          ? "这份备份要切成 " + parts.length + " 段，一段一段发会很累——能换 Chrome／夸克导出文件、或者开云同步的话，那条路轻松得多。下面的段照样能用。"
+          : "这份备份有 " + parts.length + " 段，一段一段复制、一段一段发——下面按顺序点");
         return;                                   // 分段的时候第一下只是切好，别抢着复制
       }
     }

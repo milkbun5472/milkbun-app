@@ -42,8 +42,11 @@ test("复制走公共那一处，不自己再写一份", () => {
 test("复制那一份不带图，而且太大了要先说一声", () => {
   const cp = app.slice(app.indexOf("const doCopyExport = "), app.indexOf("// ⚠️导入分两条路"));
   assert.match(cp, /noImages: true/, "复制又去打包图库了 —— 那正是崩的原因");
-  assert.match(app, /const COPY_MAX = 8 \* 1024 \* 1024;/, "没有大小闸，够大照样崩");
-  assert.match(cp, /太大了——换 Chrome／夸克/, "太大的时候没当面说，她只会以为又坏了");
+  // v72.82：分段做好之后，「超过 8MB 就不给复制」那道闸反而把人拦在门外了
+  //（她按下去只看见「约 10MB，太大了」，连段都没切）。一次只复制一段，崩不了。
+  assert.match(app, /const COPY_MAX = 64 \* 1024 \* 1024;/, "天花板没了，或者又调回那个会把人拦住的数");
+  assert.match(app, /这么大就别走剪贴板了/, "真到天花板的时候没说清该走哪条路");
+  assert.match(cp, /这么大就别走剪贴板了/, "太大的时候没当面说，她只会以为又坏了");
   // 不带图这件事必须写在脸上，不许悄悄少图
   assert.match(app, /只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍/);
   assert.match(screens, /不含图片和自拍/, "界面上没说这一份没带图");
@@ -75,6 +78,12 @@ test("拼回去：顺序不重要，空白一律删，缺段要说清还差哪�
   // 碎片攒在内存里：几 MB 写进 localStorage 会把那 5MB 顶爆，而她正在恢复数据
   assert.match(app, /const pasteBinRef = useRef\(null\);/);
   assert.doesNotMatch(seg, /localStorage/, "碎片落盘了");
+});
+
+test("段数多到离谱就说实话：能换浏览器就换", () => {
+  assert.match(app, /parts\.length > 12/, "几十段也一声不吭，她会真的一段段发到崩溃");
+  assert.match(screens, /这么多段，手动发一遍是真的累/);
+  assert.match(screens, /copyParts\.parts\.length > 12/);
 });
 
 test("界面：分了段就把每一段摆出来，点过的打勾", () => {
