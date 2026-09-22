@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.51";
+const APP_VERSION = "v72.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -135,6 +135,54 @@ function DevBadges() {
     h("span", { style: Object.assign({ right: 8, display: "flex", alignItems: "center" }, base) }, h(BatteryBadge, null)));
 }
 // AssistiveTouch 风格模型切换器：只改全局线上/线下线路；角色专线仍由 apiFor/offlineApiFor 优先。
+// ── 一页崩了，不该把整个 App 带走（她 2026-09-22 转群里读者：点开一起读是白屏＋
+//    「启动出错了」那条红带）────────────────────────────────────────────
+// ⚠️病根不是那一页本身，是【没有围栏】：React 的渲染里抛一个异常，整棵树直接卸掉，
+//   #root 一空，engine.js 那道兜底守卫就以为是没启动起来，贴出那条红带。
+//   于是她看到的是「整个 app 挂了」，而真相多半只是某一页的某一行。
+// ⚠️围栏只拦【渲染时的异常】：事件回调里的错照旧走 window.onerror，那一路本来就有记录。
+// ⚠️出事要留痕：走 engine.js 那一处公共的 errLog（别在这儿另开一份写 x_errlog 的路）。
+// ⚠️不在文件顶层写 `class ... extends React.Component`：那一行在【脚本求值那一刻】
+//   就要去取 React，而 app.js 是有可能比 React 先被求值的（冒烟测试就是这么跑的，
+//   真机上哪天脚本顺序一动也一样）。顶层一抛，整个 app.js 都不算数了——
+//   本来是来兜白屏的，自己先成了白屏的原因。所以第一次用到时再建。
+let _screenBoundary = null;
+function ScreenBoundaryClass() {
+  if (_screenBoundary) return _screenBoundary;
+  // React 还没就位（脚本顺序、或测试里的桩）：直通，别在这儿抛——
+  // 围栏本来就是来兜错的，它自己不许成为那个错。
+  if (!(React && React.Component)) return function (props) { return props && props.children; };
+  _screenBoundary = class ScreenBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err: err }; }
+  componentDidCatch(err, info) {
+    try {
+      if (typeof window !== "undefined" && window.errLog) {
+        window.errLog("screen", (this.props.screen || "?") + "：" + String(err && err.message || err),
+          String((info && info.componentStack) || "").slice(0, 200));
+      }
+    } catch (e) {}
+  }
+  componentDidUpdate(prev) {
+    // 换了一页就把围栏重新支起来：不然她退回首页也还是那张错误卡
+    if (prev.screen !== this.props.screen && this.state.err) this.setState({ err: null });
+  }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const msg = String(this.state.err && this.state.err.message || this.state.err || "").slice(0, 200);
+    return h("div", { className: "h-full flex flex-col items-center justify-center", style: { padding: 28, gap: 12, textAlign: "center" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#3c3a34" } }, "这一页没能打开"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#7b776c" } },
+        "出问题的只有这一页，别的地方和你的数据都好好的。"),
+      msg ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: "#9a9488", wordBreak: "break-all", maxWidth: 320 } }, msg) : null,
+      h("button", { onClick: () => { this.setState({ err: null }); if (this.props.onBack) this.props.onBack(); },
+        className: "active:opacity-70",
+        style: { marginTop: 4, minHeight: 44, padding: "0 22px", borderRadius: 12, background: "#3c3a34", color: "#f7f4ec", fontFamily: F_BODY, fontSize: 13.5 } }, "回首页"),
+      h("a", { href: "rescue.html", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9a9488", textDecoration: "underline" } }, "进救援页看看"));
+  }
+  };
+  return _screenBoundary;
+}
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -24243,7 +24291,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEnded: advanceSong
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, body), (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

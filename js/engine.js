@@ -448,6 +448,9 @@ async function ensureLoreVecs(entries, opts) {
     } catch (e) {}
   };
   window.__errlog = () => { try { return JSON.parse(localStorage.getItem("x_errlog") || "[]"); } catch (e) { return []; } };
+  // 写日志的口子也公开出去：界面那道错误围栏要留痕，不该自己另开一条写 x_errlog 的路
+  // （一层写在两处，迟早只改一处——施工规则/one-public-mechanism）。
+  window.errLog = log;
   let shown = false;
   const maybeRescue = () => {
     if (shown) return;

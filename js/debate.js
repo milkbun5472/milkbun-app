@@ -712,7 +712,7 @@
     // 台上第一句话落下来的时候，牌子自己收上去（除非她已经自己动过手）。
     // 不做这一下的话，新开一局从头到尾牌子都放着，占掉的还是那半屏。
     useEffect(function () { if (!stageTouched.current && hasSomething) setStageOpen(false); }, [hasSomething]);
-    const sharePanel = shareOpen && typeof CenterCard === "function" ? h(CenterCard, { onClose: function () { setShareOpen(false); }, maxWidth: 360 },
+    const sharePanel = shareOpen && typeof CenterCard === "function" ? h(CenterCard, { onClose: function () { setShareOpen(false); }, maxWidth: 360, wk: "centercard" },
       h("div", { className: "shrink-0", style: { padding: "15px 17px 11px", borderBottom: "1px solid " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "把这一场发给谁"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } },
