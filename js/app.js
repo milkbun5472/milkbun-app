@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.50";
+const APP_VERSION = "v72.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1384,7 +1384,22 @@ function App() {
       if (fixed) saveJSON("x_forumPosts", fp);
       setForumPosts(fp);
     })();
-    setForumComments(loadJSON("x_forumComments", {}));
+    // ⚠️把【已经生成出来的假她】清掉一次：以前帖主/层主是她时，模型标 is_op/is_owner 的那条
+    //   会被落成 authorType:"me"（她 2026-09-22 报的「某一楼显示是她但她没写」）。
+    //   判据只认这两个标记——她自己按键写的追评从不带 isOp/isOwner，一条都不会误删。
+    (() => {
+      const fc = loadJSON("x_forumComments", {});
+      let dropped = 0;
+      Object.keys(fc || {}).forEach(pid => {
+        (fc[pid] || []).forEach(f => {
+          if (!f || !Array.isArray(f.replies)) return;
+          const keep = f.replies.filter(r => !(r && (r.authorType === "me" || r.authorId === "me") && (r.isOp || r.isOwner)));
+          if (keep.length !== f.replies.length) { dropped += f.replies.length - keep.length; f.replies = keep; }
+        });
+      });
+      if (dropped) saveForumComments(fc);   // 落盘只走这一个口子，别绕过去直接存
+      setForumComments(fc);
+    })();
     setForumFollows(loadJSON("x_forumFollows", []));
     setForumPMs(loadJSON("x_forumPMs", []));
     let fm = loadJSON("x_forumMe", null);
@@ -17264,6 +17279,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("刷新失败：" + e.message); }
     finally { setGen(g => ({ ...g, forum: null })); }
   };
+  // 论坛里绝不许出现【以她的名义生成的发言】（她 2026-09-22 转来的：某一楼显示是她，
+  // 但她根本没写）。病根在这儿：帖主是她时，模型标了 is_op 的那条会被落成
+  // authorType:"me" —— app 替她说了话。她的发言只能由她自己按键产生。
+  // ⚠️闸开在【生成出来的那一条】这儿，不能开在存的时候：她真写的那些楼层也是 "me"，
+  //   在落盘那头一刀切会把她自己的话也删掉。
+  const forumIsMine = r => !!(r && (r.authorType === "me" || r.authorId === "me"));
   // 一条原始评论 → 楼层对象（回复者随机 NPC 或某个符合人设的角色，x.char=角色名则归到该角色）
   // post 传入时用于识别「楼主」：楼主不另开楼自问自答（顶楼命中→丢弃），楼主的追评正确署名+标记 isOp
   const buildForumFloor = (x, floorNo, base, idx, post) => {
@@ -17287,13 +17308,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (isOpOf(r)) {
           // 楼主本人回某条评论：正确署名（角色→真名，否则楼主网名），并打上「楼主」小标
           if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: r.content, isOp: true, ts: base + idx };
-          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: r.content, isOp: true, ts: base + idx };
+          // ⚠️帖主是她：这条本该是她说的话，丢掉——别替她开口（见 forumIsMine）
+          if (post && post.authorType === "me") return null;
+          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: "npc", authorId: null, content: r.content, isOp: true, ts: base + idx };
         }
         const rc = (characters || []).find(c => c.name === r.char);
         const rn = rc ? null : forumPublicNpcOf(r, (post && post.board) || "日常吧", idx + ":reply");
         const ri = rc ? forumCharIdentity(rc, r.identity, (post && post.board) || "日常吧") : null;
         return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx };
-      })
+      }).filter(r => r && !forumIsMine(r))
     };
   };
   // 这帖里已经冒泡过的角色（顶楼作者 + 楼中楼作者都算）→ [{id,name}]，用于第二轮防重复
@@ -17325,7 +17348,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
     if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
       if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: x.content, isOp: true, ts: Date.now() };
-      return { authorName: opName || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: x.content, isOp: true, ts: Date.now() };
+      // ⚠️同上：帖主是她的时候，这条不许落成她的发言
+      if (post && post.authorType === "me") return null;
+      return { authorName: opName || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: "npc", authorId: null, content: x.content, isOp: true, ts: Date.now() };
     }
     const cc = (characters || []).find(c => c.name === x.char);
     if (cc) { const ci = forumCharIdentity(cc, x.identity, (post && post.board) || "日常吧"); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, ts: Date.now() }; }
@@ -17380,6 +17405,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 楼主是她本人时，得说清楚那是【他们认识的那个人】——否则只看到一个网名，
     // 角色只能按陌生人科普。大号要认出她，小号知道是她但必须装不认识（她 2026-08-25）。
     const meOwn = post.authorType === "me" && !post.anon && post.board !== "匿名吧";
+    // ⚠️这帖是她本人发的：模型一条都不许以楼主（＝她）的名义写。匿名帖也一样——
+    //   匿名只是没署名，说话的人还是她。（她 2026-09-22：某一楼显示是她，但她没写）
+    const opIsMe = post.authorType === "me";
+    const opMineBan = opIsMe
+      ? "\n⚠️**【楼主就是那个真人本人，不是你能扮演的角色】：绝对不许写任何一条以楼主名义发的话，is_op 一条都不许设 true。楼主说什么只由 Ta 自己决定。**\n"
+      : "";
     const meRule = !meOwn ? "" : ("\n【楼主「" + opName + "」就是你们认识的那个人·她的公开账号】\n"
       + "· 用【大号】回复的角色：你一眼认得出是她，就按你和她真实的关系说话——该关心就关心、该调侃就调侃、该教训就教训。"
       + "**别用对陌生人科普的腔**（「建议你拿手机在侧后方录个视频」那种），你跟她说话不是这个语气。\n"
@@ -17390,7 +17421,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
     const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
-      + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
+      + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
     if (opts.round2) {
       const repliedCells = opts.repliedChars || [];
@@ -17419,7 +17450,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const opGround = forumCharGrounding(opChar, post, "楼主")
         + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("");
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
-      const opRule2Full = opRule2 + meRule;
+      const opRule2Full = opRule2 + meRule + opMineBan;
       return {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
         schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
@@ -18350,6 +18381,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         type: floor.authorType || "npc", id: floor.authorId || null, inFloor: false
       };
       const ownerName = resp.name;
+      // ⚠️「必回的那个人」或帖主就是她自己时，绝不能让模型以她的口吻写那一条（她 2026-09-22：
+      //   某一楼显示是她但她没写）。闸要同时开在提示词这头——不叫它写，比写完再丢干净。
+      const respIsMe = resp.type === "me" || resp.id === "me";
+      const opIsMe = post.authorType === "me";
       const ownerChar = String(resp.type || "").startsWith("character") && resp.id ? (characters || []).find(c => c.id === resp.id) : null;
       const priorLines = ["层主「" + (floor.authorName || "层主") + "」的原评论：「" + String(floor.content || "").replace(/\s+/g, " ").slice(0, 80) + "」"]
         .concat((floor.replies || []).slice(-6).map(r => "· " + (r.isOp ? "【帖主】" : "") + (r.authorName || "某人") + "：" + String(r.content || "").replace(/\s+/g, " ").slice(0, 60)));
@@ -18376,8 +18411,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
           + "「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
-          "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
-          "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
+          (respIsMe
+            ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
+            : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
+          (opIsMe ? "② 这帖是「" + meNow + "」本人发的——**不许以帖主的名义写任何一句**，一条都不要标 is_op。\n" : "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n") +
           "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。\n"
           + "④ 常驻熟面孔那几条【顺手标一下 toMe】：这一句冲 @" + (forumMe.handle || profile.name || "我")
           + " 去的是什么调子——warm（搭上话、附和、帮腔）/ spar（抬杠、呛、唱反调）/ 留空（只是路过，没冲着谁）。"
@@ -18393,18 +18430,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const reps = items.map((x, replyIndex) => {
         // 层主回我：还原成这层楼作者本人的身份（角色→真名档案，路人→沿用层主的马甲）
         if (x.is_owner === true || looksOwner(x.char) || looksOwner(x.authorName)) {
+          // ⚠️层主就是她自己（她在自己开的那层楼里又回了一句）：这条本该是她说的话，丢掉
+          if (resp.type === "me" || resp.id === "me") return null;
           if (ownerChar) return { authorName: resp.name, authorHandle: resp.handle, authorType: resp.type, authorId: ownerChar.id, content: x.content, isOwner: true, replyToMe: true, toName: meNow, ts: replyBase + replyIndex };
           return { authorName: ownerName, authorHandle: resp.handle || ownerName, authorType: resp.type || "npc", authorId: resp.id || null, content: x.content, isOwner: true, replyToMe: true, toName: meNow, ts: replyBase + replyIndex };
         }
         if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
+          // ⚠️帖主是她（她自己发的帖）：同上，不许替她开口
+          if (post.authorType === "me") return null;
           if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
-          return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: post.authorType === "me" ? "me" : "npc", authorId: post.authorType === "me" ? "me" : null, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
+          return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: "npc", authorId: null, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
         }
         const cc = forumActiveChars().find(c => c.name === x.char);
         if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex }; }
         const npc = forumPublicNpcOf(x, post.board, floorId + ":" + x.content);
         return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex };
       });
+      // ⚠️上面被丢掉的（以她的名义生成的那些）是 null，绝不能落进状态
+      const keptReps = reps.filter(r => r && !forumIsMine(r));
       // 同一批里同一熟面孔即使连回两句也只算一次公开碰面，避免生成长度把熟悉度灌高。
       // ⚠️调子取【这一批里他第一条】报的那个：同一个人连回两句，调子按第一句算。
       const toneById = new Map();
@@ -18416,10 +18459,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       [...toneById.keys()].forEach(id => touchForumPublicTie(id, "theirs", toneById.get(id)));
       setForumComments(prev => {
-        const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), ...reps] } : f);
+        const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), ...keptReps] } : f);
         const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
       });
-      bumpReplyBy(post.id, reps.length);
+      bumpReplyBy(post.id, keptReps.length);
     } catch (e) {/* silent */ }
     finally { setGen(g => ({ ...g, forumReplyMe: null })); }
   };
