@@ -294,13 +294,9 @@ function mapSubSkin(t) {
   }
 
   // 真·地点搜索（OSM Nominatim，免费无 key）：搜全世界任何地方，中文优先
-  function nomSearch(q, near, signal) {
-    // near=[lat,lng] 时用 viewbox 就近加权(bounded=0 只偏好不封死)——同名地点先出你城市附近的
-    const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
-    return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
-      .then(function (r) { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
-      .then(function (list) { return (list || []).map(function (x) { return { name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) }; }); });
-  }
+  // 地名→坐标只有一处：js/engine.js 的 geoSearch（v72.66 搬过去的，设置里手填位置
+  // 也要用同一条路）。这儿只是转个手，别在这里再写一份 fetch。
+  function nomSearch(q, near, signal) { return window.geoSearch(q, near, signal); }
 
   // ── 架空世界地图 ────────────────────────────────────────────────────────
   // 地图引擎直接借跑团那一份(window.TrpgMap):模型只宣告【区域·接壤·节点】,

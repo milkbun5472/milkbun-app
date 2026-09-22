@@ -7545,7 +7545,10 @@ function wmoToText(code) {
 // 抓本地时间/天气/城市：定位→open-meteo(免key)拿天气→反查城市名。任何一步失败都降级，不抛错。
 async function fetchLocalEnv() {
   const out = { weather: "", location: "", coords: null };
-  const pos = await new Promise(res => {
+  // ⚠️她手填过位置就按那份来（v72.66）：这儿原来自己读一次 GPS，
+  //   于是她明明把自己设成了东京，日记还是盖广州那个戳。
+  const mine = geoNow();
+  const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await new Promise(res => {
     if (!navigator.geolocation) return res(null);
     navigator.geolocation.getCurrentPosition(p => res(p), () => res(null), { timeout: 8000, maximumAge: 600000 });
   });
@@ -7556,11 +7559,12 @@ async function fetchLocalEnv() {
     const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`).then(r => r.json());
     if (w && w.current) out.weather = wmoToText(w.current.weather_code) + " " + Math.round(w.current.temperature_2m) + "°C";
   } catch (e) {}
-  try {
-    const g = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`).then(r => r.json());
-    const city = g.city || g.locality || g.principalSubdivision || "";
-    out.location = city ? (city + (g.countryCode ? ", " + g.countryCode : "")) : "";
-  } catch (e) {}
+  // 反查只有 geoLookup 那一处；日记这儿只是把同一份料拼成自己那种短写法
+  const g = await geoLookup(lat, lon);
+  if (g) {
+    const city = g.city || g.region || "";
+    out.location = city ? (city + (g.code ? ", " + g.code : "")) : "";
+  }
   return out;
 }
 // ── 送去画之前，先让文字模型把这句中文小字读懂（她 2026-09-10）──────────────
@@ -7908,6 +7912,51 @@ function fmtStampAI(ts) {
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);
   return (d.getMonth() + 1) + "/" + d.getDate() + " " + fmtClock(d);
 }
+// ── 定位这一层（坐标是唯一的真身，标签一律从坐标现拼）─────────────────
+// 她 2026-09-22 转来的那条：有人把位置手改到东京，结果显示成「东京 · 江苏 · 中国」，
+// 地图上人还在广东。病根是【文字标签】和【经纬度】各改各的——手填只换了标签里
+// 城市那一段，省国是旧的反查结果，坐标压根没动，而地图、天气、"没设家乡的角色撒在
+// 你附近"读的全是坐标。
+// 所以这儿只留一条路：**任何来源都先拿到坐标，再走 geoLabelOf 拼标签**，
+// 不许谁自己拼一份（施工规则/one-public-mechanism）。
+async function geoLookup(lat, lng) {
+  try {
+    const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lng + "&localityLanguage=zh");
+    const d = await r.json();
+    return { city: d.city || d.locality || "", region: d.principalSubdivision || "", country: d.countryName || "", code: d.countryCode || "" };
+  } catch (e) { return null; }
+}
+async function geoLabelOf(lat, lng) {
+  const fallback = Number(lat).toFixed(3) + ", " + Number(lng).toFixed(3);
+  const g = await geoLookup(lat, lng);
+  return g && [g.city, g.region, g.country].filter(Boolean).join(" · ") || fallback;
+}
+// 此刻该按哪儿算「我在哪」：她手填过就按她填的，没填过才是设备定位那一份。
+// ⚠️别处要位置一律问这一句，不许自己再去读一次 GPS —— 自己读的那几处永远不知道
+//   她已经把自己挪到东京了（她 2026-09-22 转来的就是这个形状）。
+function geoNow() {
+  try { const g = loadJSON("x_geo", null); return g && typeof g.lat === "number" && !g.error ? g : null; }
+  catch (e) { return null; }
+}
+// 地名 → 坐标（OSM Nominatim，免费无 key，不花模型调用）。
+// 地图那边搜地点用的也是这一处（js/map.js 的 nomSearch 就是它的转手）。
+// near=[lat,lng] 时就近加权：同名的先出你附近那个，但不封死。
+function geoSearch(q, near, signal) {
+  const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
+  return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
+    .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
+    .then(list => (list || []).map(x => ({ name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) })));
+}
+// 手填一个地名 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
+async function geoFromPlace(q, near) {
+  const name = String(q || "").trim();
+  if (!name) return { error: "先写个地名" };
+  let hits = [];
+  try { hits = await geoSearch(name, near); } catch (e) { return { error: "地名查询没连上，稍后再试" }; }
+  const p = (hits || []).find(x => typeof x.lat === "number" && !isNaN(x.lat));
+  if (!p) return { error: "查不到「" + name + "」这个地方" };
+  return { lat: p.lat, lng: p.lng, label: await geoLabelOf(p.lat, p.lng), place: p.name, manual: true, ts: Date.now() };
+}
 async function requestGeo() {
   return new Promise(resolve => {
     if (!navigator.geolocation) {
@@ -7921,16 +7970,10 @@ async function requestGeo() {
         latitude,
         longitude
       } = pos.coords;
-      let label = latitude.toFixed(3) + ", " + longitude.toFixed(3);
-      try {
-        const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + latitude + "&longitude=" + longitude + "&localityLanguage=zh");
-        const d = await r.json();
-        label = [d.city || d.locality, d.principalSubdivision, d.countryName].filter(Boolean).join(" · ") || label;
-      } catch {}
       resolve({
         lat: latitude,
         lng: longitude,
-        label,
+        label: await geoLabelOf(latitude, longitude),
         ts: Date.now()
       });
     }, err => resolve({

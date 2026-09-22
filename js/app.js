@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.65";
+const APP_VERSION = "v72.66";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6765,8 +6765,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return () => { clearTimeout(kick); clearInterval(timer); };
   }, [characters]);
   // 打开好友地图时刷新一次真实 GPS（让你的蓝点跳到现在的位置，别停在上次定位的旧点）
+  // ⚠️她手填过位置就不许刷：那一刷会把「我现在在东京」当场按回设备所在地，
+  //   而她根本没做任何动作——设置里明明还写着东京（v72.66）。
   useEffect(() => {
     if (screen !== "map" || !prefs.geoAware) return;
+    if (geo && geo.manual) return;
     (async () => { try { const g = await requestGeo(); if (g && !g.error && typeof g.lat === "number") { setGeo(g); saveJSON("x_geo", g); } } catch (e) {} })();
   }, [screen]);
   // ---- 线下模式（赴约）----
@@ -22272,6 +22275,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_geo", g);
     if (g.error) toast("定位失败：" + g.error);else toast("已定位：" + g.label);
   };
+  // 手填一个地名当作「我在哪」（她 2026-09-22 转来的：有人想让角色以为自己在东京）。
+  // ⚠️落盘的是 geoFromPlace 整份结果：坐标和标签一起换。只换标签的话，
+  //   地图、天气、"没设家乡的角色撒在你附近"照旧按设备坐标走，人还留在原地。
+  const doSetGeoPlace = async name => {
+    toast("正在查这个地方…");
+    const near = geo && typeof geo.lat === "number" ? [geo.lat, geo.lng] : null;
+    const g = await geoFromPlace(name, near);
+    if (g.error) { toast(g.error); return; }
+    setGeo(g);
+    saveJSON("x_geo", g);
+    toast("现在你在：" + g.label);
+  };
 
   // ---- export / import ----（整包：localStorage 的 x_ 数据 + IndexedDB 图片仓库 x_imgvault）
   const doExport = async () => {
@@ -24179,6 +24194,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     geo: geo,
     onRequestGeo: doRequestGeo,
+    onSetGeoPlace: doSetGeoPlace,
     onBack: goHome,
     onExport: doExport,
     onImport: doImport,

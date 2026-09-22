@@ -8382,7 +8382,7 @@ function Config(props) {
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(CacheStatCard, null)),
-      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, toast: props.toast })),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
@@ -8846,10 +8846,14 @@ function SenseConfig({
   onSave,
   geo,
   onRequestGeo,
+  onSetGeoPlace,
   toast
 }) {
   const t = useTheme();
   const [p, setP] = useState(prefs);
+  // 手填「我在哪」的草稿（她 2026-09-22：想让角色以为自己在东京）
+  const [placeDraft, setPlaceDraft] = useState("");
+  const [placeBusy, setPlaceBusy] = useState(false);
   const [notifOn, setNotifOn] = useState(() => !!(window.Notify && window.Notify.isOn()));
   const save = np => {
     setP(np);
@@ -8929,14 +8933,15 @@ function SenseConfig({
       color: t.fog,
       marginTop: 2
     }
-  }, geo && geo.label ? "当前：" + geo.label : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
+  }, geo && geo.label ? "当前：" + geo.label + (geo.manual ? "（你手填的）" : "") : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
     on: p.geoAware === true,
     onChange: v => {
       save({
         ...p,
         geoAware: v
       });
-      if (v) onRequestGeo();
+      // ⚠️她手填过地方就别去要设备定位：那一下会把她填的东京按回真实所在地（v72.66）
+      if (v && !(geo && geo.manual)) onRequestGeo();
     }
   })), p.geoAware && /*#__PURE__*/React.createElement("button", {
     onClick: onRequestGeo,
@@ -8948,7 +8953,34 @@ function SenseConfig({
       border: `1px solid ${t.line}`,
       borderRadius: 6
     }
-  }, geo && geo.label ? "重新获取定位" : "获取当前定位"), geo && geo.error && /*#__PURE__*/React.createElement("div", {
+  }, geo && geo.label ? (geo.manual ? "回到设备定位" : "重新获取定位") : "获取当前定位"),
+  // ── 手填一个地方（v72.66）─────────────────────────────────────────
+  // ⚠️写进去的是【坐标 + 标签一整份】（engine.js 的 geoFromPlace）：
+  //   只改文字的话，地图、天气、"没设家乡的角色撒在你附近"全都还在原地，
+  //   而标签会拼成「东京 · 江苏 · 中国」——省国是旧的那次反查留下的。
+  p.geoAware && h("div", { style: { marginTop: 10 } },
+    h("div", { className: "flex items-center", style: { gap: 8 } },
+      h("input", {
+        value: placeDraft,
+        onChange: e => setPlaceDraft(e.target.value),
+        placeholder: "换个地方，比如 东京",
+        style: { flex: 1, minWidth: 0, minHeight: 40, outline: "none", padding: "9px 11px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line }
+      }),
+      h("button", {
+        onClick: async () => {
+          if (placeBusy || !placeDraft.trim()) return;
+          setPlaceBusy(true);
+          try { await onSetGeoPlace(placeDraft.trim()); setPlaceDraft(""); }
+          finally { setPlaceBusy(false); }
+        },
+        className: "active:opacity-70 shrink-0",
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "none", opacity: placeDraft.trim() ? 1 : .45 }
+      }, placeBusy ? "查…" : "就说我在这儿")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+      geo && geo.manual
+        ? "现在是你手填的这个地方。角色口中的「你在哪」、天气、地图上你的位置都按它走；想回真的位置就点上面那颗。"
+        : "填一个地名，角色就当你在那儿。地图和天气也跟着一起挪过去。")),
+  geo && geo.error && /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 11.5,
