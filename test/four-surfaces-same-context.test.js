@@ -146,7 +146,9 @@ test("实时私聊窗口仍归互通群，别和 preJoin 叠加", () => {
   assert.match(app, /const offBeats = opts.interop && Number\(opts.privateCtxN\) > 0/);
   // 带时间戳的那一份：她那句「在家等他」正是靠它才接得上
   assert.match(app, /memberPrivLines = \(c, n\) =>[\s\S]{0,400}fmtStampAI\(m\.ts\)/);
-  assert.match(app, /if \(gs\.preJoinN > 0 && !gs\.memoryInterop\)/, "闭群走 preJoin");
+  // v73.05：没设过的群按 20 条算（原来默认 0 ＝闭群里一句真话都没有，只剩人设标签）
+  assert.match(app, /const _preJoinN = gs\.preJoinN == null \? 20 : Number\(gs\.preJoinN\) \|\| 0;/);
+  assert.match(app, /if \(_preJoinN > 0 && !gs\.memoryInterop\)/, "闭群走 preJoin");
   assert.match(app, /否则同一段私聊会进两遍/);
 });
 

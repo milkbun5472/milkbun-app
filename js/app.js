@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.04";
+const APP_VERSION = "v73.05";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10872,7 +10872,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     spectate: false,
     memoryInterop: false,
     privateCtxN: 0,
-    preJoinN: 0,
+    preJoinN: 20,
     ctxN: 30,
     sumThresh: 150,
     sumBuffer: 20
@@ -11024,10 +11024,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️这儿原来还按人收一份 privSegs/privBlob，专供下面那道「查漏后重打一枪」用。
       //   那一整套 v69.03 撤了（她：「直接不要重写了」），所以这两个变量也一并删掉——
       //   留着没人读的收集代码，比压根没写更坏。
-      if (gs.preJoinN > 0 && !gs.memoryInterop) {
+      // ⚠️没设过这一栏的群按 20 条算，不是 0（她 2026-09-22：「没开互通的时候感觉人物
+      //   表现很刻板印象还很油腻」）。封闭群里别的层都读得到（长期记忆、记忆库、印象卡、
+      //   心情、好感……只进不出），唯独【TA 平时跟你到底怎么说话】这一层是空的——
+      //   互通群靠实时私聊补上，封闭群本该靠这一档，可它默认是 0。
+      //   没有一句真话垫底，模型就拿「这类人设通常怎么说话」去补：刻板、油腻都从这儿来
+      //   （跟 v55.87 群里王爷变霸总是同一个病：剩下的只有标签）。
+      //   她显式拉到 0 的群照旧是 0 —— 那是她的选择，不是没设过。
+      const _preJoinN = gs.preJoinN == null ? 20 : Number(gs.preJoinN) || 0;
+      if (_preJoinN > 0 && !gs.memoryInterop) {
         const cutTs = groupCreatedTs(group);
         const pj = members.map(c => {
-          const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-gs.preJoinN);
+          const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-_preJoinN);
           if (!before.length) return "";
           const lines = before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + m.content).join("\n");
           return "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕入群前和用户的私聊：\n" + lines;
