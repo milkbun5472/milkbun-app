@@ -13,8 +13,8 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 function loadHelpers() {
   const i = eng.indexOf("function memberLabel(members, c) {"), j = eng.indexOf("function offlineGroupSpeaker(", i);
   assert.ok(i > 0 && j > i, "抠不出同名那两支");
-  const ctx = { String: String };
-  vm.runInNewContext(eng.slice(i, j) + "\nthis.memberLabel = memberLabel; this.pickMember = pickMember;", ctx);
+  const ctx = { String: String, Set: Set };
+  vm.runInNewContext(eng.slice(i, j) + "\nthis.memberLabel = memberLabel; this.pickMember = pickMember; this.sameNameNote = sameNameNote;", ctx);
   return ctx;
 }
 
@@ -73,4 +73,27 @@ test("群线下认人先按标签，再走原来那条模糊匹配", () => {
   const b = fn.indexOf("compact(c.name) === wanted");
   assert.ok(a > 0 && b > a, "标签那一步没排在按名字之前 —— 重名时照样认第一个");
   assert.match(fn, /旁白\|narration/, "旁白那一支被改没了");
+});
+
+// 她 2026-09-22 追问：「就是两个沈屿白没有括号也能分吗」——分不出来。
+// 标签只是给了它一个能指名道姓的词；不当面说「必须写全」，它照样只写名字。
+test("重名时当面告诉模型：必须连括号一起写", () => {
+  const { sameNameNote } = loadHelpers();
+  assert.equal(sameNameNote([{ id: "a", name: "甲" }, { id: "b", name: "乙" }]), "", "没重名还啰嗦一句");
+  assert.equal(sameNameNote([]), "");
+  const n = sameNameNote([{ id: "a", name: "沈屿白", remark: "哥哥" }, { id: "b", name: "沈屿白" }, { id: "c", name: "陆闻" }]);
+  assert.match(n, /「沈屿白」有 2 位/);
+  assert.match(n, /必须连括号里那一段一起逐字写全/);
+  assert.match(n, /「沈屿白（哥哥）」、「沈屿白（第2个）」/);
+  assert.doesNotMatch(n, /陆闻/, "没重名的人也被点了名");
+  assert.match(n, /记到另一个人头上/, "没说清只写名字会出什么事");
+});
+
+test("五处群里的名单后面都跟着那句提醒", () => {
+  // 群线下（engine）＋ 群线上／投票／群通话／代付（app）
+  assert.match(eng, /旁白 beat。" \+ sameNameNote\(members\)/, "群线下没接");
+  assert.equal((app.match(/sameNameNote\(/g) || []).length, 4, "app 那四处有漏的");
+  assert.match(app, /memberDesc \+ sameNameNote\(members\)/, "群线上／投票没接");
+  assert.match(app, /memberDesc \+ sameNameNote\(people\)/, "群通话没接");
+  assert.match(app, /roster \+ "。" \+ sameNameNote\(members\)/, "代付没接");
 });

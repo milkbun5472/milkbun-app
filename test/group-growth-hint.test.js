@@ -14,7 +14,8 @@ test("成长准则真的拼进了群聊 system，不是只声明一次就没人�
 });
 
 test("挨着成员名单发：这条准则点名说的就是名单里那几个人", () => {
-  assert.match(app, /\+ memberDesc \+ gGrowthHint \+/, "得紧跟在【成员】那一段后面，别飘到别处");
+  // v72.86：重名提醒也挨着名单发（sameNameNote），它和这一条都属于「名单的附注」
+  assert.match(app, /\+ memberDesc \+ sameNameNote\(members\) \+ gGrowthHint \+/, "得紧跟在【成员】那一段后面，别飘到别处");
 });
 
 // ⚠️口径改了（v63.63，审计意见 #8）：这两条原来钉的是【群线上那一行里的内联实现】。
