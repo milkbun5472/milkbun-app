@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.63";
+const APP_VERSION = "v72.65";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8969,9 +8969,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
+          // ⚠️这一段原来写的是「**不要默认续接聊天记录最后一句**」——一刀切。
+          //   它本来是治「隔了一天还在续昨天的委屈、上来就质问为什么不回」，
+          //   可代价是把【上次聊到哪儿】也一并放下了：手上最具体的料只剩日程，
+          //   于是开口永远是报备行程（她 2026-09-22 转群里读者报的就是这个，
+          //   而且**不只线下**——纯线上的人撞上的是同一句话）。
+          //   现在把两件事拆开：**不许续演的是情绪**，不是话题。
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。这是一段新的聊天开场。\n"
             + "按你与当前收件人的关系和此刻来意开口，允许普通、简短，不必每次有新鲜事或独特表达。不要机械套用报备、关心、安排的固定流程。\n"
-            + "**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
+            + "**不许续演的是【情绪】**：上一轮的委屈、焦虑、兴奋、争执，隔了这一阵都该落下去了，别接着那个劲儿说话，也别质问 Ta 为什么没回。\n"
+            + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以，那正是真人隔一阵回来最常说的第一句（「后来那个怎么样了」「我想起你说的那件事」）。\n"
+            + "当然也可以完全换一件事说：普通旧话题已经过去了就让它过去。怎么选是你的事，别硬找由头，也别装作那段没发生过。\n"
+            + "1~2 条短消息，像真人隔一阵重新来敲门，别整段复述旧话。"
           : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
         : "";
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
