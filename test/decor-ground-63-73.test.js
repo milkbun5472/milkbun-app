@@ -61,6 +61,10 @@ test("深色的底，字得跟着翻白——不然就是黑底黑字", () => {
   assert.equal(G.isDark({ ground: { color: "#ffffff" } }), false);
   // 图什么都可能，猜不了：一律按深底处理
   assert.equal(G.isDark({ ground: { imageRef: "iv_abc" } }), true);
+  // ⚠️v72.74（她 2026-09-22 转来「刚试了又好了」）：图化不出来的那一瞬，底已经退回原样，
+  //   深浅却还按「挑了张图」答——板子按深色画、底又没铺上，看上去就是一整块黑。
+  //   「挑没挑到底」只许有一个答案，所以这一条要跟着 style 走。
+  assert.equal(G.isDark({ ground: { imageRef: "iv_gone" } }), false, "图还没化出来就先黑给她看");
   assert.equal(G.isDark({ ground: { color: "不是颜色" } }), false, "认不出的值别乱翻");
   // 接进渲染链
   assert.match(comp, /const dark = preset === "film" \|\| decorGroundDark\(item\);/);
