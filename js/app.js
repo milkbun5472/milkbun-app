@@ -2421,6 +2421,14 @@ function App() {
   }, [screen, activeRoomId, offlineRoomId, activeChar && activeChar.id, activeGroup && activeGroup.id, offlineChar && offlineChar.id, offlineGroup && offlineGroup.id, call && call.startTs]);
   // 剥掉模型偶尔照抄的历史时间标注：〔今天07:57〕/〔昨天20:11〕/〔7/13 07:57〕/〔07:57〕（system 已明令禁止但拦不住，输出侧兜底，她 2026-07-13 截图）
   const stripAiStamp = w => String(w == null ? "" : w).replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "").trim();
+  // ⚠️把【我们自己写在历史里的那几个记号】从它的回复里摘掉（她 2026-09-22 截图：
+  //   气泡里原样出现了「（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）」）。
+  //   那几个记号是喂给模型看的旁注，贴在【它自己上一条的正文前面】——于是它很自然地
+  //   当成自己的行文习惯，下一轮照着写了一遍。
+  //   两头一起治：记号本身改成【】那种一眼是元信息的形状（下面那处），
+  //   这儿再兜一道——只要它照抄了，就在落进气泡之前摘掉。
+  const ECHOED_META = /^\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的)[^）)】\]]*[）)】\]]\s*/;
+  const stripEchoedMeta = w => String(w == null ? "" : w).replace(ECHOED_META, "").trim();
   // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定时线上跟随全局线上主线路。
   // 角色专线覆盖所有「这个角色本人开口」的场合；线下无专线角色则由 offlineApiFor 回退全局线下线路。
   const apiFor = id => pickRoute((chatSettings[id] || {}).apiId, active);
@@ -9728,8 +9736,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // TA自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
           // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
-          const ac = stp + byU + ((m.role === "narration" || m.kind === "narration") ? "（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）" + m.content
-            : m.kind === "voice" ? "（这条你是用语音说的）" + m.content
+          const ac = stp + byU + ((m.role === "narration" || m.kind === "narration") ? "【这一条是你此刻的动作／你那边的动静，不是你发出去的消息；这是旁注，别把它抄进你的正文】" + m.content
+            : m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
@@ -9969,7 +9977,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? splitCardsAndLines(w)
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
-      words = words.map(stripAiStamp).filter(Boolean);
+      words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
       // ①.8 双语（v56.56）：把「原文 | 中文」劈开——中译单独收着，原文照常往下走拆泡那一串。
       //      必须排在拆泡【之前】：不然长句会被从中间断开，竖线两边各落进一个气泡。
       // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡；一路逗号连下去的长句同样拆
@@ -11554,7 +11562,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
             const gBiOn = !!(settingsFor(spk.id) || {}).bilingual;
             const gBiZh = new Map();
-            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean)
+            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean)
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x) : null;
