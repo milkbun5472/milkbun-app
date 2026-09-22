@@ -6746,6 +6746,31 @@ function salvageOfflineGroupProse(raw, members) {
 // ctx: { members:[char..], profile, rels, chars, worldbook, memLib }
 async function generateOfflineGroup(p, ctx, session) {
   const members = ctx.members || [];
+  // ── 人多的时候一轮能有几段（她 2026-09-22 转来的：「7个人上限拉满一次最多
+  //    只有4个」，读者还补了一句「还得点名」）─────────────────────────
+  // 病根是【段数写死成 2~5】：跟在场几个人一点关系都没有，七个人里最多也就四个
+  // 开得了口。段数跟着人数走，上限封到 10（再多一轮就成了点名册）。
+  // ⚠️不改成「每个人都必须说话」：真实的多人相处里，没反应必要的人安静在场本来
+  //   就是对的（下面那句【没有反应必要的人可以安静在场】还留着）。这儿掷的是
+  //   【镜头给谁】，不是【谁必须开口】（施工规则/bans-make-it-dumber）。
+  const gBeatMax = Math.max(5, Math.min(10, members.length + 2));
+  // 上一轮出过声的是谁 → 这一轮优先给还没出声的，省得她挨个点名
+  const gLastSpoke = (function () {
+    const out = [], arr = (session.msgs || []).filter(m => m && m.kind !== "ooc");
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].role !== "char") break;
+      const n = arr[i].senderName;
+      if (n && out.indexOf(n) < 0) out.push(n);
+    }
+    return out;
+  })();
+  const gQuiet = members.map(c => c.name).filter(n => gLastSpoke.indexOf(n) < 0);
+  const gRotateLine = (members.length >= 4 && gLastSpoke.length && gQuiet.length)
+    ? "\n\n【别老是同几个人开口】上一轮出声的是：" + gLastSpoke.join("、")
+      + "。这一轮**优先把镜头给还没出过声的**：" + gQuiet.join("、")
+      + "。不是每个人都必须说话——真没反应必要的人安静在场是对的；但【谁开口不该等用户点名】，"
+      + "人多就让戏自己转到别人身上去。"
+    : "";
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
@@ -6841,7 +6866,7 @@ async function generateOfflineGroup(p, ctx, session) {
       ? "\n\n【各成员最近在别处（和用户的私聊 / 单人线下）发生的事·带时间戳】\n下面是每个成员最近单独和用户之间发生的事，按方括号里的真实时间理解它和此刻这场线下的先后顺序，自然接得上——比如某成员昨晚私聊里答应过的事、刚在单人线下经历的情绪，别当没发生过、也别和这些矛盾。\n⚠️隐私铁律：这些是【该成员和用户之间私下】的事，标〔仅本人知道〕——别的成员并不知情。绝不许让别的成员在群线下里提及、点破、或据此反应（吃醋/拆穿/打趣），除非本人自己在场景里说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + ctx.memberRecent.map(mr => "〔仅「" + mr.name + "」本人知道〕\n" + mr.lines).join("\n\n")
       : "") +
     "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
-    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
+    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" + gRotateLine +
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, true) +
     narrativeDirective(session.narr) +
@@ -6859,7 +6884,7 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
