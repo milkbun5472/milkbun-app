@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.91";
+const APP_VERSION = "v72.94";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10034,6 +10034,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           return true;
         });
       }
+      // 掉格式兜底（她 2026-09-22 给的读者样张）：整整一轮全是身体动作描写、
+      //   一句话都没说，四条白气泡条条带已读——那不是消息，是一段线下正文被塞进了聊天框。
+      //   提示词里那条（ONLINE_CHAT_RULE_V2「不写旁白、动作、神态」）早就发到了还漏，
+      //   所以这一刀落在代码里。挪进动作行，不删、不改字，只是别冒充「发出去的话」。
+      // ⚠️称谓设成第三人称的场次不落刀：那儿的「她」本来就是对的。
+      const _actGuard = window.BubbleActGuard
+        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta" })
+        : { words: words, acts: [] };
+      words = _actGuard.words;
+      const rescuedActLines = _actGuard.acts;
       // 她转过来那一笔的结算（v56.88）：由 TA 这一轮自己表的态，不再掷骰子。
       // 省略这个字段＝这轮没顾上点开，卡继续挂着。
       let _tfTook = false;
@@ -10197,7 +10207,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
       const onlineAction = TVG.normalizeAction(parsed.action, char && char.name);
-      if (_actDesc && onlineAction && String(onlineAction).trim()) {
+      // 被救回来的那几行先摆：它们是这一轮【真写出来的】正文，比状态卡那一格更贴这一拍。
+      // ⚠️不看动描开关：开关管的是「要不要把 action 那一格也摆出来」，
+      //   而这几行本来就要显示——不摆就等于把她收到的东西吞了。
+      if (rescuedActLines.length) {
+        rescuedActLines.forEach((line, k) => pChat(chatKey, p => [...p, {
+          role: "narration", kind: "narration", who: "char", content: line,
+          ts: Math.max(0, _tsOf(0) - rescuedActLines.length + k), turnId
+        }]));
+      } else if (_actDesc && onlineAction && String(onlineAction).trim()) {
         const _line = String(onlineAction).trim();
         const _rows = chatsRef.current[chatKey] || [];
         let _prevAct = "";
@@ -11575,7 +11593,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
                 return acc.concat(parts);
               }, []);
-            const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
+            // 默认就是第二人称。
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
+            gBubbles = _gGuard.words;
+            const gRescuedActs = _gGuard.acts;
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
@@ -11583,7 +11606,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
-            if (_gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
+            // 被救回来的那几行先摆，跟单聊同一个分寸：它们是这个人这一拍真写出来的正文，
+            // 不看动描开关——不摆就等于把发言吞了。
+            if (gRescuedActs.length && spk) {
+              gRescuedActs.forEach(line => pGChat(groupId, p => [...p, {
+                role: "narration", kind: "narration", who: "char",
+                senderId: spk.id, senderName: spk.name, content: line,
+                mid: "gact_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId
+              }]));
+            }
+            if (!gRescuedActs.length && _gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
               // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一条比】的事，
               //   「这一轮TA已经用掉一次机会了」是另一回事。写在 if 里面就会漏，
               //   TA前几条没变、最后一条换了个新的照样能把额度花光。
