@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.47";
+const APP_VERSION = "v72.48";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -135,9 +135,15 @@ function DevBadges() {
     h("span", { style: Object.assign({ right: 8, display: "flex", alignItems: "center" }, base) }, h(BatteryBadge, null)));
 }
 // AssistiveTouch 风格模型切换器：只改全局线上/线下线路；角色专线仍由 apiFor/offlineApiFor 优先。
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSetOffline }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
+  // 线上线下后台，需要改哪个再打开做选择」）。
+  // ⚠️这也是那个老毛病的根治：线路一多，三档全摊开就是三倍长——
+  //   v69 那次「点开跳到屏幕下面然后关不掉」就是面板长出屏幕闹的。
+  //   收着之后无论多少条线路，默认高度就是三行。
+  const [tab, setTab] = useState("");
   // 浮窗可拖动（她 2026-08-16 点名固定位置挡手）：拖完贴边吸附，位置存 x_modelFloatPos，重开 App 记得住。
   const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
@@ -167,15 +173,25 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
   const label = p => (p && (p.name || p.model)) || "未命名线路";
   const online = (profiles || []).find(p => p.id === activeId) || (profiles || [])[0] || null;
   const offline = (offlineApiId && (profiles || []).find(p => p.id === offlineApiId)) || online;
+  const bg = (bgApiId && (profiles || []).find(p => p.id === bgApiId)) || online;
   if (!(profiles || []).length) return null;
-  const choice = (kind, p) => h("button", {
-    key: kind + ":" + (p.id || "follow"),
-    onClick: () => kind === "online" ? onSetOnline(p.id) : onSetOffline(p.id || null),
+  // 三档共用一份：谁选中、点下去往哪儿走、跟不跟随主模型，全按这张表来（one-public-mechanism）。
+  // ⚠️线下和后台都有「跟随线上主模型」那一档，而它的值是 null——所以「选中」要看
+  //   【那一档自己的 id 存没存过】，不能拿算出来的 offline/bg 去比（没存过时它俩就是 online 本身，
+  //   一比就会把主模型那一行也点亮，看着像选了两个）。
+  const LANES = [
+    { key: "online", zh: "线上", cur: online, picked: activeId, follow: false, set: id => onSetOnline(id) },
+    { key: "offline", zh: "线下", cur: offline, picked: offlineApiId, follow: true, set: id => onSetOffline(id || null) },
+    { key: "bg", zh: "后台", cur: bg, picked: bgApiId, follow: true, set: id => onSetBg && onSetBg(id || null) }
+  ];
+  const choice = (lane, p) => h("button", {
+    key: lane.key + ":" + (p && p.id || "follow"),
+    onClick: () => lane.set(p && p.id),
     className: "active:opacity-60",
     style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.35,
-      color: ((kind === "online" ? online && online.id : offline && offline.id) === p.id) ? t.bg2 : t.ink,
-      background: ((kind === "online" ? online && online.id : offline && offline.id) === p.id) ? t.ink : "transparent" }
-  }, label(p));
+      color: (p ? lane.picked === p.id : !lane.picked) ? t.bg2 : t.ink,
+      background: (p ? lane.picked === p.id : !lane.picked) ? t.ink : "transparent" }
+  }, p ? label(p) : "跟随线上主模型");
   const side = pos ? pos.side : "right";
   const anchor = drag
     ? { left: drag.x - 23, top: drag.y - 23, right: "auto", flexDirection: "row-reverse" }
@@ -200,13 +216,20 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "5px 4px" } }, "线上 · " + label(online)),
-      (profiles || []).map(p => choice("online", p)),
-      h("div", { style: { height: 1, background: t.line, margin: "10px 0" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "5px 4px" } }, "线下 · " + label(offline)),
-      [h("button", { key: "offline:follow", onClick: () => onSetOffline(null), className: "active:opacity-60",
-        style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12,
-          color: !offlineApiId ? t.bg2 : t.ink, background: !offlineApiId ? t.ink : "transparent" } }, "跟随线上主模型")].concat((profiles || []).map(p => choice("offline", p)))) : null,
+      LANES.map((lane, li) => h("div", { key: lane.key, style: li ? { marginTop: 6 } : null },
+        // 收着的那一行：左边是这一档叫什么、右边是它现在走哪条线路。点一下摊开这一档，
+        // 再点一下收起；摊开一档就把别的收上去（面板高度才不会一路长下去）。
+        h("button", { onClick: () => setTab(v => v === lane.key ? "" : lane.key), className: "w-full active:opacity-60 flex items-center",
+          style: { gap: 8, minHeight: 40, padding: "7px 8px", borderRadius: 10, textAlign: "left",
+            background: tab === lane.key ? t.bg : "transparent", border: "1px solid " + (tab === lane.key ? t.line : "transparent") } },
+          h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, lane.zh),
+          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11, color: t.sub } },
+            (lane.follow && !lane.picked ? "跟随主模型 · " : "") + label(lane.cur)),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, transition: "transform .2s",
+            transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
+        tab === lane.key
+          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat((profiles || []).map(p => choice(lane, p))))
+          : null))) : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
@@ -24378,7 +24401,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     activeId: activeId,
     offlineApiId: offlineApiId,
     onSetOnline: id => { setActiveId(id); saveJSON("x_activeApi", id); toast("线上已切换为 " + (((apiProfiles || []).find(p => p.id === id) || {}).name || ((apiProfiles || []).find(p => p.id === id) || {}).model || "该线路")); },
-    onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
+    onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); },
+    bgApiId: bgApiId,
+    // 后台那一档走 setBgApi（设置页用的同一处）——记忆整理、翻译、查手机那些活都读它
+    onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
     onCreate: createGroup,
