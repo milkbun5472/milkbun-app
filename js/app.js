@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.95";
+const APP_VERSION = "v72.96";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9691,11 +9691,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             + (_ct ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + _ct : "") });
           continue;
         }
-        if ((m.role === "narration" || m.kind === "narration") && m.who !== "char") {
+        if (m.role === "narration" || m.kind === "narration") {
           // API 只有 user/assistant 两个对话侧可用，但语义上这是无说话人的场景事实。
           // 用明确边界包装，禁止模型把它理解成 Lisa 的台词、动作或内心。
-          const nc = stp + "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content +
-            "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】";
+          // ⚠️TA自己那一行动作（动描摆出来的）也走这一侧，【绝不许再放回 assistant 那一边】：
+          //   原来它就挂在同一轮气泡的同一条 assistant 消息里，只靠一句括号旁注隔开。
+          //   于是每一轮，模型在【自己的输出通道】里都看见自己写了一段身体动作散文——
+          //   v72.82 它连那句旁注都照抄进气泡了，可见它读成的是「我的输出格式」。
+          //   看够了就往 word 里写，那就是她 2026-09-22 那张样张：整轮全是动作、一句话没说。
+          //   动描本来只是【把状态卡那一格也摆出来看一眼】，不该反过来教TA多写一段。
+          const _actRow = m.who === "char";
+          const nc = stp + (_actRow
+            ? "【场景旁注｜" + char.name + " 当时正在做的动作，不是任何人说出口的话】\n" + m.content
+              + "\n【这是当时的状态读数，不是你的发言格式：不得把它当成自己发出去过的消息，也不要照着它再写一段动作。】"
+            : "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content
+              + "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】");
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
         } else if (m.role === "user") {
@@ -9737,11 +9747,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } else {
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
-          // TA自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
           // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
+          // ⚠️动作行不在这儿了（v72.96 搬去了旁白那一侧，理由写在上面）。
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
-          const ac = stp + byU + ((m.role === "narration" || m.kind === "narration") ? "【这一条是你此刻的动作／你那边的动静，不是你发出去的消息；这是旁注，别把它抄进你的正文】" + m.content
-            : m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
+          const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
