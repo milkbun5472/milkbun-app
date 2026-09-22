@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.84";
+const APP_VERSION = "v72.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11035,7 +11035,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 「这个主角色是谁」的层，配角没有，给了反而会演出争宠吃醋那一套。
         // 人设额度另算：群预算是按人数平分的，配角挤进去会把主角色的额度吃掉。
         if (c.npc) {
-          return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
+          return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
             + npcGroupLine(c, members.map(x => x.id));
         }
             // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
@@ -11043,7 +11043,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const said = crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
         })();
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -11494,7 +11494,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
-          const spk = members.find(c => c.name === item.name);
+          // 重名的群里按名字找到的永远是第一个（她 2026-09-22：「同名的头像会被第一个人覆盖」）
+          const spk = pickMember(members, item.name);
           if (!spk) continue;
           if (autoRoomLeft() <= 0) break;   // 额度到顶：当场停手，剩下的一条都不落地
           // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
@@ -11955,10 +11956,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const split = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
       const memberDesc = members.map(c => {
         // 配角那一行走公共的 npcRosterLine：在场的谁跟 TA 有边，四处都该看得见（不止群线上）
-        if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, members.map(x => x.id));
+        if (c.npc) return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, members.map(x => x.id));
         const now = groupNowSegs(c, { interop: gsp.memoryInterop });
         const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
-        return "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + Object.values(now).join("")
+        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + Object.values(now).join("")
           + (privateText ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + privateText : "");
       }).join("\n");
       const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
@@ -11974,7 +11975,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const voted = new Set();
       for (const v of arr) {
         if (!v || typeof v !== "object") continue;
-        const spk = members.find(c => c.name === v.name);
+        const spk = pickMember(members, v.name);
         if (!spk || voted.has(spk.id)) continue;
         const choice = groupPollChoice(v.choice, poll);
         if (choice === null) continue;
@@ -15423,9 +15424,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //（她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」）。
         const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
         const memberDesc = people.map(c => {
-          if (c.npc) return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, people.map(x => x.id));
+          if (c.npc) return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, people.map(x => x.id));
           const n = groupNowSegs(c, { interop: gcInterop });
-          return "【" + c.name + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
+          return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：
@@ -15463,7 +15464,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
-            const spk = people.find(c => c.name === arr[i].name) || people[0];
+            const spk = pickMember(people, arr[i].name) || people[0];
             if (i > 0) await new Promise(r => setTimeout(r, 500));
             if (isVideo && arr[i].action) pushMsg({ role: "char", act: true, senderId: spk.id, senderName: spk.name, content: String(arr[i].action).replace(/[（）()]/g, "").trim() });
             const gl = callLines(arr[i].text, spk);
@@ -21590,18 +21591,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
     if (!members.length) return;
     try {
-      const roster = members.map(m => m.name + "(余额约¥" + Math.round(charBalanceOf(m.id)) + ")").join("、");
+      const roster = members.map(m => memberLabel(members, m) + "(余额约¥" + Math.round(charBalanceOf(m.id)) + ")").join("、");
       const bundle = buildBundle(ctxFor(members[0]));
       const system = bundle + "\n\n【场景】这是一个群聊，成员：" + roster + "。用户在群里发了一份购物清单请人「代付」。清单：" + items.map(x => x.name + " ¥" + x.price).join("、") + "，合计 ¥" + total + "。请推演群里的反应：可能有人愿意帮付、有人起哄、有人拒绝。最终最多一人真正代付（payerName 填那个人的名字；没人付就填 null，要付的人余额需≥合计）。say 是群里你来我往的几句对话，每条注明说话人。\n【输出】只输出 JSON：{\"payerName\":\"名字或null\",\"say\":[{\"name\":\"成员名\",\"text\":\"内容\"}]}";
       const raw = await callAI(active, system, [{ role: "user", content: "[代付请求] " + items.map(x => x.name).join("、") + " 合计 ¥" + total }]);
       const d = extractJSON(raw) || { payerName: null, say: [] };
       const say = Array.isArray(d.say) ? d.say : [];
       for (let i = 0; i < say.length; i++) {
-        const spk = members.find(m => m.name === (say[i].name || "").trim()) || members[0];
+        const spk = pickMember(members, say[i].name) || members[0];
         if (i > 0) await new Promise(r => setTimeout(r, 500));
         pushGroupRich(groupId, { role: "char", senderId: spk.id, senderName: spk.name, content: String(say[i].text || "").trim() });
       }
-      const payer = d.payerName && String(d.payerName).toLowerCase() !== "null" ? members.find(m => m.name === String(d.payerName).trim()) : null;
+      const payer = d.payerName && String(d.payerName).toLowerCase() !== "null" ? pickMember(members, d.payerName) : null;
       const ok = payer && charBalanceOf(payer.id) >= total;
       pGChat(groupId, p => p.map(m => m.kind === "paylater" && m.pid === pid ? { ...m, status: ok ? "paid" : "declined" } : m));
       if (ok) {

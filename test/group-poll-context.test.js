@@ -1,6 +1,9 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm');
 const app = fs.readFileSync('js/app.js', 'utf8');
+const engine = fs.readFileSync('js/engine.js', 'utf8');
 const cut = (a,b) => app.slice(app.indexOf(a),app.indexOf(b,app.indexOf(a)));
+// v72.85：认人走 engine 的 memberLabel/pickMember（重名时才有标签）。接真的那一份，打桩等于没测。
+const cutE = (a,b) => engine.slice(engine.indexOf(a),engine.indexOf(b,engine.indexOf(a)));
 function setup() {
   const requests=[],timers=[],notices=[];
   const b={Date,Math,Number,Set,console:{warn(){}},useRef:current=>({current}),fmtStampAI:()=>'',
@@ -22,7 +25,8 @@ function setup() {
   // v66.16：群通话回执现在把【逐句原话】也喂回去（她：「靠一个不靠谱的小结，
   //   说出来的话都是错的」），所以 groupHistLine 依赖 callTranscriptForOnline，
   //   连同它那道共用预算一起搬进沙盒。
-  vm.runInContext(cut('  const TRANSCRIPT_CAP =','  useEffect(() => {\n    offlinesRef.current') +
+  vm.runInContext(cutE('function memberLabel(members, c) {','function offlineGroupSpeaker(') +
+    cut('  const TRANSCRIPT_CAP =','  useEffect(() => {\n    offlinesRef.current') +
     cut('  const pollVoteBusyRef =','  // ---- 群红包 ----') +
     cut('  const groupContextRows =','  // ---- 群里每位成员那一段') +
     '\nthis.ops={startPoll,castVote,genPollVotes,groupPoll,groupPollText,groupContextRows,groupHistLine};',b);

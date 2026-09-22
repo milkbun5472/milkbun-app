@@ -53,6 +53,8 @@ function wire(env) {
   // v70.61 起钱都过 moneyText（一人一个币种，js/money.js）。桩按【没设过币种】那一档来，
   // 也就是人民币原样——这些用例验的不是钱怎么写，是那几段有没有拼进去。
   if (!env.moneyText) env.moneyText = (n, id) => "¥" + n;
+  // v72.85：人设抬头那个名字现在过 memberLabel（重名时才加标签）。跟别的一样接真的那一份。
+  env.memberLabel = evaluate(cut(engine, 'function memberLabel(members, c) {', 'function pickMember('), env, 'memberLabel');
   env.liveStateContext = evaluate(cut(app, "  const liveStateContext =", "  // 心声历史："), env, "liveStateContext");
   env.wishRef = {current:[]};
   env.wishFor = evaluate(cut(app, "  const wishFor =", "  const onMeFor ="), env, "wishFor");

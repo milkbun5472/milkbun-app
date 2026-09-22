@@ -4,12 +4,20 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(require.resolve("../js/engine.js"), "utf8");
-const start = source.indexOf("function offlineGroupSpeaker");
+// v72.85：认人先过 memberLabel（重名才有标签），所以从它那儿开始切
+const start = source.indexOf("function memberLabel(members, c) {");
 const end = source.indexOf("// ctx: { members", start);
 const box = {};
-vm.runInNewContext(source.slice(start, end) + ";this.api={offlineGroupSpeaker,offlineGroupBeatList,salvageOfflineGroupProse};", box);
+vm.runInNewContext(source.slice(start, end) + ";this.api={offlineGroupSpeaker,offlineGroupBeatList,salvageOfflineGroupProse,memberLabel,pickMember};", box);
 const { offlineGroupSpeaker, offlineGroupBeatList, salvageOfflineGroupProse } = box.api;
 const members = [{ id: "a", name: "顾朝" }, { id: "b", name: "顾暮" }];
+
+// 同名两位（她 2026-09-22：「同名的头像会被第一个人覆盖」）：按标签认得出是第二个
+test("重名的两位分得开", () => {
+  const twins = [{ id: "a", name: "顾朝", remark: "哥" }, { id: "b", name: "顾朝" }];
+  assert.equal(offlineGroupSpeaker(twins, "顾朝（哥）", "他先开口。").id, "a");
+  assert.equal(offlineGroupSpeaker(twins, "【顾朝（第2个）】", "他跟着点头。").id, "b");
+});
 
 test("角色名带括号或装饰仍归回角色卡", () => {
   assert.equal(offlineGroupSpeaker(members, "【顾暮】（有点恼）", "他把杯子放下。").id, "b");

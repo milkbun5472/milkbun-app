@@ -6712,12 +6712,35 @@ function offlineGroupHistory(msgs, userName, clock) {
   });
   return g;
 }
+// ── 同名成员怎么分清（她 2026-09-22 转来的：「同名的头像会被第一个人覆盖」）──
+// 模型手上只有名字。两个成员同名时它没法指名道姓，而落地这头一律 find(name)，
+// 找到的永远是【第一个】——于是第二个人说的话、头像、心情、好感全记到第一个人头上。
+// ⚠️只有真的重名时才给标签，没重名的群一个字都不变（绝大多数群属于这一类）。
+// ⚠️名单和认人只有这一份：各写各的话，一处加了标签、另一处还在按名字找，
+//   等于把错认从「有时候」变成「必然」（施工规则/one-public-mechanism）。
+function memberLabel(members, c) {
+  if (!c) return "";
+  const dup = (members || []).filter(x => x && x.name === c.name);
+  if (dup.length < 2) return c.name;
+  const remark = String(c.remark || "").trim();
+  const idx = dup.findIndex(x => x && x.id === c.id) + 1;
+  return c.name + "（" + (remark && remark !== c.name ? remark : "第" + idx + "个") + "）";
+}
+// 模型回填的那个名字 → 到底是谁。先按标签精确认，再退回名字（没重名的群、老存档）
+function pickMember(members, rawName) {
+  const s = String(rawName == null ? "" : rawName).trim();
+  if (!s) return null;
+  const arr = members || [];
+  return arr.find(c => memberLabel(arr, c) === s) || arr.find(c => c && c.name === s) || null;
+}
 function offlineGroupSpeaker(members, rawName, scene) {
   const name = String(rawName || "").trim();
   if (/^(旁白|narration|__narration)$/i.test(name)) return null;
   const compact = s => String(s || "").replace(/[\s【】\[\]（）()《》「」『』:：·—_-]/g, "").toLowerCase();
   const wanted = compact(name);
-  let found = (members || []).find(c => compact(c.name) === wanted);
+  // 重名时先按标签认（「名字（备注）」那种），认不出来再走下面按名字那条老路
+  let found = (members || []).find(c => compact(memberLabel(members, c)) === wanted);
+  if (!found) found = (members || []).find(c => compact(c.name) === wanted);
   if (!found && wanted) found = (members || []).find(c => wanted.includes(compact(c.name)) || compact(c.name).includes(wanted));
   if (!found) {
     const body = String(scene || "");
@@ -6790,12 +6813,12 @@ async function generateOfflineGroup(p, ctx, session) {
       archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id]
     }, userName, { narrative: true });
     return c.npc
-    ? "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
+    ? "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
       // 配角那一行由 app 的 npcRosterLine 算好递过来（在场的谁跟 TA 有边、认不认识用户，
       // 四处一样喂）。旧的 npcOwnerName 留作兜底：老存档/别的调用方没递 npcRoster 时照旧。
       + ((ctx.npcRoster && ctx.npcRoster[c.id]) ? ctx.npcRoster[c.id]
         : (ctx.npcOwnerName && ctx.npcOwnerName[c.id]) ? "\n〔这是 " + ctx.npcOwnerName[c.id] + " 身边的人，只在群里出场〕" : "")
-    : "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap)
+    : "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap)
     + bg.grownSeg
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
@@ -6884,7 +6907,7 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -6925,7 +6948,7 @@ async function generateOfflineGroup(p, ctx, session) {
   let parsed = extractJSON(sp.clean);
   let beats = offlineGroupBeatList(parsed);
   if (!beats || !beats.length) {
-    const repairSystem = "你是格式修复器。把输入原文原字重排成合法 JSON，不续写、不润色、不删内容。只输出 {\"beats\":[{\"name\":\"角色名或旁白\",\"scene\":\"对应原文段落\"}]}。角色名只能逐字选自：" + members.map(c => c.name).join("、") + "；纯环境才用旁白。按原文中行动/说话的归属拆成 2~5 张卡，禁止整篇塞进一张旁白卡。";
+    const repairSystem = "你是格式修复器。把输入原文原字重排成合法 JSON，不续写、不润色、不删内容。只输出 {\"beats\":[{\"name\":\"角色名或旁白\",\"scene\":\"对应原文段落\"}]}。角色名只能逐字选自：" + members.map(c => memberLabel(members, c)).join("、") + "；纯环境才用旁白。按原文中行动/说话的归属拆成 2~5 张卡，禁止整篇塞进一张旁白卡。";
     try {
       const repairedRaw = await callAI(p, repairSystem, [{ role: "user", content: String(sp.clean || raw || "").slice(0, 12000) }], { maxTokens: Math.min(session.maxTokens || 2200, 2200), timeout: 180000 });
       parsed = extractJSON(repairedRaw);
