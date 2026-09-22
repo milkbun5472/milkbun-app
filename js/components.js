@@ -3733,10 +3733,16 @@ const HOME_DECOR_GROUNDS = [
 // 那次是深色主题里 t.ink 本身是浅色、又写死了白字）。
 // ⚠️底图什么都可能，猜不了：一律按深底处理，并且给字垫一层影——
 //   浅字＋影压在任何一张图上都还读得出来，反过来（深字压深图）就是看不见。
+// ⚠️「挑没挑到底」只许有一个答案（她 2026-09-22：「刚试了又好了」——时好时坏的那一半）。
+//   decorGroundStyle 早就写了「图丢了就当没挑，别落一块纯黑」，可这边照样按【挑了张图】
+//   回答深浅：于是图还没从 IndexedDB 化出来的那一瞬（或者这台设备根本没有这张图，
+//   云端同步过来的存档就是这样），底退回原样、字和板子却已经按深色画了——
+//   拍立得那块板子是 #171613，看上去就是一整块黑。
+//   所以这一条先问那一条：它说没挑，这儿就不许当深底。
 function decorGroundDark(item) {
   var g = item && item.ground;
   if (!g) return false;
-  if (typeof g === "object" && g.imageRef) return true;
+  if (typeof g === "object" && g.imageRef) return !!decorGroundStyle(item);
   var col = typeof g === "string" ? g : g.color;
   var m = /^#([0-9a-f]{6})$/i.exec(String(col || ""));
   if (!m) return false;

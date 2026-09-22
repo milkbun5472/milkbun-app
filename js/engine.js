@@ -1218,9 +1218,24 @@ function narrativeDirective(s) {
   const parts = [];
   if (s.selfP) parts.push(selfMap[s.selfP] || selfMap.first);
   if (s.userP) parts.push(userMap[s.userP] || userMap.second);
+  // ⚠️她 2026-09-22 转群里读者，并当场把要的形状说死了：
+  //   「就是希望角色推进剧情而不是让她做决定，角色可以推进重大事件，
+  //     但是最后可以留主动权给她（就算开了角色替我行动也一样）」。
+  //   所以这两支【各缺一半】，两边都要补：
+  //   · 开着：原来只有油门没有刹车——它可以把她的重大选择也替她演完，她就没得玩了；
+  //   · 关着：「只描写你自己」很容易被读成「所以我什么都推不动」——于是退回抛选择题。
+  //   共同那一条是：**大事 TA 自己推成既成事实，最后那一下停在她手里**。
+  const AGENCY_TAIL = "⚠️不管这一项开还是关：**推动剧情是你的活，不是她的**——"
+    + "摊牌、动手、起身就走、带她去某个地方、把关系往前推一步，这些你想做就做、当场做成，不必先问她同不同意，"
+    + "更不要把它拆成「A 还是 B」让她挑。"
+    + "但**把最后那一下留给她**：写到她该回应、该接住、该翻脸或该点头的那一拍就停下，"
+    + "别替她把答案也写了。既成事实是你给的，怎么接是她的。";
   const desc = s.describeMe
     ? "你可以主动描写并推动对方（用户）的动作、神态与反应来带动剧情走向（如「你摇了摇头说……」「你转移了话题」），像在写一段双人叙事。"
-    : "只描写你自己的言行和心理，不要替对方决定动作或台词。";
+      + "⚠️但替她写的只限**过渡性的那些**：她跟着走了、她没吭声、她把杯子放下。"
+      + "**她的重大选择、她的答应或拒绝、她那句关键的话，一个字都不许替她定**——写到那儿就停。"
+      + AGENCY_TAIL
+    : "只描写你自己的言行和心理，不要替对方决定动作或台词。" + AGENCY_TAIL;
   return "\n【叙事人称】" + (parts.length ? parts.join("；") + "。" : "") + desc;
 }
 
@@ -2358,6 +2373,8 @@ const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 这多半不是这个人没主意，是两条现成的规矩叠出来的副作用：一边写着「不可替用户作重大决定」，一边写着「不要求每轮制造推进」——于是最安全的走法就成了【原地不动，再把球抛回去】：「你是想先吃饭还是先休息？」
 所以把射程说清楚：
 · **属于 TA 自己的事，TA 自己定，并且【当场就做】**：去哪、点什么、开不开口、说哪句、动不动手、要不要转身走——想清楚就做，不必先征求同意，也不必把它写成给她挑的两个选项。她不接受，她会自己说。
+· **重大的那几件也算 TA 自己的事**：摊牌、把话戳破、动手、起身就走、带她去某个地方、把关系往前推一步——这些不是「得先问过她」的事，是 TA 自己要不要做的事。**想做就做成，做成一个既成事实**。剧情往前走靠的正是这个，不是靠她替你选。
+· 然后**把最后那一下留给她**：既成事实摆在那儿，停在她该回应的那一拍——她能接住、能翻脸、能顺着走，也能掀桌。**你给局面，她给答案**；别替她答，也别在她答之前先替她想好两条路。
 · **只有属于她本人的那几样才停下来等**：她的身体、她的去留、她要不要、她说什么。到这儿就自然停在她要开口的那一拍，别替她答。
 · ⚠️**「停下来等」不等于「摆两个选项让她挑」**。真人不会在饭桌上说「你是要 A 还是 B」——TA 会自己先动一下，或者问一句真的想知道答案的话。整场线下里，那种 A/B 选择题最多出现一次，而且得是真的两难、TA 自己也拿不准的时候。
 
@@ -6276,6 +6293,7 @@ async function generateOffline(p, ctx, session) {
     "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处，不是隔着手机聊天。完全代入「" + char.name + "」，人物称谓严格服从本场的【叙事人称】设置。把当前互动写成连续的场景正文。动作、对话、心理、环境与感官都可以自然出现，但只使用这一刻真正需要的部分，不要求齐全，也不为了丰富正文额外安排。保持已经成立的地点、人物位置、物件、状态和事件连续；自然推进，不提前跳到尚未发生的剧情。对话使用引号。" + lenGuide + "。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
+    (ctx.desireHint ? "\n\n" + ctx.desireHint : "") +
     (ctx.roomPrompt ? "\n" + ctx.roomPrompt : "") +
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, false) +
@@ -7838,13 +7856,15 @@ function appVitals() {
     return ("版本 " + ver + "；本地存储约 " + (bytes / 1024 / 1024).toFixed(2) + "MB（~" + pct + "%，图片是大头）；住着 " + chars.length + " 位角色；今天全屋收发 " + todayMsgs + " 条消息；云端归档共 " + archN + " 条；" + errTxt + "。").slice(0, 400);
   } catch (e) { return "（体征采集失败：" + String(e && e.message).slice(0, 60) + "）"; }
 }
-// 贴纸走这一条，不走上面那条。
-// ⚠️resizeImageFile 最后一步是 toDataURL("image/jpeg")——**JPEG 没有透明通道**。
-//   她要贴的是抠好的透明底 PNG（猫、咖啡杯、枫叶那种），走那条路会把透明的地方
-//   压成一块黑，贴上去就是一个黑方块。这不是「稍微差一点」，是完全不能用。
-//   所以另开一条：一样缩图、一样进图库，只是编码成 PNG 把 alpha 留着。
-// PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
-function resizeImageAlpha(file, maxDim = 360) {
+// ── 缩图只有这一处（她 2026-09-22：「换了一个样式的卡片又变成黑色的了」）──────
+// ⚠️JPEG 没有透明通道。画布上没画到的地方是透明的，编码成 JPEG 之后那一块变成【纯黑】。
+//   她拿手账素材那种抠好的透明底 PNG 去当照片、当封面底，存完就是一块黑方块——
+//   这不是「稍微差一点」，是完全不能用。
+//   贴纸那条路早就单开了一支保 alpha 的（v65.xx），可全 app 还有二十多处在走 JPEG 那条，
+//   所以真正该修的是【这一处】：看这张图到底有没有透明像素，有就留 PNG，没有才压 JPEG。
+//   判据是【这张图身上有没有 alpha】，不是【调用方记不记得传保透明】——
+//   记不记得是人的事，二十多处里总有忘的那几处。
+function _resizeImageCore(file, maxDim, q, keepAlpha) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = e => {
@@ -7856,9 +7876,10 @@ function resizeImageAlpha(file, maxDim = 360) {
         const c = document.createElement("canvas");
         c.width = Math.max(1, Math.round(width));
         c.height = Math.max(1, Math.round(height));
+        const cx = c.getContext("2d");
         // 不铺白底：铺了就等于自己把透明去掉了
-        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL("image/png"));
+        cx.drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q));
       };
       img.onerror = rej;
       img.src = e.target.result;
@@ -7867,40 +7888,22 @@ function resizeImageAlpha(file, maxDim = 360) {
     r.readAsDataURL(file);
   });
 }
-function resizeImageFile(file, maxDim = 400, q = 0.85) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => {
-      const img = new window.Image();
-      img.onload = () => {
-        let {
-          width,
-          height
-        } = img;
-        if (width > height) {
-          if (width > maxDim) {
-            height *= maxDim / width;
-            width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
-            width *= maxDim / height;
-            height = maxDim;
-          }
-        }
-        const c = document.createElement("canvas");
-        c.width = width;
-        c.height = height;
-        c.getContext("2d").drawImage(img, 0, 0, width, height);
-        res(c.toDataURL("image/jpeg", q));
-      };
-      img.onerror = rej;
-      img.src = e.target.result;
-    };
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
+// 有没有真正透明的像素。抽样看（每 4 个像素看一个）就够——整块透明底一抽就中，
+// 而边缘抗锯齿那一圈半透明像素本来也该走 PNG。
+// ⚠️读不出来（画布被污染、浏览器不给）时返回 false：那就退回原来的 JPEG 行为，
+//   不能因为读不到就把每张图都变成 PNG，那是把二十多处的体积一起翻几倍。
+function _canvasHasAlpha(c, cx) {
+  try {
+    const d = cx.getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < d.length; i += 16) if (d[i] < 250) return true;
+    return false;
+  } catch (e) { return false; }
 }
+// 贴纸走这一条：不问有没有 alpha，一律 PNG。
+// PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
+function resizeImageAlpha(file, maxDim = 360) { return _resizeImageCore(file, maxDim, 1, true); }
+// 其余全 app 走这一条：有透明就留 PNG，没有才压 JPEG。
+function resizeImageFile(file, maxDim = 400, q = 0.85) { return _resizeImageCore(file, maxDim, q, false); }
 function timeAgo(ts) {
   const m = Math.floor((Date.now() - ts) / 60000);
   if (m < 1) return "刚刚";

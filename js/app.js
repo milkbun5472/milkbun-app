@@ -7102,6 +7102,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
       // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。
       oCtx.gazeSpec = (!sideRoom && !settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
+      // 【心底的念想】线下也给（她 2026-09-22 转群里读者：「不会时不时感觉诶，
+      //   你突然有自我意识那种感觉」——她要的正是【TA 自己有想头】那一下）。
+      // ⚠️这一路原来只长在单聊线上（replyNow 里那个 1/4 抽），线下一次都没有：
+      //   于是同一个人在线上偶尔会冒一句「其实我一直想…」，到了面对面反而只会陪着。
+      //   典型的「一层只写在一处」（施工规则/four-surfaces-same-context）。
+      // ⚠️抽中了就记一次「被想起」，跟线上同一个记法，别让它两边各算各的。
+      oCtx.desireHint = "";
+      if (!sideRoom && !settingsFor(charId).engineerEyes && window.HeartKit) {
+        const _dEcho = (desiresRef.current[charId] || {}).echoPending;
+        if (_dEcho) {
+          saveDesires(n => { const b = HeartKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
+          oCtx.desireHint = "【今昔】你最近把一件搁了很久的心事真正做成了：「" + _dEcho.text + "」——它已经长成了你的一部分"
+            + (_dEcho.persona ? "（" + _dEcho.persona + "）" : "") + "。这一拍若气氛合适，可以自然来一句今昔对比，一两句像随口感慨；不合适就轻轻放下。";
+        } else {
+          const _dPick = Math.random() < 0.25 ? HeartKit.pickEpiphany(desiresRef.current[charId]) : null;
+          if (_dPick) {
+            saveDesires(n => { const b = HeartKit.boxOf(n, charId); HeartKit.touch(b, _dPick.id); n[charId] = b; });
+            oCtx.desireHint = "【心底的念想】你心里最近一直搁着一件想做的事：「" + _dPick.text + "」。"
+              + "仅当这一刻的场景或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样）；"
+              + "**也可以直接动手去做那件事**——线下你人就在这儿，想做就做得成，不必只是说说。对不上就完全别提。";
+          }
+        }
+      }
       // TA刚看见的那张照片（v58.100 补上线下这一处：v58.98 时它被登记成【欠的】）。
       // 跟线上同一套判据和同一道闸——只认这一场里刚递过来的真照片，换头像另吃七天冷却。
       const _offSeen = settingsFor(charId).engineerEyes ? null : freshOfflinePhoto(charId);

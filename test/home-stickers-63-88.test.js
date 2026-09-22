@@ -47,12 +47,13 @@ test("编辑器只此一份，两张面板都调它", () => {
 });
 
 test("透明底 PNG 走自己那条路，绝不许借用会压成 JPEG 的那条", () => {
-  // 老那条最后一步是 image/jpeg：透明的地方会被编码成黑色
-  assert.match(engine, /res\(c\.toDataURL\("image\/jpeg", q\)\);/, "老那条变了，这条前提得重验");
-  const alpha = engine.slice(engine.indexOf("function resizeImageAlpha("), engine.indexOf("function resizeImageFile("));
-  assert.ok(alpha, "没有保透明那条路");
-  assert.match(alpha, /res\(c\.toDataURL\("image\/png"\)\);/, "贴纸这条也编码成了 JPEG");
-  assert.ok(!/fillStyle|fillRect/.test(alpha), "铺了底色＝自己把透明去掉了");
+  // v72.56 两条并成了一个核（_resizeImageCore）：贴纸那条【无条件】PNG，
+  // 其余那条按图上有没有 alpha 自己挑。这里钉的是「贴纸不看脸色，一律 PNG」。
+  assert.match(engine, /function resizeImageAlpha\(file, maxDim = 360\) \{ return _resizeImageCore\(file, maxDim, 1, true\); \}/);
+  const core = engine.slice(engine.indexOf("function _resizeImageCore("), engine.indexOf("function _canvasHasAlpha("));
+  assert.ok(core, "没有缩图那一处");
+  assert.match(core, /keepAlpha \|\| _canvasHasAlpha\(c, cx\) \? "image\/png" : "image\/jpeg"/, "透明的图又会被压成黑块");
+  assert.ok(!/fillStyle|fillRect/.test(core), "铺了底色＝自己把透明去掉了");
   // 贴纸的上传只准走那一条
   const take = code.slice(code.indexOf("async function takeStickerPhoto("), code.indexOf("function clearDecorPhoto("));
   assert.match(take, /await resizeImageAlpha\(file, 360\)/);
