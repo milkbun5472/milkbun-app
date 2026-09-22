@@ -2614,7 +2614,7 @@
       ccGameResult(kind, gameRunId.current, players, cfg,
         "《" + title + "》已经揭晓。\n"
         + (solved ? (solved.name + " 最先答对。") : "本局无人答对，已由主持人揭晓。") + "\n"
-        + ((lisa && lisa.name) || "用户") + "：" + (won ? "亲自破题成功" : (solved && solved.isUser ? "亲自破题成功" : "没有抢到本局答案")) + "。\n"
+        + ((me && me.name) || "用户") + "：" + (won ? "亲自破题成功" : (solved && solved.isUser ? "亲自破题成功" : "没有抢到本局答案")) + "。\n"
         + (kind === "haigui" ? "汤底：" : "答案：") + String(reveal || "") + "。\n"
         + "全局共问 " + qCount + " 个问题。",
         function (say, seat) { pushLog([{ type: "q", name: seat.name, text: say }]); });
