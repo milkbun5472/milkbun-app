@@ -7878,7 +7878,6 @@ function ChatThread({
   const meAv = { name: (profile && profile.name) || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
-  const [input, setInput] = useState("");
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
   const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
@@ -8068,10 +8067,8 @@ function ChatThread({
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
   // 送信：对话=入队消息；旁白注入=注入一段旁白；OOC=直接问模型
-  const send = () => {
-    if (!input.trim() || sending) return;
-    const v = input.trim();
-    setInput("");
+  const send = (v) => {
+    if (!v || sending) return;
     if (chatMode === "narr") sendRich({
       role: "narration",
       kind: "narration",
@@ -8082,10 +8079,8 @@ function ChatThread({
     else onSend(v);
   };
   // 让 TA 回复：对话/旁白模式都触发一次生成；旁白模式先把输入当旁白注入
-  const reply = () => {
+  const reply = (pending) => {
     if (sending) return;
-    const pending = input.trim();
-    setInput("");
     if (chatMode === "narr") {
       if (pending) sendRich({
         role: "narration",
@@ -8781,41 +8776,40 @@ function ChatThread({
   }, h(IPlus, {
     size: 22,
     color: t.fog
-  })), /*#__PURE__*/React.createElement("input", {
-    "data-wk": "chatinput",
-    value: input,
-    onChange: e => setInput(e.target.value),
-    onKeyDown: e => e.key === "Enter" && send(),
+  })), h(DraftInput, {
+    inputProps: { "data-wk": "chatinput" },
     placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
-    className: "flex-1 outline-none px-4 py-2.5 rounded-full",
-    style: {
+    inputStyle: {
       fontFamily: F_BODY,
       fontSize: 14,
       color: t.ink,
       background: "#fff",
       border: `1px solid ${t.line}`,
       minWidth: 0
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: send,
-    disabled: sending || !input.trim(),
-    className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
-    // 发送键原来直接刷「我的气泡色」，默认那个粉太跳（她 2026-09-03：「改成好看点的颜色」）。
-    // 改成跟主题的强调色走：换主题它就跟着换，不再是一颗谁都不搭的粉圆点。
-    // data-wk="send" 是给主题工作室的挂点。
-    "data-wk": "send",
-    style: {
-      width: 40,
-      height: 40,
-      borderRadius: 999,
-      background: t.accent
-    }
-  }, /*#__PURE__*/React.createElement(ISend, {
-    size: 16,
-    color: "#fff"
-  })), chatMode !== "ooc" && h(ReplyKey, {
-    sending: sending, disabled: sending || bk.theyBlocked,
-    title: bk.theyBlocked ? "TA 拉黑了你，无法回复" : "让 TA 回复", onClick: reply
+    },
+    onSubmit: send,
+    after: (draft, fire, clear) => h(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      onClick: fire,
+      disabled: sending || !draft.trim(),
+      className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
+      // 发送键原来直接刷「我的气泡色」，默认那个粉太跳（她 2026-09-03：「改成好看点的颜色」）。
+      // 改成跟主题的强调色走：换主题它就跟着换，不再是一颗谁都不搭的粉圆点。
+      // data-wk="send" 是给主题工作室的挂点。
+      "data-wk": "send",
+      style: {
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        background: t.accent
+      }
+    }, /*#__PURE__*/React.createElement(ISend, {
+      size: 16,
+      color: "#fff"
+    })), chatMode !== "ooc" && h(ReplyKey, {
+      sending: sending, disabled: sending || bk.theyBlocked,
+      title: bk.theyBlocked ? "TA 拉黑了你，无法回复" : "让 TA 回复",
+      onClick: () => { const v = draft.trim(); clear(); reply(v); }
+    }))
   }))), panelOpen && !selMode && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
     style: {
@@ -11669,6 +11663,28 @@ function KinshipRaiseCard({ m, character }) {
 //   来回晃才是一片正在飘的叶子
 // · 群线上那两档——实线＝他们自己会接着聊，虚线＝回完这一轮就停下等你。
 //   「虚」和「实」在这儿是字面意思，不是只换个颜色。
+// 打字草稿关进自己的小格子（2026-09-21，INP 主诉）：以前草稿住在整块聊天组件里，
+// 每敲一键整窗两百条消息全部重画一遍，打字就是全 app 最卡的一下。
+// 四个面（单聊/群聊/单线下/群线下）同一个形状，按 one-public-mechanism 只写这一份。
+// after(draft, fire, clear) 画输入框右边那几颗键——发送键要按草稿空不空亮灭、
+// 「让TA回复」要把草稿带走，所以它们必须住在这一格里一起重画；格子外的世界不动。
+// 通话屏（CallScreen）没搬：口述识别要从外面往草稿里回填文字，而且一通电话的
+// 字幕列表本来就短，重画不疼——搬它换不来收益，只换来一条反向写入的口子。
+function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after }) {
+  const [draft, setDraft] = useState("");
+  const clear = () => setDraft("");
+  const fire = () => { const v = draft.trim(); if (!v) return; setDraft(""); onSubmit && onSubmit(v); };
+  return h(React.Fragment, null,
+    h("input", Object.assign({
+      value: draft,
+      onChange: e => setDraft(e.target.value),
+      onKeyDown: e => e.key === "Enter" && fire(),
+      placeholder,
+      className: "flex-1 outline-none px-4 py-2.5 rounded-full",
+      style: inputStyle
+    }, inputProps || {})),
+    after ? after(draft, fire, clear) : null);
+}
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
   const lit = sending ? t.accent : t.ink;
@@ -12796,7 +12812,6 @@ function OfflineMode({
   const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : "default");
   const [presetOn, setPresetOn] = useState(() => activeSession ? !!activeSession.presetOn : !!(settings && settings.presetOn));
   const [presetId, setPresetId] = useState(() => (activeSession && activeSession.presetId) || (settings && settings.presetId) || "");
-  const [input, setInput] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoImg, setPhotoImg] = useState("");
   const [photoDesc, setPhotoDesc] = useState("");
@@ -12945,16 +12960,13 @@ function OfflineMode({
     onStart({ opening: opening.trim(), styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
     setView("live");
   };
-  const send = () => {
-    if (!input.trim() || sending) return;
-    if (oocMode) { onOOC && onOOC(input.trim()); setInput(""); return; }
-    onSend(input.trim());
-    setInput("");
+  const send = (v) => {
+    if (!v || sending) return;
+    if (oocMode) { onOOC && onOOC(v); return; }
+    onSend(v);
   };
-  const reply = () => {
+  const reply = (v) => {
     if (sending) return;
-    const v = input.trim();
-    setInput("");
     onReply(v);
   };
   const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "offline",
@@ -13061,9 +13073,14 @@ function OfflineMode({
       // 否则进去了就出不来。
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.10)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
-      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
-      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
-      !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: reply })),
+      h(DraftInput, {
+        placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…",
+        inputStyle: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 },
+        onSubmit: send,
+        after: (draft, fire, clear) => h(React.Fragment, null,
+          h("button", { onClick: fire, disabled: sending || !draft.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
+          !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: () => { const v = draft.trim(); clear(); reply(v); } }))
+      })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张：你俩此刻真的在同一个地方，这一格是现拍的。零模型调用——
       // 画面直接从状态卡（此刻在干嘛、穿什么）长出来，只花一次出图的钱。
@@ -13417,7 +13434,6 @@ function GroupOfflineMode({
   const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : "default");
   const [presetOn, setPresetOn] = useState(() => activeSession ? !!activeSession.presetOn : !!(settings && settings.presetOn));
   const [presetId, setPresetId] = useState(() => (activeSession && activeSession.presetId) || (settings && settings.presetId) || "");
-  const [input, setInput] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoImg, setPhotoImg] = useState("");
   const [photoDesc, setPhotoDesc] = useState("");
@@ -13446,17 +13462,13 @@ function GroupOfflineMode({
     onStart({ opening: opening.trim(), styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
     setView("live");
   };
-  const send = () => {
-    if (!input.trim() || sending) return;
-    const v = input.trim();
-    setInput("");
+  const send = (v) => {
+    if (!v || sending) return;
     if (oocMode) { onOOC && onOOC(v); return; }
     onSend(v);
   };
-  const reply = () => {
+  const reply = (v) => {
     if (sending) return;
-    const v = input.trim();
-    setInput("");
     onReply(v);
   };
   const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "group-offline",
@@ -13595,9 +13607,14 @@ function GroupOfflineMode({
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
-      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "出戏说：跟演TA的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
-      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
-      !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: reply })),
+      h(DraftInput, {
+        placeholder: oocMode ? "出戏说：跟演TA的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…",
+        inputStyle: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 },
+        onSubmit: send,
+        after: (draft, fire, clear) => h(React.Fragment, null,
+          h("button", { onClick: fire, disabled: sending || !draft.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
+          !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: () => { const v = draft.trim(); clear(); reply(v); } }))
+      })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张合影：大家此刻真在同一个地方。零模型调用，只花一次出图。
       onShoot ? h("div", { className: "mb-4" },
@@ -13734,7 +13751,6 @@ function GroupThread({
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
-  const [input, setInput] = useState("");
   const [panel, setPanel] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [chatMode, setChatMode] = useState("chat"); // chat | ooc
@@ -13776,10 +13792,8 @@ function GroupThread({
     if (growing()) return;   // 她正在往上翻，别把她甩回最新的
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
-  const send = () => {
-    if (!input.trim() || sending) return;
-    const v = input.trim();
-    setInput("");
+  const send = (v) => {
+    if (!v || sending) return;
     if (chatMode === "ooc") { onOOC && onOOC(v); return; }
     if (quoted) {
       const q = typeof quoted === "string" ? { text: quoted } : quoted;
@@ -14338,36 +14352,34 @@ function GroupThread({
   }, h(IPlus, {
     size: 22,
     color: t.fog
-  })), h("input", {
-    "data-wk": "chatinput",
-    value: input,
-    onChange: e => setInput(e.target.value),
-    onKeyDown: e => e.key === "Enter" && send(),
+  })), h(DraftInput, {
+    inputProps: { "data-wk": "chatinput" },
     placeholder: chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
-    className: "flex-1 outline-none px-4 py-2.5 rounded-full",
-    style: {
+    inputStyle: {
       fontFamily: F_BODY,
       fontSize: 14,
       color: t.ink,
       background: "#fff",
       border: "1px solid " + t.line,
       minWidth: 0
-    }
-  }), h("button", {
-    onClick: send,
-    disabled: sending || !input.trim(),
-    className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
-    "data-wk": "send",
-    style: {
-      width: 40,
-      height: 40,
-      borderRadius: 999,
-      background: BUBBLE_SKIN.myBg
-    }
-  }, h(ISend, {
-    size: 16,
-    color: "#16330a"
-  })), chatMode !== "ooc" && h(ReplyKey, {
+    },
+    onSubmit: send,
+    after: (draft, fire) => h("button", {
+      onClick: fire,
+      disabled: sending || !draft.trim(),
+      className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
+      "data-wk": "send",
+      style: {
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        background: BUBBLE_SKIN.myBg
+      }
+    }, h(ISend, {
+      size: 16,
+      color: "#16330a"
+    }))
+  }), chatMode !== "ooc" && h(ReplyKey, {
     sending: sending, disabled: sending,
     // 虚圈＝只让他们回一轮，回完仍旧等你；实圈＝回一轮并开一段自发
     hold: !!gHold,

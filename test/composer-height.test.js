@@ -27,6 +27,14 @@ test("外框和输入框本身的尺寸三处也一致", () => {
   const bars = comp.match(/className: "flex items-center gap-2 px-3 py-[\d.]+ shrink-0"[^\n]*paddingBottom: COMPOSER_PAD_BOTTOM/g) || [];
   assert.equal(bars.length, 2, "两条线下输入栏");
   bars.forEach(b => assert.match(b, /px-3 py-2\.5 shrink-0/, "和线上一样是 py-2.5：" + b.slice(0, 60)));
-  // 输入框内边距三处都是 px-4 py-2.5
-  assert.ok((comp.match(/className: "flex-1 outline-none px-4 py-2\.5 rounded-full"/g) || []).length >= 3);
+  // 输入框内边距原来靠三处手抄一致；2026-09-21 INP 手术后草稿输入框收进公共
+  // DraftInput（打字不再重画整窗消息），尺寸只写那一份，一致性由构造保证。
+  const draftInput = comp.slice(comp.indexOf("function DraftInput("), comp.indexOf("function ReplyKey("));
+  assert.match(draftInput, /className: "flex-1 outline-none px-4 py-2\.5 rounded-full"/);
+  // 例外只有通话屏：口述识别要从外面回填草稿，且一通字幕本来就短，留在原地（理由记在 DraftInput 注释）
+  const callScreen = comp.slice(comp.indexOf("function CallScreen("), comp.indexOf("function ReplyKey("));
+  assert.match(callScreen, /className: "flex-1 outline-none px-4 py-2\.5 rounded-full"/);
+  assert.equal((comp.match(/className: "flex-1 outline-none px-4 py-2\.5 rounded-full"/g) || []).length, 2, "尺寸只许写在 DraftInput 和通话屏两处");
+  // 四个面（线上单聊/群聊、单聊线下/群线下）都走公共输入组件
+  assert.ok((comp.match(/h\(DraftInput, \{/g) || []).length >= 4, "四个面都要接 DraftInput");
 });
