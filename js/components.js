@@ -13503,7 +13503,9 @@ function GroupOfflineMode({
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
   const [sBg, setSBg] = useState(os.bg || "");
-  const [sMax, setSMax] = useState(os.maxTokens || 3200);
+  // 群线下没设过时的默认（v73.01 从 3200 抬到 12000）：3200 写七个人的戏不够，
+  // 四段就满了——她那边早拉满所以没事，别人一次都没进过这页（engine 那头同一个数）。
+  const [sMax, setSMax] = useState(os.maxTokens || 12000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);

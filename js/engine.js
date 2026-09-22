@@ -6830,13 +6830,12 @@ async function generateOfflineGroup(p, ctx, session) {
   //    只有4个」，读者还补了一句「还得点名」）─────────────────────────
   // 病根是【段数写死成 2~5】：跟在场几个人一点关系都没有，七个人里最多也就四个
   // 开得了口。段数跟着人数走，上限封到 10（再多一轮就成了点名册）。
-  // ⚠️v73.00 把口径又往前推了一步（她第三次报「线下还是只有四个人说话」）：
-  //   光抬天花板没用，模型照样写四段 —— 没人跟它说【下限】，而原来那句
-  //   「没有反应必要的人可以安静在场」等于发了一张【跳过谁】的许可证，它每轮都用。
-  //   现在要求的是【每个人都出现在画面里】，不是【每个人都开口】：没话说的人写
-  //   TA 此刻在做什么就行，也明说了别为凑数硬安台词（施工规则/no-yes-unless：
-  //   那句话直接重写，没在后面挂「但是」）。
-  const gBeatMax = Math.max(5, Math.min(12, members.length + 3));
+  // ⚠️只给上限，不给下限（v73.01 撤回 v73.00 那次：她 2026-09-22 说
+  //   「别人说不行我又是可以的啊。不要下限」）。下限＝每轮点名册，会把她这边
+  //   本来就对的那种自然相处也改坏；而别人只有四个人说话，病根在输出预算那头
+  //   （见下面 gBudget 的默认值），不在这句话上。
+  //   这儿掷的仍然是【镜头给谁】，不是【谁必须开口】（施工规则/bans-make-it-dumber）。
+  const gBeatMax = Math.max(5, Math.min(10, members.length + 2));
   // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
   const gRotateLine = rotateSpeakersNote(members, session.msgs);
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -6934,7 +6933,7 @@ async function generateOfflineGroup(p, ctx, session) {
       ? "\n\n【各成员最近在别处（和用户的私聊 / 单人线下）发生的事·带时间戳】\n下面是每个成员最近单独和用户之间发生的事，按方括号里的真实时间理解它和此刻这场线下的先后顺序，自然接得上——比如某成员昨晚私聊里答应过的事、刚在单人线下经历的情绪，别当没发生过、也别和这些矛盾。\n⚠️隐私铁律：这些是【该成员和用户之间私下】的事，标〔仅本人知道〕——别的成员并不知情。绝不许让别的成员在群线下里提及、点破、或据此反应（吃醋/拆穿/打趣），除非本人自己在场景里说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + ctx.memberRecent.map(mr => "〔仅「" + mr.name + "」本人知道〕\n" + mr.lines).join("\n\n")
       : "") +
     "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
-    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；**在场的每个人这一轮都得出现在画面里**——没什么话要说的人就写 TA 此刻在做什么（手上的动作、听到这句时的反应、走神去弄别的），别让谁整轮凭空消失。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" + gRotateLine +
+    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" + gRotateLine +
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, true) +
     narrativeDirective(session.narr) +
@@ -6952,13 +6951,18 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 " + Math.min(members.length, gBeatMax) + "~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人）——**在场每个人至少占一段**，哪怕只是一个动作、一个眼神、半句话；真正有话说的人可以多占几段。别为了凑数给谁硬安一句台词：没话说就写 TA 在干嘛。name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。" + sameNameNote(members);
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。" + sameNameNote(members);
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
+  // ⚠️没设过输出上限时给 12000，不是 1900（她 2026-09-22：「别人说不行我又是可以的啊」——
+  //   她早把滑杆拉满了，别人一次都没进过那个设置页）。1900 tokens 写七个人的戏，
+  //   写到第四段就没配额了：她看见的「只有四个人说话」，病根在这儿，不在提示词。
+  //   这是【天花板】不是花销，按次计费，给宽了一分钱也多花不到（施工规则/max-tokens-floor）。
+  //   她自己存过的那个数照旧优先，这儿只换没设过时的默认。
   const gBudget = Math.min(window.StylePresets.OUT_CEILING,
-    Math.max(Number(session.maxTokens) || 1900, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
+    Math.max(Number(session.maxTokens) || 12000, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true, userName) : "";
   const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥" + directorNoteTail(notes) : "") + "〕";
   // 群线下同理：回忆是最便宜的填充，人多了只会更容易各自翻各自的老账

@@ -24,7 +24,7 @@ assert((group.match(/timeout: 180000/g) || []).length >= 2,
   "group offline and its no-cot fallback must both allow three minutes");
 assert.strictEqual((group.match(/maxTokens: gBudget\b/g) || []).length, 2,
   "group offline and fallback must share the computed budget");
-assert.match(group, /const gBudget = Math\.min\(window\.StylePresets\.OUT_CEILING,\s*Math\.max\(Number\(session\.maxTokens\) \|\| 1900, session\.minWords \? window\.StylePresets\.outTokens\(session\.minWords\) : 0\)\);/,
+assert.match(group, /const gBudget = Math\.min\(window\.StylePresets\.OUT_CEILING,\s*Math\.max\(Number\(session\.maxTokens\) \|\| 12000, session\.minWords \? window\.StylePresets\.outTokens\(session\.minWords\) : 0\)\);/,
   "group budget must retain the user's length and token settings");
 assert(cloud.includes("ctrl.signal.aborted"), "proxy timeout detection must use its own abort signal");
 assert(cloud.includes("请求超时，请重试（模型或云端桥响应太慢）"), "proxy abort must become a readable timeout");

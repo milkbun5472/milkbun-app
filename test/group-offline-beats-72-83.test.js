@@ -19,17 +19,17 @@ const fnCode = bare(fn);
 
 test("段数跟着在场人数走，不再写死 2~5", () => {
   assert.doesNotMatch(fnCode, /一次产出 2~5 个 beat/, "还是那个写死的 5");
-  // v73.00：不只给上限，还给下限 —— 她 2026-09-22 第三次报「线下还是只有四个人说话」。
-  // 光把天花板抬到 9，模型照样写 4：没人跟它说【下限】是多少。
-  assert.match(fn, /一次产出 " \+ Math\.min\(members\.length, gBeatMax\) \+ "~" \+ gBeatMax \+ " 个 beat（在场 " \+ members\.length \+ " 个人）/);
-  assert.match(fn, /在场每个人至少占一段/);
+  // ⚠️只给上限、不给下限（v73.01 撤回 v73.00）：她 2026-09-22「别人说不行我又是
+  //   可以的啊。不要下限」——下限＝每轮点名册，会把她这边本来就对的相处改坏。
+  assert.match(fn, /一次产出 2~" \+ gBeatMax \+ " 个 beat（在场 " \+ members\.length \+ " 个人）/);
+  assert.doesNotMatch(fnCode, /在场每个人至少占一段/, "下限又回来了");
   const line = /const gBeatMax = .+;/.exec(fn);
   assert.ok(line, "没有 gBeatMax");
   const at = n => { const c = { members: { length: n }, Math: Math }; vm.runInNewContext(line[0].replace("members.length", "members.length") + "\nthis.out = gBeatMax;", c); return c.out; };
   assert.equal(at(2), 5, "两个人还是给到 5，别比原来少");
-  assert.equal(at(3), 6);
-  assert.equal(at(7), 10, "七个人的时候还是只能四个说话");
-  assert.equal(at(12), 12, "没封顶，一轮会变成点名册");
+  assert.equal(at(3), 5);
+  assert.equal(at(7), 9, "七个人的时候还是只能四个说话");
+  assert.equal(at(12), 10, "没封顶，一轮会变成点名册");
 });
 
 // v72.90：这一条搬成了公共的 rotateSpeakersNote，群线上也接上了
@@ -57,14 +57,16 @@ test("群线上也接上了这一条（原来只有线下有）", () => {
 
 // ⚠️「让他们都发言」不等于「每个人都必须说话」：真实的多人相处里有人安静在场是对的。
 // 这一条防的是把一条规矩改过头，变成每轮点名册（施工规则/bans-make-it-dumber）。
-// ⚠️「都出现」不等于「都开口」。这一条防的是把规矩改过头，变成每轮点名册。
-// v73.00 改了口径：原来那句「没有反应必要的人可以安静在场」等于发了一张【跳过谁】的
-// 许可证，模型每轮都拿它省事。按 no-yes-unless，那句直接重写，没在后面挂「但是」。
-test("要求的是都【出现】，不是都【开口】", () => {
-  assert.doesNotMatch(fnCode, /没有反应必要的人可以安静在场/, "那张跳过许可证还在");
-  assert.match(fn, /在场的每个人这一轮都得出现在画面里/);
-  assert.match(fn, /没什么话要说的人就写 TA 此刻在做什么/, "没给「不说话的人怎么写」的出口");
-  assert.match(fn, /别为了凑数给谁硬安一句台词/, "没挡住为了凑数硬编台词");
-  // 线上是另一回事：微信群里没人每轮都冒泡，那份共用提醒照旧留着出口
+// ⚠️没改成每个人都必须开口 —— 她自己那边本来就对，别为了别人的毛病把她的改坏。
+test("没改成每个人都必须开口", () => {
+  assert.match(fnCode, /没有反应必要的人可以安静在场/, "把「可以不说话」删掉了 —— 那就是另一种八股");
   assert.match(eng, /不是每个人都必须说话/, "线上那份共用提醒里的出口没了");
+});
+
+// 「你可以、别人不行」的真凶：没设过输出上限时的默认值
+test("没设过输出上限时给足，别在第四段上卡住", () => {
+  assert.match(eng, /Number\(session\.maxTokens\) \|\| 12000/, "群线下默认预算又被调回那个写不下七个人的数");
+  const comps = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(comps, /useState\(os\.maxTokens \|\| 12000\)/, "设置页显示的默认跟真正用的那个数对不上");
+  assert.doesNotMatch(eng, /Number\(session\.maxTokens\) \|\| 1900/);
 });
