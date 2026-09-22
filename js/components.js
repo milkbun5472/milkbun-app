@@ -7811,6 +7811,7 @@ function PhotoCard({ m, mine, onOpen, max }) {
   const t = useTheme();
   const cap = photoCaption(m);
   const W = Number(max) || 260;
+  // 挂点：相纸本身（底/边/圆角/影）和底下那行配文，是改照片样式时最先动的两样
   const paper = {
     display: "block", width: "100%", maxWidth: W, textAlign: "left",
     background: "#fdfaf4", borderRadius: 10, padding: 6, paddingBottom: 8,
@@ -7828,11 +7829,11 @@ function PhotoCard({ m, mine, onOpen, max }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#463f35",
           display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
           cap || "一张照片"));
-  return h("button", { onClick: onOpen, className: "active:opacity-85", style: paper },
+  return h("button", { onClick: onOpen, "data-wk": "photocard", className: "active:opacity-85", style: paper },
     face,
     // 相纸底下那一行：有图时是配文，没图时是「点开看这张」——两种都在同一个位置
     h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, padding: "6px 3px 0" } },
-      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: "#5d5346",
+      h("span", { "data-wk": "photocap", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: "#5d5346",
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.imageRef ? cap : ""),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
 }
@@ -11905,7 +11906,10 @@ function TransferCard({
   const _tfAmt = typeof Money !== "undefined" && Money ? Money.conv(m.amount, charId) : m.amount;
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
-  }, !isU && avatar, h("div", { "data-wk": "card",
+  // ⚠️挂点（她 2026-09-22：「聊天界面里的转账和照片样式看看能不能改」）：
+  //   这张纸上原来只有那枚印有挂点，纸本身、金额、附言都抓不住——
+  //   而想换样式的人第一眼要改的正是这三样。名单归 ThemeStudio 那一份。
+  }, !isU && avatar, h("div", { "data-wk": "transfercard",
     style: {
       width: 250,
       background: PAPER,
@@ -11924,7 +11928,7 @@ function TransferCard({
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
           // 折在千分位逗号上是最难认的那种——「1,0」换行「00」。
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: fitFont(String(_tfAmt), 32, 8, 16), color: INK, lineHeight: 1, whiteSpace: "nowrap" } }, _tfAmt),
+          h("span", { "data-wk": "transferamount", style: { fontFamily: F_DISPLAY, fontSize: fitFont(String(_tfAmt), 32, 8, 16), color: INK, lineHeight: 1, whiteSpace: "nowrap" } }, _tfAmt),
           _tfCur.pos === "post" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1, marginLeft: 2 } }, _tfCur.symbol) : null)),
       seal),
     // ── 骑缝 ──
@@ -11932,7 +11936,7 @@ function TransferCard({
       notch("l"), notch("r")),
     // ── 附言栏：写在单据的横线上 ──
     h("div", { className: "px-4 pt-3 pb-3.5" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
+      h("div", { "data-wk": "transfernote", style: { fontFamily: F_BODY, fontSize: 12.5, color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
         m.note || "（没留话）")),
     // ── 下沿：要么两格按钮，要么一行状态 ──
     canAct ? h("div", { className: "flex", style: { borderTop: "1px solid " + RULE, background: PAPER_D } },
