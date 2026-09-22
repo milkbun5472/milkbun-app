@@ -8388,7 +8388,7 @@ function Config(props) {
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
-      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onCopyExport: props.onCopyExport, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }
@@ -9835,6 +9835,7 @@ function DataConfig({
   characters,
   onExport,
   onCopyExport,
+  copyParts,
   onImportText,
   inAppBrowser,
   onImport,
@@ -9907,7 +9908,23 @@ function DataConfig({
         className: "w-full active:opacity-70",
         style: { marginTop: 8, minHeight: 40, padding: "9px 0", borderRadius: 9, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 12 }
       }, "复制本页网址")) : null,
-    button("复制文字备份（下载不下来时用这个）", onCopyExport, false),
+    button("复制文字备份（下载不下来时用这个）", () => onCopyExport && onCopyExport(), false),
+    // 整段粘贴不动的时候分段发（她 2026-09-22：「太大了可以复制但是粘贴不了」）。
+    // 每段自己带段头，贴回来的顺序不重要，收齐了自动拼。
+    copyParts && copyParts.parts && copyParts.parts.length > 1
+      ? h("div", { style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.ink } },
+            "这份备份切成了 " + copyParts.parts.length + " 段。按顺序点一段、发一段——" +
+            "恢复的时候把每一段都贴回下面那个框里，贴齐了自己会合起来。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+            copyParts.parts.map((_, k) => h("button", {
+              key: k, onClick: () => onCopyExport(k + 1), className: "active:opacity-70",
+              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12,
+                border: "1px solid " + (copyParts.done && copyParts.done[k + 1] ? t.ink : t.line),
+                background: copyParts.done && copyParts.done[k + 1] ? t.ink : "transparent",
+                color: copyParts.done && copyParts.done[k + 1] ? t.bg2 : t.ink }
+            }, (copyParts.done && copyParts.done[k + 1] ? "✓ " : "") + "第 " + (k + 1) + " 段"))))
+      : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "4px 2px 0" } },
       "复制完去微信／QQ 发给自己，或者存进备忘录。要恢复的时候用下面的「贴一份备份」。"),
     // ⚠️必须当面说清楚这一份没带图：图是 base64 塞进 JSON 的，一份几十 MB，
@@ -9920,8 +9937,8 @@ function DataConfig({
     typeof window !== "undefined" && window.ThemePackPasteBox && onImportText
       ? h("div", { style: { marginTop: 10 } }, h(window.ThemePackPasteBox, {
           onText: text => onImportText(text),   // 失败要留着她贴的那一大段，所以原样把结果交回去
-          open: "贴一份备份（复制来的那一大段）",
-          ph: "把复制出来的那一整段备份贴在这儿"
+          open: "贴一份备份（复制来的那一段）",
+          ph: "把复制出来的那一段贴在这儿；分了几段就一段一段贴，顺序不重要"
         }))
       : null,
     h(HomeLayoutProbe, { toast: toast }),

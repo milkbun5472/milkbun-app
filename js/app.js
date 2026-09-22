@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.80";
+const APP_VERSION = "v72.81";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22414,19 +22414,82 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 把手机上的页面直接撑崩——崩之前先告诉她，别让她白按一下。
   // （这儿不写那个接口的名字：全库「谁都不许自己写一份复制」那两条测试是按字面查的。）
   const COPY_MAX = 8 * 1024 * 1024;
-  const doCopyExport = async () => {
-    const pack = await buildExportPack({ noImages: true });
-    if (!pack) return;
-    const kb = Math.round(pack.text.length / 1024);
-    if (pack.text.length > COPY_MAX) {
-      toast("这份文字备份约 " + Math.round(kb / 1024) + "MB，太大了，复制会把页面撑崩——换 Chrome／夸克那类浏览器打开这个网址再导出文件，或者先开云同步");
-      return;
+  // ⚠️一整段复制得动、【粘贴不动】（她 2026-09-22：「太大了可以复制但是粘贴不了」）：
+  //   微信输入框、备忘录、包括我们自己这个文本框，对一次粘贴多大都有各自的脾气。
+  //   所以整份切成 200KB 一段，一段一段发；导入那头认段头、自己拼回去。
+  const COPY_PART = 200 * 1024;
+  const partHead = (i, n, id) => "QQJ-BACKUP " + i + "/" + n + " " + id;
+  const [copyParts, setCopyParts] = useState(null);   // { id, parts:[string], done:{1:true} }
+  const doCopyExport = async partNo => {
+    let box = copyParts;
+    // 第一下才真去攒那份备份；之后点第 2、3 段直接用手上这份，不重打一遍
+    if (!box || partNo == null) {
+      const pack = await buildExportPack({ noImages: true });
+      if (!pack) return;
+      if (pack.text.length > COPY_MAX) {
+        toast("这份文字备份约 " + Math.round(pack.text.length / 1048576) + "MB，太大了——换 Chrome／夸克那类浏览器打开这个网址再导出文件，或者先开云同步");
+        return;
+      }
+      const id = "b" + Date.now().toString(36);
+      // ⚠️切片之前先转成 base64。理由是【粘贴这条路会动空白】：微信、备忘录、
+      //   输入法都可能在头尾加一个换行/空格，而切口很可能正落在某条聊天记录的
+      //   字符串中间——那样拼回去的正文就被悄悄改了。base64 里没有空白，
+      //   收回来时把所有空白一律删掉，是唯一能保证「拼回去和原来一模一样」的形状。
+      let b64 = "";
+      try { b64 = String(await blobToDataUrl(new Blob([pack.text]))).split(",")[1] || ""; } catch (e) {}
+      if (!b64) { toast("这份备份没打包成，再试一次"); return; }
+      const parts = [];
+      for (let i = 0; i < b64.length; i += COPY_PART) parts.push(b64.slice(i, i + COPY_PART));
+      box = { id: id, parts: parts, what: pack.what, done: {} };
+      setCopyParts(box);
+      if (parts.length > 1) {
+        toast("这份备份有 " + parts.length + " 段，一段一段复制、一段一段发——下面按顺序点");
+        return;                                   // 分段的时候第一下只是切好，别抢着复制
+      }
     }
+    const n = box.parts.length, i = partNo == null ? 1 : partNo;
+    // 只有一段也带段头：导入那头照着段头认 base64，不用再猜这是哪种形状
+    const body = partHead(i, n, box.id) + "\n" + box.parts[i - 1];
     // ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路，
     //   写不进去会老老实实返回 false）。这儿再手写一份就是第五处（v71.12 刚把四处搬完）。
-    const ok = await copyText(pack.text);
-    if (ok) toast("文字备份已复制（约 " + kb + "KB" + pack.what + "）——去微信／QQ 发给自己，或者存进备忘录");
-    else toast("这个浏览器不让复制这么大一段——数据还在，没有丢；换系统浏览器打开再试");
+    const ok = await copyText(body);
+    if (!ok) { toast("这个浏览器不让复制这么大一段——数据还在，没有丢"); return; }
+    setCopyParts(Object.assign({}, box, { done: Object.assign({}, box.done, { [i]: true }) }));
+    toast(n > 1
+      ? "第 " + i + "/" + n + " 段已复制（约 " + Math.round(body.length / 1024) + "KB）——发出去，再回来点下一段"
+      : "文字备份已复制（约 " + Math.round(body.length / 1024) + "KB" + box.what + "）——去微信／QQ 发给自己，或者存进备忘录");
+  };
+  // 贴进来的可能是【一整份】，也可能是【切开的某一段】。段是一段一段来的，
+  // 收齐了才拼回去交给下面那份唯一的导入实现。
+  // ⚠️攒在内存里，不落盘：几 MB 的碎片写进 localStorage 会把那 5MB 直接顶爆，
+  //   而她本来就是在恢复数据（施工规则/phone-data-layers 那条「别为临时态占存档」）。
+  const pasteBinRef = useRef(null);   // { id, total, got:{1:"…"} }
+  const doImportPasted = async raw => {
+    const text = String(raw || "");
+    const m = /^\s*QQJ-BACKUP (\d+)\/(\d+) (\S+)[\r\n]+/.exec(text);
+    // 段头认不出来 → 当成整份 JSON（存文件导出的那种，或者别人发来的老备份）
+    if (!m) { pasteBinRef.current = null; return doImportText(text.trim()); }
+    const i = Number(m[1]), n = Number(m[2]), id = m[3];
+    const bin = pasteBinRef.current && pasteBinRef.current.id === id ? pasteBinRef.current : { id: id, total: n, got: {} };
+    bin.total = n;
+    // base64 里没有空白：把粘贴路上被加进来的换行、空格一律删掉
+    bin.got[i] = text.slice(m[0].length).replace(/\s+/g, "");
+    pasteBinRef.current = bin;
+    const have = Object.keys(bin.got).length;
+    if (have < n) {
+      const miss = [];
+      for (let k = 1; k <= n; k++) if (!bin.got[k]) miss.push(k);
+      toast("收到第 " + i + "/" + n + " 段（还差 " + miss.join("、") + "）——把下一段贴进来");
+      return true;                                 // 清空文本框，好贴下一段
+    }
+    const joined = [];
+    for (let k = 1; k <= n; k++) joined.push(bin.got[k]);
+    pasteBinRef.current = null;
+    toast(n > 1 ? n + " 段都齐了，正在合起来…" : "正在读这份备份…");
+    let whole = "";
+    try { whole = await (await fetch("data:application/json;base64," + joined.join(""))).text(); }
+    catch (e) { toast("这几段拼不回去——中间少了一段，或者贴的时候被改动过"); return false; }
+    return doImportText(whole);
   };
   // ⚠️导入分两条路：选文件、和【把整份 JSON 贴进来】（她 2026-09-22 转来的：
   //   在 QQ／微信内置浏览器里导出，文件根本落不到手上）。两条路只有这一份实现，
@@ -24275,7 +24338,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: goHome,
     onExport: doExport,
     onCopyExport: doCopyExport,
-    onImportText: doImportText,
+    onImportText: doImportPasted,
+    copyParts: copyParts,
     inAppBrowser: inAppBrowser(),
     onImport: doImport,
     onOffloadChats: offloadAllChats,
