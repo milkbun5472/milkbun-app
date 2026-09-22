@@ -4459,7 +4459,7 @@
   function unoJson(raw) { if (raw && typeof raw === "object") return raw; return extractJSON(String(raw || "")) || {}; }
   function unoPlayers(props) {
     const cfg = props.config || {}, chars = props.characters || [], out = [];
-    if (cfg.mode !== "spectate") out.push({ key: "lisa", name: userName(props.profile), isUser: true, persona: "用户本人" });
+    if (cfg.mode !== "spectate") out.push({ key: "user", name: userName(props.profile), isUser: true, persona: "用户本人" });
     (cfg.charIds || []).forEach(function (id) {
       const c = chars.find(function (x) { return String(x.id) === String(id); }); if (!c) return;
       const persona = [c.persona, c.personality, c.tagline, c.background].filter(Boolean).join("\n").slice(0, 1800);
@@ -4561,7 +4561,7 @@
       const clean = String(line || "").trim(); if (!clean) return;
       setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: player, text: name + "：“" + clean.slice(0, 500) + "”" }); return n; });
     }
-    function sendTableMessage() { const line = tableTalk.trim(); if (!line) return; addChat("lisa", userName(props.profile), line); setTableTalk(""); }
+    function sendTableMessage() { const line = tableTalk.trim(); if (!line) return; addChat("user", userName(props.profile), line); setTableTalk(""); }
     function inviteTableReplies() {
       if (chatBusy) return;
       const seats = state.players.filter(function (p) { return !p.isUser; }); if (!seats.length) return;

@@ -1,12 +1,12 @@
 // 25 问 / 海龟汤揭晓那一刻崩成「Can't find variable: lisa」（她 2026-09-22 截图）：
 // 结算那段照着别的游戏抄了 lisa，可 GuessGame 里用户那一位叫 me。
 // 而且这是给所有人用的 app，代码里不该把「用户」写成某一个人的名字（她：「不应该是lisa啊」）。
-// 统一叫 userSeat；棋桌上存档里的座位键 "lisa" 是旧存档格式，留着不动。
+// 变量统一叫 userSeat，棋桌座位键叫 "user"。
 const assert = require("assert");
 const src = require("fs").readFileSync(__dirname + "/../js/games.js", "utf8").split("\n");
 const bad = [];
 src.forEach((l, i) => {
-  const code = l.replace(/\/\/.*$/, "").replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  const code = l.replace(/\/\/.*$/, "");
   if (/\blisa\b/.test(code)) bad.push(i + 1);
 });
 assert.deepStrictEqual(bad, [], "games.js 这些行还在用 lisa 当变量名：" + bad.join(","));
