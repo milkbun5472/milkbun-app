@@ -157,6 +157,7 @@ function ScreenBoundaryClass() {
   static getDerivedStateFromError(err) { return { err: err }; }
   componentDidCatch(err, info) {
     try {
+      this.setState({ stack: String((info && info.componentStack) || "").replace(/\s+/g, " ").slice(0, 300) });
       if (typeof window !== "undefined" && window.errLog) {
         window.errLog("screen", (this.props.screen || "?") + "：" + String(err && err.message || err),
           String((info && info.componentStack) || "").slice(0, 200));
@@ -170,11 +171,20 @@ function ScreenBoundaryClass() {
   render() {
     if (!this.state.err) return this.props.children;
     const msg = String(this.state.err && this.state.err.message || this.state.err || "").slice(0, 200);
+    // ⚠️报错里一定要写【是哪一页】：读者截图只有一句「Cannot access '_' before initialization」，
+    //   光凭它谁也不知道该去翻哪个文件（她 2026-09-22 第二次撞上）。
+    //   所以卡上带页名，还给一颗「复制这条」——她转给我的时候就是一条能直接定位的线索。
+    const where = String(this.props.screen || "?");
+    const full = "[" + where + "] " + msg + (this.state.stack ? "\n" + this.state.stack : "");
     return h("div", { className: "h-full flex flex-col items-center justify-center", style: { padding: 28, gap: 12, textAlign: "center" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#3c3a34" } }, "这一页没能打开"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#7b776c" } },
         "出问题的只有这一页，别的地方和你的数据都好好的。"),
-      msg ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: "#9a9488", wordBreak: "break-all", maxWidth: 320 } }, msg) : null,
+      msg ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: "#9a9488", wordBreak: "break-all", maxWidth: 320 } },
+        "〔" + where + "〕" + msg) : null,
+      h("button", { onClick: () => { if (typeof copyText === "function") copyText(full); },
+        className: "active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9a9488", textDecoration: "underline", background: "transparent", border: "none" } }, "复制这条报错"),
       h("button", { onClick: () => { this.setState({ err: null }); if (this.props.onBack) this.props.onBack(); },
         className: "active:opacity-70",
         style: { marginTop: 4, minHeight: 44, padding: "0 22px", borderRadius: 12, background: "#3c3a34", color: "#f7f4ec", fontFamily: F_BODY, fontSize: 13.5 } }, "回首页"),

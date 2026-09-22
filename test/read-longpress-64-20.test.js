@@ -15,7 +15,10 @@ test("长按走全库那一份，read.js 不留第二套", () => {
   assert.ok(!/function useLongPress\(\)/.test(read), "read.js 里又长出自己那一份了");
   assert.match(components, /function useLongPressMenu\(onFire\) \{/, "公共那一份没了");
   // 三处都接上了：书架封面、正文页上那两张卡、批注册每一行
-  assert.match(read, /const \{ startPress, endPress \} = useLongPressMenu\(askDrop\);/, "书架没接上");
+  // ⚠️v72.56：这一行原来写的是 useLongPressMenu(askDrop) ——裸名字在渲染那一刻就求值，
+  //   而 askDrop 是几十行之后才 const 出来的：TDZ 当场抛、整页白屏（读者 2026-09-22 报的
+  //   「点开一起读界面是这个」）。必须包一层，跟批注册那一处同形。
+  assert.match(read, /const \{ startPress, endPress \} = useLongPressMenu\(function \(b\) \{ askDrop\(b\); \}\);/, "书架没接上");
   assert.match(read, /const pagePressProps = function \(fire\)/, "正文页那两张卡没接上");
   assert.match(read, /useLongPressMenu\(function \(r\) \{ askDropRow\(r\); \}\)/, "批注册那一行没接上");
   // 桌面右键是另一条路：iOS 长按 <button> 压根不发 contextmenu，两条各管各的

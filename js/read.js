@@ -356,7 +356,11 @@
     // 照梦境/塔罗那两处现成的做法：touch 自己计时判长按，contextmenu 留给桌面。
     // 长按走全局那一份（components.js 的 useLongPressMenu）：它认「手指动了就不算」、
     // 滚动能掐掉、还会把抬手那一下的误点吞掉——比这儿原来自己写的那套稳。
-    const { startPress, endPress } = useLongPressMenu(askDrop);
+    // ⚠️包一层再传，不许把 askDrop 直接递进去：它是下面几十行之后才 const 出来的，
+    //   而这一行在【渲染的时候】就要去取那个名字——TDZ，整页当场抛，
+    //   React 把整棵树卸掉 → 白屏（群里读者 2026-09-22：「点开一起读界面是这个」）。
+    //   底下那一册（AnnoBook）一直是包了一层的写法，这一处是漏的那一个。
+    const { startPress, endPress } = useLongPressMenu(function (b) { askDrop(b); });
     // 房间里点了「接着读《X》」那张卡：直接翻开那一本，别把她扔回书架自己找。
     // ⚠️取完就报一声，让上层把 entry 清掉——不然下次自己进书架又会被拽进同一本。
     const tookEntry = useRef("");
