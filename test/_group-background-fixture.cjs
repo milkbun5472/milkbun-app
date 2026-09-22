@@ -55,6 +55,9 @@ function wire(env) {
   if (!env.moneyText) env.moneyText = (n, id) => "¥" + n;
   // v72.85：人设抬头那个名字现在过 memberLabel（重名时才加标签）。跟别的一样接真的那一份。
   env.memberLabel = evaluate(cut(engine, 'function memberLabel(members, c) {', 'function pickMember('), env, 'memberLabel');
+  // 重名提醒也挨着名单发（v72.86），同样接真的那一份
+  env.Set = Set;
+  env.sameNameNote = evaluate(cut(engine, 'function sameNameNote(members) {', '// 模型回填的那个名字'), env, 'sameNameNote');
   env.liveStateContext = evaluate(cut(app, "  const liveStateContext =", "  // 心声历史："), env, "liveStateContext");
   env.wishRef = {current:[]};
   env.wishFor = evaluate(cut(app, "  const wishFor =", "  const onMeFor ="), env, "wishFor");
