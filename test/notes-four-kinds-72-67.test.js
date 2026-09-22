@@ -34,6 +34,23 @@ test("便签里可以出现用户，但不是条条都冲着她", () => {
 });
 
 // ⚠️加了四档之后，原来那条「打字 ≠ 录音」不许被挤掉：那是这个 app 的分界
+// 她 2026-09-22 紧接着那条：「便签也能字数多一点对吧，不然被截断」
+test("长的那几条允许真的很长，摆到 TA 面前也不再断在半句上", () => {
+  assert.match(spec, /长的那几条是可以真的很长的/, "只说了长短差得开，没说长的那头能有多长");
+  assert.match(spec, /不许为了收尾而收尾/);
+  // 这一枪的预算本来就开满，问题从来不在 maxTokens
+  assert.match(phone, /const PHONE_OUT_CEILING = 65535;/, "查手机那一枪的上限被调下来了");
+  const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  const i = app.indexOf("const forwardPhonePeekToChat = (char, peek) => {");
+  const j = app.indexOf("const genSceneFromAlbum", i) > i ? app.indexOf("const genSceneFromAlbum", i) : i + 2000;
+  assert.ok(i > 0, "抠不出转发那一处");
+  const seg = app.slice(i, j);
+  assert.match(seg, /const title = cut\(peek\.title, 120\)/, "转发时标题还卡在 60 字");
+  assert.match(seg, /const text = cut\(peek\.text, 3000\)/, "转发时正文还卡在 300 字 —— 长便签会断在半句上");
+  assert.match(seg, /…（后面还有）/, "真切掉的时候要说一声，不许默默断句");
+  assert.doesNotMatch(seg, /slice\(0, 300\)/, "旧的那一刀还在");
+});
+
 test("打字和录音那条分界还在", () => {
   assert.match(spec, /打字打不出来、必须说出口的东西才会被录/);
   assert.match(spec, /录音在总数里是少数/);
