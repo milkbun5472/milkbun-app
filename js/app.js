@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.71";
+const APP_VERSION = "v72.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22294,7 +22294,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // ---- export / import ----（整包：localStorage 的 x_ 数据 + IndexedDB 图片仓库 x_imgvault）
-  const doExport = async () => {
+  // 备份那一份文本【只在这儿攒一次】：存文件、复制到剪贴板两条路都用它。
+  // ⚠️各攒各的话，哪天加了一层新数据只会加在其中一条路上——另一条导出的就是残的。
+  const buildExportPack = async () => {
     const dump = {};
     // ⚠️x_neteaseCookie 是账号凭据，界面上写着「只存这台设备」。
     //   上云那一路（cloud.js 的 collect）早就排掉它了，导出这一路没跟上——
@@ -22335,7 +22337,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try { (JSON.stringify(dump).match(/iv_[A-Za-z0-9_-]+/g) || []).forEach(x => ivRefs.add(x)); } catch (e) {}
     if (ivRefs.size > 0 && vaultCount === 0) {
       toast("没有导出：存档里引用着 " + ivRefs.size + " 张图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声");
-      return;
+      return null;
     }
     // album 目录（照片的说明、来源、照片桥索引）原来【从不进备份】，
     // 而导入那一路 idbVaultClear() 会把它连同图一起清掉——只清不备，导一次少一次。
@@ -22357,28 +22359,51 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + (album.length ? "、" + album.length + " 条照片说明" : "")
       + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    return { name: name, text: await blob.text(), what: what };
+  };
+  const doExport = async () => {
+    const pack = await buildExportPack();
+    if (!pack) return;                 // 上面那道图库核对已经当面说过了
     try {
-      const via = await saveTextFile(name, await blob.text(), "application/json");
+      const via = await saveTextFile(pack.name, pack.text, "application/json");
       if (via === "cancel") toast("导出取消了，什么都没存");
-      else if (via === "share") toast("备份已交给分享面板" + what + "，在里面选「存储到文件」");
-      else toast("已导出备份" + what);
+      else if (via === "share") toast("备份已交给分享面板" + pack.what + "，在里面选「存储到文件」");
+      else toast("已导出备份" + pack.what);
     } catch (e) {
       toast("导出没成功：" + (e && e.message || e) + "——数据还在，没有丢");
     }
   };
-  const doImport = file => {
-    const r = new FileReader();
-    r.onload = async e => {
+  // QQ／微信／微博这些【内置浏览器】里，点下载多半落不到手上：它会接管成自己那个
+  // 「文件下载」页，然后存进 app 自己的沙盒，你再也找不着（她 2026-09-22 转来的截图）。
+  // 这种时候唯一一条走得通的路是【复制走】——剪贴板不归它管。
+  const inAppBrowser = () => /MicroMessenger|QQ\/|QQBrowser|MQQBrowser|Weibo|TikTok|DouYin|Quark|baiduboxapp|Alipay/i.test(
+    (typeof navigator !== "undefined" && navigator.userAgent) || "");
+  const doCopyExport = async () => {
+    const pack = await buildExportPack();
+    if (!pack) return;
+    const kb = Math.round(pack.text.length / 1024);
+    // ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路，
+    //   写不进去会老老实实返回 false）。这儿再手写一份就是第五处（v71.12 刚把四处搬完）。
+    const ok = await copyText(pack.text);
+    if (ok) toast("整份备份已复制（约 " + kb + "KB" + pack.what + "）——现在去微信／QQ 发给自己，或者存进备忘录");
+    else toast("这个浏览器不让复制这么大一段——数据还在，没有丢；换系统浏览器打开再试");
+  };
+  // ⚠️导入分两条路：选文件、和【把整份 JSON 贴进来】（她 2026-09-22 转来的：
+  //   在 QQ／微信内置浏览器里导出，文件根本落不到手上）。两条路只有这一份实现，
+  //   选文件那条只负责把文件读成字符串（施工规则/one-public-mechanism）。
+  const doImportText = async raw => {
+    {
       let parsed;
       try {
-        parsed = JSON.parse(e.target.result);
+        parsed = JSON.parse(raw);
       } catch (err) {
-        toast("导入失败：文件损坏或不是备份文件");
-        return;
+        // ⚠️失败要返回 false：贴那条路靠它决定【要不要把她贴的那一大段留着】
+        toast("导入失败：内容损坏或不是备份文件");
+        return false;
       }
       if (!parsed.__archive || !parsed.data) {
-        toast("文件格式不对");
-        return;
+        toast("格式不对，这不像是这个 app 的备份");
+        return false;
       }
       // 从按下导入起就暂停本页正在跑的灾后补账；否则它可能在清仓与重载之间
       // 把刚被权威备份删掉的旧消息又写回来。
@@ -22452,7 +22477,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         toast("导入成功：已用这份备份完整覆盖本机，正在重载…");
         setTimeout(() => location.reload(), 800);
       }
-    };
+    }
+    return true;
+  };
+  const doImport = file => {
+    const r = new FileReader();
+    r.onload = e => { doImportText(String(e.target.result || "")); };
+    // ⚠️读文件本身也会失败（权限、被别的 app 占着）。不吭声的话就是一颗死按钮。
+    r.onerror = () => toast("这份文件读不出来，换一份或者用「贴一份备份」");
     r.readAsText(file);
   };
 
@@ -24202,6 +24234,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetGeoPlace: doSetGeoPlace,
     onBack: goHome,
     onExport: doExport,
+    onCopyExport: doCopyExport,
+    onImportText: doImportText,
+    inAppBrowser: inAppBrowser(),
     onImport: doImport,
     onOffloadChats: offloadAllChats,
     onPruneOld: pruneRegenerables,

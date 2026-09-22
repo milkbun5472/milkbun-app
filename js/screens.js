@@ -8388,7 +8388,7 @@ function Config(props) {
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
-      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onCopyExport: props.onCopyExport, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }
@@ -9834,6 +9834,9 @@ function HomeLayoutProbe({ toast }) {
 function DataConfig({
   characters,
   onExport,
+  onCopyExport,
+  onImportText,
+  inAppBrowser,
   onImport,
   onOffloadChats,
   onPruneOld,
@@ -9881,7 +9884,27 @@ function DataConfig({
         "这份文件带走的是：角色、聊天、记忆、手机、情侣空间这些正文，加上图库、自拍和照片说明。"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f", marginTop: 5 } },
         "⚠️ 不含：API 密钥 · 一起读的书正文 · 语音音频 · 一起听的本地歌 · 网易云 Cookie。换设备之后这几样要重来一次。")),
+    // ── 下载落不下来的那条退路（她 2026-09-22 转来的截图：QQ 内置浏览器把下载
+    //    接管成自己那个「文件下载」页，文件进了它的沙盒，人再也找不着）──────
+    // ⚠️这一颗不藏在「内置浏览器才显示」后面：判 UA 永远判不全，而这条路
+    //    在哪个浏览器里都能用。内置浏览器只是多顶一句提醒。
+    inAppBrowser ? h("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f" } },
+        "你现在是在 QQ／微信这类 app 自带的浏览器里打开的。这里点下载，文件多半会被它收进自己的沙盒，你再也找不着。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 4 } },
+        "要么右上角「⋯」→ 用系统浏览器打开再导出；要么直接用下面那颗「复制整份备份」。")) : null,
+    button("复制整份备份（下载不下来时用这个）", onCopyExport, false),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "4px 2px 0" } },
+      "复制完去微信／QQ 发给自己，或者存进备忘录。要恢复的时候用下面的「贴一份备份」。"),
     button("导入备份恢复", () => ref.current && ref.current.click(), false),
+    // 贴一份：跟主题包那条路同一个组件（施工规则/one-public-mechanism）
+    typeof window !== "undefined" && window.ThemePackPasteBox && onImportText
+      ? h("div", { style: { marginTop: 10 } }, h(window.ThemePackPasteBox, {
+          onText: text => onImportText(text),   // 失败要留着她贴的那一大段，所以原样把结果交回去
+          open: "贴一份备份（复制来的那一大段）",
+          ph: "把复制出来的那一整段备份贴在这儿"
+        }))
+      : null,
     h(HomeLayoutProbe, { toast: toast }),
     h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
       const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
