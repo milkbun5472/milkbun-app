@@ -68,7 +68,9 @@ test("线下独有的那半句留着，但口径跟公共那份对得上", () =>
 
 test("线上那两格一个字没改坏（它们本来就是对的）", () => {
   assert.match(A, /thought: string，【每轮必须写一句，禁止 null、空串或省略】。\$\{THOUGHT_MEANING\}/);
-  assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}或在 word 中报备。/);
+  // v72.94：尾巴从「或在 word 中报备。」换成「这一格是它唯一的去处…」——
+  // 这条守的是【线上那一行仍从公共定义取】，不钉尾巴的措辞
+  assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}/);
   assert.ok(!/。$/.test(AM), "ACT_MEANING 结尾带句号，线上那句会读不通");
 });
 
