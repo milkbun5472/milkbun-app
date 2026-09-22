@@ -9691,11 +9691,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             + (_ct ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + _ct : "") });
           continue;
         }
-        if ((m.role === "narration" || m.kind === "narration") && m.who !== "char") {
+        if (m.role === "narration" || m.kind === "narration") {
           // API 只有 user/assistant 两个对话侧可用，但语义上这是无说话人的场景事实。
           // 用明确边界包装，禁止模型把它理解成 Lisa 的台词、动作或内心。
-          const nc = stp + "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content +
-            "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】";
+          // ⚠️TA自己那一行动作（动描摆出来的）也走这一侧，【绝不许再放回 assistant 那一边】：
+          //   原来它就挂在同一轮气泡的同一条 assistant 消息里，只靠一句括号旁注隔开。
+          //   于是每一轮，模型在【自己的输出通道】里都看见自己写了一段身体动作散文——
+          //   v72.82 它连那句旁注都照抄进气泡了，可见它读成的是「我的输出格式」。
+          //   看够了就往 word 里写，那就是她 2026-09-22 那张样张：整轮全是动作、一句话没说。
+          //   动描本来只是【把状态卡那一格也摆出来看一眼】，不该反过来教TA多写一段。
+          const _actRow = m.who === "char";
+          const nc = stp + (_actRow
+            ? "【场景旁注｜" + char.name + " 当时正在做的动作，不是任何人说出口的话】\n" + m.content
+              + "\n【这是当时的状态读数，不是你的发言格式：不得把它当成自己发出去过的消息，也不要照着它再写一段动作。】"
+            : "【无说话人的场景旁白｜不是" + uName + "说的话】\n" + m.content
+              + "\n【只把上面当作已经发生/当前成立的场景事实；不得声称" + uName + "说过这段话。】");
           const lu = g[g.length - 1];
           if (lu && lu.role === "user") lu.content += "\n" + nc;else g.push({ role: "user", content: nc, _t: null });
         } else if (m.role === "user") {
@@ -9737,11 +9747,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } else {
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
-          // TA自己那几条动作（who:"char" 的 narration）：走角色这一侧，别掉进「她的旁白」里
           // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
+          // ⚠️动作行不在这儿了（v72.96 搬去了旁白那一侧，理由写在上面）。
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
-          const ac = stp + byU + ((m.role === "narration" || m.kind === "narration") ? "【这一条是你此刻的动作／你那边的动静，不是你发出去的消息；这是旁注，别把它抄进你的正文】" + m.content
-            : m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
+          const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
@@ -10034,6 +10043,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           return true;
         });
       }
+      // 掉格式兜底（她 2026-09-22 给的读者样张）：整整一轮全是身体动作描写、
+      //   一句话都没说，四条白气泡条条带已读——那不是消息，是一段线下正文被塞进了聊天框。
+      //   提示词里那条（ONLINE_CHAT_RULE_V2「不写旁白、动作、神态」）早就发到了还漏，
+      //   所以这一刀落在代码里。挪进动作行，不删、不改字，只是别冒充「发出去的话」。
+      // ⚠️称谓设成第三人称的场次不落刀：那儿的「她」本来就是对的。
+      const _actGuard = window.BubbleActGuard
+        ? window.BubbleActGuard.split(words, { secondPerson: (settingsFor(charId) || {}).userPerson !== "ta" })
+        : { words: words, acts: [] };
+      words = _actGuard.words;
+      const rescuedActLines = _actGuard.acts;
       // 她转过来那一笔的结算（v56.88）：由 TA 这一轮自己表的态，不再掷骰子。
       // 省略这个字段＝这轮没顾上点开，卡继续挂着。
       let _tfTook = false;
@@ -10197,7 +10216,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
       const onlineAction = TVG.normalizeAction(parsed.action, char && char.name);
-      if (_actDesc && onlineAction && String(onlineAction).trim()) {
+      // 被救回来的那几行先摆：它们是这一轮【真写出来的】正文，比状态卡那一格更贴这一拍。
+      // ⚠️不看动描开关：开关管的是「要不要把 action 那一格也摆出来」，
+      //   而这几行本来就要显示——不摆就等于把她收到的东西吞了。
+      if (rescuedActLines.length) {
+        rescuedActLines.forEach((line, k) => pChat(chatKey, p => [...p, {
+          role: "narration", kind: "narration", who: "char", content: line,
+          ts: Math.max(0, _tsOf(0) - rescuedActLines.length + k), turnId
+        }]));
+      } else if (_actDesc && onlineAction && String(onlineAction).trim()) {
         const _line = String(onlineAction).trim();
         const _rows = chatsRef.current[chatKey] || [];
         let _prevAct = "";
@@ -11575,7 +11602,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
                 return acc.concat(parts);
               }, []);
-            const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            let gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
+            // 掉格式兜底（四处一样喂：跟单聊同一把刀、同一个模块）。群里没有逐人称谓设置，
+            // 默认就是第二人称。
+            const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
+            gBubbles = _gGuard.words;
+            const gRescuedActs = _gGuard.acts;
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
@@ -11583,7 +11615,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
-            if (_gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
+            // 被救回来的那几行先摆，跟单聊同一个分寸：它们是这个人这一拍真写出来的正文，
+            // 不看动描开关——不摆就等于把发言吞了。
+            if (gRescuedActs.length && spk) {
+              gRescuedActs.forEach(line => pGChat(groupId, p => [...p, {
+                role: "narration", kind: "narration", who: "char",
+                senderId: spk.id, senderName: spk.name, content: line,
+                mid: "gact_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId
+              }]));
+            }
+            if (!gRescuedActs.length && _gActDesc && gActionNow && spk && (_actOnce.get(spk.id) || 0) < ACT_PER_TURN) {
               // ⚠️记在这儿，不管下面到底摆没摆出来：摆没摆是【跟上一条比】的事，
               //   「这一轮TA已经用掉一次机会了」是另一回事。写在 if 里面就会漏，
               //   TA前几条没变、最后一条换了个新的照样能把额度花光。
