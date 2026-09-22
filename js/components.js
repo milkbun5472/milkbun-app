@@ -6462,12 +6462,25 @@ function HomeCardSheet({ card, profile, onSave, onClose }) {
       h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 0" } }, "取消"),
       h("button", { onClick: save, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.bg2, background: t.ink, borderRadius: 14, padding: "13px 0" } }, "保存")));
 }
+// 我的面具（她 2026-09-22：「在信息-我-我的面具那里添加人设，格式跟主面具一样，
+// 可以设置切换哪个是主面具，然后再从他们设置里改谁知道我是谁」）。
+// 一张面具＝跟主面具一模一样的那一整套字段，所以这一页【只多一条面具条】，
+// 下面那些栏一个字都没改——格式相同这件事是靠「同一份表单」保证的，不是靠抄一遍。
 function ProfileSheet({
   profile,
+  masks,
+  primaryId,
   onSave,
+  onSaveMask,
+  onDeleteMask,
+  onMakePrimary,
   onClose
 }) {
   const t = useTheme();
+  const lib = Array.isArray(masks) ? masks : [];
+  // "" = 正在编辑主面具那一份（老存档里它还不在库里）；否则是库里某一张的 id
+  const [editId, setEditId] = useState("");
+  const cur = editId ? (lib.find(m => m && m.id === editId) || profile) : profile;
   const [name, setName] = useState(profile.name || "");
   const [tagline, setTagline] = useState(profile.tagline || "");
   const [persona, setPersona] = useState(profile.persona || "");
@@ -6477,6 +6490,56 @@ function ProfileSheet({
   const [appearance, setAppearance] = useState(profile.appearance || "");
   const [refPhoto, setRefPhoto] = useState(profile.refPhoto || null);
   const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
+  // 表单 → 一份面具。保存、切走前的自动落盘、设为主面具，都读这一份（只拼这一处）
+  const formOf = () => Object.assign({}, cur, {
+    name, tagline, persona, avatarImage, color,
+    birthday: birthday.trim(), appearance: appearance.trim(),
+    refPhoto: refPhoto, photoOutfit: photoOutfit.trim()
+  });
+  const loadInto = m => {
+    setName(m.name || ""); setTagline(m.tagline || ""); setPersona(m.persona || "");
+    setAvatarImage(m.avatarImage || null); setColor(m.color || AV_COLORS[0]);
+    setBirthday(m.birthday || ""); setAppearance(m.appearance || "");
+    setRefPhoto(m.refPhoto || null); setPhotoOutfit(m.photoOutfit || "");
+  };
+  // 切到另一张之前，先把手上这张存了——不然改了一半切走就白改（她最容易撞上的那一下）
+  const commit = () => {
+    const f = formOf();
+    if (editId) { if (onSaveMask) onSaveMask(Object.assign({}, f, { id: editId })); }
+    else if (onSave) onSave(f, { stay: true });
+  };
+  const switchTo = id => {
+    commit();
+    setEditId(id);
+    loadInto(id ? (lib.find(m => m && m.id === id) || {}) : profile);
+  };
+  const addMask = () => {
+    commit();
+    const id = "mk_" + Date.now();
+    if (onSaveMask) onSaveMask({ id: id, name: "", tagline: "", persona: "", avatarImage: null, color: AV_COLORS[0], birthday: "", appearance: "", refPhoto: null, photoOutfit: "" });
+    setEditId(id); loadInto({});
+  };
+  const isPrimary = editId ? (String(primaryId || "") === editId) : !primaryId;
+  const chip = (id, label, on) => h("button", { key: id || "_main", onClick: () => switchTo(id),
+    className: "active:opacity-70 shrink-0",
+    style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap",
+      background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
+    label);
+  const maskBar = h("div", { style: { marginBottom: 10 } },
+    h("div", { className: "flex items-center overflow-x-auto", style: { gap: 6, scrollbarWidth: "none", paddingBottom: 2 } },
+      (!primaryId ? [chip("", (profile.name || "主面具") + " · 主", editId === "")] : []).concat(
+        lib.map(m => chip(m.id, (m.name || "未命名") + (String(primaryId || "") === m.id ? " · 主" : ""), editId === m.id)))
+        .concat([h("button", { key: "+", onClick: addMask, className: "active:opacity-70 shrink-0",
+          style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px dashed " + t.line } }, "＋ 新面具")])),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 6 } },
+      isPrimary
+        ? "这是主面具：没单独指定的角色，认的都是这一张。"
+        : "这是一张备用面具。去某个角色的设置 → TA 知道什么 → 「TA 认识的是我哪一张」，把 TA 换成认这一张。"),
+    (editId && !isPrimary) ? h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+      h("button", { onClick: () => { commit(); onMakePrimary && onMakePrimary(editId); },
+        className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, "设为主面具"),
+      h("button", { onClick: () => { onDeleteMask && onDeleteMask(editId); setEditId(""); loadInto(profile); },
+        className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "4px 6px" } }, "删掉这张")) : null);
   return /*#__PURE__*/React.createElement(Sheet, {
     onClose: onClose,
     tall: true
@@ -6489,21 +6552,11 @@ function ProfileSheet({
       color: t.ink
     }
   }, "我的面具"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onSave(Object.assign({}, profile, {
-      name,
-      tagline,
-      persona,
-      avatarImage,
-      color,
-      birthday: birthday.trim(),
-      appearance: appearance.trim(),
-      refPhoto: refPhoto,
-      photoOutfit: photoOutfit.trim()
-    }))
+    onClick: () => { if (editId) { onSaveMask && onSaveMask(Object.assign({}, formOf(), { id: editId })); onClose && onClose(); } else onSave(formOf()); }
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), maskBar, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-center py-3"
   }, /*#__PURE__*/React.createElement(AvatarPicker, {
     character: {
@@ -15632,6 +15685,7 @@ function ChatSettings({
   temperamentBusy,
   onGenerateTemperament,
   onSaveTemperament,
+  myMasks,
   aShadowPanel,
   dongnianState,
   dongnianElsewhere,
@@ -15684,9 +15738,8 @@ function ChatSettings({
   const [selfP, setSelfP] = useState(settings.selfP || "first");
   const [userP, setUserP] = useState(settings.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
-  // 我在 TA 面前是谁（她 2026-09-22）：空着就跟着「我的面具」那张走
-  const [meName, setMeName] = useState(settings.meName || "");
-  const [mePersona, setMePersona] = useState(settings.mePersona || "");
+  // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
+  const [maskId, setMaskId] = useState(settings.maskId || "");
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
@@ -15968,8 +16021,7 @@ function ChatSettings({
       actPerson,
       userPerson,
       timeAwareMode,
-      meName,
-      mePersona
+      maskId
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
@@ -16028,23 +16080,25 @@ function ChatSettings({
       h(Eyebrow, null, "还没派上用场"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text))) : null),
   // ⚠️这一栏归「TA 知道什么」：它改的正是【TA 眼里的我是谁】。
-  //   两栏各自可空——只换名字（别人叫我小鱼）、或只换人设（TA 只知道我是学生）都成立。
-  show("know", { title: "我在 " + cNm + " 面前是谁", ...sec("me-mask") }, h("div", { className: "pt-3" },
+  //   面具本身在【信息 → 我 → 我的面具】里建和改（那儿的表单就是主面具那一套），
+  //   这儿只管一件事：TA 认识的是哪一张。两处各管各的，别在这儿又开一套人设输入框。
+  show("know", { title: "TA 认识的是我哪一张", ...sec("me-mask") }, h("div", { className: "pt-3" },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
-      "留空就跟着「我的面具」那一张走。只填一栏也行：只换名字、或者只换人设。\n"
-      + "⚠️只在这个人的单聊、线下、通话、日记、查手机这些一对一的地方生效；"
-      + "群里大家都在场，同一句话没法对不同的人戴不同的脸，所以群聊一律用主面具。"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 4 } }, "TA 怎么称呼我"),
-    h("input", { value: meName, onChange: e => setMeName(e.target.value.slice(0, 24)),
-      placeholder: "留空＝跟着主面具", className: "w-full bg-transparent outline-none pb-2",
-      style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, borderBottom: "1px solid " + t.line } }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "16px 0 4px" } }, "TA 认识的我是什么样"),
-    h("textarea", { value: mePersona, onChange: e => setMePersona(e.target.value.slice(0, 4000)), rows: 6,
-      placeholder: "留空＝跟着主面具。可以只写 TA 该知道的那一面。",
-      className: "w-full bg-transparent outline-none resize-none",
-      style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" } }),
-    (meName || mePersona) ? h("button", { onClick: () => { setMeName(""); setMePersona(""); },
-      className: "active:opacity-60", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "都清掉，跟着主面具") : null)),
+      "默认认主面具。想让 " + cNm + " 只认识另一张，先去「信息 → 我 → 我的面具」建一张，再回来挑。\n"
+      + "⚠️只在一对一的地方生效（单聊、线下、通话、日记、查手机这些）；群里大家都在场，"
+      + "同一句话没法对着不同的人戴不同的脸，所以群聊一律用主面具。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      [{ id: "", name: "主面具" }].concat((myMasks || []).map(m => ({ id: m.id, name: m.name || "未命名" })))
+        .map(o => {
+          const on = String(maskId || "") === o.id;
+          return h("button", { key: o.id || "_main", onClick: () => setMaskId(o.id), className: "active:opacity-70",
+            style: { padding: "7px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub,
+              border: "1px solid " + (on ? t.ink : t.line) } }, o.name);
+        })),
+    (myMasks || []).length === 0
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 10 } }, "你现在只有主面具这一张。")
+      : null)),
   show("know", { title: "时间感知 · TA 知不知道今天几号", ...sec("time-aware") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, paddingTop: 8 } },
       "单独决定 " + cNm + " 是否知道现实中的日期、时段与自己的当前行程。房间还可以再覆盖一次；长篇如果默认关闭。"),

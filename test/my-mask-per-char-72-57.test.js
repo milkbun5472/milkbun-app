@@ -1,7 +1,9 @@
-// 她 2026-09-22 转群里读者（宁溪）：「问问，是只能一个 user 面具吗？」
+// 她 2026-09-22 转群里读者（宁溪）：「是只能一个 user 面具吗？」
+// 她当轮定了形状：「在信息-我-我的面具那里添加人设，格式跟主面具一样，
+//   然后可以设置切换哪个是主面具，然后再从他们设置里改谁知道我是谁」。
 //
-// 原来全 App 只有一张「我的面具」（x_profile），所有角色看到的都是同一个我。
-// 现在每个角色可以单独盖一张：名字、人设各自可空，空着就跟着主面具走。
+// 所以是【一个面具库】：每张面具跟主面具是同一套字段（同一份表单，不是抄一遍）；
+// 库里可以指定哪一张是主；角色那头只做一件事——挑 TA 认识的是哪一张。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -14,21 +16,21 @@ const src = (() => {
   assert.ok(i > 0, "抠不出 profileFor");
   return app.slice(i, app.indexOf("\n  };", i) + 4);
 })();
-const profileFor = (settings, profile) =>
-  new Function("settingsFor", "profile", "return " + src.slice(src.indexOf("charId =>")).replace(/;$/, ""))(
-    () => settings, profile)("c1");
+const run = (settings, masks, profile, primary) =>
+  new Function("settingsFor", "masksRef", "profile", "maskPrimary",
+    "return " + src.slice(src.indexOf("charId =>")).replace(/;$/, ""))(
+    () => settings, { current: masks }, profile, primary || "")("c1");
 
-const MAIN = { name: "Lisa", persona: "主面具", avatarImage: "iv_x" };
+const MAIN = { name: "Lisa", persona: "主面具" };
+const M1 = { id: "mk_1", name: "小鱼", persona: "学生" };
 
-test("两栏各自可空：只换名字、只换人设、都换、都不换", () => {
-  assert.equal(profileFor({}, MAIN), MAIN, "没设过就该原样把主面具还回去（换个对象会让整棵树白重渲染）");
-  assert.deepEqual(profileFor({ meName: "小鱼" }, MAIN), { name: "小鱼", persona: "主面具", avatarImage: "iv_x" });
-  assert.deepEqual(profileFor({ mePersona: "只是个学生" }, MAIN), { name: "Lisa", persona: "只是个学生", avatarImage: "iv_x" });
-  assert.deepEqual(profileFor({ meName: "小鱼", mePersona: "学生" }, MAIN), { name: "小鱼", persona: "学生", avatarImage: "iv_x" });
-  // 空白字符不算填过
-  assert.equal(profileFor({ meName: "  ", mePersona: "\n" }, MAIN), MAIN, "空白也被当成设过了");
-  // 没盖到的字段照旧跟着主面具（头像、参考照这些没分开）
-  assert.equal(profileFor({ meName: "小鱼" }, MAIN).avatarImage, "iv_x");
+test("角色认哪一张，就喂哪一张", () => {
+  assert.equal(run({}, [M1], MAIN), MAIN, "没挑过就该是主面具，而且原样还回去（换对象会让整棵树白重渲染）");
+  assert.equal(run({ maskId: "mk_1" }, [M1], MAIN), M1);
+  // 那张被删了不许炸，也不许喂个 undefined 过去
+  assert.equal(run({ maskId: "mk_gone" }, [M1], MAIN), MAIN, "指着一张已经删掉的面具时没回主面具");
+  // 认的就是「现在当主的那一张」时，走主面具那一份（x_profile 是它的镜像）
+  assert.equal(run({ maskId: "mk_1" }, [M1], MAIN, "mk_1"), MAIN);
 });
 
 // ⚠️只在一处合成：ctxFor 是单聊线上/线下、通话、日记、查手机、穿书、匿名箱、解梦馆共用的口子
@@ -37,23 +39,43 @@ test("接在 ctxFor 那一口上，八处一起有了", () => {
   const seg = app.slice(i, app.indexOf("\n  });", i));
   assert.match(seg, /profile: profileFor\(char\.id\),/, "ctxFor 还在喂主面具");
   assert.ok(!/\n    profile,\n/.test(seg), "旧的那一行还留着");
+  // 群聊是写明理由的差异，不是漏掉
+  assert.match(app, /同一句话没法对着不同的人戴不同的脸/, "群聊为什么不给，代码里没写明理由");
 });
 
-// 【四处一样喂 · 差异登记】群聊是显式的差异，不是忘了
-test("群聊那一支是写明理由的差异，不是漏掉", () => {
-  assert.match(src.length ? app : "", /群里大家都在场，同一句话没法对着不同的人戴不同的脸|同一句话不可能对着不同的人戴不同的脸/,
-    "群聊为什么不给，代码里没写明理由");
+test("设为主面具只改「哪张是主」，绝不搬 id", () => {
+  const i = app.indexOf("    onMakePrimary: id => {");
+  assert.ok(i > 0, "没有设为主面具");
+  const seg = app.slice(i, app.indexOf("\n    },", i));
+  assert.match(seg, /setMaskPrimary\(id\); saveJSON\("x_maskPrimary", id\);/, "没记下哪一张是主");
+  assert.match(seg, /setProfile\(next\); saveJSON\("x_profile", next\);/, "x_profile 这面镜子没跟着主面具走");
+  assert.ok(!/map\(x => x\.id === id \?/.test(seg),
+    "又去搬 id 了——小鱼一升主面具，本来认小鱼的角色会突然认成旧的那张脸");
+  // 老存档里主面具不在库里：换过去之前必须先把它收进库，否则那张脸再也找不回来
+  assert.match(seg, /if \(!maskPrimary\) \{/, "老存档那一路会把原来的主面具弄丢");
 });
 
-test("在 TA 自己的设置里切换，而且两栏都存得下来", () => {
-  assert.match(comps, /show\("know", \{ title: "我在 " \+ cNm \+ " 面前是谁"/, "入口不在「TA 知道什么」那一类里");
-  assert.match(comps, /const \[meName, setMeName\] = useState\(settings\.meName \|\| ""\);/, "没读回存档");
-  assert.match(comps, /const \[mePersona, setMePersona\] = useState\(settings\.mePersona \|\| ""\);/, "没读回存档");
-  assert.match(comps, /\n      meName,\n      mePersona\n    \}\)/, "保存时没带上这两栏");
-  assert.match(comps, /"都清掉，跟着主面具"/, "没有一键回到主面具");
-  // 落盘那头也得接住这两栏（app.js 那张白名单漏一项，点了保存就变回去）
-  assert.match(app, /meName: String\(s\.meName \|\| ""\)\.trim\(\)\.slice\(0, 24\)/, "存档没接住名字那一栏");
-  assert.match(app, /mePersona: String\(s\.mePersona \|\| ""\)\.trim\(\)\.slice\(0, 4000\)/, "存档没接住人设那一栏");
-  // 界面上要说清它的射程，不然她会以为群里也换了
+test("面具库只有一处写", () => {
+  assert.match(app, /const saveMasks = next =>/, "没有公共那一处");
+  assert.equal((app.match(/saveJSON\("x_masks",/g) || []).length, 1, "还有别处自己往 x_masks 里写");
+  assert.match(app, /maskId: String\(s\.maskId \|\| ""\)\.trim\(\)\.slice\(0, 40\)/, "存档白名单没接住 maskId");
+});
+
+test("建改在「我的面具」那一页，且跟主面具同一份表单", () => {
+  assert.match(comps, /const formOf = \(\) => Object\.assign\(\{\}, cur, \{/, "表单没抽成一处（格式相同该靠同一份表单保证）");
+  assert.match(comps, /"＋ 新面具"/, "没有新建");
+  assert.match(comps, /"设为主面具"/, "没有设为主面具");
+  assert.match(comps, /"删掉这张"/, "没有删除");
+  // 改了一半切走不许白改
+  assert.match(comps, /const switchTo = id => \{\n\s*commit\(\);/, "切换之前没先存——改一半切走就白改了");
+  assert.match(comps, /onSave\(f, \{ stay: true \}\)/, "顺手存那一下会把窗关掉");
+  assert.match(app, /if \(opt && opt\.stay\) return;/, "app 那头没认这一下「只存不关」");
+});
+
+test("角色那头只挑，不再另开一套人设框", () => {
+  assert.match(comps, /show\("know", \{ title: "TA 认识的是我哪一张"/, "入口不在「TA 知道什么」那一类里");
+  assert.match(comps, /const \[maskId, setMaskId\] = useState\(settings\.maskId \|\| ""\);/, "没读回存档");
+  assert.ok(!/setMePersona|mePersona/.test(comps), "上一版那两个自由输入框还留着——面具该在一处建，不是两处各写一套");
+  assert.match(comps, /myMasks/, "面具库没递进来，挑都没得挑");
   assert.match(comps, /群聊一律用主面具/, "没说清群里不生效");
 });

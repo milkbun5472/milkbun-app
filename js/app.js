@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.59";
+const APP_VERSION = "v72.61";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -729,6 +729,16 @@ function App() {
   const [appNotif, setAppNotif] = useState({ moments: 0, forum: 0, whisper: 0 });
   const appNotifRef = useRef({ moments: 0, forum: 0, whisper: 0 }); appNotifRef.current = appNotif;
   const [profile, setProfile] = useState({});
+  // 面具库（她 2026-09-22：「在信息-我-我的面具那里添加人设，格式跟主面具一样，
+  // 可以设置切换哪个是主面具，然后再从他们设置里改谁知道我是谁」）。
+  // ⚠️x_masks 装【所有面具】，每张有自己的 id；x_maskPrimary 记着哪一张是主面具。
+  //   x_profile 仍然是主面具那一份的镜像——全库几十处都在读它，让它跟着主面具走，
+  //   那几十处一个字都不用改。
+  // ⚠️「设为主面具」只改 primaryId，绝不搬动 id：角色那头存的是「我认的是哪一张」，
+  //   搬 id 的话，小鱼一旦升主面具，本来认小鱼的那个角色就会突然认成旧的那张脸。
+  const [masks, setMasks] = useState([]);
+  const masksRef = useRef([]);
+  const [maskPrimary, setMaskPrimary] = useState("");
   // 世界书只保留结构化词条；所有消费端一律走 loreText 筛选器，不再维护一团绕过范围的全局字符串。
   const [loreEntries, setLoreEntries] = useState([]);
   const loreRef = useRef(loreEntries); loreRef.current = loreEntries;
@@ -1625,6 +1635,9 @@ function App() {
     setGreetLog(loadJSON("x_greetLog", {}));
     setAppNotif(loadJSON("x_appNotif", { moments: 0, forum: 0, whisper: 0 }));
     setProfile(loadJSON("x_profile", {}));
+    const ms = (loadJSON("x_masks", []) || []).filter(m => m && m.id);
+    masksRef.current = ms; setMasks(ms);
+    setMaskPrimary(String(loadJSON("x_maskPrimary", "") || ""));
     // 名片的出厂预设（她 2026-09-06：「名片预设改一下就用我那张名片的签名和 tag，
     // 名字从 lisa 改成秋秋，默认图像塞秋秋那张胖鸟 png」）。
     // 原来是三个空值——新装的人第一眼看到的是「点此设置昵称／点铅笔写一句签名」，
@@ -1952,6 +1965,8 @@ function App() {
     } catch (e) {}
   };
   const setBgApi = id => { setBgApiId(id); saveJSON("x_bgApi", id); };
+  // 面具库只有这一处写（one-public-mechanism）：ref 跟着走，profileFor 那头才读得到最新的
+  const saveMasks = next => { const n = (next || []).filter(m => m && m.id); masksRef.current = n; setMasks(n); saveJSON("x_masks", n); return n; };
   const settingsFor = id => chatSettings[id] || {
     ctxN: 50,
     sumThresh: 150,
@@ -5239,12 +5254,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️只有这一处合成（one-public-mechanism）：ctxFor 是单聊线上/线下、通话、日记、
   //   查手机、穿书、匿名箱、解梦馆共用的那一口，接在这儿就是八处一起有了。
   // 【四处一样喂 · 差异登记】群聊 ❌ 有真理由：一个群里好几个角色同时在场，
-  //   同一句话不可能对着不同的人戴不同的脸——群里一律用主面具。
+  //   同一句话没法对着不同的人戴不同的脸——群里一律用主面具。
   const profileFor = charId => {
-    const st = settingsFor(charId) || {};
-    const nm = String(st.meName || "").trim(), ps = String(st.mePersona || "").trim();
-    if (!nm && !ps) return profile;
-    return Object.assign({}, profile, nm ? { name: nm } : null, ps ? { persona: ps } : null);
+    const id = String((settingsFor(charId) || {}).maskId || "");
+    if (!id || id === maskPrimary) return profile;  // 没挑过、或认的就是主面具那张
+    const m = (masksRef.current || []).find(x => x && x.id === id);
+    return m || profile;                            // 那张被删了也别炸：回主面具
   };
   const ctxFor = (char, ctxOpts) => ({
     char,
@@ -24377,6 +24392,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
     settings: settingsFor(activeChar.id),
+    // 面具库只读地递进去：那儿只挑，不建、不改（建改在「信息 → 我 → 我的面具」）
+    myMasks: masks,
     apiProfiles: apiProfiles,
     memory: memories[activeChar.id],
     temperament: temperamentDraft,
@@ -24484,10 +24501,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。
             webSearch: !!s.webSearch,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
-            // 我在 TA 面前是谁（她 2026-09-22）：两栏各自可空，空着就跟主面具。
-            // 洗一遍再存：长度封顶，纯空白当没填（不然 profileFor 那头要多认一种空）
-            meName: String(s.meName || "").trim().slice(0, 24),
-            mePersona: String(s.mePersona || "").trim().slice(0, 4000)
+            // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
+            maskId: String(s.maskId || "").trim().slice(0, 40)
           }
         };
         saveJSON("x_chatSettings", n);
@@ -24530,11 +24545,53 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onClose: () => setNewGroupOpen(false)
   }), profileOpen && /*#__PURE__*/React.createElement(ProfileSheet, {
     profile: profile,
-    onSave: p => {
+    masks: masks,
+    // opt.stay＝这是「切到另一张之前顺手存一下」，不是她按了保存：别关窗、别弹提示
+    onSave: (p, opt) => {
       setProfile(p);
       saveJSON("x_profile", p);
+      // 主面具在库里的那一张也跟着改：不然回头切走再切回来，改的那几笔就没了
+      if (maskPrimary) saveMasks((masksRef.current || []).map(x => x.id === maskPrimary ? Object.assign({}, p, { id: maskPrimary }) : x));
+      if (opt && opt.stay) return;
       setProfileOpen(false);
       toast("已保存");
+    },
+    // 副面具：存一张（新建也走这儿，id 由调用方带来）
+    onSaveMask: m => {
+      if (!m || !m.id) return;
+      const cur = masksRef.current || [];
+      saveMasks(cur.some(x => x.id === m.id) ? cur.map(x => x.id === m.id ? m : x) : cur.concat([m]));
+    },
+    onDeleteMask: id => {
+      const m = (masksRef.current || []).find(x => x && x.id === id);
+      if (!m) return;
+      // 只数她看得见的那几位（配角不该在这种名单里冒出来）
+      const used = liveChars.filter(c => c && String(settingsFor(c.id).maskId || "") === String(id));
+      requestAppConfirm("删掉面具「" + (m.name || "未命名") + "」？",
+        (used.length ? "有 " + used.length + " 个角色认的是这张（" + used.map(c => c.name).join("、").slice(0, 40) + "）——删了之后他们会认回主面具。\n" : "")
+        + "这张面具本身删了就没了。",
+        () => { saveMasks((masksRef.current || []).filter(x => x.id !== id)); toast("删掉了"); }, "删掉");
+    },
+    // 设为主面具＝把这一张和 x_profile 的内容【对调】：
+    // 全库几十处读的都是 x_profile，对调之后它们一个字都不用改。
+    primaryId: maskPrimary,
+    // 设为主面具：只改「哪一张是主」，不搬 id。
+    // x_profile 跟着主面具走（它是给全库那几十处读的镜像）。
+    onMakePrimary: id => {
+      const m = (masksRef.current || []).find(x => x && x.id === id);
+      if (!m) return;
+      // ⚠️老存档里主面具【不在库里】（那时候只有 x_profile 一张）：先把它收进库，
+      //   否则这一下换过去，原来那张脸就再也找不回来了。
+      let lib = masksRef.current || [];
+      if (!maskPrimary) {
+        const keep = Object.assign({}, profile, { id: "mk_" + Date.now() });
+        lib = lib.concat([keep]);
+        saveMasks(lib);
+      }
+      const next = Object.assign({}, m); delete next.id;
+      setProfile(next); saveJSON("x_profile", next);
+      setMaskPrimary(id); saveJSON("x_maskPrimary", id);
+      toast("「" + (m.name || "这张") + "」现在是主面具了");
     },
     onClose: () => setProfileOpen(false)
   }), cardOpen && h(HomeCardSheet, {
