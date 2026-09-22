@@ -6262,9 +6262,9 @@ async function generateOffline(p, ctx, session) {
   // JSON 字段按 draftScene → scene 排列；模型生成 scene 时，首稿已经成为它最近的上下文，
   // 但网络层只发生一次请求。未命中时仍沿用普通单稿协议，不给所有线下轮次平白加倍输出。
   const explicitRevisionRequested = !isDigital && !!rewriteRequested;
-  // nwHot＝上一拍真写出了网文腔（app 那头按 offlineRendererScore 打的分存回本场）。
-  // 卡里的词是「风险」，写出来的正文是「证据」——证据也该能点着这一道自我修订。
-  const archetypeRevisionRequested = !isDigital && (!!archetypePerformanceRisk || !!session.nwHot);
+  // ⚠️这一道只看人设卡里的风险词。不许再把 offlineRendererScore 那一分接进来：
+  //   那一分是故意只记不用的（她 2026-09-22：「不要这个！这是之前特意没接上的！」）。
+  const archetypeRevisionRequested = !isDigital && !!archetypePerformanceRisk;
   rewriteRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionProtocol = explicitRevisionRequested
