@@ -7272,10 +7272,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   const [testing, setTesting] = useState(false);
   const [testErr, setTestErr] = useState(null);
   const testAudRef = useRef(null);
-  // 语气标记验货台（v72.39，她 2026-09-21：「能不能也弄语气但是不让模型显示出来」）。
-  // ⚠️第一步只做这一格：MiniMax 认不认 (chuckle) 这类标记，我替她猜没有意义——
-  //   认了就是更细的语气，不认就会【把 chuckle 这个词念出来】，比现在还糟。
-  //   所以先让她自己听一条，听过了再决定要不要让模型去写标记。
+  // 语气标记验货台：把原文原样送去合成，听 MiniMax 到底认哪些标记。
   const [markTxt, setMarkTxt] = useState("你回来啦 <#0.5#> 我等好久了 <#0.3#> 饿不饿");
   const [markVid, setMarkVid] = useState("");
   const [markBusy, setMarkBusy] = useState(false);
@@ -7363,11 +7360,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("option", { value: "speech-01-turbo" }, "speech-01-turbo"))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。"),
       h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
-      // ---- 语气标记验货台（v72.39）----
-      // 她 2026-09-21 拿别家截图来问：那套 (chuckle) <#0.4#> 正是 MiniMax 自己的语法，
-      // 我们用的是同一个引擎，一直只用了粗的那一半（整条一个 emotion）。
-      // ⚠️但【认不认】只有真听一条才知道：不认的话它会把 chuckle 这个词念出来。
-      //   所以先做这一格，别急着让模型去写标记。
+      // ---- 语气标记验货台 ----
       h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
@@ -8605,8 +8598,9 @@ function ApiConfig({
     //   于是她照着说明把它指去便宜线路，顺手也把「Ta 眼里」指过去了——而她无从知道。
     //   一层挪了地方，说明没跟上，就是这条规矩的另一种犯法。
     routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。"
-      + "⚠️「Ta 眼里」的建卡和复看也走这条——那两枪吃的料重，便宜线路容易拦或者报 401，"
-      + "「Ta 眼里」不更新时先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
+      + "⚠️「Ta 眼里」的建卡和复看、以及【线上线下的各种总结】也走这条——"
+      + "这几枪都是把一大段材料打包成一条发出去，吃的料重，便宜线路容易拦、报 401 或者整段返空。"
+      + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),

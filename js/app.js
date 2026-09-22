@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.46";
+const APP_VERSION = "v72.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2314,6 +2314,14 @@ function App() {
   // 角色专线覆盖所有「这个角色本人开口」的场合；线下无专线角色则由 offlineApiFor 回退全局线下线路。
   const apiFor = id => pickRoute((chatSettings[id] || {}).apiId, active);
   // 角色专线永远优先于全局场景线路：例如只走 Fable 的角色，线上/线下都不会被全局 Gemini 覆盖。
+  // 总结/浓缩这一族的选路（v72.45）。它们跟聊天不是一类活：把一大段材料打包成
+  // 一条发出去、产出的是给系统吃的摘要，不是角色本人落笔——跟记忆抽取是同一类。
+  // 记忆抽取那两枪 v64.43 起就走后台线路了，总结这几枪一直没跟上（她 2026-09-21 撞上：
+  // 9.4k 字的线下经过喂给 Gemini，输入过滤器整段拦掉，只能换掉整条线下线路才救得回）。
+  // ⚠️只有她【真的挑过】后台线路才改道：没挑过时 bgActive 就是主模型，直接顶上去
+  //   会把原来走角色专线/线下线路的那几处悄悄换掉——那不是修，那是偷偷改行为。
+  // ⚠️异步回调里读 ref，不读渲染期那份（跟记忆抽取那两枪同一个写法）。
+  const sumRoute = fallback => (routePicked(bgApiId) && bgActiveRef.current) || fallback || null;
   const offlineApiFor = id => pickRoute((chatSettings[id] || {}).apiId, offlineActive);
   // 本体文本不是机械活：有角色专线走专线，否则仍由线上主池本人落笔，绝不交给 cheap_required 代写。
   const bgApiFor = id => apiFor(id);
@@ -6765,7 +6773,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (block.length < 4) return;
     offSumBusyRef.current[charId] = true;
     try {
-      const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
+      const r = await summarizeOffline(sumRoute(offlineApiFor(charId)), ctxFor(char), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -7309,7 +7317,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   于是「失败」表现成「这场悄悄没记进记忆库」，连我查都查不出为什么（她 2026-09-16 报）。
     //   报错要说真话（先例 v68.66 事件层）——她才知道是线路的事还是长度的事。
     try {
-      if (!sideRoom && offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      const sumP = sumRoute(offlineApiFor(charId));
+      if (!sideRoom && sumP) { const r = await summarizeOffline(sumP, ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) { sumErr = (e && e.message) || String(e); }
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     // 旧记忆保留，新条交给共享去重/确认候选机制，不按场次自动隐藏。
@@ -7601,7 +7610,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (block.length < 4) return;
     gOffSumBusyRef.current[groupId] = true;
     try {
-      const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
+      const r = await summarizeOfflineGroup(sumRoute(offlineActive), ctxForGroupOffline(group), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -7929,7 +7938,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let summary = "", details = [], opens = [], sumErr = "";
     // 和单人那一路同一个理由：总结失败必须说出来，不许悄悄当成「结束了」。
     try {
-      if (offlineActive && group) { const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      const gSumP = sumRoute(offlineActive);
+      if (gSumP && group) { const r = await summarizeOfflineGroup(gSumP, ctxForGroupOffline(group), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) { sumErr = (e && e.message) || String(e); }
     // 记忆分区：只有开了「记忆互通」的群才把线下总结写进全局记忆库；
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
@@ -7979,7 +7989,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sess) { toast("找不到这场线下的记录了，没法补总结"); return; }
     const group = isG ? groups.find(g => g.id === ownerId) : null;
     const char = isG ? null : characters.find(c => c.id === ownerId);
-    const route = isG ? offlineActive : offlineApiFor(ownerId);
+    const route = sumRoute(isG ? offlineActive : offlineApiFor(ownerId));
     if (!route || (isG && !group) || (!isG && !char)) { toast("请先配置线下线路"); return; }
     const lane = (isG ? "g:" : "c:") + ownerId;
     startLane(lane);
@@ -8387,7 +8397,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       const toSum = due.slice.filter(m => !isOocMsg(m) && contextAllowsMessage(m));
       if (!toSum.length) return;
-      const block = await summarizeChatBlock(p, ctxFor(char), toSum);
+      const block = await summarizeChatBlock(sumRoute(p), ctxFor(char), toSum);
       if (!block || !block.trim()) return;
       // ⚠️落盘前重新读一遍这间房：浓缩跑了好几十秒，她可能中途改过开关或改过名字
       const cur = window.ChatRooms.get(char.id, room.id) || room;
@@ -8412,7 +8422,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (toSummarize.length > 0) {
         try {
           // 止漂移：只浓缩这段新对话成一段带日期的记忆，【追加】到旧记忆末尾，不重炼整团（避免老细节被反复压糊）。封顶 8000 字，超了从头截、保最近。
-          const block = await summarizeChatBlock(active, ctxFor(char), toSummarize);
+          const block = await summarizeChatBlock(sumRoute(active), ctxFor(char), toSummarize);
           if (block && block.trim()) {
             // ⚠️日期写的是【这一段覆盖到哪几天】，不是【今天】（她 2026-09-01：
             //「有几天是断层的但是明明每天都在聊」）。浓缩是【攒够 sumThresh 条消息】
@@ -11956,7 +11966,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     startLane("g:" + groupId);
     try {
-      const summary = await summarizeGroup(active, {
+      const summary = await summarizeGroup(sumRoute(active), {
         profile
       }, msgs);
       if (summary && summary.trim()) {
@@ -12100,7 +12110,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const toSum = msgs.slice(lastSum, msgs.length - buffer).filter(m => !isOocMsg(m) && contextAllowsMessage(m)); // OOC/失败诊断不进群记忆（计数窗口不变）
     if (!toSum.length || !active) return;
     try {
-      const summary = await summarizeGroup(active, { profile }, toSum);
+      const summary = await summarizeGroup(sumRoute(active), { profile }, toSum);
       if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: gTags(g), charIds: memOwners(g.memberIds), knownBy: (g.memberIds || []).slice(), source: "auto", groupId: g.id });
       saveGroupSettings(groupId, { lastSummarizedCount: msgs.length - buffer });
       toast("群聊已存入记忆库");

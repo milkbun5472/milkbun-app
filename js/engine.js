@@ -5218,18 +5218,10 @@ function ttsEmotionOf(text) {
 }
 // MiniMax 认的 emotion 值（校验作者标注用）
 const TTS_EMOS = ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"];
-// ── 语气标记：说给 TTS 听的，不给她看（她 2026-09-21 拿别家截图来问）────────────
-// 她原话：「他们语音还会让模型输出语气，我们能不能也弄语气但是不让模型显示出来」。
-// 那套 (chuckle) <#0.4#> 就是 MiniMax T2A v2 自己的语法——我们用的是同一个引擎
-// （speech-02-hd / v1/t2a_v2），一直只用了粗的那一半：voice_setting.emotion 整条一个情绪。
-// inline 标记是逐句的，而且 <#秒#> 能插停顿——那正好治我们语音「一口气连珠炮念完」。
-//
-// ⚠️这一份只有一个出口：合成走【带标记的原文】，显示走【剥干净的】。
-//   四处要剥（单聊语音条、群聊语音条、通话逐句播报、庭院念气泡），各写一份的话
-//   迟早漏一处，而漏掉的那一处正好把标记显示出来——那恰恰是她要躲的（one-public-mechanism）。
-// ⚠️剥标记走【白名单】，不认「凡是半角括号里的英文」：
-//   漏剥最多是显示出一个标记（难看，但一个字没丢）；误剥是把她角色真说的话吃掉。
-//   宁可漏判别误判——跟 noFaceKindFor 那道闸同一条判据。
+// ── 语气标记（她 2026-09-21）：停顿说给 TTS 听，别的一律剥掉 ──────────────
+// 实测 MiniMax 认 <#秒#>，不认 (chuckle) 那类词（会被当成单词念出来）。
+// ⚠️白名单剥，不认「凡是半角括号里的英文」：误剥会把角色真说的话吃掉，
+//   漏剥只是显示出一个标记——宁可漏判别误判（同 noFaceKindFor 那条判据）。
 const TTS_MARK_TAGS = ["laughs", "laughing", "laugh", "chuckles", "chuckle", "chuckling",
   "giggles", "giggle", "sighs", "sigh", "sighing", "gasps", "gasp",
   "whispers", "whispering", "whisper", "softly", "quietly", "excited", "surprised",
@@ -5237,25 +5229,13 @@ const TTS_MARK_TAGS = ["laughs", "laughing", "laugh", "chuckles", "chuckle", "ch
   "clears throat", "coughs", "humming", "hums", "yawns", "kisses", "kiss", "pauses", "mumbles"];
 const TTS_MARK_PAUSE = /<#\s*\d+(?:\.\d+)?\s*#>/g;
 const TTS_MARK_TAG_RE = new RegExp("\\(\\s*(?:" + TTS_MARK_TAGS.join("|") + ")\\s*\\)", "gi");
-// 剥干净给人看的那一份。⚠️剥完要收拾空白：标记两边本来各有一个空格，
-//   不收拾的话气泡里会留下一串空洞（她截图那家就是没剥，整串都露在外面）。
-// ⭐实测结论（她 2026-09-21 在验货台听的）：**停顿认，情感标记不认**——
-//   <#0.5#> 真的停了半秒，而 (chuckle)(softly) 被【当成单词念了出来】。
-//   所以这一层从此分成两支，判据是【这个标记送上去会不会变成声音】：
-//   · ttsMarkForSynth：送去合成之前用。只剥会被念出来的那些，**停顿留着**。
-//   · ttsMarkStrip：给人看之前用。两样都剥干净。
-// ⚠️合成那一支是【代码兜底】，不是提示词的活：万一哪天正文里真出现了这类标记
-//   （模型自己写的、她手打的、从别处粘的），不剥就会被念出来。
-//   兜底归代码，提示词那边一个字都不用说（施工规则/bans-make-it-dumber.md）。
-// 教模型怎么在语音里插停顿。单聊和群聊共用这一句——各写一份的话，
-// 哪天改了措辞另一处永远落单（施工规则/one-public-mechanism.md）。
-// ⚠️只教【认得出的那一样】：实测 MiniMax 认 <#秒#>，不认 (chuckle) 那类词。
-// ⚠️这儿【只给许可，不加禁令】（她 2026-09-21 当场纠正）：v72.40 第一版在后面挂了一句
-//   「别写 (laughs) 这类标记」，三条都犯了——①那件事代码已经管了（ttsMarkForSynth
-//   送去合成之前就剥掉）；②模型本来没在写，问题是我自己在验货台里手打出来的；
-//   ③禁令里点名那几个词，等于第一次把这个形状介绍给它（施工规则/prompt-no-content-samples.md
-//   里「某位扬言要纳侧房的祖宗」那个坑）。所以那半句删了，不是改小，是删掉。
+// 教模型怎么在语音里插停顿，单聊和群聊共用这一句。
+// ⚠️只给许可，不加禁令：剥标记是代码的活（ttsMarkForSynth），提示词这边不说
+//   （施工规则/bans-make-it-dumber.md）。
 const VOICE_PAUSE_MARK = "这条语音的内容里可以插停顿：写成 <#0.5#>（井号之间是秒数，0.1~2 之间），放在换气、想一下、说到一半顿住的地方。一条里最多两三个，只在真该顿的地方放——它是说话的节奏，不是标点，每句都塞反而把话说碎了。";
+// 两支，判据是【这个标记送上去会不会变成声音】：
+// · ttsMarkForSynth 送去合成之前用，只剥会被念出来的，停顿留着。
+// · ttsMarkStrip 给人看之前用，两样都剥；剥完收拾空白，别在气泡里留下一串空洞。
 function ttsMarkForSynth(text) {
   const s = String(text == null ? "" : text);
   if (!s) return "";
