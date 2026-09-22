@@ -35,10 +35,13 @@ test("贴一份 JSON 也能导入，而且跟选文件走同一处", () => {
   assert.ok(ui.includes("const applyPack = async text => {"), "没有公共那一处");
   assert.equal((ui.match(/studio\.importPackage\(/g) || []).length, 1, "解析写成了两份");
   assert.ok(/await applyPack\(text\)/.test(ui), "选文件那一路没走公共那处");
-  assert.ok(/if \(await applyPack\(pasteText\)\)/.test(ui), "贴上去那一路没走公共那处");
+  // v72.52 起「贴一份」是共用组件 ThemePackPasteBox（聊天气泡那一页也用它），
+  // 所以这一路是把 applyPack 作为 onText 交给它。
+  assert.ok(/function ThemePackPasteBox\(/.test(ui), "没有共用的那一份贴框");
+  assert.ok(/h\(ThemePackPasteBox, \{ onText: applyPack \}\)/.test(ui), "贴上去那一路没走公共那处");
   assert.ok(/挑不开文件？把主题包 JSON 贴进来/.test(ui), "没有贴一份的入口");
   // 贴失败了不许把她贴的那一大段清掉
-  assert.ok(/\{ setPasteText\(""\); setPasting\(false\); \}/.test(ui), "成功才清空、失败要留着她贴的那份");
+  assert.ok(/if \(await onText\(text\)\) \{ setText\(""\); setPasting\(false\); \}/.test(ui), "成功才清空、失败要留着她贴的那份");
 });
 
 test("读文件本身失败也要说一句，不许闷着", () => {

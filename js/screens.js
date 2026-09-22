@@ -8382,7 +8382,7 @@ function Config(props) {
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(CacheStatCard, null)),
-      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, toast: props.toast })),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
@@ -8846,10 +8846,14 @@ function SenseConfig({
   onSave,
   geo,
   onRequestGeo,
+  onSetGeoPlace,
   toast
 }) {
   const t = useTheme();
   const [p, setP] = useState(prefs);
+  // 手填「我在哪」的草稿（她 2026-09-22：想让角色以为自己在东京）
+  const [placeDraft, setPlaceDraft] = useState("");
+  const [placeBusy, setPlaceBusy] = useState(false);
   const [notifOn, setNotifOn] = useState(() => !!(window.Notify && window.Notify.isOn()));
   const save = np => {
     setP(np);
@@ -8929,14 +8933,15 @@ function SenseConfig({
       color: t.fog,
       marginTop: 2
     }
-  }, geo && geo.label ? "当前：" + geo.label : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
+  }, geo && geo.label ? "当前：" + geo.label + (geo.manual ? "（你手填的）" : "") : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
     on: p.geoAware === true,
     onChange: v => {
       save({
         ...p,
         geoAware: v
       });
-      if (v) onRequestGeo();
+      // ⚠️她手填过地方就别去要设备定位：那一下会把她填的东京按回真实所在地（v72.66）
+      if (v && !(geo && geo.manual)) onRequestGeo();
     }
   })), p.geoAware && /*#__PURE__*/React.createElement("button", {
     onClick: onRequestGeo,
@@ -8948,7 +8953,34 @@ function SenseConfig({
       border: `1px solid ${t.line}`,
       borderRadius: 6
     }
-  }, geo && geo.label ? "重新获取定位" : "获取当前定位"), geo && geo.error && /*#__PURE__*/React.createElement("div", {
+  }, geo && geo.label ? (geo.manual ? "回到设备定位" : "重新获取定位") : "获取当前定位"),
+  // ── 手填一个地方（v72.66）─────────────────────────────────────────
+  // ⚠️写进去的是【坐标 + 标签一整份】（engine.js 的 geoFromPlace）：
+  //   只改文字的话，地图、天气、"没设家乡的角色撒在你附近"全都还在原地，
+  //   而标签会拼成「东京 · 江苏 · 中国」——省国是旧的那次反查留下的。
+  p.geoAware && h("div", { style: { marginTop: 10 } },
+    h("div", { className: "flex items-center", style: { gap: 8 } },
+      h("input", {
+        value: placeDraft,
+        onChange: e => setPlaceDraft(e.target.value),
+        placeholder: "换个地方，比如 东京",
+        style: { flex: 1, minWidth: 0, minHeight: 40, outline: "none", padding: "9px 11px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line }
+      }),
+      h("button", {
+        onClick: async () => {
+          if (placeBusy || !placeDraft.trim()) return;
+          setPlaceBusy(true);
+          try { await onSetGeoPlace(placeDraft.trim()); setPlaceDraft(""); }
+          finally { setPlaceBusy(false); }
+        },
+        className: "active:opacity-70 shrink-0",
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "none", opacity: placeDraft.trim() ? 1 : .45 }
+      }, placeBusy ? "查…" : "就说我在这儿")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+      geo && geo.manual
+        ? "现在是你手填的这个地方。角色口中的「你在哪」、天气、地图上你的位置都按它走；想回真的位置就点上面那颗。"
+        : "填一个地名，角色就当你在那儿。地图和天气也跟着一起挪过去。")),
+  geo && geo.error && /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 11.5,
@@ -8968,6 +9000,36 @@ function BubbleSkinConfig({ toast }) {
   // 落盘只走 components.js 的 writeBubbleSkin 那一处（主题包导入也走它）
   const save = () => { writeBubbleSkin(s); toast && toast("皮肤已保存，聊天页立即生效"); };
   const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); writeBubbleSkin(d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} toast && toast("已恢复出厂皮肤"); };
+  // ── 这一套气泡单独收发（她 2026-09-22：「单独的聊天界面美化也没有导入导出」）──
+  // ⚠️不另造一种文件：发出去的还是主题包（kind:"lisa-theme"），只是只装了气泡这一样。
+  //   另造一种的话，主题工作台那头收不了它，她手上就有两种长得像的 json（one-public-mechanism）。
+  const skinFile = useRef(null);
+  const studio = () => (typeof window !== "undefined" && window.ThemeStudio) || null;
+  const exportSkin = async () => {
+    const st = studio(); if (!st) { toast && toast("主题模块还没加载好，过一下再试"); return; }
+    try {
+      const text = await st.exportPackage({ profile: st.load(), bubbleSkin: s, pick: { bubble: true } });
+      const via = await window.saveTextFile("lisa-bubble-" + new Date().toISOString().slice(0, 10) + ".json", text, "application/json");
+      toast && toast(via === "cancel" ? "导出取消了" : via === "share" ? "这套气泡已交给分享面板，在里面选「存储到文件」" : "这套气泡已导出");
+    } catch (e) { toast && toast("导出失败：" + (e.message || e)); }
+  };
+  // 导进来只进草稿，不落盘：这一页本来就是「改草稿 → 点保存皮肤」，
+  // 导入直接盖的话，她还没看见长什么样就已经被换掉了。
+  const applySkinText = async text => {
+    const st = studio(); if (!st) { toast && toast("主题模块还没加载好，过一下再试"); return false; }
+    try {
+      const pack = await st.importPackage(text);
+      if (!st.packHas(pack, "bubble")) { toast && toast("这份文件里没有【聊天气泡】这一样"); return false; }
+      setS(Object.assign({}, BUBBLE_SKIN_DEFAULTS, pack.bubbleSkin));
+      toast && toast("气泡已放进草稿，下面试衣镜先看看，点「保存皮肤」才生效");
+      return true;
+    } catch (e) { toast && toast("导入失败：" + (e.message || e)); return false; }
+  };
+  const importSkin = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    let text = ""; try { text = await f.text(); } catch (err) { toast && toast("这份文件读不出来：" + (err.message || err)); return; }
+    await applySkinText(text);
+  };
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "2px 0" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "聊天气泡"),
@@ -8985,7 +9047,15 @@ function BubbleSkinConfig({ toast }) {
     h(CallFollowSkinRow, null),
     h("div", { className: "flex gap-2", style: { marginTop: 8 } },
       h("button", { onClick: save, className: "flex-1 active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.bg2, background: t.ink, borderRadius: 10, padding: "11px 0" } }, "保存皮肤"),
-      h("button", { onClick: reset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "0 16px" } }, "恢复默认"))));
+      h("button", { onClick: reset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "0 16px" } }, "恢复默认")),
+    // 单独收发这一套气泡：发出去的是只装了气泡的主题包，主题工作台那头照样收得下
+    h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+      h("button", { onClick: exportSkin, className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导出这套气泡"),
+      h("button", { onClick: () => skinFile.current && skinFile.current.click(), className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导入气泡")),
+    h("input", { ref: skinFile, type: "file", accept: "application/json,.json", className: "hidden", onChange: importSkin }),
+    typeof window !== "undefined" && window.ThemePackPasteBox
+      ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: applySkinText, open: "挑不开文件？把气泡的 JSON 贴进来" }))
+      : null));
 }
 function ThemeConfig({
   theme,

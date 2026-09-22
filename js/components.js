@@ -6462,12 +6462,25 @@ function HomeCardSheet({ card, profile, onSave, onClose }) {
       h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 0" } }, "取消"),
       h("button", { onClick: save, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.bg2, background: t.ink, borderRadius: 14, padding: "13px 0" } }, "保存")));
 }
+// 我的面具（她 2026-09-22：「在信息-我-我的面具那里添加人设，格式跟主面具一样，
+// 可以设置切换哪个是主面具，然后再从他们设置里改谁知道我是谁」）。
+// 一张面具＝跟主面具一模一样的那一整套字段，所以这一页【只多一条面具条】，
+// 下面那些栏一个字都没改——格式相同这件事是靠「同一份表单」保证的，不是靠抄一遍。
 function ProfileSheet({
   profile,
+  masks,
+  primaryId,
   onSave,
+  onSaveMask,
+  onDeleteMask,
+  onMakePrimary,
   onClose
 }) {
   const t = useTheme();
+  const lib = Array.isArray(masks) ? masks : [];
+  // "" = 正在编辑主面具那一份（老存档里它还不在库里）；否则是库里某一张的 id
+  const [editId, setEditId] = useState("");
+  const cur = editId ? (lib.find(m => m && m.id === editId) || profile) : profile;
   const [name, setName] = useState(profile.name || "");
   const [tagline, setTagline] = useState(profile.tagline || "");
   const [persona, setPersona] = useState(profile.persona || "");
@@ -6477,6 +6490,56 @@ function ProfileSheet({
   const [appearance, setAppearance] = useState(profile.appearance || "");
   const [refPhoto, setRefPhoto] = useState(profile.refPhoto || null);
   const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
+  // 表单 → 一份面具。保存、切走前的自动落盘、设为主面具，都读这一份（只拼这一处）
+  const formOf = () => Object.assign({}, cur, {
+    name, tagline, persona, avatarImage, color,
+    birthday: birthday.trim(), appearance: appearance.trim(),
+    refPhoto: refPhoto, photoOutfit: photoOutfit.trim()
+  });
+  const loadInto = m => {
+    setName(m.name || ""); setTagline(m.tagline || ""); setPersona(m.persona || "");
+    setAvatarImage(m.avatarImage || null); setColor(m.color || AV_COLORS[0]);
+    setBirthday(m.birthday || ""); setAppearance(m.appearance || "");
+    setRefPhoto(m.refPhoto || null); setPhotoOutfit(m.photoOutfit || "");
+  };
+  // 切到另一张之前，先把手上这张存了——不然改了一半切走就白改（她最容易撞上的那一下）
+  const commit = () => {
+    const f = formOf();
+    if (editId) { if (onSaveMask) onSaveMask(Object.assign({}, f, { id: editId })); }
+    else if (onSave) onSave(f, { stay: true });
+  };
+  const switchTo = id => {
+    commit();
+    setEditId(id);
+    loadInto(id ? (lib.find(m => m && m.id === id) || {}) : profile);
+  };
+  const addMask = () => {
+    commit();
+    const id = "mk_" + Date.now();
+    if (onSaveMask) onSaveMask({ id: id, name: "", tagline: "", persona: "", avatarImage: null, color: AV_COLORS[0], birthday: "", appearance: "", refPhoto: null, photoOutfit: "" });
+    setEditId(id); loadInto({});
+  };
+  const isPrimary = editId ? (String(primaryId || "") === editId) : !primaryId;
+  const chip = (id, label, on) => h("button", { key: id || "_main", onClick: () => switchTo(id),
+    className: "active:opacity-70 shrink-0",
+    style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap",
+      background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } },
+    label);
+  const maskBar = h("div", { style: { marginBottom: 10 } },
+    h("div", { className: "flex items-center overflow-x-auto", style: { gap: 6, scrollbarWidth: "none", paddingBottom: 2 } },
+      (!primaryId ? [chip("", (profile.name || "主面具") + " · 主", editId === "")] : []).concat(
+        lib.map(m => chip(m.id, (m.name || "未命名") + (String(primaryId || "") === m.id ? " · 主" : ""), editId === m.id)))
+        .concat([h("button", { key: "+", onClick: addMask, className: "active:opacity-70 shrink-0",
+          style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px dashed " + t.line } }, "＋ 新面具")])),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 6 } },
+      isPrimary
+        ? "这是主面具：没单独指定的角色，认的都是这一张。"
+        : "这是一张备用面具。去某个角色的设置 → TA 知道什么 → 「TA 认识的是我哪一张」，把 TA 换成认这一张。"),
+    (editId && !isPrimary) ? h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+      h("button", { onClick: () => { commit(); onMakePrimary && onMakePrimary(editId); },
+        className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, "设为主面具"),
+      h("button", { onClick: () => { onDeleteMask && onDeleteMask(editId); setEditId(""); loadInto(profile); },
+        className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "4px 6px" } }, "删掉这张")) : null);
   return /*#__PURE__*/React.createElement(Sheet, {
     onClose: onClose,
     tall: true
@@ -6489,21 +6552,11 @@ function ProfileSheet({
       color: t.ink
     }
   }, "我的面具"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onSave(Object.assign({}, profile, {
-      name,
-      tagline,
-      persona,
-      avatarImage,
-      color,
-      birthday: birthday.trim(),
-      appearance: appearance.trim(),
-      refPhoto: refPhoto,
-      photoOutfit: photoOutfit.trim()
-    }))
+    onClick: () => { if (editId) { onSaveMask && onSaveMask(Object.assign({}, formOf(), { id: editId })); onClose && onClose(); } else onSave(formOf()); }
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), maskBar, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-center py-3"
   }, /*#__PURE__*/React.createElement(AvatarPicker, {
     character: {
@@ -7758,6 +7811,7 @@ function PhotoCard({ m, mine, onOpen, max }) {
   const t = useTheme();
   const cap = photoCaption(m);
   const W = Number(max) || 260;
+  // 挂点：相纸本身（底/边/圆角/影）和底下那行配文，是改照片样式时最先动的两样
   const paper = {
     display: "block", width: "100%", maxWidth: W, textAlign: "left",
     background: "#fdfaf4", borderRadius: 10, padding: 6, paddingBottom: 8,
@@ -7775,11 +7829,11 @@ function PhotoCard({ m, mine, onOpen, max }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#463f35",
           display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
           cap || "一张照片"));
-  return h("button", { onClick: onOpen, className: "active:opacity-85", style: paper },
+  return h("button", { onClick: onOpen, "data-wk": "photocard", className: "active:opacity-85", style: paper },
     face,
     // 相纸底下那一行：有图时是配文，没图时是「点开看这张」——两种都在同一个位置
     h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, padding: "6px 3px 0" } },
-      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: "#5d5346",
+      h("span", { "data-wk": "photocap", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: "#5d5346",
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.imageRef ? cap : ""),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
 }
@@ -11852,7 +11906,10 @@ function TransferCard({
   const _tfAmt = typeof Money !== "undefined" && Money ? Money.conv(m.amount, charId) : m.amount;
   return h("div", {
     className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
-  }, !isU && avatar, h("div", { "data-wk": "card",
+  // ⚠️挂点（她 2026-09-22：「聊天界面里的转账和照片样式看看能不能改」）：
+  //   这张纸上原来只有那枚印有挂点，纸本身、金额、附言都抓不住——
+  //   而想换样式的人第一眼要改的正是这三样。名单归 ThemeStudio 那一份。
+  }, !isU && avatar, h("div", { "data-wk": "transfercard",
     style: {
       width: 250,
       background: PAPER,
@@ -11871,7 +11928,7 @@ function TransferCard({
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
           // 折在千分位逗号上是最难认的那种——「1,0」换行「00」。
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: fitFont(String(_tfAmt), 32, 8, 16), color: INK, lineHeight: 1, whiteSpace: "nowrap" } }, _tfAmt),
+          h("span", { "data-wk": "transferamount", style: { fontFamily: F_DISPLAY, fontSize: fitFont(String(_tfAmt), 32, 8, 16), color: INK, lineHeight: 1, whiteSpace: "nowrap" } }, _tfAmt),
           _tfCur.pos === "post" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1, marginLeft: 2 } }, _tfCur.symbol) : null)),
       seal),
     // ── 骑缝 ──
@@ -11879,7 +11936,7 @@ function TransferCard({
       notch("l"), notch("r")),
     // ── 附言栏：写在单据的横线上 ──
     h("div", { className: "px-4 pt-3 pb-3.5" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
+      h("div", { "data-wk": "transfernote", style: { fontFamily: F_BODY, fontSize: 12.5, color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
         m.note || "（没留话）")),
     // ── 下沿：要么两格按钮，要么一行状态 ──
     canAct ? h("div", { className: "flex", style: { borderTop: "1px solid " + RULE, background: PAPER_D } },
@@ -15632,6 +15689,7 @@ function ChatSettings({
   temperamentBusy,
   onGenerateTemperament,
   onSaveTemperament,
+  myMasks,
   aShadowPanel,
   dongnianState,
   dongnianElsewhere,
@@ -15684,6 +15742,8 @@ function ChatSettings({
   const [selfP, setSelfP] = useState(settings.selfP || "first");
   const [userP, setUserP] = useState(settings.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
+  // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
+  const [maskId, setMaskId] = useState(settings.maskId || "");
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
@@ -15964,7 +16024,8 @@ function ChatSettings({
       callStream,
       actPerson,
       userPerson,
-      timeAwareMode
+      timeAwareMode,
+      maskId
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
@@ -16022,6 +16083,26 @@ function ChatSettings({
     innerLifeImpact.shadow.length ? h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, null, "还没派上用场"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text))) : null),
+  // ⚠️这一栏归「TA 知道什么」：它改的正是【TA 眼里的我是谁】。
+  //   面具本身在【信息 → 我 → 我的面具】里建和改（那儿的表单就是主面具那一套），
+  //   这儿只管一件事：TA 认识的是哪一张。两处各管各的，别在这儿又开一套人设输入框。
+  show("know", { title: "TA 认识的是我哪一张", ...sec("me-mask") }, h("div", { className: "pt-3" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
+      "默认认主面具。想让 " + cNm + " 只认识另一张，先去「信息 → 我 → 我的面具」建一张，再回来挑。\n"
+      + "⚠️只在一对一的地方生效（单聊、线下、通话、日记、查手机这些）；群里大家都在场，"
+      + "同一句话没法对着不同的人戴不同的脸，所以群聊一律用主面具。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      [{ id: "", name: "主面具" }].concat((myMasks || []).map(m => ({ id: m.id, name: m.name || "未命名" })))
+        .map(o => {
+          const on = String(maskId || "") === o.id;
+          return h("button", { key: o.id || "_main", onClick: () => setMaskId(o.id), className: "active:opacity-70",
+            style: { padding: "7px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub,
+              border: "1px solid " + (on ? t.ink : t.line) } }, o.name);
+        })),
+    (myMasks || []).length === 0
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 10 } }, "你现在只有主面具这一张。")
+      : null)),
   show("know", { title: "时间感知 · TA 知不知道今天几号", ...sec("time-aware") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, paddingTop: 8 } },
       "单独决定 " + cNm + " 是否知道现实中的日期、时段与自己的当前行程。房间还可以再覆盖一次；长篇如果默认关闭。"),

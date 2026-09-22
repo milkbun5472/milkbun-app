@@ -26,7 +26,9 @@ test("气泡皮肤只有一处读、一处写", () => {
 
 test("气泡皮肤进包、也从包里出得来", () => {
   assert.ok(/bubbleSkin,? ?assets|bubbleSkin, assets/.test(studio), "装包时没带气泡");
-  assert.ok(/const bubbleSkin = extras && extras\.bubbleSkin \? extras\.bubbleSkin : null;/.test(studio), "装包那份气泡不是调用方给的");
+  // v72.52 起装包也能只挑几样（她 2026-09-22 要的「只导出图标／只导出背景」），
+  // 所以这一格还多了一道 sel.bubble——没挑气泡就不装它。
+  assert.ok(/const bubbleSkin = sel\.bubble && extras && extras\.bubbleSkin \? extras\.bubbleSkin : null;/.test(studio), "装包那份气泡不是调用方给的、或者没跟着勾选走");
   assert.ok(/pkg\.bubbleSkin && typeof pkg\.bubbleSkin === "object"/.test(studio), "拆包时没接住气泡（老包没有这一格也要不炸）");
   assert.ok(/bubbleSkin: typeof bubbleSkinSnapshot === "function" \? bubbleSkinSnapshot\(\) : null/.test(ui), "导出那一步没把当前气泡带上");
 });
@@ -57,8 +59,11 @@ test("基础配色／壁纸／气泡都只在确认后落盘", () => {
 
 test("包里没有的那几样要标出来、点不动", () => {
   assert.ok(/这份包里带了这些，勾掉的不会动你现在的/.test(ui), "没告诉她这包里有什么");
-  assert.ok(/disabled: !has/.test(ui), "包里没有的那格还点得动");
+  assert.ok(/disabled: !x\.has/.test(ui), "包里没有的那格还点得动");
   assert.ok(/（这份包里没有）/.test(ui), "包里没有的那格没标出来");
+  // v72.52：这张名单搬进了 ThemeStudio.PACK_PARTS——导出挑哪几样、导入勾哪几样、
+  // 聊天气泡那一页单独收发哪一样，三处都问它要（施工规则/one-public-mechanism）。
   ["页面／全局 CSS", "图标", "字体", "基础配色", "壁纸", "聊天气泡"].forEach(x =>
-    assert.ok(ui.includes('"' + x + '"'), "少了一格：" + x));
+    assert.ok(studio.includes('"' + x + '"'), "少了一格：" + x));
+  assert.ok(!/"基础配色"/.test(ui), "界面里又自己写了一份名单");
 });

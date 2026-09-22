@@ -35,6 +35,11 @@ test("错误卡说人话，而且给得出两条路", () => {
   assert.match(guard, /"回首页"/, "没有回去的路");
   assert.match(guard, /rescue\.html/, "没有救援页那条路");
   assert.match(guard, /this\.state\.err && this\.state\.err\.message/, "不报是哪儿错了，下次还是只能猜");
+  // ⚠️光有一句报错还是定位不了（读者那张截图只有「Cannot access '_' before initialization」）：
+  //   得写清是哪一页，并且能一键复制带落点的整条。
+  assert.match(guard, /const where = String\(this\.props\.screen \|\| "\?"\);/, "错误卡上没写是哪一页");
+  assert.match(guard, /"复制这条报错"/, "没法把这条交给我——她只能靠截图转述");
+  assert.match(guard, /this\.setState\(\{ stack:/, "组件落点没留下，复制出去还是只有一句话");
 });
 
 // ⚠️写 x_errlog 的路只许有一条（engine.js 那个 log）

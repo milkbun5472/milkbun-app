@@ -2353,6 +2353,21 @@ const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 · 句式模板：「不是…而是…」当口头惯性反复用；三连以上的排比堆砌来煽情；「汹涌」「铺天盖地」「势不可挡」这类夸张水词；把人写成「小兽」「幼兽」「大型犬」之类拟兽化标签。
 这一条禁的是【模板】，不是强势的人物。角色本来就居高位、说话带刺、动手快，那都照写——只是让它从这个人此刻真实的判断里长出来，而不是从「霸总该有的反应」这个现成模子里倒出来。
 
+【谁的决定归谁 · 别把下一步做成选择题】
+她 2026-09-22 转群里读者：「他们想象力很匮乏，就是吃饭睡觉来的，然后会喜欢给我两个选项让我选，剧情推进没有什么惊喜感」。
+这多半不是这个人没主意，是两条现成的规矩叠出来的副作用：一边写着「不可替用户作重大决定」，一边写着「不要求每轮制造推进」——于是最安全的走法就成了【原地不动，再把球抛回去】：「你是想先吃饭还是先休息？」
+所以把射程说清楚：
+· **属于 TA 自己的事，TA 自己定，并且【当场就做】**：去哪、点什么、开不开口、说哪句、动不动手、要不要转身走——想清楚就做，不必先征求同意，也不必把它写成给她挑的两个选项。她不接受，她会自己说。
+· **只有属于她本人的那几样才停下来等**：她的身体、她的去留、她要不要、她说什么。到这儿就自然停在她要开口的那一拍，别替她答。
+· ⚠️**「停下来等」不等于「摆两个选项让她挑」**。真人不会在饭桌上说「你是要 A 还是 B」——TA 会自己先动一下，或者问一句真的想知道答案的话。整场线下里，那种 A/B 选择题最多出现一次，而且得是真的两难、TA 自己也拿不准的时候。
+
+【这一幕从哪儿往前走】
+不必每轮都推进，但【当它该往前走时，别只往吃饭睡觉那儿走】——那是没有别的来源时最便宜的那一档。推进可以来自这几处，哪一处都行，也可以都不用：
+· TA 自己此刻想做、但还没做的一件事（TA 有自己的日程、脾气和惦记的事，不是只会陪着）；
+· 这个地方、这个时辰本来就会发生的事（有人来、东西坏了、天变了、电话响了、该走了）；
+· 一件还没了结的旧事忽然在这一刻被碰到（记忆库里那些、你俩之前说过一半的）。
+⚠️不是要你每拍都造一个事件：绝大多数时候一顿饭就是一顿饭。但**当一整场都停在同一个屋子里吃吃睡睡时，那不是平淡，那是没在往前走**。
+
 【表达连续性】
 场景中发生的事情可以变化，但人物的注意方式、语言习惯和叙事密度保持连续。不要因为互动性质改变，就突然换一套描述重点或表达习惯。
 
@@ -6261,6 +6276,7 @@ async function generateOffline(p, ctx, session) {
     "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处，不是隔着手机聊天。完全代入「" + char.name + "」，人物称谓严格服从本场的【叙事人称】设置。把当前互动写成连续的场景正文。动作、对话、心理、环境与感官都可以自然出现，但只使用这一刻真正需要的部分，不要求齐全，也不为了丰富正文额外安排。保持已经成立的地点、人物位置、物件、状态和事件连续；自然推进，不提前跳到尚未发生的剧情。对话使用引号。" + lenGuide + "。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
+    (ctx.desireHint ? "\n\n" + ctx.desireHint : "") +
     (ctx.roomPrompt ? "\n" + ctx.roomPrompt : "") +
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, false) +
@@ -6268,7 +6284,8 @@ async function generateOffline(p, ctx, session) {
     // 字数规则和试写台共用一份（酒馆那套：下限＋上限＋自己数着写）。以前只给下限、
     // 没给上限、也没让它自己数，模型没有目标区间就写到哪算哪（她 2026-08-24）。
     (minimumSceneChars ? "\n" + window.StylePresets.wordRule(minimumSceneChars)
-      + "\n· 遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定。" : "") +
+      + "\n· 遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定"
+      + "（⚠️指的是【属于她本人】的决定：她的身体、她的去留、她要不要、她说什么。属于你自己的那些——去哪、做什么、说哪句、动不动手——你自己定了直接做，别改写成两个选项让她挑）。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
     (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
@@ -7545,7 +7562,10 @@ function wmoToText(code) {
 // 抓本地时间/天气/城市：定位→open-meteo(免key)拿天气→反查城市名。任何一步失败都降级，不抛错。
 async function fetchLocalEnv() {
   const out = { weather: "", location: "", coords: null };
-  const pos = await new Promise(res => {
+  // ⚠️她手填过位置就按那份来（v72.66）：这儿原来自己读一次 GPS，
+  //   于是她明明把自己设成了东京，日记还是盖广州那个戳。
+  const mine = geoNow();
+  const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await new Promise(res => {
     if (!navigator.geolocation) return res(null);
     navigator.geolocation.getCurrentPosition(p => res(p), () => res(null), { timeout: 8000, maximumAge: 600000 });
   });
@@ -7556,11 +7576,12 @@ async function fetchLocalEnv() {
     const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`).then(r => r.json());
     if (w && w.current) out.weather = wmoToText(w.current.weather_code) + " " + Math.round(w.current.temperature_2m) + "°C";
   } catch (e) {}
-  try {
-    const g = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`).then(r => r.json());
-    const city = g.city || g.locality || g.principalSubdivision || "";
-    out.location = city ? (city + (g.countryCode ? ", " + g.countryCode : "")) : "";
-  } catch (e) {}
+  // 反查只有 geoLookup 那一处；日记这儿只是把同一份料拼成自己那种短写法
+  const g = await geoLookup(lat, lon);
+  if (g) {
+    const city = g.city || g.region || "";
+    out.location = city ? (city + (g.code ? ", " + g.code : "")) : "";
+  }
   return out;
 }
 // ── 送去画之前，先让文字模型把这句中文小字读懂（她 2026-09-10）──────────────
@@ -7893,6 +7914,51 @@ function fmtStampAI(ts) {
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);
   return (d.getMonth() + 1) + "/" + d.getDate() + " " + fmtClock(d);
 }
+// ── 定位这一层（坐标是唯一的真身，标签一律从坐标现拼）─────────────────
+// 她 2026-09-22 转来的那条：有人把位置手改到东京，结果显示成「东京 · 江苏 · 中国」，
+// 地图上人还在广东。病根是【文字标签】和【经纬度】各改各的——手填只换了标签里
+// 城市那一段，省国是旧的反查结果，坐标压根没动，而地图、天气、"没设家乡的角色撒在
+// 你附近"读的全是坐标。
+// 所以这儿只留一条路：**任何来源都先拿到坐标，再走 geoLabelOf 拼标签**，
+// 不许谁自己拼一份（施工规则/one-public-mechanism）。
+async function geoLookup(lat, lng) {
+  try {
+    const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lng + "&localityLanguage=zh");
+    const d = await r.json();
+    return { city: d.city || d.locality || "", region: d.principalSubdivision || "", country: d.countryName || "", code: d.countryCode || "" };
+  } catch (e) { return null; }
+}
+async function geoLabelOf(lat, lng) {
+  const fallback = Number(lat).toFixed(3) + ", " + Number(lng).toFixed(3);
+  const g = await geoLookup(lat, lng);
+  return g && [g.city, g.region, g.country].filter(Boolean).join(" · ") || fallback;
+}
+// 此刻该按哪儿算「我在哪」：她手填过就按她填的，没填过才是设备定位那一份。
+// ⚠️别处要位置一律问这一句，不许自己再去读一次 GPS —— 自己读的那几处永远不知道
+//   她已经把自己挪到东京了（她 2026-09-22 转来的就是这个形状）。
+function geoNow() {
+  try { const g = loadJSON("x_geo", null); return g && typeof g.lat === "number" && !g.error ? g : null; }
+  catch (e) { return null; }
+}
+// 地名 → 坐标（OSM Nominatim，免费无 key，不花模型调用）。
+// 地图那边搜地点用的也是这一处（js/map.js 的 nomSearch 就是它的转手）。
+// near=[lat,lng] 时就近加权：同名的先出你附近那个，但不封死。
+function geoSearch(q, near, signal) {
+  const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
+  return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
+    .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
+    .then(list => (list || []).map(x => ({ name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) })));
+}
+// 手填一个地名 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
+async function geoFromPlace(q, near) {
+  const name = String(q || "").trim();
+  if (!name) return { error: "先写个地名" };
+  let hits = [];
+  try { hits = await geoSearch(name, near); } catch (e) { return { error: "地名查询没连上，稍后再试" }; }
+  const p = (hits || []).find(x => typeof x.lat === "number" && !isNaN(x.lat));
+  if (!p) return { error: "查不到「" + name + "」这个地方" };
+  return { lat: p.lat, lng: p.lng, label: await geoLabelOf(p.lat, p.lng), place: p.name, manual: true, ts: Date.now() };
+}
 async function requestGeo() {
   return new Promise(resolve => {
     if (!navigator.geolocation) {
@@ -7906,16 +7972,10 @@ async function requestGeo() {
         latitude,
         longitude
       } = pos.coords;
-      let label = latitude.toFixed(3) + ", " + longitude.toFixed(3);
-      try {
-        const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + latitude + "&longitude=" + longitude + "&localityLanguage=zh");
-        const d = await r.json();
-        label = [d.city || d.locality, d.principalSubdivision, d.countryName].filter(Boolean).join(" · ") || label;
-      } catch {}
       resolve({
         lat: latitude,
         lng: longitude,
-        label,
+        label: await geoLabelOf(latitude, longitude),
         ts: Date.now()
       });
     }, err => resolve({
