@@ -6739,6 +6739,36 @@ function sameNameNote(members) {
     + "。写 name 的时候**必须连括号里那一段一起逐字写全**（" + arr.filter(c => c && dupNames.includes(c.name)).map(c => "「" + memberLabel(arr, c) + "」").join("、")
     + "）——只写名字的话没人分得清你指的是哪一位，那句话就会记到另一个人头上。";
 }
+// ── 上一轮谁出过声 → 这一轮先把镜头给别人 ──────────────────────────
+// 她 2026-09-22：「为啥还是只有四个人说话」。v72.83 只给群【线下】接了这一条，
+// 群线上一个字都没有 —— 又是「一层写在一处，别处没跟上」那个老形状
+// （施工规则/four-surfaces-same-context）。两边的消息形状本来就一样
+// （role:"char" + senderId），所以合成这一份，线上线下共用。
+// 上一轮＝最后一批连着的角色发言；中间隔了用户说话，就是新一轮。
+function lastRoundSpeakers(msgs) {
+  const out = [], arr = (msgs || []).filter(m => m && m.kind !== "ooc");
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i].role !== "char") break;
+    const k = arr[i].senderId || arr[i].senderName;
+    if (k && out.indexOf(k) < 0) out.push(k);
+  }
+  return out;
+}
+// ⚠️不是「每个人都必须说话」：没反应必要的人安静在场本来就是对的。
+//   这儿掷的是【镜头给谁】，不是【谁必须开口】（施工规则/bans-make-it-dumber）。
+function rotateSpeakersNote(members, msgs) {
+  const arr = (members || []).filter(Boolean);
+  if (arr.length < 4) return "";                 // 人少的时候不啰嗦
+  const spoke = lastRoundSpeakers(msgs);
+  if (!spoke.length) return "";
+  const said = arr.filter(c => spoke.indexOf(c.id) >= 0 || spoke.indexOf(c.name) >= 0);
+  const quiet = arr.filter(c => said.indexOf(c) < 0);
+  if (!said.length || !quiet.length) return "";
+  return "\n\n【别老是同几个人开口】上一轮出声的是：" + said.map(c => memberLabel(arr, c)).join("、")
+    + "。这一轮**优先把镜头给还没出过声的**：" + quiet.map(c => memberLabel(arr, c)).join("、")
+    + "。不是每个人都必须说话——真没反应必要的人安静在场是对的；但【谁开口不该等用户点名】，"
+    + "人多就让戏自己转到别人身上去。";
+}
 // 模型回填的那个名字 → 到底是谁。先按标签精确认，再退回名字（没重名的群、老存档）
 function pickMember(members, rawName) {
   const s = String(rawName == null ? "" : rawName).trim();
@@ -6790,23 +6820,8 @@ async function generateOfflineGroup(p, ctx, session) {
   //   就是对的（下面那句【没有反应必要的人可以安静在场】还留着）。这儿掷的是
   //   【镜头给谁】，不是【谁必须开口】（施工规则/bans-make-it-dumber）。
   const gBeatMax = Math.max(5, Math.min(10, members.length + 2));
-  // 上一轮出过声的是谁 → 这一轮优先给还没出声的，省得她挨个点名
-  const gLastSpoke = (function () {
-    const out = [], arr = (session.msgs || []).filter(m => m && m.kind !== "ooc");
-    for (let i = arr.length - 1; i >= 0; i--) {
-      if (arr[i].role !== "char") break;
-      const n = arr[i].senderName;
-      if (n && out.indexOf(n) < 0) out.push(n);
-    }
-    return out;
-  })();
-  const gQuiet = members.map(c => c.name).filter(n => gLastSpoke.indexOf(n) < 0);
-  const gRotateLine = (members.length >= 4 && gLastSpoke.length && gQuiet.length)
-    ? "\n\n【别老是同几个人开口】上一轮出声的是：" + gLastSpoke.join("、")
-      + "。这一轮**优先把镜头给还没出过声的**：" + gQuiet.join("、")
-      + "。不是每个人都必须说话——真没反应必要的人安静在场是对的；但【谁开口不该等用户点名】，"
-      + "人多就让戏自己转到别人身上去。"
-    : "";
+  // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
+  const gRotateLine = rotateSpeakersNote(members, session.msgs);
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
