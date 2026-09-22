@@ -7818,13 +7818,15 @@ function appVitals() {
     return ("版本 " + ver + "；本地存储约 " + (bytes / 1024 / 1024).toFixed(2) + "MB（~" + pct + "%，图片是大头）；住着 " + chars.length + " 位角色；今天全屋收发 " + todayMsgs + " 条消息；云端归档共 " + archN + " 条；" + errTxt + "。").slice(0, 400);
   } catch (e) { return "（体征采集失败：" + String(e && e.message).slice(0, 60) + "）"; }
 }
-// 贴纸走这一条，不走上面那条。
-// ⚠️resizeImageFile 最后一步是 toDataURL("image/jpeg")——**JPEG 没有透明通道**。
-//   她要贴的是抠好的透明底 PNG（猫、咖啡杯、枫叶那种），走那条路会把透明的地方
-//   压成一块黑，贴上去就是一个黑方块。这不是「稍微差一点」，是完全不能用。
-//   所以另开一条：一样缩图、一样进图库，只是编码成 PNG 把 alpha 留着。
-// PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
-function resizeImageAlpha(file, maxDim = 360) {
+// ── 缩图只有这一处（她 2026-09-22：「换了一个样式的卡片又变成黑色的了」）──────
+// ⚠️JPEG 没有透明通道。画布上没画到的地方是透明的，编码成 JPEG 之后那一块变成【纯黑】。
+//   她拿手账素材那种抠好的透明底 PNG 去当照片、当封面底，存完就是一块黑方块——
+//   这不是「稍微差一点」，是完全不能用。
+//   贴纸那条路早就单开了一支保 alpha 的（v65.xx），可全 app 还有二十多处在走 JPEG 那条，
+//   所以真正该修的是【这一处】：看这张图到底有没有透明像素，有就留 PNG，没有才压 JPEG。
+//   判据是【这张图身上有没有 alpha】，不是【调用方记不记得传保透明】——
+//   记不记得是人的事，二十多处里总有忘的那几处。
+function _resizeImageCore(file, maxDim, q, keepAlpha) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = e => {
@@ -7836,9 +7838,10 @@ function resizeImageAlpha(file, maxDim = 360) {
         const c = document.createElement("canvas");
         c.width = Math.max(1, Math.round(width));
         c.height = Math.max(1, Math.round(height));
+        const cx = c.getContext("2d");
         // 不铺白底：铺了就等于自己把透明去掉了
-        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL("image/png"));
+        cx.drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q));
       };
       img.onerror = rej;
       img.src = e.target.result;
@@ -7847,40 +7850,22 @@ function resizeImageAlpha(file, maxDim = 360) {
     r.readAsDataURL(file);
   });
 }
-function resizeImageFile(file, maxDim = 400, q = 0.85) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => {
-      const img = new window.Image();
-      img.onload = () => {
-        let {
-          width,
-          height
-        } = img;
-        if (width > height) {
-          if (width > maxDim) {
-            height *= maxDim / width;
-            width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
-            width *= maxDim / height;
-            height = maxDim;
-          }
-        }
-        const c = document.createElement("canvas");
-        c.width = width;
-        c.height = height;
-        c.getContext("2d").drawImage(img, 0, 0, width, height);
-        res(c.toDataURL("image/jpeg", q));
-      };
-      img.onerror = rej;
-      img.src = e.target.result;
-    };
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
+// 有没有真正透明的像素。抽样看（每 4 个像素看一个）就够——整块透明底一抽就中，
+// 而边缘抗锯齿那一圈半透明像素本来也该走 PNG。
+// ⚠️读不出来（画布被污染、浏览器不给）时返回 false：那就退回原来的 JPEG 行为，
+//   不能因为读不到就把每张图都变成 PNG，那是把二十多处的体积一起翻几倍。
+function _canvasHasAlpha(c, cx) {
+  try {
+    const d = cx.getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < d.length; i += 16) if (d[i] < 250) return true;
+    return false;
+  } catch (e) { return false; }
 }
+// 贴纸走这一条：不问有没有 alpha，一律 PNG。
+// PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
+function resizeImageAlpha(file, maxDim = 360) { return _resizeImageCore(file, maxDim, 1, true); }
+// 其余全 app 走这一条：有透明就留 PNG，没有才压 JPEG。
+function resizeImageFile(file, maxDim = 400, q = 0.85) { return _resizeImageCore(file, maxDim, q, false); }
 function timeAgo(ts) {
   const m = Math.floor((Date.now() - ts) / 60000);
   if (m < 1) return "刚刚";
