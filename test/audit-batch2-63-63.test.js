@@ -89,12 +89,12 @@ test("GROWTH_RULE 真删掉了，不是在后面补一句「那个不用了」",
   assert.equal(bare(app).indexOf("GROWTH_RULE"), -1);
 });
 
+// v72.55：「这一场软到这一场结束」那一整段她圈掉了（10-17）——GROWTH_RULE 并过来时
+// 带的是它的【优先级表】，那份还在；那段场景推演是后来越写越长的部分，不是它独有的东西。
 test("它独有的那一段没丢，并进了四处都接得上的那一条", () => {
   const anchor = slice(engine, "const PERSONA_REGISTER_ANCHOR = `", "`;\n");
-  assert.match(anchor, /这一场里软下来了，就软到这一场结束/);
-  assert.match(anchor, /不是软一句就弹回去/);
-  assert.match(anchor, /洗澡、睡觉、吃饭、明天几点起/);
-  assert.match(anchor, /要重新竖起硬壳，得有【真正的触发】/);
+  assert.match(anchor, /明确的硬设定与边界 ＞ 已沉淀的成长/);
+  assert.doesNotMatch(anchor, /软到这一场结束|洗澡、睡觉、吃饭/, "删掉的那段推演不许写回来");
   // 这一条本来就是四处都在发的那个落点：群路走 groupBans、叙事路走 narrativeCore、
   // 单聊线上直接拼、单聊线下也直接拼
   assert.match(engine, /P\.push\(PERSONA_REGISTER_ANCHOR\);/);

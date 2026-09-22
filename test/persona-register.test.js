@@ -33,13 +33,15 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
     "1 处定义 + groupBans（三处群共用）+ 单聊线上 + 单人线下 + 叙事底座");
 });
 
+// v72.55 她逐条圈掉了这条锚里的展开说明（「3 4 7 8 10-17都可以删了」）：
+// 留下的是判据和硬边界，删掉的是举例、推演和「这一场软到底」那整段——
+// 那些是同一件事的第二、第三遍说法，摊薄的是注意力，不是保险。
 test("锚点必须是双向的，不能变成「一律活泼」的新模板", () => {
   const i = engine.indexOf("const PERSONA_REGISTER_ANCHOR");
   const rule = engine.slice(i, engine.indexOf("`;", i));
-  assert.match(rule, /不按上面聊天记录里的平均值来/);
-  assert.match(rule, /聊了很多轮不是端起架子的理由/);
-  // 反方向也要管住：话少冷淡的人不该被带得咋咋呼呼
-  assert.match(rule, /也别被气氛带得咋咋呼呼/);
+  assert.ok(i > 0, "抠不出锚");
+  assert.match(rule, /按人设卡上那个人来/);
+  assert.doesNotMatch(rule, /咋咋呼呼|稳重的兄长/, "删掉的举例不许写回来");
   // v54.82 起这条按日记那次的规格重写并加长（点名心声/内心独白），
   // 所以别再钉整句话的排版，只钉住语义要点
   assert.match(rule, /「这女人」「那女人」「那家伙」/, "疏离称呼禁用清单");
@@ -53,8 +55,7 @@ test("锚点不许冻结成长：软层要让位给已沉淀的长出来的自�
   const rule = engine.slice(i, engine.indexOf("`;", i));
   assert.match(rule, /但这不冻结你的成长/);
   assert.match(rule, /这个变化有没有沉淀进【你长出来的自我】那段正式长出来的自我/, "判据要可判定");
-  assert.match(rule, /沉淀进去了 → 算数，在软层上大方盖过原卡的旧倾向/);
-  assert.match(rule, /只是最近几轮听起来那样 → 不算数，那是惯性，不是成长/);
+  assert.doesNotMatch(rule, /沉淀进去了 → 算数|只是最近几轮听起来那样/, "两条推演已经删掉，判据那一句自己说得完");
   // 优先级必须和 GROWTH_RULE 一字不差地对齐，两条规则不能打架
   assert.match(rule, /明确的硬设定与边界 ＞ 已沉淀的成长 ＞ 原卡的软倾向 ＞ 通用默认/);
   // ⚠️口径改了（v63.63，审计意见 #8）：原来这里钉的是「GROWTH_RULE 那条还在」，
