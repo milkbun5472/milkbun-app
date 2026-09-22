@@ -351,7 +351,11 @@
         ["transferseal", "转账卡上那枚印章"],
         ["composer", "底部输入栏整条"], ["chatback", "返回键"], ["chatmore", "右上角更多/设置键"],
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
-        ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"]
+        ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"],
+        // 点头像那张心声卡（她 2026-09-22 转群里读者：「那个卡片不可以美化的嘛？」）
+        ["statecard", "点头像那张心声卡整张"], ["statehead", "心声卡抬头（头像·名字·此刻心情）"],
+        ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statevoice", "心声卡「心里想的」那一块"],
+        ["stateaff", "心声卡底下那颗好感的心"]
       ])
     }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。

@@ -10,7 +10,8 @@ const shell = cp.slice(cp.indexOf("const HEART_D ="), cp.indexOf("function State
 // 她 2026-09-01：「重做心声卡样式吧，现在的有点无聊，而且是半屏，改成屏幕中间的框」
 test("心声卡是屏幕正中的一个框，不再是半窗", () => {
   assert.ok(card.indexOf("Sheet") < 0, "还在掀半窗");
-  assert.match(card, /return h\(CenterCard, \{ onClose: onClose \}/, "没走居中那个壳");
+  // ⚠️只钉「走的是居中那个壳」，别钉整串参数：v72.51 给它多传了一个挂点名 wk
+  assert.match(card, /return h\(CenterCard, \{ onClose: onClose[,}]/, "没走居中那个壳");
   assert.match(shell, /className: "absolute inset-0 z-50 flex items-center justify-center"/, "壳不是居中的");
   assert.ok(shell.indexOf("items-end") < 0, "壳还是从底下掀起来的");
   // 一个滚动容器，头尾不跟着滚（mobile-ui-layout §3）

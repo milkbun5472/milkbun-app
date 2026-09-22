@@ -48,7 +48,9 @@ test("她匿名发的帖，谁都不该认出来", () => {
 // 她发帖后陆续来回的那几波走的是 round2 那条路，同一条规矩必须也挂上，
 // 否则第一批认得出她、后面几波又变回陌生人。
 test("第一轮和后面几波用的是同一条规矩", () => {
-  assert.match(app, /const opRule2Full = opRule2 \+ meRule;/);
+  // v72.24 起同一行还挂了「她自己发的帖不许替她开口」那条禁令（opMineBan），
+  // 所以钉的是 meRule 还在这一行上，而不是这一行只有 meRule。
+  assert.match(app, /const opRule2Full = opRule2 \+ meRule( \+ opMineBan)?;/);
   assert.match(app, /forumNpcRule\(post\.board\) \+ " " \+ opRule2Full \+ relBlock \+ opGround/);
   assert.match(app, /const opRule = "【楼主是".*\+ meRule/s);
 });

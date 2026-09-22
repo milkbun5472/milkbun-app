@@ -12307,7 +12307,7 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
 //   那层聊天是它成立的前提，而且内容就三段——正中一个框才是它该有的形状。
 //   这是她 2026-09-01 直接点的。
 const HEART_D = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z";
-function CenterCard({ children, onClose, maxWidth }) {
+function CenterCard({ children, onClose, maxWidth, wk }) {
   const t = useTheme();
   return h("div", {
     className: "absolute inset-0 z-50 flex items-center justify-center",
@@ -12316,6 +12316,10 @@ function CenterCard({ children, onClose, maxWidth }) {
   }, h("div", {
     onClick: e => e.stopPropagation(),
     className: "w-full flex flex-col",
+    // ⚠️挂点（她 2026-09-22 转群里读者：「单聊的点头像的那个卡片，不可以美化的嘛？」）——
+    //   这张卡从来没有 data-wk，主题工作台的页面 CSS 一条都抓不住它。挂点只写在这一层，
+    //   名单归 ThemeStudio 的 WK_SCOPED 那一份（one-public-mechanism）。
+    "data-wk": wk || undefined,
     style: {
       maxWidth: maxWidth || 400, maxHeight: "82vh",
       // 一张白框太空（她 2026-09-01：「这一个白框还是无聊」）：加一层极淡的纸纹，
@@ -12348,7 +12352,7 @@ function StateCard({
   // ⚠️名字和心情不许同行挤（她 2026-09-01 截图：Primrose Hawthorn 把抬头撑成三行、
   //   「上一次变是 25分钟前」也断成两截）。名字自己一行、超了打点；心情和时间挤在
   //   第二行，也打点。两行都 nowrap，多长的名字都撑不坏这个框。
-  const head = h("div", { className: "shrink-0 flex items-center gap-3", style: { padding: "15px 16px 12px", borderBottom: "1px solid " + t.line } },
+  const head = h("div", { "data-wk": "statehead", className: "shrink-0 flex items-center gap-3", style: { padding: "15px 16px 12px", borderBottom: "1px solid " + t.line } },
     h(Avatar, { character: character, size: 42, radius: 12 }),
     h("div", { className: "flex-1 min-w-0" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, character.name),
@@ -12375,7 +12379,7 @@ function StateCard({
   // 颜色从冷到暖：没什么感觉是灰蓝的，一路暖到深红。
   const heartInk = aff >= 80 ? "#b83b4e" : aff >= 60 ? "#c4606f" : aff >= 40 ? "#c58089" : aff >= 20 ? "#b08a86" : "#8794a6";
   const lvl = Math.max(0, Math.min(100, aff)) / 100;
-  const scale = (isNpc || roomName) ? null : h("div", { className: "flex items-center", style: { gap: 15, padding: "13px 17px 15px", borderTop: "1px solid " + t.line } },
+  const scale = (isNpc || roomName) ? null : h("div", { "data-wk": "stateaff", className: "flex items-center", style: { gap: 15, padding: "13px 17px 15px", borderTop: "1px solid " + t.line } },
     h("div", { style: { position: "relative", width: 78, height: 78, flexShrink: 0 } },
       h("svg", { viewBox: "0 0 24 24", width: 78, height: 78, "aria-hidden": "true", style: { display: "block", overflow: "visible" } },
         h("defs", null, h("clipPath", { id: "sc-heart" }, h("path", { d: HEART_D }))),
@@ -12423,7 +12427,7 @@ function StateCard({
       // 拆成两张并排的卡，那是状态面板的做法。
       // 还是一块（不拆成两张并排的卡），但分两拍念：身上什么样是轻的一行，
       // 手在做什么才是这一帧的主句。一个「　」把两句黏在一起会读成一长串。
-      (!hideWearAction && seen.length) ? h("div", { style: { position: "relative", padding: "14px 17px 15px" } },
+      (!hideWearAction && seen.length) ? h("div", { "data-wk": "stateseen", style: { position: "relative", padding: "14px 17px 15px" } },
         // 四角的取景框：这张卡讲的是「此刻的一帧」，那就让它真有个取景框
         ["nwse", "nesw"].map((k, i) => h("span", { key: k, "aria-hidden": "true", style: Object.assign(
           { position: "absolute", width: 13, height: 13, borderColor: t.line, borderStyle: "solid" },
@@ -12435,13 +12439,13 @@ function StateCard({
         S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
         S(state && state.action) ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 } }, S(state.action)) : null) : null,
       // 没说出口的：跟上面那半明显不是一类
-      (state && S(state.thought)) ? h("div", { style: { position: "relative", margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line, overflow: "hidden" } },
+      (state && S(state.thought)) ? h("div", { "data-wk": "statevoice", style: { position: "relative", margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line, overflow: "hidden" } },
         // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
         label("心里想的", t.accent),
         h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
       h("div", { style: { padding: "0 15px" } }, histBtn(false)));
-  return h(CenterCard, { onClose: onClose }, head, tabs,
+  return h(CenterCard, { onClose: onClose, wk: "statecard" }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
       (page === "gaze" && gazeOn && window.GazePage)
         ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: scTa, onSeed: onGazeSeed, seedBusy: gazeSeedBusy, onReview: onGazeReview, reviewBusy: gazeReviewBusy }))
