@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.94";
+const APP_VERSION = "v72.95";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9562,7 +9562,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 
 【生成与输出协议】
 你就是 TA 本人。开口之前先以 TA 的第一人称把眼前这件事想一遍：她刚才那句话在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——word 从那个判断里长出来。不是先想「这种人该说什么」再往人设上凑。
-mood、thought、action、wearing、affinityDelta 与能力字段只记录已经形成的反应、状态或决定，不用来提前铺排剧情，也不用来给 word 补一段解释；没有真实变化或实际触发时，不要为了填字段制造内容。
+mood、thought、action、wearing 与能力字段只记录已经形成的反应、状态或决定，不用来提前铺排剧情，也不用来给 word 补一段解释；没有真实变化或实际触发时，不要为了填字段制造内容。
 只输出一个合法 JSON 对象，不要代码块。
 【核心字段】
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
@@ -9573,7 +9573,7 @@ thought: string，【每轮必须写一句，禁止 null、空串或省略】。
 action: string，每轮回复完成后${ACT_MEANING}或在 word 中报备。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
-affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
+affinityDelta: ${AFFINITY_DELTA_SPEC}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
@@ -11207,7 +11207,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
       const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
       // 群↔私聊打通（v53.96）：TA在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
@@ -11250,7 +11250,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\"mood\"（中文心情词）、\"wearing\"、\"action\"。这四样只更新后台状态，绝不写进 text 气泡。"
         + "其余成员这一轮不填这几样。\n" + MOOD_TURN_RULE : "";
       const thoughtField = gs.memoryInterop
-        ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
+        ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）" + AFFINITY_DELTA_SPEC + "\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
         : (_gHasNpc
           ? ",\"thought\":\"（只有配角填）没说出口的心声\",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
           : (_gActDesc ? gActionField : ""));

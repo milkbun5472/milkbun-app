@@ -99,6 +99,9 @@ test("线下的 action 跟线上一样每轮必填——线下的戏推得更快
 
 test("「没变化就别硬填」这张空白支票要收窄，别把 mood/action 一起免掉", () => {
   const proto = engine.slice(engine.indexOf("const OFFLINE_PROTOCOL_V2 = "), engine.indexOf("场景先发生，系统再记录。"));
-  assert.match(proto, /wearing、affinityDelta、toy 没有真实变化时留空即可/);
+  // v72.77：affinityDelta 从这张支票里摘出去了——它现在有自己那条轴
+  //（AFFINITY_DELTA_SPEC：往哪边动了一点点就 ±1），跟「没变化就留空」打架。
+  assert.match(proto, /wearing、toy 没有真实变化时留空即可/);
+  assert.doesNotMatch(proto, /wearing、affinityDelta、toy 没有真实变化时留空即可/);
   assert.match(proto, /thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写/);
 });
