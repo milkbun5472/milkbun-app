@@ -72,7 +72,12 @@ test("界面：复制那一颗和贴那一格都在，内置浏览器多一句�
   assert.match(screens, /复制文字备份（下载不下来时用这个）/);
   assert.match(screens, /贴一份备份（复制来的那一大段）/);
   assert.match(screens, /window\.ThemePackPasteBox/, "又自己画了一个贴框");
-  assert.match(screens, /你现在是在 QQ／微信这类 app 自带的浏览器里打开的/);
+  assert.match(screens, /会把下载接管成它自己的「文件下载」页/);
+  // ⚠️QQ 浏览器自己就是浏览器，没有「用浏览器打开」那个菜单
+  //   （她 2026-09-22：「qq浏览器就是没有用浏览器打开的选项啊」）——别再教她去点那个。
+  assert.doesNotMatch(screens, /用系统浏览器打开再导出/, "又在教她点一个不存在的菜单");
+  assert.match(screens, /复制本页网址/, "没给她把网址搬去别的浏览器的路");
+  assert.match(screens, /用 Chrome／夸克／手机自带的浏览器打开，再导出文件/);
   assert.match(app, /const inAppBrowser = \(\) =>/);
   ["MicroMessenger", "QQBrowser", "Weibo", "baiduboxapp"].forEach(ua =>
     assert.ok(app.includes(ua), "UA 名单里少了：" + ua));

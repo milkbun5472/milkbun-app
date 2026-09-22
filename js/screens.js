@@ -9888,11 +9888,25 @@ function DataConfig({
     //    接管成自己那个「文件下载」页，文件进了它的沙盒，人再也找不着）──────
     // ⚠️这一颗不藏在「内置浏览器才显示」后面：判 UA 永远判不全，而这条路
     //    在哪个浏览器里都能用。内置浏览器只是多顶一句提醒。
+    // ⚠️别写「右上角⋯→用浏览器打开」：QQ 浏览器压根没有那个菜单，它自己就是浏览器
+    //   （她 2026-09-22：「qq浏览器就是没有用浏览器打开的选项啊」）。
+    //   说得出来的办法只有两个：复制文字走，或者把网址搬到别的浏览器里再导出。
     inAppBrowser ? h("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f" } },
-        "你现在是在 QQ／微信这类 app 自带的浏览器里打开的。这里点下载，文件多半会被它收进自己的沙盒，你再也找不着。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 4 } },
-        "要么右上角「⋯」→ 用系统浏览器打开再导出；要么直接用下面那颗「复制整份备份」。")) : null,
+        "你现在这个浏览器（QQ／微信这类）会把下载接管成它自己的「文件下载」页，文件多半进了它的沙盒，你再也找不着。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 5 } },
+        "· 只要文字（角色、聊天、记忆这些）：用下面那颗「复制文字备份」，复制完发给自己。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 2 } },
+        "· 要连图一起带走：把网址复制出来，用 Chrome／夸克／手机自带的浏览器打开，再导出文件。"),
+      h("button", {
+        onClick: async () => {
+          const u = typeof location !== "undefined" ? location.href : "";
+          const ok = typeof copyText === "function" ? await copyText(u) : false;
+          toast && toast(ok ? "网址已复制——去别的浏览器粘贴打开，再导出文件" : "这个浏览器不让复制，手动从地址栏抄一下");
+        },
+        className: "w-full active:opacity-70",
+        style: { marginTop: 8, minHeight: 40, padding: "9px 0", borderRadius: 9, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 12 }
+      }, "复制本页网址")) : null,
     button("复制文字备份（下载不下来时用这个）", onCopyExport, false),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "4px 2px 0" } },
       "复制完去微信／QQ 发给自己，或者存进备忘录。要恢复的时候用下面的「贴一份备份」。"),

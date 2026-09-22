@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.79";
+const APP_VERSION = "v72.80";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22419,7 +22419,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!pack) return;
     const kb = Math.round(pack.text.length / 1024);
     if (pack.text.length > COPY_MAX) {
-      toast("这份文字备份约 " + Math.round(kb / 1024) + "MB，太大了，复制会把页面撑崩——用系统浏览器打开再导出文件，或者先开云同步");
+      toast("这份文字备份约 " + Math.round(kb / 1024) + "MB，太大了，复制会把页面撑崩——换 Chrome／夸克那类浏览器打开这个网址再导出文件，或者先开云同步");
       return;
     }
     // ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路，
