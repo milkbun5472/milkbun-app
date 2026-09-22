@@ -47,7 +47,8 @@ test("材质那一层组件也用得上，但只在她真调过之后才套", ()
   assert.equal((bare(comp).match(/homeDecorMaterialStyle\(/g) || []).length, 3, "材质又被抄了一份");
   // ⚠️那个函数是无条件给 border 赋值的，喂空对象等于给全桌面每个组件凭空画一圈边
   assert.match(comp, /\(it\.kind === "widget" && widgetLooks\[key\]\) \? lookOf\(key\) : null/);
-  assert.match(comp, /if \(it\.kind === "widget"\) \{ delete presetStyle\.textAlign;/);
+  // v72.75 这一支从一行长成了一段（壳要收住底图），钉的还是同一件事：组件不吃 textAlign
+  assert.match(comp, /if \(it\.kind === "widget"\) \{\n\s*delete presetStyle\.textAlign;/);
   // 全是默认值就把这一栏删掉，别攒成坟场
   assert.match(comp, /if \(empty\) delete n\[key\]; else n\[key\] = cur;/);
 });

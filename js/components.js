@@ -4047,6 +4047,9 @@ function homeItemSpan(key, it, sizes) {
   var p = HOME_SIZE_PRESETS.find(function (x) { return x.id === wanted; });
   return p && p.cols && p.rows ? [p.cols, p.rows] : defaultHomeItemSpan(it);
 }
+// 组件卡自己的圆角（GlassCard 22、日历 24）。壳要收住底图，就得跟卡一个圆角，
+// 不然底图的方角会从卡的圆角外面支出来。
+const HOME_WIDGET_RADIUS = 24;
 function homeWidgetPresetStyle(id, t, kind) {
   if (!id || id === "native") return null;
   var base = { width: "100%", height: "100%", boxSizing: "border-box", position: "relative" };
@@ -5920,7 +5923,21 @@ function Home({
       }, homeDecorMaterialStyle(look, t, presetId));
       // 文字对齐是装饰那一侧的事（装饰的正文是这一层画的）；组件自己画自己的字，
       // 在外壳上按一个 textAlign 只会把人家本来居中的字推到左边。
-      if (it.kind === "widget") { delete presetStyle.textAlign; Object.assign(presetStyle, decorGroundStyle(look)); }
+      // ⚠️这一层【夹在格子和组件中间】，组件本来是格子的亲儿子（她 2026-09-22 转来：
+      //   「日历换了背景图变成这样了」「换了背景图以后也会飘闪」）：
+      //   · 日历那个 button 本来靠 grid 的 stretch 撑满整格；夹进一个普通 div 之后它是
+      //     inline-block，缩成内容那么宽——卡窄了一截，露出右边一条底图，就是她看到的「飘」。
+      //     所以这层壳按 grid 画：里面那个组件照旧被 stretch 撑满。
+      //   · 没挑过材质的组件（native）走的是上面那个裸兜底：没有圆角、没有裁剪，
+      //     底图就是一个硬方块铺在圆角玻璃卡背后，四个角支出来。卡该有的圆角和裁剪，
+      //     这层壳自己得有——挑过材质的那几档（soft/paper/…）一直都有，是兜底那一档漏了。
+      if (it.kind === "widget") {
+        delete presetStyle.textAlign;
+        Object.assign(presetStyle, decorGroundStyle(look));
+        if (presetStyle.borderRadius == null) presetStyle.borderRadius = HOME_WIDGET_RADIUS;
+        if (!presetStyle.overflow) presetStyle.overflow = "hidden";
+        presetStyle.display = "grid";
+      }
       if (look.badge) {
         inner = h("div", { style: { width: "100%", height: "100%", minWidth: 0, minHeight: 0, position: "relative" } },
           inner,
