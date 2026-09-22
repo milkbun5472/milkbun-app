@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v72.61";
+const APP_VERSION = "v72.63";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8932,6 +8932,40 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + _openLines.map(x => "· " + x).join("\n")
           + "\n避免机械复述已经说过的内容；按此刻的真实来意开口，不为避重编造新事件。"
         : "";
+      // ── 主动开口时，别把「刚才那场线下」当成不存在（她 2026-09-22 转群里读者 ! YOLO：
+      //    「如果我和他停在了那个线下的聊天，但通过线上模式主动给我发消息的时候，
+      //      他发那个消息一般都和线下的衔接不上。好像主要会基于他的活动状态去给我发」）。
+      // 查下来不是漏喂：线下原文早就跟线上按时间合流进上下文了。真正的原因是【隔久主动】
+      // 那一档会显式说「这是一段新的聊天开场、不要默认续接最后一句」——那条是来治
+      // 「隔了一天还在续昨天的委屈」的，代价就是刚散场的那顿饭也被一并放下了，
+      // 于是它手上最具体的料只剩日程/活动状态，开口就只能报备行程。
+      // ⚠️所以这儿补的是【事实和出口】，不是命令：把刚才那几拍摆出来，
+      //   说清「你俩是真的在一起过」，至于提不提、怎么提，仍归这个人自己（bans-make-it-dumber）。
+      // ⚠️这一行必须排在下面那个立刻执行的 offTailHint 【之前】：它是 const，
+      //   放在后面就是 TDZ——「裸名字在渲染那一刻求值」那个形状，v72.56 刚被咬过一次。
+      const _roomMaySeeOtherScenes = !sideRoom || !!(room && room.cognition && room.cognition.otherScenes);
+      const offTailHint = (() => {
+        if (!opts.proactive || !_roomMaySeeOtherScenes) return "";
+        try {
+          const list = offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []);
+          const sess = (list || []).find(x => x && (x.msgs || []).length > 0);
+          if (!sess) return "";
+          const rows = (sess.msgs || []).filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system");
+          if (!rows.length) return "";
+          const lastTs = rows.reduce((a, m) => Math.max(a, Number(m.ts) || 0), 0);
+          // 只认【刚散不久】那一场：隔了大半天的线下该由记忆库接手，不该压在今天的开场上
+          if (!lastTs || Date.now() - lastTs > 12 * 3600000) return "";
+          const tail = rows.slice(-6).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName)
+            + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 70)).join("\n");
+          const mins = Math.round((Date.now() - lastTs) / 60000);
+          const ago = mins < 60 ? mins + " 分钟前" : Math.round(mins / 60) + " 小时前";
+          return "\n\n【刚才你俩是真的在一起】" + (sess.endTs ? "那场线下" + ago + "散的" : "那场线下停在 " + ago)
+            + "，最后几拍是这样：\n" + tail
+            + "\n这不是聊天记录里的旧话题，是你俩刚一起经历过的事。你现在主动开口，多半跟它有关"
+            + "（到家了没、刚才那件事后来怎么样、手上那个东西、答应了的那句）——"
+            + "也可以完全无关，那是你的事；但**别当那段没发生过**，更别开口就报备行程。";
+        } catch (e) { return ""; }
+      })();
       const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
@@ -8943,7 +8977,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
       // 单聊主动的收件人固定是当前用户；群聊/线下保留各自场景，不在这里改路由。
-      const proactiveHintAll = proactiveHint + openerAvoid + (opts.proactive
+      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive
         ? "\n【本次收件人】你正在给「" + uName + "」发私聊。关系网中的其他角色是独立的人；他们的身份、物品、经历和与你的共同生活，不属于收件人。提及第三人时保留其姓名或明确称谓；只有上下文明确属于收件人的事实才用‘你’指代。不了解收件人的近况就保持未知，不为主动开口补造共同经历。\n"
         : "");
       // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
@@ -8979,7 +9013,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       let lastPrivateUserTs = 0;
       for (let i = history.length - 1; i >= 0; i--) { if (history[i] && history[i].role === "user") { lastPrivateUserTs = Number(history[i].ts) || 0; break; } }
       const sharedUserTs = latestUserSharedInteractionTs(charId);
-      const _roomMaySeeOtherScenes = !sideRoom || !!(room && room.cognition && room.cognition.otherScenes);
       let crossChannelHint = _roomMaySeeOtherScenes && sharedUserTs > lastPrivateUserTs
         ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过（最近一次约在 " + new Date(sharedUserTs).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
         : "";
