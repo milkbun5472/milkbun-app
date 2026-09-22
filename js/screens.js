@@ -8598,8 +8598,9 @@ function ApiConfig({
     //   于是她照着说明把它指去便宜线路，顺手也把「Ta 眼里」指过去了——而她无从知道。
     //   一层挪了地方，说明没跟上，就是这条规矩的另一种犯法。
     routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。"
-      + "⚠️「Ta 眼里」的建卡和复看也走这条——那两枪吃的料重，便宜线路容易拦或者报 401，"
-      + "「Ta 眼里」不更新时先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
+      + "⚠️「Ta 眼里」的建卡和复看、以及【线上线下的各种总结】也走这条——"
+      + "这几枪都是把一大段材料打包成一条发出去，吃的料重，便宜线路容易拦、报 401 或者整段返空。"
+      + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
