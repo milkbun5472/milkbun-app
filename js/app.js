@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.322";
+const APP_VERSION = "v73.323";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2570,7 +2570,10 @@ function App() {
         ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
           .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))]) };
   };
-  const openGardenRoomFor = async charId => {
+  const openGardenRoomFor = charId => openPresetRoomFor(charId, "garden", "先给这间庭院房定好设定，建好就进去");
+  // 从别的 app 直接开一间带预设的房（她 2026-09-23：「从一起学也能选择开房间，就跟微光庭院一样」）。
+  // ⚠️庭院和一起学走的是同一条：带着预设落到新建那一页，建好就进那间房的聊天。
+  const openPresetRoomFor = async (charId, preset, hint) => {
     const Kit = window.ChatRooms;
     if (!Kit || !charId) return null;
     // ⚠️setActiveChar 存的是【角色对象】不是 id（上面那段注释说的就是它）
@@ -2585,15 +2588,15 @@ function App() {
     //   同一件事在这儿另走一条路＝同一层活在两处（施工规则/one-public-mechanism.md），
     //   而且这一处永远落后（她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
     //   所以这儿只负责【把她送到那一页】，房间由那一页按她设的建。
-    roomPresetIntentRef.current = "garden";
+    roomPresetIntentRef.current = preset;
     // ⚠️不切屏：房间面板是画在外壳上的，哪一屏都盖得住。原来这儿先 setScreen("thread")，
     //   于是设定页出来之前先闪一眼主聊天，点了「算了」还被丢在主聊天上——
     //   她是从庭院过来的，取消就该还在庭院里（她 2026-09-18 报的就是这个）。
     //   建好之后才去那间房，那一步在下面 onSelect 里。
     setActiveChar(who);
     // 本来就在这一位身上时那个 effect 不会跑，所以这儿也直接开一次
-    setChatRoomsPreset("garden"); setChatRoomsOpen(true);
-    toast("先给这间庭院房定好设定，建好就进去");
+    setChatRoomsPreset(preset); setChatRoomsOpen(true);
+    toast(hint);
     return null;
   };
   const clearChatRoomRecords = async room => {
@@ -24016,6 +24019,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,
     entry: studyEntry,
+    // 「一起做件事」那种房：一起学默认开着，别的开关建房那一页自己拨
+    onNewRoom: charId => openPresetRoomFor(charId, "focused", "先定好这间房的设定，建好就进去"),
     onBack: () => setScreen("home")
   });else if (screen === "read") body = h(ReadTogether, {
     active: active,

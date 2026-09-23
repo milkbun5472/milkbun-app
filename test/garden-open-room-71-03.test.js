@@ -18,11 +18,11 @@ test("带着某一间房进屋只有一处机制", () => {
 // ⚠️这一路的名字就叫【新开一档】，而一间房＝一个庭院存档：跳进旧那间，
 //   她要的那一档根本没开出来，设定也一次都没让她设。
 test("开新档一律去设定页，不许认领一间旧房间", () => {
-  const fn = app.slice(app.indexOf("const openGardenRoomFor = async charId"), app.indexOf("const clearChatRoomRecords"))
+  const fn = app.slice(app.indexOf("const openPresetRoomFor"), app.indexOf("const clearChatRoomRecords"))
     .split("\n").filter(line => !line.trim().startsWith("//")).join("\n");
   assert.doesNotMatch(fn, /r\.garden/, "又去翻已有的庭院房了");
   assert.doesNotMatch(fn, /enterRoom\(/, "抄近路直接进旧房间");
-  assert.match(fn, /roomPresetIntentRef\.current = "garden";/);
+  assert.match(fn, /roomPresetIntentRef\.current = preset;/);
 });
 
 // ⚠️一位可以有好几间庭院房，名字重了她自己分不出哪间是哪间
@@ -41,10 +41,10 @@ test("没换人就不许留下这张纸条", () => {
 
 // 从游戏里给 TA 新开一间：先去设定页，不许先闪一眼主聊天
 test("新开一间还是先定设定，建好才进那间房", () => {
-  assert.match(app, /roomPresetIntentRef\.current = "garden";/);
+  assert.match(app, /roomPresetIntentRef\.current = preset;/);
   // ⚠️只钉代码，注释里也写着这句（施工规则/anchor-on-code.md）
-  const fn = app.slice(app.indexOf("const openGardenRoomFor = async charId"), app.indexOf("const clearChatRoomRecords"))
+  const fn = app.slice(app.indexOf("const openPresetRoomFor"), app.indexOf("const clearChatRoomRecords"))
     .split("\n").filter(line => !line.trim().startsWith("//")).join("\n");
-  assert.doesNotMatch(fn.slice(fn.indexOf('roomPresetIntentRef.current = "garden"')), /setScreen\("thread"\)/,
+  assert.doesNotMatch(fn.slice(fn.indexOf('roomPresetIntentRef.current = preset')), /setScreen\("thread"\)/,
     "设定页出来之前先闪一眼主聊天，点「算了」还被丢在那儿");
 });

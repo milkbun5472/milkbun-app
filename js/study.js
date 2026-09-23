@@ -2092,6 +2092,7 @@
     const [openId, setOpenId] = useState(null);   // session id（thread）
     const [curId, setCurId] = useState(null);      // curriculum id（console）
     const entryHandledRef = useRef("");
+    const [roomPickOpen, setRoomPickOpen] = useState(false);
     const homeScrollRef = useRef(null), homeScrollTopRef = useRef(0);
     const consoleScrollRef = useRef(null), consoleScrollTopRef = useRef(0);
     function refresh() { setTick(function (x) { return x + 1; }); }
@@ -2228,8 +2229,18 @@
       });
     }
 
+    const roomPick = roomPickOpen && props.onNewRoom ? h(CenterCard, { onClose: function () { setRoomPickOpen(false); } }, h("div", { style: { padding: "18px 18px 12px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: STUDY_SKIN.ink, marginBottom: 4 } }, "和谁开一间房"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginBottom: 10 } }, "一起学默认开着，别的在下一页自己拨；建好就进那间房的聊天。"),
+      h("div", { style: { maxHeight: "50vh", overflowY: "auto" } }, (props.characters || []).map(function (c) {
+        return h("button", { key: c.id, onClick: function () { setRoomPickOpen(false); props.onNewRoom(c.id); }, className: "w-full flex items-center gap-3 p-2 active:opacity-70", style: { textAlign: "left" } },
+          h(Avatar, { character: c, size: 36, radius: 999 }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: STUDY_SKIN.ink } }, c.remark || c.name));
+      })))) : null;
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
-      h(StudyHead, { zh: "一起学", mode: tab, onBack: props.onBack }),
+      h(StudyHead, { zh: "一起学", mode: tab, onBack: props.onBack,
+        right: props.onNewRoom ? h("button", { onClick: function () { setRoomPickOpen(true); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: studyModeSkin(tab).accent, padding: "4px 2px" } }, "开间房") : null }),
+      roomPick,
       // 三种模式是活页夹里三张分隔页：选中那张长高并直接接进下面的纸页，不是普通药丸。
       h("div", { className: "flex px-4 shrink-0", style: { gap: 5, alignItems: "flex-end", paddingTop: 7, borderBottom: "1px solid " + STUDY_SKIN.line } }, tabs.map(function (tb) {
         const on = tab === tb[0];
