@@ -241,10 +241,6 @@
     // 台下投票那一段（只有场边有人时才有）。⚠️只写判据和来路，不举例句（prompt-no-content-samples）。
     const targets = chars.map(function (c) { return c.name; }).concat(o.watch ? [] : [uName]);
     const hist = o.voteHist || {};
-    const histLines = (o.bench || []).map(function (c) {
-      const hh = hist[c.name] || [];
-      return hh.length ? "· " + c.name + " 之前依次投给：" + hh.join(" → ") : "";
-    }).filter(Boolean).join("\n");
     // 比分冻住了：连着两轮台下每一票都跟上一轮一样，这一轮推一把（规则降概率——但它至少得知道自己冻住了）
     const benchNames = (o.bench || []).map(function (c) { return c.name; });
     const frozen = benchNames.length > 0 && benchNames.every(function (n) {
@@ -264,7 +260,10 @@
         + "· random＝随手投：TA对这场没什么偏好，随便挑一个。\n"
         + "reason 是TA自己的一句理由，用TA的口气、说人话，得站得住。\n"
         + "【立场改观】TA心里站的那边也可以变，但要慢：得是台上有一句话真戳到了TA在意的东西。真变了，就在 reason 里用TA的口气说出来，这是整场最值得看的一刻；没到那一步，就只是这一轮给对面一票，心里还站原处。"
-        + (histLines ? "\n" + histLines : "")
+        // ⚠️不再把「TA之前依次投给：A → A → A」喂回去：那一行是最强的抄写信号，模型照着接（她 2026-09-23：
+        //   「连着三轮继续平票也不动」）。改票判断改成先定 edge（这一轮谁更胜一筹），再照它投。
+        + "\n【先定这一轮的高下，再投票】输出里先写 edge：只看【这一轮】台上的话，谁更胜一筹、凭哪一下（一句）。场边的票拿 edge 当参照："
+        + "投给 edge 那位的，照常写理由；投给另一位的，reason 里得说出TA为什么不认这个 edge——交情、TA在意的某一点、或者TA就是不服。"
         + (frozen ? "\n⚠️上两轮台下一票都没动过——那多半不是台上没变化，是没在比。这一轮每个人都把台上两边【这一轮】的话放在一起比一下：照旧投原来那位的，reason 里得说出对面这一轮差在哪。" : "")
       : "";
     const sys = AC() + CB() +
@@ -325,6 +324,7 @@
       (2 + (benchBlock ? 2 : 0) + (o.judge ? 1 : 0)) + "）最后摘一句这一轮【还没吵拢的那个分歧】，用大白话说：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
       "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}]" +
       (benchBlock ? ",\"side\":[{\"name\":\"场边那位的本名\",\"at\":\"这一声冲着台上谁（本名）\",\"text\":\"忍不住的那一句\"}]" : "") +
+      (benchBlock ? ",\"edge\":{\"name\":\"这一轮更胜一筹的那位（本名）\",\"why\":\"凭哪一下，一句\"}" : "") +
       (benchBlock ? ",\"votes\":[{\"name\":\"场边那位的本名\",\"for\":\"投给台上谁（本名）\",\"why\":\"round|moved|friend|random\",\"reason\":\"TA自己的一句理由\"}]" : "") +
       (o.judge ? ",\"call\":\"裁判这一轮的判语，2~4句\"" : "") +
       ",\"focus\":{\"issue\":\"还没吵拢的那个分歧，1~2句\"}}。turns 顺序同上、每个角色一条" + (benchBlock ? "；side 至多两条，名字必须是场边名单里的；votes 场边每人一条" : "") + "。名单以外的人一个都不要、不要昵称、不要弹幕；别加旁白别 markdown。";

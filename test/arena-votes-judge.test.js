@@ -68,7 +68,7 @@ test("整场记分：谁一共几票", () => {
 });
 
 test("提示词里给的是来路和改票的判据，不是例句", () => {
-  const i = dbt.indexOf("const histLines = ");
+  const i = dbt.indexOf("const voteBlock = benchBlock");
   const vb = dbt.slice(i, dbt.indexOf("const sys = AC()", i));
   assert.ok(i > 0);
   assert.match(vb, /这层关系得是真的/, "交情那一条得拦住临时认亲（脑残粉）");
@@ -76,7 +76,9 @@ test("提示词里给的是来路和改票的判据，不是例句", () => {
   assert.match(vb, /【这一轮的票】和【TA心里站哪边】是两件事/, "票和立场分开");
   assert.match(vb, /这一轮谁都没说服TA，就不投/, "可以弃权");
   assert.match(vb, /【立场改观】/, "立场可以慢慢变");
-  assert.match(vb, /之前依次投给/, "不把TA上几轮投给谁发过去，TA没法判断该不该改");
+  // v73.317 起不再把「之前依次投给」喂回去（那是抄写信号），改成先定 edge 再投
+  assert.doesNotMatch(vb.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n"), /之前依次投给/, "别再把上几轮的票喂回去，模型会照抄");
+  assert.match(vb, /先定这一轮的高下，再投票/);
 });
 
 test("裁判是个活人：没上台的人里挑、TA不投票、每轮说一句、收台由TA判", () => {
