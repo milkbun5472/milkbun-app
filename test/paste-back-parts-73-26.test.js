@@ -1,0 +1,92 @@
+// 她 2026-09-23 转来：「这个别人分段复制数据怎么粘不回来」——
+// 读者一段一段贴完，最后一句「这几段拼不回去——中间少了一段，或者贴的时候被改动过」。
+//
+// 两个病，原来分不出来：
+//   ① 某一段在粘贴路上被截掉一截（微信、备忘录、输入框各有上限，截了不吭声）——
+//      要等全贴完才报错，而且不说是哪一段，她只能从头再来；
+//   ② 拼的那一步是 fetch("data:…base64," + 整份)：几 MB 的 data: 地址，
+//      QQ／微信内置浏览器（腾讯自己那套内核）会直接失败——走这条路的恰恰全是内置浏览器里的人。
+// 这里【真跑】导出切段和贴回去那两段代码，不是只看字面。
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+
+// 桩照【写的那一段】来（stub-from-the-writer）：段头用 app.js 里那份 partHead 现拼，
+// base64 用跟导出那头同样的转法（整份 UTF-8 字节 → base64 → 按 COPY_PART 切）。
+function harness() {
+  const grab = (a, b) => { const i = app.indexOf(a); const j = app.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出 " + a); return app.slice(i, j); };
+  const toasts = [], imported = [];
+  const ctx = { atob: s => Buffer.from(s, "base64").toString("binary"), TextDecoder, Uint8Array, Number, String, Object, Math,
+    toast: m => toasts.push(m), useRef: v => ({ current: v }), doImportText: async t => { imported.push(t); return true; } };
+  vm.createContext(ctx);
+  vm.runInContext([
+    grab("const COPY_PART = ", "\n"),
+    grab("const partHead = ", "\n"),
+    grab("const pasteBinRef = useRef(null);", "\n"),
+    grab("const b64ToText = b64 => {", "\n  };") + "\n  };",
+    grab("const doImportPasted = async raw => {", "\n  // ⚠️导入分两条路")
+  ].join("\n") + "\nthis.head = partHead; this.paste = doImportPasted; this.PART = COPY_PART; this.dec = b64ToText;", ctx);
+  return { ctx, toasts, imported };
+}
+function exportParts(ctx, text, id) {
+  const b64 = Buffer.from(text, "utf8").toString("base64"), parts = [];
+  for (let i = 0; i < b64.length; i += ctx.PART) parts.push(b64.slice(i, i + ctx.PART));
+  return parts.map((p, k) => ctx.head(k + 1, parts.length, id, p.length) + "\n" + p);
+}
+// 一份跨了好几段的备份，中文字的几个字节还会落在段口上
+const BIG = JSON.stringify({ __archive: 1, data: { x_chat: Array.from({ length: 9000 }, (_, i) => ({ role: "user", content: "第" + i + "句：今晚的月亮好圆，你看见了吗🌙" })) } });
+
+test("整份切成几段，乱序贴回来，一个字不差", async () => {
+  const { ctx, toasts, imported } = harness();
+  const bodies = exportParts(ctx, BIG, "bT1");
+  assert.ok(bodies.length >= 3, "测试备份不够大，没跨段");
+  const order = bodies.map((_, i) => i).reverse();
+  for (const k of order) {
+    // 粘贴路上被加的空白：头尾换行、中间插一个空格
+    const b = bodies[k];
+    const cut = b.indexOf("\n") + 50;
+    assert.equal(await ctx.paste("\n  " + b.slice(0, cut) + " \n" + b.slice(cut) + "\n\n"), true);
+  }
+  assert.equal(imported.length, 1, "齐了却没导进去：" + toasts.join(" | "));
+  assert.equal(imported[0], BIG, "拼回去跟原来不一样");
+});
+
+test("某一段在粘贴路上被截了：贴进来那一刻就说是第几段，不收它", async () => {
+  const { ctx, toasts, imported } = harness();
+  const bodies = exportParts(ctx, BIG, "bT2");
+  await ctx.paste(bodies[0]);
+  assert.equal(await ctx.paste(bodies[1].slice(0, bodies[1].length - 3000)), false, "截断的那段被收下了");
+  assert.match(toasts[toasts.length - 1], new RegExp("第 2/" + bodies.length + " 段被截断了"));
+  assert.match(toasts[toasts.length - 1], /回去重新复制第 2 段/);
+  // 重新贴对了就接着走
+  for (let k = 1; k < bodies.length; k++) await ctx.paste(bodies[k]);
+  assert.equal(imported[0], BIG);
+});
+
+test("聊天软件往里塞了别的字：当场说是哪一段", async () => {
+  const { ctx, toasts } = harness();
+  const bodies = exportParts(ctx, BIG, "bT3");
+  const bad = bodies[0].replace(/(\n[A-Za-z0-9+/]{40})/, "$1[长文本已折叠]");
+  assert.equal(await ctx.paste(bad), false);
+  assert.match(toasts[0], /第 1\/\d+ 段里混进了不是备份的字/);
+});
+
+test("老段头（没有长度那一格）照样认；除了最后一段都按整段验", async () => {
+  const { ctx, toasts, imported } = harness();
+  const b64 = Buffer.from(BIG, "utf8").toString("base64"), parts = [];
+  for (let i = 0; i < b64.length; i += ctx.PART) parts.push(b64.slice(i, i + ctx.PART));
+  const n = parts.length;
+  assert.equal(await ctx.paste("QQJ-BACKUP 1/" + n + " old1\n" + parts[0].slice(0, 1000)), false, "老格式截断了没发现");
+  for (let k = 0; k < n; k++) await ctx.paste("QQJ-BACKUP " + (k + 1) + "/" + n + " old1\n" + parts[k]);
+  assert.equal(imported[0], BIG, toasts.join(" | "));
+});
+
+test("拼的那一步不再走几 MB 的 data: 地址", () => {
+  // 数的是代码不是注释：旁边那段注释就写着原来那句 fetch
+  const seg = app.slice(app.indexOf("const doImportPasted = "), app.indexOf("// ⚠️导入分两条路"))
+    .split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.doesNotMatch(seg, /fetch\("data:/, "又把整份塞进 data: 地址了——内置浏览器会直接失败");
+  assert.match(seg, /whole = b64ToText\(joined\.join\(""\)\)/);
+});

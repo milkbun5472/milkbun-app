@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.25";
+const APP_VERSION = "v73.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22582,7 +22582,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   微信输入框、备忘录、包括我们自己这个文本框，对一次粘贴多大都有各自的脾气。
   //   所以整份切成 200KB 一段，一段一段发；导入那头认段头、自己拼回去。
   const COPY_PART = 200 * 1024;
-  const partHead = (i, n, id) => "QQJ-BACKUP " + i + "/" + n + " " + id;
+  // 段头第四格是【这一段本来有多长】（她 2026-09-23 转来：「别人分段复制数据怎么粘不回来」）：
+  //   粘贴的路上被截掉一截是最常见的坏法——微信、备忘录、输入框各有各的上限，截了也不吭声。
+  //   带着长度，贴进来那一刻就能说出「第几段短了」，而不是等全贴完才一句「拼不回去」。
+  //   老备份没有这一格，导入那头照样认。
+  const partHead = (i, n, id, len) => "QQJ-BACKUP " + i + "/" + n + " " + id + (len != null ? " " + len : "");
   const [copyParts, setCopyParts] = useState(null);   // { id, parts:[string], done:{1:true} }
   const doCopyExport = async partNo => {
     let box = copyParts;
@@ -22616,7 +22620,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     const n = box.parts.length, i = partNo == null ? 1 : partNo;
     // 只有一段也带段头：导入那头照着段头认 base64，不用再猜这是哪种形状
-    const body = partHead(i, n, box.id) + "\n" + box.parts[i - 1];
+    const body = partHead(i, n, box.id, box.parts[i - 1].length) + "\n" + box.parts[i - 1];
     // ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路，
     //   写不进去会老老实实返回 false）。这儿再手写一份就是第五处（v71.12 刚把四处搬完）。
     const ok = await copyText(body);
@@ -22631,16 +22635,51 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️攒在内存里，不落盘：几 MB 的碎片写进 localStorage 会把那 5MB 直接顶爆，
   //   而她本来就是在恢复数据（施工规则/phone-data-layers 那条「别为临时态占存档」）。
   const pasteBinRef = useRef(null);   // { id, total, got:{1:"…"} }
+  // base64 → 文字，分块解：一次只 atob 1MB（4 的倍数，块与块之间不会切坏一个字符组），
+  // 攒成字节再按 UTF-8 解一次——中文字的几个字节可能跨块，所以不能每块各自解成字。
+  const b64ToText = b64 => {
+    const STEP = 1024 * 1024, chunks = [];
+    let total = 0;
+    for (let k = 0; k < b64.length; k += STEP) {
+      const bin = atob(b64.slice(k, k + STEP));
+      const u = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) u[j] = bin.charCodeAt(j);
+      chunks.push(u); total += u.length;
+    }
+    const all = new Uint8Array(total);
+    let off = 0;
+    chunks.forEach(u => { all.set(u, off); off += u.length; });
+    return new TextDecoder("utf-8").decode(all);
+  };
   const doImportPasted = async raw => {
     const text = String(raw || "");
-    const m = /^\s*QQJ-BACKUP (\d+)\/(\d+) (\S+)[\r\n]+/.exec(text);
+    const m = /^\s*QQJ-BACKUP (\d+)\/(\d+) (\S+)(?: (\d+))?[ \t]*[\r\n]+/.exec(text);
     // 段头认不出来 → 当成整份 JSON（存文件导出的那种，或者别人发来的老备份）
     if (!m) { pasteBinRef.current = null; return doImportText(text.trim()); }
     const i = Number(m[1]), n = Number(m[2]), id = m[3];
     const bin = pasteBinRef.current && pasteBinRef.current.id === id ? pasteBinRef.current : { id: id, total: n, got: {} };
     bin.total = n;
     // base64 里没有空白：把粘贴路上被加进来的换行、空格一律删掉
-    bin.got[i] = text.slice(m[0].length).replace(/\s+/g, "");
+    const part = text.slice(m[0].length).replace(/\s+/g, "");
+    // ⚠️每一段贴进来【当场验】，坏在哪一段就说哪一段——原来要等全贴完才一句「拼不回去」，
+    //   她不知道是哪段坏了，只能从头再来一遍。
+    //   · 混进了 base64 以外的字：多半是聊天软件动了它（折叠提示、转义、全角字）；
+    //   · 长度不对：被截断了。新段头带着原长度；老段头没有，就按「除了最后一段都是整 200KB」验。
+    if (/[^A-Za-z0-9+/=]/.test(part)) {
+      toast("第 " + i + "/" + n + " 段里混进了不是备份的字（多半是聊天软件改动过它）——回去重新复制第 " + i + " 段贴进来");
+      return false;
+    }
+    const want = m[4] != null ? Number(m[4]) : (i < n ? COPY_PART : null);
+    if (want != null && part.length !== want) {
+      toast("第 " + i + "/" + n + " 段" + (part.length < want ? "被截断了（少了约 " + Math.max(1, Math.round((want - part.length) / 1024)) + "KB）" : "比复制出去的长了")
+        + "——回去重新复制第 " + i + " 段贴进来。换个地方中转也行：发给自己的文件传输助手、或者存进备忘录");
+      return false;
+    }
+    if (want == null && part.length % 4 !== 0) {
+      toast("第 " + i + "/" + n + " 段末尾被截掉了一点——回去重新复制第 " + i + " 段贴进来");
+      return false;
+    }
+    bin.got[i] = part;
     pasteBinRef.current = bin;
     const have = Object.keys(bin.got).length;
     if (have < n) {
@@ -22654,7 +22693,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pasteBinRef.current = null;
     toast(n > 1 ? n + " 段都齐了，正在合起来…" : "正在读这份备份…");
     let whole = "";
-    try { whole = await (await fetch("data:application/json;base64," + joined.join(""))).text(); }
+    // ⚠️原来这儿是 fetch("data:…base64," + 整份)：整份备份几 MB 塞进一个 data: 地址，
+    //   QQ／微信的内置浏览器（腾讯自己那套内核）对这么大的地址会直接失败——
+    //   而走「复制文字」这条路的，恰恰全是在内置浏览器里的人。改成分块自己解。
+    try { whole = b64ToText(joined.join("")); }
     catch (e) { toast("这几段拼不回去——中间少了一段，或者贴的时候被改动过"); return false; }
     return doImportText(whole);
   };
