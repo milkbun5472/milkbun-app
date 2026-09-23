@@ -89,14 +89,29 @@
   // 朗读用：只留TA真说出口的那些字
   function spokenOnly(text) { return String(text || "").replace(ACT_RE, "").replace(/\s+/g, " ").trim(); }
 
-  const REPORTER_VOICE =
-    "你是本刊那位固定的记者兼狗仔——一个 NPC 叙述者人格，不是要你去演某张角色卡。署名就是「本刊记者」。\n" +
+  // 「怎么问」这几条跟谁来问无关：v73.319 起采访人每期换一版腔调（见 interviewerFor），这几条照旧管着TA。
+  const REPORTER_CRAFT =
     "· 你每周都在写这本刊，这些人你见过不止一次，别用第一次见面的客套口气。\n" +
     "· 你的问法是：先把你观察到的那个事实摆出来，再把问号压在它后面。短、直、带一点无礼。\n" +
     "· 对方绕开时你不放过，但你换个角度问，不是把同一句再念一遍。\n" +
     "· 你会承认自己猜错，也会当场改口——你要的是问出东西，不是赢。\n" +
     "· 你的问题也有语气：偶尔半截的追问、偶尔一个语气词，不必句句完整规整。\n" +
     "· 八卦归八卦，不下流、不低俗，不往人身上泼脏。";
+  // 老那位「本刊记者」：老期数、以及这一期没挑出采访人时照旧用TA
+  const REPORTER_VOICE =
+    "你是本刊那位固定的记者兼狗仔——一个 NPC 叙述者人格，不是要你去演某张角色卡。署名就是「本刊记者」。\n" + REPORTER_CRAFT;
+  // 这一期的采访人是某一版的笔（她 2026-09-23：「采访固定有点无聊…每周从抽到的三版里面挑一个当采访人问问题」）
+  // ⚠️那一版的腔调、设定、禁用词只管【采访人】——问题和花边；被采访的人照旧是他自己的声音。
+  //   不写清这一句，维多利亚那版「不得出现现代词」会被读成连答话的人都得改说古话。
+  function interviewerBlock(voice) {
+    if (!voice || !voice.world) return "【叙述者人格 · 记者（NPC，非角色卡）】" + REPORTER_VOICE;
+    return "【叙述者人格 · 本期采访人（NPC，非角色卡）】这一期的专访和花边，由本刊「" + voice.name + "」那一版的笔来问、来写。"
+      + "你不是去演某张角色卡；署名仍是「本刊记者」，不给自己起名字。\n"
+      + "【这一版的腔调】\n" + voice.world
+      + "\n⚠️上面这套腔调、设定和禁用词，只管【你】——你怎么发问、花边怎么写。被采访的人照旧用TA自己的声音、TA自己的词答话，"
+      + "不许被你带成这一版的腔调；这一版的设定也不改这一周真实发生过的事，只改你怎么讲它。\n"
+      + "【不管哪一版的腔调，问法的规矩不变】\n" + REPORTER_CRAFT;
+  }
 
   // 人名铁律：焊进每个生成，防止模型照抄 prompt 里的示例名字（曾经把示例「顾暮」写进赛博版）
   const NAME_GUARD =
@@ -250,6 +265,34 @@
       if (out.indexOf(id) < 0) out.push(id);
     }
     return out.map(voiceOf);
+  }
+
+  // ── 本期采访人 ──────────────────────────────────────────────
+  // 她定的：每期从抽到的三版里挑一版当采访人，每一版都轮过一遍再重来。
+  // ⚠️严格「一轮轮完才重来」会卡死：还没当过采访人的只剩 A、B，这周抽到的三版却是 C、D、E。
+  //   所以改成【三版里挑最久没当过采访人的那一版】：从没当过的排最前，一定挑得出来；
+  //   A、B 只要哪周被抽中当版块，那周就轮到它们——版块本身三四周就把十版过一遍，等不了太久。
+  // ⚠️谁当过采访人不另记一本账，从往期回放推出来（跟版块、采访对象的轮抽同一个做法）：
+  //   重新生成某一期，不会把轮次打乱。只认【当期自动挑的】那一位。
+  function interviewerFor(weekVoices, pastIssues, weekStart) {
+    const cut = Number(weekStart) || Infinity;
+    const last = {};
+    (pastIssues || []).filter(function (x) { return issueStart(x) < cut; }).forEach(function (iss) {
+      const sec = (iss.sections || []).find(function (x) { return x.type === "interview"; });
+      const id = sec && normalizeVoiceId(sec.interviewerId);
+      if (id) last[id] = Math.max(last[id] || -Infinity, issueStart(iss));
+    });
+    let best = null, bestAt = Infinity;
+    (weekVoices || []).forEach(function (v) {
+      const at = last[v.id] == null ? -Infinity : last[v.id];
+      if (best == null || at < bestAt) { best = v; bestAt = at; }
+    });
+    return best;
+  }
+  // 某一期的采访人（手动补一位、单独重刷时要跟这一期原来那位是同一个人）；老期数没有这一格＝老记者
+  function interviewerOfIssue(issue) {
+    const sec = issue && (issue.sections || []).find(function (x) { return x.type === "interview"; });
+    return sec && sec.interviewerId ? knownVoice(sec.interviewerId) : null;
   }
 
   // 采访轮换:每期至多 3 人,抽完一轮才允许重复(洗牌袋)。
@@ -599,7 +642,7 @@
       .filter(function (x) { return x.length >= 4 && x.length <= 60; })
       .slice(-10);
   }
-  async function genInterview(active, char, material, userName, reportLabel) {
+  async function genInterview(active, char, material, userName, reportLabel, interviewer) {
     const ownLines = ownVoiceLines(material, char.name);
     const uName = userName || "我";
     const persona = (char.persona || "（暂无设定，据名字合理发挥其性格）").trim();
@@ -607,7 +650,7 @@
     const sys =
       ANTI_CLICHE + "\n\n" + CB() +
       "\n\n" + CHARCARD_RULE +
-      "\n\n【叙述者人格 · 记者（NPC，非角色卡）】" + REPORTER_VOICE +
+      "\n\n" + interviewerBlock(interviewer) +
       "\n\n【被采访角色 · 严格贴合这份角色卡声纹】「" + char.name + "」：\n" + persona +
       // 素材里本来就有TA这周说过的原话，但以「记录」身份进去权重不够；单拎出来当声纹样本，
       // 和日记那边同一个做法（日记有、周刊一直没有，2026-08-18 补齐）
@@ -953,10 +996,11 @@
     // 全角色洗牌袋轮换；没素材者走人物近况访谈，没抽中的仍可手动补。
     const pickIds = interviewPickFor(win.key, interviewPool.map(function (c) { return c.id; }), loadIssues(), win.start);
     const picked = pickIds.map(function (id) { return interviewPool.find(function (c) { return c.id === id; }); }).filter(Boolean);
+    const interviewer = interviewerFor(weekVoices, loadIssues(), win.start);
     for (const c of picked) {
       tick("采访 " + c.name);
       try {
-        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id] || [], 4000), userName, win.label);
+        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id] || [], 4000), userName, win.label, interviewer);
         entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv));
       } catch (e) { /* 单角色硬失败就跳过，不拖垮整期 */ }
       done++;
@@ -1008,7 +1052,7 @@
       try { const L = await genLetters(active, personasFor(letterAuthors, userName), globalText, userName, empty, letterAuthors); L.forEach(function (x) { letters.push(x); }); } catch (e) {}
     }
     tick("装订成刊");
-    const sections = [cover, { id: uid("sec"), type: "interview", entries: entries }]
+    const sections = [cover, Object.assign({ id: uid("sec"), type: "interview", entries: entries }, interviewer ? { interviewerId: interviewer.id } : {})]
       .concat(desk && (desk.quotes.length || desk.desk.rows.length)
         ? [{ id: uid("sec"), type: "desk", quotes: desk.quotes, desk: desk.desk, correction: desk.correction, ads: desk.ads }] : [])
       .concat(letters.length ? [{ id: uid("sec"), type: "letters", letters: letters }] : [])
@@ -1058,7 +1102,7 @@
     loadIssues: loadIssues, saveIssues: saveIssues, orderedIssues: orderedIssues, shelfIssues: shelfIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     missedWindows: missedWindows,
     weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
-    genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
+    genCover: genCover, genInterview: genInterview, interviewerFor: interviewerFor, interviewerOfIssue: interviewerOfIssue, genMedia: genMedia, generateIssue: generateIssue,
     claimedEvents: claimedEvents, claimedBlocks: claimedBlocks, eventKey: eventKey,
     weekBlocks: weekBlocks, blocksToText: blocksToText, pickOrder: pickOrder,
     weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek, interviewPickFor: interviewPickFor,
@@ -1642,7 +1686,7 @@
       try {
         const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
         const lines = mat.perChar[char.id] || [];
-        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(lines, 4000), props.userName, win.label);
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(lines, 4000), props.userName, win.label, window.Weekly.interviewerOfIssue(issue));
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (sec) {
             if (sec.type !== "interview") return sec;
@@ -1660,7 +1704,7 @@
       setBusyUnit(entry.id);
       try {
         const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
-        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(mat.perChar[char.id], 4000), props.userName, win.label);
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(mat.perChar[char.id], 4000), props.userName, win.label, window.Weekly.interviewerOfIssue(issue));
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) {
             if (s.type !== "interview") return s;
@@ -1789,7 +1833,10 @@
       const entries = iv.entries || [];
       const sel = Math.min(ivSel, Math.max(0, entries.length - 1));
       const en = entries[sel];
+      // 这一期是哪一版的笔来问的（老期数没有这一格，就不挂——那是固定那位本刊记者）
+      const ivBy = window.Weekly.interviewerOfIssue(issue);
       detail = entries.length ? h("div", null,
+        ivBy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".06em", color: t.fog, marginBottom: 10 } }, "本期采访人 · " + ivBy.name) : null,
         h("div", { className: "flex overflow-x-auto", style: { margin: "0 -10px 24px", paddingBottom: 1, borderTop: "5px solid " + sectionLooks().interview.tint, borderBottom: "1px solid " + pageColor("weekly", "line", paletteAlpha(sectionLooks().interview.tint, "55")) } },
           entries.map(function (e, i) {
             const on = i === sel;
@@ -1864,7 +1911,7 @@
               cover ? [{ en: "", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
               deskSec ? [{ en: "", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
               lettersSec ? [{ en: "", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { goSub({ kind: "letters" }, "next"); } }] : [],
-              iv ? [{ en: "", title: "本期专访", meta: (iv.entries || []).length + " 位", onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
+              iv ? [{ en: "", title: "本期专访", meta: (iv.entries || []).length + " 位" + (window.Weekly.interviewerOfIssue(issue) ? " · " + window.Weekly.interviewerOfIssue(issue).name + "来问" : ""), onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
               medias.map(function (sec) {
                 const v = voiceOf(sec.voiceId);
                 return { title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };

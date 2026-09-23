@@ -72,7 +72,8 @@ test("来信排除 Lisa、彼此独立；采访可抽无素材角色但不得把
   assert.match(w, /整篇绝不能默认围绕他和 /, "采访主题不能默认围绕 Lisa 与角色的关系");
   assert.match(w, /没和 .* 聊、被冷落、感情淡了/, "无素材采访要有明确机械语义闸");
   assert.doesNotMatch(w, /本周没有记录，采访不出来/, "手动补采访也必须允许无素材人物近况访谈");
-  assert.match(w, /genInterview\(props\.active, char,[^\n]*props\.userName, win\.label\)/, "补采访与重刷也要知道真实报道窗口，不能把本期误说成最近");
+  // v73.319 多了最后一格「这一期的采访人」（补一位、重刷都跟这一期原来那位一样）
+  assert.match(w, /genInterview\(props\.active, char,[^\n]*props\.userName, win\.label, window\.Weekly\.interviewerOfIssue\(issue\)\)/, "补采访与重刷也要知道真实报道窗口，不能把本期误说成最近");
   assert.match(app, /characters: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\)/, "言秋不能进入普通角色周刊");
 });
 
