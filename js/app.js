@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.13";
+const APP_VERSION = "v73.14";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23862,6 +23862,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
     // 长出来的自我：跟 buildBundle 读同一份（ctxFor），只取这两项，记忆照旧不进一起学
     selfFor: c => { try { const x = ctxFor(c); return { grown: x.personaGrown || "", evolve: !!x.personaEvolve }; } catch (e) { return null; } },
+    // 三人课堂：两位角色之间设定过的关系（有方向：a->b 是 a 眼里的 b）
+    relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,
     entry: studyEntry,
     onBack: () => setScreen("home")
