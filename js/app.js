@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.305";
+const APP_VERSION = "v73.306";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18678,7 +18678,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
-    genRepliesToMe(post, fid, text);
+    genRepliesToMe(post, fid, text, "", floor);
   };
   // 我回复楼中楼 → 随后刷几条回我的挂到同一层
   // toName：我回的是【楼里某一条】时那个人的名字（回楼层本身时是空的）。
@@ -18698,7 +18698,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
   // 这层 TA 回过且没新话就不许再出现（治「帖主重复评论」）；其余 0-3 条路人/真关心的角色。
-  const genRepliesToMe = async (post, floorId, myText, toName) => {
+  // knownFloor：刚开的那层楼直接递进来。⚠️不能只靠 forumCommentsRef 现找——setForumComments 刚调，
+  //   ref 还没跟上，找不到就退成 {}，层主成了一个叫「层主」的无名路人，于是「层主 回复 @她」
+  //   （她 2026-09-23 截图：自己新开的楼里冒出一个层主，v73.303 修的是另一条路没修到这儿）。
+  const genRepliesToMe = async (post, floorId, myText, toName, knownFloor) => {
     if (!active) return;
     setGen(g => ({ ...g, forumReplyMe: floorId }));
     try {
@@ -18706,7 +18709,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const opName = oc ? oc.name : post.authorName;
       const opDesc = oc ? ("发这个帖的帖主是角色「" + opName + "」本人（Ta 会以自己的人设回应）") : ("发这个帖的帖主网名「" + opName + "」");
       // 这层楼的现场：层主是谁、楼里已经有谁说过什么（含帖主是否已回过）
-      const floor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId) || {};
+      const floor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId) || knownFloor || null;
+      // 认不出这层楼是谁开的，就不生成——宁可这一轮没人回，也不让一个无名「层主」替她说话
+      if (!floor) return;
       // 必回我的那个人：默认是层主；我要是在回楼里某一条，那就是【被我 @ 的那个人】。
       // 找不着（名字对不上、或那条是我自己发的）就退回层主——总得有人接话。
       const meNow = forumMe.handle || profile.name || "我";
