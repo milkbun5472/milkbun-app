@@ -2950,7 +2950,7 @@ function Forum({
       h("div", { onClick: () => setRefreshMenu(false), style: { position: "absolute", inset: 0, zIndex: 40 } }),
       h("div", { style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "fadeUp .16s ease both" } },
         [tab !== "关注" && ["刷新", "网友来发帖", () => onGenBoard(tab)],
-         onGenCharPosts && ["请TA们发帖", tab === "关注" ? "你的角色，自己挑吧" : "你的角色，发到「" + tab + "」", () => onGenCharPosts(tab)]]
+         onGenCharPosts && ["请TA们发帖", tab === "关注" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab)]]
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: FORUM_SKIN.ink } }, x[0]),
