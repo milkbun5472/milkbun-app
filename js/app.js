@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.309";
+const APP_VERSION = "v73.310";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13617,8 +13617,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ---- 角色动态：主屏红点通知 + 保底触发 ----
   const notifyApp = key => setAppNotif(p => { const n = { ...p, [key]: (p[key] || 0) + 1 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
   const clearAppNotif = key => setAppNotif(p => { if (!p[key]) return p; const n = { ...p, [key]: 0 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
-  const autoForumForChar = async char => {
-    if (!active || !autoRefreshOn("forum", char.id) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return;
+  // opts.manual：她自己按的（论坛里「请角色来发帖」、主页里「让 TA 发一条」）——不看自动开关，出错要说出来
+  // opts.board：指定发在哪个吧（她正在看的那一版）；不给就照旧让 TA 自己挑
+  // ⚠️「角色发一条帖」全库只有这一份（原来手动那条是另一份又薄又旧的：没有论坛习惯、
+  //   不避重复、不看最近相处——同一件事两份，手动点出来的帖就是比自己发的差一截）。
+  const autoForumForChar = async (char, opts) => {
+    const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
+    if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return null;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
@@ -13638,16 +13643,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
           // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
           + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
-            + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : ""),
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
+            + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : "")
+          + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
+        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}",
+        maxTokens: FTOK.post
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
       const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧", "兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧" };
       const rawBoard = String((d && d.board) || "").replace(/吧$/, "");
       const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
-      const board = forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧");
-      if (d && d.title) { postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: d.identity }, "auto"); notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
-    } catch (e) {}
+      const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
+      if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
+      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: d.identity }, manual ? "手动发帖" : "auto");
+      if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
+      return rec;
+    } catch (e) { if (manual) throw e; return null; }
   };
   // 角色【主动】给你埋一颗时光胶囊（不必你先埋给 TA）——她要的"自动生成、有了我再点开看"。
   // 由 tickAmbient 按轮数稀发；封存到 7/14/30 天后。短期胶囊是“延时抵达的此刻”，不再一两天后硬装遥远未来（v53.90）。写 x_capsules，
@@ -17126,9 +17136,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 帖子只有一份，躺在 forumPosts；版块页/关注页/角色主页都是对同一数组的筛选视图（见 FORUM_BOARDS）。
   // 刷新只 append，绝不覆盖已有帖。NPC 帖每版块有硬上限，角色帖永不清（authorType 区分）。
   const FORUM_NPC_CAP = 30;
+  // 普通刷新掉落一条配角帖的概率（有配角、不是匿名吧时才掷）
+  const FORUM_CAST_CHANCE = 0.4;
   // 一次生成仍只花一次调用，但不要把整批内容同一秒倒给 Lisa。
   // 前两帖/前三楼立即出现，其余作为本地活动队列按真实时间陆续解锁；旧数据没有 visibleAt 时照常立即可见。
-  const FORUM_POST_STAGGER_MS = [0, 0, 20 * 60000, 65 * 60000, 150 * 60000];
+  // ⚠️前三帖立刻出来（她 2026-09-23：「普通的一次刷新至少三个，现在只有俩」）——原来是前两帖，
+  //   第三帖要等二十分钟，一次刷新看上去就只有两条。后面几条照旧按真实时间陆续来。
+  const FORUM_POST_STAGGER_MS = [0, 0, 0, 40 * 60000, 110 * 60000];
   // 点一次「更多回复」先放出队列最前面这么多条：给个立刻看得到的反馈，
   // 但绝不把队排空（她 2026-09-15：「我只是想要一部分按顺序来」）。
   const FORUM_MORE_RELEASE = 5;
@@ -17575,23 +17589,40 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "接的那一条把 refTitle 填成它接的那个标题（原样照抄），**别复述人家的正文**，写你自己这一条的角度。"
           + "其余几条照旧各聊各的——**没有非接不可的道理，接不出自然的就一条都别接**。\n"
         : "";
+      // 角色身边的配角偶尔也来发一帖（她 2026-09-23：「普通刷新也要可以随机掉落角色身边 NPC 的发帖」）。
+      // ⚠️掷在代码里、不交给模型：「偶尔」写进提示词，模型要么每次都塞一条、要么从来不塞。
+      //   掷中了就点名是谁、要一条【整条是TA写的】帖，它照样混在这一批网友帖中间。
+      // ⚠️TA照样守关系隐私：TA生活里的事可以说，别人（台上那位、她）的私事不往网上发。
+      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id)).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
+      const cast = castPool.length && Math.random() < FORUM_CAST_CHANCE ? castPool[Math.floor(Math.random() * castPool.length)] : null;
+      const castLine = cast
+        ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。" + String(cast.n.persona || "").replace(/\s+/g, " ").slice(0, 400)
+          + "\n那一条填 cast:true，authorName／handle 写TA在网上用的网名（跟TA这个人对得上，不必是本名）；"
+          + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
+        : "";
       const d = await runProbeRetry(active, forumWorldCtx(board), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + lately,
-        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"}]}",
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + lately,
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
       if (!items.length) throw new Error("没有生成内容");
       const base = Date.now();
+      // 配角那一条：模型标了 cast 的第一条；没标就不硬认（宁可这次没掉落，也不把路人帖安到TA头上）
+      const castIdx = cast ? items.findIndex(x => x && (x.cast === true || x.cast === "true")) : -1;
       const recs = items.map((x, i) => {
-        const npc = forumPublicNpcOf(x, board, i);
+        // 配角用一个固定的 id：同一个人跨帖子还是同一个人（点进主页、别的楼里认得出来）
+        const npc = i === castIdx
+          ? { id: "npc_guest_cast_" + cast.n.id, name: String(x.authorName || x.guestName || cast.n.name), handle: String(x.handle || x.guestHandle || "").replace(/^@/, "") || ("u_" + forumHash(cast.n.id).toString(36)) }
+          : forumPublicNpcOf(x, board, i);
         const stagger = FORUM_POST_STAGGER_MS[i] != null ? FORUM_POST_STAGGER_MS[i] : (150 + (i - 4) * 90) * 60000;
         const visibleAt = base + stagger;
         return ({
         id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc",
         authorName: npc.name, authorHandle: npc.handle,
         board, title: x.title, body: x.body || "",
-        anon: anonB, triggerSource: "", ts: visibleAt, visibleAt,
+        anon: anonB, triggerSource: i === castIdx ? "配角" : "", ts: visibleAt, visibleAt,
+        ...(i === castIdx ? { castOf: cast.n.id, castHost: cast.host.id } : {}),
         // 接着哪一条：只认【名单里真有的那几个标题】，模型随口编一个就当没接
         // （不然会出现「关于《XXX》」而吧里根本没有那个帖）。
         ...(() => {
@@ -17947,19 +17978,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const genCharForumPost = async (char, board) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forum: "char_" + char.id }));
-    const anonB = board === "匿名吧";
     try {
-      const d = await runProbeRetry(active, ctxFor(char), {
-        voice: true,
-        instruction: "以「" + char.name + "」身份在贴吧「" + board + "」发一条帖（" + forumBoardVoice(board) + "）。内容和 Ta 最近的心情 / 对话 / 生活相关，但这是 Ta 不围着对方转的一面。自行选择 identity=main（大号）或 alt（固定小号）；匿名吧必须 identity=anonymous。小号/匿名不能自曝真实身份。给 title 和 body（2-4 句）。",
-        schemaHint: "{\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文\"}",
-        maxTokens: FTOK.post
-      });
-      if (!d || !d.title) throw new Error("没有生成内容");
-      postCharToForum(char, board, { title: d.title, body: d.body, identity: d.identity }, "手动发帖");
-      toast(char.name + " 发了一条到「" + board + "」");
+      const rec = await autoForumForChar(char, { manual: true, board: board });
+      if (rec) toast(char.name + " 发了一条到「" + rec.board + "」");
+      else toast(char.name + " 这会儿不逛论坛（论坛设置里关掉了，或者 TA 是言秋那一类）");
     } catch (e) { toast("发帖失败：" + e.message); }
     finally { setGen(g => ({ ...g, forum: null })); }
+  };
+  // 请角色来发帖（她 2026-09-23：「论坛能不能搞一个刷新让角色发帖，现在刷新都是路人 NPC 发帖」）。
+  // 从逛论坛的角色里随手挑两位，各发一条到她正在看的这一版；在「关注」「收藏」上按就让 TA 们自己挑吧。
+  // ⚠️一位一次调用（各走各的线路）——两位是按次计费下的折中：一次刷新能看到两个人，不至于一按扣一大笔。
+  const FORUM_CHAR_BATCH = 2;
+  const genForumCharPosts = async tab => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const off = forumOffRef.current || [];
+    const pool = liveChars.filter(c => !off.includes(c.id) && !settingsFor(c.id).engineerEyes);
+    if (!pool.length) { toast("没有在逛论坛的角色——论坛设置里把角色打开"); return; }
+    const pick = pool.slice().sort(() => Math.random() - 0.5).slice(0, FORUM_CHAR_BATCH);
+    const board = typeof forumBoardsAll === "function" && forumBoardsAll().includes(tab) ? tab : "";
+    setGen(g => ({ ...g, forum: "chars" }));
+    try {
+      const got = await Promise.all(pick.map(c => autoForumForChar(c, { manual: true, board: board }).catch(() => null)));
+      const ok = got.filter(Boolean);
+      if (ok.length) { notifyApp("forum"); toast(ok.map(r => r.authorName && r.authorType === "character" ? r.authorName : "有人").join("、") + " 发了新帖" + (board ? "" : "（去各个吧看看）")); }
+      else toast("这一轮没发出来，再点一次试试");
+    } finally { setGen(g => ({ ...g, forum: null })); }
   };
   const toggleForumFollow = charId => setForumFollows(prev => {
     const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId];
@@ -23676,6 +23719,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onReplySub: addForumSubReply,
     onPostMine: postMyForum,
     onGenCharPost: genCharForumPost,
+    onGenCharPosts: genForumCharPosts,
     onToggleFollow: toggleForumFollow,
     onForwardToChat: forwardPostToChat,
     onForwardToGroup: forwardPostToGroup,

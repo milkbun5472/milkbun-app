@@ -2183,6 +2183,7 @@ function Forum({
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
   onDeletePost, onClearBoard, onRenameBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
+  onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
   const t = useTheme();
@@ -2837,6 +2838,11 @@ function Forum({
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
+      // 请角色来发帖（她 2026-09-23：「现在刷新都是路人 NPC 发帖」）。右上角那颗刷新是网友，这一颗是她自己的人。
+      // 在某个吧上按＝发到这个吧；在「关注」上按＝让 TA 们自己挑吧。收藏页没有「发」这回事，不挂。
+      tab !== "收藏" && onGenCharPosts && h("button", { onClick: () => onGenCharPosts(tab), disabled: !!(gen && gen.forum === "chars"), className: "active:opacity-70 disabled:opacity-50",
+        style: { display: "block", width: "calc(100% - 32px)", margin: "12px 16px 0", minHeight: 40, borderRadius: 10, border: "1px dashed " + FORUM_SKIN.accent, background: FORUM_SKIN.soft, color: FORUM_SKIN.accent, fontFamily: F_BODY, fontSize: 12.5 } },
+        gen && gen.forum === "chars" ? "角色们正在发帖…" : (tab === "关注" ? "请角色们来发帖" : "请角色们来「" + tab + "」发帖")),
       forumUnreadRows.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 5px 14px rgba(42,55,38,.05)", overflow: "hidden" } },
         h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新回复在这里"),

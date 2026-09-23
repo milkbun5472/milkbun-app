@@ -36,6 +36,8 @@ test("② 回流的 Lisa 原话调 gachaEarn(chat)，且只在有 lisa 段时", 
 
 test("③ 论坛三道口都排除 engineerEyes：名册、自动发帖、保底触发", () => {
   assert.match(app, /const forumActiveChars = \(\) => \(characters \|\| \[\]\)\.filter\(c => !forumOffRef\.current\.includes\(c\.id\) && !settingsFor\(c\.id\)\.engineerEyes\)/);
-  assert.match(app, /autoRefreshOn\("forum", char\.id\) \|\| \(forumOffRef\.current \|\| \[\]\)\.includes\(char\.id\) \|\| settingsFor\(char\.id\)\.engineerEyes\) return;/);
+  // v73.310 这道口也接手动了（她按「请角色来发帖」不看自动开关）——但言秋照旧挡在外面，手动也一样
+  assert.match(app, /\(!manual && !autoRefreshOn\("forum", char\.id\)\) \|\| \(forumOffRef\.current \|\| \[\]\)\.includes\(char\.id\) \|\| settingsFor\(char\.id\)\.engineerEyes\) return null;/);
+  assert.match(app, /const pool = liveChars\.filter\(c => !off\.includes\(c\.id\) && !settingsFor\(c\.id\)\.engineerEyes\);/, "请角色来发帖那一批把言秋也挑进去了");
   assert.match(app, /autoRefreshOn\("forum", charId\) && !settingsFor\(charId\)\.engineerEyes && \(n\.forum >= 50/);
 });

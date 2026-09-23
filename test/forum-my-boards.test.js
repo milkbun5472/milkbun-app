@@ -63,5 +63,6 @@ test("她开的吧有自己的语气；角色逛论坛也会去——内容对�
   assert.match(v, /不是路过的人在给外行介绍这个话题/);
   assert.match(app, /【论坛上还有她开的几个吧，也可以发去那儿】/);
   assert.match(app, /只有你这条内容本来就属于那个吧才去/);
-  assert.match(app, /const board = forceAnon \? "匿名吧" : \(bmap\[rawBoard\] \|\| \(mine && mine\.name\) \|\| "日常吧"\);/, "模型挑了她的吧，落账时得认得");
+  // v73.310 前面多了「指定发在哪个吧」那一格（她按「请角色来发帖」时就发在她正看的那一版）
+  assert.match(app, /const board = fixedBoard \|\| \(forceAnon \? "匿名吧" : \(bmap\[rawBoard\] \|\| \(mine && mine\.name\) \|\| "日常吧"\)\);/, "模型挑了她的吧，落账时得认得");
 });
