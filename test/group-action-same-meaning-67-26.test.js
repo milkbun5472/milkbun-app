@@ -28,7 +28,7 @@ const ACT_MEANING = (function () {
 test("「action 指什么」只许有一个说法", () => {
   assert.equal((E.match(/const ACT_MEANING = /g) || []).length, 1, "只许定义一处");
   assert.equal((A.match(/ACT_MEANING/g) || []).length, 2, "单聊一处、群聊一处，各取一次");
-  assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}或在 word 中报备。/, "单聊那一行要从这儿取");
+  assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}。这一格是它唯一的去处/, "单聊那一行要从这儿取");
   assert.match(A, /const G_ACTION_SPEC = ACT_MEANING \+ /, "群聊那一格也要从这儿取");
 });
 
@@ -41,14 +41,17 @@ test("定义说的是【能持续的活动状态】，不是【说这句话时�
 });
 
 test("单聊那一行拼出来还是一句读得通的话（v67.35 补了形状那一句）", () => {
-  const rebuilt = "action: string，每轮回复完成后" + ACT_MEANING + "或在 word 中报备。";
+  // ⚠️v72.94 换了尾巴：原来是「或在 word 中报备。」——那个【或】给了模型第二条路，
+  //   动作于是写进 word 变成气泡（她 2026-09-22 报，公共版才犯、家里没有）。
+  const TAIL = "。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。";
+  const rebuilt = "action: string，每轮回复完成后" + ACT_MEANING + TAIL;
   assert.equal(rebuilt,
     "action: string，每轮回复完成后如实填写角色此刻真正正在做的事或所处的活动状态；" +
     "这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「TA／她／TA」从旁描述。" +
     "它答的是【我此刻在哪儿、在做什么】，一句话说完就够；神态、语气、和对方之间的那些来回属于正文，" +
     "写在你说的话那一头，别挪进这一行。" +
-    "当前事实未变且原表述仍准确时，可以原样填写；事实变化时再更新。无需为了交字段换措辞、制造动作或在 word 中报备。");
-  // 尾巴不许带句号，不然单聊那句会变成「…制造动作。或在 word 中报备。」
+    "当前事实未变且原表述仍准确时，可以原样填写；事实变化时再更新。无需为了交字段换措辞、制造动作" + TAIL);
+  // 尾巴不许带句号，不然单聊那句会变成「…制造动作。。这一格是…」
   assert.ok(!/。$/.test(ACT_MEANING), "ACT_MEANING 结尾带了句号，单聊那句会读不通");
 });
 

@@ -181,7 +181,10 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // v72.06 中间多了一档：闭群里有配角时，配角那四样也要发（她 2026-09-20）。
   // 没有配角的闭群照旧只跟着动描走。
   assert.match(app, /: \(_gActDesc \? gActionField : ""\)\);/, "动描开着时没把 action 加进群协议");
-  assert.match(app, /\? ",\\"thought\\":\\"（只有配角填）/, "闭群里的配角没被要求填那四样");
+  // v73.06：闭群的 thought 放给了人人（先想后说，只挂群里气泡、不回流主线）；
+  //   配角那四样里往状态卡写的 mood／wearing 照旧只给配角 —— 这条要守的是它们还在。
+  assert.match(app, /\? ",\\"mood\\":\\"（只有配角填）/, "闭群里的配角没被要求填那四样");
+  assert.match(app, /: ",\\"thought\\":\\"（可选）没说出口的心声\\""/, "闭群里的心声栏没了");
   // 显示不看记忆互通：那是写不写状态卡的事
   assert.match(app, /const gActionNow = TVG\.normalizeAction\(_rawGAction, spk && spk\.name\) \|\| ""/);
   assert.match(app, /const gAction = gActionNow;/, "互通那一支又自己算了一遍");

@@ -70,7 +70,7 @@ test("单聊线下和群线下都要挂上这条尾巴，数字生命不发", ()
   assert.match(single, /characterSupplyTail \+ flashbackTail \+ directorTail \+ styleTail/, "拼进去了才算发");
   const group = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)[0];
   assert.match(group, /const gFlashbackTail = offlineFlashbackBlock\(/);
-  assert.match(group, /content: hist\[hist\.length - 1\]\.content \+ gFlashbackTail \+ gTail/);
+  assert.match(group, /content: hist\[hist\.length - 1\]\.content \+ gFlashbackTail \+ gCharacterTail \+ gTail/);
 });
 
 test("叙事准则里也要有这一条，而且带可判定的那一句", () => {

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.23";
+const APP_VERSION = "v73.24";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6892,6 +6892,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     console.warn("线下前情提要被截：", s.length, "→", OFF_PRE_CAP);
     return OFF_PRE_MARK + "\n" + s.slice(s.length - OFF_PRE_CAP);
   };
+  // 前情提要按段记账（v73.07）：每段记着它总结到第几条、顺手写进库的是哪几条记忆，
+  //   线下重 Roll 回到更早那一格时才知道该撕掉哪几段（RerollBranch.offlineRerollCut）。
+  const offlineSumAppend = (s, seg, upTo, mems) => ({
+    ...s,
+    summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg),
+    sumSegs: [...(Array.isArray(s.sumSegs) ? s.sumSegs : []), { upTo, seg, memIds: (mems || []).filter(Boolean).map(e => e.id) }],
+    lastSummarizedCount: upTo
+  });
+  // 线下重 Roll 回到 idx：撕掉超过回退点的提要段，撤掉只由被删那几轮撑着的自动记忆。
+  //   单人线下、群线下共用这一份；侧房不碰记忆库。
+  const offlineRerollPatch = (sess, idx, touchMem) => {
+    if (!window.RerollBranch || !window.RerollBranch.offlineRerollCut) return {};
+    const cut = window.RerollBranch.offlineRerollCut(sess, idx, memLibRef.current);
+    if (touchMem && cut.doomedMemIds.length) {
+      const doomed = new Set(cut.doomedMemIds);
+      saveMemLib(memLibRef.current.filter(e => !doomed.has(String(e && e.id))));
+    }
+    return { summary: offlinePreCap(cut.summary), lastSummarizedCount: cut.lastSummarizedCount, sumSegs: cut.sumSegs };
+  };
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async scopeKey => {
     if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
@@ -6914,10 +6933,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
         // ofs：记录本机场次来源；替代旧记忆仍需走共同的确认机制。
-        addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
-        (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id }));
-        (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id }));
-        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
+        const segMem = [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
+        (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
+        (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
+        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
@@ -7404,7 +7423,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
     if (!sideRoom) rollbackCharTurns(charId, turns, legacyLatest);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll",surface:"offline", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
-    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
+    const cutPatch = offlineRerollPatch(sess, idx, !sideRoom);
+    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
     if (sideRoom) {
       const prior = truncated.slice().reverse().find(m => m && m.role === "char" && m.thought);
       setRoomThought(scopeKey, prior && prior.thought || "", { mood: prior && prior.mood || "", turnId: prior && prior.turnId || null });
@@ -7412,7 +7432,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去，逼模型给一个明显不同的版本（她 2026-07-25：reroll 出来和原文差不多）
     const rerollAvoid = removed.filter(m => m && m.role === "char" && m.content).map(m => String(m.content)).join("\n---\n");
-    await genOfflineFrom(scopeKey, { ...sess, msgs: truncated, rerollAvoid });
+    await genOfflineFrom(scopeKey, { ...sess, ...cutPatch, msgs: truncated, rerollAvoid });
   };
   // ── 短期导演便签：单人线下和群线下共用这一份（v72.37）────────────────────
   // 她 2026-09-21 转来的反馈：「线下模式那个导演模式，我每次发完他好像不会立刻听我的话，
@@ -7777,17 +7797,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (summ) {
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·群线下】" + summ;
+        const segMem = [];
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
           // groupId：清群记录时要能只摘本群产生的条目，光靠 tags 认不准（她 2026-08-24）
           // ofs：本机场次来源，不作为自动隐藏记忆的依据。
-          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id });
-          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
-          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id }));
+          segMem.push(addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id }));
+          (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId, ofs: sess.id })));
+          (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId, ofs: sess.id })));
         }
         // ⚠️群线下这一份当初照着单人那一份抄了一遍，于是单人放宽、留记号，它又落单了
         //   （施工规则/one-public-mechanism.md 的老形状）。现在两处共用 offlinePreCap。
-        pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: offlinePreCap((s.summary ? s.summary + "\n" : "") + seg), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
+        pGOffline(groupId, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s)); // 前情提要总累进(防本场失忆)
       }
     } catch (e) {/* 静默 */ }
     finally { gOffSumBusyRef.current[groupId] = false; }
@@ -8043,11 +8064,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
-    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
+    // 互通群的记忆才进过全局库；闭群只有本场提要（只进不出）。
+    const cutPatch = offlineRerollPatch(sess, idx, !!gsFor(groupId).memoryInterop);
+    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
     const rerollAvoid = removed.filter(m => m && (m.role === "char" || m.senderId) && m.content).map(m => (m.senderName ? m.senderName + "：" : "") + String(m.content)).join("\n---\n");
-    await genGroupOfflineFrom(group, { ...sess, msgs: truncated, rerollAvoid });
+    await genGroupOfflineFrom(group, { ...sess, ...cutPatch, msgs: truncated, rerollAvoid });
   };
   const groupOfflineSetStyle = (groupId, patch) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
@@ -9570,7 +9593,7 @@ mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；�
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}
 【实时动作字段·普通角色每轮必填】
-action: string，每轮回复完成后${ACT_MEANING}或在 word 中报备。
+action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: ${AFFINITY_DELTA_SPEC}
@@ -9642,7 +9665,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
       const _turnClosing = "\n【收尾·聊天与记录】先形成真实回复，再按本轮协议记录状态与复看结果；记录不写进聊天气泡。"
-        + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
+        + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后"
+        // 同处一室：话是当面说出口的——收尾这句离生成最近，这里说成「发微信」会把上面那段盖掉（她 2026-09-23）
+        + (sameRoomFor(charId) && !offlineTogetherNow(charId) ? "当面说出口，【一句一个气泡】" : "像发微信一样【一条一句】发出去")
+        + "（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
@@ -10872,7 +10898,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     spectate: false,
     memoryInterop: false,
     privateCtxN: 0,
-    preJoinN: 0,
+    preJoinN: 20,
     ctxN: 30,
     sumThresh: 150,
     sumBuffer: 20
@@ -11024,10 +11050,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️这儿原来还按人收一份 privSegs/privBlob，专供下面那道「查漏后重打一枪」用。
       //   那一整套 v69.03 撤了（她：「直接不要重写了」），所以这两个变量也一并删掉——
       //   留着没人读的收集代码，比压根没写更坏。
-      if (gs.preJoinN > 0 && !gs.memoryInterop) {
+      // ⚠️没设过这一栏的群按 20 条算，不是 0（她 2026-09-22：「没开互通的时候感觉人物
+      //   表现很刻板印象还很油腻」）。封闭群里别的层都读得到（长期记忆、记忆库、印象卡、
+      //   心情、好感……只进不出），唯独【TA 平时跟你到底怎么说话】这一层是空的——
+      //   互通群靠实时私聊补上，封闭群本该靠这一档，可它默认是 0。
+      //   没有一句真话垫底，模型就拿「这类人设通常怎么说话」去补：刻板、油腻都从这儿来
+      //   （跟 v55.87 群里王爷变霸总是同一个病：剩下的只有标签）。
+      //   她显式拉到 0 的群照旧是 0 —— 那是她的选择，不是没设过。
+      const _preJoinN = gs.preJoinN == null ? 20 : Number(gs.preJoinN) || 0;
+      if (_preJoinN > 0 && !gs.memoryInterop) {
         const cutTs = groupCreatedTs(group);
         const pj = members.map(c => {
-          const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-gs.preJoinN);
+          const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-_preJoinN);
           if (!before.length) return "";
           const lines = before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + m.content).join("\n");
           return "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕入群前和用户的私聊：\n" + lines;
@@ -11216,7 +11250,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
       const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
+        // 闭群：只要心声那一栏（先想后说），不要心情／好感／穿着——那些是写回主线的，闭群只进不出
+        : "\n【心声】给【本轮真正开口的】成员各加一条 \"thought\"：此刻没说出口的真实心声，一句话。"
+          + "**先把这一句想清楚，再写 TA 说出口的那句**——话从这句心声里长出来，不从「这种人设一般怎么说话」里长出来。"
+          + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人；心里怎么称呼别人就用平时那个称呼，"
+          + "别写成「这女人」「那家伙」这类旁观点评腔；每条都要贴合当下、和这个成员上一条心声不一样；没什么内心活动的可以省略。"
+          + "心声只留在这个群里，不会带回别处。";
       // 群↔私聊打通（v53.96）：TA在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
@@ -11260,9 +11300,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "其余成员这一轮不填这几样。\n" + MOOD_TURN_RULE : "";
       const thoughtField = gs.memoryInterop
         ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）" + AFFINITY_DELTA_SPEC + "\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\"" + gActionField
-        : (_gHasNpc
-          ? ",\"thought\":\"（只有配角填）没说出口的心声\",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
-          : (_gActDesc ? gActionField : ""));
+        // ⚠️闭群也要心声（她 2026-09-22：「没开互通的时候人物刻板印象还很油腻」）。
+        //   互通群一直要求每人写一句心声，等于逼模型先想清楚【这个人此刻心里真在想什么】
+        //   再开口；闭群因为状态卡不回流，这一栏整个关了，模型就直接从标签开口。
+        //   心声只挂在群里这条气泡上，不写主线的状态卡——mood／wearing 那两栏照旧只给配角，
+        //   因为它们是往状态卡里写的（只进不出）。
+        : ",\"thought\":\"（可选）没说出口的心声\""
+          + (_gHasNpc
+            ? ",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
+            : (_gActDesc ? gActionField : ""));
       // 互通群复用单聊更新标准；封闭群不写回。
       const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
@@ -11335,7 +11381,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 【关系隐私铁律】旁观群更需要它：两个人都跟她有关系时，正是这条挡住互相拆穿。
       const gRelRule = "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -11380,7 +11426,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "TA 要是本来就在这场面里，那 TA 现在【仍然在】，只是这一轮没开口——绝不许因为 TA 没说话就把 TA 挪走、写成 TA 走了/睡了/不在了，"
         + "更不许把上文那一场丢掉、另起一个话题或者从头把场面重新铺一遍。**顺着上面正在发生的那件事往下接。**"
         + "\n这一轮由你们几个把话往下推：" + G_EACH_OTHER + "；TA 没开口的这段时间里该发生什么就发生什么。"
-        + "**绝不许出现「怎么不说话」「是不是不理我了」「人呢」「@" + userName(profile) + "」这类冲着 TA 要回应的话，也不许因此闹脾气或反复提起 TA。**"
+        // ⚠️这里原来还连带禁了「@TA」和「反复提起 TA」——禁过头了：她 2026-09-23 报
+        //   「我在群里他们自己聊起来也没见到他们cue我啊」。要防的只是【因为她没回而催她、委屈】，
+        //   不是【想起她、找她】。真人群里聊到一半想起某人，照样会 @ 一下、叫 TA 来看。
+        //   旁观群不给这句：她不在群里，那边的身份铁律写着不许对着她说话。
+        + ((!gs.spectate && !asPrivate)
+            ? "想起 TA 的时候照样可以找 TA：聊到跟 TA 有关的事顺手 @ 一下、叫 TA 来看个东西、问 TA 一句正经的，都是群里本来就会有的事——"
+              + "要不要找、找几次，看此刻聊到哪儿、这个人跟 TA 什么关系来定。"
+            : "")
+        + "只是别把 TA 没出声当成一件事来说：「怎么不说话」「是不是不理我了」「人呢」这类催回应、闹委屈的话不要写。"
         + "TA 什么时候插话都可以，到时候再自然接住就是了。"
         // ⚠️她开着「同处一室」的时候，上面 system 里那句 samePlacePresence 已经写明
         //   「在场的各位和 TA 都在同一个地方」——原来那句「就当 TA 不在场」跟它【正面打架】，
@@ -11608,8 +11662,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             const gRescuedActs = _gGuard.acts;
-            // 记忆互通时把心声挂在末条气泡上显示
-            const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
+            // 心声挂在末条气泡上显示。闭群也挂：它是这个群自己的内容，不回流主线
+            //（往主线状态卡写的那一步在下面，照旧只认互通群和配角）。
+            const gThought = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
             // 动描：这一条发言的人此刻在做什么，摆在TA这几泡【前面】。
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
@@ -12004,7 +12059,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (c.npc) return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, members.map(x => x.id));
         const now = groupNowSegs(c, { interop: gsp.memoryInterop });
         const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
-        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + Object.values(now).join("")
+        // ⚠️分母跟别处一样排掉配角：配角走 NPC_PERSONA_CAP 那 3000 字，不参与平分
+        //   （群线上／群线下／群通话三处都是 filter(!npc)，只有投票这处漏了）。
+        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length)) + Object.values(now).join("")
           + (privateText ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + privateText : "");
       }).join("\n");
       const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + sameNameNote(members) + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
@@ -12048,6 +12105,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我发红包
   // 记忆不互通的群=封闭空间：红包/转账都是过家家，不动任何真钱包（我的 + 角色的都不结算）
   const groupClosed = gid => !gsFor(gid).memoryInterop;
+  // 谁的头像点得开心声卡：互通群里人人都行，闭群里只有配角（他那四样不看互通开关）。
+  // ⚠️这条判据只有这一处：群线上、群线下都问它（施工规则/one-public-mechanism）。
+  //   原来线上写在组件里、线下写在 app 里，两份各判各的——于是闭群里只要有一个配角，
+  //   线下【所有人】的头像都变成按钮，点普通成员却什么都不发生（她 2026-09-22：
+  //   「群线下怎么点不开状态卡」，看着就是点不开）。
+  const memberStatePeekable = (gid, c) => !!(c && (gsFor(gid).memoryInterop || c.npc));
   // toId：专属红包（她 2026-09-19「群聊能发专属红包」）——点名给一个人，别人碰不到。
   // ⚠️专属就是【一份】：给一个人还分好几份，那不是专属，是普通红包写了个名字。
   const sendRedPacket = (groupId, total, count, message, toId) => {
@@ -12313,6 +12376,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const actor = specActor(groupId, remain);
     updateGroup(groupId, { memberIds: remain });
     groupSysLine(groupId, (actor ? actor.name : "你") + "把" + (who ? who.name : "某人") + "移出了群聊");
+  };
+  // 中途退群／被拉回来（她 2026-09-23）。房间身份两头都记（roomKind 在群身上、spectate 在群设置里），
+  //   所以两头一起改，imInGroup / groupSpectating 就跟着翻。
+  //   ⚠️退群那一句只说「退出了群聊」：成员们以为她走了，不知道她还在旁边看（旁观的身份铁律本来就这么写）。
+  //   以前她在群里说过的话留着——那是真发生过的。
+  const setGroupPresence = (groupId, inGroup) => {
+    const g = groups.find(x => x.id === groupId);
+    if (!g || imInGroup(g) === !!inGroup) return;
+    const me = userName(profile);
+    updateGroup(groupId, { roomKind: inGroup ? "group" : "spectate" });
+    saveGroupSettings(groupId, { spectate: !inGroup });
+    if (inGroup) {
+      const pool = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
+      const actor = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+      groupSysLine(groupId, (actor ? actor.name : "有人") + "把" + me + "拉进了群聊");
+      toast("你回到群里了");
+    } else {
+      groupSysLine(groupId, me + "退出了群聊");
+      toast("已退出，现在是旁观");
+    }
   };
   // 群线上按聊天窗口抽取，节拍与线下分别计数。
   const memExtractCtrGRef = useRef({});
@@ -23209,6 +23292,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (Object.keys(rest).length) saveGroupSettings(activeGroup.id, rest);
     },
     onOpenMemberState: memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } },
+    canPeekMember: c => memberStatePeekable(activeGroup.id, c),
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
     onVote: (idx, optIdx) => castVote(activeGroup.id, idx, optIdx, profile.name || "我"),
@@ -23217,6 +23301,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSummarize: () => summarizeGroupToMem(activeGroup.id),
     onAddMember: charId => addGroupMember(activeGroup.id, charId),
     onKickMember: charId => kickGroupMember(activeGroup.id, charId),
+    onSetPresence: inGroup => setGroupPresence(activeGroup.id, inGroup),
     onDeleteGroup: () => deleteGroup(activeGroup.id),
     onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
@@ -23778,6 +23863,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     worldbook: loreForContext("study", [], ""),
     worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
+    // 长出来的自我：跟 buildBundle 读同一份（ctxFor），只取这两项，记忆照旧不进一起学
+    selfFor: c => { try { const x = ctxFor(c); return { grown: x.personaGrown || "", evolve: !!x.personaEvolve }; } catch (e) { return null; } },
+    // 三人课堂：两位角色之间设定过的关系（有方向：a->b 是 a 眼里的 b）
+    relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,
     entry: studyEntry,
     onBack: () => setScreen("home")
@@ -23814,6 +23903,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 言秋照旧不抓进场边（v59.99：TA可以上台，但不当看客）。
     // characters 始终留全：存档头像、名字和分享名单都靠它查。
     crowdChars: liveChars.filter(c => !settingsFor(c.id).engineerEyes && !c.npc),
+    // 台下的配角（她 2026-09-23：「角色的 npc 也可以当台下，当他们的联系角色上场的时候」）。
+    // 走公共那一份 npcsOf（谁是谁身边的人只认 ownerId），不自己再遍历一遍全量角色。
+    // 认不认识她照 knowsUser 写清楚——配角不像她自己的人那样天然认识她。
+    npcFor: stageIds => stageIds.flatMap(hostId => npcsOf(hostId).map(c => {
+      const owner = characters.find(x => x.id === c.ownerId);
+      return { id: c.id, name: c.name, persona: c.persona || "",
+        note: (owner ? owner.name + " 身边的人" : "配角") + "；" + (c.knowsUser ? "也认识 " + userName(profile) : "不认识 " + userName(profile) + "，只认得 " + (owner ? owner.name : "台上那位")) };
+    })),
     groups: groups,
     profile: profile,
     worldbook: loreForContext("debate", [], ""),
@@ -24972,12 +25069,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 群线下点头像看心声：和线上群一样，只有开了互通(states 才共享/会变)才可点
     // ⚠️配角例外：他那四样不看互通开关（她 2026-09-20），闭群里也点得开。
     //   谁点得开由组件那一处判（跟群线上同一份判法），这儿只负责把口子递过去。
-    onOpenMemberState: (gsFor(offlineGroup.id).memoryInterop || groupMembers(offlineGroup).some(c => c && c.npc))
-      ? (memberId => {
-          const c = characters.find(x => x.id === memberId);
-          if (!c || (!gsFor(offlineGroup.id).memoryInterop && !c.npc)) return;
-          setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true);
-        }) : undefined
+    // ⚠️一律传：谁点得开按人判（canPeekMember），不再按「这群里有没有配角」一刀切 ——
+    //   那一刀切的结果是闭群里所有头像都成了按钮，点普通成员却没反应。
+    onOpenMemberState: memberId => {
+      const c = characters.find(x => x.id === memberId);
+      if (!c || !memberStatePeekable(offlineGroup.id, c)) return;
+      setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true);
+    },
+    canPeekMember: c => memberStatePeekable(offlineGroup.id, c)
   }), appConfirm && h(ConfirmDialog, {
     title: appConfirm.title,
     body: appConfirm.body,

@@ -12687,7 +12687,7 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
 // 往期只读详情；群聊用显式参数保留导演便签与成员状态入口。
-function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
+function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, canOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
@@ -12699,7 +12699,7 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
           (session.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
         ),
-        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, char, editable: false, onOpenState }))));
+        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }))));
 }
 
 // 往期列表只接当前会话的记录；筛选排序不修改原数组。
@@ -13019,8 +13019,12 @@ function OfflineMode({
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "这是输出容量上限，不会强迫模型把简单场景写长。"),
-      h(Slider, { value: sMax, min: 400, max: 24000, step: 400, onChange: setSMax })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "这是输出容量上限，不会强迫模型把简单场景写长——给宽点只是让它有空间写完，不是硬性要求。"),
+      // 她 2026-09-22：「两边线下的 token 上限和最低字数的拉条都放开点吧。
+      // 上限也不是硬性规定，给他们多点输出的机会」——拉到 OUT_CEILING（65535，
+      // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
+      // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
+      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
     h("div", { className: "pt-5" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "篇幅模式"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.55 } }, sLengthMode === "immersive" ? "允许这一轮多生活一会儿：有内容才继续，到了需要你回应的位置就停。" : "由当前事件决定长短；简单反应可以短，有真实推进时自然展开。"),
@@ -13031,7 +13035,7 @@ function OfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "高级 · 最低字数目标"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。"),
-      h(Slider, { value: sMinW, min: 0, max: 3000, step: 100, onChange: setSMinW })),
+      h(Slider, { value: sMinW, min: 0, max: 8000, step: 100, onChange: setSMinW })),
     persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: characterText(char, "他/名字") }]),
     persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }]),
     h("div", { className: "flex items-center justify-between pt-5" },
@@ -13400,7 +13404,7 @@ function offCardSkin(t, accent) {
     padding: "14px 16px"
   };
 }
-function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
+function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -13463,7 +13467,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
     (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m, off: showReason === false }) : null,
     h("div", { style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
-        isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? (onOpenState ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
+        isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
         // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
@@ -13511,6 +13515,7 @@ function GroupOfflineMode({
   settings,
   onSaveSettings,
   onOpenMemberState,
+  canPeekMember,
   onOpenStyleLab
   , showReason
 }) {
@@ -13522,10 +13527,15 @@ function GroupOfflineMode({
   // ⚠️谁点得开由 app 那一处判（闭群里只有配角点得开，他那四样不看互通开关）：
   //   这儿的 settings 是【这场线下自己的设置】，里头没有 memoryInterop，判不了。
   const offOpenState = onOpenMemberState ? (sp => sp && onOpenMemberState(sp.id)) : undefined;
+  // 谁点得开：跟群线上问的是同一份判据（app 的 memberStatePeekable）。
+  // 没传就当都能点——单人线下那条路本来就没有这道闸。
+  const offCanPeek = canPeekMember || null;
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
   const [sBg, setSBg] = useState(os.bg || "");
-  const [sMax, setSMax] = useState(os.maxTokens || 3200);
+  // 群线下没设过时的默认（v73.01 从 3200 抬到 12000）：3200 写七个人的戏不够，
+  // 四段就满了——她那边早拉满所以没事，别人一次都没进过这页（engine 那头同一个数）。
+  const [sMax, setSMax] = useState(os.maxTokens || 12000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
@@ -13593,7 +13603,7 @@ function GroupOfflineMode({
   }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
 
   // ---- 往期回看 ----
-  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
 
   // ---- setup ----
   if (view === "setup") {
@@ -13642,14 +13652,14 @@ function GroupOfflineMode({
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。"),
-      h(Slider, { value: sMax, min: 800, max: 32000, step: 400, onChange: setSMax })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
+      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "输出下限（约字数）"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "让每次至少写这么多字（>0 生效）。"),
-      h(Slider, { value: sMinW, min: 0, max: 4000, step: 100, onChange: setSMinW })),
+      h(Slider, { value: sMinW, min: 0, max: 8000, step: 100, onChange: setSMinW })),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
@@ -13707,7 +13717,7 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState, canOpenState: offCanPeek })),
       sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
@@ -13784,6 +13794,7 @@ function GroupThread({
   sameRoom,
   onToggleSameRoom,
   onOpenMemberState,
+  canPeekMember,
   onStartPoll,
   onGenVotes,
   onVote,
@@ -13792,6 +13803,7 @@ function GroupThread({
   onSummarize,
   onAddMember,
   onKickMember,
+  onSetPresence,
   onDeleteGroup,
   onClearGroupChat,
   onOffline,
@@ -13923,7 +13935,9 @@ function GroupThread({
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
   //   所以闭群里也点得开——否则料写进去了，她一眼都看不到。
-  const canPeek = onOpenMemberState && (c => gsp.memoryInterop || !!(c && c.npc));
+  // 判据在 app 的 memberStatePeekable 那一处（互通群人人可点、闭群只有配角）。
+  // ⚠️别在这儿再写一份：线下那头原来就是各判各的，结果闭群里点普通成员没反应。
+  const canPeek = onOpenMemberState && (canPeekMember || (c => gsp.memoryInterop || !!(c && c.npc)));
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
     : h(Avatar, { character: character, size: size || 34, radius: 8 });
@@ -14510,6 +14524,7 @@ function GroupThread({
     onSummarize: onSummarize,
     onAddMember: onAddMember,
     onKickMember: onKickMember,
+    onSetPresence: onSetPresence,
     onDelete: onDeleteGroup,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
@@ -14860,11 +14875,12 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
-  const [preJoinN, setPreJoinN] = useState(gs.preJoinN || 0);
+  // 没设过按 20（跟 app 那头读的同一个数）；显式设过 0 的照旧显示 0
+  const [preJoinN, setPreJoinN] = useState(gs.preJoinN == null ? 20 : Number(gs.preJoinN) || 0);
   const [ctxN, setCtxN] = useState(gs.ctxN || 30);
   const [sumThresh, setSumThresh] = useState(gs.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(gs.sumBuffer || 20);
@@ -14920,7 +14936,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const nearbyIds = new Set(nearby.map(c => c.id));
   const rest = pool.filter(c => !nearbyIds.has(c.id));
   const addable = nearby.concat(rest);
-  const spec = !!gs.spectate;
+  const spec = !!gs.spectate || !!(group && group.roomKind === "spectate");
 
   const row = (label, note, val, set) => h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { className: "pr-3" },
@@ -14975,11 +14991,23 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
         h("button", { onClick: () => onKickMember(c.id), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px" } }, "移出")))),
 
-    h("div", { className: "pt-4", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "旁观模式：" + (spec ? "开（建群时设定，角色不知你在看）" : "关")),
-    row("记忆互通", "开：群实时抽取每位成员跟你的单聊+长期记忆+记忆库，双向记得，带心声/实时好感。关：本群是封闭空间，只吃下面的『入群前上文』X 条前情提要，记忆不进也不出。", interop, setInterop),
+    // 中途退群／被拉回来（她 2026-09-23：「我退出群聊不要让他们知道我在看啊！就是让他们以为我不在了来说话」）。
+    //   群里只落一句「你退出了群聊」，谁也不知道你还在旁边看；拉回来时记到某位成员名下。
+    onSetPresence && h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, spec ? "你在旁观" : "你在群里"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } },
+          spec ? "他们以为你不在群里。拉你回来，群里会显示有人把你拉了进来。"
+            : "退出后群里只显示你退群了，他们不知道你还在旁边看；你之后写的话会变成旁白。")),
+      h("button", {
+        onClick: () => { const go = () => { onSetPresence(spec); onClose(); }; if (spec) go(); else requestAppConfirm("退出群聊，改成旁观？", "群里只会显示你退群了。", go); },
+        className: "active:opacity-60",
+        style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: spec ? t.tint : t.sub }
+      }, spec ? "回到群里" : "退出群聊")),
+    row("记忆互通", "开：群实时抽取每位成员跟你的单聊+长期记忆+记忆库，双向记得，带心声/实时好感。关：本群是封闭空间——长期记忆、记忆库、印象卡照样读得到，但群里发生的事一个字都不回流主线（只进不出）；你俩平时怎么说话，靠下面的『入群前上文』。", interop, setInterop),
     interop
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")
-      : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 20, 1, " 条"),
+      : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。这是模型唯一能看到 TA 平时真怎么跟你说话的地方——拉成 0，角色就只剩人设标签，容易演成刻板印象。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 50, 1, " 条"),
     interop && row("群里自己聊起来", "开互通后，你不看着这个群也没关系：只要 App 还活着，成员就会自己顺着聊，聊出来的内容会在消息页挂未读。额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
     interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（绕着这个数上下浮动，不死板）。嫌太闹就往大调。想让他们先别聊、把话头留给你，点顶栏设置左边那颗圆点——它会变白，底下那颗按钮也跟着变白。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
     interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),

@@ -79,6 +79,67 @@
       .join("\n");
   }
 
+  // ── 台下投票（她 2026-09-23：「这个投票可以按台下观众来投票决定他们觉得谁说得好，
+  //    但是不能毫无根据」）──────────────────────────────────────────────
+  // 这是擂台跟群里吵架的分界线：群里没人计分。每一轮场边每一位都投一票，
+  // 理由只有她点名的那四种来路——交情 / 理念对上 / 被哪句话说动 / 没偏好随手投。
+  // 立场可以改，但「度要把控好：不要无厘头脑残粉，也不要墙头草每轮换」。
+  const VOTE_WHY = { friend: "交情", value: "理念对上", moved: "被说动", random: "随手投" };
+  // 某人这一场到目前为止的投票记录（按回合先后）：只数【已经投出去】的那些
+  function voteHistory(session) {
+    const out = {};
+    (session.rounds || []).forEach(function (r) {
+      (r.votes || []).forEach(function (v) { if (v && v.name && v.for) (out[v.name] = out[v.name] || []).push(v.for); });
+    });
+    return out;
+  }
+  // 台上每个人一共拿了几票
+  function voteTally(session) {
+    const out = {};
+    (session.rounds || []).forEach(function (r) {
+      (r.votes || []).forEach(function (v) { if (v && v.for) out[v.for] = (out[v.for] || 0) + 1; });
+    });
+    return out;
+  }
+  // 模型交回来的票过一道：人得是场边名单里的、投的得是台上的、理由不能是空的。
+  // ⚠️墙头草那一半靠提示词只能降概率（「规则降概率，代码才保证」，场边那一处就是这么学到的）：
+  //   【上一轮刚换过票的人，这一轮不许再换】——换了就照上一轮那个人记，标成「接着投」。
+  //   这样一场里谁都做不到每轮一换；该换的时候照样能换，只是不能连着换。
+  //   不替TA编一句理由：接着投那一票不带理由，界面上只写「接着投」。
+  // strangers：台下谁也不认识的那几位（路人）——TA们投「交情」那一票就是凭空认亲，不算。
+  function settleVotes(raw, voters, targets, hist, strangers) {
+    const stranger = {};
+    (strangers || []).forEach(function (n) { stranger[String(n)] = true; });
+    const clean = function (x) { return String(x == null ? "" : x).replace(/[「」『』"'“”\s]/g, "").trim(); };
+    const voterOk = {}, targetOf = {};
+    voters.forEach(function (n) { voterOk[clean(n)] = String(n); });
+    targets.forEach(function (n) { targetOf[clean(n)] = String(n); });
+    const seen = {};
+    return (Array.isArray(raw) ? raw : []).map(function (v) {
+      const name = voterOk[clean(v && v.name)], to = targetOf[clean(v && v.for)];
+      const why = VOTE_WHY[String((v && v.why) || "").trim()] ? String(v.why).trim() : "";
+      const reason = String((v && v.reason) || "").trim();
+      if (!name || !to || !why || !reason || seen[name]) return null;
+      if (why === "friend" && stranger[name]) return null;
+      seen[name] = true;
+      const h2 = hist[name] || [];
+      const last = h2[h2.length - 1], prev = h2[h2.length - 2];
+      const justSwitched = h2.length >= 2 && last !== prev;
+      if (justSwitched && to !== last) return { name: name, for: last, why: "stay", reason: "" };
+      return { name: name, for: to, why: why, reason: reason };
+    }).filter(Boolean);
+  }
+  // 一轮的票和裁判那一句，写成实录里的两行（下一轮台上的人得知道台下怎么投的、裁判说了什么）
+  function roundVerdictLines(r, judgeName) {
+    const lines = [];
+    const vs = (r.votes || []).filter(function (v) { return v && v.for; });
+    if (vs.length) lines.push("〔台下这一轮的票〕" + vs.map(function (v) {
+      return v.name + "→" + v.for + (v.why === "stay" ? "（接着投）" : "（" + (VOTE_WHY[v.why] || "") + (v.reason ? "：" + v.reason : "") + "）");
+    }).join("；"));
+    if (r.call && judgeName) lines.push("〔裁判 " + judgeName + "〕" + r.call);
+    return lines;
+  }
+
   // 全场实录（喂判定用），带回合与立场
   function fullTranscript(session, uName) {
     const lines = [];
@@ -86,6 +147,7 @@
       lines.push("〔第" + (ri2 + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "（" + (tn.stance || "—") + "）：" + tn.text); });
       if (r.focus && r.focus.issue) lines.push("〔这一轮没吵拢的〕" + r.focus.issue);
+      roundVerdictLines(r, session.judge && session.judge.name).forEach(l => lines.push(l));
     });
     return lines.join("\n").slice(-24000);
   }
@@ -98,12 +160,13 @@
       lines.push("〔第" + (rs.length - take.length + k + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "：" + tn.text); });
       if (r.focus && r.focus.issue) lines.push("〔这一轮没吵拢的〕" + r.focus.issue);
+      roundVerdictLines(r, session.judge && session.judge.name).forEach(l => lines.push(l));
     });
     return lines.join("\n").slice(-12000);
   }
 
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
-  async function assignStances(active, worldbook, topic, chars, isFree) {
+  async function assignStances(active, worldbook, topic, chars, isFree, crowdN) {
     const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length)).join("\n\n");
     const sys = AC() + CB() +
       "下面有一道辩题和几个人物。请【严格根据每个人的人设】判断 Ta 在这道题上最可能真心站的立场——性格、经历、价值观决定态度，别随便分正反。\n\n" +
@@ -112,8 +175,17 @@
       "\n\n" + roster +
       "\n\n" + WORLD_WORDS +
       "\n⚠️写立场那一句也照这条来：用【这个人自己会说的话】写，不许用TA不可能懂的名词概括TA的态度。" +
-      "\n\n【输出】只输出 JSON：{\"stances\":[{\"name\":\"角色名\",\"stance\":\"一句话概括Ta的立场\"}],\"myOptions\":[\"我方可选立场1\",\"我方可选立场2\"]}。" +
-      "stances 每个角色一条；myOptions 给我 2~3 个可选立场（要包含和场上主要立场对立的那一个），短。别加解释。";
+      // 路人（她 2026-09-23：「为啥不能拉几个路人上场当观众，给他们个立场」）。
+      // ⚠️v60.41 撤掉的是【直播间弹幕】那个形状：网名、刷屏、没有立场。这里要的是另一样东西——
+      //   几个这个世界里真会站在台下的普通人，各自带着一个看法来，会投票、会被说动。
+      (crowdN ? "\n\n【台下的路人】再给这一场捏 " + crowdN + " 个站在台下看的路人（crowd）。判据：\n"
+        + "· 跟台上这几位是同一个世界、同一个时代的普通人——名字就是这个世界里的人会有的名字，不许网名、不许昵称、不许外号；\n"
+        + "· who 一句话说清TA是什么人、为什么会在台下（身份、营生、跟这件事沾不沾边）；\n"
+        + "· lean 是TA开场偏向哪一边：写台上某个立场的原话，或者写「中立」。几个人别全站一边——TA的身份决定TA怎么看这件事。\n"
+        + "TA们谁也不认识，台上台下都是陌生人。" : "") +
+      "\n\n【输出】只输出 JSON：{\"stances\":[{\"name\":\"角色名\",\"stance\":\"一句话概括Ta的立场\"}],\"myOptions\":[\"我方可选立场1\",\"我方可选立场2\"]" +
+      (crowdN ? ",\"crowd\":[{\"name\":\"路人的名字\",\"who\":\"一句话身份\",\"lean\":\"开场偏向\"}]" : "") + "}。" +
+      "stances 每个角色一条；myOptions 给我 2~3 个可选立场（要包含和场上主要立场对立的那一个），短。" + (crowdN ? "crowd 正好 " + crowdN + " 个。" : "") + "别加解释。";
     const raw = await callAI(active, sys, [{ role: "user", content: "分配立场。" }], { maxTokens: TOK.stance });
     const p = extractJSON(raw) || {};
     const out = {};
@@ -129,7 +201,14 @@
       if (txt) out[c.name] = txt;
     });
     const myOpts = (Array.isArray(p.myOptions) ? p.myOptions : []).map(x => String(x).trim()).filter(Boolean);
-    return { byName: out, myOptions: myOpts.length ? myOpts : ["支持", "反对"] };
+    // 路人：名字不能跟台上的人撞（撞了投票就分不清是谁投的），没名字没身份的不要
+    const taken = {};
+    chars.forEach(c => { taken[c.name] = true; });
+    const crowd = (Array.isArray(p.crowd) ? p.crowd : []).map(x => ({
+      name: String((x && x.name) || "").trim(), who: String((x && x.who) || "").trim(), lean: String((x && x.lean) || "").trim() || "中立"
+    })).filter(x => x.name && x.who && !taken[x.name] && (taken[x.name] = true)).slice(0, crowdN || 0)
+      .map((x, i) => Object.assign({ id: "passer_" + i }, x));
+    return { byName: out, myOptions: myOpts.length ? myOpts : ["支持", "反对"], crowd: crowd };
   }
 
   // ---- 模型：一轮一次调用 —— 同时生成【所有角色发言(按序)】+【未决争点】 ----
@@ -147,11 +226,31 @@
     // 台下那一层原来的病是【借来的形状】（直播间弹幕＋网感路人），不是「有人在旁边看」这件事本身；
     // v60.26 把整层换成一张客观争点卡，等于把【活的】换成了【记账的】——方向反了。
     const benchBlock = (o.bench || []).map(function (c) {
+      // 配角和路人：谁认识谁得写在名字后面——TA们不像她自己的人那样都认识她
+      if (c.kind === "passer") return "· " + c.name + "（路人，台上台下谁也不认识；" + c.note + "）：" + String(c.persona || "").slice(0, 120);
+      if (c.kind === "npc") return "· " + c.name + "（" + c.note + "）：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500);
       // 也给一小段TA平时跟她怎么说话（比台上那份短得多：TA是配角，不值当占那么多）。
       // 不给的话TA只知道一个名字，开口就成了「人家小姑娘」——她 2026-09-02 抓到的正是这个。
       return "· " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500)
         + (c.injection ? "\n  （" + c.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(c.injection).replace(/\s+/g, " ").slice(-300) : "");
     }).join("\n");
+    // 台下投票那一段（只有场边有人时才有）。⚠️只写判据和来路，不举例句（prompt-no-content-samples）。
+    const targets = chars.map(function (c) { return c.name; }).concat(o.watch ? [] : [uName]);
+    const hist = o.voteHist || {};
+    const histLines = (o.bench || []).map(function (c) {
+      const hh = hist[c.name] || [];
+      return hh.length ? "· " + c.name + " 之前依次投给：" + hh.join(" → ") : "";
+    }).filter(Boolean).join("\n");
+    const voteBlock = benchBlock
+      ? "场边【每一位】都要投这一轮的票，投给台上【这一轮】说得最让TA服气的那一个（可以投" + targets.join("、") + "里任何一位）。why 是这一票的来路，照实挑一种：\n"
+        + "· friend＝交情：TA跟这个人本来就近，站TA不用讲道理——但这层关系得是真的（人设或平时相处里看得出来），不是临时认亲；路人谁也不认识，没有这一条；\n"
+        + "· value＝理念对上：这件事TA自己本来就这么想；\n"
+        + "· moved＝被说动：这一轮台上某句话戳到了TA这个人在意的东西——reason 里要点出是哪句话的意思；\n"
+        + "· random＝随手投：TA对这场没什么偏好，随便挑一个。\n"
+        + "reason 是TA自己的一句理由，用TA的口气，得站得住。路人头一轮照TA开场的偏向投，除非台上真有一句话把TA说动了。\n"
+        + "【改票】票可以改：这一轮里真有谁的哪句话让TA动摇了，就改；没有这样一个具体的原因，就接着投原来那位。一路投同一个人没问题，只要来路站得住；每轮都换人，那是没在看这场。"
+        + (histLines ? "\n" + histLines : "")
+      : "";
     const sys = AC() + CB() +
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
@@ -165,7 +264,7 @@
       // 于是场边那位开口就是「人家小姑娘现在摆明了…」——TA把她当成了路过的第三方。
       // ⚠️这不是记忆互通（擂台照旧不读主线记忆）：「她是谁」是身份，不是往事。
       + "\n\n【和你们吵的这个人】" + uName + (o.mePersona ? "\n" + o.mePersona : "") +
-      "\n⚠️台上台下【每一个人都认识她】，她不是路过的陌生人：绝不许把她说成第三方路人（「那姑娘」「小姑娘」「这位小朋友」「某人」这类）。提到她就用你自己平时叫她的那个称呼——**那个称呼本身就该看得出你俩什么关系**。" +
+      "\n⚠️台上的人和台下她自己那几位熟人【都认识她】，她不是路过的陌生人：绝不许把她说成第三方路人（「那姑娘」「小姑娘」「这位小朋友」「某人」这类）。提到她就用你自己平时叫她的那个称呼——**那个称呼本身就该看得出你俩什么关系**。" +
       "\n\n" + WORLD_WORDS +
       "\n\n【台上角色（就按这个顺序发言）】\n" + rosterBlocks +
       (o.watch
@@ -173,7 +272,11 @@
         : "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）")) +
       (o.transcript ? "\n\n【前几轮实录】\n" + o.transcript : "") +
       (o.focus && o.focus.issue ? "\n\n【上一轮没吵拢的那个分歧】\n" + o.focus.issue + "\n这一轮要真正碰到它，但不必机械复述。" : "") +
-      (benchBlock ? "\n\n【场边看着的人（都是认识台上这几位的熟人，不是路人）】\n" + benchBlock : "") +
+      (benchBlock ? "\n\n【台下看着的人】没注明的都是认识台上这几位、也认识 " + uName + " 的熟人；配角和路人的名字后面写着TA认识谁——不认识的人就按不认识来。\n" + benchBlock : "") +
+      (o.judge ? "\n\n【裁判】" + o.judge.name + " 当这一场的裁判。" + String(o.judge.persona || "").replace(/\s+/g, " ").slice(0, 500)
+        + (o.judge.injection ? "\n（" + o.judge.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(o.judge.injection).replace(/\s+/g, " ").slice(-300) : "")
+        + "\nTA也认识在场每一个人，有TA自己的偏心和私心，不用装公正。台上的人都知道裁判是TA；觉得TA偏心，可以直接冲TA去。" : "") +
+      (voteBlock ? "\n\n【台下投票】" + voteBlock : "") +
       "\n\n【本次任务】\n" +
       "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），充分展开别水，2~6 句，口语带脾气，可点名回应某人。\n" +
       (benchBlock
@@ -184,10 +287,14 @@
           "  刚才谁说得最离谱、谁踩到TA那根线，TA就接谁。全场只盯着 " + uName + " 挑刺，那是没在看这场吵架。\n" +
           "⚠️TA是【一直在旁边看着的】，不是每轮新来的：可以接自己上一轮说过的话、可以越看越来气。名字用TA本名，不许起昵称、不许凭空多出别人。\n"
         : "") +
-      (benchBlock ? "3" : "2") + "）最后摘一句这一轮【还没吵拢的那个分歧】：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
+      (benchBlock ? "3）场边【每一位】都投这一轮的票（votes），照上面【台下投票】那一段来。\n" : "") +
+      (o.judge ? (benchBlock ? "4" : "2") + "）裁判 " + o.judge.name + " 说一句（call）：这一轮谁占了上风、谁没接住谁的问题、谁在耍赖——用TA自己的口气，可以偏心，但得说到台上这一轮真说过的话。\n" : "") +
+      (2 + (benchBlock ? 2 : 0) + (o.judge ? 1 : 0)) + "）最后摘一句这一轮【还没吵拢的那个分歧】：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
       "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}]" +
       (benchBlock ? ",\"side\":[{\"name\":\"场边那位的本名\",\"at\":\"这一声冲着台上谁（本名）\",\"text\":\"忍不住的那一句\"}]" : "") +
-      ",\"focus\":{\"issue\":\"还没吵拢的那个分歧，1~2句\"}}。turns 顺序同上、每个角色一条" + (benchBlock ? "；side 至多两条，名字必须是场边名单里的" : "") + "。不要路人、不要昵称、不要弹幕；别加旁白别 markdown。";
+      (benchBlock ? ",\"votes\":[{\"name\":\"场边那位的本名\",\"for\":\"投给台上谁（本名）\",\"why\":\"friend|value|moved|random\",\"reason\":\"TA自己的一句理由\"}]" : "") +
+      (o.judge ? ",\"call\":\"裁判这一轮那一句\"" : "") +
+      ",\"focus\":{\"issue\":\"还没吵拢的那个分歧，1~2句\"}}。turns 顺序同上、每个角色一条" + (benchBlock ? "；side 至多两条，名字必须是场边名单里的；votes 场边每人一条" : "") + "。名单以外的人一个都不要、不要昵称、不要弹幕；别加旁白别 markdown。";
     // 台上几个人各说一大段 + 一张争点卡，仍给足思考预算，避免发言写到一半停住。
     const budget = Math.min(32000, 12000 + chars.length * 3000);
     const raw = await callAI(active, sys, [{ role: "user", content: "开始：按序让各角色接话，最后只摘一张未决争点卡。" }], { maxTokens: budget });
@@ -215,19 +322,35 @@
     //   宁可这一轮只有一声，也不要台边变成她一个人的嘴替。
     const onStage = (o.chars || []).length + (o.watch ? 0 : 1);
     if (onStage > 1 && side.length === 2 && side[0].at && side[0].at === side[1].at) side.length = 1;
-    return { turns: turns, focus: focus, side: side };
+    const strangers = (o.bench || []).filter(function (c) { return c.kind === "passer"; }).map(function (c) { return c.name; });
+    const votes = benchBlock ? settleVotes(p.votes, (o.bench || []).map(function (c) { return c.name; }), targets, hist, strangers) : [];
+    const call = o.judge ? String(p.call || "").trim() : "";
+    return { turns: turns, focus: focus, side: side, votes: votes, call: call };
   }
 
   // ---- 模型：结束结算 —— 一次调用出【胜负判定 + 各角色赛后感言】（省一次 API；玩家不生成感言）----
   async function genResult(active, session, uName) {
     const chars = session.parts.filter(p => p.kind === "char");
     const charRoster = chars.map(c => "「" + c.name + "」（立场：" + (c.stance || "—") + "；人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + "）").join("\n");
+    // 裁判是个活人（她 2026-09-23 点头的那一条）：请了人就由TA来判，用TA的口气、带TA的偏心；
+    // 没请人就照旧是没有脸的那一位。台下的票数两种情况都给——那是场边的看法，
+    // 裁判可以跟，也可以不跟，不跟就得说出为什么（那正是偏心看得见的地方）。
+    const J = session.judge && session.judge.name ? session.judge : null;
+    const tally = voteTally(session);
+    const tallyLine = Object.keys(tally).length
+      ? "\n\n【台下票数（整场累计）】" + Object.keys(tally).sort(function (a, b) { return tally[b] - tally[a]; }).map(function (n) { return n + " " + tally[n] + " 票"; }).join("、")
+        + "\n这是场边的看法，不是结论：判的时候可以跟着票走，也可以不跟——不跟就在判词里说出为什么。"
+      : "";
     const sys = AC() + CB() +
-      "你是这场辩论的裁判兼主持。辩题：「" + session.topic + "」。参赛各方及立场：" + session.parts.map(p => p.name + "（" + (p.stance || "—") + "）").join("；") + "。\n" +
+      (J
+        ? "这一场的裁判是「" + J.name + "」。" + String(J.persona || "").replace(/\s+/g, " ").slice(0, 800)
+          + "\n下面全部由TA来判：用TA自己的口气写判词，TA认识台上每一个人，有偏心就带着偏心——但判词必须说到台上真说过的话，不能空口站队。\n"
+        : "你是这场辩论的裁判兼主持。") +
+      "辩题：「" + session.topic + "」。参赛各方及立场：" + session.parts.map(p => p.name + "（" + (p.stance || "—") + "）").join("；") + "。\n" +
       (session.mode === "free"
         ? "本场是放飞局，胜负标准就按这一条来评：「" + (session.winCond || "谁整体最出彩谁赢") + "」，别用常规辩论对错来评。"
         : "按正规辩论评判：论点是否成立、论据是否扎实、有没有有效反驳对方、逻辑与说服力、临场应对，看谁整体更胜一筹。") +
-      "\n\n【全程实录】\n" + fullTranscript(session, uName) +
+      "\n\n【全程实录】\n" + fullTranscript(session, uName) + tallyLine +
       "\n\n【要一次做四件事】\n" +
       "1) crux：这一场他们【真正】在吵的是什么。⚠不是把辩题复述一遍——是把两边话里那个没说破的分歧点点出来（常见形状：两边其实在用两把不同的尺子；或者两边都默认了一个根本不成立的前提）。1~2 句。\n" +
       "2) best：全场最狠的那一句。从上面实录里【逐字照抄】某个人真的说过的一句（quote，不许改写、不许自己造），写清是谁说的（name）、狠在哪（why，一句）。可以是输的那一方说的。\n" +
@@ -284,7 +407,7 @@
 
     if (view === "setup") {
       return h(Setup, {
-        active: props.active, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        active: props.active, characters: props.characters, crowdChars: props.crowdChars, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -293,7 +416,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, crowdChars: props.crowdChars, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: s, active: props.active, characters: props.characters, crowdChars: props.crowdChars, npcFor: props.npcFor, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch)
@@ -379,7 +502,14 @@
     const [inject, setInject] = useState(false);
     // 旁观：她不上台，纯看他们吵（她 2026-09-01：「再加一个把我去除的功能纯看他们吵」）
     const [watchOnly, setWatchOnly] = useState(false);
+    // 裁判：没上台的某一位（不请人＝照旧是没有脸的那位）
+    const [judgeId, setJudgeId] = useState("");
+    // 台下拉几个路人（0＝不拉，照旧只有她自己的人）
+    const [crowdN, setCrowdN] = useState(0);
     const [starting, setStarting] = useState(false);
+    // 能当裁判的：场边那批人里没被拉上台的（言秋不当看客，也就不当裁判——场边名单已经把TA滤掉了）
+    const judgePool = (props.crowdChars || props.characters || []).filter(c => c && !picked.includes(c.id));
+    useEffect(() => { if (judgeId && picked.includes(judgeId)) setJudgeId(""); }, [picked, judgeId]);
 
     const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : (p.length >= 3 ? (props.toast && props.toast("台上最多站 3 个"), p) : p.concat(id)));
 
@@ -393,7 +523,7 @@
         const chars = picked.map(id => props.characters.find(c => c.id === id)).filter(Boolean);
         const uName = (props.profile && props.profile.name) || "我";
         const routedLore = props.worldbookFor ? props.worldbookFor(picked, topic.trim()) : props.worldbook;
-        const assigned = await assignStances(props.active, routedLore, topic.trim(), chars, mode === "free");
+        const assigned = await assignStances(props.active, routedLore, topic.trim(), chars, mode === "free", crowdN);
         // 参赛者结构（含我）
         const parts = chars.map((c, i) => ({
           kind: "char", id: c.id, name: c.name, persona: c.persona || "",
@@ -405,10 +535,14 @@
         const watch = !!watchOnly;
         // 我固定每轮第一个发言；角色发言顺序：多人=乱序，1v1=就那一个。parts 里我排最前（台上榜也我在先）
         const order = shuffle(chars).map(c => ({ kind: "char", id: c.id }));
+        const jc = judgeId ? judgePool.find(c => c.id === judgeId) : null;
+        const judge = jc ? { id: jc.id, name: jc.name, persona: jc.persona || "" } : null;
         const session = {
           id: "db_" + Date.now(), topic: topic.trim(), mode: mode,
           winCond: mode === "free" ? (winCond.trim() || "") : "",
           spectate: watch,
+          judge: judge,
+          crowd: assigned.crowd || [],
           inject: inject,   // 场边那几位也要照这个开关决定给不给「平时怎么说话」（老存档没有＝不给）
           parts: watch ? parts : [me].concat(parts), order: order,
           myOptions: watch ? [] : assigned.myOptions, mySet: watch,
@@ -442,6 +576,23 @@
                 h(Avatar, { character: c, size: 22, radius: 999 }),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
             })),
+        // 裁判（她 2026-09-23）：请一位没上台的人来判——TA有偏心，台上的人可以冲TA去
+        judgePool.length ? h("div", { style: label }, "谁来当裁判") : null,
+        judgePool.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
+          [{ id: "", name: "不请人" }].concat(judgePool).map(c => {
+            const on = judgeId === c.id;
+            return h("button", { key: c.id || "none", onClick: () => setJudgeId(c.id), className: "active:opacity-70",
+              style: { display: "flex", alignItems: "center", gap: 6, padding: c.id ? "6px 11px 6px 6px" : "6px 12px", minHeight: 36, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 } },
+              c.id ? h(Avatar, { character: c, size: 22, radius: 999 }) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
+          })) : null,
+        // 路人（她 2026-09-23）：几个这个世界里的普通人站在台下，各带一个看法、会投票
+        h("div", { style: label }, "台下再拉几个路人"),
+        h("div", { style: { display: "flex", gap: 8, marginBottom: 20 } },
+          [[0, "不拉"], [2, "2 个"], [4, "4 个"]].map(o =>
+            h("button", { key: o[0], onClick: () => setCrowdN(o[0]), className: "active:opacity-70 flex-1",
+              style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, fontWeight: crowdN === o[0] ? 700 : 400, color: crowdN === o[0] ? t.accent : t.ink,
+                borderRadius: 11, border: "1.5px solid " + (crowdN === o[0] ? t.accent : t.line), background: crowdN === o[0] ? t.accent + "12" : t.bg2 } }, o[1]))),
         // 模式
         h("div", { style: label }, "模式"),
         h("div", { style: { display: "flex", gap: 8, marginBottom: mode === "free" ? 14 : 20 } },
@@ -539,11 +690,21 @@
           mePersona: String((props.profile && props.profile.persona) || "").replace(/\s+/g, " ").slice(0, 900),
           // 场边＝她的角色里【没上台的那些】。至多摆 6 个进上下文（她按次计费）；
           // 各带一小段平时跟她怎么说话——不给的话TA只知道一个名字，开口就成了「人家小姑娘」
+          // 裁判不在场边：TA判，不投票（自己投自己判就不叫裁判了）
+          // 台下三拨人：她自己的人（至多 6）＋台上那几位身边的配角（至多 3，她 2026-09-23：
+          // 「角色的 npc 也可以当台下，当他们的联系角色上场的时候」）＋开场捏好的路人。
           bench: (props.crowdChars || []).filter(function (c) {
-            return !orderedChars.some(function (x) { return String(x.id) === String(c.id); });
+            return !orderedChars.some(function (x) { return String(x.id) === String(c.id); })
+              && !(s.judge && String(s.judge.id) === String(c.id));
           }).slice(0, 6).map(function (c) {
-            return { id: c.id, name: c.name, persona: c.persona, injection: s.inject ? recentChatSnippet(c.id, uName, c.name) : "" };
-          })
+            return { id: c.id, name: c.name, persona: c.persona, kind: "char", injection: s.inject ? recentChatSnippet(c.id, uName, c.name) : "" };
+          }).concat((props.npcFor ? props.npcFor(orderedChars.map(function (c) { return c.id; })) : []).slice(0, 3).map(function (c) {
+            return { id: c.id, name: c.name, persona: c.persona, kind: "npc", note: c.note || "" };
+          })).concat((s.crowd || []).map(function (x) {
+            return { id: x.id, name: x.name, persona: x.who, kind: "passer", note: "开场偏向：" + (x.lean || "中立") };
+          })),
+          judge: s.judge ? { name: s.judge.name, persona: s.judge.persona, injection: s.inject ? recentChatSnippet(s.judge.id, uName, s.judge.name) : "" } : null,
+          voteHist: voteHistory(s)
         });
         patch(prev => {
           const rounds = prev.rounds.slice();
@@ -551,6 +712,8 @@
           last.turns = last.turns.concat(r.turns.map(tn => ({ who: "char", id: tn.id, name: tn.name, stance: tn.stance, color: tn.color, text: tn.text, at: tn.at })));
           last.focus = r.focus;
           last.side = r.side || [];
+          last.votes = r.votes || [];
+          last.call = r.call || "";
           last.audience = []; // 旧的台下弹幕字段：只为旧存档兼容，新局不再往里写
           last.gen = true;
           rounds[rounds.length - 1] = last;
@@ -619,11 +782,14 @@
     //   真实的台子本来就不是这样：牌子开场放下来给你看一眼，看完就收上去，你才好看戏。
     //   所以牌子会【收起来】：还没人开口时自动放下（这时你正需要看谁站哪边），
     //   台上一有人说话就收成一条；点一下再放下来，放下来的时候【不锁行数】，立场给全。
-    const HEAD_H = stageOpen ? 50 : 42;   // 头像+名字这一段的高度：台面那条线正好从这里横过去
+    const tally = voteTally(s);
+    const anyVotes = Object.keys(tally).length > 0;
+    const HEAD_H = (stageOpen ? 50 : 42) + (anyVotes ? 13 : 0);   // 挂了票数就把台面线往下让一行   // 头像+名字这一段的高度：台面那条线正好从这里横过去
     const AV = stageOpen ? 29 : 24;
     const stage = h("div", { style: { background: t.bg2, borderBottom: "1px solid " + t.line, paddingTop: 9 } },
       // 台上方那条横幅：今天要吵的这件事。底边中间收一个尖口，是布幡不是标题栏
       h("div", { style: { margin: "0 18px 9px", padding: "6px 12px 10px", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.3, textAlign: "center", clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)" } }, s.topic),
+      s.judge ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.sub, margin: "-3px 0 8px" } }, "裁判 · " + s.judge.name) : null,
       h("div", { style: { position: "relative", padding: "0 10px 4px" } },
         // 台裙：台面线以下这一片是台前，立场牌就挂在这上面
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: HEAD_H, bottom: 0, background: "linear-gradient(180deg,rgba(38,34,28,.13),rgba(38,34,28,.03))", borderTop: "3px solid " + t.ink, boxShadow: "0 5px 9px -6px rgba(38,34,28,.85)" } }),
@@ -634,7 +800,10 @@
                 p.kind === "char"
                   ? h(Avatar, { character: props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }, size: AV, radius: 999 })
                   : h(Avatar, { character: meAv, size: AV, radius: 999 }),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: "100%" } }, p.kind === "me" ? uName : p.name)),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: "100%" } }, p.kind === "me" ? uName : p.name),
+                // 记分：整场台下累计几票（一票都还没投过的局不挂，免得一排 0）。
+                // ⚠️挂在台面线【上面】那一段里：挂在下面会被那道 3px 的台面线从中间横穿过去。
+                anyVotes ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, lineHeight: "13px", height: 13, color: p.color } }, (tally[p.name] || 0) + " 票") : null),
               // 挂绳：牌子是【挂在台前】的，不是浮在那儿的
               h("div", { "aria-hidden": "true", style: { width: 1, height: stageOpen ? 7 : 4, background: p.color, opacity: .7 } }),
               // ⚠️放下来的时候不许锁行数：锁了就是「看不全」。收起来的时候只留一行。
@@ -682,6 +851,44 @@
             h("span", { style: { color: t.fog } }, "：" ),
             x.text);
         }));
+    };
+    // 台下这一轮的票（她 2026-09-23）。
+    // 形状跟场边那一声同一条台边线——投票的就是那几位，别另起一块卡片抢台上的戏。
+    // 先一行这一轮的票数（谁几票），下面每位一行：投给谁、什么来路、TA的理由。
+    const voteBlock = function (votes, k) {
+      const list = (votes || []).filter(function (v) { return v && v.for; });
+      if (!list.length) return null;
+      const count = {};
+      list.forEach(function (v) { count[v.for] = (count[v.for] || 0) + 1; });
+      const partOf = function (n) { return (s.parts || []).find(function (p) { return p.name === n; }); };
+      return h("div", { key: "vote" + k, style: { margin: "0 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line } },
+        h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 10px", marginBottom: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } },
+          h("span", { style: { letterSpacing: 1 } }, "台下这一轮"),
+          Object.keys(count).sort(function (a, b) { return count[b] - count[a]; }).map(function (n) {
+            const pp = partOf(n);
+            return h("span", { key: n, style: { color: (pp && pp.color) || t.ink, fontWeight: 700 } }, n + " " + count[n] + " 票");
+          })),
+        list.map(function (v, i2) {
+          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: i2 ? 3 : 0 } },
+            h("span", { style: { fontWeight: 700, color: t.ink } }, v.name),
+            h("span", { style: { color: t.fog } }, " 投 "),
+            h("span", { style: { fontWeight: 700, color: ((partOf(v.for) || {}).color) || t.ink } }, v.for),
+            v.why === "stay"
+              ? h("span", { style: { color: t.fog } }, "（接着投）")
+              : h(React.Fragment, null,
+                h("span", { style: { color: t.fog } }, "　" + (VOTE_WHY[v.why] || "") + " · "),
+                v.reason));
+        }));
+    };
+    // 裁判这一轮那一句：比场边响一点（TA是裁判），但仍然不比台上响
+    const callBlock = function (call, k) {
+      if (!call || !s.judge) return null;
+      const jc = (props.characters || []).find(function (c) { return c.id === s.judge.id; }) || { name: s.judge.name };
+      return h("div", { key: "call" + k, style: { display: "flex", gap: 8, alignItems: "flex-start", margin: "0 2px 14px", padding: "8px 10px", background: t.bg2, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 8px 8px" } },
+        h(Avatar, { character: jc, size: 20, radius: 999 }),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink } },
+          h("span", { style: { fontSize: 10, letterSpacing: 2, color: t.fog, marginRight: 6 } }, "裁判"),
+          h("span", { style: { fontWeight: 700, marginRight: 4 } }, s.judge.name + "："), call));
     };
     // 这一轮没吵拢的那个分歧（v60.41 降级）
     // v60.26 把它做成一张带字距标签的卡摆在正文里，还附一句「下一轮可追问」——
@@ -764,6 +971,8 @@
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, letterSpacing: 2, color: t.sub, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 4px 4px", padding: "4px 13px 5px", background: t.bg2 } }, "第 " + (ri2 + 1) + " 回合")),
           (r.turns || []).map(turnCard),
           sideBlock(r.side, ri2),
+          voteBlock(r.votes, ri2),
+          callBlock(r.call, ri2),
           focusBlock(r.focus, ri2),
           legacyAudience(r.audience, ri2))),
         busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, phaseMsg || "…") : null,

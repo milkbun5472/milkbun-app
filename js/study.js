@@ -26,6 +26,11 @@
     "\n【输出格式】只输出一个 JSON 对象，基础形态是 {\"say\":[\"气泡1\",\"气泡2\"]}；需要时可按上方规则在同一对象加入 quiz 或 evidence。" +
     "say 里放你这一轮说出口的话，可拆成 1~4 个气泡（像即时通讯那样分条），" +
     "不要加名字前缀、不要旁白括号、不要 markdown、不要把 JSON 以外的东西吐出来。";
+  // 研究笔记板（一起研究专用）：原来只有一份攒满才浓缩的摘要，每轮看不见走到哪一步了。
+  const BOARD_FMT =
+    "\n【研究笔记板（可选，接在同一个 JSON 里）】这一轮研究真有了进展时——问题问得更准了、多了一个猜测、验证了某一点、冒出新疑问——" +
+    "就在同一个 JSON 里加 \"board\":{\"question\":\"现在在研究的问题（一句）\",\"guesses\":[\"还没验证的猜测\"],\"confirmed\":[\"已经确认的，附一句依据\"],\"open\":[\"还没解决的\"]}，" +
+    "写【整块板的新样子】（没变的条目照抄）。没有进展就不加。只有真的验证过才能进 confirmed，推测一律放 guesses。每栏最多 6 条，每条一句。";
   const QUIZ_CARD_FMT =
     "\n【可交互题卡】需要用户作答时，优先不要把题目只写成聊天文字；在同一个 JSON 里加 quiz。每轮最多 1 张：" +
     "{\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题目\",\"point_id\":\"当前要点id\"," +
@@ -46,14 +51,20 @@
         "你是有能力的老师：按下方课程大纲的【当前单元】推进，讲解具体、给例子、可跟练，并留出让用户练习和提问的空间。" +
         "一次只推进一小步，别把整个单元一口气倒完。用自然的教学口吻，不八股。";
     if (mode === "costudy")
+      // 原来只说了「别装懂」，没说「那你拿什么来研究」——于是只剩附和、提问、说不确定，
+      //   像陪聊不像搭档（她 2026-09-23：「一起研究现在是个什么模式怎么样能做更好一点」）。
       return "【当前场景：一起学 · 一起研究】你和用户一起研究『" + subject + "』——你并不比TA更懂，这是共同探索。" +
-        "一起查、一起猜、一起试错、互相启发。别不懂装懂、别硬编权威答案；不确定就说不确定，并提出可以一起验证的思路。";
+        "你带进来的是【你自己】：从你的职业、经历、手艺、偏好里找这件事的切入点——同一个问题，不同的人会从完全不同的地方下手，你的那个角度就是你在这儿的用处。" +
+        "别只等TA开口：每一轮都试着把研究往前推一小步——提一个具体的猜测、想一个能马上试的小办法、举一个你熟悉的类比、或者承认上次想错了。" +
+        "别不懂装懂、别硬编权威答案或来源；拿不准就直说拿不准，说清楚是哪一点拿不准、怎么能验证。";
     if (mode === "nv1-teacher")
       return "【当前场景：一起学 · 你是老师，现场还有另一个同学】你在教「用户」和另一位同学一起学『" + subject + "』。" +
         "按大纲【当前单元】推进，照顾两个学生，但绝不替他们回答。" + (extra ? "另一位同学：" + extra + "。" : "");
     if (mode === "nv1-peer")
+      // 原来写死「会答错、会提问、偶尔走神」——那是一个模板学生，谁来演都一样。
       return "【当前场景：一起学 · 你和用户是同学】你和用户一起跟老师" + (extra ? "「" + extra + "」" : "") + "学『" + subject + "』。" +
-        "你也在学：会答错、会提问、会和用户讨论、偶尔走神。别抢老师的活，也绝不替用户回答；以同学身份自然参与。";
+        "你也在学，按【你自己】来学：以你的性格、背景和已有的底子，你会在哪儿卡住、在哪儿一点就通、怎么提问、懂了会不会忍不住显摆、跟这位老师和用户各是什么相处方式。" +
+        "别抢老师的活，也绝不替用户回答；以同学身份自然参与。";
     return "";
   }
 
@@ -306,6 +317,11 @@
     parts.push(USER_SLOT_PROTECT);
     parts.push(RETEACH_RULE);
     parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+    // 「这个人是谁」这几层一起学原来一层都没有（她 2026-09-23：「一起学之类的人设有被投进去吗」）。
+    //   隔离挡的是【主聊天记忆】；长出来的自我、语气锚、整张卡那条都不是记忆，是人本身，所以照给。
+    if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
+    if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    if (typeof WHOLE_CARD_RULE !== "undefined") parts.push(WHOLE_CARD_RULE);
     if (profile.name || profile.persona)
       parts.push("【和你一起学的人 · " + userName(profile) + "】\n" + (profile.persona || "（未填写）"));
     if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
@@ -317,10 +333,18 @@
       const others = (session.character_ids || []).filter(function (id) { return id !== char.id; });
       const oc = (ctx.characters || []).find(function (c) { return c.id === others[0]; });
       peerName = oc ? oc.name : "";
+      // 同堂那位是个什么人（原来只给了名字：老师不知道这个同学是谁，同学也不知道老师是谁）
+      if (oc) {
+        const rel = ctx.relFor ? ctx.relFor(char.id, oc.id) : null;
+        parts.push("【同堂的另一位 · " + oc.name + "】\n" + String(oc.persona || "（暂无设定）").slice(0, 1500)
+          + (rel && (rel.mine || rel.theirs) ? "\n〔你俩的关系〕" + [rel.mine ? "你眼里 TA 是：" + rel.mine : "", rel.theirs ? "TA 眼里你是：" + rel.theirs : ""].filter(Boolean).join("；") : "\n〔你俩之前没有设定过关系：照不熟来，但不必生分〕"));
+      }
     }
     parts.push(sceneFor(mode, session.subject, peerName));
 
     if (session.mode === "costudy") {
+      const bt = boardText(session.progress && session.progress.board);
+      if (bt) parts.push("【研究笔记板（你俩一起记的，接着它往下推）】\n" + bt);
       if (session.progress && session.progress.running_summary)
         parts.push("【到目前为止你俩研究到哪了（摘要）】\n" + session.progress.running_summary);
       const pending = session.progress && session.progress.summary_buffer;
@@ -343,6 +367,7 @@
       if (mode === "teach" || mode === "nv1-teacher") parts.push(STUDY_PROGRESS_FMT);
     }
     if (mode === "teach" || mode === "nv1-teacher") parts.push(QUIZ_CARD_FMT);
+    if (mode === "costudy" && session.mode === "costudy") parts.push(BOARD_FMT);
     parts.push(OUT_FMT);
     return parts.join("\n\n");
   }
@@ -369,10 +394,26 @@
   }
   function parseSay(raw) {
     const d = extractJSON(raw) || {};
+    // 明说不开口：{"say":[]} 就是一句话都没有，别让兜底从 JSON 骨架里抠出个 "say" 来
+    if (Array.isArray(d.say) && !d.say.length) return [];
     let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
     says = says.map(stripName).map(guardOverspeak).filter(Boolean);
     if (!says.length) says = sayFallback(raw).map(guardOverspeak).filter(Boolean);
     return says;
+  }
+
+  function parseBoard(raw) {
+    const d = extractJSON(raw) || {};
+    const b = d.board;
+    if (!b || typeof b !== "object") return null;
+    const list = x => (Array.isArray(x) ? x : []).map(v => String(v || "").trim()).filter(Boolean).slice(0, 6).map(v => v.slice(0, 160));
+    const out = { question: String(b.question || "").trim().slice(0, 200), guesses: list(b.guesses), confirmed: list(b.confirmed), open: list(b.open) };
+    return (out.question || out.guesses.length || out.confirmed.length || out.open.length) ? out : null;
+  }
+  function boardText(b) {
+    if (!b) return "";
+    const sec = (t, a) => a && a.length ? t + "\n" + a.map(x => "· " + x).join("\n") : "";
+    return [b.question ? "问题：" + b.question : "", sec("猜测（未验证）", b.guesses), sec("已确认", b.confirmed), sec("还没解决", b.open)].filter(Boolean).join("\n");
   }
 
   function parseQuiz(raw) {
@@ -424,7 +465,44 @@
     const says = parseSay(raw);
     const d = extractJSON(raw) || {};
     const evidence = d.evidence && typeof d.evidence === "object" ? d.evidence : null;
-    return { says: says, evidence: evidence, quiz: parseQuiz(raw) };
+    return { says: says, evidence: evidence, quiz: parseQuiz(raw), board: session.mode === "costudy" ? parseBoard(raw) : null };
+  }
+
+  // 三人课堂一次写两个人（v73.15）：以老师那份完整的 prompt 为底（人设、长出来的自我、大纲、进度、题卡规则、
+  //   同堂那位的人设与关系都已经在里面），再补同学自己的场景和长出来的自我，输出一串发言。
+  //   题卡和学习证据只认老师：同学说的话代码上就进不了证据。
+  function nv1JointTail(teacher, peer, teacherRole, peerCtx, focus, subject) {
+    const peerScene = sceneFor(teacherRole === "nv1-teacher" ? "nv1-peer" : "costudy", subject, teacher.name);
+    const peerSelf = typeof grownSelfBlock === "function" ? grownSelfBlock(peerCtx && peerCtx.grown, peerCtx && peerCtx.grownEvolve) : "";
+    return "【这一轮你同时写两个人】上面的『你』是「" + teacher.name + "」；同堂的「" + peer.name + "」这一轮也由你来写。" +
+      "「" + peer.name + "」这边的场景是：" + peerScene.replace(/你/g, "TA") +
+      (peerSelf ? "\n〔" + peer.name + " 的〕" + peerSelf.replace(/^【你长出来的自我】/, "【TA长出来的自我】") : "") +
+      "\n· 两个人各按各的卡说话；谁先谁后、各说几句，按此刻场面自然排——老师讲完同学接一句、同学答错老师纠正、两人顺着拌一句嘴都行。" +
+      "\n· 不是每个人都得开口：没什么真想说的那位这一轮就不出现。" +
+      (focus ? "\n· 用户这一轮是冲着「" + focus + "」来的，TA 先接；另一位要不要插话看场面。" : "") +
+      "\n· 题卡（quiz）和学习证据（evidence）只能是「" + teacher.name + "」出的；「" + peer.name + "」绝不出题、不判对错。" +
+      "\n【输出格式】只输出一个 JSON 对象：{\"turns\":[{\"name\":\"" + teacher.name + "\",\"say\":[\"气泡\"]},{\"name\":\"" + peer.name + "\",\"say\":[\"气泡\"]}]}，" +
+      "turns 按说话先后排，同一个人可以出现不止一次，每段 say 1~4 个气泡；需要时在同一对象加 quiz 或 evidence。不要名字前缀、不要旁白括号、不要 markdown。";
+  }
+  function parseTurns(raw, teacher, peer) {
+    const d = extractJSON(raw) || {};
+    const who = nm => { const n = String(nm || ""); return n && peer && n.indexOf(peer.name) >= 0 && n.indexOf(teacher.name) < 0 ? peer : teacher; };
+    let turns = Array.isArray(d.turns) ? d.turns : [];
+    if (!turns.length && d.say) turns = [{ name: teacher.name, say: d.say }];
+    return turns.map(function (t) {
+      const says = (Array.isArray(t && t.say) ? t.say : (t && t.say ? [t.say] : [])).map(stripName).map(guardOverspeak).filter(Boolean);
+      return { char: who(t && t.name), says: says };
+    }).filter(function (t) { return t.says.length; });
+  }
+  async function genNv1Turn(active, session, teacher, peer, teacherCtx, peerCtx, teacherRole, focus) {
+    const sys = buildStudyPrompt(session, teacher, teacherCtx, teacherRole).replace(OUT_FMT, "")
+      + "\n\n" + nv1JointTail(teacher, peer, teacherRole, peerCtx, focus, session.subject);
+    const msgs = toMessages(session.transcript, "__both__", (teacherCtx.profile && teacherCtx.profile.name) || "用户");
+    const raw = await callAI(active, sys, msgs, { maxTokens: TOK.turn });
+    let turns = parseTurns(raw, teacher, peer);
+    if (!turns.length) { const f = sayFallback(raw).map(guardOverspeak).filter(Boolean); if (f.length) turns = [{ char: teacher, says: f }]; }
+    const d = extractJSON(raw) || {};
+    return { turns: turns, evidence: d.evidence && typeof d.evidence === "object" ? d.evidence : null, quiz: parseQuiz(raw) };
   }
 
   function normalizeQuizAnswer(value) {
@@ -518,28 +596,30 @@
   // ---- nv1 轮次导演（§8）：纯本地规则，不为“下一位是谁”额外烧一整次模型 ----
   // 角色真正说什么仍由各自的主池生成；这里只做不涉及声纹/人格的轮次路由。
   function directNv1(_active, session, teacher, peer, ctx) {
+    // 只决定【这一轮以谁为主】，不决定谁闭嘴：两个人在同一次生成里一起写，
+    //   谁接、接几句、同学插不插嘴，由那一次生成按场面排（她 2026-09-23：「为什么不是一棒两个人说」）。
     const transcript = tail((session && session.transcript) || [], 12);
     const last = transcript[transcript.length - 1] || {};
-    const text = String(last.content || "");
+    const text = last.role === "user" ? String(last.content || "") : "";
     const teacherName = String((teacher && teacher.name) || "");
     const peerName = String((peer && peer.name) || "");
     const asksTeacher = teacherName && text.indexOf(teacherName) >= 0;
     const asksPeer = peerName && text.indexOf(peerName) >= 0;
-    if (asksTeacher && !asksPeer) return ["teacher"];
-    if (asksPeer && !asksTeacher) return ["peer"];
-
-    // “老师讲/解释/教/答案”优先老师；“一起讨论/你觉得/同学”优先同学。
-    if (/老师|讲(?:一下|讲)?|解释|教我|答案|怎么做|为什么|请问|求解/.test(text)) return ["teacher"];
-    if (/同学|一起(?:想|讨论|试)|你觉得|怎么看|轮到你|搭档/.test(text)) return ["peer"];
-
-    // 无明确点名时让近期较少开口的一方先接，避免固定双发和一方长期沉默。
+    if (asksTeacher && !asksPeer) return { lead: "teacher", named: true };
+    if (asksPeer && !asksTeacher) return { lead: "peer", named: true };
+    if (/老师|讲(?:一下|讲)?|解释|教我|答案|怎么做|为什么|请问|求解/.test(text)) return { lead: "teacher", named: false };
+    if (/同学|一起(?:想|讨论|试)|你觉得|怎么看|轮到你|搭档/.test(text)) return { lead: "peer", named: false };
+    return { lead: peerTurnsFirst(transcript, teacher, peer) ? "peer" : "teacher", named: false };
+  }
+  function peerTurnsFirst(transcript, teacher, peer) {
     let teacherTurns = 0, peerTurns = 0;
+    const teacherName = String((teacher && teacher.name) || ""), peerName = String((peer && peer.name) || "");
     transcript.forEach(function (m) {
       if (!m || m.role === "user") return;
-      if (String(m.charId || "") === String(teacher && teacher.id) || String(m.name || "") === teacherName) teacherTurns++;
-      if (String(m.charId || "") === String(peer && peer.id) || String(m.name || "") === peerName) peerTurns++;
+      if (String(m.speakerId || m.charId || "") === String(teacher && teacher.id) || String(m.name || "") === teacherName) teacherTurns++;
+      if (String(m.speakerId || m.charId || "") === String(peer && peer.id) || String(m.name || "") === peerName) peerTurns++;
     });
-    return peerTurns < teacherTurns ? ["peer"] : ["teacher"];
+    return peerTurns < teacherTurns;
   }
 
   // ---- 能力档推定（§6）：从人设判断能否认真教该科目 --------------------
@@ -1199,7 +1279,9 @@
     const ctx = { worldbook: props.worldbook, profile: props.profile, characters: props.characters };
     function contextFor(char) {
       const recent = (sessRef.current.transcript || []).slice(-16).map(function (m) { return String(m.content || ""); }).join("\n");
+      const me = props.selfFor && char ? props.selfFor(char) : null;
       return Object.assign({}, ctx, {
+        grown: me && me.grown || "", grownEvolve: !!(me && me.evolve), relFor: props.relFor,
         worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, recent].filter(Boolean).join("\n")) : props.worldbook
       });
     }
@@ -1239,16 +1321,39 @@
       }
     }
 
-    async function runChar(char, role) {
+    function lastUserEntry() {
       const before = sessRef.current;
-      const answerEntry = (before.transcript || []).length && before.transcript[before.transcript.length - 1].role === "user"
+      return (before.transcript || []).length && before.transcript[before.transcript.length - 1].role === "user"
         ? before.transcript[before.transcript.length - 1] : null;
-      const res = await genTurn(props.active, sessRef.current, char, contextFor(char), role);
-      const says = (res && res.says) || [];
+    }
+    async function pushSays(char, says) {
       for (let i = 0; i < says.length; i++) {
         if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
         pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
       }
+    }
+    // 三人课堂：一次生成写两个人，按先后落泡；题卡/证据只挂老师名下
+    async function runNv1(teacher, peer, teacherRole, focusChar) {
+      const answerEntry = lastUserEntry();
+      const res = await genNv1Turn(props.active, sessRef.current, teacher, peer, contextFor(teacher), contextFor(peer), teacherRole, focusChar ? focusChar.name : "");
+      for (let k = 0; k < res.turns.length; k++) {
+        if (k > 0) await new Promise(function (r) { return setTimeout(r, 400); });
+        await pushSays(res.turns[k].char, res.turns[k].says);
+      }
+      await applyTeacherExtras(teacher, teacherRole, res, answerEntry);
+    }
+    async function runChar(char, role) {
+      const answerEntry = lastUserEntry();
+      const res = await genTurn(props.active, sessRef.current, char, contextFor(char), role);
+      const says = (res && res.says) || [];
+      if (res && res.board) {
+        const cur = sessRef.current;
+        commit(Object.assign({}, cur, { progress: Object.assign({}, cur.progress || {}, { board: res.board }) }));
+      }
+      await pushSays(char, says);
+      await applyTeacherExtras(char, role, res, answerEntry);
+    }
+    async function applyTeacherExtras(char, role, res, answerEntry) {
       if (res && res.quiz) {
         const current = sessRef.current;
         const pendingExit = current.progress && current.progress.exit_ticket;
@@ -1433,11 +1538,8 @@
           const teacherRole = sess.teacher_id ? "nv1-teacher" : "costudy";
           if (teacher && peer) {
             // 模型导演：决定这一轮谁开口、什么顺序，再逐个 fire
-            const order = await directNv1(props.active, sessRef.current, teacher, peer, ctx);
-            for (let k = 0; k < order.length; k++) {
-              const ch = order[k] === "peer" ? peer : teacher;
-              await runChar(ch, order[k] === "peer" ? "nv1-peer" : teacherRole);
-            }
+            const dir = directNv1(props.active, sessRef.current, teacher, peer, ctx);
+            await runNv1(teacher, peer, teacherRole, dir.named ? (dir.lead === "peer" ? peer : teacher) : null);
           } else if (teacher) {
             await runChar(teacher, teacherRole);
           }
@@ -1557,8 +1659,14 @@
     const unit = units.length ? units.find(function (u) { return u.id === prog.current_unit; }) : null;
     const topBar = sess.mode === "costudy"
       ? h("div", { className: "shrink-0 px-4 py-2", style: { background: STUDY_SKIN.paper, borderBottom: "1px dashed " + accent + "66" } },
-          h("div", { style: { paddingLeft: 10, borderLeft: "3px solid " + accent, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.sub, lineHeight: 1.6 } },
-            "共同研究纸 · " + (sess.progress && sess.progress.running_summary ? sess.progress.running_summary.slice(0, 60) : "还在起步，边聊边攒线索")))
+          // 研究笔记板：收着只露「现在在研究什么」，点开看猜测／已确认／还没解决
+          h("button", { onClick: function () { return setExpand(!expand); }, className: "w-full text-left active:opacity-70", style: { minHeight: 40, display: "block" } },
+            h("div", { style: { paddingLeft: 10, borderLeft: "3px solid " + accent, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.sub, lineHeight: 1.6 } },
+              "研究笔记 · " + ((sess.progress && sess.progress.board && sess.progress.board.question)
+                || (sess.progress && sess.progress.running_summary ? sess.progress.running_summary.slice(0, 60) : "还在起步，边聊边攒线索"))
+              + (sess.progress && sess.progress.board ? (expand ? "  ▴" : "  ▾") : ""))),
+          expand && sess.progress && sess.progress.board ? h("div", { style: { padding: "6px 0 4px 13px", fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: "40vh", overflowY: "auto" } },
+            boardText(sess.progress.board)) : null)
       : h("div", { className: "shrink-0 px-4 py-2", style: { background: STUDY_SKIN.paper, borderBottom: "1px solid " + STUDY_SKIN.line } },
           h("button", { onClick: function () { return setExpand(!expand); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 32 } },
             h("div", { className: "flex-1", style: { height: 7, padding: 1, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: 2, overflow: "hidden" } },
@@ -1817,7 +1925,7 @@
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
-        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, relFor: props.relFor, toast: props.toast,
         onBack: function () { refresh(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });
