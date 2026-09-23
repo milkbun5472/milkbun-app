@@ -112,7 +112,10 @@
     const reliable = windows.length > 0 || validStarts.length > 0;
     const auditKeys = [...new Set([-1, 0, 1].flatMap(delta => [shiftDayKey(roleToday, delta), shiftDayKey(deviceToday, delta)]))];
     const serial = auditKeys.map(key => [key, normalizedSeqs(plans[key]).map(x => [x.item.time, x.item.type])]);
-    return { phase, reliable, sleepStartTs, wakeAtTs, nextTransitionTs, scheduleFingerprint: fingerprint(JSON.stringify(serial)), today: roleToday, scheduleDayKey: plans[roleToday] ? roleToday : deviceToday };
+    // lastSleep：最近一个【已经睡完】的夜。梦要用它补账——她那一夜没开 app 的话，
+    //   tick 从来没见过「正睡着」那一刻，D 就永远等不到 REM 窗（见 dream-loop-core 的 missedNight）。
+    const lastSleep = lastWake ? { start: lastWake.start, wake: lastWake.wake } : null;
+    return { phase, reliable, sleepStartTs, wakeAtTs, nextTransitionTs, lastSleep, scheduleFingerprint: fingerprint(JSON.stringify(serial)), today: roleToday, scheduleDayKey: plans[roleToday] ? roleToday : deviceToday };
   }
 
   function createSleepState(now) {
@@ -209,7 +212,7 @@
     }
     const changed = phase !== prev.phase, woke = prev.phase === "asleep" && phase !== "asleep", slept = prev.phase !== "asleep" && phase === "asleep";
     const state = { ...prev, phase, pressure, phaseSince: changed ? safeNow : prev.phaseSince, source, lastSleptTs: slept ? safeNow : prev.lastSleptTs, lastWokeTs: woke ? safeNow : prev.lastWokeTs, sleepStartTs, wakeAtTs, nextTransitionTs, forcedUntilTs, scheduleFingerprint: derived.scheduleFingerprint, revision: Number(prev.revision || 0) + 1, updatedTs: safeNow };
-    return { state, exempt: false, transition: changed ? { from: prev.phase, to: phase, at: safeNow, source } : null, audit: { source, reliableSchedule: derived.reliable, elapsedAppliedMs: elapsed, elapsedCapped: safeNow - Number(prev.updatedTs || safeNow) > MAX_TICK_MS, pressureBefore: prev.pressure, pressureAfter: pressure, phase } };
+    return { state, exempt: false, lastSleep: derived.lastSleep || null, transition: changed ? { from: prev.phase, to: phase, at: safeNow, source } : null, audit: { source, reliableSchedule: derived.reliable, elapsedAppliedMs: elapsed, elapsedCapped: safeNow - Number(prev.updatedTs || safeNow) > MAX_TICK_MS, pressureBefore: prev.pressure, pressureAfter: pressure, phase } };
   }
 
   function tickInnerState(innerState, input) {

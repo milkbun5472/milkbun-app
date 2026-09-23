@@ -84,7 +84,9 @@
   // 这是擂台跟群里吵架的分界线：群里没人计分。每一轮场边每一位都投一票，
   // 理由只有她点名的那四种来路——交情 / 理念对上 / 被哪句话说动 / 没偏好随手投。
   // 立场可以改，但「度要把控好：不要无厘头脑残粉，也不要墙头草每轮换」。
-  const VOTE_WHY = { friend: "交情", value: "理念对上", moved: "被说动", random: "随手投" };
+  // round＝这一轮说得好（v73.314）。value「理念对上」只留着给旧存档显示——新票不再有这一项：
+  //   有它，模型每轮都挑它，票就跟立场焊死（她 2026-09-23：「还是不行。。。还是全部理念对上」）。
+  const VOTE_WHY = { round: "这一轮说得好", friend: "交情", moved: "被说动", random: "随手投", value: "理念对上" };
   // 某人这一场到目前为止的投票记录（按回合先后）：只数【已经投出去】的那些
   function voteHistory(session) {
     const out = {};
@@ -101,11 +103,16 @@
     });
     return out;
   }
+  // 台下的票是不是打平了（至少有两个人拿到票、而且最高的不止一个）
+  function tallyTied(tally) {
+    const ns = Object.keys(tally || {}).map(function (k) { return tally[k]; });
+    if (ns.length < 2) return false;
+    const top = Math.max.apply(null, ns);
+    return top > 0 && ns.filter(function (n) { return n === top; }).length > 1;
+  }
   // 模型交回来的票过一道：人得是场边名单里的、投的得是台上的、理由不能是空的。
-  // ⚠️墙头草那一半靠提示词只能降概率（「规则降概率，代码才保证」，场边那一处就是这么学到的）：
-  //   【上一轮刚换过票的人，这一轮不许再换】——换了就照上一轮那个人记，标成「接着投」。
-  //   这样一场里谁都做不到每轮一换；该换的时候照样能换，只是不能连着换。
-  //   不替TA编一句理由：接着投那一票不带理由，界面上只写「接着投」。
+  // ⚠️v73.312 起票＝「这一轮谁说得好」，不再是「站哪边」：每轮投不同的人是正常的，不是墙头草，
+  //   所以原来那条「刚换过就强制投回去」撤了（它连真被说动的人也拉回去，比分因此永远不动）。
   // strangers：台下谁也不认识的那几位（路人）——TA们投「交情」那一票就是凭空认亲，不算。
   function settleVotes(raw, voters, targets, hist, strangers) {
     const stranger = {};
@@ -123,9 +130,13 @@
       if (why === "friend" && stranger[name]) return null;
       seen[name] = true;
       const h2 = hist[name] || [];
-      const last = h2[h2.length - 1], prev = h2[h2.length - 2];
-      const justSwitched = h2.length >= 2 && last !== prev;
-      if (justSwitched && to !== last) return { name: name, for: last, why: "stay", reason: "" };
+      const last = h2[h2.length - 1];
+      // 「被说动」只在【换了边】时才成立：上一轮就投的这个人，这一轮还投TA，那不是被说动，是本来就这么想
+      //   （她 2026-09-23：「原本就是同一边的立场就不应该第二回合显示是被说动吧」）。
+      // 「被说动」只在【换了边】时才成立；上一轮就投这个人，这一轮还投，算「这一轮说得好」
+      if (why === "moved" && last && last === to) return { name: name, for: to, why: "round", reason: reason };
+      // 模型照旧交「理念对上」：代码上不认这一项，一律当「这一轮说得好」记（规则降概率，代码才保证）
+      if (why === "value") return { name: name, for: to, why: "round", reason: reason };
       return { name: name, for: to, why: why, reason: reason };
     }).filter(Boolean);
   }
@@ -237,27 +248,48 @@
     // 台下投票那一段（只有场边有人时才有）。⚠️只写判据和来路，不举例句（prompt-no-content-samples）。
     const targets = chars.map(function (c) { return c.name; }).concat(o.watch ? [] : [uName]);
     const hist = o.voteHist || {};
-    const histLines = (o.bench || []).map(function (c) {
-      const hh = hist[c.name] || [];
-      return hh.length ? "· " + c.name + " 之前依次投给：" + hh.join(" → ") : "";
-    }).filter(Boolean).join("\n");
+    // 比分冻住了：连着两轮台下每一票都跟上一轮一样，这一轮推一把（规则降概率——但它至少得知道自己冻住了）
+    const benchNames = (o.bench || []).map(function (c) { return c.name; });
+    const frozen = benchNames.length > 0 && benchNames.every(function (n) {
+      const hh = hist[n] || [];
+      return hh.length >= 2 && hh[hh.length - 1] === hh[hh.length - 2];
+    });
+    // 票＝【这一轮谁说得好】，不是「TA本来站哪边」（她 2026-09-23：「为啥刚开始票数不一样然后就永远一样平票了
+    //   然后也不会立场改观」）。原来票跟理念绑死，第一轮站好队就再也不动。
     const voteBlock = benchBlock
-      ? "场边【每一位】都要投这一轮的票，投给台上【这一轮】说得最让TA服气的那一个（可以投" + targets.join("、") + "里任何一位）。why 是这一票的来路，照实挑一种：\n"
-        + "· friend＝交情：TA跟这个人本来就近，站TA不用讲道理——但这层关系得是真的（人设或平时相处里看得出来），不是临时认亲；路人谁也不认识，没有这一条；\n"
-        + "· value＝理念对上：这件事TA自己本来就这么想；\n"
-        + "· moved＝被说动：这一轮台上某句话戳到了TA这个人在意的东西——reason 里要点出是哪句话的意思；\n"
+      ? "场边【每一位】投这一轮的票：投给台上【这一轮】说得更好的那一个——这一轮谁把话说圆了、谁接住了对面、谁把对面问住了（可以投" + targets.join("、") + "里任何一位）。\n"
+        + "⚠️【这一轮的票】和【TA心里站哪边】是两件事：TA可以心里站这边，但照实承认这一轮对面说得更漂亮，票就给对面。只看立场投票，比分就永远不会动。\n"
+        + "这一轮谁都没说服TA，就不投（for 留空）——别硬凑一票。\n"
+        + "why 是这一票的来路，照实挑一种（没有「理念对上」这一项）：\n"
+        + "· round＝这一轮说得好（最常见）：reason 点出这个人这一轮【哪一句、哪一下】让TA服气——不许写成「我本来就这么想」，那不是这一轮的理由；\n"
+        + "· moved＝被说动、立场改观：TA心里站的那边这一轮变了——reason 里点出是哪句话的意思，哪怕说这句的人跟TA不是一边；\n"
+        + "· friend＝交情：TA跟这个人本来就近，护着TA——但这层关系得是真的（人设或平时相处里看得出来），不是临时认亲；路人谁也不认识，没有这一条；\n"
         + "· random＝随手投：TA对这场没什么偏好，随便挑一个。\n"
-        + "reason 是TA自己的一句理由，用TA的口气，得站得住。路人头一轮照TA开场的偏向投，除非台上真有一句话把TA说动了。\n"
-        + "【改票】票可以改：这一轮里真有谁的哪句话让TA动摇了，就改；没有这样一个具体的原因，就接着投原来那位。一路投同一个人没问题，只要来路站得住；每轮都换人，那是没在看这场。"
-        + (histLines ? "\n" + histLines : "")
+        + "reason 是TA自己的一句理由，用TA的口气、说人话，得站得住。\n"
+        + "【立场改观】TA心里站的那边也可以变，但要慢：得是台上有一句话真戳到了TA在意的东西。真变了，就在 reason 里用TA的口气说出来，这是整场最值得看的一刻；没到那一步，就只是这一轮给对面一票，心里还站原处。"
+        // ⚠️不再把「TA之前依次投给：A → A → A」喂回去：那一行是最强的抄写信号，模型照着接（她 2026-09-23：
+        //   「连着三轮继续平票也不动」）。改票判断改成先定 edge（这一轮谁更胜一筹），再照它投。
+        + "\n【先定这一轮的高下，再投票】输出里先写 edge：只看【这一轮】台上的话，谁更胜一筹、凭哪一下（一句）。场边的票拿 edge 当参照："
+        + "投给 edge 那位的，照常写理由；投给另一位的，reason 里得说出TA为什么不认这个 edge——交情、TA在意的某一点、或者TA就是不服。"
+        + (frozen ? "\n⚠️上两轮台下一票都没动过——那多半不是台上没变化，是没在比。这一轮每个人都把台上两边【这一轮】的话放在一起比一下：照旧投原来那位的，reason 里得说出对面这一轮差在哪。" : "")
       : "";
     const sys = AC() + CB() +
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
       "【辩题】" + meta.topic +
       (casual
-        ? "\n【放飞模式】各角色不必死守辩论规矩：可顺着自己性格跑题、抬杠、翻旧账、拿场上某人开玩笑、突然感性或耍无赖、把话题往自己在意处带——只要像 Ta 这个人。但别彻底离题。"
-        : "\n【认真辩论】各角色维持人设的同时认真论辩：亮论点给理由，针对 " + uName + " 和彼此的话正面反驳或追问，讲逻辑也讲立场底气。别人身攻击、别空喊口号。") +
+        // 两种局原来只差这一句，吵出来一个样（她 2026-09-23：「看看认真吵和另一种有啥区别，差别再做大点」）。
+        //   现在从【段长、每段要交什么、台下怎么起哄、裁判看什么】四处一起拉开。
+        ? "\n【随便吵 · 这是一场吵架，不是辩论】\n"
+          + "· 短、快、冲：每人一段 1~4 句，可以只吼一句；抢话、插嘴、打断上一个人都行。\n"
+          + "· 不用讲理：跑题、抬杠、翻旧账、揭短、拿台下的人开涮、玩梗、突然委屈或耍赖，都是这一局的正经玩法——只要像这个人。\n"
+          + "· 比的是谁更出彩：更会损、更好笑、更有戏、更让台下想起哄。论证站不站得住，这一局没人在乎。\n"
+          + "· 别彻底离题：跑出去了，最后一句也要拐回来，扎一下对面。"
+        : "\n【讲道理 · 这是一场正经辩论】\n"
+          + "· 每人一段 3~6 句，每段都要交三样：① 一个清楚的论点；② 撑它的一个具体例子或事实，从TA自己那个世界里拿；③ 对面上一轮的某一句——先原话复述一下，再正面拆。\n"
+          + "· 不许绕开对面的问题，也不许换个说法把自己上一轮再讲一遍；被问住了就承认那一处，再从别处扳回来。\n"
+          + "· 追问要问【对面答得出来的】具体问题，不问反问句式的空话。\n"
+          + "· 依然是这个人在说话：用TA的口气讲理，可以急、可以刻薄，但不许人身攻击、不许空喊口号。") +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
       // 【和你们吵的这个人是谁】(v60.43 她 2026-09-02 抓到)
       // 原来整场只发了她一个名字：没有人设、也没有一句话说过「这些人都认识她」。
@@ -277,23 +309,42 @@
         + (o.judge.injection ? "\n（" + o.judge.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(o.judge.injection).replace(/\s+/g, " ").slice(-300) : "")
         + "\nTA也认识在场每一个人，有TA自己的偏心和私心，不用装公正。台上的人都知道裁判是TA；觉得TA偏心，可以直接冲TA去。" : "") +
       (voteBlock ? "\n\n【台下投票】" + voteBlock : "") +
+      // 越吵越飘（她 2026-09-23：「感觉越来越抽象了」）：每一轮都去接上一轮的词，「认知框架」接「维度跃迁」，
+      //   几轮下来台上台下全在堆名词。只给判据、不给例句（prompt-no-content-samples）。
+      "\n\n【说人话 · 每一轮都落回地上】台上台下每一个人（发言、场边那一声、投票理由、裁判判语）都照这条：\n" +
+      "· 这是几个认识的人在吵架，不是写论文：用TA平时说话的词。一句里堆了两个以上的抽象名词，就是飘了，换成TA自己会说的大白话。\n" +
+      "· 每一段至少落到一样【看得见摸得着】的东西上——TA自己经历过的事、身边的某个人、一个具体的场面、一件日常里的小事——拿它来撑道理，而不是拿概念撑概念。\n" +
+      "· 别去接对面的术语：对面说得玄，就把它拽回地面，问TA「那到底是什么意思、落到过日子上是什么样」，或者直接嫌TA说得绕。\n" +
+      "· 判据：把这句话念给在场一个没读过书的人听，TA听得懂、能接上话，才算数。\n" +
       "\n\n【本次任务】\n" +
-      "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），充分展开别水，2~6 句，口语带脾气，可点名回应某人。\n" +
+      "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），" + (casual ? "照【随便吵】那几条：短、冲、有戏" : "照【讲道理】那几条：论点、例子、拆对面，一样不少") + "，口语带脾气，可点名回应某人。\n" +
       (benchBlock
         ? "2）场边那几位里，挑【至多两位】各出一声（也可以一位都不出声，给空数组）。这一声不是评论、不是打分，是【TA这个人看着台上那个人，忍不住的一句】。\n" +
           "⚠️判据：这一句必须【只有TA说才成立】——TA跟台上那位的旧账、偏袒、看不惯、私心，要在这一句里看得出来。换个人说照样成立的那种话（「说得好」「有道理」「太精彩了」），一句都不要。\n" +
           "⚠️【TA在看这一场，不是给 " + uName + " 一个人当嘴替】：台上有好几个人，TA这一声冲着谁，用 at 写清那个人的本名。\n" +
           "  两条不许都冲着同一个人；只要台上不止 " + uName + " 一个人在说话，就【至少有一条是冲着别人的】——\n" +
           "  刚才谁说得最离谱、谁踩到TA那根线，TA就接谁。全场只盯着 " + uName + " 挑刺，那是没在看这场吵架。\n" +
+          // 她 2026-09-23：「陆衍明明和顾暮理念相同为啥在台边还要对他说话」——冲着同边的人，却写成了跟他讲道理。
+          "⚠️冲着谁，要跟TA这一轮站哪边对得上：冲着【对面】的，是呛、挑刺、拆台；冲着【自己这边】的，是帮腔、递话、给TA撑腰、催TA别松口——一听就知道TA是在帮这个人，不是在跟TA讲道理。\n" +
           "⚠️TA是【一直在旁边看着的】，不是每轮新来的：可以接自己上一轮说过的话、可以越看越来气。名字用TA本名，不许起昵称、不许凭空多出别人。\n"
         : "") +
       (benchBlock ? "3）场边【每一位】都投这一轮的票（votes），照上面【台下投票】那一段来。\n" : "") +
-      (o.judge ? (benchBlock ? "4" : "2") + "）裁判 " + o.judge.name + " 说一句（call）：这一轮谁占了上风、谁没接住谁的问题、谁在耍赖——用TA自己的口气，可以偏心，但得说到台上这一轮真说过的话。\n" : "") +
-      (2 + (benchBlock ? 2 : 0) + (o.judge ? 1 : 0)) + "）最后摘一句这一轮【还没吵拢的那个分歧】：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
+      // 原来只要「说一句」，于是裁判永远只有一句评语（她 2026-09-23：「裁判还是有点单薄他说的话」）。
+      (o.judge ? (benchBlock ? "4" : "2") + "）裁判 " + o.judge.name + " 这一轮的判语（call），2~4 句，像个真坐在裁判席上、有自己脾气的人：\n"
+        + "  · 这一轮谁占了上风，凭的是台上【哪一句】——点到那句话的意思，不许空口站队；"
+        + (casual ? "这一局看的是谁更会损、更好笑、更有戏，不看道理；\n" : "这一局看的是谁的道理站住了、谁把对面问住了；\n")
+        + "  · 谁没接住谁的问题、谁在绕、谁在偷换，当场点破；可以直接冲台上某人说话，逼TA下一轮把那处答上；\n"
+        + (benchBlock ? "  · 台下这一轮的票TA看见了：跟不跟台下，跟就一句带过，不跟就说TA凭什么不跟；\n" : "")
+        + "  · 用TA自己的口气和偏心——TA认识台上的人，护短、看不惯、憋笑都可以露出来；但偏心也得落在台上真说过的话上。\n"
+        // 她 2026-09-23：「裁判也不说人话太公正了」——写成了解说员的评析报告。
+        + "  · ⚠️TA不是解说员、不是写评析：别用「逼到了…底线上」「具象成…」「站住了上风」这类评论腔，用TA平时跟这几个人说话的那张嘴；\n"
+        + "  · ⚠️不许端水：TA有偏心就摆出来——护着谁、嫌弃谁、对谁格外严，至少一句里看得出来。两边各夸一句、各打五十大板，是装公正，不要。\n" : "") +
+      (2 + (benchBlock ? 2 : 0) + (o.judge ? 1 : 0)) + "）最后摘一句这一轮【还没吵拢的那个分歧】，用大白话说：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
       "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}]" +
       (benchBlock ? ",\"side\":[{\"name\":\"场边那位的本名\",\"at\":\"这一声冲着台上谁（本名）\",\"text\":\"忍不住的那一句\"}]" : "") +
-      (benchBlock ? ",\"votes\":[{\"name\":\"场边那位的本名\",\"for\":\"投给台上谁（本名）\",\"why\":\"friend|value|moved|random\",\"reason\":\"TA自己的一句理由\"}]" : "") +
-      (o.judge ? ",\"call\":\"裁判这一轮那一句\"" : "") +
+      (benchBlock ? ",\"edge\":{\"name\":\"这一轮更胜一筹的那位（本名）\",\"why\":\"凭哪一下，一句\"}" : "") +
+      (benchBlock ? ",\"votes\":[{\"name\":\"场边那位的本名\",\"for\":\"投给台上谁（本名）\",\"why\":\"round|moved|friend|random\",\"reason\":\"TA自己的一句理由\"}]" : "") +
+      (o.judge ? ",\"call\":\"裁判这一轮的判语，2~4句\"" : "") +
       ",\"focus\":{\"issue\":\"还没吵拢的那个分歧，1~2句\"}}。turns 顺序同上、每个角色一条" + (benchBlock ? "；side 至多两条，名字必须是场边名单里的；votes 场边每人一条" : "") + "。名单以外的人一个都不要、不要昵称、不要弹幕；别加旁白别 markdown。";
     // 台上几个人各说一大段 + 一张争点卡，仍给足思考预算，避免发言写到一半停住。
     const budget = Math.min(32000, 12000 + chars.length * 3000);
@@ -325,6 +376,11 @@
     const strangers = (o.bench || []).filter(function (c) { return c.kind === "passer"; }).map(function (c) { return c.name; });
     const votes = benchBlock ? settleVotes(p.votes, (o.bench || []).map(function (c) { return c.name; }), targets, hist, strangers) : [];
     const call = o.judge ? String(p.call || "").trim() : "";
+    // 这一声是冲着自己这一轮投的那个人去的＝帮腔。界面上写「帮腔」不写「→」，别让人读成在呛TA。
+    side.forEach(function (x) {
+      const v = votes.find(function (vv) { return vv && vv.name === x.name; });
+      if (v && x.at && v.for === x.at) x.ally = true;
+    });
     return { turns: turns, focus: focus, side: side, votes: votes, call: call };
   }
 
@@ -351,6 +407,12 @@
         ? "本场是放飞局，胜负标准就按这一条来评：「" + (session.winCond || "谁整体最出彩谁赢") + "」，别用常规辩论对错来评。"
         : "按正规辩论评判：论点是否成立、论据是否扎实、有没有有效反驳对方、逻辑与说服力、临场应对，看谁整体更胜一筹。") +
       "\n\n【全程实录】\n" + fullTranscript(session, uName) + tallyLine +
+      // 台下打平：裁判拍板，要明说（她 2026-09-23：「平票应该判其中一个人赢吗」）
+      (tallyTied(tally) ? "\n⚠️台下的票打平了。平了就是裁判该出手的时候：照样只判一个胜者，判词里明着说「台下打平，我来拍板」，再说凭什么判这边。" : "") +
+      // 判词还是抽象（她 2026-09-23：「最后判词裁判也还是很抽象」）
+      "\n\n【判词说人话】crux、判词、why 都照这条：用" + (J ? J.name + "平时说话的那张嘴" : "大白话") + "，不是写评析——别用「抓着底层」「逼到…消亡」「具象成」「逻辑闭环」「降级类比」这类评论腔；"
+      + "要夸要损，就说台上那个人具体说了什么、干了什么。一句里堆了两个以上的抽象名词，就是飘了，重写。"
+      + (J ? "TA有偏心就摆出来，不许端水。" : "") +
       "\n\n【要一次做四件事】\n" +
       "1) crux：这一场他们【真正】在吵的是什么。⚠不是把辩题复述一遍——是把两边话里那个没说破的分歧点点出来（常见形状：两边其实在用两把不同的尺子；或者两边都默认了一个根本不成立的前提）。1~2 句。\n" +
       "2) best：全场最狠的那一句。从上面实录里【逐字照抄】某个人真的说过的一句（quote，不许改写、不许自己造），写清是谁说的（name）、狠在哪（why，一句）。可以是输的那一方说的。\n" +
@@ -655,7 +717,20 @@
     const dtp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 发言朗读（懒合成）
     const curRound = () => (s.rounds[s.rounds.length - 1] || { turns: [], audience: [] });
 
-    useEffect(() => { const el = feedRef.current; if (el) el.scrollTop = el.scrollHeight; }, [s.rounds, busy, phaseMsg]);
+    // 新一回合出来：停在【这一回合的开头】，不是整页最底下（她 2026-09-23：「每一回合出来的都会跳到最下面
+    //   还得重新往上翻」）。还在生成时照旧沉底，好看见那一行「…」。
+    const roundsSeenRef = useRef((s.rounds || []).length);
+    useEffect(() => {
+      const el = feedRef.current; if (!el) return;
+      const n = (s.rounds || []).length;
+      if (n > roundsSeenRef.current) {
+        roundsSeenRef.current = n;
+        const head = el.querySelector('[data-round="' + (n - 1) + '"]');
+        if (head) { el.scrollTop = Math.max(0, el.scrollTop + head.getBoundingClientRect().top - el.getBoundingClientRect().top - 8); return; }
+      }
+      roundsSeenRef.current = n;
+      if (busy) el.scrollTop = el.scrollHeight;
+    }, [s.rounds, busy, phaseMsg]);
 
     // 保存补丁：始终基于最新 session 做，避免闭包过期
     const patch = obj => props.onPatch(prev => Object.assign({}, prev, typeof obj === "function" ? obj(prev) : obj, { lastTs: Date.now() }));
@@ -847,7 +922,7 @@
             h("span", { style: { color: t.fog } }, "台边 · "),
             h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
             // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
-            x.at ? h("span", { style: { color: t.fog } }, " → " + x.at) : null,
+            x.at ? h("span", { style: { color: t.fog } }, x.ally ? " 帮腔 " + x.at : " → " + x.at) : null,
             h("span", { style: { color: t.fog } }, "：" ),
             x.text);
         }));
@@ -876,7 +951,9 @@
             v.why === "stay"
               ? h("span", { style: { color: t.fog } }, "（接着投）")
               : h(React.Fragment, null,
-                h("span", { style: { color: t.fog } }, "　" + (VOTE_WHY[v.why] || "") + " · "),
+                // 「这一轮说得好」是常态，挂出来就是清一色一排（她 2026-09-23：「哈哈清一色的这一轮说得好」）——
+                //   只有少见的那几种才挂标签，一挂就显眼
+                h("span", { style: { color: t.fog } }, "　" + (v.why === "round" || v.why === "value" ? "" : (VOTE_WHY[v.why] || "") + " · ")),
                 v.reason));
         }));
     };
@@ -965,7 +1042,7 @@
         stage),
       // 正文
       h("div", { ref: feedRef, className: "flex-1 overflow-y-auto px-4 pt-3", style: { paddingBottom: ended ? 24 : 150 } },
-        (s.rounds || []).map((r, ri2) => h("div", { key: ri2 },
+        (s.rounds || []).map((r, ri2) => h("div", { key: ri2, "data-round": ri2 },
           // 回合牌：擂台边上挂的那块数字牌，不是一条 ── 标题 ── 分割线
           h("div", { style: { display: "flex", justifyContent: "center", margin: "8px 0 12px" } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, letterSpacing: 2, color: t.sub, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 4px 4px", padding: "4px 13px 5px", background: t.bg2 } }, "第 " + (ri2 + 1) + " 回合")),

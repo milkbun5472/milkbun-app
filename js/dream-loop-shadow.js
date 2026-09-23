@@ -73,11 +73,13 @@
   }
 
   // 胶水入口：app.js 的 C 线 tick 后调用（sleepState=tick 返回值，只读）
-  async function observe(char, sleepState) {
+  // opts.asOf：补错过的那一夜时，按那一夜醒来那一刻判 REM 窗（dream-loop-core 的 missedNight）
+  async function observe(char, sleepState, opts) {
     try {
       const C = core();
       if (!C || !char || !char.id || !sleepState) return null;
-      if (!C.remDue(sleepState, Date.now())) return null;
+      const at = opts && Number.isFinite(Number(opts.asOf)) ? Number(opts.asOf) : Date.now();
+      if (!C.remDue(sleepState, at)) return null;
       const deviceOffsetMinutes = -new Date().getTimezoneOffset();
       const shift = typeof schedTzShiftMin === "function" ? (schedTzShiftMin(char) || 0) : 0;
       const roleOffsetMinutes = deviceOffsetMinutes + shift;

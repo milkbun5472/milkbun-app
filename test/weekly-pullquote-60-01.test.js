@@ -82,7 +82,8 @@ test("答案长短要不齐——每条都两三句是生成感最明显的破�
 });
 
 test("记者有自己的嗓子，但不许有名字（NAME_GUARD 只准写本周出场人物）", () => {
-  const rv = wk.slice(wk.indexOf("const REPORTER_VOICE ="), wk.indexOf("// 人名铁律"));
+  // v73.319 「怎么问」拆成 REPORTER_CRAFT（换了采访人照旧管着），身份那一句留在 REPORTER_VOICE
+  const rv = wk.slice(wk.indexOf("const REPORTER_CRAFT ="), wk.indexOf("// 人名铁律"));
   // 原来只有三个形容词
   assert.ok(rv.indexOf("机灵、擅长挖料、语气俏皮") < 0, "记者还是三个形容词，答的人有原话、问的人没声音");
   assert.match(rv, /署名就是「本刊记者」/);

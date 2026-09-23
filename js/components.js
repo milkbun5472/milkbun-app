@@ -7916,6 +7916,10 @@ function ChatThread({
   roomFics,        // 这间房放过哪几本同人文（最近的在前）
   roomFicId,       // 现在在聊的是哪一本
   onPickRoomFic,   // 换书
+  roomStudy,       // 这间房收着哪几门课 { here, others, pick }；null＝这间房不摆这一条
+  onPickRoomStudy,
+  onOpenRoomStudy,
+  onMoveRoomStudy,
   onRecall,
   onReroll,
   onReply,
@@ -7984,6 +7988,7 @@ function ChatThread({
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [ficPickOpen, setFicPickOpen] = useState(false);   // 「换书」那张单子展开没有
+  const [studyPickOpen, setStudyPickOpen] = useState(false);   // 「换课」那张单子展开没有
   const pendingFic = room && !room.main && room.actions && room.actions.fanfic && window.ChatRooms
     ? window.ChatRooms.pendingFicInvite(messages, roomFicId) : null;
   const [searchOpen, setSearchOpen] = useState(false);
@@ -8273,6 +8278,36 @@ function ChatThread({
   },
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "走进微光庭院"),
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: "#6b8753" } }, "这间房的存档 ›")),
+  // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
+  // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
+  // 把 TA 别的课收进来、或者拿回主聊天。跟上面「在写」那一条同一个形状。
+  roomStudy ? (function () {
+    const cur = roomStudy.pick;
+    const row = { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 10px", borderRadius: 8, border: "none", minHeight: 34, textAlign: "left", background: "transparent" };
+    const side = { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "8px 6px", background: "transparent", border: "none", flexShrink: 0 };
+    return h("div", { className: "shrink-0 w-full", style: { background: dsp.chatBg ? "rgba(255,255,255,0.35)" : t.bg2, borderBottom: "1px solid " + t.line } },
+      h("div", { className: "w-full flex items-center", style: { padding: "0 16px 0 16px", gap: 7 } },
+        h("button", { onClick: function () { onOpenRoomStudy && onOpenRoomStudy(cur); }, className: "flex items-center active:opacity-60", style: { flex: 1, minWidth: 0, gap: 7, padding: "7px 0", background: "transparent", border: "none", textAlign: "left" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, "在学"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: cur ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cur ? cur.title + " ›" : "这间房还没收课，点这儿开一门 ›")),
+        h("button", { onClick: function () { setStudyPickOpen(function (v) { return !v; }); }, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog, padding: "7px 0 7px 8px", background: "transparent", border: "none" } }, studyPickOpen ? "收起" : "换课 ›")),
+      studyPickOpen ? h("div", { style: { padding: "0 10px 8px", maxHeight: "42vh", overflowY: "auto" } },
+        roomStudy.here.map(function (c) {
+          const on = cur && c.kind === cur.kind && c.id === cur.id;
+          return h("div", { key: c.kind + c.id, className: "flex items-center" },
+            h("button", { onClick: function () { setStudyPickOpen(false); if (!on && onPickRoomStudy) onPickRoomStudy(c); }, className: "active:opacity-60",
+              style: Object.assign({}, row, { flex: 1, minWidth: 0, color: on ? t.accent : t.ink, background: on ? t.bg : "transparent" }) }, (on ? "· " : "") + c.title),
+            h("button", { onClick: function () { requestAppConfirm("拿回主聊天？", "以后这门课在主聊天里上；在这间房里上过的那几节还留在这儿。", function () { onMoveRoomStudy && onMoveRoomStudy(c, false); }, "拿回去", null, { danger: false }); }, className: "active:opacity-60", style: side }, "拿出去"));
+        }),
+        roomStudy.others.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, padding: "8px 10px 2px" } }, "TA 别的课，收进来就在这间房里接着上") : null,
+        roomStudy.others.map(function (c) {
+          return h("div", { key: c.kind + c.id, className: "flex items-center" },
+            h("span", { style: Object.assign({}, row, { flex: 1, minWidth: 0, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }) },
+              c.title, h("span", { style: { fontSize: 10, color: t.fog, marginLeft: 6 } }, "在" + c.where)),
+            h("button", { onClick: function () { requestAppConfirm("收进这间房？", "以后这门课在这间房里上，TA在这儿按这间房的设定记着它；之前上过的那几节还算在原来的地方。", function () { onMoveRoomStudy && onMoveRoomStudy(c, true); }, "收进来", null, { danger: false }); }, className: "active:opacity-60", style: Object.assign({}, side, { color: t.accent }) }, "收进来"));
+        }),
+        h("button", { onClick: function () { setStudyPickOpen(false); onOpenRoomStudy && onOpenRoomStudy(null); }, className: "w-full active:opacity-60", style: Object.assign({}, row, { color: t.accent, display: "block" }) }, "＋ 在这间房新开一门")) : null);
+  })() : null,
   // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）──────────────────
   // 一间房可以放好几本。她当时问的是「讨论了 a 再发 b，想回去聊 a 咋算」——
   // 答案就是这条带子：点一下换回去。a 的设定前情不会丢（那一份每一轮现拼），
@@ -11272,6 +11307,8 @@ function chatForwardItems(m) {
   return lines.map(l => { const k = l.indexOf("："); return k > 0 ? { name: l.slice(0, k), text: l.slice(k + 1) } : { name: "", text: l }; }).filter(x => x.text);
 }
 function chatForwardTitle(m) {
+  // 自带标题的（擂台分享那种）直接用：它不是谁跟谁的聊天
+  if (m && m.forward && m.forward.title) return m.forward.title;
   const items = chatForwardItems(m);
   const names = [];
   items.forEach(it => { const n = (it && it.name) || ""; if (n && names.indexOf(n) < 0) names.push(n); });
@@ -11300,7 +11337,7 @@ function ChatForwardCard({ m, isU, onOpen }) {
         h("div", { style: { marginTop: 6 } }, preview.map((it, i) => h("div", { key: i, className: "line-clamp-1",
           style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, (it.name ? it.name + ": " : "") + it.text))),
         items.length > preview.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, "…") : null),
-      h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "聊天记录")));
+      h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (m.forward && m.forward.label) || "聊天记录")));
 }
 // 点开看全部
 function ChatForwardSheet({ m, onClose }) {
@@ -11309,7 +11346,7 @@ function ChatForwardSheet({ m, onClose }) {
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "px-1 pb-2" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 2 } }, chatForwardTitle(m)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, items.length + " 条 · 转发的聊天记录"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, (m.forward && m.forward.label) ? m.forward.label : items.length + " 条 · 转发的聊天记录"),
       items.map((it, i) => h("div", { key: i, style: { marginBottom: 12 } },
         (it.name || it.ts) ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 3 } },
           it.name ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, it.name) : null,
@@ -12661,14 +12698,15 @@ function DirectorNotesPanel({ t, notes, onDeleteNote }) {
   const list = notes || [];
   if (!list.length) return null;
   return h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: 150, overflowY: "auto" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 7 } }, "短期导演便签 · 固定显示"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 7 } }, "导演便签 · 固定显示"),
     list.map((n, i) => {
       const item = typeof n === "string" ? { text: n, remaining: 1 } : n;
-      const left = Math.max(0, Number(item && item.remaining) || 0);
+      const isLong = !!(item && item.long);
+      const left = isLong ? 1 : Math.max(0, Number(item && item.remaining) || 0);
       return h("div", { key: (item && item.id) || i, className: "flex items-start gap-2", style: { padding: "6px 0", borderTop: i ? "1px solid " + t.line : "none", opacity: left ? 1 : 0.46 } },
         h("div", { className: "flex-1" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap" } }, item.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, isLong ? "长期 · 整场有效，删掉才停" : left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
         onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
 }
@@ -13081,8 +13119,8 @@ function OfflineMode({
   };
   const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "offline",
     onSent: () => { setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false); } });
-  const saveNote = () => {
-    if (note.trim()) onAddNote(note.trim());
+  const saveNote = long => {
+    if (note.trim()) onAddNote(note.trim(), !!long);
     setNote("");
     setNoteOpen(false);
   };
@@ -13214,9 +13252,12 @@ function OfflineMode({
       h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }))),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。「只管这两轮」用两次就停，「整场都算」一直有效到你删掉。"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 你其实在生气 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
-      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入提示"),
+      // 两轮的照旧；长期的整场有效、删掉才停（她 2026-09-23：「除了两轮的再搞个长期的」）
+      h("div", { className: "flex gap-2" },
+        h("button", { onClick: () => saveNote(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "只管这两轮"),
+        h("button", { onClick: () => saveNote(true), className: "flex-1 py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, "整场都算")),
       onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过 " + cName + "，直接跟演 Ta 的那位说：让它改写这一拍、问问状态，或者立一条以后都算数的规矩。"),
@@ -13589,8 +13630,8 @@ function GroupOfflineMode({
   };
   const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "group-offline",
     onSent: () => { setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false); } });
-  const saveNote = () => {
-    if (note.trim()) onAddNote(note.trim());
+  const saveNote = long => {
+    if (note.trim()) onAddNote(note.trim(), !!long);
     setNote("");
     setNoteOpen(false);
   };
@@ -13748,8 +13789,11 @@ function GroupOfflineMode({
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, "保存后影响接下来 2 次成功演绎；失败不扣，用完会留档但不再注入。"),
-      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入未来 2 轮"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, "「只管这两轮」影响接下来 2 次成功演绎，「整场都算」一直有效到你删掉；失败不扣，用完会留档但不再注入。"),
+      // 两轮的照旧；长期的整场有效、删掉才停（她 2026-09-23：「除了两轮的再搞个长期的」）
+      h("div", { className: "flex gap-2" },
+        h("button", { onClick: () => saveNote(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "只管这两轮"),
+        h("button", { onClick: () => saveNote(true), className: "flex-1 py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, "整场都算")),
       onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过在场所有人，直接跟演他们的那位说：让它改写这一拍，或者问问状态。"),

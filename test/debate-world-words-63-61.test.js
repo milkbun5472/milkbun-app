@@ -47,5 +47,5 @@ test("规则只降概率，代码兜死：两条都冲同一个人时丢掉后�
 
 test("台边那一行要看得见他在接谁的话", () => {
   const sb = d.slice(d.indexOf("const sideBlock = function"), d.indexOf("const focusCard") > 0 ? d.indexOf("const focusCard") : d.indexOf("const sideBlock = function") + 1800);
-  assert.match(sb, /x\.at \? h\("span", \{ style: \{ color: t\.fog \} \}, " → " \+ x\.at\) : null/);
+  assert.match(sb, /x\.at \? h\("span", \{ style: \{ color: t\.fog \} \}, x\.ally \? " 帮腔 " \+ x\.at : " → " \+ x\.at\) : null/);
 });

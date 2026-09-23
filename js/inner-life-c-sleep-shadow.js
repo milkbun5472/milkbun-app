@@ -99,7 +99,7 @@
     const pm = presenceMeta.get(char.id);
     const presenceChanged = !pm || pm.phase !== r.state.phase || pm.fingerprint !== String(r.state.scheduleFingerprint || "");
     if (!hadPrev || r.transition || presenceChanged || (opts && opts.forcePresence) || !pm || now - pm.at >= STALE_MS) projectPresence(char, r.state);
-    return { exempt: false, state: r.state };
+    return { exempt: false, state: r.state, lastSleep: r.lastSleep || null };
   }
 
   // ---- 全局发声闸（合同 §5 判定顺序；shadow：只记账，永远 allow）----

@@ -12,15 +12,12 @@ const bump = (maj, mi) => new Function("maj", "mi",
   src.slice(src.indexOf("const bumped = ()"), src.indexOf("const next = process.argv[2]"))
   + "\nreturn bumped();")(String(maj), String(mi));
 
-test("次版本号满 99 就进位", () => {
-  assert.equal(bump("55", "99"), "56.00");
-  assert.equal(bump("55", "98"), "55.99");
-  assert.equal(bump("09", "07"), "09.08", "两位补零不能丢");
-  assert.equal(bump("99", "99"), "100.00");
-});
-
-test("已经长出来的 55.100 要能退回正轨", () => {
-  assert.equal(bump("55", "100"), "56.00", "三位的次版本号也当作满了，直接进位");
+// v73.301 起改成三位小数、第三位加一（她 2026-09-23）。进位点从 99 挪到 999。
+test("三位小数：满 999 才进位，两位的旧号先补成三位", () => {
+  assert.equal(bump("73", "30"), "73.301", "旧的两位号 73.30＝73.300，下一版 73.301");
+  assert.equal(bump("73", "301"), "73.302", "别再从 73.301 跳成 74.00（演练里真跳过）");
+  assert.equal(bump("73", "999"), "74.000");
+  assert.equal(bump("09", "007"), "09.008", "补零不能丢");
 });
 
 // ⚠️这一条比进位本身更要命。脚本开头就写着它存在的理由是「防止版本倒退」，
@@ -37,9 +34,12 @@ test("读版本号的正则不许把三位次版本截断成两位", () => {
   assert.deepEqual(read("fix(x): 修好了 (v55.100)"), ["55.100"], "提交历史里的也要认");
 });
 
-test("排序要把 55.100 排在 55.99 之后、56.00 之前", () => {
-  const num = new Function("return " + src.match(/const num = (v => \{[^}]+\});/)[1])();
-  assert.ok(num("55.99") < num("55.100"));
-  assert.ok(num("55.100") < num("56.00"));
+// 小数部分按小数比（73.30 ＝ 73.300）。55.100 那个历史误号按小数就是 55.1——早就过去了，
+//   现在的最大值在 73 往后，它排哪儿都不影响取最大。
+test("排序按小数：73.30 < 73.301 < 73.31 < 74.000", () => {
+  const num = new Function("return " + src.match(/const num = (v => \{[^\n]+\});/)[1])();
+  assert.ok(num("73.30") < num("73.301"));
+  assert.ok(num("73.301") < num("73.31"));
+  assert.ok(num("73.999") < num("74.000"));
   assert.ok(num("55.09") < num("55.10"));
 });

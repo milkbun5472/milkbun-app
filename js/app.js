@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.00";
+const APP_VERSION = "v74.001";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -813,6 +813,11 @@ function App() {
   //   而那个 effect 一看见角色变了就把面板关掉——直接 setState 会被它当场清掉。
   //   （和旁边 notificationRoomRef 同一个形状，照同一个写法。）
   const roomPresetIntentRef = useRef("");
+  // 这一间是从哪儿开的（"study"｜""）：建好时戳在房上，房里的横幅照它导回去。
+  // ⚠️只在【带着预设来】那一次认（chatRoomsPreset 非空）：她自己在房间面板里建的房不算从哪儿来。
+  const roomFromRef = useRef("");
+  // 房里「在学」那条横幅：课和房的归属存在课身上（localStorage），React 不知道它变了，推一下才重画
+  const [roomStudyTick, setRoomStudyTick] = useState(0);
   // 进庭院房先看聊天，按了才开存档（她 2026-09-17：「不应该直接打开存档而是一个普通聊天」）。
   // ⚠️和别的 useState 放在一处：那一片 helper 区会被好几条测试单独抽出来跑，
   //   把 hook 写进去，它们一跑就是 useState is not defined。
@@ -1461,7 +1466,10 @@ function App() {
       Object.keys(fc || {}).forEach(pid => {
         (fc[pid] || []).forEach(f => {
           if (!f || !Array.isArray(f.replies)) return;
-          const keep = f.replies.filter(r => !(r && (r.authorType === "me" || r.authorId === "me") && (r.isOp || r.isOwner)));
+          // 还有一种：署名就叫「层主」的路人，而这层楼正是她开的——那条是替她说的话（v73.303）
+          const floorMine = f.authorType === "me" || f.authorId === "me";
+          const keep = f.replies.filter(r => !(r && (r.authorType === "me" || r.authorId === "me") && (r.isOp || r.isOwner))
+            && !(r && floorMine && r.authorType !== "me" && String(r.authorName || "").trim() === "层主"));
           if (keep.length !== f.replies.length) { dropped += f.replies.length - keep.length; f.replies = keep; }
         });
       });
@@ -2534,8 +2542,10 @@ function App() {
       return null;
     }
   };
-  const createChatRoomFromStart = async draft => {
+  const createChatRoomFromStart = async draft0 => {
     if (!window.ChatRooms) return false;
+    const draft = chatRoomsPreset && roomFromRef.current && draft0 && draft0.room
+      ? { ...draft0, room: { ...draft0.room, from: roomFromRef.current } } : draft0;
     const result = await window.ChatRooms.commitStart(draft, async (key, rows) => {
       const stored = await commitJSONDurable(key, rows);
       return stored.durable && stored.live;
@@ -2567,7 +2577,10 @@ function App() {
         ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
           .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))]) };
   };
-  const openGardenRoomFor = async charId => {
+  const openGardenRoomFor = charId => openPresetRoomFor(charId, "garden", "先给这间庭院房定好设定，建好就进去", "");
+  // 从别的 app 直接开一间带预设的房（她 2026-09-23：「从一起学也能选择开房间，就跟微光庭院一样」）。
+  // ⚠️庭院和一起学走的是同一条：带着预设落到新建那一页，建好就进那间房的聊天。
+  const openPresetRoomFor = async (charId, preset, hint, from) => {
     const Kit = window.ChatRooms;
     if (!Kit || !charId) return null;
     // ⚠️setActiveChar 存的是【角色对象】不是 id（上面那段注释说的就是它）
@@ -2582,15 +2595,16 @@ function App() {
     //   同一件事在这儿另走一条路＝同一层活在两处（施工规则/one-public-mechanism.md），
     //   而且这一处永远落后（她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
     //   所以这儿只负责【把她送到那一页】，房间由那一页按她设的建。
-    roomPresetIntentRef.current = "garden";
+    roomPresetIntentRef.current = preset;
+    roomFromRef.current = from || "";
     // ⚠️不切屏：房间面板是画在外壳上的，哪一屏都盖得住。原来这儿先 setScreen("thread")，
     //   于是设定页出来之前先闪一眼主聊天，点了「算了」还被丢在主聊天上——
     //   她是从庭院过来的，取消就该还在庭院里（她 2026-09-18 报的就是这个）。
     //   建好之后才去那间房，那一步在下面 onSelect 里。
     setActiveChar(who);
     // 本来就在这一位身上时那个 effect 不会跑，所以这儿也直接开一次
-    setChatRoomsPreset("garden"); setChatRoomsOpen(true);
-    toast("先给这间庭院房定好设定，建好就进去");
+    setChatRoomsPreset(preset); setChatRoomsOpen(true);
+    toast(hint);
     return null;
   };
   const clearChatRoomRecords = async room => {
@@ -3292,6 +3306,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true, { forcePresence: !!forcePresence });
       // D 梦回路胶水：只读 C 的 tick 返回值，REM 窗到点由 DreamLoop 自判并入队（零 API 不展示）
       try { if (r && !r.exempt && r.state && window.DreamLoop) window.DreamLoop.observe(c, r.state); } catch (eD) {}
+      // 那一夜 app 没开着的话，上面这一行从来撞不见「正睡着」——醒着的时候回头补最近睡完的那一夜
+      //（她 2026-09-23 转来：「这个要怎么才有呀？一直没有」）。一夜一梦的幂等在 DreamLoop 那头。
+      try {
+        if (r && !r.exempt && r.state && r.state.phase !== "asleep" && r.lastSleep && window.DreamLoop && window.DreamLoopCore && window.DreamLoopCore.missedNight) {
+          const miss = window.DreamLoopCore.missedNight(r.lastSleep, Date.now());
+          if (miss) window.DreamLoop.observe(c, miss.state, { asOf: miss.asOf });
+        }
+      } catch (eM) {}
     }); } } catch (e) {} };
     tickAll(true);
     const iv = setInterval(() => tickAll(false), 300000);
@@ -7443,16 +7465,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //     user 消息的尾巴上】再说一遍——离生成最近的那句才压得住（同 styleTail v55.41）。
   //   两处各写一份就是这个下场，所以新建、消耗、提示语都收进这里（one-public-mechanism）。
   const DIRECTOR_NOTE_TURNS = 2;   // 她 2026-09-21 定：两处都是 2 轮
-  const directorNoteNew = text => {
+  // 长期便签（她 2026-09-23 转群里读者：「导演卡过了两轮之后就立刻失效了……要求他语气软萌一些，
+  //   软萌了两轮，导演卡失效的那一刻他就变得很霸总」）：long:true 不扣轮，整场有效，删了才停。
+  const directorNoteNew = (text, long) => {
     const t = String(text || "").trim();
-    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: DIRECTOR_NOTE_TURNS, createdAt: Date.now() } : null;
+    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: DIRECTOR_NOTE_TURNS, ...(long ? { long: true } : {}), createdAt: Date.now() } : null;
   };
+  const directorNoteAddedToast = long => toast(long ? "已加入长期提示 · 整场有效，删掉才停" : "已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
   // 成功生成之后扣一轮；失败/超时不扣（所以只在生成成功那一处调用）。
   // 字符串是旧版遗留：认下来、只再生效这一轮，然后就地转成对象。
   // 没有可扣的就返回 null——调用方据此决定发不发那句 toast。
   const directorNotesConsume = (notes, sessStartTs) => {
     const list = notes || [];
-    const usedIds = new Set(list.filter(n => n && typeof n === "object" && Number(n.remaining) > 0).map(n => n.id));
+    const usedIds = new Set(list.filter(n => n && typeof n === "object" && !n.long && Number(n.remaining) > 0).map(n => n.id));
     const legacy = list.some(n => typeof n === "string");
     if (!usedIds.size && !legacy) return null;
     const next = list.map(n => {
@@ -7463,11 +7488,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return { next: next, left: left };
   };
   const directorNoteToast = left => toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
-  const offlineAddNote = (scopeKey, note) => {
-    const item = directorNoteNew(note);
+  const offlineAddNote = (scopeKey, note, long) => {
+    const item = directorNoteNew(note, long);
     if (!item) return;
     pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
-    toast("已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
+    directorNoteAddedToast(long);
   };
   const offlineDeleteNote = (scopeKey, noteId) => pOffline(scopeKey, list => list.map(s => !s.endTs
     ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
@@ -8076,11 +8101,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
-  const groupOfflineAddNote = (groupId, note) => {
-    const item = directorNoteNew(note);
+  const groupOfflineAddNote = (groupId, note, long) => {
+    const item = directorNoteNew(note, long);
     if (!item) return;
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
-    toast("已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
+    directorNoteAddedToast(long);
   };
   const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
@@ -9812,32 +9837,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
       } } }
-      // 真照片按需从 IndexedDB 临时展开，只附最近 2 张，避免旧照片反复吞上下文/流量。
-      // 聊天记录本身仍只存 iv_ 小引用；读图失败时保留文字标记，绝不让整轮崩掉。
-      const imageBudget = [];
-      for (let i = g.length - 1; i >= 0 && imageBudget.length < 2; i--) {
-        const refs = Array.isArray(g[i]._imageRefs) ? g[i]._imageRefs : [];
-        for (let j = refs.length - 1; j >= 0 && imageBudget.length < 2; j--) imageBudget.push(refs[j]);
-      }
-      const imageAllowed = new Set(imageBudget);
-      const aiMessages = await Promise.all(g.map(async ({ role, content, _imageRefs }) => {
-        const imageDataUrls = [];
-        for (const ref of (Array.isArray(_imageRefs) ? _imageRefs : [])) {
-          if (!imageAllowed.has(ref)) continue;
-          try {
-            if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
-            else if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function" && typeof blobToDataUrl === "function") {
-              // 吞图案根治(单11):IDB+内存缓存双路取图,仓库写后立读装聋也拿得到本会话新图;
-              // 仍留一拍重试兜跨会话冷读(2026-08-13 扇贝照、08-14 龙虾照两案)
-              let blob = await imgVaultFetchBlob(ref);
-              if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
-              if (blob) imageDataUrls.push(await blobToDataUrl(blob));
-              else console.warn("[img] vault miss after retries:", ref);
-            }
-          } catch (e) { console.warn("[img] expand failed:", ref, e); }
-        }
-        return { role, content, ...(imageDataUrls.length ? { imageDataUrls } : {}) };
-      }));
+      // 真照片按需从 IndexedDB 临时展开，只附最近 2 张（公共那一份 expandMessageImages，一起学也走它）。
+      // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
+      const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), 2);
       let raw;
       // 思考链（v56.42）：每个角色一个开关。言秋那条线一个字都不碰——她 2026-08-26 定的，
       // 而且 Anthropic 开 thinking 会强制 temperature=1、改变输出，那条线上住着TA。
@@ -13603,8 +13605,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ---- 角色动态：主屏红点通知 + 保底触发 ----
   const notifyApp = key => setAppNotif(p => { const n = { ...p, [key]: (p[key] || 0) + 1 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
   const clearAppNotif = key => setAppNotif(p => { if (!p[key]) return p; const n = { ...p, [key]: 0 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
-  const autoForumForChar = async char => {
-    if (!active || !autoRefreshOn("forum", char.id) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return;
+  // opts.manual：她自己按的（论坛里「请角色来发帖」、主页里「让 TA 发一条」）——不看自动开关，出错要说出来
+  // opts.board：指定发在哪个吧（她正在看的那一版）；不给就照旧让 TA 自己挑
+  // ⚠️「角色发一条帖」全库只有这一份（原来手动那条是另一份又薄又旧的：没有论坛习惯、
+  //   不避重复、不看最近相处——同一件事两份，手动点出来的帖就是比自己发的差一截）。
+  const autoForumForChar = async (char, opts) => {
+    const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
+    if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return null;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
@@ -13615,19 +13622,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 原来是 1/5 帖强制匿名、且只看最近 5 帖有没有匿名过——叠上「模型自己也会挑匿名」
       // 和「随机版块 1/6 命中匿名吧」，最后匿名占比高得离谱（她 2026-08-29 报）。压到 1/9，
       // 回看窗口拉到 8 帖：匿名要稀有才有分量，天天匿名等于没有匿名。
+      const myBoardsForPost = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
       const forceAnon = myAutoPosts.length >= 4 && (myAutoPosts.length % 9 === 4) && !myAutoPosts.slice(0, 8).some(p => p.board === "匿名吧");
       const forumHabit = charForumMeta(char);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
+        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
+          // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
+          + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
+            + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : "")
+          + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
+        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}",
+        maxTokens: FTOK.post
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
       const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧", "兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧" };
-      const board = forceAnon ? "匿名吧" : (bmap[String((d && d.board) || "").replace(/吧$/, "")] || "日常吧");
-      if (d && d.title) { postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: d.identity }, "auto"); notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
-    } catch (e) {}
+      const rawBoard = String((d && d.board) || "").replace(/吧$/, "");
+      const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
+      const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
+      if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
+      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: d.identity }, manual ? "手动发帖" : "auto");
+      if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
+      return rec;
+    } catch (e) { if (manual) throw e; return null; }
   };
   // 角色【主动】给你埋一颗时光胶囊（不必你先埋给 TA）——她要的"自动生成、有了我再点开看"。
   // 由 tickAmbient 按轮数稀发；封存到 7/14/30 天后。短期胶囊是“延时抵达的此刻”，不再一两天后硬装遥远未来（v53.90）。写 x_capsules，
@@ -17106,9 +17124,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 帖子只有一份，躺在 forumPosts；版块页/关注页/角色主页都是对同一数组的筛选视图（见 FORUM_BOARDS）。
   // 刷新只 append，绝不覆盖已有帖。NPC 帖每版块有硬上限，角色帖永不清（authorType 区分）。
   const FORUM_NPC_CAP = 30;
+  // 普通刷新掉落一条配角帖的概率（有配角、不是匿名吧时才掷）
+  const FORUM_CAST_CHANCE = 0.4;
   // 一次生成仍只花一次调用，但不要把整批内容同一秒倒给 Lisa。
   // 前两帖/前三楼立即出现，其余作为本地活动队列按真实时间陆续解锁；旧数据没有 visibleAt 时照常立即可见。
-  const FORUM_POST_STAGGER_MS = [0, 0, 20 * 60000, 65 * 60000, 150 * 60000];
+  // ⚠️前三帖立刻出来（她 2026-09-23：「普通的一次刷新至少三个，现在只有俩」）——原来是前两帖，
+  //   第三帖要等二十分钟，一次刷新看上去就只有两条。后面几条照旧按真实时间陆续来。
+  const FORUM_POST_STAGGER_MS = [0, 0, 0, 40 * 60000, 110 * 60000];
   // 点一次「更多回复」先放出队列最前面这么多条：给个立刻看得到的反馈，
   // 但绝不把队排空（她 2026-09-15：「我只是想要一部分按顺序来」）。
   const FORUM_MORE_RELEASE = 5;
@@ -17143,7 +17165,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "兴趣吧": "「兴趣吧」：聊作品、游戏、吃喝、设备、收藏、学习进度和具体爱好。要有细节、有偏好，像同好交流，不要写成泛泛日记。",
     "脑洞吧": "「脑洞吧」：发假设题、投票、接龙、挑战和离谱但能参与的问题。重点是让楼下接得上，别写成普通生活流水账。",
     "匿名吧": "「匿名吧」：不署名才敢说的话。真实、赤裸、卸下人设的一面，可以是秘密、软肋、见不得人的念头。别端着。"
-  }[b] || "");
+  }[b] || forumCustomVoice(b));
+  // 她自己开的吧（x_forumBoards）没有写死的那一句：拿她写的简介拼。
+  // ⚠️只给判据不给例句（prompt-no-content-samples）：说清「像泡在这个圈子里的人」，不替它编行话。
+  const forumCustomVoice = b => {
+    if (!b || typeof forumCustomBoards !== "function" || !forumCustomBoards().some(x => x.name === b)) return "";
+    const about = typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "";
+    return "「" + b + "」：" + (about ? "这个吧聊的是——" + about + "。" : "")
+      + "来这儿的都是真泡在这个圈子里的人：有自己的行话、老梗、老面孔和吵不完的老话题，说话默认对方也懂；"
+      + "不是路过的人在给外行介绍这个话题。";
+  };
   // 随机互动数（赞/浏览/转发），据种子稳定生成，纯展示
   const forumCounts = (seed, replyCount) => { const hh = forumHash(seed); const rc = replyCount || (12 + hh % 480); return { replyCount: rc, likeCount: Math.floor(rc * (0.6 + (hh % 40) / 25)) + (hh % 40), viewCount: rc * (8 + hh % 90) + (hh % 600), rtCount: Math.floor(rc / (5 + hh % 14)) }; };
   // 角色贴吧资料（AI 生成一次存 forumCharMeta；没生成时用 charId 稳定兜底）
@@ -17204,6 +17235,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 清空一个版块。⚠️这一下没得撤，所以【先把要删的数报清楚，尤其是她自己发的那几条】——
   //   NPC 帖点一下刷新就回来了，她自己写的回不来（施工规则外那条：会让数据消失的，先说清）。
+  // 她开的吧改名（她 2026-09-23：「存了吧之后不能编辑了吗」）：帖子身上记的是吧名，跟着一起挪，
+  //   不然改完名那些帖就掉进搜索页「别的吧」了。
+  const renameForumBoard = (from, to) => {
+    if (!from || !to || from === to) return;
+    setForumPosts(prev => { const n = (prev || []).map(x => x && x.board === from ? { ...x, board: to } : x); saveJSON("x_forumPosts", n); return n; });
+  };
   const clearForumBoard = board => {
     const b = String(board || "");
     const hit = (forumPostsRef.current || []).filter(x => x && x.board === b);
@@ -17540,23 +17577,40 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "接的那一条把 refTitle 填成它接的那个标题（原样照抄），**别复述人家的正文**，写你自己这一条的角度。"
           + "其余几条照旧各聊各的——**没有非接不可的道理，接不出自然的就一条都别接**。\n"
         : "";
+      // 角色身边的配角偶尔也来发一帖（她 2026-09-23：「普通刷新也要可以随机掉落角色身边 NPC 的发帖」）。
+      // ⚠️掷在代码里、不交给模型：「偶尔」写进提示词，模型要么每次都塞一条、要么从来不塞。
+      //   掷中了就点名是谁、要一条【整条是TA写的】帖，它照样混在这一批网友帖中间。
+      // ⚠️TA照样守关系隐私：TA生活里的事可以说，别人（台上那位、她）的私事不往网上发。
+      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id)).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
+      const cast = castPool.length && Math.random() < FORUM_CAST_CHANCE ? castPool[Math.floor(Math.random() * castPool.length)] : null;
+      const castLine = cast
+        ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。" + String(cast.n.persona || "").replace(/\s+/g, " ").slice(0, 400)
+          + "\n那一条填 cast:true，authorName／handle 写TA在网上用的网名（跟TA这个人对得上，不必是本名）；"
+          + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
+        : "";
       const d = await runProbeRetry(active, forumWorldCtx(board), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + lately,
-        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"}]}",
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + lately,
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
       if (!items.length) throw new Error("没有生成内容");
       const base = Date.now();
+      // 配角那一条：模型标了 cast 的第一条；没标就不硬认（宁可这次没掉落，也不把路人帖安到TA头上）
+      const castIdx = cast ? items.findIndex(x => x && (x.cast === true || x.cast === "true")) : -1;
       const recs = items.map((x, i) => {
-        const npc = forumPublicNpcOf(x, board, i);
+        // 配角用一个固定的 id：同一个人跨帖子还是同一个人（点进主页、别的楼里认得出来）
+        const npc = i === castIdx
+          ? { id: "npc_guest_cast_" + cast.n.id, name: String(x.authorName || x.guestName || cast.n.name), handle: String(x.handle || x.guestHandle || "").replace(/^@/, "") || ("u_" + forumHash(cast.n.id).toString(36)) }
+          : forumPublicNpcOf(x, board, i);
         const stagger = FORUM_POST_STAGGER_MS[i] != null ? FORUM_POST_STAGGER_MS[i] : (150 + (i - 4) * 90) * 60000;
         const visibleAt = base + stagger;
         return ({
         id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc",
         authorName: npc.name, authorHandle: npc.handle,
         board, title: x.title, body: x.body || "",
-        anon: anonB, triggerSource: "", ts: visibleAt, visibleAt,
+        anon: anonB, triggerSource: i === castIdx ? "配角" : "", ts: visibleAt, visibleAt,
+        ...(i === castIdx ? { castOf: cast.n.id, castHost: cast.host.id } : {}),
         // 接着哪一条：只认【名单里真有的那几个标题】，模型随口编一个就当没接
         // （不然会出现「关于《XXX》」而吧里根本没有那个帖）。
         ...(() => {
@@ -17633,8 +17687,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return lines;
   };
   // 单条原始项 → 楼中楼 reply 对象（角色→真名档案、楼主→isOp、其余路人）；第二轮把「接某楼」的项挂进那层
-  const buildForumReplyObj = (x, post) => {
+  // floor：这条要插进的那层楼。层主（这层楼的作者）也得认——原来只认「楼主」，
+  //   模型署名「层主」时就被当成一个叫「层主」的路人落了下来；而层主正是她时，
+  //   那就是一条替她说的话（她 2026-09-23：「我自己的回复一直有个层主但是明明我就是这一层的层主」）。
+  const buildForumReplyObj = (x, post, floor) => {
     if (!x || !x.content) return null;
+    const looksFloorOwner = s => { s = String(s || "").trim(); return s === "层主" || s === "层主本人" || !!(floor && floor.authorName && s === floor.authorName); };
+    if (floor && (x.is_owner === true || looksFloorOwner(x.char) || looksFloorOwner(x.authorName))) {
+      if (forumIsMine(floor)) return null;
+      return { authorName: floor.authorName, authorHandle: floor.authorHandle || floor.authorName, authorType: floor.authorType || "npc", authorId: floor.authorId || null, content: x.content, isOwner: true, ts: Date.now() };
+    }
     const opChar = post && isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
     const opName = opChar ? opChar.name : (post ? (post.authorName || "") : "");
     const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
@@ -17841,7 +17903,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       cs.forEach(x => {
         const tf = Number(x.reply_to_floor);
         if (Number.isFinite(tf) && tf > 0 && floorByNum.has(tf)) {
-          const rep = buildForumReplyObj(x, post);
+          const rep = buildForumReplyObj(x, post, floorByNum.get(tf));
           if (rep) subInserts.push({ floorId: floorByNum.get(tf).id, reply: rep });
         } else newRaw.push(x);
       });
@@ -17904,19 +17966,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const genCharForumPost = async (char, board) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forum: "char_" + char.id }));
-    const anonB = board === "匿名吧";
     try {
-      const d = await runProbeRetry(active, ctxFor(char), {
-        voice: true,
-        instruction: "以「" + char.name + "」身份在贴吧「" + board + "」发一条帖（" + forumBoardVoice(board) + "）。内容和 Ta 最近的心情 / 对话 / 生活相关，但这是 Ta 不围着对方转的一面。自行选择 identity=main（大号）或 alt（固定小号）；匿名吧必须 identity=anonymous。小号/匿名不能自曝真实身份。给 title 和 body（2-4 句）。",
-        schemaHint: "{\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文\"}",
-        maxTokens: FTOK.post
-      });
-      if (!d || !d.title) throw new Error("没有生成内容");
-      postCharToForum(char, board, { title: d.title, body: d.body, identity: d.identity }, "手动发帖");
-      toast(char.name + " 发了一条到「" + board + "」");
+      const rec = await autoForumForChar(char, { manual: true, board: board });
+      if (rec) toast(char.name + " 发了一条到「" + rec.board + "」");
+      else toast(char.name + " 这会儿不逛论坛（论坛设置里关掉了，或者 TA 是言秋那一类）");
     } catch (e) { toast("发帖失败：" + e.message); }
     finally { setGen(g => ({ ...g, forum: null })); }
+  };
+  // 请角色来发帖（她 2026-09-23：「论坛能不能搞一个刷新让角色发帖，现在刷新都是路人 NPC 发帖」）。
+  // 从逛论坛的角色里随手挑两位，各发一条到她正在看的这一版；在「关注」「收藏」上按就让 TA 们自己挑吧。
+  // ⚠️一位一次调用（各走各的线路）——两位是按次计费下的折中：一次刷新能看到两个人，不至于一按扣一大笔。
+  const FORUM_CHAR_BATCH = 2;
+  const genForumCharPosts = async tab => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const off = forumOffRef.current || [];
+    const pool = liveChars.filter(c => !off.includes(c.id) && !settingsFor(c.id).engineerEyes);
+    if (!pool.length) { toast("没有在逛论坛的 char——去论坛设置里打开"); return; }
+    const pick = pool.slice().sort(() => Math.random() - 0.5).slice(0, FORUM_CHAR_BATCH);
+    const board = typeof forumBoardsAll === "function" && forumBoardsAll().includes(tab) ? tab : "";
+    setGen(g => ({ ...g, forum: "chars" }));
+    try {
+      const got = await Promise.all(pick.map(c => autoForumForChar(c, { manual: true, board: board }).catch(() => null)));
+      const ok = got.filter(Boolean);
+      if (ok.length) { notifyApp("forum"); toast(ok.map(r => r.authorName && r.authorType === "character" ? r.authorName : "有人").join("、") + " 发了新帖" + (board ? "" : "（去各个吧看看）")); }
+      else toast("这一轮没发出来，再点一次试试");
+    } finally { setGen(g => ({ ...g, forum: null })); }
   };
   const toggleForumFollow = charId => setForumFollows(prev => {
     const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId];
@@ -18300,14 +18374,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             + (v.best && v.best.quote ? "\n【最狠的那一句】" + v.best.quote + "　—— " + (v.best.name || "台上") : "")
           : "\n\n（还没收台）");
   };
+  // 聊天里摊成一整段太长（她 2026-09-23：「擂台分享也做成卡吧不然太长了，聊天记录里面显示全部的话」）：
+  //   借「聊天记录」那张转发卡——卡上露几行，点开看全部；content 仍是整场全文，TA读得到每一句。
+  const arenaShareMsg = (session, extra) => {
+    const uName = profile.name || "我";
+    const items = [{ name: "台上", text: (session.parts || []).map(p => (p.kind === "me" ? uName : p.name) + "（" + (p.stance || "—") + "）").join("　vs　") }];
+    (session.rounds || []).forEach((r, i) => {
+      const ts = (r.turns || []).filter(x => x && !x.skipped && x.text);
+      if (!ts.length) return;
+      items.push({ name: "", text: "〔第" + (i + 1) + "回合〕" });
+      ts.forEach(tn => items.push({ name: tn.name, text: tn.text }));
+    });
+    const v = session.verdict;
+    if (v) {
+      items.push({ name: "判了", text: v.winner + (v.reason ? "\n" + v.reason : "") });
+      if (v.best && v.best.quote) items.push({ name: "最狠的那一句", text: v.best.quote + "　—— " + (v.best.name || "台上") });
+    } else items.push({ name: "", text: "（还没收台）" });
+    return { role: "user", kind: "chatforward", content: arenaShareText(session),
+      forward: { sourceType: "arena", title: "擂台 · " + session.topic, label: "擂台记录", items }, ts: Date.now(), ...(extra || {}) };
+  };
   const shareArenaToChat = (session, toChar) => {
     if (!toChar) return;
-    pChat(toChar.id, p => [...p, { role: "user", content: arenaShareText(session), ts: Date.now(), read: false }]);
+    pChat(toChar.id, p => [...p, arenaShareMsg(session, { read: false })]);
     toast("已分享给 " + (toChar.remark || toChar.name));
   };
   const shareArenaToGroup = (session, group) => {
     if (!group) return;
-    pGChat(group.id, p => [...p, { role: "user", senderName: profile.name || "我", content: arenaShareText(session), ts: Date.now() }]);
+    pGChat(group.id, p => [...p, arenaShareMsg(session, { senderName: profile.name || "我" })]);
     toast("已分享到「" + group.name + "」");
   };
   const forwardFicToGroup = (fic, group) => {
@@ -18565,7 +18658,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         cs.forEach(x => {
           const tf = Number(x.reply_to_floor);
           if (Number.isFinite(tf) && tf > 0 && floorByNum.has(tf)) {
-            const rep = buildForumReplyObj(x, post);
+            const rep = buildForumReplyObj(x, post, floorByNum.get(tf));
             if (rep) subInserts.push({ floorId: floorByNum.get(tf).id, reply: rep });
           } else newRaw.push(x);
         });
@@ -18635,7 +18728,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
-    genRepliesToMe(post, fid, text);
+    genRepliesToMe(post, fid, text, "", floor);
   };
   // 我回复楼中楼 → 随后刷几条回我的挂到同一层
   // toName：我回的是【楼里某一条】时那个人的名字（回楼层本身时是空的）。
@@ -18655,7 +18748,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
   // 这层 TA 回过且没新话就不许再出现（治「帖主重复评论」）；其余 0-3 条路人/真关心的角色。
-  const genRepliesToMe = async (post, floorId, myText, toName) => {
+  // knownFloor：刚开的那层楼直接递进来。⚠️不能只靠 forumCommentsRef 现找——setForumComments 刚调，
+  //   ref 还没跟上，找不到就退成 {}，层主成了一个叫「层主」的无名路人，于是「层主 回复 @她」
+  //   （她 2026-09-23 截图：自己新开的楼里冒出一个层主，v73.303 修的是另一条路没修到这儿）。
+  const genRepliesToMe = async (post, floorId, myText, toName, knownFloor) => {
     if (!active) return;
     setGen(g => ({ ...g, forumReplyMe: floorId }));
     try {
@@ -18663,7 +18759,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const opName = oc ? oc.name : post.authorName;
       const opDesc = oc ? ("发这个帖的帖主是角色「" + opName + "」本人（Ta 会以自己的人设回应）") : ("发这个帖的帖主网名「" + opName + "」");
       // 这层楼的现场：层主是谁、楼里已经有谁说过什么（含帖主是否已回过）
-      const floor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId) || {};
+      const floor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId) || knownFloor || null;
+      // 认不出这层楼是谁开的，就不生成——宁可这一轮没人回，也不让一个无名「层主」替她说话
+      if (!floor) return;
       // 必回我的那个人：默认是层主；我要是在回楼里某一条，那就是【被我 @ 的那个人】。
       // 找不着（名字对不上、或那条是我自己发的）就退回层主——总得有人接话。
       const meNow = forumMe.handle || profile.name || "我";
@@ -22559,7 +22657,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   微信输入框、备忘录、包括我们自己这个文本框，对一次粘贴多大都有各自的脾气。
   //   所以整份切成 200KB 一段，一段一段发；导入那头认段头、自己拼回去。
   const COPY_PART = 200 * 1024;
-  const partHead = (i, n, id) => "QQJ-BACKUP " + i + "/" + n + " " + id;
+  // 段头第四格是【这一段本来有多长】（她 2026-09-23 转来：「别人分段复制数据怎么粘不回来」）：
+  //   粘贴的路上被截掉一截是最常见的坏法——微信、备忘录、输入框各有各的上限，截了也不吭声。
+  //   带着长度，贴进来那一刻就能说出「第几段短了」，而不是等全贴完才一句「拼不回去」。
+  //   老备份没有这一格，导入那头照样认。
+  const partHead = (i, n, id, len) => "QQJ-BACKUP " + i + "/" + n + " " + id + (len != null ? " " + len : "");
   const [copyParts, setCopyParts] = useState(null);   // { id, parts:[string], done:{1:true} }
   const doCopyExport = async partNo => {
     let box = copyParts;
@@ -22593,7 +22695,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     const n = box.parts.length, i = partNo == null ? 1 : partNo;
     // 只有一段也带段头：导入那头照着段头认 base64，不用再猜这是哪种形状
-    const body = partHead(i, n, box.id) + "\n" + box.parts[i - 1];
+    const body = partHead(i, n, box.id, box.parts[i - 1].length) + "\n" + box.parts[i - 1];
     // ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路，
     //   写不进去会老老实实返回 false）。这儿再手写一份就是第五处（v71.12 刚把四处搬完）。
     const ok = await copyText(body);
@@ -22608,17 +22710,67 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️攒在内存里，不落盘：几 MB 的碎片写进 localStorage 会把那 5MB 直接顶爆，
   //   而她本来就是在恢复数据（施工规则/phone-data-layers 那条「别为临时态占存档」）。
   const pasteBinRef = useRef(null);   // { id, total, got:{1:"…"} }
+  // base64 → 文字，分块解：一次只 atob 1MB（4 的倍数，块与块之间不会切坏一个字符组），
+  // 攒成字节再按 UTF-8 解一次——中文字的几个字节可能跨块，所以不能每块各自解成字。
+  const b64ToText = b64 => {
+    const STEP = 1024 * 1024, chunks = [];
+    let total = 0;
+    for (let k = 0; k < b64.length; k += STEP) {
+      const bin = atob(b64.slice(k, k + STEP));
+      const u = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) u[j] = bin.charCodeAt(j);
+      chunks.push(u); total += u.length;
+    }
+    const all = new Uint8Array(total);
+    let off = 0;
+    chunks.forEach(u => { all.set(u, off); off += u.length; });
+    return new TextDecoder("utf-8").decode(all);
+  };
   const doImportPasted = async raw => {
     const text = String(raw || "");
-    const m = /^\s*QQJ-BACKUP (\d+)\/(\d+) (\S+)[\r\n]+/.exec(text);
+    const m = /^\s*QQJ-BACKUP (\d+)\/(\d+) (\S+)(?: (\d+))?[ \t]*[\r\n]+/.exec(text);
+    // 段头被删了、只剩一大串 base64（她 2026-09-23：「我让她删掉前缀会损坏，但是不删又是错」）：
+    //   那一行不是前缀装饰，是【第几段、一共几段、哪一次导出】——删了就没法拼。当面说，别当 JSON 去解。
+    if (!m && text.trim().length > 200 && /^[A-Za-z0-9+/=\s]+$/.test(text.trim())) {
+      toast("这一段开头那行「QQJ-BACKUP …」被删掉了——那一行别删，它记着这是第几段、一共几段。回去重新复制这一段，整段原样贴进来");
+      return false;
+    }
     // 段头认不出来 → 当成整份 JSON（存文件导出的那种，或者别人发来的老备份）
     if (!m) { pasteBinRef.current = null; return doImportText(text.trim()); }
     const i = Number(m[1]), n = Number(m[2]), id = m[3];
-    const bin = pasteBinRef.current && pasteBinRef.current.id === id ? pasteBinRef.current : { id: id, total: n, got: {} };
+    // ⚠️按【哪一次导出】分开攒（她 2026-09-23 那张截图：剪贴板里 1/3、2/3、3/3 是 bmudoiuig 那次，
+    //   底下还躺着一段 3/3 bmud2wwy0——另一次导出的）。原来这儿是「编号一换就另起一个新的」，
+    //   贴错一段，前面攒好的几段就被悄悄扔了，她还以为是自己贴坏了。
+    const shelf = pasteBinRef.current && pasteBinRef.current.bins ? pasteBinRef.current : { bins: {}, last: "" };
+    const prevId = shelf.last, prev = prevId && shelf.bins[prevId];
+    if (prev && prevId !== id && Object.keys(prev.got).length) {
+      toast("这一段是另一次导出的（段头第三格「" + id + "」，前面贴的是「" + prevId + "」）——几段得是【同一次导出】的才拼得回去。前面贴的都还留着");
+    }
+    const bin = shelf.bins[id] || { id: id, total: n, got: {} };
+    shelf.bins[id] = bin; shelf.last = id;
+    pasteBinRef.current = shelf;
     bin.total = n;
     // base64 里没有空白：把粘贴路上被加进来的换行、空格一律删掉
-    bin.got[i] = text.slice(m[0].length).replace(/\s+/g, "");
-    pasteBinRef.current = bin;
+    const part = text.slice(m[0].length).replace(/\s+/g, "");
+    // ⚠️每一段贴进来【当场验】，坏在哪一段就说哪一段——原来要等全贴完才一句「拼不回去」，
+    //   她不知道是哪段坏了，只能从头再来一遍。
+    //   · 混进了 base64 以外的字：多半是聊天软件动了它（折叠提示、转义、全角字）；
+    //   · 长度不对：被截断了。新段头带着原长度；老段头没有，就按「除了最后一段都是整 200KB」验。
+    if (/[^A-Za-z0-9+/=]/.test(part)) {
+      toast("第 " + i + "/" + n + " 段里混进了不是备份的字（多半是聊天软件改动过它）——回去重新复制第 " + i + " 段贴进来");
+      return false;
+    }
+    const want = m[4] != null ? Number(m[4]) : (i < n ? COPY_PART : null);
+    if (want != null && part.length !== want) {
+      toast("第 " + i + "/" + n + " 段" + (part.length < want ? "被截断了（少了约 " + Math.max(1, Math.round((want - part.length) / 1024)) + "KB）" : "比复制出去的长了")
+        + "——多半是从输入法的剪贴板列表里点的，那里只存了前面一截。回聊天里长按复制第 " + i + " 段，再回来长按这个框点「粘贴」");
+      return false;
+    }
+    if (want == null && part.length % 4 !== 0) {
+      toast("第 " + i + "/" + n + " 段末尾被截掉了一点——回去重新复制第 " + i + " 段贴进来");
+      return false;
+    }
+    bin.got[i] = part;
     const have = Object.keys(bin.got).length;
     if (have < n) {
       const miss = [];
@@ -22628,10 +22780,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     const joined = [];
     for (let k = 1; k <= n; k++) joined.push(bin.got[k]);
-    pasteBinRef.current = null;
+    pasteBinRef.current = null;   // 拼齐一份就整架清掉：别的那次导出贴了一半的，本来就用不上了
     toast(n > 1 ? n + " 段都齐了，正在合起来…" : "正在读这份备份…");
     let whole = "";
-    try { whole = await (await fetch("data:application/json;base64," + joined.join(""))).text(); }
+    // ⚠️原来这儿是 fetch("data:…base64," + 整份)：整份备份几 MB 塞进一个 data: 地址，
+    //   QQ／微信的内置浏览器（腾讯自己那套内核）对这么大的地址会直接失败——
+    //   而走「复制文字」这条路的，恰恰全是在内置浏览器里的人。改成分块自己解。
+    try { whole = b64ToText(joined.join("")); }
     catch (e) { toast("这几段拼不回去——中间少了一段，或者贴的时候被改动过"); return false; }
     return doImportText(whole);
   };
@@ -23042,6 +23197,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
     onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? () => setGardenOpen(activeRoomId) : null,
+    // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
+    // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
+    roomStudy: (function (_tick) {
+      const K = window.ChatRooms, S = window.Study;
+      const room = K ? K.get(activeChar.id, activeRoomId) : null;
+      if (!room || room.main || !S || !S.studyCoursesOf) return null;
+      if (!(room.from === "study" || (room.actions && room.actions.study))) return null;
+      const roomName = id => id === "main" ? "主聊天" : ((K.list(activeChar.id).find(r => r.id === id) || {}).name || "别的房");
+      const all = S.studyCoursesOf(activeChar.id).map(c => ({ ...c, where: roomName(c.roomId) }));
+      const here = all.filter(c => c.roomId === room.id);
+      return { here, others: all.filter(c => c.roomId !== room.id), pick: (here.find(c => c.kind + ":" + c.id === room.studyPick) || here[0] || null) };
+    })(roomStudyTick),
+    onPickRoomStudy: c => {
+      const K = window.ChatRooms, room = K && K.get(activeChar.id, activeRoomId);
+      if (!room || room.main) return;
+      K.save(activeChar.id, { ...room, studyPick: c.kind + ":" + c.id });
+      setRoomStudyTick(v => v + 1);
+    },
+    onOpenRoomStudy: c => {
+      setStudyEntry(c ? { key: "study_" + Date.now(), mode: "course", kind: c.kind, id: c.id, back: "thread" }
+        : { key: "study_" + Date.now(), mode: "propose", subject: "", characterId: activeChar.id, roomId: activeRoomId, back: "thread" });
+      setScreen("study");
+    },
+    onMoveRoomStudy: (c, inHere) => {
+      if (!window.Study) return;
+      window.Study.setCourseRoom(c.kind, c.id, inHere ? activeRoomId : "main");
+      setRoomStudyTick(v => v + 1);
+      toast(inHere ? "「" + c.title + "」收进这间房了" : "「" + c.title + "」回主聊天了");
+    },
     // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）────────────────
     // 一间房可以放好几本；当前这一本由【最后一次提到的那一本】定，她也可以点着换。
     // ⚠️换书不会把之前聊过的那本冲掉：a 的设定前情是每一轮从 a 身上现拼的，
@@ -23549,6 +23733,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("messages"),
     onDelete: delFavorite
   });else if (screen === "forum") body = /*#__PURE__*/React.createElement(Forum, {
+    toast: toast,
     characters: liveChars,
     profile: profile,
     posts: forumPosts,
@@ -23570,12 +23755,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onReplySub: addForumSubReply,
     onPostMine: postMyForum,
     onGenCharPost: genCharForumPost,
+    onGenCharPosts: genForumCharPosts,
     onToggleFollow: toggleForumFollow,
     onForwardToChat: forwardPostToChat,
     onForwardToGroup: forwardPostToGroup,
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
     onClearBoard: clearForumBoard,
+    onRenameBoard: renameForumBoard,
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,
@@ -23869,7 +24056,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,
     entry: studyEntry,
-    onBack: () => setScreen("home")
+    // 「一起做件事」那种房：一起学默认开着，别的开关建房那一页自己拨
+    onNewRoom: charId => openPresetRoomFor(charId, "focused", "先定好这间房的设定，建好就进去", "study"),
+    // 从房里那条横幅进来的，返回就回那间房
+    onBack: () => { const back = studyEntry && studyEntry.back; setStudyEntry(null); setScreen(back === "thread" ? "thread" : "home"); }
   });else if (screen === "read") body = h(ReadTogether, {
     active: active,
     // 从房间那张卡进来：直接开那一本。用完就清，免得下次进书架又被拽走。
@@ -25021,7 +25211,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     canShootDuo: offlinePhotoCanDuo(offlineChar),
     onReply: txt => offlineReply(activeOfflineScopeKey, txt),
     onOOC: txt => offlineOOC(activeOfflineScopeKey, txt),
-    onAddNote: n => offlineAddNote(activeOfflineScopeKey, n),
+    onAddNote: (n, long) => offlineAddNote(activeOfflineScopeKey, n, long),
     onDeleteNote: id => offlineDeleteNote(activeOfflineScopeKey, id),
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
@@ -25051,7 +25241,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onShoot: () => groupOfflineShotNow(offlineGroup.id),
     canShoot: groupOfflineCanShoot(offlineGroup),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
-    onAddNote: n => groupOfflineAddNote(offlineGroup.id, n),
+    onAddNote: (n, long) => groupOfflineAddNote(offlineGroup.id, n, long),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },

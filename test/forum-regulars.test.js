@@ -69,7 +69,8 @@ test("角色主动论坛帖包含匿名周期，而且匿名是稀有的（她 2
   // 匿名要稀有才有分量，天天匿名等于没有匿名。
   assert.match(app, /const forceAnon = myAutoPosts\.length >= 4 && \(myAutoPosts\.length % 9 === 4\)/);
   assert.match(app, /!myAutoPosts\.slice\(0, 8\)\.some\(p => p\.board === "匿名吧"\)/);
-  assert.match(app, /const board = forceAnon \? "匿名吧"/);
+  // v73.310 前面多了 fixedBoard（她按「请角色来发帖」时指定的吧）；没指定的时候匿名周期照旧
+  assert.match(app, /const board = fixedBoard \|\| \(forceAnon \? "匿名吧"/);
   assert.match(app, /"兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧"/);
 });
 
@@ -226,6 +227,8 @@ test("论坛点赞与收藏跨刷新保留，收藏有独立时间线", () => {
   assert.match(screens, /localStorage\.setItem\("x_forumLikes"/);
   assert.match(screens, /localStorage\.setItem\("x_forumBookmarks"/);
   assert.match(screens, /tab === "收藏".*bookmarked\.has\(p\.id\)/s);
-  assert.match(screens, /\[\.\.\.FORUM_BOARDS, "关注", "收藏"\]/);
-  assert.match(screens, /tab === "收藏" \|\| tab === "关注"/);
+  assert.match(screens, /\[\.\.\.forumBoardsAll\(\), "关注", "收藏"\]/);   // v73.2x 她开的吧也在这一排
+  // v73.312 右上角那把钥匙点开是一张小单子：收藏上没有这把钥匙；关注上只有「请TA们发帖」（网友刷新没有「关注」这个版）
+  assert.match(screens, /rightEl = tab === "收藏" \? null : h\("button", \{ onClick: \(\) => setRefreshMenu/);
+  assert.match(screens, /\[tab !== "关注" && \["刷新", "网友来发帖", \(\) => onGenBoard\(tab\)\]/);
 });

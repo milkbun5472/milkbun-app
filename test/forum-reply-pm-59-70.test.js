@@ -9,7 +9,7 @@ const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b
 const floorRow = cut(sc, "function floorRow(post, cm, i)", "\n  const sendReply");
 const pmList = cut(sc, "function pmList()", "\n  // ---- 回复我的");
 const sub = cut(ap, "const addForumSubReply = (post, floorId, text, toName)", "\n  // 生成回复");
-const genMe = cut(ap, "const genRepliesToMe = async (post, floorId, myText, toName)", "\n  const genForumPost");
+const genMe = cut(ap, "const genRepliesToMe = async (", "\n  const genForumPost");
 
 // 她 2026-09-01：「我回复了帖子然后有楼中楼我就没办法回复了，别人的楼中楼也不行」
 test("楼中楼里每一条都能回，不只是楼层那一行", () => {

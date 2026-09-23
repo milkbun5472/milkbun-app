@@ -1225,15 +1225,22 @@ function narrativeDirective(s) {
   //   · 开着：原来只有油门没有刹车——它可以把她的重大选择也替她演完，她就没得玩了；
   //   · 关着：「只描写你自己」很容易被读成「所以我什么都推不动」——于是退回抛选择题。
   //   共同那一条是：**大事 TA 自己推成既成事实，最后那一下停在她手里**。
+  // ⚠️这里原来只列了「摊牌、动手、起身就走」——那只是强势的人的推法。一个软的、慢热的人
+  //   照着这张单子推剧情，就被推成了霸总（她 2026-09-23：「为什么线下还是会默认霸总啊」）。
   const AGENCY_TAIL = "⚠️不管这一项开还是关：**推动剧情是你的活，不是她的**——"
-    + "摊牌、动手、起身就走、带她去某个地方、把关系往前推一步，这些你想做就做、当场做成，不必先问她同不同意，"
-    + "更不要把它拆成「A 还是 B」让她挑。"
+    + "【按你这个人自己的方式推】：你是什么样的人，往前走的那一步就长什么样，从你的卡和此刻的心情里来，不从「推剧情该有的样子」里来。"
+    + "想做的那一步当场做成，不必先问她同不同意，更不要把它拆成「A 还是 B」让她挑。"
     + "但**把最后那一下留给她**：一直写到【再往下就得替她做主】的那一拍——她答什么、她去不去、她身体怎么动——才停下，"
     + "别替她把答案也写了；在那之前她只是【可以】插一句的地方，不是停的理由。既成事实是你给的，怎么接是她的。";
   const desc = s.describeMe
     ? "你可以主动描写并推动对方（用户）的动作、神态与反应来带动剧情走向（如「你摇了摇头说……」「你转移了话题」），像在写一段双人叙事。"
       + "⚠️但替她写的只限**过渡性的那些**：她跟着走了、她没吭声、她把杯子放下。"
       + "**她的重大选择、她的答应或拒绝、她那句关键的话，一个字都不许替她定**——写到那儿就停。"
+      // 她 2026-09-23 转读者：「把描写我的行动打开以后，他真的好喜欢说什么，你太重了，赶紧起来。只要在床上，就一定要说」。
+      //   对角色有整张卡，对她只有一小段资料——材料一少，笔就往「言情女主这时候会说什么」上靠。
+      + "替她写的动作和话，【从她本人来】：她的资料、她在这场里真说过做过的、她一贯的反应方式；"
+      + "不套言情女主的现成台词和反应——被压着就喊「你好重」「压死我了」「快起来」、一碰就「别闹」「讨厌」、害羞就「你干嘛呀」这类，谁来都这么说的那一套不要。"
+      + "拿不准她会怎么说，就只写她的动作，不替她开口。"
       + AGENCY_TAIL
     : "只描写你自己的言行和心理，不要替对方决定动作或台词。" + AGENCY_TAIL;
   return "\n【叙事人称】" + (parts.length ? parts.join("；") + "。" : "") + desc;
@@ -2390,7 +2397,8 @@ const OFFLINE_AGENCY_RULE = `【谁的决定归谁 · 别把下一步做成选�
 这多半不是这个人没主意，是两条现成的规矩叠出来的副作用：一边写着「不可替用户作重大决定」，一边写着「不要求每轮制造推进」——于是最安全的走法就成了【原地不动，再把球抛回去】：「你是想先吃饭还是先休息？」
 所以把射程说清楚：
 · **属于 TA 自己的事，TA 自己定，并且【当场就做】**：去哪、点什么、开不开口、说哪句、动不动手、要不要转身走——想清楚就做，不必先征求同意，也不必把它写成给她挑的两个选项。她不接受，她会自己说。
-· **重大的那几件也算 TA 自己的事**：摊牌、把话戳破、动手、起身就走、带她去某个地方、把关系往前推一步——这些不是「得先问过她」的事，是 TA 自己要不要做的事。**想做就做成，做成一个既成事实**。剧情往前走靠的正是这个，不是靠她替你选。
+· **重大的那几件也算 TA 自己的事**：把一件事往前推一大步——说破、靠近、带她去哪、做一个决定——不是「得先问过她」的事，是 TA 自己要不要做的事。**想做就做成，做成一个既成事实**。剧情往前走靠的正是这个，不是靠她替你选。
+· **怎么推，是这个人自己的样子**：同样是往前走一步，强硬的人、软的人、慢热的人、嘴硬的人，走法完全不一样。那一步从 TA 的卡、TA 跟她的相处方式、TA 此刻的心情里长出来；别把所有人都推成同一种强势的推法。
 【这一拍写到哪儿停】
 她 2026-09-23：「线下一拍又太短了，他好像分不清什么时候该停什么时候可以继续扩展」。
 病根是原来这儿只写了【停在哪儿】，没写【停之前能走多远】——而几乎每两句话就有一处「她好像可以接一句」，于是第一处就停了。
@@ -2410,7 +2418,7 @@ const OFFLINE_AGENCY_RULE = `【谁的决定归谁 · 别把下一步做成选�
 
 const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 【别拿对方刚说的词开口反问】${ECHO_QUESTION_BAN}把它和后半句塞进同一句台词里也一样是回声（「「自拍？行，别后悔。」」），别用这个办法把它留下来。反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
-⚠️这一条在【线下正文】里同样生效，而且更容易犯：写成「『自拍？』TA挑眉，『行，别后悔。』」看着像有动作、有节奏，其实前半句仍然什么都没添——把它整个删掉，从TA真正的反应开始写。
+⚠️这一条在【线下正文】里同样生效，而且更容易犯：写成「『自拍？』TA看了她一眼，『行，别后悔。』」看着像有动作、有节奏，其实前半句仍然什么都没添——把它整个删掉，从TA真正的反应开始写。
 
 
 把当前这一刻写成角色真实正在经历的连续场景。叙事跟随人物此刻的注意、行动、对话、空间关系与选择，不为了“有文采”“有张力”或“符合人设”额外拼装描写。
@@ -5261,6 +5269,39 @@ async function imgVaultFetchBlob(ref) {
   try { const u = _imgCache().get(ref); if (u) return await (await fetch(u)).blob(); } catch (e) {}
   return null;
 }
+// 消息上挂着的真照片（_imageRefs：iv_ 引用或 data:）→ 临时展开成 callAI 认的 imageDataUrls。
+// 只附最近 budget 张（默认 2），旧照片别反复吞上下文和流量；聊天记录本身仍只存 iv_ 小引用。
+// 读图失败保留文字标记，绝不让整轮崩掉。
+// ⚠️这一段原来【只写在主聊天里】（app.js）；一起学也要发图（她 2026-09-23），第二处照抄就是两份
+//   「吞图案」修法——那几次（2026-08-13 扇贝照、08-14 龙虾照）修的就是这一段，所以收成一份。
+async function expandMessageImages(msgs, budget) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  const cap = budget || 2, want = [];
+  for (let i = list.length - 1; i >= 0 && want.length < cap; i--) {
+    const refs = Array.isArray(list[i] && list[i]._imageRefs) ? list[i]._imageRefs : [];
+    for (let j = refs.length - 1; j >= 0 && want.length < cap; j--) want.push(refs[j]);
+  }
+  const allowed = new Set(want);
+  return Promise.all(list.map(async m => {
+    const { _imageRefs, ...rest } = m || {};
+    const imageDataUrls = [];
+    for (const ref of (Array.isArray(_imageRefs) ? _imageRefs : [])) {
+      if (!allowed.has(ref)) continue;
+      try {
+        if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
+        else if (String(ref).indexOf("iv_") === 0) {
+          // 吞图案根治(单11):IDB+内存缓存双路取图,仓库写后立读装聋也拿得到本会话新图;
+          // 仍留一拍重试兜跨会话冷读
+          let blob = await imgVaultFetchBlob(ref);
+          if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
+          if (blob) imageDataUrls.push(await blobToDataUrl(blob));
+          else console.warn("[img] vault miss after retries:", ref);
+        }
+      } catch (e) { console.warn("[img] expand failed:", ref, e); }
+    }
+    return { ...rest, ...(imageDataUrls.length ? { imageDataUrls } : {}) };
+  }));
+}
 // 从叙事散文里只抠出【引号内的台词】，旁白/动作/心理全丢——线下、同人文这类「一大段旁白+偶尔一句台词」的语音只念角色真正说出口的话。
 // 支持中文「」『』、全角“”、直角双引号 "。多句台词按换行拼接（让 TTS 自然停顿）。整段没引号台词就返回空串（调用方据此不显示 ▶）。
 // 一段叙事里哪几段是【台词】：返回 [{start,end,inner}]（start/end 含引号本身）。
@@ -6284,7 +6325,7 @@ async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: char.name });
-  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
+  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && (n.long || Number(n.remaining) > 0) ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
@@ -6885,7 +6926,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const gRotateLine = rotateSpeakersNote(members, session.msgs);
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
-  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
+  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && (n.long || Number(n.remaining) > 0) ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName }, "groupOffline");
   // 预算按【真角色】人数分：配角不参与平分，也别把主角色的额度吃掉

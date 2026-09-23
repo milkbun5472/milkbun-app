@@ -11,7 +11,7 @@ const components = fs.readFileSync(require.resolve("../js/components.js"), "utf8
 // 要过两轮才听」——病根是单人线下落单了：存的是裸字符串、永不过期、尾部也没重申。
 test("群线下短期导演提示在提示尾部再次钉住", () => {
   assert.match(engine, /本轮短期导演提示必须实际落实/);
-  assert.match(engine, /Number\(n\.remaining\) > 0 \? n\.text/);
+  assert.match(engine, /n && \(n\.long \|\| Number\(n\.remaining\) > 0\) \? n\.text/);
   // 尾部那一句只许有一份实现，两处线下都问它要
   assert.equal((engine.match(/function directorNoteTail\(/g) || []).length, 1);
   assert.equal((engine.match(/directorNoteTail\(notes\)/g) || []).length, 3, "定义 1 处 + 单人线下 1 处 + 群线下 1 处");
@@ -29,7 +29,7 @@ test("新便签默认两轮，只有成功生成后才扣轮次", () => {
   // ⚠️轮数钉在【常量】上，别再 grep "remaining: 2"：那个字面量已经收进公共那一份了
   assert.match(app, /const DIRECTOR_NOTE_TURNS = 2;/);
   assert.equal((app.match(/const directorNoteNew = /g) || []).length, 1, "新建只许有一份");
-  assert.equal((app.match(/directorNoteNew\(note\)/g) || []).length, 2, "单人线下 + 群线下都走它");
+  assert.equal((app.match(/directorNoteNew\(note, long\)/g) || []).length, 2, "单人线下 + 群线下都走它");
   assert.equal((app.match(/const directorNotesConsume = /g) || []).length, 1, "消耗只许有一份");
   assert.equal((app.match(/directorNotesConsume\(/g) || []).length, 2, "单人线下 + 群线下各消耗一次");
   const consumeAt = app.indexOf("短期导演便签只在成功生成后消耗");
@@ -42,7 +42,7 @@ test("界面固定显示剩余轮数、结束状态并支持删除", () => {
   // v72.37：那块清单也收成公共的一份，单人线下和群线下各挂一次
   assert.equal((components.match(/function DirectorNotesPanel\(/g) || []).length, 1);
   assert.equal((components.match(/h\(DirectorNotesPanel, \{/g) || []).length, 2, "少了一处线下没挂这块清单");
-  assert.match(components, /短期导演便签 · 固定显示/);
+  assert.match(components, /导演便签 · 固定显示/);
   assert.match(components, /还会影响接下来/);
   assert.match(components, /已结束 · 下轮不再注入/);
   assert.match(components, /onDeleteNote/);

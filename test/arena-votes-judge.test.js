@@ -32,7 +32,7 @@ test("理由只认她点名的那四种来路，没理由的票不算", () => {
     { name: "阿檀", for: "周野", why: "觉得帅", reason: "就是帅" }        // 不在四种来路里
   ], voters, targets, {});
   assert.deepEqual(JSON.parse(JSON.stringify(out)), [{ name: "顾朝", for: "沈屿白", why: "friend", reason: "他是我兄弟" }]);
-  ["friend", "value", "moved", "random"].forEach(w => assert.match(dbt, new RegExp("\\b" + w + ": \""), "来路少了 " + w));
+  ["round", "friend", "moved", "random"].forEach(w => assert.match(dbt, new RegExp("\\b" + w + ": \""), "来路少了 " + w));
 });
 
 test("只认场边名单里的人、只能投台上的人；一人一票", () => {
@@ -46,16 +46,16 @@ test("只认场边名单里的人、只能投台上的人；一人一票", () =>
   assert.equal(out[0].name, "陆闻"); assert.equal(out[0].for, "Lisa");
 });
 
-test("墙头草：上一轮刚换过票，这一轮不许再换——照上一轮记成「接着投」，不替TA编理由", () => {
-  const hist = { 顾朝: ["沈屿白", "周野"], 陆闻: ["周野", "周野"] };   // 顾朝上一轮刚换过
+// v73.312 起票＝「这一轮谁说得好」（她 2026-09-23：「刚开始票数不一样然后就永远一样平票了，也不会立场改观」）：
+//   每轮投不同的人是正常的，原来「刚换过就强制投回去」那条撤了。
+test("票跟着这一轮走：刚换过的人这一轮照样能投给别人；谁都没说服就不投", () => {
+  const hist = { 顾朝: ["沈屿白", "周野"], 陆闻: ["周野", "周野"] };
   const out = V.settle([
-    { name: "顾朝", for: "沈屿白", why: "moved", reason: "又被说动了" },
-    { name: "陆闻", for: "沈屿白", why: "moved", reason: "他那句说到我心里了" }
+    { name: "顾朝", for: "沈屿白", why: "moved", reason: "这一轮他那句接得漂亮" },
+    { name: "陆闻", for: "", why: "value", reason: "都没说服我" }
   ], voters, targets, hist);
-  const g = out.find(v => v.name === "顾朝"), l = out.find(v => v.name === "陆闻");
-  assert.equal(g.for, "周野", "连着两轮换票＝每轮换，这一票得留在原处");
-  assert.equal(g.why, "stay"); assert.equal(g.reason, "", "不许替TA编一句理由");
-  assert.equal(l.for, "沈屿白", "一路投同一个人之后，被说动了照样能改");
+  assert.equal(out.length, 1, "for 留空＝弃权，不算票");
+  assert.equal(out[0].for, "沈屿白"); assert.equal(out[0].why, "moved");
 });
 
 test("整场记分：谁一共几票", () => {
@@ -68,14 +68,17 @@ test("整场记分：谁一共几票", () => {
 });
 
 test("提示词里给的是来路和改票的判据，不是例句", () => {
-  const i = dbt.indexOf("const histLines = ");
+  const i = dbt.indexOf("const voteBlock = benchBlock");
   const vb = dbt.slice(i, dbt.indexOf("const sys = AC()", i));
   assert.ok(i > 0);
   assert.match(vb, /这层关系得是真的/, "交情那一条得拦住临时认亲（脑残粉）");
-  assert.match(vb, /reason 里要点出是哪句话的意思/, "被说动得说得出是哪句");
-  assert.match(vb, /没有这样一个具体的原因，就接着投原来那位/, "改票得有原因");
-  assert.match(vb, /每轮都换人，那是没在看这场/);
-  assert.match(vb, /之前依次投给/, "不把TA上几轮投给谁发过去，TA没法判断该不该改");
+  assert.match(vb, /reason 里点出是哪句话的意思/, "被说动得说得出是哪句");
+  assert.match(vb, /【这一轮的票】和【TA心里站哪边】是两件事/, "票和立场分开");
+  assert.match(vb, /这一轮谁都没说服TA，就不投/, "可以弃权");
+  assert.match(vb, /【立场改观】/, "立场可以慢慢变");
+  // v73.317 起不再把「之前依次投给」喂回去（那是抄写信号），改成先定 edge 再投
+  assert.doesNotMatch(vb.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n"), /之前依次投给/, "别再把上几轮的票喂回去，模型会照抄");
+  assert.match(vb, /先定这一轮的高下，再投票/);
 });
 
 test("裁判是个活人：没上台的人里挑、TA不投票、每轮说一句、收台由TA判", () => {
