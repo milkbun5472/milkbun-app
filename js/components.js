@@ -927,6 +927,9 @@ function useKbLift() {
 //
 // ⚠️这一层只许有这一份（施工规则/one-public-mechanism.md）：单聊、群聊都问它要
 //   winStart，别在各自那头再写一遍窗口和滚动补偿。
+// 这条消息头顶要不要多画一格 ReasoningBlock（思考链／联网／用了工具）。
+// 单聊的列表和「定位」那一头都问它——两处各写一遍，一边改了另一边就数错格子。
+const hasReasonRow = m => !!(m && (m.reasoning || (m.searched || []).length || (m.usedTools || []).length));
 const CHAT_WINDOW = 200;
 function useChatWindow(ref, total, resetKey) {
   const [winN, setWinN] = useState(CHAT_WINDOW);
@@ -949,8 +952,14 @@ function useChatWindow(ref, total, resetKey) {
     el.scrollTop = el.scrollHeight - growRef.current;
     growRef.current = 0;
   }, [winN]);
+  // 查找记录点「定位」时要用：目标在窗口外面就先把窗口撑开到它（前面留一小截上下文）。
+  // ⚠️不走 growRef 那道滚动补偿——这一下紧跟着就要 scrollIntoView，补偿反而会把位置顶歪。
+  // startRef：定位那一拍是在【重画之后】才去数 DOM 的，闭包里的 winStart 已经是旧的。
+  const startRef = useRef(winStart);
+  startRef.current = winStart;
+  const reveal = i => { if (i < winStart) setWinN(Math.max(CHAT_WINDOW, total - i + 20)); };
   // growing()＝这一拍是【她在往上翻】，不是来了新消息：滚到底那一下要躲开它
-  return { winStart, growMore, growing: () => !!growRef.current };
+  return { winStart, growMore, growing: () => !!growRef.current, reveal, startRef };
 }
 // 长名单只画一截，往下翻到底再续一截（她 2026-09-18：「记忆库记忆多的话也会很卡
 // 有没有办法也做懒加载啊」）。记忆库两千条全画出来，光是 DOM 就要几万个节点，
@@ -8131,7 +8140,7 @@ function ChatThread({
     if (picked.length) onForward(picked, destination);
     exitSel();
   };
-  const { winStart, growMore, growing } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""));
+  const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""));
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -8356,10 +8365,10 @@ function ChatThread({
     // 账本回流（CC/Stack-chan）的一行可能是逐字摘录的长段落：显示时按空行拆成多个气泡，数据不动
     if (m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
       const parts = m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
-      if (parts.length > 1) return [...((m.reasoning || (m.searched || []).length || (m.usedTools || []).length) ? [{ m, i, part: -1, last: false }] : []),
+      if (parts.length > 1) return [...(hasReasonRow(m) ? [{ m, i, part: -1, last: false }] : []),
         ...parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }))];
     }
-    return (m.reasoning || (m.searched || []).length || (m.usedTools || []).length) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
+    return hasReasonRow(m) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
   }).map(({ m, i, part, last }) => {
     // 居中那几行（系统行/撤回/沉默/拍一拍/旁白/通话小结）本来是【直接写在背景上】的字。
     // 素色背景上没事，一换壁纸就被图案打穿——她 2026-09-02 从记账卡起的疑，一路查下来
@@ -8999,7 +9008,7 @@ function ChatThread({
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
       onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }
     })
-  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
     onClose: () => setModeOpen(false)
@@ -10955,16 +10964,29 @@ function CallLogSheet({ calls, chars, onClose }) {
 // 点结果/点日期 → 就地展开那天的完整记录（只读简版、命中高亮自动滚到），不用回聊天里翻楼。
 // 查找记录「定位到聊天原位」：滚到第 i 条消息并闪一下高亮。
 // DOM 早已不是 messages 一对一：顶部可能有「云端旧记录」，CC 回流长段还会拆成多个气泡。
-function locateMsgIn(container, i, messages, hasArchiveLead) {
+// ⚠️2026-09-23 读者报「聊天记录的定位跳转不太行」：聊天只画最近 CHAT_WINDOW 条
+//   （useChatWindow），这里却从第 0 条数起——消息一多，数出来的格子整体往后错了
+//   winStart 那么多，跳到别的消息上，或者干脆越界什么都不做。
+//   另外还漏了两样：窗口上面那颗「↑ 上面还有 N 条」按钮，和单聊里带思考/搜索的消息
+//   前面多出来的那一格 ReasoningBlock。现在按【真画出来的】那几样数。
+// opts.start：窗口从第几条开始画（重画之后的值）；opts.single：单聊那一路（有拆段和思考格）
+function locateMsgIn(container, i, messages, hasArchiveLead, opts) {
   try {
-    let domIndex = hasArchiveLead ? 1 : 0;
+    const o = opts || {};
+    const start = Math.max(0, Number(o.start) || 0);
+    if (i < start) return;
     const list = messages || [];
-    for (let j = 0; j < i; j++) {
-      const m = list[j];
-      if (m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
-        domIndex += Math.max(1, m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).length);
-      } else domIndex++;
-    }
+    const reasonRow = m => o.single && hasReasonRow(m) ? 1 : 0;
+    const rowsOf = m => {
+      if (o.single && m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
+        const n = m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).length;
+        if (n > 1) return reasonRow(m) + n;
+      }
+      return reasonRow(m) + 1;
+    };
+    let domIndex = (start > 0 ? 1 : 0) + (hasArchiveLead ? 1 : 0);
+    for (let j = start; j < i; j++) domIndex += rowsOf(list[j]);
+    domIndex += reasonRow(list[i]); // 落在气泡上，不落在它头顶那格思考上
     const node = container && container.children && container.children[domIndex];
     if (!node || !node.scrollIntoView) return;
     node.scrollIntoView({ block: "center" });
@@ -13884,7 +13906,7 @@ function GroupThread({
   const inited = useRef(false);
   const gs = settings || {};
   // 跟单聊共用那一份窗口（施工规则/one-public-mechanism.md）：群聊更容易攒到上千条
-  const { winStart, growMore, growing } = useChatWindow(ref, messages.length, group && group.id);
+  const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, group && group.id);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -14568,7 +14590,7 @@ function GroupThread({
       groupPhotoImg ? h("img", { src: groupPhotoImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
     h("input", { value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
     groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。")
-  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })
   ), callPick && h(Sheet, {
     onClose: () => setCallPick(null)

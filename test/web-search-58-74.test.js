@@ -59,8 +59,10 @@ test("他去查了什么，一路要看得见", () => {
   // 联网那一行不归这个开关管，所以 off 只挡思考链、webLine 照旧
   assert.match(comp, /if \(!m\.reasoning \|\| off\) return webLine \? /, "没有思考链的那一轮就不画了/开关没挡住");
   // 那一行是否出现，两个条件各自独立
-  assert.equal((comp.match(/\(m\.reasoning \|\| \(m\.searched \|\| \[\]\)\.length \|\| \(m\.usedTools \|\| \[\]\)\.length\)/g) || []).length, 2,
-    "决定要不要画那一行的地方没全改——一处漏了，某种消息就永远不显示");
+  // v73.23 起这个判断收成一处 hasReasonRow，列表两处和「定位」那一头都问它
+  assert.equal((comp.match(/\(m\.reasoning \|\| \(m\.searched \|\| \[\]\)\.length \|\| \(m\.usedTools \|\| \[\]\)\.length\)/g) || []).length, 1,
+    "决定要不要画那一行的判断又散回好几处了");
+  assert.ok((comp.match(/hasReasonRow\(m\) \?/g) || []).length >= 2, "列表那两处没走 hasReasonRow");
 });
 
 // 四处一样喂：单聊那条链和群聊那条链是两个调用点，只写一处就是老病
