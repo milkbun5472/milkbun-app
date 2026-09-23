@@ -12,9 +12,13 @@ const path = require("node:path");
 const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
 
 const runtime = (() => {
+  // v73.18 起这几段收进 OFFLINE_AGENCY_RULE，由线下准则整份引用（群线下也用它）
   const i = engine.indexOf("const OFFLINE_NARRATIVE_RUNTIME = `");
   assert.ok(i > 0, "抠不出线下叙事准则");
-  return engine.slice(i, engine.indexOf("`;", i));
+  const rt = engine.slice(i, engine.indexOf("`;", i));
+  assert.ok(rt.includes("${OFFLINE_AGENCY_RULE}"), "线下准则没带那一份");
+  const j = engine.indexOf("const OFFLINE_AGENCY_RULE = `");
+  return rt + engine.slice(j, engine.indexOf("`;", j));
 })();
 
 test("把「谁的决定归谁」说清楚，而不是再加一条禁令", () => {
