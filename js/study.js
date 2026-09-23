@@ -707,7 +707,8 @@
 
   function dueReviewCards(cur, now) {
     const items = cur && cur.memory && cur.memory.review_items;
-    return (Array.isArray(items) ? items : []).filter(function (x) { return x && Number(x.nextReviewAt) <= now; })
+    // 闪卡自己翻、自己点，不是课上的题卡（题卡界面也画不出它）
+    return (Array.isArray(items) ? items : []).filter(function (x) { return x && x.type !== "flashcard" && Number(x.nextReviewAt) <= now; })
       .sort(function (a, b) { return Number(a.nextReviewAt) - Number(b.nextReviewAt); }).slice(0, 2).map(function (x) {
         return {
           type: x.type, prompt: x.prompt, pointId: x.pointId, options: (x.options || []).slice(), answer: x.answer,
@@ -715,6 +716,112 @@
           explanation: x.explanation || "", attempts: [], status: "open", isReview: true, reviewKey: x.key
         };
       });
+  }
+
+  // ---- 闪卡（她 2026-09-23：「一摞 flashcard」）---------------------------------
+  // 正面是要回想的那一面，翻过来是答案；她自己点 记得／模糊／不记得。
+  // ⚠️不另开一条复习线：每张卡就是 review_items 里的一张复习卡（type:"flashcard"），
+  //   艾宾浩斯那条曲线、错题本、老师看得见的那一份，全是现成的那一套。
+  // ⚠️卡由这门课的老师照着【真的教过的要点】做：pointId 只许是大纲里有的，编出来的丢掉。
+  const FLASH_CAP = 200;
+  function curriculumPoints(cur, sessions) {
+    const out = [], seen = new Set();
+    (sessions || []).filter(function (s) { return s && s.curriculum_id === cur.id && s.outline; }).forEach(function (s) {
+      (s.outline.units || []).forEach(function (u) {
+        (u.grammar || []).forEach(function (g) {
+          if (!g || !g.id || seen.has(g.id)) return;
+          seen.add(g.id);
+          out.push({ id: g.id, label: g.label || "", note: g.note || "", unit: u.title || "", vocab: (u.vocab || []).slice(0, 20) });
+        });
+      });
+    });
+    return out;
+  }
+  const FLASH_RATE = {
+    good: { result: "correct", confidence: "sure", label: "记得" },
+    fuzzy: { result: "partial", confidence: "unsure", label: "模糊" },
+    miss: { result: "wrong", confidence: "sure", label: "不记得" }
+  };
+  function flashReviewKey(card) { return "fc_" + card.id; }
+  function flashItemOf(cur, card) {
+    const items = (cur && cur.memory && cur.memory.review_items) || [];
+    return items.find(function (x) { return x && x.key === flashReviewKey(card); }) || null;
+  }
+  // 翻过来之后她点的那一下。第一次见＝学，之后每一次都算隔时复习（曲线往后挪）。
+  function rateFlashcard(curId, card, rate) {
+    const r = FLASH_RATE[rate];
+    if (!r || !card) return null;
+    const seen = !!flashItemOf(findCurriculum(curId), card);
+    return updateCurriculumReview(curId, { id: "flashcards" }, {
+      type: "flashcard", prompt: card.front, answer: card.back, explanation: card.aside || "",
+      pointId: card.pointId, reviewKey: flashReviewKey(card), isReview: seen
+    }, { result: r.result, support: "none", confidence: r.confidence, ts: Date.now(), answer: r.label });
+  }
+  // 这一轮先翻哪几张：到点了的在前，再是还没见过的；其余的等曲线叫它
+  function flashQueue(cur, now) {
+    const t = now || Date.now();
+    const cards = (cur && cur.flashcards) || [];
+    const due = [], fresh = [];
+    cards.forEach(function (c) {
+      const it = flashItemOf(cur, c);
+      if (!it) fresh.push(c);
+      else if (Number(it.nextReviewAt) <= t) due.push({ c: c, at: Number(it.nextReviewAt) });
+    });
+    return due.sort(function (a, b) { return a.at - b.at; }).map(function (x) { return x.c; }).concat(fresh);
+  }
+  function parseFlashcards(raw, points, taken) {
+    const d = extractJSON(raw) || {};
+    const ids = new Set(points.map(function (p) { return p.id; }));
+    const have = new Set(taken || []);
+    return (Array.isArray(d.cards) ? d.cards : []).map(function (c, i) {
+      const front = String(c && c.front || "").trim().slice(0, 200), back = String(c && c.back || "").trim().slice(0, 400);
+      const pid = String(c && c.pointId || "").trim();
+      if (!front || !back || !ids.has(pid) || have.has(front)) return null;
+      have.add(front);
+      return { id: Date.now().toString(36) + "_" + i + "_" + Math.random().toString(36).slice(2, 6), pointId: pid, front: front, back: back,
+        aside: String(c.aside || "").trim().slice(0, 160), createdAt: Date.now() };
+    }).filter(Boolean);
+  }
+  // 让老师做一摞。料全放 system，user 只留一句触发（施工规则/prompt-send-shape.md）。
+  async function genFlashcards(active, cur, sessions, teacher, worldbook) {
+    const points = curriculumPoints(cur, sessions);
+    if (!points.length) throw new Error("这门课还没上过课，老师不知道该从哪儿做卡");
+    const taken = (cur.flashcards || []).map(function (c) { return c.front; });
+    const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
+      "现在给她做一摞闪卡，让她自己翻着背：正面是要她回想的那一面，背面是答案。" +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      (worldbook ? "\n【世界书】\n" + worldbook : "") +
+      "\n\n【这门课真的教过的要点】（pointId 只能从这里挑）\n" + points.map(function (p) {
+        return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "") + (p.unit ? "｜小节：" + p.unit : "") + (p.vocab.length ? "｜词汇：" + p.vocab.join("、") : "");
+      }).join("\n") +
+      (curriculumMemoryText(cur) ? "\n\n" + curriculumMemoryText(cur) : "") +
+      (taken.length ? "\n\n【已经有的卡，正面别重复】\n" + taken.slice(-60).map(function (t) { return "· " + t; }).join("\n") : "") +
+      "\n\n做 8 到 12 张。一张只考一个能在脑子里答出来的东西——正面短到一眼看完，背面给得出对错的那个答案，不写成一段讲义。" +
+      "她错题本里还留着的、她卡过的那些，优先做进去。" +
+      "aside 是你在卡背面顺手写给她的一句，用你自己说话的样子；没什么想说的就留空。" +
+      "\n只输出 JSON：{\"cards\":[{\"pointId\":\"要点 id\",\"front\":\"正面\",\"back\":\"背面答案\",\"aside\":\"你的一句或空\"}]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const cards = parseFlashcards(raw, points, taken);
+    if (!cards.length) throw new Error("没做出能用的卡。老师这回写的是：\n" + String(raw || "").slice(0, 320));
+    return cards;
+  }
+  function addFlashcards(curId, cards) {
+    const fresh = findCurriculum(curId);
+    if (!fresh) return null;
+    const next = Object.assign({}, fresh, { flashcards: (fresh.flashcards || []).concat(cards).slice(-FLASH_CAP), updated_at: Date.now() });
+    saveCurriculum(next);
+    return next;
+  }
+  // 删一张卡：卡和它那张复习卡一起走（不然错题本里留着一张再也翻不到的）
+  function removeFlashcard(curId, cardId) {
+    const all = loadCurricula();
+    const idx = all.findIndex(function (c) { return c.id === curId; });
+    if (idx < 0) return false;
+    const cur = all[idx], mem = Object.assign({ summaries: [], review_items: [] }, cur.memory || {});
+    mem.review_items = (mem.review_items || []).filter(function (x) { return !x || x.key !== "fc_" + cardId; });
+    all[idx] = Object.assign({}, cur, { memory: mem, flashcards: (cur.flashcards || []).filter(function (c) { return c.id !== cardId; }), updated_at: Date.now() });
+    saveCurricula(all);
+    return true;
   }
 
   // ---- nv1 轮次导演（§8）：纯本地规则，不为“下一位是谁”额外烧一整次模型 ----
@@ -898,7 +1005,9 @@
     inMistakeBook: inMistakeBook, mistakeBookItems: mistakeBookItems, removeFromMistakeBook: removeFromMistakeBook, mistakeBookText: mistakeBookText, quizAnswerText: quizAnswerText,
     studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds,
     exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
-    outlineSlice: outlineSlice, progressText: progressText
+    outlineSlice: outlineSlice, progressText: progressText,
+    curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
+    genFlashcards: genFlashcards, addFlashcards: addFlashcards, removeFlashcard: removeFlashcard
   };
 
   // ============================================================
@@ -1057,6 +1166,15 @@
         } else props.toast && props.toast(g.result === "correct" ? "做对了——要不要移出错题本，你来定" : "还没对，这道先留着");
       } finally { setBusy(false); }
     }
+    // 闪卡不判卷：她翻开自己点。复习卡上存着正反面，照原样拼回一张卡交给同一个出口
+    function rateCard(x, r) {
+      const id = String(x.key || "").replace(/^fc_/, "");
+      rateFlashcard(cur.id, { id: id, front: x.prompt, back: x.answer, aside: x.explanation, pointId: x.pointId }, r);
+      setRedo(null); bump(function (n) { return n + 1; });
+      props.onRefresh && props.onRefresh();
+      const after = (findCurriculum(cur.id) || cur).memory.review_items.find(function (y) { return y.key === x.key; });
+      props.toast && props.toast(r === "good" ? "记住了，" + reviewStageText(after).when.replace("复习", "再见") : "几小时后再翻一次");
+    }
     function drop(x) {
       requestAppConfirm("移出错题本？", "只是从本子里拿掉，复习时间照旧；老师会知道你觉得这道已经会了。", function () {
         removeFromMistakeBook(cur.id, x.key); bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh();
@@ -1097,11 +1215,15 @@
               return h("div", { key: o.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: o.id === x.answer ? "#4a7a4a" : STUDY_SKIN.ink } }, o.id + ". " + o.label + (o.id === x.answer ? "  ✓" : ""));
             })) : null,
             x.lastAnswer ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: last ? STUDY_SKIN.fog : STUDY_SKIN.red, marginTop: 7 } }, "你" + (last ? "最近一次" : "上次") + "答：" + x.lastAnswer) : null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4a7a4a", marginTop: 3 } }, "答案：" + quizAnswerText(x, x.answer)),
+            // 闪卡在「该复习了」里先盖着答案——先想，翻开再看
+            x.type === "flashcard" && due && !open ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4a7a4a", marginTop: 3 } }, "答案：" + quizAnswerText(x, x.answer)),
             x.explanation ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, lineHeight: 1.7, marginTop: 5 } }, x.explanation) : null,
             // 重做：选择/判断直接点，填空写一行
             open ? h("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + STUDY_SKIN.line } },
-              x.type === "choice" ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, (x.options || []).map(function (o) {
+              x.type === "flashcard" ? h("div", { className: "flex", style: { gap: 6 } }, [["miss", "不记得"], ["fuzzy", "模糊"], ["good", "记得"]].map(function (o) {
+                return h("button", { key: o[0], onClick: function () { rateCard(x, o[0]); }, className: "active:opacity-70", style: btn(o[0] === "good") }, o[1]);
+              }))
+              : x.type === "choice" ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, (x.options || []).map(function (o) {
                 return h("button", { key: o.id, disabled: busy, onClick: function () { answer(x, o.id); }, className: "active:opacity-70", style: btn(false) }, o.id + ". " + o.label);
               }))
               : x.type === "true_false" ? h("div", { className: "flex", style: { gap: 6 } }, [["true", "正确"], ["false", "错误"]].map(function (o) {
@@ -1113,18 +1235,93 @@
                 h("button", { disabled: busy, onClick: function () { answer(x, draft); }, className: "active:opacity-70", style: btn(true) }, busy ? "判…" : "交")))
               : null,
             h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
-              h("button", { onClick: function () { setRedo(open ? null : x.key); setDraft(""); }, className: "active:opacity-70", style: btn(!open) }, open ? "先不做了" : "重做"),
+              h("button", { onClick: function () { setRedo(open ? null : x.key); setDraft(""); }, className: "active:opacity-70", style: btn(!open) }, open ? "先不做了" : x.type === "flashcard" ? "翻开" : "重做"),
               due ? null : h("button", { onClick: function () { drop(x); }, className: "active:opacity-70", style: btn(false) }, "移出错题本")));
         })));
+  }
+
+  // 闪卡那一页：一次一张，点一下翻面，翻过来自己点 记得／模糊／不记得。
+  function FlashDeck(props) {
+    const cur = props.curriculum;
+    const skin = studyModeSkin(cur.mode), accent = skin.accent;
+    const [, bump] = useState(0);
+    const [flipped, setFlipped] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [round, setRound] = useState(null);      // 这一轮要翻的卡 id；null＝按曲线挑
+    const fresh = findCurriculum(cur.id) || cur;
+    const all = fresh.flashcards || [];
+    const queue = round ? round.map(function (id) { return all.find(function (c) { return c.id === id; }); }).filter(Boolean) : flashQueue(fresh);
+    const card = queue[0] || null;
+    const item = card ? flashItemOf(fresh, card) : null;
+    const teacherId = cur.teacher_id || (cur.character_ids || [])[0];
+    const teacher = (props.characters || []).find(function (c) { return c.id === teacherId; }) || null;
+    async function make() {
+      if (busy) return;
+      if (!props.active && !props.bgActive) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setBusy(true);
+      try {
+        const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur.subject) : props.worldbook;
+        const cards = await genFlashcards(props.bgActive || props.active, fresh, props.sessions, teacher, wb);
+        addFlashcards(cur.id, cards);
+        setRound(null); setFlipped(false); bump(function (n) { return n + 1; });
+        props.onRefresh && props.onRefresh();
+        props.toast && props.toast((teacher ? teacher.name : "老师") + "做了 " + cards.length + " 张");
+      } catch (e) { props.toast && props.toast(String(e && e.message || "没做成，再试一次").split("\n")[0]); }
+      finally { setBusy(false); }
+    }
+    function rate(r) {
+      rateFlashcard(cur.id, card, r);
+      if (round) setRound(round.filter(function (id) { return id !== card.id; }));
+      setFlipped(false); bump(function (n) { return n + 1; });
+      props.onRefresh && props.onRefresh();
+    }
+    function drop() {
+      requestAppConfirm("删掉这张卡？", "它在复习表和错题本里的那一份也一起拿掉。", function () {
+        removeFlashcard(cur.id, card.id);
+        if (round) setRound(round.filter(function (id) { return id !== card.id; }));
+        setFlipped(false); bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh();
+      }, "删掉");
+    }
+    const small = { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog, lineHeight: 1.7 };
+    const btn = function (bg, ink) { return { flex: 1, minHeight: 46, fontFamily: F_BODY, fontSize: 14, borderRadius: "4px 12px 4px 4px", background: bg, color: ink, border: "1px solid " + STUDY_SKIN.line }; };
+    const stage = item ? reviewStageText(item) : null;
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "闪卡", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px" }) },
+          all.length ? "一共 " + all.length + " 张" + (round ? "，这一轮还剩 " + queue.length + " 张" : "，这会儿该翻的 " + queue.length + " 张") + "。记得的往后挪，模糊和不记得的几小时后再来，也会进错题本。"
+            : "还没有卡。让" + (teacher ? teacher.name : "老师") + "照着上过的课做一摞。"),
+        card ? h("button", { onClick: function () { setFlipped(!flipped); }, className: "w-full active:opacity-90",
+          style: { display: "block", minHeight: 260, padding: "22px 20px", textAlign: "left", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "4px solid " + (flipped ? STUDY_SKIN.red : accent), borderRadius: "6px 18px 18px 6px", boxShadow: "0 10px 24px " + STUDY_SKIN.shadow } },
+          h("div", { className: "flex items-center", style: { gap: 6 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: flipped ? STUDY_SKIN.red : accent } }, flipped ? "背面" : "正面"),
+            stage ? h("span", { style: Object.assign({}, small, { marginLeft: "auto", fontSize: 10.5 }) }, "曲线第 " + stage.filled + "/" + stage.total + " 格") : h("span", { style: Object.assign({}, small, { marginLeft: "auto", fontSize: 10.5 }) }, "第一次见")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: flipped ? 17 : 21, lineHeight: 1.6, color: STUDY_SKIN.ink, marginTop: 16, whiteSpace: "pre-wrap" } }, flipped ? card.back : card.front),
+          flipped && card.aside ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.fog, lineHeight: 1.7, marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + STUDY_SKIN.line } }, (teacher ? teacher.name + "：" : "") + card.aside) : null,
+          flipped ? null : h("div", { style: Object.assign({}, small, { marginTop: 22 }) }, "先在心里答，想好了点一下翻面"))
+          : (all.length ? h("div", { style: { padding: "22px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, lineHeight: 1.8, background: STUDY_SKIN.paper, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 12 } },
+              "这会儿没有该翻的了，等曲线叫你。",
+              h("div", null, h("button", { onClick: function () { setRound(all.map(function (c) { return c.id; })); setFlipped(false); }, className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: accent, padding: "6px 10px" } }, "全部再过一遍"))) : null),
+        card && flipped ? h("div", { className: "flex", style: { gap: 8, marginTop: 14 } },
+          h("button", { onClick: function () { rate("miss"); }, className: "active:opacity-70", style: btn(STUDY_SKIN.paper, STUDY_SKIN.red) }, "不记得"),
+          h("button", { onClick: function () { rate("fuzzy"); }, className: "active:opacity-70", style: btn(STUDY_SKIN.paper, "#9a7745") }, "模糊"),
+          h("button", { onClick: function () { rate("good"); }, className: "active:opacity-70", style: btn(accent, STUDY_SKIN.paper) }, "记得")) : null,
+        card ? h("div", { className: "flex", style: { marginTop: 10 } },
+          h("button", { onClick: drop, className: "active:opacity-70", style: Object.assign({}, small, { marginLeft: "auto", padding: "6px 4px" }) }, "删掉这张")) : null),
+      h(StudyFooter, null,
+        h("button", { onClick: make, disabled: busy, className: "w-full py-3 active:opacity-70",
+          style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: busy ? STUDY_SKIN.fog : accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } },
+          busy ? (teacher ? teacher.name : "老师") + "在做卡…" : "让" + (teacher ? teacher.name : "老师") + "再做一摞")));
   }
 
   function CurriculumConsole(props) {
     const cur = props.curriculum;
     const skin = studyModeSkin(cur.mode), accent = skin.accent;
     const summaries = (cur.memory && cur.memory.summaries) || [];
-    const [bookOpen, setBookOpen] = useState(false);   // false | "book" | "due"
+    const [bookOpen, setBookOpen] = useState(false);   // false | "book" | "due" | "flash"
     const bookCount = mistakeBookItems(cur).length;
     const dueNow = dueReviewItems(cur).length;
+    const flashTotal = (cur.flashcards || []).length, flashDue = flashTotal ? flashQueue(cur).length : 0;
     // 言秋的投递箱：打开控制台时取一次未认领投递（零 API；云不在就静默为空）
     const [drops, setDrops] = useState(null);
     useEffect(function () {
@@ -1172,6 +1369,9 @@
       const u = s.outline && s.outline.units && s.outline.units[0];
       return u ? u.title + ((s.outline.units.length > 1) ? " 等 " + s.outline.units.length + " 小节" : "") : "自由练习";
     }
+    if (bookOpen === "flash") return h(FlashDeck, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
+      worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+      onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     if (bookOpen) return h(MistakeBook, { mode: bookOpen, curriculum: cur, sessions: sess, active: props.active, bgActive: props.bgActive, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
@@ -1228,6 +1428,11 @@
           style: { minHeight: 48, marginTop: 8, padding: "10px 14px", gap: 8, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
           h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, "错题本"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: bookCount ? STUDY_SKIN.red : STUDY_SKIN.fog } }, bookCount ? "还有 " + bookCount + " 道 ›" : "空的 ›")),
+        // 闪卡（她 2026-09-23）：老师照着上过的课做一摞，自己翻着背
+        h("button", { onClick: function () { setBookOpen("flash"); }, className: "w-full flex items-center active:opacity-70",
+          style: { minHeight: 48, marginTop: 8, padding: "10px 14px", gap: 8, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
+          h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, "闪卡"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: flashDue ? accent : STUDY_SKIN.fog } }, flashTotal ? (flashDue ? flashDue + " 张该翻了 ›" : flashTotal + " 张 ›") : "还没有 ›")),
         // 跨-session 记忆（学到哪了）
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "学到哪了"),
         summaries.length === 0
@@ -2169,7 +2374,7 @@
       if (!cur) { setView("home"); return null; }
       return h(CurriculumConsole, {
         curriculum: cur, sessions: sessions, characters: props.characters,
-        active: props.active, bgActive: props.bgActive,
+        active: props.active, bgActive: props.bgActive, worldbook: props.worldbook, worldbookFor: props.worldbookFor,
         scrollRef: consoleScrollRef,
         onRefresh: refresh, toast: props.toast,
         onBack: function () { refresh(); setView("home"); restoreHome(); },
