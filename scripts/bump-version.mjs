@@ -6,7 +6,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-const num = v => { const [a, b] = String(v).split("."); return Number(a) * 1000 + Number(b); };
+// 小数部分按【小数】比，不按整数比：73.30 是 73.300，73.301 比它大，73.31（73.310）又比 73.301 大。
+//   v73.31 起改成第三位小数加一（她 2026-09-23：「以后更新能不能改成小数点后第三位加一」），
+//   旧的「整数比」会把 73.301 当成 301、认成比 73.99 还大。
+const num = v => { const [a, b] = String(v).split("."); return Number(a) * 1000 + Number(String(b || "").padEnd(3, "0").slice(0, 3)); };
 const all = [];
 // ⚠️次版本号允许三位：2026-08-25 我把 55.99 递成了 55.100（该进位没进位）。
 // 旧正则只吃两位，会把「55.100」读成「55.10」——那正是这个脚本开头写着要防的
@@ -69,11 +72,14 @@ const [maj, mi] = top.split(".");
 // 次版本号满 99 就进位（她 2026-08-25：「55.100 应该是 56.00 才对」）。
 // 旧写法是 String(99 + 1).padStart(2,"0") = "100"，padStart 对三位数是空操作，
 // 于是悄悄长出一个 55.100 这种没人认得的号。
+// 三位小数（v73.31 起）：73.30 → 73.301 → 73.302 → … → 73.999 → 74.000。
+//   还停在两位的号（旧格式）先补成三位再加一：73.30 当 73.300，下一版 73.301。
+//   ⚠️别写回「满 99 进位」：那条对三位小数会把 73.301 直接跳成 74.00（2026-09-23 演练里真跳了）。
 const bumped = () => {
-  const M = Number(maj), m = Number(mi);
-  return m >= 99
-    ? String(M + 1).padStart(2, "0") + ".00"
-    : String(M).padStart(2, "0") + "." + String(m + 1).padStart(2, "0");
+  const M = Number(maj), m = Number(String(mi).padEnd(3, "0").slice(0, 3));
+  return m >= 999
+    ? String(M + 1).padStart(2, "0") + ".000"
+    : String(M).padStart(2, "0") + "." + String(m + 1).padStart(3, "0");
 };
 const next = process.argv[2] || bumped();
 if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现有最大 " + top + "，拒绝倒退"); process.exit(1); }
