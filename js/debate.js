@@ -285,6 +285,8 @@
           "⚠️【TA在看这一场，不是给 " + uName + " 一个人当嘴替】：台上有好几个人，TA这一声冲着谁，用 at 写清那个人的本名。\n" +
           "  两条不许都冲着同一个人；只要台上不止 " + uName + " 一个人在说话，就【至少有一条是冲着别人的】——\n" +
           "  刚才谁说得最离谱、谁踩到TA那根线，TA就接谁。全场只盯着 " + uName + " 挑刺，那是没在看这场吵架。\n" +
+          // 她 2026-09-23：「陆衍明明和顾暮理念相同为啥在台边还要对他说话」——冲着同边的人，却写成了跟他讲道理。
+          "⚠️冲着谁，要跟TA这一轮站哪边对得上：冲着【对面】的，是呛、挑刺、拆台；冲着【自己这边】的，是帮腔、递话、给TA撑腰、催TA别松口——一听就知道TA是在帮这个人，不是在跟TA讲道理。\n" +
           "⚠️TA是【一直在旁边看着的】，不是每轮新来的：可以接自己上一轮说过的话、可以越看越来气。名字用TA本名，不许起昵称、不许凭空多出别人。\n"
         : "") +
       (benchBlock ? "3）场边【每一位】都投这一轮的票（votes），照上面【台下投票】那一段来。\n" : "") +
@@ -325,6 +327,11 @@
     const strangers = (o.bench || []).filter(function (c) { return c.kind === "passer"; }).map(function (c) { return c.name; });
     const votes = benchBlock ? settleVotes(p.votes, (o.bench || []).map(function (c) { return c.name; }), targets, hist, strangers) : [];
     const call = o.judge ? String(p.call || "").trim() : "";
+    // 这一声是冲着自己这一轮投的那个人去的＝帮腔。界面上写「帮腔」不写「→」，别让人读成在呛TA。
+    side.forEach(function (x) {
+      const v = votes.find(function (vv) { return vv && vv.name === x.name; });
+      if (v && x.at && v.for === x.at) x.ally = true;
+    });
     return { turns: turns, focus: focus, side: side, votes: votes, call: call };
   }
 
@@ -847,7 +854,7 @@
             h("span", { style: { color: t.fog } }, "台边 · "),
             h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
             // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
-            x.at ? h("span", { style: { color: t.fog } }, " → " + x.at) : null,
+            x.at ? h("span", { style: { color: t.fog } }, x.ally ? " 帮腔 " + x.at : " → " + x.at) : null,
             h("span", { style: { color: t.fog } }, "：" ),
             x.text);
         }));
