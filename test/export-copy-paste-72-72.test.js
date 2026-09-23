@@ -63,7 +63,8 @@ test("切段：先转 base64 再切，所以粘贴路上被加的空白不会改
   const cp = app.slice(app.indexOf("const doCopyExport = "), app.indexOf("// 贴进来的可能是"));
   assert.match(cp, /blobToDataUrl\(new Blob\(\[pack\.text\]\)\)/, "没转 base64 就切 —— 切口落在某条聊天的字符串中间，空白一改正文就变了");
   assert.match(cp, /for \(let i = 0; i < b64\.length; i \+= COPY_PART\)/, "切的不是 base64");
-  assert.match(app, /const partHead = \(i, n, id\) =>/, "段没有段头，贴回去认不出是第几段");
+  // v73.2x 段头多了第四格「这一段本来多长」：贴进来那一刻就能说出是哪一段被截了
+  assert.match(app, /const partHead = \(i, n, id, len\) =>/, "段没有段头，贴回去认不出是第几段");
 });
 
 test("拼回去：顺序不重要，空白一律删，缺段要说清还差哪几段", () => {
