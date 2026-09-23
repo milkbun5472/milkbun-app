@@ -12,3 +12,7 @@ assert(re.test("在京城这十二年，我身边永远围着一堆算盘珠子"
 assert(re.test("这些年我一直留着半个心眼"));
 assert(!re.test("这一年过得挺快"), "当下的「这一年」别当回忆");
 console.log("offline-no-backstory-fill-73-19 ok");
+// 提示词里不许带她那张卡的具体往事当示范（施工规则/prompt-no-content-samples.md；她：「提示词里面不应该直接有这个质子example吧」）
+const code = eng.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+assert(!/质子/.test(code), "提示词里还有「质子」这段具体往事");
+console.log("no-quality-sample ok");
