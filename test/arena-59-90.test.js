@@ -233,7 +233,7 @@ test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为
   // ⚠️不许再有散落的小数字：改一处漏一处正是这个 app 反复犯的那一个
   [["擂台", dbt, /const TOK = \{ stance: 8000 \};/],
    ["一起学", stu, /const TOK = \{ turn: 12000, plan: 20000, quiz: 12000, small: 8000 \};/],
-   ["论坛", app, /const FTOK = \{[\s\S]{0,420}floors: 14000,/]].forEach(function (row) {
+   ["论坛", app, /const FTOK = \{[\s\S]{0,420}floors: 20000,/]].forEach(function (row) {
     assert.match(row[1], row[2], row[0] + "：额度没有收在一个地方");
     assert.match(row[1], /思考预算是从 maxTokens 里扣的/, row[0] + "：没写清为什么，下一个人又会把它调回去省钱");
   });

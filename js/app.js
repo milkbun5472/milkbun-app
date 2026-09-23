@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.001";
+const APP_VERSION = "v74.002";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17550,9 +17550,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   而她按【次】计费、输出不另外收钱：省这几千 token 一分钱省不到，
   //   换来的是一次空返回再重来一次，反而多花一次调用。仓库铁律：≥8000（施工规则/max-tokens-floor.md）。
   //   ⚠️别再往下调：这几个数不是「够用就行」，是「够它想完还够它写完」。
+  // 楼中楼怎么长（她 2026-09-23：「现在回复很多时候只是一人一层楼，都没有贴吧那种多个人回复一层的感觉了」）。
+  //   病根是原来那句「大多数楼 replies 留空」。首刷、续刷两处共用这一句（one-public-mechanism）。
+  const FORUM_THREAD_LINE = "楼中楼（replies）是贴吧的精髓：【大约一半的楼】底下要有人接——2~5 条，来自【不同的人】（多是没单独开楼的路人和熟面孔），"
+    + "有人附和、有人抬杠、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，吵得起来的楼可以更长；一句话就说完的楼就让它空着。楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。";
   const FTOK = {
     board: 12000,   // 一版 3-5 条新主帖
-    floors: 14000,  // 12-18 楼含楼中楼——全论坛最长的一次输出
+    floors: 20000,  // 12-18 楼含楼中楼——全论坛最长的一次输出；v73.321 楼中楼多了，天花板跟着抬（不是花销）
     sub: 9000,      // 我那条底下的 2-5 条楼中楼
     post: 8000,     // 角色发一条帖
     pm: 8000,       // 私信里回一两句
@@ -17806,7 +17810,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       const opRule2Full = opRule2 + meRule + opMineBan;
       return {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_THREAD_LINE,
         schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
         maxTokens: FTOK.floors
       };
@@ -17820,7 +17824,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return {
       instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock
         + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
-        + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是常驻网友" : "，可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
+        + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "" + FORUM_THREAD_LINE + (isSearch ? "楼中楼里也全是常驻网友和路人。" : "楼中楼里可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true。"),
       schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\",\"replies\":[]}]}",
       maxTokens: FTOK.floors
     };
