@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.002";
+const APP_VERSION = "v74.003";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17554,13 +17554,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   病根是原来那句「大多数楼 replies 留空」。首刷、续刷两处共用这一句（one-public-mechanism）。
   const FORUM_THREAD_LINE = "楼中楼（replies）是贴吧的精髓：【大约一半的楼】底下要有人接——2~5 条，来自【不同的人】（多是没单独开楼的路人和熟面孔），"
     + "有人附和、有人抬杠、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，吵得起来的楼可以更长；一句话就说完的楼就让它空着。楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。";
+  // 全部开满（她 2026-09-23：「上限给65535吧，多给点反正也用不了那么多」）——天花板不是花销，中转自己 clamp 到模型上限。
   const FTOK = {
-    board: 12000,   // 一版 3-5 条新主帖
-    floors: 20000,  // 12-18 楼含楼中楼——全论坛最长的一次输出；v73.321 楼中楼多了，天花板跟着抬（不是花销）
-    sub: 9000,      // 我那条底下的 2-5 条楼中楼
-    post: 8000,     // 角色发一条帖
-    pm: 8000,       // 私信里回一两句
-    meta: 8000      // 一个角色的贴吧资料
+    board: 65535,   // 一版 3-5 条新主帖
+    floors: 65535,  // 12-18 楼含楼中楼——全论坛最长的一次输出；v73.321 楼中楼多了，天花板跟着抬（不是花销）
+    sub: 65535,      // 我那条底下的 2-5 条楼中楼
+    post: 65535,     // 角色发一条帖
+    pm: 65535,       // 私信里回一两句
+    meta: 65535      // 一个角色的贴吧资料
   };
   const genForumBoard = async board => {
     if (!active) { toast("请先到设置配置 API"); return; }
