@@ -1041,6 +1041,9 @@ function regressEmotionA(rawState,minutesValue,nowValue) {
 //   字段本身留着（老存档里有），只是不再写、不再读、不再显示。
 const A_PROJECTED_AXES=Object.freeze(["pride","valence","arousal","immersion","hurt","anger","anxiety","warmth","fatigue"]);
 const A_DISPLAY_LABELS=Object.freeze({connection:"思念",pride:"傲娇",valence:"愉悦",arousal:"激动",immersion:"沉浸",hurt:"委屈",anger:"火气",anxiety:"不安",warmth:"暖意",fatigue:"疲惫"});
+// 底色这一行带几个词（她 2026-09-23 转读者：「给他们写的那几个底色只有十几个字进去了，但是我可能写了七八个四字成语」）。
+// 原来写死取前 3 个，后面的一个字都发不出去。认没认出来都照发——词表只管调脾气那几个数，读懂词义是模型自己的事。
+const A_TEMPERAMENT_SHOW_MAX=10;
 function displayProjectionA(rawState,options){
   try{
     const emotion=rawState&&rawState.emotion,base=emotion&&emotion.baseline,current=emotion&&emotion.current;
@@ -1050,7 +1053,7 @@ function displayProjectionA(rawState,options){
       const span=A_AXES[key][1]-A_AXES[key][0],delta=aFinite(current[key],base[key])-aFinite(base[key],A_DEFAULT_BASELINE[key]);
       return {key,label:A_DISPLAY_LABELS[key],delta,score:Math.abs(delta)/span};
     }).filter(x=>x.score>=threshold).sort((a,b)=>b.score-a.score||a.key.localeCompare(b.key)).slice(0,maxItems);
-    const anchors=emotion.temperament&&Array.isArray(emotion.temperament.anchors)?emotion.temperament.anchors.slice(0,3):[];
+    const anchors=emotion.temperament&&Array.isArray(emotion.temperament.anchors)?emotion.temperament.anchors.slice(0,A_TEMPERAMENT_SHOW_MAX):[];
     const bottomLine=anchors.length?"底色："+anchors.join("、"):"底色：按自己的常态感受";
     const items=ranked.map(x=>({key:x.key,label:x.label,direction:x.delta>0?"偏高":"偏低",delta:Number(x.delta.toFixed(3))}));
     const text=items.length?bottomLine+"；此刻偏离："+items.map(x=>x.label+x.direction).join("、"):"";
