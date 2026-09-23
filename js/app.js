@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.24";
+const APP_VERSION = "v73.25";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3292,6 +3292,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true, { forcePresence: !!forcePresence });
       // D 梦回路胶水：只读 C 的 tick 返回值，REM 窗到点由 DreamLoop 自判并入队（零 API 不展示）
       try { if (r && !r.exempt && r.state && window.DreamLoop) window.DreamLoop.observe(c, r.state); } catch (eD) {}
+      // 那一夜 app 没开着的话，上面这一行从来撞不见「正睡着」——醒着的时候回头补最近睡完的那一夜
+      //（她 2026-09-23 转来：「这个要怎么才有呀？一直没有」）。一夜一梦的幂等在 DreamLoop 那头。
+      try {
+        if (r && !r.exempt && r.state && r.state.phase !== "asleep" && r.lastSleep && window.DreamLoop && window.DreamLoopCore && window.DreamLoopCore.missedNight) {
+          const miss = window.DreamLoopCore.missedNight(r.lastSleep, Date.now());
+          if (miss) window.DreamLoop.observe(c, miss.state, { asOf: miss.asOf });
+        }
+      } catch (eM) {}
     }); } } catch (e) {} };
     tickAll(true);
     const iv = setInterval(() => tickAll(false), 300000);
@@ -13615,17 +13623,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 原来是 1/5 帖强制匿名、且只看最近 5 帖有没有匿名过——叠上「模型自己也会挑匿名」
       // 和「随机版块 1/6 命中匿名吧」，最后匿名占比高得离谱（她 2026-08-29 报）。压到 1/9，
       // 回看窗口拉到 8 帖：匿名要稀有才有分量，天天匿名等于没有匿名。
+      const myBoardsForPost = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
       const forceAnon = myAutoPosts.length >= 4 && (myAutoPosts.length % 9 === 4) && !myAutoPosts.slice(0, 8).some(p => p.board === "匿名吧");
       const forumHabit = charForumMeta(char);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
+        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
+          // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
+          + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
+            + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : ""),
+        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
       const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧", "兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧" };
-      const board = forceAnon ? "匿名吧" : (bmap[String((d && d.board) || "").replace(/吧$/, "")] || "日常吧");
+      const rawBoard = String((d && d.board) || "").replace(/吧$/, "");
+      const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
+      const board = forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧");
       if (d && d.title) { postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: d.identity }, "auto"); notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
     } catch (e) {}
   };
@@ -17143,7 +17157,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "兴趣吧": "「兴趣吧」：聊作品、游戏、吃喝、设备、收藏、学习进度和具体爱好。要有细节、有偏好，像同好交流，不要写成泛泛日记。",
     "脑洞吧": "「脑洞吧」：发假设题、投票、接龙、挑战和离谱但能参与的问题。重点是让楼下接得上，别写成普通生活流水账。",
     "匿名吧": "「匿名吧」：不署名才敢说的话。真实、赤裸、卸下人设的一面，可以是秘密、软肋、见不得人的念头。别端着。"
-  }[b] || "");
+  }[b] || forumCustomVoice(b));
+  // 她自己开的吧（x_forumBoards）没有写死的那一句：拿她写的简介拼。
+  // ⚠️只给判据不给例句（prompt-no-content-samples）：说清「像泡在这个圈子里的人」，不替它编行话。
+  const forumCustomVoice = b => {
+    if (!b || typeof forumCustomBoards !== "function" || !forumCustomBoards().some(x => x.name === b)) return "";
+    const about = typeof forumBoardAbout === "function" ? forumBoardAbout(b) : "";
+    return "「" + b + "」：" + (about ? "这个吧聊的是——" + about + "。" : "")
+      + "来这儿的都是真泡在这个圈子里的人：有自己的行话、老梗、老面孔和吵不完的老话题，说话默认对方也懂；"
+      + "不是路过的人在给外行介绍这个话题。";
+  };
   // 随机互动数（赞/浏览/转发），据种子稳定生成，纯展示
   const forumCounts = (seed, replyCount) => { const hh = forumHash(seed); const rc = replyCount || (12 + hh % 480); return { replyCount: rc, likeCount: Math.floor(rc * (0.6 + (hh % 40) / 25)) + (hh % 40), viewCount: rc * (8 + hh % 90) + (hh % 600), rtCount: Math.floor(rc / (5 + hh % 14)) }; };
   // 角色贴吧资料（AI 生成一次存 forumCharMeta；没生成时用 charId 稳定兜底）
@@ -23549,6 +23572,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("messages"),
     onDelete: delFavorite
   });else if (screen === "forum") body = /*#__PURE__*/React.createElement(Forum, {
+    toast: toast,
     characters: liveChars,
     profile: profile,
     posts: forumPosts,

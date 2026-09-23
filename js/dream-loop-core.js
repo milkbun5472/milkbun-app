@@ -87,6 +87,23 @@
     return (Number(now) - Number(s.sleepStartTs)) >= REM_DELAY_MS;
   }
 
+  // ── 错过的那一夜（她 2026-09-23 转来：「话说这个要怎么才有呀？一直没有」）──────────
+  // 原来只有 tick【恰好撞见】角色正睡着、且入睡满 90 分钟，梦才会入队。可 tick 只在 app 开着时跑，
+  // 而大多数人是跟角色差不多时间睡的——那一整夜 app 都关着，天亮一开，角色早醒了，
+  // 这一夜 D 从头到尾没见过，于是「TA们的梦」永远是空的。
+  // 补法：睡眠那头交出【最近一个睡完的夜】，那一夜睡满过 90 分钟，就当 REM 窗到过——
+  //   按那一夜的入睡时刻交一份「正睡着」的状态给 observe，时间点取醒来那一刻。
+  // ⚠️幂等照旧靠 nightKey（一角色一夜一梦），同一夜补几次都只算一次。
+  // ⚠️只补最近 36 小时内醒来的那一夜：再往前的材料窗早过了，补出来的也是空梦。
+  const MISSED_NIGHT_MAX_MS = 36 * 3600000;
+  function missedNight(lastSleep, now) {
+    const s = lastSleep || {}, start = Number(s.start), wake = Number(s.wake), t = Number(now);
+    if (!Number.isFinite(start) || !Number.isFinite(wake) || !Number.isFinite(t)) return null;
+    if (!(wake > start) || wake > t || t - wake > MISSED_NIGHT_MAX_MS) return null;
+    if (wake - start < REM_DELAY_MS) return null;   // 那一觉没睡到第一个 REM 窗
+    return { state: { phase: "asleep", sleepStartTs: start }, asOf: wake };
+  }
+
   // 队列幂等键：一角色一夜最多一场梦
   const dreamKey = (charId, nightKey) => hash(String(charId)) + "|" + String(nightKey);
 
@@ -113,5 +130,5 @@
     return best;
   }
 
-  return Object.freeze({ REM_DELAY_MS, DREAM_INTENSITY_MIN, RECUR_MIN_NIGHTS, RECUR_MAX_NIGHTS, hash, nightKeyOf, nightWindow, refMatches, buildMaterial, shouldDream, remDue, dreamKey, nightsBetween, recurDue });
+  return Object.freeze({ REM_DELAY_MS, DREAM_INTENSITY_MIN, RECUR_MIN_NIGHTS, RECUR_MAX_NIGHTS, hash, nightKeyOf, nightWindow, refMatches, buildMaterial, shouldDream, remDue, missedNight, dreamKey, nightsBetween, recurDue });
 });
