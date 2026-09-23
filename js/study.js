@@ -368,8 +368,6 @@
     }
     if (mode === "teach" || mode === "nv1-teacher") parts.push(QUIZ_CARD_FMT);
     if (mode === "costudy" && session.mode === "costudy") parts.push(BOARD_FMT);
-    if (ctx.followUp) parts.push("【这一轮你是接话的那一个】" + ctx.followUp + " 刚刚已经说过了（在上面记录的最后）。" +
-      "你可以接一句——补充、反驳、提问、跟着起哄都行；如果此刻你没什么真想说的，就输出 {\"say\":[]}，安静在场也是正常的。别重复 TA 刚说过的内容。");
     parts.push(OUT_FMT);
     return parts.join("\n\n");
   }
@@ -396,7 +394,7 @@
   }
   function parseSay(raw) {
     const d = extractJSON(raw) || {};
-    // 接话那一位可以明说不开口：{"say":[]} 就是一句话都没有，别让兜底从 JSON 骨架里抠出个 "say" 来
+    // 明说不开口：{"say":[]} 就是一句话都没有，别让兜底从 JSON 骨架里抠出个 "say" 来
     if (Array.isArray(d.say) && !d.say.length) return [];
     let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
     says = says.map(stripName).map(guardOverspeak).filter(Boolean);
@@ -468,6 +466,43 @@
     const d = extractJSON(raw) || {};
     const evidence = d.evidence && typeof d.evidence === "object" ? d.evidence : null;
     return { says: says, evidence: evidence, quiz: parseQuiz(raw), board: session.mode === "costudy" ? parseBoard(raw) : null };
+  }
+
+  // 三人课堂一次写两个人（v73.15）：以老师那份完整的 prompt 为底（人设、长出来的自我、大纲、进度、题卡规则、
+  //   同堂那位的人设与关系都已经在里面），再补同学自己的场景和长出来的自我，输出一串发言。
+  //   题卡和学习证据只认老师：同学说的话代码上就进不了证据。
+  function nv1JointTail(teacher, peer, teacherRole, peerCtx, focus, subject) {
+    const peerScene = sceneFor(teacherRole === "nv1-teacher" ? "nv1-peer" : "costudy", subject, teacher.name);
+    const peerSelf = typeof grownSelfBlock === "function" ? grownSelfBlock(peerCtx && peerCtx.grown, peerCtx && peerCtx.grownEvolve) : "";
+    return "【这一轮你同时写两个人】上面的『你』是「" + teacher.name + "」；同堂的「" + peer.name + "」这一轮也由你来写。" +
+      "「" + peer.name + "」这边的场景是：" + peerScene.replace(/你/g, "TA") +
+      (peerSelf ? "\n〔" + peer.name + " 的〕" + peerSelf.replace(/^【你长出来的自我】/, "【TA长出来的自我】") : "") +
+      "\n· 两个人各按各的卡说话；谁先谁后、各说几句，按此刻场面自然排——老师讲完同学接一句、同学答错老师纠正、两人顺着拌一句嘴都行。" +
+      "\n· 不是每个人都得开口：没什么真想说的那位这一轮就不出现。" +
+      (focus ? "\n· 用户这一轮是冲着「" + focus + "」来的，TA 先接；另一位要不要插话看场面。" : "") +
+      "\n· 题卡（quiz）和学习证据（evidence）只能是「" + teacher.name + "」出的；「" + peer.name + "」绝不出题、不判对错。" +
+      "\n【输出格式】只输出一个 JSON 对象：{\"turns\":[{\"name\":\"" + teacher.name + "\",\"say\":[\"气泡\"]},{\"name\":\"" + peer.name + "\",\"say\":[\"气泡\"]}]}，" +
+      "turns 按说话先后排，同一个人可以出现不止一次，每段 say 1~4 个气泡；需要时在同一对象加 quiz 或 evidence。不要名字前缀、不要旁白括号、不要 markdown。";
+  }
+  function parseTurns(raw, teacher, peer) {
+    const d = extractJSON(raw) || {};
+    const who = nm => { const n = String(nm || ""); return n && peer && n.indexOf(peer.name) >= 0 && n.indexOf(teacher.name) < 0 ? peer : teacher; };
+    let turns = Array.isArray(d.turns) ? d.turns : [];
+    if (!turns.length && d.say) turns = [{ name: teacher.name, say: d.say }];
+    return turns.map(function (t) {
+      const says = (Array.isArray(t && t.say) ? t.say : (t && t.say ? [t.say] : [])).map(stripName).map(guardOverspeak).filter(Boolean);
+      return { char: who(t && t.name), says: says };
+    }).filter(function (t) { return t.says.length; });
+  }
+  async function genNv1Turn(active, session, teacher, peer, teacherCtx, peerCtx, teacherRole, focus) {
+    const sys = buildStudyPrompt(session, teacher, teacherCtx, teacherRole).replace(OUT_FMT, "")
+      + "\n\n" + nv1JointTail(teacher, peer, teacherRole, peerCtx, focus, session.subject);
+    const msgs = toMessages(session.transcript, "__both__", (teacherCtx.profile && teacherCtx.profile.name) || "用户");
+    const raw = await callAI(active, sys, msgs, { maxTokens: TOK.turn });
+    let turns = parseTurns(raw, teacher, peer);
+    if (!turns.length) { const f = sayFallback(raw).map(guardOverspeak).filter(Boolean); if (f.length) turns = [{ char: teacher, says: f }]; }
+    const d = extractJSON(raw) || {};
+    return { turns: turns, evidence: d.evidence && typeof d.evidence === "object" ? d.evidence : null, quiz: parseQuiz(raw) };
   }
 
   function normalizeQuizAnswer(value) {
@@ -561,25 +596,20 @@
   // ---- nv1 轮次导演（§8）：纯本地规则，不为“下一位是谁”额外烧一整次模型 ----
   // 角色真正说什么仍由各自的主池生成；这里只做不涉及声纹/人格的轮次路由。
   function directNv1(_active, session, teacher, peer, ctx) {
+    // 只决定【这一轮以谁为主】，不决定谁闭嘴：两个人在同一次生成里一起写，
+    //   谁接、接几句、同学插不插嘴，由那一次生成按场面排（她 2026-09-23：「为什么不是一棒两个人说」）。
     const transcript = tail((session && session.transcript) || [], 12);
     const last = transcript[transcript.length - 1] || {};
-    const text = String(last.content || "");
+    const text = last.role === "user" ? String(last.content || "") : "";
     const teacherName = String((teacher && teacher.name) || "");
     const peerName = String((peer && peer.name) || "");
     const asksTeacher = teacherName && text.indexOf(teacherName) >= 0;
     const asksPeer = peerName && text.indexOf(peerName) >= 0;
-    // 点了名就只让被点的那位说；没点名时，先开口的那位说完，另一位可以接第二棒
-    //   （她 2026-09-23：老师讲完同学接一句、同学答错老师纠正，那才是课堂）。
-    if (asksTeacher && !asksPeer) return ["teacher"];
-    if (asksPeer && !asksTeacher) return ["peer"];
-    if (last.role !== "user") return [peerTurnsFirst(transcript, teacher, peer) ? "peer" : "teacher"];
-
-    // “老师讲/解释/教/答案”优先老师；“一起讨论/你觉得/同学”优先同学。
-    if (/老师|讲(?:一下|讲)?|解释|教我|答案|怎么做|为什么|请问|求解/.test(text)) return ["teacher", "peer?"];
-    if (/同学|一起(?:想|讨论|试)|你觉得|怎么看|轮到你|搭档/.test(text)) return ["peer", "teacher?"];
-
-    // 无明确点名时让近期较少开口的一方先接，另一位可接可不接。
-    return peerTurnsFirst(transcript, teacher, peer) ? ["peer", "teacher?"] : ["teacher", "peer?"];
+    if (asksTeacher && !asksPeer) return { lead: "teacher", named: true };
+    if (asksPeer && !asksTeacher) return { lead: "peer", named: true };
+    if (/老师|讲(?:一下|讲)?|解释|教我|答案|怎么做|为什么|请问|求解/.test(text)) return { lead: "teacher", named: false };
+    if (/同学|一起(?:想|讨论|试)|你觉得|怎么看|轮到你|搭档/.test(text)) return { lead: "peer", named: false };
+    return { lead: peerTurnsFirst(transcript, teacher, peer) ? "peer" : "teacher", named: false };
   }
   function peerTurnsFirst(transcript, teacher, peer) {
     let teacherTurns = 0, peerTurns = 0;
@@ -1291,20 +1321,39 @@
       }
     }
 
-    async function runChar(char, role, followUp) {
+    function lastUserEntry() {
       const before = sessRef.current;
-      const answerEntry = (before.transcript || []).length && before.transcript[before.transcript.length - 1].role === "user"
+      return (before.transcript || []).length && before.transcript[before.transcript.length - 1].role === "user"
         ? before.transcript[before.transcript.length - 1] : null;
-      const res = await genTurn(props.active, sessRef.current, char, Object.assign(contextFor(char), followUp ? { followUp: followUp } : {}), role);
+    }
+    async function pushSays(char, says) {
+      for (let i = 0; i < says.length; i++) {
+        if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
+        pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
+      }
+    }
+    // 三人课堂：一次生成写两个人，按先后落泡；题卡/证据只挂老师名下
+    async function runNv1(teacher, peer, teacherRole, focusChar) {
+      const answerEntry = lastUserEntry();
+      const res = await genNv1Turn(props.active, sessRef.current, teacher, peer, contextFor(teacher), contextFor(peer), teacherRole, focusChar ? focusChar.name : "");
+      for (let k = 0; k < res.turns.length; k++) {
+        if (k > 0) await new Promise(function (r) { return setTimeout(r, 400); });
+        await pushSays(res.turns[k].char, res.turns[k].says);
+      }
+      await applyTeacherExtras(teacher, teacherRole, res, answerEntry);
+    }
+    async function runChar(char, role) {
+      const answerEntry = lastUserEntry();
+      const res = await genTurn(props.active, sessRef.current, char, contextFor(char), role);
       const says = (res && res.says) || [];
       if (res && res.board) {
         const cur = sessRef.current;
         commit(Object.assign({}, cur, { progress: Object.assign({}, cur.progress || {}, { board: res.board }) }));
       }
-      for (let i = 0; i < says.length; i++) {
-        if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
-        pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
-      }
+      await pushSays(char, says);
+      await applyTeacherExtras(char, role, res, answerEntry);
+    }
+    async function applyTeacherExtras(char, role, res, answerEntry) {
       if (res && res.quiz) {
         const current = sessRef.current;
         const pendingExit = current.progress && current.progress.exit_ticket;
@@ -1489,14 +1538,8 @@
           const teacherRole = sess.teacher_id ? "nv1-teacher" : "costudy";
           if (teacher && peer) {
             // 模型导演：决定这一轮谁开口、什么顺序，再逐个 fire
-            const order = await directNv1(props.active, sessRef.current, teacher, peer, ctx);
-            for (let k = 0; k < order.length; k++) {
-              // 带 ? 的是【可接可不接】的第二棒：给机会，不硬派（它可以输出空 say 安静在场）
-              const optional = /\?$/.test(order[k]), who = order[k].replace(/\?$/, "");
-              const ch = who === "peer" ? peer : teacher;
-              const prev = k > 0 ? (order[k - 1].replace(/\?$/, "") === "peer" ? peer : teacher) : null;
-              await runChar(ch, who === "peer" ? "nv1-peer" : teacherRole, optional && prev ? prev.name : "");
-            }
+            const dir = directNv1(props.active, sessRef.current, teacher, peer, ctx);
+            await runNv1(teacher, peer, teacherRole, dir.named ? (dir.lead === "peer" ? peer : teacher) : null);
           } else if (teacher) {
             await runChar(teacher, teacherRole);
           }

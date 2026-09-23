@@ -33,12 +33,22 @@ assert(/progress: Object\.assign\(\{\}, cur\.progress \|\| \{\}, \{ board: res\.
 assert(/【同堂的另一位 · " \+ oc\.name \+ "】/.test(build));
 assert(/ctx\.relFor \? ctx\.relFor\(char\.id, oc\.id\)/.test(build));
 assert(/relFor: \(a, b\) => \(\{ mine: /.test(app));
-// 第二棒：可接可不接
+// 三人课堂一次写两个人（v73.15：「为什么不是一棒两个人说」）
 box.tail = (a, n) => a.slice(-n);
 vm.runInContext(fnSrc("directNv1") + fnSrc("peerTurnsFirst"), box);
 const T = { id: "t", name: "陆老师" }, P = { id: "p", name: "小周" };
-const ord = box.directNv1(null, { transcript: [{ role: "user", content: "这题为什么这样" }] }, T, P, {});
-assert.strictEqual(String(ord), "teacher,peer?");
-assert.strictEqual(String(box.directNv1(null, { transcript: [{ role: "user", content: "陆老师你说" }] }, T, P, {})), "teacher", "点了名就只让被点的说");
-assert(/ctx\.followUp/.test(build) && /\{\\"say\\":\[\]\}/.test(build), "接话那位被告知可以不说");
+const d1 = box.directNv1(null, { transcript: [{ role: "user", content: "这题为什么这样" }] }, T, P, {});
+assert.strictEqual(d1.lead + "/" + d1.named, "teacher/false");
+const d2 = box.directNv1(null, { transcript: [{ role: "user", content: "小周你说呢" }] }, T, P, {});
+assert.strictEqual(d2.lead + "/" + d2.named, "peer/true");
+box.stripName = x => String(x || "").trim(); box.guardOverspeak = x => x;
+vm.runInContext(fnSrc("parseTurns"), box);
+const turns = box.parseTurns(JSON.stringify({ turns: [{ name: "陆老师", say: ["先看这一步"] }, { name: "小周", say: ["哦！"] }, { name: "陆老师", say: [] }] }), T, P);
+assert.strictEqual(turns.map(t => t.char.id + ":" + t.says.join("|")).join(","), "t:先看这一步,p:哦！", "按先后落泡，空的那段不出现");
+const tail = fnSrc("nv1JointTail");
+assert(/不是每个人都得开口/.test(tail) && /只能是「" \+ teacher\.name \+ "」出的/.test(tail));
+const rn = st.slice(st.indexOf("async function runNv1("), st.indexOf("async function runChar("));
+assert(/applyTeacherExtras\(teacher, teacherRole, res, answerEntry\)/.test(rn), "题卡/证据只挂老师名下");
+assert(/await runNv1\(teacher, peer, teacherRole,/.test(st));
+assert(!/followUp/.test(st), "两棒那套拆干净");
 console.log("study-costudy-nv1-73-14 ok");

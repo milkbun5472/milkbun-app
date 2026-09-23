@@ -227,7 +227,7 @@ test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为
   });
   // 论坛十处全部改用那份表，一个散落的小数字都不许留
   assert.equal((app.match(/maxTokens: FTOK\./g) || []).length, 10, "论坛还有没接上那份表的");
-  assert.equal((stu.match(/maxTokens: TOK\./g) || []).length, 8, "一起学还有没接上那份表的");
+  assert.equal((stu.match(/maxTokens: TOK\./g) || []).length, 9, "一起学还有没接上那份表的");
   // 擂台两处按人数算的，底要够厚
   assert.match(dbt, /const budget = Math\.min\(32000, 12000 \+ chars\.length \* 3000\);/, "台上那一轮是全场最长的一次输出，底给薄了会写一半停住");
   assert.match(dbt, /maxTokens: Math\.min\(24000, 10000 \+ chars\.length \* 1500\)/, "判词加每人一段感言，一次出，给紧了会断在感言中间");
