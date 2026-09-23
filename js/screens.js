@@ -2076,7 +2076,22 @@ const FORUM_BOARD_SKIN = {
   "求助吧": ["#55778c", "rgba(85,119,140,.11)"], "兴趣吧": ["#9a7745", "rgba(154,119,69,.11)"],
   "脑洞吧": ["#765f93", "rgba(118,95,147,.11)"], "匿名吧": ["#555957", "rgba(85,89,87,.11)"]
 };
-function forumBoardSkin(board) { return FORUM_BOARD_SKIN[board] || [FORUM_SKIN.accent, FORUM_SKIN.soft]; }
+// 她开的吧一人一个颜色（她 2026-09-23：「新开的吧颜色都一样改一改吧」）——原来没登记的吧
+//   一律落到论坛主色上。挑过的按她挑的，没挑过的按吧名散列，同一个吧永远同一个色。
+const FORUM_CUSTOM_SKINS = [
+  ["#3f7f7a", "rgba(63,127,122,.11)"], ["#b0566f", "rgba(176,86,111,.11)"], ["#7d8440", "rgba(125,132,64,.11)"],
+  ["#4d5d9a", "rgba(77,93,154,.11)"], ["#b3703a", "rgba(179,112,58,.11)"], ["#8a4f7d", "rgba(138,79,125,.11)"],
+  ["#5b7fa8", "rgba(91,127,168,.11)"], ["#4f7a52", "rgba(79,122,82,.11)"], ["#c0634f", "rgba(192,99,79,.11)"],
+  ["#8c7a5b", "rgba(140,122,91,.11)"]
+];
+function forumCustomSkinIndex(b) {
+  return b && Number.isInteger(b.skin) && b.skin >= 0 ? b.skin % FORUM_CUSTOM_SKINS.length : forumHash(b && b.name) % FORUM_CUSTOM_SKINS.length;
+}
+function forumBoardSkin(board) {
+  if (FORUM_BOARD_SKIN[board]) return FORUM_BOARD_SKIN[board];
+  const b = forumCustomBoards().find(x => x.name === board);
+  return b ? FORUM_CUSTOM_SKINS[forumCustomSkinIndex(b)] : [FORUM_SKIN.accent, FORUM_SKIN.soft];
+}
 // ── 她自己开的吧（她 2026-09-23 转来读者许愿：「可以许愿自定义贴吧主题吗」）──────────
 // 存 x_forumBoards：[{ name: "某某吧", about: "这个吧聊什么，一句" }]。
 // ⚠️「一共有哪些吧」只许有这一份：版块那排 tab、发帖选吧、搜索页「别的吧」、角色自己发帖挑吧，
@@ -2167,7 +2182,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
-  onDeletePost, onClearBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
+  onDeletePost, onClearBoard, onRenameBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   toast
 }) {
   const t = useTheme();
@@ -2182,8 +2197,19 @@ function Forum({
   const openBoard = () => {
     const name = forumBoardName(newBoard && newBoard.name);
     if (!name) { toast && toast("给这个吧起个名字"); return; }
+    const about = String((newBoard && newBoard.about) || "").trim().slice(0, 60);
+    const skin = Number.isInteger(newBoard && newBoard.skin) ? newBoard.skin : undefined;
+    // 编辑已经开好的吧：吧名、简介、颜色都能改；改名时帖子跟着挪（onRenameBoard）
+    if (newBoard && newBoard.editOf) {
+      const from = newBoard.editOf;
+      if (name !== from && forumBoardsAll().includes(name)) { toast && toast("已经有「" + name + "」了"); return; }
+      saveBoards(forumCustomBoards().map(b => b.name === from ? Object.assign({}, b, { name: name, about: about }, skin === undefined ? {} : { skin: skin }) : b));
+      if (name !== from && onRenameBoard) onRenameBoard(from, name);
+      setNewBoard(null); setTab(name);
+      return;
+    }
     if (forumBoardsAll().includes(name)) { toast && toast("已经有「" + name + "」了"); setTab(name); setNewBoard(null); return; }
-    saveBoards(forumCustomBoards().concat([{ name: name, about: String((newBoard && newBoard.about) || "").trim().slice(0, 60), createdAt: Date.now() }]));
+    saveBoards(forumCustomBoards().concat([Object.assign({ name: name, about: about, createdAt: Date.now() }, skin === undefined ? {} : { skin: skin })]));
     setNewBoard(null); setTab(name); setPage(1);
   };
   // 拆吧：只拆这块牌子，帖子一条不删——它们不在吧表里了，就自然回到搜索页「别的吧」那一叠
@@ -2899,6 +2925,7 @@ function Forum({
           h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, myBoardNow ? "简介" : "吧规"),
           h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, boardRules[0]),
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : (myBoardNow ? "展开" : "共 " + boardRules.length + " 条"))),
+        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", skin: forumCustomSkinIndex(b), editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
         myBoardNow && h("button", { onClick: () => dropBoard(tab), className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "拆吧"),
         onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
       rulesOpen && h("div", { onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "fadeUp .18s ease both" } },
@@ -2934,15 +2961,22 @@ function Forum({
     // 开个吧：居中一张卡（不做半窗，no-half-sheet.md）——两格：吧名、这个吧聊什么
     newBoard && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setNewBoard(null), maxWidth: 340, wk: "centercard" },
       h("div", { style: { padding: "16px 17px 17px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FORUM_SKIN.ink } }, "开个吧"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FORUM_SKIN.ink } }, newBoard.editOf ? "编辑「" + newBoard.editOf + "」" : "开个吧"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, margin: "3px 0 12px", lineHeight: 1.6 } }, "开好就挂在版块那一排里，刷新、发帖、角色逛论坛都会来"),
         h("input", { value: newBoard.name, autoFocus: true, onChange: e => setNewBoard(Object.assign({}, newBoard, { name: e.target.value })), placeholder: "吧名，后面的「吧」字会自己加上",
           className: "w-full outline-none px-3 py-2.5 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
         h("input", { value: newBoard.about, onChange: e => setNewBoard(Object.assign({}, newBoard, { about: e.target.value })), onKeyDown: e => e.key === "Enter" && openBoard(), placeholder: "这个吧聊什么（可以不写）",
           className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+        // 颜色：点一个就是这个吧的色；不点就按吧名自动给一个
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 12 } }, FORUM_CUSTOM_SKINS.map((sk, i) => {
+          const on = (Number.isInteger(newBoard.skin) ? newBoard.skin : forumHash(forumBoardName(newBoard.name)) % FORUM_CUSTOM_SKINS.length) === i;
+          return h("button", { key: i, onClick: () => setNewBoard(Object.assign({}, newBoard, { skin: i })), "aria-label": "颜色 " + (i + 1), className: "active:opacity-70",
+            style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, background: "transparent" } },
+            h("span", { style: { width: 24, height: 24, borderRadius: 999, background: sk[0], boxShadow: on ? "0 0 0 2px " + FORUM_SKIN.paper + ", 0 0 0 4px " + sk[0] : "none" } }));
+        })),
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => setNewBoard(null), className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 8, fontFamily: F_BODY, fontSize: 13, color: FORUM_SKIN.sub, border: "1px solid " + FORUM_SKIN.line } }, "算了"),
-          h("button", { onClick: openBoard, className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 8, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: FORUM_SKIN.paper, background: FORUM_SKIN.accent } }, "开吧")))),
+          h("button", { onClick: openBoard, className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 8, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: FORUM_SKIN.paper, background: FORUM_SKIN.accent } }, newBoard.editOf ? "保存" : "开吧")))),
     editMe && h(Sheet, { onClose: () => setEditMe(false) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "编辑我的贴吧资料"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "贴吧 id"),
