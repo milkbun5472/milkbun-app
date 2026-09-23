@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.304";
+const APP_VERSION = "v73.305";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22674,10 +22674,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const doImportPasted = async raw => {
     const text = String(raw || "");
     const m = /^\s*QQJ-BACKUP (\d+)\/(\d+) (\S+)(?: (\d+))?[ \t]*[\r\n]+/.exec(text);
+    // 段头被删了、只剩一大串 base64（她 2026-09-23：「我让她删掉前缀会损坏，但是不删又是错」）：
+    //   那一行不是前缀装饰，是【第几段、一共几段、哪一次导出】——删了就没法拼。当面说，别当 JSON 去解。
+    if (!m && text.trim().length > 200 && /^[A-Za-z0-9+/=\s]+$/.test(text.trim())) {
+      toast("这一段开头那行「QQJ-BACKUP …」被删掉了——那一行别删，它记着这是第几段、一共几段。回去重新复制这一段，整段原样贴进来");
+      return false;
+    }
     // 段头认不出来 → 当成整份 JSON（存文件导出的那种，或者别人发来的老备份）
     if (!m) { pasteBinRef.current = null; return doImportText(text.trim()); }
     const i = Number(m[1]), n = Number(m[2]), id = m[3];
-    const bin = pasteBinRef.current && pasteBinRef.current.id === id ? pasteBinRef.current : { id: id, total: n, got: {} };
+    // ⚠️按【哪一次导出】分开攒（她 2026-09-23 那张截图：剪贴板里 1/3、2/3、3/3 是 bmudoiuig 那次，
+    //   底下还躺着一段 3/3 bmud2wwy0——另一次导出的）。原来这儿是「编号一换就另起一个新的」，
+    //   贴错一段，前面攒好的几段就被悄悄扔了，她还以为是自己贴坏了。
+    const shelf = pasteBinRef.current && pasteBinRef.current.bins ? pasteBinRef.current : { bins: {}, last: "" };
+    const prevId = shelf.last, prev = prevId && shelf.bins[prevId];
+    if (prev && prevId !== id && Object.keys(prev.got).length) {
+      toast("这一段是另一次导出的（段头第三格「" + id + "」，前面贴的是「" + prevId + "」）——几段得是【同一次导出】的才拼得回去。前面贴的都还留着");
+    }
+    const bin = shelf.bins[id] || { id: id, total: n, got: {} };
+    shelf.bins[id] = bin; shelf.last = id;
+    pasteBinRef.current = shelf;
     bin.total = n;
     // base64 里没有空白：把粘贴路上被加进来的换行、空格一律删掉
     const part = text.slice(m[0].length).replace(/\s+/g, "");
@@ -22692,7 +22708,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const want = m[4] != null ? Number(m[4]) : (i < n ? COPY_PART : null);
     if (want != null && part.length !== want) {
       toast("第 " + i + "/" + n + " 段" + (part.length < want ? "被截断了（少了约 " + Math.max(1, Math.round((want - part.length) / 1024)) + "KB）" : "比复制出去的长了")
-        + "——回去重新复制第 " + i + " 段贴进来。换个地方中转也行：发给自己的文件传输助手、或者存进备忘录");
+        + "——多半是从输入法的剪贴板列表里点的，那里只存了前面一截。回聊天里长按复制第 " + i + " 段，再回来长按这个框点「粘贴」");
       return false;
     }
     if (want == null && part.length % 4 !== 0) {
@@ -22700,7 +22716,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     }
     bin.got[i] = part;
-    pasteBinRef.current = bin;
     const have = Object.keys(bin.got).length;
     if (have < n) {
       const miss = [];
@@ -22710,7 +22725,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     const joined = [];
     for (let k = 1; k <= n; k++) joined.push(bin.got[k]);
-    pasteBinRef.current = null;
+    pasteBinRef.current = null;   // 拼齐一份就整架清掉：别的那次导出贴了一半的，本来就用不上了
     toast(n > 1 ? n + " 段都齐了，正在合起来…" : "正在读这份备份…");
     let whole = "";
     // ⚠️原来这儿是 fetch("data:…base64," + 整份)：整份备份几 MB 塞进一个 data: 地址，

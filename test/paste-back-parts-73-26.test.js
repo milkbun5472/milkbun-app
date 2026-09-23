@@ -59,7 +59,8 @@ test("某一段在粘贴路上被截了：贴进来那一刻就说是第几段�
   await ctx.paste(bodies[0]);
   assert.equal(await ctx.paste(bodies[1].slice(0, bodies[1].length - 3000)), false, "截断的那段被收下了");
   assert.match(toasts[toasts.length - 1], new RegExp("第 2/" + bodies.length + " 段被截断了"));
-  assert.match(toasts[toasts.length - 1], /回去重新复制第 2 段/);
+  assert.match(toasts[toasts.length - 1], /长按复制第 2 段/);
+  assert.match(toasts[toasts.length - 1], /输入法的剪贴板/, "没点破最常见的那个截断来源");
   // 重新贴对了就接着走
   for (let k = 1; k < bodies.length; k++) await ctx.paste(bodies[k]);
   assert.equal(imported[0], BIG);
@@ -89,4 +90,34 @@ test("拼的那一步不再走几 MB 的 data: 地址", () => {
     .split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.doesNotMatch(seg, /fetch\("data:/, "又把整份塞进 data: 地址了——内置浏览器会直接失败");
   assert.match(seg, /whole = b64ToText\(joined\.join\(""\)\)/);
+});
+
+// 她 2026-09-23 第二张截图：输入法剪贴板里 1/3、2/3、3/3 是 bmudoiuig 那次导出，
+// 底下还有一段 3/3 bmud2wwy0——另一次的。原来「编号一换就另起一个」，贴错一段前面的全扔了。
+test("贴进一段别的导出的：前面攒好的不扔，当面说清是两次导出", async () => {
+  const { ctx, toasts, imported } = harness();
+  const a = exportParts(ctx, BIG, "bmudoiuig"), b = exportParts(ctx, BIG.replace("月亮", "星星"), "bmud2wwy0");
+  await ctx.paste(a[0]);
+  await ctx.paste(a[1]);
+  await ctx.paste(b[b.length - 1]);                       // 手滑点到另一次导出的最后一段
+  assert.match(toasts[toasts.length - 1] + toasts[toasts.length - 2], /另一次导出的/);
+  for (let k = 2; k < a.length; k++) await ctx.paste(a[k]); // 接着把这一次的贴完
+  assert.equal(imported.length, 1, toasts.join(" | "));
+  assert.equal(imported[0], BIG, "前面贴好的那几段被扔了");
+});
+
+test("段头被删了、只剩 base64：直说那一行别删，不当成整份去解", async () => {
+  const { ctx, toasts, imported } = harness();
+  const a = exportParts(ctx, BIG, "bX1");
+  const bodyOnly = a[0].slice(a[0].indexOf("\n") + 1);
+  assert.equal(await ctx.paste(bodyOnly), false);
+  assert.match(toasts[0], /开头那行「QQJ-BACKUP …」被删掉了——那一行别删/);
+  assert.equal(imported.length, 0, "没段头的 base64 被当成 JSON 送去导入了");
+});
+
+test("贴之前就说清：段头别删、别从输入法剪贴板点、几段要同一次导出", () => {
+  const screens = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+  assert.match(screens, /每段开头那一行段头原样带着，别删/);
+  assert.match(screens, /别从输入法的剪贴板列表里点/);
+  assert.match(screens, /几段得是同一次导出的/);
 });

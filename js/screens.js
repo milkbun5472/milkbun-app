@@ -10033,7 +10033,13 @@ function DataConfig({
           onText: text => onImportText(text),   // 失败要留着她贴的那一大段，所以原样把结果交回去
           open: "贴一份备份（复制来的那一段）",
           ph: "把复制出来的那一段贴在这儿；分了几段就一段一段贴，顺序不重要"
-        }))
+        }),
+        // 她 2026-09-23 转来那张截图：读者从【输入法的剪贴板列表】里一段段点——那里只存前面一截，
+        //   贴进来的全是截断的；而且列表里混着两次导出的段。这两件事贴之前就该知道。
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "6px 2px 0" } },
+          "1）每段开头那一行段头原样带着，别删——它记着这是第几段。",
+          h("br"), "2）别从输入法的剪贴板列表里点：那里只存前面一截。回聊天里长按复制一段，再回来长按这个框点「粘贴」。",
+          h("br"), "3）几段得是同一次导出的：段头第三格那串字母要一样。"))
       : null,
     h(HomeLayoutProbe, { toast: toast }),
     h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
