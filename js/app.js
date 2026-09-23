@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.15";
+const APP_VERSION = "v73.16";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9665,7 +9665,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
       const _turnClosing = "\n【收尾·聊天与记录】先形成真实回复，再按本轮协议记录状态与复看结果；记录不写进聊天气泡。"
-        + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样【一条一句】发出去（想说几句就给几个元素，别拿逗号缝成一条）。"
+        + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后"
+        // 同处一室：话是当面说出口的——收尾这句离生成最近，这里说成「发微信」会把上面那段盖掉（她 2026-09-23）
+        + (sameRoomFor(charId) && !offlineTogetherNow(charId) ? "当面说出口，【一句一个气泡】" : "像发微信一样【一条一句】发出去")
+        + "（想说几句就给几个元素，别拿逗号缝成一条）。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
