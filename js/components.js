@@ -11272,6 +11272,8 @@ function chatForwardItems(m) {
   return lines.map(l => { const k = l.indexOf("："); return k > 0 ? { name: l.slice(0, k), text: l.slice(k + 1) } : { name: "", text: l }; }).filter(x => x.text);
 }
 function chatForwardTitle(m) {
+  // 自带标题的（擂台分享那种）直接用：它不是谁跟谁的聊天
+  if (m && m.forward && m.forward.title) return m.forward.title;
   const items = chatForwardItems(m);
   const names = [];
   items.forEach(it => { const n = (it && it.name) || ""; if (n && names.indexOf(n) < 0) names.push(n); });
@@ -11300,7 +11302,7 @@ function ChatForwardCard({ m, isU, onOpen }) {
         h("div", { style: { marginTop: 6 } }, preview.map((it, i) => h("div", { key: i, className: "line-clamp-1",
           style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, (it.name ? it.name + ": " : "") + it.text))),
         items.length > preview.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, "…") : null),
-      h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "聊天记录")));
+      h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (m.forward && m.forward.label) || "聊天记录")));
 }
 // 点开看全部
 function ChatForwardSheet({ m, onClose }) {
@@ -11309,7 +11311,7 @@ function ChatForwardSheet({ m, onClose }) {
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "px-1 pb-2" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 2 } }, chatForwardTitle(m)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, items.length + " 条 · 转发的聊天记录"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, (m.forward && m.forward.label) ? m.forward.label : items.length + " 条 · 转发的聊天记录"),
       items.map((it, i) => h("div", { key: i, style: { marginBottom: 12 } },
         (it.name || it.ts) ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 3 } },
           it.name ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, it.name) : null,

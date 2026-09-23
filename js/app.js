@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.317";
+const APP_VERSION = "v73.318";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18386,14 +18386,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             + (v.best && v.best.quote ? "\n【最狠的那一句】" + v.best.quote + "　—— " + (v.best.name || "台上") : "")
           : "\n\n（还没收台）");
   };
+  // 聊天里摊成一整段太长（她 2026-09-23：「擂台分享也做成卡吧不然太长了，聊天记录里面显示全部的话」）：
+  //   借「聊天记录」那张转发卡——卡上露几行，点开看全部；content 仍是整场全文，TA读得到每一句。
+  const arenaShareMsg = (session, extra) => {
+    const uName = profile.name || "我";
+    const items = [{ name: "台上", text: (session.parts || []).map(p => (p.kind === "me" ? uName : p.name) + "（" + (p.stance || "—") + "）").join("　vs　") }];
+    (session.rounds || []).forEach((r, i) => {
+      const ts = (r.turns || []).filter(x => x && !x.skipped && x.text);
+      if (!ts.length) return;
+      items.push({ name: "", text: "〔第" + (i + 1) + "回合〕" });
+      ts.forEach(tn => items.push({ name: tn.name, text: tn.text }));
+    });
+    const v = session.verdict;
+    if (v) {
+      items.push({ name: "判了", text: v.winner + (v.reason ? "\n" + v.reason : "") });
+      if (v.best && v.best.quote) items.push({ name: "最狠的那一句", text: v.best.quote + "　—— " + (v.best.name || "台上") });
+    } else items.push({ name: "", text: "（还没收台）" });
+    return { role: "user", kind: "chatforward", content: arenaShareText(session),
+      forward: { sourceType: "arena", title: "擂台 · " + session.topic, label: "擂台记录", items }, ts: Date.now(), ...(extra || {}) };
+  };
   const shareArenaToChat = (session, toChar) => {
     if (!toChar) return;
-    pChat(toChar.id, p => [...p, { role: "user", content: arenaShareText(session), ts: Date.now(), read: false }]);
+    pChat(toChar.id, p => [...p, arenaShareMsg(session, { read: false })]);
     toast("已分享给 " + (toChar.remark || toChar.name));
   };
   const shareArenaToGroup = (session, group) => {
     if (!group) return;
-    pGChat(group.id, p => [...p, { role: "user", senderName: profile.name || "我", content: arenaShareText(session), ts: Date.now() }]);
+    pGChat(group.id, p => [...p, arenaShareMsg(session, { senderName: profile.name || "我" })]);
     toast("已分享到「" + group.name + "」");
   };
   const forwardFicToGroup = (fic, group) => {

@@ -303,13 +303,15 @@ test("裁判多答两栏：他们其实在吵的是什么、最狠的那一句",
   assert.match(dbt, /borderLeft: "2px solid #f0c67a"[\s\S]{0,140}s\.verdict\.best\.quote/, "那一句没跟裁判自己的话分开");
 });
 
-test("分享：单聊和群聊都能发；发的是纯文本，不另起一种卡片", () => {
+// v73.318 起分享走「聊天记录」那张现成的转发卡（她 2026-09-23：「擂台分享也做成卡吧不然太长了」）；
+//   content 仍是整场全文，所以下面那几条正文断言照旧成立。
+test("分享：单聊和群聊都能发；走聊天记录卡，正文是整场全文", () => {
   // app 侧：两条路 + 一份共用的正文
   assert.match(app, /const arenaShareText = \(session\) =>/);
   assert.match(app, /const shareArenaToChat = \(session, toChar\) =>[\s\S]{0,220}pChat\(toChar\.id/);
   assert.match(app, /const shareArenaToGroup = \(session, group\) =>[\s\S]{0,240}pGChat\(group\.id/);
   // ⚠️群里那条必须带 senderName，否则群里认不出是谁发的
-  assert.match(app, /pGChat\(group\.id, p => \[\.\.\.p, \{ role: "user", senderName: profile\.name \|\| "我"/);
+  assert.match(app, /pGChat\(group\.id, p => \[\.\.\.p, arenaShareMsg\(session, \{ senderName: profile\.name \|\| "我" \}\)\]\)/);
   // 正文里要带上判词那三栏，转过去才是完整的一场
   assert.match(app, /v\.crux \? "\\n【他们其实在吵的是】" \+ v\.crux : ""/);
   assert.match(app, /v\.best && v\.best\.quote \? "\\n【最狠的那一句】"/);
