@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.302";
+const APP_VERSION = "v73.303";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1461,7 +1461,10 @@ function App() {
       Object.keys(fc || {}).forEach(pid => {
         (fc[pid] || []).forEach(f => {
           if (!f || !Array.isArray(f.replies)) return;
-          const keep = f.replies.filter(r => !(r && (r.authorType === "me" || r.authorId === "me") && (r.isOp || r.isOwner)));
+          // 还有一种：署名就叫「层主」的路人，而这层楼正是她开的——那条是替她说的话（v73.303）
+          const floorMine = f.authorType === "me" || f.authorId === "me";
+          const keep = f.replies.filter(r => !(r && (r.authorType === "me" || r.authorId === "me") && (r.isOp || r.isOwner))
+            && !(r && floorMine && r.authorType !== "me" && String(r.authorName || "").trim() === "层主"));
           if (keep.length !== f.replies.length) { dropped += f.replies.length - keep.length; f.replies = keep; }
         });
       });
@@ -17659,8 +17662,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return lines;
   };
   // 单条原始项 → 楼中楼 reply 对象（角色→真名档案、楼主→isOp、其余路人）；第二轮把「接某楼」的项挂进那层
-  const buildForumReplyObj = (x, post) => {
+  // floor：这条要插进的那层楼。层主（这层楼的作者）也得认——原来只认「楼主」，
+  //   模型署名「层主」时就被当成一个叫「层主」的路人落了下来；而层主正是她时，
+  //   那就是一条替她说的话（她 2026-09-23：「我自己的回复一直有个层主但是明明我就是这一层的层主」）。
+  const buildForumReplyObj = (x, post, floor) => {
     if (!x || !x.content) return null;
+    const looksFloorOwner = s => { s = String(s || "").trim(); return s === "层主" || s === "层主本人" || !!(floor && floor.authorName && s === floor.authorName); };
+    if (floor && (x.is_owner === true || looksFloorOwner(x.char) || looksFloorOwner(x.authorName))) {
+      if (forumIsMine(floor)) return null;
+      return { authorName: floor.authorName, authorHandle: floor.authorHandle || floor.authorName, authorType: floor.authorType || "npc", authorId: floor.authorId || null, content: x.content, isOwner: true, ts: Date.now() };
+    }
     const opChar = post && isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
     const opName = opChar ? opChar.name : (post ? (post.authorName || "") : "");
     const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
@@ -17867,7 +17878,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       cs.forEach(x => {
         const tf = Number(x.reply_to_floor);
         if (Number.isFinite(tf) && tf > 0 && floorByNum.has(tf)) {
-          const rep = buildForumReplyObj(x, post);
+          const rep = buildForumReplyObj(x, post, floorByNum.get(tf));
           if (rep) subInserts.push({ floorId: floorByNum.get(tf).id, reply: rep });
         } else newRaw.push(x);
       });
@@ -18591,7 +18602,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         cs.forEach(x => {
           const tf = Number(x.reply_to_floor);
           if (Number.isFinite(tf) && tf > 0 && floorByNum.has(tf)) {
-            const rep = buildForumReplyObj(x, post);
+            const rep = buildForumReplyObj(x, post, floorByNum.get(tf));
             if (rep) subInserts.push({ floorId: floorByNum.get(tf).id, reply: rep });
           } else newRaw.push(x);
         });
