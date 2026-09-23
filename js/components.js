@@ -13781,6 +13781,7 @@ function GroupThread({
   onSummarize,
   onAddMember,
   onKickMember,
+  onSetPresence,
   onDeleteGroup,
   onClearGroupChat,
   onOffline,
@@ -14501,6 +14502,7 @@ function GroupThread({
     onSummarize: onSummarize,
     onAddMember: onAddMember,
     onKickMember: onKickMember,
+    onSetPresence: onSetPresence,
     onDelete: onDeleteGroup,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
@@ -14851,7 +14853,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -14912,7 +14914,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const nearbyIds = new Set(nearby.map(c => c.id));
   const rest = pool.filter(c => !nearbyIds.has(c.id));
   const addable = nearby.concat(rest);
-  const spec = !!gs.spectate;
+  const spec = !!gs.spectate || !!(group && group.roomKind === "spectate");
 
   const row = (label, note, val, set) => h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { className: "pr-3" },
@@ -14967,7 +14969,19 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
         h("button", { onClick: () => onKickMember(c.id), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px" } }, "移出")))),
 
-    h("div", { className: "pt-4", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "旁观模式：" + (spec ? "开（建群时设定，角色不知你在看）" : "关")),
+    // 中途退群／被拉回来（她 2026-09-23：「我退出群聊不要让他们知道我在看啊！就是让他们以为我不在了来说话」）。
+    //   群里只落一句「你退出了群聊」，谁也不知道你还在旁边看；拉回来时记到某位成员名下。
+    onSetPresence && h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, spec ? "你在旁观" : "你在群里"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } },
+          spec ? "他们以为你不在群里。拉你回来，群里会显示有人把你拉了进来。"
+            : "退出后群里只显示你退群了，他们不知道你还在旁边看；你之后写的话会变成旁白。")),
+      h("button", {
+        onClick: () => { const go = () => { onSetPresence(spec); onClose(); }; if (spec) go(); else requestAppConfirm("退出群聊，改成旁观？", "群里只会显示你退群了。", go); },
+        className: "active:opacity-60",
+        style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: spec ? t.tint : t.sub }
+      }, spec ? "回到群里" : "退出群聊")),
     row("记忆互通", "开：群实时抽取每位成员跟你的单聊+长期记忆+记忆库，双向记得，带心声/实时好感。关：本群是封闭空间——长期记忆、记忆库、印象卡照样读得到，但群里发生的事一个字都不回流主线（只进不出）；你俩平时怎么说话，靠下面的『入群前上文』。", interop, setInterop),
     interop
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")

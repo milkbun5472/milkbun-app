@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.10";
+const APP_VERSION = "v73.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12366,6 +12366,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     updateGroup(groupId, { memberIds: remain });
     groupSysLine(groupId, (actor ? actor.name : "你") + "把" + (who ? who.name : "某人") + "移出了群聊");
   };
+  // 中途退群／被拉回来（她 2026-09-23）。房间身份两头都记（roomKind 在群身上、spectate 在群设置里），
+  //   所以两头一起改，imInGroup / groupSpectating 就跟着翻。
+  //   ⚠️退群那一句只说「退出了群聊」：成员们以为她走了，不知道她还在旁边看（旁观的身份铁律本来就这么写）。
+  //   以前她在群里说过的话留着——那是真发生过的。
+  const setGroupPresence = (groupId, inGroup) => {
+    const g = groups.find(x => x.id === groupId);
+    if (!g || imInGroup(g) === !!inGroup) return;
+    const me = userName(profile);
+    updateGroup(groupId, { roomKind: inGroup ? "group" : "spectate" });
+    saveGroupSettings(groupId, { spectate: !inGroup });
+    if (inGroup) {
+      const pool = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
+      const actor = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+      groupSysLine(groupId, (actor ? actor.name : "有人") + "把" + me + "拉进了群聊");
+      toast("你回到群里了");
+    } else {
+      groupSysLine(groupId, me + "退出了群聊");
+      toast("已退出，现在是旁观");
+    }
+  };
   // 群线上按聊天窗口抽取，节拍与线下分别计数。
   const memExtractCtrGRef = useRef({});
   const memExtractMarkGRef = useRef({});
@@ -23270,6 +23290,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSummarize: () => summarizeGroupToMem(activeGroup.id),
     onAddMember: charId => addGroupMember(activeGroup.id, charId),
     onKickMember: charId => kickGroupMember(activeGroup.id, charId),
+    onSetPresence: inGroup => setGroupPresence(activeGroup.id, inGroup),
     onDeleteGroup: () => deleteGroup(activeGroup.id),
     onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
