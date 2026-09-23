@@ -2191,6 +2191,7 @@ function Forum({
   const [tab, setTab] = useState("吐槽吧");           // 主页版块 或 "关注"
   const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
   const [rulesOpen, setRulesOpen] = useState(false);  // 置顶吧规那块牌子，默认只露第一条
+  const [refreshMenu, setRefreshMenu] = useState(false);  // 右上角刷新键点开的那张小单子
   // 开个吧（她自己的吧，存 x_forumBoards）。boardsRev 只是让那排 tab 重画一次——吧表本身每次现读存档
   const [newBoard, setNewBoard] = useState(null);     // null＝没在开；{name, about}＝正在填
   const [, setBoardsRev] = useState(0);
@@ -2838,11 +2839,6 @@ function Forum({
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
-      // 请角色来发帖（她 2026-09-23：「现在刷新都是路人 NPC 发帖」）。右上角那颗刷新是网友，这一颗是她自己的人。
-      // 在某个吧上按＝发到这个吧；在「关注」上按＝让 TA 们自己挑吧。收藏页没有「发」这回事，不挂。
-      tab !== "收藏" && onGenCharPosts && h("button", { onClick: () => onGenCharPosts(tab), disabled: !!(gen && gen.forum === "chars"), className: "active:opacity-70 disabled:opacity-50",
-        style: { display: "block", width: "calc(100% - 32px)", margin: "12px 16px 0", minHeight: 40, borderRadius: 10, border: "1px dashed " + FORUM_SKIN.accent, background: FORUM_SKIN.soft, color: FORUM_SKIN.accent, fontFamily: F_BODY, fontSize: 12.5 } },
-        gen && gen.forum === "chars" ? "角色们正在发帖…" : (tab === "关注" ? "请角色们来发帖" : "请角色们来「" + tab + "」发帖")),
       forumUnreadRows.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 5px 14px rgba(42,55,38,.05)", overflow: "hidden" } },
         h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新回复在这里"),
@@ -2890,7 +2886,10 @@ function Forum({
   else if (nav === "notice") { title = "回复我的"; bodyEl = noticeList(); }
   else if (nav === "pm") { title = "私信"; bodyEl = pmList(); }
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
-  else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = (tab === "收藏" || tab === "关注") ? null : h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
+  // ⚠️刷新键点开是一张小单子（她 2026-09-23：「太占位置了，改成放到刷新键，点开有一个刷新键一个『请TA们发帖』键」）：
+  //   原来「请角色来发帖」是帖子流顶上一整条虚线按钮，常年占一行。
+  //   「关注」上只有「请 TA 们发帖」那一颗（网友刷新没有「关注」这个版）；「收藏」上没有这把钥匙。
+  else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = tab === "收藏" ? null : h("button", { onClick: () => setRefreshMenu(v => !v), "aria-label": "刷新", disabled: !!(gen && (gen.forum === tab || gen.forum === "chars")), className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
 
   // ⚠️overflowX 兜死：里头任何一处顶宽了（一条超长的 @、一串大数字），整页就会
   //   横着滑起来——连顶栏和返回键一起被推出屏幕（她 2026-09-01 那张截图就是这样，
@@ -2947,6 +2946,15 @@ function Forum({
         h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
         nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
         nx[0] === "notice" && unreadNoticeCount > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -23, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadNoticeCount > 99 ? "99+" : unreadNoticeCount)); })),
+    refreshMenu && !inSub && nav === "home" && tab !== "收藏" && h(React.Fragment, null,
+      h("div", { onClick: () => setRefreshMenu(false), style: { position: "absolute", inset: 0, zIndex: 40 } }),
+      h("div", { style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "fadeUp .16s ease both" } },
+        [tab !== "关注" && ["刷新", "网友来发帖", () => onGenBoard(tab)],
+         onGenCharPosts && ["请TA们发帖", tab === "关注" ? "你的角色，自己挑吧" : "你的角色，发到「" + tab + "」", () => onGenCharPosts(tab)]]
+          .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
+            style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: FORUM_SKIN.ink } }, x[0]),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))))),
     // 悬浮发帖按钮（主页/搜索）
     (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
     // 转发 picker
