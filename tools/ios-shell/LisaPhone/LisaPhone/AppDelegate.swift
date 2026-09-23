@@ -63,6 +63,8 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeExport")
     // 锁屏通知:壳里没有 Web Notification,这一层由原生出(见文件头那段)。
     cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeNotify")
+    // 代理开机就挂上:原来只在网页第一次调桥时才挂,冷启动点通知进来那一下没人接。
+    UNUserNotificationCenter.current().delegate = self
     if #available(iOS 16.4, *) { cfg.preferences.isElementFullscreenEnabled = true }
     webView = WKWebView(frame: .zero, configuration: cfg)
     webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -338,7 +340,11 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
       let id = (d["tag"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? UUID().uuidString
       // ⚠️trigger 给 nil 是「立刻」。壳被切到后台之后网页还能跑一小会儿,
       //   这条就是在那一小会儿里发出去的——跟 Web 那条路的送达前提完全一样。
-      center.add(UNNotificationRequest(identifier: id, content: c, trigger: nil)) { err in
+      // delay(秒):交给系统自己数。「测试通知」靠这个——网页里的 setTimeout
+      //   一切后台就被冻住,永远走不到这儿;系统的计时器不会。
+      let delay = (d["delay"] as? Double) ?? 0
+      let trigger: UNNotificationTrigger? = delay > 0 ? UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false) : nil
+      center.add(UNNotificationRequest(identifier: id, content: c, trigger: trigger)) { err in
         DispatchQueue.main.async { replyHandler(["ok": err == nil], nil) }
       }
     default:
@@ -352,6 +358,15 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
 // 点开通知:把落点交回网页那一头,复用站内已经写好的 window.__openFromNotif
 // (单聊/群聊/小房间怎么落全在那儿,壳这边不许自己再判一套)。
 extension ShellViewController: UNUserNotificationCenterDelegate {
+  // ⚠️她 2026-09-23:「收到了 iOS 问要不要允许发通知、接受了,但是发不出来」。
+  //   病根:iOS 默认【App 在前台时不显示通知】,除非代理在这儿明说要显示。
+  //   这个方法原来没写——点「测试通知」时人还在 App 里,系统收下了、然后一声不吭地吞了。
+  //   聊天气泡那一路本来就只在切走之后才发(notify.js onlyWhenHidden),这里放行不会打扰她。
+  func userNotificationCenter(_ center: UNUserNotificationCenter,
+                              willPresent notification: UNNotification,
+                              withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    completionHandler([.banner, .list, .sound])
+  }
   func userNotificationCenter(_ center: UNUserNotificationCenter,
                               didReceive response: UNNotificationResponse,
                               withCompletionHandler completionHandler: @escaping () -> Void) {

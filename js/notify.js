@@ -113,6 +113,13 @@
   // 发一条测试通知（设置页「测试」按钮用；延迟一点方便切后台看锁屏效果）
   function test(delayMs) {
     if (!isOn()) return false;
+    // 壳里交给系统去数（她 2026-09-23 测试通知发不出来）：网页的 setTimeout 一切后台就冻住，
+    // 系统的计时器不会。给足 5 秒，够她按一下锁屏去看锁屏上那条。
+    if (bridge()) {
+      ask({ action: "show", delay: Math.max(5, Math.round((delayMs || 0) / 1000)), title: "秋秋机 · 通知测试",
+        body: "这是一条测试通知。收到了就说明壳这头通了。", tag: "notif-test", charId: "", groupId: "", screen: "", roomId: "main" });
+      return true;
+    }
     setTimeout(() => {
       push({ title: "秋秋机 · 通知测试", body: "这是一条测试通知。实际后台送达取决于浏览器是否仍在运行。", tag: "notif-test", onlyWhenHidden: false });
     }, delayMs || 0);

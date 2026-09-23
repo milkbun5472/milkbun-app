@@ -8904,7 +8904,7 @@ function SenseConfig({
         }).catch(() => { setNotifOn(false); toast && toast("开启通知没成功，请检查浏览器权限后重试"); });
       } else { window.Notify.disable(); setNotifOn(false); toast && toast("已关闭锁屏通知"); }
     }
-  }), notifOn ? h("button", { onClick: () => window.Notify && window.Notify.test(0),
+  }), notifOn ? h("button", { onClick: () => { if (window.Notify && window.Notify.test(0)) toast && toast("几秒内会弹一条，可以先锁屏等着看"); },
     style: { border: "none", background: "transparent", color: t.accent, fontFamily: F_BODY, fontSize: 12, minHeight: 40 } }, "测试通知") : null)), h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
