@@ -126,15 +126,25 @@ test("发言：台上那个人面前那块名牌，不是左边一条色边的�
 // 那张卡原样搬进任何一个辩论 app 都成立。
 // v60.41 把台下拿回来，但只留【她自己的、没上台的角色】：
 // 借来的是「直播间弹幕＋网感路人」这个形状，不是「有认识的人在旁边看着」这件事。
-test("台下回来了，但只有她的人——路人弹幕那一套不许回来", () => {
+// v73.2x 她 2026-09-23：「为啥不能拉几个路人上场当观众，给他们个立场」。
+// v60.41 撤掉的是【直播间弹幕】那个形状（网名、刷一批、没有立场），不是「台下有路人」本身。
+// 所以这条测试钉的东西变了：路人可以有，但得是【开场捏好、有名有姓有身份有偏向】的那几个，
+// 进了名单才算数；模型每轮临时多编一个，照旧丢掉。
+test("台下可以有路人，但弹幕那一套不许回来：路人开场就定好、有立场、在名单里", () => {
   const i = dbt.indexOf("async function genRound(");
   const gen = dbt.slice(i, dbt.indexOf("async function genResult", i));
   const live = gen.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(live.indexOf('"crowd"') < 0 && live.indexOf("观众弹幕") < 0 && live.indexOf("随机路人") < 0
     && live.indexOf("网感") < 0 && live.indexOf("正好 \" + o.count") < 0,
     "又变回『台上说完、台下刷一批弹幕』那一套了");
-  assert.match(gen, /不要路人、不要昵称、不要弹幕/);
-  assert.match(gen, /都是认识台上这几位的熟人，不是路人/);
+  assert.match(gen, /名单以外的人一个都不要、不要昵称、不要弹幕/);
+  // 路人在开场那一次就捏好（不多花一次调用），每人一个身份、一个偏向
+  const as = dbt.slice(dbt.indexOf("async function assignStances("), dbt.indexOf("async function genRound("));
+  assert.match(as, /不许网名、不许昵称、不许外号/);
+  assert.match(as, /lean 是TA开场偏向哪一边/);
+  assert.match(as, /几个人别全站一边/);
+  assert.match(dbt, /\[\[0, "不拉"\], \[2, "2 个"\], \[4, "4 个"\]\]/, "默认得是不拉——不改她原来那种局");
+  assert.match(dbt, /const \[crowdN, setCrowdN\] = useState\(0\)/);
   // 至多两条：它是配角，不许比台上响
   assert.match(gen, /挑【至多两位】各出一声/);
   assert.match(dbt, /\.slice\(0, 2\);/, "没封顶，一轮又能刷出一屏");
@@ -468,7 +478,10 @@ test("擂台得说清她是谁，而且在场每个人都认识她", () => {
   const gen = dbt.slice(i, dbt.indexOf("async function genResult", i));
   assert.match(gen, /【和你们吵的这个人】/, "整场还是只发了她一个名字");
   assert.match(gen, /o\.mePersona/, "她的人设没发进去");
-  assert.match(gen, /台上台下【每一个人都认识她】，她不是路过的陌生人/);
+  // v73.2x 台下多了配角和路人（她 2026-09-23），那些人不一定认识她——所以这句收窄成
+  //   「台上的人和她自己那几位熟人」，配角和路人各自在名字后面写清认不认识
+  assert.match(gen, /台上的人和台下她自己那几位熟人【都认识她】，她不是路过的陌生人/);
+  assert.match(gen, /不认识的人就按不认识来/);
   assert.match(gen, /绝不许把她说成第三方路人/);
   assert.match(gen, /「那姑娘」「小姑娘」/, "得把最容易滑进去的那几个说法点出来");
   // 判据不是「要礼貌」，是【那个称呼本身就该看得出你俩什么关系】

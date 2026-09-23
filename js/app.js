@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.20";
+const APP_VERSION = "v73.21";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23903,6 +23903,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 言秋照旧不抓进场边（v59.99：TA可以上台，但不当看客）。
     // characters 始终留全：存档头像、名字和分享名单都靠它查。
     crowdChars: liveChars.filter(c => !settingsFor(c.id).engineerEyes && !c.npc),
+    // 台下的配角（她 2026-09-23：「角色的 npc 也可以当台下，当他们的联系角色上场的时候」）。
+    // 走公共那一份 npcsOf（谁是谁身边的人只认 ownerId），不自己再遍历一遍全量角色。
+    // 认不认识她照 knowsUser 写清楚——配角不像她自己的人那样天然认识她。
+    npcFor: stageIds => stageIds.flatMap(hostId => npcsOf(hostId).map(c => {
+      const owner = characters.find(x => x.id === c.ownerId);
+      return { id: c.id, name: c.name, persona: c.persona || "",
+        note: (owner ? owner.name + " 身边的人" : "配角") + "；" + (c.knowsUser ? "也认识 " + userName(profile) : "不认识 " + userName(profile) + "，只认得 " + (owner ? owner.name : "台上那位")) };
+    })),
     groups: groups,
     profile: profile,
     worldbook: loreForContext("debate", [], ""),

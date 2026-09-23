@@ -102,3 +102,44 @@ test("票和裁判那一句都进实录：下一轮台上的人知道台下怎�
 test("什么都不写回记忆（她不要赌注那一条）", () => {
   assert.ok(!/memAdd|addMemory|saveMemory|x_memLib/.test(dbt), "擂台开始往记忆里写东西了");
 });
+
+// v73.2x 她 2026-09-23：「为啥不能拉几个路人上场当观众，给他们个立场。
+// 还有角色的 npc 也可以当台下，当他们的联系角色上场的时候」
+test("路人谁也不认识：TA投「交情」那一票是凭空认亲，不算", () => {
+  const out = V.settle([
+    { name: "卖豆腐的老陈", for: "沈屿白", why: "friend", reason: "看着顺眼" },
+    { name: "卖豆腐的老陈2", for: "周野", why: "moved", reason: "那句算账说得实在" }
+  ], ["卖豆腐的老陈", "卖豆腐的老陈2"], targets, {}, ["卖豆腐的老陈", "卖豆腐的老陈2"]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].name, "卖豆腐的老陈2");
+  // 她自己的人照旧可以投交情
+  assert.equal(V.settle([{ name: "顾朝", for: "沈屿白", why: "friend", reason: "兄弟" }], voters, targets, {}, ["路人"]).length, 1);
+});
+
+test("路人在开场那一次捏好：有名有身份有偏向，不跟台上的人撞名", () => {
+  const i = dbt.indexOf("async function assignStances(");
+  const ctx = { JSON, String, Array, Object, Math,
+    AC: () => "", CB: () => "", WORLD_WORDS: "", personaFor: p => p, TOK: { stance: 8000 },
+    extractJSON: x => JSON.parse(x),
+    callAI: async () => JSON.stringify({ stances: [{ name: "沈屿白", stance: "该" }], myOptions: ["该"],
+      crowd: [{ name: "沈屿白", who: "撞名的", lean: "该" }, { name: "老陈", who: "卖豆腐的", lean: "" },
+              { name: "", who: "没名字", lean: "该" }, { name: "阿梅", who: "茶馆跑堂", lean: "不该" }, { name: "多的", who: "超额", lean: "该" }] }) };
+  vm.createContext(ctx);
+  vm.runInContext(dbt.slice(i, dbt.indexOf("\n  }\n", i) + 4) + "\nthis.go = assignStances;", ctx);
+  return ctx.go({}, "", "题", [{ name: "沈屿白", persona: "" }], false, 2).then(r => {
+    assert.deepEqual(r.crowd.map(x => x.name), ["老陈", "阿梅"], "撞名的、没名字的、超额的都不要");
+    assert.equal(r.crowd[0].lean, "中立", "没写偏向就当中立");
+    assert.ok(r.crowd.every(x => /^passer_/.test(x.id)));
+  });
+});
+
+test("台下的配角：只在TA身边那位上台时出现，而且写清认不认识她", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const i = app.indexOf("npcFor: stageIds =>");
+  assert.ok(i > 0, "配角没接上擂台");
+  const seg = app.slice(i, app.indexOf("})),", i));
+  assert.match(seg, /stageIds\.flatMap\(hostId => npcsOf\(hostId\)/, "走公共那份 npcsOf，别自己再遍历全量");
+  assert.match(seg, /c\.knowsUser \? "也认识 " \+ userName\(profile\) : "不认识 "/, "认不认识她得写清");
+  assert.match(dbt, /props\.npcFor \? props\.npcFor\(orderedChars\.map/, "台下没吃到配角");
+  assert.match(dbt, /\.slice\(0, 3\)\.map\(function \(c\) \{\n\s*return \{ id: c\.id, name: c\.name, persona: c\.persona, kind: "npc"/, "配角至多三个");
+});
