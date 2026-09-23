@@ -126,6 +126,9 @@
       const last = h2[h2.length - 1], prev = h2[h2.length - 2];
       const justSwitched = h2.length >= 2 && last !== prev;
       if (justSwitched && to !== last) return { name: name, for: last, why: "stay", reason: "" };
+      // 「被说动」只在【换了边】时才成立：上一轮就投的这个人，这一轮还投TA，那不是被说动，是本来就这么想
+      //   （她 2026-09-23：「原本就是同一边的立场就不应该第二回合显示是被说动吧」）。
+      if (why === "moved" && last && last === to) return { name: name, for: to, why: "value", reason: reason };
       return { name: name, for: to, why: why, reason: reason };
     }).filter(Boolean);
   }
@@ -245,7 +248,7 @@
       ? "场边【每一位】都要投这一轮的票，投给台上【这一轮】说得最让TA服气的那一个（可以投" + targets.join("、") + "里任何一位）。why 是这一票的来路，照实挑一种：\n"
         + "· friend＝交情：TA跟这个人本来就近，站TA不用讲道理——但这层关系得是真的（人设或平时相处里看得出来），不是临时认亲；路人谁也不认识，没有这一条；\n"
         + "· value＝理念对上：这件事TA自己本来就这么想；\n"
-        + "· moved＝被说动：这一轮台上某句话戳到了TA这个人在意的东西——reason 里要点出是哪句话的意思；\n"
+        + "· moved＝被说动：这一轮台上某句话戳到了TA这个人在意的东西，让TA【换了边】——reason 里要点出是哪句话的意思；本来就站这边的，不算被说动；\n"
         + "· random＝随手投：TA对这场没什么偏好，随便挑一个。\n"
         + "reason 是TA自己的一句理由，用TA的口气，得站得住。路人头一轮照TA开场的偏向投，除非台上真有一句话把TA说动了。\n"
         + "【改票】票可以改：这一轮里真有谁的哪句话让TA动摇了，就改；没有这样一个具体的原因，就接着投原来那位。一路投同一个人没问题，只要来路站得住；每轮都换人，那是没在看这场。"
@@ -662,7 +665,20 @@
     const dtp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 发言朗读（懒合成）
     const curRound = () => (s.rounds[s.rounds.length - 1] || { turns: [], audience: [] });
 
-    useEffect(() => { const el = feedRef.current; if (el) el.scrollTop = el.scrollHeight; }, [s.rounds, busy, phaseMsg]);
+    // 新一回合出来：停在【这一回合的开头】，不是整页最底下（她 2026-09-23：「每一回合出来的都会跳到最下面
+    //   还得重新往上翻」）。还在生成时照旧沉底，好看见那一行「…」。
+    const roundsSeenRef = useRef((s.rounds || []).length);
+    useEffect(() => {
+      const el = feedRef.current; if (!el) return;
+      const n = (s.rounds || []).length;
+      if (n > roundsSeenRef.current) {
+        roundsSeenRef.current = n;
+        const head = el.querySelector('[data-round="' + (n - 1) + '"]');
+        if (head) { el.scrollTop = Math.max(0, el.scrollTop + head.getBoundingClientRect().top - el.getBoundingClientRect().top - 8); return; }
+      }
+      roundsSeenRef.current = n;
+      if (busy) el.scrollTop = el.scrollHeight;
+    }, [s.rounds, busy, phaseMsg]);
 
     // 保存补丁：始终基于最新 session 做，避免闭包过期
     const patch = obj => props.onPatch(prev => Object.assign({}, prev, typeof obj === "function" ? obj(prev) : obj, { lastTs: Date.now() }));
@@ -972,7 +988,7 @@
         stage),
       // 正文
       h("div", { ref: feedRef, className: "flex-1 overflow-y-auto px-4 pt-3", style: { paddingBottom: ended ? 24 : 150 } },
-        (s.rounds || []).map((r, ri2) => h("div", { key: ri2 },
+        (s.rounds || []).map((r, ri2) => h("div", { key: ri2, "data-round": ri2 },
           // 回合牌：擂台边上挂的那块数字牌，不是一条 ── 标题 ── 分割线
           h("div", { style: { display: "flex", justifyContent: "center", margin: "8px 0 12px" } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, letterSpacing: 2, color: t.sub, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 4px 4px", padding: "4px 13px 5px", background: t.bg2 } }, "第 " + (ri2 + 1) + " 回合")),
