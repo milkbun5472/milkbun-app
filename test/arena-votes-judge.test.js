@@ -32,7 +32,7 @@ test("理由只认她点名的那四种来路，没理由的票不算", () => {
     { name: "阿檀", for: "周野", why: "觉得帅", reason: "就是帅" }        // 不在四种来路里
   ], voters, targets, {});
   assert.deepEqual(JSON.parse(JSON.stringify(out)), [{ name: "顾朝", for: "沈屿白", why: "friend", reason: "他是我兄弟" }]);
-  ["friend", "value", "moved", "random"].forEach(w => assert.match(dbt, new RegExp("\\b" + w + ": \""), "来路少了 " + w));
+  ["round", "friend", "moved", "random"].forEach(w => assert.match(dbt, new RegExp("\\b" + w + ": \""), "来路少了 " + w));
 });
 
 test("只认场边名单里的人、只能投台上的人；一人一票", () => {

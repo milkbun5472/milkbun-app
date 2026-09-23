@@ -10,11 +10,11 @@ const i = dbt.indexOf("const VOTE_WHY = ");
 vm.runInContext(dbt.slice(i, dbt.indexOf("\n", i)) + "\n" + fn("settleVotes") + "\nthis.settle = settleVotes;", ctx);
 const raw = [{ name: "陆衍", for: "顾暮", why: "moved", reason: "那句戳到我了" }];
 let v = ctx.settle(raw, ["陆衍"], ["顾暮", "沈屿白"], { "陆衍": ["顾暮"] }, []);
-assert.strictEqual(v[0].why, "value", "一直站这边的不是被说动");
+assert.strictEqual(v[0].why, "round", "一直投这个人的不是被说动，记成「这一轮说得好」（v73.314）");
 assert.strictEqual(v[0].reason, "那句戳到我了", "理由照留");
 v = ctx.settle(raw, ["陆衍"], ["顾暮", "沈屿白"], { "陆衍": ["沈屿白"] }, []);
 assert.strictEqual(v[0].why, "moved", "真换了边才是被说动");
-assert(/reason 里点出是哪句话的意思——哪怕说这句的人跟TA不是一边/.test(dbt), "被说动要点出哪句（v73.312 起票跟着这一轮走）");
+assert(/reason 里点出是哪句话的意思，哪怕说这句的人跟TA不是一边/.test(dbt), "被说动要点出哪句（v73.312 起票跟着这一轮走）");
 // 滚动
 assert(/"data-round": ri2/.test(dbt));
 assert(/querySelector\('\[data-round="' \+ \(n - 1\) \+ '"\]'\)/.test(dbt));
