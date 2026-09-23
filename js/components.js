@@ -7916,6 +7916,10 @@ function ChatThread({
   roomFics,        // 这间房放过哪几本同人文（最近的在前）
   roomFicId,       // 现在在聊的是哪一本
   onPickRoomFic,   // 换书
+  roomStudy,       // 这间房收着哪几门课 { here, others, pick }；null＝这间房不摆这一条
+  onPickRoomStudy,
+  onOpenRoomStudy,
+  onMoveRoomStudy,
   onRecall,
   onReroll,
   onReply,
@@ -7984,6 +7988,7 @@ function ChatThread({
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [ficPickOpen, setFicPickOpen] = useState(false);   // 「换书」那张单子展开没有
+  const [studyPickOpen, setStudyPickOpen] = useState(false);   // 「换课」那张单子展开没有
   const pendingFic = room && !room.main && room.actions && room.actions.fanfic && window.ChatRooms
     ? window.ChatRooms.pendingFicInvite(messages, roomFicId) : null;
   const [searchOpen, setSearchOpen] = useState(false);
@@ -8273,6 +8278,36 @@ function ChatThread({
   },
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "走进微光庭院"),
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: "#6b8753" } }, "这间房的存档 ›")),
+  // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
+  // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
+  // 把 TA 别的课收进来、或者拿回主聊天。跟上面「在写」那一条同一个形状。
+  roomStudy ? (function () {
+    const cur = roomStudy.pick;
+    const row = { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 10px", borderRadius: 8, border: "none", minHeight: 34, textAlign: "left", background: "transparent" };
+    const side = { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "8px 6px", background: "transparent", border: "none", flexShrink: 0 };
+    return h("div", { className: "shrink-0 w-full", style: { background: dsp.chatBg ? "rgba(255,255,255,0.35)" : t.bg2, borderBottom: "1px solid " + t.line } },
+      h("div", { className: "w-full flex items-center", style: { padding: "0 16px 0 16px", gap: 7 } },
+        h("button", { onClick: function () { onOpenRoomStudy && onOpenRoomStudy(cur); }, className: "flex items-center active:opacity-60", style: { flex: 1, minWidth: 0, gap: 7, padding: "7px 0", background: "transparent", border: "none", textAlign: "left" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, "在学"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: cur ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cur ? cur.title + " ›" : "这间房还没收课，点这儿开一门 ›")),
+        h("button", { onClick: function () { setStudyPickOpen(function (v) { return !v; }); }, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog, padding: "7px 0 7px 8px", background: "transparent", border: "none" } }, studyPickOpen ? "收起" : "换课 ›")),
+      studyPickOpen ? h("div", { style: { padding: "0 10px 8px", maxHeight: "42vh", overflowY: "auto" } },
+        roomStudy.here.map(function (c) {
+          const on = cur && c.kind === cur.kind && c.id === cur.id;
+          return h("div", { key: c.kind + c.id, className: "flex items-center" },
+            h("button", { onClick: function () { setStudyPickOpen(false); if (!on && onPickRoomStudy) onPickRoomStudy(c); }, className: "active:opacity-60",
+              style: Object.assign({}, row, { flex: 1, minWidth: 0, color: on ? t.accent : t.ink, background: on ? t.bg : "transparent" }) }, (on ? "· " : "") + c.title),
+            h("button", { onClick: function () { requestAppConfirm("拿回主聊天？", "以后这门课在主聊天里上；在这间房里上过的那几节还留在这儿。", function () { onMoveRoomStudy && onMoveRoomStudy(c, false); }, "拿回去", null, { danger: false }); }, className: "active:opacity-60", style: side }, "拿出去"));
+        }),
+        roomStudy.others.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, padding: "8px 10px 2px" } }, "TA 别的课，收进来就在这间房里接着上") : null,
+        roomStudy.others.map(function (c) {
+          return h("div", { key: c.kind + c.id, className: "flex items-center" },
+            h("span", { style: Object.assign({}, row, { flex: 1, minWidth: 0, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }) },
+              c.title, h("span", { style: { fontSize: 10, color: t.fog, marginLeft: 6 } }, "在" + c.where)),
+            h("button", { onClick: function () { requestAppConfirm("收进这间房？", "以后这门课在这间房里上，TA在这儿按这间房的设定记着它；之前上过的那几节还算在原来的地方。", function () { onMoveRoomStudy && onMoveRoomStudy(c, true); }, "收进来", null, { danger: false }); }, className: "active:opacity-60", style: Object.assign({}, side, { color: t.accent }) }, "收进来"));
+        }),
+        h("button", { onClick: function () { setStudyPickOpen(false); onOpenRoomStudy && onOpenRoomStudy(null); }, className: "w-full active:opacity-60", style: Object.assign({}, row, { color: t.accent, display: "block" }) }, "＋ 在这间房新开一门")) : null);
+  })() : null,
   // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）──────────────────
   // 一间房可以放好几本。她当时问的是「讨论了 a 再发 b，想回去聊 a 咋算」——
   // 答案就是这条带子：点一下换回去。a 的设定前情不会丢（那一份每一轮现拼），

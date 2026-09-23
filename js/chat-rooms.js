@@ -184,6 +184,11 @@
       // 这间房是不是庭院房。庭院的世界存档挂在房上（x_fairyGarden::<chatKey>），
       // 所以开几间就有几档，「存档已经切换」那个报错也跟着没了。
       garden: !!src.garden,
+      // 这间房是从哪儿开出来的（她 2026-09-23：「从哪儿开房就要有横幅导回哪儿」）。
+      // 庭院房自己有 garden 那一格；从一起学开的记 "study"，房里那条「在学」横幅就一直在。
+      from: src.from === "study" ? "study" : "",
+      // 那条横幅上此刻亮着哪一门课（她点「换课」挑的）；空＝最近上过的那门
+      studyPick: String(src.studyPick || "").slice(0, 80),
       syncOnce: !!src.syncOnce,
       mainCursorTs: Number(src.mainCursorTs || 0),
       summaryCursorTs: Number(src.summaryCursorTs || 0),

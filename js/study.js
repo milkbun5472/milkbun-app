@@ -824,6 +824,40 @@
     return true;
   }
 
+  // ---- 房间里收着哪几门课（她 2026-09-23：「给 A 开了三个一起学，只有 1、2 我想放进来」）----
+  // 一门课住在哪间房，就是它身上那一戳 roomId（建课时戳的那一格，chat-rooms.js 也照它判写回）。
+  // ⚠️不另存一张「房里有哪几门」的表：那就是同一件事两份，挪了一边另一边不知道。
+  //   认真教/一教一学＝一门课（x_curricula）；一起研究没有课，一张研究纸就是一门（curriculum_id 为空的课页）。
+  function studyCoursesOf(personId) {
+    const pid = String(personId);
+    const hasMe = function (x) { return String(x.teacher_id || "") === pid || (x.character_ids || []).map(String).indexOf(pid) > -1; };
+    const room = function (x) { return String(x.roomId || "main"); };
+    const curs = loadCurricula().filter(function (c) { return c && hasMe(c); }).map(function (c) {
+      return { kind: "cur", id: c.id, title: c.subject || "未命名", mode: c.mode, roomId: room(c), updated: Number(c.updated_at || 0) };
+    });
+    const papers = loadSessions().filter(function (x) { return x && !x.curriculum_id && x.mode === "costudy" && hasMe(x); }).map(function (x) {
+      return { kind: "paper", id: x.id, title: x.subject || x.title || "研究纸", mode: "costudy", roomId: room(x), updated: Number(x.updated_at || 0) };
+    });
+    return curs.concat(papers).sort(function (a, b) { return b.updated - a.updated; });
+  }
+  // 把一门课收进某间房／拿回主聊天。⚠️只挪【以后】：已经上过的课页留在当时那间房里——
+  //   那几节是在那扇门里发生的，事后改戳，等于把「不带出门」那间房里的课翻出来给主线看。
+  //   一起研究的一张纸本身就是一节，没有「以后」可分，整张挪。
+  function setCourseRoom(kind, id, roomId) {
+    const rid = roomId && roomId !== "main" ? String(roomId) : null;
+    if (kind === "cur") {
+      const cur = findCurriculum(id);
+      if (!cur) return false;
+      saveCurriculum(Object.assign({}, cur, { roomId: rid, updated_at: Date.now() }));
+      return true;
+    }
+    const all = loadSessions(), i = all.findIndex(function (x) { return x && x.id === id; });
+    if (i < 0) return false;
+    all[i] = Object.assign({}, all[i], { roomId: rid });
+    saveSessions(all);
+    return true;
+  }
+
   // ---- nv1 轮次导演（§8）：纯本地规则，不为“下一位是谁”额外烧一整次模型 ----
   // 角色真正说什么仍由各自的主池生成；这里只做不涉及声纹/人格的轮次路由。
   function directNv1(_active, session, teacher, peer, ctx) {
@@ -1007,7 +1041,8 @@
     exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
     outlineSlice: outlineSlice, progressText: progressText,
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
-    genFlashcards: genFlashcards, addFlashcards: addFlashcards, removeFlashcard: removeFlashcard
+    genFlashcards: genFlashcards, addFlashcards: addFlashcards, removeFlashcard: removeFlashcard,
+    studyCoursesOf: studyCoursesOf, setCourseRoom: setCourseRoom
   };
 
   // ============================================================
@@ -2314,8 +2349,14 @@
         setOpenId(String(e.sessionId)); setView("thread"); return;
       }
       if (e.mode === "propose") { setTab("teach"); setView("newCurriculum"); }
+      // 从房间那条「在学」横幅点进来：直接落到那门课
+      if (e.mode === "course") {
+        if (e.kind === "cur" && findCurriculum(e.id)) { const c = findCurriculum(e.id); setTab(c.mode || "teach"); setCurId(c.id); setView("console"); }
+        else if (e.kind === "paper" && loadSessions().some(function (s) { return s.id === e.id; })) { setTab("costudy"); setOpenId(e.id); setView("thread"); }
+      }
     }, [props.entry && props.entry.key]);
 
+    function fromRoomAt(id) { const e = props.entry; return !!(e && e.mode === "course" && e.back === "thread" && String(e.id) === String(id)); }
     const sessions = loadSessions();
     const curricula = loadCurricula();
 
@@ -2377,7 +2418,8 @@
         active: props.active, bgActive: props.bgActive, worldbook: props.worldbook, worldbookFor: props.worldbookFor,
         scrollRef: consoleScrollRef,
         onRefresh: refresh, toast: props.toast,
-        onBack: function () { refresh(); setView("home"); restoreHome(); },
+        // 从房里那条「在学」横幅直接落到这门课的：返回一下就回那间房，不先绕一趟一起学首页
+        onBack: function () { refresh(); if (fromRoomAt(cur.id)) return props.onBack(); setView("home"); restoreHome(); },
         onOpenSession: function (id) { rememberConsole(); setOpenId(id); setView("thread"); },
         onNewSession: function (c) { rememberConsole(); setCurId(c.id); setView("newSession"); },
         onDelSession: function (id) {
@@ -2393,7 +2435,7 @@
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
         session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, relFor: props.relFor, toast: props.toast,
-        onBack: function () { refresh(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
+        onBack: function () { refresh(); if (!sess.curriculum_id && fromRoomAt(sess.id)) return props.onBack(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });
     }

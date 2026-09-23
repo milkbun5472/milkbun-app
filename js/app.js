@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.324";
+const APP_VERSION = "v73.325";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -813,6 +813,11 @@ function App() {
   //   而那个 effect 一看见角色变了就把面板关掉——直接 setState 会被它当场清掉。
   //   （和旁边 notificationRoomRef 同一个形状，照同一个写法。）
   const roomPresetIntentRef = useRef("");
+  // 这一间是从哪儿开的（"study"｜""）：建好时戳在房上，房里的横幅照它导回去。
+  // ⚠️只在【带着预设来】那一次认（chatRoomsPreset 非空）：她自己在房间面板里建的房不算从哪儿来。
+  const roomFromRef = useRef("");
+  // 房里「在学」那条横幅：课和房的归属存在课身上（localStorage），React 不知道它变了，推一下才重画
+  const [roomStudyTick, setRoomStudyTick] = useState(0);
   // 进庭院房先看聊天，按了才开存档（她 2026-09-17：「不应该直接打开存档而是一个普通聊天」）。
   // ⚠️和别的 useState 放在一处：那一片 helper 区会被好几条测试单独抽出来跑，
   //   把 hook 写进去，它们一跑就是 useState is not defined。
@@ -2537,8 +2542,10 @@ function App() {
       return null;
     }
   };
-  const createChatRoomFromStart = async draft => {
+  const createChatRoomFromStart = async draft0 => {
     if (!window.ChatRooms) return false;
+    const draft = chatRoomsPreset && roomFromRef.current && draft0 && draft0.room
+      ? { ...draft0, room: { ...draft0.room, from: roomFromRef.current } } : draft0;
     const result = await window.ChatRooms.commitStart(draft, async (key, rows) => {
       const stored = await commitJSONDurable(key, rows);
       return stored.durable && stored.live;
@@ -2570,10 +2577,10 @@ function App() {
         ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
           .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))]) };
   };
-  const openGardenRoomFor = charId => openPresetRoomFor(charId, "garden", "先给这间庭院房定好设定，建好就进去");
+  const openGardenRoomFor = charId => openPresetRoomFor(charId, "garden", "先给这间庭院房定好设定，建好就进去", "");
   // 从别的 app 直接开一间带预设的房（她 2026-09-23：「从一起学也能选择开房间，就跟微光庭院一样」）。
   // ⚠️庭院和一起学走的是同一条：带着预设落到新建那一页，建好就进那间房的聊天。
-  const openPresetRoomFor = async (charId, preset, hint) => {
+  const openPresetRoomFor = async (charId, preset, hint, from) => {
     const Kit = window.ChatRooms;
     if (!Kit || !charId) return null;
     // ⚠️setActiveChar 存的是【角色对象】不是 id（上面那段注释说的就是它）
@@ -2589,6 +2596,7 @@ function App() {
     //   而且这一处永远落后（她 2026-09-18：「我不是说做从游戏开新档也先设置房间设定吗」）。
     //   所以这儿只负责【把她送到那一页】，房间由那一页按她设的建。
     roomPresetIntentRef.current = preset;
+    roomFromRef.current = from || "";
     // ⚠️不切屏：房间面板是画在外壳上的，哪一屏都盖得住。原来这儿先 setScreen("thread")，
     //   于是设定页出来之前先闪一眼主聊天，点了「算了」还被丢在主聊天上——
     //   她是从庭院过来的，取消就该还在庭院里（她 2026-09-18 报的就是这个）。
@@ -23189,6 +23197,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
     onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? () => setGardenOpen(activeRoomId) : null,
+    // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
+    // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
+    roomStudy: (function (_tick) {
+      const K = window.ChatRooms, S = window.Study;
+      const room = K ? K.get(activeChar.id, activeRoomId) : null;
+      if (!room || room.main || !S || !S.studyCoursesOf) return null;
+      if (!(room.from === "study" || (room.actions && room.actions.study))) return null;
+      const roomName = id => id === "main" ? "主聊天" : ((K.list(activeChar.id).find(r => r.id === id) || {}).name || "别的房");
+      const all = S.studyCoursesOf(activeChar.id).map(c => ({ ...c, where: roomName(c.roomId) }));
+      const here = all.filter(c => c.roomId === room.id);
+      return { here, others: all.filter(c => c.roomId !== room.id), pick: (here.find(c => c.kind + ":" + c.id === room.studyPick) || here[0] || null) };
+    })(roomStudyTick),
+    onPickRoomStudy: c => {
+      const K = window.ChatRooms, room = K && K.get(activeChar.id, activeRoomId);
+      if (!room || room.main) return;
+      K.save(activeChar.id, { ...room, studyPick: c.kind + ":" + c.id });
+      setRoomStudyTick(v => v + 1);
+    },
+    onOpenRoomStudy: c => {
+      setStudyEntry(c ? { key: "study_" + Date.now(), mode: "course", kind: c.kind, id: c.id, back: "thread" }
+        : { key: "study_" + Date.now(), mode: "propose", subject: "", characterId: activeChar.id, roomId: activeRoomId, back: "thread" });
+      setScreen("study");
+    },
+    onMoveRoomStudy: (c, inHere) => {
+      if (!window.Study) return;
+      window.Study.setCourseRoom(c.kind, c.id, inHere ? activeRoomId : "main");
+      setRoomStudyTick(v => v + 1);
+      toast(inHere ? "「" + c.title + "」收进这间房了" : "「" + c.title + "」回主聊天了");
+    },
     // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）────────────────
     // 一间房可以放好几本；当前这一本由【最后一次提到的那一本】定，她也可以点着换。
     // ⚠️换书不会把之前聊过的那本冲掉：a 的设定前情是每一轮从 a 身上现拼的，
@@ -24020,8 +24057,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     entry: studyEntry,
     // 「一起做件事」那种房：一起学默认开着，别的开关建房那一页自己拨
-    onNewRoom: charId => openPresetRoomFor(charId, "focused", "先定好这间房的设定，建好就进去"),
-    onBack: () => setScreen("home")
+    onNewRoom: charId => openPresetRoomFor(charId, "focused", "先定好这间房的设定，建好就进去", "study"),
+    // 从房里那条横幅进来的，返回就回那间房
+    onBack: () => { const back = studyEntry && studyEntry.back; setStudyEntry(null); setScreen(back === "thread" ? "thread" : "home"); }
   });else if (screen === "read") body = h(ReadTogether, {
     active: active,
     // 从房间那张卡进来：直接开那一本。用完就清，免得下次进书架又被拽走。
