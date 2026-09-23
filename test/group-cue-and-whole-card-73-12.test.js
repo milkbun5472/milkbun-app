@@ -15,6 +15,9 @@ assert(/\(!gs\.spectate && !asPrivate\)\s*\?\s*"想起 TA 的时候/.test(blk), 
 assert(/催回应、闹委屈的话不要写/.test(blk), "仍然不许催回应");
 const g0 = eng.indexOf("const GROUP_IN_CHARACTER");
 const g = eng.slice(g0, eng.indexOf("`;", g0));
-assert(/不是人设标签提取器/.test(g));
-assert(/换成群里另一个同类型的人/.test(g), "带可判定的那一句");
+assert(/\$\{WHOLE_CARD_RULE\}/.test(g), "群里带整张卡那条");
+const w0 = eng.indexOf("const WHOLE_CARD_RULE");
+const w = eng.slice(w0, eng.indexOf("`;", w0));
+assert(/不是人设标签提取器/.test(w));
+assert(/换成另一个同类型的人/.test(w), "带可判定的那一句");
 console.log("group-cue-and-whole-card-73-12 ok");

@@ -306,6 +306,11 @@
     parts.push(USER_SLOT_PROTECT);
     parts.push(RETEACH_RULE);
     parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+    // 「这个人是谁」这几层一起学原来一层都没有（她 2026-09-23：「一起学之类的人设有被投进去吗」）。
+    //   隔离挡的是【主聊天记忆】；长出来的自我、语气锚、整张卡那条都不是记忆，是人本身，所以照给。
+    if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
+    if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    if (typeof WHOLE_CARD_RULE !== "undefined") parts.push(WHOLE_CARD_RULE);
     if (profile.name || profile.persona)
       parts.push("【和你一起学的人 · " + userName(profile) + "】\n" + (profile.persona || "（未填写）"));
     if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
@@ -1199,7 +1204,9 @@
     const ctx = { worldbook: props.worldbook, profile: props.profile, characters: props.characters };
     function contextFor(char) {
       const recent = (sessRef.current.transcript || []).slice(-16).map(function (m) { return String(m.content || ""); }).join("\n");
+      const me = props.selfFor && char ? props.selfFor(char) : null;
       return Object.assign({}, ctx, {
+        grown: me && me.grown || "", grownEvolve: !!(me && me.evolve),
         worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, recent].filter(Boolean).join("\n")) : props.worldbook
       });
     }
@@ -1817,7 +1824,7 @@
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
-        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, toast: props.toast,
         onBack: function () { refresh(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });
