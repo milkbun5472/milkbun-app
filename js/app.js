@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.21";
+const APP_VERSION = "v73.23";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7443,16 +7443,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //     user 消息的尾巴上】再说一遍——离生成最近的那句才压得住（同 styleTail v55.41）。
   //   两处各写一份就是这个下场，所以新建、消耗、提示语都收进这里（one-public-mechanism）。
   const DIRECTOR_NOTE_TURNS = 2;   // 她 2026-09-21 定：两处都是 2 轮
-  const directorNoteNew = text => {
+  // 长期便签（她 2026-09-23 转群里读者：「导演卡过了两轮之后就立刻失效了……要求他语气软萌一些，
+  //   软萌了两轮，导演卡失效的那一刻他就变得很霸总」）：long:true 不扣轮，整场有效，删了才停。
+  const directorNoteNew = (text, long) => {
     const t = String(text || "").trim();
-    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: DIRECTOR_NOTE_TURNS, createdAt: Date.now() } : null;
+    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: DIRECTOR_NOTE_TURNS, ...(long ? { long: true } : {}), createdAt: Date.now() } : null;
   };
+  const directorNoteAddedToast = long => toast(long ? "已加入长期提示 · 整场有效，删掉才停" : "已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
   // 成功生成之后扣一轮；失败/超时不扣（所以只在生成成功那一处调用）。
   // 字符串是旧版遗留：认下来、只再生效这一轮，然后就地转成对象。
   // 没有可扣的就返回 null——调用方据此决定发不发那句 toast。
   const directorNotesConsume = (notes, sessStartTs) => {
     const list = notes || [];
-    const usedIds = new Set(list.filter(n => n && typeof n === "object" && Number(n.remaining) > 0).map(n => n.id));
+    const usedIds = new Set(list.filter(n => n && typeof n === "object" && !n.long && Number(n.remaining) > 0).map(n => n.id));
     const legacy = list.some(n => typeof n === "string");
     if (!usedIds.size && !legacy) return null;
     const next = list.map(n => {
@@ -7463,11 +7466,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return { next: next, left: left };
   };
   const directorNoteToast = left => toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
-  const offlineAddNote = (scopeKey, note) => {
-    const item = directorNoteNew(note);
+  const offlineAddNote = (scopeKey, note, long) => {
+    const item = directorNoteNew(note, long);
     if (!item) return;
     pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
-    toast("已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
+    directorNoteAddedToast(long);
   };
   const offlineDeleteNote = (scopeKey, noteId) => pOffline(scopeKey, list => list.map(s => !s.endTs
     ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
@@ -8076,11 +8079,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
-  const groupOfflineAddNote = (groupId, note) => {
-    const item = directorNoteNew(note);
+  const groupOfflineAddNote = (groupId, note, long) => {
+    const item = directorNoteNew(note, long);
     if (!item) return;
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
-    toast("已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
+    directorNoteAddedToast(long);
   };
   const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
@@ -25013,7 +25016,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     canShootDuo: offlinePhotoCanDuo(offlineChar),
     onReply: txt => offlineReply(activeOfflineScopeKey, txt),
     onOOC: txt => offlineOOC(activeOfflineScopeKey, txt),
-    onAddNote: n => offlineAddNote(activeOfflineScopeKey, n),
+    onAddNote: (n, long) => offlineAddNote(activeOfflineScopeKey, n, long),
     onDeleteNote: id => offlineDeleteNote(activeOfflineScopeKey, id),
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
@@ -25043,7 +25046,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onShoot: () => groupOfflineShotNow(offlineGroup.id),
     canShoot: groupOfflineCanShoot(offlineGroup),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
-    onAddNote: n => groupOfflineAddNote(offlineGroup.id, n),
+    onAddNote: (n, long) => groupOfflineAddNote(offlineGroup.id, n, long),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },

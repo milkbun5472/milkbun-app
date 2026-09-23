@@ -12639,14 +12639,15 @@ function DirectorNotesPanel({ t, notes, onDeleteNote }) {
   const list = notes || [];
   if (!list.length) return null;
   return h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: 150, overflowY: "auto" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 7 } }, "短期导演便签 · 固定显示"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 7 } }, "导演便签 · 固定显示"),
     list.map((n, i) => {
       const item = typeof n === "string" ? { text: n, remaining: 1 } : n;
-      const left = Math.max(0, Number(item && item.remaining) || 0);
+      const isLong = !!(item && item.long);
+      const left = isLong ? 1 : Math.max(0, Number(item && item.remaining) || 0);
       return h("div", { key: (item && item.id) || i, className: "flex items-start gap-2", style: { padding: "6px 0", borderTop: i ? "1px solid " + t.line : "none", opacity: left ? 1 : 0.46 } },
         h("div", { className: "flex-1" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap" } }, item.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, isLong ? "长期 · 整场有效，删掉才停" : left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
         onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
 }
@@ -13059,8 +13060,8 @@ function OfflineMode({
   };
   const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "offline",
     onSent: () => { setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false); } });
-  const saveNote = () => {
-    if (note.trim()) onAddNote(note.trim());
+  const saveNote = long => {
+    if (note.trim()) onAddNote(note.trim(), !!long);
     setNote("");
     setNoteOpen(false);
   };
@@ -13192,9 +13193,12 @@ function OfflineMode({
       h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }))),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。「只管这两轮」用两次就停，「整场都算」一直有效到你删掉。"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 你其实在生气 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
-      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入提示"),
+      // 两轮的照旧；长期的整场有效、删掉才停（她 2026-09-23：「除了两轮的再搞个长期的」）
+      h("div", { className: "flex gap-2" },
+        h("button", { onClick: () => saveNote(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "只管这两轮"),
+        h("button", { onClick: () => saveNote(true), className: "flex-1 py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, "整场都算")),
       onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过 " + cName + "，直接跟演 Ta 的那位说：让它改写这一拍、问问状态，或者立一条以后都算数的规矩。"),
@@ -13567,8 +13571,8 @@ function GroupOfflineMode({
   };
   const sendPhoto = useOfflinePhotoSend({ photoImg, photoDesc, sending, onSendPhoto, source: "group-offline",
     onSent: () => { setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false); } });
-  const saveNote = () => {
-    if (note.trim()) onAddNote(note.trim());
+  const saveNote = long => {
+    if (note.trim()) onAddNote(note.trim(), !!long);
     setNote("");
     setNoteOpen(false);
   };
@@ -13726,8 +13730,11 @@ function GroupOfflineMode({
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, "保存后影响接下来 2 次成功演绎；失败不扣，用完会留档但不再注入。"),
-      h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入未来 2 轮"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, "「只管这两轮」影响接下来 2 次成功演绎，「整场都算」一直有效到你删掉；失败不扣，用完会留档但不再注入。"),
+      // 两轮的照旧；长期的整场有效、删掉才停（她 2026-09-23：「除了两轮的再搞个长期的」）
+      h("div", { className: "flex gap-2" },
+        h("button", { onClick: () => saveNote(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "只管这两轮"),
+        h("button", { onClick: () => saveNote(true), className: "flex-1 py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, "整场都算")),
       onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过在场所有人，直接跟演他们的那位说：让它改写这一拍，或者问问状态。"),

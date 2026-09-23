@@ -6284,7 +6284,7 @@ async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: char.name });
-  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
+  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && (n.long || Number(n.remaining) > 0) ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
@@ -6885,7 +6885,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const gRotateLine = rotateSpeakersNote(members, session.msgs);
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
-  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
+  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && (n.long || Number(n.remaining) > 0) ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName }, "groupOffline");
   // 预算按【真角色】人数分：配角不参与平分，也别把主角色的额度吃掉
