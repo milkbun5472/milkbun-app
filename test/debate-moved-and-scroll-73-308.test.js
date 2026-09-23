@@ -14,7 +14,7 @@ assert.strictEqual(v[0].why, "value", "一直站这边的不是被说动");
 assert.strictEqual(v[0].reason, "那句戳到我了", "理由照留");
 v = ctx.settle(raw, ["陆衍"], ["顾暮", "沈屿白"], { "陆衍": ["沈屿白"] }, []);
 assert.strictEqual(v[0].why, "moved", "真换了边才是被说动");
-assert(/让TA【换了边】/.test(dbt) && /本来就站这边的，不算被说动/.test(dbt));
+assert(/reason 里点出是哪句话的意思——哪怕说这句的人跟TA不是一边/.test(dbt), "被说动要点出哪句（v73.312 起票跟着这一轮走）");
 // 滚动
 assert(/"data-round": ri2/.test(dbt));
 assert(/querySelector\('\[data-round="' \+ \(n - 1\) \+ '"\]'\)/.test(dbt));
