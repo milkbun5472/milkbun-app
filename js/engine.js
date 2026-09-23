@@ -5269,6 +5269,39 @@ async function imgVaultFetchBlob(ref) {
   try { const u = _imgCache().get(ref); if (u) return await (await fetch(u)).blob(); } catch (e) {}
   return null;
 }
+// 消息上挂着的真照片（_imageRefs：iv_ 引用或 data:）→ 临时展开成 callAI 认的 imageDataUrls。
+// 只附最近 budget 张（默认 2），旧照片别反复吞上下文和流量；聊天记录本身仍只存 iv_ 小引用。
+// 读图失败保留文字标记，绝不让整轮崩掉。
+// ⚠️这一段原来【只写在主聊天里】（app.js）；一起学也要发图（她 2026-09-23），第二处照抄就是两份
+//   「吞图案」修法——那几次（2026-08-13 扇贝照、08-14 龙虾照）修的就是这一段，所以收成一份。
+async function expandMessageImages(msgs, budget) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  const cap = budget || 2, want = [];
+  for (let i = list.length - 1; i >= 0 && want.length < cap; i--) {
+    const refs = Array.isArray(list[i] && list[i]._imageRefs) ? list[i]._imageRefs : [];
+    for (let j = refs.length - 1; j >= 0 && want.length < cap; j--) want.push(refs[j]);
+  }
+  const allowed = new Set(want);
+  return Promise.all(list.map(async m => {
+    const { _imageRefs, ...rest } = m || {};
+    const imageDataUrls = [];
+    for (const ref of (Array.isArray(_imageRefs) ? _imageRefs : [])) {
+      if (!allowed.has(ref)) continue;
+      try {
+        if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
+        else if (String(ref).indexOf("iv_") === 0) {
+          // 吞图案根治(单11):IDB+内存缓存双路取图,仓库写后立读装聋也拿得到本会话新图;
+          // 仍留一拍重试兜跨会话冷读
+          let blob = await imgVaultFetchBlob(ref);
+          if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
+          if (blob) imageDataUrls.push(await blobToDataUrl(blob));
+          else console.warn("[img] vault miss after retries:", ref);
+        }
+      } catch (e) { console.warn("[img] expand failed:", ref, e); }
+    }
+    return { ...rest, ...(imageDataUrls.length ? { imageDataUrls } : {}) };
+  }));
+}
 // 从叙事散文里只抠出【引号内的台词】，旁白/动作/心理全丢——线下、同人文这类「一大段旁白+偶尔一句台词」的语音只念角色真正说出口的话。
 // 支持中文「」『』、全角“”、直角双引号 "。多句台词按换行拼接（让 TTS 自然停顿）。整段没引号台词就返回空串（调用方据此不显示 ▶）。
 // 一段叙事里哪几段是【台词】：返回 [{start,end,inner}]（start/end 含引号本身）。

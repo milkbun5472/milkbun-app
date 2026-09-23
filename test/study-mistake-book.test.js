@@ -14,11 +14,14 @@ function harness(seed) {
   const ctx = { Date, Math, JSON, Number, String, Array, Object,
     loadCurricula: () => JSON.parse(JSON.stringify(store)), saveCurricula: a => { store = JSON.parse(JSON.stringify(a)); } };
   vm.createContext(ctx);
-  vm.runInContext("const DAY_MS = 86400000;\n" + ["updateCurriculumReview", "inMistakeBook", "mistakeBookItems", "removeFromMistakeBook", "quizAnswerText", "mistakeBookText", "progressText"].map(fn).join("\n")
-    + "\nthis.rev = updateCurriculumReview; this.items = mistakeBookItems; this.drop = removeFromMistakeBook; this.text = mistakeBookText; this.prog = progressText;", ctx);
+  const rd = src.slice(src.indexOf("const REVIEW_DAYS = "), src.indexOf("\n", src.indexOf("const REVIEW_DAYS = ")));
+  vm.runInContext("const DAY_MS = 86400000;\n" + rd + "\n" + ["updateCurriculumReview", "inMistakeBook", "mistakeBookItems", "removeFromMistakeBook", "quizAnswerText", "mistakeBookText", "progressText", "dueReviewItems", "upcomingReviewDays", "reviewStageText"].map(fn).join("\n")
+    + "\nthis.rev = updateCurriculumReview; this.items = mistakeBookItems; this.drop = removeFromMistakeBook; this.text = mistakeBookText; this.prog = progressText;"
+    + "this.due = dueReviewItems; this.upcoming = upcomingReviewDays; this.stageText = reviewStageText; this.DAYS = REVIEW_DAYS;", ctx);
   ctx.cur = () => store[0];
   return ctx;
 }
+const H0 = () => harness();
 const Q = { type: "fill_blank", prompt: "「食べる」的て形是？", pointId: "te", answer: "食べて", options: [] };
 const sess = { id: "s1" };
 
@@ -104,4 +107,66 @@ test("错题本是课程里的一整页；重做答对不自动移走；移出�
   assert.match(mb, /做对了——要不要移出错题本，你来定/);
   assert.doesNotMatch(mb.slice(mb.indexOf("async function answer("), mb.indexOf("function drop(")), /removeFromMistakeBook/, "重做答对就自动移走了");
   assert.match(mb, /requestAppConfirm\("移出错题本？"/);
+});
+
+
+// ── 第二轮（她 2026-09-23）：「提示才对的也加进来吧，然后想要内置艾宾浩斯曲线提示哪些该复习了」──
+test("靠提示才做对的也进错题本；独立做对的不进", () => {
+  const H = harness();
+  H.rev("c1", sess, Q, { result: "correct", support: "hinted", confidence: "sure", ts: 1000, answer: "食べて" });
+  const it = H.items(H.cur());
+  assert.equal(it.length, 1, "靠提示才做对的没进来");
+  assert.equal(it[0].hintedCount, 1);
+  assert.equal(it[0].wrongCount, 0, "靠提示做对的不该算「错过」");
+  const H2 = harness();
+  H2.rev("c1", sess, Q, { result: "correct", support: "none", confidence: "sure", ts: 1000, answer: "食べて" });
+  assert.equal(H2.items(H2.cur()).length, 0);
+  // 老卡：上一次是靠提示的也算
+  const H3 = harness([{ id: "c1", memory: { review_items: [{ key: "h", prompt: "p", lastResult: "correct", lastSupport: "hinted" }] } }]);
+  assert.equal(H3.items(H3.cur()).length, 1);
+});
+
+test("艾宾浩斯那条线：记住一次往后挪一格，一直挪到一个月；错了或靠提示当天 4 小时后再来", () => {
+  assert.deepEqual(Array.from(H0().DAYS), [1, 2, 4, 7, 15, 30]);
+  const H = harness();
+  const R = Object.assign({ isReview: true, reviewKey: "te" }, Q);
+  H.rev("c1", sess, Q, { result: "correct", support: "none", confidence: "sure", ts: 0, answer: "a" });
+  let gaps = [H.cur().memory.review_items[0].nextReviewAt / 86400000];
+  for (let k = 0; k < 7; k++) {
+    H.rev("c1", sess, R, { result: "correct", support: "none", confidence: "sure", ts: 0, answer: "a" });
+    gaps.push(H.cur().memory.review_items[0].nextReviewAt / 86400000);
+  }
+  assert.deepEqual(gaps, [1, 2, 4, 7, 15, 30, 30, 30], "曲线不对，或者到顶之后又往回掉了");
+  H.rev("c1", sess, R, { result: "correct", support: "hinted", confidence: "sure", ts: 0, answer: "a" });
+  assert.equal(H.cur().memory.review_items[0].nextReviewAt, 4 * 3600000, "靠提示做对还当成记住了");
+});
+
+test("该复习了：到点的按最早到期排；往后几天各几道；卡上看得见走到第几格", () => {
+  const now = Date.UTC(2026, 8, 23, 4);
+  const H = harness([{ id: "c1", memory: { review_items: [
+    { key: "a", nextReviewAt: now - 1000, stage: 0 }, { key: "b", nextReviewAt: now - 9000, stage: 2 },
+    { key: "c", nextReviewAt: now + 86400000 * 1.5, stage: 1 }, { key: "d", nextReviewAt: now + 86400000 * 3.2, stage: 3 }] } }]);
+  assert.deepEqual(Array.from(H.due(H.cur(), now)).map(x => x.key), ["b", "a"]);
+  const up = Array.from(H.upcoming(H.cur(), now, 7)).map(x => x.count);
+  assert.equal(up.reduce((a, b) => a + b, 0), 2, "往后几天的道数不对");
+  const st = H.stageText({ stage: 2, nextReviewAt: now + 3 * 86400000 }, now);
+  assert.equal(st.filled, 3); assert.equal(st.total, 6); assert.equal(st.when, "3 天后复习");
+  assert.equal(H.stageText({ stage: -1, nextReviewAt: now - 1 }, now).when, "现在该复习了");
+});
+
+test("入口：课程页「该复习了 · N 道到点了」、课程列表上也挂着；复习页不给「移出」", () => {
+  assert.match(src, /dueNow \? dueNow \+ " 道到点了 ›" : "现在没有到点的 ›"/);
+  assert.match(src, /dueReviewItems\(c\)\.length \+ " 道该复习了"/);
+  assert.match(src, /if \(bookOpen\) return h\(MistakeBook, \{ mode: bookOpen,/);
+  assert.match(src, /due \? null : h\("button", \{ onClick: function \(\) \{ drop\(x\); \}/);
+});
+
+test("一起学可以发图：图进图库、课页只存引用；出话时临时展开给老师和同学看（公共那一份）", () => {
+  assert.match(src, /const data = await resizeImageFile\(file, 1600, 0\.86\);/);
+  assert.match(src, /pushEntry\(\{ id: "u_" \+ Date\.now\(\), role: "user", content: txt, imageRef: ref, ts: Date\.now\(\) \}\);/);
+  assert.match(src, /last\._imageRefs = \(last\._imageRefs \|\| \[\]\)\.concat\(\[m\.imageRef\]\)/);
+  assert.equal((src.match(/const msgs = await withImages\(toMessages\(/g) || []).length, 2, "单老师和老师+同学两条路都要看得到图");
+  assert.match(src, /expandMessageImages\(msgs, 2\)/);
+  assert.match(src, /h\(ICamera, \{ size: 18, color: accent \}\)/);
+  assert.match(src, /m\.imageRef \? h\("img", \{ src: typeof resolveImg === "function" \? resolveImg\(m\.imageRef\)/);
 });

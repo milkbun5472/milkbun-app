@@ -40,10 +40,15 @@ test("真照片只把 iv_ 引用写进聊天，像素住 IndexedDB", () => {
 });
 
 test("模型调用只临时展开最近两张真照片", () => {
-  assert.match(app, /imageBudget\.length < 2/);
-  assert.match(app, /await imgVaultFetchBlob\(ref\)/);
-  assert.match(app, /await blobToDataUrl\(blob\)/);
-  assert.match(app, /\{ imageDataUrls \}/);
+  // v73.322 这一段收成了 engine.js 的公共 expandMessageImages（一起学发图也走它）
+  const i = engine.indexOf("async function expandMessageImages("), j = engine.indexOf("\n}\n", i);
+  assert.ok(i > 0 && j > i, "公共那一份不见了");
+  const ex = engine.slice(i, j);
+  assert.match(ex, /const cap = budget \|\| 2/);
+  assert.match(ex, /await imgVaultFetchBlob\(ref\)/);
+  assert.match(ex, /await blobToDataUrl\(blob\)/);
+  assert.match(ex, /\{ imageDataUrls \}/);
+  assert.match(app, /const aiMessages = await expandMessageImages\(g\.map\(m => \(\{ role: m\.role, content: m\.content, _imageRefs: m\._imageRefs \}\)\), 2\);/);
   assert.match(app, /真实照片已作为视觉输入附在本条消息上/);
 });
 

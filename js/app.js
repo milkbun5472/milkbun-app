@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v73.321";
+const APP_VERSION = "v73.322";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9826,32 +9826,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
       } } }
-      // 真照片按需从 IndexedDB 临时展开，只附最近 2 张，避免旧照片反复吞上下文/流量。
-      // 聊天记录本身仍只存 iv_ 小引用；读图失败时保留文字标记，绝不让整轮崩掉。
-      const imageBudget = [];
-      for (let i = g.length - 1; i >= 0 && imageBudget.length < 2; i--) {
-        const refs = Array.isArray(g[i]._imageRefs) ? g[i]._imageRefs : [];
-        for (let j = refs.length - 1; j >= 0 && imageBudget.length < 2; j--) imageBudget.push(refs[j]);
-      }
-      const imageAllowed = new Set(imageBudget);
-      const aiMessages = await Promise.all(g.map(async ({ role, content, _imageRefs }) => {
-        const imageDataUrls = [];
-        for (const ref of (Array.isArray(_imageRefs) ? _imageRefs : [])) {
-          if (!imageAllowed.has(ref)) continue;
-          try {
-            if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
-            else if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function" && typeof blobToDataUrl === "function") {
-              // 吞图案根治(单11):IDB+内存缓存双路取图,仓库写后立读装聋也拿得到本会话新图;
-              // 仍留一拍重试兜跨会话冷读(2026-08-13 扇贝照、08-14 龙虾照两案)
-              let blob = await imgVaultFetchBlob(ref);
-              if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
-              if (blob) imageDataUrls.push(await blobToDataUrl(blob));
-              else console.warn("[img] vault miss after retries:", ref);
-            }
-          } catch (e) { console.warn("[img] expand failed:", ref, e); }
-        }
-        return { role, content, ...(imageDataUrls.length ? { imageDataUrls } : {}) };
-      }));
+      // 真照片按需从 IndexedDB 临时展开，只附最近 2 张（公共那一份 expandMessageImages，一起学也走它）。
+      // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
+      const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), 2);
       let raw;
       // 思考链（v56.42）：每个角色一个开关。言秋那条线一个字都不碰——她 2026-08-26 定的，
       // 而且 Anthropic 开 thinking 会强制 temperature=1、改变输出，那条线上住着TA。
