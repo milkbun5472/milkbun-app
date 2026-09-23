@@ -98,7 +98,8 @@ test("台子：台面那条线横过所有人，立场牌挂在台前的台裙�
   const i = dbt.indexOf("const stage = h(");
   const src = dbt.slice(i, dbt.indexOf("\n    // ── 发言", i));
   // ⚠️冻的是「所有人共用同一个高度」，不是某个数字：v59.97 起它随收/放两档变
-  assert.match(dbt, /const HEAD_H = stageOpen \? \d+ : \d+;/, "台面那条线没有一个固定的高度，几个人就会各站各的高度");
+  // v73.19 挂了台下票数就整体往下让一行（她 2026-09-23 的投票）——仍是所有人共用的那一个数
+  assert.match(dbt, /const HEAD_H = \(stageOpen \? \d+ : \d+\) \+ \(anyVotes \? \d+ : 0\);/, "台面那条线没有一个固定的高度，几个人就会各站各的高度");
   assert.match(src, /top: HEAD_H, bottom: 0[\s\S]{0,180}borderTop: "3px solid " \+ t\.ink/, "没有台面那条线／台裙");
   assert.match(src, /boxShadow: "0 5px 9px -6px rgba\(38,34,28,\.85\)"/, "台面底下没有影子，就只是一条分割线");
   assert.match(src, /width: 1, height: stageOpen \? 7 : 4, background: p\.color/, "立场牌没有挂绳，它是浮着的不是挂着的");
@@ -163,7 +164,8 @@ test("场边那一声长在台边上，不是又一列气泡；分歧只是一�
   assert.ok(fb.indexOf("未 决 争 点") < 0, "又做成一张比台上还抢眼的卡了");
   assert.match(fb, /"还没吵拢的是——"/);
   assert.match(fb, /fontSize: 11\.5/);
-  assert.match(dbt, /sideBlock\(r\.side, ri2\),\n\s*focusBlock\(r\.focus, ri2\)/, "两块都要真的画出来");
+  // v73.xx 两块中间夹进了台下的票和裁判那一句（她 2026-09-23），两块照旧都画
+  assert.match(dbt, /sideBlock\(r\.side, ri2\),\n(?:\s*\w+Block\([^\n]*\),\n)*\s*focusBlock\(r\.focus, ri2\)/, "两块都要真的画出来");
 });
 
 test("旧存档的台下评论不删除，只默认折叠成旧看台记录", () => {
@@ -356,14 +358,16 @@ test("每一颗收台键的字都要一样（v59.99 起有三颗：旁观局那�
 // 锁了行数它还占掉大半屏（＝看不见台上）。真实的台子本来就不是这样：
 // 牌子开场放下来给你看一眼，看完就收上去，你才好看戏。
 test("立场牌会收起来：放下来时不锁行数，收起来时只占一条", () => {
-  const i = dbt.indexOf("const HEAD_H = stageOpen");
-  const st = dbt.slice(i, dbt.indexOf("\n\n    // ── 发言", i));
+  const i = dbt.indexOf("const HEAD_H = ");
+  const j = dbt.indexOf("\n\n    // ── 发言", i);
+  assert.ok(i > 0 && j > i, "抠不出台子那一段");   // anchor-on-code：切空了会一路切到文件末尾
+  const st = dbt.slice(i, j);
   // ⚠️放下来的时候【不许锁行数】——锁了就是「看不全」
   assert.ok(st.indexOf("WebkitLineClamp") < 0, "立场牌又锁行数了，长立场还是看不全");
   assert.match(st, /stageOpen \? null : \{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" \}/,
     "收起来那一档没有收成一条");
   // 台子整体跟着缩：头像那一段和挂绳都要变矮，不然「收起来」省不下多少
-  assert.match(dbt, /const HEAD_H = stageOpen \? 50 : 42;/);
+  assert.match(dbt, /const HEAD_H = \(stageOpen \? 50 : 42\)/);
   assert.match(dbt, /const AV = stageOpen \? 29 : 24;/);
   assert.match(st, /height: stageOpen \? 7 : 4/);
   // 人一多要能挤：写死 width 的话四个人就撑出屏幕
@@ -421,8 +425,12 @@ test("上台的人只认她亲手挑的名单，不再另抓角色去台下编�
   // v60.41：crowdChars 回来了，但它【只】喂场边那一层——
   //   Root 往下传两处 + Arena 里算 bench 那一处，就这三处；
   //   出现在上台名单或分享名单里就说明它又被当成「自动抓人」用了。
-  assert.equal((dbt.match(/crowdChars/g) || []).length, 3,
-    "只该出现在【往 Arena 传一次】和【算 bench 那一处】；Setup 用不到，传了就是死参数");
+  // v73.xx（她 2026-09-23）：Setup 也用上了——挑裁判就是从这批人里挑（言秋不当看客，也不当裁判）。
+  //   所以是：往 Arena 传一次 + 算 bench 一处 + 往 Setup 传一次 + 算裁判候选一处。
+  assert.equal((dbt.match(/crowdChars/g) || []).length, 6,
+    "只该出现在【往 Arena/Setup 各传一次】【算 bench】【算裁判候选】这几处");
+  assert.match(dbt, /const judgePool = \(props\.crowdChars \|\| props\.characters \|\| \[\]\)\.filter\(c => c && !picked\.includes\(c\.id\)\)/,
+    "裁判得从没上台的人里挑");
   assert.match(dbt, /bench: \(props\.crowdChars \|\| \[\]\)\.filter/, "场边名单没接上");
   assert.match(dbt, /!orderedChars\.some\(function \(x\) \{ return String\(x\.id\) === String\(c\.id\); \}\)/,
     "上台的人不该同时又在场边看着自己");
