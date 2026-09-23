@@ -226,6 +226,6 @@ test("论坛点赞与收藏跨刷新保留，收藏有独立时间线", () => {
   assert.match(screens, /localStorage\.setItem\("x_forumLikes"/);
   assert.match(screens, /localStorage\.setItem\("x_forumBookmarks"/);
   assert.match(screens, /tab === "收藏".*bookmarked\.has\(p\.id\)/s);
-  assert.match(screens, /\[\.\.\.FORUM_BOARDS, "关注", "收藏"\]/);
+  assert.match(screens, /\[\.\.\.forumBoardsAll\(\), "关注", "收藏"\]/);   // v73.2x 她开的吧也在这一排
   assert.match(screens, /tab === "收藏" \|\| tab === "关注"/);
 });

@@ -70,15 +70,20 @@ test("口吻是给出口不给判决，不是纪律", () => {
 
 test("吧规那一行永远只有一行高，点开是垂下来的小纸条、不是半窗", () => {
   // 她 2026-09-15：「吧规叠着太占地方了嘤」「我们不要半窗」。
-  const i = screens.indexOf('(!inSub && nav === "home" && FORUM_BOARD_RULES[tab])');
+  // v73.2x 她开的吧也走这一条横杠：条件从 FORUM_BOARD_RULES[tab] 换成 boardRules（写死的吧规，或她写的简介）
+  const i = screens.indexOf('(!inSub && nav === "home" && boardRules)');
   assert.ok(i > 0, "版块页顶上没有吧规——规矩只喂给模型、她自己看不见，等于没挂出来");
-  const bar = screens.slice(i, i + 1800);
+  // ⚠️切到下一样东西（排序那三张便笺）为止，不按字数切：v73.2x 横杠上多了一颗「拆吧」，
+  //   按 1800 字切就把垂下来的那张纸条切没了（anchor-on-code.md）
+  const j = screens.indexOf('[["active", "正在聊"]', i);
+  assert.ok(j > i, "抠不出吧规那一段");
+  const bar = screens.slice(i, j);
   assert.match(bar, /height: 26/, "那一行得是钉死的高度，不然展开时又会把帖子顶下去");
   assert.match(bar, /position: "absolute", top: "100%"/,
     "三条得浮在帖子上面；一旦回到文档流里，展开就又把帖子往下推了");
   assert.ok(bar.indexOf("h(Sheet") < 0,
     "吧规又被改成半窗了——三条规矩糊掉半个屏幕（施工规则/no-half-sheet.md，她也当场说过不要）");
-  assert.match(bar, /FORUM_BOARD_RULES\[tab\]\[0\]/, "横杠上该只露第一条");
+  assert.match(bar, /boardRules\[0\]/, "横杠上该只露第一条");
   assert.match(bar, /forumBoardSkin\(tab\)/, "不跟着吧换识别色，六个吧看起来是同一条");
   // 纸条上只有规矩本身；「常年挂在置顶/多数人根本不提」那两句是写给模型看的，不是给她看的
   const note = bar.slice(bar.indexOf('top: "100%"'));

@@ -113,8 +113,11 @@ test("清空那颗长在吧规横杠上，不在滚动列表里", () => {
   assert.equal((screens.match(/onClearBoard\(tab\)/g) || []).length, 1, "该只有一个入口");
   // 横杠整条只在真版块上渲染（FORUM_BOARD_RULES 没有「关注」「收藏」这两个键），
   // 所以清空那颗也就天然不会出现在那两个视图上。
-  assert.ok(/nav === "home" && FORUM_BOARD_RULES\[tab\]\) && h\("div"/.test(screens),
+  // v73.2x 她开的吧也走这一条横杠（boardRules：写死的吧规，或她写的简介）——
+  //   「关注」「收藏」既不在吧规表里、也开不成吧（吧名一律以「吧」结尾），所以照旧不出现
+  assert.ok(/nav === "home" && boardRules\) && h\("div"/.test(screens),
     "横杠的渲染条件变了——清空那颗可能漏到「关注」「收藏」上");
+  assert.match(screens, /const boardRules = FORUM_BOARD_RULES\[tab\] \|\| \(myBoardNow \? \[/);
   assert.ok(!/FORUM_BOARD_RULES = \{[^}]*关注/.test(screens), "吧规表里多了「关注」，清空会跟着漏出去");
   // 吧规和清空是两颗并排的兄弟按钮：套在一起点哪儿都会展开吧规
   assert.ok(/onClick: \(\) => setRulesOpen\(!rulesOpen\), className: "flex-1 min-w-0/.test(screens),
