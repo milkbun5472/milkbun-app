@@ -18,8 +18,8 @@
       "seat_user"
     ],
     "vertices": 62600,
-    "triangles": 58274,
-    "calls": 235
+    "triangles": 58276,
+    "calls": 236
   },
   "desktop": [
     1280,
@@ -29,9 +29,9 @@
     390,
     844
   ],
-  "views": 4,
+  "views": 5,
   "shellToggle": true,
-  "nightToggle": true,
+  "nightLighting": true,
   "drag": true,
   "horizontalOverflow": false,
   "errors": [],

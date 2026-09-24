@@ -2,20 +2,29 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>双人卧铺 · 列车模型</title>
+<title>双人卧铺 · 流动的窗景</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;height:100%;color:#303c34;background:#eee8dc;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}body{height:100dvh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 65% 30%,#f8f4e9,#e8dfcf)}header{padding:calc(env(safe-area-inset-top) + 12px) 20px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #304c3a18;flex-shrink:0}h1{font-size:16px;letter-spacing:.08em;margin:0}header span{font-size:12px;color:#6c756b}main{display:flex;min-height:0;flex:1}#stage{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}canvas{display:block;width:100%;height:100%;touch-action:none}#status{position:absolute;bottom:14px;left:16px;right:16px;color:#647264;font-size:12px;pointer-events:none;text-align:center}.badge{position:absolute;top:18px;left:20px;font-size:11px;color:#6e786a;letter-spacing:.12em;pointer-events:none}aside{width:255px;flex-shrink:0;overflow:auto;padding:24px 20px;border-left:1px solid #304c3a18;background:#f8f5ed80}h2{font-size:13px;margin:0 0 12px}p{font-size:12px;line-height:1.9;color:#6a7267;margin:10px 0 20px}.views{display:grid;grid-template-columns:1fr 1fr;gap:8px}button,a.download{border:1px solid #55644830;border-radius:8px;background:#fff9;color:#344c3d;min-height:38px;padding:8px 10px;font:inherit;font-size:12px;cursor:pointer;text-align:center;text-decoration:none}button:hover,a.download:hover{background:#fff}button[aria-pressed=true]{background:#365443;color:#fff;border-color:#365443}.row{display:flex;align-items:center;gap:8px;margin:16px 0;font-size:12px}.row input{accent-color:#365443}input[type=range]{width:100%;accent-color:#365443}hr{border:0;border-top:1px solid #304c3a18;margin:22px 0}.downloads{display:flex;gap:6px}.downloads a{flex:1}footer{display:flex;justify-content:space-between;font-size:11px;color:#788071;padding:9px 20px calc(9px + env(safe-area-inset-bottom)*.4);flex-shrink:0;border-top:1px solid #304c3a18}.error{color:#a23d31!important}@media(max-width:650px){header{padding-left:14px;padding-right:14px}header span{font-size:10px}main{flex-direction:column}aside{width:100%;max-height:210px;padding:12px 14px;border-left:0;border-top:1px solid #304c3a18}.views{grid-template-columns:repeat(4,1fr)}aside h2,aside p,aside hr,.downloads{display:none}.row{display:inline-flex;margin:12px 14px 8px 0}.zoom{display:flex;gap:12px;align-items:center}.zoom label{font-size:12px;white-space:nowrap}#status{font-size:11px;bottom:8px}.badge{top:12px;left:14px}footer{padding-left:14px;padding-right:14px;font-size:10px}}
+
+.environment{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 15px}.environment label,.time-control label{font-size:12px;color:#596859}.environment select{display:block;width:100%;margin-top:7px;border:1px solid #55644830;border-radius:7px;background:#faf8f0;color:#344c3d;padding:9px 6px;font:inherit;min-height:36px}.time-control label{display:flex;justify-content:space-between;align-items:center}.time-control input{margin:10px 0 3px}.time-marks{display:flex;justify-content:space-between;font-size:10px;color:#8a8f80}.journey-actions{display:flex;align-items:center;gap:14px;margin:12px 0}.journey-actions .row{margin:0}.journey-actions button{min-width:94px}.shell-control{margin-top:6px}.views button:last-child{grid-column:1/-1}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #9d8553;outline-offset:2px}
+@media(max-width:650px){aside{max-height:280px;padding-top:10px;padding-bottom:10px}.views{grid-template-columns:repeat(5,1fr);gap:5px}.views button{padding:7px 3px;min-height:34px}.views button:last-child{grid-column:auto}.environment{margin:10px 0;gap:12px}.environment label{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:11px}.environment select{margin:0;min-width:0;padding:6px 3px;font-size:11px;min-height:32px}.time-control input{margin-top:4px}.time-marks{font-size:9px}.journey-actions{margin:9px 0 0;display:inline-flex}.journey-actions button{min-height:32px;font-size:11px;min-width:82px;padding:6px}.shell-control{font-size:10px;margin:0 0 0 9px}.zoom{margin-top:8px}.zoom input{margin:0}.time-control label{font-size:11px}}
 </style>
 <script type="importmap">{"imports":{"three":"../../apps/fairy-garden/vendor/three.module.js"}}</script>
 </head>
 <body>
-<header><h1>双人卧铺</h1><span>列车模型 · 第一稿</span></header>
-<main><div id="stage"><div class="badge">暖木 · 织物 · 黄铜</div><div id="status" role="status">正在载入车厢…</div></div>
-<aside><h2>一节可以慢慢待着的车厢</h2><p>两张卧铺、面对面的软座、一整扇风景窗。留空的绿绒桌面，等一张旅行中的拼图。</p>
-<div class="views"><button data-view="overview" aria-pressed="true">看全景</button><button data-view="table" aria-pressed="false">拼图桌</button><button data-view="berths" aria-pressed="false">看卧铺</button><button data-view="top" aria-pressed="false">看布局</button></div>
-<label class="row"><input id="shell" type="checkbox">合上车厢外壳</label><label class="row"><input id="night" type="checkbox">暖灯夜色</label>
+<header><h1>双人卧铺</h1><span>列车窗景 · 晨昏晴雪</span></header>
+<main><div id="stage"><div class="badge" id="journey-label">林间山谷 · 晴天</div><div id="status" role="status">正在载入车厢…</div></div>
+<aside><h2>一节可以慢慢待着的车厢</h2><p>远山缓缓移动，近树从窗边掠过。选一段风景，让这一趟旅程走进晨光或夜色。</p>
+<div class="views"><button data-view="overview" aria-pressed="true">看全景</button><button data-view="table" aria-pressed="false">拼图桌</button><button data-view="berths" aria-pressed="false">看卧铺</button><button data-view="top" aria-pressed="false">看布局</button><button data-view="window" aria-pressed="false">看窗外</button></div>
+<div class="environment">
+<label for="route">沿途风景<select id="route"><option value="forest">林间山谷</option><option value="coast">海岸灯塔</option><option value="country">田野村落</option></select></label>
+<label for="weather">窗外天气<select id="weather"><option value="clear">晴天</option><option value="cloudy">阴天</option><option value="rain">下雨</option><option value="snow">飘雪</option><option value="fog">薄雾</option></select></label>
+</div>
+<div class="time-control"><label for="hour">时间 <output id="clock">09:00</output></label><input id="hour" type="range" min="0" max="23.99" step="0.01" value="9"><div class="time-marks"><span>深夜</span><span>清晨</span><span>正午</span><span>日暮</span><span>深夜</span></div></div>
+<div class="journey-actions"><button id="play" aria-pressed="true">暂停窗景</button><label class="row"><input id="auto-time" type="checkbox">昼夜流转</label></div>
+<label class="row shell-control"><input id="shell" type="checkbox">合上车厢外壳</label>
 <div class="zoom"><label for="zoom">远近</label><input id="zoom" type="range" min="0.7" max="1.6" step="0.01" value="1"></div>
 <hr><h2>模型文件</h2><div class="downloads"><a class="download" href="./carriage.blend" download>Blender 源文件</a><a class="download" href="./carriage.glb" download>下载 GLB</a></div><p>这是模型预览。拍照、拼图和聊天玩法尚未接入。</p>
-</aside></main><footer><span>拖动旋转 · 双指或滚轮缩放</span><span>Blender 建模 · 可拆车顶</span></footer>
-<script type="module" src="./preview.mjs?v=1"></script>
+</aside></main><footer><span>拖动旋转 · 双指或滚轮缩放</span><span>远山慢行 · 近景掠过</span></footer>
+<script type="module" src="./preview.mjs?v=9e46d4c48e97"></script>
 </body></html>

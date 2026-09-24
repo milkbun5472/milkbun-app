@@ -1,0 +1,58 @@
+{
+  "sourceHashes": {
+    "scenery.mjs": "9be2649270cd9e3c8347e547865e6a46afc365614ffe31a539b5ab2b35a3dcff",
+    "preview.mjs": "9e46d4c48e970bcbbec3f806e3d0a84a4bce858d02afb3739f419576571ba0ed",
+    "preview.html": "4d0456f3f103f40dee09379943345f6cbb77a0262c8a16a2b4b449423e51caae"
+  },
+  "combinations": 60,
+  "uniqueFrames": 60,
+  "motionChanged": true,
+  "travel": [
+    {
+      "name": "远山",
+      "speed": 0.7,
+      "delta": 0.07000000000402906
+    },
+    {
+      "name": "山谷",
+      "speed": 2.3,
+      "delta": 0.23000000001343324
+    },
+    {
+      "name": "中景",
+      "speed": 7,
+      "delta": 0.7000000000407454
+    },
+    {
+      "name": "林岸",
+      "speed": 18,
+      "delta": 1.8000000001047738
+    },
+    {
+      "name": "近景",
+      "speed": 48,
+      "delta": 4.800000000279397
+    }
+  ],
+  "wrappedHour": 0.008999999999996788,
+  "stableSceneObjects": true,
+  "textureCount": 2,
+  "layerCount": 5,
+  "transparentCorner": 0,
+  "nightRainDarkerThanDay": true,
+  "pauseResume": true,
+  "reducedMotionStartsPaused": true,
+  "mobileCanvas": [
+    960,
+    480
+  ],
+  "layout": {
+    "noHorizontalOverflow": true,
+    "stageHeight": 539,
+    "controlsBottom": 811,
+    "footerTop": 811,
+    "viewport": 844
+  },
+  "errors": [],
+  "failed": []
+}
