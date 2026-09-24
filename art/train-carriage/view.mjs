@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-40e1cca4d3d66b12';
-import {createWindowScenery} from './scenery.mjs?v=fg-40e1cca4d3d66b12';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-6a401cd8371842a8';
+import {createWindowScenery} from './scenery.mjs?v=fg-6a401cd8371842a8';
 export async function createCarriageView(host,{onZoom=()=>{},immersive=false}={}){
 const scene=new T.Scene();
 const renderer=new T.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
@@ -18,7 +18,7 @@ const tableLamp=new T.PointLight(0xffc788,0,5,2);tableLamp.position.set(1.27,2.5
 let az=.56,el=.55,radius=12.0,zoom=1,asset,currentView='overview';
 const aim=new T.Vector3(0,1.1,0);
 const presets={overview:{aim:[0,1.1,0],az:.56,el:.55,radius:12.0},table:{aim:[1.27,1.22,-.36],az:.5,el:.45,radius:5.7},berths:{aim:[-1.92,1.4,-.6],az:.35,el:.30,radius:5.8},top:{aim:[0,.7,0],az:0,el:1.47,radius:10.8},window:{aim:[1.19,1.60,-1.40],az:0,el:.035,radius:4.6}};
-function render(){const r=radius*zoom*(camera.aspect<1?(immersive?.65:1.20)/Math.max(camera.aspect,.35):1);camera.position.set(aim.x+r*Math.sin(az)*Math.cos(el),aim.y+r*Math.sin(el),aim.z+r*Math.cos(az)*Math.cos(el));camera.lookAt(aim);renderer.render(scene,camera);}
+function render(){const r=radius*zoom*(camera.aspect<1?(immersive?.9:1.20)/Math.max(camera.aspect,.35):1);camera.position.set(aim.x+r*Math.sin(az)*Math.cos(el),aim.y+r*Math.sin(el),aim.z+r*Math.cos(az)*Math.cos(el));camera.lookAt(aim);renderer.render(scene,camera);}
 function resize(){const {width,height}=host.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();render();}
 const observer=new ResizeObserver(resize);observer.observe(host);
 function setView(name){currentView=name;const p=presets[name];aim.fromArray(p.aim);({az,el,radius}=p);zoom=1;onZoom(1);render();}
@@ -31,7 +31,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{pointers.set(e.pointerId,
 renderer.domElement.addEventListener('pointermove',e=>{const p=pointers.get(e.pointerId);if(!p)return;const next={x:e.clientX,y:e.clientY};if(pointers.size===1){az-=(next.x-p.x)*.007;el=T.MathUtils.clamp(el+(next.y-p.y)*.006,.06,1.5);}pointers.set(e.pointerId,next);if(pointers.size===2){const[a,b]=[...pointers.values()];const dist=Math.hypot(a.x-b.x,a.y-b.y);if(lastDistance&&dist)setZoom(zoom*lastDistance/dist);lastDistance=dist;}render();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])renderer.domElement.addEventListener(event,e=>{pointers.delete(e.pointerId);lastDistance=0;});
 renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom+e.deltaY*.001);},{passive:false});
-const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-40e1cca4d3d66b12',import.meta.url).href);asset=gltf.scene;
+const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-6a401cd8371842a8',import.meta.url).href);asset=gltf.scene;
  asset.traverse(o=>{if(o.isMesh){o.castShadow=o.userData.carriageGroup!=='WindowGlass';o.receiveShadow=true;if(o.userData.carriageGroup==='WindowGlass'){o.material.transparent=true;o.material.opacity=.10;o.material.depthWrite=false;}}});
  scene.add(asset);setShell(false);resize();setView('window');
  function syncLighting(){const light=scenery.lighting();hemi.intensity=light.ambient;sun.intensity=light.sun;sun.color.set(light.color);rim.intensity=.3+light.daylight*1.4;lamps.forEach(l=>l.intensity=light.lamps);}

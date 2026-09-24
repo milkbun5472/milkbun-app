@@ -11,7 +11,7 @@ test("庭院房先是一间普通聊天，按了才开存档", () => {
   assert.match(app, /gardenRoomOf\(activeChar\.id, activeRoomId\) && gardenOpen === activeRoomId/);
   assert.match(app, /onEnterGarden: gardenRoomOf\(activeChar\.id, activeRoomId\) \? \(\) => setGardenOpen\(activeRoomId\) : null/);
   assert.match(comp, /onEnterGarden && h\("button"/);
-  assert.match(comp, /走进微光庭院/);
+  assert.match(comp, /进入小世界/);
 });
 
 // 她本来就在这间房里
