@@ -1,6 +1,6 @@
-import {FILM_LIMIT,WAITING_FILM_LIMIT} from './photo-limits.mjs?v=fg-bd50d5646d2e1a12';
-import {travelEnvironment} from './travel.mjs?v=fg-bd50d5646d2e1a12';
-import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-bd50d5646d2e1a12';
+import {FILM_LIMIT,WAITING_FILM_LIMIT} from './photo-limits.mjs?v=fg-dc9ff4745fd4acb8';
+import {travelEnvironment} from './travel.mjs?v=fg-dc9ff4745fd4acb8';
+import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-dc9ff4745fd4acb8';
 export const PHOTO_THEMES=[
  {id:'bridge',name:'桥上的风景',hint:'等列车过桥，把桥身和栏杆收进画面。'},
  {id:'station',name:'路过的小站',hint:'等站房经过窗前，把站房拍下来。'},
@@ -39,6 +39,7 @@ export function matchesTheme(s,theme,crop,width=1600,height=600){
  return overlap>=Math.min(r.w*r.h*.12,box.w*box.h*.25);
 }
 export function creditPhoto(s,photo,crop,width,height){
+ if(photo.subject&&photo.subject!=='window')return{s,photo};
  const promise=currentPromise(s),who=photo.photographer?.role==='companion'?'companion':'you',part=promise?.[who];
  if(!part||part.result||!matchesTheme(s,part.theme,crop,width,height))return{s,photo};
  const result={photoId:photo.id,label:photo.label,shared:who==='you'};

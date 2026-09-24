@@ -6,4 +6,4 @@ export function validImage(src){return typeof src==='string'&&src.length<3000000
 
 export function photographerLabel(p){return p.photographer?.role==='companion'?(p.photographer.name||'同行者')+'拍的':'你拍的';}
 
-export {promiseSummaries} from './photo-promise.mjs?v=fg-bd50d5646d2e1a12';
+export {promiseSummaries} from './photo-promise.mjs?v=fg-dc9ff4745fd4acb8';

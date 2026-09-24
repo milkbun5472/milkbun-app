@@ -1,11 +1,11 @@
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-bd50d5646d2e1a12';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-dc9ff4745fd4acb8';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-bd50d5646d2e1a12';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-bd50d5646d2e1a12';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-bd50d5646d2e1a12';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-dc9ff4745fd4acb8';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-dc9ff4745fd4acb8';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-dc9ff4745fd4acb8';
 export async function createPassengers(view,host,stage){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-bd50d5646d2e1a12',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-dc9ff4745fd4acb8',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
  for(const [who,anchorName,look,name,angle] of [['me','seat_user',journey.look||garden?.look,'你',Math.PI/2],['companion','seat_companion',journey.companionLook||garden?.companion?.look,companion?.name,-Math.PI/2]]){
   if(who==='companion'&&!companion?.id)continue;

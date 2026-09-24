@@ -26,3 +26,5 @@ test('companion reserves shots for its theme and its result is revealed only aft
  const credited=creditPhoto(at,photo('theirs','companion'),plan.crop,1600,600);s={...credited.s,photos:[],companionPhotos:[credited.photo]};assert.match(promiseSummaries(s)[0].companion.status,/揭晓/);assert.match(promiseSummaries(s,true)[0].companion.status,/尚未交换/);
  const shared=exchangePhotos(s);assert.equal(promiseSummaries(shared)[0].companion.status,'已拍到并交换');assert.equal(shared.photos[0].promise.id,currentPromise(s).id);assert.deepEqual(exchangePhotos(shared),shared);
 });
+
+test('人物摄影沿用同一相册，但不冒充窗景约定达成',()=>{const s={trips:1,photoPromises:[{id:'promise-1',trip:1,you:{theme:'bridge'}}]};for(const subject of ['companion','together']){const photo={id:'portrait',subject,photographer:{role:'you'}};const result=creditPhoto(s,photo);assert.equal(result.s,s);assert.equal(result.photo,photo);assert.equal(result.photo.promise,undefined);}});
