@@ -2582,17 +2582,24 @@ function Forum({
     setRtxt(""); setReplyTo(null);
   };
 
+  // 正文里 @ 了一个这帖里根本没有的人（她 2026-09-24：「有时候会at回复一个用户名不存在的人」）：
+  //   显示时把那个 @ 摘掉，话照留。认得的名字＝这帖里出现过的网名、handle、角色名和她自己。
+  // ⚠️放在组件这一层：楼层和楼中楼是在 detail() 外面那几个函数里画的（v74.010 放进 detail() 里，
+  //   外面拿不到，整页崩成「Can't find variable: atClean」）。
+  const atClean = txt => {
+    const p = open;
+    if (!p) return String(txt || "");
+    const floors = cmts[p.id] || [];
+    const known = new Set([p.authorName, p.authorHandle, meChar && meChar.name, forumMe && forumMe.handle].concat(
+      ...floors.map(f => [f && f.authorName, f && f.authorHandle].concat(...((f && f.replies) || []).map(r => [r && r.authorName, r && r.authorHandle]))),
+      (characters || []).map(x => x && x.name)).filter(Boolean).map(x => String(x).trim()));
+    return String(txt || "").replace(/@([^\s@，。,.!！?？:：、）)」]+)\s*/g, (all, name) => known.has(name) ? all : "");
+  };
   // ---- 帖子详情 ----
   function detail() {
     const p = open;
     const allFloors = forumFloorOrder(cmts[p.id] || []);
     const list = allFloors.filter(forumVisible);
-    // 正文里 @ 了一个这帖里根本没有的人（她 2026-09-24：「有时候会at回复一个用户名不存在的人」）：
-    //   显示时把那个 @ 摘掉，话照留。认得的名字＝这帖里出现过的网名、handle、角色名和她自己。
-    const knownAt = new Set([p.authorName, p.authorHandle, meChar && meChar.name, forumMe && forumMe.handle].concat(
-      ...allFloors.map(f => [f.authorName, f.authorHandle].concat(...(f.replies || []).map(r => [r.authorName, r.authorHandle]))),
-      (characters || []).map(x => x && x.name)).filter(Boolean).map(x => String(x).trim()));
-    const atClean = txt => String(txt || "").replace(/@([^\s@，。,.!！?？:：、）)」]+)\s*/g, (all, name) => knownAt.has(name) ? all : "");
     const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;

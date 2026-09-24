@@ -22,3 +22,10 @@ assert.strictEqual(clean("@sweeper_chen 阁下道破天机"), "阁下道破天�
 assert.strictEqual(clean("@阿满 你说呢"), "@阿满 你说呢");
 assert(/atClean\(r\.content\)/.test(sc) && /atClean\(cm\.content\)/.test(sc));
 console.log("forum-reply-to-and-at ok");
+// v74.011：atClean 必须在组件这一层——楼层/楼中楼在 detail() 外面的函数里画，放进 detail() 就整页崩（Can't find variable: atClean）
+const d0 = sc.indexOf("  function detail() {");
+const a0 = sc.indexOf("  const atClean = txt =>");
+assert(a0 > 0 && a0 < d0, "atClean 定义在组件层、detail() 之前");
+assert(!/^    const atClean/m.test(sc), "detail() 里不许再有一份");
+assert(sc.indexOf("bodyEl = detail()") > a0, "detail() 被调用时 atClean 已经定义好");
+console.log("atClean scope ok");
