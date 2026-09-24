@@ -261,6 +261,7 @@
     const [msgMenu, setMsgMenu] = useState(null);     // 长按正文弹出的操作单(分支):msg|null
     const pressRef = useRef(null);
     const fileRef = useRef(null);
+    const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
     const scrollRef = useRef(null);
@@ -862,11 +863,14 @@
     // 是入口那张横格纸条——纸条对了，纸没有。
     // 底改成 pageSkin("paper")：跟着她的主题走，但它是纸，不是一块平色。
     const paper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .7 }) : { background: t.bg };
+    // 压在图上的那层纱跟着主题走:以前写死米白,深色模式下整页被罩成一片白、浅色字看不清。
+    // color-mix 吃任何写法的颜色,不用先验是不是六位色号。
+    const veil = (c, pct) => "color-mix(in srgb, " + c + " " + pct + "%, transparent)";
     const S = { wrap: Object.assign({ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column" }, paper),
       btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
       // 一条 if 线＝一份钉起来的稿子：方角、纸色、左边一道装订线，线上两枚订书钉。
       // 圆角 16 的卡是通用列表项，剧本里没有这种东西。
-      card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: "rgba(255,255,255,.5)", border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
+      card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: veil(t.bg2, 50), border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
     // 装订：稿子左边那道线和线上两枚订书钉。程序画的，不用任何字符或 emoji。
@@ -1072,11 +1076,21 @@
           h("button", { onClick: () => confirmFail(true), style: Object.assign({}, S.btn(true), { background: "#a4442e", borderColor: "#a4442e" }) }, "确认失败"),
           h("button", { onClick: () => confirmFail(false), style: S.btn(false) }, "还有机会"))) : null;
       let ri = 0;
-      const flow = line.rounds.flatMap((r, i) => [h("div", { key: "rd" + r.id, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "14px 0 4px" } }, "— 第" + (i + 1) + "轮 · " + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗" : "") + " —")]
+      // 幕间:一轮＝一幕。大字写第几幕,目标压在下面一行,结果盖成小印章——
+      // 以前只有一行 10 号灰字,翻长线时根本认不出换轮了
+      const ACT_ZH = "一二三四五六七八九十";
+      const actName = i => "第" + (i < 10 ? ACT_ZH[i] : i < 19 ? "十" + ACT_ZH[i - 10] : String(i + 1)) + "幕";
+      const stamp = r => r.goalDone ? ["达成", t.ink] : r.failed ? ["走不通", "#a4442e"] : null;
+      const flow = line.rounds.flatMap((r, i) => [h("div", { key: "rd" + r.id, style: { textAlign: "center", margin: i ? "30px 18px 10px" : "14px 18px 10px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 15, letterSpacing: 6, color: t.ink } }, actName(i)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 4, textDecoration: r.failed ? "line-through" : "none" } }, r.goal),
+          stamp(r) ? h("span", { style: { display: "inline-block", marginTop: 6, padding: "1px 8px", border: "1.5px solid " + stamp(r)[1], color: stamp(r)[1], borderRadius: 3, fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, transform: "rotate(-4deg)" } }, stamp(r)[0]) : null)]
         .concat(r.msgs.map(m => m.role === "photo"
           ? h("div", { key: m.id, onPointerDown: () => pressStart(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
           : m.role === "user"
-          ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
+          // 你的那一拍写成剧本里的舞台提示:不套聊天气泡,左边一道细线、小一号、淡一点,
+          // 和角色的正文同在一张纸上,读起来是一台戏而不是聊天框里夹了篇小说
+          ? h("div", { key: m.id, style: { margin: "12px 14px 12px 22px", padding: "2px 0 2px 11px", borderLeft: "2px solid " + t.line, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, m.content)
           : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(),
               style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content,
               // 这一拍的创作小稿（跟线下、同人文、穿书同一个展开）
@@ -1093,9 +1107,13 @@
           [["⑂ 从这里分支", () => branchFrom(msgMenu)],
            ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap }, badges(),
-        line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
+        line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         bigViewer(),
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
+        // 目标条:这一幕要走到哪儿,一直钉在顶上。点一下展开全文,点开面板里还能改
+        !line.ended && round ? h("div", { onClick: () => setGoalOpen(v => !v), style: { flexShrink: 0, display: "flex", alignItems: goalOpen ? "flex-start" : "center", gap: 8, padding: "7px 14px", borderBottom: "1px solid " + t.line, background: veil(t.bg2, 70), cursor: "pointer" } },
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
+          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "Ta 在演…") : null),
@@ -1122,7 +1140,7 @@
     const lineCard = l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
       // 有封面就把它压进卡片当底：图上要压字，所以盖一层足够厚的渐变，先保证读得清
       const coverBg = l.cover ? {
-        backgroundImage: "linear-gradient(90deg, rgba(240,236,228,.94) 0%, rgba(240,236,228,.82) 52%, rgba(240,236,228,.35) 100%), url(" + imgSrc(l.cover) + ")",
+        backgroundImage: "linear-gradient(90deg, " + veil(t.bg, 94) + " 0%, " + veil(t.bg, 82) + " 52%, " + veil(t.bg, 35) + " 100%), url(" + imgSrc(l.cover) + ")",
         backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
       } : null;
       return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },

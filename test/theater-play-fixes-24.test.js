@@ -40,3 +40,14 @@ test("目标是远处落点,不是下一步提示", () => {
   const g = cut("const GOAL_RULE = ", "const DIFF = ");
   assert.match(g, /远处落点/);
 });
+
+test("图上那层纱跟主题走,不再写死米白", () => {
+  assert.doesNotMatch(src, /rgba\(240,236,228/);
+  assert.match(src, /const veil = \(c, pct\) => "color-mix\(in srgb, "/);
+});
+
+test("演出页有钉在顶上的目标条,分轮是幕间", () => {
+  const play = cut("const flow = line.rounds.flatMap", "const lineCard = ");
+  assert.match(play, /onClick: \(\) => setGoalOpen\(v => !v\)/);
+  assert.match(play, /actName\(i\)/);
+});
