@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-0f354cf95dbf3953';
-import {createWindowScenery} from './scenery.mjs?v=fg-0f354cf95dbf3953';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-aa26ce08d191440c';
+import {createWindowScenery} from './scenery.mjs?v=fg-aa26ce08d191440c';
 export async function createCarriageView(host,{onZoom=()=>{},immersive=false}={}){
 const scene=new T.Scene();
 const renderer=new T.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
@@ -31,10 +31,10 @@ renderer.domElement.addEventListener('pointerdown',e=>{pointers.set(e.pointerId,
 renderer.domElement.addEventListener('pointermove',e=>{const p=pointers.get(e.pointerId);if(!p)return;const next={x:e.clientX,y:e.clientY};if(pointers.size===1){az-=(next.x-p.x)*.007;el=T.MathUtils.clamp(el+(next.y-p.y)*.006,.06,1.5);}pointers.set(e.pointerId,next);if(pointers.size===2){const[a,b]=[...pointers.values()];const dist=Math.hypot(a.x-b.x,a.y-b.y);if(lastDistance&&dist)setZoom(zoom*lastDistance/dist);lastDistance=dist;}render();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])renderer.domElement.addEventListener(event,e=>{pointers.delete(e.pointerId);lastDistance=0;});
 renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom+e.deltaY*.001);},{passive:false});
-const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-0f354cf95dbf3953',import.meta.url).href);asset=gltf.scene;
+const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-aa26ce08d191440c',import.meta.url).href);asset=gltf.scene;
  asset.traverse(o=>{if(o.isMesh){o.castShadow=o.userData.carriageGroup!=='WindowGlass';o.receiveShadow=true;if(o.userData.carriageGroup==='WindowGlass'){o.material.transparent=true;o.material.opacity=.10;o.material.depthWrite=false;}}});
  scene.add(asset);setShell(false);resize();setView('window');
  function syncLighting(){const light=scenery.lighting();hemi.intensity=light.ambient;sun.intensity=light.sun;sun.color.set(light.color);rim.intensity=.3+light.daylight*1.4;lamps.forEach(l=>l.intensity=light.lamps);}
- function dispose(){observer.disconnect();scenery.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:o.material?[o.material]:[])ms.add(m);});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}
+ function dispose(){observer.disconnect();scenery.dispose();const gs=new Set(),ms=new Set(),textures=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:o.material?[o.material]:[])ms.add(m);});gs.forEach(g=>g.dispose());ms.forEach(m=>{for(const v of Object.values(m))if(v?.isTexture)textures.add(v);m.dispose();});textures.forEach(t=>t.dispose());renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}
  return {scene,camera,renderer,asset,scenery,setView,setShell,setZoom,render,syncLighting,dispose,get currentView(){return currentView;}};
 }
