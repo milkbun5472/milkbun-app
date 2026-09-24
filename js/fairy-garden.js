@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-7542b1b1703af212", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-426a48697f4c439b", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -71,7 +71,14 @@
     if(!ready)return h("div",{className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
     return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
-  function travelFramePreview(t){return t.image?h('img',{src:t.image,alt:t.name,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7,marginTop:9}}):null;}
+  function TravelFramePreview({src,label,memory}){
+    const [back,setBack]=useState(false),[lines,setLines]=useState([]),memoryKey=JSON.stringify(memory||null);
+    useEffect(()=>{let alive=true;setBack(false);setLines([]);if(memory)import('../apps/train/puzzle-memory.mjs?v='+BUILD).then(m=>{if(alive)setLines(m.puzzleMemoryLines(JSON.parse(memoryKey)));}).catch(()=>{if(alive)setLines([]);});return()=>{alive=false;};},[memoryKey,src]);
+    return h('figure',{'data-travel-frame':true,style:{margin:'9px 0',minWidth:0}},
+      back?h('div',{'data-frame-back':true,style:{padding:'20px 16px',background:'#e9dfc7',border:'8px solid #765b3e',borderRadius:7,color:'#534733',lineHeight:1.9,overflowWrap:'anywhere'}},h('strong',{style:{fontSize:14,fontWeight:500}},'这幅拼图的纪念'),lines.map((line,i)=>h('p',{key:i,style:{margin:'8px 0',fontSize:13}},line))):h('img',{src,alt:label,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7}}),
+      lines.length>0&&h('button',{type:'button',onClick:()=>setBack(v=>!v),'aria-pressed':back,style:{...pickButtonStyle(),padding:'7px 12px',marginTop:8,fontSize:12}},back?'看看正面':'翻看背面'));
+  }
+  function travelFramePreview(t){return t.image?h(TravelFramePreview,{src:t.image,label:t.name,memory:t.memory}):null;}
   function TravelAlbum({getArchive,onDelete,onCarry,onExchange,onClose}){
     const [kit,setKit]=useState(null),[selected,setSelected]=useState(null),[revision,setRevision]=useState(0),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
     const scroll=useRef(null),scrollAt=useRef(0);
@@ -84,7 +91,7 @@
       h(Head,{zh:item?'旅行留影':'旅行相册',bg:'transparent',ink:G.ink,onBack:()=>{if(busy)return;if(item){setSelected(null);setConfirm(false);setMessage('');}else onClose();}}),
       h('div',{ref:scroll,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
         !kit?h('p',null,'正在翻开相册…'):item?h(React.Fragment,null,
-          h('img',{src:item.src,alt:item.label,style:{display:'block',width:'100%',height:'auto',borderRadius:8,background:'#ded5c0'}}),
+          h(TravelFramePreview,{key:item.id,src:item.src,label:item.label,memory:item.memory}),
           h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8}},item.label),h('p',{style:{fontSize:12,color:G.soft}},item.kind==='photo'?kit.photographerLabel(item):'一起拼好的风景'),item.promise&&h('p',{style:{fontSize:12,color:G.deep}},'拍照约定 · '+item.promise.name+' · 已拍到'),
           h('div',{style:{display:'grid',gap:10}},
             h('button',{style:button,disabled:busy||carried,onClick:()=>action(async()=>{await onCarry(item);setMessage('已带回庭院，在花册「屋里」可以摆放。');})},carried?'已带回庭院':'带回庭院'),

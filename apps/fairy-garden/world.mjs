@@ -1,10 +1,11 @@
-import {validImage} from '../train/album.mjs?v=fg-7542b1b1703af212';
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-7542b1b1703af212';
-import {brewError,brewResult} from './brewing.mjs?v=fg-7542b1b1703af212';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-7542b1b1703af212';
-import './rules.js?v=fg-7542b1b1703af212';
+import {restorePuzzleMemory} from '../train/puzzle-memory.mjs?v=fg-426a48697f4c439b';
+import {validImage} from '../train/album.mjs?v=fg-426a48697f4c439b';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-426a48697f4c439b';
+import {brewError,brewResult} from './brewing.mjs?v=fg-426a48697f4c439b';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-426a48697f4c439b';
+import './rules.js?v=fg-426a48697f4c439b';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-7542b1b1703af212';
+import {createNavigator} from './navigation.mjs?v=fg-426a48697f4c439b';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -771,12 +772,12 @@ export function lookText(s, key){
   if (thing) lines.push('「' + thing.name + '」就摆在上面。');
   return lines.join('');
 }
-export function travelImageFields(x){return x?.recipe==='travelframe'&&validImage(x.image)?{image:x.image,sourceId:String(x.sourceId||'').slice(0,160)}:{};}
+export function travelImageFields(x){return x?.recipe==='travelframe'&&validImage(x.image)?{image:x.image,sourceId:String(x.sourceId||'').slice(0,160),memory:restorePuzzleMemory(x.memory)}:{};}
 export function receiveTravelArt(s,item){
  if(!item?.id||!validImage(item.src))throw Error('这张照片暂时无法带回，请重新打开相册。');
  if([...(s.things||[]),...(s.collection||[])].some(t=>t.sourceId===item.id))return s;
  if((s.things||[]).length>=THING_CAP)throw Error('屋里的东西放满了，先留一些到收藏馆。');
- const thing={id:'tf_'+String(item.id).replace(/[^a-zA-Z0-9]/g,'').slice(-32),sourceId:item.id,image:item.src,name:item.kind==='puzzle'?'旅行拼图相框':'旅行照片相框',note:String(item.label||'列车窗外的风景').slice(0,200),kind:'relic',way:'set',recipe:'travelframe',from:String(item.label||'').slice(0,240),day:s.day,openDay:0,spot:null};
+ const thing={id:'tf_'+String(item.id).replace(/[^a-zA-Z0-9]/g,'').slice(-32),sourceId:item.id,image:item.src,memory:restorePuzzleMemory(item.memory),name:item.kind==='puzzle'?'旅行拼图相框':'旅行照片相框',note:String(item.label||'列车窗外的风景').slice(0,200),kind:'relic',way:'set',recipe:'travelframe',from:String(item.label||'').slice(0,240),day:s.day,openDay:0,spot:null};
  return noteHappening({...s,things:[thing,...s.things]},'made','把一幅旅行相框带回了庭院');
 }
 export function restoreThings(raw){

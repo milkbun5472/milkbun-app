@@ -1,13 +1,13 @@
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-7542b1b1703af212';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-7542b1b1703af212';
-import {createPassengers} from './passengers.mjs?v=fg-7542b1b1703af212';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-7542b1b1703af212';
-import {createTravelCamera} from './camera-view.mjs?v=fg-7542b1b1703af212';
-import {removeAlbumItem} from './album.mjs?v=fg-7542b1b1703af212';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-7542b1b1703af212';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-7542b1b1703af212';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-7542b1b1703af212';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-7542b1b1703af212';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-426a48697f4c439b';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-426a48697f4c439b';
+import {createPassengers} from './passengers.mjs?v=fg-426a48697f4c439b';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-426a48697f4c439b';
+import {createTravelCamera} from './camera-view.mjs?v=fg-426a48697f4c439b';
+import {removeAlbumItem} from './album.mjs?v=fg-426a48697f4c439b';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-426a48697f4c439b';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-426a48697f4c439b';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-426a48697f4c439b';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-426a48697f4c439b';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}

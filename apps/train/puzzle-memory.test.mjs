@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {createPuzzle,drop,target} from './puzzle.mjs';
+import {makePuzzleMemory,restorePuzzleMemory,puzzleMemoryLines} from './puzzle-memory.mjs';
+import {freshState,receiveTravelArt,restoreState,donate,placeThing} from '../fairy-garden/world.mjs';
+const photo={id:'photo',src:'data:image/jpeg;base64,aGVsbG8=',label:'海岸',photographer:{role:'companion',name:'当时的同行者'}};
+function completed(){const p=createPuzzle(photo.id,12,7);for(let id=0;id<12;id++){const t=target(p,id);drop(p,id,t.x,t.y,id%2?'companion':'you');}return p;}
+test('纪念从实际完成者与摄影者生成独立快照，最后一片不按数组猜测',()=>{const p=completed(),m=makePuzzleMemory(p,photo,{name:'当时的同行者'},12);assert.equal(m.you,6);assert.equal(m.companion,6);assert.equal(m.lastBy,'companion');assert.equal(m.photographer,photo.photographer.name);photo.photographer.name='后来改名';assert.equal(m.photographer,'当时的同行者');assert.match(puzzleMemoryLines(m).join('\n'),/最后一片：当时的同行者/);delete p.lastPlacement;assert.match(puzzleMemoryLines(makePuzzleMemory(p,photo,null,12)).join('\n'),/旧进度未记录/);assert.equal(makePuzzleMemory(createPuzzle('p',12,1),photo,null,1),null);});
+test('纪念经真实相框带回、摆放、捐赠、读档都保留；旧相框不伪造经历',()=>{const memory=makePuzzleMemory(completed(),photo,{name:'小旅伴'},4),art={id:'art-memory',src:photo.src,label:'拼好的海岸',kind:'puzzle',memory};let s=receiveTravelArt(freshState(),art);assert.notEqual(s.things[0].memory,memory);s=placeThing(s,s.things[0].id,'sill');s=restoreState(s);assert.deepEqual(s.things[0].memory,memory);s=donate({...s,map:'museum'},s.things[0].id);s=restoreState(s);assert.deepEqual(s.collection[0].memory,memory);assert.deepEqual(puzzleMemoryLines(null),[]);assert.equal(restorePuzzleMemory({version:1,count:9000}),null);});
