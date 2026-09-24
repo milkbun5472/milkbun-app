@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-aa26ce08d191440c", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-426a48697f4c439b", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -71,7 +71,14 @@
     if(!ready)return h("div",{className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
     return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
-  function travelFramePreview(t){return t.image?h('img',{src:t.image,alt:t.name,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7,marginTop:9}}):null;}
+  function TravelFramePreview({src,label,memory}){
+    const [back,setBack]=useState(false),[lines,setLines]=useState([]),memoryKey=JSON.stringify(memory||null);
+    useEffect(()=>{let alive=true;setBack(false);setLines([]);if(memory)import('../apps/train/puzzle-memory.mjs?v='+BUILD).then(m=>{if(alive)setLines(m.puzzleMemoryLines(JSON.parse(memoryKey)));}).catch(()=>{if(alive)setLines([]);});return()=>{alive=false;};},[memoryKey,src]);
+    return h('figure',{'data-travel-frame':true,style:{margin:'9px 0',minWidth:0}},
+      back?h('div',{'data-frame-back':true,style:{padding:'20px 16px',background:'#e9dfc7',border:'8px solid #765b3e',borderRadius:7,color:'#534733',lineHeight:1.9,overflowWrap:'anywhere'}},h('strong',{style:{fontSize:14,fontWeight:500}},'这幅拼图的纪念'),lines.map((line,i)=>h('p',{key:i,style:{margin:'8px 0',fontSize:13}},line))):h('img',{src,alt:label,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7}}),
+      lines.length>0&&h('button',{type:'button',onClick:()=>setBack(v=>!v),'aria-pressed':back,style:{...pickButtonStyle(),padding:'7px 12px',marginTop:8,fontSize:12}},back?'看看正面':'翻看背面'));
+  }
+  function travelFramePreview(t){return t.image?h(TravelFramePreview,{src:t.image,label:t.name,memory:t.memory}):null;}
   function TravelAlbum({getArchive,onDelete,onCarry,onExchange,onClose}){
     const [kit,setKit]=useState(null),[selected,setSelected]=useState(null),[revision,setRevision]=useState(0),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
     const scroll=useRef(null),scrollAt=useRef(0);
@@ -84,23 +91,24 @@
       h(Head,{zh:item?'旅行留影':'旅行相册',bg:'transparent',ink:G.ink,onBack:()=>{if(busy)return;if(item){setSelected(null);setConfirm(false);setMessage('');}else onClose();}}),
       h('div',{ref:scroll,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
         !kit?h('p',null,'正在翻开相册…'):item?h(React.Fragment,null,
-          h('img',{src:item.src,alt:item.label,style:{display:'block',width:'100%',height:'auto',borderRadius:8,background:'#ded5c0'}}),
-          h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8}},item.label),h('p',{style:{fontSize:12,color:G.soft}},item.kind==='photo'?kit.photographerLabel(item):'一起拼好的风景'),
+          h(TravelFramePreview,{key:item.id,src:item.src,label:item.label,memory:item.memory}),
+          h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8}},item.label),h('p',{style:{fontSize:12,color:G.soft}},item.kind==='photo'?kit.photographerLabel(item):'一起拼好的风景'),item.promise&&h('p',{style:{fontSize:12,color:G.deep}},'拍照约定 · '+item.promise.name+' · 已拍到'),
           h('div',{style:{display:'grid',gap:10}},
             h('button',{style:button,disabled:busy||carried,onClick:()=>action(async()=>{await onCarry(item);setMessage('已带回庭院，在花册「屋里」可以摆放。');})},carried?'已带回庭院':'带回庭院'),
             h('a',{href:item.src,download:(item.kind==='puzzle'?'旅行拼图':'旅行照片')+'.jpg',style:{...button,textAlign:'center',textDecoration:'none',display:'block'}},'导出图片'),
             h('button',{style:{...button,color:'#965b4f'},disabled:busy,onClick:()=>{if(!confirm){setConfirm(true);setMessage('删除相册里的这一张；已经带回庭院的相框会保留。再点一次确认。');return;}action(async()=>{await onDelete(item.id);setSelected(null);setConfirm(false);setMessage('已从相册删除。');});}},confirm?'确认删除':'删除这张')),
           h('p',{style:{fontSize:11,lineHeight:1.8,color:G.soft}},'相册属于这一档，庭院和列车都能翻看。手机也可以长按上面的图片保存。')):
           h(React.Fragment,null,onExchange&&h('button',{style:{...button,width:'100%',marginBottom:12},disabled:busy||!(archive.worlds?.train?.companionPhotos||[]).length,onClick:()=>action(async()=>{await onExchange();setMessage('交换好了，TA拍的照片也可以拿来拼图或带回庭院。');})},'交换相册 · '+(archive.worlds?.train?.companionPhotos||[]).length+' 张待翻开'),h('p',{style:{fontSize:12,lineHeight:1.8,color:G.soft}},'TA会在沿途拍下窗景，每趟最多六张。交换相册后可以看见TA拍的照片，也能用来拼图、导出或带回庭院。'),
-          rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label),x.kind==='photo'&&h('span',{style:{fontSize:11,color:G.soft,padding:5}},kit.photographerLabel(x)))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
+          kit.promiseSummaries(archive.worlds?.train||{}).slice().reverse().map(p=>h('section',{key:p.id,style:{borderBottom:'1px solid '+G.line,padding:'8px 0',marginBottom:12}},h('h3',{style:{fontSize:14,fontWeight:500}},'第 '+p.trip+' 趟 · 拍照约定'),h('p',{style:{fontSize:12}},'你：'+p.you.theme+' · '+p.you.status),p.companion&&h('p',{style:{fontSize:12}},p.companion.name+'：'+p.companion.theme+' · '+p.companion.status))),rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label),x.kind==='photo'&&h('span',{style:{fontSize:11,color:G.soft,padding:5}},kit.photographerLabel(x)))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
         message&&h('p',{role:'status',style:{fontSize:12,lineHeight:1.8,color:G.deep,marginTop:14}},message)));
   }
   function TrainSession(props){
     const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id),talking=useRef(false),latest=useRef(props);latest.current=props;
+    const [toolbar,setToolbar]=useState(null);
     const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(""),[error,setError]=useState("");
     const key=props.storeKey||KEY;
     const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
-    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
     const savedAction=async action=>{try{if(talking.current)throw Error("同行者正在回复，等这句说完再离开。");flush();await action();}catch(e){setError(e.message);props.toast(e.message);}};
@@ -131,8 +139,8 @@
     const page=(title,back,body)=>h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
       h(Head,{zh:title,bg:"transparent",ink:G.ink,onBack:back}),body);
     return h("div",{className:"h-full flex flex-col",style:{background:"#e8e6d7",color:G.ink,position:"relative"}},
-      h(Head,{zh:"远行列车",sub:c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:()=>loaded?leave():props.onBack(),
-        right:h("div",{style:{display:"flex",gap:6}},h("button",{disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车"))}),
+      h("div",{"data-train-toolbar":true,style:{flexShrink:0}},h(Head,{zh:toolbar?toolbar.title:"远行列车",sub:toolbar?"":c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:toolbar?toolbar.back:()=>loaded?leave():props.onBack(),
+        right:h("div",{style:{display:"flex",gap:6}},toolbar?toolbar.actions.map(a=>h("button",{key:a.id,id:a.id,onClick:a.run,style:small},a.label)):[h("button",{key:"settings",disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{key:"landing",disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车")])})),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
         error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error)),
       panel==="album"&&h(TravelAlbum,{getArchive:current,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),

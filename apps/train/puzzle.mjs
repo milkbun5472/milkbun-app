@@ -12,7 +12,7 @@ export function validPuzzle(p){const l=LEVELS.find(x=>x.count===p?.count);return
 export function target(p,id){const l=LEVELS.find(x=>x.count===p.count);return{x:BOARD.x+(id%l.cols)*BOARD.w/l.cols,y:BOARD.y+Math.floor(id/l.cols)*BOARD.h/l.rows,w:BOARD.w/l.cols,h:BOARD.h/l.rows};}
 export function drop(p,id,x,y,by='you'){
  const q=p.pieces[id];if(!q||q.locked)return false;const t=target(p,id),ok=Math.hypot(x-t.x,y-t.y)<Math.min(t.w,t.h)*.32;
- q.x=ok?t.x:Math.max(-20,Math.min(980,x));q.y=ok?t.y:Math.max(0,Math.min(1280,y));q.locked=ok;q.by=ok?by:null;p.moves++;p.completed=p.pieces.every(x=>x.locked);return ok;
+ q.x=ok?t.x:Math.max(-20,Math.min(980,x));q.y=ok?t.y:Math.max(0,Math.min(1280,y));q.locked=ok;q.by=ok?by:null;p.moves++;p.completed=p.pieces.every(x=>x.locked);if(ok)p.lastPlacement={by,piece:id+1};return ok;
 }
 // Each interior seam is generated once. Its neighbouring piece uses the exact reversed curve.
 export function outlines(p){const l=LEVELS.find(x=>x.count===p.count),r=rng(p.seed),edges=new Map();const w=BOARD.w/l.cols,h=BOARD.h/l.rows;
@@ -26,5 +26,6 @@ export function outlines(p){const l=LEVELS.find(x=>x.count===p.count),r=rng(p.se
  const top=seam('h'+row+':'+col,x,y,w,0,row===0),right=seam('v'+row+':'+(col+1),x+w,y,0,h,col===l.cols-1),bottom=seam('h'+(row+1)+':'+col,x,y+h,w,0,row===l.rows-1),left=seam('v'+row+':'+col,x,y,0,h,col===0);
  return 'M '+fmt([x,y])+' '+append(top,false)+' '+append(right,false)+' '+append(bottom,true)+' '+append(left,true)+' Z';});
 }
-export function nextCompanionMove(p,skill,random=Math.random){const free=p.pieces.filter(x=>!x.locked);if(!free.length)return null;const edges=free.filter(q=>{const l=LEVELS.find(x=>x.count===p.count),c=q.id%l.cols,r=Math.floor(q.id/l.cols);return c===0||r===0||c===l.cols-1||r===l.rows-1;});const candidates=skill>.55&&edges.length?edges:free,q=candidates[Math.floor(random()*candidates.length)],t=target(p,q.id),correct=random()<.55+skill*.43;
+export function isEdgePiece(p,id){const l=LEVELS.find(x=>x.count===p.count),c=id%l.cols,r=Math.floor(id/l.cols);return c===0||r===0||c===l.cols-1||r===l.rows-1;}
+export function nextCompanionMove(p,skill,random=Math.random,ids=null){const free=p.pieces.filter(x=>!x.locked&&(!ids||ids.includes(x.id)));if(!free.length)return null;const edges=free.filter(q=>isEdgePiece(p,q.id));const candidates=skill>.55&&edges.length?edges:free,q=candidates[Math.floor(random()*candidates.length)],t=target(p,q.id),correct=random()<.55+skill*.43;
  return{id:q.id,x:correct?t.x:t.x+t.w*(random()<.5?1:-1),y:t.y,duration:1.2+(1-skill)*2,wait:1+(1-skill)*3,correct};}

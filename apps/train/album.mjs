@@ -5,3 +5,5 @@ export function addArtwork(s,art){return (s.artworks||[]).some(x=>x.puzzleKey===
 export function validImage(src){return typeof src==='string'&&src.length<3000000&&/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(src);}
 
 export function photographerLabel(p){return p.photographer?.role==='companion'?(p.photographer.name||'同行者')+'拍的':'你拍的';}
+
+export {promiseSummaries} from './photo-promise.mjs?v=fg-426a48697f4c439b';
