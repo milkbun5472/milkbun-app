@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.020";
+const APP_VERSION = "v74.021";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13625,17 +13625,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 和「随机版块 1/6 命中匿名吧」，最后匿名占比高得离谱（她 2026-08-29 报）。压到 1/9，
       // 回看窗口拉到 8 帖：匿名要稀有才有分量，天天匿名等于没有匿名。
       const myBoardsForPost = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
-      const forceAnon = myAutoPosts.length >= 4 && (myAutoPosts.length % 9 === 4) && !myAutoPosts.slice(0, 8).some(p => p.board === "匿名吧");
       const forumHabit = charForumMeta(char);
+      // 这一帖用哪个身份：代码掷，不让模型挑（施工规则/bans-make-it-dumber：掷轴不掷答案）。
+      //   8-29 那次模型挑得匿名太多，改成提示词里「大号十次七八次」，结果又几乎只剩大号
+      //   （她 2026-09-24：「论坛角色又很少开小号发帖了还有匿名也是」）。模型自己挑，总会滑到一头。
+      //   大号 55%／小号 27%／匿名 18%；平时爱用小号的人，小号那格再多一点。
+      const idRoll = Math.random(), altBias = forumHabit.identityBias === "alt";
+      const rolledId = idRoll < (altBias ? 0.42 : 0.55) ? "main" : idRoll < 0.82 ? "alt" : "anonymous";
+      const forceAnon = rolledId === "anonymous" && Math.random() < 0.5;   // 匿名的一半去匿名吧，一半在别的吧匿名发
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
+        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
+          + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
+              alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
+              anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
           // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
           + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
             + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : "")
           + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}",
+        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"}",
         maxTokens: FTOK.post
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
@@ -13644,7 +13653,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
       const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
-      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: d.identity }, manual ? "手动发帖" : "auto");
+      // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
+      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId }, manual ? "手动发帖" : "auto");
       if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
       return rec;
     } catch (e) { if (manual) throw e; return null; }
@@ -17846,7 +17856,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只给「已知会说话的那几个」，等于赌对了才准，赌错的那个一开口就现编。
     const who = isSearch
       ? "**楼里是常驻熟面孔与一次性路人的混合**，**不要出现你认识的任何角色**——这是搜来的陌生话题吧。"
-      : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色可以按性格选择 identity=main（大号）、alt（固定小号）或 anonymous（匿名）；小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
+      : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色冒泡时 identity 可以是 main（大号）、alt（固定小号）或 anonymous（匿名）——**别全用大号**：角色冒泡的楼里大约三成该是小号或匿名（想说点不方便顶着名字说的、想看热闹不想被认出来的时候）；小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
     return {
       instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock
         + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
