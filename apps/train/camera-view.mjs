@@ -1,6 +1,6 @@
-import {panelHeader} from './panel-header.mjs?v=fg-a21b0fb534020153';
-import {PHOTO_THEMES,currentPromise,photoTheme,promiseSummaries} from './photo-promise.mjs?v=fg-a21b0fb534020153';
-import {cropRect} from './album.mjs?v=fg-a21b0fb534020153';
+import {panelHeader} from './panel-header.mjs?v=fg-39153179a6215ec2';
+import {PHOTO_THEMES,currentPromise,photoTheme,promiseSummaries} from './photo-promise.mjs?v=fg-39153179a6215ec2';
+import {cropRect} from './album.mjs?v=fg-39153179a6215ec2';
 export function createTravelCamera({host,source,shoot,onOpen,onClose=()=>{},onMode=()=>{},hasCompanion=()=>false,state,onPromise}){
  const el=document.createElement('section');el.id='travel-camera';el.hidden=true;el.innerHTML='<header><button id="camera-back">收起</button><strong>旅途取景器</strong><button id="camera-shoot">拍下来</button></header><div class="camera-body"><label>拍什么 <select id="camera-subject" aria-label="拍摄对象"><option value="window">窗外风景</option><option value="companion">拍 TA</option><option value="together">两人合照</option></select></label><p>拖动画面取景，列车会继续前进。</p><section id="photo-promise"><label>这趟想拍 <select id="photo-theme" aria-label="拍照约定主题"></select></label><p id="photo-theme-hint"></p><button id="photo-promise-start">约好，就拍这个</button><p id="photo-promise-status" role="status"></p></section><canvas id="camera-canvas" aria-label="拖动调整取景位置"></canvas><label>焦距 <input id="camera-zoom" aria-label="取景放大倍数" type="range" min="1" max="3" step=".05" value="1"><span id="camera-scale">1.0×</span></label><button id="camera-reset">复位取景</button><p id="camera-status" role="status"></p></div>';document.body.append(el);
  const toolbar=panelHeader(host,el);const $=s=>el.querySelector(s),c=$('#camera-canvas'),ctx=c.getContext('2d');let mode='window',promiseKey='',zoom=1,pan={x:.5,y:.5},drag=null,raf=0,last=0;
