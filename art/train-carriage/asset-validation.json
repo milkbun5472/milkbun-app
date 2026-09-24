@@ -1,0 +1,61 @@
+{
+  "source": "build.py",
+  "meshes_and_curves": 250,
+  "triangles": 63812,
+  "glb_bytes": 2295864,
+  "glb_sha256": "e87085ce31a2f0d16fe34badfbc267387b3b2a664d79ff71167a9ce1f52c4811",
+  "anchors_blender_z_up": {
+    "seat_user": [
+      0.04,
+      0.32,
+      0.6
+    ],
+    "seat_companion": [
+      2.53,
+      0.32,
+      0.6
+    ],
+    "puzzle_surface": [
+      1.27,
+      0.32,
+      0.934
+    ],
+    "photo_window": [
+      1.19,
+      1.4,
+      1.65
+    ],
+    "berth_lower": [
+      -1.9,
+      0.9,
+      0.71
+    ],
+    "berth_upper": [
+      -1.9,
+      0.9,
+      1.79
+    ],
+    "entry": [
+      -2.93,
+      -0.75,
+      0.07
+    ]
+  },
+  "dimensions_m": [
+    6.96,
+    3.4,
+    3.62
+  ],
+  "puzzle_surface_m": [
+    1.44,
+    1.31
+  ],
+  "groups": {
+    "Interior": 239,
+    "ShellFront": 10,
+    "ShellEnd": 2,
+    "Roof": 5,
+    "WindowGlass": 1
+  },
+  "scope": "Static art asset; no photography, puzzle, chat, seating animation or garden integration."
+}
