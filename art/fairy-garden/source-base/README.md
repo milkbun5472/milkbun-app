@@ -37,3 +37,7 @@ PLAYWRIGHT_MODULE=/path/to/playwright GARDEN_TEST_URL=http://127.0.0.1:18897 nod
 ```
 
 本轮仅完成原件的体型适配与可交互预览，尚未拆分换发型/服装或绑定动作。**没有替换运行时 `apps/fairy-garden/doll.glb`，没有发布应用版本。** 后续仍须完成换装和动作适配，不能直接覆盖正在使用的游戏模型。
+
+## 后续发型适配
+
+十二款发型与原体型共用的试换预览见 [source-hairstyles](../source-hairstyles/README.md)。本目录保全原件、体型网格与原体型页仍保留；仅预览控件抽成共用样式／模块。发型派生件没有覆盖这里的源 `.blend` 或 `.glb`。

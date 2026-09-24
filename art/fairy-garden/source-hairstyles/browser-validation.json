@@ -1,0 +1,15 @@
+{
+  "combinations": 64,
+  "styles": 12,
+  "sampledVertices": 3029,
+  "headError": 1.9669213339631854e-7,
+  "soleError": 2.72004346761893e-8,
+  "meshes": 14,
+  "sourceAppearanceRmse": 0.03854794125631616,
+  "significantPixelFraction": 0.00000892458723784025,
+  "unobstructedFaceRays": 60,
+  "originalTextureBytes": true,
+  "reset": true,
+  "mobile": true,
+  "errors": []
+}

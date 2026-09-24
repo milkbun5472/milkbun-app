@@ -1,0 +1,62 @@
+[
+  {
+    "id": "korean",
+    "label": "自然碎发",
+    "code": "M01"
+  },
+  {
+    "id": "curtains",
+    "label": "中分微卷",
+    "code": "M02"
+  },
+  {
+    "id": "comma",
+    "label": "侧分刘海",
+    "code": "M03"
+  },
+  {
+    "id": "wolf",
+    "label": "狼尾碎发",
+    "code": "M04"
+  },
+  {
+    "id": "pixie",
+    "label": "短发刺头",
+    "code": "M05"
+  },
+  {
+    "id": "mullet",
+    "label": "微卷蓬松",
+    "code": "M06"
+  },
+  {
+    "id": "airbang",
+    "label": "自然长发",
+    "code": "F01"
+  },
+  {
+    "id": "bob",
+    "label": "短发波波",
+    "code": "F02"
+  },
+  {
+    "id": "ponytail",
+    "label": "低马尾",
+    "code": "F03"
+  },
+  {
+    "id": "hush",
+    "label": "双麻花辫",
+    "code": "F04"
+  },
+  {
+    "id": "bun",
+    "label": "半扎丸子头",
+    "code": "F05"
+  },
+  {
+    "id": "wavy",
+    "label": "长卷发",
+    "code": "F06"
+  }
+]

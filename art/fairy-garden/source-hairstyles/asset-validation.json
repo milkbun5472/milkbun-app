@@ -1,0 +1,106 @@
+{
+  "source_vertices_retained_across_partitions": 64358,
+  "source_surface_area": 3.5669422149658203,
+  "partition_surface_area": 3.5669422149658203,
+  "relative_area_error": 0.0,
+  "source_keys": [
+    "Basis",
+    "height",
+    "shoulder",
+    "waist",
+    "flare",
+    "build",
+    "head"
+  ],
+  "source_texture_hashes": {
+    "texture_pbr_20250901": "942c817bc2e7dd6fe1e91d63dc890d934090bfc587ca415ae92b598a1d7f6d0b",
+    "texture_pbr_20250901_metallic-texture_pbr_20250901_roughness": "4fef26de4c1c65d683e33b124e86e1ea81931644533e83fd364263db94323e69",
+    "texture_pbr_20250901_normal": "0e4c3446544256509680059f466510b6431ac468df23149fcea291d5c9e08348"
+  },
+  "forehead_policy": "New closed scalp joins a clean arc above the original eyes; original eyes, cheeks, chin and ears remain.",
+  "styles": [
+    "korean",
+    "curtains",
+    "comma",
+    "wolf",
+    "pixie",
+    "mullet",
+    "airbang",
+    "bob",
+    "ponytail",
+    "hush",
+    "bun",
+    "wavy"
+  ],
+  "new_hair_meshes": 11,
+  "hairline_vertices": 535,
+  "dimensions": [
+    {
+      "key": "height",
+      "label": "腿长",
+      "min": 0.85,
+      "max": 1.25,
+      "low": "短一点",
+      "high": "长一点"
+    },
+    {
+      "key": "shoulder",
+      "label": "肩宽",
+      "min": 0.85,
+      "max": 1.2,
+      "low": "窄一点",
+      "high": "宽一点"
+    },
+    {
+      "key": "waist",
+      "label": "腰身",
+      "min": 0.85,
+      "max": 1.15,
+      "low": "纤细",
+      "high": "丰盈"
+    },
+    {
+      "key": "flare",
+      "label": "衣摆",
+      "min": 0.78,
+      "max": 1.22,
+      "low": "收拢",
+      "high": "蓬松"
+    },
+    {
+      "key": "build",
+      "label": "圆润度",
+      "min": 0.85,
+      "max": 1.15,
+      "low": "轻巧",
+      "high": "圆润"
+    },
+    {
+      "key": "head",
+      "label": "头身比",
+      "min": 0.88,
+      "max": 1.1,
+      "low": "小一点",
+      "high": "大一点"
+    }
+  ],
+  "scope": "Hairstyle and body preview. Clothing separation and animation are not implemented.",
+  "lossless_buffer_sharing": {
+    "before_bytes": 65589268,
+    "after_bytes": 57345284,
+    "all_buffer_views_byte_identical": true
+  },
+  "saved_blend_verified": {
+    "meshes": 14,
+    "neutral_morphs": true,
+    "default_visible": [
+      "SourceBody",
+      "hair_korean"
+    ],
+    "all_images_packed": true
+  },
+  "asset_sha256": {
+    "traveler-hairstyles.blend": "912daad64a0e29a77eeea37282818e9d4a8755787586f0e85ded1811dab87184",
+    "traveler-hairstyles.glb": "48489413eb435970a7e69a0cff7ca5dda0bd4c74cf3ef2f1bcc03332ab1422cb"
+  }
+}

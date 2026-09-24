@@ -3,6 +3,8 @@ import { GLTFLoader } from '../../../apps/fairy-garden/vendor/GLTFLoader.js';
 import { createTraveler } from '../../../apps/fairy-garden/traveler.mjs';
 
 // Use the actual garden setLook path. No second implementation of morph mixing.
+const config = document.documentElement.dataset;
+const hairMode = Boolean(config.hairCatalog);
 const host = document.querySelector('#view');
 const status = document.querySelector('#status');
 const scene = new T.Scene();
@@ -17,12 +19,14 @@ const renderer = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: t
 renderer.setPixelRatio(Math.min(2, devicePixelRatio));
 host.prepend(renderer.domElement);
 const camera = new T.PerspectiveCamera(30, 1, .01, 30);
-const aim = new T.Vector3(0, .91, 0);
-let azimuth = 0, elevation = .04, radius = 4.6;
-let traveler, body, dims, originalMaterial;
+const aim = new T.Vector3(0, hairMode ? 1.19 : .91, 0);
+let azimuth = 0, elevation = .04, radius = hairMode ? 3.1 : 4.6;
+let traveler, body, dims, originalMaterial, hairstyles;
+let selectedStyle = 'korean';
+const hairButtons = new Map(), supports = [];
 const values = {}, inputs = new Map();
 function render() {
-  camera.position.set(radius * Math.sin(azimuth) * Math.cos(elevation), .91 + radius * Math.sin(elevation), radius * Math.cos(azimuth) * Math.cos(elevation));
+  camera.position.set(radius * Math.sin(azimuth) * Math.cos(elevation), aim.y + radius * Math.sin(elevation), radius * Math.cos(azimuth) * Math.cos(elevation));
   camera.lookAt(aim);
   renderer.render(scene, camera);
 }
@@ -42,7 +46,7 @@ function setDimensions(next) {
     input.value = values[dim.key];
     output.value = `${Math.round(values[dim.key] * 100)}%`;
   }
-  traveler.setLook({ dims: { ...values } });
+  traveler.setLook({ dims: { ...values }, ...(hairMode ? { hair: selectedStyle, hairColor: '#ffffff' } : {}) });
   render();
 }
 document.querySelector('#reset').onclick = () => {
@@ -66,21 +70,23 @@ renderer.domElement.onpointermove = e => {
 renderer.domElement.onpointerup = renderer.domElement.onpointercancel = () => { pointer = null; };
 renderer.domElement.addEventListener('wheel', e => {
   e.preventDefault();
-  radius = T.MathUtils.clamp(radius + e.deltaY * .003, 3.7, 6);
+  radius = T.MathUtils.clamp(radius + e.deltaY * .003, hairMode ? 2.3 : 3.7, 6);
   render();
 }, { passive: false });
 
 try {
   const [catalog, gltf] = await Promise.all([
-    fetch('./sliders.json').then(r => { if (!r.ok) throw Error('体型清单加载失败'); return r.json(); }),
-    new GLTFLoader().loadAsync('./traveler-sliders.glb'),
+    fetch(config.dimensions || './sliders.json').then(r => { if (!r.ok) throw Error('体型清单加载失败'); return r.json(); }),
+    new GLTFLoader().loadAsync(config.model || './traveler-sliders.glb'),
   ]);
   dims = catalog.dims;
   for (const dim of dims) values[dim.key] = 1;
-  traveler = createTraveler(gltf.scene, false, { dims: { ...values } });
-  // This is a body-only review: no borrowed wardrobe, rig or action props.
+  traveler = createTraveler(gltf.scene, false, { dims: { ...values }, ...(hairMode ? { hair: selectedStyle, hairColor: '#ffffff' } : {}) });
+  // Review the source body and hairstyles without action props or a borrowed rig.
   traveler.root.traverse(o => {
     if (o.userData.sourceBodySliders) body = o;
+    if (o.userData.hairSupport) supports.push(o);
+    if (hairMode && o.userData.sourceSurfacePartition === 'hair_korean') o.material.roughness = 1;
     if (o.name === 'DailyActionProps' || o.name === 'IceBlade') o.visible = false;
   });
   if (!body || dims.some(d => body.morphTargetDictionary[d.key] == null)) throw Error('模型缺少体型形态键');
@@ -95,10 +101,45 @@ try {
     inputs.set(dim.key, { input, output });
     document.querySelector('#controls').append(control);
   }
-  status.textContent = '拖动旋转 · 滚轮缩放 · 六项可组合调整';
+  function setStyle(id) {
+    if (!hairstyles?.some(style => style.id === id)) throw Error('未知发型：' + id);
+    selectedStyle = id;
+    traveler.setLook({ hair: id, hairColor: '#ffffff' });
+    supports.forEach(o => { o.visible = id !== 'korean'; });
+    hairButtons.forEach((button, key) => button.setAttribute('aria-pressed', String(key === id)));
+    const item = hairstyles.find(style => style.id === id);
+    document.querySelector('#current-style').textContent = `${item.code} · ${item.label}`;
+    render();
+  }
+  if (hairMode) {
+    const response = await fetch(config.hairCatalog);
+    if (!response.ok) throw Error('发型清单加载失败');
+    hairstyles = await response.json();
+    for (const style of hairstyles) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.hair = style.id;
+      button.innerHTML = `<small>${style.code}</small>${style.label}`;
+      button.setAttribute('aria-pressed', 'false');
+      button.onclick = () => setStyle(style.id);
+      hairButtons.set(style.id, button);
+      document.querySelector('#hair-controls').append(button);
+    }
+    setStyle(selectedStyle);
+    document.querySelector('#frame').onclick = () => {
+      const full = aim.y > 1;
+      aim.y = full ? .91 : 1.19;
+      radius = full ? 4.6 : 3.1;
+      document.querySelector('#frame').textContent = full ? '看发型' : '看全身';
+      render();
+    };
+  }
+  status.textContent = hairMode ? '十二款可试换 · 拖动看侧背面' : '拖动旋转 · 滚轮缩放 · 六项可组合调整';
   resize();
   window.bodySliderReview = { body, traveler, scene, renderer, dims, values, setDimensions,
-    neutralMaterial: originalMaterial, render };
+    neutralMaterial: originalMaterial, render, hairstyles, setStyle,
+    get style() { return selectedStyle; },
+    setView(angle, distance = radius, height = aim.y) { azimuth = angle; elevation = .04; radius = distance; aim.y = height; render(); } };
 } catch (error) {
   status.classList.add('error');
   status.textContent = '载入失败：' + error.message;
