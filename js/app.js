@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.040";
+const APP_VERSION = "v74.041";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18494,6 +18494,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } catch (e) {/* 静默 */}
     }
   };
+  // 私信一个人一组落点（她 2026-09-24：「论坛私信的人基本上都是一个调调」——三条全是
+  //   「看到你在X帖+玩梗+感叹号」）。一次调用写一批，没有东西把他们分开，就长成同一个人。
+  //   掷轴不掷答案（施工规则/bans-make-it-dumber.md）：只掷【怎么开口】，说什么还是模型的。
+  const FORUM_PM_AXES = [
+    { key: "why", zh: "为什么来私信", opts: [
+      "冲着 TA 某一条帖子或评论来的", "跟那些帖子没关系，是逛主页顺手点进来的", "有件具体的事想问或者想求",
+      "觉得 TA 说错了，来较真的", "想交个朋友、找个同好", "单纯憋不住想找个人说话"] },
+    { key: "len", zh: "第一条有多长", opts: [
+      "就几个字", "一句话", "两三句", "一大段、不分段、想到哪说到哪"] },
+    { key: "type", zh: "打字习惯", opts: [
+      "基本不打标点", "客客气气用敬语", "错字也懒得改", "满嘴缩写和黑话", "像写邮件，有称呼有落款", "爱用颜文字"] },
+    { key: "mood", zh: "发的时候什么状态", opts: [
+      "平平淡淡", "有点着急", "有点怯、怕打扰", "丧", "高兴过头", "冷冷的、懒得寒暄"] }
+  ];
   // 私信：刷新收到 NPC 的私信（可能是帖子里认识的、也可能是喷子）
   const refreshForumPMs = async () => {
     if (!active) { toast("请先到设置配置 API"); return; }
@@ -18518,11 +18532,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 底下再由代码兜死。
       const baseRule = "**你们是陌生人，别默认对方性别**——绝对不要用『老哥』『哥们』『兄弟』这种默认男性的称呼；除非人设明确写了性别，否则一律用中性称呼（直接叫网名、或用『你』『lz』『朋友』）。**默认一个杠精都不要**（attitude 一律 friendly 或 curious）；只有在这些动态里真有值得抬杠的点时，才可以安排**至多一个** attitude 为 troll 的人，没有就别硬凑。每条含 npcName（对方网名）、tagline（对方一句话简介/画风）、attitude、opening（第一句私信）。风格各异、别都一个腔调。";
       const sourceBlock = hasActivity
-        ? "收私信的人叫「" + meName + "」。这些网友是**看了 TA 在贴吧的真实动态**来私信的——每条 opening 必须**针对下面某一条具体的帖子或评论**来搭话（共鸣、请教、约稿、抬杠、补充等），**别凭空捏造 TA 没说过的话题**：\n" + actLines.join("\n") + "\n"
+        ? "收私信的人叫「" + meName + "」。这些网友是看过 TA 在贴吧的动态才来的。提到 TA 说过的东西，只能提下面真有的这几条，**别凭空捏造 TA 没说过的话题**：\n" + actLines.join("\n") + "\n"
         : "收私信的人叫「" + meName + "」，TA **还没在贴吧发过帖、也没评论过**。所以这些网友是**逛到 TA 的主页**来的——请**根据 TA 的主页资料**搭话（聊 TA 的网名、签名或人设气质），**别编造 TA 发过的帖子/评论**：网名「" + (forumMe.handle || meName) + "」，签名/简介「" + (forumMe.bio || profile.tagline || meDesc || "（没写）").slice(0, 80) + "」。\n";
+      // 一人一组，一批之内不撞（Axes.batch 不放回）；FORUM_PM_ASK 的上限有几个就掷几组
+      const pmN = Number(String(FORUM_PM_ASK).split("-").pop()) || 9;
+      const pmRolled = window.Axes ? window.Axes.batch([{ axes: FORUM_PM_AXES }], pmN, ["forumpm", Date.now()]) : [];
+      const pmPeople = pmRolled.length
+        ? "\n【这几个人不是同一个人】items 里第 N 条就照第 N 行这个人来写——来意、长短、打字习惯、状态各是各的，读起来要像几个真不认识的人发来的，不是同一个腔调换几个网名：\n"
+          + pmRolled.map((g, i) => "第" + (i + 1) + "条：" + ((g[0] && !g[0].free) ? window.Axes.line(g[0].rows) : "你自己定")).join("\n") + "\n"
+        : "";
       const d = await runProbeRetry(active, forumWorldCtx(actLines.join("\n") || forumMe.bio || ""), {
-        instruction: "贴吧里有 " + FORUM_PM_ASK + " 个陌生网友私信了你（items 数组务必 " + FORUM_PM_ASK + " 条，别只给 1-2 条）。" + sourceBlock + baseRule,
+        instruction: "贴吧里有 " + FORUM_PM_ASK + " 个陌生网友私信了你（items 数组务必 " + FORUM_PM_ASK + " 条，别只给 1-2 条）。" + sourceBlock + baseRule + pmPeople,
         schemaHint: "{\"items\":[{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"curious\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"}]}",
+        maxTokens: FTOK.pm
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : [])).filter(x => x && x.opening);
       if (!items.length) throw new Error("没有新私信");
