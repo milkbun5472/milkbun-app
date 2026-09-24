@@ -1,8 +1,9 @@
 {
   "sourceHashes": {
-    "scenery.mjs": "4657e7a0b1aae78df675e83871789f4327087572e8102aea1b54817d38dc4160",
-    "preview.mjs": "fbcbfa2333b2ac29f5275869c0d9942207b0edb4a6e5997fa0d16b98092d8487",
-    "preview.html": "9ba20dcb910d58647d499166614d084766eb3994689112b1e7b4512a4020ef97"
+    "journey.mjs": "fb5b8ae0ee801e2359aed1cefa13fd3ab1c1df4f3a0977ad35f1a27a9dd9f747",
+    "scenery.mjs": "4f58b3edf25a762044263678da04429f4d35004c2cf5880ccf66342012bac730",
+    "preview.mjs": "146af2cb6715c43261e30ec85b3e8062977c7b2abc0087b01ceabf0345f8158f",
+    "preview.html": "2acdc9b95a7bea36c3d020bac2b8c8e23707768e554e0e34b6b5ed7f0dcf706b"
   },
   "combinations": 240,
   "uniqueFrames": 240,
@@ -10,28 +11,28 @@
   "travel": [
     {
       "name": "远山",
-      "speed": 0.7,
-      "delta": 0.07000000000425644
-    },
-    {
-      "name": "山谷",
-      "speed": 2.3,
-      "delta": 0.23000000001320586
-    },
-    {
-      "name": "中景",
       "speed": 7,
       "delta": 0.7000000000407454
     },
     {
+      "name": "山谷",
+      "speed": 24,
+      "delta": 2.4000000001396984
+    },
+    {
+      "name": "中景",
+      "speed": 68,
+      "delta": 6.800000000395812
+    },
+    {
       "name": "林岸",
-      "speed": 18,
-      "delta": 1.8000000001047738
+      "speed": 170,
+      "delta": 17.00000000098953
     },
     {
       "name": "近景",
-      "speed": 48,
-      "delta": 4.800000000279397
+      "speed": 390,
+      "delta": 39.0000000022701
     }
   ],
   "wrappedHour": 0.008999999999996788,
@@ -48,7 +49,7 @@
   ],
   "layout": {
     "noHorizontalOverflow": true,
-    "stageHeight": 505,
+    "stageHeight": 424,
     "controlsBottom": 811,
     "footerTop": 811,
     "viewport": 844

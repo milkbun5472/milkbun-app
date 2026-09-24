@@ -54,7 +54,7 @@ fs.mkdirSync(out,{recursive:true});
   await mobile.screenshot({path:path.join(out,'mobile-snow.png')});
   await mobile.setViewportSize({width:844,height:390});await mobile.waitForTimeout(150);assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);
-  const sourceHashes=Object.fromEntries(['scenery.mjs','preview.mjs','preview.html'].map(f=>[f,createHash('sha256').update(fs.readFileSync(path.join(__dirname,f))).digest('hex')]));
+  const sourceHashes=Object.fromEntries(['journey.mjs','scenery.mjs','preview.mjs','preview.html'].map(f=>[f,createHash('sha256').update(fs.readFileSync(path.join(__dirname,f))).digest('hex')]));
   fs.writeFileSync(path.join(__dirname,'scenery-validation.json'),JSON.stringify({sourceHashes,combinations:240,uniqueFrames:new Set(result.samples.map(s=>s.hash)).size,motionChanged:result.motionChanged,travel:result.travel,wrappedHour:result.wrappedHour,stableSceneObjects:result.initialChildren===result.finalChildren,textureCount:result.textures,layerCount:result.layerCount,transparentCorner:result.transparentCorner,nightRainDarkerThanDay:true,pauseResume:true,reducedMotionStartsPaused:true,mobileCanvas:[960,480],layout,errors,failed},null,2)+'\n');
   console.log(JSON.stringify({combinations:240,uniqueFrames:new Set(result.samples.map(s=>s.hash)).size,layout,errors,failed}));
  }finally{await browser.close();}

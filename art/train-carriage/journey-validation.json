@@ -1,0 +1,21 @@
+{
+  "sourceHashes": {
+    "journey.mjs": "fb5b8ae0ee801e2359aed1cefa13fd3ab1c1df4f3a0977ad35f1a27a9dd9f747",
+    "scenery.mjs": "4f58b3edf25a762044263678da04429f4d35004c2cf5880ccf66342012bac730",
+    "preview.mjs": "146af2cb6715c43261e30ec85b3e8062977c7b2abc0087b01ceabf0345f8158f",
+    "preview.html": "2acdc9b95a7bea36c3d020bac2b8c8e23707768e554e0e34b6b5ed7f0dcf706b"
+  },
+  "encounters": 21,
+  "distinctFrames": 21,
+  "nearSpeed": 390,
+  "stableSceneObjects": true,
+  "tunnelLighting": true,
+  "speedRatio": 4,
+  "pausedSkip": true,
+  "mobile": {
+    "overflow": false,
+    "stage": 424
+  },
+  "errors": [],
+  "failed": []
+}

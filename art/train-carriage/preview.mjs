@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=4657e7a0b1aa';
+import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=4f58b3edf25a';
 import { GLTFLoader } from '../../apps/fairy-garden/vendor/GLTFLoader.js';
 const host=document.querySelector('#stage'), status=document.querySelector('#status');
 const scene=new T.Scene();
@@ -30,16 +30,19 @@ function syncEnvironment(){
  const h=scenery.state.hour,mins=Math.floor(h*60);document.querySelector('#clock').value=`${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`;
  document.querySelector('#hour').value=h;document.querySelector('#route').value=scenery.state.route;document.querySelector('#season').value=scenery.state.season;document.querySelector('#weather').value=scenery.state.weather;document.querySelector('#auto-time').checked=scenery.state.autoTime;
  const b=document.querySelector('#play');b.textContent=scenery.state.playing?'暂停窗景':'继续前行';b.setAttribute('aria-pressed',String(scenery.state.playing));
+ document.querySelector('#speed').value=scenery.state.speed;document.querySelector('#speed-label').value=`${scenery.state.speed.toFixed(1)} 倍`;const passing=document.querySelector('#passing');if(passing.textContent!==scenery.journey.label)passing.textContent=scenery.journey.label;
  document.querySelector('#journey-label').textContent=`${ROUTES[scenery.state.route]} · ${SEASONS[scenery.state.season]} · ${WEATHERS[scenery.state.weather]}`;
 }
 function setEnvironment(patch){scenery.set(patch);syncEnvironment();render();}
 for(const key of ['route','weather','season'])document.querySelector('#'+key).onchange=e=>setEnvironment({[key]:e.target.value});
+document.querySelector('#speed').oninput=e=>setEnvironment({speed:Number(e.target.value)});
+document.querySelector('#next-stop').onclick=()=>{scenery.nextStop();syncEnvironment();render();};
 document.querySelector('#hour').oninput=e=>setEnvironment({hour:Number(e.target.value)});
 document.querySelector('#auto-time').onchange=e=>setEnvironment({autoTime:e.target.checked});
 document.querySelector('#play').onclick=()=>setEnvironment({playing:!scenery.state.playing});
 syncEnvironment();
 let frameId,lastFrame=0;
-const frameInterval=innerWidth<650?50:1000/24;
+const frameInterval=1000/30;
 function animate(now){
  frameId=requestAnimationFrame(animate);
  if(document.hidden){lastFrame=now;return;}
@@ -61,6 +64,6 @@ renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom
 try{
  const gltf=await new GLTFLoader().loadAsync('./carriage.glb?v=1');asset=gltf.scene;
  asset.traverse(o=>{if(o.isMesh){o.castShadow=o.userData.carriageGroup!=='WindowGlass';o.receiveShadow=true;if(o.userData.carriageGroup==='WindowGlass'){o.material.transparent=true;o.material.opacity=.10;o.material.depthWrite=false;}}});
- scene.add(asset);setShell(false);resize();status.textContent='点「看窗外」靠近车窗 · 可切换风景、天气与时间';
+ scene.add(asset);setShell(false);resize();setView('window');status.textContent='点「看窗外」靠近车窗 · 可切换风景、天气与时间';
  window.carriageReview={scene,camera,renderer,asset,scenery,setEnvironment,setView,setShell,render,get currentView(){return currentView;}};
 }catch(e){status.textContent='模型加载失败：'+e.message;status.classList.add('error');console.error(e);}
