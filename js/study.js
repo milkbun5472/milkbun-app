@@ -45,6 +45,12 @@
     "\n【题型怎么挑】看她对这个要点到了哪一步：刚讲完、第一次考，choice／true_false 可以，先看她认不认得出；"
     + "她已经认得出来的要点，就换 fill_blank，让她自己把它写出来——从几个里挑出来和自己写出来是两回事。"
     + "进度里写着「已经认得出」的那几个要点，再考就用 fill_blank。";
+  // 讲义／小抄／练习（她 2026-09-24：「让他也可以发文件过来」）。
+  // ⚠️这儿只让老师【说要给】：正文另写一枪（genHandout），不然这一轮的气泡要等一整份讲义写完才出来。
+  const HANDOUT_FMT =
+    "\n【给她一份东西（可选，接在同一个 JSON 里）】你觉得这会儿该甩一份东西给她带走的时候——讲完一块想让她留着的笔记、一页考前能扫完的小抄、几道让她自己回去做的题——"
+    + "就加 \"handout\":{\"kind\":\"讲义|小抄|练习\",\"title\":\"这份的标题\",\"focus\":\"这份要写什么、为什么现在给\"}。"
+    + "它会另外写成一份文件递到她手上；say 里照常说你递给她时会说的那句。她开口要，就给；平时看你自己觉得值不值得，不必每节都有。";
   // 学习证据信号（只给 teach / nv1-teacher）：老师只能报告用户刚才真实作答的表现，不能自行宣布学会/推进。
   const STUDY_PROGRESS_FMT =
     "\n【学习证据（可选，接在同一个 JSON 里）】只有当用户刚刚真的回答了一道题、完成了练习或亲口复述时，才可加 " +
@@ -419,6 +425,7 @@
     }
     if (mode === "teach" || mode === "nv1-teacher") parts.push(QUIZ_CARD_FMT);
     if (mode === "costudy" && session.mode === "costudy") parts.push(BOARD_FMT);
+    if (mode === "teach" || mode === "nv1-teacher" || (mode === "costudy" && session.mode === "costudy")) parts.push(HANDOUT_FMT);
     parts.push(OUT_FMT);
     return parts.join("\n\n");
   }
@@ -467,6 +474,35 @@
     return [b.question ? "问题：" + b.question : "", sec("猜测（未验证）", b.guesses), sec("已确认", b.confirmed), sec("还没解决", b.open)].filter(Boolean).join("\n");
   }
 
+  function parseHandout(raw) {
+    const d = extractJSON(raw) || {}, x = d.handout;
+    if (!x || typeof x !== "object") return null;
+    const title = String(x.title || "").trim().slice(0, 40), focus = String(x.focus || "").trim().slice(0, 200);
+    if (!title && !focus) return null;
+    return { kind: ["讲义", "小抄", "练习"].indexOf(x.kind) > -1 ? x.kind : "讲义", title: title || focus.slice(0, 20), focus: focus };
+  }
+  // 各种 kind 怎么写：给的是【这种东西该长什么样】的判据，不是内容示范
+  const HANDOUT_CRAFT = {
+    讲义: "讲义＝她下次自己翻开也看得懂的笔记：从她现在卡在哪讲起，一块一块讲清楚，例子用这节课真讲过的或者跟她的资料对得上的。",
+    小抄: "小抄＝一页能扫完的东西：只留她最该记住的那几条，每条一行，能对照就对照，不展开讲道理。",
+    练习: "练习＝几道让她自己做的题，难度照她现在的进度和错题本来；答案和解析单独放在最后一节，别夹在题目中间。"
+  };
+  async function genHandout(active, session, char, ctx, role, spec) {
+    const base = buildStudyPrompt(session, char, ctx, role)
+      .replace(OUT_FMT, "").replace(QUIZ_CARD_FMT, "").replace(STUDY_PROGRESS_FMT, "").replace(BOARD_FMT, "").replace(HANDOUT_FMT, "");
+    const conv = (session.transcript || []).filter(function (m) { return m && m.content && !m.hidden; }).slice(-30).map(function (m) {
+      return (m.role === "user" ? userName(ctx.profile || {}) : (m.name || char.name)) + "：" + String(m.content).slice(0, 600);
+    }).join("\n");
+    const sys = base + "\n\n【刚才的课】\n" + conv +
+      "\n\n【现在要写的】你刚说要给她一份" + spec.kind + "《" + spec.title + "》" + (spec.focus ? "：" + spec.focus : "") + "。" +
+      "\n" + (HANDOUT_CRAFT[spec.kind] || HANDOUT_CRAFT.讲义) +
+      "\n开头可以用你自己的口吻写一两句递给她的话；正文是给她看的资料，用简单的排版：大标题用 #，分节用 ##，列表用 -，重点用 **…**。" +
+      "直接输出这份东西本身，不要 JSON，不要写成聊天气泡。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const body = String(raw || "").replace(/^\s*```[a-z]*\s*\n?/i, "").replace(/\n?```\s*$/, "").trim();
+    if (!body) throw new Error("没写出东西来");
+    return body;
+  }
   function parseQuiz(raw) {
     const d = extractJSON(raw) || {};
     const q = d.quiz;
@@ -516,7 +552,7 @@
     const says = parseSay(raw);
     const d = extractJSON(raw) || {};
     const evidence = d.evidence && typeof d.evidence === "object" ? d.evidence : null;
-    return { says: says, evidence: evidence, quiz: parseQuiz(raw), board: session.mode === "costudy" ? parseBoard(raw) : null };
+    return { says: says, evidence: evidence, quiz: parseQuiz(raw), board: session.mode === "costudy" ? parseBoard(raw) : null, handout: role === "nv1-peer" ? null : parseHandout(raw) };
   }
 
   // 三人课堂一次写两个人（v73.15）：以老师那份完整的 prompt 为底（人设、长出来的自我、大纲、进度、题卡规则、
@@ -531,7 +567,7 @@
       "\n· 两个人各按各的卡说话；谁先谁后、各说几句，按此刻场面自然排——老师讲完同学接一句、同学答错老师纠正、两人顺着拌一句嘴都行。" +
       "\n· 不是每个人都得开口：没什么真想说的那位这一轮就不出现。" +
       (focus ? "\n· 用户这一轮是冲着「" + focus + "」来的，TA 先接；另一位要不要插话看场面。" : "") +
-      "\n· 题卡（quiz）和学习证据（evidence）只能是「" + teacher.name + "」出的；「" + peer.name + "」绝不出题、不判对错。" +
+      "\n· 题卡（quiz）、学习证据（evidence）和递给她的东西（handout）只能是「" + teacher.name + "」出的；「" + peer.name + "」绝不出题、不判对错。" +
       "\n【输出格式】只输出一个 JSON 对象：{\"turns\":[{\"name\":\"" + teacher.name + "\",\"say\":[\"气泡\"]},{\"name\":\"" + peer.name + "\",\"say\":[\"气泡\"]}]}，" +
       "turns 按说话先后排，同一个人可以出现不止一次，每段 say 1~4 个气泡；需要时在同一对象加 quiz 或 evidence。不要名字前缀、不要旁白括号、不要 markdown。";
   }
@@ -553,7 +589,7 @@
     let turns = parseTurns(raw, teacher, peer);
     if (!turns.length) { const f = sayFallback(raw).map(guardOverspeak).filter(Boolean); if (f.length) turns = [{ char: teacher, says: f }]; }
     const d = extractJSON(raw) || {};
-    return { turns: turns, evidence: d.evidence && typeof d.evidence === "object" ? d.evidence : null, quiz: parseQuiz(raw) };
+    return { turns: turns, evidence: d.evidence && typeof d.evidence === "object" ? d.evidence : null, quiz: parseQuiz(raw), handout: parseHandout(raw) };
   }
 
   function normalizeQuizAnswer(value) {
@@ -905,15 +941,20 @@
     return { text: String(text), kind: isPdf ? "pdf" : "txt" };
   }
   async function addMaterial(curId, file, onProg) {
+    const got = await readMaterialFile(file, onProg);
+    return saveMaterialText(curId, String(file.name || "资料").replace(/\.(txt|md|markdown|pdf)$/i, ""), got.kind, got.text);
+  }
+  // 一份正文收进这门课的资料：她传的文件、老师递来的讲义都走这一处
+  async function saveMaterialText(curId, name, kind, text) {
     const st = matStore();
     if (!st) throw new Error("这台设备存不了资料");
-    const got = await readMaterialFile(file, onProg);
+    const got = { kind: kind, text: String(text || "") };
     const id = "mat_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
     await st.put(id, got.text);
     MAT_CACHE[id] = got.text;
     const cur = findCurriculum(curId);
     if (!cur) { try { await st.del(id); } catch (e) {} throw new Error("找不到这门课"); }
-    const meta = { id: id, name: String(file.name || "资料").replace(/\.(txt|md|markdown|pdf)$/i, "").slice(0, 60), kind: got.kind, chars: got.text.length, addedAt: Date.now() };
+    const meta = { id: id, name: String(name || "资料").slice(0, 60), kind: got.kind, chars: got.text.length, addedAt: Date.now() };
     saveCurriculum(Object.assign({}, cur, { materials: (cur.materials || []).concat([meta]), updated_at: Date.now() }));
     return meta;
   }
@@ -1144,7 +1185,8 @@
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
     genFlashcards: genFlashcards, addFlashcards: addFlashcards, removeFlashcard: removeFlashcard,
     studyCoursesOf: studyCoursesOf, setCourseRoom: setCourseRoom,
-    loadMaterials: loadMaterials, materialText: materialText, addMaterial: addMaterial, removeMaterial: removeMaterial
+    loadMaterials: loadMaterials, materialText: materialText, addMaterial: addMaterial, removeMaterial: removeMaterial,
+    saveMaterialText: saveMaterialText, parseHandout: parseHandout, genHandout: genHandout
   };
 
   // ============================================================
@@ -1452,6 +1494,63 @@
           busy ? (teacher ? teacher.name : "老师") + "在做卡…" : "让" + (teacher ? teacher.name : "老师") + "再做一摞")));
   }
 
+  // 老师写的那份东西用的排版只有几样：# 标题、## 分节、- 列表、**重点**。只认这几样，别的原样显示。
+  function mdInline(text, key) {
+    return String(text).split(/(\*\*[^*]+\*\*)/).map(function (seg, i) {
+      return /^\*\*[^*]+\*\*$/.test(seg) ? h("b", { key: key + "_" + i }, seg.slice(2, -2)) : seg;
+    });
+  }
+  function mdBlocks(body, ink, accent) {
+    return String(body || "").split("\n").map(function (line, i) {
+      const t = line.trimEnd();
+      if (!t.trim()) return h("div", { key: i, style: { height: 8 } });
+      let m;
+      if ((m = t.match(/^#\s+(.*)/))) return h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 21, color: ink, lineHeight: 1.35, margin: "6px 0 8px" } }, mdInline(m[1], i));
+      if ((m = t.match(/^#{2,}\s+(.*)/))) return h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 16, color: accent, lineHeight: 1.4, margin: "12px 0 5px" } }, mdInline(m[1], i));
+      if ((m = t.match(/^\s*(?:[-*•]|\d+[.、])\s+(.*)/))) {
+        const num = t.match(/^\s*(\d+)[.、]/);
+        return h("div", { key: i, className: "flex", style: { gap: 7, fontFamily: F_BODY, fontSize: 14, color: ink, lineHeight: 1.75 } },
+          h("span", { style: { color: accent, flexShrink: 0 } }, num ? num[1] + "." : "·"), h("span", null, mdInline(m[1], i)));
+      }
+      return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 14, color: ink, lineHeight: 1.8, whiteSpace: "pre-wrap" } }, mdInline(t, i));
+    });
+  }
+  // 老师递过来的那份东西，点开就是整页
+  function HandoutPage(props) {
+    const m = props.entry, ho = m.handout || {};
+    const skin = studyModeSkin(props.mode), accent = skin.accent;
+    const [busy, setBusy] = useState("");
+    async function saveFile() {
+      if (busy) return;
+      setBusy("file");
+      try {
+        const via = await saveTextFile(String(ho.title || ho.kind || "讲义").replace(/[\\/:*?"<>|]/g, " ") + ".md", ho.body, "text/markdown");
+        if (via !== "cancel") props.toast && props.toast("存好了");
+      } catch (e) { props.toast && props.toast("没存成：" + ((e && e.message) || "再试一次")); }
+      finally { setBusy(""); }
+    }
+    async function keep() {
+      if (busy || !props.curId) return;
+      setBusy("keep");
+      try {
+        await saveMaterialText(props.curId, ho.title || ho.kind, "handout", ho.body);
+        props.onKept && props.onKept(m.id);
+        props.toast && props.toast("收进这门课的资料了，以后上课老师也会翻");
+      } catch (e) { props.toast && props.toast(String((e && e.message) || "没收成")); }
+      finally { setBusy(""); }
+    }
+    const btn = function (on) { return { flex: 1, minHeight: 46, fontFamily: F_BODY, fontSize: 14.5, borderRadius: "5px 14px 5px 5px", background: on ? accent : STUDY_SKIN.paper, color: on ? STUDY_SKIN.paper : STUDY_SKIN.ink, border: "1px solid " + (on ? accent : STUDY_SKIN.line) }; };
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: ho.kind || "讲义", en: m.name ? "来自 " + m.name : "", mode: props.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-4" },
+        h("div", { style: { background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "4px solid " + accent, borderRadius: "6px 18px 18px 6px", padding: "18px 18px 22px", boxShadow: "0 10px 24px " + STUDY_SKIN.shadow } },
+          mdBlocks(ho.body, STUDY_SKIN.ink, accent))),
+      h(StudyFooter, null,
+        h("div", { className: "flex", style: { gap: 8 } },
+          h("button", { onClick: saveFile, disabled: !!busy, className: "active:opacity-70", style: btn(false) }, busy === "file" ? "存…" : "存成文件"),
+          props.curId ? h("button", { onClick: keep, disabled: !!busy || ho.kept, className: "active:opacity-70", style: btn(!ho.kept) }, ho.kept ? "已收进资料" : busy === "keep" ? "收…" : "收进资料") : null)));
+  }
+
   // 这门课的资料：她传上来的课本、讲义、笔记。老师讲课、起大纲、做闪卡都会翻它。
   function MaterialShelf(props) {
     const cur = props.curriculum;
@@ -1491,7 +1590,7 @@
           const open = peek === m.id, body = MAT_CACHE[m.id];
           return h("div", { key: m.id, style: { background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", padding: "11px 14px", marginBottom: 9, boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
             h("button", { onClick: function () { setPeek(open ? "" : m.id); }, className: "w-full flex items-center active:opacity-70", style: { gap: 8, textAlign: "left", background: "transparent", border: "none", padding: 0 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0 5px", flexShrink: 0 } }, m.kind === "pdf" ? "PDF" : "文字"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0 5px", flexShrink: 0 } }, m.kind === "pdf" ? "PDF" : m.kind === "handout" ? "老师给的" : "文字"),
               h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.name),
               h("span", { style: Object.assign({}, small, { flexShrink: 0 }) }, m.chars + " 字 · " + timeShort(m.addedAt))),
             open ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: 1.75, marginTop: 9, paddingTop: 9, borderTop: "1px dashed " + STUDY_SKIN.line, whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" } },
@@ -1911,6 +2010,7 @@
     const sessRef = useRef(props.session);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 台词朗读（懒合成，重听免费）
     useEffect(function () { sessRef.current = sess; }, [sess]);
+    const [hoView, setHoView] = useState("");   // 正在看老师递来的哪一份
     // 这门课她传过的资料先读进来：拼提示词那一步是同步的，得在她开口之前就备好
     useEffect(function () { const c = sess.curriculum_id ? findCurriculum(sess.curriculum_id) : null; if (c) loadMaterials(c); }, [sess.id]);
     useEffect(function () {
@@ -1950,6 +2050,22 @@
       const next = Object.assign({}, s, { transcript: s.transcript.concat([entry]) });
       commit(next);
       return next;
+    }
+    function patchHandout(id, patch) {
+      const s = sessRef.current;
+      commit(Object.assign({}, s, { transcript: s.transcript.map(function (m) { return m.id === id && m.handout ? Object.assign({}, m, { handout: Object.assign({}, m.handout, patch) }) : m; }) }));
+    }
+    // 老师说要给的那份东西：卡先落下（写着「正在写」），正文另一枪写完再填进去
+    async function writeHandout(id, char, role) {
+      const m = (sessRef.current.transcript || []).find(function (x) { return x.id === id; });
+      if (!m || !m.handout) return;
+      patchHandout(id, { status: "writing", err: "" });
+      try {
+        const body = await genHandout(props.active, sessRef.current, char, contextFor(char), role, m.handout);
+        patchHandout(id, { status: "done", body: body, chars: body.length });
+      } catch (e) {
+        patchHandout(id, { status: "failed", err: String((e && e.message) || "没写成").slice(0, 200) });
+      }
     }
 
     async function refreshCostudySummary() {
@@ -2021,6 +2137,12 @@
           pushEntry({ id: "q_" + Date.now(), role: "char", speakerId: char.id, name: char.name,
             content: res.quiz.prompt, ts: Date.now() });
         }
+      }
+      if (res && res.handout && role !== "nv1-peer") {
+        const hoId = "ho_" + Date.now();
+        pushEntry({ id: hoId, role: "char", speakerId: char.id, name: char.name, ts: Date.now(),
+          content: "（递给你一份" + res.handout.kind + "《" + res.handout.title + "》）", handout: Object.assign({ status: "writing" }, res.handout) });
+        writeHandout(hoId, char, role);   // 不等它：这一轮的话先说完，讲义写好了自己填进卡里
       }
       // 老师只能把用户刚刚真实作答的表现记成证据；任何模型信号都不能自动推进小节。
       if (units.length && (role === "teach" || role === "nv1-teacher")) recordEvidence(res && res.evidence, answerEntry);
@@ -2349,6 +2471,18 @@
           ? (hasExitAnswer(sess, prog.exit_ticket) ? "提交结课" : "先答小测")
           : (prog.exit_ticket && prog.exit_ticket.status === "needs_retry" ? "再测一次" : "结课小测")));
 
+    function handoutCard(m) {
+      const ho = m.handout, done = ho.status === "done", failed = ho.status === "failed";
+      const who = (props.characters || []).find(function (c) { return c.id === m.speakerId; }) || { id: m.speakerId, name: m.name };
+      const role = sess.mode === "costudy" ? "costudy" : sess.mode === "nv1" ? "nv1-teacher" : "teach";
+      return h("button", { onClick: function () { if (done) setHoView(m.id); else if (failed) writeHandout(m.id, who, role); },
+        className: "flex items-center active:opacity-80", style: { gap: 11, width: 260, maxWidth: "100%", textAlign: "left", padding: "12px 13px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 13px 13px 4px", borderLeft: "3px solid " + accent, boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+        h("span", { style: { width: 34, height: 42, flexShrink: 0, borderRadius: "3px 10px 3px 3px", background: accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" } }, ho.kind),
+        h("span", { style: { flex: 1, minWidth: 0 } },
+          h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ho.title),
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: failed ? STUDY_SKIN.red : STUDY_SKIN.fog, marginTop: 3 } },
+            done ? (ho.chars || (ho.body || "").length) + " 字 · 点开看" : failed ? "没写成，点一下再写" : "正在写…")));
+    }
     function quizCard(m) {
       const q = m.quiz;
       const attempts = q.attempts || [];
@@ -2455,9 +2589,12 @@
           (sess.mode === "nv1" || (char && char.voiceId && typeof ttsReady === "function" && ttsReady())) ? h("div", { className: "flex items-center gap-1", style: { marginBottom: 2 } },
             sess.mode === "nv1" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, m.name + (isTeacher ? "（老师）" : "（同学）")) : null,
             (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: m.content, spk: char, tp: tp }) : null) : null,
-          m.quiz ? quizCard(m) : h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content)));
+          m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content)));
     });
 
+    const hoEntry = hoView ? (sess.transcript || []).find(function (m) { return m.id === hoView && m.handout && m.handout.status === "done"; }) : null;
+    if (hoEntry) return h(HandoutPage, { entry: hoEntry, mode: sess.mode, curId: sess.curriculum_id || null, toast: props.toast,
+      onKept: function (id) { patchHandout(id, { kept: true }); }, onBack: function () { setHoView(""); } });
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
       h(StudyHead, { zh: sess.subject, en: modeTag(sess.mode), mode: sess.mode, onBack: props.onBack }),
       topBar,
