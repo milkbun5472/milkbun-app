@@ -1,7 +1,7 @@
 // Route progression is driven by travelled distance, not wall-clock or random popups.
 export const JOURNEY_LENGTH=120;
 export const JOURNEYS={
- forest:[['crossing','林间道口',4,10],['village','山脚村落',18,14],['bridge','溪谷木桥',36,13],['station','松林小站',54,16],['tunnel','穿过山洞',76,10],['lake','林间开阔湖面',91,16],['train','会车',110,6]],
+ forest:[['crossing','林间道口',4,10],['village','山脚村落',18,14],['bridge','溪谷木桥',36,13],['station','松林小站',54,16],['tunnel','穿过山洞',76,10],['lake','山中湖泊',91,16],['train','会车',110,6]],
  coast:[['harbor','渔港与帆船',4,13],['village','海边小镇',21,13],['bridge','沿海高架桥',38,13],['station','海风站',55,16],['tunnel','穿过海岬',77,9],['lake','开阔海湾',91,16],['train','会车',110,6]],
  country:[['crossing','田间道口',4,10],['windmill','风车与麦田',18,14],['village','经过村庄',36,13],['station','麦田小站',55,16],['bridge','河上铁桥',77,10],['lake','河岸牧场',92,15],['train','会车',110,6]],
 };

@@ -1,6 +1,7 @@
 // One window texture, independently scrolling cached art layers. No external assets.
 import * as T from 'three';
-import {journeyAt,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fb5b8ae0ee80';
+import {createDestinations,destinationState} from './destinations.mjs?v=163edc6becfc';
+import {journeyAt,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=e30d301a939c';
 export const ROUTES={forest:'林间山谷',coast:'海岸灯塔',country:'田野村落'};
 export const SEASONS={spring:'春天',summer:'夏天',autumn:'秋天',winter:'冬天'};
 export const WEATHERS={clear:'晴天',cloudy:'阴天',rain:'下雨',snow:'飘雪',fog:'薄雾'};
@@ -69,6 +70,7 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
  const material=new T.MeshBasicMaterial({map:texture,transparent:true,side:T.FrontSide,toneMapped:false,depthWrite:false});
  const mesh=new T.Mesh(new T.PlaneGeometry(2.69,1.37),material);mesh.name='LayeredWindowLandscape';mesh.position.set(1.19,1.65,-1.58);mesh.renderOrder=1;scene.add(mesh);
  const state={route:'forest',season:'spring',weather:'clear',hour:9,speed:1,playing:!reducedMotion,autoTime:false,distance:0,weatherTime:0};
+ const destinations=createDestinations();
  const speeds=[7,24,68,170,390];
  const layers=speeds.map((speed,i)=>({speed,canvas:canvas(1600,600),name:['远山','山谷','中景','林岸','近景'][i]}));
  let cacheKey='',frames=0,disposed=false,lastPalette;
@@ -162,21 +164,24 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
    else{ellipse(ctx,1180,97,29,22,'#e8e5cf');ellipse(ctx,1192,91,25,19,css(p[0]));}
   }
   drawClouds(p);
-  const journey=journeyAt(state.route,state.distance);
+  const journey=journeyAt(state.route,state.distance),destination=destinationState(state.route,journey);
   layers.forEach((layer,i)=>{
    const x=-mod(state.distance*layer.speed,1600);ctx.save();
-   if(i===3)ctx.globalAlpha=1-journey.clearing;
+   ctx.globalAlpha=(1-destination.reveal)*(i===3?1-journey.clearing:1);
    ctx.drawImage(layer.canvas,x,0);ctx.drawImage(layer.canvas,x+1600,0);ctx.restore();
-   if(i===2&&state.route!=='coast'&&['bridge','lake','harbor'].includes(journey.id)){
+   if(i===2&&!destination.id&&state.route!=='coast'&&['bridge','lake','harbor'].includes(journey.id)){
     ctx.save();ctx.globalAlpha=journey.clearing;const water=ctx.createLinearGradient(0,454,0,600);water.addColorStop(0,css(mix(p[3],[101,155,162],.4)));water.addColorStop(1,css(mix(p[5],[61,115,125],.5)));ctx.fillStyle=water;ctx.fillRect(0,454,1600,146);
     ctx.strokeStyle=css(p[1]);ctx.globalAlpha=journey.clearing*.35;ctx.lineWidth=2;
     for(let j=0;j<38;j++){const wx=mod(j*163-state.distance*85,1700)-60,wy=464+(j%7)*18;ctx.beginPath();ctx.moveTo(wx,wy);ctx.lineTo(wx+27+(j%3)*17,wy);ctx.stroke();}ctx.restore();
    }
-   if(i===3)drawJourney(ctx,journey,{colors:p.map(css),night:state.hour<6||state.hour>19.5,snow:state.season==='winter'||state.weather==='snow',season:state.season,motion:state.weatherTime,route:state.route},{path,ellipse,house});
+   if(i===3&&!destination.id)drawJourney(ctx,journey,{colors:p.map(css),night:state.hour<6||state.hour>19.5,snow:state.season==='winter'||state.weather==='snow',season:state.season,motion:state.weatherTime,route:state.route},{path,ellipse,house});
   });
+  destinations.draw(ctx,journey,{route:state.route,season:state.season,weather:state.weather,hour:state.hour,snow:state.season==='winter'||state.weather==='snow',motion:state.weatherTime,colors:p});
   // Trackside poles give a strong near-field cue while the far ridges remain slow.
+  ctx.save();ctx.globalAlpha=1-destination.reveal;
   const poleX=mod(2300-state.distance*430,2300)-120;ctx.strokeStyle=css(p[5]);ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(poleX,600);ctx.lineTo(poleX,94);ctx.moveTo(poleX-37,126);ctx.lineTo(poleX+37,126);ctx.stroke();
   ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(poleX-2300,118);ctx.quadraticCurveTo(poleX-1150,207,poleX,118);ctx.quadraticCurveTo(poleX+1150,207,poleX+2300,118);ctx.stroke();
+  ctx.restore();
   if(['clear','cloudy'].includes(state.weather)&&!journey.tunnel){ctx.strokeStyle=css(p[5]);ctx.lineWidth=2;for(let i=0;i<6;i++){const bx=mod(1950-state.weatherTime*95+i*28,2200)-150,by=146+Math.sin(i*.8)*18;ctx.beginPath();ctx.moveTo(bx-7,by+Math.sin(state.weatherTime*5+i)*4);ctx.lineTo(bx,by);ctx.lineTo(bx+7,by+Math.sin(state.weatherTime*5+i)*4);ctx.stroke();}}
   drawBridge(ctx,journey,p.map(css),state.distance);
   drawWeather(p);
@@ -196,8 +201,8 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
   const next={...state,...patch};for(const key of ['hour','speed'])if(!Number.isFinite(next[key]))throw Error('非法数值');
   state.route=next.route;state.season=next.season;state.weather=next.weather;state.hour=mod(next.hour,24);state.speed=clamp(next.speed,0,2);state.playing=Boolean(next.playing);state.autoTime=Boolean(next.autoTime);draw();
  }
- function step(dt){if(disposed||!state.playing)return false;dt=clamp(dt,0,.1);state.distance=mod(state.distance+dt*state.speed,160000);state.weatherTime=mod(state.weatherTime+dt,100000);if(state.autoTime)state.hour=mod(state.hour+dt*.10,24);draw();return true;}
+ function step(dt){if(disposed||!state.playing)return false;dt=clamp(dt,0,.1);state.distance=mod(state.distance+dt*state.speed*destinationState(state.route,journeyAt(state.route,state.distance)).speedFactor,160000);state.weatherTime=mod(state.weatherTime+dt,100000);if(state.autoTime)state.hour=mod(state.hour+dt*.10,24);draw();return true;}
  function lighting(){const h=state.hour;const daylight=clamp(Math.sin((h-6)/12*Math.PI),0,1)*(1-journeyAt(state.route,state.distance).tunnel*.95),overcast=state.weather==='clear'?1:.65;return {daylight,ambient:.65+daylight*1.95*overcast,sun:.2+daylight*3.2*overcast,lamps:clamp((.35-daylight)/.35,0,1)*6,color:css(lastPalette?.[1]||[240,230,210])};}
  draw();
- return {mesh,texture,canvas:output,state,set,step,lighting,get journey(){return journeyAt(state.route,state.distance);},nextStop(){state.distance=nextJourneyDistance(state.route,state.distance);draw();},seekJourney(distance){if(!Number.isFinite(distance)||distance<0)throw Error('非法旅程位置');state.distance=mod(distance,160000);draw();},get frames(){return frames;},get layers(){return layers.map(l=>({name:l.name,speed:l.speed,offset:mod(state.distance*l.speed,1600)}));},dispose(){disposed=true;scene.remove(mesh);mesh.geometry.dispose();material.dispose();texture.dispose();layers.forEach(l=>{l.canvas.width=1;l.canvas.height=1;});output.width=1;output.height=1;}};
+ return {mesh,texture,canvas:output,state,set,step,lighting,get journey(){return journeyAt(state.route,state.distance);},get destination(){return destinationState(state.route,journeyAt(state.route,state.distance));},get effectiveSpeed(){return state.speed*destinationState(state.route,journeyAt(state.route,state.distance)).speedFactor;},nextStop(){state.distance=nextJourneyDistance(state.route,state.distance);draw();},seekJourney(distance){if(!Number.isFinite(distance)||distance<0)throw Error('非法旅程位置');state.distance=mod(distance,160000);draw();},get frames(){return frames;},get layers(){return layers.map(l=>({name:l.name,speed:l.speed,offset:mod(state.distance*l.speed,1600)}));},dispose(){destinations.dispose();disposed=true;scene.remove(mesh);mesh.geometry.dispose();material.dispose();texture.dispose();layers.forEach(l=>{l.canvas.width=1;l.canvas.height=1;});output.width=1;output.height=1;}};
 }

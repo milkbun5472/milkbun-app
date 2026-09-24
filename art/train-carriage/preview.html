@@ -10,13 +10,14 @@
 @media(max-width:650px){aside{max-height:280px;padding-top:10px;padding-bottom:10px}.views{grid-template-columns:repeat(5,1fr);gap:5px}.views button{padding:7px 3px;min-height:34px}.views button:last-child{grid-column:auto}.environment{margin:10px 0;gap:12px}.environment label{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:11px}.environment select{margin:0;min-width:0;padding:6px 3px;font-size:11px;min-height:32px}.time-control input{margin-top:4px}.time-marks{font-size:9px}.journey-actions{margin:9px 0 0;display:inline-flex}.journey-actions button{min-height:32px;font-size:11px;min-width:82px;padding:6px}.shell-control{font-size:10px;margin:0 0 0 9px}.zoom{margin-top:8px}.zoom input{margin:0}.time-control label{font-size:11px}}
 .season-control{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#596859;margin:0 0 14px}.season-control select{min-height:34px;border:1px solid #55644830;border-radius:7px;padding:6px;background:#faf8f0;color:#344c3d;font:inherit}@media(max-width:650px){aside{max-height:310px}.season-control{margin:0 0 8px;font-size:11px}.season-control select{min-height:30px;padding:5px}.environment{margin:8px 0}}
 .passing-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:12px;color:#365443}.passing-row button{min-height:30px;padding:5px 10px}.speed-control{margin-top:12px}@media(max-width:650px){aside{max-height:340px}.passing-row{margin-top:8px;font-size:11px}.speed-control{margin-top:8px}.passing-row button{min-height:28px}}
+.destination-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 5px}.destination-shortcuts button{border-color:#9eac98;background:#eef0df;min-height:33px}@media(max-width:650px){.destination-shortcuts{margin-top:9px}.destination-shortcuts button{font-size:11px;min-height:29px;padding:5px}}
 </style>
 <script type="importmap">{"imports":{"three":"../../apps/fairy-garden/vendor/three.module.js"}}</script>
 </head>
 <body>
-<header><h1>双人卧铺</h1><span>列车窗景 · 沿途见闻</span></header>
+<header><h1>双人卧铺</h1><span>列车窗景 · 湖畔与海湾</span></header>
 <main><div id="stage"><div class="badge" id="journey-label">林间山谷 · 晴天</div><div id="status" role="status">正在载入车厢…</div></div>
-<aside><h2>一节可以慢慢待着的车厢</h2><p>穿过村落与小站，经过桥梁和隧道。窗前偶尔有另一班列车掠过，远山还在身后。</p>
+<aside><h2>一节可以慢慢待着的车厢</h2><p>红屋、湖面和倒影慢慢展开；彩色小镇沿着山坡延伸到港口。观景路段会自动放慢，留一点时间看风景。</p>
 <div class="views"><button data-view="overview" aria-pressed="true">看全景</button><button data-view="table" aria-pressed="false">拼图桌</button><button data-view="berths" aria-pressed="false">看卧铺</button><button data-view="top" aria-pressed="false">看布局</button><button data-view="window" aria-pressed="false">看窗外</button></div>
 <div class="environment">
 <label for="route">沿途风景<select id="route"><option value="forest">林间山谷</option><option value="coast">海岸灯塔</option><option value="country">田野村落</option></select></label>
@@ -24,11 +25,12 @@
 </div>
 <label class="season-control" for="season">沿途季节<select id="season"><option value="spring">春天 · 新绿花开</option><option value="summer">夏天 · 浓绿原野</option><option value="autumn">秋天 · 金叶暖林</option><option value="winter">冬天 · 枝头积雪</option></select></label>
 <div class="time-control"><label for="hour">时间 <output id="clock">09:00</output></label><input id="hour" type="range" min="0" max="23.99" step="0.01" value="9"><div class="time-marks"><span>深夜</span><span>清晨</span><span>正午</span><span>日暮</span><span>深夜</span></div></div>
+<div class="destination-shortcuts"><button data-destination="lake">山中湖泊</button><button data-destination="town">海边小镇</button></div>
 <div class="passing-row"><span id="passing" aria-live="polite">林间前行</span><button id="next-stop">下一段</button></div><div class="time-control speed-control"><label for="speed">车速 <output id="speed-label">1.0 倍</output></label><input id="speed" type="range" min="0.5" max="2" step="0.1" value="1"></div>
 <div class="journey-actions"><button id="play" aria-pressed="true">暂停窗景</button><label class="row"><input id="auto-time" type="checkbox">昼夜流转</label></div>
 <label class="row shell-control"><input id="shell" type="checkbox">合上车厢外壳</label>
 <div class="zoom"><label for="zoom">远近</label><input id="zoom" type="range" min="0.7" max="1.6" step="0.01" value="1"></div>
 <hr><h2>模型文件</h2><div class="downloads"><a class="download" href="./carriage.blend" download>Blender 源文件</a><a class="download" href="./carriage.glb" download>下载 GLB</a></div><p>这是模型预览。拍照、拼图和聊天玩法尚未接入。</p>
 </aside></main><footer><span>拖动旋转 · 双指或滚轮缩放</span><span>远山慢行 · 近景掠过</span></footer>
-<script type="module" src="./preview.mjs?v=146af2cb6715"></script>
+<script type="module" src="./preview.mjs?v=2c97b45fc2c2"></script>
 </body></html>

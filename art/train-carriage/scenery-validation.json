@@ -1,9 +1,10 @@
 {
   "sourceHashes": {
-    "journey.mjs": "fb5b8ae0ee801e2359aed1cefa13fd3ab1c1df4f3a0977ad35f1a27a9dd9f747",
-    "scenery.mjs": "4f58b3edf25a762044263678da04429f4d35004c2cf5880ccf66342012bac730",
-    "preview.mjs": "146af2cb6715c43261e30ec85b3e8062977c7b2abc0087b01ceabf0345f8158f",
-    "preview.html": "2acdc9b95a7bea36c3d020bac2b8c8e23707768e554e0e34b6b5ed7f0dcf706b"
+    "destinations.mjs": "163edc6becfcce6e3fe350c74e32d856d4bbfef82801fa8b408236c50b63d3fa",
+    "journey.mjs": "e30d301a939c7481d4dfcf1a5122d9e4d1af9a202b1d78e1c0f25a63af641f9f",
+    "scenery.mjs": "25a90e36a242cb01d438ed625574f205ecbf9c35ffd36310075f1419853b7497",
+    "preview.mjs": "2c97b45fc2c21b40bb7d06fe79cda6def9c190b569de3028a6d65545d944303f",
+    "preview.html": "0285d3ab0eccfa870d53cca70fc7294ce2b7a1f92fd7d7f9965f9c02e14bbff8"
   },
   "combinations": 240,
   "uniqueFrames": 240,

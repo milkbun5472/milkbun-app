@@ -1,0 +1,11 @@
+{
+  "distinct": 16,
+  "slow": 0.0719999999855645,
+  "normal": 0.20000000001164153,
+  "paused": true,
+  "objectsStable": true,
+  "texturesStable": true,
+  "modelHash": "e87085ce31a2f0d16fe34badfbc267387b3b2a664d79ff71167a9ce1f52c4811",
+  "mobileControls": true,
+  "errors": []
+}
