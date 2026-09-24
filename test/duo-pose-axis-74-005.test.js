@@ -22,3 +22,17 @@ test("连着两张不许掷到同一格", () => {
   assert.ok(i > 0 && j > i);
   assert.match(eng.slice(i, j), /if \(idx === buildPhotoPrompt\._lastDuoPose\)/);
 });
+
+// 她 2026-09-24：「如果我说让他特定姿势或者我俩特定姿势，能 override 这个轴吗」——能，而且必须能。
+test("点名了姿势就照点名的来，轴让路", () => {
+  const i = eng.indexOf("function photoDuoPoseLine("), j = eng.indexOf("function photoShotLine(", i);
+  const seg = eng.slice(i, j);
+  assert.match(seg, /「场景\/正在做什么」那一句已经写明了两个人怎么站/, "合照姿势那格没让路");
+  assert.ok(!/"[^"\n]*别又回到/.test(seg), "那句会跟她要的贴脸对着干");
+  assert.match(eng, /「场景\/正在做什么」那一句已经点名了机位或姿势的，照那一句来/, "机位那格没让路");
+  assert.ok(eng.indexOf('parts.push("场景/正在做什么：') < eng.indexOf("parts.push(photoShotLine(kind"), "场景那句得排在两格前面，「上面那一句」才说得通");
+});
+
+test("合照那段不再自带一张以贴脸打头的姿势菜单", () => {
+  assert.ok(!/"姿势自然亲密：/.test(eng));
+});
