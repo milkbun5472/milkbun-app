@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent}</style>
+<svg id=s xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="-160 -160 320 320"></svg>
+<script>
+// Units: reference-sheet pixels, origin at head centre. Blush passed in the query.
+const q=new URLSearchParams(location.search);
+fetch('../faces/faces.json').then(r=>r.json()).then(F=>{
+ const bl=JSON.parse(q.get('blush')||'[]');
+ s.innerHTML=`<defs><radialGradient id="g"><stop offset="0" stop-color="#f2a595" stop-opacity="1"/><stop offset=".6" stop-color="#f2a595" stop-opacity=".85"/><stop offset="1" stop-color="#f2a595" stop-opacity="0"/></radialGradient></defs>`
+ +bl.map(b=>`<ellipse cx="${b[0]}" cy="${b[1]}" rx="${b[2]}" ry="${b[3]}" fill="url(#g)"/>`).join('')
+ +(q.get('face')?F[q.get('face')].svg:'');document.title='ready'});
+</script>
