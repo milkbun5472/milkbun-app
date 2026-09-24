@@ -1,8 +1,56 @@
 {
- "traveler":{"label":"原野旅人","colors":{"cloth":"#8d5f66","trim":"#ece2c5","bottom":"#c9bda0","boots":"#493c35"}},
- "academy":{"label":"学院短外套","colors":{"cloth":"#465c75","trim":"#d9bd7f","bottom":"#4e505a","boots":"#433a37"}},
- "garden":{"label":"花房围裙裙","colors":{"cloth":"#82967a","trim":"#efe1c6","bottom":"#ded1b8","boots":"#815b46"}},
- "alchemist":{"label":"星纹炼金袍","colors":{"cloth":"#655b83","trim":"#d8b878","bottom":"#494557","boots":"#423b4d"}},
- "ranger":{"label":"林间斗篷装","colors":{"cloth":"#647d72","trim":"#d4b18c","bottom":"#70624f","boots":"#4d3c31"}},
- "cardigan":{"label":"奶油针织开衫","colors":{"cloth":"#c89079","trim":"#f0e4cf","bottom":"#677b89","boots":"#675344"}}
+ "traveler": {
+  "label": "原野旅人",
+  "colors": {
+   "cloth": "#d97a60",
+   "trim": "#f2e6cd",
+   "bottom": "#e3d8bd",
+   "boots": "#65574b"
+  }
+ },
+ "academy": {
+  "label": "学院短外套",
+  "colors": {
+   "cloth": "#465c75",
+   "trim": "#d9bd7f",
+   "bottom": "#4e505a",
+   "boots": "#433a37"
+  }
+ },
+ "garden": {
+  "label": "花房围裙裙",
+  "colors": {
+   "cloth": "#82967a",
+   "trim": "#efe1c6",
+   "bottom": "#ded1b8",
+   "boots": "#815b46"
+  }
+ },
+ "alchemist": {
+  "label": "星纹炼金袍",
+  "colors": {
+   "cloth": "#655b83",
+   "trim": "#d8b878",
+   "bottom": "#494557",
+   "boots": "#423b4d"
+  }
+ },
+ "ranger": {
+  "label": "林间斗篷装",
+  "colors": {
+   "cloth": "#647d72",
+   "trim": "#d4b18c",
+   "bottom": "#70624f",
+   "boots": "#4d3c31"
+  }
+ },
+ "cardigan": {
+  "label": "奶油针织开衫",
+  "colors": {
+   "cloth": "#c89079",
+   "trim": "#f0e4cf",
+   "bottom": "#677b89",
+   "boots": "#675344"
+  }
+ }
 }

@@ -5,7 +5,7 @@ const result=await p.evaluate(async()=>{const T=await import('three'),{GLTFLoade
  const a=createTraveler(source),b=createTraveler(source,true);const names=['leftLeg','rightLeg'];let checks=0;
  const centre=o=>new T.Box3().setFromObject(o,true).getCenter(new T.Vector3());
  for(const avatar of [a,b])for(const height of [.8,1,1.2]){avatar.setLook({dims:{height,build:1.1},hair:'wolf'});avatar.root.updateMatrixWorld(true);
-  const legs=names.map(n=>avatar.root.getObjectByName(n));for(const leg of legs){if(leg.children.length!==2)throw Error('Leg must contain leggings and boot: '+leg.name);}
+  const legs=names.map(n=>avatar.root.getObjectByName(n));for(const leg of legs){if(leg.children.filter(o=>/Linen.leggings|Rounded.boots/i.test(o.name)).length!==2)throw Error('Leg must contain leggings and boot: '+leg.name);}
   avatar.animate(Math.PI/20,{moving:true});avatar.root.updateMatrixWorld(true);const first=legs.map(l=>l.children.map(centre));
   if(legs[0].rotation.x*legs[1].rotation.x>=0)throw Error('Legs not alternating');
   avatar.animate(3*Math.PI/20,{moving:true});avatar.root.updateMatrixWorld(true);

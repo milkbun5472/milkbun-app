@@ -1,64 +1,76 @@
 {
  "hair": {
-  "korean": "韩式碎盖",
-  "wolf": "层次狼尾",
-  "mullet": "短侧鲻鱼头",
-  "curtains": "蓬松中分",
-  "comma": "逗号刘海",
-  "pixie": "精灵短发",
-  "bob": "法式短波波",
-  "hush": "轻盈羽毛剪",
-  "airbang": "空气刘海长直发",
-  "wavy": "慵懒长卷发",
-  "bun": "松弛盘发",
-  "ponytail": "高马尾"
+  "korean": "自然碎发",
+  "curtains": "中分微卷",
+  "comma": "侧分刘海",
+  "wolf": "狼尾碎发",
+  "pixie": "短发刺头",
+  "mullet": "微卷蓬松",
+  "airbang": "自然长发",
+  "bob": "短发波波",
+  "ponytail": "低马尾",
+  "hush": "双麻花辫",
+  "bun": "半扎丸子头",
+  "wavy": "长卷发"
  },
  "dims": [
   {
    "key": "height",
    "label": "腿长",
    "min": 0.85,
-   "max": 1.25
+   "max": 1.25,
+   "low": "短一点",
+   "high": "长一点"
   },
   {
    "key": "shoulder",
    "label": "肩宽",
    "min": 0.85,
-   "max": 1.2
+   "max": 1.2,
+   "low": "窄一点",
+   "high": "宽一点"
   },
   {
    "key": "waist",
-   "label": "腰线",
+   "label": "腰身",
    "min": 0.85,
-   "max": 1.15
+   "max": 1.15,
+   "low": "纤细",
+   "high": "丰盈"
   },
   {
    "key": "flare",
    "label": "衣摆",
    "min": 0.78,
-   "max": 1.22
+   "max": 1.22,
+   "low": "收拢",
+   "high": "蓬松"
   },
   {
    "key": "build",
-   "label": "丰满",
+   "label": "圆润度",
    "min": 0.85,
-   "max": 1.15
+   "max": 1.15,
+   "low": "轻巧",
+   "high": "圆润"
   },
   {
    "key": "head",
    "label": "头身比",
    "min": 0.88,
-   "max": 1.1
+   "max": 1.1,
+   "low": "小一点",
+   "high": "大一点"
   }
  ],
  "outfits": {
   "traveler": {
    "label": "原野旅人",
    "colors": {
-    "cloth": "#8d5f66",
-    "trim": "#ece2c5",
-    "bottom": "#c9bda0",
-    "boots": "#493c35"
+    "cloth": "#d97a60",
+    "trim": "#f2e6cd",
+    "bottom": "#e3d8bd",
+    "boots": "#65574b"
    }
   },
   "academy": {
@@ -106,5 +118,6 @@
     "boots": "#675344"
    }
   }
- }
+ },
+ "style": "clay-2026-09"
 }

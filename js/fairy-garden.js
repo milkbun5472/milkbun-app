@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-f4ae3df4806b7a4a", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-3d4dbfaf3ae54de5", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -1505,18 +1505,20 @@
             // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
             ((styles && styles.dims) || []).length ? h("div", { style: { marginTop: 22 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "体型"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "都从中间那一档开始；拖动时小人当场就变。"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "按这只小旅人的比例微调；拖动就能看见变化，每一项都可以单独还原。"),
               styles.dims.map(d => {
                 const cur = Number(((look[who] || {}).dims || {})[d.key]);
                 const value = isFinite(cur) ? cur : 1;
-                return h("div", { key: d.key, style: { marginBottom: 14 } },
+                return h("div", { key: d.key, style: { marginBottom: 10, padding: "12px 13px", background: "rgba(244,229,211,.52)", border: "1px solid rgba(151,112,82,.16)", borderRadius: 14 } },
                   h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 3 } },
-                    h("span", null, d.label),
+                    h("span", null, d.label + " · " + Math.round(value * 100) + "%"),
                     h("button", { onClick: () => pushLook({ dims: { [d.key]: 1 } }), className: "active:opacity-60",
                       style: { fontFamily: F_BODY, fontSize: 10.5, color: Math.abs(value - 1) < .005 ? "transparent" : G.deep, background: "transparent" } }, "回到中间")),
-                  h("input", { type: "range", min: d.min, max: d.max, step: .01, value: value,
+                  h("input", { type: "range", "aria-label": d.label, min: d.min, max: d.max, step: .01, value: value,
                     onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
-                    style: { width: "100%", accentColor: G.deep } }));
+                    style: { width: "100%", minHeight: 28, accentColor: "#a5785c" } }),
+                  h("div", { className: "flex items-center justify-between", style: { fontSize: 10, color: G.soft } },
+                    h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
               })) : null,
             h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
               onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS })))),

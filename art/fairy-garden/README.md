@@ -1,3 +1,15 @@
+# 当前小旅人模型（2026-09-23）
+
+`clay-reference.glb` 是 Lisa 提供的 79f83def92825737ba8e27c55feabc6a.glb 原件（只读输入）。`clay_doll.py` 从原件拆出碎发、旅人服、挎包、裤子和鞋，补完整可换发型的脸面与手部，构建另外十一款陶土发型和五套服装。所有六维形变、坐姿衣摆、动作枢轴及枢轴形变在此生成。`export_traveler.py` 是唯一导出入口，输出 doll.glb、doll.json、outfits.mjs。
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender -b --python art/fairy-garden/export_traveler.py
+```
+
+纹理按染色区域中性化至 1K WebP；dyeTexture 标记允许保留明暗纹理，实例独立染色。旧存档发型 ID 和六套衣柜配色原样保留。重新导出后运行 `node scripts/build-fairy-garden.mjs` 同步资源缓存图。构建预览 .blend 位于 /tmp/garden-new-doll/clay-doll.blend；可复建的输入和脚本随仓库保存。旧 doll_hair.py/doll_outfits.py 为旧版美术归档，不参与现役导出。
+
+以下为场景与历代美术记录。
+
 # 微光庭院 · 可调布偶美术源
 
 发型参考和十二款轮廓说明见 [HAIR_REFERENCES.md](HAIR_REFERENCES.md)。

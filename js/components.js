@@ -100,7 +100,7 @@ function ColorDot({ value, onChange, label, palette, size, tone, hexField, place
         style: { position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, border: "none", padding: 0, cursor: "pointer" } }),
       cur ? null : h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
         color: "#fff", fontSize: Math.round(d / 2), lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,.5)", pointerEvents: "none" } }, "+")),
-    hexField ? h("input", { value: draft, onChange: e => typeText(e.target.value), onBlur: () => setDraft(cur), placeholder: placeholder || "#f7b6c2",
+    hexField ? h("input", { "aria-label": (label || "颜色") + "色号", value: draft, onChange: e => typeText(e.target.value), onBlur: () => setDraft(cur), placeholder: placeholder || "#f7b6c2",
       spellCheck: false, className: "flex-1 min-w-0",
       style: { minWidth: 96, minHeight: 40, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5,
         background: c.field, color: c.ink2, border: "1px solid " + c.line } }) : null);
