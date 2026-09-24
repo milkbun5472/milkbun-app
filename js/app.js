@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.021";
+const APP_VERSION = "v74.022";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13639,7 +13639,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
           + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
               alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
-              anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
+              anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
           // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
           + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
             + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : "")
@@ -17570,6 +17570,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     + "楼中楼每一条如果是在回【这层楼里的某个人】，就填 to＝那个人的名字（照抄这层里出现过的网名或角色名）；回层主本人就留空。"
     + "正文里 @ 谁，只能 @ 这帖里真出现过的人，别编一个不存在的用户名。";
   // 全部开满（她 2026-09-23：「上限给65535吧，多给点反正也用不了那么多」）——天花板不是花销，中转自己 clamp 到模型上限。
+  // 同一个人换个号，说话的顾忌就不一样（她 2026-09-24：「同一件事大小号或者匿名发帖或者评论说出来的语气和角度
+  //   也要有点不一样，但是不能 ooc」）。发帖和楼里冒泡共用这一句（one-public-mechanism）。
+  const FORUM_ID_VOICE = "【号不同，顾忌不同；人还是这个人】"
+    + "变的是【顾忌】：大号顶着名字，认识他的人都看得见——说的是他愿意公开的那一面，会顾及身份和别人怎么看；"
+    + "小号认识他的人认不出来——松一点、敢较真、敢吐槽、敢露怯，换个更随手的说法；"
+    + "匿名谁也认不出来——最没遮拦，说平时绝不会说出口的那句真话，可以更冲、更丧、更直白。"
+    + "不变的是【这个人】：他在意什么、怎么判断事、价值观和脾气底色、惯用的词和口头禅，三个号都一样——"
+    + "判定：把小号或匿名那条拿给认识他的人看，内容认不出是谁，但读完会觉得「这确实像他会想的事」；认不出来的程度来自不署名，不是来自换了个人。";
   const FTOK = {
     board: 65535,   // 一版 3-5 条新主帖
     floors: 65535,  // 12-18 楼含楼中楼——全论坛最长的一次输出；v73.321 楼中楼多了，天花板跟着抬（不是花销）
@@ -17856,7 +17864,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只给「已知会说话的那几个」，等于赌对了才准，赌错的那个一开口就现编。
     const who = isSearch
       ? "**楼里是常驻熟面孔与一次性路人的混合**，**不要出现你认识的任何角色**——这是搜来的陌生话题吧。"
-      : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色冒泡时 identity 可以是 main（大号）、alt（固定小号）或 anonymous（匿名）——**别全用大号**：角色冒泡的楼里大约三成该是小号或匿名（想说点不方便顶着名字说的、想看热闹不想被认出来的时候）；小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
+      : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色冒泡时 identity 可以是 main（大号）、alt（固定小号）或 anonymous（匿名）——**别全用大号**：角色冒泡的楼里大约三成该是小号或匿名（想说点不方便顶着名字说的、想看热闹不想被认出来的时候）；" + FORUM_ID_VOICE + "小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
     return {
       instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock
         + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
