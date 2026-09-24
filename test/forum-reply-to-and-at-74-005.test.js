@@ -1,0 +1,24 @@
+// 楼中楼「回复 @谁」由模型写 to、代码只认这层里真有的人；正文里 @ 了不存在的人，显示时摘掉（她 2026-09-24）。
+const assert = require("assert");
+const fs = require("fs");
+const vm = require("vm");
+const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const sc = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const i = app.indexOf("const forumValidTo = ");
+const ctx = {}; vm.createContext(ctx);
+vm.runInContext("var forumValidTo = " + app.slice(i + "const forumValidTo = ".length, app.indexOf("};", i) + 2), ctx);
+assert.strictEqual(ctx.forumValidTo("蓝笔批注", ["蓝笔批注", "路过拔刀"]), "蓝笔批注");
+assert.strictEqual(ctx.forumValidTo("@蓝笔批注", ["蓝笔批注"]), "蓝笔批注");
+assert.strictEqual(ctx.forumValidTo("sweeper_chen", ["蓝笔批注"]), "", "楼里没有的人不显示");
+assert(/是在回【这层楼里的某个人】，就填 to/.test(app), "提示词让它写 to");
+assert(/_to: r\.to \}/.test(app) && /const toName = forumValidTo\(_to, seen\)/.test(app), "首刷楼中楼接上");
+assert(/const r = buildForumReplyObjBase\(x, post, floor\)/.test(app), "插楼那条接上");
+assert(/const toName = forumValidTo\(x\.to, \[meNow\]/.test(app), "回我那条接上");
+const a = sc.indexOf("const atClean = ");
+const re = eval(sc.slice(sc.indexOf("replace(", a) + 8, sc.indexOf(", (all, name)", a)));
+const known = new Set(["阿满"]);
+const clean = t => t.replace(re, (all, name) => known.has(name) ? all : "");
+assert.strictEqual(clean("@sweeper_chen 阁下道破天机"), "阁下道破天机");
+assert.strictEqual(clean("@阿满 你说呢"), "@阿满 你说呢");
+assert(/atClean\(r\.content\)/.test(sc) && /atClean\(cm\.content\)/.test(sc));
+console.log("forum-reply-to-and-at ok");

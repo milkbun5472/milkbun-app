@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.009";
+const APP_VERSION = "v74.010";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17553,7 +17553,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 楼中楼怎么长（她 2026-09-23：「现在回复很多时候只是一人一层楼，都没有贴吧那种多个人回复一层的感觉了」）。
   //   病根是原来那句「大多数楼 replies 留空」。首刷、续刷两处共用这一句（one-public-mechanism）。
   const FORUM_THREAD_LINE = "楼中楼（replies）是贴吧的精髓：【大约一半的楼】底下要有人接——2~5 条，来自【不同的人】（多是没单独开楼的路人和熟面孔），"
-    + "有人附和、有人抬杠、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，吵得起来的楼可以更长；一句话就说完的楼就让它空着。楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。";
+    + "有人附和、有人抬杠、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，吵得起来的楼可以更长；一句话就说完的楼就让它空着。楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。"
+    // 回谁得写出来，界面才画得出「回复 @某某」（她 2026-09-24：层主回了楼里某人，看不出是在回谁）
+    + "楼中楼每一条如果是在回【这层楼里的某个人】，就填 to＝那个人的名字（照抄这层里出现过的网名或角色名）；回层主本人就留空。"
+    + "正文里 @ 谁，只能 @ 这帖里真出现过的人，别编一个不存在的用户名。";
   // 全部开满（她 2026-09-23：「上限给65535吧，多给点反正也用不了那么多」）——天花板不是花销，中转自己 clamp 到模型上限。
   const FTOK = {
     board: 65535,   // 一版 3-5 条新主帖
@@ -17636,6 +17639,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️闸开在【生成出来的那一条】这儿，不能开在存的时候：她真写的那些楼层也是 "me"，
   //   在落盘那头一刀切会把她自己的话也删掉。
   const forumIsMine = r => !!(r && (r.authorType === "me" || r.authorId === "me"));
+  // 模型写的 to（回的是这层楼里哪个人）：只认真在这层出现过的名字，认不出就当没写——
+  //   宁可不显示「回复 @」，也不显示一个楼里没有的人
+  const forumValidTo = (raw, names) => {
+    const t = String(raw || "").replace(/^@/, "").trim();
+    return t && (names || []).some(n => String(n || "").trim() === t) ? t : "";
+  };
   // 一条原始评论 → 楼层对象（回复者随机 NPC 或某个符合人设的角色，x.char=角色名则归到该角色）
   // post 传入时用于识别「楼主」：楼主不另开楼自问自答（顶楼命中→丢弃），楼主的追评正确署名+标记 isOp
   const buildForumFloor = (x, floorNo, base, idx, post) => {
@@ -17658,16 +17667,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       replies: (Array.isArray(x.replies) ? x.replies : []).filter(r => r && r.content).map(r => {
         if (isOpOf(r)) {
           // 楼主本人回某条评论：正确署名（角色→真名，否则楼主网名），并打上「楼主」小标
-          if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: r.content, isOp: true, ts: base + idx };
+          if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: r.content, isOp: true, ts: base + idx, _to: r.to };
           // ⚠️帖主是她：这条本该是她说的话，丢掉——别替她开口（见 forumIsMine）
           if (post && post.authorType === "me") return null;
-          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: "npc", authorId: null, content: r.content, isOp: true, ts: base + idx };
+          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: "npc", authorId: null, content: r.content, isOp: true, ts: base + idx, _to: r.to };
         }
         const rc = (characters || []).find(c => c.name === r.char);
         const rn = rc ? null : forumPublicNpcOf(r, (post && post.board) || "日常吧", idx + ":reply");
         const ri = rc ? forumCharIdentity(rc, r.identity, (post && post.board) || "日常吧") : null;
-        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx };
-      }).filter(r => r && !forumIsMine(r))
+        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx, _to: r.to };
+      }).filter(r => r && !forumIsMine(r)).map((r, j, arr) => {
+        // 「回复 @谁」：只认这层里【在它之前】出现过的人（层主不写——回层主是默认）
+        const seen = arr.slice(0, j).map(x => x.authorName).filter(n => n && n !== (cc ? identity.authorName : npc.name));
+        const { _to, ...rest } = r;
+        const toName = forumValidTo(_to, seen);
+        return toName ? { ...rest, toName } : rest;
+      })
     };
   };
   // 这帖里已经冒泡过的角色（顶楼作者 + 楼中楼作者都算）→ [{id,name}]，用于第二轮防重复
@@ -17695,7 +17710,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // floor：这条要插进的那层楼。层主（这层楼的作者）也得认——原来只认「楼主」，
   //   模型署名「层主」时就被当成一个叫「层主」的路人落了下来；而层主正是她时，
   //   那就是一条替她说的话（她 2026-09-23：「我自己的回复一直有个层主但是明明我就是这一层的层主」）。
+  // 插进已有楼层的那一条也带上「回复 @谁」：只认这层里已经有的人
   const buildForumReplyObj = (x, post, floor) => {
+    const r = buildForumReplyObjBase(x, post, floor);
+    if (!r || !floor) return r;
+    const names = (floor.replies || []).map(y => y && y.authorName).filter(n => n && n !== floor.authorName && n !== r.authorName);
+    const toName = forumValidTo(x.to, names);
+    return toName ? { ...r, toName } : r;
+  };
+  const buildForumReplyObjBase = (x, post, floor) => {
     if (!x || !x.content) return null;
     const looksFloorOwner = s => { s = String(s || "").trim(); return s === "层主" || s === "层主本人" || !!(floor && floor.authorName && s === floor.authorName); };
     if (floor && (x.is_owner === true || looksFloorOwner(x.char) || looksFloorOwner(x.authorName))) {
@@ -18819,7 +18842,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "④ 常驻熟面孔那几条【顺手标一下 toMe】：这一句冲 @" + (forumMe.handle || profile.name || "我")
           + " 去的是什么调子——warm（搭上话、附和、帮腔）/ spar（抬杠、呛、唱反调）/ 留空（只是路过，没冲着谁）。"
           + "**这一栏不许影响你写什么**：先照你想写的写，写完照实标一个；为了标而改内容就本末倒置了。",
-        schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\",\"toMe\":\"warm或spar，只是路过就留空\"}]}",
+        schemaHint: "{\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"is_owner\":false,\"is_op\":false,\"to\":\"回的是这层里谁（照抄名字；回层主留空）\",\"content\":\"回复\",\"toMe\":\"warm或spar，只是路过就留空\"}]}",
         maxTokens: FTOK.sub
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
@@ -18841,10 +18864,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
           return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: "npc", authorId: null, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
         }
+        // 「回复 @谁」：她、或者这层里已经说过话的人（她 2026-09-24）
+        const toName = forumValidTo(x.to, [meNow].concat((floor.replies || []).map(y => y && y.authorName)));
         const cc = forumActiveChars().find(c => c.name === x.char);
-        if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex }; }
+        if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ts: replyBase + replyIndex }; }
         const npc = forumPublicNpcOf(x, post.board, floorId + ":" + x.content);
-        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex };
+        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ...(toName ? { toName } : {}), ts: replyBase + replyIndex };
       });
       // ⚠️上面被丢掉的（以她的名义生成的那些）是 null，绝不能落进状态
       const keptReps = reps.filter(r => r && !forumIsMine(r));

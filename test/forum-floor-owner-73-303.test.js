@@ -11,7 +11,7 @@ const box = {
   forumPublicNpcOf: x => ({ name: x.authorName || "路人", handle: "h", id: "npc" })
 };
 vm.createContext(box);
-vm.runInContext(app.slice(app.indexOf("const forumIsMine = "), app.indexOf(";\n", app.indexOf("const forumIsMine = ")) + 2).replace(/^const /, "var ") + cut("buildForumReplyObj"), box);
+vm.runInContext(app.slice(app.indexOf("const forumIsMine = "), app.indexOf(";\n", app.indexOf("const forumIsMine = ")) + 2).replace(/^const /, "var ") + cut("forumValidTo") + cut("buildForumReplyObjBase") + cut("buildForumReplyObj"), box);
 const post = { authorType: "npc", authorName: "电瓶车坐垫受害者" };
 const myFloor = { authorType: "me", authorId: "me", authorName: "Lisa" };
 assert.strictEqual(box.buildForumReplyObj({ authorName: "层主", content: "5秒太短了" }, post, myFloor), null, "层主是她：不许替她开口");

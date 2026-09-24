@@ -2549,7 +2549,7 @@ function Forum({
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
               fresh && newTag())),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, cm.content),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
             //   没办法回复了，别人的楼中楼也不行」）。原来只有【楼层】那一行有「回复」，
@@ -2563,7 +2563,7 @@ function Forum({
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, r.content),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, atClean(r.content)),
               h("button", {
                 onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? meChar.name : r.authorName), toName: (r.authorType === "me" ? meChar.name : r.authorName) }),
                 className: "active:opacity-60",
@@ -2587,6 +2587,12 @@ function Forum({
     const p = open;
     const allFloors = forumFloorOrder(cmts[p.id] || []);
     const list = allFloors.filter(forumVisible);
+    // 正文里 @ 了一个这帖里根本没有的人（她 2026-09-24：「有时候会at回复一个用户名不存在的人」）：
+    //   显示时把那个 @ 摘掉，话照留。认得的名字＝这帖里出现过的网名、handle、角色名和她自己。
+    const knownAt = new Set([p.authorName, p.authorHandle, meChar && meChar.name, forumMe && forumMe.handle].concat(
+      ...allFloors.map(f => [f.authorName, f.authorHandle].concat(...(f.replies || []).map(r => [r.authorName, r.authorHandle]))),
+      (characters || []).map(x => x && x.name)).filter(Boolean).map(x => String(x).trim()));
+    const atClean = txt => String(txt || "").replace(/@([^\s@，。,.!！?？:：、）)」]+)\s*/g, (all, name) => knownAt.has(name) ? all : "");
     const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;
