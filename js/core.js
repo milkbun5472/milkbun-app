@@ -730,6 +730,67 @@ function decodeTextBytes(bytes) {
 async function readTextFileSmart(file) {
   return decodeTextBytes(await file.arrayBuffer());
 }
+// ---- 大段正文放 IndexedDB 的一张表：key＝id，value＝全文字符串 ----
+// 原来只长在一起读里（一本书的正文）；一起学的课程资料是第二处，所以搬到这儿共用。
+// ⚠️不走 saveJSON 那一层：那一层开机会把整张表读进内存，整本书、整份讲义不该一直占着内存。
+function makeTextStore(dbName, storeName) {
+  const open = () => new Promise((res, rej) => {
+    const r = indexedDB.open(dbName, 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains(storeName)) r.result.createObjectStore(storeName); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  const run = (mode, fn) => open().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(storeName, mode), rq = fn(tx.objectStore(storeName));
+    tx.oncomplete = () => res(rq && mode === "readonly" ? (rq.result || "") : undefined);
+    tx.onerror = () => rej(tx.error);
+  }));
+  return {
+    put: (id, text) => run("readwrite", st => st.put(text, id)),
+    get: id => run("readonly", st => st.get(id)),
+    del: id => run("readwrite", st => st.delete(id))
+  };
+}
+// ---- 懒加载 pdf.js（仅在导入 PDF 时才拉），抽取含文本层 / 已 OCR 的 PDF 文字 ----
+let _pdfjsP = null;
+function loadPdfjs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (_pdfjsP) return _pdfjsP;
+  _pdfjsP = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+    s.onload = () => {
+      try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {}
+      res(window.pdfjsLib);
+    };
+    s.onerror = () => { _pdfjsP = null; rej(new Error("pdf.js 加载失败（需要联网）")); };
+    document.head.appendChild(s);
+  });
+  return _pdfjsP;
+}
+async function extractPdfText(file, onProg) {
+  const lib = await loadPdfjs();
+  const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    let line = "", lastY = null;
+    const rows = [];
+    tc.items.forEach(it => {
+      if (typeof it.str !== "string") return;
+      const y = it.transform ? it.transform[5] : null;
+      // 换行：pdf.js 给了 EOL，或 y 坐标跳了一行
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && line) { rows.push(line); line = ""; }
+      line += it.str;
+      if (it.hasEOL) { rows.push(line); line = ""; }
+      lastY = y;
+    });
+    if (line) rows.push(line);
+    pages.push(rows.join("\n"));
+    if (onProg) onProg(p, pdf.numPages);
+  }
+  return pages.join("\n\n");
+}
 if (typeof module !== "undefined" && module.exports) {
   module.exports.decodeTextBytes = decodeTextBytes;
   module.exports.readTextFileSmart = readTextFileSmart;

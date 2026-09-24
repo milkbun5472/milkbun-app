@@ -409,6 +409,11 @@
       }
       const mem = curriculumMemoryText(cur);
       if (mem) parts.push(mem);
+      // 她传的资料：照这一节在讲什么、她刚问了什么，挑相关的几段
+      const unit = outline && (outline.units || []).find(function (u) { return u.id === prog.current_unit; });
+      const asked = (session.transcript || []).filter(function (m) { return m.role === "user"; }).slice(-2).map(function (m) { return m.content; }).join(" ");
+      const mats = materialText(cur, [session.subject, unit && unit.title, unit && (unit.grammar || []).map(function (g) { return g.label; }).join(" "), asked].filter(Boolean).join(" "));
+      if (mats) parts.push(mats);
       // 对话式推进：老师这轮把当前小节讲透、用户也跟上了，就在 JSON 里标 done 让进度条自己前进
       if (mode === "teach" || mode === "nv1-teacher") parts.push(STUDY_PROGRESS_FMT);
     }
@@ -795,6 +800,7 @@
         return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "") + (p.unit ? "｜小节：" + p.unit : "") + (p.vocab.length ? "｜词汇：" + p.vocab.join("、") : "");
       }).join("\n") +
       (curriculumMemoryText(cur) ? "\n\n" + curriculumMemoryText(cur) : "") +
+      (materialText(cur, points.map(function (p) { return p.label + " " + p.note; }).join(" ")) ? "\n\n" + materialText(cur, points.map(function (p) { return p.label + " " + p.note; }).join(" ")) : "") +
       (taken.length ? "\n\n【已经有的卡，正面别重复】\n" + taken.slice(-60).map(function (t) { return "· " + t; }).join("\n") : "") +
       "\n\n做 8 到 12 张。一张只考一个能在脑子里答出来的东西——正面短到一眼看完，背面给得出对错的那个答案，不写成一段讲义。" +
       "她错题本里还留着的、她卡过的那些，优先做进去。" +
@@ -822,6 +828,101 @@
     all[idx] = Object.assign({}, cur, { memory: mem, flashcards: (cur.flashcards || []).filter(function (c) { return c.id !== cardId; }), updated_at: Date.now() });
     saveCurricula(all);
     return true;
+  }
+
+  // ---- 课程资料（她 2026-09-24：「一起学要不要搞可以上传文件」）------------------------
+  // 她传上来的课本、讲义、笔记。课身上只记【有哪几份】（名字、字数），正文放 IndexedDB 那张表里，
+  // 跟一起读的书同一种存法（core.js 的 makeTextStore）。
+  // ⚠️正文不整本往里塞：每次只挑跟这一节有关的几段，一门课的资料动辄几万字。
+  const MAT_BUDGET = 6000, MAT_CHUNK = 700;
+  let _matStore = null;
+  function matStore() { if (!_matStore && typeof makeTextStore === "function") _matStore = makeTextStore("StudyDocsDB", "docs"); return _matStore; }
+  const MAT_CACHE = {};   // id → 全文；读一次留着，拼提示词那一步是同步的
+  async function loadMaterials(cur) {
+    const st = matStore(), list = (cur && cur.materials) || [];
+    if (!st) return;
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      if (MAT_CACHE[m.id] == null) { try { MAT_CACHE[m.id] = String(await st.get(m.id) || ""); } catch (e) { MAT_CACHE[m.id] = ""; } }
+    }
+  }
+  // 按空行切段，太长的段再按字数切，每段带着出处
+  function materialChunks(name, text) {
+    const out = [];
+    String(text || "").split(/\n\s*\n/).forEach(function (para) {
+      const p = para.trim();
+      for (let i = 0; i < p.length; i += MAT_CHUNK) out.push({ name: name, text: p.slice(i, i + MAT_CHUNK) });
+    });
+    return out;
+  }
+  // 一段跟这一节有多相关：数问句里的词（两个字一组）在这段里出现了几个
+  function chunkScore(text, grams) {
+    let n = 0;
+    grams.forEach(function (g) { if (text.indexOf(g) > -1) n++; });
+    return n;
+  }
+  function queryGrams(query) {
+    const q = String(query || "").toLowerCase().replace(/\s+/g, " ");
+    const set = new Set();
+    q.split(/[^\u4e00-\u9fa5a-z0-9\u3040-\u30ff]+/).forEach(function (w) {
+      if (!w) return;
+      if (/^[a-z0-9]+$/.test(w)) { if (w.length > 2) set.add(w); return; }
+      for (let i = 0; i + 1 < w.length; i++) set.add(w.slice(i, i + 2));
+    });
+    return Array.from(set);
+  }
+  // 挑几段给模型。资料加起来不多就整份给；多了就挑最相关的，按原来的先后排回去（读着才顺）。
+  function materialText(cur, query, budget) {
+    const list = (cur && cur.materials) || [];
+    if (!list.length) return "";
+    const cap = budget || MAT_BUDGET;
+    const chunks = [];
+    list.forEach(function (m) { materialChunks(m.name, MAT_CACHE[m.id]).forEach(function (c) { chunks.push(c); }); });
+    if (!chunks.length) return "";
+    let picked;
+    const total = chunks.reduce(function (n, c) { return n + c.text.length; }, 0);
+    if (total <= cap) picked = chunks;
+    else {
+      const grams = queryGrams(query).map(function (g) { return g.toLowerCase(); });
+      const ranked = chunks.map(function (c, i) { return { c: c, i: i, s: chunkScore(c.text.toLowerCase(), grams) }; })
+        .sort(function (a, b) { return b.s - a.s || a.i - b.i; });
+      let used = 0; picked = [];
+      for (let k = 0; k < ranked.length && used < cap; k++) { picked.push(ranked[k]); used += ranked[k].c.text.length; }
+      picked = picked.sort(function (a, b) { return a.i - b.i; }).map(function (x) { return x.c; });
+    }
+    let last = "";
+    return "【她传上来的资料（" + (total <= cap ? "全部" : "挑了跟这节有关的几段") + "）】\n"
+      + picked.map(function (c) { const head = c.name !== last ? "〔" + c.name + "〕\n" : ""; last = c.name; return head + c.text; }).join(total <= cap ? "\n\n" : "\n…\n")
+      + "\n这是她正在学的那份东西：讲法、术语、例题尽量跟着它走；它没讲到的，你照自己会的补，顺口说一句这是资料外的。";
+  }
+  // 读她选的那个文件：txt/md 自己认编码，pdf 抽文字层
+  async function readMaterialFile(f, onProg) {
+    const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
+    const isTxt = /\.(txt|md|markdown)$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
+    if (!isPdf && !isTxt) throw new Error("现在能读 .txt、.md 和带文字层的 .pdf；拍的书页用课上的发图片");
+    const text = isPdf ? await extractPdfText(f, onProg) : await readTextFileSmart(f);
+    if (!String(text || "").trim()) throw new Error(isPdf ? "没读到文字——这份 PDF 可能是扫描图，拍的书页用课上的发图片" : "这个文件是空的");
+    return { text: String(text), kind: isPdf ? "pdf" : "txt" };
+  }
+  async function addMaterial(curId, file, onProg) {
+    const st = matStore();
+    if (!st) throw new Error("这台设备存不了资料");
+    const got = await readMaterialFile(file, onProg);
+    const id = "mat_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+    await st.put(id, got.text);
+    MAT_CACHE[id] = got.text;
+    const cur = findCurriculum(curId);
+    if (!cur) { try { await st.del(id); } catch (e) {} throw new Error("找不到这门课"); }
+    const meta = { id: id, name: String(file.name || "资料").replace(/\.(txt|md|markdown|pdf)$/i, "").slice(0, 60), kind: got.kind, chars: got.text.length, addedAt: Date.now() };
+    saveCurriculum(Object.assign({}, cur, { materials: (cur.materials || []).concat([meta]), updated_at: Date.now() }));
+    return meta;
+  }
+  async function removeMaterial(curId, id) {
+    const cur = findCurriculum(curId);
+    if (cur) saveCurriculum(Object.assign({}, cur, { materials: (cur.materials || []).filter(function (m) { return m.id !== id; }), updated_at: Date.now() }));
+    delete MAT_CACHE[id];
+    const st = matStore();
+    if (st) { try { await st.del(id); } catch (e) {} }
   }
 
   // ---- 房间里收着哪几门课（她 2026-09-23：「给 A 开了三个一起学，只有 1、2 我想放进来」）----
@@ -1042,7 +1143,8 @@
     outlineSlice: outlineSlice, progressText: progressText,
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
     genFlashcards: genFlashcards, addFlashcards: addFlashcards, removeFlashcard: removeFlashcard,
-    studyCoursesOf: studyCoursesOf, setCourseRoom: setCourseRoom
+    studyCoursesOf: studyCoursesOf, setCourseRoom: setCourseRoom,
+    loadMaterials: loadMaterials, materialText: materialText, addMaterial: addMaterial, removeMaterial: removeMaterial
   };
 
   // ============================================================
@@ -1296,6 +1398,7 @@
       setBusy(true);
       try {
         const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur.subject) : props.worldbook;
+        await loadMaterials(fresh);
         const cards = await genFlashcards(props.bgActive || props.active, fresh, props.sessions, teacher, wb);
         addFlashcards(cur.id, cards);
         setRound(null); setFlipped(false); bump(function (n) { return n + 1; });
@@ -1349,11 +1452,64 @@
           busy ? (teacher ? teacher.name : "老师") + "在做卡…" : "让" + (teacher ? teacher.name : "老师") + "再做一摞")));
   }
 
+  // 这门课的资料：她传上来的课本、讲义、笔记。老师讲课、起大纲、做闪卡都会翻它。
+  function MaterialShelf(props) {
+    const cur = props.curriculum;
+    const skin = studyModeSkin(cur.mode), accent = skin.accent;
+    const [, bump] = useState(0);
+    const [busy, setBusy] = useState("");
+    const [peek, setPeek] = useState("");
+    const fileRef = useRef(null);
+    const fresh = findCurriculum(cur.id) || cur;
+    const list = (fresh.materials || []).slice().reverse();
+    useEffect(function () { loadMaterials(fresh).then(function () { bump(function (n) { return n + 1; }); }); }, [cur.id]);
+    async function onFile(e) {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!f || busy) return;
+      setBusy("读「" + f.name + "」…");
+      try {
+        const m = await addMaterial(cur.id, f, function (p, n) { setBusy("读 PDF " + p + "/" + n + " 页…"); });
+        props.toast && props.toast("收好了，" + m.chars + " 字");
+        props.onRefresh && props.onRefresh();
+      } catch (err) { props.toast && props.toast(String(err && err.message || "没读成")); }
+      finally { setBusy(""); bump(function (n) { return n + 1; }); }
+    }
+    function drop(m) {
+      requestAppConfirm("删掉「" + m.name + "」？", "这份资料的正文会从这台设备上删掉；老师以后就看不到它了。", async function () {
+        await removeMaterial(cur.id, m.id); bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh();
+      }, "删掉");
+    }
+    const small = { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog, lineHeight: 1.7 };
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "资料", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px" }) },
+          list.length ? "老师讲课、起这节的大纲、做闪卡都会翻这些；每次挑跟这一节有关的几段看，不会整本塞进去。"
+            : "把课本章节、讲义、自己的笔记传上来，老师就照着你真正要学的那份来教。能读 .txt、.md 和带文字层的 .pdf。"),
+        list.map(function (m) {
+          const open = peek === m.id, body = MAT_CACHE[m.id];
+          return h("div", { key: m.id, style: { background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", padding: "11px 14px", marginBottom: 9, boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+            h("button", { onClick: function () { setPeek(open ? "" : m.id); }, className: "w-full flex items-center active:opacity-70", style: { gap: 8, textAlign: "left", background: "transparent", border: "none", padding: 0 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0 5px", flexShrink: 0 } }, m.kind === "pdf" ? "PDF" : "文字"),
+              h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.name),
+              h("span", { style: Object.assign({}, small, { flexShrink: 0 }) }, m.chars + " 字 · " + timeShort(m.addedAt))),
+            open ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: 1.75, marginTop: 9, paddingTop: 9, borderTop: "1px dashed " + STUDY_SKIN.line, whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" } },
+              body == null ? "读取中…" : (body.slice(0, 1200) + (body.length > 1200 ? "\n……" : ""))) : null,
+            open ? h("div", { className: "flex", style: { marginTop: 8 } },
+              h("button", { onClick: function () { drop(m); }, className: "active:opacity-70", style: Object.assign({}, small, { marginLeft: "auto", padding: "4px 2px", background: "transparent", border: "none" }) }, "删掉这份")) : null);
+        })),
+      h(StudyFooter, null,
+        h("input", { ref: fileRef, type: "file", accept: ".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf", onChange: onFile, style: { display: "none" } }),
+        h("button", { onClick: function () { if (!busy && fileRef.current) fileRef.current.click(); }, disabled: !!busy, className: "w-full py-3 active:opacity-70",
+          style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: busy ? STUDY_SKIN.fog : accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } }, busy || "传一份资料")));
+  }
+
   function CurriculumConsole(props) {
     const cur = props.curriculum;
     const skin = studyModeSkin(cur.mode), accent = skin.accent;
     const summaries = (cur.memory && cur.memory.summaries) || [];
-    const [bookOpen, setBookOpen] = useState(false);   // false | "book" | "due" | "flash"
+    const [bookOpen, setBookOpen] = useState(false);   // false | "book" | "due" | "flash" | "mats"
     const bookCount = mistakeBookItems(cur).length;
     const dueNow = dueReviewItems(cur).length;
     const flashTotal = (cur.flashcards || []).length, flashDue = flashTotal ? flashQueue(cur).length : 0;
@@ -1404,6 +1560,8 @@
       const u = s.outline && s.outline.units && s.outline.units[0];
       return u ? u.title + ((s.outline.units.length > 1) ? " 等 " + s.outline.units.length + " 小节" : "") : "自由练习";
     }
+    if (bookOpen === "mats") return h(MaterialShelf, { curriculum: cur, toast: props.toast,
+      onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     if (bookOpen === "flash") return h(FlashDeck, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
       worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
@@ -1463,6 +1621,11 @@
           style: { minHeight: 48, marginTop: 8, padding: "10px 14px", gap: 8, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
           h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, "错题本"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: bookCount ? STUDY_SKIN.red : STUDY_SKIN.fog } }, bookCount ? "还有 " + bookCount + " 道 ›" : "空的 ›")),
+        // 资料（她 2026-09-24）：她传上来的课本、讲义、笔记
+        h("button", { onClick: function () { setBookOpen("mats"); }, className: "w-full flex items-center active:opacity-70",
+          style: { minHeight: 48, marginTop: 8, padding: "10px 14px", gap: 8, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
+          h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, "资料"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog } }, (cur.materials || []).length ? (cur.materials || []).length + " 份 ›" : "还没传 ›")),
         // 闪卡（她 2026-09-23）：老师照着上过的课做一摞，自己翻着背
         h("button", { onClick: function () { setBookOpen("flash"); }, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 48, marginTop: 8, padding: "10px 14px", gap: 8, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
@@ -1645,7 +1808,10 @@
         setBusy("sum");
         await summarizePriors();
         setBusy("draft");
-        const priorCtx = buildPriorCtx();
+        const fresh = findCurriculum(cur.id) || cur;
+        await loadMaterials(fresh);
+        const mats = materialText(fresh, [cur.subject, focus.trim(), buildPriorCtx()].join(" "));
+        const priorCtx = [buildPriorCtx(), mats].filter(Boolean).join("\n\n");
         const teacherId = cur.teacher_id || (cur.character_ids || [])[0];
         const loreText = [cur.subject, focus.trim(), priorCtx].filter(Boolean).join("\n");
         const worldbook = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, loreText) : props.worldbook;
@@ -1745,6 +1911,8 @@
     const sessRef = useRef(props.session);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 台词朗读（懒合成，重听免费）
     useEffect(function () { sessRef.current = sess; }, [sess]);
+    // 这门课她传过的资料先读进来：拼提示词那一步是同步的，得在她开口之前就备好
+    useEffect(function () { const c = sess.curriculum_id ? findCurriculum(sess.curriculum_id) : null; if (c) loadMaterials(c); }, [sess.id]);
     useEffect(function () {
       if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }, [sess.transcript.length, busy]);
