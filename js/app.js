@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.025";
+const APP_VERSION = "v74.030";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13343,7 +13343,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 聊天若已裁到云端，先把云归档与本机幂等合并；云端明明有归档却拉失败时不拿残缺素材硬写。
       const mergeMsgs = (a, b) => { const seen = new Set(), out = []; [...(a || []), ...(b || [])].forEach(m => { const k = m && m.id ? "id:" + m.id : "v:" + [m && m.ts, m && m.role, m && m.senderId, m && m.content].join("|"); if (!m || seen.has(k)) return; seen.add(k); out.push(m); }); return out.sort((x, y) => Number(x.ts || 0) - Number(y.ts || 0)); };
       const diaryChats = { [charId]: chatsRef.current[charId] || [] }, diaryGroupChats = {}, diaryGroupOfflines = {};
-      const memberGroups = (groups || []).filter(g => (g.memberIds || []).includes(charId));
+      // 封闭群（没开记忆互通）＝只进不出：群聊和群线下都不进日记（她 2026-09-24：「周刊没开互通的群线下素材怎么混进去了」，
+      //   顺着查到日记这条是真漏——ambientMaterialFor 早就只收 openGroups，这里没跟上）。
+      const memberGroups = (groups || []).filter(g => (g.memberIds || []).includes(charId) && !groupClosed(g.id));
       memberGroups.forEach(g => { diaryGroupChats[g.id] = groupChatsRef.current[g.id] || []; diaryGroupOfflines[g.id] = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []); });
       if (Number(chatArch[charId] || 0) > 0) {
         if (!(window.Cloud && window.Cloud.ready())) throw new Error("昨天有私聊在云归档里，但当前无法读取；联网后再生成，避免漏写");

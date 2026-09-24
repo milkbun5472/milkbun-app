@@ -15,7 +15,9 @@ const P = (() => {
   vm.createContext(ctx);
   const i = wk.indexOf("const VOICES = ["), j = wk.indexOf("\n  ];", i) + 5;
   const craft = wk.slice(wk.indexOf("const REPORTER_CRAFT ="), wk.indexOf("function interviewerBlock("));
-  vm.runInContext(wk.slice(i, j) + "\n" + craft + "\n" + ["normalizeVoiceId", "knownVoice", "issueStart", "interviewerFor", "interviewerOfIssue", "interviewerBlock"].map(fn).join("\n")
+  // v74.030：腔调那一段后面接了 PLAIN_CORE（读得懂是底线），照写的那一头一起抠进来
+  const plain = wk.slice(wk.indexOf("const PLAIN_CORE ="), wk.indexOf("const VOICES = ["));
+  vm.runInContext(plain + "\n" + wk.slice(i, j) + "\n" + craft + "\n" + ["normalizeVoiceId", "knownVoice", "issueStart", "interviewerFor", "interviewerOfIssue", "interviewerBlock"].map(fn).join("\n")
     + "\nthis.pick = interviewerFor; this.of = interviewerOfIssue; this.block = interviewerBlock; this.V = VOICES; this.REPORTER_VOICE = REPORTER_VOICE;", ctx);
   return ctx;
 })();
