@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-dc9ff4745fd4acb8", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-a21b0fb534020153", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -97,10 +97,11 @@
   }
   function TrainSession(props){
     const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id),talking=useRef(false),latest=useRef(props);latest.current=props;
+    const [toolbar,setToolbar]=useState(null);
     const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(""),[error,setError]=useState("");
     const key=props.storeKey||KEY;
     const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
-    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
     const savedAction=async action=>{try{if(talking.current)throw Error("同行者正在回复，等这句说完再离开。");flush();await action();}catch(e){setError(e.message);props.toast(e.message);}};
@@ -131,8 +132,8 @@
     const page=(title,back,body)=>h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
       h(Head,{zh:title,bg:"transparent",ink:G.ink,onBack:back}),body);
     return h("div",{className:"h-full flex flex-col",style:{background:"#e8e6d7",color:G.ink,position:"relative"}},
-      h(Head,{zh:"远行列车",sub:c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:()=>loaded?leave():props.onBack(),
-        right:h("div",{style:{display:"flex",gap:6}},h("button",{disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车"))}),
+      h("div",{"data-train-toolbar":true,style:{flexShrink:0}},h(Head,{zh:toolbar?toolbar.title:"远行列车",sub:toolbar?"":c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:toolbar?toolbar.back:()=>loaded?leave():props.onBack(),
+        right:h("div",{style:{display:"flex",gap:6}},toolbar?toolbar.actions.map(a=>h("button",{key:a.id,id:a.id,onClick:a.run,style:small},a.label)):[h("button",{key:"settings",disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{key:"landing",disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车")])})),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
         error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error)),
       panel==="album"&&h(TravelAlbum,{getArchive:current,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),

@@ -1,10 +1,10 @@
-import {validImage} from '../train/album.mjs?v=fg-dc9ff4745fd4acb8';
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-dc9ff4745fd4acb8';
-import {brewError,brewResult} from './brewing.mjs?v=fg-dc9ff4745fd4acb8';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-dc9ff4745fd4acb8';
-import './rules.js?v=fg-dc9ff4745fd4acb8';
+import {validImage} from '../train/album.mjs?v=fg-a21b0fb534020153';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-a21b0fb534020153';
+import {brewError,brewResult} from './brewing.mjs?v=fg-a21b0fb534020153';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-a21b0fb534020153';
+import './rules.js?v=fg-a21b0fb534020153';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-dc9ff4745fd4acb8';
+import {createNavigator} from './navigation.mjs?v=fg-a21b0fb534020153';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;

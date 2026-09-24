@@ -1,12 +1,12 @@
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-dc9ff4745fd4acb8';
-import {createPassengers} from './passengers.mjs?v=fg-dc9ff4745fd4acb8';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-dc9ff4745fd4acb8';
-import {createTravelCamera} from './camera-view.mjs?v=fg-dc9ff4745fd4acb8';
-import {removeAlbumItem} from './album.mjs?v=fg-dc9ff4745fd4acb8';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-dc9ff4745fd4acb8';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-dc9ff4745fd4acb8';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-dc9ff4745fd4acb8';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-dc9ff4745fd4acb8';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-a21b0fb534020153';
+import {createPassengers} from './passengers.mjs?v=fg-a21b0fb534020153';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-a21b0fb534020153';
+import {createTravelCamera} from './camera-view.mjs?v=fg-a21b0fb534020153';
+import {removeAlbumItem} from './album.mjs?v=fg-a21b0fb534020153';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-a21b0fb534020153';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-a21b0fb534020153';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-a21b0fb534020153';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-a21b0fb534020153';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}
@@ -20,7 +20,7 @@ try{if(!host)throw Error('请从小世界的列车入口进入。');state=restor
  const before=state,credited=creditPhoto(state,photo,r,src.width,src.height);state=credited.s;Object.assign(photo,credited.photo);state=plan?{...state,companionPhotos:[...(state.companionPhotos||[]),photo],cameraLog:{key:plan.key,trip:plan.trip,count:plan.count,distance:plan.distance}}:{...state,photos:[...(state.photos||[]),photo]};if(!flush()){state=before;return null;}return photo;}
  companionCamera=()=>{const src=view.scenery.canvas,plan=photoPlan(state,host.companion?.(),src.width,src.height);if(plan)capture(plan.crop,plan);};
 
- cameraUI=createTravelCamera({source:mode=>mode==='window'?view.scenery.canvas:view.renderer.domElement,shoot:(crop,mode)=>capture(crop,null,mode),hasCompanion:()=>!!host.companion?.()?.id,onMode:mode=>{cameraSubject=mode;view.setPhotoView(mode);},onClose:()=>{cameraSubject='window';view.setPhotoView(null);},state:()=>state,onPromise:theme=>{const before=state;state=makePromise(state,theme,host.companion?.());if(!flush()){state=before;throw Error('约定没有存好，请重试。');}},onOpen:()=>{}});
+ cameraUI=createTravelCamera({host,source:mode=>mode==='window'?view.scenery.canvas:view.renderer.domElement,shoot:(crop,mode)=>capture(crop,null,mode),hasCompanion:()=>!!host.companion?.()?.id,onMode:mode=>{cameraSubject=mode;view.setPhotoView(mode);},onClose:()=>{cameraSubject='window';view.setPhotoView(null);},state:()=>state,onPromise:theme=>{const before=state;state=makePromise(state,theme,host.companion?.());if(!flush()){state=before;throw Error('约定没有存好，请重试。');}},onOpen:()=>{}});
  desk=createPuzzleDesk({state:()=>state,save:flush,capture,host,environment:()=>travelContext(state),onOpen:mode=>view.setView('table'),stage:document.querySelector('#stage')});
  document.querySelector('#open-chat').onclick=()=>desk.open('travel').catch(e=>{status.textContent=e.message;});
  document.querySelector('#open-puzzle').onclick=()=>desk.open().catch(e=>{status.textContent=e.message;});
