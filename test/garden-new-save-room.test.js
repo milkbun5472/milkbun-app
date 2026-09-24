@@ -51,7 +51,7 @@ test("那一页接预设的两个 hook 排在提前 return 前面", () => {
 //   它原来直接写一条 g_xxx 进庭院自己那张名册就开了——那一档不属于任何人、
 //   也不挂任何房间：没有聊天、没有记忆进出、没有一处能设权限。
 test("「＋ 新开一段」先问给谁开，挑了人就去开房间", () => {
-  assert.match(garden, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id\); \};/,
+  assert.match(garden, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id,world\.id\); \};/,
     "示例同行者那条路撤了：挑了人才有下文，没有 else 那一支");
   assert.match(garden, /onClick: \(\) => setPicking\(true\)/, "「＋ 新开一段」只剩挑人这一条路");
   assert.match(garden, /if \(picking\) return shell\("给谁开一段"/);

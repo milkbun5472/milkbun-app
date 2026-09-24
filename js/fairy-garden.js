@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-6f0b5a42c3223c4d", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-40e1cca4d3d66b12", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -36,6 +36,56 @@
     return blankSave();
   };
   const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
+  const TRAIN_BUILD = BUILD;
+  function saveWorld(key, current, world, worldId, journey) {
+    const w=String(worldId||"garden");
+    if(!["garden","train"].includes(w)||!world||!Number.isFinite(world.version)||!Number.isFinite(world.day)||typeof world.map!=="string")throw Error("世界进度异常，暂未覆盖旧存档。");
+    const d=current();return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
+  }
+  function WorldSession(props) {
+    const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});
+    const [ready,setReady]=useState(place!=="train"),[error,setError]=useState("");
+    const alive=useRef(true),switching=useRef(false),key=props.storeKey||KEY;
+    const initialize=async(from)=>{
+      const before=loadJSON(key,null);
+      const {startTrip}=await import("../apps/train/travel.mjs?v="+TRAIN_BUILD);
+      if(!alive.current)return false;
+      const d=read(key);if(before&&d.id!==before.id)throw Error("存档已切换，请重新进入。");const garden=from==="garden"?worldOf(d,"garden"):null;
+      if(from==="garden"&&!garden)throw Error("庭院还没有保存成功，请留在车站。");
+      write(key,{...d,partnerId:props.lockPartnerId?String(props.lockPartnerId):d.partnerId,activeWorld:"train",worlds:{...(d.worlds||{}),train:startTrip(garden,Math.random,d.worlds?.train)}});return true;
+    };
+    useEffect(()=>{alive.current=true;if(place==="train"&&!props.entryWorld&&read(key).worlds?.train){setReady(true);}else if(place==="train")initialize("direct").then(ok=>{if(ok)setReady(true);}).catch(e=>{if(alive.current)setError(e.message);});return()=>{alive.current=false;};},[]);
+    const travel=async(to)=>{
+      if(switching.current)return false;switching.current=true;
+      try{
+        if(to==="train"){if(!await initialize("garden"))return false;}
+        else if(to==="garden"){
+          const before=read(key);const m=await import("../apps/fairy-garden/world.mjs?v="+BUILD);if(!alive.current)return false;
+          const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");const old=m.restoreState(m.putJourney(worldOf(d,"garden"),d.journey)),at=m.MAPS.garden.station.target;
+          const garden={...old,map:"garden",depth:0,seat:null,sleep:{player:null,companion:null},position:{...at},companion:{...old.companion,map:"garden",mode:"follow",seat:null,position:{x:at.x+.75,z:at.z}}};
+          write(key,{...d,activeWorld:"garden",world:garden,worlds:{...(d.worlds||{}),garden}});
+        }else return false;
+        setReady(true);setPlace(to);return true;
+      }catch(e){setError(e.message);props.toast(e.message);return false;}finally{switching.current=false;}
+    };
+    if(!ready)return h("div",{className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
+    return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
+  }
+  function TrainSession(props){
+    const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id),[loaded,setLoaded]=useState(false),[landing,setLanding]=useState(false),[error,setError]=useState("");
+    const key=props.storeKey||KEY;
+    const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id)});};
+    useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
+    const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
+    const leave=async(to)=>{try{flush();if(to)await props.onTravel(to);else props.onBack();}catch(e){setError(e.message);props.toast(e.message);}};
+    const d=read(key),c=(props.characters||[]).find(c=>String(c.id)===String(d.partnerId));
+    return h("div",{className:"h-full flex flex-col",style:{background:"#e8e6d7",color:G.ink,position:"relative"}},
+      h(Head,{zh:"远行列车",sub:c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:()=>loaded?leave():props.onBack(),right:h("button",{disabled:!loaded,onClick:()=>setLanding(true),style:{...pickButtonStyle(),padding:"5px 12px",fontSize:12}},"下车")}),
+      h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
+        error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error)),
+      landing&&h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},h(Head,{zh:"下一站",bg:"transparent",ink:G.ink,onBack:()=>setLanding(false)}),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"))));
+  }
   // 发色沿用色板；衣柜提供逐套保存的自由配色。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
   // 衣服、肤色、发色共用取色与色号输入，验证规则只写一份。
@@ -632,9 +682,8 @@
       if (frame.current && frame.current !== node) hosts.delete(frame.current.contentWindow); frame.current = node; if (!node) return;
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name, birthday: gameBirthdayOf(c) } : null; },
-        save: (world, worldId, journey) => { if (frame.current !== node) return false; if (!world || typeof world !== "object" || !Number.isFinite(world.version) || !Number.isFinite(world.day) || typeof world.map !== "string") throw new Error("庭院进度异常，暂未覆盖旧存档。"); const d = current(); const w = String(worldId || "garden"); write(storeKey.current, { ...d, journey: { ...(d.journey || {}), ...(journey && typeof journey === "object" ? journey : {}) }, worlds: { ...(d.worlds || {}), [w]: world }, // ⚠️庭院那一份同时写回老位置：万一回滚到旧版本，她的日子还在。
-          //   等列车上线、她也刷过几版之后，这条镜像才可以撤。
-          world: w === "garden" ? world : d.world }); return true; },
+        save: (world, worldId, journey) => frame.current === node && !!saveWorld(storeKey.current,current,world,worldId,journey),
+        travel: () => { if(frame.current!==node||busyRef.current){props.toast("等这次回复完成后再上车。");return false;}flush();stopAloud();serial.current++;return props.onTravel?.("train"); },
         // 念出来：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
         // （她 2026-09-19：「开了就每个气泡念完再到下一个气泡念」）。
         // ⚠️和聊天里那条语音走【同一个 ttsSpeak】：它自带 idb 缓存，另写一套合成
@@ -1555,7 +1604,8 @@
   //   可它们许的是三件谁都没在做的事——别人打开秋秋机，看见的就是三张空头支票。
   //   撤掉一件东西就把它删掉，不许留在原地当死代码（那三行连着灰卡片那一档渲染一起走）。
   const WORLDS = [
-    { id: "garden", name: "微光庭院", note: "种花、下井、和同行者一起把日子过下去" }
+    { id: "garden", name: "微光庭院", note: "种花、下井、和同行者一起把日子过下去" },
+    { id: "train", name: "远行列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" }
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
@@ -1654,20 +1704,23 @@
       }));
   };
 
+  function worldTrain(){return h("svg",{width:96,height:86,viewBox:"0 0 96 86","aria-hidden":true},h("path",{d:"M8 70H89M12 75H86",stroke:"#72866e",strokeWidth:3}),h("rect",{x:12,y:20,width:72,height:45,rx:9,fill:"#8aa48b",stroke:"#4f6953",strokeWidth:2}),...[23,43,63].map(x=>h("rect",{key:x,x,y:30,width:13,height:16,rx:3,fill:"#eee4c5"})),...[28,68].map(x=>h("circle",{key:x,cx:x,cy:65,r:7,fill:"#4f6953"})));}
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
-    if (props.storeKey || props.lockPartnerId) return h(GardenSession, props);
+    if (props.storeKey || props.lockPartnerId) return h(WorldSession, props);
     const [world, setWorld] = useState(null);
     const [saves, setSaves] = useState(() => readSaves());
     const [openId, setOpenId] = useState(null);
     const [picking, setPicking] = useState(false);
     // 「先和示例同行者试玩」本身就是一次回答：进去别再把同一张选人页摆一遍。
     const [openSolo, setOpenSolo] = useState(false);
+    const scrolls=useRef({}),scrollNode=useRef(null);
+    useEffect(()=>{if(scrollNode.current)scrollNode.current.scrollTop=scrolls.current[world?.id||"worlds"]||0;},[openId,world,picking]);
     const refresh = () => setSaves(readSaves());
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
-    if (openId) return h(GardenSession, Object.assign({}, props, {
-      key: openId, storeKey: openId, startSolo: openSolo,
+    if (openId) return h(WorldSession, Object.assign({}, props, {
+      key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
       onBack: () => { setOpenId(null); setOpenSolo(false); refresh(); }
     }));
     const card = (onClick, children) => h("button", {
@@ -1680,7 +1733,7 @@
     //   进了某个世界以后那几处 Head 仍旧是那个世界自己的名字（GardenSession 里那三处别动）。
     const shell = (sub, onBack, body) => h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: G.ink } },
       h(Head, { zh: "小世界", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
+      h("div", { ref:scrollNode,onScroll:e=>{scrolls.current[world?.id||"worlds"]=e.currentTarget.scrollTop;},className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
 
     // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
     const stall = vaultStalled(INDEX_KEY);
@@ -1699,7 +1752,7 @@
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
             fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
-          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? worldHouse() : worldSoon()), label);
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():worldHouse()) : worldSoon()), label);
         return w
           ? h("button", { key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
@@ -1712,11 +1765,11 @@
       });
       return shell("挑一个世界", props.onBack, h(React.Fragment, null,
         h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
-          "每个世界有自己的时间、地图和存档，进去挑一位角色一起过。"),
+          "庭院与列车共用同一档旅程。选一个世界，和同行者接着走。"),
         h("div", null, path)));
     }
 
-    const rows = saves.filter(x => x.world === world.id);
+    const rows = saves.filter(x => ["garden","train"].includes(x.world));
     // ⚠️不再有「开一段不挑人的」：新的一段一律要挑一位（她 2026-09-18 定的）。
     //   以前开的那些示例档照样列在上面、照样进得去，只是不能再新建——
     //   撤掉一件东西就把它删掉，不许留在原地当死代码。
@@ -1724,7 +1777,7 @@
     //   g_xxx 进庭院自己那张名册就开了——那一档【不属于任何人、也不挂任何房间】：
     //   没有聊天、没有记忆进出、没有一处能设权限。挑了手机里的一位，就该是一间房
     //   （一间房＝一个庭院存档，这条线从头就是这么定的），而且先让她把设定定好。
-    const pickForNew = id => { setPicking(false); if (id) props.onNewGardenRoom(id); };
+    const pickForNew = id => { setPicking(false); if (id) props.onNewGardenRoom(id,world.id); };
     // ⚠️她 2026-09-19：「好像超过三个第四个存档删不掉」。不是「超过三个」——
     //   原来这里靠 `row.key` 认「聊天里那间房的存档」，而 `key` 只有【扫回来的】
     //   那几档才带：同样是庭院房，登记在名册里的那张有「删掉」，扫回来的那张没有。

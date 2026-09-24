@@ -7,7 +7,7 @@ const study = fs.readFileSync(__dirname + "/../js/study.js", "utf8");
 const Rooms = require("../js/chat-rooms.js");
 
 test("庭院和一起学开房走同一条 openPresetRoomFor", () => {
-  assert.match(app, /const openGardenRoomFor = charId => openPresetRoomFor\(charId, "garden"/);
+  assert.match(app, /const openGardenRoomFor = \(charId, world="garden"\) => openPresetRoomFor\(charId, "garden"/);
   assert.match(app, /onNewRoom: charId => openPresetRoomFor\(charId, "focused"/);
   assert.equal((app.match(/roomPresetIntentRef\.current = [^"]/g) || []).length, 1, "开房意图只许立在一处");
 });

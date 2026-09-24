@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {MAPS,SEED_PLOTS,dreamStage,spotParse,seedPlot} from './world.mjs?v=fg-6f0b5a42c3223c4d';
-import {makeCurio} from './curio-view.mjs?v=fg-6f0b5a42c3223c4d';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-6f0b5a42c3223c4d';
+import {MAPS,SEED_PLOTS,dreamStage,spotParse,seedPlot} from './world.mjs?v=fg-40e1cca4d3d66b12';
+import {makeCurio} from './curio-view.mjs?v=fg-40e1cca4d3d66b12';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-40e1cca4d3d66b12';
 export function makeDreamGarden(scene,getViews){
  const root=new T.Group();root.name='梦种花圃';scene.add(root);const plots=[];
  for(let i=0;i<SEED_PLOTS;i++){const b=MAPS.garden.flowerbeds[(1+Math.floor(i/3))%MAPS.garden.flowerbeds.length],g=new T.Group();g.position.set(b.x+(1-i%3)*b.w*.28,.30,b.z-.23);root.add(g);const model=makeDreamFlower(),seed=makeCurio('seed');seed.scale.setScalar(.32);g.add(model,seed);plots.push({g,model,seed});}

@@ -1,7 +1,7 @@
 // One window texture, independently scrolling cached art layers. No external assets.
 import * as T from 'three';
-import {createDestinations,destinationState} from './destinations.mjs?v=163edc6becfc';
-import {journeyAt,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=e30d301a939c';
+import {createDestinations,destinationState} from './destinations.mjs?v=fg-40e1cca4d3d66b12';
+import {journeyAt,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fg-40e1cca4d3d66b12';
 export const ROUTES={forest:'林间山谷',coast:'海岸灯塔',country:'田野村落'};
 export const SEASONS={spring:'春天',summer:'夏天',autumn:'秋天',winter:'冬天'};
 export const WEATHERS={clear:'晴天',cloudy:'阴天',rain:'下雨',snow:'飘雪',fog:'薄雾'};
@@ -73,16 +73,18 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
  const destinations=createDestinations();
  const speeds=[7,24,68,170,390];
  const layers=speeds.map((speed,i)=>({speed,canvas:canvas(1600,600),name:['远山','山谷','中景','林岸','近景'][i]}));
+ const incoming=speeds.map(speed=>({speed,canvas:canvas(1600,600)}));
+ let incomingKey='';
  let cacheKey='',frames=0,disposed=false,lastPalette;
  const random=rng(617);const particles=Array.from({length:100},()=>({x:random(),y:random(),size:.5+random(),phase:random()*TAU}));
  const stars=Array.from({length:60},()=>({x:random(),y:random()*.48,r:.45+random()}));
- function rebuild(p){
+ function rebuild(p, targetLayers=layers){
   const snow=state.season==='winter'||state.weather==='snow',night=state.hour<6||state.hour>19.5;
   const colors=p.map(css),daylight=clamp(Math.sin((state.hour-6)/12*Math.PI),0,1);
   const snowColor=css(mix(p[1],[237,243,239].map(v=>Math.round(v*(.38+.62*daylight))),.72));
   const blossom=css(mix(p[1],[236,180,178].map(v=>Math.round(v*(.40+.60*daylight))),.75));
-  for(let index=0;index<layers.length;index++){
-   const c=layers[index].canvas.getContext('2d');c.clearRect(0,0,1600,600);const rnd=rng(108+index*91);
+  for(let index=0;index<targetLayers.length;index++){
+   const c=targetLayers[index].canvas.getContext('2d');c.clearRect(0,0,1600,600);const rnd=rng(108+index*91);
    if(index===0){
     hill(c,302,67,.4,colors[2]);
     // Pale rock faces follow each major crest, softened into the distant ridge.
@@ -164,11 +166,15 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
    else{ellipse(ctx,1180,97,29,22,'#e8e5cf');ellipse(ctx,1192,91,25,19,css(p[0]));}
   }
   drawClouds(p);
-  const journey=journeyAt(state.route,state.distance),destination=destinationState(state.route,journey);
+  const blend=clamp(state.routeBlend||0,0,1), nextRoute=state.nextRoute;
+  if(blend&&ROUTES[nextRoute]){const k=nextRoute+'/'+key;if(incomingKey!==k){const route=state.route;state.route=nextRoute;rebuild(p,incoming);state.route=route;incomingKey=k;}}
+  const journey=blend?{id:'open',label:'沿途',progress:0,clearing:0,tunnel:0}:journeyAt(state.route,state.eventDistance??state.distance),destination=destinationState(state.route,journey);
   layers.forEach((layer,i)=>{
    const x=-mod(state.distance*layer.speed,1600);ctx.save();
    ctx.globalAlpha=(1-destination.reveal)*(i===3?1-journey.clearing:1);
-   ctx.drawImage(layer.canvas,x,0);ctx.drawImage(layer.canvas,x+1600,0);ctx.restore();
+   const t=clamp((blend-i*.12)/(.52),0,1),a=t*t*(3-2*t);
+   ctx.globalAlpha*=1-a;ctx.drawImage(layer.canvas,x,0);ctx.drawImage(layer.canvas,x+1600,0);
+   if(a){ctx.globalAlpha=a;ctx.drawImage(incoming[i].canvas,x,0);ctx.drawImage(incoming[i].canvas,x+1600,0);}ctx.restore();
    if(i===2&&!destination.id&&state.route!=='coast'&&['bridge','lake','harbor'].includes(journey.id)){
     ctx.save();ctx.globalAlpha=journey.clearing;const water=ctx.createLinearGradient(0,454,0,600);water.addColorStop(0,css(mix(p[3],[101,155,162],.4)));water.addColorStop(1,css(mix(p[5],[61,115,125],.5)));ctx.fillStyle=water;ctx.fillRect(0,454,1600,146);
     ctx.strokeStyle=css(p[1]);ctx.globalAlpha=journey.clearing*.35;ctx.lineWidth=2;
@@ -199,10 +205,10 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
   if(patch.season!==undefined&&!SEASONS[patch.season])throw Error('未知季节');
   if(patch.weather!==undefined&&!WEATHERS[patch.weather])throw Error('未知天气');
   const next={...state,...patch};for(const key of ['hour','speed'])if(!Number.isFinite(next[key]))throw Error('非法数值');
-  state.route=next.route;state.season=next.season;state.weather=next.weather;state.hour=mod(next.hour,24);state.speed=clamp(next.speed,0,2);state.playing=Boolean(next.playing);state.autoTime=Boolean(next.autoTime);draw();
+  if(Number.isFinite(patch.distance)&&patch.distance>=0)state.distance=patch.distance;state.eventDistance=Number.isFinite(next.eventDistance)?next.eventDistance:undefined;state.nextRoute=ROUTES[next.nextRoute]?next.nextRoute:null;state.routeBlend=clamp(Number(next.routeBlend)||0,0,1);state.route=next.route;state.season=next.season;state.weather=next.weather;state.hour=mod(next.hour,24);state.speed=clamp(next.speed,0,2);state.playing=Boolean(next.playing);state.autoTime=Boolean(next.autoTime);draw();
  }
- function step(dt){if(disposed||!state.playing)return false;dt=clamp(dt,0,.1);state.distance=mod(state.distance+dt*state.speed*destinationState(state.route,journeyAt(state.route,state.distance)).speedFactor,160000);state.weatherTime=mod(state.weatherTime+dt,100000);if(state.autoTime)state.hour=mod(state.hour+dt*.10,24);draw();return true;}
- function lighting(){const h=state.hour;const daylight=clamp(Math.sin((h-6)/12*Math.PI),0,1)*(1-journeyAt(state.route,state.distance).tunnel*.95),overcast=state.weather==='clear'?1:.65;return {daylight,ambient:.65+daylight*1.95*overcast,sun:.2+daylight*3.2*overcast,lamps:clamp((.35-daylight)/.35,0,1)*6,color:css(lastPalette?.[1]||[240,230,210])};}
+ function step(dt){if(disposed||!state.playing)return false;dt=clamp(dt,0,.1);state.distance=mod(state.distance+dt*state.speed*destinationState(state.route,journeyAt(state.route,state.eventDistance??state.distance)).speedFactor,160000);state.weatherTime=mod(state.weatherTime+dt,100000);if(state.autoTime)state.hour=mod(state.hour+dt*.10,24);draw();return true;}
+ function lighting(){const h=state.hour;const daylight=clamp(Math.sin((h-6)/12*Math.PI),0,1)*(1-journeyAt(state.route,state.eventDistance??state.distance).tunnel*.95),overcast=state.weather==='clear'?1:.65;return {daylight,ambient:.65+daylight*1.95*overcast,sun:.2+daylight*3.2*overcast,lamps:clamp((.35-daylight)/.35,0,1)*6,color:css(lastPalette?.[1]||[240,230,210])};}
  draw();
- return {mesh,texture,canvas:output,state,set,step,lighting,get journey(){return journeyAt(state.route,state.distance);},get destination(){return destinationState(state.route,journeyAt(state.route,state.distance));},get effectiveSpeed(){return state.speed*destinationState(state.route,journeyAt(state.route,state.distance)).speedFactor;},nextStop(){state.distance=nextJourneyDistance(state.route,state.distance);draw();},seekJourney(distance){if(!Number.isFinite(distance)||distance<0)throw Error('非法旅程位置');state.distance=mod(distance,160000);draw();},get frames(){return frames;},get layers(){return layers.map(l=>({name:l.name,speed:l.speed,offset:mod(state.distance*l.speed,1600)}));},dispose(){destinations.dispose();disposed=true;scene.remove(mesh);mesh.geometry.dispose();material.dispose();texture.dispose();layers.forEach(l=>{l.canvas.width=1;l.canvas.height=1;});output.width=1;output.height=1;}};
+ return {mesh,texture,canvas:output,state,set,step,lighting,get journey(){return journeyAt(state.route,state.eventDistance??state.distance);},get destination(){return destinationState(state.route,state.routeBlend>0?{id:'open',progress:0}:journeyAt(state.route,state.eventDistance??state.distance));},get effectiveSpeed(){return state.speed*destinationState(state.route,journeyAt(state.route,state.eventDistance??state.distance)).speedFactor;},nextStop(){state.distance=nextJourneyDistance(state.route,state.distance);draw();},seekJourney(distance){if(!Number.isFinite(distance)||distance<0)throw Error('非法旅程位置');state.distance=mod(distance,160000);draw();},get frames(){return frames;},get layers(){return layers.map(l=>({name:l.name,speed:l.speed,offset:mod(state.distance*l.speed,1600)}));},dispose(){destinations.dispose();disposed=true;scene.remove(mesh);mesh.geometry.dispose();material.dispose();texture.dispose();[...layers,...incoming].forEach(l=>{l.canvas.width=1;l.canvas.height=1;});output.width=1;output.height=1;}};
 }
