@@ -20,18 +20,22 @@ def body(D):
  out.append(D.mesh('Face',v,f,skin,skin=True))
  for side in [-1,1]:
   ball('Ear '+str(side),(side*.271,.013,1.154),(.051,.046,.064),skin,skin=True,deformPart='Face')
-  ball('Eye '+str(side),(side*.104,-.202,1.168),(.020,.012,.043),eye,deformPart='Face')
-  ball('Cheek '+str(side),(side*.154,-.182,1.110),(.034,.010,.022),blush,deformPart='Face')
+  ball('Eye '+str(side),(side*.104,-.202,1.168),(.021,.010,.046),eye,deformPart='Face')
+  ball('Cheek '+str(side),(side*.154,-.182,1.110),(.034,.004,.024),blush,deformPart='Face')
   ball(('Left' if side<0 else 'Right')+' hand',(side*.308,-.018,.531),(.043,.045,.061),skin,skin=True,rigPart='leftArm' if side<0 else 'rightArm')
  ball('Neck',(0,0,.957),(.055,.052,.068),skin,skin=True)
  pants=D.mat('Cream linen','#e8dfcd');boots=D.mat('Brown shoes','#655448')
  for side in [-1,1]:
   name='Left' if side<0 else 'Right';rig='leftLeg' if side<0 else 'rightLeg'
-  o=D.loft('Linen leggings '+name,[(.125,.080,.078),(.145,.091,.086),(.19,.087,.082),(.33,.071,.075),(.49,.080,.085),(.52,.088,.085)],pants,colorSlot='bottom',rigPart=rig)
+  o=D.loft('Linen leggings '+name,[(.13,.086,.081),(.155,.100,.091),(.19,.097,.087),(.33,.087,.082),(.49,.089,.087),(.52,.090,.087)],pants,colorSlot='bottom',rigPart=rig)
   for p in o.data.vertices:p.co.x+=side*.105
   out.append(o)
-  ball('Rounded boots '+name,(side*.105,-.031,.076),(.093,.127,.070),boots,colorSlot='boots',rigPart=rig)
-  ball('Rounded boots sole '+name,(side*.105,-.035,.027),(.094,.126,.021),boots,colorSlot='boots',rigPart=rig)
+  for sole in [False,True]:
+   rings=[(.011,.088,.117),(.020,.099,.131),(.040,.099,.131),(.046,.092,.124)] if sole else [(.04,.096,.127),(.065,.099,.130),(.112,.093,.123),(.153,.073,.102),(.166,.042,.068)]
+   o=D.loft('Rounded boots '+('sole ' if sole else '')+name,rings,boots,colorSlot='boots',rigPart=rig)
+   for vertex in o.data.vertices:
+    vertex.co.x+=side*.105;vertex.co.y-=.032
+   out.append(o)
  return out
 
 def hairs(D):
@@ -89,9 +93,35 @@ def hairs(D):
     for k in range(4):strand([(.02*k,.19,1.23),(.09,.28,1.1),(.12,.27,.97),(.06,.23,.89)],.048,.038)
   if style in ('korean','wolf','mullet'):
    strand([(0,.02,1.55),(-.035,.02,1.66),(-.085,.01,1.68),(-.095,.01,1.65)],.035,.025)
+  if style in ('korean','wolf','mullet'):
+   for o in parts:bpy.data.objects.remove(o,do_unlink=True)
+   parts=[]
+   # Three staggered layers, with a broad central fringe and swept outer locks.
+   parts.append(D.ellipsoid('scalp',(0,.026,1.365),(.308,.249,.295),m))
+   for side in [-1,1]:
+    for k in range(5):
+     y=-.06+k*.056
+     strand([(side*.09,y,1.63),(side*.29,y,1.60),(side*.35,y-.01,1.33),(side*.285,y,1.11+.021*k)],.072,.045)
+   for j in range(9):
+    x=(j-4)*.061
+    strand([(x*.4,.095,1.62),(x,.29,1.50),(x,.295,1.24),(x,.20,1.09+.025*abs(x)/.24)],.073,.040)
+   for x,z,w in [(-.215,1.17,.058),(-.15,1.20,.063),(-.085,1.19,.065),(.065,1.21,.064),(.145,1.22,.065),(.22,1.18,.058)]:
+    strand([(x*.5,-.095,1.58),(x,-.251,1.48),(x-.015,-.275,1.27),(x,-.222,z)],w,.038)
+   strand([(-.035,-.04,1.645),(-.05,-.27,1.57),(-.025,-.295,1.30),(-.015,-.244,1.19)],.103,.047)
+   strand([(-.035,-.025,1.65),(-.15,-.22,1.62),(-.22,-.29,1.43),(-.285,-.235,1.35)],.096,.044)
+   strand([(.035,-.01,1.64),(.17,-.23,1.62),(.215,-.29,1.44),(.29,-.235,1.36)],.092,.045)
+   strand([(-.07,.04,1.65),(-.20,-.015,1.64),(-.31,-.07,1.53),(-.35,-.11,1.45)],.075,.039)
+   strand([(.06,.07,1.66),(.20,.015,1.63),(.30,-.03,1.51),(.345,-.09,1.41)],.073,.041)
+   strand([(.016,.012,1.64),(.015,.015,1.72),(-.04,.014,1.77),(-.075,.013,1.745)],.048,.032)
+  if style=='wolf':
+   for side in [-1,1]:
+    for j in range(3):
+     strand([(side*.23,.13,1.35),(side*.30,.14,1.24),(side*.28,.13,1.07),(side*(.27+j*.02),.12,1.02+j*.03)],.046,.027)
   for piece in parts:
    for vertex in piece.data.vertices:
     vertex.co.x*=1.10
+    if style not in ('korean','wolf','mullet','pixie'):
+     vertex.co.z=1.25+(vertex.co.z-1.25)*1.075
     if style=='wavy' and vertex.co.z<1.3:
      vertex.co.x+=.025*math.sin((vertex.co.z-1.3)*27)
     if style=='mullet':

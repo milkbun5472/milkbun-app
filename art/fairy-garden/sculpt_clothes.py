@@ -7,13 +7,13 @@ from mathutils import Vector
 def build(D,base):
  out=[]
  for style in D.CATALOG:
-  mats={k:D.mat(style+' '+k,c) for k,c in D.CATALOG[style]['colors'].items()}
+  mats={k:D.mat(style+' '+k,c) for k,c in D.CATALOG[style]['colors'].items()};mats['leather']=D.mat('Saddle leather','#a66b3f')
   hem=.49 if style in ('traveler','academy','cardigan','ranger') else .30 if style=='alchemist' else .37
   hemwidth=.245 if style in ('garden','alchemist') else .198
   stations=[(hem,hemwidth,.146),(hem+.035,hemwidth+.005,.151),(.61,.189,.143),(.71,.176,.133),(.81,.181,.132),(.875,.195,.131),(.914,.178,.115),(.952,.09,.068)]
   stations=sorted({z:(z,x,y) for z,x,y in stations}.values())
   def tag(slot='cloth',rig=None,part='Tunic body'):
-   return dict(outfit=style,colorSlot=slot,deformPart=part,**({'rigPart':rig} if rig else {}))
+   return dict(outfit=style,**({'colorSlot':slot} if slot!='leather' else {}),deformPart=part,**({'rigPart':rig} if rig else {}))
   def keep(o):out.append(o);return o
   def dims(z):
    if z<=stations[0][0]:return stations[0][1:]
@@ -23,12 +23,12 @@ def build(D,base):
    return stations[-1][1:]
   def surface(x,z,offset=.008):
    rx,ry=dims(z);q=min(.995,abs(x)/rx);return -ry*max(.001,1-q**2.8)**(1/2.8)-offset
-  # A squared, softly rounded chest gives the same fabric volume as the source.
-  v=[];f=[];cols=64;rows=32
+  # A softly squared chest carries the loose fabric volume.
+  v=[];f=[];cols=40;rows=20
   for i in range(rows+1):
    z=hem+(.952-hem)*i/rows;rx,ry=dims(z)
    for j in range(cols):
-    a=j*math.tau/cols;c=math.cos(a);sn=math.sin(a);fold=.006*math.cos(a*7+.4)*(max(0,(.77-z)/(.77-hem))**1.4)
+    a=j*math.tau/cols;c=math.cos(a);sn=math.sin(a);fold=.010*math.cos(a*7+.4)*(max(0,(.77-z)/(.77-hem))**1.4)
     x=math.copysign(abs(c)**(2/2.8),c)*(rx+fold)
     y=math.copysign(abs(sn)**(2/2.8),sn)*(ry+fold*.48)
     zz=z+.0035*math.sin(a*3+.8)*max(0,(.72-z)/.3)
@@ -38,17 +38,15 @@ def build(D,base):
   body=keep(D.mesh('outfit_'+style+'_draped_body',v,f,mats['cloth'],**tag()))
   # Real inward thickness at neck and hem; no flat plate across the bottom.
   mod=body.modifiers.new('turned fabric hem','SOLIDIFY');mod.thickness=.008;mod.offset=-1;bpy.context.view_layer.objects.active=body;bpy.ops.object.modifier_apply(modifier=mod.name)
-  # Reconstruct closed sleeves along the measured source shoulder/elbow/wrist.
-  # The imported scan has hidden seam holes; copying those made the first draft tear.
+  # Closed sleeves begin inside the shoulder and taper toward the wrist.
   for side in [-1,1]:
    arm='leftArm' if side<0 else 'rightArm'
-   keep(D.ellipsoid('outfit_'+style+'_'+arm+'_shoulder',(side*.158,0,.868),(.052,.103,.057),mats['trim' if style=='garden' else 'cloth'],**tag('trim' if style=='garden' else 'cloth',arm,('Left' if side<0 else 'Right')+' sleeve')))
    for cuff in [False,True]:
     slot='trim' if cuff or style=='garden' else 'cloth';verts=[];faces=[];n=32;nr=10
     for i in range(nr+1):
      t=(.88+.14*i/nr) if cuff else .91*i/nr
-     center=Vector((side*(.160+.148*t),-.018*t*t,.89-.327*t))
-     tangent=Vector((side*.135,-.036*t,-.327)).normalized();across=Vector((0,1,0));normal=tangent.cross(across).normalized()
+     center=Vector((side*(.10+.208*t),-.018*t*t,.897-.334*t))
+     tangent=Vector((side*.208,-.036*t,-.334)).normalized();across=Vector((0,1,0));normal=tangent.cross(across).normalized()
      r=(.075 if cuff else .079+.005*math.sin(min(1,t)*math.pi*.8))
      if style=='garden' and not cuff:r+=.012*math.sin(math.pi*t)**2
      for j in range(n):
@@ -58,7 +56,7 @@ def build(D,base):
      for j in range(n):a=i*n+j;b=i*n+(j+1)%n;faces.append((a,b,b+n,a+n))
     faces.extend([tuple(reversed(range(n))),tuple(nr*n+j for j in range(n))])
     keep(D.mesh('outfit_'+style+'_'+arm+('_cuff' if cuff else '_sleeve'),verts,faces,mats[slot],**tag(slot,arm,('Left' if side<0 else 'Right')+' sleeve')))
-  # Fuse each shoulder and sleeve into one smooth garment piece.
+  # Remesh the sleeve into a smooth garment piece.
   for arm in ['leftArm','rightArm']:
    pieces=[o for o in out if o.get('outfit')==style and o.get('rigPart')==arm and not o.name.endswith('_cuff')]
    bpy.ops.object.select_all(action='DESELECT')
@@ -80,7 +78,9 @@ def build(D,base):
    rings=[.001]+[i/6 for i in range(1,7)]
    for r in rings:
     for pt in boundary:
-     x,z=center+(pt-center)*r;verts.append((x,surface(x,z,offset+bulge*(1-r*r)),z))
+     x,z=center+(pt-center)*r
+     y=(-.082-(.974-z)*.78-bulge*(1-r*r)) if name=='turned_collar' else surface(x,z,offset+bulge*(1-r*r))
+     verts.append((x,y,z))
    for k in range(len(rings)-1):
     for j in range(n):a=k*n+j;b=k*n+(j+1)%n;faces.append((a,b,b+n,a+n))
    faces.append(tuple(range(n)))
@@ -99,12 +99,12 @@ def build(D,base):
    keep(o)
   # A turned collar has a neck edge, volume and a soft point resting on the chest.
   for side in [-1,1]:
-   patch('turned_collar',[(side*.008,.946),(side*.067,.958),(side*.118,.933),(side*.128,.908),(side*.074,.875),(side*.026,.905)],offset=.014,bulge=.011)
+   patch('turned_collar',[(side*.002,.954),(side*.060,.974),(side*.126,.935),(side*.131,.899),(side*.076,.854),(side*.030,.887)],offset=.035,bulge=.014)
   if style=='traveler':
    # Broad leather strap and softly rounded satchel, independently modeled.
-   patch('satchel_strap',[(-.16,.923),(-.115,.939),(.164,.56),(.127,.529)],'boots',.025,.004)
-   keep(D.ellipsoid('outfit_traveler_satchel',(.197,-.137,.49),(.067,.045,.108),mats['boots'],**tag('boots')))
-   keep(D.ellipsoid('outfit_traveler_satchel_flap',(.197,-.175,.526),(.061,.018,.06),mats['boots'],**tag('boots')))
+   patch('satchel_strap',[(-.16,.923),(-.115,.939),(.164,.56),(.127,.529)],'leather',.025,.004)
+   keep(D.ellipsoid('outfit_traveler_satchel',(.197,-.137,.49),(.075,.049,.115),mats['leather'],**tag('leather')))
+   keep(D.ellipsoid('outfit_traveler_satchel_flap',(.197,-.175,.526),(.069,.018,.065),mats['leather'],**tag('leather')))
    keep(D.ellipsoid('outfit_traveler_satchel_button',(.197,-.195,.509),(.008,.006,.012),mats['trim'],**tag('trim')))
   elif style=='academy':
    patch('front_overlap',[(-.022,.89),(.039,.89),(.04,.522),(-.023,.516)],'cloth',.01,.004)

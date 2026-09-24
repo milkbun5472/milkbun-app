@@ -79,6 +79,14 @@ def build():
  D=sys.modules[__name__]
  base=fresh_doll.body(D);objs=base+fresh_doll.hairs(D)+clothes(base)
  for o in objs:
+  # Retain broad smooth volume with subtle clay facets at polygon boundaries.
+  if o.get('part')=='hair.korean' or (o.get('outfit')=='traveler' and o.get('colorSlot')=='cloth'):
+   o.data.update()
+   smooth=[n.vector.copy() for n in o.data.corner_normals]
+   normals=[None]*len(o.data.loops)
+   for poly in o.data.polygons:
+    for i in poly.loop_indices:normals[i]=(smooth[i]*.76+poly.normal*.24).normalized()
+   o.data.normals_split_custom_set(normals)
   basis=o.shape_key_add(name='Basis')
   for key in [*LIMITS,'seated']:
    coords=[deform(v.co,o,key) for v in basis.data]
