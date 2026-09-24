@@ -87,3 +87,7 @@ export function drawTunnel(c,event,distance){
  for(let x=offset;x<1600;x+=680){c.fillStyle='#263034';c.fillRect(x,0,18,600);const glow=c.createRadialGradient(x+140,180,3,x+140,180,115);glow.addColorStop(0,'rgba(246,186,99,.25)');glow.addColorStop(1,'rgba(246,186,99,0)');c.fillStyle=glow;c.fillRect(x+25,65,230,230);c.fillStyle='#e7c18b';c.fillRect(x+122,176,36,8);}
  c.restore();
 }
+
+export function visibleJourney(state){
+ return state.routeBlend>0?{id:"open",label:"沿途",progress:0,clearing:0,tunnel:0}:journeyAt(state.route,state.eventDistance??state.distance);
+}
