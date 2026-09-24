@@ -7869,6 +7869,43 @@ function PhotoCard({ m, mine, onOpen, max }) {
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.imageRef ? cap : ""),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
 }
+// 给一条内容挂一张照片（贴吧发帖／回楼共用）：从相册选一张真图，或者只写一句「图里是什么」——
+//   跟聊天那两种发法同一个意思。value＝null 或 { imageRef?, desc }，交出去的也是这个形状。
+function PhotoAttach({ value, onChange, toast }) {
+  const t = useTheme();
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const v = value || null;
+  const pick = async f => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      let ref = await resizeImageFile(f, 1000, 0.84);
+      try { if (typeof imgToVault === "function") ref = await imgToVault(ref); } catch (e) {}
+      onChange({ imageRef: ref, desc: (v && v.desc) || "" });
+    } catch (e) { toast && toast("图片处理失败"); }
+    finally { setBusy(false); }
+  };
+  const btn = { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 };
+  const file = h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" },
+    onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; pick(f); } });
+  if (!v) return h("div", { className: "flex gap-2 flex-wrap" }, file,
+    h("button", { onClick: () => fileRef.current && fileRef.current.click(), disabled: busy, className: "active:opacity-70 disabled:opacity-40", style: btn }, busy ? "处理中…" : "从相册选"),
+    h("button", { onClick: () => onChange({ desc: "" }), className: "active:opacity-70", style: btn }, "写一张图"));
+  return h("div", { className: "flex gap-2 items-start" }, file,
+    v.imageRef ? h("img", { src: resolveImg(v.imageRef), alt: "", style: { width: 64, height: 64, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid " + t.line } }) : null,
+    h("textarea", { value: v.desc || "", onChange: e => onChange({ ...v, desc: e.target.value }), rows: 2,
+      placeholder: v.imageRef ? "配一句说明（选填，写了大家才看得懂图里是什么）" : "这张图里拍到了什么",
+      className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
+    h("button", { onClick: () => onChange(null), className: "shrink-0 active:opacity-60", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "去掉"));
+}
+// 发出去之前收一下：假图没写字就等于没配
+function photoAttachValue(v) {
+  if (!v) return null;
+  const desc = String(v.desc || "").trim();
+  if (!v.imageRef && !desc) return null;
+  return v.imageRef ? { imageRef: v.imageRef, desc: desc } : { desc: desc };
+}
 // 点开之后那一层：大图／整段描述，真有像素时还能存进手机相册。
 // ⚠️存图走的是公共那一条 window.saveImgOriginal（engine.js）——查手机那边早就在用它，
 //   别在这儿再写一条下载逻辑。

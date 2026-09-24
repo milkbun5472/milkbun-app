@@ -2103,6 +2103,23 @@ function forumCustomBoards() {
   return (Array.isArray(v) ? v : []).filter(b => b && typeof b.name === "string" && b.name.trim());
 }
 function forumBoardsAll() { return FORUM_BOARDS.concat(forumCustomBoards().map(b => b.name).filter(n => FORUM_BOARDS.indexOf(n) < 0)); }
+// 贴吧配图（她 2026-09-24：「贴吧能不能也支持上传图片或者写假图描述跟聊天一样。然后角色也可以（不要强制）」）。
+//   帖子和楼层身上挂一个 photo：{ imageRef?, desc }——跟聊天那张照片同一个形状，所以界面直接用 PhotoCard / PhotoSheet。
+//   模型那头只看得见字：凡是把帖子正文、楼层内容喂给模型的地方，都过 forumWithPhoto，别各拼各的。
+function forumPhotoOf(x) {
+  const p = x && x.photo;
+  if (!p) return null;
+  const desc = String((typeof p === "string" ? p : p.desc) || "").trim().slice(0, 300);
+  const imageRef = typeof p === "object" && p.imageRef ? p.imageRef : "";
+  return desc || imageRef ? (imageRef ? { imageRef: imageRef, desc: desc } : { desc: desc }) : null;
+}
+function forumWithPhoto(text, x) {
+  const p = forumPhotoOf(x);
+  const s = String(text || "");
+  if (!p) return s;
+  const line = "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
+  return s ? s + " " + line : line;
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // 吧名统一成「某某吧」：她打「足球」「足球吧」「 足球吧 」都是同一个吧
 function forumBoardName(raw) {
@@ -2243,6 +2260,12 @@ function Forum({
   const [cbTitle, setCbTitle] = useState("");
   const [cbBody, setCbBody] = useState("");
   const [rTxt, setRtxt] = useState("");
+  // 配图（她 2026-09-24）：发帖那张、回楼那张各一份草稿；photoView＝点开看的那一张
+  const [cbPhoto, setCbPhoto] = useState(null);
+  const [rPhoto, setRPhoto] = useState(null);
+  const [rPhotoOn, setRPhotoOn] = useState(false);
+  const [photoView, setPhotoView] = useState(null);
+  const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView(ph) })) : null; };
   const [replyTo, setReplyTo] = useState(null);
   const [pmClean, setPmClean] = useState(false);   // 私信列表的「清理」档      // {floorId,name} 楼中楼目标
   const [liked, setLiked] = useState(() => {
@@ -2534,6 +2557,7 @@ function Forum({
             "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, p.title),
           p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
+          forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
           actBar(p))));
   }
 
@@ -2556,7 +2580,8 @@ function Forum({
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
               fresh && newTag())),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)),
+          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)) : null,
+          forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
             //   没办法回复了，别人的楼中楼也不行」）。原来只有【楼层】那一行有「回复」，
@@ -2583,10 +2608,12 @@ function Forum({
   }
 
   const sendReply = () => {
-    if (!rTxt.trim()) return;
+    // 配图只挂在新开的楼上：楼中楼是一行字的地方
+    const ph = replyTo ? null : photoAttachValue(rPhoto);
+    if (!rTxt.trim() && !ph) return;
     // toName 只有在回【楼中楼里某一条】时才有；回楼层本身时是空的
-    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || ""); else onReplyFloor(open, rTxt.trim());
-    setRtxt(""); setReplyTo(null);
+    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || ""); else onReplyFloor(open, rTxt.trim(), ph);
+    setRtxt(""); setReplyTo(null); setRPhoto(null); setRPhotoOn(false);
   };
 
   // 正文里 @ 了一个这帖里根本没有的人（她 2026-09-24：「有时候会at回复一个用户名不存在的人」）：
@@ -2624,6 +2651,7 @@ function Forum({
             delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
+          forumPhotoCard(p, 280),
           h("div", { className: "mt-3" }, tag(p.board)),
           actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
@@ -2641,7 +2669,9 @@ function Forum({
       //   右边距顺手吃掉安全区：横屏和带圆角的机器上那几像素本来就不该占。
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.95)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
         replyTo && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "0 4px 4px" } }, "回复 " + replyTo.name + " · ", h("button", { onClick: () => setReplyTo(null), style: { color: t.accent } }, "取消")),
+        !replyTo && rPhotoOn && h("div", { style: { padding: "0 0 8px" } }, h(PhotoAttach, { value: rPhoto, onChange: setRPhoto, toast: toast })),
         h("div", { className: "flex items-center gap-2", style: { minWidth: 0 } },
+          !replyTo && h("button", { onClick: () => { if (rPhotoOn) setRPhoto(null); setRPhotoOn(!rPhotoOn); }, "aria-label": "配图", className: "shrink-0 flex items-center justify-center active:opacity-60", style: { width: 40, height: 40 } }, h(PGlyph, { k: "album", size: 20, color: rPhotoOn ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
           h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
           h("button", { onClick: sendReply, className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, "发送"))));
   }
@@ -2985,12 +3015,14 @@ function Forum({
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "群聊"),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
+    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast }),
     composer && h(Sheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, "发帖"),
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),
       h("input", { value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: 15, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
       h("textarea", { value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
-      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim()); setCbTitle(""); setCbBody(""); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "发布")),
+      h("div", { className: "mt-2" }, h(PhotoAttach, { value: cbPhoto, onChange: setCbPhoto, toast: toast })),
+      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "发布")),
     // 编辑我的资料
     // 开个吧：居中一张卡（不做半窗，no-half-sheet.md）——两格：吧名、这个吧聊什么
     newBoard && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setNewBoard(null), maxWidth: 340, wk: "centercard" },

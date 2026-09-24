@@ -12,7 +12,7 @@ const c = count("main");
 assert(c.alt / 6000 > 0.2 && c.anonymous / 6000 > 0.12, "小号和匿名都得有像样的份额：" + JSON.stringify(c));
 assert(c.main / 6000 > 0.45, "大号仍是最多的");
 assert(count("alt").alt > c.alt, "爱用小号的人小号更多");
-assert(/identity: rolledId \}, manual \? "手动发帖" : "auto"\)/.test(app), "落盘用掷出来的身份");
+assert(/identity: rolledId, photo: d\.photo \}, manual \? "手动发帖" : "auto"\)/.test(app), "落盘用掷出来的身份");
 assert(!/十次里有七八次都该是 main/.test(app), "旧的一边倒说法撤了");
 assert(/别全用大号/.test(app), "楼里冒泡也提一句");
 console.log("forum-identity-roll ok");

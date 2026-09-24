@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.024";
+const APP_VERSION = "v74.025";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13639,12 +13639,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
           + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
               alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
-              anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
+              anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + FORUM_PHOTO_LINE + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
           // 她自己开的吧（x_forumBoards）也在可去的里头：内容真对得上才去，不为去而去
           + (myBoardsForPost.length ? "\n\n【论坛上还有她开的几个吧，也可以发去那儿】" + myBoardsForPost.map(b => b.name + (b.about ? "（" + b.about + "）" : "")).join("、")
             + "——只有你这条内容本来就属于那个吧才去，board 就填那个吧的全名。" : "")
           + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"}",
+        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + "}",
         maxTokens: FTOK.post
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
@@ -13654,7 +13654,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
       // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
-      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId }, manual ? "手动发帖" : "auto");
+      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo }, manual ? "手动发帖" : "auto");
       if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
       return rec;
     } catch (e) { if (manual) throw e; return null; }
@@ -17569,6 +17569,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   ⚠️别再往下调：这几个数不是「够用就行」，是「够它想完还够它写完」。
   // 楼中楼怎么长（她 2026-09-23：「现在回复很多时候只是一人一层楼，都没有贴吧那种多个人回复一层的感觉了」）。
   //   病根是原来那句「大多数楼 replies 留空」。首刷、续刷两处共用这一句（one-public-mechanism）。
+  // 配图（她 2026-09-24：「角色也可以（不要强制）」）：photo 是可选的一栏，写的是【图里拍到了什么】，界面画成一张相纸。
+  //   发帖、刷吧、盖楼共用这一句（one-public-mechanism）。
+  const FORUM_PHOTO_LINE = "帖子或楼层要是本来就会配一张图（晒出来的东西、现场、截图之类），可以填 photo＝这张图里拍到了什么，照着一张真照片的画面写；不配就不填这一栏，正文里也别写「[图片]」这类字。";
+  const FORUM_PHOTO_FIELD = ",\"photo\":\"可选：配图里拍到了什么\"";
   const FORUM_THREAD_LINE = "楼中楼（replies）是贴吧的精髓：【大约一半的楼】底下要有人接——2~5 条，来自【不同的人】（多是没单独开楼的路人和熟面孔），"
     + "有人附和、有人抬杠、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，吵得起来的楼可以更长；一句话就说完的楼就让它空着。楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。"
     // 回谁得写出来，界面才画得出「回复 @某某」（她 2026-09-24：层主回了楼里某人，看不出是在回谁）
@@ -17622,8 +17626,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
         : "";
       const d = await runProbeRetry(active, forumWorldCtx(board), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + lately,
-        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
@@ -17642,6 +17646,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc",
         authorName: npc.name, authorHandle: npc.handle,
         board, title: x.title, body: x.body || "",
+        ...(forumPhotoOf(x) ? { photo: forumPhotoOf(x) } : {}),
         anon: anonB, triggerSource: i === castIdx ? "配角" : "", ts: visibleAt, visibleAt,
         ...(i === castIdx ? { castOf: cast.n.id, castHost: cast.host.id } : {}),
         // 接着哪一条：只认【名单里真有的那几个标题】，模型随口编一个就当没接
@@ -17689,6 +17694,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       authorName: cc ? identity.authorName : npc.name,
       authorHandle: cc ? identity.authorHandle : npc.handle,
       floor: floorNo, content: x.content, ts: base + idx, likeCount: forumHash((x.content || "") + idx) % 300,
+      ...(forumPhotoOf(x) ? { photo: forumPhotoOf(x) } : {}),
       replies: (Array.isArray(x.replies) ? x.replies : []).filter(r => r && r.content).map(r => {
         if (isOpOf(r)) {
           // 楼主本人回某条评论：正确署名（角色→真名，否则楼主网名），并打上「楼主」小标
@@ -17836,7 +17842,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const notReplied = poolChars.filter(c => !repliedIds.has(c.id));
       const replied = poolChars.filter(c => repliedIds.has(c.id));
       const floors = opts.existingFloors || [];
-      const floorLines = floors.slice(-14).map(f => f.floor + "楼 " + (f.authorName || "某人") + "：" + String(f.content || "").replace(/\s+/g, " ").slice(0, 60)).join("\n");
+      const floorLines = floors.slice(-14).map(f => f.floor + "楼 " + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ").slice(0, 60)).join("\n");
       const who2 = "这是同一个帖子的【继续刷楼、盖楼】，续着往下刷、别重开话题。下面是已经有的楼层：\n" + (floorLines || "（暂无）") + "\n\n"
         + "**大多数新楼是网友**七嘴八舌盖楼：常驻熟面孔与一次性路人混合，别一个腔调。\n"
         + (isSearch ? "**全程只有路人**，不要出现任何你认识的角色。\n"
@@ -17859,8 +17865,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       const opRule2Full = opRule2 + meRule + opMineBan;
       return {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_THREAD_LINE,
-        schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
+        schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
         maxTokens: FTOK.floors
       };
     }
@@ -17873,8 +17879,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return {
       instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock
         + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
-        + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "" + FORUM_THREAD_LINE + (isSearch ? "楼中楼里也全是常驻网友和路人。" : "楼中楼里可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true。"),
-      schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\",\"replies\":[]}]}",
+        + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "" + FORUM_THREAD_LINE + (isSearch ? "楼中楼里也全是常驻网友和路人。" : "楼中楼里可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true。") + FORUM_PHOTO_LINE,
+      schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
       maxTokens: FTOK.floors
     };
   };
@@ -18009,6 +18015,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       id: "fp_" + base, authorId: char.id, authorType: identity.authorType,
       authorName: identity.authorName, authorHandle: identity.authorHandle,
       board, title: content.title, body: content.body || "",
+      ...(forumPhotoOf(content) ? { photo: forumPhotoOf(content) } : {}),
       anon: anonB, triggerSource: triggerSource || "", ts: base,
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
@@ -18087,7 +18094,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return "｜楼里：" + shown.join("；") + (rest > 0 ? "（前面还有 " + rest + " 层没列）" : "");
   };
   const forumShareText = (post, tags) => "[转发了一条贴吧帖]「" + post.board + "」《" + post.title + "》｜"
-    + String(post.body || "").replace(/\s+/g, " ").slice(0, 160) + "｜作者显示：" + post.authorName
+    + forumWithPhoto(String(post.body || "").replace(/\s+/g, " ").slice(0, 160), post) + "｜作者显示：" + post.authorName
     + forumShareFloors(post) + (tags || "");
   const forwardPostToChat = (post, toChar) => {
     pChat(toChar.id, p => [...p, {
@@ -18773,15 +18780,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return () => { clearTimeout(first); clearInterval(iv); };
   }, [loaded]);
   // 我开新楼评论 → 随后刷 4-6 条回我的（含楼主本人）挂到这层楼中楼
-  const addForumFloor = (post, text) => {
+  const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
-    const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ts: base, likeCount: 0, replies: [] };
+    const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
-    genRepliesToMe(post, fid, text, "", floor);
+    genRepliesToMe(post, fid, forumWithPhoto(text, floor), "", floor);
   };
   // 我回复楼中楼 → 随后刷几条回我的挂到同一层
   // toName：我回的是【楼里某一条】时那个人的名字（回楼层本身时是空的）。
@@ -18834,7 +18841,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const respIsMe = resp.type === "me" || resp.id === "me";
       const opIsMe = post.authorType === "me";
       const ownerChar = String(resp.type || "").startsWith("character") && resp.id ? (characters || []).find(c => c.id === resp.id) : null;
-      const priorLines = ["层主「" + (floor.authorName || "层主") + "」的原评论：「" + String(floor.content || "").replace(/\s+/g, " ").slice(0, 80) + "」"]
+      const priorLines = ["层主「" + (floor.authorName || "层主") + "」的原评论：「" + forumWithPhoto(floor.content, floor).replace(/\s+/g, " ").slice(0, 80) + "」"]
         .concat((floor.replies || []).slice(-6).map(r => "· " + (r.isOp ? "【帖主】" : "") + (r.authorName || "某人") + "：" + String(r.content || "").replace(/\s+/g, " ").slice(0, 60)));
       const opReplied = (floor.replies || []).some(r => r.isOp);
       const isSearch = /^搜索/.test(post.triggerSource || "");
@@ -18855,7 +18862,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + (isSearch ? "" : forumActiveChars().filter(c => !groundedR.has(c.id))
             .map(c => forumCharGrounding(c, post, "这层楼里可能开口的", myText)).join(""));
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText), {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
           + "「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
@@ -18917,10 +18924,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, forumReplyMe: null })); }
   };
   // 我发帖
-  const postMyForum = (board, title, body) => {
+  const postMyForum = (board, title, body, photo) => {
     const anonB = board === "匿名吧";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
