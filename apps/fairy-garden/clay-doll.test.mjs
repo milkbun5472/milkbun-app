@@ -25,3 +25,9 @@ test('skin, eyes and shared dyes remain independently addressable',()=>{
 test('shape controls expose names, live values and reset without altering page layout',()=>{
  const host=read('../../js/fairy-garden.js').toString();assert.match(host,/"aria-label": d.label/);assert.match(host,/Math.round\(value \* 100\)/);assert.match(host,/d.low \|\|/);assert.match(host,/pushLook\(\{ dims: \{ \[d.key\]: 1 \} \}\)/);
 });
+test('replacement is authored from scratch and never imports the rejected mesh',()=>{
+ const source=read('../../art/fairy-garden/clay_doll.py').toString()+read('../../art/fairy-garden/fresh_doll.py').toString()+read('../../art/fairy-garden/sculpt_clothes.py').toString();
+ assert.doesNotMatch(source,/import_scene|clay-reference\.glb|base_traveler\.glb|import doll_hair/);
+ for(const n of nodes)assert.equal(n.extras?.geometryOrigin,'blender-from-scratch',n.name);
+ for(const side of [-1,1])assert.ok(nodes.some(n=>n.name===`Eye ${side}`||n.name===`Eye_${side}`));
+});

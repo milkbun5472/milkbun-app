@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {MAPS,MARKET_GOODS,MARKET_RARE,FOODS,marketStock,marketOpen,marketError,nightStock,nightMarketOpen,foodError,stallOf,vendorAt,vendorSpot} from './world.mjs?v=fg-3d4dbfaf3ae54de5';
-import {createTraveler} from './traveler.mjs?v=fg-3d4dbfaf3ae54de5';
+import {MAPS,MARKET_GOODS,MARKET_RARE,FOODS,marketStock,marketOpen,marketError,nightStock,nightMarketOpen,foodError,stallOf,vendorAt,vendorSpot} from './world.mjs?v=fg-748fa3295e9bbcb9';
+import {createTraveler} from './traveler.mjs?v=fg-748fa3295e9bbcb9';
 // 集市做成场景（她 2026-09-18：「不然一直点点点好单调」）：货真摆在摊面上，摊主站在摊后，
 // 点货物就走过去买。⚠️货和价仍旧只在 world.MARKET_GOODS／FOODS 一处；这儿只负责摆出来、被点到、飞进背包。
 // ⚠️摊位几何来自 rules 的 garden.market.stalls（codex 盖的那四座），不另抄一份坐标。
