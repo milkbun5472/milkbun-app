@@ -4128,6 +4128,32 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "俯拍，人在画面中下方",
     "近一点的上半身，视线偏开"
   ];
+  // 合照的【两个人怎么待在一起】（她 2026-09-24：「为啥合照也都是一种姿势」）。
+  // 上面那张机位表是给【一个人自拍】写的，合照也从那儿抽——它只管镜头，
+  //   从没说过两个人之间是什么样子。没人说，模型就回到最常见的那一张：
+  //   两个人都正对镜头、脸贴脸或者她靠在他胸前。每张合照都是这张。
+  // 掷的是【两人之间的关系形状】，不是答案：谁贴谁、看不看镜头、在做什么，
+  //   具体怎么摆还是由场景和这两个人自己定。
+  const PHOTO_DUO_POSES = [
+    "两个人都看着镜头，但隔着一点点距离，像在路边随手一拍",
+    "一个人看镜头，另一个人正侧过脸看着对方",
+    "两个人都没看镜头，正在说话或笑，被抓到的一瞬",
+    "一个人从背后环住另一个人，下巴搁在对方肩上",
+    "并肩坐着，只拍到肩膀以上，头微微挨在一起",
+    "一个人在闹，另一个人一脸无奈或躲镜头",
+    "两个人面对面，镜头从侧面拍到两张侧脸",
+    "一个人低头在做什么，另一个人凑过来看",
+    "手机高举俯拍，两个人仰着脸挤进画面",
+    "一前一后，前面那个人清楚，后面那个人稍微虚一点"
+  ];
+  function photoDuoPoseLine(seed) {
+    const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
+    let idx = n % PHOTO_DUO_POSES.length;
+    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (PHOTO_DUO_POSES.length - 1))) % PHOTO_DUO_POSES.length;
+    buildPhotoPrompt._lastDuoPose = idx;
+    return "【这张合照里两个人的样子·这次拍摄决定的】" + PHOTO_DUO_POSES[idx]
+      + "。具体动作、谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来；只是别又回到两个人正对镜头贴着脸的那一张。";
+  }
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。
   function photoShotLine(kind, seed) {
@@ -4302,6 +4328,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (_hasIdRef) parts.push("【参考图只锁人，不锁镜头】人物参考照只用来确定【这是谁】——五官、脸型、发型发色、瞳色、肤色、体型、标志性配饰，照它来。但【机位、头的朝向、视线看哪里、表情、姿势、取景范围】一律按这次的场景和动作【重新决定】，不许沿用参考照里的那一套。参考照里那个角度（微微仰头看镜头、低头平视、固定的歪头或侧脸）是【那一张照片】的信息，不是这个人天生的姿态；每张新照片都该有自己的机位。");
   if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
   parts.push(photoShotLine(kind, opts.shotSeed));
+  // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
+  if (kind === "duo" && !multi && !opts.cinematic) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
