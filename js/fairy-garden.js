@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-670a3f099ef7602f", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-aa26ce08d191440c", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -72,7 +72,7 @@
     return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
   function travelFramePreview(t){return t.image?h('img',{src:t.image,alt:t.name,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7,marginTop:9}}):null;}
-  function TravelAlbum({getArchive,onDelete,onCarry,onClose}){
+  function TravelAlbum({getArchive,onDelete,onCarry,onExchange,onClose}){
     const [kit,setKit]=useState(null),[selected,setSelected]=useState(null),[revision,setRevision]=useState(0),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
     const scroll=useRef(null),scrollAt=useRef(0);
     useEffect(()=>{let alive=true;import('../apps/train/album.mjs?v='+BUILD).then(m=>{if(alive)setKit(m);}).catch(e=>setMessage(e.message));return()=>{alive=false;};},[]);
@@ -85,14 +85,14 @@
       h('div',{ref:scroll,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
         !kit?h('p',null,'正在翻开相册…'):item?h(React.Fragment,null,
           h('img',{src:item.src,alt:item.label,style:{display:'block',width:'100%',height:'auto',borderRadius:8,background:'#ded5c0'}}),
-          h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8}},item.label),
+          h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8}},item.label),h('p',{style:{fontSize:12,color:G.soft}},item.kind==='photo'?kit.photographerLabel(item):'一起拼好的风景'),
           h('div',{style:{display:'grid',gap:10}},
             h('button',{style:button,disabled:busy||carried,onClick:()=>action(async()=>{await onCarry(item);setMessage('已带回庭院，在花册「屋里」可以摆放。');})},carried?'已带回庭院':'带回庭院'),
             h('a',{href:item.src,download:(item.kind==='puzzle'?'旅行拼图':'旅行照片')+'.jpg',style:{...button,textAlign:'center',textDecoration:'none',display:'block'}},'导出图片'),
             h('button',{style:{...button,color:'#965b4f'},disabled:busy,onClick:()=>{if(!confirm){setConfirm(true);setMessage('删除相册里的这一张；已经带回庭院的相框会保留。再点一次确认。');return;}action(async()=>{await onDelete(item.id);setSelected(null);setConfirm(false);setMessage('已从相册删除。');});}},confirm?'确认删除':'删除这张')),
           h('p',{style:{fontSize:11,lineHeight:1.8,color:G.soft}},'相册属于这一档，庭院和列车都能翻看。手机也可以长按上面的图片保存。')):
-          h(React.Fragment,null,h('p',{style:{fontSize:12,lineHeight:1.8,color:G.soft}},'窗景照片和装框成品都在这里。打开一张，可以导出或带回庭院摆放。'),
-          rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
+          h(React.Fragment,null,onExchange&&h('button',{style:{...button,width:'100%',marginBottom:12},disabled:busy||!(archive.worlds?.train?.companionPhotos||[]).length,onClick:()=>action(async()=>{await onExchange();setMessage('交换好了，TA拍的照片也可以拿来拼图或带回庭院。');})},'交换相册 · '+(archive.worlds?.train?.companionPhotos||[]).length+' 张待翻开'),h('p',{style:{fontSize:12,lineHeight:1.8,color:G.soft}},'TA会在沿途拍下窗景，每趟最多六张。交换相册后可以看见TA拍的照片，也能用来拼图、导出或带回庭院。'),
+          rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label),x.kind==='photo'&&h('span',{style:{fontSize:11,color:G.soft,padding:5}},kit.photographerLabel(x)))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
         message&&h('p',{role:'status',style:{fontSize:12,lineHeight:1.8,color:G.deep,marginTop:14}},message)));
   }
   function TrainSession(props){
@@ -114,6 +114,7 @@
       const p=latest.current,d=current(),cid=d.partnerId,c=(p.characters||[]).find(c=>String(c.id)===String(cid)),node=frame.current;
       if(!c)throw Error("这一档还没有同行者。");
       const record=trainRecord(),history=trainHistory();
+      if(!automatic)node.contentWindow.TrainGame?.speak(text,"me");
       talking.current=true;
       try{
         const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):"")});
@@ -121,6 +122,7 @@
         const now=current();
         if(record?.onTurn)record.onTurn({text:automatic?"":text,reply:out.reply,parts:out.parts});
         else write(key,{...now,dialogs:{...(now.dialogs||{}),[cid]:[...((now.dialogs||{})[cid]||[]),...(!automatic?[{role:"user",content:text,status:"done"}]:[]),...out.parts.map(content=>({role:"assistant",content,status:"done"}))]}});
+        node.contentWindow.TrainGame?.speak(out.parts,"companion");
         return out;
       }finally{talking.current=false;}
     }
@@ -133,7 +135,7 @@
         right:h("div",{style:{display:"flex",gap:6}},h("button",{disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车"))}),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
         error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error)),
-      panel==="album"&&h(TravelAlbum,{getArchive:current,onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
+      panel==="album"&&h(TravelAlbum,{getArchive:current,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
       panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"))),
       panel==="settings"&&page("旅程设置",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},
         h("p",{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.9,marginBottom:20}},c?"这段旅程与 "+(c.remark||c.name)+" 同行，和庭院共用这一档。":"庭院和列车共用这一档旅程。"),
@@ -225,7 +227,7 @@
     const style = sharedStyle(),train=world?.map==="carriage";
     const sys = [style,
       roleContext(character, profile, mainline),
-      train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
+      train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       (event ? "【刚发生的游戏事件】\n" : "【对方刚说】\n") + text,
@@ -1207,7 +1209,7 @@
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
-        travelAlbum&&h(TravelAlbum,{getArchive:current,onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
+        travelAlbum&&h(TravelAlbum,{getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
