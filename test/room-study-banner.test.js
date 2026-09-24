@@ -47,7 +47,9 @@ test("收进来只挪以后：课换了房，已经上过的课页还留在原�
 });
 
 test("房记着从哪儿开的；只有带着预设从一起学来的那一次才戳", () => {
-  assert.match(rooms, /from: src\.from === "study" \? "study" : ""/);
+  const Rooms=require("../js/chat-rooms.js");
+  for(const from of ["study","train"])assert.equal(Rooms.normalize({id:"test",from}).from,from);
+  assert.equal(Rooms.normalize({id:"test",from:"unknown"}).from,"");
   assert.match(app, /openPresetRoomFor\(charId, "focused", "[^"]*", "study"\)/);
   assert.match(app, /const draft = chatRoomsPreset && roomFromRef\.current && draft0 && draft0\.room/);
 });

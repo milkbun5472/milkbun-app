@@ -24,7 +24,7 @@ const build = store => {
 // ⚠️许了三件谁都没在做的事，别人打开看见的就是三张空头支票。
 test('世界页：只列真进得去的，占位的一个都不许留', () => {
   const { WORLDS } = build({});
-  assert.equal(WORLDS.length, 1, '又摆上占位的世界了？');
+  assert.equal(WORLDS.length, 2, '这里只开放庭院和列车');
   assert.equal(WORLDS[0].id, 'garden');
   assert.ok(WORLDS[0].note, '连一句说明都没有');
   assert.doesNotMatch(host, /敬请期待/, '「敬请期待」那一档渲染要跟着那三行一起走');
@@ -85,7 +85,7 @@ test('删一档是不可逆的，必须先让她看见这句话', () => {
 });
 
 test('庭院房那条路不走这两页：一间房就是一个世界一个存档', () => {
-  assert.match(host, /if \(props\.storeKey \|\| props\.lockPartnerId\) return h\(GardenSession, props\);/);
+  assert.match(host, /if \(props\.storeKey \|\| props\.lockPartnerId\) return h\(WorldSession, props\);/);
   // 选存档进去要整屏换掉：storeKey 是在 GardenSession 第一次渲染时钉死的。
   // openId 存的是整把钥匙（房间那种键拼不回来），所以这儿直接当 storeKey 用。
   assert.match(host, /key: openId, storeKey: openId/);

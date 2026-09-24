@@ -51,7 +51,7 @@ test("那一页接预设的两个 hook 排在提前 return 前面", () => {
 //   它原来直接写一条 g_xxx 进庭院自己那张名册就开了——那一档不属于任何人、
 //   也不挂任何房间：没有聊天、没有记忆进出、没有一处能设权限。
 test("「＋ 新开一段」先问给谁开，挑了人就去开房间", () => {
-  assert.match(garden, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id\); \};/,
+  assert.match(garden, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id,world\.id\); \};/,
     "示例同行者那条路撤了：挑了人才有下文，没有 else 那一支");
   assert.match(garden, /onClick: \(\) => setPicking\(true\)/, "「＋ 新开一段」只剩挑人这一条路");
   assert.match(garden, /if \(picking\) return shell\("给谁开一段"/);
@@ -75,7 +75,7 @@ test("以前开的示例档照样列着、照样进得去", () => {
 // 选人那一页只留一份（新开一段 / 在庭院里另开一间）
 test("选人那一页只有一份", () => {
   assert.match(garden, /function partnerPickBody\(\{ characters, live, note, onPick, error \}\)/);
-  assert.equal((garden.match(/partnerPickBody\(\{/g) || []).length, 3, "定义一处、两处调用");
+  assert.equal((garden.match(/partnerPickBody\(\{/g) || []).length, 4, "定义一处，庭院与列车共用三个调用入口");
   assert.doesNotMatch(garden, /\}, "先和示例同行者试玩"\)/, "那条出口撤了");
   // ⚠️写成函数：好几条测试把这个文件按段抠出来在 vm 里跑，模块加载就取 F_BODY 会当场红
   assert.match(garden, /const pickButtonStyle = \(\) => \(\{/);

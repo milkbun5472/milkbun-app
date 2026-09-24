@@ -8276,7 +8276,7 @@ function ChatThread({
     className: "shrink-0 w-full flex items-center active:opacity-70",
     style: { padding: "9px 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line }
   },
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "走进微光庭院"),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "进入小世界"),
     h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: "#6b8753" } }, "这间房的存档 ›")),
   // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
   // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
