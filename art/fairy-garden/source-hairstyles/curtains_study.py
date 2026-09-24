@@ -137,3 +137,77 @@ normals are recalculated after reshaping the join and crown.
     for j,i in enumerate(used):
         s.colors[off+j]=(*(s.color*np.clip(lum[j]/median,.45,1.5)**.85),1)
         s.source_painted_vertices.add(off+j)
+
+
+# --- v2: broad rounded clay clumps, placed on a shell around the skull ------
+# Authored from the supplied M02 front/side/back sheet. Points are given as
+# front-view (x,z) plus a shell lift; y is solved on the head ellipsoid so every
+# clump wraps the round skull. Widths follow a buried root, a fat belly and a
+# soft point, which reads as pressed clay rather than a thin noodle.
+SHELL=(.012,.030,1.300,.300,.292,.315)   # centre x,y,z and radii
+
+
+def on_shell(x,z,lift=0.,back=False):
+    cx,cy,cz,rx,ry,rz=SHELL
+    rx+=lift;ry+=lift;rz+=lift
+    q=1-((x-cx)/rx)**2-((z-cz)/rz)**2
+    # Soft floor: tips that leave the silhouette keep a forward depth instead
+    # of folding back to the side plane (which pinched them into knobs).
+    q=.5*(q+math.sqrt(q*q+.03))
+    y=ry*math.sqrt(q)
+    return (x,cy+y if back else cy-y,z)
+
+
+BELLY=[.18,.42,.75,.95,1.0,.88,.62,.30,.05]
+
+
+def clump(s,pts,width,depth,lifts=None,tint=None,widths=BELLY,rings=30,sides=14):
+    lifts=lifts or [.02]*len(pts)
+    p=[on_shell(q[0],q[1],l) if len(q)==2 else tuple(q) for q,l in zip(pts,lifts)]
+    s.lock(p,width,depth,tint=tint,rings=rings,sides=sides,widths=widths)
+
+
+def sculpt_front_v2(s):
+    s.ellipsoid((0,-.01,1.52),(.22,.14,.085),tint=.92)
+    # Crown bridge over the whorl, closing the clipped top of the retained rear.
+    s.lock([(-.09,-.06,1.615),(-.10,.03,1.650),(.02,.11,1.645),(.13,.13,1.590)],width=.075,depth=.028,normal=(0,0,1),tint=1.0,rings=32,sides=16)
+    for side in (1,-1):
+        m=lambda pts:[(side*x,z) if len(q)==2 else (side*q[0],q[1],q[2]) for q in pts for x,z in [q[:2]]]
+        # 1. Principal C fringe: rises from the part, bellies over the temple
+        #    and turns its point back inward just above the eye.
+        clump(s,m([(.015,1.50),(.085,1.44),(.165,1.345),(.197,1.265),(.183,1.215),(.148,1.193)]),
+              .096,.042,[.035,.042,.040,.036,.034,.032],tint=1.03,
+              widths=[.16,.40,.72,.94,1,.90,.62,.30,.05])
+        # 2. Short inner root under the C, fills the part opening.
+        clump(s,m([(.010,1.48),(.040,1.42),(.070,1.36),(.075,1.33)]),.040,.022,[.03,.035,.035,.03],tint=.93,
+              widths=[.2,.6,.9,.5,.1])
+        # 3. Outer companion, parallel behind the C, ending lower at the cheek.
+        clump(s,m([(.06,1.53),(.17,1.45),(.245,1.33),(.255,1.20),(.225,1.105)]),
+              .080,.040,[.045,.052,.050,.046,.044],tint=.99)
+        # 4. Upper sweep flaring outward into a lifted point at the temple.
+        clump(s,m([(.05,1.58),(.17,1.54),(.28,1.47),(.36,1.42),(.43,1.40)]),
+              .078,.036,[.055,.058,.064,.080,.105],tint=1.02)
+        # 5. Mid outer flare below it.
+        clump(s,m([(.14,1.50),(.25,1.42),(.33,1.33),(.38,1.27),(.43,1.25)]),
+              .075,.036,[.060,.066,.074,.088,.110],tint=.97)
+        # 6. Lower side lock over the ear top, tip flicking out.
+        clump(s,m([(.24,1.42),(.30,1.32),(.325,1.22),(.345,1.16),(.390,1.12)]),
+              .070,.034,[.062,.068,.074,.088,.108],tint=.95)
+        # 7. Sideburn in front of the ear, pointing down to the cheek.
+        clump(s,m([(.20,1.36),(.255,1.26),(.265,1.15),(.250,1.07),(.235,1.03)]),
+              .058,.030,[.050,.052,.050,.048,.046],tint=.94)
+        # 8. Crown-front lock that fills between part and upper sweep.
+        clump(s,m([(.01,1.60),(.09,1.575),(.17,1.53),(.22,1.49)]),.080,.032,[.05,.055,.055,.05],tint=1.0)
+    # Side sweeps: cover the join between the fringe and the retained rear,
+    # falling back and down over the upper ear like the reference profile.
+    for side in (1,-1):
+        for i,(y0,y1,z1,w) in enumerate([(-.10,.00,1.16,.080),(-.02,.10,1.12,.085),(.06,.20,1.10,.080)]):
+            th=math.atan2(y0-.03,.30)
+            pts=[(side*.10,y0,1.60),(side*.26,y0+.01,1.50),(side*.345,(y0+y1)/2,1.36),
+                 (side*.355,y1,1.23),(side*.34,y1+.02,z1)]
+            s.lock(pts,w,.036,tint=(.97,1.0,.95)[i],rings=30,sides=14,
+                   normal=None,widths=BELLY)
+    # Crown cowlick: short lifted tips rising from the whorl, bent backward.
+    for dx,lean,h in ((-.035,-.05,.065),(.03,.055,.055),(.0,-.01,.08)):
+        s.lock([(dx,.05,1.585),(dx+lean*.3,.045,1.625),(dx+lean*.7,.06,1.585+h),(dx+lean,.09,1.60+h*.8)],
+               .030,.022,tint=1.0,rings=18,normal=(0,.3,1))
