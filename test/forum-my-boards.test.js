@@ -48,7 +48,7 @@ test("「一共有哪些吧」只有一份：tab、版块筛选、搜索页、�
 test("开吧用居中卡片，不做半窗；拆吧只拆牌子、先问一句", () => {
   assert.match(scr, /newBoard && typeof CenterCard === "function" && h\(CenterCard/);
   assert.match(scr, /"＋ 开个吧"/);
-  assert.match(scr, /requestAppConfirm\("拆掉「" \+ name \+ "」？", "帖子不会删，会挪到「搜索」那一页里。"/);
+  assert.match(scr, /requestAppConfirm\("拆掉「" \+ name \+ "」？", n \? "里面 " \+ n \+ " 个帖不会删，会挪到「搜索」那一页里。"/);
   const i = scr.indexOf("const dropBoard = name =>");
   const drop = scr.slice(i, scr.indexOf("}, \"拆吧\");", i));
   assert.ok(!/setForumPosts|x_forumPosts|onDeletePost|onClearBoard/.test(drop), "拆吧不许动帖子");

@@ -2182,7 +2182,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
-  onDeletePost, onClearBoard, onRenameBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
+  onDeletePost, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2215,10 +2215,17 @@ function Forum({
     setNewBoard(null); setTab(name); setPage(1);
   };
   // 拆吧：只拆这块牌子，帖子一条不删——它们不在吧表里了，就自然回到搜索页「别的吧」那一叠
-  const dropBoard = name => requestAppConfirm("拆掉「" + name + "」？", "帖子不会删，会挪到「搜索」那一页里。", () => {
+  // ⚠️她 2026-09-24：「这个骗人删了不会去到搜索」——吧里的帖多是 NPC 帖，拆完就成了没人认领的旧帖，
+  //   下一次随便哪里一刷，全库 NPC 总封顶先把它们淘汰掉。所以拆的时候给它们挂 keptFrom（onDropBoard），
+  //   淘汰闸认这个标记不动它们；弹窗也照实报帖数，没帖就不许许诺「挪过去」。
+  const dropBoard = name => {
+    const n = (posts || []).filter(p => p && p.board === name).length;
+    requestAppConfirm("拆掉「" + name + "」？", n ? "里面 " + n + " 个帖不会删，会挪到「搜索」那一页里。" : "这个吧里还没有帖，拆了就没了。", () => {
+    if (n && onDropBoard) onDropBoard(name);
     saveBoards(forumCustomBoards().filter(b => b.name !== name));
     setTab("吐槽吧"); setPage(1);
   }, "拆吧");
+  };
   // 这一格是不是她开的吧；横杠上挂什么（写死的吧规，或者她写的那句简介）
   const myBoardNow = forumCustomBoards().some(b => b.name === tab);
   const boardRules = FORUM_BOARD_RULES[tab] || (myBoardNow ? [forumBoardAbout(tab) || "你开的吧，还没写这个吧聊什么"] : null);

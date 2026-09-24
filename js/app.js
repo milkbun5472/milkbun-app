@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.023";
+const APP_VERSION = "v74.024";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17253,6 +17253,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!from || !to || from === to) return;
     setForumPosts(prev => { const n = (prev || []).map(x => x && x.board === from ? { ...x, board: to } : x); saveJSON("x_forumPosts", n); return n; });
   };
+  // 拆吧（她 2026-09-24「删了不会去到搜索」）：帖子挂 keptFrom，appendForumPosts 的淘汰闸不再动它们
+  const dropForumBoard = board => {
+    if (!board) return;
+    setForumPosts(prev => { const n = (prev || []).map(x => x && x.board === board ? { ...x, keptFrom: board } : x); saveJSON("x_forumPosts", n); forumPostsRef.current = n; return n; });
+  };
   const clearForumBoard = board => {
     const b = String(board || "");
     const hit = (forumPostsRef.current || []).filter(x => x && x.board === b);
@@ -17537,7 +17542,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let n = [...recs, ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
-    const evictable = x => x.authorType === "npc" && !spare.has(x.id) && !forumCInflightRef.current[x.id];
+    const evictable = x => x.authorType === "npc" && !x.keptFrom && !spare.has(x.id) && !forumCInflightRef.current[x.id];
     const npcInBoard = n.filter(x => x.board === board && evictable(x)).sort((a, b) => b.ts - a.ts);
     npcInBoard.slice(FORUM_NPC_CAP).forEach(x => kill.add(x.id));
     const npcAll = n.filter(x => evictable(x) && !kill.has(x.id)).sort((a, b) => b.ts - a.ts);
@@ -23815,6 +23820,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDeletePost: deleteForumPost,
     onClearBoard: clearForumBoard,
     onRenameBoard: renameForumBoard,
+    onDropBoard: dropForumBoard,
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,
