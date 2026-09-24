@@ -23,3 +23,11 @@
 「一起拼 / 看 TA 拼」由可见光标逐帧拖动；熟练度按同行者 ID 稳定生成，影响思考间隔、拖动速度、试错率与先拼边框的倾向，不推断真人能力。文字用宿主既有 `ask` / `sharedStyle` / `roleContext`，显式列车上下文替换庭院动作；房间权限和历史沿用原 `record/recordFor`。只在选择参与、阶段进展（至少45秒间隔）、完成或主动说话时请求；没配线路仍可手动/观看拼图，文字显示配置提示。照片数据不发模型，模型得到照片地点/时间标签和实际拼图状态。尚无角色实体手部动画或视觉模型识图。
 
 验证：`node --test apps/train/*.test.mjs`；`scripts/checks/train-puzzle-browser.cjs` 用全新存档、真实拍照与鼠标拖动，检查四档/同行者落手/存档重载/320px 与 390px；模型文字用测试替身验证宿主上下文和房间写入，不请求真实账号。
+
+## 取景、相册与带回庭院
+
+拍照进入实时取景器：拖动平移、1–3×取景变焦、三分线（只在预览）、3:2照片；风景继续流动。列车底栏/拼图桌“相册”和庭院花册“旅行册”共用宿主 `TravelAlbum`，同档读取 train.photos/artworks，可预览、导出 JPEG、二次确认删除。当前未完成拼图使用的原图禁止删除；删除已完成原图清空当前桌但保留独立成品。拼成后“装框收藏”把照片、切缝和片数/地点绘成独立 JPEG，同一桌重复收藏不重复造图。再次上车保留成品。
+
+“带回庭院”走 `world.receiveTravelArt`，按 sourceId 去重，遵守 THING_CAP；写入普通 things，recipe=travelframe。训练场景宿主写同档 garden（保留原日期物资），庭院内走实际游戏接口并保存失败回滚。图片/sourceId 经 restoreThings、donate、restoreCollection 一路保留；删除相册原图不移除庭院实体副本。屋里/收藏馆卡片显示图片，实际摆放与展览共用 makeKeepsake 三网格相框，动态贴图清理在 disposeKeepsake。不增加独立模型资产。
+
+`album.test.mjs` 覆盖裁切/删除/去重/摆放捐赠恢复；`scripts/checks/train-album-browser.cjs` 用实际12次指针拖动完成拼图，再验导出下载、原图/成品带回、删原图不丢框、庭院实体摆放和旅行册入口。
