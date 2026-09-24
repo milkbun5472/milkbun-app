@@ -9,8 +9,8 @@ const rooms = fs.readFileSync("js/chat-rooms.js", "utf8");
 // 她 2026-09-17：「从聊天进微光庭院房间不应该直接打开存档而是一个普通聊天」
 test("庭院房先是一间普通聊天，按了才开存档", () => {
   assert.match(app, /gardenRoomOf\(activeChar\.id, activeRoomId\) && gardenOpen === activeRoomId/);
-  assert.match(app, /onEnterGarden: gardenRoomOf\(activeChar\.id, activeRoomId\) \? \(\) => setGardenOpen\(activeRoomId\) : null/);
-  assert.match(comp, /onEnterGarden && h\("button"/);
+  assert.match(app, /onEnterGarden: gardenRoomOf\(activeChar\.id, activeRoomId\) \? world => \{ setGardenRoomWorld\(world === "train" \? "train" : "garden"\); setGardenOpen\(activeRoomId\); \} : null/);
+  assert.match(comp, /onEnterGarden && h\(RoomWorldBanner/);
   assert.match(comp, /进入小世界/);
 });
 

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.019";
+const APP_VERSION = "v74.020";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -822,6 +822,7 @@ function App() {
   // ⚠️和别的 useState 放在一处：那一片 helper 区会被好几条测试单独抽出来跑，
   //   把 hook 写进去，它们一跑就是 useState is not defined。
   const [gardenOpen, setGardenOpen] = useState("");
+  const [gardenRoomWorld, setGardenRoomWorld] = useState(null);
   const [gardenEntryWorld, setGardenEntryWorld] = useState(null);
   const [studyEntry, setStudyEntry] = useState(null);
   const [readEntry, setReadEntry] = useState(null);   // 从房间那张「接着读」卡进来时带的落点
@@ -23158,7 +23159,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return {
       key: "garden::" + key,
       storeKey: "x_fairyGarden::" + key,
-      entryWorld: room.from === "train" && !loadJSON("x_fairyGarden::" + key,null)?.activeWorld ? "train" : undefined,
+      entryWorld: gardenRoomWorld || (room.from === "train" && !loadJSON("x_fairyGarden::" + key,null)?.activeWorld ? "train" : undefined),
       lockPartnerId: activeChar.id,
       apiFor: offlineApiFor,
       active: offlineActive,
@@ -23229,7 +23230,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
-    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? () => setGardenOpen(activeRoomId) : null,
+    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(world === "train" ? "train" : "garden"); setGardenOpen(activeRoomId); } : null,
     // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
     // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
     roomStudy: (function (_tick) {

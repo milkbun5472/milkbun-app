@@ -7890,6 +7890,17 @@ function PhotoSheet({ m, onClose, toast }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）")));
 }
+function RoomWorldBanner({ onEnter }) {
+  const t = useTheme();
+  return h("div", { className: "shrink-0 w-full flex items-center",
+    style: { padding: "0 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line } },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, marginRight: "auto" } }, "进入小世界"),
+    [["garden", "庭院"], ["train", "列车"]].map(([world, label]) => h("button", {
+      key: world, onClick: () => onEnter(world), className: "active:opacity-70",
+      "aria-label": "进入" + label,
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }
+    }, label + " ›")));
+}
 function ChatThread({
   unreadOther,
   onOpenUs,
@@ -8271,13 +8282,7 @@ function ChatThread({
   // ⚠️原来点进这间房＝直接开存档：那一屏把整个聊天盖住，她连这间房的设置都进不去
   //   （「我都没法调能不能有记忆进来出去」）。现在进门看到的是聊天记录——
   //   庭院里说过的话本来就同步在这儿——想进去玩再按这一条。
-  onEnterGarden && h("button", {
-    onClick: onEnterGarden,
-    className: "shrink-0 w-full flex items-center active:opacity-70",
-    style: { padding: "9px 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line }
-  },
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "进入小世界"),
-    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: "#6b8753" } }, "这间房的存档 ›")),
+  onEnterGarden && h(RoomWorldBanner, { onEnter: onEnterGarden }),
   // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
   // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
   // 把 TA 别的课收进来、或者拿回主聊天。跟上面「在写」那一条同一个形状。
