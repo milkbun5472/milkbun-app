@@ -10,6 +10,7 @@ IDS=['happy','cozy','relax','surprise','amazed','proud','gloomy','sad','irritate
 ZH=['开心','舒畅','轻松','惊喜','惊讶','骄傲','郁闷','难过','烦躁']
 im=Image.open(REF).convert('RGB');A=np.array(im).astype(int);bg=A[5,5]
 UP=4
+NINE_DY=-6   # whole-set vertical offset so the nine share the default face's eye height
 def trace(mask):
     bm=potrace.Bitmap(~mask)  # potracer traces False pixels as foreground
     plist=bm.trace(turdsize=160,alphamax=1.0,opticurve=True,opttolerance=0.2)
@@ -25,9 +26,18 @@ meta={}
 for k,(id_,zh) in enumerate(zip(IDS,ZH)):
     i,j=k%3,k//3
     x0=[150,590,1030][i];y0=[20,345,665][j]
-    sub=np.abs(A[y0:y0+290,x0:x0+360]-bg).sum(2)>25
+    # Skin pixels only: the label chip of the row above must not count as head.
+    blk=A[y0:y0+290,x0:x0+360];sub=(blk[...,0]>200)&(blk[...,1]>160)&(blk[...,0]-blk[...,2]>40)
     ys=np.nonzero(sub.any(1))[0];top=ys.min()+y0
     row=np.nonzero(sub[ys.min()+60])[0];cx=(row.min()+row.max())//2+x0;cy=top+126
+    # Register every cell on its blush pair (the one landmark all nine share):
+    # blush centres sit at (+-78, +80) from the head centre on the sheet.
+    pk=(blk[...,0]>243)&(blk[...,0]-blk[...,1]>48)&(blk[...,1]<215)
+    pk[:max(0,top-y0+120)]=False
+    py,pxs=np.nonzero(pk)
+    if len(pxs)>200:
+        mid=(pxs.min()+pxs.max())/2
+        cx=int(round(mid))+x0;cy=int(round(py.mean()))+y0-80
     box=(cx-140,cy-40,cx+140,cy+125)   # face band only: excludes ears' edges and label
     crop=im.crop(box).resize(((box[2]-box[0])*UP,(box[3]-box[1])*UP),Image.LANCZOS)
     C=np.array(crop).astype(int);r,g,b=C[...,0],C[...,1],C[...,2]
@@ -55,7 +65,8 @@ for k,(id_,zh) in enumerate(zip(IDS,ZH)):
     ic=C[ink].mean(0) if ink.any() else [74,49,40];mc=C[mouth&~tongue].mean(0);tc=C[tongue].mean(0) if tongue.any() else mc
     hexc=lambda c:'#%02x%02x%02x'%tuple(int(v) for v in c)
     # Coordinates: reference pixels, origin at head centre.
-    tf=f'translate({box[0]-cx} {box[1]-cy}) scale({1/UP})'
+    # One shared lift for all nine (their eyes sat ~6 px below the default face).
+    tf=f'translate({box[0]-cx} {box[1]-cy+NINE_DY}) scale({1/UP})'
     svg=[f'<g transform="{tf}">',f'<path d="{trace(mouth)}" fill="{hexc(mc)}"/>']
     if tongue.sum()>UP*UP*6:svg.append(f'<path d="{trace(tongue)}" fill="{hexc(tc)}"/>')
     svg.append(f'<path d="{trace(ink)}" fill="{hexc(ic)}"/></g>')
