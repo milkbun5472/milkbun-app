@@ -1,6 +1,7 @@
 // One window texture, independently scrolling cached art layers. No external assets.
 import * as T from 'three';
 export const ROUTES={forest:'林间山谷',coast:'海岸灯塔',country:'田野村落'};
+export const SEASONS={spring:'春天',summer:'夏天',autumn:'秋天',winter:'冬天'};
 export const WEATHERS={clear:'晴天',cloudy:'阴天',rain:'下雨',snow:'飘雪',fog:'薄雾'};
 const TAU=Math.PI*2,mod=(a,b)=>((a%b)+b)%b,clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const stops=[
@@ -17,13 +18,16 @@ function rgb(hex){return hex.match(/[a-f\d]{2}/gi).map(v=>parseInt(v,16));}
 const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
 const css=a=>`rgb(${a.join(',')})`;
 const tint=(a,b,t)=>css(mix(rgb(a),rgb(b),t));
-function palette(hour,weather){
+function palette(hour,weather,season){
  const h=mod(hour,24);let i=0;while(stops[i+1][0]<h)i++;
  const f=(h-stops[i][0])/(stops[i+1][0]-stops[i][0]);
  const overcast={clear:0,cloudy:.36,rain:.53,snow:.36,fog:.58}[weather];
  const daylight=clamp(Math.sin((h-6)/12*Math.PI),0,1);
  const greySky=mix([35,47,63],[112,131,148],daylight),greyHorizon=mix([63,75,87],[164,174,174],daylight);
- return stops[i][1].map((c,j)=>mix(mix(rgb(c),rgb(stops[i+1][1][j]),f),j===0?greySky:greyHorizon,overcast));
+ const result=stops[i][1].map((c,j)=>mix(mix(rgb(c),rgb(stops[i+1][1][j]),f),j===0?greySky:greyHorizon,overcast));
+ const foliage={spring:['#9cae77','#668a5a','#b2bd80'],summer:['#658d5c','#315f49','#9ca469'],autumn:['#c19a59','#926044','#c3a06b'],winter:['#9eaeb1','#566f70','#c1cbd0']}[season];
+ for(let j=4;j<7;j++)result[j]=mix(result[j],rgb(foliage[j-4]).map(v=>Math.round(v*(.30+.70*daylight))),.72);
+ return result;
 }
 function rng(seed){return()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};}
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
@@ -42,14 +46,17 @@ function pine(c,x,y,h,color,snow,wrapped=false){
  // A subtle lighter face gives painted volume without new geometry.
  c.globalAlpha=.13;path(c,[[x,y-h],[x+h*.26,y-h*.07],[x,y-h*.15]],'#f7edcc');c.globalAlpha=1;
 }
-function broadTree(c,x,y,h,color,light,wrapped=false){
- if(!wrapped){if(x<h*.6)broadTree(c,x+1600,y,h,color,light,true);if(x>1600-h*.6)broadTree(c,x-1600,y,h,color,light,true);}
+function broadTree(c,x,y,h,color,light,season='summer',wrapped=false){
+ if(!wrapped){if(x<h*.6)broadTree(c,x+1600,y,h,color,light,season,true);if(x>1600-h*.6)broadTree(c,x-1600,y,h,color,light,season,true);}
  c.fillStyle=color;c.fillRect(x-3,y-h*.38,6,h*.39);
+ if(season==='winter'){c.strokeStyle=color;c.lineWidth=3;for(const side of [-1,1])for(let j=0;j<3;j++){c.beginPath();c.moveTo(x,y-h*.16);c.lineTo(x+side*h*(.13+j*.06),y-h*(.44+j*.13));c.lineTo(x+side*h*(.12+j*.09),y-h*(.59+j*.13));c.stroke();}c.strokeStyle=light;c.lineWidth=2;c.beginPath();c.moveTo(x-1,y-h*.08);c.lineTo(x-1,y-h*.73);c.stroke();return;}
  ellipse(c,x,y-h*.54,h*.28,h*.29,color);ellipse(c,x-h*.17,y-h*.48,h*.22,h*.20,color);ellipse(c,x+h*.20,y-h*.44,h*.20,h*.22,color);ellipse(c,x-h*.035,y-h*.67,h*.20,h*.20,light);
+ if(season==='spring'){for(let j=0;j<13;j++){const a=j*2.4,r=h*.21*Math.sqrt(j/13);ellipse(c,x+Math.cos(a)*r,y-h*.59+Math.sin(a)*r,3.8,2.7,light);}}
 }
-function house(c,x,y,w,body,roof,night){
+function house(c,x,y,w,body,roof,night,snowColor){
  c.fillStyle=body;c.fillRect(x-w/2,y-w*.52,w,w*.52);
  path(c,[[x-w*.61,y-w*.50],[x,y-w*.95],[x+w*.61,y-w*.50]],roof);
+ if(snowColor){c.strokeStyle=snowColor;c.lineWidth=3;c.beginPath();c.moveTo(x-w*.61,y-w*.50);c.lineTo(x,y-w*.95);c.lineTo(x+w*.61,y-w*.50);c.stroke();}
  c.fillStyle=roof;c.fillRect(x+w*.27,y-w*.96,w*.10,w*.35);
  for(const dx of [-.25,.20]){c.fillStyle=night?'#f6cd83':'#526c72';c.fillRect(x+dx*w-w*.07,y-w*.36,w*.14,w*.18);}
  c.fillStyle=roof;c.fillRect(x-w*.045,y-w*.18,w*.12,w*.18);
@@ -60,15 +67,17 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
  const texture=new T.CanvasTexture(output);texture.colorSpace=T.SRGBColorSpace;texture.generateMipmaps=false;texture.minFilter=T.LinearFilter;
  const material=new T.MeshBasicMaterial({map:texture,transparent:true,side:T.FrontSide,toneMapped:false,depthWrite:false});
  const mesh=new T.Mesh(new T.PlaneGeometry(2.69,1.37),material);mesh.name='LayeredWindowLandscape';mesh.position.set(1.19,1.65,-1.58);mesh.renderOrder=1;scene.add(mesh);
- const state={route:'forest',weather:'clear',hour:9,speed:1,playing:!reducedMotion,autoTime:false,distance:0,weatherTime:0};
+ const state={route:'forest',season:'spring',weather:'clear',hour:9,speed:1,playing:!reducedMotion,autoTime:false,distance:0,weatherTime:0};
  const speeds=[.7,2.3,7,18,48];
  const layers=speeds.map((speed,i)=>({speed,canvas:canvas(1600,600),name:['远山','山谷','中景','林岸','近景'][i]}));
  let cacheKey='',frames=0,disposed=false,lastPalette;
  const random=rng(617);const particles=Array.from({length:100},()=>({x:random(),y:random(),size:.5+random(),phase:random()*TAU}));
  const stars=Array.from({length:60},()=>({x:random(),y:random()*.48,r:.45+random()}));
  function rebuild(p){
-  const snow=state.weather==='snow',night=state.hour<6||state.hour>19.5;
-  const colors=p.map(css),snowColor=css(mix(p[1],[237,243,239],.72));
+  const snow=state.season==='winter'||state.weather==='snow',night=state.hour<6||state.hour>19.5;
+  const colors=p.map(css),daylight=clamp(Math.sin((state.hour-6)/12*Math.PI),0,1);
+  const snowColor=css(mix(p[1],[237,243,239].map(v=>Math.round(v*(.38+.62*daylight))),.72));
+  const blossom=css(mix(p[1],[236,180,178].map(v=>Math.round(v*(.40+.60*daylight))),.75));
   for(let index=0;index<layers.length;index++){
    const c=layers[index].canvas.getContext('2d');c.clearRect(0,0,1600,600);const rnd=rng(108+index*91);
    if(index===0){
@@ -91,7 +100,7 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
     }else{
      hill(c,434,26,1.8,snow?snowColor:colors[4]);
      if(state.route==='country'){
-      for(let i=0;i<5;i++){const x=100+i*300,y=hillY(x/1600,434,26,1.8);house(c,x,y,34+rnd()*20,css(mix(p[1],[205,193,156],.4)),colors[5],night);}
+      for(let i=0;i<5;i++){const x=100+i*300,y=hillY(x/1600,434,26,1.8);house(c,x,y,34+rnd()*20,css(mix(p[1],[205,193,156],.4)),colors[5],night,snow?snowColor:null);}
       c.strokeStyle=css(mix(p[4],p[1],.32));c.lineWidth=7;
       for(let i=0;i<9;i++){c.beginPath();c.moveTo(i*210,490);c.bezierCurveTo(i*210+60,530,i*210+100,560,i*210+180,600);c.stroke();}
      }else{
@@ -100,8 +109,8 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
     }
    }else if(index===3){
     hill(c,state.route==='coast'?563:524,19,.2,snow?snowColor:colors[6]);
-    if(state.route==='forest')for(let i=0;i<21;i++){const x=i*1600/21,y=hillY(x/1600,524,19,.2)+12;pine(c,x,y,75+rnd()*94,colors[5],snow?snowColor:null);}
-    if(state.route==='country')for(let i=0;i<8;i++){const x=i*200,y=hillY(x/1600,524,19,.2)+10;broadTree(c,x,y,55+rnd()*60,colors[5],snow?snowColor:colors[4]);}
+    if(state.route==='forest')for(let i=0;i<21;i++){const x=i*1600/21,y=hillY(x/1600,524,19,.2)+12;const h=75+rnd()*94;if(i%3===1)broadTree(c,x,y,h,colors[5],snow?snowColor:state.season==='spring'?blossom:colors[4],state.season);else pine(c,x,y,h,colors[5],snow?snowColor:null);}
+    if(state.route==='country')for(let i=0;i<8;i++){const x=i*200,y=hillY(x/1600,524,19,.2)+10;broadTree(c,x,y,55+rnd()*60,colors[5],snow?snowColor:state.season==='spring'?blossom:colors[4],state.season);}
     if(state.route==='coast'){
      for(let i=0;i<14;i++){const x=i*123,y=hillY(x/1600,563,19,.2);ellipse(c,x,y+6,14+rnd()*18,6+rnd()*9,colors[5]);}
     }
@@ -109,6 +118,9 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
     hill(c,595,8,1,snow?snowColor:colors[5]);
     c.strokeStyle=snow?snowColor:colors[5];c.lineWidth=2;
     for(let i=0;i<180;i++){const x=rnd()*1600,y=583+rnd()*20,h=8+rnd()*19;c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x-2,y-h*.7,x+5,y-h);c.stroke();}
+    if(!snow){
+     for(let i=0;i<90;i++){const x=rnd()*1600,y=578+rnd()*22;if(state.season==='spring')ellipse(c,x,y,3.2,2.3,i%3?blossom:colors[1]);else if(state.season==='autumn'){c.save();c.translate(x,y);c.rotate(rnd()*3);ellipse(c,0,0,4,1.6,colors[4]);c.restore();}else{c.strokeStyle=colors[6];c.beginPath();c.moveTo(x,y);c.lineTo(x,y-11);c.stroke();}}
+    }
     // Sparse trackside fence moves faster than the wooded middle distance.
     for(let x=70;x<1600;x+=200)for(const xx of [x,x-1600]){c.fillStyle=colors[5];c.fillRect(xx,555,4,45);c.fillRect(xx,568,142,3);c.fillRect(xx,587,142,3);}
    }
@@ -136,8 +148,8 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
  }
  function draw(){
   if(disposed)return;
-  const p=palette(state.hour,state.weather);lastPalette=p;
-  const key=`${state.route}/${state.weather}/${Math.round(state.hour*10)}`;
+  const p=palette(state.hour,state.weather,state.season);lastPalette=p;
+  const key=`${state.route}/${state.season}/${state.weather}/${Math.round(state.hour*10)}`;
   if(key!==cacheKey){rebuild(p);cacheKey=key;}
   ctx.clearRect(0,0,W,H);ctx.save();ctx.scale(W/1600,H/600);
   ctx.beginPath();ctx.roundRect(0,0,1600,600,40);ctx.clip();
@@ -151,15 +163,20 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
   drawClouds(p);
   layers.forEach(layer=>{const x=-mod(state.distance*layer.speed,1600);ctx.drawImage(layer.canvas,x,0);ctx.drawImage(layer.canvas,x+1600,0);});
   drawWeather(p);
+  if(['spring','autumn'].includes(state.season)&&['clear','cloudy'].includes(state.weather)){
+   const color=state.season==='spring'?css(mix(p[1],[224,167,177],.45)):css(mix(p[4],[175,110,54],.4));
+   for(const particle of particles.slice(0,14)){const x=mod(particle.x*1800-state.weatherTime*37,1800)-100,y=mod(particle.y*740+state.weatherTime*17,740)-100;ctx.save();ctx.translate(x+Math.sin(state.weatherTime+particle.phase)*12,y);ctx.rotate(state.weatherTime*.6+particle.phase);ellipse(ctx,0,0,4*particle.size,1.7*particle.size,color);ctx.restore();}
+  }
   // Faint interior reflection: a restrained glass highlight, not a white veil.
   const sheen=ctx.createLinearGradient(0,0,1600,600);sheen.addColorStop(0,'rgba(255,245,218,.045)');sheen.addColorStop(.45,'rgba(255,245,218,0)');sheen.addColorStop(1,'rgba(255,245,218,.025)');ctx.fillStyle=sheen;ctx.fillRect(0,0,1600,600);
   ctx.restore();texture.needsUpdate=true;frames++;
  }
  function set(patch){
   if(patch.route!==undefined&&!ROUTES[patch.route])throw Error('未知线路');
+  if(patch.season!==undefined&&!SEASONS[patch.season])throw Error('未知季节');
   if(patch.weather!==undefined&&!WEATHERS[patch.weather])throw Error('未知天气');
   const next={...state,...patch};for(const key of ['hour','speed'])if(!Number.isFinite(next[key]))throw Error('非法数值');
-  state.route=next.route;state.weather=next.weather;state.hour=mod(next.hour,24);state.speed=clamp(next.speed,0,2);state.playing=Boolean(next.playing);state.autoTime=Boolean(next.autoTime);draw();
+  state.route=next.route;state.season=next.season;state.weather=next.weather;state.hour=mod(next.hour,24);state.speed=clamp(next.speed,0,2);state.playing=Boolean(next.playing);state.autoTime=Boolean(next.autoTime);draw();
  }
  function step(dt){if(disposed||!state.playing)return false;dt=clamp(dt,0,.1);state.distance=mod(state.distance+dt*state.speed,160000);state.weatherTime=mod(state.weatherTime+dt,100000);if(state.autoTime)state.hour=mod(state.hour+dt*.10,24);draw();return true;}
  function lighting(){const h=state.hour;const daylight=clamp(Math.sin((h-6)/12*Math.PI),0,1),overcast=state.weather==='clear'?1:.65;return {daylight,ambient:.65+daylight*1.95*overcast,sun:.2+daylight*3.2*overcast,lamps:clamp((.35-daylight)/.35,0,1)*6,color:css(lastPalette?.[1]||[240,230,210])};}

@@ -1,22 +1,22 @@
 {
   "sourceHashes": {
-    "scenery.mjs": "9be2649270cd9e3c8347e547865e6a46afc365614ffe31a539b5ab2b35a3dcff",
-    "preview.mjs": "9e46d4c48e970bcbbec3f806e3d0a84a4bce858d02afb3739f419576571ba0ed",
-    "preview.html": "4d0456f3f103f40dee09379943345f6cbb77a0262c8a16a2b4b449423e51caae"
+    "scenery.mjs": "4657e7a0b1aae78df675e83871789f4327087572e8102aea1b54817d38dc4160",
+    "preview.mjs": "fbcbfa2333b2ac29f5275869c0d9942207b0edb4a6e5997fa0d16b98092d8487",
+    "preview.html": "9ba20dcb910d58647d499166614d084766eb3994689112b1e7b4512a4020ef97"
   },
-  "combinations": 60,
-  "uniqueFrames": 60,
+  "combinations": 240,
+  "uniqueFrames": 240,
   "motionChanged": true,
   "travel": [
     {
       "name": "远山",
       "speed": 0.7,
-      "delta": 0.07000000000402906
+      "delta": 0.07000000000425644
     },
     {
       "name": "山谷",
       "speed": 2.3,
-      "delta": 0.23000000001343324
+      "delta": 0.23000000001320586
     },
     {
       "name": "中景",
@@ -48,7 +48,7 @@
   ],
   "layout": {
     "noHorizontalOverflow": true,
-    "stageHeight": 539,
+    "stageHeight": 505,
     "controlsBottom": 811,
     "footerTop": 811,
     "viewport": 844

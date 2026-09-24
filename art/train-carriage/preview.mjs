@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createWindowScenery,ROUTES,WEATHERS} from './scenery.mjs?v=9be2649270cd';
+import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=4657e7a0b1aa';
 import { GLTFLoader } from '../../apps/fairy-garden/vendor/GLTFLoader.js';
 const host=document.querySelector('#stage'), status=document.querySelector('#status');
 const scene=new T.Scene();
@@ -28,12 +28,12 @@ document.querySelector('#shell').onchange=e=>setShell(e.target.checked);
 function syncEnvironment(){
  const light=scenery.lighting();hemi.intensity=light.ambient;sun.intensity=light.sun;sun.color.set(light.color);rim.intensity=.3+light.daylight*1.4;lamps.forEach(l=>l.intensity=light.lamps);
  const h=scenery.state.hour,mins=Math.floor(h*60);document.querySelector('#clock').value=`${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`;
- document.querySelector('#hour').value=h;document.querySelector('#route').value=scenery.state.route;document.querySelector('#weather').value=scenery.state.weather;document.querySelector('#auto-time').checked=scenery.state.autoTime;
+ document.querySelector('#hour').value=h;document.querySelector('#route').value=scenery.state.route;document.querySelector('#season').value=scenery.state.season;document.querySelector('#weather').value=scenery.state.weather;document.querySelector('#auto-time').checked=scenery.state.autoTime;
  const b=document.querySelector('#play');b.textContent=scenery.state.playing?'暂停窗景':'继续前行';b.setAttribute('aria-pressed',String(scenery.state.playing));
- document.querySelector('#journey-label').textContent=`${ROUTES[scenery.state.route]} · ${WEATHERS[scenery.state.weather]}`;
+ document.querySelector('#journey-label').textContent=`${ROUTES[scenery.state.route]} · ${SEASONS[scenery.state.season]} · ${WEATHERS[scenery.state.weather]}`;
 }
 function setEnvironment(patch){scenery.set(patch);syncEnvironment();render();}
-for(const key of ['route','weather'])document.querySelector('#'+key).onchange=e=>setEnvironment({[key]:e.target.value});
+for(const key of ['route','weather','season'])document.querySelector('#'+key).onchange=e=>setEnvironment({[key]:e.target.value});
 document.querySelector('#hour').oninput=e=>setEnvironment({hour:Number(e.target.value)});
 document.querySelector('#auto-time').onchange=e=>setEnvironment({autoTime:e.target.checked});
 document.querySelector('#play').onclick=()=>setEnvironment({playing:!scenery.state.playing});

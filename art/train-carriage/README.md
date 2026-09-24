@@ -39,6 +39,13 @@ Blender 源 Z 向上；GLB 导出自动转为 Y 向上。所有坐标表 `anchor
 
 景片合成到一张 CanvasTexture，固定在后窗玻璃外侧，圆角透明裁切、单面显示、受车体深度遮挡；雨雪不会成为盖住整页的屏幕特效。此方案是 2D 分层视差窗景，尚非可进入的 3D 地图，也不随相机绕行生成侧向新景物。新增一个平面（2 三角形）、一张 GPU 纹理；移动设备初次加载 960×480，桌面 1440×720，CPU 景片缓存共 5 张 1600×600。24/20fps 上限；页面隐藏不推进，返回时不追补离开时间。GLB 保持 e87085ce 开头的原件。
 
-实例 API：`set({route, weather, hour, playing, autoTime, speed})`、`step(dt)`、`lighting()`、`dispose()`；`state`/`layers` 供预览和验证读取。时间、天气、灯光共用同一实例状态。未接真实时钟、天气服务、聊天、存档或自动旅程路线切换。
+实例 API：`set({route, season, weather, hour, playing, autoTime, speed})`、`step(dt)`、`lighting()`、`dispose()`；`state`/`layers` 供预览和验证读取。时间、天气、灯光共用同一实例状态。未接真实时钟、天气服务、聊天、存档或自动旅程路线切换。
 
-验证：`check-scenery.cjs` 实际浏览器检查 60 组合、图像差异、远近移动速比、暂停/继续、午夜回绕、夜雨亮度、场景对象不增长、透明角、reduced-motion、390×844 和 844×390 布局；证据 `scenery-validation.json`。`check-preview.cjs` 保留模型/四旧视角回归并增加窗景视角。截图保存在 `/Users/lisa/.codex/visualizations/2026/09/24/train-scenery/`，不入 Git。
+验证：`check-scenery.cjs` 实际浏览器检查 240 组合、图像差异、远近移动速比、暂停/继续、午夜回绕、夜雨亮度、场景对象不增长、透明角、reduced-motion、390×844 和 844×390 布局；证据 `scenery-validation.json`。`check-preview.cjs` 保留模型/四旧视角回归并增加窗景视角。截图保存在 `/Users/lisa/.codex/visualizations/2026/09/24/train-scenery/`，不入 Git。
+
+
+### 四季
+
+`season` 可选 spring / summer / autumn / winter，默认春天，独立于天气和时刻。春天新绿、花树、路边花点、晴阴天飘花瓣；夏天浓绿和草穗；秋天金棕树色、落叶地面及晴阴天飘叶；冬天落叶树露枝、地面积雪、常绿树枝与村屋屋顶覆雪。冬季晴天保持积雪，其他季节选择飘雪也会展示临时雪景；这里是预览切换，不模拟积雪融化。季节调整植被颜色和绘制形状，沿用同一组景片缓存/同一张纹理，不新增模型或画布。日长仍沿用共用昼夜曲线，未模拟地理纬度和季节日出日落。
+
+四季 × 三路线 × 五天气 × 四时刻 = 240 组实际渲染逐项检查，240 个不同图像签名；四季晴天对照图在截图目录 `season-{spring,summer,autumn,winter}.png`。手机季节控件、竖屏与横屏检查通过。
