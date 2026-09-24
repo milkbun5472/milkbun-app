@@ -284,7 +284,7 @@
     // 2026-08-18 Lisa 拿商业乙游的关卡设计来对照:那边的目标全是「让TA喂你吃排骨」
     // 「让TA同意你帮TA换衬衫」「让TA相信你只是在晨跑」这类日常小动作,却一点不轻——
     // 因为重量来自处境。我原先写死的「禁止事务级小目标」是错的,一刀切掉了整类好目标。
-    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
+    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标是这一轮剧情的【远处落点】，不是下一步该做的动作：从眼前这一刻出发，要隔着几场戏、几次来回，局面先变过、角色的态度先松动过才够得着。拿它和开场那一刻对照——" + uName + " 照着目标字面直接提一次就能兑现的，是一步提示，还不够远；把落点放到那一步之后更远的地方。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
     // 难度档:目标重量 + 演出时TA有多难撬
     const DIFF = {
       easy: { name: "轻松", goal: "目标采用日常尺度，阻力轻且有具体缘由，不要求重大代价。", play: "TA对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
@@ -293,6 +293,12 @@
     };
     const diffOf = l => DIFF[(l && l.difficulty) || "normal"] || DIFF.normal;
     // 滚动摘要(防长线失忆):超过 48 条后,把最老的部分浓缩进 line.summary,只留近 32 条逐句喂
+    // 账本真实覆盖到第几条:sumSig 对不上当前前缀(中间删过图/改过话)就当没覆盖。
+    // 压缩和演出两处都认这一个数,免得一处按哈希、一处按旧下标,中间漏掉一条。
+    const sumDone = l => {
+      const all = l.rounds.flatMap(r => r.msgs);
+      return (l.sumSig && l.sumSig === histSig(all.slice(0, l.sumCount || 0))) ? (l.sumCount || 0) : 0;
+    };
     const maybeSummarize = async lineId => {
       if (sumBusyRef.current || !props.active) return;
       const l = (linesRef.current || []).find(x => x.id === lineId);
@@ -300,7 +306,7 @@
       const all = l.rounds.flatMap(r => r.msgs);
       // 覆盖范围认哈希:存档里 sumSig 与当前前缀对不上(中间被删改过)就从头重算,
       // 不再拿一个可能已经错位的下标继续往下压。
-      const done = (l.sumSig && l.sumSig === histSig(all.slice(0, l.sumCount || 0))) ? (l.sumCount || 0) : 0;
+      const done = sumDone(l);
       if (all.length - done <= 48) return;
       const cut = all.length - 32;
       const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : (charOf(l).name || "Ta")) + ":" + m.content).join("\n").slice(0, 9000);
@@ -437,7 +443,7 @@
       const round = line.rounds[line.rounds.length - 1];
       const lastIsUser = round.msgs.length && round.msgs[round.msgs.length - 1].role === "user";
       // 空输入 + 历史末尾是自己的消息 = 上次生成失败的重试:不重复入史,直接用现有历史再生成
-      if (!text && !lastIsUser && !dice) return;
+      if (!text && !lastIsUser && !dice) return props.toast("写点什么再演，或者先掷个剧场骰子");
       if (!props.active) return props.toast("请先配置线下 API");
       const char = charOf(line);
       let addedId = null;
@@ -461,7 +467,7 @@
           "【if 线身份·你(" + char.name + ")】" + line.charRole + "\n身份、职业、处境按此替换;性格、说话方式、注意力习惯仍是上面这个人。",
           "【if 线身份·" + uName + "】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
+          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : round.failed ? "(这条路已经走不通了:承接它留下的后果把戏演下去,不再朝它推进)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
@@ -482,16 +488,16 @@
           "【你这一局的身份】" + line.charRole,
           "【" + uName + " 这一局的身份】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
+          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : round.failed ? "(已走不通,承接后果演下去,不再朝它推进)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
           line.summary ? "【前情提要】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
           "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;第一人称『我』,对话用引号,织成连贯段落。",
           "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}"
         ].filter(Boolean).join("\n\n");
-        const base = allMsgs(line).slice(line.sumCount || 0).filter(m => m.role !== "photo");
+        const base = allMsgs(line).slice(sumDone(line)).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
-          .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+          .slice(-48).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
         // 尾部原先全是减法,冷淡角色被砍完就只剩「我看着你。」——必须在同一处补上加法
         const tail = characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。");
@@ -534,7 +540,12 @@
         // 回声式反问兜底:线下、群线下、小剧场同一把刀。提示词压不住就削掉开头那一声。
         if (text && typeof stripEchoQuestionScene === "function") p.scene = stripEchoQuestionScene(p.scene, text);
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        // 不满 3 句时报的达成先记在 earlyReach 里,够 3 句那一拍再亮出来——以前是直接扔掉,
+        // 一招打中要害的那一局就永远不弹确认
+        const open = r => !r.goalDone && !r.failed;
+        const userN = r => r.msgs.filter(m => m.role === "user").length;
+        const reachNow = r => open(r) && !!p.goalReached ? (p.goalNote || "看起来目标达成了") : null;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
@@ -583,7 +594,7 @@
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0,
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0, ledger: null, sumSig: "",
           archives: [...(l.archives || []), { rounds: l.rounds, summary: l.summary || "", ts: Date.now() }],
           rounds: [{ id: rid("tr_"), goal: p.goal, goalDone: false, goalNote: null, pending: false, msgs: p.opening ? [{ id: rid("tm_"), role: "char", content: p.opening, ts: Date.now() }] : [], startTs: Date.now() }] }));
         setPanelOpen(true);
@@ -784,7 +795,7 @@
         // 岔开点那一拍要留着（她是看到这一拍才想换条路的），之后的全丢
         rounds.push({ ...r, msgs: r.msgs.slice(0, k + 1),
           // 这一轮的结局从此重新未定：达成/失败/待确认全部清空，早先几轮的结果照旧
-          goalDone: false, failed: false, pending: false, pendingFail: false, goalNote: null });
+          goalDone: false, failed: false, pending: false, pendingFail: false, earlyReach: null, goalNote: null });
       }
       if (!rounds.length) return props.toast("没找到这一拍");
       const kept = rounds.reduce((n, r) => n + (r.msgs || []).length, 0);
@@ -1050,7 +1061,7 @@
                h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
                  h("button", { onClick: () => { const g = (writeGoal || "").trim(); if (!g) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: g, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] })); setWriteGoal(null); }, style: S.btn(true) }, "开这一轮"),
                  h("button", { onClick: () => setWriteGoal(null), style: S.btn(false) }, "算了")))]);
-      const banner = round.pending ? h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
+      const banner = line.ended ? null : round.pending ? h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
         h("div", { style: S.txt }, "本轮目标可能已达成:" + round.goal + (typeof round.pending === "string" ? "\n(" + round.pending + ")" : "")),
         h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
           h("button", { onClick: () => confirmGoal(true), style: S.btn(true) }, "确认达成"),
