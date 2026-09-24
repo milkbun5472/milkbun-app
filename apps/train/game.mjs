@@ -1,6 +1,6 @@
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-6a401cd8371842a8';
-import {restoreTrip,travelEnvironment,advanceTrip} from './travel.mjs?v=fg-6a401cd8371842a8';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-6a401cd8371842a8';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-b89ee57384ffe249';
+import {restoreTrip,travelEnvironment,advanceTrip} from './travel.mjs?v=fg-b89ee57384ffe249';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-b89ee57384ffe249';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}

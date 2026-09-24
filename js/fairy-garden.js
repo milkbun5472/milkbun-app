@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-6a401cd8371842a8", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-b89ee57384ffe249", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -72,19 +72,34 @@
     return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
   function TrainSession(props){
-    const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id),[loaded,setLoaded]=useState(false),[landing,setLanding]=useState(false),[error,setError]=useState("");
+    const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id);
+    const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(""),[error,setError]=useState("");
     const key=props.storeKey||KEY;
     const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
     const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id)});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
-    const leave=async(to)=>{try{flush();if(to)await props.onTravel(to);else props.onBack();}catch(e){setError(e.message);props.toast(e.message);}};
+    const savedAction=async action=>{try{flush();await action();}catch(e){setError(e.message);props.toast(e.message);}};
+    const leave=to=>savedAction(()=>to?props.onTravel(to):props.onBack());
+    const newRoom=id=>savedAction(()=>props.onNewGardenRoom(id,"train"));
     const d=read(key),c=(props.characters||[]).find(c=>String(c.id)===String(d.partnerId));
+    const small={...pickButtonStyle(),padding:"5px 10px",fontSize:12};
+    const page=(title,back,body)=>h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
+      h(Head,{zh:title,bg:"transparent",ink:G.ink,onBack:back}),body);
     return h("div",{className:"h-full flex flex-col",style:{background:"#e8e6d7",color:G.ink,position:"relative"}},
-      h(Head,{zh:"远行列车",sub:c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:()=>loaded?leave():props.onBack(),right:h("button",{disabled:!loaded,onClick:()=>setLanding(true),style:{...pickButtonStyle(),padding:"5px 12px",fontSize:12}},"下车")}),
+      h(Head,{zh:"远行列车",sub:c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:()=>loaded?leave():props.onBack(),
+        right:h("div",{style:{display:"flex",gap:6}},h("button",{disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车"))}),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
         error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error)),
-      landing&&h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},h(Head,{zh:"下一站",bg:"transparent",ink:G.ink,onBack:()=>setLanding(false)}),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"))));
+      panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"))),
+      panel==="settings"&&page("旅程设置",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},
+        h("p",{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.9,marginBottom:20}},c?"这段旅程与 "+(c.remark||c.name)+" 同行，和庭院共用这一档。":"庭院和列车共用这一档旅程。"),
+        h("div",{style:{display:"grid",gap:12}},
+          h("button",{style:pickButtonStyle(),onClick:()=>savedAction(()=>props.onChooseSave("train"))},"选择已有庭院存档"),
+          h("button",{style:pickButtonStyle(),onClick:()=>setPanel("partner")},"选同行者，开新房间")),
+        h("p",{style:{fontFamily:F_BODY,fontSize:12,lineHeight:1.8,color:G.soft,marginTop:16}},"新房间会先让你设置名称、设定和记忆权限。原来的房间与存档都会保留。"))),
+      panel==="partner"&&page("选择同行者",()=>setPanel("settings"),partnerPickBody({characters:props.characters,live:[],error,
+        note:"选一位同行者，再设置新房间，开始你们的列车旅程。",onPick:newRoom})));
   }
   // 发色沿用色板；衣柜提供逐套保存的自由配色。
   const HAIR_COLORS = ['#2b2320', '#4a3629', '#6b4a33', '#8a6a4b', '#b38f62', '#d8c393', '#8d4a3a', '#6f5f7c'];
@@ -1709,7 +1724,7 @@
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
     if (props.storeKey || props.lockPartnerId) return h(WorldSession, props);
-    const [world, setWorld] = useState(null);
+    const [world, setWorld] = useState(() => WORLDS.find(w=>w.id===props.initialWorld)||null);
     const [saves, setSaves] = useState(() => readSaves());
     const [openId, setOpenId] = useState(null);
     const [picking, setPicking] = useState(false);
@@ -1721,6 +1736,7 @@
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
     if (openId) return h(WorldSession, Object.assign({}, props, {
       key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
+      onChooseSave: () => { setOpenId(null); setOpenSolo(false); refresh(); },
       onBack: () => { setOpenId(null); setOpenSolo(false); refresh(); }
     }));
     const card = (onClick, children) => h("button", {
@@ -1798,10 +1814,10 @@
     // 挑人那一页：挑了手机里的一位就去开一间房（先设定、再建）。
     if (picking) return shell("给谁开一段", () => setPicking(false),
       partnerPickBody({ characters: props.characters, live: [], onPick: pickForNew,
-        note: "挑一位，就给 TA 开一间庭院房——房间的设定先让你定好，定完这一段就开在那间房里。" }));
+        note: "挑一位同行者，再设置房间名称、设定和记忆权限。庭院与列车共用这一档旅程，原来的房间与存档保留。" }));
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
       h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 16px" } },
-        "选一档接着过，或者从头开一段新的。"),
+        world.id === "train" ? "选一个已有庭院存档，和这一档的同行者上车；也可以先选同行者、设置新房间，再开始一段旅程。" : "选一档接着过，或者从头开一段新的。"),
       h("div", { style: { display: "grid", gap: 11 } },
         rows.map((row, i) => {
           const meta = saveMeta(row);
@@ -1818,6 +1834,6 @@
         }),
         h("button", { onClick: () => setPicking(true), className: "w-full active:opacity-70",
           style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
-          "＋ 新开一段"))));
+          world.id === "train" ? "＋ 选同行者，开新房间" : "＋ 新开一段"))));
   };
 })(window);

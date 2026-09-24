@@ -75,7 +75,7 @@ test("以前开的示例档照样列着、照样进得去", () => {
 // 选人那一页只留一份（新开一段 / 在庭院里另开一间）
 test("选人那一页只有一份", () => {
   assert.match(garden, /function partnerPickBody\(\{ characters, live, note, onPick, error \}\)/);
-  assert.equal((garden.match(/partnerPickBody\(\{/g) || []).length, 3, "定义一处、两处调用");
+  assert.equal((garden.match(/partnerPickBody\(\{/g) || []).length, 4, "定义一处，庭院与列车共用三个调用入口");
   assert.doesNotMatch(garden, /\}, "先和示例同行者试玩"\)/, "那条出口撤了");
   // ⚠️写成函数：好几条测试把这个文件按段抠出来在 vm 里跑，模块加载就取 F_BODY 会当场红
   assert.match(garden, /const pickButtonStyle = \(\) => \(\{/);

@@ -1,4 +1,4 @@
-import '../fairy-garden/rules.js?v=fg-6a401cd8371842a8';
+import '../fairy-garden/rules.js?v=fg-b89ee57384ffe249';
 const {seasonOf,weather}=globalThis.FairyGardenRules;
 export const ROUTE_ORDER=['forest','country','coast'];
 export const ROUTE_LENGTH=160;
