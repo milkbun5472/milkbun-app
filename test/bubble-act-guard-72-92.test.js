@@ -63,3 +63,11 @@ test("群聊线上走的是同一个模块（四处一样喂）", () => {
 test("index.html 装了这个文件", () => {
   assert.match(R("index.html"), /js\/bubble-act-guard\.js\?v=/);
 });
+
+// 她 2026-09-24 截图：这几句是他【说出口的】，被挪进了居中动作行。
+// 「两手按在案边」这种不指着她的身体描写，分不清是说还是做，不许落刀。
+test("亲密场景里的祈使句台词不许判成动作", () => {
+  const said = ["刚进个头就叫成这样，刚才嘴上不是挺能耐么", "两手按在案边，别往后缩", "我慢慢往里送，深了就出声"];
+  assert.deepStrictEqual(G.split(said, {}).words, said);
+  assert.deepStrictEqual(G.split(said.concat(["我坐在椅上两手稳稳扣住她的胯骨", "扶好案角，深呼吸"]), {}).acts, [], "一行写她身体的，带不走其余几句台词");
+});
