@@ -1,5 +1,5 @@
 """Trace the nine reference faces into fixed SVG paths. No redesign: the
-# Usage: python3 trace.py reference-nine-faces.png faces.json
+# Usage: python3 trace.py reference-nine-faces.png faces.json [reference-default-doll.png]
 features are colour-segmented from the reference pixels and vectorised."""
 import json,sys
 import numpy as np
@@ -62,3 +62,18 @@ for k,(id_,zh) in enumerate(zip(IDS,ZH)):
     meta[id_]={'label':zh,'svg':''.join(svg)}
 json.dump(meta,open(OUT,'w'),ensure_ascii=False)
 print('traced',len(meta))
+
+# --- default face: the eyes of Lisa's bald-doll reference (no mouth) --------
+# Traced the same way, then scaled so the eye spacing equals the nine-face
+# sheet's (106 px) and centred at the sheet's eye height (+36 px).
+if len(sys.argv)>3:
+    dim=Image.open(sys.argv[3]).convert('RGB')
+    box=(360,480,650,610);EC=((405.5+598.5)/2,541.5);k=106/(598.5-405.5)
+    crop=dim.crop(box).resize(((box[2]-box[0])*UP,(box[3]-box[1])*UP),Image.LANCZOS)
+    C=np.array(crop).astype(int);lum=.3*C[...,0]+.59*C[...,1]+.11*C[...,2]
+    ink=(lum<135)&(lum>25)
+    ic=C[ink].mean(0)
+    tf=f'translate({-EC[0]*k+box[0]*k:.3f} {36-EC[1]*k+box[1]*k:.3f}) scale({k/UP:.5f})'
+    meta['default']={'label':'默认','svg':f'<g transform="{tf}"><path d="{trace(ink)}" fill="#%02x%02x%02x"/></g>'%tuple(int(v) for v in ic)}
+    json.dump(meta,open(OUT,'w'),ensure_ascii=False)
+    print('traced default')

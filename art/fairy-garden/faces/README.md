@@ -4,6 +4,7 @@
 
 - `trace.py`：按颜色从参考图每一格分出深棕五官（眼、眼皮线）和红色嘴巴，用 potrace 转成矢量路径。坐标单位是参考图像素，原点在头部中心。
 - `faces.json`：九个表情的固定 SVG 片段，键是 `MOOD_FACE`（`js/screens.js`）的九个 key：happy / cozy / relax / surprise / amazed / proud / gloomy / sad / irritated。
+- 另有 `default`（默认）：从 `reference-default-doll.png` 描的一对眼睛，无嘴；按两眼间距缩放到九宫格比例。
 - `traced-sheet.png`：九张贴在临时光头上的预览，`sheet.html` 从本地服务器打开可复现。
 
 ## 规矩

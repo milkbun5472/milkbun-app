@@ -6,7 +6,7 @@ back to skin; the decal carries a clean elliptical blush."""
 import bpy,sys,json,numpy as np
 from PIL import Image,ImageFilter,ImageDraw
 src,decal,out=sys.argv[-3:]
-S=.0016;CX,CZ=0.0,.876          # metres per reference px; head centre (x,z)
+S=.00145;CX,CZ=0.0,.870          # metres per reference px; head centre (x,z) — one transform for all faces
 for o in list(bpy.data.objects):bpy.data.objects.remove(o)
 bpy.ops.import_scene.gltf(filepath=src)
 obj=next(o for o in bpy.data.objects if o.type=='MESH');me=obj.data;mat=me.materials[0]
