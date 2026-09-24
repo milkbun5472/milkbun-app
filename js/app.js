@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.032";
+const APP_VERSION = "v74.039";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19490,13 +19490,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const sp = String((d && d.species) || "").replace(/\s+/g, " ").trim().slice(0, 16);
       if (!sp) throw new Error(characterText(char, "他没挑出来，重试下"));
       const color = /^#[0-9a-fA-F]{6}$/.test(String(d.color || "").trim()) ? String(d.color).trim() : "#c98a9e";
+      // 那句 why 不截（她 2026-09-24 截图：「就算哪天你」」半句断掉）——原来 slice(0, 80)，一句真话常常不止八十个字。
+      const why = String((d && d.why) || "").replace(/\s+/g, " ").trim();
       saveGarden(p => {
         const old = p[char.id] || {};
-        return { ...p, [char.id]: { species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80),
+        return { ...p, [char.id]: { species: sp, why: why,
           color: color, plantedTs: Date.now(), fed: 0, lastFedTs: Date.now(), bloomTs: 0, told: false,
           kept: Array.isArray(old.kept) ? old.kept : [],
           // ⚠️said 只进不出：干花册可能被她收走/清掉，avoid 单子不能跟着一起没
-          said: gardenPastOf(old).concat([{ species: sp, why: String((d && d.why) || "").replace(/\s+/g, " ").trim().slice(0, 80) }]).slice(-24) } };
+          said: gardenPastOf(old).concat([{ species: sp, why: why }]).slice(-24) } };
       });
       coupleKeep(char.id, char.name + "在你们的空间里种下了一盆" + sp + (d && d.why ? characterText(char, "——他说「") + cSnip(d.why, 60) + "」" : ""), "花房");
     } catch (e) { toast("失败：" + (e.message || "重试")); }
