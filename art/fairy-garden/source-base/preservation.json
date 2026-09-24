@@ -1,0 +1,61 @@
+{
+  "source_sha256": "b2fe2232ecb845d98036f8c6c03f5ccae68d76d4d2815b3c01b8c04b01952848",
+  "unchanged_after_save_reload": true,
+  "source_bounds": {
+    "min": [
+      -0.25985899567604065,
+      -0.24018514156341553,
+      -1.1560236101715304e-09
+    ],
+    "max": [
+      0.23819999396800995,
+      0.2638639211654663,
+      1.146334171295166
+    ]
+  },
+  "display_height": 1.707,
+  "uniform_parent_scale": 1.4890945773255164,
+  "data": {
+    "meshes": {
+      "node_0": {
+        "vertices": 33634,
+        "polygons": 50010,
+        "positions": "8c65e79ac75a9e8be041a8854ef9df5c6245462c37225fee2459d36cd9da23bd",
+        "indices": "e96ca4351120e56229efd6927631b1e4d0eb4326e0212d252fc5131a6c5f4753",
+        "normals": "3181485f63373c3de3cdabfa4a89728afcf86e1703d4a7a0968688bd4d38c634",
+        "uv": {
+          "UVMap": "4ffd3b1e27b33149ec8d6d1c80ba7e70b1ea316a92d988886a0f5a2839f49039"
+        },
+        "materials": [
+          "Material.001"
+        ]
+      }
+    },
+    "images": {
+      "texture_pbr_20250901": {
+        "size": [
+          4096,
+          4096
+        ],
+        "sha256": "942c817bc2e7dd6fe1e91d63dc890d934090bfc587ca415ae92b598a1d7f6d0b"
+      },
+      "texture_pbr_20250901_metallic-texture_pbr_20250901_roughness": {
+        "size": [
+          4096,
+          4096
+        ],
+        "sha256": "4fef26de4c1c65d683e33b124e86e1ea81931644533e83fd364263db94323e69"
+      },
+      "texture_pbr_20250901_normal": {
+        "size": [
+          4096,
+          4096
+        ],
+        "sha256": "0e4c3446544256509680059f466510b6431ac468df23149fcea291d5c9e08348"
+      }
+    }
+  },
+  "limitations": [
+    "Single original textured mesh; no new wardrobe split or rig yet."
+  ]
+}
