@@ -1,8 +1,8 @@
 {
   "source_vertices_retained_across_partitions": 64358,
   "source_surface_area": 3.5669422149658203,
-  "partition_surface_area": 3.5669418573379517,
-  "relative_area_error": 1.0026175000868935e-07,
+  "partition_surface_area": 3.5669422149658203,
+  "relative_area_error": 0.0,
   "source_keys": [
     "Basis",
     "height",
@@ -86,8 +86,21 @@
   ],
   "scope": "Hairstyle and body preview. Clothing separation and animation are not implemented.",
   "lossless_buffer_sharing": {
-    "before_bytes": 78334696,
-    "after_bytes": 66938752,
+    "before_bytes": 72833488,
+    "after_bytes": 62813560,
     "all_buffer_views_byte_identical": true
+  },
+  "saved_blend_verified": {
+    "meshes": 14,
+    "neutral_morphs": true,
+    "default_visible": [
+      "SourceBody",
+      "hair_korean"
+    ],
+    "all_images_packed": true
+  },
+  "asset_sha256": {
+    "traveler-hairstyles.blend": "2894ee4bd1e9b42ad49058296f0fe6049efa882ed0274240d6bc631aa2a8829c",
+    "traveler-hairstyles.glb": "b5360bdbce42fd19eca49f8cacaefde7cbb5f2f9c57a25c0be38674f717efdaf"
   }
 }

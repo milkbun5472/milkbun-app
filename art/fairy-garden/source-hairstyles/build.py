@@ -42,10 +42,6 @@ def morphs(obj):
 # It sits behind the unchanged eyes, cheeks, jaw and ears. It is not a new face.
 scalp=make_scalp(body)
 morphs(scalp)
-# Clean front face shell (smooth skin, eyes, blush) over the old fringe contact.
-from face import make_face
-face=make_face(body,scalp)
-morphs(face)
 if os.environ.get('REUSE_HAIR'):
     # Explicit artist iteration: recompute only scalp while retaining the last
     # exported hair geometry and its keys. Never used for the final full build.
@@ -59,7 +55,7 @@ if os.environ.get('REUSE_HAIR'):
 else:
     new=[build_style(style) for style in CATALOG if style!='korean']
     for obj in new:morphs(obj)
-objects=[body,hair,scalp,face]+new
+objects=[body,hair,scalp]+new
 report=json.loads(body['sourcePartitionAudit'])
 report.update({'styles':list(CATALOG),'new_hair_meshes':len(new),'hairline_vertices':int(scalp['hairlineVertices']),
                'dimensions':DIMS,'scope':'Hairstyle and body preview. Clothing separation and animation are not implemented.'})
@@ -77,7 +73,7 @@ sc.camera.data.type='ORTHO';sc.camera.data.ortho_scale=1.42
 def choose(style):
     for o in [hair]+new:
         o.hide_render=o.name!='hair_'+style;o.hide_set(o.hide_render)
-    for support in (scalp,face):support.hide_render=style=='korean';support.hide_set(support.hide_render)
+    scalp.hide_render=style=='korean';scalp.hide_set(scalp.hide_render)
 
 def view(angle):
     sc.camera.location=(5*math.sin(angle),-5*math.cos(angle),1.29)

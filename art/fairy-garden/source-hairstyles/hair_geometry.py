@@ -129,7 +129,7 @@ class Sculpt:
         for p in mesh.polygons:p.use_smooth=True
         attr=mesh.color_attributes.new(name='Clay tint',type='FLOAT_COLOR',domain='POINT')
         colors=np.array(self.colors)
-        if self.name not in ('ScalpSupport','FaceSupport'):
+        if self.name!='ScalpSupport':
             # Contact shadows are baked into vertex colour because the garden's
             # mobile renderer does not provide screen-space ambient occlusion.
             # These are rays against the actual curved hair, not painted bands.
