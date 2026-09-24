@@ -51,3 +51,12 @@ test("演出页有钉在顶上的目标条,分轮是幕间", () => {
   assert.match(play, /onClick: \(\) => setGoalOpen\(v => !v\)/);
   assert.match(play, /actName\(i\)/);
 });
+
+test("+ 菜单分两层,等待用公共 TypingDots,上膛有角标", () => {
+  const play = cut("const flow = line.rounds.flatMap", "const lineCard = ");
+  assert.match(play, /setStageOpen\(v => !v\)/);
+  const i = play.indexOf("stageOpen ? h("), j = play.indexOf("genCover", i);
+  assert.ok(i > 0 && j > i, "封面按钮该收在布景里面");
+  assert.match(play, /h\(TypingDots, \{ color: t\.fog \}\)/);
+  assert.match(play, /\(dice \|\| note\.trim\(\)\) \? h\("span"/);
+});

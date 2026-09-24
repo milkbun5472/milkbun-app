@@ -256,6 +256,7 @@
     const [note, setNote] = useState(""); // 导演便签:一次性,喂给下一拍生成后自动清空
     const [noteOpen, setNoteOpen] = useState(false);
     const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
+    const [stageOpen, setStageOpen] = useState(false); // + 菜单里「布景」那一层(封面/背景)是否展开
     const [plusOpen, setPlusOpen] = useState(false); // + 菜单(骰子/便签/背景/出图)
     const [photoMenu, setPhotoMenu] = useState(null); // 长按剧照弹出的操作单:msg|null
     const [msgMenu, setMsgMenu] = useState(null);     // 长按正文弹出的操作单(分支):msg|null
@@ -1116,24 +1117,30 @@
           h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
-          busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "Ta 在演…") : null),
+          busy ? h("div", { style: { margin: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+            typeof TypingDots === "function" ? h(TypingDots, { color: t.fog }) : null, busyWhat || "Ta 在演…") : null),
         line.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
           h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
           h("button", { onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
           h("button", { onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
           h("button", { onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
+          // 常玩的三颗留在外面;封面和背景那一堆收进「布景」,以前一次挤出八颗同样的按钮
+          h("button", { onClick: () => setStageOpen(v => !v), style: S.btn(stageOpen) }, "布景" + (stageOpen ? " ▴" : " ▾")),
+          stageOpen ? h("div", { style: { width: "100%", display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 2 } },
           h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, line.cover ? "🎞 重出封面" : "🎞 封面图"),
           // 封面画完不该只剩卡片上那层被渐变压掉的底纹：点开看整张、或直接铺成背景
           line.cover ? h("button", { onClick: () => { setPlusOpen(false); setGalView(gal.find(x => x.img === line.cover) || { id: "cover_" + line.id, charId: line.charId, lineId: line.id, lineTitle: line.title, img: line.cover, ts: line.coverTs || Date.now(), kind: "cover" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
           line.cover && line.bg !== line.cover ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: line.cover })); setPlusOpen(false); props.toast("封面已铺成背景"); }, style: S.btn(false) }, "🖼 封面当背景") : null,
           h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 传背景图"),
-          line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null,
+          line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null) : null,
         line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
           h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
           h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
           h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
-          h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演"))));
+          h("button", { onClick: send, disabled: busy, style: Object.assign({}, S.btn(true), { position: "relative" }) }, "演",
+            // 骰子或便签上了膛,「演」上挂个角标,免得收起菜单就忘了下一拍带着东西
+            (dice || note.trim()) ? h("span", { style: { position: "absolute", top: -6, right: -6, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 8, background: "#a4442e", color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center" } }, dice ? "骰" : "签") : null))));
     }
 
     // 某个角色的记录:只显示 Ta 的线,每条可单独删除
