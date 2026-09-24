@@ -90,16 +90,16 @@ def sculpt_front(s):
         # Principal C-shaped fringe, broad middle and an inward turning end.
         ([(309,391),(296,363),(270,349),(240,358),(217,384),(197,422),(184,465),(183,499),(194,532),(216,552),(243,568),(273,574),(279,568),(264,549),(255,526),(252,497),(258,467),(270,440),(287,416),(301,413),(310,429)],.030,.033,1.025),
     ]
-    # Rounded crown support closes the part in every viewing direction.
-    s.ellipsoid((0,-.03,1.55),(.25,.14,.078),tint=.93)
-    s.lock([(-.08,-.10,1.600),(-.11,.02,1.642),(.025,.12,1.635),(.14,.14,1.579)],width=.069,depth=.026,normal=(0,0,1),tint=1.02,rings=32,sides=16)
+    # A full crown supports lifted roots instead of two flat top panels.
+    s.ellipsoid((0,.025,1.425),(.257,.260,.220),tint=.94)
+    s.lock([(.035,-.015,1.605),(.01,-.09,1.660),(-.145,-.115,1.650),(-.21,-.10,1.607)],width=.054,depth=.027,normal=(0,-.5,1),tint=1.02,rings=36,sides=16)
     # Curved temple bridges overlap the original rear at the cut boundary.
     # Their centreline travels around the skull, not along the front plane.
     for sign in (-1,1):
         s.lock([(sign*.12,-.005,1.617),(sign*.27,-.080,1.56),(sign*.355,-.065,1.43),(sign*.29,-.055,1.24)],width=.060,depth=.034,normal=(sign,-.10,0),tint=.98,rings=32,sides=16)
     for side in (1,-1):
         for i,(outline,lift,depth,tint) in enumerate(outlines):
-            if i==0:outline=[(x,y+(-7 if side>0 else 14)) for x,y in outline]
+            if i==0:continue
             if i==6:outline=[(236+(x-230)*(.90 if side>0 else .94),y) for x,y in outline]
             if side<0:
                 outline=[(310+(x-310)*(1.00 if i==6 else .96),y+(3 if i==6 else -2)) for x,y in outline]
@@ -137,3 +137,26 @@ normals are recalculated after reshaping the join and crown.
     for j,i in enumerate(used):
         s.colors[off+j]=(*(s.color*np.clip(lum[j]/median,.45,1.5)**.85),1)
         s.source_painted_vertices.add(off+j)
+
+
+def refined_rear(s):
+    """Staggered short locks follow the round skull from crown to nape."""
+    import random
+    r=random.Random(42)
+    # Build the lower tiers first; broad upper locks overlap their roots.
+    for count,p0,p1,width,depth in [(12,1.48,2.70,.037,.019),(10,.72,2.04,.053,.026),(7,.16,1.42,.071,.031)]:
+        for i in range(count):
+            th=1.00+(2*math.pi-2.00)*(i+.45)/count+r.uniform(-.045,.045)
+            start=p0+r.uniform(-.065,.065);end=p1+r.uniform(-.08,.08)
+            # Unequal sweeps form interlocking layers, rather than straight rows.
+            sweep=.12*math.sin(th)+r.uniform(-.12,.12)
+            s.radial(th,start,end,width*r.uniform(.9,1.1),depth,sweep=sweep,lift=.008)
+
+
+def lift_crown(s):
+    # Raise the whole crown coherently; roots and supporting volume move with
+    # the locks, so the silhouette stays round from the side and rear too.
+    vertices=np.array(s.v,float)
+    t=np.clip((vertices[:,2]-1.40)/.245,0,1);t=t*t*(3-2*t)
+    vertices[:,2]+=.055*t
+    s.v=list(map(tuple,vertices))

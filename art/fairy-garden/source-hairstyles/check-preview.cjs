@@ -11,7 +11,9 @@ function hashes(file) {
   const json = JSON.parse(bytes.subarray(20, 20 + size)), binary = bytes.subarray(28 + size);
   return json.images.map(i => { const v = json.bufferViews[i.bufferView]; return createHash('sha256').update(binary.subarray(v.byteOffset || 0, (v.byteOffset || 0) + v.byteLength)).digest('hex'); }).sort();
 }
-assert.deepEqual(hashes(path.join(__dirname, 'traveler-hairstyles.glb')), hashes(path.join(__dirname, '../clay-reference.glb')));
+const assetTextures = hashes(path.join(__dirname, 'traveler-hairstyles.glb'));
+assert.ok(hashes(path.join(__dirname, '../clay-reference.glb')).every(hash => assetTextures.includes(hash)));
+assert.equal(assetTextures.length, 4);
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   try {
@@ -38,7 +40,7 @@ assert.deepEqual(hashes(path.join(__dirname, 'traveler-hairstyles.glb')), hashes
       r.setDimensions(Object.fromEntries(r.dims.map(d => [d.key, 1])));
       r.traveler.root.updateMatrixWorld(true);
       const meshes = [], samples = [], v = new T.Vector3();
-      r.traveler.root.traverse(o => { if (o.isMesh && (/^hair_/.test(o.name) || o.userData.hairSupport || o.userData.sourceBodySliders)) meshes.push(o); });
+      r.traveler.root.traverse(o => { if (o.isMesh && (/^hair_/.test(o.name) || o.userData.hairSupport || o.userData.sourceBodySliders || o.userData.sourceFaceOriginal)) meshes.push(o); });
       for (const mesh of meshes) {
         if (r.dims.some(d => mesh.morphTargetDictionary[d.key] == null)) throw Error('Missing slider on ' + mesh.name);
         const hair = /^hair_/.test(mesh.name) || mesh.userData.hairSupport;
@@ -98,7 +100,8 @@ assert.deepEqual(hashes(path.join(__dirname, 'traveler-hairstyles.glb')), hashes
         for (const [x,y] of facialSamples) {
           ray.set(new T.Vector3(x,y,4), new T.Vector3(0,0,-1));
           const hit = ray.intersectObjects(visible, false)[0];
-          if (hit?.object !== r.body) throw Error(style.id + ': source face covered at ' + [x,y] + ' by ' + hit?.object.name);
+          const expected = style.id === 'korean' ? 'SourceHeadOriginal' : 'ScalpSupport';
+          if (hit?.object.name !== expected) throw Error(style.id + ': face covered at ' + [x,y] + ' by ' + hit?.object.name);
           rays++;
         }
       }
@@ -144,7 +147,7 @@ assert.deepEqual(hashes(path.join(__dirname, 'traveler-hairstyles.glb')), hashes
     await page.waitForFunction(() => window.bodySliderReview?.style === 'curtains', null, { timeout: 90000 });
     assert.equal(await page.locator('[data-hair]').count(), 2);
     await page.locator('[data-hair="korean"]').click();
-    assert.ok(await page.evaluate(() => { let visible = false; bodySliderReview.traveler.root.traverse(o => { if(o.userData.hairSupport && o.visible) visible = true; }); return !visible; }));
+    assert.ok(await page.evaluate(() => { let visible = false; bodySliderReview.traveler.root.traverse(o => { if(o.userData.hairSupport && o.visible) visible = true; }); let original = false; bodySliderReview.traveler.root.traverse(o => { if(o.userData.sourceFaceOriginal && o.visible) original = true; }); return !visible && original; }));
     await page.locator('[data-hair="curtains"]').click();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: path.join(out, 'm02-mobile.png') });
