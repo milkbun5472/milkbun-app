@@ -1,4 +1,4 @@
-import {cropRect} from './album.mjs?v=fg-0385d12de862efb8';
+import {cropRect} from './album.mjs?v=fg-670a3f099ef7602f';
 export function createTravelCamera({source,shoot,onOpen}){
  const el=document.createElement('section');el.id='travel-camera';el.hidden=true;el.innerHTML='<header><button id="camera-back">收起</button><strong>窗景取景器</strong><button id="camera-shoot">拍下来</button></header><div class="camera-body"><p>拖动画面取景，风景会继续前进。</p><canvas id="camera-canvas" aria-label="拖动调整取景位置"></canvas><label>焦距 <input id="camera-zoom" aria-label="取景放大倍数" type="range" min="1" max="3" step=".05" value="1"><span id="camera-scale">1.0×</span></label><button id="camera-reset">复位取景</button><p id="camera-status" role="status"></p></div>';document.body.append(el);
  const $=s=>el.querySelector(s),c=$('#camera-canvas'),ctx=c.getContext('2d');let zoom=1,pan={x:.5,y:.5},drag=null,raf=0,last=0;

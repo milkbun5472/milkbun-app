@@ -1,9 +1,9 @@
-import {createTravelCamera} from './camera-view.mjs?v=fg-0385d12de862efb8';
-import {removeAlbumItem} from './album.mjs?v=fg-0385d12de862efb8';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-0385d12de862efb8';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-0385d12de862efb8';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-0385d12de862efb8';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-0385d12de862efb8';
+import {createTravelCamera} from './camera-view.mjs?v=fg-670a3f099ef7602f';
+import {removeAlbumItem} from './album.mjs?v=fg-670a3f099ef7602f';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-670a3f099ef7602f';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-670a3f099ef7602f';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-670a3f099ef7602f';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-670a3f099ef7602f';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}
@@ -15,11 +15,12 @@ try{if(!host)throw Error('请从小世界的列车入口进入。');state=restor
  for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{view.setView(b.dataset.view);document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));};document.querySelector('[data-view=window]').setAttribute('aria-pressed','true');
  function capture(crop){const src=view.scenery.canvas,c=document.createElement('canvas');c.width=900;c.height=600;const ctx=c.getContext('2d'),sw=Math.min(src.width,src.height*1.5),sh=sw/1.5,r=crop||{x:(src.width-sw)/2,y:(src.height-sh)/2,w:sw,h:sh};ctx.drawImage(src,r.x,r.y,r.w,r.h,0,0,900,600);const env=travelEnvironment(state),photo={id:'photo-'+crypto.randomUUID(),src:c.toDataURL('image/jpeg',.84),crop:r,label:`${ROUTES[env.route]} · ${SEASONS[env.season]} · 第${state.day}天 ${String(Math.floor(state.minute/60)).padStart(2,'0')}:${String(Math.floor(state.minute%60)).padStart(2,'0')}`};state.photos=[...(state.photos||[]),photo];if(!flush()){state.photos=state.photos.filter(p=>p.id!==photo.id);return null;}return photo;}
  cameraUI=createTravelCamera({source:()=>view.scenery.canvas,shoot:capture,onOpen:()=>view.setView('window')});
- desk=createPuzzleDesk({state:()=>state,save:flush,capture,host,onOpen:()=>view.setView('table')});
+ desk=createPuzzleDesk({state:()=>state,save:flush,capture,host,source:()=>view.scenery.canvas,environment:()=>travelContext(state),onOpen:mode=>view.setView(mode==='travel'?'window':'table')});
+ document.querySelector('#open-chat').onclick=()=>desk.open('travel').catch(e=>{status.textContent=e.message;});
  document.querySelector('#open-puzzle').onclick=()=>desk.open().catch(e=>{status.textContent=e.message;});
  document.querySelector('#take-photo').onclick=()=>cameraUI.open();
  document.querySelector('#open-album').onclick=()=>{if(flush())host.openAlbum?.();};
- window.TrainGame={desk,flush,chatContext:()=>({map:"carriage",environment:travelContext(state)}),editAlbum:action=>{const before=state;try{if(action.kind!=='delete')throw Error('未知操作');state=removeAlbumItem(state,action.id);if(!flush())throw Error('相册没有保存成功');desk.refresh().catch(e=>{status.textContent=e.message;});return true;}catch(e){state=before;throw e;}},snapshot:()=>({...state}),get ready(){return !!view;}};host.ready?.();if(!flush())throw Error('进度没有保存成功，请返回重试。');frame=requestAnimationFrame(animate);
+ window.TrainGame={desk,flush,chatContext:()=>({map:"carriage",activity:desk?.activity==='travel'?'看窗外聊天':desk?.isOpen?'拼图桌边':'乘车看风景',environment:travelContext(state)}),editAlbum:action=>{const before=state;try{if(action.kind!=='delete')throw Error('未知操作');state=removeAlbumItem(state,action.id);if(!flush())throw Error('相册没有保存成功');desk.refresh().catch(e=>{status.textContent=e.message;});return true;}catch(e){state=before;throw e;}},snapshot:()=>({...state}),get ready(){return !!view;}};host.ready?.();if(!flush())throw Error('进度没有保存成功，请返回重试。');frame=requestAnimationFrame(animate);
 }catch(e){status.textContent=e.message;}
 window.addEventListener('visibilitychange',()=>{last=0;if(document.hidden)flush();});
 window.addEventListener('pagehide',()=>{closed=true;cancelAnimationFrame(frame);flush();cameraUI?.dispose();desk?.dispose();view?.dispose();});
