@@ -1,0 +1,89 @@
+{
+  "source": "source-traveler.blend",
+  "dims": [
+    {
+      "key": "height",
+      "label": "腿长",
+      "min": 0.85,
+      "max": 1.25,
+      "low": "短一点",
+      "high": "长一点"
+    },
+    {
+      "key": "shoulder",
+      "label": "肩宽",
+      "min": 0.85,
+      "max": 1.2,
+      "low": "窄一点",
+      "high": "宽一点"
+    },
+    {
+      "key": "waist",
+      "label": "腰身",
+      "min": 0.85,
+      "max": 1.15,
+      "low": "纤细",
+      "high": "丰盈"
+    },
+    {
+      "key": "flare",
+      "label": "衣摆",
+      "min": 0.78,
+      "max": 1.22,
+      "low": "收拢",
+      "high": "蓬松"
+    },
+    {
+      "key": "build",
+      "label": "圆润度",
+      "min": 0.85,
+      "max": 1.15,
+      "low": "轻巧",
+      "high": "圆润"
+    },
+    {
+      "key": "head",
+      "label": "头身比",
+      "min": 0.88,
+      "max": 1.1,
+      "low": "小一点",
+      "high": "大一点"
+    }
+  ],
+  "body_refinement": {
+    "original_vertices": 33634,
+    "original_triangles": 50010,
+    "refined_vertices": 64358,
+    "refined_triangles": 108251,
+    "original_vertices_unchanged": true,
+    "maximum_body_edge": 0.015,
+    "method": "Conforming midpoint splits; source surface and interpolated UVs retained."
+  },
+  "sliver_stabilization": {
+    "constrained_triangles": 73495,
+    "maximum_unit_delta_correction": 0.00690169101867949
+  },
+  "basis_preserved_after_save_reload": true,
+  "original_data": {
+    "positions": "ff7c8c85d5f0e65ddb402a1060a7ef909dcfb3fe13a49d5f4b1da8a6b5ce8789",
+    "indices": "00ff08c90b192674272656af756d1f5f844fffec4f32dfa96c20a4cf5547881b",
+    "normals": "437984b5111096cded7955b7fef87f6bf0f79051e991b951e0564268f91c1aad",
+    "uv": {
+      "UVMap": "50005c9a30c7d0628454b284d5fda954a3327ad6948c6ff99f536781196e13c9"
+    },
+    "images": {
+      "texture_pbr_20250901": "942c817bc2e7dd6fe1e91d63dc890d934090bfc587ca415ae92b598a1d7f6d0b",
+      "texture_pbr_20250901_metallic-texture_pbr_20250901_roughness": "4fef26de4c1c65d683e33b124e86e1ea81931644533e83fd364263db94323e69",
+      "texture_pbr_20250901_normal": "0e4c3446544256509680059f466510b6431ac468df23149fcea291d5c9e08348"
+    }
+  },
+  "endpoint_combinations": 64,
+  "maximum_floor_error": 0.0,
+  "maximum_head_similarity_error": 2.3055512673781017e-16,
+  "maximum_shoe_displacement": 0.0,
+  "minimum_triangle_area_ratio": 0.4253568046715744,
+  "minimum_resolved_triangle_area_ratio": 0.4253568046715744,
+  "minimum_face_normal_dot": 0.6943487844146184,
+  "near_collinear_triangle_count": 856,
+  "scope": "Body sliders only. No wardrobe separation or animation rig yet."
+}

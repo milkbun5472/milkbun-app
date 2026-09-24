@@ -1,0 +1,12 @@
+{
+  "combinations": 64,
+  "sampleCount": 1396,
+  "headError": 1.9668508055612273e-7,
+  "soleError": 2.7200435436313787e-8,
+  "palmError": 0.00008435793675922862,
+  "textures": true,
+  "errors": [],
+  "reset": true,
+  "narrowScreen": true,
+  "textureBytesPreserved": true
+}
