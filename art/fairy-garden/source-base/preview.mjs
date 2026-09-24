@@ -22,7 +22,7 @@ const camera = new T.PerspectiveCamera(30, 1, .01, 30);
 const aim = new T.Vector3(0, hairMode ? 1.19 : .91, 0);
 let azimuth = 0, elevation = .04, radius = hairMode ? 3.1 : 4.6;
 let traveler, body, dims, originalMaterial, hairstyles;
-let selectedStyle = 'korean';
+let selectedStyle = config.initialHair || 'korean';
 const hairButtons = new Map(), supports = [];
 const values = {}, inputs = new Map();
 function render() {
@@ -134,7 +134,7 @@ try {
       render();
     };
   }
-  status.textContent = hairMode ? '十二款可试换 · 拖动看侧背面' : '拖动旋转 · 滚轮缩放 · 六项可组合调整';
+  status.textContent = hairMode ? (config.reviewLabel || '十二款可试换 · 拖动看侧背面') : '拖动旋转 · 滚轮缩放 · 六项可组合调整';
   resize();
   window.bodySliderReview = { body, traveler, scene, renderer, dims, values, setDimensions,
     neutralMaterial: originalMaterial, render, hairstyles, setStyle,

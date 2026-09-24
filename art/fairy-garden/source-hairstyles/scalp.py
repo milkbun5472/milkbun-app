@@ -57,7 +57,9 @@ def make_scalp(body):
     xy=np.floor(uv*[w,h]).astype(int);colors=tex[np.clip(xy[:,1],0,h-1),np.clip(xy[:,0],0,w-1),:3]
     colors=np.where(colors<=.04045,colors/12.92,((colors+.055)/1.055)**2.4)
     theta=np.unwrap(np.arctan2(pts[:,0]+.006,-(pts[:,1]-.018)))
-    target=np.array(linear('e6c7ad'))
+    # Match the intact central skin texel (244, 212, 187), not the
+    # dark contact shadow sampled at the old bangs.
+    target=np.array(linear('f4d4bb'))
     verts=[];rgb=[];faces=[];n=len(pts);rings=24
     for j in range(rings+1):
         t=j/rings
@@ -66,10 +68,16 @@ def make_scalp(body):
         z=pts[:,2]+(1.49-pts[:,2])*t
         theta_blend=theta
         rx=.255;ry=.257;zcentre=1.19;rz=.30
-        rad=np.sqrt(np.maximum(0,1-((z-zcentre)/rz)**2))
+        # The source face has a low cheek centre, but the occiput sits
+        # higher. Using the cheek ellipse behind the ears creates a bulging
+        # bare nape that forces all short hairstyles into a square helmet.
+        rear=np.clip((-np.cos(theta_blend)-.05)/.60,0,1)
+        rear=rear*rear*(3-2*rear)
+        centre=zcentre+.11*rear
+        rad=np.sqrt(np.maximum(0,1-((z-centre)/rz)**2))
         desired=np.stack([-.006+rx*rad*np.sin(theta_blend),.018-ry*rad*np.cos(theta_blend),z],axis=1)
         extension=pts.copy();extension[:,2]=z
-        blend=min(1,t/.32);blend=blend*blend*(3-2*blend)
+        blend=min(1,t/.16);blend=blend*blend*(3-2*blend)
         ring=extension*(1-blend)+desired*blend
         if j>0:
             for relax in range(min(18,j*3)):
@@ -77,11 +85,15 @@ def make_scalp(body):
         if j==0:ring=pts
         if j==rings:ring=np.tile([-.006,.018,1.49],(n,1))
         verts.extend(ring)
-        cb=np.clip((ring[:,2]-pts[:,2])/.018,0,1)[:,None];cb=cb*cb*(3-2*cb)
+        cb=np.clip((ring[:,2]-pts[:,2])/.009,0,1)[:,None];cb=cb*cb*(3-2*cb)
         rgb.extend([(*c,1) for c in colors*(1-cb)+target*cb])
         if j:
             for i in range(n):
                 a=(j-1)*n+i;b=(j-1)*n+(i+1)%n;faces.append((a,b,b+n,a+n))
+    from forehead import make_patch
+    patch_offset=len(verts)
+    pv,pf,pc,patch_normals=make_patch(target)
+    verts.extend(pv);faces.extend(tuple(patch_offset+i for i in face) for face in pf);rgb.extend(pc)
     sculpt=Sculpt('ScalpSupport','f3d0b4');sculpt.v=verts;sculpt.f=faces;sculpt.colors=rgb
     obj=sculpt.finish();obj['hairSupport']=True
     # Match the imported skin's PBR response as well as its colour. Hair and
@@ -99,9 +111,13 @@ def make_scalp(body):
     normals=[]
     for corner in obj.data.loops:
         co=obj.data.vertices[corner.vertex_index].co
-        v=Vector(((co.x+.006)/(.255**2),(co.y-.018)/(.257**2),(co.z-1.19)/(.30**2)))
+        if corner.vertex_index>=patch_offset:
+            normals.append(patch_normals[corner.vertex_index-patch_offset]);continue
+        angle=theta[corner.vertex_index%n]
+        rear=max(0,min(1,(-math.cos(angle)-.05)/.60));rear=rear*rear*(3-2*rear)
+        v=Vector(((co.x+.006)/(.255**2),(co.y-.018)/(.257**2),(co.z-1.19-.11*rear)/(.30**2)))
         ring=corner.vertex_index//n;index=corner.vertex_index%n
-        blend=min(1,max(0,(co.z-pts[index,2])/.025));blend=blend*blend*(3-2*blend)
+        blend=min(1,max(0,(co.z-pts[index,2])/.010));blend=blend*blend*(3-2*blend)
         normals.append(Vector(ns[index]).lerp(v.normalized(),blend).normalized())
     obj.data.normals_split_custom_set(normals)
     obj['hairlineVertices']=n

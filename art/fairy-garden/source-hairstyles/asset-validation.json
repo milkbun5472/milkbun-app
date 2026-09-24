@@ -33,7 +33,7 @@
     "wavy"
   ],
   "new_hair_meshes": 11,
-  "hairline_vertices": 535,
+  "hairline_vertices": 540,
   "dimensions": [
     {
       "key": "height",
@@ -86,8 +86,8 @@
   ],
   "scope": "Hairstyle and body preview. Clothing separation and animation are not implemented.",
   "lossless_buffer_sharing": {
-    "before_bytes": 65589268,
-    "after_bytes": 57345284,
+    "before_bytes": 72833488,
+    "after_bytes": 62813560,
     "all_buffer_views_byte_identical": true
   },
   "saved_blend_verified": {
@@ -100,7 +100,7 @@
     "all_images_packed": true
   },
   "asset_sha256": {
-    "traveler-hairstyles.blend": "912daad64a0e29a77eeea37282818e9d4a8755787586f0e85ded1811dab87184",
-    "traveler-hairstyles.glb": "48489413eb435970a7e69a0cff7ca5dda0bd4c74cf3ef2f1bcc03332ab1422cb"
+    "traveler-hairstyles.blend": "2894ee4bd1e9b42ad49058296f0fe6049efa882ed0274240d6bc631aa2a8829c",
+    "traveler-hairstyles.glb": "b5360bdbce42fd19eca49f8cacaefde7cbb5f2f9c57a25c0be38674f717efdaf"
   }
 }

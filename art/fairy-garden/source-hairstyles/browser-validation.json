@@ -1,9 +1,10 @@
 {
+  "modelSha256": "b5360bdbce42fd19eca49f8cacaefde7cbb5f2f9c57a25c0be38674f717efdaf",
   "combinations": 64,
   "styles": 12,
-  "sampledVertices": 3029,
-  "headError": 1.9669213339631854e-7,
-  "soleError": 2.72004346761893e-8,
+  "sampledVertices": 3707,
+  "headError": 1.9790259137437905e-7,
+  "soleError": 2.7200435381802922e-8,
   "meshes": 14,
   "sourceAppearanceRmse": 0.03854794125631616,
   "significantPixelFraction": 0.00000892458723784025,
@@ -11,5 +12,7 @@
   "originalTextureBytes": true,
   "reset": true,
   "mobile": true,
+  "focusedM02": true,
+  "focusedGallery": true,
   "errors": []
 }

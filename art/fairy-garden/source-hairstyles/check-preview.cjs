@@ -138,8 +138,22 @@ assert.deepEqual(hashes(path.join(__dirname, 'traveler-hairstyles.glb')), hashes
     await page.evaluate(() => Promise.all([...document.images].map(image => { image.loading = 'eager'; return image.decode(); })));
     assert.equal(await page.locator('main img').count(), 3);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    // The focused review must open the new M02, and its original comparison
+    // must restore the intact face without leaving the forehead support on.
+    await page.goto(base + '/art/fairy-garden/source-hairstyles/m02.html');
+    await page.waitForFunction(() => window.bodySliderReview?.style === 'curtains', null, { timeout: 90000 });
+    assert.equal(await page.locator('[data-hair]').count(), 2);
+    await page.locator('[data-hair="korean"]').click();
+    assert.ok(await page.evaluate(() => { let visible = false; bodySliderReview.traveler.root.traverse(o => { if(o.userData.hairSupport && o.visible) visible = true; }); return !visible; }));
+    await page.locator('[data-hair="curtains"]').click();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: path.join(out, 'm02-mobile.png') });
+    await page.goto(base + '/art/fairy-garden/source-hairstyles/m02-views.html');
+    await page.evaluate(() => Promise.all([...document.images].map(image => { image.loading='eager'; return image.decode(); })));
+    assert.equal(await page.locator('main img').count(), 3);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     assert.deepEqual(errors, []);
-    fs.writeFileSync(path.join(out, 'browser-validation.json'), JSON.stringify({ ...geometry, ...preservation, originalTextureBytes: true, reset: true, mobile: true, errors }, null, 2) + '\n');
+    fs.writeFileSync(path.join(out, 'browser-validation.json'), JSON.stringify({ modelSha256: createHash('sha256').update(fs.readFileSync(path.join(__dirname, 'traveler-hairstyles.glb'))).digest('hex'), ...geometry, ...preservation, originalTextureBytes: true, reset: true, mobile: true, focusedM02: true, focusedGallery: true, errors }, null, 2) + '\n');
     console.log('PASS hair switching, 64 slider combinations, source textures, reset, mobile', geometry);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

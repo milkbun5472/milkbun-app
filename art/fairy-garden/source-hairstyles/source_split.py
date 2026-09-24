@@ -71,6 +71,12 @@ def split_source(source):
     forehead=(y<-.10)&(z>1.035)&(abs(x)<.24)
     cut=1.149+.049*(np.exp(-((x-.102)/.042)**4)+np.exp(-((x+.099)/.042)**4))
     values[forehead]=np.minimum(values[forehead],(cut[forehead]-z[forehead])*12)
+    # Rear hair is identified by anatomy as well as paint. Bright highlights
+    # on the source brown locks otherwise stay in SourceBody and show as
+    # irregular untinted islands when a dark replacement hairstyle is worn.
+    posterior=(y>.11)&(z>1.028)
+    crown=(y>-.10)&(z>1.27)
+    values[posterior|crown]=np.minimum(values[posterior|crown],-.10)
     # Average across UV seams so the two cuts meet exactly in geometry.
     _, weld = np.unique(np.round(world,6),axis=0,return_inverse=True)
     sums = np.bincount(weld, weights=values); nums = np.bincount(weld)

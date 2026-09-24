@@ -42,8 +42,19 @@ def morphs(obj):
 # It sits behind the unchanged eyes, cheeks, jaw and ears. It is not a new face.
 scalp=make_scalp(body)
 morphs(scalp)
-new=[build_style(style) for style in CATALOG if style!='korean']
-for obj in new:morphs(obj)
+if os.environ.get('REUSE_HAIR'):
+    # Explicit artist iteration: recompute only scalp while retaining the last
+    # exported hair geometry and its keys. Never used for the final full build.
+    import shutil
+    hair_cache=OUT/'hair-iteration-cache.blend'
+    shutil.copyfile(OUT/'traveler-hairstyles.blend',hair_cache)
+    with bpy.data.libraries.load(str(hair_cache),link=False) as (source,target):
+        target.objects=['hair_'+style for style in CATALOG if style!='korean']
+    new=target.objects
+    for obj in new:bpy.context.collection.objects.link(obj)
+else:
+    new=[build_style(style) for style in CATALOG if style!='korean']
+    for obj in new:morphs(obj)
 objects=[body,hair,scalp]+new
 report=json.loads(body['sourcePartitionAudit'])
 report.update({'styles':list(CATALOG),'new_hair_meshes':len(new),'hairline_vertices':int(scalp['hairlineVertices']),
