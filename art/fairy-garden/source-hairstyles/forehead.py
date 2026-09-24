@@ -10,6 +10,11 @@ from mathutils import Vector
 from mathutils.geometry import delaunay_2d_cdt
 
 
+# Lower edge of the brow patch. The eyes and cheeks below it are covered by
+# the FaceSupport shell (face.py), so no hole is cut around the eyes here.
+Z0=1.200
+
+
 def smooth(t):
     t=max(0,min(1,t));return t*t*(3-2*t)
 
@@ -21,29 +26,29 @@ def surface(x,z,shading=False):
     ry=(.2505+.1075*(z-1.10))*(1-blend)+sphere*blend
     y=.014-ry*max(.002,1-abs((x+.004)/rx)**2.2)**(1/2.2)
     if shading:return y
-    y-=.003*smooth((z-1.096)/.020)
-    y+=.006*(1-smooth((z-1.096)/.015))
+    y-=.003*smooth((z-Z0)/.020)
+    y+=.006*(1-smooth((z-Z0)/.015))
     y+=.012*smooth((abs(x+.004)-.187)/.024)
     return y
 
 
 def make_patch(color):
-    points=[(-.211,1.096),(.203,1.096),(.227,1.45),(-.235,1.45)]
+    points=[(-.211,Z0),(.203,Z0),(.227,1.45),(-.235,1.45)]
     edges=[(0,1),(1,2),(2,3),(3,0)]
-    eyes=[(-.101,1.117,.030,.058),(.097,1.117,.030,.058)]
+    eyes=[]
     for cx,cz,rx,rz in eyes:
         start=len(points)
         for i in range(64):
             a=2*math.pi*i/64;points.append((cx+rx*math.cos(a),cz+rz*math.sin(a)))
         edges.extend((start+i,start+(i+1)%64) for i in range(64))
-    for z in np.arange(1.099,1.45,.005):
+    for z in np.arange(Z0+.003,1.45,.005):
         for x in np.arange(-.209,.202,.005):
             if all(((x-cx)/rx)**2+((z-cz)/rz)**2>1.03 for cx,cz,rx,rz in eyes):points.append((x,z))
     v,_,f,*_=delaunay_2d_cdt([Vector(p) for p in points],edges,[],0,1e-7,False)
     faces=[]
     for face in f:
         center=sum((v[i] for i in face),Vector((0,0)))/len(face);x,z=center
-        if z<1.096 or z>1.45:continue
+        if z<Z0 or z>1.45:continue
         if any(((x-cx)/rx)**2+((z-cz)/rz)**2<1 for cx,cz,rx,rz in eyes):continue
         faces.append(face)
     used=sorted(set(i for f in faces for i in f));mapping={i:j for j,i in enumerate(used)}
