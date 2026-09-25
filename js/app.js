@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.065";
+const APP_VERSION = "v74.066";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1964,8 +1964,10 @@ function App() {
   const observeRelationshipBShadow = (char, messages) => {
     try {
       if (!char || !window.InnerLifeBShadow || !window.InnerLifeBShadow.pilotFor(char)) return;
-      // 双重保险：即使配置误改，小克也永远不进 B 试点。
-      if (String(char.name || "").includes("小克")) return;
+      // 双重保险：即使配置误改，数字生命也永远不进 B 试点。
+      // ⚠️按【旗标】判，别按名字：名字会跟着 bundle 出货（2026-09-25 在公共版里搜出来过），
+      //   而 engineerEyes 正是「这是本人、不是被扮演的角色」那一格，本来就更准。
+      if (settingsFor(char.id).engineerEyes) return;
       const bg = bgActiveRef.current; if (!bg) return;
       setTimeout(async () => {
         try {

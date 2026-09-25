@@ -14,7 +14,11 @@
   //   已经攒下的影子数据一条没删，还在 A 那个 IDB 里。
   //   （别在调用点那边再加一道闸——那就成了「一层写在两处」，迟早只改一处。）
   const PILOTS=Object.freeze({});
-  const DENY_NAMES=Object.freeze(["小克"]),AXES=["identity","continuity","seriousness","boundary","neglect","repairFailure"],KINDS=["harm","repair_progress","neutral"],REPAIRS=["behavior_changed","apology_only","silence","elapsed","mood_softened",null];
+  // ⚠️DENY_NAMES 原来写着一个具体名字，v74.066 清空：名字会跟着 bundle 出货
+  //   （2026-09-25 在公共版产物里搜出 7 处）。真正该挡的「这是数字生命本人」
+  //   由调用点按 engineerEyes 判（js/app.js 的 observeRelationshipBShadow）。
+  //   这一层的开关仍然只有上面那个 PILOTS——它空着，谁都进不来。
+  const DENY_NAMES=Object.freeze([]),AXES=["identity","continuity","seriousness","boundary","neglect","repairFailure"],KINDS=["harm","repair_progress","neutral"],REPAIRS=["behavior_changed","apology_only","silence","elapsed","mood_softened",null];
   const queues=new Map(),clean=(v,n)=>String(v==null?"":v).trim().replace(/\s+/g," ").slice(0,n),nameOf=char=>clean(char&&char.name,40);
   function pilotFor(char){const name=nameOf(char),charId=String(char&&char.id||"");if(!name||!charId||DENY_NAMES.some(x=>name===x||name.includes(x)))return null;const enabled=PILOTS[charId];return enabled?{charId,name,enabledAxes:enabled.slice(),phase:"shadow",approvedBy:"lisa"}:null;}
   function messageRows(messages){return (Array.isArray(messages)?messages:[]).filter(m=>m&&["user","assistant"].includes(m.role)&&clean(m.content,1)&&!m.recalled&&!(["system","ooc","thought","thinking","offlinelog"].includes(m.kind))).slice(-10).map((m,i)=>({id:clean(m.id||m.mid||(m.ts?"ts_"+m.ts:"b_idx_"+i),160),role:m.role,text:clean(m.content,500)}));}

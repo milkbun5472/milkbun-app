@@ -186,7 +186,7 @@ function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
   const curName = (characters.find(c => c.id === cid) || {}).name || "—";
   return h(Sheet, { onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, "导入长文进记忆库"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（小克的回忆录、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（TA 写过的长回忆、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
     h("div", { className: "flex gap-2 overflow-x-auto", style: { marginBottom: 10, paddingBottom: 2 } },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => setCid(c.id), className: "px-3 py-1 rounded-full whitespace-nowrap active:opacity-70",
         style: { fontFamily: F_BODY, fontSize: 12, background: cid === c.id ? t.ink : "transparent", color: cid === c.id ? t.bg2 : t.fog, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
@@ -7633,10 +7633,10 @@ function CacheStatCard() {
   const pfxDrift = phList.length >= 4 && pfxChanges >= 3;
   return h("div", { style: { marginTop: 22, paddingTop: 16, borderTop: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "缓存命中 · 小克(fable)线路"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "缓存命中 · anthropic(fable)线路"),
       h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "🔄 刷新")),
     usage.length === 0
-      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟小克【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟走这条线路的角色【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
       : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: s.hit > 0 || requested > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
           bridgeUsage.length
             ? "订阅桥近 " + bridgeUsage.length + " 次｜缓存请求 " + requested + " 次｜历史断点 " + historyMarked + " 次"
@@ -7650,7 +7650,7 @@ function CacheStatCard() {
                   providerReports > 0
                     ? "上游有回执：确认命中 " + s.hit + " 次｜读 " + s.cr + " tok｜写 " + s.cw + " tok"
                     : "上游未回传 cache usage；这里如实显示“已请求 + 前缀可复用”，不把 0 冒充未命中。"))
-            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对小克连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查小克是不是走 fable 线路")),
+            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对 TA 连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查这个角色是不是走 fable 线路")),
           phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: 11 } },
             "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
