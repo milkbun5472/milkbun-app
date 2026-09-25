@@ -86,7 +86,7 @@ test("灯会写在日历、今天想做的、季节手册上，前三天就提�
   assert.match(lake, /if\(lamp\.where==='deck'\)g\.position\.set\(12\.3\+i\*\.26\+drift\*\.4,/);
   // ⚠️2026-09-18 起【每一样摆上去的东西都有模型】（她：「是真的有模型摆上去吗」）：
   //   这三样各有各的样子，别的按它出自井里的哪一类给一个小物件。
-  assert.match(keep, /\['dreamflower','repairedrelic','festivallantern'\]\.includes\(t\.recipe\)\|\|!!KIND_FORM\[t\.kind\]/);
+  assert.match(keep, /\['dreamflower','repairedrelic','festivallantern','travelframe'\]\.includes\(t\.recipe\)\|\|!!KIND_FORM\[t\.kind\]/);
   assert.match(keep, /t\.recipe==='festivallantern'\?makeLantern\(\)/);
 });
 

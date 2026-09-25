@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const rd = p => fs.readFileSync(p, "utf8");
 const game = rd("apps/fairy-garden/game.mjs");
 const html = rd("apps/fairy-garden/index.html");
-const css = rd("apps/fairy-garden/style.css");
+const css = rd("apps/fairy-garden/style.css") + rd("apps/fairy-garden/speech.css");
 const host = rd("js/fairy-garden.js");
 const app = rd("js/app.js");
 
@@ -37,7 +37,7 @@ test("她自己说的那句也浮在她头顶上", () => {
 
 // 她 2026-09-17：「从游戏里开新档它不会主动创建房间」
 test("在庭院里挑另一个人，就替她把那间房开出来", () => {
-  assert.match(app, /const openGardenRoomFor = charId => openPresetRoomFor\(charId, "garden"/);
+  assert.match(app, /const openGardenRoomFor = \(charId, world="garden"\) => openPresetRoomFor\(charId, "garden"/);
   // ⚠️她 2026-09-18 第三遍：「开新档也是跳到旧存档房间」——认领旧那间那一路撤了，
   //   一间房＝一个庭院存档，开新档就该开新房间（见 garden-open-room-71-03）。
   assert.doesNotMatch(app, /const live = Kit\.list\(charId\)/);

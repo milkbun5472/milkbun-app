@@ -33,7 +33,7 @@ test("一条 if 线是钉起来的稿子：方角 + 装订线 + 两枚订书钉"
   assert.match(NOC, /const staples = \(\) => h\("div"/);
   // ⚠️钉子是绝对定位的装饰片，S.card 上必须有 position:relative，
   //   少了那一句它会跑到页面左上角去
-  assert.match(NOC, /borderRadius: 2, background: "rgba\(255,255,255,\.5\)", border: "1px solid " \+ t\.line, position: "relative"/);
+  assert.match(NOC, /borderRadius: 2, background: veil\(t\.bg2, 50\), border: "1px solid " \+ t\.line, position: "relative"/);
   // 三处用 S.card 的地方都得摆上钉子，漏一处那一张就是散页
   assert.equal((NOC.match(/style: S\.card \}, staples\(\)/g) || []).length, 3);
 });

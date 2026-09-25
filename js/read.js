@@ -13,32 +13,10 @@
   const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   // ---- IndexedDB：只放正文，key=bookId，value=全文字符串 ----
   const DB_NAME = "LisaReadDB", STORE = "books";
-  function idb() {
-    return new Promise(function (res, rej) {
-      const r = indexedDB.open(DB_NAME, 1);
-      r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains(STORE)) r.result.createObjectStore(STORE); };
-      r.onsuccess = function () { res(r.result); };
-      r.onerror = function () { rej(r.error); };
-    });
-  }
-  function idbPut(id, text) {
-    return idb().then(function (db) { return new Promise(function (res, rej) {
-      const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).put(text, id);
-      tx.oncomplete = function () { res(); }; tx.onerror = function () { rej(tx.error); };
-    }); });
-  }
-  function idbGet(id) {
-    return idb().then(function (db) { return new Promise(function (res, rej) {
-      const rq = db.transaction(STORE, "readonly").objectStore(STORE).get(id);
-      rq.onsuccess = function () { res(rq.result || ""); }; rq.onerror = function () { rej(rq.error); };
-    }); });
-  }
-  function idbDel(id) {
-    return idb().then(function (db) { return new Promise(function (res, rej) {
-      const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).delete(id);
-      tx.oncomplete = function () { res(); }; tx.onerror = function () { rej(tx.error); };
-    }); });
-  }
+  // ⚠️开库／存取那几行搬到 core.js 的 makeTextStore 了（一起学的课程资料是第二处，
+  //   施工规则/one-public-mechanism.md）。库名、表名一个字没改——她的书还在原来那张表里。
+  const _store = makeTextStore(DB_NAME, STORE);
+  const idbPut = _store.put, idbGet = _store.get, idbDel = _store.del;
 
   // ---- 元数据存取 ----
   function loadBooks() { return loadJSON("x_read_books", []); }
@@ -298,48 +276,7 @@
     return String(raw || "").replace(/```/g, "").trim();
   }
 
-  // ---- 懒加载 pdf.js（仅在导入 PDF 时才拉），抽取含文本层 / 已 OCR 的 PDF 文字 ----
-  let _pdfjsP = null;
-  function loadPdfjs() {
-    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-    if (_pdfjsP) return _pdfjsP;
-    _pdfjsP = new Promise(function (res, rej) {
-      const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
-      s.onload = function () {
-        try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {}
-        res(window.pdfjsLib);
-      };
-      s.onerror = function () { _pdfjsP = null; rej(new Error("pdf.js 加载失败（需要联网）")); };
-      document.head.appendChild(s);
-    });
-    return _pdfjsP;
-  }
-  async function extractPdfText(file, onProg) {
-    const lib = await loadPdfjs();
-    const buf = await file.arrayBuffer();
-    const pdf = await lib.getDocument({ data: buf }).promise;
-    const pages = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const tc = await page.getTextContent();
-      let line = "", lastY = null;
-      const rows = [];
-      tc.items.forEach(function (it) {
-        if (typeof it.str !== "string") return;
-        const y = it.transform ? it.transform[5] : null;
-        // 换行：pdf.js 给了 EOL，或 y 坐标跳了一行
-        if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && line) { rows.push(line); line = ""; }
-        line += it.str;
-        if (it.hasEOL) { rows.push(line); line = ""; }
-        lastY = y;
-      });
-      if (line) rows.push(line);
-      pages.push(rows.join("\n"));
-      if (onProg) onProg(p, pdf.numPages);
-    }
-    return pages.join("\n\n");
-  }
+  // 读 PDF 文字那一段（extractPdfText）搬到 core.js 了：一起学的课程资料也要读 PDF。
 
   // ============================================================
   // 组件

@@ -43,7 +43,7 @@ test("入口页是一条左右交替的小路", () => {
 // 空圈可以留（是她要的），但它不许有名字、介绍，也不许点得进去。
 test("占位那一站不许变成又一张空头支票", () => {
   const w = src.slice(src.indexOf("const WORLDS = ["), src.indexOf("const INDEX_KEY"));
-  assert.equal((w.match(/\{ id:/g) || []).length, 1, "又往 WORLDS 里塞了没做出来的世界");
+  assert.equal((w.match(/\{ id:/g) || []).length, 2, "这里只开放已经接入的庭院和列车");
   const stop = appFn.slice(appFn.indexOf("const stop = (w, i) =>"), appFn.indexOf("const path = []"));
   assert.ok(stop.length > 200, "抠不出 stop");
   assert.match(stop, /return w\s*\?\s*h\("button"/, "能进的那一站不是按钮了");

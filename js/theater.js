@@ -256,11 +256,13 @@
     const [note, setNote] = useState(""); // 导演便签:一次性,喂给下一拍生成后自动清空
     const [noteOpen, setNoteOpen] = useState(false);
     const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
+    const [stageOpen, setStageOpen] = useState(false); // + 菜单里「布景」那一层(封面/背景)是否展开
     const [plusOpen, setPlusOpen] = useState(false); // + 菜单(骰子/便签/背景/出图)
     const [photoMenu, setPhotoMenu] = useState(null); // 长按剧照弹出的操作单:msg|null
     const [msgMenu, setMsgMenu] = useState(null);     // 长按正文弹出的操作单(分支):msg|null
     const pressRef = useRef(null);
     const fileRef = useRef(null);
+    const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
     const scrollRef = useRef(null);
@@ -284,7 +286,7 @@
     // 2026-08-18 Lisa 拿商业乙游的关卡设计来对照:那边的目标全是「让TA喂你吃排骨」
     // 「让TA同意你帮TA换衬衫」「让TA相信你只是在晨跑」这类日常小动作,却一点不轻——
     // 因为重量来自处境。我原先写死的「禁止事务级小目标」是错的,一刀切掉了整类好目标。
-    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
+    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标是这一轮剧情的【远处落点】，不是下一步该做的动作：从眼前这一刻出发，要隔着几场戏、几次来回，局面先变过、角色的态度先松动过才够得着。拿它和开场那一刻对照——" + uName + " 照着目标字面直接提一次就能兑现的，是一步提示，还不够远；把落点放到那一步之后更远的地方。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
     // 难度档:目标重量 + 演出时TA有多难撬
     const DIFF = {
       easy: { name: "轻松", goal: "目标采用日常尺度，阻力轻且有具体缘由，不要求重大代价。", play: "TA对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
@@ -293,6 +295,12 @@
     };
     const diffOf = l => DIFF[(l && l.difficulty) || "normal"] || DIFF.normal;
     // 滚动摘要(防长线失忆):超过 48 条后,把最老的部分浓缩进 line.summary,只留近 32 条逐句喂
+    // 账本真实覆盖到第几条:sumSig 对不上当前前缀(中间删过图/改过话)就当没覆盖。
+    // 压缩和演出两处都认这一个数,免得一处按哈希、一处按旧下标,中间漏掉一条。
+    const sumDone = l => {
+      const all = l.rounds.flatMap(r => r.msgs);
+      return (l.sumSig && l.sumSig === histSig(all.slice(0, l.sumCount || 0))) ? (l.sumCount || 0) : 0;
+    };
     const maybeSummarize = async lineId => {
       if (sumBusyRef.current || !props.active) return;
       const l = (linesRef.current || []).find(x => x.id === lineId);
@@ -300,7 +308,7 @@
       const all = l.rounds.flatMap(r => r.msgs);
       // 覆盖范围认哈希:存档里 sumSig 与当前前缀对不上(中间被删改过)就从头重算,
       // 不再拿一个可能已经错位的下标继续往下压。
-      const done = (l.sumSig && l.sumSig === histSig(all.slice(0, l.sumCount || 0))) ? (l.sumCount || 0) : 0;
+      const done = sumDone(l);
       if (all.length - done <= 48) return;
       const cut = all.length - 32;
       const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : (charOf(l).name || "Ta")) + ":" + m.content).join("\n").slice(0, 9000);
@@ -437,7 +445,7 @@
       const round = line.rounds[line.rounds.length - 1];
       const lastIsUser = round.msgs.length && round.msgs[round.msgs.length - 1].role === "user";
       // 空输入 + 历史末尾是自己的消息 = 上次生成失败的重试:不重复入史,直接用现有历史再生成
-      if (!text && !lastIsUser && !dice) return;
+      if (!text && !lastIsUser && !dice) return props.toast("写点什么再演，或者先掷个剧场骰子");
       if (!props.active) return props.toast("请先配置线下 API");
       const char = charOf(line);
       let addedId = null;
@@ -461,7 +469,7 @@
           "【if 线身份·你(" + char.name + ")】" + line.charRole + "\n身份、职业、处境按此替换;性格、说话方式、注意力习惯仍是上面这个人。",
           "【if 线身份·" + uName + "】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
+          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : round.failed ? "(这条路已经走不通了:承接它留下的后果把戏演下去,不再朝它推进)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
@@ -482,16 +490,16 @@
           "【你这一局的身份】" + line.charRole,
           "【" + uName + " 这一局的身份】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
+          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : round.failed ? "(已走不通,承接后果演下去,不再朝它推进)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
           line.summary ? "【前情提要】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
           "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;第一人称『我』,对话用引号,织成连贯段落。",
           "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}"
         ].filter(Boolean).join("\n\n");
-        const base = allMsgs(line).slice(line.sumCount || 0).filter(m => m.role !== "photo");
+        const base = allMsgs(line).slice(sumDone(line)).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
-          .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+          .slice(-48).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
         // 尾部原先全是减法,冷淡角色被砍完就只剩「我看着你。」——必须在同一处补上加法
         const tail = characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。");
@@ -534,7 +542,12 @@
         // 回声式反问兜底:线下、群线下、小剧场同一把刀。提示词压不住就削掉开头那一声。
         if (text && typeof stripEchoQuestionScene === "function") p.scene = stripEchoQuestionScene(p.scene, text);
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        // 不满 3 句时报的达成先记在 earlyReach 里,够 3 句那一拍再亮出来——以前是直接扔掉,
+        // 一招打中要害的那一局就永远不弹确认
+        const open = r => !r.goalDone && !r.failed;
+        const userN = r => r.msgs.filter(m => m.role === "user").length;
+        const reachNow = r => open(r) && !!p.goalReached ? (p.goalNote || "看起来目标达成了") : null;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
@@ -583,7 +596,7 @@
         const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0,
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0, ledger: null, sumSig: "",
           archives: [...(l.archives || []), { rounds: l.rounds, summary: l.summary || "", ts: Date.now() }],
           rounds: [{ id: rid("tr_"), goal: p.goal, goalDone: false, goalNote: null, pending: false, msgs: p.opening ? [{ id: rid("tm_"), role: "char", content: p.opening, ts: Date.now() }] : [], startTs: Date.now() }] }));
         setPanelOpen(true);
@@ -784,7 +797,7 @@
         // 岔开点那一拍要留着（她是看到这一拍才想换条路的），之后的全丢
         rounds.push({ ...r, msgs: r.msgs.slice(0, k + 1),
           // 这一轮的结局从此重新未定：达成/失败/待确认全部清空，早先几轮的结果照旧
-          goalDone: false, failed: false, pending: false, pendingFail: false, goalNote: null });
+          goalDone: false, failed: false, pending: false, pendingFail: false, earlyReach: null, goalNote: null });
       }
       if (!rounds.length) return props.toast("没找到这一拍");
       const kept = rounds.reduce((n, r) => n + (r.msgs || []).length, 0);
@@ -851,11 +864,14 @@
     // 是入口那张横格纸条——纸条对了，纸没有。
     // 底改成 pageSkin("paper")：跟着她的主题走，但它是纸，不是一块平色。
     const paper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .7 }) : { background: t.bg };
+    // 压在图上的那层纱跟着主题走:以前写死米白,深色模式下整页被罩成一片白、浅色字看不清。
+    // color-mix 吃任何写法的颜色,不用先验是不是六位色号。
+    const veil = (c, pct) => "color-mix(in srgb, " + c + " " + pct + "%, transparent)";
     const S = { wrap: Object.assign({ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column" }, paper),
       btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
       // 一条 if 线＝一份钉起来的稿子：方角、纸色、左边一道装订线，线上两枚订书钉。
       // 圆角 16 的卡是通用列表项，剧本里没有这种东西。
-      card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: "rgba(255,255,255,.5)", border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
+      card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: veil(t.bg2, 50), border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
     // 装订：稿子左边那道线和线上两枚订书钉。程序画的，不用任何字符或 emoji。
@@ -1050,7 +1066,7 @@
                h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
                  h("button", { onClick: () => { const g = (writeGoal || "").trim(); if (!g) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: g, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] })); setWriteGoal(null); }, style: S.btn(true) }, "开这一轮"),
                  h("button", { onClick: () => setWriteGoal(null), style: S.btn(false) }, "算了")))]);
-      const banner = round.pending ? h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
+      const banner = line.ended ? null : round.pending ? h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
         h("div", { style: S.txt }, "本轮目标可能已达成:" + round.goal + (typeof round.pending === "string" ? "\n(" + round.pending + ")" : "")),
         h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
           h("button", { onClick: () => confirmGoal(true), style: S.btn(true) }, "确认达成"),
@@ -1061,11 +1077,21 @@
           h("button", { onClick: () => confirmFail(true), style: Object.assign({}, S.btn(true), { background: "#a4442e", borderColor: "#a4442e" }) }, "确认失败"),
           h("button", { onClick: () => confirmFail(false), style: S.btn(false) }, "还有机会"))) : null;
       let ri = 0;
-      const flow = line.rounds.flatMap((r, i) => [h("div", { key: "rd" + r.id, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "14px 0 4px" } }, "— 第" + (i + 1) + "轮 · " + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗" : "") + " —")]
+      // 幕间:一轮＝一幕。大字写第几幕,目标压在下面一行,结果盖成小印章——
+      // 以前只有一行 10 号灰字,翻长线时根本认不出换轮了
+      const ACT_ZH = "一二三四五六七八九十";
+      const actName = i => "第" + (i < 10 ? ACT_ZH[i] : i < 19 ? "十" + ACT_ZH[i - 10] : String(i + 1)) + "幕";
+      const stamp = r => r.goalDone ? ["达成", t.ink] : r.failed ? ["走不通", "#a4442e"] : null;
+      const flow = line.rounds.flatMap((r, i) => [h("div", { key: "rd" + r.id, style: { textAlign: "center", margin: i ? "30px 18px 10px" : "14px 18px 10px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 15, letterSpacing: 6, color: t.ink } }, actName(i)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 4, textDecoration: r.failed ? "line-through" : "none" } }, r.goal),
+          stamp(r) ? h("span", { style: { display: "inline-block", marginTop: 6, padding: "1px 8px", border: "1.5px solid " + stamp(r)[1], color: stamp(r)[1], borderRadius: 3, fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, transform: "rotate(-4deg)" } }, stamp(r)[0]) : null)]
         .concat(r.msgs.map(m => m.role === "photo"
           ? h("div", { key: m.id, onPointerDown: () => pressStart(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
           : m.role === "user"
-          ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
+          // 你的那一拍写成剧本里的舞台提示:不套聊天气泡,左边一道细线、小一号、淡一点,
+          // 和角色的正文同在一张纸上,读起来是一台戏而不是聊天框里夹了篇小说
+          ? h("div", { key: m.id, style: { margin: "12px 14px 12px 22px", padding: "2px 0 2px 11px", borderLeft: "2px solid " + t.line, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, m.content)
           : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(),
               style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content,
               // 这一拍的创作小稿（跟线下、同人文、穿书同一个展开）
@@ -1082,36 +1108,46 @@
           [["⑂ 从这里分支", () => branchFrom(msgMenu)],
            ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap }, badges(),
-        line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
+        line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         bigViewer(),
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
+        // 目标条:这一幕要走到哪儿,一直钉在顶上。点一下展开全文,点开面板里还能改
+        !line.ended && round ? h("div", { onClick: () => setGoalOpen(v => !v), style: { flexShrink: 0, display: "flex", alignItems: goalOpen ? "flex-start" : "center", gap: 8, padding: "7px 14px", borderBottom: "1px solid " + t.line, background: veil(t.bg2, 70), cursor: "pointer" } },
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
+          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
-          busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "Ta 在演…") : null),
+          busy ? h("div", { style: { margin: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+            typeof TypingDots === "function" ? h(TypingDots, { color: t.fog }) : null, busyWhat || "Ta 在演…") : null),
         line.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
           h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
           h("button", { onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
           h("button", { onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
           h("button", { onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
+          // 常玩的三颗留在外面;封面和背景那一堆收进「布景」,以前一次挤出八颗同样的按钮
+          h("button", { onClick: () => setStageOpen(v => !v), style: S.btn(stageOpen) }, "布景" + (stageOpen ? " ▴" : " ▾")),
+          stageOpen ? h("div", { style: { width: "100%", display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 2 } },
           h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, line.cover ? "🎞 重出封面" : "🎞 封面图"),
           // 封面画完不该只剩卡片上那层被渐变压掉的底纹：点开看整张、或直接铺成背景
           line.cover ? h("button", { onClick: () => { setPlusOpen(false); setGalView(gal.find(x => x.img === line.cover) || { id: "cover_" + line.id, charId: line.charId, lineId: line.id, lineTitle: line.title, img: line.cover, ts: line.coverTs || Date.now(), kind: "cover" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
           line.cover && line.bg !== line.cover ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: line.cover })); setPlusOpen(false); props.toast("封面已铺成背景"); }, style: S.btn(false) }, "🖼 封面当背景") : null,
           h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 传背景图"),
-          line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null,
+          line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null) : null,
         line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
           h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
           h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
           h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
-          h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演"))));
+          h("button", { onClick: send, disabled: busy, style: Object.assign({}, S.btn(true), { position: "relative" }) }, "演",
+            // 骰子或便签上了膛,「演」上挂个角标,免得收起菜单就忘了下一拍带着东西
+            (dice || note.trim()) ? h("span", { style: { position: "absolute", top: -6, right: -6, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 8, background: "#a4442e", color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center" } }, dice ? "骰" : "签") : null))));
     }
 
     // 某个角色的记录:只显示 Ta 的线,每条可单独删除
     const lineCard = l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
       // 有封面就把它压进卡片当底：图上要压字，所以盖一层足够厚的渐变，先保证读得清
       const coverBg = l.cover ? {
-        backgroundImage: "linear-gradient(90deg, rgba(240,236,228,.94) 0%, rgba(240,236,228,.82) 52%, rgba(240,236,228,.35) 100%), url(" + imgSrc(l.cover) + ")",
+        backgroundImage: "linear-gradient(90deg, " + veil(t.bg, 94) + " 0%, " + veil(t.bg, 82) + " 52%, " + veil(t.bg, 35) + " 100%), url(" + imgSrc(l.cover) + ")",
         backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
       } : null;
       return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },

@@ -1,0 +1,39 @@
+{
+  "glb_sha256": "e87085ce31a2f0d16fe34badfbc267387b3b2a664d79ff71167a9ce1f52c4811",
+  "state": {
+    "groups": {
+      "Interior": 232,
+      "Roof": 5,
+      "ShellFront": 10,
+      "WindowGlass": 1,
+      "ShellEnd": 2
+    },
+    "anchors": [
+      "berth_lower",
+      "berth_upper",
+      "entry",
+      "photo_window",
+      "puzzle_surface",
+      "seat_companion",
+      "seat_user"
+    ],
+    "vertices": 62600,
+    "triangles": 31528,
+    "calls": 113
+  },
+  "desktop": [
+    1280,
+    900
+  ],
+  "mobile": [
+    390,
+    844
+  ],
+  "views": 5,
+  "shellToggle": true,
+  "nightLighting": true,
+  "drag": true,
+  "horizontalOverflow": false,
+  "errors": [],
+  "failures": []
+}
