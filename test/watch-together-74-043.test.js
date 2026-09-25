@@ -106,4 +106,9 @@ vm.runInContext(src.slice(k, k2) + ";this.f=watchLogText;", c2);
 const t1 = c2.f({ title: "海边", from: 12, to: 2730, done: false, lines: [{ who: "user", text: "好熟" }, { who: "assistant", text: "嗯" }] }, "Lisa", "沈屿白");
 assert.ok(/《海边》/.test(t1) && /0:12 看到 45:30（还没看完）/.test(t1) && /Lisa：好熟/.test(t1) && /沈屿白：嗯/.test(t1));
 assert.ok(!/原话/.test(c2.f({ title: "x", from: 0, to: 100, lines: [] }, "L", "S")), "没说话还挂了个空的原话块");
+// 16. 「记住」只记上次记住之后新的（她 2026-09-25）
+assert.match(src, /const fresh = \(film\.talk \|\| \[\]\)\.filter\(function \(m\) \{ return \(m\.ts \|\| 0\) > since; \}\)/);
+assert.match(src, /const digestGrew = !!film\.talkDigest && film\.talkDigest !== \(film\.rememberedDigest \|\| ""\);/);
+assert.match(src, /patchFilm\(id, \(\) => \(\{ rememberedAt: Date\.now\(\), rememberedDigest: cur\.talkDigest \|\| "" \}\)\);/);
+assert.match(src, /上次记住之后你们还没新聊什么/);
 console.log("ok watch-together");

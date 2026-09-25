@@ -157,14 +157,23 @@
       ? window.ChatRooms.digestMerge(film.talkDigest || "", seg)
       : (String(film.talkDigest || "").trim() ? String(film.talkDigest).trim() + "\n\n" + seg : seg);
   }
+  // 「记住」只记【上次记住之后】新发生的（她 2026-09-25：看一半记一次、看完再记一次，别记成两条差不多的）。
+  //   rememberedAt 以后的原话是新的；摘要要是在那之后又长了，新长的那截也算新的——但前面已经记过的只当背景。
   async function summarizeFilm(p, char, film) {
     const uName = (p.profile && p.profile.name) || "对方";
-    const talk = (film.talk || []).slice(-40).map(function (m) { return "[" + clock(m.at) + "] " + (m.role === "user" ? uName : char.name) + "：" + String(m.content || ""); }).join("\n");
-    if (!talk.trim() && !film.talkDigest) return "";
-    const sys = companionHead(p.ctxFor, char) + (film.talkDigest ? "【你们前面看的时候聊过的（你自己记下的）】\n" + film.talkDigest + "\n\n" : "") + "把下面这次「你和 " + uName + " 一起看《" + (film.title || "一部电影") + "》」的经历，浓缩成 1~3 句会长期记住的事实（你的第一人称）："
+    const since = Number(film.rememberedAt) || 0;
+    const fresh = (film.talk || []).filter(function (m) { return (m.ts || 0) > since; }).slice(-40);
+    const talk = fresh.map(function (m) { return "[" + clock(m.at) + "] " + (m.role === "user" ? uName : char.name) + "：" + String(m.content || ""); }).join("\n");
+    const digestGrew = !!film.talkDigest && film.talkDigest !== (film.rememberedDigest || "");
+    if (!talk.trim() && !digestGrew) return "";
+    const sys = companionHead(p.ctxFor, char)
+      + (film.talkDigest ? "【你们前面看的时候聊过的（你自己记下的）】\n" + film.talkDigest + "\n\n" : "")
+      + (since ? "【你之前已经把这部片子记过一次了】上面那段里你当时记过的部分别再写一遍，只写那之后新发生的——看到了哪儿、新聊出来的看法和你俩的新默契。\n\n" : "")
+      + "把下面这次「你和 " + uName + " 一起看《" + (film.title || "一部电影") + "》」的经历，浓缩成 1~3 句会长期记住的事实（你的第一人称）："
       + "你们看了什么、看到哪儿、你对片子的关键看法、你俩看的时候碰出的话或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账、别复述剧情。只输出这几句话本身。";
-    return String(await callAI(p.active, sys, [{ role: "user", content: talk || "（后半段没怎么说话）" }], { maxTokens: 65535 }) || "").trim();
+    return String(await callAI(p.active, sys, [{ role: "user", content: talk || "（这次新聊的都已经收进上面那段记录里了）" }], { maxTokens: 65535 }) || "").trim();
   }
+
 
   // 改名（她 2026-09-25：片名是一串「copy_B8F7…」文件名，导进来之后没地方改）。票上那支笔、放映页点标题，两处都走这一个
   function renameFilm(f, done) {
@@ -439,8 +448,10 @@
     const remember = () => requestAppConfirm("把这次记下来？", "TA 会把你们一起看这部、看的时候说的话，收成一两句记进记忆里。", async () => {
       try {
         const text = await summarizeFilm(props, partner, loadFilms().find(f => f.id === id) || film);
-        if (!text) { props.toast && props.toast("你们还没怎么说话，没什么可记的"); return; }
+        const cur = loadFilms().find(f => f.id === id) || film;
+        if (!text) { props.toast && props.toast(cur.rememberedAt ? "上次记住之后你们还没新聊什么" : "你们还没怎么说话，没什么可记的"); return; }
         props.onAddMemory && props.onAddMemory(text, partner.id);
+        patchFilm(id, () => ({ rememberedAt: Date.now(), rememberedDigest: cur.talkDigest || "" }));
         props.toast && props.toast("记住了");
       } catch (e) { props.toast && props.toast("没记上：" + ((e && e.message) || "")); }
     }, "记下来");
