@@ -50,4 +50,12 @@ assert.match(html, /<script src="js\/watch\.js\?v=[\d.]+"><\/script>/);
 // 6. 触控位 40px、底栏吃 0.4 安全区
 assert.match(src, /minHeight: 40/);
 assert.match(src, /paddingBottom: COMPOSER_PAD_BOTTOM/);
+// 7. 没单独导字幕时，先试视频里自带的字幕轨（她 2026-09-25「字幕必须单独导吗」→「试试」）
+assert.match(src, /const adoptInband = \(\) => \{/);
+assert.match(src, /t\.kind === "subtitles" \|\| t\.kind === "captions"/);
+assert.match(src, /if \(t\.mode === "disabled"\) t\.mode = "hidden";/, "轨不开成 hidden，台词根本不会加载");
+assert.match(src, /t\.oncuechange = pull;/, "内封台词是边放边到的，得边放边收");
+assert.match(src, /adoptInband\(\); if \(v\.textTracks\) v\.textTracks\.onaddtrack = adoptInband;/);
+// 单独导了字幕的片子不去碰自带轨（别两份台词掺在一起）
+assert.match(src, /\(film && film\.cueCount && !film\.inband\)\) return;/);
 console.log("ok watch-together");

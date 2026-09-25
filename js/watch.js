@@ -162,7 +162,7 @@
         h("div", { style: { flex: 1, minWidth: 0, padding: "14px 14px 12px" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: W.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title || "未命名的片子"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.sub, marginTop: 5 } },
-            (f.pos ? "看到 " + clock(f.pos) : "还没开场") + (f.duration ? " / " + clock(f.duration) : "") + (f.cueCount ? " · 字幕 " + f.cueCount + " 句" : " · 没有字幕")),
+            (f.pos ? "看到 " + clock(f.pos) : "还没开场") + (f.duration ? " / " + clock(f.duration) : "") + (f.cueCount ? " · " + (f.inband ? "自带字幕 " : "字幕 ") + f.cueCount + " 句" : " · 没有字幕")),
           h("div", { className: "flex items-center gap-2", style: { marginTop: 9 } },
             c ? h(Avatar, { character: c, size: 22, radius: 11 }) : null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: c ? W.ink : W.fog } }, c ? "和 " + (c.remark || c.name) + " 一起" : "还没约人")))),
@@ -206,7 +206,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 16px 28px" } },
         h("div", { className: "space-y-3" },
           row("电影文件", "mp4 最稳；存在这台手机里，不会跟着云同步走", video, pickVideo, vRef, "video/*"),
-          row("字幕（强烈建议）", "srt / vtt / ass。TA 是靠台词跟上剧情的", sub, setSub, sRef, ".srt,.vtt,.ass,.ssa,.txt"),
+          row("字幕（强烈建议）", "srt / vtt / ass。不选的话会先试着读视频里自带的字幕", sub, setSub, sRef, ".srt,.vtt,.ass,.ssa,.txt"),
           h("div", { style: { padding: "12px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, marginBottom: 6 } }, "片名"),
             h("input", { value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 } }))),
@@ -235,6 +235,33 @@
     const [busy, setBusy] = useState(false), [txt, setTxt] = useState(""), [missing, setMissing] = useState(false);
     const [auto, setAuto] = useState(() => loadJSON("x_watch_auto", true) !== false);
     const vRef = useRef(null), listRef = useRef(null), lastAuto = useRef(0), lastSave = useRef(0), busyRef = useRef(false);
+    const cuesRef = useRef([]), inbandSave = useRef(0);
+    useEffect(() => { cuesRef.current = cues; }, [cues]);
+    // 没单独导字幕的时候，先试视频里自带的字幕轨（她 2026-09-25：「字幕必须单独导吗」→「试试」）。
+    // ⚠️网页读得到的只有【内封成独立一轨】的那种，而且只有部分浏览器给（苹果 Safari 对不少 mp4 给，
+    //   安卓 Chrome 基本不给）；画进画面里的硬字幕根本不是字，读不到。
+    // ⚠️内封轨的台词是【边放边到】的，不是一次全给——所以边放边收，攒一阵存一次。
+    //   正好也不会越过此刻：放到哪才收到哪，跟单独导的字幕一样只喂「刚放过的」。
+    const adoptInband = () => {
+      const v = vRef.current;
+      if (!v || !v.textTracks || (film && film.cueCount && !film.inband)) return;
+      const tracks = Array.prototype.slice.call(v.textTracks).filter(t => t.kind === "subtitles" || t.kind === "captions");
+      if (!tracks.length) return;
+      const t = tracks.find(x => /^(zh|chi|chs|cht|cmn)/i.test(x.language || "")) || tracks[0];
+      if (t.mode === "disabled") t.mode = "hidden";
+      const pull = () => {
+        const got = Array.prototype.slice.call(t.cues || []).map(c => ({ s: c.startTime, e: c.endTime, t: cleanLine(c.text) })).filter(c => c.t);
+        const seen = {}, merged = cuesRef.current.concat(got).filter(c => { const k = c.s + "|" + c.t; if (seen[k]) return false; seen[k] = 1; return true; }).sort((a, b) => a.s - b.s);
+        if (merged.length <= cuesRef.current.length) return;
+        cuesRef.current = merged; setCues(merged);
+        if (Date.now() - inbandSave.current > 20000) {
+          inbandSave.current = Date.now();
+          _store.put("cues:" + id, merged).catch(() => {});
+          patchFilm(id, () => ({ cueCount: merged.length, inband: true }));
+        }
+      };
+      t.oncuechange = pull; pull();
+    };
     const partner = film && (props.characters || []).find(c => String(c.id) === String(film.partnerId));
     useEffect(() => {
       let url = "", alive = true;
@@ -316,8 +343,8 @@
           missing
             ? h("div", { style: { aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.sub } }, "这台手机里没有这部片子的文件了（换过设备或清过数据）。删掉这张票重新导入就好，聊过的话还在。")
             : h("video", { ref: vRef, src: src || undefined, controls: true, playsInline: true, preload: "metadata",
-                onLoadedMetadata: e => { const v = e.target; if (film.pos && film.pos < (v.duration || Infinity) - 3) v.currentTime = film.pos; lastAuto.current = film.pos || 0; savePos(true); },
-                onTimeUpdate: onTime, onPause: () => savePos(true),
+                onLoadedMetadata: e => { const v = e.target; if (film.pos && film.pos < (v.duration || Infinity) - 3) v.currentTime = film.pos; lastAuto.current = film.pos || 0; savePos(true); adoptInband(); if (v.textTracks) v.textTracks.onaddtrack = adoptInband; },
+                onTimeUpdate: onTime, onPause: () => { savePos(true); if (film.inband || (!film.cueCount && cuesRef.current.length)) { _store.put("cues:" + id, cuesRef.current).catch(() => {}); patchFilm(id, () => ({ cueCount: cuesRef.current.length, inband: true })); } },
                 style: { display: "block", width: "100%", maxHeight: "42vh", background: "#000" } })),
         // 台词条：现在银幕上这一句
         h("div", { style: { flexShrink: 0, minHeight: 40, padding: "8px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: cueAt(cues, now) ? W.ink : W.fog, borderBottom: "1px solid " + W.line } },
