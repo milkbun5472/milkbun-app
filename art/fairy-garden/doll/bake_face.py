@@ -1,5 +1,4 @@
 """Bake a face decal into the doll's own base-colour texture.
-# Usage: [FACE_S=.00145 FACE_CZ=.87] python3 bake_face.py doll-blank-face.glb decal.png out.glb
 Front orthographic projection: decal pixel = f(world x, z). Only texels on
 front-facing face islands are touched. The model's blush is first painted
 back to skin; the decal carries a clean elliptical blush."""
@@ -50,7 +49,8 @@ pinkd&=np.array(Image.fromarray((cover*255).astype(np.uint8)).filter(ImageFilter
 for sgn in (-1,1):
     sel=pinkd&(np.sign(np.nan_to_num(Xw))==sgn)
     print('blush',sgn,'x',np.nanmean(Xw[sel]).round(4),'z',np.nanmean(Zw[sel]).round(4),'w',(np.nanmax(Xw[sel])-np.nanmin(Xw[sel])).round(3),'h',(np.nanmax(Zw[sel])-np.nanmin(Zw[sel])).round(3),'px x',((np.nanmean(Xw[sel])-CX)/S).round(1),'y',((CZ-np.nanmean(Zw[sel]))/S).round(1))
-skin=np.array([232,200,172])/255.
+skin=np.median(T[cover0&(T.sum(-1)>2.0)],0) if 'cover0' in dir() else np.array([232,200,172])/255.
+print('skin',(skin*255).round())
 T[pinkd]=skin
 # Old eye sites: flat skin (their faint seam lines would show between features).
 for sx_ in (-.085,.085):

@@ -1,6 +1,6 @@
 """Fill the carved eye pits: smooth the geometry back to the round face and
-# Usage: python3 fill_eyes.py source-50k.glb doll-blank-face.glb  (bpy 5.x)
 paint the eye pixels in the base-colour texture back to the local skin tone."""
+import os
 import bpy,sys,bmesh,numpy as np
 from PIL import Image,ImageFilter
 src,out=sys.argv[-2],sys.argv[-1]
@@ -48,7 +48,7 @@ reg={v for v in reg if front(v)}
 # The eye pits themselves (no hole once seams are welded): take every vertex
 # inside a generous ellipse around each eye.
 for v in bm.verts:
-    if front(v) and ((abs(v.co.x)-.085)/.045)**2+((v.co.z-.801)/.062)**2<1:reg.add(v)
+    if front(v) and ((abs(v.co.x)-float(os.environ.get('EYE_X',.085)))/.045)**2+((v.co.z-float(os.environ.get('EYE_Z',.801)))/.062)**2<1:reg.add(v)
 fixed={v for v in reg if any(e.other_vert(v) not in reg for e in v.link_edges)}
 move=[v for v in reg if v not in fixed]
 for _ in range(600):

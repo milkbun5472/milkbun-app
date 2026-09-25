@@ -1,8 +1,7 @@
 """Cut the hair out of a Hunyuan 'doll wearing hairstyle' model and fit it
-# Hat:  see README table for per-style parameters
 onto our bald doll. Hair = faces whose texels are dark brown, away from the
 eyes. Alignment uses the two ears (both dolls share the same bald head)."""
-import os
+import os,json
 import bpy,sys,bmesh,numpy as np
 src,doll,out=sys.argv[-3:]
 for o in list(bpy.data.objects):bpy.data.objects.remove(o)
@@ -77,7 +76,7 @@ skinlike=(hc[:,0]>SKIN_R)&(hc[:,0]-hc[:,2]>.12)
 eye=eye&(dist<.003)
 # The source's own eye pits float a little in front of our face: drop anything
 # close to the skin inside the two eye ellipses (the lifted fringe clears them).
-eye|=(fc[:,1]<-.08)&(((np.abs(fc[:,0])-.075)/.045)**2+((fc[:,2]-.785)/.055)**2<1)&(dist<.02)
+eye|=(fc[:,1]<-.08)&(((np.abs(fc[:,0])-float(os.environ.get('EYE_X',.075)))/.045)**2+((fc[:,2]-float(os.environ.get('EYE_Z',.785)))/.055)**2<1)&(dist<.02)
 # On the face itself keep only what stands clear of our skin (hanging fringe);
 # the source's own eye pits and cheeks sit within a few mm of it.
 facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
@@ -137,7 +136,7 @@ print('rear lifted',lifted)
 # Grow the whole hair about the skull centre so it clears our (fuller) skull
 # while every lock keeps the source's layout and flow.
 if HS!=1.0:
-    Cs=Vector((0,.0252,.93))
+    Cs=Vector(json.load(open(os.environ['ANCHOR']))['center']) if os.environ.get('ANCHOR') else Vector((0,.0252,.93))
     for v in bm.verts:v.co=Cs+(v.co-Cs)*HS
 # Shorten the fringe to clear the eyes: compress front hair vertically toward
 # the crown (z anchor), weighted by how far forward it sits. Crown, sides and
@@ -216,7 +215,7 @@ for v in bm.verts:
         if (v.co-loc).dot(n)<.002:v.co=loc+n*.002;pushed+=1
 print('side verts pushed out',pushed)
 # After the fringe lift, clear anything that ended up lying on our eyes.
-EZ=float(os.environ.get('EYE_Z',.798));EX=.077
+EZ=float(os.environ.get('EYE_Z',.798));EX=float(os.environ.get('EYE_X',.077))
 bm.faces.ensure_lookup_table()
 kill=[]
 for f in bm.faces:

@@ -7,3 +7,11 @@
 `ALIGN=body HAIR_DY=0 NO_REAR_LIFT=1 NO_LOCK_LIFT=1 MIN_ISLAND=0 FACE_CRUMB=0 FACE_CLEAR=0 HAIR_ONLY_ABOVE=.93 FRINGE_K=1 HAIR_SCALE=1.0 FILL_N=0 BASE_FLAT=.92 TAN_Y=-.05`（皮肤阈值 M02 `.62/.34`，M03 `.80/.70`）
 
 待办：表情贴到 v2 的脸上；M02 刘海盖眼，要上收；体型拉条。
+
+## 2026-09-25 定下来的参数
+
+- 表情：`fill_eyes.py` 用 `EYE_X=.089 EYE_Z=.86` 填眼坑 → `doll-blank-face.glb`；`bake_face.py` 用 `FACE_S=.00152 FACE_CZ=.915`（肤色自动取新脸）。`doll-anchored.glb` 目前贴的是默认表情；十张总览 `ten-faces.png`。
+- 发型通用：`EYE_X=.089 EYE_Z=.86 ALIGN=body HAIR_DY=0 NO_REAR_LIFT=1 NO_LOCK_LIFT=1 MIN_ISLAND=0 FACE_CRUMB=0 FACE_CLEAR=0 HAIR_ONLY_ABOVE=.93 HAIR_SCALE=0.93 FILL_N=0 TAN_Y=-.05 BASE_FLAT=.92 ANCHOR=v2/head-anchor.json`
+  - M02：`FRINGE_K=.80 SKIN_R=.62 TAN_L=.34`
+  - M03：`FRINGE_K=1 SKIN_R=.80 TAN_L=.70`
+- 预览：`../hat-preview-v2.html`，截图 `m02-m03.png`。
