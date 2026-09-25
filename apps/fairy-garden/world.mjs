@@ -68,6 +68,7 @@ export function restoreLook(raw){
  if(typeof d.hair==='string'&&/^[a-z]{2,16}$/.test(d.hair))out.hair=d.hair;
  for(const k of ['hairColor','hairColor2','cloth','skin'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
  if(HAIR_MODES.some(m=>m[0]===d.hairMode))out.hairMode=d.hairMode;
+ if(typeof d.face==='string'&&/^[a-z]{2,16}$/.test(d.face))out.face=d.face;
  if(KNOWN_OUTFITS.includes(d.outfit))out.outfit=d.outfit;
  const wardrobe=restoreWardrobe(d.wardrobe);if(Object.keys(wardrobe).length)out.wardrobe=wardrobe;
  if(d.dims&&typeof d.dims==='object'){const dims={};

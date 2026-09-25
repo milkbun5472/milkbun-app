@@ -262,7 +262,7 @@
           })),
         // 只列这一套真有的色槽（doll.json 里它的 colors）；v2 的学院背心是贴图配色，一个槽都没有，就整段不出。
         (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
-          const slots = [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]]
+          const slots = [["cloth", "衣服主色"], ["trim", "衬衫与领边"], ["bottom", "裤袜颜色"], ["accent", "领带与点缀"], ["boots", "鞋子颜色"]]
             .filter(([slot]) => selected && styles && styles.outfits && styles.outfits[selected.id] && slot in styles.outfits[selected.id].colors);
           return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。")].concat(slots.map(([slot, label]) => {
             const hex = selected.colors[slot] || "#8d5f66";
@@ -278,6 +278,15 @@
               fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
         })),
       !styles && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "发型名单还没读进来…"),
+      // 表情：换的是脸上那张贴图（doll.json 的 faces）；以后桌宠按心情自动换也走同一个 face 字段
+      styles && styles.faces ? h("div", { style: { marginTop: 18 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "表情"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 } },
+          Object.entries(styles.faces).map(([key, label]) => {
+            const on = ((look[who] || {}).face || "default") === key;
+            return h("button", { key, "aria-pressed": on, onClick: () => pushLook({ face: key }), className: "active:opacity-70",
+              style: { minHeight: 36, borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: 11.5, color: on ? G.ink : G.soft } }, label);
+          }))) : null,
       // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
       ((styles && styles.dims) || []).length ? h("div", { style: { marginTop: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "体型"),

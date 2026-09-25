@@ -58,8 +58,25 @@
  "outfits": {
   "academy": {
    "label": "学院背心",
-   "colors": {}
+   "colors": {
+    "cloth": "#e1d6cd",
+    "trim": "#f5efea",
+    "bottom": "#988d87",
+    "accent": "#ae8f7f"
+   }
   }
  },
- "style": "hunyuan-v2-2026-09"
+ "style": "hunyuan-v2-2026-09",
+ "faces": {
+  "default": "平常",
+  "happy": "开心",
+  "cozy": "惬意",
+  "relax": "放松",
+  "surprise": "惊讶",
+  "amazed": "哇",
+  "proud": "得意",
+  "gloomy": "低落",
+  "sad": "难过",
+  "irritated": "不耐烦"
+ }
 }

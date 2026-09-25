@@ -65,3 +65,11 @@
 - `TRIS=30000 TEX=1024 python3 compress_asset.py <源.glb> v2/web/<名>.glb`：每个网格减到 3 万三角面以内，贴图缩到 1K、存 WEBP，几何用 Draco。骨骼、权重、HeadAnchor、dollRig 照留。
 - 七个文件从约 170MB 缩到 1.3MB（每个 130–220KB），画面几乎看不出差别。预览页加 `?web=1` 就读压缩版（`hat-preview-v2.html?web=1`、`rig-preview-v2.html?web=1`）。
 - 源文件不动；改了源文件要重新跑一次压缩。
+
+## 进 app：assemble_v2.py（体型、表情、肤色、衣服配色）
+
+- `python3 assemble_v2.py` 从 `v2/web/` 的压缩件组装 `apps/fairy-garden/doll.glb`，并写 `doll.json`、`outfits.mjs`。
+- **体型**：六个滑杆是身体和每套衣服上的形态键（同一个 `deform()` 算，衣服跟着身体变）；骨头和 HeadAnchor 的位移写在骨架 extras `rigMorphs`，运行时挪骨头后在静止姿势下重新绑一次（traveler.mjs `rebindBones`），手臂照样绕新肩膀转；头身比让 HeadAnchor 一起缩放，发型跟着变大变小。
+- **表情**：`bake_face.py` 把十张脸各烤一张身体贴图（和身体同一套 UV），缩成 1K WEBP 放 `apps/fairy-garden/faces/<id>.webp`；运行时换身体的贴图，存档字段 `face`。以后桌宠按心情换表情也用这个字段。
+- **肤色**：身体 extras `skinBase` 是贴图自己的肤色，运行时材质颜色＝选的肤色 ÷ skinBase，眼睛腮红跟着一起变深浅。
+- **衣服配色**：每个面按自己贴图的颜色分到四格（衣服主色 / 衬衫领边 / 裤子 / 领带点缀），格子号存在顶点色里；运行时按「选的颜色 ÷ 这一格原色」上色，针织纹和褶子都留着。

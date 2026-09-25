@@ -27,6 +27,26 @@ function hairShader(o){const u={uC1:{value:new T.Color()},uC2:{value:new T.Color
    diffuseColor.rgb*=mix(uC1,uC2,hk);`);};
  o.material.customProgramCacheKey=()=>'hairDye';o.material.needsUpdate=true;}
 function dyeHair(o,look){const u=o.userData.hairDye;if(!u)return;o.material.color.set('#ffffff');u.uC1.value.set(look.hairColor);u.uC2.value.set(look.hairColor2||look.hairColor);u.uMode.value=MODE_NUM[hairModeOf(look)];}
+// 衣服配色（v2）：每个面在 COLOR_0.r 里记着它属于哪一格（0 衣服主色 / 1 衬衫领边 / 2 裤子 / 3 领带点缀），
+// 着色器按「选的颜色 ÷ 贴图里这一格原来的颜色」给贴图上色——针织纹、褶子都留着。
+const SLOTS=['cloth','trim','bottom','accent'];
+function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slotBase;if(!base)return;
+ // Blender 会连带导出一层全白的 COLOR_0，格子号可能在 color 也可能在 color_1：挑真有好几种值的那一层
+ const pick=['color','color_1','color_2'].find(n=>{const a=o.geometry.attributes[n];if(!a)return false;const seen=new Set();for(let i=0;i<a.count&&seen.size<2;i+=97)seen.add(Math.round(a.getX(i)*8));return seen.size>1;});if(!pick)return;
+ const u={uTint:{value:SLOTS.map(()=>new T.Vector3(1,1,1))}};o.userData.slotDye={u,base};
+ // GLTFLoader 看到 COLOR_0 就开 vertexColors，会拿格子号去乘颜色（还会重复声明 color）——这里它只是格子号
+ o.material.vertexColors=false;
+ o.material.onBeforeCompile=sh=>{Object.assign(sh.uniforms,u);
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 '+pick+';varying float vSlot;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSlot='+pick+'.r*4.;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vSlot;uniform vec3 uTint[4];')
+   .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
+ o.material.customProgramCacheKey=()=>'slotDye'+pick;o.material.needsUpdate=true;}
+const _a=new T.Color(),_b=new T.Color();
+function dyeOutfit(o,colors){const d=o.userData.slotDye;if(!d)return;SLOTS.forEach((k,i)=>{if(!d.base[k]||!colors[k])return d.u.uTint.value[i].set(1,1,1);_a.set(colors[k]);_b.set(d.base[k]);d.u.uTint.value[i].set(_a.r/Math.max(_b.r,.02),_a.g/Math.max(_b.g,.02),_a.b/Math.max(_b.b,.02));});}
+// 表情：同一个身体，换脸上的贴图（faces/<id>.webp，和身体原贴图同一套 UV）。所有小人共用一份贴图缓存。
+const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();
+function faceTexture(id){if(!FACE_TEX.has(id)){const t=faceLoader.load(new URL('./faces/'+id+'.webp',import.meta.url).href);t.flipY=false;t.colorSpace=T.SRGBColorSpace;FACE_TEX.set(id,t);}return FACE_TEX.get(id);}
+const FACE_ID=/^[a-z]{2,16}$/;
 export function createTraveler(source,companion=false,look={}){
  const want=Object.assign({},companion?COMPANION:DEFAULT,look||{});
  const style=HAIR_STYLES.includes(hairId(want.hair))?hairId(want.hair):(companion?COMPANION.hair:DEFAULT.hair);
@@ -48,12 +68,18 @@ export function createTraveler(source,companion=false,look={}){
   if(!mine.has(o.material))mine.set(o.material,o.material.clone());
   o.material=mine.get(o.material);
   if(o.material.name==='Character warm peach')o.userData.skin=true;
+  if(o.userData.skinBase){o.userData.bodyMap=o.material.map;}
+  if(o.userData.outfit)outfitShader(o);
   if(o.userData.colorSlot||o.userData.skin){o.material=o.material.clone();if(!o.userData.dyeTexture)o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
   // 头发的纹理材质进不了 GLB（GLTF 只收基础 PBR），颜色一律在这儿给
   if(isHair(o)){hairShader(o);dyeHair(o,want);o.material.roughness=.85;}
   else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
- const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;if(o.userData.skin)o.material.color.set(look.skin);if(o.userData.outfit)o.visible=o.userData.outfit===id;if(o.userData.colorSlot)o.material.color.set(colors[o.userData.colorSlot]);});};
+ const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;if(o.userData.skin)o.material.color.set(look.skin);
+  // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
+  if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);
+   const face=FACE_ID.test(look.face||'')&&look.face!=='default'?faceTexture(look.face):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
+  if(o.userData.slotDye)dyeOutfit(o,colors);if(o.userData.outfit)o.visible=o.userData.outfit===id;if(o.userData.colorSlot)o.material.color.set(colors[o.userData.colorSlot]);});};
  dress(want);
  const applyDims=dims=>{dims=dims||{};model.traverse(o=>{if(!o.isMesh||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
    for(const key of DIMS){const i=o.morphTargetDictionary[key];if(i==null)continue;const v=Number(dims[key]);o.morphTargetInfluences[i]=isFinite(v)?v-1:0;}});};
@@ -67,7 +93,7 @@ export function createTraveler(source,companion=false,look={}){
  const HAND={leftArm:[-.275,.40,0],rightArm:[.275,.40,0]};
  function part(label,match,pivot){const p=new T.Group();p.name=label;p.position.copy(pivotFor(label,pivot));model.add(p);model.updateMatrixWorld(true);
   const bone=model.getObjectByName(label);if(bone?.isBone){p.userData.bone=bone;p.userData.rest=bone.quaternion.clone();
-   if(HAND[label]){const hand=new T.Mesh(new T.BoxGeometry(.05,.05,.05));hand.visible=false;hand.name=(label==='leftArm'?'Left':'Right')+'_hand';hand.position.fromArray(HAND[label]).sub(p.position);p.add(hand);}}
+   if(HAND[label]){const hand=new T.Mesh(new T.BoxGeometry(.05,.05,.05));hand.visible=false;hand.userData.follow=true;hand.name=(label==='leftArm'?'Left':'Right')+'_hand';hand.position.fromArray(HAND[label]).sub(p.position);p.add(hand);}}
   const picked=[];model.traverse(o=>{if(o.isMesh&&(match.test(o.name)||o.userData.rigPart===label))picked.push(o);});picked.forEach(o=>p.attach(o));rig.push({p,label});}
  part('leftArm',/Left.sleeve|Left.hand/i,new T.Vector3(-.19,.935,0));part('rightArm',/Right.sleeve|Right.hand|Held.herb/i,new T.Vector3(.19,.935,0));
  // Exported doll parts have baked vertices and identical object origins (0,0,0).
@@ -80,7 +106,19 @@ export function createTraveler(source,companion=false,look={}){
   {const bone=model.getObjectByName(label);if(bone?.isBone){p.userData.bone=bone;p.userData.rest=bone.quaternion.clone();}}
   for(const item of legs)if(item.side===side)p.attach(item.mesh);
   rig.push({p,label});}
- const fitRig=dims=>{if(!rigMorphs)return;for(const {p,label}of rig){const next=new T.Vector3(...authoredRig[label]);for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&rigMorphs[label]?.[key])next.addScaledVector(new T.Vector3(...rigMorphs[label][key]),delta);}const shift=next.clone().sub(p.position);p.position.copy(next);for(const child of p.children)child.position.sub(shift);}};
+ // v2：体型滑杆除了推形态键，还要把骨头（和 HeadAnchor）挪到新位置、在静止姿势下重新绑一次，
+ // 否则手臂会绕着旧肩膀转。rigMorphs[label][key] 是滑杆＋1 时的位移，HeadAnchor 另有 scale（头身比）。
+ const skinned=[];model.traverse(o=>{if(o.isSkinnedMesh)skinned.push(o);});
+ const anchor=model.getObjectByName('HeadAnchor'),boneBind=new Map();
+ if(skinned.length){for(const b of skinned[0].skeleton.bones)boneBind.set(b,b.position.clone());if(anchor)boneBind.set(anchor,anchor.position.clone()),anchor.userData.bindScale=anchor.scale.clone();}
+ const rebindBones=dims=>{if(!rigMorphs||!skinned.length)return;
+  for(const [obj,pos] of boneBind){const next=pos.clone(),m=rigMorphs[obj.name]||{};
+   for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&m[key])next.addScaledVector(new T.Vector3(...m[key]),delta);}obj.position.copy(next);
+   if(obj===anchor){const hd=Number(dims?.head??1)-1;obj.scale.copy(anchor.userData.bindScale).multiplyScalar(1+(Number.isFinite(hd)?hd:0)*(m.scale?.head||0));}}
+  const saved=rig.map(({p})=>p.userData.bone?[p.userData.bone,p.userData.bone.quaternion.clone()]:null).filter(Boolean);
+  for(const {p}of rig)if(p.userData.bone)p.userData.bone.quaternion.copy(p.userData.rest);
+  model.updateMatrixWorld(true);for(const m of skinned)m.bind(m.skeleton);for(const [b,q]of saved)b.quaternion.copy(q);};
+ const fitRig=dims=>{rebindBones(dims);if(!rigMorphs)return;for(const {p,label}of rig){const next=new T.Vector3(...authoredRig[label]);for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&rigMorphs[label]?.[key])next.addScaledVector(new T.Vector3(...rigMorphs[label][key]),delta);}const shift=next.clone().sub(p.position);p.position.copy(next);for(const child of p.children)if(!child.userData.follow)child.position.sub(shift);}};
  fitRig(want.dims);
  // Skate blades are shared by both avatars, attached to the same leg rig as their boots.
  const skateParts=[],bladeGeo=new T.BoxGeometry(.032,.055,.34),bladeMat=new T.MeshStandardMaterial({color:'#b9d3df',metalness:.65,roughness:.25});
