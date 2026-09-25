@@ -33,3 +33,55 @@ H.data.update();H.name='hair'
 bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
 print('written',out)
+
+# ---- CONFORM: wrap the shell's inner surface onto the real head -------------
+# For each vertex, along its direction from the skull centre: inner radius of
+# the shell ri, head surface rh; new radius = rh + GAP + (r - ri)*THICK.
+if os.environ.get('CONFORM_DOLL'):
+    import importlib
+    for o in [o for o in bpy.data.objects if o is not H]:bpy.data.objects.remove(o)
+    before=set(bpy.data.objects);bpy.ops.import_scene.gltf(filepath=os.environ['CONFORM_DOLL'])
+    D=[o for o in bpy.data.objects if o not in before and o.type=='MESH'][0]
+    Cc=np.array(AJ['center']);Rr=AJ['radius']
+    bmD=bmesh.new();bmD.from_mesh(D.data);bmD.transform(D.matrix_world);tD=BVHTree.FromBMesh(bmD)
+    # shell currently in anchor units -> metres
+    V=np.array([v.co[:] for v in H.data.vertices])*Rr+Cc
+    bmS=bmesh.new();bmS.from_mesh(H.data);bmS.transform(__import__('mathutils').Matrix.Diagonal((Rr,Rr,Rr,1)));bmS.transform(__import__('mathutils').Matrix.Translation(Vector(Cc)));tS=BVHTree.FromBMesh(bmS)
+    TH=float(os.environ.get('THICK',.7));GAP=float(os.environ.get('GAP',.004))
+    cv=Vector(Cc);out_=[]
+    for p in V:
+        d=Vector(p)-cv;r=d.length
+        if r<1e-6:out_.append(p);continue
+        d.normalize()
+        hs=tS.ray_cast(cv,d,5);hd=tD.ray_cast(cv,d,5)
+        if hs[0] is None or hd[0] is None:out_.append(p);continue
+        ri=(hs[0]-cv).length;rh=(hd[0]-cv).length
+        depth=max(0,r-ri);gap_=ri-(rh+GAP)
+        if os.environ.get('COMPRESS'):
+            K=float(os.environ['COMPRESS']);nr=rh+GAP+max(0,r-rh)*K if r>rh else r
+        elif os.environ.get('LAYER'):
+            f=max(0,1-depth/float(os.environ['LAYER']))**1.5
+            nr=r-gap_*f
+        else:nr=rh+GAP+depth*TH
+        out_.append(np.array(cv+d*nr))
+    NEW=np.array(out_);disp=NEW-V
+    # Fade out near the face opening / hanging tips, then smooth the field.
+    rel=(V-Cc)/Rr;w=np.clip((rel[:,2]+.35)/.5,0,1)
+    w*=np.where(rel[:,1]<-.35,np.clip((rel[:,2]-.05)/.4,0,1),1)
+    disp*=w[:,None]
+    # Weld coincident vertices (UV seams) so both sides move together.
+    key=np.round(V/1e-5).astype(np.int64);_,wid=np.unique(key,axis=0,return_inverse=True);wid=wid.ravel()
+    nw=wid.max()+1;cnt=np.bincount(wid,minlength=nw)
+    D=np.stack([np.bincount(wid,disp[:,k],nw) for k in range(3)],1)/cnt[:,None]
+    nbs=[set() for _ in range(nw)]
+    for e in H.data.edges:a_,b_=wid[e.vertices[0]],wid[e.vertices[1]];nbs[a_].add(b_);nbs[b_].add(a_)
+    nbs=[list(s) for s in nbs]
+    for _ in range(int(os.environ.get('SMOOTH',40))):
+        D=np.array([D[n].mean(0)*.7+D[i]*.3 if n else D[i] for i,n in enumerate(nbs)])
+    disp=D[wid]
+    V=(V+disp-Cc)/Rr
+    for v,q in zip(H.data.vertices,V):v.co=q.tolist()
+    H.data.update()
+    bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
+    print('conformed',out)

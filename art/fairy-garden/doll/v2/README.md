@@ -23,4 +23,4 @@
 `python3 fit_shell.py hunyuan-m01-shell.glb v2/head-anchor.json v2/hats/hair_m01.glb`
 
 以后每款发型都建议这样生成（M02、M03 也换成壳）。
-- M02 已换成头发壳（`hunyuan-m02-shell.glb`）：`INNER=.95 DZ=-.40`（空腔球心偏高，要往下挪才包住后脑）。旧的「从玩偶切头发」版本在 git 历史里。
+- M02 头发壳：`COMPRESS=.7 CONFORM_DOLL=<光头> GAP=.003 DZ=-.40 INNER=.95`。实测侧面头发外缘离头 8 cm、头顶 4.4 cm，壳内还有一层在头里面——不是悬空，是发量本身厚；COMPRESS 把露在头外的部分沿半径压到 70%（0.5 会在后脑裂缝）。位移按焊接后的顶点平滑，避免接缝裂开。
