@@ -32,4 +32,8 @@
 - **改娃娃的头顶**：`shrink_cap.py`（`CAP=.12 Z0=.93 Z1=1.08`）把眉毛以上的头顶/后上脑沿半径向头骨中心收 12%，平滑过渡；脸、眼、耳、下巴、头最宽处不动。帽托（HeadAnchor）不变，所有发型继续挂同一个点。
 - 原因：一个娃娃 + 多个发型，应让娃娃迁就发型的公共最小内腔，而不是每个发型都改自己去贴娃娃。
 - M03 已换成头发壳（`hunyuan-m03-shell.glb`）：`INNER=.85 DZ=-.12`（不转向；缩小后要往上抬，否则头顶露头皮）。侧边缝隙待补。
-- M03 定稿：`SHORT_BACK_ONLY=1 SHORT_FROM=1.12 SHORTEN_TO=.74 BACK_K=.08 BACK_KX=.04 DZ=-.212 INNER=.855`，再跑 `fill_side.py`（`FILL_PER_SIDE=5 SWING=18`：从两侧偏后挑最大的 5 缕复制、绕竖轴往前转 18° 补侧边空缺）。
+- （旧）M03 第一版：`SHORT_BACK_ONLY=1 SHORT_FROM=1.12 SHORTEN_TO=.74 BACK_K=.08 BACK_KX=.04 DZ=-.212 INNER=.855`，再跑 `fill_side.py`（`FILL_PER_SIDE=5 SWING=18`：从两侧偏后挑最大的 5 缕复制、绕竖轴往前转 18° 补侧边空缺）。
+- **M03 定稿（v2 壳）**：换成新的 Hunyuan 头发壳 `hunyuan-m03-shell-v2.glb`，旧壳侧边缝隙不再修。
+  `INNER=.9 DZ=-.1 python3 fit_shell.py v2/hunyuan-m03-shell-v2.glb v2/head-anchor.json fit.glb`
+  `FRONT_K=.14 WIDEN=.09 python3 shape_hair.py fit.glb v2/hats/hair_m03.glb`
+  （`shape_hair.py` 只做仿射：前半边 y 统一收 14% 让刘海贴额头、整体横向放宽 9%；不按高度加权，发束不会被掰弯；头顶不缩，避免饭团头。）对比图 `m03-v2.png`（上旧下新）。
