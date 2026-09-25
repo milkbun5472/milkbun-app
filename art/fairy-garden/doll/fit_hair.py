@@ -119,6 +119,28 @@ for v in bm.verts:
     y=v.co.y;w=min(1,max(0,(-.02-y)/.13));w=w*w*(3-2*w)
     if v.co.z<Z0:
         v.co.z=Z0-(Z0-v.co.z)*(1-(1-K)*w)
+# Lift whole sunken locks: each connected strand is translated outward along
+# the skull radius by its deepest penetration + 3 mm, so it keeps its shape.
+bm.verts.ensure_lookup_table();seen=set();moved=0
+Cz=np.array([0,.0252,.93])
+for v0 in bm.verts:
+    if v0 in seen:continue
+    comp=[v0];stack=[v0];seen.add(v0)
+    while stack:
+        w=stack.pop()
+        for e in w.link_edges:
+            u=e.other_vert(w)
+            if u not in seen:seen.add(u);comp.append(u);stack.append(u)
+    worst=0.
+    for w in comp:
+        loc,n,idx,d=tree.find_nearest(w.co);sd=(w.co-loc).dot(n)
+        worst=min(worst,sd)
+    if -float(os.environ.get('LIFT_MAX',.012))<worst<-.001:
+        c=np.mean([w.co[:] for w in comp],0);r=c-Cz;r/=np.linalg.norm(r)
+        off=Vector((r*(-worst+.003)).tolist())
+        for w in comp:w.co+=off
+        moved+=1
+print('locks lifted',moved)
 # After the fringe lift, clear anything that ended up lying on our eyes.
 EZ=float(os.environ.get('EYE_Z',.798));EX=.077
 bm.faces.ensure_lookup_table()
