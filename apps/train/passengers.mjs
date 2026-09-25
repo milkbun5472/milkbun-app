@@ -1,38 +1,62 @@
-import {restState} from './rest.mjs?v=fg-b3e494053e96d28a';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-b3e494053e96d28a';
+import {restState} from './rest.mjs?v=fg-11bc6ec871a587f0';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-11bc6ec871a587f0';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-b3e494053e96d28a';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-b3e494053e96d28a';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-b3e494053e96d28a';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-11bc6ec871a587f0';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-11bc6ec871a587f0';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-11bc6ec871a587f0';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-b3e494053e96d28a',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-11bc6ec871a587f0',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
- for(const [who,anchorName,look,name,angle] of [['me','seat_user',journey.look||garden?.look,'你',Math.PI/2],['companion','seat_companion',journey.companionLook||garden?.companion?.look,companion?.name,-Math.PI/2]]){
+ // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
+ // 车厢前面那条过道（z≈0.6~1.5）是空的，所以路线一律：先走到过道→沿过道走到目标那一列→再走进去。
+ // 站在哪、朝哪都从车厢自带的锚点和床位算出来，不在这儿写死一张坐标表以外的东西。
+ const AISLE_Z=.95,WALK=1.1;let floorY=.06;view.asset.traverse(o=>{if(o.userData.anchor==='entry')floorY=o.getWorldPosition(new T.Vector3()).y;});
+ const SPOT_ZH={seat:'坐在座位上',stand:'站在过道里看窗外',rack:'在行李架底下整理行李',berth:'走到卧铺边'};
+ for(const [who,anchorName,look,name,angle] of [['me','seat_user',state()?.looks?.me||journey.look||garden?.look,'你',Math.PI/2],['companion','seat_companion',state()?.looks?.companion||journey.companionLook||garden?.companion?.look,companion?.name,-Math.PI/2]]){
   if(who==='companion'&&!companion?.id)continue;
   let anchor;view.asset.traverse(o=>{if(o.userData.anchor===anchorName)anchor=o;});if(!anchor)throw Error('座位还没有准备好');
   const at=anchor.getWorldPosition(new T.Vector3()),avatar=createTraveler(source,who==='companion',look||{});avatar.root.position.copy(at);avatar.root.rotation.y=angle;const carrier=new T.Group();view.scene.add(carrier);carrier.add(avatar.root);let bedAnchor;view.asset.traverse(o=>{if(o.userData.anchor===(who==='me'?'berth_lower':'berth_upper'))bedAnchor=o;});if(!bedAnchor)throw Error('卧铺还没有准备好');const bed=bedAnchor.getWorldPosition(new T.Vector3());avatar.root.updateMatrixWorld(true);const face=avatar.root.getObjectByName('Face'),headPoint=new T.Vector3(0,1.48,0);if(face){const bounds=new T.Box3().setFromObject(face,true),top=bounds.getCenter(new T.Vector3());top.y=bounds.max.y+.09;headPoint.copy(avatar.root.worldToLocal(top));}
   const bubble=document.createElement('div');bubble.id=who==='me'?'player-bubble':'companion-bubble';bubble.hidden=true;bubble.setAttribute('aria-live','polite');stage.append(bubble);
-  const tag=document.createElement('span');tag.className='train-passenger-name';tag.textContent=name;stage.append(tag);
-  people.push({who,avatar,carrier,bed,angle,face,resting:false,bubble,tag,seat:at,headPoint,queue:[],line:null,left:0});
+
+  people.push({who,avatar,carrier,bed,angle,face,resting:false,bubble,seat:at,headPoint,queue:[],line:null,left:0,spot:'seat',path:[],pos:new T.Vector3(at.x,0,AISLE_Z),yaw:angle,onArrive:null});
  }
  view.renderer.shadowMap.needsUpdate=true;
  function speak(lines,who='companion'){const p=people.find(p=>p.who===who);if(p)p.queue=[...p.queue,...bubbleRows(lines)].slice(0,12);}
  function tick(now,dt,visible){
-  for(const p of people){const resting=restState(state())[p.who==='me'?'you':'companion'];if(resting!==p.resting){p.resting=resting;view.renderer.shadowMap.needsUpdate=true;}
+  for(const p of people){const resting=restState(state())[p.who==='me'?'you':'companion'];if(resting!==p.resting){p.resting=resting;view.renderer.shadowMap.needsUpdate=true;if(!resting){p.spot='seat';p.path=[];}}
    if(resting){p.carrier.position.set(p.bed.x+.90,p.bed.y+.12,p.bed.z);p.carrier.rotation.y=Math.PI/2;p.avatar.root.position.set(0,0,0);p.avatar.animate(now/1000,{sleepPose:{x:0,z:0,y:0}});}
+   else if(p.path.length){p.carrier.position.set(0,0,0);p.carrier.rotation.y=0;const to=p.path[0],dx=to.x-p.pos.x,dz=to.z-p.pos.z,d=Math.hypot(dx,dz),step=WALK*dt;
+    if(d>1e-3)p.yaw=Math.atan2(dx,dz);
+    if(d<=step){p.pos.set(to.x,floorY,to.z);p.path.shift();if(!p.path.length){if(to.yaw!=null)p.yaw=to.yaw;const done=p.onArrive;p.onArrive=null;done&&done();}}else p.pos.set(p.pos.x+dx/d*step,floorY,p.pos.z+dz/d*step);
+    p.avatar.root.position.copy(p.pos);p.avatar.root.rotation.y=p.yaw;p.avatar.animate(now/1000,{moving:true});}
+   else if(p.spot!=='seat'){p.carrier.position.set(0,0,0);p.carrier.rotation.y=0;p.avatar.root.position.copy(p.pos);p.avatar.root.rotation.y=p.yaw;p.avatar.animate(now/1000,{gesture:p.spot==='rack'?'hold':'rest'});}
    else{p.carrier.position.set(0,0,0);p.carrier.rotation.y=0;p.avatar.root.position.copy(p.seat);p.avatar.root.rotation.y=p.angle;p.avatar.animate(now/1000,{seated:true,gesture:'sit',height:p.seat.y-.215});}
    p.carrier.updateMatrixWorld(true);
    const head=p.face?new T.Box3().setFromObject(p.face,true).getCenter(new T.Vector3()):p.avatar.root.localToWorld(p.headPoint.clone());head.y+=.14;head.project(view.camera);const rect=stage.getBoundingClientRect();
    const onscreen=visible&&head.z>=-1&&head.z<=1&&head.x>-1&&head.x<1&&head.y>-1&&head.y<1;
-   p.tag.hidden=!onscreen;p.bubble.hidden=!onscreen||!p.line;
+   p.bubble.hidden=!onscreen||!p.line;
    if(!onscreen)continue;
    if(p.line){p.left-=dt*1000;if(p.left<=0)p.line=null;}
    if(!p.line&&p.queue.length){p.line=p.queue.shift();p.left=bubbleHold(p.line.show)+BUBBLE_GAP;p.bubble.textContent=p.line.show;}
    const x=(head.x+1)*rect.width/2,y=(1-head.y)*rect.height/2;
-   p.tag.style.left=x+'px';p.tag.style.top=y+'px';p.bubble.hidden=!p.line||p.left<BUBBLE_GAP;
+   p.bubble.hidden=!p.line||p.left<BUBBLE_GAP;
    if(!p.bubble.hidden){const half=p.bubble.offsetWidth/2+6;p.bubble.style.left=Math.max(half,Math.min(rect.width-half,x))+'px';p.bubble.style.top=Math.max(p.bubble.offsetHeight+8,Math.min(rect.height-24,y-10))+'px';}
   }
  }
- return {speak,tick,get people(){return people;},dispose(){for(const p of people){p.bubble.remove();p.tag.remove();}people.length=0;}};
+ // 目标点：seat 回自己那格座位；stand 站到自己座位前的过道上看窗；rack 站到行李架底下；berth 走到卧铺前（到了由游戏那头躺下）
+ function target(p,spot){const side=p.who==='me'?-1:1;
+  if(spot==='seat')return{x:p.seat.x,z:AISLE_Z,yaw:p.angle,sit:true};
+  if(spot==='stand')return{x:p.seat.x+(p.who==='me'?.55:-.55),z:AISLE_Z-.15,yaw:Math.PI};
+  if(spot==='rack')return{x:p.bed.x+side*.45,z:-.12,yaw:Math.PI};
+  return{x:p.bed.x+side*.35,z:-.08,yaw:Math.PI};}
+ function go(who,spot,onArrive){const p=people.find(x=>x.who===who);if(!p)return false;const t=target(p,spot);
+  // 从座位上起身：先落到自己那格座位前的过道
+  if(p.spot==='seat'&&!p.path.length)p.pos.set(p.seat.x,floorY,AISLE_Z);
+  const route=[];if(Math.abs(p.pos.z-AISLE_Z)>.05)route.push({x:p.pos.x,z:AISLE_Z});if(Math.abs(p.pos.x-t.x)>.05)route.push({x:t.x,z:AISLE_Z});route.push({x:t.x,z:t.z,yaw:t.yaw});
+  p.path=route;p.spot=spot;p.onArrive=()=>{if(t.sit)p.spot='seat';onArrive&&onArrive();};return true;}
+ // 拍照、拼图要两个人都在桌边：直接落座，不慢慢走
+ function home(){for(const p of people){p.path=[];p.onArrive=null;p.spot='seat';}}
+ function where(who){const p=people.find(x=>x.who===who);if(!p)return null;return p.resting?null:p.path.length?'正走去'+(SPOT_ZH[p.spot]||'').replace(/^(坐在|站在|在|走到)/,''):SPOT_ZH[p.spot]||SPOT_ZH.seat;}
+ return {speak,tick,go,home,where,get people(){return people;},dispose(){for(const p of people){p.bubble.remove();}people.length=0;}};
 }
