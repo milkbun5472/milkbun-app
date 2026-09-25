@@ -49,6 +49,20 @@ if BK:
             v.co.y=v.co.y-BK*(v.co.y-Y0)*t_      # quadratic: 0 slope at Y0, full K at the very back
             v.co.x*=1-float(os.environ.get('BACK_KX',0))*t_*t_   # width, also fading to 0 at the ears
     print('back compressed',BK)
+# Shorten: squeeze everything below the ear line so the lowest tips end at
+# SHORTEN_TO (world z, e.g. chin). Strand shapes are kept, just vertically packed.
+if os.environ.get('SHORTEN_TO'):
+    Cz=AJ['center'][2];Rr=AJ['radius']
+    zs=(float(os.environ.get('SHORT_FROM',.86))-Cz)/Rr;zt=(float(os.environ['SHORTEN_TO'])-Cz)/Rr
+    back=float(os.environ.get('SHORT_BACK_ONLY',0))
+    zmin=min(v.co.z for v in H.data.vertices)
+    k_=(zs-zt)/(zs-zmin) if zmin<zt else 1
+    for v in H.data.vertices:
+        if v.co.z<zs:
+            w=1.0
+            if back:w=min(1,max(0,(v.co.y+.1)/.4))
+            nz=zs-(zs-v.co.z)*k_;v.co.z=v.co.z+(nz-v.co.z)*w
+    print('shortened, factor',round(k_,3))
 H.data.update();H.name='hair'
 bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
