@@ -34,6 +34,9 @@ AJ=json.load(open(anc));inner=float(os.environ.get('INNER',1.02))
 k=inner/R            # anchor units: skull radius = 1
 off=np.array([0,float(os.environ.get('DY',0)),float(os.environ.get('DZ',0))])
 for v in H.data.vertices:v.co=((np.array(v.co)-C)*k+off).tolist()
+XY=float(os.environ.get('XY_S',1))
+if XY!=1:
+    for v in H.data.vertices:v.co.x*=XY;v.co.y*=XY     # about the head centre; Z untouched
 # Back-only depth compression (anchor units, +y = back). Starts at Y0 just
 # behind the ears and grows toward the back; front, top and sides untouched.
 BK=float(os.environ.get('BACK_K',0))
