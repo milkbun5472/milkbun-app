@@ -72,6 +72,17 @@ facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
 # (its bright highlights must not punch bald spots).
 exposed=(fc[:,1]<.0)|(np.abs(fc[:,0])>.19)
 hair=(fc[:,2]>.60)&~(skinlike&exposed)&~eye&~(facezone&(dist<.006))
+# Under the jaw the source's own chin and neck are in shadow and read as
+# non-skin; drop anything hugging our skin there (front half only; the nape
+# hair behind stays).
+jaw=(fc[:,2]<.76)&(fc[:,1]<.03)&(dist<.012)
+hair&=~jaw
+print('jaw scraps removed',int(jaw.sum()))
+# Around the ears and jaw, light tan faces are the source's shaded ear and
+# cheek skin; real hair there is darker.
+tan=(lum>.34)&(fc[:,2]<.86)&(fc[:,1]<.08)&(np.abs(fc[:,0])>.12)
+hair&=~tan
+print('tan scraps removed',int(tan.sum()))
 print('by colour',hair.sum())
 # Remove tiny floating islands left by the cut.
 print('hair faces',hair.sum())
