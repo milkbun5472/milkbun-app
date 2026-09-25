@@ -5,12 +5,7 @@
 // 模型调用直接走全局 callAI；喂全局记忆库靠 props.onAddMemory 回调。
 // ============================================================
 (function () {
-  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
-  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
-  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
-  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
-  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
-  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 禁烟这一层（内容边界）现在跟着 core.js 的 companionHead 走：一起读每一枪的头都是它，两条路都带着这一层。
   // ---- IndexedDB：只放正文，key=bookId，value=全文字符串 ----
   const DB_NAME = "LisaReadDB", STORE = "books";
   // ⚠️开库／存取那几行搬到 core.js 的 makeTextStore 了（一起学的课程资料是第二处，
@@ -79,21 +74,9 @@
   // ⚠️【写明理由的差异】不发【最近聊天】：ctxFor 本来就不带它（各聊天入口自己另加），
   //   而这一处要写的是就着书页说的话，不是把聊天接着往下说。心情、好感、印象卡都在，
   //   「TA今天什么状态」这件事已经够了。
-  function readHead(ctxFor, char) {
-    let head = "";
-    if (typeof ctxFor === "function" && typeof buildBundle === "function" && char) {
-      try { head = buildBundle(ctxFor(char)) + "\n\n"; } catch (e) { head = ""; }
-    }
-    // 接不上的时候退回老那两条，并且【人设由这儿补】——所以底下五处提示词
-    // 一律不再自己写一遍「【你的人设】」：bundle 里本来就有，写两遍等于把人设发两份。
-    if (!head) head = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB()
-      + "【你的人设】\n" + ((char && char.persona) || "（暂无设定）") + "\n\n";
-    const more = [];
-    if (typeof ECHO_QUESTION_BAN !== "undefined") more.push(ECHO_QUESTION_BAN);
-    if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") more.push(REGISTER_FOLLOWS_SCENE);
-    if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) { try { more.push(ReplyPacing.reading()); } catch (e) {} }
-    return head + (more.length ? more.join("\n\n") + "\n\n" : "");
-  }
+  // 头那一段搬到 core.js 的 companionHead 了：一起看是第二处要它的（施工规则/one-public-mechanism.md）
+  function readHead(ctxFor, char) { return companionHead(ctxFor, char); }
+
 
   // ── 这本书上的共同记录（她 2026-09-12：「我今天和TA看三章，下次第四章TA也能
   //    记得前面说过啥」）──────────────────────────────────────────────
