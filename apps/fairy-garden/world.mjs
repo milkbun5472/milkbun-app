@@ -1,4 +1,4 @@
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-6f0b5a42c3223c4d';
+import {KNOWN_OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-6f0b5a42c3223c4d';
 import {brewError,brewResult} from './brewing.mjs?v=fg-6f0b5a42c3223c4d';
 import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-6f0b5a42c3223c4d';
 import './rules.js?v=fg-6f0b5a42c3223c4d';
@@ -65,7 +65,7 @@ export function restoreLook(raw){
  const d=raw&&typeof raw==='object'?raw:{},out={};
  if(typeof d.hair==='string'&&/^[a-z]{2,16}$/.test(d.hair))out.hair=d.hair;
  for(const k of ['hairColor','cloth','skin'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
- if(Object.hasOwn(OUTFITS,d.outfit))out.outfit=d.outfit;
+ if(KNOWN_OUTFITS.includes(d.outfit))out.outfit=d.outfit;
  const wardrobe=restoreWardrobe(d.wardrobe);if(Object.keys(wardrobe).length)out.wardrobe=wardrobe;
  if(d.dims&&typeof d.dims==='object'){const dims={};
   for(const [k,v]of Object.entries(d.dims)){const n=Number(v);

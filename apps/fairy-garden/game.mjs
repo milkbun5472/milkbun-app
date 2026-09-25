@@ -1,6 +1,6 @@
 import {festivalDay,festivalOpen,festivalError,festivalMissing,festivalDone,holdFestival,festivalBook,atFestival,seatsOf,SEAT_KINDS,FOODS,RECIPE_COST,BAG_LABELS,foodOf,recipeOf,nightMarketDay,nightMarketOpen,nextNightMarket,nightStock,vendorAt,vendorOfFood,vendorSpot,VENDOR_STALLS,foodError,foodPay,foodLabel,buyFood,eatError,eat,cookError,cook,foodBook,restorePantry,giftOptions,giftError,giveGift,giftBook,giftKey,giftCatalogue,rolledStance,bondBook,companionDestinations,himGiveError,himGive,inviteError,invite,inviteMet,keepInvite,refuse,neighborNear,NEIGHBOR_REACH,neighborTalkError,noteNeighborTalk,neighborView,neighborWaveError,waveAtNeighbor,neighborGiftError,giveToNeighbor,neighborPairs,NEIGHBOR_HAND,MARKET_GOODS,marketOpen,atMarket,marketError,buy,starNightReady,keepStarNight,starChartPieces,STAR_CHART_NEED,spendTime,ACTION_MINUTES,guideStep,guideTarget,guideAdvance,guideSaid,markGuideSaid,setGuide,restoreGuide,todayHints,calendarMarks,marketDay,nextMarketDay,marketStock,marketGood,isBirthday,nearInteraction,seatAt} from './world.mjs?v=fg-6f0b5a42c3223c4d';
 import {actionGesture,actionDuration,makeHeldFlower} from './doll-life.mjs?v=fg-6f0b5a42c3223c4d';
-import {mergeLook,outfitColors,outfitId,lookForTa,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-6f0b5a42c3223c4d';
+import {mergeLook,outfitColors,outfitId,hairId,lookForTa,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-6f0b5a42c3223c4d';
 import {repairError} from './world.mjs?v=fg-6f0b5a42c3223c4d';
 import {makeCurio} from './curio-view.mjs?v=fg-6f0b5a42c3223c4d';
 import {makePlacedKeepsakes} from './keepsake-view.mjs?v=fg-6f0b5a42c3223c4d';
@@ -1725,6 +1725,7 @@ window.FairyGardenGame={
  // 衣柜那一页顶上那条透明的窗：开的时候告诉游戏渲谁，关了传 null
  preview:who=>setPreview(who),
  getDyes:who=>{const look=neighborOf(data,who)?.look||(who==='companion'?data.companion.look:data.look)||{},defaults=who==='me'?DEFAULT_LOOK:COMPANION_LOOK;return {skin:look.skin||defaults.skin,hairColor:look.hairColor||defaults.hairColor};},
+ getHair:who=>{const look=neighborOf(data,who)?.look||(who==='companion'?data.companion.look:data.look)||{};return hairId(look.hair||((who==='me')?DEFAULT_LOOK:COMPANION_LOOK).hair);},
  getOutfit:who=>{const look=neighborOf(data,who)?.look||(who==='companion'?data.companion.look:data.look)||{};return {id:outfitId(look),colors:outfitColors({...((who==='me')?DEFAULT_LOOK:COMPANION_LOOK),...look})};},
  setLook:(who,look)=>applyLook(who,look),
  // 这一侧还没设过样貌，就按性别补一份（她 2026-09-19：「为啥男的进去是默认女体我是男体」）。

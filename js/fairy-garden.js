@@ -1482,20 +1482,22 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
               h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
                 Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
-                  const on = ((look[who] || {}).outfit || "traveler") === id;
+                  const on = (game() && game().getOutfit ? game().getOutfit(who).id : (look[who] || {}).outfit) === id;
                   return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
                     style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
                 })),
-              h("p", { style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"),
-              [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]].map(([slot, label]) => {
-                const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
+              // 只列这一套真有的色槽（doll.json 里它的 colors）；v2 的学院背心是贴图配色，一个槽都没有，就整段不出。
+              (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
+                const slots = [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]]
+                  .filter(([slot]) => selected && styles && styles.outfits && styles.outfits[selected.id] && slot in styles.outfits[selected.id].colors);
+                return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。")].concat(slots.map(([slot, label]) => {
                 const hex = selected && selected.colors[slot] || "#8d5f66";
                 return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
-              })),
+              })) : null; })()),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
               Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
-                const on = ((look[who] || {}).hair || "") === key;
+                const on = (game() && game().getHair ? game().getHair(who) : (look[who] || {}).hair || "") === key;
                 return h("button", { key: key, onClick: () => pushLook({ hair: key }), className: "active:opacity-70",
                   style: { padding: "11px 6px", borderRadius: 13, border: "1px solid " + (on ? G.deep : G.line),
                     background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)",
