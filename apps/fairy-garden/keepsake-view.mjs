@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {MAPS,spotParse} from './world.mjs?v=fg-ad67a71aa7b8be0b';
-import {makeCurio} from './curio-view.mjs?v=fg-ad67a71aa7b8be0b';
+import {MAPS,spotParse} from './world.mjs?v=fg-eca146e8fbb06ec9';
+import {makeCurio} from './curio-view.mjs?v=fg-eca146e8fbb06ec9';
 export function makeDreamFlower(){
  const root=new T.Group(),plant=new T.Group(),flower=new T.Group();root.add(plant);plant.add(flower);flower.position.y=.57;
  const green=new T.MeshStandardMaterial({color:'#729b8d',roughness:.8}),purple=new T.MeshStandardMaterial({color:'#bfa5df',roughness:.7,emissive:'#a688d0',emissiveIntensity:.3}),gold=new T.MeshStandardMaterial({color:'#e9d5a6',roughness:.8});
@@ -33,4 +33,6 @@ export const makeKeepsake=t=>t.recipe==='travelframe'?makeTravelFrame(t):t.recip
 export function makePlacedKeepsakes(scene,getViews){const placed=new Map();let lastThings=null;return {update(s,time){
  if(lastThings!==s.things){lastThings=s.things;for(const [id,p]of placed)if(!s.things.some(t=>t.id===id&&t.spot===p.spot)){scene.remove(p.model);disposeKeepsake(p.model);placed.delete(id);}for(const t of s.things.filter(t=>isKeepsake(t)&&t.spot)){if(placed.has(t.id))continue;const parsed=spotParse(t.spot),legacy={sill:MAPS.garden.stations.rest,eaves:MAPS.garden.stations.rest,pond:MAPS.garden.seats.pond},piece=parsed?.piece||legacy[t.spot];if(!piece)continue;const model=makeKeepsake(t);model.scale.setScalar(.7);model.position.set(piece.x,(piece.h||piece.height||.7)+.14,piece.z);scene.add(model);placed.set(t.id,{model,map:parsed?.map||'garden',spot:t.spot});}}
  for(const p of placed.values()){p.model.visible=s.map===p.map;p.model.rotation.z=Math.sin(time)*.025;if(p.model.visible&&p.view!==getViews()[p.map]){p.view=getViews()[p.map];if(p.view){p.view.root.updateMatrixWorld(true);const ray=new T.Raycaster(new T.Vector3(p.model.position.x,8,p.model.position.z),new T.Vector3(0,-1,0));const hit=ray.intersectObject(p.view.root,true).find(h=>h.point.y<3);if(hit)p.model.position.y=hit.point.y+.025;}}}
-},inspect(){return [...placed.values()].map(p=>({visible:p.model.visible,x:p.model.position.x,y:p.model.position.y,z:p.model.position.z}));}};}
+},
+ // 点到挂着的旅行相框：交给宿主打开大图和背面
+ pick(ray){for(const [id,p]of placed)if(p.model.visible&&p.model.name==='TravelFrame'&&ray.intersectObject(p.model,true).length)return id;return null;},inspect(){return [...placed.values()].map(p=>({visible:p.model.visible,x:p.model.position.x,y:p.model.position.y,z:p.model.position.z}));}};}

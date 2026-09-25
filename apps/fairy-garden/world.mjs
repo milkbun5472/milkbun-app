@@ -1,11 +1,11 @@
-import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-ad67a71aa7b8be0b';
-import {validImage} from '../train/album.mjs?v=fg-ad67a71aa7b8be0b';
-import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-ad67a71aa7b8be0b';
-import {brewError,brewResult} from './brewing.mjs?v=fg-ad67a71aa7b8be0b';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-ad67a71aa7b8be0b';
-import './rules.js?v=fg-ad67a71aa7b8be0b';
+import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-eca146e8fbb06ec9';
+import {validImage} from '../train/album.mjs?v=fg-eca146e8fbb06ec9';
+import {OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-eca146e8fbb06ec9';
+import {brewError,brewResult} from './brewing.mjs?v=fg-eca146e8fbb06ec9';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-eca146e8fbb06ec9';
+import './rules.js?v=fg-eca146e8fbb06ec9';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-ad67a71aa7b8be0b';
+import {createNavigator} from './navigation.mjs?v=fg-eca146e8fbb06ec9';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -782,6 +782,8 @@ export function receiveTravelArt(s,item){
 }
 // 已经带回庭院的相框，列车那边补写了背面：跟着改（屋里的、馆里的都算）
 export function updateTravelBack(s,sourceId,item){const back=restoreBack({at:item?.at,day:item?.day,...(item?.back||{})}),fix=t=>t.sourceId===sourceId?{...t,back}:t;return {...s,things:(s.things||[]).map(fix),collection:(s.collection||[]).map(fix)};}
+// 庭院这边也能在背面写字（她 2026-09-25）：只改这一个相框的背面，屋里的、馆里的都算
+export function noteTravelBack(s,sourceId,who,text,companionName){if(who!=='you'&&who!=='companion')throw Error('不知道是谁写的');let hit=false;const fix=t=>{if(t.sourceId!==sourceId||t.recipe!=='travelframe')return t;hit=true;return {...t,back:restoreBack({...(t.back||{}),[who]:String(text||'').trim(),...(companionName?{companionName}:{})})};};const out={...s,things:(s.things||[]).map(fix),collection:(s.collection||[]).map(fix)};if(!hit)throw Error('庭院里找不到这个相框了');return out;}
 export function restoreThings(raw){
   return (Array.isArray(raw) ? raw : []).filter(x => x && x.id && x.name).slice(0, THING_CAP).map(x => ({
     ...travelImageFields(x), id: String(x.id).slice(0, 40), name: trimText(x.name, 24), note: trimText(x.note, 200),

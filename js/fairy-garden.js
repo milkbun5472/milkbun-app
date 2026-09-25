@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ad67a71aa7b8be0b", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-eca146e8fbb06ec9", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -105,6 +105,16 @@
         theirs&&h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8,margin:'0 0 8px'}},h('span',{style:{fontSize:11.5,color:G.soft,marginRight:6}},(item.back.companionName||'TA')+' 写'),theirs),
         h('button',{type:'button',disabled:busy,onClick:onAsk,style:{...pickButtonStyle(),padding:'8px 12px',fontSize:12.5,minHeight:40}},busy?'…':theirs?'请 TA 重写一句':'请 TA 也写一句')));
   }
+  // 庭院里的旅行相框单独一页：点屋里挂着的那个、或花册里那一格都进这里
+  function FrameSheet({thing,busy,onClose,onNote,onAsk}){
+    const item={id:thing.sourceId,back:thing.back||null};
+    return h('div',{'data-frame-sheet':true,className:'absolute inset-0 flex flex-col',style:{background:G.paper,zIndex:30,color:G.ink}},
+      h(Head,{zh:thing.name||'旅行相框',bg:'transparent',ink:G.ink,onBack:onClose}),
+      h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
+        h(TravelFramePreview,{src:thing.image,label:thing.name,memory:thing.memory,back:{back:thing.back}}),
+        thing.note&&h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8,margin:'4px 0 12px'}},thing.note),
+        h(BackNotes,{item,busy,onNote,onAsk})));
+  }
   function TravelAlbum({getArchive,onDelete,onCarry,onExchange,onClose,onNote,onAskNote}){
     const [kit,setKit]=useState(null),[selected,setSelected]=useState(null),[revision,setRevision]=useState(0),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
     const scroll=useRef(null),scrollAt=useRef(0);
@@ -158,6 +168,7 @@
         if(record?.onTurn)record.onTurn({text:automatic?"":text,reply:out.reply,parts:out.parts});
         else write(key,{...now,dialogs:{...(now.dialogs||{}),[cid]:[...((now.dialogs||{})[cid]||[]),...(!automatic?[{role:"user",content:text,status:"done"}]:[]),...out.parts.map(content=>({role:"assistant",content,status:"done"}))]}});
         node.contentWindow.TrainGame?.speak(out.parts,"companion");
+        if(out.move)node.contentWindow.TrainGame?.companionMove?.(out.move);
         return out;
       }finally{talking.current=false;}
     }
@@ -335,7 +346,7 @@
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       (event ? "【刚发生的游戏事件】\n" : "【对方刚说】\n") + text,
-      train ? "【列车动作】本轮 action.kind 使用 none，实际操作由游戏执行。有拼图进度时，以已经落位的碎片为准；puzzle 为空时按当前活动聊天。" : "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
+      train ? "【列车动作】action.kind 用 none；你自己想在车厢里挪个地方时用 move，target 取 seat（回座位）／stand（站到过道看窗外）／rack（去整理行李架）／berth（去上铺躺下），只动你自己，想不想动由你。实际操作由游戏执行。有拼图进度时，以已经落位的碎片为准；puzzle 为空时按当前活动聊天。" : "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
         + "另外三种真会发生的事：invite=你约她去一个地点（target 同上，note 写你约她时说的那句），你先过去等，她到了才有下文；"
         + "gift=你把手边顺手采到的一样递给她，item 取 herb（一束铃叶草）／mushroom（荧光菇）／flower（月光花），得她就在你跟前，一天一样；food 是你在夜市上给她买一样吃的，只有世界事实里 food.open 为 true、两个人都在灯串集市时才做得到；"
         + "refuse=她提了什么你没答应，why 写你没答应的那一句，然后你回自己的日程。"
@@ -345,7 +356,10 @@
       + "想说几条由你，短就一条；动作描写跟着它所属的那一句走，别单独攒成一条。"
       + "本轮只选择一个能落实的动作，其余内容可以继续聊天。"
     ].join("\n\n");
-    return normalizeReply(await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院" }));
+    const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院" });
+    const out = normalizeReply(raw);
+    if (train) { const o = extractJSON(raw), a = o && o.action; if (a && a.kind === "move" && ["seat", "stand", "rack", "berth"].includes(a.target)) out.move = a.target; }
+    return out;
   }
   // ── 花笺：把开好的那几株一次问完（她 2026-09-16 定的种花那条）──────────
   // ⚠️【一次调用收一批】：开了几朵就在这一枪里一起回，不是一朵一枪。
@@ -940,6 +954,8 @@
         hasTastes: () => { const c = partner(); const d = current(); return !!(c && d.tastes && d.tastes[String(c.id)] && d.tastes[String(c.id)].status === "ready"); },
         // 屋里点衣柜／梳妆台（审计，她 2026-09-18）：开的就是季节手册那一页「样貌」，不另做一个换装界面
         openWardrobe: () => { pullLook(); pullGarden(); setDress(true); },
+        // 点到挂在屋里的旅行相框：直接打开它（大图、背面、留言）
+        openFrame: id => { const g = game(); const t = g && g.getTravelFrame && g.getTravelFrame(id); if (t) setFrame(t); },
         // 他带路那十句：一位角色问一次，存在这一档的 guides[charId]
         guideLines: async () => {
           const c = partner(); if (!c) throw new Error("先选一位同行者。");
@@ -1176,6 +1192,7 @@
     const [shardBox, setShardBox] = useState(null);
     const [bond, setBond] = useState(null);           // 相处册＋礼物簿（game.getBond）
     const [things, setThings] = useState(null);
+    const [openFrameT, setFrame] = useState(null), [frameBusy, setFrameBusy] = useState(false);
     const [museum, setMuseum] = useState(null);
     const [bottles, setBottles] = useState(null);
     const [crew, setCrew] = useState(null);
@@ -1186,6 +1203,19 @@
       const g=game();if(g?.getBottles)setBottles(g.getBottles(bottleView.current));
       if(scroll)requestAnimationFrame(()=>bottleArchive.current?.scrollIntoView({block:"start"}));
     };
+    // 背面写字（庭院这边）：列车相册里还在就一起改；已经挂在庭院的相框也改
+    const gardenBack = async (sourceId, who, text) => {
+      const c = partner(), name = c ? (c.remark || c.name) : undefined, g = game();
+      const d = current(), tr = d.worlds && d.worlds.train;
+      if (tr && [...(tr.artworks || []), ...(tr.photos || [])].some(x => x.id === sourceId)) {
+        const m = await import('../apps/train/album.mjs?v=' + BUILD);
+        update(x => ({ ...x, worlds: { ...(x.worlds || {}), train: m.setBackNote(x.worlds.train, sourceId, who, text, name) } }));
+      }
+      const hung = g && g.getTravelFrame && g.getTravelFrame(sourceId);
+      if (hung) { g.noteTravelBack(sourceId, who, text, name); setFrame(f => f && f.sourceId === sourceId ? g.getTravelFrame(sourceId) : f); pullGarden(); }
+    };
+    const frameAct = async fn => { if (frameBusy) return; setFrameBusy(true); try { await fn(); } catch (e) { props.toast(e.message); } finally { setFrameBusy(false); } };
+    const frameItem = t => ({ id: t.sourceId, label: t.from || t.name, kind: t.memory ? 'puzzle' : 'photo', memory: t.memory, day: t.back && t.back.day, back: t.back });
     const pullGarden = () => { const g = game(); if (!g) return;
       if (g.getGarden) setGarden(g.getGarden());
       if (g.getShards) setShardBox(g.getShards());
@@ -1328,7 +1358,10 @@
         !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
-        travelAlbum&&h(TravelAlbum,{getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
+        openFrameT&&h(FrameSheet,{thing:openFrameT,busy:frameBusy,onClose:()=>setFrame(null),
+          onNote:(who,text)=>frameAct(async()=>{await gardenBack(openFrameT.sourceId,who,text);}),
+          onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
+        travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),item,lines:pm.puzzleMemoryLines(item.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
@@ -1572,6 +1605,7 @@
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, "第 " + t.gaveDay + " 天捐的")),
                 travelFramePreview(t),
+                t.image && h("button", { type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
                 t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
@@ -1614,6 +1648,7 @@
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
                     (things.ways[t.way] ? things.ways[t.way].label : "") + " · 第 " + t.day + " 天")),
                 travelFramePreview(t),
+                t.image && h("button", { type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                   t.ready ? t.note : "还封着，第 " + t.openDay + " 天才能打开。"),
                 !t.ready ? h("button", { className: "active:opacity-70",
