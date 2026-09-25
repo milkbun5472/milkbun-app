@@ -235,6 +235,7 @@
     const [src, setSrc] = useState(""), [cues, setCues] = useState([]), [now, setNow] = useState(0);
     const [busy, setBusy] = useState(false), [txt, setTxt] = useState(""), [missing, setMissing] = useState(false);
     const [auto, setAuto] = useState(() => loadJSON("x_watch_auto", true) !== false);
+    const [toolsOpen, setToolsOpen] = useState(false);
     const [every, setEvery] = useState(() => { const n = Number(loadJSON("x_watch_auto_every", AUTO_DEFAULT)); return n >= AUTO_MIN && n <= AUTO_MAX ? n : AUTO_DEFAULT; });
     const vRef = useRef(null), listRef = useRef(null), lastAuto = useRef(0), lastSave = useRef(0), busyRef = useRef(false);
     const cuesRef = useRef([]), inbandSave = useRef(0);
@@ -348,26 +349,8 @@
                 onLoadedMetadata: e => { const v = e.target; if (film.pos && film.pos < (v.duration || Infinity) - 3) v.currentTime = film.pos; lastAuto.current = film.pos || 0; savePos(true); adoptInband(); if (v.textTracks) v.textTracks.onaddtrack = adoptInband; },
                 onTimeUpdate: onTime, onPause: () => { savePos(true); if (film.inband || (!film.cueCount && cuesRef.current.length)) { _store.put("cues:" + id, cuesRef.current).catch(() => {}); patchFilm(id, () => ({ cueCount: cuesRef.current.length, inband: true })); } },
                 style: { display: "block", width: "100%", maxHeight: "42vh", background: "#000" } })),
-        // 台词条：现在银幕上这一句
-        h("div", { style: { flexShrink: 0, minHeight: 40, padding: "8px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: cueAt(cues, now) ? W.ink : W.fog, borderBottom: "1px solid " + W.line } },
-          cueAt(cues, now) || (cues.length ? "……" : "这部没有字幕，TA 靠你说和截图")),
-        // 手边：给TA看这一帧／让TA说两句／TA自己开口
-        h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, padding: "10px 12px", overflowX: "auto" } },
-          btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
-          btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
-          h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
-        // 多久可能开一次口：拉条（开着的时候才出来）
-        auto && h("div", { className: "flex items-center gap-3", style: { flexShrink: 0, padding: "0 16px 8px" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话多"),
-          // 轨道自己画：全局样式把原生的轨抹掉了，只剩一个圆点
-          h("div", { style: { position: "relative", flex: 1, minWidth: 0, height: 40 } },
-            h("div", { style: { position: "absolute", left: 0, right: 0, top: 18, height: 4, borderRadius: 2, background: "rgba(255,255,255,.12)" } },
-              h("div", { style: { width: ((every - AUTO_MIN) / (AUTO_MAX - AUTO_MIN) * 100) + "%", height: "100%", borderRadius: 2, background: W.amber } })),
-            h("input", { type: "range", min: AUTO_MIN, max: AUTO_MAX, step: 1, value: every, "aria-label": "TA 多久可能自己开一次口",
-              onChange: e => { const n = Number(e.target.value); setEvery(n); saveJSON("x_watch_auto_every", n); },
-              style: { position: "absolute", inset: 0, width: "100%", height: 40, margin: 0, padding: 0, border: "none", boxShadow: "none", background: "transparent", accentColor: W.amber } })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话少"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟")),
+        // 台词条：现在银幕上这一句。没有字幕的片子整条不出现（她 2026-09-25：「没有字幕的提示也删了省空间」）
+        cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, cueAt(cues, now)) : null,
         // 你们说的话
         h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 12px" } },
           !talk.length && h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: W.fog, padding: "22px 10px", lineHeight: 1.8 } }, "片子放起来，想说什么就说。\nTA 看到有感觉的地方也会自己冒一句。"),
@@ -382,8 +365,27 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: W.fog, marginTop: 3, textAlign: mine ? "right" : "left" } }, clock(m.at))));
           }),
           busy && h("div", { className: "flex items-center gap-2", style: { margin: "8px 0", color: W.fog, fontFamily: F_BODY, fontSize: 12 } }, h(Avatar, { character: partner, size: 28, radius: 14 }), (partner.remark || partner.name) + " 在想…")),
+        // 手边那几样收进输入框左边的「＋」（她 2026-09-25：「做可以收起来上面那几个按键不然太挤了」）：
+        //   跟聊天的加号面板一个意思，平时不占地方，要用才展开在输入框上面
+        toolsOpen && h("div", { style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(31,28,38,.96)" } },
+          h("div", { className: "flex items-center gap-2", style: { padding: "10px 12px 2px", overflowX: "auto" } },
+          btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
+          btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
+          h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
+          auto && h("div", { className: "flex items-center gap-3", style: { padding: "0 16px 4px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话多"),
+          // 轨道自己画：全局样式把原生的轨抹掉了，只剩一个圆点
+          h("div", { style: { position: "relative", flex: 1, minWidth: 0, height: 40 } },
+            h("div", { style: { position: "absolute", left: 0, right: 0, top: 18, height: 4, borderRadius: 2, background: "rgba(255,255,255,.12)" } },
+              h("div", { style: { width: ((every - AUTO_MIN) / (AUTO_MAX - AUTO_MIN) * 100) + "%", height: "100%", borderRadius: 2, background: W.amber } })),
+            h("input", { type: "range", min: AUTO_MIN, max: AUTO_MAX, step: 1, value: every, "aria-label": "TA 多久可能自己开一次口",
+              onChange: e => { const n = Number(e.target.value); setEvery(n); saveJSON("x_watch_auto_every", n); },
+              style: { position: "absolute", inset: 0, width: "100%", height: 40, margin: 0, padding: 0, border: "none", boxShadow: "none", background: "transparent", accentColor: W.amber } })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话少"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟"))),
         // 输入
         h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(22,20,27,.92)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
+          h("button", { onClick: () => setToolsOpen(!toolsOpen), "aria-label": toolsOpen ? "收起" : "更多", "aria-expanded": String(toolsOpen), className: "active:opacity-60", style: { width: 40, height: 40, flexShrink: 0, borderRadius: "50%", border: "1px solid " + (toolsOpen ? W.amber : W.line), background: "none", color: toolsOpen ? W.amber : W.sub, fontSize: 22, lineHeight: 1, transform: toolsOpen ? "rotate(45deg)" : "none", transition: "transform .15s" } }, "+"),
           h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: W.card, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 } }),
           btn("说", send, { primary: true, disabled: busy || !txt.trim() }))));
   }

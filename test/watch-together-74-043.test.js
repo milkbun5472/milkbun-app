@@ -63,4 +63,10 @@ assert.match(src, /const AUTO_MIN = 1, AUTO_MAX = 20, AUTO_DEFAULT = 5;/);
 assert.match(src, /v\.currentTime - lastAuto\.current >= every \* 60/);
 assert.match(src, /saveJSON\("x_watch_auto_every", n\)/);
 assert.match(src, /auto && h\("div"/);
+// 9. 手边那几样收进「＋」，平时不占地方；没字幕的片子不出台词条（她 2026-09-25）
+assert.match(src, /const \[toolsOpen, setToolsOpen\] = useState\(false\);/);
+assert.match(src, /toolsOpen && h\("div"/);
+assert.match(src, /"aria-expanded": String\(toolsOpen\)/);
+assert.match(src, /cues\.length \? h\("div"/);
+assert.ok(!/这部没有字幕，TA 靠你说和截图/.test(src), "没字幕的提示又回来了");
 console.log("ok watch-together");
