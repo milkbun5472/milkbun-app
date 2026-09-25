@@ -34,7 +34,8 @@ test("角色大号、固定小号与匿名身份是三条独立展示路径", ()
   assert.match(app, /const altName = m\.altName \|\|/);
   assert.match(app, /authorType: "character_alt"/);
   assert.match(app, /authorType: "character_anon"/);
-  assert.match(app, /identity=main（大号）、alt（固定小号）或 anonymous/);
+  // v74.021 起发帖身份由代码掷；楼里冒泡照旧让模型在三个身份里挑
+  assert.match(app, /identity 可以是 main（大号）、alt（固定小号）或 anonymous（匿名）/);
 });
 
 test("角色小号拥有独立头像、主页、历史足迹与关注入口，但主页不泄露真身", () => {
@@ -64,12 +65,11 @@ test("角色能认出自己用小号或匿名身份留下的论坛足迹", () =>
   assert.match(app, /forumOwnTags\(post, cid\)/, "群聊那条没用这一份");
 });
 
-test("角色主动论坛帖包含匿名周期，而且匿名是稀有的（她 2026-08-29：匿名比例太大）", () => {
-  // 周期还在，但频率从 1/5 压到 1/9，回看窗口从 5 帖拉到 8 帖：
-  // 匿名要稀有才有分量，天天匿名等于没有匿名。
-  assert.match(app, /const forceAnon = myAutoPosts\.length >= 4 && \(myAutoPosts\.length % 9 === 4\)/);
-  assert.match(app, /!myAutoPosts\.slice\(0, 8\)\.some\(p => p\.board === "匿名吧"\)/);
-  // v73.310 前面多了 fixedBoard（她按「请角色来发帖」时指定的吧）；没指定的时候匿名周期照旧
+// v74.021 起匿名不再按「每 9 帖一次」的周期来，改成代码掷身份：匿名 18%，其中一半去匿名吧。
+//   8-29 嫌匿名太多、9-24 又嫌几乎没有——掷出来的份额两头都照顾到，而且仍是少数。
+test("角色主动论坛帖：匿名由代码掷、仍是少数；掷中匿名的一半去匿名吧", () => {
+  assert.match(app, /: idRoll < 0\.82 \? "alt" : "anonymous";/);
+  assert.match(app, /const forceAnon = rolledId === "anonymous" && Math\.random\(\) < 0\.5;/);
   assert.match(app, /const board = fixedBoard \|\| \(forceAnon \? "匿名吧"/);
   assert.match(app, /"兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧"/);
 });

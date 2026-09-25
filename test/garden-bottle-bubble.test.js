@@ -8,7 +8,7 @@ const game = rd("apps/fairy-garden/game.mjs");
 const host = rd("js/fairy-garden.js");
 const rules = rd("apps/fairy-garden/rules.js");
 const html = rd("apps/fairy-garden/index.html");
-const css = rd("apps/fairy-garden/style.css");
+const css = rd("apps/fairy-garden/style.css") + rd("apps/fairy-garden/speech.css");
 
 // 她 2026-09-17：「漂流瓶做吧宝宝」
 test("捞漂流瓶要走到水边，一天一只", () => {
@@ -58,7 +58,7 @@ test("他说的话浮在头顶上，气泡跟着他走", () => {
   assert.match(game, /const canShow=bubbleWho==='companion'\?!offscreen:!!other;/);
   assert.match(game, /bubble\.hidden=!speaking\|\|bubbleWho==='me'\|\|!canShow;/, "他走出画面，气泡要跟着收起来");
   // 停留时长按字数走：两个字和两百个字读完要的时间不一样
-  assert.match(game, /BUBBLE_MIN\+line\.length\*BUBBLE_PER_CHAR/);
+  assert.match(rd("apps/fairy-garden/speech.mjs"), /BUBBLE_MIN\+line\.length\*BUBBLE_PER_CHAR/);
   // ⚠️只是把已经收到的那句显示一遍，不另存、也不另发
 
   const seg = game.slice(game.indexOf("function speak(text)"), game.indexOf("function updateCompanionUI"));

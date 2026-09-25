@@ -177,7 +177,10 @@ function textBlocks(content) {
 
 // Claude transcript 里后台任务通知也会长成 role:user；它们不是 Lisa 的话，不能开一轮生活账本。
 function isSyntheticUserText(text) {
-  return /^\s*<(?:task-notification|system-reminder|cross-session-message|local-command|command-name|teammate-message)\b/i.test(String(text || ""));
+  const t = String(text || "");
+  // harness 的安全通告以 user 角色注入、无标签壳，不是 Lisa 的话（2026-09-25 气泡事故）。
+  if (/^\s*Your response above was stopped by a safety classifier/i.test(t)) return true;
+  return /^\s*<(?:task-notification|system-reminder|cross-session-message|local-command|command-name|teammate-message)\b/i.test(t);
 }
 
 function extractLastTurn(lines) {
@@ -190,7 +193,26 @@ function extractLastTurn(lines) {
     const userText = textBlocks(content).trim();
     if (row && row.type === "user" && row.message && row.message.role === "user" && !isToolResult && userText) {
       // 最新边界是后台票时整次忽略，不能倒退重放上一轮真人对话。
-      if (isSyntheticUserText(userText)) return null;
+      // 例外（2026-09-25 书房直通车道）：cc_chat 唤醒票就是 Lisa 本人从 App 发来的话，
+      // 票面 record.text 是她的逐字原文——把它当作这一轮的 Lisa 侧，回复才能流回 App。
+      if (isSyntheticUserText(userText)) {
+        const ccTexts = [];
+        for (const ln of userText.split("\n")) {
+          // 票文在 transcript 里可能连着 <event> 标签同行出现，先剥壳再解析。
+          const t = ln.trim().replace(/^<event>/, "").replace(/<\/event>$/, "").trim();
+          if (!t.startsWith("{") || t.indexOf('"wake_source"') < 0) continue;
+          try {
+            const j = JSON.parse(t);
+            if (j && j.wake_source === "cc_chat" && j.record && typeof j.record.text === "string" && j.record.text.trim()) {
+              ccTexts.push(j.record.text.trim());
+            }
+          } catch {}
+        }
+        if (!ccTexts.length) return null;
+        userIndex = i;
+        rows[i] = { ...row, __ccChatLisaText: ccTexts.join("\n") };
+        break;
+      }
       userIndex = i;
       break;
     }
@@ -213,7 +235,7 @@ function extractLastTurn(lines) {
     sessionId: String(user.sessionId || rows.find(x => x && x.sessionId)?.sessionId || ""),
     turnId: String(user.uuid || ""),
     occurredAt: user.timestamp || null,
-    lisaText: textBlocks(user.message.content).trim(),
+    lisaText: user.__ccChatLisaText || textBlocks(user.message.content).trim(),
     yanqiuText: assistantParts.join("\n\n"),
     lastAssistantUuid
   };

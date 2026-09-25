@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const rd = p => fs.readFileSync(p, "utf8");
 const game = rd("apps/fairy-garden/game.mjs");
 const html = rd("apps/fairy-garden/index.html");
-const css = rd("apps/fairy-garden/style.css");
+const css = rd("apps/fairy-garden/style.css") + rd("apps/fairy-garden/speech.css");
 const host = rd("js/fairy-garden.js");
 const app = rd("js/app.js");
 

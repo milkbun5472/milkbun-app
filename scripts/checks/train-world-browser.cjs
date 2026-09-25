@@ -9,7 +9,7 @@ const base=process.env.TRAIN_BASE||'http://127.0.0.1:18924';
  saveJSON('x_fairyGardenSaves',[{id:'train-test',world:'garden',name:'共用测试档',ts:1}]);
  const el=document.createElement('div');el.id='train-test-root';el.style.cssText='position:fixed;inset:0;z-index:999999;height:100dvh';document.body.append(el);window.trainTestRoot=ReactDOM.createRoot(el);trainTestRoot.render(React.createElement(FairyGardenApp,{characters:[{id:'test',name:'同行测试'}],toast:()=>{},onBack:()=>{},onNewGardenRoom:()=>{}}));});
  const root=p.locator('#train-test-root');await root.getByRole('button',{name:/远行列车/}).click();await root.getByRole('button',{name:/共用测试档/}).click();await root.getByRole('button',{name:'下车',exact:true}).waitFor();await p.waitForFunction(()=>document.querySelector('#train-test-root iframe')?.contentWindow.TrainGame?.ready);
- let f=p.frames().find(f=>f.url().includes('/apps/train/'));assert.equal(await f.locator('select,input').count(),0);assert.equal(await f.locator('button').count(),3);
+ let f=p.frames().find(f=>f.url().includes('/apps/train/'));assert.equal(await f.locator('select:visible,input:visible').count(),0);assert.equal(await f.locator('nav [data-view]').count(),3);assert.equal(await f.locator('nav button').count(),6);
  const first=await f.evaluate(()=>TrainGame.snapshot());await p.waitForTimeout(300);assert.ok((await f.evaluate(()=>TrainGame.snapshot())).minute>first.minute);
  await p.screenshot({path:'/tmp/train-world-mobile.png'});
  // Failed writes block leaving; retry uses the same record.

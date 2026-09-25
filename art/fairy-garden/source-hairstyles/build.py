@@ -7,7 +7,7 @@ from mathutils import Vector
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
 from source_split import split_source
-from scalp import make_scalp
+from face_study import split_original_head,make_face
 from pack_glb import pack
 from hair_geometry import build_style,Sculpt,linear
 OUT=Path(os.environ.get('SOURCE_HAIR_OUT','/tmp/garden-source-hair'));OUT.mkdir(parents=True,exist_ok=True)
@@ -40,7 +40,8 @@ def morphs(obj):
 
 # A concealed round scalp supports the forehead exposed by middle/side parts.
 # It sits behind the unchanged eyes, cheeks, jaw and ears. It is not a new face.
-scalp=make_scalp(body)
+body,original_head=split_original_head(body)
+scalp=make_face()
 morphs(scalp)
 if os.environ.get('REUSE_HAIR'):
     # Explicit artist iteration: recompute only scalp while retaining the last
@@ -55,10 +56,11 @@ if os.environ.get('REUSE_HAIR'):
 else:
     new=[build_style(style) for style in CATALOG if style!='korean']
     for obj in new:morphs(obj)
-objects=[body,hair,scalp]+new
+objects=[body,original_head,hair,scalp]+new
 report=json.loads(body['sourcePartitionAudit'])
+report.pop('forehead_policy',None)
 report.update({'styles':list(CATALOG),'new_hair_meshes':len(new),'hairline_vertices':int(scalp['hairlineVertices']),
-               'dimensions':DIMS,'scope':'Hairstyle and body preview. Clothing separation and animation are not implemented.'})
+               'dimensions':DIMS,'face_policy':'Original head retained for M01; replacement styles use a smooth head with painted eyes and blush.','scope':'Hairstyle and body preview. Clothing separation and animation are not implemented.'})
 (OUT/'asset-validation.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
 for obj in objects:obj.hide_set(False)
 sc=bpy.context.scene
@@ -74,6 +76,7 @@ def choose(style):
     for o in [hair]+new:
         o.hide_render=o.name!='hair_'+style;o.hide_set(o.hide_render)
     scalp.hide_render=style=='korean';scalp.hide_set(scalp.hide_render)
+    original_head.hide_render=style!='korean';original_head.hide_set(original_head.hide_render)
 
 def view(angle):
     sc.camera.location=(5*math.sin(angle),-5*math.cos(angle),1.29)

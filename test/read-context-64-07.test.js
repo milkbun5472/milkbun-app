@@ -28,7 +28,11 @@ test("上下文这条线真的接进来了——一路从 App 传到 Reader", ()
 });
 
 test("readHead 只此一份：接得上就发整份 bundle，接不上才退回老两条", () => {
-  const fn = code.slice(code.indexOf("function readHead(ctxFor, char)"), code.indexOf("async function genAnnotations"));
+  // v74.043：这一份搬到 core.js 的 companionHead（一起看是第二处要它的），readHead 只转一手
+  assert.match(code, /function readHead\(ctxFor, char\) \{ return companionHead\(ctxFor, char\); \}/);
+  const coreSrc = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "core.js"), "utf8");
+  const fn = coreSrc.slice(coreSrc.indexOf("function companionHead(ctxFor, char)"), coreSrc.indexOf("// ---- 懒加载 pdf.js"));
+  assert.ok(fn.length > 50, "抠不出 companionHead");
   assert.match(fn, /head = buildBundle\(ctxFor\(char\)\) \+ "\\n\\n";/);
   assert.match(fn, /try \{[\s\S]*\} catch \(e\) \{ head = ""; \}/, "buildBundle 抛了就该退回兜底，不该把整个批注弄挂");
   assert.match(fn, /if \(!head\) head = \(typeof ANTI_CLICHE/, "没有兜底路");
@@ -47,7 +51,11 @@ test("readHead 只此一份：接得上就发整份 bundle，接不上才退回�
 
 test("人设只发一遍，而且不许再截断", () => {
   // bundle 里本来就有人设；五处提示词再写一遍等于把人设发两份
-  assert.equal((code.match(/【你的人设】/g) || []).length, 1, "人设块不止一处——bundle 里已经有了");
+  // v74.043：人设兜底那一块跟着 companionHead 搬去了 core.js
+  const coreHead = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "core.js"), "utf8");
+  const headFn = coreHead.slice(coreHead.indexOf("function companionHead(ctxFor, char)"), coreHead.indexOf("// ---- 懒加载 pdf.js"));
+  assert.equal((headFn.replace(/\/\/[^\n]*/g, "").match(/【你的人设】/g) || []).length, 1, "人设块不止一处——bundle 里已经有了");
+  assert.equal((code.match(/【你的人设】/g) || []).length, 0, "一起读又自己写了一遍人设块");
   // ⚠️总结那一枪原来是 .slice(0, 300)。这是 v55.87「群里的王爷变霸总」同一个数量级
   //   （那次 200 字），而这一枪写的是【要进记忆库、以后一直被读到】的东西。
   assert.ok(!/char\.persona \|\| ""\)\.slice\(0, 300\)/.test(read), "总结那一枪的人设又被截了");

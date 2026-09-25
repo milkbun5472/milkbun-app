@@ -1,1 +1,102 @@
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#e8e6d7;color:#344936;font:13px system-ui}#stage{position:absolute;inset:0 0 calc(58px + env(safe-area-inset-bottom) * .4);touch-action:none}canvas{display:block;width:100%;height:100%}#scene-info{position:absolute;top:12px;left:16px;right:16px;pointer-events:none;font-size:12px;text-shadow:0 1px 6px #fff}#status{position:absolute;top:44%;left:18px;right:18px;text-align:center;pointer-events:none}nav{position:absolute;bottom:0;left:0;right:0;display:flex;gap:8px;justify-content:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom) * .4);background:#e8e6d7}button{flex:1;max-width:180px;border:1px solid #bcc7af;border-radius:10px;padding:9px 4px;color:inherit;background:#f6f5ea;font:inherit}button[aria-pressed=true]{background:#466553;color:#fff}@media(max-height:450px){#stage{bottom:52px}nav{padding-top:5px}#scene-info{top:6px}}
+@import "../fairy-garden/speech.css?v=fg-d827b61930e4de0b";
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#e8e6d7;color:#344936;font:13px system-ui}#stage{position:absolute;inset:0 0 calc(58px + env(safe-area-inset-bottom) * .4);touch-action:none}canvas{display:block;width:100%;height:100%}#scene-info{position:absolute;top:12px;left:16px;right:16px;pointer-events:none;font-size:12px;text-shadow:0 1px 6px #fff}#status{position:absolute;top:44%;left:18px;right:18px;text-align:center;pointer-events:none}nav{position:absolute;bottom:0;left:0;right:0;display:flex;gap:8px;justify-content:center;height:calc(58px + env(safe-area-inset-bottom) * .4);padding:8px 12px calc(8px + env(safe-area-inset-bottom) * .4);background:#e8e6d7}button{flex:1;max-width:180px;border:1px solid #bcc7af;border-radius:10px;padding:9px 4px;color:inherit;background:#f6f5ea;font:inherit}button[aria-pressed=true]{background:#466553;color:#fff}@media(max-height:450px){#scene-info{top:6px}}
+[hidden]{display:none!important}#puzzle-desk{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;background:#eee9db;color:#354a3a}#puzzle-desk header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;border-bottom:1px solid #d1c9b5;flex-shrink:0}#puzzle-desk header button{flex:0 0 auto;padding:8px 12px;border:none;background:transparent}#puzzle-desk header strong{font-weight:500;font-size:15px}.desk-body{display:flex;flex:1;min-height:0;flex-direction:column;padding:8px 12px;gap:6px;overflow-y:auto}.desk-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}.desk-controls label{display:flex;align-items:center;gap:4px;min-width:0;font-size:11px}.desk-controls label:first-child{flex:1}.desk-controls select{max-width:100%;min-width:0;background:#faf8f0;border:1px solid #c8c7b4;border-radius:6px;color:inherit;padding:7px 3px;font:inherit}.desk-controls label:first-child select{width:100%}.desk-controls button{font-size:11px;padding:8px 4px;max-width:none;white-space:nowrap}.puzzle-viewport{position:relative;flex:1;min-height:160px;overflow:hidden;background:radial-gradient(ellipse at 35% 30%,#c9b99d,#b39e80);border-radius:10px;box-shadow:inset 0 0 18px #64503526}#puzzle-canvas{touch-action:none;cursor:grab}.zoom-controls{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}.zoom-controls button{padding:5px 10px;font-size:12px;background:#f8f4e8e6;min-width:34px}#puzzle-reference{position:absolute;left:10px;top:10px;width:45%;height:auto;box-shadow:0 3px 14px #0004;pointer-events:none;border:4px solid #fff8e9}#desk-progress{margin:0;font-size:11px;min-height:16px;flex-shrink:0}#desk-chat{max-height:98px;overflow-y:auto;flex-shrink:0;scroll-behavior:smooth}#desk-chat:empty{display:none}#desk-chat p{font-size:12px;line-height:1.6;margin:4px 24px 4px 0;padding:7px 9px;background:#fff9ed;border-radius:9px;white-space:pre-wrap}#desk-chat p.you{margin:4px 0 4px 24px;background:#dae1cf}#desk-form{display:flex;gap:6px;flex-shrink:0}#desk-form input{min-width:0;flex:1;font:inherit;background:#fbf9ef;border:1px solid #c7ccb9;border-radius:8px;padding:9px}#desk-form button{flex:0 0 52px}#desk-error{margin:0;font-size:11px;color:#924d40;flex-shrink:0}#desk-error:empty{display:none}@media(max-height:500px){#desk-chat{max-height:52px}.desk-body{overflow-y:auto}.puzzle-viewport{min-height:260px}}
+
+.desk-controls label,.zoom-controls button{white-space:nowrap}.zoom-controls button{min-width:40px}button:disabled{opacity:.5}
+#travel-camera{position:absolute;inset:0;z-index:8;background:#eee9db;display:flex;flex-direction:column}#travel-camera header{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid #d1c9b5;flex-shrink:0}#travel-camera header button{flex:0 0 auto;border:none;background:transparent;padding:8px 12px}#travel-camera header strong{font-size:15px;font-weight:500}.camera-body{padding:12px;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}.camera-body canvas{width:100%;height:auto;aspect-ratio:3/2;touch-action:none;border:6px solid #f8f3e6;box-shadow:0 3px 15px #57462c30}.camera-body label{display:flex;gap:12px;align-items:center}.camera-body input{flex:1;min-width:0}.camera-body p{font-size:12px;line-height:1.7;margin:0}.camera-body>*{flex-shrink:0}.camera-body button{flex:0 0 auto;align-self:center;width:140px}#desk-keep{flex:0 0 auto;max-width:none;font-size:12px;padding:7px}
+
+#view-controls{position:absolute;top:42px;left:12px;right:12px;display:flex;gap:6px}#view-controls button{min-width:0;white-space:nowrap;font-size:12px;padding:8px 4px;background:#f6f5eaf2}#view-controls button[aria-pressed=true]{background:#466553;color:#fff}
+#travel-window{margin:0;flex:0 0 auto;min-height:0}#travel-window-caption{font-size:11px;line-height:1.6;padding:6px 2px;color:#657260}
+#puzzle-desk[data-activity=travel] .desk-controls,#puzzle-desk[data-activity=travel] #desk-progress,#puzzle-desk[data-activity=travel] #desk-keep,#puzzle-desk[data-activity=travel] .puzzle-viewport{display:none}
+#puzzle-desk[data-activity=travel] .desk-body{overflow:hidden}#puzzle-desk[data-activity=travel] #desk-chat{display:block;flex:1;min-height:0;max-height:none;scroll-behavior:auto;overscroll-behavior:contain}#puzzle-desk[data-activity=travel] #desk-chat p{font-size:14px;padding:9px 12px}#puzzle-desk[data-activity=travel] #desk-form input{font-size:16px}
+@media(max-height:500px){#puzzle-desk[data-activity=travel] header{gap:4px}#puzzle-desk[data-activity=travel] header button{padding:6px}}
+
+#travel-window #stage{position:relative;inset:auto;width:100%;height:clamp(100px,30vh,260px);border-radius:10px;overflow:hidden;background:#e8e6d7}
+.train-passenger-name{position:absolute;transform:translate(-50%,-50%);font-size:11px;white-space:nowrap;text-shadow:0 1px 3px #fff,0 0 5px #fff;pointer-events:none}
+#stage #companion-bubble,#stage #player-bubble{z-index:4;max-width:min(56vw,230px)}
+@media(max-height:500px){#travel-window #stage{height:100px}#puzzle-desk[data-activity=travel] #travel-window-caption{display:none}}
+
+#puzzle-desk[data-activity=puzzle] #travel-window #stage{height:clamp(72px,18vh,150px)}#puzzle-desk[data-activity=puzzle] #travel-window-caption{display:none}#puzzle-desk[data-activity=puzzle] #desk-chat{max-height:48px}#puzzle-desk[data-activity=puzzle] .puzzle-viewport{min-height:200px}
+
+#photo-promise{border-bottom:1px solid #d1c9b5;padding-bottom:12px}#photo-promise label{font-size:13px}#photo-promise select{min-width:0;flex:1;padding:8px;background:#fbf9ef;border:1px solid #c7ccb9;border-radius:6px;color:inherit;font:inherit}#photo-promise p{margin:8px 0;line-height:1.7}#photo-promise button{width:auto;max-width:none;padding:8px 12px}
+
+#camera-subject{min-width:0;flex:1;padding:8px;background:#fbf9ef;border:1px solid #c7ccb9;border-radius:6px;color:inherit;font:inherit}
+
+.desk-footer{flex-shrink:0;padding:6px 12px calc(4px + env(safe-area-inset-bottom) * .4);border-top:1px solid #d1c9b5}#desk-form input{font-size:16px}nav button{white-space:nowrap;min-width:0}
+
+#rest-controls{position:absolute;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom) * .4);padding:10px;background:#f6f3e7ee;border:1px solid #c7ccb9;border-radius:10px}#rest-controls p{font-size:12px;margin:0 0 8px}#rest-controls>div{display:flex;gap:6px}#rest-controls button{font-size:12px;white-space:nowrap}#rest-controls small{display:block;margin-top:7px;font-size:11px;color:#657260}
+
+#desk-cooperation-status{flex:1;min-width:0;font-size:11px;line-height:1.5}#desk-cooperation button{flex:0 0 auto;padding:7px 10px}#puzzle-desk[data-activity=travel] #desk-cooperation{display:none}
+
+#desk-division{flex-shrink:0;font-size:11px}#desk-division summary{padding:5px 0;cursor:pointer}#desk-division .desk-controls{padding:4px 0}#puzzle-desk[data-activity=travel] #desk-division{display:none}
+
+/* ── 2026-09-25 收拾（她：「列车现在整体页面乱乱的」「拼图直接全屏，头像和气泡在右上角点开开聊天框」「普通聊天没有地方折叠」）──
+   视角那一排不是药丸：它是车厢里的一条路线，三个位置是线上的三站（施工规则/tabs-not-plain-pills.md）。 */
+#view-controls{top:38px;left:16px;right:16px;gap:0;justify-content:space-between;background:none;padding:0 6px}
+#view-controls::before{content:"";position:absolute;left:24px;right:24px;top:13px;height:2px;background:#5b6f55;opacity:.45;border-radius:2px}
+#view-controls button{position:relative;flex:0 0 auto;min-height:40px;padding:22px 6px 2px;background:none!important;border:none;color:#344936;font-size:12px;text-shadow:0 1px 5px #fff,0 0 8px #fff}
+#view-controls button::before{content:"";position:absolute;left:50%;top:8px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#f6f5ea;border:2px solid #5b6f55;box-sizing:border-box}
+#view-controls button[aria-pressed=true]{color:#243a28!important;font-weight:600}
+#view-controls button[aria-pressed=true]::before{top:5px;width:16px;height:16px;margin-left:-8px;background:#466553;box-shadow:0 0 0 3px #f6f5eacc}
+#scene-info{top:10px;font-size:11.5px;color:#344936}
+/* 底栏：四件事一排，轻一点，别一格一块大牌子 */
+nav{gap:0;padding-left:8px;padding-right:8px;border-top:1px solid #d6d2bf}
+nav button{max-width:none;border:none;border-radius:8px;background:transparent;min-height:40px;font-size:13px}
+nav button:not(:last-child){box-shadow:1px 0 0 #d6d2bf}
+
+/* 拼图／旅途聊天共用的桌面 */
+#puzzle-desk .desk-body{position:relative;gap:6px;padding:6px 12px 10px}
+/* 拼图时车厢留在原地（铺满、被拼图桌挡在后面），不搬进桌面也不藏：
+   搬进来再量成 0 尺寸，回车厢那一下 WebGL 重新铺画布，整页卡住几十秒（实测 43 秒）。 */
+#desk-setup{flex-shrink:0;border:1px solid #d1c9b5;border-radius:10px;background:#f6f1e3}
+#desk-setup summary{list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:40px;padding:0 12px;cursor:pointer;font-size:13px}
+#desk-setup summary::-webkit-details-marker{display:none}
+#desk-setup .setup-hint{font-size:11px;color:#657260}
+#desk-setup[open] .setup-hint{visibility:hidden}
+#desk-setup .desk-controls{padding:0 8px 8px}
+#puzzle-desk .puzzle-viewport{flex:1;min-height:200px}
+#desk-progress{font-size:11px;color:#56644f}
+
+/* 同行者：右上角一个头像＋最后一句，点开是聊天坞 */
+#travel-window,.puzzle-viewport{position:relative}
+#desk-peer{position:absolute;top:8px;right:8px;z-index:4;display:flex;align-items:flex-start;gap:6px;max-width:min(72%,300px);padding:0;border:none;background:none;flex:0 0 auto}
+#desk-peer[hidden]{display:none!important}
+#desk-peer-say{order:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-width:0;padding:7px 10px;border-radius:12px 4px 12px 12px;background:#fffaf0f2;box-shadow:0 2px 10px #4b3c2626;font-size:12px;line-height:1.5;text-align:left;color:#344936}
+#desk-peer-say:empty{display:none}
+#desk-peer-face{order:2;flex:0 0 40px;width:40px;height:40px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#466553;color:#fff;font-size:15px;border:2px solid #fffaf0;box-shadow:0 2px 8px #4b3c2640;position:relative}
+#desk-peer-face img{width:100%;height:100%;object-fit:cover}
+#desk-peer.unread #desk-peer-face::after{content:"";position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#d0574a;border:2px solid #fffaf0}
+#puzzle-desk[data-dock=open] #desk-peer{display:none}
+#desk-dock{position:absolute;left:0;right:0;bottom:0;z-index:6;display:none;flex-direction:column;max-height:58%;background:#f4efe1;border-top:1px solid #d1c9b5;border-radius:14px 14px 0 0;box-shadow:0 -6px 20px #4b3c2622}
+#puzzle-desk[data-dock=open] #desk-dock{display:flex}
+.dock-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 0 14px;flex-shrink:0}
+.dock-head strong{font-size:13px;font-weight:500}
+.dock-head button{flex:0 0 auto;max-width:none;min-height:40px;padding:0 12px;border:none;background:none;font-size:12px;color:#56644f}
+#puzzle-desk #desk-chat{display:block;flex:1;min-height:60px;max-height:none;overflow-y:auto;padding:0 12px;overscroll-behavior:contain}
+#puzzle-desk #desk-chat:empty::before{content:"还没说话";display:block;padding:10px 0;font-size:12px;color:#8a927f}
+#puzzle-desk .desk-footer{border-top:none}
+
+/* 旅途聊天：车厢铺满，聊天坞盖在下半截，收起来就只剩头像 */
+#puzzle-desk[data-activity=travel] .desk-body{padding:0;overflow:hidden}
+#puzzle-desk[data-activity=travel] #travel-window{flex:1;min-height:0;margin:0;display:flex;flex-direction:column}
+#puzzle-desk[data-activity=travel] #travel-window #stage{flex:1;height:auto;min-height:0;border-radius:0}
+#puzzle-desk[data-activity=travel] #travel-window-caption{position:absolute;left:12px;top:8px;right:120px;padding:0;pointer-events:none;text-shadow:0 1px 5px #fff}
+#puzzle-desk[data-activity=travel] #desk-setup{display:none}
+#puzzle-desk[data-activity=travel] #desk-error{position:absolute;left:12px;right:12px;bottom:8px;z-index:5}
+#puzzle-desk #desk-chat{min-height:120px}
+#puzzle-desk[data-activity=travel] #desk-peer{top:34px}
+.zoom-controls #desk-reference[aria-pressed=true]{background:#466553;color:#fff}
+/* 矮屏（横屏）时坞不许顶出屏幕：聊天记录那一格可以缩，坞自己最高占到八成 */
+#puzzle-desk #desk-chat{min-height:0}
+#desk-dock{min-height:min(230px,80%)}
+@media(max-height:500px){#desk-dock{max-height:82%}}
+#puzzle-desk[data-activity] #desk-chat{max-height:none}
+
+/* 走动（她 2026-09-25）：跟卧铺那块同一个样子，贴在底栏上面 */
+#move-controls{position:absolute;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom) * .4);padding:8px 10px 10px;background:#f6f3e7ee;border:1px solid #c7ccb9;border-radius:12px;z-index:3}
+#move-controls header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+#move-controls header strong{font-size:13px;font-weight:500}
+#move-controls header button{flex:0 0 auto;border:none;background:none;min-height:36px;padding:0 6px;font-size:12px;color:#657260}
+.move-row{display:flex;align-items:center;gap:6px;margin-top:6px}
+.move-row span{flex:0 0 26px;font-size:12px;color:#657260}
+.move-row button{min-height:40px;font-size:12px;white-space:nowrap;padding:0 4px}

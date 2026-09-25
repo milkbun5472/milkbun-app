@@ -23,7 +23,7 @@ const aim = new T.Vector3(0, hairMode ? 1.19 : .91, 0);
 let azimuth = 0, elevation = .04, radius = hairMode ? 3.1 : 4.6;
 let traveler, body, dims, originalMaterial, hairstyles;
 let selectedStyle = config.initialHair || 'korean';
-const hairButtons = new Map(), supports = [];
+const hairButtons = new Map(), supports = [], sourceHeads = [];
 const values = {}, inputs = new Map();
 function render() {
   camera.position.set(radius * Math.sin(azimuth) * Math.cos(elevation), aim.y + radius * Math.sin(elevation), radius * Math.cos(azimuth) * Math.cos(elevation));
@@ -86,6 +86,7 @@ try {
   traveler.root.traverse(o => {
     if (o.userData.sourceBodySliders) body = o;
     if (o.userData.hairSupport) supports.push(o);
+    if (o.userData.sourceFaceOriginal) sourceHeads.push(o);
     if (hairMode && o.userData.sourceSurfacePartition === 'hair_korean') o.material.roughness = 1;
     if (o.name === 'DailyActionProps' || o.name === 'IceBlade') o.visible = false;
   });
@@ -106,6 +107,7 @@ try {
     selectedStyle = id;
     traveler.setLook({ hair: id, hairColor: '#ffffff' });
     supports.forEach(o => { o.visible = id !== 'korean'; });
+    sourceHeads.forEach(o => { o.visible = id === 'korean'; });
     hairButtons.forEach((button, key) => button.setAttribute('aria-pressed', String(key === id)));
     const item = hairstyles.find(style => style.id === id);
     document.querySelector('#current-style').textContent = `${item.code} · ${item.label}`;

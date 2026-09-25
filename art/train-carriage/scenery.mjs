@@ -1,10 +1,9 @@
 // One window texture, independently scrolling cached art layers. No external assets.
 import * as T from 'three';
-import {createDestinations,destinationState} from './destinations.mjs?v=fg-b89ee57384ffe249';
-import {journeyAt,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fg-b89ee57384ffe249';
-export const ROUTES={forest:'林间山谷',coast:'海岸灯塔',country:'田野村落'};
-export const SEASONS={spring:'春天',summer:'夏天',autumn:'秋天',winter:'冬天'};
-export const WEATHERS={clear:'晴天',cloudy:'阴天',rain:'下雨',snow:'飘雪',fog:'薄雾'};
+import {createDestinations,destinationState} from './destinations.mjs?v=fg-d827b61930e4de0b';
+import {journeyAt,visibleJourney,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fg-d827b61930e4de0b';
+import {ROUTES,SEASONS,WEATHERS} from './environment.mjs?v=fg-d827b61930e4de0b';
+export {ROUTES,SEASONS,WEATHERS};
 const TAU=Math.PI*2,mod=(a,b)=>((a%b)+b)%b,clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const stops=[
  [0,['#15243e','#54647c','#56617b','#354d62','#293e4b','#1c3038','#202f38']],
@@ -168,7 +167,7 @@ export function createWindowScenery(scene,{mobile=innerWidth<650,reducedMotion=m
   drawClouds(p);
   const blend=clamp(state.routeBlend||0,0,1), nextRoute=state.nextRoute;
   if(blend&&ROUTES[nextRoute]){const k=nextRoute+'/'+key;if(incomingKey!==k){const route=state.route;state.route=nextRoute;rebuild(p,incoming);state.route=route;incomingKey=k;}}
-  const journey=blend?{id:'open',label:'沿途',progress:0,clearing:0,tunnel:0}:journeyAt(state.route,state.eventDistance??state.distance),destination=destinationState(state.route,journey);
+  const journey=visibleJourney(state),destination=destinationState(state.route,journey);
   layers.forEach((layer,i)=>{
    const x=-mod(state.distance*layer.speed,1600);ctx.save();
    ctx.globalAlpha=(1-destination.reveal)*(i===3?1-journey.clearing:1);

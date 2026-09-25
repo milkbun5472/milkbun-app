@@ -141,8 +141,10 @@ test("点数不够就一点都不扣", () => {
 
 // 一段相处才给：两个入口都要接上（聊天 + 线下）
 test("两个入口都在给点数", () => {
-  assert.match(app, /gachaEarn\(activeChar\.id, "chat"\); pushUser\(/, "单聊没给");
-  assert.match(app, /gachaEarn\(offlineChar\.id, "offline"\); offlineSend\(/, "线下没给");
+  // 2026-09-25 书房直通改道后 onSend 拆成了多行：只钉「同一个 onSend 里先 gachaEarn 后上屏」这层语义，
+  // 不再钉单行排版（anchor-on-code：排版会变，调用顺序才是要守的东西）。
+  assert.match(app, /gachaEarn\(activeChar\.id, "chat"\);\s*\n?\s*pushUser\(/, "单聊没给");
+  assert.match(app, /gachaEarn\(offlineChar\.id, "offline"\);\s*\n?\s*offlineSend\(/, "线下没给");
 });
 
 // 施工规则/no-half-sheet.md：新界面一律整页
