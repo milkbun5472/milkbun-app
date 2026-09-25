@@ -26,3 +26,14 @@
   4. 刘海以头顶为支点往上收（`FRINGE_K`，0.74），露出眼睛，头顶和后脑不动。
 - 带头发时表情整体下移：`FACE_CZ=0.85`（光头时 0.87）。
 - `doll-m02.glb` / `m02-views.png`：默认表情 + M02 的成品。
+
+## 发型＝帽子（2026-09-25 起的架构，言秋提议）
+
+发型永远不进本体模型。本体只做一次，头顶留一个固定帽托；每个发型是独立的小文件，运行时挂到帽托上，换发型＝换文件。
+
+- `head-anchor.json`：帽托。`fit_anchor.py` 对光头头顶（z > 0.93）做最小二乘球面拟合：圆心 (−0.0007, 0.0252, 0.9307)，半径 0.2143 m，残差 RMS 2 mm。
+- `doll-anchored.glb`：本体 + 空节点 `HeadAnchor`（位置＝圆心，缩放＝半径）。`add_anchor.py` 生成。
+- `hats/hair_<id>.glb`：发型挂件，坐标在 `HeadAnchor` 的本地空间（原点＝头骨圆心，1＝头骨半径）。只有头发网格，没有身体。
+  `ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py <混元戴发型玩偶>.glb <本体>.glb hats/hair_<id>.glb`
+- `hat-preview.html`：three.js 预览，`anchor.add(hat)` 即戴上，可切光头／M02、拖动旋转。截图 `hat-preview.png`。
+- 待办：挂件贴图还是 4K×3（25 MB），接入手机前降到 1K；app 侧把 `HeadAnchor` 接到头部节点（体型拉条的「头」缩放作用在这个节点上，发型自动跟随）。

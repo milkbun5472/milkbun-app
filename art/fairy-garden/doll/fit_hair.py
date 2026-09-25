@@ -1,5 +1,5 @@
 """Cut the hair out of a Hunyuan 'doll wearing hairstyle' model and fit it
-# Usage: FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb out.glb
+# Hat:  ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb hats/hair_x.glb
 onto our bald doll. Hair = faces whose texels are dark brown, away from the
 eyes. Alignment uses the two ears (both dolls share the same bald head)."""
 import bpy,sys,bmesh,numpy as np
@@ -132,6 +132,16 @@ bmesh.ops.delete(bm,geom=kill,context='FACES')
 print('cleared over eyes',len(kill))
 bm.to_mesh(H.data);bm.free();H.name='hair_m02'
 print('islands dropped',len(small))
+# Hat mode: write the hair alone, in head-anchor space (origin = skull centre,
+# unit = skull radius). The body is never part of this file.
+if os.environ.get('ANCHOR'):
+    import json
+    A=json.load(open(os.environ['ANCHOR']));Cc=np.array(A['center']);Rr=A['radius']
+    for v in H.data.vertices:v.co=((np.array(v.co)-Cc)/Rr).tolist()
+    H.data.update();H['hairAnchorSpace']='origin=skull centre, unit=skull radius'
+    bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
+    print('hat written');sys.exit(0)
 bpy.ops.object.select_all(action='DESELECT')
 for o in ((H,) if 'HAIR_ONLY' in __import__('os').environ else (H,D)):o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
