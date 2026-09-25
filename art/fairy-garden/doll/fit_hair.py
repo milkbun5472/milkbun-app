@@ -232,10 +232,10 @@ if os.environ.get('ANCHOR'):
         x,y,z=p/np.linalg.norm(p)
         # Front: covered down to the fringe roots so the part line is closed;
         # the face below stays bare.
-        face=y<-.30 and z<(.22 if abs(x)<.22 else .50)
+        face=y<-.30 and z<(.22 if abs(x)<.22 else .02)
         if face:return False
         if y>.05:return z>-.85                 # back: down to the nape
-        return z>-.05
+        return z>-.28
     keep=[k for k,f in enumerate(fs) if all(ok(V[q]) for q in f)]
     cap.from_pydata(V.tolist(),[],[fs[k] for k in keep]);cap.update()
     import bmesh as _b;bb=_b.new();bb.from_mesh(cap);_b.ops.remove_doubles(bb,verts=bb.verts,dist=1e-6)
