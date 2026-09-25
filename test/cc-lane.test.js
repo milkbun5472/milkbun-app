@@ -41,3 +41,19 @@ assert.ok(ct.includes('ccLane.direct ? "直连" : "书房"'), "composer 上有�
 assert.ok(read("index.html").includes("js/cc-lane.js"), "index.html 加载 cc-lane.js");
 
 console.log("cc-lane 车道测试全绿");
+
+// 回声气泡去重（她 2026-09-25 报「我的气泡被带回来一次」）：
+// 本地原生 user 气泡 + 账本回流同文 Lisa 行 = 只留一只。
+{
+  delete require.cache[require.resolve("../js/chat-ledger-shadow.js")];
+  const { reconcileIncoming } = require("../js/chat-ledger-shadow.js");
+  const local = [{ role: "user", content: "来吧宝宝！", ts: Date.now() - 60000, read: true }];
+  const row = t => ({ id: "r1", message_key: "cc-live:x:lisa", char_id: "c1", source: "cc", speaker_type: "lisa",
+    content: t, occurred_at: new Date().toISOString(), revision: 1, metadata: { sync_kind: "life" } });
+  const echo = reconcileIncoming(local.slice(), [row("来吧宝宝！")], "c1");
+  assert.strictEqual(echo.added, 0, "同文回声不再添气泡");
+  assert.strictEqual(echo.skipped, 1, "回声按 skipped 记账");
+  const fresh = reconcileIncoming(local.slice(), [row("另一句新话")], "c1");
+  assert.strictEqual(fresh.added, 1, "真新话照常导入");
+}
+console.log("回声去重测试全绿");
