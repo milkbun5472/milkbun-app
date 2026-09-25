@@ -297,7 +297,16 @@
               h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
         })) : null,
       h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
-        onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }));
+        onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }),
+      // 发色花样：单色 / 渐变 / 拼色 / 挑染，后三种多一个副色（名单在 wardrobe.mjs 的 HAIR_MODES）
+      (() => { const d = game() && game().getDyes ? game().getDyes(who) : null, mode = (d && d.hairMode) || "solid";
+        const modes = (game() && game().hairModes) || [];
+        return h(React.Fragment, null,
+          modes.length ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, margin: "4px 0 14px" } },
+            modes.map(([id, label]) => h("button", { key: id, "aria-pressed": mode === id, onClick: () => pushLook({ hairMode: id }), className: "active:opacity-70",
+              style: { minHeight: 40, borderRadius: 12, border: "1px solid " + (mode === id ? G.deep : G.line), background: mode === id ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, label))) : null,
+          mode !== "solid" ? h(DyeControl, { key: who + "hair2", label: mode === "gradient" ? "发尾颜色" : mode === "split" ? "另一半颜色" : "挑染颜色",
+            value: d ? d.hairColor2 : null, onChange: hairColor2 => pushLook({ hairColor2 }), palette: HAIR_COLORS.concat(["#e6b5ce", "#9fb8d8", "#f0e0b8"]) }) : null); })());
   }
   function DyeControl({label, value, onChange, palette}) {
     const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";

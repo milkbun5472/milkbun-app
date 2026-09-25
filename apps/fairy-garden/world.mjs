@@ -1,6 +1,6 @@
 import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-072f983e167b0af0';
 import {validImage} from '../train/album.mjs?v=fg-072f983e167b0af0';
-import {KNOWN_OUTFITS,restoreWardrobe} from './wardrobe.mjs?v=fg-072f983e167b0af0';
+import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-072f983e167b0af0';
 import {brewError,brewResult} from './brewing.mjs?v=fg-072f983e167b0af0';
 import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-072f983e167b0af0';
 import './rules.js?v=fg-072f983e167b0af0';
@@ -66,7 +66,8 @@ const count=(v,max=999999)=>Math.max(0,Math.min(max,Number.isFinite(Number(v))?M
 export function restoreLook(raw){
  const d=raw&&typeof raw==='object'?raw:{},out={};
  if(typeof d.hair==='string'&&/^[a-z]{2,16}$/.test(d.hair))out.hair=d.hair;
- for(const k of ['hairColor','cloth','skin'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
+ for(const k of ['hairColor','hairColor2','cloth','skin'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
+ if(HAIR_MODES.some(m=>m[0]===d.hairMode))out.hairMode=d.hairMode;
  if(KNOWN_OUTFITS.includes(d.outfit))out.outfit=d.outfit;
  const wardrobe=restoreWardrobe(d.wardrobe);if(Object.keys(wardrobe).length)out.wardrobe=wardrobe;
  if(d.dims&&typeof d.dims==='object'){const dims={};

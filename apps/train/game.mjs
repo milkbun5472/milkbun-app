@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-072f983e167b0af0';
 import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-072f983e167b0af0';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId} from '../fairy-garden/wardrobe.mjs?v=fg-072f983e167b0af0';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-072f983e167b0af0';
 import {createPassengers} from './passengers.mjs?v=fg-072f983e167b0af0';
 import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-072f983e167b0af0';
 import {createTravelCamera} from './camera-view.mjs?v=fg-072f983e167b0af0';
@@ -63,7 +63,8 @@ document.querySelector('#rest-together').onclick=()=>{try{setRest('both',true);}
   companionMove:spot=>['seat','stand','rack','berth'].includes(spot)&&!cameraUI?.isOpen&&!(desk?.isOpen&&desk.activity!=='travel')?moveTo('companion',spot,true):false,
   wanderNow:()=>wander(performance.now(),true),
   getLook:()=>({me:{...lookOf('me')},companion:{...lookOf('companion')}}),
-  getDyes:who=>{const l=lookOf(who),d=who==='me'?DEFAULT_LOOK:COMPANION_LOOK;return {skin:l.skin||d.skin,hairColor:l.hairColor||d.hairColor};},
+  hairModes:HAIR_MODES,
+  getDyes:who=>dyesOf(lookOf(who),who==='me'?DEFAULT_LOOK:COMPANION_LOOK),
   getHair:who=>hairId(lookOf(who).hair||(who==='me'?DEFAULT_LOOK:COMPANION_LOOK).hair),
   getOutfit:who=>{const l=lookOf(who);return {id:outfitId(l),colors:outfitColors({...(who==='me'?DEFAULT_LOOK:COMPANION_LOOK),...l})};},
   setLook:(who,patch)=>{if(!view||!patch||(who!=='me'&&who!=='companion'))return false;const before=state;state={...state,looks:{...(state.looks||{}),[who]:mergeLook(lookOf(who),patch)}};if(!flush()){state=before;return false;}passengers?.people.find(p=>p.who===who)?.avatar.setLook(patch);return true;},

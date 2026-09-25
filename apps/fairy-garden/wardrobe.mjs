@@ -7,6 +7,13 @@ export const COMPANION_LOOK={skin:DEFAULT_SKIN,hair:'airbang',hairColor:'#5b4436
 // 旧存档里其余的发型／衣服 ID 在这【一处】换成最接近的新款——存档本身不改，以后补回同名款式就自动认回去。
 export const HAIR_ALIAS={wolf:'korean',mullet:'curtains',comma:'curtains',pixie:'korean',hush:'bob',wavy:'airbang',bun:'bob',ponytail:'airbang'};
 export const hairId=h=>HAIR_ALIAS[h]||h;
+// 发色花样（她 2026-09-25 要的渐变和拼色）：solid 单色 / gradient 上下渐变（发根主色→发尾副色）/
+// split 左右拼色 / streak 挑染（一缕缕副色）。副色没选过时和主色同色，于是任何模式都等于单色、不会突然变样。
+export const HAIR_MODES=[['solid','单色'],['gradient','渐变'],['split','拼色'],['streak','挑染']];
+const HAIR_MODE_IDS=HAIR_MODES.map(m=>m[0]);
+export const hairModeOf=look=>HAIR_MODE_IDS.includes(look?.hairMode)?look.hairMode:'solid';
+// 庭院和列车的 getDyes 都问这一处（以前两边各写一份，只有发色一个字段时还看不出来）。
+export function dyesOf(look={},defaults={}){const hairColor=look.hairColor||defaults.hairColor;return {skin:look.skin||defaults.skin,hairColor,hairColor2:look.hairColor2||hairColor,hairMode:hairModeOf(look)};}
 // 旧衣柜的六套 ID 和四个色槽：模型里暂时没有它们，但存档里的选择和配色【照留】，
 // 不然读档体检一过就把她调过的色静默丢了（world.restoreLook 只认这里认得的 ID）。
 const LEGACY_OUTFITS=['traveler','academy','garden','alchemist','ranger','cardigan'],LEGACY_SLOTS=['cloth','trim','bottom','boots'];

@@ -12,3 +12,12 @@ test('outfit changes keep each palette and all body sliders through save and res
  assert.deepEqual(s.look.dims,{height:1.2,waist:.9});assert.deepEqual(s.neighbors[0].look,s.look);assert.equal(s.look.skin,'#f8dfcc');assert.equal(s.look.hairColor,'#e6b5ce');
 });
 test('bad imported colors and outfits do not enter the saved wardrobe',()=>{assert.deepEqual(restoreLook({outfit:'unknown',wardrobe:{garden:{cloth:'red',boots:'#aabbcc',unknown:'#112233'},unknown:{cloth:'#abcdef'}}}),{wardrobe:{garden:{boots:'#aabbcc'}}});assert.deepEqual(Object.keys(OUTFITS),['academy']);});
+test('hair gradient / split / streak survive save and default to plain colour',async()=>{
+ const {dyesOf,HAIR_MODES}=await import('./wardrobe.mjs');
+ assert.deepEqual(HAIR_MODES.map(m=>m[0]),['solid','gradient','split','streak']);
+ // 照 setLook→mergeLook 写进存档的样子
+ const look=mergeLook({hairColor:'#4a3629'},{hairMode:'gradient',hairColor2:'#e6b5ce'});
+ assert.deepEqual(restoreLook(JSON.parse(JSON.stringify(look))),{hairColor:'#4a3629',hairColor2:'#e6b5ce',hairMode:'gradient'});
+ assert.deepEqual(restoreLook({hairMode:'rainbow',hairColor2:'pink'}),{});
+ const d=dyesOf({hairColor:'#112233'},{skin:'#f2cbb4'});assert.equal(d.hairMode,'solid');assert.equal(d.hairColor2,'#112233');
+});
