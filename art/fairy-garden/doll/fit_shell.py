@@ -29,6 +29,17 @@ AJ=json.load(open(anc));inner=float(os.environ.get('INNER',1.02))
 k=inner/R            # anchor units: skull radius = 1
 off=np.array([0,float(os.environ.get('DY',0)),float(os.environ.get('DZ',0))])
 for v in H.data.vertices:v.co=((np.array(v.co)-C)*k+off).tolist()
+# Back-only depth compression (anchor units, +y = back). Starts at Y0 just
+# behind the ears and grows toward the back; front, top and sides untouched.
+BK=float(os.environ.get('BACK_K',0))
+if BK:
+    Y0=float(os.environ.get('BACK_Y0',.10))
+    ys=np.array([v.co.y for v in H.data.vertices]);ym=ys.max()
+    for v in H.data.vertices:
+        if v.co.y>Y0:
+            t_=(v.co.y-Y0)/(ym-Y0)
+            v.co.y=v.co.y-BK*(v.co.y-Y0)*t_      # quadratic: 0 slope at Y0, full K at the very back
+    print('back compressed',BK)
 H.data.update();H.name='hair'
 bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
