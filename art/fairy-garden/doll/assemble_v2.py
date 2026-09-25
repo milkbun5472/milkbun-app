@@ -30,13 +30,15 @@ def deform(P,arm,key,outfit):
     x,y,z=P[:,0],P[:,1],P[:,2];D=np.zeros_like(P);head=ss((z-.70)/.06);sx=np.sign(x)
     if key=='height':D[:,2]=.25*ss(z/.30)
     elif key=='shoulder':
-        tors=.5*ss((z-.50)/.18)*(1-head);D[:,0]=arm*sx*.072+(1-arm)*x*tors
+        # the shoulder cap moves sideways as one piece with the arm (scaling it squashed the slope: 'no shoulders')
+        cap=ss((z-.50)/.12)*(1-head)*ss((np.abs(x)-.04)/.08);D[:,0]=sx*.072*np.maximum(arm,cap)
     elif key=='waist':
         w=np.clip(1-np.abs(z-.50)/.15,0,1)*(1-arm);D[:,0]=x*.8*w;D[:,1]=y*.5*w
     elif key=='flare':
         if outfit:w=ss((.45-z)/.25)*(1-arm)*(z>.30);D[:,0]=x*.9*w;D[:,1]=y*.6*w
     elif key=='build':
-        b=1-head;D[:,0]=x*.6*b;D[:,1]=y*.55*b
+        # rounder / lighter body, but the shoulder line keeps its width (the arms only follow the chest a little)
+        b=(1-head)*(1-.7*ss((z-.55)/.10));D[:,0]=np.where(arm>.5,sx*.165*.6*.3,x*.6*b);D[:,1]=y*.55*b*(1-arm)
     elif key=='head':
         D=(P-HC)*head[:,None]*1.0
     return D
