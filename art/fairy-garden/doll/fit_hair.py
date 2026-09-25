@@ -1,5 +1,5 @@
 """Cut the hair out of a Hunyuan 'doll wearing hairstyle' model and fit it
-# Hat:  HAIR_SCALE=1.03 FILL_N=0 ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb hats/hair_x.glb
+# Hat:  [SKIN_R=.62 TAN_L=.34] HAIR_SCALE=1.03 FILL_N=0 ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py src.glb doll-face.glb hats/hair_x.glb
 onto our bald doll. Hair = faces whose texels are dark brown, away from the
 eyes. Alignment uses the two ears (both dolls share the same bald head)."""
 import os
@@ -32,7 +32,7 @@ print('hair faces',hair.sum(),'of',len(fc))
 skin_v=np.zeros(len(Hp),bool)
 for p in H.data.polygons:
     c=hc[p.index]
-    if c[0]>.62 and c[0]-c[2]>.12:skin_v[list(p.vertices)]=True
+    if c[0]>float(os.environ.get('SKIN_R',.62)) and c[0]-c[2]>.12:skin_v[list(p.vertices)]=True
 def lower_head(P,mask):
     q=P[mask&(P[:,2]>.64)&(P[:,2]<.80)]
     return q
@@ -62,7 +62,8 @@ for i,c in enumerate(fc):
     loc,n,idx,d=tree.find_nearest(Vector(c))
     dist[i]=d*(1 if (Vector(c)-loc).dot(n)>0 else -1)
 # Skin is bright peach; hair, highlights included, is grey-brown.
-skinlike=(hc[:,0]>.62)&(hc[:,0]-hc[:,2]>.12)
+SKIN_R=float(os.environ.get('SKIN_R',.62))   # red level above which a texel is skin (tune per hair colour)
+skinlike=(hc[:,0]>SKIN_R)&(hc[:,0]-hc[:,2]>.12)
 # Source eyes are pits (behind our face); fringe tips hang in front of them.
 eye=eye&(dist<.003)
 # The source's own eye pits float a little in front of our face: drop anything
@@ -75,7 +76,7 @@ facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
 # (its bright highlights must not punch bald spots).
 exposed=(fc[:,1]<.0)|(np.abs(fc[:,0])>.19)
 # Skin-coloured scraps anywhere (crown slivers, ear bits) go too.
-skinish=(hc[:,0]>.55)&(hc[:,0]-hc[:,2]>.10)&(lum>.45)
+skinish=(hc[:,0]>SKIN_R-.07)&(hc[:,0]-hc[:,2]>.10)&(lum>.45)
 hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<.006))
 # Under the jaw the source's own chin and neck are in shadow and read as
 # non-skin; drop anything hugging our skin there (front half only; the nape
@@ -85,7 +86,7 @@ hair&=~jaw
 print('jaw scraps removed',int(jaw.sum()))
 # Around the ears and jaw, light tan faces are the source's shaded ear and
 # cheek skin; real hair there is darker.
-tan=(lum>.34)&(fc[:,2]<.86)&(fc[:,1]<.08)&(np.abs(fc[:,0])>.12)
+tan=(lum>float(os.environ.get('TAN_L',.34)))&(fc[:,2]<.86)&(fc[:,1]<.08)&(np.abs(fc[:,0])>.12)
 hair&=~tan
 print('tan scraps removed',int(tan.sum()))
 print('by colour',hair.sum())
