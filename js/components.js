@@ -8527,6 +8527,10 @@ function ChatThread({
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
+    // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
+    if (m.kind === "watchlog") return h(SysNote, { key: i, label: "一起看",
+      text: (m.content || ("一起看《" + (m.title || "") + "》")) + ((m.lines || []).length ? " · 边看边说了 " + m.lines.length + " 句" : ""),
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,

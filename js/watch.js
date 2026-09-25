@@ -25,6 +25,18 @@
     amber: "#e8b566", amberInk: "#2a2016", red: "#d06a5c"
   };
 
+  // 看完一段回到单聊，那边的TA知道「我们刚一起看了一会儿」（她 2026-09-25：「加吧」）。
+  //   单聊里落一条 watchlog；喂给模型的这一句只写在这儿——单聊回话、recentChat、聊天卡片三处都调它
+  //   （施工规则/one-public-mechanism.md）。
+  // ⚠️只交接【看到哪、最后那几句原话】，不是摘要也不是记忆：那还是「记住」那条路的事。
+  function watchLogText(m, uName, cName) {
+    const u = uName || "她", c = cName || "你";
+    const span = clock(m.from || 0) + " 看到 " + clock(m.to || 0) + (m.done ? "（看完了）" : "（还没看完）");
+    const said = (m.lines || []).map(function (x) { return (x.who === "user" ? u : c) + "：" + String(x.text || ""); }).join("\n");
+    return "【你们俩在「一起看」里并排看了一会儿电影《" + (m.title || "一部片子") + "》：从 " + span + "。这件事发生在这个位置，现在回到了聊天】"
+      + (said ? "\n【当时边看边说的最后几句·原话】\n" + said : "");
+  }
+  window.watchLogText = watchLogText;
   function loadFilms() { const v = loadJSON(KEY, []); return Array.isArray(v) ? v : []; }
   function saveFilms(list) { return saveJSON(KEY, list); }
   function patchFilm(id, fn) {
@@ -292,6 +304,7 @@
     const [toolsOpen, setToolsOpen] = useState(false);
     const [playErr, setPlayErr] = useState(false), [cinema, setCinema] = useState(false), [cinemaSay, setCinemaSay] = useState(false), [, setTick] = useState(0);
     const shellRef = useRef(null), foldingRef = useRef(false), fsRef = useRef(false);
+    const visit = useRef({ at: Date.now(), from: film ? film.pos || 0 : 0 });
     const [every, setEvery] = useState(() => { const n = Number(loadJSON("x_watch_auto_every", AUTO_DEFAULT)); return n >= AUTO_MIN && n <= AUTO_MAX ? n : AUTO_DEFAULT; });
     const vRef = useRef(null), listRef = useRef(null), lastAuto = useRef(0), lastSave = useRef(0), busyRef = useRef(false);
     const cuesRef = useRef([]), inbandSave = useRef(0);
@@ -432,7 +445,22 @@
       } catch (e) { props.toast && props.toast("没记上：" + ((e && e.message) || "")); }
     }, "记下来");
     if (!film) return shell(h(Head, { zh: "一起看", onBack: props.onBack, bg: "transparent", ink: W.ink }), h("p", { style: { padding: 20, color: W.sub } }, "这部片子找不到了。"));
-    const head = h(Head, { zh: film.title || "一起看", sub: partner ? "和 " + (partner.remark || partner.name) + " 一起看" : "", onBack: () => { savePos(true); props.onBack(); }, bg: "transparent", ink: W.ink,
+    // 离场：这一趟真看了（往前放过一分钟）或真说过话，就往单聊里落一条交接
+    const leave = () => {
+      savePos(true);
+      try {
+        const f = loadFilms().find(x => x.id === id);
+        const rows = ((f && f.talk) || []).filter(r => (r.ts || 0) >= visit.current.at && r.content).slice(-10);
+        const to = (f && f.pos) || 0, from = visit.current.from || 0;
+        if (f && partner && props.onHandoff && (rows.length || to - from >= 60)) {
+          props.onHandoff(partner.id, { role: "system", kind: "watchlog", filmId: id, title: f.title, from: from, to: to,
+            done: !!(f.duration && to >= f.duration - 30), lines: rows.map(r => ({ who: r.role === "user" ? "user" : "assistant", text: r.content, at: r.at })),
+            content: "一起看《" + (f.title || "") + "》" + clock(from) + " → " + clock(to), ts: Date.now() });
+        }
+      } catch (e) {}
+      props.onBack();
+    };
+    const head = h(Head, { zh: film.title || "一起看", sub: partner ? "和 " + (partner.remark || partner.name) + " 一起看" : "", onBack: leave, bg: "transparent", ink: W.ink,
       onTitleTap: () => renameFilm(film, refresh),
       right: partner && (film.talk || []).length ? h("button", { onClick: remember, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: 13, color: W.amber } }, "记住") : null });
     if (!partner) return shell(head, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, h(PickPartner, { characters: props.characters, onPick: cid => { patchFilm(id, () => ({ partnerId: cid })); refresh(); } })));

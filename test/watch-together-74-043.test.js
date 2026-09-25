@@ -91,4 +91,19 @@ assert.match(src, /function CinemaLayer\(p\)/);
 assert.match(src, /pointerEvents: "none"/);
 assert.match(src, /el\.requestFullscreen\(\)/);
 assert.match(src, /"aria-label": "退出影院模式"/);
+// 15. 看完回单聊落一条交接：话术只一处（watchLogText），单聊回话、recentChat、卡片三处都用它
+assert.match(src, /function watchLogText\(m, uName, cName\)/);
+assert.match(src, /window\.watchLogText = watchLogText;/);
+assert.match(src, /if \(f && partner && props\.onHandoff && \(rows\.length \|\| to - from >= 60\)\)/, "没看也没说也落了一条");
+assert.match(app, /onHandoff: \(charId, entry\) => pChat\(charId, p => \{/);
+assert.match(app, /last\.kind === "watchlog" && last\.filmId === entry\.filmId && Date\.now\(\) - \(last\.ts \|\| 0\) < 30 \* 60000/, "进进出出会刷一串");
+assert.ok((app.match(/watchLogText\(m, uName, char\.name\)/g) || []).length >= 2, "单聊回话和 recentChat 两路没都接上");
+assert.match(cmp, /if \(m\.kind === "watchlog"\) return h\(SysNote, \{ key: i, label: "一起看",/);
+// 行为：话术里有片名、起止、原话；没说话也成立
+const k = src.indexOf("function watchLogText("), k2 = src.indexOf("window.watchLogText", k);
+const c2 = { clock: ctx.clock }; vm.createContext(c2);
+vm.runInContext(src.slice(k, k2) + ";this.f=watchLogText;", c2);
+const t1 = c2.f({ title: "海边", from: 12, to: 2730, done: false, lines: [{ who: "user", text: "好熟" }, { who: "assistant", text: "嗯" }] }, "Lisa", "沈屿白");
+assert.ok(/《海边》/.test(t1) && /0:12 看到 45:30（还没看完）/.test(t1) && /Lisa：好熟/.test(t1) && /沈屿白：嗯/.test(t1));
+assert.ok(!/原话/.test(c2.f({ title: "x", from: 0, to: 100, lines: [] }, "L", "S")), "没说话还挂了个空的原话块");
 console.log("ok watch-together");

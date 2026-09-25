@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.053";
+const APP_VERSION = "v74.054";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5981,6 +5981,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   小结正是为这件事生成的（endCall 那头已经在写了）。
         // 通话开始/结束那两条标记行是【行本身】，不挂「谁：」
         const line = m._callMark ? m._callMark
+          : (m.kind === "watchlog") ? (typeof watchLogText === "function" ? watchLogText(m, uName, char.name) : String(m.content || ""))
           // 没存下转录的老通话（expandCall 摊不开）：退回小结那一行
           : (m.kind === "callend")
           ? "【" + (m.callMode === "video" ? "视频通话" : "语音通话") + "·刚打完】"
@@ -9727,6 +9728,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (m.ccToolResult === true) {
           const payload = JSON.stringify(m.ccToolResultData == null ? null : m.ccToolResultData).slice(0, 16000);
           g.push({ role: "user", content: stp + "【你刚才从唯一固定 CC 窗口请求的只读工具结果｜不是 Lisa 的台词】\n" + payload + "\n【请以你本人身份消化结果后自然接着回复 Lisa；不要复述协议字段、job id、session id 或租约。】" });
+          continue;
+        }
+        if (m.kind === "watchlog") {
+          // 一起看的交接：同线下归档，作为「这个位置发生过的事」注入（话术只写在 watch.js 的 watchLogText）
+          g.push({ role: "user", content: stp + (typeof watchLogText === "function" ? watchLogText(m, uName, char.name) : m.content) });
           continue;
         }
         if (m.kind === "offlinelog") {
@@ -24206,6 +24212,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onAddMemory: (text, charId) => keepWhereItHappened({
       text: text, charIds: charId ? [charId] : [],
       entry: { source: "watch", tags: ["一起看"] }
+    }),
+    // 看完一段回单聊落一条交接（她 2026-09-25）。半小时内又进去接着看、再出来，就并进上一条，别刷一串
+    onHandoff: (charId, entry) => pChat(charId, p => {
+      const last = p[p.length - 1];
+      if (last && last.kind === "watchlog" && last.filmId === entry.filmId && Date.now() - (last.ts || 0) < 30 * 60000) {
+        return p.slice(0, -1).concat([{ ...entry, from: Math.min(last.from || 0, entry.from || 0), lines: (last.lines || []).concat(entry.lines || []).slice(-10),
+          content: "一起看《" + (entry.title || "") + "》" + (window.WatchKit ? window.WatchKit.clock(Math.min(last.from || 0, entry.from || 0)) + " → " + window.WatchKit.clock(entry.to || 0) : "") }]);
+      }
+      return [...p, entry];
     }),
     onBack: () => setScreen("home")
   });else if (screen === "debate") body = h(Debate, {
