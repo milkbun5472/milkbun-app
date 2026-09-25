@@ -100,6 +100,8 @@ if NR:
     rr=np.hypot(fc[:,0],fc[:,1]-.01)
     ring=(fc[:,2]>float(os.environ.get('NECK_LO',.70)))&(fc[:,2]<.79)&(rr<NR)
     hair&=~ring;print('neck ring removed',int(ring.sum()))
+    fr=(fc[:,1]<.02)&(fc[:,2]>.60)&(fc[:,2]<=.70)&(rr<.11)
+    hair&=~fr;print('front neck patch removed',int(fr.sum()))
 MARK=bool(os.environ.get('MARK_ONLY'))
 guess|=jaw&hair
 if not MARK and not os.environ.get('JAW_OFF'):hair&=~jaw
