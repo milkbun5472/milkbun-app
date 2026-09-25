@@ -14,3 +14,7 @@ test('场景里点相框交给宿主；TA 自己走动、聊天里说去哪就�
 test('列车开关：自己开口可关、念出来和庭院同一个开关、同一套念法',()=>{const pv=readFileSync(new URL('./puzzle-view.mjs',import.meta.url),'utf8'),ps=readFileSync(new URL('./passengers.mjs',import.meta.url),'utf8'),host=readFileSync(new URL('../../js/fairy-garden.js',import.meta.url),'utf8');
  assert.match(pv,/if\(auto\)\{try\{if\(localStorage\.getItem\('x_trainAutoTalk'\)==='0'\)return;/);assert.match(ps,/x_fairyGardenVoice/);assert.match(ps,/host\.readAloud\(/);
  assert.equal((host.match(/ttsSpeak\(/g)||[]).length,1,'only one place synthesizes');assert.equal((host.match(/\.bridge\(/g)||[]).length,2,'garden and train share makeAloud');});
+test('v74.078：坐在坐垫上、到了不转背影、躺下回桌边都走过去、改外貌有预览、进站动画',()=>{const ps=readFileSync(new URL('./passengers.mjs',import.meta.url),'utf8'),tg=readFileSync(new URL('./game.mjs',import.meta.url),'utf8'),gm=readFileSync(new URL('../fairy-garden/game.mjs',import.meta.url),'utf8');
+ assert.match(ps,/height:p\.seat\.y-\.02/);assert.ok(!ps.includes('yaw:Math.PI'),'no auto turning to the back');assert.match(ps,/go\(p\.who,'seat'\)/);
+ assert.match(tg,/else moveTo\(who==='you'\?'me':'companion','berth'\)/);assert.match(tg,/preview:who=>setPreview\(who\)/);
+ assert.match(gm,/arrival\.play\(\)\.then/);assert.match(gm,/'travel','board-train'/);});

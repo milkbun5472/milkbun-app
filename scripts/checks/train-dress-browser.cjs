@@ -5,12 +5,12 @@ await p.evaluate(async()=>{const {freshState}=await import('./apps/fairy-garden/
  ReactDOM.createRoot(el).render(React.createElement(FairyGardenApp,{characters:[{id:'first',name:'同行者甲'}],initialWorld:'train',toast:()=>{},onBack:()=>{}}));});
 const root=p.locator('#dress-root');await root.getByRole('button',{name:/换装档/}).click();await p.waitForFunction(()=>document.querySelector('#dress-root iframe')?.contentWindow.TrainGame?.ready);
 await root.getByRole('button',{name:'设置',exact:true}).click();await root.getByRole('button',{name:'改外貌',exact:true}).click();await root.locator('[data-train-dress]').waitFor();
-const g=()=>p.evaluate(()=>document.querySelector('#dress-root iframe').contentWindow.TrainGame.getLook());
+const f=p.frames().find(x=>x.url().includes('/apps/train/'));const g=()=>p.evaluate(()=>document.querySelector('#dress-root iframe').contentWindow.TrainGame.getLook());
 assert.equal((await g()).me.hair,'korean','falls back to the garden look');
 await root.getByRole('button',{name:'我',exact:true}).click();await root.locator('[aria-label="衣柜"] button').nth(1).click();
 const look=await g();assert.ok(look.me.outfit,'outfit saved');assert.equal(look.me.hair,'korean');
 const saved=await p.evaluate(()=>loadJSON('x_fairyGarden:dress-test').worlds.train.looks.me.outfit);assert.equal(saved,look.me.outfit);
 assert.equal(await p.evaluate(()=>loadJSON('x_fairyGarden:dress-test').worlds.garden.look.outfit),undefined,'garden look untouched');
-const box=await root.locator('[data-train-dress]').boundingBox();assert.ok(box.y>200&&box.y+box.height<=845);
-await root.getByRole('button',{name:'收起改外貌'}).click();assert.equal(await root.locator('[data-train-dress]').count(),0);
+await p.waitForTimeout(1500);await p.screenshot({path:'/tmp/train-dress-preview.png'});assert.equal(await f.evaluate(()=>document.body.classList.contains('previewing')),true,'preview on');const box=await root.locator('[data-train-dress]').boundingBox();assert.ok(box.y>200&&box.y+box.height<=845);
+await root.getByRole('button',{name:'收起改外貌'}).click();assert.equal(await root.locator('[data-train-dress]').count(),0);assert.equal(await f.evaluate(()=>document.body.classList.contains('previewing')),false,'preview off');
 assert.deepEqual(errors,[]);console.log('PASS train dress: garden fallback, outfit saved to train only, sheet leaves carriage visible, closes');}finally{await b.close();}})().catch(e=>{console.error(e);process.exit(1)});
