@@ -23,3 +23,4 @@
 `python3 fit_shell.py hunyuan-m01-shell.glb v2/head-anchor.json v2/hats/hair_m01.glb`
 
 以后每款发型都建议这样生成（M02、M03 也换成壳）。
+- M02 已换成头发壳（`hunyuan-m02-shell.glb`）：`INNER=.95 DZ=-.40`（空腔球心偏高，要往下挪才包住后脑）。旧的「从玩偶切头发」版本在 git 历史里。
