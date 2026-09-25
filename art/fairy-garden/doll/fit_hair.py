@@ -1,5 +1,5 @@
 """Cut the hair out of a Hunyuan 'doll wearing hairstyle' model and fit it
-# Hat:  ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb hats/hair_x.glb
+# Hat:  FILL_N=24 ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb hats/hair_x.glb
 onto our bald doll. Hair = faces whose texels are dark brown, away from the
 eyes. Alignment uses the two ears (both dolls share the same bald head)."""
 import bpy,sys,bmesh,numpy as np
@@ -141,6 +141,43 @@ for v0 in bm.verts:
         for w in comp:w.co+=off
         moved+=1
 print('locks lifted',moved)
+# Fill the bare back-crown with borrowed locks: copy real rear locks and swing
+# them up over the skull (rotation about the skull centre keeps them on it).
+from mathutils import Matrix
+import random
+rnd=random.Random(2)
+bm.verts.ensure_lookup_table();comps=[];seen=set()
+for v0 in bm.verts:
+    if v0 in seen:continue
+    comp=[v0];st=[v0];seen.add(v0)
+    while st:
+        w=st.pop()
+        for e in w.link_edges:
+            u=e.other_vert(w)
+            if u not in seen:seen.add(u);comp.append(u);st.append(u)
+    c=np.mean([w.co[:] for w in comp],0)
+    if c[1]>.04 and .74<c[2]<1.05 and 60<len(comp)<4000:comps.append(comp)
+print('donor locks',len(comps))
+Cv=Vector((0,.0252,.93));added=0
+for k in range(int(os.environ.get('FILL_N',9))):
+    if not comps:break
+    donor=rnd.choice(comps)
+    faces=list({f for w in donor for f in w.link_faces})
+    d=bmesh.ops.duplicate(bm,geom=faces)
+    nv=[g for g in d['geom'] if isinstance(g,bmesh.types.BMVert)]
+    yaw=(k/(max(1,int(os.environ.get('FILL_N',9))-1))-.5)*1.8+rnd.uniform(-.12,.12)
+    pitch=rnd.uniform(.55,1.15)
+    R=Matrix.Rotation(yaw,4,'Z')@Matrix.Rotation(pitch,4,'X')@Matrix.Rotation(-yaw*.3,4,'Z')
+    bmesh.ops.rotate(bm,verts=nv,cent=Cv,matrix=R)
+    # keep it resting on the scalp
+    worst=0.
+    for w in nv:
+        loc,n,idx,dd=tree.find_nearest(w.co);worst=min(worst,(w.co-loc).dot(n))
+    if worst<0:
+        c=sum((w.co for w in nv),Vector())/len(nv);r=(c-Cv).normalized()
+        for w in nv:w.co+=r*(-worst+.006)
+    added+=1
+print('borrowed locks',added)
 # After the fringe lift, clear anything that ended up lying on our eyes.
 EZ=float(os.environ.get('EYE_Z',.798));EX=.077
 bm.faces.ensure_lookup_table()
