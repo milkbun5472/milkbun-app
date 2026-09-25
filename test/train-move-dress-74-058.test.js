@@ -18,4 +18,7 @@ assert.ok(pass.includes("state()?.looks?.me||journey.look||garden?.look"), "trai
 // 4. 宿主：庭院和列车共用同一份 DressControls
 assert.equal((fg.match(/h\(DressControls,/g) || []).length, 2, "one control set, two places");
 assert.ok(fg.includes('"改外貌"') && fg.includes('panel==="dress"'), "train settings has 改外貌");
+// 5. 点地板走过去（74.059）：拖动不算点，落点夹在地板里
+assert.ok(pass.includes("function goTo(") && pass.includes("function floorPoint("), "floor tap walking");
+assert.ok(/Math\.hypot\(e\.clientX-d\.x,e\.clientY-d\.y\)>8/.test(game), "drags are not taps");
 console.log("train move + dress 74.058 ok");

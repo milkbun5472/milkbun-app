@@ -1,18 +1,18 @@
-import {restState} from './rest.mjs?v=fg-11bc6ec871a587f0';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-11bc6ec871a587f0';
+import {restState} from './rest.mjs?v=fg-bf985ef5ee5399aa';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-bf985ef5ee5399aa';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-11bc6ec871a587f0';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-11bc6ec871a587f0';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-11bc6ec871a587f0';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-bf985ef5ee5399aa';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-bf985ef5ee5399aa';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-bf985ef5ee5399aa';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-11bc6ec871a587f0',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-bf985ef5ee5399aa',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
  // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
  // 车厢前面那条过道（z≈0.6~1.5）是空的，所以路线一律：先走到过道→沿过道走到目标那一列→再走进去。
  // 站在哪、朝哪都从车厢自带的锚点和床位算出来，不在这儿写死一张坐标表以外的东西。
  const AISLE_Z=.95,WALK=1.1;let floorY=.06;view.asset.traverse(o=>{if(o.userData.anchor==='entry')floorY=o.getWorldPosition(new T.Vector3()).y;});
- const SPOT_ZH={seat:'坐在座位上',stand:'站在过道里看窗外',rack:'在行李架底下整理行李',berth:'走到卧铺边'};
+ const SPOT_ZH={seat:'坐在座位上',stand:'站在过道里看窗外',rack:'在行李架底下整理行李',berth:'走到卧铺边',free:'在车厢里走动'};
  for(const [who,anchorName,look,name,angle] of [['me','seat_user',state()?.looks?.me||journey.look||garden?.look,'你',Math.PI/2],['companion','seat_companion',state()?.looks?.companion||journey.companionLook||garden?.companion?.look,companion?.name,-Math.PI/2]]){
   if(who==='companion'&&!companion?.id)continue;
   let anchor;view.asset.traverse(o=>{if(o.userData.anchor===anchorName)anchor=o;});if(!anchor)throw Error('座位还没有准备好');
@@ -55,8 +55,17 @@ export async function createPassengers(view,host,stage,state=()=>({})){
   if(p.spot==='seat'&&!p.path.length)p.pos.set(p.seat.x,floorY,AISLE_Z);
   const route=[];if(Math.abs(p.pos.z-AISLE_Z)>.05)route.push({x:p.pos.x,z:AISLE_Z});if(Math.abs(p.pos.x-t.x)>.05)route.push({x:t.x,z:AISLE_Z});route.push({x:t.x,z:t.z,yaw:t.yaw});
   p.path=route;p.spot=spot;p.onArrive=()=>{if(t.sit)p.spot='seat';onArrive&&onArrive();};return true;}
+ // 点地板走过去（她 2026-09-25：「要点击地板可以走动」）：落点夹在车厢地板里，路线同样先走过道
+ const FLOOR={x:[-3,3.1],z:[-.25,1.45]};
+ function goTo(who,x,z){const p=people.find(q=>q.who===who);if(!p||!Number.isFinite(x)||!Number.isFinite(z))return false;
+  x=Math.max(FLOOR.x[0],Math.min(FLOOR.x[1],x));z=Math.max(FLOOR.z[0],Math.min(FLOOR.z[1],z));
+  if(p.spot==='seat'&&!p.path.length)p.pos.set(p.seat.x,floorY,AISLE_Z);
+  const route=[];if(Math.abs(p.pos.z-AISLE_Z)>.05)route.push({x:p.pos.x,z:AISLE_Z});if(Math.abs(p.pos.x-x)>.05)route.push({x,z:AISLE_Z});route.push({x,z,yaw:Math.PI});
+  p.path=route;p.spot='free';p.onArrive=null;return true;}
+ function floorPoint(ray){if(Math.abs(ray.direction.y)<1e-4)return null;const t=(floorY-ray.origin.y)/ray.direction.y;if(t<=0)return null;const q=ray.origin.clone().addScaledVector(ray.direction,t);
+  return q.x>=FLOOR.x[0]-.3&&q.x<=FLOOR.x[1]+.3&&q.z>=FLOOR.z[0]-.4&&q.z<=FLOOR.z[1]+.4?{x:q.x,z:q.z}:null;}
  // 拍照、拼图要两个人都在桌边：直接落座，不慢慢走
  function home(){for(const p of people){p.path=[];p.onArrive=null;p.spot='seat';}}
  function where(who){const p=people.find(x=>x.who===who);if(!p)return null;return p.resting?null:p.path.length?'正走去'+(SPOT_ZH[p.spot]||'').replace(/^(坐在|站在|在|走到)/,''):SPOT_ZH[p.spot]||SPOT_ZH.seat;}
- return {speak,tick,go,home,where,get people(){return people;},dispose(){for(const p of people){p.bubble.remove();}people.length=0;}};
+ return {speak,tick,go,goTo,floorPoint,home,where,get people(){return people;},dispose(){for(const p of people){p.bubble.remove();}people.length=0;}};
 }

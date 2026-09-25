@@ -1,14 +1,15 @@
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-11bc6ec871a587f0';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-11bc6ec871a587f0';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from '../fairy-garden/wardrobe.mjs?v=fg-11bc6ec871a587f0';
-import {createPassengers} from './passengers.mjs?v=fg-11bc6ec871a587f0';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-11bc6ec871a587f0';
-import {createTravelCamera} from './camera-view.mjs?v=fg-11bc6ec871a587f0';
-import {removeAlbumItem} from './album.mjs?v=fg-11bc6ec871a587f0';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-11bc6ec871a587f0';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-11bc6ec871a587f0';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-11bc6ec871a587f0';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-11bc6ec871a587f0';
+import * as T from 'three';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-bf985ef5ee5399aa';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-bf985ef5ee5399aa';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from '../fairy-garden/wardrobe.mjs?v=fg-bf985ef5ee5399aa';
+import {createPassengers} from './passengers.mjs?v=fg-bf985ef5ee5399aa';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-bf985ef5ee5399aa';
+import {createTravelCamera} from './camera-view.mjs?v=fg-bf985ef5ee5399aa';
+import {removeAlbumItem} from './album.mjs?v=fg-bf985ef5ee5399aa';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-bf985ef5ee5399aa';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-bf985ef5ee5399aa';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-bf985ef5ee5399aa';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-bf985ef5ee5399aa';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function lookOf(who){const a=host?.load?.()||{},g=a.worlds?.garden||a.world;return state?.looks?.[who]||(who==='me'?a.journey?.look||g?.look:a.journey?.companionLook||g?.companion?.look)||{};}
@@ -24,6 +25,11 @@ try{if(!host)throw Error('请从小世界的列车入口进入。');state=restor
  for(const [id,who] of [['rest-you','you'],['rest-companion','companion']])document.querySelector('#'+id).onclick=()=>{try{setRest(who,!restState(state)[who]);}catch(e){status.textContent=e.message;}};// 走动（她 2026-09-25）：两排，一排是你、一排是TA。躺下这一格走到卧铺前再交给原来那套休息（时钟、拍照的规矩都跟着它）
  const moveKey={me:'you',companion:'companion'};
  function moveTo(who,spot){try{const key=moveKey[who];if(restState(state)[key])setRest(key,false);passengers.go(who,spot,spot==='berth'?()=>{try{setRest(key,true);view.setView('berths');}catch(e){status.textContent=e.message;}}:null);syncMove();}catch(e){status.textContent=e.message;}}
+ // 点一下地板：我就走过去。拖动、双指缩放不算点；拍照、拼图开着时不接
+ {const c=view.renderer.domElement;let down=null;c.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,t:performance.now(),id:e.pointerId};});
+  c.addEventListener('pointerup',e=>{const d=down;down=null;if(!d||d.id!==e.pointerId||Math.hypot(e.clientX-d.x,e.clientY-d.y)>8||performance.now()-d.t>500||cameraUI?.isOpen||desk?.isOpen)return;
+   const box=c.getBoundingClientRect(),ray=new T.Raycaster();ray.setFromCamera(new T.Vector2((e.clientX-box.left)/box.width*2-1,-(e.clientY-box.top)/box.height*2+1),view.camera);
+   const at=passengers?.floorPoint(ray.ray);if(!at)return;try{if(restState(state).you)setRest('you',false);passengers.goTo('me',at.x,at.z);}catch(err){status.textContent=err.message;}});}
  function syncMove(){const has=!!host.companion?.()?.id;for(const b of document.querySelectorAll('#move-controls [data-who=companion]'))b.disabled=!has;}
  for(const b of document.querySelectorAll('#move-controls [data-spot]'))b.onclick=()=>moveTo(b.dataset.who,b.dataset.spot);
  document.querySelector('#open-move').onclick=()=>{const el=document.querySelector('#move-controls');el.hidden=!el.hidden;document.querySelector('#open-move').setAttribute('aria-pressed',String(!el.hidden));syncMove();};
