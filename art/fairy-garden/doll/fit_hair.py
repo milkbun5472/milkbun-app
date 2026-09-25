@@ -94,24 +94,33 @@ hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<float(os.environ.get
 # non-skin; drop anything hugging our skin there (front half only; the nape
 # hair behind stays).
 jaw=(fc[:,2]<.76)&(fc[:,1]<.03)&(dist<.012)
-hair&=~jaw
+guess=np.zeros(len(fc),bool)
+MARK=bool(os.environ.get('MARK_ONLY'))
+guess|=jaw&hair
+if not MARK:hair&=~jaw
 # Strands lying on the ear (hugging its surface) break the ear's outline.
 EC=float(os.environ.get('EAR_CLEAR',0))
 if EC:
     ear=(np.abs(fc[:,0])>.19)&(np.abs(fc[:,2]-.86)<.09)&(np.abs(fc[:,1]-.02)<.11)&(dist<EC)
-    hair&=~ear;print('ear strands removed',int(ear.sum()))
+    guess|=ear&hair
+    if not MARK:hair&=~ear
+    print('ear strands removed',int(ear.sum()))
     # Ragged tips hanging below/in front of the ear, beside the jaw.
     under=(np.abs(fc[:,0])>.15)&(fc[:,2]<.83)&(fc[:,1]<.07)
-    hair&=~under;print('under-ear tips removed',int(under.sum()))
+    guess|=under&hair
+    if not MARK:hair&=~under
+    print('under-ear tips removed',int(under.sum()))
 print('jaw scraps removed',int(jaw.sum()))
 # Around the ears and jaw, light tan faces are the source's shaded ear and
 # cheek skin; real hair there is darker.
 tan=(lum>float(os.environ.get('TAN_L',.34)))&(fc[:,2]<.86)&(fc[:,1]<float(os.environ.get('TAN_Y',.08)))&(np.abs(fc[:,0])>.12)
-hair&=~tan
+guess|=tan&hair
+if not MARK:hair&=~tan
 print('tan scraps removed',int(tan.sum()))
 print('by colour',hair.sum())
 # Remove tiny floating islands left by the cut.
 print('hair faces',hair.sum())
+ga=H.data.attributes.new('guess_skin','INT','FACE');ga.data.foreach_set('value',guess.astype(int).tolist())
 bm=bmesh.new();bm.from_mesh(H.data);bm.faces.ensure_lookup_table()
 bmesh.ops.delete(bm,geom=[f for f in bm.faces if not hair[f.index]],context='FACES')
 bm.faces.ensure_lookup_table();seen=set();small=[]
@@ -237,6 +246,13 @@ if os.environ.get('ANCHOR'):
     A=json.load(open(os.environ['ANCHOR']));Cc=np.array(A['center']);Rr=A['radius']
     for v in H.data.vertices:v.co=((np.array(v.co)-Cc)/Rr).tolist()
     H.data.update();H['hairAnchorSpace']='origin=skull centre, unit=skull radius'
+    if MARK and 'guess_skin' in H.data.attributes:
+        pk=bpy.data.materials.new('皮肤（会被删）');pk.use_nodes=True
+        pk.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value=(1,.2,.7,1);pk.diffuse_color=(1,.2,.7,1)
+        H.data.materials[0].name='头发';H.data.materials.append(pk)
+        g=[0]*len(H.data.polygons);H.data.attributes['guess_skin'].data.foreach_get('value',g)
+        for p,v in zip(H.data.polygons,g):p.material_index=1 if v else 0
+        print('marked skin guesses',sum(g))
     # Hair base: a thin hair-coloured shell hugging the skull (top and back,
     # never the forehead), so gaps between locks never show bald scalp.
     base_col=np.median(hc[hair],0)
