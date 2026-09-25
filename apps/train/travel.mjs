@@ -1,8 +1,8 @@
-import {restState} from './rest.mjs?v=fg-895de7c5e9b2b027';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/environment.mjs?v=fg-895de7c5e9b2b027';
-import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-895de7c5e9b2b027';
-import {destinationState} from '../../art/train-carriage/destinations.mjs?v=fg-895de7c5e9b2b027';
-import '../fairy-garden/rules.js?v=fg-895de7c5e9b2b027';
+import {restState} from './rest.mjs?v=fg-e75aadc1c690d6fa';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/environment.mjs?v=fg-e75aadc1c690d6fa';
+import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-e75aadc1c690d6fa';
+import {destinationState} from '../../art/train-carriage/destinations.mjs?v=fg-e75aadc1c690d6fa';
+import '../fairy-garden/rules.js?v=fg-e75aadc1c690d6fa';
 const {seasonOf,weather}=globalThis.FairyGardenRules;
 export const ROUTE_ORDER=['forest','country','coast'];
 export const ROUTE_LENGTH=160;
@@ -15,10 +15,15 @@ export function restoreTrip(s){
  if(!s||s.version!==1||s.map!=='carriage'||!Number.isFinite(s.day)||s.day<1||!Number.isFinite(s.minute)||s.minute<0||s.minute>=1440||!Number.isFinite(s.distance)||s.distance<0||!Number.isInteger(s.routeStart)||s.routeStart<0||s.routeStart>2)throw Error('列车进度暂时无法读取，请返回后重试。');
  return {...s,rest:restState(s)};
 }
+// 车上的季节跟着路走（她 2026-09-25：「都在列车上了没必要要坐11个小时才能1个轮回吧」）：
+// 每开过 SEASON_ROUTES 段路（≈16 分钟）就换进下一季，一年≈一小时；换季只落在换路段那一刻，窗外本来就在过渡。
+// 日子、钟点照旧是列车自己的（聊天里的「第几天」不跳），只有季节和天气按这本快一些的日历算。
+export const SEASON_ROUTES=6;
+export function calendarDay(s){return s.day+Math.floor((s.distance||0)/(ROUTE_LENGTH*SEASON_ROUTES))*14;}
 export function travelEnvironment(s){
- const segment=Math.floor(s.distance/ROUTE_LENGTH),phase=s.distance%ROUTE_LENGTH,index=(s.routeStart+segment)%3;
+ const segment=Math.floor(s.distance/ROUTE_LENGTH),cd=calendarDay(s),phase=s.distance%ROUTE_LENGTH,index=(s.routeStart+segment)%3;
  return {route:ROUTE_ORDER[index],nextRoute:ROUTE_ORDER[(index+1)%3],routeBlend:Math.max(0,(phase-120)/40),eventDistance:phase,
-  season:['spring','summer','autumn','winter'][seasonOf(s.day).index%4],weather:WEATHER_CODES[weather(s.day,s.epoch)],hour:s.minute/60};
+  season:['spring','summer','autumn','winter'][seasonOf(cd).index%4],weather:WEATHER_CODES[weather(cd,s.epoch)],hour:s.minute/60};
 }
 export function advanceTrip(s,seconds,speedFactor=1){
  if(!Number.isFinite(seconds)||seconds<=0)return s;
