@@ -33,9 +33,13 @@ if SK:
                 if k.index not in seen:seen.add(k.index);comp.append(k);st.append(k)
         if max(abs(v.co.x) for v in comp)<E('ARM_X',.2):continue
         sg=1 if sum(v.co.x for v in comp)>0 else -1;sh=SH*[sg,1,1];ax=(HD-SH)*[sg,1,1];ax/=np.linalg.norm(ax)
+        # inner lining layers (closer to the arm axis) are pulled in a bit more so their
+        # frayed edge hides inside the cuff
+        Q=np.array([v.co[:] for v in comp])-sh;rad=np.linalg.norm(Q-np.outer(Q@ax,ax),axis=1).mean()
+        k=SK+(E('LINING_K',0) if rad<E('LINING_R',.075) else 0)
         for v in comp:
             t=float(np.dot(np.array(v.co[:])-sh,ax))
-            if t>0:v.co-=Vector(ax*t*SK)
+            if t>0:v.co-=Vector(ax*t*k)
         n+=1
     bm0.to_mesh(C.data);C.data.update();bm0.free();print('sleeve pieces shortened',n)
 # Conform: any clothes vertex that sits inside (or within GAP of) the body is pushed out along
