@@ -15,3 +15,11 @@
   - M02：`FRINGE_K=.80 SKIN_R=.62 NECK_RING=.12`
   - M03：`NO_EYE_CLEAR=1 FRINGE_K=.85 SKIN_R=.80 NECK_RING=.12`（眼前清理会把刘海挖成碎块，关掉；刘海略上收露眼；脖子圈放大会误删后颈头发）
 - 预览：`../hat-preview-v2.html`，截图 `m02-m03.png`。
+
+## 头发壳（2026-09-25，Lisa 试的新做法，效果最好）
+
+混元直接生成**只有头发、里面是空的壳**，不带头和身体。`fit_shell.py` 从壳的空腔往外打射线，找到内表面，拟合一个球，再把这个球对到玩偶的头骨上（`INNER=1.02`，稍大一点罩住头）。不用切、不用清理皮肤碎片。
+
+`python3 fit_shell.py hunyuan-m01-shell.glb v2/head-anchor.json v2/hats/hair_m01.glb`
+
+以后每款发型都建议这样生成（M02、M03 也换成壳）。
