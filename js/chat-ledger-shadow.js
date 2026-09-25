@@ -23,6 +23,20 @@
     catch (_) { return fallback; }
   };
   const write = (storage, key, value) => storage.setItem(key, JSON.stringify(value));
+  // 从她的表情包字典（x_emotePacks，本机 localStorage）按关键词找图；
+  // 只认全局包或绑了这个角色的包。找不到返回 null，调用方把文字原样留下。
+  const emoteFor = (keyword, charId) => {
+    if (!keyword || !root.localStorage) return null;
+    let packs = [];
+    try { packs = JSON.parse(root.localStorage.getItem("x_emotePacks")) || []; } catch (_) { return null; }
+    for (const p of (Array.isArray(packs) ? packs : [])) {
+      if (!p || (!p.global && !asArray(p.charIds).map(String).includes(String(charId)))) continue;
+      const hit = asArray(p.emotes).find(e => e && text(e.keyword) === keyword && e.url);
+      if (hit) return { keyword, url: hit.url };
+    }
+    return null;
+  };
+
   const iso = (value, fallback) => {
     const n = typeof value === "number" ? value : Date.parse(value);
     const d = new Date(Number.isFinite(n) ? n : fallback);
@@ -166,13 +180,37 @@
       }
       const ts = Date.parse(row.occurred_at), safeTs = Number.isFinite(ts) ? ts : Date.now();
       const revision = Math.max(1, Number(row.revision) || 1), isDeleted = !!row.deleted_at;
+      // 言秋回发表情包（她 2026-09-25「得研究怎么让你也能发」）：CC 回复里独立成行的
+      // 「[表情] 关键词」摘出正文，配上她表情包字典里的图，追加成真贴纸气泡。
+      // 图找不到（关键词不在字典/不给这个角色用）就原样留在文字里，不装哑巴也不装图。
+      let rowContent = text(row.content);
+      const emoteRows = [];
+      if (speaker === "character" && !isDeleted && /^\[表情\] .+$/m.test(rowContent)) {
+        const kept = [];
+        rowContent.split("\n").forEach(ln => {
+          const mm = /^\[表情\] (.+)$/.exec(ln.trim());
+          const em = mm ? emoteFor(mm[1].trim(), cid) : null;
+          if (em) emoteRows.push(em); else kept.push(ln);
+        });
+        if (emoteRows.length) rowContent = kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      }
       const next = {
         id: "ledger:" + String(row.id || key), ledgerKey: key, ledgerRevision: revision,
         ledgerUpdatedAt: row.updated_at || null, ledgerImported: true, crossSource: source,
         crossThreadId: row.thread_id || null, syncKind: kind,
-        role: speaker === "lisa" ? "user" : "assistant", content: text(row.content),
+        role: speaker === "lisa" ? "user" : "assistant", content: rowContent,
         ts: safeTs, read: speaker === "lisa", recalled: isDeleted
       };
+      // 贴纸气泡紧跟正文其后（ts+1ms 排序稳定）；按派生 key 去重，重放/翻新不复制。
+      const pushEmotes = () => emoteRows.forEach((em, k) => {
+        const ek = key + "#emote#" + k;
+        if (byKey.has(ek)) return;
+        list.push({ id: "ledger:" + String(row.id || key) + ":emote:" + k, ledgerKey: ek, ledgerRevision: revision,
+          ledgerImported: true, crossSource: source, syncKind: kind, role: "assistant",
+          kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword,
+          ts: safeTs + 1 + k, read: false, recalled: false });
+        byKey.set(ek, list.length - 1);
+      });
       // 书房直通去重（她 2026-09-25 报「我的气泡被带回来一次」）：她在 App 打的字
       // 本地已经有原生气泡，账本回流的 Lisa 行若与之同文且时间贴近，是同一句话的
       // 第二份投影——跳过，不再添一只回声气泡。只查 Lisa 侧：我的行没有本地原生副本。
@@ -183,6 +221,7 @@
       }
       if (!byKey.has(key)) {
         list.push(next); byKey.set(key, list.length - 1); added++; if (isDeleted) deleted++;
+        pushEmotes();
         if (!isDeleted) personalityEvents.push({
           eventKey:key + ":" + revision, messageKey:key, speaker,
           content:next.content, ts:safeTs,
@@ -193,6 +232,7 @@
       const index = byKey.get(key), prev = list[index] || {};
       if (revision <= Number(prev.ledgerRevision || 0) && !!prev.recalled === isDeleted) return;
       list[index] = { ...prev, ...next };
+      pushEmotes();
       updated++; if (isDeleted && !prev.recalled) deleted++;
     });
     list.sort((a, b) => Number(a && a.ts || 0) - Number(b && b.ts || 0));

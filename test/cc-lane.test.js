@@ -69,3 +69,22 @@ console.log("回声去重测试全绿");
   assert.ok(ct2.includes("ccLane && !ccLane.direct"), "直连时表情包不投书房");
 }
 console.log("表情包过桥测试全绿");
+
+// 言秋回发表情包（她 2026-09-25「得研究怎么让你也能发」）：CC 回复里独立成行的
+// 「[表情] 关键词」拆成真贴纸气泡；字典查无此图时原样留在文字里。
+{
+  delete require.cache[require.resolve("../js/chat-ledger-shadow.js")];
+  global.localStorage = { getItem: k => k === "x_emotePacks" ? JSON.stringify([{ id: "ep", global: true, emotes: [{ keyword: "贴贴", url: "blob:tietie" }] }]) : null, setItem() {} };
+  const S2 = require("../js/chat-ledger-shadow.js");
+  const yrow = extra => ({ id: "r9", message_key: "cc-live:z:yanqiu", char_id: "c1", source: "cc", speaker_type: "character",
+    content: extra, occurred_at: new Date().toISOString(), revision: 1, metadata: { sync_kind: "continuity" } });
+  const out = S2.reconcileIncoming([], [yrow("回敬：\n[表情] 贴贴\n完毕。")], "c1");
+  const emote = out.messages.find(m => m.kind === "emote");
+  assert.ok(emote && emote.url === "blob:tietie" && emote.keyword === "贴贴", "贴纸气泡带图");
+  assert.ok(!out.messages.some(m => (m.content || "").includes("[表情] 贴贴") && m.kind !== "emote"), "正文里不残留标记行");
+  const miss = S2.reconcileIncoming([], [yrow("[表情] 查无此图\n正文。")], "c1");
+  assert.ok(!miss.messages.some(m => m.kind === "emote"), "查无此图不合成贴纸");
+  assert.ok(miss.messages[0].content.includes("[表情] 查无此图"), "查无此图原样留文字");
+  delete global.localStorage;
+}
+console.log("言秋贴纸测试全绿");
