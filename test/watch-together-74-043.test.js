@@ -111,4 +111,10 @@ assert.match(src, /const fresh = \(film\.talk \|\| \[\]\)\.filter\(function \(m\
 assert.match(src, /const digestGrew = !!film\.talkDigest && film\.talkDigest !== \(film\.rememberedDigest \|\| ""\);/);
 assert.match(src, /patchFilm\(id, \(\) => \(\{ rememberedAt: Date\.now\(\), rememberedDigest: cur\.talkDigest \|\| "" \}\)\);/);
 assert.match(src, /上次记住之后你们还没新聊什么/);
+// 17. 影院模式在苹果上黑屏／退出白屏（她 2026-09-25）：视频不靠 flex 撑高；退出收键盘、页面滚回原位；不自动弹键盘
+assert.ok(!/position: "fixed", inset: 0, zIndex: 99990, background: "#000", display: "flex"/.test(src), "又拿 flex 撑影院里的视频了");
+assert.match(src, /display: playErr \? "none" : "block", position: "absolute", top: 0, left: 0, width: "100%", height: "100%"/);
+assert.match(src, /document\.activeElement\.blur\(\)/);
+assert.match(src, /reset\(\); setTimeout\(reset, 120\); setTimeout\(reset, 400\);/);
+assert.ok(!/h\("input", \{ autoFocus: true, value: p\.txt/.test(src), "影院里又自动弹键盘了");
 console.log("ok watch-together");

@@ -291,7 +291,7 @@
       h("button", { onClick: p.onExit, "aria-label": "退出影院模式", style: Object.assign({}, pill, { position: "absolute", left: "calc(env(safe-area-inset-left) + 12px)", top: top, width: 40, padding: 0, justifyContent: "center" }) }, h(IX, { size: 16, color: "#fff" })),
       h("button", { onClick: () => p.setSay(!p.say), style: Object.assign({}, pill, { position: "absolute", right: "calc(env(safe-area-inset-right) + 12px)", top: top }) }, p.say ? "收起" : "说一句"),
       p.say && h("div", { className: "flex items-center gap-2", style: { position: "absolute", left: "calc(env(safe-area-inset-left) + 64px)", right: "calc(env(safe-area-inset-right) + 96px)", top: top, pointerEvents: "auto" } },
-        h("input", { autoFocus: true, value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: 16 } }),
+        h("input", { value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: 16 } }),
         btn("说", p.send, { primary: true, disabled: p.busy || !String(p.txt || "").trim() })),
       // TA 刚说的话：浮在右上，九秒后自己淡掉
       h("div", { style: { position: "absolute", right: "calc(env(safe-area-inset-right) + 14px)", top: "calc(env(safe-area-inset-top) + 62px)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "58%" } },
@@ -360,7 +360,12 @@
       } catch (e) {}
     };
     const exitCinema = () => {
+      try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
       setCinema(false); setCinemaSay(false);
+      // ⚠️她 2026-09-25：「想退出会白屏」——在影院里点过输入框，苹果会把整页往上顶给键盘让位，
+      //   退出后那一截不会自己回来。所以退出时把页面和几层滚动都拨回原位
+      const reset = () => { try { window.scrollTo(0, 0); if (document.scrollingElement) document.scrollingElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {} };
+      reset(); setTimeout(reset, 120); setTimeout(reset, 400);
       try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
       try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (e) {}
       fsRef.current = false;
@@ -480,7 +485,9 @@
       h("div", { className: "flex-1 min-h-0 flex flex-col" },
         // 银幕
         h("div", { ref: shellRef, style: cinema
-            ? { position: "fixed", inset: 0, zIndex: 99990, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }
+            // ⚠️别用 flex 去撑视频的高：苹果 WebKit 里 flex 容器下的 height:100% 会塌成 0，整屏一片黑
+            //   （她 2026-09-25：「影院模式会黑屏」）。容器定死四边，视频自己绝对定位铺满
+            ? { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", zIndex: 99990, background: "#000" }
             : { position: "relative", flexShrink: 0, background: "#000", boxShadow: "0 12px 30px rgba(0,0,0,.45)" } },
           // 放不出来的格式：别只黑着（她 2026-09-25）
           playErr && !missing ? h("div", { style: { aspectRatio: "16/9", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: W.sub } },
@@ -492,7 +499,7 @@
                 onTimeUpdate: onTime, onPause: () => { savePos(true); if (film.inband || (!film.cueCount && cuesRef.current.length)) { _store.put("cues:" + id, cuesRef.current).catch(() => {}); patchFilm(id, () => ({ cueCount: cuesRef.current.length, inband: true })); } },
                 onError: () => setPlayErr(true),
                 style: cinema
-                  ? { display: playErr ? "none" : "block", width: "100%", height: "100%", maxHeight: "none", objectFit: "contain", background: "#000" }
+                  ? { display: playErr ? "none" : "block", position: "absolute", top: 0, left: 0, width: "100%", height: "100%", maxHeight: "none", objectFit: "contain", background: "#000" }
                   : { display: playErr ? "none" : "block", width: "100%", maxHeight: "42vh", background: "#000" } }),
           cinema && h(CinemaLayer, { line: line, hasCues: !!cues.length, talk: film.talk || [], partner: partner, busy: busy, txt: txt, setTxt: setTxt, send: send, say: cinemaSay, setSay: setCinemaSay, onExit: exitCinema })),
         // 台词条：现在银幕上这一句。没有字幕的片子整条不出现（她 2026-09-25：「没有字幕的提示也删了省空间」）
