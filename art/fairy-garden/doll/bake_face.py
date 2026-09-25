@@ -1,12 +1,12 @@
 """Bake a face decal into the doll's own base-colour texture.
-# Usage: python3 bake_face.py doll-blank-face.glb decal.png out.glb  (decal from decal.html)
+# Usage: [FACE_S=.00145 FACE_CZ=.87] python3 bake_face.py doll-blank-face.glb decal.png out.glb
 Front orthographic projection: decal pixel = f(world x, z). Only texels on
 front-facing face islands are touched. The model's blush is first painted
 back to skin; the decal carries a clean elliptical blush."""
 import bpy,sys,json,numpy as np
 from PIL import Image,ImageFilter,ImageDraw
 src,decal,out=sys.argv[-3:]
-S=.00145;CX,CZ=0.0,.870          # metres per reference px; head centre (x,z) — one transform for all faces
+S=float(__import__("os").environ.get("FACE_S",.00145));CX=0.0;CZ=float(__import__("os").environ.get("FACE_CZ",.870))   # one transform for all faces
 for o in list(bpy.data.objects):bpy.data.objects.remove(o)
 bpy.ops.import_scene.gltf(filepath=src)
 obj=next(o for o in bpy.data.objects if o.type=='MESH');me=obj.data;mat=me.materials[0]
