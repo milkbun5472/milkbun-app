@@ -37,3 +37,6 @@
   `INNER=.9 DZ=-.1 python3 fit_shell.py v2/hunyuan-m03-shell-v2.glb v2/head-anchor.json fit.glb`
   `FRONT_K=.14 WIDEN=.09 python3 shape_hair.py fit.glb v2/hats/hair_m03.glb`
   （`shape_hair.py` 只做仿射：前半边 y 统一收 14% 让刘海贴额头、整体横向放宽 9%；不按高度加权，发束不会被掰弯；头顶不缩，避免饭团头。）对比图 `m03-v2.png`（上旧下新）。
+- **F01 刘海长发**（女生款）：Hunyuan 头发壳 `hunyuan-f01-shell.glb`。这个壳的头型比娃娃靠上、靠后，刘海下半截会埋进脸里，所以要大幅往下、往前放。
+  `INNER=1.0 DZ=-.7 DY=-.42 python3 fit_shell.py v2/hunyuan-f01-shell.glb v2/head-anchor.json fit.glb`
+  `FLAT_K=.25 python3 shape_hair.py fit.glb v2/hats/hair_f01.glb`（眼睛以上压扁 25%，刘海盖到眼睛）。预览图 `f01.png`。
