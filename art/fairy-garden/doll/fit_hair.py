@@ -86,6 +86,10 @@ facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
 exposed=(fc[:,1]<.0)|(np.abs(fc[:,0])>.19)
 # Skin-coloured scraps anywhere (crown slivers, ear bits) go too.
 skinish=(hc[:,0]>SKIN_R-.07)&(hc[:,0]-hc[:,2]>.10)&(lum>.45)
+# Above the brow everything is hair: colour tests there only punch holes
+# through light highlights on the locks.
+upper=(fc[:,2]>float(os.environ.get('HAIR_ONLY_ABOVE',9)))
+skinlike&=~upper;skinish&=~upper
 hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<float(os.environ.get('FACE_CLEAR',.006))))
 # Under the jaw the source's own chin and neck are in shadow and read as
 # non-skin; drop anything hugging our skin there (front half only; the nape
@@ -95,7 +99,7 @@ hair&=~jaw
 print('jaw scraps removed',int(jaw.sum()))
 # Around the ears and jaw, light tan faces are the source's shaded ear and
 # cheek skin; real hair there is darker.
-tan=(lum>float(os.environ.get('TAN_L',.34)))&(fc[:,2]<.86)&(fc[:,1]<.08)&(np.abs(fc[:,0])>.12)
+tan=(lum>float(os.environ.get('TAN_L',.34)))&(fc[:,2]<.86)&(fc[:,1]<float(os.environ.get('TAN_Y',.08)))&(np.abs(fc[:,0])>.12)
 hair&=~tan
 print('tan scraps removed',int(tan.sum()))
 print('by colour',hair.sum())
@@ -114,13 +118,13 @@ for f in bm.faces:
                 if h not in seen:seen.add(h);comp.append(h);stack.append(h)
     cen=np.mean([f.calc_center_median()[:] for f in comp],0)
     # Tiny crumbs anywhere, and loose flakes in front of the face.
-    if len(comp)<6 or (cen[1]<-.08 and .74<cen[2]<.87 and .03<abs(cen[0])<.15 and len(comp)<int(__import__('os').environ.get('FACE_CRUMB',60))):small+=comp
+    if len(comp)<int(os.environ.get('MIN_ISLAND',6)) or (cen[1]<-.08 and .74<cen[2]<.87 and .03<abs(cen[0])<.15 and len(comp)<int(__import__('os').environ.get('FACE_CRUMB',60))):small+=comp
 bmesh.ops.delete(bm,geom=small,context='FACES')
 # Our skull is slightly fuller at the back: rear hair that sinks under the
 # scalp is lifted just above it (front half untouched, the part stays open).
 lifted=0
 for v in bm.verts:
-    if v.co.y<.0:continue
+    if v.co.y<.0 or os.environ.get('NO_REAR_LIFT'):continue
     loc,n,idx,d=tree.find_nearest(v.co)
     sd=(v.co-loc).dot(n)
     if sd<.003:v.co=loc+n*.003;lifted+=1
@@ -155,7 +159,7 @@ for v0 in bm.verts:
     for w in comp:
         loc,n,idx,d=tree.find_nearest(w.co);sd=(w.co-loc).dot(n)
         worst=min(worst,sd)
-    if -float(os.environ.get('LIFT_MAX',.012))<worst<-.001:
+    if not os.environ.get('NO_LOCK_LIFT') and -float(os.environ.get('LIFT_MAX',.012))<worst<-.001:
         c=np.mean([w.co[:] for w in comp],0);r=c-Cz;r/=np.linalg.norm(r)
         off=Vector((r*(-worst+.003)).tolist())
         for w in comp:w.co+=off
@@ -267,11 +271,24 @@ if os.environ.get('ANCHOR'):
         x,y,z=v.co;ph=np.arctan2(y,x);th=np.arccos(max(-1,min(1,z/np.linalg.norm(v.co[:]))))
         g=.5+.5*np.sin(ph*38+th*6+3*np.sin(ph*7))
         f=(.55+.35*g**2)*float(os.environ.get('BASE_TONE',1.0))
+        if os.environ.get('BASE_FLAT'):f=float(os.environ['BASE_FLAT'])
         ca.data[k].color=(*(bc*f),1)
     vc=m.node_tree.nodes.new('ShaderNodeVertexColor');vc.layer_name='Col'
     m.node_tree.links.new(vc.outputs['Color'],bs.inputs['Base Color'])
     cap.materials.append(m);capo=bpy.data.objects.new('hair_base',cap);bpy.context.collection.objects.link(capo)
     capo.parent=H
+    if os.environ.get('DESPECKLE'):
+        # Dark flecks baked into the source texture: lift texels much darker
+        # than their neighbourhood to the local hair tone.
+        from PIL import Image as _I,ImageFilter as _F
+        im_=next(n.image for n in H.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE' and any(l.to_socket.name=='Base Color' for x in n.outputs for l in x.links))
+        w_,h_=im_.size;px=np.array(im_.pixels[:],np.float32).reshape(h_,w_,4)
+        rgb=(px[...,:3]*255).clip(0,255).astype(np.uint8)
+        med=np.array(_I.fromarray(rgb).filter(_F.MedianFilter(15))).astype(np.float32)/255
+        L=px[...,:3]@[.3,.59,.11];Lm=med@[.3,.59,.11]
+        m=(L<Lm*float(os.environ['DESPECKLE']))&(Lm>.25)
+        px[m,:3]=med[m];print('despeckled',int(m.sum()))
+        im_.pixels.foreach_set(px.ravel());im_.update();im_.pack()
     bpy.ops.object.select_all(action='DESELECT');H.select_set(True);capo.select_set(True)
     bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
     print('hat written');sys.exit(0)
