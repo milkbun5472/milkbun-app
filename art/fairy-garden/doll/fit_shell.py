@@ -47,6 +47,7 @@ if BK:
         if v.co.y>Y0:
             t_=(v.co.y-Y0)/(ym-Y0)
             v.co.y=v.co.y-BK*(v.co.y-Y0)*t_      # quadratic: 0 slope at Y0, full K at the very back
+            v.co.x*=1-float(os.environ.get('BACK_KX',0))*t_*t_   # width, also fading to 0 at the ears
     print('back compressed',BK)
 H.data.update();H.name='hair'
 bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
