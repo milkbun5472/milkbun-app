@@ -52,11 +52,14 @@
   }
 
   // 去程投递。fire-and-forget：失败只报 false，调用方自己决定兜底（回退引擎）。
+  // relay 侧是攒话缸：普通发送只进缸不叫醒；meta.nudge=true（「让TA回复」）或
+  // 她停手 45 秒，整串气泡才合成一张唤醒票——保住 App 原生的分气泡节奏。
   async function post(text, meta) {
     const c = config();
     const body = { text: String(text || "").trim() };
     if (meta && meta.threadType) body.thread_type = String(meta.threadType);
-    if (!body.text || !c.token) return false;
+    if (meta && meta.nudge) body.nudge = true;
+    if ((!body.text && !body.nudge) || !c.token) return false;
     try {
       const res = await fetch(c.url, {
         method: "POST",

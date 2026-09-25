@@ -25,7 +25,7 @@ assert.ok(iThread > 0, "找得到 ChatThread 接线");
 const threadWin = app.slice(iThread, iThread + 4000);
 assert.ok(threadWin.includes("CcLane.routes"), "私聊 onSend 会问车道");
 assert.ok(threadWin.includes("ccLane:"), "私聊把开关递给了 ChatThread");
-assert.ok(app.includes('window.CcLane.post(extra || "（她点了「让TA回复」，在等你说话）"'), "私聊 onReply 空按捎话不开枪");
+assert.ok(app.includes('{ threadType: "private", nudge: true }'), "私聊 onReply 走 nudge 合票不开枪");
 assert.ok(app.includes('{ threadType: "offline" }'), "线下两处也走车道");
 
 // 组件侧：ChatThread 收 ccLane、composer 有「书房/直连」切换
