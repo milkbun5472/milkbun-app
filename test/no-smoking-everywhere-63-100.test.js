@@ -43,7 +43,7 @@ const SURFACES = [
   ["weekly.js", "自己 push"],
   ["debate.js", "自己 push"],
   ["tarot.js", "自己 push"],
-  ["read.js", "自己 push"],
+  ["read.js", "走 core.js 的 companionHead（v74.043 起：一起看是第二处要它的）"],
   ["study.js", "自己 push"],
   ["memo.js", "自己 push"],
   ["ledger.js", "自己 push"],
@@ -58,7 +58,7 @@ const SURFACES = [
 SURFACES.forEach(([f, how]) => {
   test("禁烟到得了：" + f + "（" + how + "）", () => {
     const src = read(f);
-    const ok = SELF.test(src) || /narrativeCore\(/.test(src);
+    const ok = SELF.test(src) || /narrativeCore\(/.test(src) || /companionHead\(/.test(src);
     assert.ok(ok, f + " 拿不到禁烟这一层");
   });
 });
@@ -83,9 +83,13 @@ test("每一处 sys 的头上真的接了，不是只声明了一个没人叫的
   const rd = read("read.js");
   // v67.54 起是六枪（多了 foldTalk：把讨论折进这本书自己的记录）
   assert.equal((rd.match(/= readHead\(ctxFor, char\)/g) || []).length, 6, "一起读那六处没一起接上");
-  const rh = rd.slice(rd.indexOf("function readHead(ctxFor, char)"), rd.indexOf("async function genAnnotations"));
+  // v74.043：这一份搬到 core.js 的 companionHead（一起看是第二处要它的），readHead 只转一手
+  assert.match(rd, /function readHead\(ctxFor, char\) \{ return companionHead\(ctxFor, char\); \}/);
+  const core = read("core.js");
+  const rh = core.slice(core.indexOf("function companionHead(ctxFor, char)"), core.indexOf("// ---- 懒加载 pdf.js"));
+  assert.ok(rh.length > 50, "抠不出 companionHead");
   assert.match(rh, /buildBundle\(ctxFor\(char\)\)/, "接得上那一路没走 bundle（bundle 里带着这一层）");
-  assert.match(rh, /if \(!head\) head = \(typeof ANTI_CLICHE !== "undefined" \? ANTI_CLICHE \+ "\\n\\n" : ""\) \+ CB\(\)/, "兜底那一路没带 CB()");
+  assert.match(rh, /if \(!head\) head = \(typeof ANTI_CLICHE !== "undefined" \? ANTI_CLICHE \+ "\\n\\n" : ""\) \+ \(typeof ContentBoundaries !== "undefined" && ContentBoundaries\.prompt/, "兜底那一路没带内容边界");
   assert.match(read("engine.js"), /ContentBoundaries/, "buildBundle 那头不带内容边界了，一起读就漏了");
 });
 

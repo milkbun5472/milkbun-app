@@ -3086,7 +3086,11 @@ function buildBundle(ctx, opts) {
   //   位置写着温尼伯，沈屿白就在电话里说异国不能来陪她，而人设和记忆里都没有异地这回事）。
   //   真异地的角色靠 tz 那一段说话（上面那整块专讲时差）；没设 tz 的一律默认同城，
   //   这句必须显式给出——留白就会被训练先验补成「异国恋只能隔着屏幕」。
-  if (!ctx.notRoleplay && geo && geo.label) {
+  // 她在设置里选了「架空世界」时，位置是那个世界里的地点，不是任何现实城市
+  if (!ctx.notRoleplay && geo && geo.realm === "world") {
+    parts.push("【" + uName + " 当前位置】在「" + geo.world + "」这个世界里" + (geo.node ? "的「" + geo.node + "」" : "（还没定在哪个地方）")
+      + "。你们此刻在这个世界里过日子，说到她在哪、天气、附近有什么，都按这个世界来。");
+  } else if (!ctx.notRoleplay && geo && geo.label) {
     const _tzSet = char && char.tz != null && String(char.tz).trim() !== "" && !isNaN(parseFloat(char.tz));
     parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）"
       + (_tzSet ? "" : "\n⚠️这只是 " + uName + " 此刻在哪，**不是在说你离得远**：你没有设过任何异地/异国的设定，"
@@ -7804,6 +7808,17 @@ async function fetchLocalEnv() {
   const out = { weather: "", location: "", coords: null };
   // ⚠️她手填过位置就按那份来（v72.66）：这儿原来自己读一次 GPS，
   //   于是她明明把自己设成了东京，日记还是盖广州那个戳。
+  // 她在位置感知里选了架空世界：日记盖的是那个世界的地点和天气，不去要手机定位
+  try {
+    const rl = (typeof window !== "undefined" && window.MapKit && window.MapKit.userRealm)
+      ? window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", [])) : null;
+    if (rl && rl.kind === "world") {
+      out.location = rl.label;
+      const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, new Date()) : null;
+      if (w) out.weather = wmoToText(w.dayCode != null ? w.dayCode : w.code) + " " + Math.round(w.t) + "°C";
+      return out;
+    }
+  } catch (e) {}
   const mine = geoNow();
   const pos = mine && mine.manual ? { coords: { latitude: mine.lat, longitude: mine.lng } } : await new Promise(res => {
     if (!navigator.geolocation) return res(null);

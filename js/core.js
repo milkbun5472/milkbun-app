@@ -296,6 +296,8 @@ const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React
   d: "M15.5 21l4-4 1.5 1.5-4 4-2 .5.5-2z"
 }));
 // 同人文底 nav 用：书架（三本书）
+// 一起看：一格胶片，中间一个放映的三角
+const IFilm = p => h(Svg, p, h("rect", { x: 3, y: 5, width: 18, height: 14, rx: 2 }), h("path", { d: "M7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4" }), h("path", { d: "M10.5 10l3 2-3 2z" }));
 const IShelf = p => h(Svg, p, h("path", { d: "M4 4v16M8 6v14M12 5v15" }), h("path", { d: "M15.5 6.2l4.4 1.2-3.8 13.6-4.4-1.2" }), h("path", { d: "M4 20h16" }));
 // 加笔：一支笔尖压在纸上（同人文底栏中间那一枚）
 const IQuill = p => h(Svg, p,
@@ -450,7 +452,8 @@ const APP_TONE_HUE = {
   cast: 210, ties: 340, phone: 168, shop: 16, carry: 88, cwallet: 152, dwell: 108,
   lore: 250, memlib: 292, anon: 200, study: 328,
   fanfic: 316, theater: 186, impression: 20, weekly: 206,
-  read: 158, debate: 8, dream: 248, tarot: 296,
+  // watch 借一个已有的色相：往池子里加新值会让所有文件夹的哈希色一起挪位
+  read: 158, watch: 262, debate: 8, dream: 248, tarot: 296,
   pomodoro: 4, fairyGarden: 112, games: 190, trpg: 134, dreamjournal: 224,
   yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
   assistant: 174, stylelab: 316, radio: 20,
@@ -565,7 +568,7 @@ const SCREEN_ZH = {
   calendar: "日历", memo: "备忘录", map: "好友地图",
   listen: "一起听", musiccard: "一起听那张卡的背面",
   diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答", anonme: "我的匿名主页",
-  study: "一起学", fanfic: "同人文", read: "一起读", weekly: "周刊", debate: "擂台",
+  study: "一起学", fanfic: "同人文", read: "一起读", watch: "一起看", weekly: "周刊", debate: "擂台",
   dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", pomodoro: "番茄钟",
   games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象",
   yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
@@ -750,6 +753,24 @@ function makeTextStore(dbName, storeName) {
     get: id => run("readonly", st => st.get(id)),
     del: id => run("readwrite", st => st.delete(id))
   };
+}
+// 「一起做件事」那几处（一起读、一起看）给角色的 system 头：接得上上下文就发整份 buildBundle，
+//   再补三条 bundle 不白送、只能调用点 push 的。原来只写在 read.js 里（readHead），
+//   一起看是第二处要它的，所以搬到这儿、一起读也改成调这一份（施工规则/one-public-mechanism.md）。
+function companionHead(ctxFor, char) {
+  let head = "";
+  if (typeof ctxFor === "function" && typeof buildBundle === "function" && char) {
+    try { head = buildBundle(ctxFor(char)) + "\n\n"; } catch (e) { head = ""; }
+  }
+  // 接不上的时候退回老那两条，并且【人设由这儿补】——所以底下五处提示词
+  // 一律不再自己写一遍「【你的人设】」：bundle 里本来就有，写两遍等于把人设发两份。
+  if (!head) head = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "")
+    + "【你的人设】\n" + ((char && char.persona) || "（暂无设定）") + "\n\n";
+  const more = [];
+  if (typeof ECHO_QUESTION_BAN !== "undefined") more.push(ECHO_QUESTION_BAN);
+  if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") more.push(REGISTER_FOLLOWS_SCENE);
+  if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) { try { more.push(ReplyPacing.reading()); } catch (e) {} }
+  return head + (more.length ? more.join("\n\n") + "\n\n" : "");
 }
 // ---- 懒加载 pdf.js（仅在导入 PDF 时才拉），抽取含文本层 / 已 OCR 的 PDF 文字 ----
 let _pdfjsP = null;

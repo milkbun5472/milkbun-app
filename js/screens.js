@@ -8540,7 +8540,7 @@ function Config(props) {
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(CacheStatCard, null)),
-      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, toast: props.toast })),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
@@ -9000,6 +9000,7 @@ function ApiConfig({
       }))));
 }
 function SenseConfig({
+  worlds,
   prefs,
   onSave,
   geo,
@@ -9017,6 +9018,11 @@ function SenseConfig({
     setP(np);
     onSave(np);
   };
+  // 位置从哪来：现实定位，或者某个架空世界（她 2026-09-25：「应该做选择而不是减法」）。
+  // 架空世界里的位置就是她在那张图上给自己钉的点；判定只在 MapKit.userRealm 一处。
+  const wl = Array.isArray(worlds) ? worlds : [];
+  const inWorld = !!(p.geoRealm && p.geoRealm !== "real");
+  const realm = window.MapKit && window.MapKit.userRealm ? window.MapKit.userRealm(p, geo, wl) : null;
   return /*#__PURE__*/React.createElement("div", {
     className: "pt-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -9091,7 +9097,7 @@ function SenseConfig({
       color: t.fog,
       marginTop: 2
     }
-  }, geo && geo.label ? "当前：" + geo.label + (geo.manual ? "（你手填的）" : "") : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
+  }, inWorld ? (realm ? "当前：" + realm.label + "（架空世界）" : "选中的那个世界已经不在了，重新选一个") : geo && geo.label ? "当前：" + geo.label + (geo.manual ? "（你手填的）" : "") : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
     on: p.geoAware === true,
     onChange: v => {
       save({
@@ -9099,9 +9105,23 @@ function SenseConfig({
         geoAware: v
       });
       // ⚠️她手填过地方就别去要设备定位：那一下会把她填的东京按回真实所在地（v72.66）
-      if (v && !(geo && geo.manual)) onRequestGeo();
+      if (v && !inWorld && !(geo && geo.manual)) onRequestGeo();
     }
-  })), p.geoAware && /*#__PURE__*/React.createElement("button", {
+  })),
+  // ── 我在哪套世界：有架空世界时才出现 ──
+  p.geoAware && wl.length > 0 && h("div", { style: { marginTop: 12 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "我在哪套世界"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      [{ id: "real", name: "现实定位" }].concat(wl).map(w => {
+        const on = w.id === "real" ? !inWorld : p.geoRealm === w.id;
+        return h("button", { key: w.id, onClick: () => save({ ...p, geoRealm: w.id }), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink } }, w.name);
+      })),
+    inWorld && realm && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+      realm.node
+        ? "角色会当你在「" + realm.world.name + "」的「" + realm.node + "」，天气、日记的地点也跟着这个世界走，不再提现实城市。想换地方，去地图里把自己钉到别处。"
+        : "角色会当你在「" + realm.world.name + "」里，不再提现实城市。去地图 → 架空 → 这个世界，把自己钉到一个地点，角色就知道你具体在哪儿。")),
+  p.geoAware && !inWorld && /*#__PURE__*/React.createElement("button", {
     onClick: onRequestGeo,
     className: "mt-4 w-full py-2.5",
     style: {
@@ -9116,7 +9136,7 @@ function SenseConfig({
   // ⚠️写进去的是【坐标 + 标签一整份】（engine.js 的 geoFromPlace）：
   //   只改文字的话，地图、天气、"没设家乡的角色撒在你附近"全都还在原地，
   //   而标签会拼成「东京 · 江苏 · 中国」——省国是旧的那次反查留下的。
-  p.geoAware && h("div", { style: { marginTop: 10 } },
+  p.geoAware && !inWorld && h("div", { style: { marginTop: 10 } },
     h("div", { className: "flex items-center", style: { gap: 8 } },
       h("input", {
         value: placeDraft,
@@ -11823,7 +11843,7 @@ function MyDiaryCompose({ onBack, onSave }) {
       if (e.location) setLoc(e.location);
       if (e.weather) setWeather(e.weather);
       if (e.coords) setCoords(e.coords);
-      setEnvState(e.coords ? "done" : "denied");
+      setEnvState(e.coords || e.location ? "done" : "denied");
     }).catch(() => aliveRef.current && setEnvState("denied"));
   };
   useEffect(() => { aliveRef.current = true; grab(); return () => { aliveRef.current = false; }; }, []);

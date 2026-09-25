@@ -4776,7 +4776,7 @@ const DEFAULT_FOLDERS = {
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
-  f_def_do:    { name: "一起做", keys: ["study", "read", "pomodoro"] },
+  f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
   //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
@@ -4979,6 +4979,7 @@ function Home({
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
     read: { kind: "app", zh: "一起读", G: IShelf },
+    watch: { kind: "app", zh: "一起看", G: IFilm },
     debate: { kind: "app", zh: "擂台", G: GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
@@ -8526,6 +8527,10 @@ function ChatThread({
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
+    // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
+    if (m.kind === "watchlog") return h(SysNote, { key: i, label: "一起看",
+      text: (m.content || ("一起看《" + (m.title || "") + "》")) + ((m.lines || []).length ? " · 边看边说了 " + m.lines.length + " 句" : ""),
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,

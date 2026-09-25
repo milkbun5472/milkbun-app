@@ -11,8 +11,9 @@ const note = comp.slice(comp.indexOf("function SysNote("), comp.indexOf("// 气�
 
 test("只有一个长相：五处全走 SysNote，没有第二份实现", () => {
   assert.match(comp, /function SysNote\(\{ label, text, tone, onClose, title \}\)/);
-  assert.equal((comp.match(/h\(SysNote, \{/g) || []).length, 5,
-    "五处：单聊 system / 单聊 OOC / 群聊 system / 群聊 OOC / 线下 OOC");
+  // v74.054 起第六处：单聊里「一起看」回来的交接条，走的也是这一个长相
+  assert.equal((comp.match(/h\(SysNote, \{/g) || []).length, 6,
+    "六处：单聊 system / 单聊 OOC / 单聊一起看交接 / 群聊 system / 群聊 OOC / 线下 OOC");
   // 旧的那几份不许留着
   assert.doesNotMatch(comp, /"OOC · " \+ m\.content/, "还有一处在自己拼 OOC 气泡");
   assert.doesNotMatch(comp, /}, "系统消息",/, "单聊那块「系统消息」大字还在");
