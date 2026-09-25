@@ -9096,7 +9096,13 @@ function ChatThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }
+      onPick: em => {
+        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
+        // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
+        // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
+        if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
+        setStickerOpen(false);
+      }
     })
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })

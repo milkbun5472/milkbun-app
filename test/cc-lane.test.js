@@ -57,3 +57,15 @@ console.log("cc-lane 车道测试全绿");
   assert.strictEqual(fresh.added, 1, "真新话照常导入");
 }
 console.log("回声去重测试全绿");
+
+// 表情包过桥（她 2026-09-25「表情包你能看到吗」）：ChatThread 贴纸 onPick 里
+// 车道开着（且没点直连）时把关键词投进攒话缸。
+{
+  const comp2 = fs.readFileSync(path.join(__dirname, "..", "js/components.js"), "utf8");
+  const iCT2 = comp2.indexOf("function ChatThread(");
+  const iEnd2 = comp2.indexOf("function GroupThread(");
+  const ct2 = comp2.slice(iCT2, iEnd2 > iCT2 ? iEnd2 : undefined);
+  assert.ok(ct2.includes('window.CcLane.post("[表情包] " + em.keyword'), "表情包关键词投车道");
+  assert.ok(ct2.includes("ccLane && !ccLane.direct"), "直连时表情包不投书房");
+}
+console.log("表情包过桥测试全绿");
