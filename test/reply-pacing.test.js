@@ -13,8 +13,9 @@ test("回她的话时不报条数区间", () => {
 
 test("节奏提示明写：分量和性格定节奏，短消息不许把角色也压短", () => {
   const p = Pacing.pacing([{ role: "user", content: "可是我不想" }]);
-  assert.match(p, /这句话的分量】和【你这个人的性格/);
-  assert.match(p, /不用因为对方话短就把自己也压成同样短/);
+  assert.match(p, /你此刻有多少真想说的话/);
+  assert.match(p, /对方那句的长短不决定你的长短/);
+  assert.doesNotMatch(p, /调情|撒娇|反话|抛梗|一个字也能/, "不给内容示范，免得往那几种上靠");
   assert.match(p, /一个意思说一遍就往下走/, "反注水的刹车还在");
 });
 
