@@ -96,6 +96,11 @@ hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<float(os.environ.get
 # hair behind stays).
 jaw=(fc[:,2]<.76)&(fc[:,1]<.03)&(dist<.012)
 hair&=~jaw
+# Strands lying on the ear (hugging its surface) break the ear's outline.
+EC=float(os.environ.get('EAR_CLEAR',0))
+if EC:
+    ear=(np.abs(fc[:,0])>.19)&(np.abs(fc[:,2]-.85)<.075)&(np.abs(fc[:,1]-.04)<.09)&(dist<EC)
+    hair&=~ear;print('ear strands removed',int(ear.sum()))
 print('jaw scraps removed',int(jaw.sum()))
 # Around the ears and jaw, light tan faces are the source's shaded ear and
 # cheek skin; real hair there is darker.

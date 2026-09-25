@@ -46,4 +46,4 @@
 | 发型 | 命令参数 | 备注 |
 |---|---|---|
 | M02 中分微卷（深棕） | 默认 | |
-| M03（浅灰棕） | `SKIN_R=.80 TAN_L=.70 TAN_Y=-.05 ALIGN=body HAIR_DY=0 FRINGE_K=1 FACE_CLEAR=0 BASE_FLAT=.92 MIN_ISLAND=0 FACE_CRUMB=200 HAIR_ONLY_ABOVE=.93` | 浅发色；按身体对齐；刘海不收；`MIN_ISLAND=0`：混元减面后发束表面有零散小三角，删「小碎块」会在发束上打出洞（俯视那些斑点）；耳后头发只在耳朵前面做浅色判定 |
+| M03（浅灰棕） | `EAR_CLEAR=.012 SKIN_R=.80 TAN_L=.70 TAN_Y=-.05 ALIGN=body HAIR_DY=0 FRINGE_K=1 FACE_CLEAR=0 BASE_FLAT=.92 MIN_ISLAND=0 FACE_CRUMB=200 HAIR_ONLY_ABOVE=.93` | 浅发色；按身体对齐；刘海不收；`MIN_ISLAND=0`：混元减面后发束表面有零散小三角，删「小碎块」会在发束上打出洞（俯视那些斑点）；耳后头发只在耳朵前面做浅色判定 |
