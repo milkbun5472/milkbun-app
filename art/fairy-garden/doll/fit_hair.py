@@ -76,7 +76,7 @@ skinlike=(hc[:,0]>SKIN_R)&(hc[:,0]-hc[:,2]>.12)
 eye=eye&(dist<.003)
 # The source's own eye pits float a little in front of our face: drop anything
 # close to the skin inside the two eye ellipses (the lifted fringe clears them).
-eye|=(fc[:,1]<-.08)&(((np.abs(fc[:,0])-float(os.environ.get('EYE_X',.075)))/.045)**2+((fc[:,2]-float(os.environ.get('EYE_Z',.785)))/.055)**2<1)&(dist<.02)
+eye|=(not os.environ.get('NO_EYE_CLEAR'))&(fc[:,1]<-.08)&(((np.abs(fc[:,0])-float(os.environ.get('EYE_X',.075)))/.045)**2+((fc[:,2]-float(os.environ.get('EYE_Z',.785)))/.055)**2<1)&(dist<.02)
 # On the face itself keep only what stands clear of our skin (hanging fringe);
 # the source's own eye pits and cheeks sit within a few mm of it.
 facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
@@ -261,7 +261,7 @@ for f in bm.faces:
     c=f.calc_center_median()
     if c.y<-.08 and ((abs(c.x)-EX)/.035)**2+((c.z-EZ)/.055)**2<1:
         loc,n,idx,d=tree.find_nearest(c)
-        if (c-loc).dot(n)<.02:kill.append(f)
+        if (c-loc).dot(n)<.02 and not os.environ.get('NO_EYE_CLEAR'):kill.append(f)
 bmesh.ops.delete(bm,geom=kill,context='FACES')
 print('cleared over eyes',len(kill))
 bm.to_mesh(H.data);bm.free();H.name='hair_m02'
