@@ -139,7 +139,28 @@ if os.environ.get('ANCHOR'):
     A=json.load(open(os.environ['ANCHOR']));Cc=np.array(A['center']);Rr=A['radius']
     for v in H.data.vertices:v.co=((np.array(v.co)-Cc)/Rr).tolist()
     H.data.update();H['hairAnchorSpace']='origin=skull centre, unit=skull radius'
-    bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
+    # Hair base: a thin hair-coloured shell hugging the skull (top and back,
+    # never the forehead), so gaps between locks never show bald scalp.
+    base_col=np.median(hc[hair],0)
+    cap=bpy.data.meshes.new('hair_base');vs=[];fs=[];nu,nv=96,48
+    for j in range(nv+1):
+        th=np.pi*j/nv
+        for i in range(nu):
+            ph=2*np.pi*i/nu;vs.append((np.sin(th)*np.cos(ph),np.sin(th)*np.sin(ph),np.cos(th)))
+    for j in range(nv):
+        for i in range(nu):
+            a_=j*(nu+0)+i;b_=j*nu+(i+1)%nu;fs.append((a_,b_,b_+nu,a_+nu))
+    V=np.array(vs)*float(os.environ.get('BASE_R',1.012))
+    keep=[k for k,f in enumerate(fs) if all(
+        V[q][2]>-.05 and not (V[q][1]<-.55 and V[q][2]<.42) for q in f)]
+    cap.from_pydata(V.tolist(),[],[fs[k] for k in keep]);cap.update()
+    import bmesh as _b;bb=_b.new();bb.from_mesh(cap);_b.ops.remove_doubles(bb,verts=bb.verts,dist=1e-6)
+    _b.ops.delete(bb,geom=[v for v in bb.verts if not v.link_faces],context='VERTS');bb.to_mesh(cap);bb.free()
+    m=bpy.data.materials.new('Hair base');m.use_nodes=True
+    bs=m.node_tree.nodes['Principled BSDF'];bs.inputs['Base Color'].default_value=(*[float(x)**2.2 for x in base_col],1);bs.inputs['Roughness'].default_value=.9
+    cap.materials.append(m);capo=bpy.data.objects.new('hair_base',cap);bpy.context.collection.objects.link(capo)
+    capo.parent=H
+    bpy.ops.object.select_all(action='DESELECT');H.select_set(True);capo.select_set(True)
     bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
     print('hat written');sys.exit(0)
 bpy.ops.object.select_all(action='DESELECT')

@@ -36,4 +36,5 @@
 - `hats/hair_<id>.glb`：发型挂件，坐标在 `HeadAnchor` 的本地空间（原点＝头骨圆心，1＝头骨半径）。只有头发网格，没有身体。
   `ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py <混元戴发型玩偶>.glb <本体>.glb hats/hair_<id>.glb`
 - `hat-preview.html`：three.js 预览，`anchor.add(hat)` 即戴上，可切光头／M02、拖动旋转。截图 `hat-preview.png`。
+- 发底：挂件里带一层头发色薄壳（半径 1.012，盖头顶和后脑、不盖额头脸），发束缝里不再露秃皮。
 - 待办：挂件贴图还是 4K×3（25 MB），接入手机前降到 1K；app 侧把 `HeadAnchor` 接到头部节点（体型拉条的「头」缩放作用在这个节点上，发型自动跟随）。
