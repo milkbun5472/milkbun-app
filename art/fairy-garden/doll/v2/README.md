@@ -58,4 +58,4 @@
 - 衣服是 Hunyuan 生成的「只有衣服的壳」，放在 `v2/outfits/`。`skin_outfit.py` 三步：摆到娃娃身上（居中、缩放 `S`、前后加厚 `SY`、下沿对齐 `Z0`）→ 从身体就近复制骨骼权重 → 连同同一副骨架导出。运行时按骨头名字把衣服绑回娃娃的骨架（见 `rig-preview-v2.html` 的 `dress()`）。
 - 摆好后先「贴合」：凡是落在身体里面（或离皮肤不到 `GAP=.006`）的衣服顶点，沿身体法线推到皮肤外面，这样衣服可以往下放、露出脖子，肩膀也不会戳出来。
 - 背心、衬衫身这类从不伸出躯干侧边的碎片（`|x|` 最大值 < `ARM_X=.2`）不吃手臂权重，否则挥手时背心下摆会被手拽走。
-- **C01 学院背心**（衬衫 + 领带 + 针织背心 + 短裤）：`SLEEVE_K=.35 S=.53 SY=1.25 Z0=.15 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c01-shell.glb v2/outfits/outfit_c01.glb`。动作图 `c01.png`。袖子缩短 35%（`SLEEVE_K`，只动伸出躯干两侧的碎片，沿肩→手方向往肩膀收）。已知：袖口内侧有一点白色毛边；侧面走路时袖窿处会露一点点皮肤。
+- **C01 学院背心**（衬衫 + 领带 + 针织背心 + 短裤）：`CRUMB=200 UNDER=1 SLEEVE_K=.35 S=.53 SY=1.25 Z0=.15 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c01-shell.glb v2/outfits/outfit_c01.glb`。动作图 `c01.png`。袖子缩短 35%（`SLEEVE_K`，只动伸出躯干两侧的碎片，沿肩→手方向往肩膀收）。袖口毛边碎片（小于 `CRUMB=200` 顶点的袖子碎块）收掉；`UNDER=1` 在衣服底下铺一层衬衫色的贴身底衣（身体皮肤复制外推 `UGAP=.004`，躯干 + 手臂到袖口内），腋下、肩膀裂缝看进去是衬衫色不是肉色。
