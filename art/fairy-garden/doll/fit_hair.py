@@ -97,11 +97,11 @@ jaw=(fc[:,2]<.76)&(fc[:,1]<.03)&(dist<.012)
 guess=np.zeros(len(fc),bool)
 MARK=bool(os.environ.get('MARK_ONLY'))
 guess|=jaw&hair
-if not MARK:hair&=~jaw
+if not MARK and not os.environ.get('JAW_OFF'):hair&=~jaw
 # Strands lying on the ear (hugging its surface) break the ear's outline.
 EC=float(os.environ.get('EAR_CLEAR',0))
 if EC:
-    ear=(np.abs(fc[:,0])>.19)&(np.abs(fc[:,2]-.86)<.09)&(np.abs(fc[:,1]-.02)<.11)&(dist<EC)
+    ear=(np.abs(fc[:,0])>.19)&(np.abs(fc[:,2]-.86)<.09)&(np.abs(fc[:,1]-.02)<.11)&(dist<EC)&(dist>-.06)
     guess|=ear&hair
     if not MARK:hair&=~ear
     print('ear strands removed',int(ear.sum()))
@@ -226,6 +226,20 @@ for v in bm.verts:
         loc,n,idx,dd=tree.find_nearest(v.co)
         if (v.co-loc).dot(n)<.002:v.co=loc+n*.002;pushed+=1
 print('side verts pushed out',pushed)
+# Hair always lies ON TOP of skin (ears included): push every vertex that is
+# inside or touching the doll out to a small clearance.
+if os.environ.get('PUSH_ALL'):
+    cl=float(os.environ['PUSH_ALL']);n_=0
+    # Faces buried deep under the skin are the source's own face/ear shell:
+    # delete them rather than surfacing them.
+    deep=float(os.environ.get('BURIED',.006));bm.faces.ensure_lookup_table();kill=[]
+    for f in bm.faces:
+        if all((lambda r:(v.co-r[0]).dot(r[1]))(tree.find_nearest(v.co))<-deep for v in f.verts):kill.append(f)
+    bmesh.ops.delete(bm,geom=kill,context='FACES');print('buried faces removed',len(kill))
+    for v in bm.verts:
+        loc,nn,idx,dd=tree.find_nearest(v.co)
+        if loc is not None and (v.co-loc).dot(nn)<cl:v.co=loc+nn*cl;n_+=1
+    print('pushed onto skin',n_)
 # After the fringe lift, clear anything that ended up lying on our eyes.
 EZ=float(os.environ.get('EYE_Z',.798));EX=float(os.environ.get('EYE_X',.077))
 bm.faces.ensure_lookup_table()
