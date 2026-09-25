@@ -74,4 +74,21 @@ assert.match(src, /function renameFilm\(f, done\) \{/);
 assert.match(src, /onRename: \(\) => renameFilm\(f, /);
 assert.match(src, /onTitleTap: \(\) => renameFilm\(film, refresh\)/);
 assert.match(src, /h\(IPencil, /);
+// 11. 长片子：聊多了折成摘要，喂回去；只删折进去的那几条（她 2026-09-25「都做了吧」）
+assert.match(src, /const FOLD_AT = 40, FOLD_TAKE = 24;/);
+assert.match(src, /async function foldWatchTalk\(/);
+assert.match(src, /window\.ChatRooms\.digestMerge\(film\.talkDigest \|\| "", seg\)/, "合并器又自己写了一份");
+assert.match(src, /film\.talkDigest \? "【你们前面看的时候聊过的（你自己记下的）】/);
+assert.match(src, /filter\(r => !gone\[r\.ts \+ "\|" \+ r\.role \+ "\|" \+ \(r\.content \|\| ""\)\]\)/);
+// 12. 字幕挪时间轴：画面上那句和喂给 TA 的那段按同一个偏移
+assert.match(src, /recentLines\(cues, at - \(Number\(film\.subOffset\) \|\| 0\)\)/);
+assert.match(src, /const line = cueAt\(cues, now - off\);/);
+// 13. 放不了的格式有话说
+assert.match(src, /onError: \(\) => setPlayErr\(true\)/);
+assert.match(src, /这台手机放不了这个格式/);
+// 14. 影院模式：铺满、TA 的话浮在画面上、层本身不挡原生控件
+assert.match(src, /function CinemaLayer\(p\)/);
+assert.match(src, /pointerEvents: "none"/);
+assert.match(src, /el\.requestFullscreen\(\)/);
+assert.match(src, /"aria-label": "退出影院模式"/);
 console.log("ok watch-together");

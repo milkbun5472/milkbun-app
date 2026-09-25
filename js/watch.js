@@ -13,6 +13,8 @@
   const _store = makeTextStore("WatchTogetherDB", "films");
   const KEY = "x_watch_films";
   const TALK_KEEP = 80, TALK_FEED = 14, FRAME_THUMBS = 10;
+  // 聊到这么多条就把最早那一截折成摘要（她 2026-09-25：长片子看到后半段，TA 记不住前面聊过啥）
+  const FOLD_AT = 40, FOLD_TAKE = 24;
   // 片子往前走了多少分钟，TA可以自己开一次口（不是必须开口）。她自己拉（她 2026-09-25：「自己开口要不要搞个拉条」）
   const AUTO_MIN = 1, AUTO_MAX = 20, AUTO_DEFAULT = 5;
   const SUB_WINDOW = 90;     // 喂给TA的是【刚放过的】这一段台词
@@ -105,13 +107,15 @@
     const talk = past.slice(-TALK_FEED).map(function (m) {
       return "[" + clock(m.at) + "] " + (m.role === "user" ? uName : char.name) + "：" + (m.frame ? "（截了一帧画面给你看）" : "") + String(m.content || "");
     }).join("\n");
-    const lines = recentLines(cues, at);
+    // 字幕挪过时间轴的话，按挪过的那条对（她 2026-09-25：「字幕对不上时轴」）
+    const lines = recentLines(cues, at - (Number(film.subOffset) || 0));
     const sys = companionHead(p.ctxFor, char)
       + "【此刻】你和「" + uName + "」并排坐着，一起看电影《" + (film.title || "这部片子") + "》，现在放到 " + clock(at)
       + (film.duration ? " / " + clock(film.duration) : "") + "。你们在同一个屋子里，你说的话是说出口的，不是打字发过去的。\n"
       + (lines.length
         ? "【刚放过的台词（字幕，到此刻为止）】\n" + lines.join("\n") + "\n"
         : (cues && cues.length ? "【这一小段没有台词】\n" : "【这部片子没有字幕，你只知道她跟你说的、和她截给你看的画面】\n"))
+      + (film.talkDigest ? "【你们前面看的时候聊过的（你自己记下的）】\n" + film.talkDigest + "\n" : "")
       + (talk ? "【你们看到现在说过的｜已经发生过的，不是这一轮要回的话】\n" + talk + "\n" : "")
       + "你只知道放到此刻为止的东西；后面会怎么演，就算你看过这部片子，也别替她剧透。\n"
       + (mode === "auto"
@@ -125,13 +129,29 @@
     const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { maxTokens: 65535 });
     return parseSay(raw);
   }
+  // 把最早那一截折进这部片子自己的记录。⚠️它不是记忆：折完还是只活在这张票上，出门只有「记住」那一条路（同一起读）
+  async function foldWatchTalk(p, char, film, rows) {
+    const uName = (p.profile && p.profile.name) || "对方";
+    const text = rows.map(function (m) { return "[" + clock(m.at) + "] " + (m.role === "user" ? uName : char.name) + "：" + (m.frame ? "（截了一帧）" : "") + String(m.content || ""); }).join("\n");
+    if (!text.trim()) return String(film.talkDigest || "");
+    const sys = companionHead(p.ctxFor, char)
+      + "你在和「" + uName + "」一起看《" + (film.title || "这部片子") + "》。把下面这段你俩边看边说的话，"
+      + "收成一小段【你自己会记住的记录】（第一人称，两三句）：你俩各自怎么看那一段、在哪儿意见不合、她提起的事、你们之间的小默契。别复述剧情，别写影评，别替她总结。"
+      + (film.talkDigest ? "\n\n【之前已经记下的（不要重写它，只写这一次新添的）】\n" + film.talkDigest : "")
+      + "\n\n只输出这一小段本身。";
+    const seg = String(await callAI(p.active, sys, [{ role: "user", content: text }], { maxTokens: 65535 }) || "").trim();
+    if (!seg) return String(film.talkDigest || "");
+    return (window.ChatRooms && window.ChatRooms.digestMerge)
+      ? window.ChatRooms.digestMerge(film.talkDigest || "", seg)
+      : (String(film.talkDigest || "").trim() ? String(film.talkDigest).trim() + "\n\n" + seg : seg);
+  }
   async function summarizeFilm(p, char, film) {
     const uName = (p.profile && p.profile.name) || "对方";
     const talk = (film.talk || []).slice(-40).map(function (m) { return "[" + clock(m.at) + "] " + (m.role === "user" ? uName : char.name) + "：" + String(m.content || ""); }).join("\n");
-    if (!talk.trim()) return "";
-    const sys = companionHead(p.ctxFor, char) + "把下面这次「你和 " + uName + " 一起看《" + (film.title || "一部电影") + "》」的经历，浓缩成 1~3 句会长期记住的事实（你的第一人称）："
+    if (!talk.trim() && !film.talkDigest) return "";
+    const sys = companionHead(p.ctxFor, char) + (film.talkDigest ? "【你们前面看的时候聊过的（你自己记下的）】\n" + film.talkDigest + "\n\n" : "") + "把下面这次「你和 " + uName + " 一起看《" + (film.title || "一部电影") + "》」的经历，浓缩成 1~3 句会长期记住的事实（你的第一人称）："
       + "你们看了什么、看到哪儿、你对片子的关键看法、你俩看的时候碰出的话或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账、别复述剧情。只输出这几句话本身。";
-    return String(await callAI(p.active, sys, [{ role: "user", content: talk }], { maxTokens: 65535 }) || "").trim();
+    return String(await callAI(p.active, sys, [{ role: "user", content: talk || "（后半段没怎么说话）" }], { maxTokens: 65535 }) || "").trim();
   }
 
   // 改名（她 2026-09-25：片名是一串「copy_B8F7…」文件名，导进来之后没地方改）。票上那支笔、放映页点标题，两处都走这一个
@@ -239,6 +259,29 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))));
   }
 
+  // ---- 影院模式那一层：台词在下面、TA 的话浮在右上、角上一个退出和一个「说」 ----
+  // ⚠️整层 pointer-events:none，只有按钮和输入框接手指：不然挡住原生播放控件
+  const FLOAT_MS = 9000;
+  function CinemaLayer(p) {
+    const fresh = (p.talk || []).filter(m => m.role !== "user" && m.content && Date.now() - (m.ts || 0) < FLOAT_MS).slice(-3);
+    const top = "calc(env(safe-area-inset-top) + 10px)";
+    const pill = { pointerEvents: "auto", minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.2)", background: "rgba(0,0,0,.45)", color: "#fff", fontFamily: F_BODY, fontSize: 13, display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(6px)" };
+    return h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+      h("button", { onClick: p.onExit, "aria-label": "退出影院模式", style: Object.assign({}, pill, { position: "absolute", left: "calc(env(safe-area-inset-left) + 12px)", top: top, width: 40, padding: 0, justifyContent: "center" }) }, h(IX, { size: 16, color: "#fff" })),
+      h("button", { onClick: () => p.setSay(!p.say), style: Object.assign({}, pill, { position: "absolute", right: "calc(env(safe-area-inset-right) + 12px)", top: top }) }, p.say ? "收起" : "说一句"),
+      p.say && h("div", { className: "flex items-center gap-2", style: { position: "absolute", left: "calc(env(safe-area-inset-left) + 64px)", right: "calc(env(safe-area-inset-right) + 96px)", top: top, pointerEvents: "auto" } },
+        h("input", { autoFocus: true, value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: 16 } }),
+        btn("说", p.send, { primary: true, disabled: p.busy || !String(p.txt || "").trim() })),
+      // TA 刚说的话：浮在右上，九秒后自己淡掉
+      h("div", { style: { position: "absolute", right: "calc(env(safe-area-inset-right) + 14px)", top: "calc(env(safe-area-inset-top) + 62px)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "58%" } },
+        fresh.map((m, i) => h("div", { key: (m.ts || 0) + ":" + i, className: "flex items-center gap-2", style: { padding: "6px 12px 6px 6px", borderRadius: 999, background: "rgba(22,20,27,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.45, backdropFilter: "blur(6px)", opacity: Math.max(0.25, 1 - (Date.now() - (m.ts || 0)) / FLOAT_MS * 0.6) } },
+          p.partner ? h(Avatar, { character: p.partner, size: 24, radius: 12 }) : null,
+          h("span", null, m.content))),
+        p.busy && h("div", { style: { padding: "5px 12px", borderRadius: 999, background: "rgba(22,20,27,.6)", color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "…")),
+      // 台词：画面下方，躲开原生进度条
+      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, p.line) : null);
+  }
+
   // ---- 放映 ----
   function Screening(props) {
     const id = props.filmId;
@@ -247,6 +290,8 @@
     const [busy, setBusy] = useState(false), [txt, setTxt] = useState(""), [missing, setMissing] = useState(false);
     const [auto, setAuto] = useState(() => loadJSON("x_watch_auto", true) !== false);
     const [toolsOpen, setToolsOpen] = useState(false);
+    const [playErr, setPlayErr] = useState(false), [cinema, setCinema] = useState(false), [cinemaSay, setCinemaSay] = useState(false), [, setTick] = useState(0);
+    const shellRef = useRef(null), foldingRef = useRef(false), fsRef = useRef(false);
     const [every, setEvery] = useState(() => { const n = Number(loadJSON("x_watch_auto_every", AUTO_DEFAULT)); return n >= AUTO_MIN && n <= AUTO_MAX ? n : AUTO_DEFAULT; });
     const vRef = useRef(null), listRef = useRef(null), lastAuto = useRef(0), lastSave = useRef(0), busyRef = useRef(false);
     const cuesRef = useRef([]), inbandSave = useRef(0);
@@ -277,6 +322,34 @@
       t.oncuechange = pull; pull();
     };
     const partner = film && (props.characters || []).find(c => String(c.id) === String(film.partnerId));
+    // 字幕挪时间轴：正数＝字幕往后推，负数＝往前提（她 2026-09-25）
+    const off = Number(film && film.subOffset) || 0;
+    const nudge = d => { const n = Math.round((off + d) * 2) / 2; patchFilm(id, () => ({ subOffset: n })); refresh(); };
+    const line = cueAt(cues, now - off);
+    // 影院模式：横屏铺满，TA 说的话浮在画面上（她 2026-09-25：全屏时看不到 TA 说话）
+    const enterCinema = () => {
+      setCinema(true); setToolsOpen(false);
+      const el = shellRef.current;
+      try {
+        if (el && el.requestFullscreen) el.requestFullscreen().then(() => {
+          fsRef.current = true;
+          try { screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {}); } catch (e) {}
+        }).catch(() => {});
+      } catch (e) {}
+    };
+    const exitCinema = () => {
+      setCinema(false); setCinemaSay(false);
+      try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
+      try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (e) {}
+      fsRef.current = false;
+    };
+    useEffect(() => {
+      const onFs = () => { if (fsRef.current && !document.fullscreenElement) { fsRef.current = false; setCinema(false); setCinemaSay(false); } };
+      document.addEventListener("fullscreenchange", onFs);
+      return () => document.removeEventListener("fullscreenchange", onFs);
+    }, []);
+    // 浮在画面上的那几句要按时间消失：影院模式开着时每秒刷一下
+    useEffect(() => { if (!cinema) return; const t = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(t); }, [cinema]);
     useEffect(() => {
       let url = "", alive = true;
       _store.get(id).then(blob => {
@@ -289,7 +362,20 @@
     }, [id]);
     useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [film && (film.talk || []).length, busy]);
     const refresh = () => setFilm(loadFilms().find(f => f.id === id) || null);
-    const pushTalk = rows => { patchFilm(id, f => ({ talk: (f.talk || []).concat(rows).slice(-TALK_KEEP), lastTs: Date.now() })); refresh(); };
+    const pushTalk = rows => { patchFilm(id, f => ({ talk: (f.talk || []).concat(rows).slice(-TALK_KEEP), lastTs: Date.now() })); refresh(); maybeFold(); };
+    // 聊多了把最早那一截折成摘要；折的时候又来了新话也不怕——只删折进去的那几条（按 ts+内容认）
+    const maybeFold = async () => {
+      const cur = loadFilms().find(f => f.id === id);
+      if (!cur || foldingRef.current || (cur.talk || []).length <= FOLD_AT || !partner || !props.active) return;
+      foldingRef.current = true;
+      const rows = cur.talk.slice(0, FOLD_TAKE), gone = {};
+      rows.forEach(r => { gone[r.ts + "|" + r.role + "|" + (r.content || "")] = 1; });
+      try {
+        const digest = await foldWatchTalk(props, partner, cur, rows);
+        patchFilm(id, f => ({ talkDigest: digest, talk: (f.talk || []).filter(r => !gone[r.ts + "|" + r.role + "|" + (r.content || "")]) }));
+        refresh();
+      } catch (e) {} finally { foldingRef.current = false; }
+    };
     const savePos = force => {
       const v = vRef.current; if (!v) return;
       if (!force && Date.now() - lastSave.current < 5000) return;
@@ -354,15 +440,24 @@
     return shell(head,
       h("div", { className: "flex-1 min-h-0 flex flex-col" },
         // 银幕
-        h("div", { style: { flexShrink: 0, background: "#000", boxShadow: "0 12px 30px rgba(0,0,0,.45)" } },
+        h("div", { ref: shellRef, style: cinema
+            ? { position: "fixed", inset: 0, zIndex: 99990, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }
+            : { position: "relative", flexShrink: 0, background: "#000", boxShadow: "0 12px 30px rgba(0,0,0,.45)" } },
+          // 放不出来的格式：别只黑着（她 2026-09-25）
+          playErr && !missing ? h("div", { style: { aspectRatio: "16/9", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: W.sub } },
+            "这台手机放不了这个格式（常见的是 mkv、avi）。换成 mp4 再导一次就好——用转格式的软件选「只换封装」，一两分钟，画质不变。") : null,
           missing
             ? h("div", { style: { aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.sub } }, "这台手机里没有这部片子的文件了（换过设备或清过数据）。删掉这张票重新导入就好，聊过的话还在。")
             : h("video", { ref: vRef, src: src || undefined, controls: true, playsInline: true, preload: "metadata",
                 onLoadedMetadata: e => { const v = e.target; if (film.pos && film.pos < (v.duration || Infinity) - 3) v.currentTime = film.pos; lastAuto.current = film.pos || 0; savePos(true); adoptInband(); if (v.textTracks) v.textTracks.onaddtrack = adoptInband; },
                 onTimeUpdate: onTime, onPause: () => { savePos(true); if (film.inband || (!film.cueCount && cuesRef.current.length)) { _store.put("cues:" + id, cuesRef.current).catch(() => {}); patchFilm(id, () => ({ cueCount: cuesRef.current.length, inband: true })); } },
-                style: { display: "block", width: "100%", maxHeight: "42vh", background: "#000" } })),
+                onError: () => setPlayErr(true),
+                style: cinema
+                  ? { display: playErr ? "none" : "block", width: "100%", height: "100%", maxHeight: "none", objectFit: "contain", background: "#000" }
+                  : { display: playErr ? "none" : "block", width: "100%", maxHeight: "42vh", background: "#000" } }),
+          cinema && h(CinemaLayer, { line: line, hasCues: !!cues.length, talk: film.talk || [], partner: partner, busy: busy, txt: txt, setTxt: setTxt, send: send, say: cinemaSay, setSay: setCinemaSay, onExit: exitCinema })),
         // 台词条：现在银幕上这一句。没有字幕的片子整条不出现（她 2026-09-25：「没有字幕的提示也删了省空间」）
-        cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, cueAt(cues, now)) : null,
+        cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, line) : null,
         // 你们说的话
         h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 12px" } },
           !talk.length && h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: W.fog, padding: "22px 10px", lineHeight: 1.8 } }, "片子放起来，想说什么就说。\nTA 看到有感觉的地方也会自己冒一句。"),
@@ -383,6 +478,7 @@
           h("div", { className: "flex items-center gap-2", style: { padding: "10px 12px 2px", overflowX: "auto" } },
           btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
+          btn("影院模式", enterCinema, { disabled: missing || playErr }),
           h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
           auto && h("div", { className: "flex items-center gap-3", style: { padding: "0 16px 4px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话多"),
@@ -394,7 +490,14 @@
               onChange: e => { const n = Number(e.target.value); setEvery(n); saveJSON("x_watch_auto_every", n); },
               style: { position: "absolute", inset: 0, width: "100%", height: 40, margin: 0, padding: 0, border: "none", boxShadow: "none", background: "transparent", accentColor: W.amber } })),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话少"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟")),
+          // 字幕对不上画面时挪一挪（有字幕才出来）
+          cues.length ? h("div", { className: "flex items-center gap-2", style: { padding: "0 12px 8px" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap", paddingLeft: 4 } }, "字幕"),
+            btn("提前 0.5 秒", () => nudge(-0.5), { style: { fontSize: 12, padding: "0 10px" } }),
+            h("span", { style: { flex: 1, minWidth: 0, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: off ? W.amber : W.fog, whiteSpace: "nowrap" } },
+              off === 0 ? "对得上" : (off < 0 ? "提前 " + (-off) + " 秒" : "推后 " + off + " 秒")),
+            btn("推后 0.5 秒", () => nudge(0.5), { style: { fontSize: 12, padding: "0 10px" } })) : null),
         // 输入
         h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(22,20,27,.92)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
           h("button", { onClick: () => setToolsOpen(!toolsOpen), "aria-label": toolsOpen ? "收起" : "更多", "aria-expanded": String(toolsOpen), className: "active:opacity-60", style: { width: 40, height: 40, flexShrink: 0, borderRadius: "50%", border: "1px solid " + (toolsOpen ? W.amber : W.line), background: "none", color: toolsOpen ? W.amber : W.sub, fontSize: 22, lineHeight: 1, transform: toolsOpen ? "rotate(45deg)" : "none", transition: "transform .15s" } }, "+"),
