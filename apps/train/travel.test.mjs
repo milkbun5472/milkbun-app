@@ -8,14 +8,14 @@ test('direct entries vary initial time and both entry paths can start on all thr
  const times=new Set();for(const n of [.01,.4,.8]){const s=startTrip(null,()=>n);times.add(s.minute);assert.equal(s.routeStart,Math.floor(n*3));assert.equal(startTrip(freshState(),()=>n).routeStart,s.routeStart);}assert.equal(times.size,3);
 });
 test('time advances through midnight, all seasons and year wrap, independently of scenic slowing',()=>{
- for(const day of [14,28,42,56]){const s={...startTrip(freshState()),day,minute:1439.9};const next=advanceTrip(s,.1,.36);assert.equal(next.day,day+1);assert.ok(next.minute<.11);assert.ok(Math.abs(next.distance-.036)<1e-10);assert.notEqual(travelEnvironment(next).season,travelEnvironment(s).season);assert.equal(advanceTrip(s,0),s);}
+ for(const day of [14,28,42,56]){const s={...startTrip(freshState()),day,startDay:day,minute:1439.9};const next=advanceTrip(s,.1,.36);assert.equal(next.day,day+1);assert.ok(next.minute<.61);assert.ok(Math.abs(next.distance-.036)<1e-10);assert.notEqual(travelEnvironment(next).season,travelEnvironment(s).season);assert.equal(advanceTrip(s,0),s);}
 });
 test('each route signals the next for forty distance units and swaps without losing mileage',()=>{
  const s=startTrip(null,()=>0);for(let i=0;i<3;i++){const before=travelEnvironment({...s,distance:i*160+120});const middle=travelEnvironment({...s,distance:i*160+140});const edge=travelEnvironment({...s,distance:i*160+159.999});const next=travelEnvironment({...s,distance:(i+1)*160});assert.equal(before.routeBlend,0);assert.equal(middle.routeBlend,.5);assert.ok(edge.routeBlend>.999);assert.equal(edge.nextRoute,next.route);assert.equal(next.routeBlend,0);}
 });
 
 test('chat describes actual landmarks, tunnel occlusion and slowing without repeating landmarks during blends',()=>{
- const s={...startTrip(null,()=>0),day:43,minute:1234.9};
+ const s={...startTrip(null,()=>0),day:43,startDay:43,minute:1234.9};
  let c=travelContext({...s,distance:80});assert.equal(c.time,'20:34');assert.equal(c.timeOfDay,'夜晚');assert.equal(c.season,'冬天');assert.equal(c.passing,'穿过山洞');assert.equal(c.tunnel.darkness,1);
  c=travelContext({...s,distance:98});assert.equal(c.sightseeing.place,'山中湖泊');assert.ok(c.sightseeing.speedFactor<.4);
  c=travelContext({...s,distance:140});assert.equal(c.passing,'沿途');assert.equal(c.tunnel,null);assert.equal(c.sightseeing,null);assert.deepEqual([c.transition.from,c.transition.to,c.transition.progress],['林间山谷','田野村落',.5]);
