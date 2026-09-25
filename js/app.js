@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.072";
+const APP_VERSION = "v74.073";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18758,9 +18758,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     forumWaveBusyRef.current = true;
     try {
       const existing = forumFloorOrder(forumCommentsRef.current[hitId] || []);
-      const shownFloors = existing.filter(f => !f.visibleAt || Number(f.visibleAt) <= Date.now());
+      // 排队没露面的楼也给模型看：它们早就写好了，只是按时间放；这一波一律接在队尾之后才露面，
+      // 轮到它时前面那些都已经放完。以前只给看已露面的，模型不知道自己排着一条，就又写一遍
+      // （她 2026-09-25：「就算是没放出来不应该是写好了的等到时间放吗」）。
       const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || "")),
-        forumCommentProbe(post, "1-2", { round2: true, existingFloors: shownFloors, repliedChars: forumRepliedCharCells(existing) }));
+        forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
       const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
       if (cs.length) {
         const base = Date.now(), start = existing.length + 2;
