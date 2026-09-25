@@ -14,9 +14,9 @@ test("准则定了条数:这一轮不再报 1～3 的区间,照准则走", () =>
   assert.match(g, /至少12条/);
 });
 
-test("准则跟条数长短无关:照旧给区间", () => {
+test("准则跟条数长短无关:走分量和性格,也不报区间", () => {
   const g = RP.pacing(hist, { directives: [{ text: "少用敬语，对她随意一点" }] });
-  assert.match(g, /参考区间 1～3/);
+  assert.doesNotMatch(g, /参考区间|长期准则来/);
 });
 
 test("单聊线上把这个角色的准则递给节奏", () => {
