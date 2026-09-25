@@ -49,3 +49,6 @@
 - 预览：`../rig-preview-v2.html`（站着 / 走路 / 挥手 / 坐下，动作公式照抄 traveler.mjs），截图 `rig.png`。
 - 发型照旧挂在 `HeadAnchor`（骨架的子节点，头不动）。衣服以后也蒙到这副骨架上：从身体把权重传给衣服，袖子、裤腿就会跟着手脚一起弯。
 - 还没接进 app：`traveler.mjs` 目前是把网格塞进枢轴组来转，换成新娃娃时要改成转骨头。
+- **F02 内扣短发**（女生款）：Hunyuan 头发壳 `hunyuan-f02-shell.glb`。
+  `INNER=.82 DZ=.04 python3 fit_shell.py v2/hunyuan-f02-shell.glb v2/head-anchor.json fit.glb`
+  `TUCK_K=.35 python3 shape_hair.py fit.glb v2/hats/hair_f02.glb`（整体 82%、往上补一点保持头顶高度；后半边从耳朵高度往下越收越多，发尾内扣 35%）。侧面、后 45° 会露一点耳朵。预览图 `f02.png`。
