@@ -1,7 +1,8 @@
 """Cut the hair out of a Hunyuan 'doll wearing hairstyle' model and fit it
-# Hat:  FILL_N=24 ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb hats/hair_x.glb
+# Hat:  HAIR_SCALE=1.03 FILL_N=0 ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py hunyuan-doll-with-hair.glb doll-face.glb hats/hair_x.glb
 onto our bald doll. Hair = faces whose texels are dark brown, away from the
 eyes. Alignment uses the two ears (both dolls share the same bald head)."""
+import os
 import bpy,sys,bmesh,numpy as np
 src,doll,out=sys.argv[-3:]
 for o in list(bpy.data.objects):bpy.data.objects.remove(o)
@@ -50,6 +51,8 @@ H.data.transform(H.matrix_world);H.matrix_world.identity()
 for v in H.data.vertices:v.co=(s*np.array(v.co)+t).tolist()
 H.data.update()
 from mathutils import Vector
+HS=float(os.environ.get('HAIR_SCALE',1.0))
+
 from mathutils.bvhtree import BVHTree
 bmD=bmesh.new();bmD.from_mesh(D.data);bmD.transform(D.matrix_world);bmD.normal_update();tree=BVHTree.FromBMesh(bmD)
 P2=np.array([v.co[:] for v in H.data.vertices])
@@ -110,6 +113,11 @@ for v in bm.verts:
     sd=(v.co-loc).dot(n)
     if sd<.003:v.co=loc+n*.003;lifted+=1
 print('rear lifted',lifted)
+# Grow the whole hair about the skull centre so it clears our (fuller) skull
+# while every lock keeps the source's layout and flow.
+if HS!=1.0:
+    Cs=Vector((0,.0252,.93))
+    for v in bm.verts:v.co=Cs+(v.co-Cs)*HS
 # Shorten the fringe to clear the eyes: compress front hair vertically toward
 # the crown (z anchor), weighted by how far forward it sits. Crown, sides and
 # back stay put, so the roots still sit on the scalp.
