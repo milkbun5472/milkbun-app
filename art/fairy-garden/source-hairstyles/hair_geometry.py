@@ -350,11 +350,11 @@ def back_bow(s):
 
 
 def build_style(style):
-    s=Sculpt('hair_'+style,PALETTE[style]);s.cap(style=='pixie',style in ('curtains','ponytail'),style=='curtains')
+    s=Sculpt('hair_'+style,PALETTE[style]);s.cap(style=='pixie',style in ('curtains','ponytail'))
     if style in ['comma','wolf','pixie','mullet']:rear_layers(s,style)
     if style=='curtains':
-        from curtains_study import sculpt_front,source_back
-        source_back(s);sculpt_front(s)
+        from curtains_study import sculpt_front,refined_rear,lift_crown
+        refined_rear(s);sculpt_front(s);lift_crown(s)
     elif style=='comma':
         for j,(theta,end,width) in enumerate([(-.86,1.80,.058),(-.50,1.88,.063),(-.14,1.90,.054),(.22,1.81,.052)]):
             front_lock(s,theta,end,width,.10+j*.035,bend=.55,layer=.017)

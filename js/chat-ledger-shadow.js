@@ -173,6 +173,14 @@
         role: speaker === "lisa" ? "user" : "assistant", content: text(row.content),
         ts: safeTs, read: speaker === "lisa", recalled: isDeleted
       };
+      // 书房直通去重（她 2026-09-25 报「我的气泡被带回来一次」）：她在 App 打的字
+      // 本地已经有原生气泡，账本回流的 Lisa 行若与之同文且时间贴近，是同一句话的
+      // 第二份投影——跳过，不再添一只回声气泡。只查 Lisa 侧：我的行没有本地原生副本。
+      if (speaker === "lisa" && !byKey.has(key) && !isDeleted) {
+        const dup = list.some(m => m && m.role === "user" && !m.ledgerImported && !m.recalled
+          && text(m.content) === next.content && Math.abs(Number(m.ts || 0) - safeTs) < 30 * 60 * 1000);
+        if (dup) { skipped++; return; }
+      }
       if (!byKey.has(key)) {
         list.push(next); byKey.set(key, list.length - 1); added++; if (isDeleted) deleted++;
         if (!isDeleted) personalityEvents.push({

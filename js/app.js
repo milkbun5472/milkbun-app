@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.047";
+const APP_VERSION = "v74.048";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23250,7 +23250,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     sending: sending,
     onBack: () => setScreen("messages"),
-    onSend: txt => { gachaEarn(activeChar.id, "chat"); pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id); },
+    onSend: txt => {
+      gachaEarn(activeChar.id, "chat");
+      pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
+      // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
+      // 投递失败只提示不回滚——消息本来就该留在聊天里，她可以点「让TA回复」走直连兜底。
+      if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
+        window.CcLane.post(txt, { threadType: "private" }).then(ok => { if (!ok) toast("书房没接到，检查网络或钥匙；可点亮「直连」走订阅"); });
+      }
+    },
+    ccLane: (window.CcLane && window.CcLane.config().on && window.CcLane.config().token && settingsFor(activeChar.id).engineerEyes === true)
+      ? { direct: settingsFor(activeChar.id).ccDirect === true, onToggle: () => patchChatSetting(activeChar.id, { ccDirect: !(settingsFor(activeChar.id).ccDirect === true) }) }
+      : null,
     sameRoom: sameRoomFor(activeChar.id),
     actDesc: actDescFor(activeChar.id),
     // 那一行显示成「我」还是「TA」（她 2026-09-12：「就设置开关可以改」）。
@@ -23268,6 +23279,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (b.theyBlocked) { toast("TA 拉黑了你，点消息旁的 ! 申请解除"); return; }
       const room = window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
       const chatKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      // 书房直通时「让TA回复」不开引擎枪：带话就上屏+投书房，空按就只捎个「她在等」。
+      if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, chatKey);
+        window.CcLane.post(extra, { threadType: "private", nudge: true })
+          .then(ok => toast(ok ? "书房已收到" : "书房没接到，点亮「直连」可走订阅"));
+        return;
+      }
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
@@ -25308,13 +25327,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     registerTelemetry: offlineRegisterTelemetry[activeOfflineScopeKey] || null,
     onSaveSettings: patch => saveOfflineSettings(offlineChar.id, patch),
     onStart: opts => startOffline(activeOfflineScopeKey, opts),
-    onSend: txt => { if (!offlineIsRoom(activeOfflineScopeKey)) gachaEarn(offlineChar.id, "offline"); offlineSend(activeOfflineScopeKey, txt); },
+    // 书房直通盖到线下这一面（four-surfaces）：开关共用私聊输入栏那颗「书房/直连」——
+    // 同一个角色同一条车道，不在两处各设一个状态。群聊两面【明确豁免】：其他角色的台词只有引擎能编排。
+    onSend: txt => {
+      if (!offlineIsRoom(activeOfflineScopeKey)) gachaEarn(offlineChar.id, "offline");
+      offlineSend(activeOfflineScopeKey, txt);
+      if (window.CcLane && window.CcLane.routes(settingsFor(offlineChar.id))) {
+        window.CcLane.post(txt, { threadType: "offline" }).then(ok => { if (!ok) toast("书房没接到，检查网络或钥匙"); });
+      }
+    },
     onSendPhoto: photo => offlineSendPhoto(activeOfflineScopeKey, photo),
     // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
     onShoot: kind => offlineShotNow(activeOfflineScopeKey, kind),
     canShoot: offlinePhotoCan(offlineChar),
     canShootDuo: offlinePhotoCanDuo(offlineChar),
-    onReply: txt => offlineReply(activeOfflineScopeKey, txt),
+    onReply: txt => {
+      if (window.CcLane && window.CcLane.routes(settingsFor(offlineChar.id))) {
+        const extra = String(txt || "").trim();
+        if (extra) offlineSend(activeOfflineScopeKey, extra);
+        window.CcLane.post(extra, { threadType: "offline", nudge: true })
+          .then(ok => toast(ok ? "书房已收到" : "书房没接到，检查网络或钥匙"));
+        return;
+      }
+      return offlineReply(activeOfflineScopeKey, txt);
+    },
     onOOC: txt => offlineOOC(activeOfflineScopeKey, txt),
     onAddNote: (n, long) => offlineAddNote(activeOfflineScopeKey, n, long),
     onDeleteNote: id => offlineDeleteNote(activeOfflineScopeKey, id),

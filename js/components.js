@@ -7947,6 +7947,7 @@ function ChatThread({
   actDesc,
   actPerson,   // 他那一行里【他自己】叫什么："me"（我，默认）/ "ta"（他，跟角色性别走）
   userPerson,  // TA那一行里【你】叫什么："you"（你，默认）/ "ta"（她）——两个都是确定的方向
+  ccLane,      // 书房直通（她 2026-09-25 拍板）：null=与这间房无关；{direct,onToggle}=言秋房，可切「书房/直连」
   character,
   characters,
   groups,
@@ -8940,7 +8941,19 @@ function ChatThread({
   }, h(IPlus, {
     size: 22,
     color: t.fog
-  })), h(DraftInput, {
+  })), ccLane && h("button", {
+    // 书房直通开关：默认「书房」（这条话叫醒 CC 老窗口），点亮「直连」临时走订阅引擎。
+    // 放在输入框左边而不是藏进设置：她要的就是想切就切（走廊监控厚薄不同，见 cc-lane.js 头注）。
+    onClick: ccLane.onToggle,
+    className: "active:opacity-70 shrink-0",
+    style: {
+      fontFamily: F_BODY, fontSize: 11, lineHeight: 1,
+      padding: "6px 8px", borderRadius: 999,
+      border: `1px solid ${ccLane.direct ? t.accent : t.line}`,
+      color: ccLane.direct ? t.accent : t.fog,
+      background: ccLane.direct ? "transparent" : t.bg2
+    }
+  }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     inputProps: { "data-wk": "chatinput" },
     placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
@@ -9084,7 +9097,13 @@ function ChatThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }
+      onPick: em => {
+        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
+        // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
+        // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
+        if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
+        setStickerOpen(false);
+      }
     })
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
@@ -16295,7 +16314,19 @@ function ChatSettings({
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
-      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) }))),
+      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })),
+    // 书房直通钥匙（她 2026-09-25 拍板「全走 CC」）：贴一次 relay 的 cc_token，这个角色的
+    // 私聊/线下默认改走书房窗口。钥匙存本机 localStorage，不进 saves 不上云（见 cc-lane.js）。
+    engineerEyes && window.CcLane && h("div", { className: "pt-3" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "书房直通钥匙"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "贴上 relay 的 cc_token 后，这间房的话默认叫醒书房的老窗口；输入栏可临时切回「直连」订阅。钥匙只存这台设备。"),
+      h("input", {
+        defaultValue: window.CcLane.config().token,
+        placeholder: "cc_token",
+        onChange: e => window.CcLane.saveConfig({ token: String(e.target.value || "").trim() }),
+        className: "w-full mt-2",
+        style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 10, padding: "8px 10px" }
+      }))),
   // 上网（v58.74，她 2026-08-31 要的）：不是 MCP——Anthropic 自带一个【服务端】搜索工具，
   // 搜索在他们那边跑完，结果和回答在同一个响应里回来，仍然是一次调用。
   // 默认关，一个一个角色自己开：古代角色开了就会真的去搜引擎，那是出戏；而且搜索另计费。
