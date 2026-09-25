@@ -1,20 +1,22 @@
 import * as T from 'three';
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-bf985ef5ee5399aa';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-bf985ef5ee5399aa';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from '../fairy-garden/wardrobe.mjs?v=fg-bf985ef5ee5399aa';
-import {createPassengers} from './passengers.mjs?v=fg-bf985ef5ee5399aa';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-bf985ef5ee5399aa';
-import {createTravelCamera} from './camera-view.mjs?v=fg-bf985ef5ee5399aa';
-import {removeAlbumItem} from './album.mjs?v=fg-bf985ef5ee5399aa';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-bf985ef5ee5399aa';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-bf985ef5ee5399aa';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-bf985ef5ee5399aa';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-bf985ef5ee5399aa';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-d827b61930e4de0b';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-d827b61930e4de0b';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from '../fairy-garden/wardrobe.mjs?v=fg-d827b61930e4de0b';
+import {createPassengers} from './passengers.mjs?v=fg-d827b61930e4de0b';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-d827b61930e4de0b';
+import {createTravelCamera} from './camera-view.mjs?v=fg-d827b61930e4de0b';
+import {removeAlbumItem} from './album.mjs?v=fg-d827b61930e4de0b';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-d827b61930e4de0b';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-d827b61930e4de0b';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-d827b61930e4de0b';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-d827b61930e4de0b';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function lookOf(who){const a=host?.load?.()||{},g=a.worlds?.garden||a.world;return state?.looks?.[who]||(who==='me'?a.journey?.look||g?.look:a.journey?.companionLook||g?.companion?.look)||{};}
 function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}
-function sync(){const r=restState(state),has=!!host.companion?.()?.id;document.querySelector('#rest-controls').hidden=view.currentView!=='berths'||cameraUI?.isOpen||desk?.isOpen||!document.querySelector('#move-controls').hidden;document.querySelector('#rest-you').textContent=r.you?'我回桌边':'我躺下';document.querySelector('#rest-companion').textContent=r.companion?'TA回桌边':'TA休息';document.querySelector('#rest-companion').disabled=!has;document.querySelector('#rest-together').disabled=!has;document.querySelector('#rest-info').textContent=(r.you?'你在下铺休息':'你在桌边')+(has?(r.companion?' · TA在上铺休息':' · TA在桌边'):'');document.querySelector('#take-photo').textContent=isResting(state)?'起身拍照':'拍照';document.querySelector('#open-puzzle').textContent=isResting(state)?'起身拼图':'拼图';const pending=(state.companionPhotos||[]).length;document.querySelector('#open-album').textContent=pending?'相册 · '+pending:'相册';const env=travelEnvironment(state);view.scenery.set({...env,distance:state.distance,playing:false});view.syncLighting();if((!cameraUI?.isOpen||cameraSubject!=='window')&&!(desk?.isOpen&&desk.activity!=='travel'))view.render();const minute=Math.floor(state.minute),clock=String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');document.querySelector('#scene-info').textContent=`${SEASONS[env.season]} · ${WEATHERS[env.weather]} · ${clock}　${env.routeBlend>0?ROUTES[env.route]+' → '+ROUTES[env.nextRoute]:ROUTES[env.route]}`;}
+// 休息面板那行字照实说：站起来走动了就别再写「在桌边」
+function standAt(w){const at=passengers?.where(w);return at&&at!=='坐在座位上'?at:'在桌边';}
+function sync(){const r=restState(state),has=!!host.companion?.()?.id;document.querySelector('#rest-controls').hidden=view.currentView!=='berths'||cameraUI?.isOpen||desk?.isOpen||!document.querySelector('#move-controls').hidden;document.querySelector('#rest-you').textContent=r.you?'我回桌边':'我躺下';document.querySelector('#rest-companion').textContent=r.companion?'TA回桌边':'TA休息';document.querySelector('#rest-companion').disabled=!has;document.querySelector('#rest-together').disabled=!has;document.querySelector('#rest-info').textContent=(r.you?'你在下铺休息':'你'+standAt('me'))+(has?(r.companion?' · TA在上铺休息':' · TA'+standAt('companion')):'');document.querySelector('#take-photo').textContent=isResting(state)?'起身拍照':'拍照';document.querySelector('#open-puzzle').textContent=isResting(state)?'起身拼图':'拼图';const pending=(state.companionPhotos||[]).length;document.querySelector('#open-album').textContent=pending?'相册 · '+pending:'相册';const env=travelEnvironment(state);view.scenery.set({...env,distance:state.distance,playing:false});view.syncLighting();if((!cameraUI?.isOpen||cameraSubject!=='window')&&!(desk?.isOpen&&desk.activity!=='travel'))view.render();const minute=Math.floor(state.minute),clock=String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');document.querySelector('#scene-info').textContent=`${SEASONS[env.season]} · ${WEATHERS[env.weather]} · ${clock}　${env.routeBlend>0?ROUTES[env.route]+' → '+ROUTES[env.nextRoute]:ROUTES[env.route]}`;}
 function animate(now){frame=requestAnimationFrame(animate);if(closed||document.hidden){last=0;return;}if(last&&now-last<1000/30)return;const dt=last?Math.min(.1,(now-last)/1000):0;last=now;
  if(!saveFailed){state=advanceTrip(state,dt,view.scenery.destination.speedFactor);view.scenery.state.weatherTime+=dt;sync();passengers?.tick(now,dt,!cameraUI?.isOpen);companionCamera();saveAt+=dt;if(saveAt>=3){saveAt=0;flush();}}
 }
