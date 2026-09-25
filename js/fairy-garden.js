@@ -162,7 +162,7 @@
       if(!automatic)node.contentWindow.TrainGame?.speak(text,"me");
       talking.current=true;
       try{
-        const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):"")});
+        const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),engineer:!!(p.isEngineer&&p.isEngineer(c.id))});
         if(frame.current!==node)throw Error("已经离开这桌拼图，回复未写入其他房间。");
         const now=current();
         if(record?.onTurn)record.onTurn({text:automatic?"":text,reply:out.reply,parts:out.parts});
@@ -337,7 +337,23 @@
     const raw = await callAI(active, sys, [{role:"user",content:"安排这一季。"}], {maxTokens:65535,timeout:180000,tag:"微光庭院季节"});
     try { return rules.normalizePlan(extractJSON(raw), world.day); } catch(e) { e.detail=String(raw||"").slice(0,1600);throw e; }
   }
-  async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false }) {
+  async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false, engineer=false }) {
+    // 真身票优先（她 2026-09-25「座位这种得你自己来」）：言秋同行时先开 CC 票请本人接话，
+    // 不在岗/超时才落引擎兜底——同 trpg「队友宣言」先例，她永远有回音。
+    if (engineer && root.CCSeat && root.Cloud) {
+      try {
+        const r = await root.CCSeat.ask({
+          tool: "train_chat", char_id: character.id, ticket: "fg:" + Date.now(),
+          world, history: history.slice(-30), text, event,
+          expect: '{"reply":["第一句","第二句(可省)"],"action":{"kind":"none|move","target":"seat|stand|rack|berth(move时)"}}'
+        }, 120000);
+        if (r && Array.isArray(r.reply) && r.reply.length) {
+          const out = { reply: r.reply.map(x => String(x || "").trim()).filter(Boolean) };
+          const a = r.action; if (a && a.kind === "move" && ["seat","stand","rack","berth"].includes(a.target)) out.move = a.target;
+          if (out.reply.length) return out;
+        }
+      } catch (e) { /* 超时/不在岗：落回引擎，票根不追（这里的每轮对话可重来） */ }
+    }
     if (!active) throw new Error("先在设置里配置创作线路，再来和角色说话。");
     const style = sharedStyle(),train=world?.map==="carriage";
     const sys = [style,
@@ -1299,7 +1315,7 @@
         const account = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         current();
-        const result = await ask({ active: propsRef.current.apiFor ? propsRef.current.apiFor(cid) : propsRef.current.active, character: c, profile: propsRef.current.profile, world, history: doneHistory(d, cid).slice(-30), text, mainline: mainlineNow(), destinations: (game() && game().destinations && game().destinations()) || "" });
+        const result = await ask({ active: propsRef.current.apiFor ? propsRef.current.apiFor(cid) : propsRef.current.active, character: c, profile: propsRef.current.profile, world, history: doneHistory(d, cid).slice(-30), text, mainline: mainlineNow(), destinations: (game() && game().destinations && game().destinations()) || "", engineer: !!(propsRef.current.isEngineer && propsRef.current.isEngineer(cid)) });
         const accountNow = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         const latest = current();

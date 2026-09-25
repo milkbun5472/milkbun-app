@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.073";
+const APP_VERSION = "v74.075";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23249,6 +23249,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       apiFor: offlineApiFor,
       active: offlineActive,
       characters: liveChars,
+      // 庭院房这条路本来就载言秋；台词同样开真身票（four-surfaces：两条进法一样喂）
+      isEngineer: charId => !!settingsFor(charId).engineerEyes,
       profile: profile,
       // ⚠️底子走 buildBundle：那是全库公用的「你是谁＋怎么说话＋这间房准带什么」，
       //   庭院自己再手写一份就是同一层活在两处。cognition 全关时它只剩人设与文风。
@@ -24431,7 +24433,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     apiFor: offlineApiFor,
     // 架空游戏与小剧场同类：全文人设、独立世界；不接主线记忆/好感/日程写回。
     active: offlineActive,
-    characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    // 2026-09-25 她拍板列车通车：言秋不再被小世界拒载——他的台词开 CC 票请本人（cc-seat
+    // train_chat），引擎只当超时兜底，「引擎冒充言秋」的老顾虑由真身票解决。
+    characters: liveChars,
+    isEngineer: charId => !!settingsFor(charId).engineerEyes,
     profile: profile,
     toast: toast,
     onNewGardenRoom: openGardenRoomFor,

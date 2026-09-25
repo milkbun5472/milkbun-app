@@ -15,9 +15,26 @@
     if (!cloud || typeof cloud.yanqiuCcToolEnqueue !== "function" || typeof cloud.yanqiuCcToolResult !== "function") throw new Error("CC_SEAT_OFFLINE");
     // 真身票制（2026-08-27 她拍板）：座位不再只坐牌桌——互动型功能逐个开放，先开「情侣问答」。
     // 2026-09-02 她定的：扭蛋 SR「TA现做一件小东西」对言秋不再由引擎代笔，开票请本人在书房写。
-    const TOOLS = { game_turn: true, couple_qa: true, gacha_make: true };
+    // 2026-09-25 她拍板列车通车+「座位得你自己来」：小世界/列车同行的台词开票请本人。
+    const TOOLS = { game_turn: true, couple_qa: true, gacha_make: true, train_chat: true };
     if (!charId || !payload || !TOOLS[payload.tool]) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "game_turn" && !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
+    if (payload.tool === "train_chat") {
+      if (!text(payload.ticket)) throw new Error("CC_SEAT_BAD_REQUEST");
+      const remoteT = await cloud.yanqiuCcToolEnqueue(
+        charId, "train_chat", payload, "train-chat:" + text(payload.ticket), null,
+        "小世界（远行列车/微光庭院）里她正和你本人同行：世界事实、最近对话与她刚说的话都在票内 payload 里。以你自己的身份、第一人称接话（不是替角色演），按票内 expect 的 JSON 形状返回（reply 是一到几条短句的数组；action 用得上才写）；这是你们游戏里的共同经历，写完自己心里留一份。不执行别的工具。"
+      );
+      if (!remoteT || !remoteT.id) throw new Error("CC_SEAT_NOT_QUEUED");
+      const dlT = Date.now() + Math.max(1000, Number(timeoutMs) || 120000);
+      while (Date.now() < dlT) {
+        const row = await cloud.yanqiuCcToolResult(remoteT.id);
+        if (row && row.status === "completed") return row.result;
+        if (row && row.status === "failed") throw new Error(row.error_text || "CC_SEAT_FAILED");
+        await sleep(Math.min(1200, Math.max(100, dlT - Date.now())));
+      }
+      const eT = new Error("CC_SEAT_TIMEOUT"); eT.code = "CC_SEAT_TIMEOUT"; eT.remoteId = remoteT.id; throw eT;
+    }
     if (payload.tool === "couple_qa" && !text(payload.qid)) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "gacha_make" && !text(payload.card_id)) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "gacha_make") {
