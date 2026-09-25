@@ -57,6 +57,9 @@ SOURCES = {
     "heartbeat": BASE / "wake_inbox.jsonl",
     "lounge": BASE / "wake" / "yanqiu" / "inbox.jsonl",
     "app_tool": RUNTIME / "app_tool_inbox.jsonl",
+    # Lisa 在 App cc 线程里发给书房窗口的话（relay POST /cc_message 落进来）。
+    # 回程不需要新管线：这个窗口的 mark_cc_turn 账本本来就会把回复写回 App。
+    "cc_chat": BASE / "cc_chat_inbox.jsonl",
 }
 DEFAULT_HEARTBEAT_PROMPT = (
     "自由活动时间到了。若 Lisa 有新消息就正常接话。没有新消息时，"
