@@ -11,6 +11,11 @@ bpy.ops.import_scene.gltf(filepath=src)
 H=next(o for o in bpy.data.objects if o.type=='MESH')
 H.data.transform(H.matrix_world);H.matrix_world.identity()
 bm=bmesh.new();bm.from_mesh(H.data);tree=BVHTree.FromBMesh(bm)
+RZ=float(os.environ.get('ROTZ',0))
+if RZ:
+    from mathutils import Matrix
+    H.data.transform(Matrix.Rotation(np.radians(RZ),4,'Z'));H.data.update()
+    bm=bmesh.new();bm.from_mesh(H.data);tree=BVHTree.FromBMesh(bm)
 P=np.array([v.co[:] for v in H.data.vertices]);lo,hi=P.min(0),P.max(0)
 c0=Vector(((lo[0]+hi[0])/2,(lo[1]+hi[1])/2,lo[2]+(hi[2]-lo[2])*.45))
 hits=[]
