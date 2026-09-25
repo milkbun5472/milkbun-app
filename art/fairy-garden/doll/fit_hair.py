@@ -120,6 +120,12 @@ print('tan scraps removed',int(tan.sum()))
 print('by colour',hair.sum())
 # Remove tiny floating islands left by the cut.
 print('hair faces',hair.sum())
+# The source's own ear hole (a dark block sitting in our ear): tag it, it is
+# painted skin colour instead of deleted.
+ES=float(os.environ.get('EAR_SKIN',0))
+earhole=(np.abs(fc[:,0])>.17)&(np.abs(fc[:,2]-.86)<.08)&(np.abs(fc[:,1]-.02)<.09)&(dist<ES)&hair if ES else np.zeros(len(fc),bool)
+print('ear-hole faces',int(earhole.sum()))
+ea=H.data.attributes.new('ear_skin','INT','FACE');ea.data.foreach_set('value',earhole.astype(int).tolist())
 ga=H.data.attributes.new('guess_skin','INT','FACE');ga.data.foreach_set('value',guess.astype(int).tolist())
 bm=bmesh.new();bm.from_mesh(H.data);bm.faces.ensure_lookup_table()
 bmesh.ops.delete(bm,geom=[f for f in bm.faces if not hair[f.index]],context='FACES')
@@ -260,6 +266,14 @@ if os.environ.get('ANCHOR'):
     A=json.load(open(os.environ['ANCHOR']));Cc=np.array(A['center']);Rr=A['radius']
     for v in H.data.vertices:v.co=((np.array(v.co)-Cc)/Rr).tolist()
     H.data.update();H['hairAnchorSpace']='origin=skull centre, unit=skull radius'
+    if 'ear_skin' in H.data.attributes:
+        g=[0]*len(H.data.polygons);H.data.attributes['ear_skin'].data.foreach_get('value',g)
+        if any(g):
+            sk=bpy.data.materials.new('ear skin');sk.use_nodes=True
+            bs_=sk.node_tree.nodes['Principled BSDF'];bs_.inputs['Base Color'].default_value=((246/255)**2.2,(212/255)**2.2,(192/255)**2.2,1);bs_.inputs['Roughness'].default_value=.95
+            H.data.materials.append(sk);k=len(H.data.materials)-1
+            for p,v in zip(H.data.polygons,g):
+                if v:p.material_index=k
     if MARK and 'guess_skin' in H.data.attributes:
         pk=bpy.data.materials.new('皮肤（会被删）');pk.use_nodes=True
         pk.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value=(1,.2,.7,1);pk.diffuse_color=(1,.2,.7,1)
