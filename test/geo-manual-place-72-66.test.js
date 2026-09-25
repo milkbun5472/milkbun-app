@@ -70,7 +70,7 @@ test("手填过就不许被自动定位顶掉", () => {
   const i = app.indexOf("打开好友地图时刷新一次真实 GPS");
   const seg = app.slice(i, app.indexOf("---- 线下模式", i));
   assert.match(seg, /if \(geo && geo\.manual\) return;/, "开地图那一刷会把她填的东京按回真实位置");
-  assert.match(screens, /if \(v && !\(geo && geo\.manual\)\) onRequestGeo\(\);/, "位置感知开关一开就把手填的顶掉了");
+  assert.match(screens, /if \(v && !inWorld && !\(geo && geo\.manual\)\) onRequestGeo\(\);/, "位置感知开关一开就把手填的顶掉了");
 });
 
 test("界面：手填一栏在、按钮点得着、标出是手填的", () => {

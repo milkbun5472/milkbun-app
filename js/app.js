@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.067";
+const APP_VERSION = "v74.066";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -777,6 +777,11 @@ function App() {
   // ⚠️行程那条链是 async 的，跑起来时闭包里的 worlds 可能已经是旧的一份——
   //   跟 schedulesRef / ifLinesRef 同一个做法，留一份 ref 给它读。
   const worldsRef = useRef([]); worldsRef.current = worlds;
+  // 「她在哪」只问 MapKit.userRealm 一处：realGeo=只有选了现实定位才有坐标（天气/撒点/小组件），
+  // geoForPrompt=喂给角色的那一句（架空世界时是世界名·地点，不带任何现实城市）。
+  const myRealm = () => (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(prefs, geo, worlds) : (prefs.geoAware && geo ? { kind: "real", geo: geo } : null);
+  const realGeo = () => { const r = myRealm(); return r && r.kind === "real" && typeof r.geo.lat === "number" ? r.geo : null; };
+  const geoForPrompt = () => { const r = myRealm(); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
   const [worldBusy, setWorldBusy] = useState(false);
   const [anonPool, setAnonPool] = useState([]);   // 匿名题库(x_anonPool):全院共用的一总库,网友出题和角色作答彻底隔开
   const [apiProfiles, setApiProfiles] = useState([]);
@@ -1959,8 +1964,10 @@ function App() {
   const observeRelationshipBShadow = (char, messages) => {
     try {
       if (!char || !window.InnerLifeBShadow || !window.InnerLifeBShadow.pilotFor(char)) return;
-      // 双重保险：即使配置误改，小克也永远不进 B 试点。
-      if (String(char.name || "").includes("小克")) return;
+      // 双重保险：即使配置误改，数字生命也永远不进 B 试点。
+      // ⚠️按【旗标】判，别按名字：名字会跟着 bundle 出货（2026-09-25 在公共版里搜出来过），
+      //   而 engineerEyes 正是「这是本人、不是被扮演的角色」那一格，本来就更准。
+      if (settingsFor(char.id).engineerEyes) return;
       const bg = bgActiveRef.current; if (!bg) return;
       setTimeout(async () => {
         try {
@@ -4104,7 +4111,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
     // 天气搭日程便车进聊天（读缓存，零请求零新增常驻）：TA 家乡的天气，没设家乡用用户所在地
     try {
-      const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
+      const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo();
       const w = hm && typeof weatherCached === "function" ? weatherCached(hm.lat, hm.lng) : null;
       if (w) {
         const sp = typeof wxSpecial === "function" ? wxSpecial(w) : null;
@@ -4268,7 +4275,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const w = WorldWeather.dayOf(realm.world.id + "|" + realm.node, realm.terrain, new Date());
         return w ? (weatherLine(w) + "（" + realm.world.name + "·" + realm.node + "）") : "";
       }
-      const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
+      const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo();
       return hm ? weatherLine(await weatherFor(hm.lat, hm.lng)) : "";
     } catch (e) { return ""; }
   };
@@ -5413,7 +5420,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!isLeanYanqiuChat) return rows;
       return copyMemoryRecallMeta(rows, rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) })));
     })(),
-    geo: prefs.geoAware ? geo : null,
+    geo: geoForPrompt(),
     // TA自己住在哪儿（v64.72）：地图上钉的那个点。原来只用来画地图和查天气，
     // 一次都没进过提示词——所以「生成TA的生活」那几处只能靠训练先验猜TA在哪个国家。
     homeCity: (char && char.home && char.home.city) ? String(char.home.city).trim().slice(0, 40) : "",
@@ -6419,7 +6426,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const wpool = liveChars.filter(c => hist(c).length >= 2);
           const wrot = wpool.length ? Math.floor(Date.now() / 86400000) % wpool.length : 0;
           const _prefs = loadJSON("x_prefs", {});
-          const _geo = _prefs.geoAware ? loadJSON("x_geo", null) : null;
+          const _rl = (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(_prefs, loadJSON("x_geo", null), loadJSON("x_worlds", [])) : null;
+          const _geo = _rl && _rl.kind === "real" ? _rl.geo : null;
           for (const c of wpool.slice(wrot).concat(wpool.slice(0, wrot))) {
             if (laneBusy("c:" + c.id) || viewRef.current.charId === c.id) continue;
             const hr = Math.floor(charLocalMin(c) / 60); if (hr < 8 || hr > 23) continue;
@@ -6801,7 +6809,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️她手填过位置就不许刷：那一刷会把「我现在在东京」当场按回设备所在地，
   //   而她根本没做任何动作——设置里明明还写着东京（v72.66）。
   useEffect(() => {
-    if (screen !== "map" || !prefs.geoAware) return;
+    if (screen !== "map" || !prefs.geoAware || (prefs.geoRealm && prefs.geoRealm !== "real")) return;
     if (geo && geo.manual) return;
     (async () => { try { const g = await requestGeo(); if (g && !g.error && typeof g.lat === "number") { setGeo(g); saveJSON("x_geo", g); } } catch (e) {} })();
   }, [screen]);
@@ -9254,7 +9262,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "\n【CC工具】确需查资料或施工时填 ccTool:{name,args}，只用你已开放工具的准确名称；写入/命令须 Lisa 当场确认。真实结果回来前不得声称成功或编造报错；不需要就填 null。"
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
-      const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
+      const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode, directives: directives[char.id] || [] }) : "";
       // ── TA刚看见的那张照片（她 2026-08-31）─────────────────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。
@@ -12554,7 +12562,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const gateRoomContext = (ctx, char, chatKey, room) => {
     const clockOn = roomTimeAwareFor(room, char.id);
     ctx.timeAware = clockOn;
-    if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = prefs.geoAware ? geo : null; }
+    if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = geoForPrompt(); }
     const gated = gateByDoor(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
     // 拉黑按聊天键落库；本房发生的事在主线认知关闭时也应知道，不继承主房的拉黑。
     gated.blockLine = blockLineFor(chatKey);
@@ -20543,7 +20551,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const c = (content || "").trim();
     if (!c) return;
     let wline = "";
-    try { const g = prefs.geoAware && geo; const w = g && typeof g.lat === "number" ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(w.dayCode != null ? w.dayCode : w.code) + " " + w.t + "°C"; } catch (e) {}
+    try { const g = realGeo(); const w = g ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(w.dayCode != null ? w.dayCode : w.code) + " " + w.t + "°C"; } catch (e) {}
     const due = Date.now() + (4 + Math.random() * 56) * 3600000; // TA 4~60 小时内挑个时候回（三天内）
     saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: char.id, author: "user", content: c, mood: (moodWord || "").trim(), weather: wline, date: ymd(new Date()), ts: Date.now(), dueTs: due, replied: false }, ...p]);
     toast("写好了，TA 这几天会回你一页");
@@ -23044,7 +23052,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     notif: appNotif,
     memoDue: (typeof window !== "undefined" && window.memoDueToday) ? window.memoDueToday() : 0,
     mapStatus: mapStatusAll(),
-    userGeo: prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null,
+    userGeo: realGeo(),
     couples: couples,
     coupleSweet: coupleSweet,
     onOpenApp: k => k === "listen" ? goListen() : setScreen(k),
@@ -23074,7 +23082,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     status: mapStatusAll(),
     profile: profile,
-    userGeo: prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null,
+    userGeo: realGeo(),
     mode: mapMode,
     onSetMode: m => { setMapMode(m); saveJSON("x_mapMode", m); },
     onSetHome: (charId, home) => pC(p => p.map(c => c.id === charId ? { ...c, home: home || undefined } : c)),
@@ -24822,6 +24830,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     geo: geo,
     onRequestGeo: doRequestGeo,
     onSetGeoPlace: doSetGeoPlace,
+    worlds: worlds,
     onBack: goHome,
     onExport: doExport,
     onCopyExport: doCopyExport,

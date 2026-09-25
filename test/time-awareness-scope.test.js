@@ -23,7 +23,7 @@ test("room time awareness overrides the character and drives online, offline and
   assert.match(app, /const roomTimeAwareFor = \(room, charId\)/);
   assert.match(app, /const roomClockOn = roomTimeAwareFor\(room, charId\)/);
   assert.match(app, /oCtx = gateRoomContext\(oCtx, char, scopeKey, sideRoom\)/);
-  assert.match(app, /if \(clockOn\) \{ ctx\.schedNow = schedNowFor\(char\); ctx\.geo = prefs\.geoAware \? geo : null; \}/);
+  assert.match(app, /if \(clockOn\) \{ ctx\.schedNow = schedNowFor\(char\); ctx\.geo = geoForPrompt\(\); \}/);
   assert.match(app, /schedNow: roomTimeAwareFor\(window\.ChatRooms \? window\.ChatRooms\.get\(activeChar\.id, activeRoomId\)/);
   assert.match(rooms, /现实时间与行程/);
 });
