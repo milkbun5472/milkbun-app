@@ -117,4 +117,7 @@ assert.match(src, /display: playErr \? "none" : "block", position: "absolute", t
 assert.match(src, /document\.activeElement\.blur\(\)/);
 assert.match(src, /reset\(\); setTimeout\(reset, 120\); setTimeout\(reset, 400\);/);
 assert.ok(!/h\("input", \{ autoFocus: true, value: p\.txt/.test(src), "影院里又自动弹键盘了");
+// 18. 苹果上不叫系统全屏（进去黑、出来空白），只用自己那层铺满
+assert.match(src, /const ios = \/iP\(hone\|ad\|od\)\/\.test\(navigator\.userAgent\)/);
+assert.match(src, /if \(!ios && el && el\.requestFullscreen\) el\.requestFullscreen\(\)/);
 console.log("ok watch-together");

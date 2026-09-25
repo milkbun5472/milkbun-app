@@ -352,8 +352,13 @@
     const enterCinema = () => {
       setCinema(true); setToolsOpen(false);
       const el = shellRef.current;
+      // ⚠️苹果上不叫系统全屏（她 2026-09-25 截图：进去一片黑、只剩系统的「swipe down to exit」，
+      //   退出来整页空白）。苹果的元素全屏会把这一层挪进系统的顶层，里面的视频画不出来，
+      //   出来时页面也回不到原位。苹果就只用我们自己这层铺满（本来就是 fixed 盖住整屏），
+      //   横屏靠她自己把手机横过来；安卓照旧叫系统全屏＋锁横屏。
+      const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       try {
-        if (el && el.requestFullscreen) el.requestFullscreen().then(() => {
+        if (!ios && el && el.requestFullscreen) el.requestFullscreen().then(() => {
           fsRef.current = true;
           try { screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {}); } catch (e) {}
         }).catch(() => {});
