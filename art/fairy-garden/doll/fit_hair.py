@@ -1,5 +1,5 @@
 """Cut the hair out of a Hunyuan 'doll wearing hairstyle' model and fit it
-# Hat:  [SKIN_R=.62 TAN_L=.34] HAIR_SCALE=1.03 FILL_N=0 ANCHOR=head-anchor.json FRINGE_K=.74 python3 fit_hair.py src.glb doll-face.glb hats/hair_x.glb
+# Hat:  see README table for per-style parameters
 onto our bald doll. Hair = faces whose texels are dark brown, away from the
 eyes. Alignment uses the two ears (both dolls share the same bald head)."""
 import os
@@ -44,6 +44,15 @@ s=float((fd[1]-fd[0])/(fh[1]-fh[0]))
 cxh=(fh[0]+fh[1])/2;cxd=(fd[0]+fd[1])/2
 t=np.array([cxd-s*cxh,fd[2]-s*fh[2],fd[3]-s*fh[3]])
 print('lower head src',fh.round(3),'doll',fd.round(3),'scale',round(s,4),'shift',t.round(4))
+if os.environ.get('ALIGN')=='body':
+    # Hair that covers the cheeks hides the face width; align on the shared
+    # body below the neck instead (both come from the same bald doll).
+    def bodyp(P):return P[(P[:,2]>.05)&(P[:,2]<.58)]
+    bh,bd=bodyp(Hp),bodyp(Dp)
+    s=float(np.mean([np.ptp(bd[:,0])/np.ptp(bh[:,0]),np.ptp(bd[:,2])/np.ptp(bh[:,2])]))
+    t=np.array([bd[:,0].mean()-s*bh[:,0].mean(),bd[:,1].mean()-s*bh[:,1].mean(),bd[:,2].min()-s*bh[:,2].min()])
+    t[1]=float(os.environ.get('HAIR_DY',0.0))   # our face sits further forward; don't push hair back
+    print('body align scale',round(s,4),'shift',t.round(4))
 # Transform the whole source first, then decide hair by height above OUR
 # bald head: anything standing off the scalp is hair (bright highlights too);
 # faces lying on the head surface are the source's own skin and are dropped.
@@ -77,7 +86,7 @@ facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
 exposed=(fc[:,1]<.0)|(np.abs(fc[:,0])>.19)
 # Skin-coloured scraps anywhere (crown slivers, ear bits) go too.
 skinish=(hc[:,0]>SKIN_R-.07)&(hc[:,0]-hc[:,2]>.10)&(lum>.45)
-hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<.006))
+hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<float(os.environ.get('FACE_CLEAR',.006))))
 # Under the jaw the source's own chin and neck are in shadow and read as
 # non-skin; drop anything hugging our skin there (front half only; the nape
 # hair behind stays).
@@ -189,6 +198,14 @@ for k in range(int(os.environ.get('FILL_N',9))):
         for w in nv:w.co+=r*(-worst+.006)
     added+=1
 print('borrowed locks',added)
+# Side locks and sideburns that poke into the cheeks/temples are pushed out
+# to rest on the skin (per vertex, sides only; the fringe and part untouched).
+pushed=0
+for v in bm.verts:
+    if v.co.y<.02 and v.co.z<.95 and abs(v.co.x)>.10:
+        loc,n,idx,dd=tree.find_nearest(v.co)
+        if (v.co-loc).dot(n)<.002:v.co=loc+n*.002;pushed+=1
+print('side verts pushed out',pushed)
 # After the fringe lift, clear anything that ended up lying on our eyes.
 EZ=float(os.environ.get('EYE_Z',.798));EX=.077
 bm.faces.ensure_lookup_table()
@@ -249,7 +266,7 @@ if os.environ.get('ANCHOR'):
     for k,v in enumerate(cap.vertices):
         x,y,z=v.co;ph=np.arctan2(y,x);th=np.arccos(max(-1,min(1,z/np.linalg.norm(v.co[:]))))
         g=.5+.5*np.sin(ph*38+th*6+3*np.sin(ph*7))
-        f=.55+.35*g**2
+        f=(.55+.35*g**2)*float(os.environ.get('BASE_TONE',1.0))
         ca.data[k].color=(*(bc*f),1)
     vc=m.node_tree.nodes.new('ShaderNodeVertexColor');vc.layer_name='Col'
     m.node_tree.links.new(vc.outputs['Color'],bs.inputs['Base Color'])
