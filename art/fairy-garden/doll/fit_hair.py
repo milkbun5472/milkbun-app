@@ -95,6 +95,11 @@ hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<float(os.environ.get
 # hair behind stays).
 jaw=(fc[:,2]<.76)&(fc[:,1]<.03)&(dist<.012)
 guess=np.zeros(len(fc),bool)
+NR=float(os.environ.get('NECK_RING',0))
+if NR:
+    rr=np.hypot(fc[:,0],fc[:,1]-.01)
+    ring=(fc[:,2]>float(os.environ.get('NECK_LO',.70)))&(fc[:,2]<.79)&(rr<NR)
+    hair&=~ring;print('neck ring removed',int(ring.sum()))
 MARK=bool(os.environ.get('MARK_ONLY'))
 guess|=jaw&hair
 if not MARK and not os.environ.get('JAW_OFF'):hair&=~jaw
