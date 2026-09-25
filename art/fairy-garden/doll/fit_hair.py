@@ -268,6 +268,23 @@ if os.environ.get('ANCHOR'):
     H.data.update();H['hairAnchorSpace']='origin=skull centre, unit=skull radius'
     if 'ear_skin' in H.data.attributes:
         g=[0]*len(H.data.polygons);H.data.attributes['ear_skin'].data.foreach_get('value',g)
+        # Also: small loose pieces around the ear (the source ear canal sits
+        # just outside our skin as a cluster of little islands).
+        if ES:
+            import bmesh as _bm
+            bb=_bm.new();bb.from_mesh(H.data);bb.faces.ensure_lookup_table();seen=set()
+            for f in bb.faces:
+                if f in seen:continue
+                comp=[f];st=[f];seen.add(f)
+                while st:
+                    q=st.pop()
+                    for e in q.edges:
+                        for k in e.link_faces:
+                            if k not in seen:seen.add(k);comp.append(k);st.append(k)
+                c=np.mean([np.array(v.co)*Rr+Cc for q in comp for v in q.verts],0)
+                if len(comp)<60 and abs(c[0])>.15 and .72<c[2]<.95 and -.08<c[1]<.12:
+                    for q in comp:g[q.index]=1
+            bb.free()
         if any(g):
             sk=bpy.data.materials.new('ear skin');sk.use_nodes=True
             bs_=sk.node_tree.nodes['Principled BSDF'];bs_.inputs['Base Color'].default_value=((246/255)**2.2,(212/255)**2.2,(192/255)**2.2,1);bs_.inputs['Roughness'].default_value=.95
@@ -303,6 +320,7 @@ if os.environ.get('ANCHOR'):
         V[k]=dvec*rr
     def ok(p):
         x,y,z=p/np.linalg.norm(p)
+        if abs(x)>.62 and -.55<z<.30 and y<.45:return False   # leave the ears bare
         # Front: covered down to the fringe roots so the part line is closed;
         # the face below stays bare.
         face=y<-.30 and z<(.22 if abs(x)<.22 else .02)
