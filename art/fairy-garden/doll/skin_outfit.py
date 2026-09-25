@@ -16,6 +16,28 @@ C.parent=None;C.data.transform(C.matrix_world);C.matrix_world.identity()
 P=np.array([v.co[:] for v in C.data.vertices]);c=(P.min(0)+P.max(0))/2;s=E('S',.53)
 C.data.transform(Matrix.Translation(Vector((-c[0],-c[1],-P[:,2].min()))))
 C.data.transform(Matrix.Diagonal((s,s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
+# Shorter sleeves: pieces that reach past the torso side (|x| max >= ARM_X) are pulled up
+# along the arm axis (shoulder -> hand) by SLEEVE_K beyond the shoulder; linear, so no bending.
+SK=E('SLEEVE_K',0)
+if SK:
+    import bmesh
+    bm0=bmesh.new();bm0.from_mesh(C.data);bm0.verts.ensure_lookup_table();seen=set();n=0
+    SH=np.array([.165,0,.655]);HD=np.array([.275,0,.40])
+    for v0 in bm0.verts:
+        if v0.index in seen:continue
+        comp=[v0];st=[v0];seen.add(v0.index)
+        while st:
+            u=st.pop()
+            for e in u.link_edges:
+                k=e.other_vert(u)
+                if k.index not in seen:seen.add(k.index);comp.append(k);st.append(k)
+        if max(abs(v.co.x) for v in comp)<E('ARM_X',.2):continue
+        sg=1 if sum(v.co.x for v in comp)>0 else -1;sh=SH*[sg,1,1];ax=(HD-SH)*[sg,1,1];ax/=np.linalg.norm(ax)
+        for v in comp:
+            t=float(np.dot(np.array(v.co[:])-sh,ax))
+            if t>0:v.co-=Vector(ax*t*SK)
+        n+=1
+    bm0.to_mesh(C.data);C.data.update();bm0.free();print('sleeve pieces shortened',n)
 # Conform: any clothes vertex that sits inside (or within GAP of) the body is pushed out along
 # the body normal, so the doll's shoulders/chest never poke through. Clothes elsewhere untouched.
 from mathutils.bvhtree import BVHTree
