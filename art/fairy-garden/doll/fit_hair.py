@@ -180,6 +180,16 @@ if os.environ.get('ANCHOR'):
     _b.ops.delete(bb,geom=[v for v in bb.verts if not v.link_faces],context='VERTS');bb.to_mesh(cap);bb.free()
     m=bpy.data.materials.new('Hair base');m.use_nodes=True
     bs=m.node_tree.nodes['Principled BSDF'];bs.inputs['Base Color'].default_value=(*[float(x)**2.2 for x in base_col],1);bs.inputs['Roughness'].default_value=.9
+    # Strand grooves radiating from the crown whorl, baked as vertex colour;
+    # overall a shade darker so it reads as the under-layer between locks.
+    ca=cap.color_attributes.new('Col','FLOAT_COLOR','POINT');bc=np.array([float(x)**2.2 for x in base_col])
+    for k,v in enumerate(cap.vertices):
+        x,y,z=v.co;ph=np.arctan2(y,x);th=np.arccos(max(-1,min(1,z/np.linalg.norm(v.co[:]))))
+        g=.5+.5*np.sin(ph*38+th*6+3*np.sin(ph*7))
+        f=.55+.35*g**2
+        ca.data[k].color=(*(bc*f),1)
+    vc=m.node_tree.nodes.new('ShaderNodeVertexColor');vc.layer_name='Col'
+    m.node_tree.links.new(vc.outputs['Color'],bs.inputs['Base Color'])
     cap.materials.append(m);capo=bpy.data.objects.new('hair_base',cap);bpy.context.collection.objects.link(capo)
     capo.parent=H
     bpy.ops.object.select_all(action='DESELECT');H.select_set(True);capo.select_set(True)
