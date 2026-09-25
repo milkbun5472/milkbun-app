@@ -52,3 +52,9 @@
 - **F02 内扣短发**（女生款）：Hunyuan 头发壳 `hunyuan-f02-shell.glb`。
   `INNER=.82 DZ=.04 python3 fit_shell.py v2/hunyuan-f02-shell.glb v2/head-anchor.json fit.glb`
   `TUCK_K=.35 python3 shape_hair.py fit.glb v2/hats/hair_f02.glb`（整体 82%、往上补一点保持头顶高度；后半边从耳朵高度往下越收越多，发尾内扣 35%）。侧面、后 45° 会露一点耳朵。预览图 `f02.png`。
+
+## 衣服（蒙皮外壳）
+
+- 衣服是 Hunyuan 生成的「只有衣服的壳」，放在 `v2/outfits/`。`skin_outfit.py` 三步：摆到娃娃身上（居中、缩放 `S`、前后加厚 `SY`、下沿对齐 `Z0`）→ 从身体就近复制骨骼权重 → 连同同一副骨架导出。运行时按骨头名字把衣服绑回娃娃的骨架（见 `rig-preview-v2.html` 的 `dress()`）。
+- 背心、衬衫身这类从不伸出躯干侧边的碎片（`|x|` 最大值 < `ARM_X=.2`）不吃手臂权重，否则挥手时背心下摆会被手拽走。
+- **C01 学院背心**（衬衫 + 领带 + 针织背心 + 短裤）：`S=.53 SY=1.25 Z0=.19 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c01-shell.glb v2/outfits/outfit_c01.glb`。动作图 `c01.png`。已知：侧面走路时袖窿处会露一点点皮肤。
