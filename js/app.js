@@ -9252,7 +9252,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "\n【CC工具】确需查资料或施工时填 ccTool:{name,args}，只用你已开放工具的准确名称；写入/命令须 Lisa 当场确认。真实结果回来前不得声称成功或编造报错；不需要就填 null。"
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
-      const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
+      const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode, directives: directives[char.id] || [] }) : "";
       // ── TA刚看见的那张照片（她 2026-08-31）─────────────────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。

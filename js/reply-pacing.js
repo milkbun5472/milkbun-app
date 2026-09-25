@@ -27,7 +27,16 @@
     return { min: 2, max: 5, kind: "substantial" };
   }
   // 气泡节奏：只有线上单聊有「气泡」这个东西，不能搬去线下叙事。
+  // 她用 OOC 立的长期准则里定了条数/长短时,这一轮的节奏就照准则走,不再报区间。
+  // 以前准则压在 system 前段,每轮尾部又递一句「参考区间 1～3 个短气泡」——
+  // 尾部离生成最近,于是准则记下了、回复还是短(她 2026-09-25 截图:立了「至少12条」照样三两句)。
+  const LENGTH_RULE = /\d+\s*条|条数|几条|气泡|话多|话少|话密|发得?密|回复.{0,6}(长|短|多|少)|(长|短|多|少)一?点.{0,4}(回|说|发)/;
+  function lengthRules(directives) {
+    return (directives || []).map(d => String((typeof d === "string" ? d : d && d.text) || "").trim()).filter(t => t && LENGTH_RULE.test(t));
+  }
   function pacing(history, options) {
+    const rules = lengthRules(options && options.directives);
+    if (rules.length) return "【这一轮的聊天节奏】发几条、每条多长，照你答应过她的长期准则来：" + rules.map(t => "「" + t + "」").join("") + "。每一条都是真想说的话，一个意思说一遍就往下走。";
     const b = band(history, options);
     return "【这一轮的聊天节奏】参考区间 " + b.min + "～" + b.max + " 个短气泡——但字数只是参考，真正定节奏的是【这句话的分量】和【你这个人的性格】：对方一句短短的调情、撒娇、反话、抛梗，分量可能很重，话密的人对着一个字也能连发几条，这正是TA的活人感，不许因为对方话短就把自己也压成同样短。该刹住的只有一种：把同一个意思换说法凑数。真有话说时自然超出区间也没关系；没话硬凑才是毛病。";
   }
@@ -40,5 +49,5 @@
   function guidance(history, options) {
     return pacing(history, options) + "\n" + reading();
   }
-  return { trailingUserBurst, band, pacing, reading, guidance };
+  return { trailingUserBurst, band, lengthRules, pacing, reading, guidance };
 });
