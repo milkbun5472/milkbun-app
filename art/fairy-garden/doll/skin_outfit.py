@@ -16,6 +16,16 @@ C.parent=None;C.data.transform(C.matrix_world);C.matrix_world.identity()
 P=np.array([v.co[:] for v in C.data.vertices]);c=(P.min(0)+P.max(0))/2;s=E('S',.53)
 C.data.transform(Matrix.Translation(Vector((-c[0],-c[1],-P[:,2].min()))))
 C.data.transform(Matrix.Diagonal((s,s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
+# Conform: any clothes vertex that sits inside (or within GAP of) the body is pushed out along
+# the body normal, so the doll's shoulders/chest never poke through. Clothes elsewhere untouched.
+from mathutils.bvhtree import BVHTree
+dg=bpy.context.evaluated_depsgraph_get();BT=BVHTree.FromObject(B,dg);GAP=E('GAP',.006);moved=0
+for v in C.data.vertices:
+    hit=BT.find_nearest(v.co)
+    if hit[0] is None:continue
+    p,n=hit[0],hit[1];d=(v.co-p).dot(n)
+    if d<GAP:v.co=p+n*GAP+(v.co-p-n*d);moved+=1
+print('conformed',moved)
 for g in B.vertex_groups:C.vertex_groups.new(name=g.name)
 dt=C.modifiers.new('w','DATA_TRANSFER');dt.object=B;dt.use_vert_data=True;dt.data_types_verts={'VGROUP_WEIGHTS'}
 dt.vert_mapping='POLYINTERP_NEAREST';dt.layers_vgroup_select_src='ALL';dt.layers_vgroup_select_dst='NAME'
