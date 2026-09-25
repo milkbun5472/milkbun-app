@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createExcavation,DUST_PATCHES} from './excavating.mjs?v=fg-eca146e8fbb06ec9';
+import {createExcavation,DUST_PATCHES} from './excavating.mjs?v=fg-7b17fb62ad6334de';
 export function makeExcavatingView({scene,camera,onClose}){
  const root=new T.Group();root.visible=false;scene.add(root);let config=null,session=null,view=null,pointer=null,assisting=false,phase='',savedVeinY=0;
  const earth=new T.MeshStandardMaterial({color:'#82918a',roughness:1}),stone=new T.IcosahedronGeometry(.14,1);

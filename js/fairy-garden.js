@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-eca146e8fbb06ec9", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-7b17fb62ad6334de", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -72,6 +72,33 @@
     return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
   // 旅行相框：点图看原样大图；「翻看背面」看日期、拼图纪念和两个人各留的那句话（2026-09-25）
+  // 念出来（庭院和列车共用）：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
+  // （她 2026-09-19：「开了就每个气泡念完再到下一个气泡念」）。
+  // ⚠️和聊天里那条语音走【同一个 ttsSpeak / ttsWarm】：自带 idb 缓存，另写一套合成就是又开一处要付钱的地方。
+  // 念不了就老老实实返回 false，让游戏退回原来的定时——不许把气泡卡死在那儿。
+  // 上一条还在念的时候，warmAloud 把下一条先合成掉；按缓存钥匙合流，不会再花一次钱。
+  // 列车设置里的开关：记在这台设备上（跟庭院「念出来」一个口径，存 '1'/'0'）
+  function TrainSwitch({label,note,storeKey,fallback,onChange}){
+    const read=()=>{try{const v=localStorage.getItem(storeKey);return v===null?fallback:v==="1";}catch(e){return fallback;}};
+    const [on,setOn]=useState(read);
+    const flip=()=>{const next=!on;setOn(next);try{localStorage.setItem(storeKey,next?"1":"0");}catch(e){}onChange&&onChange(next);};
+    return h("div",{style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,border:"1px solid "+G.line,background:"rgba(255,255,255,.5)"}},
+      h("div",{style:{flex:1,minWidth:0}},h("div",{style:{fontFamily:F_BODY,fontSize:13.5,color:G.ink}},label),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:G.soft,lineHeight:1.7,marginTop:3}},note)),
+      h("button",{type:"button",role:"switch","aria-checked":on,"aria-label":label,onClick:flip,style:{flexShrink:0,width:52,height:40,display:"flex",alignItems:"center",justifyContent:"center",background:"transparent"}},
+        h("span",{style:{width:44,height:26,borderRadius:13,background:on?G.deep:"#cfd6c3",position:"relative",transition:"background .15s"}},h("span",{style:{position:"absolute",top:3,left:on?21:3,width:20,height:20,borderRadius:10,background:"#fff",transition:"left .15s"}}))));
+  }
+  function makeAloud(){
+    let playing=null;
+    const stop=()=>{try{if(playing){playing.pause();playing.src="";}}catch(e){}playing=null;};
+    const bridge=(live,partner)=>({
+      readAloud:async text=>{const line=String(text||"").trim(),c=partner();if(!line||!c||!c.voiceId||typeof ttsSpeak!=="function")return false;
+        try{const blob=await ttsSpeak(line,c.voiceId);if(!live())return false;stop();const url=URL.createObjectURL(blob),a=new Audio(url);playing=a;
+          try{await a.play();}catch(e){try{URL.revokeObjectURL(url);}catch(_){}playing=null;return false;}
+          await new Promise(done=>{a.onended=done;a.onerror=done;});try{URL.revokeObjectURL(url);}catch(e){}if(playing===a)playing=null;return true;}catch(e){return false;}},
+      warmAloud:text=>{const line=String(text||"").trim(),c=partner();if(!line||!c||!c.voiceId||typeof ttsWarm!=="function")return false;try{ttsWarm(line,c.voiceId);}catch(e){}return true;},
+      stopAloud:()=>{stop();return true;}});
+    return {stop,bridge};
+  }
   function TravelFramePreview({src,label,memory,back:raw}){
     const [back,setBack]=useState(false),[lines,setLines]=useState([]),[info,setInfo]=useState(null),[big,setBig]=useState(false),[full,setFull]=useState(false),key=JSON.stringify([memory||null,raw||null]);
     useEffect(()=>{let alive=true;setBack(false);setLines([]);setInfo(null);import('../apps/train/puzzle-memory.mjs?v='+BUILD).then(m=>{if(!alive)return;const [mem,r]=JSON.parse(key);setLines(mem?m.puzzleMemoryLines(mem):[]);const b=m.backOf(r||{});setInfo(b?{...b,date:m.backDate(b.at)}:null);}).catch(()=>{});return()=>{alive=false;};},[key,src]);
@@ -142,10 +169,11 @@
   function TrainSession(props){
     const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id),talking=useRef(false),latest=useRef(props);latest.current=props;
     const [toolbar,setToolbar]=useState(null);
+    const aloud=useRef(null);if(!aloud.current)aloud.current=makeAloud();useEffect(()=>()=>aloud.current.stop(),[]);
     const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(""),[error,setError]=useState("");
     const key=props.storeKey||KEY;
     const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
-    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name,avatar:c.avatarImage?(typeof resolveImg==="function"?resolveImg(c.avatarImage):c.avatarImage):""}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{...aloud.current.bridge(()=>frame.current===node,()=>{const d=current();return (latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;}),load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name,avatar:c.avatarImage?(typeof resolveImg==="function"?resolveImg(c.avatarImage):c.avatarImage):""}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
     const savedAction=async action=>{try{if(talking.current)throw Error("同行者正在回复，等这句说完再离开。");flush();await action();}catch(e){setError(e.message);props.toast(e.message);}};
@@ -196,6 +224,8 @@
         h("div",{style:{display:"grid",gap:12}},
           h("button",{style:pickButtonStyle(),onClick:()=>savedAction(()=>props.onChooseSave("train"))},"选择已有庭院存档"),
           h("button",{style:pickButtonStyle(),onClick:()=>{pullLook();setPanel("dress");}},"改外貌"),
+          h(TrainSwitch,{label:"拼图时 TA 自己开口",note:"一起拼的时候，拼到一段、拼完、想请你帮忙时 TA 会自己说一句。关了就只在你说话时回。",storeKey:"x_trainAutoTalk",fallback:true}),
+          h(TrainSwitch,{label:"念出来",note:c&&c.voiceId?"TA 说的每一句都念出来，念完这句才冒下一句。和庭院是同一个开关。":"要先在角色资料里给 TA 选一个声音，才念得出来。和庭院是同一个开关。",storeKey:"x_fairyGardenVoice",fallback:false,onChange:on=>{if(!on)aloud.current.stop();}}),
           h("button",{style:pickButtonStyle(),onClick:()=>setPanel("partner")},"选同行者，开新房间")),
         h("p",{style:{fontFamily:F_BODY,fontSize:12,lineHeight:1.8,color:G.soft,marginTop:16}},"新房间会先让你设置名称、设定和记忆权限。原来的房间与存档都会保留。"))),
       // 改外貌：上面留一截透明，车厢里的两个人就在那儿换上
@@ -820,8 +850,8 @@
       catch (e) { return ""; }
     };
     // 正在念的那一条；重开一轮或者她关掉开关时要立刻掐掉
-    let aloud = null;
-    const stopAloud = () => { try { if (aloud) { aloud.pause(); aloud.src = ""; } } catch (e) {} aloud = null; };
+    const aloud = useRef(null); if (!aloud.current) aloud.current = makeAloud();
+    const stopAloud = () => aloud.current.stop();
     const game = () => frame.current && frame.current.contentWindow.FairyGardenGame;
     const flush = () => { const g = game(); if (g && !g.flush()) throw new Error("进度还没有保存成功，请先留在庭院。"); };
     const back = () => { try { flush(); serial.current++; props.onBack(); } catch (e) { setError(e.message); props.toast(e.message); } };
@@ -882,31 +912,7 @@
         // ⚠️和聊天里那条语音走【同一个 ttsSpeak】：它自带 idb 缓存，另写一套合成
         //   就是又开一处要付钱的地方（施工规则/one-public-mechanism.md）。
         // 念不了就老老实实返回 false，让游戏退回原来的定时——不许把气泡卡死在那儿。
-        readAloud: async text => {
-          const line = String(text || "").trim(), c = partner();
-          if (!line || !c || !c.voiceId || typeof ttsSpeak !== "function") return false;
-          try {
-            const blob = await ttsSpeak(line, c.voiceId);
-            if (frame.current !== node) return false;
-            stopAloud();
-            const url = URL.createObjectURL(blob), a = new Audio(url); aloud = a;
-            try { await a.play(); } catch (e) { try { URL.revokeObjectURL(url); } catch (_) {} aloud = null; return false; }
-            await new Promise(done => { a.onended = done; a.onerror = done; });
-            try { URL.revokeObjectURL(url); } catch (e) {}
-            if (aloud === a) aloud = null;
-            return true;
-          } catch (e) { return false; }
-        },
-        // 上一条还在念的时候，把下一条先合成掉（她 2026-09-19：「气泡之间还是有点延迟，
-        // 能不能跟语音通话一样流畅」）。走的是通话那条同一个 ttsWarm——
-        // 它按缓存钥匙合流，等这条真轮到要播时拿到的是同一枪，不会再花一次钱。
-        warmAloud: text => {
-          const line = String(text || "").trim(), c = partner();
-          if (!line || !c || !c.voiceId || typeof ttsWarm !== "function") return false;
-          try { ttsWarm(line, c.voiceId); } catch (e) {}
-          return true;
-        },
-        stopAloud: () => { stopAloud(); return true; },
+        ...aloud.current.bridge(() => frame.current === node, partner),
         changePartner,
         // 庭院整屏是一张画布，底下那条行动栏是它自己的操作位——报上来，
         // 悬浮播放器就不会默认停在它头上（js/components.js 的 FloatKeepClear）。
@@ -1360,8 +1366,8 @@
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
         openFrameT&&h(FrameSheet,{thing:openFrameT,busy:frameBusy,onClose:()=>setFrame(null),
           onNote:(who,text)=>frameAct(async()=>{await gardenBack(openFrameT.sourceId,who,text);}),
-          onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
-        travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),item,lines:pm.puzzleMemoryLines(item.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
+          onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
+        travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，

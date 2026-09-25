@@ -11,3 +11,6 @@ test('庭院那边也能在背面写字：屋里、馆里都改，找不到就�
 test('场景里点相框交给宿主；TA 自己走动、聊天里说去哪就去',()=>{const ks=readFileSync(new URL('../fairy-garden/keepsake-view.mjs',import.meta.url),'utf8'),gm=readFileSync(new URL('../fairy-garden/game.mjs',import.meta.url),'utf8'),tg=readFileSync(new URL('./game.mjs',import.meta.url),'utf8'),host=readFileSync(new URL('../../js/fairy-garden.js',import.meta.url),'utf8');
  assert.match(ks,/pick\(ray\)/);assert.match(gm,/placedKeepsakes\.pick\(ray\)[\s\S]{0,80}host\.openFrame/);assert.match(host,/openFrame: id =>/);
  assert.match(tg,/wander\(now\);/);assert.match(tg,/companionMove:spot=>/);assert.match(host,/a\.kind === "move"/);assert.match(host,/companionMove\?\.\(out\.move\)/);});
+test('列车开关：自己开口可关、念出来和庭院同一个开关、同一套念法',()=>{const pv=readFileSync(new URL('./puzzle-view.mjs',import.meta.url),'utf8'),ps=readFileSync(new URL('./passengers.mjs',import.meta.url),'utf8'),host=readFileSync(new URL('../../js/fairy-garden.js',import.meta.url),'utf8');
+ assert.match(pv,/if\(auto\)\{try\{if\(localStorage\.getItem\('x_trainAutoTalk'\)==='0'\)return;/);assert.match(ps,/x_fairyGardenVoice/);assert.match(ps,/host\.readAloud\(/);
+ assert.equal((host.match(/ttsSpeak\(/g)||[]).length,1,'only one place synthesizes');assert.equal((host.match(/\.bridge\(/g)||[]).length,2,'garden and train share makeAloud');});
