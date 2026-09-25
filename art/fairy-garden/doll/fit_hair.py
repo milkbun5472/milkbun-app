@@ -62,6 +62,9 @@ for i,c in enumerate(fc):
 skinlike=(hc[:,0]>.62)&(hc[:,0]-hc[:,2]>.12)
 # Source eyes are pits (behind our face); fringe tips hang in front of them.
 eye=eye&(dist<.003)
+# The source's own eye pits float a little in front of our face: drop anything
+# close to the skin inside the two eye ellipses (the lifted fringe clears them).
+eye|=(fc[:,1]<-.08)&(((np.abs(fc[:,0])-.075)/.045)**2+((fc[:,2]-.785)/.055)**2<1)&(dist<.02)
 # On the face itself keep only what stands clear of our skin (hanging fringe);
 # the source's own eye pits and cheeks sit within a few mm of it.
 facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
@@ -83,7 +86,9 @@ for f in bm.faces:
         for e in g.edges:
             for h in e.link_faces:
                 if h not in seen:seen.add(h);comp.append(h);stack.append(h)
-    if len(comp)<6:small+=comp
+    cen=np.mean([f.calc_center_median()[:] for f in comp],0)
+    # Tiny crumbs anywhere, and loose flakes in front of the face.
+    if len(comp)<6 or (cen[1]<-.08 and .74<cen[2]<.87 and .03<abs(cen[0])<.15 and len(comp)<int(__import__('os').environ.get('FACE_CRUMB',60))):small+=comp
 bmesh.ops.delete(bm,geom=small,context='FACES')
 # Our skull is slightly fuller at the back: rear hair that sinks under the
 # scalp is lifted just above it (front half untouched, the part stays open).
@@ -103,6 +108,17 @@ for v in bm.verts:
     y=v.co.y;w=min(1,max(0,(-.02-y)/.13));w=w*w*(3-2*w)
     if v.co.z<Z0:
         v.co.z=Z0-(Z0-v.co.z)*(1-(1-K)*w)
+# After the fringe lift, clear anything that ended up lying on our eyes.
+EZ=float(os.environ.get('EYE_Z',.798));EX=.077
+bm.faces.ensure_lookup_table()
+kill=[]
+for f in bm.faces:
+    c=f.calc_center_median()
+    if c.y<-.08 and ((abs(c.x)-EX)/.035)**2+((c.z-EZ)/.055)**2<1:
+        loc,n,idx,d=tree.find_nearest(c)
+        if (c-loc).dot(n)<.02:kill.append(f)
+bmesh.ops.delete(bm,geom=kill,context='FACES')
+print('cleared over eyes',len(kill))
 bm.to_mesh(H.data);bm.free();H.name='hair_m02'
 print('islands dropped',len(small))
 bpy.ops.object.select_all(action='DESELECT')
