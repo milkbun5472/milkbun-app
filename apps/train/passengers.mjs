@@ -1,12 +1,12 @@
-import {restState} from './rest.mjs?v=fg-eca146e8fbb06ec9';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-eca146e8fbb06ec9';
+import {restState} from './rest.mjs?v=fg-7b17fb62ad6334de';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-7b17fb62ad6334de';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-eca146e8fbb06ec9';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-eca146e8fbb06ec9';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-eca146e8fbb06ec9';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-7b17fb62ad6334de';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-7b17fb62ad6334de';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-7b17fb62ad6334de';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-eca146e8fbb06ec9',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-7b17fb62ad6334de',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
  // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
  // 车厢前面那条过道（z≈0.6~1.5）是空的，所以路线一律：先走到过道→沿过道走到目标那一列→再走进去。
@@ -22,6 +22,7 @@ export async function createPassengers(view,host,stage,state=()=>({})){
   people.push({who,avatar,carrier,bed,angle,face,resting:false,bubble,seat:at,headPoint,queue:[],line:null,left:0,spot:'seat',path:[],pos:new T.Vector3(at.x,0,AISLE_Z),yaw:angle,onArrive:null});
  }
  view.renderer.shadowMap.needsUpdate=true;
+ const voiceOn=()=>{try{return localStorage.getItem('x_fairyGardenVoice')==='1';}catch(e){return false;}};
  function speak(lines,who='companion'){const p=people.find(p=>p.who===who);if(p)p.queue=[...p.queue,...bubbleRows(lines)].slice(0,12);}
  function tick(now,dt,visible){
   for(const p of people){const resting=restState(state())[p.who==='me'?'you':'companion'];if(resting!==p.resting){p.resting=resting;view.renderer.shadowMap.needsUpdate=true;if(!resting){p.spot='seat';p.path=[];}}
@@ -37,8 +38,10 @@ export async function createPassengers(view,host,stage,state=()=>({})){
    const onscreen=visible&&head.z>=-1&&head.z<=1&&head.x>-1&&head.x<1&&head.y>-1&&head.y<1;
    p.bubble.hidden=!onscreen||!p.line;
    if(!onscreen)continue;
-   if(p.line){p.left-=dt*1000;if(p.left<=0)p.line=null;}
-   if(!p.line&&p.queue.length){p.line=p.queue.shift();p.left=bubbleHold(p.line.show)+BUBBLE_GAP;p.bubble.textContent=p.line.show;}
+   if(p.line){if(p.reading)p.left=Math.max(p.left,BUBBLE_GAP+120);else p.left-=dt*1000;if(p.left<=0)p.line=null;}
+   if(!p.line&&p.queue.length){p.line=p.queue.shift();p.left=bubbleHold(p.line.show)+BUBBLE_GAP;p.bubble.textContent=p.line.show;
+    // 念出来（和庭院同一个开关）：TA 这一句念完才翻下一句；念不了就退回原来的定时
+    if(p.who==='companion'&&voiceOn()&&host.readAloud){const line=p.line;p.reading=true;if(p.queue[0])host.warmAloud?.(p.queue[0].say||p.queue[0].show);host.readAloud(line.say||line.show).then(ok=>{if(p.line===line&&ok)p.left=Math.min(p.left,BUBBLE_GAP+400);}).catch(()=>{}).finally(()=>{if(p.line===line)p.reading=false;});}}
    const x=(head.x+1)*rect.width/2,y=(1-head.y)*rect.height/2;
    p.bubble.hidden=!p.line||p.left<BUBBLE_GAP;
    if(!p.bubble.hidden){const half=p.bubble.offsetWidth/2+6;p.bubble.style.left=Math.max(half,Math.min(rect.width-half,x))+'px';p.bubble.style.top=Math.max(p.bubble.offsetHeight+8,Math.min(rect.height-24,y-10))+'px';}

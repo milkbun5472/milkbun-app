@@ -18,8 +18,8 @@ test('ttsWarm 是公共的那一层，不许谁再自己写一遍预热', () => 
   assert.match(engine, /function ttsWarm\(text, voiceId, opts\)/);
   assert.match(app, /typeof ttsWarm === "function"\) ttsWarm\(ln\.speech, char\.voiceId\)/);
   assert.doesNotMatch(app, /ttsSpeak\(ln\.speech, char\.voiceId\)\.catch/, '通话那处还留着旧的预热写法');
-  assert.match(host, /warmAloud: text =>/);
-  assert.match(host, /ttsWarm\(line, c\.voiceId\)/);
+  assert.match(host, /warmAloud:text=>/); // v74.075 起在 makeAloud 那一份里
+  assert.match(host, /ttsWarm\(line,c\.voiceId\)/);
 });
 
 // 预热那次和真要播那次同时在飞＝两枪两份钱：合流必须在 ttsSpeak 这一处
