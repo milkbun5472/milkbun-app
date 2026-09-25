@@ -56,6 +56,11 @@ T[pinkd]=skin
 for sx_ in (-.085,.085):
     near=cover&(((Xw-sx_)/.05)**2+((Zw-.80)/.07)**2<1)
     T[near]=skin
+# Neck/under-chin: the generator left blotchy patches; flatten to skin.
+NZ=float(__import__('os').environ.get('NECK_FLAT',0))
+if NZ:
+    neck=cover&(Zw<NZ)&(Zw>.66)
+    T[neck]=skin;print('neck flattened',int(neck.sum()))
 # 2. Composite the decal (RGBA, 1024 px over reference units -160..160).
 D=np.array(Image.open(decal).convert('RGBA')).astype(np.float32)/255.
 dn=D.shape[0]

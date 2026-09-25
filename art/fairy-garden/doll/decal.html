@@ -5,7 +5,7 @@
 const q=new URLSearchParams(location.search);
 fetch('../faces/faces.json').then(r=>r.json()).then(F=>{
  const bl=JSON.parse(q.get('blush')||'[]');
- s.innerHTML=`<defs><radialGradient id="g"><stop offset="0" stop-color="#f2a595" stop-opacity="1"/><stop offset=".6" stop-color="#f2a595" stop-opacity=".85"/><stop offset="1" stop-color="#f2a595" stop-opacity="0"/></radialGradient></defs>`
+ s.innerHTML=`<defs><radialGradient id="g"><stop offset="0" stop-color="#f4b1a3" stop-opacity=".7"/><stop offset=".55" stop-color="#f4b1a3" stop-opacity=".5"/><stop offset="1" stop-color="#f2a595" stop-opacity="0"/></radialGradient></defs>`
  +bl.map(b=>`<ellipse cx="${b[0]}" cy="${b[1]}" rx="${b[2]}" ry="${b[3]}" fill="url(#g)"/>`).join('')
  +(q.get('face')?F[q.get('face')].svg:'');document.title='ready'});
 </script>

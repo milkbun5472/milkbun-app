@@ -98,8 +98,11 @@ hair&=~jaw
 # Strands lying on the ear (hugging its surface) break the ear's outline.
 EC=float(os.environ.get('EAR_CLEAR',0))
 if EC:
-    ear=(np.abs(fc[:,0])>.19)&(np.abs(fc[:,2]-.85)<.075)&(np.abs(fc[:,1]-.04)<.09)&(dist<EC)
+    ear=(np.abs(fc[:,0])>.19)&(np.abs(fc[:,2]-.86)<.09)&(np.abs(fc[:,1]-.02)<.11)&(dist<EC)
     hair&=~ear;print('ear strands removed',int(ear.sum()))
+    # Ragged tips hanging below/in front of the ear, beside the jaw.
+    under=(np.abs(fc[:,0])>.15)&(fc[:,2]<.83)&(fc[:,1]<.07)
+    hair&=~under;print('under-ear tips removed',int(under.sum()))
 print('jaw scraps removed',int(jaw.sum()))
 # Around the ears and jaw, light tan faces are the source's shaded ear and
 # cheek skin; real hair there is darker.
