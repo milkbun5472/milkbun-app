@@ -58,4 +58,9 @@ assert.match(src, /t\.oncuechange = pull;/, "内封台词是边放边到的，�
 assert.match(src, /adoptInband\(\); if \(v\.textTracks\) v\.textTracks\.onaddtrack = adoptInband;/);
 // 单独导了字幕的片子不去碰自带轨（别两份台词掺在一起）
 assert.match(src, /\(film && film\.cueCount && !film\.inband\)\) return;/);
+// 8. 自己开口多久一次：她自己拉（1~20 分钟），存起来；开着才出来
+assert.match(src, /const AUTO_MIN = 1, AUTO_MAX = 20, AUTO_DEFAULT = 5;/);
+assert.match(src, /v\.currentTime - lastAuto\.current >= every \* 60/);
+assert.match(src, /saveJSON\("x_watch_auto_every", n\)/);
+assert.match(src, /auto && h\("div"/);
 console.log("ok watch-together");

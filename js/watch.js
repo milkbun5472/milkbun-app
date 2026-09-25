@@ -13,7 +13,8 @@
   const _store = makeTextStore("WatchTogetherDB", "films");
   const KEY = "x_watch_films";
   const TALK_KEEP = 80, TALK_FEED = 14, FRAME_THUMBS = 10;
-  const AUTO_EVERY = 300;    // 片子往前走了多少秒，TA可以自己开一次口（不是必须开口）
+  // 片子往前走了多少分钟，TA可以自己开一次口（不是必须开口）。她自己拉（她 2026-09-25：「自己开口要不要搞个拉条」）
+  const AUTO_MIN = 1, AUTO_MAX = 20, AUTO_DEFAULT = 5;
   const SUB_WINDOW = 90;     // 喂给TA的是【刚放过的】这一段台词
   // 放映厅的色：这一页有自己的夜色，不吃主题（跟月度印象、一起听的播放页一样，Head 传 ink/bg）
   const W = {
@@ -234,6 +235,7 @@
     const [src, setSrc] = useState(""), [cues, setCues] = useState([]), [now, setNow] = useState(0);
     const [busy, setBusy] = useState(false), [txt, setTxt] = useState(""), [missing, setMissing] = useState(false);
     const [auto, setAuto] = useState(() => loadJSON("x_watch_auto", true) !== false);
+    const [every, setEvery] = useState(() => { const n = Number(loadJSON("x_watch_auto_every", AUTO_DEFAULT)); return n >= AUTO_MIN && n <= AUTO_MAX ? n : AUTO_DEFAULT; });
     const vRef = useRef(null), listRef = useRef(null), lastAuto = useRef(0), lastSave = useRef(0), busyRef = useRef(false);
     const cuesRef = useRef([]), inbandSave = useRef(0);
     useEffect(() => { cuesRef.current = cues; }, [cues]);
@@ -319,7 +321,7 @@
     const onTime = () => {
       const v = vRef.current; if (!v) return;
       setNow(v.currentTime); savePos(false);
-      if (auto && !v.paused && !busyRef.current && partner && props.active && cues.length && v.currentTime - lastAuto.current >= AUTO_EVERY) {
+      if (auto && !v.paused && !busyRef.current && partner && props.active && cues.length && v.currentTime - lastAuto.current >= every * 60) {
         lastAuto.current = v.currentTime; ask("auto");
       }
     };
@@ -354,6 +356,18 @@
           btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
+        // 多久可能开一次口：拉条（开着的时候才出来）
+        auto && h("div", { className: "flex items-center gap-3", style: { flexShrink: 0, padding: "0 16px 8px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话多"),
+          // 轨道自己画：全局样式把原生的轨抹掉了，只剩一个圆点
+          h("div", { style: { position: "relative", flex: 1, minWidth: 0, height: 40 } },
+            h("div", { style: { position: "absolute", left: 0, right: 0, top: 18, height: 4, borderRadius: 2, background: "rgba(255,255,255,.12)" } },
+              h("div", { style: { width: ((every - AUTO_MIN) / (AUTO_MAX - AUTO_MIN) * 100) + "%", height: "100%", borderRadius: 2, background: W.amber } })),
+            h("input", { type: "range", min: AUTO_MIN, max: AUTO_MAX, step: 1, value: every, "aria-label": "TA 多久可能自己开一次口",
+              onChange: e => { const n = Number(e.target.value); setEvery(n); saveJSON("x_watch_auto_every", n); },
+              style: { position: "absolute", inset: 0, width: "100%", height: 40, margin: 0, padding: 0, border: "none", boxShadow: "none", background: "transparent", accentColor: W.amber } })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话少"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟")),
         // 你们说的话
         h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 12px" } },
           !talk.length && h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: W.fog, padding: "22px 10px", lineHeight: 1.8 } }, "片子放起来，想说什么就说。\nTA 看到有感觉的地方也会自己冒一句。"),
