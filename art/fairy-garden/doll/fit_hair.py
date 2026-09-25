@@ -74,7 +74,9 @@ facezone=(fc[:,1]<-.08)&(fc[:,2]<.88)&(np.abs(fc[:,0])<.2)
 # Colour only decides on the face and ears; the back of the head is all hair
 # (its bright highlights must not punch bald spots).
 exposed=(fc[:,1]<.0)|(np.abs(fc[:,0])>.19)
-hair=(fc[:,2]>.60)&~(skinlike&exposed)&~eye&~(facezone&(dist<.006))
+# Skin-coloured scraps anywhere (crown slivers, ear bits) go too.
+skinish=(hc[:,0]>.55)&(hc[:,0]-hc[:,2]>.10)&(lum>.45)
+hair=(fc[:,2]>.60)&~skinlike&~skinish&~eye&~(facezone&(dist<.006))
 # Under the jaw the source's own chin and neck are in shadow and read as
 # non-skin; drop anything hugging our skin there (front half only; the nape
 # hair behind stays).
@@ -228,10 +230,12 @@ if os.environ.get('ANCHOR'):
         V[k]=dvec*rr
     def ok(p):
         x,y,z=p/np.linalg.norm(p)
-        face=y<-.30 and z<.50                 # forehead-down front: never covered
+        # Front: covered down to the fringe roots so the part line is closed;
+        # the face below stays bare.
+        face=y<-.30 and z<(.22 if abs(x)<.22 else .50)
         if face:return False
         if y>.05:return z>-.85                 # back: down to the nape
-        return z>-.05 and not (y<-.55 and z<.42)
+        return z>-.05
     keep=[k for k,f in enumerate(fs) if all(ok(V[q]) for q in f)]
     cap.from_pydata(V.tolist(),[],[fs[k] for k in keep]);cap.update()
     import bmesh as _b;bb=_b.new();bb.from_mesh(cap);_b.ops.remove_doubles(bb,verts=bb.verts,dist=1e-6)
