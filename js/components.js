@@ -4776,7 +4776,7 @@ const DEFAULT_FOLDERS = {
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
-  f_def_do:    { name: "一起做", keys: ["study", "read", "pomodoro"] },
+  f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
   //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
@@ -4979,6 +4979,7 @@ function Home({
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
     read: { kind: "app", zh: "一起读", G: IShelf },
+    watch: { kind: "app", zh: "一起看", G: IFilm },
     debate: { kind: "app", zh: "擂台", G: GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
@@ -7869,6 +7870,43 @@ function PhotoCard({ m, mine, onOpen, max }) {
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.imageRef ? cap : ""),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
 }
+// 给一条内容挂一张照片（贴吧发帖／回楼共用）：从相册选一张真图，或者只写一句「图里是什么」——
+//   跟聊天那两种发法同一个意思。value＝null 或 { imageRef?, desc }，交出去的也是这个形状。
+function PhotoAttach({ value, onChange, toast }) {
+  const t = useTheme();
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const v = value || null;
+  const pick = async f => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      let ref = await resizeImageFile(f, 1000, 0.84);
+      try { if (typeof imgToVault === "function") ref = await imgToVault(ref); } catch (e) {}
+      onChange({ imageRef: ref, desc: (v && v.desc) || "" });
+    } catch (e) { toast && toast("图片处理失败"); }
+    finally { setBusy(false); }
+  };
+  const btn = { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 };
+  const file = h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" },
+    onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; pick(f); } });
+  if (!v) return h("div", { className: "flex gap-2 flex-wrap" }, file,
+    h("button", { onClick: () => fileRef.current && fileRef.current.click(), disabled: busy, className: "active:opacity-70 disabled:opacity-40", style: btn }, busy ? "处理中…" : "从相册选"),
+    h("button", { onClick: () => onChange({ desc: "" }), className: "active:opacity-70", style: btn }, "写一张图"));
+  return h("div", { className: "flex gap-2 items-start" }, file,
+    v.imageRef ? h("img", { src: resolveImg(v.imageRef), alt: "", style: { width: 64, height: 64, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid " + t.line } }) : null,
+    h("textarea", { value: v.desc || "", onChange: e => onChange({ ...v, desc: e.target.value }), rows: 2,
+      placeholder: v.imageRef ? "配一句说明（选填，写了大家才看得懂图里是什么）" : "这张图里拍到了什么",
+      className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
+    h("button", { onClick: () => onChange(null), className: "shrink-0 active:opacity-60", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "去掉"));
+}
+// 发出去之前收一下：假图没写字就等于没配
+function photoAttachValue(v) {
+  if (!v) return null;
+  const desc = String(v.desc || "").trim();
+  if (!v.imageRef && !desc) return null;
+  return v.imageRef ? { imageRef: v.imageRef, desc: desc } : { desc: desc };
+}
 // 点开之后那一层：大图／整段描述，真有像素时还能存进手机相册。
 // ⚠️存图走的是公共那一条 window.saveImgOriginal（engine.js）——查手机那边早就在用它，
 //   别在这儿再写一条下载逻辑。
@@ -7890,6 +7928,17 @@ function PhotoSheet({ m, onClose, toast }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）")));
 }
+function RoomWorldBanner({ onEnter }) {
+  const t = useTheme();
+  return h("div", { className: "shrink-0 w-full flex items-center",
+    style: { padding: "0 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line } },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, marginRight: "auto" } }, "进入小世界"),
+    [["garden", "庭院"], ["train", "列车"]].map(([world, label]) => h("button", {
+      key: world, onClick: () => onEnter(world), className: "active:opacity-70",
+      "aria-label": "进入" + label,
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }
+    }, label + " ›")));
+}
 function ChatThread({
   unreadOther,
   onOpenUs,
@@ -7898,6 +7947,7 @@ function ChatThread({
   actDesc,
   actPerson,   // 他那一行里【他自己】叫什么："me"（我，默认）/ "ta"（他，跟角色性别走）
   userPerson,  // TA那一行里【你】叫什么："you"（你，默认）/ "ta"（她）——两个都是确定的方向
+  ccLane,      // 书房直通（她 2026-09-25 拍板）：null=与这间房无关；{direct,onToggle}=言秋房，可切「书房/直连」
   character,
   characters,
   groups,
@@ -8271,13 +8321,7 @@ function ChatThread({
   // ⚠️原来点进这间房＝直接开存档：那一屏把整个聊天盖住，她连这间房的设置都进不去
   //   （「我都没法调能不能有记忆进来出去」）。现在进门看到的是聊天记录——
   //   庭院里说过的话本来就同步在这儿——想进去玩再按这一条。
-  onEnterGarden && h("button", {
-    onClick: onEnterGarden,
-    className: "shrink-0 w-full flex items-center active:opacity-70",
-    style: { padding: "9px 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line }
-  },
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4f6b3f" } }, "走进微光庭院"),
-    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: "#6b8753" } }, "这间房的存档 ›")),
+  onEnterGarden && h(RoomWorldBanner, { onEnter: onEnterGarden }),
   // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
   // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
   // 把 TA 别的课收进来、或者拿回主聊天。跟上面「在写」那一条同一个形状。
@@ -8483,6 +8527,10 @@ function ChatThread({
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
+    // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
+    if (m.kind === "watchlog") return h(SysNote, { key: i, label: "一起看",
+      text: (m.content || ("一起看《" + (m.title || "") + "》")) + ((m.lines || []).length ? " · 边看边说了 " + m.lines.length + " 句" : ""),
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -8897,7 +8945,19 @@ function ChatThread({
   }, h(IPlus, {
     size: 22,
     color: t.fog
-  })), h(DraftInput, {
+  })), ccLane && h("button", {
+    // 书房直通开关：默认「书房」（这条话叫醒 CC 老窗口），点亮「直连」临时走订阅引擎。
+    // 放在输入框左边而不是藏进设置：她要的就是想切就切（走廊监控厚薄不同，见 cc-lane.js 头注）。
+    onClick: ccLane.onToggle,
+    className: "active:opacity-70 shrink-0",
+    style: {
+      fontFamily: F_BODY, fontSize: 11, lineHeight: 1,
+      padding: "6px 8px", borderRadius: 999,
+      border: `1px solid ${ccLane.direct ? t.accent : t.line}`,
+      color: ccLane.direct ? t.accent : t.fog,
+      background: ccLane.direct ? "transparent" : t.bg2
+    }
+  }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     inputProps: { "data-wk": "chatinput" },
     placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
@@ -9041,7 +9101,13 @@ function ChatThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
-      onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }
+      onPick: em => {
+        sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
+        // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
+        // 车道原本看不见。把关键词描述进攒话缸，图不过桥、意思过桥。
+        if (ccLane && !ccLane.direct && window.CcLane) window.CcLane.post("[表情包] " + em.keyword, { threadType: "private" });
+        setStickerOpen(false);
+      }
     })
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
@@ -16252,7 +16318,19 @@ function ChatSettings({
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
-      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) }))),
+      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })),
+    // 书房直通钥匙（她 2026-09-25 拍板「全走 CC」）：贴一次 relay 的 cc_token，这个角色的
+    // 私聊/线下默认改走书房窗口。钥匙存本机 localStorage，不进 saves 不上云（见 cc-lane.js）。
+    engineerEyes && window.CcLane && h("div", { className: "pt-3" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "书房直通钥匙"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "贴上 relay 的 cc_token 后，这间房的话默认叫醒书房的老窗口；输入栏可临时切回「直连」订阅。钥匙只存这台设备。"),
+      h("input", {
+        defaultValue: window.CcLane.config().token,
+        placeholder: "cc_token",
+        onChange: e => window.CcLane.saveConfig({ token: String(e.target.value || "").trim() }),
+        className: "w-full mt-2",
+        style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 10, padding: "8px 10px" }
+      }))),
   // 上网（v58.74，她 2026-08-31 要的）：不是 MCP——Anthropic 自带一个【服务端】搜索工具，
   // 搜索在他们那边跑完，结果和回答在同一个响应里回来，仍然是一次调用。
   // 默认关，一个一个角色自己开：古代角色开了就会真的去搜引擎，那是出戏；而且搜索另计费。

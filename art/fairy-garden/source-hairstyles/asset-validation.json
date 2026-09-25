@@ -33,7 +33,7 @@
     "wavy"
   ],
   "new_hair_meshes": 11,
-  "hairline_vertices": 540,
+  "hairline_vertices": 0,
   "dimensions": [
     {
       "key": "height",
@@ -86,21 +86,13 @@
   ],
   "scope": "Hairstyle and body preview. Clothing separation and animation are not implemented.",
   "lossless_buffer_sharing": {
-    "before_bytes": 72833488,
-    "after_bytes": 62813560,
+    "before_bytes": 74200960,
+    "after_bytes": 63932688,
     "all_buffer_views_byte_identical": true
   },
-  "saved_blend_verified": {
-    "meshes": 14,
-    "neutral_morphs": true,
-    "default_visible": [
-      "SourceBody",
-      "hair_korean"
-    ],
-    "all_images_packed": true
-  },
+  "handoff_status": "UNFINISHED: visual defects; final browser and source-preservation checks have not been run for this draft.",
   "asset_sha256": {
-    "traveler-hairstyles.blend": "2894ee4bd1e9b42ad49058296f0fe6049efa882ed0274240d6bc631aa2a8829c",
-    "traveler-hairstyles.glb": "b5360bdbce42fd19eca49f8cacaefde7cbb5f2f9c57a25c0be38674f717efdaf"
+    "traveler-hairstyles.blend": "b390afdcf5106f58f816d5dac206e1e6c9f83921ab3fa45b57bb5326080e0c43",
+    "traveler-hairstyles.glb": "ba0cfa2199e57553d301f990b1a519248051469a0924252bbcc676a0d730e55a"
   }
 }

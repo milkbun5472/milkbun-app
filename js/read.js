@@ -5,40 +5,13 @@
 // 模型调用直接走全局 callAI；喂全局记忆库靠 props.onAddMemory 回调。
 // ============================================================
 (function () {
-  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
-  // ⚠️它是【世界事实】，不是文风：这个 app 里没人抽烟，那在哪一处都得成立。
-  //   原来它只挂在 buildBundle / groupBans 上，于是【凡是自己拼 sys 的地方一律没有】。
-  //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
-  //   挂在别人身上，别人不发的那一轮它就跟着消失）。
-  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 禁烟这一层（内容边界）现在跟着 core.js 的 companionHead 走：一起读每一枪的头都是它，两条路都带着这一层。
   // ---- IndexedDB：只放正文，key=bookId，value=全文字符串 ----
   const DB_NAME = "LisaReadDB", STORE = "books";
-  function idb() {
-    return new Promise(function (res, rej) {
-      const r = indexedDB.open(DB_NAME, 1);
-      r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains(STORE)) r.result.createObjectStore(STORE); };
-      r.onsuccess = function () { res(r.result); };
-      r.onerror = function () { rej(r.error); };
-    });
-  }
-  function idbPut(id, text) {
-    return idb().then(function (db) { return new Promise(function (res, rej) {
-      const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).put(text, id);
-      tx.oncomplete = function () { res(); }; tx.onerror = function () { rej(tx.error); };
-    }); });
-  }
-  function idbGet(id) {
-    return idb().then(function (db) { return new Promise(function (res, rej) {
-      const rq = db.transaction(STORE, "readonly").objectStore(STORE).get(id);
-      rq.onsuccess = function () { res(rq.result || ""); }; rq.onerror = function () { rej(rq.error); };
-    }); });
-  }
-  function idbDel(id) {
-    return idb().then(function (db) { return new Promise(function (res, rej) {
-      const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).delete(id);
-      tx.oncomplete = function () { res(); }; tx.onerror = function () { rej(tx.error); };
-    }); });
-  }
+  // ⚠️开库／存取那几行搬到 core.js 的 makeTextStore 了（一起学的课程资料是第二处，
+  //   施工规则/one-public-mechanism.md）。库名、表名一个字没改——她的书还在原来那张表里。
+  const _store = makeTextStore(DB_NAME, STORE);
+  const idbPut = _store.put, idbGet = _store.get, idbDel = _store.del;
 
   // ---- 元数据存取 ----
   function loadBooks() { return loadJSON("x_read_books", []); }
@@ -101,21 +74,9 @@
   // ⚠️【写明理由的差异】不发【最近聊天】：ctxFor 本来就不带它（各聊天入口自己另加），
   //   而这一处要写的是就着书页说的话，不是把聊天接着往下说。心情、好感、印象卡都在，
   //   「TA今天什么状态」这件事已经够了。
-  function readHead(ctxFor, char) {
-    let head = "";
-    if (typeof ctxFor === "function" && typeof buildBundle === "function" && char) {
-      try { head = buildBundle(ctxFor(char)) + "\n\n"; } catch (e) { head = ""; }
-    }
-    // 接不上的时候退回老那两条，并且【人设由这儿补】——所以底下五处提示词
-    // 一律不再自己写一遍「【你的人设】」：bundle 里本来就有，写两遍等于把人设发两份。
-    if (!head) head = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + CB()
-      + "【你的人设】\n" + ((char && char.persona) || "（暂无设定）") + "\n\n";
-    const more = [];
-    if (typeof ECHO_QUESTION_BAN !== "undefined") more.push(ECHO_QUESTION_BAN);
-    if (typeof REGISTER_FOLLOWS_SCENE !== "undefined") more.push(REGISTER_FOLLOWS_SCENE);
-    if (typeof ReplyPacing !== "undefined" && ReplyPacing.reading) { try { more.push(ReplyPacing.reading()); } catch (e) {} }
-    return head + (more.length ? more.join("\n\n") + "\n\n" : "");
-  }
+  // 头那一段搬到 core.js 的 companionHead 了：一起看是第二处要它的（施工规则/one-public-mechanism.md）
+  function readHead(ctxFor, char) { return companionHead(ctxFor, char); }
+
 
   // ── 这本书上的共同记录（她 2026-09-12：「我今天和TA看三章，下次第四章TA也能
   //    记得前面说过啥」）──────────────────────────────────────────────
@@ -298,48 +259,7 @@
     return String(raw || "").replace(/```/g, "").trim();
   }
 
-  // ---- 懒加载 pdf.js（仅在导入 PDF 时才拉），抽取含文本层 / 已 OCR 的 PDF 文字 ----
-  let _pdfjsP = null;
-  function loadPdfjs() {
-    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-    if (_pdfjsP) return _pdfjsP;
-    _pdfjsP = new Promise(function (res, rej) {
-      const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
-      s.onload = function () {
-        try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {}
-        res(window.pdfjsLib);
-      };
-      s.onerror = function () { _pdfjsP = null; rej(new Error("pdf.js 加载失败（需要联网）")); };
-      document.head.appendChild(s);
-    });
-    return _pdfjsP;
-  }
-  async function extractPdfText(file, onProg) {
-    const lib = await loadPdfjs();
-    const buf = await file.arrayBuffer();
-    const pdf = await lib.getDocument({ data: buf }).promise;
-    const pages = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const tc = await page.getTextContent();
-      let line = "", lastY = null;
-      const rows = [];
-      tc.items.forEach(function (it) {
-        if (typeof it.str !== "string") return;
-        const y = it.transform ? it.transform[5] : null;
-        // 换行：pdf.js 给了 EOL，或 y 坐标跳了一行
-        if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && line) { rows.push(line); line = ""; }
-        line += it.str;
-        if (it.hasEOL) { rows.push(line); line = ""; }
-        lastY = y;
-      });
-      if (line) rows.push(line);
-      pages.push(rows.join("\n"));
-      if (onProg) onProg(p, pdf.numPages);
-    }
-    return pages.join("\n\n");
-  }
+  // 读 PDF 文字那一段（extractPdfText）搬到 core.js 了：一起学的课程资料也要读 PDF。
 
   // ============================================================
   // 组件

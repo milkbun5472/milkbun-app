@@ -1,0 +1,60 @@
+{
+  "sourceHashes": {
+    "destinations.mjs": "163edc6becfcce6e3fe350c74e32d856d4bbfef82801fa8b408236c50b63d3fa",
+    "journey.mjs": "e30d301a939c7481d4dfcf1a5122d9e4d1af9a202b1d78e1c0f25a63af641f9f",
+    "scenery.mjs": "333113aef291b2c57ed06d18e591b990400a4a0c0dab4dcf0c559487592b283c",
+    "preview.mjs": "42f93f0d3d29fa19139bd9861d0bb7e5c8c4afda206ffa3b8bcf56f975104303",
+    "preview.html": "93b2e8a8b77e0245f326c94b91618a92c920241ede55a6a23af503c3b915c079"
+  },
+  "combinations": 240,
+  "uniqueFrames": 240,
+  "motionChanged": true,
+  "travel": [
+    {
+      "name": "远山",
+      "speed": 7,
+      "delta": 0.7000000000407454
+    },
+    {
+      "name": "山谷",
+      "speed": 24,
+      "delta": 2.4000000001396984
+    },
+    {
+      "name": "中景",
+      "speed": 68,
+      "delta": 6.800000000395812
+    },
+    {
+      "name": "林岸",
+      "speed": 170,
+      "delta": 17.00000000098953
+    },
+    {
+      "name": "近景",
+      "speed": 390,
+      "delta": 39.0000000022701
+    }
+  ],
+  "wrappedHour": 0.008999999999996788,
+  "stableSceneObjects": true,
+  "textureCount": 2,
+  "layerCount": 5,
+  "transparentCorner": 0,
+  "nightRainDarkerThanDay": true,
+  "pauseResume": true,
+  "reducedMotionStartsPaused": true,
+  "mobileCanvas": [
+    960,
+    480
+  ],
+  "layout": {
+    "noHorizontalOverflow": true,
+    "stageHeight": 424,
+    "controlsBottom": 811,
+    "footerTop": 811,
+    "viewport": 844
+  },
+  "errors": [],
+  "failed": []
+}

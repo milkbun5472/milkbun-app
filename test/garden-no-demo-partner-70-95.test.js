@@ -10,7 +10,7 @@ const host = fs.readFileSync("js/fairy-garden.js", "utf8");
 //   念不了咒 → 三条会开的路一条都开不了。摆着它＝请人去玩一个阉割版。
 test("选人页上没有「不挑人」那条出口了", () => {
   assert.doesNotMatch(host, /\}, "先和示例同行者试玩"\)/, "那颗按钮还在");
-  assert.match(host, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id\); \};/,
+  assert.match(host, /const pickForNew = id => \{ setPicking\(false\); if \(id\) props\.onNewGardenRoom\(id,world\.id\); \};/,
     "挑了人才有下文，没有 else 那一支");
   assert.match(host, /onClick: \(\) => setPicking\(true\)/, "「＋ 新开一段」只剩挑人这一条路");
 });

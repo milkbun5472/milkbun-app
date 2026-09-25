@@ -115,6 +115,22 @@ function mapSubSkin(t) {
     }
     return { kind: "real" };
   }
+  // 她自己此刻在哪套世界（她 2026-09-25：「应该做选择而不是减法」）。
+  // 设置 → 位置感知里二选一：现实定位，或者某个架空世界——那边的位置就是她在那张图上
+  // 给自己钉的点（__me，每个世界各记各的）。所有要用「她在哪」的地方都只问这一处，
+  // 别再各自读 prefs.geoAware + x_geo：那样选了架空世界，总有一处还在报现实城市。
+  // 选中的世界被删了就返回 null（不说她在哪），不悄悄退回现实城市。
+  function userRealm(prefs, geo, worlds) {
+    if (!prefs || prefs.geoAware !== true) return null;
+    const wid = prefs.geoRealm;
+    if (wid && wid !== "real") {
+      const w = (Array.isArray(worlds) ? worlds : []).find(function (x) { return x && x.id === wid; });
+      if (!w) return null;
+      const node = String((w.pins && w.pins.__me) || "");
+      return { kind: "world", world: w, node: node, terrain: node ? terrainOfNode(w, node) : "", label: w.name + (node ? "·" + node : "") };
+    }
+    return geo && !geo.error && (geo.label || typeof geo.lat === "number") ? { kind: "real", geo: geo } : null;
+  }
   function terrainOfNode(world, node) {
     let t = "";
     ((world && world.regions) || []).forEach(function (r) {
@@ -959,7 +975,7 @@ function mapSubSkin(t) {
           }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" } }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
-  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm };
+  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, userRealm: userRealm };
   // 纯函数导出给 node --test；浏览器里没有 module，原样跳过（同 trpg.js）
-  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos };
+  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos, userRealm: userRealm };
 })();

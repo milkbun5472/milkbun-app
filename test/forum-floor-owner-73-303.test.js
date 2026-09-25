@@ -26,6 +26,6 @@ assert.strictEqual((app.match(/buildForumReplyObj\(x, post, floorByNum\.get\(tf\
 assert(/floorMine && r\.authorType !== "me" && String\(r\.authorName \|\| ""\)\.trim\(\) === "层主"/.test(app));
 console.log("forum-floor-owner ok");
 // v73.305：新开的楼直接递给 genRepliesToMe，别等 ref 跟上；认不出楼就不生成（截图：自己新开的楼里冒出「层主 回复 @Lisa」）
-assert(/genRepliesToMe\(post, fid, text, "", floor\)/.test(app), "新开的楼要直接递进去");
+assert(/genRepliesToMe\(post, fid, forumWithPhoto\(text, floor\), "", floor\)/.test(app), "新开的楼要直接递进去");
 assert(/\.find\(f => f\.id === floorId\) \|\| knownFloor \|\| null;\n\s*\/\/[^\n]*\n\s*if \(!floor\) return;/.test(app), "认不出楼就不生成");
 console.log("forum-floor-owner v73.305 ok");

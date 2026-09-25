@@ -90,16 +90,16 @@ def sculpt_front(s):
         # Principal C-shaped fringe, broad middle and an inward turning end.
         ([(309,391),(296,363),(270,349),(240,358),(217,384),(197,422),(184,465),(183,499),(194,532),(216,552),(243,568),(273,574),(279,568),(264,549),(255,526),(252,497),(258,467),(270,440),(287,416),(301,413),(310,429)],.030,.033,1.025),
     ]
-    # Rounded crown support closes the part in every viewing direction.
-    s.ellipsoid((0,-.03,1.55),(.25,.14,.078),tint=.93)
-    s.lock([(-.08,-.10,1.600),(-.11,.02,1.642),(.025,.12,1.635),(.14,.14,1.579)],width=.069,depth=.026,normal=(0,0,1),tint=1.02,rings=32,sides=16)
+    # A full crown supports lifted roots instead of two flat top panels.
+    s.ellipsoid((0,.025,1.425),(.257,.260,.220),tint=.94)
+    s.lock([(.035,-.015,1.605),(.01,-.09,1.660),(-.145,-.115,1.650),(-.21,-.10,1.607)],width=.054,depth=.027,normal=(0,-.5,1),tint=1.02,rings=36,sides=16)
     # Curved temple bridges overlap the original rear at the cut boundary.
     # Their centreline travels around the skull, not along the front plane.
     for sign in (-1,1):
         s.lock([(sign*.12,-.005,1.617),(sign*.27,-.080,1.56),(sign*.355,-.065,1.43),(sign*.29,-.055,1.24)],width=.060,depth=.034,normal=(sign,-.10,0),tint=.98,rings=32,sides=16)
     for side in (1,-1):
         for i,(outline,lift,depth,tint) in enumerate(outlines):
-            if i==0:outline=[(x,y+(-7 if side>0 else 14)) for x,y in outline]
+            if i==0:continue
             if i==6:outline=[(236+(x-230)*(.90 if side>0 else .94),y) for x,y in outline]
             if side<0:
                 outline=[(310+(x-310)*(1.00 if i==6 else .96),y+(3 if i==6 else -2)) for x,y in outline]
@@ -139,69 +139,24 @@ normals are recalculated after reshaping the join and crown.
         s.source_painted_vertices.add(off+j)
 
 
-# --- v2: broad rounded clay clumps, placed on a shell around the skull ------
-# Authored from the supplied M02 front/side/back sheet. Points are given as
-# front-view (x,z) plus a shell lift; y is solved on the head ellipsoid so every
-# clump wraps the round skull. Widths follow a buried root, a fat belly and a
-# soft point, which reads as pressed clay rather than a thin noodle.
-SHELL=(.012,.030,1.300,.300,.292,.315)   # centre x,y,z and radii
+def refined_rear(s):
+    """Staggered short locks follow the round skull from crown to nape."""
+    import random
+    r=random.Random(42)
+    # Build the lower tiers first; broad upper locks overlap their roots.
+    for count,p0,p1,width,depth in [(12,1.48,2.70,.037,.019),(10,.72,2.04,.053,.026),(7,.16,1.42,.071,.031)]:
+        for i in range(count):
+            th=1.00+(2*math.pi-2.00)*(i+.45)/count+r.uniform(-.045,.045)
+            start=p0+r.uniform(-.065,.065);end=p1+r.uniform(-.08,.08)
+            # Unequal sweeps form interlocking layers, rather than straight rows.
+            sweep=.12*math.sin(th)+r.uniform(-.12,.12)
+            s.radial(th,start,end,width*r.uniform(.9,1.1),depth,sweep=sweep,lift=.008)
 
 
-def on_shell(x,z,lift=0.,back=False):
-    cx,cy,cz,rx,ry,rz=SHELL
-    rx+=lift;ry+=lift;rz+=lift
-    q=1-((x-cx)/rx)**2-((z-cz)/rz)**2
-    # Soft floor: tips that leave the silhouette keep a forward depth instead
-    # of folding back to the side plane (which pinched them into knobs).
-    q=.5*(q+math.sqrt(q*q+.03))
-    y=ry*math.sqrt(q)
-    return (x,cy+y if back else cy-y,z)
-
-
-BELLY=[.18,.42,.75,.95,1.0,.88,.62,.30,.05]
-
-
-def clump(s,pts,width,depth,lifts=None,tint=None,widths=BELLY,rings=30,sides=14):
-    lifts=lifts or [.02]*len(pts)
-    p=[on_shell(q[0],q[1],l) if len(q)==2 else tuple(q) for q,l in zip(pts,lifts)]
-    s.lock(p,width,depth,tint=tint,rings=rings,sides=sides,widths=widths)
-
-
-def sculpt_front_v2(s):
-    """Flat pressed-clay ribbons that hug the skull (after the Hunyuan study).
-
-    Width is three to four times the depth; locks overlap instead of leaving
-    gaps, the outline stays round, and only the lowest rim flicks out.
-    """
-    s.ellipsoid((0,-.01,1.52),(.22,.14,.085),tint=.92)
-    s.lock([(-.09,-.06,1.615),(-.10,.03,1.650),(.02,.11,1.645),(.13,.13,1.590)],width=.085,depth=.020,normal=(0,0,1),tint=1.0,rings=32,sides=16)
-    RIB=[.30,.62,.88,1.0,1.0,.92,.72,.42,.06]
-    for side in (1,-1):
-        m=lambda pts:[(side*x,z) for x,z in pts]
-        # Principal C fringe: clean inner arc, point turning in above the eye.
-        clump(s,m([(.012,1.50),(.080,1.445),(.160,1.35),(.195,1.265),(.182,1.215),(.148,1.195)]),
-              .105,.022,[.028,.030,.028,.024,.022,.020],tint=1.03,widths=RIB)
-        # Outer companion lying behind the C, ending at the cheek.
-        clump(s,m([(.05,1.54),(.16,1.47),(.240,1.35),(.262,1.22),(.240,1.115)]),
-              .110,.022,[.034,.036,.034,.030,.030],tint=.98,widths=RIB)
-        # Upper sweep over the temple; tip only just lifts off the round outline.
-        clump(s,m([(.03,1.60),(.15,1.56),(.265,1.48),(.330,1.38),(.360,1.31)]),
-              .120,.022,[.040,.042,.042,.046,.058],tint=1.02,widths=RIB)
-        # Lower side sheet over the ear top, small outward flick.
-        clump(s,m([(.20,1.48),(.29,1.38),(.325,1.25),(.335,1.16),(.355,1.12)]),
-              .105,.021,[.044,.046,.046,.050,.062],tint=.95,widths=RIB)
-        # Sideburn in front of the ear.
-        clump(s,m([(.20,1.36),(.250,1.26),(.262,1.15),(.250,1.07),(.238,1.035)]),
-              .070,.018,[.036,.038,.036,.034,.034],tint=.94,widths=RIB)
-        # Crown-front sheet between the part and the upper sweep.
-        clump(s,m([(.01,1.61),(.10,1.585),(.19,1.54),(.25,1.49)]),.110,.020,[.036,.040,.040,.038],tint=1.0,widths=RIB)
-    # Side sheets falling back over the ear to meet the retained rear.
-    for side in (1,-1):
-        for i,(y0,y1,z1,w) in enumerate([(-.10,.00,1.16,.11),(-.02,.10,1.12,.11),(.06,.20,1.10,.10)]):
-            pts=[(side*.10,y0,1.60),(side*.26,y0+.01,1.50),(side*.335,(y0+y1)/2,1.36),
-                 (side*.342,y1,1.23),(side*.330,y1+.02,z1)]
-            s.lock(pts,w,.022,tint=(.97,1.0,.95)[i],rings=30,sides=14,widths=RIB)
-    # Crown cowlick: short lifted tips rising from the whorl, bent backward.
-    for dx,lean,h in ((-.035,-.05,.065),(.03,.055,.055),(.0,-.01,.08)):
-        s.lock([(dx,.05,1.585),(dx+lean*.3,.045,1.625),(dx+lean*.7,.06,1.585+h),(dx+lean,.09,1.60+h*.8)],
-               .036,.018,tint=1.0,rings=18,normal=(0,.3,1))
+def lift_crown(s):
+    # Raise the whole crown coherently; roots and supporting volume move with
+    # the locks, so the silhouette stays round from the side and rear too.
+    vertices=np.array(s.v,float)
+    t=np.clip((vertices[:,2]-1.40)/.245,0,1);t=t*t*(3-2*t)
+    vertices[:,2]+=.055*t
+    s.v=list(map(tuple,vertices))

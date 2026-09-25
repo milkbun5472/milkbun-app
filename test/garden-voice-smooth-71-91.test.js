@@ -74,9 +74,9 @@ test('念着这一条的时候，下一条已经在合成了', () => {
 });
 
 test('念出来的时候那段读字的空档要收掉', () => {
-  assert.match(game, /VOICE_GAP=\d{2,3}/);
-  const gap = Number(/VOICE_GAP=(\d+)/.exec(game)[1]);
-  const read0 = Number(/BUBBLE_GAP=(\d+)/.exec(game)[1]);
+  assert.match(read('apps/fairy-garden/speech.mjs'), /VOICE_GAP=\d{2,3}/);
+  const gap = Number(/VOICE_GAP=(\d+)/.exec(read('apps/fairy-garden/speech.mjs'))[1]);
+  const read0 = Number(/BUBBLE_GAP=(\d+)/.exec(read('apps/fairy-garden/speech.mjs'))[1]);
   assert.ok(gap < read0, '念出来那条还在用读字的间隔');
   assert.match(game, /bubbleUntil=Date\.now\(\)\+VOICE_GAP;bubbleTimer=setTimeout\(nextBubble,VOICE_GAP\)/);
 });
@@ -94,12 +94,11 @@ test('第一只气泡：回复一落地就去合成，不等写完存档', () =>
 // 她 2026-09-19：「这几句存回房间也是缓存了的吧」——只有【合成的那串字】和
 // 【房间里存下的那串字】一模一样才算数：缓存钥匙是照文本算的，差一个换行就是两笔钱。
 // 房间存的是原样那一句（app.js 的 onTurn 直接存 part），所以念的也必须是原样那一句。
-test('念出来的和存回房间的是同一串字', () => {
+test('念出来的和存回房间的是同一串字', async () => {
   const app = read('js/app.js');
   assert.match(app, /\.map\(\(part, i\) => \(\{ role: "assistant", content: part,/, '房间存的不再是原样那一句了');
-  const i = game.indexOf('const bubbleShow='), j = game.indexOf('function warmNext(){', i);
-  assert.ok(i > 0 && j > i, '抠不出这两副样子');
-  const { bubbleShow, bubbleSay } = new Function(game.slice(i, j) + ';return {bubbleShow,bubbleSay};')();
+  const {bubbleShow,bubbleSay}=await import('../apps/fairy-garden/speech.mjs');
+  assert.match(game,/import \{bubbleHold,bubbleShow,bubbleSay,/);
   const part = '  今天井里\n捞上来一个奇怪的东西。' + 'x'.repeat(200);
   assert.equal(bubbleSay(part), part.trim(), '拿去合成的被收拾过了——房间里那句对不上，等于又花一次钱');
   assert.ok(bubbleShow(part).length <= 120 && bubbleShow(part).indexOf('\n') < 0, '气泡上那副没收拾干净');

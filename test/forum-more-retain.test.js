@@ -23,6 +23,7 @@ function fixture() {
     setGen: () => {}, toast: x => errors.push(x), forumRepliedCharCells: () => [],
     forumWorldCtx: () => ({}), forumCommentProbe: () => ({}), bumpReplyBy: () => {},
     buildForumReplyObj: x => ({content: x.content, ts: Date.now()}),
+    forumPhotoOf: () => null,   // 配图（v74.025）：这份测的是放楼顺序，不带图
     runProbeRetry: () => { calls++; return new Promise((resolve, reject) => {finish=resolve; fail=reject;}); }
   };
   const code = new Function(...Object.keys(deps), ordering + writer + manual + '\nreturn {buildForumFloor,genMoreComments};')(...Object.values(deps));

@@ -77,5 +77,5 @@ test("封面存在线上，分支沿用同一张", () => {
   const br = theater.slice(theater.indexOf("const branchFrom = msg =>"), theater.indexOf("const pressMsg"));
   assert.match(br, /cover: line\.cover \|\| null/, "同一个世界不必各画各的");
   assert.match(theater, /line\.cover \? "🎞 重出封面" : "🎞 封面图"/);
-  assert.match(theater, /linear-gradient\(90deg, rgba\(240,236,228,\.94\)/, "图上压字要先保证读得清");
+  assert.match(theater, /linear-gradient\(90deg, " \+ veil\(t\.bg, 94\)/, "图上压字要先保证读得清");
 });

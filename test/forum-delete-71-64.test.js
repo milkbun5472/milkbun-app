@@ -75,7 +75,7 @@ test("两种都问一句，但说的后果不一样", () => {
 test("回复栏的发送键不许被挤出去", () => {
   const i = screens.indexOf("      h(\"div\", { className: \"shrink-0\", style: { borderTop: \"1px solid \" + FORUM_SKIN.line");
   assert.ok(i > 0, "抠不出回复栏");
-  const seg = screens.slice(i, i + 1600);
+  const seg = screens.slice(i, i + 2600);
   assert.ok(/className: "shrink-0 px-4 py-2 rounded-full active:opacity-70"/.test(seg),
     "按钮没写 shrink-0——输入框是 flex-1，它会被压到比两个字还窄");
   assert.ok(/whiteSpace: "nowrap"/.test(seg), "没拦换行，「发送」会断成两行");

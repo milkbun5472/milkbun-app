@@ -186,7 +186,7 @@ function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
   const curName = (characters.find(c => c.id === cid) || {}).name || "—";
   return h(Sheet, { onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, "导入长文进记忆库"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（小克的回忆录、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（TA 写过的长回忆、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
     h("div", { className: "flex gap-2 overflow-x-auto", style: { marginBottom: 10, paddingBottom: 2 } },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => setCid(c.id), className: "px-3 py-1 rounded-full whitespace-nowrap active:opacity-70",
         style: { fontFamily: F_BODY, fontSize: 12, background: cid === c.id ? t.ink : "transparent", color: cid === c.id ? t.bg2 : t.fog, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
@@ -2103,6 +2103,23 @@ function forumCustomBoards() {
   return (Array.isArray(v) ? v : []).filter(b => b && typeof b.name === "string" && b.name.trim());
 }
 function forumBoardsAll() { return FORUM_BOARDS.concat(forumCustomBoards().map(b => b.name).filter(n => FORUM_BOARDS.indexOf(n) < 0)); }
+// 贴吧配图（她 2026-09-24：「贴吧能不能也支持上传图片或者写假图描述跟聊天一样。然后角色也可以（不要强制）」）。
+//   帖子和楼层身上挂一个 photo：{ imageRef?, desc }——跟聊天那张照片同一个形状，所以界面直接用 PhotoCard / PhotoSheet。
+//   模型那头只看得见字：凡是把帖子正文、楼层内容喂给模型的地方，都过 forumWithPhoto，别各拼各的。
+function forumPhotoOf(x) {
+  const p = x && x.photo;
+  if (!p) return null;
+  const desc = String((typeof p === "string" ? p : p.desc) || "").trim().slice(0, 300);
+  const imageRef = typeof p === "object" && p.imageRef ? p.imageRef : "";
+  return desc || imageRef ? (imageRef ? { imageRef: imageRef, desc: desc } : { desc: desc }) : null;
+}
+function forumWithPhoto(text, x) {
+  const p = forumPhotoOf(x);
+  const s = String(text || "");
+  if (!p) return s;
+  const line = "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
+  return s ? s + " " + line : line;
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // 吧名统一成「某某吧」：她打「足球」「足球吧」「 足球吧 」都是同一个吧
 function forumBoardName(raw) {
@@ -2182,7 +2199,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
-  onDeletePost, onClearBoard, onRenameBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
+  onDeletePost, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2215,10 +2232,17 @@ function Forum({
     setNewBoard(null); setTab(name); setPage(1);
   };
   // 拆吧：只拆这块牌子，帖子一条不删——它们不在吧表里了，就自然回到搜索页「别的吧」那一叠
-  const dropBoard = name => requestAppConfirm("拆掉「" + name + "」？", "帖子不会删，会挪到「搜索」那一页里。", () => {
+  // ⚠️她 2026-09-24：「这个骗人删了不会去到搜索」——吧里的帖多是 NPC 帖，拆完就成了没人认领的旧帖，
+  //   下一次随便哪里一刷，全库 NPC 总封顶先把它们淘汰掉。所以拆的时候给它们挂 keptFrom（onDropBoard），
+  //   淘汰闸认这个标记不动它们；弹窗也照实报帖数，没帖就不许许诺「挪过去」。
+  const dropBoard = name => {
+    const n = (posts || []).filter(p => p && p.board === name).length;
+    requestAppConfirm("拆掉「" + name + "」？", n ? "里面 " + n + " 个帖不会删，会挪到「搜索」那一页里。" : "这个吧里还没有帖，拆了就没了。", () => {
+    if (n && onDropBoard) onDropBoard(name);
     saveBoards(forumCustomBoards().filter(b => b.name !== name));
     setTab("吐槽吧"); setPage(1);
   }, "拆吧");
+  };
   // 这一格是不是她开的吧；横杠上挂什么（写死的吧规，或者她写的那句简介）
   const myBoardNow = forumCustomBoards().some(b => b.name === tab);
   const boardRules = FORUM_BOARD_RULES[tab] || (myBoardNow ? [forumBoardAbout(tab) || "你开的吧，还没写这个吧聊什么"] : null);
@@ -2236,6 +2260,12 @@ function Forum({
   const [cbTitle, setCbTitle] = useState("");
   const [cbBody, setCbBody] = useState("");
   const [rTxt, setRtxt] = useState("");
+  // 配图（她 2026-09-24）：发帖那张、回楼那张各一份草稿；photoView＝点开看的那一张
+  const [cbPhoto, setCbPhoto] = useState(null);
+  const [rPhoto, setRPhoto] = useState(null);
+  const [rPhotoOn, setRPhotoOn] = useState(false);
+  const [photoView, setPhotoView] = useState(null);
+  const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView(ph) })) : null; };
   const [replyTo, setReplyTo] = useState(null);
   const [pmClean, setPmClean] = useState(false);   // 私信列表的「清理」档      // {floorId,name} 楼中楼目标
   const [liked, setLiked] = useState(() => {
@@ -2527,6 +2557,7 @@ function Forum({
             "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, p.title),
           p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
+          forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
           actBar(p))));
   }
 
@@ -2549,7 +2580,8 @@ function Forum({
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
               fresh && newTag())),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)),
+          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)) : null,
+          forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
             //   没办法回复了，别人的楼中楼也不行」）。原来只有【楼层】那一行有「回复」，
@@ -2576,10 +2608,12 @@ function Forum({
   }
 
   const sendReply = () => {
-    if (!rTxt.trim()) return;
+    // 配图只挂在新开的楼上：楼中楼是一行字的地方
+    const ph = replyTo ? null : photoAttachValue(rPhoto);
+    if (!rTxt.trim() && !ph) return;
     // toName 只有在回【楼中楼里某一条】时才有；回楼层本身时是空的
-    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || ""); else onReplyFloor(open, rTxt.trim());
-    setRtxt(""); setReplyTo(null);
+    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || ""); else onReplyFloor(open, rTxt.trim(), ph);
+    setRtxt(""); setReplyTo(null); setRPhoto(null); setRPhotoOn(false);
   };
 
   // 正文里 @ 了一个这帖里根本没有的人（她 2026-09-24：「有时候会at回复一个用户名不存在的人」）：
@@ -2617,6 +2651,7 @@ function Forum({
             delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
+          forumPhotoCard(p, 280),
           h("div", { className: "mt-3" }, tag(p.board)),
           actBar(p),
           c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
@@ -2634,7 +2669,9 @@ function Forum({
       //   右边距顺手吃掉安全区：横屏和带圆角的机器上那几像素本来就不该占。
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.95)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
         replyTo && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "0 4px 4px" } }, "回复 " + replyTo.name + " · ", h("button", { onClick: () => setReplyTo(null), style: { color: t.accent } }, "取消")),
+        !replyTo && rPhotoOn && h("div", { style: { padding: "0 0 8px" } }, h(PhotoAttach, { value: rPhoto, onChange: setRPhoto, toast: toast })),
         h("div", { className: "flex items-center gap-2", style: { minWidth: 0 } },
+          !replyTo && h("button", { onClick: () => { if (rPhotoOn) setRPhoto(null); setRPhotoOn(!rPhotoOn); }, "aria-label": "配图", className: "shrink-0 flex items-center justify-center active:opacity-60", style: { width: 40, height: 40 } }, h(PGlyph, { k: "album", size: 20, color: rPhotoOn ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
           h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
           h("button", { onClick: sendReply, className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, "发送"))));
   }
@@ -2978,12 +3015,14 @@ function Forum({
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "群聊"),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
+    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast }),
     composer && h(Sheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, "发帖"),
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),
       h("input", { value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: 15, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
       h("textarea", { value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
-      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim()); setCbTitle(""); setCbBody(""); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "发布")),
+      h("div", { className: "mt-2" }, h(PhotoAttach, { value: cbPhoto, onChange: setCbPhoto, toast: toast })),
+      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "发布")),
     // 编辑我的资料
     // 开个吧：居中一张卡（不做半窗，no-half-sheet.md）——两格：吧名、这个吧聊什么
     newBoard && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setNewBoard(null), maxWidth: 340, wk: "centercard" },
@@ -7594,10 +7633,10 @@ function CacheStatCard() {
   const pfxDrift = phList.length >= 4 && pfxChanges >= 3;
   return h("div", { style: { marginTop: 22, paddingTop: 16, borderTop: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "缓存命中 · 小克(fable)线路"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "缓存命中 · anthropic(fable)线路"),
       h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "🔄 刷新")),
     usage.length === 0
-      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟小克【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟走这条线路的角色【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
       : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: s.hit > 0 || requested > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
           bridgeUsage.length
             ? "订阅桥近 " + bridgeUsage.length + " 次｜缓存请求 " + requested + " 次｜历史断点 " + historyMarked + " 次"
@@ -7611,7 +7650,7 @@ function CacheStatCard() {
                   providerReports > 0
                     ? "上游有回执：确认命中 " + s.hit + " 次｜读 " + s.cr + " tok｜写 " + s.cw + " tok"
                     : "上游未回传 cache usage；这里如实显示“已请求 + 前缀可复用”，不把 0 冒充未命中。"))
-            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对小克连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查小克是不是走 fable 线路")),
+            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对 TA 连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查这个角色是不是走 fable 线路")),
           phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: 11 } },
             "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
@@ -8501,7 +8540,7 @@ function Config(props) {
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(CacheStatCard, null)),
-      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, toast: props.toast })),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
@@ -8961,6 +9000,7 @@ function ApiConfig({
       }))));
 }
 function SenseConfig({
+  worlds,
   prefs,
   onSave,
   geo,
@@ -8978,6 +9018,11 @@ function SenseConfig({
     setP(np);
     onSave(np);
   };
+  // 位置从哪来：现实定位，或者某个架空世界（她 2026-09-25：「应该做选择而不是减法」）。
+  // 架空世界里的位置就是她在那张图上给自己钉的点；判定只在 MapKit.userRealm 一处。
+  const wl = Array.isArray(worlds) ? worlds : [];
+  const inWorld = !!(p.geoRealm && p.geoRealm !== "real");
+  const realm = window.MapKit && window.MapKit.userRealm ? window.MapKit.userRealm(p, geo, wl) : null;
   return /*#__PURE__*/React.createElement("div", {
     className: "pt-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -9052,7 +9097,7 @@ function SenseConfig({
       color: t.fog,
       marginTop: 2
     }
-  }, geo && geo.label ? "当前：" + geo.label + (geo.manual ? "（你手填的）" : "") : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
+  }, inWorld ? (realm ? "当前：" + realm.label + "（架空世界）" : "选中的那个世界已经不在了，重新选一个") : geo && geo.label ? "当前：" + geo.label + (geo.manual ? "（你手填的）" : "") : "角色可据你的位置回应（需授权定位）")), /*#__PURE__*/React.createElement(Toggle, {
     on: p.geoAware === true,
     onChange: v => {
       save({
@@ -9060,9 +9105,23 @@ function SenseConfig({
         geoAware: v
       });
       // ⚠️她手填过地方就别去要设备定位：那一下会把她填的东京按回真实所在地（v72.66）
-      if (v && !(geo && geo.manual)) onRequestGeo();
+      if (v && !inWorld && !(geo && geo.manual)) onRequestGeo();
     }
-  })), p.geoAware && /*#__PURE__*/React.createElement("button", {
+  })),
+  // ── 我在哪套世界：有架空世界时才出现 ──
+  p.geoAware && wl.length > 0 && h("div", { style: { marginTop: 12 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "我在哪套世界"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      [{ id: "real", name: "现实定位" }].concat(wl).map(w => {
+        const on = w.id === "real" ? !inWorld : p.geoRealm === w.id;
+        return h("button", { key: w.id, onClick: () => save({ ...p, geoRealm: w.id }), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink } }, w.name);
+      })),
+    inWorld && realm && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+      realm.node
+        ? "角色会当你在「" + realm.world.name + "」的「" + realm.node + "」，天气、日记的地点也跟着这个世界走，不再提现实城市。想换地方，去地图里把自己钉到别处。"
+        : "角色会当你在「" + realm.world.name + "」里，不再提现实城市。去地图 → 架空 → 这个世界，把自己钉到一个地点，角色就知道你具体在哪儿。")),
+  p.geoAware && !inWorld && /*#__PURE__*/React.createElement("button", {
     onClick: onRequestGeo,
     className: "mt-4 w-full py-2.5",
     style: {
@@ -9077,7 +9136,7 @@ function SenseConfig({
   // ⚠️写进去的是【坐标 + 标签一整份】（engine.js 的 geoFromPlace）：
   //   只改文字的话，地图、天气、"没设家乡的角色撒在你附近"全都还在原地，
   //   而标签会拼成「东京 · 江苏 · 中国」——省国是旧的那次反查留下的。
-  p.geoAware && h("div", { style: { marginTop: 10 } },
+  p.geoAware && !inWorld && h("div", { style: { marginTop: 10 } },
     h("div", { className: "flex items-center", style: { gap: 8 } },
       h("input", {
         value: placeDraft,
@@ -11784,7 +11843,7 @@ function MyDiaryCompose({ onBack, onSave }) {
       if (e.location) setLoc(e.location);
       if (e.weather) setWeather(e.weather);
       if (e.coords) setCoords(e.coords);
-      setEnvState(e.coords ? "done" : "denied");
+      setEnvState(e.coords || e.location ? "done" : "denied");
     }).catch(() => aliveRef.current && setEnvState("denied"));
   };
   useEffect(() => { aliveRef.current = true; grab(); return () => { aliveRef.current = false; }; }, []);

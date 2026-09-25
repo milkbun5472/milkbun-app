@@ -79,14 +79,14 @@ test("每条写入新楼的路径都走 forumFloorOrder", () => {
   });
 });
 
-// 自动活动波不能接用户还没看见的空气；但用户手动点「更多回复」会先把旧队列全部放出，
-// 所以手动新一轮必须吃到完整旧楼，免得忘掉刚刚被 push 出来的内容。
-test("自动波只读已露面楼，手动更多则先放出并读取完整旧楼", () => {
+// 模型要看见整个楼里已经写好的东西（含排队没露面的），否则会把自己排着的那条再写一遍。
+// 新楼一律接在队尾之后露面，所以不会出现「接一段她还没看见的话」。
+test("自动波和手动更多都读完整旧楼", () => {
   const manual = app.slice(app.indexOf("const genMoreComments = async post =>"), app.indexOf("// 角色发帖（可被未来"));
   assert.match(manual, /return \{ \.\.\.f, visibleAt: 0, ts \}/);
   assert.match(manual, /existingFloors:\s*existing/);
 
   const auto = app.slice(app.indexOf("const forumMineTick = async () =>"), app.indexOf("const forumMineBumpSocial"));
-  assert.match(auto, /const shownFloors = existing\.filter\(f => !f\.visibleAt \|\| Number\(f\.visibleAt\) <= Date\.now\(\)\)/);
-  assert.match(auto, /existingFloors:\s*shownFloors/);
+  assert.match(auto, /existingFloors:\s*existing,/);
+  assert.match(auto, /const waveAt = Math\.max\(base, lastQueued \+ 1\);/, "新楼得接在队尾之后");
 });

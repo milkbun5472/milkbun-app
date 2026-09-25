@@ -124,8 +124,9 @@ test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () 
 });
 
 test("大号是默认身份，小号和匿名各有明确用途", () => {
-  assert.match(app, /十次里有七八次都该是 main/);
-  assert.match(app, /别因为内容稍微私人一点就躲进小号或匿名/);
+  // v74.021：「十次七八次大号」压过头，又几乎只剩大号（她 2026-09-24）——改成代码掷身份，大号仍最多
+  assert.match(app, /大号 55%／小号 27%／匿名 18%/);
+  assert.match(app, /alt: "用固定小号：认识他的人认不出来/);
   // 习惯那一行不能再说「通常偏向小号」——那是她报的病根之一
   assert.doesNotMatch(app, /通常偏向：" \+ \(forumHabit\.identityBias/);
   assert.match(app, /真需要遮一下的时候，他习惯用/);

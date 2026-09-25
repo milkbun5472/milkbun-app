@@ -39,9 +39,9 @@ test("摊开的是整段，不是又一层截断", () => {
   const i = seg.indexOf("const on = openFlower === i;"), j = seg.indexOf("fmtD(k.ts)", i);
   assert.ok(i > 0 && j > i, "抠不出册子那一行");
   assert.ok(!/\.slice\(/.test(seg.slice(i, j)), "册子那一行里又切了一刀");
-  // 存进去的那份本来就是全的（上限 80 字在写入那头，读这头不许再切）
-  assert.match(app, /why: String\(\(d && d\.why\) \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.trim\(\)\.slice\(0, 80\)/,
-    "写入那头的上限变了——读这头的期望要跟着看一眼");
+  // 存进去的那份本来就是全的——v74.039 起写入那头也不截了（她截图：半句断在「就算哪天你」）
+  assert.match(app, /const why = String\(\(d && d\.why\) \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.trim\(\);/,
+    "写入那头又加了上限——读这头的期望要跟着看一眼");
   assert.match(app, /kept: \[\{ species: g\.species, why: g\.why, color: g\.color, ts: Date\.now\(\) \}/,
     "收进册子时 why 被动过——册子里就永远补不回来了");
 });
