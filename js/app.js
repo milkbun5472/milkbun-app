@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.071";
+const APP_VERSION = "v74.073";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17732,6 +17732,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       })
     };
   };
+  // 同一个角色在一个帖里只开一层楼（她 2026-09-25 截图：裴照川 31/32/33 楼连着三层都在骂「三十万」）。
+  // 提示词里早就写了「回过的别再另开一楼」，模型照样开——这儿在代码里兜住。
+  // 只管【顶楼】：在别人那层下面用楼中楼接话仍然放行，那是真实贴吧里的正常出场。
+  // 三处出楼（首批 / 再刷一批 / 她自己帖子的波次）都走这一个，别各写各的。
+  const dropRepeatCharFloors = (existing, floors) => {
+    const isChar = f => f && String(f.authorType || "").startsWith("character") && f.authorId;
+    const had = new Set((existing || []).filter(isChar).map(f => f.authorId));
+    return (floors || []).filter(f => {
+      if (!isChar(f)) return true;
+      if (had.has(f.authorId)) return false;
+      had.add(f.authorId); return true;
+    });
+  };
   // 这帖里已经冒泡过的角色（顶楼作者 + 楼中楼作者都算）→ [{id,name}]，用于第二轮防重复
   const forumRepliedCharCells = floors => {
     const m = new Map();
@@ -17917,7 +17930,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
         const base = Date.now();
         const salt = forumHash(post.id) % 5;
-        const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({
+        const list = dropRepeatCharFloors([], cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean)).map((f, i) => ({
           ...f, floor: i + 2, visibleAt: forumCommentVisibleAt(base, i, salt), ts: forumCommentVisibleAt(base, i, salt)
         }));
         setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: forumFloorOrder(list) }; saveForumComments(n); return n; })());
@@ -17985,7 +17998,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const start = existing.length + 2;
       const moreSalt = forumHash(post.id) % 5;
       const shortfall = Math.max(0, FORUM_MORE_RELEASE - released);
-      const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => {
+      const more = dropRepeatCharFloors(existing, newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean)).map((f, i) => {
         // ⚠️这一批【也要排队】。原来是 visibleAt:0「生成完就直接显示」——那正是
         //   「刷一次全看完」的另一半。用 i+3 是为了跳过 forumCommentVisibleAt 里
         //   「前三楼立刻出现」那一档：即时反馈已经由上面放出的那几条给过了，
@@ -18745,9 +18758,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     forumWaveBusyRef.current = true;
     try {
       const existing = forumFloorOrder(forumCommentsRef.current[hitId] || []);
-      const shownFloors = existing.filter(f => !f.visibleAt || Number(f.visibleAt) <= Date.now());
+      // 排队没露面的楼也给模型看：它们早就写好了，只是按时间放；这一波一律接在队尾之后才露面，
+      // 轮到它时前面那些都已经放完。以前只给看已露面的，模型不知道自己排着一条，就又写一遍
+      // （她 2026-09-25：「就算是没放出来不应该是写好了的等到时间放吗」）。
       const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || "")),
-        forumCommentProbe(post, "1-2", { round2: true, existingFloors: shownFloors, repliedChars: forumRepliedCharCells(existing) }));
+        forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
       const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
       if (cs.length) {
         const base = Date.now(), start = existing.length + 2;
@@ -18769,8 +18784,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   队列空着的时候 lastQueued=0，这一波照旧当场可见——不耽误「现在才发生」那层意思。
         const lastQueued = existing.reduce((n, f) => Math.max(n, Number(f && f.visibleAt || 0)), 0);
         const waveAt = Math.max(base, lastQueued + 1);
-        const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(hitId + ":w" + hitIdx) % 9999 + i, post))
-          .filter(Boolean).map((f, i) => ({ ...f, floor: start + i, visibleAt: waveAt + i, ts: waveAt + i }));
+        const more = dropRepeatCharFloors(existing, newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(hitId + ":w" + hitIdx) % 9999 + i, post))
+          .filter(Boolean)).map((f, i) => ({ ...f, floor: start + i, visibleAt: waveAt + i, ts: waveAt + i }));
         if (more.length || subInserts.length) {
           setForumComments(prev => {
             let list = prev[hitId] || [];
