@@ -40,3 +40,12 @@
 - **F01 刘海长发**（女生款）：Hunyuan 头发壳 `hunyuan-f01-shell.glb`。这个壳的头型比娃娃靠上、靠后，刘海下半截会埋进脸里，所以要大幅往下、往前放。
   `INNER=1.0 DZ=-.7 DY=-.42 python3 fit_shell.py v2/hunyuan-f01-shell.glb v2/head-anchor.json fit.glb`
   `FLAT_K=.25 python3 shape_hair.py fit.glb v2/hats/hair_f01.glb`（眼睛以上压扁 25%，刘海盖到眼睛）。预览图 `f01.png`。
+
+## 能动的娃娃（骨骼）
+
+- 新娃娃是一整块网格，手臂在肩膀处跟身体连在一起，不能像旧旅人那样把手臂切下来整块转（一转肩膀就开洞）。所以改用**骨骼蒙皮**：`python3 rig_doll.py v2/doll-anchored.glb v2/doll-rigged.glb`。
+- 骨头名字跟运行时的枢轴名一致：`leftArm/rightArm/leftLeg/rightLeg`（left = -X，同 `apps/fairy-garden/traveler.mjs`），外加不动的 `body`。骨头直接挂在骨架下（没有根骨），所以绕世界 X 轴转就等于旧枢轴的转法。枢轴坐标写在骨架的 extras `dollRig`（three.js Y-up）。
+- 权重是程序算的：肩膀外侧 2.5cm、胯下 7cm 平滑过渡，不靠 Blender 自动权重（Hunyuan 网格不闭合，自动权重不可靠）。
+- 预览：`../rig-preview-v2.html`（站着 / 走路 / 挥手 / 坐下，动作公式照抄 traveler.mjs），截图 `rig.png`。
+- 发型照旧挂在 `HeadAnchor`（骨架的子节点，头不动）。衣服以后也蒙到这副骨架上：从身体把权重传给衣服，袖子、裤腿就会跟着手脚一起弯。
+- 还没接进 app：`traveler.mjs` 目前是把网格塞进枢轴组来转，换成新娃娃时要改成转骨头。
