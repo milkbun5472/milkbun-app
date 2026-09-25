@@ -1,15 +1,15 @@
 import * as T from 'three';
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-7eaaa9dfa3dee45b';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-7eaaa9dfa3dee45b';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId} from '../fairy-garden/wardrobe.mjs?v=fg-7eaaa9dfa3dee45b';
-import {createPassengers} from './passengers.mjs?v=fg-7eaaa9dfa3dee45b';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-7eaaa9dfa3dee45b';
-import {createTravelCamera} from './camera-view.mjs?v=fg-7eaaa9dfa3dee45b';
-import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-7eaaa9dfa3dee45b';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-7eaaa9dfa3dee45b';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-7eaaa9dfa3dee45b';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-7eaaa9dfa3dee45b';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-7eaaa9dfa3dee45b';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-072f983e167b0af0';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-072f983e167b0af0';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId} from '../fairy-garden/wardrobe.mjs?v=fg-072f983e167b0af0';
+import {createPassengers} from './passengers.mjs?v=fg-072f983e167b0af0';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-072f983e167b0af0';
+import {createTravelCamera} from './camera-view.mjs?v=fg-072f983e167b0af0';
+import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-072f983e167b0af0';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-072f983e167b0af0';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-072f983e167b0af0';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-072f983e167b0af0';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-072f983e167b0af0';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let wander=()=>{},cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 function lookOf(who){const a=host?.load?.()||{},g=a.worlds?.garden||a.world;return state?.looks?.[who]||(who==='me'?a.journey?.look||g?.look:a.journey?.companionLook||g?.companion?.look)||{};}

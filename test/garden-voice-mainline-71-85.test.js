@@ -23,7 +23,8 @@ test("念不了就退回原来的定时，不许卡住", () => {
   assert.match(fn, /const fallback=\(\)=>/, "没有退路");
   assert.match(fn, /\.catch\(fallback\)/, "合成炸了就没人管了");
   assert.match(fn, /if\(!ok\)\{fallback\(\);return;\}/, "宿主说念不了时没退回定时");
-  const bridge = host.slice(host.indexOf("readAloud: async text =>"), host.indexOf("stopAloud: () =>"));
+  // v74.075 起庭院和列车共用 makeAloud 那一份
+  const bridge = host.slice(host.indexOf("readAloud:async text=>"), host.indexOf("stopAloud:()=>"));
   assert.ok(bridge.length > 300, "抠不出 readAloud");
   assert.match(bridge, /return false;/, "念不了的时候没老实说");
   assert.match(bridge, /ttsSpeak/, "另起了一套合成——那是又开一处要付钱的地方");
