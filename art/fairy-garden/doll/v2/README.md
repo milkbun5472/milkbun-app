@@ -59,3 +59,9 @@
 - 摆好后先「贴合」：凡是落在身体里面（或离皮肤不到 `GAP=.006`）的衣服顶点，沿身体法线推到皮肤外面，这样衣服可以往下放、露出脖子，肩膀也不会戳出来。
 - 背心、衬衫身这类从不伸出躯干侧边的碎片（`|x|` 最大值 < `ARM_X=.2`）不吃手臂权重，否则挥手时背心下摆会被手拽走。
 - **C01 学院背心**（衬衫 + 领带 + 针织背心 + 短裤）：`CRUMB=200 UNDER=1 SLEEVE_K=.35 S=.53 SY=1.25 Z0=.15 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c01-shell.glb v2/outfits/outfit_c01.glb`。动作图 `c01.png`。袖子缩短 35%（`SLEEVE_K`，只动伸出躯干两侧的碎片，沿肩→手方向往肩膀收）。袖口毛边碎片（小于 `CRUMB=200` 顶点的袖子碎块）收掉；`UNDER=1` 在衣服底下铺一层衬衫色的贴身底衣（身体皮肤复制外推 `UGAP=.004`，躯干 + 手臂到袖口内），腋下、肩膀裂缝看进去是衬衫色不是肉色。
+
+## 网页用压缩版（v2/web/）
+
+- `TRIS=30000 TEX=1024 python3 compress_asset.py <源.glb> v2/web/<名>.glb`：每个网格减到 3 万三角面以内，贴图缩到 1K、存 WEBP，几何用 Draco。骨骼、权重、HeadAnchor、dollRig 照留。
+- 七个文件从约 170MB 缩到 1.3MB（每个 130–220KB），画面几乎看不出差别。预览页加 `?web=1` 就读压缩版（`hat-preview-v2.html?web=1`、`rig-preview-v2.html?web=1`）。
+- 源文件不动；改了源文件要重新跑一次压缩。
