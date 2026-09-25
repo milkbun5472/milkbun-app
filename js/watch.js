@@ -134,6 +134,15 @@
     return String(await callAI(p.active, sys, [{ role: "user", content: talk }], { maxTokens: 65535 }) || "").trim();
   }
 
+  // 改名（她 2026-09-25：片名是一串「copy_B8F7…」文件名，导进来之后没地方改）。票上那支笔、放映页点标题，两处都走这一个
+  function renameFilm(f, done) {
+    requestAppPrompt("给这部改个名", "", f.title || "", v => {
+      const t = String(v || "").trim().slice(0, 40);
+      if (!t) return;
+      patchFilm(f.id, () => ({ title: t }));
+      done && done(t);
+    }, "改好了");
+  }
   // ---- 小零件 ----
   function btn(label, onClick, opts) {
     const o = opts || {};
@@ -169,7 +178,9 @@
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: c ? W.ink : W.fog } }, c ? "和 " + (c.remark || c.name) + " 一起" : "还没约人")))),
       h("div", { style: Object.assign({}, notch, { top: -8 }) }),
       h("div", { style: Object.assign({}, notch, { bottom: -8 }) }),
-      h("button", { onClick: props.onDelete, "aria-label": "删掉这部", className: "active:opacity-60", style: { width: 40, flexShrink: 0, color: W.fog, background: "none", border: "none", fontSize: 18 } }, "×"));
+      h("div", { style: { width: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" } },
+        h("button", { onClick: props.onRename, "aria-label": "改名", className: "active:opacity-60", style: { width: 40, height: 40, color: W.fog, background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IPencil, { size: 15, color: W.fog })),
+        h("button", { onClick: props.onDelete, "aria-label": "删掉这部", className: "active:opacity-60", style: { width: 40, height: 40, color: W.fog, background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IX, { size: 16, color: W.fog }))));
   }
 
   // ---- 导入：整页（施工规则/no-half-sheet.md）----
@@ -336,6 +347,7 @@
     }, "记下来");
     if (!film) return shell(h(Head, { zh: "一起看", onBack: props.onBack, bg: "transparent", ink: W.ink }), h("p", { style: { padding: 20, color: W.sub } }, "这部片子找不到了。"));
     const head = h(Head, { zh: film.title || "一起看", sub: partner ? "和 " + (partner.remark || partner.name) + " 一起看" : "", onBack: () => { savePos(true); props.onBack(); }, bg: "transparent", ink: W.ink,
+      onTitleTap: () => renameFilm(film, refresh),
       right: partner && (film.talk || []).length ? h("button", { onClick: remember, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: 13, color: W.amber } }, "记住") : null });
     if (!partner) return shell(head, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, h(PickPartner, { characters: props.characters, onPick: cid => { patchFilm(id, () => ({ partnerId: cid })); refresh(); } })));
     const talk = film.talk || [];
@@ -414,7 +426,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(251,238,224,.72)", margin: "6px 0 14px" } }, "导一部电影和它的字幕进来，约一个人坐你旁边。放到哪，TA 就看到哪。"),
             btn("导入一部电影", () => setView("import"), { primary: true }))),
         sorted.length
-          ? h("div", { className: "space-y-3" }, sorted.map(f => h(Ticket, { key: f.id, film: f, partner: chars.find(c => String(c.id) === String(f.partnerId)), onOpen: () => setView(f.id), onDelete: () => del(f) })))
+          ? h("div", { className: "space-y-3" }, sorted.map(f => h(Ticket, { key: f.id, film: f, partner: chars.find(c => String(c.id) === String(f.partnerId)), onOpen: () => setView(f.id), onDelete: () => del(f), onRename: () => renameFilm(f, () => setFilms(loadFilms())) })))
           : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.fog, padding: "26px 0" } }, "票夹还是空的")));
   }
   window.WatchTogether = WatchTogether;

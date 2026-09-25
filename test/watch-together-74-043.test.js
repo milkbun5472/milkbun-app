@@ -69,4 +69,9 @@ assert.match(src, /toolsOpen && h\("div"/);
 assert.match(src, /"aria-expanded": String\(toolsOpen\)/);
 assert.match(src, /cues\.length \? h\("div"/);
 assert.ok(!/这部没有字幕，TA 靠你说和截图/.test(src), "没字幕的提示又回来了");
+// 10. 改名：票上一支笔、放映页点标题，两处走同一个 renameFilm；图标用 app 自己的 SVG
+assert.match(src, /function renameFilm\(f, done\) \{/);
+assert.match(src, /onRename: \(\) => renameFilm\(f, /);
+assert.match(src, /onTitleTap: \(\) => renameFilm\(film, refresh\)/);
+assert.match(src, /h\(IPencil, /);
 console.log("ok watch-together");
