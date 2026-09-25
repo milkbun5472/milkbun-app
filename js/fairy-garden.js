@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-d827b61930e4de0b", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-895de7c5e9b2b027", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -71,15 +71,41 @@
     if(!ready)return h("div",{className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
     return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
-  function TravelFramePreview({src,label,memory}){
-    const [back,setBack]=useState(false),[lines,setLines]=useState([]),memoryKey=JSON.stringify(memory||null);
-    useEffect(()=>{let alive=true;setBack(false);setLines([]);if(memory)import('../apps/train/puzzle-memory.mjs?v='+BUILD).then(m=>{if(alive)setLines(m.puzzleMemoryLines(JSON.parse(memoryKey)));}).catch(()=>{if(alive)setLines([]);});return()=>{alive=false;};},[memoryKey,src]);
+  // 旅行相框：点图看原样大图；「翻看背面」看日期、拼图纪念和两个人各留的那句话（2026-09-25）
+  function TravelFramePreview({src,label,memory,back:raw}){
+    const [back,setBack]=useState(false),[lines,setLines]=useState([]),[info,setInfo]=useState(null),[big,setBig]=useState(false),[full,setFull]=useState(false),key=JSON.stringify([memory||null,raw||null]);
+    useEffect(()=>{let alive=true;setBack(false);setLines([]);setInfo(null);import('../apps/train/puzzle-memory.mjs?v='+BUILD).then(m=>{if(!alive)return;const [mem,r]=JSON.parse(key);setLines(mem?m.puzzleMemoryLines(mem):[]);const b=m.backOf(r||{});setInfo(b?{...b,date:m.backDate(b.at)}:null);}).catch(()=>{});return()=>{alive=false;};},[key,src]);
+    const hasBack=lines.length>0||!!info;
+    const say=(who,text)=>h('p',{style:{margin:'10px 0 0',fontSize:13.5,lineHeight:1.8,fontFamily:F_BODY}},h('span',{style:{fontSize:11.5,color:'#8a7a5c',marginRight:6}},who),text);
     return h('figure',{'data-travel-frame':true,style:{margin:'9px 0',minWidth:0}},
-      back?h('div',{'data-frame-back':true,style:{padding:'20px 16px',background:'#e9dfc7',border:'8px solid #765b3e',borderRadius:7,color:'#534733',lineHeight:1.9,overflowWrap:'anywhere'}},h('strong',{style:{fontSize:14,fontWeight:500}},'这幅拼图的纪念'),lines.map((line,i)=>h('p',{key:i,style:{margin:'8px 0',fontSize:13}},line))):h('img',{src,alt:label,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7}}),
-      lines.length>0&&h('button',{type:'button',onClick:()=>setBack(v=>!v),'aria-pressed':back,style:{...pickButtonStyle(),padding:'7px 12px',marginTop:8,fontSize:12}},back?'看看正面':'翻看背面'));
+      back?h('div',{'data-frame-back':true,style:{padding:'20px 16px',background:'#e9dfc7',border:'8px solid #765b3e',borderRadius:7,color:'#534733',lineHeight:1.9,overflowWrap:'anywhere'}},
+        h('strong',{style:{fontSize:14,fontWeight:500}},lines.length?'这幅拼图的纪念':'这张照片的背面'),
+        info&&(info.date||info.day)&&h('p',{'data-back-date':true,style:{margin:'8px 0',fontSize:13}},[info.date,info.day?'旅途第 '+info.day+' 天':''].filter(Boolean).join(' · ')),
+        lines.map((line,i)=>h('p',{key:i,style:{margin:'8px 0',fontSize:13}},line)),
+        info&&info.you&&say('你写',info.you),
+        info&&info.companion&&say(info.companionName+' 写',info.companion))
+      :h('button',{type:'button','aria-label':'看大图',onClick:()=>{setFull(false);setBig(true);},style:{display:'block',width:'100%',padding:0,background:'transparent',border:0}},h('img',{src,alt:label,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7}})),
+      hasBack&&h('button',{type:'button',onClick:()=>setBack(v=>!v),'aria-pressed':back,style:{...pickButtonStyle(),padding:'7px 12px',marginTop:8,fontSize:12,minHeight:40}},back?'看看正面':'翻看背面'),
+      // 大图：先整张放进屏幕；点图切到原始像素，可以拖着看细节
+      big&&ReactDOM.createPortal(h('div',{'data-frame-big':true,role:'dialog','aria-label':label||'旅行相框',onClick:()=>setBig(false),style:{position:'fixed',inset:0,zIndex:2147483000,background:'rgba(20,18,14,.94)',overflow:'auto',WebkitOverflowScrolling:'touch',display:full?'block':'flex',alignItems:'center',justifyContent:'center'}},
+        h('img',{src,alt:label,onClick:e=>{e.stopPropagation();setFull(v=>!v);},style:full?{display:'block',maxWidth:'none'}:{display:'block',maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}),
+        h('button',{type:'button','aria-label':'关闭大图',onClick:e=>{e.stopPropagation();setBig(false);},style:{position:'fixed',top:'calc(env(safe-area-inset-top) + 10px)',right:12,width:40,height:40,borderRadius:20,background:'rgba(255,255,255,.18)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}},h(IX,{size:18,color:'#fff'}))),document.body));
   }
-  function travelFramePreview(t){return t.image?h(TravelFramePreview,{src:t.image,label:t.name,memory:t.memory}):null;}
-  function TravelAlbum({getArchive,onDelete,onCarry,onExchange,onClose}){
+  function travelFramePreview(t){return t.image?h(TravelFramePreview,{src:t.image,label:t.name,memory:t.memory,back:{back:t.back}}):null;}
+  // 背面留言：她写一句，TA 写一句，都可以不写；写过还能改（2026-09-25）
+  function BackNotes({item,busy,onNote,onAsk}){
+    const saved=(item.back&&item.back.you)||'',[draft,setDraft]=useState(saved),theirs=item.back&&item.back.companion;
+    useEffect(()=>{setDraft(saved);},[item.id,saved]);
+    const box={width:'100%',boxSizing:'border-box',padding:'10px 12px',borderRadius:10,border:'1px solid '+G.line,background:'#fffef8',fontFamily:F_BODY,fontSize:16,lineHeight:1.6,color:G.ink,resize:'vertical'};
+    return h('section',{'data-back-notes':true,'aria-label':'背面留言',style:{margin:'4px 0 16px',padding:'12px 14px',borderRadius:12,background:'rgba(233,223,199,.55)',border:'1px solid rgba(118,91,62,.18)'}},
+      h('div',{style:{fontFamily:F_BODY,fontSize:13,color:G.ink,marginBottom:8}},'在背面留一句'),
+      h('textarea',{rows:2,maxLength:200,value:draft,placeholder:'你想写的话（可以不写）',onChange:e=>setDraft(e.target.value),style:box}),
+      h('button',{type:'button',disabled:busy||draft.trim()===saved.trim(),onClick:()=>onNote('you',draft),style:{...pickButtonStyle(),padding:'8px 12px',marginTop:8,fontSize:12.5,minHeight:40}},saved?'改成这句':'写上'),
+      onAsk&&h('div',{style:{marginTop:14}},
+        theirs&&h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8,margin:'0 0 8px'}},h('span',{style:{fontSize:11.5,color:G.soft,marginRight:6}},(item.back.companionName||'TA')+' 写'),theirs),
+        h('button',{type:'button',disabled:busy,onClick:onAsk,style:{...pickButtonStyle(),padding:'8px 12px',fontSize:12.5,minHeight:40}},busy?'…':theirs?'请 TA 重写一句':'请 TA 也写一句')));
+  }
+  function TravelAlbum({getArchive,onDelete,onCarry,onExchange,onClose,onNote,onAskNote}){
     const [kit,setKit]=useState(null),[selected,setSelected]=useState(null),[revision,setRevision]=useState(0),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false);
     const scroll=useRef(null),scrollAt=useRef(0);
     useEffect(()=>{let alive=true;import('../apps/train/album.mjs?v='+BUILD).then(m=>{if(alive)setKit(m);}).catch(e=>setMessage(e.message));return()=>{alive=false;};},[]);
@@ -91,7 +117,8 @@
       h(Head,{zh:item?'旅行留影':'旅行相册',bg:'transparent',ink:G.ink,onBack:()=>{if(busy)return;if(item){setSelected(null);setConfirm(false);setMessage('');}else onClose();}}),
       h('div',{ref:scroll,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
         !kit?h('p',null,'正在翻开相册…'):item?h(React.Fragment,null,
-          h(TravelFramePreview,{key:item.id,src:item.src,label:item.label,memory:item.memory}),
+          h(TravelFramePreview,{key:item.id,src:item.src,label:item.label,memory:item.memory,back:item}),
+          onNote&&h(BackNotes,{item,busy,onNote:(who,text)=>action(async()=>{await onNote(item,who,text);setMessage('写在背面了。');}),onAsk:onAskNote&&(()=>action(async()=>{await onAskNote(item);setMessage('TA 在背面写了一句。');}))}),
           h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8}},item.label),h('p',{style:{fontSize:12,color:G.soft}},item.kind==='photo'?kit.photographerLabel(item):'一起拼好的风景'),item.promise&&h('p',{style:{fontSize:12,color:G.deep}},'拍照约定 · '+item.promise.name+' · 已拍到'),
           h('div',{style:{display:'grid',gap:10}},
             h('button',{style:button,disabled:busy||carried,onClick:()=>action(async()=>{await onCarry(item);setMessage('已带回庭院，在花册「屋里」可以摆放。');})},carried?'已带回庭院':'带回庭院'),
@@ -140,6 +167,9 @@
     useEffect(()=>{if(panel!=="dress"||styles)return;let on=true;fetch('apps/fairy-garden/doll.json?v='+BUILD).then(r=>r.json()).then(d=>{if(on)setStyles(d);}).catch(()=>{});return ()=>{on=false;};},[panel]);
     const pullLook=()=>{const g=trainGame();if(g&&g.getLook)setLook(g.getLook());};
     const pushTrainLook=patch=>{const g=trainGame();if(!g||!g.setLook)return;if(!g.setLook(who,patch)){props.toast("这次没存上，样貌还是原来的。");return;}pullLook();};
+    // 背面写字：先落列车相册，已经带回庭院的那一幅跟着改
+    const noteBack=async(item,who,text)=>{const g=frame.current?.contentWindow.TrainGame;if(!g)throw Error("列车还没准备好");g.editAlbum({kind:'note',id:item.id,who,text});const m=await import('../apps/fairy-garden/world.mjs?v='+BUILD),d=current(),row=[...(d.worlds?.train?.artworks||[]),...(d.worlds?.train?.photos||[])].find(x=>x.id===item.id),old=worldOf(d,'garden');if(!row||!old)return;const garden=m.updateTravelBack(m.restoreState(old),item.id,row);write(key,{...d,world:garden,worlds:{...(d.worlds||{}),garden}});};
+    const askBack=async item=>{const p=latest.current,d=current(),ch=(p.characters||[]).find(x=>String(x.id)===String(d.partnerId));if(!ch)throw Error("这一档还没有同行者。");const pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(ch.id):p.active,character:ch,profile:p.profile,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(ch.id):""),item,lines:pm.puzzleMemoryLines(item.memory),history:trainHistory().slice(-30)});await noteBack(item,'companion',line);};
     const small={...pickButtonStyle(),padding:"5px 10px",fontSize:12};
     const page=(title,back,body)=>h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
       h(Head,{zh:title,bg:"transparent",ink:G.ink,onBack:back}),body);
@@ -148,7 +178,7 @@
         right:h("div",{style:{display:"flex",gap:6}},toolbar?toolbar.actions.map(a=>h("button",{key:a.id,id:a.id,onClick:a.run,style:small},a.label)):[h("button",{key:"settings",disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{key:"landing",disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车")])})),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
         error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error)),
-      panel==="album"&&h(TravelAlbum,{getArchive:current,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
+      panel==="album"&&h(TravelAlbum,{getArchive:current,onNote:noteBack,onAskNote:c?askBack:null,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
       panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"))),
       panel==="settings"&&page("旅程设置",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},
         h("p",{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.9,marginBottom:20}},c?"这段旅程与 "+(c.remark||c.name)+" 同行，和庭院共用这一档。":"庭院和列车共用这一档旅程。"),
@@ -324,6 +354,21 @@
   //   他自己那边的生活，不是你们的新往事（如果馆那条路已经吃过一次亏）。
   const SEED_LABELS = { miss: "想你", curious: "好奇", sulk: "委屈", secret: "秘密",
     today: "今天", later: "以后", what_if: "如果", unsaid: "没说出口" };
+  // 相框背面那一句：TA 看着这幅拼好的图（或照片）自己写。只要一句话，不是聊天回复。
+  async function frameNote({active,character,profile,mainline,item,lines,history}) {
+    if(!active) throw new Error("先在设置里配置创作线路，再请 TA 写。");
+    const mine=item.back&&item.back.you;
+    const sys=[sharedStyle(),roleContext(character,profile,mainline),
+      "【这一幅】\n"+JSON.stringify({名字:item.label,种类:item.kind==='puzzle'?'你们一起拼好装了框的拼图':'旅途上拍的照片',纪念:lines,旅途第几天:item.day||null}),
+      mine?"【她已经写在背面的那句】\n"+mine:"",
+      history&&history.length?"【你们最近在列车上的对话】\n"+history.map(m=>(m.role==="user"?userName(profile):character.name)+"："+m.content).join("\n"):"",
+      "这幅要挂起来留着。你在它背面亲手写一句留给她的话：写你自己此刻真想留下的，长短、语气由你。共同经历以提供的事实为依据。署名和日期由程序填入。",
+      '只输出 JSON：{"line":"写在背面的话"}。'].filter(Boolean).join("\n\n");
+    const raw=await callAI(active,sys,[{role:"user",content:"在背面写下这一句。"}],{maxTokens:65535,timeout:180000,tag:"旅行相框背面"});
+    const r=extractJSON(raw);
+    if(!r||typeof r.line!=="string"||!r.line.trim()){const e=new Error("这次没写成，可以再请 TA 写一次。");e.detail=String(raw||"").slice(0,1200);throw e;}
+    return r.line.trim().slice(0,200);
+  }
   async function bottleReply({active,character,profile,mainline,world,bottle}) {
     if(!active) throw new Error("先在设置里配置创作线路，再来读回信。瓶子会等着你。");
     const sys=[sharedStyle(),roleContext(character,profile,mainline),
