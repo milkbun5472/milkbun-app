@@ -217,9 +217,22 @@ if os.environ.get('ANCHOR'):
     for j in range(nv):
         for i in range(nu):
             a_=j*(nu+0)+i;b_=j*nu+(i+1)%nu;fs.append((a_,b_,b_+nu,a_+nu))
-    V=np.array(vs)*float(os.environ.get('BASE_R',1.012))
-    keep=[k for k,f in enumerate(fs) if all(
-        V[q][2]>-.05 and not (V[q][1]<-.55 and V[q][2]<.42) for q in f)]
+    V=np.array(vs)*1.0
+    # Conform to OUR skull: cast inward from outside along each direction and
+    # sit 3 mm above the real head wherever it bulges past the sphere.
+    for k in range(len(V)):
+        dvec=V[k]/np.linalg.norm(V[k]);Wc=Cc+dvec*Rr
+        hitp,hn,hi,hd=tree.ray_cast(Vector((Cc+dvec*Rr*2.2).tolist()),Vector((-dvec).tolist()),Rr*2.2)
+        rr=float(os.environ.get('BASE_R',1.012))
+        if hitp is not None:rr=max(rr,(np.linalg.norm(np.array(hitp[:])-Cc)+.003)/Rr)
+        V[k]=dvec*rr
+    def ok(p):
+        x,y,z=p/np.linalg.norm(p)
+        face=y<-.30 and z<.50                 # forehead-down front: never covered
+        if face:return False
+        if y>.05:return z>-.85                 # back: down to the nape
+        return z>-.05 and not (y<-.55 and z<.42)
+    keep=[k for k,f in enumerate(fs) if all(ok(V[q]) for q in f)]
     cap.from_pydata(V.tolist(),[],[fs[k] for k in keep]);cap.update()
     import bmesh as _b;bb=_b.new();bb.from_mesh(cap);_b.ops.remove_doubles(bb,verts=bb.verts,dist=1e-6)
     _b.ops.delete(bb,geom=[v for v in bb.verts if not v.link_faces],context='VERTS');bb.to_mesh(cap);bb.free()
