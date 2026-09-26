@@ -22,13 +22,13 @@ test('both entry points use the same versioned rig and model graph',()=>{
 
 test('outfits own separate sleeve coverage and rabbit source shoes',()=>{
  const shirt=gltf.nodes.find(n=>n.name==='outfit_cardigan');
- assert.deepEqual(shirt.extras.skinCoverage.sleeve,[.205,.46,.705,.10]);assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
+ assert.deepEqual(shirt.extras.skinCoverage.sleeve,[.198,0,.76,.10]);assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
  const shoe=gltf.nodes.find(n=>n.name==='outfit_cardigan_footwear');
  assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,1);
  assert.equal(shoe.extras.outfit,'cardigan');assert.ok(shoe.skin!=null);
  for(const id of ['academy','garden','ranger']){
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
-  assert.equal(shirt.extras.skinCoverage.sleeve[0],id==='garden'?.15:.205);
+  assert.equal(shirt.extras.skinCoverage.sleeve[0],id==='garden'?.140:.198);
   assert.equal(shirt.extras.skinCoverage.torsoAbove,id==='ranger'?.3:.4,'bare legs stay visible');
   assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
  }
@@ -89,4 +89,20 @@ test('hoodie bag has a torso-bound back strap with independent accent colour',()
  assert.ok(strap.extras.slotBase.accent);assert.ok(strap.skin!=null);
  assert.deepEqual(gltf.meshes[strap.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
  assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.textureSlots,'ranger');
+});
+
+
+test('all cuffs cover the shared wrist cut and hoodie retains independent details',()=>{
+ assert.equal(gltf.nodes.find(n=>n.name==='DollBody').extras.fittedWristVersion,1);
+ for(const id of ['cardigan','academy','garden','ranger']){
+  const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
+  assert.equal(shirt.extras.fittedCuffVersion,1);
+  assert.deepEqual(shirt.extras.skinCoverage.armAxis,[.153,.655,.095,-.19]);
+  for(const side of ['left','right'])assert.equal(gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`).extras.fittedCuffVersion,1);
+ }
+ assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.cleanHoodieVersion,1);
+ for(const name of ['outfit_ranger_trousers','outfit_ranger_front_accessories']){
+  const n=gltf.nodes.find(n=>n.name===name);assert.ok(n.skin!=null);assert.equal(n.extras.outfit,'ranger');
+  assert.deepEqual(gltf.meshes[n.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
+ }
 });
