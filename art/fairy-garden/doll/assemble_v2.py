@@ -127,8 +127,25 @@ for oid,f in OUTFITS.items():
     m['slotBase']=catalog[oid]['colors']
     for o in objs:
         if o!=m:bpy.data.objects.remove(o)
+# Shoes (the Hunyuan outfit came without any): a copy of the doll's own feet below SHOE_Z, pushed out
+# along the normals, soles flattened; same bone weights, so they walk with the feet. Plain colour, slot 'boots'.
+SHOE_Z=.085
+def make_shoes(oid,colour='#4a3a32'):
+    S=B.copy();S.data=B.data.copy();bpy.context.collection.objects.link(S);S.name='outfit_'+oid+'_shoes'
+    bm=bmesh.new();bm.from_mesh(S.data);bm.normal_update()
+    bmesh.ops.delete(bm,geom=[f for f in bm.faces if any(v.co.z>SHOE_Z for v in f.verts)],context='FACES')
+    for v in bm.verts:
+        n=v.normal.copy();v.co+=n*(.012 if v.co.z>.012 else .006)
+        if v.co.z<.004:v.co.z=-.003          # a flat sole
+    bm.to_mesh(S.data);bm.free()
+    mat=bpy.data.materials.new('shoes_'+oid);mat.use_nodes=True;bsdf=mat.node_tree.nodes['Principled BSDF']
+    bsdf.inputs['Base Color'].default_value=(*[int(colour[i:i+2],16)/255 for i in (1,3,5)],1);bsdf.inputs['Roughness'].default_value=.7
+    S.data.materials.clear();S.data.materials.append(mat);S['outfit']=oid;S['colorSlot']='boots';catalog[oid]['colors']['boots']=colour
+    for c in list(S.data.color_attributes):S.data.color_attributes.remove(c)
+    return S
+shoes=[make_shoes(k) for k in OUTFITS]
 # shape keys
-for o in [B]+[bpy.data.objects['outfit_'+k] for k in OUTFITS]:
+for o in [B]+[bpy.data.objects['outfit_'+k] for k in OUTFITS]+shoes:
     P=np.array([v.co[:] for v in o.data.vertices]);arm=arm_weights(o);o.shape_key_add(name='Basis')
     for key,*_ in DIMS:
         k=o.shape_key_add(name=key);k.value=0;D=deform(P,arm,key,o!=B)
