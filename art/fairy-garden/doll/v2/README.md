@@ -82,3 +82,4 @@
 - **M04 刺刺短发**（ID 沿用旧的 `pixie`）：发壳 `hunyuan-m04-shell.glb` 自带耳朵缺口。`INNER=.9 DZ=-.1 python3 fit_shell.py …`，再 `FRINGE_K=.8 python3 shape_hair.py …`（刘海收短到和 85% 那版一样长，头发其余部分还是 90%）。
 - **C03 连帽卫衣工装裤**（ID 沿用旧的 `ranger`）：`SLEEVE_K=.35 UREACH=.3 CONFORM_TOP=.55 UCOL=d6ccc1 UNDER=1 CRUMB=200 S=.63 SY=1.3 Z0=.06 python3 skin_outfit.py …`（`UCOL` 底衣换成卫衣色；裤子到脚踝，`Z0` 放低）。补一双浅棕鞋。
 - **体积**：web 件按用途减面（身体 `TRIS=20000`、衣服 `15000`、头发 `18000`），组装时 Draco 量化调低、形态键存稀疏。三套衣服 + 五款发型的 `doll.glb` 约 3.9MB（原来 6.2MB），庭院里看不出差别。体积大头是体型滑杆的形态键（没被 Draco 压）。
+- **C04 小兔毛衣**（ID 沿用旧的 `cardigan`，自带球鞋，不补鞋）：这件是照腿长、身瘦的人生成的——`LIFT=.1` 把腰以上整体提到肩膀（鞋留在地上），`SX` 控制宽度。`ARM_SKIP=1 UREACH=.2 CONFORM_TOP=.68 UCOL=d9a7a3 UNDER=1 CRUMB=200 LIFT=.1 SX=1.0 SY=1.5 S=.63 Z0=-.01`。`CONFORM_TOP` 要盖到胸口，否则粉色底衣会盖住小兔图案。袖子和身体连成一片，压短袖口会皱，所以保持长袖。

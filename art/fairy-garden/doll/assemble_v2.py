@@ -17,9 +17,9 @@ HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=o
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
-OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb'}
+OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤','cardigan':'小兔毛衣'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb','cardigan':'outfit_c04.glb'}
 # per outfit: which colour slots exist (a dress has no separate 'bottom'), shoe colour
-OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e')}
+OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e'),'cardigan':dict(bottom=True,accent=False,shoe=None,bottom_z=.33,bottom_pale_z=.42,under='cloth',sole_z=.085,no_trim=True)}
 SLOTS=['cloth','trim','bottom','accent']
 FACES={'default':'平常','happy':'开心','cozy':'惬意','relax':'放松','surprise':'惊讶','amazed':'哇','proud':'得意','gloomy':'低落','sad':'难过','irritated':'不耐烦'}
 # Slider ranges (1 = neutral). A shape key is the offset at value 2, the runtime feeds value-1.
@@ -88,7 +88,7 @@ def arm_weights(o):
         for g in v.groups:
             if g.group in (gi.get('leftArm'),gi.get('rightArm')):w[v.index]+=g.weight
     return np.clip(w,0,1)
-def colour_slots(o,bottom=True,accent=True):
+def colour_slots(o,bottom=True,accent=True,opts={}):
     """Per-face slot from the face's own texels, then 2 rounds of neighbour majority."""
     im=base_image(o.material_slots[0].material);W,H=im.size;tex=np.array(im.pixels[:]).reshape(H,W,4)[:,:,:3]**(1/2.2)
     bm=bmesh.new();bm.from_mesh(o.data);bm.faces.ensure_lookup_table();uv=bm.loops.layers.uv.active
@@ -97,8 +97,12 @@ def colour_slots(o,bottom=True,accent=True):
         U=np.array([l[uv].uv[:] for l in f.loops]+[np.mean([l[uv].uv[:] for l in f.loops],0)])
         c=np.median(tex[np.clip((U[:,1]*H).astype(int),0,H-1),np.clip((U[:,0]*W).astype(int),0,W-1)],0)
         z=f.calc_center_median().z;lum=c@[.2126,.7152,.0722]
-        s=2 if bottom and z<.34 and abs(f.calc_center_median().x)<.2 else 3 if accent and c[0]-c[2]>.12 else 1 if lum>.92 else 0
-        if f.material_index==1:s=1   # the under-layer is shirt coloured
+        pale=(c[0]-c[2])<.07   # trousers vs a pink sweater hem at the same height
+        low=z<opts.get('bottom_z',.34) or (z<opts.get('bottom_pale_z',-1) and pale)   # a band above the cut counts only if trouser-coloured
+        s=2 if bottom and low and abs(f.calc_center_median().x)<.2 else 3 if accent and c[0]-c[2]>.12 else 1 if lum>.92 else 0
+        if opts.get('no_trim') and s==1:s=0
+        if z<opts.get('sole_z',-1):s=1   # the shell's own shoes follow the trim colour
+        if f.material_index==1:s=SLOTS.index(opts.get('under','trim'))   # the under-layer follows the shirt (or sweater) colour
         slot[f.index]=s
     for _ in range(2):
         new={}
@@ -125,7 +129,7 @@ for oid,f in OUTFITS.items():
     for md in m.modifiers:
         if md.type=='ARMATURE':md.object=A
     m.name='outfit_'+oid;m['outfit']=oid
-    catalog[oid]={'label':OUTFIT_LABELS[oid],'colors':colour_slots(m,OUTFIT_OPTS[oid]['bottom'],OUTFIT_OPTS[oid].get('accent',True))}
+    catalog[oid]={'label':OUTFIT_LABELS[oid],'colors':colour_slots(m,OUTFIT_OPTS[oid]['bottom'],OUTFIT_OPTS[oid].get('accent',True),OUTFIT_OPTS[oid])}
     m['slotBase']=catalog[oid]['colors']
     for o in objs:
         if o!=m:bpy.data.objects.remove(o)
@@ -145,7 +149,7 @@ def make_shoes(oid,colour='#4a3a32'):
     S.data.materials.clear();S.data.materials.append(mat);S['outfit']=oid;S['colorSlot']='boots';catalog[oid]['colors']['boots']=colour
     for c in list(S.data.color_attributes):S.data.color_attributes.remove(c)
     return S
-shoes=[make_shoes(k,OUTFIT_OPTS[k]['shoe']) for k in OUTFITS]
+shoes=[make_shoes(k,OUTFIT_OPTS[k]['shoe']) for k in OUTFITS if OUTFIT_OPTS[k]['shoe']]   # shoe=None: the shell has its own
 # shape keys
 for o in [B]+[bpy.data.objects['outfit_'+k] for k in OUTFITS]+shoes:
     P=np.array([v.co[:] for v in o.data.vertices]);arm=arm_weights(o);o.shape_key_add(name='Basis')

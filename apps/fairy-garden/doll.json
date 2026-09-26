@@ -84,6 +84,14 @@
     "accent": "#6f604c",
     "boots": "#5a4a3e"
    }
+  },
+  "cardigan": {
+   "label": "小兔毛衣",
+   "colors": {
+    "cloth": "#e8d4d2",
+    "trim": "#ead8d3",
+    "bottom": "#f4e8e2"
+   }
   }
  },
  "style": "hunyuan-v2-2026-09",
