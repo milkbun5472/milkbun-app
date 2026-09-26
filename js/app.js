@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.106";
+const APP_VERSION = "v74.108";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10982,7 +10982,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     const gs = gsFor(groupId);
     // 有成员此刻正和用户在别处【线下面对面】进行中：别让 TA 在群里分身、别出现在和那场线下矛盾的场景（她报：顾朝线下购物、群里却煮汤给两人）
-    const gBusyOff = members.filter(c => offlineTogetherNow(c.id)); // 此刻正和用户面对面的成员：不排除，但要处境一致
+    // ⚠️旁观的群是他们自己的一场戏，她不在里头：她在别处和谁线下相处，不该让那个人在这场戏里「腾不出手、整轮不出现」
+    //   （她 2026-09-26「为啥群里只有一个人说话」「还是不行啊」——两个人的旁观群里只剩一个人开口）。
+    const gBusyOff = groupSpectating(group) ? [] : members.filter(c => offlineTogetherNow(c.id)); // 此刻正和用户面对面的成员：不排除，但要处境一致
     // ⚠️这一段原来写的是「TA 可以照常发消息」，还给了两句例句（『在外头呢，抽空回你一句』）。
     //   两个毛病一起犯：①【鼓励】忙着的人非回不可；②例句被逐字照抄，于是每次都是那一句
     //   （施工规则/prompt-no-content-samples.md：内容示范一律删）。
@@ -11202,9 +11204,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const nMin = Math.min(nMax, 4);
       // 「接彼此的话」这句只许有一份：她开口那一轮和她没出声那一轮都从这儿取。
       const G_EACH_OTHER = "接彼此的话、顺着跑题、拌嘴、补刀、翻旧账、动手做下去都行";
+      // ⚠️两个人的旁观群就是他俩的私聊（她 2026-09-26：「两个人的旁观群相当于私聊啊」）。
+      //   下面那段群聊通用话里写着「这一轮里有人一句话都没说是正常的、别为了凑齐人头硬给每个人塞一句」——
+      //   群里人多时那是对的；可只有两个人时，它等于告诉模型「另一个可以不说话」，于是整屏只剩一个人在自说自话。
+      //   所以两个人的那一路换成对话本来的样子：两个人都在，你一句我一句地接。
       const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言；同一个人一轮里也可以说好几次——B 接了 A 的话，A 再回 B，B 又接一句，话头就这么来回过手，一轮里来回好几趟才像真的在聊天。一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回、别三两句就收场。"
           + "⚠️「多聊几个来回」不等于「点名每个人」：这一轮里有人一句话都没说是正常的（在忙、没看到、懒得接、没什么想说的），"
           + "别为了凑齐人头硬给每个人塞一句——真实群聊从来是几个人在说、几个人在看。" : "**这一轮的额度只剩这么多，说到就停，别硬凑也别多写——多出来的会被丢掉。**") + "\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
+      // 只换开头那一段（「不是每人每轮都要说话…几个人在看」），后面连贯、别否认自己说过的话这些照旧
+      const commonTurn = asPrivate
+        ? common.replace(/【很重要】[\s\S]*?(?=\n【对话连贯)/, "【很重要】这是两个人之间的对话：两个人都在，顺着对方刚说的话往下接，你一句我一句地来回，一个人也可以连说几句再轮到对方。一次产出 " + nMin + "~" + nMax + " 条。")
+        : common;
       // 今天是谁的生日（她 2026-09-10：「他们生日还是总是觉得是我生日说我是寿星」）。
       // ⚠️群里【本来就有】每个人的生日：成员那一段的 ageLineFor 里写着「生日 X · 就是今天」。
       //   缺的和单聊那处缺的是同一样东西——只说了【是谁的】，没说【不是谁的】，
@@ -11399,7 +11409,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 【关系隐私铁律】旁观群更需要它：两个人都跟她有关系时，正是这条挡住互相拆穿。
       const gRelRule = "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + common + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {

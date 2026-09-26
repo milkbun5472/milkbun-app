@@ -19,3 +19,7 @@ assert.equal(pickMember(same, "沈屿白（邻居）").id, "d2", "duplicate name
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 assert.match(app, /arr = arr\.map\(it => \{[^\n]*pickMember\(members, it\.name\)/, "names normalized before the identity guard");
 console.log("group speaker match 74.106 ok");
+// 两个人的旁观群＝他俩的私聊：不许再告诉模型「有人一句不说是正常的」；她在别处的线下也不让其中一个「腾不出手」
+assert.match(app, /const commonTurn = asPrivate\s*\? common\.replace\(\/【很重要】\[\\s\\S\]\*\?\(\?=\\n【对话连贯\)\/, "【很重要】这是两个人之间的对话：两个人都在/);
+assert.match(app, /const gBusyOff = groupSpectating\(group\) \? \[\] :/);
+console.log("two-person spectate ok");
