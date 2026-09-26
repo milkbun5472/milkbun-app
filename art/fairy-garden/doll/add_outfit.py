@@ -21,13 +21,17 @@ EXTRA={
     # the shell's own sleeves tear when the whole arm lifts: cut them and author round ones
     # (round_sleeves.py, as C01-C04) from one clean jacket texel patch
     sleeves=dict(atlas=(.156,.953,.008,.008),slot=.02)),
+ 'suit':dict(file='outfit_c06.glb',label='小西装短裤',bottom=True,accent=False,
+    opts=dict(trim_lum=.6),   # shaded white shirt and socks share the trim slot; the black shoes follow the shorts
+    coverage={'torsoAbove':0.0,'torsoBelow':0.705,'sleeve':[0.2,0.0,0.76,0.1],'armAxis':[0.153,0.655,0.095,-0.19]},feet=.14,
+    sleeves=dict(atlas=(.031,.859,.008,.008),slot=.02,scrap_z=.25)),   # longer sleeves: cuff scraps hang lower
 }
 _slots=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))
 _deform=runpy.run_path(os.path.join(HERE,'body_shape.py'))['deform']
 _elbows=runpy.run_path(os.path.join(HERE,'add_elbows.py'))
 DIM_KEYS=['height','shoulder','waist','flare','build','head']
 
-def cut_sleeves(m):
+def cut_sleeves(m,scrap_z=.33):
     """Remove the shell's own sleeves and pin everything
     above the hips to the torso; trousers keep leg weights. The round sleeve root covers the armhole."""
     import bmesh
@@ -38,15 +42,28 @@ def cut_sleeves(m):
     # side_lining() closes the flank this opens under a lifted arm
     def sleeve(f):
         c=f.calc_center_median()
-        return abs(c.x)>.2 and c.z>.33 or abs(c.x)>.17 and c.z>.40
+        return abs(c.x)>.2 and c.z>scrap_z or abs(c.x)>.17 and c.z>.40
     gone={f for f in bm.faces if sleeve(f)}
     bmesh.ops.delete(bm,geom=list(gone),context='FACES')
+    # small loose bits left beside the hands (cuff lining, shirt-cuff edges) once the sleeve is gone
+    seen=set();scraps=[]
+    for v0 in bm.verts:
+        if v0 in seen:continue
+        part=[];st=[v0];seen.add(v0)
+        while st:
+            v=st.pop();part.append(v)
+            for e in v.link_edges:
+                w=e.other_vert(v)
+                if w not in seen:seen.add(w);st.append(w)
+        c=sum((v.co for v in part),Vector())/len(part)
+        if len(part)<200 and abs(c.x)>.14 and c.z>.3:scraps+=part
+    bmesh.ops.delete(bm,geom=scraps,context='VERTS')
     bm.to_mesh(m.data);bm.free()
     for v in m.data.vertices:
         if v.co.z>.40 or any(m.vertex_groups[g.group].name.endswith('Arm') and g.weight>.01 for g in v.groups):
             for g in m.vertex_groups:g.remove([v.index])
             m.vertex_groups['body'].add([v.index],1,'REPLACE')
-    print('sleeves cut',len(gone))
+    print('sleeves cut',len(gone),'scrap verts',len(scraps))
 
 def side_lining(o,atlas,slot):
     """A thin jacket-coloured copy of the body's flanks under the armpits, pinned to the torso:
@@ -96,7 +113,7 @@ def add_outfit(oid):
     m.name='outfit_'+oid;m['outfit']=oid
     colors=_slots['colour_slots'](m,cfg['bottom'],cfg['accent'],cfg['opts'])
     m['slotBase']=colors
-    if cfg.get('sleeves'):cut_sleeves(m)
+    if cfg.get('sleeves'):cut_sleeves(m,cfg['sleeves'].get('scrap_z',.33))
     P=np.array([v.co[:] for v in m.data.vertices]);arm=_slots['arm_weights'](m);m.shape_key_add(name='Basis')
     for key in DIM_KEYS:
         k=m.shape_key_add(name=key);k.value=0;D=_deform(P,arm,key,True)

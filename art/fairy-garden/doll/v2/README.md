@@ -102,6 +102,13 @@
 - ⚠️Blender 5（pip `bpy`）里新建颜色属性会让之前拿到的 UV 层失效，`round_sleeves.py` 现在两个都建好再按名字取。
 - 验图：`scripts/checks/shared-cloth-browser.cjs` 591 格（默认/最小/最大/改色，十种动作四个方向）。已知：抬手时夹克侧边还有一点细毛边；衬衫在减面后略有棱角。
 
+## C06 小西装短裤（`suit`，2026-09-26）
+
+- 源 `v2/outfits/hunyuan-c06-shell.glb`（黑西装 + 马甲 + 领带 + 白衬衫 + 短裤 + 白袜皮鞋）。
+  `S=.69 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py …`，`TRIS=8000` 压缩，`add_outfit.py -- suit`。
+- 和夹克同一套：圆袖（西装布料 `atlas=(.031,.859,…)`）、腋下衬里；袖子更长，手腕残片更低（`scrap_z=.25`），切完再删手边的小碎块（<200 顶点、|x|>.14）。
+- 配色：`trim_lum=.6`——衬衫背光处只有 .6 左右，阈值高了会被分进西装那一格，改色时衬衫上冒粉斑。
+
 ## 衣服按需加载（2026-09-26，她定）
 
 - **母版是 `v2/doll-full.glb`**（身体 + 骨架 + 头发 + 全部衣服）。所有迁移脚本（`add_outfit.py`、`fit_cuffs.py`、`restore_*`…）都读写它，不再直接改 app 里的 doll.glb。
