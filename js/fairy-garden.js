@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-a103b5fc7f1c1690", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ab7dd012f17a4221", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -809,6 +809,8 @@
   // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
   //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
   //   换成三颗大小不一的星子：只说「好几个小世界」。
+  // 陪伴（js/companion.js）的换装面板也是这一份：它有自己的一身，但控件和规则不另写（one-public-mechanism）
+  root.GardenDressControls = DressControls;
   root.GFairyGarden = p => h(Svg, p, h("path", {
     d: "M5 14a4 4 0 1 0 8 0a4 4 0 1 0 -8 0M13 7.5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M3.9 6.2a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。

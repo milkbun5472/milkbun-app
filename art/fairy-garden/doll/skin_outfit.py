@@ -15,7 +15,11 @@ C=next(o for o in bpy.data.objects if o not in before and o.type=='MESH');C.name
 C.parent=None;C.data.transform(C.matrix_world);C.matrix_world.identity()
 P=np.array([v.co[:] for v in C.data.vertices]);c=(P.min(0)+P.max(0))/2;s=E('S',.53)
 C.data.transform(Matrix.Translation(Vector((-c[0],-c[1],-P[:,2].min()))))
-C.data.transform(Matrix.Diagonal((s,s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
+C.data.transform(Matrix.Diagonal((s*E('SX',1),s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
+# LIFT: shells made on a longer-legged figure -- everything above LIFT_B moves up by LIFT, ramping from 0
+# at LIFT_A (shoes stay on the floor, the trouser legs stretch a little, the top reaches the shoulders)
+if E('LIFT',0):
+    for v in C.data.vertices:v.co.z+=E('LIFT',0)*min(1.,max(0.,(v.co.z-E('LIFT_A',.05))/(E('LIFT_B',.35)-E('LIFT_A',.05))))
 # Shorter sleeves: pieces that reach past the torso side (|x| max >= ARM_X) are pulled up
 # along the arm axis (shoulder -> hand) by SLEEVE_K beyond the shoulder; linear, so no bending.
 SK=E('SLEEVE_K',0);REACH={1:0.,-1:0.};ROOMY=E('ARM_ROOMY',1.);ARMV=set()
@@ -47,9 +51,24 @@ if SK:
         # frayed edge hides inside the cuff
         Q=np.array([v.co[:] for v in comp])-sh;rad=np.linalg.norm(Q-np.outer(Q@ax,ax),axis=1).mean()
         k=SK+(E('LINING_K',0) if rad<E('LINING_R',.075) else 0)
+        # one-piece tops (body+sleeves joined): only the part lying over the arm moves
+        whole=len(comp)>E('ONEPIECE',4000)
+        if whole and '_BTs' not in globals():
+            from mathutils.bvhtree import BVHTree as _B
+            _BTs=_B.FromObject(B,bpy.context.evaluated_depsgraph_get());_bg={g.name:g.index for g in B.vertex_groups}
+            def _armw(co):
+                h=_BTs.find_nearest(co)
+                if h[0] is None:return 0.
+                vs=B.data.polygons[h[2]].vertices;w=0.
+                for vi in vs:
+                    for g in B.data.vertices[vi].groups:
+                        if g.group in (_bg['leftArm'],_bg['rightArm']):w+=g.weight
+                return w/len(vs)
         for v in comp:
             t=float(np.dot(np.array(v.co[:])-sh,ax))
-            if t>0:v.co-=Vector(ax*t*k)
+            if t>0:
+                a=min(1.,max(0.,(_armw(v.co)-E('OP_A',.3))/E('OP_W',.4))) if whole else 1.
+                v.co-=Vector(ax*t*k*a)
         REACH[sg]=max(REACH[sg],max(float(np.dot(np.array(v.co[:])-sh,ax)) for v in comp))
         n+=1
     bm0.to_mesh(C.data);C.data.update();bm0.free();print('sleeve pieces shortened',n)
@@ -76,8 +95,36 @@ for v in C.data.vertices:
         q=np.array(v.co[:])-sh;along=ax*np.dot(q,ax);v.co=Vector(sh+along+(q-along)*ROOMY);continue
     if v.co.z>E('CONFORM_TOP',9):continue   # collars stand off the neck; conforming them smeared the lining through
     p,n=hit[0],hit[1];d=(v.co-p).dot(n)
-    if d<GAP:v.co=p+n*GAP+(v.co-p-n*d);moved+=1
+    g=E('GAP_TOP',GAP) if v.co.z>E('GAP_TOP_Z',9) else GAP
+    if d<g:v.co=p+n*g+(v.co-p-n*d);moved+=1
 print('conformed',moved)
+# STRAP_OUT: pinafore straps and the shirt shoulder end up the same distance off the skin after the
+# conform, and the shirt wins. Dark (dress) faces over the shoulders are lifted a little further out.
+if E('STRAP_OUT',0):
+    import bmesh as _b4
+    im4=next(n.image for n in C.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE');W4,H4=im4.size;tx4=np.array(im4.pixels[:]).reshape(H4,W4,4)[:,:,:3]**(1/2.2)
+    b4=_b4.new();b4.from_mesh(C.data);b4.faces.ensure_lookup_table();u4=b4.loops.layers.uv.active;lift=set()
+    for f in b4.faces:
+        c=f.calc_center_median()
+        if c.z<E('STRAP_Z',.58) or c.z>E('STRAP_ZMAX',9) or abs(c.x)>E('STRAP_X',.16) or abs(c.x)<E('STRAP_XMIN',0):continue
+        u=f.loops[0][u4].uv
+        if tx4[min(H4-1,int(u[1]*H4)),min(W4-1,int(u[0]*W4))].mean()<.55:lift.update(v.index for v in f.verts)
+    # COLLAR_OUT: light (collar) faces above COLLAR_Z go out further than the straps, so the straps tuck under the collar
+    coll=set()
+    if E('COLLAR_OUT',0):
+        for f in b4.faces:
+            c=f.calc_center_median()
+            if c.z<E('COLLAR_Z',.64) or abs(c.x)>E('STRAP_X',.16):continue
+            u=f.loops[0][u4].uv
+            if tx4[min(H4-1,int(u[1]*H4)),min(W4-1,int(u[0]*W4))].mean()>=.55:coll.update(v.index for v in f.verts)
+    b4.verts.ensure_lookup_table()
+    for i in coll-lift:
+        v=b4.verts[i];h=BT.find_nearest(v.co)
+        if h[0] is not None:v.co+=h[1]*E('COLLAR_OUT',0)
+    for i in lift:
+        v=b4.verts[i];h=BT.find_nearest(v.co)
+        if h[0] is not None:v.co+=h[1]*E('STRAP_OUT',0)
+    b4.to_mesh(C.data);b4.free();print('strap verts lifted',len(lift))
 # PAINT_ARM: any dark face lying over the arm (nearest skin follows an arm bone, above the waist) is
 # repainted with the shirt colour -- its UVs point at one light texel of the sleeve. Used where the
 # dress lining shows through shortened sleeves ('穿模的地方直接涂袖子的颜色').
@@ -89,11 +136,18 @@ if E('PAINT_ARM',0):
     arm_faces=[];best=None
     for f in bm2.faces:
         if f.material_index!=0 or f.calc_center_median().z<E('PAINT_ZMIN',.46):continue
+        if abs(f.calc_center_median().x)<E('PAINT_XMIN',0):continue   # pinafore straps sit on the shoulder: never paint them
         h=BT.find_nearest(f.calc_center_median())
         if h[0] is None or arm_of(h[2])<=.5:continue
         c=np.mean([col(l[uvl].uv) for l in f.loops],0);arm_faces.append((f,c))
         if best is None or c.mean()>best[1].mean():best=(f,c)
     target=best[0].loops[0][uvl].uv.copy() if best else None;n=0
+    # PAINT_COLLAR: dark lining that the conform pushes through the collar (above this height) -> shirt colour
+    if E('PAINT_COLLAR',0):
+        for f in bm2.faces:
+            if f.material_index==0 and f.calc_center_median().z>E('PAINT_COLLAR',0):
+                c=np.mean([col(l[uvl].uv) for l in f.loops],0)
+                if c.mean()<E('COLLAR_LUM',.7):arm_faces.append((f,np.zeros(3)))   # collar specks are lighter: own cutoff
     for f,c in arm_faces:
         if c.mean()<E('PAINT_ARM',.55):
             for l in f.loops:l[uvl].uv=target
@@ -128,6 +182,28 @@ if E('UNDER',0):
     for pl in U.polygons:pl.material_index=1
     # remap: after join, materials unify by slot object; simplest: join then fix
     bpy.ops.object.join()
+    # UNDER_TEX: the under-layer takes the outfit's own material and a real fabric texel (the one closest to
+    # the median colour of the pieces over the upper arm), so it has the same colour and shade as the
+    # garment instead of a flat stand-in ('肉眼还是看得出来下面垫了一层粉色').
+    if E('UNDER_TEX',0):
+        import bmesh as _bm
+        im=next(n.image for n in C.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE');W_,H_=im.size;tx=np.array(im.pixels[:]).reshape(H_,W_,4)[:,:,:3]
+        b3=_bm.new();b3.from_mesh(C.data);b3.faces.ensure_lookup_table();uv3=b3.loops.layers.uv.active
+        SH3=np.array([.165,0,.655])
+        cand=[]
+        for f in b3.faces:
+            if f.material_index!=0:continue
+            c3=f.calc_center_median()
+            if abs(c3.x)>.17 and .45<c3.z<.66 and np.hypot(abs(c3.x)-SH3[0],c3.z-SH3[2])<.15:
+                u=f.loops[0][uv3].uv;cand.append((tx[min(H_-1,int(u[1]*H_)),min(W_-1,int(u[0]*W_))],u.copy()))
+        if cand:
+            med=np.median([c for c,_ in cand],0);uvt=min(cand,key=lambda t:((t[0]-med)**2).sum())[1]
+            for f in b3.faces:
+                if f.material_index==1:
+                    f.material_index=0
+                    for l in f.loops:l[uv3].uv=uvt
+            b3.to_mesh(C.data);print('under-layer textured',len(cand))
+        b3.free()
 for g in B.vertex_groups:C.vertex_groups.new(name=g.name)
 dt=C.modifiers.new('w','DATA_TRANSFER');dt.object=B;dt.use_vert_data=True;dt.data_types_verts={'VGROUP_WEIGHTS'}
 dt.vert_mapping='POLYINTERP_NEAREST';dt.layers_vgroup_select_src='ALL';dt.layers_vgroup_select_dst='NAME'

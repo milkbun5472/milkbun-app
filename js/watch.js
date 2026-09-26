@@ -217,7 +217,9 @@
   }
   function biliSrc(film, at) {
     const id = /^av/i.test(film.vid) ? "aid=" + String(film.vid).slice(2) : "bvid=" + film.vid;
-    return "https://player.bilibili.com/player.html?" + id + "&page=" + (film.page || 1) + "&autoplay=0&high_quality=1&danmaku=0" + (at > 3 ? "&t=" + Math.floor(at) : "");
+    // ⚠️她 2026-09-26「一起看 b 站链接打开黑屏」：B 站的外链播放器现在要带 isOutside=true 才肯在别人家的页面里放，
+    //   不带就是一整块黑；分 P 用的是 p（page 留着给老播放器）。
+    return "https://player.bilibili.com/player.html?isOutside=true&" + id + "&p=" + (film.page || 1) + "&page=" + (film.page || 1) + "&autoplay=0&high_quality=1&danmaku=0" + (at > 3 ? "&t=" + Math.floor(at) : "");
   }
   // YouTube 的官方播放器脚本只拉一次，谁先要谁触发
   let ytReady = null;
@@ -645,7 +647,8 @@
                 h("div", { style: { position: "absolute", inset: 0 } }, h("div", { ref: ytBox })))
           : online === "bilibili"
             ? h("iframe", { src: biliUrl, allow: "autoplay; fullscreen; picture-in-picture", allowFullScreen: true, scrolling: "no", frameBorder: "0",
-                referrerPolicy: "no-referrer", title: film.title || "B 站视频",
+                // 不再抹掉来源：B 站播放器拿不到来源页时也会拒放、只剩黑屏
+                title: film.title || "B 站视频",
                 style: cinema ? { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" } : { display: "block", width: "100%", aspectRatio: "16/9", maxHeight: "42vh", border: "none" } })
           : missing
             ? h("div", { style: { aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.sub } }, "这台手机里没有这部片子的文件了（换过设备或清过数据）。删掉这张票重新导入就好，聊过的话还在。")
@@ -662,6 +665,8 @@
           btn(clkRun ? "我暂停了" : "我开始放了", clkToggle, { primary: !clkRun, style: { fontSize: 12.5, padding: "0 12px" } }),
           btn("−10 秒", () => clkMove(-10), { style: { fontSize: 12, padding: "0 10px" } }),
           btn("+10 秒", () => clkMove(10), { style: { fontSize: 12, padding: "0 10px" } }),
+          // 这边还是黑的话：去 B 站那边放，这里照样按上面那块表跟着聊
+          h("a", { href: "https://www.bilibili.com/video/" + film.vid + ((film.page || 1) > 1 ? "?p=" + film.page : ""), target: "_blank", rel: "noopener", style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, textDecoration: "underline", minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 4px", whiteSpace: "nowrap" } }, "黑屏？去 B 站放"),
           h("span", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_DISPLAY, fontSize: 15, color: clkRun ? W.amber : W.sub, whiteSpace: "nowrap" } }, clock(now || clk.current.base))) : null,
         // 台词条：现在银幕上这一句。没有字幕的片子整条不出现（她 2026-09-25：「没有字幕的提示也删了省空间」）
         cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, line) : null,

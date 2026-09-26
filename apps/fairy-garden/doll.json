@@ -61,7 +61,7 @@
    "label": "学院背心",
    "colors": {
     "cloth": "#dfd5cc",
-    "trim": "#f6f0ea",
+    "trim": "#f9f4ef",
     "bottom": "#978d86",
     "accent": "#ad8e80",
     "boots": "#4a3a32"
@@ -70,19 +70,26 @@
   "garden": {
    "label": "背带连衣裙",
    "colors": {
-    "cloth": "#b4a095",
-    "trim": "#f5ede7",
+    "cloth": "#ae988b",
+    "trim": "#f7f0eb",
     "boots": "#3b2b25"
    }
   },
   "ranger": {
    "label": "连帽卫衣工装裤",
    "colors": {
-    "cloth": "#d8cfc8",
-    "trim": "#cdc4bc",
+    "cloth": "#dcd4cd",
     "bottom": "#c7bcb4",
     "accent": "#6f604c",
     "boots": "#5a4a3e"
+   }
+  },
+  "cardigan": {
+   "label": "小兔毛衣",
+   "colors": {
+    "cloth": "#ead6d4",
+    "trim": "#ead8d3",
+    "bottom": "#f4e8e2"
    }
   }
  },

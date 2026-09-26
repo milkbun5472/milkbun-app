@@ -34,7 +34,7 @@ test('v2 sliders, faces, skin and outfit colour slots are all real data in the a
  const rig=glb.nodes.find(n=>n.extras?.rigMorphs)?.extras.rigMorphs;assert.ok(rig?.leftArm?.height&&rig.HeadAnchor?.scale?.head,'bones and HeadAnchor move with the sliders');
  for(const id of Object.keys(catalog.faces))if(id!=='default')assert.ok(read('./faces/'+id+'.webp').length>1000,id);
  assert.match(nodes.find(n=>n.name==='DollBody').extras.skinBase,/^#[0-9a-f]{6}$/);
- for(const [id,o] of Object.entries(catalog.outfits)){for(const k of ['cloth','trim','boots'])assert.ok(k in o.colors,id+' '+k);assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots'].includes(k)),id);const {boots,...painted}=o.colors;assert.deepEqual(nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id).extras.slotBase,painted);
+ for(const [id,o] of Object.entries(catalog.outfits)){assert.ok('cloth' in o.colors,id+' cloth');assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots'].includes(k)),id);const {boots,...painted}=o.colors;assert.deepEqual(nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id).extras.slotBase,painted);
   // 鞋是照娃娃自己的脚画的（Hunyuan 那套没生成鞋）：纯色一块，走 colorSlot boots
-  const shoe=nodes.find(n=>n.extras?.outfit===id&&n.extras.colorSlot==='boots');assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
+  const shoe=nodes.find(n=>n.extras?.outfit===id&&n.extras.colorSlot==='boots');if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
 });

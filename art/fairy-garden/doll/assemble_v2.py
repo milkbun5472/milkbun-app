@@ -13,37 +13,21 @@ outfits) and outfits.mjs. Expression textures: bake_faces separately into apps/f
 Usage: python3 assemble_v2.py"""
 import bpy,sys,os,json,bmesh,numpy as np
 from mathutils import Vector
-HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,'web')
+HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,os.environ.get('PIECES','web'))   # PIECES=hd: the 陪伴 pet build
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
-OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb'}
+OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤','cardigan':'小兔毛衣'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb','cardigan':'outfit_c04.glb'}
 # per outfit: which colour slots exist (a dress has no separate 'bottom'), shoe colour
-OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e')}
+OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e'),'cardigan':dict(bottom=True,accent=False,shoe=None,bottom_z=.33,bottom_pale_z=.42,under='cloth',sole_z=.085,no_trim=True)}
 SLOTS=['cloth','trim','bottom','accent']
 FACES={'default':'平常','happy':'开心','cozy':'惬意','relax':'放松','surprise':'惊讶','amazed':'哇','proud':'得意','gloomy':'低落','sad':'难过','irritated':'不耐烦'}
 # Slider ranges (1 = neutral). A shape key is the offset at value 2, the runtime feeds value-1.
 DIMS=[('height','腿长',.85,1.25,'短一点','长一点'),('shoulder','肩宽',.85,1.2,'窄一点','宽一点'),('waist','腰身',.85,1.15,'纤细','丰盈'),
       ('flare','衣摆',.78,1.22,'收拢','蓬松'),('build','圆润度',.85,1.15,'轻巧','圆润'),('head','头身比',.88,1.1,'小一点','大一点')]
-HC=np.array([.00436,.01302,.94833])   # skull centre (HeadAnchor)
-ss=lambda t:(lambda u:u*u*(3-2*u))(np.clip(t,0,1))
-def deform(P,arm,key,outfit):
-    """Offsets at slider value 2 for points P (Blender Z-up, doll space). arm = arm weight."""
-    x,y,z=P[:,0],P[:,1],P[:,2];D=np.zeros_like(P);head=ss((z-.70)/.06);sx=np.sign(x)
-    if key=='height':D[:,2]=.25*ss(z/.30)
-    elif key=='shoulder':
-        # the shoulder cap moves sideways as one piece with the arm (scaling it squashed the slope: 'no shoulders')
-        cap=ss((z-.50)/.12)*(1-head)*ss((np.abs(x)-.04)/.08);D[:,0]=sx*.072*np.maximum(arm,cap)
-    elif key=='waist':
-        w=np.clip(1-np.abs(z-.50)/.15,0,1)*(1-arm);D[:,0]=x*.8*w;D[:,1]=y*.5*w
-    elif key=='flare':
-        if outfit:w=ss((.45-z)/.25)*(1-arm)*(z>.30);D[:,0]=x*.9*w;D[:,1]=y*.6*w
-    elif key=='build':
-        # rounder / lighter body, but the shoulder line keeps its width (the arms only follow the chest a little)
-        b=(1-head)*(1-.7*ss((z-.55)/.10));D[:,0]=np.where(arm>.5,sx*.165*.6*.3,x*.6*b);D[:,1]=y*.55*b*(1-arm)
-    elif key=='head':
-        D=(P-HC)*head[:,None]*1.0
-    return D
+import runpy
+_shape = runpy.run_path(os.path.join(HERE, 'body_shape.py'))
+HC, ss, deform = (_shape[k] for k in ('HC', 'ss', 'deform'))
 RIG={'leftArm':np.array([-.165,0,.655]),'rightArm':np.array([.165,0,.655]),'leftLeg':np.array([-.075,0,.30]),'rightLeg':np.array([.075,0,.30]),'HeadAnchor':HC}
 def rig_morphs():
     out={}
@@ -88,7 +72,7 @@ def arm_weights(o):
         for g in v.groups:
             if g.group in (gi.get('leftArm'),gi.get('rightArm')):w[v.index]+=g.weight
     return np.clip(w,0,1)
-def colour_slots(o,bottom=True,accent=True):
+def colour_slots(o,bottom=True,accent=True,opts={}):
     """Per-face slot from the face's own texels, then 2 rounds of neighbour majority."""
     im=base_image(o.material_slots[0].material);W,H=im.size;tex=np.array(im.pixels[:]).reshape(H,W,4)[:,:,:3]**(1/2.2)
     bm=bmesh.new();bm.from_mesh(o.data);bm.faces.ensure_lookup_table();uv=bm.loops.layers.uv.active
@@ -97,8 +81,12 @@ def colour_slots(o,bottom=True,accent=True):
         U=np.array([l[uv].uv[:] for l in f.loops]+[np.mean([l[uv].uv[:] for l in f.loops],0)])
         c=np.median(tex[np.clip((U[:,1]*H).astype(int),0,H-1),np.clip((U[:,0]*W).astype(int),0,W-1)],0)
         z=f.calc_center_median().z;lum=c@[.2126,.7152,.0722]
-        s=2 if bottom and z<.34 and abs(f.calc_center_median().x)<.2 else 3 if accent and c[0]-c[2]>.12 else 1 if lum>.92 else 0
-        if f.material_index==1:s=1   # the under-layer is shirt coloured
+        pale=(c[0]-c[2])<.07   # trousers vs a pink sweater hem at the same height
+        low=z<opts.get('bottom_z',.34) or (z<opts.get('bottom_pale_z',-1) and pale)   # a band above the cut counts only if trouser-coloured
+        s=2 if bottom and low and abs(f.calc_center_median().x)<.2 else 3 if accent and c[0]-c[2]>.12 else 1 if lum>.92 else 0
+        if opts.get('no_trim') and s==1:s=0
+        if z<opts.get('sole_z',-1):s=1   # the shell's own shoes follow the trim colour
+        if f.material_index==1:s=SLOTS.index(opts.get('under','trim'))   # the under-layer follows the shirt (or sweater) colour
         slot[f.index]=s
     for _ in range(2):
         new={}
@@ -125,7 +113,7 @@ for oid,f in OUTFITS.items():
     for md in m.modifiers:
         if md.type=='ARMATURE':md.object=A
     m.name='outfit_'+oid;m['outfit']=oid
-    catalog[oid]={'label':OUTFIT_LABELS[oid],'colors':colour_slots(m,OUTFIT_OPTS[oid]['bottom'],OUTFIT_OPTS[oid].get('accent',True))}
+    catalog[oid]={'label':OUTFIT_LABELS[oid],'colors':colour_slots(m,OUTFIT_OPTS[oid]['bottom'],OUTFIT_OPTS[oid].get('accent',True),OUTFIT_OPTS[oid])}
     m['slotBase']=catalog[oid]['colors']
     for o in objs:
         if o!=m:bpy.data.objects.remove(o)
@@ -145,7 +133,7 @@ def make_shoes(oid,colour='#4a3a32'):
     S.data.materials.clear();S.data.materials.append(mat);S['outfit']=oid;S['colorSlot']='boots';catalog[oid]['colors']['boots']=colour
     for c in list(S.data.color_attributes):S.data.color_attributes.remove(c)
     return S
-shoes=[make_shoes(k,OUTFIT_OPTS[k]['shoe']) for k in OUTFITS]
+shoes=[make_shoes(k,OUTFIT_OPTS[k]['shoe']) for k in OUTFITS if OUTFIT_OPTS[k]['shoe']]   # shoe=None: the shell has its own
 # shape keys
 for o in [B]+[bpy.data.objects['outfit_'+k] for k in OUTFITS]+shoes:
     P=np.array([v.co[:] for v in o.data.vertices]);arm=arm_weights(o);o.shape_key_add(name='Basis')
@@ -156,13 +144,30 @@ A['rigMorphs']=rig_morphs()
 # skin base: median of the body texture's skin-toned texels
 im=base_image(B.material_slots[0].material);px=np.array(im.pixels[:]).reshape(-1,4)[::5,:3]**(1/2.2)
 sk=px[(px[:,0]>.6)&(px[:,0]>px[:,2]+.05)];B['skinBase']='#%02x%02x%02x'%tuple(int(v*255) for v in np.median(sk,0))
+# Only the base colour carries the clay look on hair and clothes; their normal and metal-roughness
+# maps cost two more decoded textures each (the 陪伴 page ran phones out of memory: 30 textures).
+for o in bpy.data.objects:
+    if o.type!='MESH' or o is B:continue
+    for sl in o.material_slots:
+        m=sl.material
+        if not m or not m.use_nodes:continue
+        bs=next((n for n in m.node_tree.nodes if n.type=='BSDF_PRINCIPLED'),None)
+        if not bs:continue
+        for inp in ('Normal','Metallic','Roughness'):
+            for l in list(bs.inputs[inp].links):m.node_tree.links.remove(l)
+        bs.inputs['Metallic'].default_value=0;bs.inputs['Roughness'].default_value=.85
+# Share the articulated arm rig with the post-assembly migration.
+import runpy
+runpy.run_path(os.path.join(HERE, 'restore_cardigan_shoes.py'))['restore_cardigan_shoes']()
+runpy.run_path(os.path.join(HERE, 'add_elbows.py'))['add_elbows']()
 bpy.ops.object.select_all(action='SELECT')
-out=os.path.join(APP,'doll.glb')
+out=os.environ.get('OUT') or os.path.join(APP,'doll.glb')
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True,export_extras=True,export_skins=True,export_animations=False,
     export_morph=True,export_morph_normal=False,export_image_format='WEBP',export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=10,
     export_draco_position_quantization=12,export_draco_normal_quantization=8,export_draco_texcoord_quantization=11,export_draco_color_quantization=6,
     export_try_sparse_sk=True,export_try_omit_sparse_sk=True)
 print('wrote',out,os.path.getsize(out)//1024,'KB skinBase',B['skinBase'],catalog)
+if os.environ.get('OUT'):sys.exit(0)   # the pet build only writes its glb; catalogues stay the garden's
 dj=os.path.join(APP,'doll.json');d=json.load(open(dj))
 d['hair']=LABELS;d['outfits']=catalog;d['faces']=FACES;d['style']='hunyuan-v2-2026-09'
 d['dims']=[dict(key=k,label=l,min=a,max=b,low=lo,high=hi) for k,l,a,b,lo,hi in DIMS]
