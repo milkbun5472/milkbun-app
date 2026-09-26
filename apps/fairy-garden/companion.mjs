@@ -1,5 +1,5 @@
-import {stepRoute} from './locomotion.mjs?v=fg-19e1c3ec928cbad3';
-import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-19e1c3ec928cbad3';
+import {stepRoute} from './locomotion.mjs?v=fg-2b387d084fe00867';
+import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-2b387d084fe00867';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。

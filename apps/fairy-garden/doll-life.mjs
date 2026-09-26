@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-19e1c3ec928cbad3';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-2b387d084fe00867';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
@@ -55,7 +55,7 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
   // 举灯：两手把灯罩举到眼前，光一点点装进去
   if(lamping){arms.rightArm.rotation.x=arms.leftArm.rotation.x=(-2.1-p*.5)*envelope;arms.rightArm.rotation.z=-.25*envelope;arms.leftArm.rotation.z=.25*envelope;const l=handPoint('left'),r=handPoint();lampProp.position.copy(group.worldToLocal(l.add(r).multiplyScalar(.5)));lampProp.position.y+=.04;lampProp.rotation.y=time*.8;bulb.material.emissiveIntensity=ease(p)*1.4;}
   if(picking){const bend=Math.sin(Math.PI*Math.min(1,progress/.7));model.rotation.x=.32*Math.max(0,bend);root.position.y-=.11*Math.max(0,bend);arms.rightArm.rotation.x=-.45-.55*Math.max(0,bend);}
-  if(reading){arms.leftArm.rotation.x=arms.rightArm.rotation.x=-.7;page.rotation.z=-Math.PI*((time*.18)%1);}
+  if(reading){arms.leftArm.rotation.x=arms.rightArm.rotation.x=-.9;page.rotation.z=-Math.PI*((time*.18)%1);}
   if(eating){const bite=Math.max(0,Math.sin(time*2.2));arms.leftArm.rotation.x=-1.05;arms.leftArm.rotation.z=.35;arms.rightArm.rotation.x=-1.1-bite*.9;arms.rightArm.rotation.z=-.2;model.rotation.x=.05*bite;}
   if(drinking){const sip=Math.max(0,Math.sin(time*1.1));arms.rightArm.rotation.x=-.9-sip*1.25;arms.rightArm.rotation.z=-sip*.6;}
   if(giving){arms.rightArm.rotation.x=-1.25;arms.leftArm.rotation.x=-.25;}
@@ -64,7 +64,7 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
   if(bowl.visible){atHand(bowl,'left');bowl.position.y-=.02;chop.rotation.x=-Math.max(0,Math.sin(time*2.2))*.6;}
   if(cup.visible){atHand(cup);cup.rotation.x=-Math.max(0,Math.sin(time*1.1))*.35;}
   if(flower.visible)atHand(flower);
-  if(reading){const l=handPoint('left'),r=handPoint();book.position.copy(root.worldToLocal(l.add(r).multiplyScalar(.5)));book.position.y+=.02;book.rotation.x=.25;}
+  if(reading){const l=handPoint('left'),r=handPoint();book.position.copy(root.worldToLocal(l.add(r).multiplyScalar(.5)));book.position.y+=.02;book.position.z+=.065;book.rotation.x=.25;}
   root.userData.dailyAction={gesture,packet:packet.visible,grains:grains.visible,waving,stretching,can:can.visible,drops:drops.visible,flower:flower.visible,cup:cup.visible,bowl:bowl.visible,book:book.visible,page:page.rotation.z,seated};
  }};
 }
