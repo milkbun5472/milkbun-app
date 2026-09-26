@@ -1,4 +1,4 @@
-import {createDistrictStream} from './district-stream.mjs?v=fg-7721f2e1c45a3b3d';
+import {createDistrictStream} from './district-stream.mjs?v=fg-7566a21ac84dc6e1';
 // Scene-owned shadow materials prevent the renderer’s shared depth shader from retaining an unloaded map texture.
 // One active map resource set. Simulation is independent of these GPU objects.
 export function disposeMap(root){const geometries=new Set(),materials=new Set(),textures=new Set();root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of [...(Array.isArray(o.material)?o.material:[o.material]),o.customDepthMaterial,o.customDistanceMaterial])if(m){materials.add(m);for(const value of Object.values(m))if(value?.isTexture)textures.add(value);}});for(const x of geometries)x.dispose();for(const x of materials)x.dispose();for(const x of textures){x.dispose();x.source?.data?.close?.();}}
