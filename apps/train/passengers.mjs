@@ -1,13 +1,13 @@
-import {restState} from './rest.mjs?v=fg-203678530265f0fa';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-203678530265f0fa';
+import {restState} from './rest.mjs?v=fg-bb56ad649d70688b';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-bb56ad649d70688b';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-203678530265f0fa';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-203678530265f0fa';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-203678530265f0fa';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-203678530265f0fa';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-bb56ad649d70688b';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-bb56ad649d70688b';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-bb56ad649d70688b';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-bb56ad649d70688b';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-203678530265f0fa',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-bb56ad649d70688b',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
  // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
  // 车厢前面那条过道（z≈0.6~1.5）是空的，所以路线一律：先走到过道→沿过道走到目标那一列→再走进去。
@@ -35,7 +35,7 @@ export async function createPassengers(view,host,stage,state=()=>({})){
     if(d<=step){p.pos.set(to.x,floorY,to.z);p.path.shift();if(!p.path.length){if(to.yaw!=null)p.yaw=to.yaw;const done=p.onArrive;p.onArrive=null;done&&done();}}else p.pos.set(p.pos.x+dx/d*step,floorY,p.pos.z+dz/d*step);
     p.avatar.root.position.copy(p.pos);p.avatar.root.rotation.y=p.yaw;p.avatar.animate(now/1000,{moving:true});}
    else if(p.spot!=='seat'){p.carrier.position.set(0,0,0);p.carrier.rotation.y=0;p.avatar.root.position.copy(p.pos);p.avatar.root.rotation.y=p.yaw;p.avatar.animate(now/1000,{gesture:p.spot==='rack'?'hold':'rest'});}
-   else{p.carrier.position.set(0,0,0);p.carrier.rotation.y=0;p.avatar.root.position.copy(p.seat);p.avatar.root.rotation.y=p.angle;p.avatar.animate(now/1000,{seated:true,gesture:'sit',height:p.seat.y-.02});/* 坐在坐垫面上：seat 锚点就是坐垫顶（y≈.60），原来减 .215 整个人陷进沙发里（她 2026-09-25） */}
+   else{p.carrier.position.set(0,0,0);p.carrier.rotation.y=0;p.avatar.root.position.copy(p.seat);p.avatar.root.rotation.y=p.angle;p.avatar.animate(now/1000,{seated:true,gesture:'sit',height:p.seat.y+.05});/* 她 2026-09-26「人还是有点陷在沙发里」：原来 -.02，抬到 +.05。 坐在坐垫面上：seat 锚点就是坐垫顶（y≈.60），原来减 .215 整个人陷进沙发里（她 2026-09-25） */}
    p.carrier.updateMatrixWorld(true);
    const head=p.face?new T.Box3().setFromObject(p.face,true).getCenter(new T.Vector3()):p.avatar.root.localToWorld(p.headPoint.clone());head.y+=.14;head.project(view.camera);const rect=stage.getBoundingClientRect();
    const onscreen=visible&&head.z>=-1&&head.z<=1&&head.x>-1&&head.x<1&&head.y>-1&&head.y<1;
