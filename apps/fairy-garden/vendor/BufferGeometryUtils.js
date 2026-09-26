@@ -13,7 +13,7 @@ import {
 
 /**
  * @module BufferGeometryUtils
- * @three_import import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js?v=fg-df14f636232b5769';
+ * @three_import import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js?v=fg-82659e981fafba6e';
  */
 
 /**
