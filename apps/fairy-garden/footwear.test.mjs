@@ -17,5 +17,5 @@ test('rabbit sneakers retain body morphs, leg skinning and an outfit-scoped cove
  const imageFor=p=>{const m=gltf.materials[p.material],t=gltf.textures[m.pbrMetallicRoughness.baseColorTexture.index];return t.extensions?.EXT_texture_webp?.source??t.source;};
  const originalAtlas=imageFor(original.primitives[0]);
  for(const p of mesh.primitives)assert.equal(imageFor(p),originalAtlas,'sneakers reuse their garment’s source atlas');
- assert.ok(bytes.length<5*1024*1024);
+ assert.ok(bytes.length<6*1024*1024);
 });

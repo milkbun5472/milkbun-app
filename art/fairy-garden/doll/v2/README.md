@@ -85,3 +85,20 @@
 - **C04 小兔毛衣**（ID 沿用旧的 `cardigan`，自带球鞋，不补鞋）：这件是照腿长、身瘦的人生成的——`LIFT=.1` 把腰以上整体提到肩膀（鞋留在地上），`SX` 控制宽度。`UNDER_TEX=1 ARM_SKIP=1 UREACH=.2 CONFORM_TOP=.68 UNDER=1 CRUMB=200 LIFT=.1 SX=1.0 SY=1.5 S=.63 Z0=-.01`。`CONFORM_TOP` 要盖到胸口，否则粉色底衣会盖住小兔图案。袖子和身体连成一片，压短袖口会皱，所以保持长袖。
   - `UNDER_TEX=1`：底衣不再是纯色，而是用毛衣自己的贴图（取上臂附近布料的中位色那一点），颜色和明暗跟毛衣一样，看不出垫了一层。
   - **背带**：背带在肩上，一不小心就会被当成别的东西处理掉。`CRUMB=0`（背带碎片不能当袖口毛边删）；`PAINT_XMIN=.19`（涂衬衫色只涂肩膀外侧，不涂背带）；贴合后背带和衬衫肩膀离皮肤一样近、衬衫会盖住背带，所以 `STRAP_OUT` 把肩上的深色面再往外抬，`COLLAR_OUT` 把领子抬得更高，背带就像原版一样从领子底下穿过去；`GAP_TOP` 让胸口以上贴得更紧，里衬不会顶穿领子。
+
+## C05 短夹克工装裤（`jacket`，2026-09-26）：之后的新衣服都走 add_outfit.py
+
+- 源：`v2/outfits/hunyuan-c05-shell.glb`（夹克 + 白衬衫 + 工装裤 + 自带短靴）。
+  `S=.7 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c05-shell.glb v2/outfits/outfit_c05.glb`
+  （全身贴合、间距 2 mm；`STRAP_OUT` 把深色夹克在胸口以上再往外抬 6 mm，衬衫就不会从翻领上透出来。不加 `UNDER`：底衣会把白块顶到夹克外面。）
+  `TRIS=8000 TEX=1024 python3 compress_asset.py v2/outfits/outfit_c05.glb v2/web/outfit_c05.glb`（15000 面时 doll.glb 超预算）。
+- **进 app 不重跑全量组装**：`doll.glb` 上已经有手修过的肘骨、袖口、鞋、背带。`add_outfit.py` 直接往成品上加一套：
+  `python3 -c "import sys,runpy;sys.argv=['x','--','<doll.glb>','<out.glb>','jacket'];runpy.run_path('add_outfit.py',run_name='__main__')"`
+  （输出就是 app 的 doll.glb 时，同时写 doll.json / outfits.mjs。）`assemble_v2.py` 在肘骨之后调用同一个 `add_outfit()`，全量重建不会丢这套。
+  - 配色分格：`outfit_slots.py`（从 assemble_v2 抽出来的公共那份）；`trim_lum=.78`（衬衫是米白，达不到 .92）、`sole_z=.075`（鞋跟衬衫一格）。
+  - 袖子：原壳的袖子一抬手就撕开，照 C01–C04 换成 `round_sleeves.py` 的圆袖：切掉 |x|>.17（腰以上）/ |x|>.2（手腕边的残片）；夹克取一块纯色贴图（`atlas=(.156,.953,.008,.008)`）；`fit_cuffs.py` 收袖口。
+  - `side_lining()`：腋下补一片夹克色的身体侧面复制层（外推 4 mm、绑躯干），抬手时这里不再是洞。
+  - 皮肤遮挡：`torsoAbove 0`（长裤到脚）、`coversFeetBelow .12`。
+- ⚠️Blender 5（pip `bpy`）里新建颜色属性会让之前拿到的 UV 层失效，`round_sleeves.py` 现在两个都建好再按名字取。
+- 体积：五套衣服的 doll.glb 5.5 MB，手机预算她定为 6 MiB（测试钉在 arm-rig / clay-doll / footwear）。**再加一套就会碰线**，下一套要先解决体积（压形态键或按需加载）。
+- 验图：`scripts/checks/shared-cloth-browser.cjs` 591 格（默认/最小/最大/改色，十种动作四个方向）。已知：抬手时夹克侧边还有一点细毛边；衬衫在减面后略有棱角。

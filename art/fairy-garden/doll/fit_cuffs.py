@@ -20,9 +20,9 @@ def fit_cuffs():
   P=np.array([p.co[:] for p in body.data.vertices]);body.data.shape_keys.key_blocks['Basis'].data.foreach_set('co',P.ravel())
   for key in ('height','shoulder','waist','flare','build','head'):body.data.shape_keys.key_blocks[key].data.foreach_set('co',(oldkeys[key]+P-original+shape(P,arm,key,False)-shape(original,arm,key,False)).ravel())
   body['fittedWristVersion']=1
- for name in ('academy','garden','ranger','cardigan'):
-  o=bpy.data.objects['outfit_'+name]
-  if o.get('fittedCuffVersion'):continue
+ for name in ('academy','garden','ranger','cardigan','jacket'):
+  o=bpy.data.objects.get('outfit_'+name)   # jacket is attached later by add_outfit.py, which calls this again
+  if not o or o.get('fittedCuffVersion'):continue
   short=name=='garden';end=.156 if short else .214
   for side,sign in [('left',-1),('right',1)]:
    sleeve=bpy.data.objects['outfit_'+name+'_'+side+'_sleeve'];a=Vector((sign*.095,0,-.19)).normalized();u=Vector((0,1,0));v=a.cross(u).normalized();start=Vector((sign*.153,0,.655))

@@ -11,7 +11,7 @@ test('exported body and outfits share connected elbows, with neutral rest morphs
   for(const skin of gltf.skins)assert.ok(skin.joints.includes(lower),'all garment skins carry the elbow');
  }
  for(const m of gltf.meshes)assert.ok((m.weights||[]).every(w=>w===0),'no baked action');
- assert.ok(bytes.length<5*1024*1024,'retain mobile model budget');
+ assert.ok(bytes.length<6*1024*1024,'retain mobile model budget');
 });
 test('both entry points use the same versioned rig and model graph',()=>{
  const build=JSON.parse(read('./build.json')).build,pet=read('../companion/pet.mjs').toString(),host=read('../../js/companion.js').toString();

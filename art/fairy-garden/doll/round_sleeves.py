@@ -21,7 +21,9 @@ def round_sleeves(o, profile=None, atlas=(.285,.615,.085,.105), slot=0, inset=0)
             for j in range(N):a=i*N+j;b=i*N+(j+1)%N;faces.append((a,b,b+N,a+N))
         faces.append(tuple(reversed(range(N))))
         mesh=bpy.data.meshes.new('SleeveSurface');mesh.from_pydata(verts,[],faces);mesh.update();s=bpy.data.objects.new('outfit_'+o['outfit']+'_'+side+'_sleeve',mesh);bpy.context.collection.objects.link(s);s.parent=rig;s['outfit']=o['outfit'];s['roundSleeveVersion']=1;s['sleeveSide']=side;s['slotBase']=o['slotBase'].to_dict();mesh.materials.append(mat.copy())
-        uv_layer=mesh.uv_layers.new(name='UVMap');color=mesh.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
+        mesh.uv_layers.new(name='UVMap');mesh.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
+        # Look both up after both exist: adding an attribute can invalidate an earlier layer handle (Blender 5).
+        uv_layer=mesh.uv_layers['UVMap'];color=mesh.color_attributes['Color']
         for f in mesh.polygons:
             f.use_smooth=True
             for li in f.loop_indices:

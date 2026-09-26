@@ -91,6 +91,14 @@
     "trim": "#ead8d3",
     "bottom": "#f4e8e2"
    }
+  },
+  "jacket": {
+   "label": "短夹克工装裤",
+   "colors": {
+    "cloth": "#a89e95",
+    "trim": "#d1c5b8",
+    "bottom": "#868582"
+   }
   }
  },
  "style": "hunyuan-v2-2026-09",
