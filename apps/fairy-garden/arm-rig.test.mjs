@@ -62,6 +62,22 @@ test('all outfit sleeves have separate volume, dye slots and shared body morphs'
 test('garden dress uses the clean source and continuous shoe shell',()=>{
  const dress=gltf.nodes.find(n=>n.name==='outfit_garden'),shoe=gltf.nodes.find(n=>n.name==='outfit_garden_shoes');
  assert.equal(dress.extras.cleanDressVersion,1);assert.equal(shoe.extras.weldedShoeVersion,1);
- assert.equal(shoe.extras.coversFeetBelow,.10);assert.ok(shoe.skin!=null);
+ assert.equal(shoe.extras.coversFeetBelow,.14);assert.ok(shoe.skin!=null);
  assert.deepEqual(gltf.meshes[shoe.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
+});
+
+
+test('authored shoes keep per-outfit styles, dye, closed soles and body morphs',()=>{
+ for(const [id,style] of [['academy','loafer'],['garden','mary-jane'],['ranger','lace-boot']]){
+  const parts=gltf.nodes.filter(n=>n.extras?.outfit===id&&n.extras?.footwearVersion===1);
+  assert.equal(parts.length,5);
+  for(const node of parts){
+   assert.equal(node.extras.footwearStyle,style);assert.ok(node.skin!=null);
+   const mesh=gltf.meshes[node.mesh];
+   assert.deepEqual(mesh.extras.targetNames,['height','shoulder','waist','flare','build','head']);
+   assert.ok(mesh.weights.every(v=>v===0));
+   if(node.name===`outfit_${id}_shoes`){assert.equal(node.extras.colorSlot,'boots');assert.equal(node.extras.coversFeetBelow,.14);}
+   else assert.equal(node.extras.colorSlot,undefined);
+  }
+ }
 });
