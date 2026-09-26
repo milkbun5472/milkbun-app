@@ -38,3 +38,17 @@ test('rabbit garment retains a rebuilt continuous surface, lowered collar and si
  const triangles=mesh.primitives.reduce((n,p)=>n+gltf.accessors[p.indices].count/3,0);
  assert.ok(triangles<=15500);
 });
+
+
+test('rabbit sleeves have separate volume, dye slots and shared body morphs',()=>{
+ for(const side of ['left','right']){
+  const sleeve=gltf.nodes.find(n=>n.name===`outfit_cardigan_${side}_sleeve`);
+  assert.equal(sleeve.extras.roundSleeveVersion,1);
+  assert.equal(sleeve.extras.outfit,'cardigan');
+  assert.ok(sleeve.extras.slotBase.cloth);
+  assert.ok(sleeve.skin!=null);
+  const mesh=gltf.meshes[sleeve.mesh];
+  assert.deepEqual(mesh.extras.targetNames,['height','shoulder','waist','flare','build','head']);
+  assert.ok(mesh.primitives.every(p=>p.attributes.COLOR_0!=null));
+ }
+});

@@ -26,7 +26,7 @@ fs.mkdirSync(out,{recursive:true});
  });
  assert.deepEqual(state.states,[.14,.205,-1,-1,-1,-1,.14,.205,-1]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,-1,-1,.705,-1]);
  const batches=[['rest','wave','stretch','tea','read'],['water','plant','draw','eat','give']];
- for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,3.1]){
+ for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,-1.55,3.1]){
   await page.evaluate(({gestures,angle})=>{
    const {T,createTraveler,source,catalog,scene,renderer,camera,dolls}=clothQA;for(const d of dolls)scene.remove(d.root);dolls.length=0;
    for(let row=0;row<3;row++)for(let col=0;col<5;col++){
@@ -44,5 +44,5 @@ fs.mkdirSync(out,{recursive:true});
    const d=createTraveler(source,false,{outfit:'cardigan',hair:'curtains'});d.setLook({outfit});scene.add(d.root);dolls.push(d);for(let f=0;f<30;f++)d.animate(f*.1,{gesture,progress:.5});d.root.position.set((col-2)*.87,(1-row)*1.5,0);d.root.rotation.y=.35;
   }));renderer.render(scene,camera);
  });await page.screenshot({path:out+'/outfits.png'});
- assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:105,errors}));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:135,errors}));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

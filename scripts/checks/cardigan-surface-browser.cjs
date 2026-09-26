@@ -25,13 +25,26 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
     if(x>.04&&x<.17&&y>.37&&y<.53&&z>.11)bag.push(i);
    }
    const seams=[...groups.values()].filter(ids=>ids.length>1);
-   let seamError=0,bagMotion=0,maxEdgeRatio=0,time=0,samples=0;
+   const sleeves=['left','right'].map(side=>doll.root.getObjectByName('outfit_cardigan_'+side+'_sleeve'));
+   if(sleeves.some(s=>!s?.isSkinnedMesh))throw new Error('Missing complete sleeve surfaces');
+   const sampleIds=sleeves.map(s=>{
+    const p=s.geometry.attributes.position,ids=[];
+    for(let i=0;i<p.count;i+=11)ids.push(i);
+    return ids;
+   });
+   let seamError=0,bagMotion=0,maxEdgeRatio=0,time=0,samples=0,volumeError=0;
+   const sleevePoints=()=>sleeves.map((s,k)=>{s.skeleton.update();return sampleIds[k].map(i=>s.getVertexPosition(i,new T.Vector3()).clone());});
    const update=(pose,progress)=>{for(let f=0;f<25;f++){time+=.05;doll.animate(time,{gesture:pose,progress,height:0});}doll.root.updateMatrixWorld(true);mesh.skeleton.update();};
    for(const mode of ['default','min','max']){
     doll.setLook({dims:Object.fromEntries(catalog.dims.map(d=>[d.key,mode==='default'?1:d[mode]]))});
-    update('rest',0);const rest=Array.from({length:P.count},(_,i)=>mesh.getVertexPosition(i,new T.Vector3()).clone());
+    update('rest',0);const sleeveRest=sleevePoints();const rest=Array.from({length:P.count},(_,i)=>mesh.getVertexPosition(i,new T.Vector3()).clone());
     for(const pose of ['rest','wave','stretch','tea','read','water','plant','draw','eat','give'])for(const progress of [.25,.5,.75]){
      update(pose,progress);samples++;
+     const sleevePosed=sleevePoints();
+     for(let k=0;k<2;k++)for(let i=0;i<sleeveRest[k].length;i++)for(let j=i+1;j<sleeveRest[k].length;j++){
+      const a=sleeveRest[k][i].distanceTo(sleeveRest[k][j]);
+      if(a>.03)volumeError=Math.max(volumeError,Math.abs(sleevePosed[k][i].distanceTo(sleevePosed[k][j])/a-1));
+     }
      const posed=Array.from({length:P.count},(_,i)=>mesh.getVertexPosition(i,new T.Vector3()).clone());
      for(const ids of seams)for(const i of ids)seamError=Math.max(seamError,posed[ids[0]].distanceTo(posed[i]));
      for(const i of bag)bagMotion=Math.max(bagMotion,rest[i].distanceTo(posed[i]));
@@ -41,9 +54,14 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
      }
     }
    }
-   draco.dispose();return {version:mesh.userData.continuousSurfaceVersion,seamGroups:seams.length,seamError,bagVertices:bag.length,bagMotion,maxEdgeRatio,samples};
+   // Legacy cloth colours must never multiply the authored sweater atlas.
+   doll.setLook({cloth:'#ff0000'});
+   const neutralMaterials=sleeves.every(s=>s.material.color.equals(new T.Color('#ffffff')));
+   const other=createTraveler(source,true,{outfit:'cardigan'});
+   const isolated=sleeves.every(s=>s.material!==other.root.getObjectByName(s.name).material);
+   draco.dispose();return {volumeError,neutralMaterials,isolated,version:mesh.userData.continuousSurfaceVersion,seamGroups:seams.length,seamError,bagVertices:bag.length,bagMotion,maxEdgeRatio,samples};
   });
   report.errors=errors;fs.writeFileSync(process.env.SURFACE_REPORT||'/tmp/cardigan-surface.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
-  if(!process.env.BASELINE){assert.equal(report.version,1);assert.ok(report.seamGroups>100);assert.ok(report.bagVertices>20);assert.ok(report.seamError<.0002,'UV seams must stay closed in every sampled pose');assert.ok(report.bagMotion<.01,'pouch front must remain on the torso');assert.deepEqual(errors,[]);}
+  if(!process.env.BASELINE){assert.equal(report.version,1);assert.ok(report.volumeError<.0001,'sleeve distances must preserve their full cross-section');assert.ok(report.neutralMaterials,'no legacy red tint');assert.ok(report.isolated);assert.ok(report.seamGroups>100);assert.ok(report.bagVertices>20);assert.ok(report.seamError<.0002,'UV seams must stay closed in every sampled pose');assert.ok(report.bagMotion<.01,'pouch front must remain on the torso');assert.deepEqual(errors,[]);}
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
