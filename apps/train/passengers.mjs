@@ -1,12 +1,12 @@
-import {restState} from './rest.mjs?v=fg-90623cddf5e68c9b';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-90623cddf5e68c9b';
+import {restState} from './rest.mjs?v=fg-f8143a96b488fdaa';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-f8143a96b488fdaa';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-90623cddf5e68c9b';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-90623cddf5e68c9b';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-90623cddf5e68c9b';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-f8143a96b488fdaa';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-f8143a96b488fdaa';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-f8143a96b488fdaa';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-90623cddf5e68c9b',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-f8143a96b488fdaa',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
  // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
  // 车厢前面那条过道（z≈0.6~1.5）是空的，所以路线一律：先走到过道→沿过道走到目标那一列→再走进去。
