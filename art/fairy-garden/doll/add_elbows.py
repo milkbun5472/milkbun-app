@@ -92,6 +92,7 @@ def add_elbows():
                     lower.add([v.index], weight * blend, 'REPLACE')
                     group.add([v.index], weight * (1 - blend), 'REPLACE')
     rig['elbowRig'] = {'version': 2, 'hands': {'left': [-.275, .40, 0], 'right': [.275, .40, 0]}}
+    runpy.run_path(str(Path(__file__).with_name('restore_cardigan_surface.py')))['restore_cardigan_surface']()
 
 
 def main():

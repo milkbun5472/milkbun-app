@@ -28,3 +28,13 @@ test('rabbit outfit owns coverage and restored source shoes without changing oth
  assert.equal(shoe.extras.outfit,'cardigan');assert.ok(shoe.skin!=null);
  assert.ok(gltf.nodes.filter(n=>n.extras?.outfit&&n.extras.outfit!=='cardigan').every(n=>!n.extras.skinCoverage&&!n.extras.coversFeetBelow));
 });
+
+test('rabbit garment retains a rebuilt continuous surface, lowered collar and six body morphs',()=>{
+ const shirt=gltf.nodes.find(n=>n.name==='outfit_cardigan');
+ assert.equal(shirt.extras.continuousSurfaceVersion,1);
+ assert.equal(shirt.extras.loweredCollarVersion,1);
+ const mesh=gltf.meshes[shirt.mesh];
+ assert.deepEqual(mesh.extras.targetNames,['height','shoulder','waist','flare','build','head']);
+ const triangles=mesh.primitives.reduce((n,p)=>n+gltf.accessors[p.indices].count/3,0);
+ assert.ok(triangles<=15500);
+});
