@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-f622fb65763d8df7';
-import {createWindowScenery} from './scenery.mjs?v=fg-f622fb65763d8df7';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-367961cd8d7e618c';
+import {createWindowScenery} from './scenery.mjs?v=fg-367961cd8d7e618c';
 export async function createCarriageView(host,{onZoom=()=>{},immersive=false}={}){
 const scene=new T.Scene();
 const renderer=new T.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
@@ -36,7 +36,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{pointers.set(e.pointerId,
 renderer.domElement.addEventListener('pointermove',e=>{const p=pointers.get(e.pointerId);if(!p)return;const next={x:e.clientX,y:e.clientY};if(pointers.size===1){az-=(next.x-p.x)*.007;el=T.MathUtils.clamp(el+(next.y-p.y)*.006,.06,1.5);}pointers.set(e.pointerId,next);if(pointers.size===2){const[a,b]=[...pointers.values()];const dist=Math.hypot(a.x-b.x,a.y-b.y);if(lastDistance&&dist)setZoom(zoom*lastDistance/dist);lastDistance=dist;}render();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])renderer.domElement.addEventListener(event,e=>{pointers.delete(e.pointerId);lastDistance=0;});
 renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom+e.deltaY*.001);},{passive:false});
-const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-f622fb65763d8df7',import.meta.url).href);asset=gltf.scene;
+const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-367961cd8d7e618c',import.meta.url).href);asset=gltf.scene;
  asset.traverse(o=>{if(o.isMesh){o.castShadow=o.userData.carriageGroup!=='WindowGlass';o.receiveShadow=true;if(o.userData.carriageGroup==='WindowGlass'){o.material.transparent=true;o.material.opacity=.10;o.material.depthWrite=false;}}});
  scene.add(asset);setShell(false);resize();setView('window');
  function syncLighting(){const light=scenery.lighting();hemi.intensity=light.ambient;sun.intensity=light.sun;sun.color.set(light.color);rim.intensity=.3+light.daylight*1.4;lamps.forEach(l=>l.intensity=light.lamps);}
