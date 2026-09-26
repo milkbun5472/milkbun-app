@@ -134,7 +134,7 @@ export function createTraveler(source,companion=false,look={}){
  const life=makeDollLife(root,model,rig,prop);
  // 手臂抬过肩（挥手、伸懒腰、举灯）时，肩膀那圈蒙皮撑不住，袖子会被撕开（她 2026-09-26 截图）。
  // 骨头上把抬手角度压一压：过了 1.2 弧度以后只走剩下的三成——动作还认得出，布料不再裂。
- const _e=new T.Euler(),_q=new T.Quaternion(),soft=a=>{const m=1.2,s=Math.sign(a),v=Math.abs(a);return v<=m?a:s*(m+(v-m)*.3);};
+ const _e=new T.Euler(),_q=new T.Quaternion(),soft=a=>{const m=.8,s=Math.sign(a),v=Math.abs(a);return v<=m?a:s*(m+(v-m)*.2);};
  const syncBones=()=>{for(const {p,label}of rig){const b=p.userData.bone;if(!b)continue;
   if(label.includes('Arm')){_e.copy(p.rotation);_e.x=soft(_e.x);_e.z=soft(_e.z);_q.setFromEuler(_e);b.quaternion.copy(_q).multiply(p.userData.rest);}
   else b.quaternion.copy(p.quaternion).multiply(p.userData.rest);}};
