@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-b6dcbc456b2edf7e", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e5c8c3ebf8b26e97", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -253,6 +253,9 @@
     return h(React.Fragment, null,
       h(DyeControl, { key: who + "skin", label: "肤色", value: game() && game().getDyes ? game().getDyes(who).skin : null,
         onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
+      // 眼睛颜色（她 2026-09-26）：庭院、列车、陪伴三处都走这一份控件，数据字段 eye
+      h(DyeControl, { key: who + "eye", label: "眼睛", value: game() && game().getDyes ? game().getDyes(who).eye : null,
+        onChange: eye => pushLook({ eye }), palette: ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"] }),
       h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },

@@ -1,11 +1,11 @@
-import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-b6dcbc456b2edf7e';
-import {validImage} from '../train/album.mjs?v=fg-b6dcbc456b2edf7e';
-import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-b6dcbc456b2edf7e';
-import {brewError,brewResult} from './brewing.mjs?v=fg-b6dcbc456b2edf7e';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-b6dcbc456b2edf7e';
-import './rules.js?v=fg-b6dcbc456b2edf7e';
+import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-e5c8c3ebf8b26e97';
+import {validImage} from '../train/album.mjs?v=fg-e5c8c3ebf8b26e97';
+import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-e5c8c3ebf8b26e97';
+import {brewError,brewResult} from './brewing.mjs?v=fg-e5c8c3ebf8b26e97';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-e5c8c3ebf8b26e97';
+import './rules.js?v=fg-e5c8c3ebf8b26e97';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-b6dcbc456b2edf7e';
+import {createNavigator} from './navigation.mjs?v=fg-e5c8c3ebf8b26e97';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -66,7 +66,7 @@ const count=(v,max=999999)=>Math.max(0,Math.min(max,Number.isFinite(Number(v))?M
 export function restoreLook(raw){
  const d=raw&&typeof raw==='object'?raw:{},out={};
  if(typeof d.hair==='string'&&/^[a-z]{2,16}$/.test(d.hair))out.hair=d.hair;
- for(const k of ['hairColor','hairColor2','cloth','skin'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
+ for(const k of ['hairColor','hairColor2','cloth','skin','eye'])if(typeof d[k]==='string'&&/^#[0-9a-fA-F]{6}$/.test(d[k]))out[k]=d[k];
  if(HAIR_MODES.some(m=>m[0]===d.hairMode))out.hairMode=d.hairMode;
  if(typeof d.face==='string'&&/^[a-z]{2,16}$/.test(d.face))out.face=d.face;
  if(KNOWN_OUTFITS.includes(d.outfit))out.outfit=d.outfit;

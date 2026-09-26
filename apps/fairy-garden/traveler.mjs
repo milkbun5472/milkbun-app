@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-b6dcbc456b2edf7e';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-b6dcbc456b2edf7e';
+import {makeDollLife} from './doll-life.mjs?v=fg-e5c8c3ebf8b26e97';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-e5c8c3ebf8b26e97';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -47,7 +47,7 @@ const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.
 function coveredSkinShader(o){
- const coverage={feet:{value:-1},torso:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)}};
+ const coverage={feet:{value:-1},torso:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},eye:{value:new T.Color()},eyeOn:{value:0}};
  if(!o.geometry.getAttribute('skinArmInfluence')){
   const weights=o.geometry.getAttribute('skinWeight'),indices=o.geometry.getAttribute('skinIndex'),values=new Float32Array(o.geometry.getAttribute('position').count);
   if(weights&&indices)for(let i=0;i<values.length;i++)for(let k=0;k<4;k++)if(/(?:Arm|Forearm)$/.test(o.skeleton.bones[indices.getComponent(i,k)]?.name||''))values[i]+=weights.getComponent(i,k);
@@ -55,11 +55,15 @@ function coveredSkinShader(o){
  }
  o.userData.skinCoverageUniforms=coverage;o.userData.coveredFeet=coverage.feet;
  const patch=m=>{m.onBeforeCompile=sh=>{
+  // 眼睛颜色：脸贴图的透明通道记着眼珠在哪（art/fairy-garden/doll/eye_mask.py：皮肤 1、眼珠中心 .5）。
+  //   直接把这一块换成选的颜色——不乘肤色，不然选的蓝眼睛会跟着肤色变深浅。
+  if(m.isMeshStandardMaterial||m.isMeshPhysicalMaterial){sh.uniforms.uEye=coverage.eye;sh.uniforms.uEyeOn=coverage.eyeOn;
+   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 uEye;uniform float uEyeOn;').replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,uEye,clamp((1.-sampledDiffuseColor.a)*2.,0.,1.)*uEyeOn);diffuseColor.a=1.;\n#endif');}
   sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;varying float vSkinArm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform vec4 uSleeve;uniform vec4 uArmAxis;')
    .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif(vSkinRest.y<uCoveredFeet || (vSkinRest.y<uCoveredTorso && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
- };m.customProgramCacheKey=()=>'coveredSkin-v1';};
+ };m.customProgramCacheKey=()=>'coveredSkin-v2';};
  patch(o.material);
  o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
  o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
@@ -111,7 +115,10 @@ export function createTraveler(source,companion=false,look={}){
    if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);
-   const face=FACE_ID.test(look.face||'')&&look.face!=='default'?faceTexture(look.face):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
+   const eye=/^#[0-9a-fA-F]{6}$/.test(look.eye||'')&&look.eye.toLowerCase()!==DEFAULT_EYE?look.eye:null,cov=o.userData.skinCoverageUniforms;
+   if(cov){cov.eyeOn.value=eye?1:0;if(eye)cov.eye.value.set(eye);}
+   // 换了眼睛颜色时默认脸也走 faces/default.webp：模型自带那张贴图没有眼珠遮罩
+   const face=FACE_ID.test(look.face||'')&&(look.face!=='default'||eye)?faceTexture(look.face||'default'):eye?faceTexture('default'):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
   if(o.userData.slotDye)dyeOutfit(o,colors);if(o.userData.outfit)o.visible=o.userData.outfit===id;if(o.userData.colorSlot)o.material.color.set(colors[o.userData.colorSlot]);});};
  dress(want);
  const applyDims=dims=>{dims=dims||{};model.traverse(o=>{if(!o.isMesh||!o.morphTargetDictionary||!o.morphTargetInfluences)return;

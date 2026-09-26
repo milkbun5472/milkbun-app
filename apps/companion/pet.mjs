@@ -3,10 +3,10 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-b6dcbc456b2edf7e';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-b6dcbc456b2edf7e';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-b6dcbc456b2edf7e';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-b6dcbc456b2edf7e';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-e5c8c3ebf8b26e97';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-e5c8c3ebf8b26e97';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-e5c8c3ebf8b26e97';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-e5c8c3ebf8b26e97';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -30,7 +30,7 @@ let ctx={screen:'',music:false,idle:false},sleeping=false;
 function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle};if(was&&!ctx.idle)wake();}
 // 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
 // 清晰靠整页的 2K 脸和按屏幕像素比渲染。
-const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-b6dcbc456b2edf7e');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
+const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-e5c8c3ebf8b26e97');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
 parent.postMessage({type:'pet-ready'},'*');
 // 每种心情一套待机动作（她 2026-09-26：「做每一个心情的专属动作」）。
 // 动作本身都是庭院那几个（挥手、伸懒腰、喝茶、看书、坐下、迈步），这里只管【什么心情、隔多久、配什么身段】。
@@ -87,7 +87,7 @@ r.setAnimationLoop(()=>{const t=clock.getElapsedTime();
  if(held){dy=.12+Math.sin(t*9)*.01;dtilt=0;pet.root.rotation.z=Math.sin(t*5)*.18;gesture='rest';}else pet.root.rotation.z=0;   // 被拎起来晃
  if(sleeping&&!act){seated=true;dtilt=.22+Math.sin(t*1.3)*.015;}                        // 趴着睡，一起一伏
  else if(!act&&!held){if(CHAT.includes(ctx.screen)){dtilt=.08;dyaw=-.35;}else if(QUIET.includes(ctx.screen))seated=true;}
- if(ctx.music&&!sleeping&&!held)dtilt+=Math.sin(t*Math.PI*2*1.6)*.035;               // 放着歌就跟着点头                                                    // 别过脸去
+ if(ctx.music&&!sleeping&&!held)dtilt+=Math.sin(t*Math.PI*2*.55)*.03;               // 放着歌就跟着慢慢点头（她 2026-09-26：原来一秒 1.6 下「晃得有点快」）                                                    // 别过脸去
  const b=M.base(t);sitB+=((seated?1:0)-sitB)*Math.min(1,(t-lastT)*9);lastT=t;   // 坐下时庭院会把人往下放 .34（坐到凳子上），这里没凳子：抬回来坐在画面里
  pet.animate(t,{gesture,progress,height:b.y+dy+sitB*.3,moving,seated});
  pet.root.rotation.y=yaw+b.yaw+dyaw;pet.root.rotation.x=b.tilt+dtilt;r.render(sc,cam);});

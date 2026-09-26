@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-b6dcbc456b2edf7e';
+import {OUTFITS} from './outfits.mjs?v=fg-e5c8c3ebf8b26e97';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -13,7 +13,9 @@ export const HAIR_MODES=[['solid','单色'],['gradient','渐变'],['split','拼�
 const HAIR_MODE_IDS=HAIR_MODES.map(m=>m[0]);
 export const hairModeOf=look=>HAIR_MODE_IDS.includes(look?.hairMode)?look.hairMode:'solid';
 // 庭院和列车的 getDyes 都问这一处（以前两边各写一份，只有发色一个字段时还看不出来）。
-export function dyesOf(look={},defaults={}){const hairColor=look.hairColor||defaults.hairColor;return {skin:look.skin||defaults.skin,hairColor,hairColor2:look.hairColor2||hairColor,hairMode:hairModeOf(look)};}
+// 眼睛颜色（她 2026-09-26）：十张脸的眼珠原本都是这一个棕；没选过就是它，画面上一点不变。
+export const DEFAULT_EYE='#5d4435';
+export function dyesOf(look={},defaults={}){const hairColor=look.hairColor||defaults.hairColor;return {skin:look.skin||defaults.skin,eye:look.eye||DEFAULT_EYE,hairColor,hairColor2:look.hairColor2||hairColor,hairMode:hairModeOf(look)};}
 // 旧衣柜的六套 ID 和四个色槽：模型里暂时没有它们，但存档里的选择和配色【照留】，
 // 不然读档体检一过就把她调过的色静默丢了（world.restoreLook 只认这里认得的 ID）。
 const LEGACY_OUTFITS=['traveler','academy','garden','alchemist','ranger','cardigan'],LEGACY_SLOTS=['cloth','trim','bottom','boots'];
