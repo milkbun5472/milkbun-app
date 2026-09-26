@@ -1,8 +1,8 @@
-import {restState} from './rest.mjs?v=fg-087b4806a689f942';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/environment.mjs?v=fg-087b4806a689f942';
-import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-087b4806a689f942';
-import {destinationState} from '../../art/train-carriage/destinations.mjs?v=fg-087b4806a689f942';
-import '../fairy-garden/rules.js?v=fg-087b4806a689f942';
+import {restState} from './rest.mjs?v=fg-5d71419a569e48bd';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/environment.mjs?v=fg-5d71419a569e48bd';
+import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-5d71419a569e48bd';
+import {destinationState} from '../../art/train-carriage/destinations.mjs?v=fg-5d71419a569e48bd';
+import '../fairy-garden/rules.js?v=fg-5d71419a569e48bd';
 const {seasonOf,weather}=globalThis.FairyGardenRules;
 export const ROUTE_ORDER=['forest','country','coast'];
 export const ROUTE_LENGTH=160;
