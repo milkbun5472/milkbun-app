@@ -5,7 +5,7 @@ export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',c
 export const COMPANION_LOOK={skin:DEFAULT_SKIN,hair:'airbang',hairColor:'#5b4436',cloth:'#729786'};
 // v2 娃娃（她 2026-09-25 选的 B：直接替换）只有四款发型、一套衣服；ID 沿用旧存档里的名字。
 // 旧存档里其余的发型／衣服 ID 在这【一处】换成最接近的新款——存档本身不改，以后补回同名款式就自动认回去。
-export const HAIR_ALIAS={wolf:'korean',mullet:'curtains',comma:'curtains',pixie:'korean',hush:'bob',wavy:'airbang',bun:'bob',ponytail:'airbang'};
+export const HAIR_ALIAS={wolf:'korean',mullet:'curtains',comma:'curtains',hush:'bob',wavy:'airbang',bun:'bob',ponytail:'airbang'};
 export const hairId=h=>HAIR_ALIAS[h]||h;
 // 发色花样（她 2026-09-25 要的渐变和拼色）：solid 单色 / gradient 上下渐变（发根主色→发尾副色）/
 // split 左右拼色 / streak 挑染（一缕缕副色）。副色没选过时和主色同色，于是任何模式都等于单色、不会突然变样。

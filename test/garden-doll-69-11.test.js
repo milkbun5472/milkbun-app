@@ -44,8 +44,8 @@ test('枢轴由新模型导出，随同一套体型形变更新', () => {
   assert.match(clay, /q=deform\(p,dummy,key\)-p/);
 });
 
-test('发型是数据不是一堆模型，存档能指定样貌（v2 四款，旧 ID 走 wardrobe.mjs 的 HAIR_ALIAS）', () => {
-  assert.match(trav, /export const HAIR_STYLES=\['korean','curtains','airbang','bob'\]/);
+test('发型是数据不是一堆模型，存档能指定样貌（v2 各款，旧 ID 走 wardrobe.mjs 的 HAIR_ALIAS）', () => {
+  assert.match(trav, /export const HAIR_STYLES=\['korean','curtains','airbang','bob','pixie'\]/);
   const labels = JSON.parse(rd('art/fairy-garden/hairstyles.json'));
   const runtime = trav.match(/HAIR_STYLES=\[([^\]]+)\]/)[1].split(',').map(s => s.trim().replace(/'/g, ''));
   assert.deepEqual(runtime.slice().sort(), Object.keys(labels).sort(), '运行时那份名单和美术目录对不上');

@@ -16,7 +16,7 @@ from mathutils import Vector
 HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,'web')
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
-HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb'}
+HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
 OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb'}
 # per outfit: which colour slots exist (a dress has no separate 'bottom'), shoe colour
 OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25')}

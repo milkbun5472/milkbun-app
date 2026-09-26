@@ -5,7 +5,7 @@ import * as T from 'three';
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
 // ⚠️名字里不能带点：GLTFLoader 会把节点名里的点洗掉，hair.korean 到网页里就认不出来了。
 // ⚠️不要改回 traveler.glb——那一份是 art/fairy-garden 那套脚本自己的输入（doll_hair.SRC 读它）。
-export const HAIR_STYLES=['korean','curtains','airbang','bob'];
+export const HAIR_STYLES=['korean','curtains','airbang','bob','pixie'];
 // 体型：六个参数以 1 为中性。形变规则只写在 clay_doll.deform 里，导出成形态键；
 // 这儿只把「值 - 1」送进 morphTargetInfluences，和 Blender 那边同一个算法。
 // ⚠️不要在这儿再实现一遍形变——那就是同一层活在两处。
