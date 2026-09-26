@@ -74,7 +74,7 @@
 - **肤色**：身体 extras `skinBase` 是贴图自己的肤色，运行时材质颜色＝选的肤色 ÷ skinBase，眼睛腮红跟着一起变深浅。
 - **鞋**：Hunyuan 的学院背心没生成鞋，`make_shoes()` 复制娃娃自己脚踝以下（`SHOE_Z=.085`），沿法线鼓出一点、鞋底压平，同一套骨骼权重，纯色走 `boots` 色槽。
 - **衣服配色**：每个面按自己贴图的颜色分到四格（衣服主色 / 衬衫领边 / 裤子 / 领带点缀），格子号存在顶点色里；运行时按「选的颜色 ÷ 这一格原色」上色，针织纹和褶子都留着。
-- **C02 背带连衣裙**（ID 沿用旧的 `garden`）：`PAINT_COLLAR=.675 COLLAR_OUT=.012 COLLAR_Z=.64 STRAP_OUT=.006 CRUMB=0 SLEEVE_LUM=.45 GAP_TOP=.001 GAP_TOP_Z=.6 CONFORM_TOP=.72 PAINT_XMIN=.19 UNDER_TEX=1 PAINT_ARM=.7 SLEEVE_K=.35 ARM_SKIP=1 UREACH=.3 SKIRT_K=.25 UNDER=1 S=.58 SY=1.2 Z0=.185 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c02-shell.glb v2/outfits/outfit_c02.glb`。
+- **C02 背带连衣裙**（ID 沿用旧的 `garden`）：`PAINT_XMIN=.145 COLLAR_LUM=.9 PAINT_COLLAR=.675 COLLAR_OUT=.012 COLLAR_Z=.64 STRAP_OUT=.006 CRUMB=0 SLEEVE_LUM=.45 GAP_TOP=.001 GAP_TOP_Z=.6 CONFORM_TOP=.72 UNDER_TEX=1 PAINT_ARM=.7 SLEEVE_K=.35 ARM_SKIP=1 UREACH=.3 SKIRT_K=.25 UNDER=1 S=.58 SY=1.2 Z0=.185 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c02-shell.glb v2/outfits/outfit_c02.glb`。
   - `ARM_SKIP=1`：袖子不做贴合（贴合会把裙子里衬推到袖子表面，出现棕色斑），保持原来粗细；手臂穿出来的地方由衬衫色底衣（`UREACH` 盖到上臂）遮住。`CONFORM_TOP=.55` 同理不贴合领子。
   - `SKIRT_K=.25`：裙摆只跟腿走四分之一，其余跟身体，走路不会裂成两片。
   - 袖子和学院背心一样缩短 35%；缩短后露出来的深色里衬由 `PAINT_ARM` 直接涂成衬衫色（手臂上方、`PAINT_ZMIN=.46` 以上的深色面改指向袖子的浅色贴图），小熊包不受影响。`SLEEVE_ZMIN=.33`：裙片虽然宽，但不算袖子。

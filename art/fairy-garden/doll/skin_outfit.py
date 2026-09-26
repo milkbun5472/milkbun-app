@@ -146,7 +146,8 @@ if E('PAINT_ARM',0):
     if E('PAINT_COLLAR',0):
         for f in bm2.faces:
             if f.material_index==0 and f.calc_center_median().z>E('PAINT_COLLAR',0):
-                c=np.mean([col(l[uvl].uv) for l in f.loops],0);arm_faces.append((f,c))
+                c=np.mean([col(l[uvl].uv) for l in f.loops],0)
+                if c.mean()<E('COLLAR_LUM',.7):arm_faces.append((f,np.zeros(3)))   # collar specks are lighter: own cutoff
     for f,c in arm_faces:
         if c.mean()<E('PAINT_ARM',.55):
             for l in f.loops:l[uvl].uv=target
