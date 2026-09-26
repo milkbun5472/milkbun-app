@@ -180,6 +180,9 @@ function isSyntheticUserText(text) {
   const t = String(text || "");
   // harness 的安全通告以 user 角色注入、无标签壳，不是 Lisa 的话（2026-09-25 气泡事故）。
   if (/^\s*Your response above was stopped by a safety classifier/i.test(t)) return true;
+  // 压缩接续文以 user 角色注入（摘要+continue 指令），不是 Lisa 的话（2026-09-26 气泡事故）。
+  if (/This session is being continued from a previous conversation/i.test(t)) return true;
+  if (/^\s*Continue the conversation from where it left off/i.test(t)) return true;
   return /^\s*<(?:task-notification|system-reminder|cross-session-message|local-command|command-name|teammate-message)\b/i.test(t);
 }
 
