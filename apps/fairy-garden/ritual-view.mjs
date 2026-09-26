@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {createRitual} from './ritual.mjs?v=fg-7b18afc24fec577f';
-import {SPELLS,SPELL_PLACES} from './world.mjs?v=fg-7b18afc24fec577f';
+import {createRitual} from './ritual.mjs?v=fg-d8bdabe9d782b029';
+import {SPELLS,SPELL_PLACES} from './world.mjs?v=fg-d8bdabe9d782b029';
 export function makeRitualView({scene,camera,onClose}){
  const root=new T.Group();root.visible=false;scene.add(root);const glyph=new T.Group();root.add(glyph);
  const material=new T.LineBasicMaterial({color:'#cfb9fa',transparent:true,opacity:.85,depthTest:false,depthWrite:false});
