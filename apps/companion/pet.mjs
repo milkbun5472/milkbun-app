@@ -3,10 +3,10 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-7566a21ac84dc6e1';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-7566a21ac84dc6e1';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-7566a21ac84dc6e1';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-7566a21ac84dc6e1';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-4f889e12f6d059da';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-4f889e12f6d059da';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-4f889e12f6d059da';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-4f889e12f6d059da';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -30,7 +30,7 @@ let ctx={screen:'',music:false,idle:false},sleeping=false;
 function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle};if(was&&!ctx.idle)wake();}
 // 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
 // 清晰靠整页的 2K 脸和按屏幕像素比渲染。
-const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-7566a21ac84dc6e1');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
+const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-4f889e12f6d059da');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
 parent.postMessage({type:'pet-ready'},'*');
 // 每种心情一套待机动作（她 2026-09-26：「做每一个心情的专属动作」）。
 // 动作本身都是庭院那几个（挥手、伸懒腰、喝茶、看书、坐下、迈步），这里只管【什么心情、隔多久、配什么身段】。
