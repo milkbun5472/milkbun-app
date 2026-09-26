@@ -147,6 +147,28 @@ if E('UNDER',0):
     for pl in U.polygons:pl.material_index=1
     # remap: after join, materials unify by slot object; simplest: join then fix
     bpy.ops.object.join()
+    # UNDER_TEX: the under-layer takes the outfit's own material and a real fabric texel (the one closest to
+    # the median colour of the pieces over the upper arm), so it has the same colour and shade as the
+    # garment instead of a flat stand-in ('肉眼还是看得出来下面垫了一层粉色').
+    if E('UNDER_TEX',0):
+        import bmesh as _bm
+        im=next(n.image for n in C.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE');W_,H_=im.size;tx=np.array(im.pixels[:]).reshape(H_,W_,4)[:,:,:3]
+        b3=_bm.new();b3.from_mesh(C.data);b3.faces.ensure_lookup_table();uv3=b3.loops.layers.uv.active
+        SH3=np.array([.165,0,.655])
+        cand=[]
+        for f in b3.faces:
+            if f.material_index!=0:continue
+            c3=f.calc_center_median()
+            if abs(c3.x)>.17 and .45<c3.z<.66 and np.hypot(abs(c3.x)-SH3[0],c3.z-SH3[2])<.15:
+                u=f.loops[0][uv3].uv;cand.append((tx[min(H_-1,int(u[1]*H_)),min(W_-1,int(u[0]*W_))],u.copy()))
+        if cand:
+            med=np.median([c for c,_ in cand],0);uvt=min(cand,key=lambda t:((t[0]-med)**2).sum())[1]
+            for f in b3.faces:
+                if f.material_index==1:
+                    f.material_index=0
+                    for l in f.loops:l[uv3].uv=uvt
+            b3.to_mesh(C.data);print('under-layer textured',len(cand))
+        b3.free()
 for g in B.vertex_groups:C.vertex_groups.new(name=g.name)
 dt=C.modifiers.new('w','DATA_TRANSFER');dt.object=B;dt.use_vert_data=True;dt.data_types_verts={'VGROUP_WEIGHTS'}
 dt.vert_mapping='POLYINTERP_NEAREST';dt.layers_vgroup_select_src='ALL';dt.layers_vgroup_select_dst='NAME'
