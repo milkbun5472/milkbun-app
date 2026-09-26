@@ -331,7 +331,7 @@
             h("input", { value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 } }))),
         h("p", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8, color: W.fog, margin: "14px 4px" } },
           mode === "file" ? "TA 看不到画面本身，只读得到字幕；想让 TA 看画面的时候，放映时点「给 TA 看这一帧」（要你用的模型能识图）。"
-            : "网上的片子 TA 读不到它的字幕，也截不了画面。想让 TA 跟着台词看，就把字幕导出成 srt 放进上面那一格。"),
+            : "网上的片子 TA 读不到它的字幕，这边也截不了它的画面。想让 TA 跟着台词看，就把字幕导出成 srt 放进上面那一格；想让 TA 看画面，放映时用手机截屏，再点「＋ → 发张截图给 TA」。"),
         h("div", { style: { display: "flex", justifyContent: "center", marginTop: 8 } },
           btn(busy ? "正在存进手机…" : "开场", go, { primary: true, disabled: !ready || busy, style: { padding: "0 36px" } }))));
   }
@@ -560,14 +560,28 @@
       pushTalk([{ role: "user", content: v, at: at, ts: Date.now() }]); setTxt("");
       ask("reply", v);
     };
+    // 给 TA 看一张图：本地片子直接截这一帧；网上的片子截不到（浏览器不让），
+    // 就让她用手机自己截屏、从相册选一张发过来（她 2026-09-26：「加吧宝宝」）。两条路后面是同一段。
     const showFrame = () => {
       const v = vRef.current; if (!v || busy) return;
       const full = grabFrame(v, 768), thumb = grabFrame(v, 240);
       if (!full) { props.toast && props.toast("这一帧截不下来"); return; }
+      sendPic(full, thumb, v.currentTime);
+    };
+    const picRef = useRef(null);
+    const onPickPic = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f || busy) return;
+      try {
+        const full = await resizeImageFile(f, 768, 0.8), thumb = await resizeImageFile(f, 240, 0.75);
+        sendPic(full, thumb, vRef.current ? vRef.current.currentTime : 0);
+      } catch (err) { props.toast && props.toast("这张图读不出来，换一张试试"); }
+    };
+    const sendPic = (full, thumb, at) => {
       const say = txt.trim(); setTxt("");
       // 缩略图只留最近几张，别把存档撑大
       patchFilm(id, f => {
-        let talk = (f.talk || []).concat([{ role: "user", content: say, at: v.currentTime, ts: Date.now(), frame: thumb }]).slice(-TALK_KEEP);
+        let talk = (f.talk || []).concat([{ role: "user", content: say, at: at, ts: Date.now(), frame: thumb }]).slice(-TALK_KEEP);
         let keep = FRAME_THUMBS;
         for (let i = talk.length - 1; i >= 0; i--) { if (talk[i].frame) { if (keep > 0) keep--; else talk[i] = Object.assign({}, talk[i], { frame: "gone" }); } }
         return { talk: talk };
@@ -669,7 +683,10 @@
         //   跟聊天的加号面板一个意思，平时不占地方，要用才展开在输入框上面
         toolsOpen && h("div", { style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(31,28,38,.96)" } },
           h("div", { className: "flex items-center gap-2", style: { padding: "10px 12px 2px", overflowX: "auto" } },
-          online ? null : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
+          online
+            ? [btn("发张截图给 TA", () => picRef.current && picRef.current.click(), { disabled: busy }),
+               h("input", { key: "pic", ref: picRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: onPickPic })]
+            : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           btn("影院模式", enterCinema, { disabled: missing || playErr }),
           h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),

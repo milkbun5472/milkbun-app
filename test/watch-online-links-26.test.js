@@ -33,5 +33,7 @@ test("B 站播放器地址：av 走 aid，BV 走 bvid，不自动播，续看带
 test("放映页：B 站那块表只改我们的表，不重载她那边的播放器", () => {
   assert.match(src, /const \[biliUrl\] = useState\(\(\) => film && film\.source === "bilibili" \? biliSrc\(film, film\.pos \|\| 0\) : ""\);/);
   assert.match(src, /h\("iframe", \{ src: biliUrl,/);
-  assert.match(src, /online \? null : btn\("给 TA 看这一帧"/, "网上的片子截不了画面，这颗按钮不该出现");
+  assert.match(src, /btn\("发张截图给 TA", \(\) => picRef\.current && picRef\.current\.click\(\)/, "网上的片子要能从相册发截图");
+  assert.match(src, /: btn\("给 TA 看这一帧", showFrame/, "本地片子照旧直接截帧");
+  assert.equal((src.match(/sendPic\(full, thumb,/g) || []).length, 2, "截帧和相册两条路要走同一段 sendPic");
 });
