@@ -4,7 +4,8 @@ const assert=require('node:assert/strict');
  const page=await browser.newPage({viewport:{width:390,height:700}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto((process.env.COMPANION_TEST_URL||'http://127.0.0.1:18938')+'/apps/companion/');await page.waitForFunction(()=>window.petDebug);
  const moods=['default','happy','amazed','cozy','relax','surprise','proud','gloomy','sad','irritated'];
- for(const face of moods){await page.evaluate(face=>postMessage({type:'pet-look',look:{face},ta:'Test'},'*'),face);await page.waitForTimeout(180);}
+ for(const face of moods){await page.evaluate(face=>postMessage({type:'pet-look',look:{face},ta:'Test'},'*'),face);await page.waitForTimeout(180);await page.evaluate(face=>petDebug.play('emotion-'+face,.4),face);await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>petDebug.snapshot().emotion),face);}
+ await page.evaluate(()=>postMessage({type:'pet-look',look:{face:'happy'},ta:'Test'},'*'));await page.waitForTimeout(120);await page.mouse.click(190,350);await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>petDebug.snapshot().action),'emotion-happy');
  for(const kind of ['wave','stretch','hop','jolt','nod','sigh','stomp','turn','look','shy','yawn','wake','land','tea','read','sit']){
   await page.evaluate(kind=>petDebug.play(kind,.4),kind);await page.waitForTimeout(100);
  }
