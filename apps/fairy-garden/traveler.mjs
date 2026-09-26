@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-49f90405374c868f';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-49f90405374c868f';
+import {makeDollLife} from './doll-life.mjs?v=fg-f304868a413be294';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-f304868a413be294';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -55,7 +55,9 @@ export function createTraveler(source,companion=false,look={}){
  // 不重绑的话两个人共用一副骨架、谁也动不了。按骨头名字在自己这份里重新找一遍。
  // 多材质的网格在 GLTFLoader 里是「一个 Group + 几个子网格」，extras 和名字挂在 Group 上，往下传给子网格。
  model.traverse(o=>{if(!o.isMesh)return;const g=o.parent;if(g&&!o.userData.outfit&&!o.userData.hair&&(g.userData.outfit||g.userData.hair)){Object.assign(o.userData,g.userData);o.name=g.name;}
-  if(o.isSkinnedMesh)o.bind(new T.Skeleton(o.skeleton.bones.map(b=>model.getObjectByName(b.name)),o.skeleton.boneInverses),o.bindMatrix);});
+  // ⚠️boneInverses 也要各自一份：Skeleton 收的是【同一个数组】，体型重绑时 calculateInverses 会原地改它，
+  //   不复制的话一个人换体型，所有小人的骨架都被改掉（她 2026-09-25：「中间那个大只的也太奇怪了」）。
+  if(o.isSkinnedMesh)o.bind(new T.Skeleton(o.skeleton.bones.map(b=>model.getObjectByName(b.name)),o.skeleton.boneInverses.map(m=>m.clone())),o.bindMatrix);});
  // ⚠️clone(true) 只克隆节点，【材质仍然是同一份】：不给每个实例各一份，
  //   改一个人的发色，另一个人的头发会跟着一起变（美术脚本那头也踩过同一个坑）。
  const isHair=o=>/^hair[._]/i.test(o.name),hairName='hair_'+style;

@@ -19,7 +19,7 @@ test('v2 rig: bones carry the runtime pivot names and the pivots ride along in e
 });
 test('runtime rebinds cloned skins and drives bones from the pivot groups',()=>{
  const trav=read('./traveler.mjs').toString();
- assert.match(trav,/o\.bind\(new T\.Skeleton\(o\.skeleton\.bones\.map\(b=>model\.getObjectByName\(b\.name\)\)/);
+ assert.match(trav,/o\.bind\(new T\.Skeleton\(o\.skeleton\.bones\.map\(b=>model\.getObjectByName\(b\.name\)\),o\.skeleton\.boneInverses\.map\(m=>m\.clone\(\)\)\)/);
  assert.match(trav,/const syncBones=\(\)=>/);assert.match(trav,/life\.update\([^)]*\);syncBones\(\);/);
 });
 test('shape controls expose names, live values and reset without altering page layout',()=>{
