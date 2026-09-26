@@ -1,7 +1,8 @@
-"""Add elbow joints to the assembled doll without changing its rest shape or outfit design.
+"""Add elbow joints and apply shared garment repairs to the assembled doll.
 Run: Blender --background --python add_elbows.py -- input.glb output.glb
 Sleeve islands first regain nearby skin weights; the resulting arm weights are split
-between upper arm and forearm. Rest geometry, UVs and morphs stay intact.
+between upper arm and forearm. The rabbit collar is lowered by its dedicated
+authoring step; other rest geometry, UVs and morphs stay intact.
 """
 import bpy, sys
 from mathutils import Vector
@@ -9,6 +10,10 @@ def add_elbows():
     rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
     if rig.get('elbowRig'):
         raise RuntimeError('Elbows already present; use the original assembled doll')
+    import runpy
+    from pathlib import Path
+    repair = runpy.run_path(str(Path(__file__).with_name('repair_cloth_binding.py')))
+    repair['repair_inner_wrists']()
     meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.vertex_groups]
     # Earlier shell preparation pinned small sleeve islands to the torso solely
     # because their own bounding box was narrow. Restore nearby skin weights in
@@ -28,6 +33,10 @@ def add_elbows():
         return u*u*(3-2*u)
     for mesh in meshes:
         if not mesh.get('outfit') or mesh.get('colorSlot') == 'boots':
+            continue
+        if mesh.get('outfit') == 'cardigan':
+            if mesh.name == 'outfit_cardigan':
+                repair['repair_cardigan'](mesh, body)
             continue
         groups = {g.name:g for g in mesh.vertex_groups}
         for v in mesh.data.vertices:
@@ -82,13 +91,17 @@ def add_elbows():
                 if blend:
                     lower.add([v.index], weight * blend, 'REPLACE')
                     group.add([v.index], weight * (1 - blend), 'REPLACE')
-    rig['elbowRig'] = {'version': 1, 'hands': {'left': [-.275, .40, 0], 'right': [.275, .40, 0]}}
+    rig['elbowRig'] = {'version': 2, 'hands': {'left': [-.275, .40, 0], 'right': [.275, .40, 0]}}
+    runpy.run_path(str(Path(__file__).with_name('restore_cardigan_surface.py')))['restore_cardigan_surface']()
 
 
 def main():
     src, out = sys.argv[sys.argv.index('--') + 1:]
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=src)
+    import runpy
+    from pathlib import Path
+    runpy.run_path(str(Path(__file__).with_name('restore_cardigan_shoes.py')))['restore_cardigan_shoes']()
     add_elbows()
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True,

@@ -16,8 +16,11 @@ const ONLINE = engine.match(/const ONLINE_CHAT_RULE_V2 = `([\s\S]*?)`;/)[1];
 //   群聊任务句 = 「你在导演一个群聊」  → 你在旁边写他
 
 test("群聊的任务句不许再把模型放在导演位上", () => {
-  const i = app.indexOf("else dir =");
-  const line = app.slice(i, i + 220);
+  // v74.112 起站位收进 engine 的 groupStageLine（群线上/群线下共用那一份），
+  // app 这头只剩一句 groupStageLine({...})——锚跟着代码走。
+  const i = engine.indexOf("function groupStageLine(opts)");
+  const line = engine.slice(i, engine.indexOf("\n}", i));
+  assert.ok(i > 0, "抠不出 groupStageLine");
   assert.doesNotMatch(line, /导演/, "「你在导演一个群聊」正是问题本身");
   assert.match(line, /也是群里的一员/);
 });
@@ -88,8 +91,9 @@ test("这条刀群线上群线下都挂上了", () => {
 // 「彼此不熟就照不熟来」以前只活在 asPrivate（两人旁观局）那一支里，
 // 普通群一个字都吃不到——又是「这一层当初只写在一处」。
 test("旧的 asPrivate 那份还在，但普通群不再靠它", () => {
-  const i = app.indexOf("if (asPrivate) dir =");
-  assert.match(app.slice(i, i + 700), /萍水相逢/, "两人旁观局那份别删");
+  const i = engine.indexOf("const SPECTATE_PAIR_NOTE");
+  assert.ok(i > 0, "抠不出 SPECTATE_PAIR_NOTE");
+  assert.match(engine.slice(i, engine.indexOf("\n", i)), /萍水相逢/, "两人旁观局那份别删");
 });
 
 // v55.91 加完这条之后她报「阿朝阿暮也很怪了」：
