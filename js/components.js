@@ -7515,11 +7515,11 @@ function MomentsFeed({
     const authorName = isMine ? profile.name || "我" : c.remark || c.name;
     return /*#__PURE__*/React.createElement("div", {
       key: m.id,
-      className: "px-5 py-4 flex gap-3",
+      className: "px-5 py-4 flex items-start gap-3",
       style: {
         borderBottom: `1px solid ${t.line}`
       }
-    }, (!isMine && c && onOpenProfile) ? h("button", { onClick: () => onOpenProfile(c.id), className: "shrink-0 active:opacity-70" }, h(Avatar, { character: author, size: 40, radius: 9 })) : /*#__PURE__*/React.createElement(Avatar, {
+    }, (!isMine && c && onOpenProfile) ? h("button", { onClick: () => onOpenProfile(c.id), className: "shrink-0 self-start active:opacity-70" /* 按钮会被撑满整条动态的高、把头像挤到中间；贴顶，跟名字齐平（她 2026-09-26） */ }, h(Avatar, { character: author, size: 40, radius: 9 })) : /*#__PURE__*/React.createElement(Avatar, {
       character: author,
       size: 40,
       radius: 9
