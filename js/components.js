@@ -10520,6 +10520,24 @@ function routeCallAudio(owner, mode) {
     if (!modes.length) { state.previous = null; state.last = null; }
   } catch (e) {} // 部分 WebView 暴露只读/不完整 API，不应因此阻断手动播放。
 }
+// 语音消息、试听、念出来、一起看的片子：放的时候都走「媒体」通道（2026-09-26，别人报「试听显示在播却听不到」）。
+// iPhone 上网页里的声音默认跟着侧边静音键走——拨到静音，播放照样「成功」，只是一点声音都没有。
+// 通话早就这样切了（routeCallAudio），这里让所有 <audio>/<video> 也走同一处：开始放就切到 playback，停了或放完就还回去。
+(function routeAllMedia() {
+  try {
+    if (typeof HTMLMediaElement === "undefined" || !navigator.audioSession || HTMLMediaElement.prototype.__routedPlay) return;
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      try {
+        const el = this, off = () => { routeCallAudio(el, null); el.removeEventListener("pause", off); el.removeEventListener("ended", off); };
+        routeCallAudio(el, "playback");
+        el.addEventListener("pause", off); el.addEventListener("ended", off);
+      } catch (e) {}
+      return play.apply(this, arguments);
+    };
+    HTMLMediaElement.prototype.__routedPlay = true;
+  } catch (e) {}
+})();
 // 必须从拨打/接听的同步点击栈调用，先选媒体通道 + resume + 静音帧。
 function prepareCallAudio(existing, mode = "playback") {
   let ctx = existing;
