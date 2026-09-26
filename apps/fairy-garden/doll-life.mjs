@@ -1,9 +1,9 @@
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-d8bdabe9d782b029';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-62c9f6e29466f4a7';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
-export function makeDollLife(root,model,rig,book){
+export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  const group=new T.Group();group.name='DailyActionProps';model.add(group);
  const mat=c=>new T.MeshStandardMaterial({color:c,roughness:.8});const metal=mat('#88a99d'),cream=mat('#ede0c3'),tea=mat('#875b3e');
  function mesh(parent,g,m,x=0,y=0,z=0){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;parent.add(o);return o;}
@@ -26,7 +26,7 @@ export function makeDollLife(root,model,rig,book){
  const hands={};model.traverse(o=>{if(o.isMesh&&/^(Left|Right).hand/i.test(o.name))hands[o.name.startsWith('Left')?'left':'right']=o;});
  const feet=[];model.traverse(o=>{if(o.isMesh&&(/Rounded.boots/i.test(o.name)||o.userData.colorSlot==='boots'))feet.push(o);});
  const box=new T.Box3(),v=new T.Vector3(),tip=new T.Vector3();
- function handPoint(side='right'){model.updateWorldMatrix(true,true);return box.setFromObject(hands[side],true).getCenter(new T.Vector3());}
+ function handPoint(side='right'){syncPose();model.updateWorldMatrix(true,true);return box.setFromObject(hands[side],true).getCenter(new T.Vector3());}
  const arms=Object.fromEntries(rig.map(x=>[x.label,x.p]));
  function atHand(prop,side='right'){prop.position.copy(model.worldToLocal(handPoint(side)));}
  return {handPoint,update(time,{gesture='rest',progress=0,moving=false,seated=false,height=.08}={}){
@@ -44,7 +44,7 @@ export function makeDollLife(root,model,rig,book){
    arms.rightArm.rotation.z=Math.sin(p*Math.PI*6)*.22*envelope;
    model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=.35*envelope;});
    // Pin visible soles to the floor while lowering the hips, including morphed bodies and different boots.
-   model.updateWorldMatrix(true,true);let bottom=Infinity;for(const f of feet)if(f.visible)bottom=Math.min(bottom,box.setFromObject(f,true).min.y);
+   syncPose();model.updateWorldMatrix(true,true);let bottom=Infinity;for(const f of feet)if(f.visible)bottom=Math.min(bottom,box.setFromObject(f,true).min.y);
    if(Number.isFinite(bottom))root.position.y+=height-bottom;
    atHand(packet,'left');packet.rotation.z=-.25;
    if(grains.visible){const from=handPoint();root.updateWorldMatrix(true,false);grains.children.forEach((g,i)=>{const q=Math.max(0,Math.min(1,(p-.2-i*.023)/.28));const end=new T.Vector3((i-3)*.04,height-root.position.y,.46+i*.012);root.localToWorld(end);g.position.copy(group.worldToLocal(from.clone().lerp(end,q)));g.visible=q>0&&q<1;});}
