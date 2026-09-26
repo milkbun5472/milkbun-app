@@ -765,6 +765,34 @@ function Head({
     style: { minWidth: SIDE, paddingRight: 8 }
   }, right || null));
 }
+// ── 文件口：让手指直接点到 <input> 本身（她 2026-09-25 报，小米上点不动）─────────
+// 原来那一路是「你点按钮 → 代码去替你 .click() 那个藏起来的 input」。
+// 桌面和 iOS 都行，**MIUI 那个 WebView 会把「代码替你点文件框」掐掉**：
+// 页面不报错、什么也不发生，看上去就是死按钮（跟 v72.15 主题包那颗同一族，
+// 那次是 ref 没守卫，这次守卫都在——`.current.click()` 全库 40 处一处不漏——
+// 所以病不在代码写错，在【那一下必须是真手指落在 input 上】）。
+//
+// 这一层的做法：input 铺满触点、透明、压在最上面。手指点的就是它本人，
+// 任何内核都会开文件选择器，`.click()` 整条路不再需要。
+// ⚠️装到桌面（PWA/WebView）那种壳里，如果连文件选择器本身都没实现，这一层也救不了——
+//   所以每个用它的地方都该另留一条不走文件的路（见 AvatarPicker 的「贴一张图」）。
+function FilePick({ accept, onChange, onPaste, disabled, label, style, children }) {
+  return h("span", { style: Object.assign({ position: "relative", display: "inline-flex" }, style) },
+    children,
+    h("input", {
+      type: "file", accept: accept || "image/*", disabled: !!disabled,
+      "aria-label": label || "选一张图",
+      onChange: onChange,
+      // ⚠️「贴一张图」那条备用路挂在 input 自己身上：它本来就是可聚焦元素，
+      //   粘贴事件会落在它上面；而文件选择器没实现的那种壳里，这条路仍然通。
+      onPaste: onPaste,
+      // 盖满整个触点；opacity 0 而不是 display:none——藏起来的 input 点不到
+      style: { position: "absolute", inset: 0, width: "100%", height: "100%",
+        opacity: 0, cursor: "pointer", zIndex: 2,
+        // iOS 上不给字号会把整页放大；fontSize 够大就不触发
+        fontSize: 16 }
+    }));
+}
 function AvatarPicker({
   character,
   onGenerate,
@@ -777,7 +805,6 @@ function AvatarPicker({
   onClear
 }) {
   const t = useTheme();
-  const ref = useRef(null);
   const handle = async e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -788,9 +815,21 @@ function AvatarPicker({
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col items-center gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => ref.current && ref.current.click(),
-    className: "relative active:opacity-70"
+  }, h(FilePick, { accept: "image/*", onChange: handle, label: "从相册选一张头像",
+      onPaste: async ev => {
+        const items = (ev.clipboardData && ev.clipboardData.items) || [];
+        for (let i = 0; i < items.length; i++) {
+          if (String(items[i].type || "").indexOf("image/") !== 0) continue;
+          const f = items[i].getAsFile();
+          if (!f) continue;
+          ev.preventDefault();
+          try { onPick(await resizeImageFile(f, imageMaxDim, imageQuality)); } catch (e) {}
+          return;
+        }
+      } },
+    /*#__PURE__*/React.createElement("span", {
+    className: "relative active:opacity-70",
+    style: { display: "inline-flex" }
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: size,
@@ -805,13 +844,7 @@ function AvatarPicker({
   }, /*#__PURE__*/React.createElement(ICamera, {
     size: 12,
     color: t.bg2
-  }))), /*#__PURE__*/React.createElement("input", {
-    ref: ref,
-    type: "file",
-    accept: "image/*",
-    className: "hidden",
-    onChange: handle
-  }), h("div", { className: "flex items-center gap-3" },
+  })))), h("div", { className: "flex items-center gap-3" },
     onGenerate ? h("button", {
       onClick: () => { if (!genBusy) onGenerate(); },
       className: "active:opacity-60",
