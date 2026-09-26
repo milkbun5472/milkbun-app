@@ -2,7 +2,8 @@
 
 The lining is identified by its collapsed UVs and follows the skin. Outer cloth
 uses a continuous sleeve field; the trousers and pouch stay on the torso.
-Rest positions, shape keys, UVs, materials and texture images remain unchanged.
+The collar receives a separate local height adjustment; other rest positions,
+shape-key offsets, UVs, materials and texture images remain unchanged.
 """
 import bpy
 from mathutils.kdtree import KDTree
@@ -106,3 +107,6 @@ def repair_cardigan(mesh, body):
     # the cuff visible; coverage is switched off when changing to another outfit.
     mesh['skinCoverage'] = {'armAxis': [.165, .655, .11, -.255],
                             'sleeve': [.205, .46, .705, .10], 'torsoBelow': .705}
+    import runpy
+    from pathlib import Path
+    runpy.run_path(str(Path(__file__).with_name('lower_cardigan_collar.py')))['lower_cardigan_collar'](mesh)

@@ -1,7 +1,8 @@
-"""Add elbow joints to the assembled doll without changing its rest shape or outfit design.
+"""Add elbow joints and apply shared garment repairs to the assembled doll.
 Run: Blender --background --python add_elbows.py -- input.glb output.glb
 Sleeve islands first regain nearby skin weights; the resulting arm weights are split
-between upper arm and forearm. Rest geometry, UVs and morphs stay intact.
+between upper arm and forearm. The rabbit collar is lowered by its dedicated
+authoring step; other rest geometry, UVs and morphs stay intact.
 """
 import bpy, sys
 from mathutils import Vector
