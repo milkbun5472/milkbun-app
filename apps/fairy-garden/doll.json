@@ -65,6 +65,14 @@
     "accent": "#ae8f7f",
     "boots": "#4a3a32"
    }
+  },
+  "garden": {
+   "label": "背带连衣裙",
+   "colors": {
+    "cloth": "#b09b8e",
+    "trim": "#c3b4aa",
+    "boots": "#3b2b25"
+   }
   }
  },
  "style": "hunyuan-v2-2026-09",

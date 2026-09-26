@@ -18,7 +18,7 @@ C.data.transform(Matrix.Translation(Vector((-c[0],-c[1],-P[:,2].min()))))
 C.data.transform(Matrix.Diagonal((s,s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
 # Shorter sleeves: pieces that reach past the torso side (|x| max >= ARM_X) are pulled up
 # along the arm axis (shoulder -> hand) by SLEEVE_K beyond the shoulder; linear, so no bending.
-SK=E('SLEEVE_K',0);REACH={1:0.,-1:0.}
+SK=E('SLEEVE_K',0);REACH={1:0.,-1:0.};ROOMY=E('ARM_ROOMY',1.);ARMV=set()
 if SK:
     import bmesh
     bm0=bmesh.new();bm0.from_mesh(C.data);bm0.verts.ensure_lookup_table();seen=set();n=0
@@ -50,9 +50,24 @@ if SK:
 # the body normal, so the doll's shoulders/chest never poke through. Clothes elsewhere untouched.
 from mathutils.bvhtree import BVHTree
 dg=bpy.context.evaluated_depsgraph_get();BT=BVHTree.FromObject(B,dg);GAP=E('GAP',.006);moved=0
+# ARM_ROOMY: clothes over the arms (nearest skin follows an arm bone) are made a little looser around
+# the arm axis instead of being conformed -- conforming pushed the dress lining up against the sleeve
+# (brown blotches). Everything else is conformed as before.
+bgi={g.name:g.index for g in B.vertex_groups}
+def arm_of(face):
+    w=0.
+    for vi in B.data.polygons[face].vertices:
+        for g in B.data.vertices[vi].groups:
+            if g.group in (bgi.get('leftArm'),bgi.get('rightArm')):w+=g.weight
+    return w/len(B.data.polygons[face].vertices)
+SHP=np.array([.165,0,.655]);HDP=np.array([.275,0,.40])
 for v in C.data.vertices:
     hit=BT.find_nearest(v.co)
     if hit[0] is None:continue
+    if (ROOMY!=1 or E('ARM_SKIP',0)) and arm_of(hit[2])>.5:   # ARM_SKIP: leave sleeves as drawn, the shirt-coloured under-layer covers any arm poking through
+        sg=1 if v.co.x>0 else -1;sh=SHP*[sg,1,1];ax=(HDP-SHP)*[sg,1,1];ax/=np.linalg.norm(ax)
+        q=np.array(v.co[:])-sh;along=ax*np.dot(q,ax);v.co=Vector(sh+along+(q-along)*ROOMY);continue
+    if v.co.z>E('CONFORM_TOP',9):continue   # collars stand off the neck; conforming them smeared the lining through
     p,n=hit[0],hit[1];d=(v.co-p).dot(n)
     if d<GAP:v.co=p+n*GAP+(v.co-p-n*d);moved+=1
 print('conformed',moved)
@@ -66,7 +81,7 @@ if E('UNDER',0):
     def keep(co):
         x,y,z=co;sg=1 if x>0 else -1;sh=SH*[sg,1,1];ax=(HD-SH)*[sg,1,1];ax/=np.linalg.norm(ax)
         t=float(np.dot(np.array(co)-sh,ax));isarm=abs(x)>.15+(z-.46)*(-.15)
-        if isarm and t>0:return t<(REACH[sg]-E('UIN',.012))
+        if isarm and t>0:return t<((REACH[sg] or E('UREACH',0))-E('UIN',.012))
         return E('ULOW',.40)<z<E('UTOP',.70)
     kill=[f for f in bb.faces if not all(keep(v.co[:]) for v in f.verts)]
     bmesh.ops.delete(bb,geom=kill,context='FACES')
@@ -117,6 +132,20 @@ for v0 in bm.verts:
             C.vertex_groups['body'].add([i],min(1.,w(i,'body')+a),'REPLACE')
         fixed+=1
 print('torso pieces freed from arms',fixed)
+# Skirts (SKIRT_K < 1): below SKIRT_Z the cloth follows the legs only a little, the rest goes to 'body',
+# otherwise a dress splits in two when the doll walks.
+SKK=E('SKIRT_K',1.)
+if SKK<1:
+    gi={g.name:g.index for g in C.vertex_groups};n=0
+    for v in C.data.vertices:
+        if v.co.z>=E('SKIRT_Z',.34):continue
+        ws={g.group:g.weight for g in v.groups}
+        leg=sum(ws.get(gi[k],0) for k in ('leftLeg','rightLeg'))
+        if leg<=0 or sum(ws.get(gi[k],0) for k in ('leftArm','rightArm'))>0:continue
+        for k in ('leftLeg','rightLeg'):
+            if gi[k] in ws:C.vertex_groups[k].add([v.index],ws[gi[k]]*SKK,'REPLACE')
+        C.vertex_groups['body'].add([v.index],ws.get(gi['body'],0)+leg*(1-SKK),'REPLACE');n+=1
+    print('skirt verts',n)
 m=C.modifiers.new('Rig','ARMATURE');m.object=A;C.parent=A
 for o in list(bpy.data.objects):
     if o not in (A,C):bpy.data.objects.remove(o)
