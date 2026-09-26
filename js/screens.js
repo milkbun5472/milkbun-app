@@ -12788,9 +12788,9 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           note("往这版上贴新的"),
           h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "14px 16px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
-            h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "flex items-center gap-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt"),
-            h("input", { ref: fileRef, type: "file", accept: ".txt,.text,.md", onChange: readFile, style: { display: "none" } })),
+            h(FilePick, { accept: "text/plain,text/markdown,.txt,.text,.md", onChange: readFile, label: "从文件里读表情包清单" },
+              h("span", { className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
           // ⚠️这里原来写死 background:"#fff" 配 color:t.ink——深色主题下就是白底浅字，
           //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
           h("textarea", { value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
