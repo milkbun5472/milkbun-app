@@ -3,10 +3,11 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-8ad597cb779a8b50';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-8ad597cb779a8b50';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-8ad597cb779a8b50';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-8ad597cb779a8b50';
+import {MOODS,DUR,moodBase,pulse,accent} from './motion.mjs?v=fg-4eb0a691c1ff6116';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-4eb0a691c1ff6116';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-4eb0a691c1ff6116';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-4eb0a691c1ff6116';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-4eb0a691c1ff6116';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -30,25 +31,9 @@ let ctx={screen:'',music:false,idle:false},sleeping=false;
 function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle};if(was&&!ctx.idle)wake();}
 // 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
 // 清晰靠整页的 2K 脸和按屏幕像素比渲染。
-const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-8ad597cb779a8b50');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
+const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-4eb0a691c1ff6116');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
 parent.postMessage({type:'pet-ready'},'*');
-// 每种心情一套待机动作（她 2026-09-26：「做每一个心情的专属动作」）。
-// 动作本身都是庭院那几个（挥手、伸懒腰、喝茶、看书、坐下、迈步），这里只管【什么心情、隔多久、配什么身段】。
-// base(t)：一直在的身段（整个人的上下、前后倾、左右转）；acts：隔一阵随机挑一个做一次。
-const MOODS={
- default:{base:t=>({y:Math.sin(t*2)*.004,tilt:0,yaw:Math.sin(t*.35)*.12}),every:14,acts:['wave','stretch']},
- happy:{base:t=>({y:Math.abs(Math.sin(t*3.2))*.03,tilt:0,yaw:Math.sin(t*.8)*.18}),every:6,acts:['wave','hop','wave']},
- amazed:{base:t=>({y:Math.abs(Math.sin(t*5))*.045,tilt:-.04,yaw:Math.sin(t*1.2)*.1}),every:4,acts:['stretch','hop','hop']},
- cozy:{base:t=>({y:Math.sin(t*1.1)*.006,tilt:.02,yaw:Math.sin(t*.45)*.2}),every:9,acts:['tea','tea','stretch']},
- relax:{base:t=>({y:Math.sin(t*.9)*.008,tilt:.03,yaw:Math.sin(t*.25)*.1}),every:12,acts:['read','sit']},
- surprise:{base:t=>({y:0,tilt:-.06,yaw:0}),every:5,acts:['jolt','jolt','wave']},
- proud:{base:t=>({y:Math.sin(t*1.6)*.006,tilt:-.09,yaw:Math.sin(t*.5)*.25}),every:7,acts:['nod','wave','nod']},
- gloomy:{base:t=>({y:-.012+Math.sin(t*.7)*.004,tilt:.14,yaw:Math.sin(t*.2)*.06}),every:11,acts:['sit','sigh']},
- sad:{base:t=>({y:-.015,tilt:.18,yaw:.25}),every:9,acts:['sit','sit','sigh']},
- irritated:{base:t=>({y:0,tilt:.04,yaw:.7+Math.sin(t*.9)*.08}),every:5,acts:['stomp','turn','stomp']}
-};
-const DUR={wave:3.4,stretch:3.8,tea:5,read:7,sit:8,hop:1.2,jolt:1,nod:1.6,sigh:2.4,stomp:1.6,turn:2.2,look:1.6,shy:2.6,yawn:3.2,wake:1.8,land:.8};
-let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0;const clock=new T.Clock();
+let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0,soft={y:0,tilt:0,yaw:0};const clock=new T.Clock();
 window.petDebug={play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
@@ -68,29 +53,27 @@ r.setAnimationLoop(()=>{const t=clock.getElapsedTime();
  if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pool[Math.floor(Math.random()*pool.length)];act={kind:k,start:t};}
  let gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
  if(act){progress=(t-act.start)/DUR[act.kind];if(progress>=1){act=null;nextAt=t+M.every*(.7+Math.random()*.6);progress=0;}
-  else{const e=Math.sin(Math.PI*progress);switch(act.kind){
+  else{const e=pulse(progress);const a=accent(act.kind,progress);dy=a.dy;dtilt=a.dtilt;dyaw=a.dyaw;switch(act.kind){
    case 'wave':case 'stretch':gesture=act.kind;break;
    case 'tea':gesture='tea';break;
    case 'read':gesture='read';break;
    case 'sit':seated=true;break;
-   case 'hop':dy=Math.abs(Math.sin(progress*Math.PI*2))*.09;break;                 // 蹦两下
-   case 'jolt':dy=e*.06;dtilt=-e*.12;break;                                          // 吓一跳往后一仰
-   case 'nod':dtilt=Math.sin(progress*Math.PI*2)*.08;break;                          // 点点头
-   case 'sigh':dy=-e*.02;dtilt=e*.1;break;                                           // 叹口气塌下去
-   case 'stomp':moving=true;break;                                                   // 原地跺脚
-   case 'turn':dyaw=e*.9;break;
-   case 'look':dyaw=-(yaw+M.base(t).yaw)*e;dtilt=Math.sin(progress*Math.PI*2)*.05;break;   // 回过头来看你一眼
-   case 'shy':dtilt=e*.16;dyaw=Math.sin(progress*Math.PI*4)*.25*e;dy=-e*.01;break;       // 低头扭扭捏捏
-   case 'yawn':gesture='stretch';dtilt=-e*.1;break;                                      // 仰头打哈欠
-   case 'wake':dy=e*.04;dtilt=-e*.08;if(progress>.5)gesture='wave';break;                 // 醒了一激灵，冲你招手
-   case 'land':dy=-e*.03;break;}}}
+   case 'look':dyaw=-(yaw+moodBase(face,t).yaw)*e;dtilt=.02*e;break;
+   case 'yawn':gesture='stretch';dtilt=-e*.025;break;                                      // 仰头打哈欠
+   case 'wake':dtilt=-e*.025;if(progress>.35){gesture='wave';progress=(progress-.35)/.65;};break;                 // 醒了一激灵，冲你招手
+}}}
  if(held){dy=.12+Math.sin(t*9)*.01;dtilt=0;pet.root.rotation.z=Math.sin(t*5)*.18;gesture='rest';}else pet.root.rotation.z=0;   // 被拎起来晃
  if(sleeping&&!act){seated=true;dtilt=.22+Math.sin(t*1.3)*.015;}                        // 趴着睡，一起一伏
  else if(!act&&!held){if(CHAT.includes(ctx.screen)){dtilt=.08;dyaw=-.35;}else if(QUIET.includes(ctx.screen))seated=true;}
  if(ctx.music&&!sleeping&&!held)dtilt+=Math.sin(t*Math.PI*2*.55)*.03;               // 放着歌就跟着慢慢点头（她 2026-09-26：原来一秒 1.6 下「晃得有点快」）                                                    // 别过脸去
- const b=M.base(t);sitB+=((seated?1:0)-sitB)*Math.min(1,(t-lastT)*9);lastT=t;   // 坐下时庭院会把人往下放 .34（坐到凳子上），这里没凳子：抬回来坐在画面里
- pet.animate(t,{gesture,progress,height:b.y+dy+sitB*.3,moving,seated});
- pet.root.rotation.y=yaw+b.yaw+dyaw;pet.root.rotation.x=b.tilt+dtilt;r.render(sc,cam);});
+ const b=moodBase(face,t),dt=Math.min(.1,Math.max(0,t-lastT));lastT=t;
+ // 与 traveler 的坐姿使用同一时间步，返回前台时不突然抬高。
+ sitB+=((seated?1:0)-sitB)*Math.min(1,dt*9);
+ const blend=1-Math.exp(-dt*7);
+ for(const [key,target] of Object.entries({y:b.y+dy,tilt:b.tilt+dtilt,yaw:b.yaw+dyaw}))soft[key]+=(target-soft[key])*blend;
+ pet.animate(t,{gesture,progress,height:soft.y+sitB*.3,moving,seated});
+ pet.root.rotation.y=yaw+soft.yaw;pet.root.rotation.x=soft.tilt;
+ r.render(sc,cam);});
 // 点他：两种模式都一样。按住不动半秒＝拎起来，松手落地。
 // 悬浮时不再用「点小人」打开陪伴页——那一下留给他的反应；打开改成点底下那条把手（js/companion.js）。
 for(const k of ['contextmenu','selectstart','dragstart'])addEventListener(k,e=>e.preventDefault());   // iOS 长按的选框/菜单
