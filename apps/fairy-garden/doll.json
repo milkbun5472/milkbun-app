@@ -71,8 +71,18 @@
    "label": "背带连衣裙",
    "colors": {
     "cloth": "#b09b8e",
-    "trim": "#c3b4aa",
+    "trim": "#f4ece7",
     "boots": "#3b2b25"
+   }
+  },
+  "ranger": {
+   "label": "连帽卫衣工装裤",
+   "colors": {
+    "cloth": "#d9d1ca",
+    "trim": "#cfc5be",
+    "bottom": "#c6bcb4",
+    "accent": "#695946",
+    "boots": "#5a4a3e"
    }
   }
  },

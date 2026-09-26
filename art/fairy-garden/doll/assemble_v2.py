@@ -17,9 +17,9 @@ HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=o
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
-OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb'}
+OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb'}
 # per outfit: which colour slots exist (a dress has no separate 'bottom'), shoe colour
-OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25')}
+OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e')}
 SLOTS=['cloth','trim','bottom','accent']
 FACES={'default':'平常','happy':'开心','cozy':'惬意','relax':'放松','surprise':'惊讶','amazed':'哇','proud':'得意','gloomy':'低落','sad':'难过','irritated':'不耐烦'}
 # Slider ranges (1 = neutral). A shape key is the offset at value 2, the runtime feeds value-1.

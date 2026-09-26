@@ -11,7 +11,7 @@ test('outfit changes keep each palette and all body sliders through save and res
  assert.equal(s.companion.look.outfit,'ranger');assert.equal(s.companion.look.wardrobe.ranger.boots,'#123456');
  assert.deepEqual(s.look.dims,{height:1.2,waist:.9});assert.deepEqual(s.neighbors[0].look,s.look);assert.equal(s.look.skin,'#f8dfcc');assert.equal(s.look.hairColor,'#e6b5ce');
 });
-test('bad imported colors and outfits do not enter the saved wardrobe',()=>{assert.deepEqual(restoreLook({outfit:'unknown',wardrobe:{garden:{cloth:'red',boots:'#aabbcc',unknown:'#112233'},unknown:{cloth:'#abcdef'}}}),{wardrobe:{garden:{boots:'#aabbcc'}}});assert.deepEqual(Object.keys(OUTFITS),['academy','garden']);});
+test('bad imported colors and outfits do not enter the saved wardrobe',()=>{assert.deepEqual(restoreLook({outfit:'unknown',wardrobe:{garden:{cloth:'red',boots:'#aabbcc',unknown:'#112233'},unknown:{cloth:'#abcdef'}}}),{wardrobe:{garden:{boots:'#aabbcc'}}});assert.deepEqual(Object.keys(OUTFITS),['academy','garden','ranger']);});
 test('hair gradient / split / streak survive save and default to plain colour',async()=>{
  const {dyesOf,HAIR_MODES}=await import('./wardrobe.mjs');
  assert.deepEqual(HAIR_MODES.map(m=>m[0]),['solid','gradient','split','streak']);

@@ -32,6 +32,13 @@ if SK:
                 k=e.other_vert(u)
                 if k.index not in seen:seen.add(k.index);comp.append(k);st.append(k)
         if max(abs(v.co.x) for v in comp)<E('ARM_X',.2):continue
+        if min(v.co.z for v in comp)<E('SLEEVE_ZMIN',.33):continue
+        if E('SLEEVE_LUM',0):   # only light (shirt) pieces are sleeves; dark bodice/strap pieces stay put
+            if '_tex' not in globals():
+                im=next(n.image for n in C.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE');_W,_H=im.size;_tex=np.array(im.pixels[:]).reshape(_H,_W,4)
+                _uv=bm0.loops.layers.uv.active
+            U=np.array([l[_uv].uv[:] for v in comp for l in v.link_loops])
+            if len(U) and (_tex[np.clip((U[:,1]*_H).astype(int),0,_H-1),np.clip((U[:,0]*_W).astype(int),0,_W-1),:3]**(1/2.2)).mean()<E('SLEEVE_LUM',0):continue   # skirts / trousers are wide too, but they are not sleeves
         if len(comp)<E('CRUMB',0):
             for v in comp:v.co=Vector((0,0,.5))   # frayed cuff crumbs: collapse out of sight
             continue
@@ -71,6 +78,27 @@ for v in C.data.vertices:
     p,n=hit[0],hit[1];d=(v.co-p).dot(n)
     if d<GAP:v.co=p+n*GAP+(v.co-p-n*d);moved+=1
 print('conformed',moved)
+# PAINT_ARM: any dark face lying over the arm (nearest skin follows an arm bone, above the waist) is
+# repainted with the shirt colour -- its UVs point at one light texel of the sleeve. Used where the
+# dress lining shows through shortened sleeves ('穿模的地方直接涂袖子的颜色').
+if E('PAINT_ARM',0):
+    import bmesh
+    im=next(n.image for n in C.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE');W,H=im.size;tex=np.array(im.pixels[:]).reshape(H,W,4)[:,:,:3]**(1/2.2)
+    bm2=bmesh.new();bm2.from_mesh(C.data);bm2.faces.ensure_lookup_table();uvl=bm2.loops.layers.uv.active
+    col=lambda uv:tex[min(H-1,max(0,int(uv[1]*H))),min(W-1,max(0,int(uv[0]*W)))]
+    arm_faces=[];best=None
+    for f in bm2.faces:
+        if f.material_index!=0 or f.calc_center_median().z<E('PAINT_ZMIN',.46):continue
+        h=BT.find_nearest(f.calc_center_median())
+        if h[0] is None or arm_of(h[2])<=.5:continue
+        c=np.mean([col(l[uvl].uv) for l in f.loops],0);arm_faces.append((f,c))
+        if best is None or c.mean()>best[1].mean():best=(f,c)
+    target=best[0].loops[0][uvl].uv.copy() if best else None;n=0
+    for f,c in arm_faces:
+        if c.mean()<E('PAINT_ARM',.55):
+            for l in f.loops:l[uvl].uv=target
+            n+=1
+    bm2.to_mesh(C.data);bm2.free();print('painted arm faces',n)
 # Under-layer (UNDER=1): a shirt-coloured copy of the body skin under the clothes (torso from
 # ULOW to the collar, arms from the shoulder to just inside the cuff), pushed out by UGAP.
 # It gives the cuff a solid inside and hides skin peeking through armpits/shoulder cracks.
