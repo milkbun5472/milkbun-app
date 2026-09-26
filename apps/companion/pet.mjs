@@ -45,7 +45,7 @@ try{
  throw err;
 }
 let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0,soft={y:0,tilt:0,yaw:0};const clock=new T.Clock();
-window.petDebug={frames:0,play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
+window.petDebug={frames:0,snapshot:()=>({action:act?.kind,emotion:pet.root.userData.emotion}),play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
 const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
@@ -54,7 +54,7 @@ function wake(){if(!sleeping)return;sleeping=false;act={kind:'wake',start:clock.
 function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}taps=taps.filter(x=>t-x<1.4);taps.push(t);
  const n=taps.length,face=(cur.look&&cur.look.face)||'default',cross=['irritated','sad','gloomy'].includes(face);
  // 点一下回头看你；连点两下蹦一下；再点他就害羞（心情不好的时候是扭过头去不理你）
- act={kind:n>=3?(cross?'turn':'shy'):n===2?(cross?'stomp':'hop'):'look',start:t};}
+ act={kind:n>=3?(cross?'emotion-irritated':'shy'):n===2?(cross?'emotion-'+face:'emotion-amazed'):'emotion-'+(MOODS[face]?face:'default'),start:t};}
 // ── 省电：它是全 app 唯一【常驻】的 WebGL ────────────────────────────────
 // 悬浮小人在每一页都活着，切后台也照跑——装饰品的唯一失败方式就是「开着很烦」
 // （发烫、掉电）。所以：页面看不见就真的停，悬浮那只按 24 帧画（指甲盖大小，
@@ -70,9 +70,9 @@ function draw(t){
  if(!greeted&&t>1.5){greeted=true;const h=new Date().getHours();if(h>=6&&h<10&&!act)act={kind:'stretch',start:t};}
  if(face!==curMood){curMood=face;act=null;nextAt=t+1.2;}
  if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pool[Math.floor(Math.random()*pool.length)];act={kind:k,start:t};}
- let gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
+ let emotion=null,gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
  if(act){progress=(t-act.start)/DUR[act.kind];if(progress>=1){act=null;nextAt=t+M.every*(.7+Math.random()*.6);progress=0;}
-  else{const e=pulse(progress);const a=accent(act.kind,progress);dy=a.dy;dtilt=a.dtilt;dyaw=a.dyaw;switch(act.kind){
+  else{if(act.kind.startsWith('emotion-'))emotion=act.kind.slice(8);const e=pulse(progress);const a=accent(act.kind,progress);dy=a.dy;dtilt=a.dtilt;dyaw=a.dyaw;switch(act.kind){
    case 'wave':case 'stretch':gesture=act.kind;break;
    case 'tea':gesture='tea';break;
    case 'read':gesture='read';break;
@@ -81,7 +81,7 @@ function draw(t){
    case 'yawn':gesture='stretch';dtilt=-e*.025;break;                                      // 仰头打哈欠
    case 'wake':dtilt=-e*.025;if(progress>.35){gesture='wave';progress=(progress-.35)/.65;};break;                 // 醒了一激灵，冲你招手
 }}}
- if(held){dy=.12+Math.sin(t*9)*.01;dtilt=0;pet.root.rotation.z=Math.sin(t*5)*.18;gesture='rest';}else pet.root.rotation.z=0;   // 被拎起来晃
+ if(held){dy=.12+Math.sin(t*9)*.01;dtilt=0;pet.root.rotation.z=Math.sin(t*5)*.18;gesture='rest';emotion=null;}else pet.root.rotation.z=0;   // 被拎起来晃
  if(sleeping&&!act){seated=true;dtilt=.22+Math.sin(t*1.3)*.015;}                        // 趴着睡，一起一伏
  else if(!act&&!held){if(CHAT.includes(ctx.screen)){dtilt=.08;dyaw=-.35;}else if(QUIET.includes(ctx.screen))seated=true;}
  if(ctx.music&&!sleeping&&!held)dtilt+=Math.sin(t*Math.PI*2*.55)*.03;               // 放着歌就跟着慢慢点头（她 2026-09-26：原来一秒 1.6 下「晃得有点快」）                                                    // 别过脸去
@@ -90,7 +90,7 @@ function draw(t){
  sitB+=((seated?1:0)-sitB)*Math.min(1,dt*9);
  const blend=1-Math.exp(-dt*7);
  for(const [key,target] of Object.entries({y:b.y+dy,tilt:b.tilt+dtilt,yaw:b.yaw+dyaw}))soft[key]+=(target-soft[key])*blend;
- pet.animate(t,{gesture,progress,height:soft.y+sitB*.3,moving,seated});
+ pet.animate(t,{gesture,progress,height:soft.y+sitB*.3,moving,seated,emotion});
  pet.root.rotation.y=yaw+soft.yaw;pet.root.rotation.x=soft.tilt;
  r.render(sc,cam);window.petDebug.frames++;
  // 他这会儿在干什么，报给外壳写成一行字——十种心情各一套动作，不说没人看得出来
