@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-d8bdabe9d782b029';
+import {OUTFITS} from './outfits.mjs?v=fg-a9d19360c953cb4a';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -40,3 +40,7 @@ export function mergeLook(old={},patch={}){const next={...old,...patch};delete n
  if(patch.wardrobe||patch.outfitColors){next.wardrobe=restoreWardrobe({...old.wardrobe,...patch.wardrobe});if(patch.outfitColors){const id=outfitId(next);next.wardrobe=restoreWardrobe({...next.wardrobe,[id]:{...next.wardrobe[id],...patch.outfitColors}});}}
  return next;
 }
+// 车上没存过样貌时按性别补底（她 2026-09-26：「为啥默认角色是女的我是男的了」）：
+// 原来车上什么都没存就落到 DEFAULT_LOOK（韩系短发＝男款）给她、COMPANION_LOOK（空气刘海）给他，正好反了。
+// 她那一侧永远是「她」（见 js/fairy-garden.js ensureLooks），同行者按角色卡的「他/她/TA」。
+export const seatLook=(who,saved,ta)=>({...lookForTa(who==='me'?'她':ta),...(saved||{})});

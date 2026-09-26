@@ -1,9 +1,9 @@
 <<<<<<< HEAD
-import {createCarriageView} from './view.mjs?v=fg-d8bdabe9d782b029';
-import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=fg-d8bdabe9d782b029';
+import {createCarriageView} from './view.mjs?v=fg-a9d19360c953cb4a';
+import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=fg-a9d19360c953cb4a';
 =======
-import {createCarriageView} from './view.mjs?v=fg-d8bdabe9d782b029';
-import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=fg-d8bdabe9d782b029';
+import {createCarriageView} from './view.mjs?v=fg-a9d19360c953cb4a';
+import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=fg-a9d19360c953cb4a';
 >>>>>>> milkbun/main
 const host=document.querySelector('#stage'), status=document.querySelector('#status');
 const view=await createCarriageView(host,{onZoom:v=>document.querySelector('#zoom').value=v});

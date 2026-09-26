@@ -1,16 +1,16 @@
 import * as T from 'three';
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-d8bdabe9d782b029';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-d8bdabe9d782b029';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-d8bdabe9d782b029';
-import {createPassengers} from './passengers.mjs?v=fg-d8bdabe9d782b029';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-d8bdabe9d782b029';
-import {createTravelCamera} from './camera-view.mjs?v=fg-d8bdabe9d782b029';
-import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-d8bdabe9d782b029';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-d8bdabe9d782b029';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-d8bdabe9d782b029';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-d8bdabe9d782b029';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-d8bdabe9d782b029';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-d8bdabe9d782b029';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-a9d19360c953cb4a';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-a9d19360c953cb4a';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,seatLook,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-a9d19360c953cb4a';
+import {createPassengers} from './passengers.mjs?v=fg-a9d19360c953cb4a';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-a9d19360c953cb4a';
+import {createTravelCamera} from './camera-view.mjs?v=fg-a9d19360c953cb4a';
+import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-a9d19360c953cb4a';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-a9d19360c953cb4a';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-a9d19360c953cb4a';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-a9d19360c953cb4a';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-a9d19360c953cb4a';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-a9d19360c953cb4a';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let wander=()=>{},cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 // 改外貌时的预览（她 2026-09-25：「设置外貌的时候看不到预览，搞成跟庭院一样」）：
@@ -27,7 +27,7 @@ function drawPreview(clock){const doll=previewDolls[previewWho],r=view.renderer;
  const W=r.domElement.clientWidth||innerWidth,H=r.domElement.clientHeight||innerHeight,w=Math.max(1,W),h=Math.max(1,Math.round(innerHeight*PREVIEW_BAND)),y=Math.max(0,H-h),span=2.35,aspect=w/h;
  previewCam.left=-span*aspect/2;previewCam.right=span*aspect/2;previewCam.top=span/2;previewCam.bottom=-span/2;previewCam.updateProjectionMatrix();
  const size=r.getSize(new T.Vector2());r.setScissorTest(true);r.setScissor(0,y,w,h);r.setViewport(0,y,w,h);const old=r.getClearColor(new T.Color()),oa=r.getClearAlpha();r.setClearColor('#e9ecdd',1);r.clear();r.render(previewScene,previewCam);r.setClearColor(old,oa);r.setScissorTest(false);r.setViewport(0,0,size.x,size.y);}
-function lookOf(who){const a=host?.load?.()||{},g=a.worlds?.garden||a.world;return state?.looks?.[who]||(who==='me'?a.journey?.look||g?.look:a.journey?.companionLook||g?.companion?.look)||{};}
+function lookOf(who){const a=host?.load?.()||{},g=a.worlds?.garden||a.world;return seatLook(who,state?.looks?.[who]||(who==='me'?a.journey?.look||g?.look:a.journey?.companionLook||g?.companion?.look),host?.companion?.()?.ta);}
 function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}
 // 休息面板那行字照实说：站起来走动了就别再写「在桌边」
 function standAt(w){const at=passengers?.where(w);return at&&at!=='坐在座位上'?at:'在桌边';}

@@ -1,12 +1,13 @@
-import {restState} from './rest.mjs?v=fg-d8bdabe9d782b029';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-d8bdabe9d782b029';
+import {restState} from './rest.mjs?v=fg-a9d19360c953cb4a';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-a9d19360c953cb4a';
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-d8bdabe9d782b029';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-d8bdabe9d782b029';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-d8bdabe9d782b029';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-a9d19360c953cb4a';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-a9d19360c953cb4a';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-a9d19360c953cb4a';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-a9d19360c953cb4a';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
- const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-d8bdabe9d782b029',import.meta.url).href)).scene;}finally{draco.dispose();}
+ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../fairy-garden/vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);let source;try{source=(await loader.loadAsync(new URL('../fairy-garden/doll.glb?v=fg-a9d19360c953cb4a',import.meta.url).href)).scene;}finally{draco.dispose();}
  const people=[];
  // 走动（她 2026-09-25：「可以走动不只是坐在那里，还可以下来活动，可以躺进卧铺，去整理上面的行李」）。
  // 车厢前面那条过道（z≈0.6~1.5）是空的，所以路线一律：先走到过道→沿过道走到目标那一列→再走进去。
@@ -16,7 +17,7 @@ export async function createPassengers(view,host,stage,state=()=>({})){
  for(const [who,anchorName,look,name,angle] of [['me','seat_user',state()?.looks?.me||journey.look||garden?.look,'你',Math.PI/2],['companion','seat_companion',state()?.looks?.companion||journey.companionLook||garden?.companion?.look,companion?.name,-Math.PI/2]]){
   if(who==='companion'&&!companion?.id)continue;
   let anchor;view.asset.traverse(o=>{if(o.userData.anchor===anchorName)anchor=o;});if(!anchor)throw Error('座位还没有准备好');
-  const at=anchor.getWorldPosition(new T.Vector3()),avatar=createTraveler(source,who==='companion',look||{});avatar.root.position.copy(at);avatar.root.rotation.y=angle;const carrier=new T.Group();view.scene.add(carrier);carrier.add(avatar.root);let bedAnchor;view.asset.traverse(o=>{if(o.userData.anchor===(who==='me'?'berth_lower':'berth_upper'))bedAnchor=o;});if(!bedAnchor)throw Error('卧铺还没有准备好');const bed=bedAnchor.getWorldPosition(new T.Vector3());avatar.root.updateMatrixWorld(true);const face=avatar.root.getObjectByName('Face'),headPoint=new T.Vector3(0,1.48,0);if(face){const bounds=new T.Box3().setFromObject(face,true),top=bounds.getCenter(new T.Vector3());top.y=bounds.max.y+.09;headPoint.copy(avatar.root.worldToLocal(top));}
+  const at=anchor.getWorldPosition(new T.Vector3()),avatar=createTraveler(source,who==='companion',seatLook(who,look,companion?.ta));avatar.root.position.copy(at);avatar.root.rotation.y=angle;const carrier=new T.Group();view.scene.add(carrier);carrier.add(avatar.root);let bedAnchor;view.asset.traverse(o=>{if(o.userData.anchor===(who==='me'?'berth_lower':'berth_upper'))bedAnchor=o;});if(!bedAnchor)throw Error('卧铺还没有准备好');const bed=bedAnchor.getWorldPosition(new T.Vector3());avatar.root.updateMatrixWorld(true);const face=avatar.root.getObjectByName('Face'),headPoint=new T.Vector3(0,1.48,0);if(face){const bounds=new T.Box3().setFromObject(face,true),top=bounds.getCenter(new T.Vector3());top.y=bounds.max.y+.09;headPoint.copy(avatar.root.worldToLocal(top));}
   const bubble=document.createElement('div');bubble.id=who==='me'?'player-bubble':'companion-bubble';bubble.hidden=true;bubble.setAttribute('aria-live','polite');stage.append(bubble);
 
   people.push({who,avatar,carrier,bed,angle,face,resting:false,bubble,seat:at,headPoint,queue:[],line:null,left:0,spot:'seat',path:[],pos:new T.Vector3(at.x,0,AISLE_Z),yaw:angle,onArrive:null});
