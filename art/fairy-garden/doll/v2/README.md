@@ -81,3 +81,4 @@
   - 连衣裙没有单独的「裤子」「点缀」色槽；鞋照样 `make_shoes()` 补一双深棕的。
 - **M04 刺刺短发**（ID 沿用旧的 `pixie`）：发壳 `hunyuan-m04-shell.glb` 自带耳朵缺口。`INNER=.9 DZ=-.1 python3 fit_shell.py …`，再 `FRINGE_K=.8 python3 shape_hair.py …`（刘海收短到和 85% 那版一样长，头发其余部分还是 90%）。
 - **C03 连帽卫衣工装裤**（ID 沿用旧的 `ranger`）：`SLEEVE_K=.35 UREACH=.3 CONFORM_TOP=.55 UCOL=d6ccc1 UNDER=1 CRUMB=200 S=.63 SY=1.3 Z0=.06 python3 skin_outfit.py …`（`UCOL` 底衣换成卫衣色；裤子到脚踝，`Z0` 放低）。补一双浅棕鞋。
+- **体积**：web 件按用途减面（身体 `TRIS=20000`、衣服 `15000`、头发 `18000`），组装时 Draco 量化调低、形态键存稀疏。三套衣服 + 五款发型的 `doll.glb` 约 3.9MB（原来 6.2MB），庭院里看不出差别。体积大头是体型滑杆的形态键（没被 Draco 压）。

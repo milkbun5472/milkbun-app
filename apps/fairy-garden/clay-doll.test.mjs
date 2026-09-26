@@ -9,7 +9,7 @@ test('v2 asset: every catalogued hairstyle hangs on HeadAnchor and every outfit 
  const anchor=glb.nodes.find(n=>n.name==='HeadAnchor');assert.ok(anchor,'HeadAnchor');
  for(const id of Object.keys(catalog.hair)){const i=glb.nodes.findIndex(n=>n.name==='hair_'+id);assert.ok(i>=0,id);assert.ok(anchor.children.includes(i),id+' not on HeadAnchor');}
  for(const id of Object.keys(catalog.outfits)){const parts=nodes.filter(n=>n.extras?.outfit===id);assert.ok(parts.length>=1,id);for(const n of parts)assert.ok(n.skin!=null,id+' must be skinned');}
- assert.ok(bytes.length<8*1024*1024,'mobile asset budget');
+ assert.ok(bytes.length<5*1024*1024,'mobile asset budget');
 });
 test('v2 rig: bones carry the runtime pivot names and the pivots ride along in extras',()=>{
  const rig=glb.nodes.find(n=>n.extras?.dollRig)?.extras.dollRig;assert.ok(rig);

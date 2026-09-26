@@ -159,7 +159,9 @@ sk=px[(px[:,0]>.6)&(px[:,0]>px[:,2]+.05)];B['skinBase']='#%02x%02x%02x'%tuple(in
 bpy.ops.object.select_all(action='SELECT')
 out=os.path.join(APP,'doll.glb')
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True,export_extras=True,export_skins=True,export_animations=False,
-    export_morph=True,export_morph_normal=False,export_image_format='WEBP',export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=7)
+    export_morph=True,export_morph_normal=False,export_image_format='WEBP',export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=10,
+    export_draco_position_quantization=12,export_draco_normal_quantization=8,export_draco_texcoord_quantization=11,export_draco_color_quantization=6,
+    export_try_sparse_sk=True,export_try_omit_sparse_sk=True)
 print('wrote',out,os.path.getsize(out)//1024,'KB skinBase',B['skinBase'],catalog)
 dj=os.path.join(APP,'doll.json');d=json.load(open(dj))
 d['hair']=LABELS;d['outfits']=catalog;d['faces']=FACES;d['style']='hunyuan-v2-2026-09'
