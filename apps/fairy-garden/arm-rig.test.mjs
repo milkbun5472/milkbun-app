@@ -49,6 +49,7 @@ test('all outfit sleeves have separate volume, dye slots and shared body morphs'
  for(const id of ['cardigan','academy','garden','ranger'])for(const side of ['left','right']){
   const sleeve=gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`);
   assert.equal(sleeve.extras.roundSleeveVersion,1);
+  assert.equal(sleeve.extras.continuousSleeveProfile,1);
   assert.equal(sleeve.extras.outfit,id);
   assert.ok(sleeve.extras.slotBase.cloth);
   assert.ok(sleeve.skin!=null);
@@ -92,13 +93,13 @@ test('hoodie bag has a torso-bound back strap with independent accent colour',()
 });
 
 
-test('all cuffs cover the shared wrist cut and hoodie retains independent details',()=>{
- assert.equal(gltf.nodes.find(n=>n.name==='DollBody').extras.fittedWristVersion,1);
+test('all cuffs fit original hands and hoodie retains independent details',()=>{
+ assert.equal(gltf.nodes.find(n=>n.name==='DollBody').extras.originalHandVersion,1);
  for(const id of ['cardigan','academy','garden','ranger']){
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
-  assert.equal(shirt.extras.fittedCuffVersion,1);
+  assert.equal(shirt.extras.fittedCuffVersion,3);
   assert.deepEqual(shirt.extras.skinCoverage.armAxis,[.153,.655,.095,-.19]);
-  for(const side of ['left','right'])assert.equal(gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`).extras.fittedCuffVersion,1);
+  for(const side of ['left','right'])assert.equal(gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`).extras.fittedCuffVersion,3);
  }
  assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.cleanHoodieVersion,1);
  for(const name of ['outfit_ranger_trousers','outfit_ranger_front_accessories']){

@@ -18,8 +18,7 @@ for name,old in before.items():
  for i,p in enumerate(new['points']):tree.insert(p,i)
  tree.balance()
  for i,p in enumerate(old['points']):
-  # Arm volume is intentionally fitted; face, torso, legs and fingertips remain.
-  if name=='DollBody' and abs(p.x)>.12 and .38<p.z<.68:continue
+  # Include every original hand/wrist vertex and morph, with no arm exception.
   _,j,d=tree.find(p);max_drift=max(max_drift,d);assert d<.0002,(name,d)
   candidates=tree.find_range(p,max(d+1e-6,.0001))
   drift=min(max(((old['keys'][key][i]-p)-(new['keys'][key][idx]-new['points'][idx])).length for key in old['keys']) for _,idx,_ in candidates) if old['keys'] else 0
@@ -33,24 +32,39 @@ for name in ('outfit_ranger_trousers','outfit_ranger_front_accessories'):
   _,j,d=tree.find(p);assert d<.0002,(name,d)
   for key in original['keys']:
    assert ((original['keys'][key][j]-original['points'][j])-(after[name]['keys'][key][i]-p)).length<.0003,(name,key)
-body=bpy.data.objects['DollBody'];assert body['fittedWristVersion']==1
+body=bpy.data.objects['DollBody'];assert body['originalHandVersion']==1 and not body.get('fittedWristVersion')
 body.data.calc_loop_triangles();seams=[]
 for outfit in ('academy','garden','ranger','cardigan'):
  cloth=bpy.data.objects['outfit_'+outfit];mask=cloth['skinCoverage']['sleeve'][0]
- assert cloth['fittedCuffVersion']==1
+ assert cloth['fittedCuffVersion']==3
  for side,sign in [('left',-1),('right',1)]:
-  sleeve=bpy.data.objects['outfit_'+outfit+'_'+side+'_sleeve'];assert sleeve['fittedCuffVersion']==1
-  a=Vector((sign*.095,0,-.19)).normalized();start=Vector((sign*.153,0,.655));radii=[]
+  sleeve=bpy.data.objects['outfit_'+outfit+'_'+side+'_sleeve'];assert sleeve['fittedCuffVersion']==3
+  a=Vector((sign*.095,0,-.19)).normalized();start=Vector((sign*.153,0,.655));radii=[];v=a.cross(Vector((0,1,0))).normalized();short=outfit=='garden';center=Vector((0,.01 if sign>0 else .002,0))+v*((-.033 if short else -.025) if sign>0 else (.031 if short else .020))
   for tri in body.data.loop_triangles:
    verts=[body.data.vertices[i] for i in tri.vertices]
    if not all(v.co.x*sign>.12 and sum(g.weight for g in v.groups if body.vertex_groups[g.group].name.endswith(('Arm','Forearm')))>.5 for v in verts):continue
    for i in range(3):
     p,q=verts[i].co,verts[(i+1)%3].co;t0=(p-start).dot(a);t1=(q-start).dot(a)
     if (t0-mask)*(t1-mask)<0:
-     cross=p.lerp(q,(mask-t0)/(t1-t0));rad=cross-start-a*mask;radii.append(rad.length)
-  cuff_radius=min((v.co-start-a*(v.co-start).dot(a)).length for v in sleeve.data.vertices if abs((v.co-start).dot(a)-mask)<.012)
-  assert radii and max(radii)<cuff_radius+.002,(outfit,side,max(radii,default=0),cuff_radius)
-  seams.append({'outfit':outfit,'side':side,'skinRadius':max(radii),'sleeveRadius':cuff_radius})
+     cross=p.lerp(q,(mask-t0)/(t1-t0));rad=cross-start-a*mask-center;radii.append(rad.length)
+  cuff_radius=min((v.co-start-a*(v.co-start).dot(a)-center).length for v in sleeve.data.vertices if abs((v.co-start).dot(a)-mask)<.012)
+  assert radii and max(radii)<cuff_radius,(outfit,side,max(radii,default=0),cuff_radius)
+  # Measure the exported outer profile itself: a large middle bulb followed
+  # by a pinched cuff must fail even if the skin remains covered.
+  sections={}
+  for point in sleeve.data.vertices:
+   t=(point.co-start).dot(a)
+   if .035<t<(.158 if outfit=='garden' else .216):sections.setdefault(round(t,3),[]).append(point.co.copy())
+  profile=[]
+  for t,points in sorted(sections.items()):
+   if len(points)<20:continue
+   yy=[p.y for p in points];vv=[p.dot(v) for p in points]
+   radius=max(max(yy)-min(yy),max(vv)-min(vv))*.5
+   if radius>.059:profile.append((t,radius)) # omit the inner return wall
+  assert len(profile)>=5,(outfit,profile)
+  assert max(r for _,r in profile)-min(r for _,r in profile)<.009,(outfit,'segmented sleeve',profile)
+  assert all(b[1]-a0[1]<.002 for a0,b in zip(profile,profile[1:])),(outfit,'flared cuff',profile)
+  seams.append({'outfit':outfit,'side':side,'skinRadius':max(radii),'sleeveRadius':cuff_radius,'outerProfile':profile})
 for o in bpy.data.objects:
  if o.type!='MESH' or not o.data.shape_keys:continue
  assert all(k.value==0 for k in o.data.shape_keys.key_blocks[1:])
