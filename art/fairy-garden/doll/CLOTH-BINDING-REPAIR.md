@@ -53,3 +53,10 @@ legacy tint and avatar material isolation. The gallery covers both side views,
 front/back, ten actions and three body variants. Whole-arm motion, lowered collar
 and book clearance remain in the shared runtime. Other outfits' known cloth
 issues and physical iPhone verification are outside this repair.
+
+Pouch follow-up: the front-only position exclusion still cut and recoloured the
+cream hip-facing side of the pouch. Classify its original cream texels inside the
+pouch region before cutting. Protect those faces from both removal and the knit
+blend. `verify-cardigan-pouch.py` compares 474 original side samples: geometry and
+UVs must survive, and their knit blend must stay zero. The old model fails this
+check; do not use front-panel immobility alone as evidence of correct bag colour.

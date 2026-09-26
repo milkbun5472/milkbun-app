@@ -30,10 +30,34 @@ def rebuild_cardigan_sleeves(o):
     bm=bmesh.new();bm.from_mesh(o.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00002)
     for xcut in [-.145,.145]:
         bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),plane_co=(xcut,0,0),plane_no=(1,0,0),dist=1e-6)
+    # The pouch wraps around the hip. A front-only position box misses its
+    # cream side wall; classify its original texels before cutting or recolouring.
+    uv_layer=bm.loops.layers.uv.active
+    image=next(n.image for n in mat.node_tree.nodes if n.type=='TEX_IMAGE' and n.image)
+    width,height=image.size
+    pixels=np.array(image.pixels[:]).reshape(height,width,4)[:,:,:3]**(1/2.2)
+    def pouch_face(face):
+        c=face.calc_center_median()
+        if not(0<c.x<.23 and c.y<-.035 and .35<c.z<.58):return False
+        colors=[]
+        for loop in face.loops:
+            uv=loop[uv_layer].uv
+            colors.append(pixels[min(height-1,max(0,int(uv.y*height))),min(width-1,max(0,int(uv.x*width)))])
+        r,g,b=np.median(colors,axis=0)
+        return (g-b)>max(r-g,.005)*.32
+    candidates={f for f in bm.faces if pouch_face(f)}
+    # Highlights on the sleeve can also be cream. Keep only surface regions
+    # connected to the actual front pouch, not isolated bright triangles.
+    pouch=set();pending=list(f for f in candidates if f.calc_center_median().y<-.095)
+    while pending:
+        face=pending.pop()
+        if face in pouch:continue
+        pouch.add(face)
+        pending.extend(other for edge in face.edges for other in edge.link_faces if other in candidates and other not in pouch)
     remove=[]
     for f in bm.faces:
         c=f.calc_center_median()
-        if abs(c.x)>.145 and .425<c.z<.74 and not(c.x>0 and c.y<-.09 and c.z<.56):remove.append(f)
+        if abs(c.x)>.145 and .425<c.z<.74 and f not in pouch and not(c.x>0 and c.y<-.09 and c.z<.56):remove.append(f)
     bmesh.ops.delete(bm,geom=remove,context='FACES')
     newfaces=bmesh.ops.holes_fill(bm,edges=[e for e in bm.edges if e.is_boundary and min(v.co.z for v in e.verts)>.2],sides=0)['faces']
     uvbm=bm.loops.layers.uv.active;cbm=bm.loops.layers.float_color.active or bm.loops.layers.color.active
@@ -45,8 +69,26 @@ def rebuild_cardigan_sleeves(o):
     for face in bm.faces:
         face_sets.setdefault(tuple(sorted(v.index for v in face.verts)),[]).append(face)
     duplicates=[f for faces in face_sets.values() if len(faces)==2 for f in faces]
+    original_faces={}
+    for face in duplicates:
+        if face not in patches:
+            key=tuple(sorted(v.index for v in face.verts))
+            original_faces[key]=({l.vert.index:(l[uvbm].uv.copy(),tuple(l[cbm])) for l in face.loops},face in pouch)
     if duplicates:bmesh.ops.delete(bm,geom=duplicates,context='FACES_ONLY')
     patches=[f for f in patches if f.is_valid]
+    # An isolated cream triangle can meet the cut on all three edges. Restore
+    # the original face after cancellation rather than leaving a triangular hole.
+    remaining=[e for e in bm.edges if e.is_boundary and min(v.co.z for v in e.verts)>.2]
+    for face in bmesh.ops.holes_fill(bm,edges=remaining,sides=0)['faces']:
+        saved=original_faces.get(tuple(sorted(v.index for v in face.verts)))
+        if saved:
+            values,is_pouch=saved
+            for loop in face.loops:
+                tex,color=values[loop.vert.index];loop[uvbm].uv=tex;loop[cbm]=color
+            if is_pouch:pouch.add(face)
+            face.smooth=True
+        else:patches.append(face)
+    assert not any(e.is_boundary and min(v.co.z for v in e.verts)>.2 for e in bm.edges), 'Close every clothing-side boundary'
     assert not any(len(e.link_faces)>2 for e in bm.edges), 'Side closure must remain manifold'
     for f in patches:
         f.smooth=True
@@ -66,7 +108,7 @@ def rebuild_cardigan_sleeves(o):
             p = loop.vert.co
             blend = smooth(.07, .125, abs(p.x)) * smooth(.405, .445, p.z) * (1-smooth(.685, .715, p.z)) * smooth(-.11, -.065, p.y)
             # Trim and the cream pouch keep their authored texture.
-            loop[cbm] = (slot, blend if slot < .3 else 0, 0, 1)
+            loop[cbm] = (slot, blend if slot < .3 and face not in pouch else 0, 0, 1)
     for edge in bm.edges:edge.smooth=True
     bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(o.data);bm.free();o.data.normals_split_custom_set([(0,0,0)]*len(o.data.loops))
     # Smooth normals across the authored planar side closure and old fabric.
