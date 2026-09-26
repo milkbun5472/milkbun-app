@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>发型挂件预览</title>
+<style>html,body{margin:0;height:100%;background:#eee6d8;font:15px system-ui;color:#604632}#v{position:fixed;inset:0}#bar{position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:18px;padding:8px 14px;background:#fffaf2;color:#604632}#s{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom))}</style>
+<div id="v"></div>
+<div id="bar"><button data-h="">光头</button><button data-h="hats/hair_m02.glb">M02 中分微卷</button><button data-h="hats/hair_m03.glb">M03</button><button id="turn">转一圈</button></div>
+<p id="s">载入中…</p>
+<script type="importmap">{"imports":{"three":"../../../apps/fairy-garden/vendor/three.module.js"}}</script>
+<script type="module">
+import * as T from 'three';
+import { GLTFLoader } from '../../../apps/fairy-garden/vendor/GLTFLoader.js';
+// Hair files are rigid hats authored in HeadAnchor's local space
+// (origin = skull centre, unit = skull radius). Changing hair = swapping a file;
+// the body is never touched.
+const view=document.getElementById('v'),r=new T.WebGLRenderer({antialias:true});r.setPixelRatio(devicePixelRatio);view.append(r.domElement);
+const sc=new T.Scene();sc.background=new T.Color('#eee6d8');
+sc.add(new T.HemisphereLight('#fff8ee','#b8a38c',2.2));const sun=new T.DirectionalLight('#ffffff',1.6);sun.position.set(1.5,3,2.5);sc.add(sun);
+const cam=new T.PerspectiveCamera(28,1,.05,20);cam.position.set(0,.8,3.1);
+const root=new T.Group();sc.add(root);const loader=new GLTFLoader();
+const doll=(await loader.loadAsync('doll-anchored.glb')).scene;root.add(doll);
+const anchor=doll.getObjectByName('HeadAnchor');let hat=null;
+async function wear(url){ if(hat){anchor.remove(hat);hat=null;} if(!url)return; hat=(await loader.loadAsync(url)).scene; anchor.add(hat); }
+document.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>wear(b.dataset.h));
+let spin=false;document.getElementById('turn').onclick=()=>spin=!spin;
+let drag=null;view.onpointerdown=e=>drag=e.clientX;onpointerup=()=>drag=null;view.onpointermove=e=>{if(drag!=null){root.rotation.y+=(e.clientX-drag)*.01;drag=e.clientX;}};
+function size(){const w=innerWidth,h=innerHeight;r.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}onresize=size;size();
+await wear('hats/hair_m02.glb');document.getElementById('s').textContent='拖动旋转 · 发型挂在 HeadAnchor 上';
+window.hatPreview={wear,anchor,root};
+r.setAnimationLoop(()=>{if(spin)root.rotation.y+=.01;cam.lookAt(0,.62,0);r.render(sc,cam);});
+</script>
+</html>

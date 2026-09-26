@@ -92,7 +92,8 @@ test("灯会写在日历、今天想做的、季节手册上，前三天就提�
 
 test("第一天少露按钮：他带路那七步没走完只露他带的那几颗，带完或关掉就全出来；只是藏，不是禁", async () => {
   const w = await W();
-  assert.match(game, /const FIRST_DAY_KEEP=new Set\(\['well','garden','travel','sow','notes','board','sit-pond','give-flower','rest','enter-home','walk-together','follow-him','lie-down','wake-player','wake-companion'\]\);/);
+  // v74.078：站台上的「登上列车」第一天也要露着（她：庭院进车站上不去列车）
+  assert.match(game, /const FIRST_DAY_KEEP=new Set\(\['well','garden','travel','board-train','sow','notes','board','sit-pond','give-flower','rest','enter-home','walk-together','follow-him','lie-down','wake-player','wake-companion'\]\);/);
   assert.match(game, /function firstDay\(\)\{const step=guideStep\(data\);return !!step&&!String\(step\.id\)\.startsWith\('season:'\);\}/);
   assert.match(game, /b\.classList\.toggle\('first-day-hide',trim&&!FIRST_DAY_KEEP\.has\(b\.id\)\)/);
   assert.match(game, /function refreshLeisure\(\)\{trimFirstDay\(\);/);
