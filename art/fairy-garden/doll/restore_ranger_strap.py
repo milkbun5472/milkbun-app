@@ -13,7 +13,8 @@ HERE=Path(__file__).parent
 NAME='outfit_ranger_back_strap'
 
 def restore_ranger_strap():
- cloth=bpy.data.objects['outfit_ranger'];cloth['textureSlots']='ranger'
+ cloth=bpy.data.objects['outfit_ranger']
+ if not cloth.get('cleanBagVersion'):cloth['textureSlots']='ranger'
  if bpy.data.objects.get(NAME):return
  cloth=bpy.data.objects['outfit_ranger'];rig=cloth.parent
  cloth.data.calc_loop_triangles();tree=BVHTree.FromPolygons([v.co for v in cloth.data.vertices],[tuple(f.vertices) for f in cloth.data.loop_triangles],all_triangles=True)

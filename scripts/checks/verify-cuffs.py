@@ -9,11 +9,11 @@ src,out,report=sys.argv[sys.argv.index('--')+1:]
 before=helper['snapshot'](src);after=helper['snapshot'](out)
 old_images=helper['image_hashes'](src);new_images=helper['image_hashes'](out)
 assert all(h in new_images for h in old_images),'source atlases changed'
-assert len(new_images)==len(old_images)+1,'one baked hoodie atlas'
-assert set(after)-set(before)=={'outfit_ranger_trousers','outfit_ranger_front_accessories'}
+assert len(new_images)==len(old_images)+2,'hoodie atlas and added jacket atlas'
+assert set(after)-set(before)=={'outfit_ranger_trousers','outfit_ranger_bag','outfit_ranger_bag_flap','outfit_ranger_bag_clasp','outfit_jacket','outfit_jacket_left_sleeve','outfit_jacket_right_sleeve','outfit_jacket_side_lining'}
 max_drift=0
 for name,old in before.items():
- if name=='outfit_ranger' or name.endswith('_sleeve'):continue
+ if name in ('outfit_ranger','outfit_ranger_back_strap') or name.endswith('_sleeve'):continue
  new=after[name];tree=KDTree(len(new['points']))
  for i,p in enumerate(new['points']):tree.insert(p,i)
  tree.balance()
@@ -23,11 +23,11 @@ for name,old in before.items():
   candidates=tree.find_range(p,max(d+1e-6,.0001))
   drift=min(max(((old['keys'][key][i]-p)-(new['keys'][key][idx]-new['points'][idx])).length for key in old['keys']) for _,idx,_ in candidates) if old['keys'] else 0
   assert drift<.0002,(name,drift)
-# The separated trousers and bag are retained source geometry, not regenerated.
+# Trousers remain source geometry; the satchel is now rebuilt and checked by verify-ranger-bag.py.
 original=before['outfit_ranger'];tree=KDTree(len(original['points']))
 for i,p in enumerate(original['points']):tree.insert(p,i)
 tree.balance()
-for name in ('outfit_ranger_trousers','outfit_ranger_front_accessories'):
+for name in ('outfit_ranger_trousers',):
  for i,p in enumerate(after[name]['points']):
   _,j,d=tree.find(p);assert d<.0002,(name,d)
   for key in original['keys']:
@@ -68,7 +68,7 @@ for outfit in ('academy','garden','ranger','cardigan'):
 for o in bpy.data.objects:
  if o.type!='MESH' or not o.data.shape_keys:continue
  assert all(k.value==0 for k in o.data.shape_keys.key_blocks[1:])
-for name in ('outfit_ranger','outfit_ranger_front_accessories'):
+for name in ('outfit_ranger','outfit_ranger_bag','outfit_ranger_back_strap'):
  o=bpy.data.objects[name]
  assert all(sum(g.weight for g in v.groups if o.vertex_groups[g.group].name.endswith(('Arm','Forearm')))<.0001 for v in o.data.vertices),'upper cloth follows torso'
 positions={o.name:np.array([v.co[:] for v in o.data.vertices]) for o in bpy.data.objects if o.type=='MESH'}
@@ -76,5 +76,5 @@ root=Path('art/fairy-garden/doll').resolve()
 runpy.run_path(str(root/'restore_other_outfits.py'))['restore_other_outfits']()
 assert set(positions)=={o.name for o in bpy.data.objects if o.type=='MESH'}
 for name,p in positions.items():assert np.array_equal(p,np.array([v.co[:] for v in bpy.data.objects[name].data.vertices])),name
-result={'preservedMeshDrift':max_drift,'originalAtlasesPreserved':len(old_images),'newAtlas':1,'cuffOverlap':seams,'morphDefaults':0,'idempotent':True}
+result={'preservedMeshDrift':max_drift,'originalAtlasesPreserved':len(old_images),'newAtlases':2,'cuffOverlap':seams,'morphDefaults':0,'idempotent':True}
 Path(report).write_text(json.dumps(result,indent=2));print(json.dumps(result))

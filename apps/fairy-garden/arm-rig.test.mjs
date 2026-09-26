@@ -87,10 +87,12 @@ test('authored shoes keep per-outfit styles, dye, closed soles and body morphs',
 
 test('hoodie bag has a torso-bound back strap with independent accent colour',()=>{
  const strap=gltf.nodes.find(n=>n.name==='outfit_ranger_back_strap');
- assert.equal(strap.extras.backStrapVersion,1);assert.equal(strap.extras.outfit,'ranger');
+ assert.equal(strap.extras.backStrapVersion,2);assert.equal(strap.extras.outfit,'ranger');assert.equal(strap.extras.continuousStrapVersion,1);
+ assert.ok(!gltf.nodes.some(n=>n.name==='outfit_ranger_front_accessories'));
+ assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.cleanBagVersion,1);
  assert.ok(strap.extras.slotBase.accent);assert.ok(strap.skin!=null);
  assert.deepEqual(gltf.meshes[strap.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
- assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.textureSlots,'ranger');
+ assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.textureSlots,undefined);
 });
 
 
@@ -103,7 +105,7 @@ test('all cuffs fit original hands and hoodie retains independent details',()=>{
   for(const side of ['left','right'])assert.equal(gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`).extras.fittedCuffVersion,3);
  }
  assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.cleanHoodieVersion,1);
- for(const name of ['outfit_ranger_trousers','outfit_ranger_front_accessories']){
+ for(const name of ['outfit_ranger_trousers','outfit_ranger_bag','outfit_ranger_bag_flap','outfit_ranger_bag_clasp']){
   const n=gltf.nodes.find(n=>n.name===name);assert.ok(n.skin!=null);assert.equal(n.extras.outfit,'ranger');
   assert.deepEqual(gltf.meshes[n.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
  }
