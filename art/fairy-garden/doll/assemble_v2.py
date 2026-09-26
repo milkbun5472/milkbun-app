@@ -160,6 +160,18 @@ A['rigMorphs']=rig_morphs()
 # skin base: median of the body texture's skin-toned texels
 im=base_image(B.material_slots[0].material);px=np.array(im.pixels[:]).reshape(-1,4)[::5,:3]**(1/2.2)
 sk=px[(px[:,0]>.6)&(px[:,0]>px[:,2]+.05)];B['skinBase']='#%02x%02x%02x'%tuple(int(v*255) for v in np.median(sk,0))
+# Only the base colour carries the clay look on hair and clothes; their normal and metal-roughness
+# maps cost two more decoded textures each (the 陪伴 page ran phones out of memory: 30 textures).
+for o in bpy.data.objects:
+    if o.type!='MESH' or o is B:continue
+    for sl in o.material_slots:
+        m=sl.material
+        if not m or not m.use_nodes:continue
+        bs=next((n for n in m.node_tree.nodes if n.type=='BSDF_PRINCIPLED'),None)
+        if not bs:continue
+        for inp in ('Normal','Metallic','Roughness'):
+            for l in list(bs.inputs[inp].links):m.node_tree.links.remove(l)
+        bs.inputs['Metallic'].default_value=0;bs.inputs['Roughness'].default_value=.85
 bpy.ops.object.select_all(action='SELECT')
 out=os.environ.get('OUT') or os.path.join(APP,'doll.glb')
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True,export_extras=True,export_skins=True,export_animations=False,

@@ -99,7 +99,7 @@ export function createTraveler(source,companion=false,look={}){
  const HAND={leftArm:[-.275,.40,0],rightArm:[.275,.40,0]};
  function part(label,match,pivot){const p=new T.Group();p.name=label;p.position.copy(pivotFor(label,pivot));model.add(p);model.updateMatrixWorld(true);
   const bone=model.getObjectByName(label);if(bone?.isBone){p.userData.bone=bone;p.userData.rest=bone.quaternion.clone();
-   if(HAND[label]){const hand=new T.Mesh(new T.BoxGeometry(.05,.05,.05));hand.visible=false;hand.userData.follow=true;hand.name=(label==='leftArm'?'Left':'Right')+'_hand';hand.position.fromArray(HAND[label]).sub(p.position);p.add(hand);}}
+   if(HAND[label]){const hand=new T.Mesh(new T.BoxGeometry(.05,.05,.05));hand.visible=false;hand.name=(label==='leftArm'?'Left':'Right')+'_hand';model.updateMatrixWorld(true);const wp=model.localToWorld(new T.Vector3().fromArray(HAND[label]));bone.add(hand);hand.position.copy(bone.worldToLocal(wp));}}   // 挂在骨头上：拿着的东西跟着真正的手走（抬手被压过角度也对得上）
   const picked=[];model.traverse(o=>{if(o.isMesh&&(match.test(o.name)||o.userData.rigPart===label))picked.push(o);});picked.forEach(o=>p.attach(o));rig.push({p,label});}
  part('leftArm',/Left.sleeve|Left.hand/i,new T.Vector3(-.19,.935,0));part('rightArm',/Right.sleeve|Right.hand|Held.herb/i,new T.Vector3(.19,.935,0));
  // Exported doll parts have baked vertices and identical object origins (0,0,0).
@@ -132,7 +132,12 @@ export function createTraveler(source,companion=false,look={}){
  const prop=new T.Group();root.add(prop);prop.visible=false;
  const pages=new T.Mesh(new T.BoxGeometry(.30,.045,.21),new T.MeshStandardMaterial({color:'#ede4c5',roughness:1}));prop.add(pages);const cover=new T.Mesh(new T.BoxGeometry(.32,.025,.23),new T.MeshStandardMaterial({color:'#6f877d',roughness:1}));cover.position.y=-.027;prop.add(cover);prop.position.set(0,.845,.22);prop.rotation.x=.35;
  const life=makeDollLife(root,model,rig,prop);
- const syncBones=()=>{for(const {p}of rig){const b=p.userData.bone;if(b)b.quaternion.copy(p.quaternion).multiply(p.userData.rest);}};
+ // 手臂抬过肩（挥手、伸懒腰、举灯）时，肩膀那圈蒙皮撑不住，袖子会被撕开（她 2026-09-26 截图）。
+ // 骨头上把抬手角度压一压：过了 1.2 弧度以后只走剩下的三成——动作还认得出，布料不再裂。
+ const _e=new T.Euler(),_q=new T.Quaternion(),soft=a=>{const m=1.2,s=Math.sign(a),v=Math.abs(a);return v<=m?a:s*(m+(v-m)*.3);};
+ const syncBones=()=>{for(const {p,label}of rig){const b=p.userData.bone;if(!b)continue;
+  if(label.includes('Arm')){_e.copy(p.rotation);_e.x=soft(_e.x);_e.z=soft(_e.z);_q.setFromEuler(_e);b.quaternion.copy(_q).multiply(p.userData.rest);}
+  else b.quaternion.copy(p.quaternion).multiply(p.userData.rest);}};
  let sitBlend=0,lastPoseTime=0;
  return {root,handPoint:life.handPoint,setLook(next){const n=mergeLook(want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
