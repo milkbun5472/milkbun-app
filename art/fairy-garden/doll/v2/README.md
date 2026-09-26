@@ -58,7 +58,7 @@
 - 衣服是 Hunyuan 生成的「只有衣服的壳」，放在 `v2/outfits/`。`skin_outfit.py` 三步：摆到娃娃身上（居中、缩放 `S`、前后加厚 `SY`、下沿对齐 `Z0`）→ 从身体就近复制骨骼权重 → 连同同一副骨架导出。运行时按骨头名字把衣服绑回娃娃的骨架（见 `rig-preview-v2.html` 的 `dress()`）。
 - 摆好后先「贴合」：凡是落在身体里面（或离皮肤不到 `GAP=.006`）的衣服顶点，沿身体法线推到皮肤外面，这样衣服可以往下放、露出脖子，肩膀也不会戳出来。
 - 背心、衬衫身这类从不伸出躯干侧边的碎片（`|x|` 最大值 < `ARM_X=.2`）不吃手臂权重，否则挥手时背心下摆会被手拽走。
-- **C01 学院背心**（衬衫 + 领带 + 针织背心 + 短裤）：`CRUMB=200 UNDER=1 SLEEVE_K=.35 S=.53 SY=1.25 Z0=.15 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c01-shell.glb v2/outfits/outfit_c01.glb`。动作图 `c01.png`。袖子缩短 35%（`SLEEVE_K`，只动伸出躯干两侧的碎片，沿肩→手方向往肩膀收）。袖口毛边碎片（小于 `CRUMB=200` 顶点的袖子碎块）收掉；`UNDER=1` 在衣服底下铺一层衬衫色的贴身底衣（身体皮肤复制外推 `UGAP=.004`，躯干 + 手臂到袖口内），腋下、肩膀裂缝看进去是衬衫色不是肉色。
+- **C01 学院背心**（衬衫 + 领带 + 针织背心 + 短裤）：`UNDER_TEX=1 CRUMB=200 UNDER=1 SLEEVE_K=.35 S=.53 SY=1.25 Z0=.15 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c01-shell.glb v2/outfits/outfit_c01.glb`。动作图 `c01.png`。袖子缩短 35%（`SLEEVE_K`，只动伸出躯干两侧的碎片，沿肩→手方向往肩膀收）。袖口毛边碎片（小于 `CRUMB=200` 顶点的袖子碎块）收掉；`UNDER=1` 在衣服底下铺一层衬衫色的贴身底衣（身体皮肤复制外推 `UGAP=.004`，躯干 + 手臂到袖口内），腋下、肩膀裂缝看进去是衬衫色不是肉色。
 
 ## 网页用压缩版（v2/web/）
 
@@ -74,13 +74,13 @@
 - **肤色**：身体 extras `skinBase` 是贴图自己的肤色，运行时材质颜色＝选的肤色 ÷ skinBase，眼睛腮红跟着一起变深浅。
 - **鞋**：Hunyuan 的学院背心没生成鞋，`make_shoes()` 复制娃娃自己脚踝以下（`SHOE_Z=.085`），沿法线鼓出一点、鞋底压平，同一套骨骼权重，纯色走 `boots` 色槽。
 - **衣服配色**：每个面按自己贴图的颜色分到四格（衣服主色 / 衬衫领边 / 裤子 / 领带点缀），格子号存在顶点色里；运行时按「选的颜色 ÷ 这一格原色」上色，针织纹和褶子都留着。
-- **C02 背带连衣裙**（ID 沿用旧的 `garden`）：`PAINT_ARM=.7 SLEEVE_K=.35 ARM_SKIP=1 UREACH=.3 CONFORM_TOP=.55 SKIRT_K=.25 UNDER=1 CRUMB=200 S=.58 SY=1.2 Z0=.185 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c02-shell.glb v2/outfits/outfit_c02.glb`。
+- **C02 背带连衣裙**（ID 沿用旧的 `garden`）：`UNDER_TEX=1 PAINT_ARM=.7 SLEEVE_K=.35 ARM_SKIP=1 UREACH=.3 CONFORM_TOP=.55 SKIRT_K=.25 UNDER=1 CRUMB=200 S=.58 SY=1.2 Z0=.185 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c02-shell.glb v2/outfits/outfit_c02.glb`。
   - `ARM_SKIP=1`：袖子不做贴合（贴合会把裙子里衬推到袖子表面，出现棕色斑），保持原来粗细；手臂穿出来的地方由衬衫色底衣（`UREACH` 盖到上臂）遮住。`CONFORM_TOP=.55` 同理不贴合领子。
   - `SKIRT_K=.25`：裙摆只跟腿走四分之一，其余跟身体，走路不会裂成两片。
   - 袖子和学院背心一样缩短 35%；缩短后露出来的深色里衬由 `PAINT_ARM` 直接涂成衬衫色（手臂上方、`PAINT_ZMIN=.46` 以上的深色面改指向袖子的浅色贴图），小熊包不受影响。`SLEEVE_ZMIN=.33`：裙片虽然宽，但不算袖子。
   - 连衣裙没有单独的「裤子」「点缀」色槽；鞋照样 `make_shoes()` 补一双深棕的。
 - **M04 刺刺短发**（ID 沿用旧的 `pixie`）：发壳 `hunyuan-m04-shell.glb` 自带耳朵缺口。`INNER=.9 DZ=-.1 python3 fit_shell.py …`，再 `FRINGE_K=.8 python3 shape_hair.py …`（刘海收短到和 85% 那版一样长，头发其余部分还是 90%）。
-- **C03 连帽卫衣工装裤**（ID 沿用旧的 `ranger`）：`SLEEVE_K=.35 UREACH=.3 CONFORM_TOP=.55 UCOL=d6ccc1 UNDER=1 CRUMB=200 S=.63 SY=1.3 Z0=.06 python3 skin_outfit.py …`（`UCOL` 底衣换成卫衣色；裤子到脚踝，`Z0` 放低）。补一双浅棕鞋。
+- **C03 连帽卫衣工装裤**（ID 沿用旧的 `ranger`）：`UNDER_TEX=1 SLEEVE_K=.35 UREACH=.3 CONFORM_TOP=.55 UNDER=1 CRUMB=200 S=.63 SY=1.3 Z0=.06 python3 skin_outfit.py …`（`UCOL` 底衣换成卫衣色；裤子到脚踝，`Z0` 放低）。补一双浅棕鞋。
 - **体积**：web 件按用途减面（身体 `TRIS=20000`、衣服 `15000`、头发 `18000`），组装时 Draco 量化调低、形态键存稀疏。三套衣服 + 五款发型的 `doll.glb` 约 3.9MB（原来 6.2MB），庭院里看不出差别。体积大头是体型滑杆的形态键（没被 Draco 压）。
 - **C04 小兔毛衣**（ID 沿用旧的 `cardigan`，自带球鞋，不补鞋）：这件是照腿长、身瘦的人生成的——`LIFT=.1` 把腰以上整体提到肩膀（鞋留在地上），`SX` 控制宽度。`UNDER_TEX=1 ARM_SKIP=1 UREACH=.2 CONFORM_TOP=.68 UNDER=1 CRUMB=200 LIFT=.1 SX=1.0 SY=1.5 S=.63 Z0=-.01`。`CONFORM_TOP` 要盖到胸口，否则粉色底衣会盖住小兔图案。袖子和身体连成一片，压短袖口会皱，所以保持长袖。
   - `UNDER_TEX=1`：底衣不再是纯色，而是用毛衣自己的贴图（取上臂附近布料的中位色那一点），颜色和明暗跟毛衣一样，看不出垫了一层。
