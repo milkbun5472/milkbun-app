@@ -24,7 +24,7 @@ fs.mkdirSync(out,{recursive:true});
   a.setLook({outfit:'garden'});torsoStates.push(ua.torso.value);states.push(ua.feet.value,ua.sleeve.value.x);b.setLook({outfit:'cardigan'});torsoStates.push(ub.torso.value,ua.torso.value);states.push(ub.feet.value,ub.sleeve.value.x,ua.feet.value);
   const body=b.root.getObjectByName('DollBody');let shadows=0;body.customDepthMaterial.addEventListener('dispose',()=>shadows++);body.customDistanceMaterial.addEventListener('dispose',()=>shadows++);body.material.dispose();return {states,torsoStates,shadows};
  });
- assert.deepEqual(state.states,[.14,.205,-1,.205,-1,.15,.14,.205,-1]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,.705,.705,.705,.705]);
+ assert.deepEqual(state.states,[.14,.205,-1,.205,.10,.15,.14,.205,.10]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,.705,.705,.705,.705]);
  const batches=[['rest','wave','stretch','tea','read'],['water','plant','draw','eat','give']];
  for(const outfit of ['cardigan','academy','garden','ranger'])for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,-1.55,3.1]){
   await page.evaluate(({gestures,angle,outfit})=>{
@@ -44,5 +44,22 @@ fs.mkdirSync(out,{recursive:true});
    const d=createTraveler(source,false,{outfit:'cardigan',hair:'curtains'});d.setLook({outfit});scene.add(d.root);dolls.push(d);for(let f=0;f<30;f++)d.animate(f*.1,{gesture,progress:.5});d.root.position.set((col-2)*.87,(1-row)*1.5,0);d.root.rotation.y=.35;
   }));renderer.render(scene,camera);
  });await page.screenshot({path:out+'/outfits.png'});
- assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:495,errors}));
+ // Close inspection catches dirty collars and side scraps that a contact sheet hides.
+ for(const mode of ['default','min','max','tinted']){
+  await page.evaluate(mode=>{
+   const {createTraveler,source,catalog,scene,renderer,camera,dolls}=clothQA;
+   for(const d of dolls)scene.remove(d.root);dolls.length=0;
+   camera.left=-1.47;camera.right=1.47;camera.top=1.4;camera.bottom=-1.4;camera.updateProjectionMatrix();
+   [0,1.55,3.1].forEach((angle,col)=>['rest','stretch'].forEach((gesture,row)=>{
+    const dims=Object.fromEntries(catalog.dims.map(d=>[d.key,mode==='min'||mode==='max'?d[mode]:1]));
+    const d=createTraveler(source,false,{outfit:'garden',hair:'curtains',dims});
+    if(mode==='tinted')d.setLook({outfitColors:{cloth:'#ab594b'}});
+    scene.add(d.root);dolls.push(d);
+    for(let f=0;f<30;f++)d.animate(f*.1,{gesture,progress:.5,height:0});
+    d.root.position.set((col-1)*.94,(.5-row)*1.28,0);d.root.rotation.y=angle;
+   }));renderer.render(scene,camera);
+  },mode);
+  await page.screenshot({path:`${out}/garden-close-${mode}.png`});
+ }
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:519,errors}));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

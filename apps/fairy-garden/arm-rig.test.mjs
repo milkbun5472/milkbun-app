@@ -57,3 +57,11 @@ test('all outfit sleeves have separate volume, dye slots and shared body morphs'
   assert.ok(mesh.primitives.every(p=>p.attributes.COLOR_0!=null));
  }
 });
+
+
+test('garden dress uses the clean source and continuous shoe shell',()=>{
+ const dress=gltf.nodes.find(n=>n.name==='outfit_garden'),shoe=gltf.nodes.find(n=>n.name==='outfit_garden_shoes');
+ assert.equal(dress.extras.cleanDressVersion,1);assert.equal(shoe.extras.weldedShoeVersion,1);
+ assert.equal(shoe.extras.coversFeetBelow,.10);assert.ok(shoe.skin!=null);
+ assert.deepEqual(gltf.meshes[shoe.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
+});

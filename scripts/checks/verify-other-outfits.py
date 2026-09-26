@@ -9,7 +9,7 @@ before=snapshot(original);after=snapshot(updated);ids=['academy','garden','range
 assert set(after)==set(before)|added
 report={'preserved':{},'sleeves':{}}
 for name,b in before.items():
- if name in changed:continue
+ if name in changed or name=='outfit_garden_shoes':continue
  a=after[name];tree=KDTree(len(b['points']))
  for i,p in enumerate(b['points']):tree.insert(p,i)
  tree.balance();err=shape_err=0
@@ -36,6 +36,25 @@ for name in changed:
  o=bpy.data.objects[name]
  for v in o.data.vertices:
   if v.co.z>.4:assert all(o.vertex_groups[g.group].name=='body' or g.weight<1e-6 for g in v.groups)
+import numpy as np
+shape=runpy.run_path(str(Path(__file__).resolve().parents[2]/'art/fairy-garden/doll/body_shape.py'))['deform']
+probe=np.array([[.15,.10,.2999],[.15,.10,.3001]])
+delta=shape(probe,np.zeros(2),'flare','garden')
+assert np.linalg.norm(delta[1]-delta[0])<.001,'Skirt flare must be continuous through the old cutoff'
+garden=bpy.data.objects['outfit_garden']
+assert garden.get('cleanDressVersion')==1
+for v in garden.data.vertices:
+ assert all('arm' not in garden.vertex_groups[g.group].name.lower() or g.weight<1e-6 for g in v.groups), 'Dress must not stretch with either arm bone'
+from mathutils import Vector
+for side,sign in [('left',-1),('right',1)]:
+ sleeve=bpy.data.objects['outfit_garden_'+side+'_sleeve'];axis=Vector((sign*.095,0,-.19)).normalized();start=Vector((sign*.153,0,.655))
+ radius=max(((v.co-start)-axis*(v.co-start).dot(axis)).length for v in sleeve.data.vertices)
+ assert radius<.06,('garden sleeve still puffy',radius)
+ report['sleeves'][sleeve.name]['maxRadius']=radius
+shoe=bpy.data.objects['outfit_garden_shoes'];bm=bmesh.new();bm.from_mesh(shoe.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.0001)
+assert shoe.get('weldedShoeVersion')==1
+assert all(v.co.z>.10 for e in bm.edges if e.is_boundary for v in e.verts),'Shoe must have no cracks below its rim'
+report['shoes']={'boundaryEdges':sum(e.is_boundary for e in bm.edges),'weldedVersion':1};bm.free()
 counts={o.name:len(o.data.vertices) for o in bpy.data.objects if o.type=='MESH'}
 runpy.run_path(str(Path(__file__).resolve().parents[2]/'art/fairy-garden/doll/restore_other_outfits.py'))['restore_other_outfits']()
 assert counts=={o.name:len(o.data.vertices) for o in bpy.data.objects if o.type=='MESH'}

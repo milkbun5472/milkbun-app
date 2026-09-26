@@ -86,3 +86,14 @@ now renders 495 views across four outfits, three body variants and ten actions.
 accessory motion and sleeve volume on all four garments. Keep the independent
 `verify-cardigan-pouch.py` regression. Physical iPhone rendering and pre-existing
 shoe-rim/collar-detail quality are not established by these numeric tests.
+
+
+## C02 袖型与脏边返工（2026-09-26）
+
+上一批数值回归通过仍没达到视觉要求：短袖仍鼓，领口和腰侧破碎。C02 改用 `hunyuan-c02-shell.glb`（贴身适配前的闭合原件），保留领子、蝴蝶结、百褶裙和小熊包原纹理。袖中段半径由 .076 收到 .050；切除旧袖后再清理断开的残片，包侧面单独避开裁切。袖窿的多层盖面改成单一外侧封口，减面之后细分，再按共用体型公式生成六形态，避免最大腰肩把长三角形压进内层。裙身任何高度均不承接 Arm/Forearm 权重，保留裙摆原有的小幅腿部跟随。
+
+同套纯色鞋从焊接后的脚面修复，鞋壳局部合并并恢复六形态与左右腿权重；鞋面不再沿原 UV 分片外推裂开。原毛衣、奶白包、其他衣服、脸和发型保持。
+
+`shared-cloth-browser.cjs` 现在包含额外的裙装默认/最小/最大/改色正侧背近景；必须肉眼检查这些图，不能以骨骼或接缝测试通过代替外观检查。`verify-other-outfits.py` 新增裙身无手臂权重、短袖最大半径、鞋面闭合检查。新证据在 `shared-arm-clipping/garden-clean/`；`other-outfits/` 属于被用户指出问题的上一稿。
+
+裙摆 flare 从原来的 z=.30 硬切改为渐变到真实下摆，避免极宽裙摆时内层顶出。C02 染色根据原贴图中的浅色布料逐像素分区，白领边不再因减面后三角形归类而染上裙身色。
