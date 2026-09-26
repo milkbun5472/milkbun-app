@@ -1,14 +1,8 @@
 // One window texture, independently scrolling cached art layers. No external assets.
 import * as T from 'three';
-<<<<<<< HEAD
-import {createDestinations,destinationState} from './destinations.mjs?v=fg-1fbc3868e9589cf2';
-import {journeyAt,visibleJourney,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fg-1fbc3868e9589cf2';
-import {ROUTES,SEASONS,WEATHERS} from './environment.mjs?v=fg-1fbc3868e9589cf2';
-=======
-import {createDestinations,destinationState} from './destinations.mjs?v=fg-1fbc3868e9589cf2';
-import {journeyAt,visibleJourney,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fg-1fbc3868e9589cf2';
-import {ROUTES,SEASONS,WEATHERS} from './environment.mjs?v=fg-1fbc3868e9589cf2';
->>>>>>> milkbun/main
+import {createDestinations,destinationState} from './destinations.mjs?v=fg-19e1c3ec928cbad3';
+import {journeyAt,visibleJourney,nextJourneyDistance,drawJourney,drawBridge,drawTunnel} from './journey.mjs?v=fg-19e1c3ec928cbad3';
+import {ROUTES,SEASONS,WEATHERS} from './environment.mjs?v=fg-19e1c3ec928cbad3';
 export {ROUTES,SEASONS,WEATHERS};
 const TAU=Math.PI*2,mod=(a,b)=>((a%b)+b)%b,clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const stops=[
