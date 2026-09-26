@@ -21,33 +21,42 @@ def restore_original_body(source):
 
 
 def fit_cuffs():
+ """One gently tapered sleeve, without the inflated middle or cinched cuff."""
  shape=runpy.run_path(str(HERE/'body_shape.py'))['deform']
+ build=runpy.run_path(str(HERE/'round_sleeves.py'))['round_sleeves']
  body=bpy.data.objects['DollBody']
  if body.get('fittedWristVersion'):
-  raise ValueError('Restore the original body before fitting v2 cuffs')
+  raise ValueError('Restore the original body before fitting sleeves')
  body['originalHandVersion']=1
  for name in ('academy','garden','ranger','cardigan'):
-  o=bpy.data.objects['outfit_'+name]
-  if o.get('fittedCuffVersion',0)>=2:continue
+  cloth=bpy.data.objects['outfit_'+name]
+  if cloth.get('fittedCuffVersion',0)>=3:continue
   short=name=='garden';end=.156 if short else .214
+  old=[bpy.data.objects['outfit_'+name+'_'+side+'_sleeve'] for side in ('left','right')]
+  template=old[0]
+  # Keep each garment's original clean fabric patch, tint slot and material.
+  uv=np.array([p.uv[:] for p in template.data.uv_layers.active.data]);lo=uv.min(0);hi=uv.max(0)
+  atlas=(*lo,*(hi-lo));slot=template.data.color_attributes.active_color.data[0].color[0]
+  for sleeve in old:sleeve.name+='Discarded'
+  # Radius rises only beneath the armhole, then tapers continuously to the hem.
+  # There is no elbow bulb, wrist pinch, or second raised cuff ring.
+  rings=[(-.055,.004),(-.045,.018),(-.030,.030),(-.015,.042),(0,.052),(.02,.060),(.04,.0645),(.065,.064),(.09,.063),(.115,.0625)]
+  rings+=([(.14,.062),(.15,.0615),(.156,.061),(.156,.058),(.14,.058)] if short else
+          [(.14,.062),(.162,.0615),(.178,.061),(.188,.061),(.208,.0605),(.214,.060),(.214,.057),(.196,.057)])
+  build(template,[(t,r/.87) for t,r in rings],atlas,slot,inset=.012)
   for side,sign in [('left',-1),('right',1)]:
-   sleeve=bpy.data.objects['outfit_'+name+'_'+side+'_sleeve'];a=Vector((sign*.095,0,-.19)).normalized();v=a.cross(Vector((0,1,0))).normalized();start=Vector((sign*.153,0,.655))
-   # The source forearm is offset from the old sleeve axis. Move the cloth
-   # towards it gradually; retain the complete original palm, thumb and wrist.
+   sleeve=bpy.data.objects['outfit_'+name+'_'+side+'_sleeve']
+   a=Vector((sign*.095,0,-.19)).normalized();v=a.cross(Vector((0,1,0))).normalized();start=Vector((sign*.153,0,.655))
    center=Vector((0,.01 if sign>0 else .002,0))+v*((-.033 if short else -.025) if sign>0 else (.031 if short else .020))
    for p in sleeve.data.vertices:
-    delta=p.co-start;t=delta.dot(a);radial=delta-a*t;r=radial.length
-    if r<1e-6:continue
-    cuff=max(0,min(1,(t-(end-.075))/.055));cuff=cuff*cuff*(3-2*cuff)
-    blend=max(0,min(1,(t-.015)/.11));blend=blend*blend*(3-2*blend)
-    extra=(.024 if short else .025)*blend
-    if not sleeve.get('fittedCuffVersion'):extra+=.004*cuff
-    p.co+=center*blend+radial.normalized()*extra
+    t=(p.co-start).dot(a);blend=max(0,min(1,(t+.015)/.12));blend=blend*blend*(3-2*blend)
+    p.co+=center*blend
    P=np.array([p.co[:] for p in sleeve.data.vertices]);sleeve.data.shape_keys.key_blocks['Basis'].data.foreach_set('co',P.ravel())
    for key in ('height','shoulder','waist','flare','build','head'):
     sleeve.data.shape_keys.key_blocks[key].data.foreach_set('co',(P+shape(P,np.ones(len(P)),key,True)).ravel())
-   sleeve['fittedCuffVersion']=2
-  c=o['skinCoverage'];c['sleeve']=[round(end-.016,3),0,.76,.10];c['armAxis']=[.153,.655,.095,-.19];o['fittedCuffVersion']=2
+   sleeve['fittedCuffVersion']=3;sleeve['continuousSleeveProfile']=1
+  for sleeve in old:bpy.data.objects.remove(sleeve,do_unlink=True)
+  c=cloth['skinCoverage'];c['sleeve']=[round(end-.016,3),0,.76,.10];c['armAxis']=[.153,.655,.095,-.19];cloth['fittedCuffVersion']=3
 
 
 def main():
