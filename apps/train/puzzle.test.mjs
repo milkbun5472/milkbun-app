@@ -6,3 +6,6 @@ test('重新上车保留照片及未完成拼图，保存恢复不会重切',()=
 test('同行者水平：新手常错、会乱摆放错位，高手几乎都对；错放的片不会锁住',async()=>{const {levelSkill}=await import('./puzzle.mjs');let seed=1;const R=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
  const run=sk=>{const tally={place:0,near:0,wrong:0,wander:0};for(let i=0;i<600;i++){const p=createPuzzle('photo',24,i),m=nextCompanionMove(p,sk,R);tally[m.kind]++;if(!m.correct)assert.equal(drop(p,m.id,m.x,m.y,'companion'),false);}return tally;};
  const lo=run(levelSkill('novice','x')),hi=run(levelSkill('expert','x'));assert.ok(lo.place<330,JSON.stringify(lo));assert.ok(hi.place>520,JSON.stringify(hi));assert.ok(lo.wander>20&&lo.wrong>20,JSON.stringify(lo));assert.equal(levelSkill('auto','lisa'),skillOf('lisa'));});
+test('同一档水平里每个人拼法不一样：手速、错法各有脾气，且对同一人固定',async()=>{const {styleOf}=await import('./puzzle.mjs');assert.deepEqual(styleOf('a'),styleOf('a'));
+ const ids=['a','b','c','lisa','yanqiu','x1','x2'],paces=ids.map(i=>styleOf(i).pace),mess=ids.map(i=>styleOf(i).mess);assert.ok(Math.max(...paces)-Math.min(...paces)>.15);assert.ok(Math.max(...mess)-Math.min(...mess)>.3);
+ const p=createPuzzle('photo',24,3),fast=nextCompanionMove(p,.4,()=>.2,null,{...styleOf('a'),pace:.75,jitter:0}),slow=nextCompanionMove(p,.4,()=>.2,null,{...styleOf('a'),pace:1.35,jitter:0});assert.ok(slow.duration>fast.duration);});
