@@ -6,7 +6,7 @@ const base=process.env.ARM_TEST_URL||'http://127.0.0.1:18926';
 (async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
  const page=await browser.newPage({viewport:{width:1200,height:850}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.route('**/pet.mjs*',r=>r.fulfill({body:''}));
+ await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
  await page.goto(base+'/apps/companion/');
  const report=await page.evaluate(async()=>{
   const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler}=await import('../fairy-garden/traveler.mjs');
@@ -38,6 +38,7 @@ const base=process.env.ARM_TEST_URL||'http://127.0.0.1:18926';
      doll.animate(t+=.1,{gesture,progress,height:0});frames++;
      doll.root.updateMatrixWorld(true);
      for(const side of ['left','right']){
+      check(findBone(doll,side+'Forearm').quaternion.angleTo(source.getObjectByName(side+'Forearm').quaternion)<1e-6,'Half-arm bend in '+gesture);
       const name=side==='left'?'Left_hand':'Right_hand',hand=doll.root.getObjectByName(name);
       const error=doll.handPoint(side).distanceTo(hand.getWorldPosition(new T.Vector3()));
       maxGripError=Math.max(maxGripError,error);check(error<1e-5,'Stale grip: '+gesture);
@@ -66,12 +67,13 @@ const base=process.env.ARM_TEST_URL||'http://127.0.0.1:18926';
   for(const [mesh,old]of inverses)old.forEach((m,i)=>check(m.equals(mesh.skeleton.boneInverses[i]),'Shared inverse bind matrix'));
   // Release from a raised pose must ease, not teleport back to idle.
   for(let i=0;i<20;i++)doll.animate(t+=1/60,{gesture:'wave',progress:.5});
-  const arm=findBone(doll,'rightForearm'),before=arm.quaternion.clone();
+  const arm=findBone(doll,'rightArm'),before=arm.quaternion.clone();
   doll.animate(t+=1/60,{gesture:'rest'});check(before.angleTo(arm.quaternion)<.65,'Abrupt action release');
   for(let i=0;i<60;i++)doll.animate(t+=1/60,{gesture:'rest'});
   doll.setLook({dims:{height:1,shoulder:1,waist:1,flare:1,build:1,head:1}});
   for(let i=0;i<20;i++)doll.animate(t+=.1,{gesture:'stretch',progress:.5});
-  const right=findBone(doll,'rightForearm');check(right.quaternion.angleTo(source.getObjectByName('rightForearm').quaternion)>.5,'Elbow never bends');
+  const right=findBone(doll,'rightArm');check(right.quaternion.angleTo(source.getObjectByName('rightArm').quaternion)>1,'Whole arm never lifts');
+  for(const side of ['left','right'])check(findBone(doll,side+'Forearm').quaternion.angleTo(source.getObjectByName(side+'Forearm').quaternion)<1e-6,'Unwanted half-arm bend');
   scene.remove(doll.root,other.root);
   const display=[];for(let i=0;i<6;i++){
    const d=createTraveler(source,false,{hair:i<3?'airbang':'pixie',outfit:['academy','garden','ranger','cardigan','academy','garden'][i]});scene.add(d.root);
