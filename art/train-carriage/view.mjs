@@ -1,10 +1,10 @@
 import * as T from 'three';
 <<<<<<< HEAD
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-f8143a96b488fdaa';
-import {createWindowScenery} from './scenery.mjs?v=fg-f8143a96b488fdaa';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-fb1c62d6e53551b0';
+import {createWindowScenery} from './scenery.mjs?v=fg-fb1c62d6e53551b0';
 =======
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-f8143a96b488fdaa';
-import {createWindowScenery} from './scenery.mjs?v=fg-f8143a96b488fdaa';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-fb1c62d6e53551b0';
+import {createWindowScenery} from './scenery.mjs?v=fg-fb1c62d6e53551b0';
 >>>>>>> milkbun/main
 export async function createCarriageView(host,{onZoom=()=>{},immersive=false}={}){
 const scene=new T.Scene();
@@ -42,9 +42,9 @@ renderer.domElement.addEventListener('pointermove',e=>{const p=pointers.get(e.po
 for(const event of ['pointerup','pointercancel','lostpointercapture'])renderer.domElement.addEventListener(event,e=>{pointers.delete(e.pointerId);lastDistance=0;});
 renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();setZoom(zoom+e.deltaY*.001);},{passive:false});
 <<<<<<< HEAD
-const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-f8143a96b488fdaa',import.meta.url).href);asset=gltf.scene;
+const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-fb1c62d6e53551b0',import.meta.url).href);asset=gltf.scene;
 =======
-const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-f8143a96b488fdaa',import.meta.url).href);asset=gltf.scene;
+const gltf=await new GLTFLoader().loadAsync(new URL('./carriage.glb?v=fg-fb1c62d6e53551b0',import.meta.url).href);asset=gltf.scene;
 >>>>>>> milkbun/main
  asset.traverse(o=>{if(o.isMesh){o.castShadow=o.userData.carriageGroup!=='WindowGlass';o.receiveShadow=true;if(o.userData.carriageGroup==='WindowGlass'){o.material.transparent=true;o.material.opacity=.10;o.material.depthWrite=false;}}});
  scene.add(asset);setShell(false);resize();setView('window');
