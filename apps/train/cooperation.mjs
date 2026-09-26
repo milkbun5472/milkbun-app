@@ -1,4 +1,4 @@
-import {target,nextCompanionMove,isEdgePiece} from './puzzle.mjs?v=fg-fb1c62d6e53551b0';
+import {target,nextCompanionMove,isEdgePiece} from './puzzle.mjs?v=fg-c84173cc0b728476';
 export const HANDOFF={x:100,y:1225,w:800,h:90};
 export function inHandoff(x,y){return x>=HANDOFF.x&&x<=HANDOFF.x+HANDOFF.w&&y>=HANDOFF.y&&y<=HANDOFF.y+HANDOFF.h;}
 export function pendingPiece(p){const a=p?.cooperation?.pending;return a&&['solve','fetch','help','ready'].includes(a.kind)&&p.pieces[a.id]&&!p.pieces[a.id].locked?a:null;}
