@@ -32,7 +32,9 @@ function dyeHair(o,look){const u=o.userData.hairDye;if(!u)return;o.material.colo
 const SLOTS=['cloth','trim','bottom','accent'];
 function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slotBase;if(!base)return;
  // Blender 会连带导出一层全白的 COLOR_0，格子号可能在 color 也可能在 color_1：挑真有好几种值的那一层
- const pick=['color','color_1','color_2'].find(n=>{const a=o.geometry.attributes[n];if(!a)return false;const seen=new Set();for(let i=0;i<a.count&&seen.size<2;i+=97)seen.add(Math.round(a.getX(i)*8));return seen.size>1;});if(!pick)return;
+ const pick=['color','color_1','color_2'].find(n=>{const a=o.geometry.attributes[n];if(!a)return false;const seen=new Set();for(let i=0;i<a.count&&seen.size<2;i+=97)seen.add(Math.round(a.getX(i)*8));return seen.size>1;})
+  // 底衣那一小块全是同一格：那一层没有「好几种值」，但它也不是 Blender 附带的全白层（值 < 1）
+  ||['color_1','color','color_2'].find(n=>{const a=o.geometry.attributes[n];return a&&a.getX(0)<.9;});if(!pick)return;
  const u={uTint:{value:SLOTS.map(()=>new T.Vector3(1,1,1))}};o.userData.slotDye={u,base};
  // GLTFLoader 看到 COLOR_0 就开 vertexColors，会拿格子号去乘颜色（还会重复声明 color）——这里它只是格子号
  o.material.vertexColors=false;
