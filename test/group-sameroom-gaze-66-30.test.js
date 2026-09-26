@@ -36,7 +36,7 @@ test("群里的同处一室：句子跟单聊共用一份，只多传一个参�
   assert.match(app, /const gSameRoomHint = \(gSameRoomFor\(groupId\) && !gs\.spectate && !\(offlineGroup && offlineGroup\.id === groupId\)\)/,
     "旁观群/线下正开着这两种情形没挡");
   assert.match(app, /samePlacePresence\(userName\(profile\), true\)/, "群里没传 group");
-  assert.match(app, /dir \+ common \+ gSameRoomHint \+/, "算了却没发下去");
+  assert.match(app, /dir \+ commonTurn \+ gSameRoomHint \+/, "算了却没发下去");
 });
 
 test("那颗键是一颗小房子，而且单聊群聊共用同一颗", () => {
