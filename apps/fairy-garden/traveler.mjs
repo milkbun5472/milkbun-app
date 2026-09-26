@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-a9d19360c953cb4a';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-a9d19360c953cb4a';
+import {makeDollLife} from './doll-life.mjs?v=fg-0067d556fe1d225e';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-0067d556fe1d225e';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -44,6 +44,27 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
    .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
  o.material.customProgramCacheKey=()=>'slotDye'+pick;o.material.needsUpdate=true;}
 const _a=new T.Color(),_b=new T.Color();
+// Coverage is authored on the outfit in rest coordinates. The same mask is used
+// for colour and shadow passes, and each avatar owns its uniform values.
+function coveredSkinShader(o){
+ const coverage={feet:{value:-1},torso:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)}};
+ if(!o.geometry.getAttribute('skinArmInfluence')){
+  const weights=o.geometry.getAttribute('skinWeight'),indices=o.geometry.getAttribute('skinIndex'),values=new Float32Array(o.geometry.getAttribute('position').count);
+  if(weights&&indices)for(let i=0;i<values.length;i++)for(let k=0;k<4;k++)if(/(?:Arm|Forearm)$/.test(o.skeleton.bones[indices.getComponent(i,k)]?.name||''))values[i]+=weights.getComponent(i,k);
+  o.geometry.setAttribute('skinArmInfluence',new T.BufferAttribute(values,1));
+ }
+ o.userData.skinCoverageUniforms=coverage;o.userData.coveredFeet=coverage.feet;
+ const patch=m=>{m.onBeforeCompile=sh=>{
+  sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;varying float vSkinArm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform vec4 uSleeve;uniform vec4 uArmAxis;')
+   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif(vSkinRest.y<uCoveredFeet || (vSkinRest.y<uCoveredTorso && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
+ };m.customProgramCacheKey=()=>'coveredSkin-v1';};
+ patch(o.material);
+ o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
+ o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
+ o.material.addEventListener('dispose',()=>{o.customDepthMaterial.dispose();o.customDistanceMaterial.dispose();});
+}
 function dyeOutfit(o,colors){const d=o.userData.slotDye;if(!d)return;SLOTS.forEach((k,i)=>{if(!d.base[k]||!colors[k])return d.u.uTint.value[i].set(1,1,1);_a.set(colors[k]);_b.set(d.base[k]);d.u.uTint.value[i].set(_a.r/Math.max(_b.r,.02),_a.g/Math.max(_b.g,.02),_a.b/Math.max(_b.b,.02));});}
 // 表情：同一个身体，换脸上的贴图（faces/<id>.webp，和身体原贴图同一套 UV）。所有小人共用一份贴图缓存。
 const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();let FACE_BASE=new URL('./faces/',import.meta.url).href;
@@ -65,7 +86,11 @@ export function createTraveler(source,companion=false,look={}){
  // ⚠️clone(true) 只克隆节点，【材质仍然是同一份】：不给每个实例各一份，
  //   改一个人的发色，另一个人的头发会跟着一起变（美术脚本那头也踩过同一个坑）。
  const isHair=o=>/^hair[._]/i.test(o.name),hairName='hair_'+style;
- const mine=new Map();
+ const mine=new Map(),coverageByOutfit=new Map();
+ model.traverse(o=>{if(!o.userData.outfit)return;const id=o.userData.outfit,c=coverageByOutfit.get(id)||{};
+  if(Number.isFinite(o.userData.coversFeetBelow))c.feet=o.userData.coversFeetBelow;
+  if(o.userData.skinCoverage)Object.assign(c,o.userData.skinCoverage);coverageByOutfit.set(id,c);
+ });
  model.traverse(o=>{if(!o.isMesh)return;
   // ⚠️藏起来的那十一款头发也要克隆材质：以后 setLook 换到其中一款时它才有自己的一份。
   //   跳过不克隆的话，换完发型两个人共用同一份材质，谁后设色谁说了算（实测两个小人一起变色）。
@@ -74,14 +99,16 @@ export function createTraveler(source,companion=false,look={}){
   if(!mine.has(o.material))mine.set(o.material,o.material.clone());
   o.material=mine.get(o.material);
   if(o.material.name==='Character warm peach')o.userData.skin=true;
-  if(o.userData.skinBase){o.userData.bodyMap=o.material.map;}
+  if(o.userData.skinBase){o.userData.bodyMap=o.material.map;coveredSkinShader(o);}
   if(o.userData.outfit)outfitShader(o);
   if(o.userData.colorSlot||o.userData.skin){o.material=o.material.clone();if(!o.userData.dyeTexture)o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
   // 头发的纹理材质进不了 GLB（GLTF 只收基础 PBR），颜色一律在这儿给
   if(isHair(o)){hairShader(o);dyeHair(o,want);o.material.roughness=.85;}
   else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
- const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;if(o.userData.skin)o.material.color.set(look.skin);
+ const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;
+   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(id)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
+   if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);
    const face=FACE_ID.test(look.face||'')&&look.face!=='default'?faceTexture(look.face):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
@@ -91,16 +118,17 @@ export function createTraveler(source,companion=false,look={}){
    for(const key of DIMS){const i=o.morphTargetDictionary[key];if(i==null)continue;const v=Number(dims[key]);o.morphTargetInfluences[i]=isFinite(v)?v-1:0;}});};
  applyDims(want.dims);
  model.updateMatrixWorld(true);
- let authoredRig,rigMorphs;model.traverse(o=>{if(o.userData.dollRig){authoredRig=o.userData.dollRig;rigMorphs=o.userData.rigMorphs;}});
+ let authoredRig,rigMorphs,elbowRig;model.traverse(o=>{if(o.userData.dollRig){authoredRig=o.userData.dollRig;rigMorphs=o.userData.rigMorphs;elbowRig=o.userData.elbowRig;}});
  const pivotFor=(label,fallback)=>authoredRig?.[label]?new T.Vector3(...authoredRig[label]):fallback;
  // 当前模型自带枢轴和形变位移；数值后备只供旧模型缓存切换期间使用。
  // v2 娃娃带骨架（骨头名＝枢轴名）：枢轴组照旧建、动画照旧转它，每帧末尾把它的转角抄给同名骨头（syncBones）。
- //   手没有单独的网格，在枢轴组里放一个看不见的小块当「手」，拿东西的位置照旧从它算。
- const HAND={leftArm:[-.275,.40,0],rightArm:[.275,.40,0]};
+ //   手没有单独的网格，握点挂在前臂骨头上；旧缓存模型仍挂上臂。拿道具前先同步当前姿态。
+ const HAND={leftArm:elbowRig?.hands?.left||[-.275,.40,0],rightArm:elbowRig?.hands?.right||[.275,.40,0]};
  function part(label,match,pivot){const p=new T.Group();p.name=label;p.position.copy(pivotFor(label,pivot));model.add(p);model.updateMatrixWorld(true);
   const bone=model.getObjectByName(label);if(bone?.isBone){p.userData.bone=bone;p.userData.rest=bone.quaternion.clone();
-   if(HAND[label]){const hand=new T.Mesh(new T.BoxGeometry(.05,.05,.05));hand.visible=false;hand.name=(label==='leftArm'?'Left':'Right')+'_hand';model.updateMatrixWorld(true);const wp=model.localToWorld(new T.Vector3().fromArray(HAND[label]));bone.add(hand);hand.position.copy(bone.worldToLocal(wp));}}   // 挂在骨头上：拿着的东西跟着真正的手走（抬手被压过角度也对得上）
-  const picked=[];model.traverse(o=>{if(o.isMesh&&(match.test(o.name)||o.userData.rigPart===label))picked.push(o);});picked.forEach(o=>p.attach(o));rig.push({p,label});}
+   if(HAND[label]){const forearm=model.getObjectByName(label.replace('Arm','Forearm'));if(elbowRig&&forearm?.isBone){p.userData.forearm=forearm;p.userData.forearmRest=forearm.quaternion.clone();}
+    const hand=new T.Mesh(new T.BoxGeometry(.05,.05,.05));hand.visible=false;hand.userData.followBone=true;hand.name=(label==='leftArm'?'Left':'Right')+'_hand';model.updateMatrixWorld(true);const wp=model.localToWorld(new T.Vector3().fromArray(HAND[label]));const carrier=p.userData.forearm||bone;carrier.add(hand);hand.position.copy(carrier.worldToLocal(wp));}}   // 挂在骨头上：拿着的东西跟着真正的手走（抬手被压过角度也对得上）
+  const picked=[];model.traverse(o=>{if(o.isMesh&&!o.userData.followBone&&(match.test(o.name)||o.userData.rigPart===label))picked.push(o);});picked.forEach(o=>p.attach(o));rig.push({p,label});}
  part('leftArm',/Left.sleeve|Left.hand/i,new T.Vector3(-.19,.935,0));part('rightArm',/Right.sleeve|Right.hand|Held.herb/i,new T.Vector3(.19,.935,0));
  // Exported doll parts have baked vertices and identical object origins (0,0,0).
  // Classify the actual mesh centre in model space, not the object's translation.
@@ -121,8 +149,9 @@ export function createTraveler(source,companion=false,look={}){
   for(const [obj,pos] of boneBind){const next=pos.clone(),m=rigMorphs[obj.name]||{};
    for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&m[key])next.addScaledVector(new T.Vector3(...m[key]),delta);}obj.position.copy(next);
    if(obj===anchor){const hd=Number(dims?.head??1)-1;obj.scale.copy(anchor.userData.bindScale).multiplyScalar(1+(Number.isFinite(hd)?hd:0)*(m.scale?.head||0));}}
-  const saved=rig.map(({p})=>p.userData.bone?[p.userData.bone,p.userData.bone.quaternion.clone()]:null).filter(Boolean);
-  for(const {p}of rig)if(p.userData.bone)p.userData.bone.quaternion.copy(p.userData.rest);
+  const driven=rig.flatMap(({p})=>[[p.userData.bone,p.userData.rest],[p.userData.forearm,p.userData.forearmRest]]).filter(([b])=>b);
+  const saved=driven.map(([b])=>[b,b.quaternion.clone()]);
+  for(const [b,rest]of driven)b.quaternion.copy(rest);
   model.updateMatrixWorld(true);for(const m of skinned)m.bind(m.skeleton);for(const [b,q]of saved)b.quaternion.copy(q);};
  const fitRig=dims=>{rebindBones(dims);if(!rigMorphs)return;for(const {p,label}of rig){const next=new T.Vector3(...authoredRig[label]);for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&rigMorphs[label]?.[key])next.addScaledVector(new T.Vector3(...rigMorphs[label][key]),delta);}const shift=next.clone().sub(p.position);p.position.copy(next);for(const child of p.children)if(!child.userData.follow)child.position.sub(shift);}};
  fitRig(want.dims);
@@ -131,17 +160,24 @@ export function createTraveler(source,companion=false,look={}){
  for(const {p,label}of rig)if(label.includes('Leg')){const blade=new T.Mesh(bladeGeo,bladeMat);blade.name='IceBlade';blade.position.set(0,-p.position.y+.015,.025);p.add(blade);skateParts.push(blade);}
  const prop=new T.Group();root.add(prop);prop.visible=false;
  const pages=new T.Mesh(new T.BoxGeometry(.30,.045,.21),new T.MeshStandardMaterial({color:'#ede4c5',roughness:1}));prop.add(pages);const cover=new T.Mesh(new T.BoxGeometry(.32,.025,.23),new T.MeshStandardMaterial({color:'#6f877d',roughness:1}));cover.position.y=-.027;prop.add(cover);prop.position.set(0,.845,.22);prop.rotation.x=.35;
- const life=makeDollLife(root,model,rig,prop);
- // 手臂抬过肩（挥手、伸懒腰、举灯）时，肩膀那圈蒙皮撑不住，袖子会被撕开（她 2026-09-26 截图）。
- // 骨头上把抬手角度压一压：过了 1.2 弧度以后只走剩下的三成——动作还认得出，布料不再裂。
- const _e=new T.Euler(),_q=new T.Quaternion(),soft=a=>{const m=.8,s=Math.sign(a),v=Math.abs(a);return v<=m?a:s*(m+(v-m)*.2);};
+ const life=makeDollLife(root,model,rig,prop,()=>syncBones());
+ // Keep the whole arm moving from the shoulder. The authored elbow stays at
+ // rest, so sleeves follow the same continuous rotation instead of folding.
+ const _q=new T.Quaternion();
+ let poseBlend=1;const poseFrom=new Map();
+ const smoothBone=b=>{const from=poseFrom.get(b);if(from){_q.copy(b.quaternion);b.quaternion.copy(from).slerp(_q,poseBlend);}};
  const syncBones=()=>{for(const {p,label}of rig){const b=p.userData.bone;if(!b)continue;
-  if(label.includes('Arm')){_e.copy(p.rotation);_e.x=soft(_e.x);_e.z=soft(_e.z);_q.setFromEuler(_e);b.quaternion.copy(_q).multiply(p.userData.rest);}
-  else b.quaternion.copy(p.quaternion).multiply(p.userData.rest);}};
- let sitBlend=0,lastPoseTime=0;
+  b.quaternion.copy(p.quaternion).multiply(p.userData.rest);
+  if(label.includes('Arm')){
+   const forearm=p.userData.forearm;
+   if(forearm)forearm.quaternion.copy(p.userData.forearmRest);
+   smoothBone(b);if(forearm)smoothBone(forearm);
+  }
+ }};
+ let sitBlend=0,lastPoseTime=null;
  return {root,handPoint:life.handPoint,setLook(next){const n=mergeLook(want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
    dress(n);applyDims(n.dims);fitRig(n.dims);
    Object.assign(want,n);},
-  animate(time,{moving=false,skating=false,gesture='rest',height=.08,sleepPose=null,seated=false,progress=0}={}){const lying=!!sleepPose;skating=skating&&!lying&&gesture!=='sit';skateParts.forEach(b=>b.visible=skating);root.userData.posture=lying?'sleep':skating?'skate':gesture;model.rotation.x=lying?-Math.PI/2:skating&&moving?.07:0;model.rotation.z=skating&&moving?Math.sin(time*3.2)*.035:0;model.position.set(lying?sleepPose.x-root.position.x:0,0,lying?sleepPose.z-root.position.z:0);if(lying){root.rotation.y=0;height=sleepPose.y;gesture='sleep';moving=false;model.rotation.y=sleepPose.hug?sleepPose.toward*.45:0;}else model.rotation.y=0;seated=!moving&&!lying&&(seated||gesture==='sit');const dt=Math.min(.1,Math.max(0,time-lastPoseTime));lastPoseTime=time;sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=sitBlend;});root.position.y=height-sitBlend*.34+(skating?.035:moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.z=skating?(label.includes('Arm')?side*.3:Math.sin(time*3.2)*.085*side):0;p.rotation.y=skating&&moving&&label.includes('Leg')?Math.sin(time*3.2)*.16*side:0;const hugging=lying&&sleepPose.hug,reaching=hugging&&sleepPose.hugArm,inner=sleepPose?.toward>0?'leftArm':'rightArm';const standing=lying?(reaching&&label===inner?-1.05:0):skating?(label.includes('Leg')?(moving?Math.sin(time*3.2)*.17*side:0):-.15):moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;if(reaching&&label===inner)p.rotation.z=side*.72;else if(hugging)p.rotation.z=0;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;if(!moving&&!lying&&label==='rightArm'){if(gesture==='stir'){p.rotation.x=-1.05+Math.sin(time*2.5)*.12;p.rotation.z=Math.cos(time*2.5)*.2;}else if(gesture==='hold')p.rotation.x=-1.3;}}life.update(time,{gesture:lying?'sleep':gesture,progress,moving,seated,height});syncBones();}};
+  animate(time,{moving=false,skating=false,gesture='rest',height=.08,sleepPose=null,seated=false,progress=0}={}){const lying=!!sleepPose;skating=skating&&!lying&&gesture!=='sit';skateParts.forEach(b=>b.visible=skating);root.userData.posture=lying?'sleep':skating?'skate':gesture;model.rotation.x=lying?-Math.PI/2:skating&&moving?.07:0;model.rotation.z=skating&&moving?Math.sin(time*3.2)*.035:0;model.position.set(lying?sleepPose.x-root.position.x:0,0,lying?sleepPose.z-root.position.z:0);if(lying){root.rotation.y=0;height=sleepPose.y;gesture='sleep';moving=false;model.rotation.y=sleepPose.hug?sleepPose.toward*.45:0;}else model.rotation.y=0;seated=!moving&&!lying&&(seated||gesture==='sit');const dt=lastPoseTime==null?.1:Math.min(.1,Math.max(0,time-lastPoseTime));poseBlend=lastPoseTime==null?1:1-Math.exp(-dt*14);lastPoseTime=time;for(const {p,label}of rig)if(label.includes('Arm'))for(const b of [p.userData.bone,p.userData.forearm])if(b)poseFrom.set(b,b.quaternion.clone());sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=sitBlend;});root.position.y=height-sitBlend*.34+(skating?.035:moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.z=skating?(label.includes('Arm')?side*.3:Math.sin(time*3.2)*.085*side):0;p.rotation.y=skating&&moving&&label.includes('Leg')?Math.sin(time*3.2)*.16*side:0;const hugging=lying&&sleepPose.hug,reaching=hugging&&sleepPose.hugArm,inner=sleepPose?.toward>0?'leftArm':'rightArm';const standing=lying?(reaching&&label===inner?-1.05:0):skating?(label.includes('Leg')?(moving?Math.sin(time*3.2)*.17*side:0):-.15):moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;if(reaching&&label===inner)p.rotation.z=side*.72;else if(hugging)p.rotation.z=0;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;if(!moving&&!lying&&label==='rightArm'){if(gesture==='stir'){p.rotation.x=-1.05+Math.sin(time*2.5)*.12;p.rotation.z=Math.cos(time*2.5)*.2;}else if(gesture==='hold')p.rotation.x=-1.3;}}life.update(time,{gesture:lying?'sleep':gesture,progress,moving,seated,height});syncBones();}};
 }

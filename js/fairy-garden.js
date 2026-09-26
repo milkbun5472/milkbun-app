@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-a9d19360c953cb4a", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-0067d556fe1d225e", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -392,6 +392,9 @@
     // 真身票优先（她 2026-09-25「座位这种得你自己来」）：言秋同行时先开 CC 票请本人接话，
     // 不在岗/超时才落引擎兜底——同 trpg「队友宣言」先例，她永远有回音。
     if (engineer && root.CCSeat && root.Cloud) {
+      // 自动闲聊（event=游戏每45秒的搭话）不开真身票：真身只接她亲口说的话——
+      // 否则每张票占线一两分钟，把拼图桌的发送锁攥死（她 9/26 首航实测「发不出来」）。
+      if (event) return { reply: [] };
       try {
         const r = await root.CCSeat.ask({
           tool: "train_chat", char_id: character.id, ticket: "fg:" + Date.now(),

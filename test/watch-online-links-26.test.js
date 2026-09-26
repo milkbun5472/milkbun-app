@@ -26,7 +26,7 @@ test("B 站 BV / av / 分 P 都认得，短链明说认不出", () => {
 });
 
 test("B 站播放器地址：av 走 aid，BV 走 bvid，不自动播，续看带起点", () => {
-  assert.match(ctx.biliSrc({ vid: "BV1xx411c7mD", page: 2 }, 0), /bvid=BV1xx411c7mD&page=2&autoplay=0/);
+  assert.match(ctx.biliSrc({ vid: "BV1xx411c7mD", page: 2 }, 0), /isOutside=true&bvid=BV1xx411c7mD&p=2&page=2&autoplay=0/);
   assert.match(ctx.biliSrc({ vid: "av170001" }, 125), /aid=170001&.*&t=125$/);
 });
 

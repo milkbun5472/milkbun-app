@@ -6,7 +6,11 @@ const app = fs.readFileSync("js/app.js", "utf8");
 
 assert(components.includes('const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);'), "group offline settings must expose a memory count state");
 assert(components.includes('min: 0, max: 20, step: 1, onChange: setSMemN'), "group offline memory slider must allow disabling recall");
-assert(components.includes('maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg'), "group offline settings must persist memN alongside online transition context");
+const groupUi = components.slice(components.indexOf("function GroupOfflineMode({"));
+assert(groupUi.indexOf("function GroupOfflineMode({") === 0, "抠不出 GroupOfflineMode");
+const groupSave = groupUi.slice(groupUi.indexOf("onSaveSettings && onSaveSettings({"));
+assert(/memN: sMemN/.test(groupSave), "group offline settings must persist memN");
+assert(/onlineCtxN: sOnlineN/.test(groupSave), "group offline settings must persist online transition context");
 assert(app.includes('osFor("g_" + group.id).memN'), "group offline recall must read its saved memory count");
 // v53.61：轮流合并搬进 engine 的 splitGroupMemories（顺带按可见交集分流），群线下只是调用方。
 const engine = fs.readFileSync("js/engine.js", "utf8");

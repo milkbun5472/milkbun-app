@@ -121,3 +121,8 @@ assert.ok(!/h\("input", \{ autoFocus: true, value: p\.txt/.test(src), "影院里
 assert.match(src, /const ios = \/iP\(hone\|ad\|od\)\/\.test\(navigator\.userAgent\)/);
 assert.match(src, /if \(!ios && el && el\.requestFullscreen\) el\.requestFullscreen\(\)/);
 console.log("ok watch-together");
+// v74.110：B 站外链播放器要 isOutside=true，不抹来源；黑屏还能去 B 站放
+{ const w = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "watch.js"), "utf8");
+  require("node:assert/strict").match(w, /player\.bilibili\.com\/player\.html\?isOutside=true&/);
+  require("node:assert/strict").ok(!/referrerPolicy: "no-referrer", title: film\.title/.test(w));
+  require("node:assert/strict").match(w, /黑屏？去 B 站放/); }
