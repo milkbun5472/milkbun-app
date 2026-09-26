@@ -1,6 +1,6 @@
-import {FILM_LIMIT,WAITING_FILM_LIMIT} from './photo-limits.mjs?v=fg-0a8b6fcba0caf3a7';
-import {travelEnvironment} from './travel.mjs?v=fg-0a8b6fcba0caf3a7';
-import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-0a8b6fcba0caf3a7';
+import {FILM_LIMIT,WAITING_FILM_LIMIT} from './photo-limits.mjs?v=fg-49f90405374c868f';
+import {travelEnvironment} from './travel.mjs?v=fg-49f90405374c868f';
+import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-49f90405374c868f';
 export const PHOTO_THEMES=[
  {id:'bridge',name:'桥上的风景',hint:'等列车过桥，把桥身和栏杆收进画面。'},
  {id:'station',name:'路过的小站',hint:'等站房经过窗前，把站房拍下来。'},

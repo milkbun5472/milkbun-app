@@ -1,16 +1,16 @@
 import * as T from 'three';
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-0a8b6fcba0caf3a7';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-0a8b6fcba0caf3a7';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK} from '../fairy-garden/wardrobe.mjs?v=fg-0a8b6fcba0caf3a7';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-0a8b6fcba0caf3a7';
-import {createPassengers} from './passengers.mjs?v=fg-0a8b6fcba0caf3a7';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-0a8b6fcba0caf3a7';
-import {createTravelCamera} from './camera-view.mjs?v=fg-0a8b6fcba0caf3a7';
-import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-0a8b6fcba0caf3a7';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-0a8b6fcba0caf3a7';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-0a8b6fcba0caf3a7';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-0a8b6fcba0caf3a7';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-0a8b6fcba0caf3a7';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-49f90405374c868f';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-49f90405374c868f';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-49f90405374c868f';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-49f90405374c868f';
+import {createPassengers} from './passengers.mjs?v=fg-49f90405374c868f';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-49f90405374c868f';
+import {createTravelCamera} from './camera-view.mjs?v=fg-49f90405374c868f';
+import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-49f90405374c868f';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-49f90405374c868f';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-49f90405374c868f';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-49f90405374c868f';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-49f90405374c868f';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let wander=()=>{},cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 // 改外貌时的预览（她 2026-09-25：「设置外貌的时候看不到预览，搞成跟庭院一样」）：
@@ -80,7 +80,9 @@ document.querySelector('#rest-together').onclick=()=>{try{const r=restState(stat
   wanderNow:()=>wander(performance.now(),true),
   preview:who=>setPreview(who),
   getLook:()=>({me:{...lookOf('me')},companion:{...lookOf('companion')}}),
-  getDyes:who=>{const l=lookOf(who),d=who==='me'?DEFAULT_LOOK:COMPANION_LOOK;return {skin:l.skin||d.skin,hairColor:l.hairColor||d.hairColor};},
+  hairModes:HAIR_MODES,
+  getDyes:who=>dyesOf(lookOf(who),who==='me'?DEFAULT_LOOK:COMPANION_LOOK),
+  getHair:who=>hairId(lookOf(who).hair||(who==='me'?DEFAULT_LOOK:COMPANION_LOOK).hair),
   getOutfit:who=>{const l=lookOf(who);return {id:outfitId(l),colors:outfitColors({...(who==='me'?DEFAULT_LOOK:COMPANION_LOOK),...l})};},
   setLook:(who,patch)=>{if(!view||!patch||(who!=='me'&&who!=='companion'))return false;const before=state;state={...state,looks:{...(state.looks||{}),[who]:mergeLook(lookOf(who),patch)}};if(!flush()){state=before;return false;}passengers?.people.find(p=>p.who===who)?.avatar.setLook(patch);previewDolls[who]?.setLook(patch);return true;},
   chatContext:()=>({map:"carriage",activity:cameraUI?.isOpen?(cameraSubject==='window'?'拍摄窗景':cameraSubject==='companion'?'给同行者拍照':'拍两人合照'):desk?.isOpen&&desk?.activity==='travel'?(isResting(state)?'在卧铺边休息聊天':'看窗外聊天'):desk?.isOpen?'拼图桌边':'乘车看风景',rest:(()=>{const r=restContext(state,!!host.companion?.()?.id);for(const [k,w] of [['you','me'],['companion','companion']]){const at=passengers?.where(w);if(at&&r[k]&&!restState(state)[k])r[k]=at;}return r;})(),environment:travelContext(state),photography:{promises:promiseSummaries(state,true).slice(-3),unopenedCount:(state.companionPhotos||[]).length,recentPhotos:[...(state.photos||[]),...(state.companionPhotos||[])].slice(-4).map(p=>({label:p.label,photographer:p.photographer?.role==='companion'?p.photographer.name:'对方',shared:!(state.companionPhotos||[]).some(x=>x.id===p.id)}))}}),editAlbum:action=>{const before=state;try{if(action.kind==='exchange')state=exchangePhotos(state);else if(action.kind==='delete')state=removeAlbumItem(state,action.id);else if(action.kind==='note')state=setBackNote(state,action.id,action.who,action.text,host.companion?.()?.name);else throw Error('未知操作');if(!flush())throw Error('相册没有保存成功');desk.refresh().catch(e=>{status.textContent=e.message;});return true;}catch(e){state=before;throw e;}},snapshot:()=>({...state}),get ready(){return !!view;}};host.ready?.();if(!flush())throw Error('进度没有保存成功，请返回重试。');frame=requestAnimationFrame(animate);

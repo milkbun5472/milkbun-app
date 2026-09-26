@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#f1ece2;font:600 22px system-ui;color:#6b4a3a}main{display:grid;grid-template-columns:repeat(3,300px);gap:18px;padding:24px}figure{margin:0;text-align:center}figcaption{margin-top:4px;background:#e6ddd0;border-radius:20px;display:inline-block;padding:4px 30px}</style><main id=m></main>
+<script>
+fetch('faces.json').then(r=>r.json()).then(F=>{m.innerHTML=Object.values(F).map(f=>`<figure><svg viewBox="-150 -140 300 280" width="300" height="280">
+<defs><radialGradient id="bl"><stop offset="0" stop-color="#f7a898" stop-opacity=".85"/><stop offset="1" stop-color="#f7a898" stop-opacity="0"/></radialGradient></defs>
+<ellipse cx="-138" cy="40" rx="24" ry="30" fill="#f2cfb3"/><ellipse cx="138" cy="40" rx="24" ry="30" fill="#f2cfb3"/>
+<path d="M-132 30 C-134 -78 -72 -126 0 -126 C72 -126 134 -78 132 30 C130 96 84 126 0 126 C-84 126 -130 96 -132 30Z" fill="#f6d9c2"/>
+<ellipse cx="-78" cy="80" rx="30" ry="24" fill="url(#bl)"/><ellipse cx="78" cy="80" rx="30" ry="24" fill="url(#bl)"/>
+${f.svg}</svg><figcaption>${f.label}</figcaption></figure>`).join('')});
+</script>

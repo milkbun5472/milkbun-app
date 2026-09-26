@@ -7,6 +7,7 @@ await p.evaluate(async()=>{const {freshState}=await import('./apps/fairy-garden/
  ReactDOM.createRoot(el).render(React.createElement(FairyGardenApp,{storeKey:'x_fairyGarden:wander-test',entryWorld:'train',characters:[{id:'p1',name:'同行测试'}],active:{test:true},profile:{name:'测试'},toast:()=>{},onBack:()=>{}}));});
 await p.waitForFunction(()=>document.querySelector('#w-root iframe')?.contentWindow.TrainGame?.ready,null,{timeout:120000});const f=p.frames().find(f=>f.url().includes('/apps/train/'));
 const ta=()=>f.evaluate(()=>{const c=TrainGame.passengers.people.find(x=>x.who==='companion');return {spot:c.spot,walking:c.path.length>0};});
+await f.evaluate(()=>{Math.random=()=>.9;});/* 列车一天 4 分钟，跑慢了会到夜里：固定随机数，免得这一步抽到去卧铺 */
 // 自己起身
 await f.evaluate(()=>TrainGame.wanderNow());let t=await ta();assert.notEqual(t.spot,'seat');assert.ok(t.walking);
 await f.evaluate(()=>{for(let i=0;i<120;i++)TrainGame.passengers.tick(performance.now()+i*100,.1,true);});

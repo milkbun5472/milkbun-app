@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>娃娃动作预览</title>
+<style>html,body{margin:0;height:100%;background:#eee6d8;font:15px system-ui;color:#604632}#v{position:fixed;inset:0}.bar{position:fixed;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}#hats{top:calc(12px + env(safe-area-inset-top))}#acts{top:calc(56px + env(safe-area-inset-top))}button{border:0;border-radius:18px;padding:8px 14px;background:#fffaf2;color:#604632}button.on{background:#604632;color:#fffaf2}#s{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom))}</style>
+<div id="v"></div>
+<div class="bar" id="hats"><button data-h="">光头</button><button data-h="v2/hats/hair_m02.glb">M02</button><button data-h="v2/hats/hair_m03.glb">M03</button><button data-h="v2/hats/hair_f01.glb">F01</button><button data-h="v2/hats/hair_f02.glb">F02</button><button id="turn">转一圈</button></div>
+<div class="bar" id="outfits" style="top:calc(100px + env(safe-area-inset-top))"><button data-o="">不穿</button><button data-o="v2/outfits/outfit_c01.glb">C01 学院背心</button></div>
+<div class="bar" id="acts"><button data-a="rest" class="on">站着</button><button data-a="walk">走路</button><button data-a="wave">挥手</button><button data-a="sit">坐下</button></div>
+<p id="s">载入中…</p>
+<script type="importmap">{"imports":{"three":"../../../apps/fairy-garden/vendor/three.module.js"}}</script>
+<script type="module">
+import * as T from 'three';
+import { GLTFLoader } from '../../../apps/fairy-garden/vendor/GLTFLoader.js';
+import { DRACOLoader } from '../../../apps/fairy-garden/vendor/DRACOLoader.js';
+// ?web=1 loads the compressed copies in v2/web/ (Draco + 1K WEBP, compress_asset.py).
+const WEB=new URLSearchParams(location.search).has('web');
+const W=u=>WEB&&u?u.replace(/^v2\/(hats|outfits)\//,'v2/web/').replace(/^v2\/doll-(rigged|anchored)\.glb$/,'v2/web/doll-$1.glb'):u;
+// v2 doll with a skeleton (rig_doll.py). Bones leftArm/rightArm/leftLeg/rightLeg swing about
+// the world X axis exactly like the old traveler's pivot groups (same formulas as traveler.mjs).
+const view=document.getElementById('v'),r=new T.WebGLRenderer({antialias:true});r.setPixelRatio(devicePixelRatio);view.append(r.domElement);
+const sc=new T.Scene();sc.background=new T.Color('#eee6d8');
+sc.add(new T.HemisphereLight('#fff8ee','#b8a38c',2.2));const sun=new T.DirectionalLight('#ffffff',1.6);sun.position.set(1.5,3,2.5);sc.add(sun);
+const cam=new T.PerspectiveCamera(28,1,.05,20);cam.position.set(0,.8,3.1);
+const root=new T.Group();sc.add(root);const loader=new GLTFLoader();{const d=new DRACOLoader();d.setDecoderPath('../../../apps/fairy-garden/vendor/draco/');loader.setDRACOLoader(d);}
+const doll=(await loader.loadAsync(W('v2/doll-rigged.glb'))).scene;root.add(doll);
+const anchor=doll.getObjectByName('HeadAnchor');let hat=null;
+const bones={};for(const n of ['leftArm','rightArm','leftLeg','rightLeg']){const b=doll.getObjectByName(n);bones[n]={b,rest:b.quaternion.clone()};}
+async function wear(url){ if(hat){anchor.remove(hat);hat=null;} if(!url)return; hat=(await loader.loadAsync(W(url))).scene; anchor.add(hat); }
+document.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>wear(b.dataset.h));
+// Outfits are skinned to a copy of the same armature; rebind them to the doll's bones by name.
+const body=[];doll.traverse(o=>{if(o.isSkinnedMesh)body.push(o);});let outfit=[];
+async function dress(url){for(const m of outfit)m.removeFromParent();outfit=[];if(!url)return;const g=(await loader.loadAsync(W(url))).scene;
+  g.traverse(o=>{if(o.isSkinnedMesh)outfit.push(o);});
+  for(const m of outfit){const bones=m.skeleton.bones.map(b=>doll.getObjectByName(b.name));body[0].parent.add(m);m.bind(new T.Skeleton(bones,m.skeleton.boneInverses),m.bindMatrix);}}
+document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>dress(b.dataset.o));
+let act='rest';document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{act=b.dataset.a;document.querySelectorAll('[data-a]').forEach(x=>x.classList.toggle('on',x===b));});
+let spin=false;document.getElementById('turn').onclick=()=>spin=!spin;
+let drag=null;view.onpointerdown=e=>drag=e.clientX;onpointerup=()=>drag=null;view.onpointermove=e=>{if(drag!=null){root.rotation.y+=(e.clientX-drag)*.01;drag=e.clientX;}};
+function size(){const w=innerWidth,h=innerHeight;r.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}onresize=size;size();
+const X=new T.Vector3(1,0,0),q=new T.Quaternion();
+function pose(t){for(const [label,{b,rest}] of Object.entries(bones)){const side=label.startsWith('left')?1:-1,leg=label.includes('Leg');
+  let a=act==='walk'?Math.sin(t*10)*.45*side*(leg?-1:1):act==='wave'&&label==='rightArm'?-.65+Math.sin(t*7)*.12:act==='sit'?(leg?-Math.PI/2:-.28):Math.sin(t*2)*.015;
+  b.quaternion.copy(q.setFromAxisAngle(X,a)).multiply(rest);}
+  doll.position.y=act==='sit'?-.26:act==='walk'?Math.abs(Math.sin(t*10))*.025:0;}
+await wear('v2/hats/hair_m03.glb');document.getElementById('s').textContent='拖动旋转 · 骨骼：双臂、双腿';
+window.rigPreview={wear,dress,root,setAct:a=>act=a,pose};
+const clock=new T.Clock();r.setAnimationLoop(()=>{const t=clock.getElapsedTime();if(spin)root.rotation.y+=.01;pose(t);cam.lookAt(0,.62,0);r.render(sc,cam);});
+</script>
+</html>

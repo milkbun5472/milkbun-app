@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0a8b6fcba0caf3a7", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-49f90405374c868f", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -190,7 +190,7 @@
       if(!automatic)node.contentWindow.TrainGame?.speak(text,"me");
       talking.current=true;
       try{
-        const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):"")});
+        const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),engineer:!!(p.isEngineer&&p.isEngineer(c.id))});
         if(frame.current!==node)throw Error("已经离开这桌拼图，回复未写入其他房间。");
         const now=current();
         if(record?.onTurn)record.onTurn({text:automatic?"":text,reply:out.reply,parts:out.parts});
@@ -257,26 +257,37 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
           Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
-            const on = ((look[who] || {}).outfit || "traveler") === id;
+            const on = (game() && game().getOutfit ? game().getOutfit(who).id : (look[who] || {}).outfit) === id;
             return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
               style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
           })),
-        h("p", { style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"),
-        [["cloth", "衣服主色"], ["trim", "领边与配色"], ["bottom", "裤袜颜色"], ["boots", "鞋子颜色"]].map(([slot, label]) => {
-          const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
-          const hex = selected && selected.colors[slot] || "#8d5f66";
-          return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
-        })),
+        // 只列这一套真有的色槽（doll.json 里它的 colors）；v2 的学院背心是贴图配色，一个槽都没有，就整段不出。
+        (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
+          const slots = [["cloth", "衣服主色"], ["trim", "衬衫与领边"], ["bottom", "裤袜颜色"], ["accent", "领带与点缀"], ["boots", "鞋子颜色"]]
+            .filter(([slot]) => selected && styles && styles.outfits && styles.outfits[selected.id] && slot in styles.outfits[selected.id].colors);
+          return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。")].concat(slots.map(([slot, label]) => {
+            const hex = selected.colors[slot] || "#8d5f66";
+            return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
+          })) : null; })()),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
         Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
-          const on = ((look[who] || {}).hair || "") === key;
+          const on = (game() && game().getHair ? game().getHair(who) : (look[who] || {}).hair || "") === key;
           return h("button", { key: key, onClick: () => pushLook({ hair: key }), className: "active:opacity-70",
             style: { padding: "11px 6px", borderRadius: 13, border: "1px solid " + (on ? G.deep : G.line),
               background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)",
               fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
         })),
       !styles && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "发型名单还没读进来…"),
+      // 表情：换的是脸上那张贴图（doll.json 的 faces）；以后桌宠按心情自动换也走同一个 face 字段
+      styles && styles.faces ? h("div", { style: { marginTop: 18 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "表情"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 } },
+          Object.entries(styles.faces).map(([key, label]) => {
+            const on = ((look[who] || {}).face || "default") === key;
+            return h("button", { key, "aria-pressed": on, onClick: () => pushLook({ face: key }), className: "active:opacity-70",
+              style: { minHeight: 36, borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: 11.5, color: on ? G.ink : G.soft } }, label);
+          }))) : null,
       // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
       ((styles && styles.dims) || []).length ? h("div", { style: { marginTop: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "体型"),
@@ -296,7 +307,16 @@
               h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
         })) : null,
       h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
-        onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }));
+        onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }),
+      // 发色花样：单色 / 渐变 / 拼色 / 挑染，后三种多一个副色（名单在 wardrobe.mjs 的 HAIR_MODES）
+      (() => { const d = game() && game().getDyes ? game().getDyes(who) : null, mode = (d && d.hairMode) || "solid";
+        const modes = (game() && game().hairModes) || [];
+        return h(React.Fragment, null,
+          modes.length ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, margin: "4px 0 14px" } },
+            modes.map(([id, label]) => h("button", { key: id, "aria-pressed": mode === id, onClick: () => pushLook({ hairMode: id }), className: "active:opacity-70",
+              style: { minHeight: 40, borderRadius: 12, border: "1px solid " + (mode === id ? G.deep : G.line), background: mode === id ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, label))) : null,
+          mode !== "solid" ? h(DyeControl, { key: who + "hair2", label: mode === "gradient" ? "发尾颜色" : mode === "split" ? "另一半颜色" : "挑染颜色",
+            value: d ? d.hairColor2 : null, onChange: hairColor2 => pushLook({ hairColor2 }), palette: HAIR_COLORS.concat(["#e6b5ce", "#9fb8d8", "#f0e0b8"]) }) : null); })());
   }
   function DyeControl({label, value, onChange, palette}) {
     const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";
@@ -368,7 +388,23 @@
     const raw = await callAI(active, sys, [{role:"user",content:"安排这一季。"}], {maxTokens:65535,timeout:180000,tag:"微光庭院季节"});
     try { return rules.normalizePlan(extractJSON(raw), world.day); } catch(e) { e.detail=String(raw||"").slice(0,1600);throw e; }
   }
-  async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false }) {
+  async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false, engineer=false }) {
+    // 真身票优先（她 2026-09-25「座位这种得你自己来」）：言秋同行时先开 CC 票请本人接话，
+    // 不在岗/超时才落引擎兜底——同 trpg「队友宣言」先例，她永远有回音。
+    if (engineer && root.CCSeat && root.Cloud) {
+      try {
+        const r = await root.CCSeat.ask({
+          tool: "train_chat", char_id: character.id, ticket: "fg:" + Date.now(),
+          world, history: history.slice(-30), text, event,
+          expect: '{"reply":["第一句","第二句(可省)"],"action":{"kind":"none|move","target":"seat|stand|rack|berth(move时)"}}'
+        }, 120000);
+        if (r && Array.isArray(r.reply) && r.reply.length) {
+          const out = { reply: r.reply.map(x => String(x || "").trim()).filter(Boolean) };
+          const a = r.action; if (a && a.kind === "move" && ["seat","stand","rack","berth"].includes(a.target)) out.move = a.target;
+          if (out.reply.length) return out;
+        }
+      } catch (e) { /* 超时/不在岗：落回引擎，票根不追（这里的每轮对话可重来） */ }
+    }
     if (!active) throw new Error("先在设置里配置创作线路，再来和角色说话。");
     const style = sharedStyle(),train=world?.map==="carriage";
     const sys = [style,
@@ -1306,7 +1342,7 @@
         const account = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         current();
-        const result = await ask({ active: propsRef.current.apiFor ? propsRef.current.apiFor(cid) : propsRef.current.active, character: c, profile: propsRef.current.profile, world, history: doneHistory(d, cid).slice(-30), text, mainline: mainlineNow(), destinations: (game() && game().destinations && game().destinations()) || "" });
+        const result = await ask({ active: propsRef.current.apiFor ? propsRef.current.apiFor(cid) : propsRef.current.active, character: c, profile: propsRef.current.profile, world, history: doneHistory(d, cid).slice(-30), text, mainline: mainlineNow(), destinations: (game() && game().destinations && game().destinations()) || "", engineer: !!(propsRef.current.isEngineer && propsRef.current.isEngineer(cid)) });
         const accountNow = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         const latest = current();
