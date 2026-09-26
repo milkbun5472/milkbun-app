@@ -193,6 +193,47 @@
       fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0
     }, o.style || {}) }, label);
   }
+  // ---- 网上的片子：B 站 / YouTube（她 2026-09-26：「做一个b站和youtube的吧」）----
+  // 不走后端，所以只能嵌它们自己的播放器：
+  //   · YouTube 的播放器会告诉我们播到哪 → 进度自动跟；
+  //   · B 站的不告诉 → 放映厅下面有一块「我这边也按一下」的表，TA 按这块表猜进度。
+  //   字幕两家都读不到（浏览器不让），想让 TA 跟台词就自己导 srt；画面也截不了。
+  // ⚠️b23.tv 短链要先去 B 站那边问一次才知道是哪个视频，没后端问不了：让她贴完整链接。
+  function parseOnlineLink(raw) {
+    const u = String(raw || "").trim();
+    if (!u) return null;
+    let m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(u);
+    if (m) {
+      const t = /[?&#](?:t|start)=(\d+)/.exec(u);
+      return { source: "youtube", vid: m[1], start: t ? Number(t[1]) : 0 };
+    }
+    m = /(BV[0-9A-Za-z]{10})/.exec(u) || /bilibili\.com\/video\/(av\d+)/i.exec(u);
+    if (m) {
+      const p = /[?&]p=(\d+)/.exec(u);
+      return { source: "bilibili", vid: m[1], page: p ? Number(p[1]) : 1 };
+    }
+    if (/b23\.tv\//i.test(u)) return { source: "bilibili", short: true };
+    return null;
+  }
+  function biliSrc(film, at) {
+    const id = /^av/i.test(film.vid) ? "aid=" + String(film.vid).slice(2) : "bvid=" + film.vid;
+    return "https://player.bilibili.com/player.html?" + id + "&page=" + (film.page || 1) + "&autoplay=0&high_quality=1&danmaku=0" + (at > 3 ? "&t=" + Math.floor(at) : "");
+  }
+  // YouTube 的官方播放器脚本只拉一次，谁先要谁触发
+  let ytReady = null;
+  function loadYT() {
+    if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+    if (ytReady) return ytReady;
+    ytReady = new Promise(function (res, rej) {
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () { if (typeof prev === "function") try { prev(); } catch (e) {} res(window.YT); };
+      const sc = document.createElement("script");
+      sc.src = "https://www.youtube.com/iframe_api"; sc.async = true;
+      sc.onerror = function () { ytReady = null; rej(new Error("YouTube 播放器加载不出来（网络连不上 YouTube？）")); };
+      document.head.appendChild(sc);
+    });
+    return ytReady;
+  }
   function shell(head, body) {
     return h("div", { className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% 0%, #2a2230 0%, " + W.bg + " 62%)", color: W.ink } }, head, body);
   }
@@ -227,16 +268,27 @@
   // ---- 导入：整页（施工规则/no-half-sheet.md）----
   function ImportPage(props) {
     const [video, setVideo] = useState(null), [sub, setSub] = useState(null), [title, setTitle] = useState(""), [busy, setBusy] = useState(false);
+    const [mode, setMode] = useState("file"), [link, setLink] = useState("");   // file | link
+    const online = parseOnlineLink(link);
     const vRef = useRef(null), sRef = useRef(null);
     const pickVideo = f => { if (!f) return; setVideo(f); if (!title) setTitle(String(f.name || "").replace(/\.[^.]+$/, "").slice(0, 40)); };
+    const ready = mode === "file" ? !!video : !!(online && !online.short);
     const go = async () => {
-      if (!video || busy) return;
+      if (!ready || busy) return;
       setBusy(true);
       try {
         const id = "wf_" + Date.now().toString(36);
         let cues = [];
         if (sub) cues = parseSubs(decodeText(await sub.arrayBuffer()));
         if (sub && !cues.length) { props.toast && props.toast("这个字幕文件没读出台词，先不带字幕开场"); }
+        if (mode === "link") {
+          await _store.put("cues:" + id, cues);
+          const film = { id: id, title: title.trim() || (online.source === "youtube" ? "YouTube 上的片子" : "B 站上的片子"), createdAt: Date.now(), lastTs: Date.now(),
+            source: online.source, vid: online.vid, page: online.page || 1, pos: online.start || 0, duration: 0, cueCount: cues.length, partnerId: props.partnerId || "", talk: [] };
+          saveFilms([film].concat(loadFilms()));
+          props.onDone(id);
+          return;
+        }
         await _store.put(id, video);
         await _store.put("cues:" + id, cues);
         const film = { id: id, title: title.trim() || "未命名的片子", createdAt: Date.now(), lastTs: Date.now(), size: video.size, type: video.type, pos: 0, duration: 0, cueCount: cues.length, partnerId: props.partnerId || "", talk: [] };
@@ -258,15 +310,30 @@
       h(Head, { zh: "导入一部电影", onBack: props.onBack, bg: "transparent", ink: W.ink }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 16px 28px" } },
         h("div", { className: "space-y-3" },
-          row("电影文件", "mp4 最稳；存在这台手机里，不会跟着云同步走", video, pickVideo, vRef, "video/*"),
-          row("字幕（强烈建议）", "srt / vtt / ass。不选的话会先试着读视频里自带的字幕", sub, setSub, sRef, ".srt,.vtt,.ass,.ssa,.txt"),
+          h("div", { className: "flex", style: { gap: 6, padding: 4, borderRadius: 999, background: W.card, border: "1px solid " + W.line } },
+            [["file", "手机里的文件"], ["link", "B 站 / YouTube 链接"]].map(([k, zh]) => h("button", { key: k, onClick: () => setMode(k), "aria-pressed": String(mode === k), className: "flex-1 active:opacity-70",
+              style: { minHeight: 36, borderRadius: 999, border: "none", background: mode === k ? W.amber : "none", color: mode === k ? W.amberInk : W.sub, fontFamily: F_BODY, fontSize: 13 } }, zh))),
+          mode === "file"
+            ? row("电影文件", "mp4 最稳；存在这台手机里，不会跟着云同步走", video, pickVideo, vRef, "video/*")
+            : h("div", { style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: W.ink } }, "视频链接"),
+                h("input", { value: link, onChange: e => setLink(e.target.value), placeholder: "粘贴 B 站或 YouTube 的链接", className: "w-full outline-none",
+                  style: { marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, background: W.bg2, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: online && !online.short ? W.amber : W.fog, marginTop: 6 } },
+                  !link.trim() ? "片子在它们网站上放，不占手机空间"
+                    : !online ? "认不出这个链接，要 B 站视频页或 YouTube 视频页的地址"
+                    : online.short ? "b23.tv 短链认不出来：在浏览器里打开它，复制地址栏里那条长链接再贴"
+                    : online.source === "youtube" ? "YouTube：进度 TA 会自己跟上"
+                    : "B 站：B 站不告诉我们放到哪，放的时候在下面那块表上也按一下播放 / 暂停，TA 靠它跟进度")),
+          row("字幕（强烈建议）", mode === "file" ? "srt / vtt / ass。不选的话会先试着读视频里自带的字幕" : "srt / vtt / ass。网上的片子只能靠这一格给 TA 台词", sub, setSub, sRef, ".srt,.vtt,.ass,.ssa,.txt"),
           h("div", { style: { padding: "12px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, marginBottom: 6 } }, "片名"),
             h("input", { value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 } }))),
         h("p", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8, color: W.fog, margin: "14px 4px" } },
-          "TA 看不到画面本身，只读得到字幕；想让 TA 看画面的时候，放映时点「给 TA 看这一帧」（要你用的模型能识图）。"),
+          mode === "file" ? "TA 看不到画面本身，只读得到字幕；想让 TA 看画面的时候，放映时点「给 TA 看这一帧」（要你用的模型能识图）。"
+            : "网上的片子 TA 读不到它的字幕，也截不了画面。想让 TA 跟着台词看，就把字幕导出成 srt 放进上面那一格。"),
         h("div", { style: { display: "flex", justifyContent: "center", marginTop: 8 } },
-          btn(busy ? "正在存进手机…" : "开场", go, { primary: true, disabled: !video || busy, style: { padding: "0 36px" } }))));
+          btn(busy ? "正在存进手机…" : "开场", go, { primary: true, disabled: !ready || busy, style: { padding: "0 36px" } }))));
   }
 
   // ---- 约人 ----
@@ -317,6 +384,65 @@
     const [every, setEvery] = useState(() => { const n = Number(loadJSON("x_watch_auto_every", AUTO_DEFAULT)); return n >= AUTO_MIN && n <= AUTO_MAX ? n : AUTO_DEFAULT; });
     const vRef = useRef(null), listRef = useRef(null), lastAuto = useRef(0), lastSave = useRef(0), busyRef = useRef(false);
     const cuesRef = useRef([]), inbandSave = useRef(0);
+    // 网上的片子：vRef.current 换成一个「长得像 <video>」的小对象（currentTime / paused / duration），
+    // 下面问进度、自己开口、存进度那几处就不用分两套写。
+    const online = film && film.source;
+    const ytBox = useRef(null), onTimeRef = useRef(null);
+    const clk = useRef({ base: (film && film.pos) || 0, at: 0, run: false });   // B 站那块表
+    const [clkRun, setClkRun] = useState(false);
+    const [ytErr, setYtErr] = useState("");
+    // B 站播放器地址定在进场那一刻：校表（±10 秒）只改我们这块表，不许让她那边的播放器重载
+    const [biliUrl] = useState(() => film && film.source === "bilibili" ? biliSrc(film, film.pos || 0) : "");
+    useEffect(() => {
+      if (online !== "youtube") return;
+      let pl = null, alive = true, timer = 0;
+      loadYT().then(YT => {
+        if (!alive || !ytBox.current) return;
+        pl = new YT.Player(ytBox.current, {
+          videoId: film.vid, width: "100%", height: "100%",
+          playerVars: { start: Math.floor(film.pos || 0), playsinline: 1, rel: 0, modestbranding: 1 },
+          events: {
+            onReady: () => {
+              vRef.current = {
+                get currentTime() { try { return pl.getCurrentTime() || 0; } catch (e) { return 0; } },
+                get paused() { try { return pl.getPlayerState() !== 1; } catch (e) { return true; } },
+                get duration() { try { return pl.getDuration() || 0; } catch (e) { return 0; } },
+                videoWidth: 0
+              };
+              lastAuto.current = film.pos || 0;
+              timer = setInterval(() => onTimeRef.current && onTimeRef.current(), 1000);
+            },
+            onStateChange: e => { if (e && e.data === 2) savePos(true); },
+            onError: () => setYtErr("这个视频放不了：可能不让别的网站嵌、或者要登录才能看")
+          }
+        });
+      }).catch(e => setYtErr(e.message));
+      return () => { alive = false; clearInterval(timer); try { pl && pl.destroy(); } catch (e) {} if (vRef.current && !vRef.current.tagName) vRef.current = null; };
+    }, [id]);
+    useEffect(() => {
+      if (online !== "bilibili") return;
+      const c = clk.current;
+      vRef.current = {
+        get currentTime() { return c.base + (c.run ? (Date.now() - c.at) / 1000 : 0); },
+        get paused() { return !c.run; },
+        duration: 0, videoWidth: 0
+      };
+      lastAuto.current = c.base;
+      const timer = setInterval(() => { if (c.run && onTimeRef.current) onTimeRef.current(); }, 1000);
+      return () => { clearInterval(timer); vRef.current = null; };
+    }, [id]);
+    const clkToggle = () => {
+      const c = clk.current;
+      if (c.run) { c.base += (Date.now() - c.at) / 1000; c.run = false; savePos(true); }
+      else { c.at = Date.now(); c.run = true; }
+      setClkRun(c.run); setNow(vRef.current ? vRef.current.currentTime : c.base);
+    };
+    const clkMove = d => {
+      const c = clk.current, cur = vRef.current ? vRef.current.currentTime : c.base;
+      c.base = Math.max(0, cur + d); c.at = Date.now();
+      lastAuto.current = Math.min(lastAuto.current, c.base);
+      setNow(c.base); savePos(true);
+    };
     useEffect(() => { cuesRef.current = cues; }, [cues]);
     // 没单独导字幕的时候，先试视频里自带的字幕轨（她 2026-09-25：「字幕必须单独导吗」→「试试」）。
     // ⚠️网页读得到的只有【内封成独立一轨】的那种，而且只有部分浏览器给（苹果 Safari 对不少 mp4 给，
@@ -384,7 +510,8 @@
     useEffect(() => { if (!cinema) return; const t = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(t); }, [cinema]);
     useEffect(() => {
       let url = "", alive = true;
-      _store.get(id).then(blob => {
+      const f0 = loadFilms().find(f => f.id === id);
+      if (!(f0 && f0.source)) _store.get(id).then(blob => {
         if (!alive) return;
         if (!blob || typeof blob === "string") { setMissing(true); return; }
         url = URL.createObjectURL(blob); setSrc(url);
@@ -455,6 +582,7 @@
         lastAuto.current = v.currentTime; ask("auto");
       }
     };
+    onTimeRef.current = onTime;
     const remember = () => requestAppConfirm("把这次记下来？", "TA 会把你们一起看这部、看的时候说的话，收成一两句记进记忆里。", async () => {
       try {
         const text = await summarizeFilm(props, partner, loadFilms().find(f => f.id === id) || film);
@@ -497,7 +625,15 @@
           // 放不出来的格式：别只黑着（她 2026-09-25）
           playErr && !missing ? h("div", { style: { aspectRatio: "16/9", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: W.sub } },
             "这台手机放不了这个格式（常见的是 mkv、avi）。换成 mp4 再导一次就好——用转格式的软件选「只换封装」，一两分钟，画质不变。") : null,
-          missing
+          online === "youtube"
+            ? h("div", { style: cinema ? { position: "absolute", inset: 0 } : { position: "relative", width: "100%", aspectRatio: "16/9", maxHeight: "42vh" } },
+                ytErr ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: W.sub } }, ytErr) : null,
+                h("div", { style: { position: "absolute", inset: 0 } }, h("div", { ref: ytBox })))
+          : online === "bilibili"
+            ? h("iframe", { src: biliUrl, allow: "autoplay; fullscreen; picture-in-picture", allowFullScreen: true, scrolling: "no", frameBorder: "0",
+                referrerPolicy: "no-referrer", title: film.title || "B 站视频",
+                style: cinema ? { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" } : { display: "block", width: "100%", aspectRatio: "16/9", maxHeight: "42vh", border: "none" } })
+          : missing
             ? h("div", { style: { aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.sub } }, "这台手机里没有这部片子的文件了（换过设备或清过数据）。删掉这张票重新导入就好，聊过的话还在。")
             : h("video", { ref: vRef, src: src || undefined, controls: true, playsInline: true, preload: "metadata",
                 onLoadedMetadata: e => { const v = e.target; if (film.pos && film.pos < (v.duration || Infinity) - 3) v.currentTime = film.pos; lastAuto.current = film.pos || 0; savePos(true); adoptInband(); if (v.textTracks) v.textTracks.onaddtrack = adoptInband; },
@@ -507,6 +643,12 @@
                   ? { display: playErr ? "none" : "block", position: "absolute", top: 0, left: 0, width: "100%", height: "100%", maxHeight: "none", objectFit: "contain", background: "#000" }
                   : { display: playErr ? "none" : "block", width: "100%", maxHeight: "42vh", background: "#000" } }),
           cinema && h(CinemaLayer, { line: line, hasCues: !!cues.length, talk: film.talk || [], partner: partner, busy: busy, txt: txt, setTxt: setTxt, send: send, say: cinemaSay, setSay: setCinemaSay, onExit: exitCinema })),
+        // B 站那块表：B 站不告诉我们放到哪，她在那边按播放/暂停时，这边也按一下
+        online === "bilibili" && !cinema ? h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, padding: "8px 12px", borderBottom: "1px solid " + W.line, background: "rgba(31,28,38,.9)" } },
+          btn(clkRun ? "我暂停了" : "我开始放了", clkToggle, { primary: !clkRun, style: { fontSize: 12.5, padding: "0 12px" } }),
+          btn("−10 秒", () => clkMove(-10), { style: { fontSize: 12, padding: "0 10px" } }),
+          btn("+10 秒", () => clkMove(10), { style: { fontSize: 12, padding: "0 10px" } }),
+          h("span", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_DISPLAY, fontSize: 15, color: clkRun ? W.amber : W.sub, whiteSpace: "nowrap" } }, clock(now || clk.current.base))) : null,
         // 台词条：现在银幕上这一句。没有字幕的片子整条不出现（她 2026-09-25：「没有字幕的提示也删了省空间」）
         cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, line) : null,
         // 你们说的话
@@ -527,7 +669,7 @@
         //   跟聊天的加号面板一个意思，平时不占地方，要用才展开在输入框上面
         toolsOpen && h("div", { style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(31,28,38,.96)" } },
           h("div", { className: "flex items-center gap-2", style: { padding: "10px 12px 2px", overflowX: "auto" } },
-          btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
+          online ? null : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           btn("影院模式", enterCinema, { disabled: missing || playErr }),
           h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
@@ -577,13 +719,13 @@
           h("div", { style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 22px)", pointerEvents: "none" } }),
           h("div", { style: { position: "relative" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fbeee0" } }, "今晚放什么"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(251,238,224,.72)", margin: "6px 0 14px" } }, "导一部电影和它的字幕进来，约一个人坐你旁边。放到哪，TA 就看到哪。"),
-            btn("导入一部电影", () => setView("import"), { primary: true }))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(251,238,224,.72)", margin: "6px 0 14px" } }, "导一部电影进来，或者贴一个 B 站 / YouTube 链接，约一个人坐你旁边。放到哪，TA 就看到哪。"),
+            btn("放一部片子", () => setView("import"), { primary: true }))),
         sorted.length
           ? h("div", { className: "space-y-3" }, sorted.map(f => h(Ticket, { key: f.id, film: f, partner: chars.find(c => String(c.id) === String(f.partnerId)), onOpen: () => setView(f.id), onDelete: () => del(f), onRename: () => renameFilm(f, () => setFilms(loadFilms())) })))
           : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.fog, padding: "26px 0" } }, "票夹还是空的")));
   }
   window.WatchTogether = WatchTogether;
   // 给测试用：纯函数
-  window.WatchKit = { parseSubs: parseSubs, recentLines: recentLines, cueAt: cueAt, clock: clock, parseSay: parseSay };
+  window.WatchKit = { parseOnlineLink: parseOnlineLink, biliSrc: biliSrc, parseSubs: parseSubs, recentLines: recentLines, cueAt: cueAt, clock: clock, parseSay: parseSay };
 })();
