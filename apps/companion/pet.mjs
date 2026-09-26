@@ -10,7 +10,7 @@ import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
-const r=new T.WebGLRenderer({antialias:true,alpha:true});r.setClearColor(0,0);r.setPixelRatio(Math.min(mode==='float'?2:3,devicePixelRatio||1));r.outputColorSpace=T.SRGBColorSpace;document.body.append(r.domElement);
+const r=new T.WebGLRenderer({antialias:true,alpha:true});r.setClearColor(0,0);r.setPixelRatio(Math.min(2,devicePixelRatio||1));r.outputColorSpace=T.SRGBColorSpace;document.body.append(r.domElement);
 const sc=new T.Scene();sc.add(new T.HemisphereLight('#fff8ee','#b8a38c',2.3));const sun=new T.DirectionalLight('#ffffff',1.5);sun.position.set(1.2,3,2.6);sc.add(sun);
 const cam=new T.PerspectiveCamera(mode==='float'?24:26,1,.05,20);
 function size(){const w=innerWidth,h=innerHeight;r.setSize(w,h);cam.aspect=w/h;
@@ -25,7 +25,9 @@ const full=()=>({...lookForTa(cur.ta),...cur.look});
 window.PetGame={hairModes:HAIR_MODES,getDyes:()=>dyesOf(full(),full()),getOutfit:()=>{const l=full();return {id:outfitId(l),colors:outfitColors(l)};},getHair:()=>hairId(full().hair),merge:(look,patch)=>mergeLook(look||{},patch||{})};
 const apply=m=>{cur={look:m.look||{},ta:m.ta||'TA'};if(!pet){pending=m;return;}const look=full();const key=JSON.stringify(look);if(key===lastLook)return;lastLook=key;pet.setLook(look);};
 addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);});
-const gltf=await loader.loadAsync(mode==='float'?'../fairy-garden/doll.glb':'./doll.glb');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
+// 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
+// 清晰靠整页的 2K 脸和按屏幕像素比渲染。
+const gltf=await loader.loadAsync('../fairy-garden/doll.glb');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
 parent.postMessage({type:'pet-ready'},'*');
 // 待着的时候偶尔挥挥手、伸个懒腰：动作公式都是庭院那一套
 let wave=null,yaw=0;const clock=new T.Clock();
