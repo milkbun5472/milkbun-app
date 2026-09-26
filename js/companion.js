@@ -56,7 +56,7 @@
     useEffect(() => { const id = setInterval(() => setIdle(Date.now() - lastTouch > IDLE_MS), 15000); return () => clearInterval(id); }, []);
     return idle;
   }
-  function PetFrame({ mode, msg, ctx, style, onOpen, frameRef }) {
+  function PetFrame({ mode, msg, ctx, style, onOpen, frameRef, onStatus, onAct, reloadKey }) {
     const own = useRef(null), ref = frameRef || own;
     const key = JSON.stringify(msg);
     useEffect(() => {
@@ -64,15 +64,25 @@
       send();
       const on = e => {
         if (!ref.current || e.source !== ref.current.contentWindow || !e.data) return;
-        if (e.data.type === "pet-ready") { send(); if (e.data && ref.onReady) ref.onReady(); }
+        if (e.data.type === "pet-ready") { send(); if (onStatus) onStatus({ state: "ready" }); if (e.data && ref.onReady) ref.onReady(); }
+        // 5MB 的小人第一次要真下一遍：有进度条才知道是在等、不是坏了
+        if (e.data.type === "pet-progress" && onStatus) onStatus({ state: "loading", pct: Number(e.data.pct) || 0 });
+        // 下不来要说人话 + 给一条路（原来是永远挂在「小人还在来的路上…」）
+        if (e.data.type === "pet-failed" && onStatus) onStatus({ state: "failed", why: String(e.data.why || "") });
+        if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
       };
       window.addEventListener("message", on);
       return () => window.removeEventListener("message", on);
-    }, [key, JSON.stringify(ctx || null)]);
-    return h("iframe", { ref, title: "陪伴小人", src: "apps/companion/index.html?mode=" + mode + "&v=" + BUILD,
+    }, [key, JSON.stringify(ctx || null), reloadKey]);
+    return h("iframe", { key: reloadKey || 0, ref, title: "陪伴小人", src: "apps/companion/index.html?mode=" + mode + "&v=" + BUILD + (reloadKey ? "&retry=" + reloadKey : ""),
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
+  // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
+  const ACT_ZH = { wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+    hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
+    turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
+    land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
 
   function Companion(props) {
     const chars = props.characters || [];
@@ -90,6 +100,10 @@
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
     const idle = useIdle();
+    // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
+    const [petState, setPetState] = useState({ state: "loading", pct: 0 });
+    const [actNow, setActNow] = useState("");
+    const [retry, setRetry] = useState(0);
     const pet = () => { const w = frame.current && frame.current.contentWindow; return w && w.PetGame ? w.PetGame : null; };
     const pushLook = patch => { if (!char) return; const g = pet(); const cur = (load().looks || {})[char.id] || {};
       const next = g ? g.merge(cur, patch) : Object.assign({}, cur, patch);
@@ -106,10 +120,26 @@
       !char ? h("div", { style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
       h(React.Fragment, null,
         h("div", { style: { height: "42vh", flexShrink: 0, position: "relative" } },
-          h(PetFrame, { mode: "full", frameRef: frame, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle }, style: { width: "100%", height: "100%" } })),
+          h(PetFrame, { mode: "full", frameRef: frame, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
+            onStatus: setPetState, onAct: setActNow, reloadKey: retry, style: { width: "100%", height: "100%" } }),
+          // 他还没画出来的时候屏幕是空的：第一次要下 5MB 的小人，网差就更久。
+          // 原来这里什么都不说，卡住和正在下一个样（2026-09-26 发公共版前补的）。
+          petState.state !== "ready" ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 10, fontFamily: F_BODY, color: "#8a7a5e", textAlign: "center", padding: 20 } },
+            petState.state === "failed"
+              ? h(React.Fragment, null,
+                  h("div", { style: { fontSize: 13 } }, "小人没能来 · 网络不太好的时候会这样"),
+                  h("button", { onClick: () => { setPetState({ state: "loading", pct: 0 }); setRetry(n => n + 1); }, className: "active:opacity-70",
+                    style: { minHeight: 40, padding: "0 20px", borderRadius: 12, background: "#8a6a4b", color: "#fff", border: "none", fontFamily: F_BODY, fontSize: 13 } }, "再试一次"))
+              : h(React.Fragment, null,
+                  h("div", { style: { fontSize: 13 } }, "小人在来的路上… " + (petState.pct || 0) + "%"),
+                  h("div", { style: { width: 140, height: 4, borderRadius: 2, background: "rgba(138,106,75,.18)", overflow: "hidden" } },
+                    h("div", { style: { width: (petState.pct || 0) + "%", height: "100%", background: "#8a6a4b", transition: "width .25s" } })),
+                  h("div", { style: { fontSize: 11, color: "#a89a80" } }, "第一次要把他整个人下下来，之后就快了"))) : null),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
           h("div", { style: { fontSize: 12.5, color: "#6b5440", lineHeight: 1.8 } },
-            (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"),
+            (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"
+            + (ACT_ZH[actNow] ? "他" + ACT_ZH[actNow] + "。" : "")),
           h("div", { style: { display: "flex", gap: 8, margin: "8px 0 12px" } },
             chip(auto, "表情跟着心情", () => set({ autoFace: true }), "a"), chip(!auto, "我来选表情", () => set({ autoFace: false }), "b")),
           h("button", { onClick: () => set({ float: !cfg.float }), className: "active:opacity-70",
@@ -122,6 +152,19 @@
   }
 
   // 全局悬浮小人：挂在 app 外壳上（和迷你播放器同一层），在陪伴页里自己不出。
+  // 在打字吗：悬浮小人会挡输入框，而一个挡住输入框的装饰品，用户第一反应是把它关掉。
+  // 打字时淡下去、并且不吃点击（他不该在这时候抢你的手指）。
+  function useTyping() {
+    const [typing, setTyping] = useState(false);
+    useEffect(() => {
+      const isField = el => !!el && (/^(input|textarea)$/.test(String(el.tagName || "").toLowerCase()) || el.isContentEditable);
+      const on = () => setTyping(isField(document.activeElement));
+      document.addEventListener("focusin", on);
+      document.addEventListener("focusout", on);
+      return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", on); };
+    }, []);
+    return typing;
+  }
   function CompanionFloat(props) {
     const [cfg, setCfg] = useState(load);
     useEffect(() => { window.__companionChanged = n => setCfg(n); return () => { window.__companionChanged = null; }; }, []);
@@ -131,7 +174,10 @@
     const [pos, setPos] = useState(() => cfg.pos || { x: window.innerWidth - W - 8, y: window.innerHeight - H - 150 });
     const drag = useRef(null), rs = useRef(null);
     const idle = useIdle();
-    if (!cfg.float || !char || props.hidden) return null;
+    const typing = useTyping();
+    const [failed, setFailed] = useState(false);
+    // 下不来就别在屏幕上留一个空框占地方（悬浮这只不打扰她，一句话都不弹）
+    if (!cfg.float || !char || props.hidden || failed) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
     const onDown = e => { drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
     const onMove = e => { const d = drag.current; if (!d) return; setPos(clamp({ x: d.ox + e.clientX - d.sx, y: d.oy + e.clientY - d.sy })); };
@@ -139,8 +185,10 @@
     const onUp = e => { const d = drag.current; if (!d) return; drag.current = null;
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) { if (props.onOpen) props.onOpen(); return; }
       const n = Object.assign(load(), { pos }); save(n); };
-    return h("div", { onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent" } },
-      h(PetFrame, { mode: "float", msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
+    return h("div", { onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
+      opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
+      h(PetFrame, { mode: "float", msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
+        onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
       // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
       h("div", { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
         style: { height: 18, margin: "0 22px", borderRadius: 9, background: "rgba(138,106,75,.28)", cursor: "grab" } }),

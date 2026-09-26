@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.140";
+const APP_VERSION = "v74.141";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5285,6 +5285,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️线上那路 v68.65 挡住了，群线下那路没挡（我 2026-09-15 复查 Codex 那几版时扫到的）。
   //   判据收在这一处，两路都问它：roomKind 记在群自己身上，spectate 记在另一份 groupSettings 里，
   //   两头都要问（同 3626 行那一处的写法）。
+  // 悬浮小人是全 app 唯一【常驻】的 WebGL。这几页自己就跑着一套 three.js
+  // （庭院和列车都在 fairyGarden 这一页里，各带 vendor/three 和一堆 .glb），
+  // 两套同时开会把内存挤爆——她手机在 8MB 高清包那次就是这么被挤到重启的（2026-09-26）。
+  // ⚠️名单只有这一份：以后再加带 3D 的页，往这儿加一个名字就行。
+  const COMPANION_HIDE_SCREENS = new Set(["companion", "fairyGarden"]);
   const groupSpectating = group => !!(group && (group.roomKind === "spectate" || (gsFor(group.id) || {}).spectate));
   const onMeFor = () => (inventoryRef.current || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, ON_ME_CAP).join("、");
   // ── 我在 TA 面前是谁（她 2026-09-22 转群里读者：「是只能一个 user 面具吗？」）──
@@ -25077,7 +25082,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEnded: advanceSong
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, screen: screen, music: !!player.playing, hidden: screen === "companion", onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

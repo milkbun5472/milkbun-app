@@ -31,10 +31,21 @@ let ctx={screen:'',music:false,idle:false},sleeping=false;
 function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle};if(was&&!ctx.idle)wake();}
 // 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
 // 清晰靠整页的 2K 脸和按屏幕像素比渲染。
-const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-28bcf25b3c42c1f8');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
-parent.postMessage({type:'pet-ready'},'*');
+// 小人这一坨 doll.glb 有 5MB（加 three 一共 7MB）。第一次进来要真下一遍：
+// 报个进度，别让人对着空屏幕猜是不是坏了。
+// ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
+//   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
+try{
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-28bcf25b3c42c1f8',
+   e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
+ pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
+ parent.postMessage({type:'pet-ready'},'*');
+}catch(err){
+ parent.postMessage({type:'pet-failed',why:String((err&&err.message)||err).slice(0,200)},'*');
+ throw err;
+}
 let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0,soft={y:0,tilt:0,yaw:0};const clock=new T.Clock();
-window.petDebug={play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用
+window.petDebug={frames:0,play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
 const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
@@ -44,7 +55,15 @@ function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}taps=
  const n=taps.length,face=(cur.look&&cur.look.face)||'default',cross=['irritated','sad','gloomy'].includes(face);
  // 点一下回头看你；连点两下蹦一下；再点他就害羞（心情不好的时候是扭过头去不理你）
  act={kind:n>=3?(cross?'turn':'shy'):n===2?(cross?'stomp':'hop'):'look',start:t};}
-r.setAnimationLoop(()=>{const t=clock.getElapsedTime();
+// ── 省电：它是全 app 唯一【常驻】的 WebGL ────────────────────────────────
+// 悬浮小人在每一页都活着，切后台也照跑——装饰品的唯一失败方式就是「开着很烦」
+// （发烫、掉电）。所以：页面看不见就真的停，悬浮那只按 24 帧画（指甲盖大小，
+// 60 帧一分钱好看都换不到）。整页那只给 40 帧，拖着转圈仍然跟手。
+const FRAME=mode==='float'?1/24:1/40;let lastDraw=-1,lastTold=null;
+function frame(){const t=clock.getElapsedTime();
+ if(t-lastDraw<FRAME)return;lastDraw=t;
+ draw(t);}
+function draw(t){
  const face=(cur.look&&cur.look.face)||'default',M=MOODS[face]||MOODS.default;
  // 很久没碰手机就趴下睡；深夜隔一阵打个哈欠；早上第一次见面伸个懒腰
  if(ctx.idle&&!sleeping&&!held){sleeping=true;act=null;}
@@ -73,7 +92,15 @@ r.setAnimationLoop(()=>{const t=clock.getElapsedTime();
  for(const [key,target] of Object.entries({y:b.y+dy,tilt:b.tilt+dtilt,yaw:b.yaw+dyaw}))soft[key]+=(target-soft[key])*blend;
  pet.animate(t,{gesture,progress,height:soft.y+sitB*.3,moving,seated});
  pet.root.rotation.y=yaw+soft.yaw;pet.root.rotation.x=soft.tilt;
- r.render(sc,cam);});
+ r.render(sc,cam);window.petDebug.frames++;
+ // 他这会儿在干什么，报给外壳写成一行字——十种心情各一套动作，不说没人看得出来
+ const now=sleeping?'sleep':held?'held':act?act.kind:'';
+ if(now!==lastTold){lastTold=now;parent.postMessage({type:'pet-act',kind:now},'*');}}
+r.setAnimationLoop(frame);
+// 切后台／锁屏／换到别的 app：停到看得见再说（clock 照走，回来时不让他从半个动作里接）
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){r.setAnimationLoop(null);return;}
+ act=null;lastT=clock.getElapsedTime();nextAt=lastT+1;lastDraw=-1;r.setAnimationLoop(frame);});
 // 点他：两种模式都一样。按住不动半秒＝拎起来，松手落地。
 // 悬浮时不再用「点小人」打开陪伴页——那一下留给他的反应；打开改成点底下那条把手（js/companion.js）。
 for(const k of ['contextmenu','selectstart','dragstart'])addEventListener(k,e=>e.preventDefault());   // iOS 长按的选框/菜单
