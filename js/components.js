@@ -13180,11 +13180,7 @@ function OfflineMode({
       // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
       // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
       h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
-    h("div", { className: "pt-5" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "篇幅模式"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.55 } }, sLengthMode === "immersive" ? "允许这一轮多生活一会儿：有内容才继续，到了需要你回应的位置就停。" : "由当前事件决定长短；简单反应可以短，有真实推进时自然展开。"),
-      h("div", { className: "flex gap-2" },
-        [{ v: "natural", t: "自然长度" }, { v: "immersive", t: "沉浸长文" }].map(o => h("button", { key: o.v, onClick: () => setSLengthMode(o.v), style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999, background: sLengthMode === o.v ? t.ink : "transparent", color: sLengthMode === o.v ? t.bg2 : t.fog, border: "1px solid " + (sLengthMode === o.v ? t.ink : t.line) } }, o.t)))),
+    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "高级 · 最低字数目标"),
@@ -13645,6 +13641,22 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
       (!isUser && (m.cot || m.cotRequested)) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null));
 }
 // ---- 群聊线下模式（多角色同处一地）----
+// ── 篇幅模式那一段：单人线下 / 群线下共用 ───────────────────────────────
+// 原来只写在单人线下的设置面板里；她 2026-09-26 要群聊也有，所以先抽成公共的一段，
+// 单人那份也搬了过来——照着抄第二份的话，以后改措辞就只会改到一处。
+function OfflineLengthModeSection({ value, onChange }) {
+  const t = useTheme();
+  const mode = value === "immersive" ? "immersive" : "natural";
+  return h("div", { className: "pt-5" },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "篇幅模式"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.55 } },
+      mode === "immersive" ? "允许这一轮多生活一会儿：有内容才继续，到了需要你回应的位置就停。" : "由当前事件决定长短；简单反应可以短，有真实推进时自然展开。"),
+    h("div", { className: "flex gap-2" },
+      [{ v: "natural", t: "自然长度" }, { v: "immersive", t: "沉浸长文" }].map(o => h("button", {
+        key: o.v, onClick: () => onChange(o.v),
+        style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999, background: mode === o.v ? t.ink : "transparent", color: mode === o.v ? t.bg2 : t.fog, border: "1px solid " + (mode === o.v ? t.ink : t.line) }
+      }, o.t))));
+}
 function GroupOfflineMode({
   group,
   profile,
@@ -13695,6 +13707,8 @@ function GroupOfflineMode({
   // 四段就满了——她那边早拉满所以没事，别人一次都没进过这页（engine 那头同一个数）。
   const [sMax, setSMax] = useState(os.maxTokens || 12000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
+  // 篇幅模式（她 2026-09-26：单聊有的给群聊也加上），存档键和单聊同名 lengthMode
+  const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
   const [sDesc, setSDesc] = useState(!!os.describeMe);
@@ -13786,7 +13800,7 @@ function GroupOfflineMode({
   const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-4" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "场景背景图"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },
@@ -13812,6 +13826,7 @@ function GroupOfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
       h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
+    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "输出下限（约字数）"),

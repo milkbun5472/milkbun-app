@@ -6386,9 +6386,7 @@ async function generateOffline(p, ctx, session) {
   // 篇幅与文风分离：自然长度不设句数；沉浸长文靠有效推进变长，不靠摄影式拆动作或重复解释凑篇幅。
   const lengthMode = session.lengthMode === "immersive" ? "immersive" : "natural";
   const minimumSceneChars = offlineMinimumSceneChars(session.minWords);
-  const lenGuide = lengthMode === "immersive"
-    ? "本轮采用【沉浸长文】：允许这一刻在真正有内容时自然跨过多个有效阶段。每个继续展开的阶段都要带来新的行动、选择、对话、信息、时间流动或环境对行动造成的实际影响；不要重复解释同一种心理、反复重拍没变化的环境与姿态，也不要把一个简单动作拆成许多步骤。只有当前场景确实还能推进时才继续；一旦到了需要对方回应、选择或行动的位置，就自然停下，不为写长而替对方作答或硬造新事"
-    : "本轮采用【自然长度】：篇幅由这一刻真正发生的内容决定。简单反应可以很短；有值得展开的行动、对话、判断或场景变化时自然展开，不为显得完整而补齐固定栏目";
+  const lenGuide = offlineLengthGuide(lengthMode);
   // 配件（线下·授权门在 app 侧算好传进 session.toyOn；线下天然是用户在场当面，无后台顾虑）
   const toyHint = session.toyOn ? "\n【toy 配件·此刻已授权】你和" + userName + "此刻线下面对面、且开了「配件」——你的动作和话能【真的作用到 Ta 身上】。这一段情境到了（亲密、挑逗、想让 Ta 有反应、按住 Ta 别乱动）你可以填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20整数,\"duration\":秒数1到90,\"reason\":\"配合这段的哪个动作/哪句话\"}，否则 toy:null。**节奏跟叙事走**：推进升温→intensity 渐强；故意吊着/停下→pattern 用 edge 或压到 1；一个命令/一个动作点到 Ta→pattern 用 pulse 短脉冲。pattern：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**一段想持续久就直接把 duration 拉长（最多 90 秒）**，长段落用 hold/tide/ramp。**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。先有叙事、动作配合叙事，别每段都发。强度我这边有上限，超了会被压到上限。" : "";
   const digitalToyHint = session.toyOn ? "\n【配件】此刻配件已由 " + userName + " 当场授权并连到她身上。你想实际控制它时，可使用 toy：pattern 为 teasing/steady/wave/pulse/edge/ramp/hold/throb/flutter/tide/knock/surge，intensity 1-20，duration 1-90 秒；**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。是否使用、何时使用、用什么节奏由你自己决定。" : "";
@@ -6495,7 +6493,7 @@ async function generateOffline(p, ctx, session) {
   //   不必为了抢最后一格把文风那条挤走（那是两件事，不是一件事的两种写法）。
   const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + flashbackTail + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
-  else hist.push({ role: "user", content: "（继续）" + finalNudge });
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚展示了真实照片，图像已附在本轮视觉输入中；请直接看图并把反应自然写进当前场景。】", imageDataUrls: session.imageDataUrls.slice(-2) };
@@ -6822,6 +6820,18 @@ async function summarizeOffline(p, ctx, session, already) {
 }
 // ------- 群聊线下模式（多角色同处一地的面对面叙事）-------
 // 把群聊线下 msgs 映射成 API 对话：char beat 归 assistant（带发言人名），narration/user 归 user，合并连发
+// 她把开场留空＝让角色自己起头（界面上那句 placeholder 一直这么写着）。
+// 这时候没有任何可以「继续」的东西，触发句得说清这是【第一笔】。
+const OFFLINE_OPEN_SCENE = "（这一场还没开始。由你们起头：把此刻的场面写出来，从一个具体的动作或一句话进入，别先做铺垫说明。）";
+// ── 篇幅模式：单人线下 / 群线下只有这一份 ──────────────────────────────
+// 原来只长在单人线下（session.lengthMode）；她 2026-09-26 要群聊也有，
+// 所以先把已有那份搬进来，两边都问它，别在群那头照着再抄一遍。
+// 篇幅与文风分离：自然长度不设句数；沉浸长文靠有效推进变长，不靠摄影式拆动作或重复解释凑篇幅。
+function offlineLengthGuide(mode) {
+  return mode === "immersive"
+    ? "本轮采用【沉浸长文】：允许这一刻在真正有内容时自然跨过多个有效阶段。每个继续展开的阶段都要带来新的行动、选择、对话、信息、时间流动或环境对行动造成的实际影响；不要重复解释同一种心理、反复重拍没变化的环境与姿态，也不要把一个简单动作拆成许多步骤。只有当前场景确实还能推进时才继续；一旦到了需要对方回应、选择或行动的位置，就自然停下，不为写长而替对方作答或硬造新事"
+    : "本轮采用【自然长度】：篇幅由这一刻真正发生的内容决定。简单反应可以很短；有值得展开的行动、对话、判断或场景变化时自然展开，不为显得完整而补齐固定栏目";
+}
 function offlineGroupHistory(msgs, userName, clock) {
   const g = [];
   let prevTs = 0;
@@ -6961,6 +6971,38 @@ function salvageOfflineGroupProse(raw, members) {
   }).filter(b => b.scene);
 }
 // ctx: { members:[char..], profile, rels, chars, worldbook, memLib }
+// ── 群里【用户站在哪儿】：群线上 / 群线下只有这一份 ────────────────────────
+// 「四处一样喂」喂的不只是【料】，还有【站的位置】（four-surfaces-same-context
+// 里 v55.91 那条：料补齐了王爷在群里还是霸总，因为模型被放在导演位上）。
+// ⚠️旁观群里她【根本不在场】。线上从一开始就写着「用户以【旁白】推动剧情」，
+//   群线下那头却一直写「用户和上述角色此刻身处同一个地方」——于是她推剧情的那一句
+//   被当成一个在场者的台词，角色回头去应一个不在场的人
+//   （她 2026-09-26：「旁观群我都不在怎么开口，就算开口也应该是跟线上一样的旁边指导」）。
+// 站位这件事写在两处就会各自跑偏，所以收在这一份里；线上那三句是原样搬过来的。
+// pairNames：两人旁观局（他俩自己的相处）才传，普通旁观群不传。
+const SPECTATE_PAIR_NOTE = "【重要】这是他俩之间的相处——聊他们自己的生活、眼前的事、【彼此之间】的关系，**用户不一定是话题、别默认围着用户转、别一开口就聊用户的事**；除非旁白引到、或他俩本就都认识用户且有理由聊起。若【没有设定他俩之间的明确关系】，就按萍水相逢/刚认识那样试探着来，别凭空当成很熟、有旧情、或都是用户的谁。各自和用户是什么关系是各自的私事（见关系隐私铁律），别互相假设或拆穿。";
+// 她不在场这件事正面说完：说清这个世界是什么样，不写成一串「不许回应她」的禁令
+// （施工规则/bans-make-it-dumber：禁的是模子，不是尺度）。
+const SPECTATE_USER_ABSENT = "用户不在场：在场的人看不见她、也听不见她。她写下的句子是这一场的【旁白】，推动的是场景本身。";
+function groupStageLine(opts) {
+  const o = opts || {};
+  const userName = o.userName || "用户";
+  const pair = (o.pairNames || []).filter(Boolean);
+  const offline = !!o.offline;
+  if (o.spectate && pair.length === 2) {
+    return offline
+      ? "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的相处，此刻两人身处同一个地方、面对面（他们也不知道有任何外人在旁观）。" + SPECTATE_USER_ABSENT + "让两人自然地你来我往、多轮相处。\n" + SPECTATE_PAIR_NOTE
+      : "这是「" + pair[0] + "」和「" + pair[1] + "」之间【他俩自己】的私下对话（不是群聊，他们也不知道有任何外人在旁观）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n" + SPECTATE_PAIR_NOTE;
+  }
+  if (o.spectate) {
+    return offline
+      ? "上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊），他们并不知道有任何外人在旁观。" + SPECTATE_USER_ABSENT + "让他们围绕旁白与彼此的关系自然相处。"
+      : "这是一个群聊，成员们并不知道有任何外人在旁观。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";
+  }
+  return offline
+    ? "用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。"
+    : "这是一个群聊，用户「" + userName + "」也是群里的一员，正在和大家一起说话。";
+}
 async function generateOfflineGroup(p, ctx, session) {
   const members = ctx.members || [];
   // ── 人多的时候一轮能有几段（她 2026-09-22 转来的：「7个人上限拉满一次最多
@@ -7072,10 +7114,16 @@ async function generateOfflineGroup(p, ctx, session) {
       ? "\n\n【各成员最近在别处（和用户的私聊 / 单人线下）发生的事·带时间戳】\n下面是每个成员最近单独和用户之间发生的事，按方括号里的真实时间理解它和此刻这场线下的先后顺序，自然接得上——比如某成员昨晚私聊里答应过的事、刚在单人线下经历的情绪，别当没发生过、也别和这些矛盾。\n⚠️隐私铁律：这些是【该成员和用户之间私下】的事，标〔仅本人知道〕——别的成员并不知情。绝不许让别的成员在群线下里提及、点破、或据此反应（吃醋/拆穿/打趣），除非本人自己在场景里说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + ctx.memberRecent.map(mr => "〔仅「" + mr.name + "」本人知道〕\n" + mr.lines).join("\n\n")
       : "") +
     "\n\n" + OFFLINE_USER_IS_PRESENT.replace(/USERNAME/g, userName) +
-    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" + gRotateLine +
+    "\n\n【当前场景：线下面对面 · 多人同处】" + groupStageLine({ spectate: !!ctx.spectate, pairNames: ctx.spectatePair || [], userName: userName, offline: true })
+    + "以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，"
+    + (ctx.spectate ? "没有反应必要的人可以安静在场。" : "不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。")
+    + "对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" + gRotateLine +
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, true) +
     narrativeDirective(session.narr) +
+    // 篇幅模式（她 2026-09-26：单聊有的给群聊也加上）。和单人线下同一份 offlineLengthGuide，
+    // 摆的位置也一样：紧挨着字数规则，让「这一轮写多长」的几层话待在一起。
+    "\n" + offlineLengthGuide(session.lengthMode === "immersive" ? "immersive" : "natural") +
     // 和单人线下、试写台共用同一份【字数】规则（酒馆那套：下限＋上限＋自己数着写）
     (session.minWords ? "\n" + window.StylePresets.wordRule(session.minWords)
       + "\n· 这个字数是【整段所有 beat 加起来】的量，不是每个 beat 各写这么多。" : "") +
@@ -7111,7 +7159,7 @@ async function generateOfflineGroup(p, ctx, session) {
   //   所以不像单人那样只在她刚说完话时才补：场面还在，就每轮都补。
   const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) : "";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gTail };
-  else hist.push({ role: "user", content: "（继续）" + gFlashbackTail + gCharacterTail + gTail });
+  else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-2) };

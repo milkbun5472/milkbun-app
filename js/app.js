@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.113";
+const APP_VERSION = "v74.114";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7141,10 +7141,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("请先到设置配置 API");
       return;
     }
-    if ((workSess.msgs || []).length === 0) {
-      toast("先说点什么，或写一句开场");
-      return;
-    }
+    // 空场不再拦：她留空开场＝让角色自己起头（界面上那句 placeholder 一直这样写着，
+    // 而这道闸让它从上线起一次都没兑现过——她 2026-09-26 报「线下必须由我开场」）。
+    // 引擎那头空场会发 OFFLINE_OPEN_SCENE 当触发句，不是「（继续）」。
     startLane("c:" + scopeKey);
     try {
       let oCtx = ctxFor(char);
@@ -7367,7 +7366,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pOffline(scopeKey, list => [sess, ...list.filter(s => s.endTs)]);
-    if (opening) await genOfflineFrom(scopeKey, sess);
+    await genOfflineFrom(scopeKey, sess);
   };
   const offlineSend = (scopeKey, text) => pushOffMsg(scopeKey, {
     id: "u_" + Date.now(),
@@ -7636,8 +7635,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const memSplit = groupOfflineMemSplit(group);
   const backgrounds = groupMembers(group).filter(c => !c.npc).map(c => [c.id, groupBackgroundFor(c)]);
   const backgroundMap = field => Object.fromEntries(backgrounds.filter(([, b]) => b[field]).map(([id, b]) => [id, b[field]]));
+  // 旁观群里她不在场：站位跟着一起递给引擎（群线上早就认，群线下以前一层都没有——
+  // 她 2026-09-26 报「旁观群我都不在怎么开口」）。判据走 groupSpectating 那一处，
+  // 两头（群身上的 roomKind／设置里的 spectate）只问它一份。
+  const _spectate = groupSpectating(group);
+  const _pair = (_spectate && groupMembers(group).length === 2) ? groupMembers(group).map(c => c.name) : [];
   return ({
     members: groupMembers(group),
+    spectate: _spectate,
+    spectatePair: _pair,
     profile,
     rels,
     chars: characters,
@@ -7929,10 +7935,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("请先到设置配置 API");
       return;
     }
-    if ((workSess.msgs || []).length === 0) {
-      toast("先说点什么，或写一句开场");
-      return;
-    }
+    // 空场不再拦：她留空开场＝让角色自己起头（界面上那句 placeholder 一直这样写着，
+    // 而这道闸让它从上线起一次都没兑现过——她 2026-09-26 报「线下必须由我开场」）。
+    // 引擎那头空场会发 OFFLINE_OPEN_SCENE 当触发句，不是「（继续）」。
     startLane("g:" + group.id);
     try {
       let effectiveSess = workSess;
@@ -7963,7 +7968,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gDuo = _gShooters.filter(c => c.refPhoto && profile && profile.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
-        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
@@ -8054,18 +8059,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pGOffline(groupId, list => [sess, ...list.filter(s => s.endTs)]);
-    if (opening) await genGroupOfflineFrom(group, sess);
+    await genGroupOfflineFrom(group, sess);
   };
   const groupOfflineSend = (groupId, text) => pushGOffMsg(groupId, {
     id: "u_" + Date.now(),
-    role: "user",
+    role: gOffUserRole(groupId),
     content: text,
     ts: Date.now()
   });
   const groupOfflineSendPhoto = (groupId, photo) => pushGOffMsg(groupId, {
-    id: "u_" + Date.now(), role: "user", kind: "photo", imageRef: photo.imageRef,
+    id: "u_" + Date.now(), role: gOffUserRole(groupId), kind: "photo", imageRef: photo.imageRef,
     desc: photo.desc || "", content: photo.content || "[照片]", ts: Date.now()
   });
+  // 旁观群里她不在场，敲进来的字是这一场的【旁白】，不是一个在场的人在说话。
+  // 群线上早就这么落（那边把 by 记成「旁白」），群线下却一直打成 role:"user"，
+  // 于是模型收到的是「用户：……」——角色回头去应一个不在场的人
+  // （她 2026-09-26：「我试了是我的消息会作为 user 发出去」）。
+  // ⚠️三处（演绎/发送/发照片）只问这一份，各写各的迟早只改一处。
+  const gOffUserRole = groupId => groupSpectating(groups.find(g => g.id === groupId)) ? "narration" : "user";
   const groupOfflineReply = async (groupId, extraText) => {
     if (laneBusy("g:" + groupId)) return;
     const group = groups.find(g => g.id === groupId);
@@ -8073,7 +8084,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!group || !sess) return;
     let msgs = sess.msgs;
     if (extraText && extraText.trim()) {
-      const um = { id: "u_" + Date.now(), role: "user", content: extraText.trim(), ts: Date.now() };
+      const um = { id: "u_" + Date.now(), role: gOffUserRole(groupId), content: extraText.trim(), ts: Date.now() };
       pushGOffMsg(groupId, um);
       msgs = [...msgs, um];
     }
@@ -11169,8 +11180,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：别复刻记忆里的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作，生活要有新的具体。" : "");
       }
       const asPrivate = gs.spectate && members.length === 2;
-      let dir;
-      if (asPrivate) dir = "这是「" + members[0].name + "」和「" + members[1].name + "」之间【他俩自己】的私下对话（不是群聊，他们也不知道有任何外人在旁观）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。\n【重要】这是他俩之间的相处——聊他们自己的生活、眼前的事、【彼此之间】的关系，**用户不一定是话题、别默认围着用户转、别一开口就聊用户的事**；除非旁白引到、或他俩本就都认识用户且有理由聊起。若【没有设定他俩之间的明确关系】，就按萍水相逢/刚认识那样试探着来，别凭空当成很熟、有旧情、或都是用户的谁。各自和用户是什么关系是各自的私事（见关系隐私铁律），别互相假设或拆穿。";else if (gs.spectate) dir = "这是一个群聊，成员们并不知道有任何外人在旁观。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";else dir = "这是一个群聊，用户「" + userName(profile) + "」也是群里的一员，正在和大家一起说话。";
+      let dir = groupStageLine({ spectate: !!gs.spectate, pairNames: asPrivate ? [members[0].name, members[1].name] : [],
+        userName: userName(profile), offline: false });
       // 一轮的条数随人数放宽：人少几条就够，人多（拉了一堆人）要多聊几个来回、别草草收场
       // ⚠️她 2026-09-12：「能不能不要这么小气宝宝！你越小气它就越偷懒，现在还是 aba」。
       //   她说的是我：下限 2→3→4 一格一格往上抠，又在提示词里叠了一层层「不许」。
