@@ -92,13 +92,19 @@
   `S=.7 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c05-shell.glb v2/outfits/outfit_c05.glb`
   （全身贴合、间距 2 mm；`STRAP_OUT` 把深色夹克在胸口以上再往外抬 6 mm，衬衫就不会从翻领上透出来。不加 `UNDER`：底衣会把白块顶到夹克外面。）
   `TRIS=8000 TEX=1024 python3 compress_asset.py v2/outfits/outfit_c05.glb v2/web/outfit_c05.glb`（15000 面时 doll.glb 超预算）。
-- **进 app 不重跑全量组装**：`doll.glb` 上已经有手修过的肘骨、袖口、鞋、背带。`add_outfit.py` 直接往成品上加一套：
-  `python3 -c "import sys,runpy;sys.argv=['x','--','<doll.glb>','<out.glb>','jacket'];runpy.run_path('add_outfit.py',run_name='__main__')"`
-  （输出就是 app 的 doll.glb 时，同时写 doll.json / outfits.mjs。）`assemble_v2.py` 在肘骨之后调用同一个 `add_outfit()`，全量重建不会丢这套。
+- **进 app 不重跑全量组装**：完整娃娃上已经有手修过的肘骨、袖口、鞋、背带。`add_outfit.py` 直接往成品上加一套：
+  `python3 -c "import sys,runpy;sys.argv=['x','--','jacket'];runpy.run_path('add_outfit.py',run_name='__main__')"`
+  （改 `v2/doll-full.glb`，写 doll.json / outfits.mjs，再拆出 app 用的文件，见下面「按需加载」。）`assemble_v2.py` 在肘骨之后调用同一个 `add_outfit()`，全量重建不会丢这套。
   - 配色分格：`outfit_slots.py`（从 assemble_v2 抽出来的公共那份）；`trim_lum=.78`（衬衫是米白，达不到 .92）、`sole_z=.075`（鞋跟衬衫一格）。
   - 袖子：原壳的袖子一抬手就撕开，照 C01–C04 换成 `round_sleeves.py` 的圆袖：切掉 |x|>.17（腰以上）/ |x|>.2（手腕边的残片）；夹克取一块纯色贴图（`atlas=(.156,.953,.008,.008)`）；`fit_cuffs.py` 收袖口。
   - `side_lining()`：腋下补一片夹克色的身体侧面复制层（外推 4 mm、绑躯干），抬手时这里不再是洞。
   - 皮肤遮挡：`torsoAbove 0`（长裤到脚）、`coversFeetBelow .12`。
 - ⚠️Blender 5（pip `bpy`）里新建颜色属性会让之前拿到的 UV 层失效，`round_sleeves.py` 现在两个都建好再按名字取。
-- 体积：五套衣服的 doll.glb 5.5 MB，手机预算她定为 6 MiB（测试钉在 arm-rig / clay-doll / footwear）。**再加一套就会碰线**，下一套要先解决体积（压形态键或按需加载）。
 - 验图：`scripts/checks/shared-cloth-browser.cjs` 591 格（默认/最小/最大/改色，十种动作四个方向）。已知：抬手时夹克侧边还有一点细毛边；衬衫在减面后略有棱角。
+
+## 衣服按需加载（2026-09-26，她定）
+
+- **母版是 `v2/doll-full.glb`**（身体 + 骨架 + 头发 + 全部衣服）。所有迁移脚本（`add_outfit.py`、`fit_cuffs.py`、`restore_*`…）都读写它，不再直接改 app 里的 doll.glb。
+- `split_outfits.py` 从母版拆出 app 用的：`apps/fairy-garden/doll.glb`（不带衣服，约 1.4 MB）和 `apps/fairy-garden/outfits/<id>.glb`（每套一件，带同名骨架，0.6–1.1 MB）。`add_outfit.py`、`assemble_v2.py` 最后都会自动拆；手动改了母版就跑一次 `python3 -c "import sys,runpy;sys.argv=['x'];runpy.run_path('split_outfits.py',run_name='__main__')"`。
+- 运行时（`traveler.mjs`）：穿哪套才下哪套，全页每套只下一次；下好后按骨头名字接到这个人自己的骨架上，按当前体型重绑。第一套到之前人先不露面，换装途中照旧穿着上一套。`preloadOutfits()` 给验图脚本先把几套下好。
+- 预算：底模 + 最大一套 < 3 MiB（`doll-parts.test.mjs` 把拆开的文件拼回一份给其它测试用）。`scripts/checks/outfit-lazy-browser.cjs` 查按需加载本身。

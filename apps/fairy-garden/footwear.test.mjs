@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const bytes=readFileSync(new URL('./doll.glb',import.meta.url));
-const gltf=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)));
+import {gltf,firstLoadBytes} from './doll-parts.test.mjs';
 test('rabbit sneakers retain body morphs, leg skinning and an outfit-scoped coverage boundary',()=>{
  const shoe=gltf.nodes.find(n=>n.name==='outfit_cardigan_footwear');
  const garment=gltf.nodes.find(n=>n.name==='outfit_cardigan');
@@ -17,5 +16,5 @@ test('rabbit sneakers retain body morphs, leg skinning and an outfit-scoped cove
  const imageFor=p=>{const m=gltf.materials[p.material],t=gltf.textures[m.pbrMetallicRoughness.baseColorTexture.index];return t.extensions?.EXT_texture_webp?.source??t.source;};
  const originalAtlas=imageFor(original.primitives[0]);
  for(const p of mesh.primitives)assert.equal(imageFor(p),originalAtlas,'sneakers reuse their garment’s source atlas');
- assert.ok(bytes.length<6*1024*1024);
+ assert.ok(firstLoadBytes<3*1024*1024);
 });
