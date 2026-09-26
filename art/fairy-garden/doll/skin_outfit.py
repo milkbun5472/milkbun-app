@@ -95,8 +95,36 @@ for v in C.data.vertices:
         q=np.array(v.co[:])-sh;along=ax*np.dot(q,ax);v.co=Vector(sh+along+(q-along)*ROOMY);continue
     if v.co.z>E('CONFORM_TOP',9):continue   # collars stand off the neck; conforming them smeared the lining through
     p,n=hit[0],hit[1];d=(v.co-p).dot(n)
-    if d<GAP:v.co=p+n*GAP+(v.co-p-n*d);moved+=1
+    g=E('GAP_TOP',GAP) if v.co.z>E('GAP_TOP_Z',9) else GAP
+    if d<g:v.co=p+n*g+(v.co-p-n*d);moved+=1
 print('conformed',moved)
+# STRAP_OUT: pinafore straps and the shirt shoulder end up the same distance off the skin after the
+# conform, and the shirt wins. Dark (dress) faces over the shoulders are lifted a little further out.
+if E('STRAP_OUT',0):
+    import bmesh as _b4
+    im4=next(n.image for n in C.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE');W4,H4=im4.size;tx4=np.array(im4.pixels[:]).reshape(H4,W4,4)[:,:,:3]**(1/2.2)
+    b4=_b4.new();b4.from_mesh(C.data);b4.faces.ensure_lookup_table();u4=b4.loops.layers.uv.active;lift=set()
+    for f in b4.faces:
+        c=f.calc_center_median()
+        if c.z<E('STRAP_Z',.58) or c.z>E('STRAP_ZMAX',9) or abs(c.x)>E('STRAP_X',.16) or abs(c.x)<E('STRAP_XMIN',0):continue
+        u=f.loops[0][u4].uv
+        if tx4[min(H4-1,int(u[1]*H4)),min(W4-1,int(u[0]*W4))].mean()<.55:lift.update(v.index for v in f.verts)
+    # COLLAR_OUT: light (collar) faces above COLLAR_Z go out further than the straps, so the straps tuck under the collar
+    coll=set()
+    if E('COLLAR_OUT',0):
+        for f in b4.faces:
+            c=f.calc_center_median()
+            if c.z<E('COLLAR_Z',.64) or abs(c.x)>E('STRAP_X',.16):continue
+            u=f.loops[0][u4].uv
+            if tx4[min(H4-1,int(u[1]*H4)),min(W4-1,int(u[0]*W4))].mean()>=.55:coll.update(v.index for v in f.verts)
+    b4.verts.ensure_lookup_table()
+    for i in coll-lift:
+        v=b4.verts[i];h=BT.find_nearest(v.co)
+        if h[0] is not None:v.co+=h[1]*E('COLLAR_OUT',0)
+    for i in lift:
+        v=b4.verts[i];h=BT.find_nearest(v.co)
+        if h[0] is not None:v.co+=h[1]*E('STRAP_OUT',0)
+    b4.to_mesh(C.data);b4.free();print('strap verts lifted',len(lift))
 # PAINT_ARM: any dark face lying over the arm (nearest skin follows an arm bone, above the waist) is
 # repainted with the shirt colour -- its UVs point at one light texel of the sleeve. Used where the
 # dress lining shows through shortened sleeves ('穿模的地方直接涂袖子的颜色').
@@ -108,11 +136,17 @@ if E('PAINT_ARM',0):
     arm_faces=[];best=None
     for f in bm2.faces:
         if f.material_index!=0 or f.calc_center_median().z<E('PAINT_ZMIN',.46):continue
+        if abs(f.calc_center_median().x)<E('PAINT_XMIN',0):continue   # pinafore straps sit on the shoulder: never paint them
         h=BT.find_nearest(f.calc_center_median())
         if h[0] is None or arm_of(h[2])<=.5:continue
         c=np.mean([col(l[uvl].uv) for l in f.loops],0);arm_faces.append((f,c))
         if best is None or c.mean()>best[1].mean():best=(f,c)
     target=best[0].loops[0][uvl].uv.copy() if best else None;n=0
+    # PAINT_COLLAR: dark lining that the conform pushes through the collar (above this height) -> shirt colour
+    if E('PAINT_COLLAR',0):
+        for f in bm2.faces:
+            if f.material_index==0 and f.calc_center_median().z>E('PAINT_COLLAR',0):
+                c=np.mean([col(l[uvl].uv) for l in f.loops],0);arm_faces.append((f,c))
     for f,c in arm_faces:
         if c.mean()<E('PAINT_ARM',.55):
             for l in f.loops:l[uvl].uv=target
