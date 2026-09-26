@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-733a361c47defc54';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-733a361c47defc54';
+import {makeDollLife} from './doll-life.mjs?v=fg-8dfc0d389637334b';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-8dfc0d389637334b';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -44,18 +44,26 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
    .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
  o.material.customProgramCacheKey=()=>'slotDye'+pick;o.material.needsUpdate=true;}
 const _a=new T.Color(),_b=new T.Color();
-// Closed footwear owns this part of the silhouette. Mask the covered skin in
-// rest coordinates so the same boundary follows every pose and body morph.
-function coveredFeetShader(o){
- const u={value:-1};o.userData.coveredFeet=u;
+// Coverage is authored on the outfit in rest coordinates. The same mask is used
+// for colour and shadow passes, and each avatar owns its uniform values.
+function coveredSkinShader(o){
+ const coverage={feet:{value:-1},torso:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)}};
+ if(!o.geometry.getAttribute('skinArmInfluence')){
+  const weights=o.geometry.getAttribute('skinWeight'),indices=o.geometry.getAttribute('skinIndex'),values=new Float32Array(o.geometry.getAttribute('position').count);
+  if(weights&&indices)for(let i=0;i<values.length;i++)for(let k=0;k<4;k++)if(/(?:Arm|Forearm)$/.test(o.skeleton.bones[indices.getComponent(i,k)]?.name||''))values[i]+=weights.getComponent(i,k);
+  o.geometry.setAttribute('skinArmInfluence',new T.BufferAttribute(values,1));
+ }
+ o.userData.skinCoverageUniforms=coverage;o.userData.coveredFeet=coverage.feet;
  const patch=m=>{m.onBeforeCompile=sh=>{
-  sh.uniforms.uCoveredFeet=u;
-  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vBodyRestY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvBodyRestY=position.y;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vBodyRestY;uniform float uCoveredFeet;').replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(vBodyRestY<uCoveredFeet) discard;');
- };m.customProgramCacheKey=()=>'coveredFeet-v1';};
+  sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;varying float vSkinArm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform vec4 uSleeve;uniform vec4 uArmAxis;')
+   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif(vSkinRest.y<uCoveredFeet || (vSkinRest.y<uCoveredTorso && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
+ };m.customProgramCacheKey=()=>'coveredSkin-v1';};
  patch(o.material);
  o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
  o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
+ o.material.addEventListener('dispose',()=>{o.customDepthMaterial.dispose();o.customDistanceMaterial.dispose();});
 }
 function dyeOutfit(o,colors){const d=o.userData.slotDye;if(!d)return;SLOTS.forEach((k,i)=>{if(!d.base[k]||!colors[k])return d.u.uTint.value[i].set(1,1,1);_a.set(colors[k]);_b.set(d.base[k]);d.u.uTint.value[i].set(_a.r/Math.max(_b.r,.02),_a.g/Math.max(_b.g,.02),_a.b/Math.max(_b.b,.02));});}
 // 表情：同一个身体，换脸上的贴图（faces/<id>.webp，和身体原贴图同一套 UV）。所有小人共用一份贴图缓存。
@@ -78,8 +86,11 @@ export function createTraveler(source,companion=false,look={}){
  // ⚠️clone(true) 只克隆节点，【材质仍然是同一份】：不给每个实例各一份，
  //   改一个人的发色，另一个人的头发会跟着一起变（美术脚本那头也踩过同一个坑）。
  const isHair=o=>/^hair[._]/i.test(o.name),hairName='hair_'+style;
- const mine=new Map(),footCoverage=new Map();
- model.traverse(o=>{if(o.userData.outfit&&Number.isFinite(o.userData.coversFeetBelow))footCoverage.set(o.userData.outfit,o.userData.coversFeetBelow);});
+ const mine=new Map(),coverageByOutfit=new Map();
+ model.traverse(o=>{if(!o.userData.outfit)return;const id=o.userData.outfit,c=coverageByOutfit.get(id)||{};
+  if(Number.isFinite(o.userData.coversFeetBelow))c.feet=o.userData.coversFeetBelow;
+  if(o.userData.skinCoverage)Object.assign(c,o.userData.skinCoverage);coverageByOutfit.set(id,c);
+ });
  model.traverse(o=>{if(!o.isMesh)return;
   // ⚠️藏起来的那十一款头发也要克隆材质：以后 setLook 换到其中一款时它才有自己的一份。
   //   跳过不克隆的话，换完发型两个人共用同一份材质，谁后设色谁说了算（实测两个小人一起变色）。
@@ -88,14 +99,16 @@ export function createTraveler(source,companion=false,look={}){
   if(!mine.has(o.material))mine.set(o.material,o.material.clone());
   o.material=mine.get(o.material);
   if(o.material.name==='Character warm peach')o.userData.skin=true;
-  if(o.userData.skinBase){o.userData.bodyMap=o.material.map;coveredFeetShader(o);}
+  if(o.userData.skinBase){o.userData.bodyMap=o.material.map;coveredSkinShader(o);}
   if(o.userData.outfit)outfitShader(o);
   if(o.userData.colorSlot||o.userData.skin){o.material=o.material.clone();if(!o.userData.dyeTexture)o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
   // 头发的纹理材质进不了 GLB（GLTF 只收基础 PBR），颜色一律在这儿给
   if(isHair(o)){hairShader(o);dyeHair(o,want);o.material.roughness=.85;}
   else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
- const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;if(o.userData.coveredFeet)o.userData.coveredFeet.value=footCoverage.get(id)??-1;if(o.userData.skin)o.material.color.set(look.skin);
+ const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;
+   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(id)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
+   if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);
    const face=FACE_ID.test(look.face||'')&&look.face!=='default'?faceTexture(look.face):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}

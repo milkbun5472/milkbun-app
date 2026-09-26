@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL(p,import.meta.url));
 const bytes=read('./doll.glb'),gltf=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)));
 test('exported body and outfits share connected elbows, with neutral rest morphs',()=>{
- const rig=gltf.nodes.find(n=>n.extras?.elbowRig);assert.equal(rig.extras.elbowRig.version,1);
+ const rig=gltf.nodes.find(n=>n.extras?.elbowRig);assert.equal(rig.extras.elbowRig.version,2);
  for(const side of ['left','right']){
   const upper=gltf.nodes.find(n=>n.name===side+'Arm'),lower=gltf.nodes.findIndex(n=>n.name===side+'Forearm');
   assert.ok(lower>=0);assert.ok(upper.children.includes(lower));
@@ -18,4 +18,13 @@ test('both entry points use the same versioned rig and model graph',()=>{
  assert.ok(pet.includes('traveler.mjs?v='+build));assert.ok(pet.includes('doll.glb?v='+build));
  assert.ok(host.includes('BUILD = "'+build+'"'));
  assert.ok(read('../companion/index.html').toString().includes('pet.mjs?v='+build));
+});
+
+test('rabbit outfit owns coverage and restored source shoes without changing other outfits',()=>{
+ const shirt=gltf.nodes.find(n=>n.name==='outfit_cardigan');
+ assert.deepEqual(shirt.extras.skinCoverage.sleeve,[.205,.46,.705,.10]);assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
+ const shoe=gltf.nodes.find(n=>n.name==='outfit_cardigan_footwear');
+ assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,1);
+ assert.equal(shoe.extras.outfit,'cardigan');assert.ok(shoe.skin!=null);
+ assert.ok(gltf.nodes.filter(n=>n.extras?.outfit&&n.extras.outfit!=='cardigan').every(n=>!n.extras.skinCoverage&&!n.extras.coversFeetBelow));
 });

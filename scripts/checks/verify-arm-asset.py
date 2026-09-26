@@ -21,7 +21,12 @@ def snapshot(path):
 original,updated,report_path=sys.argv[sys.argv.index('--')+1:]
 before=snapshot(original)
 after=snapshot(updated)
-assert set(before)==set(after)
+footwear = 'outfit_cardigan_footwear'
+assert set(after) == set(before) | {footwear}
+assert set(after[footwear]['keys']) == set(before['outfit_cardigan']['keys'])
+assert len(after[footwear]['points']) > 1000
+assert max(p.z for p in after[footwear]['points']) < .19
+assert min(p.z for p in after[footwear]['points']) > -.02
 report={}
 for name,b in before.items():
  a=after[name];tree=KDTree(len(b['points']))
@@ -29,6 +34,9 @@ for name,b in before.items():
  tree.balance();err=0;shapeErr=0
  assert set(a['keys'])==set(b['keys'])
  for i,p in enumerate(a['points']):
+  # The source sneakers replace the lower part of cardigan, including its join.
+  if name == 'outfit_cardigan' and p.z < .181:
+   continue
   _,j,d=tree.find(p);err=max(err,d)
   candidates=tree.find_range(p,max(d+1e-6,.0001))
   if a['keys']:
@@ -39,3 +47,15 @@ for name,b in before.items():
  report[name]={'restError':err,'morphDeltaError':shapeErr,'verticesBefore':len(b['points']),'verticesAfter':len(a['points'])}
 Path(report_path).write_text(json.dumps(report,indent=2))
 print('PASS rest geometry, shape-key offsets, normalized weights')
+
+# Re-export must retain the original embedded texture bytes.
+import struct, hashlib
+def image_hashes(path):
+ raw=Path(path).read_bytes();length=struct.unpack_from('<I',raw,12)[0]
+ gltf=json.loads(raw[20:20+length]);start=28+length;result=[]
+ for image in gltf['images']:
+  view=gltf['bufferViews'][image['bufferView']];offset=start+view.get('byteOffset',0)
+  result.append(hashlib.sha256(raw[offset:offset+view['byteLength']]).hexdigest())
+ return sorted(result)
+assert image_hashes(original)==image_hashes(updated)
+print('PASS all original embedded textures preserved')
