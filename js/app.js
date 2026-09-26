@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.105";
+const APP_VERSION = "v74.106";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11557,6 +11557,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : null;
       const _gTakeReason = () => { const r = _gReasonLeft; _gReasonLeft = null; return r || {}; };
       {
+        // 名字先认成群里那个人的正式名字，再交给身份闸（闸只认原名；认不出的人整轮会被丢掉）
+        arr = arr.map(it => { if (!it || typeof it !== "object") return it; const m = pickMember(members, it.name); return m && members.filter(x => x.name === m.name).length === 1 ? { ...it, name: m.name } : it; });
         const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, userName(profile)) : { items: arr, dropped: [], thoughtsDropped: [] };
         // ⚠️自发那一轮的条数上限【原来只写在提示词里】（"一次产出 n~m 条"）——那只降概率。
         //   模型多写几条，下面这个循环照单全收，她设的「自发总条数上限」就成了摆设

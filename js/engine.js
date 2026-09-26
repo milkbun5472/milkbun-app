@@ -6908,11 +6908,24 @@ function rotateSpeakersNote(members, msgs) {
     + "人多就让戏自己转到别人身上去。";
 }
 // 模型回填的那个名字 → 到底是谁。先按标签精确认，再退回名字（没重名的群、老存档）
+// ⚠️她 2026-09-26「为啥群里只有一个人说话」：这里原来只认【一字不差】的名字，
+//   模型把「闻雪生」写成「雪生」、写成备注、名字里多个空格，那个人这一轮的话就【一句不剩地】被丢掉，
+//   屏幕上只剩另一个人在自说自话。所以认不出时再往下退：去标点空白比、认备注、
+//   最后按「名字互相包含」认——但只在【恰好一个人】对得上时才认，两个都像就宁可不认。
 function pickMember(members, rawName) {
   const s = String(rawName == null ? "" : rawName).trim();
   if (!s) return null;
-  const arr = members || [];
-  return arr.find(c => memberLabel(arr, c) === s) || arr.find(c => c && c.name === s) || null;
+  const arr = (members || []).filter(Boolean);
+  const hit = arr.find(c => memberLabel(arr, c) === s) || arr.find(c => c.name === s);
+  if (hit) return hit;
+  const k = x => String(x || "").replace(/[\s【】\[\]（）()《》「」『』:：·—_\-]/g, "").toLowerCase();
+  const w = k(s);
+  if (!w) return null;
+  const one = list => list.length === 1 ? list[0] : null;
+  return one(arr.filter(c => k(c.name) === w || k(memberLabel(arr, c)) === w))
+    || one(arr.filter(c => c.remark && k(c.remark) === w))
+    || one(arr.filter(c => { const n = k(c.name); return n && (n.includes(w) || w.includes(n)); }))
+    || null;
 }
 function offlineGroupSpeaker(members, rawName, scene) {
   const name = String(rawName || "").trim();
