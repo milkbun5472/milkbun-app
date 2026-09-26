@@ -3,10 +3,10 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-bb56ad649d70688b';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-bb56ad649d70688b';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-bb56ad649d70688b';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-bb56ad649d70688b';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-b6dcbc456b2edf7e';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-b6dcbc456b2edf7e';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-b6dcbc456b2edf7e';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-b6dcbc456b2edf7e';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -24,10 +24,13 @@ let pet=null,pending=null,lastLook='',cur={look:{},ta:'TA'};
 const full=()=>({...lookForTa(cur.ta),...cur.look});
 window.PetGame={hairModes:HAIR_MODES,getDyes:()=>dyesOf(full(),full()),getOutfit:()=>{const l=full();return {id:outfitId(l),colors:outfitColors(l)};},getHair:()=>hairId(full().hair),merge:(look,patch)=>mergeLook(look||{},patch||{})};
 const apply=m=>{cur={look:m.look||{},ta:m.ta||'TA'};if(!pet){pending=m;return;}const look=full();const key=JSON.stringify(look);if(key===lastLook)return;lastLook=key;pet.setLook(look);};
-addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);});
+addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);if(e.data&&e.data.type==='pet-ctx')setCtx(e.data);});
+// 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
+let ctx={screen:'',music:false,idle:false},sleeping=false;
+function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m.music,idle:!!m.idle};if(was&&!ctx.idle)wake();}
 // 两种都用庭院那一份小人：高清整包（8MB、上百 MB 解码）在她手机上一点进来就把 app 挤到重启（2026-09-26）。
 // 清晰靠整页的 2K 脸和按屏幕像素比渲染。
-const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-bb56ad649d70688b');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
+const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-b6dcbc456b2edf7e');pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
 parent.postMessage({type:'pet-ready'},'*');
 // 每种心情一套待机动作（她 2026-09-26：「做每一个心情的专属动作」）。
 // 动作本身都是庭院那几个（挥手、伸懒腰、喝茶、看书、坐下、迈步），这里只管【什么心情、隔多久、配什么身段】。
@@ -44,13 +47,25 @@ const MOODS={
  sad:{base:t=>({y:-.015,tilt:.18,yaw:.25}),every:9,acts:['sit','sit','sigh']},
  irritated:{base:t=>({y:0,tilt:.04,yaw:.7+Math.sin(t*.9)*.08}),every:5,acts:['stomp','turn','stomp']}
 };
-const DUR={wave:3.4,stretch:3.8,tea:5,read:7,sit:8,hop:1.2,jolt:1,nod:1.6,sigh:2.4,stomp:1.6,turn:2.2};
+const DUR={wave:3.4,stretch:3.8,tea:5,read:7,sit:8,hop:1.2,jolt:1,nod:1.6,sigh:2.4,stomp:1.6,turn:2.2,look:1.6,shy:2.6,yawn:3.2,wake:1.8,land:.8};
 let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0;const clock=new T.Clock();
 window.petDebug={play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用
+// 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
+const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
+const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
+let greeted=false,held=null,taps=[];
+function wake(){if(!sleeping)return;sleeping=false;act={kind:'wake',start:clock.getElapsedTime()};}
+function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}taps=taps.filter(x=>t-x<1.4);taps.push(t);
+ const n=taps.length,face=(cur.look&&cur.look.face)||'default',cross=['irritated','sad','gloomy'].includes(face);
+ // 点一下回头看你；连点两下蹦一下；再点他就害羞（心情不好的时候是扭过头去不理你）
+ act={kind:n>=3?(cross?'turn':'shy'):n===2?(cross?'stomp':'hop'):'look',start:t};}
 r.setAnimationLoop(()=>{const t=clock.getElapsedTime();
  const face=(cur.look&&cur.look.face)||'default',M=MOODS[face]||MOODS.default;
+ // 很久没碰手机就趴下睡；深夜隔一阵打个哈欠；早上第一次见面伸个懒腰
+ if(ctx.idle&&!sleeping&&!held){sleeping=true;act=null;}
+ if(!greeted&&t>1.5){greeted=true;const h=new Date().getHours();if(h>=6&&h<10&&!act)act={kind:'stretch',start:t};}
  if(face!==curMood){curMood=face;act=null;nextAt=t+1.2;}
- if(!act&&t>nextAt){const k=M.acts[Math.floor(Math.random()*M.acts.length)];act={kind:k,start:t};}
+ if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pool[Math.floor(Math.random()*pool.length)];act={kind:k,start:t};}
  let gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
  if(act){progress=(t-act.start)/DUR[act.kind];if(progress>=1){act=null;nextAt=t+M.every*(.7+Math.random()*.6);progress=0;}
   else{const e=Math.sin(Math.PI*progress);switch(act.kind){
@@ -63,11 +78,23 @@ r.setAnimationLoop(()=>{const t=clock.getElapsedTime();
    case 'nod':dtilt=Math.sin(progress*Math.PI*2)*.08;break;                          // 点点头
    case 'sigh':dy=-e*.02;dtilt=e*.1;break;                                           // 叹口气塌下去
    case 'stomp':moving=true;break;                                                   // 原地跺脚
-   case 'turn':dyaw=e*.9;break;}}}                                                    // 别过脸去
+   case 'turn':dyaw=e*.9;break;
+   case 'look':dyaw=-(yaw+M.base(t).yaw)*e;dtilt=Math.sin(progress*Math.PI*2)*.05;break;   // 回过头来看你一眼
+   case 'shy':dtilt=e*.16;dyaw=Math.sin(progress*Math.PI*4)*.25*e;dy=-e*.01;break;       // 低头扭扭捏捏
+   case 'yawn':gesture='stretch';dtilt=-e*.1;break;                                      // 仰头打哈欠
+   case 'wake':dy=e*.04;dtilt=-e*.08;if(progress>.5)gesture='wave';break;                 // 醒了一激灵，冲你招手
+   case 'land':dy=-e*.03;break;}}}
+ if(held){dy=.12+Math.sin(t*9)*.01;dtilt=0;pet.root.rotation.z=Math.sin(t*5)*.18;gesture='rest';}else pet.root.rotation.z=0;   // 被拎起来晃
+ if(sleeping&&!act){seated=true;dtilt=.22+Math.sin(t*1.3)*.015;}                        // 趴着睡，一起一伏
+ else if(!act&&!held){if(CHAT.includes(ctx.screen)){dtilt=.08;dyaw=-.35;}else if(QUIET.includes(ctx.screen))seated=true;}
+ if(ctx.music&&!sleeping&&!held)dtilt+=Math.sin(t*Math.PI*2*1.6)*.035;               // 放着歌就跟着点头                                                    // 别过脸去
  const b=M.base(t);sitB+=((seated?1:0)-sitB)*Math.min(1,(t-lastT)*9);lastT=t;   // 坐下时庭院会把人往下放 .34（坐到凳子上），这里没凳子：抬回来坐在画面里
  pet.animate(t,{gesture,progress,height:b.y+dy+sitB*.3,moving,seated});
  pet.root.rotation.y=yaw+b.yaw+dyaw;pet.root.rotation.x=b.tilt+dtilt;r.render(sc,cam);});
-if(mode==='float'){let down=null;addEventListener('pointerdown',e=>down={x:e.clientX,y:e.clientY});addEventListener('pointerup',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)<6)parent.postMessage({type:'pet-open'},'*');down=null;});}
-else{// 拖着转圈看；轻点一下他就挥手
- let drag=null,moved=0;addEventListener('pointerdown',e=>{drag=e.clientX;moved=0;});addEventListener('pointermove',e=>{if(drag!=null){yaw+=(e.clientX-drag)*.01;moved+=Math.abs(e.clientX-drag);drag=e.clientX;}});
- addEventListener('pointerup',()=>{if(drag!=null&&moved<6&&!act)act={kind:'wave',start:clock.getElapsedTime()};drag=null;});}
+// 点他：两种模式都一样。按住不动半秒＝拎起来，松手落地。
+// 悬浮时不再用「点小人」打开陪伴页——那一下留给他的反应；打开改成点底下那条把手（js/companion.js）。
+{let down=null,moved=0,timer=0;
+ addEventListener('pointerdown',e=>{down={x:e.clientX,last:e.clientX};moved=0;clearTimeout(timer);timer=setTimeout(()=>{if(down&&moved<6){held=true;act=null;sleeping=false;}},450);});
+ addEventListener('pointermove',e=>{if(!down)return;moved+=Math.abs(e.clientX-down.last);if(mode!=='float'&&!held)yaw+=(e.clientX-down.last)*.01;down.last=e.clientX;});
+ addEventListener('pointerup',()=>{clearTimeout(timer);if(held){held=null;act={kind:'land',start:clock.getElapsedTime()};}else if(down&&moved<6)poke();down=null;});
+ addEventListener('pointercancel',()=>{clearTimeout(timer);held=null;down=null;});}

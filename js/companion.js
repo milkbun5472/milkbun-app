@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-bb56ad649d70688b";
+  const KEY = "x_companion", BUILD = "fg-b6dcbc456b2edf7e";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -43,11 +43,21 @@
     return { type: "pet-look", ta: taOf(char), look: Object.assign({}, own, { face }) };
   }
   // 一只 iframe 画面：加载完成（pet-ready）或样貌变了，就把消息再送一次
-  function PetFrame({ mode, msg, style, onOpen, frameRef }) {
+  // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
+  // 只送这三样事实，怎么反应由小人自己定（apps/companion/pet.mjs）。
+  const IDLE_MS = 3 * 60 * 1000;
+  let lastTouch = Date.now();
+  ["pointerdown", "keydown", "wheel"].forEach(k => window.addEventListener(k, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+  function useIdle() {
+    const [idle, setIdle] = useState(false);
+    useEffect(() => { const id = setInterval(() => setIdle(Date.now() - lastTouch > IDLE_MS), 15000); return () => clearInterval(id); }, []);
+    return idle;
+  }
+  function PetFrame({ mode, msg, ctx, style, onOpen, frameRef }) {
     const own = useRef(null), ref = frameRef || own;
     const key = JSON.stringify(msg);
     useEffect(() => {
-      const send = () => { const w = ref.current && ref.current.contentWindow; if (w && msg) w.postMessage(msg, "*"); };
+      const send = () => { const w = ref.current && ref.current.contentWindow; if (w && msg) w.postMessage(msg, "*"); if (w && ctx) w.postMessage(Object.assign({ type: "pet-ctx" }, ctx), "*"); };
       send();
       const on = e => {
         if (!ref.current || e.source !== ref.current.contentWindow || !e.data) return;
@@ -56,7 +66,7 @@
       };
       window.addEventListener("message", on);
       return () => window.removeEventListener("message", on);
-    }, [key]);
+    }, [key, JSON.stringify(ctx || null)]);
     return h("iframe", { ref, title: "陪伴小人", src: "apps/companion/index.html?mode=" + mode + "&v=" + BUILD,
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
@@ -76,6 +86,7 @@
     const auto = cfg.autoFace !== false;
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
+    const idle = useIdle();
     const pet = () => { const w = frame.current && frame.current.contentWindow; return w && w.PetGame ? w.PetGame : null; };
     const pushLook = patch => { if (!char) return; const g = pet(); const cur = (load().looks || {})[char.id] || {};
       const next = g ? g.merge(cur, patch) : Object.assign({}, cur, patch);
@@ -92,7 +103,7 @@
       !char ? h("div", { style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
       h(React.Fragment, null,
         h("div", { style: { height: "42vh", flexShrink: 0, position: "relative" } },
-          h(PetFrame, { mode: "full", frameRef: frame, msg: petMessage(char, props.moods, cfg), style: { width: "100%", height: "100%" } })),
+          h(PetFrame, { mode: "full", frameRef: frame, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle }, style: { width: "100%", height: "100%" } })),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
           h("div", { style: { fontSize: 12.5, color: "#6b5440", lineHeight: 1.8 } },
             (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"),
@@ -102,7 +113,7 @@
             style: { width: "100%", minHeight: 46, borderRadius: 14, fontSize: 14, marginBottom: 18,
               background: cfg.float ? "#8a6a4b" : "rgba(255,255,255,.7)", color: cfg.float ? "#fff" : "#6b5440", border: "1px solid rgba(138,106,75,.35)" } },
             cfg.float ? "正在屏幕上陪着你 · 点这里收起来" : "让他悬浮在屏幕上"),
-          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "这一身只在陪伴里算数，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小。"),
+          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "这一身只在陪伴里算数，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: 12, color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
@@ -116,14 +127,18 @@
     const sc = Math.max(.6, Math.min(2.2, Number(cfg.scale) || 1)), W = Math.round(96 * sc), H = Math.round(132 * sc);
     const [pos, setPos] = useState(() => cfg.pos || { x: window.innerWidth - W - 8, y: window.innerHeight - H - 150 });
     const drag = useRef(null), rs = useRef(null);
+    const idle = useIdle();
     if (!cfg.float || !char || props.hidden) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
     const onDown = e => { drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
     const onMove = e => { const d = drag.current; if (!d) return; setPos(clamp({ x: d.ox + e.clientX - d.sx, y: d.oy + e.clientY - d.sy })); };
-    const onUp = () => { if (!drag.current) return; drag.current = null; const n = Object.assign(load(), { pos }); save(n); };
+    // 把手：拖＝挪位置；轻点一下（没挪动）＝打开陪伴页。点小人本身留给他的反应。
+    const onUp = e => { const d = drag.current; if (!d) return; drag.current = null;
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) { if (props.onOpen) props.onOpen(); return; }
+      const n = Object.assign(load(), { pos }); save(n); };
     return h("div", { style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none" } },
-      h(PetFrame, { mode: "float", msg: petMessage(char, props.moods, cfg), onOpen: props.onOpen, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
-      // 这一条是拖动把手（iframe 里的点击留给「打开陪伴」）
+      h(PetFrame, { mode: "float", msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
+      // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
       h("div", { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
         style: { height: 18, margin: "0 22px", borderRadius: 9, background: "rgba(138,106,75,.28)", cursor: "grab" } }),
       // 右下角的小圆点：往外拖变大、往里拖变小
