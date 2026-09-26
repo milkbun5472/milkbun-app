@@ -31,3 +31,25 @@
 用户不接受上臂停在半途、仅抬前臂的动作。共享 traveler 的肩骨现在接收完整动作旋转，肘骨保持原始局部姿态，袖子随整条手臂转动；保留已有连续毛衣表面、领口、包和鞋，不重导出资产。放下手臂使用较缓的姿态过渡。陪伴、小世界和列车共用此动作。
 
 `shared-arm-rig-browser.cjs` 在全部5000姿态中断言肘骨不单独折起，并验证肩骨实际抬起、动作结束平滑、道具跟手和人物隔离。`cardigan-surface-browser.cjs` 重新检查整臂动作下90样本的接缝与包；毛衣正侧背三体型目视。其他三套衣服原有破面仍未解决，不能把骨骼测试当成所有衣服适配完成。
+
+### Whole-arm sleeve volume (2026-09-26)
+
+C04's inner sleeve is fused into the torso; diffuse arm/torso weights flatten its
+cross-section during the requested whole-arm lift. `rebuild_cardigan_sleeves.py`
+runs after the continuous surface/collar repair, cuts the fused lobes, closes the
+side panels and authors full rounded sleeves with closed shoulder caps and inset
+cuffs. Sleeves follow their shoulder as a single volume; the bag and torso stay
+body-owned. The six morphs use `body_shape.py`; `roundSleeveVersion` makes this
+step idempotent. The original twelve embedded images and other outfit meshes stay
+unchanged. `repairKnit` enables a feathered knit sample on the repaired torso:
+COLOR.r remains the dye slot; COLOR.g is only its local blend mask. Handle both
+BYTE_COLOR (GLB re-import) and FLOAT_COLOR (fresh authoring) layers. The front
+rabbit/bag texture is excluded. The atlas V is flipped when sampled in Three.
+Legacy `cloth` tint must not multiply slot-dyed sleeve materials.
+
+Validation: Blender closed-surface/other-mesh/texture/idempotence comparison;
+90 pose/body cases compare pairwise sleeve distances, UV seams, bag movement,
+legacy tint and avatar material isolation. The gallery covers both side views,
+front/back, ten actions and three body variants. Whole-arm motion, lowered collar
+and book clearance remain in the shared runtime. Other outfits' known cloth
+issues and physical iPhone verification are outside this repair.

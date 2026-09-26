@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-b6dcbc456b2edf7e';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-b6dcbc456b2edf7e';
+import {makeDollLife} from './doll-life.mjs?v=fg-acbcc149e90eb9e6';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK} from './wardrobe.mjs?v=fg-acbcc149e90eb9e6';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -35,6 +35,7 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
  const pick=['color','color_1','color_2'].find(n=>{const a=o.geometry.attributes[n];if(!a)return false;const seen=new Set();for(let i=0;i<a.count&&seen.size<2;i+=97)seen.add(Math.round(a.getX(i)*8));return seen.size>1;})
   // 底衣那一小块全是同一格：那一层没有「好几种值」，但它也不是 Blender 附带的全白层（值 < 1）
   ||['color_1','color','color_2'].find(n=>{const a=o.geometry.attributes[n];return a&&a.getX(0)<.9;});if(!pick)return;
+ const repair=!!o.userData.repairKnit;
  const u={uTint:{value:SLOTS.map(()=>new T.Vector3(1,1,1))}};o.userData.slotDye={u,base};
  // GLTFLoader 看到 COLOR_0 就开 vertexColors，会拿格子号去乘颜色（还会重复声明 color）——这里它只是格子号
  o.material.vertexColors=false;
@@ -42,7 +43,17 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 '+pick+';varying float vSlot;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSlot='+pick+'.r*4.;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vSlot;uniform vec3 uTint[4];')
    .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
- o.material.customProgramCacheKey=()=>'slotDye'+pick;o.material.needsUpdate=true;}
+ if(repair){
+  const dyeCompile=o.material.onBeforeCompile;
+  o.material.onBeforeCompile=sh=>{
+   dyeCompile(sh);
+   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vKnitBlend;varying vec2 vKnitUv;')
+    .replace('#include <begin_vertex>','#include <begin_vertex>\nvKnitBlend='+pick+'.g;vKnitUv=vec2(.285+.085*clamp((position.z+.15)/.3,0.,1.),1.-(.615+.105*clamp((position.y-.43)/.27,0.,1.)));');
+   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vKnitBlend;varying vec2 vKnitUv;')
+    .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,texture2D(map,vKnitUv).rgb*diffuse,clamp(vKnitBlend,0.,1.));\n#endif');
+  };
+ }
+ o.material.customProgramCacheKey=()=>'slotDye'+pick+(repair?'knit':'');o.material.needsUpdate=true;}
 const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.
@@ -104,7 +115,7 @@ export function createTraveler(source,companion=false,look={}){
   if(o.userData.colorSlot||o.userData.skin){o.material=o.material.clone();if(!o.userData.dyeTexture)o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
   // 头发的纹理材质进不了 GLB（GLTF 只收基础 PBR），颜色一律在这儿给
   if(isHair(o)){hairShader(o);dyeHair(o,want);o.material.roughness=.85;}
-  else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
+  else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
  const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;
    const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(id)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
@@ -176,7 +187,7 @@ export function createTraveler(source,companion=false,look={}){
  }};
  let sitBlend=0,lastPoseTime=null;
  return {root,handPoint:life.handPoint,setLook(next){const n=mergeLook(want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
-   model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
+   model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
    dress(n);applyDims(n.dims);fitRig(n.dims);
    Object.assign(want,n);},
   animate(time,{moving=false,skating=false,gesture='rest',height=.08,sleepPose=null,seated=false,progress=0}={}){const lying=!!sleepPose;skating=skating&&!lying&&gesture!=='sit';skateParts.forEach(b=>b.visible=skating);root.userData.posture=lying?'sleep':skating?'skate':gesture;model.rotation.x=lying?-Math.PI/2:skating&&moving?.07:0;model.rotation.z=skating&&moving?Math.sin(time*3.2)*.035:0;model.position.set(lying?sleepPose.x-root.position.x:0,0,lying?sleepPose.z-root.position.z:0);if(lying){root.rotation.y=0;height=sleepPose.y;gesture='sleep';moving=false;model.rotation.y=sleepPose.hug?sleepPose.toward*.45:0;}else model.rotation.y=0;seated=!moving&&!lying&&(seated||gesture==='sit');const dt=lastPoseTime==null?.1:Math.min(.1,Math.max(0,time-lastPoseTime));poseBlend=lastPoseTime==null?1:1-Math.exp(-dt*14);lastPoseTime=time;for(const {p,label}of rig)if(label.includes('Arm'))for(const b of [p.userData.bone,p.userData.forearm])if(b)poseFrom.set(b,b.quaternion.clone());sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=sitBlend;});root.position.y=height-sitBlend*.34+(skating?.035:moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.z=skating?(label.includes('Arm')?side*.3:Math.sin(time*3.2)*.085*side):0;p.rotation.y=skating&&moving&&label.includes('Leg')?Math.sin(time*3.2)*.16*side:0;const hugging=lying&&sleepPose.hug,reaching=hugging&&sleepPose.hugArm,inner=sleepPose?.toward>0?'leftArm':'rightArm';const standing=lying?(reaching&&label===inner?-1.05:0):skating?(label.includes('Leg')?(moving?Math.sin(time*3.2)*.17*side:0):-.15):moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;if(reaching&&label===inner)p.rotation.z=side*.72;else if(hugging)p.rotation.z=0;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;if(!moving&&!lying&&label==='rightArm'){if(gesture==='stir'){p.rotation.x=-1.05+Math.sin(time*2.5)*.12;p.rotation.z=Math.cos(time*2.5)*.2;}else if(gesture==='hold')p.rotation.x=-1.3;}}life.update(time,{gesture:lying?'sleep':gesture,progress,moving,seated,height});syncBones();}};
