@@ -5034,6 +5034,7 @@ function Home({
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
+    companion: { kind: "app", zh: "陪伴", G: window.GCompanion || GFocus },
     games: { kind: "app", zh: "小游戏", G: GGame },
     fairyGarden: { kind: "app", zh: "小世界", G: window.GFairyGarden || GGame },
     dreamjournal: { kind: "app", zh: "解梦馆", G: window.GDreamBook || GDream },
@@ -5074,7 +5075,7 @@ function Home({
       "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
-    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden"]
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;

@@ -13,7 +13,7 @@ outfits) and outfits.mjs. Expression textures: bake_faces separately into apps/f
 Usage: python3 assemble_v2.py"""
 import bpy,sys,os,json,bmesh,numpy as np
 from mathutils import Vector
-HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,'web')
+HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,os.environ.get('PIECES','web'))   # PIECES=hd: the 陪伴 pet build
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
@@ -161,12 +161,13 @@ A['rigMorphs']=rig_morphs()
 im=base_image(B.material_slots[0].material);px=np.array(im.pixels[:]).reshape(-1,4)[::5,:3]**(1/2.2)
 sk=px[(px[:,0]>.6)&(px[:,0]>px[:,2]+.05)];B['skinBase']='#%02x%02x%02x'%tuple(int(v*255) for v in np.median(sk,0))
 bpy.ops.object.select_all(action='SELECT')
-out=os.path.join(APP,'doll.glb')
+out=os.environ.get('OUT') or os.path.join(APP,'doll.glb')
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True,export_extras=True,export_skins=True,export_animations=False,
     export_morph=True,export_morph_normal=False,export_image_format='WEBP',export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=10,
     export_draco_position_quantization=12,export_draco_normal_quantization=8,export_draco_texcoord_quantization=11,export_draco_color_quantization=6,
     export_try_sparse_sk=True,export_try_omit_sparse_sk=True)
 print('wrote',out,os.path.getsize(out)//1024,'KB skinBase',B['skinBase'],catalog)
+if os.environ.get('OUT'):sys.exit(0)   # the pet build only writes its glb; catalogues stay the garden's
 dj=os.path.join(APP,'doll.json');d=json.load(open(dj))
 d['hair']=LABELS;d['outfits']=catalog;d['faces']=FACES;d['style']='hunyuan-v2-2026-09'
 d['dims']=[dict(key=k,label=l,min=a,max=b,low=lo,high=hi) for k,l,a,b,lo,hi in DIMS]

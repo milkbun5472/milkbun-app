@@ -24387,6 +24387,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     affinities: affinities,
     toast: toast,
     onBack: () => setScreen("home")
+  });else if (screen === "companion") body = h(Companion, {
+    characters: liveChars,
+    moods: moods,
+    toast: toast,
+    onBack: () => setScreen("home")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
     characters: liveChars,
@@ -25048,7 +25053,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEnded: advanceSong
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, hidden: screen === "companion", onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

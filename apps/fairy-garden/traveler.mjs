@@ -46,8 +46,10 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
 const _a=new T.Color(),_b=new T.Color();
 function dyeOutfit(o,colors){const d=o.userData.slotDye;if(!d)return;SLOTS.forEach((k,i)=>{if(!d.base[k]||!colors[k])return d.u.uTint.value[i].set(1,1,1);_a.set(colors[k]);_b.set(d.base[k]);d.u.uTint.value[i].set(_a.r/Math.max(_b.r,.02),_a.g/Math.max(_b.g,.02),_a.b/Math.max(_b.b,.02));});}
 // 表情：同一个身体，换脸上的贴图（faces/<id>.webp，和身体原贴图同一套 UV）。所有小人共用一份贴图缓存。
-const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();
-function faceTexture(id){if(!FACE_TEX.has(id)){const t=faceLoader.load(new URL('./faces/'+id+'.webp',import.meta.url).href);t.flipY=false;t.colorSpace=T.SRGBColorSpace;FACE_TEX.set(id,t);}return FACE_TEX.get(id);}
+const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();let FACE_BASE=new URL('./faces/',import.meta.url).href;
+// 陪伴（桌宠）用 2K 的脸：换一个目录，缓存跟着清掉
+export function setFaceBase(url){FACE_BASE=url;FACE_TEX.clear();}
+function faceTexture(id){if(!FACE_TEX.has(id)){const t=faceLoader.load(FACE_BASE+id+'.webp');t.flipY=false;t.colorSpace=T.SRGBColorSpace;FACE_TEX.set(id,t);}return FACE_TEX.get(id);}
 const FACE_ID=/^[a-z]{2,16}$/;
 export function createTraveler(source,companion=false,look={}){
  const want=Object.assign({},companion?COMPANION:DEFAULT,look||{});
