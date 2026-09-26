@@ -27,5 +27,20 @@ export function outlines(p){const l=LEVELS.find(x=>x.count===p.count),r=rng(p.se
  return 'M '+fmt([x,y])+' '+append(top,false)+' '+append(right,false)+' '+append(bottom,true)+' '+append(left,true)+' Z';});
 }
 export function isEdgePiece(p,id){const l=LEVELS.find(x=>x.count===p.count),c=id%l.cols,r=Math.floor(id/l.cols);return c===0||r===0||c===l.cols-1||r===l.rows-1;}
-export function nextCompanionMove(p,skill,random=Math.random,ids=null){const free=p.pieces.filter(x=>!x.locked&&(!ids||ids.includes(x.id)));if(!free.length)return null;const edges=free.filter(q=>isEdgePiece(p,q.id));const candidates=skill>.55&&edges.length?edges:free,q=candidates[Math.floor(random()*candidates.length)],t=target(p,q.id),correct=random()<.55+skill*.43;
- return{id:q.id,x:correct?t.x:t.x+t.w*(random()<.5?1:-1),y:t.y,duration:1.2+(1-skill)*2,wait:1+(1-skill)*3,correct};}
+// 同行者怎么拼（她 2026-09-26：「不能所有人都那么快会拼好，也要会犯错或者乱翻乱摆」）。
+// skill 0~1：越低越常拼错、越慢、越爱发呆；错法有三种——
+//   near 放偏一格（差一点）；wrong 放到了别的片的位置上；wander 随手往桌上一丢（乱摆）。
+// 错放的片不会锁住，之后 TA 还会再拿起来重试，看起来就是「试了几次才对」。
+export const SKILL_LEVELS=[{id:'auto',label:'随角色'},{id:'novice',label:'新手',skill:.1},{id:'casual',label:'普通',skill:.4},{id:'skilled',label:'熟练',skill:.7},{id:'expert',label:'高手',skill:.95}];
+export function levelSkill(level,id){const l=SKILL_LEVELS.find(x=>x.id===level);return l&&l.skill!=null?l.skill:skillOf(id);}
+export function nextCompanionMove(p,skill,random=Math.random,ids=null){const free=p.pieces.filter(x=>!x.locked&&(!ids||ids.includes(x.id)));if(!free.length)return null;const edges=free.filter(q=>isEdgePiece(p,q.id));
+ // 会先拼边框的只有熟手；新手东拿一片西拿一片
+ const candidates=skill>.55&&edges.length?edges:free,q=candidates[Math.floor(random()*candidates.length)],t=target(p,q.id),correct=random()<.35+skill*.62;
+ const duration=1.1+(1-skill)*2.4,hesitate=random()<(1-skill)*.35?2+random()*4:0,wait=.8+(1-skill)*3.2+hesitate;
+ if(correct)return{id:q.id,x:t.x,y:t.y,duration,wait,correct:true,kind:'place'};
+ const f=random(),lock=Math.min(t.w,t.h)*.32;let x,y,kind;
+ if(f<.1+(1-skill)*.35){kind='wander';x=BOARD.x+random()*(BOARD.w-t.w);y=BOARD.y+random()*(BOARD.h-t.h);}
+ else if(f<.3+(1-skill)*.35&&p.pieces.length>1){kind='wrong';const others=p.pieces.filter(o=>o.id!==q.id),o=others[Math.floor(random()*others.length)],ot=target(p,o.id);x=ot.x;y=ot.y;}
+ else{kind='near';x=t.x+t.w*(random()<.5?1:-1);y=t.y;}
+ if(Math.hypot(x-t.x,y-t.y)<lock)x=t.x+t.w*(t.x+t.w*1.5<BOARD.x+BOARD.w?1:-1);   // 乱丢也别刚好丢对
+ return{id:q.id,x,y,duration,wait,correct:false,kind};}
