@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-31e7ff31df07edc8';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-31e7ff31df07edc8';
+import {makeDollLife} from './doll-life.mjs?v=fg-28bcf25b3c42c1f8';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-28bcf25b3c42c1f8';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -37,14 +37,15 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
   ||['color_1','color','color_2'].find(n=>{const a=o.geometry.attributes[n];return a&&a.getX(0)<.9;});if(!pick)return;
  // C02's collar edge crosses reduced triangles. Dye its actual texels so a
  // white collar cannot inherit a neighbouring brown dress face's colour slot.
- const repair=!!o.userData.repairKnit||!!o.userData.repairAtlas,textureSlots=o.userData.textureSlots==='garden';
+ // C03's dark bag/front strap likewise keep the accessory dye across mixed UV faces.
+ const repair=!!o.userData.repairKnit||!!o.userData.repairAtlas,textureSlots=o.userData.textureSlots==='garden',bagSlots=o.userData.textureSlots==='ranger';
  const u={uTint:{value:SLOTS.map(()=>new T.Vector3(1,1,1))}};o.userData.slotDye={u,base};
  // GLTFLoader 看到 COLOR_0 就开 vertexColors，会拿格子号去乘颜色（还会重复声明 color）——这里它只是格子号
  o.material.vertexColors=false;
  o.material.onBeforeCompile=sh=>{Object.assign(sh.uniforms,u);
-  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 '+pick+';varying float vSlot;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSlot='+pick+'.r*4.;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vSlot;uniform vec3 uTint[4];')
-   .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));'+(textureSlots?'vec3 sc=pow(max(diffuseColor.rgb,vec3(0.)),vec3(1./2.2));float spread=max(sc.r,max(sc.g,sc.b))-min(sc.r,min(sc.g,sc.b));si=(sc.b>.52||(sc.b>.38&&spread<.10))?1:0;':'')+'vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 '+pick+';varying float vSlot;varying vec3 vOutfitRest;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSlot='+pick+'.r*4.;vOutfitRest=position;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vSlot;varying vec3 vOutfitRest;uniform vec3 uTint[4];')
+   .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));'+(textureSlots?'vec3 sc=pow(max(diffuseColor.rgb,vec3(0.)),vec3(1./2.2));float spread=max(sc.r,max(sc.g,sc.b))-min(sc.r,min(sc.g,sc.b));si=(sc.b>.52||(sc.b>.38&&spread<.10))?1:0;':bagSlots?'vec3 sc=pow(max(diffuseColor.rgb,vec3(0.)),vec3(1./2.2));float spread=max(sc.r,max(sc.g,sc.b))-min(sc.r,min(sc.g,sc.b));if(vOutfitRest.y>.35&&vOutfitRest.z>.05&&max(sc.r,max(sc.g,sc.b))<.43&&spread<.16)si=3;':'')+'vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
  if(repair){
   u.uClothAtlas={value:new T.Vector4().fromArray(o.userData.repairAtlas||[.285,.615,.085,.105])};
   const dyeCompile=o.material.onBeforeCompile;
@@ -56,7 +57,7 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
     .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,texture2D(map,vKnitUv).rgb*diffuse,clamp(vKnitBlend,0.,1.));\n#endif');
   };
  }
- o.material.customProgramCacheKey=()=>'slotDye'+pick+(repair?'knit':'')+(textureSlots?'textureSlots':'');o.material.needsUpdate=true;}
+ o.material.customProgramCacheKey=()=>'slotDye'+pick+(repair?'knit':'')+(textureSlots?'textureSlots':bagSlots?'rangerBag':'');o.material.needsUpdate=true;}
 const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.

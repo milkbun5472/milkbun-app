@@ -7,7 +7,7 @@ from cloth_asset_helpers import snapshot,image_hashes
 original,updated,report_path=sys.argv[sys.argv.index('--')+1:]
 before=snapshot(original);after=snapshot(updated);ids=['academy','garden','ranger'];changed={'outfit_'+i for i in ids};added={f'outfit_{i}_{side}_sleeve' for i in ids for side in ['left','right']}
 footwear={f'outfit_{oid}_shoes_{part}' for oid in ids for part in ('sole','welt','detail','sock')}
-assert set(after)==set(before)|added|footwear
+assert set(after)==set(before)|added|footwear|{'outfit_ranger_back_strap'}
 report={'preserved':{},'sleeves':{}}
 for name,b in before.items():
  if name in changed or any(name.startswith('outfit_'+oid+'_shoes') for oid in ids):continue

@@ -81,3 +81,12 @@ test('authored shoes keep per-outfit styles, dye, closed soles and body morphs',
   }
  }
 });
+
+
+test('hoodie bag has a torso-bound back strap with independent accent colour',()=>{
+ const strap=gltf.nodes.find(n=>n.name==='outfit_ranger_back_strap');
+ assert.equal(strap.extras.backStrapVersion,1);assert.equal(strap.extras.outfit,'ranger');
+ assert.ok(strap.extras.slotBase.accent);assert.ok(strap.skin!=null);
+ assert.deepEqual(gltf.meshes[strap.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
+ assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.textureSlots,'ranger');
+});

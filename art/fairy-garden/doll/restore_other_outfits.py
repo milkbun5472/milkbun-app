@@ -207,6 +207,9 @@ def restore_other_outfits():
   if outfit=='garden':runpy.run_path(str(HERE/'repair_garden_shoes.py'))['repair_garden_shoes']()
   print('RESTORED',outfit,len(o.data.polygons))
 
+ # Keep the back strap in full assembly as well as asset migration.
+ runpy.run_path(str(HERE/'restore_ranger_strap.py'))['restore_ranger_strap']()
+
 def main():
  import sys
  src,out=sys.argv[sys.argv.index('--')+1:];bpy.ops.wm.read_factory_settings(use_empty=True);bpy.ops.import_scene.gltf(filepath=src);restore_other_outfits()
