@@ -15,7 +15,11 @@ C=next(o for o in bpy.data.objects if o not in before and o.type=='MESH');C.name
 C.parent=None;C.data.transform(C.matrix_world);C.matrix_world.identity()
 P=np.array([v.co[:] for v in C.data.vertices]);c=(P.min(0)+P.max(0))/2;s=E('S',.53)
 C.data.transform(Matrix.Translation(Vector((-c[0],-c[1],-P[:,2].min()))))
-C.data.transform(Matrix.Diagonal((s,s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
+C.data.transform(Matrix.Diagonal((s*E('SX',1),s*E('SY',1),s,1)));C.data.transform(Matrix.Translation(Vector((0,E('DY',0),E('Z0',.19)))))
+# LIFT: shells made on a longer-legged figure -- everything above LIFT_B moves up by LIFT, ramping from 0
+# at LIFT_A (shoes stay on the floor, the trouser legs stretch a little, the top reaches the shoulders)
+if E('LIFT',0):
+    for v in C.data.vertices:v.co.z+=E('LIFT',0)*min(1.,max(0.,(v.co.z-E('LIFT_A',.05))/(E('LIFT_B',.35)-E('LIFT_A',.05))))
 # Shorter sleeves: pieces that reach past the torso side (|x| max >= ARM_X) are pulled up
 # along the arm axis (shoulder -> hand) by SLEEVE_K beyond the shoulder; linear, so no bending.
 SK=E('SLEEVE_K',0);REACH={1:0.,-1:0.};ROOMY=E('ARM_ROOMY',1.);ARMV=set()
@@ -47,9 +51,24 @@ if SK:
         # frayed edge hides inside the cuff
         Q=np.array([v.co[:] for v in comp])-sh;rad=np.linalg.norm(Q-np.outer(Q@ax,ax),axis=1).mean()
         k=SK+(E('LINING_K',0) if rad<E('LINING_R',.075) else 0)
+        # one-piece tops (body+sleeves joined): only the part lying over the arm moves
+        whole=len(comp)>E('ONEPIECE',4000)
+        if whole and '_BTs' not in globals():
+            from mathutils.bvhtree import BVHTree as _B
+            _BTs=_B.FromObject(B,bpy.context.evaluated_depsgraph_get());_bg={g.name:g.index for g in B.vertex_groups}
+            def _armw(co):
+                h=_BTs.find_nearest(co)
+                if h[0] is None:return 0.
+                vs=B.data.polygons[h[2]].vertices;w=0.
+                for vi in vs:
+                    for g in B.data.vertices[vi].groups:
+                        if g.group in (_bg['leftArm'],_bg['rightArm']):w+=g.weight
+                return w/len(vs)
         for v in comp:
             t=float(np.dot(np.array(v.co[:])-sh,ax))
-            if t>0:v.co-=Vector(ax*t*k)
+            if t>0:
+                a=min(1.,max(0.,(_armw(v.co)-E('OP_A',.3))/E('OP_W',.4))) if whole else 1.
+                v.co-=Vector(ax*t*k*a)
         REACH[sg]=max(REACH[sg],max(float(np.dot(np.array(v.co[:])-sh,ax)) for v in comp))
         n+=1
     bm0.to_mesh(C.data);C.data.update();bm0.free();print('sleeve pieces shortened',n)
