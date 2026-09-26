@@ -1,4 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>陪伴</title>
-<style>html,body{margin:0;height:100%;background:transparent;overflow:hidden;touch-action:none}canvas{display:block}</style>
-<script type="importmap">{"imports":{"three":"../fairy-garden/vendor/three.module.js?v=fg-4f889e12f6d059da"}}</script></head><body>
-<script type="module" src="pet.mjs?v=fg-4f889e12f6d059da"></script></body></html>
+<style>html,body{margin:0;height:100%;background:transparent;overflow:hidden;touch-action:none}canvas{display:block}
+/* 长按拎他时 iOS 会弹出蓝色选框（她 2026-09-26 截图）：整页不许选、不许弹长按菜单 */
+html,body,canvas{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}</style>
+<script type="importmap">{"imports":{"three":"../fairy-garden/vendor/three.module.js?v=fg-8ad597cb779a8b50"}}</script></head><body>
+<script type="module" src="pet.mjs?v=fg-8ad597cb779a8b50"></script></body></html>
