@@ -7,3 +7,6 @@ test('回话中发送键不锁：按了排队而不是按不动',async()=>{const
 test('她的话一按就上屏、输入框先清：不等 TA 回完',async()=>{const src=(await import('node:fs')).readFileSync(new URL('./puzzle-view.mjs',import.meta.url),'utf8');const t=src.slice(src.indexOf('async function talk'));assert.ok(t.indexOf("bubble(text,'you')")<t.indexOf('await host.chat('));assert.ok(src.includes("input.value='';talk(text);"));});
 test('眼睛颜色：没选是原来那个棕，选了就带着走，读档不丢',async()=>{const {dyesOf,DEFAULT_EYE}=await import('../fairy-garden/wardrobe.mjs');const {restoreLook}=await import('../fairy-garden/world.mjs');assert.equal(dyesOf({}).eye,DEFAULT_EYE);assert.equal(dyesOf({eye:'#3f6fa8'}).eye,'#3f6fa8');assert.equal(restoreLook({eye:'#3f6fa8'}).eye,'#3f6fa8');
  const {readFileSync}=await import('node:fs');const js=readFileSync(new URL('../../js/fairy-garden.js',import.meta.url),'utf8');assert.ok(js.includes('pushLook({ eye })'));});
+test('眯眼的脸不染：开心、惬意贴图里没有眼珠遮罩；默认脸有',async()=>{const {readFileSync}=await import('node:fs');
+ // webp 带透明通道＝VP8X 头里 alpha 位；开心/惬意也带（统一格式），这里只钉脚本的规则
+ const py=readFileSync(new URL('../../art/fairy-garden/doll/eye_mask.py',import.meta.url),'utf8');assert.ok(py.includes("CLOSED={'happy','cozy'}"));assert.ok(py.includes("BROWS={'proud','gloomy','sad','irritated'}"));});
