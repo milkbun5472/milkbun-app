@@ -845,6 +845,23 @@ function AvatarPicker({
     size: 12,
     color: t.bg2
   })))), h("div", { className: "flex items-center gap-3" },
+    // ⚠️备用路必须【看得见】（她 2026-09-25 报：有人在小米上怎么点都开不了相册）。
+    //   v74.076 那条贴图是挂在 input 的 onPaste 上的——没有任何提示，陌生人不可能发现，
+    //   等于白留。这一颗把它摆到台面上：连文件选择器一起绕开，贴地址也行。
+    h("button", {
+      onClick: () => requestAppPrompt("贴一张图", "相册打不开时走这儿：把图片地址粘进来（http 开头，或者 data: 开头的那种长串都行）。", "",
+        v => {
+          const u = String(v || "").trim();
+          if (!u) return;
+          if (!/^(https?:|data:image\/)/i.test(u)) {
+            if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("这不像一个图片地址");
+            return;
+          }
+          onPick(u);
+        }, "用这张"),
+      className: "active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 10, color: t.fog }
+    }, "贴一张图"),
     onGenerate ? h("button", {
       onClick: () => { if (!genBusy) onGenerate(); },
       className: "active:opacity-60",

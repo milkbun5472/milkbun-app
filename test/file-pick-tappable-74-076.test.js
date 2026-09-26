@@ -49,3 +49,16 @@ test("留着那条不走文件选择器的路", () => {
   const fp = slice("function FilePick(", "function AvatarPicker(");
   assert.match(fp, /onPaste: onPaste/, "FilePick 没把 onPaste 透给 input");
 });
+
+// ⚠️她 2026-09-25 复报「还是不行」之后补的：备用路必须【看得见】。
+// v74.076 那条贴图挂在 input 的 onPaste 上——没有任何提示，陌生人不可能发现，等于白留。
+test("备用路摆在台面上，而且不碰文件选择器", () => {
+  const seg = slice("function AvatarPicker(", "function Sheet(");
+  assert.match(seg, /\}, "贴一张图"\),/, "没有那颗看得见的按钮（只有弹层标题不算）");
+  assert.match(seg, /requestAppPrompt\("贴一张图"/, "没走公共的输入层");
+  // 只认图片地址和 data:；别的挡掉
+  assert.match(seg, /\^\(https\?:\|data:image\\\/\)/);
+  // ⚠️这个作用域里没有裸 toast——用了就是 ReferenceError，又一颗「按了没反应」
+  assert.ok(!/[^.]\btoast && toast\(/.test(seg), "又用了裸 toast");
+  assert.match(seg, /window\.__toast === "function"/, "提示没走全库统一那条");
+});
