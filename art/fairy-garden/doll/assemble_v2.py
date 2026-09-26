@@ -174,6 +174,7 @@ for o in bpy.data.objects:
         bs.inputs['Metallic'].default_value=0;bs.inputs['Roughness'].default_value=.85
 # Share the articulated arm rig with the post-assembly migration.
 import runpy
+runpy.run_path(os.path.join(HERE, 'restore_cardigan_shoes.py'))['restore_cardigan_shoes']()
 runpy.run_path(os.path.join(HERE, 'add_elbows.py'))['add_elbows']()
 bpy.ops.object.select_all(action='SELECT')
 out=os.environ.get('OUT') or os.path.join(APP,'doll.glb')

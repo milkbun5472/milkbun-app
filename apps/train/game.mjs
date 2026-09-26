@@ -1,16 +1,16 @@
 import * as T from 'three';
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-62c9f6e29466f4a7';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-62c9f6e29466f4a7';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-62c9f6e29466f4a7';
-import {createPassengers} from './passengers.mjs?v=fg-62c9f6e29466f4a7';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-62c9f6e29466f4a7';
-import {createTravelCamera} from './camera-view.mjs?v=fg-62c9f6e29466f4a7';
-import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-62c9f6e29466f4a7';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-62c9f6e29466f4a7';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-62c9f6e29466f4a7';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-62c9f6e29466f4a7';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-62c9f6e29466f4a7';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-62c9f6e29466f4a7';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-733a361c47defc54';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-733a361c47defc54';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-733a361c47defc54';
+import {createPassengers} from './passengers.mjs?v=fg-733a361c47defc54';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-733a361c47defc54';
+import {createTravelCamera} from './camera-view.mjs?v=fg-733a361c47defc54';
+import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-733a361c47defc54';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-733a361c47defc54';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-733a361c47defc54';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-733a361c47defc54';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-733a361c47defc54';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-733a361c47defc54';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let wander=()=>{},cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 // 改外貌时的预览（她 2026-09-25：「设置外貌的时候看不到预览，搞成跟庭院一样」）：
