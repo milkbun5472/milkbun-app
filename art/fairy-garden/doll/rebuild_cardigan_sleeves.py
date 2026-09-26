@@ -125,31 +125,7 @@ def rebuild_cardigan_sleeves(o):
         if v.co.z>.4:
             for g in o.vertex_groups:g.remove([v.index])
             o.vertex_groups['body'].add([v.index],1,'REPLACE')
-    for sign,side in [(-1,'left'),(1,'right')]:
-        axis=Vector((sign*.095,0,-.19)).normalized();u=Vector((0,1,0));v=axis.cross(u).normalized();start=Vector((sign*.153,0,.655));verts=[];faces=[]
-        rings=[(-.055,.003),(-.047,.030),(-.030,.051),(-.01,.063),(0.015,.067),(.04,.068),(.065,.068),(.09,.067),(.115,.065),(.14,.061),(.162,.056),(.178,.050),(.182,.048),(.188,.050),(.208,.048),(.214,.045),(.214,.038),(.196,.038)]
-        N=40
-        for t,r in rings:
-            for j in range(N):
-                a=j*2*math.pi/N;fold=.0012*math.cos(a*7+t*30)*math.sin(max(0,min(1,t/.18))*math.pi);rib=.00065*math.cos(a*20) if .182<t<.214 else 0;verts.append(start+axis*t+(u*math.cos(a)+v*math.sin(a))*(r*.87+fold+rib))
-        for i in range(len(rings)-1):
-            for j in range(N):a=i*N+j;b=i*N+(j+1)%N;faces.append((a,b,b+N,a+N))
-        faces.append(tuple(reversed(range(N))))
-        mesh=bpy.data.meshes.new('SleeveSurface');mesh.from_pydata(verts,[],faces);mesh.update();s=bpy.data.objects.new('outfit_cardigan_'+side+'_sleeve',mesh);bpy.context.collection.objects.link(s);s.parent=rig;s['outfit']='cardigan';s['roundSleeveVersion']=1;s['sleeveSide']=side;s['slotBase']=o['slotBase'].to_dict();mesh.materials.append(mat.copy())
-        uv_layer=mesh.uv_layers.new(name='UVMap');color=mesh.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
-        for f in mesh.polygons:
-            f.use_smooth=True
-            for li in f.loop_indices:
-                vi=mesh.loops[li].vertex_index;ri,j=divmod(vi,N)
-                # One clean, continuous knit patch: do not interpolate between atlas islands.
-                phase=(j+(N if j==0 and any(mesh.loops[k].vertex_index%N==N-1 for k in f.loop_indices) else 0))/N
-                uv_layer.data[li].uv=(.285+.085*phase,.615+.105*max(0,min(1,(rings[ri][0]+.055)/.269)))
-                color.data[li].color=(0,0,0,1)
-        group=s.vertex_groups.new(name=side+'Arm');group.add(list(range(len(verts))),1,'REPLACE');mod=s.modifiers.new('Rig','ARMATURE');mod.object=rig
-        s.shape_key_add(name='Basis');P=np.array([p[:] for p in verts]);arm=np.ones(len(verts))
-        for key in ['height','shoulder','waist','flare','build','head']:
-            k=s.shape_key_add(name=key);k.value=0;delta=shape(P,arm,key,True)
-            for i,p in enumerate(k.data):p.co=Vector(P[i]+delta[i])
+    runpy.run_path(str(HERE / 'round_sleeves.py'))['round_sleeves'](o)
     for key in o.data.shape_keys.key_blocks:key.value=0
     o['roundSleeveVersion'] = 1
     o['repairKnit'] = True

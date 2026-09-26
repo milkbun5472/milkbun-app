@@ -20,13 +20,18 @@ test('both entry points use the same versioned rig and model graph',()=>{
  assert.ok(read('../companion/index.html').toString().includes('pet.mjs?v='+build));
 });
 
-test('rabbit outfit owns coverage and restored source shoes without changing other outfits',()=>{
+test('outfits own separate sleeve coverage and rabbit source shoes',()=>{
  const shirt=gltf.nodes.find(n=>n.name==='outfit_cardigan');
  assert.deepEqual(shirt.extras.skinCoverage.sleeve,[.205,.46,.705,.10]);assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
  const shoe=gltf.nodes.find(n=>n.name==='outfit_cardigan_footwear');
  assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,1);
  assert.equal(shoe.extras.outfit,'cardigan');assert.ok(shoe.skin!=null);
- assert.ok(gltf.nodes.filter(n=>n.extras?.outfit&&n.extras.outfit!=='cardigan').every(n=>!n.extras.skinCoverage&&!n.extras.coversFeetBelow));
+ for(const id of ['academy','garden','ranger']){
+  const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
+  assert.equal(shirt.extras.skinCoverage.sleeve[0],id==='garden'?.15:.205);
+  assert.equal(shirt.extras.skinCoverage.torsoAbove,id==='ranger'?.3:.4,'bare legs stay visible');
+  assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
+ }
 });
 
 test('rabbit garment retains a rebuilt continuous surface, lowered collar and six body morphs',()=>{
@@ -40,11 +45,11 @@ test('rabbit garment retains a rebuilt continuous surface, lowered collar and si
 });
 
 
-test('rabbit sleeves have separate volume, dye slots and shared body morphs',()=>{
- for(const side of ['left','right']){
-  const sleeve=gltf.nodes.find(n=>n.name===`outfit_cardigan_${side}_sleeve`);
+test('all outfit sleeves have separate volume, dye slots and shared body morphs',()=>{
+ for(const id of ['cardigan','academy','garden','ranger'])for(const side of ['left','right']){
+  const sleeve=gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`);
   assert.equal(sleeve.extras.roundSleeveVersion,1);
-  assert.equal(sleeve.extras.outfit,'cardigan');
+  assert.equal(sleeve.extras.outfit,id);
   assert.ok(sleeve.extras.slotBase.cloth);
   assert.ok(sleeve.skin!=null);
   const mesh=gltf.meshes[sleeve.mesh];

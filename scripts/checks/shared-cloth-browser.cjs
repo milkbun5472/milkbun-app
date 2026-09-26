@@ -24,18 +24,18 @@ fs.mkdirSync(out,{recursive:true});
   a.setLook({outfit:'garden'});torsoStates.push(ua.torso.value);states.push(ua.feet.value,ua.sleeve.value.x);b.setLook({outfit:'cardigan'});torsoStates.push(ub.torso.value,ua.torso.value);states.push(ub.feet.value,ub.sleeve.value.x,ua.feet.value);
   const body=b.root.getObjectByName('DollBody');let shadows=0;body.customDepthMaterial.addEventListener('dispose',()=>shadows++);body.customDistanceMaterial.addEventListener('dispose',()=>shadows++);body.material.dispose();return {states,torsoStates,shadows};
  });
- assert.deepEqual(state.states,[.14,.205,-1,-1,-1,-1,.14,.205,-1]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,-1,-1,.705,-1]);
+ assert.deepEqual(state.states,[.14,.205,-1,.205,-1,.15,.14,.205,-1]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,.705,.705,.705,.705]);
  const batches=[['rest','wave','stretch','tea','read'],['water','plant','draw','eat','give']];
- for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,-1.55,3.1]){
-  await page.evaluate(({gestures,angle})=>{
+ for(const outfit of ['cardigan','academy','garden','ranger'])for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,-1.55,3.1]){
+  await page.evaluate(({gestures,angle,outfit})=>{
    const {T,createTraveler,source,catalog,scene,renderer,camera,dolls}=clothQA;for(const d of dolls)scene.remove(d.root);dolls.length=0;
    for(let row=0;row<3;row++)for(let col=0;col<5;col++){
     const dims=Object.fromEntries(catalog.dims.map(d=>[d.key,row===0?1:row===1?d.min:d.max]));
-    const d=createTraveler(source,false,{outfit:'cardigan',hair:'curtains',dims});scene.add(d.root);dolls.push(d);
+    const d=createTraveler(source,false,{outfit,hair:'curtains',dims});scene.add(d.root);dolls.push(d);
     for(let f=0;f<30;f++)d.animate(f*.1,{gesture:gestures[col],progress:.5,height:0});d.root.position.set((col-2)*.87,(1-row)*1.5,0);d.root.rotation.y=angle;
    }renderer.render(scene,camera);
-  },{gestures:batches[batch],angle});
-  await page.screenshot({path:`${out}/cardigan-${batch}-${angle}.png`});
+  },{gestures:batches[batch],angle,outfit});
+  await page.screenshot({path:`${out}/${outfit}-${batch}-${angle}.png`});
  }
  // Other outfits retain their own skin visibility after changing out of cardigan.
  await page.evaluate(()=>{
@@ -44,5 +44,5 @@ fs.mkdirSync(out,{recursive:true});
    const d=createTraveler(source,false,{outfit:'cardigan',hair:'curtains'});d.setLook({outfit});scene.add(d.root);dolls.push(d);for(let f=0;f<30;f++)d.animate(f*.1,{gesture,progress:.5});d.root.position.set((col-2)*.87,(1-row)*1.5,0);d.root.rotation.y=.35;
   }));renderer.render(scene,camera);
  });await page.screenshot({path:out+'/outfits.png'});
- assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:135,errors}));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:495,errors}));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,5 +1,5 @@
-import {makeDollLife} from './doll-life.mjs?v=fg-4eb0a691c1ff6116';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-4eb0a691c1ff6116';
+import {makeDollLife} from './doll-life.mjs?v=fg-95642e72aca16247';
+import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-95642e72aca16247';
 import * as T from 'three';
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
@@ -35,7 +35,7 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
  const pick=['color','color_1','color_2'].find(n=>{const a=o.geometry.attributes[n];if(!a)return false;const seen=new Set();for(let i=0;i<a.count&&seen.size<2;i+=97)seen.add(Math.round(a.getX(i)*8));return seen.size>1;})
   // 底衣那一小块全是同一格：那一层没有「好几种值」，但它也不是 Blender 附带的全白层（值 < 1）
   ||['color_1','color','color_2'].find(n=>{const a=o.geometry.attributes[n];return a&&a.getX(0)<.9;});if(!pick)return;
- const repair=!!o.userData.repairKnit;
+ const repair=!!o.userData.repairKnit||!!o.userData.repairAtlas;
  const u={uTint:{value:SLOTS.map(()=>new T.Vector3(1,1,1))}};o.userData.slotDye={u,base};
  // GLTFLoader 看到 COLOR_0 就开 vertexColors，会拿格子号去乘颜色（还会重复声明 color）——这里它只是格子号
  o.material.vertexColors=false;
@@ -44,11 +44,12 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vSlot;uniform vec3 uTint[4];')
    .replace('#include <color_fragment>','#include <color_fragment>\n int si=int(clamp(floor(vSlot+.25),0.,3.));vec3 tt=si==0?uTint[0]:si==1?uTint[1]:si==2?uTint[2]:uTint[3];diffuseColor.rgb*=tt;');};
  if(repair){
+  u.uClothAtlas={value:new T.Vector4().fromArray(o.userData.repairAtlas||[.285,.615,.085,.105])};
   const dyeCompile=o.material.onBeforeCompile;
   o.material.onBeforeCompile=sh=>{
    dyeCompile(sh);
-   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vKnitBlend;varying vec2 vKnitUv;')
-    .replace('#include <begin_vertex>','#include <begin_vertex>\nvKnitBlend='+pick+'.g;vKnitUv=vec2(.285+.085*clamp((position.z+.15)/.3,0.,1.),1.-(.615+.105*clamp((position.y-.43)/.27,0.,1.)));');
+   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vKnitBlend;varying vec2 vKnitUv;uniform vec4 uClothAtlas;')
+    .replace('#include <begin_vertex>','#include <begin_vertex>\nvKnitBlend='+pick+'.g;vKnitUv=vec2(uClothAtlas.x+uClothAtlas.z*clamp((position.z+.15)/.3,0.,1.),1.-(uClothAtlas.y+uClothAtlas.w*clamp((position.y-.43)/.27,0.,1.)));');
    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vKnitBlend;varying vec2 vKnitUv;')
     .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,texture2D(map,vKnitUv).rgb*diffuse,clamp(vKnitBlend,0.,1.));\n#endif');
   };
@@ -58,7 +59,7 @@ const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.
 function coveredSkinShader(o){
- const coverage={feet:{value:-1},torso:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},eye:{value:new T.Color()},eyeOn:{value:0}};
+ const coverage={feet:{value:-1},torso:{value:-1},torsoAbove:{value:-1},sleeve:{value:new T.Vector4(-1,0,0,0)},axis:{value:new T.Vector4(.165,.655,.11,-.255)},eye:{value:new T.Color()},eyeOn:{value:0}};
  if(!o.geometry.getAttribute('skinArmInfluence')){
   const weights=o.geometry.getAttribute('skinWeight'),indices=o.geometry.getAttribute('skinIndex'),values=new Float32Array(o.geometry.getAttribute('position').count);
   if(weights&&indices)for(let i=0;i<values.length;i++)for(let k=0;k<4;k++)if(/(?:Arm|Forearm)$/.test(o.skeleton.bones[indices.getComponent(i,k)]?.name||''))values[i]+=weights.getComponent(i,k);
@@ -70,10 +71,10 @@ function coveredSkinShader(o){
   //   直接把这一块换成选的颜色——不乘肤色，不然选的蓝眼睛会跟着肤色变深浅。
   if(m.isMeshStandardMaterial||m.isMeshPhysicalMaterial){sh.uniforms.uEye=coverage.eye;sh.uniforms.uEyeOn=coverage.eyeOn;
    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 uEye;uniform float uEyeOn;').replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,uEye,clamp((1.-sampledDiffuseColor.a)*2.,0.,1.)*uEyeOn);diffuseColor.a=1.;\n#endif');}
-  sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;
+  sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uCoveredTorsoAbove=coverage.torsoAbove;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;varying float vSkinArm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform vec4 uSleeve;uniform vec4 uArmAxis;')
-   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif(vSkinRest.y<uCoveredFeet || (vSkinRest.y<uCoveredTorso && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform float uCoveredTorsoAbove;uniform vec4 uSleeve;uniform vec4 uArmAxis;')
+   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif(vSkinRest.y<uCoveredFeet || (vSkinRest.y<uCoveredTorso && vSkinRest.y>uCoveredTorsoAbove && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
  };m.customProgramCacheKey=()=>'coveredSkin-v2';};
  patch(o.material);
  o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
@@ -122,7 +123,7 @@ export function createTraveler(source,companion=false,look={}){
   else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
  const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;
-   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(id)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
+   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(id)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
    if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);

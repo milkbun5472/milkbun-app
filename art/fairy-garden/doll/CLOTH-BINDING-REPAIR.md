@@ -60,3 +60,29 @@ pouch region before cutting. Protect those faces from both removal and the knit
 blend. `verify-cardigan-pouch.py` compares 474 original side samples: geometry and
 UVs must survive, and their knit blend must stay zero. The old model fails this
 check; do not use front-panel immobility alone as evidence of correct bag colour.
+
+## C01–C03 whole-arm garments (2026-09-26)
+
+`restore_other_outfits.py` restores the academy, garden and ranger source surfaces,
+welds atlas seams before reduction, removes fused sleeve lobes, and unions only
+side closures whose lining overlaps. Front details, bags and source texture bytes
+are retained. Upper garments are body-owned; the six body morphs use `body_shape`.
+`round_sleeves.py` is shared by all four outfits. Garden uses a shorter puff-sleeve
+profile; academy and ranger retain long sleeves with a lower shoulder crown,
+a root tucked into the armhole, a complete shoulder cap and
+an inset cuff. The assembly hook is in `add_elbows.py`; repairs are idempotent.
+
+The existing cloth shader now accepts `repairAtlas` for each fabric's clean atlas
+region. Its feathered green-channel mask is confined to side cloth, behind the
+front accessories. `torsoAbove` bounds skin coverage at the waist so the skirt
+and shorts retain visible legs; ranger includes the covered hip. Colour, depth
+and distance materials use the same mask. Cargo trousers receive additional hip
+clearance. The older cardigan pouch/collar/shoe repair stays intact.
+
+Validation: `verify-other-outfits.py` compares all unchanged meshes and morphs,
+texture hashes, weights, sleeve topology and idempotence. `shared-cloth-browser`
+now renders 495 views across four outfits, three body variants and ten actions.
+`cardigan-surface-browser.cjs` accepts `OUTFIT` to measure seam separation, fixed
+accessory motion and sleeve volume on all four garments. Keep the independent
+`verify-cardigan-pouch.py` regression. Physical iPhone rendering and pre-existing
+shoe-rim/collar-detail quality are not established by these numeric tests.

@@ -11,21 +11,21 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
   if(process.env.MODEL)await page.route('**/doll.glb*',r=>r.fulfill({path:process.env.MODEL,contentType:'model/gltf-binary'}));
   await page.goto((process.env.CLOTH_TEST_URL||'http://127.0.0.1:18926')+'/apps/companion/');
-  const report=await page.evaluate(async()=>{
+  const report=await page.evaluate(async(outfit)=>{
    const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler}=await import('../fairy-garden/traveler.mjs');
    const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');
    const loader=new GLTFLoader();loader.setDRACOLoader(draco);
    const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene,catalog=await(await fetch('../fairy-garden/doll.json')).json();
-   const doll=createTraveler(source,false,{outfit:'cardigan',hair:'curtains'}),mesh=doll.root.getObjectByName('outfit_cardigan'),g=mesh.geometry,P=g.attributes.position;
+   const doll=createTraveler(source,false,{outfit,hair:'curtains'}),mesh=doll.root.getObjectByName('outfit_'+outfit),g=mesh.geometry,P=g.attributes.position;
    const groups=new Map(),bag=[];
    for(let i=0;i<P.count;i++){
     const x=P.getX(i),y=P.getY(i),z=P.getZ(i),key=[x,y,z].map(v=>v.toFixed(6)).join(',');
     if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);
     // Front panel of the pouch, away from its attachment seam and the sleeve.
-    if(x>.04&&x<.17&&y>.37&&y<.53&&z>.11)bag.push(i);
+    if((outfit==='garden'?x<-.04&&x>-.20:x>.04&&x<.20)&&y>.37&&y<.53&&z>.11)bag.push(i);
    }
    const seams=[...groups.values()].filter(ids=>ids.length>1);
-   const sleeves=['left','right'].map(side=>doll.root.getObjectByName('outfit_cardigan_'+side+'_sleeve'));
+   const sleeves=['left','right'].map(side=>doll.root.getObjectByName('outfit_'+outfit+'_'+side+'_sleeve'));
    if(sleeves.some(s=>!s?.isSkinnedMesh))throw new Error('Missing complete sleeve surfaces');
    const sampleIds=sleeves.map(s=>{
     const p=s.geometry.attributes.position,ids=[];
@@ -57,10 +57,10 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
    // Legacy cloth colours must never multiply the authored sweater atlas.
    doll.setLook({cloth:'#ff0000'});
    const neutralMaterials=sleeves.every(s=>s.material.color.equals(new T.Color('#ffffff')));
-   const other=createTraveler(source,true,{outfit:'cardigan'});
+   const other=createTraveler(source,true,{outfit});
    const isolated=sleeves.every(s=>s.material!==other.root.getObjectByName(s.name).material);
-   draco.dispose();return {volumeError,neutralMaterials,isolated,version:mesh.userData.continuousSurfaceVersion,seamGroups:seams.length,seamError,bagVertices:bag.length,bagMotion,maxEdgeRatio,samples};
-  });
+   draco.dispose();return {outfit,volumeError,neutralMaterials,isolated,version:mesh.userData.continuousSurfaceVersion,seamGroups:seams.length,seamError,bagVertices:bag.length,bagMotion,maxEdgeRatio,samples};
+  },process.env.OUTFIT||'cardigan');
   report.errors=errors;fs.writeFileSync(process.env.SURFACE_REPORT||'/tmp/cardigan-surface.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
   if(!process.env.BASELINE){assert.equal(report.version,1);assert.ok(report.volumeError<.0001,'sleeve distances must preserve their full cross-section');assert.ok(report.neutralMaterials,'no legacy red tint');assert.ok(report.isolated);assert.ok(report.seamGroups>100);assert.ok(report.bagVertices>20);assert.ok(report.seamError<.0002,'UV seams must stay closed in every sampled pose');assert.ok(report.bagMotion<.01,'pouch front must remain on the torso');assert.deepEqual(errors,[]);}
  }finally{await browser.close();}
