@@ -209,6 +209,8 @@ def restore_other_outfits():
 
  # Keep the back strap in full assembly as well as asset migration.
  runpy.run_path(str(HERE/'restore_ranger_strap.py'))['restore_ranger_strap']()
+ runpy.run_path(str(HERE/'clean_hoodie.py'))['clean_hoodie']()
+ runpy.run_path(str(HERE/'fit_cuffs.py'))['fit_cuffs']()
 
 def main():
  import sys
