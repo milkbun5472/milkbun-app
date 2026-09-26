@@ -1,5 +1,5 @@
-import {createCarriageView} from './view.mjs?v=fg-82659e981fafba6e';
-import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=fg-82659e981fafba6e';
+import {createCarriageView} from './view.mjs?v=fg-da70aec4cf65bb87';
+import {createWindowScenery,ROUTES,WEATHERS,SEASONS} from './scenery.mjs?v=fg-da70aec4cf65bb87';
 const host=document.querySelector('#stage'), status=document.querySelector('#status');
 const view=await createCarriageView(host,{onZoom:v=>document.querySelector('#zoom').value=v});
 const {scene,camera,renderer,asset,scenery,setView,setShell,setZoom,render}=view;
