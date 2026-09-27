@@ -2045,6 +2045,10 @@ function wheelSlicePath(i, n) {
   const R = 48;
   return "M50,50 L" + (50 + R * Math.cos(a0)).toFixed(2) + "," + (50 + R * Math.sin(a0)).toFixed(2) + " A" + R + "," + R + " 0 " + (360 / n > 180 ? 1 : 0) + " 1 " + (50 + R * Math.cos(a1)).toFixed(2) + "," + (50 + R * Math.sin(a1)).toFixed(2) + " Z";
 }
+// 转盘最多几个选项：从 8 放到 24（再多扇面就细到写不下字了）
+const WHEEL_MAX = 24;
+// 竖排那一路的字要转多少度：顺着扇面朝外；落在左半边的再翻 180°，不然是倒着的
+function wheelLabelTurn(i, n) { const a = (i + 0.5) * 360 / n - 90; return a > 90 && a < 270 ? a - 180 : a; }
 function wheelLabelPos(i, n, r) { const a = ((i + 0.5) * 360 / n - 90) * Math.PI / 180; return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) }; }
 // 转盘 SVG（小组件和全屏共用）：size=像素宽高，labels=要不要画选项字
 function WheelDisc({ items, angle, spinning, size, labels, dur }) {
@@ -2057,8 +2061,14 @@ function WheelDisc({ items, angle, spinning, size, labels, dur }) {
       h("radialGradient", { id: "wkWheelHub", cx: ".36", cy: ".32", r: ".8" },
         h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" }))),
     n >= 2 ? items.map((it, i) => h("g", { key: i },
-      h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[i % WHEEL_COLORS.length], stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
-      labels ? h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5)) : null))
+      h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[(i === n - 1 && n > 1 && (n - 1) % WHEEL_COLORS.length === 0) ? 3 : i % WHEEL_COLORS.length] /* 最后一块跟第一块挨着，别撞同一个色 */, stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
+      // 选项多了（她 2026-09-28：「转盘能不能多加点选择，现在上限有点少」）：扇面变窄，横着写会叠在一起，
+      //   超过 8 个就把字顺着扇面转过来（从中心往外读），字号跟着扇面宽度收
+      labels ? (n > 8
+        ? h("text", { x: wheelLabelPos(i, n, 30).x, y: wheelLabelPos(i, n, 30).y, textAnchor: "middle", dominantBaseline: "middle",
+            transform: "rotate(" + wheelLabelTurn(i, n) + " " + wheelLabelPos(i, n, 30).x + " " + wheelLabelPos(i, n, 30).y + ")",
+            style: { fontSize: Math.max(3.4, Math.min(6.2, 120 / n)), fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 6))
+        : h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5))) : null))
       : h("circle", { cx: 50, cy: 50, r: 48, fill: "#e5ddd0" }),
     h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
     h("circle", { cx: 50, cy: 50, r: 7, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
@@ -2108,7 +2118,7 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
   };
   const openEdit = () => { setETitle(data.title || ""); setEItems(items.join("\n")); setEdit(true); };
   const saveEdit = () => {
-    const its = eItems.split(/\n+/).map(s => s.trim()).filter(Boolean).slice(0, 8);
+    const its = eItems.split(/\n+/).map(s => s.trim()).filter(Boolean).slice(0, WHEEL_MAX);
     if (its.length < 2) return;
     onSave({ title: eTitle.trim(), items: its });
     setResult(null); setQuip(null); setEdit(false);
@@ -2147,7 +2157,7 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 24px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 10 } }, "编辑转盘"),
         h("input", { value: eTitle, onChange: e => setETitle(e.target.value), placeholder: "转盘主题（可空，如：今天吃什么）", style: { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, background: t.bg, color: t.ink, border: "1px solid " + t.line, marginBottom: 10 } }),
-        h("textarea", { value: eItems, onChange: e => setEItems(e.target.value), rows: 6, placeholder: "一行一个选项（2~8 个）", style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+        h("textarea", { value: eItems, onChange: e => setEItems(e.target.value), rows: 6, placeholder: "一行一个选项（2~" + WHEEL_MAX + " 个）", style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
         h("div", { className: "flex gap-2", style: { marginTop: 12 } },
           h("button", { onClick: saveEdit, className: "flex-1 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "11px 0", borderRadius: 12 } }, "保存"),
           h("button", { onClick: () => setEdit(false), className: "flex-1 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "取消")))) : null), document.body);
