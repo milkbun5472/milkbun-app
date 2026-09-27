@@ -13278,6 +13278,8 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "开场白 / 铺垫第一句剧情"),
         h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*雨下得很大，我推门进了那家咖啡馆，看见你已经坐在窗边*（留空则由 Ta 起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
         h(OfflineSetupStyleSection, { t, editor: styleEditor }),
+        // 预设台也在进门这一页选（群里反馈 2026-09-27：「进线下的时候也让我选一下预设台的文风，现在进去先来一段默认的」）
+        h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession })),
@@ -13807,6 +13809,8 @@ function GroupOfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "开场白 / 铺垫第一句剧情"),
         h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*包厢里灯光暖黄，我推门进去，他们几个已经围着桌子坐下了*（留空则由他们起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
         h(OfflineSetupStyleSection, { t, editor: styleEditor }),
+        // 预设台也在进门这一页选（群里反馈 2026-09-27：「进线下的时候也让我选一下预设台的文风，现在进去先来一段默认的」）
+        h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession })),

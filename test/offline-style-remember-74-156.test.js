@@ -17,3 +17,8 @@ assert.equal((comp.match(/settings\.lastStyle\.styleKey\) \|\| "default"\)\); \/
 // 自动开的那一场传的是空 opts：必须走「上一场」那条，不许回到写死的 default
 assert.match(app, /if \(!hasActive\) startOffline\(cid, \{\}\);/);
 console.log("offline style remember ok");
+// v74.165：预设台直接在进门那一页选（单人、群线下两页都有），不用先进去再开设置
+{ const setups = comp.split('if (view === "setup") {').slice(1).map(x => x.slice(0, 3000));
+  assert.equal(setups.length, 2);
+  setups.forEach(seg => assert.match(seg, /h\(OfflineSetupStyleSection[\s\S]{0,300}h\(OfflineStylePresetSection, \{ t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab \}\)/));
+  console.log("preset on entry page ok"); }
