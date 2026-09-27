@@ -125,7 +125,7 @@ test("【文风要求】那段外壳只剩一份", () => {
 
 test("线下两处设置页共用同一个预设小节，不再各写一份", () => {
   assert.equal(comp.split("function OfflineStylePresetSection(").length - 1, 1);
-  assert.equal(comp.split("h(OfflineStylePresetSection, {").length - 1, 2);
+  assert.equal(comp.split("h(OfflineStylePresetSection, {").length - 1, 4); // v74.165：设置页两处 + 进门那一页两处（单人、群）
   assert.equal(comp.split("onChangeStyle({ styleKey, presetOn, presetId, stylePrompt:").length - 1, 2);
   assert.equal(comp.split("onSaveSettings({ presetOn, presetId,").length - 1, 2);
   assert.equal(comp.split("onStart({ opening: opening.trim(), styleKey, presetOn, presetId,").length - 1, 2);
