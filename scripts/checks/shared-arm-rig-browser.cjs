@@ -63,7 +63,9 @@ const base=process.env.ARM_TEST_URL||'http://127.0.0.1:18926';
     }
    }
   }
-  for(const [bone,q,p]of otherBones)check(bone.quaternion.angleTo(q)<1e-6&&bone.position.distanceTo(p)<1e-8,'Other avatar changed');
+  // Quaternion.angleTo assumes unit length; imported quaternions can report a nonzero self-angle.
+  // This avatar was never animated again, so compare its stored components exactly.
+  for(const [bone,q,p]of otherBones)check(bone.quaternion.equals(q)&&bone.position.equals(p),'Other avatar changed');
   for(const [mesh,old]of inverses)old.forEach((m,i)=>check(m.equals(mesh.skeleton.boneInverses[i]),'Shared inverse bind matrix'));
   // Release from a raised pose must ease, not teleport back to idle.
   for(let i=0;i<20;i++)doll.animate(t+=1/60,{gesture:'wave',progress:.5});
