@@ -9,10 +9,13 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 const grab = (a, b) => { const i = comp.indexOf(a), j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出：" + a); return comp.slice(i, j); };
 
 const DEFAULT_FOLDERS = new Function(grab("const DEFAULT_FOLDERS = {", "function Home({") + "\nreturn DEFAULT_FOLDERS;")();
-function makeHome(editMode, folders) {
+// v74.175（她 2026-09-28「想要开新页再把 app 往那个方向拖再加」）：那张空页不再是整理时一直挂着，
+// 而是【拖着东西推过最后一页右边】才现开——extraPage 就是「正往新页上推」这件事。
+function makeHome(editMode, folders, extraPage) {
   const src = [
     "const widgetSizes = {};",
     "const editMode = " + (editMode ? "true" : "false") + ";",
+    "const extraPageRef = { current: " + (extraPage ? "true" : "false") + " };",
     grab("const HOME_SIZE_PRESETS = [", "function homeWidgetPresetStyle"),
     grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;"),
     grab("  const SP_RE = /^sp_/;", "  // 存档 + 注册表 → 完整布局"),
@@ -28,24 +31,31 @@ const real = p => (p || []).filter(k => !/^sp_/.test(k));
 const APPS = ["cast", "ties", "phone", "shop", "memlib", "anon", "yanqiu", "dreamjournal"];
 const fullPage = n => Array.from({ length: 24 }, (_, i) => APPS[(n * 7 + i) % APPS.length] + "#" + n + "_" + i);
 
-test("整理时末尾多一张空页，可以把东西挪过去", () => {
-  const api = makeHome(true);
+test("拖着东西推过最后一页时，末尾多一张空页，可以把东西挪过去", () => {
+  const api = makeHome(true, undefined, true);
   const L = api.buildLayout({ 0: ["w_card", "cast"], 1: ["ties"] });
   assert.equal(real(L[L.length - 1]).length, 0, "整理态末尾那一页得是空的");
   assert.ok(L.length >= 3, "本来两页，整理时该多出一张空的，实际 " + L.length + " 页");
 });
 
-test("不在整理态就不挂那张空页——平时不该多一片空白可以滑", () => {
-  const api = makeHome(false);
-  const a = api.buildLayout({ 0: ["w_card", "cast"], 1: ["ties"] });
+test("没往新页上推就不挂那张空页——整理态平时也不该多一片白页", () => {
+  const a = makeHome(false).buildLayout({ 0: ["w_card", "cast"], 1: ["ties"] });
   const b = makeHome(true).buildLayout({ 0: ["w_card", "cast"], 1: ["ties"] });
-  assert.equal(b.length, a.length + 1, "整理态该刚好多一页，平时不该多");
+  const c = makeHome(true, undefined, true).buildLayout({ 0: ["w_card", "cast"], 1: ["ties"] });
+  assert.equal(b.length, a.length, "只是进整理，不该多一页");
+  assert.equal(c.length, a.length + 1, "推过最后一页才刚好多一页");
+});
+
+test("空页能删：整理时空的那一页有「删掉这一页」，推新页的那一下由拖到右边触发", () => {
+  assert.match(comp, /function removeEmptyPage\(pi\)/);
+  assert.match(comp, /"这一页是空的 · 删掉这一页"/);
+  assert.match(comp, /extraPageRef\.current = true; setExtraPage\(true\); goPage\(page \+ 1\)/);
 });
 
 test("末尾本来就是空页时不再往上堆——她自己留的空页照旧留着，但不再多挂一张", () => {
   // 用她 2026-09-05 那份真存档的形状：七页，后面三页是空的
   // 用她 2026-09-05 那份真存档的形状：东西都收在文件夹里，后面几页是空的
-  const api = makeHome(true, DEFAULT_FOLDERS);
+  const api = makeHome(true, DEFAULT_FOLDERS, true);
   const saved = { 3: [], 4: [], 5: [], 6: [] };
   const L0 = makeHome(false, DEFAULT_FOLDERS).buildLayout({});
   L0.forEach((p, i) => { saved[i] = p.filter(k => !/^sp_/.test(k)); });

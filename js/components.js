@@ -4994,6 +4994,10 @@ function Home({
     document.head.appendChild(st);
   }, []);
   const flipRef = useRef(0); // 跨页拖拽翻页节流时间戳
+  // 新的一页只在【拖着东西往最后一页右边推】时才长出来（她 2026-09-28：「想要开新页再把 app 往那个方向拖再加」）。
+  // 原来整理时末尾永远挂一张空页，她看到的就是一张张白页；现在不拖过去就没有。
+  const [extraPage, setExtraPage] = useState(false);
+  const extraPageRef = useRef(false); extraPageRef.current = extraPage;
   const goPage = function (np) { setPage(np); try { localStorage.setItem("x_homePage", String(np)); } catch (e) {} };
   // 注册表：所有可摆放的项（组件 w_ / app 图标 / 文件夹），供布局按 key 查
   // ⚠️日记和备忘录【不进 REG】：日记的正门在底部 dock 上，备忘录有 w_memo 组件，
@@ -5223,7 +5227,7 @@ function Home({
     // 是做不到的——没有那一页，就没有落点。所以整理的时候在末尾挂一张空的，
     // 拖到边上就翻得过去；没往上放东西，退出整理它自己就没了（不落进存档）。
     // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有 editMode：当成不在整理。
-    if ((typeof editMode !== "undefined" && editMode) && out.length < HOME_MAX_PAGES) {
+    if ((typeof editMode !== "undefined" && editMode) && (typeof extraPageRef !== "undefined" && extraPageRef.current) && out.length < HOME_MAX_PAGES) {
       var lastReal = (out[out.length - 1] || []).some(function (k) { return !SP_RE.test(k); });
       if (lastReal) out.push([]);
     }
@@ -5776,6 +5780,21 @@ function Home({
   useEffect(function () { if (page > curLayout.length - 1) goPage(curLayout.length - 1); }, []);
   // 退出整理时那张空页会收回去；人正站在它上面的话得先退一页，不然停在一片空白上
   useEffect(function () { if (!editMode && page > curLayout.length - 1) goPage(Math.max(0, curLayout.length - 1)); }, [editMode]);
+  // 松手了：新开的那张页上要是什么都没放，它就收回去（放了东西的话存档里已经有它了）
+  useEffect(function () {
+    if (dragKey || !extraPageRef.current) return;
+    extraPageRef.current = false; setExtraPage(false);
+    var n = buildLayout(layout).length;
+    if (page > n - 1) goPage(Math.max(0, n - 1));
+  }, [dragKey]);
+  // 删掉一张空页（她 2026-09-28：「空白页面可以选择删除」）：只有整理状态、这一页一件真东西都没有时才给这颗按钮
+  function removeEmptyPage(pi) {
+    var L = buildLayout(layout);
+    if (pi <= 0 || !L[pi] || L[pi].some(function (k) { return !SP_RE.test(k); })) return;
+    L.splice(pi, 1);
+    setLayout(persistLayout(L));
+    goPage(Math.max(0, Math.min(pi - 1, L.length - 1)));
+  }
   // v47.73 一次性迁移老存档：memo/diary 图标清走（含文件夹里的，清空的文件夹解散）、w_weather 挪到第四页
   useEffect(function () {
     try {
@@ -5882,6 +5901,11 @@ function Home({
       }
       if (x > cw - 34 && page < curLayout.length - 1 && nowT - flipRef.current > 650) {
         clearHover(); dropRef.current = null; setDropKey(null); flipRef.current = nowT; goPage(page + 1); return;
+      }
+      // 最后一页再往右推：现开一张新页接着
+      if (x > cw - 34 && page === curLayout.length - 1 && curLayout.length < HOME_MAX_PAGES && !extraPageRef.current && nowT - flipRef.current > 650
+        && (curLayout[page] || []).some(function (k) { return !SP_RE.test(k); })) {
+        clearHover(); dropRef.current = null; setDropKey(null); flipRef.current = nowT; extraPageRef.current = true; setExtraPage(true); goPage(page + 1); return;
       }
       updateDrop(x, tch.clientY);
       return;
@@ -6106,6 +6130,8 @@ function Home({
       // 往前面的洞里吸，于是动一个、别人跟着跳。
       // 现在同一份 homePlaceDenseXY 既算落位、又直接当 gridRow/gridColumn 用，
       // 画出来的就是模型算出来的那一格，一个字都不会差。
+      editMode && pi > 0 && !(keys || []).some(function (k) { return !SP_RE.test(k); }) && !(extraPage && pi === curLayout.length - 1) && h("div", { "data-home-empty-page": pi, className: "flex justify-center", style: { padding: "18px 0 6px" } },
+        h("button", { onClick: function () { removeEmptyPage(pi); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 20, fontFamily: F_BODY, fontSize: 13, color: wallpaper ? "#fff" : t.ink, background: wallpaper ? "rgba(20,18,15,.35)" : t.bg2, border: "1px solid " + (wallpaper ? "rgba(255,255,255,.45)" : t.line) } }, "这一页是空的 · 删掉这一页")),
       (function () {
         var ks = editMode ? (keys || []) : trimTailRows(keys);
         var pp = homePlaceDenseXY(ks, spanOf);
