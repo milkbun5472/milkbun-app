@@ -1,4 +1,4 @@
-// 衣服按需加载之后，娃娃是 doll.glb（身体、骨架、头发）＋ outfits/<id>.glb（每套一件）。
+// 衣服、头发按需加载之后，娃娃是 doll.glb（身体、骨架）＋ outfits/<id>.glb（每套一件）＋ hair/<style>.glb（每款一个）。
 // 这里把它们拼回一份「整包」的 glTF JSON（节点、网格、蒙皮的下标照拼接顺序顺延），
 // 别的测试照旧按名字找 outfit_* 节点、按 skin 找骨头，不用各自懂拆包。
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync,readdirSync} from 'node:fs';
@@ -6,6 +6,7 @@ const here=p=>new URL(p,import.meta.url);
 const parse=bytes=>JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString());
 export const baseBytes=readFileSync(here('./doll.glb'));
 export const outfitFiles=Object.fromEntries(readdirSync(here('./outfits/')).filter(f=>f.endsWith('.glb')).map(f=>[f.slice(0,-4),readFileSync(here('./outfits/'+f))]));
+export const hairFiles=Object.fromEntries(readdirSync(here('./hair/')).filter(f=>f.endsWith('.glb')).map(f=>[f.slice(0,-4),readFileSync(here('./hair/'+f))]));
 function merge(parts){
  const out={nodes:[],meshes:[],skins:[],accessors:[],materials:[],textures:[],images:[]};
  const tex=t=>t&&{...t,index:t.index+out._t0};
@@ -23,8 +24,15 @@ function merge(parts){
 }
 export const base=parse(baseBytes);
 export const gltf=merge([base,...Object.values(outfitFiles).map(parse)]);
-// 一个人第一次进场要下的：底模＋最大的那一套
-export const firstLoadBytes=baseBytes.length+Math.max(...Object.values(outfitFiles).map(b=>b.length));
+// 头发接回底模的 HeadAnchor 底下（运行时也是这么接的），拼出来的整包和拆开之前一模一样
+{const anchor=gltf.nodes.find(n=>n.name==='HeadAnchor');
+ for(const bytes of Object.values(hairFiles)){const g=parse(bytes),n0=gltf.nodes.length,m0=gltf.meshes.length,a0=gltf.accessors.length,mat0=gltf.materials.length;
+  const one=merge([g]);const hairNodes=one.nodes.map((n,i)=>[n,i]).filter(([n])=>n.extras?.hair);
+  gltf.accessors.push(...one.accessors);gltf.materials.push(...one.materials);
+  for(const [n] of hairNodes){const c={...n};delete c.children;if(c.mesh!=null){gltf.meshes.push({...one.meshes[c.mesh],primitives:one.meshes[c.mesh].primitives.map(p=>({...p,attributes:Object.fromEntries(Object.entries(p.attributes).map(([k,v])=>[k,v+a0])),indices:p.indices==null?undefined:p.indices+a0,material:p.material==null?undefined:p.material+mat0}))});c.mesh=gltf.meshes.length-1;}
+   gltf.nodes.push(c);(anchor.children=anchor.children||[]).push(gltf.nodes.length-1);}}}
+// 一个人第一次进场要下的：底模＋最大的那一套衣服＋最大的那一款头发
+export const firstLoadBytes=baseBytes.length+Math.max(...Object.values(outfitFiles).map(b=>b.length))+Math.max(...Object.values(hairFiles).map(b=>b.length));
 
 test('doll.glb carries no clothes; every catalogued outfit has its own file and nothing else',()=>{
  const catalog=JSON.parse(readFileSync(here('./doll.json'),'utf8')).outfits;
@@ -42,4 +50,15 @@ test('the runtime fetches outfits by id beside traveler.mjs, with its own build 
  const src=readFileSync(here('./traveler.mjs'),'utf8');
  assert.match(src,/new URL\('\.\/outfits\/'\+id\+'\.glb'\+new URL\(import\.meta\.url\)\.search,import\.meta\.url\)/);
  assert.match(src,/export const preloadOutfits=/);
+});
+
+test('doll.glb carries no hair; every hairstyle has its own file under HeadAnchor, loaded by id',()=>{
+ const catalog=JSON.parse(readFileSync(here('./doll.json'),'utf8')).hair;
+ assert.ok(!base.nodes.some(n=>n.extras?.hair),'base doll has no hair meshes');
+ assert.deepEqual(Object.keys(hairFiles).sort(),Object.keys(catalog).sort());
+ for(const [id,bytes] of Object.entries(hairFiles)){const g=parse(bytes),h=g.nodes.find(n=>n.extras?.hair===id);assert.ok(h,id);
+  const parent=g.nodes.find(n=>(n.children||[]).includes(g.nodes.indexOf(h)));assert.equal(parent?.name,'HeadAnchor',id+' hangs under HeadAnchor');}
+ const src=readFileSync(here('./traveler.mjs'),'utf8');
+ assert.match(src,/new URL\('\.\/hair\/'\+id\+'\.glb'\+new URL\(import\.meta\.url\)\.search,import\.meta\.url\)/);
+ assert.match(src,/export const preloadHair=/);
 });
