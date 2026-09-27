@@ -58,9 +58,9 @@ def fit_cuffs():
   for sleeve in old:bpy.data.objects.remove(sleeve,do_unlink=True)
   c=cloth['skinCoverage'];c['sleeve']=[round(end-.016,3),0,.76,.10];c['armAxis']=[.153,.655,.095,-.19];cloth['fittedCuffVersion']=3
 
- # Apply the garment-specific shoulder slope after the shared cuff fit, including
+ # Apply the shared shoulder slope after the shared cuff fit, including
  # already-fitted assets loaded for a later outfit migration.
- runpy.run_path(str(HERE/'smooth_cardigan_shoulders.py'))['smooth_cardigan_shoulders']()
+ runpy.run_path(str(HERE/'smooth_shoulders.py'))['smooth_shoulders']()
 
 def main():
  import sys
