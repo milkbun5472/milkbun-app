@@ -164,6 +164,19 @@
     "socks": "袜子",
     "boots": "皮鞋"
    }
+  },
+  "tee": {
+   "label": "宽松T恤牛仔裤",
+   "colors": {
+    "cloth": "#e3e2e0",
+    "trim": "#b5b4b2",
+    "bottom": "#a0a2a5"
+   },
+   "colorLabels": {
+    "cloth": "T恤",
+    "trim": "球鞋",
+    "bottom": "牛仔裤"
+   }
   }
  },
  "style": "hunyuan-v2-2026-09",

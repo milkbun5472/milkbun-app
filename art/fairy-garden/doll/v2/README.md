@@ -109,6 +109,17 @@
 - 和夹克同一套：圆袖（西装布料 `atlas=(.031,.859,…)`）、腋下衬里；袖子更长，手腕残片更低（`scrap_z=.25`），切完再删手边的小碎块（<200 顶点、|x|>.14）。
 - 配色：`trim_lum=.6`——衬衫背光处只有 .6 左右，阈值高了会被分进西装那一格，改色时衬衫上冒粉斑。
 
+## C07 宽松T恤牛仔裤（`tee`，2026-09-27）
+
+- 源 `v2/outfits/hunyuan-c07-shell.glb`（宽松白 T 恤 + 灰色卷边牛仔中裤 + 白球鞋，自带鞋）。
+  `S=.69 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py …`，`TRIS=8000 TEX=1024` 压缩，`add_outfit.py -- tee`。
+- 配色：`no_trim=True`（白 T 恤背光处会被当成边色）、`sole_z=.075`（只有球鞋进边色那格）；分区名在 `dye_regions.json`（T恤／球鞋／牛仔裤）。
+- 袖子：`fit_cuffs.py` 里和背带裙一样走短袖（`short=name in ('garden','tee')`）。
+- 衣身比躯干宽：切袖时 `cut_z=.36`（腋下一直切到裤腰上方，原来的 .40 会在腰侧留一截碎布），
+  `clean=True` 先沿 |x|=.17 和 z=cut_z 把网格剖开再删，切口是直线而不是一排三角锯齿。
+- 不走 `repair_added_outfits.py`（那是照夹克、西装的口袋翻领量的），腋下用 `side_lining()`。
+- 已知：深色裤子时 T 恤下摆最底一圈会跟着裤子色，像一道下摆阴影。
+
 ## 衣服按需加载（2026-09-26，她定）
 
 - **母版是 `v2/doll-full.glb`**（身体 + 骨架 + 头发 + 全部衣服）。所有迁移脚本（`add_outfit.py`、`fit_cuffs.py`、`restore_*`…）都读写它，不再直接改 app 里的 doll.glb。

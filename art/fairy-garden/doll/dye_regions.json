@@ -76,5 +76,13 @@
       "socks": "#dddad5",
       "boots": "#6f6e6b"
     }
+  },
+  "tee": {
+    "labels": {
+      "cloth": "T恤",
+      "trim": "球鞋",
+      "bottom": "牛仔裤"
+    },
+    "add": {}
   }
 }
