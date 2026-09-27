@@ -26,5 +26,6 @@ test("实用装饰有不同默认占格并使用对应编辑控件", () => {
   assert.match(src, /if \(it\.which === "spacer"\) return \[1, 1\]/);
   assert.match(src, /type: "date"/);
   assert.match(src, /每天自动换一行/);
-  assert.match(src, /onOpenApp\(it\.decor\.detail \|\| "memo"\)/);
+  // v74.187：快捷入口的目标走 shortcutTarget（选单显示的和打开的是同一个），不再兜底到已经不在 app 表里的 memo
+  assert.match(src, /var tk = shortcutTarget\(it\.decor\.detail\); if \(tk\) onOpenApp\(tk\);/);
 });

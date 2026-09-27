@@ -3518,7 +3518,7 @@ const HOME_DECOR_TYPES = [
   { id: "countdown", glyph: "−", name: "倒数日签", text: "等这一天", detail: "2026-12-31" },
   { id: "anniversary", glyph: "+", name: "纪念日牌", text: "从那天开始", detail: "2026-01-01" },
   { id: "rotate", glyph: "↻", name: "轮换字条", text: "今天留一句", detail: "每行写一句\n每天自动换一句" },
-  { id: "shortcut", glyph: "↗", name: "快捷入口牌", text: "打开一处", detail: "memo" },
+  { id: "shortcut", glyph: "↗", name: "快捷入口牌", text: "", detail: "" },
   { id: "spacer", glyph: "□", name: "留白占位", text: "", detail: "" },
   { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
   { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" },
@@ -3951,7 +3951,7 @@ function defaultHomeItemSpan(it) {
     if (it.which === "countdown") return [2, 1];
     if (it.which === "anniversary") return [3, 1];
     if (it.which === "rotate") return [3, 1];
-    if (it.which === "shortcut") return [2, 1];
+    if (it.which === "shortcut") return [1, 1];   // 跟 app 图标一样大（她 2026-09-28）；想要大的在「多大」里换
     if (it.which === "spacer") return [1, 1];
     return [2, 1];
   }
@@ -4462,10 +4462,14 @@ function HomeDecorItem({ item, preset, now }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginBottom: 4 } }, title),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, dailyLine));
   }
-  if (item.type === "shortcut") return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 58, padding: "10px 12px", color: ink, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)", display: "flex", alignItems: "center", gap: 9 }) },
-    h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + accent, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15 } }, "↗"),
-    h("div", { style: { minWidth: 0 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, "点一下打开")));
+  // 快捷入口（她 2026-09-28）：当成一枚【自己做的 app 图标】——默认是一块空白的面，
+  //   样子全交给「什么样子」那一栏（底色、放一张图、边线、贴纸）；字可写可不写，写了才出现。
+  //   ⚠️老存档里那句默认的「打开一处」当成没写。
+  if (item.type === "shortcut") {
+    const label = String(item.text || "").trim() === "打开一处" ? "" : String(item.text || "").trim();
+    return h("div", { "data-home-shortcut": true, style: onGnd({ width: "100%", height: "100%", minHeight: 40, color: ink, background: dark ? "rgba(255,255,255,.06)" : "rgba(255,250,241,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }) },
+      label ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" } }, label) : null);
+  }
   if (item.type === "ticket") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 68, display: "flex", alignItems: "stretch", color: ink, overflow: "hidden", position: "relative" } },
       h("div", { style: onGnd({ flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" }) },
@@ -5294,7 +5298,7 @@ function Home({
       else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
       else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, worlds: worlds, onOpen: function () { return onOpenApp("map"); } }) : null);
       else if (it.kind === "decor") inner = it.which === "shortcut"
-        ? h("button", { onClick: function () { if (!editMode) onOpenApp(it.decor.detail || "memo"); }, style: { width: "100%", height: "100%", textAlign: "inherit" } }, h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now }))
+        ? h("button", { onClick: function () { if (!editMode) { var tk = shortcutTarget(it.decor.detail); if (tk) onOpenApp(tk); } }, style: { width: "100%", height: "100%", textAlign: "inherit" } }, h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now }))
         : h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now });
     return it.kind === "widget" ? h(ThemeContext.Provider, { value: homeWidgetGroundTheme(t, lookOf(key).ground) }, inner) : inner;
   }
@@ -5468,10 +5472,16 @@ function Home({
   }
   // ⚠️装饰长什么样【只造一份】：预览画的、放上去的、改完存的，必须是同一个对象。
   //   各造一份的话，预览里好看的和落到桌面上的迟早对不上，而且不会有任何报错。
+  // 快捷入口能去哪儿：跟选单里列的是【同一张表】。
+  // ⚠️她 2026-09-28「打开一处实际打开的和选择的不一样」：默认目标写的是 memo，可备忘录早就不在 app 表里了——
+  //   选单里没有这一项，浏览器就把第一项显示成「已选」，点下去打开的却还是存着的 memo。
+  //   现在存的目标不在表里，就当它是表里第一项：显示的和打开的永远是同一个。
+  function shortcutOptions() { return Object.keys(REG).filter(function (k) { return REG[k] && REG[k].kind === "app" && !REG[k].soon; }); }
+  function shortcutTarget(detail) { var opts = shortcutOptions(); return opts.indexOf(detail) >= 0 ? detail : (opts[0] || ""); }
   function decorItemOf(A, id) {
     var text = String(A.text || "").trim();
     var meta = homeDecorMeta(A.type);
-    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
+    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : A.type === "shortcut" ? shortcutTarget(String(A.detail || "").trim()) : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
   }
   function addDecoration() {
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
@@ -6329,9 +6339,9 @@ function Home({
           A.type === "photo"
             ? h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 6, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })
             : A.type === "shortcut" ? h("div", { style: { marginTop: 6 } },
-                h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "牌上显示的名字", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
-                h("select", { value: A.detail || "memo", onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
-                  Object.keys(REG).filter(function (k) { return REG[k] && REG[k].kind === "app" && !REG[k].soon; }).map(function (k) { return h("option", { key: k, value: k }, REG[k].zh); })))
+                h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "图标上的字（可不填，不填就是一块空白，样子在下面「什么样子」里定）", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
+                h("select", { value: shortcutTarget(A.detail), onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
+                  shortcutOptions().map(function (k) { return h("option", { key: k, value: k }, REG[k].zh); })))
             : h("div", { style: { marginTop: 6 } },
                 h("textarea", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "写下" + meta.name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
                 (A.type === "countdown" || A.type === "anniversary")
