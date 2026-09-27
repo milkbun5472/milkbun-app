@@ -4958,6 +4958,8 @@ function Home({
   // 自由添加的装饰内容与外观分开保存：换皮不碰照片/文字，移动也不碰样式。
   const [decorations, setDecorations] = useState(function () { var v = loadJSON("x_homeDecorations", []); return Array.isArray(v) ? v : []; });
   const decorationsRef = useRef(decorations); decorationsRef.current = decorations;
+  const [hiddenWidgets, setHiddenWidgets] = useState(function () { var v = loadJSON("x_homeHiddenWidgets", []); return Array.isArray(v) ? v : []; });
+  const hiddenWidgetsRef = useRef(hiddenWidgets); hiddenWidgetsRef.current = hiddenWidgets;
   const [widgetStyles, setWidgetStyles] = useState(function () { var v = loadJSON("x_homeWidgetStyles", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetAligns, setWidgetAligns] = useState(function () { var v = loadJSON("x_homeWidgetAlign", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetSizes, setWidgetSizes] = useState(function () { var v = loadJSON("x_homeWidgetSizes", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
@@ -5179,8 +5181,10 @@ function Home({
     var F = foldersRef.current || {};
     var seen = {};
     Object.keys(F).forEach(function (fid) { (F[fid].keys || []).forEach(function (k) { seen[k] = true; }); });
+    var hiddenW = (typeof hiddenWidgetsRef !== "undefined" && hiddenWidgetsRef && hiddenWidgetsRef.current) || [];
     var valid = function (key) {
       if (!key) return false;
+      if (hiddenW.indexOf(key) >= 0) return false;   // 她自己移走的（最近聊过）
       if (SP_RE.test(key)) return true;
       if (key.slice(0, 2) === "f_") return !!(F[key] && (F[key].keys || []).length);
       return !!REG[key];
@@ -5222,7 +5226,7 @@ function Home({
       // v57.86 安全网扩容：widget 也救（widget 没有任何「重新添加」的 UI，掉了就是永久失踪；
       // app/widget 一视同仁。故意退场的入口走「从 REG 删除」这条老路，见 v47.73 的 memo/diary）
       Object.keys(REG).forEach(function (key) {
-        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && !reach[key]) {
+        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && hiddenW.indexOf(key) < 0 && !reach[key]) {
           var dp = defPage[key] != null ? defPage[key] : (out.length - 1);
           if (!out[dp]) out[dp] = [];
           out[dp].push(key);
@@ -5544,6 +5548,35 @@ function Home({
     if (it.which !== "photo" && !homeDecorHasDetail(it.which)) next.detail = "";
     updateDecoration(styleKey, next);
     if (typeof toast === "function") toast("桌面内容已经更新");
+  }
+  // 「最近聊过」当成功能性装饰（她 2026-09-28）：能从桌面移走，也能从做装饰那一页放回来。
+  //   移走的记在 x_homeHiddenWidgets，底下那张安全网就不再把它硬塞回桌面。
+  function hideWidget(key) {
+    var hid = loadJSON("x_homeHiddenWidgets", []); if (!Array.isArray(hid)) hid = [];
+    if (hid.indexOf(key) < 0) hid = hid.concat([key]);
+    saveJSON("x_homeHiddenWidgets", hid); hiddenWidgetsRef.current = hid; setHiddenWidgets(hid);
+    setLayout(function (prev) {
+      var L = [], mx = Math.max(0, curLayout.length - 1);
+      for (var i = 0; i <= mx; i++) L[i] = (prev[i] || []).filter(function (k) { return k !== key; });
+      return persistLayout(L);
+    });
+    setStyleKey(null);
+    if (typeof toast === "function") toast("已从桌面移走，想要回来在「做一件装饰」里点它");
+  }
+  function showWidget(key) {
+    var hid = (loadJSON("x_homeHiddenWidgets", []) || []).filter(function (k) { return k !== key; });
+    saveJSON("x_homeHiddenWidgets", hid); hiddenWidgetsRef.current = hid; setHiddenWidgets(hid);
+    setLayout(function (prev) {
+      var L = buildLayout(prev).map(function (a) { return trimTailRows(a).filter(function (k) { return k !== key; }); });
+      var pi = Math.max(0, Math.min(page, L.length - 1));
+      if (!L[pi]) L[pi] = [];
+      L[pi].push(key);
+      var saved = persistLayout(L);
+      setTimeout(function () { try { var p2 = findSlot(buildLayout(saved), key); if (p2) goPage(p2.p); } catch (e) {} }, 0);
+      return saved;
+    });
+    setShowDecorLibrary(false); resetDecorDraft();
+    if (typeof toast === "function") toast("已经放回桌面上");
   }
   function removeDecoration(id) {
     persistDecorations((decorationsRef.current || []).filter(function (d) { return d.id !== id; }));
@@ -6349,6 +6382,9 @@ function Home({
           h("div", null,
             // ⚠️已经放上去的那一件不给换类型：换了就不是原来那件东西了，该新做一件。
             A.setType ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginTop: 6 } },
+              // 最近聊过：移走了才出现在这里，点一下直接放回桌面（它不是一件新做的装饰，是那个组件本身）
+              A.isNew && hiddenWidgets.indexOf("w_recent") >= 0 ? h("button", { key: "__recent", "data-decor-recent": true, onClick: function () { showWidget("w_recent"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, "✎"), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, "最近聊过")) : null,
               homeDecorPickable().map(function (x) {
                 var active = A.type === x.id;
                 return h("button", { key: x.id, onClick: function () { A.setType(x.id); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
@@ -6427,6 +6463,7 @@ function Home({
             h(HomeStickerEditor, { list: A.stickers, busy: decorBusy, onChange: A.setStickers,
               onPick: function (f, id) { takeStickerPhoto(f, id, A.stickers, A.setStickers); } }))),
         // 已经在桌面上的那一件，才有得移走
+        A.isWidget && styleKey === "w_recent" ? h("button", { onClick: function () { hideWidget("w_recent"); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b4574a", minHeight: 44 } }, "从桌面移走（以后在「做一件装饰」里放回来）") : null,
         A.isWidget ? h("button", { onClick: function () { setStyleKey(null); setDecorStep("look"); setEditMode(true); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "去整理位置")
           : !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着
