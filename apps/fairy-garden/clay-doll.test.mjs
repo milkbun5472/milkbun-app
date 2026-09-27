@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL(p,import.meta.url));
-const bytes=read('./doll.glb'),glb=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString());
+import {gltf as glb,firstLoadBytes} from './doll-parts.test.mjs';
 const catalog=JSON.parse(read('./doll.json'));const nodes=glb.nodes.filter(n=>n.mesh!=null);
 // v2 娃娃（她 2026-09-25 选了直接替换）：Hunyuan 底模 + 骨架蒙皮，发型是挂在 HeadAnchor 上的帽子，衣服蒙在同一副骨架上。
 // 由 art/fairy-garden/doll/assemble_v2.py 组装、compress_asset.py 压缩；不许手改 doll.glb / doll.json / outfits.mjs。
@@ -9,7 +9,7 @@ test('v2 asset: every catalogued hairstyle hangs on HeadAnchor and every outfit 
  const anchor=glb.nodes.find(n=>n.name==='HeadAnchor');assert.ok(anchor,'HeadAnchor');
  for(const id of Object.keys(catalog.hair)){const i=glb.nodes.findIndex(n=>n.name==='hair_'+id);assert.ok(i>=0,id);assert.ok(anchor.children.includes(i),id+' not on HeadAnchor');}
  for(const id of Object.keys(catalog.outfits)){const parts=nodes.filter(n=>n.extras?.outfit===id);assert.ok(parts.length>=1,id);for(const n of parts)assert.ok(n.skin!=null,id+' must be skinned');}
- assert.ok(bytes.length<5*1024*1024,'mobile asset budget');
+ assert.ok(firstLoadBytes<3*1024*1024,'mobile asset budget: base doll + the largest outfit');
 });
 test('v2 rig: bones carry the runtime pivot names and the pivots ride along in extras',()=>{
  const rig=glb.nodes.find(n=>n.extras?.dollRig)?.extras.dollRig;assert.ok(rig);

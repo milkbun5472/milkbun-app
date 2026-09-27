@@ -9,10 +9,10 @@ const base=process.env.ARM_TEST_URL||'http://127.0.0.1:18926';
  await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
  await page.goto(base+'/apps/companion/');
  const report=await page.evaluate(async()=>{
-  const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler}=await import('../fairy-garden/traveler.mjs');
+  const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await import('../fairy-garden/traveler.mjs');
   const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');
   const loader=new GLTFLoader();loader.setDRACOLoader(draco);
-  const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene;
+  const source=(await loader.loadAsync('../fairy-garden/doll.glb').then(async g=>(await preloadOutfits(),g))).scene;
   const catalog=await (await fetch('../fairy-garden/doll.json')).json();
   const check=(ok,msg)=>{if(!ok)throw Error(msg);};
   const scene=new T.Scene();scene.background=new T.Color('#eee9df');scene.add(new T.HemisphereLight('#fff','#aaa',2.3));
@@ -63,7 +63,9 @@ const base=process.env.ARM_TEST_URL||'http://127.0.0.1:18926';
     }
    }
   }
-  for(const [bone,q,p]of otherBones)check(bone.quaternion.angleTo(q)<1e-6&&bone.position.distanceTo(p)<1e-8,'Other avatar changed');
+  // Quaternion.angleTo assumes unit length; imported quaternions can report a nonzero self-angle.
+  // This avatar was never animated again, so compare its stored components exactly.
+  for(const [bone,q,p]of otherBones)check(bone.quaternion.equals(q)&&bone.position.equals(p),'Other avatar changed');
   for(const [mesh,old]of inverses)old.forEach((m,i)=>check(m.equals(mesh.skeleton.boneInverses[i]),'Shared inverse bind matrix'));
   // Release from a raised pose must ease, not teleport back to idle.
   for(let i=0;i<20;i++)doll.animate(t+=1/60,{gesture:'wave',progress:.5});

@@ -2,16 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL(p,import.meta.url));
-const bytes=read('./doll.glb'),gltf=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)));
+import {gltf,firstLoadBytes} from './doll-parts.test.mjs';
 test('exported body and outfits share connected elbows, with neutral rest morphs',()=>{
  const rig=gltf.nodes.find(n=>n.extras?.elbowRig);assert.equal(rig.extras.elbowRig.version,2);
  for(const side of ['left','right']){
   const upper=gltf.nodes.find(n=>n.name===side+'Arm'),lower=gltf.nodes.findIndex(n=>n.name===side+'Forearm');
   assert.ok(lower>=0);assert.ok(upper.children.includes(lower));
-  for(const skin of gltf.skins)assert.ok(skin.joints.includes(lower),'all garment skins carry the elbow');
+  // 衣服按需加载后每个文件各带一副同名骨架：按名字认肘骨
+  for(const skin of gltf.skins)assert.ok(skin.joints.some(i=>gltf.nodes[i].name===side+'Forearm'),'all garment skins carry the elbow');
  }
  for(const m of gltf.meshes)assert.ok((m.weights||[]).every(w=>w===0),'no baked action');
- assert.ok(bytes.length<5*1024*1024,'retain mobile model budget');
+ assert.ok(firstLoadBytes<3*1024*1024,'retain mobile model budget: base doll + the largest outfit');
 });
 test('both entry points use the same versioned rig and model graph',()=>{
  const build=JSON.parse(read('./build.json')).build,pet=read('../companion/pet.mjs').toString(),host=read('../../js/companion.js').toString();
@@ -49,6 +50,7 @@ test('all outfit sleeves have separate volume, dye slots and shared body morphs'
  for(const id of ['cardigan','academy','garden','ranger'])for(const side of ['left','right']){
   const sleeve=gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`);
   assert.equal(sleeve.extras.roundSleeveVersion,1);
+  assert.equal(sleeve.extras.continuousSleeveProfile,1);
   assert.equal(sleeve.extras.outfit,id);
   assert.ok(sleeve.extras.slotBase.cloth);
   assert.ok(sleeve.skin!=null);
@@ -85,10 +87,12 @@ test('authored shoes keep per-outfit styles, dye, closed soles and body morphs',
 
 test('hoodie bag has a torso-bound back strap with independent accent colour',()=>{
  const strap=gltf.nodes.find(n=>n.name==='outfit_ranger_back_strap');
- assert.equal(strap.extras.backStrapVersion,1);assert.equal(strap.extras.outfit,'ranger');
+ assert.equal(strap.extras.backStrapVersion,2);assert.equal(strap.extras.outfit,'ranger');assert.equal(strap.extras.continuousStrapVersion,1);
+ assert.ok(!gltf.nodes.some(n=>n.name==='outfit_ranger_front_accessories'));
+ assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.cleanBagVersion,1);
  assert.ok(strap.extras.slotBase.accent);assert.ok(strap.skin!=null);
  assert.deepEqual(gltf.meshes[strap.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
- assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.textureSlots,'ranger');
+ assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.textureSlots,undefined);
 });
 
 
@@ -96,12 +100,12 @@ test('all cuffs fit original hands and hoodie retains independent details',()=>{
  assert.equal(gltf.nodes.find(n=>n.name==='DollBody').extras.originalHandVersion,1);
  for(const id of ['cardigan','academy','garden','ranger']){
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
-  assert.equal(shirt.extras.fittedCuffVersion,2);
+  assert.equal(shirt.extras.fittedCuffVersion,3);
   assert.deepEqual(shirt.extras.skinCoverage.armAxis,[.153,.655,.095,-.19]);
-  for(const side of ['left','right'])assert.equal(gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`).extras.fittedCuffVersion,2);
+  for(const side of ['left','right'])assert.equal(gltf.nodes.find(n=>n.name===`outfit_${id}_${side}_sleeve`).extras.fittedCuffVersion,3);
  }
  assert.equal(gltf.nodes.find(n=>n.name==='outfit_ranger').extras.cleanHoodieVersion,1);
- for(const name of ['outfit_ranger_trousers','outfit_ranger_front_accessories']){
+ for(const name of ['outfit_ranger_trousers','outfit_ranger_bag','outfit_ranger_bag_flap','outfit_ranger_bag_clasp']){
   const n=gltf.nodes.find(n=>n.name===name);assert.ok(n.skin!=null);assert.equal(n.extras.outfit,'ranger');
   assert.deepEqual(gltf.meshes[n.mesh].extras.targetNames,['height','shoulder','waist','flare','build','head']);
  }

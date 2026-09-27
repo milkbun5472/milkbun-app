@@ -12,10 +12,10 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   if(process.env.MODEL)await page.route('**/doll.glb*',r=>r.fulfill({path:process.env.MODEL,contentType:'model/gltf-binary'}));
   await page.goto((process.env.CLOTH_TEST_URL||'http://127.0.0.1:18926')+'/apps/companion/');
   const report=await page.evaluate(async(outfit)=>{
-   const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler}=await import('../fairy-garden/traveler.mjs');
+   const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await import('../fairy-garden/traveler.mjs');
    const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');
    const loader=new GLTFLoader();loader.setDRACOLoader(draco);
-   const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene,catalog=await(await fetch('../fairy-garden/doll.json')).json();
+   const source=(await loader.loadAsync('../fairy-garden/doll.glb').then(async g=>(await preloadOutfits(),g))).scene,catalog=await(await fetch('../fairy-garden/doll.json')).json();
    const doll=createTraveler(source,false,{outfit,hair:'curtains'}),mesh=doll.root.getObjectByName('outfit_'+outfit),g=mesh.geometry,P=g.attributes.position;
    const groups=new Map(),bag=[];
    for(let i=0;i<P.count;i++){

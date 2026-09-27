@@ -211,6 +211,7 @@ def restore_other_outfits():
  runpy.run_path(str(HERE/'restore_ranger_strap.py'))['restore_ranger_strap']()
  runpy.run_path(str(HERE/'clean_hoodie.py'))['clean_hoodie']()
  runpy.run_path(str(HERE/'fit_cuffs.py'))['fit_cuffs']()
+ runpy.run_path(str(HERE/'ranger_bag.py'))['rebuild_ranger_bag']()
 
 def main():
  import sys

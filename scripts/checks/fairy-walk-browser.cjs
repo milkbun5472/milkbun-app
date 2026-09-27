@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const base=process.env.GARDEN_TEST_URL||'http://127.0.0.1:18894';
 (async()=>{const b=await chromium.launch({headless:true,channel:'chrome'});try{const p=await b.newPage({viewport:{width:700,height:700}}),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.route('**/*',r=>r.request().url().startsWith(base)?r.continue():r.abort());await p.goto(base+'/apps/fairy-garden/');await p.waitForFunction(()=>window.gardenDebug?.getReady());
-const result=await p.evaluate(async()=>{const T=await import('three'),{GLTFLoader}=await import('./vendor/GLTFLoader.js'),{createTraveler}=await import('./traveler.mjs');const source=(await new GLTFLoader().loadAsync('./doll.glb')).scene;
+const result=await p.evaluate(async()=>{const T=await import('three'),{GLTFLoader}=await import('./vendor/GLTFLoader.js'),{createTraveler,preloadOutfits}=await import('./traveler.mjs');const source=(await new GLTFLoader().loadAsync('./doll.glb').then(async g=>(await preloadOutfits(),g))).scene;
  const a=createTraveler(source),b=createTraveler(source,true);const names=['leftLeg','rightLeg'];let checks=0;
  const centre=o=>new T.Box3().setFromObject(o,true).getCenter(new T.Vector3());
  for(const avatar of [a,b])for(const height of [.8,1,1.2]){avatar.setLook({dims:{height,build:1.1},hair:'wolf'});avatar.root.updateMatrixWorld(true);

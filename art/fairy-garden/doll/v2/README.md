@@ -85,3 +85,43 @@
 - **C04 小兔毛衣**（ID 沿用旧的 `cardigan`，自带球鞋，不补鞋）：这件是照腿长、身瘦的人生成的——`LIFT=.1` 把腰以上整体提到肩膀（鞋留在地上），`SX` 控制宽度。`UNDER_TEX=1 ARM_SKIP=1 UREACH=.2 CONFORM_TOP=.68 UNDER=1 CRUMB=200 LIFT=.1 SX=1.0 SY=1.5 S=.63 Z0=-.01`。`CONFORM_TOP` 要盖到胸口，否则粉色底衣会盖住小兔图案。袖子和身体连成一片，压短袖口会皱，所以保持长袖。
   - `UNDER_TEX=1`：底衣不再是纯色，而是用毛衣自己的贴图（取上臂附近布料的中位色那一点），颜色和明暗跟毛衣一样，看不出垫了一层。
   - **背带**：背带在肩上，一不小心就会被当成别的东西处理掉。`CRUMB=0`（背带碎片不能当袖口毛边删）；`PAINT_XMIN=.19`（涂衬衫色只涂肩膀外侧，不涂背带）；贴合后背带和衬衫肩膀离皮肤一样近、衬衫会盖住背带，所以 `STRAP_OUT` 把肩上的深色面再往外抬，`COLLAR_OUT` 把领子抬得更高，背带就像原版一样从领子底下穿过去；`GAP_TOP` 让胸口以上贴得更紧，里衬不会顶穿领子。
+
+## C05 短夹克工装裤（`jacket`，2026-09-26）：之后的新衣服都走 add_outfit.py
+
+- 源：`v2/outfits/hunyuan-c05-shell.glb`（夹克 + 白衬衫 + 工装裤 + 自带短靴）。
+  `S=.7 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py v2/doll-rigged.glb v2/outfits/hunyuan-c05-shell.glb v2/outfits/outfit_c05.glb`
+  （全身贴合、间距 2 mm；`STRAP_OUT` 把深色夹克在胸口以上再往外抬 6 mm，衬衫就不会从翻领上透出来。不加 `UNDER`：底衣会把白块顶到夹克外面。）
+  `TRIS=8000 TEX=1024 python3 compress_asset.py v2/outfits/outfit_c05.glb v2/web/outfit_c05.glb`（15000 面时 doll.glb 超预算）。
+- **进 app 不重跑全量组装**：完整娃娃上已经有手修过的肘骨、袖口、鞋、背带。`add_outfit.py` 直接往成品上加一套：
+  `python3 -c "import sys,runpy;sys.argv=['x','--','jacket'];runpy.run_path('add_outfit.py',run_name='__main__')"`
+  （改 `v2/doll-full.glb`，写 doll.json / outfits.mjs，再拆出 app 用的文件，见下面「按需加载」。）`assemble_v2.py` 在肘骨之后调用同一个 `add_outfit()`，全量重建不会丢这套。
+  - 配色分格：`outfit_slots.py`（从 assemble_v2 抽出来的公共那份）；`trim_lum=.78`（衬衫是米白，达不到 .92）、`sole_z=.075`（鞋跟衬衫一格）。
+  - 袖子：原壳的袖子一抬手就撕开，照 C01–C04 换成 `round_sleeves.py` 的圆袖：切掉 |x|>.17（腰以上）/ |x|>.2（手腕边的残片）；夹克取一块纯色贴图（`atlas=(.156,.953,.008,.008)`）；`fit_cuffs.py` 收袖口。
+  - `side_lining()`：腋下补一片夹克色的身体侧面复制层（外推 4 mm、绑躯干），抬手时这里不再是洞。
+  - 皮肤遮挡：`torsoAbove 0`（长裤到脚）、`coversFeetBelow .12`。
+- ⚠️Blender 5（pip `bpy`）里新建颜色属性会让之前拿到的 UV 层失效，`round_sleeves.py` 现在两个都建好再按名字取。
+- 验图：`scripts/checks/shared-cloth-browser.cjs` 591 格（默认/最小/最大/改色，十种动作四个方向）。已知：抬手时夹克侧边还有一点细毛边；衬衫在减面后略有棱角。
+
+## C06 小西装短裤（`suit`，2026-09-26）
+
+- 源 `v2/outfits/hunyuan-c06-shell.glb`（黑西装 + 马甲 + 领带 + 白衬衫 + 短裤 + 白袜皮鞋）。
+  `S=.69 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py …`，`TRIS=8000` 压缩，`add_outfit.py -- suit`。
+- 和夹克同一套：圆袖（西装布料 `atlas=(.031,.859,…)`）、腋下衬里；袖子更长，手腕残片更低（`scrap_z=.25`），切完再删手边的小碎块（<200 顶点、|x|>.14）。
+- 配色：`trim_lum=.6`——衬衫背光处只有 .6 左右，阈值高了会被分进西装那一格，改色时衬衫上冒粉斑。
+
+## 衣服按需加载（2026-09-26，她定）
+
+- **母版是 `v2/doll-full.glb`**（身体 + 骨架 + 头发 + 全部衣服）。所有迁移脚本（`add_outfit.py`、`fit_cuffs.py`、`restore_*`…）都读写它，不再直接改 app 里的 doll.glb。
+- `split_outfits.py` 从母版拆出 app 用的：`apps/fairy-garden/doll.glb`（不带衣服，约 1.4 MB）和 `apps/fairy-garden/outfits/<id>.glb`（每套一件，带同名骨架，0.6–1.1 MB）。`add_outfit.py`、`assemble_v2.py` 最后都会自动拆；手动改了母版就跑一次 `python3 -c "import sys,runpy;sys.argv=['x'];runpy.run_path('split_outfits.py',run_name='__main__')"`。
+- 运行时（`traveler.mjs`）：穿哪套才下哪套，全页每套只下一次；下好后按骨头名字接到这个人自己的骨架上，按当前体型重绑。第一套到之前人先不露面，换装途中照旧穿着上一套。`preloadOutfits()` 给验图脚本先把几套下好。
+- 预算：底模 + 最大一套 < 3 MiB（`doll-parts.test.mjs` 把拆开的文件拼回一份给其它测试用）。`scripts/checks/outfit-lazy-browser.cjs` 查按需加载本身。
+
+## 新发型：蓬松卷毛（`fluffy`）、中分长发（`longpart`）（2026-09-27）
+
+- 源：`v2/hunyuan-h07-shell.glb`、`v2/hunyuan-h08-shell.glb`（混元头发壳）。
+  `INNER=.9 DZ=-.1 python3 fit_shell.py v2/hunyuan-h07-shell.glb v2/head-anchor.json fit.glb`，
+  `FRINGE_K=.7 python3 shape_hair.py fit.glb v2/hats/hair_h07.glb`（h08 同参数；刘海收到露眼）；`TRIS=18000 TEX=1024 compress_asset.py` → `v2/web/`。
+- 加进母版：先在 `../hairstyles.json` 写名字，再 `python3 -c "import sys,runpy;sys.argv=['x','--','fluffy'];runpy.run_path('add_hair.py',run_name='__main__')"`。
+  发型表（id→文件）只在 `add_hair.py` 的 `HAIRS` 一处，`assemble_v2.py` 也用它；运行时名单 `traveler.mjs` 的 `HAIR_STYLES` 要和 hairstyles.json 一致（测试钉着）。
+- ⚠️`outfit_slots.grey()` 改完贴图要先存成 WEBP 再 pack：直接 pack 会变 PNG，一款头发从 190KB 胀到 560KB（头发在每次都要下的 doll.glb 里）。
+- 头发不按需加载，都在底模里：底模现在 1.76MB，加最大一套衣服 2.83MB，预算 3MiB。**再加两三款就该把头发也拆成按需加载**（照衣服的做法）。

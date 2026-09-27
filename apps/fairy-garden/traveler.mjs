@@ -1,12 +1,29 @@
-import {emotionPose} from './emotion-pose.mjs?v=fg-91a3567fa69d59d8';
-import {makeDollLife} from './doll-life.mjs?v=fg-91a3567fa69d59d8';
-import {mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-91a3567fa69d59d8';
+import {emotionPose} from './emotion-pose.mjs?v=fg-3c9f0bc0da35d4f0';
+import {makeDollLife} from './doll-life.mjs?v=fg-3c9f0bc0da35d4f0';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-3c9f0bc0da35d4f0';
 import * as T from 'three';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-3c9f0bc0da35d4f0';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-3c9f0bc0da35d4f0';
+// 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
+// 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
+// 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
+const OUTFIT_FILES=new Map(),OUTFIT_READY=new Map();let outfitLoader=null;
+function outfitSource(id){
+ if(!OUTFIT_FILES.has(id)){
+  if(!outfitLoader){const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);outfitLoader=new GLTFLoader();outfitLoader.setDRACOLoader(draco);}
+  const url=new URL('./outfits/'+id+'.glb'+new URL(import.meta.url).search,import.meta.url).href;
+  // 失败了不留在表里：下次换衣服还能重试，不会一次网抖就永远穿不上
+  OUTFIT_FILES.set(id,outfitLoader.loadAsync(url).then(g=>(OUTFIT_READY.set(id,g.scene),g.scene),e=>{OUTFIT_FILES.delete(id);throw e;}));
+ }
+ return OUTFIT_FILES.get(id);
+}
+// 先把这几套下好：之后新建的小人当场就穿上，不用等（验图脚本、列车同时上好几个人时用）
+export const preloadOutfits=(ids=Object.keys(OUTFITS))=>Promise.all(ids.map(outfitSource));
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
 // ⚠️名字里不能带点：GLTFLoader 会把节点名里的点洗掉，hair.korean 到网页里就认不出来了。
 // ⚠️不要改回 traveler.glb——那一份是 art/fairy-garden 那套脚本自己的输入（doll_hair.SRC 读它）。
-export const HAIR_STYLES=['korean','curtains','airbang','bob','pixie'];
+export const HAIR_STYLES=['korean','curtains','airbang','bob','pixie','fluffy','longpart'];
 // 体型：六个参数以 1 为中性。形变规则只写在 clay_doll.deform 里，导出成形态键；
 // 这儿只把「值 - 1」送进 morphTargetInfluences，和 Blender 那边同一个算法。
 // ⚠️不要在这儿再实现一遍形变——那就是同一层活在两处。
@@ -99,19 +116,21 @@ export function createTraveler(source,companion=false,look={}){
  // v2 娃娃是蒙皮网格：clone(true) 复制出来的 SkinnedMesh 还绑着【源模型】的骨头，
  // 不重绑的话两个人共用一副骨架、谁也动不了。按骨头名字在自己这份里重新找一遍。
  // 多材质的网格在 GLTFLoader 里是「一个 Group + 几个子网格」，extras 和名字挂在 Group 上，往下传给子网格。
- model.traverse(o=>{if(!o.isMesh)return;const g=o.parent;if(g&&!o.userData.outfit&&!o.userData.hair&&(g.userData.outfit||g.userData.hair)){Object.assign(o.userData,g.userData);o.name=g.name;}
+ const adopt=part=>part.traverse(o=>{if(!o.isMesh)return;const g=o.parent;if(g&&!o.userData.outfit&&!o.userData.hair&&(g.userData.outfit||g.userData.hair)){Object.assign(o.userData,g.userData);o.name=g.name;}
   // ⚠️boneInverses 也要各自一份：Skeleton 收的是【同一个数组】，体型重绑时 calculateInverses 会原地改它，
   //   不复制的话一个人换体型，所有小人的骨架都被改掉（她 2026-09-25：「中间那个大只的也太奇怪了」）。
+  //   后下载的衣服也走这里：它带着自己那副同名骨架，一样按名字换成这个人的骨头。
   if(o.isSkinnedMesh)o.bind(new T.Skeleton(o.skeleton.bones.map(b=>model.getObjectByName(b.name)),o.skeleton.boneInverses.map(m=>m.clone())),o.bindMatrix);});
+ adopt(model);
  // ⚠️clone(true) 只克隆节点，【材质仍然是同一份】：不给每个实例各一份，
  //   改一个人的发色，另一个人的头发会跟着一起变（美术脚本那头也踩过同一个坑）。
  const isHair=o=>/^hair[._]/i.test(o.name),hairName='hair_'+style;
  const mine=new Map(),coverageByOutfit=new Map();
- model.traverse(o=>{if(!o.userData.outfit)return;const id=o.userData.outfit,c=coverageByOutfit.get(id)||{};
+ const coverOf=part=>part.traverse(o=>{if(!o.userData.outfit)return;const id=o.userData.outfit,c=coverageByOutfit.get(id)||{};
   if(Number.isFinite(o.userData.coversFeetBelow))c.feet=o.userData.coversFeetBelow;
   if(o.userData.skinCoverage)Object.assign(c,o.userData.skinCoverage);coverageByOutfit.set(id,c);
  });
- model.traverse(o=>{if(!o.isMesh)return;
+ const prep=part=>part.traverse(o=>{if(!o.isMesh)return;
   // ⚠️藏起来的那十一款头发也要克隆材质：以后 setLook 换到其中一款时它才有自己的一份。
   //   跳过不克隆的话，换完发型两个人共用同一份材质，谁后设色谁说了算（实测两个小人一起变色）。
   if(isHair(o))o.visible=o.name===hairName;
@@ -126,8 +145,29 @@ export function createTraveler(source,companion=false,look={}){
   if(isHair(o)){hairShader(o);dyeHair(o,want);o.material.roughness=.85;}
   else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(want.cloth);
  });
- const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;model.traverse(o=>{if(!o.isMesh)return;
-   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(id)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
+ coverOf(model);prep(model);
+ // 这个人身上已经有哪几套（旧的整包模型里五套全在；拆开以后一开始一套都没有）
+ const worn=new Set();model.traverse(o=>{if(o.userData.outfit)worn.add(o.userData.outfit);});
+ const fetching=new Set();let shown=null,dressed=Promise.resolve(),built=false;
+ // 把一套衣服接到这个人身上。建人的时候（built 之前）后面自会统一推形态键、收骨架、重绑；
+ //   建好以后才到的，要自己补这三步。
+ const put=(id,scene)=>{
+  const part=scene.clone(true),pieces=[];
+  part.traverse(o=>{if(o!==part&&o.userData.outfit&&!o.parent.userData.outfit)pieces.push(o);});
+  // 挂回同名的父节点（DollRig）：和整包模型里一模一样的位置
+  for(const o of pieces)(model.getObjectByName(o.parent.name)||model).add(o);
+  for(const o of pieces){adopt(o);coverOf(o);prep(o);}worn.add(id);
+  if(built){for(const o of pieces)o.traverse(m=>{if(m.isSkinnedMesh)skinned.push(m);});applyDims(want.dims);rebindBones(want.dims);}
+ };
+ const wear=id=>{if(worn.has(id))return;if(OUTFIT_READY.has(id))return put(id,OUTFIT_READY.get(id));if(fetching.has(id))return;fetching.add(id);
+  dressed=outfitSource(id).then(scene=>{if(!worn.has(id)){put(id,scene);dress(want);}},
+   e=>{console.warn('outfit',id,e);if(!shown)model.visible=true;}).finally(()=>fetching.delete(id));};
+ // 要穿的那套还在路上：先照旧穿着上一套（第一次还没有任何一套时整个人先不露面，免得闪一下光身子），
+ //   到了再穿；这期间又换了别的，以到货时最新的 want 为准。
+ const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;
+  wear(id);const on=worn.has(id)?id:shown;shown=on;model.visible=!!on||!fetching.has(id);
+  model.traverse(o=>{if(!o.isMesh)return;
+   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(on)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
    if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);
@@ -135,7 +175,7 @@ export function createTraveler(source,companion=false,look={}){
    if(cov){cov.eyeOn.value=eye?1:0;if(eye)cov.eye.value.set(eye);}
    // 换了眼睛颜色时默认脸也走 faces/default.webp：模型自带那张贴图没有眼珠遮罩
    const face=FACE_ID.test(look.face||'')&&(look.face!=='default'||eye)?faceTexture(look.face||'default'):eye?faceTexture('default'):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
-  if(o.userData.slotDye)dyeOutfit(o,colors);if(o.userData.outfit)o.visible=o.userData.outfit===id;if(o.userData.colorSlot)o.material.color.set(colors[o.userData.colorSlot]);});};
+  if(o.userData.slotDye&&o.userData.outfit===id)dyeOutfit(o,colors);if(o.userData.outfit)o.visible=o.userData.outfit===on;if(o.userData.colorSlot&&o.userData.outfit===id)o.material.color.set(colors[o.userData.colorSlot]);});};
  dress(want);
  const applyDims=dims=>{dims=dims||{};model.traverse(o=>{if(!o.isMesh||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
    for(const key of DIMS){const i=o.morphTargetDictionary[key];if(i==null)continue;const v=Number(dims[key]);o.morphTargetInfluences[i]=isFinite(v)?v-1:0;}});};
@@ -200,8 +240,11 @@ export function createTraveler(source,companion=false,look={}){
    smoothBone(b);if(forearm)smoothBone(forearm);
   }
  }};
- let sitBlend=0,lastPoseTime=null;
- return {root,handPoint:life.handPoint,setLook(next){const n=mergeLook(want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
+ let sitBlend=0,lastPoseTime=null;built=true;
+ return {root,handPoint:life.handPoint,
+  // 身上这套衣服到了没有（按需加载）：验图脚本等它再截图
+  ready:()=>dressed,
+  setLook(next){const n=mergeLook(want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
    dress(n);if(DIMS.some(key=>Number(n.dims?.[key]??1)!==Number(want.dims?.[key]??1))){applyDims(n.dims);fitRig(n.dims);}
    Object.assign(want,n);},

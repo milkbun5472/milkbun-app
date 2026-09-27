@@ -2357,6 +2357,7 @@
     if (!bs.length) return "";
     const lines = bs.map(function (b) {
       const st = b.state === "kept" ? "【已经照原样发生了】"
+        : b.state === "bent" ? "【顺着玩家改过的局面发生了——事成了，但样子变了】"
         : b.state === "broken" ? "【已被玩家拦下 —— 这一页作废，往后永远不许再发生】"
         : "【还没走到】";
       return "· id=" + b.id + "｜「" + b.label + "」" + st
@@ -2528,9 +2529,18 @@
     const skel = rpBeatsBlock(session);
     let task;
     if (rv && rv.keep) {
-      task = "\n【这一拍要写的】玩家决定【让原著这一页照原样发生】：「" + rv.beat.label + "」——" + rv.beat.page +
-        "\n就把这一页真的写出来，落到实处（人物、场合、结果都对得上原著），但用你自己的笔写、别抄原文。" +
-        "玩家在场、看着它发生——写出这个「看着它照原样发生」的滋味。写完再自然收在下一个需要玩家反应的处境上停下。";
+      // ⚠️她 2026-09-27：「我加完原剧情有点衔接不上」。原来这儿要求人物场合结果全都跟原著一样——
+      //   可她前面已经改过好几段，人可能不在那儿了、关系也变了；硬把原著那一页的场合原样搬过来，
+      //   就是从她改出来的局面【瞬移】回原著。所以：结果照原著，过程从眼下这一幕接过去。
+      task = rv.bend
+        ? "\n【这一拍要写的】玩家决定【让原著这一页顺着改过的局面发生】：「" + rv.beat.label + "」——" + rv.beat.page +
+          "\n这件事要成，但按玩家到现在为止改出来的局面变个样子成：谁在场、在哪、因为什么、以什么方式，都从眼下这一幕长出来；" +
+          "原著里那个前提已经被改没了的，就换一条眼下真走得通的路把它促成。前面改过的每一处都算数，别当没发生过。" +
+          "写完再自然收在下一个需要玩家反应的处境上停下。"
+        : "\n【这一拍要写的】玩家决定【让原著这一页照原样发生】：「" + rv.beat.label + "」——" + rv.beat.page +
+          "\n这一页的那件事要照原著真的发生、结果对得上原著，但【从眼下这一幕接过去】：先把此刻的人和处境顺到它能发生的地方，再让它发生；" +
+          "场合或时间跟原著对不上的，挪到眼下能发生的地方，别一下子瞬移回原著的场景，也别当玩家前面改过的没发生过。用你自己的笔写、别抄原文。" +
+          "玩家在场、看着它发生——写出这个「看着它照原样发生」的滋味。写完再自然收在下一个需要玩家反应的处境上停下。";
     } else if (rv) {
       task = "\n【这一拍要写的】玩家【把原著这一页拦下来了】：「" + rv.beat.label + "」——" + rv.beat.page +
         "\n这一页从此作废，它不会发生了，往后也永远不许再发生。" +
@@ -2578,7 +2588,7 @@
   async function genRPEnding(active, session, fic, tab, cpChars, userName, worldbook, perFic) {
     const bs = session.beats || [];
     const broken = bs.filter(function (b) { return b.state === "broken"; });
-    const kept = bs.filter(function (b) { return b.state === "kept"; });
+    const kept = bs.filter(function (b) { return b.state === "kept" || b.state === "bent"; });
     const an = rpAuthorName(fic);
     const sys = buildRPSystem(fic, tab, cpChars, userName, worldbook, session.style, session.know) +
       rpStartLine(session) +
@@ -2629,13 +2639,13 @@
       if (e.who === "src") return dead.indexOf(e.i) >= 0 ? "" : String(e.text || "").trim();
       if (e.who === "nar") return String(e.text || "").trim();
       if (e.who === "me") return String(e.text || "").trim();
-      if (e.who === "page") return "〔原著这一页「" + (e.label || "") + "」——" + (e.keep ? "照原样发生了" : "被拦下了，没有发生") + "〕";
+      if (e.who === "page") return "〔原著这一页「" + (e.label || "") + "」——" + (e.bend ? "顺着改过的局面发生了" : e.keep ? "照原样发生了" : "被拦下了，没有发生") + "〕";
       return "";   // 页边批注不进正文：那是写在稿子边上的，不是这本书的字
     }).filter(Boolean).join("\n\n");
     const bs = session.beats || [];
     const broken = bs.filter(function (b) { return b.state === "broken"; }).length;
     const tail = "\n\n———\n这一版由动笔的那个人走出来："
-      + bs.filter(function (b) { return b.state !== "pending"; }).map(function (b) { return "「" + b.label + "」" + (b.state === "broken" ? "被拦下" : "照原样"); }).join("；")
+      + bs.filter(function (b) { return b.state !== "pending"; }).map(function (b) { return "「" + b.label + "」" + (b.state === "broken" ? "被拦下" : b.state === "bent" ? "顺着改了" : "照原样"); }).join("；")
       + (broken ? "。这本书被改了 " + broken + " 处。" : "。一页也没改。")
       + (dead.length ? "\n原稿有 " + dead.length + " 段被改掉了。" : "")
       + (verdict ? "\n作者写在末页：" + verdict : "");
@@ -4511,11 +4521,11 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.ficTitle),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, [window.Fanfic.rpKnowLabel(s.know), ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步"].filter(Boolean).join(" · ")),
               (function () {
-                const bs = s.beats || [], br = bs.filter(function (b) { return b.state === "broken"; }).length, kp = bs.filter(function (b) { return b.state === "kept"; }).length;
+                const bs = s.beats || [], br = bs.filter(function (b) { return b.state === "broken"; }).length, kp = bs.filter(function (b) { return b.state === "kept" || b.state === "bent"; }).length;
                 if (!bs.length) return null;
                 return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: br ? t.accent : t.fog, marginTop: 2 } },
                   s.done ? (br ? "已定稿 · 改了 " + br + " 处" : "已定稿 · 一页也没改")
-                    : (br ? "拦下 " + br + " 页" : "还没拦下任何一页") + " · 照原样 " + kp + " 页 · 还剩 " + (bs.length - br - kp) + " 页没走到");
+                    : (br ? "拦下 " + br + " 页" : "还没拦下任何一页") + " · 发生了 " + kp + " 页 · 还剩 " + (bs.length - br - kp) + " 页没走到");
               })()),
             h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
         }) : h(Empty, { text: "还没在谁的文上动过笔", sub: "点右上「＋ 新一篇」开始" })));
@@ -4539,10 +4549,10 @@
           return h("button", { key: bt.id, onClick: function () { props.onPick(on ? null : bt.id); }, className: "flex-1 flex flex-col items-center active:opacity-60", style: { minWidth: 0, padding: "0 2px 2px", background: "transparent" } },
             h("div", { style: { position: "relative", width: 15, height: 15, marginTop: 4, borderRadius: 999, boxSizing: "border-box",
                 border: "1px " + (st === "pending" ? "dashed " + t.fog : "solid " + (st === "broken" ? t.accent : t.ink)),
-                background: st === "kept" ? t.ink : t.bg, boxShadow: "0 0 0 3px " + t.bg } },
+                background: (st === "kept" || st === "bent") ? t.ink : t.bg, boxShadow: "0 0 0 3px " + t.bg } },
               st === "broken" ? h("div", { style: { position: "absolute", left: -3, right: -3, top: 6, height: 1.5, background: t.accent, transform: "rotate(-40deg)" } }) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 9, lineHeight: 1.35, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                color: st === "broken" ? t.accent : st === "kept" ? t.sub : t.fog,
+                color: st === "broken" ? t.accent : (st === "kept" || st === "bent") ? t.sub : t.fog,
                 textDecoration: st === "broken" ? "line-through" : "none",
                 fontWeight: on ? 700 : 400 } }, (lit || props.spoiler) ? bt.label : "？"));
         })),
@@ -4683,11 +4693,13 @@
     }
 
     // 走到原著这一页的当口上了：照原样发生，还是花掉这一页把它拦下来
-    async function resolve(bt, keep) {
+    // mode：true＝照原样，false＝拦下，"bend"＝顺着改（事成，但按她改出来的局面变个样子）
+    async function resolve(bt, mode) {
       if (busy) return;
       setBusy(true);
-      const entry = { who: "page", beat: bt.id, label: bt.label, page: bt.page, keep: !!keep };
-      const beats2 = (s.beats || []).map(function (x) { return x.id === bt.id ? Object.assign({}, x, { state: keep ? "kept" : "broken" }) : x; });
+      const keep = !!mode, bend = mode === "bend";
+      const entry = { who: "page", beat: bt.id, label: bt.label, page: bt.page, keep: keep, bend: bend };
+      const beats2 = (s.beats || []).map(function (x) { return x.id === bt.id ? Object.assign({}, x, { state: bend ? "bent" : keep ? "kept" : "broken" }) : x; });
       props.onUpdate(function (ss) {
         ss.beats = beats2; ss.pendingHit = null;
         ss.transcript = (ss.transcript || []).concat([entry]); ss.updatedAt = Date.now(); return ss;
@@ -4696,7 +4708,7 @@
       // 用它组 messages 的话，模型收不到「我把这一页拦下了」那一句。
       const sess2 = Object.assign({}, s, { beats: beats2, pendingHit: null, transcript: (s.transcript || []).concat([entry]) });
       try {
-        const r = await window.Fanfic.genRPTurn(props.active, sess2, props.fic, props.tab, cpc, props.userName, storyLore(bt.label), null, perFic, { resolve: { beat: bt, keep: !!keep }, wantNote: true });
+        const r = await window.Fanfic.genRPTurn(props.active, sess2, props.fic, props.tab, cpc, props.userName, storyLore(bt.label), null, perFic, { resolve: { beat: bt, keep: keep, bend: bend }, wantNote: true });
         applyTurn(r);
       } catch (e) { props.toast && props.toast(String(e.message || e)); }
       setBusy(false);
@@ -4823,7 +4835,7 @@
         h(RPSpine, { t: t, beats: beats, spoiler: spoiler, sel: sel, onPick: setSel }),
         selBeat ? h("div", { className: "mb-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px 10px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: t.fog, marginBottom: 3 } },
-            selBeat.state === "broken" ? "这一页被你拦下了" : selBeat.state === "kept" ? "这一页照原样发生了" : spoiler ? "原著后面写着" : "还没翻到这一页"),
+            selBeat.state === "broken" ? "这一页被你拦下了" : selBeat.state === "bent" ? "这一页顺着你改过的发生了" : selBeat.state === "kept" ? "这一页照原样发生了" : spoiler ? "原著后面写着" : "还没翻到这一页"),
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: selBeat.state === "broken" ? t.fog : t.sub, textDecoration: selBeat.state === "broken" ? "line-through" : "none" } },
             (selBeat.state !== "pending" || spoiler) ? selBeat.page : "你是空手进来的——走到跟前才知道这一页写的是什么。")) : null,
         // 正文（叙事段落 + 我写进去的行动 + 结算掉的页 + 作者的页边批注）
@@ -4836,7 +4848,7 @@
           if (e.who === "page") return h("div", { key: i, className: "my-4 flex items-center gap-2" },
             h("div", { style: { flex: 1, height: 1, background: e.keep ? t.line : t.accent, opacity: e.keep ? 1 : 0.5 } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.08em", color: e.keep ? t.fog : t.accent, whiteSpace: "nowrap" } },
-              e.keep ? "原著这一页「" + e.label + "」照原样发生" : "原著这一页「" + e.label + "」被你拦下"),
+              e.bend ? "原著这一页「" + e.label + "」顺着改过的发生" : e.keep ? "原著这一页「" + e.label + "」照原样发生" : "原著这一页「" + e.label + "」被你拦下"),
             h("div", { style: { flex: 1, height: 1, background: e.keep ? t.line : t.accent, opacity: e.keep ? 1 : 0.5 } }));
           // 作者伸的那一手：它已经发生在正文里了，这一条只是把它【指出来】——
           // 所以不是气泡也不是段落，是压在正文和批注之间的一行细字，带一道从右边伸过来的横线
@@ -4890,8 +4902,10 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginBottom: 4 } }, hitBeat.label),
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginBottom: 11 } }, hitBeat.page),
             h("div", { className: "flex gap-2" },
-              h("button", { onClick: function () { resolve(hitBeat, true); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px", borderRadius: 10 } }, "让它照原样发生"),
-              h("button", { onClick: function () { resolve(hitBeat, false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "10px", borderRadius: 10 } }, "拦下这一页")))
+              h("button", { onClick: function () { resolve(hitBeat, true); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px 4px", borderRadius: 10, minHeight: 40 } }, "照原样发生"),
+              // 第三条路（她 2026-09-27）：事还是成，但顺着她改出来的局面变个样子
+              h("button", { onClick: function () { resolve(hitBeat, "bend"); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "transparent", border: "1px solid " + t.ink, padding: "10px 4px", borderRadius: 10, minHeight: 40 } }, "顺着改"),
+              h("button", { onClick: function () { resolve(hitBeat, false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "10px", borderRadius: 10 } }, "拦下")))
         : props.fic && canAct ? h("div", { className: "shrink-0" },
           writing
             ? h("div", { className: "px-4 py-3", style: { background: t.bg2, borderTop: "1px solid " + t.line } },
