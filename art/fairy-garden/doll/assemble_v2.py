@@ -8,7 +8,7 @@
   on every outfit, from ONE deform() so clothes follow the body; pivot / HeadAnchor offsets per
   slider go to extras rigMorphs (runtime moves the bones and re-binds);
 - extras skinBase on DollBody: the texture's own skin colour, so a chosen skin tint = ratio.
-Writes apps/fairy-garden/doll.glb, doll.json (hair names from ../hairstyles.json, dims, faces,
+Writes the full doll (split_outfits.MASTER), then the app's doll.glb + outfits/<id>.glb; doll.json (hair names from ../hairstyles.json, dims, faces,
 outfits) and outfits.mjs. Expression textures: bake_faces separately into apps/fairy-garden/faces/.
 Usage: python3 assemble_v2.py"""
 import bpy,sys,os,json,bmesh,numpy as np
@@ -16,7 +16,6 @@ from mathutils import Vector
 HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,os.environ.get('PIECES','web'))   # PIECES=hd: the 陪伴 pet build
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
-HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
 OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤','cardigan':'小兔毛衣'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb','cardigan':'outfit_c04.glb'}
 # per outfit: which colour slots exist (a dress has no separate 'bottom'), shoe colour
 OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e'),'cardigan':dict(bottom=True,accent=False,shoe=None,bottom_z=.33,bottom_pale_z=.42,under='cloth',sole_z=.085,no_trim=True)}
@@ -49,63 +48,11 @@ new=imp(os.path.join(WEB,'doll-rigged.glb'))
 A=next(o for o in new if o.type=='ARMATURE');HA=bpy.data.objects['HeadAnchor'];B=bpy.data.objects['DollBody']
 for o in new:
     if o.type=='MESH' and o.name.startswith('Icosphere'):bpy.data.objects.remove(o)
-def base_image(mat):
-    for n in mat.node_tree.nodes:
-        if n.type=='BSDF_PRINCIPLED':
-            l=n.inputs['Base Color'].links
-            return l[0].from_node.image if l else None
-def grey(mat):
-    im=base_image(mat)
-    if not im:return
-    px=np.array(im.pixels[:]).reshape(-1,4);y=px[:,:3]@[.2126,.7152,.0722]
-    y=np.clip(y/np.percentile(y,92),0,1);px[:,:3]=y[:,None];im.pixels[:]=px.ravel();im.pack()
-for hid,f in HAIRS.items():
-    objs=imp(os.path.join(WEB,f));m=next(o for o in objs if o.type=='MESH');mw=m.matrix_world.copy()
-    m.parent=HA;m.matrix_parent_inverse.identity();m.matrix_basis=mw;m.name='hair_'+hid;m['hair']=hid
-    for s in m.material_slots:
-        s.material=s.material.copy();s.material.name='hair_'+hid;grey(s.material)
-    for o in objs:
-        if o!=m:bpy.data.objects.remove(o)
-def arm_weights(o):
-    gi={g.name:g.index for g in o.vertex_groups};w=np.zeros(len(o.data.vertices))
-    for v in o.data.vertices:
-        for g in v.groups:
-            if g.group in (gi.get('leftArm'),gi.get('rightArm')):w[v.index]+=g.weight
-    return np.clip(w,0,1)
-def colour_slots(o,bottom=True,accent=True,opts={}):
-    """Per-face slot from the face's own texels, then 2 rounds of neighbour majority."""
-    im=base_image(o.material_slots[0].material);W,H=im.size;tex=np.array(im.pixels[:]).reshape(H,W,4)[:,:,:3]**(1/2.2)
-    bm=bmesh.new();bm.from_mesh(o.data);bm.faces.ensure_lookup_table();uv=bm.loops.layers.uv.active
-    slot={}
-    for f in bm.faces:
-        U=np.array([l[uv].uv[:] for l in f.loops]+[np.mean([l[uv].uv[:] for l in f.loops],0)])
-        c=np.median(tex[np.clip((U[:,1]*H).astype(int),0,H-1),np.clip((U[:,0]*W).astype(int),0,W-1)],0)
-        z=f.calc_center_median().z;lum=c@[.2126,.7152,.0722]
-        pale=(c[0]-c[2])<.07   # trousers vs a pink sweater hem at the same height
-        low=z<opts.get('bottom_z',.34) or (z<opts.get('bottom_pale_z',-1) and pale)   # a band above the cut counts only if trouser-coloured
-        s=2 if bottom and low and abs(f.calc_center_median().x)<.2 else 3 if accent and c[0]-c[2]>.12 else 1 if lum>.92 else 0
-        if opts.get('no_trim') and s==1:s=0
-        if z<opts.get('sole_z',-1):s=1   # the shell's own shoes follow the trim colour
-        if f.material_index==1:s=SLOTS.index(opts.get('under','trim'))   # the under-layer follows the shirt (or sweater) colour
-        slot[f.index]=s
-    for _ in range(2):
-        new={}
-        for f in bm.faces:
-            nb=[slot[k.index] for e in f.edges for k in e.link_faces if k!=f]
-            new[f.index]=max(set(nb),key=nb.count) if nb and nb.count(slot[f.index])==0 and slot[f.index]!=3 else slot[f.index]
-        slot=new
-    for a in list(o.data.color_attributes):o.data.color_attributes.remove(a)
-    ca=o.data.color_attributes.new('slot','BYTE_COLOR','CORNER');o.data.color_attributes.active_color=ca;o.data.color_attributes.render_color_index=0
-    for pl in o.data.polygons:
-        for li in pl.loop_indices:ca.data[li].color=(slot[pl.index]/4+.02,0,0,1)
-    base={}
-    for k in range(4):
-        fs=[f for f in bm.faces if slot[f.index]==k]
-        if not fs:continue
-        U=np.array([np.mean([l[uv].uv[:] for l in f.loops],0) for f in fs])
-        c=np.median(tex[np.clip((U[:,1]*H).astype(int),0,H-1),np.clip((U[:,0]*W).astype(int),0,W-1)],0)
-        base[SLOTS[k]]='#%02x%02x%02x'%tuple(int(round(v*255)) for v in np.clip(c,0,1))
-    bm.free();return base
+base_image=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))['base_image']
+_hair=runpy.run_path(os.path.join(HERE,'add_hair.py'))   # the one hair table + how a style hangs
+for hid in _hair['HAIRS']:_hair['hang'](hid,HA)
+_slots=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))
+arm_weights,colour_slots=_slots['arm_weights'],_slots['colour_slots']
 catalog={}
 for oid,f in OUTFITS.items():
     objs=imp(os.path.join(WEB,f));m=next(o for o in objs if o.type=='MESH' and o.name.startswith('Outfit'))
@@ -117,25 +64,17 @@ for oid,f in OUTFITS.items():
     m['slotBase']=catalog[oid]['colors']
     for o in objs:
         if o!=m:bpy.data.objects.remove(o)
-# Shoes (the Hunyuan outfit came without any): a copy of the doll's own feet below SHOE_Z, pushed out
-# along the normals, soles flattened; same bone weights, so they walk with the feet. Plain colour, slot 'boots'.
-SHOE_Z=.085
-def make_shoes(oid,colour='#4a3a32'):
-    S=B.copy();S.data=B.data.copy();bpy.context.collection.objects.link(S);S.name='outfit_'+oid+'_shoes'
-    bm=bmesh.new();bm.from_mesh(S.data);bm.normal_update()
-    bmesh.ops.delete(bm,geom=[f for f in bm.faces if any(v.co.z>SHOE_Z for v in f.verts)],context='FACES')
-    for v in bm.verts:
-        n=v.normal.copy();v.co+=n*(.012 if v.co.z>.012 else .006)
-        if v.co.z<.004:v.co.z=-.003          # a flat sole
-    bm.to_mesh(S.data);bm.free()
-    mat=bpy.data.materials.new('shoes_'+oid);mat.use_nodes=True;bsdf=mat.node_tree.nodes['Principled BSDF']
-    bsdf.inputs['Base Color'].default_value=(*[int(colour[i:i+2],16)/255 for i in (1,3,5)],1);bsdf.inputs['Roughness'].default_value=.7
-    S.data.materials.clear();S.data.materials.append(mat);S['outfit']=oid;S['colorSlot']='boots';catalog[oid]['colors']['boots']=colour
-    for c in list(S.data.color_attributes):S.data.color_attributes.remove(c)
-    return S
-shoes=[make_shoes(k,OUTFIT_OPTS[k]['shoe']) for k in OUTFITS if OUTFIT_OPTS[k]['shoe']]   # shoe=None: the shell has its own
+# The same authored footwear builder is used by full assembly and asset migration.
+import runpy
+build_shoes=runpy.run_path(os.path.join(HERE,'shoes.py'))['build_shoes']
+shoes=[]
+for oid in OUTFITS:
+    colour=OUTFIT_OPTS[oid]['shoe']
+    if colour:
+        shoes.extend(build_shoes(oid,A,colour))
+        catalog[oid]['colors']['boots']=colour
 # shape keys
-for o in [B]+[bpy.data.objects['outfit_'+k] for k in OUTFITS]+shoes:
+for o in [B]+[bpy.data.objects['outfit_'+k] for k in OUTFITS]:
     P=np.array([v.co[:] for v in o.data.vertices]);arm=arm_weights(o);o.shape_key_add(name='Basis')
     for key,*_ in DIMS:
         k=o.shape_key_add(name=key);k.value=0;D=deform(P,arm,key,o!=B)
@@ -160,16 +99,22 @@ for o in bpy.data.objects:
 import runpy
 runpy.run_path(os.path.join(HERE, 'restore_cardigan_shoes.py'))['restore_cardigan_shoes']()
 runpy.run_path(os.path.join(HERE, 'add_elbows.py'))['add_elbows']()
+# Outfits added after the elbow rig (C05 on): the same add_outfit() the single-outfit migration runs.
+_extra=runpy.run_path(os.path.join(HERE,'add_outfit.py'))
+for oid in _extra['EXTRA']:catalog[oid]=_extra['add_outfit'](oid)
 bpy.ops.object.select_all(action='SELECT')
-out=os.environ.get('OUT') or os.path.join(APP,'doll.glb')
+_split=runpy.run_path(os.path.join(HERE,'split_outfits.py'))
+out=os.environ.get('OUT') or _split['MASTER']   # the full doll; split_outfits below writes what the app loads
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True,export_extras=True,export_skins=True,export_animations=False,
     export_morph=True,export_morph_normal=False,export_image_format='WEBP',export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=10,
     export_draco_position_quantization=12,export_draco_normal_quantization=8,export_draco_texcoord_quantization=11,export_draco_color_quantization=6,
     export_try_sparse_sk=True,export_try_omit_sparse_sk=True)
 print('wrote',out,os.path.getsize(out)//1024,'KB skinBase',B['skinBase'],catalog)
 if os.environ.get('OUT'):sys.exit(0)   # the pet build only writes its glb; catalogues stay the garden's
+runpy.run_path(os.path.join(HERE,'dye_regions.py'))['apply_regions'](catalog)
 dj=os.path.join(APP,'doll.json');d=json.load(open(dj))
 d['hair']=LABELS;d['outfits']=catalog;d['faces']=FACES;d['style']='hunyuan-v2-2026-09'
 d['dims']=[dict(key=k,label=l,min=a,max=b,low=lo,high=hi) for k,l,a,b,lo,hi in DIMS]
 with open(dj,'w') as f:json.dump(d,f,ensure_ascii=False,indent=1);f.write('\n')
 with open(os.path.join(APP,'outfits.mjs'),'w') as f:f.write('// Generated by art/fairy-garden/doll/assemble_v2.py.\nexport const OUTFITS = '+json.dumps(catalog,ensure_ascii=False)+';\n')
+_split['split']()

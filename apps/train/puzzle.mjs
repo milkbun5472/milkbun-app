@@ -27,5 +27,25 @@ export function outlines(p){const l=LEVELS.find(x=>x.count===p.count),r=rng(p.se
  return 'M '+fmt([x,y])+' '+append(top,false)+' '+append(right,false)+' '+append(bottom,true)+' '+append(left,true)+' Z';});
 }
 export function isEdgePiece(p,id){const l=LEVELS.find(x=>x.count===p.count),c=id%l.cols,r=Math.floor(id/l.cols);return c===0||r===0||c===l.cols-1||r===l.rows-1;}
-export function nextCompanionMove(p,skill,random=Math.random,ids=null){const free=p.pieces.filter(x=>!x.locked&&(!ids||ids.includes(x.id)));if(!free.length)return null;const edges=free.filter(q=>isEdgePiece(p,q.id));const candidates=skill>.55&&edges.length?edges:free,q=candidates[Math.floor(random()*candidates.length)],t=target(p,q.id),correct=random()<.55+skill*.43;
- return{id:q.id,x:correct?t.x:t.x+t.w*(random()<.5?1:-1),y:t.y,duration:1.2+(1-skill)*2,wait:1+(1-skill)*3,correct};}
+// 同行者怎么拼（她 2026-09-26：「不能所有人都那么快会拼好，也要会犯错或者乱翻乱摆」）。
+// skill 0~1：越低越常拼错、越慢、越爱发呆；错法有三种——
+//   near 放偏一格（差一点）；wrong 放到了别的片的位置上；wander 随手往桌上一丢（乱摆）。
+// 错放的片不会锁住，之后 TA 还会再拿起来重试，看起来就是「试了几次才对」。
+export const SKILL_LEVELS=[{id:'auto',label:'随角色'},{id:'novice',label:'新手',skill:.1},{id:'casual',label:'普通',skill:.4},{id:'skilled',label:'熟练',skill:.7},{id:'expert',label:'高手',skill:.95}];
+export function levelSkill(level,id){const l=SKILL_LEVELS.find(x=>x.id===level);return l&&l.skill!=null?l.skill:skillOf(id);}
+// 同一档水平里每个人也不一样（她 2026-09-26）：按同行者 id 定一副固定的「拼图脾气」——
+//   pace 手快手慢；dreamy 爱不爱发呆；edge 爱不爱先拼边框；mess 错的时候偏爱哪种错（近/错位/乱丢）；jitter 水平上下浮一点。
+function hashOf(id,salt){let h=2166136261;for(const c of salt+':'+String(id))h=Math.imul(h^c.charCodeAt(0),16777619);return (h>>>0)/4294967295;}
+export function styleOf(id){return{pace:.75+hashOf(id,'pace')*.6,dreamy:.5+hashOf(id,'dreamy')*1.3,edge:hashOf(id,'edge'),mess:hashOf(id,'mess'),jitter:(hashOf(id,'jitter')-.5)*.16};}
+const PLAIN={pace:1,dreamy:1,edge:.5,mess:.5,jitter:0};
+export function nextCompanionMove(p,skill,random=Math.random,ids=null,style=PLAIN){style=style||PLAIN;skill=Math.max(.02,Math.min(.99,skill+style.jitter));const free=p.pieces.filter(x=>!x.locked&&(!ids||ids.includes(x.id)));if(!free.length)return null;const edges=free.filter(q=>isEdgePiece(p,q.id));
+ // 会先拼边框的只有熟手；新手东拿一片西拿一片
+ const candidates=skill+(style.edge-.5)*.5>.55&&edges.length?edges:free,q=candidates[Math.floor(random()*candidates.length)],t=target(p,q.id),correct=random()<.35+skill*.62;
+ const duration=(1.1+(1-skill)*2.4)*style.pace,hesitate=random()<(1-skill)*.35*style.dreamy?2+random()*4:0,wait=(.8+(1-skill)*3.2)*style.pace+hesitate;
+ if(correct)return{id:q.id,x:t.x,y:t.y,duration,wait,correct:true,kind:'place'};
+ const f=random(),lock=Math.min(t.w,t.h)*.32;let x,y,kind;
+ if(f<(.1+(1-skill)*.35)*(.4+style.mess*1.2)){kind='wander';x=BOARD.x+random()*(BOARD.w-t.w);y=BOARD.y+random()*(BOARD.h-t.h);}
+ else if(f<(.3+(1-skill)*.35)*(.7+(1-style.mess)*.6)&&p.pieces.length>1){kind='wrong';const others=p.pieces.filter(o=>o.id!==q.id),o=others[Math.floor(random()*others.length)],ot=target(p,o.id);x=ot.x;y=ot.y;}
+ else{kind='near';x=t.x+t.w*(random()<.5?1:-1);y=t.y;}
+ if(Math.hypot(x-t.x,y-t.y)<lock)x=t.x+t.w*(t.x+t.w*1.5<BOARD.x+BOARD.w?1:-1);   // 乱丢也别刚好丢对
+ return{id:q.id,x,y,duration,wait,correct:false,kind};}

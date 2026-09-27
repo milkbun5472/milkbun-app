@@ -7,26 +7,19 @@ Run with Blender: --python restore_cardigan_shoes.py -- input.glb output.glb
 from pathlib import Path
 import bpy, bmesh, numpy as np
 from mathutils import Matrix, Vector
-from mathutils.kdtree import KDTree
 
 HERE = Path(__file__).resolve().parent
 
 
 def restore_cardigan_shoes():
-    if bpy.data.objects.get('outfit_cardigan_footwear'):
-        raise RuntimeError('Source footwear is already installed')
+    previous=bpy.data.objects.get('outfit_cardigan_footwear')
+    replacing=previous is not None
+    if previous and previous.get('sourceFootwearVersion',0)>=2:return previous
+    if previous:bpy.data.objects.remove(previous,do_unlink=True)
     garment = bpy.data.objects['outfit_cardigan']
     rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
     from mathutils.bvhtree import BVHTree
     garment_tree = BVHTree.FromObject(garment, bpy.context.evaluated_depsgraph_get())
-    # Keep the existing authored morph offsets, including the seated correction.
-    points = np.array([v.co[:] for v in garment.data.vertices])
-    kd = KDTree(len(points))
-    for i, point in enumerate(points):
-        kd.insert(point, i)
-    kd.balance()
-    morphs = {k.name: np.array([v.co[:] for v in k.data]) - points
-              for k in list(garment.data.shape_keys.key_blocks)[1:]}
 
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=str(HERE / 'v2/outfits/hunyuan-c04-shell.glb'))
@@ -46,7 +39,10 @@ def restore_cardigan_shoes():
         v.co.z += .1 * min(1., max(0., (v.co.z - .05) / .3))
     bm = bmesh.new()
     bm.from_mesh(raw.data)
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if any(v.co.z > .18 for v in f.verts)], context='FACES')
+    # Weld source UV seams before reduction, retaining loop UVs. Decimating
+    # separate islands creates pinholes and jagged cuff boundaries.
+    bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00002)
+    bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),plane_co=(0,0,.18),plane_no=(0,0,1),dist=1e-6,clear_outer=True)
     bm.to_mesh(raw.data)
     bm.free()
     # Fit only the trouser overlap to the calf. Applying this to the shoe toe
@@ -75,19 +71,20 @@ def restore_cardigan_shoes():
     for obj in imported - {raw}:
         bpy.data.objects.remove(obj, do_unlink=True)
 
-    # The source pair extends under the existing trouser cuffs, hiding the join.
-    bm = bmesh.new()
-    bm.from_mesh(garment.data)
-    bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
-        plane_co=(0, 0, .14), plane_no=(0, 0, 1), dist=1e-6, clear_inner=True)
-    bm.to_mesh(garment.data)
-    bm.free()
+    if not replacing:
+        # The source pair extends under the existing trouser cuffs, hiding the join.
+        bm = bmesh.new()
+        bm.from_mesh(garment.data)
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
+            plane_co=(0, 0, .14), plane_no=(0, 0, 1), dist=1e-6, clear_inner=True)
+        bm.to_mesh(garment.data)
+        bm.free()
     raw.data.materials.clear()
     raw.data.materials.append(garment.data.materials[0].copy())
     raw['outfit'] = 'cardigan'
     raw['slotBase'] = garment['slotBase']
     raw['coversFeetBelow'] = .14
-    raw['sourceFootwearVersion'] = 1
+    raw['sourceFootwearVersion'] = 2
     raw.parent = rig
     for face in raw.data.polygons:
         face.material_index = 0
@@ -108,17 +105,16 @@ def restore_cardigan_shoes():
     modifier = raw.modifiers.new('Rig', 'ARMATURE')
     modifier.object = rig
     raw.shape_key_add(name='Basis')
-    neighbours = []
-    for vertex in raw.data.vertices:
-        near = kd.find_n(vertex.co, 8)
-        ids = [entry[1] for entry in near]
-        weights = 1 / np.maximum([entry[2] for entry in near], .001) ** 2
-        neighbours.append((ids, weights / weights.sum()))
-    for name, offsets in morphs.items():
+    # Evaluate the shared smooth body field directly. Nearest-garment offset
+    # interpolation introduced discontinuities between newly welded shoe faces.
+    import runpy
+    shape = runpy.run_path(str(HERE / 'body_shape.py'))
+    points = np.array([v.co[:] for v in raw.data.vertices])
+    for name in ('height', 'shoulder', 'waist', 'flare', 'build', 'head'):
         key = raw.shape_key_add(name=name)
         key.value = 0.
-        for vertex, (ids, weights) in zip(raw.data.vertices, neighbours):
-            key.data[vertex.index].co = vertex.co + Vector(np.sum(offsets[ids] * weights[:, None], axis=0))
+        deformed = points + shape['deform'](points, np.zeros(len(points)), name, True)
+        key.data.foreach_set('co', deformed.ravel())
     print('Restored source sneakers:', len(raw.data.vertices), 'vertices;', len(raw.data.polygons), 'faces')
     return raw
 

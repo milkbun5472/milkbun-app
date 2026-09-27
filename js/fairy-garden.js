@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-0067d556fe1d225e", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-f6f4db1cdeac211e", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -173,7 +173,7 @@
     const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(""),[error,setError]=useState("");
     const key=props.storeKey||KEY;
     const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
-    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{...aloud.current.bridge(()=>frame.current===node,()=>{const d=current();return (latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;}),load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name,avatar:c.avatarImage?(typeof resolveImg==="function"?resolveImg(c.avatarImage):c.avatarImage):""}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{...aloud.current.bridge(()=>frame.current===node,()=>{const d=current();return (latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;}),load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node)setLoaded(true);},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name,ta:typeof CharacterPronoun!=="undefined"?CharacterPronoun.ta(c):"TA",voice:!!c.voiceId,avatar:c.avatarImage?(typeof resolveImg==="function"?resolveImg(c.avatarImage):c.avatarImage):""}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
     const savedAction=async action=>{try{if(talking.current)throw Error("同行者正在回复，等这句说完再离开。");flush();await action();}catch(e){setError(e.message);props.toast(e.message);}};
@@ -253,6 +253,9 @@
     return h(React.Fragment, null,
       h(DyeControl, { key: who + "skin", label: "肤色", value: game() && game().getDyes ? game().getDyes(who).skin : null,
         onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
+      // 眼睛颜色（她 2026-09-26）：庭院、列车、陪伴三处都走这一份控件，数据字段 eye
+      h(DyeControl, { key: who + "eye", label: "眼睛", value: game() && game().getDyes ? game().getDyes(who).eye : null,
+        onChange: eye => pushLook({ eye }), palette: ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"] }),
       h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
@@ -261,11 +264,13 @@
             return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
               style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
           })),
-        // 只列这一套真有的色槽（doll.json 里它的 colors）；v2 的学院背心是贴图配色，一个槽都没有，就整段不出。
+        // 按当前衣服列出真实可选区域；复位也走共用外貌写入，保留其他衣服。
         (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
-          const slots = [["cloth", "衣服主色"], ["trim", "衬衫与领边"], ["bottom", "裤袜颜色"], ["accent", "领带与点缀"], ["boots", "鞋子颜色"]]
-            .filter(([slot]) => selected && styles && styles.outfits && styles.outfits[selected.id] && slot in styles.outfits[selected.id].colors);
-          return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。")].concat(slots.map(([slot, label]) => {
+          const outfit = selected && styles?.outfits?.[selected.id];
+          const slots = Object.entries(outfit?.colorLabels || {cloth:"衣服主色",trim:"衬衫与领边",bottom:"裤袜颜色",accent:"领带与点缀",boots:"鞋子颜色"})
+            .filter(([slot]) => outfit && slot in outfit.colors);
+          return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"), h("button", { key: "reset-colors", type: "button", onClick: () => pushLook({ outfitColors: { ...outfit.colors } }),
+            style: { minHeight: 44, padding: "8px 14px", marginBottom: 8, border: "1px solid " + G.line, borderRadius: 10, background: "#f7f5e9", color: G.deep, fontFamily: F_BODY, fontSize: 12 } }, "恢复本套默认配色")].concat(slots.map(([slot, label]) => {
             const hex = selected.colors[slot] || "#8d5f66";
             return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
           })) : null; })()),

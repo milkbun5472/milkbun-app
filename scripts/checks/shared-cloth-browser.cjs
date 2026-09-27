@@ -6,11 +6,12 @@ fs.mkdirSync(out,{recursive:true});
 (async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
  const page=await browser.newPage({viewport:{width:2000,height:1900}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));await page.goto(base+'/apps/companion/');
+ await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
+ if(process.env.MODEL)await page.route('**/doll.glb*',r=>r.fulfill({path:process.env.MODEL,contentType:'model/gltf-binary'}));await page.goto(base+'/apps/companion/');
  await page.evaluate(async()=>{
-  const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler}=await import('../fairy-garden/traveler.mjs');
+  const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await import('../fairy-garden/traveler.mjs');
   const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');const loader=new GLTFLoader();loader.setDRACOLoader(draco);
-  const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene,catalog=await(await fetch('../fairy-garden/doll.json')).json();
+  const source=(await loader.loadAsync('../fairy-garden/doll.glb').then(async g=>(await preloadOutfits(),g))).scene,catalog=await(await fetch('../fairy-garden/doll.json')).json();
   const scene=new T.Scene();scene.background=new T.Color('#f0e8db');scene.add(new T.HemisphereLight('#fff','#aaa',2.3));const light=new T.DirectionalLight('#fff',1.5);light.position.set(2,3,4);scene.add(light);
   const renderer=new T.WebGLRenderer({antialias:true});renderer.setSize(2000,1900);document.body.append(renderer.domElement);
   const camera=new T.OrthographicCamera(-2.37,2.37,2.25,-2.25,.1,20);camera.position.set(0,1,6);camera.lookAt(0,.7,0);
@@ -24,18 +25,18 @@ fs.mkdirSync(out,{recursive:true});
   a.setLook({outfit:'garden'});torsoStates.push(ua.torso.value);states.push(ua.feet.value,ua.sleeve.value.x);b.setLook({outfit:'cardigan'});torsoStates.push(ub.torso.value,ua.torso.value);states.push(ub.feet.value,ub.sleeve.value.x,ua.feet.value);
   const body=b.root.getObjectByName('DollBody');let shadows=0;body.customDepthMaterial.addEventListener('dispose',()=>shadows++);body.customDistanceMaterial.addEventListener('dispose',()=>shadows++);body.material.dispose();return {states,torsoStates,shadows};
  });
- assert.deepEqual(state.states,[.14,.205,-1,-1,-1,-1,.14,.205,-1]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,-1,-1,.705,-1]);
+ assert.deepEqual(state.states,[.14,.198,.14,.198,.14,.140,.14,.198,.14]);assert.equal(state.shadows,2);assert.deepEqual(state.torsoStates,[.705,.705,.705,.705,.705]);
  const batches=[['rest','wave','stretch','tea','read'],['water','plant','draw','eat','give']];
- for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,3.1]){
-  await page.evaluate(({gestures,angle})=>{
+ for(const outfit of ['cardigan','academy','garden','ranger'])for(let batch=0;batch<batches.length;batch++)for(const angle of [0,1.55,-1.55,3.1]){
+  await page.evaluate(({gestures,angle,outfit})=>{
    const {T,createTraveler,source,catalog,scene,renderer,camera,dolls}=clothQA;for(const d of dolls)scene.remove(d.root);dolls.length=0;
    for(let row=0;row<3;row++)for(let col=0;col<5;col++){
     const dims=Object.fromEntries(catalog.dims.map(d=>[d.key,row===0?1:row===1?d.min:d.max]));
-    const d=createTraveler(source,false,{outfit:'cardigan',hair:'curtains',dims});scene.add(d.root);dolls.push(d);
+    const d=createTraveler(source,false,{outfit,hair:'curtains',dims});scene.add(d.root);dolls.push(d);
     for(let f=0;f<30;f++)d.animate(f*.1,{gesture:gestures[col],progress:.5,height:0});d.root.position.set((col-2)*.87,(1-row)*1.5,0);d.root.rotation.y=angle;
    }renderer.render(scene,camera);
-  },{gestures:batches[batch],angle});
-  await page.screenshot({path:`${out}/cardigan-${batch}-${angle}.png`});
+  },{gestures:batches[batch],angle,outfit});
+  await page.screenshot({path:`${out}/${outfit}-${batch}-${angle}.png`});
  }
  // Other outfits retain their own skin visibility after changing out of cardigan.
  await page.evaluate(()=>{
@@ -44,5 +45,22 @@ fs.mkdirSync(out,{recursive:true});
    const d=createTraveler(source,false,{outfit:'cardigan',hair:'curtains'});d.setLook({outfit});scene.add(d.root);dolls.push(d);for(let f=0;f<30;f++)d.animate(f*.1,{gesture,progress:.5});d.root.position.set((col-2)*.87,(1-row)*1.5,0);d.root.rotation.y=.35;
   }));renderer.render(scene,camera);
  });await page.screenshot({path:out+'/outfits.png'});
- assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:105,errors}));
+ // Close inspection catches dirty collars and side scraps that a contact sheet hides.
+ for(const outfit of ['cardigan','academy','garden','ranger'])for(const mode of ['default','min','max','tinted']){
+  await page.evaluate(({mode,outfit})=>{
+   const {createTraveler,source,catalog,scene,renderer,camera,dolls}=clothQA;
+   for(const d of dolls)scene.remove(d.root);dolls.length=0;
+   camera.left=-1.47;camera.right=1.47;camera.top=1.4;camera.bottom=-1.4;camera.updateProjectionMatrix();
+   [0,1.55,3.1].forEach((angle,col)=>['rest','stretch'].forEach((gesture,row)=>{
+    const dims=Object.fromEntries(catalog.dims.map(d=>[d.key,mode==='min'||mode==='max'?d[mode]:1]));
+    const d=createTraveler(source,false,{outfit,hair:'curtains',dims});
+    if(mode==='tinted')d.setLook({outfitColors:{cloth:'#ab594b'}});
+    scene.add(d.root);dolls.push(d);
+    for(let f=0;f<30;f++)d.animate(f*.1,{gesture,progress:.5,height:0});
+    d.root.position.set((col-1)*.94,(.5-row)*1.28,0);d.root.rotation.y=angle;
+   }));renderer.render(scene,camera);
+  },{mode,outfit});
+  await page.screenshot({path:`${out}/${outfit}-close-${mode}.png`});
+ }
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({coverage:state,renderedPoses:591,errors}));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

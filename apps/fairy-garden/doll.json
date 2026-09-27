@@ -4,7 +4,9 @@
   "curtains": "中分微卷",
   "airbang": "刘海长发",
   "bob": "内扣短发",
-  "pixie": "刺刺短发"
+  "pixie": "刺刺短发",
+  "fluffy": "蓬松卷毛",
+  "longpart": "中分长发"
  },
  "dims": [
   {
@@ -64,7 +66,16 @@
     "trim": "#f9f4ef",
     "bottom": "#978d86",
     "accent": "#ad8e80",
-    "boots": "#4a3a32"
+    "boots": "#4a3a32",
+    "socks": "#f4e8d0"
+   },
+   "colorLabels": {
+    "cloth": "背心与徽章",
+    "trim": "衬衫与衣领",
+    "bottom": "短裤",
+    "accent": "领带",
+    "socks": "袜子",
+    "boots": "鞋子"
    }
   },
   "garden": {
@@ -72,7 +83,18 @@
    "colors": {
     "cloth": "#ae988b",
     "trim": "#f7f0eb",
-    "boots": "#3b2b25"
+    "boots": "#3b2b25",
+    "accent": "#ae988b",
+    "detail": "#eed2af",
+    "socks": "#f4e8d0"
+   },
+   "colorLabels": {
+    "cloth": "裙身、包包与肩带",
+    "trim": "衬衫与衣领",
+    "accent": "蝴蝶结",
+    "detail": "小熊脸部",
+    "socks": "袜子",
+    "boots": "鞋子"
    }
   },
   "ranger": {
@@ -82,14 +104,65 @@
     "bottom": "#c7bcb4",
     "accent": "#6f604c",
     "boots": "#5a4a3e"
-   }
+   },
+   "colorLabels": {
+    "cloth": "卫衣",
+    "bottom": "工装裤",
+    "accent": "包包与肩带",
+    "boots": "鞋子"
+   },
+   "coveredLegsBelow": 0.38
   },
   "cardigan": {
    "label": "小兔毛衣",
    "colors": {
     "cloth": "#ead6d4",
     "trim": "#ead8d3",
-    "bottom": "#f4e8e2"
+    "bottom": "#f4e8e2",
+    "bag": "#f4e8e2",
+    "boots": "#ead8d3"
+   },
+   "colorLabels": {
+    "cloth": "毛衣",
+    "bottom": "长裤",
+    "bag": "包包与肩带",
+    "boots": "鞋子"
+   },
+   "coveredLegsBelow": 0.38
+  },
+  "jacket": {
+   "label": "短夹克工装裤",
+   "colors": {
+    "cloth": "#a89e95",
+    "trim": "#d1c5b8",
+    "bottom": "#868582",
+    "boots": "#d1c5b8"
+   },
+   "colorLabels": {
+    "cloth": "夹克",
+    "trim": "内搭",
+    "bottom": "工装裤",
+    "boots": "鞋子"
+   },
+   "coveredLegsBelow": 0.38
+  },
+  "suit": {
+   "label": "小西装短裤",
+   "colors": {
+    "cloth": "#7e7c7a",
+    "trim": "#dddad5",
+    "bottom": "#6f6e6b",
+    "accent": "#7e7c7a",
+    "socks": "#dddad5",
+    "boots": "#6f6e6b"
+   },
+   "colorLabels": {
+    "cloth": "西装外套",
+    "trim": "衬衫",
+    "bottom": "短裤",
+    "accent": "领带",
+    "socks": "袜子",
+    "boots": "皮鞋"
    }
   }
  },

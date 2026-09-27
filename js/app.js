@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.144";
+const APP_VERSION = "v74.169";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5285,6 +5285,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️线上那路 v68.65 挡住了，群线下那路没挡（我 2026-09-15 复查 Codex 那几版时扫到的）。
   //   判据收在这一处，两路都问它：roomKind 记在群自己身上，spectate 记在另一份 groupSettings 里，
   //   两头都要问（同 3626 行那一处的写法）。
+  // 悬浮小人是全 app 唯一【常驻】的 WebGL。这几页自己就跑着一套 three.js
+  // （庭院和列车都在 fairyGarden 这一页里，各带 vendor/three 和一堆 .glb），
+  // 两套同时开会把内存挤爆——她手机在 8MB 高清包那次就是这么被挤到重启的（2026-09-26）。
+  // ⚠️名单只有这一份：以后再加带 3D 的页，往这儿加一个名字就行。
+  const COMPANION_HIDE_SCREENS = new Set(["companion", "fairyGarden"]);
   const groupSpectating = group => !!(group && (group.roomKind === "spectate" || (gsFor(group.id) || {}).spectate));
   const onMeFor = () => (inventoryRef.current || []).filter(x => x && x.onMe).map(x => x.name).filter(Boolean).slice(0, ON_ME_CAP).join("、");
   // ── 我在 TA 面前是谁（她 2026-09-22 转群里读者：「是只能一个 user 面具吗？」）──
@@ -7350,17 +7355,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       endLane("c:" + scopeKey);
     }
   };
+  // 线下的文风／预设台跟着这个人记住（群里反馈 2026-09-27：「每次进线下先来一段默认的，才能去设置里改文风库的文风」）。
+  //   开「默认进线下」时这一场是自动开的，从来没问过她要哪种文风，于是第一段永远是默认；
+  //   手动进的那一页文风也总是重置回默认。现在：她上一次选过什么，下一场就先用什么。
+  const rememberOfflineStyle = (charId, st) => saveOfflineSettings(charId, { lastStyle: { styleKey: st.styleKey || "default", stylePrompt: st.stylePrompt || "", presetOn: !!st.presetOn, presetId: st.presetId || "" }, presetOn: !!st.presetOn, presetId: st.presetId || "" });
   const startOffline = async (scopeKey, opts) => {
     const charId = offlinePersonId(scopeKey);
     const opening = (opts.opening || "").trim();
+    const last = (osFor(charId) || {}).lastStyle || {};
+    const picked = opts.styleKey != null
+      ? { styleKey: opts.styleKey || "default", stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "", presetOn: !!opts.presetOn, presetId: opts.presetId || "" }
+      : { styleKey: last.styleKey || "default", stylePrompt: last.stylePrompt || "", presetOn: !!(last.presetOn != null ? last.presetOn : (osFor(charId) || {}).presetOn), presetId: last.presetId || (osFor(charId) || {}).presetId || "" };
+    if (opts.styleKey != null) rememberOfflineStyle(charId, picked);
     const sess = {
       id: "off_" + Date.now(),
       startTs: Date.now(),
       endTs: null,
-      styleKey: opts.styleKey || "default",
-      presetOn: !!opts.presetOn,
-      presetId: opts.presetId || "",
-      stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
+      styleKey: picked.styleKey,
+      presetOn: picked.presetOn,
+      presetId: picked.presetId,
+      stylePrompt: picked.stylePrompt,
       taste: opts.taste || osTaste(charId),
       customNotes: [],
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
@@ -7510,6 +7524,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const offlineSetStyle = (scopeKey, patch) => {
     const charId = offlinePersonId(scopeKey);
     pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste(charId) } : s));
+    rememberOfflineStyle(charId, patch);
     toast("文风已切换 · 下次演绎生效");
   };
   const endOffline = async scopeKey => {
@@ -8045,14 +8060,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     const opening = (opts.opening || "").trim();
+    // 群线下同一个规矩：上一场选过的文风／预设台，下一场先用它（自动开的那一场也是）
+    const gKey = "g_" + groupId, gLast = (osFor(gKey) || {}).lastStyle || {};
+    const picked = opts.styleKey != null
+      ? { styleKey: opts.styleKey || "default", stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "", presetOn: !!opts.presetOn, presetId: opts.presetId || "" }
+      : { styleKey: gLast.styleKey || "default", stylePrompt: gLast.stylePrompt || "", presetOn: !!gLast.presetOn, presetId: gLast.presetId || "" };
+    if (opts.styleKey != null) rememberOfflineStyle(gKey, picked);
     const sess = {
       id: "goff_" + Date.now(),
       startTs: Date.now(),
       endTs: null,
-      styleKey: opts.styleKey || "default",
-      presetOn: !!opts.presetOn,
-      presetId: opts.presetId || "",
-      stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
+      styleKey: picked.styleKey,
+      presetOn: picked.presetOn,
+      presetId: picked.presetId,
+      stylePrompt: picked.stylePrompt,
       taste: opts.taste || osTaste("g_" + groupId),
       customNotes: [],
       onlinePrelude: groupOnlinePrelude(groupId),
@@ -8121,6 +8142,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const groupOfflineSetStyle = (groupId, patch) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
+    rememberOfflineStyle("g_" + groupId, patch);
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note, long) => {
@@ -10027,6 +10049,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         read: true
       } : m));
       let words = Array.isArray(parsed.word) ? parsed.word.filter(Boolean) : (typeof parsed.word === "string" && parsed.word.trim() ? [parsed.word] : []);
+      // 模型把 photo 写进了正文（「[photo: kind=…, face=…, scene=…]」）：捞出来还原成照片，正文里不留这串参数
+      if (typeof pullPhotoMarker === "function") { const _pm = pullPhotoMarker(words); if (_pm.photo || _pm.words.length !== words.length) { words = _pm.words.filter(w => String(w).trim()); if (_pm.photo && !parsed.photo && !parsed.selfie) parsed.photo = _pm.photo; } }
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
       // 消息全是同一个模板）。只记【主动】那一路——被动回复本来就该顺着她的话走。
       if (opts.proactive && words.length) {
@@ -24413,6 +24437,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "companion") body = h(Companion, {
     characters: liveChars,
     moods: moods,
+    apiFor: apiFor,
+    ctxFor: ctxFor,
+    profile: profile,
+    music: !!player.playing,
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
@@ -25076,7 +25104,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEnded: advanceSong
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, hidden: screen === "companion", onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, ctxFor: ctxFor, profile: profile, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

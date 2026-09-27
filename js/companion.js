@@ -7,21 +7,24 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-0067d556fe1d225e";
+  const KEY = "x_companion", BUILD = "fg-f6f4db1cdeac211e";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
   // 顺序有意义：先认强烈的，再认温和的（「又委屈又开心」按委屈算）。
+  // 她 2026-09-26「每个脸的心情词典多加点」：把 mood-label.js 那张英→中表里会出现的词都对上了一格。
+  // ⚠️最先认「不开心／不高兴」这类带否定的：原来它们里面有「开心」两个字，被认成了开心。
   const FACE_RULES = [
-    ["irritated", /生气|火气|烦|恼|不耐|气鼓|暴躁|炸毛|醋/],
-    ["sad", /难过|委屈|伤心|哭|心碎|想哭|酸涩|受伤/],
-    ["gloomy", /低落|失落|疲惫|累|困|倦|思念|想念|寂寞|孤单|闷|丧|emo|惆怅|怅/],
-    ["surprise", /惊讶|意外|错愕|愣|懵|吓/],
-    ["amazed", /激动|兴奋|期待|惊喜|雀跃|心动|哇/],
-    ["proud", /得意|骄傲|傲娇|自豪|嘚瑟|神气|臭屁|胜利/],
-    ["happy", /开心|高兴|快乐|愉悦|欢喜|喜悦|乐|笑/],
-    ["cozy", /温暖|暖意|幸福|甜|满足|惬意|安心|踏实|舒服/],
-    ["relax", /平静|放松|平和|悠闲|慵懒|淡定|安稳|宁静/]
+    ["gloomy", /不(?:开心|高兴|快乐|愉快|爽|舒服)|没(?:心情|劲)|闷闷不乐|提不起/],
+    ["irritated", /生气|火气|烦|恼|不耐|气鼓|暴躁|炸毛|醋|愤|怒|不爽|嫌弃|郁闷|憋屈|挫败|抓狂|咬牙/],
+    ["sad", /难过|委屈|伤心|哭|心碎|想哭|酸涩|受伤|失望|心疼|愧疚|内疚|自责|心酸|哽|心痛|痛苦|绝望/],
+    ["gloomy", /低落|失落|疲惫|累|困(?!惑)|倦|思念|想念|寂寞|孤单|孤独|闷|丧|emo|惆怅|怅|无聊|焦虑|担心|担忧|紧张|不安|忐忑|心事|沉默|沮丧|茫然|迷茫|空落/],
+    ["surprise", /惊讶|意外|错愕|愣|懵|吓|震惊|害怕|慌|困惑|疑惑|不解|诧异|呆/],
+    ["amazed", /激动|兴奋|期待|惊喜|雀跃|心动|哇|好奇|感动|迫不及待|跃跃欲试|热血|振奋/],
+    ["proud", /得意|骄傲|傲娇|自豪|嘚瑟|神气|臭屁|胜利|自信|成就感|坚定|得逞|坏笑|调皮|狡黠|逞强/],
+    ["happy", /开心|高兴|快乐|愉悦|愉快|欢喜|喜悦|欣喜|乐|笑|雀跃|轻快|畅快|爽快|痛快|好心情/],
+    ["cozy", /温暖|暖|幸福|甜|满足|惬意|安心|踏实|舒服|温柔|柔软|亲昵|爱意|感激|感恩|依恋|害羞|羞|撒娇|黏|宠溺|被爱|珍惜/],
+    ["relax", /平静|放松|平和|悠闲|慵懒|淡定|安稳|宁静|安宁|如释重负|释然|松了口气|专注|若有所思|沉思|发呆|懒洋洋|随意/]
   ];
   const FACE_ZH = { default: "平常", happy: "开心", cozy: "惬意", relax: "放松", surprise: "惊讶", amazed: "哇", proud: "得意", gloomy: "低落", sad: "难过", irritated: "不耐烦" };
   function faceForMood(label) {
@@ -43,23 +46,88 @@
     return { type: "pet-look", ta: taOf(char), look: Object.assign({}, own, { face }) };
   }
   // 一只 iframe 画面：加载完成（pet-ready）或样貌变了，就把消息再送一次
-  function PetFrame({ mode, msg, style, onOpen, frameRef }) {
-    const own = useRef(null), ref = frameRef || own;
+  // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
+  // 只送这三样事实，怎么反应由小人自己定（apps/companion/pet.mjs）。
+  const IDLE_MS = 3 * 60 * 1000;
+  let lastTouch = Date.now();
+  ["pointerdown", "keydown", "wheel"].forEach(k => window.addEventListener(k, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+  function useIdle() {
+    const [idle, setIdle] = useState(false);
+    useEffect(() => { const id = setInterval(() => setIdle(Date.now() - lastTouch > IDLE_MS), 15000); return () => clearInterval(id); }, []);
+    return idle;
+  }
+  // 戳一戳时让他顺手说一句（她 2026-09-27）：开关默认关——每一句都是一次 API 调用。
+  // ⚠️走 runProbe({voice:true})：人设全文／心情／好感／印象卡／记忆／反八股是 buildBundle 白给的一整份
+  //   （施工规则/four-surfaces-same-context.md：别自己拼 sys）。料全在 system，user 只留一句触发（runProbe 自己就是这个形状）。
+  // 连戳不连发：停手 1.2 秒才合成一次；两次之间至少隔 15 秒，其间的戳只换动作不说话。
+  const POKE_ZH = { tap: "戳了你一下", double: "连戳了你两下", many: "一直在戳你", lift: "把你拎起来晃了晃又放下" };
+  const voiceOn = () => { try { return localStorage.getItem("x_fairyGardenVoice") === "1"; } catch (e) { return false; } };
+  async function speak(line, voiceId, s) {
+    try { if (s.audio) { s.audio.pause(); s.audio = null; }
+      const blob = await ttsSpeak(line, voiceId), url = URL.createObjectURL(blob), a = new Audio(url); s.audio = a;
+      a.onended = a.onerror = () => { try { URL.revokeObjectURL(url); } catch (_) {} if (s.audio === a) s.audio = null; };
+      await a.play(); } catch (e) {/* 念不出来就只看字 */} }
+  function usePokeTalk(char, props, on) {
+    const [say, setSay] = useState("");
+    const st = useRef({ timer: 0, busy: false, last: 0, pending: null, hide: 0 });
+    useEffect(() => () => { clearTimeout(st.current.timer); clearTimeout(st.current.hide); }, []);
+    const fire = async () => {
+      const s = st.current, info = s.pending; s.pending = null;
+      if (!info || s.busy || !char || Date.now() - s.last < 15000) return;
+      const p = props.apiFor ? props.apiFor(char.id) : null, ctx = props.ctxFor ? props.ctxFor(char) : null;
+      if (!p || !ctx || typeof runProbe !== "function") return;
+      s.busy = true; s.last = Date.now();
+      try {
+        const hr = new Date().getHours(), uName = (props.profile && props.profile.name) || "她";
+        const d = await runProbe(p, ctx, { voice: true, tag: "陪伴",
+          instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。\n"
+            + "按你自己的性子、你此刻的心情，顺手回她一句——就一句，短，像被戳到时脱口而出的那种。可以只是一个语气词，也可以不理她、嫌她烦、或者反过来逗她。"
+            + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : ""),
+          schemaHint: "{\"line\":\"你脱口而出的那一句\"}" });
+        const line = String((d && d.line) || "").trim().slice(0, 60);
+        if (line) { setSay(line); clearTimeout(s.hide); s.hide = setTimeout(() => setSay(""), Math.min(9000, 3000 + line.length * 180));
+          // 念出来（她 2026-09-27）：和庭院、列车同一个开关 x_fairyGardenVoice；TA 没选声音就只冒字
+          if (voiceOn() && char.voiceId && typeof ttsSpeak === "function") speak(line, char.voiceId, s); }
+      } catch (e) {/* 说不出来就只做动作，不打扰她 */}
+      finally { s.busy = false; }
+    };
+    const onPoke = info => { if (!on) return; const s = st.current; s.pending = info; clearTimeout(s.timer); s.timer = setTimeout(fire, 1200); };
+    return [say, onPoke];
+  }
+  function Bubble({ text, style }) {
+    if (!text) return null;
+    return h("div", { style: Object.assign({ position: "absolute", left: "50%", transform: "translateX(-50%)", maxWidth: 200, width: "max-content", padding: "6px 10px", borderRadius: 12,
+      background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "none", zIndex: 2 }, style) }, text);
+  }
+  function PetFrame({ mode, msg, ctx, style, onOpen, onPoke, frameRef, onStatus, onAct, reloadKey }) {
+    const own = useRef(null), ref = frameRef || own, pokeRef = useRef(onPoke);
+    pokeRef.current = onPoke;
     const key = JSON.stringify(msg);
     useEffect(() => {
-      const send = () => { const w = ref.current && ref.current.contentWindow; if (w && msg) w.postMessage(msg, "*"); };
+      const send = () => { const w = ref.current && ref.current.contentWindow; if (w && msg) w.postMessage(msg, "*"); if (w && ctx) w.postMessage(Object.assign({ type: "pet-ctx" }, ctx), "*"); };
       send();
       const on = e => {
         if (!ref.current || e.source !== ref.current.contentWindow || !e.data) return;
-        if (e.data.type === "pet-ready") { send(); if (e.data && ref.onReady) ref.onReady(); }
+        if (e.data.type === "pet-ready") { send(); if (onStatus) onStatus({ state: "ready" }); if (e.data && ref.onReady) ref.onReady(); }
+        // 5MB 的小人第一次要真下一遍：有进度条才知道是在等、不是坏了
+        if (e.data.type === "pet-progress" && onStatus) onStatus({ state: "loading", pct: Number(e.data.pct) || 0 });
+        // 下不来要说人话 + 给一条路（原来是永远挂在「小人还在来的路上…」）
+        if (e.data.type === "pet-failed" && onStatus) onStatus({ state: "failed", why: String(e.data.why || "") });
+        if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
+        if (e.data.type === "pet-poke" && pokeRef.current) pokeRef.current({ kind: String(e.data.kind || "tap"), count: Number(e.data.count) || 1 });
       };
       window.addEventListener("message", on);
       return () => window.removeEventListener("message", on);
-    }, [key]);
-    return h("iframe", { ref, title: "陪伴小人", src: "apps/companion/index.html?mode=" + mode + "&v=" + BUILD,
+    }, [key, JSON.stringify(ctx || null), reloadKey]);
+    return h("iframe", { key: reloadKey || 0, ref, title: "陪伴小人", src: "apps/companion/index.html?mode=" + mode + "&v=" + BUILD + (reloadKey ? "&retry=" + reloadKey : ""),
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
+  // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
+  const ACT_ZH = { 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+    hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
+    turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
+    land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };
 
   function Companion(props) {
     const chars = props.characters || [];
@@ -76,6 +144,12 @@
     const auto = cfg.autoFace !== false;
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
+    const idle = useIdle();
+    const [say, onPoke] = usePokeTalk(char, props, !!cfg.pokeTalk);
+    // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
+    const [petState, setPetState] = useState({ state: "loading", pct: 0 });
+    const [actNow, setActNow] = useState("");
+    const [retry, setRetry] = useState(0);
     const pet = () => { const w = frame.current && frame.current.contentWindow; return w && w.PetGame ? w.PetGame : null; };
     const pushLook = patch => { if (!char) return; const g = pet(); const cur = (load().looks || {})[char.id] || {};
       const next = g ? g.merge(cur, patch) : Object.assign({}, cur, patch);
@@ -92,22 +166,58 @@
       !char ? h("div", { style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
       h(React.Fragment, null,
         h("div", { style: { height: "42vh", flexShrink: 0, position: "relative" } },
-          h(PetFrame, { mode: "full", frameRef: frame, msg: petMessage(char, props.moods, cfg), style: { width: "100%", height: "100%" } })),
+          h(Bubble, { text: say, style: { top: 8 } }),
+          h(PetFrame, { mode: "full", frameRef: frame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
+            onStatus: setPetState, onAct: setActNow, reloadKey: retry, style: { width: "100%", height: "100%" } }),
+          // 他还没画出来的时候屏幕是空的：第一次要下 5MB 的小人，网差就更久。
+          // 原来这里什么都不说，卡住和正在下一个样（2026-09-26 发公共版前补的）。
+          petState.state !== "ready" ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 10, fontFamily: F_BODY, color: "#8a7a5e", textAlign: "center", padding: 20 } },
+            petState.state === "failed"
+              ? h(React.Fragment, null,
+                  h("div", { style: { fontSize: 13 } }, "小人没能来 · 网络不太好的时候会这样"),
+                  h("button", { onClick: () => { setPetState({ state: "loading", pct: 0 }); setRetry(n => n + 1); }, className: "active:opacity-70",
+                    style: { minHeight: 40, padding: "0 20px", borderRadius: 12, background: "#8a6a4b", color: "#fff", border: "none", fontFamily: F_BODY, fontSize: 13 } }, "再试一次"))
+              : h(React.Fragment, null,
+                  h("div", { style: { fontSize: 13 } }, "小人在来的路上… " + (petState.pct || 0) + "%"),
+                  h("div", { style: { width: 140, height: 4, borderRadius: 2, background: "rgba(138,106,75,.18)", overflow: "hidden" } },
+                    h("div", { style: { width: (petState.pct || 0) + "%", height: "100%", background: "#8a6a4b", transition: "width .25s" } })),
+                  h("div", { style: { fontSize: 11, color: "#a89a80" } }, "第一次要把他整个人下下来，之后就快了"))) : null),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
           h("div", { style: { fontSize: 12.5, color: "#6b5440", lineHeight: 1.8 } },
-            (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"),
+            (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"
+            + (ACT_ZH[actNow] ? "他" + ACT_ZH[actNow] + "。" : "")),
           h("div", { style: { display: "flex", gap: 8, margin: "8px 0 12px" } },
             chip(auto, "表情跟着心情", () => set({ autoFace: true }), "a"), chip(!auto, "我来选表情", () => set({ autoFace: false }), "b")),
           h("button", { onClick: () => set({ float: !cfg.float }), className: "active:opacity-70",
             style: { width: "100%", minHeight: 46, borderRadius: 14, fontSize: 14, marginBottom: 18,
               background: cfg.float ? "#8a6a4b" : "rgba(255,255,255,.7)", color: cfg.float ? "#fff" : "#6b5440", border: "1px solid rgba(138,106,75,.35)" } },
             cfg.float ? "正在屏幕上陪着你 · 点这里收起来" : "让他悬浮在屏幕上"),
-          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "这一身只在陪伴里算数，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小。"),
+          h("div", { style: { display: "flex", gap: 8, margin: "0 0 4px" } },
+            chip(!cfg.pokeTalk, "戳他只做动作", () => set({ pokeTalk: false }), "pa"), chip(!!cfg.pokeTalk, "戳他会说一句", () => set({ pokeTalk: true }), "pb")),
+          cfg.pokeTalk && char.voiceId ? h("div", { style: { display: "flex", gap: 8, margin: "6px 0 4px" } },
+            chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
+            chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
+          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
+          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "这一身只在陪伴里算数，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: 12, color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
 
   // 全局悬浮小人：挂在 app 外壳上（和迷你播放器同一层），在陪伴页里自己不出。
+  // 在打字吗：悬浮小人会挡输入框，而一个挡住输入框的装饰品，用户第一反应是把它关掉。
+  // 打字时淡下去、并且不吃点击（他不该在这时候抢你的手指）。
+  function useTyping() {
+    const [typing, setTyping] = useState(false);
+    useEffect(() => {
+      const isField = el => !!el && (/^(input|textarea)$/.test(String(el.tagName || "").toLowerCase()) || el.isContentEditable);
+      const on = () => setTyping(isField(document.activeElement));
+      document.addEventListener("focusin", on);
+      document.addEventListener("focusout", on);
+      return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", on); };
+    }, []);
+    return typing;
+  }
   function CompanionFloat(props) {
     const [cfg, setCfg] = useState(load);
     useEffect(() => { window.__companionChanged = n => setCfg(n); return () => { window.__companionChanged = null; }; }, []);
@@ -116,14 +226,25 @@
     const sc = Math.max(.6, Math.min(2.2, Number(cfg.scale) || 1)), W = Math.round(96 * sc), H = Math.round(132 * sc);
     const [pos, setPos] = useState(() => cfg.pos || { x: window.innerWidth - W - 8, y: window.innerHeight - H - 150 });
     const drag = useRef(null), rs = useRef(null);
-    if (!cfg.float || !char || props.hidden) return null;
+    const idle = useIdle();
+    const typing = useTyping();
+    const [failed, setFailed] = useState(false);
+    const [say, onPoke] = usePokeTalk(char, props, !!cfg.pokeTalk);
+    // 下不来就别在屏幕上留一个空框占地方（悬浮这只不打扰她，一句话都不弹）
+    if (!cfg.float || !char || props.hidden || failed) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
     const onDown = e => { drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
     const onMove = e => { const d = drag.current; if (!d) return; setPos(clamp({ x: d.ox + e.clientX - d.sx, y: d.oy + e.clientY - d.sy })); };
-    const onUp = () => { if (!drag.current) return; drag.current = null; const n = Object.assign(load(), { pos }); save(n); };
-    return h("div", { style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none" } },
-      h(PetFrame, { mode: "float", msg: petMessage(char, props.moods, cfg), onOpen: props.onOpen, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
-      // 这一条是拖动把手（iframe 里的点击留给「打开陪伴」）
+    // 把手：拖＝挪位置；轻点一下（没挪动）＝打开陪伴页。点小人本身留给他的反应。
+    const onUp = e => { const d = drag.current; if (!d) return; drag.current = null;
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) { if (props.onOpen) props.onOpen(); return; }
+      const n = Object.assign(load(), { pos }); save(n); };
+    return h("div", { onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
+      opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
+      h(Bubble, { text: say, style: { bottom: "100%", marginBottom: 4 } }),
+      h(PetFrame, { mode: "float", onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
+        onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
+      // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
       h("div", { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
         style: { height: 18, margin: "0 22px", borderRadius: 9, background: "rgba(138,106,75,.28)", cursor: "grab" } }),
       // 右下角的小圆点：往外拖变大、往里拖变小

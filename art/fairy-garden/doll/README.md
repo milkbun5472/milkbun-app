@@ -1,5 +1,10 @@
 # 光头玩偶底模
 
+> ⚠️**2026-09-26 起衣服按需加载：`apps/fairy-garden/doll.glb` 不再是完整娃娃**（只有身体、骨架、头发）。
+> 改衣服、袖口、鞋、包的迁移脚本一律在 **`v2/doll-full.glb`**（母版）上跑，跑完再
+> `python3 -c "import sys,runpy;sys.argv=['x'];runpy.run_path('split_outfits.py',run_name='__main__')"`
+> 拆出 app 用的 doll.glb + outfits/<id>.glb。直接改 app 的 doll.glb 会把衣服全丢掉（`doll-parts.test.mjs` 会红）。详见 `v2/README.md`「衣服按需加载」。
+
 - `source-50k.glb`：Lisa 用混元生成、减到 5 万面的原件（2026-09-24），不改动。
 - `doll-blank-face.glb`：`fill_eyes.py` 处理后的空白脸，用来贴 `../faces/` 的九张表情。
   1. 先焊回 glTF 在贴图接缝处拆开的顶点（不焊的话，磨平时接缝会被扯开）；

@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL(p,import.meta.url));
-const bytes=read('./doll.glb'),glb=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString());
+import {gltf as glb,firstLoadBytes} from './doll-parts.test.mjs';
 const catalog=JSON.parse(read('./doll.json'));const nodes=glb.nodes.filter(n=>n.mesh!=null);
 // v2 娃娃（她 2026-09-25 选了直接替换）：Hunyuan 底模 + 骨架蒙皮，发型是挂在 HeadAnchor 上的帽子，衣服蒙在同一副骨架上。
 // 由 art/fairy-garden/doll/assemble_v2.py 组装、compress_asset.py 压缩；不许手改 doll.glb / doll.json / outfits.mjs。
@@ -9,7 +9,7 @@ test('v2 asset: every catalogued hairstyle hangs on HeadAnchor and every outfit 
  const anchor=glb.nodes.find(n=>n.name==='HeadAnchor');assert.ok(anchor,'HeadAnchor');
  for(const id of Object.keys(catalog.hair)){const i=glb.nodes.findIndex(n=>n.name==='hair_'+id);assert.ok(i>=0,id);assert.ok(anchor.children.includes(i),id+' not on HeadAnchor');}
  for(const id of Object.keys(catalog.outfits)){const parts=nodes.filter(n=>n.extras?.outfit===id);assert.ok(parts.length>=1,id);for(const n of parts)assert.ok(n.skin!=null,id+' must be skinned');}
- assert.ok(bytes.length<5*1024*1024,'mobile asset budget');
+ assert.ok(firstLoadBytes<3*1024*1024,'mobile asset budget: base doll + the largest outfit');
 });
 test('v2 rig: bones carry the runtime pivot names and the pivots ride along in extras',()=>{
  const rig=glb.nodes.find(n=>n.extras?.dollRig)?.extras.dollRig;assert.ok(rig);
@@ -20,7 +20,7 @@ test('v2 rig: bones carry the runtime pivot names and the pivots ride along in e
 test('runtime rebinds cloned skins and drives bones from the pivot groups',()=>{
  const trav=read('./traveler.mjs').toString();
  assert.match(trav,/o\.bind\(new T\.Skeleton\(o\.skeleton\.bones\.map\(b=>model\.getObjectByName\(b\.name\)\),o\.skeleton\.boneInverses\.map\(m=>m\.clone\(\)\)\)/);
- assert.match(trav,/const syncBones=\(\)=>/);assert.match(trav,/life\.update\([^)]*\);syncBones\(\);/);
+ assert.match(trav,/const syncBones=\(\)=>/);const update=trav.indexOf('life.update(time,'),emotion=trav.indexOf('const pose=emotionPose(',update),sync=trav.indexOf('syncBones();',update);assert.ok(update>0&&emotion>update&&sync>emotion,'daily and optional emotion poses must precede bone synchronization');
 });
 test('shape controls expose names, live values and reset without altering page layout',()=>{
  const host=read('../../js/fairy-garden.js').toString();assert.match(host,/"aria-label": d.label/);assert.match(host,/Math.round\(value \* 100\)/);assert.match(host,/d.low \|\|/);assert.match(host,/pushLook\(\{ dims: \{ \[d.key\]: 1 \} \}\)/);
@@ -34,7 +34,7 @@ test('v2 sliders, faces, skin and outfit colour slots are all real data in the a
  const rig=glb.nodes.find(n=>n.extras?.rigMorphs)?.extras.rigMorphs;assert.ok(rig?.leftArm?.height&&rig.HeadAnchor?.scale?.head,'bones and HeadAnchor move with the sliders');
  for(const id of Object.keys(catalog.faces))if(id!=='default')assert.ok(read('./faces/'+id+'.webp').length>1000,id);
  assert.match(nodes.find(n=>n.name==='DollBody').extras.skinBase,/^#[0-9a-f]{6}$/);
- for(const [id,o] of Object.entries(catalog.outfits)){assert.ok('cloth' in o.colors,id+' cloth');assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots'].includes(k)),id);const {boots,...painted}=o.colors;assert.deepEqual(nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id).extras.slotBase,painted);
-  // 鞋是照娃娃自己的脚画的（Hunyuan 那套没生成鞋）：纯色一块，走 colorSlot boots
-  const shoe=nodes.find(n=>n.extras?.outfit===id&&n.extras.colorSlot==='boots');if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
+ for(const [id,o] of Object.entries(catalog.outfits)){assert.ok('cloth' in o.colors,id+' cloth');assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots','bag','socks','detail'].includes(k)),id);const sourceSlots=nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id).extras.slotBase;for(const [key,value] of Object.entries(sourceSlots))assert.equal(o.colors[key],value,id+' source '+key);
+  // Shoes use either a separate skinned mesh or the jacket's original shell.
+  const shoe=nodes.find(n=>n.extras?.outfit===id&&(n.extras.colorSlot==='boots'||n.extras.sourceFootwearVersion||id==='jacket'&&n.name==='outfit_jacket'));if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
 });

@@ -13,7 +13,11 @@ def deform(P,arm,key,outfit):
     elif key=='waist':
         w=np.clip(1-np.abs(z-.50)/.15,0,1)*(1-arm);D[:,0]=x*.8*w;D[:,1]=y*.5*w
     elif key=='flare':
-        if outfit:w=ss((.45-z)/.25)*(1-arm)*(z>.30);D[:,0]=x*.9*w;D[:,1]=y*.6*w
+        if outfit:
+            # The dress hem is below .30: a hard cutoff folded its inner layer
+            # through the pleats at the wide-slider end. Taper to its actual hem.
+            hem=ss((z-.185)/.12) if outfit=='garden' else (z>.30)
+            w=ss((.45-z)/.25)*(1-arm)*hem;D[:,0]=x*.9*w;D[:,1]=y*.6*w
     elif key=='build':
         # rounder / lighter body, but the shoulder line keeps its width (the arms only follow the chest a little)
         b=(1-head)*(1-.7*ss((z-.55)/.10));D[:,0]=np.where(arm>.5,sx*.165*.6*.3,x*.6*b);D[:,1]=y*.55*b*(1-arm)
