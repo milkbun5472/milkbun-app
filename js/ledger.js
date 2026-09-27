@@ -100,6 +100,29 @@
     y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
     return y + "-" + pad(m + 1);
   }
+  // 日均支出（群里反馈 2026-09-27「记账那里可以添加一个每日花费吗」）：
+  //   这个月还没过完就按【已经过去的天数】除，过完了的月份按整月天数除；未来的月份不算。
+  function dailyAvg(exp, mk, today) {
+    const now = today || new Date(), [y, m] = String(mk).split("-").map(Number);
+    if (!y || !m) return null;
+    const cur = now.getFullYear() * 12 + now.getMonth(), at = y * 12 + (m - 1);
+    if (at > cur) return null;
+    const days = at === cur ? now.getDate() : new Date(y, m, 0).getDate();
+    return { days, avg: days ? exp / days : 0 };
+  }
+  // 流水按天分组：每天一个小标题，带当天支出／收入合计（新的在上）
+  function groupByDay(list) {
+    const out = [], at = {};
+    list.forEach(x => { const d = x.date || ""; if (!at[d]) { at[d] = { date: d, rows: [], exp: 0, inc: 0 }; out.push(at[d]); } const g = at[d]; g.rows.push(x); if (x.type === "income") g.inc += Number(x.amount) || 0; else g.exp += Number(x.amount) || 0; });
+    return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }
+  function dayLabel(dateStr, today) {
+    const now = today || new Date(), p = String(dateStr || "").split("-").map(Number);
+    if (p.length !== 3 || !p[0]) return fmtDay(dateStr);
+    const d = new Date(p[0], p[1] - 1, p[2]), base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diff = Math.round((base - d) / 86400000), wk = "周" + "日一二三四五六"[d.getDay()];
+    return (diff === 0 ? "今天 " : diff === 1 ? "昨天 " : "") + fmtDay(dateStr) + " " + wk;
+  }
   function fmtDay(dateStr) { const p = String(dateStr || "").split("-"); return p.length === 3 ? (parseInt(p[1], 10) + "月" + parseInt(p[2], 10) + "日") : dateStr; }
   function fmtNum(n) { const v = Math.round((Number(n) || 0) * 100) / 100; return v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
   function fmtAmt(n, cur) { return (cur ? cur.symbol : "") + fmtNum(n); }
@@ -608,6 +631,13 @@
             h("div", { key: i, style: { flex: 1 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, lab),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: col } }, fmtAmt(val, cur))))),
+        (function () {
+          const da = dailyAvg(s.exp, mk);
+          if (!da) return null;
+          return h("div", { "data-ledger-daily": true, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "-10px 4px 20px", fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+            h("span", null, "日均支出"),
+            h("span", null, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, fmtAmt(da.avg, cur)), h("span", { style: { color: t.fog, fontSize: 10.5, marginLeft: 6 } }, "按 " + da.days + " 天算")));
+        })(),
         s.catList.length ? h("div", { style: { marginBottom: 22 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, letterSpacing: "0.05em" } }, "支出分类"),
           h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
@@ -618,8 +648,13 @@
               h("div", { style: { height: 6, borderRadius: 6, background: t.line, overflow: "hidden" } },
                 h("div", { style: { height: "100%", width: Math.max(3, c.amount / maxCat * 100) + "%", background: pageColor("ledger", "accent", ACCENT), borderRadius: 6 } })))))) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, letterSpacing: "0.05em" } }, "流水 · " + monthTxns.length + " 笔"),
-        monthTxns.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-          monthTxns.map(x => h(TxnRow, { key: x.id, txn: x, cur, onClick: () => props.onOpenTxn(x.id) })))
+        monthTxns.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+          groupByDay(monthTxns).map(g => h("div", { key: g.date, "data-ledger-day": g.date },
+            h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 4px 6px", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+              h("span", null, dayLabel(g.date)),
+              h("span", { style: { color: t.fog } }, [g.exp ? "支 " + fmtAmt(g.exp, cur) : "", g.inc ? "收 " + fmtAmt(g.inc, cur) : ""].filter(Boolean).join("  "))),
+            h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+              g.rows.map(x => h(TxnRow, { key: x.id, txn: x, cur, onClick: () => props.onOpenTxn(x.id) }))))))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "30px 0" } }, "这个月还没有记账")));
   }
 
