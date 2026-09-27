@@ -13088,7 +13088,7 @@ function OfflineMode({
   const cName = char.remark || char.name;
   const [view, setView] = useState(activeSession ? "live" : "setup");
   const [opening, setOpening] = useState("");
-  const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : "default");
+  const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : ((settings && settings.lastStyle && settings.lastStyle.styleKey) || "default")); // 上一场选过什么，这一场先用什么
   const [presetOn, setPresetOn] = useState(() => activeSession ? !!activeSession.presetOn : !!(settings && settings.presetOn));
   const [presetId, setPresetId] = useState(() => (activeSession && activeSession.presetId) || (settings && settings.presetId) || "");
   const [photoOpen, setPhotoOpen] = useState(false);
@@ -13737,7 +13737,7 @@ function GroupOfflineMode({
   const bgFileRef = useRef(null);
   const [view, setView] = useState(activeSession ? "live" : "setup");
   const [opening, setOpening] = useState("");
-  const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : "default");
+  const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : ((settings && settings.lastStyle && settings.lastStyle.styleKey) || "default")); // 上一场选过什么，这一场先用什么
   const [presetOn, setPresetOn] = useState(() => activeSession ? !!activeSession.presetOn : !!(settings && settings.presetOn));
   const [presetId, setPresetId] = useState(() => (activeSession && activeSession.presetId) || (settings && settings.presetId) || "");
   const [photoOpen, setPhotoOpen] = useState(false);

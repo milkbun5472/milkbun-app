@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.163";
+const APP_VERSION = "v74.164";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7355,17 +7355,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       endLane("c:" + scopeKey);
     }
   };
+  // 线下的文风／预设台跟着这个人记住（群里反馈 2026-09-27：「每次进线下先来一段默认的，才能去设置里改文风库的文风」）。
+  //   开「默认进线下」时这一场是自动开的，从来没问过她要哪种文风，于是第一段永远是默认；
+  //   手动进的那一页文风也总是重置回默认。现在：她上一次选过什么，下一场就先用什么。
+  const rememberOfflineStyle = (charId, st) => saveOfflineSettings(charId, { lastStyle: { styleKey: st.styleKey || "default", stylePrompt: st.stylePrompt || "", presetOn: !!st.presetOn, presetId: st.presetId || "" }, presetOn: !!st.presetOn, presetId: st.presetId || "" });
   const startOffline = async (scopeKey, opts) => {
     const charId = offlinePersonId(scopeKey);
     const opening = (opts.opening || "").trim();
+    const last = (osFor(charId) || {}).lastStyle || {};
+    const picked = opts.styleKey != null
+      ? { styleKey: opts.styleKey || "default", stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "", presetOn: !!opts.presetOn, presetId: opts.presetId || "" }
+      : { styleKey: last.styleKey || "default", stylePrompt: last.stylePrompt || "", presetOn: !!(last.presetOn != null ? last.presetOn : (osFor(charId) || {}).presetOn), presetId: last.presetId || (osFor(charId) || {}).presetId || "" };
+    if (opts.styleKey != null) rememberOfflineStyle(charId, picked);
     const sess = {
       id: "off_" + Date.now(),
       startTs: Date.now(),
       endTs: null,
-      styleKey: opts.styleKey || "default",
-      presetOn: !!opts.presetOn,
-      presetId: opts.presetId || "",
-      stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
+      styleKey: picked.styleKey,
+      presetOn: picked.presetOn,
+      presetId: picked.presetId,
+      stylePrompt: picked.stylePrompt,
       taste: opts.taste || osTaste(charId),
       customNotes: [],
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
@@ -7515,6 +7524,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const offlineSetStyle = (scopeKey, patch) => {
     const charId = offlinePersonId(scopeKey);
     pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste(charId) } : s));
+    rememberOfflineStyle(charId, patch);
     toast("文风已切换 · 下次演绎生效");
   };
   const endOffline = async scopeKey => {
@@ -8050,14 +8060,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     const opening = (opts.opening || "").trim();
+    // 群线下同一个规矩：上一场选过的文风／预设台，下一场先用它（自动开的那一场也是）
+    const gKey = "g_" + groupId, gLast = (osFor(gKey) || {}).lastStyle || {};
+    const picked = opts.styleKey != null
+      ? { styleKey: opts.styleKey || "default", stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "", presetOn: !!opts.presetOn, presetId: opts.presetId || "" }
+      : { styleKey: gLast.styleKey || "default", stylePrompt: gLast.stylePrompt || "", presetOn: !!gLast.presetOn, presetId: gLast.presetId || "" };
+    if (opts.styleKey != null) rememberOfflineStyle(gKey, picked);
     const sess = {
       id: "goff_" + Date.now(),
       startTs: Date.now(),
       endTs: null,
-      styleKey: opts.styleKey || "default",
-      presetOn: !!opts.presetOn,
-      presetId: opts.presetId || "",
-      stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
+      styleKey: picked.styleKey,
+      presetOn: picked.presetOn,
+      presetId: picked.presetId,
+      stylePrompt: picked.stylePrompt,
       taste: opts.taste || osTaste("g_" + groupId),
       customNotes: [],
       onlinePrelude: groupOnlinePrelude(groupId),
@@ -8126,6 +8142,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const groupOfflineSetStyle = (groupId, patch) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
+    rememberOfflineStyle("g_" + groupId, patch);
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note, long) => {
