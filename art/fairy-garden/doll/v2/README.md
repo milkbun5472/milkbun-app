@@ -115,3 +115,13 @@
 - `split_outfits.py` 从母版拆出 app 用的：`apps/fairy-garden/doll.glb`（不带衣服，约 1.4 MB）和 `apps/fairy-garden/outfits/<id>.glb`（每套一件，带同名骨架，0.6–1.1 MB）。`add_outfit.py`、`assemble_v2.py` 最后都会自动拆；手动改了母版就跑一次 `python3 -c "import sys,runpy;sys.argv=['x'];runpy.run_path('split_outfits.py',run_name='__main__')"`。
 - 运行时（`traveler.mjs`）：穿哪套才下哪套，全页每套只下一次；下好后按骨头名字接到这个人自己的骨架上，按当前体型重绑。第一套到之前人先不露面，换装途中照旧穿着上一套。`preloadOutfits()` 给验图脚本先把几套下好。
 - 预算：底模 + 最大一套 < 3 MiB（`doll-parts.test.mjs` 把拆开的文件拼回一份给其它测试用）。`scripts/checks/outfit-lazy-browser.cjs` 查按需加载本身。
+
+## 新发型：蓬松卷毛（`fluffy`）、中分长发（`longpart`）（2026-09-27）
+
+- 源：`v2/hunyuan-h07-shell.glb`、`v2/hunyuan-h08-shell.glb`（混元头发壳）。
+  `INNER=.9 DZ=-.1 python3 fit_shell.py v2/hunyuan-h07-shell.glb v2/head-anchor.json fit.glb`，
+  `FRINGE_K=.7 python3 shape_hair.py fit.glb v2/hats/hair_h07.glb`（h08 同参数；刘海收到露眼）；`TRIS=18000 TEX=1024 compress_asset.py` → `v2/web/`。
+- 加进母版：先在 `../hairstyles.json` 写名字，再 `python3 -c "import sys,runpy;sys.argv=['x','--','fluffy'];runpy.run_path('add_hair.py',run_name='__main__')"`。
+  发型表（id→文件）只在 `add_hair.py` 的 `HAIRS` 一处，`assemble_v2.py` 也用它；运行时名单 `traveler.mjs` 的 `HAIR_STYLES` 要和 hairstyles.json 一致（测试钉着）。
+- ⚠️`outfit_slots.grey()` 改完贴图要先存成 WEBP 再 pack：直接 pack 会变 PNG，一款头发从 190KB 胀到 560KB（头发在每次都要下的 doll.glb 里）。
+- 头发不按需加载，都在底模里：底模现在 1.76MB，加最大一套衣服 2.83MB，预算 3MiB。**再加两三款就该把头发也拆成按需加载**（照衣服的做法）。

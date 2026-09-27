@@ -16,7 +16,6 @@ from mathutils import Vector
 HERE=os.path.dirname(os.path.abspath(__file__));V2=os.path.join(HERE,'v2');WEB=os.path.join(V2,os.environ.get('PIECES','web'))   # PIECES=hd: the 陪伴 pet build
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
 LABELS=json.load(open(os.path.join(HERE,'..','hairstyles.json')))  # the one hair list (tests pin runtime to it)
-HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb'}
 OUTFIT_LABELS={'academy':'学院背心','garden':'背带连衣裙','ranger':'连帽卫衣工装裤','cardigan':'小兔毛衣'};OUTFITS={'academy':'outfit_c01.glb','garden':'outfit_c02.glb','ranger':'outfit_c03.glb','cardigan':'outfit_c04.glb'}
 # per outfit: which colour slots exist (a dress has no separate 'bottom'), shoe colour
 OUTFIT_OPTS={'academy':dict(bottom=True,shoe='#4a3a32'),'garden':dict(bottom=False,accent=False,shoe='#3b2b25'),'ranger':dict(bottom=True,accent=True,shoe='#5a4a3e'),'cardigan':dict(bottom=True,accent=False,shoe=None,bottom_z=.33,bottom_pale_z=.42,under='cloth',sole_z=.085,no_trim=True)}
@@ -50,18 +49,8 @@ A=next(o for o in new if o.type=='ARMATURE');HA=bpy.data.objects['HeadAnchor'];B
 for o in new:
     if o.type=='MESH' and o.name.startswith('Icosphere'):bpy.data.objects.remove(o)
 base_image=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))['base_image']
-def grey(mat):
-    im=base_image(mat)
-    if not im:return
-    px=np.array(im.pixels[:]).reshape(-1,4);y=px[:,:3]@[.2126,.7152,.0722]
-    y=np.clip(y/np.percentile(y,92),0,1);px[:,:3]=y[:,None];im.pixels[:]=px.ravel();im.pack()
-for hid,f in HAIRS.items():
-    objs=imp(os.path.join(WEB,f));m=next(o for o in objs if o.type=='MESH');mw=m.matrix_world.copy()
-    m.parent=HA;m.matrix_parent_inverse.identity();m.matrix_basis=mw;m.name='hair_'+hid;m['hair']=hid
-    for s in m.material_slots:
-        s.material=s.material.copy();s.material.name='hair_'+hid;grey(s.material)
-    for o in objs:
-        if o!=m:bpy.data.objects.remove(o)
+_hair=runpy.run_path(os.path.join(HERE,'add_hair.py'))   # the one hair table + how a style hangs
+for hid in _hair['HAIRS']:_hair['hang'](hid,HA)
 _slots=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))
 arm_weights,colour_slots=_slots['arm_weights'],_slots['colour_slots']
 catalog={}

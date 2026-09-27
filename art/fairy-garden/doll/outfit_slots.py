@@ -1,13 +1,23 @@
 """Garment helpers shared by the full assembly and single-outfit migrations.
 Every face gets a dye slot (0 cloth / 1 trim / 2 bottom / 3 accent) in COLOR_0.r from its own texels;
 arm weights feed body_shape.deform so clothes follow the body sliders."""
-import bmesh,numpy as np
+import bmesh,os,numpy as np
 SLOTS=['cloth','trim','bottom','accent']
 def base_image(mat):
     for n in mat.node_tree.nodes:
         if n.type=='BSDF_PRINCIPLED':
             l=n.inputs['Base Color'].links
             return l[0].from_node.image if l else None
+def grey(mat):
+    """Hair base colour to neutral grey (brightness only): the runtime dyes it."""
+    im=base_image(mat)
+    if not im:return
+    px=np.array(im.pixels[:]).reshape(-1,4);y=px[:,:3]@[.2126,.7152,.0722]
+    y=np.clip(y/np.percentile(y,92),0,1);px[:,:3]=y[:,None];im.pixels[:]=px.ravel()
+    # Save as WEBP, then pack those bytes: a modified image packs (and exports, format AUTO) as PNG,
+    # ~4x the bytes in the always-downloaded doll.glb.
+    import tempfile;tmp=os.path.join(tempfile.mkdtemp(),'hair.webp')
+    im.filepath_raw=tmp;im.file_format='WEBP';im.save();im.unpack(method='REMOVE') if im.packed_file else None;im.filepath=tmp;im.reload();im.pack()
 def arm_weights(o):
     gi={g.name:g.index for g in o.vertex_groups};w=np.zeros(len(o.data.vertices))
     for v in o.data.vertices:
