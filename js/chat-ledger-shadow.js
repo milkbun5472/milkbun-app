@@ -25,14 +25,20 @@
   const write = (storage, key, value) => storage.setItem(key, JSON.stringify(value));
   // 从她的表情包字典（x_emotePacks，本机 localStorage）按关键词找图；
   // 只认全局包或绑了这个角色的包。找不到返回 null，调用方把文字原样留下。
+  // 关键词归一：反斜杠当正斜杠、去空格——「摸摸\抱抱哄」查不到「摸摸/抱抱哄」的
+  // 一字之差案（她 2026-09-27「你这个表情又没渲染成功」）。
+  const emoteNorm = s => text(s).replace(/\\/g, "/").replace(/\s+/g, "");
   const emoteFor = (keyword, charId) => {
     if (!keyword || !root.localStorage) return null;
     let packs = [];
     try { packs = JSON.parse(root.localStorage.getItem("x_emotePacks")) || []; } catch (_) { return null; }
+    const want = emoteNorm(keyword);
     for (const p of (Array.isArray(packs) ? packs : [])) {
       if (!p || (!p.global && !asArray(p.charIds).map(String).includes(String(charId)))) continue;
-      const hit = asArray(p.emotes).find(e => e && text(e.keyword) === keyword && e.url);
-      if (hit) return { keyword, url: hit.url };
+      // 全词命中优先；字典关键词常是「甲/乙」多别名合写，任一别名对上也算命中。
+      const hit = asArray(p.emotes).find(e => e && e.url && emoteNorm(e.keyword) === want)
+        || asArray(p.emotes).find(e => e && e.url && emoteNorm(e.keyword).split("/").includes(want));
+      if (hit) return { keyword: text(hit.keyword), url: hit.url };
     }
     return null;
   };
