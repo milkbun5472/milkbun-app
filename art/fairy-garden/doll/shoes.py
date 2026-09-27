@@ -112,12 +112,27 @@ def build_shoes(oid,rig,colour=None):
   o['outfit']=oid;o['footwearVersion']=1;o['footwearStyle']=STYLES[oid][1]
   if part=='leather':o['colorSlot']='boots';o['coversFeetBelow']=.14;o['weldedShoeVersion']=1
   objects.append(o)
+ fit_hidden_socks()
  return objects
+
+def fit_hidden_socks():
+ # The upper boot rim and sock belong inside the long trouser leg. Preserve
+ # the sole/toe silhouette; inset only the hidden upper portion continuously.
+ deform=runpy.run_path(str(HERE/"body_shape.py"))["deform"]
+ for o in list(bpy.data.objects):
+  if not o.name.startswith("outfit_ranger_shoes") or o.get("insetBootVersion"):continue
+  P=np.array([v.co[:] for v in o.data.vertices]);cx=np.where(P[:,0]<0,-.105,.09)
+  t=np.clip((P[:,2]-.075)/.045,0,1);scale=1-.30*t*t*(3-2*t)
+  P[:,0]=cx+(P[:,0]-cx)*scale;P[:,1]=.024+(P[:,1]-.024)*scale
+  o.data.vertices.foreach_set("co",P.ravel());o.data.shape_keys.key_blocks["Basis"].data.foreach_set("co",P.ravel())
+  for key in KEYS:o.data.shape_keys.key_blocks[key].data.foreach_set("co",(P+deform(P,np.zeros(len(P)),key,True)).ravel())
+  o["insetBootVersion"]=1
 
 def replace_shoes(outfits=tuple(STYLES)):
  for oid in outfits:
   old=bpy.data.objects.get('outfit_'+oid+'_shoes')
-  if old and old.get('footwearVersion')==1:continue
+  if old and old.get('footwearVersion')==1:
+   fit_hidden_socks();continue
   rig=old.parent if old else bpy.data.objects['DollBody'].parent
   for o in list(bpy.data.objects):
    if o.name.startswith('outfit_'+oid+'_shoes'):bpy.data.objects.remove(o,do_unlink=True)

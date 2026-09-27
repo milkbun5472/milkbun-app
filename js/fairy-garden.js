@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ad3e0d30942f92af", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-b50c3d98d6fc8fbc", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -264,11 +264,13 @@
             return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
               style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
           })),
-        // 只列这一套真有的色槽（doll.json 里它的 colors）；v2 的学院背心是贴图配色，一个槽都没有，就整段不出。
+        // 按当前衣服列出真实可选区域；复位也走共用外貌写入，保留其他衣服。
         (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
-          const slots = [["cloth", "衣服主色"], ["trim", "衬衫与领边"], ["bottom", "裤袜颜色"], ["accent", "领带与点缀"], ["boots", "鞋子颜色"]]
-            .filter(([slot]) => selected && styles && styles.outfits && styles.outfits[selected.id] && slot in styles.outfits[selected.id].colors);
-          return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。")].concat(slots.map(([slot, label]) => {
+          const outfit = selected && styles?.outfits?.[selected.id];
+          const slots = Object.entries(outfit?.colorLabels || {cloth:"衣服主色",trim:"衬衫与领边",bottom:"裤袜颜色",accent:"领带与点缀",boots:"鞋子颜色"})
+            .filter(([slot]) => outfit && slot in outfit.colors);
+          return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"), h("button", { key: "reset-colors", type: "button", onClick: () => pushLook({ outfitColors: { ...outfit.colors } }),
+            style: { minHeight: 44, padding: "8px 14px", marginBottom: 8, border: "1px solid " + G.line, borderRadius: 10, background: "#f7f5e9", color: G.deep, fontFamily: F_BODY, fontSize: 12 } }, "恢复本套默认配色")].concat(slots.map(([slot, label]) => {
             const hex = selected.colors[slot] || "#8d5f66";
             return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
           })) : null; })()),

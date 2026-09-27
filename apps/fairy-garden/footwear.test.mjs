@@ -6,7 +6,7 @@ test('rabbit sneakers retain body morphs, leg skinning and an outfit-scoped cove
  const shoe=gltf.nodes.find(n=>n.name==='outfit_cardigan_footwear');
  const garment=gltf.nodes.find(n=>n.name==='outfit_cardigan');
  assert.ok(shoe);assert.equal(shoe.extras.outfit,'cardigan');
- assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,1);
+ assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,2);
  const mesh=gltf.meshes[shoe.mesh],original=gltf.meshes[garment.mesh];
  assert.deepEqual(mesh.extras.targetNames,original.extras.targetNames);
  assert.ok(mesh.weights.every(w=>w===0));

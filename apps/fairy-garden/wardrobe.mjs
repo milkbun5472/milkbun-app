@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-ad3e0d30942f92af';
+import {OUTFITS} from './outfits.mjs?v=fg-b50c3d98d6fc8fbc';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -36,7 +36,14 @@ export const lookForTa=ta=>GENDER_LOOKS[ta]||GENDER_LOOKS['TA'];
 const color=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 export function restoreWardrobe(raw){const out={};for(const id of KNOWN_OUTFITS){const row=raw?.[id];if(!row||typeof row!=='object')continue;const colors={};for(const key of slotsOf(id))if(color(row[key]))colors[key]=row[key];if(Object.keys(colors).length)out[id]=colors;}return out;}
 export const outfitId=look=>Object.hasOwn(OUTFITS,look?.outfit)?look.outfit:Object.keys(OUTFITS)[0];
-export function outfitColors(look={}){const id=outfitId(look);return {...OUTFITS[id].colors,...(id==='traveler'&&color(look.cloth)?{cloth:look.cloth}:{}),...restoreWardrobe(look.wardrobe)[id]};}
+export function outfitColors(look={}){const id=outfitId(look),saved=restoreWardrobe(look.wardrobe)[id]||{};
+ // Existing shoe choices previously lived in trim/bottom. Keep them until the
+ // newly independent shoe control is explicitly changed; do not rewrite saves.
+ const inherited={};
+ if(!saved.boots&&saved[id==='suit'?'bottom':'trim']&&['cardigan','jacket','suit'].includes(id))inherited.boots=saved[id==='suit'?'bottom':'trim'];
+ if(id==='suit'){if(!saved.socks&&saved.trim)inherited.socks=saved.trim;if(!saved.accent&&saved.cloth)inherited.accent=saved.cloth;}
+ return {...OUTFITS[id].colors,...(id==='traveler'&&color(look.cloth)?{cloth:look.cloth}:{}),...inherited,...saved};
+}
 // One patch writer for the live avatar, preview and all residents; each outfit remembers its colors.
 export function mergeLook(old={},patch={}){const next={...old,...patch};delete next.outfitColors;if(patch.dims)next.dims={...old.dims,...patch.dims};
  if(patch.wardrobe||patch.outfitColors){next.wardrobe=restoreWardrobe({...old.wardrobe,...patch.wardrobe});if(patch.outfitColors){const id=outfitId(next);next.wardrobe=restoreWardrobe({...next.wardrobe,[id]:{...next.wardrobe[id],...patch.outfitColors}});}}

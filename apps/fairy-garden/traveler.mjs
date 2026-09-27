@@ -1,9 +1,10 @@
-import {emotionPose} from './emotion-pose.mjs?v=fg-ad3e0d30942f92af';
-import {makeDollLife} from './doll-life.mjs?v=fg-ad3e0d30942f92af';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-ad3e0d30942f92af';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-b50c3d98d6fc8fbc';
+import {emotionPose} from './emotion-pose.mjs?v=fg-b50c3d98d6fc8fbc';
+import {makeDollLife} from './doll-life.mjs?v=fg-b50c3d98d6fc8fbc';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-b50c3d98d6fc8fbc';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-ad3e0d30942f92af';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-ad3e0d30942f92af';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-b50c3d98d6fc8fbc';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-b50c3d98d6fc8fbc';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -75,7 +76,7 @@ function outfitShader(o){const base=o.userData.slotBase||o.parent?.userData?.slo
     .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\ndiffuseColor.rgb=mix(diffuseColor.rgb,texture2D(map,vKnitUv).rgb*diffuse,clamp(vKnitBlend,0.,1.));\n#endif');
   };
  }
- o.material.customProgramCacheKey=()=>'slotDye'+pick+(repair?'knit':'')+(textureSlots?'textureSlots':bagSlots?'rangerBag':'');o.material.needsUpdate=true;}
+ o.material.customProgramCacheKey=()=>'slotDye'+pick+(repair?'knit':'')+(textureSlots?'textureSlots':bagSlots?'rangerBag':'');attachRegionDye(o,o.material.onBeforeCompile);o.material.needsUpdate=true;}
 const _a=new T.Color(),_b=new T.Color();
 // Coverage is authored on the outfit in rest coordinates. The same mask is used
 // for colour and shadow passes, and each avatar owns its uniform values.
@@ -102,7 +103,7 @@ function coveredSkinShader(o){
  o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
  o.material.addEventListener('dispose',()=>{o.customDepthMaterial.dispose();o.customDistanceMaterial.dispose();});
 }
-function dyeOutfit(o,colors){const d=o.userData.slotDye;if(!d)return;SLOTS.forEach((k,i)=>{if(!d.base[k]||!colors[k])return d.u.uTint.value[i].set(1,1,1);_a.set(colors[k]);_b.set(d.base[k]);d.u.uTint.value[i].set(_a.r/Math.max(_b.r,.02),_a.g/Math.max(_b.g,.02),_a.b/Math.max(_b.b,.02));});}
+function dyeOutfit(o,colors){dyeRegions(o,colors);const d=o.userData.slotDye;if(!d)return;SLOTS.forEach((k,i)=>{if(!d.base[k]||!colors[k])return d.u.uTint.value[i].set(1,1,1);_a.set(colors[k]);_b.set(d.base[k]);d.u.uTint.value[i].set(_a.r/Math.max(_b.r,.02),_a.g/Math.max(_b.g,.02),_a.b/Math.max(_b.b,.02));});}
 // 表情：同一个身体，换脸上的贴图（faces/<id>.webp，和身体原贴图同一套 UV）。所有小人共用一份贴图缓存。
 const FACE_TEX=new Map(),faceLoader=new T.TextureLoader();let FACE_BASE=new URL('./faces/',import.meta.url).href;
 // 陪伴（桌宠）用 2K 的脸：换一个目录，缓存跟着清掉
@@ -140,6 +141,8 @@ export function createTraveler(source,companion=false,look={}){
   if(o.material.name==='Character warm peach')o.userData.skin=true;
   if(o.userData.skinBase){o.userData.bodyMap=o.material.map;coveredSkinShader(o);}
   if(o.userData.outfit)outfitShader(o);
+  if(o.name.endsWith('_shoes_sock'))o.userData.colorSlot='socks';
+  if(o.name.endsWith('_shoes_detail'))o.userData.colorSlot='boots';
   if(o.userData.colorSlot||o.userData.skin){o.material=o.material.clone();if(!o.userData.dyeTexture)o.material.map=null;o.material.needsUpdate=true;} // Colored source textures would multiply the chosen dye (brown shoes stayed black).
   // 头发的纹理材质进不了 GLB（GLTF 只收基础 PBR），颜色一律在这儿给
   if(isHair(o)){hairShader(o);dyeHair(o,want);o.material.roughness=.85;}
@@ -167,7 +170,7 @@ export function createTraveler(source,companion=false,look={}){
  const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;
   wear(id);const on=worn.has(id)?id:shown;shown=on;model.visible=!!on||!fetching.has(id);
   model.traverse(o=>{if(!o.isMesh)return;
-   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(on)||{};covered.feet.value=c.feet??-1;covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
+   const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(on)||{};covered.feet.value=Math.max(c.feet??-1,OUTFITS[on]?.coveredLegsBelow??-1);covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
    if(o.userData.skin)o.material.color.set(look.skin);
   // v2 身体：肤色＝选的颜色 ÷ 贴图自己的肤色（脸上的眼睛腮红跟着一起变深浅，不会被抹掉）；表情换贴图
   if(o.userData.skinBase){_a.set(look.skin||o.userData.skinBase);_b.set(o.userData.skinBase);o.material.color.setRGB(_a.r/_b.r,_a.g/_b.g,_a.b/_b.b);

@@ -111,6 +111,7 @@ bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True,ex
     export_try_sparse_sk=True,export_try_omit_sparse_sk=True)
 print('wrote',out,os.path.getsize(out)//1024,'KB skinBase',B['skinBase'],catalog)
 if os.environ.get('OUT'):sys.exit(0)   # the pet build only writes its glb; catalogues stay the garden's
+runpy.run_path(os.path.join(HERE,'dye_regions.py'))['apply_regions'](catalog)
 dj=os.path.join(APP,'doll.json');d=json.load(open(dj))
 d['hair']=LABELS;d['outfits']=catalog;d['faces']=FACES;d['style']='hunyuan-v2-2026-09'
 d['dims']=[dict(key=k,label=l,min=a,max=b,low=lo,high=hi) for k,l,a,b,lo,hi in DIMS]

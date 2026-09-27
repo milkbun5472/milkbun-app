@@ -25,7 +25,7 @@ test('outfits own separate sleeve coverage and rabbit source shoes',()=>{
  const shirt=gltf.nodes.find(n=>n.name==='outfit_cardigan');
  assert.deepEqual(shirt.extras.skinCoverage.sleeve,[.198,0,.76,.10]);assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
  const shoe=gltf.nodes.find(n=>n.name==='outfit_cardigan_footwear');
- assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,1);
+ assert.equal(shoe.extras.coversFeetBelow,.14);assert.equal(shoe.extras.sourceFootwearVersion,2);
  assert.equal(shoe.extras.outfit,'cardigan');assert.ok(shoe.skin!=null);
  for(const id of ['academy','garden','ranger']){
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
