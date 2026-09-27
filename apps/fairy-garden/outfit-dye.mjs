@@ -1,14 +1,14 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-cc83901abde85a8c';
+import {OUTFITS} from './wardrobe.mjs?v=fg-c8666a69e8b840bd';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;
  if(name.includes('_sleeve'))return `si=${id==='academy'||id==='garden'?1:0};`;
  if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=4;if(p.y>.105&&(sc.g-sc.b)>(sc.r-sc.g)*.22)si=2;':'si=4;';
  if(name.includes('_side_lining'))return 'si=0;';
- if(id==='ranger')return name.includes('_bag')||name.includes('_strap')?'si=3;':name.includes('_trousers')?'si=2;':'si=0;';
+ if(id==='ranger')return name.includes('_bag')||name.includes('_strap')?'si=3;':name.includes('_trousers')?'si=piece.x>.36?0:2;':'si=0;';
  if(id==='academy')return `
  si=piece.x<.30?2:0;
  if(piece.x>.61)si=1;
@@ -19,19 +19,22 @@ export function regionShader(o){
  if(p.y>.50&&sc.r>.60&&sc.g>.52)si=1;
  if(piece.x>.50&&piece.y<.655&&piece.w>.08)si=sc.r>.65?1:3;
  
- if(p.x<0.&&p.y>.32&&p.y<.405&&p.z>.14&&sc.r>.52)si=7;
+ // The ornament wraps around the pouch: its left ear is behind z=.14.
+ if(piece.x>.315&&piece.y<.388&&piece.z<-.11&&piece.w>.105)si=7;
  if(p.y<.17)si=6;
  `;
  if(id==='cardigan')return `
  si=0;
  bool cream=(sc.g-sc.b)>max(sc.r-sc.g,.005)*.32;
- if(piece.x<.30||p.y<.44&&cream)si=2;
- if(piece.z>.035&&piece.w>.025&&piece.x>.37&&piece.y<.54&&cream)si=5;
+ if(piece.x<.30||p.y<.40||p.y<.44&&cream)si=2;
+ if(piece.z>.05&&piece.w>.025&&piece.x>.37&&piece.y<.54)si=5;
  if(p.z>.065&&p.y>.50&&cream)si=5;
  `;
  if(id==='jacket')return `
  si=piece.x<.30?2:0;
- if(p.y>.385&&sc.r>.65&&sc.g>.60)si=1;
+ // The shirt and the inside of its collar are complete UV panels, including shadows.
+ if(piece.x>.39&&piece.y>.69&&abs(piece.z)<.06&&piece.w>.06)si=1;
+ if(piece.x>.655&&abs(piece.z)<.064&&piece.w>-.07)si=1;
  if(p.y<.15&&(sc.r>.48||p.y<.06))si=4;
  `;
  if(id==='suit')return `

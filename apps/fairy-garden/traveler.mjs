@@ -1,10 +1,10 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-cc83901abde85a8c';
-import {emotionPose} from './emotion-pose.mjs?v=fg-cc83901abde85a8c';
-import {makeDollLife} from './doll-life.mjs?v=fg-cc83901abde85a8c';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-cc83901abde85a8c';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-c8666a69e8b840bd';
+import {emotionPose} from './emotion-pose.mjs?v=fg-c8666a69e8b840bd';
+import {makeDollLife} from './doll-life.mjs?v=fg-c8666a69e8b840bd';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-c8666a69e8b840bd';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-cc83901abde85a8c';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-cc83901abde85a8c';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-c8666a69e8b840bd';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-c8666a69e8b840bd';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -96,8 +96,8 @@ function coveredSkinShader(o){
   sh.uniforms.uCoveredFeet=coverage.feet;sh.uniforms.uCoveredTorso=coverage.torso;sh.uniforms.uCoveredTorsoAbove=coverage.torsoAbove;sh.uniforms.uSleeve=coverage.sleeve;sh.uniforms.uArmAxis=coverage.axis;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;attribute float skinArmInfluence;varying float vSkinArm;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinRest=position;vSkinArm=skinArmInfluence;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vSkinRest;varying float vSkinArm;uniform float uCoveredFeet;uniform float uCoveredTorso;uniform float uCoveredTorsoAbove;uniform vec4 uSleeve;uniform vec4 uArmAxis;')
-   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif(vSkinRest.y<uCoveredFeet || (vSkinRest.y<uCoveredTorso && vSkinRest.y>uCoveredTorsoAbove && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
- };m.customProgramCacheKey=()=>'coveredSkin-v2';};
+   .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nfloat sleeveAlong=dot(vec2(abs(vSkinRest.x),vSkinRest.y)-uArmAxis.xy,normalize(uArmAxis.zw));\nif((vSkinRest.y<uCoveredFeet && vSkinArm<.5) || (vSkinRest.y<uCoveredTorso && vSkinRest.y>uCoveredTorsoAbove && vSkinArm<.5) || (uSleeve.x>0. && abs(vSkinRest.x)>uSleeve.w && sleeveAlong<uSleeve.x && vSkinRest.y>uSleeve.y && vSkinRest.y<uSleeve.z)) discard;');
+ };m.customProgramCacheKey=()=>'coveredSkin-v3';};
  patch(o.material);
  o.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});patch(o.customDepthMaterial);
  o.customDistanceMaterial=new T.MeshDistanceMaterial();patch(o.customDistanceMaterial);
