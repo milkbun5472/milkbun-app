@@ -28,7 +28,7 @@ def fit_cuffs():
  if body.get('fittedWristVersion'):
   raise ValueError('Restore the original body before fitting sleeves')
  body['originalHandVersion']=1
- for name in ('academy','garden','ranger','cardigan','jacket'):
+ for name in ('academy','garden','ranger','cardigan','jacket','suit'):
   cloth=bpy.data.objects.get('outfit_'+name)   # jacket is attached later by add_outfit.py, which calls this again
   if not cloth or cloth.get('fittedCuffVersion',0)>=3:continue
   short=name=='garden';end=.156 if short else .214
@@ -36,7 +36,10 @@ def fit_cuffs():
   template=old[0]
   # Keep each garment's original clean fabric patch, tint slot and material.
   uv=np.array([p.uv[:] for p in template.data.uv_layers.active.data]);lo=uv.min(0);hi=uv.max(0)
-  atlas=(*lo,*(hi-lo));slot=template.data.color_attributes.active_color.data[0].color[0]
+  atlas=(*lo,*(hi-lo))
+  # Imported glTFs may expose an all-white display layer before the dye slot.
+  # Select the encoded slot, just as the shared runtime does.
+  slot=next(a.data[0].color[0] for a in template.data.color_attributes if a.data[0].color[0]<.9)
   for sleeve in old:sleeve.name+='Discarded'
   # Radius rises only beneath the armhole, then tapers continuously to the hem.
   # There is no elbow bulb, wrist pinch, or second raised cuff ring.

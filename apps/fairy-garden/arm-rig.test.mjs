@@ -98,7 +98,7 @@ test('hoodie bag has a torso-bound back strap with independent accent colour',()
 
 test('all cuffs fit original hands and hoodie retains independent details',()=>{
  assert.equal(gltf.nodes.find(n=>n.name==='DollBody').extras.originalHandVersion,1);
- for(const id of ['cardigan','academy','garden','ranger']){
+ for(const id of ['cardigan','academy','garden','ranger','jacket','suit']){
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
   assert.equal(shirt.extras.fittedCuffVersion,3);
   assert.deepEqual(shirt.extras.skinCoverage.armAxis,[.153,.655,.095,-.19]);

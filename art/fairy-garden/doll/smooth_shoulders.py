@@ -37,7 +37,7 @@ def smooth_shoulders(outfits=OUTFITS):
                 if sign > 0
                 else (0.031 if short else 0.020)
             )
-            if outfit == "suit":
+            if outfit == "suit" and sleeve.get("fittedCuffVersion") != 3:
                 center = Vector((0, 0, 0))
             inset = Vector((-sign * 0.012, 0, -0.012 * 0.35))
             inset_projection = -inset.dot(axis)
@@ -77,7 +77,7 @@ def smooth_shoulders(outfits=OUTFITS):
                         [0, 0.002, 0.005, 0.008, 0.009, 0.011, 0.0115, 0.007, 0.003, 0],
                     )
                 )
-                if outfit == "suit":
+                if outfit == "suit" and sleeve.get("fittedCuffVersion") != 3:
                     # C06 retains its original narrower cuff. Match the sloped root
                     # to that sleeve, tapering the correction to zero at .115.
                     reduction = float(
