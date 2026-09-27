@@ -49,6 +49,6 @@ test('发型是数据不是一堆模型，存档能指定样貌（v2 各款，�
   const labels = JSON.parse(rd('art/fairy-garden/hairstyles.json'));
   const runtime = trav.match(/HAIR_STYLES=\[([^\]]+)\]/)[1].split(',').map(s => s.trim().replace(/'/g, ''));
   assert.deepEqual(runtime.slice().sort(), Object.keys(labels).sort(), '运行时那份名单和美术目录对不上');
-  assert.match(trav, /setLook\(next\)/);
+  assert.match(trav, /setLook\(next(?:,reset=false)?\)/);
   assert.match(game, /if\(data\.look\)playerAvatar\.setLook\(data\.look\)/);
 });

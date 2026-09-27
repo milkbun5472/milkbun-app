@@ -48,7 +48,7 @@ test('只拖一根滑杆，另外五根不许被打回中性', async () => {
   assert.equal(old.dims.waist,.9);
   const fn = game.slice(game.indexOf('const applyLook=(who,look)=>{'), game.indexOf('window.FairyGardenGame={'));
   assert.match(fn, /mergeLook\(old,look\)/);
-  assert.match(trav, /mergeLook\(want,next\|\|\{\}\)/);
+  assert.match(trav, /mergeLook\((?:reset\?.*?\):)?want,next\|\|\{\}\)/);
 });
 
 test('每根滑杆都能单独回到中间', () => {

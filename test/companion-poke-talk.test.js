@@ -3,3 +3,4 @@ test('陪伴戳一戳说一句：默认关、走 runProbe voice、连戳合并�
  assert.match(s,/usePokeTalk\(char, props, !!cfg\.pokeTalk\)/);assert.match(s,/runProbe\(p, ctx, \{ voice: true/);assert.match(s,/Date\.now\(\) - s\.last < 15000/);assert.match(s,/setTimeout\(fire, 1200\)/);
  assert.match(pet,/type:'pet-poke'/);assert.match(app,/CompanionFloat, \{[^}]*ctxFor: ctxFor/);});
 test('戳一戳那句能念出来：和庭院列车同一个开关，没声音不念',()=>{const s=fs.readFileSync('js/companion.js','utf8');assert.match(s,/voiceOn\(\) && char\.voiceId && typeof ttsSpeak === "function"/);assert.match(s,/localStorage\.getItem\("x_fairyGardenVoice"\) === "1"/);});
+test('陪伴换角色整份换样貌，不叠在上一个人身上',()=>{const pet=fs.readFileSync('apps/companion/pet.mjs','utf8'),tr=fs.readFileSync('apps/fairy-garden/traveler.mjs','utf8');assert.match(pet,/pet\.setLook\(look,true\)/);assert.match(tr,/setLook\(next,reset=false\)\{const n=mergeLook\(reset\?/);assert.match(tr,/if\(reset\)for\(const k of Object\.keys\(want\)\)if\(!\(k in n\)\)delete want\[k\]/);});

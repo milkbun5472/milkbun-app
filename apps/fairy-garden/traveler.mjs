@@ -1,10 +1,10 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-b50c3d98d6fc8fbc';
-import {emotionPose} from './emotion-pose.mjs?v=fg-b50c3d98d6fc8fbc';
-import {makeDollLife} from './doll-life.mjs?v=fg-b50c3d98d6fc8fbc';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-b50c3d98d6fc8fbc';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-f6f4db1cdeac211e';
+import {emotionPose} from './emotion-pose.mjs?v=fg-f6f4db1cdeac211e';
+import {makeDollLife} from './doll-life.mjs?v=fg-f6f4db1cdeac211e';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-f6f4db1cdeac211e';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-b50c3d98d6fc8fbc';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-b50c3d98d6fc8fbc';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-f6f4db1cdeac211e';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-f6f4db1cdeac211e';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -247,9 +247,12 @@ export function createTraveler(source,companion=false,look={}){
  return {root,handPoint:life.handPoint,
   // 身上这套衣服到了没有（按需加载）：验图脚本等它再截图
   ready:()=>dressed,
-  setLook(next){const n=mergeLook(want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
+  // reset=true：整份换掉而不是叠在上一身上（陪伴换角色时用——她 2026-09-27「改了 a 换成 b 还是一样的外貌」：
+  //   b 没设过的发色／肤色／衣服／眼睛原来会一直留着 a 的）。庭院、列车仍是叠改动。
+  setLook(next,reset=false){const n=mergeLook(reset?Object.assign({},companion?COMPANION:DEFAULT):want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
    dress(n);if(DIMS.some(key=>Number(n.dims?.[key]??1)!==Number(want.dims?.[key]??1))){applyDims(n.dims);fitRig(n.dims);}
+   if(reset)for(const k of Object.keys(want))if(!(k in n))delete want[k];
    Object.assign(want,n);},
   animate(time,{moving=false,skating=false,gesture='rest',height=.08,sleepPose=null,seated=false,progress=0,emotion=null}={}){const lying=!!sleepPose;skating=skating&&!lying&&gesture!=='sit';skateParts.forEach(b=>b.visible=skating);root.userData.posture=lying?'sleep':skating?'skate':gesture;model.rotation.x=lying?-Math.PI/2:skating&&moving?.07:0;model.rotation.z=skating&&moving?Math.sin(time*3.2)*.035:0;model.position.set(lying?sleepPose.x-root.position.x:0,0,lying?sleepPose.z-root.position.z:0);if(lying){root.rotation.y=0;height=sleepPose.y;gesture='sleep';moving=false;model.rotation.y=sleepPose.hug?sleepPose.toward*.45:0;}else model.rotation.y=0;seated=!moving&&!lying&&(seated||gesture==='sit');const dt=lastPoseTime==null?.1:Math.min(.1,Math.max(0,time-lastPoseTime));poseBlend=lastPoseTime==null?1:1-Math.exp(-dt*14);lastPoseTime=time;for(const {p,label}of rig)if(label.includes('Arm'))for(const b of [p.userData.bone,p.userData.forearm])if(b)poseFrom.set(b,b.quaternion.clone());sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=sitBlend;});root.position.y=height-sitBlend*.34+(skating?.035:moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.z=skating?(label.includes('Arm')?side*.3:Math.sin(time*3.2)*.085*side):0;p.rotation.y=skating&&moving&&label.includes('Leg')?Math.sin(time*3.2)*.16*side:0;const hugging=lying&&sleepPose.hug,reaching=hugging&&sleepPose.hugArm,inner=sleepPose?.toward>0?'leftArm':'rightArm';const standing=lying?(reaching&&label===inner?-1.05:0):skating?(label.includes('Leg')?(moving?Math.sin(time*3.2)*.17*side:0):-.15):moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;if(reaching&&label===inner)p.rotation.z=side*.72;else if(hugging)p.rotation.z=0;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;if(!moving&&!lying&&label==='rightArm'){if(gesture==='stir'){p.rotation.x=-1.05+Math.sin(time*2.5)*.12;p.rotation.z=Math.cos(time*2.5)*.2;}else if(gesture==='hold')p.rotation.x=-1.3;}}life.update(time,{gesture:lying?'sleep':gesture,progress,moving,seated,height});
   root.userData.emotion=null;

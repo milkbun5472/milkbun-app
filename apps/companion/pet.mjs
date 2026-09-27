@@ -3,11 +3,11 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {MOODS,DUR,moodBase,pulse,accent} from './motion.mjs?v=fg-b50c3d98d6fc8fbc';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-b50c3d98d6fc8fbc';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-b50c3d98d6fc8fbc';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-b50c3d98d6fc8fbc';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-b50c3d98d6fc8fbc';
+import {MOODS,DUR,moodBase,pulse,accent} from './motion.mjs?v=fg-f6f4db1cdeac211e';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-f6f4db1cdeac211e';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-f6f4db1cdeac211e';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-f6f4db1cdeac211e';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-f6f4db1cdeac211e';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -24,7 +24,7 @@ let pet=null,pending=null,lastLook='',cur={look:{},ta:'TA'};
 // 外壳的换装面板（庭院那一份 DressControls）问这里要现值、让这里合并改动——换装规则只有 wardrobe.mjs 一份
 const full=()=>({...lookForTa(cur.ta),...cur.look});
 window.PetGame={hairModes:HAIR_MODES,getDyes:()=>dyesOf(full(),full()),getOutfit:()=>{const l=full();return {id:outfitId(l),colors:outfitColors(l)};},getHair:()=>hairId(full().hair),merge:(look,patch)=>mergeLook(look||{},patch||{})};
-const apply=m=>{cur={look:m.look||{},ta:m.ta||'TA'};if(!pet){pending=m;return;}const look=full();const key=JSON.stringify(look);if(key===lastLook)return;lastLook=key;pet.setLook(look);};
+const apply=m=>{cur={look:m.look||{},ta:m.ta||'TA'};if(!pet){pending=m;return;}const look=full();const key=JSON.stringify(look);if(key===lastLook)return;lastLook=key;pet.setLook(look,true);};   // 整份换：换角色时不许留着上一个人的发色衣服
 addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);if(e.data&&e.data.type==='pet-ctx')setCtx(e.data);});
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
 let ctx={screen:'',music:false,idle:false},sleeping=false;
@@ -36,7 +36,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-b50c3d98d6fc8fbc',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-f6f4db1cdeac211e',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
  parent.postMessage({type:'pet-ready'},'*');
