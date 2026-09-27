@@ -8614,6 +8614,9 @@ function ChatThread({
     if (m.kind === "gift") return h(GiftCard, { key: i, m: m, isU: m.role === "user", now: now, onOpenGift: onOpenGift,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
+      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
+      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
     if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
     if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
@@ -11186,7 +11189,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "emote" ? "表情" : null;
+  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "takeout" ? "🛵外卖" : m.kind === "emote" ? "表情" : null;
   const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
@@ -11746,6 +11749,43 @@ function GiftCard({ m, isU, now, avatar, myAvatar, onOpenGift }) {
           // 吊牌上打的那个孔
           h("div", { style: { position: "absolute", left: 6, top: "50%", marginTop: -2.5, width: 5, height: 5, borderRadius: 999, background: "rgba(70,52,28,.22)" } }))),
       h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.04em", color: t.fog, textAlign: isU ? "right" : "left" } }, footer)),
+    isU && myAvatar ? myAvatar : null);
+}
+// 外卖小票（她 2026-09-27：角色给她点外卖，要跟购物的礼物盒分开）。
+// 礼物是一个盒子，外卖在现实里是【订在袋子上的那张小票】：店名、点了什么、多少钱，
+// 底边是撕纸的锯齿。状态靠骑手那一格：在路上＝进度条在走＋还有几分；送到了＝条走满。
+// ⚠️没有「拆」：外卖到了就是到了，别给它套礼物那套掀盖。
+function TakeoutCard({ m, isU, now, avatar, myAvatar, character }) {
+  const t = useTheme();
+  const d = m.takeout || {};
+  const items = Array.isArray(d.items) ? d.items : [];
+  const cur = now || Date.now();
+  const total = m.arriveTs && m.ts ? Math.max(1, m.arriveTs - m.ts) : 1;
+  const left = m.arriveTs ? m.arriveTs - cur : 0;
+  const done = !m.arriveTs || left <= 0;
+  const pct = done ? 100 : Math.max(4, Math.min(96, Math.round((1 - left / total) * 100)));
+  const PAPER = "#fffdf6", INK = "#2f2a22", SUB = "#8a8171", RIDER = "#f2b705";
+  return h("div", { className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+    !isU && avatar ? avatar : null,
+    h("div", { "data-kind": "takeout", style: { width: 224, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))" } },
+      h("div", { style: { background: PAPER, borderRadius: "4px 4px 0 0", padding: "12px 14px 10px", color: INK } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.12em", color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          "外卖 · " + ((character && (character.remark || character.name)) || "TA") + " 给你点的"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, marginTop: 4, wordBreak: "break-word" } }, d.shop || "一家小店"),
+        h("div", { style: { borderTop: "1px dashed rgba(70,52,28,.28)", margin: "8px 0 6px" } }),
+        items.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, wordBreak: "break-word" } }, x)),
+        d.price ? h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: SUB, marginTop: 4 } },
+          h("span", null, "实付"), h("span", { style: { color: INK } }, mTight(d.price, character && character.id))) : null,
+        d.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: "#6d5f4b", marginTop: 6, paddingTop: 6,
+          borderTop: "1px dashed rgba(70,52,28,.22)", wordBreak: "break-word" } }, "备注：" + d.note) : null,
+        // 骑手那一格
+        h("div", { style: { marginTop: 9 } },
+          h("div", { style: { height: 4, borderRadius: 999, background: "rgba(70,52,28,.10)", overflow: "hidden" } },
+            h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: RIDER, transition: "width .6s ease" } })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SUB, marginTop: 4 } },
+            done ? "已送达 · 趁热吃" : "骑手在路上 · 还有 " + giftFmtLeft(left)))),
+      // 撕纸的锯齿底边
+      h("div", { style: { height: 7, background: "linear-gradient(-45deg, transparent 5px, " + PAPER + " 0) 0 0 / 10px 7px repeat-x, linear-gradient(45deg, transparent 5px, " + PAPER + " 0) 0 0 / 10px 7px repeat-x" } })),
     isU && myAvatar ? myAvatar : null);
 }
 // 亲属卡的卡面（v60.45 重做，聊天里那张 / 钱包汇总页 / 单卡账单页三处共用）

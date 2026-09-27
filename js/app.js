@@ -8992,7 +8992,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
-      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
+      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
@@ -9329,7 +9329,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
         : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
-      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
+      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
       // ⚠️这一段【必须排在 capState 声明之后】：v69.30 我把它写在上面那个
       //   photoSeen 块里，而 capState 是 const，于是每次走到这儿都是
@@ -9509,8 +9509,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // ⚠️从被删的旧基线里救回来的（v2 迁移没跟过来）：协议里只有 gift 的字段形状，
       //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，TA自然会乱送。
-      capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西/点外卖/送吃的花礼物惊喜，就**必须**填 gift"
-        + "（只嘴上说不填，Ta 收不到）。price 要照你自己的处境和这东西本来的价钱来——"
+      // takeout 单独一条、以「takeout：」起头——旁观房按冒号前那个字段名把整条摘掉。
+      capState.push("takeout：你给 " + uName + " 点外卖时填它（不填 gift）。shop 是你下单的那家店，items 列你点的每一样；"
+        + "它由骑手十几分钟送到，没有盒子可拆。它和 gift 怎么分只看一句：**现在送过去、Ta 当下就吃掉喝掉的，填 takeout；会留在 Ta 身边的东西，填 gift。**"
+        + "同一样吃的两边都说得通时，看你这句话是在说「现在给你叫一份」，还是「寄一份给你」。");
+      capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西、点外卖、送花送礼物，就**必须**填 gift 或 takeout"
+        + "（只嘴上说不填，Ta 收不到）。两样的 price 都要照你自己的处境和这东西本来的价钱来——"
         + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。"
         // 寄语（她 2026-09-19 转小红书群里读者 Sunghoon 的建议：「一点开就是你要的那个
         // 东西的名称，还有寄语」）。原来送礼这条只有名字和价钱——送礼里最像人的那半
@@ -9670,7 +9674,7 @@ affinityDelta: ${AFFINITY_DELTA_SPEC}
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音（${VOICE_PAUSE_MARK}）；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音（${VOICE_PAUSE_MARK}）；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"附言，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
@@ -9857,6 +9861,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 只有描述、没有像素的那一张（没配图像通道时走的那条路）：跟真发过一样记着，
             // 不然他下一轮会说「我还没拍」或者把同一张再发一遍。
             : (m.kind === "photo" && m.descOnly) ? "【你在这里已经实际发出一张照片；这是你亲手做过的事，不得说自己没发过或马上重复发】\n照片内容：" + (m.desc || "")
+            : m.kind === "takeout" ? "[你给 " + uName + " 点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
+              + ((m.takeout && m.takeout.note) ? "（附言：「" + m.takeout.note + "」）" : "")
+              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到了）") + "]"
             : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]"
             // 自己做过的事也点名：这一条原来是「沈清和 向你转了 ¥200」，他自述里叫自己名字，像在转述别人
             : m.kind === "transfer" ? transferLineForModel(m, "你（" + char.name + "）", uName, charId)
@@ -10250,7 +10257,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
         words = []; emoteWordKws.length = 0;
-        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null;
+        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null; parsed.takeout = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
@@ -10564,6 +10571,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
+      if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
       if (parsed.location && parsed.location.name) {
         pChat(chatKey, p => [...p, {
         role: "assistant",
@@ -21932,6 +21940,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pChat(charId, p => [...p, { role: "assistant", kind: "gift", dir: "toMe", item: { name, price, note }, opened: false,
       content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now() }]);
     addOrder({ name, price, fromCharId: charId, cat: null, payLabel: (char.remark || char.name) + " 送的" });
+  };
+  // 角色给她点外卖（她 2026-09-27：「角色给我点外卖怎么区分是出购物的礼物卡还是外卖卡」）。
+  // 原来只有一个 gift 字段，外卖和礼物全从那儿走，再拿名字去猜品类——那不叫区分，叫猜。
+  // 现在TA自己说：会留下来的东西填 gift，现在送来、当下吃掉的填 takeout。
+  // ⚠️不自动改判：只填了 gift 的，哪怕名字像吃的也照旧是礼物卡（猜错了卡片就对不上TA那句话）。
+  // 外卖不进盒子、不拆、送到就是送到；订单挂进「我的」那条送达链（cat 钉死 food），
+  // 聊天卡和订单用同一个 arriveTs，两边的倒计时才对得上。
+  const postCharTakeout = (charId, raw) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || !raw) return false;
+    const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
+    const shop = clip(raw.shop, 30);
+    const items = (Array.isArray(raw.items) ? raw.items : [raw.items]).map(x => clip(x, 30)).filter(x => x && x.toLowerCase() !== "null").slice(0, 8);
+    if (!items.length) return false;
+    const label = items.join("、");
+    const price = giftPrice(charId, label, raw.price);
+    const note = clip(raw.note, 80);
+    const arriveTs = Date.now() + deliverMsForCat("food", label);
+    walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
+    pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
+      content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now() }]);
+    addOrder({ name: (shop ? shop + " · " : "") + label, price, fromCharId: charId, cat: "food", kind: "takeout", arriveTs, payLabel: (char.remark || char.name) + " 点的外卖" });
+    return true;
   };
 
   // 代付：把清单发给角色/群聊，角色按人设+好感+余额决定要不要付
