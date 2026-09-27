@@ -13,6 +13,22 @@ export const MOODS={
 };
 export const DUR={wave:3.4,stretch:4.8,tea:5,read:7,sit:8,hop:1.8,jolt:1.8,nod:2.6,sigh:4,stomp:2.2,turn:3.6,look:3,shy:3.2,yawn:4.8,wake:2.8,land:1};
 for(const face of Object.keys(MOODS))DUR['emotion-'+face]=['sad','gloomy','relax'].includes(face)?5.6:4.6;
+export const EXTRA_ACTIONS={
+ beckon:{duration:4.8,moods:['default','cozy','sad']},
+ dance:{duration:5.2,moods:['happy','amazed','proud']},
+ bow:{duration:4.8,moods:['happy','cozy','relax','proud']},
+ shrug:{duration:4.8,moods:['surprise','gloomy','irritated']},
+ peek:{duration:5.2,moods:['default','relax','surprise','gloomy','sad','irritated']}
+};
+for(const [name,action] of Object.entries(EXTRA_ACTIONS)){
+ const key='emotion-'+name;DUR[key]=action.duration;
+ for(const mood of action.moods)MOODS[mood].acts.push(key);
+}
+// 待机和单点共用选片：只有一个候选时才允许重复，不改角色心情。
+export function chooseAction(pool,last,random=Math.random){
+ const fresh=pool.filter(k=>k!==last),choices=fresh.length?fresh:pool;
+ return choices[Math.floor(random()*choices.length)];
+}
 const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
 // 到位后稍作停留，收势比起势慢；两端速度为零。
 export const pulse=(p,inEnd=.25,outStart=.52)=>smooth(p/inEnd)*(1-smooth((p-outStart)/(1-outStart)));

@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-090fe9ee404691c9";
+  const KEY = "x_companion", BUILD = "fg-139ac0ec709ab990";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -151,7 +151,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };

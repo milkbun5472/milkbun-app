@@ -3,11 +3,11 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {MOODS,DUR,moodBase,pulse,accent} from './motion.mjs?v=fg-090fe9ee404691c9';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-090fe9ee404691c9';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-090fe9ee404691c9';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-090fe9ee404691c9';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-090fe9ee404691c9';
+import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-139ac0ec709ab990';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-139ac0ec709ab990';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-139ac0ec709ab990';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-139ac0ec709ab990';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-139ac0ec709ab990';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -36,7 +36,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-090fe9ee404691c9',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-139ac0ec709ab990',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
@@ -49,12 +49,13 @@ window.petDebug={frames:0,snapshot:()=>({action:act?.kind,emotion:pet.root.userD
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
 const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
-let greeted=false,held=null,taps=[];
+let greeted=false,held=null,taps=[];const lastActions=new Map();
+function pickForMood(face,pool){const key=MOODS[face]?face:'default',kind=chooseAction(pool||MOODS[key].acts,lastActions.get(key));lastActions.set(key,kind);return kind;}
 function wake(){if(!sleeping)return;sleeping=false;act={kind:'wake',start:clock.getElapsedTime()};}
 function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}taps=taps.filter(x=>t-x<1.4);taps.push(t);
  const n=taps.length,face=(cur.look&&cur.look.face)||'default',cross=['irritated','sad','gloomy'].includes(face);
  // 点一下回头看你；连点两下蹦一下；再点他就害羞（心情不好的时候是扭过头去不理你）
- act={kind:n>=3?(cross?'emotion-irritated':'shy'):n===2?(cross?'emotion-'+face:'emotion-amazed'):'emotion-'+(MOODS[face]?face:'default'),start:t};parent.postMessage({type:'pet-poke',kind:n>=3?'many':n===2?'double':'tap',count:n},'*');}
+ act={kind:n>=3?(cross?'emotion-irritated':'shy'):n===2?(cross?'emotion-'+face:'emotion-amazed'):pickForMood(face),start:t};parent.postMessage({type:'pet-poke',kind:n>=3?'many':n===2?'double':'tap',count:n},'*');}
 // ── 省电：它是全 app 唯一【常驻】的 WebGL ────────────────────────────────
 // 悬浮小人在每一页都活着，切后台也照跑——装饰品的唯一失败方式就是「开着很烦」
 // （发烫、掉电）。所以：页面看不见就真的停，悬浮那只按 24 帧画（指甲盖大小，
@@ -69,7 +70,7 @@ function draw(t){
  if(ctx.idle&&!sleeping&&!held){sleeping=true;act=null;}
  if(!greeted&&t>1.5){greeted=true;const h=new Date().getHours();if(h>=6&&h<10&&!act)act={kind:'stretch',start:t};}
  if(face!==curMood){curMood=face;act=null;nextAt=t+1.2;}
- if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pool[Math.floor(Math.random()*pool.length)];act={kind:k,start:t};}
+ if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pickForMood(face,pool);act={kind:k,start:t};}
  let emotion=null,gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
  if(act){progress=(t-act.start)/DUR[act.kind];if(progress>=1){act=null;nextAt=t+M.every*(.7+Math.random()*.6);progress=0;}
   else{if(act.kind.startsWith('emotion-'))emotion=act.kind.slice(8);const e=pulse(progress);const a=accent(act.kind,progress);dy=a.dy;dtilt=a.dtilt;dyaw=a.dyaw;switch(act.kind){
