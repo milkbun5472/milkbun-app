@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-d85fb3483138621e";
+  const KEY = "x_companion", BUILD = "fg-af41ae9959df6391";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -56,8 +56,44 @@
     useEffect(() => { const id = setInterval(() => setIdle(Date.now() - lastTouch > IDLE_MS), 15000); return () => clearInterval(id); }, []);
     return idle;
   }
-  function PetFrame({ mode, msg, ctx, style, onOpen, frameRef, onStatus, onAct, reloadKey }) {
-    const own = useRef(null), ref = frameRef || own;
+  // 戳一戳时让他顺手说一句（她 2026-09-27）：开关默认关——每一句都是一次 API 调用。
+  // ⚠️走 runProbe({voice:true})：人设全文／心情／好感／印象卡／记忆／反八股是 buildBundle 白给的一整份
+  //   （施工规则/four-surfaces-same-context.md：别自己拼 sys）。料全在 system，user 只留一句触发（runProbe 自己就是这个形状）。
+  // 连戳不连发：停手 1.2 秒才合成一次；两次之间至少隔 15 秒，其间的戳只换动作不说话。
+  const POKE_ZH = { tap: "戳了你一下", double: "连戳了你两下", many: "一直在戳你", lift: "把你拎起来晃了晃又放下" };
+  function usePokeTalk(char, props, on) {
+    const [say, setSay] = useState("");
+    const st = useRef({ timer: 0, busy: false, last: 0, pending: null, hide: 0 });
+    useEffect(() => () => { clearTimeout(st.current.timer); clearTimeout(st.current.hide); }, []);
+    const fire = async () => {
+      const s = st.current, info = s.pending; s.pending = null;
+      if (!info || s.busy || !char || Date.now() - s.last < 15000) return;
+      const p = props.apiFor ? props.apiFor(char.id) : null, ctx = props.ctxFor ? props.ctxFor(char) : null;
+      if (!p || !ctx || typeof runProbe !== "function") return;
+      s.busy = true; s.last = Date.now();
+      try {
+        const hr = new Date().getHours(), uName = (props.profile && props.profile.name) || "她";
+        const d = await runProbe(p, ctx, { voice: true, tag: "陪伴",
+          instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。\n"
+            + "按你自己的性子、你此刻的心情，顺手回她一句——就一句，短，像被戳到时脱口而出的那种。可以只是一个语气词，也可以不理她、嫌她烦、或者反过来逗她。"
+            + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : ""),
+          schemaHint: "{\"line\":\"你脱口而出的那一句\"}" });
+        const line = String((d && d.line) || "").trim().slice(0, 60);
+        if (line) { setSay(line); clearTimeout(s.hide); s.hide = setTimeout(() => setSay(""), Math.min(9000, 3000 + line.length * 180)); }
+      } catch (e) {/* 说不出来就只做动作，不打扰她 */}
+      finally { s.busy = false; }
+    };
+    const onPoke = info => { if (!on) return; const s = st.current; s.pending = info; clearTimeout(s.timer); s.timer = setTimeout(fire, 1200); };
+    return [say, onPoke];
+  }
+  function Bubble({ text, style }) {
+    if (!text) return null;
+    return h("div", { style: Object.assign({ position: "absolute", left: "50%", transform: "translateX(-50%)", maxWidth: 200, width: "max-content", padding: "6px 10px", borderRadius: 12,
+      background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "none", zIndex: 2 }, style) }, text);
+  }
+  function PetFrame({ mode, msg, ctx, style, onOpen, onPoke, frameRef, onStatus, onAct, reloadKey }) {
+    const own = useRef(null), ref = frameRef || own, pokeRef = useRef(onPoke);
+    pokeRef.current = onPoke;
     const key = JSON.stringify(msg);
     useEffect(() => {
       const send = () => { const w = ref.current && ref.current.contentWindow; if (w && msg) w.postMessage(msg, "*"); if (w && ctx) w.postMessage(Object.assign({ type: "pet-ctx" }, ctx), "*"); };
@@ -71,6 +107,7 @@
         if (e.data.type === "pet-failed" && onStatus) onStatus({ state: "failed", why: String(e.data.why || "") });
         if (e.data.type === "pet-act" && onAct) onAct(String(e.data.kind || ""));
         if (e.data.type === "pet-open" && onOpen) onOpen();
+        if (e.data.type === "pet-poke" && pokeRef.current) pokeRef.current({ kind: String(e.data.kind || "tap"), count: Number(e.data.count) || 1 });
       };
       window.addEventListener("message", on);
       return () => window.removeEventListener("message", on);
@@ -100,6 +137,7 @@
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
     const idle = useIdle();
+    const [say, onPoke] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
     const [petState, setPetState] = useState({ state: "loading", pct: 0 });
     const [actNow, setActNow] = useState("");
@@ -120,7 +158,8 @@
       !char ? h("div", { style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
       h(React.Fragment, null,
         h("div", { style: { height: "42vh", flexShrink: 0, position: "relative" } },
-          h(PetFrame, { mode: "full", frameRef: frame, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
+          h(Bubble, { text: say, style: { top: 8 } }),
+          h(PetFrame, { mode: "full", frameRef: frame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
             onStatus: setPetState, onAct: setActNow, reloadKey: retry, style: { width: "100%", height: "100%" } }),
           // 他还没画出来的时候屏幕是空的：第一次要下 5MB 的小人，网差就更久。
           // 原来这里什么都不说，卡住和正在下一个样（2026-09-26 发公共版前补的）。
@@ -146,6 +185,9 @@
             style: { width: "100%", minHeight: 46, borderRadius: 14, fontSize: 14, marginBottom: 18,
               background: cfg.float ? "#8a6a4b" : "rgba(255,255,255,.7)", color: cfg.float ? "#fff" : "#6b5440", border: "1px solid rgba(138,106,75,.35)" } },
             cfg.float ? "正在屏幕上陪着你 · 点这里收起来" : "让他悬浮在屏幕上"),
+          h("div", { style: { display: "flex", gap: 8, margin: "0 0 4px" } },
+            chip(!cfg.pokeTalk, "戳他只做动作", () => set({ pokeTalk: false }), "pa"), chip(!!cfg.pokeTalk, "戳他会说一句", () => set({ pokeTalk: true }), "pb")),
+          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。"),
           h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "这一身只在陪伴里算数，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: 12, color: "#9a8a70" } }, "小人还在来的路上…"))));
@@ -176,6 +218,7 @@
     const idle = useIdle();
     const typing = useTyping();
     const [failed, setFailed] = useState(false);
+    const [say, onPoke] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 下不来就别在屏幕上留一个空框占地方（悬浮这只不打扰她，一句话都不弹）
     if (!cfg.float || !char || props.hidden || failed) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
@@ -187,7 +230,8 @@
       const n = Object.assign(load(), { pos }); save(n); };
     return h("div", { onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
       opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
-      h(PetFrame, { mode: "float", msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
+      h(Bubble, { text: say, style: { bottom: "100%", marginBottom: 4 } }),
+      h(PetFrame, { mode: "float", onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
         onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
       // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
       h("div", { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",

@@ -3,11 +3,11 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {MOODS,DUR,moodBase,pulse,accent} from './motion.mjs?v=fg-d85fb3483138621e';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-d85fb3483138621e';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-d85fb3483138621e';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-d85fb3483138621e';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-d85fb3483138621e';
+import {MOODS,DUR,moodBase,pulse,accent} from './motion.mjs?v=fg-af41ae9959df6391';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-af41ae9959df6391';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-af41ae9959df6391';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-af41ae9959df6391';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-af41ae9959df6391';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -36,7 +36,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-d85fb3483138621e',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-af41ae9959df6391',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,{});sc.add(pet.root);if(pending)apply(pending);
  parent.postMessage({type:'pet-ready'},'*');
@@ -54,7 +54,7 @@ function wake(){if(!sleeping)return;sleeping=false;act={kind:'wake',start:clock.
 function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}taps=taps.filter(x=>t-x<1.4);taps.push(t);
  const n=taps.length,face=(cur.look&&cur.look.face)||'default',cross=['irritated','sad','gloomy'].includes(face);
  // 点一下回头看你；连点两下蹦一下；再点他就害羞（心情不好的时候是扭过头去不理你）
- act={kind:n>=3?(cross?'emotion-irritated':'shy'):n===2?(cross?'emotion-'+face:'emotion-amazed'):'emotion-'+(MOODS[face]?face:'default'),start:t};}
+ act={kind:n>=3?(cross?'emotion-irritated':'shy'):n===2?(cross?'emotion-'+face:'emotion-amazed'):'emotion-'+(MOODS[face]?face:'default'),start:t};parent.postMessage({type:'pet-poke',kind:n>=3?'many':n===2?'double':'tap',count:n},'*');}
 // ── 省电：它是全 app 唯一【常驻】的 WebGL ────────────────────────────────
 // 悬浮小人在每一页都活着，切后台也照跑——装饰品的唯一失败方式就是「开着很烦」
 // （发烫、掉电）。所以：页面看不见就真的停，悬浮那只按 24 帧画（指甲盖大小，
@@ -107,5 +107,5 @@ for(const k of ['contextmenu','selectstart','dragstart'])addEventListener(k,e=>e
 {let down=null,moved=0,timer=0;
  addEventListener('pointerdown',e=>{down={x:e.clientX,last:e.clientX};moved=0;clearTimeout(timer);timer=setTimeout(()=>{if(down&&moved<6){held=true;act=null;sleeping=false;}},450);});
  addEventListener('pointermove',e=>{if(!down)return;moved+=Math.abs(e.clientX-down.last);if(mode!=='float'&&!held)yaw+=(e.clientX-down.last)*.01;down.last=e.clientX;});
- addEventListener('pointerup',()=>{clearTimeout(timer);if(held){held=null;act={kind:'land',start:clock.getElapsedTime()};}else if(down&&moved<6)poke();down=null;});
+ addEventListener('pointerup',()=>{clearTimeout(timer);if(held){held=null;act={kind:'land',start:clock.getElapsedTime()};parent.postMessage({type:'pet-poke',kind:'lift',count:1},'*');}else if(down&&moved<6)poke();down=null;});
  addEventListener('pointercancel',()=>{clearTimeout(timer);held=null;down=null;});}
