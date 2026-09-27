@@ -3132,9 +3132,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     putLiveCondition(local, prev, meta && meta.state ? meta.state.condition : undefined, ts);
     clearWearingOnMove(local, prev, !!local.wearing);
+    const newMood = meta && meta.mood || "";
+    const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
-      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null }
-      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null };
+      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null }
+      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null };
     const statesNext = { ...roomStatesRef.current, [roomKey]: next };
     roomStatesRef.current = statesNext; setRoomStates(statesNext); saveJSON("x_roomStates", statesNext);
     if (!clean) return;
@@ -25266,7 +25268,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       character: scc,
       isNpc: !!scc.npc,
       affinity: roomCard ? undefined : Math.round(affOf(scc.id)),
-      mood: roomCard ? null : moods[scc.id],
+      // 房间的心情是这间房自己的那一份（roomStates），不回退到主线；没有就是空着
+      mood: roomCard ? (() => { const rs = roomStates[stateCardRoomKey] || {}; return rs.mood ? { label: rs.mood, ts: rs.moodTs || rs.ts } : null; })() : moods[scc.id],
       // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
       state: roomCard ? (roomStates[stateCardRoomKey] || null) : (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),

@@ -12789,11 +12789,13 @@ function StateCard({
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
         // ⚠️配角的心情也显示（她 2026-09-20：「心情想法穿着动作这四样放 npc 状态卡」）。
         //   原来这两处拿 isNpc 把心情那一行整个藏了；好感那颗心照旧不给配角（见下面的 scale）。
-        roomName ? h("span", { style: { color: t.accent } }, roomName + " · 心声只留在本房") : dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
-        (!roomName && dm) ? " · " : "",
-        roomName ? "" : dm && dm.def ? "聊几句就会变"
+        dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        dm ? " · " : "",
+        roomName && !dm ? "这间房还没有心情"
+          : dm && dm.def ? "聊几句就会变"
           : dm && dm.faded ? "已经平复下去了"
-            : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"))),
+            : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"),
+        roomName ? " · 只在「" + roomName + "」里" : "")),
     h("div", { className: "shrink-0 flex items-center", style: { gap: 6 } },
       h("button", { onClick: onClose, "aria-label": "关掉", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1 } }, "✕")));
   const tabs = gazeOn && window.GazePage ? h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line } },

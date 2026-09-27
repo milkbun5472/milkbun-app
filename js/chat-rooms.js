@@ -436,7 +436,10 @@
     lines.push(c.schedule
       ? "【时间边界】本房已开启现实时间与行程，可按角色当地时间、现实钟和当前行程自然回应；若它与本房限定设定冲突，以本房设定为准。"
       : "【时间边界】本房未开启现实时间与行程；不要拿主时间线此刻几点、人在何处、下一段行程来约束本房。只以本房设定与本房已经发生的内容判断时间。",
-      "【心声边界】本房的未说出口心声只属于本房，单独保存；不得据此改写主房心声、关系成长或人格成长。");
+      // ⚠️她 2026-09-28：房里聊几轮心声就不填了。原来这一句只说「不得改写主房」，
+      //   跟下面写回边界那句「不改变共同状态」连着读，模型读成了「这房里状态字段不用填」。
+      //   所以正面说清：照常每轮填，落在这间房自己的卡上。
+      "【心声与状态】心声、心情、动作照常每轮填写，它们记在这间房自己的状态卡上，只在这间房里算数。");
     if (room.purpose) lines.push("【这间房想慢慢继续的事】" + room.purpose + "。它是这条分线的共同方向，不是每轮必须汇报的任务；相关时自然接着，不相关时正常聊天。");
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
     if (allowedActions.length) lines.push("【本房可提议的活动】" + allowedActions.join("、") + "。只需在真的想做时自然开口，不要把它当作每轮任务，也不要假装界面已经打开。");
@@ -445,7 +448,7 @@
       lines.push("【一起学邀请规则】先看下面已有课程；主题相关时优先提议续上现有 session。没有合适旧课时，你可以先提出一个轻量课程想法（学什么、为什么此刻想一起学、建议从哪个小点开始），但不能声称已经建课或已经打开界面，必须等对方确认。\n" + (ss.length ? "已有课程：\n" + ss.map(s => "· sessionId=" + s.id + "｜" + (s.title || s.subject || "未命名") + "｜" + (s.subject || "")).join("\n") : "目前没有你参与的已有课程。"));
     }
     const scenarioOn = !!room.scenario;
-    lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "本房不改变主房关系、情绪、动作等共同状态") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
+    lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "主房那边的关系和好感不因本房变化") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
     const mayReadMainDelta = room.syncMode === "follow" || (room.syncMode === "ask" && room.syncOnce);
     if (c.mainDelta && mayReadMainDelta && Array.isArray(mainMessages)) {
       const since = Number(room.mainCursorTs || room.createdAt || 0);

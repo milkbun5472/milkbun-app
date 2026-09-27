@@ -155,3 +155,15 @@ test("吃过的点开看全；给TA点时有地方写一句话，小票上印出
   assert.match(card, /d\.note \? h\("div"/);
   assert.match(card, /"备注：" \+ d\.remark/);
 });
+
+// ── 房间的心情和心声（她 2026-09-28：房里心情显示不出来、聊几轮就不填心声）──
+test("房间状态卡：心情用这间房自己的，抬头不再被房名那句占掉", () => {
+  assert.match(app, /mood: roomCard \? \(\(\) => \{ const rs = roomStates\[stateCardRoomKey\] \|\| \{\}; return rs\.mood \? \{ label: rs\.mood, ts: rs\.moodTs \|\| rs\.ts \} : null; \}\)\(\) : moods\[scc\.id\]/);
+  assert.doesNotMatch(comps, /心声只留在本房/);
+});
+test("房间提示词正面说清：心声心情照常每轮填", () => {
+  const R = require("../js/chat-rooms.js");
+  const txt = R.prompt({ id: "r1", name: "海边", cognition: {}, actions: {}, writeback: {} }, [], { turns: 2 });
+  assert.match(txt, /心声、心情、动作照常每轮填写/);
+  assert.doesNotMatch(txt, /本房不改变主房关系、情绪、动作等共同状态/);
+});
