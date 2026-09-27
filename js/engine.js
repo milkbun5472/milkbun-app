@@ -3918,6 +3918,32 @@ const PHOTO_PART_ZH = "局部";
 // ⚠️措辞只许有这一份：单聊和群聊共用；哪天再改，改这儿一处。
 //   （她 2026-09-09：v66.03~66.10 三版都写进了 photoHint，而那一段挂在
 //     _normalTaskFull 上、早就不发了——所以四张截图全是同一个错。）
+// 照片字段被写进了正文（2026-09-27 别人报：气泡里冒出「[photo: kind=none」「face=false」「scene=…」）。
+// 模型有时不把 photo 放进 JSON 字段，而是照着字段名在正文里写一行「[photo: kind=…, face=…, scene=…]」，
+// 拆气泡时又按逗号换行拆成好几条——她看到的就是一串参数。这里把它从正文里捞出来、还原成 photo 字段；
+// 正文里只剩真正的话。认的形状只有这一种（方括号＋photo 打头），不去猜别的写法。
+function pullPhotoMarker(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const start = list.findIndex(w => /\[\s*photo\s*[:：]/i.test(w));
+  if (start < 0) return { words: list, photo: null };
+  let end = start, text = list[start];
+  if (!/\]/.test(text.slice(text.search(/\[\s*photo/i)))) {
+    for (let i = start + 1; i < list.length; i++) {
+      if (!/^\s*(kind|face|scene|desc)\s*[=:：]/i.test(list[i]) && !/^\s*\]\s*$/.test(list[i])) break;
+      text += ", " + list[i]; end = i;
+      if (/\]/.test(list[i])) break;
+    }
+  }
+  const at = text.search(/\[\s*photo\s*[:：]/i), close = text.indexOf("]", at);
+  const body = text.slice(at, close < 0 ? text.length : close + 1);
+  const inner = body.replace(/^\[\s*photo\s*[:：]/i, "").replace(/\]\s*$/, "");
+  const field = k => { const m = new RegExp("(?:^|[,，\\s])" + k + "\\s*[=:：]\\s*([\\s\\S]*?)(?=\\s*[,，]\\s*(?:kind|face|scene|desc)\\s*[=:：]|$)", "i").exec(inner); return m ? m[1].trim() : ""; };
+  const kind = field("kind").toLowerCase(), face = field("face").toLowerCase(), scene = field("scene") || field("desc");
+  const before = text.slice(0, at).trim(), after = close < 0 ? "" : text.slice(close + 1).trim();
+  const kept = list.slice(0, start).concat([before, after].filter(Boolean), list.slice(end + 1));
+  if (!scene) return { words: kept, photo: null };
+  return { words: kept, photo: { kind: kind || "none", scene, ...(face === "true" || face === "false" ? { face: face === "true" } : {}) } };
+}
 function photoCapLine(uName, o) {
   o = o || {};
   const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : [])
