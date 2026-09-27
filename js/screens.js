@@ -3650,7 +3650,9 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
   const [qty, setQty] = useState({});         // {dishUid: 份数}，只属于当前这家店
   const [pay, setPay] = useState(false);      // 结账页
   const [payMode, setPayMode] = useState(null);
-  const [note, setNote] = useState("");
+  const [remark, setRemark] = useState("");   // 给店家的备注
+  const [say, setSay] = useState("");         // 给TA点时，写在单子上的一句话
+  const [openLog, setOpenLog] = useState(null); // 「吃过的」点开看全的那一条
   const [now, setNow] = useState(Date.now());
   const listRef = useRef(null);
   const listTop = useRef(0);
@@ -3672,10 +3674,10 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
   const bagCount = bagItems.reduce((s, x) => s + x.qty, 0);
   const bagTotal = Math.round(bagItems.reduce((s, x) => s + x.price * x.qty, 0) * 100) / 100;
   const bump = (uid, dlt) => setQty(p => ({ ...p, [uid]: Math.max(0, Math.min(20, (p[uid] || 0) + dlt)) }));
-  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setNote(""); setShop(s); };
+  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setShop(s); };
   const leaveShop = () => { setShop(null); setQty({}); setPay(false); setPayMode(null); };
   const submit = (mode, target) => {
-    const ok = onOrder({ shop: shop.name, items: bagItems, note }, mode, target);
+    const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "" }, mode, target);
     if (ok !== false) { leaveShop(); if (mode !== "forchar") setNav("orders"); }
   };
   const head = (zh, back, right) => h(Head, { zh, onBack: back, bg: MTAKE.card, ink: MTAKE.ink, subInk: MTAKE.dim, lineInk: MTAKE.line, right: right || null });
@@ -3689,7 +3691,7 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
       h(Avatar, { character: c, size: 36, radius: 9 }),
       h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: MTAKE.ink } }, c.remark || c.name, extra ? h("span", { style: { fontSize: 11, color: MTAKE.dim } }, " · " + extra) : null));
     const modes = [
-      ["buy", "自己付", "余额 " + wallet],
+      ["buy", "自己付", "余额 ¥" + wallet],
       ["paylater", "找TA代付", "发到聊天里，TA决定付不付"],
       cards.length ? ["kinship", "刷亲属卡", "花的是TA的钱"] : null,
       ["forchar", "给TA点一份", "送到TA那儿，聊天里会出一张小票"]
@@ -3713,7 +3715,7 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
             h("span", null, x.name + (x.qty > 1 ? " ×" + x.qty : "")), h("span", null, "¥" + Math.round(x.price * x.qty * 100) / 100))),
           h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 13, marginTop: 6, color: MTAKE.sub } },
             h("span", null, "合计"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, fontWeight: 700, color: MTAKE.price } }, "¥" + bagTotal)),
-          h("input", { value: note, onChange: e => setNote(e.target.value), maxLength: 80, placeholder: "备注（口味、放门口……）",
+          h("input", { value: remark, onChange: e => setRemark(e.target.value), maxLength: 80, placeholder: "备注（口味、放门口……）",
             style: { width: "100%", marginTop: 10, height: 36, borderRadius: 9, border: "1px solid " + MTAKE.line, background: MTAKE.bg, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.ink, outline: "none" } })),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MTAKE.sub, margin: "4px 2px 8px" } }, "怎么付"),
         modes.map(([k, zh, sub]) => {
@@ -3725,6 +3727,8 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
                 h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 2 } }, sub)),
               h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? MTAKE.price : MTAKE.dim } }, k === "buy" ? "付款" : on ? "收起" : "选人")),
             on && targets ? h("div", { style: { padding: "0 10px 6px", borderTop: "1px solid " + MTAKE.line } },
+              k === "forchar" ? h("input", { value: say, onChange: e => setSay(e.target.value), maxLength: 80, placeholder: "写一句给TA（印在小票上，可以不写）",
+                style: { width: "100%", margin: "10px 0 4px", height: 36, borderRadius: 9, border: "1px solid " + MTAKE.line, background: MTAKE.bg, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.ink, outline: "none" } }) : null,
               targets.length ? targets : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: MTAKE.dim, padding: "12px 4px" } }, "还没有可以选的人")) : null);
         }),
         h("div", { style: { height: 20 } })));
@@ -3780,7 +3784,16 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
     o.takeout && o.takeout.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: MTAKE.sub, marginTop: 3, lineHeight: 1.6 } }, o.takeout.items.join("、")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 4 } },
       (o.price ? "¥" + o.price : "") + (o.payLabel ? (o.price ? " · " : "") + o.payLabel : "")),
+    takeoutWords(o),
     body);
+  // TA写在单子上的那句话 + 给店家的备注。订单卡和「吃过的」点开那一条共用。
+  function takeoutWords(o) {
+    const d = o.takeout || {};
+    return h(React.Fragment, null,
+      d.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 3, wordBreak: "break-word" } }, "备注：" + d.remark) : null,
+      d.note ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.6, color: "#6d5f4b", marginTop: 7, paddingTop: 7, borderTop: "1px dashed " + MTAKE.line, wordBreak: "break-word" } },
+        "「" + d.note + "」" + (o.fromCharId && charById(o.fromCharId) ? " —— " + (charById(o.fromCharId).remark || charById(o.fromCharId).name) : "")) : null);
+  }
   const sectionLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MTAKE.sub, margin: "2px 2px 8px" } }, txt);
   const ordersView = h("div", { className: "flex-1 flex flex-col min-h-0" },
     head("订单", onBack),
@@ -3800,9 +3813,22 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
         h("button", { onClick: () => onEat(o.id), className: "active:opacity-70", style: { padding: "7px 16px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: MTAKE.ink } }, "吃完了"))))
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, marginBottom: 16 } }, "没有等着吃的"),
       sectionLabel("吃过的 · " + (log || []).length),
-      (log || []).length ? (log || []).slice(0, 60).map(o => h("div", { key: o.id, className: "flex items-baseline justify-between", style: { padding: "8px 2px", borderBottom: "1px solid " + MTAKE.line, gap: 10 } },
-        h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.ink } }, o.name),
-        h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: MTAKE.dim } }, (() => { const d = new Date(o.ts); return (d.getMonth() + 1) + "/" + d.getDate(); })())))
+      // 一行放不下店名加菜名（她 2026-09-28 截图）：点一下整条展开看全，再点收回
+      (log || []).length ? (log || []).slice(0, 60).map(o => {
+        const open = openLog === o.id;
+        const d = new Date(o.ts);
+        return h("button", { key: o.id, onClick: () => setOpenLog(open ? null : o.id), "aria-expanded": open, className: "w-full text-left active:opacity-70",
+          style: { display: "block", padding: "9px 2px", borderBottom: "1px solid " + MTAKE.line } },
+          h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
+            h("span", { className: open ? "" : "truncate", style: { fontFamily: open ? F_DISPLAY : F_BODY, fontSize: open ? 14 : 12.5, color: MTAKE.ink, wordBreak: "break-word" } },
+              open ? ((o.takeout && o.takeout.shop) || o.name) : o.name),
+            h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: MTAKE.dim } }, (d.getMonth() + 1) + "/" + d.getDate())),
+          open ? h("div", { style: { marginTop: 4 } },
+            o.takeout && o.takeout.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: MTAKE.sub, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 3 } },
+              [o.price ? "¥" + o.price : "", o.payLabel || "", String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " 吃完的"].filter(Boolean).join(" · ")),
+            takeoutWords(o)) : null);
+      })
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim } }, "还没吃过"),
       h("div", { style: { height: 20 } })));
 

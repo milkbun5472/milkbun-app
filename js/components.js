@@ -11803,8 +11803,10 @@ function TakeoutCard({ m, isU, now, avatar, myAvatar, character }) {
         items.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, wordBreak: "break-word" } }, x)),
         d.price ? h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: SUB, marginTop: 4 } },
           h("span", null, "实付"), h("span", { style: { color: INK } }, mTight(d.price, character && character.id))) : null,
-        d.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: "#6d5f4b", marginTop: 6, paddingTop: 6,
-          borderTop: "1px dashed rgba(70,52,28,.22)", wordBreak: "break-word" } }, "备注：" + d.note) : null,
+        d.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SUB, marginTop: 5, wordBreak: "break-word" } }, "备注：" + d.remark) : null,
+        // 写在单子上给对方的那句话：像拿笔在小票空白处添的一行
+        d.note ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "#6d5f4b", marginTop: 7, paddingTop: 7,
+          borderTop: "1px dashed rgba(70,52,28,.22)", wordBreak: "break-word" } }, "「" + d.note + "」") : null,
         // 骑手那一格
         h("div", { style: { marginTop: 9 } },
           h("div", { style: { height: 4, borderRadius: 999, background: "rgba(70,52,28,.10)", overflow: "hidden" } },

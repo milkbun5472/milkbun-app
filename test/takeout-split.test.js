@@ -100,7 +100,7 @@ function makeOrder(wallet) {
     [{ id: "c1", name: "江识" }], (id, fn) => { st.chat = fn(st.chat); }, () => 600000, Date);
   return { api, st };
 }
-const bag = { shop: "巷口粥铺", items: [{ name: "砂锅粥", price: 58, qty: 2 }, { name: "油条", price: 4, qty: 0 }], note: "少葱" };
+const bag = { shop: "巷口粥铺", items: [{ name: "砂锅粥", price: 58, qty: 2 }, { name: "油条", price: 4, qty: 0 }], remark: "少葱", note: "趁热吃" };
 
 test("自己付：一单折成一件 kind:takeout，扣钱、进订单，份数写进明细", () => {
   const { api, st } = makeOrder(500);
@@ -110,7 +110,8 @@ test("自己付：一单折成一件 kind:takeout，扣钱、进订单，份数�
   assert.equal(o.kind, "takeout");
   assert.equal(o.cat, "food");
   assert.deepEqual(o.takeout.items, ["砂锅粥 ×2"], "没点的那样不该进单");
-  assert.equal(o.takeout.note, "少葱");
+  assert.equal(o.takeout.remark, "少葱", "给店家的备注");
+  assert.equal(o.takeout.note, "趁热吃", "写在单子上的那句话");
 });
 
 test("代付、亲属卡走购物现成的那两条路，带着同一件外卖", () => {
@@ -130,6 +131,7 @@ test("给TA点：聊天里出她那边的外卖小票，不进TA随身物；钱�
   api.orderTakeout(bag, "forchar", { type: "char", id: "c1" });
   assert.equal(st.chat[0].kind, "takeout");
   assert.equal(st.chat[0].role, "user");
+  assert.equal(st.chat[0].takeout.note, "趁热吃", "她给TA写的那句要跟着小票走");
   assert.ok(st.chat[0].arriveTs > Date.now());
   assert.equal(st.orders.length, 0);
   const poor = makeOrder(10);
@@ -143,4 +145,13 @@ test("外卖单归外卖 app，购物「我的」不再列它；主屏、秋秋�
   assert.match(comps, /takeout: \{ kind: "app", zh: "外卖", G: GTakeout \}/);
   assert.match(core, /shop: "购物", takeout: "外卖"/);
   assert.match(app, /screen === "takeout"\) body = h\(Takeout,/);
+});
+
+test("吃过的点开看全；给TA点时有地方写一句话，小票上印出来", () => {
+  const tk = grab(screens, "function Takeout(", "function KinshipBill(", "外卖页");
+  assert.match(tk, /onClick: \(\) => setOpenLog\(open \? null : o\.id\)/);
+  assert.match(tk, /note: mode === "forchar" \? say : ""/);
+  const card = grab(comps, "function TakeoutCard(", "function KinshipCardFace(", "外卖小票");
+  assert.match(card, /d\.note \? h\("div"/);
+  assert.match(card, /"备注：" \+ d\.remark/);
 });
