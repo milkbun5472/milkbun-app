@@ -21,6 +21,7 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
  const {T,createTraveler,source,catalog,scene,renderer,camera}=strapQA;
  renderer.setSize(800,800);renderer.setViewport(0,0,800,800);camera.left=-.4;camera.right=.4;camera.top=.4;camera.bottom=-.4;camera.position.set(0,.4,6);camera.lookAt(0,.4,0);camera.updateProjectionMatrix();
  const points={
+ tee:{cloth:[0,.51,.14],bottom:[.10,.23,.10],boots:[.10,.04,.14]},
  academy:{cloth:[.085,.52,.1],trim:[.06,.665,.10],bottom:[.08,.26,.08],accent:[0,.59,.12],socks:[.09,.135,.09],boots:[.09,.035,.12]},
  garden:{cloth:[.08,.30,.16],trim:[.08,.67,.08],accent:[.04,.58,.14],detail:[-.12,.37,.18],socks:[.09,.135,.09],boots:[.09,.035,.12]},
  ranger:{cloth:[-.07,.53,.12],bottom:[.09,.25,.09],accent:[.11,.43,.18],boots:[.09,.035,.12]},
@@ -28,6 +29,7 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
  jacket:{cloth:[.09,.5,.11],trim:[0,.54,.10],bottom:[.09,.25,.09],boots:[.09,.035,.12]},
  suit:{cloth:[.1,.46,.12],trim:[.025,.65,.10],bottom:[.09,.24,.1],accent:[0,.6,.12],socks:[.10,.09,.05],boots:[.09,.035,.12]}};
  const edges={
+ tee:[['cloth','rounded side',[.16,.48,.02]],['cloth','crew neck',[.04,.708,.065]],['bottom','denim cuff',[.13,.135,.09]]],
  garden:[['detail','left ear',[-.167,.373,.12]],['detail','right ear',[-.122,.375,.171]],['cloth','pouch flap',[-.08,.40,.18]]],
  ranger:[['accent','shoulder band',[-.12,.65,.09]],['cloth','front ribbed hem',[-.08,.376,.126]],['bottom','rolled trouser cuff',[-.13,.105,.08]]],
  cardigan:[['bag','pouch side shadow',[.15,.46,.096]],['bottom','upper trouser shadow',[-.08,.37,.10]],['bag','shoulder strap',[-.09,.70,.04]],['bottom','cuff front',[-.08,.105,.11]],['bottom','cuff outer edge',[.155,.087,.03]]],

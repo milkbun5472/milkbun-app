@@ -1,4 +1,4 @@
-"""Restore C06 shoes from the intact source, before skin conformation.
+"""Restore source footwear for C06/C07 before skin conformation.
 
 Keep the original UVs, leather detail and sole. Only the upper overlap follows
 existing trouser geometry; no nearest-body projection is applied to the feet.
@@ -11,14 +11,15 @@ from mathutils import Vector, Matrix
 H = Path(__file__).resolve().parent
 
 
-def restore_suit_footwear():
-    g = bpy.data.objects["outfit_suit"]
+def restore_source_footwear(oid="suit", source="hunyuan-c06-shell.glb"):
+    """Shared placement, seam welding, overlap fit, leg binding and body morphs."""
+    g = bpy.data.objects["outfit_"+oid]
     rig = g.parent
-    if bpy.data.objects.get("outfit_suit_footwear"):
+    if bpy.data.objects.get("outfit_"+oid+"_footwear"):
         assert g.get("sourceFootwearVersion") == 1
         return False
     before = set(bpy.data.objects)
-    bpy.ops.import_scene.gltf(filepath=str(H / "v2/outfits/hunyuan-c06-shell.glb"))
+    bpy.ops.import_scene.gltf(filepath=str(H / "v2/outfits" / source))
     new = set(bpy.data.objects) - before
     r = next(o for o in new if o.type == "MESH")
     mw = r.matrix_world.copy()
@@ -31,6 +32,7 @@ def restore_suit_footwear():
     r.data.transform(Matrix.Diagonal((0.69, 0.69, 0.69, 1)))
     bm = bmesh.new()
     bm.from_mesh(r.data)
+    if oid=="tee":bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00002)
     bmesh.ops.bisect_plane(
         bm,
         geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
@@ -78,14 +80,14 @@ def restore_suit_footwear():
         if .08 < z < .115 and np.median(pixels, axis=0) @ [0.2126, 0.7152, 0.0722] > .5:
             for i in face.loop_indices:
                 color.data[i].color = (0.27, 0, 0, 1)
-    r.name = "outfit_suit_footwear"
+    r.name = "outfit_"+oid+"_footwear"
     r.parent = rig
     r.data.materials.clear()
     r.data.materials.append(g.data.materials[0].copy())
     for f in r.data.polygons:
         f.material_index = 0
         f.use_smooth = True
-    r["outfit"] = "suit"
+    r["outfit"] = oid
     r["slotBase"] = g["slotBase"]
     r["coversFeetBelow"] = 0.14
     for vg in list(r.vertex_groups):
@@ -121,6 +123,9 @@ def restore_suit_footwear():
     r["sourceFootwearVersion"] = 1
     return True
 
+
+def restore_suit_footwear():
+    return restore_source_footwear()
 
 def main():
     import sys

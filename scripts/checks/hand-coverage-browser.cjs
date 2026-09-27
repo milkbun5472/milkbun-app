@@ -20,7 +20,7 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
 
  const report=await page.evaluate(()=>{
  const {T,createTraveler,source,scene,renderer,camera,catalog}=strapQA;renderer.setSize(800,800);camera.left=-.7;camera.right=.7;camera.top=.7;camera.bottom=-.7;camera.position.set(0,.65,6);camera.lookAt(0,.65,0);camera.updateProjectionMatrix();let checks=0,maxDifference=0,handVertices=0;
- for(const outfit of ['ranger','cardigan','jacket'])for(const mode of ['default','min','max'])for(const gesture of ['rest','stretch','sit'])for(const angle of [0,1.57,3.14]){
+ for(const outfit of ['ranger','cardigan','jacket','tee'])for(const mode of ['default','min','max'])for(const gesture of ['rest','stretch','sit'])for(const angle of [0,1.57,3.14]){
  const dims=Object.fromEntries(catalog.dims.map(d=>[d.key,mode==='default'?1:d[mode]]));const d=createTraveler(source,false,{outfit,dims});scene.add(d.root);for(let i=0;i<30;i++)d.animate(i*.1,{gesture,progress:.5,height:0,seated:gesture==='sit'});d.root.rotation.y=angle;scene.updateMatrixWorld(true);
  const body=d.root.getObjectByName('DollBody'),p=body.geometry.attributes.position,arm=body.geometry.attributes.skinArmInfluence,boxes=[{x:800,y:800,X:0,Y:0},{x:800,y:800,X:0,Y:0}];
  for(let i=0;i<p.count;i++)if(p.getY(i)<.39&&arm.getX(i)>.99){const v=body.getVertexPosition(i,new T.Vector3());body.localToWorld(v);v.project(camera);const x=(v.x*.5+.5)*800,y=(v.y*.5+.5)*800,b=boxes[p.getX(i)<0?0:1];b.x=Math.min(b.x,x);b.X=Math.max(b.X,x);b.y=Math.min(b.y,y);b.Y=Math.max(b.Y,y);handVertices++;}

@@ -137,3 +137,20 @@
   发型表（id→文件）只在 `add_hair.py` 的 `HAIRS` 一处，`assemble_v2.py` 也用它；运行时名单 `traveler.mjs` 的 `HAIR_STYLES` 要和 hairstyles.json 一致（测试钉着）。
 - ⚠️`outfit_slots.grey()` 改完贴图要先存成 WEBP 再 pack：直接 pack 会变 PNG，一款头发从 190KB 胀到 560KB（头发在每次都要下的 doll.glb 里）。
 - 头发不按需加载，都在底模里：底模现在 1.76MB，加最大一套衣服 2.83MB，预算 3MiB。**再加两三款就该把头发也拆成按需加载**（照衣服的做法）。
+
+### C07 continuous cotton refinement
+
+`refine_tee.py`, called by `add_outfit.py`, replaces the patched upper shell with a
+continuous relaxed cotton surface: lower crew neck, sloping shoulder transition,
+subtle drape and turned hem. The existing fitted short sleeves are retained.
+Original denim pockets/seams/rolled hems remain; only the concealed waistband is
+trimmed and tucked underneath the tee. The shared `restore_source_footwear` in
+`restore_suit_footwear.py` also restores C07 sneakers from the original shell,
+welding source UV seams before reduction and preserving sole/tongue detail.
+The migration is idempotent and exports only the master and tee lazy asset.
+Three dye regions and per-outfit reset continue through the shared wardrobe.
+
+Checks: `refined-tee-assets.py` (unrelated meshes/morphs, denim preservation,
+64 cotton morph endpoints, idempotence), `outfit-dye-browser.cjs` (all seven
+outfits, independent regions/reset), `hand-coverage-browser.cjs` and the
+shared pose gallery. C07 source and body/hands are preserved.

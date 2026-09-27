@@ -1,11 +1,12 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-09efb993c139dcc9';
+import {OUTFITS} from './wardrobe.mjs?v=fg-1fb85ced06cb6f0e';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;
  if(name.includes('_sleeve'))return `si=${id==='academy'||id==='garden'?1:0};`;
+ if(name.includes('_footwear')&&id==='tee')return 'si=sc.b>sc.r+.01&&sc.r<.72&&p.y>.05?2:4;';
  if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=(piece.y>.105||(piece.x>.045&&piece.y>.083&&piece.w<.08))?2:4;':'si=4;';
  if(name.includes('_side_lining'))return 'si=0;';
  if(id==='ranger')return name.includes('_bag')||name.includes('_strap')?'si=3;':name.includes('_trousers')?'si=piece.x>.36?0:2;':'si=0;';
