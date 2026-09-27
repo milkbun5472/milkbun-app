@@ -3506,7 +3506,10 @@ const HOME_SIZE_PRESETS = [
   { id: "icon", name: "图标", note: "1 × 1 · 像 app", cols: 1, rows: 1, glyph: "▢", widgetOnly: true }
 ];
 // 组件收成图标时画哪枚、叫什么、点了去哪儿——跟组件自己点开去的地方是同一处
-const HOME_WIDGET_ICON = {
+// ⚠️写成函数、用到才造：这一段被几份老测试整块抠去沙盒里跑，那边没有 GUser / Svg 这些，
+//   一上来就造对象会直接 ReferenceError（v74.188 就这么把十份主屏测试弄红了）。
+function homeWidgetIcon(which) {
+  const M = {
   card: { G: GUser, open: "codex" },
   cal: { G: function (p) { return h(Svg, p, h("rect", { x: 4, y: 5.5, width: 16, height: 14.5, rx: 2.5 }), h("path", { d: "M4 10h16M8.5 3.5v4M15.5 3.5v4" })); }, open: "calendar" },
   music: { G: function (p) { return h(Svg, p, h("path", { d: "M9 18V6l10-2v12" }), h("circle", { cx: 6.5, cy: 18, r: 2.5 }), h("circle", { cx: 16.5, cy: 16, r: 2.5 })); }, open: "listen" },
@@ -3519,6 +3522,8 @@ const HOME_WIDGET_ICON = {
   muyu: { G: function (p) { return h(Svg, p, h("ellipse", { cx: 12, cy: 13, rx: 8, ry: 6.5 }), h("path", { d: "M8 12.5h8" })); }, open: null },
   wheel: { G: function (p) { return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 3.5v17M3.5 12h17M6 6l12 12M18 6 6 18" })); }, open: null }
 };
+  return M[which] || null;
+}
 // 组件的名字只此一份：拖动虚影和设置页顶栏都问它要。
 // 原来只有拖影那一处写着一张四个人的小表（名片/日历/音乐/地图），别的组件一律叫「组件」——
 // 设置页也要报名字，再抄一份就是又开了一处要同步的地方（one-public-mechanism）。
@@ -4639,7 +4644,8 @@ function HomePresetGrid({ value, onChange, allowNative }) {
 function HomeSizeGrid({ value, onChange, allowIcon }) {
   const t = useTheme();
   return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
-    HOME_SIZE_PRESETS.filter(function (p) { return !p.widgetOnly || allowIcon; }).map(function (p) {
+    HOME_SIZE_PRESETS.map(function (p) {
+      if (p.widgetOnly && !allowIcon) return null;   // 「图标」只给组件
       var active = (value || "auto") === p.id;
       return h("button", { key: p.id, onClick: function () { onChange(p.id); }, className: "active:opacity-70", style: { minHeight: 76, borderRadius: 15, padding: "9px 6px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line), textAlign: "center" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, p.glyph),
@@ -5298,7 +5304,7 @@ function Home({
   // （装饰那一侧早就是这个写法：decorItemOf 一份对象，预览和落档共用）。
   function homeInnerOf(it, key, homeSize, fixedH, span) {
     var inner, isFolder = !!(key && key.slice(0, 2) === "f_");
-      var wIcon = it.kind === "widget" && homeSize === "icon" ? (HOME_WIDGET_ICON[it.which] || { G: IDots, open: null }) : null;
+      var wIcon = it.kind === "widget" && homeSize === "icon" ? (homeWidgetIcon(it.which) || { G: IDots, open: null }) : null;
       if (wIcon) inner = h(GlassIcon, { G: wIcon.G, label: HOME_WIDGET_NAMES[it.which] || "组件", appKey: key, onWallpaper: !!wallpaper,
         // 点它：有去处的去那一处；没有单独页面的（木鱼、转盘、最近聊过）就打开它的换样式面板，想换回组件一步到位
         onClick: function () { if (editMode) return; if (wIcon.open) onOpenApp(wIcon.open); else openStylePanel(key); } });
@@ -6035,7 +6041,8 @@ function Home({
     // ⚠️组件必须【她真的调过】才走这一层：homeDecorMaterialStyle 是无条件给 border 赋值的
     //   （borderMode 默认「细边」），拿一个空对象喂进去等于给全桌面每个组件凭空画一圈边。
     //   所以这儿问的是 widgetLooks[key] 在不在，不是 lookOf(key) 有没有返回对象。
-    var look = asIcon ? null : it.kind === "decor" ? it.decor : (it.kind === "widget" && widgetLooks[key]) ? lookOf(key) : null;
+    var look = it.kind === "decor" ? it.decor : (it.kind === "widget" && widgetLooks[key]) ? lookOf(key) : null;
+    if (asIcon) look = null;   // 收成图标时不套组件外观层
     // 这一张她自己歪过没有（她 2026-09-13 第二次报：「角还是消掉了」）。
     // ⚠️v67.79 只把【外面那一格】的裁剪框往外让了 6px，可组件还压着【第二层】裁剪
     //   （下面那个 inner 外壳：装饰是 visible，组件是 hidden）——第二层照旧卡在原来那个方框上，
@@ -6112,7 +6119,7 @@ function Home({
         transition: "transform .15s ease"
       }
     }, h("div", { style: Object.assign({ pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
-        overflow: (it.kind === "decor" || tiltDeg || asIcon) ? "visible" : (homeSize === "auto" ? "visible" : "hidden") },
+        overflow: (it.kind === "decor" || tiltDeg) ? "visible" : ((homeSize === "auto" || asIcon) ? "visible" : "hidden") },
         // ⚠️只有【自己决定高度】的那几个才套 flex 对齐层。
         //   v63.53 我给所有格子都套上了，结果把名片弄坏了（她 2026-09-05 截图）：
         //   竖排 flex 里的孩子 flex-shrink 默认是 1，名片本来是「比一行高、靠 overflow:visible
