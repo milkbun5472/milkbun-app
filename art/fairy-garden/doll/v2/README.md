@@ -136,7 +136,10 @@
 - 加进母版：先在 `../hairstyles.json` 写名字，再 `python3 -c "import sys,runpy;sys.argv=['x','--','fluffy'];runpy.run_path('add_hair.py',run_name='__main__')"`。
   发型表（id→文件）只在 `add_hair.py` 的 `HAIRS` 一处，`assemble_v2.py` 也用它；运行时名单 `traveler.mjs` 的 `HAIR_STYLES` 要和 hairstyles.json 一致（测试钉着）。
 - ⚠️`outfit_slots.grey()` 改完贴图要先存成 WEBP 再 pack：直接 pack 会变 PNG，一款头发从 190KB 胀到 560KB（头发在每次都要下的 doll.glb 里）。
-- 头发不按需加载，都在底模里：底模现在 1.76MB，加最大一套衣服 2.83MB，预算 3MiB。**再加两三款就该把头发也拆成按需加载**（照衣服的做法）。
+- ~~头发不按需加载，都在底模里~~ → **头发也按需加载了（2026-09-27）**：`split_outfits.py` 把每款拆成 `apps/fairy-garden/hair/<style>.glb`
+  （带 DollRig + HeadAnchor，130–200 KB），底模 `doll.glb` 只剩身体和骨架（1.76MB → 650KB）。
+  运行时 `traveler.mjs` 的 `hairSource()`：用到哪款下哪款、全页每款一次，接到这个人自己的 HeadAnchor 下；第一次衣服和头发都到了才露面。
+  以后加头发、加衣服都不会让首次进场变大（`doll-parts.test.mjs` 的预算＝底模＋最大一套衣服＋最大一款头发）。
 
 ### C07 continuous cotton refinement
 

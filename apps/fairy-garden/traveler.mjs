@@ -1,10 +1,10 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-1fb85ced06cb6f0e';
-import {emotionPose} from './emotion-pose.mjs?v=fg-1fb85ced06cb6f0e';
-import {makeDollLife} from './doll-life.mjs?v=fg-1fb85ced06cb6f0e';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-1fb85ced06cb6f0e';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-f03b95684b860443';
+import {emotionPose} from './emotion-pose.mjs?v=fg-f03b95684b860443';
+import {makeDollLife} from './doll-life.mjs?v=fg-f03b95684b860443';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-f03b95684b860443';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-1fb85ced06cb6f0e';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-1fb85ced06cb6f0e';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-f03b95684b860443';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-f03b95684b860443';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -20,6 +20,19 @@ function outfitSource(id){
 }
 // 先把这几套下好：之后新建的小人当场就穿上，不用等（验图脚本、列车同时上好几个人时用）
 export const preloadOutfits=(ids=Object.keys(OUTFITS))=>Promise.all(ids.map(outfitSource));
+// 头发也按需加载（她 2026-09-27：「以后一直加衣服发型文件太大会不会炸」）：hair/<style>.glb 一款一个文件，
+//   头发挂在 HeadAnchor 下（不蒙皮），文件里带着同名的 DollRig/HeadAnchor，接的时候挂到这个人自己的 HeadAnchor 底下。
+//   和衣服同一套：全页每款只下一次，失败了不留在表里，下次还能重试。
+const HAIR_FILES=new Map(),HAIR_READY=new Map();
+function hairSource(id){
+ if(!HAIR_FILES.has(id)){
+  if(!outfitLoader){const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);outfitLoader=new GLTFLoader();outfitLoader.setDRACOLoader(draco);}
+  const url=new URL('./hair/'+id+'.glb'+new URL(import.meta.url).search,import.meta.url).href;
+  HAIR_FILES.set(id,outfitLoader.loadAsync(url).then(g=>(HAIR_READY.set(id,g.scene),g.scene),e=>{HAIR_FILES.delete(id);throw e;}));
+ }
+ return HAIR_FILES.get(id);
+}
+export const preloadHair=(ids=HAIR_STYLES)=>Promise.all(ids.map(hairSource));
 // 两位旅人共用同一个模型、同一套枢轴与动画规则。
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
 // ⚠️名字里不能带点：GLTFLoader 会把节点名里的点洗掉，hair.korean 到网页里就认不出来了。
@@ -162,13 +175,26 @@ export function createTraveler(source,companion=false,look={}){
   for(const o of pieces){adopt(o);coverOf(o);prep(o);}worn.add(id);
   if(built){for(const o of pieces)o.traverse(m=>{if(m.isSkinnedMesh)skinned.push(m);});applyDims(want.dims);rebindBones(want.dims);}
  };
+ // 头发：接到这个人自己的 HeadAnchor 下（HeadAnchor 会跟着头身比缩放，头发跟着走）
+ const hairOn=new Set(),hairFetching=new Set();let hairShown=null,combed=Promise.resolve();
+ const anchorOf=()=>model.getObjectByName('HeadAnchor')||model;
+ const putHair=(id,scene)=>{const part=scene.clone(true),pieces=[];
+  part.traverse(o=>{if(o!==part&&o.userData.hair&&!o.parent.userData.hair)pieces.push(o);});
+  for(const o of pieces){anchorOf().add(o);adopt(o);prep(o);o.traverse(m=>{if(m.isMesh&&isHair(m))dyeHair(m,want);});}hairOn.add(id);};
+ const comb=look=>{const id=HAIR_STYLES.includes(hairId(look.hair))?hairId(look.hair):style;
+  if(!hairOn.has(id)){if(HAIR_READY.has(id))putHair(id,HAIR_READY.get(id));
+   else if(!hairFetching.has(id)){hairFetching.add(id);combed=hairSource(id).then(scene=>{if(!hairOn.has(id))putHair(id,scene);comb(want);},e=>console.warn('hair',id,e)).finally(()=>{hairFetching.delete(id);reveal();});}}
+  const on=hairOn.has(id)?id:hairShown;hairShown=on;
+  model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+on;});reveal();};
  const wear=id=>{if(worn.has(id))return;if(OUTFIT_READY.has(id))return put(id,OUTFIT_READY.get(id));if(fetching.has(id))return;fetching.add(id);
   dressed=outfitSource(id).then(scene=>{if(!worn.has(id)){put(id,scene);dress(want);}},
    e=>{console.warn('outfit',id,e);if(!shown)model.visible=true;}).finally(()=>fetching.delete(id));};
  // 要穿的那套还在路上：先照旧穿着上一套（第一次还没有任何一套时整个人先不露面，免得闪一下光身子），
  //   到了再穿；这期间又换了别的，以到货时最新的 want 为准。
+ // 第一次：衣服和头发都到了才露面（免得闪一下光身子或秃头）；到不了（下载失败）也照样露面，别让人整个消失
+ const reveal=()=>{const outfitOk=!!shown||!fetching.size,hairOk=typeof hairShown==='undefined'||!!hairShown||!hairFetching.size;model.visible=outfitOk&&hairOk;};
  const dress=look=>{const id=outfitId(look),colors=outfitColors(look);model.userData.outfit=id;
-  wear(id);const on=worn.has(id)?id:shown;shown=on;model.visible=!!on||!fetching.has(id);
+  wear(id);const on=worn.has(id)?id:shown;shown=on;reveal();
   model.traverse(o=>{if(!o.isMesh)return;
    const covered=o.userData.skinCoverageUniforms;if(covered){const c=coverageByOutfit.get(on)||{};covered.feet.value=Math.max(c.feet??-1,OUTFITS[on]?.coveredLegsBelow??-1);covered.torso.value=c.torsoBelow??-1;covered.torsoAbove.value=c.torsoAbove??-1;covered.sleeve.value.fromArray(c.sleeve||[-1,0,0,0]);covered.axis.value.fromArray(c.armAxis||[.165,.655,.11,-.255]);}
    if(o.userData.skin)o.material.color.set(look.skin);
@@ -179,7 +205,7 @@ export function createTraveler(source,companion=false,look={}){
    // 换了眼睛颜色时默认脸也走 faces/default.webp：模型自带那张贴图没有眼珠遮罩
    const face=FACE_ID.test(look.face||'')&&(look.face!=='default'||eye)?faceTexture(look.face||'default'):eye?faceTexture('default'):o.userData.bodyMap;if(o.material.map!==face){o.material.map=face;o.material.needsUpdate=true;}}
   if(o.userData.slotDye&&o.userData.outfit===id)dyeOutfit(o,colors);if(o.userData.outfit)o.visible=o.userData.outfit===on;if(o.userData.colorSlot&&o.userData.outfit===id)o.material.color.set(colors[o.userData.colorSlot]);});};
- dress(want);
+ dress(want);comb(want);
  const applyDims=dims=>{dims=dims||{};model.traverse(o=>{if(!o.isMesh||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
    for(const key of DIMS){const i=o.morphTargetDictionary[key];if(i==null)continue;const v=Number(dims[key]);o.morphTargetInfluences[i]=isFinite(v)?v-1:0;}});};
  applyDims(want.dims);
@@ -246,12 +272,12 @@ export function createTraveler(source,companion=false,look={}){
  let sitBlend=0,lastPoseTime=null;built=true;
  return {root,handPoint:life.handPoint,
   // 身上这套衣服到了没有（按需加载）：验图脚本等它再截图
-  ready:()=>dressed,
+  ready:()=>Promise.all([dressed,combed]),
   // reset=true：整份换掉而不是叠在上一身上（陪伴换角色时用——她 2026-09-27「改了 a 换成 b 还是一样的外貌」：
   //   b 没设过的发色／肤色／衣服／眼睛原来会一直留着 a 的）。庭院、列车仍是叠改动。
-  setLook(next,reset=false){const n=mergeLook(reset?Object.assign({},companion?COMPANION:DEFAULT):want,next||{});if(HAIR_STYLES.includes(hairId(n.hair))){model.traverse(o=>{if(o.isMesh&&isHair(o))o.visible=o.name==='hair_'+hairId(n.hair);});}
+  setLook(next,reset=false){const n=mergeLook(reset?Object.assign({},companion?COMPANION:DEFAULT):want,next||{});
    model.traverse(o=>{if(!o.isMesh)return;if(isHair(o))dyeHair(o,n);else if(!o.userData.slotDye&&/Tunic|sleeve/i.test(o.name))o.material.color.set(n.cloth);});
-   dress(n);if(DIMS.some(key=>Number(n.dims?.[key]??1)!==Number(want.dims?.[key]??1))){applyDims(n.dims);fitRig(n.dims);}
+   dress(n);comb(n);if(DIMS.some(key=>Number(n.dims?.[key]??1)!==Number(want.dims?.[key]??1))){applyDims(n.dims);fitRig(n.dims);}
    if(reset)for(const k of Object.keys(want))if(!(k in n))delete want[k];
    Object.assign(want,n);},
   animate(time,{moving=false,skating=false,gesture='rest',height=.08,sleepPose=null,seated=false,progress=0,emotion=null}={}){const lying=!!sleepPose;skating=skating&&!lying&&gesture!=='sit';skateParts.forEach(b=>b.visible=skating);root.userData.posture=lying?'sleep':skating?'skate':gesture;model.rotation.x=lying?-Math.PI/2:skating&&moving?.07:0;model.rotation.z=skating&&moving?Math.sin(time*3.2)*.035:0;model.position.set(lying?sleepPose.x-root.position.x:0,0,lying?sleepPose.z-root.position.z:0);if(lying){root.rotation.y=0;height=sleepPose.y;gesture='sleep';moving=false;model.rotation.y=sleepPose.hug?sleepPose.toward*.45:0;}else model.rotation.y=0;seated=!moving&&!lying&&(seated||gesture==='sit');const dt=lastPoseTime==null?.1:Math.min(.1,Math.max(0,time-lastPoseTime));poseBlend=lastPoseTime==null?1:1-Math.exp(-dt*14);lastPoseTime=time;for(const {p,label}of rig)if(label.includes('Arm'))for(const b of [p.userData.bone,p.userData.forearm])if(b)poseFrom.set(b,b.quaternion.clone());sitBlend+=(Number(seated)-sitBlend)*Math.min(1,dt*9);model.traverse(o=>{const i=o.morphTargetDictionary?.seated;if(i!=null)o.morphTargetInfluences[i]=sitBlend;});root.position.y=height-sitBlend*.34+(skating?.035:moving?Math.abs(Math.sin(time*10))*.025:Math.sin(time*2)*.004);prop.visible=!moving&&gesture==='read';for(const {p,label}of rig){const side=label.startsWith('left')?1:-1;p.rotation.z=skating?(label.includes('Arm')?side*.3:Math.sin(time*3.2)*.085*side):0;p.rotation.y=skating&&moving&&label.includes('Leg')?Math.sin(time*3.2)*.16*side:0;const hugging=lying&&sleepPose.hug,reaching=hugging&&sleepPose.hugArm,inner=sleepPose?.toward>0?'leftArm':'rightArm';const standing=lying?(reaching&&label===inner?-1.05:0):skating?(label.includes('Leg')?(moving?Math.sin(time*3.2)*.17*side:0):-.15):moving?Math.sin(time*10)*.45*side*(label.includes('Leg')?-1:1):gesture==='read'&&label.includes('Arm')?-.75:gesture!=='rest'&&label==='rightArm'?-.65+Math.sin(time*7)*.12:Math.sin(time*2)*.015;if(reaching&&label===inner)p.rotation.z=side*.72;else if(hugging)p.rotation.z=0;p.rotation.x=standing*(1-sitBlend)+(label.includes('Leg')?-Math.PI/2:-.28)*sitBlend;if(!moving&&!lying&&label==='rightArm'){if(gesture==='stir'){p.rotation.x=-1.05+Math.sin(time*2.5)*.12;p.rotation.z=Math.cos(time*2.5)*.2;}else if(gesture==='hold')p.rotation.x=-1.3;}}life.update(time,{gesture:lying?'sleep':gesture,progress,moving,seated,height});
