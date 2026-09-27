@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.181";
+const APP_VERSION = "v74.183";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16634,8 +16634,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 一模一样的，一律当没写；接着累积层的「空的不许抹掉旧的」就会把旧那句留住。
       try { d = window.PhoneKit.dropEchoes(d, spec.schemaHint); } catch (e) {/* 洗不动就照原样存 */}
       savePhoneApp(char.id, key, d);
+      // 她在转圈那一屏点了「先回桌面」：好了告诉她一声（js/phone.js 那颗键记的这一笔）
+      try { const left = window.__phoneLeftWhileGen; if (left && left.delete(char.id + ":" + key)) toast(((char.remark || char.name) || "TA") + "的" + phoneKeyLabel(key) + "生成好了，回查手机就能看"); } catch (e) {}
       return true;
     } catch (e) {
+      try { window.__phoneLeftWhileGen && window.__phoneLeftWhileGen.delete(char.id + ":" + key); } catch (_) {}
       toast(phoneKeyLabel(key) + "生成失败：" + e.message);
       return false;
     } finally {

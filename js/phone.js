@@ -5983,6 +5983,8 @@ function PhoneApp({
   useEffect(() => {
     // ⚠️「看TA玩」开着的时候不许顺手再生成一次：那是另一枪，而且会把正在演的这一份盖掉
     if (drive || isLive || charData[appKey]) return;
+    // 走开再回来时这一份还在生成：不许再发一枪（那是第二次真钱）
+    if (busyKey === appKey) return;
     let alive = true;
     Promise.resolve(onGen(char, appKey)).then(ok => { if (alive && ok === false) onBack(); });
     return () => { alive = false; };
@@ -5993,9 +5995,13 @@ function PhoneApp({
   // ⚠️别写「读取」：这一步是真去调模型现编的，一次一刀（她按次计费）。
   // 写成「读取」会让人以为只是在翻已经存好的东西，于是随手点开一个版块＝
   // 悄悄花掉一次调用，还完全看不出来。接真数据的那几个（isLive）才是真读取。
-  if ((loading && !data) || (!data && !isLive)) content = h(Spinner, {
-    label: "正在生成 " + zh + "…（这一步会调一次模型）"
-  });else content = renderPhoneModule(appKey, data, {
+  // 生成中可以先走（她 2026-09-27「搞个退出键让它后台继续刷，我晚点回来看」；出口是左上角的返回箭头，回查手机）：
+  //   生成本来就挂在 app 最外层（genPhoneApp），退出这一屏不会打断它，好了照样存进这台手机；
+  //   缺的只是出口——满屏出血那几个 app（浏览器、微信、外卖…）自己画顶栏，转圈时连返回键都没有。
+  //   记一笔「她是走开等的」，生成完弹一句告诉她（app.js genPhoneApp）。
+  const leaveWhileGen = () => { try { (window.__phoneLeftWhileGen = window.__phoneLeftWhileGen || new Set()).add(char.id + ":" + appKey); } catch (e) {} onBack(); };
+  const spinning = (loading && !data) || (!data && !isLive);
+  if (spinning) content = h(Spinner, { label: "正在生成 " + zh + "…（这一步会调一次模型）" });else content = renderPhoneModule(appKey, data, {
     t,
     char,
     setSheet,
@@ -6051,8 +6057,10 @@ function PhoneApp({
     style: phoneAppBg(t)
   },
   respin,
+  // 满屏出血的 app 转圈时没有自己的顶栏：给一条只有返回箭头的，回查手机，生成在后台接着跑
+  FULL_BLEED_KEYS.indexOf(appKey) >= 0 && spinning && h(Head, { zh, bg: t.bg, noLine: true, onBack: leaveWhileGen }),
   FULL_BLEED_KEYS.indexOf(appKey) < 0 && h(Head, {
-    zh: isLive ? liveTitle : zh, bg: t.bg, noLine: true, onBack,
+    zh: isLive ? liveTitle : zh, bg: t.bg, noLine: true, onBack: spinning ? leaveWhileGen : onBack,
     right: refreshKey ? h("button", {
       onClick: () => onGen(char, refreshKey),
       disabled: !!busyKey,
@@ -7228,6 +7236,7 @@ function PhoneCarry({
       className: "text-left active:opacity-70",
       style: {
         gridColumn: wide ? "span 2" : "span 1",
+        minWidth: 0, overflow: "hidden",   // 组件里的长字不许把卡片（和旁边那张）撑破
         minHeight: hero ? 124 : tall ? 132 : spec.size === "wide" ? 112 : 104,
         padding: hero ? 17 : 15, borderRadius: hero ? 25 : 23,
         display: "flex", flexDirection: "column",
@@ -7245,7 +7254,10 @@ function PhoneCarry({
     className: "h-full min-w-full overflow-y-auto px-5 pt-3",
     // ⚠️底部要让开那排 dock：pb-5 只有 20px，最后一排图标会被压在 dock 底下
     //（多加一格「外观」之后一眼看出来的）。
-    style: { scrollSnapAlign: "start", scrollSnapStop: "always", paddingBottom: 104 }
+    // ⚠️每页钉死一屏宽（她 2026-09-27 截图：别人的查手机整页往左错开、字冲出卡片，她自己的没事）。
+    //   原来只有 min-w-full：横排里的一页是按【内容最宽能有多宽】长的，谁的组件里有一行不换行的长字
+    //  （很长的动态、很长的邮件标题），这一页就被撑得比屏幕宽，翻页对不齐。
+    style: { scrollSnapAlign: "start", scrollSnapStop: "always", paddingBottom: 104, flex: "0 0 100%", width: "100%", maxWidth: "100%" }
   }, h("div", { className: "grid grid-cols-2 gap-3 mb-6" }, (layout.widgets[pageIndex] || []).map(deskWidget)),
   // 这一页已经摆了组件的 app，就不在同一页再放一个图标——她 2026-08-30 问的
   //「哪些留图标、哪些换组件」，答案是【按页去重】：组件已经把内容摊开了，
