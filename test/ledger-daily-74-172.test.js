@@ -24,3 +24,7 @@ console.log("ledger daily ok");
   assert.match(src, /budgets: \{ \.\.\.\(data\.settings\.budgets \|\| \{\}\), \[code\]: v \}/);
   assert.match(src, /requestAppPrompt\("每月预算"/);
   console.log("ledger budget ok"); }
+// v74.174 今天实际花了多少
+assert.match(src, /row\("今天花了", todayExp/);
+assert.match(src, /const allow = \(bs\.left \+ spent\) \/ bs\.daysLeft;/);
+console.log("ledger today ok");

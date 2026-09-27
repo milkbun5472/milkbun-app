@@ -94,6 +94,7 @@
   function pad(n) { return String(n).padStart(2, "0"); }
   function todayStr() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function monthKey(dateStr) { return String(dateStr || "").slice(0, 7); }        // "YYYY-MM"
+  function todayKey() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function thisMonthKey() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
   function fmtMonth(mk) { const p = mk.split("-"); return p[0] + "年" + parseInt(p[1], 10) + "月"; }
   function shiftMonth(mk, delta) {
@@ -646,9 +647,14 @@
         (function () {
           const da = dailyAvg(s.exp, mk);
           if (!da) return null;
-          return h("div", { "data-ledger-daily": true, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "-10px 4px 20px", fontFamily: F_BODY, fontSize: 12, color: t.sub } },
-            h("span", null, "日均支出"),
-            h("span", null, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, fmtAmt(da.avg, cur)), h("span", { style: { color: t.fog, fontSize: 10.5, marginLeft: 6 } }, "按 " + da.days + " 天算")));
+          // 今天实际花了多少（她 2026-09-27「那实际的每日消费你没做」）：只在看这个月时有
+          const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && x.type !== "income").reduce((a, x) => a + (Number(x.amount) || 0), 0) : null;
+          const row = (label, val, note, key) => h("div", { key, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
+            h("span", null, label),
+            h("span", null, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, fmtAmt(val, cur)), note ? h("span", { style: { color: t.fog, fontSize: 10.5, marginLeft: 6 } }, note) : null));
+          return h("div", { "data-ledger-daily": true, style: { display: "flex", flexDirection: "column", gap: 6, margin: "-10px 4px 20px", fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+            todayExp != null ? row("今天花了", todayExp, "", "today") : null,
+            row("日均支出", da.avg, "按 " + da.days + " 天算", "avg"));
         })(),
         // 本月预算：没设过就是一行小字「设个预算」，设了才有那张卡
         (function () {
@@ -670,7 +676,15 @@
               h("span", { style: { color: over ? EXP : t.sub } }, over ? "超了 " + fmtAmt(-bs.left, cur) : "还剩 " + fmtAmt(bs.left, cur))),
             bs.perDay != null ? h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
               h("span", null, "剩下每天可花（含今天，还有 " + bs.daysLeft + " 天）"),
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: over ? EXP : t.ink } }, over ? "—" : fmtAmt(bs.perDay, cur))) : null);
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: over ? EXP : t.ink } }, over ? "—" : fmtAmt(bs.perDay, cur))) : null,
+            // 今天实际花的对上「今天能花的」：超了照实标出来
+            bs.perDay != null && !over ? (function () {
+              const td = todayKey(), spent = monthTxns.filter(x => x.date === td && x.type !== "income").reduce((a, x) => a + (Number(x.amount) || 0), 0);
+              const allow = (bs.left + spent) / bs.daysLeft;   // 今天开张前剩的钱摊到含今天的这几天，就是今天原本能花的
+              return h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+                h("span", null, "今天已花"),
+                h("span", { style: { color: spent > allow ? EXP : t.sub } }, fmtAmt(spent, cur) + " / " + fmtAmt(allow, cur)));
+            })() : null);
         })(),
         s.catList.length ? h("div", { style: { marginBottom: 22 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, letterSpacing: "0.05em" } }, "支出分类"),
