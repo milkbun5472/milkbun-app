@@ -11981,9 +11981,23 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
           transition: flip ? "transform .43s cubic-bezier(.4,.05,.35,1), opacity .43s ease, box-shadow .43s ease" : "none",
           backfaceVisibility: "hidden"
         }),
-        // 还剩几页：不写页码，用一排小刻度说话
-        all.length > 1 ? h("div", { className: "absolute left-0 right-0 flex items-center justify-center", style: { bottom: "calc(env(safe-area-inset-bottom) + 8px)", gap: 4, pointerEvents: "none", zIndex: 3 } },
-          all.slice(0, 12).map((x, i2) => h("span", { key: x.id, style: { width: i2 === at ? 12 : 4, height: 3, borderRadius: 999, background: t.ink, opacity: i2 === at ? .5 : .16, transition: "width .2s" } }))) : null),
+        // 还剩几页：不写页码，用一排小刻度说话。
+        // ⚠️这排刻度和【手指滑动】必须朝同一个方向（她 2026-09-27：「最新的日记下面的点是
+        //   最左边的，而不是正确应该在右边跟小说一样」）。
+        //   all 是新→旧排的，原来直接 all.map，于是最左那颗＝最新；而滑动是「从右往左＝翻到
+        //   更新的一天」（她 2026-08-30 定的，照读书来）——手指往左走、亮着的那颗却也往左走，
+        //   两边对着干。所以这里按【旧→新】画：最右那颗才是最新的一天。
+        // ⚠️窗口跟着当前这页走：原来写死 slice(0,12)，翻到第 13 篇往后就一颗都不亮
+        //   （i2 === at 再也成立不了），看着像坏了。
+        (() => {
+          if (all.length < 2) return null;
+          const DOTS = 12;
+          const from = Math.min(Math.max(0, at - Math.floor(DOTS / 2)), Math.max(0, all.length - DOTS));
+          const win = all.slice(from, from + DOTS);              // 仍是新→旧
+          const hot = win.length - 1 - (at - from);              // 画成旧→新之后，当前这页在第几颗
+          return h("div", { className: "absolute left-0 right-0 flex items-center justify-center", style: { bottom: "calc(env(safe-area-inset-bottom) + 8px)", gap: 4, pointerEvents: "none", zIndex: 3 } },
+            win.slice().reverse().map((x, i2) => h("span", { key: x.id, style: { width: i2 === hot ? 12 : 4, height: 3, borderRadius: 999, background: t.ink, opacity: i2 === hot ? .5 : .16, transition: "width .2s" } })));
+        })()),
       commentPick && h(DiaryCommentPickSheet, {
         characters,
         onClose: () => setCommentPick(null),
