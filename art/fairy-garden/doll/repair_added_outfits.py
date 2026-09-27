@@ -18,7 +18,7 @@ deform = runpy.run_path(str(HERE / "body_shape.py"))["deform"]
 
 
 def repair_outfit(oid, config=None):
-    if oid not in ("jacket", "suit"):
+    if oid not in ("jacket", "suit", "tee"):
         raise ValueError("Unsupported added outfit: " + oid)
     original = bpy.data.objects["outfit_" + oid]
     if original.get("closedFlankVersion") == 2:
@@ -27,9 +27,11 @@ def repair_outfit(oid, config=None):
         config = runpy.run_path(str(HERE / "add_outfit.py"))["EXTRA"][oid]
     o = bpy.data.objects["outfit_" + oid]
     # Blender Z-up rest coordinates; these bounds leave the original collar and hem.
-    lo = 0.375 if oid == "suit" else 0.38
+    # T恤：宽松款，接缝放到 .11（从正面看在侧边，重建的侧面也和原衣身一样宽）；
+    # 侧面补到下摆 .32，下面那截牛仔布按原贴图颜色保护起来不删。
+    lo = 0.375 if oid == "suit" else 0.32 if oid == "tee" else 0.38
     hi = 0.691
-    cut = 0.08
+    cut = 0.11 if oid == "tee" else 0.08
     bm = bmesh.new()
     bm.from_mesh(o.data)
     bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=0.000015)
@@ -56,11 +58,12 @@ def repair_outfit(oid, config=None):
                 for f in v.link_faces:
                     f[protected] = 1
     # Clip the pocket selection boundaries before keeping faces, so no long sleeve triangle survives.
-    for ax, vals in [
+    # T恤没有口袋：这一刀和下面的口袋保护都跳过
+    for ax, vals in ([] if oid == "tee" else [
         (0, [-0.15, -0.068, 0.068, 0.15]),
         (1, [-0.055]),
         (2, ([0.407, 0.455] if oid == "suit" else [0.442, 0.495, 0.544, 0.600])),
-    ]:
+    ]):
         for val in vals:
             co = [0, 0, 0]
             co[ax] = val
@@ -73,6 +76,17 @@ def repair_outfit(oid, config=None):
                 plane_no=no,
                 dist=1e-7,
             )
+    if oid == "tee":
+        # 牛仔布（偏蓝的灰）不许被侧面重建删掉：T恤下摆盖着裤腰，一条高度线分不开两者
+        uvl = bm.loops.layers.uv.active
+        srcimg = next(n.image for n in o.data.materials[0].node_tree.nodes if n.type == "TEX_IMAGE" and n.image)
+        TWd, THd = srcimg.size
+        px = np.array(srcimg.pixels[:]).reshape(THd, TWd, 4)
+        for f in bm.faces:
+            u, v = np.mean([l[uvl].uv[:] for l in f.loops], 0)
+            c = px[int(np.clip(v, 0, 1) * (THd - 1)), int(np.clip(u, 0, 1) * (TWd - 1))][:3] ** (1 / 2.2)
+            if c[2] > c[0] + 0.01 and c[0] < 0.72:
+                f[protected] = 1
     # Keep the original pocket lips and bags, including portions connected to the body.
     for f in bm.faces:
         c = f.calc_center_median()
@@ -81,7 +95,7 @@ def repair_outfit(oid, config=None):
             if oid == "suit"
             else (0.442 < c.z < 0.495 or 0.544 < c.z < 0.600)
         )
-        if pocket and 0.068 < abs(c.x) < 0.15 and c.y < -0.055:
+        if oid != "tee" and pocket and 0.068 < abs(c.x) < 0.15 and c.y < -0.055:
             f[protected] = 1
     for ax, vals in [(2, [lo, hi]), (0, [-cut, cut])]:
         for val in vals:
@@ -301,8 +315,9 @@ def main():
     source, output = sys.argv[sys.argv.index("--") + 1 :]
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=source)
-    for oid in ("jacket", "suit"):
-        repair_outfit(oid)
+    for oid in ("jacket", "suit", "tee"):
+        if bpy.data.objects.get("outfit_" + oid):
+            repair_outfit(oid)
     settings = runpy.run_path(str(HERE / "split_outfits.py"))["EXPORT"]
     bpy.ops.export_scene.gltf(filepath=output, **{**settings, "use_selection": False})
 

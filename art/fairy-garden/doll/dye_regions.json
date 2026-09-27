@@ -80,9 +80,11 @@
   "tee": {
     "labels": {
       "cloth": "T恤",
-      "trim": "球鞋",
-      "bottom": "牛仔裤"
+      "bottom": "牛仔裤",
+      "boots": "球鞋"
     },
-    "add": {}
+    "add": {
+      "boots": "#dcdad6"
+    }
   }
 }

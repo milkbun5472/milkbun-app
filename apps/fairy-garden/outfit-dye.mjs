@@ -1,7 +1,7 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-690dab8c0e24d962';
+import {OUTFITS} from './wardrobe.mjs?v=fg-ba020a23787bfb73';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;
@@ -45,6 +45,14 @@ export function regionShader(o){
  }
  if(p.y<.115)si=4;
  if(p.y>.085&&p.y<.145&&sc.r>.5)si=6;
+ `;
+ // T恤（2026-09-27）：按原贴图的布色分，不按高度线——T恤下摆盖着裤腰，一条高度线会把下摆涂成裤色。
+ // 白布＝T恤；偏蓝的灰布＝牛仔裤（到 .35 为止）；脚边的白和最底下的鞋底＝球鞋。
+ if(id==='tee')return `
+ si=0;
+ bool denim=sc.b>sc.r+.01&&sc.r<.72;
+ if(denim&&p.y<.36)si=2;
+ if(p.y<.2&&!denim||p.y<.05)si=4;
  `;
  return null;
 }

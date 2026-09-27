@@ -113,12 +113,13 @@
 
 - 源 `v2/outfits/hunyuan-c07-shell.glb`（宽松白 T 恤 + 灰色卷边牛仔中裤 + 白球鞋，自带鞋）。
   `S=.69 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py …`，`TRIS=8000 TEX=1024` 压缩，`add_outfit.py -- tee`。
-- 配色：`no_trim=True`（白 T 恤背光处会被当成边色）、`sole_z=.075`（只有球鞋进边色那格）；分区名在 `dye_regions.json`（T恤／球鞋／牛仔裤）。
-- 袖子：`fit_cuffs.py` 里和背带裙一样走短袖（`short=name in ('garden','tee')`）。
-- 衣身比躯干宽：切袖时 `cut_z=.36`（腋下一直切到裤腰上方，原来的 .40 会在腰侧留一截碎布），
-  `clean=True` 先沿 |x|=.17 和 z=cut_z 把网格剖开再删，切口是直线而不是一排三角锯齿。
-- 不走 `repair_added_outfits.py`（那是照夹克、西装的口袋翻领量的），腋下用 `side_lining()`。
-- 已知：深色裤子时 T 恤下摆最底一圈会跟着裤子色，像一道下摆阴影。
+- 照 Codex 给夹克/西装的那一整套走（她 2026-09-27：「去看看人家 codex 是怎么把衣服修好看的」）：
+  - 侧缝：`repair_added_outfits.py` 重建弧形侧面（ADDED-OUTFIT-SEAMS.md）。T 恤没有口袋，跳过口袋保护；宽松款接缝放到 `cut=.11`（.08 会在前胸留两道像背带的竖线），
+    侧面补到下摆 `lo=.32`，下面的牛仔布按原贴图颜色保护不删（T 恤下摆盖着裤腰，一条高度线分不开）。
+  - 肩线：`smooth_shoulders.py` 名单里加 `tee`，按短袖（和背带裙同一个判据）。
+  - 袖子：`fit_cuffs.py` 短袖。切袖 `cut_z=.36, clean=True`（先剖开再删，切口是直线）。
+  - 改色：`outfit-dye.mjs` 按原贴图布色分区（白＝T恤、偏蓝灰＝牛仔裤、脚边白＝球鞋），`dye_regions.json` 三个分区名。
+- 已知：领口是原模型自带的罗纹，边缘略碎。
 
 ## 衣服按需加载（2026-09-26，她定）
 

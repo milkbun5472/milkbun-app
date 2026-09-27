@@ -170,12 +170,13 @@
    "colors": {
     "cloth": "#e3e2e0",
     "trim": "#b5b4b2",
-    "bottom": "#a0a2a5"
+    "bottom": "#a0a2a5",
+    "boots": "#dcdad6"
    },
    "colorLabels": {
     "cloth": "T恤",
-    "trim": "球鞋",
-    "bottom": "牛仔裤"
+    "bottom": "牛仔裤",
+    "boots": "球鞋"
    }
   }
  },

@@ -14,7 +14,7 @@ from mathutils import Vector
 HERE = Path(__file__).resolve().parent
 
 
-OUTFITS = ("academy", "garden", "ranger", "cardigan", "jacket", "suit")
+OUTFITS = ("academy", "garden", "ranger", "cardigan", "jacket", "suit", "tee")
 
 
 def smooth_shoulders(outfits=OUTFITS):
@@ -31,7 +31,7 @@ def smooth_shoulders(outfits=OUTFITS):
             axis = Vector((sign * 0.095, 0, -0.19)).normalized()
             across = axis.cross(Vector((0, 1, 0))).normalized()
             start = Vector((sign * 0.153, 0, 0.655))
-            short = outfit == "garden"
+            short = outfit in ("garden", "tee")   # T恤（2026-09-27）也是短袖，和 fit_cuffs 同一个判据
             center = Vector((0, 0.01 if sign > 0 else 0.002, 0)) + across * (
                 (-0.033 if short else -0.025)
                 if sign > 0

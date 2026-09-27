@@ -144,8 +144,8 @@ def add_outfit(oid):
         m['roundSleeveVersion']=1
         side_lining(m,cfg['sleeves']['atlas'],cfg['sleeves']['slot'])
         runpy.run_path(os.path.join(HERE,'fit_cuffs.py'))['fit_cuffs']()
-        # 侧缝重缝＋保口袋/翻领那道修补是照夹克、西装量的（repair_added_outfits.py）；没有口袋翻领的（T恤）留 side_lining
-        if oid in ('jacket','suit'):runpy.run_path(os.path.join(HERE,'repair_added_outfits.py'))['repair_outfit'](oid,cfg)
+        # 侧缝重建（Codex，ADDED-OUTFIT-SEAMS.md）：夹克、西装、T恤都走；T恤没有口袋，跳过口袋保护
+        runpy.run_path(os.path.join(HERE,'repair_added_outfits.py'))['repair_outfit'](oid,cfg)
     else:
         _elbows['resample_sleeves'](m,body)
         _elbows['split_forearms'](m,rig,_elbows['arm_ends'](rig))
