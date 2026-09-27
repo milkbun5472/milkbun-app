@@ -664,6 +664,96 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
+  // ============================================================
+  // 外卖 Takeout —— 按饭点刷店 / 一次只在一家店里凑一单 / 骑手按分钟送
+  // ============================================================
+  // 她 2026-09-27 定的拆法：外卖不是购物的一栏，是另一件事——「现在饿了」，半小时内的事。
+  // ⚠️送达链、钱包、代付、亲属卡一样都不另养：一单外卖在结账那一刻被折成【一件】
+  //   kind:"takeout" 的东西，交给购物那几条现成的路（addOrder / payWithKinship / requestPayLater），
+  //   订单上带着 kind 和 takeout 明细，外卖 app 认它、购物「我的」不认它。
+  const takeoutItemOf = bag => {
+    const lines = (bag.items || []).filter(x => x && x.qty > 0).map(x => x.name + (x.qty > 1 ? " ×" + x.qty : ""));
+    const total = Math.round((bag.items || []).reduce((s, x) => s + (Number(x.price) || 0) * (x.qty || 0), 0) * 100) / 100;
+    return { name: (bag.shop ? bag.shop + " · " : "") + lines.join("、"), price: total, cat: "food", kind: "takeout",
+      takeout: { shop: bag.shop || "", items: lines, price: total, note: String(bag.note || "").trim().slice(0, 80) } };
+  };
+  const genTakeout = async (slot, keyword) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setTakeoutBusy(true);
+    try {
+      const label = (typeof TAKEOUT_SLOTS !== "undefined" ? TAKEOUT_SLOTS.find(s => s.key === slot) : null);
+      const hm = new Date(); const clock = hm.getHours() + ":" + String(hm.getMinutes()).padStart(2, "0");
+      const topic = keyword && keyword.trim() ? "她搜的是「" + keyword.trim() + "」" : "这一栏是「" + (label ? label.zh : slot) + "」";
+      const d = await runProbe(bgActive, { char: { id: "__takeout", name: "外卖", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
+        // ⚠️占位值只写【说明】不写【样例】（prompt-no-content-samples）：写一家店名进去，刷出来就全是那一家。
+        instruction: "你在给一个人刷外卖 App 的附近商家。现在是 " + clock + "，" + topic + "。**给 6~8 家店（shops 至少 6 个）**，"
+          + "都是这个钟点真会开着、真会有人点的那种；彼此拉开：吃的东西、价位、是连锁还是街边小店，别一屏全是同一族。"
+          + "每家：name(店名，像真招牌) / kind(这家卖什么，几个字) / eta(送到要几分钟，纯数字) / dishes(这家的 4~6 样招牌，每样 name 具体到能想象出长什么样、price 纯数字人民币按真实价位、desc 一句话说清为什么点它，别写成广告口号)。",
+        schemaHint: "{\"shops\":[{\"name\":\"店名\",\"kind\":\"卖什么\",\"eta\":纯数字,\"dishes\":[{\"name\":\"菜名\",\"price\":纯数字,\"desc\":\"一句话\"}]}]}",
+        maxTokens: 65535
+      });
+      const shops = ((d && d.shops) || []).map((s, i) => ({
+        id: "ts_" + Date.now() + "_" + i,
+        name: String(s.name || "小店").slice(0, 30),
+        kind: String(s.kind || "").slice(0, 20),
+        eta: Math.max(8, Math.min(60, Math.round(Number(s.eta)) || 25)),
+        dishes: (Array.isArray(s.dishes) ? s.dishes : []).map((x, k) => ({
+          uid: "td_" + Date.now() + "_" + i + "_" + k,
+          name: String((x && x.name) || "招牌").slice(0, 30),
+          price: Math.max(1, Math.round(Number(x && x.price)) || 18),
+          desc: String((x && x.desc) || "").slice(0, 60)
+        }))
+      })).filter(s => s.dishes.length);
+      setTakeoutFeed(prev => { const n = { ...prev, [slot]: shops }; saveJSON("x_takeoutFeed", n); return n; });
+    } catch (e) {
+      toast("刷新失败：" + e.message);
+    } finally {
+      setTakeoutBusy(false);
+    }
+  };
+  // 下单。mode 跟购物同一套词：buy 自己付 / kinship 亲属卡 / paylater 找TA代付；
+  // 多一个 forchar：她给TA点一份——聊天里出一张她那边的外卖小票，不进TA的随身物（吃完就没了）。
+  const orderTakeout = (bag, mode, target) => {
+    const item = takeoutItemOf(bag || {});
+    if (!item.takeout.items.length) { toast("还没点东西"); return false; }
+    const total = item.price;
+    const byMode = {
+      buy: () => {
+        if (wallet < total) { toast("余额不足"); return false; }
+        changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop");
+        addOrder(item);
+        toast("下单成功，骑手接单了");
+      },
+      kinship: () => {
+        if (!target || target.type !== "char") { toast("请选择亲属卡"); return false; }
+        payWithKinship(target.id, [item], total);
+      },
+      paylater: () => {
+        if (!target) { toast("请选择代付对象"); return false; }
+        requestPayLater([item], total, target);
+      },
+      forchar: () => {
+        const char = target && target.type === "char" ? characters.find(c => c.id === target.id) : null;
+        if (!char) { toast("请选择给谁点"); return false; }
+        if (wallet < total) { toast("余额不足"); return false; }
+        changeWallet(-total, "给 " + (char.remark || char.name) + " 点外卖 " + item.takeout.shop, "shop");
+        const now = Date.now();
+        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: now + deliverMsForCat("food", item.name), ts: now, read: true,
+          content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") }]);
+        toast("给 " + (char.remark || char.name) + " 点好了，骑手在路上");
+      }
+    };
+    if (!byMode[mode]) return false;
+    return byMode[mode]() !== false;
+  };
+  // 吃完了：从在途/已送达里拿掉，记进「吃过的」。外卖不进随身物——它不会留下来。
+  const eatTakeout = id => {
+    const o = ordersRef.current.find(x => x.id === id);
+    if (!o) return;
+    saveOrders(p => p.filter(x => x.id !== id));
+    setTakeoutLog(p => { const n = [{ id: o.id, name: o.name, takeout: o.takeout || null, price: o.price, payLabel: o.payLabel || "", fromCharId: o.fromCharId || null, ts: Date.now() }, ...p].slice(0, 300); saveJSON("x_takeoutLog", n); return n; });
+  };
+
   // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
   //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
   //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
@@ -692,6 +782,9 @@ function App() {
   const [orders, setOrders] = useState([]); // 待发货/待收货 [{id,name,en,price,status:"shipping"|"receiving",arriveTs,ts,fromCharId,payLabel}]
   const [shopFeed, setShopFeed] = useState({}); // {cat:[products]} 已生成的商品流
   const [shopBusy, setShopBusy] = useState(false);
+  const [takeoutFeed, setTakeoutFeed] = useState({}); // {slot:[shops]} 外卖按饭点刷出来的店
+  const [takeoutBusy, setTakeoutBusy] = useState(false);
+  const [takeoutLog, setTakeoutLog] = useState([]); // 吃过的外卖
   const [activeCardId, setActiveCardId] = useState(null); // 打开的亲属卡账单 charId
   const [walletView, setWalletView] = useState("main"); // 钱包内页：main | cards（提上来才经得住进详情再退回来）
   // 关系网上她自己拖过的位置（v60.46）：布局是算出来的，摆法是她的。
@@ -1641,6 +1734,8 @@ function App() {
     setCart(loadJSON("x_shopCart", []));
     setOrders(loadJSON("x_shopOrders", []));
     setShopFeed(loadJSON("x_shopFeed", {}));
+    setTakeoutFeed(loadJSON("x_takeoutFeed", {}));
+    setTakeoutLog(loadJSON("x_takeoutLog", []));
     setGiftOut(loadJSON("x_giftOut", []));
     setCarry(loadJSON("x_carry", {}));
     setCarryGifts(loadJSON("x_carryGifts", {}));
@@ -9824,6 +9919,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               + ((m.item && m.item.note) ? "（你随盒子写的那张卡片：「" + m.item.note + "」）" : "")
               + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
+            : m.kind === "takeout" ? "[" + uName + " 给你点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
+              + ((m.takeout && m.takeout.note) ? "（备注：「" + m.takeout.note + "」）" : "")
+              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到你手上了）") + "]"
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
               + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
@@ -21961,7 +22059,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
     pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
       content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now() }]);
-    addOrder({ name: (shop ? shop + " · " : "") + label, price, fromCharId: charId, cat: "food", kind: "takeout", arriveTs, payLabel: (char.remark || char.name) + " 点的外卖" });
+    addOrder({ name: (shop ? shop + " · " : "") + label, price, fromCharId: charId, cat: "food", kind: "takeout", takeout: { shop, items, price, note }, arriveTs, payLabel: (char.remark || char.name) + " 点的外卖" });
     return true;
   };
 
@@ -21980,7 +22078,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const finishPayLater = (charId, items, total, char) => {
     adjustCharBalance(charId, -total, "代付 · " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
+    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
   };
   const decidePayLater = async (charId, pid, items, total) => {
     const char = characters.find(c => c.id === charId);
@@ -22063,7 +22161,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       charId: charId, item: itemText, amount: total,
       remain: Math.round((remaining - total) * 100) / 100,
       content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + itemText.slice(0, 40) + " · ¥" + total }]);
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
+    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
   };
 
@@ -22210,7 +22308,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (mode === "buy") {
       if (wallet < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat }));
+      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout }));
       removeCartUids(uids);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
@@ -24019,6 +24117,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGiftInv: giftInvItem,
     onClosetInv: closetInvItem,
     onLeaveAtHis: leaveAtHis,
+    toast: toast
+  });else if (screen === "takeout") body = h(Takeout, {
+    wallet: wallet,
+    orders: orders,
+    log: takeoutLog,
+    characters: liveChars,
+    groups: groups.filter(imInGroup),
+    kinshipCards: kinshipCards,
+    feed: takeoutFeed,
+    busy: takeoutBusy,
+    onBack: goHome,
+    onGen: genTakeout,
+    onOrder: orderTakeout,
+    onEat: eatTakeout,
     toast: toast
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
     land: usLand,

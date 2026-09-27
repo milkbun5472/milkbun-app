@@ -73,3 +73,74 @@ test("聊天里 takeout 画成外卖小票，不是礼物盒", () => {
   assert.doesNotMatch(card, /onOpenGift/);
   assert.match(card, /骑手在路上/);
 });
+
+// ── 外卖 app 本体（她 2026-09-27：「可以，来吧」）──
+const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
+
+test("饭点：打开时按现在几点停在对应那一格，凌晨算夜宵", () => {
+  const src = grab(screens, "const TAKEOUT_SLOTS = [", "function takeoutFmtLeft(", "饭点表");
+  const at = new Function(src + "\nreturn takeoutSlotAt;")();
+  assert.equal(at(7), "breakfast");
+  assert.equal(at(12), "lunch");
+  assert.equal(at(15), "tea");
+  assert.equal(at(19), "dinner");
+  assert.equal(at(23), "late");
+  assert.equal(at(2), "late");
+});
+
+function makeOrder(wallet) {
+  const src = grab(app, "  const takeoutItemOf = bag => {", "  const genTakeout = async", "折单")
+    + grab(app, "  const orderTakeout = (bag, mode, target) => {", "  // 吃完了：", "下单");
+  const st = { wallet: [], orders: [], kin: [], pay: [], chat: [], toasts: [] };
+  const api = new Function("wallet", "toast", "changeWallet", "addOrder", "payWithKinship", "requestPayLater", "characters", "pChat", "deliverMsForCat", "Date",
+    src + "\nreturn { orderTakeout };")(
+    wallet, m => st.toasts.push(m), (d, l) => st.wallet.push([d, l]), o => st.orders.push(o),
+    (id, items, total) => st.kin.push({ id, items, total }), (items, total, target) => st.pay.push({ items, total, target }),
+    [{ id: "c1", name: "江识" }], (id, fn) => { st.chat = fn(st.chat); }, () => 600000, Date);
+  return { api, st };
+}
+const bag = { shop: "巷口粥铺", items: [{ name: "砂锅粥", price: 58, qty: 2 }, { name: "油条", price: 4, qty: 0 }], note: "少葱" };
+
+test("自己付：一单折成一件 kind:takeout，扣钱、进订单，份数写进明细", () => {
+  const { api, st } = makeOrder(500);
+  assert.equal(api.orderTakeout(bag, "buy"), true);
+  assert.equal(st.wallet[0][0], -116);
+  const o = st.orders[0];
+  assert.equal(o.kind, "takeout");
+  assert.equal(o.cat, "food");
+  assert.deepEqual(o.takeout.items, ["砂锅粥 ×2"], "没点的那样不该进单");
+  assert.equal(o.takeout.note, "少葱");
+});
+
+test("代付、亲属卡走购物现成的那两条路，带着同一件外卖", () => {
+  const a = makeOrder(0);
+  a.api.orderTakeout(bag, "paylater", { type: "char", id: "c1" });
+  assert.equal(a.st.pay[0].items[0].kind, "takeout");
+  assert.equal(a.st.pay[0].total, 116);
+  a.api.orderTakeout(bag, "kinship", { type: "char", id: "c1" });
+  assert.equal(a.st.kin[0].items[0].kind, "takeout");
+  // 那两条路落单时 kind 和明细要一路带到订单上
+  assert.match(app, /addOrder\(\{ name: it\.name, price: it\.price, cat: it\.cat, kind: it\.kind, takeout: it\.takeout, fromCharId: charId,/);
+  assert.match(app, /addOrder\(\{ name: it\.name, price: it\.price, cat: it\.cat, kind: it\.kind, takeout: it\.takeout, fromCharId: null,/);
+});
+
+test("给TA点：聊天里出她那边的外卖小票，不进TA随身物；钱不够就不点", () => {
+  const { api, st } = makeOrder(500);
+  api.orderTakeout(bag, "forchar", { type: "char", id: "c1" });
+  assert.equal(st.chat[0].kind, "takeout");
+  assert.equal(st.chat[0].role, "user");
+  assert.ok(st.chat[0].arriveTs > Date.now());
+  assert.equal(st.orders.length, 0);
+  const poor = makeOrder(10);
+  assert.equal(poor.api.orderTakeout(bag, "forchar", { type: "char", id: "c1" }), false);
+  assert.equal(poor.st.chat.length, 0);
+});
+
+test("外卖单归外卖 app，购物「我的」不再列它；主屏、秋秋名单、色相都登记了", () => {
+  assert.match(screens, /o\.status === "shipping" && o\.kind !== "takeout"/);
+  assert.match(screens, /o\.status === "receiving" && o\.kind !== "takeout"/);
+  assert.match(comps, /takeout: \{ kind: "app", zh: "外卖", G: GTakeout \}/);
+  assert.match(core, /shop: "购物", takeout: "外卖"/);
+  assert.match(app, /screen === "takeout"\) body = h\(Takeout,/);
+});
