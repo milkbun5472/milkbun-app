@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-0067d556fe1d225e';
+import {OUTFITS} from './outfits.mjs?v=fg-ba221c7b611ae460';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -13,7 +13,9 @@ export const HAIR_MODES=[['solid','单色'],['gradient','渐变'],['split','拼�
 const HAIR_MODE_IDS=HAIR_MODES.map(m=>m[0]);
 export const hairModeOf=look=>HAIR_MODE_IDS.includes(look?.hairMode)?look.hairMode:'solid';
 // 庭院和列车的 getDyes 都问这一处（以前两边各写一份，只有发色一个字段时还看不出来）。
-export function dyesOf(look={},defaults={}){const hairColor=look.hairColor||defaults.hairColor;return {skin:look.skin||defaults.skin,hairColor,hairColor2:look.hairColor2||hairColor,hairMode:hairModeOf(look)};}
+// 眼睛颜色（她 2026-09-26）：十张脸的眼珠原本都是这一个棕；没选过就是它，画面上一点不变。
+export const DEFAULT_EYE='#5d4435';
+export function dyesOf(look={},defaults={}){const hairColor=look.hairColor||defaults.hairColor;return {skin:look.skin||defaults.skin,eye:look.eye||DEFAULT_EYE,hairColor,hairColor2:look.hairColor2||hairColor,hairMode:hairModeOf(look)};}
 // 旧衣柜的六套 ID 和四个色槽：模型里暂时没有它们，但存档里的选择和配色【照留】，
 // 不然读档体检一过就把她调过的色静默丢了（world.restoreLook 只认这里认得的 ID）。
 const LEGACY_OUTFITS=['traveler','academy','garden','alchemist','ranger','cardigan'],LEGACY_SLOTS=['cloth','trim','bottom','boots'];
@@ -40,3 +42,7 @@ export function mergeLook(old={},patch={}){const next={...old,...patch};delete n
  if(patch.wardrobe||patch.outfitColors){next.wardrobe=restoreWardrobe({...old.wardrobe,...patch.wardrobe});if(patch.outfitColors){const id=outfitId(next);next.wardrobe=restoreWardrobe({...next.wardrobe,[id]:{...next.wardrobe[id],...patch.outfitColors}});}}
  return next;
 }
+// 车上没存过样貌时按性别补底（她 2026-09-26：「为啥默认角色是女的我是男的了」）：
+// 原来车上什么都没存就落到 DEFAULT_LOOK（韩系短发＝男款）给她、COMPANION_LOOK（空气刘海）给他，正好反了。
+// 她那一侧永远是「她」（见 js/fairy-garden.js ensureLooks），同行者按角色卡的「他/她/TA」。
+export const seatLook=(who,saved,ta)=>({...lookForTa(who==='me'?'她':ta),...(saved||{})});

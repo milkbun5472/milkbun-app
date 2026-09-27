@@ -15,12 +15,41 @@ def add_elbows():
     repair = runpy.run_path(str(Path(__file__).with_name('repair_cloth_binding.py')))
     repair['repair_inner_wrists']()
     meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.vertex_groups]
-    # Earlier shell preparation pinned small sleeve islands to the torso solely
-    # because their own bounding box was narrow. Restore nearby skin weights in
-    # the sleeve region, including those small islands, before splitting elbows.
+    body = next(o for o in meshes if o.name == 'DollBody')
+    for mesh in meshes:
+        if not mesh.get('outfit') or mesh.get('colorSlot') == 'boots':
+            continue
+        if mesh.get('outfit') == 'cardigan':
+            if mesh.name == 'outfit_cardigan':
+                repair['repair_cardigan'](mesh, body)
+            continue
+        resample_sleeves(mesh, body)
+    ends = arm_ends(rig)
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    for side, (shoulder, hand) in ends.items():
+        upper = rig.data.edit_bones[side + 'Arm']
+        elbow = shoulder.lerp(hand, .52)
+        upper.tail = elbow
+        lower = rig.data.edit_bones.new(side + 'Forearm')
+        lower.head, lower.tail = elbow, hand
+        lower.roll = upper.roll
+        lower.parent, lower.use_connect = upper, True
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for mesh in meshes:
+        split_forearms(mesh, rig, ends)
+    rig['elbowRig'] = {'version': 2, 'hands': {'left': [-.275, .40, 0], 'right': [.275, .40, 0]}}
+    runpy.run_path(str(Path(__file__).with_name('restore_cardigan_surface.py')))['restore_cardigan_surface']()
+    runpy.run_path(str(Path(__file__).with_name('restore_other_outfits.py')))['restore_other_outfits']()
+
+
+def resample_sleeves(mesh, body):
+    """Earlier shell preparation pinned small sleeve islands to the torso solely
+    because their own bounding box was narrow. Restore nearby skin weights in
+    the sleeve region, including those small islands, before splitting elbows."""
     from mathutils.bvhtree import BVHTree
     from mathutils.geometry import barycentric_transform
-    body = next(o for o in meshes if o.name == 'DollBody')
     body.data.calc_loop_triangles()
     triangles = [tuple(t.vertices) for t in body.data.loop_triangles]
     points = [v.co.copy() for v in body.data.vertices]
@@ -31,68 +60,51 @@ def add_elbows():
     def smooth(v):
         u = min(1.,max(0.,v))
         return u*u*(3-2*u)
-    for mesh in meshes:
-        if not mesh.get('outfit') or mesh.get('colorSlot') == 'boots':
+    groups = {g.name:g for g in mesh.vertex_groups}
+    for v in mesh.data.vertices:
+        x,y,z = v.co
+        blend = smooth((abs(x)-.13)/.055)*smooth((z-.42)/.06)*smooth((.72-z)/.04)
+        if blend <= 0:
             continue
-        if mesh.get('outfit') == 'cardigan':
-            if mesh.name == 'outfit_cardigan':
-                repair['repair_cardigan'](mesh, body)
+        hit, normal, face, distance = tree.find_nearest(v.co)
+        if hit is None or distance > .12:
             continue
-        groups = {g.name:g for g in mesh.vertex_groups}
+        indices = triangles[face]
+        bary = barycentric_transform(hit, *[points[i] for i in indices], *basis)
+        old = {mesh.vertex_groups[g.group].name:g.weight for g in v.groups}
+        delta = 0.
+        for name in ('leftArm','rightArm'):
+            target = sum(weights[i].get(name,0)*bary[k] for k,i in enumerate(indices))
+            value = old.get(name,0)*(1-blend)+target*blend
+            delta += old.get(name,0)-value
+            groups[name].add([v.index],max(0.,value),'REPLACE')
+        groups['body'].add([v.index],max(0.,old.get('body',0)+delta),'REPLACE')
+
+
+def arm_ends(rig):
+    """Shoulder and hand of each arm, in rig space."""
+    return {side: (rig.data.bones[side + 'Arm'].head_local.copy(), Vector((sign * .275, 0, .40)))
+            for side, sign in [('left', -1), ('right', 1)]}
+
+
+def split_forearms(mesh, rig, ends):
+    for side, (shoulder, hand) in ends.items():
+        group = mesh.vertex_groups.get(side + 'Arm')
+        if group is None:
+            continue
+        lower = mesh.vertex_groups.new(name=side + 'Forearm')
+        axis = hand - shoulder
         for v in mesh.data.vertices:
-            x,y,z = v.co
-            blend = smooth((abs(x)-.13)/.055)*smooth((z-.42)/.06)*smooth((.72-z)/.04)
-            if blend <= 0:
+            weight = next((g.weight for g in v.groups if g.group == group.index), 0)
+            if not weight:
                 continue
-            hit, normal, face, distance = tree.find_nearest(v.co)
-            if hit is None or distance > .12:
-                continue
-            indices = triangles[face]
-            bary = barycentric_transform(hit, *[points[i] for i in indices], *basis)
-            old = {mesh.vertex_groups[g.group].name:g.weight for g in v.groups}
-            delta = 0.
-            for name in ('leftArm','rightArm'):
-                target = sum(weights[i].get(name,0)*bary[k] for k,i in enumerate(indices))
-                value = old.get(name,0)*(1-blend)+target*blend
-                delta += old.get(name,0)-value
-                groups[name].add([v.index],max(0.,value),'REPLACE')
-            groups['body'].add([v.index],max(0.,old.get('body',0)+delta),'REPLACE')
-    rig.select_set(True)
-    bpy.context.view_layer.objects.active = rig
-    bpy.ops.object.mode_set(mode='EDIT')
-    ends = {}
-    for side, sign in [('left', -1), ('right', 1)]:
-        upper = rig.data.edit_bones[side + 'Arm']
-        shoulder = upper.head.copy()
-        hand = Vector((sign * .275, 0, .40))
-        elbow = shoulder.lerp(hand, .52)
-        upper.tail = elbow
-        lower = rig.data.edit_bones.new(side + 'Forearm')
-        lower.head, lower.tail = elbow, hand
-        lower.roll = upper.roll
-        lower.parent, lower.use_connect = upper, True
-        ends[side] = (shoulder, hand)
-    bpy.ops.object.mode_set(mode='OBJECT')
-    for mesh in meshes:
-        for side, (shoulder, hand) in ends.items():
-            group = mesh.vertex_groups.get(side + 'Arm')
-            if group is None:
-                continue
-            lower = mesh.vertex_groups.new(name=side + 'Forearm')
-            axis = hand - shoulder
-            for v in mesh.data.vertices:
-                weight = next((g.weight for g in v.groups if g.group == group.index), 0)
-                if not weight:
-                    continue
-                point = rig.matrix_world.inverted() @ mesh.matrix_world @ v.co
-                along = (point - shoulder).dot(axis) / axis.length_squared
-                u = min(1., max(0., (along - .40) / .24))
-                blend = u * u * (3 - 2 * u)
-                if blend:
-                    lower.add([v.index], weight * blend, 'REPLACE')
-                    group.add([v.index], weight * (1 - blend), 'REPLACE')
-    rig['elbowRig'] = {'version': 2, 'hands': {'left': [-.275, .40, 0], 'right': [.275, .40, 0]}}
-    runpy.run_path(str(Path(__file__).with_name('restore_cardigan_surface.py')))['restore_cardigan_surface']()
+            point = rig.matrix_world.inverted() @ mesh.matrix_world @ v.co
+            along = (point - shoulder).dot(axis) / axis.length_squared
+            u = min(1., max(0., (along - .40) / .24))
+            blend = u * u * (3 - 2 * u)
+            if blend:
+                lower.add([v.index], weight * blend, 'REPLACE')
+                group.add([v.index], weight * (1 - blend), 'REPLACE')
 
 
 def main():

@@ -1,4 +1,4 @@
-import {target,nextCompanionMove,isEdgePiece} from './puzzle.mjs?v=fg-0067d556fe1d225e';
+import {target,nextCompanionMove,isEdgePiece} from './puzzle.mjs?v=fg-ba221c7b611ae460';
 export const HANDOFF={x:100,y:1225,w:800,h:90};
 export function inHandoff(x,y){return x>=HANDOFF.x&&x<=HANDOFF.x+HANDOFF.w&&y>=HANDOFF.y&&y<=HANDOFF.y+HANDOFF.h;}
 export function pendingPiece(p){const a=p?.cooperation?.pending;return a&&['solve','fetch','help','ready'].includes(a.kind)&&p.pieces[a.id]&&!p.pieces[a.id].locked?a:null;}
@@ -10,21 +10,21 @@ export const DIVISIONS=[{id:'free',label:'自由配合'},{id:'you-edge',label:'�
 export function divisionOf(p){return DIVISIONS.find(d=>d.id===p.cooperation?.division)||DIVISIONS[0];}
 export function setDivision(p,id){if(!DIVISIONS.some(d=>d.id===id)||p.mode!=='together')return false;p.cooperation={...p.cooperation,division:id,retry:null,retryGiven:false};return true;}
 export function assignedPieces(p,who){const division=divisionOf(p).id;return p.pieces.filter(q=>!q.locked&&(division==='free'||isEdgePiece(p,q.id)===(who==='you'?division==='you-edge':division==='you-center'))).map(q=>q.id);}
-export function fetchPiece(p,skill,random=Math.random){return nextCompanionMove(p,skill,random,assignedPieces(p,'you'));}
-export function cooperationMove(p,skill,random=Math.random){
+export function fetchPiece(p,skill,random=Math.random,style){return nextCompanionMove(p,skill,random,assignedPieces(p,'you'),style);}
+export function cooperationMove(p,skill,random=Math.random,style){
  const pending=pendingPiece(p);
  if(p.mode==='together'&&pending){
   if(pending.kind==='ready')return null;
   const t=target(p,pending.id),q=p.pieces[pending.id];
   if(['fetch','help'].includes(pending.kind))return{id:q.id,x:500-t.w/2,y:HANDOFF.y+(HANDOFF.h-t.h)/2,duration:1.2+(1-skill)*2,wait:1,delivery:true};
-  return nextCompanionMove(p,skill,random,[q.id]);
+  return nextCompanionMove(p,skill,random,[q.id],style);
  }
  if(p.mode==='together'){
   if(p.pieces.filter(q=>!q.locked).length<=1)return null;
   const ids=assignedPieces(p,'companion'),retry=p.cooperation?.retry;
-  return nextCompanionMove(p,skill,random,Number.isInteger(retry)&&(ids.includes(retry)||p.cooperation?.retryGiven)?[retry]:ids);
+  return nextCompanionMove(p,skill,random,Number.isInteger(retry)&&(ids.includes(retry)||p.cooperation?.retryGiven)?[retry]:ids,style);
  }
- return nextCompanionMove(p,skill,random);
+ return nextCompanionMove(p,skill,random,null,style);
 }
 export function finishCooperation(p,id,delivery,matched,who){
  const pending=pendingPiece(p)||p.cooperation?.pending,c=p.cooperation||{},failures={...c.failures};

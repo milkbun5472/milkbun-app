@@ -14,7 +14,8 @@ HERE = Path(__file__).resolve().parent
 
 def restore_cardigan_surface():
     old=bpy.data.objects['outfit_cardigan']
-    if old.get('continuousSurfaceVersion'):return old
+    if old.get('continuousSurfaceVersion'):
+        return runpy.run_path(str(HERE / 'rebuild_cardigan_sleeves.py'))['rebuild_cardigan_sleeves'](old)
     assert old.parent and all(name in old.parent.data.bones for name in ('leftForearm', 'rightForearm')), 'Restore the elbow rig first'
     assert bpy.data.objects.get('outfit_cardigan_footwear'), 'Restore separate source footwear before cutting the ankle join'
     rig=old.parent;mat=old.data.materials[0];props={k:(old[k].to_dict() if hasattr(old[k],'to_dict') else old[k].to_list() if hasattr(old[k],'to_list') else old[k]) for k in old.keys() if k!='loweredCollarVersion'}
@@ -82,7 +83,7 @@ def restore_cardigan_surface():
     runpy.run_path(str(HERE / 'lower_cardigan_collar.py'))['lower_cardigan_collar'](o)
     for mod in list(o.modifiers):o.modifiers.remove(mod)
     mod=o.modifiers.new('Rig','ARMATURE');mod.object=rig
-    return o
+    return runpy.run_path(str(HERE / 'rebuild_cardigan_sleeves.py'))['rebuild_cardigan_sleeves'](o)
 
 
 def main():
