@@ -5999,7 +5999,11 @@ function PhoneApp({
   //   生成本来就挂在 app 最外层（genPhoneApp），退出这一屏不会打断它，好了照样存进这台手机；
   //   缺的只是出口——满屏出血那几个 app（浏览器、微信、外卖…）自己画顶栏，转圈时连返回键都没有。
   //   记一笔「她是走开等的」，生成完弹一句告诉她（app.js genPhoneApp）。
-  const leaveWhileGen = () => { try { (window.__phoneLeftWhileGen = window.__phoneLeftWhileGen || new Set()).add(char.id + ":" + appKey); } catch (e) {} onBack(); };
+  const markLeft = () => { try { (window.__phoneLeftWhileGen = window.__phoneLeftWhileGen || new Set()).add(char.id + ":" + appKey); } catch (e) {} };
+  const leaveWhileGen = () => { markLeft(); onBack(); };
+  // 不管怎么走的（箭头、回主屏、去别的 app）：离开这一屏时还在生成，就记一笔，好了弹一句
+  const stillGen = useRef(false); stillGen.current = busyKey === appKey && !data;
+  useEffect(() => () => { if (stillGen.current) markLeft(); }, []);
   const spinning = (loading && !data) || (!data && !isLive);
   if (spinning) content = h(Spinner, { label: "正在生成 " + zh + "…（这一步会调一次模型）" });else content = renderPhoneModule(appKey, data, {
     t,
