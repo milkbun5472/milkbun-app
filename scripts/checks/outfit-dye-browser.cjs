@@ -29,9 +29,9 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
  suit:{cloth:[.1,.46,.12],trim:[.025,.65,.10],bottom:[.09,.24,.1],accent:[0,.6,.12],socks:[.10,.09,.05],boots:[.09,.035,.12]}};
  const edges={
  garden:[['detail','left ear',[-.167,.373,.12]],['detail','right ear',[-.122,.375,.171]],['cloth','pouch flap',[-.08,.40,.18]]],
- ranger:[['cloth','front ribbed hem',[-.08,.376,.126]],['bottom','rolled trouser cuff',[-.13,.105,.08]]],
- cardigan:[['bag','pouch side shadow',[.15,.46,.096]],['bottom','upper trouser shadow',[-.08,.37,.10]]],
- jacket:[['trim','shirt collar shadow',[.039,.678,.08]],['cloth','pocket flap',[.105,.46,.13]]]
+ ranger:[['accent','shoulder band',[-.12,.65,.09]],['cloth','front ribbed hem',[-.08,.376,.126]],['bottom','rolled trouser cuff',[-.13,.105,.08]]],
+ cardigan:[['bag','pouch side shadow',[.15,.46,.096]],['bottom','upper trouser shadow',[-.08,.37,.10]],['bag','shoulder strap',[-.09,.70,.04]],['bottom','cuff front',[-.08,.105,.11]],['bottom','cuff outer edge',[.155,.087,.03]]],
+ jacket:[['trim','shirt collar shadow',[.039,.678,.08]],['cloth','pocket flap',[.105,.46,.13]],['cloth','left lapel',[-.12,.66,.06]],['cloth','right lapel',[.12,.66,.06]]]
  };
  let report={};
  const diff=(a,b)=>Math.max(...a.map((n,i)=>Math.abs(n-b[i])));
@@ -45,11 +45,11 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
    const deltas=Object.fromEntries(Object.entries(partPoints).map(([key,p])=>[key,diff(sample(plain,p),sample(changed,p))]));const edgeDeltas=(edges[outfit]||[]).map(([owner,name,p])=>({owner,name,delta:diff(sample(plain,p),sample(changed,p))}));results[slot]={changedPixels:count,deltas,edges:edgeDeltas};
   }
   d.setLook({outfitColors:{...catalog.outfits[outfit].colors}});const reset=capture();let resetDifference=0;for(let i=0;i<reset.length;i++)resetDifference=Math.max(resetDifference,Math.abs(reset[i]-defaults[i]));
-  report[outfit]={regions:results,resetDifference};scene.remove(d.root);
+  report[outfit]={regions:results,resetDifference,edgeColors:(edges[outfit]||[]).map(([owner,name,p])=>({name,rgb:sample(plain,p)}))};scene.remove(d.root);
  }
  return report;
  });
  fs.writeFileSync(out+'/regions.json',JSON.stringify({report,errors},null,2));assert.deepEqual(errors,[]);
- for(const [outfit,r] of Object.entries(report)){assert.equal(r.resetDifference,0,outfit+' reset');for(const [slot,v] of Object.entries(r.regions)){assert.ok(v.changedPixels>5,outfit+' '+slot+' must be visible');assert.ok(v.deltas[slot]>8,outfit+' '+slot+' target '+JSON.stringify(v));for(const e of v.edges)assert.ok(e.owner===slot?e.delta>8:e.delta<3,outfit+' '+slot+' edge '+JSON.stringify(e));for(const [other,delta] of Object.entries(v.deltas))if(other!==slot)assert.ok(delta<3,outfit+' '+slot+' leaks into '+other+': '+delta);}}
+ for(const [outfit,r] of Object.entries(report)){assert.equal(r.resetDifference,0,outfit+' reset');for(const e of r.edgeColors)if(e.name.includes('lapel'))assert.ok(Math.min(...e.rgb)>65,e.name+' retains black patch '+e.rgb);for(const [slot,v] of Object.entries(r.regions)){assert.ok(v.changedPixels>5,outfit+' '+slot+' must be visible');assert.ok(v.deltas[slot]>8,outfit+' '+slot+' target '+JSON.stringify(v));for(const e of v.edges)assert.ok(e.owner===slot?e.delta>8:e.delta<3,outfit+' '+slot+' edge '+JSON.stringify(e));for(const [other,delta] of Object.entries(v.deltas))if(other!==slot)assert.ok(delta<3,outfit+' '+slot+' leaks into '+other+': '+delta);}}
  console.log(JSON.stringify({report,errors}));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

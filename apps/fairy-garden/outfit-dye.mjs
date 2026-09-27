@@ -1,12 +1,12 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-690dab8c0e24d962';
+import {OUTFITS} from './wardrobe.mjs?v=fg-63fc4f1e22cde666';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;
  if(name.includes('_sleeve'))return `si=${id==='academy'||id==='garden'?1:0};`;
- if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=4;if(p.y>.105&&(sc.g-sc.b)>(sc.r-sc.g)*.22)si=2;':'si=4;';
+ if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=(piece.y>.105||(piece.x>.045&&piece.y>.083&&piece.w<.08))?2:4;':'si=4;';
  if(name.includes('_side_lining'))return 'si=0;';
  if(id==='ranger')return name.includes('_bag')||name.includes('_strap')?'si=3;':name.includes('_trousers')?'si=piece.x>.36?0:2;':'si=0;';
  if(id==='academy')return `
@@ -29,6 +29,8 @@ export function regionShader(o){
  if(piece.x<.30||p.y<.40||p.y<.44&&cream)si=2;
  if(piece.z>.05&&piece.w>.025&&piece.x>.37&&piece.y<.54)si=5;
  if(p.z>.065&&p.y>.50&&cream)si=5;
+ // Authored strap islands continue across the shoulder and down its back.
+ if(piece.x>.65&&piece.x<.71&&piece.y>.71&&piece.y<.73&&piece.z>-.10&&piece.z<-.065)si=5;
  `;
  if(id==='jacket')return `
  si=piece.x<.30?2:0;
@@ -68,6 +70,9 @@ export function attachRegionDye(o,previous){
    ${code}
    float fabricLight=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
    float baseLight=max(.025,dot(uRegionBase[si],vec3(.2126,.7152,.0722)));
+   ${o.userData.outfit==='jacket'?`// Lapel panels retain texture relief while removing baked near-black occlusion.
+   bool lapel=piece.x>.614&&piece.x<.617&&piece.y>.68&&piece.y<.688&&abs(piece.z)>.09&&abs(piece.z)<.11;
+   if(si==0&&lapel)fabricLight=baseLight*pow(max(fabricLight/baseLight,.001),.30);`:''}
    diffuseColor.rgb=uRegionColors[si]*clamp(fabricLight/baseLight,.08,1.65);
   `+sh.fragmentShader.slice(end+'diffuseColor.rgb*=tt;'.length);
  };
