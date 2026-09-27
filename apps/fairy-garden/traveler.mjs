@@ -1,9 +1,9 @@
-import {emotionPose} from './emotion-pose.mjs?v=fg-fe8a1998b55009d0';
-import {makeDollLife} from './doll-life.mjs?v=fg-fe8a1998b55009d0';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-fe8a1998b55009d0';
+import {emotionPose} from './emotion-pose.mjs?v=fg-7cc4479153482123';
+import {makeDollLife} from './doll-life.mjs?v=fg-7cc4479153482123';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-7cc4479153482123';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-fe8a1998b55009d0';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-fe8a1998b55009d0';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-7cc4479153482123';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-7cc4479153482123';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
