@@ -84,6 +84,7 @@
     d.settings.cats = d.settings.cats || {};
     d.settings.cats.expense = Array.isArray(d.settings.cats.expense) && d.settings.cats.expense.length ? d.settings.cats.expense : def.settings.cats.expense;
     d.settings.cats.income = Array.isArray(d.settings.cats.income) && d.settings.cats.income.length ? d.settings.cats.income : def.settings.cats.income;
+    d.settings.budgets = d.settings.budgets && typeof d.settings.budgets === "object" ? d.settings.budgets : {}; // 月预算：{ 币种: 金额 }，每个月都用这一个数
     d.monthly = d.monthly || {}; // 月度盘点：{ "YYYY-MM": { genAt, comments:[{charId,charName,text,ts}] } }
     return d;
   }
@@ -109,6 +110,17 @@
     if (at > cur) return null;
     const days = at === cur ? now.getDate() : new Date(y, m, 0).getDate();
     return { days, avg: days ? exp / days : 0 };
+  }
+  // 月预算（她 2026-09-27「预算也加上吧」）：用了多少、还剩多少；这个月还没过完时再算「剩下每天还能花多少」
+  //   ——剩的钱除以【含今天在内】还剩几天。超了就是负数，界面照实写超了多少，不替她粉饰。
+  function budgetState(budget, exp, mk, today) {
+    const b = Number(budget) || 0;
+    if (b <= 0) return null;
+    const now = today || new Date(), [y, m] = String(mk).split("-").map(Number);
+    const left = b - (Number(exp) || 0), used = (Number(exp) || 0) / b;
+    const isNow = y === now.getFullYear() && m === now.getMonth() + 1;
+    const daysLeft = isNow ? new Date(y, m, 0).getDate() - now.getDate() + 1 : 0;
+    return { budget: b, used, left, perDay: isNow && daysLeft > 0 ? left / daysLeft : null, daysLeft };
   }
   // 流水按天分组：每天一个小标题，带当天支出／收入合计（新的在上）
   function groupByDay(list) {
@@ -458,7 +470,7 @@
     let body;
     if (view.indexOf("cur:") === 0) {
       const code = view.slice(4);
-      body = h(CurView, { code, cur: curOf(code), txns: data.txns, onBack: () => setView("home"), onOpenTxn: id => setView("txn:" + id) });
+      body = h(CurView, { code, cur: curOf(code), txns: data.txns, budget: (data.settings.budgets || {})[code] || 0, onSetBudget: v => persist({ ...data, settings: { ...data.settings, budgets: { ...(data.settings.budgets || {}), [code]: v } } }), onBack: () => setView("home"), onOpenTxn: id => setView("txn:" + id) });
     } else if (view.indexOf("txn:") === 0) {
       const id = view.slice(4);
       const txn = data.txns.find(x => x.id === id);
@@ -637,6 +649,28 @@
           return h("div", { "data-ledger-daily": true, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "-10px 4px 20px", fontFamily: F_BODY, fontSize: 12, color: t.sub } },
             h("span", null, "日均支出"),
             h("span", null, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, fmtAmt(da.avg, cur)), h("span", { style: { color: t.fog, fontSize: 10.5, marginLeft: 6 } }, "按 " + da.days + " 天算")));
+        })(),
+        // 本月预算：没设过就是一行小字「设个预算」，设了才有那张卡
+        (function () {
+          const bs = budgetState(props.budget, s.exp, mk);
+          const edit = () => requestAppPrompt("每月预算", "每个月打算在" + cur.label + "上花多少？填 0 就是不设。", props.budget || "", v => {
+            const n = Math.max(0, Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100);
+            props.onSetBudget && props.onSetBudget(n);
+          }, "好", { placeholder: "比如 2000" });
+          if (!bs) return h("button", { onClick: edit, className: "active:opacity-60", style: { display: "block", margin: "-6px 0 18px 4px", minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent", border: "none" } }, "＋ 设个每月预算");
+          const over = bs.left < 0, pct = Math.min(1, bs.used);
+          return h("div", { "data-ledger-budget": true, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 18px", margin: "0 0 20px" } },
+            h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "本月预算"),
+              h("button", { onClick: edit, "aria-label": "改预算", className: "active:opacity-60 flex items-center gap-1", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: t.sub, background: "transparent", border: "none" } }, fmtAmt(bs.budget, cur), h(IPencil, { size: 13, color: t.fog }))),
+            h("div", { style: { height: 6, borderRadius: 6, background: t.line, overflow: "hidden", marginBottom: 10 } },
+              h("div", { style: { height: "100%", width: Math.max(2, pct * 100) + "%", background: over ? EXP : pageColor("ledger", "accent", ACCENT), borderRadius: 6 } })),
+            h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+              h("span", null, "已用 " + Math.round(bs.used * 100) + "%"),
+              h("span", { style: { color: over ? EXP : t.sub } }, over ? "超了 " + fmtAmt(-bs.left, cur) : "还剩 " + fmtAmt(bs.left, cur))),
+            bs.perDay != null ? h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+              h("span", null, "剩下每天可花（含今天，还有 " + bs.daysLeft + " 天）"),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: over ? EXP : t.ink } }, over ? "—" : fmtAmt(bs.perDay, cur))) : null);
         })(),
         s.catList.length ? h("div", { style: { marginBottom: 22 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, letterSpacing: "0.05em" } }, "支出分类"),

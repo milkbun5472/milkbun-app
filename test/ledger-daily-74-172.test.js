@@ -13,3 +13,14 @@ assert.equal(dayLabel("2026-09-26", today), "昨天 9月26日 周六");
 assert.equal(dayLabel("2026-09-27", today), "今天 9月27日 周日");
 assert.match(src, /data-ledger-daily/); assert.match(src, /groupByDay\(monthTxns\)/);
 console.log("ledger daily ok");
+// v74.173 月预算
+{ const { budgetState } = new Function(grab("budgetState") + "return {budgetState};")();
+  const today = new Date(2026, 8, 27);
+  const b = budgetState(2000, 1513.95, "2026-09", today);
+  assert.equal(b.left.toFixed(2), "486.05"); assert.equal(b.daysLeft, 4); assert.equal(b.perDay.toFixed(2), "121.51");
+  assert.equal(budgetState(0, 10, "2026-09", today), null, "没设就不出卡");
+  assert.equal(budgetState(100, 150, "2026-08", today).perDay, null, "过完的月份不算每天可花");
+  assert.ok(budgetState(100, 150, "2026-09", today).left < 0, "超了照实是负数");
+  assert.match(src, /budgets: \{ \.\.\.\(data\.settings\.budgets \|\| \{\}\), \[code\]: v \}/);
+  assert.match(src, /requestAppPrompt\("每月预算"/);
+  console.log("ledger budget ok"); }
