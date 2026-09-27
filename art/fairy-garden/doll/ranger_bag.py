@@ -41,7 +41,9 @@ def clean_old_front(cloth):
 
 def rebuild_ranger_bag():
  cloth=bpy.data.objects['outfit_ranger']
- if cloth.get('cleanBagVersion'):return
+ if cloth.get('cleanBagVersion'):
+  runpy.run_path(str(HERE/'fit_ranger_strap.py'))['fit_ranger_strap']()
+  return
  clean_old_front(cloth)
  pants=bpy.data.objects['outfit_ranger_trousers'];bm=bmesh.new();bm.from_mesh(pants.data)
  bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001)
@@ -102,6 +104,7 @@ def rebuild_ranger_bag():
  mesh=bpy.data.meshes.new('Continuous satchel strap');mesh.from_pydata(verts,[],faces);mesh.update();bm=bmesh.new();bm.from_mesh(mesh);bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(mesh);bm.free()
  o=bpy.data.objects.new('outfit_ranger_back_strap',mesh);bpy.context.collection.objects.link(o);finish(o,'outfit_ranger_back_strap',leather)
  o['backStrapVersion']=2;o['continuousStrapVersion']=1;cloth['cleanBagVersion']=1
+ runpy.run_path(str(HERE/'fit_ranger_strap.py'))['fit_ranger_strap']()
  if 'textureSlots' in cloth:del cloth['textureSlots']
  return o
 

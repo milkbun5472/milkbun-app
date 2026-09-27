@@ -18,3 +18,10 @@
 - Cardigan pouch shadows keep the bag dye; below-hem trouser shadows no longer inherit sweater colour. Jacket shirt/collar panels keep their trim dye through shaded texels.
 - Long-trouser skin coverage excludes arm-weighted vertices in colour, depth and distance passes. The old rest-height cutoff removed fingertips, visible as dark holes after raising the arms. Original hand geometry is unchanged.
 - `outfit-dye-browser.cjs` checks 30 slots, resets and boundary probes; old shader fails at the left bear ear. `hand-coverage-browser.cjs` compares fingertip pixels with/without lower-body coverage in 81 outfit/pose/angle/body combinations; old shader differs by 147, fixed shader by 0. `cloth-edge-assets.py` checks unchanged meshes/textures and all 64 morph endpoints against the original fold inversion area.
+
+## Shoulder straps, cuffs and lapels (2026-09-27)
+
+- Cardigan shoulder strap UV islands belong to the bag, including the shaded shoulder/back pieces. Its retained shoe asset also contains the rolled trouser cuff: assign complete cuff islands to trousers instead of a per-fragment height/colour test. Shoe laces, toe and sole remain the shoe region.
+- Ranger's existing continuous strap is raised .028 and moved outward .025 at the shoulder using a smooth height falloff. It passes under the hood; mesh topology, lower band and bag are retained. `fit_ranger_strap.py` updates all six body morphs and is an idempotent stage of `ranger_bag.py`.
+- Jacket's two small lapel undersides contain excessive baked dark occlusion. A luminance curve on those complete source UV panels restores the fabric tone while keeping varying texture relief and runtime lighting; it does not paint over the pockets or shirt.
+- Browser regression adds shoulder/cuff ownership and lapel brightness probes, retains independent dye/reset checks. Asset regression verifies all unrelated meshes/morphs, embedded textures, 64 body endpoints and migration idempotence. Original source geometry still contains fine folds and irregularities; these changes target the reported dye/strap defects.
