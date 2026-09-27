@@ -149,17 +149,20 @@ test("走到当口那一拍，两条路都摆在她面前，而且真的传下�
   // 找到的是那一处，然后整段断言都在扫提示词。认底部那张卡自己的东西。
   const a = fic.indexOf('h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginBottom: 4 } }, hitBeat.label)');
   assert.ok(a > 0, "抉择卡没了");
-  const card = fic.slice(a, a + 1400);
-  assert.match(card, /让它照原样发生/);
-  assert.match(card, /拦下这一页/);
+  const card = fic.slice(a, a + 1800);
+  // v74.124：三条路（她 2026-09-27「加完原剧情衔接不上」）——照原样 / 顺着改 / 拦下
+  assert.match(card, /照原样发生/);
+  assert.match(card, /"拦下"/);
+  assert.match(card, /resolve\(hitBeat, "bend"\)/);
+  assert.match(card, /顺着改/);
   assert.match(card, /resolve\(hitBeat, true\)/);
   assert.match(card, /resolve\(hitBeat, false\)/);
   // 结算真的走到引擎那一层
-  assert.match(fic, /\{ resolve: \{ beat: bt, keep: !!keep \}, wantNote: true \}/);
+  assert.match(fic, /\{ resolve: \{ beat: bt, keep: keep, bend: bend \}, wantNote: true \}/);
   // 结算这一拍传下去的是【已经带上这一页】的那份，不是还没更新的 props.session
   // ⚠️收尾这个词文件里出现好几次，其中一处在 resolve 之前——
   // 不从 a 往后找的话 slice 会反过来、整段变成空串，断言全部静默通过。
-  const ra = fic.indexOf("    async function resolve(bt, keep) {");
+  const ra = fic.indexOf("    async function resolve(bt, mode) {");
   assert.ok(ra > 0, "找不到 resolve");
   const r = fic.slice(ra, fic.indexOf("    // 收尾", ra));
   assert.ok(r.length > 400, "抠 resolve 抠空了");
@@ -192,9 +195,16 @@ test("书脊是一本书的脊背，不是一排药丸", () => {
   const sp = fic.slice(a, b);
   // 三种状态形状各不相同，不是只换个色（色弱和阳光下只剩形状可依）
   assert.match(sp, /dashed/, "还没走到的那几页得是空心虚线");
-  assert.match(sp, /background: st === "kept" \? t\.ink : t\.bg/, "照原样走过的那一页要是实心墨点");
+  assert.match(sp, /background: \(st === "kept" \|\| st === "bent"\) \? t\.ink : t\.bg/, "照原样走过的那一页要是实心墨点");
   assert.match(sp, /rotate\(-40deg\)/, "被拦下的那一页要有一道划开的口子");
   assert.match(sp, /textDecoration: st === "broken" \? "line-through" : "none"/);
   // 深色主题里不许写死白色（tabs-not-plain-pills.md 那条）
   assert.doesNotMatch(sp, /#fff|#ffffff|"white"/i);
+});
+
+test("v74.124 照原样发生是从眼下这一幕接过去，顺着改＝事成但按她改出来的局面变个样子", () => {
+  assert.match(fic, /【从眼下这一幕接过去】/);
+  assert.ok(!/人物、场合、结果都对得上原著/.test(fic), "别再要求把原著场合原样搬过来");
+  assert.match(fic, /让原著这一页顺着改过的局面发生/);
+  assert.match(fic, /state: bend \? "bent" : keep \? "kept" : "broken"/);
 });
