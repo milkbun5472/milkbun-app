@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.220";
+const APP_VERSION = "v74.221";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5733,7 +5733,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const lastP = list[list.length - 1];
       const last = pKeyDate(lastP.start);
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const cyc = period.cycleLen || 28, pLen = periodSpanLen(lastP, period.periodLen || 5);
+      const _pc = typeof periodCycleOf === "function" ? periodCycleOf(period) : { cyc: period.cycleLen || 28, len: period.periodLen || 5 };
+      const cyc = _pc.cyc, pLen = periodSpanLen(lastP, _pc.len);
       let dic = Math.floor((today - last) / 86400000) % cyc;
       if (dic < 0) return "";
       let phase;

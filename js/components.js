@@ -2748,12 +2748,32 @@ function periodList(period) {
   const arr = Array.isArray(period.periods) ? period.periods.filter(p => p && p.start) : (period.starts || []).map(s => ({ start: s, end: null }));
   return arr.slice().sort((a, b) => pKeyDate(a.start) - pKeyDate(b.start));
 }
+// 周期按她【真记过的】那几次算（她 2026-09-28，群里有人说「个人不太规律」）：
+// 相邻两次开始之间隔几天＝一个周期，取最近 6 个平均。隔得离谱的（<15 或 >90 天，多半是漏记了一次）不算。
+// 记不够两次才回落到她自己填的那个数。经期长度同理：有记结束的那几次取平均。
+function periodCycleOf(period) {
+  const list = periodList(period);
+  const gaps = [];
+  for (let i = 1; i < list.length; i++) {
+    const g = Math.round((pKeyDate(list[i].start) - pKeyDate(list[i - 1].start)) / 86400000);
+    if (g >= 15 && g <= 90) gaps.push(g);
+  }
+  const recent = gaps.slice(-6);
+  const spans = list.filter(p => p.end).map(p => periodSpanLen(p, 0)).filter(n => n >= 1 && n <= 15).slice(-6);
+  const avg = a => Math.round(a.reduce((x, y) => x + y, 0) / a.length);
+  return {
+    cyc: recent.length ? avg(recent) : Math.max(15, (period && Number(period.cycleLen)) || 28),
+    cycAuto: recent.length ? recent.length : 0,
+    len: spans.length ? avg(spans) : Math.max(1, (period && Number(period.periodLen)) || 5),
+    lenAuto: spans.length
+  };
+}
 function periodSpanLen(p, defLen) { return p.end ? (Math.round((pKeyDate(p.end) - pKeyDate(p.start)) / 86400000) + 1) : defLen; }
 function periodMap(period) {
   const map = {};
   if (!period) return map;
   const list = periodList(period);
-  const cyc = Math.max(15, period.cycleLen || 28), defLen = Math.max(1, period.periodLen || 5);
+  const _pc = periodCycleOf(period), cyc = _pc.cyc, defLen = _pc.len;
   // 实际记录的经期：有结束就按 start→end 实际天数；还没记结束就临时按默认长度显示
   list.forEach(p => {
     const sd = pKeyDate(p.start);
@@ -2813,7 +2833,7 @@ function periodLogsOf(period) { const l = period && period.logs; return (l && ty
 // 这一天属于哪一次：返回 {p, day} —— day 是这次的第几天（1 起）
 function periodDayOf(period, key) {
   const list = periodList(period);
-  const d = pKeyDate(key), defLen = Math.max(1, (period && period.periodLen) || 5);
+  const d = pKeyDate(key), defLen = periodCycleOf(period).len;
   for (let i = list.length - 1; i >= 0; i--) {
     const sd = pKeyDate(list[i].start);
     const ed = list[i].end ? pKeyDate(list[i].end) : (function () { const x = new Date(sd); x.setDate(x.getDate() + defLen - 1); return x; })();
@@ -2857,9 +2877,10 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
     saveLog({ [field]: had ? (log[field] || []).filter(function (x) { return x !== v; }) : (log[field] || []).concat([v]) });
   };
   // 距下次还有几天（按最后一次开始 + 周期算）
+  const pcAuto = periodCycleOf(per);
   const nextIn = (function () {
     if (!last) return null;
-    const nd = pKeyDate(last.start); nd.setDate(nd.getDate() + (Number(per.cycleLen) || 28));
+    const nd = pKeyDate(last.start); nd.setDate(nd.getDate() + periodCycleOf(per).cyc);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     return Math.round((nd - today) / 86400000);
   })();
@@ -2951,9 +2972,15 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
       // ── 设置 ──
       sec("这本子怎么算"),
       h("div", { className: "flex", style: { gap: 10 } },
+        pcAuto.cycAuto ? h("div", { "data-period-auto": "cycle", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "周期（天）",
+          h("div", { style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, pcAuto.cyc,
+            h("span", { style: { fontSize: 11, color: t.fog, marginLeft: 6 } }, "按最近 " + (pcAuto.cycAuto + 1) + " 次算"))) :
         h("label", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "周期（天）",
           h("input", { type: "number", value: cyc, onChange: function (e) { setCyc(e.target.value); }, onBlur: function () { onSave({ cycleLen: Number(cyc) || 28 }); }, className: "w-full outline-none",
             style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } })),
+        pcAuto.lenAuto ? h("div", { "data-period-auto": "len", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "经期长度（天）",
+          h("div", { style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, pcAuto.len,
+            h("span", { style: { fontSize: 11, color: t.fog, marginLeft: 6 } }, "按记过的 " + pcAuto.lenAuto + " 次算"))) :
         h("label", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "经期长度（天）",
           h("input", { type: "number", value: len, onChange: function (e) { setLen(e.target.value); }, onBlur: function () { onSave({ periodLen: Number(len) || 5 }); }, className: "w-full outline-none",
             style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }))),
