@@ -7544,6 +7544,7 @@ function MomentsFeed({
   const [cText, setCText] = useState("");
   const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
   const [imgView, setImgView] = useState(null);
+  const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
   // 信息流自己铺白底（外壳的地是灰的）：朋友圈那种 app 的正文从来是一张白纸，
   // 格子靠分隔线认，不靠父层透过来的那点米色
@@ -7580,7 +7581,7 @@ function MomentsFeed({
       color: t.ink,
       whiteSpace: "pre-wrap"
     }
-  }, imgView)), /*#__PURE__*/React.createElement("div", {
+  }, imgView), !isImgRef(imgView) && h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) })), /*#__PURE__*/React.createElement("div", {
     // 这一行只剩两个动作键（no-english-titles：原来左边那行英文眉标是装饰，
     // 这一页叫什么顶栏已经写了）
     className: "px-5 py-3 flex items-center justify-end",
@@ -7612,7 +7613,7 @@ function MomentsFeed({
   }, h(IRefresh, {
     size: 13,
     color: t.fog
-  }), " 角色发"))), gen && /*#__PURE__*/React.createElement(Spinner, {
+  }), " 角色发"), h(MomentAutoImgSwitch, null))), gen && /*#__PURE__*/React.createElement(Spinner, {
     label: "正在发朋友圈…"
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
@@ -7658,7 +7659,7 @@ function MomentsFeed({
       onClick: () => setImgView(m.image),
       className: "mt-2.5 block active:opacity-80"
     }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } })) : h("button", {
-      onClick: () => setImgView(m.image),
+      onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
       className: "mt-2.5 flex items-center gap-2 px-3 py-2.5 active:opacity-70",
       style: {
         background: t.bg,
@@ -7816,6 +7817,24 @@ function MomentsFeed({
     }
   }, c.name))))));
 }
+// 朋友圈里只有描述、还没画的那张图：点开的描述下面给一个「生图」（她 2026-09-28，prompt＝描述本身）
+function MomentGenImageButton({ momentId, onDone }) {
+  const t = useTheme();
+  const [busy, setBusy] = useState(false);
+  if (!momentId || typeof window.momentGenImage !== "function") return null;
+  return h("button", { "data-moment-gen-img": momentId, disabled: busy, onClick: async () => {
+    setBusy(true);
+    const ok = await window.momentGenImage(momentId).catch(() => false);
+    setBusy(false);
+    if (ok && onDone) onDone();
+  }, className: "active:opacity-70", style: { marginTop: 14, width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: busy ? t.fog : t.ink, fontFamily: F_BODY, fontSize: 13 } }, busy ? "正在画…" : "用这段描述生图");
+}
+// 朋友圈顶上的开关：角色发朋友圈时要不要顺手把配图画出来（x_momentAutoImg，默认关）
+function MomentAutoImgSwitch() {
+  const t = useTheme();
+  const [on, setOn] = useState(() => !!loadJSON("x_momentAutoImg", false));
+  return h("button", { "data-moment-auto-img": on ? "on" : "off", onClick: () => { const n = !on; setOn(n); saveJSON("x_momentAutoImg", n); }, className: "flex items-center gap-1.5", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: on ? t.ink : t.fog } }, h(PGlyph, { k: "album", size: 13, color: on ? t.ink : t.fog }), on ? " 自动配图·开" : " 自动配图·关");
+}
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
 function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const t = useTheme();
@@ -7824,6 +7843,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const [cText, setCText] = useState("");
   const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
   const [imgView, setImgView] = useState(null);
+  const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
   const coverRef = useRef(null);
   if (!isMe && !character) return null;
@@ -7839,7 +7859,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, m.content),
     m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => setImgView(m.image), className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
-      : h("button", { onClick: () => setImgView(m.image), className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "[图片] 点开看描述"))) : null,
+      : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "[图片] 点开看描述"))) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, timeAgo(m.ts)),
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.likeCount)),
@@ -7881,7 +7901,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
       list.map(momentRow)),
     delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelMoment(delId); setDelId(null); }, onCancel: () => setDelId(null) }),
-    imgView && h(Sheet, { onClose: () => setImgView(null), tall: true }, h(Eyebrow, { style: { marginBottom: 8 } }, "图片"), isImgRef(imgView) ? h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")) : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, imgView)),
+    imgView && h(Sheet, { onClose: () => setImgView(null), tall: true }, h(Eyebrow, { style: { marginBottom: 8 } }, "图片"), isImgRef(imgView) ? h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")) : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, imgView), h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) })),
     compose && h(MomentCompose, { friendGroups, characters, onPost: payload => { onPostMoment(payload); setCompose(false); }, onClose: () => setCompose(false) }));
 }
 

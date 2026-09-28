@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.210";
+const APP_VERSION = "v74.211";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17168,16 +17168,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
+      const newMomId = "m_" + Date.now();
+      const newMomImage = d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
       pMom(p => [{
-        id: "m_" + Date.now(),
+        id: newMomId,
         characterId: char.id,
         content,
-        image: d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null,
+        image: newMomImage,
         ts: Date.now(),
         liked: false,
         likeCount: 0,
         comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户")
       }, ...p]);
+      // 开关在朋友圈页顶上（x_momentAutoImg，默认关）：开着就顺手把这张配图画出来
+      if (newMomImage && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(newMomId), 60);
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -17189,6 +17193,36 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }));
     }
   };
+  // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
+  // 人不在画面里的走空景稿、不喂参考照；画人才走人像稿 + 参考照——跟私聊拍照同一条路。
+  const momentGenImage = async (momentId, quiet) => {
+    const mom = (momentsRef.current || []).find(m => m && m.id === momentId);
+    if (!mom || !mom.image || isImgRef(mom.image)) return false;
+    if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
+    const char = characters.find(c => c.id === mom.characterId);
+    if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
+    const desc = String(mom.image);
+    try {
+      const kind = noFaceKindFor(desc, char.name);
+      const noFace = !!kind || !(char.appearance || char.refPhoto);
+      const prompt = kind === "part" ? buildScenePrompt(char, desc, { body: true })
+        : noFace ? buildScenePrompt(char, desc, { forText: false })
+        : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
+      const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
+      let ref = null;
+      if (out && out.blob) ref = await imgToVault(await blobToDataUrl(out.blob));
+      else if (out && out.url) { const b = await fetch(out.url).then(r => r.blob()).catch(() => null); if (b && b.size) ref = await imgToVault(await blobToDataUrl(b)); }
+      if (!ref) throw new Error("没拿到图");
+      if (!isImgRef(ref)) throw new Error("图没能存进本机");
+      pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
+      return true;
+    } catch (e) {
+      if (!quiet) toast("朋友圈配图没生成：" + String(e && e.message || "重试").slice(0, 120));
+      return false;
+    }
+  };
+  window.momentGenImage = momentGenImage;
   const likeMoment = id => pMom(p => p.map(m => m.id === id ? {
     ...m,
     liked: !m.liked,
