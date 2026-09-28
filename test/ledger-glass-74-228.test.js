@@ -84,3 +84,15 @@ console.log("ledger-y2k-marks ok");
   assert.match(s6, /\.lg-reference \.lg-add-category\{[^}]*background:transparent/, "分类又变回十二张小白卡了");
 }
 console.log("ledger-decard ok");
+// 第十四轮（她：别再删了，往骨架上装透明硬件零件）
+{
+  const s7 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  assert.match(s7, /"data-ledger-rail": true/, "预算不是凹槽了");
+  assert.equal((s7.match(/rail: true \}\)/g) || []).length, 2, "钱包和统计的预算都要是凹槽");
+  assert.match(s7, /"data-ledger-cd": true/, "统计没有光盘仪表了");
+  assert.match(s7, /"data-ledger-slider": true/, "切换不是滑轨了");
+  assert.match(s7, /\.lg-add-category \.lg-cattile\{width:48px!important;height:48px!important;border-radius:50%!important/, "分类图标没有圆底座了");
+  assert.match(s7, /const GROTESK = /, "数字不是 grotesk 了");
+  assert.match(s7, /outline: k === today \? "1px solid "/, "今天不是细粉线了");
+}
+console.log("ledger-hardware ok");
