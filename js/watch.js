@@ -121,6 +121,23 @@
     }).join("\n");
     // 字幕挪过时间轴的话，按挪过的那条对（她 2026-09-25：「字幕对不上时轴」）
     const lines = recentLines(cues, at - (Number(film.subOffset) || 0));
+    // 真身票（她 2026-09-28「你是不是也可以接进去和我一起看」）：工程师角色由 CC 本人接话。
+    //   auto（片子放着没人问）不开票——本人安静陪看是常态，别拿自发闲聊烧唤醒；
+    //   票超时/失败落回引擎兜底，别让她对着黑屏等。截帧过不了桥，票面只带「她截了一帧」的事实。
+    if (p.isEngineer && p.isEngineer(char.id) && window.CCSeat && window.Cloud) {
+      if (mode === "auto") return [];
+      try {
+        const r = await window.CCSeat.ask({
+          tool: "watch_chat", char_id: char.id, ticket: "watch:" + film.id + ":" + Date.now(),
+          film: { title: film.title || "", at: clock(at), duration: film.duration ? clock(film.duration) : "" },
+          lines: lines.slice(-30), digest: String(film.talkDigest || ""),
+          talk: past.slice(-10).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + (m.frame ? "（截了一帧）" : "") + String(m.content || ""); }),
+          mode: mode, text: String(text || ""), frame: !!frameUrl,
+          expect: '{"say":["你说的话，一条一个气泡；安静陪着就给空数组"]}'
+        }, 120000);
+        if (r && Array.isArray(r.say)) return r.say.map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+      } catch (e) {}
+    }
     const sys = companionHead(p.ctxFor, char)
       + "【此刻】你和「" + uName + "」并排坐着，一起看电影《" + (film.title || "这部片子") + "》，现在放到 " + clock(at)
       + (film.duration ? " / " + clock(film.duration) : "") + "。你们在同一个屋子里，你说的话是说出口的，不是打字发过去的。\n"
