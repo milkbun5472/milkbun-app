@@ -2120,6 +2120,19 @@ function forumWithPhoto(text, x) {
   const line = "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
   return s ? s + " " + line : line;
 }
+// 已有楼层喂给模型时【整段原文】：每层楼全文＋它下面每条楼中楼（谁、回谁、说了什么），不截字、不截条。
+// 她 2026-09-28：TA 用小号发帖说她「过了几个星期才问押金退没退」，另一个角色评论之后，TA 回复
+//   「我确实问了押金退了多少，问题是我没问这个」——把谁问的弄反了，还去驳一句没人说过的话。
+//   病根不在「编」：继续刷楼时每层楼只给前 60 个字、只给最后 14 层、楼中楼一条不给，
+//   模型照着半句话接，只能猜。「只针对楼里已有的话回应」那条一直在，它只是看不全那句话。
+// ⚠️凡是把已有楼层递给模型的地方都走这一处（施工规则/one-public-mechanism.md）。
+function forumFloorTranscript(floors) {
+  return (floors || []).filter(Boolean).map(f => {
+    const head = (f.floor != null ? f.floor + "楼 " : "") + (f.isOp ? "【楼主】" : "") + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ");
+    const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
+    return [head].concat(subs).join("\n");
+  }).join("\n");
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // 吧名统一成「某某吧」：她打「足球」「足球吧」「 足球吧 」都是同一个吧
 function forumBoardName(raw) {
