@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.208";
+const APP_VERSION = "v74.209";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10173,6 +10173,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         read: true
       } : m));
       let words = Array.isArray(parsed.word) ? parsed.word.filter(Boolean) : (typeof parsed.word === "string" && parsed.word.trim() ? [parsed.word] : []);
+      // 模型改用【它自己那套函数调用语法】交这几栏（2026-09-28 她转来的截图：气泡里一行行
+      // 冒出 <invoke name="mood">、<parameter name="label">嘴硬</parameter>）：先把标记从正文里
+      // 捞干净，能还原的字段顺手补上——和下面照片那一刀同一个形状，也放在同一处。
+      if (typeof pullToolCallMarkup === "function") {
+        const _tc = pullToolCallMarkup(words);
+        if (_tc.fields) {
+          words = _tc.words;
+          const _f = _tc.fields;
+          // 只补【这一轮本来就空着】的那几栏：模型正经填了的不许被这条野路覆盖
+          if (parsed.affinityDelta == null && _f.affinityDelta != null && _f.affinityDelta !== "") {
+            const _n = Number(_f.affinityDelta); if (Number.isFinite(_n)) parsed.affinityDelta = _n;
+          }
+          const _mood = _f["mood.label"] || (parsed.mood == null ? _f.label : null);
+          if (parsed.mood == null && _mood) parsed.mood = { label: String(_mood).slice(0, 20) };
+          if (parsed.thought == null && _f.thought) parsed.thought = String(_f.thought);
+          if (parsed.action == null && _f.action) parsed.action = String(_f.action);
+        }
+      }
       // 模型把 photo 写进了正文（「[photo: kind=…, face=…, scene=…]」）：捞出来还原成照片，正文里不留这串参数
       if (typeof pullPhotoMarker === "function") { const _pm = pullPhotoMarker(words); if (_pm.photo || _pm.words.length !== words.length) { words = _pm.words.filter(w => String(w).trim()); if (_pm.photo && !parsed.photo && !parsed.selfie) parsed.photo = _pm.photo; } }
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动

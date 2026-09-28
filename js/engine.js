@@ -3922,6 +3922,39 @@ const PHOTO_PART_ZH = "局部";
 // 模型有时不把 photo 放进 JSON 字段，而是照着字段名在正文里写一行「[photo: kind=…, face=…, scene=…]」，
 // 拆气泡时又按逗号换行拆成好几条——她看到的就是一串参数。这里把它从正文里捞出来、还原成 photo 字段；
 // 正文里只剩真正的话。认的形状只有这一种（方括号＋photo 打头），不去猜别的写法。
+// 模型把【工具调用标记】当正文写了（2026-09-28 她转来的截图：气泡里一行行冒出
+// `<invoke name="mood">`、`<parameter name="label">嘴硬</parameter>`、`</invoke>`，
+// 最后还有一条 `</ ||DSML|| calls>`）。
+// 病根不是提示词没写清楚，是模型偶尔改用它自己那套函数调用语法来交这几栏——
+// 我们照样按 JSON 读，读不到，于是整串标记跟着 word 数组变成了一条条气泡。
+// 跟 pullPhotoMarker 同一个形状：从正文里捞出来、能还原的还原成字段，正文里一个字不留。
+// ⚠️别往提示词里加「不许输出工具调用」那种禁令（施工规则/bans-make-it-dumber）：
+//   规则降概率，代码才保证；而且这一族本来就是模型在协议之外自作主张。
+const TOOLCALL_LINE = /^\s*(?:<\/?\s*(?:invoke|parameter|function_calls|antml:[a-z_]+)\b[^>]*>\s*)+$/i;
+// `</ ||DSML|| calls>` 这种被中间件改写过的收尾也认：竖线/空格里夹着字母的尖括号壳
+const TOOLCALL_FENCE = /^\s*<\/?\s*[|\s]*[A-Za-z_]+[|\s]*(?:calls)?\s*>\s*$/;
+function pullToolCallMarkup(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const out = [], fields = {};
+  let curName = "";
+  let hit = false;
+  for (const w of list) {
+    const isMarkup = TOOLCALL_LINE.test(w) || TOOLCALL_FENCE.test(w) || /<\s*(?:invoke|parameter)\b/i.test(w);
+    if (!isMarkup) { out.push(w); continue; }
+    hit = true;
+    const inv = w.match(/<\s*invoke\s+name\s*=\s*"([^"]+)"/i);
+    if (inv) curName = inv[1];
+    // <parameter name="x">值</parameter>：一行里写完的才认，跨行的拼不回来就丢掉
+    const par = w.match(/<\s*parameter\s+name\s*=\s*"([^"]+)"\s*>([\s\S]*?)<\s*\/\s*parameter\s*>/i);
+    if (par) {
+      const key = String(par[1]).trim(), val = String(par[2]).trim();
+      if (key) fields[key] = val;
+      // <invoke name="mood"><parameter name="label">嘴硬</parameter> → mood 的 label
+      if (curName && curName !== key) fields[curName + "." + key] = val;
+    }
+  }
+  return { words: out, fields: hit ? fields : null };
+}
 function pullPhotoMarker(words) {
   const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
   const start = list.findIndex(w => /\[\s*photo\s*[:：]/i.test(w));
