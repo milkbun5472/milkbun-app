@@ -429,7 +429,7 @@
       backdropFilter: "blur(10px) saturate(1.45)", WebkitBackdropFilter: "blur(10px) saturate(1.45)"
     },
     B: {
-      background: "linear-gradient(145deg, rgba(255,255,255,.36) 0%, rgba(248,245,255,.18) 55%, rgba(236,244,255,.22) 100%)",
+      background: "linear-gradient(145deg, rgba(255,255,255,.3) 0%, rgba(248,245,255,.18) 55%, rgba(236,244,255,.22) 100%)",
       border: "none",
       boxShadow: "inset 0 10px 16px -12px rgba(255,255,255,.9), inset -10px -12px 20px -14px rgba(168,148,236,.3), 0 8px 24px rgba(122,118,200,.1)",
       backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)"
