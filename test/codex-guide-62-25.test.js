@@ -38,7 +38,7 @@ test("一个 app 一行，点开是整页——不是把同一页拆成好几条
   assert.match(src, /className: "flex-1 min-h-0 overflow-y-auto/);
   assert.ok(!/h\(Sheet,/.test(src), "详情做成半窗了");
   // 返回一次退一层：详情 → 目录 → 出去
-  assert.match(src, /bg: "transparent", onBack: \(\) => setOpen\(null\)/, "详情页的返回不是退一层");
+  assert.match(src, /bg: "transparent", onBack: \(\) => \{ setOpen\(null\)/, "详情页的返回不是退一层");
   // 原来那种「展开一条」的折叠式没了
   assert.ok(!/setOpen\(on \? null : e\.t\)/.test(src), "又变回原地展开的折叠条了");
 });
@@ -46,7 +46,7 @@ test("一个 app 一行，点开是整页——不是把同一页拆成好几条
 test("聊天那七条、桌面那五条，现在归成一页", () => {
   // 她点名的就是这个：同一个页面被拆成好几条摆在目录里
   const chat = M.appEntries("chat").map(e => e.id);
-  ["chat", "offline", "group", "call"].forEach(k => assert.ok(chat.includes(k), "聊天这一页少了：" + k));
+  ["chat", "offline", "group", "chatcfg", "rooms"].forEach(k => assert.ok(chat.includes(k), "聊天这一页少了：" + k));
   assert.equal(M.APPS.filter(a => a.id === "chat").length, 1, "聊天在目录里还是不止一行");
   // 反过来：一个 app 只在目录里出现一次
   const ids = M.APPS.map(a => a.id);
@@ -68,10 +68,12 @@ test("主屏上每个 app 都在攻略里找得到", () => {
   const names = [...comp.matchAll(/kind: "app", zh: "([^"]+)"/g)].map(m => m[1]);
   assert.ok(names.length >= 25, "主屏 app 名单抓少了：" + names.length);
   const all = M.APPS.map(a => a.zh).join("\n") + "\n"
-    + M.entries.map(e => e.zh + e.what + (e.how || "") + (e.more || []).join("") + (e.kw || []).join(" ")).join("\n");
+    + M.entries.map(e => e.zh + e.what + (e.doc || "") + (e.kw || []).join(" ")).join("\n");
   // 几个在攻略里换了叫法的，按它现在的说法算数
   const alias = { "秋秋": "秋秋（就是我）", "梦境": "梦" };
-  const missing = names.filter(n => all.indexOf(alias[n] || n) < 0);
+  // 电台不进攻略（她 2026-09-28：「电台不要，不进公共版」）
+  const OFF_GUIDE = ["电台"];
+  const missing = names.filter(n => !OFF_GUIDE.includes(n) && all.indexOf(alias[n] || n) < 0);
   assert.deepEqual(missing, [], "这几个 app 攻略里没写：" + missing.join(" "));
 });
 
@@ -87,17 +89,17 @@ test("最上面那一条是「问秋秋」，详情页底下也有一条，都�
 test("每一条都是「一句话点题 + 分点」，不是一大坨", () => {
   // 言秋那一片（三席会客 / 互救台 / 值班室）手册里本来就只有一句——
   // 那是他的东西，除了他本人不许动，这儿也不替他写说明
-  const YQ = ["lounge", "rescue", "vpscodex"];
+  const YQ = ["yanqiu", "lounge", "rescue", "vpscodex"];
   M.entries.forEach(e => {
     if (YQ.includes(e.id)) { assert.ok(e.what && e.where, e.id + "：连一句都没有"); return; }
     assert.ok(e.what && e.what.length >= 12, e.id + "：正文太短，等于没写");
     // 目录那一行只给一句够认出来的话——长的在这儿掐掉，命中之后才发全文
     assert.ok(M.teaser(e).length <= 44, e.id + "：目录那一行太长");
-    (e.more || []).forEach(m => assert.ok(m && m.length >= 4, e.id + "：有一条分点是空的"));
+    assert.ok(e.doc && /\n- /.test("\n" + e.doc), e.id + "：整页正文里一个分点都没有");
   });
-  // 攻略把分点画成分点，不是糊成一段
-  assert.match(src, /\(e\.more \|\| \[\]\)\.length \? h\("div"/, "详情页没把分点画出来");
-  assert.match(src, /\}, "·"\)/, "分点前面没有点");
+  // 攻略把分点画成分点、子分点缩进，不是糊成一段（她那份草稿的写法）
+  assert.match(src, /h\(DocView, \{ doc: e\.doc/, "详情页没照正文画");
+  assert.match(src, /sub \? "◦" : "·"/, "分点／子分点前面没有记号");
 });
 
 test("不留英文标题（no-english-titles）", () => {
@@ -118,6 +120,31 @@ test("形状不是一排药丸（tabs-not-plain-pills）", () => {
 });
 
 test("那条「先导出再删」的规矩必须写在攻略里（never-say-delete-first）", () => {
-  const all = M.entries.map(e => (e.what || "") + (e.how || "") + (e.more || []).join("")).join("\n");
+  const all = M.entries.map(e => (e.what || "") + (e.doc || "")).join("\n");
   assert.ok(/导出/.test(all) && /json/i.test(all), "说明书里没告诉她删之前先导出");
+});
+
+// ── 2026-09-28：她照着代码逐页核过的那版攻略搬进来了 ─────────────
+test("「名字」【跳转】每一处都跳得到真有的一条，攻略里点得动", () => {
+  const bad = [];
+  M.entries.forEach(e => (String(e.doc || "").match(/「[^」]*」【跳转】/g) || []).forEach(m => {
+    const n = m.slice(1, m.indexOf("」"));
+    const to = M.linkTarget(n);
+    if (!to || !M.APPS.some(a => a.id === to.app)) bad.push(e.id + "→" + n);
+  }));
+  assert.deepEqual(bad, [], "这几处跳转跳不过去");
+  // 攻略那头真的接上了：点了是换页 + 滚到那一条，不是摆设
+  assert.match(src, /const to = M\.linkTarget\(m\[1\]\);/);
+  assert.match(src, /const onJump = to => \{ setOpen\(to\.app\); setJumpTo\(to\.id\); \};/);
+  assert.match(src, /"data-entry": e\.id/);
+  // 秋秋那头拿到的是干净的字：跳转记号、粗体记号都不带
+  const txt = M.textOf(M.byId("chat"));
+  assert.ok(!/【跳转】|\*\*/.test(txt), "秋秋那份里还带着记号");
+});
+
+test("公共版没有的东西不写进攻略", () => {
+  const all = M.entries.map(e => e.doc || "").join("\n");
+  // 「找回失联的角色」是她自己用的（app.js 删角色那句提示里写着为什么）
+  assert.ok(all.indexOf("找回失联") < 0, "攻略里写了公共版没有的「找回失联的角色」");
+  assert.ok(!M.APPS.some(a => a.id === "radio"), "电台又进攻略了");
 });

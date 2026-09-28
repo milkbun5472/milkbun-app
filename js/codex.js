@@ -33,11 +33,52 @@ function manualSkin(t) {
   const MAN = () => (typeof window !== "undefined" && window.AssistantManual) || null;
   const no2 = n => String(n + 1).padStart(2, "0");
 
+  // ── 正文：她那份攻略草稿的写法原样画出来 ──────────────────────
+  // 空行分段；「### 」小节；「- 」分点、缩进四格是子分点；**名字：** 是分点的名字；
+  // 「名字」【跳转】＝点得动的那几个字——点了跳到讲那一块的地方（她 2026-09-28 要的）。
+  function inline(text, t, onJump, M) {
+    const parts = String(text).split(/(\*\*[^*]+\*\*|「[^」]*」【跳转】)/);
+    return parts.filter(Boolean).map((p, i) => {
+      if (p.startsWith("**")) return h("b", { key: i, style: { color: t.ink, fontWeight: 600 } }, p.slice(2, -2));
+      const m = /^「([^」]*)」【跳转】$/.exec(p);
+      if (m) {
+        const to = M.linkTarget(m[1]);
+        if (!to) return "「" + m[1] + "」";
+        return h("span", { key: i, role: "button", onClick: () => onJump(to),
+          style: { color: t.accent, textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" } }, "「" + m[1] + "」");
+      }
+      return p;
+    });
+  }
+  function DocView({ doc, t, onJump, M }) {
+    const blocks = String(doc || "").split(/\n\s*\n/).map(b => b.replace(/\s+$/, "")).filter(Boolean);
+    return blocks.map((b, bi) => {
+      if (b.startsWith("### ")) return h("div", { key: bi, style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "16px 0 4px" } }, b.slice(4));
+      const lines = b.split("\n");
+      if (/^\s*- /.test(lines[0])) return h("div", { key: bi, style: { marginTop: 6 } }, lines.map((ln, j) => {
+        const sub = /^\s{2,}- /.test(ln);
+        return h("div", { key: j, className: "flex", style: { gap: 7, marginTop: 5, paddingLeft: sub ? 16 : 0 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, flexShrink: 0 } }, sub ? "◦" : "·"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.sub } }, inline(ln.replace(/^\s*- /, ""), t, onJump, M)));
+      }));
+      return h("div", { key: bi, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: t.ink, marginTop: 8 } }, inline(b, t, onJump, M));
+    });
+  }
+
   function CodexApp(props) {
     const t = useTheme();
     const [q, setQ] = useState("");
     const [open, setOpen] = useState(null);       // 打开的是哪个 app
+    const [jumpTo, setJumpTo] = useState(null);   // 跳过去之后滚到哪一条
+    const pageRef = useRef(null);
     const M = MAN();
+    useEffect(() => {
+      const box = pageRef.current; if (!box) return;
+      const el = jumpTo ? box.querySelector('[data-entry="' + jumpTo + '"]') : null;
+      box.scrollTop = 0;
+      // offsetTop 量的是离 offsetParent 多远，不一定是这个滚动框——按屏幕上的位置差算才准
+      if (el) box.scrollTop = Math.max(0, el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8);
+    }, [open, jumpTo]);
     if (!M) return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
       h(Head, { zh: "攻略", sub: "这台手机的说明书", bg: "transparent", onBack: props.onBack }),
       h("div", { style: { padding: "40px 24px", fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.9 } },
@@ -48,31 +89,27 @@ function manualSkin(t) {
       if (!qq) return true;
       if (a.zh.toLowerCase().indexOf(qq) >= 0) return true;
       return M.appEntries(a.id).some(e =>
-        (e.zh + e.what + (e.how || "") + (e.more || []).join("") + (e.kw || []).join(" ")).toLowerCase().indexOf(qq) >= 0);
+        (e.zh + e.what + (e.doc || "") + (e.kw || []).join(" ")).toLowerCase().indexOf(qq) >= 0);
     };
     const apps = M.APPS.filter(hitApp);
     const cats = M.APP_CATS.filter(c => apps.some(a => a.cat === c));
+    const onJump = to => { setOpen(to.app); setJumpTo(to.id); };
 
     // ── 某一个 app 的整页 ─────────────────────────────────────────
     if (open) {
       const app = M.APPS.find(a => a.id === open);
       const list = app ? M.appEntries(app.id) : [];
-      const sec = (e, i) => h("div", { key: e.id, style: { marginTop: i ? 22 : 14 } },
+      const sec = (e, i) => h("div", { key: e.id, "data-entry": e.id, style: { marginTop: i ? 26 : 14 } },
         h("div", { className: "flex items-baseline", style: { gap: 9 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, width: 22, flexShrink: 0 } }, no2(i)),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.zh)),
         h("div", { style: { height: 1, background: t.ink, opacity: .13, margin: "7px 0 0 22px" } }),
         h("div", { style: { paddingLeft: 22 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "9px 0 6px" } }, "在哪儿：" + e.where),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: t.ink } }, e.what),
-          e.how ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.95, color: t.sub, marginTop: 7 } }, e.how) : null,
-          (e.more || []).length ? h("div", { style: { marginTop: 9 } }, e.more.map((m, j) =>
-            h("div", { key: j, className: "flex", style: { gap: 7, marginTop: 5 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, flexShrink: 0 } }, "·"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: t.sub } }, m)))) : null));
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "9px 0 2px" } }, "在哪儿：" + e.where),
+          h(DocView, { doc: e.doc || e.what, t, onJump, M })));
       return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
-        h(Head, { zh: (app && app.zh) || "攻略", sub: app ? app.cat + " · 共 " + list.length + " 节" : "", bg: "transparent", onBack: () => setOpen(null) }),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12", style: { WebkitOverflowScrolling: "touch" } },
+        h(Head, { zh: (app && app.zh) || "攻略", sub: app ? app.cat + " · 共 " + list.length + " 节" : "", bg: "transparent", onBack: () => { setOpen(null); setJumpTo(null); } }),
+        h("div", { ref: pageRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12", style: { WebkitOverflowScrolling: "touch" } },
           list.map(sec),
           h("button", {
             onClick: () => props.onAskAssistant && props.onAskAssistant(),

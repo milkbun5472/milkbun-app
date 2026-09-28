@@ -104,9 +104,13 @@ test("左右位：异性 CP 那个分叉删掉了，性别跟「更壮」是同�
 });
 
 test("穿书改叫加笔：界面、手册、提示词都改了，病历留着", () => {
-  assert.match(man, /\{ id: "stepin", zh: "同人文 · 加笔", where: "同人文底栏的「加笔」"/,
+  // 2026-09-28 起加笔写在同人文那一页里（她照着代码核过的那版攻略）
+  const M = (() => { const g = {}; new Function("window", man)(g); return g.AssistantManual; })();
+  const f = M.byId("fanfic");
+  assert.match(f.doc, /\*\*加笔（穿书改写）：\*\* 点底栏中间的羽毛笔/,
     "手册原来指着一个界面上不存在的按钮——她问秋秋「加笔怎么玩」只能靠运气");
-  assert.match(man, /kw: \["加笔", "穿书"/, "旧词也得认，不然照老叫法问就搜不到");
+  ["加笔", "穿书"].forEach(k => assert.ok(f.kw.includes(k), "旧词也得认，不然照老叫法问就搜不到：" + k));
+  assert.ok(M.find("加笔怎么玩", 4).some(x => x.id === "fanfic"));
   assert.match(asst, /"加笔怎么玩"/);
   assert.ok(fic.indexOf("【穿书 · 互动叙事引擎】") < 0);
   assert.match(fic, /【加笔 · 互动叙事引擎】/);

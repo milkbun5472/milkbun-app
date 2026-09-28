@@ -53,8 +53,8 @@ const A = (() => {
 // ── ① 派蒙那一层：功能问得出来，而且不许现编 ──────────────────
 test("手册覆盖到主要的几块，问什么都找得到", () => {
   const ids = MAN.entries.map(e => e.id);
-  ["chat", "offline", "group", "call", "phone", "shop", "lore", "memlib",
-    "fanfic", "stepin", "trpg", "tarot", "theme", "config", "home"].forEach(k =>
+  ["chat", "offline", "group", "chatcfg", "phone", "shop", "lore", "memlib",
+    "fanfic", "rooms", "trpg", "tarot", "theme", "config", "home"].forEach(k =>
     assert.ok(ids.includes(k), "手册里缺了 " + k));
   assert.ok(MAN.entries.length >= 40, "词条太少，问几句就露馅了");
   // 每条都得说清「在哪儿」——一个新来的人最先要的就是这个
@@ -596,7 +596,7 @@ test("这一页上的人算「在说谁」——她一个名字都没提也得�
   assert.equal(grab("V"), "true", "站在他的聊天里问「他」，卡还是半截");
   assert.equal(grab("角色7"), "false");
   // 这一页的手册词条也捎上了，「这一页是干嘛的」不用她先说页名
-  assert.match(sys, /【聊天（线上）】/);
+  assert.match(sys, /【说话 · 单聊】/);
   // ⚠️光测 pageLine 本身不够：把 buildSystem 里那句拼接删掉，函数照样是对的，
   //   发出去的 system 里却一个字都没有。所以要从出口验。
   assert.match(sys, /【她此刻在哪儿】她正开着「单聊」/, "那句人话没进 system");

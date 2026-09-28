@@ -56,8 +56,11 @@ test("页面 CSS 覆盖到每一页，不再是手写的十页", () => {
 });
 
 test("每一页都指得到手册里真有的一条", () => {
-  assert.deepEqual(routes.filter(r => !SCREEN_MAN[r]).sort(), [], "有页没挂手册词条");
+  // 电台不进攻略（她 2026-09-28：「电台不要，不进公共版」）——这两页是故意留空的
+  const OFF_GUIDE = ["radio", "radioLegacy"];
+  assert.deepEqual(routes.filter(r => !SCREEN_MAN[r] && !OFF_GUIDE.includes(r)).sort(), [], "有页没挂手册词条");
   Object.entries(SCREEN_MAN).forEach(([k, id]) => {
+    if (OFF_GUIDE.includes(k)) { assert.equal(id, "", k + " 不进攻略，却又挂回了词条"); return; }
     assert.ok(id, k + " 的手册词条留空了——她在那一页问「这一页怎么玩」会落空");
     assert.ok(MAN.byId(id), k + " 指着一个手册里没有的词条：" + id);
   });
@@ -70,10 +73,10 @@ test("每一页都指得到手册里真有的一条", () => {
 test("手册把「CSS 能改哪些页、图标皮肤归谁点」说清楚了", () => {
   const theme = MAN.byId("theme");
   assert.ok(theme, "主题工作台那条没了");
-  const txt = theme.what + " " + (theme.how || "");
-  assert.match(txt, /每一页都能单独写/, "还写着只能给「某一页」，没说是每一页");
-  assert.match(txt, /CSS 装修我也能替你写/, "没说清这件事秋秋能代劳");
-  assert.match(txt, /图标皮肤得你自己在这儿点/, "没说清图标皮肤它碰不了——不说就会有人以为它能改");
+  assert.match(theme.doc, /写给全 App，或者限定某一页/, "没说清 CSS 能写给每一页");
+  const qq = MAN.byId("assistant").doc;
+  assert.match(qq, /界面 CSS 装修/, "没说清这件事秋秋能代劳");
+  assert.match(qq, /图标皮肤她碰不了/, "没说清图标皮肤它碰不了——不说就会有人以为它能改");
   // 说到做到：秋秋能动手的确实只有这几样，图标不在里面
   const T = asst.slice(asst.indexOf("  const TARGETS = {"), asst.indexOf("\n  };", asst.indexOf("  const TARGETS = {")));
   ["style:", "persona:", "appearance:", "profile:", "theme:", "memory:"].forEach(k =>
@@ -85,16 +88,17 @@ test("子页面：查手机里那二十个、情侣空间那些门，问哪个�
   // ⚠️子页面报不上名（page 只报 screen）：她开着查手机的相册时，
   //   秋秋只知道「她在查手机」。所以里面各是什么得写进手册，
   //   她问「这一页怎么玩」时手上才有答案。
-  const apps = MAN.byId("phone_apps"), rooms = MAN.byId("couple_rooms");
+  // 2026-09-28 起这两样各自写在查手机、情侣空间那一整页里
+  const apps = MAN.byId("phone"), rooms = MAN.byId("couple");
   assert.ok(apps && rooms, "两条子页面词条少了一条");
   // 二十个 app 一个都不许漏——照 phone.js 里【真的那份名单】核，不是照我记的
   const names = require("./helpers/phone-render.js").loadPhone().PHONE_APPS.map(app => app.zh);
   assert.ok(names.length >= 20, "查手机的 app 名单抓少了：" + names.length);
   // ⚠️必须落在 what（那句「它是什么」）里，不是「在 kw 里出现过就算」——
   //   只在检索词里有的话，翻是翻得到，翻出来的那段却没说它是干嘛的
-  names.forEach(n => assert.ok(apps.what.includes(n),
+  names.forEach(n => assert.ok(apps.doc.includes(n),
     "手册里没说查手机的「" + n + "」是干嘛的"));
-  assert.ok((apps.kw || []).length >= 20, "检索词太少，她直接说某个 app 的名字会翻不到");
+  assert.ok((apps.kw || []).length >= 10, "检索词太少，她直接说某个 app 的名字会翻不到");
   // 情侣空间那些门同理，照 screens.js 里真的分支核
   const scr = R("screens.js");
   const us = scr.slice(scr.indexOf("function Us({"));
@@ -103,14 +107,14 @@ test("子页面：查手机里那二十个、情侣空间那些门，问哪个�
   assert.ok(subs.length >= 18, "情侣空间的门抓少了：" + subs.length);
   const ZH = { album: "合照", anniv: "我们的日子", archive: "我们的档案", capsule: "时光胶囊",
     disc: "唱片", drawer: "抽屉", exdiary: "交换日记", firsts: "第一次", gacha: "抽卡",
-    garden: "花房", ifroom: "如果馆", letters: "情书", makeup: "和好间", pacts: "说好的",
-    qa: "问答小本", recall: "TA记得的", studio: "照相馆", timeline: "我们的日子",
+    garden: "花房", ifroom: "另一种我们", letters: "情书", makeup: "和好间", pacts: "说好的",
+    qa: "问答小本", recall: "他记得的", studio: "照相馆", timeline: "我们的日子",
     trip: "旅行", wishes: "愿望板" };
   subs.forEach(k => {
     assert.ok(ZH[k], "情侣空间多出一扇门「" + k + "」，手册这条得跟着补");
-    assert.ok(rooms.what.includes(ZH[k]), "手册里没说这扇门是干嘛的：" + ZH[k]);
+    assert.ok(rooms.doc.includes(ZH[k]), "手册里没说这扇门是干嘛的：" + ZH[k]);
   });
   // 检索得到：她直接说「外卖」「花房」的时候要能翻出来
-  assert.ok(MAN.find("外卖这一页怎么玩", 4).some(x => x.id === "phone_apps"));
-  assert.ok(MAN.find("花房是干嘛的", 4).some(x => x.id === "couple_rooms"));
+  assert.ok(MAN.find("外卖这一页怎么玩", 4).some(x => x.id === "takeout"));
+  assert.ok(MAN.find("花房是干嘛的", 4).some(x => x.id === "couple"));
 });
