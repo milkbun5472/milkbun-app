@@ -1318,18 +1318,19 @@
     if (!fresh) return null;
     const mem = Object.assign({ summaries: [], review_items: [] }, fresh.memory || {});
     const score = (answers || []).filter(function (a) { return a && a.result === "correct"; }).length;
-    const rec = { id: "test_" + ts, unitKey: unit.key, unitTitle: unit.title, ts: ts, score: score, total: (answers || []).length,
+    const rec = { id: "test_" + ts + "_" + Math.floor(Math.random() * 1e6), unitKey: unit.key, unitTitle: unit.title, ts: ts, score: score, total: (answers || []).length,
       items: (answers || []).map(function (a) { return { pointId: a.quiz.pointId, type: a.quiz.type, prompt: a.quiz.prompt, answer: a.quiz.answer,
         options: a.quiz.options || [], given: String(a.answer == null ? "" : a.answer).slice(0, 300), result: a.result, explanation: a.quiz.explanation || "" }; }) };
     mem.tests = (mem.tests || []).concat([rec]).slice(-TEST_CAP);
     saveCurriculum(Object.assign({}, fresh, { memory: mem, updated_at: ts }));
     return rec;
   }
-  // 这个单元上一次的成绩（不含刚交的这张）
-  function lastUnitTest(cur, unitKey, beforeTs) {
+  // 这个单元上一次的成绩（不含刚交的这张）。
+  // ⚠️按编号排除、按存进去的先后取，不比时间戳：两次交卷落在同一毫秒时，比时间就找不到「上一次」。
+  function lastUnitTest(cur, unitKey, excludeId) {
     const tests = (cur && cur.memory && cur.memory.tests) || [];
-    return tests.filter(function (x) { return x && x.unitKey === unitKey && (!beforeTs || x.ts < beforeTs); })
-      .sort(function (a, b) { return b.ts - a.ts; })[0] || null;
+    const hit = tests.filter(function (x) { return x && x.unitKey === unitKey && x.id !== excludeId; });
+    return hit[hit.length - 1] || null;
   }
   // 按要点算一张成绩单里的对错：{ pointId: { right, total } }
   function testByPoint(rec) {
@@ -1973,7 +1974,7 @@
 
     // 成绩单
     if (report) {
-      const prev = lastUnitTest(findCurriculum(cur0.id) || cur0, report.unitKey, report.ts);
+      const prev = lastUnitTest(findCurriculum(cur0.id) || cur0, report.unitKey, report.id);
       const now = testByPoint(report), before = prev ? testByPoint(prev) : {};
       const label = {};
       ((unit && unit.points) || []).forEach(function (p) { label[p.id] = p.label; });

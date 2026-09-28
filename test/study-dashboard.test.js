@@ -120,7 +120,7 @@ test("单元测：只收这个单元的要点，每道都走复习卡那条路�
   assert.equal(H.reviewed[0].outcome.result, "incorrect");
   assert.equal(H.store().memory.tests.length, 1);
   const second = H.api.recordUnitTest("c1", unit, [{ quiz: qs[0], answer: "食べて", result: "correct" }, { quiz: qs[1], answer: "true", result: "correct" }]);
-  const prev = H.api.lastUnitTest(H.store(), unit.key, second.ts);
+  const prev = H.api.lastUnitTest(H.store(), unit.key, second.id);
   assert.equal(prev.id, first.id);
   assert.deepEqual(H.api.testByPoint(second).te, { right: 1, total: 1 });
 });
