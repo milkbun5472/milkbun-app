@@ -82,7 +82,11 @@ test("真跑一遍：一间「不带出门」的房里，这些栏必须是空�
   assert.equal(out.personaEvolve, false, "真假值要清成 false，不是 null");
   // 「他是谁」那几栏照旧给
   assert.deepEqual(out.chars, ctx.chars);
-  assert.equal(out.worldbook, ctx.worldbook);
+  // v74.185 起世界书成了一档可关的门：「不带出门」这个预设把它也关了
+  //（用户 2026-09-28：全关的房里 TA 还知道两人的往事，最肥那一段正是世界书 36%）。
+  assert.equal(out.worldbook, "", "「不带出门」连世界书也不带");
+  // ⚠️老房子（cognition 里没有 worldbook 这个键）必须一个字不变，不许静默关掉谁的世界观
+  assert.equal(CR.gateCtx(ctx, CR.normalize({ id: "r_old", name: "老房子", cognition: {} }, "7")).worldbook, ctx.worldbook);
   assert.equal(out.homeCity, "温尼伯");
 });
 

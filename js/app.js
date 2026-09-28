@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.198";
+const APP_VERSION = "v74.199";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5512,6 +5512,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     directives: directives[char.id] || [],
     memory: memories[char.id],
     memLib: (() => {
+      // 这一轮根本不要记忆（隔离房把 formalMemory 关了）：直接不检索。
+      // ⚠️原来是「照检索、之后再被那道闸清掉」，于是两件坏事：
+      //   ① 向量白算一遍，结果整份丢掉；
+      //   ② 检索那一刻会记一份「上一轮真实召回」快照（engine.js noteMemoryRecallSnapshot），
+      //      而快照只按 charId 存、不认房间——于是她在一间全关的房里打开「TA 知道什么」，
+      //      看见 5 条主线记忆被"召回"，以为隔离漏了（她 2026-09-28 报的就是这一幕）。
+      //      那 5 条其实没进模型，但面板自己写着「只认实际送进模型的选集」，等于说了假话。
+      //   不检索＝这两件一起消失；那道闸照旧留着兜底（两处判据都问 ChatRooms.allows）。
+      if (ctxOpts && ctxOpts.noMemory) return [];
       const isLeanYanqiuChat = !!(ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes);
       const recallText = ctxOpts && typeof ctxOpts.queryText === "string" ? ctxOpts.queryText : recentChatText(char);
       const rows = retrieveMemories(memLibRef.current, char.id, recallText, {
@@ -7517,7 +7526,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const uName = (profile && profile.name) || "我";
       const offText = (sess.msgs || []).filter(m => m.kind !== "ooc").slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
-      const res = await oocAsk(offlineApiFor(charId), ctxFor(char), q);
+      // ⚠️这里原来是裸的 ctxFor(char)：**完全没过房间那道闸**。
+      //   于是在一间「不带出门」的线下房里 OOC 问一句，助手手上是【主线全量】——
+      //   记忆库、情侣空间、心情好感一样不少。她 2026-09-28 截图里那句
+      //   「我确实能实时看到【记忆库】里的所有条目」，还报得出聘礼单子、数石阶、
+      //   红手印底稿——它说的是大实话，因为那些真在它上下文里。
+      //   线上 OOC（oocCtx = roomContextFor(...)）早就是对的，**只有线下这一处没跟上**
+      //   （施工规则/four-surfaces-same-context：一层规则在八处都要接上，漏的那处要写明理由）。
+      const oocRoom = offlineRoomFor(scopeKey);
+      const res = await oocAsk(offlineApiFor(charId), roomContextFor(char, scopeKey, oocRoom, {}), q);
       if (!sideRoom && res.directive && !res.refused) addDirective(charId, res.directive);
       pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
@@ -12733,16 +12750,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const char = (characters || []).find(c => c && String(c.id) === String(charId));
       if (!char) return "";
-      const gated = gateByDoor(ctxFor(char, { chat: true }), { cognition: { ...(door || {}) } });
+      const _door = { cognition: { ...(door || {}) } };
+      const gated = gateByDoor(ctxFor(char, { chat: true, noMemory: !window.ChatRooms.allows(_door, "formalMemory") }), _door);
       return buildBundle(gated);
     } catch (e) { return ""; }
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
     const text = roomHistoryText(char, chatKey);
-    const ctx = ctxFor(char, { ...ctxOpts, queryText: ctxOpts && ctxOpts.queryText || text });
+    const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory"));
+    const ctx = ctxFor(char, { ...ctxOpts, noMemory, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
-    ctx.directives = [...(ctx.directives || []), ...(directives[chatKey] || [])];
+    // ⚠️只留【这间房自己】立的 OOC 规矩。原来是主线那份（ctxFor 给的 directives[char.id]）
+    //   再拼上房间这份——于是她在主线立过的任何一条长期规矩（怎么称呼她、上次说好的事）
+    //   都会跟进一间「全关」的房（她 2026-09-28 报「他知道我们聊过的事」的嫌疑之一）。
+    //   按那张白名单自己的判据：规矩里写的是【你们之间的事】，不是【TA 是谁】。
+    //   想让某条在这间房也算数，就在这间房里再 OOC 说一次——那是这间房自己的规矩。
+    ctx.directives = [...(directives[chatKey] || [])];
     ctx.worldbook = loreForContext("chat", [char.id], ctxOpts && ctxOpts.queryText || text);
     const gated = gateRoomContext(ctx, char, chatKey, room);
     const local = roomStatesRef.current[chatKey] || {};

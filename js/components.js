@@ -15810,7 +15810,10 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
     Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
       h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
-      h(Toggle, { on: !!draft[key][k], onChange: () => patch({ [key]: { ...draft[key], [k]: !draft[key][k] } }) })
+      h(Toggle, {
+        on: (key === "cognition" && Kit.allows ? Kit.allows(draft, k) : !!draft[key][k]),
+        onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
+          patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
   const save = () => {
     const saved = Kit.save(character.id, draft);
