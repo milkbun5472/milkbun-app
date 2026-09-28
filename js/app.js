@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.202";
+const APP_VERSION = "v74.203";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18053,7 +18053,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const notReplied = poolChars.filter(c => !repliedIds.has(c.id));
       const replied = poolChars.filter(c => repliedIds.has(c.id));
       const floors = opts.existingFloors || [];
-      const floorLines = floors.slice(-14).map(f => f.floor + "楼 " + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ").slice(0, 60)).join("\n");
+      const floorLines = forumFloorTranscript(floors);   // 整段原文，见 screens.js forumFloorTranscript
       const who2 = "这是同一个帖子的【继续刷楼、盖楼】，续着往下刷、别重开话题。下面是已经有的楼层：\n" + (floorLines || "（暂无）") + "\n\n"
         + "**大多数新楼是网友**七嘴八舌盖楼：常驻熟面孔与一次性路人混合，别一个腔调。\n"
         + (isSearch ? "**全程只有路人**，不要出现任何你认识的角色。\n"
@@ -19076,8 +19076,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const respIsMe = resp.type === "me" || resp.id === "me";
       const opIsMe = post.authorType === "me";
       const ownerChar = String(resp.type || "").startsWith("character") && resp.id ? (characters || []).find(c => c.id === resp.id) : null;
-      const priorLines = ["层主「" + (floor.authorName || "层主") + "」的原评论：「" + forumWithPhoto(floor.content, floor).replace(/\s+/g, " ").slice(0, 80) + "」"]
-        .concat((floor.replies || []).slice(-6).map(r => "· " + (r.isOp ? "【帖主】" : "") + (r.authorName || "某人") + "：" + String(r.content || "").replace(/\s+/g, " ").slice(0, 60)));
+      // 这层楼整段原文（层主原评论＋下面每一条），不截：截成半句，模型只能照半句猜（forumFloorTranscript）
+      const priorLines = ["这一层楼的原文（第一行是层主「" + (floor.authorName || "层主") + "」的原评论）：", forumFloorTranscript([{ ...floor, floor: null }])];
       const opReplied = (floor.replies || []).some(r => r.isOp);
       const isSearch = /^搜索/.test(post.triggerSource || "");
       const others = isSearch
