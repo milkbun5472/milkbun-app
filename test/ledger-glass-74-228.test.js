@@ -32,7 +32,12 @@ console.log("ledger-glass ok");
 {
   ["function jellyKey(", "function Cells(", "const JELLY_CSS", "function StripSlot(", "const silk ="].forEach(n => assert.ok(src.indexOf(n) > 0, n));
   assert.match(src, /h\("style", null, JELLY_CSS\)/, "按下去那一下的样式没挂上");
-  assert.match(src, /"data-ledger-cal": true, style: Object\.assign\(\{ padding: "10px 8px" \}, sk\.screen\)/, "日历没装进屏幕里");
+  // 第三轮（她：「一屏四块灰 LCD，像血糖仪」）：LCD 只点睛——整个记账只剩余额主屏、金额屏两块
+  const views = src.slice(src.indexOf("function WalletHome("), src.indexOf("function SettingsSheet("));
+  assert.equal((views.match(/\}, sk\.screen\)/g) || []).length, 2, "LCD 屏又铺开了");
+  assert.equal((views.match(/lcdNum\(/g) || []).length, 5, "电子等宽字只给余额和金额主数字");
+  assert.match(src, /"data-ledger-cal": true, style: Object\.assign\(\{ padding: "10px 8px" \}, sk\.acrylic\)/, "日历又变回计算器屏了");
+  assert.match(src, /const CAL_RAMP = \[/, "日历不是糖果色深浅了");
   assert.match(src, /h\(Cells, \{ n: 24, lit:/, "统计页预算不是电量格");
   assert.match(src, /h\(Cells, \{ n: 16, lit:/, "排行不是状态条");
   assert.match(src, /像老电子词典 \/ MP3 机身底下那四颗小功能键/, "底栏回到了普通 tab bar");

@@ -379,11 +379,15 @@
   // ⚠️glass 不是「给普通记账 App 刷一层粉紫」（她第二轮原话：主题只存在于背景）。
   //   它是一台【2000 年代透明果冻塑料的掌上记账机】，每个零件都从这台机器上长出来：
   //   · 外壳 shell  —— 半透明果冻塑料面板：细高光边、内阴影、淡蓝紫折射。所有「卡片」都是它上面的一个舱位。
-  //   · 屏幕 screen —— 凹进外壳里的 LCD：灰蓝底、像素点阵、深墨色字；数字走等宽电子字。
+  //   · 屏幕 screen —— 凹进外壳里的一小块珠光 LCD（淡紫蓝、细扫描线、深紫字）。
+  //     ⚠️它只是点睛（她第三轮：「一屏四块灰 LCD，像 2003 年的血糖仪」）：整个记账只有两块——
+  //     钱包的余额主屏、记一笔的金额屏。其余数据容器一律用下面的 acrylic。
+  //   · 亚克力 acrylic —— 乳白 / 淡粉紫蓝的透明塑料小面板：图表、读数、排行、日历都装在它上面。
   //   · 按键 key    —— 凸起的果冻键：透明外壳 + 浅色芯 + 底下一道硬影，按下去沉 3px。
-  //   · 格子 cells  —— 能量槽 / 电量格：进度一律是一格一格点亮，不是一根平滑的条。
+  //   · 格子 cells  —— 能量槽：进度一格一格点亮成糖果色，没亮的格子是半透明的淡紫塑料，不是灰格。
   //   · 小票 receipt —— 唯一的纸：这台机器吐出来的实体小票，材质上故意和塑料形成反差。
   //   粉/蓝/紫只留给塑料自己的折射和局部发光；背景收成干净的浅灰紫。
+  //   比例：七成透明果冻、两成柔和的现代排版、一成复古 LCD。电子等宽字只给余额和金额主数字。
   // ============================================================
   const SKIN_LIST = [
     { id: "glass", zh: "果冻电子钱包", sub: "透明塑料外壳和一块小屏幕" },
@@ -393,7 +397,8 @@
   const CAT_TINTS = ["#f4a7c1", "#b9a2f0", "#f5c49e", "#9fb6f5", "#8fd4c8", "#f0cf7f", "#e5a3de", "#a9d38c", "#f0a99b", "#98cbf0", "#c9bce6", "#c3ccd8"];
   // 果冻键的几种塑料颜色：[浅, 深]
   const JELLY = { pink: ["#ffc2d8", "#ef8fb2"], blue: ["#c4d6fd", "#89a8ee"], lilac: ["#dccefd", "#a68ae6"], mint: ["#c6eee1", "#7fcfb6"], clear: ["#f4f5fc", "#c3c7e2"] };
-  const LCD_INK = "#2b3452", LCD_DIM = "rgba(43,52,82,.10)";
+  const CAL_RAMP = ["#ffe0ec", "#fbc7dd", "#efb8ea", "#d3b2f6", "#b39cf0", "#9885e6"];
+  const LCD_INK = "#3b3470", LCD_DIM = "rgba(200,188,240,.42)";
   const DIGIT = "ui-monospace,'SF Mono','Menlo','Roboto Mono','Consolas',monospace";
   function ledgerSkin(settings) {
     const id = settings && settings.skin === "paper" ? "paper" : "glass";
@@ -406,7 +411,7 @@
         ink: pageColor("ledger", "ink", "#33322c"), sub: pageColor("ledger", "sub", "rgba(60,54,40,.62)"), fog: pageColor("ledger", "fog", "rgba(60,54,40,.45)"),
         line: pageColor("ledger", "line", "rgba(60,54,40,.14)"), accent: pageColor("ledger", "accent", ACCENT), pink: pageColor("ledger", "tint", "#c25a4a"),
         exp: pageColor("ledger", "ink", "#33322c"), inc: INC, over: EXP,
-        card, shell: card, screen: { background: "rgba(60,54,40,.05)", borderRadius: 12 }, well: { background: "rgba(60,54,40,.05)", borderRadius: 12 },
+        card, shell: card, screen: { background: "rgba(60,54,40,.05)", borderRadius: 12 }, acrylic: { background: "rgba(60,54,40,.04)", borderRadius: 12 }, well: { background: "rgba(60,54,40,.05)", borderRadius: 12 },
         lcd: pageColor("ledger", "ink", "#33322c"), lcdDim: "rgba(60,54,40,.10)",
         num: F_DISPLAY, digit: F_DISPLAY,
         tabBar: { background: "rgba(242,236,224,.94)", borderTop: "1px solid rgba(60,54,40,.12)" }
@@ -430,10 +435,14 @@
       exp: ink, inc: "#2f9c7f", over: "#d9557a",
       card: shell, shell,
       // LCD：凹进去的屏，底上一层很淡的像素点阵
-      screen: { backgroundColor: "#dfe6f0",
-        backgroundImage: "radial-gradient(rgba(43,52,82,.075) .8px, transparent .9px), linear-gradient(180deg, #e8edf5, #d8e0ec)", backgroundSize: "3px 3px, 100% 100%",
-        border: "1px solid rgba(110,120,165,.38)", borderRadius: 14,
-        boxShadow: "inset 0 2px 7px rgba(50,60,110,.22), inset 0 -1px 0 rgba(255,255,255,.6), 0 1px 0 rgba(255,255,255,.95)" },
+      screen: { backgroundColor: "#ece8fc",
+        backgroundImage: "linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,0) 48%), repeating-linear-gradient(180deg, rgba(110,90,200,.045) 0 1px, transparent 1px 3px), linear-gradient(125deg, #efe8ff, #e2ecff 55%, #fbe6f3)",
+        border: "1px solid rgba(165,148,225,.5)", borderRadius: 14,
+        boxShadow: "inset 0 2px 6px rgba(120,100,200,.2), inset 0 -1px 0 rgba(255,255,255,.7), 0 1px 0 rgba(255,255,255,.95)" },
+      // 亚克力：乳白里透一点粉紫蓝，数据都装在它上面
+      acrylic: { background: "linear-gradient(160deg, rgba(255,255,255,.82), rgba(244,238,255,.62) 50%, rgba(255,238,247,.62))",
+        border: "1px solid rgba(255,255,255,.96)", borderRadius: 16,
+        boxShadow: "inset 0 1px 0 #fff, inset 0 -2px 6px rgba(175,155,235,.14), 0 1px 2px rgba(150,130,210,.1)" },
       // 凹槽：键和开关嵌在里面
       well: { background: "linear-gradient(180deg, rgba(210,212,235,.55), rgba(240,241,250,.6))", border: "1px solid rgba(255,255,255,.9)", borderRadius: 16,
         boxShadow: "inset 0 2px 5px rgba(90,90,150,.18), 0 1px 0 rgba(255,255,255,.9)" },
@@ -489,7 +498,7 @@
     const H = height || 10;
     return h("div", { style: { display: "flex", gap: gap == null ? 2 : gap, height: H } },
       Array.from({ length: n }, (_, i) => { const on = i < lit, c = Array.isArray(colors) ? colors[Math.min(colors.length - 1, Math.floor(i / n * colors.length))] : colors;
-        return h("div", { key: i, style: { flex: 1, borderRadius: sk.id === "glass" ? 2 : 3, background: on ? c : sk.lcdDim, boxShadow: on && sk.id === "glass" ? "0 0 4px " + c + "aa, inset 0 1px 0 rgba(255,255,255,.55)" : "none" } }); }));
+        return h("div", { key: i, style: { flex: 1, borderRadius: sk.id === "glass" ? 3 : 3, background: on ? (sk.id === "glass" ? "linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 55%), " + c : c) : sk.lcdDim, boxShadow: on && sk.id === "glass" ? "0 1px 4px " + c + "88" : "none" } }); }));
   }
   // 线条小图标（底栏、按钮）：统一一套，别用 Unicode 方块
   const LI = {
@@ -507,7 +516,7 @@
   // 月份切换：两颗小果冻键夹着一小块屏幕
   const MonthNav = ({ mk, setMk, sk }) => h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, margin: "2px 0 14px" } },
     h("button", { onClick: () => setMk(m => shiftMonth(m, -1)), "aria-label": "上个月", className: "lg-key", style: jellyKey(sk, "clear", false, { width: 40, height: 40, fontSize: 18, color: sk.sub }) }, "‹"),
-    h("div", { style: Object.assign({ minWidth: 130, padding: "7px 14px", textAlign: "center" }, sk.screen) }, h("span", { style: lcdNum(sk, 14) }, fmtMonth(mk))),
+    h("div", { style: Object.assign({ minWidth: 130, padding: "7px 14px", textAlign: "center" }, sk.acrylic) }, h("span", { style: numStyle(sk, 14) }, fmtMonth(mk))),
     h("button", { onClick: () => setMk(m => shiftMonth(m, 1)), "aria-label": "下个月", className: "lg-key", style: jellyKey(sk, "clear", false, { width: 40, height: 40, fontSize: 18, color: sk.sub }) }, "›"));
   // 切换开关：嵌在凹槽里的一排果冻键，选中那颗按下去、亮起一颗小灯（不只靠色差，tabs-not-plain-pills.md）
   const CandySeg = ({ items, value, onChange, sk, tone }) => h("div", { style: Object.assign({ display: "flex", gap: 6, padding: 5 }, sk.well) },
@@ -752,9 +761,9 @@
         bs ? h(Fragment, null,
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
             silk(sk, "本月预算"),
-            h("span", { style: lcdNum(sk, 12, bs.left < 0 ? sk.over : sk.sub) }, Math.round(bs.used * 100) + "%")),
+            h("span", { style: numStyle(sk, 12, bs.left < 0 ? sk.over : sk.sub) }, Math.round(bs.used * 100) + "%")),
           h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-            h("div", { style: Object.assign({ flex: 1, padding: 4 }, sk.screen, { borderRadius: 8 }) },
+            h("div", { style: Object.assign({ flex: 1, padding: 4 }, sk.acrylic, { borderRadius: 8 }) },
               h(Cells, { n: cellsN, lit: Math.round(used * cellsN), colors: bs.left < 0 ? sk.over : ["#9f86ec", "#c79ae9", "#f09cc0"], height: 12, sk })),
             h("div", { style: { width: 4, height: 10, borderRadius: "0 2px 2px 0", background: "rgba(110,120,165,.45)" } })),
           h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } },
@@ -807,17 +816,19 @@
   // 统计：电子钱包仪表盘——仪表环在一块 LCD 里，排行是屏上的状态条，六个月是像素柱
   // ============================================================
   // 仪表环：一圈 60 根小刻度，按分类占比依次点亮成各自的颜色；没用到的刻度是屏上的暗格
+  // 仪表环：一圈半透明糖果色的圆弧（每类一段、圆头、中间留一道缝），外面罩一圈塑料高光
   function Donut({ parts, total, label, cur, sk }) {
-    const N = 60, R1 = 50, R2 = 64, cx = 70;
-    const colorAt = i => { let acc = 0; const f = (i + .5) / N; for (const p of parts) { acc += total ? p.v / total : 0; if (f <= acc + 1e-9) return p.c; } return null; };
+    const R = 54, C = 2 * Math.PI * R, glass = sk.id === "glass"; let acc = 0;
     return h("div", { style: { position: "relative", width: 140, height: 140, flexShrink: 0 } },
       h("svg", { width: 140, height: 140, viewBox: "0 0 140 140", "aria-hidden": "true" },
-        Array.from({ length: N }, (_, i) => { const a = (i / N) * Math.PI * 2 - Math.PI / 2, c = total ? colorAt(i) : null;
-          return h("line", { key: i, x1: cx + R1 * Math.cos(a), y1: cx + R1 * Math.sin(a), x2: cx + R2 * Math.cos(a), y2: cx + R2 * Math.sin(a), stroke: c || sk.lcdDim, strokeWidth: 4.2, strokeLinecap: "round",
-            style: c && sk.id === "glass" ? { filter: "drop-shadow(0 0 1.5px " + c + ")" } : null }); })),
+        h("circle", { cx: 70, cy: 70, r: R, fill: "none", stroke: glass ? "rgba(214,204,245,.45)" : sk.line, strokeWidth: 18 }),
+        parts.map((p, i) => { const len = total ? p.v / total * C : 0; const el = h("circle", { key: i, cx: 70, cy: 70, r: R, fill: "none", stroke: p.c, strokeOpacity: glass ? .88 : 1, strokeWidth: 18,
+          strokeLinecap: len > 12 ? "round" : "butt", strokeDasharray: Math.max(0, len - (len > 12 ? 12 : 2)) + " " + C, strokeDashoffset: -(acc + (len > 12 ? 6 : 1)), transform: "rotate(-90 70 70)" }); acc += len; return el; }),
+        glass ? h("circle", { cx: 70, cy: 70, r: R + 5, fill: "none", stroke: "rgba(255,255,255,.75)", strokeWidth: 2, strokeDasharray: "70 " + C, transform: "rotate(-150 70 70)", strokeLinecap: "round" }) : null,
+        glass ? h("circle", { cx: 70, cy: 70, r: R - 4, fill: "none", stroke: "rgba(255,255,255,.5)", strokeWidth: 1.5, strokeDasharray: "40 " + C, transform: "rotate(-140 70 70)", strokeLinecap: "round" }) : null),
       h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
-        h("div", { style: lcdNum(sk, total >= 10000 ? 13 : 15) }, fmtMoney(total, cur)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(43,52,82,.6)", marginTop: 2 } }, label)));
+        h("div", { style: numStyle(sk, total >= 10000 ? 14 : 16) }, fmtMoney(total, cur)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginTop: 2 } }, label)));
   }
   function CurView(props) {
     const { sk, code, cur, txns, settings } = props;
@@ -838,14 +849,14 @@
     return h("div", { className: "px-5 pb-8" },
       h(MonthNav, { mk, setMk, sk }),
       bay(kind === "income" ? "本月收入" : "本月支出", h(Fragment, null,
-        h("div", { style: Object.assign({ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }, sk.screen) },
+        h("div", { style: Object.assign({ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }, sk.acrylic) },
           h(Donut, { parts, total, label: kind === "income" ? "本月收入" : "本月支出", cur, sk }),
           h("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 } },
-            list.length ? list.slice(0, 6).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 7, fontFamily: F_BODY, fontSize: 12, color: sk.lcd } },
+            list.length ? list.slice(0, 6).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 7, fontFamily: F_BODY, fontSize: 12, color: sk.ink } },
               h("span", { style: { width: 8, height: 8, borderRadius: 2, background: catTint(settings, kind, c.name), flexShrink: 0, boxShadow: "0 0 4px " + catTint(settings, kind, c.name) } }),
               h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-              h("span", { style: lcdNum(sk, 11.5) }, Math.round(c.amount / (total || 1) * 100) + "%")))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(43,52,82,.55)" } }, kind === "income" ? "这个月还没有收入" : "这个月还没有支出"))),
+              h("span", { style: numStyle(sk, 11.5) }, Math.round(c.amount / (total || 1) * 100) + "%")))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub } }, kind === "income" ? "这个月还没有收入" : "这个月还没有支出"))),
         h("div", { style: { marginTop: 12 } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })))),
       (function () {
         const da = dailyAvg(s.exp, mk);
@@ -853,10 +864,10 @@
         // 今天实际花了多少（她 2026-09-27「那实际的每日消费你没做」）：只在看这个月时有
         const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && x.type !== "income").reduce((a, x) => a + (Number(x.amount) || 0), 0) : null;
         // 三块并排的小读数屏
-        const row = (label, val, note, key) => h("div", { key, style: Object.assign({ flex: 1, textAlign: "center", padding: "8px 4px" }, sk.screen, { borderRadius: 10 }) },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(43,52,82,.6)", marginBottom: 3 } }, label),
-          h("div", { style: lcdNum(sk, 14.5) }, fmtMoney(val, cur)),
-          note ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(43,52,82,.5)", marginTop: 2 } }, note) : null);
+        const row = (label, val, note, key) => h("div", { key, style: Object.assign({ flex: 1, textAlign: "center", padding: "8px 4px" }, sk.acrylic, { borderRadius: 10 }) },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginBottom: 3 } }, label),
+          h("div", { style: numStyle(sk, 14.5) }, fmtMoney(val, cur)),
+          note ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.sub, marginTop: 2 } }, note) : null);
         return h("div", { "data-ledger-daily": true, style: Object.assign({ display: "flex", gap: 8, padding: 10, marginBottom: 16 }, sk.shell) },
           todayExp != null ? row("今天花了", todayExp, "", "today") : null,
           row("日均支出", da.avg, "按 " + da.days + " 天算", "avg"),
@@ -875,11 +886,11 @@
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
             silk(sk, "本月预算"),
             h("button", { onClick: edit, "aria-label": "改预算", className: "active:opacity-60 flex items-center gap-1", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: sk.sub } }, fmtMoney(bs.budget, cur), h(IPencil, { size: 13, color: sk.fog }))),
-          h("div", { style: Object.assign({ padding: 8, marginBottom: 10 }, sk.screen, { borderRadius: 10 }) },
+          h("div", { style: Object.assign({ padding: 8, marginBottom: 10 }, sk.acrylic, { borderRadius: 10 }) },
             h(Cells, { n: 24, lit: Math.max(over ? 24 : 0, Math.round(pct * 24)), colors: over ? sk.over : ["#9f86ec", "#c79ae9", "#f09cc0"], height: 14, sk }),
-            h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 7, fontFamily: F_BODY, fontSize: 11.5, color: "rgba(43,52,82,.7)" } },
-              h("span", null, "已用 ", h("span", { style: lcdNum(sk, 11.5) }, Math.round(bs.used * 100) + "%")),
-              h("span", { style: { color: over ? sk.over : "rgba(43,52,82,.7)" } }, over ? "超了 " : "还剩 ", h("span", { style: lcdNum(sk, 11.5, over ? sk.over : sk.lcd) }, fmtMoney(over ? -bs.left : bs.left, cur))))),
+            h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 7, fontFamily: F_BODY, fontSize: 11.5, color: sk.sub } },
+              h("span", null, "已用 ", h("span", { style: numStyle(sk, 11.5) }, Math.round(bs.used * 100) + "%")),
+              h("span", { style: { color: over ? sk.over : sk.sub } }, over ? "超了 " : "还剩 ", h("span", { style: numStyle(sk, 11.5, over ? sk.over : sk.ink) }, fmtMoney(over ? -bs.left : bs.left, cur))))),
           bs.perDay != null ? h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11.5, color: sk.sub } },
             h("span", null, over ? "这个月已经超支了" : "剩下每天可花（含今天，还有 " + bs.daysLeft + " 天）"),
             over ? null : h("span", { style: numStyle(sk, 14) }, fmtMoney(bs.perDay, cur))) : null,
@@ -894,24 +905,26 @@
       })(),
       // 排行：屏上的一行行状态条
       list.length ? bay(kind === "income" ? "收入排行" : "支出排行",
-        h("div", { style: Object.assign({ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }, sk.screen) },
+        h("div", { style: Object.assign({ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }, sk.acrylic) },
           list.map(c => { const tint = catTint(settings, kind, c.name), meta = ((settings.cats || {})[kind] || []).find(x => x.name === c.name) || {};
             return h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 10 } },
               h(CatTile, { tint, emoji: meta.emoji || c.emoji, size: 30, sk }),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12.5, color: sk.lcd, marginBottom: 5 } },
+                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12.5, color: sk.ink, marginBottom: 5 } },
                   h("span", { style: { fontWeight: 600 } }, c.name),
-                  h("span", { style: lcdNum(sk, 12) }, fmtMoney(c.amount, cur) + " " + Math.round(c.amount / (total || 1) * 100) + "%")),
+                  h("span", { style: numStyle(sk, 12) }, fmtMoney(c.amount, cur) + " " + Math.round(c.amount / (total || 1) * 100) + "%")),
                 h(Cells, { n: 16, lit: Math.max(1, Math.round(c.amount / maxCat * 16)), colors: tint, height: 7, sk }))); }))) : null,
       // 近六个月：屏上的像素柱，一格一格往上垒
       bay("近六个月支出",
-        h("div", { style: Object.assign({ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 12px 8px" }, sk.screen) },
+        h("div", { style: Object.assign({ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 12px 8px" }, sk.acrylic) },
           six.map(x => { const lit = x.v ? Math.max(1, Math.round(x.v / sixMax * 10)) : 0, now = x.m === mk;
             return h("div", { key: x.m, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 } },
-              h("div", { style: lcdNum(sk, 9.5, "rgba(43,52,82,.65)") }, x.v ? fmtNum(Math.round(x.v)) : "—"),
-              h("div", { style: { display: "flex", flexDirection: "column-reverse", gap: 2, width: "100%", maxWidth: 24 } },
-                Array.from({ length: 10 }, (_, i) => h("div", { key: i, style: { height: 6, borderRadius: 1.5, background: i < lit ? (now ? "#e98bb4" : "#9f86ec") : sk.lcdDim, boxShadow: i < lit && sk.id === "glass" ? "0 0 3px " + (now ? "#e98bb4" : "#9f86ec") : "none" } }))),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: now ? sk.lcd : "rgba(43,52,82,.55)", fontWeight: now ? 800 : 500 } }, parseInt(x.m.split("-")[1], 10) + "月")); }))));
+              h("div", { style: numStyle(sk, 9.5, sk.sub) }, x.v ? fmtNum(Math.round(x.v)) : "—"),
+              h("div", { style: { width: "100%", maxWidth: 24, height: 84, display: "flex", alignItems: "flex-end", borderRadius: 12, background: sk.id === "glass" ? "rgba(214,204,245,.35)" : sk.line } },
+                h("div", { style: { width: "100%", height: lit ? Math.max(10, lit * 8.4) : 0, borderRadius: 12,
+                  background: sk.id === "glass" ? "radial-gradient(60% 40% at 35% 12%, rgba(255,255,255,.85), rgba(255,255,255,0) 70%), linear-gradient(180deg, " + (now ? "#ffc1d8, #ee8db5" : "#d9ccff, #a992ec") + ")" : sk.accent,
+                  boxShadow: sk.id === "glass" ? "inset 0 -2px 4px " + (now ? "#e67aa6" : "#957ce0") + ", 0 3px 8px " + (now ? "rgba(238,141,181,.35)" : "rgba(169,146,236,.3)") : "none" } })),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: now ? sk.ink : sk.sub, fontWeight: now ? 800 : 500 } }, parseInt(x.m.split("-")[1], 10) + "月")); }))));
   }
 
   // ============================================================
@@ -930,7 +943,7 @@
     return ledgerPage(sk, "账单", props.onBack,
       h("button", { onClick: () => setQ(q == null ? "" : null), "aria-label": "搜索账单", className: "lg-key flex items-center justify-center", style: jellyKey(sk, "clear", q != null, { width: 40, height: 36, borderRadius: 12 }) }, h(LIcon, { k: "search", size: 19, color: sk.ink })),
       h("div", { className: "px-5 pb-8" },
-        q != null ? h("input", { autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.lcd, outline: "none", marginBottom: 12 }, sk.screen) })
+        q != null ? h("input", { autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic) })
           : h(MonthNav, { mk, setMk, sk }),
         h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
         monthTxns.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
@@ -963,20 +976,21 @@
     return h("div", { className: "px-5 pb-8" },
       h(MonthNav, { mk, setMk, sk }),
       h("div", { style: Object.assign({ padding: 10, marginBottom: 16 }, sk.shell) },
-        h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 8px" }, sk.screen) },
-          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: "rgba(43,52,82,.55)" } }, w))),
+        h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 8px" }, sk.acrylic) },
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: sk.sub } }, w))),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 } },
             cells.map((k, i) => { if (!k) return h("div", { key: "e" + i });
-              const d = byDay[k], on = sel === k, lv = d && d.exp ? .25 + .75 * (d.exp / max) : 0;
+              const d = byDay[k], on = sel === k, lv = d && d.exp ? .12 + .88 * (d.exp / max) : 0;
               // 点亮的格子：屏幕墨色按深浅铺满，上面叠一层像素网格；深的格子字反白
-              const lit = lv > 0, dark = lv > .55;
+              const lit = lv > 0, dark = lv > .66;
               return h("button", { key: k, onClick: () => setSel(k), className: "active:opacity-70", style: { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
-                backgroundColor: lit ? (glass ? "rgba(43,52,82," + (lv * .82).toFixed(2) + ")" : "rgba(60,54,40," + (lv * .5).toFixed(2) + ")") : sk.lcdDim,
-                backgroundImage: lit && glass ? "linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px)" : "none",
-                backgroundSize: "3px 3px",
+                // 花得越多颜色越深：淡粉 → 粉紫 → 深紫，半透明果冻块，上半一抹高光
+                background: lit ? (glass ? "radial-gradient(70% 45% at 50% 10%, rgba(255,255,255,.8), rgba(255,255,255,0) 70%), " + CAL_RAMP[Math.min(CAL_RAMP.length - 1, Math.floor(lv * CAL_RAMP.length))] : "rgba(60,54,40," + (lv * .5).toFixed(2) + ")") : (glass ? "rgba(255,255,255,.5)" : sk.lcdDim),
+                border: glass ? "1px solid rgba(255,255,255,.9)" : "none", borderRadius: glass ? 12 : 4,
+                boxShadow: lit && glass ? "inset 0 -2px 4px rgba(150,110,210,.25), 0 2px 5px rgba(170,140,220,.2)" : "none",
                 outline: on ? "2px solid " + (glass ? "#ec5d95" : sk.pink) : "none", outlineOffset: 1 } },
-                h("span", { style: lcdNum(sk, 12.5, dark ? "#eef2fa" : sk.lcd) }, parseInt(k.slice(8), 10)),
-                d && d.exp ? h("span", { style: lcdNum(sk, 8.5, dark ? "rgba(238,242,250,.85)" : "rgba(43,52,82,.75)") }, fmtNum(Math.round(d.exp))) : null,
+                h("span", { style: numStyle(sk, 12.5, dark ? "#fff" : sk.ink) }, parseInt(k.slice(8), 10)),
+                d && d.exp ? h("span", { style: numStyle(sk, 8.5, dark ? "rgba(238,242,250,.85)" : sk.sub) }, fmtNum(Math.round(d.exp))) : null,
                 k === today ? h("span", { style: { position: "absolute", top: 3, right: 4, width: 5, height: 5, borderRadius: 5, background: "#ff5b92", boxShadow: "0 0 5px #ff5b92" } }) : null); })))),
       h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12, fontWeight: 600, color: sk.sub, margin: "0 6px 8px" } }, h("span", null, dayLabel(sel)), byDay[sel] ? h("span", { style: numStyle(sk, 12, sk.sub) }, "支 " + fmtMoney(byDay[sel].exp, cur)) : null),
       selRows.length ? h(StripSlot, { sk }, selRows.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) })))
@@ -1078,7 +1092,7 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 } }, cm.charName,
                   cm.auto ? h("span", { style: { fontSize: 9.5, color: GOLD, border: "1px solid " + GOLD + "55", borderRadius: 999, padding: "1px 7px" } },
                     cm.event === "big" ? "自己注意到 · 大额" : cm.event === "freq" ? "自己注意到 · 频率" : cm.event === "night" ? "自己注意到 · 深夜" : cm.event === "income" ? "自己注意到 · 进账" : "自己注意到") : null),
-                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: sk.lcd, lineHeight: 1.55 }, sk.screen, { borderRadius: 12, borderTopLeftRadius: 4 }) }, cm.text)));
+                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, lineHeight: 1.55 }, sk.acrylic, { borderRadius: 12, borderTopLeftRadius: 4 }) }, cm.text)));
           }))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.fog, textAlign: "center", padding: "20px 0" } },
               (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『人格档案馆』建个角色")),
