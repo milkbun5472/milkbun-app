@@ -4,9 +4,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "study.js"), "utf8");
-const i = src.indexOf("  function studyDashboard("), j = src.indexOf("  window.Study = {", i);
+const i = src.indexOf("  function studyDashboard("), j = src.indexOf("  // ── 知识地图（", i);
 assert.ok(i > 0 && j > i, "抠不出 studyDashboard");
-const dash = new Function(src.slice(i, j) + "\nreturn studyDashboard;")();
+const causeSrc = (() => { const a = src.indexOf("  const MISTAKE_CAUSE = {"), b = src.indexOf("  // ── 答一张复习卡", a); assert.ok(a > 0 && b > a, "抠不出错因"); return src.slice(a, b).replace(/  function setMistakeCause[\s\S]*?\n  }\n/, ""); })();
+const dash = new Function(causeSrc + src.slice(i, j) + "\nreturn studyDashboard;")();
 
 // 桩照写存档那几段来（stub-from-the-writer）：
 //   mastery 由答题/结课写成 { [pointId]: level }；mistakes 是 { pointId, note, resolved }；
@@ -93,7 +94,7 @@ test("知识地图：同名小节并成一个，掌握度取最后那一节，�
 function testHarness() {
   let store = [{ id: "c1", subject: "日语", memory: { summaries: [], review_items: [] } }];
   const reviewed = [];
-  const body = grab("  function parseUnitTest(", "  window.Study = {");
+  const body = grab("  function parseUnitTest(", "  // ── 错因");
   const api = new Function("extractJSON", "parseQuiz", "updateCurriculumReview", "findCurriculum", "saveCurriculum", "TEST_CAP",
     body + "\nreturn { parseUnitTest, recordUnitTest, lastUnitTest, testByPoint };")(
     s => { try { return JSON.parse(s); } catch (e) { return null; } },
@@ -129,4 +130,72 @@ test("控制台挂上了知识地图和单元测两格", () => {
   assert.match(src, /cell\("test", "单元测"/);
   assert.match(src, /if \(bookOpen === "map"\) return h\(KnowledgeMap,/);
   assert.match(src, /if \(bookOpen === "test"\) return h\(UnitTest,/);
+});
+
+
+// ── 快刷 / 错因 / 周报（她 2026-09-28：「接着做快刷模式和错因分类周报吧」）──
+const H2 = (() => {
+  const vm = require("node:vm");
+  let store = [{ id: "c1", subject: "日语", memory: { summaries: [], review_items: [] } }];
+  const ctx = { Date, Math, JSON, Number, String, Array, Object,
+    loadCurricula: () => JSON.parse(JSON.stringify(store)), saveCurricula: a => { store = JSON.parse(JSON.stringify(a)); },
+    gradeQuizAnswer: async (a, q, v) => ({ result: v === q.answer ? "correct" : "incorrect" }),
+    rateFlashcard: () => null, CB: () => "", callAI: async () => "" };
+  vm.createContext(ctx);
+  const one = name => { const x = src.indexOf("  function " + name + "("); assert.ok(x > 0, name); return src.slice(x, src.indexOf("\n  }\n", x) + 4); };
+  const asy = name => { const x = src.indexOf("  async function " + name + "("); assert.ok(x > 0, name); return src.slice(x, src.indexOf("\n  }\n", x) + 4); };
+  const rd = src.slice(src.indexOf("const REVIEW_DAYS = "), src.indexOf("\n", src.indexOf("const REVIEW_DAYS = ")));
+  // findCurriculum / saveCurriculum 是一行的函数，按「到下一个 }」抠会抠过头——照写存档那一对的意思直接给
+  vm.runInContext("const DAY_MS = 86400000;\nfunction findCurriculum(id) { return loadCurricula().find(function (c) { return c.id === id; }) || null; }\n"
+    + "function saveCurriculum(c) { saveCurricula(loadCurricula().map(function (x) { return x.id === c.id ? c : x; })); }\n" + rd + "\n" + src.slice(src.indexOf("  const MISTAKE_CAUSE = {"), src.indexOf("  // ── 答一张复习卡"))
+    + ["updateCurriculumReview", "inMistakeBook", "quizAnswerText", "reviewStageText", "upcomingReviewDays", "weekStart", "weeklyReport", "saveWeeklyNote", "mistakeBookItems", "mistakeBookText"].map(one).join("\n")
+    + asy("answerReviewItem")
+    + "\nthis.api = { updateCurriculumReview, setMistakeCause, answerReviewItem, weeklyReport, saveWeeklyNote, mistakeBookText, weekStart };", ctx);
+  ctx.cur = () => store[0];
+  return ctx;
+})();
+test("错因是她点的：重做一次也不丢，老师看错题本时看得见", async () => {
+  const Q = { type: "fill_blank", prompt: "て形？", pointId: "te", answer: "食べて", options: [] };
+  H2.api.updateCurriculumReview("c1", { id: "s" }, Q, { result: "incorrect", support: "none", ts: 1000, answer: "x" });
+  H2.api.setMistakeCause("c1", "te", "mixup");
+  const item = H2.cur().memory.review_items[0];
+  assert.equal(item.cause, "mixup");
+  const r = await H2.api.answerReviewItem({}, "c1", item, "还是错", "quick-drill");
+  assert.equal(r.ok, true);
+  assert.equal(r.result, "incorrect");
+  assert.equal(H2.cur().memory.review_items[0].cause, "mixup", "重做一次把错因冲掉了");
+  assert.match(H2.api.mistakeBookText(H2.cur()), /她自己说是「记混了」/);
+});
+test("快刷和「该复习了」走同一份判卷：MistakeBook 里不再自己拼 quiz 调 gradeQuizAnswer", () => {
+  const mb = src.slice(src.indexOf("  function MistakeBook("), src.indexOf("  function FlashDeck("));
+  assert.doesNotMatch(mb, /gradeQuizAnswer\(/);
+  assert.match(mb, /answerReviewItem\(/);
+  const qd = src.slice(src.indexOf("  function QuickDrill("), src.indexOf("  // ── 周报页"));
+  assert.match(qd, /answerReviewItem\(/);
+  assert.match(qd, /rateReviewCard\(/);
+});
+test("周报：这周新升到基本会的、从会掉回去的、复习次数和单元测都算对，评语按周存", () => {
+  const now = new Date(2026, 8, 30, 12).getTime(), day = 86400000;   // 周三
+  const mon = H2.api.weekStart(now);
+  assert.equal(new Date(mon).getDay(), 1);
+  const cur = { id: "c1", memory: { review_items: [{ pointId: "ta", updatedAt: now - day, lastResult: "correct", lastSupport: "none", stage: 1, nextReviewAt: now + 2 * day }],
+    tests: [{ unitTitle: "动词变形", score: 3, total: 4, ts: now - day }, { unitTitle: "旧的", score: 1, total: 4, ts: mon - 3 * day }] } };
+  const sess = [{ curriculum_id: "c1", outline: { units: [{ grammar: [{ id: "te", label: "て形" }, { id: "nai", label: "ない形" }] }] },
+    transcript: [{ role: "user", ts: now }, { role: "user", ts: mon - day }],
+    progress: { evidence: [
+      { pointId: "te", level: 1, ts: mon - 2 * day }, { pointId: "te", level: 2, ts: now - day },
+      { pointId: "nai", level: 2, ts: mon - 2 * day }, { pointId: "nai", level: 1, ts: now - 1000 } ] } }];
+  const r = JSON.parse(JSON.stringify(H2.api.weeklyReport(cur, sess, now)));
+  assert.deepEqual(r.learned, ["て形"]);
+  assert.deepEqual(r.slipped, ["ない形"]);
+  assert.equal(r.days, 2, "周一之前那天不该算进这周");
+  assert.equal(r.reviewed, 1);
+  assert.deepEqual(r.tests, [{ title: "动词变形", score: 3, total: 4 }]);
+  assert.equal(r.nextWeek, 1);
+});
+test("控制台挂上了快刷和这周两格", () => {
+  assert.match(src, /cell\("drill", "快刷"/);
+  assert.match(src, /cell\("week", "这周"/);
+  assert.match(src, /if \(bookOpen === "drill"\) return h\(QuickDrill,/);
+  assert.match(src, /if \(bookOpen === "week"\) return h\(WeeklyPage,/);
 });
