@@ -5476,6 +5476,25 @@ function ttsHasMark(text) {
   const s = String(text == null ? "" : text);
   return !!s && ttsMarkStrip(s) !== s.trim();
 }
+// 停顿标记只有语音才有意义（<#0.5#> 是说给 TTS 听的）。模型偶尔把一条语音写进了普通文字气泡，
+// 气泡里就冒出一串 <#0.5#>（群里有人报 2026-09-28）。带停顿标记的气泡＝TA 本来想发语音：
+// 连着的几条并成一条语音还回去，不带标记的原样留在文字里。
+function ttsHasPause(text) {
+  const s = String(text == null ? "" : text);
+  return !!s && s.replace(TTS_MARK_PAUSE, "") !== s;
+}
+function pullPauseVoice(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const out = [], voice = [];
+  let run = null;
+  list.forEach(w => {
+    if (ttsHasPause(w)) { run = run == null ? w.trim() : run + " " + w.trim(); return; }
+    if (run != null) { voice.push(run); run = null; }
+    out.push(w);
+  });
+  if (run != null) voice.push(run);
+  return { words: out, voice };
+}
 // 按台词自动选发音矫正 language_boost（v47.92）：治「日语角色被中文矫正带偏口音」。
 // 假名(ひらがな/カタカナ)是日语铁证、中文里不会出现→有假名走 Japanese，谚文走 Korean，纯 ASCII 走 English，其余默认 Chinese
 function ttsLangBoost(text) {
