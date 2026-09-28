@@ -1167,6 +1167,56 @@
   }
 
   // ---- 暴露给 UI 层 --------------------------------------------------
+  // ── 学习概况（她 2026-09-28：「地基和燃料都是现成的，仪表盘缺的只是一层把已有数据画出来的皮」）──
+  // ⚠️零新数据：只读这门课已经在存的那几样——
+  //   · 每节课 progress.mastery（要点 id → 0 新学 / 1 待复习 / 2 基本会 / 3 稳，同 progressText 那张口径）
+  //   · progress.mistakes（结课批改暴露的错因）＋ memory.review_items 上的 wrongCount / hintedCount（错题本那张卡）
+  //   · review_items.nextReviewAt（艾宾浩斯那条线上的到期时间）
+  //   · transcript 里她自己说话的那些时间（按本地日期数「学了几天」）
+  // 同一个要点在好几节课里都出现过：取最后更新那一节的掌握度（新的覆盖旧的）。
+  // 同一次答错可能同时记在 mistakes 和那张复习卡上：两边取大的，不相加，免得一道题算两次。
+  function studyDashboard(cur, sessions, now) {
+    const t = now || Date.now();
+    const sess = (Array.isArray(sessions) ? sessions : []).filter(function (x) { return x && (!cur || x.curriculum_id === cur.id); })
+      .slice().sort(function (a, b) { return Number(a.updated_at || 0) - Number(b.updated_at || 0); });
+    const label = {}, level = {}, miss = {};
+    const days = new Set();
+    let first = 0;
+    const dayKey = function (ts) { const d = new Date(ts); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+    sess.forEach(function (x) {
+      ((x.outline && x.outline.units) || []).forEach(function (u) {
+        (u.grammar || []).forEach(function (g) { if (g && g.id != null && !label[g.id]) label[g.id] = g.label || String(g.id); });
+      });
+      const p = x.progress || {};
+      Object.keys(p.mastery || {}).forEach(function (k) {
+        const v = Number(p.mastery[k]);
+        if (Number.isFinite(v)) level[k] = Math.max(0, Math.min(3, Math.round(v)));
+      });
+      (p.mistakes || []).forEach(function (m) { if (m && m.pointId != null) miss[m.pointId] = (miss[m.pointId] || 0) + 1; });
+      (x.transcript || []).forEach(function (m) {
+        const ts = Number(m && m.ts);
+        if (m && m.role === "user" && ts > 0) { days.add(dayKey(ts)); if (!first || ts < first) first = ts; }
+      });
+    });
+    const items = (cur && cur.memory && Array.isArray(cur.memory.review_items)) ? cur.memory.review_items : [];
+    const wrong = {};
+    items.forEach(function (x) {
+      if (!x || x.pointId == null) return;
+      wrong[x.pointId] = (wrong[x.pointId] || 0) + (Number(x.wrongCount) || 0) + (Number(x.hintedCount) || 0);
+    });
+    const dist = [0, 0, 0, 0];
+    Object.keys(level).forEach(function (k) { dist[level[k]]++; });
+    const pits = Object.keys(Object.assign({}, miss, wrong)).map(function (k) {
+      return { pointId: k, label: label[k] || k, count: Math.max(miss[k] || 0, wrong[k] || 0), level: level[k] };
+    }).filter(function (x) { return x.count > 0; })
+      .sort(function (a, b) { return b.count - a.count; }).slice(0, 3);
+    const end = new Date(t); end.setHours(23, 59, 59, 999);
+    const dueToday = items.filter(function (x) { return x && Number(x.nextReviewAt) > 0 && Number(x.nextReviewAt) <= end.getTime(); }).length;
+    const dueNow = items.filter(function (x) { return x && Number(x.nextReviewAt) > 0 && Number(x.nextReviewAt) <= t; }).length;
+    return { days: days.size, since: first || null, sessions: sess.length, points: Object.keys(level).length,
+      dist: { steady: dist[3], ok: dist[2], review: dist[1], fresh: dist[0] }, pits: pits, dueToday: dueToday, dueNow: dueNow };
+  }
+
   window.Study = {
     loadSessions: loadSessions, saveSessions: saveSessions,
     loadCurricula: loadCurricula, findCurriculum: findCurriculum, findCurriculumBySubject: findCurriculumBySubject,
@@ -1179,7 +1229,7 @@
     updateCurriculumReview: updateCurriculumReview, dueReviewCards: dueReviewCards, quizMasteryLevel: quizMasteryLevel,
     dueReviewItems: dueReviewItems, upcomingReviewDays: upcomingReviewDays, reviewStageText: reviewStageText, REVIEW_DAYS: REVIEW_DAYS,
     inMistakeBook: inMistakeBook, mistakeBookItems: mistakeBookItems, removeFromMistakeBook: removeFromMistakeBook, mistakeBookText: mistakeBookText, quizAnswerText: quizAnswerText,
-    studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds,
+    studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds, studyDashboard: studyDashboard,
     exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
     outlineSlice: outlineSlice, progressText: progressText,
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
@@ -1604,6 +1654,56 @@
           style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: busy ? STUDY_SKIN.fog : accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } }, busy || "传一份资料")));
   }
 
+  // 学习概况那一张纸：学了几天 / 掌握度一条彩带 / 最容易栽的三个坑 / 今天到期几道。
+  // 数全从 studyDashboard 来，这里只管画；点坑进错题本、点到期进「该复习了」，都是现成的页。
+  const DASH_TONES = { steady: null, ok: null, review: "#c69a52", fresh: "#d8dbd0" };
+  function StudyDash(props) {
+    const d = props.dash, accent = props.accent;
+    const tone = { steady: accent, ok: accent + "8c", review: DASH_TONES.review, fresh: DASH_TONES.fresh };
+    const bands = [["steady", "稳"], ["ok", "基本会"], ["review", "待复习"], ["fresh", "新学"]];
+    const total = d.points || 0;
+    const since = d.since ? (function () { const x = new Date(d.since); return (x.getMonth() + 1) + "月" + x.getDate() + "日"; })() : "";
+    const eyebrow = function (txt) { return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, marginBottom: 7 } }, txt); };
+    return h("section", { "data-kind": "study-dash", style: { marginTop: 10, padding: "15px 16px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+      // 学了几天
+      h("div", { className: "flex items-baseline", style: { gap: 6 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "学了"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: STUDY_SKIN.ink } }, d.days),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "天")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 4 } },
+        d.days ? [since ? "从 " + since + " 开始" : "", "上过 " + d.sessions + " 节", total ? total + " 个要点" : ""].filter(Boolean).join(" · ") : "还没开口学过——开一张课页就从今天算起"),
+      // 掌握度彩带
+      h("div", { style: { marginTop: 14 } },
+        eyebrow("掌握度"),
+        total ? h("div", { className: "flex", style: { height: 11, borderRadius: 999, overflow: "hidden", background: DASH_TONES.fresh, gap: 2 } },
+          bands.filter(function (b) { return d.dist[b[0]] > 0; }).map(function (b) {
+            return h("div", { key: b[0], title: b[1] + " " + d.dist[b[0]], style: { flex: d.dist[b[0]], background: tone[b[0]] } });
+          }))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "还没测过要点，上完一节小测就有了"),
+        total ? h("div", { className: "flex flex-wrap", style: { gap: "4px 12px", marginTop: 8 } },
+          bands.map(function (b) {
+            return h("span", { key: b[0], className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 11, color: d.dist[b[0]] ? STUDY_SKIN.sub : STUDY_SKIN.fog } },
+              h("span", { style: { width: 8, height: 8, borderRadius: 2, background: tone[b[0]] } }), b[1] + " " + d.dist[b[0]]);
+          })) : null),
+      // 最容易栽的三个坑
+      h("div", { style: { marginTop: 15 } },
+        eyebrow("最容易栽的坑"),
+        d.pits.length ? d.pits.map(function (x, i) {
+          return h("button", { key: x.pointId, onClick: props.onPits, className: "w-full flex items-center active:opacity-70",
+            style: { minHeight: 36, gap: 9, padding: "4px 0", borderTop: i ? "1px dashed " + STUDY_SKIN.line : "none", textAlign: "left" } },
+            h("span", { style: { width: 18, fontFamily: F_DISPLAY, fontSize: 14, color: STUDY_SKIN.red } }, i + 1),
+            h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink } }, x.label),
+            h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.red } }, "栽过 " + x.count + " 次 ›"));
+        }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "还没有错过——或者还没做过题")),
+      // 今天到期
+      h("button", { onClick: props.onDue, className: "w-full flex items-center active:opacity-70",
+        style: { marginTop: 13, minHeight: 42, padding: "8px 12px", gap: 8, borderRadius: "4px 10px 10px 4px", textAlign: "left",
+          // 浅底：下面紧挨着那条实心的「该复习了」，两条实心绿叠在一起太重
+          background: STUDY_SKIN.paper2 } },
+        h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: d.dueToday ? accent : STUDY_SKIN.sub, fontWeight: d.dueToday ? 600 : 400 } },
+          d.dueToday ? "今天到期 " + d.dueToday + " 道" + (d.dueNow && d.dueNow < d.dueToday ? "（现在就能做 " + d.dueNow + " 道）" : "") : "今天没有到期的复习"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: d.dueToday ? accent : STUDY_SKIN.fog } }, "›")));
+  }
   function CurriculumConsole(props) {
     const cur = props.curriculum;
     const skin = studyModeSkin(cur.mode), accent = skin.accent;
@@ -1676,6 +1776,8 @@
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 9 } },
           cur.level ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0px 6px" } }, cur.level) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog } }, chars.map(function (ch) { return ch.name; }).join("、") + " · 已上 " + sess.length + " 节" + (dueCount ? " · " + dueCount + " 个待复习" : "")))),
+        h(StudyDash, { dash: studyDashboard(cur, props.sessions), accent: accent,
+          onPits: function () { setBookOpen("book"); }, onDue: function () { setBookOpen("due"); } }),
         // 言秋的投递箱（新到的备课，收下后存进课程自己的存档）
         (drops && drops.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "言秋的投递 · " + drops.length) : null,
         (drops && drops.length) ? drops.map(function (d) {
