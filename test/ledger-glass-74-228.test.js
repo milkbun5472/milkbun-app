@@ -35,12 +35,14 @@ console.log("ledger-glass ok");
   // 第三轮（她：「一屏四块灰 LCD，像血糖仪」）：LCD 只点睛——整个记账只剩余额主屏、金额屏两块
   const views = src.slice(src.indexOf("function WalletHome("), src.indexOf("function SettingsSheet("));
   assert.equal((views.match(/\}, sk\.screen\)/g) || []).length, 2, "LCD 屏又铺开了");
-  assert.equal((views.match(/lcdNum\(/g) || []).length, 5, "电子等宽字只给余额和金额主数字");
   assert.match(src, /"data-ledger-cal": true, style: Object\.assign\(\{ padding: "10px 8px" \}, sk\.acrylic\)/, "日历又变回计算器屏了");
   assert.match(src, /const CAL_RAMP = \[/, "日历不是糖果色深浅了");
-  assert.match(src, /h\(Cells, \{ n: 24, lit:/, "统计页预算不是电量格");
-  assert.match(src, /h\(Cells, \{ n: 16, lit:/, "排行不是状态条");
-  assert.match(src, /像老电子词典 \/ MP3 机身底下那四颗小功能键/, "底栏回到了普通 tab bar");
+  // 第四轮（她：参考图是「轻薄的现代界面 + 少量 Y2K 实体装饰」，不是万物皆果冻）
+  assert.ok(!/h\(Cells, \{/.test(views), "进度又变回一格一格的仪器了");
+  assert.match(src, /底栏轻薄：只有选中那一格底下垫一小块果冻高光/);
+  const jellyUses = (views.match(/jellyKey\(sk/g) || []).length;
+  assert.ok(jellyUses <= 8, "果冻键又铺开了：" + jellyUses + " 处（只该有首页三颗大键和记一笔的键盘/完成）");
+  assert.match(src, /acrylic: \{ background: "transparent" \}/, "数据又开始容器套容器");
   assert.match(src, /backgroundColor: pageColor\("ledger", "bg", "#f3f2f8"\)/, "背景又铺成大片粉紫了");
 }
 console.log("ledger-y2k ok");
