@@ -16,7 +16,11 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
+<<<<<<< HEAD
 const APP_VERSION = "v74.212";
+=======
+const APP_VERSION = "v74.211";
+>>>>>>> b11cac5eb014ddb72ab11d9520d43fa4a4ae12a0
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -950,6 +954,10 @@ function App() {
   viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
   const [editingChar, setEditingChar] = useState(null);
   const [selSched, setSelSched] = useState(null);
+  // 从聊天／线下点进日历的时候记下来处，退出日历就回到那儿（她 2026-09-29 转群里读者：
+  // 「线下看了日历的行程直接一退就退回到主页了吗？是不能直接退回到线下页面吗？」）。
+  // 没有来处（从主屏点进来的）才回主屏。
+  const calReturnRef = useRef(null);
   const [selPhone, setSelPhone] = useState(null);
   const [busyLanes, setBusyLanes] = useState({});
   const busyLanesRef = useRef({});
@@ -8391,7 +8399,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("已补记入记忆库");
     }
   };
+  // 退出日历：有来处就回来处，没有才回主屏。日历顶栏的返回和侧滑返回都走这一个。
+  const leaveCalendar = () => {
+    const r = calReturnRef.current;
+    calReturnRef.current = null;
+    setSelSched(null);
+    if (!r) { goHome(); return; }
+    setScreen(r.screen || "thread");
+    if (r.offlineChar) openOffline(r.offlineChar, window.ChatRooms && r.roomId && r.roomId !== "main" ? window.ChatRooms.get(r.offlineChar.id, r.roomId) : null);
+  };
   const goHome = () => {
+    calReturnRef.current = null;
     setScreen("home");
     setActiveChar(null);
     setActiveGroup(null);
@@ -8407,6 +8425,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (stateCardOpen) { setStateCardOpen(false); return true; }
     if (offlineChar || offlineGroup) { setOfflineChar(null); setOfflineGroup(null); return true; }
     if (editingChar) { setEditingChar(null); return true; }
+    if (screen === "calendar" && calReturnRef.current) { leaveCalendar(); return true; }
     if (screen && screen !== "home") { goHome(); return true; }
     return false;   // 已经在主屏了：交回给 BackGuard，再滑一次才真退出
   };
@@ -17168,16 +17187,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
+      const newMomId = "m_" + Date.now();
+      const newMomImage = d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
       pMom(p => [{
-        id: "m_" + Date.now(),
+        id: newMomId,
         characterId: char.id,
         content,
-        image: d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null,
+        image: newMomImage,
         ts: Date.now(),
         liked: false,
         likeCount: 0,
         comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户")
       }, ...p]);
+      // 开关在朋友圈页顶上（x_momentAutoImg，默认关）：开着就顺手把这张配图画出来
+      if (newMomImage && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(newMomId), 60);
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -17189,6 +17212,36 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }));
     }
   };
+  // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
+  // 人不在画面里的走空景稿、不喂参考照；画人才走人像稿 + 参考照——跟私聊拍照同一条路。
+  const momentGenImage = async (momentId, quiet) => {
+    const mom = (momentsRef.current || []).find(m => m && m.id === momentId);
+    if (!mom || !mom.image || isImgRef(mom.image)) return false;
+    if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
+    const char = characters.find(c => c.id === mom.characterId);
+    if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
+    const desc = String(mom.image);
+    try {
+      const kind = noFaceKindFor(desc, char.name);
+      const noFace = !!kind || !(char.appearance || char.refPhoto);
+      const prompt = kind === "part" ? buildScenePrompt(char, desc, { body: true })
+        : noFace ? buildScenePrompt(char, desc, { forText: false })
+        : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
+      const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
+      let ref = null;
+      if (out && out.blob) ref = await imgToVault(await blobToDataUrl(out.blob));
+      else if (out && out.url) { const b = await fetch(out.url).then(r => r.blob()).catch(() => null); if (b && b.size) ref = await imgToVault(await blobToDataUrl(b)); }
+      if (!ref) throw new Error("没拿到图");
+      if (!isImgRef(ref)) throw new Error("图没能存进本机");
+      pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
+      return true;
+    } catch (e) {
+      if (!quiet) toast("朋友圈配图没生成：" + String(e && e.message || "重试").slice(0, 120));
+      return false;
+    }
+  };
+  window.momentGenImage = momentGenImage;
   const likeMoment = id => pMom(p => p.map(m => m.id === id ? {
     ...m,
     liked: !m.liked,
@@ -23575,7 +23628,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
-    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
+    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
@@ -25031,7 +25084,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     period: period,
     busy: !!gen.calendar,
     genWeekBusy: !!(gen.sched && String(gen.sched).indexOf("|week") > 0),
-    onBack: goHome,
+    onBack: leaveCalendar,
     onSaveEvent: saveCalEvent,
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
@@ -25683,7 +25736,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenState: () => { setStateCardRoomKey(offlineIsRoom(activeOfflineScopeKey) ? activeOfflineScopeKey : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? schedNowBriefFor(offlineChar) : null,
     onOpenStyleLab: goStyleLab,
-    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
+    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { calReturnRef.current = { screen: screen, offlineChar: offlineChar, roomId: offlineRoomId }; setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
   }), offlineGroup && h(GroupOfflineMode, {
     showReason: (offlineGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: offlineGroup,
