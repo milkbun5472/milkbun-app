@@ -400,6 +400,48 @@
   const CAL_RAMP = ["#ffe0ec", "#fbc7dd", "#efb8ea", "#d3b2f6", "#b39cf0", "#9885e6"];
   const LCD_INK = "#383552", LCD_DIM = "rgba(200,188,240,.28)";
   const DIGIT = "ui-monospace,'SF Mono','Menlo','Roboto Mono','Consolas',monospace";
+  // ============================================================
+  // 材质系统（她 2026-09-28 第九轮：「现在是在给东西上颜色，要开始给东西做材质」）
+  //   参考图不是 pastel UI，是【透明亚克力电子设备】：光穿过透明材质之后才留下粉蓝紫。
+  //   所以卡片几乎不用白：极低透明度的白 + 背后模糊 + 一点饱和度，让后面的环境色透上来；
+  //   玻璃感靠四层同时在：透明底 → 极细亮边 → 内侧左上高光 → 右下极淡蓝紫折射边，外面一片冷色环境影（不是灰色投影）。
+  //   三个等级，别让所有东西都是同一个白色圆角矩形：
+  //   · A 透明亚克力 —— 钱包卡托盘、三颗主键、完成键：最透、边最厚（外轮廓 → 亮唇 → 厚度带 → 内侧折射），带虹彩
+  //   · B 磨砂玻璃   —— 余额、预算、统计摘要、日历主体：更雾，但照样透出后面的颜色
+  //   · C 薄玻璃     —— 每条账单、小组件：只有透明底 + 发丝边 + 一点高光
+  //   判据：截图转灰度以后，还能靠透明度、边缘高光、厚度分出前后层，而不是看到一堆白色圆角矩形。
+  // ============================================================
+  const GLASS = {
+    A: {
+      background: "linear-gradient(135deg, rgba(255,255,255,.26) 0%, rgba(226,238,255,.12) 42%, rgba(255,255,255,.2) 58%, rgba(250,226,244,.16) 100%)",
+      border: "1px solid rgba(255,255,255,.7)",
+      boxShadow: "0 0 0 1px rgba(150,152,205,.32), inset 0 0 0 1px rgba(255,255,255,.55), inset 0 0 0 4px rgba(255,255,255,.14), inset 0 0 0 5px rgba(160,180,240,.2)," +
+        " inset 3px 4px 6px rgba(255,255,255,.65), inset -4px -6px 10px rgba(150,138,228,.2), 0 10px 26px rgba(118,118,196,.16), 0 0 20px rgba(214,232,255,.35)",
+      backdropFilter: "blur(10px) saturate(1.45)", WebkitBackdropFilter: "blur(10px) saturate(1.45)"
+    },
+    B: {
+      background: "linear-gradient(140deg, rgba(255,255,255,.3) 0%, rgba(246,243,255,.14) 55%, rgba(234,243,255,.2) 100%)",
+      border: "1px solid rgba(255,255,255,.55)",
+      boxShadow: "inset 1.5px 1.5px 0 rgba(255,255,255,.7), inset 0 8px 12px -8px rgba(255,255,255,.75), inset -1.5px -2px 0 rgba(138,150,226,.2), inset -8px -10px 16px -10px rgba(168,148,236,.28)," +
+        " 0 0 0 1px rgba(168,166,214,.16), 0 8px 22px rgba(122,118,200,.11)",
+      backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)"
+    },
+    C: {
+      background: "linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,.08))",
+      border: "1px solid rgba(255,255,255,.5)",
+      boxShadow: "inset 1px 1px 0 rgba(255,255,255,.65), inset -1px -1px 0 rgba(148,158,228,.16), 0 3px 10px rgba(122,118,200,.07)",
+      backdropFilter: "blur(10px) saturate(1.3)", WebkitBackdropFilter: "blur(10px) saturate(1.3)"
+    }
+  };
+  // A 级的带色版本（三颗主键）：同一块透明亚克力，只是往里透一点自己的颜色
+  function glassTinted(a, b) {
+    return Object.assign({}, GLASS.A, {
+      background: "radial-gradient(70% 55% at 38% 26%, rgba(255,255,255,.5), rgba(255,255,255,0) 70%), linear-gradient(145deg, " + a + "40 0%, " + a + "66 55%, " + b + "4d 100%)",
+      border: "1px solid rgba(255,255,255,.72)",
+      boxShadow: "0 0 0 1px " + b + "59, inset 0 0 0 1px rgba(255,255,255,.6), inset 0 0 0 4px rgba(255,255,255,.16), inset 0 0 0 5px " + b + "33," +
+        " inset 3px 4px 6px rgba(255,255,255,.7), inset -4px -6px 10px " + b + "4d, 0 8px 20px " + b + "33, 0 0 16px rgba(255,255,255,.3)"
+    });
+  }
   function ledgerSkin(settings) {
     const id = settings && settings.skin === "paper" ? "paper" : "glass";
     const t = window.__ledgerTheme || {};
@@ -427,20 +469,25 @@
     return {
       id,
       page: {
-        backgroundColor: pageColor("ledger", "bg", "#e5e3ef"),
-        backgroundImage: "linear-gradient(118deg, transparent 20%, rgba(250,230,250,.25) 36%, rgba(226,246,255,.3) 43%, transparent 57%)," +
-          "radial-gradient(ellipse at 13% 9%,rgba(213,207,230,.58),transparent 48%), radial-gradient(ellipse at 95% 42%,rgba(232,232,243,.85),transparent 60%)," +
-          "radial-gradient(ellipse at 19% 80%,rgba(246,218,239,.36),transparent 45%)",
+        backgroundColor: pageColor("ledger", "bg", "#ecebf4"),
+        // 环境光（很弱、很大片）：左上淡粉、中部冰蓝、右侧淡紫，中间大量近白——这些颜色要能透过玻璃被看见
+        backgroundImage: "linear-gradient(118deg, transparent 22%, rgba(255,236,250,.28) 34%, rgba(222,244,255,.32) 42%, transparent 56%)," +
+          "radial-gradient(ellipse 70% 45% at 8% 6%, rgba(248,210,232,.62), transparent 70%)," +
+          "radial-gradient(ellipse 80% 40% at 38% 48%, rgba(206,230,252,.55), transparent 72%)," +
+          "radial-gradient(ellipse 60% 55% at 100% 34%, rgba(222,208,250,.6), transparent 70%)," +
+          "radial-gradient(ellipse 70% 40% at 20% 92%, rgba(244,214,238,.42), transparent 70%)," +
+          "radial-gradient(ellipse 55% 35% at 70% 78%, rgba(250,250,255,.7), transparent 70%)",
         backgroundAttachment: "scroll",
         boxShadow: "inset 2px 0 4px rgba(255,255,255,.65), inset -2px 0 4px rgba(135,136,168,.13)"
       },
       ink, sub: pageColor("ledger", "sub", "#656581"), fog: pageColor("ledger", "fog", "#9391ad"),
       line: pageColor("ledger", "line", "rgba(140,135,190,.2)"), accent: pageColor("ledger", "accent", "#8874cf"), pink: pageColor("ledger", "tint", "#d98db2"),
       exp: ink, inc: "#589c98", over: "#bc668c",
-      card: { background: "rgba(255,255,255,.43)", border: "1px solid rgba(255,255,255,.25)", borderRadius: 19, boxShadow: "0 1px 3px rgba(122,117,163,.04)" }, shell,
-      screen: { background: "rgba(255,255,255,.30)", border: "1px solid rgba(182,178,206,.34)", boxShadow: "inset 0 1px 3px rgba(131,124,169,.12), 0 1px 1px rgba(255,255,255,.75)", borderRadius: 13 },
+      // 卡片不再是白色实体：B 级磨砂玻璃当外壳，C 级薄玻璃当账单条，A 级留给托盘和主键
+      card: Object.assign({}, GLASS.C, { borderRadius: 19 }), shell: Object.assign({}, GLASS.B, { borderRadius: 19 }), matA: GLASS.A,
+      screen: Object.assign({}, GLASS.C, { borderRadius: 13, boxShadow: "inset 0 1px 3px rgba(131,124,169,.14), inset 1px 1px 0 rgba(255,255,255,.6)" }),
       acrylic: { background: "transparent" },
-      well: { background: "rgba(249,248,255,.17)", border: "1px solid rgba(255,255,255,.62)", borderRadius: 18, boxShadow: "inset 0 1px 2px rgba(150,143,181,.1)" },
+      well: { background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.5)", borderRadius: 18, boxShadow: "inset 0 1px 3px rgba(140,136,200,.14), inset -1px -1px 0 rgba(255,255,255,.35)" },
       lcd: LCD_INK, lcdDim: LCD_DIM,
       num: "Arial, 'PingFang SC', sans-serif", digit: "Arial, 'PingFang SC', sans-serif",
       tabBar: { background: "rgba(233,233,246,.38)", borderTop: "1px solid rgba(146,145,180,.18)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.65)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
@@ -470,7 +517,7 @@
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.16em}
 .lg-reference .lg-wallet-head [data-wk=head]>div:last-child{width:66px!important}
 .lg-reference .lg-wallet-main{padding:8px 22px 24px}
-.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.12),rgba(215,225,244,.16) 38%,rgba(255,255,255,.48) 53%,rgba(235,210,239,.18));border:1px solid #aaaac5;box-shadow:inset 0 0 1px 1px #fff,inset 2px 2px 3px #fff,inset 5px 5px 5px #9bacc657,inset -3px -4px 3px #8c8daa70,0 3px 5px #73759245;transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
+.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:1px solid rgba(255,255,255,.72)!important;box-shadow:0 0 0 1px rgba(150,152,205,.34),inset 0 0 0 1px rgba(255,255,255,.55),inset 0 0 0 5px rgba(255,255,255,.12),inset 0 0 0 6px rgba(160,180,240,.22),inset 4px 5px 7px rgba(255,255,255,.6),inset -5px -6px 10px rgba(148,138,226,.24),0 12px 28px rgba(118,118,196,.18),0 0 24px rgba(214,232,255,.4)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
 .lg-reference [data-ledger-tray]:after{content:"";position:absolute;inset:1px;border-radius:28px;pointer-events:none;background:linear-gradient(111deg,transparent 6%,#fff8 8%,transparent 10%,transparent 63%,#d8faff44 68%,#ffe4f533 72%,transparent 76%),linear-gradient(5deg,transparent 5%,#fff9 7%,transparent 8%,transparent 93%,#fff9 95%,transparent 97%)}
 .lg-reference [data-ledger-tray]:before{content:'';position:absolute;inset:7px;border:1px solid #ffffff9c;border-radius:22px;box-shadow:inset 2px 2px 2px #929cbd90,2px 2px 3px #ffffffa8;pointer-events:none}
 .lg-reference [data-ledger-card]{height:192px!important;margin:0!important;transform:none!important;border-radius:17px!important;background:linear-gradient(132deg,#cec4ec88 2%,#b8c6f29c 27%,#e1c9efab 54%,#b7d8f3b3 76%,#e2bce3a3)!important;box-shadow:inset 0 0 0 2px #ffffff50,inset 0 2px 3px #ffffffcc,inset -2px -3px 4px #967fa766,0 4px 8px #878ca75e!important}
@@ -479,14 +526,14 @@
 .lg-reference .lg-motto{background:linear-gradient(110deg,#ffffff35,#fff5)!important;border-radius:3px!important;border-bottom:1px dashed #fff!important;margin-top:5px!important;padding:4px 6px!important;color:#444264!important}
 .lg-reference .lg-bigkeys{gap:11px!important;margin-bottom:20px!important}
 .lg-reference [data-ledger-bigkey]{aspect-ratio:1/1.08!important;max-height:113px!important;border-radius:19px!important}
-.lg-reference [data-ledger-wallet-budget]{padding:12px 15px 10px!important;margin-bottom:20px!important;border-radius:19px!important;box-shadow:inset 0 0 0 2px #ffffff55,inset 0 2px 4px #fff,0 2px 5px #8586a82b!important}
+.lg-reference [data-ledger-wallet-budget]{padding:12px 15px 10px!important;margin-bottom:20px!important;border-radius:19px!important}
 .lg-reference [data-ledger-tabbar] button>span:first-child{background:transparent!important;box-shadow:none!important}
 .lg-reference [data-ledger-tabbar] button[aria-current=page] svg{fill:#b4a2ec;stroke:#494579}
 .lg-reference .lg-segment{padding:0!important;gap:0!important;height:40px;border-radius:20px}
 .lg-reference .lg-segment button{min-height:38px!important;border-radius:19px!important;font-size:13px!important}
 .lg-reference .lg-segment button[aria-pressed=true]{background:linear-gradient(180deg,#fff9,#f2d0e3aa 48%,#eebdd675)!important;border:1px solid #dca6c4!important;box-shadow:inset 0 2px 3px #fff,inset 0 -2px 3px #f2c5dd,0 1px 3px #a378a024!important}
 .lg-reference .lg-add-grid{gap:11px!important;align-content:start}
-.lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(145deg,#ffffff85,#f5f4ff38);border:1px solid #ffffffba;box-shadow:inset 1px 2px 2px #fff,inset -1px -2px 2px #b9b6d065,0 1px 3px #9290ad20}
+.lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.55);box-shadow:inset 1px 1px 0 rgba(255,255,255,.7),inset -1px -1px 0 rgba(148,158,228,.18),0 3px 10px rgba(122,118,200,.08);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
 .lg-reference .lg-add-category[aria-pressed=true]{border-color:#d890b7;background:linear-gradient(135deg,#f9e5eecc,#f1d0e570);box-shadow:inset 0 0 0 2px #fffb,inset 0 -2px 4px #db9ab440,0 1px 4px #ad80a240}
 .lg-reference .lg-add-category .lg-cattile{background:transparent!important;border:0!important;box-shadow:none!important;width:43px!important;height:43px!important}
 .lg-reference .lg-add-custom{height:30px;grid-column:1/-1;flex-direction:row!important;justify-content:center;gap:6px!important;background:none;border:0;box-shadow:none}
@@ -495,7 +542,7 @@
 .lg-reference .lg-console [data-ledger-amount]{min-height:48px;padding:2px 9px 2px 14px!important;margin-bottom:8px!important}
 .lg-reference .lg-console input{min-height:37px!important}
 .lg-reference .lg-number-key{min-height:40px!important;border-radius:10px!important;font-size:20px!important;font-weight:500!important}
-.lg-reference [data-ledger-done]{background:linear-gradient(120deg,#f9e6efdd,#eaa9ca99)!important;color:#713c5b!important;box-shadow:inset 0 0 0 3px #ffffff99,inset 0 3px 5px #fff,inset 0 -3px 6px #cd8caf66,0 2px 5px #a879a140!important;border:1px solid #d0a2bf!important;opacity:1!important}
+.lg-reference [data-ledger-done]{background:radial-gradient(70% 45% at 40% 18%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%),linear-gradient(160deg,rgba(252,214,232,.5),rgba(236,160,198,.45))!important;color:#713c5b!important;box-shadow:0 0 0 1px rgba(214,140,180,.45),inset 0 0 0 1px rgba(255,255,255,.6),inset 0 0 0 4px rgba(255,255,255,.16),inset 3px 4px 6px rgba(255,255,255,.65),inset -4px -6px 10px rgba(214,120,168,.3),0 8px 20px rgba(220,140,185,.3)!important;border:1px solid rgba(255,255,255,.72)!important;opacity:1!important;backdrop-filter:blur(8px) saturate(1.4);-webkit-backdrop-filter:blur(8px) saturate(1.4)}
 .lg-reference .lg-bills-date{display:none!important}
 .lg-reference .lg-bills .lg-segment{margin:0 10px}
 .lg-reference .lg-bills [data-ledger-strip]{min-height:75px;padding:11px 12px!important;border-radius:21px!important}
@@ -848,11 +895,7 @@
     const bigKey = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
       const ink = { pink: "#8c3a4f", blue: "#34467e", lilac: "#523f84" }[tone];
       return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
-        style: glass ? { position: "relative", aspectRatio: "1 / 1", maxHeight: 112, gap: 4, borderRadius: 18, marginBottom: 4,
-            background: "radial-gradient(ellipse at 45% 40%, rgba(255,255,255,.72), transparent 76%), linear-gradient(140deg, " + a + "55, " + a + "77 58%, " + b + "55)",
-            border: "1px solid " + b + "99",
-            boxShadow: "inset 0 0 0 2px rgba(255,255,255,.65), inset 2px 3px 5px #fff, inset -2px -3px 6px " + b + "80, 0 2px 3px " + b + "50, 0 5px 9px " + b + "22",
-            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", transition: "transform .08s" }
+        style: glass ? Object.assign(glassTinted(a, b), { position: "relative", aspectRatio: "1 / 1", maxHeight: 112, gap: 4, borderRadius: 18, marginBottom: 4, transition: "transform .08s" })
           : jellyKey(sk, tone, false, { minHeight: 88, gap: 4, borderRadius: 14 }) },
         h(JellyGlyph, { k: glyph, tone, size: glass ? 44 : 26 }),
         h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13, fontWeight: 500, color: glass ? ink : sk.ink } }, label)); };

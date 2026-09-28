@@ -33,3 +33,15 @@ assert.match(src, /function CategoryGlyph\(/);
 assert.match(src, /"data-ledger-tray": true/);
 assert.match(src, /h\("style", null, JELLY_CSS\)/);
 console.log("ledger reference structure ok");
+// 第九轮（她：「要开始给东西做材质，不是上颜色」）：三级玻璃材质 + 环境光，卡片不再是白色实体
+{
+  const s2 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  assert.match(s2, /const GLASS = \{\s*A: \{/, "没有统一的玻璃材质了");
+  assert.match(s2, /card: Object\.assign\(\{\}, GLASS\.C/, "账单条不是薄玻璃");
+  assert.match(s2, /shell: Object\.assign\(\{\}, GLASS\.B/, "摘要卡不是磨砂玻璃");
+  assert.match(s2, /style: glass \? Object\.assign\(glassTinted\(a, b\)/, "三颗主键不是透明亚克力");
+  const white = [...s2.slice(s2.indexOf("const GLASS = {"), s2.indexOf("function glassTinted(")).matchAll(/background: "linear-gradient\([^"]*"/g)].map(m => m[0]);
+  white.forEach(b => { const ops = [...b.matchAll(/rgba\(255,255,255,(\.\d+)\)/g)].map(m => +m[1]); assert.ok(ops.every(o => o <= .3), "玻璃底又变成白色实体了：" + b); });
+  assert.ok(!/0 [1-9]px [0-9]+px rgba\(0,0,0/.test(s2.slice(s2.indexOf("const GLASS = {"), s2.indexOf("function ledgerSkin("))), "材质里出现了灰黑投影");
+}
+console.log("ledger-material ok");
