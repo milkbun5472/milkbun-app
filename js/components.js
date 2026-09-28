@@ -13377,12 +13377,8 @@ function OfflineMode({
       // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
       h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
     h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "高级 · 最低字数目标"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。"),
-      h(Slider, { value: sMinW, min: 0, max: 8000, step: 100, onChange: setSMinW })),
+    h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
+      note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" }),
     persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: characterText(char, "他/名字") }]),
     persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }]),
     h("div", { className: "flex items-center justify-between pt-5" },
@@ -13842,6 +13838,26 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
 // ── 篇幅模式那一段：单人线下 / 群线下共用 ───────────────────────────────
 // 原来只写在单人线下的设置面板里；她 2026-09-26 要群聊也有，所以先抽成公共的一段，
 // 单人那份也搬了过来——照着抄第二份的话，以后改措辞就只会改到一处。
+// ── 「最少写多少字」那根拉条：单人线下 / 群线下 / 同人文 / 小剧场共用这一段 ──────
+// 她 2026-09-28：「统一一下公共设置字数拉条，不要一样一处」。
+// 原来线下是一根 0–8000 的拉条、同人文是一个自己 clamp 的数字框、小剧场一份都没有。
+// ⚠️算法（clamp / 数字数 / 那句发进提示词的规则）收在 style-presets.js 一处，这儿只管长相。
+// ⚠️各处的【兜底】不一样，所以右上角那句和说明由调用点给：
+//    线下是「不限」，同人文是「按上面那个 token 折算」——公共那层要能表达各处的分寸。
+function WordFloorSection({ value, onChange, title, note, hint, max }) {
+  const t = useTheme();
+  const SP = (typeof window !== "undefined" && window.StylePresets) || null;
+  const cap = Math.max(1000, Math.min(SP ? SP.WORD_FLOOR_MAX : 20000, Number(max) || 8000));
+  const n = Math.max(0, Number(value) || 0);
+  return h("div", { className: "pt-5" },
+    h("div", { className: "flex items-baseline justify-between mb-1" },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, title || "最少写多少字"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, n ? n + " 字" : (hint || "不限"))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } },
+      note || "只有明确需要字数时再开。这个数会发进提示词、写完再数一遍；短了只提示，不会自动补写。"),
+    h(Slider, { value: Math.min(n, cap), min: 0, max: cap, step: 100,
+      onChange: v => onChange(SP ? SP.clampWordFloor(v) : Math.round(v)) }));
+}
 function OfflineLengthModeSection({ value, onChange }) {
   const t = useTheme();
   const mode = value === "immersive" ? "immersive" : "natural";
@@ -14027,12 +14043,8 @@ function GroupOfflineMode({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
       h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
     h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "输出下限（约字数）"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "让每次至少写这么多字（>0 生效）。"),
-      h(Slider, { value: sMinW, min: 0, max: 8000, step: 100, onChange: setSMinW })),
+    h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "输出下限（约字数）",
+      note: "让每次至少写这么多字（>0 生效）。" }),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),

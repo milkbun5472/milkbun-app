@@ -39,11 +39,18 @@ test("额度给足：max_tokens 是天花板不是预付款", () => {
 });
 
 test("字数规则三处共用一份：下限＋上限＋自己数着写", () => {
-  assert.match(sp, /function wordRule\(minW\)/);
+  // v74.211：多了个可选 opts（同人文一章不给上限，公共那层要能表达各处的分寸）
+  assert.match(sp, /function wordRule\(minW, opts\)/);
   assert.equal((engine.match(/window\.StylePresets\.wordRule\(/g) || []).length, 2, "单人线下与群线下各一处");
   // 只给下限、不给上限、不让它自己数——就是模型写到哪算哪的原因
   assert.ok(!/【最终正文硬下限】/.test(engine), "旧的只有下限那段不许留着");
-  assert.match(sp, /不少于 " \+ minW \+ " 字、不超过 " \+ maxW \+ " 字/);
+  {
+    global.window = global.window || {};
+    require("../js/style-presets.js");
+    const SP = global.window.StylePresets;
+    assert.match(SP.wordRule(1500), /不少于 1500 字、不超过 2025 字/, "默认仍然是下限＋上限");
+    assert.match(SP.wordRule(1500, { cap: false }), /不少于 1500 字（按中文字符算）/, "同人文一章不给上限");
+  }
   assert.match(sp, /自己数着写/);
 });
 

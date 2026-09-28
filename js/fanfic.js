@@ -210,20 +210,23 @@
   // 一章的字数地板。只此一份：提示词里发的、写完数的、界面上提示的，全问它要。
   // ⚠️API 上**没有 min_tokens 这种东西**（max_tokens 是天花板，没有地板），
   //   所以「最低要求」只能落成两件事：写进提示词 + 写完自己数一遍。
-  const MIN_CHARS_MAX = 20000;
-  function clampMinChars(v) {
-    const n = Math.round(Number(v));
-    if (!isFinite(n) || n <= 0) return 0;
-    return Math.max(200, Math.min(MIN_CHARS_MAX, n));
-  }
+  // ⚠️「最少写多少字」这三样（上限、clamp、数字数）2026-09-28 搬去了公共那一份
+  //   （style-presets.js 的 clampWordFloor / countWords / WORD_FLOOR_MAX），
+  //   因为小剧场也要同一根拉条，而同一个形状不许各写各的
+  //   （施工规则/one-public-mechanism.md：开公共的，已有的也搬过去）。
+  //   这儿只留转交，不保留第二套算法；minCharsFor 那条「没填就按 perFic 折算」
+  //   是同人文自己的分寸，留在本地。
+  const _SP = () => (typeof window !== "undefined" && window.StylePresets) || null;
+  const MIN_CHARS_MAX = (_SP() && _SP().WORD_FLOOR_MAX) || 20000;
+  function clampMinChars(v) { const sp = _SP(); return sp ? sp.clampWordFloor(v) : 0; }
   function minCharsFor(cfg) {
     const set = clampMinChars(cfg && cfg.minChars);
     if (set) return set;
     // 没填就照老规矩折算：perFic 是 token，中文一个字大约 1.5 个 token
     return Math.max(600, Math.round(clampPerFic(cfg && cfg.perFic) * 0.55));
   }
-  // 数正文有多少字：空白一律不算（中文没有词间空格，空格多半是排版）
-  function countChars(text) { return String(text || "").replace(/\s/g, "").length; }
+  // 数正文有多少字：空白一律不算（中文没有词间空格，空格多半是排版）——同上，只转交
+  function countChars(text) { const sp = _SP(); return sp ? sp.countWords(text) : String(text || "").replace(/\s/g, "").length; }
   // 这一章短了多少。0＝没短。**只判断，不自动补**——补不补是她按键决定的
   //（她 2026-09-11：「以后任何东西都不接受一次发两遍」）。
   function shortBy(text, min) {
@@ -4381,16 +4384,13 @@
         // ⚠️说人话＝【字数】：上面那一栏是 token 目标，两件事。
         //   API 上没有 min_tokens（max_tokens 是天花板、没有地板），所以这个数
         //   只能落成两件事：发进提示词 + 写完自己数一遍。数出来短了只提示，不自动补。
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "16px 0 6px" } }, "每章最少写多少字"),
-        h("input", {
-          type: "number", inputMode: "numeric", min: 0, max: MIN_CHARS_MAX, step: 100,
-          // ⚠️0 就是「没填」：写成 == null 的话默认值 0 会显示成一个真的「0」，占着位子、提示语还永远出不来
-          value: cfg.minChars ? cfg.minChars : "",
-          placeholder: "留空＝按上面那个 token 折算（现在约 " + minCharsFor(cfg) + " 字）",
-          onChange: function (e) { patch({ minChars: e.target.value === "" ? "" : Number(e.target.value) }); },
-          onBlur: function (e) { patch({ minChars: clampMinChars(e.target.value) }); },
-          style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px", outline: "none" }
-        }),
+        h(window.WordFloorSection, { value: cfg.minChars || 0,
+          onChange: function (v) { patch({ minChars: v }); },
+          title: "每章最少写多少字",
+          // 兜底不一样：同人文没填＝按上面那个 token 折算（线下是「不限」）
+          hint: "约 " + minCharsFor(cfg) + " 字",
+          note: "留空＝按上面那个 token 折算。这个数会发进提示词、写完再数一遍；短了只提示，不会自动补写。",
+          max: MIN_CHARS_MAX }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
           "这个数会写进提示词，写完还会数一遍。没写够也不会自动再打一枪——"
           + "只在那一章底下留一行字和一颗「让TA接着写」，按不按你说了算。"),
