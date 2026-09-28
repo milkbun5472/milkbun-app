@@ -24,7 +24,13 @@
     return replace(template, pronoun).replace(/TA/g, (word, index, value) =>
       /[a-zA-Z]/.test(value[index - 1] || "") || /[a-zA-Z]/.test(value[index + 2] || "") ? word : pronoun);
   }
-  const api = { ta, replace, text, newCharacter };
+  // 喂给模型的名单里写明性别：只认【明确存了】男/女的，没存或 TA 就不写，交给人设自己说。
+  // （群里有人报 2026-09-28：真心话大冒险里名单只有人设正文，模型把女角色写成了男人）
+  function genderNote(character) {
+    const gender = String(character && character.gender || "").trim().toLowerCase();
+    return female.has(gender) ? "（女）" : male.has(gender) ? "（男）" : "";
+  }
+  const api = { ta, replace, text, newCharacter, genderNote };
   root.CharacterPronoun = api;
   root.PhonePronoun = api; // 兼容已有调用；判断和替换算法仍只有这一份。
   root.characterText = text;
