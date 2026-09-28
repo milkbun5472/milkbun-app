@@ -490,37 +490,27 @@
       boxShadow: glass ? (on ? "0 0 0 3px " + sk.pink + "40, inset 0 -2px 4px " + tint : "inset 0 -2px 4px " + tint + ", inset 0 1px 1px #fff, 0 2px 5px " + tint + "55") : "none" } }, emoji || "•");
   }
   // 一排格子（能量槽 / 电量格 / 状态条）：n 格里点亮 lit 格。点亮的格子带一点发光，没亮的是屏幕上淡淡的底格
-  // 果冻图标（照样张抄）：一块被挤出厚度的软糖——底下先画一层深色的侧面（往右下错开一点），
-  //   正面是左上亮、右下深的径向渐变，边上一圈细白唇，再压两道模糊的白色反光条，底部一点内阴影。
+  // 果冻符号（照第一张样张的视觉语法，不是现代高清 3D icon）：
+  //   小、细、樱花粉半透明；左上一点糊糊的白光，底下一层很浅的糊影——旧网页贴图那种有点泛白、有点软的质感。
   const JELLY_GLYPH = {
-    plus: "M19 5h10a3 3 0 0 1 3 3v11h11a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H32v11a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V31H5a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3h11V8a3 3 0 0 1 3-3z",
-    bag: "M17 5h14l-3.5 7.5C36 16 42 23 42 32c0 8-7 12-18 12S6 40 6 32c0-9 6-16 14.5-19.5z",
-    chart: "M5 29a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v15H5zM19 18a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v26H19zM33 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v37H33z"
+    plus: "M20.5 7h7a2.5 2.5 0 0 1 2.5 2.5V18h8.5A2.5 2.5 0 0 1 41 20.5v7a2.5 2.5 0 0 1-2.5 2.5H30v8.5a2.5 2.5 0 0 1-2.5 2.5h-7a2.5 2.5 0 0 1-2.5-2.5V30H9.5A2.5 2.5 0 0 1 7 27.5v-7A2.5 2.5 0 0 1 9.5 18H18V9.5A2.5 2.5 0 0 1 20.5 7z",
+    bag: "M18 7h12l-3 6.5C34 16.5 39 22.5 39 30.5c0 6.5-6 10.5-15 10.5S9 37 9 30.5c0-8 5-14 12-17z",
+    chart: "M8 29a2.5 2.5 0 0 1 2.5-2.5h4A2.5 2.5 0 0 1 17 29v12H8zM19.5 20a2.5 2.5 0 0 1 2.5-2.5h4a2.5 2.5 0 0 1 2.5 2.5v21h-9zM31 11a2.5 2.5 0 0 1 2.5-2.5h4A2.5 2.5 0 0 1 40 11v30h-9z"
   };
-  // 反光条：每个图标在自己「朝上、朝左」的那几条边上各一道
-  const JELLY_SHINE = {
-    plus: [[24, 8.5, 4.5, 1.6, 0], [8, 22.5, 3.2, 1.3, 0], [18.8, 14, 1.2, 3.6, 0]],
-    bag: [[16, 22, 2.2, 5.5, 25], [24, 8, 4, 1.2, 0]],
-    chart: [[11, 29.5, 2.4, 1.2, 0], [25, 18.5, 2.4, 1.2, 0], [39, 7.5, 2.4, 1.2, 0], [7.2, 35, 1, 5, 0]]
-  };
+  const JELLY_SHINE = { plus: [[23.5, 10.5, 2.2, 1.3], [11.5, 21.5, 2, 1.2]], bag: [[17, 23, 1.6, 3.6]], chart: [[12, 29.5, 1.6, .9], [23.5, 20.5, 1.6, .9], [35, 11.5, 1.6, .9]] };
   function JellyGlyph({ k, tone, size }) {
-    const T = { pink: ["#ffd9e7", "#f47ea9", "#d94c85", "#b63468"], blue: ["#dde8ff", "#7ea3f2", "#4f76d8", "#3a5bb4"], lilac: ["#ece2ff", "#aa8cf0", "#7f5fd6", "#6445b3"] }[tone] || ["#fff", "#ccc", "#999", "#777"];
-    const id = "lgj-" + k + "-" + tone, S = size || 44, d = JELLY_GLYPH[k];
-    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "drop-shadow(0 4px 4px " + T[2] + "55)" } },
+    // [最亮, 中间, 边缘] ——都是淡的、带透明度的塑料色
+    const T = { pink: ["#ffe6ef", "#f59dbd", "#e27aa1"], blue: ["#eaf1ff", "#98b6f0", "#6f93e0"], lilac: ["#f1e9ff", "#b9a0ee", "#9277dc"] }[tone] || ["#fff", "#ddd", "#bbb"];
+    const id = "lgj-" + k + "-" + tone, S = size || 30, d = JELLY_GLYPH[k];
+    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "blur(.2px) drop-shadow(0 1.5px 1.5px " + T[2] + "59)" } },
       h("defs", null,
-        h("radialGradient", { id: id + "f", cx: .34, cy: .26, r: .85 }, h("stop", { offset: 0, stopColor: T[0] }), h("stop", { offset: .45, stopColor: T[1] }), h("stop", { offset: 1, stopColor: T[2] })),
-        h("linearGradient", { id: id + "b", x1: 0, y1: 0, x2: 0, y2: 1 }, h("stop", { offset: .55, stopColor: T[3], stopOpacity: 0 }), h("stop", { offset: 1, stopColor: T[3], stopOpacity: .45 })),
-        h("filter", { id: id + "g", x: "-20%", y: "-20%", width: "140%", height: "140%" }, h("feGaussianBlur", { stdDeviation: .7 }))),
-      // 侧面（厚度）
-      h("path", { d, fill: T[3], transform: "translate(1.2 2.6)" }),
-      h("path", { d, fill: T[2], transform: "translate(.6 1.3)" }),
-      // 正面
-      h("path", { d, fill: "url(#" + id + "f)" }),
-      h("path", { d, fill: "url(#" + id + "b)" }),
-      h("path", { d, fill: "none", stroke: "rgba(255,255,255,.75)", strokeWidth: 1.1, strokeLinejoin: "round" }),
-      k === "bag" ? h("text", { x: 24, y: 36.5, textAnchor: "middle", fontSize: 15, fontWeight: 900, fill: "#fff", fillOpacity: .95, fontFamily: "Arial Rounded MT Bold,Arial,sans-serif", style: { filter: "drop-shadow(0 1px 0 " + T[3] + ")" } }, "$") : null,
-      // 反光
-      h("g", { filter: "url(#" + id + "g)" }, (JELLY_SHINE[k] || []).map((e, i) => h("ellipse", { key: i, cx: e[0], cy: e[1], rx: e[2], ry: e[3], fill: "#fff", fillOpacity: .9, transform: "rotate(" + e[4] + " " + e[0] + " " + e[1] + ")" }))));
+        h("radialGradient", { id: id + "f", cx: .38, cy: .32, r: .8 }, h("stop", { offset: 0, stopColor: T[0] }), h("stop", { offset: .55, stopColor: T[1] }), h("stop", { offset: 1, stopColor: T[2] })),
+        h("filter", { id: id + "g", x: "-30%", y: "-30%", width: "160%", height: "160%" }, h("feGaussianBlur", { stdDeviation: 1.1 }))),
+      h("path", { d, fill: T[2], fillOpacity: .45, transform: "translate(.6 1.4)", filter: "url(#" + id + "g)" }),
+      h("path", { d, fill: "url(#" + id + "f)", fillOpacity: .95 }),
+      h("path", { d, fill: "none", stroke: "rgba(255,255,255,.7)", strokeWidth: 1.4, strokeLinejoin: "round", filter: "url(#" + id + "g)" }),
+      k === "bag" ? h("text", { x: 24, y: 34.5, textAnchor: "middle", fontSize: 12, fontWeight: 700, fill: "#fff", fillOpacity: .9, fontFamily: "Arial,sans-serif" }, "$") : null,
+      h("g", { filter: "url(#" + id + "g)" }, (JELLY_SHINE[k] || []).map((e, i) => h("ellipse", { key: i, cx: e[0], cy: e[1], rx: e[2], ry: e[3], fill: "#fff", fillOpacity: .95 }))));
   }
   // 进度条：细细一根，填的那段是紫到粉的糖果渐变、带一道高光
   function Bar({ pct, over, sk, color, height }) {
@@ -771,21 +761,21 @@
         h("path", { d: "M33 53c1.2 1 2.8 1 4 0" })) : null,
       h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", style: { position: "absolute", right: 20, top: 18 }, fill: glass ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.8)", "aria-hidden": "true" },
         h("path", { d: "M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" })));
-    // 三颗主键：一块透明玻璃软糖——底色很淡、能透出后面，一圈白色厚唇边，里面再压一道细内沿；
-    //   图标是一颗鼓起来的彩色果冻（渐变填色 + 左上一点高光），比字大得多（她 2026-09-28 拿样张对比：「太死了不够透、加号要更大」）
+    // 三颗主键：照第一张样张——嵌在页面里的小功能键，不是抢视觉中心的大图标。
+    //   浅浅的半透明粉白（中间几乎白，颜色只在边缘和影子里），圆角只是柔和，边框和高光都糊一点、薄一点，
+    //   宁可旧一点、糊一点、廉价一点，也不要精致、厚、高清。
     const bigKey = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
+      const ink = { pink: "#8c3a4f", blue: "#3e4f86", lilac: "#5b468a" }[tone];
       return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
-        // 一块厚玻璃软糖（照样张抄）：左上亮唇、右下暗唇、贴着边的一圈内发光，底下露出一截同色的厚度，再落一片软影
-        style: glass ? { position: "relative", minHeight: 104, gap: 6, borderRadius: 24, marginBottom: 6,
-            background: "radial-gradient(90% 70% at 30% 18%, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 60%), linear-gradient(165deg, " + a + "55 0%, " + a + "aa 55%, " + b + "99 100%)",
-            border: "1.5px solid " + b + "66",
-            boxShadow: "inset 2px 2px 1px #fff, inset 0 0 0 5px rgba(255,255,255,.45), inset 0 0 0 6px " + b + "33, inset 5px 7px 8px rgba(255,255,255,.7), inset -4px -6px 8px " + b + "55, inset 0 0 18px 4px " + b + "33, " +
-              "0 6px 0 " + b + "73, 0 7px 0 1px rgba(255,255,255,.6), 0 16px 22px " + b + "45",
-            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", transition: "transform .08s, box-shadow .08s" }
-          : jellyKey(sk, tone, false, { minHeight: 88, gap: 7, borderRadius: 20 }) },
-        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 8, top: 6, width: "46%", height: 10, borderRadius: 10, background: "linear-gradient(90deg, rgba(255,255,255,.95), rgba(255,255,255,0))", filter: "blur(1.5px)", pointerEvents: "none" } }) : null,
-        h(JellyGlyph, { k: glyph, tone, size: glass ? 50 : 30 }),
-        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13.5, fontWeight: 800, color: glass ? "#4a3a5e" : sk.ink } }, label)); };
+        style: glass ? { position: "relative", minHeight: 74, gap: 2, borderRadius: 15, padding: "8px 0 7px",
+            background: "radial-gradient(75% 70% at 50% 42%, rgba(255,255,255,.88) 0%, rgba(255,255,255,.55) 55%, " + a + "b3 100%)",
+            border: "1px solid " + b + "40",
+            boxShadow: "inset 0 0 8px 1px " + b + "40, inset 0 2px 3px rgba(255,255,255,.9), 0 2px 5px " + b + "33, 0 1px 1px rgba(255,255,255,.8)",
+            backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", transition: "transform .08s" }
+          : jellyKey(sk, tone, false, { minHeight: 74, gap: 4, borderRadius: 14 }) },
+        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 6, right: 6, top: 3, height: "38%", borderRadius: "11px 11px 50% 50%", background: "linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,0))", filter: "blur(1px)", pointerEvents: "none" } }) : null,
+        h(JellyGlyph, { k: glyph, tone, size: glass ? 30 : 26 }),
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, fontWeight: 500, color: glass ? ink : sk.ink } }, label)); };
     const mrec = (data.monthly || {})[lmk];
     const ls = summarize(data.txns, code, lmk);
     const cellsN = 20, used = bs ? Math.min(1, bs.used) : 0;
