@@ -45,3 +45,15 @@ console.log("ledger reference structure ok");
   assert.ok(!/0 [1-9]px [0-9]+px rgba\(0,0,0/.test(s2.slice(s2.indexOf("const GLASS = {"), s2.indexOf("function ledgerSkin("))), "材质里出现了灰黑投影");
 }
 console.log("ledger-material ok");
+// 第十轮（她：统计和账单打通；emoji 全换成自己画的）
+{
+  const s3 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  assert.match(s3, /onOpenCat: \(cat, kind, mk\) => push\(\{ k: "bills", cat, kind, mk \}\)/, "排行点不进账单了");
+  assert.match(s3, /const \[catF, setCatF\] = useState\(props\.initCat \|\| ""\)/);
+  assert.match(s3, /"data-ledger-catfilter": catF/);
+  assert.ok(!/" · 💬"/.test(s3), "账单行又出现 emoji 了");
+  assert.ok(!/label: "Emoji/.test(s3), "新建分类又让她填 emoji 了");
+  assert.match(s3, /f\.type === "icon" \? h\("div", \{ "data-ledger-iconpick": true/, "新建分类没有图标可挑");
+  assert.ok(!/return h\("span", \{ style: \{ fontSize: size \* \.65 \} \}, emoji \|\| "•"\)/.test(s3), "认不出的分类又退回 emoji 了");
+}
+console.log("ledger-icons ok");

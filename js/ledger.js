@@ -360,16 +360,23 @@
       for (const f of props.fields) { if (f.required && !String(vals[f.key] || "").trim()) { return; } }
       props.onSubmit(vals);
     };
-    return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: pageColor("ledger", "bg2", "rgba(20,19,15,0.5)"), backdropFilter: "blur(3px)", padding: 24 }, onClick: props.onCancel },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "20px 18px 16px", animation: "fadeUp .2s ease both", transform: lift ? "translateY(-" + Math.round(lift / 2) + "px)" : "none", transition: "transform .18s ease" } },
+    // 果冻电子钱包那套皮里：背后一层淡紫雾，弹窗本身是一块磨砂玻璃，确认键是粉色软糖
+    const g = !!props.glass;
+    return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: g ? "rgba(120,110,170,.28)" : pageColor("ledger", "bg2", "rgba(20,19,15,0.5)"), backdropFilter: g ? "blur(6px)" : "blur(3px)", padding: 24 }, onClick: props.onCancel },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: g ? "linear-gradient(150deg, rgba(255,255,255,.82), rgba(246,242,255,.72))" : t.bg2, border: g ? "1px solid rgba(255,255,255,.9)" : "none", boxShadow: g ? "0 0 0 1px rgba(160,155,210,.3), inset 1.5px 1.5px 0 #fff, 0 14px 34px rgba(110,100,180,.25)" : "none", backdropFilter: g ? "blur(16px) saturate(1.3)" : "none", borderRadius: 20, padding: "20px 18px 16px", animation: "fadeUp .2s ease both", transform: lift ? "translateY(-" + Math.round(lift / 2) + "px)" : "none", transition: "transform .18s ease" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 16, textAlign: "center" } }, props.title),
         (props.fields || []).map(f => h("div", { key: f.key, style: { marginBottom: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 5 } }, f.label),
+          // 图标：从画好的那一套里挑一个（不再让她填 emoji）
+          f.type === "icon" ? h("div", { "data-ledger-iconpick": true, style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 } },
+            Object.keys(CATEGORY_ART).map(k => h("button", { key: k, type: "button", onClick: () => set(f.key, k), "aria-label": "图标 " + k, className: "active:opacity-70",
+              style: { height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1.5px solid " + (vals[f.key] === k ? "#e48cb2" : "transparent"), background: vals[f.key] === k ? "rgba(248,210,228,.45)" : "transparent" } },
+              h(CategoryGlyph, { icon: k, size: 26 })))) :
           h("input", { value: vals[f.key], onChange: e => set(f.key, e.target.value), placeholder: f.placeholder || "", maxLength: f.maxLength || 40, disabled: f.locked,
-            style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: f.locked ? t.fog : t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", outline: "none" } }))),
+            style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: f.locked ? t.fog : t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 10, padding: "10px 12px", outline: "none" } }))),
         h("div", { className: "flex gap-3", style: { marginTop: 6 } },
           h("button", { onClick: props.onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
-          h("button", { onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: pageColor("ledger", "accent", ACCENT), padding: "12px 0", borderRadius: 12, border: "none" } }, props.submitLabel || "保存"))));
+          h("button", { onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: g ? "#713c5b" : "#fff", background: g ? "radial-gradient(70% 55% at 40% 18%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%), linear-gradient(160deg, #fcd6e8, #efa3c7)" : pageColor("ledger", "accent", ACCENT), boxShadow: g ? "0 0 0 1px rgba(214,140,180,.45), inset 0 0 0 1px rgba(255,255,255,.6), 0 4px 10px rgba(220,140,185,.3)" : "none", padding: "12px 0", borderRadius: 12, border: "none" } }, props.submitLabel || "保存"))));
   }
 
   // ============================================================
@@ -571,6 +578,11 @@
   const lcdNum = (sk, size, color) => ({ fontFamily: sk.digit, fontSize: size, color: color || sk.lcd, fontWeight: 700, fontVariantNumeric: "tabular-nums", letterSpacing: sk.id === "glass" ? ".02em" : 0 });
   // 印在外壳上的小字（丝印）：像机器上印的「BUDGET」那种，但写中文
   const silk = (sk, text, extra) => h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: sk.ink }, extra || {}) }, text);
+  // 分类自己挑的图标（新建分类时从画好的那一套里选），账单行、排行、记一笔都从这里拿
+  function catIconOf(settings, type, name) {
+    const c = ((settings && settings.cats && settings.cats[type]) || []).find(x => x.name === name);
+    return c && c.icon ? c.icon : "";
+  }
   function catTint(settings, type, name) {
     const list = (settings && settings.cats && settings.cats[type]) || [];
     const i = list.findIndex(c => c.name === name);
@@ -594,11 +606,19 @@
     ticket: ["#e6b9e7", "#ab7ea9", "M6 13l29-8 4 12q-6 3 1 7l2 9-30 8-3-10q6-4-1-7z", "M26 10l7 25 M16 18l8 3-5 8z"],
     dots: ["#d3c7ed", "#9a86ba", "M8 21a2 2 0 1 0 .1 0 M20 21a2 2 0 1 0 .1 0 M32 21a2 2 0 1 0 .1 0", ""]
   };
-  function CategoryGlyph({ emoji, name, size }) {
+  function CategoryGlyph({ emoji, name, size, icon }) {
     const lookup = { "餐饮":"cup", "买菜":"basket", "交通":"bus", "购物":"shop", "日用":"basket", "居住":"home", "住房":"home", "娱乐":"game", "游戏充值":"game", "医疗":"health", "人情":"heart", "社交":"heart", "学习":"book", "宠物":"cat", "旅行":"plane", "工资":"money", "兼职":"money", "红包":"money", "报销":"ticket", "其他":"dots" };
     const emojis = { "🍚":"cup", "☕":"cup", "🧋":"cup", "🍵":"cup", "🛒":"basket", "🚌":"bus", "🚇":"bus", "🛍️":"shop", "🧴":"basket", "🏠":"home", "🎬":"ticket", "🎮":"game", "💊":"health", "🎁":"heart", "📚":"book", "🐱":"cat", "✈️":"plane", "💰":"money", "💼":"money", "🧧":"money", "🧾":"ticket", "✨":"dots" };
-    const k = lookup[name] || emojis[emoji], art = CATEGORY_ART[k];
-    if (!art) return h("span", { style: { fontSize: size * .65 } }, emoji || "•");
+    const k = (icon && CATEGORY_ART[icon] ? icon : null) || lookup[name] || emojis[emoji], art = CATEGORY_ART[k];
+    // 画好的图里没有这一类（她自己加的分类又没挑图标）：画一颗软糖泡泡，里面写分类名的第一个字——不再退回 emoji
+    if (!art) {
+      const ch = String(name || "").trim().slice(0, 1) || "·", bid = "lg-cat-letter";
+      return h("svg", { width: size, height: size, viewBox: "0 0 44 44", "aria-hidden": true, style: { overflow: "visible", filter: "drop-shadow(0 1.5px 1px #8a7abc44)" } },
+        h("defs", null, h("linearGradient", { id: bid, x1: "0%", y1: "0%", x2: "85%", y2: "100%" }, h("stop", { offset: "0%", stopColor: "#fff", stopOpacity: .94 }), h("stop", { offset: "45%", stopColor: "#d9cef5" }), h("stop", { offset: "100%", stopColor: "#b9a8ea" }))),
+        h("circle", { cx: 22, cy: 22, r: 16, fill: "url(#" + bid + ")", stroke: "#8a7abc", strokeWidth: 1.6 }),
+        h("path", { d: "M12 17q3-6 9-7", fill: "none", stroke: "#fff", strokeOpacity: .85, strokeWidth: 2, strokeLinecap: "round" }),
+        h("text", { x: 22, y: 27.5, textAnchor: "middle", fontSize: 15, fontWeight: 700, fill: "#5d4d94", fontFamily: F_BODY }, ch));
+    }
     const [fill, stroke, outline, detail] = art, id = "lg-cat-" + k;
     return h("svg", { width: size, height: size, viewBox: "0 0 44 44", "aria-hidden": true, style: { overflow: "visible", filter: "drop-shadow(0 1.5px 1px " + stroke + "44)" }, strokeLinecap: "round", strokeLinejoin: "round" },
       h("defs", null, h("linearGradient", { id, x1: "0%", y1: "0%", x2: "85%", y2: "100%" }, h("stop", { offset: "0%", stopColor: "#fff", stopOpacity: .94 }), h("stop", { offset: "38%", stopColor: fill, stopOpacity: .8 }), h("stop", { offset: "100%", stopColor: fill }))),
@@ -606,13 +626,13 @@
       h("path", { d: outline, fill: "none", stroke: "#fff", strokeOpacity: .7, strokeWidth: .7, transform: "translate(.8 .8)" }),
       h("path", { d: detail, fill: "none", stroke, strokeWidth: 1.5 }));
   }
-  function CatTile({ tint, emoji, name, size, on, sk }) {
+  function CatTile({ tint, emoji, name, icon, size, on, sk }) {
     const s = size || 40, glass = sk.id === "glass";
     return h("div", { className: "lg-cattile", style: { width: s, height: s, borderRadius: Math.round(s * .25), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(s * .5),
       background: glass ? "linear-gradient(145deg,rgba(255,255,255,.8)," + tint + "25)" : tint + "33",
       border: "1px solid " + (on ? sk.pink : "rgba(255,255,255,.65)"),
       boxShadow: glass ? "inset 1px 2px 2px #fff, inset -1px -2px 3px rgba(136,125,173,.15), 0 1px 3px rgba(126,118,162,.12)" : "none" } },
-      glass ? h(CategoryGlyph, { emoji, name, size: s * .81 }) : emoji || "•");
+      h(CategoryGlyph, { emoji, name, icon, size: s * (glass ? .81 : .7) }));
   }
   // 一排格子（能量槽 / 电量格 / 状态条）：n 格里点亮 lit 格。点亮的格子带一点发光，没亮的是屏幕上淡淡的底格
   // 果冻符号（照第一张样张的视觉语法，不是现代高清 3D icon）：
@@ -806,7 +826,7 @@
         tab === "wallet" ? h(WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
           onMotto: () => requestAppPrompt("钱包上的那句话", "写一句给自己看的话，留空就用默认那句。", data.settings.motto || "", v => setSetting({ motto: String(v || "").trim().slice(0, 30) }), "好"),
           onToggleHide: () => setSetting({ hideBal: !data.settings.hideBal }) })) :
-        tab === "stats" ? h(CurView, Object.assign({}, common, { txns: data.txns, budget: (data.settings.budgets || {})[code] || 0, onSetBudget })) :
+        tab === "stats" ? h(CurView, Object.assign({}, common, { onOpenCat: (cat, kind, mk) => push({ k: "bills", cat, kind, mk }), txns: data.txns, budget: (data.settings.budgets || {})[code] || 0, onSetBudget })) :
         tab === "cal" ? h(CalView, common) :
         h(MeView, Object.assign({}, common, { characters: props.characters, onSettings: k => setShowSet(k), onEditBudget: editBudget, onSkin: id => setSetting({ skin: id }) }))),
       // 底栏：只吃 0.4 条安全区（mobile-ui-layout §2）；选中那格图标加粗、底下垫一块鼓起来的糖块
@@ -822,7 +842,7 @@
 
     const renderOverlay = top => {
       let over = null;
-    if (top && top.k === "bills") over = h(BillsView, Object.assign({}, common, { onBack: pop }));
+    if (top && top.k === "bills") over = h(BillsView, Object.assign({}, common, { onBack: pop, initCat: top.cat, initKind: top.kind, initMk: top.mk }));
     else if (top && top.k === "txn") {
       const txn = data.txns.find(x => x.id === top.id);
       over = txn ? h(TxnView, {
@@ -1072,13 +1092,15 @@
       list.length ? bay(kind === "income" ? "收入排行" : "支出排行",
         h("div", { style: Object.assign({ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }, sk.acrylic) },
           list.map(c => { const tint = catTint(settings, kind, c.name), meta = ((settings.cats || {})[kind] || []).find(x => x.name === c.name) || {};
-            return h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 10 } },
-              h(CatTile, { tint, emoji: meta.emoji || c.emoji, size: 30, sk }),
+            // 点一行就去账单，只看这一类（她 2026-09-28：统计和账单要连起来）
+            return h("button", { key: c.name, onClick: () => props.onOpenCat && props.onOpenCat(c.name, kind, mk), "data-ledger-rank": c.name, className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", gap: 10, minHeight: 44 } },
+              h(CatTile, { tint, emoji: meta.emoji || c.emoji, name: c.name, icon: meta.icon, size: 30, sk }),
               h("div", { style: { flex: 1, minWidth: 0 } },
                 h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12.5, color: sk.ink, marginBottom: 5 } },
                   h("span", { style: { fontWeight: 600 } }, c.name),
                   h("span", { style: numStyle(sk, 12) }, fmtMoney(c.amount, cur) + " " + Math.round(c.amount / (total || 1) * 100) + "%")),
-                h(Bar, { pct: c.amount / maxCat, color: tint, height: 6, sk }))); }))) : null,
+                h(Bar, { pct: c.amount / maxCat, color: tint, height: 6, sk })),
+              h("span", { style: { color: sk.fog, fontSize: 15 } }, "›")); }))) : null,
       // 近六个月：屏上的像素柱，一格一格往上垒
       bay("近六个月支出",
         h("div", { style: Object.assign({ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 12px 8px" }, sk.acrylic) },
@@ -1096,10 +1118,11 @@
   // ============================================================
   function BillsView(props) {
     const { sk, code, cur, data, settings } = props;
-    const [mk, setMk] = useState(thisMonthKey());
-    const [kind, setKind] = useState("all");
+    const [mk, setMk] = useState(props.initMk || thisMonthKey());
+    const [kind, setKind] = useState(props.initKind || "all");
+    const [catF, setCatF] = useState(props.initCat || "");   // 从统计排行点进来：只看这一类
     const [q, setQ] = useState(null);   // null＝没在搜；字符串＝在搜（搜的时候跨月）
-    const all = data.txns.filter(x => x.currency === code);
+    const all = data.txns.filter(x => x.currency === code && (!catF || x.category === catF));
     const kw = q == null ? "" : q.trim();
     const monthTxns = all.filter(x => (kw ? true : monthKey(x.date) === mk) && (kind === "all" || (kind === "income" ? x.type === "income" : x.type !== "income"))
       && (!kw || [x.note, x.category, String(x.amount)].some(v => String(v || "").indexOf(kw) >= 0)))
@@ -1107,6 +1130,9 @@
     return ledgerPage(sk, "账单", props.onBack,
       h("button", { onClick: () => setQ(q == null ? "" : null), "aria-label": "搜索账单", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: "search", size: 19, color: sk.ink })),
       h("div", { className: "px-5 pb-8 lg-bills" },
+        catF ? h("div", { "data-ledger-catfilter": catF, style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
+          h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.ink }, sk.card) },
+            h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
         q != null ? h("input", { autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic) })
           : h(MonthNav, { mk, setMk, sk }),
         h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
@@ -1199,11 +1225,11 @@
     const glass = sk.id === "glass";
     return h("button", { onClick: props.onClick, className: "w-full active:opacity-80 text-left", "data-ledger-strip": true,
       style: Object.assign({ padding: "10px 12px", display: "flex", alignItems: "center", gap: 11, minHeight: 58 }, sk.card, { borderRadius: 16 }) },
-      h(CatTile, { tint: catTint(settings, isInc ? "income" : "expense", txn.category), emoji: txn.catEmoji || (isInc ? "💰" : "🧾"), name: txn.category, size: 38, sk }),
+      h(CatTile, { tint: catTint(settings, isInc ? "income" : "expense", txn.category), emoji: txn.catEmoji, name: txn.category, icon: txn.catIcon || catIconOf(settings, isInc ? "income" : "expense", txn.category), size: 38, sk }),
       h("div", { style: { flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 500, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, txn.note || txn.category),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-          when + ((txn.comments || []).length ? " · 💬" + txn.comments.length : ""))),
+          when + ((txn.comments || []).length ? " · " + txn.comments.length + " 条批注" : ""))),
       h("div", { style: { textAlign: "right", flexShrink: 0 } },
         h("div", { style: numStyle(sk, 15.5, isInc ? sk.inc : sk.exp) }, (isInc ? "+ " : "- ") + fmtMoney(txn.amount, cur)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, txn.category)),
@@ -1231,7 +1257,7 @@
         h(Receipt, { sk, title: sk.id === "glass" ? "QIUQIU MART" : (isInc ? "进账小票" : "小票"), sub: sk.id === "glass" ? "GOOD LIFE EVERYDAY" : "生活也值得被记录", no: txn.id,
           foot: h(Fragment, null, h(Barcode, { seed: txn.id }), h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: "#8f8c98", letterSpacing: ".14em" } }, "记账让生活更清晰", sk.id === "glass" ? h("div", { style: { fontSize: 12, marginTop: 2 } }, "THANK YOU!") : null)) },
           line(txn.note || txn.category, (isInc ? "+" : "") + fmtMoney(txn.amount, cur), true),
-          line("分类", (txn.catEmoji ? txn.catEmoji + " " : "") + txn.category),
+          line("分类", txn.category),
           line("时间", txn.date + (tm && txn.date === (tm.getFullYear() + "-" + pad(tm.getMonth() + 1) + "-" + pad(tm.getDate())) ? " " + pad(tm.getHours()) + ":" + pad(tm.getMinutes()) : "")),
           line("币种", cur.label + " " + cur.code)),
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } },
@@ -1325,7 +1351,7 @@
     const [type, setType] = useState(edit ? edit.type : (props.initType === "income" ? "income" : "expense"));
     const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
     const [code, setCode] = useState(edit ? edit.currency : (props.initCode || (curs[0] ? curs[0].code : "CAD")));
-    const [cat, setCat] = useState(edit ? { name: edit.category, emoji: edit.catEmoji || "" } : null);
+    const [cat, setCat] = useState(edit ? { name: edit.category, emoji: edit.catEmoji || "", icon: edit.catIcon || catIconOf(props.settings, edit.type, edit.category) } : null);
     const [date, setDate] = useState(edit ? edit.date : todayStr());
     const [note, setNote] = useState(edit ? (edit.note || "") : "");
     const [dialog, setDialog] = useState(null); // {kind:'cur'|'cat'}
@@ -1333,7 +1359,7 @@
     const catList = (props.settings.cats[type] || []);
     const cur = curs.find(c => c.code === code) || curs[0];
 
-    const submitCat = vals => { const nc = { name: (vals.name || "").trim(), emoji: (vals.emoji || "").trim() }; if (!nc.name) return; props.onAddCat(type, nc); setCat(nc); setDialog(null); };
+    const submitCat = vals => { const nc = { name: (vals.name || "").trim(), emoji: "", icon: vals.icon || "" }; if (!nc.name) return; props.onAddCat(type, nc); setCat(nc); setDialog(null); };
     const submitCur = vals => {
       const codeIn = (vals.code || "").trim().toUpperCase(); const label = (vals.label || "").trim();
       if (!codeIn || !label) return;
@@ -1355,9 +1381,9 @@
     const save = () => {
       if (!canSave) return;
       if (edit) {
-        props.onSave({ date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, category: cat.name, catEmoji: cat.emoji || "", note: note.trim() });
+        props.onSave({ date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, category: cat.name, catEmoji: cat.emoji || "", catIcon: cat.icon || "", note: note.trim() });
       } else {
-        props.onSave({ id: "l" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), ts: Date.now(), date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, category: cat.name, catEmoji: cat.emoji || "", note: note.trim(), comments: [] });
+        props.onSave({ id: "l" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), ts: Date.now(), date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, category: cat.name, catEmoji: cat.emoji || "", catIcon: cat.icon || "", note: note.trim(), comments: [] });
       }
     };
     const glass = sk.id === "glass";
@@ -1375,7 +1401,7 @@
           h("div", { "data-ledger-catgrid": true, className: "lg-add-grid", style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 } },
             catList.map(c => { const on = cat && cat.name === c.name;
               return h("button", { key: c.name, onClick: () => setCat(c), "aria-pressed": !!on, className: "lg-add-category active:opacity-70 flex flex-col items-center", style: { gap: 5, padding: "4px 0" } },
-                h(CatTile, { tint: catTint(props.settings, type, c.name), emoji: c.emoji, name: c.name, size: 50, on, sk }),
+                h(CatTile, { tint: catTint(props.settings, type, c.name), emoji: c.emoji, name: c.name, icon: c.icon, size: 50, on, sk }),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, fontWeight: on ? 600 : 400, color: on ? sk.ink : sk.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" } }, c.name)); }),
             h("button", { onClick: () => setDialog({ kind: "cat" }), className: "lg-add-custom active:opacity-70 flex flex-col items-center", style: { gap: 5, padding: "4px 0" } },
               h("div", { style: Object.assign({ width: 50, height: 50, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: sk.fog }, sk.well) }, "＋"),
@@ -1395,15 +1421,15 @@
               h("input", { type: "date", value: date, onChange: e => e.target.value && setDate(e.target.value), "aria-label": "日期", style: { position: "absolute", inset: 0, opacity: 0, width: "100%" } })),
             curs.length > 1 ? chip(cur.label, () => { const i = curs.findIndex(c => c.code === code); setCode(curs[(i + 1) % curs.length].code); }) : null,
             chip("＋币种", () => setDialog({ kind: "cur" }), { color: sk.fog }),
-            cat ? chip((cat.emoji ? cat.emoji + " " : "") + cat.name, null, { color: sk.ink, fontWeight: 700 }) : null),
+            cat ? chip(h(Fragment, null, h(CategoryGlyph, { name: cat.name, emoji: cat.emoji, icon: cat.icon, size: 18 }), cat.name), null, { color: sk.ink, fontWeight: 700 }) : null),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.1fr", gap: 7 } },
             h("div", { style: { gridColumn: "1 / 4", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7 } },
               ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map(k => key(k, k)), key("del", "⌫")),
             h("button", { onClick: save, disabled: !canSave, "data-ledger-done": true, className: "lg-key", style: jellyKey(sk, canSave ? "pink" : "clear", false, { borderRadius: 16, fontFamily: F_BODY, fontSize: 16, fontWeight: 800, color: canSave ? "#9c2256" : sk.fog, opacity: canSave ? 1 : .7 }) }, edit ? "保存" : "完成")))),
-      dialog && dialog.kind === "cat" ? h(FieldDialog, { title: "新分类", submitLabel: "添加",
-        fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "emoji", label: "Emoji（可留空）", placeholder: "☕", maxLength: 4 }],
+      dialog && dialog.kind === "cat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新分类", submitLabel: "添加",
+        fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "icon", label: "图标", type: "icon" }],
         onSubmit: submitCat, onCancel: () => setDialog(null) }) : null,
-      dialog && dialog.kind === "cur" ? h(FieldDialog, { title: "新币种", submitLabel: "添加",
+      dialog && dialog.kind === "cur" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新币种", submitLabel: "添加",
         fields: [{ key: "label", label: "名称", placeholder: "如 日元", required: true }, { key: "code", label: "三字母代码", placeholder: "JPY", maxLength: 4, required: true }, { key: "symbol", label: "符号（可留空）", placeholder: "¥", maxLength: 3 }],
         onSubmit: submitCur, onCancel: () => setDialog(null) }) : null);
   }
@@ -1439,12 +1465,13 @@
     const submitAddCur = vals => { const code = (vals.code || "").trim().toUpperCase(), label = (vals.label || "").trim(); if (!code || !label) return; if (curs.some(c => c.code === code)) { setDialog(null); return; } props.onPersist(d => { d.settings.currencies = d.settings.currencies.concat([{ code, label, symbol: (vals.symbol || "").trim() || code }]); }); setDialog(null); };
 
     // 分类：改（name/emoji，并同步已有 txn 的分类名/emoji）、删
-    const editCat = c => setDialog({ kind: "editcat", old: c.name, name: c.name, emoji: c.emoji });
+    const editCat = c => setDialog({ kind: "editcat", old: c.name, name: c.name, emoji: c.emoji, icon: c.icon || "" });
     const submitEditCat = vals => {
-      const name = (vals.name || "").trim(), emoji = (vals.emoji || "").trim(); if (!name) return;
+      // 表单里已经没有 emoji 那一栏了：旧分类原来的 emoji 原样带着（只当画好的图认不出时的线索），图标换成挑的那一个
+      const name = (vals.name || "").trim(), emoji = dialog.emoji || "", icon = vals.icon || ""; if (!name) return;
       props.onPersist(d => {
-        d.settings.cats[catType] = d.settings.cats[catType].map(c => c.name === dialog.old ? { name, emoji } : c);
-        d.txns = d.txns.map(x => (x.type === catType && x.category === dialog.old) ? { ...x, category: name, catEmoji: emoji } : x);
+        d.settings.cats[catType] = d.settings.cats[catType].map(c => c.name === dialog.old ? { name, emoji, icon } : c);
+        d.txns = d.txns.map(x => (x.type === catType && x.category === dialog.old) ? { ...x, category: name, catEmoji: emoji, catIcon: icon } : x);
       });
       setDialog(null);
     };
@@ -1454,7 +1481,7 @@
       setConfirm({ title: "删掉分类「" + c.name + "」？", body: used ? "已经记过的账会保留原样，只是以后记账不再有这个分类。" : "以后记账不再出现这个分类。", onConfirm: () => { props.onPersist(d => { d.settings.cats[catType] = d.settings.cats[catType].filter(x => x.name !== c.name); }); setConfirm(null); } });
     };
     const addCat = () => setDialog({ kind: "addcat" });
-    const submitAddCat = vals => { const name = (vals.name || "").trim(); if (!name) return; if (cats.some(c => c.name === name)) { setDialog(null); return; } props.onPersist(d => { d.settings.cats[catType] = d.settings.cats[catType].concat([{ name, emoji: (vals.emoji || "").trim() }]); }); setDialog(null); };
+    const submitAddCat = vals => { const name = (vals.name || "").trim(); if (!name) return; if (cats.some(c => c.name === name)) { setDialog(null); return; } props.onPersist(d => { d.settings.cats[catType] = d.settings.cats[catType].concat([{ name, icon: vals.icon || "", emoji: (vals.emoji || "").trim() }]); }); setDialog(null); };
 
     const tabBtn = (k, label) => bookTab(tab === k, label, () => setTab(k), pageColor("ledger", "accent", ACCENT));
 
@@ -1493,7 +1520,7 @@
               ["expense", "income"].map(k => h("button", { key: k, onClick: () => setCatType(k), className: "flex-1 active:opacity-80",
                 style: { padding: "7px 0", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, border: "none", background: catType === k ? (k === "income" ? INC : EXP) : "transparent", color: catType === k ? "#fff" : t.sub } }, k === "income" ? "收入分类" : "支出分类"))),
             cats.map(c => h("div", { key: c.name, style: { ...rowStyle, marginBottom: 8 } },
-              h("span", { style: { fontSize: 19, width: 24, textAlign: "center" } }, c.emoji || "•"),
+              h("span", { style: { width: 28, display: "flex", justifyContent: "center" } }, h(CategoryGlyph, { name: c.name, emoji: c.emoji, icon: c.icon, size: 26 })),
               h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
               iconBtn(IPencil, () => editCat(c), t.sub), iconBtn(ITrash, () => delCat(c)))),
             h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加分类")) : null),
@@ -1503,10 +1530,10 @@
             style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
             tab === "visible" ? "保存" : "完成"))),
       // 弹窗们
-      dialog && dialog.kind === "addcur" ? h(FieldDialog, { title: "新币种", submitLabel: "添加", fields: [{ key: "label", label: "名称", placeholder: "如 日元", required: true }, { key: "code", label: "三字母代码", placeholder: "JPY", maxLength: 4, required: true }, { key: "symbol", label: "符号（可留空）", placeholder: "¥", maxLength: 3 }], onSubmit: submitAddCur, onCancel: () => setDialog(null) }) : null,
-      dialog && dialog.kind === "editcur" ? h(FieldDialog, { title: "改币种", submitLabel: "保存", fields: [{ key: "code", label: "代码（不可改）", value: dialog.code, locked: true }, { key: "label", label: "名称", value: dialog.label, required: true }, { key: "symbol", label: "符号", value: dialog.symbol, maxLength: 3 }], onSubmit: submitEditCur, onCancel: () => setDialog(null) }) : null,
-      dialog && dialog.kind === "addcat" ? h(FieldDialog, { title: "新分类", submitLabel: "添加", fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "emoji", label: "Emoji（可留空）", placeholder: "☕", maxLength: 4 }], onSubmit: submitAddCat, onCancel: () => setDialog(null) }) : null,
-      dialog && dialog.kind === "editcat" ? h(FieldDialog, { title: "改分类", submitLabel: "保存", fields: [{ key: "name", label: "名称", value: dialog.name, required: true }, { key: "emoji", label: "Emoji", value: dialog.emoji, maxLength: 4 }], onSubmit: submitEditCat, onCancel: () => setDialog(null) }) : null,
+      dialog && dialog.kind === "addcur" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新币种", submitLabel: "添加", fields: [{ key: "label", label: "名称", placeholder: "如 日元", required: true }, { key: "code", label: "三字母代码", placeholder: "JPY", maxLength: 4, required: true }, { key: "symbol", label: "符号（可留空）", placeholder: "¥", maxLength: 3 }], onSubmit: submitAddCur, onCancel: () => setDialog(null) }) : null,
+      dialog && dialog.kind === "editcur" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "改币种", submitLabel: "保存", fields: [{ key: "code", label: "代码（不可改）", value: dialog.code, locked: true }, { key: "label", label: "名称", value: dialog.label, required: true }, { key: "symbol", label: "符号", value: dialog.symbol, maxLength: 3 }], onSubmit: submitEditCur, onCancel: () => setDialog(null) }) : null,
+      dialog && dialog.kind === "addcat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新分类", submitLabel: "添加", fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "icon", label: "图标", type: "icon" }], onSubmit: submitAddCat, onCancel: () => setDialog(null) }) : null,
+      dialog && dialog.kind === "editcat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "改分类", submitLabel: "保存", fields: [{ key: "name", label: "名称", value: dialog.name, required: true }, { key: "icon", label: "图标", type: "icon", value: dialog.icon }], onSubmit: submitEditCat, onCancel: () => setDialog(null) }) : null,
       confirm ? h(ConfirmDialog, { title: confirm.title, body: confirm.body, confirmLabel: "删掉", danger: true, onConfirm: confirm.onConfirm, onCancel: () => setConfirm(null) }) : null);
   }
 
