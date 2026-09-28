@@ -1,0 +1,21 @@
+// OOC 改旧准则：模型点名序号 → 按原文删掉旧条，不再无限叠加（群里报 2026-09-28）
+const fs = require("fs"), assert = require("assert"), vm = require("vm");
+const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const a = eng.indexOf("const OOC_REPLACE_RULE"), b = eng.indexOf("async function oocAsk(");
+const sb = {}; vm.runInNewContext(eng.slice(a, b) + ";this.oocResult=oocResult;", sb);
+const ex = ["少用敬语", "多主动关心"];
+let r = sb.oocResult({ reply: "好", directive: "偶尔用敬语", replaces: [1] }, ex);
+assert.deepStrictEqual([...r.replaced], ["少用敬语"]);
+r = sb.oocResult({ reply: "好", directive: null, replaces: 2 }, ex);
+assert.deepStrictEqual([...r.replaced], ["多主动关心"]);
+r = sb.oocResult({ reply: "不行", directive: null, replaces: [1], refused: true }, ex);
+assert.strictEqual(r.replaced.length, 0, "拒绝时不删");
+r = sb.oocResult({ reply: "好", directive: "x", replaces: [9] }, ex);
+assert.strictEqual(r.replaced.length, 0, "越界序号忽略");
+assert.strictEqual((eng.match(/" \+ OOC_REPLACE_RULE \+ "/g) || []).length, 2, "单聊和群 OOC 都讲了怎么换");
+assert.strictEqual((eng.match(/\\"replaces\\":\[/g) || []).length, 2);
+assert.strictEqual((app.match(/addDirective\((charId|groupId|chatKey), res\.directive, res\.replaced\)/g) || []).length, 4, "四处 OOC 都会删旧条");
+assert.strictEqual((app.match(/res\.reply \+ oocReplacedNote\(res\)/g) || []).length, 4, "四处都告诉她换掉了哪条");
+assert.ok(/const list = \(p\[id\] \|\| \[\]\)\.filter\(d => !drop\.has/.test(app));
+console.log("ooc-replace-directive ok");

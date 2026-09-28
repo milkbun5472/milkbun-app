@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.212";
+const APP_VERSION = "v74.216";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3249,12 +3249,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {}
   };
   // 用户经 OOC 立下的长期行为准则
-  const addDirective = (id, text) => {
+  const oocReplacedNote = res => (!res || res.refused || !(res.replaced || []).length) ? "" : "\n\n〔" + (res.directive ? "换掉了旧的：" : "已取消：") + res.replaced.join("；") + "〕";
+  // replaced：OOC 点名要换掉/取消的旧准则原文（engine.js oocResult）——先删它们，再补新的
+  const addDirective = (id, text, replaced) => {
     const t = (text || "").trim();
-    if (!t) return;
+    const drop = new Set((replaced || []).map(x => String(x).trim()).filter(Boolean));
+    if (!t && !drop.size) return;
     setDirectives(p => {
-      const list = p[id] || [];
-      if (list.some(d => d.text === t)) return p; // 完全相同不重复
+      const list = (p[id] || []).filter(d => !drop.has(String(d.text || "").trim()));
+      if (!t) { const n = { ...p, [id]: list }; saveJSON("x_directives", n); return n; }
+      if (list.some(d => d.text === t)) { if (list.length === (p[id] || []).length) return p; const n = { ...p, [id]: list }; saveJSON("x_directives", n); return n; } // 完全相同不重复
       const n = { ...p, [id]: [...list, { id: "dir_" + Date.now(), text: t, ts: Date.now() }] };
       saveJSON("x_directives", n);
       return n;
@@ -7539,8 +7543,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   （施工规则/four-surfaces-same-context：一层规则在八处都要接上，漏的那处要写明理由）。
       const oocRoom = offlineRoomFor(scopeKey);
       const res = await oocAsk(offlineApiFor(charId), roomContextFor(char, scopeKey, oocRoom, {}), q);
-      if (!sideRoom && res.directive && !res.refused) addDirective(charId, res.directive);
-      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
+      if (!sideRoom && !res.refused && (res.directive || (res.replaced || []).length)) addDirective(charId, res.directive, res.replaced);
+      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + oocReplacedNote(res) + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -8286,8 +8290,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
       const res = await oocAskGroup(offlineActive, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
-      if (res.directive && !res.refused) addDirective(groupId, res.directive);
-      pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
+      if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced);
+      pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -10992,11 +10996,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (oocLines) oocCtx.recentChat = (oocCtx.recentChat ? oocCtx.recentChat + "\n\n" : "") + "【最近的 OOC 幕后对话（用户越过角色和你这个助手聊的——角色本人不知道这些，别当成他俩的对话）】\n" + oocLines;
       const res = await oocAsk(apiFor(charId), oocCtx, text.trim());
       // 合理的调整要求 → 存成长期准则（refused 时不存）
-      if (res.directive && !res.refused) addDirective(chatKey, res.directive);
+      if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(chatKey, res.directive, res.replaced);
       pChat(chatKey, p => [...p, {
         role: "assistant",
         kind: "system",
-        content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
+        content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
         ts: Date.now(),
         turnId: "ooc_" + Date.now()
       }]);
@@ -12178,8 +12182,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
       const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
-      if (res.directive && !res.refused) addDirective(groupId, res.directive); // 群准则复用 directives[groupId]，注入 replyGroup
-      pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
+      if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced); // 群准则复用 directives[groupId]，注入 replyGroup
+      pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
