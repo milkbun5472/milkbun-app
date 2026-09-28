@@ -7844,24 +7844,31 @@ function MomentsFeed({
     }
   }, c.name))))));
 }
-// 朋友圈里只有描述、还没画的那张图：点开的描述下面给一个「生图」（她 2026-09-28，prompt＝描述本身）
-function MomentGenImageButton({ momentId, onDone }) {
+// 只有描述、还没画的那张图：点开的描述下面给一个「生图」（她 2026-09-28，prompt＝描述本身）。
+// 朋友圈、贴吧共用这一个键；run 返回 true＝画好了。
+function DescGenImageButton({ run, onDone, mark }) {
   const t = useTheme();
   const [busy, setBusy] = useState(false);
-  if (!momentId || typeof window.momentGenImage !== "function") return null;
-  return h("button", { "data-moment-gen-img": momentId, disabled: busy, onClick: async () => {
+  if (typeof run !== "function") return null;
+  return h("button", { "data-desc-gen-img": mark || "", disabled: busy, onClick: async () => {
     setBusy(true);
-    const ok = await window.momentGenImage(momentId).catch(() => false);
+    const ok = await Promise.resolve().then(run).catch(() => false);
     setBusy(false);
     if (ok && onDone) onDone();
   }, className: "active:opacity-70", style: { marginTop: 14, width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: busy ? t.fog : t.ink, fontFamily: F_BODY, fontSize: 13 } }, busy ? "正在画…" : "用这段描述生图");
 }
-// 朋友圈顶上的开关：角色发朋友圈时要不要顺手把配图画出来（x_momentAutoImg，默认关）
-function MomentAutoImgSwitch() {
-  const t = useTheme();
-  const [on, setOn] = useState(() => !!loadJSON("x_momentAutoImg", false));
-  return h("button", { "data-moment-auto-img": on ? "on" : "off", onClick: () => { const n = !on; setOn(n); saveJSON("x_momentAutoImg", n); }, className: "flex items-center gap-1.5", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: on ? t.ink : t.fog } }, h(PGlyph, { k: "album", size: 13, color: on ? t.ink : t.fog }), on ? " 自动配图·开" : " 自动配图·关");
+function MomentGenImageButton({ momentId, onDone }) {
+  if (!momentId || typeof window.momentGenImage !== "function") return null;
+  return h(DescGenImageButton, { mark: momentId, onDone, run: () => window.momentGenImage(momentId) });
 }
+// 顶上的开关：角色发的时候要不要顺手把配图画出来（默认关）。朋友圈 x_momentAutoImg、贴吧 x_forumAutoImg。
+function AutoImgSwitch({ storeKey, color }) {
+  const t = useTheme();
+  const [on, setOn] = useState(() => !!loadJSON(storeKey, false));
+  const c = color || (on ? t.ink : t.fog);
+  return h("button", { "data-auto-img": storeKey + ":" + (on ? "on" : "off"), onClick: () => { const n = !on; setOn(n); saveJSON(storeKey, n); }, className: "flex items-center gap-1.5", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: on ? t.ink : t.fog } }, h(PGlyph, { k: "album", size: 13, color: on ? t.ink : t.fog }), on ? " 自动配图·开" : " 自动配图·关");
+}
+function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
 function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const t = useTheme();
@@ -8122,7 +8129,7 @@ function photoAttachValue(v) {
 // 点开之后那一层：大图／整段描述，真有像素时还能存进手机相册。
 // ⚠️存图走的是公共那一条 window.saveImgOriginal（engine.js）——查手机那边早就在用它，
 //   别在这儿再写一条下载逻辑。
-function PhotoSheet({ m, onClose, toast }) {
+function PhotoSheet({ m, onClose, toast, onGen }) {
   const t = useTheme();
   const cap = photoCaption(m);
   return h(Sheet, { onClose: onClose, tall: true },
@@ -8138,7 +8145,8 @@ function PhotoSheet({ m, onClose, toast }) {
             style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"))
       : h("div", null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）")));
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）"),
+          onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null));
 }
 function RoomWorldBanner({ onEnter }) {
   const t = useTheme();

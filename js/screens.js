@@ -2278,7 +2278,7 @@ function Forum({
   const [rPhoto, setRPhoto] = useState(null);
   const [rPhotoOn, setRPhotoOn] = useState(false);
   const [photoView, setPhotoView] = useState(null);
-  const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView(ph) })) : null; };
+  const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView({ ...ph, itemId: x.id }) })) : null; };
   const [replyTo, setReplyTo] = useState(null);
   const [pmClean, setPmClean] = useState(false);   // 私信列表的「清理」档      // {floorId,name} 楼中楼目标
   const [liked, setLiked] = useState(() => {
@@ -3017,7 +3017,9 @@ function Forum({
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: FORUM_SKIN.ink } }, x[0]),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))),
+        // 角色发帖带配图时要不要顺手画出来（她 2026-09-28，跟朋友圈那个是同一个开关件）
+        h("div", { style: { padding: "0 11px", borderTop: "1px solid " + FORUM_SKIN.line } }, h(AutoImgSwitch, { storeKey: "x_forumAutoImg" })))),
     // 悬浮发帖按钮（主页/搜索）
     (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
     // 转发 picker
@@ -3028,7 +3030,7 @@ function Forum({
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "群聊"),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
-    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast }),
+    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null }),
     composer && h(Sheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, "发帖"),
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),

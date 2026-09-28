@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.221";
+const APP_VERSION = "v74.226";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17217,6 +17217,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
   // 人不在画面里的走空景稿、不喂参考照；画人才走人像稿 + 参考照——跟私聊拍照同一条路。
+  // 按一段画面描述画一张图，返回存进本机的 iv_ 引用（朋友圈、贴吧共用这一份）。
+  // char 缺省（NPC、匿名号发的帖）＝一律画空景，不画人。
+  const drawFromDesc = async (char, desc) => {
+    const who = char || { name: "", persona: "" };
+    const kind = noFaceKindFor(desc, who.name);
+    const noFace = !char || !!kind || !(char.appearance || char.refPhoto);
+    const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
+      : noFace ? buildScenePrompt(who, desc, { forText: false })
+      : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
+    const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
+    const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
+    let ref = null;
+    if (out && out.blob) ref = await imgToVault(await blobToDataUrl(out.blob));
+    else if (out && out.url) { const b = await fetch(out.url).then(r => r.blob()).catch(() => null); if (b && b.size) ref = await imgToVault(await blobToDataUrl(b)); }
+    if (!ref) throw new Error("没拿到图");
+    if (!isImgRef(ref)) throw new Error("图没能存进本机");
+    return ref;
+  };
+  // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
   const momentGenImage = async (momentId, quiet) => {
     const mom = (momentsRef.current || []).find(m => m && m.id === momentId);
     if (!mom || !mom.image || isImgRef(mom.image)) return false;
@@ -17225,18 +17244,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
     const desc = String(mom.image);
     try {
-      const kind = noFaceKindFor(desc, char.name);
-      const noFace = !!kind || !(char.appearance || char.refPhoto);
-      const prompt = kind === "part" ? buildScenePrompt(char, desc, { body: true })
-        : noFace ? buildScenePrompt(char, desc, { forText: false })
-        : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
-      const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
-      let ref = null;
-      if (out && out.blob) ref = await imgToVault(await blobToDataUrl(out.blob));
-      else if (out && out.url) { const b = await fetch(out.url).then(r => r.blob()).catch(() => null); if (b && b.size) ref = await imgToVault(await blobToDataUrl(b)); }
-      if (!ref) throw new Error("没拿到图");
-      if (!isImgRef(ref)) throw new Error("图没能存进本机");
+      const ref = await drawFromDesc(char, desc);
       pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
       return true;
     } catch (e) {
@@ -17244,6 +17252,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     }
   };
+  // 贴吧配图（她 2026-09-28：跟朋友圈一样有开关、只有描述的那张点开能生）。
+  // itemId 是帖子 id 或楼层 id；成图挂进 photo.imageRef，描述原样留在 photo.desc。
+  const forumGenImage = async (itemId, quiet) => {
+    if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
+    const post = (forumPostsRef.current || []).find(p => p && p.id === itemId);
+    let floorOf = null, floor = null;
+    if (!post) {
+      const all = forumCommentsRef.current || {};
+      for (const pid of Object.keys(all)) { const f = (all[pid] || []).find(x => x && x.id === itemId); if (f) { floorOf = pid; floor = f; break; } }
+    }
+    const x = post || floor;
+    const ph = x && forumPhotoOf(x);
+    if (!ph || ph.imageRef || !ph.desc) return false;
+    const char = characters.find(c => c.id === x.authorId && !x.anon);
+    try {
+      const ref = await drawFromDesc(char || null, ph.desc);
+      const photo = { imageRef: ref, desc: ph.desc };
+      if (post) setForumPosts(prev => { const n = prev.map(p => p.id === itemId ? { ...p, photo } : p); saveJSON("x_forumPosts", n); return n; });
+      else setForumComments(prev => { const n = { ...prev, [floorOf]: (prev[floorOf] || []).map(f => f.id === itemId ? { ...f, photo } : f) }; saveForumComments(n); return n; });
+      return true;
+    } catch (e) {
+      if (!quiet) toast("贴吧配图没生成：" + String(e && e.message || "重试").slice(0, 120));
+      return false;
+    }
+  };
+  window.forumGenImage = forumGenImage;
   window.momentGenImage = momentGenImage;
   const likeMoment = id => pMom(p => p.map(m => m.id === id ? {
     ...m,
@@ -18330,6 +18364,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
+    // 开关在贴吧顶上（x_forumAutoImg，默认关）：开着就顺手把这张配图画出来
+    if (rec.photo && !rec.photo.imageRef && loadJSON("x_forumAutoImg", false) && imgApiReady()) setTimeout(() => forumGenImage(rec.id), 60);
     return rec;
   };
   // 手动让某角色发一条帖（版块可选，默认按内容让 AI 自己归吧）
