@@ -950,6 +950,10 @@ function App() {
   viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
   const [editingChar, setEditingChar] = useState(null);
   const [selSched, setSelSched] = useState(null);
+  // 从聊天／线下点进日历的时候记下来处，退出日历就回到那儿（她 2026-09-29 转群里读者：
+  // 「线下看了日历的行程直接一退就退回到主页了吗？是不能直接退回到线下页面吗？」）。
+  // 没有来处（从主屏点进来的）才回主屏。
+  const calReturnRef = useRef(null);
   const [selPhone, setSelPhone] = useState(null);
   const [busyLanes, setBusyLanes] = useState({});
   const busyLanesRef = useRef({});
@@ -8391,7 +8395,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("已补记入记忆库");
     }
   };
+  // 退出日历：有来处就回来处，没有才回主屏。日历顶栏的返回和侧滑返回都走这一个。
+  const leaveCalendar = () => {
+    const r = calReturnRef.current;
+    calReturnRef.current = null;
+    setSelSched(null);
+    if (!r) { goHome(); return; }
+    setScreen(r.screen || "thread");
+    if (r.offlineChar) openOffline(r.offlineChar, window.ChatRooms && r.roomId && r.roomId !== "main" ? window.ChatRooms.get(r.offlineChar.id, r.roomId) : null);
+  };
   const goHome = () => {
+    calReturnRef.current = null;
     setScreen("home");
     setActiveChar(null);
     setActiveGroup(null);
@@ -8407,6 +8421,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (stateCardOpen) { setStateCardOpen(false); return true; }
     if (offlineChar || offlineGroup) { setOfflineChar(null); setOfflineGroup(null); return true; }
     if (editingChar) { setEditingChar(null); return true; }
+    if (screen === "calendar" && calReturnRef.current) { leaveCalendar(); return true; }
     if (screen && screen !== "home") { goHome(); return true; }
     return false;   // 已经在主屏了：交回给 BackGuard，再滑一次才真退出
   };
@@ -23609,7 +23624,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
-    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
+    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
@@ -25065,7 +25080,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     period: period,
     busy: !!gen.calendar,
     genWeekBusy: !!(gen.sched && String(gen.sched).indexOf("|week") > 0),
-    onBack: goHome,
+    onBack: leaveCalendar,
     onSaveEvent: saveCalEvent,
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
@@ -25717,7 +25732,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenState: () => { setStateCardRoomKey(offlineIsRoom(activeOfflineScopeKey) ? activeOfflineScopeKey : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? schedNowBriefFor(offlineChar) : null,
     onOpenStyleLab: goStyleLab,
-    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
+    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { calReturnRef.current = { screen: screen, offlineChar: offlineChar, roomId: offlineRoomId }; setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
   }), offlineGroup && h(GroupOfflineMode, {
     showReason: (offlineGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: offlineGroup,
