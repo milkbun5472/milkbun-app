@@ -8287,9 +8287,19 @@ function geoNow() {
 // near=[lat,lng] 时就近加权：同名的先出你附近那个，但不封死。
 function geoSearch(q, near, signal) {
   const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
-  return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
+  const nom = () => fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
     .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
     .then(list => (list || []).map(x => ({ name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) })));
+  // 备用那一家（2026-09-28 别人报「在地图里面搜地名一点反应都没有」）：OSM 那边在国内经常连不上或者慢到像没反应。
+  //   天气本来就是 open-meteo 给的，它家也有按地名查坐标，国内一般连得上——第一家失败或者查空了就问它。
+  const om = () => fetch("https://geocoding-api.open-meteo.com/v1/search?count=6&language=zh&format=json&name=" + encodeURIComponent(q), { signal: signal })
+    .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
+    .then(d => ((d && d.results) || []).map(x => { const tail = [x.admin1, x.country].filter(Boolean).join(", "); return { name: x.name + (x.admin1 ? "," + x.admin1 : ""), full: x.name + (tail ? ", " + tail : ""), lat: Number(x.latitude), lng: Number(x.longitude) }; }));
+  // 第一家最多等 6 秒：卡住不回的时候她看到的就是「一点反应都没有」
+  const slow = new Promise((_, rej) => setTimeout(() => rej(new Error("search_timeout")), 6000));
+  return Promise.race([nom(), slow])
+    .then(list => list.length ? list : om())
+    .catch(e => { if (signal && signal.aborted) throw e; return om(); });
 }
 // 手填一个地名 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
 async function geoFromPlace(q, near) {
