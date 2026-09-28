@@ -519,9 +519,9 @@
   const JELLY_CSS = `
 .lg-key{-webkit-tap-highlight-color:transparent}
 .lg-gloss{position:relative;overflow:hidden;isolation:isolate}
-.lg-gloss::before{content:"";position:absolute;left:12%;right:12%;top:4px;height:40%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.35) 60%,rgba(255,255,255,0));pointer-events:none;z-index:1}
+.lg-gloss::before{content:"";position:absolute;left:4%;right:4%;top:1px;height:54%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.95) 0%,rgba(255,255,255,.7) 42%,rgba(255,255,255,.18) 66%,rgba(255,255,255,0) 72%);pointer-events:none;z-index:1}
 .lg-gloss>*{position:relative;z-index:2}
-.lg-gloss-soft::before{height:36%;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,0))}
+.lg-gloss-soft::before{height:48%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.8) 0%,rgba(255,255,255,.45) 45%,rgba(255,255,255,0) 70%)}
 .lg-iris{box-shadow:-5px -4px 14px rgba(255,186,226,.42),5px 6px 16px rgba(166,208,255,.45),inset 0 1px 0 rgba(255,255,255,.85),inset 3px 4px 8px rgba(255,255,255,.5),inset -4px -6px 12px rgba(150,138,228,.16)!important}
 .lg-hand{font-family:'Dancing Script','Bradley Hand','Snell Roundhand','Segoe Script',cursive}
 .lg-hand-zh{font-family:'Dancing Script','Kaiti SC','STKaiti','KaiTi',cursive}
@@ -550,7 +550,7 @@
 .lg-reference .lg-segment button[aria-pressed=true]{background:linear-gradient(180deg,#fff9,#f2d0e3aa 48%,#eebdd675)!important;border:0!important;box-shadow:inset 0 2px 3px #fff,inset 0 -2px 4px #f0bfd8,0 2px 6px #d890b740!important}
 .lg-reference .lg-add-grid{gap:11px!important;align-content:start}
 .lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:0;box-shadow:inset 0 8px 12px -10px rgba(255,255,255,.85),0 4px 14px rgba(122,118,200,.08);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
-.lg-reference .lg-add-category[aria-pressed=true]::before{content:"";position:absolute;left:12%;right:12%;top:4px;height:38%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0));pointer-events:none}
+.lg-reference .lg-add-category[aria-pressed=true]::before{content:"";position:absolute;left:4%;right:4%;top:1px;height:52%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.9) 0%,rgba(255,255,255,.6) 42%,rgba(255,255,255,0) 70%);pointer-events:none}
 .lg-reference .lg-add-category{position:relative;overflow:hidden}
 .lg-reference .lg-add-category[aria-pressed=true]{background:linear-gradient(135deg,#f9e5eecc,#f1d0e580);box-shadow:inset 0 8px 12px -10px #fff,inset 0 -3px 6px #db9ab440,0 4px 12px #d890b740}
 .lg-reference .lg-add-category .lg-cattile{background:transparent!important;border:0!important;box-shadow:none!important;width:43px!important;height:43px!important}
