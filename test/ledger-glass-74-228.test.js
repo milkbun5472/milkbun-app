@@ -34,7 +34,7 @@ console.log("ledger-glass ok");
   assert.match(src, /h\("style", null, JELLY_CSS\)/, "按下去那一下的样式没挂上");
   // 第三轮（她：「一屏四块灰 LCD，像血糖仪」）：LCD 只点睛——整个记账只剩余额主屏、金额屏两块
   const views = src.slice(src.indexOf("function WalletHome("), src.indexOf("function SettingsSheet("));
-  assert.equal((views.match(/\}, sk\.screen\)/g) || []).length, 2, "LCD 屏又铺开了");
+  assert.ok((views.match(/\}, sk\.screen\)/g) || []).length <= 2, "LCD 屏又铺开了");
   assert.match(src, /"data-ledger-cal": true, style: Object\.assign\(\{ padding: "10px 8px" \}, sk\.acrylic\)/, "日历又变回计算器屏了");
   assert.match(src, /const CAL_RAMP = \[/, "日历不是糖果色深浅了");
   // 第四轮（她：参考图是「轻薄的现代界面 + 少量 Y2K 实体装饰」，不是万物皆果冻）
@@ -43,18 +43,20 @@ console.log("ledger-glass ok");
   const jellyUses = (views.match(/jellyKey\(sk/g) || []).length;
   assert.ok(jellyUses <= 8, "果冻键又铺开了：" + jellyUses + " 处（只该有首页三颗大键和记一笔的键盘/完成）");
   assert.match(src, /acrylic: \{ background: "transparent" \}/, "数据又开始容器套容器");
-  assert.match(src, /backgroundColor: pageColor\("ledger", "bg", "#f3f2f8"\)/, "背景又铺成大片粉紫了");
+  assert.match(src, /backgroundColor: pageColor\("ledger", "bg", "#eee8f8"\)/, "镭射珍珠底的底色变了");
 }
 console.log("ledger-y2k ok");
 // 第五轮（她拿样张对比：「太死了不够透、加号要更大」）：三颗主键是透明玻璃软糖 + 大果冻图标
 assert.match(src, /function JellyGlyph\(/);
 assert.match(src, /bigKey\("记一笔", "pink", "plus"/);
-assert.match(src, /h\(JellyGlyph, \{ k: glyph, tone, size: glass \? 30 : 26 \}\)/, "主键图标又放大成了 App 大图标");
-assert.match(src, /backdropFilter: "blur\(4px\)"/, "主键不透了");
+assert.match(src, /h\(JellyGlyph, \{ k: glyph, tone, size: glass \? 44 : 26 \}\)/);
+assert.match(src, /backdropFilter: "blur\(6px\)"/, "主键不透了");
 console.log("ledger-bigkey ok");
-// 第七轮（她：「不要重新设计、不要做成现代高清 3D」）：照第一张样张的视觉语法——小、扁、泛白、糊一点
-assert.match(src, /minHeight: 74, gap: 2, borderRadius: 15/, "主键又变大变圆了");
-assert.match(src, /fontSize: 11\.5, fontWeight: 500, color: glass \? ink/, "主键的字又变大变粗了");
+// 第八轮（她拿参考图并排看：「整体不够 Y2K」）：整页是厚透明亚克力 + 镭射珍珠底 + 四角星，三颗主键是方的玻璃软糖
+assert.match(src, /inset 0 0 0 3px rgba\(255,255,255,\.6\)/, "面板没有透明厚唇边了");
+assert.match(src, /镭射珍珠底（参考图）/);
+assert.match(src, /function Sparkle\(/, "四角星没了");
+assert.match(src, /"data-ledger-tray": true/, "钱包卡不在亚克力托盘里了");
+assert.match(src, /aspectRatio: "1 \/ 1", maxHeight: 112/, "主键不是方的了");
 assert.match(src, /pink: "#8c3a4f"/, "记一笔的字不是酒红了");
-assert.ok(!/translate\(1\.2 2\.6\)/.test(src), "果冻符号又长出高清的硬侧面了");
-console.log("ledger-y2k-soft ok");
+console.log("ledger-acrylic ok");

@@ -419,17 +419,23 @@
     }
     const ink = pageColor("ledger", "ink", "#383552");
     // 普通内容卡片：很薄的乳白透明底 + 一道细白边 + 一点点影子，不凸、不双描边（她第四轮：75% 恢复轻薄平面）
+    // 厚透明亚克力（她拿参考图并排看：整页每一块都嵌在一圈清楚的透明厚边里）：
+    //   外面一道淡紫细轮廓 → 一条亮白的厚唇边（inset 白环）→ 里面半透明的面，上沿亮、下沿压一点紫色内影，底下落一片淡影
     const shell = {
-      background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.95)", borderRadius: 18,
-      boxShadow: "0 1px 2px rgba(120,110,180,.05), 0 6px 16px rgba(120,110,180,.06)",
-      backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)"
+      background: "linear-gradient(170deg, rgba(255,255,255,.62), rgba(255,255,255,.38))",
+      border: "1px solid rgba(175,160,225,.45)", borderRadius: 20,
+      boxShadow: "inset 0 0 0 3px rgba(255,255,255,.6), inset 0 0 0 4px rgba(190,175,235,.28), inset 0 5px 8px rgba(255,255,255,.75), inset 0 -6px 12px rgba(170,150,230,.16), 0 6px 16px rgba(140,120,200,.16)",
+      backdropFilter: "blur(12px) saturate(1.2)", WebkitBackdropFilter: "blur(12px) saturate(1.2)"
     };
     return {
       id,
       page: {
-        backgroundColor: pageColor("ledger", "bg", "#f3f2f8"),
-        // 珍珠底：很淡的粉蓝紫在四角晕开，中间几乎是白
-        backgroundImage: "radial-gradient(55% 35% at 10% 0%, rgba(250,222,238,.7), transparent 70%), radial-gradient(55% 35% at 95% 15%, rgba(214,228,255,.65), transparent 70%), radial-gradient(60% 40% at 50% 100%, rgba(232,220,255,.6), transparent 70%)"
+        backgroundColor: pageColor("ledger", "bg", "#eee8f8"),
+        // 镭射珍珠底（参考图）：粉、紫、蓝一起晕开，再斜着压一道彩虹镭射光
+        backgroundImage: "linear-gradient(118deg, rgba(255,255,255,0) 30%, rgba(255,240,250,.55) 40%, rgba(225,240,255,.5) 48%, rgba(255,255,255,0) 58%)," +
+          "radial-gradient(60% 38% at 8% 4%, rgba(248,205,228,.85), transparent 70%), radial-gradient(55% 35% at 96% 18%, rgba(200,218,252,.85), transparent 70%)," +
+          "radial-gradient(60% 40% at 20% 62%, rgba(226,208,250,.8), transparent 72%), radial-gradient(60% 40% at 90% 88%, rgba(250,214,236,.75), transparent 72%)",
+        backgroundAttachment: "scroll"
       },
       ink, sub: pageColor("ledger", "sub", "#646180"), fog: pageColor("ledger", "fog", "#9d9ab4"),
       line: pageColor("ledger", "line", "rgba(140,135,190,.2)"), accent: pageColor("ledger", "accent", "#8a74dc"), pink: pageColor("ledger", "tint", "#ec84ab"),
@@ -441,23 +447,22 @@
       // 数据不再「容器套容器」：亚克力就是没有容器
       acrylic: { background: "transparent" },
       // 切换开关的底槽：一条很淡的乳白
-      well: { background: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.9)", borderRadius: 14 },
+      well: { background: "rgba(255,255,255,.45)", border: "1px solid rgba(175,160,225,.4)", borderRadius: 14, boxShadow: "inset 0 0 0 2px rgba(255,255,255,.55), inset 0 2px 4px rgba(170,150,230,.14)" },
       lcd: LCD_INK, lcdDim: LCD_DIM,
       num: F_BODY, digit: F_BODY,
-      tabBar: { background: "rgba(255,255,255,.6)", borderTop: "1px solid rgba(255,255,255,.95)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
+      tabBar: { background: "linear-gradient(180deg, rgba(255,255,255,.55), rgba(245,240,255,.7))", borderTop: "1px solid rgba(175,160,225,.4)", boxShadow: "inset 0 3px 0 rgba(255,255,255,.6), inset 0 4px 0 rgba(190,175,235,.2)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
     };
   }
   // 果冻键：透明外壳 + 上半一团浅色芯 + 底下一道硬影（凸起）。pressed＝已经被按下去的那颗（选中态）
   function jellyKey(sk, tone, pressed, extra) {
     if (sk.id !== "glass") return Object.assign({ background: pressed ? "#fff" : "rgba(255,255,255,.6)", border: "1px solid " + sk.line, borderRadius: 14, color: sk.ink }, extra || {});
-    const [a, b] = JELLY[tone] || JELLY.clear;
+    const [a, b] = JELLY[tone] || JELLY.clear, clear = tone === "clear";
+    // 一颗玻璃软糖键：半透明的面（带色的键里透出颜色）、厚白唇边、上沿高光、底下一点同色厚度
     return Object.assign({
-      borderRadius: 16, color: sk.ink, border: "1px solid rgba(255,255,255,.9)",
-      background: "radial-gradient(90% 55% at 50% 16%, rgba(255,255,255,.96) 0 30%, rgba(255,255,255,0) 72%), linear-gradient(180deg, " + a + "d9, " + b + "e0)",
-      boxShadow: pressed
-        ? "inset 0 3px 7px " + b + "b3, inset 0 0 0 1px rgba(255,255,255,.55), 0 1px 0 rgba(255,255,255,.9)"
-        : "inset 0 -3px 6px " + b + "cc, inset 0 2px 2px rgba(255,255,255,.95), 0 4px 0 " + b + "66, 0 8px 14px " + b + "40",
-      transform: pressed ? "translateY(3px)" : "none", transition: "transform .08s, box-shadow .08s"
+      borderRadius: 14, color: sk.ink, border: "1px solid " + (clear ? "rgba(175,160,225,.45)" : b + "80"),
+      background: "radial-gradient(80% 50% at 40% 12%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%), linear-gradient(170deg, " + (clear ? "rgba(255,255,255,.75), rgba(240,236,252,.6)" : a + "cc, " + b + "b3") + ")",
+      boxShadow: (pressed ? "inset 0 2px 6px " + b + "80, " : "") + "inset 0 0 0 2px rgba(255,255,255,.55), inset 0 -3px 6px " + b + "4d, 0 3px 0 " + b + "40, 0 5px 10px " + b + "33",
+      transform: pressed ? "translateY(2px)" : "none", transition: "transform .08s, box-shadow .08s"
     }, extra || {});
   }
   // 平的小键（月份箭头、搜索、眼睛）：没有外壳，只有按下去那一下变淡
@@ -484,10 +489,14 @@
   // 分类图标：一块半透明彩色塑料小方块，上半一抹高光，符号嵌在里面
   function CatTile({ tint, emoji, size, on, sk }) {
     const s = size || 40, glass = sk.id === "glass";
-    return h("div", { style: { width: s, height: s, borderRadius: Math.round(s * .3), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(s * .5), position: "relative",
-      background: glass ? "radial-gradient(80% 50% at 50% 12%, rgba(255,255,255,.9) 0 30%, rgba(255,255,255,0) 70%), linear-gradient(160deg, " + tint + "70, " + tint + "c0)" : tint + "33",
-      border: on ? "2px solid " + sk.pink : (glass ? "1px solid rgba(255,255,255,.9)" : "1px solid " + sk.line),
-      boxShadow: glass ? (on ? "0 0 0 3px " + sk.pink + "40, inset 0 -2px 4px " + tint : "inset 0 -2px 4px " + tint + ", inset 0 1px 1px #fff, 0 2px 5px " + tint + "55") : "none" } }, emoji || "•");
+    if (!glass) return h("div", { style: { width: s, height: s, borderRadius: Math.round(s * .3), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(s * .5), background: tint + "33", border: on ? "2px solid " + sk.pink : "1px solid " + sk.line } }, emoji || "•");
+    // 参考图的分类格：一块白色透明玻璃小方块（厚唇边、上沿高光），里面一颗彩色小软糖；选中的那块整块变粉玻璃
+    return h("div", { style: { width: s, height: s, borderRadius: Math.round(s * .28), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(s * .52), position: "relative",
+      background: on ? "radial-gradient(80% 50% at 40% 12%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(170deg, #ffd6e6, #f7a9c8)"
+        : "radial-gradient(80% 50% at 40% 12%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%), linear-gradient(170deg, rgba(255,255,255,.8), " + tint + "40)",
+      border: "1px solid " + (on ? "#ef8fb4" : "rgba(175,160,225,.45)"),
+      boxShadow: "inset 0 0 0 2px rgba(255,255,255,.6), inset 0 -3px 6px " + (on ? "rgba(236,120,165,.35)" : tint + "40") + ", 0 3px 6px " + (on ? "rgba(236,120,165,.35)" : "rgba(150,130,210,.18)") } },
+      h("span", { style: { filter: "drop-shadow(0 1px 1px rgba(120,90,160,.25)) saturate(1.1)" } }, emoji || "•"));
   }
   // 一排格子（能量槽 / 电量格 / 状态条）：n 格里点亮 lit 格。点亮的格子带一点发光，没亮的是屏幕上淡淡的底格
   // 果冻符号（照第一张样张的视觉语法，不是现代高清 3D icon）：
@@ -499,17 +508,17 @@
   };
   const JELLY_SHINE = { plus: [[23.5, 10.5, 2.2, 1.3], [11.5, 21.5, 2, 1.2]], bag: [[17, 23, 1.6, 3.6]], chart: [[12, 29.5, 1.6, .9], [23.5, 20.5, 1.6, .9], [35, 11.5, 1.6, .9]] };
   function JellyGlyph({ k, tone, size }) {
-    // [最亮, 中间, 边缘] ——都是淡的、带透明度的塑料色
-    const T = { pink: ["#ffe6ef", "#f59dbd", "#e27aa1"], blue: ["#eaf1ff", "#98b6f0", "#6f93e0"], lilac: ["#f1e9ff", "#b9a0ee", "#9277dc"] }[tone] || ["#fff", "#ddd", "#bbb"];
-    const id = "lgj-" + k + "-" + tone, S = size || 30, d = JELLY_GLYPH[k];
-    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "blur(.2px) drop-shadow(0 1.5px 1.5px " + T[2] + "59)" } },
+    // [最亮, 中间, 边, 侧面]
+    const T = { pink: ["#ffe3ee", "#f693b9", "#e0709c", "#c85584"], blue: ["#e6efff", "#8eaef0", "#6a8ddf", "#5273c4"], lilac: ["#efe6ff", "#b39af0", "#9076de", "#775cc4"] }[tone] || ["#fff", "#ddd", "#bbb", "#999"];
+    const id = "lgj-" + k + "-" + tone, S = size || 40, d = JELLY_GLYPH[k];
+    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "drop-shadow(0 2px 2px " + T[3] + "59)" } },
       h("defs", null,
-        h("radialGradient", { id: id + "f", cx: .38, cy: .32, r: .8 }, h("stop", { offset: 0, stopColor: T[0] }), h("stop", { offset: .55, stopColor: T[1] }), h("stop", { offset: 1, stopColor: T[2] })),
-        h("filter", { id: id + "g", x: "-30%", y: "-30%", width: "160%", height: "160%" }, h("feGaussianBlur", { stdDeviation: 1.1 }))),
-      h("path", { d, fill: T[2], fillOpacity: .45, transform: "translate(.6 1.4)", filter: "url(#" + id + "g)" }),
-      h("path", { d, fill: "url(#" + id + "f)", fillOpacity: .95 }),
-      h("path", { d, fill: "none", stroke: "rgba(255,255,255,.7)", strokeWidth: 1.4, strokeLinejoin: "round", filter: "url(#" + id + "g)" }),
-      k === "bag" ? h("text", { x: 24, y: 34.5, textAnchor: "middle", fontSize: 12, fontWeight: 700, fill: "#fff", fillOpacity: .9, fontFamily: "Arial,sans-serif" }, "$") : null,
+        h("radialGradient", { id: id + "f", cx: .36, cy: .28, r: .85 }, h("stop", { offset: 0, stopColor: T[0] }), h("stop", { offset: .5, stopColor: T[1] }), h("stop", { offset: 1, stopColor: T[2] })),
+        h("filter", { id: id + "g", x: "-30%", y: "-30%", width: "160%", height: "160%" }, h("feGaussianBlur", { stdDeviation: .8 }))),
+      h("path", { d, fill: T[3], fillOpacity: .8, transform: "translate(.8 1.8)" }),
+      h("path", { d, fill: "url(#" + id + "f)" }),
+      h("path", { d, fill: "none", stroke: "rgba(255,255,255,.8)", strokeWidth: 1.3, strokeLinejoin: "round", filter: "url(#" + id + "g)" }),
+      k === "bag" ? h("text", { x: 24, y: 35, textAnchor: "middle", fontSize: 13, fontWeight: 800, fill: "#fff", fontFamily: "Arial,sans-serif" }, "$") : null,
       h("g", { filter: "url(#" + id + "g)" }, (JELLY_SHINE[k] || []).map((e, i) => h("ellipse", { key: i, cx: e[0], cy: e[1], rx: e[2], ry: e[3], fill: "#fff", fillOpacity: .95 }))));
   }
   // 进度条：细细一根，填的那段是紫到粉的糖果渐变、带一道高光
@@ -549,8 +558,9 @@
     items.map(([k, zh]) => { const on = value === k;
       return h("button", { key: k, onClick: () => onChange(k), className: "flex-1 active:opacity-80",
         style: { minHeight: 40, borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
-          background: on ? (sk.id === "glass" ? "linear-gradient(180deg, #ffe6ef, #ffcfe0)" : "#fff") : "transparent",
-          boxShadow: on ? (sk.id === "glass" ? "inset 0 1px 0 #fff, 0 2px 6px rgba(236,132,171,.25)" : "0 1px 3px rgba(0,0,0,.08)") : "none" } }, zh); }));
+          background: on ? (sk.id === "glass" ? "radial-gradient(80% 60% at 40% 15%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(180deg, #ffd3e3, #f7a6c6)" : "#fff") : "transparent",
+          border: on && sk.id === "glass" ? "1px solid #ef97b9" : "1px solid transparent",
+          boxShadow: on ? (sk.id === "glass" ? "inset 0 0 0 2px rgba(255,255,255,.5), 0 2px 8px rgba(236,132,171,.45)" : "0 1px 3px rgba(0,0,0,.08)") : "none" } }, zh); }));
   // 整页壳：外壳铺底，顶栏透明（mobile-ui-layout §3.5）
   const ledgerPage = (sk, title, onBack, right, body, footer, extra) => h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page, extra || {}) },
     h(Head, { zh: title, onBack: onBack, ink: sk.ink, bg: "transparent", noLine: true, right: right || null }),
@@ -744,7 +754,7 @@
     const motto = settings.motto || "认真生活，也要快乐花钱♡";
     const glass = sk.id === "glass";
     // 卡面：镭射渐变 + 一道斜高光 + 芯片 + 角落一只小兔子（程序画的，不是图）
-    const card = h("div", { "data-ledger-card": true, style: { position: "relative", height: 168, borderRadius: 22, overflow: "hidden", transform: glass ? "rotate(-3deg)" : "none", margin: "4px 8px 20px",
+    const card = h("div", { "data-ledger-card": true, style: { position: "relative", height: 168, borderRadius: 22, overflow: "hidden", transform: glass ? "rotate(-3deg)" : "none", margin: glass ? "4px 6px 12px" : "4px 8px 20px",
         background: glass ? "linear-gradient(125deg,#e2d6ff 0%,#fbdfee 32%,#d8e8ff 62%,#eedcff 100%)" : CUR_COLORS[0],
         border: glass ? "1px solid rgba(255,255,255,.95)" : "none",
         boxShadow: glass ? "0 16px 30px rgba(130,110,200,.24), inset 0 1px 0 #fff, inset 0 -6px 14px rgba(150,130,220,.25), inset 0 0 0 1px rgba(255,255,255,.6)" : "0 6px 16px rgba(0,0,0,.15)" } },
@@ -761,38 +771,38 @@
         h("path", { d: "M33 53c1.2 1 2.8 1 4 0" })) : null,
       h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", style: { position: "absolute", right: 20, top: 18 }, fill: glass ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.8)", "aria-hidden": "true" },
         h("path", { d: "M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" })));
-    // 三颗主键：照第一张样张——嵌在页面里的小功能键，不是抢视觉中心的大图标。
-    //   浅浅的半透明粉白（中间几乎白，颜色只在边缘和影子里），圆角只是柔和，边框和高光都糊一点、薄一点，
-    //   宁可旧一点、糊一点、廉价一点，也不要精致、厚、高清。
+    // 三颗主键（参考图）：接近正方形的一块厚玻璃软糖——面是整块透出来的粉/蓝/紫，四周一圈透明厚唇边，
+    //   左上一片糊糊的高光，底下露一点同色厚度；图标是一颗占半个键宽的果冻软糖；字是暗酒红 / 暗蓝 / 暗紫
     const bigKey = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
-      const ink = { pink: "#8c3a4f", blue: "#3e4f86", lilac: "#5b468a" }[tone];
+      const ink = { pink: "#8c3a4f", blue: "#34467e", lilac: "#523f84" }[tone];
       return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
-        style: glass ? { position: "relative", minHeight: 74, gap: 2, borderRadius: 15, padding: "8px 0 7px",
-            background: "radial-gradient(75% 70% at 50% 42%, rgba(255,255,255,.88) 0%, rgba(255,255,255,.55) 55%, " + a + "b3 100%)",
-            border: "1px solid " + b + "40",
-            boxShadow: "inset 0 0 8px 1px " + b + "40, inset 0 2px 3px rgba(255,255,255,.9), 0 2px 5px " + b + "33, 0 1px 1px rgba(255,255,255,.8)",
-            backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", transition: "transform .08s" }
-          : jellyKey(sk, tone, false, { minHeight: 74, gap: 4, borderRadius: 14 }) },
-        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 6, right: 6, top: 3, height: "38%", borderRadius: "11px 11px 50% 50%", background: "linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,0))", filter: "blur(1px)", pointerEvents: "none" } }) : null,
-        h(JellyGlyph, { k: glyph, tone, size: glass ? 30 : 26 }),
-        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, fontWeight: 500, color: glass ? ink : sk.ink } }, label)); };
+        style: glass ? { position: "relative", aspectRatio: "1 / 1", maxHeight: 112, gap: 4, borderRadius: 18, marginBottom: 4,
+            background: "radial-gradient(70% 55% at 35% 22%, rgba(255,255,255,.85), rgba(255,255,255,0) 65%), linear-gradient(165deg, " + a + "99, " + a + "e6 55%, " + b + "cc)",
+            border: "1px solid " + b + "99",
+            boxShadow: "inset 0 0 0 4px rgba(255,255,255,.5), inset 0 0 0 5px " + b + "40, inset 0 6px 8px rgba(255,255,255,.7), inset 0 -6px 12px " + b + "59, 0 4px 0 " + b + "59, 0 8px 16px " + b + "40",
+            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", transition: "transform .08s" }
+          : jellyKey(sk, tone, false, { minHeight: 88, gap: 4, borderRadius: 14 }) },
+        h(JellyGlyph, { k: glyph, tone, size: glass ? 44 : 26 }),
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: glass ? ink : sk.ink } }, label)); };
     const mrec = (data.monthly || {})[lmk];
     const ls = summarize(data.txns, code, lmk);
     const cellsN = 20, used = bs ? Math.min(1, bs.used) : 0;
     return h("div", { className: "px-5 pb-8" },
-      card,
-      // 余额舱：外壳里嵌一块屏
-      h("div", { style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, sk.shell) },
-        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 } },
-          silk(sk, "这个月还剩"),
-          h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 30 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 17, color: sk.sub }))),
-        h("div", { style: Object.assign({ padding: "12px 14px 10px" }, sk.screen) },
-          h("div", { "data-ledger-balance": true, style: lcdNum(sk, 30, s.net < 0 ? sk.over : sk.lcd) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
-          h("div", { style: { display: "flex", gap: 14, marginTop: 6, fontFamily: F_BODY, fontSize: 11.5, color: "rgba(43,52,82,.6)" } },
-            h("span", null, "收 ", h("span", { style: lcdNum(sk, 12, sk.inc) }, hide ? "****" : fmtMoney(s.inc, cur))),
-            h("span", null, "支 ", h("span", { style: lcdNum(sk, 12) }, hide ? "****" : fmtMoney(s.exp, cur))))),
-        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60", style: { marginTop: 10, minHeight: 34, padding: "6px 4px 0", fontFamily: F_BODY, fontSize: 12.5, color: sk.sub } }, "「" + motto + "」")),
-      h("div", { style: { display: "flex", gap: 12, marginBottom: 20 } },
+      glass ? h("div", { "data-ledger-tray": true, style: Object.assign({}, sk.shell, { position: "relative", padding: "12px 10px 4px", borderRadius: 30, margin: "2px 0 16px" }) },
+        h(Sparkle, { size: 22, style: { position: "absolute", right: -6, top: -10 } }),
+        card) : card,
+      // 余额（参考图）：一块亚克力里「当前余额」+ 大数字 + 眼睛，右上角一颗星，下面一行「」小字
+      h("div", { style: Object.assign({ position: "relative", padding: "14px 16px 12px", marginBottom: 14 }, sk.shell) },
+        glass ? h(Sparkle, { size: 20, style: { position: "absolute", right: 14, top: 10 } }) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub } }, "这个月还剩"),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4 } },
+          h("div", { "data-ledger-balance": true, style: numStyle(sk, 30, s.net < 0 ? sk.over : sk.ink) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
+          h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 36 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 20, color: sk.ink }))),
+        h("div", { style: { display: "flex", gap: 14, marginTop: 2, fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } },
+          h("span", null, "收入 ", h("span", { style: numStyle(sk, 11.5, sk.inc) }, hide ? "****" : fmtMoney(s.inc, cur))),
+          h("span", null, "支出 ", h("span", { style: numStyle(sk, 11.5, sk.sub) }, hide ? "****" : fmtMoney(s.exp, cur)))),
+        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60", style: { marginTop: 8, minHeight: 32, padding: "4px 10px", borderRadius: 10, background: glass ? "rgba(255,255,255,.4)" : "transparent", fontFamily: F_BODY, fontSize: 12.5, color: sk.sub } }, "「" + motto + "」")),
+      h("div", { style: { display: "flex", gap: 10, marginBottom: 16 } },
         bigKey("记一笔", "pink", "plus", () => props.onAdd("expense")),
         bigKey("收入", "blue", "bag", () => props.onAdd("income")),
         bigKey("账单", "lilac", "chart", props.onBills)),
@@ -823,6 +833,11 @@
           : null) : null);
   }
   // 插信息条的那一格：外壳上开的一道凹槽，一条条小票条插在里面
+  // Y2K 四角星：参考图里散在卡片和余额旁边的那几颗
+  function Sparkle({ size, style, color }) {
+    return h("svg", { width: size || 18, height: size || 18, viewBox: "0 0 24 24", "aria-hidden": "true", style: Object.assign({ filter: "drop-shadow(0 1px 2px rgba(150,130,210,.4))" }, style || {}) },
+      h("path", { d: "M12 1.5C12.8 8 16 11.2 22.5 12 16 12.8 12.8 16 12 22.5 11.2 16 8 12.8 1.5 12 8 11.2 11.2 8 12 1.5z", fill: color || "#fff", stroke: "rgba(170,150,225,.6)", strokeWidth: .8 }));
+  }
   function StripSlot({ sk, children }) {
     return h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 } }, children);
   }
