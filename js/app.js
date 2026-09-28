@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.209";
+const APP_VERSION = "v74.210";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10454,6 +10454,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (m && m.who === "char" && (m.role === "narration" || m.kind === "narration")) { _prevAct = String(m.content || "").trim(); break; }
         }
         if (!sameActLine(_line, _prevAct)) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Math.max(0, _tsOf(0) - 1), turnId }]);
+      }
+      // ── 一个气泡都没剩：不许静默（2026-09-28 群里报「收不到回复，api 站显示已反馈」）──
+      // 发气泡是 for (i < words.length)，空数组就是一次都不跑：钱扣了、等了十几秒，
+      // 屏幕上什么都没发生——连「要不要重发」都判断不了。
+      // ⚠️这和是谁的锅无关：上游那一枪照样计费，而【只有这儿能告诉她这一轮没回上来】。
+      //   不说的代价还不止一个：她会读成「app 不回我」，而且手上没有任何能拿去找中转站
+      //   索赔的东西。所以照 prompt-send-shape.md 那条办——给她看的翻成人话，
+      //   **原文另存一份跟着**：翻不出来就丢掉原文＝她和我都永远查不下去。
+      // ⚠️只在【这一轮真的什么都没摆出来】时才说：只有动作描写、没有台词是合法的一轮。
+      const _nothingShown = !words.length && !rescuedActLines.length
+        && !(_actDesc && onlineAction && String(onlineAction).trim());
+      if (_nothingShown) {
+        const _rawCut = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim().slice(0, 400);
+        toast("这一轮没回上来 · 原文记在聊天里了");
+        pChat(chatKey, p => [...p, {
+          role: "assistant", kind: "system", ts: Date.now(), turnId,
+          content: "这一轮没回上来。\n上游是出了东西的（这一枪照样计费），但不是这边认得的格式——"
+            + "多半是中转站或模型这一轮没按约定回。直接把上一句重发一次通常就好了。\n\n〔它这回答的是〕\n"
+            + (_rawCut || "（一个字都没有）")
+        }]);
+        try { window.errLog && window.errLog("chat", "空回：解析后没有任何可显示内容", String(raw || "").slice(0, 600)); } catch (e) {}
       }
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
