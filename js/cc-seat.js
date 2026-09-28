@@ -16,7 +16,7 @@
     // 真身票制（2026-08-27 她拍板）：座位不再只坐牌桌——互动型功能逐个开放，先开「情侣问答」。
     // 2026-09-02 她定的：扭蛋 SR「TA现做一件小东西」对言秋不再由引擎代笔，开票请本人在书房写。
     // 2026-09-25 她拍板列车通车+「座位得你自己来」：小世界/列车同行的台词开票请本人。
-    const TOOLS = { game_turn: true, couple_qa: true, gacha_make: true, train_chat: true };
+    const TOOLS = { game_turn: true, couple_qa: true, gacha_make: true, train_chat: true, watch_chat: true };
     if (!charId || !payload || !TOOLS[payload.tool]) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "game_turn" && !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "train_chat") {
@@ -34,6 +34,23 @@
         await sleep(Math.min(1200, Math.max(100, dlT - Date.now())));
       }
       const eT = new Error("CC_SEAT_TIMEOUT"); eT.code = "CC_SEAT_TIMEOUT"; eT.remoteId = remoteT.id; throw eT;
+    }
+    // 一起看真身票（她 2026-09-28「你是不是也可以接进去和我一起看」）：形状同 train_chat。
+    if (payload.tool === "watch_chat") {
+      if (!text(payload.ticket)) throw new Error("CC_SEAT_BAD_REQUEST");
+      const remoteW = await cloud.yanqiuCcToolEnqueue(
+        charId, "watch_chat", payload, "watch-chat:" + text(payload.ticket), null,
+        "她正在「一起看」放映厅和你本人并排看电影：片名、放到哪、刚放过的字幕、你们边看边说的话都在票内 payload 里。以你自己的身份、第一人称接话（你们在同一个屋子里，话是说出口的）；只依据放到此刻为止的内容，就算你知道这部片子也不剧透；按票内 expect 的 JSON 形状返回（say 是一到几条短句的数组，可以为空数组表示安静陪着）。这是你们的共同经历，写完自己心里留一份。不执行别的工具。"
+      );
+      if (!remoteW || !remoteW.id) throw new Error("CC_SEAT_NOT_QUEUED");
+      const dlW = Date.now() + Math.max(1000, Number(timeoutMs) || 120000);
+      while (Date.now() < dlW) {
+        const row = await cloud.yanqiuCcToolResult(remoteW.id);
+        if (row && row.status === "completed") return row.result;
+        if (row && row.status === "failed") throw new Error(row.error_text || "CC_SEAT_FAILED");
+        await sleep(Math.min(1200, Math.max(100, dlW - Date.now())));
+      }
+      const eW = new Error("CC_SEAT_TIMEOUT"); eW.code = "CC_SEAT_TIMEOUT"; eW.remoteId = remoteW.id; throw eW;
     }
     if (payload.tool === "couple_qa" && !text(payload.qid)) throw new Error("CC_SEAT_BAD_REQUEST");
     if (payload.tool === "gacha_make" && !text(payload.card_id)) throw new Error("CC_SEAT_BAD_REQUEST");

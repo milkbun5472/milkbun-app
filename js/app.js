@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.248";
+const APP_VERSION = "v74.249";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24582,9 +24582,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("home")
   });else if (screen === "watch") body = h(WatchTogether, {
     // 一起看（她 2026-09-25）：同一起读一个形状——上下文走 ctxFor（companionHead 里接 buildBundle），
-    //   记忆走 keepWhereItHappened。言秋不进约人名单（他不是被扮演的角色，一起读那边也另走一条路）。
+    //   记忆走 keepWhereItHappened。言秋可进放映厅（她 2026-09-28「你是不是也可以接进去」）：
+    //   同列车真身票——engineerEyes 的角色走 CCSeat.watch_chat 由本人接话，引擎只兜底。
     active: active,
-    characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    characters: liveChars,
+    isEngineer: charId => !!settingsFor(charId).engineerEyes && !settingsFor(charId).ccDirect,
     profile: profile,
     ctxFor: ctxFor,
     toast: toast,
