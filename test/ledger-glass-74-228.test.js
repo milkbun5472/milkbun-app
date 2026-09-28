@@ -37,8 +37,7 @@ console.log("ledger reference structure ok");
 {
   const s2 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s2, /const GLASS = \{\s*A: \{/, "没有统一的玻璃材质了");
-  assert.match(s2, /card: Object\.assign\(\{\}, GLASS\.C/, "账单条不是薄玻璃");
-  assert.match(s2, /shell: Object\.assign\(\{\}, GLASS\.B/, "摘要卡不是磨砂玻璃");
+  // 第十三轮去卡片化：账单条和摘要不再是玻璃卡，而是机身表面 + 细线（见下面 ledger-decard）
   assert.match(s2, /style: glass \? Object\.assign\(glassTinted\(a, b\)/, "三颗主键不是透明亚克力");
   const white = [...s2.slice(s2.indexOf("const GLASS = {"), s2.indexOf("function glassTinted(")).matchAll(/background: "linear-gradient\([^"]*"/g)].map(m => m[0]);
   white.forEach(b => { const ops = [...b.matchAll(/rgba\(255,255,255,(\.\d+)\)/g)].map(m => +m[1]); assert.ok(ops.every(o => o <= .3), "玻璃底又变成白色实体了：" + b); });
@@ -76,3 +75,12 @@ console.log("ledger-noline ok");
   assert.match(s5, /"Manage money,"/);
 }
 console.log("ledger-y2k-marks ok");
+// 第十三轮（她：「下一轮目标是去卡片化」）：信息直接印在机身上，细线分区；粉只给操作/选中
+{
+  const s6 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  assert.match(s6, /card: Object\.assign\(\{\}, FLAT, \{ borderBottom: "1px solid " \+ LINE \}\), shell: Object\.assign\(\{\}, FLAT, \{ borderTop: "1px solid " \+ LINE \}\)/, "又回到一个模块一个圆角矩形了");
+  assert.match(s6, /backgroundColor: pageColor\("ledger", "bg", "#eef0f5"\)/, "机身不是冷白了");
+  assert.match(s6, /lilac: \["#e4e3f2", "#a9a7cc"\]/, "账单键又变回紫粉了");
+  assert.match(s6, /\.lg-reference \.lg-add-category\{[^}]*background:transparent/, "分类又变回十二张小白卡了");
+}
+console.log("ledger-decard ok");

@@ -403,7 +403,8 @@
   // 分类色：同一个分类在图标、仪表环、状态条里用同一个颜色，看颜色就知道是哪类
   const CAT_TINTS = ["#f4a7c1", "#b9a2f0", "#f5c49e", "#9fb6f5", "#8fd4c8", "#f0cf7f", "#e5a3de", "#a9d38c", "#f0a99b", "#98cbf0", "#c9bce6", "#c3ccd8"];
   // 果冻键的几种塑料颜色：[浅, 深]
-  const JELLY = { pink: ["#ffc2d8", "#ef8fb2"], blue: ["#c4d6fd", "#89a8ee"], lilac: ["#dccefd", "#a68ae6"], mint: ["#c6eee1", "#7fcfb6"], clear: ["#f4f5fc", "#c3c7e2"] };
+  // 粉只留给「记一笔」和选中；收入是冰蓝，账单是银灰薰衣草
+  const JELLY = { pink: ["#ffc6da", "#ec8fb3"], blue: ["#d3e4fb", "#8fb2e6"], lilac: ["#e4e3f2", "#a9a7cc"], mint: ["#c6eee1", "#7fcfb6"], clear: ["#f6f7fb", "#c6c9da"] };
   const CAL_RAMP = ["#ffe0ec", "#fbc7dd", "#efb8ea", "#d3b2f6", "#b39cf0", "#9885e6"];
   const LCD_INK = "#383552", LCD_DIM = "rgba(200,188,240,.28)";
   const DIGIT = "ui-monospace,'SF Mono','Menlo','Roboto Mono','Consolas',monospace";
@@ -421,12 +422,19 @@
   // ⚠️不描边（她 2026-09-28：「每一个框都搞外面的线，但做不出真正的玻璃质感的话反而很土」）：
   //   玻璃靠的是【光】——透明底、左上一抹柔光、右下一点冷色、外面一片很淡的环境影——不是一圈线。
   //   只有 A 级（托盘、主键、完成键）保留一道极细的内侧亮沿，那是亚克力的厚度；B、C 两级一条线都不画。
+  // ⚠️第十三轮·去卡片化（她 2026-09-28）：土感不是玻璃不够，是「一个模块一个圆角矩形」往下堆盒子。
+  //   整个产品是【一台透明电子钱包 / 数码随身机】：信息直接印在机身上，只有真正的实体交互或层级才用亚克力。
+  //   · 每屏最多一两个大容器；其余靠留白、细线、排版和小实体控件组织。
+  //   · 颜色比例：七成冷白 / 银灰 / 极淡薰衣草，两成冰蓝紫，一成粉——粉只给当前操作、支出、选中。
+  //   · 少 glow；多冷白、银灰、冰蓝、透明硬塑料。
+  const LINE = "rgba(140,146,184,.22)";          // 机身上的细分隔线
+  const FLAT = { background: "transparent", border: "none", boxShadow: "none", borderRadius: 0, backdropFilter: "none", WebkitBackdropFilter: "none" };
   const GLASS = {
     A: {
       background: "linear-gradient(135deg, rgba(255,255,255,.3) 0%, rgba(226,238,255,.14) 42%, rgba(255,255,255,.22) 58%, rgba(250,226,244,.18) 100%)",
       border: "none",
       // 虹彩：左上一团粉光、右下一团冰蓝光——用光晕做，不用线
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.75), inset 3px 4px 8px rgba(255,255,255,.5), inset -4px -6px 12px rgba(150,138,228,.16), -5px -4px 14px rgba(255,186,226,.38), 5px 6px 16px rgba(166,208,255,.42)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.75), inset 3px 4px 8px rgba(255,255,255,.5), inset -4px -6px 12px rgba(150,138,228,.16), -4px -3px 10px rgba(255,214,236,.22), 4px 5px 12px rgba(176,208,250,.3)",
       backdropFilter: "blur(10px) saturate(1.45)", WebkitBackdropFilter: "blur(10px) saturate(1.45)"
     },
     B: {
@@ -447,7 +455,7 @@
     return Object.assign({}, GLASS.A, {
       background: "radial-gradient(70% 55% at 38% 26%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%), linear-gradient(145deg, " + a + "40 0%, " + a + "66 55%, " + b + "4d 100%)",
       border: "none",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.8), inset 3px 4px 8px rgba(255,255,255,.55), inset -4px -6px 12px " + b + "40, -5px -4px 14px rgba(255,190,228,.35), 5px 6px 16px rgba(166,208,255,.4)"
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.8), inset 3px 4px 8px rgba(255,255,255,.55), inset -4px -6px 12px " + b + "40, -4px -3px 10px rgba(255,214,236,.2), 4px 5px 12px rgba(176,208,250,.28)"
     });
   }
   function ledgerSkin(settings) {
@@ -477,14 +485,13 @@
     return {
       id,
       page: {
-        backgroundColor: pageColor("ledger", "bg", "#ecebf4"),
-        // 环境光（很弱、很大片）：左上淡粉、中部冰蓝、右侧淡紫，中间大量近白——这些颜色要能透过玻璃被看见
-        backgroundImage: "linear-gradient(118deg, transparent 22%, rgba(255,236,250,.28) 34%, rgba(222,244,255,.32) 42%, transparent 56%)," +
-          "radial-gradient(ellipse 70% 45% at 8% 6%, rgba(248,210,232,.62), transparent 70%)," +
-          "radial-gradient(ellipse 80% 40% at 38% 48%, rgba(206,230,252,.55), transparent 72%)," +
-          "radial-gradient(ellipse 60% 55% at 100% 34%, rgba(222,208,250,.6), transparent 70%)," +
-          "radial-gradient(ellipse 70% 40% at 20% 92%, rgba(244,214,238,.42), transparent 70%)," +
-          "radial-gradient(ellipse 55% 35% at 70% 78%, rgba(250,250,255,.7), transparent 70%)",
+        // 机身：冷白 / 银灰为主，只在边角透一点冰蓝和薰衣草，粉几乎没有
+        backgroundColor: pageColor("ledger", "bg", "#eef0f5"),
+        backgroundImage: "linear-gradient(118deg, transparent 26%, rgba(255,255,255,.55) 38%, rgba(226,238,252,.35) 46%, transparent 58%)," +
+          "radial-gradient(ellipse 70% 42% at 6% 4%, rgba(214,226,246,.7), transparent 70%)," +
+          "radial-gradient(ellipse 60% 50% at 100% 36%, rgba(226,220,246,.6), transparent 70%)," +
+          "radial-gradient(ellipse 70% 40% at 30% 96%, rgba(236,226,240,.45), transparent 70%)," +
+          "linear-gradient(180deg, #f3f4f8, #e9ebf2)",
         backgroundAttachment: "scroll",
         boxShadow: "inset 2px 0 4px rgba(255,255,255,.65), inset -2px 0 4px rgba(135,136,168,.13)"
       },
@@ -492,7 +499,7 @@
       line: pageColor("ledger", "line", "rgba(140,135,190,.2)"), accent: pageColor("ledger", "accent", "#8874cf"), pink: pageColor("ledger", "tint", "#d98db2"),
       exp: ink, inc: "#589c98", over: "#bc668c",
       // 卡片不再是白色实体：B 级磨砂玻璃当外壳，C 级薄玻璃当账单条，A 级留给托盘和主键
-      card: Object.assign({}, GLASS.C, { borderRadius: 19 }), shell: Object.assign({}, GLASS.B, { borderRadius: 19 }), matA: GLASS.A,
+      card: Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE }), shell: Object.assign({}, FLAT, { borderTop: "1px solid " + LINE }), matA: GLASS.A, glassB: GLASS.B,
       screen: Object.assign({}, GLASS.C, { borderRadius: 13, boxShadow: "inset 0 2px 5px rgba(131,124,169,.12)" }),
       acrylic: { background: "transparent" },
       well: { background: "rgba(255,255,255,.14)", border: "none", borderRadius: 18, boxShadow: "inset 0 2px 5px rgba(140,136,200,.12)" },
@@ -533,26 +540,26 @@
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.16em}
 .lg-reference .lg-wallet-head [data-wk=head]>div:last-child{width:66px!important}
 .lg-reference .lg-wallet-main{padding:8px 22px 24px}
-.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 4px 5px 10px rgba(255,255,255,.5),inset -5px -6px 12px rgba(148,138,226,.2),-6px -5px 18px rgba(255,186,226,.4),6px 8px 20px rgba(166,208,255,.45)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
+.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 4px 5px 10px rgba(255,255,255,.5),inset -5px -6px 12px rgba(148,138,226,.2),-5px -4px 12px rgba(255,214,236,.22),5px 6px 14px rgba(176,208,250,.3)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
 .lg-reference [data-ledger-tray]:after{content:"";position:absolute;inset:1px;border-radius:28px;pointer-events:none;background:linear-gradient(111deg,transparent 6%,#fff8 8%,transparent 10%,transparent 63%,#d8faff44 68%,#ffe4f533 72%,transparent 76%),linear-gradient(5deg,transparent 5%,#fff9 7%,transparent 8%,transparent 93%,#fff9 95%,transparent 97%)}
 .lg-reference [data-ledger-tray]:before{content:'';position:absolute;inset:7px;border:1px solid #ffffff9c;border-radius:22px;box-shadow:inset 2px 2px 2px #929cbd90,2px 2px 3px #ffffffa8;pointer-events:none}
 .lg-reference [data-ledger-card]{height:192px!important;margin:0!important;transform:none!important;border-radius:17px!important;background:linear-gradient(132deg,#cec4ec88 2%,#b8c6f29c 27%,#e1c9efab 54%,#b7d8f3b3 76%,#e2bce3a3)!important;box-shadow:inset 0 0 0 2px #ffffff50,inset 0 2px 3px #ffffffcc,inset -2px -3px 4px #967fa766,0 4px 8px #878ca75e!important}
 .lg-reference .lg-balance{padding:6px 18px 4px!important;margin-bottom:14px!important;background:transparent!important;border:0!important;box-shadow:none!important}
 .lg-reference .lg-balance-summary{display:none!important}
-.lg-reference .lg-motto{background:linear-gradient(110deg,#ffffff35,#fff5)!important;border-radius:3px!important;border-bottom:1px dashed #fff!important;margin-top:5px!important;padding:4px 6px!important;color:#444264!important}
+.lg-reference .lg-motto{background:transparent!important;border-radius:0!important;border-bottom:0!important;margin-top:5px!important;padding:4px 6px!important;color:#444264!important}
 .lg-reference .lg-bigkeys{gap:11px!important;margin-bottom:20px!important}
 .lg-reference [data-ledger-bigkey]{aspect-ratio:1/1.08!important;max-height:113px!important;border-radius:19px!important}
-.lg-reference [data-ledger-wallet-budget]{padding:12px 15px 10px!important;margin-bottom:20px!important;border-radius:19px!important}
+.lg-reference [data-ledger-wallet-budget]{padding:12px 2px 12px!important;margin-bottom:14px!important;border-radius:0!important}
 .lg-reference [data-ledger-tabbar] button>span:first-child{background:transparent!important;box-shadow:none!important}
 .lg-reference [data-ledger-tabbar] button[aria-current=page] svg{fill:#b4a2ec;stroke:#494579}
 .lg-reference .lg-segment{padding:0!important;gap:0!important;height:40px;border-radius:20px}
 .lg-reference .lg-segment button{min-height:38px!important;border-radius:19px!important;font-size:13px!important}
 .lg-reference .lg-segment button[aria-pressed=true]{background:linear-gradient(180deg,#fff9,#f2d0e3aa 48%,#eebdd675)!important;border:0!important;box-shadow:inset 0 2px 3px #fff,inset 0 -2px 4px #f0bfd8,0 2px 6px #d890b740!important}
 .lg-reference .lg-add-grid{gap:11px!important;align-content:start}
-.lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:0;box-shadow:inset 0 8px 12px -10px rgba(255,255,255,.85),0 4px 14px rgba(122,118,200,.08);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
-.lg-reference .lg-add-category[aria-pressed=true]::before{content:"";position:absolute;left:4%;right:4%;top:1px;height:52%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.9) 0%,rgba(255,255,255,.6) 42%,rgba(255,255,255,0) 70%);pointer-events:none}
+.lg-reference .lg-add-category{min-width:0;height:78px;border-radius:16px;justify-content:center;gap:2px!important;padding:5px 0!important;background:transparent;border:0;box-shadow:none}
+.lg-reference .lg-add-category[aria-pressed=true]::before{content:none}
 .lg-reference .lg-add-category{position:relative;overflow:hidden}
-.lg-reference .lg-add-category[aria-pressed=true]{background:linear-gradient(135deg,#f9e5eecc,#f1d0e580);box-shadow:inset 0 8px 12px -10px #fff,inset 0 -3px 6px #db9ab440,0 4px 12px #d890b740}
+.lg-reference .lg-add-category[aria-pressed=true]{background:radial-gradient(circle at 50% 38%,rgba(248,196,220,.62),rgba(248,196,220,.18) 34%,transparent 52%);box-shadow:none}
 .lg-reference .lg-add-category .lg-cattile{background:transparent!important;border:0!important;box-shadow:none!important;width:43px!important;height:43px!important}
 .lg-reference .lg-add-custom{height:30px;grid-column:1/-1;flex-direction:row!important;justify-content:center;gap:6px!important;background:none;border:0;box-shadow:none}
 .lg-reference .lg-add-custom>div{width:24px!important;height:24px!important;font-size:16px!important;background:transparent!important;border:0!important;box-shadow:none!important}
@@ -563,8 +570,8 @@
 .lg-reference [data-ledger-done]{background:radial-gradient(70% 45% at 40% 18%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%),linear-gradient(160deg,rgba(252,214,232,.5),rgba(236,160,198,.45))!important;color:#713c5b!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 3px 4px 8px rgba(255,255,255,.55),inset -4px -6px 12px rgba(214,120,168,.28),0 8px 20px rgba(220,140,185,.26)!important;border:0!important;opacity:1!important;backdrop-filter:blur(8px) saturate(1.4);-webkit-backdrop-filter:blur(8px) saturate(1.4)}
 .lg-reference .lg-bills-date{display:none!important}
 .lg-reference .lg-bills .lg-segment{margin:0 10px}
-.lg-reference .lg-bills [data-ledger-strip]{min-height:75px;padding:11px 12px!important;border-radius:21px!important}
-.lg-reference .lg-bills [data-ledger-strip] .lg-cattile{width:40px!important;height:44px!important}
+.lg-reference .lg-bills [data-ledger-strip]{min-height:64px;padding:10px 2px!important;border-radius:0!important}
+.lg-reference .lg-bills [data-ledger-strip] .lg-cattile{width:36px!important;height:36px!important}
 .lg-reference .lg-bills [data-ledger-day]>div:last-child{margin-bottom:0!important}
 .lg-reference .lg-bills-list{gap:6px!important}
 .lg-reference .lg-stats>div:nth-child(2){background:transparent!important;border:0!important;box-shadow:none!important;padding:5px 0 14px!important}
@@ -640,7 +647,7 @@
   function CatTile({ tint, emoji, name, icon, size, on, sk }) {
     const s = size || 40, glass = sk.id === "glass";
     return h("div", { className: "lg-cattile", style: { width: s, height: s, borderRadius: Math.round(s * .25), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(s * .5),
-      background: glass ? "linear-gradient(145deg,rgba(255,255,255,.8)," + tint + "25)" : tint + "33",
+      background: glass ? "linear-gradient(145deg,rgba(255,255,255,.55)," + tint + "1f)" : tint + "33",
       border: glass ? "none" : "1px solid " + (on ? sk.pink : sk.line),
       boxShadow: glass ? "inset 1px 2px 2px #fff, inset -1px -2px 3px rgba(136,125,173,.15), 0 1px 3px rgba(126,118,162,.12)" : "none" } },
       h(CategoryGlyph, { emoji, name, icon, size: s * (glass ? .81 : .7) }));
@@ -1011,7 +1018,7 @@
       star !== false ? h(Sparkle, { size: 22, style: { marginBottom: 6 } }) : null);
   }
   function StripSlot({ sk, children }) {
-    return h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 } }, children);
+    return h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginBottom: 18, borderTop: sk.id === "glass" ? "1px solid " + LINE : "none" } }, children);
   }
 
   // 小票：这台机器吐出来的实体纸——唯一不是塑料的东西。热敏纸的淡打印纹、编号、虚线、上下锯齿
@@ -1092,13 +1099,13 @@
         // 今天实际花了多少（她 2026-09-27「那实际的每日消费你没做」）：只在看这个月时有
         const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && x.type !== "income").reduce((a, x) => a + (Number(x.amount) || 0), 0) : null;
         // 三块并排的小读数屏
-        const row = (label, val, note, key) => h("div", { key, style: { flex: 1, textAlign: "center", padding: "2px 4px" } },
+        const row = (label, val, note, key, first) => h("div", { key, style: { flex: 1, textAlign: "center", padding: "2px 4px", borderLeft: first ? "none" : "1px solid " + LINE } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginBottom: 3 } }, label),
           h("div", { style: numStyle(sk, 14.5) }, fmtMoney(val, cur)),
           note ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.sub, marginTop: 2 } }, note) : null);
         return h("div", { "data-ledger-daily": true, style: Object.assign({ display: "flex", padding: "12px 6px", marginBottom: 14 }, sk.shell) },
-          todayExp != null ? row("今天花了", todayExp, "", "today") : null,
-          row("日均支出", da.avg, "按 " + da.days + " 天算", "avg"),
+          todayExp != null ? row("今天花了", todayExp, "", "today", true) : null,
+          row("日均支出", da.avg, "按 " + da.days + " 天算", "avg", todayExp == null),
           row("结余", s.net, "", "net"));
       })(),
       // 本月预算：没设过就是一行小字「设个预算」，设了是一根电量槽
@@ -1210,8 +1217,8 @@
     return h("div", { className: "px-5 pb-8" },
       h(WordMark, { sk, word: "MY CALENDAR", hand: "every little day ♡" }),
       h(MonthNav, { mk, setMk, sk }),
-      h("div", { style: Object.assign({ padding: 10, marginBottom: 16 }, sk.shell) },
-        h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 8px" }, sk.acrylic) },
+      h("div", { style: { padding: "4px 0", marginBottom: 12, borderTop: "1px solid " + LINE, borderBottom: "1px solid " + LINE } },
+        h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 2px" }, sk.acrylic) },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: sk.sub } }, w))),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 } },
             cells.map((k, i) => { if (!k) return h("div", { key: "e" + i });
@@ -1219,10 +1226,11 @@
               // 点亮的格子：屏幕墨色按深浅铺满，上面叠一层像素网格；深的格子字反白
               const lit = lv > 0, dark = lv > .66;
               return h("button", { key: k, onClick: () => setSel(k), className: "active:opacity-70", style: { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
-                // 平的：只有花过钱的那几天铺一块柔和的半透明粉紫，花得多就浓一点
-                background: lit ? (glass ? "rgba(" + (lv > .5 ? "178,150,238" : "240,160,196") + "," + (0.16 + lv * 0.34).toFixed(2) + ")" : "rgba(60,54,40," + (lv * .4).toFixed(2) + ")") : "transparent",
-                borderRadius: 10,
-                outline: on ? "2px solid " + (glass ? "#ec5d95" : sk.pink) : "none", outlineOffset: 1 } },
+                // 花过钱的那天：一颗半透明树脂键帽嵌在机身上（冰蓝 → 薰衣草，花得多就浓），上沿一道亮光；没花钱的日子就只是印着的数字
+                background: lit ? (glass ? "radial-gradient(70% 45% at 50% 12%, rgba(255,255,255,.8), rgba(255,255,255,0) 70%), linear-gradient(170deg, rgba(" + (lv > .5 ? "178,168,232" : "190,214,246") + "," + (0.35 + lv * 0.4).toFixed(2) + "), rgba(" + (lv > .5 ? "150,140,214" : "160,190,236") + "," + (0.45 + lv * 0.4).toFixed(2) + "))" : "rgba(60,54,40," + (lv * .4).toFixed(2) + ")") : "transparent",
+                boxShadow: lit && glass ? "inset 0 1px 0 rgba(255,255,255,.85), inset 0 -2px 3px rgba(110,110,170,.18), 0 2px 3px rgba(110,120,170,.18)" : "none",
+                borderRadius: 11,
+                outline: on ? "1.5px solid " + (glass ? "#ec7fa8" : sk.pink) : "none", outlineOffset: 1 } },
                 h("span", { style: numStyle(sk, 12.5, sk.ink) }, parseInt(k.slice(8), 10)),
                 d && d.exp ? h("span", { style: numStyle(sk, 8.5, sk.sub) }, fmtNum(Math.round(d.exp))) : null,
                 k === today ? h("span", { style: { position: "absolute", top: 3, right: 4, width: 5, height: 5, borderRadius: 5, background: "#ff5b92", boxShadow: "0 0 5px #ff5b92" } }) : null); })))),
@@ -1270,7 +1278,7 @@
     const when = head === "今天" || head === "昨天" ? head + (tm ? " " + pad(tm.getHours()) + ":" + pad(tm.getMinutes()) : "") : fmtDay(txn.date);
     const glass = sk.id === "glass";
     return h("button", { onClick: props.onClick, className: "w-full active:opacity-80 text-left", "data-ledger-strip": true,
-      style: Object.assign({ padding: "10px 12px", display: "flex", alignItems: "center", gap: 11, minHeight: 58 }, sk.card, { borderRadius: 16 }) },
+      style: Object.assign({ padding: "10px 12px", display: "flex", alignItems: "center", gap: 11, minHeight: 58 }, sk.card, { borderRadius: sk.id === "glass" ? 0 : 16 }) },
       h(CatTile, { tint: catTint(settings, isInc ? "income" : "expense", txn.category), emoji: txn.catEmoji, name: txn.category, icon: txn.catIcon || catIconOf(settings, isInc ? "income" : "expense", txn.category), size: 38, sk }),
       h("div", { style: { flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 500, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, txn.note || txn.category),
@@ -1454,12 +1462,12 @@
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } }, "自定义")))),
         // 底下这一整块是机器的操作台：一块金额屏 + 备注条 + 一排小胶囊键 + 数字键盘
         h("div", { className: "shrink-0 lg-console", style: Object.assign({ padding: "12px 14px calc(env(safe-area-inset-bottom) * 0.4 + 8px)" }, glass ? Object.assign({}, sk.shell, { borderRadius: "24px 24px 0 0", borderBottom: "none" }) : { borderTop: "1px solid " + sk.line }) },
-          h("div", { "data-ledger-amount": true, style: Object.assign({ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 6px 14px", marginBottom: 8 }, sk.screen) },
+          h("div", { "data-ledger-amount": true, style: Object.assign({ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 6px 14px", marginBottom: 8 }, glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE, padding: "4px 4px 6px" }) : sk.screen) },
             h("span", { style: lcdNum(sk, 20, "rgba(43,52,82,.6)") }, cur ? cur.symbol : ""),
             h("span", { style: Object.assign({ flex: 1 }, lcdNum(sk, 30, amount ? sk.lcd : "rgba(43,52,82,.3)")) }, amount || "0.00"),
             amount ? h("button", { onClick: () => setAmount(""), "aria-label": "清空金额", className: "active:opacity-60", style: { width: 40, height: 40, color: "rgba(43,52,82,.5)", fontSize: 18 } }, "⊗") : null),
           h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注：这一笔是什么（可留空）", maxLength: 60,
-            style: Object.assign({ width: "100%", minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, outline: "none", marginBottom: 8 }, sk.well, { borderRadius: 12 }) }),
+            style: Object.assign({ width: "100%", minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, outline: "none", marginBottom: 8 }, (glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE }) : sk.well), { borderRadius: 12 }) }),
           h("div", { style: { display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
             // 日期：一颗小胶囊，底下压着一个透明的原生日期框，点了照样弹系统日期
             h("label", { className: "lg-key flex items-center", style: jellyKey(sk, "clear", false, { position: "relative", minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub, borderRadius: 999 }) },
