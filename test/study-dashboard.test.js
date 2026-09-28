@@ -148,9 +148,9 @@ const H2 = (() => {
   // findCurriculum / saveCurriculum 是一行的函数，按「到下一个 }」抠会抠过头——照写存档那一对的意思直接给
   vm.runInContext("const DAY_MS = 86400000;\nfunction findCurriculum(id) { return loadCurricula().find(function (c) { return c.id === id; }) || null; }\n"
     + "function saveCurriculum(c) { saveCurricula(loadCurricula().map(function (x) { return x.id === c.id ? c : x; })); }\n" + rd + "\n" + src.slice(src.indexOf("  const MISTAKE_CAUSE = {"), src.indexOf("  // ── 答一张复习卡"))
-    + ["updateCurriculumReview", "inMistakeBook", "quizAnswerText", "reviewStageText", "upcomingReviewDays", "weekStart", "examCountdown", "setExam", "studyTime", "minutesText", "weeklyReport", "saveWeeklyNote", "mistakeBookItems", "mistakeBookText", "curriculumMemoryText"].map(one).join("\n")
+    + ["updateCurriculumReview", "inMistakeBook", "quizAnswerText", "reviewStageText", "upcomingReviewDays", "weekStart", "examCountdown", "setExam", "studyTime", "minutesText", "pointLabels", "fileSafe", "todayStr", "ankiExport", "mistakeBookHtml", "weeklyReport", "saveWeeklyNote", "mistakeBookItems", "mistakeBookText", "curriculumMemoryText"].map(one).join("\n")
     + asy("answerReviewItem")
-    + "\nconst STUDY_GAP_MS = 10 * 60000;\nthis.api = { updateCurriculumReview, setMistakeCause, answerReviewItem, weeklyReport, saveWeeklyNote, mistakeBookText, weekStart, examCountdown, setExam, studyTime, curriculumMemoryText };", ctx);
+    + "\nconst STUDY_GAP_MS = 10 * 60000;\nthis.api = { updateCurriculumReview, setMistakeCause, answerReviewItem, weeklyReport, saveWeeklyNote, mistakeBookText, weekStart, examCountdown, setExam, studyTime, curriculumMemoryText, ankiExport, mistakeBookHtml };", ctx);
   ctx.cur = () => store[0];
   return ctx;
 })();
@@ -229,4 +229,49 @@ test("概况挂上了倒计时和时长，周报把时长和考试也递给老�
   assert.match(src, /time: studyTime\(cur, props\.sessions, loadJSON\("x_pomodoro_saves", \[\]\)\)/);
   assert.match(src, /"＋ 设个考试日期，倒着数"/);
   assert.match(src, /离「" \+ report\.exam\.name \+ "」还有 "/);
+});
+
+
+// ── 导出 / 番茄钟选课（她 2026-09-28：「接着做导出吧，然后开番茄钟选一门课」）──
+test("Anki 导出：带表头，一行一张，字段里的换行和制表符不会把一张卡拆开，标签带课名和要点", () => {
+  const cur = { id: "c1", subject: "日语 N4", flashcards: [
+    { id: "f1", front: "食べる\tて形", back: "食べて\n一段动词", aside: "别加促音", pointId: "te" },
+    { id: "f2", front: "<b>行く</b>", back: "行った" } ] };
+  const txt = H2.api.ankiExport(cur, [{ outline: { units: [{ grammar: [{ id: "te", label: "て形" }] }] } }]);
+  const lines = txt.trim().split("\n");
+  assert.deepEqual(lines.slice(0, 4), ["#separator:tab", "#html:true", "#tags column:3", "#deck:日语 N4"]);
+  assert.equal(lines.length, 6);
+  assert.deepEqual(lines[4].split("\t"), ["食べる て形", "食べて<br>一段动词<br><br><i>别加促音</i>", "日语_N4 て形"]);
+  assert.equal(lines[5].split("\t")[0], "&lt;b&gt;行く&lt;/b&gt;", "字段里的尖括号得转义，不然 Anki 当成 HTML");
+});
+test("错题本导出：只有还在本子里的，题目、她上次写的、答案、错因都在，内容全转义", () => {
+  const cur = { id: "c1", subject: "日语", memory: { review_items: [
+    { key: "a", pointId: "te", type: "fill_blank", prompt: "<script>x</script>", answer: "食べて", lastAnswer: "食べって", lastResult: "incorrect", inBook: true, wrongCount: 2, cause: "mixup", updatedAt: 2 },
+    { key: "b", pointId: "ta", type: "fill_blank", prompt: "已经移出去的", answer: "行った", inBook: false, updatedAt: 1 } ] } };
+  const html = H2.api.mistakeBookHtml(cur, []);
+  assert.match(html, /^<!doctype html>/);
+  assert.match(html, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /上次写的：食べって/);
+  assert.match(html, /答案：食べて/);
+  assert.match(html, /错因：记混了/);
+  assert.doesNotMatch(html, /已经移出去的/);
+});
+test("番茄钟选了课的按课认，别的课不算；没选课的老记录才看任务名", () => {
+  const now = new Date(2026, 8, 30, 22, 0).getTime(), min = 60000;
+  const pomo = [
+    { curId: "c1", task: "随便写的", focusedMinutes: 20, ts: now - 60 * min },
+    { curId: "c2", task: "日语", focusedMinutes: 30, ts: now - 120 * min },   // 写着日语但选的是别的课
+    { task: "日语单词", focusedMinutes: 10, ts: now - 200 * min } ];          // 老记录
+  const r = H2.api.studyTime({ id: "c1", subject: "日语" }, [], pomo, now);
+  assert.equal(r.total, 30);
+  assert.equal(H2.api.studyTime({ id: "c3", subject: "" }, [], [{ task: "什么", focusedMinutes: 9, ts: now }], now).total, 0, "课名空着时不该把没选课的记录全吞进来");
+});
+test("导出按钮挂在闪卡页和错题本页；番茄钟把选的课记在场次和往期记录上", () => {
+  assert.match(src, /right: all\.length \? h\(ExportBtn, \{ kind: "anki"/);
+  assert.match(src, /right: !due && items\.length \? h\(ExportBtn, \{ kind: "book"/);
+  const pomo = fs.readFileSync(path.join(__dirname, "..", "js", "pomodoro.js"), "utf8");
+  assert.match(pomo, /const next = \{ char: c, charId: c\.id, curId: curId \|\| null,/);
+  assert.match(pomo, /task: s\.task, curId: s\.curId \|\| null,/);
+  assert.match(pomo, /setCurId\(restored\.curId \|\| ""\)/);
 });

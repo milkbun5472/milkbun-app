@@ -1387,9 +1387,11 @@
       if (a != null) spans.push([a, b]);
     });
     const subj = String(cur && cur.subject || "").trim();
-    if (subj) (Array.isArray(pomoSaves) ? pomoSaves : []).forEach(function (r) {
+    if (cur) (Array.isArray(pomoSaves) ? pomoSaves : []).forEach(function (r) {
       const mins = Number(r && r.focusedMinutes);
-      if (!(mins > 0) || String(r.task || "").indexOf(subj) < 0) return;
+      // 开番茄钟时选了课的，按课认；选课之前的老记录，才退回去看任务里有没有课名
+      const mine = r && r.curId ? r.curId === cur.id : !!subj && String(r && r.task || "").indexOf(subj) >= 0;
+      if (!(mins > 0) || !mine) return;
       const end = Number(r.ts) || 0;
       if (end > 0) spans.push([end - mins * 60000, end]);
     });
@@ -1411,6 +1413,66 @@
     if (m < 60) return m + " 分钟";
     const hh = Math.floor(m / 60), mm = m % 60;
     return hh + " 小时" + (mm ? " " + mm + " 分" : "");
+  }
+
+  // ── 导出（她 2026-09-28）：闪卡 → Anki，错题本 → 一页能打印的 ─────────────────
+  // 文件落地走 engine.js 的 saveTextFile（iOS 走分享面板，别处普通下载），这里只管拼出文件内容。
+  function pointLabels(sessions) {
+    const label = {};
+    (sessions || []).forEach(function (s) { ((s.outline && s.outline.units) || []).forEach(function (u) { (u.grammar || []).forEach(function (g) { if (g && g.id != null) label[g.id] = g.label || String(g.id); }); }); });
+    return label;
+  }
+  function fileSafe(name) { return String(name || "课程").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40); }
+  function todayStr() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  // Anki「导入文件」认的纯文本：头几行 # 开头是给 Anki 看的设置（分隔符、允许 HTML、第三列是标签）。
+  // 一行一张：正面 \t 背面 \t 标签。字段里的制表符和换行得换掉，不然一张卡会被拆成几张。
+  function ankiExport(cur, sessions) {
+    const label = pointLabels(sessions);
+    const cell = function (v) {
+      return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\t/g, " ").replace(/\r?\n/g, "<br>");
+    };
+    const tag = function (v) { return String(v || "").replace(/\s+/g, "_"); };
+    const deck = tag(cur && cur.subject || "一起学");
+    const rows = ((cur && cur.flashcards) || []).map(function (c) {
+      const back = cell(c.back) + (c.aside ? "<br><br><i>" + cell(c.aside) + "</i>" : "");
+      return [cell(c.front), back, [deck, c.pointId && label[c.pointId] ? tag(label[c.pointId]) : ""].filter(Boolean).join(" ")].join("\t");
+    });
+    return ["#separator:tab", "#html:true", "#tags column:3", "#deck:" + (cur && cur.subject || "一起学")].concat(rows).join("\n") + "\n";
+  }
+  // 错题本那一页：自带样式的一张 html，手机上打开就能「打印 / 存成 PDF」。
+  // 每道题底下留几行空白，方便她打出来重新写一遍；答案折在题目后面，打印时照样在。
+  function mistakeBookHtml(cur, sessions) {
+    const label = pointLabels(sessions);
+    const esc = function (v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+    const items = mistakeBookItems(cur);
+    const body = items.map(function (x, i) {
+      const opts = x.type === "choice" ? "<ol class=\"opts\">" + (x.options || []).map(function (o) { return "<li><b>" + esc(o.id) + "</b> " + esc(o.label) + "</li>"; }).join("") + "</ol>" : "";
+      const meta = [label[x.pointId] || "", Number(x.wrongCount) ? "错过 " + x.wrongCount + " 次" : "", Number(x.hintedCount) ? "靠提示 " + x.hintedCount + " 次" : "",
+        MISTAKE_CAUSE[x.cause] ? "错因：" + MISTAKE_CAUSE[x.cause].zh : ""].filter(Boolean).join(" · ");
+      return "<section><div class=\"meta\">" + (i + 1) + (meta ? " · " + esc(meta) : "") + "</div>"
+        + "<div class=\"q\">" + esc(x.prompt).replace(/\n/g, "<br>") + "</div>" + opts
+        + "<div class=\"blank\"></div>"
+        + (x.lastAnswer ? "<div class=\"mine\">上次写的：" + esc(x.lastAnswer) + "</div>" : "")
+        + "<div class=\"ans\">答案：" + esc(quizAnswerText(x, x.answer)) + "</div>"
+        + (x.explanation ? "<div class=\"exp\">" + esc(x.explanation).replace(/\n/g, "<br>") + "</div>" : "")
+        + "</section>";
+    }).join("");
+    return "<!doctype html><html lang=\"zh\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+      + "<title>" + esc(cur.subject) + " · 错题本</title><style>"
+      + "body{font-family:-apple-system,'PingFang SC','Noto Sans CJK SC',sans-serif;color:#30352f;background:#fbf8ef;margin:0;padding:24px 18px;line-height:1.7}"
+      + "h1{font-size:22px;margin:0}.sub{color:#92978e;font-size:12px;margin:4px 0 18px}"
+      + "section{border-left:3px solid #ad6254;background:#fff;padding:12px 14px;margin:0 0 12px;border-radius:4px 10px 10px 4px;break-inside:avoid}"
+      + ".meta{font-size:11px;color:#92978e}.q{font-size:15px;margin-top:4px}.opts{margin:6px 0 0;padding-left:0;list-style:none;font-size:13px}"
+      + ".blank{height:54px;border-bottom:1px dashed #d8d4c6;margin:6px 0 8px}.mine{font-size:12px;color:#ad6254}.ans{font-size:13px;color:#4a7a4a}.exp{font-size:12px;color:#646b62;margin-top:3px}"
+      + "@media print{body{background:#fff;padding:0}section{box-shadow:none}}"
+      + "</style></head><body><h1>" + esc(cur.subject) + " · 错题本</h1><div class=\"sub\">" + todayStr() + " 导出 · " + items.length + " 道</div>"
+      + (items.length ? body : "<p>本子是空的。</p>") + "</body></html>";
+  }
+  async function exportFile(kind, cur, sessions) {
+    if (typeof saveTextFile !== "function") throw new Error("这台设备存不了文件");
+    if (kind === "anki") return saveTextFile(fileSafe(cur.subject) + "_闪卡_" + todayStr() + ".txt", ankiExport(cur, sessions), "text/plain");
+    return saveTextFile(fileSafe(cur.subject) + "_错题本_" + todayStr() + ".html", mistakeBookHtml(cur, sessions), "text/html");
   }
 
   // ── 错因（她 2026-09-28）：错题除了记「错了」，再记是怎么错的 ─────────────
@@ -1561,7 +1623,7 @@
     studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds, studyDashboard: studyDashboard, knowledgeMap: knowledgeMap, genUnitTest: genUnitTest, parseUnitTest: parseUnitTest,
     recordUnitTest: recordUnitTest, lastUnitTest: lastUnitTest, testByPoint: testByPoint,
     MISTAKE_CAUSE: MISTAKE_CAUSE, setMistakeCause: setMistakeCause, causeOf: causeOf, answerReviewItem: answerReviewItem, rateReviewCard: rateReviewCard,
-    weeklyReport: weeklyReport, genWeeklyNote: genWeeklyNote, examCountdown: examCountdown, setExam: setExam, studyTime: studyTime, minutesText: minutesText, saveWeeklyNote: saveWeeklyNote, weekStart: weekStart,
+    weeklyReport: weeklyReport, genWeeklyNote: genWeeklyNote, examCountdown: examCountdown, setExam: setExam, ankiExport: ankiExport, mistakeBookHtml: mistakeBookHtml, exportFile: exportFile, studyTime: studyTime, minutesText: minutesText, saveWeeklyNote: saveWeeklyNote, weekStart: weekStart,
     exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
     outlineSlice: outlineSlice, progressText: progressText,
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
@@ -1737,7 +1799,8 @@
     const small = { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog };
     const btn = function (on) { return { minHeight: 36, padding: "5px 13px", fontFamily: F_BODY, fontSize: 12.5, borderRadius: "4px 10px 4px 4px", border: "1px solid " + (on ? accent : STUDY_SKIN.line), background: on ? accent : "transparent", color: on ? STUDY_SKIN.paper : STUDY_SKIN.ink }; };
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
-      h(StudyHead, { zh: due ? "该复习了" : "错题本", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h(StudyHead, { zh: due ? "该复习了" : "错题本", en: cur.subject, mode: cur.mode, onBack: props.onBack,
+        right: !due && items.length ? h(ExportBtn, { kind: "book", cur: cur, sessions: props.sessions, toast: props.toast }) : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px", lineHeight: 1.7 }) },
           due
@@ -1795,6 +1858,16 @@
         })));
   }
 
+  // 顶栏右边那一格「导出」：闪卡页和错题本页共用
+  function ExportBtn(props) {
+    const accent = studyModeSkin(props.cur.mode).accent;
+    return h("button", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: accent, minWidth: 36 },
+      onClick: function () {
+        exportFile(props.kind, findCurriculum(props.cur.id) || props.cur, props.sessions)
+          .then(function (how) { if (how === "download") props.toast && props.toast(props.kind === "anki" ? "存好了：在 Anki 里「导入文件」选它" : "存好了：打开它就能打印或存成 PDF"); })
+          .catch(function (e) { props.toast && props.toast(String(e && e.message || "没存成")); });
+      } }, "导出");
+  }
   // 闪卡那一页：一次一张，点一下翻面，翻过来自己点 记得／模糊／不记得。
   function FlashDeck(props) {
     const cur = props.curriculum;
@@ -1842,7 +1915,8 @@
     const btn = function (bg, ink) { return { flex: 1, minHeight: 46, fontFamily: F_BODY, fontSize: 14, borderRadius: "4px 12px 4px 4px", background: bg, color: ink, border: "1px solid " + STUDY_SKIN.line }; };
     const stage = item ? reviewStageText(item) : null;
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
-      h(StudyHead, { zh: "闪卡", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h(StudyHead, { zh: "闪卡", en: cur.subject, mode: cur.mode, onBack: props.onBack,
+        right: all.length ? h(ExportBtn, { kind: "anki", cur: cur, sessions: props.sessions, toast: props.toast }) : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px" }) },
           all.length ? "一共 " + all.length + " 张" + (round ? "，这一轮还剩 " + queue.length + " 张" : "，这会儿该翻的 " + queue.length + " 张") + "。记得的往后挪，模糊和不记得的几小时后再来，也会进错题本。"

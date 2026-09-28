@@ -231,6 +231,10 @@
     const [detail, setDetail] = useState(null);
     const [charId, setCharId] = useState(chars[0] ? chars[0].id : "");
     const [task, setTask] = useState("一起看书");
+    // 这一场算进哪门课（她 2026-09-28：「可以开番茄钟选一门课」）。记在场次和往期记录上，
+    // 一起学那边的学习时长按它认；不选就不算进任何一门。
+    const [curId, setCurId] = useState("");
+    const courses = (window.Study && window.Study.loadCurricula ? window.Study.loadCurricula() : []).filter(function (c) { return c && c.id && c.subject; });
     const [min, setMin] = useState(25);
     const [mode, setMode] = useState("notes");
     const [busy, setBusy] = useState(false);
@@ -255,7 +259,7 @@
       if (!s) return;
       const actual = Math.round((focusedSec(s, Date.now()) / 60) * 10) / 10;
       const rec = {
-        id: uid(), charId: s.char.id, charName: s.char.name, task: s.task, minutes: s.min,
+        id: uid(), charId: s.char.id, charName: s.char.name, task: s.task, curId: s.curId || null, minutes: s.min,
         focusedMinutes: status === "done" ? Number(s.min) : actual, pauseCount: s.pauseCount || 0,
         ts: Date.now(), status, statusZh: status === "done" ? "完成" : "提前收桌",
         interruptReason: status === "done" ? "" : (reason || "今天先到这里"),
@@ -276,7 +280,7 @@
       if (!raw || !c || !raw.endTs || !raw.pack) { if (raw) clearActive(); return; }
       const restored = { ...raw, char: c };
       sessRef.current = restored; setSess(restored); setLeft(remainingSec(restored, Date.now()));
-      setCharId(c.id); setTask(restored.task || "专注"); setMin(restored.min || 25); setMode(restored.mode || "notes");
+      setCharId(c.id); setTask(restored.task || "专注"); setMin(restored.min || 25); setMode(restored.mode || "notes"); setCurId(restored.curId || "");
       setResumed(true); setView("focus");
     }, [chars.length]);
 
@@ -308,7 +312,7 @@
           : fallbackPack(task.trim() || "专注");
       } catch (_) { pack = fallbackPack(task.trim() || "专注"); }
       const now = Date.now();
-      const next = { char: c, charId: c.id, pack, min: duration, task: task.trim() || "专注", mode, startTs: now, endTs: now + duration * 60000, pausedAt: null, pauseCount: 0 };
+      const next = { char: c, charId: c.id, curId: curId || null, pack, min: duration, task: task.trim() || "专注", mode, startTs: now, endTs: now + duration * 60000, pausedAt: null, pauseCount: 0 };
       keepSession(next); setLeft(duration * 60); setBusy(false); setResumed(false); setView("focus");
     };
 
@@ -449,7 +453,19 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f" } }, "这一轮只做"),
           h("input", { value: task, onChange: e => setTask(e.target.value), placeholder: "这一轮只做…", maxLength: 24,
             style: { width: "100%", fontFamily: F_DISPLAY, fontSize: 21, color: "#3a3024", background: "transparent",
-              border: "none", borderBottom: "1px solid rgba(140,116,60,.28)", outline: "none", padding: "9px 0 7px", marginTop: 8 } })),
+              border: "none", borderBottom: "1px solid rgba(140,116,60,.28)", outline: "none", padding: "9px 0 7px", marginTop: 8 } }),
+          // 算进哪门课：一起学里开过课才出现。点一门就挂上，再点一下取消；空着的便签顺手填上课名
+          courses.length ? h("div", { style: { marginTop: 11 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f", marginBottom: 6 } }, "算进哪门课"),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, courses.slice(0, 8).map(function (c) {
+              const on = curId === c.id;
+              return h("button", { key: c.id, className: "active:opacity-70", onClick: function () {
+                  setCurId(on ? "" : c.id);
+                  if (!on && (!task.trim() || task === "一起看书" || task === "专注")) setTask(c.subject);
+                },
+                style: { minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+                  border: "1px solid " + (on ? "#8c743c" : "rgba(140,116,60,.3)"), background: on ? "#8c743c" : "transparent", color: on ? "#fdf6d8" : "#6b5a36" } }, c.subject);
+            }))) : null),
         // ② 发条计时盘：拧到几分就走几分
         h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 22 } },
           h(Dial, { t: t, min: min, size: 200, onPick: v => setMin(v) }),
