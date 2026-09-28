@@ -49,6 +49,10 @@ console.log("ledger-y2k ok");
 // 第五轮（她拿样张对比：「太死了不够透、加号要更大」）：三颗主键是透明玻璃软糖 + 大果冻图标
 assert.match(src, /function JellyGlyph\(/);
 assert.match(src, /bigKey\("记一笔", "pink", "plus"/);
-assert.match(src, /h\(JellyGlyph, \{ k: glyph, tone, size: glass \? 46 : 30 \}\)/);
+assert.match(src, /h\(JellyGlyph, \{ k: glyph, tone, size: glass \? 50 : 30 \}\)/);
 assert.match(src, /backdropFilter: "blur\(8px\)"/, "主键不透了");
 console.log("ledger-bigkey ok");
+// 第六轮（她：「现在是 2d 了，我要 3d」）：图标要有挤出来的侧面，键要露出厚度
+assert.match(src, /h\("path", \{ d, fill: T\[3\], transform: "translate\(1\.2 2\.6\)" \}\)/, "果冻图标没有侧面了");
+assert.match(src, /"0 6px 0 " \+ b \+ "73/, "主键没有厚度了");
+console.log("ledger-3d ok");

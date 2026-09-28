@@ -490,21 +490,37 @@
       boxShadow: glass ? (on ? "0 0 0 3px " + sk.pink + "40, inset 0 -2px 4px " + tint : "inset 0 -2px 4px " + tint + ", inset 0 1px 1px #fff, 0 2px 5px " + tint + "55") : "none" } }, emoji || "•");
   }
   // 一排格子（能量槽 / 电量格 / 状态条）：n 格里点亮 lit 格。点亮的格子带一点发光，没亮的是屏幕上淡淡的底格
-  // 果冻图标：一颗鼓起来的彩色软糖——上浅下深的渐变、深一点的描边、左上一点白高光、底下一点投影
+  // 果冻图标（照样张抄）：一块被挤出厚度的软糖——底下先画一层深色的侧面（往右下错开一点），
+  //   正面是左上亮、右下深的径向渐变，边上一圈细白唇，再压两道模糊的白色反光条，底部一点内阴影。
   const JELLY_GLYPH = {
-    plus: "M19 6h10a2 2 0 0 1 2 2v11h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H31v11a2 2 0 0 1-2 2H19a2 2 0 0 1-2-2V31H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h11V8a2 2 0 0 1 2-2z",
-    bag: "M18 6h12l-3 7c8 3 14 11 14 20 0 7-6 11-17 11S7 40 7 33c0-9 6-17 14-20z",
-    chart: "M7 30a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v12H7zM20 20a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v22H20zM33 9a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v33H33z"
+    plus: "M19 5h10a3 3 0 0 1 3 3v11h11a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H32v11a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V31H5a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3h11V8a3 3 0 0 1 3-3z",
+    bag: "M17 5h14l-3.5 7.5C36 16 42 23 42 32c0 8-7 12-18 12S6 40 6 32c0-9 6-16 14.5-19.5z",
+    chart: "M5 29a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v15H5zM19 18a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v26H19zM33 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v37H33z"
+  };
+  // 反光条：每个图标在自己「朝上、朝左」的那几条边上各一道
+  const JELLY_SHINE = {
+    plus: [[24, 8.5, 4.5, 1.6, 0], [8, 22.5, 3.2, 1.3, 0], [18.8, 14, 1.2, 3.6, 0]],
+    bag: [[16, 22, 2.2, 5.5, 25], [24, 8, 4, 1.2, 0]],
+    chart: [[11, 29.5, 2.4, 1.2, 0], [25, 18.5, 2.4, 1.2, 0], [39, 7.5, 2.4, 1.2, 0], [7.2, 35, 1, 5, 0]]
   };
   function JellyGlyph({ k, tone, size }) {
-    const [a, b] = JELLY[tone] || JELLY.pink, id = "lgj-" + k + "-" + tone, S = size || 44;
-    const deep = { pink: "#e0588d", blue: "#5d82de", lilac: "#8c6ad8" }[tone] || b;
-    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "drop-shadow(0 3px 3px " + b + "66)" } },
-      h("defs", null, h("linearGradient", { id, x1: 0, y1: 0, x2: 0, y2: 1 }, h("stop", { offset: 0, stopColor: a }), h("stop", { offset: .55, stopColor: b }), h("stop", { offset: 1, stopColor: deep }))),
-      h("path", { d: JELLY_GLYPH[k], fill: "url(#" + id + ")", stroke: deep, strokeOpacity: .55, strokeWidth: 1, strokeLinejoin: "round" }),
-      k === "bag" ? h("text", { x: 24, y: 36, textAnchor: "middle", fontSize: 14, fontWeight: 800, fill: "rgba(255,255,255,.92)", fontFamily: "Arial,sans-serif" }, "$") : null,
-      h("path", { d: JELLY_GLYPH[k], fill: "none", stroke: "rgba(255,255,255,.6)", strokeWidth: 1.2, transform: "translate(0.6 0.8) scale(.97)", strokeLinejoin: "round" }),
-      h("ellipse", { cx: k === "chart" ? 38 : k === "bag" ? 17 : 22, cy: k === "chart" ? 12 : k === "bag" ? 24 : 12, rx: k === "plus" ? 3.2 : 2.6, ry: 1.6, fill: "rgba(255,255,255,.9)", transform: "rotate(-20 20 14)" }));
+    const T = { pink: ["#ffd9e7", "#f47ea9", "#d94c85", "#b63468"], blue: ["#dde8ff", "#7ea3f2", "#4f76d8", "#3a5bb4"], lilac: ["#ece2ff", "#aa8cf0", "#7f5fd6", "#6445b3"] }[tone] || ["#fff", "#ccc", "#999", "#777"];
+    const id = "lgj-" + k + "-" + tone, S = size || 44, d = JELLY_GLYPH[k];
+    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "drop-shadow(0 4px 4px " + T[2] + "55)" } },
+      h("defs", null,
+        h("radialGradient", { id: id + "f", cx: .34, cy: .26, r: .85 }, h("stop", { offset: 0, stopColor: T[0] }), h("stop", { offset: .45, stopColor: T[1] }), h("stop", { offset: 1, stopColor: T[2] })),
+        h("linearGradient", { id: id + "b", x1: 0, y1: 0, x2: 0, y2: 1 }, h("stop", { offset: .55, stopColor: T[3], stopOpacity: 0 }), h("stop", { offset: 1, stopColor: T[3], stopOpacity: .45 })),
+        h("filter", { id: id + "g", x: "-20%", y: "-20%", width: "140%", height: "140%" }, h("feGaussianBlur", { stdDeviation: .7 }))),
+      // 侧面（厚度）
+      h("path", { d, fill: T[3], transform: "translate(1.2 2.6)" }),
+      h("path", { d, fill: T[2], transform: "translate(.6 1.3)" }),
+      // 正面
+      h("path", { d, fill: "url(#" + id + "f)" }),
+      h("path", { d, fill: "url(#" + id + "b)" }),
+      h("path", { d, fill: "none", stroke: "rgba(255,255,255,.75)", strokeWidth: 1.1, strokeLinejoin: "round" }),
+      k === "bag" ? h("text", { x: 24, y: 36.5, textAnchor: "middle", fontSize: 15, fontWeight: 900, fill: "#fff", fillOpacity: .95, fontFamily: "Arial Rounded MT Bold,Arial,sans-serif", style: { filter: "drop-shadow(0 1px 0 " + T[3] + ")" } }, "$") : null,
+      // 反光
+      h("g", { filter: "url(#" + id + "g)" }, (JELLY_SHINE[k] || []).map((e, i) => h("ellipse", { key: i, cx: e[0], cy: e[1], rx: e[2], ry: e[3], fill: "#fff", fillOpacity: .9, transform: "rotate(" + e[4] + " " + e[0] + " " + e[1] + ")" }))));
   }
   // 进度条：细细一根，填的那段是紫到粉的糖果渐变、带一道高光
   function Bar({ pct, over, sk, color, height }) {
@@ -759,15 +775,16 @@
     //   图标是一颗鼓起来的彩色果冻（渐变填色 + 左上一点高光），比字大得多（她 2026-09-28 拿样张对比：「太死了不够透、加号要更大」）
     const bigKey = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
       return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
-        style: glass ? { position: "relative", minHeight: 104, gap: 6, borderRadius: 24,
-            background: "linear-gradient(160deg, rgba(255,255,255,.62) 0%, " + a + "55 45%, " + a + "80 100%)",
-            border: "1.5px solid rgba(255,255,255,.95)",
-            boxShadow: "inset 0 2px 1px #fff, inset 0 -8px 14px " + b + "40, inset 8px 0 14px rgba(255,255,255,.35), inset 0 0 0 1px " + b + "33, 0 10px 22px " + b + "33, 0 2px 4px " + b + "26",
-            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", transition: "transform .08s" }
+        // 一块厚玻璃软糖（照样张抄）：左上亮唇、右下暗唇、贴着边的一圈内发光，底下露出一截同色的厚度，再落一片软影
+        style: glass ? { position: "relative", minHeight: 104, gap: 6, borderRadius: 24, marginBottom: 6,
+            background: "radial-gradient(90% 70% at 30% 18%, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 60%), linear-gradient(165deg, " + a + "55 0%, " + a + "aa 55%, " + b + "99 100%)",
+            border: "1.5px solid " + b + "66",
+            boxShadow: "inset 2px 2px 1px #fff, inset 0 0 0 5px rgba(255,255,255,.45), inset 0 0 0 6px " + b + "33, inset 5px 7px 8px rgba(255,255,255,.7), inset -4px -6px 8px " + b + "55, inset 0 0 18px 4px " + b + "33, " +
+              "0 6px 0 " + b + "73, 0 7px 0 1px rgba(255,255,255,.6), 0 16px 22px " + b + "45",
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", transition: "transform .08s, box-shadow .08s" }
           : jellyKey(sk, tone, false, { minHeight: 88, gap: 7, borderRadius: 20 }) },
-        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 6, borderRadius: 19, border: "1px solid rgba(255,255,255,.7)", pointerEvents: "none" } }) : null,
-        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 10, top: 7, height: "32%", borderRadius: "16px 16px 40% 40%", background: "linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,0))", pointerEvents: "none" } }) : null,
-        h(JellyGlyph, { k: glyph, tone, size: glass ? 46 : 30 }),
+        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 8, top: 6, width: "46%", height: 10, borderRadius: 10, background: "linear-gradient(90deg, rgba(255,255,255,.95), rgba(255,255,255,0))", filter: "blur(1.5px)", pointerEvents: "none" } }) : null,
+        h(JellyGlyph, { k: glyph, tone, size: glass ? 50 : 30 }),
         h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13.5, fontWeight: 800, color: glass ? "#4a3a5e" : sk.ink } }, label)); };
     const mrec = (data.monthly || {})[lmk];
     const ls = summarize(data.txns, code, lmk);
