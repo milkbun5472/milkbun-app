@@ -13,11 +13,14 @@ test("四条拉条都放宽了，单人与群线下各两条", () => {
   const sliders = [...comp.matchAll(/h\(Slider, \{ value: (sMax|sMinW), min: (\d+), max: (\d+)/g)]
     .map(m => ({ k: m[1], min: +m[2], max: +m[3] }));
   const maxes = sliders.filter(x => x.k === "sMax").map(x => x.max);
-  const mins = sliders.filter(x => x.k === "sMinW").map(x => x.max);
   assert.equal(maxes.length, 2, "单人线下 + 群线下各一条输出上限");
-  assert.equal(mins.length, 2);
+  // v74.211：最低字数那两根搬去公共那一段 WordFloorSection 了（她：「不要一样一处」），
+  // 所以这儿不再数裸 Slider，改数【两边都接了公共那段】；宽度由那一段自己保证。
+  assert.equal((comp.match(/h\(WordFloorSection, \{ value: sMinW, onChange: setSMinW/g) || []).length, 2);
+  assert.match(comp, /function WordFloorSection\(/);
   maxes.forEach(m => assert.ok(m >= 24000, "输出上限还是太窄：" + m));
-  mins.forEach(m => assert.ok(m >= 3000, "最低字数还是太窄：" + m));
+  // 公共那段的默认上限就是 8000（cap 那一行），够宽
+  assert.match(comp, /Number\(max\) \|\| 8000/);
   // 群线下要写好几个人的戏，上限不该比单聊低
   assert.ok(Math.max(...maxes) >= 32000);
 });

@@ -277,10 +277,27 @@
     return { canStream: canStream, why: why };
   }
 
-  function wordRule(minW) {
+  // ── 「最少写多少字」这件事只有这一份（她 2026-09-28：「统一一下公共设置字数拉条，
+  //    不要一样一处」）。原来同人文自己另写了一套 clampMinChars/minCharsFor/countChars，
+  //    小剧场一份都没有——三处各写各的，改措辞就只会改到一处。
+  // ⚠️API 上没有 min_tokens（max_tokens 是天花板、没有地板），所以这个数只能落成两件事：
+  //    发进提示词 + 写完自己数一遍。数出来短了只提示，不自动补写。
+  const WORD_FLOOR_MAX = 20000;
+  function clampWordFloor(v) {
+    const n = Math.round(Number(v));
+    if (!isFinite(n) || n <= 0) return 0;          // 0＝没设，各处自己决定拿什么兜底
+    return Math.max(200, Math.min(WORD_FLOOR_MAX, n));
+  }
+  // 数字数：空白不算（和界面上提示的、提示词里发的是同一个数）
+  function countWords(text) { return String(text == null ? "" : text).replace(/\s/g, "").length; }
+  function shortBy(text, minW) { const need = clampWordFloor(minW); if (!need) return 0; return Math.max(0, need - countWords(text)); }
+  // ⚠️cap: false ＝不给上限。同人文一章本来就没有上限（它那句是「至少 N 字，别写个开头就交」），
+  //    搬过来时不许顺手把它压成 1.35 倍——公共那一层要能表达各处自己的分寸。
+  function wordRule(minW, opts) {
     if (!minW) return "";
+    const noCap = !!(opts && opts.cap === false);
     const maxW = Math.round(minW * 1.35);   // 用 round 不用 ceil：1500*1.35 浮点是 2025.0000000000002
-    return "【字数】正文用简体中文写，不少于 " + minW + " 字、不超过 " + maxW + " 字（按中文字符算）。\n"
+    return "【字数】正文用简体中文写，不少于 " + minW + " 字" + (noCap ? "（按中文字符算）。\n" : "、不超过 " + maxW + " 字（按中文字符算）。\n")
       + "· 字数用【真实发生的互动、对白和心理活动】填满；不用场景铺陈、外貌描写、环境渲染或多余细节凑数。\n"
       + "· 自己数着写：没到下限就继续往下写，不要提前收尾、不要提示字数、不要问要不要继续；到了下限并且这一拍也写完了，就停。\n"
       + "· 下限是硬要求，不是建议。";
@@ -350,7 +367,8 @@
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
     loadRuns: loadRuns, pushRun: pushRun, clearRuns: clearRuns, runTest: runTest,
-    wordRule: wordRule, outTokens: tokensFor, OUT_CEILING: OUT_CEILING, routeInfo: routeInfo,
+    wordRule: wordRule, clampWordFloor: clampWordFloor, countWords: countWords, shortBy: shortBy, WORD_FLOOR_MAX: WORD_FLOOR_MAX,
+    outTokens: tokensFor, OUT_CEILING: OUT_CEILING, routeInfo: routeInfo,
     SM_BEAT: SM_BEAT, SM_CAMERA: SM_CAMERA, SM_PARAGRAPH: SM_PARAGRAPH
   };
 })();

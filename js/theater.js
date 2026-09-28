@@ -478,6 +478,11 @@
           window.StylePresets.SM_CAMERA,
           window.StylePresets.SM_PARAGRAPH,
           spBlock ? window.StylePresets.wrap(spBlock) : null,
+          // 每拍最少写多少字（她 2026-09-28：「小剧场也加一个字数」）。
+          // ⚠️那句规则走公共那一份 StylePresets.wordRule——线下、群线下、试写台、同人文
+          //   都问它要，小剧场原来一份都没有（施工规则/one-public-mechanism.md）。
+          //   演出是一拍一拍往下走的，所以给上限（不像同人文一章那样敞着）。
+          window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
           // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
           // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
@@ -1032,8 +1037,15 @@
              h("div", { key: "e4b", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "Ta 的行头(出图时锁定,留空则每张随机)"), ta("charOutfit", 2)),
              h("div", { key: "e4c", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, uName + " 的行头(同上)"), ta("userOutfit", 2)),
              h("div", { key: "e5", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "当前轮目标"), ta("goal", 2)),
+             // 每拍最少写多少字（她 2026-09-28）。走公共那一段 WordFloorSection：
+             // 线下、群线下、同人文用的是同一根拉条，措辞和 clamp 也只有一份。
+             h("div", { key: "e5b", style: { marginBottom: 7 } },
+               h(window.WordFloorSection, { value: edit.minWords || 0,
+                 onChange: v => setEdit(p => ({ ...p, minWords: v })),
+                 title: "每拍最少写多少字",
+                 note: "留空＝不限。这个数会发进提示词、让它自己数着写；小剧场是一拍一拍往下演的，给了下限也会配一个上限。" })),
              h("div", { key: "e6", style: { display: "flex", gap: 8 } },
-               h("button", { onClick: () => { const e2 = edit; update(list => list.map(l => l.id !== line.id ? l : { ...l, title: e2.title.trim() || l.title, charRole: e2.charRole, userRole: e2.userRole, setting: e2.setting, charOutfit: e2.charOutfit, userOutfit: e2.userOutfit, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: e2.goal }) })); setEdit(null); props.toast("已保存"); }, style: S.btn(true) }, "保存"),
+               h("button", { onClick: () => { const e2 = edit; update(list => list.map(l => l.id !== line.id ? l : { ...l, title: e2.title.trim() || l.title, charRole: e2.charRole, userRole: e2.userRole, setting: e2.setting, charOutfit: e2.charOutfit, userOutfit: e2.userOutfit, minWords: e2.minWords || 0, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: e2.goal }) })); setEdit(null); props.toast("已保存"); }, style: S.btn(true) }, "保存"),
                h("button", { onClick: () => setEdit(null), style: S.btn(false) }, "取消"))]
           : [[["Ta 的身份", line.charRole], [uName + " 的身份", line.userRole], ["世界与情境", line.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 7 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
              h("div", { key: "df", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7 } },
@@ -1057,7 +1069,7 @@
                  : h("button", { onClick: () => genGoal("redo"), disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换个目标"),
                !line.ended && h("button", { onClick: endLine, disabled: busy, style: S.btn(false) }, "谢幕收线"),
                h("button", { onClick: restartLine, disabled: busy, style: S.btn(false) }, "重开此线"),
-               h("button", { onClick: () => setEdit({ title: line.title, charRole: line.charRole, userRole: line.userRole, setting: line.setting, charOutfit: line.charOutfit || "", userOutfit: line.userOutfit || "", goal: round.goal }), style: S.btn(false) }, "编辑设定"),
+               h("button", { onClick: () => setEdit({ title: line.title, charRole: line.charRole, userRole: line.userRole, setting: line.setting, charOutfit: line.charOutfit || "", userOutfit: line.userOutfit || "", minWords: line.minWords || 0, goal: round.goal }), style: S.btn(false) }, "编辑设定"),
                h("button", { onClick: () => addPreset(line), style: S.btn(false) }, "收藏此设定"),
                h("button", { onClick: () => delLine(line.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此线")),
              writeGoal !== null && h("div", { key: "wg", style: { marginTop: 8 } },
