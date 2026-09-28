@@ -28,3 +28,14 @@ assert.equal(run(["9", "del"]), "");
 // 标题不留英文（no-english-titles）
 assert.doesNotMatch(src, /MY WALLET|THANK YOU|QIUQIU/);
 console.log("ledger-glass ok");
+// 第二轮（她：主题只在背景上）：设计语言是一台果冻电子钱包——外壳 / LCD / 果冻键 / 能量格 四样零件
+{
+  ["function jellyKey(", "function Cells(", "const JELLY_CSS", "function StripSlot(", "const silk ="].forEach(n => assert.ok(src.indexOf(n) > 0, n));
+  assert.match(src, /h\("style", null, JELLY_CSS\)/, "按下去那一下的样式没挂上");
+  assert.match(src, /"data-ledger-cal": true, style: Object\.assign\(\{ padding: "10px 8px" \}, sk\.screen\)/, "日历没装进屏幕里");
+  assert.match(src, /h\(Cells, \{ n: 24, lit:/, "统计页预算不是电量格");
+  assert.match(src, /h\(Cells, \{ n: 16, lit:/, "排行不是状态条");
+  assert.match(src, /像老电子词典 \/ MP3 机身底下那四颗小功能键/, "底栏回到了普通 tab bar");
+  assert.match(src, /backgroundColor: pageColor\("ledger", "bg", "#f3f2f8"\)/, "背景又铺成大片粉紫了");
+}
+console.log("ledger-y2k ok");
