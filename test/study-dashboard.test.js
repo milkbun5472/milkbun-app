@@ -148,9 +148,9 @@ const H2 = (() => {
   // findCurriculum / saveCurriculum 是一行的函数，按「到下一个 }」抠会抠过头——照写存档那一对的意思直接给
   vm.runInContext("const DAY_MS = 86400000;\nfunction findCurriculum(id) { return loadCurricula().find(function (c) { return c.id === id; }) || null; }\n"
     + "function saveCurriculum(c) { saveCurricula(loadCurricula().map(function (x) { return x.id === c.id ? c : x; })); }\n" + rd + "\n" + src.slice(src.indexOf("  const MISTAKE_CAUSE = {"), src.indexOf("  // ── 答一张复习卡"))
-    + ["updateCurriculumReview", "inMistakeBook", "quizAnswerText", "reviewStageText", "upcomingReviewDays", "weekStart", "weeklyReport", "saveWeeklyNote", "mistakeBookItems", "mistakeBookText"].map(one).join("\n")
+    + ["updateCurriculumReview", "inMistakeBook", "quizAnswerText", "reviewStageText", "upcomingReviewDays", "weekStart", "examCountdown", "setExam", "studyTime", "minutesText", "weeklyReport", "saveWeeklyNote", "mistakeBookItems", "mistakeBookText", "curriculumMemoryText"].map(one).join("\n")
     + asy("answerReviewItem")
-    + "\nthis.api = { updateCurriculumReview, setMistakeCause, answerReviewItem, weeklyReport, saveWeeklyNote, mistakeBookText, weekStart };", ctx);
+    + "\nconst STUDY_GAP_MS = 10 * 60000;\nthis.api = { updateCurriculumReview, setMistakeCause, answerReviewItem, weeklyReport, saveWeeklyNote, mistakeBookText, weekStart, examCountdown, setExam, studyTime, curriculumMemoryText };", ctx);
   ctx.cur = () => store[0];
   return ctx;
 })();
@@ -198,4 +198,35 @@ test("控制台挂上了快刷和这周两格", () => {
   assert.match(src, /cell\("week", "这周"/);
   assert.match(src, /if \(bookOpen === "drill"\) return h\(QuickDrill,/);
   assert.match(src, /if \(bookOpen === "week"\) return h\(WeeklyPage,/);
+});
+
+
+// ── 考试倒计时 / 学习时长（她 2026-09-28：「接着做考试倒计时和学习时长吧」）──
+test("考试倒计时按本地日期数天，老师看得到；考完了就不再催", () => {
+  const now = new Date(2026, 8, 28, 22, 0).getTime();
+  const cur = { id: "c1", subject: "日语", exam: { name: "N4", date: "2026-10-05" } };
+  assert.equal(H2.api.examCountdown(cur, now).days, 7);
+  assert.equal(H2.api.examCountdown({ exam: { date: "2026-09-28" } }, now).days, 0);
+  assert.equal(H2.api.examCountdown({ exam: { date: "乱写" } }, now), null);
+  assert.match(H2.api.curriculumMemoryText(cur), /【她在备考】「N4」在 2026-10-05/);
+  assert.doesNotMatch(H2.api.curriculumMemoryText({ id: "c1", exam: { name: "旧", date: "2020-01-01" } }), /备考/);
+});
+test("学习时长：课页里连着说话的算进去，隔太久断开；番茄钟按课名认；重叠只算一次", () => {
+  const now = new Date(2026, 8, 30, 22, 0).getTime(), min = 60000;
+  const base = new Date(2026, 8, 30, 20, 0).getTime();
+  const sess = [{ curriculum_id: "c1", transcript: [
+    { ts: base }, { ts: base + 5 * min }, { ts: base + 9 * min },   // 一段：1 + 9 分钟
+    { ts: base + 40 * min } ] }];                                     // 隔了 31 分钟，另起一段：1 分钟
+  const pomo = [
+    { task: "背日语单词", focusedMinutes: 25, ts: base + 70 * min },   // 25 分钟，跟上面没重叠
+    { task: "日语", focusedMinutes: 5, ts: base + 8 * min },           // 完全落在第一段里，不重复算
+    { task: "写论文", focusedMinutes: 60, ts: base } ];                 // 不是这门课
+  const r = H2.api.studyTime({ id: "c1", subject: "日语" }, sess, pomo, now);
+  assert.equal(r.today, 10 + 1 + 25);
+  assert.equal(r.total, 36);
+});
+test("概况挂上了倒计时和时长，周报把时长和考试也递给老师", () => {
+  assert.match(src, /time: studyTime\(cur, props\.sessions, loadJSON\("x_pomodoro_saves", \[\]\)\)/);
+  assert.match(src, /"＋ 设个考试日期，倒着数"/);
+  assert.match(src, /离「" \+ report\.exam\.name \+ "」还有 "/);
 });

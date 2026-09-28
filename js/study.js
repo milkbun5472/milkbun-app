@@ -329,8 +329,12 @@
 
   // ---- 课程记忆：curriculum 下跨 session 的往期摘要（内部互通，绝不碰全局聊天记忆库）----
   function curriculumMemoryText(cur) {
-    if (!cur || !cur.memory) return "";
+    if (!cur) return "";
     const out = [];
+    const ex = examCountdown(cur);
+    if (ex && ex.days >= 0) out.push("【她在备考】「" + ex.name + "」在 " + ex.date + (ex.days === 0 ? "，就是今天。" : "，还有 " + ex.days + " 天。")
+      + "排进度、挑复习的量照着这个日子来：离得远就稳着往前走；只剩几周了，就先把还不稳的点和错题本里的清掉，新东西少开。");
+    if (!cur.memory) return out.join("\n\n");
     const sums = Array.isArray(cur.memory.summaries) ? cur.memory.summaries : [];
     if (sums.length) out.push("【这门课前几次一起学到哪了（跨 session 记忆，自然衔接、别生硬复述、别从零重来）】\n" +
       sums.slice(-8).map(function (s, i) { return (i + 1) + ". " + s.text; }).join("\n"));
@@ -1346,6 +1350,69 @@
     return out;
   }
 
+  // ── 考试倒计时（她 2026-09-28）：课身上记一格 exam:{ name, date:"YYYY-MM-DD" } ─────
+  // 老师也看得到（curriculumMemoryText 那一处），排课和复习量跟着这个日子走。
+  function examCountdown(cur, now) {
+    const ex = cur && cur.exam;
+    if (!ex || !/^\d{4}-\d{2}-\d{2}$/.test(String(ex.date || ""))) return null;
+    const p = String(ex.date).split("-").map(Number);
+    const day = new Date(p[0], p[1] - 1, p[2]).getTime();
+    const today = new Date(now || Date.now()); today.setHours(0, 0, 0, 0);
+    return { name: String(ex.name || "考试").slice(0, 30), date: ex.date, days: Math.round((day - today.getTime()) / DAY_MS) };
+  }
+  function setExam(curId, exam) {
+    const fresh = findCurriculum(curId);
+    if (!fresh) return null;
+    const ok = exam && /^\d{4}-\d{2}-\d{2}$/.test(String(exam.date || ""));
+    const next = Object.assign({}, fresh, { exam: ok ? { name: String(exam.name || "").trim().slice(0, 30) || "考试", date: exam.date } : null, updated_at: Date.now() });
+    saveCurriculum(next);
+    return next;
+  }
+
+  // ── 学习时长（她 2026-09-28）：不另记表，从两样现成的时间里估 ─────────────────
+  //   · 课页：同一节课里两句话隔得不超过 10 分钟，就算这段一直在学（一段开头另算 1 分钟：看题、想答案）；
+  //   · 番茄钟：任务里写着这门课名字的那几场，按真专注的分钟数算（x_pomodoro_saves 里的 focusedMinutes）。
+  // 两边重叠的时间只算一次——一边开着番茄钟一边在课页里答题，是同一段时间。
+  const STUDY_GAP_MS = 10 * 60000;
+  function studyTime(cur, sessions, pomoSaves, now) {
+    const t = now || Date.now();
+    const spans = [];
+    (Array.isArray(sessions) ? sessions : []).filter(function (x) { return x && cur && x.curriculum_id === cur.id; }).forEach(function (x) {
+      const ts = (x.transcript || []).map(function (m) { return Number(m && m.ts); }).filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
+      let a = null, b = null;
+      ts.forEach(function (v) {
+        if (a == null) { a = v - 60000; b = v; return; }
+        if (v - b <= STUDY_GAP_MS) b = v; else { spans.push([a, b]); a = v - 60000; b = v; }
+      });
+      if (a != null) spans.push([a, b]);
+    });
+    const subj = String(cur && cur.subject || "").trim();
+    if (subj) (Array.isArray(pomoSaves) ? pomoSaves : []).forEach(function (r) {
+      const mins = Number(r && r.focusedMinutes);
+      if (!(mins > 0) || String(r.task || "").indexOf(subj) < 0) return;
+      const end = Number(r.ts) || 0;
+      if (end > 0) spans.push([end - mins * 60000, end]);
+    });
+    spans.sort(function (x, y) { return x[0] - y[0]; });
+    const merged = [];
+    spans.forEach(function (sp) {
+      const last = merged[merged.length - 1];
+      if (last && sp[0] <= last[1]) last[1] = Math.max(last[1], sp[1]); else merged.push([sp[0], sp[1]]);
+    });
+    const dayStart = new Date(t); dayStart.setHours(0, 0, 0, 0);
+    const wk = weekStart(t);
+    const within = function (from, to) {
+      return Math.round(merged.reduce(function (n, sp) { return n + Math.max(0, Math.min(sp[1], to) - Math.max(sp[0], from)); }, 0) / 60000);
+    };
+    return { today: within(dayStart.getTime(), t), week: within(wk, t), total: within(0, t) };
+  }
+  function minutesText(m) {
+    m = Math.max(0, Math.round(Number(m) || 0));
+    if (m < 60) return m + " 分钟";
+    const hh = Math.floor(m / 60), mm = m % 60;
+    return hh + " 小时" + (mm ? " " + mm + " 分" : "");
+  }
+
   // ── 错因（她 2026-09-28）：错题除了记「错了」，再记是怎么错的 ─────────────
   // ⚠️她自己点，不让模型猜：同一道错题，是没懂还是手滑，只有她自己知道；猜错了还会把老师带偏。
   const MISTAKE_CAUSE = {
@@ -1442,7 +1509,7 @@
       + items.filter(function (x) { return x && Number(x.nextReviewAt) > 0 && Number(x.nextReviewAt) <= t; }).length;
     const key = new Date(from).getFullYear() + "-" + (new Date(from).getMonth() + 1) + "-" + new Date(from).getDate();
     const note = (cur && cur.memory && cur.memory.weekly && cur.memory.weekly[key]) || null;
-    return { weekKey: key, from: from, to: to, days: days.size, learned: learned, slipped: slipped, reviewed: reviewed,
+    return { weekKey: key, from: from, to: to, days: days.size, minutes: studyTime(cur, sessions, typeof loadJSON === "function" ? loadJSON("x_pomodoro_saves", []) : [], t).week, exam: examCountdown(cur, t), learned: learned, slipped: slipped, reviewed: reviewed,
       tests: tests.map(function (x) { return { title: x.unitTitle, score: x.score, total: x.total }; }), causes: causes, nextWeek: nextWeek, note: note };
   }
   // 老师写一句评语：料全在 system，user 只留一句触发（prompt-send-shape）
@@ -1451,12 +1518,13 @@
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
       "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
       (worldbook ? "\n【世界书】\n" + worldbook : "") +
-      "\n\n【她这一周】学了 " + report.days + " 天；做了 " + report.reviewed + " 次复习" +
+      "\n\n【她这一周】学了 " + report.days + " 天" + (report.minutes ? "，一共大约 " + minutesText(report.minutes) : "") + "；做了 " + report.reviewed + " 次复习" +
       (report.learned.length ? "；新会了：" + report.learned.join("、") : "；这周没有新会的点") +
       (report.slipped.length ? "；掉回去的：" + report.slipped.join("、") : "") +
       (report.tests.length ? "；单元测：" + report.tests.map(function (x) { return x.title + " " + x.score + "/" + x.total; }).join("、") : "") +
       (causeTxt ? "；她标的错因：" + causeTxt : "") +
       "；下周要复习大约 " + report.nextWeek + " 道。" +
+      (report.exam && report.exam.days >= 0 ? "离「" + report.exam.name + "」还有 " + report.exam.days + " 天。" : "") +
       "\n\n写一段周报评语，两三句，用你自己说话的样子。说一件这周真的做到了的事，再说一件下周最该盯的事；数字只在有用时提。" +
       "这周要是几乎没学，就照你这个人会有的反应说，不用硬夸。只输出评语正文。";
     const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
@@ -1493,7 +1561,7 @@
     studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds, studyDashboard: studyDashboard, knowledgeMap: knowledgeMap, genUnitTest: genUnitTest, parseUnitTest: parseUnitTest,
     recordUnitTest: recordUnitTest, lastUnitTest: lastUnitTest, testByPoint: testByPoint,
     MISTAKE_CAUSE: MISTAKE_CAUSE, setMistakeCause: setMistakeCause, causeOf: causeOf, answerReviewItem: answerReviewItem, rateReviewCard: rateReviewCard,
-    weeklyReport: weeklyReport, genWeeklyNote: genWeeklyNote, saveWeeklyNote: saveWeeklyNote, weekStart: weekStart,
+    weeklyReport: weeklyReport, genWeeklyNote: genWeeklyNote, examCountdown: examCountdown, setExam: setExam, studyTime: studyTime, minutesText: minutesText, saveWeeklyNote: saveWeeklyNote, weekStart: weekStart,
     exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
     outlineSlice: outlineSlice, progressText: progressText,
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
@@ -1942,12 +2010,45 @@
   const DASH_TONES = { steady: null, ok: null, review: "#c69a52", fresh: "#d8dbd0" };
   function StudyDash(props) {
     const d = props.dash, accent = props.accent;
+    const [examEdit, setExamEdit] = useState(false);
+    const [exName, setExName] = useState("");
+    const [exDate, setExDate] = useState("");
+    const ex = props.cur ? examCountdown(props.cur) : null;
+    const openExam = function () { setExName(ex ? ex.name : ""); setExDate(ex ? ex.date : ""); setExamEdit(true); };
+    const saveExam = function (clear) {
+      setExam(props.cur.id, clear ? null : { name: exName, date: exDate });
+      setExamEdit(false); props.onRefresh && props.onRefresh();
+    };
+    const tm = props.time || { today: 0, week: 0, total: 0 };
+    const inp = { height: 36, borderRadius: 8, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper2, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, outline: "none", minWidth: 0 };
     const tone = { steady: accent, ok: accent + "8c", review: DASH_TONES.review, fresh: DASH_TONES.fresh };
     const bands = [["steady", "稳"], ["ok", "基本会"], ["review", "待复习"], ["fresh", "新学"]];
     const total = d.points || 0;
     const since = d.since ? (function () { const x = new Date(d.since); return (x.getMonth() + 1) + "月" + x.getDate() + "日"; })() : "";
     const eyebrow = function (txt) { return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, marginBottom: 7 } }, txt); };
     return h("section", { "data-kind": "study-dash", style: { marginTop: 10, padding: "15px 16px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+      // 考试倒计时：设了就压在最上面；没设只留一行小字入口
+      examEdit ? h("div", { style: { marginBottom: 14, paddingBottom: 12, borderBottom: "1px dashed " + STUDY_SKIN.line } },
+        h("div", { className: "flex", style: { gap: 6 } },
+          h("input", { value: exName, onChange: function (e) { setExName(e.target.value); }, maxLength: 30, placeholder: "考什么（如 期末）", style: Object.assign({ flex: 1 }, inp) }),
+          h("input", { type: "date", value: exDate, onChange: function (e) { setExDate(e.target.value); }, style: Object.assign({ width: 142 }, inp) })),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+          h("button", { onClick: function () { if (!/^\d{4}-\d{2}-\d{2}$/.test(exDate)) return; saveExam(false); }, className: "active:opacity-70",
+            style: { padding: "6px 16px", borderRadius: "4px 10px 4px 4px", background: accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 12.5, opacity: /^\d{4}-\d{2}-\d{2}$/.test(exDate) ? 1 : 0.5 } }, "定下"),
+          ex ? h("button", { onClick: function () { saveExam(true); }, className: "active:opacity-70", style: { padding: "6px 10px", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.red } }, "不考了，清掉") : null,
+          h("button", { onClick: function () { setExamEdit(false); }, className: "active:opacity-70", style: { padding: "6px 10px", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.fog } }, "算了")))
+      : ex && ex.days >= 0 ? h("button", { onClick: openExam, className: "w-full flex items-baseline active:opacity-70",
+          style: { gap: 6, marginBottom: 14, paddingBottom: 12, borderBottom: "1px dashed " + STUDY_SKIN.line, textAlign: "left" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "离「" + ex.name + "」"),
+          ex.days === 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: STUDY_SKIN.red } }, "就是今天")
+            : h(React.Fragment, null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "还有"),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: ex.days <= 14 ? STUDY_SKIN.red : STUDY_SKIN.ink } }, ex.days),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "天")),
+          h("span", { className: "flex-1" }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog } }, ex.date + " ›"))
+      : h("button", { onClick: openExam, className: "active:opacity-70", style: { display: "block", marginBottom: 10, fontFamily: F_BODY, fontSize: 11.5, color: accent } },
+          ex ? "「" + ex.name + "」已经考完了 · 设下一场 ›" : "＋ 设个考试日期，倒着数"),
       // 学了几天 ＋ 连续几天
       h("div", { className: "flex items-baseline", style: { gap: 6 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "学了"),
@@ -1957,6 +2058,13 @@
         d.streak ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: accent, fontWeight: 600 } }, "连续 " + d.streak + " 天") : null),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 4 } },
         d.days ? [since ? "从 " + since + " 开始" : "", "上过 " + d.sessions + " 节", total ? total + " 个要点" : ""].filter(Boolean).join(" · ") : "还没开口学过——开一张课页就从今天算起"),
+      // 学了多久：课页里连着说话的那几段 + 任务写着这门课的番茄钟，重叠只算一次
+      tm.total ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+        [["今天", tm.today], ["这周", tm.week], ["一共", tm.total]].map(function (x) {
+          return h("div", { key: x[0], className: "flex-1", style: { padding: "7px 9px", borderRadius: 8, background: STUDY_SKIN.paper2 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: STUDY_SKIN.fog } }, x[0]),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 600, color: x[1] ? STUDY_SKIN.ink : STUDY_SKIN.fog, marginTop: 1 } }, x[1] ? "约 " + minutesText(x[1]) : "还没学"));
+        })) : null,
       h(StudyCalendar, { dayKeys: d.dayKeys, goalDone: d.goal.done, accent: accent }),
       // 今天的目标：两件小事，都齐了日历上今天那格打勾
       h("div", { className: "flex flex-wrap", style: { gap: "4px 14px", marginTop: 9 } },
@@ -2166,7 +2274,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("section", { style: Object.assign({}, paper, { marginTop: 12 }) },
           h("div", { className: "flex", style: { gap: 10 } },
-            [[r.days, "天学过"], [r.reviewed, "次复习"], [r.tests.length, "场单元测"]].map(function (x) {
+            [[r.days, "天学过"], [r.minutes >= 60 ? Math.round(r.minutes / 6) / 10 : r.minutes, r.minutes >= 60 ? "小时" : "分钟"], [r.reviewed, "次复习"], [r.tests.length, "场单元测"]].map(function (x) {
               return h("div", { key: x[1], className: "flex-1", style: { textAlign: "center" } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: STUDY_SKIN.ink, lineHeight: 1.1 } }, x[0]),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 2 } }, x[1]));
@@ -2472,7 +2580,8 @@
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 9 } },
           cur.level ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0px 6px" } }, cur.level) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog } }, chars.map(function (ch) { return ch.name; }).join("、") + " · 已上 " + sess.length + " 节" + (dueCount ? " · " + dueCount + " 个待复习" : "")))),
-        h(StudyDash, { dash: studyDashboard(cur, props.sessions), accent: accent,
+        h(StudyDash, { dash: studyDashboard(cur, props.sessions), accent: accent, cur: cur, onRefresh: props.onRefresh,
+          time: studyTime(cur, props.sessions, loadJSON("x_pomodoro_saves", [])),
           onPits: function () { setBookOpen("book"); }, onDue: function () { setBookOpen("due"); } }),
         // 言秋的投递箱（新到的备课，收下后存进课程自己的存档）
         (drops && drops.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "言秋的投递 · " + drops.length) : null,
