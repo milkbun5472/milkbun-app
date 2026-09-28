@@ -15,7 +15,8 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|IDB|LRU|TTS|SSE|MCP|ECDSA|NFKC|RIFF|SSR|SR|UID|PWA|AI|OK|ID|TA|OOC)$/;
 const ALLOW = {
   // Lisa 2026-09-28 明确要求逐项复制 IMG_0188.PNG；只放行图中实际的卡面/小票字样。
-  "js/ledger.js": ["MY WALLET", "QIUQIU WALLET", "GOOD THINGS", "COST MONEY", "BUT ALSO", "QIUQIU MART", "GOOD LIFE EVERYDAY"],
+  // Lisa 2026-09-28 又放行一次：「英文可以破例」——Y2K 要有标志性的英文字标（每页顶上一个）
+  "js/ledger.js": ["MY WALLET", "QIUQIU WALLET", "GOOD THINGS", "COST MONEY", "BUT ALSO", "QIUQIU MART", "GOOD LIFE EVERYDAY", "STATISTICS", "MY CALENDAR", "MY STUFF", "MY BILLS", "THANK YOU"],
   // ① 这一处压根没有中文名（no-english-titles.md 里写明的那条例外）
   "js/notify.js": ["ARCHIVE"],            // app 自己的名字，manifest 里就叫这个
   // OOC 在中文同人圈里就是这么写的，它【就是】那个中文词，不是没翻译

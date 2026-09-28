@@ -425,13 +425,14 @@
     A: {
       background: "linear-gradient(135deg, rgba(255,255,255,.3) 0%, rgba(226,238,255,.14) 42%, rgba(255,255,255,.22) 58%, rgba(250,226,244,.18) 100%)",
       border: "none",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.75), inset 3px 4px 8px rgba(255,255,255,.5), inset -4px -6px 12px rgba(150,138,228,.16), 0 10px 26px rgba(118,118,196,.14)",
+      // 虹彩：左上一团粉光、右下一团冰蓝光——用光晕做，不用线
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.75), inset 3px 4px 8px rgba(255,255,255,.5), inset -4px -6px 12px rgba(150,138,228,.16), -5px -4px 14px rgba(255,186,226,.38), 5px 6px 16px rgba(166,208,255,.42)",
       backdropFilter: "blur(10px) saturate(1.45)", WebkitBackdropFilter: "blur(10px) saturate(1.45)"
     },
     B: {
-      background: "linear-gradient(145deg, rgba(255,255,255,.3) 0%, rgba(248,245,255,.18) 55%, rgba(236,244,255,.22) 100%)",
+      background: "linear-gradient(118deg, transparent 38%, rgba(255,222,244,.22) 46%, rgba(214,236,255,.24) 53%, transparent 61%), linear-gradient(145deg, rgba(255,255,255,.3) 0%, rgba(248,245,255,.18) 55%, rgba(236,244,255,.22) 100%)",
       border: "none",
-      boxShadow: "inset 0 10px 16px -12px rgba(255,255,255,.9), inset -10px -12px 20px -14px rgba(168,148,236,.3), 0 8px 24px rgba(122,118,200,.1)",
+      boxShadow: "inset 0 10px 16px -12px rgba(255,255,255,.9), inset -10px -12px 20px -14px rgba(168,148,236,.3), -4px -3px 12px rgba(255,200,232,.16), 4px 6px 16px rgba(176,212,255,.2)",
       backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)"
     },
     C: {
@@ -446,7 +447,7 @@
     return Object.assign({}, GLASS.A, {
       background: "radial-gradient(70% 55% at 38% 26%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%), linear-gradient(145deg, " + a + "40 0%, " + a + "66 55%, " + b + "4d 100%)",
       border: "none",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.8), inset 3px 4px 8px rgba(255,255,255,.55), inset -4px -6px 12px " + b + "40, 0 8px 20px " + b + "2e"
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.8), inset 3px 4px 8px rgba(255,255,255,.55), inset -4px -6px 12px " + b + "40, -5px -4px 14px rgba(255,190,228,.35), 5px 6px 16px rgba(166,208,255,.4)"
     });
   }
   function ledgerSkin(settings) {
@@ -516,7 +517,15 @@
   const flatKey = (extra) => Object.assign({ background: "transparent" }, extra || {});
   // 按下去那一下（:active）：沉 3px、硬影收起来——写成一条全局样式，每颗键只挂一个 class
   const JELLY_CSS = `
-.lg-key{-webkit-tap-highlight-color:transparent}.lg-key:active{transform:translateY(2px)!important;filter:brightness(.98)}
+.lg-key{-webkit-tap-highlight-color:transparent}
+.lg-gloss{position:relative;overflow:hidden;isolation:isolate}
+.lg-gloss::before{content:"";position:absolute;left:4%;right:4%;top:1px;height:54%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.95) 0%,rgba(255,255,255,.7) 42%,rgba(255,255,255,.18) 66%,rgba(255,255,255,0) 72%);pointer-events:none;z-index:1}
+.lg-gloss>*{position:relative;z-index:2}
+.lg-gloss-soft::before{height:48%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.8) 0%,rgba(255,255,255,.45) 45%,rgba(255,255,255,0) 70%)}
+.lg-iris{box-shadow:-5px -4px 14px rgba(255,186,226,.42),5px 6px 16px rgba(166,208,255,.45),inset 0 1px 0 rgba(255,255,255,.85),inset 3px 4px 8px rgba(255,255,255,.5),inset -4px -6px 12px rgba(150,138,228,.16)!important}
+.lg-hand{font-family:'Dancing Script','Bradley Hand','Snell Roundhand','Segoe Script',cursive}
+.lg-hand-zh{font-family:'Dancing Script','Kaiti SC','STKaiti','KaiTi',cursive}
+.lg-word{font-family:Arial,'Helvetica Neue',sans-serif;font-weight:800;letter-spacing:.14em}.lg-key:active{transform:translateY(2px)!important;filter:brightness(.98)}
 .lg-reference{--f-body:Arial,'PingFang SC',sans-serif;--f-display:Arial,'PingFang SC',sans-serif;font-family:Arial,'PingFang SC',sans-serif}
 .lg-reference .lg-wallet-head [data-wk=head]>div:first-child{width:30px}
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2){text-align:left!important}
@@ -524,7 +533,7 @@
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.16em}
 .lg-reference .lg-wallet-head [data-wk=head]>div:last-child{width:66px!important}
 .lg-reference .lg-wallet-main{padding:8px 22px 24px}
-.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 4px 5px 10px rgba(255,255,255,.5),inset -5px -6px 12px rgba(148,138,226,.2),0 12px 28px rgba(118,118,196,.16)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
+.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 4px 5px 10px rgba(255,255,255,.5),inset -5px -6px 12px rgba(148,138,226,.2),-6px -5px 18px rgba(255,186,226,.4),6px 8px 20px rgba(166,208,255,.45)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
 .lg-reference [data-ledger-tray]:after{content:"";position:absolute;inset:1px;border-radius:28px;pointer-events:none;background:linear-gradient(111deg,transparent 6%,#fff8 8%,transparent 10%,transparent 63%,#d8faff44 68%,#ffe4f533 72%,transparent 76%),linear-gradient(5deg,transparent 5%,#fff9 7%,transparent 8%,transparent 93%,#fff9 95%,transparent 97%)}
 .lg-reference [data-ledger-tray]:before{content:'';position:absolute;inset:7px;border:1px solid #ffffff9c;border-radius:22px;box-shadow:inset 2px 2px 2px #929cbd90,2px 2px 3px #ffffffa8;pointer-events:none}
 .lg-reference [data-ledger-card]{height:192px!important;margin:0!important;transform:none!important;border-radius:17px!important;background:linear-gradient(132deg,#cec4ec88 2%,#b8c6f29c 27%,#e1c9efab 54%,#b7d8f3b3 76%,#e2bce3a3)!important;box-shadow:inset 0 0 0 2px #ffffff50,inset 0 2px 3px #ffffffcc,inset -2px -3px 4px #967fa766,0 4px 8px #878ca75e!important}
@@ -541,6 +550,8 @@
 .lg-reference .lg-segment button[aria-pressed=true]{background:linear-gradient(180deg,#fff9,#f2d0e3aa 48%,#eebdd675)!important;border:0!important;box-shadow:inset 0 2px 3px #fff,inset 0 -2px 4px #f0bfd8,0 2px 6px #d890b740!important}
 .lg-reference .lg-add-grid{gap:11px!important;align-content:start}
 .lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:0;box-shadow:inset 0 8px 12px -10px rgba(255,255,255,.85),0 4px 14px rgba(122,118,200,.08);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
+.lg-reference .lg-add-category[aria-pressed=true]::before{content:"";position:absolute;left:4%;right:4%;top:1px;height:52%;background:radial-gradient(ellipse 52% 100% at 50% 0%,rgba(255,255,255,.9) 0%,rgba(255,255,255,.6) 42%,rgba(255,255,255,0) 70%);pointer-events:none}
+.lg-reference .lg-add-category{position:relative;overflow:hidden}
 .lg-reference .lg-add-category[aria-pressed=true]{background:linear-gradient(135deg,#f9e5eecc,#f1d0e580);box-shadow:inset 0 8px 12px -10px #fff,inset 0 -3px 6px #db9ab440,0 4px 12px #d890b740}
 .lg-reference .lg-add-category .lg-cattile{background:transparent!important;border:0!important;box-shadow:none!important;width:43px!important;height:43px!important}
 .lg-reference .lg-add-custom{height:30px;grid-column:1/-1;flex-direction:row!important;justify-content:center;gap:6px!important;background:none;border:0;box-shadow:none}
@@ -692,7 +703,7 @@
   // 切换：一条很淡的底槽，选中那一格是一颗粉色糖果小胶囊（有高光、略鼓），其余就是字
   const CandySeg = ({ items, value, onChange, sk }) => h("div", { className: "lg-segment", style: Object.assign({ display: "flex", gap: 4, padding: 3 }, sk.well) },
     items.map(([k, zh]) => { const on = value === k;
-      return h("button", { key: k, onClick: () => onChange(k), "aria-pressed": on, className: "flex-1 active:opacity-80",
+      return h("button", { key: k, onClick: () => onChange(k), "aria-pressed": on, className: "flex-1 active:opacity-80" + (on && sk.id === "glass" ? " lg-gloss" : ""),
         style: { minHeight: 40, borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
           background: on ? (sk.id === "glass" ? "radial-gradient(80% 60% at 40% 15%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(180deg, #ffd3e3, #f7a6c6)" : "#fff") : "transparent",
           border: "none",
@@ -834,7 +845,7 @@
         // 底栏轻薄：只有选中那一格底下垫一小块果冻高光
         TABS.map(([k, zh, ic]) => { const on = tab === k;
           return h("button", { key: k, onClick: () => setTab(k), className: "flex-1 flex flex-col items-center justify-center active:opacity-70", "aria-label": zh, "aria-current": on ? "page" : undefined, style: { minHeight: 52, gap: 2 } },
-            h("span", { className: "flex items-center justify-center", style: { width: 44, height: 28, borderRadius: 10,
+            h("span", { className: "flex items-center justify-center" + (on && sk.id === "glass" ? " lg-gloss" : ""), style: { width: 44, height: 28, borderRadius: 10,
               background: on ? (sk.id === "glass" ? "radial-gradient(80% 60% at 50% 15%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%), linear-gradient(180deg, #ece4ff, #d9ccfb)" : "rgba(60,54,40,.08)") : "transparent",
               boxShadow: on && sk.id === "glass" ? "inset 0 -1px 2px rgba(150,125,225,.35), 0 2px 6px rgba(150,125,225,.22)" : "none" } },
               h(LIcon, { k: ic, size: 20, color: on ? sk.ink : sk.fog, sw: on ? 2.1 : 1.6 })),
@@ -914,7 +925,7 @@
     //   左上一片糊糊的高光，底下露一点同色厚度；图标是一颗占半个键宽的果冻软糖；字是暗酒红 / 暗蓝 / 暗紫
     const bigKey = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
       const ink = { pink: "#8c3a4f", blue: "#34467e", lilac: "#523f84" }[tone];
-      return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
+      return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key" + (glass ? " lg-gloss" : ""), "data-ledger-bigkey": tone,
         style: glass ? Object.assign(glassTinted(a, b), { position: "relative", aspectRatio: "1 / 1", maxHeight: 112, gap: 4, borderRadius: 18, marginBottom: 4, transition: "transform .08s" })
           : jellyKey(sk, tone, false, { minHeight: 88, gap: 4, borderRadius: 14 }) },
         h(JellyGlyph, { k: glyph, tone, size: glass ? 44 : 26 }),
@@ -936,7 +947,7 @@
         h("div", { className: "lg-balance-summary", style: { display: "flex", gap: 14, marginTop: 2, fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } },
           h("span", null, "收入 ", h("span", { style: numStyle(sk, 11.5, sk.inc) }, hide ? "****" : fmtMoney(s.inc, cur))),
           h("span", null, "支出 ", h("span", { style: numStyle(sk, 11.5, sk.sub) }, hide ? "****" : fmtMoney(s.exp, cur)))),
-        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto", style: { marginTop: 8, minHeight: 32, padding: "4px 10px", borderRadius: 10, background: glass ? "rgba(255,255,255,.4)" : "transparent", fontFamily: F_BODY, fontSize: 12.5, color: sk.sub } }, "「" + motto + "」")),
+        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto", style: { marginTop: 8, minHeight: 32, padding: "4px 10px", borderRadius: 10, background: glass ? "rgba(255,255,255,.4)" : "transparent", fontFamily: F_BODY, fontSize: 12.5, color: sk.sub } }, "「" + motto + "」", glass ? h(Heart, { size: 12, style: { marginLeft: 4, verticalAlign: "-1px" } }) : null)),
       h("div", { className: "lg-bigkeys", style: { display: "flex", gap: 10, marginBottom: 16 } },
         bigKey("记一笔", "pink", "plus", () => props.onAdd("expense")),
         bigKey("收入", "blue", "bag", () => props.onAdd("income")),
@@ -973,6 +984,32 @@
     return h("svg", { width: size || 18, height: size || 18, viewBox: "0 0 24 24", "aria-hidden": "true", style: Object.assign({ filter: "drop-shadow(0 1px 2px rgba(150,130,210,.4))" }, style || {}) },
       h("path", { d: "M12 1.5C12.8 8 16 11.2 22.5 12 16 12.8 12.8 16 12 22.5 11.2 16 8 12.8 1.5 12 8 11.2 11.2 8 12 1.5z", fill: color || "#fff", stroke: "rgba(170,150,225,.6)", strokeWidth: .8 }));
   }
+  function Heart({ size, style, color }) {
+    return h("svg", { width: size || 14, height: size || 14, viewBox: "0 0 24 24", "aria-hidden": "true", style: Object.assign({ filter: "drop-shadow(0 1px 1px rgba(220,130,175,.35))" }, style || {}) },
+      h("path", { d: "M12 20.5C5.5 16 2.5 12.5 2.5 8.7 2.5 5.9 4.6 4 7.1 4c1.9 0 3.6 1 4.9 2.8C13.3 5 15 4 16.9 4c2.5 0 4.6 1.9 4.6 4.7 0 3.8-3 7.3-9.5 11.8z", fill: color || "none", stroke: color ? "none" : "#e48cb2", strokeWidth: 1.8 }));
+  }
+  // 一颗很小的兔子头（卡面上那只的小号），当贴纸用
+  function Bunny({ size, style }) {
+    return h("svg", { width: size || 26, height: size || 26, viewBox: "0 0 70 70", "aria-hidden": "true", fill: "none", stroke: "#b8a8e6", strokeWidth: 3, strokeLinecap: "round", style: style || {} },
+      h("path", { d: "M25 30c-4-10-4-22 1-24s7 10 6 22M45 30c4-10 4-22-1-24s-7 10-6 22" }),
+      h("path", { d: "M14 50c0-12 9-21 21-21s21 9 21 21-9 14-21 14-21-2-21-14z", fill: "rgba(255,255,255,.7)" }),
+      h("circle", { cx: 28, cy: 48, r: 1.8, fill: "#b8a8e6" }), h("circle", { cx: 42, cy: 48, r: 1.8, fill: "#b8a8e6" }));
+  }
+  // 回形针（贴在小票上）
+  function Clip({ style }) {
+    return h("svg", { width: 22, height: 46, viewBox: "0 0 22 46", "aria-hidden": "true", style: Object.assign({ position: "absolute", filter: "drop-shadow(0 1px 1px rgba(90,90,130,.3))" }, style || {}) },
+      h("path", { d: "M7 12V34a4 4 0 0 0 8 0V9a6 6 0 0 0-12 0v27a8 8 0 0 0 16 0V14", fill: "none", stroke: "#b9bdd2", strokeWidth: 2.2, strokeLinecap: "round" }),
+      h("path", { d: "M7 12V34a4 4 0 0 0 8 0V9a6 6 0 0 0-12 0v27a8 8 0 0 0 16 0V14", fill: "none", stroke: "#fff", strokeWidth: .8, strokeLinecap: "round", transform: "translate(-.6 -.4)" }));
+  }
+  // 每页顶上的英文字标 + 一行手写小字（她 2026-09-28：Y2K 要有标志性的字，英文可以破例）
+  function WordMark({ sk, word, hand, star }) {
+    if (sk.id !== "glass") return null;
+    return h("div", { "data-ledger-wordmark": word, style: { position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "space-between", margin: "0 2px 12px" } },
+      h("div", null,
+        h("div", { className: "lg-word", style: { fontSize: 17, color: sk.ink } }, word),
+        hand ? h("div", { className: "lg-hand", style: { fontSize: 15, color: "#b27aa6", marginTop: -1, transform: "rotate(-3deg)", transformOrigin: "left" } }, hand) : null),
+      star !== false ? h(Sparkle, { size: 22, style: { marginBottom: 6 } }) : null);
+  }
   function StripSlot({ sk, children }) {
     return h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 } }, children);
   }
@@ -982,6 +1019,7 @@
     const PAPER = "#fcfbff";
     const teeth = dir => h("div", { "aria-hidden": "true", style: { height: 7, background: "linear-gradient(" + (dir ? "45deg" : "135deg") + ", " + PAPER + " 50%, transparent 50%) 0 0/14px 14px repeat-x, linear-gradient(" + (dir ? "-45deg" : "225deg") + ", " + PAPER + " 50%, transparent 50%) 0 0/14px 14px repeat-x", transform: dir ? "scaleY(-1)" : "none" } });
     return h("div", { "data-ledger-receipt": true, className: "lg-receipt", style: { position: "relative", margin: "4px 10px 26px", filter: "drop-shadow(0 8px 14px rgba(70,70,110,.16))" } },
+      sk.id === "glass" ? h(Clip, { style: { right: 18, top: -16, zIndex: 3, transform: "rotate(18deg)" } }) : null,
       sk.id === "glass" ? null : teeth(true),
       h("div", { style: { background: PAPER, backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,.018) 0 1px, transparent 1px 3px)", padding: "14px 18px 14px" } },
         h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 16, fontWeight: 800, letterSpacing: ".1em", color: "#2d2c36" } }, title),
@@ -989,6 +1027,10 @@
         no ? h("div", { style: { textAlign: "center", fontFamily: DIGIT, fontSize: 10, color: "#a09daa", marginTop: 3, letterSpacing: ".1em" } }, "No." + String(no).toUpperCase().slice(-8)) : null,
         h("div", { style: { borderTop: "1px dashed rgba(60,60,80,.3)", margin: "12px 0 8px" } }),
         children,
+        // 手写的一句 + 一颗心 + 小兔子贴纸（参考图小票上那种）
+        sk.id === "glass" ? h("div", { style: { position: "relative", margin: "12px 0 2px", minHeight: 40 } },
+          h("div", { className: "lg-hand", style: { fontSize: 18, color: "#6d5a8e", lineHeight: 1.1, transform: "rotate(-4deg)", transformOrigin: "left" } }, "Manage money,", h("br"), h("span", { style: { whiteSpace: "nowrap" } }, "manage a happier me ", h(Heart, { size: 13, style: { verticalAlign: "-1px" } }))),
+          h(Bunny, { size: 30, style: { position: "absolute", right: 0, bottom: -4, transform: "rotate(8deg)" } })) : null,
         foot || null),
       sk.id === "glass" ? h("div", { style: { height: 8, background: "linear-gradient(135deg, " + PAPER + " 25%, transparent 25%) -7px 0 / 14px 14px, linear-gradient(225deg, " + PAPER + " 25%, transparent 25%) -7px 0 / 14px 14px" } }) : teeth(false));
   }
@@ -1032,6 +1074,7 @@
     const sixMax = Math.max(1, ...six.map(x => x.v));
     const bay = (title, body, extra) => h("div", { style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, sk.shell, extra || {}) }, title ? silk(sk, title, { marginBottom: 8 }) : null, body);
     return h("div", { className: "px-5 pb-8 lg-stats" },
+      h(WordMark, { sk, word: "STATISTICS", hand: "where did my money go?" }),
       h(MonthNav, { mk, setMk, sk }),
       bay(kind === "income" ? "本月收入" : "本月支出", h(Fragment, null,
         h("div", { style: Object.assign({ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }, sk.acrylic) },
@@ -1130,6 +1173,7 @@
     return ledgerPage(sk, "账单", props.onBack,
       h("button", { onClick: () => setQ(q == null ? "" : null), "aria-label": "搜索账单", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: "search", size: 19, color: sk.ink })),
       h("div", { className: "px-5 pb-8 lg-bills" },
+      h(WordMark, { sk, word: "MY BILLS", hand: "small money, big happiness" }),
         catF ? h("div", { "data-ledger-catfilter": catF, style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
           h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.ink }, sk.card) },
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
@@ -1164,6 +1208,7 @@
     const today = todayKey();
     const glass = sk.id === "glass";
     return h("div", { className: "px-5 pb-8" },
+      h(WordMark, { sk, word: "MY CALENDAR", hand: "every little day ♡" }),
       h(MonthNav, { mk, setMk, sk }),
       h("div", { style: Object.assign({ padding: 10, marginBottom: 16 }, sk.shell) },
         h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 8px" }, sk.acrylic) },
@@ -1197,6 +1242,7 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginRight: 6 } }, note),
       h("span", { style: { color: sk.fog } }, "›"));
     return h("div", { className: "px-5 pb-8" },
+      h(WordMark, { sk, word: "MY STUFF", hand: "a better me :)" }),
       h("div", { style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, sk.shell) },
         silk(sk, "账本样式", { marginBottom: 10 }),
         h("div", { style: { display: "flex", gap: 10 } },
@@ -1387,7 +1433,7 @@
       }
     };
     const glass = sk.id === "glass";
-    const key = (k, label) => h("button", { key: k, onClick: () => press(k), "aria-label": k === "del" ? "退格" : label, className: "lg-key lg-number-key",
+    const key = (k, label) => h("button", { key: k, onClick: () => press(k), "aria-label": k === "del" ? "退格" : label, className: "lg-key lg-number-key lg-gloss lg-gloss-soft",
       style: jellyKey(sk, "clear", false, { minHeight: 44, fontFamily: sk.digit, fontSize: 19, fontWeight: 700, borderRadius: 13 }) }, label);
     const chip = (content, onClick, extra) => h("button", { onClick, className: "lg-key flex items-center gap-1", style: jellyKey(sk, "clear", false, Object.assign({ minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub, borderRadius: 999 }, extra || {})) }, content);
 
@@ -1395,7 +1441,7 @@
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
       h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
         h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: sk.ink, bg: "transparent", noLine: true,
-          right: h("button", { onClick: save, disabled: !canSave, className: "lg-key", style: jellyKey(sk, canSave ? "lilac" : "clear", !canSave, { minWidth: 56, height: 34, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, color: canSave ? sk.ink : sk.fog }) }, "完成") }),
+          right: h("button", { onClick: save, disabled: !canSave, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "lilac" : "clear", !canSave, { minWidth: 56, height: 34, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, color: canSave ? sk.ink : sk.fog }) }, "完成") }),
         h("div", { style: { padding: "0 20px 10px" } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: type, onChange: v => { setType(v); setCat(null); }, sk })),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 10px" } },
           h("div", { "data-ledger-catgrid": true, className: "lg-add-grid", style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 } },
@@ -1425,7 +1471,7 @@
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.1fr", gap: 7 } },
             h("div", { style: { gridColumn: "1 / 4", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7 } },
               ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map(k => key(k, k)), key("del", "⌫")),
-            h("button", { onClick: save, disabled: !canSave, "data-ledger-done": true, className: "lg-key", style: jellyKey(sk, canSave ? "pink" : "clear", false, { borderRadius: 16, fontFamily: F_BODY, fontSize: 16, fontWeight: 800, color: canSave ? "#9c2256" : sk.fog, opacity: canSave ? 1 : .7 }) }, edit ? "保存" : "完成")))),
+            h("button", { onClick: save, disabled: !canSave, "data-ledger-done": true, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "pink" : "clear", false, { borderRadius: 16, fontFamily: F_BODY, fontSize: 16, fontWeight: 800, color: canSave ? "#9c2256" : sk.fog, opacity: canSave ? 1 : .7 }) }, edit ? "保存" : "完成")))),
       dialog && dialog.kind === "cat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新分类", submitLabel: "添加",
         fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "icon", label: "图标", type: "icon" }],
         onSubmit: submitCat, onCancel: () => setDialog(null) }) : null,

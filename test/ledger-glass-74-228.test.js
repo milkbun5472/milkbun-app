@@ -65,3 +65,14 @@ console.log("ledger-icons ok");
   assert.ok(!/0 0 0 1px/.test(G), "玻璃材质又加了一圈轮廓线");
 }
 console.log("ledger-noline ok");
+// 第十二轮（她：六样 Y2K 记号全都要，英文可以破例）
+{
+  const s5 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  assert.match(s5, /\.lg-gloss::before\{/, "水晶高光没了");
+  assert.match(s5, /-5px -4px 14px rgba\(255,186,226/, "虹彩光没了");
+  ["function Heart(", "function Bunny(", "function Clip(", "function WordMark("].forEach(n => assert.ok(s5.indexOf(n) > 0, n));
+  ["STATISTICS", "MY CALENDAR", "MY STUFF", "MY BILLS"].forEach(w => assert.ok(s5.indexOf('word: "' + w + '"') > 0, w));
+  assert.match(s5, /\.lg-hand\{font-family:'Dancing Script'/, "手写字体没了");
+  assert.match(s5, /"Manage money,"/);
+}
+console.log("ledger-y2k-marks ok");
