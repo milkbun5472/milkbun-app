@@ -490,6 +490,22 @@
       boxShadow: glass ? (on ? "0 0 0 3px " + sk.pink + "40, inset 0 -2px 4px " + tint : "inset 0 -2px 4px " + tint + ", inset 0 1px 1px #fff, 0 2px 5px " + tint + "55") : "none" } }, emoji || "•");
   }
   // 一排格子（能量槽 / 电量格 / 状态条）：n 格里点亮 lit 格。点亮的格子带一点发光，没亮的是屏幕上淡淡的底格
+  // 果冻图标：一颗鼓起来的彩色软糖——上浅下深的渐变、深一点的描边、左上一点白高光、底下一点投影
+  const JELLY_GLYPH = {
+    plus: "M19 6h10a2 2 0 0 1 2 2v11h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H31v11a2 2 0 0 1-2 2H19a2 2 0 0 1-2-2V31H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h11V8a2 2 0 0 1 2-2z",
+    bag: "M18 6h12l-3 7c8 3 14 11 14 20 0 7-6 11-17 11S7 40 7 33c0-9 6-17 14-20z",
+    chart: "M7 30a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v12H7zM20 20a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v22H20zM33 9a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v33H33z"
+  };
+  function JellyGlyph({ k, tone, size }) {
+    const [a, b] = JELLY[tone] || JELLY.pink, id = "lgj-" + k + "-" + tone, S = size || 44;
+    const deep = { pink: "#e0588d", blue: "#5d82de", lilac: "#8c6ad8" }[tone] || b;
+    return h("svg", { width: S, height: S, viewBox: "0 0 48 48", "aria-hidden": "true", style: { position: "relative", overflow: "visible", filter: "drop-shadow(0 3px 3px " + b + "66)" } },
+      h("defs", null, h("linearGradient", { id, x1: 0, y1: 0, x2: 0, y2: 1 }, h("stop", { offset: 0, stopColor: a }), h("stop", { offset: .55, stopColor: b }), h("stop", { offset: 1, stopColor: deep }))),
+      h("path", { d: JELLY_GLYPH[k], fill: "url(#" + id + ")", stroke: deep, strokeOpacity: .55, strokeWidth: 1, strokeLinejoin: "round" }),
+      k === "bag" ? h("text", { x: 24, y: 36, textAnchor: "middle", fontSize: 14, fontWeight: 800, fill: "rgba(255,255,255,.92)", fontFamily: "Arial,sans-serif" }, "$") : null,
+      h("path", { d: JELLY_GLYPH[k], fill: "none", stroke: "rgba(255,255,255,.6)", strokeWidth: 1.2, transform: "translate(0.6 0.8) scale(.97)", strokeLinejoin: "round" }),
+      h("ellipse", { cx: k === "chart" ? 38 : k === "bag" ? 17 : 22, cy: k === "chart" ? 12 : k === "bag" ? 24 : 12, rx: k === "plus" ? 3.2 : 2.6, ry: 1.6, fill: "rgba(255,255,255,.9)", transform: "rotate(-20 20 14)" }));
+  }
   // 进度条：细细一根，填的那段是紫到粉的糖果渐变、带一道高光
   function Bar({ pct, over, sk, color, height }) {
     const H = height || 8;
@@ -739,9 +755,20 @@
         h("path", { d: "M33 53c1.2 1 2.8 1 4 0" })) : null,
       h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", style: { position: "absolute", right: 20, top: 18 }, fill: glass ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.8)", "aria-hidden": "true" },
         h("path", { d: "M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" })));
-    const bigKey = (label, tone, icon, onClick) => h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key",
-      style: jellyKey(sk, tone, false, { minHeight: 88, gap: 7, borderRadius: 20 }) },
-      icon, h("span", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: sk.ink } }, label));
+    // 三颗主键：一块透明玻璃软糖——底色很淡、能透出后面，一圈白色厚唇边，里面再压一道细内沿；
+    //   图标是一颗鼓起来的彩色果冻（渐变填色 + 左上一点高光），比字大得多（她 2026-09-28 拿样张对比：「太死了不够透、加号要更大」）
+    const bigKey = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
+      return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
+        style: glass ? { position: "relative", minHeight: 104, gap: 6, borderRadius: 24,
+            background: "linear-gradient(160deg, rgba(255,255,255,.62) 0%, " + a + "55 45%, " + a + "80 100%)",
+            border: "1.5px solid rgba(255,255,255,.95)",
+            boxShadow: "inset 0 2px 1px #fff, inset 0 -8px 14px " + b + "40, inset 8px 0 14px rgba(255,255,255,.35), inset 0 0 0 1px " + b + "33, 0 10px 22px " + b + "33, 0 2px 4px " + b + "26",
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", transition: "transform .08s" }
+          : jellyKey(sk, tone, false, { minHeight: 88, gap: 7, borderRadius: 20 }) },
+        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 6, borderRadius: 19, border: "1px solid rgba(255,255,255,.7)", pointerEvents: "none" } }) : null,
+        glass ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 10, top: 7, height: "32%", borderRadius: "16px 16px 40% 40%", background: "linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,0))", pointerEvents: "none" } }) : null,
+        h(JellyGlyph, { k: glyph, tone, size: glass ? 46 : 30 }),
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13.5, fontWeight: 800, color: glass ? "#4a3a5e" : sk.ink } }, label)); };
     const mrec = (data.monthly || {})[lmk];
     const ls = summarize(data.txns, code, lmk);
     const cellsN = 20, used = bs ? Math.min(1, bs.used) : 0;
@@ -759,9 +786,9 @@
             h("span", null, "支 ", h("span", { style: lcdNum(sk, 12) }, hide ? "****" : fmtMoney(s.exp, cur))))),
         h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60", style: { marginTop: 10, minHeight: 34, padding: "6px 4px 0", fontFamily: F_BODY, fontSize: 12.5, color: sk.sub } }, "「" + motto + "」")),
       h("div", { style: { display: "flex", gap: 12, marginBottom: 20 } },
-        bigKey("记一笔", "pink", h(LIcon, { k: "plus", size: 30, color: "#d9467d", sw: 2.4 }), () => props.onAdd("expense")),
-        bigKey("收入", "blue", h(LIcon, { k: "bag", size: 28, color: "#4f73cf", sw: 2 }), () => props.onAdd("income")),
-        bigKey("账单", "lilac", h(LIcon, { k: "chart", size: 28, color: "#7a5ccc", sw: 2 }), props.onBills)),
+        bigKey("记一笔", "pink", "plus", () => props.onAdd("expense")),
+        bigKey("收入", "blue", "bag", () => props.onAdd("income")),
+        bigKey("账单", "lilac", "chart", props.onBills)),
       // 预算：一根电量槽，一格一格点亮；没设就是一颗「设个预算」的键
       h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: Object.assign({ display: "block", padding: "12px 14px 14px", marginBottom: 20 }, sk.shell) },
         bs ? h(Fragment, null,

@@ -46,3 +46,9 @@ console.log("ledger-glass ok");
   assert.match(src, /backgroundColor: pageColor\("ledger", "bg", "#f3f2f8"\)/, "背景又铺成大片粉紫了");
 }
 console.log("ledger-y2k ok");
+// 第五轮（她拿样张对比：「太死了不够透、加号要更大」）：三颗主键是透明玻璃软糖 + 大果冻图标
+assert.match(src, /function JellyGlyph\(/);
+assert.match(src, /bigKey\("记一笔", "pink", "plus"/);
+assert.match(src, /h\(JellyGlyph, \{ k: glyph, tone, size: glass \? 46 : 30 \}\)/);
+assert.match(src, /backdropFilter: "blur\(8px\)"/, "主键不透了");
+console.log("ledger-bigkey ok");
