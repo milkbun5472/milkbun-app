@@ -418,35 +418,35 @@
   //   · C 薄玻璃     —— 每条账单、小组件：只有透明底 + 发丝边 + 一点高光
   //   判据：截图转灰度以后，还能靠透明度、边缘高光、厚度分出前后层，而不是看到一堆白色圆角矩形。
   // ============================================================
+  // ⚠️不描边（她 2026-09-28：「每一个框都搞外面的线，但做不出真正的玻璃质感的话反而很土」）：
+  //   玻璃靠的是【光】——透明底、左上一抹柔光、右下一点冷色、外面一片很淡的环境影——不是一圈线。
+  //   只有 A 级（托盘、主键、完成键）保留一道极细的内侧亮沿，那是亚克力的厚度；B、C 两级一条线都不画。
   const GLASS = {
     A: {
-      background: "linear-gradient(135deg, rgba(255,255,255,.26) 0%, rgba(226,238,255,.12) 42%, rgba(255,255,255,.2) 58%, rgba(250,226,244,.16) 100%)",
-      border: "1px solid rgba(255,255,255,.7)",
-      boxShadow: "0 0 0 1px rgba(150,152,205,.32), inset 0 0 0 1px rgba(255,255,255,.55), inset 0 0 0 4px rgba(255,255,255,.14), inset 0 0 0 5px rgba(160,180,240,.2)," +
-        " inset 3px 4px 6px rgba(255,255,255,.65), inset -4px -6px 10px rgba(150,138,228,.2), 0 10px 26px rgba(118,118,196,.16), 0 0 20px rgba(214,232,255,.35)",
+      background: "linear-gradient(135deg, rgba(255,255,255,.3) 0%, rgba(226,238,255,.14) 42%, rgba(255,255,255,.22) 58%, rgba(250,226,244,.18) 100%)",
+      border: "none",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.75), inset 3px 4px 8px rgba(255,255,255,.5), inset -4px -6px 12px rgba(150,138,228,.16), 0 10px 26px rgba(118,118,196,.14)",
       backdropFilter: "blur(10px) saturate(1.45)", WebkitBackdropFilter: "blur(10px) saturate(1.45)"
     },
     B: {
-      background: "linear-gradient(140deg, rgba(255,255,255,.3) 0%, rgba(246,243,255,.14) 55%, rgba(234,243,255,.2) 100%)",
-      border: "1px solid rgba(255,255,255,.55)",
-      boxShadow: "inset 1.5px 1.5px 0 rgba(255,255,255,.7), inset 0 8px 12px -8px rgba(255,255,255,.75), inset -1.5px -2px 0 rgba(138,150,226,.2), inset -8px -10px 16px -10px rgba(168,148,236,.28)," +
-        " 0 0 0 1px rgba(168,166,214,.16), 0 8px 22px rgba(122,118,200,.11)",
+      background: "linear-gradient(145deg, rgba(255,255,255,.36) 0%, rgba(248,245,255,.18) 55%, rgba(236,244,255,.22) 100%)",
+      border: "none",
+      boxShadow: "inset 0 10px 16px -12px rgba(255,255,255,.9), inset -10px -12px 20px -14px rgba(168,148,236,.3), 0 8px 24px rgba(122,118,200,.1)",
       backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)"
     },
     C: {
-      background: "linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,.08))",
-      border: "1px solid rgba(255,255,255,.5)",
-      boxShadow: "inset 1px 1px 0 rgba(255,255,255,.65), inset -1px -1px 0 rgba(148,158,228,.16), 0 3px 10px rgba(122,118,200,.07)",
-      backdropFilter: "blur(10px) saturate(1.3)", WebkitBackdropFilter: "blur(10px) saturate(1.3)"
+      background: "linear-gradient(135deg, rgba(255,255,255,.3), rgba(255,255,255,.1))",
+      border: "none",
+      boxShadow: "inset 0 8px 12px -10px rgba(255,255,255,.85), 0 4px 14px rgba(122,118,200,.07)",
+      backdropFilter: "blur(12px) saturate(1.3)", WebkitBackdropFilter: "blur(12px) saturate(1.3)"
     }
   };
   // A 级的带色版本（三颗主键）：同一块透明亚克力，只是往里透一点自己的颜色
   function glassTinted(a, b) {
     return Object.assign({}, GLASS.A, {
-      background: "radial-gradient(70% 55% at 38% 26%, rgba(255,255,255,.5), rgba(255,255,255,0) 70%), linear-gradient(145deg, " + a + "40 0%, " + a + "66 55%, " + b + "4d 100%)",
-      border: "1px solid rgba(255,255,255,.72)",
-      boxShadow: "0 0 0 1px " + b + "59, inset 0 0 0 1px rgba(255,255,255,.6), inset 0 0 0 4px rgba(255,255,255,.16), inset 0 0 0 5px " + b + "33," +
-        " inset 3px 4px 6px rgba(255,255,255,.7), inset -4px -6px 10px " + b + "4d, 0 8px 20px " + b + "33, 0 0 16px rgba(255,255,255,.3)"
+      background: "radial-gradient(70% 55% at 38% 26%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%), linear-gradient(145deg, " + a + "40 0%, " + a + "66 55%, " + b + "4d 100%)",
+      border: "none",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.8), inset 3px 4px 8px rgba(255,255,255,.55), inset -4px -6px 12px " + b + "40, 0 8px 20px " + b + "2e"
     });
   }
   function ledgerSkin(settings) {
@@ -492,9 +492,9 @@
       exp: ink, inc: "#589c98", over: "#bc668c",
       // 卡片不再是白色实体：B 级磨砂玻璃当外壳，C 级薄玻璃当账单条，A 级留给托盘和主键
       card: Object.assign({}, GLASS.C, { borderRadius: 19 }), shell: Object.assign({}, GLASS.B, { borderRadius: 19 }), matA: GLASS.A,
-      screen: Object.assign({}, GLASS.C, { borderRadius: 13, boxShadow: "inset 0 1px 3px rgba(131,124,169,.14), inset 1px 1px 0 rgba(255,255,255,.6)" }),
+      screen: Object.assign({}, GLASS.C, { borderRadius: 13, boxShadow: "inset 0 2px 5px rgba(131,124,169,.12)" }),
       acrylic: { background: "transparent" },
-      well: { background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.5)", borderRadius: 18, boxShadow: "inset 0 1px 3px rgba(140,136,200,.14), inset -1px -1px 0 rgba(255,255,255,.35)" },
+      well: { background: "rgba(255,255,255,.14)", border: "none", borderRadius: 18, boxShadow: "inset 0 2px 5px rgba(140,136,200,.12)" },
       lcd: LCD_INK, lcdDim: LCD_DIM,
       num: "Arial, 'PingFang SC', sans-serif", digit: "Arial, 'PingFang SC', sans-serif",
       tabBar: { background: "rgba(233,233,246,.38)", borderTop: "1px solid rgba(146,145,180,.18)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.65)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
@@ -506,7 +506,7 @@
     const [a, b] = JELLY[tone] || JELLY.clear, clear = tone === "clear";
     // 一颗玻璃软糖键：半透明的面（带色的键里透出颜色）、厚白唇边、上沿高光、底下一点同色厚度
     return Object.assign({
-      borderRadius: 14, color: sk.ink, border: "1px solid " + (clear ? "rgba(175,160,225,.45)" : b + "80"),
+      borderRadius: 14, color: sk.ink, border: "none",
       background: "radial-gradient(80% 50% at 40% 12%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%), linear-gradient(170deg, " + (clear ? "rgba(255,255,255,.75), rgba(240,236,252,.6)" : a + "cc, " + b + "b3") + ")",
       boxShadow: (pressed ? "inset 0 2px 6px " + b + "80, " : "") + "inset 0 0 0 1px rgba(255,255,255,.65), inset 1px 2px 2px #fff, inset -1px -2px 3px " + b + "6d, 0 1px 2px " + b + "55",
       transform: pressed ? "translateY(2px)" : "none", transition: "transform .08s, box-shadow .08s"
@@ -524,7 +524,7 @@
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.16em}
 .lg-reference .lg-wallet-head [data-wk=head]>div:last-child{width:66px!important}
 .lg-reference .lg-wallet-main{padding:8px 22px 24px}
-.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:1px solid rgba(255,255,255,.72)!important;box-shadow:0 0 0 1px rgba(150,152,205,.34),inset 0 0 0 1px rgba(255,255,255,.55),inset 0 0 0 5px rgba(255,255,255,.12),inset 0 0 0 6px rgba(160,180,240,.22),inset 4px 5px 7px rgba(255,255,255,.6),inset -5px -6px 10px rgba(148,138,226,.24),0 12px 28px rgba(118,118,196,.18),0 0 24px rgba(214,232,255,.4)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
+.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 4px 5px 10px rgba(255,255,255,.5),inset -5px -6px 12px rgba(148,138,226,.2),0 12px 28px rgba(118,118,196,.16)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
 .lg-reference [data-ledger-tray]:after{content:"";position:absolute;inset:1px;border-radius:28px;pointer-events:none;background:linear-gradient(111deg,transparent 6%,#fff8 8%,transparent 10%,transparent 63%,#d8faff44 68%,#ffe4f533 72%,transparent 76%),linear-gradient(5deg,transparent 5%,#fff9 7%,transparent 8%,transparent 93%,#fff9 95%,transparent 97%)}
 .lg-reference [data-ledger-tray]:before{content:'';position:absolute;inset:7px;border:1px solid #ffffff9c;border-radius:22px;box-shadow:inset 2px 2px 2px #929cbd90,2px 2px 3px #ffffffa8;pointer-events:none}
 .lg-reference [data-ledger-card]{height:192px!important;margin:0!important;transform:none!important;border-radius:17px!important;background:linear-gradient(132deg,#cec4ec88 2%,#b8c6f29c 27%,#e1c9efab 54%,#b7d8f3b3 76%,#e2bce3a3)!important;box-shadow:inset 0 0 0 2px #ffffff50,inset 0 2px 3px #ffffffcc,inset -2px -3px 4px #967fa766,0 4px 8px #878ca75e!important}
@@ -538,10 +538,10 @@
 .lg-reference [data-ledger-tabbar] button[aria-current=page] svg{fill:#b4a2ec;stroke:#494579}
 .lg-reference .lg-segment{padding:0!important;gap:0!important;height:40px;border-radius:20px}
 .lg-reference .lg-segment button{min-height:38px!important;border-radius:19px!important;font-size:13px!important}
-.lg-reference .lg-segment button[aria-pressed=true]{background:linear-gradient(180deg,#fff9,#f2d0e3aa 48%,#eebdd675)!important;border:1px solid #dca6c4!important;box-shadow:inset 0 2px 3px #fff,inset 0 -2px 3px #f2c5dd,0 1px 3px #a378a024!important}
+.lg-reference .lg-segment button[aria-pressed=true]{background:linear-gradient(180deg,#fff9,#f2d0e3aa 48%,#eebdd675)!important;border:0!important;box-shadow:inset 0 2px 3px #fff,inset 0 -2px 4px #f0bfd8,0 2px 6px #d890b740!important}
 .lg-reference .lg-add-grid{gap:11px!important;align-content:start}
-.lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.55);box-shadow:inset 1px 1px 0 rgba(255,255,255,.7),inset -1px -1px 0 rgba(148,158,228,.18),0 3px 10px rgba(122,118,200,.08);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
-.lg-reference .lg-add-category[aria-pressed=true]{border-color:#d890b7;background:linear-gradient(135deg,#f9e5eecc,#f1d0e570);box-shadow:inset 0 0 0 2px #fffb,inset 0 -2px 4px #db9ab440,0 1px 4px #ad80a240}
+.lg-reference .lg-add-category{min-width:0;height:88px;border-radius:17px;justify-content:center;gap:2px!important;padding:5px 0!important;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.08));border:0;box-shadow:inset 0 8px 12px -10px rgba(255,255,255,.85),0 4px 14px rgba(122,118,200,.08);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
+.lg-reference .lg-add-category[aria-pressed=true]{background:linear-gradient(135deg,#f9e5eecc,#f1d0e580);box-shadow:inset 0 8px 12px -10px #fff,inset 0 -3px 6px #db9ab440,0 4px 12px #d890b740}
 .lg-reference .lg-add-category .lg-cattile{background:transparent!important;border:0!important;box-shadow:none!important;width:43px!important;height:43px!important}
 .lg-reference .lg-add-custom{height:30px;grid-column:1/-1;flex-direction:row!important;justify-content:center;gap:6px!important;background:none;border:0;box-shadow:none}
 .lg-reference .lg-add-custom>div{width:24px!important;height:24px!important;font-size:16px!important;background:transparent!important;border:0!important;box-shadow:none!important}
@@ -549,7 +549,7 @@
 .lg-reference .lg-console [data-ledger-amount]{min-height:48px;padding:2px 9px 2px 14px!important;margin-bottom:8px!important}
 .lg-reference .lg-console input{min-height:37px!important}
 .lg-reference .lg-number-key{min-height:40px!important;border-radius:10px!important;font-size:20px!important;font-weight:500!important}
-.lg-reference [data-ledger-done]{background:radial-gradient(70% 45% at 40% 18%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%),linear-gradient(160deg,rgba(252,214,232,.5),rgba(236,160,198,.45))!important;color:#713c5b!important;box-shadow:0 0 0 1px rgba(214,140,180,.45),inset 0 0 0 1px rgba(255,255,255,.6),inset 0 0 0 4px rgba(255,255,255,.16),inset 3px 4px 6px rgba(255,255,255,.65),inset -4px -6px 10px rgba(214,120,168,.3),0 8px 20px rgba(220,140,185,.3)!important;border:1px solid rgba(255,255,255,.72)!important;opacity:1!important;backdrop-filter:blur(8px) saturate(1.4);-webkit-backdrop-filter:blur(8px) saturate(1.4)}
+.lg-reference [data-ledger-done]{background:radial-gradient(70% 45% at 40% 18%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%),linear-gradient(160deg,rgba(252,214,232,.5),rgba(236,160,198,.45))!important;color:#713c5b!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 3px 4px 8px rgba(255,255,255,.55),inset -4px -6px 12px rgba(214,120,168,.28),0 8px 20px rgba(220,140,185,.26)!important;border:0!important;opacity:1!important;backdrop-filter:blur(8px) saturate(1.4);-webkit-backdrop-filter:blur(8px) saturate(1.4)}
 .lg-reference .lg-bills-date{display:none!important}
 .lg-reference .lg-bills .lg-segment{margin:0 10px}
 .lg-reference .lg-bills [data-ledger-strip]{min-height:75px;padding:11px 12px!important;border-radius:21px!important}
@@ -630,7 +630,7 @@
     const s = size || 40, glass = sk.id === "glass";
     return h("div", { className: "lg-cattile", style: { width: s, height: s, borderRadius: Math.round(s * .25), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(s * .5),
       background: glass ? "linear-gradient(145deg,rgba(255,255,255,.8)," + tint + "25)" : tint + "33",
-      border: "1px solid " + (on ? sk.pink : "rgba(255,255,255,.65)"),
+      border: glass ? "none" : "1px solid " + (on ? sk.pink : sk.line),
       boxShadow: glass ? "inset 1px 2px 2px #fff, inset -1px -2px 3px rgba(136,125,173,.15), 0 1px 3px rgba(126,118,162,.12)" : "none" } },
       h(CategoryGlyph, { emoji, name, icon, size: s * (glass ? .81 : .7) }));
   }
@@ -695,7 +695,7 @@
       return h("button", { key: k, onClick: () => onChange(k), "aria-pressed": on, className: "flex-1 active:opacity-80",
         style: { minHeight: 40, borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
           background: on ? (sk.id === "glass" ? "radial-gradient(80% 60% at 40% 15%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(180deg, #ffd3e3, #f7a6c6)" : "#fff") : "transparent",
-          border: on && sk.id === "glass" ? "1px solid #ef97b9" : "1px solid transparent",
+          border: "none",
           boxShadow: on ? (sk.id === "glass" ? "inset 0 0 0 2px rgba(255,255,255,.5), 0 2px 8px rgba(236,132,171,.45)" : "0 1px 3px rgba(0,0,0,.08)") : "none" } }, zh); }));
   // 整页壳：外壳铺底，顶栏透明（mobile-ui-layout §3.5）
   const ledgerPage = (sk, title, onBack, right, body, footer, extra) => h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page, extra || {}) },

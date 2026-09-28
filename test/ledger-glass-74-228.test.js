@@ -57,3 +57,11 @@ console.log("ledger-material ok");
   assert.ok(!/return h\("span", \{ style: \{ fontSize: size \* \.65 \} \}, emoji \|\| "•"\)/.test(s3), "认不出的分类又退回 emoji 了");
 }
 console.log("ledger-icons ok");
+// 第十一轮（她：「每个框都搞外面的线，做不出真的玻璃反而很土」）：B、C 两级和键一条线都不画
+{
+  const s4 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const G = s4.slice(s4.indexOf("const GLASS = {"), s4.indexOf("function ledgerSkin("));
+  assert.equal((G.match(/border: "none"/g) || []).length, 4, "玻璃材质又描边了");
+  assert.ok(!/0 0 0 1px/.test(G), "玻璃材质又加了一圈轮廓线");
+}
+console.log("ledger-noline ok");
