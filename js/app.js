@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.203";
+const APP_VERSION = "v74.204";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18007,7 +18007,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
     return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
       + (memText ? "\n相关真实记忆：\n" + memText : "")
-      + (lived ? "\n你最近真实经历过的（和" + userName(profile) + "的私聊、群聊、线下、通话，你本来就知道这些事；别照抄原话，也别在楼里把它复述成流水账）：\n" + lived : "")
+      // 她 2026-09-28：TA 在楼里回另一个角色时，替她编了一句她没说过的话当论据。原来这儿写的是「别照抄原话」——
+      //   本意是别把私聊原样搬上公开楼，模型却读成「她说过什么要自己转述一遍」，一转述就走样成她没说过的话。
+      //   改成说清楚：意思必须是她真说过的，换成自己的说法可以；拿不准原话就别引她，说自己的看法。
+      + (lived ? "\n你最近真实经历过的（和" + userName(profile) + "的私聊、群聊、线下、通话，你本来就知道这些事）：\n" + lived
+        + "\n↑在楼里提到" + userName(profile) + "说过什么、做过什么，只能是上面真有的：可以换成你自己的说法，但意思得是她真说的那个意思，别把她没说过的话安到她头上当论据——记不清她原话就别引她，说你自己怎么看就行。也别把这些私事在楼里复述成流水账。" : "")
       + "\n";
   };
   const forumCommentProbe = (post, n, opts = {}) => {

@@ -41,8 +41,10 @@ assert.ok(line && !/必须|每条都|至少/.test(line), "配图不许写成硬�
 // 4. 喂模型的正文、楼层都过 forumWithPhoto
 assert.match(app, /正文「" \+ forumWithPhoto\(post\.body, post\) \+ "」。生成/);
 assert.match(app, /正文「" \+ forumWithPhoto\(post\.body, post\) \+ "」。楼下网友/);
-assert.match(app, /forumWithPhoto\(f\.content, f\)/);
-assert.match(app, /forumWithPhoto\(floor\.content, floor\)/);
+// 已有楼层整段喂给模型走 screens.js 的 forumFloorTranscript（里面对楼层和每条楼中楼都过 forumWithPhoto）
+assert.match(scr, /function forumFloorTranscript[\s\S]*?forumWithPhoto\(f\.content, f\)[\s\S]*?forumWithPhoto\(r\.content, r\)/);
+assert.match(app, /forumFloorTranscript\(floors\)/);
+assert.match(app, /forumFloorTranscript\(\[\{ \.\.\.floor, floor: null \}\]\)/);
 
 // 5. 界面：一张公共的挂图件，发帖和回楼共用；显示走聊天那张 PhotoCard / PhotoSheet
 assert.match(cmp, /function PhotoAttach\(\{ value, onChange, toast \}\)/);
