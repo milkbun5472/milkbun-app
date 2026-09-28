@@ -3,11 +3,12 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-139ac0ec709ab990';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-139ac0ec709ab990';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-139ac0ec709ab990';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-139ac0ec709ab990';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-139ac0ec709ab990';
+import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-56c89142830d3852';
+import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-56c89142830d3852';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-56c89142830d3852';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-56c89142830d3852';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-56c89142830d3852';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-56c89142830d3852';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -20,11 +21,31 @@ function size(){const w=innerWidth,h=innerHeight;r.setSize(w,h);cam.aspect=w/h;
  cam.position.set(0,mid+.05,dist+.3);cam.lookAt(0,mid,0);cam.updateProjectionMatrix();}
 addEventListener('resize',size);size();
 const loader=new GLTFLoader();const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');loader.setDRACOLoader(draco);
-let pet=null,pending=null,lastLook='',cur={look:{},ta:'TA'};
+let pet=null,pending=null,lastLook='',cur={look:{},ta:'TA',characterId:''},outfitShowToken=0;
 // 外壳的换装面板（庭院那一份 DressControls）问这里要现值、让这里合并改动——换装规则只有 wardrobe.mjs 一份
 const full=()=>({...lookForTa(cur.ta),...cur.look});
 window.PetGame={hairModes:HAIR_MODES,getDyes:()=>dyesOf(full(),full()),getOutfit:()=>{const l=full();return {id:outfitId(l),colors:outfitColors(l)};},getHair:()=>hairId(full().hair),merge:(look,patch)=>mergeLook(look||{},patch||{})};
-const apply=m=>{cur={look:m.look||{},ta:m.ta||'TA'};if(!pet){pending=m;return;}const look=full();const key=JSON.stringify(look);if(key===lastLook)return;lastLook=key;pet.setLook(look,true);};   // 整份换：换角色时不许留着上一个人的发色衣服
+const outfitKey=look=>JSON.stringify([outfitId(look),outfitColors(look)]);
+const apply=m=>{
+ const previous=cur,oldLook=full(),wasReady=!!lastLook;
+ cur={look:m.look||{},ta:m.ta||'TA',characterId:String(m.characterId||'')};
+ const changedCharacter=previous.characterId!==cur.characterId||previous.ta!==cur.ta;
+ if(changedCharacter)outfitShowToken++;
+ if(!pet){pending=m;return;}
+ const look=full(),key=JSON.stringify([cur.characterId,look]);if(key===lastLook)return;
+ lastLook=key;pet.setLook(look,true);
+ if(wasReady&&!changedCharacter&&outfitKey(oldLook)!==outfitKey(look)){
+  const token=++outfitShowToken;
+  setTimeout(async()=>{
+   await pet.ready();
+   if(token!==outfitShowToken||document.hidden||sleeping||held)return;
+   const visual=pet.root.getObjectByName('TravelerVisual');
+   const id=outfitId(full());let wearing=false;
+   visual?.traverse(o=>{if(o.isMesh&&o.visible&&o.userData.outfit===id)wearing=true;});
+   if(wearing)act={kind:'emotion-show',start:clock.getElapsedTime()};
+  },400);
+ }
+};
 addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data);if(e.data&&e.data.type==='pet-ctx')setCtx(e.data);});
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
 let ctx={screen:'',music:false,idle:false},sleeping=false;
@@ -36,7 +57,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-139ac0ec709ab990',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-56c89142830d3852',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
@@ -45,13 +66,41 @@ try{
  throw err;
 }
 let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0,soft={y:0,tilt:0,yaw:0};const clock=new T.Clock();
-window.petDebug={frames:0,snapshot:()=>({action:act?.kind,emotion:pet.root.userData.emotion}),play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
+window.petDebug={frames:0,snapshot:()=>({action:act?.kind,emotion:pet.root.userData.emotion,targets:touchTargets()}),play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
 const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
 let greeted=false,held=null,taps=[];const lastActions=new Map();
 function pickForMood(face,pool){const key=MOODS[face]?face:'default',kind=chooseAction(pool||MOODS[key].acts,lastActions.get(key));lastActions.set(key,kind);return kind;}
 function wake(){if(!sleeping)return;sleeping=false;act={kind:'wake',start:clock.getElapsedTime()};}
+function touchTargets(){
+ if(!pet)return [];pet.root.updateWorldMatrix(true,true);cam.updateMatrixWorld(true);
+ const rect=r.domElement.getBoundingClientRect(),project=v=>{const p=v.clone().project(cam);return {x:rect.left+(p.x+1)*rect.width/2,y:rect.top+(1-p.y)*rect.height/2,z:p.z};};
+ const radius=(point,size)=>{const right=new T.Vector3(1,0,0).applyQuaternion(cam.quaternion).multiplyScalar(size),a=project(point),b=project(point.clone().add(right));return Math.abs(a.x-b.x);};
+ const result=[],surfaces=[];pet.root.traverseVisible(o=>{if(o.isMesh)surfaces.push(o);});
+ const ray=new T.Raycaster();
+ const exposed=point=>{const origin=cam.getWorldPosition(new T.Vector3()),distance=origin.distanceTo(point);ray.set(origin,point.clone().sub(origin).normalize());const hit=ray.intersectObjects(surfaces,false)[0];return !hit||hit.distance>=distance-.08;};
+ for(const side of ['left','right']){
+  const hand=pet.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');if(!hand)continue;
+  const pos=hand.getWorldPosition(new T.Vector3()),p=project(pos);
+  result.push({kind:'hand',side,...p,radius:Math.min(24,Math.max(8,radius(pos,.065))),visible:p.z>-1&&p.z<1&&exposed(pos)});
+ }
+ const head=pet.root.getObjectByName('HeadAnchor');
+ if(head){const pos=head.localToWorld(new T.Vector3(0,-.13,.65)),p=project(pos),scale=head.getWorldScale(new T.Vector3()).x/.20448;
+  const forward=new T.Vector3(0,0,1).transformDirection(head.matrixWorld),front=forward.dot(cam.position.clone().sub(pos).normalize())>.35;
+  result.push({kind:'face',...p,rx:radius(pos,.13*scale),ry:radius(pos,.105*scale),visible:front&&p.z>-1&&p.z<1});}
+ return result;
+}
+function touch(x,y){
+ if(sleeping){wake();return;}const target=targetAt(x,y,touchTargets()),t=clock.getElapsedTime();
+ if(!target){poke();return;}taps=[];
+ if(target.kind==='hand'){
+  const hit=highFiveHit(act,target.side,t,DUR[act?.kind]);
+  act={kind:'emotion-'+(hit?'clap-':'five-')+target.side,start:t};
+ }else act={kind:'emotion-dodge-'+target.side,start:t};
+ // 外壳的聊天反馈仍沿原来的单点入口，不增加模型调用入口。
+ parent.postMessage({type:'pet-poke',kind:'tap',count:1},'*');
+}
 function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}taps=taps.filter(x=>t-x<1.4);taps.push(t);
  const n=taps.length,face=(cur.look&&cur.look.face)||'default',cross=['irritated','sad','gloomy'].includes(face);
  // 点一下回头看你；连点两下蹦一下；再点他就害羞（心情不好的时候是扭过头去不理你）
@@ -106,7 +155,7 @@ document.addEventListener('visibilitychange',()=>{
 // 悬浮时不再用「点小人」打开陪伴页——那一下留给他的反应；打开改成点底下那条把手（js/companion.js）。
 for(const k of ['contextmenu','selectstart','dragstart'])addEventListener(k,e=>e.preventDefault());   // iOS 长按的选框/菜单
 {let down=null,moved=0,timer=0;
- addEventListener('pointerdown',e=>{down={x:e.clientX,last:e.clientX};moved=0;clearTimeout(timer);timer=setTimeout(()=>{if(down&&moved<6){held=true;act=null;sleeping=false;}},450);});
- addEventListener('pointermove',e=>{if(!down)return;moved+=Math.abs(e.clientX-down.last);if(mode!=='float'&&!held)yaw+=(e.clientX-down.last)*.01;down.last=e.clientX;});
- addEventListener('pointerup',()=>{clearTimeout(timer);if(held){held=null;act={kind:'land',start:clock.getElapsedTime()};parent.postMessage({type:'pet-poke',kind:'lift',count:1},'*');}else if(down&&moved<6)poke();down=null;});
+ addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,last:e.clientX,lastY:e.clientY};moved=0;clearTimeout(timer);timer=setTimeout(()=>{if(down&&moved<6){held=true;act=null;sleeping=false;}},450);});
+ addEventListener('pointermove',e=>{if(!down)return;moved+=Math.hypot(e.clientX-down.last,e.clientY-down.lastY);if(mode!=='float'&&!held)yaw+=(e.clientX-down.last)*.01;down.last=e.clientX;down.lastY=e.clientY;});
+ addEventListener('pointerup',e=>{clearTimeout(timer);if(held){held=null;act={kind:'land',start:clock.getElapsedTime()};parent.postMessage({type:'pet-poke',kind:'lift',count:1},'*');}else if(down&&moved<6)touch(e.clientX,e.clientY);down=null;});
  addEventListener('pointercancel',()=>{clearTimeout(timer);held=null;down=null;});}

@@ -4,6 +4,19 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'show': { // 展开手臂，左右转给你看，最后回正亮相
+  const l=beat(p,.12,.3,.36,.5),r=beat(p,.42,.62,.7,.84);
+  q.left=[-.35*e,0,-.4*e];q.right=[-.35*e,0,.4*e];q.yaw=-.8*l+.8*r;q.tilt=-.035*late;break;}
+ case 'five-left':case 'five-right':case 'clap-left':case 'clap-right': {
+  const side=face.endsWith('left')?'left':'right',sign=side==='left'?-1:1,clap=face.startsWith('clap-');
+  const reach=clap?1-ease((p-.55)/.45):beat(p,0,.22,.85,1);
+  q[side]=[(-1.95-(clap?.16*Math.sin(p*Math.PI*2):0))*reach,0,sign*.65*reach];
+  q[side==='left'?'right':'left']=[-.15*reach,0,-sign*.12*reach];q.roll=sign*.035*reach;break;}
+ case 'dodge-left':case 'dodge-right': {
+  const sign=face.endsWith('left')?-1:1,away=beat(p,0,.16,.35,.66);
+  q.roll=sign*.11*away;q.yaw=sign*.25*away;q.tilt=-.06*away;
+  q.right=[-.7*late,0,.2*late];q.left=[-.2*e,0,-.1*e];break;}
+
  case 'beckon': { // 先伸手邀请，再朝自己收两次，最后留手等你
   const call=beat(p,.2,.32,.65,.82),curl=(.5-.5*Math.cos((p-.2)*Math.PI*8))*call;
   q.right=[-1.15*e-.48*curl,0,-.18*e];q.left=[-.2*e,0,-.12*e];q.tilt=.055*e;q.yaw=-.12*e;break;}

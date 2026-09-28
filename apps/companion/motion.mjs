@@ -29,6 +29,7 @@ export function chooseAction(pool,last,random=Math.random){
  const fresh=pool.filter(k=>k!==last),choices=fresh.length?fresh:pool;
  return choices[Math.floor(random()*choices.length)];
 }
+Object.assign(DUR,{'emotion-show':6,'emotion-five-left':4.8,'emotion-five-right':4.8,'emotion-clap-left':1.8,'emotion-clap-right':1.8,'emotion-dodge-left':3.2,'emotion-dodge-right':3.2});
 const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
 // 到位后稍作停留，收势比起势慢；两端速度为零。
 export const pulse=(p,inEnd=.25,outStart=.52)=>smooth(p/inEnd)*(1-smooth((p-outStart)/(1-outStart)));
