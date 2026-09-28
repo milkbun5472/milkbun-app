@@ -224,6 +224,10 @@ const GLore = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.c
 const GShop = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M4 7h16l-1.2 11.2a2 2 0 01-2 1.8H7.2a2 2 0 01-2-1.8L4 7zM8.5 7l3.5-4 3.5 4"
 }));
+// 外卖：一只打包袋，袋口折一道、系着一张小票（跟购物那只提手袋分开）
+const GTakeout = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
+  d: "M6 8.5h12l-1 11a1.8 1.8 0 01-1.8 1.6H8.8A1.8 1.8 0 017 19.5L6 8.5zM5.5 8.5l1.2-4h10.6l1.2 4M10 12.5h4M9.5 15.5h5"
+}));
 const GBag = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M6 8h12l-.9 11a2 2 0 01-2 1.8H8.9a2 2 0 01-2-1.8L6 8zM9 8V6.5a3 3 0 016 0V8"
 }));
@@ -458,6 +462,8 @@ const APP_TONE_HUE = {
   yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
   assistant: 174, stylelab: 316, radio: 20,
   diary: 226, memo: 52, ledger: 136,
+  // 外卖借便签那一档暖黄（跟外卖页同一种黄）；同样不往池子里加新值
+  takeout: 52,
   // 底部 dock 那四个也点名（它每一页都在，不能交给哈希）
   messages: 196, forum: 112, config: 352
 };
@@ -563,7 +569,7 @@ const SCREEN_ZH = {
   home: "主屏", messages: "消息", radio: "电台", radioLegacy: "旧电台",
   thread: "单聊", gthread: "群聊",
   contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
-  phone: "查手机", shop: "购物", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",
+  phone: "查手机", shop: "购物", takeout: "外卖", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",
   cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", ledger: "记账",
   calendar: "日历", memo: "备忘录", map: "好友地图",
   listen: "一起听", musiccard: "一起听那张卡的背面",

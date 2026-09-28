@@ -52,5 +52,6 @@ test("room offline receives its prompt and only shows schedule when that room en
 test("opening the state card inside a room selects the room-local heart voice", () => {
   assert.match(app, /setStateCardRoomKey\(window\.ChatRooms && window\.ChatRooms\.isSideKey\(k\) \? k : null\)/);
   assert.match(app, /state: roomCard \? \(roomStates\[stateCardRoomKey\] \|\| null\)/);
-  assert.match(components, /roomName \+ " · 心声只留在本房"/);
+  // v74.180 起房间卡也摆心情（这间房自己的），房名退成抬头后面一句小字
+  assert.match(components, /roomName \? " · 只在「" \+ roomName \+ "」里" : ""/);
 });

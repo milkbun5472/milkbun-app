@@ -28,10 +28,10 @@ def fit_cuffs():
  if body.get('fittedWristVersion'):
   raise ValueError('Restore the original body before fitting sleeves')
  body['originalHandVersion']=1
- for name in ('academy','garden','ranger','cardigan','jacket','suit'):
+ for name in ('academy','garden','ranger','cardigan','jacket','suit','tee'):
   cloth=bpy.data.objects.get('outfit_'+name)   # jacket is attached later by add_outfit.py, which calls this again
   if not cloth or cloth.get('fittedCuffVersion',0)>=3:continue
-  short=name=='garden';end=.156 if short else .214
+  short=name in ('garden','tee');end=.156 if short else .214   # T恤（2026-09-27）也是到手肘上的短袖
   old=[bpy.data.objects['outfit_'+name+'_'+side+'_sleeve'] for side in ('left','right')]
   template=old[0]
   # Keep each garment's original clean fabric patch, tint slot and material.

@@ -36,5 +36,5 @@ test('v2 sliders, faces, skin and outfit colour slots are all real data in the a
  assert.match(nodes.find(n=>n.name==='DollBody').extras.skinBase,/^#[0-9a-f]{6}$/);
  for(const [id,o] of Object.entries(catalog.outfits)){assert.ok('cloth' in o.colors,id+' cloth');assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots','bag','socks','detail'].includes(k)),id);const sourceSlots=nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id).extras.slotBase;for(const [key,value] of Object.entries(sourceSlots))assert.equal(o.colors[key],value,id+' source '+key);
   // Shoes use either a separate skinned mesh or the jacket's original shell.
-  const shoe=nodes.find(n=>n.extras?.outfit===id&&(n.extras.colorSlot==='boots'||n.extras.sourceFootwearVersion||id==='jacket'&&n.name==='outfit_jacket'));if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
+  const shoe=nodes.find(n=>n.extras?.outfit===id&&(n.extras.colorSlot==='boots'||n.extras.sourceFootwearVersion||(id==='jacket'||id==='tee')&&n.name==='outfit_'+id));if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
 });

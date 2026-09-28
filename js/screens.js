@@ -2120,6 +2120,19 @@ function forumWithPhoto(text, x) {
   const line = "〔配图：" + (p.desc || "一张照片，没写说明") + "〕";
   return s ? s + " " + line : line;
 }
+// 已有楼层喂给模型时【整段原文】：每层楼全文＋它下面每条楼中楼（谁、回谁、说了什么），不截字、不截条。
+// 她 2026-09-28：TA 用小号发帖说她「过了几个星期才问押金退没退」，另一个角色评论之后，TA 回复
+//   「我确实问了押金退了多少，问题是我没问这个」——把谁问的弄反了，还去驳一句没人说过的话。
+//   病根不在「编」：继续刷楼时每层楼只给前 60 个字、只给最后 14 层、楼中楼一条不给，
+//   模型照着半句话接，只能猜。「只针对楼里已有的话回应」那条一直在，它只是看不全那句话。
+// ⚠️凡是把已有楼层递给模型的地方都走这一处（施工规则/one-public-mechanism.md）。
+function forumFloorTranscript(floors) {
+  return (floors || []).filter(Boolean).map(f => {
+    const head = (f.floor != null ? f.floor + "楼 " : "") + (f.isOp ? "【楼主】" : "") + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ");
+    const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
+    return [head].concat(subs).join("\n");
+  }).join("\n");
+}
 function forumBoardAbout(name) { const b = forumCustomBoards().find(x => x.name === name); return b ? String(b.about || "").trim() : ""; }
 // 吧名统一成「某某吧」：她打「足球」「足球吧」「 足球吧 」都是同一个吧
 function forumBoardName(raw) {
@@ -2265,7 +2278,7 @@ function Forum({
   const [rPhoto, setRPhoto] = useState(null);
   const [rPhotoOn, setRPhotoOn] = useState(false);
   const [photoView, setPhotoView] = useState(null);
-  const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView(ph) })) : null; };
+  const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView({ ...ph, itemId: x.id }) })) : null; };
   const [replyTo, setReplyTo] = useState(null);
   const [pmClean, setPmClean] = useState(false);   // 私信列表的「清理」档      // {floorId,name} 楼中楼目标
   const [liked, setLiked] = useState(() => {
@@ -3004,7 +3017,9 @@ function Forum({
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: FORUM_SKIN.ink } }, x[0]),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))),
+        // 角色发帖带配图时要不要顺手画出来（她 2026-09-28，跟朋友圈那个是同一个开关件）
+        h("div", { style: { padding: "0 11px", borderTop: "1px solid " + FORUM_SKIN.line } }, h(AutoImgSwitch, { storeKey: "x_forumAutoImg" })))),
     // 悬浮发帖按钮（主页/搜索）
     (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
     // 转发 picker
@@ -3015,7 +3030,7 @@ function Forum({
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "群聊"),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
-    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast }),
+    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null }),
     composer && h(Sheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, "发帖"),
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),
@@ -3141,6 +3156,31 @@ function shopFmtLeft(ms) {
   if (hr > 0) return hr + "小时" + (m % 60) + "分";
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
 }
+// 购物和外卖共用的那条搜索顶栏：返回 ＋ 描边搜索条（右端一颗搜索钮）＋ 换一批。
+// ⚠️它故意不走 Head：中间是输入框不是标题（screens-shared-head 那张名单里的第一条）。
+//   两个 app 只差颜色，所以颜色从参数进来，长相只有这一份。
+function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, accent, accentInk, iconInk, ink, sub, bg }) {
+  const topBar = h("div", { "data-wk": "head", className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: bg } },
+    h("button", { onClick: onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: ink, wk: "headink" })),
+    h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + accent, borderRadius: 999, paddingLeft: 12, paddingRight: 3 } },
+      h(ISearch, { size: 14, color: iconInk }),
+      h("input", {
+        value: search, onChange: e => setSearch(e.target.value),
+        onKeyDown: e => { if (e.key === "Enter") onGo(); },
+        placeholder,
+        "data-wk": "input",
+        className: "flex-1 bg-transparent outline-none",
+        style: { fontFamily: F_BODY, fontSize: 13, color: ink, marginLeft: 7, minWidth: 0 }
+      }),
+      h("button", {
+        onClick: onGo, disabled: busy,
+        className: "shrink-0 active:opacity-70 disabled:opacity-50 flex items-center justify-center",
+        style: { height: 28, padding: "0 15px", borderRadius: 999, background: accent, fontFamily: F_BODY, fontSize: 12.5, color: accentInk }
+      }, busy ? "找…" : "搜索")),
+    h("button", { onClick: onGo, disabled: busy, "aria-label": "换一批", className: "active:opacity-50 disabled:opacity-40 shrink-0 flex items-center justify-center", style: { width: 32, height: 32 } },
+      busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
+  return topBar;
+}
 function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState("home"); // home | cart | my
@@ -3161,8 +3201,9 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
   const cartItems = cart || [];
   const selItems = cartItems.filter(x => sel.includes(x.uid));
   const selTotal = Math.round(selItems.reduce((s, x) => s + (Number(x.price) || 0), 0) * 100) / 100;
-  const shipping = (orders || []).filter(o => o.status === "shipping");
-  const receiving = (orders || []).filter(o => o.status === "receiving");
+  // 外卖单归外卖 app 管（v74 拆出去的）；老的 cat:"food" 单没有 kind，照旧留在这儿
+  const shipping = (orders || []).filter(o => o.status === "shipping" && o.kind !== "takeout");
+  const receiving = (orders || []).filter(o => o.status === "receiving" && o.kind !== "takeout");
   const charById = id => (characters || []).find(c => c.id === id);
   const wishList = wish || [];
   const wishKey = n => String(n || "").replace(/\s+/g, "");
@@ -3174,26 +3215,8 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
   // ⚠️这一条【不换成公共 Head】，理由写在这儿：它扮的是淘宝那条搜索栏（橙描边＋橙搜索钮），
   //   换成紧凑标题栏就把这一页最认得出的东西拆了（界面装修工单里那句「判据在这一处是
   //   反过来的」——它模仿的正是别的 app）。但挂点要有：只加属性，长相一个像素没动。
-  const topBar = h("div", { "data-wk": "head", className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: MSHOP.card } },
-    h("button", { onClick: onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: MSHOP.ink, wk: "headink" })),
-    // 搜索条：橙色描边＋右端一颗橙色搜索钮，这是淘宝那条最认得出来的东西
-    h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + MSHOP.orange, borderRadius: 999, paddingLeft: 12, paddingRight: 3 } },
-      h(ISearch, { size: 14, color: MSHOP.orange }),
-      h("input", {
-        value: search, onChange: e => setSearch(e.target.value),
-        onKeyDown: e => { if (e.key === "Enter") doGen(false); },
-        placeholder: "搜索宝贝…",
-        "data-wk": "input",
-        className: "flex-1 bg-transparent outline-none",
-        style: { fontFamily: F_BODY, fontSize: 13, color: MSHOP.ink, marginLeft: 7, minWidth: 0 }
-      }),
-      h("button", {
-        onClick: () => doGen(false), disabled: busy,
-        className: "shrink-0 active:opacity-70 disabled:opacity-50 flex items-center justify-center",
-        style: { height: 28, padding: "0 15px", borderRadius: 999, background: MSHOP.orange, fontFamily: F_BODY, fontSize: 12.5, color: "#fff" }
-      }, busy ? "找…" : "搜索")),
-    h("button", { onClick: () => doGen(false), disabled: busy, "aria-label": "换一批", className: "active:opacity-50 disabled:opacity-40 shrink-0 flex items-center justify-center", style: { width: 32, height: 32 } },
-      busy ? h(IPulse, { size: 19, color: MSHOP.orange }) : h(IRefresh, { size: 19, color: MSHOP.sub })));
+  const topBar = searchTopBar({ onBack, search, setSearch, onGo: () => doGen(false), busy, placeholder: "搜索宝贝…",
+    accent: MSHOP.orange, accentInk: "#fff", iconInk: MSHOP.orange, ink: MSHOP.ink, sub: MSHOP.sub, bg: MSHOP.card });
 
   // ---------- 分类横滑 ----------
   const catRow = h("div", { className: "shrink-0 flex gap-6 px-4 pb-2 overflow-x-auto", style: { background: MSHOP.card, borderBottom: "1px solid " + MSHOP.line, WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } },
@@ -3217,15 +3240,14 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
               const c = shopTone(it, gi);
               return h("button", { key: it.uid, onClick: () => setDetail(it), className: "text-left active:opacity-85", style: { background: MSHOP.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06)", WebkitTapHighlightColor: "transparent" } },
                 // 图位：没有真图就别假装有图。一块从名字认出来的品类色 + 右下角的品类标。
-                h("div", { style: { position: "relative", height: 112, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)" } },
-                  h("div", { style: { position: "absolute", inset: 0, background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
+                toneSwatch(c, { height: 112 }, h(React.Fragment, null,
                   c.word ? h("div", { style: { position: "absolute", right: 7, bottom: 7, padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10, color: c.ink } }, c.word) : null,
                   onToggleWish ? h("button", {
                     onClick: e => { e.stopPropagation(); onToggleWish(it); },
                     "aria-label": inWish(it) ? "不想要了" : "想要",
                     className: "active:scale-90 flex items-center justify-center",
                     style: { position: "absolute", right: 6, top: 6, width: 26, height: 26, borderRadius: 999, background: "rgba(255,255,255,.85)" }
-                  }, h(IHeart, { size: 14, color: inWish(it) ? MSHOP.price : "#b9b9c2" })) : null),
+                  }, h(IHeart, { size: 14, color: inWish(it) ? MSHOP.price : "#b9b9c2" })) : null)),
                 h("div", { style: { padding: "8px 9px 10px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink, lineHeight: 1.42, minHeight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
                   it.desc ? h("div", { className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 3 } }, it.desc) : null,
@@ -3578,6 +3600,354 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
 // ---- 亲属卡账单（每卡流水 + 申请加额度）----
 // v60.45 撤掉了每笔下面那条「角色评论」：它靠刷卡时现调一次模型来填，
 // 而买东西不该调用（她 2026-09-02）。TA要说什么，在聊天里说。
+// ============================================================
+// TAKEOUT —— 独立外卖 App（她 2026-09-27：「拆分成外卖单独一个 app」）
+// 外卖跟网购不是一件事：网购是攒着、等几天、拆开；外卖是「现在饿了」，半小时内的事。
+// 所以：首页按【饭点】分、不按品类分；一次只在一家店里凑一单；在途按分钟走；
+// 送到了就是送到了——吃完这一单就结束，不进随身物。
+// ⚠️钱包、代付、亲属卡、送达链全走购物那一套（app.js 的 orderTakeout 把一单折成一件 kind:"takeout"），
+//   这一页只管长相。
+// ============================================================
+// 配色：外卖那种暖黄，跟购物的淘宝橙分开——一眼就知道换了个 app。
+// ⚠️骨架跟购物页是同一套（她 2026-09-28：「参考一下购物，整体 ui 规矩」）：
+//   搜索条＋刷新、色块图位＋品类标、衬线大价钱、圆形加号。换的只有颜色和「按饭点、按店」这两件外卖自己的事。
+const MTAKE = {
+  yellow: "#ffc21a",
+  yellowD: "#f2a900",
+  soft: "#fff5d6",
+  deep: "#2b2616",
+  price: "#e0621b",
+  bg: "#f4f3ef",
+  card: "#ffffff",
+  ink: "#23201a",
+  sub: "#6f6a5c",
+  dim: "#a09a8a",
+  line: "#ece8dc",
+  ok: "#3f8a54"
+};
+// 吃的也从名字认出颜色（跟购物 SHOP_TONES 同一个形状，走同一个 toneFrom）
+const TAKEOUT_TONES = [
+  [/粥|汤|羹|馄饨|云吞|饺/, "#d8c08e"],
+  [/面|粉|米线|拉面|抄手/, "#e0b066"],
+  [/烤|串|烧烤|炙|炸|鸡|排|肉/, "#c7794e"],
+  [/火锅|麻辣|冒菜|香锅|辣/, "#cf5f45"],
+  [/寿司|日料|刺身|咖喱|便当/, "#d99a8a"],
+  [/披萨|汉堡|薯条|三明治|轻食|沙拉|贝果/, "#b8a25c"],
+  [/奶茶|咖啡|拿铁|茶|饮|果汁|柠檬/, "#b58a62"],
+  [/蛋糕|甜品|面包|糕|冰|布丁|甜/, "#e2a3b0"],
+  [/饭|盖浇|炒|盒饭|套餐/, "#d4a15a"],
+  [/水果|果切/, "#9fbf78"]
+];
+const TAKEOUT_FALLBACK = ["#d6b98a", "#c9a17a", "#d8a86a", "#bfa98c", "#cfae7e"];
+const takeoutTone = (it, i) => toneFrom(TAKEOUT_TONES, TAKEOUT_FALLBACK, it, i);
+// 没有真图的图位：一块品类色＋细斜纹（购物页的商品格也用这一块，别再各画一份）
+function toneSwatch(c, style, kids) {
+  return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)" }, style || {}) },
+    h("div", { style: { position: "absolute", inset: 0, background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
+    kids || null);
+}
+// 衬线大价钱：小 ¥ ＋ 大数字（购物页那一种）
+const takeoutPrice = (n, size) => h("span", { style: { lineHeight: 1, whiteSpace: "nowrap" } },
+  h("span", { style: { fontFamily: F_DISPLAY, fontSize: Math.round((size || 19) * 0.58), color: MTAKE.price, fontWeight: 700 } }, "¥"),
+  h("span", { style: { fontFamily: F_DISPLAY, fontSize: size || 19, color: MTAKE.price, fontWeight: 700, letterSpacing: "-0.02em" } }, n));
+// 饭点。from/to 是钟点（to 可以跨过零点）；打开时按现在几点停在对应那一格。
+// ⚠️key 一个都不许改：刷出来的店按 key 存在 x_takeoutFeed 里。
+const TAKEOUT_SLOTS = [
+  { key: "breakfast", zh: "早饭", from: 5, to: 10 },
+  { key: "lunch", zh: "午饭", from: 10, to: 14 },
+  { key: "tea", zh: "下午茶", from: 14, to: 17 },
+  { key: "dinner", zh: "晚饭", from: 17, to: 21 },
+  { key: "late", zh: "夜宵", from: 21, to: 29 }
+];
+const takeoutSlotAt = hour => {
+  const hh = hour < 5 ? hour + 24 : hour;
+  const s = TAKEOUT_SLOTS.find(x => hh >= x.from && hh < x.to);
+  return s ? s.key : "late";
+};
+function takeoutFmtLeft(ms) {
+  if (ms <= 0) return "到了";
+  const m = Math.ceil(ms / 60000);
+  return m + " 分钟";
+}
+// 饭点尺：一天从早上五点铺到第二天凌晨五点，五格等宽排开，底下一条尺。
+// 选中的那格：字大一号加粗、尺上那一段变粗上黄；「现在」是尺上一颗小点，落在它此刻所在那一格里。
+// ⚠️不是一排药丸（tabs-not-plain-pills）：外卖是按钟点点的，分栏就该长在一条时间上。
+function TakeoutSlotRuler({ slot, onPick, now }) {
+  const d = new Date(now || Date.now());
+  const hh = d.getHours() + d.getMinutes() / 60;
+  const cur = hh < 5 ? hh + 24 : hh;
+  return h("div", { className: "flex", style: { padding: "2px 10px 0", background: MTAKE.card, borderBottom: "1px solid " + MTAKE.line } },
+    TAKEOUT_SLOTS.map(s => {
+      const on = s.key === slot;
+      const here = cur >= s.from && cur < s.to;
+      const at = here ? (cur - s.from) / (s.to - s.from) * 100 : null;
+      return h("button", { key: s.key, onClick: () => onPick(s.key), className: "flex-1 active:opacity-70", "aria-pressed": on,
+        style: { minHeight: 46, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 0 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: on ? 15 : 13.5, fontWeight: on ? 700 : 400, color: on ? MTAKE.ink : MTAKE.sub, whiteSpace: "nowrap", textAlign: "center" } }, s.zh),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: on ? MTAKE.sub : MTAKE.dim, textAlign: "center", marginTop: 1, marginBottom: 6 } }, (s.from % 24) + "–" + (s.to % 24) + " 点"),
+        h("span", { style: { position: "relative", display: "block", height: 8 } },
+          h("span", { style: { position: "absolute", left: 1, right: 1, top: on ? 2 : 3.5, height: on ? 4 : 1, borderRadius: 999, background: on ? MTAKE.yellow : MTAKE.line } }),
+          at != null ? h("span", { "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
+    }));
+}
+function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast }) {
+  const t = useTheme();
+  const [nav, setNav] = useState("near"); // near | orders
+  const [slot, setSlot] = useState(() => takeoutSlotAt(new Date().getHours()));
+  const [search, setSearch] = useState("");
+  const [shop, setShop] = useState(null);     // 点进去的那家店
+  const [qty, setQty] = useState({});         // {dishUid: 份数}，只属于当前这家店
+  const [pay, setPay] = useState(false);      // 结账页
+  const [payMode, setPayMode] = useState(null);
+  const [remark, setRemark] = useState("");   // 给店家的备注
+  const [say, setSay] = useState("");         // 给TA点时，写在单子上的一句话
+  const [openLog, setOpenLog] = useState(null); // 「吃过的」点开看全的那一条
+  const [now, setNow] = useState(Date.now());
+  const listRef = useRef(null);
+  const listTop = useRef(0);
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  // 从店里退回来，列表回到原来滑到的地方（mobile-ui-layout §3）
+  useEffect(() => {
+    if (!shop && listRef.current) listRef.current.scrollTop = listTop.current;
+  }, [shop, nav]);
+  const cards = Array.isArray(kinshipCards) ? kinshipCards : [];
+  const shops = (feed && feed[slot]) || [];
+  const mine = (orders || []).filter(o => o.kind === "takeout");
+  const riding = mine.filter(o => o.status === "shipping");
+  const arrived = mine.filter(o => o.status === "receiving");
+  const charById = id => (characters || []).find(c => c.id === id);
+  const bagItems = shop ? shop.dishes.filter(x => qty[x.uid] > 0).map(x => ({ name: x.name, price: x.price, qty: qty[x.uid] })) : [];
+  const bagCount = bagItems.reduce((s, x) => s + x.qty, 0);
+  const bagTotal = Math.round(bagItems.reduce((s, x) => s + x.price * x.qty, 0) * 100) / 100;
+  const bump = (uid, dlt) => setQty(p => ({ ...p, [uid]: Math.max(0, Math.min(20, (p[uid] || 0) + dlt)) }));
+  const openShop = s => { if (listRef.current) listTop.current = listRef.current.scrollTop; setQty({}); setRemark(""); setSay(""); setShop(s); };
+  const leaveShop = () => { setShop(null); setQty({}); setPay(false); setPayMode(null); };
+  const submit = (mode, target) => {
+    const ok = onOrder({ shop: shop.name, items: bagItems, remark, note: mode === "forchar" ? say : "" }, mode, target);
+    if (ok !== false) { leaveShop(); if (mode !== "forchar") setNav("orders"); }
+  };
+  const doGen = () => { if (!busy) onGen(slot, search); };
+  const head = (zh, back, right) => h(Head, { zh, onBack: back, bg: MTAKE.card, ink: MTAKE.ink, subInk: MTAKE.dim, lineInk: MTAKE.line, right: right || null });
+  const cardStyle = { background: MTAKE.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,.06)" };
+  const tag = (txt, key) => h("span", { key, className: "inline-block", style: { padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: "#9a6a00", background: MTAKE.soft, borderRadius: 3, whiteSpace: "nowrap" } }, txt);
+  const sectionLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MTAKE.sub, margin: "4px 2px 8px" } }, txt);
+  const inputStyle = { width: "100%", height: 38, borderRadius: 10, border: "1px solid " + MTAKE.line, background: MTAKE.bg, padding: "0 11px", fontFamily: F_BODY, fontSize: 13, color: MTAKE.ink, outline: "none" };
+  // 加减：跟购物的加号同一种圆钮，减号是描边的那一颗
+  const plusBtn = uid => h("button", { onClick: () => bump(uid, 1), "aria-label": "加一份", className: "shrink-0 active:scale-90 flex items-center justify-center",
+    style: { width: 28, height: 28, borderRadius: 999, background: MTAKE.yellow, boxShadow: "0 1px 4px rgba(242,169,0,.4)" } }, h(IPlus, { size: 15, color: MTAKE.ink }));
+  const minusBtn = uid => h("button", { onClick: () => bump(uid, -1), "aria-label": "减一份", className: "shrink-0 active:scale-90 flex items-center justify-center",
+    style: { width: 28, height: 28, borderRadius: 999, border: "1.5px solid #e2dccb", background: MTAKE.card } },
+    h("span", { style: { width: 11, height: 1.8, borderRadius: 1, background: MTAKE.sub } }));
+
+  // ---------- 结账（整页） ----------
+  if (shop && pay) {
+    const pickRow = (c, onClick, extra) => h("button", { key: c.id || c.charId, onClick, className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 2px" } },
+      h(Avatar, { character: c, size: 36, radius: 9 }),
+      h("span", { className: "flex-1 text-left", style: { fontFamily: F_BODY, fontSize: 14, color: MTAKE.ink } }, c.remark || c.name),
+      extra ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim } }, extra) : null);
+    const modes = [
+      ["buy", "自己付", "余额 ¥" + wallet],
+      ["paylater", "找TA代付", "发到聊天里，TA决定付不付"],
+      cards.length ? ["kinship", "刷亲属卡", "花的是TA的钱"] : null,
+      ["forchar", "给TA点一份", "送到TA那儿，聊天里会出一张小票"]
+    ].filter(Boolean);
+    let targets = null;
+    if (payMode === "paylater") targets = [
+      ...(characters || []).map(c => pickRow(c, () => submit("paylater", { type: "char", id: c.id }))),
+      ...(groups || []).map(g => h("button", { key: g.id, onClick: () => submit("paylater", { type: "group", id: g.id }), className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 2px" } },
+        h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 9, background: MTAKE.bg } }, h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: MTAKE.dim } }, "群")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: MTAKE.ink } }, g.name)))];
+    else if (payMode === "kinship") targets = cards.map(cd => { const c = charById(cd.charId); return c ? pickRow(c, () => submit("kinship", { type: "char", id: cd.charId }), "还能刷 ¥" + Math.round(((cd.limit || 0) - (cd.used || 0)) * 100) / 100) : null; });
+    else if (payMode === "forchar") targets = (characters || []).map(c => pickRow(c, () => submit("forchar", { type: "char", id: c.id })));
+    return h("div", { className: "h-full flex flex-col", style: { background: MTAKE.bg } },
+      head("确认订单", () => { setPay(false); setPayMode(null); }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-3 py-3" },
+        // 小票：跟聊天里那张外卖小票同一种纸，底边撕纸锯齿
+        h("div", { style: { marginBottom: 14, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.07))" } },
+          h("div", { style: { background: MTAKE.card, borderRadius: "12px 12px 0 0", padding: "14px 15px 12px" } },
+            h("div", { className: "flex items-center", style: { gap: 10 } },
+              toneSwatch(takeoutTone({ name: shop.kind + shop.name }, 0), { width: 34, height: 34, borderRadius: 8, flexShrink: 0 }),
+              h("div", { className: "min-w-0" },
+                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: MTAKE.ink } }, shop.name),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 1 } }, "约 " + shop.eta + " 分钟送到"))),
+            h("div", { style: { borderTop: "1px dashed #e2dccb", margin: "11px 0 8px" } }),
+            bagItems.map(x => h("div", { key: x.name, className: "flex justify-between", style: { gap: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: MTAKE.ink } },
+              h("span", { style: { wordBreak: "break-word" } }, x.name, x.qty > 1 ? h("span", { style: { color: MTAKE.dim } }, " ×" + x.qty) : null),
+              h("span", { className: "shrink-0" }, "¥" + Math.round(x.price * x.qty * 100) / 100))),
+            h("div", { style: { borderTop: "1px dashed #e2dccb", margin: "8px 0 9px" } }),
+            h("div", { className: "flex items-baseline justify-between" },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.sub } }, "合计 " + bagCount + " 份"),
+              takeoutPrice(bagTotal, 22)),
+            h("input", { value: remark, onChange: e => setRemark(e.target.value), maxLength: 80, placeholder: "给店家的备注（口味、放门口……）", style: Object.assign({}, inputStyle, { marginTop: 12 }) })),
+          h("div", { style: { height: 7, background: "linear-gradient(-45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x, linear-gradient(45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x" } })),
+        sectionLabel("怎么付"),
+        modes.map(([k, zh, sub]) => {
+          const on = payMode === k;
+          return h("div", { key: k, style: Object.assign({}, cardStyle, { marginBottom: 9, outline: on ? "1.5px solid " + MTAKE.yellow : "none" }) },
+            h("button", { onClick: () => k === "buy" ? submit("buy") : setPayMode(on ? null : k), className: "w-full flex items-center justify-between active:opacity-70", style: { padding: "12px 14px", minHeight: 52, gap: 10 } },
+              h("span", { className: "text-left min-w-0" },
+                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, color: MTAKE.ink } }, zh),
+                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 2 } }, sub)),
+              k === "buy"
+                ? h("span", { className: "shrink-0", style: { padding: "6px 14px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: MTAKE.ink } }, "付款")
+                : h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? MTAKE.price : MTAKE.dim } }, on ? "收起" : "选人 ›")),
+            on && targets ? h("div", { style: { padding: "0 12px 6px", borderTop: "1px solid " + MTAKE.line } },
+              k === "forchar" ? h("input", { value: say, onChange: e => setSay(e.target.value), maxLength: 80, placeholder: "写一句给TA（印在小票上，可以不写）",
+                style: Object.assign({}, inputStyle, { margin: "10px 0 4px" }) }) : null,
+              targets.length ? targets : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: MTAKE.dim, padding: "12px 2px" } }, "还没有可以选的人")) : null);
+        }),
+        h("div", { style: { height: 20 } })));
+  }
+
+  // ---------- 店里（整页） ----------
+  if (shop) {
+    const sc = takeoutTone({ name: shop.kind + shop.name }, 0);
+    return h("div", { className: "h-full flex flex-col", style: { background: MTAKE.bg } },
+      head(shop.name, leaveShop),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+        // 店招：一块这家店的品类色，名字压在上面
+        toneSwatch(sc, { height: 92, padding: "0 16px", display: "flex", alignItems: "flex-end" },
+          h("div", { style: { position: "relative", paddingBottom: 12, color: sc.onDark ? "#fff" : MTAKE.ink } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.2 } }, shop.name),
+            h("div", { className: "flex", style: { gap: 6, marginTop: 5 } },
+              shop.kind ? h("span", { style: { padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10.5, color: sc.ink } }, shop.kind) : null,
+              h("span", { style: { padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10.5, color: sc.ink } }, "约 " + shop.eta + " 分钟")))),
+        h("div", { className: "px-3 py-3" },
+          shop.dishes.map((x, di) => {
+            const c = takeoutTone(x, di + 1);
+            const n = qty[x.uid] || 0;
+            return h("div", { key: x.uid, className: "flex", style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9, gap: 11 }) },
+              toneSwatch(c, { width: 76, height: 76, borderRadius: 9, flexShrink: 0 },
+                c.word ? h("div", { style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 9.5, color: c.ink } }, c.word) : null),
+              h("div", { className: "flex-1 min-w-0 flex flex-col" },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),
+                x.desc ? h("div", { style: { marginTop: 4 } }, tag(x.desc)) : null,
+                h("div", { className: "flex items-end justify-between", style: { marginTop: "auto", paddingTop: 6 } },
+                  takeoutPrice(x.price, 19),
+                  h("div", { className: "flex items-center", style: { gap: 8 } },
+                    n > 0 ? minusBtn(x.uid) : null,
+                    n > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 600, minWidth: 14, textAlign: "center", color: MTAKE.ink } }, n) : null,
+                    plusBtn(x.uid)))));
+          }),
+          h("div", { style: { height: 12 } }))),
+      // 底下那条：一家店一个袋子
+      h("div", { className: "shrink-0 flex items-center", style: { background: MTAKE.deep, padding: "8px 8px 8px 12px", paddingBottom: "calc(8px + " + COMPOSER_PAD_BOTTOM + ")", gap: 10 } },
+        h("div", { className: "relative shrink-0 flex items-center justify-center", style: { width: 42, height: 42, borderRadius: 999, background: bagCount ? MTAKE.yellow : "rgba(255,255,255,.12)" } },
+          h(GTakeout, { size: 21, color: bagCount ? MTAKE.ink : "rgba(255,255,255,.5)" }),
+          bagCount ? h("span", { style: { position: "absolute", top: -3, right: -3, minWidth: 17, height: 17, padding: "0 4px", borderRadius: 999, background: MTAKE.price, color: "#fff", fontFamily: F_BODY, fontSize: 10, lineHeight: "17px", textAlign: "center" } }, bagCount) : null),
+        h("div", { className: "flex-1 min-w-0", style: { color: "#fff" } },
+          bagCount ? h("div", { style: { lineHeight: 1 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, fontWeight: 700 } }, "¥"),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, fontWeight: 700 } }, bagTotal))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 13, opacity: .6 } }, "还没点"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .6, marginTop: 3 } }, "约 " + shop.eta + " 分钟送到")),
+        h("button", { onClick: () => { if (!bagCount) { toast("还没点东西"); return; } setPay(true); }, className: "shrink-0 active:opacity-80",
+          style: { padding: "11px 24px", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, background: bagCount ? MTAKE.yellow : "rgba(255,255,255,.14)", color: bagCount ? MTAKE.ink : "rgba(255,255,255,.5)" } }, "去结算")));
+  }
+
+  // ---------- 附近 ----------
+  // 顶栏跟购物是同一条（searchTopBar），只换成外卖的黄
+  const topBar = searchTopBar({ onBack, search, setSearch, onGo: doGen, busy, placeholder: "想吃点什么…",
+    accent: MTAKE.yellow, accentInk: MTAKE.ink, iconInk: MTAKE.yellowD, ink: MTAKE.ink, sub: MTAKE.sub, bg: MTAKE.card });
+  const nearView = h("div", { className: "flex-1 flex flex-col min-h-0" }, topBar,
+    h(TakeoutSlotRuler, { slot, onPick: setSlot, now }),
+    h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-2.5", style: { background: MTAKE.bg } },
+      shops.length === 0
+        ? h("div", { className: "text-center", style: { paddingTop: 80 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: MTAKE.dim, whiteSpace: "pre-line" } }, busy ? "正在看附近开着的店…" : "这个钟点还没刷过。\n看看附近有什么开着。"),
+            !busy ? h("button", { onClick: doGen, className: "mt-4 px-5 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 600, background: MTAKE.yellow, borderRadius: 999, color: MTAKE.ink } }, "刷新附近") : null)
+        : shops.map((s, si) => {
+            const c = takeoutTone({ name: s.kind + s.name }, si);
+            const low = s.dishes.reduce((m, x) => Math.min(m, x.price), Infinity);
+            return h("button", { key: s.id, onClick: () => openShop(s), className: "w-full text-left flex active:opacity-85",
+              style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9, gap: 11, WebkitTapHighlightColor: "transparent" }) },
+              toneSwatch(c, { width: 84, height: 84, borderRadius: 10, flexShrink: 0 },
+                c.word ? h("div", { style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 9.5, color: c.ink } }, c.word) : null),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 600, color: MTAKE.ink } }, s.name),
+                h("div", { className: "flex items-center", style: { gap: 6, marginTop: 4, fontFamily: F_BODY, fontSize: 11, color: MTAKE.sub } },
+                  h("span", { style: { color: MTAKE.ink, fontWeight: 600 } }, s.eta + " 分钟"),
+                  isFinite(low) ? h("span", null, "· ¥" + low + " 起") : null),
+                h("div", { className: "flex flex-wrap", style: { gap: 4, marginTop: 6, maxHeight: 40, overflow: "hidden" } },
+                  s.kind ? tag(s.kind, "k") : null,
+                  s.dishes.slice(0, 3).map((x, k) => h("span", { key: k, style: { padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: MTAKE.sub, background: MTAKE.bg, borderRadius: 3, whiteSpace: "nowrap", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" } }, x.name)))));
+          })));
+
+  // ---------- 订单 ----------
+  // TA写在单子上的那句话 + 给店家的备注。订单卡和「吃过的」点开那一条共用。
+  const takeoutWords = o => {
+    const d = o.takeout || {};
+    return h(React.Fragment, null,
+      d.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 4, wordBreak: "break-word" } }, "备注：" + d.remark) : null,
+      d.note ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.6, color: "#6d5f4b", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2dccb", wordBreak: "break-word" } },
+        "「" + d.note + "」" + (o.fromCharId && charById(o.fromCharId) ? " —— " + (charById(o.fromCharId).remark || charById(o.fromCharId).name) : "")) : null);
+  };
+  const orderCard = (o, oi, body) => h("div", { key: o.id, style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9 }) },
+    h("div", { className: "flex", style: { gap: 11 } },
+      toneSwatch(takeoutTone({ name: o.name }, oi), { width: 54, height: 54, borderRadius: 9, flexShrink: 0 }),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+          h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, color: MTAKE.ink } }, (o.takeout && o.takeout.shop) || o.name),
+          o.price ? h("span", { className: "shrink-0" }, takeoutPrice(o.price, 16)) : null),
+        o.takeout && o.takeout.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: MTAKE.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
+        o.payLabel ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MTAKE.dim, marginTop: 3 } }, o.payLabel) : null)),
+    takeoutWords(o),
+    body);
+  const ordersView = h("div", { className: "flex-1 flex flex-col min-h-0" },
+    head("订单", onBack),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-3", style: { background: MTAKE.bg } },
+      sectionLabel("骑手在路上 · " + riding.length),
+      riding.length ? riding.map((o, oi) => {
+        const total = Math.max(1, o.arriveTs - (o.ts || o.arriveTs - 600000));
+        const pct = Math.max(4, Math.min(96, Math.round((1 - (o.arriveTs - now) / total) * 100)));
+        return orderCard(o, oi, h("div", { style: { marginTop: 10 } },
+          h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.sub } }, "骑手在路上"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: MTAKE.price } }, "还有 " + takeoutFmtLeft(o.arriveTs - now))),
+          h("div", { style: { position: "relative", height: 6, borderRadius: 999, background: MTAKE.line } },
+            h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: MTAKE.yellow, transition: "width .6s ease" } }),
+            h("div", { style: { position: "absolute", left: pct + "%", top: -3, width: 12, height: 12, marginLeft: -6, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }))));
+      }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, margin: "0 2px 16px" } }, "没有在路上的"),
+      sectionLabel("送到了 · " + arrived.length),
+      arrived.length ? arrived.map((o, oi) => orderCard(o, oi, h("div", { className: "flex items-center justify-between", style: { marginTop: 10 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MTAKE.ok } }, "已送达" + (o.fromCharId && charById(o.fromCharId) ? " · " + charById(o.fromCharId).name + " 点的" : "")),
+        h("button", { onClick: () => onEat(o.id), className: "active:opacity-70", style: { padding: "7px 18px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: MTAKE.ink } }, "吃完了"))))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, margin: "0 2px 16px" } }, "没有等着吃的"),
+      sectionLabel("吃过的 · " + (log || []).length),
+      // 一行放不下店名加菜名（她 2026-09-28 截图）：点一下整条展开看全，再点收回
+      (log || []).length ? h("div", { style: Object.assign({}, cardStyle, { padding: "2px 12px" }) }, (log || []).slice(0, 60).map((o, li) => {
+        const open = openLog === o.id;
+        const d = new Date(o.ts);
+        return h("button", { key: o.id, onClick: () => setOpenLog(open ? null : o.id), "aria-expanded": open, className: "w-full text-left active:opacity-70",
+          style: { display: "block", padding: "11px 0", borderTop: li ? "1px solid " + MTAKE.line : "none" } },
+          h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
+            h("span", { className: open ? "" : "truncate", style: { fontFamily: F_BODY, fontSize: open ? 14 : 12.5, fontWeight: open ? 600 : 400, color: MTAKE.ink, wordBreak: "break-word" } },
+              open ? ((o.takeout && o.takeout.shop) || o.name) : o.name),
+            h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: MTAKE.dim } }, (d.getMonth() + 1) + "/" + d.getDate() + (open ? "" : " ›"))),
+          open ? h("div", { style: { marginTop: 5 } },
+            o.takeout && o.takeout.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: MTAKE.sub, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 3 } },
+              [o.price ? "¥" + o.price : "", o.payLabel || "", String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " 吃完的"].filter(Boolean).join(" · ")),
+            takeoutWords(o)) : null);
+      })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, margin: "0 2px" } }, "还没吃过"),
+      h("div", { style: { height: 20 } })));
+
+  // 底栏跟购物那条同一个形状，选中换成外卖的深色
+  const bottomNav = h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + MTAKE.line, background: MTAKE.card, paddingBottom: COMPOSER_PAD_BOTTOM } },
+    [["near", "附近", GTakeout], ["orders", "订单", GBag]].map(([k, zh, G]) => h("button", {
+      key: k, onClick: () => setNav(k), className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60 relative"
+    },
+      h(G, { size: 21, color: nav === k ? MTAKE.yellowD : MTAKE.dim }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: nav === k ? MTAKE.deep : MTAKE.dim, fontWeight: nav === k ? 700 : 400 } }, zh),
+      k === "orders" && (riding.length + arrived.length) > 0 && h("span", { style: { position: "absolute", top: 4, right: "50%", marginRight: -14, width: 8, height: 8, borderRadius: 999, background: MTAKE.price, boxShadow: "0 0 0 1.5px " + MTAKE.card } }))));
+
+  return h("div", { className: "h-full flex flex-col", style: { background: MTAKE.bg } },
+    nav === "near" ? nearView : ordersView,
+    bottomNav);
+}
 function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
@@ -11981,9 +12351,23 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
           transition: flip ? "transform .43s cubic-bezier(.4,.05,.35,1), opacity .43s ease, box-shadow .43s ease" : "none",
           backfaceVisibility: "hidden"
         }),
-        // 还剩几页：不写页码，用一排小刻度说话
-        all.length > 1 ? h("div", { className: "absolute left-0 right-0 flex items-center justify-center", style: { bottom: "calc(env(safe-area-inset-bottom) + 8px)", gap: 4, pointerEvents: "none", zIndex: 3 } },
-          all.slice(0, 12).map((x, i2) => h("span", { key: x.id, style: { width: i2 === at ? 12 : 4, height: 3, borderRadius: 999, background: t.ink, opacity: i2 === at ? .5 : .16, transition: "width .2s" } }))) : null),
+        // 还剩几页：不写页码，用一排小刻度说话。
+        // ⚠️这排刻度和【手指滑动】必须朝同一个方向（她 2026-09-27：「最新的日记下面的点是
+        //   最左边的，而不是正确应该在右边跟小说一样」）。
+        //   all 是新→旧排的，原来直接 all.map，于是最左那颗＝最新；而滑动是「从右往左＝翻到
+        //   更新的一天」（她 2026-08-30 定的，照读书来）——手指往左走、亮着的那颗却也往左走，
+        //   两边对着干。所以这里按【旧→新】画：最右那颗才是最新的一天。
+        // ⚠️窗口跟着当前这页走：原来写死 slice(0,12)，翻到第 13 篇往后就一颗都不亮
+        //   （i2 === at 再也成立不了），看着像坏了。
+        (() => {
+          if (all.length < 2) return null;
+          const DOTS = 12;
+          const from = Math.min(Math.max(0, at - Math.floor(DOTS / 2)), Math.max(0, all.length - DOTS));
+          const win = all.slice(from, from + DOTS);              // 仍是新→旧
+          const hot = win.length - 1 - (at - from);              // 画成旧→新之后，当前这页在第几颗
+          return h("div", { className: "absolute left-0 right-0 flex items-center justify-center", style: { bottom: "calc(env(safe-area-inset-bottom) + 8px)", gap: 4, pointerEvents: "none", zIndex: 3 } },
+            win.slice().reverse().map((x, i2) => h("span", { key: x.id, style: { width: i2 === hot ? 12 : 4, height: 3, borderRadius: 999, background: t.ink, opacity: i2 === hot ? .5 : .16, transition: "width .2s" } })));
+        })()),
       commentPick && h(DiaryCommentPickSheet, {
         characters,
         onClose: () => setCommentPick(null),

@@ -16,7 +16,12 @@
       ["innerLife", "你们处到哪一步了", "TA带着现在的关系、心情和TA这个人长出来的样子"],
       ["mainDelta", "主聊天后来发生的", "回到这间房时，先补看主聊天这段时间的事"],
       ["schedule", "今天几号、TA此刻在干嘛", "TA知道现实时间、TA那边的时间和今天的行程"],
-      ["otherScenes", "群里和见面时发生的", "TA记得共同群聊和线下相处留下的事"]
+      ["otherScenes", "群里和见面时发生的", "TA记得共同群聊和线下相处留下的事"],
+      // 世界书（她 2026-09-28）：原来它在「永远给」那一档，理由写着「世界书是【世界的设定】，
+      // 不是你俩的过去」。可真实情况是大家把两人的往事、惯用称呼都写进了常开词条——
+      // 于是一间全关的房里 TA 照样「知道我们聊过的事」（用户 2026-09-28 报的就是这个）。
+      // ⚠️缺省＝开：没有这个键的老房子行为一个字不变，不许静默把谁的世界观关掉。
+      ["worldbook", "世界书里写的事", "TA带着世界书里常开的那些设定；关掉＝这间房只剩人设"]
     ],
     actions: [
       ["study", "TA可以拉你一起学", "允许TA在这间房自然提议一起学"],
@@ -62,7 +67,6 @@
       "notRoleplay",  // 是不是言秋那种不被扮演的
       "directives",   // 这一轮的提示词指令
       "homeCity",     // TA自己住哪儿——属于TA这个人
-      "worldbook",    // 世界书是【世界的设定】，不是你俩的过去
       "recentChat",   // 房间自己那份（调用点已经按房换过了）
       "nowPlaying"    // 此刻正放着的歌：同一间屋里响着的东西，关了记忆的房间也该听得见
     ],
@@ -89,6 +93,8 @@
       "onMe",           // 她今天带着谁的东西出门
       "wishLog"         // 她在购物里点了「想要」的那些
     ],
+    // 世界书：⚠️它和别的组不一样，【缺省是开】——见 normalizeCognition
+    worldbook: ["worldbook"],
     // 今天几号、TA此刻在干嘛
     schedule: ["schedNow", "geo", "timeAware", "sleepTone"],
     // 群里和见面时发生的
@@ -101,10 +107,27 @@
   const emptyLike = v => Array.isArray(v) ? []
     : v && typeof v === "object" ? {}
     : typeof v === "string" ? "" : typeof v === "boolean" ? false : null;
+  // ⚠️cognition 里【没写】那个键时算开还是算关，只在这一处定：
+  //   别的档一律「没写＝关」（那是它们从第一天起的语义，老房子都是按这个存的）；
+  //   worldbook 是后加的一档，老房子里根本没有这个键——按「没写＝关」会把所有人
+  //   已经在用的世界观静默关掉，所以它「没写＝开」。加一档就在这儿写清楚它算哪种。
+  const OPT_IN_OFF = { worldbook: true };   // 这些键：没写＝开
+  const cognitionOf = room => {
+    const rc = (room && room.cognition) || {};
+    const out = { ...rc };
+    Object.keys(OPT_IN_OFF).forEach(k => { if (out[k] === undefined) out[k] = true; });
+    return out;
+  };
+  // 「这间房开没开某一档」只此一份：调用点要提前省掉检索也问它，不另写一套判断
+  //（施工规则/one-public-mechanism.md）。主房永远全开。
+  function allows(room, group) {
+    if (!room || room.main || !room.cognition) return true;
+    return !!cognitionOf(room)[group];
+  }
   // 按这间房的 cognition 把上下文过一遍。主房和没有 cognition 的原样放行。
   function gateCtx(ctx, room) {
     if (!ctx || !room || room.main || !room.cognition) return ctx;
-    const rc = room.cognition, out = { ...ctx };
+    const rc = cognitionOf(room), out = { ...ctx };
     // roomPrompt 是线下调用点在 ctxFor 之后追加的本房边界，不是主线背景。
     const allowed = new Set(CTX_GATE.always.concat(["roomPrompt"]));
     Object.keys(CTX_GATE).forEach(group => {
@@ -118,7 +141,9 @@
     everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
     focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, fanfic: true, read: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
     isolated: { label: "不带出门", note: "只在这里成立，不补主线、不改共同状态，也不进入记忆", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
-    alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
+    // ⚠️「长篇如果」是【同一个世界里的另一段人生】：世界书照旧给，不然架空世界观会跟着一起没。
+    //   「不带出门」才是真的什么都不带——它那份 bools(false) 里 worldbook 也是关的。
+    alternate: { label: "长篇如果", note: "让同一个人带着另一段年龄、处境或关系与你长期对话", cognition: { ...bools(GROUPS.cognition, false), worldbook: true }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
     // 微光庭院（她 2026-09-16：「专门做一间房只给庭院的…要接主聊天的话也调下设置就行」）。
     // ⚠️它跟上面几个是同一种东西，不是新机制：一间庭院房＝一个庭院存档，
     //   进门带什么由 cognition 决定（默认全关＝和以前的架空庭院一模一样），
@@ -399,7 +424,7 @@
     return !room || room.main || !!(room.cognition && room.cognition[group]);
   }
   // 这些出口只实现了主线存档，不具备房间落点；提示和执行共用此表。
-  const MAIN_ONLY_FIELDS = ["moment", "momentComment", "transfer", "transferAccept", "gift", "kinshipcard", "coupleInvite", "whisper", "carve", "toGroup", "memo", "ledger"];
+  const MAIN_ONLY_FIELDS = ["moment", "momentComment", "transfer", "transferAccept", "gift", "takeout", "kinshipcard", "coupleInvite", "whisper", "carve", "toGroup", "memo", "ledger"];
   function allowsField(room, field) {
     return !room || room.main || !MAIN_ONLY_FIELDS.includes(field);
   }
@@ -436,7 +461,10 @@
     lines.push(c.schedule
       ? "【时间边界】本房已开启现实时间与行程，可按角色当地时间、现实钟和当前行程自然回应；若它与本房限定设定冲突，以本房设定为准。"
       : "【时间边界】本房未开启现实时间与行程；不要拿主时间线此刻几点、人在何处、下一段行程来约束本房。只以本房设定与本房已经发生的内容判断时间。",
-      "【心声边界】本房的未说出口心声只属于本房，单独保存；不得据此改写主房心声、关系成长或人格成长。");
+      // ⚠️她 2026-09-28：房里聊几轮心声就不填了。原来这一句只说「不得改写主房」，
+      //   跟下面写回边界那句「不改变共同状态」连着读，模型读成了「这房里状态字段不用填」。
+      //   所以正面说清：照常每轮填，落在这间房自己的卡上。
+      "【心声与状态】心声、心情、动作照常每轮填写，它们记在这间房自己的状态卡上，只在这间房里算数。");
     if (room.purpose) lines.push("【这间房想慢慢继续的事】" + room.purpose + "。它是这条分线的共同方向，不是每轮必须汇报的任务；相关时自然接着，不相关时正常聊天。");
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
     if (allowedActions.length) lines.push("【本房可提议的活动】" + allowedActions.join("、") + "。只需在真的想做时自然开口，不要把它当作每轮任务，也不要假装界面已经打开。");
@@ -445,7 +473,7 @@
       lines.push("【一起学邀请规则】先看下面已有课程；主题相关时优先提议续上现有 session。没有合适旧课时，你可以先提出一个轻量课程想法（学什么、为什么此刻想一起学、建议从哪个小点开始），但不能声称已经建课或已经打开界面，必须等对方确认。\n" + (ss.length ? "已有课程：\n" + ss.map(s => "· sessionId=" + s.id + "｜" + (s.title || s.subject || "未命名") + "｜" + (s.subject || "")).join("\n") : "目前没有你参与的已有课程。"));
     }
     const scenarioOn = !!room.scenario;
-    lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "本房不改变主房关系、情绪、动作等共同状态") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
+    lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "主房那边的关系和好感不因本房变化") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
     const mayReadMainDelta = room.syncMode === "follow" || (room.syncMode === "ask" && room.syncOnce);
     if (c.mainDelta && mayReadMainDelta && Array.isArray(mainMessages)) {
       const since = Number(room.mainCursorTs || room.createdAt || 0);
@@ -569,6 +597,6 @@
     });
   }
 
-  return { canRead, allowsField, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt,
+  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });

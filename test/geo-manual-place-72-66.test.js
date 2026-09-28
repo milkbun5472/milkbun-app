@@ -17,7 +17,7 @@ function loadGeo(fetchImpl) {
   const i = eng.indexOf("async function geoLookup(");
   const j = eng.indexOf("async function requestGeo()");
   assert.ok(i > 0 && j > i, "抠不出定位那一段");
-  const ctx = { fetch: fetchImpl, console, Date, JSON, Number, String, isNaN, encodeURIComponent, Error, loadJSON: () => null };
+  const ctx = { fetch: fetchImpl, console, Date, JSON, Number, String, isNaN, encodeURIComponent, Error, loadJSON: () => null, setTimeout, Promise }; // v74.195 geoSearch 多了一道 6 秒超时
   vm.runInNewContext(eng.slice(i, j) + "\nthis.geoLabelOf = geoLabelOf; this.geoSearch = geoSearch; this.geoFromPlace = geoFromPlace;", ctx);
   return ctx;
 }

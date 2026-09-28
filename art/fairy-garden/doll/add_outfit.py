@@ -25,24 +25,37 @@ EXTRA={
     opts=dict(trim_lum=.6),   # shaded white shirt and socks share the trim slot; the black shoes follow the shorts
     coverage={'torsoAbove':0.0,'torsoBelow':0.705,'sleeve':[0.2,0.0,0.76,0.1],'armAxis':[0.153,0.655,0.095,-0.19]},feet=.14,
     sleeves=dict(atlas=(.031,.859,.008,.008),slot=.02,scrap_z=.25)),   # longer sleeves: cuff scraps hang lower
+ # C07 (2026-09-27): oversized white tee + grey rolled denim shorts + white sneakers (its own shoes).
+ # A white tee shaded on the back reads as 'trim' by luminance, so the tee is all main (no_trim) and only
+ # the sneakers below sole_z go to trim; the shorts are the bottom slot.
+ 'tee':dict(file='outfit_c07.glb',label='宽松T恤牛仔裤',bottom=True,accent=False,
+    opts=dict(no_trim=True,sole_z=.075),
+    coverage={'torsoAbove':0.0,'torsoBelow':0.705,'sleeve':[0.2,0.0,0.76,0.1],'armAxis':[0.153,0.655,0.095,-0.19]},feet=.12,
+    # oversized body is wider than the torso: cut the flanks down to just above the shorts (.35), not .40
+    sleeves=dict(atlas=(.396,.832,.008,.008),slot=.02,cut_z=.36,clean=True)),
 }
 _slots=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))
 _deform=runpy.run_path(os.path.join(HERE,'body_shape.py'))['deform']
 _elbows=runpy.run_path(os.path.join(HERE,'add_elbows.py'))
 DIM_KEYS=['height','shoulder','waist','flare','build','head']
 
-def cut_sleeves(m,scrap_z=.33):
+def cut_sleeves(m,scrap_z=.33,cut_z=.40,clean=False):
     """Remove the shell's own sleeves and pin everything
     above the hips to the torso; trousers keep leg weights. The round sleeve root covers the armhole."""
     import bmesh
     bm=bmesh.new();bm.from_mesh(m.data)
     # glTF splits vertices at UV seams: weld first so a cut never leaves a loose half-face
     bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00002)
+    # clean=True（T恤，2026-09-27）：先沿切线把网格剖开再删，切口是一条直线；
+    # 不剖的话三角形按中心整片删，宽松衣身的侧边切出来是一排锯齿，抬手时正对着镜头。
+    if clean:
+        for co,no in [((.17,0,0),(1,0,0)),((-.17,0,0),(1,0,0)),((0,0,cut_z),(0,0,1))]:
+            bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),plane_co=co,plane_no=no,dist=1e-7)
     # everything outside the torso side is sleeve, sleeve root or a cuff scrap bridged onto the hem;
     # side_lining() closes the flank this opens under a lifted arm
     def sleeve(f):
         c=f.calc_center_median()
-        return abs(c.x)>.2 and c.z>scrap_z or abs(c.x)>.17 and c.z>.40
+        return abs(c.x)>.2 and c.z>scrap_z or abs(c.x)>.17 and c.z>cut_z
     gone={f for f in bm.faces if sleeve(f)}
     bmesh.ops.delete(bm,geom=list(gone),context='FACES')
     # small loose bits left beside the hands (cuff lining, shirt-cuff edges) once the sleeve is gone
@@ -113,7 +126,7 @@ def add_outfit(oid):
     m.name='outfit_'+oid;m['outfit']=oid
     colors=_slots['colour_slots'](m,cfg['bottom'],cfg['accent'],cfg['opts'])
     m['slotBase']=colors
-    if cfg.get('sleeves'):cut_sleeves(m,cfg['sleeves'].get('scrap_z',.33))
+    if cfg.get('sleeves'):cut_sleeves(m,cfg['sleeves'].get('scrap_z',.33),cfg['sleeves'].get('cut_z',.40),cfg['sleeves'].get('clean',False))
     P=np.array([v.co[:] for v in m.data.vertices]);arm=_slots['arm_weights'](m);m.shape_key_add(name='Basis')
     for key in DIM_KEYS:
         k=m.shape_key_add(name=key);k.value=0;D=_deform(P,arm,key,True)
@@ -131,10 +144,13 @@ def add_outfit(oid):
         m['roundSleeveVersion']=1
         side_lining(m,cfg['sleeves']['atlas'],cfg['sleeves']['slot'])
         runpy.run_path(os.path.join(HERE,'fit_cuffs.py'))['fit_cuffs']()
+        # 侧缝重建（Codex，ADDED-OUTFIT-SEAMS.md）：夹克、西装、T恤都走；T恤没有口袋，跳过口袋保护
         runpy.run_path(os.path.join(HERE,'repair_added_outfits.py'))['repair_outfit'](oid,cfg)
     else:
         _elbows['resample_sleeves'](m,body)
         _elbows['split_forearms'](m,rig,_elbows['arm_ends'](rig))
+    if oid == 'tee':
+        runpy.run_path(os.path.join(HERE,'refine_tee.py'))['refine_tee']()
     if oid == 'suit':
         runpy.run_path(os.path.join(HERE,'restore_suit_footwear.py'))['restore_suit_footwear']()
     return {'label':cfg['label'],'colors':colors}

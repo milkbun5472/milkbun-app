@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-f6f4db1cdeac211e";
+  const KEY = "x_companion", BUILD = "fg-56c89142830d3852";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -43,7 +43,7 @@
     if (!char) return null;
     const own = (cfg.looks || {})[char.id] || {};
     const face = cfg.autoFace === false ? (own.face || "default") : faceForMood(moodLabel(moods, char.id));
-    return { type: "pet-look", ta: taOf(char), look: Object.assign({}, own, { face }) };
+    return { type: "pet-look", characterId: String(char.id), ta: taOf(char), look: Object.assign({}, own, { face }) };
   }
   // 一只 iframe 画面：加载完成（pet-ready）或样貌变了，就把消息再送一次
   // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
@@ -67,6 +67,28 @@
       const blob = await ttsSpeak(line, voiceId), url = URL.createObjectURL(blob), a = new Audio(url); s.audio = a;
       a.onended = a.onerror = () => { try { URL.revokeObjectURL(url); } catch (_) {} if (s.audio === a) s.audio = null; };
       await a.play(); } catch (e) {/* 念不出来就只看字 */} }
+  // 为什么每次戳都是同一句（她 2026-09-27）：每一枪都是全新的、料几乎一样——同一份人设、同一个心情、同一句「她戳了你」，
+  //   模型就每次回到它的先验中心。照 施工规则/bans-make-it-dumber.md：不加「不许重复」这种判决，
+  //   ① 给真的不同的料（今天第几次、隔了多久、之前说过哪几句——长期记着当 avoid 单子，越用越不重样）；
+  //   ② 掷几条互相独立的轴、不掷答案，每条轴都留一格「你自己定」。地板是代码的，天花板是模型的。
+  const POKE_KEY = "x_companionPokes";
+  const today = () => new Date().toISOString().slice(0, 10);
+  function pokeLog(id) {
+    let all = {}; try { all = JSON.parse(localStorage.getItem(POKE_KEY) || "{}") || {}; } catch (e) {}
+    const r = all[id] || {}; return { lines: Array.isArray(r.lines) ? r.lines.slice(-12) : [], count: r.day === today() ? (r.count || 0) : 0, lastAt: r.lastAt || 0 };
+  }
+  function notePoke(id, line) {
+    let all = {}; try { all = JSON.parse(localStorage.getItem(POKE_KEY) || "{}") || {}; } catch (e) {}
+    const r = pokeLog(id); all[id] = { lines: r.lines.concat(line).slice(-12), day: today(), count: r.count + 1, lastAt: Date.now() };
+    try { localStorage.setItem(POKE_KEY, JSON.stringify(all)); } catch (e) {}
+  }
+  const POKE_AXES = [
+    ["冲着谁说", ["冲她这个人", "冲你自己手上正在干的事", "冲「被戳」这件事本身", "冲你们之间最近的什么事"]],
+    ["多长", ["一个声音或一个字", "半句", "完整的一句"]],
+    ["接不接她的茬", ["接住", "装没感觉", "反过来招她"]]
+  ];
+  // 每条轴四分之一的时候整条还给他自己定
+  const pokeAxes = () => POKE_AXES.map(([k, vs]) => k + "：" + (Math.random() < .25 ? "你自己定" : vs[Math.floor(Math.random() * vs.length)])).join("；") + "。这只是手感，照你的性子来，哪条不像你就不照它。";
   function usePokeTalk(char, props, on) {
     const [say, setSay] = useState("");
     const st = useRef({ timer: 0, busy: false, last: 0, pending: null, hide: 0 });
@@ -79,12 +101,17 @@
       s.busy = true; s.last = Date.now();
       try {
         const hr = new Date().getHours(), uName = (props.profile && props.profile.name) || "她";
+        const log = pokeLog(char.id), gap = log.lastAt ? Math.round((Date.now() - log.lastAt) / 60000) : null;
         const d = await runProbe(p, ctx, { voice: true, tag: "陪伴",
-          instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。\n"
-            + "按你自己的性子、你此刻的心情，顺手回她一句——就一句，短，像被戳到时脱口而出的那种。可以只是一个语气词，也可以不理她、嫌她烦、或者反过来逗她。"
-            + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : ""),
+          instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。"
+            + "这是她今天第 " + (log.count + 1) + " 次戳你" + (gap == null ? "。" : "，上一次是 " + (gap < 1 ? "刚刚" : gap < 90 ? gap + " 分钟前" : Math.round(gap / 60) + " 小时前") + "。") + "\n"
+            + "按你自己的性子、你此刻的心情，顺手回她一句——短，像被戳到时脱口而出的那种。\n"
+            + "【这一下的手感】" + pokeAxes() + "\n"
+            + (log.lines.length ? "【你之前被她戳时说过的】" + log.lines.map(x => "「" + x + "」").join(" ") + "——那些已经说过了，这是新的一下，说你此刻会说的那句。\n" : "")
+            + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n" + REGISTER_FOLLOWS_SCENE : ""),
           schemaHint: "{\"line\":\"你脱口而出的那一句\"}" });
         const line = String((d && d.line) || "").trim().slice(0, 60);
+        if (line) notePoke(char.id, line);
         if (line) { setSay(line); clearTimeout(s.hide); s.hide = setTimeout(() => setSay(""), Math.min(9000, 3000 + line.length * 180));
           // 念出来（她 2026-09-27）：和庭院、列车同一个开关 x_fairyGardenVoice；TA 没选声音就只冒字
           if (voiceOn() && char.voiceId && typeof ttsSpeak === "function") speak(line, char.voiceId, s); }
@@ -124,7 +151,7 @@
       allowTransparency: "true", style: Object.assign({ border: 0, background: "transparent", display: "block" }, style) });
   }
   // 他这会儿在做什么：十种心情各一套动作，界面上不说一句，用户只当是随机待机。
-  const ACT_ZH = { 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
+  const ACT_ZH = { 'emotion-show':'转身展示新衣服', 'emotion-five-left':'抬起手等你击掌', 'emotion-five-right':'抬起手等你击掌', 'emotion-clap-left':'和你击了个掌', 'emotion-clap-right':'和你击了个掌', 'emotion-dodge-left':'躲开你的手又看回来', 'emotion-dodge-right':'躲开你的手又看回来', 'emotion-beckon':'招手示意你靠近', 'emotion-dance':'左右摆身跳小舞', 'emotion-bow':'欠身向你致意', 'emotion-shrug':'摊开手耸耸肩', 'emotion-peek':'看看两边又望向你', 'emotion-default':'抬手问候你', 'emotion-happy':'笑着向你招手', 'emotion-amazed':'举起双手欢呼', 'emotion-cozy':'张开手想抱抱你', 'emotion-relax':'舒展开双臂', 'emotion-surprise':'缩了一下又凑过来看', 'emotion-proud':'挺起胸等你夸', 'emotion-gloomy':'叹口气又望向你', 'emotion-sad':'低头后朝你伸出手', 'emotion-irritated':'别过身又偷偷看你',  wave: "在跟你招手", stretch: "在伸懒腰", tea: "在喝茶", read: "在看书", sit: "坐下了",
     hop: "高兴得蹦了一下", jolt: "被你吓了一跳", nod: "在点头", sigh: "叹了口气", stomp: "在跺脚",
     turn: "扭过头去不理你", shy: "有点害羞", look: "回头看你", yawn: "在打哈欠", wake: "刚被你叫醒",
     land: "被你放下来了", held: "被你拎在手上晃", sleep: "睡着了" };

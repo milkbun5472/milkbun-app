@@ -109,6 +109,18 @@
 - 和夹克同一套：圆袖（西装布料 `atlas=(.031,.859,…)`）、腋下衬里；袖子更长，手腕残片更低（`scrap_z=.25`），切完再删手边的小碎块（<200 顶点、|x|>.14）。
 - 配色：`trim_lum=.6`——衬衫背光处只有 .6 左右，阈值高了会被分进西装那一格，改色时衬衫上冒粉斑。
 
+## C07 宽松T恤牛仔裤（`tee`，2026-09-27）
+
+- 源 `v2/outfits/hunyuan-c07-shell.glb`（宽松白 T 恤 + 灰色卷边牛仔中裤 + 白球鞋，自带鞋）。
+  `S=.69 Z0=0 CRUMB=200 GAP=.002 STRAP_OUT=.006 STRAP_Z=.45 STRAP_X=.3 python3 skin_outfit.py …`，`TRIS=8000 TEX=1024` 压缩，`add_outfit.py -- tee`。
+- 照 Codex 给夹克/西装的那一整套走（她 2026-09-27：「去看看人家 codex 是怎么把衣服修好看的」）：
+  - 侧缝：`repair_added_outfits.py` 重建弧形侧面（ADDED-OUTFIT-SEAMS.md）。T 恤没有口袋，跳过口袋保护；宽松款接缝放到 `cut=.11`（.08 会在前胸留两道像背带的竖线），
+    侧面补到下摆 `lo=.32`，下面的牛仔布按原贴图颜色保护不删（T 恤下摆盖着裤腰，一条高度线分不开）。
+  - 肩线：`smooth_shoulders.py` 名单里加 `tee`，按短袖（和背带裙同一个判据）。
+  - 袖子：`fit_cuffs.py` 短袖。切袖 `cut_z=.36, clean=True`（先剖开再删，切口是直线）。
+  - 改色：`outfit-dye.mjs` 按原贴图布色分区（白＝T恤、偏蓝灰＝牛仔裤、脚边白＝球鞋），`dye_regions.json` 三个分区名。
+- 已知：领口是原模型自带的罗纹，边缘略碎。
+
 ## 衣服按需加载（2026-09-26，她定）
 
 - **母版是 `v2/doll-full.glb`**（身体 + 骨架 + 头发 + 全部衣服）。所有迁移脚本（`add_outfit.py`、`fit_cuffs.py`、`restore_*`…）都读写它，不再直接改 app 里的 doll.glb。
@@ -124,4 +136,24 @@
 - 加进母版：先在 `../hairstyles.json` 写名字，再 `python3 -c "import sys,runpy;sys.argv=['x','--','fluffy'];runpy.run_path('add_hair.py',run_name='__main__')"`。
   发型表（id→文件）只在 `add_hair.py` 的 `HAIRS` 一处，`assemble_v2.py` 也用它；运行时名单 `traveler.mjs` 的 `HAIR_STYLES` 要和 hairstyles.json 一致（测试钉着）。
 - ⚠️`outfit_slots.grey()` 改完贴图要先存成 WEBP 再 pack：直接 pack 会变 PNG，一款头发从 190KB 胀到 560KB（头发在每次都要下的 doll.glb 里）。
-- 头发不按需加载，都在底模里：底模现在 1.76MB，加最大一套衣服 2.83MB，预算 3MiB。**再加两三款就该把头发也拆成按需加载**（照衣服的做法）。
+- ~~头发不按需加载，都在底模里~~ → **头发也按需加载了（2026-09-27）**：`split_outfits.py` 把每款拆成 `apps/fairy-garden/hair/<style>.glb`
+  （带 DollRig + HeadAnchor，130–200 KB），底模 `doll.glb` 只剩身体和骨架（1.76MB → 650KB）。
+  运行时 `traveler.mjs` 的 `hairSource()`：用到哪款下哪款、全页每款一次，接到这个人自己的 HeadAnchor 下；第一次衣服和头发都到了才露面。
+  以后加头发、加衣服都不会让首次进场变大（`doll-parts.test.mjs` 的预算＝底模＋最大一套衣服＋最大一款头发）。
+
+### C07 continuous cotton refinement
+
+`refine_tee.py`, called by `add_outfit.py`, replaces the patched upper shell with a
+continuous relaxed cotton surface: lower crew neck, sloping shoulder transition,
+subtle drape and turned hem. The existing fitted short sleeves are retained.
+Original denim pockets/seams/rolled hems remain; only the concealed waistband is
+trimmed and tucked underneath the tee. The shared `restore_source_footwear` in
+`restore_suit_footwear.py` also restores C07 sneakers from the original shell,
+welding source UV seams before reduction and preserving sole/tongue detail.
+The migration is idempotent and exports only the master and tee lazy asset.
+Three dye regions and per-outfit reset continue through the shared wardrobe.
+
+Checks: `refined-tee-assets.py` (unrelated meshes/morphs, denim preservation,
+64 cotton morph endpoints, idempotence), `outfit-dye-browser.cjs` (all seven
+outfits, independent regions/reset), `hand-coverage-browser.cjs` and the
+shared pose gallery. C07 source and body/hands are preserved.

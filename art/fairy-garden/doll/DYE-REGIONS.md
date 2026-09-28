@@ -10,3 +10,18 @@
 - 不改变原手、整臂抬手、袖子、肩线和其他服装网格。源模型原有几何纹理细节仍保留；分区不是重新生成所有衣服。
 
 验证入口：`test/outfit-dye-controls.test.js`、`scripts/checks/outfit-dye-browser.cjs`（实际 WebGL 单区换色、相邻区不变、复位像素一致）、`scripts/checks/outfit-dye-assets.py`（无关网格/贴图保全、极端体型、幂等）；另跑共用动作与衣柜回归。
+
+## Edge follow-up (2026-09-27)
+
+- Retained ranger trousers contain the original ribbed hoodie hem: classify its UV islands as cloth. `clean_ranger_edges.py` trims the overlapping top and ragged underside at the boot opening, preserving the rolled cuff, original UVs and interpolated morph layers. The migration is idempotent and called by `clean_hoodie`.
+- Garden bear ownership includes both ears and the recessed face edges, using whole source islands instead of a front-depth/brightness cutoff. The control is now 小熊装饰.
+- Cardigan pouch shadows keep the bag dye; below-hem trouser shadows no longer inherit sweater colour. Jacket shirt/collar panels keep their trim dye through shaded texels.
+- Long-trouser skin coverage excludes arm-weighted vertices in colour, depth and distance passes. The old rest-height cutoff removed fingertips, visible as dark holes after raising the arms. Original hand geometry is unchanged.
+- `outfit-dye-browser.cjs` checks 30 slots, resets and boundary probes; old shader fails at the left bear ear. `hand-coverage-browser.cjs` compares fingertip pixels with/without lower-body coverage in 81 outfit/pose/angle/body combinations; old shader differs by 147, fixed shader by 0. `cloth-edge-assets.py` checks unchanged meshes/textures and all 64 morph endpoints against the original fold inversion area.
+
+## Shoulder straps, cuffs and lapels (2026-09-27)
+
+- Cardigan shoulder strap UV islands belong to the bag, including the shaded shoulder/back pieces. Its retained shoe asset also contains the rolled trouser cuff: assign complete cuff islands to trousers instead of a per-fragment height/colour test. Shoe laces, toe and sole remain the shoe region.
+- Ranger's existing continuous strap is raised .028 and moved outward .025 at the shoulder using a smooth height falloff. It passes under the hood; mesh topology, lower band and bag are retained. `fit_ranger_strap.py` updates all six body morphs and is an idempotent stage of `ranger_bag.py`.
+- Jacket's two small lapel undersides contain excessive baked dark occlusion. A luminance curve on those complete source UV panels restores the fabric tone while keeping varying texture relief and runtime lighting; it does not paint over the pockets or shirt.
+- Browser regression adds shoulder/cuff ownership and lapel brightness probes, retains independent dye/reset checks. Asset regression verifies all unrelated meshes/morphs, embedded textures, 64 body endpoints and migration idempotence. Original source geometry still contains fine folds and irregularities; these changes target the reported dye/strap defects.

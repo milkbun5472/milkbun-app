@@ -5,7 +5,7 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
 (async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
  const page=await browser.newPage({viewport:{width:3000,height:1500}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
- if(process.env.PARTS_DIR)for(const id of ['academy','garden','ranger','cardigan','jacket','suit'])await page.route('**/outfits/'+id+'.glb*',r=>r.fulfill({path:process.env.PARTS_DIR+'/'+id+'.glb',contentType:'model/gltf-binary'}));
+ if(process.env.PARTS_DIR)for(const id of ['academy','garden','ranger','cardigan','jacket','suit','tee'])await page.route('**/outfits/'+id+'.glb*',r=>r.fulfill({path:process.env.PARTS_DIR+'/'+id+'.glb',contentType:'model/gltf-binary'}));
  if(process.env.MODEL)await page.route('**/doll.glb*',r=>r.fulfill({path:process.env.MODEL,contentType:'model/gltf-binary'}));await page.goto(base+'/apps/companion/');
  await page.evaluate(async()=>{
   const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await import('../fairy-garden/traveler.mjs');
@@ -16,7 +16,7 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
   window.strapQA={T,createTraveler,source,catalog,scene,renderer,camera,dolls:[]};
  });
  const samples={};let views=0;
- for(const outfit of ['academy','garden','ranger','cardigan','jacket','suit'])for(const mode of ['default','narrow','min','max']){
+ for(const outfit of (process.env.CLOTH_OUTFITS?.split(',')||['academy','garden','ranger','cardigan','jacket','suit','tee']))for(const mode of ['default','narrow','min','max']){
   views+=18;samples[outfit+mode]=await page.evaluate(({mode,outfit})=>{
    const {T,createTraveler,source,catalog,scene,renderer,camera,dolls}=strapQA;for(const d of dolls)scene.remove(d.root);dolls.length=0;const pixels=[];renderer.setScissorTest(true);
    [0,.9,2.15,3.14,4.15,4.71].forEach((angle,col)=>['rest','stretch','sit'].forEach((gesture,row)=>{

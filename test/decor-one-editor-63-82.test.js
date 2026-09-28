@@ -87,7 +87,8 @@ test("造装饰只此一处：预览、放上去、改完存，三处同一个 b
 
 test("多大：新建那一页原来压根没有这一段", () => {
   assert.match(PAGE, /section\("size", A\.isWidget \? "2" : "4", "多大", sizeName,/);
-  assert.match(PAGE, /h\(HomeSizeGrid, \{ value: A\.size \|\| "auto", onChange: A\.setSize \}\)/);
+  // v74.191 多传一个 allowIcon：组件那一页多一档「图标」
+  assert.match(PAGE, /h\(HomeSizeGrid, \{ value: A\.size \|\| "auto", onChange: A\.setSize(, allowIcon: !!A\.isWidget)? \}\)/);
   assert.match(comp, /const \[decorDraftSize, setDecorDraftSize\] = useState\(""\)/);
   // 新建时多一颗「自动」——没挑过就按类型/相框推一个
   assert.match(PAGE, /A\.isNew \? h\("button", \{ onClick: function \(\) \{ A\.setSize\(""\); \}/);

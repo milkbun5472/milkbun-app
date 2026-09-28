@@ -21,10 +21,14 @@ const grab = name => {
   }
   return fic.slice(i, j);
 };
-const F = new Function("BIBLE_CAP", "SEED_CAP", "MIN_CHARS_MAX", "clampPerFic",
+// v74.211：clamp 和数字数搬去了公共那一份（style-presets 的 clampWordFloor / countWords），
+// 同人文这边只剩转交，所以沙箱里也得把公共那份摆上——它现在是真依赖，不是可有可无。
+global.window = global.window || {};
+require("../js/style-presets.js");
+const F = new Function("BIBLE_CAP", "SEED_CAP", "MIN_CHARS_MAX", "clampPerFic", "_SP",
   grab("countChars") + grab("shortBy") + grab("clampMinChars") + grab("minCharsFor") + grab("applyChapterMeta") + grab("wantBlock")
   + "\nreturn { countChars, shortBy, clampMinChars, minCharsFor, applyChapterMeta, wantBlock };"
-)(60, 12, 20000, v => Math.max(500, Math.min(60000, Number(v) || 4200)));
+)(60, 12, 20000, v => Math.max(500, Math.min(60000, Number(v) || 4200)), () => global.window.StylePresets);
 
 test("① 点单两档：许个愿给出口，就这么写是硬指标", () => {
   assert.equal(F.wantBlock("", false, false), "", "没点单就别发一段空的");

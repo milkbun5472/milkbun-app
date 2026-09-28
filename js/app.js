@@ -664,6 +664,96 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
+  // ============================================================
+  // 外卖 Takeout —— 按饭点刷店 / 一次只在一家店里凑一单 / 骑手按分钟送
+  // ============================================================
+  // 她 2026-09-27 定的拆法：外卖不是购物的一栏，是另一件事——「现在饿了」，半小时内的事。
+  // ⚠️送达链、钱包、代付、亲属卡一样都不另养：一单外卖在结账那一刻被折成【一件】
+  //   kind:"takeout" 的东西，交给购物那几条现成的路（addOrder / payWithKinship / requestPayLater），
+  //   订单上带着 kind 和 takeout 明细，外卖 app 认它、购物「我的」不认它。
+  const takeoutItemOf = bag => {
+    const lines = (bag.items || []).filter(x => x && x.qty > 0).map(x => x.name + (x.qty > 1 ? " ×" + x.qty : ""));
+    const total = Math.round((bag.items || []).reduce((s, x) => s + (Number(x.price) || 0) * (x.qty || 0), 0) * 100) / 100;
+    return { name: (bag.shop ? bag.shop + " · " : "") + lines.join("、"), price: total, cat: "food", kind: "takeout",
+      takeout: { shop: bag.shop || "", items: lines, price: total, note: String(bag.note || "").trim().slice(0, 80), remark: String(bag.remark || "").trim().slice(0, 80) } };
+  };
+  const genTakeout = async (slot, keyword) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setTakeoutBusy(true);
+    try {
+      const label = (typeof TAKEOUT_SLOTS !== "undefined" ? TAKEOUT_SLOTS.find(s => s.key === slot) : null);
+      const hm = new Date(); const clock = hm.getHours() + ":" + String(hm.getMinutes()).padStart(2, "0");
+      const topic = keyword && keyword.trim() ? "她搜的是「" + keyword.trim() + "」" : "这一栏是「" + (label ? label.zh : slot) + "」";
+      const d = await runProbe(bgActive, { char: { id: "__takeout", name: "外卖", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
+        // ⚠️占位值只写【说明】不写【样例】（prompt-no-content-samples）：写一家店名进去，刷出来就全是那一家。
+        instruction: "你在给一个人刷外卖 App 的附近商家。现在是 " + clock + "，" + topic + "。**给 6~8 家店（shops 至少 6 个）**，"
+          + "都是这个钟点真会开着、真会有人点的那种；彼此拉开：吃的东西、价位、是连锁还是街边小店，别一屏全是同一族。"
+          + "每家：name(店名，像真招牌) / kind(这家卖什么，几个字) / eta(送到要几分钟，纯数字) / dishes(这家的 4~6 样招牌，每样 name 具体到能想象出长什么样、price 纯数字人民币按真实价位、desc 一句话说清为什么点它，别写成广告口号)。",
+        schemaHint: "{\"shops\":[{\"name\":\"店名\",\"kind\":\"卖什么\",\"eta\":纯数字,\"dishes\":[{\"name\":\"菜名\",\"price\":纯数字,\"desc\":\"一句话\"}]}]}",
+        maxTokens: 65535
+      });
+      const shops = ((d && d.shops) || []).map((s, i) => ({
+        id: "ts_" + Date.now() + "_" + i,
+        name: String(s.name || "小店").slice(0, 30),
+        kind: String(s.kind || "").slice(0, 20),
+        eta: Math.max(8, Math.min(60, Math.round(Number(s.eta)) || 25)),
+        dishes: (Array.isArray(s.dishes) ? s.dishes : []).map((x, k) => ({
+          uid: "td_" + Date.now() + "_" + i + "_" + k,
+          name: String((x && x.name) || "招牌").slice(0, 30),
+          price: Math.max(1, Math.round(Number(x && x.price)) || 18),
+          desc: String((x && x.desc) || "").slice(0, 60)
+        }))
+      })).filter(s => s.dishes.length);
+      setTakeoutFeed(prev => { const n = { ...prev, [slot]: shops }; saveJSON("x_takeoutFeed", n); return n; });
+    } catch (e) {
+      toast("刷新失败：" + e.message);
+    } finally {
+      setTakeoutBusy(false);
+    }
+  };
+  // 下单。mode 跟购物同一套词：buy 自己付 / kinship 亲属卡 / paylater 找TA代付；
+  // 多一个 forchar：她给TA点一份——聊天里出一张她那边的外卖小票，不进TA的随身物（吃完就没了）。
+  const orderTakeout = (bag, mode, target) => {
+    const item = takeoutItemOf(bag || {});
+    if (!item.takeout.items.length) { toast("还没点东西"); return false; }
+    const total = item.price;
+    const byMode = {
+      buy: () => {
+        if (wallet < total) { toast("余额不足"); return false; }
+        changeWallet(-total, "外卖 " + item.name.slice(0, 18), "shop");
+        addOrder(item);
+        toast("下单成功，骑手接单了");
+      },
+      kinship: () => {
+        if (!target || target.type !== "char") { toast("请选择亲属卡"); return false; }
+        payWithKinship(target.id, [item], total);
+      },
+      paylater: () => {
+        if (!target) { toast("请选择代付对象"); return false; }
+        requestPayLater([item], total, target);
+      },
+      forchar: () => {
+        const char = target && target.type === "char" ? characters.find(c => c.id === target.id) : null;
+        if (!char) { toast("请选择给谁点"); return false; }
+        if (wallet < total) { toast("余额不足"); return false; }
+        changeWallet(-total, "给 " + (char.remark || char.name) + " 点外卖 " + item.takeout.shop, "shop");
+        const now = Date.now();
+        pChat(char.id, p => [...p, { role: "user", kind: "takeout", takeout: item.takeout, arriveTs: now + deliverMsForCat("food", item.name), ts: now, read: true,
+          content: "[外卖] 给你点了" + (item.takeout.shop ? "「" + item.takeout.shop + "」的" : "") + item.takeout.items.join("、") }]);
+        toast("给 " + (char.remark || char.name) + " 点好了，骑手在路上");
+      }
+    };
+    if (!byMode[mode]) return false;
+    return byMode[mode]() !== false;
+  };
+  // 吃完了：从在途/已送达里拿掉，记进「吃过的」。外卖不进随身物——它不会留下来。
+  const eatTakeout = id => {
+    const o = ordersRef.current.find(x => x.id === id);
+    if (!o) return;
+    saveOrders(p => p.filter(x => x.id !== id));
+    setTakeoutLog(p => { const n = [{ id: o.id, name: o.name, takeout: o.takeout || null, price: o.price, payLabel: o.payLabel || "", fromCharId: o.fromCharId || null, ts: Date.now() }, ...p].slice(0, 300); saveJSON("x_takeoutLog", n); return n; });
+  };
+
   // ⚠️v72.19 起这个数【不再是空间上限】（她 2026-09-20：「全都带进 indexdb 取消上限」）：
   //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
   //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
@@ -692,6 +782,9 @@ function App() {
   const [orders, setOrders] = useState([]); // 待发货/待收货 [{id,name,en,price,status:"shipping"|"receiving",arriveTs,ts,fromCharId,payLabel}]
   const [shopFeed, setShopFeed] = useState({}); // {cat:[products]} 已生成的商品流
   const [shopBusy, setShopBusy] = useState(false);
+  const [takeoutFeed, setTakeoutFeed] = useState({}); // {slot:[shops]} 外卖按饭点刷出来的店
+  const [takeoutBusy, setTakeoutBusy] = useState(false);
+  const [takeoutLog, setTakeoutLog] = useState([]); // 吃过的外卖
   const [activeCardId, setActiveCardId] = useState(null); // 打开的亲属卡账单 charId
   const [walletView, setWalletView] = useState("main"); // 钱包内页：main | cards（提上来才经得住进详情再退回来）
   // 关系网上她自己拖过的位置（v60.46）：布局是算出来的，摆法是她的。
@@ -857,6 +950,10 @@ function App() {
   viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
   const [editingChar, setEditingChar] = useState(null);
   const [selSched, setSelSched] = useState(null);
+  // 从聊天／线下点进日历的时候记下来处，退出日历就回到那儿（她 2026-09-29 转群里读者：
+  // 「线下看了日历的行程直接一退就退回到主页了吗？是不能直接退回到线下页面吗？」）。
+  // 没有来处（从主屏点进来的）才回主屏。
+  const calReturnRef = useRef(null);
   const [selPhone, setSelPhone] = useState(null);
   const [busyLanes, setBusyLanes] = useState({});
   const busyLanesRef = useRef({});
@@ -1641,6 +1738,8 @@ function App() {
     setCart(loadJSON("x_shopCart", []));
     setOrders(loadJSON("x_shopOrders", []));
     setShopFeed(loadJSON("x_shopFeed", {}));
+    setTakeoutFeed(loadJSON("x_takeoutFeed", {}));
+    setTakeoutLog(loadJSON("x_takeoutLog", []));
     setGiftOut(loadJSON("x_giftOut", []));
     setCarry(loadJSON("x_carry", {}));
     setCarryGifts(loadJSON("x_carryGifts", {}));
@@ -3037,9 +3136,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     putLiveCondition(local, prev, meta && meta.state ? meta.state.condition : undefined, ts);
     clearWearingOnMove(local, prev, !!local.wearing);
+    const newMood = meta && meta.mood || "";
+    const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
-      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null }
-      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, mood: meta && meta.mood || prev.mood || "", ts, turnId: meta && meta.turnId || null };
+      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null }
+      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null };
     const statesNext = { ...roomStatesRef.current, [roomKey]: next };
     roomStatesRef.current = statesNext; setRoomStates(statesNext); saveJSON("x_roomStates", statesNext);
     if (!clean) return;
@@ -3148,12 +3249,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {}
   };
   // 用户经 OOC 立下的长期行为准则
-  const addDirective = (id, text) => {
+  const oocReplacedNote = res => (!res || res.refused || !(res.replaced || []).length) ? "" : "\n\n〔" + (res.directive ? "换掉了旧的：" : "已取消：") + res.replaced.join("；") + "〕";
+  // replaced：OOC 点名要换掉/取消的旧准则原文（engine.js oocResult）——先删它们，再补新的
+  const addDirective = (id, text, replaced) => {
     const t = (text || "").trim();
-    if (!t) return;
+    const drop = new Set((replaced || []).map(x => String(x).trim()).filter(Boolean));
+    if (!t && !drop.size) return;
     setDirectives(p => {
-      const list = p[id] || [];
-      if (list.some(d => d.text === t)) return p; // 完全相同不重复
+      const list = (p[id] || []).filter(d => !drop.has(String(d.text || "").trim()));
+      if (!t) { const n = { ...p, [id]: list }; saveJSON("x_directives", n); return n; }
+      if (list.some(d => d.text === t)) { if (list.length === (p[id] || []).length) return p; const n = { ...p, [id]: list }; saveJSON("x_directives", n); return n; } // 完全相同不重复
       const n = { ...p, [id]: [...list, { id: "dir_" + Date.now(), text: t, ts: Date.now() }] };
       saveJSON("x_directives", n);
       return n;
@@ -5415,6 +5520,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     directives: directives[char.id] || [],
     memory: memories[char.id],
     memLib: (() => {
+      // 这一轮根本不要记忆（隔离房把 formalMemory 关了）：直接不检索。
+      // ⚠️原来是「照检索、之后再被那道闸清掉」，于是两件坏事：
+      //   ① 向量白算一遍，结果整份丢掉；
+      //   ② 检索那一刻会记一份「上一轮真实召回」快照（engine.js noteMemoryRecallSnapshot），
+      //      而快照只按 charId 存、不认房间——于是她在一间全关的房里打开「TA 知道什么」，
+      //      看见 5 条主线记忆被"召回"，以为隔离漏了（她 2026-09-28 报的就是这一幕）。
+      //      那 5 条其实没进模型，但面板自己写着「只认实际送进模型的选集」，等于说了假话。
+      //   不检索＝这两件一起消失；那道闸照旧留着兜底（两处判据都问 ChatRooms.allows）。
+      if (ctxOpts && ctxOpts.noMemory) return [];
       const isLeanYanqiuChat = !!(ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes);
       const recallText = ctxOpts && typeof ctxOpts.queryText === "string" ? ctxOpts.queryText : recentChatText(char);
       const rows = retrieveMemories(memLibRef.current, char.id, recallText, {
@@ -5619,7 +5733,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const lastP = list[list.length - 1];
       const last = pKeyDate(lastP.start);
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const cyc = period.cycleLen || 28, pLen = periodSpanLen(lastP, period.periodLen || 5);
+      const _pc = typeof periodCycleOf === "function" ? periodCycleOf(period) : { cyc: period.cycleLen || 28, len: period.periodLen || 5 };
+      const cyc = _pc.cyc, pLen = periodSpanLen(lastP, _pc.len);
       let dic = Math.floor((today - last) / 86400000) % cyc;
       if (dic < 0) return "";
       let phase;
@@ -7420,9 +7535,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const uName = (profile && profile.name) || "我";
       const offText = (sess.msgs || []).filter(m => m.kind !== "ooc").slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
-      const res = await oocAsk(offlineApiFor(charId), ctxFor(char), q);
-      if (!sideRoom && res.directive && !res.refused) addDirective(charId, res.directive);
-      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
+      // ⚠️这里原来是裸的 ctxFor(char)：**完全没过房间那道闸**。
+      //   于是在一间「不带出门」的线下房里 OOC 问一句，助手手上是【主线全量】——
+      //   记忆库、情侣空间、心情好感一样不少。她 2026-09-28 截图里那句
+      //   「我确实能实时看到【记忆库】里的所有条目」，还报得出聘礼单子、数石阶、
+      //   红手印底稿——它说的是大实话，因为那些真在它上下文里。
+      //   线上 OOC（oocCtx = roomContextFor(...)）早就是对的，**只有线下这一处没跟上**
+      //   （施工规则/four-surfaces-same-context：一层规则在八处都要接上，漏的那处要写明理由）。
+      const oocRoom = offlineRoomFor(scopeKey);
+      const res = await oocAsk(offlineApiFor(charId), roomContextFor(char, scopeKey, oocRoom, {}), q);
+      if (!sideRoom && !res.refused && (res.directive || (res.replaced || []).length)) addDirective(charId, res.directive, res.replaced);
+      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + oocReplacedNote(res) + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -8168,8 +8291,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
       const res = await oocAskGroup(offlineActive, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
-      if (res.directive && !res.refused) addDirective(groupId, res.directive);
-      pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
+      if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced);
+      pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -8277,7 +8400,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       toast("已补记入记忆库");
     }
   };
+  // 退出日历：有来处就回来处，没有才回主屏。日历顶栏的返回和侧滑返回都走这一个。
+  const leaveCalendar = () => {
+    const r = calReturnRef.current;
+    calReturnRef.current = null;
+    setSelSched(null);
+    if (!r) { goHome(); return; }
+    setScreen(r.screen || "thread");
+    if (r.offlineChar) openOffline(r.offlineChar, window.ChatRooms && r.roomId && r.roomId !== "main" ? window.ChatRooms.get(r.offlineChar.id, r.roomId) : null);
+  };
   const goHome = () => {
+    calReturnRef.current = null;
     setScreen("home");
     setActiveChar(null);
     setActiveGroup(null);
@@ -8293,6 +8426,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (stateCardOpen) { setStateCardOpen(false); return true; }
     if (offlineChar || offlineGroup) { setOfflineChar(null); setOfflineGroup(null); return true; }
     if (editingChar) { setEditingChar(null); return true; }
+    if (screen === "calendar" && calReturnRef.current) { leaveCalendar(); return true; }
     if (screen && screen !== "home") { goHome(); return true; }
     return false;   // 已经在主屏了：交回给 BackGuard，再滑一次才真退出
   };
@@ -8992,7 +9126,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
-      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
+      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
@@ -9329,7 +9463,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
         : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
-      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
+      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
       // ⚠️这一段【必须排在 capState 声明之后】：v69.30 我把它写在上面那个
       //   photoSeen 块里，而 capState 是 const，于是每次走到这儿都是
@@ -9509,8 +9643,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // ⚠️从被删的旧基线里救回来的（v2 迁移没跟过来）：协议里只有 gift 的字段形状，
       //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，TA自然会乱送。
-      capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西/点外卖/送吃的花礼物惊喜，就**必须**填 gift"
-        + "（只嘴上说不填，Ta 收不到）。price 要照你自己的处境和这东西本来的价钱来——"
+      // takeout 单独一条、以「takeout：」起头——旁观房按冒号前那个字段名把整条摘掉。
+      capState.push("takeout：你给 " + uName + " 点外卖时填它（不填 gift）。shop 是你下单的那家店，items 列你点的每一样；"
+        + "它由骑手十几分钟送到，没有盒子可拆。它和 gift 怎么分只看一句：**现在送过去、Ta 当下就吃掉喝掉的，填 takeout；会留在 Ta 身边的东西，填 gift。**"
+        + "同一样吃的两边都说得通时，看你这句话是在说「现在给你叫一份」，还是「寄一份给你」。");
+      capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西、点外卖、送花送礼物，就**必须**填 gift 或 takeout"
+        + "（只嘴上说不填，Ta 收不到）。两样的 price 都要照你自己的处境和这东西本来的价钱来——"
         + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。"
         // 寄语（她 2026-09-19 转小红书群里读者 Sunghoon 的建议：「一点开就是你要的那个
         // 东西的名称，还有寄语」）。原来送礼这条只有名字和价钱——送礼里最像人的那半
@@ -9670,7 +9808,7 @@ affinityDelta: ${AFFINITY_DELTA_SPEC}
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音（${VOICE_PAUSE_MARK}）；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音（${VOICE_PAUSE_MARK}）；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
@@ -9820,6 +9958,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               + ((m.item && m.item.note) ? "（你随盒子写的那张卡片：「" + m.item.note + "」）" : "")
               + (m.delivered ? (m.hand ? "（" + uName + "当面交到你手上了）" : "（已送到你手上）")
                 : "（外卖/快递还在路上" + (m.arriveTs && m.arriveTs > Date.now() ? "，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到" : "，快到了") + "）") + "]"
+            : m.kind === "takeout" ? "[" + uName + " 给你点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
+              + ((m.takeout && m.takeout.note) ? "（Ta 在单子上给你写了一句：「" + m.takeout.note + "」）" : "")
+              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到你手上了）") + "]"
             : m.kind === "kinraise" ? "【" + uName + "在你给 Ta 的那张亲属卡上申请提额" + (m.ask ? "，想加 " + moneyText(m.ask, charId) : "（没说数目，让你看着办）") + "（当时额度 " + moneyText(m.limit || 0, charId) + "）"
               + (m.status === "approved" ? "；你加了 " + moneyText(m.add || 0, charId) + "，现在额度 " + moneyText(m.newLimit || 0, charId) : m.status === "declined" ? "；你没有加" : "")
               + "。这是 Ta 按的一个申请，不是 Ta 说的一句话】"
@@ -9857,6 +9998,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 只有描述、没有像素的那一张（没配图像通道时走的那条路）：跟真发过一样记着，
             // 不然他下一轮会说「我还没拍」或者把同一张再发一遍。
             : (m.kind === "photo" && m.descOnly) ? "【你在这里已经实际发出一张照片；这是你亲手做过的事，不得说自己没发过或马上重复发】\n照片内容：" + (m.desc || "")
+            : m.kind === "takeout" ? "[你给 " + uName + " 点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
+              + ((m.takeout && m.takeout.note) ? "（你在单子上写给 Ta 的那句：「" + m.takeout.note + "」）" : "")
+              + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到了）") + "]"
             : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]"
             // 自己做过的事也点名：这一条原来是「沈清和 向你转了 ¥200」，他自述里叫自己名字，像在转述别人
             : m.kind === "transfer" ? transferLineForModel(m, "你（" + char.name + "）", uName, charId)
@@ -10049,8 +10193,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         read: true
       } : m));
       let words = Array.isArray(parsed.word) ? parsed.word.filter(Boolean) : (typeof parsed.word === "string" && parsed.word.trim() ? [parsed.word] : []);
+      // 模型改用【它自己那套函数调用语法】交这几栏（2026-09-28 她转来的截图：气泡里一行行
+      // 冒出 <invoke name="mood">、<parameter name="label">嘴硬</parameter>）：先把标记从正文里
+      // 捞干净，能还原的字段顺手补上——和下面照片那一刀同一个形状，也放在同一处。
+      if (typeof pullToolCallMarkup === "function") {
+        const _tc = pullToolCallMarkup(words);
+        if (_tc.fields) {
+          words = _tc.words;
+          const _f = _tc.fields;
+          // 只补【这一轮本来就空着】的那几栏：模型正经填了的不许被这条野路覆盖
+          if (parsed.affinityDelta == null && _f.affinityDelta != null && _f.affinityDelta !== "") {
+            const _n = Number(_f.affinityDelta); if (Number.isFinite(_n)) parsed.affinityDelta = _n;
+          }
+          const _mood = _f["mood.label"] || (parsed.mood == null ? _f.label : null);
+          if (parsed.mood == null && _mood) parsed.mood = { label: String(_mood).slice(0, 20) };
+          if (parsed.thought == null && _f.thought) parsed.thought = String(_f.thought);
+          if (parsed.action == null && _f.action) parsed.action = String(_f.action);
+        }
+      }
       // 模型把 photo 写进了正文（「[photo: kind=…, face=…, scene=…]」）：捞出来还原成照片，正文里不留这串参数
       if (typeof pullPhotoMarker === "function") { const _pm = pullPhotoMarker(words); if (_pm.photo || _pm.words.length !== words.length) { words = _pm.words.filter(w => String(w).trim()); if (_pm.photo && !parsed.photo && !parsed.selfie) parsed.photo = _pm.photo; } }
+      // 带 <#秒#> 停顿标记的文字气泡＝本来要发的语音（engine.js pullPauseVoice）
+      if (typeof pullPauseVoice === "function") { const _pv = pullPauseVoice(words); if (_pv.voice.length) { words = _pv.words.filter(w => String(w).trim()); parsed.voice = (Array.isArray(parsed.voice) ? parsed.voice : []).concat(_pv.voice.map(t => ({ t }))); } }
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
       // 消息全是同一个模板）。只记【主动】那一路——被动回复本来就该顺着她的话走。
       if (opts.proactive && words.length) {
@@ -10250,7 +10414,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
         words = []; emoteWordKws.length = 0;
-        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null;
+        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null; parsed.takeout = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
@@ -10312,6 +10476,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (m && m.who === "char" && (m.role === "narration" || m.kind === "narration")) { _prevAct = String(m.content || "").trim(); break; }
         }
         if (!sameActLine(_line, _prevAct)) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Math.max(0, _tsOf(0) - 1), turnId }]);
+      }
+      // ── 一个气泡都没剩：不许静默（2026-09-28 群里报「收不到回复，api 站显示已反馈」）──
+      // 发气泡是 for (i < words.length)，空数组就是一次都不跑：钱扣了、等了十几秒，
+      // 屏幕上什么都没发生——连「要不要重发」都判断不了。
+      // ⚠️这和是谁的锅无关：上游那一枪照样计费，而【只有这儿能告诉她这一轮没回上来】。
+      //   不说的代价还不止一个：她会读成「app 不回我」，而且手上没有任何能拿去找中转站
+      //   索赔的东西。所以照 prompt-send-shape.md 那条办——给她看的翻成人话，
+      //   **原文另存一份跟着**：翻不出来就丢掉原文＝她和我都永远查不下去。
+      // ⚠️只在【这一轮真的什么都没摆出来】时才说：只有动作描写、没有台词是合法的一轮。
+      const _nothingShown = !words.length && !rescuedActLines.length
+        && !(_actDesc && onlineAction && String(onlineAction).trim());
+      if (_nothingShown) {
+        const _rawCut = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim().slice(0, 400);
+        toast("这一轮没回上来 · 原文记在聊天里了");
+        pChat(chatKey, p => [...p, {
+          role: "assistant", kind: "system", ts: Date.now(), turnId,
+          content: "这一轮没回上来。\n上游是出了东西的（这一枪照样计费），但不是这边认得的格式——"
+            + "多半是中转站或模型这一轮没按约定回。直接把上一句重发一次通常就好了。\n\n〔它这回答的是〕\n"
+            + (_rawCut || "（一个字都没有）")
+        }]);
+        try { window.errLog && window.errLog("chat", "空回：解析后没有任何可显示内容", String(raw || "").slice(0, 600)); } catch (e) {}
       }
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
@@ -10564,6 +10749,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
+      if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
       if (parsed.location && parsed.location.name) {
         pChat(chatKey, p => [...p, {
         role: "assistant",
@@ -10813,11 +10999,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (oocLines) oocCtx.recentChat = (oocCtx.recentChat ? oocCtx.recentChat + "\n\n" : "") + "【最近的 OOC 幕后对话（用户越过角色和你这个助手聊的——角色本人不知道这些，别当成他俩的对话）】\n" + oocLines;
       const res = await oocAsk(apiFor(charId), oocCtx, text.trim());
       // 合理的调整要求 → 存成长期准则（refused 时不存）
-      if (res.directive && !res.refused) addDirective(chatKey, res.directive);
+      if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(chatKey, res.directive, res.replaced);
       pChat(chatKey, p => [...p, {
         role: "assistant",
         kind: "system",
-        content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
+        content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
         ts: Date.now(),
         turnId: "ooc_" + Date.now()
       }]);
@@ -11696,7 +11882,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: item.text, mid, ts: Date.now(), turnId: gTurnId }]);
             autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
-          } else if (item.voice === true && item.text) {
+          } else if ((item.voice === true || (typeof ttsHasPause === "function" && ttsHasPause(item.text))) && item.text) {
             const vt = String(item.text);
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
             const q = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
@@ -11999,8 +12185,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
       const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
-      if (res.directive && !res.refused) addDirective(groupId, res.directive); // 群准则复用 directives[groupId]，注入 replyGroup
-      pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
+      if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced); // 群准则复用 directives[groupId]，注入 replyGroup
+      pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -12625,16 +12811,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const char = (characters || []).find(c => c && String(c.id) === String(charId));
       if (!char) return "";
-      const gated = gateByDoor(ctxFor(char, { chat: true }), { cognition: { ...(door || {}) } });
+      const _door = { cognition: { ...(door || {}) } };
+      const gated = gateByDoor(ctxFor(char, { chat: true, noMemory: !window.ChatRooms.allows(_door, "formalMemory") }), _door);
       return buildBundle(gated);
     } catch (e) { return ""; }
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
     const text = roomHistoryText(char, chatKey);
-    const ctx = ctxFor(char, { ...ctxOpts, queryText: ctxOpts && ctxOpts.queryText || text });
+    const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory"));
+    const ctx = ctxFor(char, { ...ctxOpts, noMemory, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
-    ctx.directives = [...(ctx.directives || []), ...(directives[chatKey] || [])];
+    // ⚠️只留【这间房自己】立的 OOC 规矩。原来是主线那份（ctxFor 给的 directives[char.id]）
+    //   再拼上房间这份——于是她在主线立过的任何一条长期规矩（怎么称呼她、上次说好的事）
+    //   都会跟进一间「全关」的房（她 2026-09-28 报「他知道我们聊过的事」的嫌疑之一）。
+    //   按那张白名单自己的判据：规矩里写的是【你们之间的事】，不是【TA 是谁】。
+    //   想让某条在这间房也算数，就在这间房里再 OOC 说一次——那是这间房自己的规矩。
+    ctx.directives = [...(directives[chatKey] || [])];
     ctx.worldbook = loreForContext("chat", [char.id], ctxOpts && ctxOpts.queryText || text);
     const gated = gateRoomContext(ctx, char, chatKey, room);
     const local = roomStatesRef.current[chatKey] || {};
@@ -16528,8 +16721,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 一模一样的，一律当没写；接着累积层的「空的不许抹掉旧的」就会把旧那句留住。
       try { d = window.PhoneKit.dropEchoes(d, spec.schemaHint); } catch (e) {/* 洗不动就照原样存 */}
       savePhoneApp(char.id, key, d);
+      // 她在转圈那一屏点了「先回桌面」：好了告诉她一声（js/phone.js 那颗键记的这一笔）
+      try { const left = window.__phoneLeftWhileGen; if (left && left.delete(char.id + ":" + key)) toast(((char.remark || char.name) || "TA") + "的" + phoneKeyLabel(key) + "生成好了，回查手机就能看"); } catch (e) {}
       return true;
     } catch (e) {
+      try { window.__phoneLeftWhileGen && window.__phoneLeftWhileGen.delete(char.id + ":" + key); } catch (_) {}
       toast(phoneKeyLabel(key) + "生成失败：" + e.message);
       return false;
     } finally {
@@ -16994,16 +17190,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
+      const newMomId = "m_" + Date.now();
+      const newMomImage = d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
       pMom(p => [{
-        id: "m_" + Date.now(),
+        id: newMomId,
         characterId: char.id,
         content,
-        image: d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null,
+        image: newMomImage,
         ts: Date.now(),
         liked: false,
         likeCount: 0,
         comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户")
       }, ...p]);
+      // 开关在朋友圈页顶上（x_momentAutoImg，默认关）：开着就顺手把这张配图画出来
+      if (newMomImage && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(newMomId), 60);
       return true;
     } catch (e) {
       toast("失败：" + e.message);
@@ -17015,6 +17215,70 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }));
     }
   };
+  // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
+  // 人不在画面里的走空景稿、不喂参考照；画人才走人像稿 + 参考照——跟私聊拍照同一条路。
+  // 按一段画面描述画一张图，返回存进本机的 iv_ 引用（朋友圈、贴吧共用这一份）。
+  // char 缺省（NPC、匿名号发的帖）＝一律画空景，不画人。
+  const drawFromDesc = async (char, desc) => {
+    const who = char || { name: "", persona: "" };
+    const kind = noFaceKindFor(desc, who.name);
+    const noFace = !char || !!kind || !(char.appearance || char.refPhoto);
+    const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
+      : noFace ? buildScenePrompt(who, desc, { forText: false })
+      : buildPhotoPrompt(char, desc, states[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) });
+    const refs = noFace ? [] : [char.refPhoto].filter(Boolean);
+    const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) });
+    let ref = null;
+    if (out && out.blob) ref = await imgToVault(await blobToDataUrl(out.blob));
+    else if (out && out.url) { const b = await fetch(out.url).then(r => r.blob()).catch(() => null); if (b && b.size) ref = await imgToVault(await blobToDataUrl(b)); }
+    if (!ref) throw new Error("没拿到图");
+    if (!isImgRef(ref)) throw new Error("图没能存进本机");
+    return ref;
+  };
+  // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
+  const momentGenImage = async (momentId, quiet) => {
+    const mom = (momentsRef.current || []).find(m => m && m.id === momentId);
+    if (!mom || !mom.image || isImgRef(mom.image)) return false;
+    if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
+    const char = characters.find(c => c.id === mom.characterId);
+    if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
+    const desc = String(mom.image);
+    try {
+      const ref = await drawFromDesc(char, desc);
+      pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
+      return true;
+    } catch (e) {
+      if (!quiet) toast("朋友圈配图没生成：" + String(e && e.message || "重试").slice(0, 120));
+      return false;
+    }
+  };
+  // 贴吧配图（她 2026-09-28：跟朋友圈一样有开关、只有描述的那张点开能生）。
+  // itemId 是帖子 id 或楼层 id；成图挂进 photo.imageRef，描述原样留在 photo.desc。
+  const forumGenImage = async (itemId, quiet) => {
+    if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
+    const post = (forumPostsRef.current || []).find(p => p && p.id === itemId);
+    let floorOf = null, floor = null;
+    if (!post) {
+      const all = forumCommentsRef.current || {};
+      for (const pid of Object.keys(all)) { const f = (all[pid] || []).find(x => x && x.id === itemId); if (f) { floorOf = pid; floor = f; break; } }
+    }
+    const x = post || floor;
+    const ph = x && forumPhotoOf(x);
+    if (!ph || ph.imageRef || !ph.desc) return false;
+    const char = characters.find(c => c.id === x.authorId && !x.anon);
+    try {
+      const ref = await drawFromDesc(char || null, ph.desc);
+      const photo = { imageRef: ref, desc: ph.desc };
+      if (post) setForumPosts(prev => { const n = prev.map(p => p.id === itemId ? { ...p, photo } : p); saveJSON("x_forumPosts", n); return n; });
+      else setForumComments(prev => { const n = { ...prev, [floorOf]: (prev[floorOf] || []).map(f => f.id === itemId ? { ...f, photo } : f) }; saveForumComments(n); return n; });
+      return true;
+    } catch (e) {
+      if (!quiet) toast("贴吧配图没生成：" + String(e && e.message || "重试").slice(0, 120));
+      return false;
+    }
+  };
+  window.forumGenImage = forumGenImage;
+  window.momentGenImage = momentGenImage;
   const likeMoment = id => pMom(p => p.map(m => m.id === id ? {
     ...m,
     liked: !m.liked,
@@ -17872,7 +18136,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
     return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
       + (memText ? "\n相关真实记忆：\n" + memText : "")
-      + (lived ? "\n你最近真实经历过的（和" + userName(profile) + "的私聊、群聊、线下、通话，你本来就知道这些事；别照抄原话，也别在楼里把它复述成流水账）：\n" + lived : "")
+      // 她 2026-09-28：TA 在楼里回另一个角色时，替她编了一句她没说过的话当论据。原来这儿写的是「别照抄原话」——
+      //   本意是别把私聊原样搬上公开楼，模型却读成「她说过什么要自己转述一遍」，一转述就走样成她没说过的话。
+      //   改成说清楚：意思必须是她真说过的，换成自己的说法可以；拿不准原话就别引她，说自己的看法。
+      + (lived ? "\n你最近真实经历过的（和" + userName(profile) + "的私聊、群聊、线下、通话，你本来就知道这些事）：\n" + lived
+        + "\n↑在楼里提到" + userName(profile) + "说过什么、做过什么，只能是上面真有的：可以换成你自己的说法，但意思得是她真说的那个意思，别把她没说过的话安到她头上当论据——记不清她原话就别引她，说你自己怎么看就行。也别把这些私事在楼里复述成流水账。" : "")
       + "\n";
   };
   const forumCommentProbe = (post, n, opts = {}) => {
@@ -17918,7 +18186,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const notReplied = poolChars.filter(c => !repliedIds.has(c.id));
       const replied = poolChars.filter(c => repliedIds.has(c.id));
       const floors = opts.existingFloors || [];
-      const floorLines = floors.slice(-14).map(f => f.floor + "楼 " + (f.authorName || "某人") + "：" + forumWithPhoto(f.content, f).replace(/\s+/g, " ").slice(0, 60)).join("\n");
+      const floorLines = forumFloorTranscript(floors);   // 整段原文，见 screens.js forumFloorTranscript
       const who2 = "这是同一个帖子的【继续刷楼、盖楼】，续着往下刷、别重开话题。下面是已经有的楼层：\n" + (floorLines || "（暂无）") + "\n\n"
         + "**大多数新楼是网友**七嘴八舌盖楼：常驻熟面孔与一次性路人混合，别一个腔调。\n"
         + (isSearch ? "**全程只有路人**，不要出现任何你认识的角色。\n"
@@ -18096,6 +18364,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
+    // 开关在贴吧顶上（x_forumAutoImg，默认关）：开着就顺手把这张配图画出来
+    if (rec.photo && !rec.photo.imageRef && loadJSON("x_forumAutoImg", false) && imgApiReady()) setTimeout(() => forumGenImage(rec.id), 60);
     return rec;
   };
   // 手动让某角色发一条帖（版块可选，默认按内容让 AI 自己归吧）
@@ -18941,8 +19211,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const respIsMe = resp.type === "me" || resp.id === "me";
       const opIsMe = post.authorType === "me";
       const ownerChar = String(resp.type || "").startsWith("character") && resp.id ? (characters || []).find(c => c.id === resp.id) : null;
-      const priorLines = ["层主「" + (floor.authorName || "层主") + "」的原评论：「" + forumWithPhoto(floor.content, floor).replace(/\s+/g, " ").slice(0, 80) + "」"]
-        .concat((floor.replies || []).slice(-6).map(r => "· " + (r.isOp ? "【帖主】" : "") + (r.authorName || "某人") + "：" + String(r.content || "").replace(/\s+/g, " ").slice(0, 60)));
+      // 这层楼整段原文（层主原评论＋下面每一条），不截：截成半句，模型只能照半句猜（forumFloorTranscript）
+      const priorLines = ["这一层楼的原文（第一行是层主「" + (floor.authorName || "层主") + "」的原评论）：", forumFloorTranscript([{ ...floor, floor: null }])];
       const opReplied = (floor.replies || []).some(r => r.isOp);
       const isSearch = /^搜索/.test(post.triggerSource || "");
       const others = isSearch
@@ -21933,6 +22203,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now() }]);
     addOrder({ name, price, fromCharId: charId, cat: null, payLabel: (char.remark || char.name) + " 送的" });
   };
+  // 角色给她点外卖（她 2026-09-27：「角色给我点外卖怎么区分是出购物的礼物卡还是外卖卡」）。
+  // 原来只有一个 gift 字段，外卖和礼物全从那儿走，再拿名字去猜品类——那不叫区分，叫猜。
+  // 现在TA自己说：会留下来的东西填 gift，现在送来、当下吃掉的填 takeout。
+  // ⚠️不自动改判：只填了 gift 的，哪怕名字像吃的也照旧是礼物卡（猜错了卡片就对不上TA那句话）。
+  // 外卖不进盒子、不拆、送到就是送到；订单挂进「我的」那条送达链（cat 钉死 food），
+  // 聊天卡和订单用同一个 arriveTs，两边的倒计时才对得上。
+  const postCharTakeout = (charId, raw) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || !raw) return false;
+    const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
+    const shop = clip(raw.shop, 30);
+    const items = (Array.isArray(raw.items) ? raw.items : [raw.items]).map(x => clip(x, 30)).filter(x => x && x.toLowerCase() !== "null").slice(0, 8);
+    if (!items.length) return false;
+    const label = items.join("、");
+    const price = giftPrice(charId, label, raw.price);
+    const note = clip(raw.note, 80);
+    const arriveTs = Date.now() + deliverMsForCat("food", label);
+    walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
+    pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
+      content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now() }]);
+    addOrder({ name: (shop ? shop + " · " : "") + label, price, fromCharId: charId, cat: "food", kind: "takeout", takeout: { shop, items, price, note }, arriveTs, payLabel: (char.remark || char.name) + " 点的外卖" });
+    return true;
+  };
 
   // 代付：把清单发给角色/群聊，角色按人设+好感+余额决定要不要付
   const requestPayLater = (items, total, target) => {
@@ -21949,7 +22242,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const finishPayLater = (charId, items, total, char) => {
     adjustCharBalance(charId, -total, "代付 · " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
+    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: charId, payLabel: (char ? char.name : "对方") + " 代付" }));
   };
   const decidePayLater = async (charId, pid, items, total) => {
     const char = characters.find(c => c.id === charId);
@@ -22032,7 +22325,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       charId: charId, item: itemText, amount: total,
       remain: Math.round((remaining - total) * 100) / 100,
       content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + itemText.slice(0, 40) + " · ¥" + total }]);
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
+    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
   };
 
@@ -22179,7 +22472,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (mode === "buy") {
       if (wallet < total) { toast("余额不足"); return; }
       changeWallet(-total, "购物 " + items.map(x => x.name).join("、").slice(0, 18), "shop");
-      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat }));
+      items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout }));
       removeCartUids(uids);
       toast("下单成功 · " + items.length + " 件，等待发货");
     } else if (mode === "kinship") {
@@ -23374,7 +23667,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
-    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { setSelSched(activeChar.id); setScreen("calendar"); }) : null,
+    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
@@ -23988,6 +24281,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGiftInv: giftInvItem,
     onClosetInv: closetInvItem,
     onLeaveAtHis: leaveAtHis,
+    toast: toast
+  });else if (screen === "takeout") body = h(Takeout, {
+    wallet: wallet,
+    orders: orders,
+    log: takeoutLog,
+    characters: liveChars,
+    groups: groups.filter(imInGroup),
+    kinshipCards: kinshipCards,
+    feed: takeoutFeed,
+    busy: takeoutBusy,
+    onBack: goHome,
+    onGen: genTakeout,
+    onOrder: orderTakeout,
+    onEat: eatTakeout,
     toast: toast
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
     land: usLand,
@@ -24816,7 +25123,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     period: period,
     busy: !!gen.calendar,
     genWeekBusy: !!(gen.sched && String(gen.sched).indexOf("|week") > 0),
-    onBack: goHome,
+    onBack: leaveCalendar,
     onSaveEvent: saveCalEvent,
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
@@ -25120,7 +25427,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       character: scc,
       isNpc: !!scc.npc,
       affinity: roomCard ? undefined : Math.round(affOf(scc.id)),
-      mood: roomCard ? null : moods[scc.id],
+      // 房间的心情是这间房自己的那一份（roomStates），不回退到主线；没有就是空着
+      mood: roomCard ? (() => { const rs = roomStates[stateCardRoomKey] || {}; return rs.mood ? { label: rs.mood, ts: rs.moodTs || rs.ts } : null; })() : moods[scc.id],
       // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
       state: roomCard ? (roomStates[stateCardRoomKey] || null) : (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),
@@ -25467,7 +25775,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenState: () => { setStateCardRoomKey(offlineIsRoom(activeOfflineScopeKey) ? activeOfflineScopeKey : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? schedNowBriefFor(offlineChar) : null,
     onOpenStyleLab: goStyleLab,
-    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
+    onOpenSched: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? (() => { calReturnRef.current = { screen: screen, offlineChar: offlineChar, roomId: offlineRoomId }; setSelSched(offlineChar.id); setOfflineChar(null); setOfflineRoomId("main"); setScreen("calendar"); }) : null
   }), offlineGroup && h(GroupOfflineMode, {
     showReason: (offlineGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: offlineGroup,

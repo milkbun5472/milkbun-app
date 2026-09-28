@@ -3922,6 +3922,39 @@ const PHOTO_PART_ZH = "局部";
 // 模型有时不把 photo 放进 JSON 字段，而是照着字段名在正文里写一行「[photo: kind=…, face=…, scene=…]」，
 // 拆气泡时又按逗号换行拆成好几条——她看到的就是一串参数。这里把它从正文里捞出来、还原成 photo 字段；
 // 正文里只剩真正的话。认的形状只有这一种（方括号＋photo 打头），不去猜别的写法。
+// 模型把【工具调用标记】当正文写了（2026-09-28 她转来的截图：气泡里一行行冒出
+// `<invoke name="mood">`、`<parameter name="label">嘴硬</parameter>`、`</invoke>`，
+// 最后还有一条 `</ ||DSML|| calls>`）。
+// 病根不是提示词没写清楚，是模型偶尔改用它自己那套函数调用语法来交这几栏——
+// 我们照样按 JSON 读，读不到，于是整串标记跟着 word 数组变成了一条条气泡。
+// 跟 pullPhotoMarker 同一个形状：从正文里捞出来、能还原的还原成字段，正文里一个字不留。
+// ⚠️别往提示词里加「不许输出工具调用」那种禁令（施工规则/bans-make-it-dumber）：
+//   规则降概率，代码才保证；而且这一族本来就是模型在协议之外自作主张。
+const TOOLCALL_LINE = /^\s*(?:<\/?\s*(?:invoke|parameter|function_calls|antml:[a-z_]+)\b[^>]*>\s*)+$/i;
+// `</ ||DSML|| calls>` 这种被中间件改写过的收尾也认：竖线/空格里夹着字母的尖括号壳
+const TOOLCALL_FENCE = /^\s*<\/?\s*[|\s]*[A-Za-z_]+[|\s]*(?:calls)?\s*>\s*$/;
+function pullToolCallMarkup(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const out = [], fields = {};
+  let curName = "";
+  let hit = false;
+  for (const w of list) {
+    const isMarkup = TOOLCALL_LINE.test(w) || TOOLCALL_FENCE.test(w) || /<\s*(?:invoke|parameter)\b/i.test(w);
+    if (!isMarkup) { out.push(w); continue; }
+    hit = true;
+    const inv = w.match(/<\s*invoke\s+name\s*=\s*"([^"]+)"/i);
+    if (inv) curName = inv[1];
+    // <parameter name="x">值</parameter>：一行里写完的才认，跨行的拼不回来就丢掉
+    const par = w.match(/<\s*parameter\s+name\s*=\s*"([^"]+)"\s*>([\s\S]*?)<\s*\/\s*parameter\s*>/i);
+    if (par) {
+      const key = String(par[1]).trim(), val = String(par[2]).trim();
+      if (key) fields[key] = val;
+      // <invoke name="mood"><parameter name="label">嘴硬</parameter> → mood 的 label
+      if (curName && curName !== key) fields[curName + "." + key] = val;
+    }
+  }
+  return { words: out, fields: hit ? fields : null };
+}
 function pullPhotoMarker(words) {
   const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
   const start = list.findIndex(w => /\[\s*photo\s*[:：]/i.test(w));
@@ -5442,6 +5475,25 @@ function ttsMarkStrip(text) {
 function ttsHasMark(text) {
   const s = String(text == null ? "" : text);
   return !!s && ttsMarkStrip(s) !== s.trim();
+}
+// 停顿标记只有语音才有意义（<#0.5#> 是说给 TTS 听的）。模型偶尔把一条语音写进了普通文字气泡，
+// 气泡里就冒出一串 <#0.5#>（群里有人报 2026-09-28）。带停顿标记的气泡＝TA 本来想发语音：
+// 连着的几条并成一条语音还回去，不带标记的原样留在文字里。
+function ttsHasPause(text) {
+  const s = String(text == null ? "" : text);
+  return !!s && s.replace(TTS_MARK_PAUSE, "") !== s;
+}
+function pullPauseVoice(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const out = [], voice = [];
+  let run = null;
+  list.forEach(w => {
+    if (ttsHasPause(w)) { run = run == null ? w.trim() : run + " " + w.trim(); return; }
+    if (run != null) { voice.push(run); run = null; }
+    out.push(w);
+  });
+  if (run != null) voice.push(run);
+  return { words: out, voice };
 }
 // 按台词自动选发音矫正 language_boost（v47.92）：治「日语角色被中文矫正带偏口音」。
 // 假名(ひらがな/カタカナ)是日语铁证、中文里不会出现→有假名走 Japanese，谚文走 Korean，纯 ASCII 走 English，其余默认 Chinese
@@ -7680,18 +7732,28 @@ function sanitizeBubblePatch(obj) {
   if (obj.stickerSize != null) num("stickerSize", 32, 72);
   return Object.keys(out).length ? out : null;
 }
+// OOC 改旧准则（群里有人报 2026-09-28：「OOC 里让它改东西，它只会无限叠加，改不了之前的准则」）。
+// 原来提示词只说「directive 可填修正后的新表述」，可代码只会往后追加——旧的那条永远在，
+// 新旧两条打架。现在让模型点名换掉的是第几条，按序号换回【原文】交给存的那一处去删。
+const OOC_REPLACE_RULE = "（用户要改其中某条：directive 填改好的新表述，replaces 填被它换掉的旧条序号；要取消某条：directive 填 null，replaces 填那条的序号。用户没点名是哪条时按意思找最接近的那条；真判断不出就在 reply 里问是哪一条，replaces 留空。只动用户要动的那条，其余原样保留。新要求和某条旧的相冲突时，也要把旧的那条放进 replaces，别让两条并存）";
+function oocResult(parsed, existing) {
+  const refused = !!parsed.refused;
+  const nums = Array.isArray(parsed.replaces) ? parsed.replaces : (parsed.replaces != null ? [parsed.replaces] : []);
+  const replaced = refused ? [] : [...new Set(nums.map(n => existing[Number(n) - 1]).filter(Boolean))];
+  return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced };
+}
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
-  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次是要取消/修改其中某条，也在 reply 里说明，directive 可填修正后的新表述）" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"refused\":false}";
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
   if (parsed && typeof parsed.reply === "string") {
-    return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused };
+    return oocResult(parsed, existing);
   }
   // 兜底：解析失败当作纯文本回复，不动准则
-  return { reply: String(raw || "").trim(), directive: null, refused: false };
+  return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
 // OOC（群聊 / 群聊线下）：跳出所有角色，直接和模型对话
 async function oocAskGroup(p, ctx, question) {
@@ -7703,11 +7765,11 @@ async function oocAskGroup(p, ctx, question) {
   const memberDesc = members.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length))).join("\n\n");
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
-  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次要取消/修改其中某条，也在 reply 说明，directive 可填修正后的新表述）" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"refused\":false}";
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
-  if (parsed && typeof parsed.reply === "string") return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused };
-  return { reply: String(raw || "").trim(), directive: null, refused: false };
+  if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
+  return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
 async function runProbe(p, ctx, probe) {
   // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
@@ -8287,9 +8349,19 @@ function geoNow() {
 // near=[lat,lng] 时就近加权：同名的先出你附近那个，但不封死。
 function geoSearch(q, near, signal) {
   const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
-  return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
+  const nom = () => fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
     .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
     .then(list => (list || []).map(x => ({ name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) })));
+  // 备用那一家（2026-09-28 别人报「在地图里面搜地名一点反应都没有」）：OSM 那边在国内经常连不上或者慢到像没反应。
+  //   天气本来就是 open-meteo 给的，它家也有按地名查坐标，国内一般连得上——第一家失败或者查空了就问它。
+  const om = () => fetch("https://geocoding-api.open-meteo.com/v1/search?count=6&language=zh&format=json&name=" + encodeURIComponent(q), { signal: signal })
+    .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
+    .then(d => ((d && d.results) || []).map(x => { const tail = [x.admin1, x.country].filter(Boolean).join(", "); return { name: x.name + (x.admin1 ? "," + x.admin1 : ""), full: x.name + (tail ? ", " + tail : ""), lat: Number(x.latitude), lng: Number(x.longitude) }; }));
+  // 第一家最多等 6 秒：卡住不回的时候她看到的就是「一点反应都没有」
+  const slow = new Promise((_, rej) => setTimeout(() => rej(new Error("search_timeout")), 6000));
+  return Promise.race([nom(), slow])
+    .then(list => list.length ? list : om())
+    .catch(e => { if (signal && signal.aborted) throw e; return om(); });
 }
 // 手填一个地名 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
 async function geoFromPlace(q, near) {

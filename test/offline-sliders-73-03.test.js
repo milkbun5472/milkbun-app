@@ -19,7 +19,9 @@ test("两边线下的输出上限都拉到 OUT_CEILING", () => {
 });
 
 test("两边的最低字数都拉到 8000", () => {
-  assert.equal((comp.match(/h\(Slider, \{ value: sMinW, min: 0, max: 8000, step: 100/g) || []).length, 2,
+  // v74.211 起两边的最低字数都用公共那一段 WordFloorSection（她：「统一一下公共设置字数拉条，
+  // 不要一样一处」）；拉条本身、clamp、上限都收在那一处，这儿钉的是【两边都接了】。
+  assert.equal((comp.match(/h\(WordFloorSection, \{ value: sMinW, onChange: setSMinW/g) || []).length, 2,
     "单人线下和群线下，有一边没放开");
   // 下限 8000 字换算出来的预算仍在天花板之内（tokensFor：字数×3＋8000）
   const tokensFor = new Function("OUT_CEILING", "return " + /const tokensFor = (.+);/.exec(sp)[1] + ";")(65535);

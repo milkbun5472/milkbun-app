@@ -15,7 +15,9 @@ function harness(seed) {
     loadCurricula: () => JSON.parse(JSON.stringify(store)), saveCurricula: a => { store = JSON.parse(JSON.stringify(a)); } };
   vm.createContext(ctx);
   const rd = src.slice(src.indexOf("const REVIEW_DAYS = "), src.indexOf("\n", src.indexOf("const REVIEW_DAYS = ")));
-  vm.runInContext("const DAY_MS = 86400000;\n" + rd + "\n" + ["updateCurriculumReview", "inMistakeBook", "mistakeBookItems", "removeFromMistakeBook", "quizAnswerText", "mistakeBookText", "progressText", "dueReviewItems", "upcomingReviewDays", "reviewStageText"].map(fn).join("\n")
+  // mistakeBookText 会读错因那张表（她自己点的错因要给老师看）——照原样从源码里抠那一行常量
+  const causes = src.slice(src.indexOf("  const MISTAKE_CAUSE = {"), src.indexOf("  function setMistakeCause("));
+  vm.runInContext("const DAY_MS = 86400000;\n" + rd + "\n" + causes + "\n" + ["updateCurriculumReview", "inMistakeBook", "mistakeBookItems", "removeFromMistakeBook", "quizAnswerText", "mistakeBookText", "progressText", "dueReviewItems", "upcomingReviewDays", "reviewStageText"].map(fn).join("\n")
     + "\nthis.rev = updateCurriculumReview; this.items = mistakeBookItems; this.drop = removeFromMistakeBook; this.text = mistakeBookText; this.prog = progressText;"
     + "this.due = dueReviewItems; this.upcoming = upcomingReviewDays; this.stageText = reviewStageText; this.DAYS = REVIEW_DAYS;", ctx);
   ctx.cur = () => store[0];

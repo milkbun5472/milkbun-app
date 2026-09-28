@@ -17,7 +17,7 @@
       "cloth": "裙身、包包与肩带",
       "trim": "衬衫与衣领",
       "accent": "蝴蝶结",
-      "detail": "小熊脸部",
+      "detail": "小熊装饰",
       "socks": "袜子",
       "boots": "鞋子"
     },
@@ -75,6 +75,16 @@
       "accent": "#7e7c7a",
       "socks": "#dddad5",
       "boots": "#6f6e6b"
+    }
+  },
+  "tee": {
+    "labels": {
+      "cloth": "T恤",
+      "bottom": "牛仔裤",
+      "boots": "球鞋"
+    },
+    "add": {
+      "boots": "#dcdad6"
     }
   }
 }

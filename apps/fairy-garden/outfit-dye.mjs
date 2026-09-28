@@ -1,14 +1,15 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-f6f4db1cdeac211e';
+import {OUTFITS} from './wardrobe.mjs?v=fg-56c89142830d3852';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;
  if(name.includes('_sleeve'))return `si=${id==='academy'||id==='garden'?1:0};`;
- if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=4;if(p.y>.105&&(sc.g-sc.b)>(sc.r-sc.g)*.22)si=2;':'si=4;';
+ if(name.includes('_footwear')&&id==='tee')return 'si=sc.b>sc.r+.01&&sc.r<.72&&p.y>.05?2:4;';
+ if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=(piece.y>.105||(piece.x>.045&&piece.y>.083&&piece.w<.08))?2:4;':'si=4;';
  if(name.includes('_side_lining'))return 'si=0;';
- if(id==='ranger')return name.includes('_bag')||name.includes('_strap')?'si=3;':name.includes('_trousers')?'si=2;':'si=0;';
+ if(id==='ranger')return name.includes('_bag')||name.includes('_strap')?'si=3;':name.includes('_trousers')?'si=piece.x>.36?0:2;':'si=0;';
  if(id==='academy')return `
  si=piece.x<.30?2:0;
  if(piece.x>.61)si=1;
@@ -19,19 +20,24 @@ export function regionShader(o){
  if(p.y>.50&&sc.r>.60&&sc.g>.52)si=1;
  if(piece.x>.50&&piece.y<.655&&piece.w>.08)si=sc.r>.65?1:3;
  
- if(p.x<0.&&p.y>.32&&p.y<.405&&p.z>.14&&sc.r>.52)si=7;
+ // The ornament wraps around the pouch: its left ear is behind z=.14.
+ if(piece.x>.315&&piece.y<.388&&piece.z<-.11&&piece.w>.105)si=7;
  if(p.y<.17)si=6;
  `;
  if(id==='cardigan')return `
  si=0;
  bool cream=(sc.g-sc.b)>max(sc.r-sc.g,.005)*.32;
- if(piece.x<.30||p.y<.44&&cream)si=2;
- if(piece.z>.035&&piece.w>.025&&piece.x>.37&&piece.y<.54&&cream)si=5;
+ if(piece.x<.30||p.y<.40||p.y<.44&&cream)si=2;
+ if(piece.z>.05&&piece.w>.025&&piece.x>.37&&piece.y<.54)si=5;
  if(p.z>.065&&p.y>.50&&cream)si=5;
+ // Authored strap islands continue across the shoulder and down its back.
+ if(piece.x>.65&&piece.x<.71&&piece.y>.71&&piece.y<.73&&piece.z>-.10&&piece.z<-.065)si=5;
  `;
  if(id==='jacket')return `
  si=piece.x<.30?2:0;
- if(p.y>.385&&sc.r>.65&&sc.g>.60)si=1;
+ // The shirt and the inside of its collar are complete UV panels, including shadows.
+ if(piece.x>.39&&piece.y>.69&&abs(piece.z)<.06&&piece.w>.06)si=1;
+ if(piece.x>.655&&abs(piece.z)<.064&&piece.w>-.07)si=1;
  if(p.y<.15&&(sc.r>.48||p.y<.06))si=4;
  `;
  if(id==='suit')return `
@@ -42,6 +48,14 @@ export function regionShader(o){
  }
  if(p.y<.115)si=4;
  if(p.y>.085&&p.y<.145&&sc.r>.5)si=6;
+ `;
+ // T恤（2026-09-27）：按原贴图的布色分，不按高度线——T恤下摆盖着裤腰，一条高度线会把下摆涂成裤色。
+ // 白布＝T恤；偏蓝的灰布＝牛仔裤（到 .35 为止）；脚边的白和最底下的鞋底＝球鞋。
+ if(id==='tee')return `
+ si=0;
+ bool denim=sc.b>sc.r+.01&&sc.r<.72;
+ if(denim&&p.y<.36)si=2;
+ if(p.y<.2&&!denim||p.y<.05)si=4;
  `;
  return null;
 }
@@ -65,6 +79,9 @@ export function attachRegionDye(o,previous){
    ${code}
    float fabricLight=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
    float baseLight=max(.025,dot(uRegionBase[si],vec3(.2126,.7152,.0722)));
+   ${o.userData.outfit==='jacket'?`// Lapel panels retain texture relief while removing baked near-black occlusion.
+   bool lapel=piece.x>.614&&piece.x<.617&&piece.y>.68&&piece.y<.688&&abs(piece.z)>.09&&abs(piece.z)<.11;
+   if(si==0&&lapel)fabricLight=baseLight*pow(max(fabricLight/baseLight,.001),.30);`:''}
    diffuseColor.rgb=uRegionColors[si]*clamp(fabricLight/baseLight,.08,1.65);
   `+sh.fragmentShader.slice(end+'diffuseColor.rgb*=tt;'.length);
  };

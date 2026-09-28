@@ -329,8 +329,12 @@
 
   // ---- 课程记忆：curriculum 下跨 session 的往期摘要（内部互通，绝不碰全局聊天记忆库）----
   function curriculumMemoryText(cur) {
-    if (!cur || !cur.memory) return "";
+    if (!cur) return "";
     const out = [];
+    const ex = examCountdown(cur);
+    if (ex && ex.days >= 0) out.push("【她在备考】「" + ex.name + "」在 " + ex.date + (ex.days === 0 ? "，就是今天。" : "，还有 " + ex.days + " 天。")
+      + "排进度、挑复习的量照着这个日子来：离得远就稳着往前走；只剩几周了，就先把还不稳的点和错题本里的清掉，新东西少开。");
+    if (!cur.memory) return out.join("\n\n");
     const sums = Array.isArray(cur.memory.summaries) ? cur.memory.summaries : [];
     if (sums.length) out.push("【这门课前几次一起学到哪了（跨 session 记忆，自然衔接、别生硬复述、别从零重来）】\n" +
       sums.slice(-8).map(function (s, i) { return (i + 1) + ". " + s.text; }).join("\n"));
@@ -349,10 +353,12 @@
     const line = function (x) {
       return "· " + String(x.prompt || "").replace(/\s+/g, " ").slice(0, 60)
         + (x.lastAnswer ? "——她上次答「" + String(x.lastAnswer).slice(0, 40) + "」" : "")
-        + "，答案是「" + quizAnswerText(x, x.answer).slice(0, 40) + "」" + (Number(x.wrongCount) > 1 ? "（错过 " + x.wrongCount + " 次）" : "");
+        + "，答案是「" + quizAnswerText(x, x.answer).slice(0, 40) + "」" + (Number(x.wrongCount) > 1 ? "（错过 " + x.wrongCount + " 次）" : "")
+        + (MISTAKE_CAUSE[x.cause] ? "——她自己说是「" + MISTAKE_CAUSE[x.cause].zh + "」" : "");
     };
     return "【她的错题本】" + (kept.length ? "\n还留在本子里的（她自己也觉得还没过关）：\n" + kept.map(line).join("\n") : "")
       + (gone.length ? "\n她自己移出去的（她觉得已经会了）：\n" + gone.map(function (x) { return "· " + String(x.prompt || "").replace(/\s+/g, " ").slice(0, 60); }).join("\n") : "")
+      + "\n她标了错因的，照错因补：概念没懂就换个讲法重讲，粗心就让她自己检查一遍，记混了就把那两样摆在一起对比，没记住就多见几次。"
       + "\n这是让你心里有数的：讲到相关的地方，可以顺手让她再试一次、或者点破她上次卡在哪；她移出去的那几道，偶尔抽查一下她是不是真会了。";
   }
 
@@ -677,6 +683,8 @@
       type: quiz.type, prompt: quiz.prompt, options: (quiz.options || []).slice(), answer: quiz.answer,
       aliases: (quiz.aliases || []).slice(), wordBank: (quiz.wordBank || []).slice(),
       hints: (quiz.hints || []).slice(), explanation: quiz.explanation || "",
+      // 错因是她自己点的：这张卡再怎么重做都留着，除非她改；答对出本了也留着，回头看得见当初是怎么错的
+      cause: (old && old.cause) || null,
       stage: stage, nextReviewAt: nextReviewAt, lastResult: outcome.result,
       lastConfidence: outcome.confidence, lastSupport: outcome.support, updatedAt: outcome.ts
     };
@@ -1167,6 +1175,439 @@
   }
 
   // ---- 暴露给 UI 层 --------------------------------------------------
+  // ── 学习概况（她 2026-09-28：「地基和燃料都是现成的，仪表盘缺的只是一层把已有数据画出来的皮」）──
+  // ⚠️零新数据：只读这门课已经在存的那几样——
+  //   · 每节课 progress.mastery（要点 id → 0 新学 / 1 待复习 / 2 基本会 / 3 稳，同 progressText 那张口径）
+  //   · progress.mistakes（结课批改暴露的错因）＋ memory.review_items 上的 wrongCount / hintedCount（错题本那张卡）
+  //   · review_items.nextReviewAt（艾宾浩斯那条线上的到期时间）
+  //   · transcript 里她自己说话的那些时间（按本地日期数「学了几天」）
+  // 同一个要点在好几节课里都出现过：取最后更新那一节的掌握度（新的覆盖旧的）。
+  // 同一次答错可能同时记在 mistakes 和那张复习卡上：两边取大的，不相加，免得一道题算两次。
+  function studyDashboard(cur, sessions, now) {
+    const t = now || Date.now();
+    const sess = (Array.isArray(sessions) ? sessions : []).filter(function (x) { return x && (!cur || x.curriculum_id === cur.id); })
+      .slice().sort(function (a, b) { return Number(a.updated_at || 0) - Number(b.updated_at || 0); });
+    const label = {}, level = {}, miss = {};
+    const days = new Set();
+    let first = 0;
+    const dayKey = function (ts) { const d = new Date(ts); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+    sess.forEach(function (x) {
+      ((x.outline && x.outline.units) || []).forEach(function (u) {
+        (u.grammar || []).forEach(function (g) { if (g && g.id != null && !label[g.id]) label[g.id] = g.label || String(g.id); });
+      });
+      const p = x.progress || {};
+      Object.keys(p.mastery || {}).forEach(function (k) {
+        const v = Number(p.mastery[k]);
+        if (Number.isFinite(v)) level[k] = Math.max(0, Math.min(3, Math.round(v)));
+      });
+      (p.mistakes || []).forEach(function (m) { if (m && m.pointId != null) miss[m.pointId] = (miss[m.pointId] || 0) + 1; });
+      (x.transcript || []).forEach(function (m) {
+        const ts = Number(m && m.ts);
+        if (m && m.role === "user" && ts > 0) { days.add(dayKey(ts)); if (!first || ts < first) first = ts; }
+      });
+    });
+    const items = (cur && cur.memory && Array.isArray(cur.memory.review_items)) ? cur.memory.review_items : [];
+    const wrong = {};
+    items.forEach(function (x) {
+      if (!x || x.pointId == null) return;
+      wrong[x.pointId] = (wrong[x.pointId] || 0) + (Number(x.wrongCount) || 0) + (Number(x.hintedCount) || 0);
+    });
+    const dist = [0, 0, 0, 0];
+    Object.keys(level).forEach(function (k) { dist[level[k]]++; });
+    const pits = Object.keys(Object.assign({}, miss, wrong)).map(function (k) {
+      return { pointId: k, label: label[k] || k, count: Math.max(miss[k] || 0, wrong[k] || 0), level: level[k], cause: causeOf(items, k) };
+    }).filter(function (x) { return x.count > 0; })
+      .sort(function (a, b) { return b.count - a.count; }).slice(0, 3);
+    const end = new Date(t); end.setHours(23, 59, 59, 999);
+    const dueToday = items.filter(function (x) { return x && Number(x.nextReviewAt) > 0 && Number(x.nextReviewAt) <= end.getTime(); }).length;
+    const dueNow = items.filter(function (x) { return x && Number(x.nextReviewAt) > 0 && Number(x.nextReviewAt) <= t; }).length;
+    // 复习卡上有她当天的动作（答题、翻闪卡）也算那天学过——不一定每次都在课页里开口
+    items.forEach(function (x) { const ts = Number(x && x.updatedAt); if (ts > 0) { days.add(dayKey(ts)); if (!first || ts < first) first = ts; } });
+    // 连续打卡：从今天往回数；今天还没学就从昨天数起（今天还没过完，不算断）
+    let streak = 0;
+    const cursor = new Date(t); cursor.setHours(12, 0, 0, 0);
+    if (!days.has(dayKey(cursor.getTime()))) cursor.setDate(cursor.getDate() - 1);
+    while (days.has(dayKey(cursor.getTime()))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+    const studiedToday = days.has(dayKey(t));
+    return { days: days.size, since: first || null, sessions: sess.length, points: Object.keys(level).length,
+      dist: { steady: dist[3], ok: dist[2], review: dist[1], fresh: dist[0] }, pits: pits, dueToday: dueToday, dueNow: dueNow,
+      dayKeys: Array.from(days), streak: streak,
+      // 每日目标就两件小事：今天学过一会儿、到点的复习清零。两样都齐＝今天那格打勾
+      goal: { studied: studiedToday, reviewsClear: dueNow === 0, done: studiedToday && dueNow === 0 } };
+  }
+
+  // ── 知识地图（她 2026-09-28）：整门课所有小节和要点排成一张总览 ─────────────
+  // 同样零新数据：小节和要点从各节课的 outline 来（同名小节并成一个），
+  // 掌握度取最后更新那一节的，点开看的是这个点真实留下的作答证据、错因和那张复习卡。
+  function knowledgeMap(cur, sessions) {
+    const sess = (Array.isArray(sessions) ? sessions : []).filter(function (x) { return x && cur && x.curriculum_id === cur.id; })
+      .slice().sort(function (a, b) { return Number(a.updated_at || 0) - Number(b.updated_at || 0); });
+    const units = [], unitByKey = {}, pointById = {};
+    const items = (cur && cur.memory && Array.isArray(cur.memory.review_items)) ? cur.memory.review_items : [];
+    sess.forEach(function (x) {
+      ((x.outline && x.outline.units) || []).forEach(function (u) {
+        const k = String(u.title || u.id || "");
+        if (!unitByKey[k]) { unitByKey[k] = { key: k, title: u.title || "未命名小节", points: [] }; units.push(unitByKey[k]); }
+        (u.grammar || []).forEach(function (g) {
+          if (!g || g.id == null) return;
+          if (!pointById[g.id]) {
+            pointById[g.id] = { id: String(g.id), label: g.label || String(g.id), note: g.note || "", level: null, evidence: [], mistakes: [], item: null };
+            unitByKey[k].points.push(pointById[g.id]);
+          }
+        });
+      });
+      const p = x.progress || {};
+      Object.keys(p.mastery || {}).forEach(function (id) {
+        const v = Number(p.mastery[id]);
+        if (pointById[id] && Number.isFinite(v)) pointById[id].level = Math.max(0, Math.min(3, Math.round(v)));
+      });
+      (p.evidence || []).forEach(function (e) { if (e && pointById[e.pointId]) pointById[e.pointId].evidence.push(e); });
+      (p.mistakes || []).forEach(function (m) { if (m && pointById[m.pointId]) pointById[m.pointId].mistakes.push(m); });
+    });
+    items.forEach(function (x) {
+      if (!x || !pointById[x.pointId]) return;
+      // 一个点可能有好几张卡（闪卡、题卡）：摆最近动过的那张
+      const cur0 = pointById[x.pointId].item;
+      if (!cur0 || Number(x.updatedAt || 0) > Number(cur0.updatedAt || 0)) pointById[x.pointId].item = x;
+    });
+    Object.keys(pointById).forEach(function (id) {
+      pointById[id].evidence.sort(function (a, b) { return Number(b.ts || 0) - Number(a.ts || 0); });
+    });
+    return units.filter(function (u) { return u.points.length; });
+  }
+
+  // ── 单元测（她 2026-09-28）：学完一个单元，闭卷做一套 ──────────────────────
+  // 跟课页里的小测是两件事：不聊天、不给提示、不让老师兜着，一口气做完再看成绩单。
+  // ⚠️判分走现成的 gradeQuizAnswer；题卡形状走现成的 parseQuiz——同一种题只有一种长相。
+  // ⚠️做完每一道都照常过 updateCurriculumReview：错的进错题本、对的把复习曲线往后挪，
+  //   跟课页里答题是同一条路，不另开一本。成绩单本身存在 memory.tests 里（这是唯一新加的一格）。
+  const TEST_CAP = 40;
+  async function genUnitTest(active, cur, unit, teacher, worldbook) {
+    const points = (unit && unit.points) || [];
+    if (!points.length) throw new Error("这个单元还没有要点，先上一节课");
+    const ids = points.map(function (p) { return p.id; });
+    const book = mistakeBookItems(cur).filter(function (x) { return ids.includes(String(x.pointId)); }).slice(0, 8);
+    const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
+      "现在给她出一套单元测：闭卷、没有提示、她一个人做完再看成绩。" +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      (worldbook ? "\n【世界书】\n" + worldbook : "") +
+      "\n\n【这个单元：" + unit.title + "】（point_id 只能从这里挑）\n" + points.map(function (p) {
+        return "· " + p.id + "｜" + p.label + (p.note ? "｜" + p.note : "");
+      }).join("\n") +
+      (book.length ? "\n\n【她在这个单元栽过的题】换个问法再考，别原题照抄\n" + book.map(function (x) { return "· " + x.pointId + "：" + String(x.prompt || "").slice(0, 80); }).join("\n") : "") +
+      "\n\n出 " + Math.min(12, Math.max(6, points.length * 2)) + " 道，每个要点至少一道，题型在 choice / true_false / fill_blank 之间轮换，fill_blank 至少占三分之一。" +
+      "每道题只考一个点，题干自己说得清，不依赖前一道。explanation 是做完以后给她看的一句解析。" +
+      "\n只输出 JSON：{\"quizzes\":[{\"point_id\":\"要点 id\",\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题干\"," +
+      "\"options\":[{\"id\":\"A\",\"label\":\"选项\"}],\"answer\":\"choice 填选项 id / true_false 填 true 或 false / fill_blank 填标准答案\",\"aliases\":[\"可接受的别的写法\"],\"explanation\":\"解析\"}]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const quizzes = parseUnitTest(raw, ids);
+    if (quizzes.length < 3) throw new Error("没出成一套能用的题。老师这回写的是：\n" + String(raw || "").slice(0, 320));
+    return quizzes;
+  }
+  function parseUnitTest(raw, allowedIds) {
+    const d = extractJSON(raw) || {};
+    const list = Array.isArray(d.quizzes) ? d.quizzes : [];
+    return list.map(function (q) { return parseQuiz(JSON.stringify({ quiz: q })); })
+      .filter(function (q) { return q && (!allowedIds || allowedIds.includes(q.pointId)); })
+      .slice(0, 14)
+      .map(function (q, i) { return Object.assign({}, q, { id: "ut_" + Date.now() + "_" + i, hints: [], isReview: true }); });
+  }
+  // 交卷：每道题照常过复习卡那条路，再把整张成绩单存下来。answers: [{ quiz, answer, result }]
+  function recordUnitTest(curId, unit, answers) {
+    const ts = Date.now();
+    (answers || []).forEach(function (a) {
+      if (!a || !a.quiz) return;
+      updateCurriculumReview(curId, { id: "unit_test" }, a.quiz, {
+        result: a.result === "correct" ? "correct" : a.result === "partial" ? "partial" : "incorrect",
+        support: "none", confidence: "sure", ts: ts, answer: a.answer
+      });
+    });
+    const fresh = findCurriculum(curId);
+    if (!fresh) return null;
+    const mem = Object.assign({ summaries: [], review_items: [] }, fresh.memory || {});
+    const score = (answers || []).filter(function (a) { return a && a.result === "correct"; }).length;
+    const rec = { id: "test_" + ts + "_" + Math.floor(Math.random() * 1e6), unitKey: unit.key, unitTitle: unit.title, ts: ts, score: score, total: (answers || []).length,
+      items: (answers || []).map(function (a) { return { pointId: a.quiz.pointId, type: a.quiz.type, prompt: a.quiz.prompt, answer: a.quiz.answer,
+        options: a.quiz.options || [], given: String(a.answer == null ? "" : a.answer).slice(0, 300), result: a.result, explanation: a.quiz.explanation || "" }; }) };
+    mem.tests = (mem.tests || []).concat([rec]).slice(-TEST_CAP);
+    saveCurriculum(Object.assign({}, fresh, { memory: mem, updated_at: ts }));
+    return rec;
+  }
+  // 这个单元上一次的成绩（不含刚交的这张）。
+  // ⚠️按编号排除、按存进去的先后取，不比时间戳：两次交卷落在同一毫秒时，比时间就找不到「上一次」。
+  function lastUnitTest(cur, unitKey, excludeId) {
+    const tests = (cur && cur.memory && cur.memory.tests) || [];
+    const hit = tests.filter(function (x) { return x && x.unitKey === unitKey && x.id !== excludeId; });
+    return hit[hit.length - 1] || null;
+  }
+  // 按要点算一张成绩单里的对错：{ pointId: { right, total } }
+  function testByPoint(rec) {
+    const out = {};
+    ((rec && rec.items) || []).forEach(function (x) {
+      const o = out[x.pointId] || (out[x.pointId] = { right: 0, total: 0 });
+      o.total++; if (x.result === "correct") o.right++;
+    });
+    return out;
+  }
+
+  // ── 考试倒计时（她 2026-09-28）：课身上记一格 exam:{ name, date:"YYYY-MM-DD" } ─────
+  // 老师也看得到（curriculumMemoryText 那一处），排课和复习量跟着这个日子走。
+  function examCountdown(cur, now) {
+    const ex = cur && cur.exam;
+    if (!ex || !/^\d{4}-\d{2}-\d{2}$/.test(String(ex.date || ""))) return null;
+    const p = String(ex.date).split("-").map(Number);
+    const day = new Date(p[0], p[1] - 1, p[2]).getTime();
+    const today = new Date(now || Date.now()); today.setHours(0, 0, 0, 0);
+    return { name: String(ex.name || "考试").slice(0, 30), date: ex.date, days: Math.round((day - today.getTime()) / DAY_MS) };
+  }
+  function setExam(curId, exam) {
+    const fresh = findCurriculum(curId);
+    if (!fresh) return null;
+    const ok = exam && /^\d{4}-\d{2}-\d{2}$/.test(String(exam.date || ""));
+    const next = Object.assign({}, fresh, { exam: ok ? { name: String(exam.name || "").trim().slice(0, 30) || "考试", date: exam.date } : null, updated_at: Date.now() });
+    saveCurriculum(next);
+    return next;
+  }
+
+  // ── 学习时长（她 2026-09-28）：不另记表，从两样现成的时间里估 ─────────────────
+  //   · 课页：同一节课里两句话隔得不超过 10 分钟，就算这段一直在学（一段开头另算 1 分钟：看题、想答案）；
+  //   · 番茄钟：任务里写着这门课名字的那几场，按真专注的分钟数算（x_pomodoro_saves 里的 focusedMinutes）。
+  // 两边重叠的时间只算一次——一边开着番茄钟一边在课页里答题，是同一段时间。
+  const STUDY_GAP_MS = 10 * 60000;
+  function studyTime(cur, sessions, pomoSaves, now) {
+    const t = now || Date.now();
+    const spans = [];
+    (Array.isArray(sessions) ? sessions : []).filter(function (x) { return x && cur && x.curriculum_id === cur.id; }).forEach(function (x) {
+      const ts = (x.transcript || []).map(function (m) { return Number(m && m.ts); }).filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
+      let a = null, b = null;
+      ts.forEach(function (v) {
+        if (a == null) { a = v - 60000; b = v; return; }
+        if (v - b <= STUDY_GAP_MS) b = v; else { spans.push([a, b]); a = v - 60000; b = v; }
+      });
+      if (a != null) spans.push([a, b]);
+    });
+    const subj = String(cur && cur.subject || "").trim();
+    if (cur) (Array.isArray(pomoSaves) ? pomoSaves : []).forEach(function (r) {
+      const mins = Number(r && r.focusedMinutes);
+      // 开番茄钟时选了课的，按课认；选课之前的老记录，才退回去看任务里有没有课名
+      const mine = r && r.curId ? r.curId === cur.id : !!subj && String(r && r.task || "").indexOf(subj) >= 0;
+      if (!(mins > 0) || !mine) return;
+      const end = Number(r.ts) || 0;
+      if (end > 0) spans.push([end - mins * 60000, end]);
+    });
+    spans.sort(function (x, y) { return x[0] - y[0]; });
+    const merged = [];
+    spans.forEach(function (sp) {
+      const last = merged[merged.length - 1];
+      if (last && sp[0] <= last[1]) last[1] = Math.max(last[1], sp[1]); else merged.push([sp[0], sp[1]]);
+    });
+    const dayStart = new Date(t); dayStart.setHours(0, 0, 0, 0);
+    const wk = weekStart(t);
+    const within = function (from, to) {
+      return Math.round(merged.reduce(function (n, sp) { return n + Math.max(0, Math.min(sp[1], to) - Math.max(sp[0], from)); }, 0) / 60000);
+    };
+    return { today: within(dayStart.getTime(), t), week: within(wk, t), total: within(0, t) };
+  }
+  function minutesText(m) {
+    m = Math.max(0, Math.round(Number(m) || 0));
+    if (m < 60) return m + " 分钟";
+    const hh = Math.floor(m / 60), mm = m % 60;
+    return hh + " 小时" + (mm ? " " + mm + " 分" : "");
+  }
+
+  // ── 导出（她 2026-09-28）：闪卡 → Anki，错题本 → 一页能打印的 ─────────────────
+  // 文件落地走 engine.js 的 saveTextFile（iOS 走分享面板，别处普通下载），这里只管拼出文件内容。
+  function pointLabels(sessions) {
+    const label = {};
+    (sessions || []).forEach(function (s) { ((s.outline && s.outline.units) || []).forEach(function (u) { (u.grammar || []).forEach(function (g) { if (g && g.id != null) label[g.id] = g.label || String(g.id); }); }); });
+    return label;
+  }
+  function fileSafe(name) { return String(name || "课程").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40); }
+  function todayStr() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  // Anki「导入文件」认的纯文本：头几行 # 开头是给 Anki 看的设置（分隔符、允许 HTML、第三列是标签）。
+  // 一行一张：正面 \t 背面 \t 标签。字段里的制表符和换行得换掉，不然一张卡会被拆成几张。
+  function ankiExport(cur, sessions) {
+    const label = pointLabels(sessions);
+    const cell = function (v) {
+      return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\t/g, " ").replace(/\r?\n/g, "<br>");
+    };
+    const tag = function (v) { return String(v || "").replace(/\s+/g, "_"); };
+    const deck = tag(cur && cur.subject || "一起学");
+    const rows = ((cur && cur.flashcards) || []).map(function (c) {
+      const back = cell(c.back) + (c.aside ? "<br><br><i>" + cell(c.aside) + "</i>" : "");
+      return [cell(c.front), back, [deck, c.pointId && label[c.pointId] ? tag(label[c.pointId]) : ""].filter(Boolean).join(" ")].join("\t");
+    });
+    return ["#separator:tab", "#html:true", "#tags column:3", "#deck:" + (cur && cur.subject || "一起学")].concat(rows).join("\n") + "\n";
+  }
+  // 错题本那一页：自带样式的一张 html，手机上打开就能「打印 / 存成 PDF」。
+  // 每道题底下留几行空白，方便她打出来重新写一遍；答案折在题目后面，打印时照样在。
+  function mistakeBookHtml(cur, sessions) {
+    const label = pointLabels(sessions);
+    const esc = function (v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+    const items = mistakeBookItems(cur);
+    const body = items.map(function (x, i) {
+      const opts = x.type === "choice" ? "<ol class=\"opts\">" + (x.options || []).map(function (o) { return "<li><b>" + esc(o.id) + "</b> " + esc(o.label) + "</li>"; }).join("") + "</ol>" : "";
+      const meta = [label[x.pointId] || "", Number(x.wrongCount) ? "错过 " + x.wrongCount + " 次" : "", Number(x.hintedCount) ? "靠提示 " + x.hintedCount + " 次" : "",
+        MISTAKE_CAUSE[x.cause] ? "错因：" + MISTAKE_CAUSE[x.cause].zh : ""].filter(Boolean).join(" · ");
+      return "<section><div class=\"meta\">" + (i + 1) + (meta ? " · " + esc(meta) : "") + "</div>"
+        + "<div class=\"q\">" + esc(x.prompt).replace(/\n/g, "<br>") + "</div>" + opts
+        + "<div class=\"blank\"></div>"
+        + (x.lastAnswer ? "<div class=\"mine\">上次写的：" + esc(x.lastAnswer) + "</div>" : "")
+        + "<div class=\"ans\">答案：" + esc(quizAnswerText(x, x.answer)) + "</div>"
+        + (x.explanation ? "<div class=\"exp\">" + esc(x.explanation).replace(/\n/g, "<br>") + "</div>" : "")
+        + "</section>";
+    }).join("");
+    return "<!doctype html><html lang=\"zh\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+      + "<title>" + esc(cur.subject) + " · 错题本</title><style>"
+      + "body{font-family:-apple-system,'PingFang SC','Noto Sans CJK SC',sans-serif;color:#30352f;background:#fbf8ef;margin:0;padding:24px 18px;line-height:1.7}"
+      + "h1{font-size:22px;margin:0}.sub{color:#92978e;font-size:12px;margin:4px 0 18px}"
+      + "section{border-left:3px solid #ad6254;background:#fff;padding:12px 14px;margin:0 0 12px;border-radius:4px 10px 10px 4px;break-inside:avoid}"
+      + ".meta{font-size:11px;color:#92978e}.q{font-size:15px;margin-top:4px}.opts{margin:6px 0 0;padding-left:0;list-style:none;font-size:13px}"
+      + ".blank{height:54px;border-bottom:1px dashed #d8d4c6;margin:6px 0 8px}.mine{font-size:12px;color:#ad6254}.ans{font-size:13px;color:#4a7a4a}.exp{font-size:12px;color:#646b62;margin-top:3px}"
+      + "@media print{body{background:#fff;padding:0}section{box-shadow:none}}"
+      + "</style></head><body><h1>" + esc(cur.subject) + " · 错题本</h1><div class=\"sub\">" + todayStr() + " 导出 · " + items.length + " 道</div>"
+      + (items.length ? body : "<p>本子是空的。</p>") + "</body></html>";
+  }
+  async function exportFile(kind, cur, sessions) {
+    if (typeof saveTextFile !== "function") throw new Error("这台设备存不了文件");
+    if (kind === "anki") return saveTextFile(fileSafe(cur.subject) + "_闪卡_" + todayStr() + ".txt", ankiExport(cur, sessions), "text/plain");
+    return saveTextFile(fileSafe(cur.subject) + "_错题本_" + todayStr() + ".html", mistakeBookHtml(cur, sessions), "text/html");
+  }
+
+  // ── 错因（她 2026-09-28）：错题除了记「错了」，再记是怎么错的 ─────────────
+  // ⚠️她自己点，不让模型猜：同一道错题，是没懂还是手滑，只有她自己知道；猜错了还会把老师带偏。
+  const MISTAKE_CAUSE = {
+    concept: { zh: "概念没懂", tone: "#ad6254" },
+    mixup: { zh: "记混了", tone: "#b8864a" },
+    memory: { zh: "没记住", tone: "#7b7fa6" },
+    careless: { zh: "粗心", tone: "#8a8f86" }
+  };
+  function setMistakeCause(curId, key, cause) {
+    const all = loadCurricula();
+    const idx = all.findIndex(function (c) { return c.id === curId; });
+    if (idx < 0) return false;
+    const cur = all[idx], mem = Object.assign({ summaries: [], review_items: [] }, cur.memory || {});
+    const val = MISTAKE_CAUSE[cause] ? cause : null;
+    mem.review_items = (mem.review_items || []).map(function (x) { return x && x.key === key ? Object.assign({}, x, { cause: val }) : x; });
+    all[idx] = Object.assign({}, cur, { memory: mem, updated_at: Date.now() });
+    saveCurricula(all);
+    return true;
+  }
+  // 一个要点上各种错因各几张（坑的排名旁边摆「多半是记混了」用）
+  function causeOf(items, pointId) {
+    const n = {};
+    (items || []).forEach(function (x) { if (x && String(x.pointId) === String(pointId) && MISTAKE_CAUSE[x.cause]) n[x.cause] = (n[x.cause] || 0) + 1; });
+    const top = Object.keys(n).sort(function (a, b) { return n[b] - n[a]; })[0];
+    return top || null;
+  }
+
+  // ── 答一张复习卡（她 2026-09-28 抽出来）：「该复习了」和快刷两页共用 ─────────
+  // ⚠️原来这两段写在 MistakeBook 里；快刷要的是同一件事，照抄一份就是两处各改各的（one-public-mechanism）。
+  // 返回 { ok, result, when }；判不出来（复核失败）时什么都不改，ok:false。
+  async function answerReviewItem(active, curId, x, value, sessionTag) {
+    const val = String(value == null ? "" : value).trim();
+    if (!val) return { ok: false, empty: true };
+    const quiz = { type: x.type, prompt: x.prompt, pointId: x.pointId, options: x.options || [], answer: x.answer, aliases: x.aliases || [], isReview: true, reviewKey: x.key };
+    const g = await gradeQuizAnswer(active, quiz, val);
+    if (g.reviewFailed) return { ok: false, reviewFailed: true };
+    updateCurriculumReview(curId, { id: sessionTag || "review" }, quiz, { result: g.result, support: "none", confidence: "sure", ts: Date.now(), answer: quizAnswerText(x, val) });
+    const after = ((findCurriculum(curId) || {}).memory || { review_items: [] }).review_items.find(function (y) { return y.key === x.key; });
+    return { ok: true, result: g.result, feedback: g.feedback, when: after ? reviewStageText(after).when : "" };
+  }
+  // 闪卡不判卷：她翻开自己点。复习卡上存着正反面，照原样拼回一张卡交给同一个出口
+  function rateReviewCard(curId, x, r) {
+    const id = String(x.key || "").replace(/^fc_/, "");
+    rateFlashcard(curId, { id: id, front: x.prompt, back: x.answer, aside: x.explanation, pointId: x.pointId }, r);
+    const after = ((findCurriculum(curId) || {}).memory || { review_items: [] }).review_items.find(function (y) { return y.key === x.key; });
+    return { when: after ? reviewStageText(after).when : "" };
+  }
+
+  // ── 周报（她 2026-09-28）：这一周学了几天、新会了哪些、哪些掉回去了、下周要复习多少 ──
+  // 数全从现成的地方来；唯一新存的是老师那句评语（memory.weekly[周一的日期]），她点了才写。
+  function weekStart(t) {
+    const d = new Date(t); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // 周一
+    return d.getTime();
+  }
+  function weeklyReport(cur, sessions, now) {
+    const t = now || Date.now(), from = weekStart(t), to = from + 7 * DAY_MS;
+    const inWeek = function (ts) { ts = Number(ts); return ts >= from && ts < to; };
+    const sess = (Array.isArray(sessions) ? sessions : []).filter(function (x) { return x && cur && x.curriculum_id === cur.id; });
+    const label = {}, days = new Set(), ev = [];
+    const dayKey = function (ts) { const d = new Date(ts); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+    sess.forEach(function (x) {
+      ((x.outline && x.outline.units) || []).forEach(function (u) { (u.grammar || []).forEach(function (g) { if (g && g.id != null) label[g.id] = g.label || String(g.id); }); });
+      (x.transcript || []).forEach(function (m) { if (m && m.role === "user" && inWeek(m.ts)) days.add(dayKey(m.ts)); });
+      ((x.progress && x.progress.evidence) || []).forEach(function (e) { if (e && e.pointId != null) ev.push(e); });
+    });
+    const items = (cur && cur.memory && cur.memory.review_items) || [];
+    items.forEach(function (x) { if (x && inWeek(x.updatedAt)) days.add(dayKey(x.updatedAt)); });
+    ev.sort(function (a, b) { return Number(a.ts || 0) - Number(b.ts || 0); });
+    // 每个点：这周之前最后一次的档、这周最后一次的档
+    const before = {}, after = {};
+    ev.forEach(function (e) {
+      const lv = Number(e.level);
+      if (!Number.isFinite(lv)) return;
+      if (Number(e.ts) < from) before[e.pointId] = lv; else if (inWeek(e.ts)) after[e.pointId] = lv;
+    });
+    const learned = [], slipped = [];
+    Object.keys(after).forEach(function (id) {
+      const b = before[id], a = after[id];
+      if (a >= 2 && !(b >= 2)) learned.push(label[id] || id);
+      else if (a <= 1 && b >= 2) slipped.push(label[id] || id);
+    });
+    // 复习卡这周答错／靠提示过的，也算掉回去（它不一定在课上留证据）
+    items.forEach(function (x) {
+      if (!x || !inWeek(x.updatedAt) || x.lastResult === "correct" && (!x.lastSupport || x.lastSupport === "none")) return;
+      const nm = label[x.pointId] || x.pointId;
+      if (nm && slipped.indexOf(nm) < 0 && learned.indexOf(nm) < 0 && Number(x.stage) < 0 && x.type !== "flashcard") slipped.push(nm);
+    });
+    const reviewed = items.filter(function (x) { return x && inWeek(x.updatedAt); }).length;
+    const tests = ((cur && cur.memory && cur.memory.tests) || []).filter(function (x) { return x && inWeek(x.ts); });
+    const causes = {};
+    items.forEach(function (x) { if (x && MISTAKE_CAUSE[x.cause] && inWeek(x.updatedAt)) causes[x.cause] = (causes[x.cause] || 0) + 1; });
+    const nextWeek = upcomingReviewDays(cur, t, 7).reduce(function (n, u) { return n + u.count; }, 0)
+      + items.filter(function (x) { return x && Number(x.nextReviewAt) > 0 && Number(x.nextReviewAt) <= t; }).length;
+    const key = new Date(from).getFullYear() + "-" + (new Date(from).getMonth() + 1) + "-" + new Date(from).getDate();
+    const note = (cur && cur.memory && cur.memory.weekly && cur.memory.weekly[key]) || null;
+    return { weekKey: key, from: from, to: to, days: days.size, minutes: studyTime(cur, sessions, typeof loadJSON === "function" ? loadJSON("x_pomodoro_saves", []) : [], t).week, exam: examCountdown(cur, t), learned: learned, slipped: slipped, reviewed: reviewed,
+      tests: tests.map(function (x) { return { title: x.unitTitle, score: x.score, total: x.total }; }), causes: causes, nextWeek: nextWeek, note: note };
+  }
+  // 老师写一句评语：料全在 system，user 只留一句触发（prompt-send-shape）
+  async function genWeeklyNote(active, cur, report, teacher, worldbook) {
+    const causeTxt = Object.keys(report.causes).map(function (k) { return MISTAKE_CAUSE[k].zh + " " + report.causes[k] + " 道"; }).join("、");
+    const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      (worldbook ? "\n【世界书】\n" + worldbook : "") +
+      "\n\n【她这一周】学了 " + report.days + " 天" + (report.minutes ? "，一共大约 " + minutesText(report.minutes) : "") + "；做了 " + report.reviewed + " 次复习" +
+      (report.learned.length ? "；新会了：" + report.learned.join("、") : "；这周没有新会的点") +
+      (report.slipped.length ? "；掉回去的：" + report.slipped.join("、") : "") +
+      (report.tests.length ? "；单元测：" + report.tests.map(function (x) { return x.title + " " + x.score + "/" + x.total; }).join("、") : "") +
+      (causeTxt ? "；她标的错因：" + causeTxt : "") +
+      "；下周要复习大约 " + report.nextWeek + " 道。" +
+      (report.exam && report.exam.days >= 0 ? "离「" + report.exam.name + "」还有 " + report.exam.days + " 天。" : "") +
+      "\n\n写一段周报评语，两三句，用你自己说话的样子。说一件这周真的做到了的事，再说一件下周最该盯的事；数字只在有用时提。" +
+      "这周要是几乎没学，就照你这个人会有的反应说，不用硬夸。只输出评语正文。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const text = String(raw || "").replace(/^["「\s]+|["」\s]+$/g, "").trim();
+    if (!text) throw new Error("老师这回没写出来，再试一次");
+    return text.slice(0, 600);
+  }
+  function saveWeeklyNote(curId, weekKey, text) {
+    const fresh = findCurriculum(curId);
+    if (!fresh) return null;
+    const mem = Object.assign({ summaries: [], review_items: [] }, fresh.memory || {});
+    const weekly = Object.assign({}, mem.weekly || {});
+    weekly[weekKey] = { text: text, ts: Date.now() };
+    // 只留最近 26 周
+    const keys = Object.keys(weekly).sort(function (a, b) { return weekly[a].ts - weekly[b].ts; });
+    while (keys.length > 26) delete weekly[keys.shift()];
+    mem.weekly = weekly;
+    saveCurriculum(Object.assign({}, fresh, { memory: mem, updated_at: Date.now() }));
+    return weekly[weekKey];
+  }
+
   window.Study = {
     loadSessions: loadSessions, saveSessions: saveSessions,
     loadCurricula: loadCurricula, findCurriculum: findCurriculum, findCurriculumBySubject: findCurriculumBySubject,
@@ -1179,7 +1620,10 @@
     updateCurriculumReview: updateCurriculumReview, dueReviewCards: dueReviewCards, quizMasteryLevel: quizMasteryLevel,
     dueReviewItems: dueReviewItems, upcomingReviewDays: upcomingReviewDays, reviewStageText: reviewStageText, REVIEW_DAYS: REVIEW_DAYS,
     inMistakeBook: inMistakeBook, mistakeBookItems: mistakeBookItems, removeFromMistakeBook: removeFromMistakeBook, mistakeBookText: mistakeBookText, quizAnswerText: quizAnswerText,
-    studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds,
+    studyProgressRatio: studyProgressRatio, allowedQuizPointIds: allowedQuizPointIds, studyDashboard: studyDashboard, knowledgeMap: knowledgeMap, genUnitTest: genUnitTest, parseUnitTest: parseUnitTest,
+    recordUnitTest: recordUnitTest, lastUnitTest: lastUnitTest, testByPoint: testByPoint,
+    MISTAKE_CAUSE: MISTAKE_CAUSE, setMistakeCause: setMistakeCause, causeOf: causeOf, answerReviewItem: answerReviewItem, rateReviewCard: rateReviewCard,
+    weeklyReport: weeklyReport, genWeeklyNote: genWeeklyNote, examCountdown: examCountdown, setExam: setExam, ankiExport: ankiExport, mistakeBookHtml: mistakeBookHtml, exportFile: exportFile, studyTime: studyTime, minutesText: minutesText, saveWeeklyNote: saveWeeklyNote, weekStart: weekStart,
     exitAnswerEntry: exitAnswerEntry, unitCompletionGate: unitCompletionGate, compactStudyTranscript: compactStudyTranscript,
     outlineSlice: outlineSlice, progressText: progressText,
     curriculumPoints: curriculumPoints, rateFlashcard: rateFlashcard, flashQueue: flashQueue, parseFlashcards: parseFlashcards,
@@ -1329,30 +1773,22 @@
     (props.sessions || []).forEach(function (s) { ((s.outline && s.outline.units) || []).forEach(function (u) { (u.grammar || []).forEach(function (g) { label[g.id] = g.label; }); }); });
     async function answer(x, v) {
       if (busy) return;
-      const val = String(v == null ? "" : v).trim();
-      if (!val) { props.toast && props.toast("先作答"); return; }
+      if (!String(v == null ? "" : v).trim()) { props.toast && props.toast("先作答"); return; }
       setBusy(true);
       try {
-        const quiz = { type: x.type, prompt: x.prompt, pointId: x.pointId, options: x.options || [], answer: x.answer, aliases: x.aliases || [], isReview: true, reviewKey: x.key };
-        const g = await gradeQuizAnswer(props.bgActive || props.active, quiz, val);
-        if (g.reviewFailed) { props.toast && props.toast("这次没判出来，什么都没改；稍后再试"); return; }
-        updateCurriculumReview(cur.id, { id: "mistake-book" }, quiz, { result: g.result, support: "none", confidence: "sure", ts: Date.now(), answer: quizAnswerText(x, val) });
+        const r = await answerReviewItem(props.bgActive || props.active, cur.id, x, v, "mistake-book");
+        if (r.reviewFailed) { props.toast && props.toast("这次没判出来，什么都没改；稍后再试"); return; }
         setRedo(null); setDraft(""); bump(function (n) { return n + 1; });
         props.onRefresh && props.onRefresh();
-        if (due) {
-          const after = (findCurriculum(cur.id) || cur).memory.review_items.find(function (y) { return y.key === x.key; });
-          props.toast && props.toast(g.result === "correct" ? "记住了，" + reviewStageText(after).when.replace("复习", "再见") : "还没对，4 小时后再来一次");
-        } else props.toast && props.toast(g.result === "correct" ? "做对了——要不要移出错题本，你来定" : "还没对，这道先留着");
+        if (due) props.toast && props.toast(r.result === "correct" ? "记住了，" + r.when.replace("复习", "再见") : "还没对，4 小时后再来一次");
+        else props.toast && props.toast(r.result === "correct" ? "做对了——要不要移出错题本，你来定" : "还没对，这道先留着");
       } finally { setBusy(false); }
     }
-    // 闪卡不判卷：她翻开自己点。复习卡上存着正反面，照原样拼回一张卡交给同一个出口
     function rateCard(x, r) {
-      const id = String(x.key || "").replace(/^fc_/, "");
-      rateFlashcard(cur.id, { id: id, front: x.prompt, back: x.answer, aside: x.explanation, pointId: x.pointId }, r);
+      const res = rateReviewCard(cur.id, x, r);
       setRedo(null); bump(function (n) { return n + 1; });
       props.onRefresh && props.onRefresh();
-      const after = (findCurriculum(cur.id) || cur).memory.review_items.find(function (y) { return y.key === x.key; });
-      props.toast && props.toast(r === "good" ? "记住了，" + reviewStageText(after).when.replace("复习", "再见") : "几小时后再翻一次");
+      props.toast && props.toast(r === "good" ? "记住了，" + res.when.replace("复习", "再见") : "几小时后再翻一次");
     }
     function drop(x) {
       requestAppConfirm("移出错题本？", "只是从本子里拿掉，复习时间照旧；老师会知道你觉得这道已经会了。", function () {
@@ -1363,7 +1799,8 @@
     const small = { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog };
     const btn = function (on) { return { minHeight: 36, padding: "5px 13px", fontFamily: F_BODY, fontSize: 12.5, borderRadius: "4px 10px 4px 4px", border: "1px solid " + (on ? accent : STUDY_SKIN.line), background: on ? accent : "transparent", color: on ? STUDY_SKIN.paper : STUDY_SKIN.ink }; };
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
-      h(StudyHead, { zh: due ? "该复习了" : "错题本", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h(StudyHead, { zh: due ? "该复习了" : "错题本", en: cur.subject, mode: cur.mode, onBack: props.onBack,
+        right: !due && items.length ? h(ExportBtn, { kind: "book", cur: cur, sessions: props.sessions, toast: props.toast }) : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px", lineHeight: 1.7 }) },
           due
@@ -1413,12 +1850,24 @@
                   style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink, background: "rgba(92,112,126,.06)", border: "1px solid " + STUDY_SKIN.line, borderRadius: 8, padding: "7px 10px", outline: "none" } }),
                 h("button", { disabled: busy, onClick: function () { answer(x, draft); }, className: "active:opacity-70", style: btn(true) }, busy ? "判…" : "交")))
               : null,
+            // 错因：没过的、还在本子里的才问（翻闪卡不问——那只是记没记住）
+            x.type !== "flashcard" && (!last || hinted || inMistakeBook(x)) ? h(CauseChips, { key: "c" + x.key + (x.cause || ""), curId: cur.id, itemKey: x.key, value: x.cause }) : null,
             h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
               h("button", { onClick: function () { setRedo(open ? null : x.key); setDraft(""); }, className: "active:opacity-70", style: btn(!open) }, open ? "先不做了" : x.type === "flashcard" ? "翻开" : "重做"),
               due ? null : h("button", { onClick: function () { drop(x); }, className: "active:opacity-70", style: btn(false) }, "移出错题本")));
         })));
   }
 
+  // 顶栏右边那一格「导出」：闪卡页和错题本页共用
+  function ExportBtn(props) {
+    const accent = studyModeSkin(props.cur.mode).accent;
+    return h("button", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: accent, minWidth: 36 },
+      onClick: function () {
+        exportFile(props.kind, findCurriculum(props.cur.id) || props.cur, props.sessions)
+          .then(function (how) { if (how === "download") props.toast && props.toast(props.kind === "anki" ? "存好了：在 Anki 里「导入文件」选它" : "存好了：打开它就能打印或存成 PDF"); })
+          .catch(function (e) { props.toast && props.toast(String(e && e.message || "没存成")); });
+      } }, "导出");
+  }
   // 闪卡那一页：一次一张，点一下翻面，翻过来自己点 记得／模糊／不记得。
   function FlashDeck(props) {
     const cur = props.curriculum;
@@ -1466,7 +1915,8 @@
     const btn = function (bg, ink) { return { flex: 1, minHeight: 46, fontFamily: F_BODY, fontSize: 14, borderRadius: "4px 12px 4px 4px", background: bg, color: ink, border: "1px solid " + STUDY_SKIN.line }; };
     const stage = item ? reviewStageText(item) : null;
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
-      h(StudyHead, { zh: "闪卡", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h(StudyHead, { zh: "闪卡", en: cur.subject, mode: cur.mode, onBack: props.onBack,
+        right: all.length ? h(ExportBtn, { kind: "anki", cur: cur, sessions: props.sessions, toast: props.toast }) : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px" }) },
           all.length ? "一共 " + all.length + " 张" + (round ? "，这一轮还剩 " + queue.length + " 张" : "，这会儿该翻的 " + queue.length + " 张") + "。记得的往后挪，模糊和不记得的几小时后再来，也会进错题本。"
@@ -1604,6 +2054,524 @@
           style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: busy ? STUDY_SKIN.fog : accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } }, busy || "传一份资料")));
   }
 
+  // 这个月的打卡格：学过的那天上色；今天描边，今天的目标齐了再打一个勾。
+  // ⚠️不是热力图：一门课一天学没学是一件是非事，多深多浅说不出东西。
+  function StudyCalendar(props) {
+    const now = new Date(), y = now.getFullYear(), m = now.getMonth(), today = now.getDate();
+    const has = {};
+    (props.dayKeys || []).forEach(function (k) { has[k] = 1; });
+    const lead = new Date(y, m, 1).getDay(), n = new Date(y, m + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push(null);
+    for (let dd = 1; dd <= n; dd++) cells.push(dd);
+    const accent = props.accent;
+    return h("div", { style: { marginTop: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog, marginBottom: 6 } }, (m + 1) + " 月"),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 } },
+        ["日", "一", "二", "三", "四", "五", "六"].map(function (w) { return h("div", { key: "w" + w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 9.5, color: STUDY_SKIN.fog } }, w); }),
+        cells.map(function (dd, i) {
+          if (!dd) return h("div", { key: "e" + i });
+          const on = !!has[y + "-" + (m + 1) + "-" + dd], isToday = dd === today, future = dd > today;
+          return h("div", { key: dd, style: { height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: F_BODY, fontSize: 10.5, background: on ? accent : "transparent",
+            color: on ? STUDY_SKIN.paper : future ? "rgba(146,151,142,.45)" : STUDY_SKIN.fog,
+            boxShadow: isToday ? "inset 0 0 0 1.5px " + (on ? STUDY_SKIN.ink : accent) : "none" } },
+            isToday && props.goalDone ? "✓" : dd);
+        })));
+  }
+  // 学习概况那一张纸：学了几天 / 掌握度一条彩带 / 最容易栽的三个坑 / 今天到期几道。
+  // 数全从 studyDashboard 来，这里只管画；点坑进错题本、点到期进「该复习了」，都是现成的页。
+  const DASH_TONES = { steady: null, ok: null, review: "#c69a52", fresh: "#d8dbd0" };
+  function StudyDash(props) {
+    const d = props.dash, accent = props.accent;
+    const [examEdit, setExamEdit] = useState(false);
+    const [exName, setExName] = useState("");
+    const [exDate, setExDate] = useState("");
+    const ex = props.cur ? examCountdown(props.cur) : null;
+    const openExam = function () { setExName(ex ? ex.name : ""); setExDate(ex ? ex.date : ""); setExamEdit(true); };
+    const saveExam = function (clear) {
+      setExam(props.cur.id, clear ? null : { name: exName, date: exDate });
+      setExamEdit(false); props.onRefresh && props.onRefresh();
+    };
+    const tm = props.time || { today: 0, week: 0, total: 0 };
+    const inp = { height: 36, borderRadius: 8, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper2, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, outline: "none", minWidth: 0 };
+    const tone = { steady: accent, ok: accent + "8c", review: DASH_TONES.review, fresh: DASH_TONES.fresh };
+    const bands = [["steady", "稳"], ["ok", "基本会"], ["review", "待复习"], ["fresh", "新学"]];
+    const total = d.points || 0;
+    const since = d.since ? (function () { const x = new Date(d.since); return (x.getMonth() + 1) + "月" + x.getDate() + "日"; })() : "";
+    const eyebrow = function (txt) { return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, marginBottom: 7 } }, txt); };
+    return h("section", { "data-kind": "study-dash", style: { marginTop: 10, padding: "15px 16px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+      // 考试倒计时：设了就压在最上面；没设只留一行小字入口
+      examEdit ? h("div", { style: { marginBottom: 14, paddingBottom: 12, borderBottom: "1px dashed " + STUDY_SKIN.line } },
+        h("div", { className: "flex", style: { gap: 6 } },
+          h("input", { value: exName, onChange: function (e) { setExName(e.target.value); }, maxLength: 30, placeholder: "考什么（如 期末）", style: Object.assign({ flex: 1 }, inp) }),
+          h("input", { type: "date", value: exDate, onChange: function (e) { setExDate(e.target.value); }, style: Object.assign({ width: 142 }, inp) })),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+          h("button", { onClick: function () { if (!/^\d{4}-\d{2}-\d{2}$/.test(exDate)) return; saveExam(false); }, className: "active:opacity-70",
+            style: { padding: "6px 16px", borderRadius: "4px 10px 4px 4px", background: accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 12.5, opacity: /^\d{4}-\d{2}-\d{2}$/.test(exDate) ? 1 : 0.5 } }, "定下"),
+          ex ? h("button", { onClick: function () { saveExam(true); }, className: "active:opacity-70", style: { padding: "6px 10px", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.red } }, "不考了，清掉") : null,
+          h("button", { onClick: function () { setExamEdit(false); }, className: "active:opacity-70", style: { padding: "6px 10px", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.fog } }, "算了")))
+      : ex && ex.days >= 0 ? h("button", { onClick: openExam, className: "w-full flex items-baseline active:opacity-70",
+          style: { gap: 6, marginBottom: 14, paddingBottom: 12, borderBottom: "1px dashed " + STUDY_SKIN.line, textAlign: "left" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "离「" + ex.name + "」"),
+          ex.days === 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: STUDY_SKIN.red } }, "就是今天")
+            : h(React.Fragment, null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "还有"),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: ex.days <= 14 ? STUDY_SKIN.red : STUDY_SKIN.ink } }, ex.days),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "天")),
+          h("span", { className: "flex-1" }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog } }, ex.date + " ›"))
+      : h("button", { onClick: openExam, className: "active:opacity-70", style: { display: "block", marginBottom: 10, fontFamily: F_BODY, fontSize: 11.5, color: accent } },
+          ex ? "「" + ex.name + "」已经考完了 · 设下一场 ›" : "＋ 设个考试日期，倒着数"),
+      // 学了几天 ＋ 连续几天
+      h("div", { className: "flex items-baseline", style: { gap: 6 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "学了"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: STUDY_SKIN.ink } }, d.days),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "天"),
+        h("span", { className: "flex-1" }),
+        d.streak ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: accent, fontWeight: 600 } }, "连续 " + d.streak + " 天") : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 4 } },
+        d.days ? [since ? "从 " + since + " 开始" : "", "上过 " + d.sessions + " 节", total ? total + " 个要点" : ""].filter(Boolean).join(" · ") : "还没开口学过——开一张课页就从今天算起"),
+      // 学了多久：课页里连着说话的那几段 + 任务写着这门课的番茄钟，重叠只算一次
+      tm.total ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+        [["今天", tm.today], ["这周", tm.week], ["一共", tm.total]].map(function (x) {
+          return h("div", { key: x[0], className: "flex-1", style: { padding: "7px 9px", borderRadius: 8, background: STUDY_SKIN.paper2 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: STUDY_SKIN.fog } }, x[0]),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 600, color: x[1] ? STUDY_SKIN.ink : STUDY_SKIN.fog, marginTop: 1 } }, x[1] ? "约 " + minutesText(x[1]) : "还没学"));
+        })) : null,
+      h(StudyCalendar, { dayKeys: d.dayKeys, goalDone: d.goal.done, accent: accent }),
+      // 今天的目标：两件小事，都齐了日历上今天那格打勾
+      h("div", { className: "flex flex-wrap", style: { gap: "4px 14px", marginTop: 9 } },
+        [[d.goal.studied, "今天学过一会儿"], [d.goal.reviewsClear, "到点的复习清零"]].map(function (g) {
+          return h("span", { key: g[1], className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 11.5, color: g[0] ? accent : STUDY_SKIN.fog } },
+            h("span", { style: { width: 14, height: 14, borderRadius: 4, border: "1.5px solid " + (g[0] ? accent : STUDY_SKIN.line), background: g[0] ? accent : "transparent",
+              color: STUDY_SKIN.paper, fontSize: 10, lineHeight: "11px", textAlign: "center" } }, g[0] ? "✓" : ""), g[1]);
+        })),
+      // 掌握度彩带
+      h("div", { style: { marginTop: 14 } },
+        eyebrow("掌握度"),
+        total ? h("div", { className: "flex", style: { height: 11, borderRadius: 999, overflow: "hidden", background: DASH_TONES.fresh, gap: 2 } },
+          bands.filter(function (b) { return d.dist[b[0]] > 0; }).map(function (b) {
+            return h("div", { key: b[0], title: b[1] + " " + d.dist[b[0]], style: { flex: d.dist[b[0]], background: tone[b[0]] } });
+          }))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "还没测过要点，上完一节小测就有了"),
+        total ? h("div", { className: "flex flex-wrap", style: { gap: "4px 12px", marginTop: 8 } },
+          bands.map(function (b) {
+            return h("span", { key: b[0], className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 11, color: d.dist[b[0]] ? STUDY_SKIN.sub : STUDY_SKIN.fog } },
+              h("span", { style: { width: 8, height: 8, borderRadius: 2, background: tone[b[0]] } }), b[1] + " " + d.dist[b[0]]);
+          })) : null),
+      // 最容易栽的三个坑
+      h("div", { style: { marginTop: 15 } },
+        eyebrow("最容易栽的坑"),
+        d.pits.length ? d.pits.map(function (x, i) {
+          return h("button", { key: x.pointId, onClick: props.onPits, className: "w-full flex items-center active:opacity-70",
+            style: { minHeight: 36, gap: 9, padding: "4px 0", borderTop: i ? "1px dashed " + STUDY_SKIN.line : "none", textAlign: "left" } },
+            h("span", { style: { width: 18, fontFamily: F_DISPLAY, fontSize: 14, color: STUDY_SKIN.red } }, i + 1),
+            h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink } }, x.label),
+            x.cause ? h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.paper, background: MISTAKE_CAUSE[x.cause].tone, borderRadius: 999, padding: "1px 7px" } }, "多半是" + MISTAKE_CAUSE[x.cause].zh) : null,
+            h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.red } }, "栽过 " + x.count + " 次 ›"));
+        }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "还没有错过——或者还没做过题")),
+      // 今天到期
+      h("button", { onClick: props.onDue, className: "w-full flex items-center active:opacity-70",
+        style: { marginTop: 13, minHeight: 42, padding: "8px 12px", gap: 8, borderRadius: "4px 10px 10px 4px", textAlign: "left",
+          // 浅底：下面紧挨着那条实心的「该复习了」，两条实心绿叠在一起太重
+          background: STUDY_SKIN.paper2 } },
+        h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: d.dueToday ? accent : STUDY_SKIN.sub, fontWeight: d.dueToday ? 600 : 400 } },
+          d.dueToday ? "今天到期 " + d.dueToday + " 道" + (d.dueNow && d.dueNow < d.dueToday ? "（现在就能做 " + d.dueNow + " 道）" : "") : "今天没有到期的复习"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: d.dueToday ? accent : STUDY_SKIN.fog } }, "›")));
+  }
+  // 错因四颗小签：错题本、快刷、单元测成绩单三处共用这一个（她点哪颗就记哪颗，再点一下取消）
+  function CauseChips(props) {
+    const [cur, setCur] = useState(props.value || null);
+    return h("div", { className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginRight: 2 } }, "这道是"),
+      Object.keys(MISTAKE_CAUSE).map(function (k) {
+        const on = cur === k, c = MISTAKE_CAUSE[k];
+        return h("button", { key: k, className: "active:opacity-70", onClick: function () {
+            const next = on ? null : k;
+            setCur(next); setMistakeCause(props.curId, props.itemKey, next); props.onChange && props.onChange(next);
+          },
+          style: { minHeight: 28, padding: "2px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5,
+            border: "1px solid " + (on ? c.tone : STUDY_SKIN.line), background: on ? c.tone : "transparent", color: on ? STUDY_SKIN.paper : STUDY_SKIN.sub } }, c.zh);
+      }));
+  }
+
+  // ── 快刷（她 2026-09-28）：不开课页，把到点的复习卡和闪卡混成一摞，一张张刷完 ─────
+  // 一次一张、刷完就走；老师只在最后说一两句（她点了才叫，不点就不花这一次）。
+  // ⚠️判卷、翻卡走的是 answerReviewItem / rateReviewCard，跟「该复习了」那页同一份。
+  function QuickDrill(props) {
+    const cur0 = findCurriculum(props.curriculum.id) || props.curriculum;
+    const accent = studyModeSkin(cur0.mode).accent;
+    const [deck] = useState(function () { return dueReviewItems(cur0).slice(0, 30).map(function (x) { return x.key; }); });
+    const [idx, setIdx] = useState(0);
+    const [flipped, setFlipped] = useState(false);
+    const [draft, setDraft] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [last, setLast] = useState(null);      // 刚交的这一张：{ key, result, answer }
+    const [log, setLog] = useState([]);
+    const [word, setWord] = useState("");
+    const [wordBusy, setWordBusy] = useState(false);
+    const fresh = findCurriculum(cur0.id) || cur0;
+    const items = (fresh.memory && fresh.memory.review_items) || [];
+    const x = deck[idx] != null ? items.find(function (y) { return y.key === deck[idx]; }) : null;
+    const teacherId = cur0.teacher_id || (cur0.character_ids || [])[0];
+    const teacher = (props.characters || []).find(function (c) { return c.id === teacherId; }) || null;
+    const paper = { padding: "15px 16px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow };
+    const btn = function (primary) { return { flex: 1, width: "100%", minHeight: 46, fontFamily: F_BODY, fontSize: 14.5, borderRadius: "4px 12px 4px 4px",
+      background: primary ? accent : STUDY_SKIN.paper, color: primary ? STUDY_SKIN.paper : STUDY_SKIN.ink, border: "1px solid " + (primary ? accent : STUDY_SKIN.line) }; };
+    const next = function () { setLast(null); setFlipped(false); setDraft(""); setIdx(idx + 1); };
+    async function answer(v) {
+      if (busy || !x) return;
+      if (!String(v == null ? "" : v).trim()) { props.toast && props.toast("先作答"); return; }
+      setBusy(true);
+      try {
+        const r = await answerReviewItem(props.bgActive || props.active, cur0.id, x, v, "quick-drill");
+        if (r.reviewFailed) { props.toast && props.toast("这次没判出来，什么都没改；可以换个写法再交"); return; }
+        setLast({ key: x.key, result: r.result, answer: v, when: r.when });
+        setLog(log.concat([{ key: x.key, ok: r.result === "correct" }]));
+        props.onRefresh && props.onRefresh();
+      } finally { setBusy(false); }
+    }
+    function rate(r) {
+      rateReviewCard(cur0.id, x, r);
+      setLog(log.concat([{ key: x.key, ok: r === "good" }]));
+      props.onRefresh && props.onRefresh();
+      next();
+    }
+    async function askWord() {
+      if (wordBusy) return;
+      if (!props.active && !props.bgActive) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setWordBusy(true);
+      try {
+        const ok = log.filter(function (l) { return l.ok; }).length;
+        const missed = log.filter(function (l) { return !l.ok; }).map(function (l) { const it = items.find(function (y) { return y.key === l.key; }); return it ? String(it.prompt || "").slice(0, 40) : ""; }).filter(Boolean);
+        const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur0.subject + "』。\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+          "\n\n她刚自己刷完一摞到点的复习：" + log.length + " 张，记住了 " + ok + " 张。" + (missed.length ? "\n没过的：\n" + missed.map(function (m) { return "· " + m; }).join("\n") : "") +
+          "\n\n用你自己说话的样子跟她说一两句，只输出这一两句。";
+        const raw = await callAI(props.bgActive || props.active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+        setWord(String(raw || "").trim().slice(0, 300));
+      } catch (e) { props.toast && props.toast("老师这回没接上，稍后再试"); }
+      finally { setWordBusy(false); }
+    }
+    const head = h(StudyHead, { zh: "快刷", en: cur0.subject, mode: cur0.mode, onBack: props.onBack });
+    // 刷完了
+    if (!x) {
+      const ok = log.filter(function (l) { return l.ok; }).length;
+      return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } }, head,
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+          h("section", { style: Object.assign({ marginTop: 14, textAlign: "center" }, paper) },
+            deck.length ? h(React.Fragment, null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, "这一摞刷完了"),
+              h("div", { style: { marginTop: 6 } },
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 36, color: STUDY_SKIN.ink } }, ok),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: STUDY_SKIN.sub } }, " / " + log.length + " 记住了")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog, marginTop: 6 } }, "没过的几小时后会再来；记住的按曲线往后排了。"))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog, lineHeight: 1.9 } }, "现在没有到点的卡。\n等到点了再来刷，或者先去翻翻闪卡。")),
+          deck.length && log.length ? (word
+            ? h("div", { style: Object.assign({ marginTop: 10 }, paper) },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, marginBottom: 5 } }, (teacher ? teacher.name : "老师") + " 说"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink, lineHeight: 1.75, whiteSpace: "pre-wrap" } }, word))
+            : h("button", { onClick: askWord, disabled: wordBusy, className: "active:opacity-70", style: Object.assign({ marginTop: 10 }, btn(false)) },
+                wordBusy ? "老师在看…" : "让" + (teacher ? teacher.name : "老师") + "说一句")) : null),
+        h(StudyFooter, null, h("button", { onClick: props.onBack, className: "active:opacity-70", style: btn(true) }, "回到课程")));
+    }
+    const isCard = x.type === "flashcard";
+    const optLabel = function (v) { const o = (x.options || []).find(function (y) { return y.id === v; }); return o ? v + ". " + o.label : v === "true" ? "对" : v === "false" ? "错" : v; };
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } }, head,
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        h("div", { className: "flex items-center", style: { gap: 8, margin: "12px 2px 10px" } },
+          h("div", { className: "flex-1", style: { height: 4, borderRadius: 2, background: STUDY_SKIN.line, overflow: "hidden" } },
+            h("div", { style: { width: Math.round(idx / deck.length * 100) + "%", height: "100%", background: accent } })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog } }, (idx + 1) + " / " + deck.length)),
+        h("section", { style: paper },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, letterSpacing: ".04em" } }, isCard ? "闪卡" : x.type === "choice" ? "选择" : x.type === "true_false" ? "判断" : "填空"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.6, color: STUDY_SKIN.ink, marginTop: 8, whiteSpace: "pre-wrap" } }, x.prompt),
+          (isCard && flipped) || last ? h("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + STUDY_SKIN.line } },
+            last ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 600, color: last.result === "correct" ? accent : STUDY_SKIN.red } },
+              last.result === "correct" ? "对了 · " + String(last.when || "").replace("复习", "再见") : (last.result === "partial" ? "半对" : "不对") + " · 你写的：" + optLabel(last.answer)) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, marginTop: last ? 4 : 0 } }, (isCard ? "" : "答案：") + (isCard ? x.answer : optLabel(x.answer))),
+            x.explanation ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, lineHeight: 1.7, marginTop: 4 } }, x.explanation) : null,
+            last && last.result !== "correct" ? h(CauseChips, { curId: cur0.id, itemKey: x.key, value: x.cause }) : null) : null),
+        h("div", { style: { marginTop: 12 } },
+          last ? h("button", { onClick: next, className: "active:opacity-70", style: btn(true) }, idx + 1 < deck.length ? "下一张" : "刷完了")
+          : isCard ? (flipped
+            ? h("div", { className: "flex", style: { gap: 8 } }, [["miss", "不记得"], ["fuzzy", "模糊"], ["good", "记得"]].map(function (o) {
+                return h("button", { key: o[0], onClick: function () { rate(o[0]); }, className: "active:opacity-70", style: btn(o[0] === "good") }, o[1]);
+              }))
+            : h("button", { onClick: function () { setFlipped(true); }, className: "active:opacity-70", style: btn(true) }, "翻开"))
+          : x.type === "choice" ? (x.options || []).map(function (o) {
+              return h("button", { key: o.id, disabled: busy, onClick: function () { answer(o.id); }, className: "w-full flex items-center active:opacity-70",
+                style: Object.assign({}, btn(false), { justifyContent: "flex-start", padding: "10px 14px", marginBottom: 8, gap: 10, textAlign: "left" }) },
+                h("span", { style: { fontFamily: F_DISPLAY, color: accent } }, o.id), h("span", { style: { flex: 1 } }, o.label));
+            })
+          : x.type === "true_false" ? h("div", { className: "flex", style: { gap: 10 } }, [["true", "对"], ["false", "错"]].map(function (o) {
+              return h("button", { key: o[0], disabled: busy, onClick: function () { answer(o[0]); }, className: "active:opacity-70", style: btn(false) }, o[1]);
+            }))
+          : h("div", null,
+              h("input", { value: draft, onChange: function (e) { setDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") answer(draft); }, placeholder: "写你的答案", autoFocus: true,
+                style: { width: "100%", height: 46, padding: "0 13px", fontFamily: F_BODY, fontSize: 15, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: 10, outline: "none" } }),
+              h("button", { disabled: busy, onClick: function () { answer(draft); }, className: "active:opacity-70", style: Object.assign({ marginTop: 10 }, btn(true)) }, busy ? "判分中…" : "交")))));
+  }
+
+  // ── 周报页 ───────────────────────────────────────────────
+  function WeeklyPage(props) {
+    const cur0 = findCurriculum(props.curriculum.id) || props.curriculum;
+    const accent = studyModeSkin(cur0.mode).accent;
+    const [, bump] = useState(0);
+    const [busy, setBusy] = useState(false);
+    const r = weeklyReport(findCurriculum(cur0.id) || cur0, props.sessions);
+    const teacherId = cur0.teacher_id || (cur0.character_ids || [])[0];
+    const teacher = (props.characters || []).find(function (c) { return c.id === teacherId; }) || null;
+    const fmt = function (ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+    const paper = { marginTop: 10, padding: "14px 16px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px" };
+    const eyebrow = function (t) { return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, marginBottom: 7 } }, t); };
+    const chips = function (list, tone) {
+      return list.length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, list.map(function (x) {
+        return h("span", { key: x, style: { padding: "3px 9px", borderRadius: 7, fontFamily: F_BODY, fontSize: 12.5, background: tone, color: STUDY_SKIN.paper } }, x);
+      })) : null;
+    };
+    async function ask() {
+      if (busy) return;
+      if (!props.active && !props.bgActive) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setBusy(true);
+      try {
+        const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur0.subject) : props.worldbook;
+        const text = await genWeeklyNote(props.bgActive || props.active, cur0, r, teacher, wb);
+        saveWeeklyNote(cur0.id, r.weekKey, text);
+        bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh();
+      } catch (e) { props.toast && props.toast(String(e && e.message || "没写成，再试一次").split("\n")[0]); }
+      finally { setBusy(false); }
+    }
+    const causeKeys = Object.keys(r.causes);
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "这周", en: fmt(r.from) + " – " + fmt(r.to - 1), mode: cur0.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        h("section", { style: Object.assign({}, paper, { marginTop: 12 }) },
+          h("div", { className: "flex", style: { gap: 10 } },
+            [[r.days, "天学过"], [r.minutes >= 60 ? Math.round(r.minutes / 6) / 10 : r.minutes, r.minutes >= 60 ? "小时" : "分钟"], [r.reviewed, "次复习"], [r.tests.length, "场单元测"]].map(function (x) {
+              return h("div", { key: x[1], className: "flex-1", style: { textAlign: "center" } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: STUDY_SKIN.ink, lineHeight: 1.1 } }, x[0]),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 2 } }, x[1]));
+            }))),
+        h("section", { style: paper }, eyebrow("新会了"),
+          chips(r.learned, accent) || h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "这周还没有新升到「基本会」的点")),
+        h("section", { style: paper }, eyebrow("掉回去了"),
+          chips(r.slipped, STUDY_SKIN.red) || h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "没有——会了的都还稳着")),
+        r.tests.length ? h("section", { style: paper }, eyebrow("单元测"), r.tests.map(function (x, k) {
+          return h("div", { key: k, className: "flex", style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, padding: "3px 0" } },
+            h("span", { className: "flex-1" }, x.title), h("span", { style: { color: x.score === x.total ? accent : STUDY_SKIN.sub } }, x.score + "/" + x.total));
+        })) : null,
+        causeKeys.length ? h("section", { style: paper }, eyebrow("这周的错多半是"),
+          h("div", { className: "flex flex-wrap", style: { gap: "4px 14px" } }, causeKeys.sort(function (a, b) { return r.causes[b] - r.causes[a]; }).map(function (k) {
+            return h("span", { key: k, className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.sub } },
+              h("span", { style: { width: 8, height: 8, borderRadius: 999, background: MISTAKE_CAUSE[k].tone } }), MISTAKE_CAUSE[k].zh + " " + r.causes[k]);
+          }))) : null,
+        h("section", { style: paper }, eyebrow("下周"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink } }, r.nextWeek ? "大约要复习 " + r.nextWeek + " 道（含现在已经到点的）" : "下周没有排到期的复习")),
+        // 老师的评语：她点了才写，写完存着，这周再进来还是这一句
+        h("section", { style: Object.assign({}, paper, { borderLeft: "3px solid " + accent }) }, eyebrow(teacher ? teacher.name + " 的评语" : "老师的评语"),
+          r.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink, lineHeight: 1.8, whiteSpace: "pre-wrap" } }, r.note.text) : null,
+          h("button", { onClick: ask, disabled: busy, className: "active:opacity-70", style: { marginTop: r.note ? 10 : 0, fontFamily: F_BODY, fontSize: 12.5, color: accent } },
+            busy ? "在写…" : r.note ? "重写一句 ›" : "请" + (teacher ? teacher.name : "老师") + "写一句 ›"))));
+  }
+
+  // ── 知识地图页 ───────────────────────────────────────────────
+  // 一个单元一张纸，要点排成一格格，按四档掌握度上色（跟概况那条彩带同一套颜色）；
+  // 点一格，就地展开这个点留下的东西：答过的题、错因、复习卡排到哪天。
+  const LEVEL_NAME = ["新学", "待复习", "基本会", "稳"];
+  function levelTone(accent, lv) {
+    return lv === 3 ? accent : lv === 2 ? accent + "8c" : lv === 1 ? DASH_TONES.review : lv === 0 ? DASH_TONES.fresh : "transparent";
+  }
+  function KnowledgeMap(props) {
+    const cur = findCurriculum(props.curriculum.id) || props.curriculum;
+    const accent = studyModeSkin(cur.mode).accent;
+    const units = knowledgeMap(cur, props.sessions);
+    const [open, setOpen] = useState(null);
+    const small = { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.sub, lineHeight: 1.7 };
+    const resultWord = function (r) { return r === "correct" ? "对" : r === "partial" ? "半对" : "错"; };
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "知识地图", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        // 图例
+        h("div", { className: "flex flex-wrap", style: { gap: "4px 12px", margin: "12px 2px 4px" } },
+          [3, 2, 1, 0, null].map(function (lv) {
+            return h("span", { key: String(lv), className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.sub } },
+              h("span", { style: { width: 9, height: 9, borderRadius: 2, background: levelTone(accent, lv), border: lv == null ? "1px dashed " + STUDY_SKIN.fog : "none" } }),
+              lv == null ? "还没测过" : LEVEL_NAME[lv]);
+          })),
+        units.length === 0 ? h("div", { style: { marginTop: 40, textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog, lineHeight: 1.9 } }, "还没上过课。\n开一张课页，老师排出的小节和要点会长在这里。")
+        : units.map(function (u) {
+          const tested = u.points.filter(function (p) { return p.level != null; }).length;
+          return h("section", { key: u.key, style: { marginTop: 12, padding: "13px 14px 12px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px" } },
+            h("div", { className: "flex items-baseline", style: { gap: 8 } },
+              h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: STUDY_SKIN.ink } }, u.title),
+              h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog } }, "测过 " + tested + "/" + u.points.length)),
+            h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } },
+              u.points.map(function (pt) {
+                const on = open === pt.id, bg = levelTone(accent, pt.level), dark = pt.level === 3 || pt.level === 2;
+                return h("button", { key: pt.id, onClick: function () { setOpen(on ? null : pt.id); }, className: "active:opacity-70",
+                  style: { minHeight: 34, padding: "5px 10px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5,
+                    background: bg, color: dark ? STUDY_SKIN.paper : STUDY_SKIN.ink,
+                    border: pt.level == null ? "1px dashed " + STUDY_SKIN.fog : "1px solid transparent",
+                    boxShadow: on ? "0 0 0 2px " + STUDY_SKIN.ink : "none" } }, pt.label);
+              })),
+            // 点开的那一格
+            u.points.filter(function (pt) { return pt.id === open; }).map(function (pt) {
+              const it = pt.item;
+              return h("div", { key: "d" + pt.id, style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + STUDY_SKIN.line } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, fontWeight: 600 } }, pt.label + " · " + (pt.level == null ? "还没测过" : LEVEL_NAME[pt.level])),
+                pt.note ? h("div", { style: small }, pt.note) : null,
+                it ? h("div", { style: small }, (it.wrongCount ? "错过 " + it.wrongCount + " 次 · " : "") + (it.hintedCount ? "靠提示 " + it.hintedCount + " 次 · " : "") + (function () { const r = reviewStageText(it); return "复习曲线走到 " + r.filled + "/" + r.total + " · " + r.when; })()) : null,
+                pt.mistakes.filter(function (m) { return !m.resolved; }).slice(-3).map(function (m, k) {
+                  return h("div", { key: "m" + k, style: Object.assign({}, small, { color: STUDY_SKIN.red }) }, "错因：" + (m.note || "需要再练"));
+                }),
+                pt.evidence.length ? h("div", { style: Object.assign({}, small, { marginTop: 4 }) }, "答过：" + pt.evidence.slice(0, 8).map(function (e) {
+                  return resultWord(e.result) + (e.support && e.support !== "none" ? "（有提示）" : "");
+                }).join(" · ")) : h("div", { style: small }, "还没在课上答过这个点"),
+                (it && it.inBook) ? h("button", { onClick: props.onBook, className: "active:opacity-70", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.red } }, "在错题本里 ›") : null);
+            }));
+        })));
+  }
+
+  // ── 单元测页 ───────────────────────────────────────────────
+  // 三步：挑单元 → 一道道闭卷做 → 成绩单（跟上次比）。做的时候不叫老师、没有提示。
+  function UnitTest(props) {
+    const cur0 = findCurriculum(props.curriculum.id) || props.curriculum;
+    const accent = studyModeSkin(cur0.mode).accent;
+    const units = knowledgeMap(cur0, props.sessions);
+    const [unit, setUnit] = useState(null);
+    const [quizzes, setQuizzes] = useState(null);
+    const [idx, setIdx] = useState(0);
+    const [draft, setDraft] = useState("");
+    const [answers, setAnswers] = useState([]);
+    const [busy, setBusy] = useState(false);
+    const [report, setReport] = useState(null);
+    const teacherId = cur0.teacher_id || (cur0.character_ids || [])[0];
+    const teacher = (props.characters || []).find(function (c) { return c.id === teacherId; }) || null;
+    const btn = function (primary) { return { width: "100%", minHeight: 46, fontFamily: F_BODY, fontSize: 14.5, borderRadius: "4px 12px 4px 4px",
+      background: primary ? accent : STUDY_SKIN.paper, color: primary ? STUDY_SKIN.paper : STUDY_SKIN.ink, border: "1px solid " + (primary ? accent : STUDY_SKIN.line) }; };
+    const paper = { padding: "15px 16px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow };
+    async function start(u) {
+      if (busy) return;
+      if (!props.active && !props.bgActive) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setBusy(true); setUnit(u);
+      try {
+        const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur0.subject) : props.worldbook;
+        const qs = await genUnitTest(props.bgActive || props.active, cur0, u, teacher, wb);
+        setQuizzes(qs); setIdx(0); setAnswers([]); setDraft(""); setReport(null);
+      } catch (e) { props.toast && props.toast(String(e && e.message || "没出成，再试一次").split("\n")[0]); setUnit(null); }
+      finally { setBusy(false); }
+    }
+    async function answer(value) {
+      if (busy || !quizzes) return;
+      const q = quizzes[idx];
+      if (String(value == null ? "" : value).trim() === "") { props.toast && props.toast("先作答再交这一道"); return; }
+      setBusy(true);
+      const g = await gradeQuizAnswer(props.bgActive || props.active, q, value);
+      const next = answers.concat([{ quiz: q, answer: value, result: g.result }]);
+      setAnswers(next); setDraft(""); setBusy(false);
+      if (idx + 1 < quizzes.length) { setIdx(idx + 1); return; }
+      const rec = recordUnitTest(cur0.id, unit, next);
+      setReport(rec);
+      props.onRefresh && props.onRefresh();
+    }
+    const leave = function () {
+      if (quizzes && !report && answers.length) {
+        requestAppConfirm("这套还没做完", "现在退出，这一套不记成绩，做过的也不算。", function () { props.onBack(); }, "退出");
+      } else props.onBack();
+    };
+    const head = h(StudyHead, { zh: report ? "成绩单" : "单元测", en: unit ? unit.title : cur0.subject, mode: cur0.mode, onBack: leave });
+
+    // 成绩单
+    if (report) {
+      const prev = lastUnitTest(findCurriculum(cur0.id) || cur0, report.unitKey, report.id);
+      const now = testByPoint(report), before = prev ? testByPoint(prev) : {};
+      const label = {};
+      ((unit && unit.points) || []).forEach(function (p) { label[p.id] = p.label; });
+      const optLabel = function (it, v) { const o = (it.options || []).find(function (x) { return x.id === v; }); return o ? v + ". " + o.label : v === "true" ? "对" : v === "false" ? "错" : v; };
+      return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } }, head,
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+          h("section", { style: Object.assign({ marginTop: 12 }, paper) },
+            h("div", { className: "flex items-baseline", style: { gap: 6 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 36, lineHeight: 1, color: STUDY_SKIN.ink } }, report.score),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: STUDY_SKIN.sub } }, "/ " + report.total),
+              h("span", { className: "flex-1" }),
+              prev ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: report.score / report.total >= prev.score / prev.total ? accent : STUDY_SKIN.red } },
+                "上次 " + prev.score + "/" + prev.total) : h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog } }, "第一次测这个单元")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog, marginTop: 6 } }, "错的已经进了错题本，复习曲线也跟着排好了。"),
+            // 按要点：这次 vs 上次
+            h("div", { style: { marginTop: 12 } }, Object.keys(now).map(function (pid) {
+              const a = now[pid], b = before[pid];
+              const up = b && a.right / a.total > b.right / b.total, down = b && a.right / a.total < b.right / b.total;
+              return h("div", { key: pid, className: "flex items-center", style: { gap: 8, padding: "6px 0", borderTop: "1px dashed " + STUDY_SKIN.line } },
+                h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink } }, label[pid] || pid),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: a.right === a.total ? accent : STUDY_SKIN.red } }, a.right + "/" + a.total),
+                b ? h("span", { style: { width: 58, textAlign: "right", fontFamily: F_BODY, fontSize: 11, color: up ? accent : down ? STUDY_SKIN.red : STUDY_SKIN.fog } },
+                  up ? "进步了" : down ? "掉回去了" : "跟上次一样") : null);
+            }))),
+          // 每一道
+          report.items.map(function (it, k) {
+            const ok = it.result === "correct";
+            return h("div", { key: k, style: { marginTop: 9, padding: "12px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (ok ? accent : STUDY_SKIN.red), borderRadius: "4px 12px 12px 4px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, (k + 1) + ". " + it.prompt),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: ok ? accent : STUDY_SKIN.red, marginTop: 5 } }, (ok ? "对 · " : it.result === "partial" ? "半对 · " : "错 · ") + "你写的：" + (optLabel(it, it.given) || "（空）")),
+              ok ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginTop: 2 } }, "答案：" + optLabel(it, it.answer)),
+              it.explanation ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginTop: 4, lineHeight: 1.65 } }, it.explanation) : null,
+              // 单元测的题卡按要点 id 记（recordUnitTest 没带 reviewKey），错因也落在那一张上
+              ok ? null : h(CauseChips, { curId: cur0.id, itemKey: String(it.pointId), value: null }));
+          })),
+        h(StudyFooter, null, h("button", { onClick: props.onBack, className: "active:opacity-70", style: btn(true) }, "回到课程")));
+    }
+
+    // 做题
+    if (quizzes) {
+      const q = quizzes[idx];
+      return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } }, head,
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+          // 进度：一格一道
+          h("div", { className: "flex", style: { gap: 3, margin: "12px 0 10px" } }, quizzes.map(function (_, k) {
+            return h("span", { key: k, style: { flex: 1, height: 4, borderRadius: 2, background: k < idx ? accent : k === idx ? STUDY_SKIN.ink : STUDY_SKIN.line } });
+          })),
+          h("section", { style: paper },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, letterSpacing: ".04em" } }, "第 " + (idx + 1) + " / " + quizzes.length + " 道 · " + (q.type === "choice" ? "选择" : q.type === "true_false" ? "判断" : "填空")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.6, color: STUDY_SKIN.ink, marginTop: 8, whiteSpace: "pre-wrap" } }, q.prompt)),
+          h("div", { style: { marginTop: 12 } },
+            q.type === "choice" ? q.options.map(function (o) {
+              return h("button", { key: o.id, disabled: busy, onClick: function () { answer(o.id); }, className: "w-full flex items-center active:opacity-70",
+                style: Object.assign({}, btn(false), { justifyContent: "flex-start", padding: "10px 14px", marginBottom: 8, gap: 10, textAlign: "left", height: "auto" }) },
+                h("span", { style: { fontFamily: F_DISPLAY, color: accent } }, o.id), h("span", { style: { flex: 1 } }, o.label));
+            })
+            : q.type === "true_false" ? h("div", { className: "flex", style: { gap: 10 } },
+              [["true", "对"], ["false", "错"]].map(function (x) {
+                return h("button", { key: x[0], disabled: busy, onClick: function () { answer(x[0]); }, className: "active:opacity-70", style: btn(false) }, x[1]);
+              }))
+            : h("div", null,
+              h("input", { value: draft, onChange: function (e) { setDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") answer(draft); },
+                placeholder: "写你的答案", autoFocus: true,
+                style: { width: "100%", height: 46, padding: "0 13px", fontFamily: F_BODY, fontSize: 15, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: 10, outline: "none" } }),
+              h("button", { disabled: busy, onClick: function () { answer(draft); }, className: "active:opacity-70", style: Object.assign({ marginTop: 10 }, btn(true)) }, busy ? "判分中…" : idx + 1 < quizzes.length ? "交这一道" : "交卷")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 10, textAlign: "center" } }, "闭卷，没有提示；做完一起看对错"))));
+    }
+
+    // 挑单元
+    const curNow = findCurriculum(cur0.id) || cur0;
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } }, head,
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, lineHeight: 1.7, margin: "12px 2px 4px" } },
+          (teacher ? teacher.name : "老师") + "按这个单元的要点出一套题，每个点至少一道。不聊天、没有提示，一口气做完再看成绩。"),
+        busy ? h("div", { style: { marginTop: 40, textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog } }, "正在出卷…") :
+        units.length === 0 ? h("div", { style: { marginTop: 40, textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog, lineHeight: 1.9 } }, "还没上过课。先开一张课页，学完一个单元再来测。")
+        : units.map(function (u) {
+          const last = lastUnitTest(curNow, u.key);
+          return h("button", { key: u.key, onClick: function () { start(u); }, className: "w-full flex items-center active:opacity-70",
+            style: { minHeight: 58, marginTop: 9, padding: "10px 14px", gap: 10, textAlign: "left", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px" } },
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, u.title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 2 } }, u.points.length + " 个要点" + (last ? " · 上次 " + last.score + "/" + last.total + " · " + timeShort(last.ts) : " · 还没测过"))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: accent } }, "开始 ›"));
+        })));
+  }
+
   function CurriculumConsole(props) {
     const cur = props.curriculum;
     const skin = studyModeSkin(cur.mode), accent = skin.accent;
@@ -1659,6 +2627,16 @@
       const u = s.outline && s.outline.units && s.outline.units[0];
       return u ? u.title + ((s.outline.units.length > 1) ? " 等 " + s.outline.units.length + " 小节" : "") : "自由练习";
     }
+    if (bookOpen === "drill") return h(QuickDrill, { curriculum: cur, characters: props.characters, active: props.active, bgActive: props.bgActive, toast: props.toast,
+      onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
+    if (bookOpen === "week") return h(WeeklyPage, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
+      worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+      onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
+    if (bookOpen === "map") return h(KnowledgeMap, { curriculum: cur, sessions: props.sessions,
+      onBook: function () { setBookOpen("book"); }, onBack: function () { setBookOpen(false); } });
+    if (bookOpen === "test") return h(UnitTest, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
+      worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+      onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     if (bookOpen === "mats") return h(MaterialShelf, { curriculum: cur, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     if (bookOpen === "flash") return h(FlashDeck, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
@@ -1676,6 +2654,9 @@
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 9 } },
           cur.level ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0px 6px" } }, cur.level) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.fog } }, chars.map(function (ch) { return ch.name; }).join("、") + " · 已上 " + sess.length + " 节" + (dueCount ? " · " + dueCount + " 个待复习" : "")))),
+        h(StudyDash, { dash: studyDashboard(cur, props.sessions), accent: accent, cur: cur, onRefresh: props.onRefresh,
+          time: studyTime(cur, props.sessions, loadJSON("x_pomodoro_saves", [])),
+          onPits: function () { setBookOpen("book"); }, onDue: function () { setBookOpen("due"); } }),
         // 言秋的投递箱（新到的备课，收下后存进课程自己的存档）
         (drops && drops.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "言秋的投递 · " + drops.length) : null,
         (drops && drops.length) ? drops.map(function (d) {
@@ -1715,6 +2696,24 @@
           style: { minHeight: 48, marginTop: 14, padding: "10px 14px", gap: 8, background: dueNow ? accent : STUDY_SKIN.paper, border: "1px solid " + (dueNow ? accent : STUDY_SKIN.line), borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
           h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14.5, color: dueNow ? STUDY_SKIN.paper : STUDY_SKIN.ink } }, "该复习了"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dueNow ? STUDY_SKIN.paper : STUDY_SKIN.fog } }, dueNow ? dueNow + " 道到点了 ›" : "现在没有到点的 ›")),
+        // 知识地图 / 单元测（她 2026-09-28）：并排两格，跟下面那几条入口同一种纸
+        (function () {
+          const nTests = ((cur.memory && cur.memory.tests) || []).length;
+          const cell = function (key, title, sub) {
+            return h("button", { key: key, onClick: function () { setBookOpen(key); }, className: "flex-1 active:opacity-70",
+              style: { minHeight: 56, padding: "9px 12px", textAlign: "left", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "3px solid " + accent, borderRadius: "4px 4px 12px 12px" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 2 } }, sub));
+          };
+          const wk = weeklyReport(cur, props.sessions);
+          return h("div", null,
+            h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+              cell("map", "知识地图", "每个要点会到哪一步 ›"),
+              cell("test", "单元测", nTests ? "测过 " + nTests + " 次 ›" : "闭卷做一套 ›")),
+            h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+              cell("drill", "快刷", dueNow ? dueNow + " 张到点了，刷一摞 ›" : "现在没有到点的 ›"),
+              cell("week", "这周", "学了 " + wk.days + " 天" + (wk.learned.length ? " · 新会 " + wk.learned.length + " 个" : "") + " ›")));
+        })(),
         // 错题本入口（她 2026-09-23）：一整条，写着还剩几道
         h("button", { onClick: function () { setBookOpen("book"); }, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 48, marginTop: 8, padding: "10px 14px", gap: 8, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px", textAlign: "left" } },

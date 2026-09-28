@@ -2045,6 +2045,10 @@ function wheelSlicePath(i, n) {
   const R = 48;
   return "M50,50 L" + (50 + R * Math.cos(a0)).toFixed(2) + "," + (50 + R * Math.sin(a0)).toFixed(2) + " A" + R + "," + R + " 0 " + (360 / n > 180 ? 1 : 0) + " 1 " + (50 + R * Math.cos(a1)).toFixed(2) + "," + (50 + R * Math.sin(a1)).toFixed(2) + " Z";
 }
+// 转盘最多几个选项：从 8 放到 24（再多扇面就细到写不下字了）
+const WHEEL_MAX = 24;
+// 竖排那一路的字要转多少度：顺着扇面朝外；落在左半边的再翻 180°，不然是倒着的
+function wheelLabelTurn(i, n) { const a = (i + 0.5) * 360 / n - 90; return a > 90 && a < 270 ? a - 180 : a; }
 function wheelLabelPos(i, n, r) { const a = ((i + 0.5) * 360 / n - 90) * Math.PI / 180; return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) }; }
 // 转盘 SVG（小组件和全屏共用）：size=像素宽高，labels=要不要画选项字
 function WheelDisc({ items, angle, spinning, size, labels, dur }) {
@@ -2057,8 +2061,14 @@ function WheelDisc({ items, angle, spinning, size, labels, dur }) {
       h("radialGradient", { id: "wkWheelHub", cx: ".36", cy: ".32", r: ".8" },
         h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" }))),
     n >= 2 ? items.map((it, i) => h("g", { key: i },
-      h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[i % WHEEL_COLORS.length], stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
-      labels ? h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5)) : null))
+      h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[(i === n - 1 && n > 1 && (n - 1) % WHEEL_COLORS.length === 0) ? 3 : i % WHEEL_COLORS.length] /* 最后一块跟第一块挨着，别撞同一个色 */, stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
+      // 选项多了（她 2026-09-28：「转盘能不能多加点选择，现在上限有点少」）：扇面变窄，横着写会叠在一起，
+      //   超过 8 个就把字顺着扇面转过来（从中心往外读），字号跟着扇面宽度收
+      labels ? (n > 8
+        ? h("text", { x: wheelLabelPos(i, n, 30).x, y: wheelLabelPos(i, n, 30).y, textAnchor: "middle", dominantBaseline: "middle",
+            transform: "rotate(" + wheelLabelTurn(i, n) + " " + wheelLabelPos(i, n, 30).x + " " + wheelLabelPos(i, n, 30).y + ")",
+            style: { fontSize: Math.max(3.4, Math.min(6.2, 120 / n)), fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 6))
+        : h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5))) : null))
       : h("circle", { cx: 50, cy: 50, r: 48, fill: "#e5ddd0" }),
     h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
     h("circle", { cx: 50, cy: 50, r: 7, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
@@ -2108,7 +2118,7 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
   };
   const openEdit = () => { setETitle(data.title || ""); setEItems(items.join("\n")); setEdit(true); };
   const saveEdit = () => {
-    const its = eItems.split(/\n+/).map(s => s.trim()).filter(Boolean).slice(0, 8);
+    const its = eItems.split(/\n+/).map(s => s.trim()).filter(Boolean).slice(0, WHEEL_MAX);
     if (its.length < 2) return;
     onSave({ title: eTitle.trim(), items: its });
     setResult(null); setQuip(null); setEdit(false);
@@ -2147,7 +2157,7 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 24px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 10 } }, "编辑转盘"),
         h("input", { value: eTitle, onChange: e => setETitle(e.target.value), placeholder: "转盘主题（可空，如：今天吃什么）", style: { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, background: t.bg, color: t.ink, border: "1px solid " + t.line, marginBottom: 10 } }),
-        h("textarea", { value: eItems, onChange: e => setEItems(e.target.value), rows: 6, placeholder: "一行一个选项（2~8 个）", style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+        h("textarea", { value: eItems, onChange: e => setEItems(e.target.value), rows: 6, placeholder: "一行一个选项（2~" + WHEEL_MAX + " 个）", style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
         h("div", { className: "flex gap-2", style: { marginTop: 12 } },
           h("button", { onClick: saveEdit, className: "flex-1 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "11px 0", borderRadius: 12 } }, "保存"),
           h("button", { onClick: () => setEdit(false), className: "flex-1 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "取消")))) : null), document.body);
@@ -2738,12 +2748,32 @@ function periodList(period) {
   const arr = Array.isArray(period.periods) ? period.periods.filter(p => p && p.start) : (period.starts || []).map(s => ({ start: s, end: null }));
   return arr.slice().sort((a, b) => pKeyDate(a.start) - pKeyDate(b.start));
 }
+// 周期按她【真记过的】那几次算（她 2026-09-28，群里有人说「个人不太规律」）：
+// 相邻两次开始之间隔几天＝一个周期，取最近 6 个平均。隔得离谱的（<15 或 >90 天，多半是漏记了一次）不算。
+// 记不够两次才回落到她自己填的那个数。经期长度同理：有记结束的那几次取平均。
+function periodCycleOf(period) {
+  const list = periodList(period);
+  const gaps = [];
+  for (let i = 1; i < list.length; i++) {
+    const g = Math.round((pKeyDate(list[i].start) - pKeyDate(list[i - 1].start)) / 86400000);
+    if (g >= 15 && g <= 90) gaps.push(g);
+  }
+  const recent = gaps.slice(-6);
+  const spans = list.filter(p => p.end).map(p => periodSpanLen(p, 0)).filter(n => n >= 1 && n <= 15).slice(-6);
+  const avg = a => Math.round(a.reduce((x, y) => x + y, 0) / a.length);
+  return {
+    cyc: recent.length ? avg(recent) : Math.max(15, (period && Number(period.cycleLen)) || 28),
+    cycAuto: recent.length ? recent.length : 0,
+    len: spans.length ? avg(spans) : Math.max(1, (period && Number(period.periodLen)) || 5),
+    lenAuto: spans.length
+  };
+}
 function periodSpanLen(p, defLen) { return p.end ? (Math.round((pKeyDate(p.end) - pKeyDate(p.start)) / 86400000) + 1) : defLen; }
 function periodMap(period) {
   const map = {};
   if (!period) return map;
   const list = periodList(period);
-  const cyc = Math.max(15, period.cycleLen || 28), defLen = Math.max(1, period.periodLen || 5);
+  const _pc = periodCycleOf(period), cyc = _pc.cyc, defLen = _pc.len;
   // 实际记录的经期：有结束就按 start→end 实际天数；还没记结束就临时按默认长度显示
   list.forEach(p => {
     const sd = pKeyDate(p.start);
@@ -2803,7 +2833,7 @@ function periodLogsOf(period) { const l = period && period.logs; return (l && ty
 // 这一天属于哪一次：返回 {p, day} —— day 是这次的第几天（1 起）
 function periodDayOf(period, key) {
   const list = periodList(period);
-  const d = pKeyDate(key), defLen = Math.max(1, (period && period.periodLen) || 5);
+  const d = pKeyDate(key), defLen = periodCycleOf(period).len;
   for (let i = list.length - 1; i >= 0; i--) {
     const sd = pKeyDate(list[i].start);
     const ed = list[i].end ? pKeyDate(list[i].end) : (function () { const x = new Date(sd); x.setDate(x.getDate() + defLen - 1); return x; })();
@@ -2847,9 +2877,10 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
     saveLog({ [field]: had ? (log[field] || []).filter(function (x) { return x !== v; }) : (log[field] || []).concat([v]) });
   };
   // 距下次还有几天（按最后一次开始 + 周期算）
+  const pcAuto = periodCycleOf(per);
   const nextIn = (function () {
     if (!last) return null;
-    const nd = pKeyDate(last.start); nd.setDate(nd.getDate() + (Number(per.cycleLen) || 28));
+    const nd = pKeyDate(last.start); nd.setDate(nd.getDate() + periodCycleOf(per).cyc);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     return Math.round((nd - today) / 86400000);
   })();
@@ -2941,9 +2972,15 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
       // ── 设置 ──
       sec("这本子怎么算"),
       h("div", { className: "flex", style: { gap: 10 } },
+        pcAuto.cycAuto ? h("div", { "data-period-auto": "cycle", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "周期（天）",
+          h("div", { style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, pcAuto.cyc,
+            h("span", { style: { fontSize: 11, color: t.fog, marginLeft: 6 } }, "按最近 " + (pcAuto.cycAuto + 1) + " 次算"))) :
         h("label", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "周期（天）",
           h("input", { type: "number", value: cyc, onChange: function (e) { setCyc(e.target.value); }, onBlur: function () { onSave({ cycleLen: Number(cyc) || 28 }); }, className: "w-full outline-none",
             style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } })),
+        pcAuto.lenAuto ? h("div", { "data-period-auto": "len", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "经期长度（天）",
+          h("div", { style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, pcAuto.len,
+            h("span", { style: { fontSize: 11, color: t.fog, marginLeft: 6 } }, "按记过的 " + pcAuto.lenAuto + " 次算"))) :
         h("label", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "经期长度（天）",
           h("input", { type: "number", value: len, onChange: function (e) { setLen(e.target.value); }, onBlur: function () { onSave({ periodLen: Number(len) || 5 }); }, className: "w-full outline-none",
             style: { marginTop: 4, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }))),
@@ -3490,8 +3527,30 @@ const HOME_SIZE_PRESETS = [
   //   3×1、3×2，全是横的或方的。装饰再怎么画竖的，摆进一个横格子里也还是横的。
   //   所以先把格子补上：一格宽的窄条、两格宽的高块。
   { id: "slim", name: "竖条", note: "1 × 2", cols: 1, rows: 2, glyph: "▯" },
-  { id: "column", name: "竖块", note: "2 × 3", cols: 2, rows: 3, glyph: "▐" }
+  { id: "column", name: "竖块", note: "2 × 3", cols: 2, rows: 3, glyph: "▐" },
+  // 组件收成一枚 app 图标（她 2026-09-28：「日历记账这些组件能不能变成 app 1x1 的样式和图标」）。
+  //   只给组件；点它打开的就是组件本来会打开的那一处。
+  { id: "icon", name: "图标", note: "1 × 1 · 像 app", cols: 1, rows: 1, glyph: "▢", widgetOnly: true }
 ];
+// 组件收成图标时画哪枚、叫什么、点了去哪儿——跟组件自己点开去的地方是同一处
+// ⚠️写成函数、用到才造：这一段被几份老测试整块抠去沙盒里跑，那边没有 GUser / Svg 这些，
+//   一上来就造对象会直接 ReferenceError（v74.188 就这么把十份主屏测试弄红了）。
+function homeWidgetIcon(which) {
+  const M = {
+  card: { G: GUser, open: "codex" },
+  cal: { G: function (p) { return h(Svg, p, h("rect", { x: 4, y: 5.5, width: 16, height: 14.5, rx: 2.5 }), h("path", { d: "M4 10h16M8.5 3.5v4M15.5 3.5v4" })); }, open: "calendar" },
+  music: { G: function (p) { return h(Svg, p, h("path", { d: "M9 18V6l10-2v12" }), h("circle", { cx: 6.5, cy: 18, r: 2.5 }), h("circle", { cx: 16.5, cy: 16, r: 2.5 })); }, open: "listen" },
+  map: { G: IPin, open: "map" },
+  us: { G: GUs, open: "us" },
+  memo: { G: IPencil, open: "memo" },
+  weather: { G: GWx, open: "map" },
+  ledger: { G: GWallet, open: "ledger" },
+  recent: { G: GChat, open: null },
+  muyu: { G: function (p) { return h(Svg, p, h("ellipse", { cx: 12, cy: 13, rx: 8, ry: 6.5 }), h("path", { d: "M8 12.5h8" })); }, open: null },
+  wheel: { G: function (p) { return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 3.5v17M3.5 12h17M6 6l12 12M18 6 6 18" })); }, open: null }
+};
+  return M[which] || null;
+}
 // 组件的名字只此一份：拖动虚影和设置页顶栏都问它要。
 // 原来只有拖影那一处写着一张四个人的小表（名片/日历/音乐/地图），别的组件一律叫「组件」——
 // 设置页也要报名字，再抄一份就是又开了一处要同步的地方（one-public-mechanism）。
@@ -3508,7 +3567,7 @@ const HOME_DECOR_TYPES = [
   { id: "countdown", glyph: "−", name: "倒数日签", text: "等这一天", detail: "2026-12-31" },
   { id: "anniversary", glyph: "+", name: "纪念日牌", text: "从那天开始", detail: "2026-01-01" },
   { id: "rotate", glyph: "↻", name: "轮换字条", text: "今天留一句", detail: "每行写一句\n每天自动换一句" },
-  { id: "shortcut", glyph: "↗", name: "快捷入口牌", text: "打开一处", detail: "memo" },
+  { id: "shortcut", glyph: "↗", name: "快捷入口牌", text: "", detail: "" },
   { id: "spacer", glyph: "□", name: "留白占位", text: "", detail: "" },
   { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
   { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" },
@@ -3941,7 +4000,7 @@ function defaultHomeItemSpan(it) {
     if (it.which === "countdown") return [2, 1];
     if (it.which === "anniversary") return [3, 1];
     if (it.which === "rotate") return [3, 1];
-    if (it.which === "shortcut") return [2, 1];
+    if (it.which === "shortcut") return [1, 1];   // 跟 app 图标一样大（她 2026-09-28）；想要大的在「多大」里换
     if (it.which === "spacer") return [1, 1];
     return [2, 1];
   }
@@ -4452,10 +4511,14 @@ function HomeDecorItem({ item, preset, now }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginBottom: 4 } }, title),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, dailyLine));
   }
-  if (item.type === "shortcut") return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 58, padding: "10px 12px", color: ink, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)", display: "flex", alignItems: "center", gap: 9 }) },
-    h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + accent, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15 } }, "↗"),
-    h("div", { style: { minWidth: 0 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, "点一下打开")));
+  // 快捷入口（她 2026-09-28）：当成一枚【自己做的 app 图标】——默认是一块空白的面，
+  //   样子全交给「什么样子」那一栏（底色、放一张图、边线、贴纸）；字可写可不写，写了才出现。
+  //   ⚠️老存档里那句默认的「打开一处」当成没写。
+  if (item.type === "shortcut") {
+    const label = String(item.text || "").trim() === "打开一处" ? "" : String(item.text || "").trim();
+    return h("div", { "data-home-shortcut": true, style: onGnd({ width: "100%", height: "100%", minHeight: 40, color: ink, background: dark ? "rgba(255,255,255,.06)" : "rgba(255,250,241,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }) },
+      label ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" } }, label) : null);
+  }
   if (item.type === "ticket") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 68, display: "flex", alignItems: "stretch", color: ink, overflow: "hidden", position: "relative" } },
       h("div", { style: onGnd({ flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" }) },
@@ -4605,10 +4668,11 @@ function HomePresetGrid({ value, onChange, allowNative }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: active ? "rgba(255,255,255,.62)" : t.fog, marginTop: 2 } }, p.note));
     }));
 }
-function HomeSizeGrid({ value, onChange }) {
+function HomeSizeGrid({ value, onChange, allowIcon }) {
   const t = useTheme();
   return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
     HOME_SIZE_PRESETS.map(function (p) {
+      if (p.widgetOnly && !allowIcon) return null;   // 「图标」只给组件
       var active = (value || "auto") === p.id;
       return h("button", { key: p.id, onClick: function () { onChange(p.id); }, className: "active:opacity-70", style: { minHeight: 76, borderRadius: 15, padding: "9px 6px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line), textAlign: "center" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, p.glyph),
@@ -4823,7 +4887,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 //   名字按她自己的口气起（查一查／每日看／一起做／一起玩 都是她起的）。
 const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
-  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop"] },
+  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
@@ -4921,6 +4985,8 @@ function Home({
   // 自由添加的装饰内容与外观分开保存：换皮不碰照片/文字，移动也不碰样式。
   const [decorations, setDecorations] = useState(function () { var v = loadJSON("x_homeDecorations", []); return Array.isArray(v) ? v : []; });
   const decorationsRef = useRef(decorations); decorationsRef.current = decorations;
+  const [hiddenWidgets, setHiddenWidgets] = useState(function () { var v = loadJSON("x_homeHiddenWidgets", []); return Array.isArray(v) ? v : []; });
+  const hiddenWidgetsRef = useRef(hiddenWidgets); hiddenWidgetsRef.current = hiddenWidgets;
   const [widgetStyles, setWidgetStyles] = useState(function () { var v = loadJSON("x_homeWidgetStyles", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetAligns, setWidgetAligns] = useState(function () { var v = loadJSON("x_homeWidgetAlign", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
   const [widgetSizes, setWidgetSizes] = useState(function () { var v = loadJSON("x_homeWidgetSizes", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
@@ -4994,6 +5060,10 @@ function Home({
     document.head.appendChild(st);
   }, []);
   const flipRef = useRef(0); // 跨页拖拽翻页节流时间戳
+  // 新的一页只在【拖着东西往最后一页右边推】时才长出来（她 2026-09-28：「想要开新页再把 app 往那个方向拖再加」）。
+  // 原来整理时末尾永远挂一张空页，她看到的就是一张张白页；现在不拖过去就没有。
+  const [extraPage, setExtraPage] = useState(false);
+  const extraPageRef = useRef(false); extraPageRef.current = extraPage;
   const goPage = function (np) { setPage(np); try { localStorage.setItem("x_homePage", String(np)); } catch (e) {} };
   // 注册表：所有可摆放的项（组件 w_ / app 图标 / 文件夹），供布局按 key 查
   // ⚠️日记和备忘录【不进 REG】：日记的正门在底部 dock 上，备忘录有 w_memo 组件，
@@ -5015,6 +5085,7 @@ function Home({
     ties: { kind: "app", zh: "关系", G: GTies },
     phone: { kind: "app", zh: "查手机", G: GPhone },
     shop: { kind: "app", zh: "购物", G: GShop },
+    takeout: { kind: "app", zh: "外卖", G: GTakeout },
     carry: { kind: "app", zh: "随身物", G: GCarry },
     dwell: { kind: "app", zh: "去处", G: GDwell },
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
@@ -5137,8 +5208,10 @@ function Home({
     var F = foldersRef.current || {};
     var seen = {};
     Object.keys(F).forEach(function (fid) { (F[fid].keys || []).forEach(function (k) { seen[k] = true; }); });
+    var hiddenW = (typeof hiddenWidgetsRef !== "undefined" && hiddenWidgetsRef && hiddenWidgetsRef.current) || [];
     var valid = function (key) {
       if (!key) return false;
+      if (hiddenW.indexOf(key) >= 0) return false;   // 她自己移走的（最近聊过）
       if (SP_RE.test(key)) return true;
       if (key.slice(0, 2) === "f_") return !!(F[key] && (F[key].keys || []).length);
       return !!REG[key];
@@ -5180,7 +5253,7 @@ function Home({
       // v57.86 安全网扩容：widget 也救（widget 没有任何「重新添加」的 UI，掉了就是永久失踪；
       // app/widget 一视同仁。故意退场的入口走「从 REG 删除」这条老路，见 v47.73 的 memo/diary）
       Object.keys(REG).forEach(function (key) {
-        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && !reach[key]) {
+        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && hiddenW.indexOf(key) < 0 && !reach[key]) {
           var dp = defPage[key] != null ? defPage[key] : (out.length - 1);
           if (!out[dp]) out[dp] = [];
           out[dp].push(key);
@@ -5222,7 +5295,7 @@ function Home({
     // 是做不到的——没有那一页，就没有落点。所以整理的时候在末尾挂一张空的，
     // 拖到边上就翻得过去；没往上放东西，退出整理它自己就没了（不落进存档）。
     // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有 editMode：当成不在整理。
-    if ((typeof editMode !== "undefined" && editMode) && out.length < HOME_MAX_PAGES) {
+    if ((typeof editMode !== "undefined" && editMode) && (typeof extraPageRef !== "undefined" && extraPageRef.current) && out.length < HOME_MAX_PAGES) {
       var lastReal = (out[out.length - 1] || []).some(function (k) { return !SP_RE.test(k); });
       if (lastReal) out.push([]);
     }
@@ -5262,7 +5335,11 @@ function Home({
   // （装饰那一侧早就是这个写法：decorItemOf 一份对象，预览和落档共用）。
   function homeInnerOf(it, key, homeSize, fixedH, span) {
     var inner, isFolder = !!(key && key.slice(0, 2) === "f_");
-      if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+      var wIcon = it.kind === "widget" && homeSize === "icon" ? (homeWidgetIcon(it.which) || { G: IDots, open: null }) : null;
+      if (wIcon) inner = h(GlassIcon, { G: wIcon.G, label: HOME_WIDGET_NAMES[it.which] || "组件", appKey: key, onWallpaper: !!wallpaper,
+        // 点它：有去处的去那一处；没有单独页面的（木鱼、转盘、最近聊过）就打开它的换样式面板，想换回组件一步到位
+        onClick: function () { if (editMode) return; if (wIcon.open) onOpenApp(wIcon.open); else openStylePanel(key); } });
+      else if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
       else if (isFolder) {
         const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
         inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper, onOpen: function () { if (!editMode) setOpenFolder(key); } });
@@ -5279,7 +5356,7 @@ function Home({
       else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
       else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, worlds: worlds, onOpen: function () { return onOpenApp("map"); } }) : null);
       else if (it.kind === "decor") inner = it.which === "shortcut"
-        ? h("button", { onClick: function () { if (!editMode) onOpenApp(it.decor.detail || "memo"); }, style: { width: "100%", height: "100%", textAlign: "inherit" } }, h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now }))
+        ? h("button", { onClick: function () { if (!editMode) { var tk = shortcutTarget(it.decor.detail); if (tk) onOpenApp(tk); } }, style: { width: "100%", height: "100%", textAlign: "inherit" } }, h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now }))
         : h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now });
     return it.kind === "widget" ? h(ThemeContext.Provider, { value: homeWidgetGroundTheme(t, lookOf(key).ground) }, inner) : inner;
   }
@@ -5453,10 +5530,16 @@ function Home({
   }
   // ⚠️装饰长什么样【只造一份】：预览画的、放上去的、改完存的，必须是同一个对象。
   //   各造一份的话，预览里好看的和落到桌面上的迟早对不上，而且不会有任何报错。
+  // 快捷入口能去哪儿：跟选单里列的是【同一张表】。
+  // ⚠️她 2026-09-28「打开一处实际打开的和选择的不一样」：默认目标写的是 memo，可备忘录早就不在 app 表里了——
+  //   选单里没有这一项，浏览器就把第一项显示成「已选」，点下去打开的却还是存着的 memo。
+  //   现在存的目标不在表里，就当它是表里第一项：显示的和打开的永远是同一个。
+  function shortcutOptions() { return Object.keys(REG).filter(function (k) { return REG[k] && REG[k].kind === "app" && !REG[k].soon; }); }
+  function shortcutTarget(detail) { var opts = shortcutOptions(); return opts.indexOf(detail) >= 0 ? detail : (opts[0] || ""); }
   function decorItemOf(A, id) {
     var text = String(A.text || "").trim();
     var meta = homeDecorMeta(A.type);
-    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
+    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : A.type === "shortcut" ? shortcutTarget(String(A.detail || "").trim()) : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
   }
   function addDecoration() {
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
@@ -5492,6 +5575,35 @@ function Home({
     if (it.which !== "photo" && !homeDecorHasDetail(it.which)) next.detail = "";
     updateDecoration(styleKey, next);
     if (typeof toast === "function") toast("桌面内容已经更新");
+  }
+  // 「最近聊过」当成功能性装饰（她 2026-09-28）：能从桌面移走，也能从做装饰那一页放回来。
+  //   移走的记在 x_homeHiddenWidgets，底下那张安全网就不再把它硬塞回桌面。
+  function hideWidget(key) {
+    var hid = loadJSON("x_homeHiddenWidgets", []); if (!Array.isArray(hid)) hid = [];
+    if (hid.indexOf(key) < 0) hid = hid.concat([key]);
+    saveJSON("x_homeHiddenWidgets", hid); hiddenWidgetsRef.current = hid; setHiddenWidgets(hid);
+    setLayout(function (prev) {
+      var L = [], mx = Math.max(0, curLayout.length - 1);
+      for (var i = 0; i <= mx; i++) L[i] = (prev[i] || []).filter(function (k) { return k !== key; });
+      return persistLayout(L);
+    });
+    setStyleKey(null);
+    if (typeof toast === "function") toast("已从桌面移走，想要回来在「做一件装饰」里点它");
+  }
+  function showWidget(key) {
+    var hid = (loadJSON("x_homeHiddenWidgets", []) || []).filter(function (k) { return k !== key; });
+    saveJSON("x_homeHiddenWidgets", hid); hiddenWidgetsRef.current = hid; setHiddenWidgets(hid);
+    setLayout(function (prev) {
+      var L = buildLayout(prev).map(function (a) { return trimTailRows(a).filter(function (k) { return k !== key; }); });
+      var pi = Math.max(0, Math.min(page, L.length - 1));
+      if (!L[pi]) L[pi] = [];
+      L[pi].push(key);
+      var saved = persistLayout(L);
+      setTimeout(function () { try { var p2 = findSlot(buildLayout(saved), key); if (p2) goPage(p2.p); } catch (e) {} }, 0);
+      return saved;
+    });
+    setShowDecorLibrary(false); resetDecorDraft();
+    if (typeof toast === "function") toast("已经放回桌面上");
   }
   function removeDecoration(id) {
     persistDecorations((decorationsRef.current || []).filter(function (d) { return d.id !== id; }));
@@ -5775,6 +5887,21 @@ function Home({
   useEffect(function () { if (page > curLayout.length - 1) goPage(curLayout.length - 1); }, []);
   // 退出整理时那张空页会收回去；人正站在它上面的话得先退一页，不然停在一片空白上
   useEffect(function () { if (!editMode && page > curLayout.length - 1) goPage(Math.max(0, curLayout.length - 1)); }, [editMode]);
+  // 松手了：新开的那张页上要是什么都没放，它就收回去（放了东西的话存档里已经有它了）
+  useEffect(function () {
+    if (dragKey || !extraPageRef.current) return;
+    extraPageRef.current = false; setExtraPage(false);
+    var n = buildLayout(layout).length;
+    if (page > n - 1) goPage(Math.max(0, n - 1));
+  }, [dragKey]);
+  // 删掉一张空页（她 2026-09-28：「空白页面可以选择删除」）：只有整理状态、这一页一件真东西都没有时才给这颗按钮
+  function removeEmptyPage(pi) {
+    var L = buildLayout(layout);
+    if (pi <= 0 || !L[pi] || L[pi].some(function (k) { return !SP_RE.test(k); })) return;
+    L.splice(pi, 1);
+    setLayout(persistLayout(L));
+    goPage(Math.max(0, Math.min(pi - 1, L.length - 1)));
+  }
   // v47.73 一次性迁移老存档：memo/diary 图标清走（含文件夹里的，清空的文件夹解散）、w_weather 挪到第四页
   useEffect(function () {
     try {
@@ -5882,6 +6009,11 @@ function Home({
       if (x > cw - 34 && page < curLayout.length - 1 && nowT - flipRef.current > 650) {
         clearHover(); dropRef.current = null; setDropKey(null); flipRef.current = nowT; goPage(page + 1); return;
       }
+      // 最后一页再往右推：现开一张新页接着
+      if (x > cw - 34 && page === curLayout.length - 1 && curLayout.length < HOME_MAX_PAGES && !extraPageRef.current && nowT - flipRef.current > 650
+        && (curLayout[page] || []).some(function (k) { return !SP_RE.test(k); })) {
+        clearHover(); dropRef.current = null; setDropKey(null); flipRef.current = nowT; extraPageRef.current = true; setExtraPage(true); goPage(page + 1); return;
+      }
       updateDrop(x, tch.clientY);
       return;
     }
@@ -5957,10 +6089,12 @@ function Home({
     // ⚠️高度一律钉死（她 2026-09-03：「能不能把长度固定了，不给TA撑大」）：
     // 行高只要还由内容撑，同样的「一行」就会时高时矮，摆位永远算不准。
     // 唯一的例外是名片：它的高度是她一版一版调出来的，钉成 82 会被裁掉半张。
-    const fixedH = (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1], rowUnit) : null;
+    // 组件收成了一枚 app 图标：就当它是 app 画——不套组件的卡壳、不钉组件的高度、不走组件的外观层
+    const asIcon = it.kind === "widget" && homeSize === "icon";
+    const fixedH = !asIcon && (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1], rowUnit) : null;
     let inner = homeInnerOf(it, key, homeSize, fixedH, span);
     const presetId = widgetStyles[key] || (it.kind === "decor" ? "soft" : "native");
-    let presetStyle = (it.kind === "widget" || it.kind === "decor") ? homeWidgetPresetStyle(presetId, t, it.kind === "decor" ? it.which : it.which) : null;
+    let presetStyle = !asIcon && (it.kind === "widget" || it.kind === "decor") ? homeWidgetPresetStyle(presetId, t, it.kind === "decor" ? it.which : it.which) : null;
     // 材质／边线／强调色／倾斜／角标：组件和装饰走【同一条】。
     // 装饰的那一份写在它自己那条记录里，组件的写在 x_homeWidgetLooks 里——
     // 存哪儿不一样，画法只有这一份（各画一份的话，改一处另一处必然落单）。
@@ -5968,6 +6102,7 @@ function Home({
     //   （borderMode 默认「细边」），拿一个空对象喂进去等于给全桌面每个组件凭空画一圈边。
     //   所以这儿问的是 widgetLooks[key] 在不在，不是 lookOf(key) 有没有返回对象。
     var look = it.kind === "decor" ? it.decor : (it.kind === "widget" && widgetLooks[key]) ? lookOf(key) : null;
+    if (asIcon) look = null;   // 收成图标时不套组件外观层
     // 这一张她自己歪过没有（她 2026-09-13 第二次报：「角还是消掉了」）。
     // ⚠️v67.79 只把【外面那一格】的裁剪框往外让了 6px，可组件还压着【第二层】裁剪
     //   （下面那个 inner 外壳：装饰是 visible，组件是 hidden）——第二层照旧卡在原来那个方框上，
@@ -6044,7 +6179,7 @@ function Home({
         transition: "transform .15s ease"
       }
     }, h("div", { style: Object.assign({ pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
-        overflow: (it.kind === "decor" || tiltDeg) ? "visible" : (homeSize === "auto" ? "visible" : "hidden") },
+        overflow: (it.kind === "decor" || tiltDeg) ? "visible" : ((homeSize === "auto" || asIcon) ? "visible" : "hidden") },
         // ⚠️只有【自己决定高度】的那几个才套 flex 对齐层。
         //   v63.53 我给所有格子都套上了，结果把名片弄坏了（她 2026-09-05 截图）：
         //   竖排 flex 里的孩子 flex-shrink 默认是 1，名片本来是「比一行高、靠 overflow:visible
@@ -6105,6 +6240,8 @@ function Home({
       // 往前面的洞里吸，于是动一个、别人跟着跳。
       // 现在同一份 homePlaceDenseXY 既算落位、又直接当 gridRow/gridColumn 用，
       // 画出来的就是模型算出来的那一格，一个字都不会差。
+      editMode && pi > 0 && !(keys || []).some(function (k) { return !SP_RE.test(k); }) && !(extraPage && pi === curLayout.length - 1) && h("div", { "data-home-empty-page": pi, className: "flex justify-center", style: { padding: "18px 0 6px" } },
+        h("button", { onClick: function () { removeEmptyPage(pi); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 20, fontFamily: F_BODY, fontSize: 13, color: wallpaper ? "#fff" : t.ink, background: wallpaper ? "rgba(20,18,15,.35)" : t.bg2, border: "1px solid " + (wallpaper ? "rgba(255,255,255,.45)" : t.line) } }, "这一页是空的 · 删掉这一页")),
       (function () {
         var ks = editMode ? (keys || []) : trimTailRows(keys);
         var pp = homePlaceDenseXY(ks, spanOf);
@@ -6272,6 +6409,9 @@ function Home({
           h("div", null,
             // ⚠️已经放上去的那一件不给换类型：换了就不是原来那件东西了，该新做一件。
             A.setType ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginTop: 6 } },
+              // 最近聊过：移走了才出现在这里，点一下直接放回桌面（它不是一件新做的装饰，是那个组件本身）
+              A.isNew && hiddenWidgets.indexOf("w_recent") >= 0 ? h("button", { key: "__recent", "data-decor-recent": true, onClick: function () { showWidget("w_recent"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, "✎"), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, "最近聊过")) : null,
               homeDecorPickable().map(function (x) {
                 var active = A.type === x.id;
                 return h("button", { key: x.id, onClick: function () { A.setType(x.id); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
@@ -6292,9 +6432,9 @@ function Home({
           A.type === "photo"
             ? h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 6, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })
             : A.type === "shortcut" ? h("div", { style: { marginTop: 6 } },
-                h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "牌上显示的名字", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
-                h("select", { value: A.detail || "memo", onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
-                  Object.keys(REG).filter(function (k) { return REG[k] && REG[k].kind === "app" && !REG[k].soon; }).map(function (k) { return h("option", { key: k, value: k }, REG[k].zh); })))
+                h("input", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "图标上的字（可不填，不填就是一块空白，样子在下面「什么样子」里定）", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
+                h("select", { value: shortcutTarget(A.detail), onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
+                  shortcutOptions().map(function (k) { return h("option", { key: k, value: k }, REG[k].zh); })))
             : h("div", { style: { marginTop: 6 } },
                 h("textarea", { value: A.text, onChange: function (e) { A.setText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "写下" + meta.name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
                 (A.type === "countdown" || A.type === "anniversary")
@@ -6326,7 +6466,7 @@ function Home({
             A.isNew ? h("button", { onClick: function () { A.setSize(""); }, className: "w-full active:opacity-70",
               style: { marginBottom: 8, borderRadius: 14, padding: "10px 0", background: A.size ? t.bg2 : t.ink, color: A.size ? t.ink : t.bg2, border: "1px solid " + (A.size ? t.line : t.ink), fontFamily: F_BODY, fontSize: 12.5 } },
               "自动（按这一款推一个）") : null,
-            h(HomeSizeGrid, { value: A.size || "auto", onChange: A.setSize }),
+            h(HomeSizeGrid, { value: A.size || "auto", onChange: A.setSize, allowIcon: !!A.isWidget }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
               A.isWidget ? "挑了尺寸的组件高度会被钉死，超出的那截裁掉；「自动」才按内容长。"
                 : "书签和挂轴那几款是竖的，挑「竖条」「竖块」才立得住。"))),
@@ -6350,6 +6490,7 @@ function Home({
             h(HomeStickerEditor, { list: A.stickers, busy: decorBusy, onChange: A.setStickers,
               onPick: function (f, id) { takeStickerPhoto(f, id, A.stickers, A.setStickers); } }))),
         // 已经在桌面上的那一件，才有得移走
+        A.isWidget && styleKey === "w_recent" ? h("button", { onClick: function () { hideWidget("w_recent"); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b4574a", minHeight: 44 } }, "从桌面移走（以后在「做一件装饰」里放回来）") : null,
         A.isWidget ? h("button", { onClick: function () { setStyleKey(null); setDecorStep("look"); setEditMode(true); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "去整理位置")
           : !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着
@@ -7430,6 +7571,7 @@ function MomentsFeed({
   const [cText, setCText] = useState("");
   const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
   const [imgView, setImgView] = useState(null);
+  const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
   // 信息流自己铺白底（外壳的地是灰的）：朋友圈那种 app 的正文从来是一张白纸，
   // 格子靠分隔线认，不靠父层透过来的那点米色
@@ -7466,7 +7608,7 @@ function MomentsFeed({
       color: t.ink,
       whiteSpace: "pre-wrap"
     }
-  }, imgView)), /*#__PURE__*/React.createElement("div", {
+  }, imgView), !isImgRef(imgView) && h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) })), /*#__PURE__*/React.createElement("div", {
     // 这一行只剩两个动作键（no-english-titles：原来左边那行英文眉标是装饰，
     // 这一页叫什么顶栏已经写了）
     className: "px-5 py-3 flex items-center justify-end",
@@ -7498,7 +7640,7 @@ function MomentsFeed({
   }, h(IRefresh, {
     size: 13,
     color: t.fog
-  }), " 角色发"))), gen && /*#__PURE__*/React.createElement(Spinner, {
+  }), " 角色发"), h(MomentAutoImgSwitch, null))), gen && /*#__PURE__*/React.createElement(Spinner, {
     label: "正在发朋友圈…"
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
@@ -7544,7 +7686,7 @@ function MomentsFeed({
       onClick: () => setImgView(m.image),
       className: "mt-2.5 block active:opacity-80"
     }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } })) : h("button", {
-      onClick: () => setImgView(m.image),
+      onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
       className: "mt-2.5 flex items-center gap-2 px-3 py-2.5 active:opacity-70",
       style: {
         background: t.bg,
@@ -7702,6 +7844,31 @@ function MomentsFeed({
     }
   }, c.name))))));
 }
+// 只有描述、还没画的那张图：点开的描述下面给一个「生图」（她 2026-09-28，prompt＝描述本身）。
+// 朋友圈、贴吧共用这一个键；run 返回 true＝画好了。
+function DescGenImageButton({ run, onDone, mark }) {
+  const t = useTheme();
+  const [busy, setBusy] = useState(false);
+  if (typeof run !== "function") return null;
+  return h("button", { "data-desc-gen-img": mark || "", disabled: busy, onClick: async () => {
+    setBusy(true);
+    const ok = await Promise.resolve().then(run).catch(() => false);
+    setBusy(false);
+    if (ok && onDone) onDone();
+  }, className: "active:opacity-70", style: { marginTop: 14, width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: busy ? t.fog : t.ink, fontFamily: F_BODY, fontSize: 13 } }, busy ? "正在画…" : "用这段描述生图");
+}
+function MomentGenImageButton({ momentId, onDone }) {
+  if (!momentId || typeof window.momentGenImage !== "function") return null;
+  return h(DescGenImageButton, { mark: momentId, onDone, run: () => window.momentGenImage(momentId) });
+}
+// 顶上的开关：角色发的时候要不要顺手把配图画出来（默认关）。朋友圈 x_momentAutoImg、贴吧 x_forumAutoImg。
+function AutoImgSwitch({ storeKey, color }) {
+  const t = useTheme();
+  const [on, setOn] = useState(() => !!loadJSON(storeKey, false));
+  const c = color || (on ? t.ink : t.fog);
+  return h("button", { "data-auto-img": storeKey + ":" + (on ? "on" : "off"), onClick: () => { const n = !on; setOn(n); saveJSON(storeKey, n); }, className: "flex items-center gap-1.5", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: on ? t.ink : t.fog } }, h(PGlyph, { k: "album", size: 13, color: on ? t.ink : t.fog }), on ? " 自动配图·开" : " 自动配图·关");
+}
+function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
 function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const t = useTheme();
@@ -7710,6 +7877,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const [cText, setCText] = useState("");
   const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
   const [imgView, setImgView] = useState(null);
+  const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
   const coverRef = useRef(null);
   if (!isMe && !character) return null;
@@ -7725,7 +7893,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, m.content),
     m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => setImgView(m.image), className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
-      : h("button", { onClick: () => setImgView(m.image), className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "[图片] 点开看描述"))) : null,
+      : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "[图片] 点开看描述"))) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, timeAgo(m.ts)),
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.likeCount)),
@@ -7767,7 +7935,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
       list.map(momentRow)),
     delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelMoment(delId); setDelId(null); }, onCancel: () => setDelId(null) }),
-    imgView && h(Sheet, { onClose: () => setImgView(null), tall: true }, h(Eyebrow, { style: { marginBottom: 8 } }, "图片"), isImgRef(imgView) ? h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")) : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, imgView)),
+    imgView && h(Sheet, { onClose: () => setImgView(null), tall: true }, h(Eyebrow, { style: { marginBottom: 8 } }, "图片"), isImgRef(imgView) ? h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")) : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, imgView), h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) })),
     compose && h(MomentCompose, { friendGroups, characters, onPost: payload => { onPostMoment(payload); setCompose(false); }, onClose: () => setCompose(false) }));
 }
 
@@ -7961,7 +8129,7 @@ function photoAttachValue(v) {
 // 点开之后那一层：大图／整段描述，真有像素时还能存进手机相册。
 // ⚠️存图走的是公共那一条 window.saveImgOriginal（engine.js）——查手机那边早就在用它，
 //   别在这儿再写一条下载逻辑。
-function PhotoSheet({ m, onClose, toast }) {
+function PhotoSheet({ m, onClose, toast, onGen }) {
   const t = useTheme();
   const cap = photoCaption(m);
   return h(Sheet, { onClose: onClose, tall: true },
@@ -7977,7 +8145,8 @@ function PhotoSheet({ m, onClose, toast }) {
             style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"))
       : h("div", null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）")));
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）"),
+          onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null));
 }
 function RoomWorldBanner({ onEnter }) {
   const t = useTheme();
@@ -8612,6 +8781,9 @@ function ChatThread({
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
     });
     if (m.kind === "gift") return h(GiftCard, { key: i, m: m, isU: m.role === "user", now: now, onOpenGift: onOpenGift,
+      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
+      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
@@ -11186,7 +11358,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "emote" ? "表情" : null;
+  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "takeout" ? "🛵外卖" : m.kind === "emote" ? "表情" : null;
   const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
@@ -11746,6 +11918,45 @@ function GiftCard({ m, isU, now, avatar, myAvatar, onOpenGift }) {
           // 吊牌上打的那个孔
           h("div", { style: { position: "absolute", left: 6, top: "50%", marginTop: -2.5, width: 5, height: 5, borderRadius: 999, background: "rgba(70,52,28,.22)" } }))),
       h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.04em", color: t.fog, textAlign: isU ? "right" : "left" } }, footer)),
+    isU && myAvatar ? myAvatar : null);
+}
+// 外卖小票（她 2026-09-27：角色给她点外卖，要跟购物的礼物盒分开）。
+// 礼物是一个盒子，外卖在现实里是【订在袋子上的那张小票】：店名、点了什么、多少钱，
+// 底边是撕纸的锯齿。状态靠骑手那一格：在路上＝进度条在走＋还有几分；送到了＝条走满。
+// ⚠️没有「拆」：外卖到了就是到了，别给它套礼物那套掀盖。
+function TakeoutCard({ m, isU, now, avatar, myAvatar, character }) {
+  const t = useTheme();
+  const d = m.takeout || {};
+  const items = Array.isArray(d.items) ? d.items : [];
+  const cur = now || Date.now();
+  const total = m.arriveTs && m.ts ? Math.max(1, m.arriveTs - m.ts) : 1;
+  const left = m.arriveTs ? m.arriveTs - cur : 0;
+  const done = !m.arriveTs || left <= 0;
+  const pct = done ? 100 : Math.max(4, Math.min(96, Math.round((1 - left / total) * 100)));
+  const PAPER = "#fffdf6", INK = "#2f2a22", SUB = "#8a8171", RIDER = "#f2b705";
+  return h("div", { className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+    !isU && avatar ? avatar : null,
+    h("div", { "data-kind": "takeout", style: { width: 224, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))" } },
+      h("div", { style: { background: PAPER, borderRadius: "4px 4px 0 0", padding: "12px 14px 10px", color: INK } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.12em", color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          isU ? "外卖 · 你给 " + ((character && (character.remark || character.name)) || "TA") + " 点的" : "外卖 · " + ((character && (character.remark || character.name)) || "TA") + " 给你点的"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, marginTop: 4, wordBreak: "break-word" } }, d.shop || "一家小店"),
+        h("div", { style: { borderTop: "1px dashed rgba(70,52,28,.28)", margin: "8px 0 6px" } }),
+        items.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, wordBreak: "break-word" } }, x)),
+        d.price ? h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: SUB, marginTop: 4 } },
+          h("span", null, "实付"), h("span", { style: { color: INK } }, mTight(d.price, character && character.id))) : null,
+        d.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SUB, marginTop: 5, wordBreak: "break-word" } }, "备注：" + d.remark) : null,
+        // 写在单子上给对方的那句话：像拿笔在小票空白处添的一行
+        d.note ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "#6d5f4b", marginTop: 7, paddingTop: 7,
+          borderTop: "1px dashed rgba(70,52,28,.22)", wordBreak: "break-word" } }, "「" + d.note + "」") : null,
+        // 骑手那一格
+        h("div", { style: { marginTop: 9 } },
+          h("div", { style: { height: 4, borderRadius: 999, background: "rgba(70,52,28,.10)", overflow: "hidden" } },
+            h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: RIDER, transition: "width .6s ease" } })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: SUB, marginTop: 4 } },
+            done ? "已送达 · 趁热吃" : "骑手在路上 · 还有 " + giftFmtLeft(left)))),
+      // 撕纸的锯齿底边
+      h("div", { style: { height: 7, background: "linear-gradient(-45deg, transparent 5px, " + PAPER + " 0) 0 0 / 10px 7px repeat-x, linear-gradient(45deg, transparent 5px, " + PAPER + " 0) 0 0 / 10px 7px repeat-x" } })),
     isU && myAvatar ? myAvatar : null);
 }
 // 亲属卡的卡面（v60.45 重做，聊天里那张 / 钱包汇总页 / 单卡账单页三处共用）
@@ -12633,11 +12844,13 @@ function StateCard({
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.fog } },
         // ⚠️配角的心情也显示（她 2026-09-20：「心情想法穿着动作这四样放 npc 状态卡」）。
         //   原来这两处拿 isNpc 把心情那一行整个藏了；好感那颗心照旧不给配角（见下面的 scale）。
-        roomName ? h("span", { style: { color: t.accent } }, roomName + " · 心声只留在本房") : dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
-        (!roomName && dm) ? " · " : "",
-        roomName ? "" : dm && dm.def ? "聊几句就会变"
+        dm ? h("span", { style: { color: t.accent } }, dm.label) : null,
+        dm ? " · " : "",
+        roomName && !dm ? "这间房还没有心情"
+          : dm && dm.def ? "聊几句就会变"
           : dm && dm.faded ? "已经平复下去了"
-            : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"))),
+            : (dm && dm.ts ? timeAgo(dm.ts) + "变的" : "此刻"),
+        roomName ? " · 只在「" + roomName + "」里" : "")),
     h("div", { className: "shrink-0 flex items-center", style: { gap: 6 } },
       h("button", { onClick: onClose, "aria-label": "关掉", className: "active:opacity-60", style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1 } }, "✕")));
   const tabs = gazeOn && window.GazePage ? h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line } },
@@ -13199,12 +13412,8 @@ function OfflineMode({
       // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
       h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
     h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "高级 · 最低字数目标"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。"),
-      h(Slider, { value: sMinW, min: 0, max: 8000, step: 100, onChange: setSMinW })),
+    h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
+      note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" }),
     persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: characterText(char, "他/名字") }]),
     persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }]),
     h("div", { className: "flex items-center justify-between pt-5" },
@@ -13664,6 +13873,26 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
 // ── 篇幅模式那一段：单人线下 / 群线下共用 ───────────────────────────────
 // 原来只写在单人线下的设置面板里；她 2026-09-26 要群聊也有，所以先抽成公共的一段，
 // 单人那份也搬了过来——照着抄第二份的话，以后改措辞就只会改到一处。
+// ── 「最少写多少字」那根拉条：单人线下 / 群线下 / 同人文 / 小剧场共用这一段 ──────
+// 她 2026-09-28：「统一一下公共设置字数拉条，不要一样一处」。
+// 原来线下是一根 0–8000 的拉条、同人文是一个自己 clamp 的数字框、小剧场一份都没有。
+// ⚠️算法（clamp / 数字数 / 那句发进提示词的规则）收在 style-presets.js 一处，这儿只管长相。
+// ⚠️各处的【兜底】不一样，所以右上角那句和说明由调用点给：
+//    线下是「不限」，同人文是「按上面那个 token 折算」——公共那层要能表达各处的分寸。
+function WordFloorSection({ value, onChange, title, note, hint, max }) {
+  const t = useTheme();
+  const SP = (typeof window !== "undefined" && window.StylePresets) || null;
+  const cap = Math.max(1000, Math.min(SP ? SP.WORD_FLOOR_MAX : 20000, Number(max) || 8000));
+  const n = Math.max(0, Number(value) || 0);
+  return h("div", { className: "pt-5" },
+    h("div", { className: "flex items-baseline justify-between mb-1" },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, title || "最少写多少字"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, n ? n + " 字" : (hint || "不限"))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } },
+      note || "只有明确需要字数时再开。这个数会发进提示词、写完再数一遍；短了只提示，不会自动补写。"),
+    h(Slider, { value: Math.min(n, cap), min: 0, max: cap, step: 100,
+      onChange: v => onChange(SP ? SP.clampWordFloor(v) : Math.round(v)) }));
+}
 function OfflineLengthModeSection({ value, onChange }) {
   const t = useTheme();
   const mode = value === "immersive" ? "immersive" : "natural";
@@ -13849,12 +14078,8 @@ function GroupOfflineMode({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
       h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
     h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "输出下限（约字数）"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "让每次至少写这么多字（>0 生效）。"),
-      h(Slider, { value: sMinW, min: 0, max: 8000, step: 100, onChange: setSMinW })),
+    h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "输出下限（约字数）",
+      note: "让每次至少写这么多字（>0 生效）。" }),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
@@ -15652,7 +15877,10 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
     Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
       h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
-      h(Toggle, { on: !!draft[key][k], onChange: () => patch({ [key]: { ...draft[key], [k]: !draft[key][k] } }) })
+      h(Toggle, {
+        on: (key === "cognition" && Kit.allows ? Kit.allows(draft, k) : !!draft[key][k]),
+        onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
+          patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
   const save = () => {
     const saved = Kit.save(character.id, draft);

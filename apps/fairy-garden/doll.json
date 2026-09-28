@@ -92,7 +92,7 @@
     "cloth": "裙身、包包与肩带",
     "trim": "衬衫与衣领",
     "accent": "蝴蝶结",
-    "detail": "小熊脸部",
+    "detail": "小熊装饰",
     "socks": "袜子",
     "boots": "鞋子"
    }
@@ -163,6 +163,20 @@
     "accent": "领带",
     "socks": "袜子",
     "boots": "皮鞋"
+   }
+  },
+  "tee": {
+   "label": "宽松T恤牛仔裤",
+   "colors": {
+    "cloth": "#e3e2e0",
+    "trim": "#b5b4b2",
+    "bottom": "#a0a2a5",
+    "boots": "#dcdad6"
+   },
+   "colorLabels": {
+    "cloth": "T恤",
+    "bottom": "牛仔裤",
+    "boots": "球鞋"
    }
   }
  },

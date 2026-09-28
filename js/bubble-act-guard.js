@@ -61,10 +61,31 @@
   // opts.secondPerson：本场「怎么称呼对方」是不是第二人称。她把称谓设成第三人称时，
   //   「她」本来就是对的，这把刀整个不许落（施工规则/no-yes-unless：不成立就不出手，
   //   不是出手之后再挂一句除非）。
+  // 模型自己挂了牌子的（群里有人报 2026-09-28：「【线下场景】：我规规矩矩地跪坐在床沿边低着脑袋」
+  //   后面紧跟一条「双手老老实实搭在自己膝盖上」，被切成两个白气泡）。牌子就是它亲口说的「这是描写」，
+  //   不用猜——那一条去掉牌子挪进动作行；紧跟着的几条只有【写身体/动作、又不像在说话】才跟过去，
+  //   一碰到像话的就停，后面原样是气泡。
+  const LABEL = /^[【\[]\s*(?:线下场景|线下|场景|旁白|动作|动描|神态)\s*[】\]]\s*[:：]?\s*/;
+  const BODY_OR_CONTACT = new RegExp("自己|" + BODY + "|" + CONTACT);
+  function pullLabeled(list) {
+    const words = [], acts = [];
+    let i = 0;
+    while (i < list.length) {
+      if (!LABEL.test(list[i])) { words.push(list[i]); i++; continue; }
+      const parts = [list[i].replace(LABEL, "").trim()].filter(Boolean);
+      i++;
+      while (i < list.length && !LABEL.test(list[i]) && couldBeAct(list[i]) && BODY_OR_CONTACT.test(list[i]) && !/[…~～]/.test(list[i])) { parts.push(list[i]); i++; }
+      if (parts.length) acts.push(parts.join("，"));
+    }
+    return { words, acts };
+  }
+
   function split(words, opts) {
     const list = (Array.isArray(words) ? words : []).map(clean).filter(Boolean);
     const o = opts || {};
     const nothing = { words: Array.isArray(words) ? words : [], acts: [] };
+    // 挂了牌子的不看称谓设置：牌子本身就是证据，跟「她」对不对无关
+    if (list.some(w => LABEL.test(w))) return pullLabeled(list);
     if (o.secondPerson === false) return nothing;
     if (list.length < 2) return nothing;
     if (!list.every(couldBeAct)) return nothing;
@@ -74,5 +95,5 @@
     return { words: [], acts: list };
   }
 
-  return { split, couldBeAct, hasActEvidence };
+  return { split, couldBeAct, hasActEvidence, pullLabeled };
 });

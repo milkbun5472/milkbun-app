@@ -4,6 +4,34 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'show': { // 展开手臂，左右转给你看，最后回正亮相
+  const l=beat(p,.12,.3,.36,.5),r=beat(p,.42,.62,.7,.84);
+  q.left=[-.35*e,0,-.4*e];q.right=[-.35*e,0,.4*e];q.yaw=-.8*l+.8*r;q.tilt=-.035*late;break;}
+ case 'five-left':case 'five-right':case 'clap-left':case 'clap-right': {
+  const side=face.endsWith('left')?'left':'right',sign=side==='left'?-1:1,clap=face.startsWith('clap-');
+  const reach=clap?1-ease((p-.55)/.45):beat(p,0,.22,.85,1);
+  q[side]=[(-1.95-(clap?.16*Math.sin(p*Math.PI*2):0))*reach,0,sign*.65*reach];
+  q[side==='left'?'right':'left']=[-.15*reach,0,-sign*.12*reach];q.roll=sign*.035*reach;break;}
+ case 'dodge-left':case 'dodge-right': {
+  const sign=face.endsWith('left')?-1:1,away=beat(p,0,.16,.35,.66);
+  q.roll=sign*.11*away;q.yaw=sign*.25*away;q.tilt=-.06*away;
+  q.right=[-.7*late,0,.2*late];q.left=[-.2*e,0,-.1*e];break;}
+
+ case 'beckon': { // 先伸手邀请，再朝自己收两次，最后留手等你
+  const call=beat(p,.2,.32,.65,.82),curl=(.5-.5*Math.cos((p-.2)*Math.PI*8))*call;
+  q.right=[-1.15*e-.48*curl,0,-.18*e];q.left=[-.2*e,0,-.12*e];q.tilt=.055*e;q.yaw=-.12*e;break;}
+ case 'dance': { // 左右交替摆臂，身体轻轻跟拍，脚下保持原位
+  const sway=Math.sin(p*Math.PI*6)*e;
+  q.left=[(-.8+.48*Math.sin(p*Math.PI*6))*e,0,-.42*e];q.right=[(-.8-.48*Math.sin(p*Math.PI*6))*e,0,.42*e];q.roll=.09*sway;q.yaw=.13*sway;break;}
+ case 'bow': // 双臂略展开，欠身停一拍，抬起来再伸手致意
+  q.left=[-.25*e,0,-.32*e];q.right=[-.25*e-.7*late,0,.32*e];q.tilt=.15*beat(p,.1,.3,.48,.7);q.yaw=-.13*late;break;
+ case 'shrug': { // 摊开两手，向左右各歪一下，再收回来
+  const first=beat(p,.12,.28,.4,.56),second=beat(p,.45,.6,.72,.9);
+  q.left=[-.95*e,0,-.62*e];q.right=[-.95*e,0,.62*e];q.roll=.075*first-.075*second;q.tilt=-.025*e;break;}
+ case 'peek': { // 向两侧探看，最后转回你这边并抬一下手
+  const left=beat(p,.05,.22,.3,.5),right=beat(p,.35,.53,.65,.85);
+  q.yaw=-.38*left+.38*right;q.roll=-.055*left+.055*right;q.right=[-.8*late,0,.16*late];q.left=[-.15*e,0,-.14*e];break;}
+
  case 'default': // 一只手抬到身前，歪一下身子，像在问你要不要过来
   q.right=[-.95*e,0,-.3*e];q.roll=-.06*e;q.yaw=-.16*e;break;
  case 'happy': // 朝你招手，另一手自然张开，身体跟着招呼轻晃

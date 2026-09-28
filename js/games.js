@@ -2849,10 +2849,11 @@
   // 真心话大冒险 · 引擎（转瓶子 → 真心话 / 大冒险 → 全场反应）
   // ============================================================
   // 取角色【完整人设】喂给生成（真人角色读 char.persona 全量，NPC 读生成的人设；别只喂一句 tagline，否则严重 OOC）
-  function tdDesc(p, cap) {
+  function tdDesc(p, cap, forUi) {
     const s = p.isNpc ? (p.persona || "") : ((p.char && (p.char.persona || p.char.tagline)) || p.persona || "");
-    return (cap && s.length > cap) ? s.slice(0, cap) + "…" : (s || "（没写人设）");
+    return (forUi ? "" : gNote(p)) + ((cap && s.length > cap) ? s.slice(0, cap) + "…" : (s || "（没写人设）"));
   }
+  function gNote(p) { return (!p.isNpc && p.char && window.CharacterPronoun && window.CharacterPronoun.genderNote) ? window.CharacterPronoun.genderNote(p.char) : ""; }
   function tdRoster(list, cap) { return list.map(function (p) { return "【" + p.name + "】" + tdDesc(p, cap); }).join("\n\n"); }
   // 贴人设铁律：焊进真心话每个生成，治 OOC + 性别/关系搞错 + 乱配 CP
   const TD_IC = "【严格贴人设 · 别 OOC】每个角色的语气、态度、会问什么、敢做什么，都必须符合 TA 的人设与身份；性别、年龄、称呼一律按人设来别搞错（例：双胞胎哥哥的弟弟就是弟弟、别写成妹妹；冷淡的人别写成话痨）。宁可克制也别为了效果让角色崩人设。" +
@@ -3428,7 +3429,7 @@
 
     return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, table) }, header, roster, logView,
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "44vh", overflowY: "auto" } }, action),
-      detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), hideSkill: true, personaText: detail.isUser ? "这是你本人，真人玩家。" : tdDesc(detail), onClose: function () { setDetail(null); } }) : null);
+      detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), hideSkill: true, personaText: detail.isUser ? "这是你本人，真人玩家。" : tdDesc(detail, 0, true), onClose: function () { setDetail(null); } }) : null);
   }
 
   // ============================================================
@@ -3520,7 +3521,7 @@
       sys: "「大富翁」桌上刚连续发生了这些事：\n" + event + "\n【账面事实】" + standings + "\n【最近桌上话】" + (recent || "无") + "\n想说就给 1～2 句面对面口语（可讨价还价、嘴硬、幸灾乐祸、安慰或威胁下回合收租）；不想说 lines 留空。不能改钱、产权或规则数据。",
       expect: '{"lines":["最多两句，可空"]}'
     });
-    const cast = cc.rest.map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
+    const cast = cc.rest.map(function(p){return "■ "+p.name+gNote(p)+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
     const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n从在场角色中挑 2~4 个此刻最有反应的人，各说一句 28 字内的面对面口语。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     let talks=[];
     if(cc.rest.length){const raw=await callRetry(api,sys+ccPreface(cc,"说过自己那句了（也可能选择沉默）"),[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:9800}); const p=extractJSON(raw); talks=p&&Array.isArray(p.talks)?p.talks:[];}

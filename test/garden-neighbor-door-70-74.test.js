@@ -27,7 +27,10 @@ test("请 TA 搬进来那一下就能定，默认什么都不带", () => {
 // ⚠️⚠️两道闸：door 管 TA 自己的主线记忆，neighborView 管这一档里的私事
 test("邻居的主线记忆走房间那道闸，不另写一套过滤", () => {
   assert.match(app, /const neighborBundleFor = \(charId, door\) => \{/);
-  assert.match(app, /gateByDoor\(ctxFor\(char, \{ chat: true \}\), \{ cognition: \{ \.\.\.\(door \|\| \{\}\) \} \}\)/);
+  // v74.185：门上没开记忆就别白跑一趟检索（判据同样问 ChatRooms.allows），
+  // 但仍然必须从 gateByDoor 过——这条断言钉的是后者。
+  assert.match(app, /const _door = \{ cognition: \{ \.\.\.\(door \|\| \{\}\) \} \};/);
+  assert.match(app, /gateByDoor\(ctxFor\(char, \{ chat: true, noMemory: !window\.ChatRooms\.allows\(_door, "formalMemory"\) \}\), _door\)/);
   assert.match(app, /const gateByDoor = \(ctx, door\) => \{\s*\n\s*return window\.ChatRooms\.gateCtx\(ctx, door\);\s*\n\s*\};/,
     "三条路共用这一处，多一处手抄件就是改一处漏一处");
   assert.equal((app.match(/ChatRooms\.gateCtx\(/g) || []).length, 1);

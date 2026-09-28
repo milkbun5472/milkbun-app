@@ -24,14 +24,24 @@ def export(keep,out):
     bpy.ops.export_scene.gltf(filepath=out,**EXPORT)
     print('wrote',os.path.relpath(out,HERE),os.path.getsize(out)//1024,'KB')
 
+def hair_ids():
+    return sorted({o['hair'] for o in bpy.data.objects if o.type=='MESH' and o.get('hair')})
+
 def split():
-    load();ids=outfit_ids()
-    os.makedirs(os.path.join(APP,'outfits'),exist_ok=True)
-    export(lambda o:not o.get('outfit'),os.path.join(APP,'doll.glb'))
+    """doll.glb = body + rig only; outfits/<id>.glb and hair/<style>.glb load on demand.
+    头发也按需加载（她 2026-09-27：「以后一直加衣服发型文件太大会不会炸」）：原来七款头发全在每次都下的底模里，
+    每加一款所有人都多下一两百 KB、多占一份显存。头发挂在 HeadAnchor 下（不蒙皮），所以每个文件带上
+    DollRig 和 HeadAnchor，运行时按名字接到这个人自己的 HeadAnchor 底下（traveler.mjs hairSource）。"""
+    load();ids=outfit_ids();hairs=hair_ids()
+    for d in ('outfits','hair'):os.makedirs(os.path.join(APP,d),exist_ok=True)
+    export(lambda o:not o.get('outfit') and not o.get('hair'),os.path.join(APP,'doll.glb'))
     for oid in ids:
         export(lambda o:o.type=='ARMATURE' or o.get('outfit')==oid,os.path.join(APP,'outfits',oid+'.glb'))
-    stale=[f for f in os.listdir(os.path.join(APP,'outfits')) if f.endswith('.glb') and f[:-4] not in ids]
-    for f in stale:os.remove(os.path.join(APP,'outfits',f))
+    for hid in hairs:
+        export(lambda o:o.type=='ARMATURE' or o.name=='HeadAnchor' or o.get('hair')==hid,os.path.join(APP,'hair',hid+'.glb'))
+    for d,keep in (('outfits',ids),('hair',hairs)):
+        for f in os.listdir(os.path.join(APP,d)):
+            if f.endswith('.glb') and f[:-4] not in keep:os.remove(os.path.join(APP,d,f))
     return ids
 
 if __name__=='__main__':

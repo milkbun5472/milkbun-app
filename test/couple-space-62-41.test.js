@@ -90,22 +90,18 @@ test("交换日记是一本本子，不是一张纸", () => {
 test("手册把情侣空间拆开讲，十几扇门都点到名", () => {
   const win = {}; new Function("window", R("js/assistant-manual.js"))(win);
   const M = win.AssistantManual;
-  ["couple", "couple_wall", "couple_kept", "couple_days"].forEach(id =>
-    assert.ok(M.byId(id), "手册里没有 " + id));
-  const all = ["couple", "couple_wall", "couple_kept", "couple_days"].map(id => M.textOf(M.byId(id))).join("\n");
+  // 2026-09-28 起情侣空间在攻略里是一整页（她照着代码逐页核过的那版），不再拆四条
+  assert.ok(M.byId("couple"), "手册里没有 couple");
+  const all = M.textOf(M.byId("couple"));
   // 门一扇都不许漏：漏了的那一扇，秋秋只会说「我不确定」
-  ["合照", "照相馆", "第一次", "如果馆", "抽卡", "抽屉", "窗台", "唱片",
-   "情书", "交换日记", "问答小本", "TA记得的", "说好的", "时光胶囊",
-   "我们的档案", "愿望板", "和好间", "时光轴", "里程碑"].forEach(w =>
+  ["合照", "照相馆", "第一次", "另一种我们", "抽卡", "抽屉", "窗台", "唱片",
+   "情书", "交换日记", "问答小本", "他记得的", "说好的", "时光胶囊",
+   "我们的档案", "愿望板", "旅行", "和好间", "时光轴", "纪念日"].forEach(w =>
     assert.ok(all.indexOf(w) >= 0, "手册里没提到「" + w + "」"));
-  // 目录永远全发，所以这四条在目录里也要看得见
-  const idx = M.index();
-  ["情侣空间 · 墙上", "情侣空间 · 收着的", "情侣空间 · 我们的日子"].forEach(z =>
-    assert.ok(idx.indexOf(z) >= 0, "目录里没有「" + z + "」"));
   // ⚠️手册铁律②：只写怎么用，不写怎么做出来的
   assert.ok(!/x_[a-zA-Z]|openSub|setSub|localStorage/.test(all), "词条里漏了实现细节出去");
   // 问得着才算数
-  assert.ok(M.find("纪念日能填年份吗", 4).some(x => x.id === "couple_days"));
-  assert.ok(M.find("抽屉是干嘛的", 4).some(x => x.id === "couple_wall"));
-  assert.ok(M.find("交换日记怎么用", 4).some(x => x.id === "couple_kept"));
+  assert.ok(M.find("纪念日能填年份吗", 4).some(x => x.id === "couple"));
+  assert.ok(M.find("抽屉是干嘛的", 4).some(x => x.id === "couple"));
+  assert.ok(M.find("交换日记怎么用", 4).some(x => x.id === "couple"));
 });

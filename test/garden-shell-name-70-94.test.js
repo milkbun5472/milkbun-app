@@ -14,9 +14,9 @@ test("壳叫小世界，主屏那颗图标也是", () => {
   assert.match(host, /h\(Head, \{ zh: "小世界", sub: sub,/, "壳那三页的顶栏");
   assert.match(core, /fairyGarden: "小世界"/);
   assert.match(comp, /fairyGarden: \{ kind: "app", zh: "小世界"/);
-  assert.match(manual, /\{ id: "fairyGarden", zh: "小世界", where: "主屏独立图标"/);
+  assert.match(manual, /\{ id: "fairyGarden", app: "fairyGarden", zh: "小世界", where: "主屏上的「小世界」"/);
   // 手册搜「微光庭院」也要搜得到——名字换了，东西还是那个
-  assert.match(manual, /kw: \["小世界", "微光庭院"/);
+  assert.match(manual, /kw: \["小世界"[^\]]*"微光庭院"/);
 });
 
 // ⚠️进了世界以后仍旧是【那个世界自己的名字】：GardenSession 那三处不许跟着改
