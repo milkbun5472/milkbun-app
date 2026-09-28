@@ -576,9 +576,12 @@
   function manualBlock(question, hereId) {
     const M = MAN(); if (!M) return "";
     // 她此刻开着的那一页，词条也捎上：这样「这一页是干嘛的」不用她先说出它叫什么
+    // 她开着的那一页：攻略里那一整个 app 都捎上（信息那一页底下有说话、见面、小房间……），
+    //   不只是跟页面同名的那一条——她问「这个按钮干嘛的」，答案常常在同一页的别的小节里。
     const here = hereId ? M.byId(hereId) : null;
-    const hits = M.find(question, 4);
-    if (here && !hits.some(x => x.id === here.id)) hits.unshift(here);
+    const page = here ? M.appEntries(here.app) : [];
+    const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
+    hits.unshift.apply(hits, page);
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
       + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
   }

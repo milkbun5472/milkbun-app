@@ -148,3 +148,19 @@ test("公共版没有的东西不写进攻略", () => {
   assert.ok(all.indexOf("找回失联") < 0, "攻略里写了公共版没有的「找回失联的角色」");
   assert.ok(!M.APPS.some(a => a.id === "radio"), "电台又进攻略了");
 });
+
+test("秋秋也知道攻略里面的东西：正文里写着的按钮名、小功能问了翻得到", () => {
+  // 她 2026-09-28：「秋秋也要知道攻略里面的东西」——这几样都只写在正文里，名字和检索词里没有
+  [["看他玩是什么", "phone"], ["塔罗能补牌吗", "tarot"], ["书脊是什么", "fanfic"],
+   ["群里能艾特吗", "group"], ["抽卡点数怎么攒", "gacha"]].forEach(([q, id]) =>
+    assert.ok(M.find(q, 4).some(x => x.id === id), "「" + q + "」翻不到 " + id));
+  // 她开着的那一页：那一整个 app 都捎上，不只同名的那一条
+  const asst = fs.readFileSync(path.join(root, "js/assistant.js"), "utf8");
+  assert.match(asst, /const page = here \? M\.appEntries\(here\.app\) : \[\];/);
+});
+
+test("文档和 app 对齐：有一个脚本能把这份攻略原样导成文档用的 markdown", () => {
+  const md = require("child_process").execSync("node scripts/guide-to-md.mjs", { cwd: root, encoding: "utf8" });
+  M.APPS.filter(a => a.cat !== "言秋那一片").forEach(a => assert.ok(md.includes("## " + a.zh), "导出的文档里少了 " + a.zh));
+  assert.ok(!md.includes("## 秋声"), "言秋那一片不进给大家看的攻略");
+});
