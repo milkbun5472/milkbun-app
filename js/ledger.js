@@ -742,7 +742,7 @@
     if (rail && sk.id === "glass") {
       // 跟首页同一根试管（她给的素材），液体按进度画
       return h("div", { "data-ledger-rail": true, style: { position: "relative" } },
-        h("img", { src: "assets/ledger/tube.png?v=259", alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+        h("img", { src: "assets/ledger/tube.webp?v=259", alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: "4.2%", top: "33%", height: "34%", width: (Math.max(.06, Math.min(1, pct)) * 91.6) + "%", borderRadius: 999,
           background: over ? "linear-gradient(180deg,#f7c7d9,#e58db1)" : "linear-gradient(180deg,#d9d2fb,#a79cef 55%,#9387e3)", boxShadow: "inset 0 1.5px 0 rgba(255,255,255,.85), inset 0 -1px 2px rgba(80,70,170,.3)" } }));
     }
@@ -779,13 +779,13 @@
     search: c => [h("circle", { key: 1, cx: 11, cy: 11, r: 6.5 }), h("path", { key: 2, d: "M16 16l4.5 4.5" })]
   };
   const LIcon = ({ k, size, color, sw }) => h("svg", { width: size || 22, height: size || 22, viewBox: "0 0 24 24", fill: "none", stroke: color || "currentColor", strokeWidth: sw || 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }, LI[k] ? LI[k]() : null);
-  // 玻璃框（她给的 panel.png）画在 ::before 上单独压透明度；统计页、日历页共用
-  const PNL_CSS = ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(assets/ledger/panel.png?v=259) 120 fill / 24px / 0 stretch;opacity:.6}" +
+  // 玻璃框（她给的 panel.webp）画在 ::before 上单独压透明度；统计页、日历页共用
+  const PNL_CSS = ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(assets/ledger/panel.webp?v=259) 120 fill / 24px / 0 stretch;opacity:.6}" +
     ".lg-pnl.lg-pnl-hero::before{opacity:.46;filter:saturate(.75);-webkit-mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45));mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45))}";
   // 月份切换：两颗小果冻键夹着一小块屏幕
   //   玻璃皮（她 2026-09-29「日历框也做成第三页这样而不是裸的一行」）：整条垫一块她给的透明滑轨，像一枚小胶囊屏
   const MonthNav = ({ mk, setMk, sk }) => h("div", { "data-ledger-monthnav": true, style: Object.assign({ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, margin: "0 0 10px" },
-      sk.id === "glass" ? { width: "fit-content", marginLeft: "auto", marginRight: "auto", padding: "4px 10px", minHeight: 48, background: "url(assets/ledger/rail.png?v=259) center / 100% 100% no-repeat" } : {}) },
+      sk.id === "glass" ? { width: "fit-content", marginLeft: "auto", marginRight: "auto", padding: "4px 10px", minHeight: 48, background: "url(assets/ledger/rail.webp?v=259) center / 100% 100% no-repeat" } : {}) },
     h("button", { onClick: () => setMk(m => shiftMonth(m, -1)), "aria-label": "上个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: 18, color: sk.sub }) }, "‹"),
     h("span", { style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 500, color: sk.ink, minWidth: 96, textAlign: "center" } }, fmtMonth(mk)),
     h("button", { onClick: () => setMk(m => shiftMonth(m, 1)), "aria-label": "下个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: 18, color: sk.sub }) }, "›"));
@@ -795,9 +795,9 @@
   const CandySeg = ({ items, value, onChange, sk }) => {
     const n = items.length, idx = Math.max(0, items.findIndex(x => x[0] === value)), glass = sk.id === "glass";
     return h("div", { className: "lg-segment lg-rail", style: Object.assign({ display: "flex", position: "relative", padding: 3 },
-        glass ? { borderRadius: 24, minHeight: 48, padding: 5, background: "url(assets/ledger/rail.png?v=259) center / 100% 100% no-repeat" } : sk.well) },
+        glass ? { borderRadius: 24, minHeight: 48, padding: 5, background: "url(assets/ledger/rail.webp?v=259) center / 100% 100% no-repeat" } : sk.well) },
       glass ? h("span", { "aria-hidden": "true", "data-ledger-slider": true, style: { position: "absolute", top: 5, bottom: 5, left: "calc(5px + " + (idx * 100 / n) + "% - " + (idx * 10 / n) + "px)", width: "calc(" + (100 / n) + "% - " + (10 / n) + "px)", borderRadius: 16,
-          background: "url(assets/ledger/slider.png?v=259) center / 100% 100% no-repeat", transform: "scale(1.12, 1.25)",
+          background: "url(assets/ledger/slider.webp?v=259) center / 100% 100% no-repeat", transform: "scale(1.12, 1.25)",
           transition: "left .22s cubic-bezier(.3,.7,.3,1)" } }) : null,
       items.map(([k, zh]) => { const on = value === k;
         return h("button", { key: k, onClick: () => onChange(k), "aria-pressed": on, className: "flex-1 active:opacity-80",
@@ -930,7 +930,7 @@
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
       h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: sk.id === "glass" ? "" : tabTitle, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch }),
         // 第一页标题也换成她出的图（2026-09-29）；放在顶栏这一格里，下面钱包的一切位置都不用跟着挪
-        tab === "wallet" && sk.id === "glass" ? h("img", { src: "assets/ledger/title-wallet.png?v=279", alt: "MY WALLET", draggable: false, "data-ledger-title": "wallet", style: { display: "block", width: "72%", height: "auto", margin: "-34px 0 0 12%" } }) : null),
+        tab === "wallet" && sk.id === "glass" ? h("img", { src: "assets/ledger/title-wallet.webp?v=279", alt: "MY WALLET", draggable: false, "data-ledger-title": "wallet", style: { display: "block", width: "72%", height: "auto", margin: "-34px 0 0 12%" } }) : null),
       // 她 2026-09-29：首页不许左右滑（票根、便签这些故意伸出页边的素材会把页面撑宽），滑到底也不许再弹
       h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", "data-ledger-scroll": true, style: { overflowX: "hidden", overscrollBehavior: "none", touchAction: "pan-y" } },
         tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
@@ -1079,7 +1079,7 @@
     // ⚠️她 2026-09-29：「我让你完全复制没让你自己画」——实物部件（卡套+链子兔子、便签、三颗键、试管、票根、页脚）
     //   直接用她那张整页样张裁下来的图（assets/ledger/，按 960 宽的原图坐标裁），位置和宽度也按原图比例摆；
     //   只有会变的东西（余额、座右铭、预算数字和进度、最近账单）用字写在上面。
-    const IMG = "assets/ledger/", IMG_V = "?v=255";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
+    const IMG = "assets/ledger/", IMG_V = "?v=283";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
     const accts = settings.accounts || [];
     const [slide, setSlide] = useState(0);
     // 账户卡上印的字：盖住原卡面左上那块，跟卡一起歪 3 度
@@ -1101,11 +1101,11 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 6 } }, "余额"),
             h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(acctBalance(a, data.txns))))); };
     const at = (x, w) => ({ marginLeft: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" });
-    const pic = (src, x, w, extra, props2) => h("img", Object.assign({ src: IMG + src + ".png" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", height: "auto" }, at(x, w), extra || {}) }, props2 || {}));
+    const pic = (src, x, w, extra, props2) => h("img", Object.assign({ src: IMG + src + ".webp" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", height: "auto" }, at(x, w), extra || {}) }, props2 || {}));
     const soft = "linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent), linear-gradient(180deg, transparent, #000 5%, #000 95%, transparent)";
     const softStyle = { WebkitMaskImage: soft, maskImage: soft, WebkitMaskComposite: "source-in", maskComposite: "intersect" };
     const picKey = (src, x, w, label, onClick, tone) => h("button", { onClick, "aria-label": label, "data-ledger-bigkey": tone, className: "lg-key", style: Object.assign({ position: "absolute", top: 0, padding: 0, background: "transparent" }, { left: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" }) },
-      h("img", { src: IMG + src + ".png" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }));
+      h("img", { src: IMG + src + ".webp" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }));
     const tubeFill = Math.max(.06, used);
     return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px", overflowX: "clip" } },
       // 页面周围的小字和星星（照样张，是字不是图，所以日期会跟着变）
@@ -1123,11 +1123,11 @@
         h("div", { "data-ledger-cardpack": true, onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); if (i !== slide) setSlide(i); },
             style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } },
           [null].concat(accts).map((a, i) => h("div", { key: a ? a.id : "total", "data-ledger-tray": i === 0 ? true : undefined, "data-ledger-acctcard": a ? a.id : undefined, style: { flex: "0 0 100%", scrollSnapAlign: "center", position: "relative" } },
-            h("img", { src: IMG + "card.png" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)", filter: a && acctType(a.type).hue ? "hue-rotate(" + acctType(a.type).hue + "deg)" : "none" } }),
+            h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)", filter: a && acctType(a.type).hue ? "hue-rotate(" + acctType(a.type).hue + "deg)" : "none" } }),
             a ? acctFace(a) : null))),
         h("div", { style: { display: "flex", justifyContent: "center", gap: 6, marginTop: 4 } }, [null].concat(accts).map((a, i) => h("span", { key: i, style: { width: i === slide ? 14 : 6, height: 6, borderRadius: 999, background: i === slide ? (a ? acctType(a.type).tint : "#a79cef") : "rgba(150,145,200,.3)", transition: "width .2s" } }))))
       : h("div", { "data-ledger-tray": true, style: { position: "relative", paddingTop: 58 } },
-        h("img", { src: IMG + "card.png" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
+        h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月结余"),
@@ -1138,12 +1138,12 @@
         h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto-y2k", style: { marginTop: 10, minHeight: 36, padding: "6px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, color: "#44465f",
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: "rgba(255,255,255,.42)", borderBottom: "1px dashed rgba(255,255,255,.95)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.7)" } },
           "「" + motto + "」"),
-        h("img", { src: IMG + "note.png" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", right: -18, top: -6, width: "40%", height: "auto", transform: "rotate(-6deg)" } })),
+        h("img", { src: IMG + "note.webp" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", right: -18, top: -6, width: "40%", height: "auto", transform: "rotate(-6deg)" } })),
       // 三颗键（原图，整块就是按钮）
       h("div", { className: "lg-bigkeys", style: { display: "flex", gap: "2%", padding: "0 4%", marginBottom: 8 } },
         [["k1", "记一笔", () => props.onAdd("expense"), "pink"], ["k2", "收入", () => props.onAdd("income"), "blue"], ["k3", "账单", props.onBills, "lilac"]].map(([src, label, fn, tone]) =>
           h("button", { key: src, onClick: fn, "aria-label": label, "data-ledger-bigkey": tone, className: "lg-key", style: { flex: 1, padding: 0, background: "transparent" } },
-            h("img", { src: IMG + src + ".png" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } })))),
+            h("img", { src: IMG + src + ".webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } })))),
       // 预算：字 + 原图试管，里面的液体按真实进度画
       h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: { display: "block", padding: "4px 0 10px" } },
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "0 20px 2px 24px" } },
@@ -1152,7 +1152,7 @@
             h("span", { className: "lg-hand", style: { fontSize: 16, color: "#6d6c8c", transform: "rotate(-8deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
             h("span", { style: numStyle(sk, 15, bs.left < 0 ? sk.over : "#23244a") }, Math.round(bs.used * 100) + "%")) : h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 设个每月预算")),
         h("div", { "data-ledger-rail": true, style: { position: "relative", width: "92%", margin: "0 4%" } },
-          h("img", { src: IMG + "tube.png" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+          h("img", { src: IMG + "tube.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
           h("div", { "aria-hidden": "true", style: { position: "absolute", left: "4.2%", top: "33%", height: "34%", width: (tubeFill * 91.6) + "%", borderRadius: 999,
             background: bs && bs.left < 0 ? "linear-gradient(180deg,#f7c7d9,#e58db1)" : "linear-gradient(180deg,#d9d2fb,#a79cef 55%,#9387e3)", boxShadow: "inset 0 1.5px 0 rgba(255,255,255,.85), inset 0 -1px 2px rgba(80,70,170,.3)" } })),
         bs ? h("div", { style: { display: "flex", justifyContent: "space-between", margin: "4px 20px 0 24px", fontFamily: F_BODY, fontSize: 14, color: "#4a4b6a" } },
@@ -1160,7 +1160,7 @@
           h("span", null, bs.left < 0 ? "超了  " : "还能花  ", h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : "#23244a") }, fmtMoney(Math.abs(bs.left), cur)))) : null),
       // 最近：左边原图票根 + 右边字
       h("div", { style: { position: "relative", display: "flex", marginTop: 8 } },
-        h("img", { src: IMG + "stub.png" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", left: "-9%", top: -10, width: "26%", height: "auto", zIndex: 2, pointerEvents: "none", transform: "rotate(-2deg)" } }),
+        h("img", { src: IMG + "stub.webp" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", left: "-9%", top: -10, width: "26%", height: "auto", zIndex: 2, pointerEvents: "none", transform: "rotate(-2deg)" } }),
         h("div", { style: { flex: 1, minWidth: 0, margin: "0 16px 0 20%", position: "relative", zIndex: 1 } },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottom: "1px solid " + LINE } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "最近"),
@@ -1370,17 +1370,17 @@
     const six = [5, 4, 3, 2, 1, 0].map(i => { const m = shiftMonth(mk, -i); return { m, v: summarize(txns, code, m).exp }; });
     const sixMax = Math.max(1, ...six.map(x => x.v));
     // 第二页照她给的素材做（2026-09-29）：面板是她给的那块玻璃框，按九宫格拉伸；标题、星星、挂件都是素材图
-    const LA = "assets/ledger/", LV = "?v=259", glassP = sk.id === "glass";
+    const LA = "assets/ledger/", LV = "?v=283", glassP = sk.id === "glass";
     // 她 2026-09-29「这些玻璃现在有点光污染」：玻璃框挪到 ::before 上单独压透明度，里面的字和圆环不受影响；
     //   本月支出那块最大，四个角同时亮像水晶相框——再压一档，下半截淡出去，让圆环当主角
     const pnl = glassP ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", borderRadius: 0, background: "transparent", padding: 0, position: "relative", isolation: "isolate" } : sk.shell;
     const pnlCls = glassP ? "lg-pnl" : undefined;
     const pnlCss = glassP ? h("style", null, PNL_CSS) : null;
-    const deco = (src, st) => glassP ? h("img", { src: LA + src + ".png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none", zIndex: 3 }, st) }) : null;
+    const deco = (src, st) => glassP ? h("img", { src: LA + src + ".webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none", zIndex: 3 }, st) }) : null;
     const bay = (title, body, extra, cls) => h("div", { className: glassP ? "lg-pnl" + (cls ? " " + cls : "") : undefined, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl, extra || {}) }, title ? silk(sk, title, { marginBottom: 8 }) : null, body);
     // overflow 两个方向都 clip：装饰素材伸到最后一块面板下面时不许把页面撑长（她 2026-09-29「撑不到那么多的时候也把页面截了」）
     return h("div", { className: "px-5 pb-8 lg-stats", style: { position: "relative", overflow: glassP ? "clip" : undefined } },
-      glassP ? h("img", { src: LA + "title-stats.png" + LV, alt: "STATISTICS", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "-4px 0 2px -4%" } }) : h(WordMark, { sk, word: "STATISTICS", hand: "where did my money go?" }),
+      glassP ? h("img", { src: LA + "title-stats.webp" + LV, alt: "STATISTICS", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "-4px 0 2px -4%" } }) : h(WordMark, { sk, word: "STATISTICS", hand: "where did my money go?" }),
       pnlCss,
       // 装饰故意不对称（她 2026-09-29「三块玻璃板太整齐，又有 UI kit 感」）：回形针只夹一块、只露半截；
       //   金星全页就一颗，紫星多两颗但不是每块都有；票根从支出排行右侧探出一角
@@ -1467,8 +1467,8 @@
               h("div", { style: numStyle(sk, 9.5, sk.sub) }, x.v ? fmtNum(Math.round(x.v)) : "—"),
               // 玻璃皮：她给的一对柱子素材——空柱子当底，满柱子按金额从下往上长（九宫格拉伸，圆头不变形）
               glassP ? h("div", { "data-ledger-col": x.m, style: { position: "relative", width: "100%", maxWidth: 30, height: 96 } },
-                  h("div", { style: { position: "absolute", inset: 0, borderStyle: "solid", borderColor: "transparent", borderWidth: "14px 10px", borderImage: "url(" + LA + "col-empty.png" + LV + ") 140 100 fill / 14px 10px / 0 stretch" } }),
-                  x.v ? h("div", { style: { position: "absolute", inset: 0, borderStyle: "solid", borderColor: "transparent", borderWidth: "14px 10px", borderImage: "url(" + LA + "col-full.png" + LV + ") 140 100 fill / 14px 10px / 0 stretch",
+                  h("div", { style: { position: "absolute", inset: 0, borderStyle: "solid", borderColor: "transparent", borderWidth: "14px 10px", borderImage: "url(" + LA + "col-empty.webp" + LV + ") 140 100 fill / 14px 10px / 0 stretch" } }),
+                  x.v ? h("div", { style: { position: "absolute", inset: 0, borderStyle: "solid", borderColor: "transparent", borderWidth: "14px 10px", borderImage: "url(" + LA + "col-full.webp" + LV + ") 140 100 fill / 14px 10px / 0 stretch",
                     // 满柱整根画出来，再从上往下裁掉没用完的那段：液面是平的，不会挤成一团
                     clipPath: "inset(" + Math.round((1 - Math.max(.12, x.v / sixMax)) * 100) + "% 0 0 0 round 10px)",
                     filter: now ? "hue-rotate(55deg) saturate(1.1)" : "none" } }) : null)
@@ -1530,19 +1530,19 @@
     const glass = sk.id === "glass";
     // 第三页照她给的素材做（2026-09-29）：标题图、便签、三种日期键帽、邮戳、左边一列圆孔都是她出的图；
     //   日期数字和金额、邮戳上的日期是代码印上去的，所以哪个月都对
-    const LA = "assets/ledger/", LV = "?v=276";
+    const LA = "assets/ledger/", LV = "?v=283";
     const [sy, sm, sd] = sel.split("-");
     return h("div", { className: "px-5 pb-8 lg-cal", style: glass ? { position: "relative", overflow: "clip" } : undefined },
       glass ? h("style", null, PNL_CSS) : null,
-      glass ? h("img", { src: LA + "note-good.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -6, top: 0, width: 96, height: "auto", transform: "rotate(5deg)", pointerEvents: "none", zIndex: 0 } }) : null,
-      glass ? h("img", { src: LA + "title-cal.png" + LV, alt: "CALENDAR", draggable: false, style: { position: "relative", display: "block", width: "74%", height: "auto", margin: "-2px 0 4px -3%" } })
+      glass ? h("img", { src: LA + "note-good.webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -6, top: 0, width: 96, height: "auto", transform: "rotate(5deg)", pointerEvents: "none", zIndex: 0 } }) : null,
+      glass ? h("img", { src: LA + "title-cal.webp" + LV, alt: "CALENDAR", draggable: false, style: { position: "relative", display: "block", width: "74%", height: "auto", margin: "-2px 0 4px -3%" } })
         : h(WordMark, { sk, word: "MY CALENDAR", hand: "every little day ♡" }),
       h(MonthNav, { mk, setMk, sk }),
       h("div", { className: glass ? "lg-pnl" : undefined, style: glass ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", padding: "0", margin: "0 -6px 14px" }
         : { padding: "4px 0", marginBottom: 12, borderTop: "1px solid " + LINE, borderBottom: "1px solid " + LINE } },
         // 她给的空吊牌挂在日历框右边，月份缩写是代码印的——到十月就自己变 OCT.
         glass ? h("div", { "data-ledger-tag": true, "aria-hidden": "true", style: { position: "absolute", right: -40, top: 28, width: 38, zIndex: 2, pointerEvents: "none", transform: "rotate(-3deg)" } },
-          h("img", { src: LA + "tag.png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+          h("img", { src: LA + "tag.webp" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
           h("span", { style: { position: "absolute", left: "38%", top: "58%", transform: "translate(-50%,-50%)", writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 12, fontWeight: 800, letterSpacing: "2px", color: sk.accent } },
             ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][m - 1] + ".")) : null,
         h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 2px" }, sk.acrylic) },
@@ -1554,7 +1554,7 @@
               const lit = lv > 0, dark = lv > .66;
               const cap = glass ? (k === today ? "day-today" : lit ? (lv > .5 ? "day-hi" : "day-lo") : null) : null;
               return h("button", { key: k, onClick: () => setSel(k), className: "active:opacity-70", "data-ledger-daycap": cap || undefined, style: cap ? { minHeight: 46, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
-                background: "url(" + LA + cap + ".png" + LV + ") center / 100% 100% no-repeat", borderRadius: 10,
+                background: "url(" + LA + cap + ".webp" + LV + ") center / 100% 100% no-repeat", borderRadius: 10,
                 outline: on && k !== today ? "1px solid " + sk.accent : "none", outlineOffset: 1 } : { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
                 // 花过钱的那天：一颗嵌在机身上的迷你透明键帽——很淡、很透，上沿一丝亮光，底边一点厚度；没花钱的日子完全是平的
                 background: lit ? (glass ? "linear-gradient(170deg, rgba(255,255,255,.7), rgba(" + (lv > .5 ? "196,188,236" : "204,222,246") + "," + (0.25 + lv * 0.3).toFixed(2) + "))" : "rgba(60,54,40," + (lv * .4).toFixed(2) + ")") : "transparent",
@@ -1566,12 +1566,12 @@
                 d && d.exp ? h("span", { style: numStyle(sk, 7.5, sk.fog) }, fmtNum(Math.round(d.exp))) : null,
                 null); })))),
       // 玻璃皮：这天的流水像夹在活页本里——左边一列她给的圆孔纵向铺；右下角盖一枚 DAILY 邮戳，印的是选中那天
-      h("div", { "data-ledger-dayfile": true, style: glass ? { position: "relative", paddingLeft: 30, paddingBottom: 96, marginLeft: -8, background: "url(" + LA + "holes.png" + LV + ") left 2px top 0 / 22px auto repeat-y" } : undefined },
+      h("div", { "data-ledger-dayfile": true, style: glass ? { position: "relative", paddingLeft: 30, paddingBottom: 96, marginLeft: -8, background: "url(" + LA + "holes.webp" + LV + ") left 2px top 0 / 22px auto repeat-y" } : undefined },
       h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12, fontWeight: 600, color: sk.sub, margin: "0 6px 8px" } }, h("span", null, dayLabel(sel)), byDay[sel] ? h("span", { style: numStyle(sk, 12, sk.sub) }, "支 " + fmtMoney(byDay[sel].exp, cur)) : null),
       selRows.length ? h(StripSlot, { sk }, selRows.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) })))
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "24px 0" } }, "这天没有记账"),
       glass ? h("div", { "data-ledger-stamp": true, "aria-hidden": "true", style: { position: "absolute", right: -4, bottom: 4, width: 132, transform: "rotate(-8deg)", opacity: .78, pointerEvents: "none" } },
-        h("img", { src: LA + "stamp.png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+        h("img", { src: LA + "stamp.webp" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
         [[sy.slice(2), "28%"], [sm, "46.5%"], [sd, "64%"]].map((t, i) => h("span", { key: i, style: { position: "absolute", left: t[1], top: "52%", transform: "translate(-50%,-50%)", fontFamily: F_BODY, fontSize: 11, fontWeight: 800, letterSpacing: ".5px", color: sk.accent } }, t[0]))) : null));
   }
 
@@ -1588,14 +1588,14 @@
     // 第四页照她给的素材做（2026-09-29）：标题、两张皮肤预览、四个设置图标、右边一列书签都是她出的图；
     //   皮肤名、选中的粉框、编号和英文小字是代码印的
     if (sk.id === "glass") {
-      const LA = "assets/ledger/", LV = "?v=281";
+      const LA = "assets/ledger/", LV = "?v=283";
       const PREV = { glass: "skin-glass", paper: "skin-paper" };
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
         icon === "card" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
             h("span", { style: { width: 34, height: 24, borderRadius: 6, transform: "rotate(-8deg)", background: "linear-gradient(125deg,#e6e0fb,#f3dff0 35%,#d9e6fb 70%,#ece0fa)", border: "1px solid rgba(160,150,220,.6)", boxShadow: "inset 0 1px 0 #fff, 0 2px 4px rgba(140,130,200,.25)" } }))
-          : h("img", { src: LA + "ic-" + icon + ".png" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
+          : h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
         h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
         h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
@@ -1605,18 +1605,18 @@
       return h("div", { className: "px-5 pb-8 lg-me", style: { position: "relative", overflow: "clip" } },
         h("style", null, PNL_CSS),
         // 右上那张便签和 nice day 小对话泡（她 2026-09-29 给的图）
-        h("img", { src: LA + "note-glad.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -4, top: -4, width: 88, height: "auto", transform: "rotate(5deg)", pointerEvents: "none" } }),
-        h("img", { src: LA + "bubble-nice.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: 86, top: 44, width: 58, height: "auto", transform: "rotate(-8deg)", pointerEvents: "none" } }),
-        h("img", { src: LA + "title-me.png" + LV, alt: "MY STUFF", draggable: false, style: { position: "relative", display: "block", width: "66%", height: "auto", margin: "-2px 0 10px -3%" } }),
+        h("img", { src: LA + "note-glad.webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -4, top: -4, width: 88, height: "auto", transform: "rotate(5deg)", pointerEvents: "none" } }),
+        h("img", { src: LA + "bubble-nice.webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: 86, top: 44, width: 58, height: "auto", transform: "rotate(-8deg)", pointerEvents: "none" } }),
+        h("img", { src: LA + "title-me.webp" + LV, alt: "MY STUFF", draggable: false, style: { position: "relative", display: "block", width: "66%", height: "auto", margin: "-2px 0 10px -3%" } }),
         h("div", { className: "lg-pnl", style: { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", margin: "0 -6px 10px" } },
-          h("img", { src: LA + "side-tabs.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -40, top: 250, width: 30, height: "auto", pointerEvents: "none", zIndex: 2 } }),
+          h("img", { src: LA + "side-tabs.webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -40, top: 250, width: 30, height: "auto", pointerEvents: "none", zIndex: 2 } }),
           silk(sk, "账本样式", { marginBottom: 10 }),
           h("div", { style: { display: "flex", gap: 8, marginBottom: 12 } },
             SKIN_LIST.map(x => { const on = sk.id === x.id;
               return h("button", { key: x.id, onClick: () => props.onSkin(x.id), "data-ledger-skin": x.id, className: "flex-1 text-left active:opacity-80",
                 style: { position: "relative", overflow: "hidden", borderRadius: 16, padding: "0 7px 7px", minHeight: 0, background: "rgba(255,255,255,.4)", border: on ? "2px solid " + sk.pink : "1px solid rgba(255,255,255,.8)", boxShadow: on ? "0 0 0 3px color-mix(in srgb, " + sk.pink + " 18%, transparent)" : "none" } },
                 on ? h("span", { style: { position: "absolute", right: 6, top: 6, zIndex: 1, fontFamily: F_BODY, fontSize: 9, fontWeight: 700, color: "#fff", background: sk.pink, borderRadius: 999, padding: "1px 6px" } }, "✓ 当前使用") : null,
-                h("img", { src: LA + PREV[x.id] + ".png" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
+                h("img", { src: LA + PREV[x.id] + ".webp" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
           grow(1, "card", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
