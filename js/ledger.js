@@ -730,11 +730,16 @@
     plane: ["#c5c2f3", "#827bb8", "M5 15l12 2L29 5q6-3 6 3L25 22l3 13-4 3-7-11-7 5-5-3 9-8z", "M18 19l12-11"],
     money: ["#ebcaaa", "#997765", "M15 5h16l-5 9q14 13 10 22-4 7-15 5Q4 41 8 30q2-9 11-16z M16 15h13", "M26 22q-10-4-10 2t10 7q0 5-10 2 M21 19v18"],
     ticket: ["#e6b9e7", "#ab7ea9", "M6 13l29-8 4 12q-6 3 1 7l2 9-30 8-3-10q6-4-1-7z", "M26 10l7 25 M16 18l8 3-5 8z"],
+    // 她 2026-09-29「重复的图标重画」：日用、娱乐、兼职、红包原来跟别的分类撞图，各给一张自己的
+    bottle: ["#c9e3f5", "#6f94b8", "M17 5h10v6H17z M15 11h14q3 2 3 6v18q0 4-4 4H16q-4 0-4-4V17q0-4 3-6z", "M16 22h12 M16 30h12"],
+    tv: ["#d9c6f4", "#8a70bc", "M6 13h32v22H6z M16 6l6 7 6-7", "M10 17h24v14H10z M20 21l6 3-6 3z"],
+    case: ["#e4cfb8", "#95765c", "M5 14h34v22H5z M16 14V9q0-2 2-2h8q2 0 2 2v5", "M5 23h34 M20 21h4v5h-4z"],
+    envelope: ["#f4bccb", "#b5657a", "M9 6h26v32H9z", "M9 13q13 9 26 0 M22 17a3 3 0 1 0 .1 0"],
     dots: ["#d3c7ed", "#9a86ba", "M8 21a2 2 0 1 0 .1 0 M20 21a2 2 0 1 0 .1 0 M32 21a2 2 0 1 0 .1 0", ""]
   };
   function CategoryGlyph({ emoji, name, size, icon }) {
-    const lookup = { "餐饮":"cup", "买菜":"basket", "交通":"bus", "购物":"shop", "日用":"basket", "居住":"home", "住房":"home", "娱乐":"game", "游戏充值":"game", "医疗":"health", "人情":"heart", "社交":"heart", "学习":"book", "宠物":"cat", "旅行":"plane", "工资":"money", "兼职":"money", "红包":"money", "报销":"ticket", "其他":"dots" };
-    const emojis = { "🍚":"cup", "☕":"cup", "🧋":"cup", "🍵":"cup", "🛒":"basket", "🚌":"bus", "🚇":"bus", "🛍️":"shop", "🧴":"basket", "🏠":"home", "🎬":"ticket", "🎮":"game", "💊":"health", "🎁":"heart", "📚":"book", "🐱":"cat", "✈️":"plane", "💰":"money", "💼":"money", "🧧":"money", "🧾":"ticket", "✨":"dots" };
+    const lookup = { "餐饮":"cup", "买菜":"basket", "交通":"bus", "购物":"shop", "日用":"bottle", "居住":"home", "住房":"home", "娱乐":"tv", "游戏充值":"game", "医疗":"health", "人情":"heart", "社交":"heart", "学习":"book", "宠物":"cat", "旅行":"plane", "工资":"money", "兼职":"case", "红包":"envelope", "报销":"ticket", "其他":"dots" };
+    const emojis = { "🍚":"cup", "☕":"cup", "🧋":"cup", "🍵":"cup", "🛒":"basket", "🚌":"bus", "🚇":"bus", "🛍️":"shop", "🧴":"bottle", "🏠":"home", "🎬":"tv", "🎮":"game", "💊":"health", "🎁":"heart", "📚":"book", "🐱":"cat", "✈️":"plane", "💰":"money", "💼":"case", "🧧":"envelope", "🧾":"ticket", "✨":"dots" };
     const k = (icon && CATEGORY_ART[icon] ? icon : null) || lookup[name] || emojis[emoji], art = CATEGORY_ART[k];
     // 画好的图里没有这一类（她自己加的分类又没挑图标）：画一颗软糖泡泡，里面写分类名的第一个字——不再退回 emoji
     if (!art) {
@@ -2133,6 +2138,7 @@
             h("button", { onClick: addCur, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加币种")) : null,
           // ---- 分类管理 ----
           tab === "cat" ? h(Fragment, null,
+g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", "支出分类"], ["income", "收入分类"]], value: catType, onChange: setCatType, sk: props.sk })) :
             h("div", { style: { display: "flex", gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: 3, marginBottom: 14 } },
               ["expense", "income"].map(k => h("button", { key: k, onClick: () => setCatType(k), className: "flex-1 active:opacity-80",
                 style: { padding: "7px 0", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, border: "none", background: catType === k ? (k === "income" ? INC : EXP) : "transparent", color: catType === k ? "#fff" : t.sub } }, k === "income" ? "收入分类" : "支出分类"))),

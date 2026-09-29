@@ -67,3 +67,14 @@ console.log("ledger-acctface ok");
   ["rc-ticket", "rc-clip", "rc-stamp"].forEach(n => assert.ok(fs.existsSync(__dirname + "/../assets/ledger/" + n + ".webp"), n));
   console.log("ledger-ticket-card ok");
 }
+// 默认分类的图标不许撞（她 2026-09-29「重复的图标重画」）
+{
+  const m = src.match(/const lookup = (\{[^}]+\});/);
+  const lk = Function("return " + m[1])();
+  for (const group of [["餐饮","买菜","交通","购物","日用","居住","娱乐","游戏充值","医疗","人情","学习","其他"], ["工资","兼职","红包","报销","其他"]]) {
+    const ks = group.map(n => lk[n]);
+    assert.strictEqual(new Set(ks).size, ks.length, "撞图：" + group.join("、"));
+  }
+  assert.match(src, /h\(CandySeg, \{ items: \[\["expense", "支出分类"\], \["income", "收入分类"\]\]/);
+  console.log("ledger-cat-icons ok");
+}
