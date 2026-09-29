@@ -128,7 +128,7 @@
         : h("div", { style: { width: 50, height: 50, borderRadius: 999, background: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, String(me.name || "我").slice(0, 1)))
         : h(Avatar, { character: who, size: 50, radius: 999 }));
     // 两只头像分开站，中间一根波浪线、正中一颗心，底下一行小字（她 2026-09-29 给的样子）；
-    // 气泡分到两侧：她的在左、TA 的在右，浮在封面两边（封面那块本来就留着空位）
+    // 气泡分到两侧：TA 的在左、她的在右（她说「我在右边」），浮在封面两边（封面那块本来就留着空位）
     const wave = h("svg", { "aria-hidden": "true", width: 96, height: 24, viewBox: "0 0 96 24", style: { flexShrink: 0, margin: "0 2px" } },
       h("path", { d: "M2 12 q6 -7 12 0 t12 0 t12 0", fill: "none", stroke: t.ink, strokeOpacity: .4, strokeWidth: 1.3, strokeLinecap: "round" }),
       h("path", { d: "M58 12 q6 -7 12 0 t12 0 t12 0", fill: "none", stroke: t.ink, strokeOpacity: .4, strokeWidth: 1.3, strokeLinecap: "round" }),
@@ -136,11 +136,11 @@
     const col = (list, side) => h("div", { style: { position: "absolute", top: 104, [side === "l" ? "left" : "right"]: 0, width: "46%", display: "flex", flexDirection: "column",
         alignItems: side === "l" ? "flex-start" : "flex-end", pointerEvents: "none", zIndex: 3 } },
       list.map((r, i) => bubble(r, i, side)),
-      side === "r" && busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null);
+      side === "l" && busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null);
     const stage = h("div", { style: { position: "relative", paddingTop: 8, height: 96 } },
-      h("div", { className: "flex items-center justify-center" }, head(null, true), wave, head(partner, false)),
+      h("div", { className: "flex items-center justify-center" }, head(partner, false), wave, head(null, true)),
       h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "同一首歌，同一刻"),
-      col(mine, "l"), col(theirs, "r"));
+      col(theirs, "l"), col(mine, "r"));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
       h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },
         placeholder: "凑过去跟 " + (partner.remark || partner.name) + " 说一句",
