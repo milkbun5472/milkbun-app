@@ -36,3 +36,12 @@ assert.match(src, /tabBtn\("recur", "周期"\)/);
 assert.match(src, /const n = runRecurring\(d\);/);
 assert.match(src, /window\.saveTextFile\("账本-" \+ todayStr\(\)\.replace\(\/-\/g, ""\) \+ "\.csv", ledgerCSV\(d\), "text\/csv"\)/);
 console.log("ledger-recurring ok");
+
+// 账单页顶上的本月汇总条（她 2026-09-29「就做汇总吧」）：钉在顶上；算的是眼下列出来的这些，转账不算收支
+{
+  const b = src.slice(src.indexOf("function BillsView("), src.indexOf("function CalView("));
+  assert.match(b, /"data-ledger-billsum": true, style: \{ position: "sticky", top: 0/);
+  assert.match(b, /const exp = monthTxns\.filter\(isExpense\)/);
+  assert.match(b, /cell\("笔数", String\(monthTxns\.length\)/);
+  console.log("ledger-billsum ok");
+}

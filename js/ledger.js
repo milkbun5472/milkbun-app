@@ -1568,7 +1568,21 @@
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
         q != null ? h("input", { autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic) })
           : h(MonthNav, { mk, setMk, sk }),
-        h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
+        h("div", { style: { marginBottom: 10 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
+        // 本月汇总条（她 2026-09-29）：滑下去也钉在顶上。算的就是眼下列出来的这些——筛了分类、搜了字，数跟着变；转账不算收支
+        (function () {
+          const exp = monthTxns.filter(isExpense).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+          const inc = monthTxns.filter(x => x.type === "income").reduce((a, x) => a + (Number(x.amount) || 0), 0);
+          const cell = (label, val, color, first) => h("div", { style: { flex: 1, textAlign: "center", borderLeft: first ? "none" : "1px solid " + LINE } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog } }, label),
+            h("div", { style: Object.assign(numStyle(sk, 14, color), { marginTop: 1, whiteSpace: "nowrap" }) }, val));
+          return h("div", { "data-ledger-billsum": true, style: { position: "sticky", top: 0, zIndex: 5, display: "flex", alignItems: "center", padding: "8px 4px", margin: "0 -6px 12px", borderRadius: 14,
+              background: sk.id === "glass" ? "linear-gradient(160deg,rgba(255,255,255,.82),rgba(240,238,252,.72))" : pageColor("ledger", "bg", "#f2ece0"),
+              border: sk.id === "glass" ? "1px solid rgba(255,255,255,.95)" : "1px solid " + sk.line, boxShadow: "0 4px 12px rgba(110,112,160,.12)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } },
+            cell(kw ? "搜到的支出" : "支出", fmtMoney(exp, cur), sk.exp, true),
+            cell(kw ? "搜到的收入" : "收入", fmtMoney(inc, cur), sk.inc),
+            cell("笔数", String(monthTxns.length) + " 笔", sk.ink));
+        })(),
         monthTxns.length ? h("div", { className: "lg-bills-list", style: { display: "flex", flexDirection: "column", gap: 4 } },
           groupByDay(monthTxns).map(g => h("div", { key: g.date, "data-ledger-day": g.date },
             h("div", { className: "lg-bills-date", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 6px 6px", fontFamily: F_BODY, fontSize: 11.5, fontWeight: 600, color: sk.sub } },
