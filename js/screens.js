@@ -955,10 +955,11 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
         h("div", { className: "flex items-center", style: { gap: 8 } },
           h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
             nameOf(centerId) + (selLink.both ? " ⇄ " : selLink.out ? " → " : " ← ") + nameOf(selLink.other)),
+          // 光秃秃 12px 两个字几乎点不中（她 2026-09-29：「编辑键有点难点动」）——给足 36px 高的一颗胶囊
           h("button", { onClick: () => onEditEdge(centerId, selLink.other), className: "active:opacity-60 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "编辑"),
+            style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.tint, fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "编辑"),
           h("button", { onClick: () => setSel(null), className: "active:opacity-60 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginLeft: 2 } }, "收起")),
+            style: { minHeight: 36, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "收起")),
         selLink.label ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 14, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selLink.label) : null,
         selLink.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, selLink.note) : null,
         // 对方那一头写得不一样时，也摆出来——一段关系两边看法不同本来就是内容
