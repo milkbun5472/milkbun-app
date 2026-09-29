@@ -171,3 +171,11 @@ console.log("ledger-stats-assets ok");
   if ((body.match(/minHeight: 62/g) || []).length < 1) throw new Error("me rows need big touch targets");
   console.log("ok me assets");
 }
+
+// 她 2026-09-29「然后做3」：代码画的点缀色接主题工作台（sk.accent / sk.pink），提示那句话照实说
+{
+  const src8 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  for (const bad of ['"#9d8fd6"', '"rgba(132,108,196,.85)"', '"rgba(118,100,176,.9)"', '"2px solid #ee8fb6"', '"1px solid #9fb6e6"']) if (src8.includes(bad)) throw new Error("hardcoded glass accent left: " + bad);
+  if (!/玻璃和贴纸是图片，不跟着变/.test(src8)) throw new Error("note must say images don't follow theme");
+  console.log("ok glass accents follow theme");
+}

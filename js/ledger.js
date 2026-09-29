@@ -1457,7 +1457,7 @@
         // 她给的空吊牌挂在日历框右边，月份缩写是代码印的——到十月就自己变 OCT.
         glass ? h("div", { "data-ledger-tag": true, "aria-hidden": "true", style: { position: "absolute", right: -40, top: 28, width: 38, zIndex: 2, pointerEvents: "none", transform: "rotate(-3deg)" } },
           h("img", { src: LA + "tag.png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
-          h("span", { style: { position: "absolute", left: "38%", top: "58%", transform: "translate(-50%,-50%)", writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 12, fontWeight: 800, letterSpacing: "2px", color: "rgba(118,100,176,.9)" } },
+          h("span", { style: { position: "absolute", left: "38%", top: "58%", transform: "translate(-50%,-50%)", writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 12, fontWeight: 800, letterSpacing: "2px", color: sk.accent } },
             ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][m - 1] + ".")) : null,
         h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 2px" }, sk.acrylic) },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: sk.sub } }, w))),
@@ -1469,7 +1469,7 @@
               const cap = glass ? (k === today ? "day-today" : lit ? (lv > .5 ? "day-hi" : "day-lo") : null) : null;
               return h("button", { key: k, onClick: () => setSel(k), className: "active:opacity-70", "data-ledger-daycap": cap || undefined, style: cap ? { minHeight: 46, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
                 background: "url(" + LA + cap + ".png" + LV + ") center / 100% 100% no-repeat", borderRadius: 10,
-                outline: on && k !== today ? "1px solid #9fb6e6" : "none", outlineOffset: 1 } : { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
+                outline: on && k !== today ? "1px solid " + sk.accent : "none", outlineOffset: 1 } : { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
                 // 花过钱的那天：一颗嵌在机身上的迷你透明键帽——很淡、很透，上沿一丝亮光，底边一点厚度；没花钱的日子完全是平的
                 background: lit ? (glass ? "linear-gradient(170deg, rgba(255,255,255,.7), rgba(" + (lv > .5 ? "196,188,236" : "204,222,246") + "," + (0.25 + lv * 0.3).toFixed(2) + "))" : "rgba(60,54,40," + (lv * .4).toFixed(2) + ")") : "transparent",
                 boxShadow: lit && glass ? "inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 2px rgba(118,122,178,.14), 0 2px 0 rgba(150,154,200,.32), 0 3px 5px rgba(118,122,178,.1)" : "none",
@@ -1486,7 +1486,7 @@
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "24px 0" } }, "这天没有记账"),
       glass ? h("div", { "data-ledger-stamp": true, "aria-hidden": "true", style: { position: "absolute", right: -4, bottom: 4, width: 132, transform: "rotate(-8deg)", opacity: .78, pointerEvents: "none" } },
         h("img", { src: LA + "stamp.png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
-        [[sy.slice(2), "28%"], [sm, "46.5%"], [sd, "64%"]].map((t, i) => h("span", { key: i, style: { position: "absolute", left: t[1], top: "52%", transform: "translate(-50%,-50%)", fontFamily: F_BODY, fontSize: 11, fontWeight: 800, letterSpacing: ".5px", color: "rgba(132,108,196,.85)" } }, t[0]))) : null));
+        [[sy.slice(2), "28%"], [sm, "46.5%"], [sd, "64%"]].map((t, i) => h("span", { key: i, style: { position: "absolute", left: t[1], top: "52%", transform: "translate(-50%,-50%)", fontFamily: F_BODY, fontSize: 11, fontWeight: 800, letterSpacing: ".5px", color: sk.accent } }, t[0]))) : null));
   }
 
   // ============================================================
@@ -1523,8 +1523,8 @@
           h("div", { style: { display: "flex", gap: 8, marginBottom: 12 } },
             SKIN_LIST.map(x => { const on = sk.id === x.id;
               return h("button", { key: x.id, onClick: () => props.onSkin(x.id), "data-ledger-skin": x.id, className: "flex-1 text-left active:opacity-80",
-                style: { position: "relative", overflow: "hidden", borderRadius: 16, padding: "0 7px 7px", minHeight: 0, background: "rgba(255,255,255,.4)", border: on ? "2px solid #ee8fb6" : "1px solid rgba(255,255,255,.8)", boxShadow: on ? "0 0 0 3px rgba(238,143,182,.18)" : "none" } },
-                on ? h("span", { style: { position: "absolute", right: 6, top: 6, zIndex: 1, fontFamily: F_BODY, fontSize: 9, fontWeight: 700, color: "#fff", background: "linear-gradient(90deg,#f3a2c4,#e98ab4)", borderRadius: 999, padding: "1px 6px" } }, "✓ 当前使用") : null,
+                style: { position: "relative", overflow: "hidden", borderRadius: 16, padding: "0 7px 7px", minHeight: 0, background: "rgba(255,255,255,.4)", border: on ? "2px solid " + sk.pink : "1px solid rgba(255,255,255,.8)", boxShadow: on ? "0 0 0 3px color-mix(in srgb, " + sk.pink + " 18%, transparent)" : "none" } },
+                on ? h("span", { style: { position: "absolute", right: 6, top: 6, zIndex: 1, fontFamily: F_BODY, fontSize: 9, fontWeight: 700, color: "#fff", background: sk.pink, borderRadius: 999, padding: "1px 6px" } }, "✓ 当前使用") : null,
                 h("img", { src: LA + PREV[x.id] + ".png" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
@@ -1532,7 +1532,7 @@
           grow(2, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
           grow(3, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
           grow(4, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat"))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: "#9d8fd6", marginRight: 6 } }, "✳ " + "NOTE"), "颜色还能在 设置 → 主题工作台 里单独调。♡"));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
     }
     return h("div", { className: "px-5 pb-8" },
       h(WordMark, { sk, word: "MY STUFF", hand: "a better me :)" }),
