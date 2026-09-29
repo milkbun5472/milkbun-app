@@ -78,3 +78,11 @@ console.log("ledger-acctface ok");
   assert.match(src, /h\(CandySeg, \{ items: \[\["expense", "支出分类"\], \["income", "收入分类"\]\]/);
   console.log("ledger-cat-icons ok");
 }
+// 记账卡是 role:"system"，单聊里不许被「系统」小框先吞掉
+{
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  const i = comp.indexOf('if (m.kind === "recorded") return'), j = comp.indexOf('return h(SysNote, { key: i, label: "系统"', i);
+  assert.ok(i > 0 && j > 0);
+  assert.ok(i < j, "记账卡得排在「系统」小框前面");
+  console.log("recorded-not-swallowed ok");
+}
