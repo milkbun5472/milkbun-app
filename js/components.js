@@ -11725,7 +11725,9 @@ function LedgerTicketCard({ m }) {
   const ink = "#4d4590", sub = "#7a71b4";
   const inc = /^\+/.test(m.title || "");
   const mt = String(m.title || "").match(/^([+−-])(\S*?)([\d.,]+)\s*(.*)$/);
-  return h("div", { "data-wk": "card", "data-ledger-ticket": true, style: { position: "relative", width: 206, paddingTop: 10 } },
+  // 点这张小票就进账本（她 2026-09-29）
+  return h("button", { "data-wk": "card", "data-ledger-ticket": true, "aria-label": "去账本看这一笔", className: "active:opacity-80 text-left",
+      onClick: () => { try { window.ledgerGoApp && window.ledgerGoApp(); } catch (e) {} }, style: { position: "relative", display: "block", width: 206, paddingTop: 10 } },
     h("img", { src: A + "rc-clip.webp" + V, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", left: -6, top: -4, width: 30, height: "auto", zIndex: 2, transform: "rotate(-14deg)", pointerEvents: "none" } }),
     h("div", { style: { position: "relative", borderStyle: "solid", borderColor: "transparent", borderWidth: "58px 22px 36px",
         borderImage: "url(" + A + "rc-ticket.webp" + V + ") 265 80 150 fill / 58px 22px 36px / 0 stretch", minHeight: 80 } },

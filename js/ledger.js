@@ -1158,6 +1158,10 @@
     const IMG = "assets/ledger/", IMG_V = "?v=290";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
     const accts = settings.accounts || [];
     const [slide, setSlide] = useState(0);
+    // 她 2026-09-29「滑到不同的卡数字要变」：第 0 张是总卡＝这个币种本月结余；滑到账户卡＝那个账户本月的收入 − 支出（转账不算收支）
+    const slideAcct = slide > 0 ? accts[slide - 1] : null;
+    const shownNet = slideAcct ? data.txns.filter(t => t.account === slideAcct.id && monthKey(t.date) === mk && !isTransfer(t))
+      .reduce((a, t) => a + (t.type === "income" ? 1 : -1) * (Number(t.amount) || 0), 0) : s.net;
     // 账户卡上印的字：盖住原卡面左上那块，跟卡一起歪 3 度
     const acctFace = a => { const c = (props.curs || []).find(x => x.code === a.currency) || cur, ty = acctType(a.type);
       const cs = a.type === "credit" ? creditState(a, data.txns) : null;
@@ -1211,9 +1215,9 @@
         h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月结余"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, slideAcct ? slideAcct.name + " · 本月结余" : "本月结余"),
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } },
-          h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, s.net < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
+          h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, shownNet < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(shownNet, cur)),
           h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 24, color: "#23244a" }))),
         // 座右铭：一行、小一点，装在一条淡淡的透明框里（她 2026-09-29：喜欢之前那种有点透明框的）
         h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto-y2k", style: { marginTop: 10, minHeight: 36, padding: "6px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, color: "#44465f",
@@ -1544,7 +1548,9 @@
       bay("近六个月支出",
         h("div", { style: Object.assign({ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 12px 8px" }, sk.acrylic) },
           six.map(x => { const lit = x.v ? Math.max(1, Math.round(x.v / sixMax * 10)) : 0, now = x.m === mk;
-            return h("div", { key: x.m, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 } },
+            // 点一根柱子＝看那个月的支出账单（她 2026-09-29）
+            return h("button", { key: x.m, "data-ledger-sixmonth": x.m, "aria-label": "看" + fmtMonth(x.m) + "的支出", onClick: () => props.onOpenCat && props.onOpenCat("", "expense", x.m), className: "active:opacity-70",
+                style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minHeight: 40, padding: 0, background: "transparent", border: "none" } },
               h("div", { style: numStyle(sk, 9.5, sk.sub) }, x.v ? fmtNum(Math.round(x.v)) : "—"),
               // 玻璃皮：她给的一对柱子素材——空柱子当底，满柱子按金额从下往上长（九宫格拉伸，圆头不变形）
               glassP ? h("div", { "data-ledger-col": x.m, style: { position: "relative", width: "100%", maxWidth: 30, height: 96 } },
@@ -1692,9 +1698,7 @@
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
-        icon === "card" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
-            h("span", { style: { width: 34, height: 24, borderRadius: 6, transform: "rotate(-8deg)", background: "linear-gradient(125deg,#e6e0fb,#f3dff0 35%,#d9e6fb 70%,#ece0fa)", border: "1px solid rgba(160,150,220,.6)", boxShadow: "inset 0 1px 0 #fff, 0 2px 4px rgba(140,130,200,.25)" } }))
-          : h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0, objectFit: "contain" } }),
+        h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0, objectFit: "contain" } }),
         h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
         h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
@@ -1718,7 +1722,7 @@
                 h("img", { src: LA + PREV[x.id] + ".webp" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
-          grow(1, "card", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
+          grow(1, "acct", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
           grow(2, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
           grow(3, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
           grow(4, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
@@ -2097,7 +2101,10 @@
             (s.accounts || []).map(a => { const ty = acctType(a.type), c = curs.find(x => x.code === a.currency) || { symbol: "", label: a.currency };
               const cs = a.type === "credit" ? creditState(a, props.txns || []) : null;
               return h("button", { key: a.id, onClick: () => setAcctEdit(a), "data-ledger-acct": a.id, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, marginBottom: 8, minHeight: 56 } },
-                h("div", { style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
+                g ? h("span", { style: { position: "relative", width: 40, height: 34, flexShrink: 0 } },
+                    h("img", { src: LA + "ic-acct.webp" + LV, alt: "", draggable: false, style: { width: 40, height: 34, objectFit: "contain" } }),
+                    h("span", { style: { position: "absolute", right: -2, bottom: 0, width: 12, height: 12, borderRadius: 99, background: ty.tint, border: "2px solid #fff" } }))
+                  : h("div", { style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, a.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, ty.zh + " · " + c.label)),
