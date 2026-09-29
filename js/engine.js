@@ -4090,7 +4090,9 @@ function pullPhotoMarker(words) {
 }
 function photoCapLine(uName, o) {
   o = o || {};
-  const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : [])
+  // 没外貌也没参考照（face:false）时露脸的不给——画出来是张陌生脸；但拍自己身上不露脸的一部分
+  // 出图那头本来就放行（kind self + face false 落成 part），这里得说出来，不然他只知道能拍空景（她 2026-09-29）
+  const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : ["self（只限拍你身上看不见脸的一部分，face 必须填 false）"])
     .concat(o.duo ? ["duo（你和 " + uName + " 的合照）"] : [])
     .concat(o.group ? ["group（在场几个人的合影）"] : [])
     .concat(["none（画面里一个人都没有：窗外、桌上的东西、刚做好的菜）"]);
