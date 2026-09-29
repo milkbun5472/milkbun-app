@@ -154,7 +154,7 @@ console.log("ledger-stats-assets ok");
 // 日历页素材（她 2026-09-29 给的）：标题、三种键帽、邮戳、圆孔、便签
 {
   const fs6 = require("fs"), src6 = fs6.readFileSync(__dirname + "/../js/ledger.js", "utf8");
-  ["title-cal", "day-hi", "day-lo", "day-today", "stamp", "holes", "note-good"].forEach(n => { if (!fs6.existsSync(__dirname + "/../assets/ledger/" + n + ".png")) throw new Error("missing " + n); });
+  ["tag", "title-cal", "day-hi", "day-lo", "day-today", "stamp", "holes", "note-good"].forEach(n => { if (!fs6.existsSync(__dirname + "/../assets/ledger/" + n + ".png")) throw new Error("missing " + n); });
   const i = src6.indexOf("function CalView"), body = src6.slice(i, src6.indexOf("function MeView"));
   if (!/"day-today" : lit \? \(lv > \.5 \? "day-hi" : "day-lo"\)/.test(body)) throw new Error("day caps must follow spend level");
   if (!/className: glass \? "lg-pnl"/.test(body)) throw new Error("calendar must sit in the shared glass panel");

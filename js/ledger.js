@@ -1452,6 +1452,11 @@
       h(MonthNav, { mk, setMk, sk }),
       h("div", { className: glass ? "lg-pnl" : undefined, style: glass ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", padding: "0", margin: "0 -6px 14px" }
         : { padding: "4px 0", marginBottom: 12, borderTop: "1px solid " + LINE, borderBottom: "1px solid " + LINE } },
+        // 她给的空吊牌挂在日历框右边，月份缩写是代码印的——到十月就自己变 OCT.
+        glass ? h("div", { "data-ledger-tag": true, "aria-hidden": "true", style: { position: "absolute", right: -40, top: 28, width: 38, zIndex: 2, pointerEvents: "none", transform: "rotate(-3deg)" } },
+          h("img", { src: LA + "tag.png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+          h("span", { style: { position: "absolute", left: "38%", top: "58%", transform: "translate(-50%,-50%)", writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 12, fontWeight: 800, letterSpacing: "2px", color: "rgba(118,100,176,.9)" } },
+            ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][m - 1] + ".")) : null,
         h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 2px" }, sk.acrylic) },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: sk.sub } }, w))),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 } },
