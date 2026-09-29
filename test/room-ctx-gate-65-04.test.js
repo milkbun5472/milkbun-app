@@ -171,12 +171,13 @@ test("这份浓缩只喂回这间房，而且说清了它是这条线自己的�
 });
 
 test("浓缩不看 memoryCandidate——它本来就不出门", () => {
-  const i = app.indexOf("const _roomMayRemember =");
-  const seg = app.slice(i, i + 900);
+  const i = app.indexOf("      // 主聊天：照旧。侧房：不管开没开「进记忆」都走 maybeAutoExtractRoom");
+  assert.ok(i > 0, "抠不出抽取那一段");
+  const seg = app.slice(i, i + 1400);
   assert.match(seg, /if \(room && !room\.main\) setTimeout\(\(\) => maybeSummarizeRoom\(char, room\), 200\);/,
-    "浓缩没挂上，或者被挂进了 _roomMayRemember 那个 if 里（那样「不带出门」的房还是会失忆）");
+    "浓缩没挂上，或者被挂进了主聊天那个 if 里（那样「不带出门」的房还是会失忆）");
   // ⚠️必须在 if 外面：挂进去就等于又被 memoryCandidate 管住了
-  const inIf = seg.slice(seg.indexOf("if (_roomMayRemember) {"), seg.indexOf("\n      }"));
+  const inIf = seg.slice(seg.indexOf("if (!room || room.main) {"), seg.indexOf("\n      }"));
   assert.ok(!/maybeSummarizeRoom/.test(inIf), "浓缩被挂进 memoryCandidate 那个 if 里了");
 });
 

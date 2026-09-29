@@ -1390,9 +1390,10 @@ function App() {
     const on = ev => {
       const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.tag || "后台生成");
       if (at - (genFailSeenRef.current[key] || 0) < 60000) return;
+      // 收到就先记下：runProbe 和 callAI 两层都会报同一次失败，第二声进来直接挡掉
+      genFailSeenRef.current[key] = at;
       setTimeout(() => {
         if (lastToastAtRef.current >= at) return;
-        genFailSeenRef.current[key] = Date.now();
         toast("「" + key + "」没生成出来：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), 5000);
       }, 900);
     };
@@ -7118,7 +7119,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const memExtractCtrOffRef = useRef({});
   const memExtractMarkOffRef = useRef({});
   const maybeAutoExtractOffline = async scopeKey => {
-    // 侧房的线下：主线记忆一条都不写；那间房关着「进记忆」时，记在它自己名下（同单聊那条）
+    // 侧房的线下：同单聊那条——抽这场自己的，开着「进记忆」进主线，关着记在房里
     if (offlineIsRoom(scopeKey)) {
       const pid = offlinePersonId(scopeKey), room = window.ChatRooms.get(pid, String(scopeKey).split("::room::")[1]);
       const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
@@ -8838,7 +8839,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const maybeAutoExtractRoom = async (char, room, msgsAll, laneKey) => {
     const K = window.ChatRooms, cfg = memCfgRef.current;
     if (!K || !char || !room || room.main || !cfg.autoExtract || !bgActive) return;
-    if (room.writeback && room.writeback.memoryCandidate) return;   // 开着＝走主线那条，不是这儿的事
+    // 开着「进记忆」＝这间房的聊天进主线记忆库（她 2026-09-29「修吧」）：
+    //   原来这种房只会触发 maybeAutoExtract(charId)，而它抽的是【主聊天】那一份——
+    //   房里说过的话一条都没进过记忆库。
+    const toMain = !!(room.writeback && room.writeback.memoryCandidate);
     const key = String(laneKey || K.chatKey(char.id, room.id));
     if (roomExtractBusyRef.current[key]) return;
     const cnt = (roomExtractCtrRef.current[key] || 0) + 1;
@@ -8852,6 +8856,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const msgs = all.slice(-Math.min(120, Math.max(24, newCount + 4)));
     roomExtractBusyRef.current[key] = true;
     try {
+      if (toMain) {
+        await extractAndAddForChar(char.id, msgs, { liveMessages: all });
+        roomExtractMarkRef.current[key] = all[all.length - 1].ts || Date.now();
+        return;
+      }
       const existing = K.memList(char.id, room.id).slice(0, 40).map(e => e.text);
       const items = await extractMemories(bgActive, roomContextFor(char, K.chatKey(char.id, room.id), room), msgs, { existing, openList: [] });
       const G = window.MemoryExtractionGate;
@@ -10972,8 +10981,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setStateFor(charId, ns);
         pushStateHist(charId, ns);
       }
-      const _roomMayRemember = !room || !!(room.writeback && room.writeback.memoryCandidate);
-      if (_roomMayRemember) {
+      // 主聊天：照旧。侧房：不管开没开「进记忆」都走 maybeAutoExtractRoom，
+      //   抽的是【这间房自己的聊天】，落点由那个开关定（主线记忆库 / 这间房名下）。
+      if (!room || room.main) {
         setTimeout(() => maybeSummarize(charId), 100);
         setTimeout(() => maybeAutoExtract(charId), 300);
       }
@@ -10983,8 +10993,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   所以哪怕这间房允许进记忆，它自己前面说过的话也照样需要这一份
       //   （她 2026-09-06：「过了上限就只能丢了对吗」——原来是的）。
       if (room && !room.main) setTimeout(() => maybeSummarizeRoom(char, room), 200);
-      // 关着「进记忆」的房：这儿的事记在这间房自己名下（只这间房读得到）
-      if (room && !room.main && !_roomMayRemember) setTimeout(() => maybeAutoExtractRoom(char, room, chatsRef.current[window.ChatRooms.chatKey(charId, room.id)] || []), 400);
+      // 侧房的自动抽取：抽这间房自己的聊天；进主线还是记在房里，看「进记忆」开关
+      if (room && !room.main) setTimeout(() => maybeAutoExtractRoom(char, room, chatsRef.current[window.ChatRooms.chatKey(charId, room.id)] || []), 400);
       // P0-2 冷却的 turn 计数：只在该角色完成一次正常回复后 +1（后台/预览/touch:false 不计）
       try { if (!opts.proactive && delivered) window.RecallShadow && window.RecallShadow.turnDone(charId); } catch (e2) {}
       if (delivered && eLiveProjection && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.commitLiveProjection) {

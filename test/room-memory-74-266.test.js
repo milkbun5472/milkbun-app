@@ -91,15 +91,20 @@ test("召回借 retrieveMemories 那把尺，但不碰主线那份召回快照",
   } finally { delete global.retrieveMemories; }
 });
 
-test("自动抽取：只在关着「进记忆」的房里跑，线上线下两处都接", () => {
+test("自动抽取：抽的是这间房自己的聊天，开关只定落点；线上线下两处都接", () => {
   const i = app.indexOf("  const maybeAutoExtractRoom = async ("), j = app.indexOf("\n  };\n", i);
   assert.ok(i > 0 && j > i, "抠不出 maybeAutoExtractRoom");
   const fn = app.slice(i, j);
-  assert.match(fn, /if \(room\.writeback && room\.writeback\.memoryCandidate\) return;/);
-  assert.match(fn, /K\.memAdd\(char\.id, room\.id, keep\)/);
-  assert.ok(!/saveMemLib|addMemEntry/.test(fn), "房间抽取写进了主记忆库");
-  assert.ok(!/open: /.test(fn), "房里的约定接进了开环——到点TA会从主聊天来找她，等于漏出门");
-  assert.match(app, /if \(room && !room\.main && !_roomMayRemember\) setTimeout\(\(\) => maybeAutoExtractRoom\(/);
+  assert.match(fn, /const toMain = !!\(room\.writeback && room\.writeback\.memoryCandidate\);/);
+  // 开着：房里的聊天进主线（原来抽的是主聊天那一份，房里说的一条都没进过）
+  assert.match(fn, /if \(toMain\) \{\n\s*await extractAndAddForChar\(char\.id, msgs, \{ liveMessages: all \}\);/);
+  const roomSide = fn.slice(fn.indexOf("const existing = K.memList"));
+  assert.match(roomSide, /K\.memAdd\(char\.id, room\.id, keep\)/);
+  assert.ok(!/saveMemLib|addMemEntry|extractAndAddForChar/.test(roomSide), "关着的房写进了主记忆库");
+  assert.ok(!/open: /.test(roomSide), "房里的约定接进了开环——到点TA会从主聊天来找她，等于漏出门");
+  assert.match(app, /if \(room && !room\.main\) setTimeout\(\(\) => maybeAutoExtractRoom\(/);
+  // 侧房不再去抽主聊天那一份
+  assert.match(app, /if \(!room \|\| room\.main\) \{\n\s*setTimeout\(\(\) => maybeSummarize\(charId\), 100\);\n\s*setTimeout\(\(\) => maybeAutoExtract\(charId\), 300\);/);
   assert.match(app, /await maybeAutoExtractRoom\(char, room, \(sess\.msgs \|\| \[\]\)/);
 });
 

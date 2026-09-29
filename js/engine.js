@@ -625,7 +625,42 @@ function noteServedModel(profile, req, got) {
     localStorage.setItem("x_apiServed", JSON.stringify(all));
   } catch (e) {}
 }
+// 网络抖一下自动再试一次（她 2026-09-29）。只认【明确没到模型那儿】的那几种，别的一律不重试：
+//   · 刚发出去几秒就断的连接（还没连上，不扣钱）；
+//   · 网关／中转回的 502、503、504、过载、限流（请求没进模型）；
+//   · 回来的是一页 HTML（网关错误页），不是 JSON。
+// ⚠️超时、长时间没首字节被掐断【不重试】：那种可能已经在模型那边跑完、扣过钱了，再发就是双扣。
 async function callAI(p, system, messages, opts) {
+  // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
+  if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
+  // ⚠️这两张表写在函数里面：好几条测试会把 callAI 单独抠出来跑，放外面就抠不到
+  const TRANSIENT_ERR = /\b(502|503|504|520|521|522|523|524|529)\b|bad gateway|service unavailable|gateway time-?out|overloaded|too many requests|rate.?limit|temporarily unavailable|服务繁忙|负载|限流|unexpected token '?<|is not valid json|<!doctype|<html/i;
+  // 配置问题（没填密钥、地址不对）不算「生成失败」要提醒的那种——后台活每分钟一次提醒只会刷屏
+  const CONFIG_ERR = /尚未|没有可用的文字模型|地址填得不对|云端代理不可用|请到设置|去设置/;
+  const t0 = Date.now();
+  // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
+  let streamed = false;
+  const o = Object.assign({}, opts || {});
+  if (typeof o.onDelta === "function") { const f = o.onDelta; o.onDelta = function () { streamed = true; return f.apply(this, arguments); }; }
+  try {
+    return await callAIOnce(p, system, messages, o);
+  } catch (e) {
+    const msg = String((e && e.message) || e || "");
+    const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
+    if (!streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
+      await new Promise(r => setTimeout(r, 2000));
+      try { return await callAIOnce(p, system, messages, o); }
+      catch (e2) { e = e2; }
+    }
+    // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
+    const m2 = String((e && e.message) || e || "");
+    if (!CONFIG_ERR.test(m2)) {
+      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2 } })); } catch (_) {}
+    }
+    throw e;
+  }
+}
+async function callAIOnce(p, system, messages, opts) {
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
@@ -1083,6 +1118,8 @@ function repairJSON(t) {
   }
   if (inStr) out += '"'; // 关闭未闭合的字符串
   out = out.replace(/[,:]\s*$/, ""); // 去掉悬空的逗号/冒号
+  // 截在一个键名上（「"pri」「"price":」）：补齐后是有键没值，照样解析不了——把悬空的键名整个拿掉
+  out = out.replace(/([{,])\s*"(?:[^"\\]|\\.)*"\s*$/, "$1").replace(/,\s*$/, "");
   while (stack.length) out += stack.pop(); // 补齐未闭合的括号
   out = out.replace(/,(\s*[}\]])/g, "$1"); // 去掉尾逗号
   return out;
@@ -1139,9 +1176,38 @@ function extractJSON(raw) {
     r = tryParse(t.slice(0, e + 1));
     if (r !== undefined) return r;
   }
-  r = tryParse(repairJSON(t)); // 兜底：修复被截断的 JSON
-  if (r !== undefined) return r;
+  // 正文里直接写了换行/制表符（最常见的坏法）：先把字符串里的控制字符补成转义再试。
+  // 这一步原来只在 parseJSONLoose 里有，可全库大多数地方直接调的是 extractJSON（她 2026-09-29 要全 app 兜底）
+  const esc = typeof escapeJsonStringControls === "function" ? escapeJsonStringControls(t) : t;
+  if (esc !== t) {
+    r = tryParse(esc);
+    if (r !== undefined) return r;
+    const e2 = Math.max(esc.lastIndexOf("}"), esc.lastIndexOf("]"));
+    if (e2 > 0) { r = tryParse(esc.slice(0, e2 + 1)); if (r !== undefined) return r; }
+  }
+  r = tryParse(repairJSON(esc)); // 兜底：修复被截断的 JSON
+  if (r !== undefined) return pruneTruncatedTail(r);
   return null;
+  // 被截断又补齐的 JSON：列表最后那一项多半只写了一半（补出来的是个残件）。
+  // 跟同一列表里前面那几项比，字段明显少的那一项就丢掉——宁可少一件，不要一件缺胳膊少腿的。
+  // 只在「修复截断」那条路上调，好好的 JSON 一个字不动。
+  function pruneTruncatedTail(v) {
+    if (Array.isArray(v)) {
+      const objs = v.filter(x => x && typeof x === "object" && !Array.isArray(x));
+      if (v.length >= 2 && objs.length === v.length) {
+        const last = v[v.length - 1];
+        const most = Math.max.apply(null, v.slice(0, -1).map(x => Object.keys(x).length));
+        if (Object.keys(last).length < most) v = v.slice(0, -1);
+      }
+      if (v.length) v[v.length - 1] = pruneTruncatedTail(v[v.length - 1]);
+      return v;
+    }
+    if (v && typeof v === "object") {
+      const ks = Object.keys(v);
+      if (ks.length) v[ks[ks.length - 1]] = pruneTruncatedTail(v[ks[ks.length - 1]]);
+    }
+    return v;
+  }
 }
 
 // ============================================================

@@ -262,7 +262,9 @@ const P = (() => {                       // 把 engine 里那四个真函数抠�
 
 test("④ 病根：JSON 字符串里一个真换行，裸 extractJSON 就整份丢掉", () => {
   const bad = '{"me":{"person":"她是和我反复拉扯的另一端。\n她总能一句话把我拽回来。","soft":null},"us":{}}';
-  assert.equal(P.extractJSON(bad), null, "裸的那条路要是能解了，这条测试就没在测病根了");
+  // v74.266 起病根在 extractJSON 本身治了（字符串里的控制字符先转义再解析）——
+  //   全库直接调 extractJSON 的地方一起好了，不再只有走 parseJSONLoose 的那几处好
+  assert.equal(P.extractJSON(bad).me.person, "她是和我反复拉扯的另一端。\n她总能一句话把我拽回来。");
   const ok = P.parseJSONLoose(bad);
   assert.equal(ok.me.person, "她是和我反复拉扯的另一端。\n她总能一句话把我拽回来。");
 });
