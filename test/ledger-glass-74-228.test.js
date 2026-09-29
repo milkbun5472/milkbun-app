@@ -101,7 +101,7 @@ console.log("ledger-hardware ok");
 // 第十五轮（她：「抄作业吧」，给了一整张首页样张）：首页照样张逐块做
 {
   const s8 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
-  ["function WalletHomeY2K(", "Keep going :)", 'const IMG = "assets/ledger/"', 'pic("card", 92, 868', 'picKey("k1"', 'IMG + "note.png"', 'IMG + "tube.png"', 'IMG + "stub.png"', 'pic("foot", 60, 850'].forEach(k => assert.ok(s8.indexOf(k) > 0, k));
+  ["function WalletHomeY2K(", "Keep going :)", 'const IMG = "assets/ledger/"', 'IMG + "card.png"', '"k1", "记一笔"', 'IMG + "note.png"', 'IMG + "tube.png"', 'IMG + "stub.png"', 'pic("foot", 60, 850'].forEach(k => assert.ok(s8.indexOf(k) > 0, k));
   assert.match(s8, /h\(sk\.id === "glass" \? WalletHomeY2K : WalletHome,/, "玻璃皮首页没走样张那版");
 }
 console.log("ledger-home-mock ok");

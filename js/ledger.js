@@ -1017,7 +1017,7 @@
     return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px" } },
       // 卡套 + 卡 + 链子兔子（原图）
       h("div", { "data-ledger-tray": true, style: { position: "relative", marginTop: 12 } },
-        pic("card", 92, 868, softStyle)),
+        h("img", { src: IMG + "card.png", alt: "", draggable: false, style: { display: "block", width: "96%", height: "auto", margin: "0 0 0 3%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月结余"),
@@ -1026,12 +1026,12 @@
           h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 24, color: "#23244a" }))),
         h("button", { onClick: props.onMotto, className: "text-left active:opacity-60", style: { marginTop: 8, minHeight: 40, fontFamily: HAND_ZH, fontSize: 17, lineHeight: 1.5, color: "#3a3b5c", maxWidth: "58%" } },
           mottoLines.map((l, i) => h("div", { key: i, style: { paddingLeft: i ? 16 : 0 } }, (i === 0 ? "「" : "") + l + (i === mottoLines.length - 1 ? "」" : "")))),
-        h("img", { src: IMG + "note.png", alt: "", draggable: false, "aria-hidden": "true", style: Object.assign({ position: "absolute", right: -8, top: -14, width: (240 / 960 * 100 * 390 / 350) + "%", height: "auto" }, softStyle) })),
+        h("img", { src: IMG + "note.png", alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", right: -18, top: -6, width: "40%", height: "auto", transform: "rotate(-6deg)" } })),
       // 三颗键（原图，整块就是按钮）
-      h("div", { className: "lg-bigkeys", style: { position: "relative", height: 0, paddingBottom: (210 / 960 * 100) + "%", marginBottom: 6 } },
-        picKey("k1", 62, 275, "记一笔", () => props.onAdd("expense"), "pink"),
-        picKey("k2", 348, 265, "收入", () => props.onAdd("income"), "blue"),
-        picKey("k3", 625, 272, "账单", props.onBills, "lilac")),
+      h("div", { className: "lg-bigkeys", style: { display: "flex", gap: "2%", padding: "0 4%", marginBottom: 8 } },
+        [["k1", "记一笔", () => props.onAdd("expense"), "pink"], ["k2", "收入", () => props.onAdd("income"), "blue"], ["k3", "账单", props.onBills, "lilac"]].map(([src, label, fn, tone]) =>
+          h("button", { key: src, onClick: fn, "aria-label": label, "data-ledger-bigkey": tone, className: "lg-key", style: { flex: 1, padding: 0, background: "transparent" } },
+            h("img", { src: IMG + src + ".png", alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } })))),
       // 预算：字 + 原图试管，里面的液体按真实进度画
       h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: { display: "block", padding: "4px 0 10px" } },
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "0 20px 2px 24px" } },
@@ -1039,16 +1039,16 @@
           bs ? h("span", { style: { display: "flex", alignItems: "baseline", gap: 14 } },
             h("span", { className: "lg-hand", style: { fontSize: 16, color: "#6d6c8c", transform: "rotate(-8deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
             h("span", { style: numStyle(sk, 15, bs.left < 0 ? sk.over : "#23244a") }, Math.round(bs.used * 100) + "%")) : h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 设个每月预算")),
-        h("div", { "data-ledger-rail": true, style: Object.assign({ position: "relative" }, at(84, 820)) },
-          h("img", { src: IMG + "tube.png", alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }),
-          h("div", { "aria-hidden": "true", style: { position: "absolute", left: "1.4%", top: "27%", height: "46%", width: (tubeFill * 96.5) + "%", borderRadius: 999,
+        h("div", { "data-ledger-rail": true, style: { position: "relative", width: "92%", margin: "0 4%" } },
+          h("img", { src: IMG + "tube.png", alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: "4.2%", top: "33%", height: "34%", width: (tubeFill * 91.6) + "%", borderRadius: 999,
             background: bs && bs.left < 0 ? "linear-gradient(180deg,#f7c7d9,#e58db1)" : "linear-gradient(180deg,#d9d2fb,#a79cef 55%,#9387e3)", boxShadow: "inset 0 1.5px 0 rgba(255,255,255,.85), inset 0 -1px 2px rgba(80,70,170,.3)" } })),
         bs ? h("div", { style: { display: "flex", justifyContent: "space-between", margin: "4px 20px 0 24px", fontFamily: F_BODY, fontSize: 14, color: "#4a4b6a" } },
           h("span", { style: numStyle(sk, 14, "#4a4b6a") }, fmtMoney(s.exp, cur) + " / " + fmtMoney(bs.budget, cur)),
           h("span", null, bs.left < 0 ? "超了  " : "还能花  ", h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : "#23244a") }, fmtMoney(Math.abs(bs.left), cur)))) : null),
       // 最近：左边原图票根 + 右边字
       h("div", { style: { position: "relative", display: "flex", marginTop: 8 } },
-        h("img", { src: IMG + "stub.png", alt: "", draggable: false, "aria-hidden": "true", style: Object.assign({ display: "block", width: (108 / 960 * 100) + "%", height: "auto", alignSelf: "flex-start", flexShrink: 0 }, softStyle) }),
+        h("img", { src: IMG + "stub.png", alt: "", draggable: false, "aria-hidden": "true", style: { display: "block", width: "20%", height: "auto", alignSelf: "flex-start", flexShrink: 0, marginLeft: "-7%" } }),
         h("div", { style: { flex: 1, minWidth: 0, margin: "0 16px 0 12px" } },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottom: "1px solid " + LINE } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "最近"),
