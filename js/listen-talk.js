@@ -143,7 +143,7 @@
       col(theirs, "l"), col(mine, "r"));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
       h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },
-        placeholder: "凑过去跟 " + (partner.remark || partner.name) + " 说一句",
+        placeholder: "跟 " + (partner.remark || partner.name) + " 说…",
         style: { flex: 1, minWidth: 0, height: 38, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
       h("button", { onClick: send, disabled: busy || !txt.trim(), className: "active:opacity-70",
         style: { height: 38, padding: "0 14px", borderRadius: 999, background: t.ink, color: t.bg, fontFamily: F_BODY, fontSize: 13, opacity: busy || !txt.trim() ? .45 : 1 } }, "说"),
