@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.306";
+const APP_VERSION = "v74.307";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10401,6 +10401,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    （splitLongBubble 两档合一，群聊用的是同一个函数——见 engine.js 上方那段）
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
+      // 中译另起一行的那种先接回去（群里同一个函数）
+      if (_bilingualOn) words = joinBilingualLines(words);
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
@@ -12065,14 +12067,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
             // 整块 HTML 卡片先认一次：splitBubbles 按换行拆，会把卡片碾碎（四处一样喂）
             const _gCard = typeof htmlCardOf === "function" ? htmlCardOf(item.text) : null;
-            const rawLines = _gCard ? [_gCard]
-              : (window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/));
-            // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
-            const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
             const gBiOn = !!(settingsFor(spk.id) || {}).bilingual;
+            // ⚠️双语开着时【只按换行切】，按句末标点拆泡留给下面 splitLongBubble（劈完竖线之后）。
+            //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
+            //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
+            //   单聊一直是先劈竖线再拆泡，群里这一步跟上。
+            const rawLines = _gCard ? [_gCard]
+              : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(item.text);
+            // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
+            const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
             const gBiZh = new Map();
-            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean)
+            const gLines = (gBiOn ? joinBilingualLines : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x) : null;
