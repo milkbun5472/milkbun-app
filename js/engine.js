@@ -5789,6 +5789,19 @@ function splitBilingual(text) {
   if (/[\u4e00-\u9fff]/.test(orig) && !foreign) return null;
   return { text: orig, zh: zh };
 }
+// 模型把中译另起了一行（「ん？なに？」换行「|……嗯？什么？」）：拆泡是先按换行切的，
+//   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
+//   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
+//   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
+function joinBilingualLines(lines) {
+  return (lines || []).reduce((acc, x) => {
+    const line = String(x == null ? "" : x);
+    const prev = acc.length ? acc[acc.length - 1] : null;
+    if (prev != null && /^\s*\|/.test(line) && prev.indexOf("|") < 0) acc[acc.length - 1] = prev + " " + line.trim();
+    else acc.push(line);
+    return acc;
+  }, []);
+}
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。
 function bilingualKey(s) {
