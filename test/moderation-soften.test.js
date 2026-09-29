@@ -301,3 +301,10 @@ test("场所词一律放过：酒吧、酒楼、酒馆都不是画面里的酒",
     assert.equal(soften(t), null, "误伤了场所：" + t));
   assert.match(engine, /\[\/酒\(\?!\[楼馆家店肆坊铺吧席宴\]\)\/g, "水"\]/);
 });
+
+test("中文站「内容安全策略被拒绝」也认成审核拒绝，才会去试软化稿/极简稿", () => {
+  const src = require("node:fs").readFileSync(require("node:path").resolve(__dirname, "../js/engine.js"), "utf8");
+  const re = new RegExp(src.match(/const looksLikePolicy = e => \/(.*?)\/i\.test/)[1], "i");
+  assert.ok(re.test("请求因内容安全策略被拒绝，请调整提示词或参考图片后重试。"));
+  assert.ok(!re.test("网络超时"));
+});

@@ -4960,7 +4960,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : out + "\n【画面尺度补充】画面必须是可公开展示的日常场景：不出现酒精、烟草、武器、血迹与伤口。";
   };
   // 只有【疑似被审核拒了】才值得软化重试；网络错误、超时、配额不足换个说法也没用
-  const looksLikePolicy = e => /safety|policy|内容政策|content policy|moderat|sensitive|blocked|reject|违反/i.test(String((e && e.message) || e || ""));
+  // ⚠️中文站的说法不止「内容政策」（她 2026-09-29 截图：「请求因内容安全策略被拒绝」没认出来，
+  //   软化稿和极简稿一枪都没试就直接报错）——认「策略／审核／安全／拒绝」这一类
+  const looksLikePolicy = e => /safety|policy|内容政策|content policy|moderat|sensitive|blocked|reject|违反|安全策略|内容安全|审核|敏感|违规|拒绝/i.test(String((e && e.message) || e || ""));
   // ⏱整条阶梯的总时间预算（v54.90）。加了几级重试之后，每级各等 180 秒，
   // 最坏情况能卡十几分钟，界面上一直显示「拍照中」（她 2026-08-22 报）。
   // 现在给全程一个总闸：超了就不再往下试，宁可早点告诉她失败。
