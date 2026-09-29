@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.299";
+const APP_VERSION = "v74.300";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24596,6 +24596,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGachaPin: (poolId, on) => {
       const n = window.GachaKit.setPinned(gachaCardsRef.current || [], poolId, on);
       gachaCardsRef.current = n; setGachaCards(n); saveJSON("x_gachaCards", n);
+    },
+    // 撕掉一张（她 2026-09-29 转来的用户问「抽卡那个兑换了的不能删吗」）。
+    // ⚠️「票根永不删除」那条管的是【系统不许自己清】；她自己想扔该有出口。
+    //   走确认弹窗：这是会让数据消失的动作，先问一句（.claude/rules/never-say-delete-first）。
+    //   只删这一张，同款的别的张不动；兑过的那张连它的 result 一起走。
+    onGachaDelete: card => {
+      if (!card || !card.id) return;
+      const what = String((card.result && card.result.title) || card.name || "这张卡");
+      requestAppConfirm("撕掉「" + what + "」？", card.redeemedTs
+        ? "它已经兑换过了，纪念册里这一页会一起没有。删了不可恢复。"
+        : "这张还没兑换，撕掉就没了。删了不可恢复。", () => {
+        const n = window.GachaKit.removeCard(gachaCardsRef.current || [], card.id);
+        gachaCardsRef.current = n; setGachaCards(n); saveJSON("x_gachaCards", n);
+        toast("撕掉了");
+      });
     },
     // 称呼那张卡上的三个口子。⚠️只有「收下」会写进 x_charTitle——也就是说，
     //   没点它之前这个称呼一个字都不进提示词。
