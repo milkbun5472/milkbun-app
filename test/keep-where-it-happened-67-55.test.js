@@ -28,8 +28,8 @@ const mk = rooms => {
     e => mem.push(e),
     { ChatRooms: {
         get: (pid, rid) => (rooms[pid + "/" + rid] || null),
-        save: (pid, room) => saved.push({ pid, room }),
-        digestMerge: (prev, seg) => (String(prev || "").trim() ? prev + "\n\n" + seg : seg)
+        // v74.266 起落点是 ChatRooms.memAdd（房间自己的记忆），桩照它的签名：(personId, roomId, entries[])
+        memAdd: (pid, rid, entries) => { saved.push({ pid, rid, entries }); return entries; }
       } });
   return { fn, mem, saved };
 };
@@ -47,14 +47,15 @@ test("主线照旧进记忆库，形状一个字没变", () => {
   assert.equal(m2.mem.length, 2);
 });
 
-test("侧房里那一下落进这间房自己的往事，记忆库一个字都不写", () => {
+test("侧房里那一下落进这间房自己的记忆，主记忆库一个字都不写", () => {
   const m = mk({ "c1/r1": ROOM });
   assert.equal(m.fn({ text: "一起玩了谁是卧底", charIds: ["c1"], roomId: "r1", entry: { tags: ["小游戏"] } }), "room");
   assert.deepEqual(m.mem, [], "落进房里之后又往记忆库写了一遍——那这道闸等于没有");
   assert.equal(m.saved.length, 1);
   assert.equal(m.saved[0].pid, "c1");
-  assert.equal(m.saved[0].room.selfDigest, "以前发生过的\n\n一起玩了谁是卧底", "没接在旧的后面（或者把旧的盖了）");
-  assert.equal(m.saved[0].room.name, "读书角", "把这间房别的栏顺手改了");
+  assert.equal(m.saved[0].rid, "r1");
+  assert.equal(m.saved[0].entries[0].text, "一起玩了谁是卧底");
+  assert.deepEqual(m.saved[0].entries[0].tags, ["小游戏"]);
 });
 
 test("这一局别的参与者也拿不到——房是封着的，从谁嘴里漏出去都一样", () => {

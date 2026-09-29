@@ -1069,6 +1069,7 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts)
   }
   open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定",
     onCancel: typeof onCancel === "function" ? onCancel : null,
+    cancelLabel: opts && opts.cancelLabel || "",
     danger: !(opts && opts.danger === false) });
   return true;
 }
@@ -15846,14 +15847,21 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   //      不然她面对的是一间刚被自己删掉的房。
   const removeRoom = room => {
     if (!room || room.main) return;
-    requestAppConfirm("删掉「" + (room.name || "这间房") + "」？", "这间房的聊天记录先留着，不会被硬删。", () => {
+    // 这间房名下有记忆时多问一句（她 2026-09-29 定）：删之前先导出备份（never-say-delete-first）
+    const memN = Kit.memCount ? Kit.memCount(character.id, room.id) : 0;
+    const askMem = done => !memN ? done(false) : requestAppConfirm(
+      "这间房有 " + memN + " 条记忆，要一起删吗？",
+      "删之前先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份到自己手里。选「留着」的话，它们还在记忆库里、归在这间房名下，只是再没有哪间房读得到。",
+      () => done(true), "一起删", () => done(false), { cancelLabel: "留着" });
+    requestAppConfirm("删掉「" + (room.name || "这间房") + "」？", "这间房的聊天记录先留着，不会被硬删。", () => askMem(dropMem => {
       if (!Kit.remove(character.id, room.id)) return window.__toast && window.__toast("这次没删成功，房间入口还在");
+      if (dropMem) Kit.memDropRoom(character.id, room.id);
       setRooms(Kit.list(character.id));
       pick("main");
       // 正开着的就是它 → 聊天也一起退回主聊天
       if (String(activeRoomId || "main") === String(room.id)) onSelect("main", false);
       window.__toast && window.__toast("删掉了「" + (room.name || "这间房") + "」，已回到主聊天");
-    }, "删掉");
+    }), "删掉");
   };
   const clearRoom = room => {
     if (!room || room.main || !onClearRoom || clearBusy) return;
@@ -16071,6 +16079,15 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
     !draft.main && group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
     group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
+    // 房内浓缩的上限（她 2026-09-29：「上限搞个拉条自由选择」）。只有侧房有这一份——主聊天走长期记忆。
+    !draft.main && h("div", { style: { marginTop: 18 } },
+      h(Eyebrow, null, "这间房自己记多长"),
+      h("div", { className: "flex items-center justify-between", style: { margin: "8px 0 6px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "前情浓缩最多留"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.accent } }, Kit.digestCapOf(draft) + " 字")),
+      h(Slider, { value: Kit.digestCapOf(draft), min: Kit.ROOM_DIGEST_MIN, max: Kit.ROOM_DIGEST_MAX, step: Kit.ROOM_DIGEST_STEP, onChange: v => patch({ digestCap: v }) }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } },
+        "聊满 50 条会浓缩一段存在这间房里，每轮都会发给 TA。满了先掉最早的那段；拉长记得久，每轮也更费字。")),
     !draft.main && (draft.scenario || draft.opening) && h("div", { style: { marginTop: 16, padding: "11px 12px", borderRadius: 12, border: "1px dashed #c99aa5", fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.6 } }, characterText(character, "长篇如果只负责把底子压在最后，不替你锁门。默认什么都不带进来；你在上面开了哪一条，他就只带那一条进来。")),
     // 看不见就不许改：认知里关了「关系与内在状态」时，这间房读不到旧心情、读不到印象卡原文。
     // 心情要拿上一轮当起点，印象卡是【整块重写】——凭空覆盖等于抹掉。闸在代码里（ChatRooms.canWrite），

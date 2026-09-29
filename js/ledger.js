@@ -866,7 +866,7 @@
       style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent } }, cur.label) : null;
 
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
-      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
+      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : tab === "stats" && sk.id === "glass" ? "" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
       // 她 2026-09-29：首页不许左右滑（票根、便签这些故意伸出页边的素材会把页面撑宽），滑到底也不许再弹
       h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", "data-ledger-scroll": true, style: { overflowX: "hidden", overscrollBehavior: "none", touchAction: "pan-y" } },
         tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
@@ -1282,11 +1282,12 @@
     //   本月支出那块最大，四个角同时亮像水晶相框——再压一档，下半截淡出去，让圆环当主角
     const pnl = glassP ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", borderRadius: 0, background: "transparent", padding: 0, position: "relative", isolation: "isolate" } : sk.shell;
     const pnlCls = glassP ? "lg-pnl" : undefined;
-    const pnlCss = glassP ? h("style", null, ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(" + LA + "panel.png" + LV + ") 120 fill / 24px / 0 stretch;opacity:.74}" +
-      ".lg-pnl.lg-pnl-hero::before{opacity:.58;filter:saturate(.8);-webkit-mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45));mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45))}") : null;
+    const pnlCss = glassP ? h("style", null, ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(" + LA + "panel.png" + LV + ") 120 fill / 24px / 0 stretch;opacity:.6}" +
+      ".lg-pnl.lg-pnl-hero::before{opacity:.46;filter:saturate(.75);-webkit-mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45));mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45))}") : null;
     const deco = (src, st) => glassP ? h("img", { src: LA + src + ".png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none", zIndex: 3 }, st) }) : null;
     const bay = (title, body, extra, cls) => h("div", { className: glassP ? "lg-pnl" + (cls ? " " + cls : "") : undefined, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl, extra || {}) }, title ? silk(sk, title, { marginBottom: 8 }) : null, body);
-    return h("div", { className: "px-5 pb-8 lg-stats", style: { position: "relative", overflowX: glassP ? "clip" : undefined } },
+    // overflow 两个方向都 clip：装饰素材伸到最后一块面板下面时不许把页面撑长（她 2026-09-29「撑不到那么多的时候也把页面截了」）
+    return h("div", { className: "px-5 pb-8 lg-stats", style: { position: "relative", overflow: glassP ? "clip" : undefined } },
       glassP ? h("img", { src: LA + "title-stats.png" + LV, alt: "STATISTICS", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "-4px 0 2px -4%" } }) : h(WordMark, { sk, word: "STATISTICS", hand: "where did my money go?" }),
       pnlCss,
       // 装饰故意不对称（她 2026-09-29「三块玻璃板太整齐，又有 UI kit 感」）：回形针只夹一块、只露半截；
