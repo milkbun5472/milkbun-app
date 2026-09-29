@@ -495,7 +495,7 @@
       id,
       page: {
         // 机身：冷白 / 银灰为主，只在边角透一点冰蓝和薰衣草，粉几乎没有
-        backgroundColor: pageColor("ledger", "bg", "#eef0f5"),
+        backgroundColor: pageColor("ledger", "bg", "#e9e9f2"),
         backgroundImage: "linear-gradient(118deg, transparent 26%, rgba(255,255,255,.55) 38%, rgba(226,238,252,.35) 46%, transparent 58%)," +
           "radial-gradient(ellipse 70% 42% at 6% 4%, rgba(214,226,246,.7), transparent 70%)," +
           "radial-gradient(ellipse 60% 50% at 100% 36%, rgba(226,220,246,.6), transparent 70%)," +
@@ -549,8 +549,6 @@
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.55em!important;margin-top:2px}
 .lg-reference .lg-wallet-head [data-wk=head]>div:last-child{width:66px!important}
 .lg-reference .lg-wallet-main{padding:8px 22px 24px}
-.lg-reference [data-ledger-tray]:after{content:"";position:absolute;inset:1px;border-radius:28px;pointer-events:none;background:linear-gradient(111deg,transparent 6%,#fff8 8%,transparent 10%,transparent 63%,#d8faff44 68%,#ffe4f533 72%,transparent 76%),linear-gradient(5deg,transparent 5%,#fff9 7%,transparent 8%,transparent 93%,#fff9 95%,transparent 97%)}
-.lg-reference [data-ledger-tray]:before{content:'';position:absolute;inset:7px;border:1px solid #ffffff9c;border-radius:22px;box-shadow:inset 2px 2px 2px #929cbd90,2px 2px 3px #ffffffa8;pointer-events:none}
 .lg-reference .lg-balance{padding:6px 18px 4px!important;margin-bottom:14px!important;background:transparent!important;border:0!important;box-shadow:none!important}
 .lg-reference .lg-balance-summary{display:none!important}
 .lg-reference .lg-motto{background:transparent!important;border-radius:0!important;border-bottom:0!important;margin-top:5px!important;padding:4px 6px!important;color:#444264!important}
@@ -1005,83 +1003,62 @@
         screws(),
         h(JellyGlyph, { k: glyph, tone, size: 42 }),
         h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: ink } }, label)); };
-    return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 20px 26px" } },
-      // 页边丝印
-      edgeText(["GOOD", "THINGS", "TAKE TIME."], { right: 44, top: -56, zIndex: 2, fontSize: 8, color: "rgba(92,92,130,.7)" }),
-      h(Sparkle, { size: 18, style: { position: "absolute", right: 18, top: -44, zIndex: 2 } }),
-      edgeText(["SINCE", String(now.getFullYear()), "· · ·"], { right: 2, top: 150 }),
-      edgeText(["SPEND", "", "SAVE", "· · ·", "HAPPIER", "·"], { left: 2, top: 140 }),
-      h(Sparkle, { size: 14, style: { position: "absolute", left: 6, top: 262 } }),
-      // 透明卡套 + 卡 + 链子挂件
-      h("div", { "data-ledger-tray": true, style: { position: "relative", margin: "46px 30px 24px 34px", padding: 10, borderRadius: 24, transform: "rotate(-4deg)",
-          background: "linear-gradient(135deg, rgba(255,255,255,.55), rgba(226,232,250,.25) 45%, rgba(255,255,255,.45) 60%, rgba(236,226,250,.3))",
-          border: "1px solid rgba(180,182,220,.7)",
-          boxShadow: "inset 0 0 0 3px rgba(255,255,255,.75), inset 0 0 0 4px rgba(178,184,226,.35), inset 3px 4px 6px #fff, inset -4px -5px 10px rgba(150,150,210,.22), 0 12px 24px rgba(110,112,170,.2)" } },
-        card,
-        h(KeyChain, { style: { right: -30, top: 16 } })),
-      // 余额面板 + 贴着的便签
-      h("div", { className: "lg-balance", style: Object.assign({}, PANEL, { position: "relative", padding: "14px 16px 14px", margin: "0 38px 14px 0" }) },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: sk.ink } }, "本月结余"),
-        h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 4 } },
-          h("div", { "data-ledger-balance": true, style: numStyle(sk, 34, s.net < 0 ? sk.over : sk.ink) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
-          h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 22, color: sk.ink }))),
-        h("button", { onClick: props.onMotto, className: "text-left active:opacity-60", style: { marginTop: 6, minHeight: 40, fontFamily: HAND_ZH, fontSize: 16, lineHeight: 1.45, color: "#3f3d58", maxWidth: "62%" } },
+    // ⚠️她 2026-09-29：「我让你完全复制没让你自己画」——实物部件（卡套+链子兔子、便签、三颗键、试管、票根、页脚）
+    //   直接用她那张整页样张裁下来的图（assets/ledger/，按 960 宽的原图坐标裁），位置和宽度也按原图比例摆；
+    //   只有会变的东西（余额、座右铭、预算数字和进度、最近账单）用字写在上面。
+    const IMG = "assets/ledger/";
+    const at = (x, w) => ({ marginLeft: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" });
+    const pic = (src, x, w, extra, props2) => h("img", Object.assign({ src: IMG + src + ".png", alt: "", draggable: false, style: Object.assign({ display: "block", height: "auto" }, at(x, w), extra || {}) }, props2 || {}));
+    const soft = "linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent), linear-gradient(180deg, transparent, #000 5%, #000 95%, transparent)";
+    const softStyle = { WebkitMaskImage: soft, maskImage: soft, WebkitMaskComposite: "source-in", maskComposite: "intersect" };
+    const picKey = (src, x, w, label, onClick, tone) => h("button", { onClick, "aria-label": label, "data-ledger-bigkey": tone, className: "lg-key", style: Object.assign({ position: "absolute", top: 0, padding: 0, background: "transparent" }, { left: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" }) },
+      h("img", { src: IMG + src + ".png", alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }));
+    const tubeFill = Math.max(.06, used);
+    return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px" } },
+      // 卡套 + 卡 + 链子兔子（原图）
+      h("div", { "data-ledger-tray": true, style: { position: "relative", marginTop: 12 } },
+        pic("card", 92, 868, softStyle)),
+      // 余额（字）+ 便签（原图）
+      h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月结余"),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } },
+          h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, s.net < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
+          h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 24, color: "#23244a" }))),
+        h("button", { onClick: props.onMotto, className: "text-left active:opacity-60", style: { marginTop: 8, minHeight: 40, fontFamily: HAND_ZH, fontSize: 17, lineHeight: 1.5, color: "#3a3b5c", maxWidth: "58%" } },
           mottoLines.map((l, i) => h("div", { key: i, style: { paddingLeft: i ? 16 : 0 } }, (i === 0 ? "「" : "") + l + (i === mottoLines.length - 1 ? "」" : "")))),
-        // 右边一张斜贴的便签：More Good Days :)，上面一截胶带
-        h("div", { "aria-hidden": "true", style: { position: "absolute", right: -14, top: 20, width: 118, height: 74, transform: "rotate(-8deg)", background: "#f9f8f4",
-            boxShadow: "0 2px 5px rgba(90,90,130,.18)", backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,.015) 0 1px, transparent 1px 4px)" } },
-          h("div", { style: { position: "absolute", left: 30, top: -8, width: 44, height: 14, background: "rgba(190,200,240,.55)", transform: "rotate(3deg)" } }),
-          h("div", { className: "lg-hand", style: { position: "absolute", left: 10, top: 12, fontSize: 18, lineHeight: 1.05, color: "#4d4b66" } }, "More", h("br"), h("span", { style: { paddingLeft: 10, whiteSpace: "nowrap" } }, "Good Days"), h("br"), h("span", { style: { paddingLeft: 66, fontSize: 15 } }, ":)")))),
-      edgeText([MON, String(now.getFullYear()), "/ " + pad(now.getMonth() + 1)], { right: 0, top: 336, fontSize: 9, letterSpacing: ".24em", color: "rgba(92,92,130,.6)" }),
-      // 三颗玻璃键
-      h("div", { className: "lg-bigkeys", style: { display: "flex", gap: 12, marginBottom: 16 } },
-        key("记一笔", "pink", "plus", () => props.onAdd("expense")),
-        key("收入", "blue", "bag", () => props.onAdd("income")),
-        key("账单", "lilac", "chart", props.onBills)),
-      // 预算：面板里一根透明试管
-      h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: Object.assign({}, PANEL, { display: "block", padding: "12px 14px 12px", marginBottom: 16 }) },
-        bs ? h(Fragment, null,
-          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: sk.ink } }, "本月预算"),
-            h("span", { style: { display: "flex", alignItems: "baseline", gap: 14 } },
-              h("span", { className: "lg-hand", style: { fontSize: 16, color: "#7a7896", transform: "rotate(-6deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
-              h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : sk.ink) }, Math.round(bs.used * 100) + "%"))),
-          // 试管：两头圆、透明管壁（亮边 + 内影），里面一段紫色液体
-          h("div", { "data-ledger-rail": true, style: { position: "relative", height: 22, borderRadius: 22, padding: 4,
-              background: "linear-gradient(180deg, rgba(255,255,255,.85), rgba(232,234,246,.55) 55%, rgba(255,255,255,.8))",
-              border: "1px solid rgba(186,188,222,.75)", boxShadow: "inset 0 2px 3px rgba(96,100,150,.16), inset 0 -2px 2px rgba(255,255,255,.9), 0 2px 4px rgba(110,112,160,.12)" } },
-            h("div", { style: { height: "100%", width: Math.max(8, used * 100) + "%", borderRadius: 12, position: "relative",
-              background: bs.left < 0 ? "linear-gradient(180deg,#f7c3d6,#e088ad)" : "linear-gradient(180deg,#d6cdfa,#a494ea 60%,#8f7fde)",
-              boxShadow: "inset 0 -1px 2px rgba(80,60,160,.25), 0 0 4px rgba(150,130,230,.35)" } },
-              h("span", { style: { position: "absolute", left: 4, right: 4, top: 2, height: 3, borderRadius: 3, background: "rgba(255,255,255,.8)" } })),
-            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 10, top: 2, height: 2, borderRadius: 2, background: "rgba(255,255,255,.95)" } })),
-          h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: sk.sub } },
-            h("span", { style: numStyle(sk, 13, sk.sub) }, fmtMoney(s.exp, cur) + " / " + fmtMoney(bs.budget, cur)),
-            h("span", null, bs.left < 0 ? "超了 " : "还能花 ", h("span", { style: numStyle(sk, 13, bs.left < 0 ? sk.over : sk.ink) }, fmtMoney(Math.abs(bs.left), cur)))))
-          : h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 设个每月预算")),
-      // 最近：一块面板里一行行账单，行与行之间细线；左边露出一截票根
-      h("div", { style: { position: "relative" } },
-        h("div", { "aria-hidden": "true", style: { position: "absolute", left: -30, top: -8, width: 36, height: 230, background: "#f7f6f2", transform: "rotate(-1.5deg)", boxShadow: "1px 2px 5px rgba(90,90,130,.18)",
-            clipPath: "polygon(0 0,100% 0,100% 6%,88% 8%,100% 10%,100% 100%,0 100%)", zIndex: 0 } },
-          h(Sparkle, { size: 12, style: { position: "absolute", left: 16, top: 16 } }),
-          edgeText(["LIFE", "EXPENSES", "LOVE", "· · ·"], { left: 8, top: 38, fontSize: 6.5, letterSpacing: ".14em" }),
-          h("div", { style: { position: "absolute", left: 10, top: 118, transform: "rotate(90deg)", transformOrigin: "0 0" } }, miniBarcode(70, 16, "stub")),
-          edgeText(["QIUQIU", String(now.getFullYear())], { left: 8, bottom: 10, fontSize: 6.5, letterSpacing: ".1em" })),
-        h("div", { style: Object.assign({}, PANEL, { position: "relative", zIndex: 1, marginLeft: 12, padding: "10px 14px 4px" }) },
+        h("img", { src: IMG + "note.png", alt: "", draggable: false, "aria-hidden": "true", style: Object.assign({ position: "absolute", right: -8, top: -14, width: (240 / 960 * 100 * 390 / 350) + "%", height: "auto" }, softStyle) })),
+      // 三颗键（原图，整块就是按钮）
+      h("div", { className: "lg-bigkeys", style: { position: "relative", height: 0, paddingBottom: (210 / 960 * 100) + "%", marginBottom: 6 } },
+        picKey("k1", 62, 275, "记一笔", () => props.onAdd("expense"), "pink"),
+        picKey("k2", 348, 265, "收入", () => props.onAdd("income"), "blue"),
+        picKey("k3", 625, 272, "账单", props.onBills, "lilac")),
+      // 预算：字 + 原图试管，里面的液体按真实进度画
+      h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: { display: "block", padding: "4px 0 10px" } },
+        h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "0 20px 2px 24px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月预算"),
+          bs ? h("span", { style: { display: "flex", alignItems: "baseline", gap: 14 } },
+            h("span", { className: "lg-hand", style: { fontSize: 16, color: "#6d6c8c", transform: "rotate(-8deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
+            h("span", { style: numStyle(sk, 15, bs.left < 0 ? sk.over : "#23244a") }, Math.round(bs.used * 100) + "%")) : h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 设个每月预算")),
+        h("div", { "data-ledger-rail": true, style: Object.assign({ position: "relative" }, at(84, 820)) },
+          h("img", { src: IMG + "tube.png", alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }),
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: "1.4%", top: "27%", height: "46%", width: (tubeFill * 96.5) + "%", borderRadius: 999,
+            background: bs && bs.left < 0 ? "linear-gradient(180deg,#f7c7d9,#e58db1)" : "linear-gradient(180deg,#d9d2fb,#a79cef 55%,#9387e3)", boxShadow: "inset 0 1.5px 0 rgba(255,255,255,.85), inset 0 -1px 2px rgba(80,70,170,.3)" } })),
+        bs ? h("div", { style: { display: "flex", justifyContent: "space-between", margin: "4px 20px 0 24px", fontFamily: F_BODY, fontSize: 14, color: "#4a4b6a" } },
+          h("span", { style: numStyle(sk, 14, "#4a4b6a") }, fmtMoney(s.exp, cur) + " / " + fmtMoney(bs.budget, cur)),
+          h("span", null, bs.left < 0 ? "超了  " : "还能花  ", h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : "#23244a") }, fmtMoney(Math.abs(bs.left), cur)))) : null),
+      // 最近：左边原图票根 + 右边字
+      h("div", { style: { position: "relative", display: "flex", marginTop: 8 } },
+        h("img", { src: IMG + "stub.png", alt: "", draggable: false, "aria-hidden": "true", style: Object.assign({ display: "block", width: (108 / 960 * 100) + "%", height: "auto", alignSelf: "flex-start", flexShrink: 0 }, softStyle) }),
+        h("div", { style: { flex: 1, minWidth: 0, margin: "0 16px 0 12px" } },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottom: "1px solid " + LINE } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: sk.ink } }, "最近"),
-            h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 13, fontWeight: 600, color: "#6b62b8" } }, "全部账单 ›")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "最近"),
+            h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 14, color: "#6b62b8" } }, "全部账单 ›")),
           recent.length ? recent.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) }))
             : h("div", { style: { padding: "22px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: sk.fog } }, "还没有记账，点上面「记一笔」"))),
-      // 页脚：左边一列小字 + 一颗圆点，右边条码 + 版本
-      h("div", { "aria-hidden": "true", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 22, padding: "0 2px" } },
-        h("div", { style: { display: "flex", alignItems: "center", gap: 14 } },
-          h("div", { style: { fontFamily: WIDE, fontSize: 7, letterSpacing: ".18em", lineHeight: 1.5, color: "rgba(92,92,130,.6)", whiteSpace: "pre" } }, "SMALL\nMONEY\nBIG\nHAPPINESS\n:)"),
-          h("span", { style: { width: 9, height: 9, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #fff, #b6b8cc)", boxShadow: "0 1px 1px rgba(80,80,120,.3)" } })),
-        h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-          miniBarcode(96, 22, "footer"),
-          h("div", { style: { fontFamily: WIDE, fontSize: 7.5, letterSpacing: ".16em", lineHeight: 1.6, color: "rgba(92,92,130,.6)" } }, "QIUQIU WALLET", h("br"), "V1.0"))));
+      // 页脚（原图）
+      h("div", { style: { marginTop: 18 } }, pic("foot", 60, 850, softStyle)));
   }
+
   function WalletHome(props) {
     const { sk, data, cur, code, settings } = props;
     const mk = thisMonthKey(), lmk = shiftMonth(mk, -1);

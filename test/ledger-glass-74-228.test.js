@@ -81,7 +81,7 @@ console.log("ledger-y2k-marks ok");
 {
   const s6 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s6, /card: Object\.assign\(\{\}, FLAT, \{ borderBottom: "1px solid " \+ LINE \}\), shell: Object\.assign\(\{\}, FLAT, \{ borderTop: "1px solid " \+ LINE \}\)/, "又回到一个模块一个圆角矩形了");
-  assert.match(s6, /backgroundColor: pageColor\("ledger", "bg", "#eef0f5"\)/, "机身不是冷白了");
+  assert.match(s6, /backgroundColor: pageColor\("ledger", "bg", "#e9e9f2"\)/, "机身不是样张的冷白了");
   assert.match(s6, /lilac: \["#e4e3f2", "#a9a7cc"\]/, "账单键又变回紫粉了");
   assert.match(s6, /\.lg-reference \.lg-add-category\{[^}]*background:transparent/, "分类又变回十二张小白卡了");
 }
@@ -101,7 +101,10 @@ console.log("ledger-hardware ok");
 // 第十五轮（她：「抄作业吧」，给了一整张首页样张）：首页照样张逐块做
 {
   const s8 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
-  ["function WalletHomeY2K(", "function KeyChain(", "const screws = ", "const miniBarcode = ", "\"More\"", "Keep going :)", "SMALL\\nMONEY", "QIUQIU WALLET\", h(\"br\"), \"V1.0\""].forEach(k => assert.ok(s8.indexOf(k) > 0, k));
+  ["function WalletHomeY2K(", "Keep going :)", 'const IMG = "assets/ledger/"', 'pic("card", 92, 868', 'picKey("k1"', 'IMG + "note.png"', 'IMG + "tube.png"', 'IMG + "stub.png"', 'pic("foot", 60, 850'].forEach(k => assert.ok(s8.indexOf(k) > 0, k));
   assert.match(s8, /h\(sk\.id === "glass" \? WalletHomeY2K : WalletHome,/, "玻璃皮首页没走样张那版");
 }
 console.log("ledger-home-mock ok");
+// 第十六轮（她：「我让你完全复制没让你自己画」）：首页实物部件直接用样张裁下来的图
+["card", "note", "k1", "k2", "k3", "tube", "stub", "foot"].forEach(n => assert.ok(require("fs").existsSync(__dirname + "/../assets/ledger/" + n + ".png"), n + ".png 不见了"));
+console.log("ledger-home-assets ok");
