@@ -7787,6 +7787,32 @@ async function oocAskGroup(p, ctx, question) {
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
+// 从 schemaHint 认出扁平字段名；有列表或嵌套对象的不管（那种切不准，宁可照旧重来）
+function flatSchemaKeys(hint) {
+  const h = String(hint || "").trim();
+  if (!h || h[0] !== "{" || h.indexOf("[") >= 0 || h.slice(1).indexOf("{") >= 0) return null;
+  const keys = [];
+  h.replace(/"([A-Za-z_][\w]*)"\s*:/g, (_, k) => { if (keys.indexOf(k) < 0) keys.push(k); return _; });
+  return keys.length ? keys : null;
+}
+function flatSchemaSalvage(raw, hint) {
+  const keys = flatSchemaKeys(hint);
+  if (!keys) return null;
+  const s = String(raw || "");
+  const hits = keys.map(k => { const m = new RegExp('"' + k + '"\\s*:\\s*').exec(s); return m ? { k, from: m.index + m[0].length, at: m.index } : null; })
+    .filter(Boolean).sort((a, b) => a.at - b.at);
+  if (hits.length * 2 < keys.length) return null;
+  const out = {};
+  hits.forEach((x, i) => {
+    let v = s.slice(x.from, i + 1 < hits.length ? hits[i + 1].at : s.length).trim();
+    v = v.replace(/```\s*$/, "").trim().replace(/[,}\s]*$/, "").trim();
+    if (/^-?\d+(\.\d+)?$/.test(v)) { out[x.k] = Number(v); return; }
+    if (/^(true|false|null)$/.test(v)) { out[x.k] = v === "null" ? null : v === "true"; return; }
+    v = v.replace(/^"/, "").replace(/"$/, "").replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    if (v) out[x.k] = v;
+  });
+  return Object.keys(out).length * 2 >= keys.length ? out : null;
+}
 // 生成失败广播：app.js 接住弹提示（调用方自己弹过就不重复）。runProbe 这一口收了大多数生成，
 // 在这里挂一张网，比去 600 多个 catch 里一处处补可靠（她 2026-09-29 要「失败都要有 toast」）。
 async function runProbe(p, ctx, probe) {
@@ -7831,6 +7857,14 @@ async function runProbeInner(p, ctx, probe) {
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
   // 输出没收好（多写了一句话、JSON 少个括号），重来一次就好了。按次计费，
   // 让她自己去点第二次是没道理的；重试一次仍然失败才报错。
+  // 扁平格式的通用捡救（她 2026-09-29：「App 其他还有这种样子的也搞兜底吧」）：
+  //   schemaHint 只有几个平铺的字段、没有列表／嵌套的（四十来处都是这个样子），没解析出来时
+  //   先按字段名从原文里把每一栏切出来——模型最常见的坏法是正文里带了没转义的引号或换行，
+  //   JSON.parse 一碰就碎，按「从这一栏开头切到下一栏开头」切却切得出来。捡回一半以上的栏才算数。
+  if (!parsed && typeof probe.salvage !== "function") {
+    const flat = flatSchemaSalvage(String(raw || ""), probe.schemaHint);
+    if (flat) return flat;
+  }
   // probe.salvage：只要一两个字段的那种（陪伴戳一下说一句），没解析出 JSON 时先从原文里把东西捡出来——
   //   模型那句话多半说了，只是没按格式交回来；捡得到就用，不为格式再花一枪。
   if (!parsed && typeof probe.salvage === "function") {
