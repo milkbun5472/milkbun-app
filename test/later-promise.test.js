@@ -8,7 +8,7 @@ const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), 
 // 她 2026-08-26：「有时候他们会说等我 xxx 再找你，能不能设定让他们真的主动发，
 // 不用等 dongnian 满。如果我那段时间没上 app 等下一次补上。」
 test("协议里有约回字段，而且明说没说过就别填", () => {
-  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video"\}/);
+  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video","after":"takeout\|gift（等一件事时才填）"\}/);
   assert.match(app, /只有你这一轮【真的说了】/);
   assert.match(app, /绝不许为了制造互动硬填/);
   assert.match(app, /"call", "laterPromise"\]/, "得挂进本轮开放能力，不然模型不知道能填");

@@ -12,7 +12,7 @@ const vm = require("node:vm");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("字段字典里那一栏多了 how，而且说清了它凭什么填", () => {
-  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video"\}/,
+  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video","after":"takeout\|gift（等一件事时才填）"\}/,
     "schema 里没有 how，模型压根没处写「我说的是打电话」");
   assert.match(app, /\*\*how 照你自己刚说出口的那句来\*\*/, "没说清这一栏按什么填");
   assert.match(app, /到点她那边【真的会响】/, "没告诉他这一栏是有后果的");

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.304";
+const APP_VERSION = "v74.305";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -72,6 +72,10 @@ const PROMISE_VIA = {
   video: "video", 视频: "video", 视频通话: "video", facetime: "video", videocall: "video"
 };
 const promiseVia = how => PROMISE_VIA[String(how == null ? "" : how).trim().toLowerCase()] || "chat";
+// 约回「等哪件事」：模型写的几种叫法都认，认不出的当没写（退回按分钟算）
+const PROMISE_AFTER = { takeout: "takeout", 外卖: "takeout", food: "takeout", gift: "gift", 礼物: "gift", 快递: "gift", parcel: "gift" };
+// 送到之后留一点拆开/吃上几口的工夫再来，不是门铃一响就发消息
+const PROMISE_AFTER_GRACE_MS = 3 * 60000;
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
@@ -3742,6 +3746,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 到期TA会自己提起——走的是已有那条约回链，不是新机制
   // via：到那天TA【怎么来】——"chat" 发消息（原来只有这一种）／"voice" 打语音／
   // "video" 打视频（她 2026-09-06：「约好了打电话没做」）。
+  // 这件事几点真的发生：照【写那一单的地方】存的 arriveTs 来——
+  //   外卖＝她在聊天里给TA点的那张卡（kind:"takeout"，role:"user"，arriveTs）；
+  //   礼物＝在途礼物表 x_giftOut（{charId, arriveTs}）。取最近下的那一单。
+  //   已经到了（她刚说「到了吗」）就照现在算；什么都没在路上＝没这件事，返回 0。
+  const promiseAfterTs = (charId, kindIn) => {
+    const kind = PROMISE_AFTER[String(kindIn == null ? "" : kindIn).trim().toLowerCase()];
+    if (!kind) return 0;
+    const now = Date.now(), recent = now - 6 * 3600000;
+    const rows = kind === "takeout"
+      ? (chatsRef.current[charId] || []).filter(m => m && m.kind === "takeout" && m.role === "user" && m.arriveTs)
+      : (giftOutRef.current || []).filter(g => g && g.charId === charId && g.arriveTs);
+    const last = rows.filter(x => Number(x.arriveTs) > recent).sort((a, b) => (Number(b.ts || b.arriveTs) || 0) - (Number(a.ts || a.arriveTs) || 0))[0];
+    if (!last) return 0;
+    return Math.max(Number(last.arriveTs), now) + PROMISE_AFTER_GRACE_MS;
+  };
   const PACT_VIA = { chat: "发消息", voice: "语音电话", video: "视频电话" };
   const setPactDue = (memId, charId, about, dueTs, via) => {
     if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
@@ -9909,7 +9928,7 @@ ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音（${VOICE_PAUSE_MARK}）；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
-laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
+laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
       const selfTask = _s.engineerEyes
@@ -10221,16 +10240,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       try {
         const lp = parsed.laterPromise;
         const mins = lp && Number(lp.minutes);
+        // 「等一件事」的约（她 2026-09-29：给TA点了外卖，TA说拿到了一定反馈，然后什么都没来）。
+        //   TA不知道骑手几点到，模型估的分钟数是瞎猜；可 app 知道——那一单自己带着 arriveTs。
+        //   所以 after 只说【等哪件事】，时间由这儿照那一单真的到达时刻换算，还是落成一个 dueTs，
+        //   到点走的仍是下面那一条约回链（不另开一个触发口）。
+        const after = lp && promiseAfterTs(charId, lp.after);
         // NaN / Infinity 不用另外挡：两头的范围比较对它们本来就是 false
-        if (lp && mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES) {
-          const due = Date.now() + mins * 60000;
+        if (lp && (after || (mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES))) {
+          const due = after || Date.now() + mins * 60000;
           // TA说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
           // 现在我是想把打电话这种也接上去」）。提示词里那句「到家给你打电话」本来就是
           // 触发例子之一，可这条约里【没有一栏能记下它是个电话】，于是每一次都落成一条
           // 文字消息——说好的电话到点变成一句「我到家了」。
           // 认得出的那几种写法都认（见 PROMISE_VIA）；认不出的仍旧当 chat。
           const via = promiseVia(lp.how);
-          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now() };
+          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now(),
+            ...(after ? { after: PROMISE_AFTER[String(lp.after).trim().toLowerCase()] } : {}) };
           setPromises(p => {
             // 同一个人只留最新那一个：TA又说了一次「等我忙完」，就以最新的为准，别攒一堆
             const n = [...p.filter(x => x && x.charId !== charId), row];
@@ -25123,6 +25148,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "memlib") body = h(MemoryLib, {
+    pactsOf: pactsFor, onClosePact: closePact, onSetPactDue: setPactDue, onAddPact: addPact,
     entries: memLib,
     characters: liveChars,
     focusChar: activeChar,
