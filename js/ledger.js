@@ -2046,18 +2046,37 @@
 
     const tabBtn = (k, label) => bookTab(tab === k, label, () => setTab(k), pageColor("ledger", "accent", ACCENT));
 
-    const rowStyle = { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line };
+    // 玻璃皮（她 2026-09-29 给的样张）：tab 换成那条透明滑轨，名单装进统计页那块玻璃框，勾选圈、便签、手写字、长尾夹都是她出的图
+    const g = !!(props.sk && props.sk.id === "glass");
+    const LA = "assets/ledger/", LV = "?v=283";
+    const decoImg = (n, st) => h("img", { src: LA + n + ".webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none" }, st) });
+    const rowStyle = g ? { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 14, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.1)" }
+      : { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line };
     const iconBtn = (Icon, onClick, color) => h("button", { onClick, className: "active:opacity-50", style: { background: "transparent", border: "none", padding: 4 } }, h(Icon, { size: 16, color: color || t.fog }));
 
     // 整页，不用半窗：三个 tab、一屋子币种和分类，半窗里一次只看得见三四行
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
-        h(Head, { zh: "记账设置", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
+      h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative", overflow: "hidden" }, props.sk ? props.sk.page : paperBg()) },
+        g ? h("style", null, PNL_CSS) : null,
+        g ? decoImg("note-better", { right: -8, top: -6, width: 74, transform: "rotate(7deg)", zIndex: 0 }) : null,
+        h(Head, { zh: "记账设置", sub: g ? "SETTINGS" : null, onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: null }),
-        h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
+        g ? h("div", { style: { position: "relative", padding: "2px 16px 0" } }, h(CandySeg, { items: [["visible", "谁能看到"], ["acct", "账户"], ["recur", "周期"], ["cur", "币种"], ["cat", "分类"]], value: tab, onChange: setTab, sk: props.sk }))
+        : h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
           tabBtn("visible", "谁能看到"), tabBtn("acct", "账户"), tabBtn("recur", "周期"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
-        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
+        h("div", { style: { position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: g ? "none" : "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
           // ---- 可见性 ----
+          tab === "visible" && g ? h(Fragment, null,
+            h("div", { style: { position: "relative", paddingRight: 96, minHeight: 64, marginBottom: 6 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "被选中的角色在聊天里能自然感知你本月的收支和几笔大开销，按人设关心或调侃你。账户余额另有开关，默认不给。"),
+              decoImg("hand-between", { right: -6, top: -4, width: 96, transform: "rotate(-6deg)" })),
+            chars.length ? h("div", { className: "lg-pnl", "data-ledger-visible": true, style: { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", margin: "0 -14px 6px" } },
+              chars.map((c, i) => { const on = sel.includes(c.id);
+                return h("button", { key: c.id, onClick: () => toggle(c.id), "aria-pressed": on, className: "w-full active:opacity-80 flex items-center", style: { gap: 14, minHeight: 60, padding: "6px 2px", borderTop: i ? "1px solid " + LINE : "none" } },
+                  h("span", { style: { padding: 2, borderRadius: 14, background: "linear-gradient(150deg,#fff,rgba(214,206,246,.8))", boxShadow: "0 2px 6px rgba(140,130,200,.25)", flexShrink: 0 } }, h(Avatar, { character: c, size: 42, radius: 12 })),
+                  h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, c.name),
+                  h("img", { src: LA + (on ? "chk-on" : "chk-off") + ".webp" + LV, alt: "", draggable: false, style: { width: 32, height: 32, flexShrink: 0, objectFit: "contain" } })); }))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) :
           tab === "visible" ? h(Fragment, null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "被选中的角色在聊天里能自然感知你本月的真实收支和几笔大开销，按人设关心或调侃你。只是让 TA 知道，不碰任何余额。"),
             chars.length ? chars.map(c => { const on = sel.includes(c.id);
@@ -2121,7 +2140,13 @@
               iconBtn(IPencil, () => editCat(c), t.sub), iconBtn(ITrash, () => delCat(c)))),
             h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加分类")) : null),
         // 底部主按钮（可见性 tab 才需要保存；管理 tab 即时生效，给「完成」）
-        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)") } },
+        g ? h("div", { className: "shrink-0", style: { position: "relative", display: "flex", justifyContent: "center", padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+            decoImg("hand-small", { left: 4, bottom: "calc(env(safe-area-inset-bottom, 0px) + 2px)", width: 84, transform: "rotate(-8deg)" }),
+            decoImg("binder", { right: 6, bottom: "calc(env(safe-area-inset-bottom, 0px) + 4px)", width: 62, transform: "rotate(10deg)" }),
+            h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, "data-ledger-setsave": true, className: "active:opacity-85",
+              style: { position: "relative", width: "52%", minHeight: 52, border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 15.5, fontWeight: 700, letterSpacing: ".2em", color: "#5b4f9e",
+                background: "url(assets/ledger/rail.webp?v=259) center / 100% 100% no-repeat" } }, tab === "visible" ? "保存" : "完成"))
+        : h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)") } },
           h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, className: "w-full active:opacity-85",
             style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
             tab === "visible" ? "保存" : "完成"))),

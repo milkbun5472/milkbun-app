@@ -45,3 +45,15 @@ console.log("ledger-recurring ok");
   assert.match(b, /cell\("笔数", String\(monthTxns\.length\)/);
   console.log("ledger-billsum ok");
 }
+
+// 记账设置页玻璃皮（她 2026-09-29 的样张 + 素材）：tab 是滑轨、名单在玻璃框里、勾选圈是她的图；纸皮照旧
+{
+  const fs9 = require("fs");
+  ["chk-on", "chk-off", "hand-between", "hand-small", "note-better", "binder"].forEach(n => assert.ok(fs9.existsSync(__dirname + "/../assets/ledger/" + n + ".webp"), n));
+  const b = src.slice(src.indexOf("function SettingsSheet("), src.indexOf("function RecurEditor("));
+  assert.match(b, /g \? h\("div", \{ style: \{ position: "relative", padding: "2px 16px 0" \} \}, h\(CandySeg, \{ items: \[\["visible", "谁能看到"\]/);
+  assert.match(b, /\(on \? "chk-on" : "chk-off"\)/);
+  assert.match(b, /"aria-pressed": on, className: "w-full active:opacity-80 flex items-center", style: \{ gap: 14, minHeight: 60/);
+  assert.match(b, /tabBtn\("visible", "谁能看到"\)/);
+  console.log("ledger-settings-glass ok");
+}
