@@ -21,6 +21,7 @@
     { id: "react", group: "social", title: "顺手点评", sub: "你记完一笔账、勾掉一条提醒时TA搭一句", globalDefault: true, charDefault: true },
     // 下面两样是按「群」「这一场」开的，不按人：设置里只有总闸，细的开关留在各自页面里
     { id: "groupChat", group: "social", title: "群里自己聊", sub: "群成员在你不说话时自己接着聊", globalDefault: true, charDefault: true, noChars: true },
+    { id: "listen", group: "social", title: "一起听时开口", sub: "一起听歌时TA一首歌最多自己说一句", globalDefault: true, charDefault: true, noChars: true },
     { id: "watch", group: "social", title: "一起看时开口", sub: "一起看剧时TA隔一阵自己说一句", globalDefault: true, charDefault: true, noChars: true }
   ];
   const byId = Object.fromEntries(FEATURES.map(x => [x.id, x]));

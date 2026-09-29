@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.295";
+const APP_VERSION = "v74.294";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6142,6 +6142,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   小结正是为这件事生成的（endCall 那头已经在写了）。
         // 通话开始/结束那两条标记行是【行本身】，不挂「谁：」
         const line = m._callMark ? m._callMark
+          : (m.kind === "listenlog") ? (typeof listenLogText === "function" ? listenLogText(m, uName, char.name) : String(m.content || ""))
           : (m.kind === "watchlog") ? (typeof watchLogText === "function" ? watchLogText(m, uName, char.name) : String(m.content || ""))
           // 没存下转录的老通话（expandCall 摊不开）：退回小结那一行
           : (m.kind === "callend")
@@ -10006,6 +10007,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (m.ccToolResult === true) {
           const payload = JSON.stringify(m.ccToolResultData == null ? null : m.ccToolResultData).slice(0, 16000);
           g.push({ role: "user", content: stp + "【你刚才从唯一固定 CC 窗口请求的只读工具结果｜不是 Lisa 的台词】\n" + payload + "\n【请以你本人身份消化结果后自然接着回复 Lisa；不要复述协议字段、job id、session id 或租约。】" });
+          continue;
+        }
+        if (m.kind === "listenlog") {
+          g.push({ role: "user", content: stp + (typeof listenLogText === "function" ? listenLogText(m, uName, char.name) : m.content) });
           continue;
         }
         if (m.kind === "watchlog") {
@@ -25206,6 +25211,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast
   }) : null);
   else if (screen === "listen") body = h(ListenTogether, {
+    // 边听边说（listen-talk.js）：同一起看——上下文走 ctxFor，离开时往单聊落一条 listenlog
+    profile: profile, active: active, ctxFor: ctxFor, toast: toast,
+    onHandoff: (charId, entry) => pChat(charId, p => [...p, entry]),
     listen: listen,
     characters: liveChars,
     onBack: exitListen,
