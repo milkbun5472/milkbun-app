@@ -1034,8 +1034,10 @@
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } },
           h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, s.net < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
           h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 24, color: "#23244a" }))),
-        h("button", { onClick: props.onMotto, className: "text-left active:opacity-60", style: { marginTop: 8, minHeight: 40, fontFamily: HAND_ZH, fontSize: 17, lineHeight: 1.5, color: "#3a3b5c", maxWidth: "58%" } },
-          mottoLines.map((l, i) => h("div", { key: i, style: { paddingLeft: i ? 16 : 0 } }, (i === 0 ? "「" : "") + l + (i === mottoLines.length - 1 ? "」" : "")))),
+        // 座右铭：一行、小一点，装在一条淡淡的透明框里（她 2026-09-29：喜欢之前那种有点透明框的）
+        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto-y2k", style: { marginTop: 10, minHeight: 36, padding: "6px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, color: "#44465f",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: "rgba(255,255,255,.42)", borderBottom: "1px dashed rgba(255,255,255,.95)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.7)" } },
+          "「" + motto + "」"),
         h("img", { src: IMG + "note.png" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", right: -18, top: -6, width: "40%", height: "auto", transform: "rotate(-6deg)" } })),
       // 三颗键（原图，整块就是按钮）
       h("div", { className: "lg-bigkeys", style: { display: "flex", gap: "2%", padding: "0 4%", marginBottom: 8 } },
