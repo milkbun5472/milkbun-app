@@ -112,3 +112,14 @@ console.log("ledger-home-assets ok");
 ["panel", "rail", "slider", "title-stats", "star-gold", "star-purple", "charm1", "charm4"].forEach(n => assert.ok(require("fs").existsSync(__dirname + "/../assets/ledger/" + n + ".png"), n));
 assert.match(require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8"), /borderImage: "url\(" \+ LA \+ "panel\.png" \+ LV \+ "\) 120 fill/);
 console.log("ledger-stats-assets ok");
+
+// 六个月柱子：她给的空柱 / 满柱素材，满柱按金额从上裁（不再九宫格挤压）
+{
+  const fs2 = require("fs"), path2 = require("path");
+  const src2 = fs2.readFileSync(path2.join(__dirname, "..", "js", "ledger.js"), "utf8");
+  for (const f of ["col-empty.png", "col-full.png"]) {
+    if (!fs2.existsSync(path2.join(__dirname, "..", "assets", "ledger", f))) throw new Error("missing " + f);
+  }
+  if (!/col-full\.png[\s\S]{0,400}clipPath: "inset\("/.test(src2)) throw new Error("full column must be clipped, not squashed");
+  console.log("ok six-month glass columns");
+}

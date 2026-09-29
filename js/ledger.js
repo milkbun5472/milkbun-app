@@ -1363,9 +1363,15 @@
           six.map(x => { const lit = x.v ? Math.max(1, Math.round(x.v / sixMax * 10)) : 0, now = x.m === mk;
             return h("div", { key: x.m, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 } },
               h("div", { style: numStyle(sk, 9.5, sk.sub) }, x.v ? fmtNum(Math.round(x.v)) : "—"),
-              h("div", { style: { width: "100%", maxWidth: 24, height: 84, display: "flex", alignItems: "flex-end", borderRadius: 12, background: sk.id === "glass" ? "rgba(214,204,245,.22)" : sk.line } },
-                h("div", { style: { width: "100%", height: lit ? Math.max(10, lit * 8.4) : 0, borderRadius: 12,
-                  background: sk.id === "glass" ? (now ? "#f3a9c7" : "#c7b6f3") : sk.accent } })),
+              // 玻璃皮：她给的一对柱子素材——空柱子当底，满柱子按金额从下往上长（九宫格拉伸，圆头不变形）
+              glassP ? h("div", { "data-ledger-col": x.m, style: { position: "relative", width: "100%", maxWidth: 30, height: 96 } },
+                  h("div", { style: { position: "absolute", inset: 0, borderStyle: "solid", borderColor: "transparent", borderWidth: "14px 10px", borderImage: "url(" + LA + "col-empty.png" + LV + ") 140 100 fill / 14px 10px / 0 stretch" } }),
+                  x.v ? h("div", { style: { position: "absolute", inset: 0, borderStyle: "solid", borderColor: "transparent", borderWidth: "14px 10px", borderImage: "url(" + LA + "col-full.png" + LV + ") 140 100 fill / 14px 10px / 0 stretch",
+                    // 满柱整根画出来，再从上往下裁掉没用完的那段：液面是平的，不会挤成一团
+                    clipPath: "inset(" + Math.round((1 - Math.max(.12, x.v / sixMax)) * 100) + "% 0 0 0 round 10px)",
+                    filter: now ? "hue-rotate(55deg) saturate(1.1)" : "none" } }) : null)
+              : h("div", { style: { width: "100%", maxWidth: 24, height: 84, display: "flex", alignItems: "flex-end", borderRadius: 12, background: sk.line } },
+                h("div", { style: { width: "100%", height: lit ? Math.max(10, lit * 8.4) : 0, borderRadius: 12, background: sk.accent } })),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: now ? sk.ink : sk.sub, fontWeight: now ? 800 : 500 } }, parseInt(x.m.split("-")[1], 10) + "月")); }))));
   }
 
