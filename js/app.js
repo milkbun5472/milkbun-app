@@ -7118,7 +7118,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const memExtractCtrOffRef = useRef({});
   const memExtractMarkOffRef = useRef({});
   const maybeAutoExtractOffline = async scopeKey => {
-    if (offlineIsRoom(scopeKey)) return;
+    // 侧房的线下：主线记忆一条都不写；那间房关着「进记忆」时，记在它自己名下（同单聊那条）
+    if (offlineIsRoom(scopeKey)) {
+      const pid = offlinePersonId(scopeKey), room = window.ChatRooms.get(pid, String(scopeKey).split("::room::")[1]);
+      const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
+      const char = characters.find(c => c.id === pid);
+      if (room && !room.main && sess) await maybeAutoExtractRoom(char, room, (sess.msgs || []).filter(m => m && m.kind !== "ooc"), "off:" + scopeKey);
+      return;
+    }
     const charId = offlinePersonId(scopeKey);
     const cfg = memCfgRef.current;
     if (!cfg.autoExtract || !active) return;
@@ -7289,7 +7296,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (sideRoom) {
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || [],
-          { turns: roomTurnsOf(charId, sideRoom) }) : "";
+          { turns: roomTurnsOf(charId, sideRoom), queryText: (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), memLimit: osFor(charId).memN == null ? (memCfgRef.current.topK || 5) : Math.max(1, osFor(charId).memN) }) : "";
         oCtx = gateRoomContext(oCtx, char, scopeKey, sideRoom);
       }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
@@ -8767,8 +8774,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const pid = String((o.room && o.room.personId) || o.personId || charIds[0] || "");
     const side = rid && rid !== "main" && pid && window.ChatRooms;
     const room = side ? window.ChatRooms.get(pid, rid) : null;
+    // v74.266 起落进【这间房自己的记忆】（ChatRooms.memAdd），不再塞进前情浓缩：
+    //   浓缩满仓会整段掉，她亲手点的那一下不该跟着滚掉；记忆按相关度召回、记忆库里也翻得到。
     if (room && !room.main) {
-      window.ChatRooms.save(pid, { ...room, selfDigest: window.ChatRooms.digestMerge(room.selfDigest, text) });
+      const e = o.entry || {};
+      window.ChatRooms.memAdd(pid, room.id, [{ text, tags: e.tags, v: e.v, a: e.a, source: e.source || "manual" }]);
       return "room";
     }
     // ⚠️戳着某间侧房、可那间房已经删了：**哪儿都不写**。
@@ -8810,13 +8820,48 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const cur = window.ChatRooms.get(char.id, room.id) || room;
       window.ChatRooms.save(char.id, {
         ...cur,
-        selfDigest: window.ChatRooms.digestMerge(cur.selfDigest, block.trim()),
+        selfDigest: window.ChatRooms.digestMerge(cur.selfDigest, block.trim(), window.ChatRooms.digestCapOf(cur)),
         selfSummedCount: due.upto
       });
       // ⚠️不用通知界面重画：房记录每轮都是从 ChatRooms 现读的（跟别处 save 一样），
       //   下一轮自然就带上这份浓缩了。
     } catch (e) {/* 浓缩失败下次再攒够了再说，不打扰她 */ }
     finally { roomSumBusyRef.current[key] = false; }
+  };
+  // ── 房间自己的记忆：自动抽取（她 2026-09-29「12一起做」）──────────────
+  // 这间房把「这里的事可以进记忆」关着时，原来这儿说过的话一条都不会进任何记忆——
+  //   主线那条抽取（maybeAutoExtract）被 memoryCandidate 挡着，线下侧房直接 return。
+  // 现在照同一个抽取器（extractMemories）抽，落点换成 ChatRooms.memAdd：只这间房读得到。
+  // ⚠️不接开环 / 约回 / 了结：那一整条链是主线的（到点TA会从主聊天来找她），房里的约定不许漏出门。
+  // 节拍、开关照主线那份（记忆库·召回设置里的 autoExtract / extractInterval），不另立一套。
+  const roomExtractCtrRef = useRef({}), roomExtractMarkRef = useRef({}), roomExtractBusyRef = useRef({});
+  const maybeAutoExtractRoom = async (char, room, msgsAll, laneKey) => {
+    const K = window.ChatRooms, cfg = memCfgRef.current;
+    if (!K || !char || !room || room.main || !cfg.autoExtract || !bgActive) return;
+    if (room.writeback && room.writeback.memoryCandidate) return;   // 开着＝走主线那条，不是这儿的事
+    const key = String(laneKey || K.chatKey(char.id, room.id));
+    if (roomExtractBusyRef.current[key]) return;
+    const cnt = (roomExtractCtrRef.current[key] || 0) + 1;
+    roomExtractCtrRef.current[key] = cnt;
+    if (cnt % Math.max(1, cfg.extractInterval || 1) !== 0) return;
+    const all = (msgsAll || []).filter(m => m && !m.recalled && !m.forkSeed && m.content && !isOocMsg(m) && contextAllowsMessage(m));
+    if (all.length < 4) return;
+    const mark = roomExtractMarkRef.current[key] || 0;
+    const newCount = all.filter(m => (m.ts || 0) > mark).length;
+    if (mark && newCount < 4) return;
+    const msgs = all.slice(-Math.min(120, Math.max(24, newCount + 4)));
+    roomExtractBusyRef.current[key] = true;
+    try {
+      const existing = K.memList(char.id, room.id).slice(0, 40).map(e => e.text);
+      const items = await extractMemories(bgActive, roomContextFor(char, K.chatKey(char.id, room.id), room), msgs, { existing, openList: [] });
+      const G = window.MemoryExtractionGate;
+      const keep = (items || []).map(it => G && G.normalizeEvidence ? G.normalizeEvidence(it, msgs) : it)
+        .filter(it => it && it.resolveOpen == null && it.text && (!G || G.inspect(it, msgs).formal))
+        .map(it => ({ text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], v: it.v, a: it.a, source: "auto" }));
+      if (keep.length) K.memAdd(char.id, room.id, keep);
+      roomExtractMarkRef.current[key] = all[all.length - 1].ts || Date.now();
+    } catch (e) {/* 静默：不动 mark，下次重覆盖 */}
+    finally { roomExtractBusyRef.current[key] = false; }
   };
   const maybeSummarize = async charId => {
     const s = settingsFor(charId);
@@ -10938,6 +10983,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   所以哪怕这间房允许进记忆，它自己前面说过的话也照样需要这一份
       //   （她 2026-09-06：「过了上限就只能丢了对吗」——原来是的）。
       if (room && !room.main) setTimeout(() => maybeSummarizeRoom(char, room), 200);
+      // 关着「进记忆」的房：这儿的事记在这间房自己名下（只这间房读得到）
+      if (room && !room.main && !_roomMayRemember) setTimeout(() => maybeAutoExtractRoom(char, room, chatsRef.current[window.ChatRooms.chatKey(charId, room.id)] || []), 400);
       // P0-2 冷却的 turn 计数：只在该角色完成一次正常回复后 +1（后台/预览/touch:false 不计）
       try { if (!opts.proactive && delivered) window.RecallShadow && window.RecallShadow.turnDone(charId); } catch (e2) {}
       if (delivered && eLiveProjection && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.commitLiveProjection) {
@@ -12869,7 +12916,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const roomPromptFor = (charId, room) => !room || !window.ChatRooms ? "" : window.ChatRooms.prompt(
     { ...room, cognition: { ...room.cognition, schedule: roomTimeAwareFor(room, charId) } }, chatsRef.current[charId] || [],
-    { turns: roomTurnsOf(charId, room) });
+    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id) });
+  // 这间房最近几句——拿来从这间房自己的记忆里挑相关的
+  const roomRecentText = (charId, roomId) => !window.ChatRooms ? "" :
+    (chatsRef.current[window.ChatRooms.chatKey(charId, roomId)] || []).filter(m => m && !m.recalled && m.content).slice(-6).map(m => String(m.content)).join("\n");
   // 这间房是不是庭院房（房间那头的 garden 标记；主房永远不是）
   const gardenRoomOf = (charId, roomId) => {
     if (!window.ChatRooms || !roomId || roomId === "main") return null;
@@ -25850,6 +25900,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     title: appConfirm.title,
     body: appConfirm.body,
     confirmLabel: appConfirm.confirmLabel,
+    cancelLabel: appConfirm.cancelLabel,
     // 红印只长在真的会毁掉东西的那几下上（requestAppConfirm 不传就当危险）
     danger: appConfirm.danger !== false,
     onCancel: () => { const fn = appConfirm.onCancel; setAppConfirm(null); if (typeof fn === "function") setTimeout(() => { try { fn(); } catch (e) {} }, 0); },

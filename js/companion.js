@@ -107,12 +107,15 @@
     }
     line = line.trim();
     // 被戳时脱口而出的一句不会超过四十个字；带「应该／考虑到／回应她」的是它在想怎么回，不是回
-    return line && line.length <= 40 && !/应该|考虑到|回应她|按照自己/.test(line) ? { line: line } : null;
+    // 不按字数丢（她 2026-09-29：「一句话超 40 字不要丢，都花了钱的，而且有些人就是话痨」）——
+    //   只挡「它在想怎么回」那一种；三百字的上限只防它把整段提示词吐回来
+    return line && line.length <= 300 && !/应该|考虑到|回应她|按照自己/.test(line) ? { line: line } : null;
   }
   function usePokeTalk(char, props, on) {
     const [say, setSay] = useState("");
     const st = useRef({ timer: 0, pending: null, hide: 0 });
     useEffect(() => () => { clearTimeout(st.current.timer); clearTimeout(st.current.hide); }, []);
+    const arm = len => { const s = st.current; clearTimeout(s.hide); s.hide = setTimeout(() => setSay(""), Math.min(30000, 3500 + len * 200)); };
     const fire = async () => {
       const s = st.current, info = s.pending; s.pending = null;
       if (!info || POKE_GATE.busy || !char || Date.now() - POKE_GATE.last < 15000) return;
@@ -127,14 +130,14 @@
         const d = await runProbe(p, ctx, { voice: true, tag: "陪伴", once: true, salvage: pokeSalvage,
           instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。"
             + "这是她今天第 " + (log.count + 1) + " 次戳你" + (gap == null ? "。" : "，上一次是 " + (gap < 1 ? "刚刚" : gap < 90 ? gap + " 分钟前" : Math.round(gap / 60) + " 小时前") + "。") + "\n"
-            + "按你自己的性子、你此刻的心情，顺手回她一句——短，像被戳到时脱口而出的那种。\n"
+            + "按你自己的性子、你此刻的心情，顺手回她——像被戳到时脱口而出的那种，长短跟着你这个人走：话少的一两个字就够，话多的一口气说一串也行。\n"
             + "【这一下的手感】" + pokeAxes() + "\n"
             + (log.lines.length ? "【你之前被她戳时说过的】" + log.lines.map(x => "「" + x + "」").join(" ") + "——那些已经说过了，这是新的一下，说你此刻会说的那句。\n" : "")
             + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n" + REGISTER_FOLLOWS_SCENE : ""),
           schemaHint: "{\"line\":\"你脱口而出的那一句\"}" });
-        const line = String((d && d.line) || "").trim().slice(0, 60);
+        const line = String((d && d.line) || "").trim().slice(0, 600);
         if (line) notePoke(char.id, line);
-        if (line) { setSay(line); clearTimeout(s.hide); s.hide = setTimeout(() => setSay(""), Math.min(9000, 3000 + line.length * 180));
+        if (line) { setSay(line); arm(line.length);
           // 念出来（她 2026-09-27）：和庭院、列车同一个开关 x_fairyGardenVoice；TA 没选声音就只冒字
           if (voiceOn() && char.voiceId && typeof ttsSpeak === "function") speak(line, char.voiceId, s); }
       } catch (e) {
@@ -145,12 +148,21 @@
       finally { POKE_GATE.busy = false; }
     };
     const onPoke = info => { if (!on) return; const s = st.current; s.pending = info; clearTimeout(s.timer); s.timer = setTimeout(fire, 1200); };
-    return [say, onPoke];
+    // 气泡挂多久跟着字数走：长的多挂一会儿，最多半分钟；她按着、滑着气泡的时候重新计时，不会读到一半没了
+    const sayRef = useRef(""); sayRef.current = say;
+    const hold = () => { if (sayRef.current) arm(sayRef.current.length); };
+    return [say, onPoke, hold];
   }
-  function Bubble({ text, style }) {
+  // 滚动气泡（她 2026-09-29：「做个滚动气泡这样如果很长不会撑爆气泡框」）：
+  // 最多撑到六行左右，再长就在气泡里上下滑。小人是浮在屏幕上的，大气泡会把底下的聊天整片盖住。
+  // ⚠️气泡上的手势不许冒到外面：悬浮那只整块是拖动区，在气泡里滑会被当成拖小人。
+  function Bubble({ text, style, onHold }) {
     if (!text) return null;
-    return h("div", { style: Object.assign({ position: "absolute", left: "50%", transform: "translateX(-50%)", maxWidth: 200, width: "max-content", padding: "6px 10px", borderRadius: 12,
-      background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "none", zIndex: 2 }, style) }, text);
+    const stop = e => { e.stopPropagation(); if (onHold) onHold(); };
+    return h("div", { onPointerDown: stop, onPointerMove: e => e.stopPropagation(), onPointerUp: e => e.stopPropagation(), onTouchStart: stop, onScroll: stop,
+      style: Object.assign({ position: "absolute", left: "50%", transform: "translateX(-50%)", maxWidth: 220, width: "max-content", maxHeight: "7.6em", overflowY: "auto",
+      WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", touchAction: "pan-y", whiteSpace: "pre-wrap", wordBreak: "break-word", padding: "6px 10px", borderRadius: 12,
+      background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "auto", zIndex: 2 }, style) }, text);
   }
   function PetFrame({ mode, msg, ctx, style, onOpen, onPoke, frameRef, onStatus, onAct, reloadKey }) {
     const own = useRef(null), ref = frameRef || own, pokeRef = useRef(onPoke);
@@ -198,7 +210,7 @@
     const own = char ? ((cfg.looks || {})[char.id] || {}) : {};
     const face = auto ? faceForMood(mood) : (own.face || "default");
     const idle = useIdle();
-    const [say, onPoke] = usePokeTalk(char, props, !!cfg.pokeTalk);
+    const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 小人下到哪儿了 / 下不来了 / 这会儿在做什么
     const [petState, setPetState] = useState({ state: "loading", pct: 0 });
     const [actNow, setActNow] = useState("");
@@ -219,7 +231,7 @@
       !char ? h("div", { style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
       h(React.Fragment, null,
         h("div", { style: { height: "42vh", flexShrink: 0, position: "relative" } },
-          h(Bubble, { text: say, style: { top: 8 } }),
+          h(Bubble, { text: say, onHold: holdSay, style: { top: 8 } }),
           h(PetFrame, { mode: "full", frameRef: frame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
             onStatus: setPetState, onAct: setActNow, reloadKey: retry, style: { width: "100%", height: "100%" } }),
           // 他还没画出来的时候屏幕是空的：第一次要下 5MB 的小人，网差就更久。
@@ -282,7 +294,7 @@
     const idle = useIdle();
     const typing = useTyping();
     const [failed, setFailed] = useState(false);
-    const [say, onPoke] = usePokeTalk(char, props, !!cfg.pokeTalk);
+    const [say, onPoke, holdSay] = usePokeTalk(char, props, !!cfg.pokeTalk);
     // 下不来就别在屏幕上留一个空框占地方（悬浮这只不打扰她，一句话都不弹）
     if (!cfg.float || !char || props.hidden || failed) return null;
     const clamp = p => ({ x: Math.max(0, Math.min(window.innerWidth - W, p.x)), y: Math.max(44, Math.min(window.innerHeight - H - 8, p.y)) });
@@ -294,7 +306,7 @@
       const n = Object.assign(load(), { pos }); save(n); };
     return h("div", { onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
       opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
-      h(Bubble, { text: say, style: { bottom: "100%", marginBottom: 4 } }),
+      h(Bubble, { text: say, onHold: holdSay, style: { bottom: "100%", marginBottom: 4 } }),
       h(PetFrame, { mode: "float", onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
         onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
       // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）

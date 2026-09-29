@@ -46,3 +46,17 @@ test("戳一下的捡救：没按 JSON 交回来也捡得回那一句，捡不�
   assert.match(engine, /if \(!parsed && typeof probe\.salvage === "function"\)/);
   assert.match(comp, /once: true, salvage: pokeSalvage,/);
 });
+test("话痨的长句不丢：捡救不按字数卡，回来的也不截成六十字；气泡能滑、按着不消失", () => {
+  const i = comp.indexOf("  function pokeSalvage(raw) {"), j = comp.indexOf("\n  }\n", i);
+  const salv = new Function(comp.slice(i, j + 4) + "\nreturn pokeSalvage;")();
+  const long = "你又来了是不是，今天第八回了吧，我跟你说我刚把这一堆东西理顺你一戳全乱了，下次戳之前先说一声行不行";
+  assert.ok(long.length > 40);
+  assert.deepEqual(salv('{"line":"' + long + '"}'.slice(0, -2)), { line: long });
+  assert.doesNotMatch(comp, /\.trim\(\)\.slice\(0, 60\);/);
+  const bub = comp.slice(comp.indexOf("  function Bubble({ text, style, onHold }) {"), comp.indexOf("  function PetFrame("));
+  assert.match(bub, /maxHeight: "7\.6em", overflowY: "auto"/);
+  assert.match(bub, /pointerEvents: "auto"/);
+  assert.match(comp, /Math\.min\(30000, 3500 \+ len \* 200\)/);
+  assert.equal((comp.match(/h\(Bubble, \{ text: say, onHold: holdSay,/g) || []).length, 2, "陪伴页和悬浮那只都换上了");
+  assert.doesNotMatch(comp, /顺手回她一句——短/, "提示词别再逼话痨憋着");
+});
