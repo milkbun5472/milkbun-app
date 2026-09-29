@@ -127,19 +127,20 @@
       isMe ? (me.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(me.avatarImage) : me.avatarImage, alt: "", style: { width: 50, height: 50, borderRadius: 999, objectFit: "cover" } })
         : h("div", { style: { width: 50, height: 50, borderRadius: 999, background: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, String(me.name || "我").slice(0, 1)))
         : h(Avatar, { character: who, size: 50, radius: 999 }));
-    // 两只头像挨着、叠一点，交界处一枚小耳机章——「戴着同一副耳机」（她说那根线丑，撤了）
-    const phones = h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: 34, marginLeft: -13, width: 26, height: 26, borderRadius: 999,
-        background: t.ink, color: t.bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 2.5px " + (t.bg || "#fff"), zIndex: 2 } },
-      h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round", strokeLinejoin: "round" },
-        h("path", { d: "M4 15v-3a8 8 0 0 1 16 0v3" }),
-        h("rect", { x: 3, y: 14, width: 4.5, height: 7, rx: 1.8 }), h("rect", { x: 16.5, y: 14, width: 4.5, height: 7, rx: 1.8 })));
-    const stage = h("div", { style: { position: "relative", display: "flex", justifyContent: "center", paddingTop: 8 } },
-      phones,
-      h("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", width: "50%" } },
-        h("div", { style: { marginRight: -6 } }, head(null, true)), mine.map((r, i) => bubble(r, i, "l"))),
-      h("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", width: "50%" } },
-        h("div", { style: { marginLeft: -6 } }, head(partner, false)), theirs.map((r, i) => bubble(r, i, "r")),
-        busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null));
+    // 两只头像分开站，中间一根波浪线、正中一颗心，底下一行小字（她 2026-09-29 给的样子）；
+    // 气泡分到两侧：她的在左、TA 的在右，浮在封面两边（封面那块本来就留着空位）
+    const wave = h("svg", { "aria-hidden": "true", width: 96, height: 24, viewBox: "0 0 96 24", style: { flexShrink: 0, margin: "0 2px" } },
+      h("path", { d: "M2 12 q6 -7 12 0 t12 0 t12 0", fill: "none", stroke: t.ink, strokeOpacity: .4, strokeWidth: 1.3, strokeLinecap: "round" }),
+      h("path", { d: "M58 12 q6 -7 12 0 t12 0 t12 0", fill: "none", stroke: t.ink, strokeOpacity: .4, strokeWidth: 1.3, strokeLinecap: "round" }),
+      h("path", { d: "M48 18 C41 13 40.5 7.5 44.2 6.6 C46 6.2 47.3 7.2 48 8.6 C48.7 7.2 50 6.2 51.8 6.6 C55.5 7.5 55 13 48 18 Z", fill: "none", stroke: t.ink, strokeOpacity: .75, strokeWidth: 1.4, strokeLinejoin: "round" }));
+    const col = (list, side) => h("div", { style: { position: "absolute", top: 104, [side === "l" ? "left" : "right"]: 0, width: "46%", display: "flex", flexDirection: "column",
+        alignItems: side === "l" ? "flex-start" : "flex-end", pointerEvents: "none", zIndex: 3 } },
+      list.map((r, i) => bubble(r, i, side)),
+      side === "r" && busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null);
+    const stage = h("div", { style: { position: "relative", paddingTop: 8, height: 96 } },
+      h("div", { className: "flex items-center justify-center" }, head(null, true), wave, head(partner, false)),
+      h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "同一首歌，同一刻"),
+      col(mine, "l"), col(theirs, "r"));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
       h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },
         placeholder: "凑过去跟 " + (partner.remark || partner.name) + " 说一句",
