@@ -8146,6 +8146,7 @@ function PhotoSheet({ m, onClose, toast, onGen }) {
             style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"))
       : h("div", null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
+          m.noDrawWhy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, m.noDrawWhy) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）"),
           onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null));
 }

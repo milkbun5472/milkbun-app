@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.287";
+const APP_VERSION = "v74.291";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7180,6 +7180,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const closetTextFor = (charId, cap) => (typeof carryClosetText === "function")
     ? carryClosetText((carryRef.current || {})[charId], cap) : "";
   // 线下能不能拍：接了图像 API + 这个人有外貌或参考照。合照另要两张参考照都在。
+  // 照片只落成文字时的一句原因（单聊、群聊两处共用）
+  const photoNoDrawWhy = char => !(typeof imgApiReady === "function" && imgApiReady())
+    ? "还没接图像 API：设置 → 图像 API 配一条线路就能出图"
+    : !(char && (char.appearance || char.refPhoto))
+      ? "TA 的【外貌 · 发自拍用】那一栏是空的、也没传参考照——人设正文里写的外貌不算，要填进编辑角色里那一栏"
+      : "";
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
   const offlinePhotoCanDuo = char => !!(char && char.refPhoto && profile && profile.refPhoto);
   // 一份出图，两处线下（单人 / 群）共用。arg：
@@ -10701,7 +10707,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _canDraw = photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
         && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto);
       if (photoScene && photoKind && !_canDraw) {
-        pChat(chatKey, p => [...p, { role: "assistant", kind: "photo", descOnly: true,
+        // 为什么只有字：卡片上要说出来（她 2026-09-29 转读者：「填了外貌的」——填在人设正文里，不在【外貌】栏）
+        const noDrawWhy = photoNoDrawWhy(char);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "photo", descOnly: true, noDrawWhy,
           desc: photoScene, photoKind: photoKind,
           content: "[照片] " + photoScene, ts: Date.now(), turnId, read: false }]);
       }
@@ -12144,7 +12152,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto);
           if (gPhotoScene && gPhotoKind && !_gCanDraw) {
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name,
-              kind: "photo", descOnly: true, desc: gPhotoScene, photoKind: gPhotoKind,
+              kind: "photo", descOnly: true, noDrawWhy: photoNoDrawWhy(spk), desc: gPhotoScene, photoKind: gPhotoKind,
               content: "[照片] " + gPhotoScene, ts: Date.now(), turnId: gTurnId }]);
           }
           if (_gCanDraw) {
