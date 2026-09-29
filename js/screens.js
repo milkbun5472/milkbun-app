@@ -6722,7 +6722,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onHandoff, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -6837,17 +6837,20 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     return out.sort((a, b) => (a.t == null ? 1 : 0) - (b.t == null ? 1 : 0) || (a.t || 0) - (b.t || 0));
   };
   useEffect(() => {
-    if (!showLyric || !now || lyrics[now.id] !== undefined) return;
+    // 一起听的人在旁边时也要词：TA 是跟着这几句词开口的（listen-talk.js）
+    if ((!showLyric && !partner) || !now || lyrics[now.id] !== undefined) return;
     if (now.source !== "netease" || !now.neteaseId || !canSearch) { setLyrics(p => ({ ...p, [now.id]: { lines: null } })); return; }
     musicRead("/lyric?id=" + encodeURIComponent(now.gdLyricId || now.neteaseId)).then(d => {
       const raw = d && d.lrc && d.lrc.lyric;
       const lines = raw ? parseLrc(raw).filter(l => l.text) : null;
       setLyrics(p => ({ ...p, [now.id]: { lines: (lines && lines.length) ? lines : null } }));
     }).catch(() => setLyrics(p => ({ ...p, [now.id]: { lines: null } })));
-  }, [showLyric, nowId, musicProvider]);
+  }, [showLyric, nowId, musicProvider, partner && partner.id]);
   const lyricLines = now && lyrics[now.id] !== undefined ? lyrics[now.id].lines : undefined;
   let lyricActive = -1;
   if (Array.isArray(lyricLines)) for (let i = 0; i < lyricLines.length; i++) { if (lyricLines[i].t != null && lyricLines[i].t <= cur) lyricActive = i; }
+  // 边听边说（她 2026-09-29）：两只头像挂在封面上方、谁说话谁冒气泡；底下一行小输入。逻辑全在 listen-talk.js
+  const talk = window.ListenTalk ? window.ListenTalk.useTalk({ partner, profile, song: now, player, lyricLines, lyricActive, active, ctxFor, toast, onHandoff, t }) : null;
   useEffect(() => {
     if (!showLyric || lyricActive < 0 || !lyricBoxRef.current) return;
     const el = lyricBoxRef.current.querySelector('[data-lyric-active="1"]');
@@ -6959,6 +6962,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     //   只是不会自己开口了。
     pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
+    talk ? h("div", { className: "w-full" }, talk.stage) : null,
     // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
     showLyric
       ? h("div", { ref: lyricBoxRef, onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
@@ -6969,7 +6973,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       //   这儿只留一块透明的位子让它露出来，点一下换封面。碟上那 148px 的小封面跟整页的封面是同一张，
       //   留着就是同一样东西两份（她 2026-09-05：「封面整个代替掉页面」）。
       : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "w-full active:opacity-90", "aria-label": "换封面",
-          style: { height: 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
+          style: { height: talk ? 170 : 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
 
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
@@ -7013,6 +7017,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       // 前进键右边：当前队列/歌单顺序
       cbtn(ic("list", showQueue ? (t.accent || "#8a6d3b") : t.ink, 20), () => setShowQueue(v => !v), { size: 44, style: { background: showQueue ? (t.accent || "#8a6d3b") + "22" : "transparent" } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, ({ order: "列表循环", one: "单曲循环", shuffle: "随机播放" })[playMode || "order"]),
+    talk ? talk.bar : null,
     // 和谁听：那张封套（sleeveCard 在上面）
     sleeveCard,
     // 当前队列（展开）
