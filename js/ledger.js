@@ -1502,7 +1502,7 @@
     // 第四页照她给的素材做（2026-09-29）：标题、两张皮肤预览、四个设置图标、右边一列书签都是她出的图；
     //   皮肤名、选中的粉框、编号和英文小字是代码印的
     if (sk.id === "glass") {
-      const LA = "assets/ledger/", LV = "?v=277";
+      const LA = "assets/ledger/", LV = "?v=281";
       const PREV = { glass: "skin-glass", paper: "skin-paper" };
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
@@ -1516,7 +1516,10 @@
         h("span", { style: { color: sk.fog } }, "›"));
       return h("div", { className: "px-5 pb-8 lg-me", style: { position: "relative", overflow: "clip" } },
         h("style", null, PNL_CSS),
-        h("img", { src: LA + "title-me.png" + LV, alt: "MY STUFF", draggable: false, style: { display: "block", width: "74%", height: "auto", margin: "-2px 0 6px -3%" } }),
+        // 右上那张便签和 nice day 小对话泡（她 2026-09-29 给的图）
+        h("img", { src: LA + "note-glad.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -4, top: -4, width: 88, height: "auto", transform: "rotate(5deg)", pointerEvents: "none" } }),
+        h("img", { src: LA + "bubble-nice.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: 86, top: 44, width: 58, height: "auto", transform: "rotate(-8deg)", pointerEvents: "none" } }),
+        h("img", { src: LA + "title-me.png" + LV, alt: "MY STUFF", draggable: false, style: { position: "relative", display: "block", width: "66%", height: "auto", margin: "-2px 0 10px -3%" } }),
         h("div", { className: "lg-pnl", style: { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", margin: "0 -6px 10px" } },
           h("img", { src: LA + "side-tabs.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -40, top: 250, width: 30, height: "auto", pointerEvents: "none", zIndex: 2 } }),
           silk(sk, "账本样式", { marginBottom: 10 }),

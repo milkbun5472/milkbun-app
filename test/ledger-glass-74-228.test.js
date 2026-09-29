@@ -165,7 +165,7 @@ console.log("ledger-stats-assets ok");
 // 「我的」页素材（她 2026-09-29 给的）
 {
   const fs7 = require("fs"), src7 = fs7.readFileSync(__dirname + "/../js/ledger.js", "utf8");
-  ["title-me", "skin-glass", "skin-paper", "ic-piggy", "ic-lock", "ic-coin", "ic-folder", "side-tabs"].forEach(n => { if (!fs7.existsSync(__dirname + "/../assets/ledger/" + n + ".png")) throw new Error("missing " + n); });
+  ["note-glad", "bubble-nice", "title-me", "skin-glass", "skin-paper", "ic-piggy", "ic-lock", "ic-coin", "ic-folder", "side-tabs"].forEach(n => { if (!fs7.existsSync(__dirname + "/../assets/ledger/" + n + ".png")) throw new Error("missing " + n); });
   const i = src7.indexOf("function MeView"), body = src7.slice(i, src7.indexOf("function TxnRow"));
   if (!/"✓ 当前使用"/.test(body) || !/props\.onSkin\(x\.id\)/.test(body)) throw new Error("skin cards must stay tappable with current mark");
   if ((body.match(/minHeight: 62/g) || []).length < 1) throw new Error("me rows need big touch targets");
