@@ -1015,9 +1015,18 @@
       h("img", { src: IMG + src + ".png", alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }));
     const tubeFill = Math.max(.06, used);
     return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px" } },
+      // 页面周围的小字和星星（照样张，是字不是图，所以日期会跟着变）
+      edgeText(["GOOD", "THINGS", "TAKE TIME."], { right: 46, top: 2, zIndex: 3, fontSize: 8, color: "rgba(92,92,130,.72)" }),
+      h(Sparkle, { size: 18, style: { position: "absolute", right: 18, top: 12, zIndex: 3 } }),
+      edgeText(["SINCE", String(now.getFullYear()), "· · ·"], { right: 4, top: 118, zIndex: 3, fontSize: 7.5 }),
+      edgeText(["SPEND", "", "SAVE", "· · ·", "HAPPIER", "·"], { left: 4, top: 150, zIndex: 0, zIndex: 3, fontSize: 7.5 }),
+      h(Sparkle, { size: 14, style: { position: "absolute", left: 10, top: 262, zIndex: 3 } }),
+      edgeText([MON, String(now.getFullYear()), "/ " + pad(now.getMonth() + 1)], { right: 4, top: 350, zIndex: 3, fontSize: 9.5, letterSpacing: ".3em", color: "rgba(92,92,130,.65)" }),
+      h(Sparkle, { size: 16, style: { position: "absolute", right: 2, top: 404, zIndex: 3 } }),
+      h(Sparkle, { size: 11, style: { position: "absolute", left: 4, top: 470, zIndex: 3 } }),
       // 卡套 + 卡 + 链子兔子（原图）
-      h("div", { "data-ledger-tray": true, style: { position: "relative", marginTop: 12 } },
-        h("img", { src: IMG + "card.png", alt: "", draggable: false, style: { display: "block", width: "96%", height: "auto", margin: "0 0 0 3%", transform: "rotate(-3deg)" } })),
+      h("div", { "data-ledger-tray": true, style: { position: "relative", paddingTop: 58 } },
+        h("img", { src: IMG + "card.png", alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月结余"),
@@ -1048,8 +1057,8 @@
           h("span", null, bs.left < 0 ? "超了  " : "还能花  ", h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : "#23244a") }, fmtMoney(Math.abs(bs.left), cur)))) : null),
       // 最近：左边原图票根 + 右边字
       h("div", { style: { position: "relative", display: "flex", marginTop: 8 } },
-        h("img", { src: IMG + "stub.png", alt: "", draggable: false, "aria-hidden": "true", style: { display: "block", width: "20%", height: "auto", alignSelf: "flex-start", flexShrink: 0, marginLeft: "-7%" } }),
-        h("div", { style: { flex: 1, minWidth: 0, margin: "0 16px 0 12px" } },
+        h("img", { src: IMG + "stub.png", alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", left: "-9%", top: -10, width: "26%", height: "auto", zIndex: 2, pointerEvents: "none", transform: "rotate(-2deg)" } }),
+        h("div", { style: { flex: 1, minWidth: 0, margin: "0 16px 0 20%", position: "relative", zIndex: 1 } },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottom: "1px solid " + LINE } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "最近"),
             h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 14, color: "#6b62b8" } }, "全部账单 ›")),
