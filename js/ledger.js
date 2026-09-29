@@ -871,7 +871,7 @@
       style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent } }, cur.label) : null;
 
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
-      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : (tab === "stats" || tab === "cal") && sk.id === "glass" ? "" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
+      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : (tab === "stats" || tab === "cal" || tab === "me") && sk.id === "glass" ? "" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
       // 她 2026-09-29：首页不许左右滑（票根、便签这些故意伸出页边的素材会把页面撑宽），滑到底也不许再弹
       h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", "data-ledger-scroll": true, style: { overflowX: "hidden", overscrollBehavior: "none", touchAction: "pan-y" } },
         tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
@@ -1497,6 +1497,41 @@
       h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 14, fontWeight: 600, color: sk.ink } }, label),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginRight: 6 } }, note),
       h("span", { style: { color: sk.fog } }, "›"));
+    // 第四页照她给的素材做（2026-09-29）：标题、两张皮肤预览、四个设置图标、右边一列书签都是她出的图；
+    //   皮肤名、选中的粉框、编号和英文小字是代码印的
+    if (sk.id === "glass") {
+      const LA = "assets/ledger/", LV = "?v=277";
+      const PREV = { glass: "skin-glass", paper: "skin-paper" };
+      const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
+          style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
+        h("img", { src: LA + "ic-" + icon + ".png" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
+        h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
+        h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "2px", color: sk.fog, marginTop: 2 } }, en)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.sub, marginRight: 4, whiteSpace: "nowrap", flexShrink: 0 } }, note),
+        h("span", { style: { color: sk.fog } }, "›"));
+      return h("div", { className: "px-5 pb-8 lg-me", style: { position: "relative", overflow: "clip" } },
+        h("style", null, PNL_CSS),
+        h("img", { src: LA + "title-me.png" + LV, alt: "MY STUFF", draggable: false, style: { display: "block", width: "74%", height: "auto", margin: "-2px 0 6px -3%" } }),
+        h("div", { className: "lg-pnl", style: { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", margin: "0 -6px 10px" } },
+          h("img", { src: LA + "side-tabs.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -40, top: 250, width: 30, height: "auto", pointerEvents: "none", zIndex: 2 } }),
+          silk(sk, "账本样式", { marginBottom: 10 }),
+          h("div", { style: { display: "flex", gap: 10, marginBottom: 14 } },
+            SKIN_LIST.map(x => { const on = sk.id === x.id;
+              return h("button", { key: x.id, onClick: () => props.onSkin(x.id), "data-ledger-skin": x.id, className: "flex-1 text-left active:opacity-80",
+                style: { position: "relative", borderRadius: 18, padding: "8px 8px 10px", minHeight: 150, background: "rgba(255,255,255,.4)", border: on ? "2px solid #ee8fb6" : "1px solid rgba(255,255,255,.8)", boxShadow: on ? "0 0 0 3px rgba(238,143,182,.18)" : "none" } },
+                on ? h("span", { style: { position: "absolute", right: 6, top: 6, zIndex: 1, fontFamily: F_BODY, fontSize: 10, fontWeight: 700, color: "#fff", background: "linear-gradient(90deg,#f3a2c4,#e98ab4)", borderRadius: 999, padding: "2px 7px" } }, "✓ 当前使用") : null,
+                h("img", { src: LA + PREV[x.id] + ".png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto", margin: "6px 0 6px" } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 800, color: sk.ink } }, x.zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, x.sub)); })),
+          grow(1, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
+          grow(2, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
+          grow(3, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
+          grow(4, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat"))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: "#9d8fd6", marginRight: 6 } }, "✳ " + "NOTE"), "颜色还能在 设置 → 主题工作台 里单独调。♡"));
+    }
     return h("div", { className: "px-5 pb-8" },
       h(WordMark, { sk, word: "MY STUFF", hand: "a better me :)" }),
       h("div", { style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, sk.shell) },

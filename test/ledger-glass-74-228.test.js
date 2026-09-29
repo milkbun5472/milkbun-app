@@ -139,7 +139,7 @@ console.log("ledger-stats-assets ok");
 {
   const src4 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
   if (!/className: "px-5 pb-8 lg-stats", style: \{ position: "relative", overflow: glassP \? "clip"/.test(src4)) throw new Error("stats page must clip deco on both axes");
-  if (!/\(tab === "stats" || tab === "cal"\) && sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
+  if (!/\(tab === "stats" || tab === "cal" || tab === "me"\) && sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
   console.log("ok stats clip & no dup title");
 }
 
@@ -160,4 +160,14 @@ console.log("ledger-stats-assets ok");
   if (!/className: glass \? "lg-pnl"/.test(body)) throw new Error("calendar must sit in the shared glass panel");
   if (!/\[\[sy\.slice\(2\)/.test(body)) throw new Error("stamp must print the selected date");
   console.log("ok calendar assets");
+}
+
+// 「我的」页素材（她 2026-09-29 给的）
+{
+  const fs7 = require("fs"), src7 = fs7.readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  ["title-me", "skin-glass", "skin-paper", "ic-piggy", "ic-lock", "ic-coin", "ic-folder", "side-tabs"].forEach(n => { if (!fs7.existsSync(__dirname + "/../assets/ledger/" + n + ".png")) throw new Error("missing " + n); });
+  const i = src7.indexOf("function MeView"), body = src7.slice(i, src7.indexOf("function TxnRow"));
+  if (!/"✓ 当前使用"/.test(body) || !/props\.onSkin\(x\.id\)/.test(body)) throw new Error("skin cards must stay tappable with current mark");
+  if ((body.match(/minHeight: 62/g) || []).length < 1) throw new Error("me rows need big touch targets");
+  console.log("ok me assets");
 }
