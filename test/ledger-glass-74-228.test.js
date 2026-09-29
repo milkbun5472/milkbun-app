@@ -108,3 +108,7 @@ console.log("ledger-home-mock ok");
 // 第十六轮（她：「我让你完全复制没让你自己画」）：首页实物部件直接用样张裁下来的图
 ["card", "note", "k1", "k2", "k3", "tube", "stub", "foot"].forEach(n => assert.ok(require("fs").existsSync(__dirname + "/../assets/ledger/" + n + ".png"), n + ".png 不见了"));
 console.log("ledger-home-assets ok");
+// 第二页素材（她 2026-09-29 给的）：玻璃面板九宫格、滑轨、标题、星星、挂件
+["panel", "rail", "slider", "title-stats", "star-gold", "star-purple", "charm1", "charm4"].forEach(n => assert.ok(require("fs").existsSync(__dirname + "/../assets/ledger/" + n + ".png"), n));
+assert.match(require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8"), /borderImage: "url\(" \+ LA \+ "panel\.png" \+ LV \+ "\) 120 fill/);
+console.log("ledger-stats-assets ok");
