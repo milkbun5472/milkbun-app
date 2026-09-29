@@ -16238,6 +16238,8 @@ function ChatSettings({
   const [showTime, setShowTime] = useState(!!settings.showTime);
   const [timeSec, setTimeSec] = useState(!!settings.timeSec);
   const [showRead, setShowRead] = useState(settings.showRead !== false);
+  // 长消息自动拆成短句：默认开着＝跟原来一模一样（她 2026-09-29）
+  const [splitBubbles, setSplitBubbles] = useState(settings.splitBubbles !== false);
   const [selfP, setSelfP] = useState(settings.selfP || "first");
   const [userP, setUserP] = useState(settings.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
@@ -16506,6 +16508,7 @@ function ChatSettings({
       showTime,
       timeSec,
       showRead,
+      splitBubbles,
       selfP,
       userP,
       describeMe,
@@ -16705,6 +16708,10 @@ function ChatSettings({
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    dispRow("长消息自动拆成短句", splitBubbles, setSplitBubbles),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+      "开着：TA 一段话会按句子拆成好几个气泡，像一条条打出来的。"
+      + "关掉：TA 发几条就是几条，想写长的（一封信、一段要读完的话）就整段放一条，平时还是短句。"),
     dispRow("显示模型思考链", showReasoning, setShowReasoning),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
