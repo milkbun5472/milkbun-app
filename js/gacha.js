@@ -468,6 +468,19 @@
     });
   }
 
+  // 撕掉一张（她 2026-09-29 转来的：「抽卡那个兑换了的不能删吗」）。
+  // ⚠️原来那条「票根永不删除」是她 2026-09-14 定的（「票根永远留痕有时间戳」）——
+  //   那句话管的是【系统不许自己清】，不是【她自己也不许扔】。纪念册翻久了总有
+  //   不想留的那几张；不给出口，只能眼睁睁堆着。所以改成：系统照旧永不自动删，
+  //   她自己按一下可以扔，走确认弹窗（施工规则/never-say-delete-first 那条的意思：
+  //   会让数据消失的动作要先问一句）。
+  // ⚠️按【这一张】删，不按款：同一款叠在一起，整叠端走多半不是她想要的。
+  function removeCard(cards, id) {
+    const key = String(id || "");
+    if (!key) return Array.isArray(cards) ? cards : [];
+    return (Array.isArray(cards) ? cards : []).filter(function (c) { return c && String(c.id) !== key; });
+  }
+
   // 抽卡扣点。点数不够就一点都不扣——半途扣掉一半是最恶心的那种 bug。
   function spend(box, charId, cost) {
     const have = ptsOf(box, charId);
@@ -491,7 +504,7 @@
     SESSION_GAP_MS: SESSION_GAP_MS,
     poolOf: poolOf, rollRarity: rollRarity, pickCard: pickCard, pull: pull,
     toneOf: toneOf, TONES: TONES, RECENT_KEEP: RECENT_KEEP, askOf: askOf, pickForMe: pickForMe, SCENE_TRUTH: SCENE_TRUTH,
-    stackOpen: stackOpen, albumOf: albumOf, setPinned: setPinned,
+    stackOpen: stackOpen, albumOf: albumOf, setPinned: setPinned, removeCard: removeCard,
     earn: earn, spend: spend, ptsOf: ptsOf
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

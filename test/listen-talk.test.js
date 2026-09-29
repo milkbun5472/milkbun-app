@@ -18,10 +18,11 @@ test("自己开口：一首最多一句、有间隔、受设置里同一格管",
   assert.match(src, /window\.__setAutoFromPage\("listen", null, n\)/);
   assert.ok(P.FEATURES.some(f => f.id === "listen" && f.noChars));
 });
-test("播放页接上头像气泡和输入；离开往单聊落 listenlog，三处都认", () => {
+test("播放页接上头像气泡和输入；说的每句原样落进单聊，旧 listenlog 小条三处照认", () => {
   assert.match(scr, /window\.ListenTalk\.useTalk\(/);
   assert.match(scr, /talk \? talk\.bar : null/);
-  assert.match(app, /onHandoff: \(charId, entry\) => pChat\(charId, p => \[\.\.\.p, entry\]\)/);
+  assert.match(app, /onToChat: \(charId, rows\) => pChat\(charId/);
+  assert.match(src, /if \(props\.onToChat\) props\.onToChat\(partner\.id, list\);/);
   assert.match(app, /m\.kind === "listenlog"\) \{/);
   assert.match(app, /\(m\.kind === "listenlog"\) \? \(typeof listenLogText/);
   assert.match(comp, /m\.kind === "listenlog"\) return h\(SysNote/);
