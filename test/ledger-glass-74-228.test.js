@@ -9,7 +9,9 @@ assert.equal(sb.f(-3174.8, { symbol: "¥" }), "-¥3,174.80");
 assert.equal(sb.f(0, { symbol: "$" }), "$0.00");
 // 四格底栏，只吃 0.4 条底部安全区（mobile-ui-layout §2）
 assert.match(src, /\["wallet", "钱包", "wallet"\], \["stats", "统计", "chart"\], \["cal", "日历", "cal"\], \["me", "我的", "me"\]/);
-assert.match(src, /"data-ledger-tabbar": true, style: Object\.assign\(\{ padding: "6px 10px calc\(env\(safe-area-inset-bottom\) \* 0\.4\)" \}/);
+// 底栏只吃 0.4 条安全区（mobile-ui-layout §2）：玻璃皮是一条浮起的玻璃条，用 margin 吃；账簿皮照旧用 padding
+assert.match(src, /margin: "0 12px calc\(env\(safe-area-inset-bottom\) \* 0\.4\)"/);
+assert.match(src, /Object\.assign\(\{ padding: "6px 10px calc\(env\(safe-area-inset-bottom\) \* 0\.4\)" \}, sk\.tabBar\)/);
 // 叠页不卸底下那层：滚动位置保得住
 assert.match(src, /stack\.map\(\(v, i\) => h/);
 assert.match(src, /renderOverlay\(v\)/);
@@ -96,3 +98,10 @@ console.log("ledger-decard ok");
   assert.match(s7, /outline: k === today \? "1px solid "/, "今天不是细粉线了");
 }
 console.log("ledger-hardware ok");
+// 第十五轮（她：「抄作业吧」，给了一整张首页样张）：首页照样张逐块做
+{
+  const s8 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  ["function WalletHomeY2K(", "function KeyChain(", "const screws = ", "const miniBarcode = ", "\"More\"", "Keep going :)", "SMALL\\nMONEY", "QIUQIU WALLET\", h(\"br\"), \"V1.0\""].forEach(k => assert.ok(s8.indexOf(k) > 0, k));
+  assert.match(s8, /h\(sk\.id === "glass" \? WalletHomeY2K : WalletHome,/, "玻璃皮首页没走样张那版");
+}
+console.log("ledger-home-mock ok");
