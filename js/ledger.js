@@ -860,7 +860,8 @@
 
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
       h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
-      h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", style: { overscrollBehavior: "contain" } },
+      // 她 2026-09-29：首页不许左右滑（票根、便签这些故意伸出页边的素材会把页面撑宽），滑到底也不许再弹
+      h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", "data-ledger-scroll": true, style: { overflowX: "hidden", overscrollBehavior: "none", touchAction: "pan-y" } },
         tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
           onMotto: () => requestAppPrompt("钱包上的那句话", "写一句给自己看的话，留空就用默认那句。", data.settings.motto || "", v => setSetting({ motto: String(v || "").trim().slice(0, 30) }), "好"),
           onToggleHide: () => setSetting({ hideBal: !data.settings.hideBal }) })) :
@@ -1014,7 +1015,7 @@
     const picKey = (src, x, w, label, onClick, tone) => h("button", { onClick, "aria-label": label, "data-ledger-bigkey": tone, className: "lg-key", style: Object.assign({ position: "absolute", top: 0, padding: 0, background: "transparent" }, { left: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" }) },
       h("img", { src: IMG + src + ".png" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", width: "100%", height: "auto" }, softStyle) }));
     const tubeFill = Math.max(.06, used);
-    return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px" } },
+    return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px", overflowX: "clip" } },
       // 页面周围的小字和星星（照样张，是字不是图，所以日期会跟着变）
       edgeText(["GOOD", "THINGS", "TAKE TIME."], { right: 46, top: 2, zIndex: 3, fontSize: 8, color: "rgba(92,92,130,.72)" }),
       h(Sparkle, { size: 18, style: { position: "absolute", right: 18, top: 12, zIndex: 3 } }),
