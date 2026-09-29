@@ -2301,6 +2301,10 @@ function onlineChatRule(freeLength) {
     .replace(/【说多少自由，一条里塞几句不自由】[^\n]*/, ONLINE_ONE_BREATH_LINE)
     .replace(/嘱咐、安排、解释这类天然会变长的话尤其要拆：先说要紧的那句，再补后面的。/, "");
 }
+// 在一份已经拼好的 system 里，把那一整块聊天规则换成「一口气」版（单聊用；换不到就原样返回）
+function freeLengthSystem(system) {
+  return String(system || "").replace(ONLINE_CHAT_RULE_V2, onlineChatRule(true));
+}
 
 
 // ── 同处一室（她 2026-09-09 提）─────────────────────────────────────────
