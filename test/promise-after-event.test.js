@@ -58,3 +58,38 @@ test("「我们说好的」：记忆库「未了」里选一个人就能进，�
   // 只有一份 CouplePacts
   assert.equal((screens.match(/function CouplePacts\(/g) || []).length, 1);
 });
+
+// ── 同日第二批：「1和2一起做」——提示词改平 + 机械兜底 ──
+const mkWords = (chats, gifts) => {
+  const i = app.indexOf("  const promiseAfterTs = (charId, kindIn) => {"), j = app.indexOf("\n  };\n", i);
+  const a = app.indexOf("  const PROMISE_EVENT_WORDS = {"), b = app.indexOf("\n  };\n", app.indexOf("  const promiseFromWords = (charId, words) => {"));
+  assert.ok(i > 0 && j > i && a > 0 && b > a, "抠不出兜底那两段");
+  const tbl = app.slice(app.indexOf("const PROMISE_AFTER = {"), app.indexOf("\n", app.indexOf("const PROMISE_AFTER_GRACE_MS")));
+  return new Function("chatsRef", "giftOutRef", tbl + "\n" + app.slice(i, j + 5) + "\n" + app.slice(a, b + 5) + "\nreturn promiseFromWords;")({ current: chats }, { current: gifts });
+};
+const inTransit = () => ({ c1: [{ role: "user", kind: "takeout", arriveTs: Date.now() + 20 * 60000, ts: Date.now() }] });
+
+test("兜底：群友那一句——外卖在路上，TA说拿到了跟你反馈", () => {
+  const f = mkWords(inTransit(), []);
+  const lp = f("c1", ["好香的样子", "等我拿到外卖了一定给你反馈！"]);
+  assert.ok(lp, "这一句没被认出来");
+  assert.equal(lp.after, "takeout");
+  assert.equal(lp.how, "chat");
+  assert.equal(f("c1", "外卖到了我打给你").how, "voice");
+});
+
+test("兜底：没点名是哪件事也认（照真在路上的那一单）", () => {
+  assert.equal(mkWords(inTransit(), [])("c1", "等我收到了跟你说").after, "takeout");
+});
+
+test("兜底：不乱补——没东西在路上、只说「到了」、只说找你、「忙完找你」都不算", () => {
+  const empty = mkWords({}, []), f = mkWords(inTransit(), []);
+  assert.equal(empty("c1", "等我拿到外卖跟你说"), null, "什么都没在路上也补了");
+  assert.equal(f("c1", "我到家了告诉你"), null, "「到了」没点名外卖也认了");
+  assert.equal(f("c1", "忙完找你"), null, "没有时间可对的也兜了");
+  assert.equal(f("c1", "外卖好香。我晚点找你"), null, "两句拼起来算成一句了");
+});
+
+test("兜底接在落账前、只在模型没填时补，隔离房不许从侧门补回来", () => {
+  assert.match(app, /if \(!parsed\.laterPromise && \(!room \|\| !!\(room\.writeback && room\.writeback\.sharedState\)\)\) parsed\.laterPromise = promiseFromWords\(charId, parsed\.word\);\n\s*const lp = parsed\.laterPromise;/);
+});

@@ -10,7 +10,9 @@ const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), 
 test("协议里有约回字段，而且明说没说过就别填", () => {
   assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video","after":"takeout\|gift（等一件事时才填）"\}/);
   assert.match(app, /只有你这一轮【真的说了】/);
-  assert.match(app, /绝不许为了制造互动硬填/);
+  // v74.3xx 改平：两头一样重（答应了不填＝到点什么都不来），不再只压「别填」那一边
+  assert.match(app, /\*\*嘴上答应了就填\*\*/);
+  assert.match(app, /没答应就省略，不为了制造互动硬填/);
   assert.match(app, /"call", "laterPromise"\]/, "得挂进本轮开放能力，不然模型不知道能填");
 });
 
