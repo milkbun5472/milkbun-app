@@ -11372,6 +11372,11 @@ function MemoryLib({
   const [editing, setEditing] = useState(null); // "new" | entry
   const [cfgOpen, setCfgOpen] = useState(false); // 召回设置弹层
   const [q, setQ] = useState(""); // 搜索
+  // 这个人名下：主线 / 各间房自己的记忆（她 2026-09-29）。换人就回到主线。
+  // 房间的记忆不在 entries 里（那是主线记忆库）——它住在 ChatRooms 自己那个键上，这儿现读。
+  const [roomScope, setRoomScope] = useState("main");
+  const [roomTick, setRoomTick] = useState(0);
+  useEffect(() => { setRoomScope("main"); }, [filter]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | open | pinned；状态与角色各管一层
   const nameOf = id => {
     const c = characters.find(x => x.id === id);
@@ -11418,6 +11423,31 @@ function MemoryLib({
   // 先画一截，往下翻到底再续。⚠️窗口只切【画出来的那几张】——list 本身仍是全量，
   // 上面那排数字、搜索、筛选都还是按全部算的；切了 list 的话「这一摞 N 张」会当场变成骗人的数。
   // 换筛选／换搜索词就收回去（resetKey），别让上一摞翻开的长度带过来。
+  const RK = typeof window !== "undefined" ? window.ChatRooms : null;
+  const personKey = filter !== "all" && filter !== "__open__" ? filter : "";
+  const roomDoors = (() => {
+    if (!RK || !personKey || !RK.memList) return [];
+    const rooms = RK.list(personKey).filter(r => !r.main), mem = RK.memList(personKey);
+    const doors = rooms.map(r => ({ id: r.id, name: r.name, n: mem.filter(e => e.roomId === r.id).length }));
+    // 房删了、记忆留着的那些（删房时她选了「留着」）：归一格，别让它们失踪
+    const orphan = mem.filter(e => !rooms.some(r => r.id === e.roomId)).length;
+    return orphan ? doors.concat([{ id: "__gone__", name: "已删的房间", n: orphan }]) : doors;
+  })();
+  const inRoom = roomScope !== "main" && roomDoors.some(d => d.id === roomScope);
+  const roomList = !inRoom ? [] : (roomScope === "__gone__"
+      ? RK.memList(personKey).filter(e => !roomDoors.some(d => d.id === e.roomId))
+      : RK.memList(personKey, roomScope))
+    .filter(e => !qlc || (String(e.text || "") + " " + (e.tags || []).join(" ")).toLowerCase().indexOf(qlc) >= 0)
+    .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  void roomTick;
+  const editRoomMem = e => requestAppPrompt("改这条记忆", "只在这间房里算数。清空再保存＝删掉这一条。", e.text || "", v => {
+    const txt = String(v || "").trim();
+    if (!txt) {
+      requestAppConfirm("删掉这条？", "删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { RK.memRemove(personKey, e.id); setRoomTick(x => x + 1); }, "删掉");
+      return;
+    }
+    RK.memUpdate(personKey, e.id, { text: txt }); setRoomTick(x => x + 1);
+  }, "保存", { multiline: true, maxLength: 600 });
   const { shown: memShown, more: memMore, sentinel: memSentinel } = useListWindow(list.length, statusFilter + "|" + filter + "|" + qlc);
   const activeTotal = (entries || []).filter(e => e && !e.archived && (e.surfaceState || "active") === "active" && inScope(e)).length;
   const pinnedTotal = (entries || []).filter(e => e && !e.archived && e.pinned && (e.surfaceState || "active") === "active" && inScope(e)).length;
@@ -11668,16 +11698,42 @@ function MemoryLib({
           on ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.ink, marginTop: 3, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             id === "all" ? "所有人" : id === "__open__" ? "没绑角色" : (c.remark || c.name)) : null);
       })) : null,
-    h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
+    // 主线 / 各间房：卡盒里这个人那一格后面插着的【分隔卡】——
+    //   选中那张满高、纸色，底边跟下面那摞卡连成一张；没选的矮一截、暗着，压在后面。
+    roomDoors.length ? h("div", { className: "flex items-end overflow-x-auto", style: { gap: 4, borderBottom: "1px solid " + t.line, marginBottom: 10 } },
+      [{ id: "main", name: "主线", n: activeTotal }].concat(roomDoors).map(d => {
+        const on = (d.id === "main" && !inRoom) || (inRoom && d.id === roomScope);
+        return h("button", { key: d.id, onClick: () => setRoomScope(d.id), className: "shrink-0 active:opacity-70",
+          style: { minHeight: on ? 42 : 34, padding: "6px 12px 5px", borderRadius: "7px 7px 0 0", marginBottom: -1,
+            border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "1px solid " + (on ? t.bg2 : t.line),
+            background: on ? t.bg2 : "transparent", opacity: on ? 1 : 0.6, textAlign: "left" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: on ? 13.5 : 12, color: t.ink, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, d.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: on ? t.sub : t.fog } }, d.n + " 条"));
+      })) : null,
+    inRoom ? h("div", null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "2px 2px 9px", lineHeight: 1.55 } },
+        roomScope === "__gone__" ? "这些房已经删了，记忆还留着——现在没有哪间房读得到它们。"
+          : "只有在「" + ((roomDoors.find(d => d.id === roomScope) || {}).name || "这间房") + "」里TA才想得起这些；主聊天、别的房、群聊都看不见。"),
+      !roomList.length ? h(Empty, { text: qlc ? "没找到这段记忆" : "这间房还没记下什么", sub: qlc ? "换个说法试试" : "房里聊着聊着会自己记下，也可以在房里点「收入记忆」" }) : null,
+      roomList.map(e => {
+        const d = shortDateOf(e);
+        return h("button", { key: e.id, onClick: () => editRoomMem(e), className: "w-full text-left flex active:opacity-75", style: { gap: 10, marginBottom: 10 } },
+          h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
+          h("div", { className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
+            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: t.line } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, sourceLabelOf(e)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text)));
+      })) : null,
+    !inRoom && h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
         "这一摞 " + list.length + " 张"
         + (filter === "__open__" ? " · 这些每个角色都看得见，包括跟这件事没关系的那些" : "")),
       correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
-    list.length === 0 && h(Empty, {
+    !inRoom && list.length === 0 && h(Empty, {
       text: qlc ? "没找到这段记忆" : statusFilter === "open" ? "没有未了的事" : statusFilter === "pinned" ? "还没有常驻记忆" : "还没有记忆",
       sub: qlc ? "换个说法、角色名或标签试试" : "点右上角 + 手动记下，聊天也会自动沉淀"
     }),
-    list.slice(0, memShown).map((e, index) => {
+    (inRoom ? [] : list.slice(0, memShown)).map((e, index) => {
       const d = shortDateOf(e);
       const tags = (e.tags || []).slice(0, 2);
       const faded = isFading(e);
@@ -11727,7 +11783,7 @@ function MemoryLib({
     }),
     // 还剩几张没画：这根哨子进视野就自己续一截。
     // ⚠️还要写一句话给她看——一声不吭地停在第 60 条，看着像「后面的记忆没了」。
-    memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", padding: "14px 0" } },
+    !inRoom && memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", padding: "14px 0" } },
       "还有 " + memMore + " 条，往下翻") : null,
     (superseded.length || archived.length) ? h("div", { style: { marginTop: 18, paddingTop: 13, borderTop: "1px solid " + t.line } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "历史索引"),

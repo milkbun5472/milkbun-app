@@ -76,8 +76,8 @@ test("turns 是调用点数出来的，而且两处走同一份", () => {
   assert.match(app, /const roomTurnsOf = \(charId, room\) => \{/);
   assert.match(app, /!m\.forkSeed && m\.kind !== "system"/, "把开场种子和系统卡也数成对话，第一轮就被当成第二轮");
   assert.equal((app.match(/roomTurnsOf\(charId, /g) || []).length, 2, "两个调用点要走同一份计数");
-  assert.match(app, /\{ turns: roomTurnsOf\(charId, sideRoom\) \}/);
-  assert.match(app, /\{ turns: roomTurnsOf\(charId, room\) \}/);
+  assert.match(app, /\{ turns: roomTurnsOf\(charId, sideRoom\), queryText: /);
+  assert.match(app, /\{ turns: roomTurnsOf\(charId, room\), queryText: roomRecentText\(charId, room\.id\) \}/);
   // 数的是这间房自己的，不是主聊天的
   assert.match(app, /const key = window\.ChatRooms\.chatKey\(charId, room\.id\);/);
 });

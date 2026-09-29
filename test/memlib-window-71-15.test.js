@@ -49,7 +49,7 @@ test("长名单只画一截，往下翻到底再续", () => {
   assert.ok(/const LIST_WINDOW = \d+;/.test(comp), "一截是多少没定");
   const seg = memLib();
   assert.ok(seg.includes("useListWindow(list.length,"), "记忆库没接懒加载");
-  assert.ok(seg.includes("list.slice(0, memShown).map((e, index)"), "还是整摞全画出来");
+  assert.ok(seg.includes("list.slice(0, memShown)).map((e, index)"), "还是整摞全画出来");
 });
 
 // ⚠️这一条是这次最容易写坏的地方：窗口只许切【画出来的那几张】。
