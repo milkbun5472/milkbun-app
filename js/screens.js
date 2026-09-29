@@ -8433,6 +8433,9 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
   const [cid, setCid] = useState(initialCid);
   const [text, setText] = useState(() => initialCid ? readBundle(initialCid) : "");
   const [recall, setRecall] = useState(() => initialCid ? readRecall(initialCid) : null);
+  // 房间自己那份记忆的召回收据（ChatRooms.memRecall 只在真发出去的那一轮留）。跟主线那份分开放、分开画。
+  const readRoomRecall = id => typeof window !== "undefined" && window.__roomRecallSnapshots ? window.__roomRecallSnapshots[String(id)] || null : null;
+  const [roomRecall, setRoomRecall] = useState(() => initialCid ? readRoomRecall(initialCid) : null);
   const [open, setOpen] = useState({});
   const [wireOn, setWireOn] = useState(() => typeof window !== "undefined" && !!window.__offlineWireCaptureEnabled);
   const [wireRows, setWireRows] = useState(() => typeof window !== "undefined" ? (window.__offlineWireCaptures || []).slice() : []);
@@ -8523,6 +8526,7 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     setCid(id);
     setText(readBundle(id));
     setRecall(readRecall(id));
+    setRoomRecall(readRoomRecall(id));
     setOpen({});
   };
   const secs = (() => {
@@ -8602,6 +8606,18 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
             "查看没进来的候选 · " + Object.entries(recall.excludedCounts || {}).map(([reason, count]) => recallReasonLabel(reason) + " " + count).join(" / ")),
           h("div", { style: { marginTop: 5 } }, (recall.excluded || []).map((row, i) => recallRowView(row, i, true)))) : null)
       : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, "还没有这一页生命周期内的真实聊天收据。先和 TA 发一轮消息，再回来刷新。")) : null,
+    // 在小房间里聊的那一轮：这间房自己记下的哪几条被一起送进去了
+    cid && roomRecall ? h("div", { style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
+      h("div", { className: "flex items-start justify-between gap-2" },
+        h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "上一轮房间记忆 · 「" + (roomRecall.roomName || "小房间") + "」"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 2 } }, "这间房自己名下记的，只在这间房里送进去；主线那份在上面。刷新 App 即清空。")),
+        h("span", { style: { flexShrink: 0, borderRadius: 999, padding: "3px 7px", fontFamily: F_BODY, fontSize: 9.5, color: roomRecall.mode === "hybrid" ? t.tint : t.fog, border: "1px solid " + (roomRecall.mode === "hybrid" ? t.tint : t.line) } }, roomRecall.mode === "hybrid" ? "向量混合" : "关键词")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8 } },
+        new Date(roomRecall.ts).toLocaleString() + " · 这间房共 " + roomRecall.candidateCount + " 条 · 送进去 " + (roomRecall.picked || []).length + " 条"),
+      (roomRecall.picked || []).length
+        ? h("div", { style: { marginTop: 7 } }, roomRecall.picked.map((row, i) => h("div", { key: row.id || i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, padding: "6px 0", borderTop: i ? "1px dashed " + t.line : "none" } }, "· " + row.text)))
+        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "这一轮这间房里没有记忆可送。")) : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
       const total = Math.max(1, text.length);
@@ -11440,6 +11456,16 @@ function MemoryLib({
     .filter(e => !qlc || (String(e.text || "") + " " + (e.tags || []).join(" ")).toLowerCase().indexOf(qlc) >= 0)
     .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   void roomTick;
+  // 挪进主线（她 2026-09-29）：写进主记忆库，绑这个角色；房里那条拿掉。
+  //   走记忆库自己的 onAdd（＝addMemEntry），不另写一条落库路。先写成了再删房里的，写不进去就一个字都不动。
+  const moveRoomMemToMain = e => requestAppConfirm("挪进主线？",
+    "挪过去以后这件事就是你们主线里发生过的：主聊天、开着「一起经历过的事」的房、群聊里TA都会记得。房里这一条会拿掉。",
+    () => {
+      const made = onAdd({ text: e.text, tags: e.tags || [], charIds: [personKey], knownBy: [personKey], ts: e.ts, v: e.v, a: e.a, pinned: !!e.pinned, source: "manual" });
+      if (!made) return window.__toast && window.__toast("这次没挪成，房里那条还在");
+      RK.memRemove(personKey, e.id); setRoomTick(x => x + 1);
+      window.__toast && window.__toast("挪进主线了");
+    }, "挪过去", null, { danger: false });
   const editRoomMem = e => requestAppPrompt("改这条记忆", "只在这间房里算数。清空再保存＝删掉这一条。", e.text || "", v => {
     const txt = String(v || "").trim();
     if (!txt) {
@@ -11717,12 +11743,16 @@ function MemoryLib({
       !roomList.length ? h(Empty, { text: qlc ? "没找到这段记忆" : "这间房还没记下什么", sub: qlc ? "换个说法试试" : "房里聊着聊着会自己记下，也可以在房里点「收入记忆」" }) : null,
       roomList.map(e => {
         const d = shortDateOf(e);
-        return h("button", { key: e.id, onClick: () => editRoomMem(e), className: "w-full text-left flex active:opacity-75", style: { gap: 10, marginBottom: 10 } },
+        return h("div", { key: e.id, className: "w-full text-left flex", style: { gap: 10, marginBottom: 10 } },
           h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
           h("div", { className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
             h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: t.line } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, sourceLabelOf(e)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text)));
+            h("button", { onClick: () => editRoomMem(e), "aria-label": "编辑记忆", className: "w-full text-left active:opacity-75",
+              style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
+            h("div", { className: "flex items-center justify-end", style: { gap: 4, marginTop: 6, paddingTop: 4, borderTop: "1px solid " + t.line } },
+              h("button", { onClick: () => editRoomMem(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "改"),
+              onAdd ? h("button", { onClick: () => moveRoomMemToMain(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "挪进主线") : null)));
       })) : null,
     !inRoom && h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },

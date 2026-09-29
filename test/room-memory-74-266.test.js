@@ -122,3 +122,60 @@ test("记忆库：这个人名下分主线 / 各间房，默认主线，删了�
   assert.match(screens, /name: "已删的房间"/);
   assert.match(screens, /RK\.memList\(personKey, roomScope\)/);
 });
+
+// ── 她 2026-09-29 第二批：「2要是接了向量也用向量吧宝宝 35也顺便做了吧」 ──
+const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+
+test("向量：房间记忆也配，但不上共用表、不替主线清孤儿；主线那趟也不许清掉房里的", () => {
+  const i = engine.indexOf("async function ensureMemVecs("), j = engine.indexOf("async function syncMemVecsToCloud(", i);
+  assert.ok(i > 0 && j > i, "抠不出 ensureMemVecs");
+  const fn = engine.slice(i, j);
+  assert.match(fn, /if \(!opts\.noPrune\) \{/);
+  assert.match(fn, /window\.ChatRooms\.memAllIds\(\)\.forEach\(id => liveIds\.add\(id\)\)/, "主线存一次记忆库就把房里的向量全清光了");
+  assert.match(fn, /if \(!opts\.noCloud && typeof window !== "undefined" && window\.Cloud && window\.Cloud\.memVecFetch\)/);
+  assert.match(fn, /if \(!opts\.noCloud && typeof window !== "undefined" && window\.Cloud && window\.Cloud\.memVecUpsert\)/, "房里的事被推上了跟 CC 共用的向量表");
+  const rooms = fs.readFileSync(path.join(root, "js/chat-rooms.js"), "utf8");
+  assert.match(rooms, /ensureMemVecs\(memAll\(\), \{ noCloud: true, noPrune: true \}\)/);
+});
+
+test("向量：召回不再关向量；查询向量用跟 queryText 同一段字预热", () => {
+  const { Rooms } = fresh();
+  const seen = [];
+  global.retrieveMemories = (lib, cid, q, opts) => { seen.push(opts); return lib; };
+  try {
+    Rooms.memAdd("c1", "r1", [{ text: "在天台上等了一夜" }]);
+    Rooms.memRecall(Rooms.normalize({ id: "r1" }, "c1"), "q", 3);
+    assert.notEqual(seen[0].vec, false, "还关着向量");
+  } finally { delete global.retrieveMemories; }
+  assert.match(app, /await primeQueryVec\(roomRecentText\(charId, room\.id\)\);/);
+  assert.match(app, /queryText: roomRecentText\(charId, room\.id\), record: !!record/);
+});
+
+test("「TA 知道什么」：真发出去的那一轮留一张房间召回收据，预览不留，也不混进主线那份", () => {
+  const { Rooms } = fresh();
+  global.window = {};
+  try {
+    Rooms.memAdd("c1", "r1", [{ text: "在天台上等了一夜" }]);
+    const room = Rooms.normalize({ id: "r1", name: "天台" }, "c1");
+    Rooms.prompt(room, [], { turns: 2, queryText: "天台" });
+    assert.equal(global.window.__roomRecallSnapshots, undefined, "预览也留了收据");
+    Rooms.prompt(room, [], { turns: 2, queryText: "天台", record: true });
+    const snap = global.window.__roomRecallSnapshots.c1;
+    assert.equal(snap.roomName, "天台");
+    assert.deepEqual(snap.picked.map(x => x.text), ["在天台上等了一夜"]);
+    assert.equal(global.window.__memoryRecallSnapshots, undefined, "写进了主线那份快照");
+  } finally { delete global.window; }
+  assert.match(app, /const _roomHint = roomPromptFor\(charId, room, true\);/);
+  assert.match(app, /roomPromptFor\(char\.id, cur\.room, true\)/);
+  assert.match(screens, /window\.__roomRecallSnapshots\[String\(id\)\]/);
+});
+
+test("挪进主线：先经记忆库自己的 onAdd 写进去，写成了才删房里那条", () => {
+  const i = screens.indexOf("  const moveRoomMemToMain = e =>"), j = screens.indexOf("  const editRoomMem = e =>", i);
+  assert.ok(i > 0 && j > i, "抠不出 moveRoomMemToMain");
+  const fn = screens.slice(i, j);
+  assert.match(fn, /onAdd\(\{ text: e\.text, tags: e\.tags \|\| \[\], charIds: \[personKey\], knownBy: \[personKey\]/);
+  assert.ok(fn.indexOf("if (!made) return") < fn.indexOf("RK.memRemove(personKey, e.id)"), "没写成也把房里那条删了");
+  // 桩照写入方：addMemEntry 成功时返回那一条
+  assert.match(app, /return entry;   \/\/ v58\.83/);
+});

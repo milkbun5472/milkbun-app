@@ -358,9 +358,26 @@
     } catch (_) { return {}; }
   }
   function memWrite(all) {
-    if (typeof saveJSON === "function") return !!saveJSON(MEM_KEY, all);
-    try { localStorage.setItem(MEM_KEY, JSON.stringify(all)); return true; } catch (_) { return false; }
+    let ok = false;
+    if (typeof saveJSON === "function") ok = !!saveJSON(MEM_KEY, all);
+    else { try { localStorage.setItem(MEM_KEY, JSON.stringify(all)); ok = true; } catch (_) { ok = false; } }
+    if (ok) memVecSoon();
+    return ok;
   }
+  // 房间记忆也配向量（她 2026-09-29：「要是接了向量也用向量吧」）。走主线那一个 ensureMemVecs，
+  //   没配 embedding 时它自己直接返回。防抖 4 秒，照 saveMemLib 那一版。
+  //   noCloud：共用向量表是跟 CC 共用的，房里的事不上去；noPrune：手上只有房间这份，不许替主线清孤儿。
+  let memVecTimer = null;
+  function memVecSoon() {
+    if (typeof ensureMemVecs !== "function" || typeof setTimeout !== "function") return;
+    clearTimeout(memVecTimer);
+    memVecTimer = setTimeout(() => { try { const p = ensureMemVecs(memAll(), { noCloud: true, noPrune: true }); if (p && p.catch) p.catch(() => {}); } catch (_) {} }, 4000);
+  }
+  function memAll() {
+    const all = memRead();
+    return Object.keys(all).reduce((out, k) => out.concat(Array.isArray(all[k]) ? all[k].filter(e => e && e.id && e.text) : []), []);
+  }
+  function memAllIds() { return memAll().map(e => e.id); }
   const memNorm = t => String(t || "").replace(/[\s，。！？、,.!?~～…「」“”"'：:；;（）()]/g, "");
   // roomId 不传＝这个人名下所有房的；传了＝只那一间
   function memList(personId, roomId) {
@@ -424,15 +441,27 @@
   // 这一轮该想起这间房里的哪几条。打分直接借 retrieveMemories（跟主线同一把尺），
   // ⚠️touch:false —— 主线那份「上一轮召回」快照只按 charId 存、不认房间，
   //   这儿要是去写它，「TA 知道什么」面板就会把房里的事当成主线召回（09-28 那一幕反过来）。
-  function memRecall(room, queryText, limit) {
+  function memRecall(room, queryText, limit, record) {
     if (!room || room.main) return [];
     const rows = memList(room.personId, room.id);
-    if (!rows.length) return [];
+    if (!rows.length) return note([]);
     const n = Math.max(1, Number(limit) || 5);
     if (typeof retrieveMemories === "function") {
-      try { return retrieveMemories(rows, String(room.personId), String(queryText || ""), { limit: n, touch: false, vec: false, associationLimit: 0 }).slice(0, n + 4); } catch (_) {}
+      // 查询向量要调用点先用【同一段字】预热过（primeQueryVec）才拿得到，拿不到就退回关键词
+      try { return note(retrieveMemories(rows, String(room.personId), String(queryText || ""), { limit: n, touch: false, associationLimit: 0 }).slice(0, n + 4)); } catch (_) {}
     }
-    return rows.slice(0, n);
+    return note(rows.slice(0, n));
+    // 真发出去的那一轮（opts.record）留一张收据给「TA 知道什么」看；预览不留。
+    // ⚠️跟主线那份快照分开放：那一份只按 charId 存、写着「主线召回」，混进去就又是 09-28 那一幕。
+    function note(picked) {
+      if (record && typeof window !== "undefined") {
+        const store = window.__roomRecallSnapshots || (window.__roomRecallSnapshots = Object.create(null));
+        store[String(room.personId)] = { ts: Date.now(), roomId: room.id, roomName: room.name || "", candidateCount: rows.length,
+          mode: typeof getQueryVec === "function" && getQueryVec(String(queryText || "")) ? "hybrid" : "keyword",
+          picked: picked.map(e => ({ id: e.id, text: String(e.text || "") })) };
+      }
+      return picked;
+    }
   }
   function chatKey(personId, roomId) { return !roomId || roomId === MAIN_ID ? String(personId) : String(personId) + "::room::" + roomId; }
   function isSideKey(key) { return String(key || "").includes("::room::"); }
@@ -562,7 +591,7 @@
     // 这间房自己前面发生过的（掉出上下文窗口那些）。只在这儿出现，不出门。
     if (room.selfDigest) lines.push("【这间房前面发生过的｜是这条线自己的往事，不是别处的记忆】\n" + room.selfDigest);
     // 这间房自己名下记住的事（只在这儿出现，不出门）。opts.queryText＝这间房最近几句，拿来挑相关的。
-    const roomMems = memRecall(room, (opts || {}).queryText || "", (opts || {}).memLimit || 5);
+    const roomMems = memRecall(room, (opts || {}).queryText || "", (opts || {}).memLimit || 5, !!(opts || {}).record);
     if (roomMems.length) lines.push("【在这间房里记下的｜只属于这条线，出了这扇门不算数】\n" + roomMems.map(e => "· " + String(e.text).replace(/\s+/g, " ").slice(0, 200)).join("\n"));
     // 开场已经过去了：从第二轮起它是【往事】，不是指令。
     // ⚠️这一步转换就是「走得出去」。第一版把一个【瞬间】当【设定】每轮重发，
@@ -708,6 +737,6 @@
     });
   }
 
-  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
+  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });
