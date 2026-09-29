@@ -93,6 +93,22 @@
   //   看使用日志多了三次消耗」）：陪伴页和悬浮那只各自记着「上次说话的时间」，互相不认识，
   //   两边一起戳就是两份额度。
   const POKE_GATE = { busy: false, last: 0 };
+  // 没按 JSON 交回来也捡得回那一句（她 2026-09-29：「戳一下这种能不能搞强一点的兜底」）：
+  //   ① 半截 JSON 里的 "line":"…"；② 去掉代码块、引号、「我：」这类前缀之后的第一行正经话。
+  //   捡出来太长（像一段分析）或者像提示词复读，就当没捡到。
+  function pokeSalvage(raw) {
+    const s = String(raw || "");
+    const m = s.match(/"line"\s*:\s*"((?:[^"\\]|\\.)*)/);
+    let line = m ? m[1].replace(/\\n/g, " ").replace(/\\"/g, "\"") : "";
+    if (!line) {
+      line = s.replace(/```[a-z]*|```/gi, "").split(/\n+/).map(x => x.trim())
+        .map(x => x.replace(/^[-*·\s]*/, "").replace(/^(?:line|回复|他说|我)\s*[:：]\s*/i, "").replace(/^["「『“]+|["」』”]+$/g, "").trim())
+        .find(x => x && !/^[{}\[\]]/.test(x) && !/【|】/.test(x)) || "";
+    }
+    line = line.trim();
+    // 被戳时脱口而出的一句不会超过四十个字；带「应该／考虑到／回应她」的是它在想怎么回，不是回
+    return line && line.length <= 40 && !/应该|考虑到|回应她|按照自己/.test(line) ? { line: line } : null;
+  }
   function usePokeTalk(char, props, on) {
     const [say, setSay] = useState("");
     const st = useRef({ timer: 0, pending: null, hide: 0 });
@@ -108,7 +124,7 @@
         const hr = new Date().getHours(), uName = (props.profile && props.profile.name) || "她";
         const log = pokeLog(char.id), gap = log.lastAt ? Math.round((Date.now() - log.lastAt) / 60000) : null;
         // once：这一句就一行字，没解析出来就算了，不自动再打一枪（原来一次戳最多会调三次）
-        const d = await runProbe(p, ctx, { voice: true, tag: "陪伴", once: true,
+        const d = await runProbe(p, ctx, { voice: true, tag: "陪伴", once: true, salvage: pokeSalvage,
           instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。"
             + "这是她今天第 " + (log.count + 1) + " 次戳你" + (gap == null ? "。" : "，上一次是 " + (gap < 1 ? "刚刚" : gap < 90 ? gap + " 分钟前" : Math.round(gap / 60) + " 小时前") + "。") + "\n"
             + "按你自己的性子、你此刻的心情，顺手回她一句——短，像被戳到时脱口而出的那种。\n"

@@ -32,3 +32,17 @@ test("生成失败兜底网：runProbe 失败时广播，app 接住弹提示；�
   assert.match(app, /if \(lastToastAtRef\.current >= at\) return;/);
   assert.match(app, /if \(at - \(genFailSeenRef\.current\[key\] \|\| 0\) < 60000\) return;/);
 });
+test("戳一下的捡救：没按 JSON 交回来也捡得回那一句，捡不像就不硬用", () => {
+  const i = comp.indexOf("  function pokeSalvage(raw) {"), j = comp.indexOf("\n  }\n", i);
+  assert.ok(i > 0 && j > i, "抠不出 pokeSalvage");
+  const salv = new Function(comp.slice(i, j + 4) + "\nreturn pokeSalvage;")();
+  assert.deepEqual(salv('{"line":"又戳我？'), { line: "又戳我？" }, "半截 JSON");
+  assert.deepEqual(salv('```json\n{"line": "别闹"}\n```'.replace("{\"line\": \"别闹\"}", "line: 别闹")), { line: "别闹" });
+  assert.deepEqual(salv("「干嘛呀」"), { line: "干嘛呀" }, "只回了一句带引号的话");
+  assert.deepEqual(salv("我：困死了别戳"), { line: "困死了别戳" });
+  assert.equal(salv(""), null);
+  assert.equal(salv("【这一下的手感】冲她这个人"), null, "复读提示词不算");
+  assert.equal(salv("她戳了我一下，我应该按照自己的性子回应她，考虑到现在是晚上而且她今天已经戳了很多次，我觉得可以说一句带点无奈的话"), null, "一大段分析不算");
+  assert.match(engine, /if \(!parsed && typeof probe\.salvage === "function"\)/);
+  assert.match(comp, /once: true, salvage: pokeSalvage,/);
+});

@@ -7831,7 +7831,12 @@ async function runProbeInner(p, ctx, probe) {
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
   // 输出没收好（多写了一句话、JSON 少个括号），重来一次就好了。按次计费，
   // 让她自己去点第二次是没道理的；重试一次仍然失败才报错。
-  // probe.once：只要一枪的那种（陪伴戳一下说一句）——没解析出来就直接报，不再补打
+  // probe.salvage：只要一两个字段的那种（陪伴戳一下说一句），没解析出 JSON 时先从原文里把东西捡出来——
+  //   模型那句话多半说了，只是没按格式交回来；捡得到就用，不为格式再花一枪。
+  if (!parsed && typeof probe.salvage === "function") {
+    try { const got = probe.salvage(String(raw || "")); if (got) return got; } catch (_) {}
+  }
+  // probe.once：只要一枪的那种——没解析出来就直接报，不再补打
   if (!parsed && !probe.once) {
     try {
       const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
