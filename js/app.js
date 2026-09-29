@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.307";
+const APP_VERSION = "v74.308";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11583,7 +11583,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   所以这个数往大了给一分钱都不多花（同一次调用，maxTokens 有 65535，
       //   二十来条聊天离截断还远得很），给小了却会实打实地把来回掐掉。
       //   两个人的群 12 条＝六个来回；人多按 n*3 放宽，20 封顶。
-      let nMax = Math.min(20, Math.max(12, members.length * 3));
+      // ⚠️v74.308 再放开（她 2026-09-29：「人多当然话也得多，反正上限不是必须，给少了反而限制」）：
+      //   七个人的群按 n*3 算是 21、被 20 封顶——还不到一人三条。改成每人四条、48 封顶：
+      //   七人 28、十人 40。同上面那句：天花板是许可，模型不会写满；四十来条 JSON 离 maxTokens 还远。
+      let nMax = Math.min(48, Math.max(12, members.length * 4));
       // 自发轮：这一轮条数上限 = 剩余总预算（50-已发x，跨轮递减），不超过自然上限
       if (rgOpts.auto && rgOpts.msgBudget) nMax = Math.max(1, Math.min(nMax, rgOpts.msgBudget));
       // ⚠️下限说的是【这一轮几条】，不是【几个人开口】——这两个数不一样，
