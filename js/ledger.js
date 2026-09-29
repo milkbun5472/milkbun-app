@@ -188,6 +188,51 @@
     return Object.assign(out, { billDate: lbKey, due: Math.max(0, Math.round((owedAtBill - credits) * 100) / 100), unbilled: Math.round(spent * 100) / 100,
       dueDate: ymd(due), daysLeft: Math.round((due - today0) / 86400000) });
   }
+  // ---- 周期账单（她 2026-09-29）：房租、订阅、话费这类，设一次，每月到那天自动记上一笔 ----
+  //   settings.recurring: [{ id, name, type, amount, currency, category, catIcon, account, day(1–28), startMk, lastMk }]
+  //   打开记账时补记：从 lastMk 的下个月（没有就 startMk）一直补到这个月，只补日子已经到了的。
+  //   每笔的 id 是 "r" + 规则 id + 月份，补记重复跑也不会记两次。
+  function runRecurring(d, now) {
+    now = now || new Date();
+    const today = ymd(now), thisMk = today.slice(0, 7);
+    let added = 0;
+    (d.settings.recurring || []).forEach(r => {
+      const D = Math.min(28, Math.max(1, parseInt(r.day, 10) || 1));
+      let mk = r.lastMk ? shiftMonth(r.lastMk, 1) : (r.startMk || thisMk);
+      for (let guard = 0; guard < 36 && mk <= thisMk; guard++, mk = shiftMonth(mk, 1)) {
+        const date = mk + "-" + pad(D);
+        if (date > today) break;
+        const id = "r" + r.id + mk.replace("-", "");
+        if (!d.txns.some(x => x.id === id)) {
+          d.txns = [{ id, ts: new Date(mk.slice(0, 4), parseInt(mk.slice(5), 10) - 1, D, 9).getTime(), date, type: r.type === "income" ? "income" : "expense", amount: Number(r.amount) || 0,
+            currency: r.currency, account: r.account || "", category: r.category, catEmoji: "", catIcon: r.catIcon || "", note: r.name || "", recur: r.id, comments: [] }].concat(d.txns);
+          added++;
+        }
+        r.lastMk = mk;
+      }
+    });
+    return added;
+  }
+  // 下一次什么时候记（给列表和提醒用）
+  function recurNext(r, now) {
+    now = now || new Date();
+    const D = Math.min(28, Math.max(1, parseInt(r.day, 10) || 1)), today = ymd(now);
+    let mk = r.lastMk ? shiftMonth(r.lastMk, 1) : (r.startMk || today.slice(0, 7));
+    const date = mk + "-" + pad(D);
+    const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return { date, days: Math.round((new Date(+mk.slice(0, 4), +mk.slice(5) - 1, D) - t0) / 86400000) };
+  }
+  // 导出 CSV（她 2026-09-29）：带 BOM，Excel 直接打开中文不乱码；转账写清楚从哪到哪
+  function ledgerCSV(d) {
+    const q = v => { const t = String(v == null ? "" : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const an = id => id ? acctName(d.settings, id) : "";
+    const rows = [["日期", "类型", "金额", "币种", "分类", "账户", "转出", "转入", "备注"]];
+    d.txns.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts || 0) - (b.ts || 0))).forEach(t => {
+      const x = isTransfer(t);
+      rows.push([t.date, x ? "转账" : t.type === "income" ? "收入" : "支出", Number(t.amount) || 0, t.currency, x ? "" : t.category, x ? "" : an(t.account), x ? an(t.from) : "", x ? an(t.to) : "", t.note || ""]);
+    });
+    return "\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n");
+  }
   const acctName = (settings, id) => { const a = ((settings && settings.accounts) || []).find(x => x.id === id); return a ? a.name : "已删的账户"; };
 
   // 某币种在某月的收支汇总 + 分类明细
@@ -911,6 +956,29 @@
         persist(d1);
       } catch (e) {/* 静默：下次打开再试 */}
     };
+    // 周期账单：打开记账就把到日子的补记上；三天内要到的，一天提醒一次
+    useEffect(() => {
+      const d = loadData();
+      if (!(d.settings.recurring || []).length) return;
+      const n = runRecurring(d);
+      const soon = (d.settings.recurring || []).map(r => ({ r, nx: recurNext(r) })).filter(x => x.nx.days >= 0 && x.nx.days <= 3);
+      const today = todayStr();
+      const remind = soon.length && d.settings.recurRemind !== today;
+      if (remind) d.settings.recurRemind = today;
+      if (n || remind) persist(d);
+      if (props.toast) {
+        if (n) props.toast("自动记上了 " + n + " 笔周期账单");
+        else if (remind) props.toast(soon.map(x => (x.r.name || x.r.category) + (x.nx.days === 0 ? " 今天" : " " + x.nx.days + " 天后") + "到期").join("，"));
+      }
+    }, []);
+    const exportCSV = async () => {
+      try {
+        const d = loadData();
+        if (!d.txns.length) { props.toast && props.toast("还没有账可以导出"); return; }
+        const r = await window.saveTextFile("账本-" + todayStr().replace(/-/g, "") + ".csv", ledgerCSV(d), "text/csv");
+        if (r !== "cancel" && props.toast) props.toast("导出好了：" + d.txns.length + " 笔");
+      } catch (e) { props.toast && props.toast("导出没成功：" + (e && e.message || e)); }
+    };
     useEffect(() => {
       const lastMk = shiftMonth(thisMonthKey(), -1);
       const d = loadData();
@@ -939,7 +1007,7 @@
           onToggleHide: () => setSetting({ hideBal: !data.settings.hideBal }) })) :
         tab === "stats" ? h(CurView, Object.assign({}, common, { onOpenCat: (cat, kind, mk) => push({ k: "bills", cat, kind, mk }), txns: data.txns, budget: (data.settings.budgets || {})[code] || 0, onSetBudget })) :
         tab === "cal" ? h(CalView, common) :
-        h(MeView, Object.assign({}, common, { characters: props.characters, onSettings: k => setShowSet(k), onEditBudget: editBudget, onSkin: id => setSetting({ skin: id }) }))),
+        h(MeView, Object.assign({}, common, { characters: props.characters, onSettings: k => setShowSet(k), onExport: exportCSV, onEditBudget: editBudget, onSkin: id => setSetting({ skin: id }) }))),
       // 底栏：只吃 0.4 条安全区（mobile-ui-layout §2）；选中那格图标加粗、底下垫一块鼓起来的糖块
       h("div", { className: "shrink-0 flex", "data-ledger-tabbar": true, style: sk.id === "glass"
         // 样张：底栏是一条浮起来的玻璃条（圆角、细白边），只吃 0.4 条安全区（mobile-ui-layout §2）
@@ -1501,7 +1569,21 @@
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
         q != null ? h("input", { autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic) })
           : h(MonthNav, { mk, setMk, sk }),
-        h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
+        h("div", { style: { marginBottom: 10 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
+        // 本月汇总条（她 2026-09-29）：滑下去也钉在顶上。算的就是眼下列出来的这些——筛了分类、搜了字，数跟着变；转账不算收支
+        (function () {
+          const exp = monthTxns.filter(isExpense).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+          const inc = monthTxns.filter(x => x.type === "income").reduce((a, x) => a + (Number(x.amount) || 0), 0);
+          const cell = (label, val, color, first) => h("div", { style: { flex: 1, textAlign: "center", borderLeft: first ? "none" : "1px solid " + LINE } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog } }, label),
+            h("div", { style: Object.assign(numStyle(sk, 14, color), { marginTop: 1, whiteSpace: "nowrap" }) }, val));
+          return h("div", { "data-ledger-billsum": true, style: { position: "sticky", top: 0, zIndex: 5, display: "flex", alignItems: "center", padding: "8px 4px", margin: "0 -6px 12px", borderRadius: 14,
+              background: sk.id === "glass" ? "linear-gradient(160deg,rgba(255,255,255,.82),rgba(240,238,252,.72))" : pageColor("ledger", "bg", "#f2ece0"),
+              border: sk.id === "glass" ? "1px solid rgba(255,255,255,.95)" : "1px solid " + sk.line, boxShadow: "0 4px 12px rgba(110,112,160,.12)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } },
+            cell(kw ? "搜到的支出" : "支出", fmtMoney(exp, cur), sk.exp, true),
+            cell(kw ? "搜到的收入" : "收入", fmtMoney(inc, cur), sk.inc),
+            cell("笔数", String(monthTxns.length) + " 笔", sk.ink));
+        })(),
         monthTxns.length ? h("div", { className: "lg-bills-list", style: { display: "flex", flexDirection: "column", gap: 4 } },
           groupByDay(monthTxns).map(g => h("div", { key: g.date, "data-ledger-day": g.date },
             h("div", { className: "lg-bills-date", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 6px 6px", fontFamily: F_BODY, fontSize: 11.5, fontWeight: 600, color: sk.sub } },
@@ -1594,6 +1676,12 @@
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
+        icon === "loop" || icon === "export" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, fontSize: 20, fontWeight: 700,
+            color: icon === "loop" ? "#8c7fd8" : "#6f9bd8", background: "radial-gradient(70% 55% at 35% 20%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(160deg,rgba(255,255,255,.6)," + (icon === "loop" ? "rgba(200,186,246,.7)" : "rgba(186,210,246,.7)") + ")",
+            border: "1px solid rgba(255,255,255,.9)", boxShadow: "0 2px 4px rgba(140,130,200,.2)" } },
+            h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" },
+              icon === "loop" ? [h("path", { key: 1, d: "M20 12a8 8 0 1 1-2.3-5.6" }), h("path", { key: 2, d: "M20 4v4.5h-4.5" })]
+                : [h("path", { key: 1, d: "M12 4v11" }), h("path", { key: 2, d: "M7.5 10.5 12 15l4.5-4.5" }), h("path", { key: 3, d: "M5 19.5h14" })])) :
         icon === "card" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
             h("span", { style: { width: 34, height: 24, borderRadius: 6, transform: "rotate(-8deg)", background: "linear-gradient(125deg,#e6e0fb,#f3dff0 35%,#d9e6fb 70%,#ece0fa)", border: "1px solid rgba(160,150,220,.6)", boxShadow: "inset 0 1px 0 #fff, 0 2px 4px rgba(140,130,200,.25)" } }))
           : h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
@@ -1624,7 +1712,9 @@
           grow(2, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
           grow(3, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
           grow(4, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
-          grow(5, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat"))),
+          grow(5, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat")),
+          grow(6, "loop", "周期账单", "RECURRING", (settings.recurring || []).length ? (settings.recurring || []).length + " 条" : "没设", () => props.onSettings("recur")),
+          grow(7, "export", "导出账单", "EXPORT", "CSV", props.onExport)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
     }
     return h("div", { className: "px-5 pb-8" },
@@ -1644,7 +1734,9 @@
         row("每月预算", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
         row("谁能看到我的账", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
         row("币种", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
-        row("分类", "", () => props.onSettings("cat"))),
+        row("分类", "", () => props.onSettings("cat")),
+        row("周期账单", (settings.recurring || []).length ? (settings.recurring || []).length + " 条" : "没设", () => props.onSettings("recur")),
+        row("导出账单", "CSV", props.onExport)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "10px 4px 0" } }, "颜色还能在 设置 → 主题工作台 里单独调。"));
   }
 
@@ -1906,6 +1998,7 @@
     const [sel, setSel] = useState((s.visibleTo || []).slice());
     const [tab, setTab] = useState(props.initTab || "visible"); // visible | acct | cur | cat
     const [acctEdit, setAcctEdit] = useState(null); // null | {} 新的 | 账户对象
+    const [recurEdit, setRecurEdit] = useState(null); // null | {} 新的 | 规则对象
     const [catType, setCatType] = useState("expense");
     const [dialog, setDialog] = useState(null); // {kind, ...}
     const [confirm, setConfirm] = useState(null); // {title,body,onConfirm}
@@ -1958,7 +2051,7 @@
         h(Head, { zh: "记账设置", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: null }),
         h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
-          tabBtn("visible", "谁能看到"), tabBtn("acct", "账户"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
+          tabBtn("visible", "谁能看到"), tabBtn("acct", "账户"), tabBtn("recur", "周期"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
           // ---- 可见性 ----
           tab === "visible" ? h(Fragment, null,
@@ -1992,6 +2085,18 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, "只对「谁能看到」里选中的角色生效。关着的时候 TA 们只知道收支，不知道你卡里有多少、欠多少。")),
               h("span", { style: { width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative", background: s.shareAcct ? pageColor("ledger", "accent", ACCENT) : t.line, transition: "background .2s" } },
                 h("span", { style: { position: "absolute", top: 3, left: s.shareAcct ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .2s" } })))) : null,
+          // ---- 周期账单 ----
+          tab === "recur" ? h(Fragment, null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "房租、订阅、话费这类每月固定的，设一次，到了那天打开记账就自动记上一笔；快到的前三天会提醒你。"),
+            (s.recurring || []).map(r => { const c = curs.find(x => x.code === r.currency) || { symbol: "" }, nx = recurNext(r);
+              return h("button", { key: r.id, onClick: () => setRecurEdit(r), "data-ledger-recur": r.id, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, marginBottom: 8, minHeight: 56 } },
+                h("span", { style: { width: 28, display: "flex", justifyContent: "center" } }, h(CategoryGlyph, { name: r.category, icon: r.catIcon, size: 26 })),
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, r.name || r.category),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "每月 " + r.day + " 号 · " + r.category + (r.account ? " · " + acctName(s, r.account) : "") + " · 下次 " + fmtDay(nx.date))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: r.type === "income" ? INC : t.ink } }, (r.type === "income" ? "+" : "") + fmtAmt(r.amount, c)),
+                h("span", { style: { color: t.fog } }, "›")); }),
+            h("button", { onClick: () => setRecurEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加周期账单")) : null,
           // ---- 币种管理 ----
           tab === "cur" ? h(Fragment, null,
             curs.map(c => h("div", { key: c.code, style: { ...rowStyle, marginBottom: 8 } },
@@ -2021,6 +2126,11 @@
       dialog && dialog.kind === "editcur" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "改币种", submitLabel: "保存", fields: [{ key: "code", label: "代码（不可改）", value: dialog.code, locked: true }, { key: "label", label: "名称", value: dialog.label, required: true }, { key: "symbol", label: "符号", value: dialog.symbol, maxLength: 3 }], onSubmit: submitEditCur, onCancel: () => setDialog(null) }) : null,
       dialog && dialog.kind === "addcat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新分类", submitLabel: "添加", fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "icon", label: "图标", type: "icon" }], onSubmit: submitAddCat, onCancel: () => setDialog(null) }) : null,
       dialog && dialog.kind === "editcat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "改分类", submitLabel: "保存", fields: [{ key: "name", label: "名称", value: dialog.name, required: true }, { key: "icon", label: "图标", type: "icon", value: dialog.icon }], onSubmit: submitEditCat, onCancel: () => setDialog(null) }) : null,
+      recurEdit ? h(RecurEditor, { rule: recurEdit, settings: s, curs, sk: props.sk,
+        onClose: () => setRecurEdit(null),
+        onSave: r => { props.onPersist(d => { const list = d.settings.recurring || []; d.settings.recurring = list.some(x => x.id === r.id) ? list.map(x => x.id === r.id ? r : x) : list.concat([r]); runRecurring(d); }); setRecurEdit(null); },
+        // 删规则只是以后不再记；已经记上的那几笔是真花出去的钱，留着
+        onDelete: r => { props.onPersist(d => { d.settings.recurring = (d.settings.recurring || []).filter(x => x.id !== r.id); }); setRecurEdit(null); } }) : null,
       acctEdit ? h(AcctEditor, { acct: acctEdit, curs, sk: props.sk, txns: props.txns || [],
         onClose: () => setAcctEdit(null),
         onSave: a => { props.onPersist(d => { const list = d.settings.accounts || []; d.settings.accounts = list.some(x => x.id === a.id) ? list.map(x => x.id === a.id ? a : x) : list.concat([a]); }); setAcctEdit(null); },
@@ -2030,6 +2140,56 @@
           d.txns = d.txns.map(x => x.account === a.id ? { ...x, account: "" } : x);
         }); setAcctEdit(null); } }) : null,
       confirm ? h(ConfirmDialog, { title: confirm.title, body: confirm.body, confirmLabel: "删掉", danger: true, onConfirm: confirm.onConfirm, onCancel: () => setConfirm(null) }) : null);
+  }
+
+  // 添加 / 改一条周期账单：整页（施工规则/no-half-sheet.md）
+  function RecurEditor(props) {
+    const t = useTheme();
+    const r0 = props.rule || {}, s = props.settings, isNew = !r0.id;
+    const [name, setName] = useState(r0.name || "");
+    const [type, setType] = useState(r0.type || "expense");
+    const [amount, setAmount] = useState(r0.amount ? String(r0.amount) : "");
+    const [code, setCode] = useState(r0.currency || (props.curs[0] || {}).code || "CAD");
+    const [cat, setCat] = useState(r0.category || "");
+    const [acct, setAcct] = useState(r0.account || "");
+    const [day, setDay] = useState(r0.day ? String(r0.day) : String(Math.min(28, new Date().getDate())));
+    const [confirmDel, setConfirmDel] = useState(false);
+    const cats = (s.cats && s.cats[type]) || [];
+    const accts = (s.accounts || []).filter(a => a.currency === code);
+    const D = parseInt(day, 10), amt = Math.round((parseFloat(String(amount).replace(/[^\d.]/g, "")) || 0) * 100) / 100;
+    const ok = amt > 0 && cat && cats.some(c => c.name === cat) && D >= 1 && D <= 28;
+    const save = () => {
+      if (!ok) return;
+      const c = cats.find(x => x.name === cat) || {};
+      const now = new Date(), thisMk = thisMonthKey();
+      // 新建：第一笔落在今天或以后——日子这个月已经过了就从下个月开始，不替她倒补
+      const startMk = r0.startMk || (now.getDate() > D ? shiftMonth(thisMk, 1) : thisMk);
+      props.onSave({ id: r0.id || Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), name: name.trim().slice(0, 20), type, amount: amt, currency: code, category: cat, catIcon: c.icon || "",
+        account: accts.some(a => a.id === acct) ? acct : "", day: D, startMk, lastMk: r0.lastMk || "" });
+    };
+    const g = props.sk && props.sk.id === "glass";
+    const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
+    const input = (val, set, ph, mode) => h("input", { value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 20,
+      style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" } });
+    const pill = (on, txt, onClick, tint, key) => h("button", { key: key || txt, onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
+      color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) } }, txt);
+    const wrap = kids => h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, kids);
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 58, display: "flex", flexDirection: "column" } },
+      h("div", { className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
+        h(Head, { zh: isNew ? "添加周期账单" : "改周期账单", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
+          right: isNew ? null : h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这条周期账单", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(ITrash, { size: 18, color: t.sub })) }),
+        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 20px" } },
+          label("叫什么（会写进备注）"), input(name, setName, "比如 房租"),
+          label("支出还是收入"), wrap([pill(type === "expense", "支出", () => { setType("expense"); setCat(""); }), pill(type === "income", "收入", () => { setType("income"); setCat(""); })]),
+          label("每月多少"), input(amount, setAmount, "比如 1800", "decimal"),
+          props.curs.length > 1 ? h(Fragment, null, label("币种"), wrap(props.curs.map(c => pill(code === c.code, c.label, () => setCode(c.code), null, c.code)))) : null,
+          label("分类"), wrap(cats.map(c => pill(cat === c.name, c.name, () => setCat(c.name), null, c.name))),
+          accts.length ? h(Fragment, null, label("从哪个账户（可不选）"), wrap([pill(!acct, "不记账户", () => setAcct(""), null, "none")].concat(accts.map(a => pill(acct === a.id, a.name, () => setAcct(a.id), acctType(a.type).tint, a.id))))) : null,
+          label("每月几号（1–28）"), input(day, setDay, "1", "numeric"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "到了那天打开记账会自动记上；那天没打开，下次打开时补上。删掉这条以后不再记，已经记上的不会动。")),
+        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          h("button", { onClick: save, disabled: !ok, className: "w-full active:opacity-85", style: { minHeight: 48, background: ok ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } }, "保存"))),
+      confirmDel ? h(ConfirmDialog, { title: "删掉「" + (r0.name || r0.category || "") + "」？", body: "以后不再自动记这一笔；已经记上的那些会留着。", confirmLabel: "删掉", danger: true, onConfirm: () => props.onDelete(r0), onCancel: () => setConfirmDel(false) }) : null);
   }
 
   // 添加 / 改一个账户：整页（施工规则/no-half-sheet.md）

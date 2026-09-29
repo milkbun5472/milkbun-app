@@ -63,8 +63,8 @@ test("换成共用 Head 的那几页，是真的换了", () => {
     ["js/assistant.js", /h\(Head, \{ zh: "设置", onBack: props\.onBack \}\)/, "秋秋的设置"]
   ];
   want.forEach(([f, re, zh]) => assert.match(R(f), re, zh + "那一页又变回手写顶栏了"));
-  // 记账那几条顶栏是同一个形状，一次全换了（v74.282 加了账户编辑页，第七条也用共用 Head）
-  assert.equal((R("js/ledger.js").match(/h\(Head, \{ zh:/g) || []).length, 7, "记账那七条顶栏没都换过来");
+  // 记账那几条顶栏是同一个形状，一次全换了（v74.282 加了账户编辑页、v74.283 加了周期账单编辑页，都用共用 Head）
+  assert.equal((R("js/ledger.js").match(/h\(Head, \{ zh:/g) || []).length, 8, "记账那八条顶栏没都换过来");
   assert.ok(!/safeTop\(/.test(R("js/ledger.js")), "记账里还剩着手写顶栏");
 });
 
