@@ -46,7 +46,8 @@ test("行为验证：群聊回复里的真换行不再整轮报废", () => {
     fn(engine, "escapeJsonStringControls") + fn(engine, "parseJSONLoose") +
     "\nreturn { parseJSONLoose, extractJSON };")();
   const bad = '[{"name":"沈屿白","text":"我先去趟书房。\n晚点再说。"},{"name":"银龙","text":"随你。"}]';
-  assert.equal(mod.extractJSON(bad), null, "裸 extractJSON 本来就死在这里");
+  // v74.266 起病根在 extractJSON 本身治了：裸的那条路也解得开
+  assert.equal(mod.extractJSON(bad)[0].text, "我先去趟书房。\n晚点再说。");
   const arr = mod.parseJSONLoose(bad);
   assert.ok(Array.isArray(arr) && arr.length === 2);
   assert.equal(arr[0].text, "我先去趟书房。\n晚点再说。");

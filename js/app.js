@@ -1390,9 +1390,10 @@ function App() {
     const on = ev => {
       const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.tag || "后台生成");
       if (at - (genFailSeenRef.current[key] || 0) < 60000) return;
+      // 收到就先记下：runProbe 和 callAI 两层都会报同一次失败，第二声进来直接挡掉
+      genFailSeenRef.current[key] = at;
       setTimeout(() => {
         if (lastToastAtRef.current >= at) return;
-        genFailSeenRef.current[key] = Date.now();
         toast("「" + key + "」没生成出来：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), 5000);
       }, 900);
     };
