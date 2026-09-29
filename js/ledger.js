@@ -1442,7 +1442,7 @@
     const glass = sk.id === "glass";
     // 第三页照她给的素材做（2026-09-29）：标题图、便签、三种日期键帽、邮戳、左边一列圆孔都是她出的图；
     //   日期数字和金额、邮戳上的日期是代码印上去的，所以哪个月都对
-    const LA = "assets/ledger/", LV = "?v=275";
+    const LA = "assets/ledger/", LV = "?v=276";
     const [sy, sm, sd] = sel.split("-");
     return h("div", { className: "px-5 pb-8 lg-cal", style: glass ? { position: "relative", overflow: "clip" } : undefined },
       glass ? h("style", null, PNL_CSS) : null,
