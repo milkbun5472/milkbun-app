@@ -119,3 +119,10 @@ test("人多的群天花板跟着人数长：七人 28 条、十人 40、再多�
   assert.equal(nOf(20).nMax, 48);
   assert.equal(nOf(2).nMax, 12, "两个人的群被改动了");
 });
+
+test("群通话一轮条数跟着人数长；自发的两个拉条也放开（总条数到 300、轮数到 60）", () => {
+  assert.match(app, /一次 3~" \+ Math\.min\(30, Math\.max\(7, people\.length \* 3\)\) \+ " 条，name 必须是在场角色之一。/);
+  const comps = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(comps, /autoChatMaxMsg, setAutoChatMaxMsg, 10, 300, 5, " 条"\)/);
+  assert.match(comps, /autoChatRounds, setAutoChatRounds, 1, 60, 1, " 轮"\)/);
+});
