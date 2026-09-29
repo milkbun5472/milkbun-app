@@ -402,7 +402,8 @@
     const autoReactDone = r => {
       try {
         if (!props.active || r.done) return;   // r 是勾之前的快照，勾完才算完成
-        const vis = (r.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id));
+        // 设置 → 自动生成 →「顺手点评」关着的人不搭话
+        const vis = (r.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id) && (typeof window !== "undefined" && window.__autoRefreshOn ? window.__autoRefreshOn("react", id) : true));
         if (!vis.length) return;
         const nd = window.memoNextDays(r);
         if (nd == null || nd > 0) return;      // 到期当天办完 / 拖了几天补办 才有戏

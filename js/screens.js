@@ -8760,9 +8760,10 @@ function AutoRefreshConfig(props) {
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, f.title),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, marginTop: 3 } }, f.sub),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cfg.global ? t.accent : t.fog, marginTop: 7 } },
-                cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
+                f.noChars ? (cfg.global ? "已开启 · 每个群／每一场在各自页面里还能单独关" : "已关闭")
+                : cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
             h(Toggle, { on: cfg.global, onChange: on => props.onSetGlobal(f.id, on) })),
-          isOpen ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
+          isOpen && !f.noChars ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
             !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
               h("div", { className: "flex items-center", style: { gap: 10, minWidth: 0 } },
                 c.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage, alt: "", style: { width: 30, height: 30, borderRadius: 10, objectFit: "cover" } }) : h("div", { style: { width: 30, height: 30, borderRadius: 10, background: t.line } }),

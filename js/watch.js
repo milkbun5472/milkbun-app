@@ -395,7 +395,8 @@
     const [film, setFilm] = useState(() => loadFilms().find(f => f.id === id) || null);
     const [src, setSrc] = useState(""), [cues, setCues] = useState([]), [now, setNow] = useState(0);
     const [busy, setBusy] = useState(false), [txt, setTxt] = useState(""), [missing, setMissing] = useState(false);
-    const [auto, setAuto] = useState(() => loadJSON("x_watch_auto", true) !== false);
+    // 和设置 → 自动生成 →「一起看时开口」是同一格（她 2026-09-29：页面里关了设置也要显示关了）
+    const [auto, setAuto] = useState(() => window.__autoRefreshOn ? window.__autoRefreshOn("watch") : loadJSON("x_watch_auto", true) !== false);
     const [toolsOpen, setToolsOpen] = useState(false);
     const [playErr, setPlayErr] = useState(false), [cinema, setCinema] = useState(false), [cinemaSay, setCinemaSay] = useState(false), [, setTick] = useState(0);
     const shellRef = useRef(null), foldingRef = useRef(false), fsRef = useRef(false);
@@ -711,7 +712,7 @@
             : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           btn("影院模式", enterCinema, { disabled: missing || playErr }),
-          h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
+          h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); if (window.__setAutoFromPage) window.__setAutoFromPage("watch", null, n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, auto ? "TA 会自己开口" : "TA 不主动说话")),
           auto && h("div", { className: "flex items-center gap-3", style: { padding: "0 16px 4px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话多"),
           // 轨道自己画：全局样式把原生的轨抹掉了，只剩一个圆点

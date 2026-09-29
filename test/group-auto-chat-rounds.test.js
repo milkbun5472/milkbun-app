@@ -75,6 +75,8 @@ function drive(opts) {
     // v62.12：动念按【场】分，巡检读的是【这个群】那一份（键 = 角色@群）。
     // 键的算法不在这儿抄一份——从真代码里抠出来用，否则改了格式这个桩照样绿。
     dongnianKey: dongnianKey,
+    // 设置 → 自动生成的总闸：用真的策略模块、默认存档（群里自己聊默认开）
+    autoRefreshOn: (f, c) => require("../js/auto-refresh-policy.js").enabled(null, f, c),
     window: { __dongnian: dongnian ? { [dongnianKey("c1", G)]: { triggers: urge ? [{ action: "contact" }] : [] }, [dongnianKey("c2", G)]: { triggers: [] } } : {},
       InteractionClock: require("../js/interaction-clock.js") }
   };
@@ -231,7 +233,7 @@ test("那颗圆点翻的就是群设置里的 autoChat，不另立一个会打�
 });
 
 test("巡检那边照旧认这个开关，一个字没改", () => {
-  assert.match(scan, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false\) continue;/);
+  assert.match(scan, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false \|\| !autoRefreshOn\("groupChat"\)\) continue;/);
 });
 
 // 她 2026-08-27 问：「我原来开了他们 5 轮，他们聊到第三轮我换成白色，能把后面俩停了吗」

@@ -68,14 +68,14 @@ test("群里也说清：今天是谁的生日、不是谁的", () => {
 //    她关掉的是「他们自己往下聊」这件事本身，不是「线上的那一半」。
 test("关掉自发聊天，线上线下两条自主续聊都得停", () => {
   // 线上那条本来就有
-  assert.match(app, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false\) continue;/, "线上那道闸没了");
+  assert.match(app, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false \|\| !autoRefreshOn\("groupChat"\)\) continue;/, "线上那道闸没了");
   // 线下那条（群线下浮层里自己往下演）
   const i = app.indexOf("  // ---- 群线下 dongnian 驱动自发");
   assert.ok(i > 0, "群线下那条自主续演不见了");
   const eff = app.slice(i, app.indexOf("  // ---- 默认进线下", i));
-  assert.match(eff, /if \(gsFor\(gid\)\.autoChat === false\) return;/, "线下这条没跟上——关了还在演");
+  assert.match(eff, /if \(gsFor\(gid\)\.autoChat === false \|\| !autoRefreshOn\("groupChat"\)\) return;/, "线下这条没跟上——关了还在演");
   // ⚠️闸装了还得刷新：deps 里没有 groupSettings 的话，interval 闭包着旧设置照跑
-  assert.match(eff, /\}, \[offlineGroup, groupSettings, chatSettings, sending\]\);/, "关掉后这个 interval 不会重建，闸等于没装");
+  assert.match(eff, /\}, \[offlineGroup, groupSettings, chatSettings, sending, autoRefreshPolicy\]\);/, "关掉后这个 interval 不会重建，闸等于没装");
   // 闸要排在 setInterval 之前：装在回调里每 20 秒白算一遍
   assert.ok(eff.indexOf("gsFor(gid).autoChat === false") < eff.indexOf("const timer = setInterval"), "闸装到回调里去了");
 });

@@ -851,7 +851,8 @@
       try {
         if (!props.active) return;
         const d = loadData();
-        const vis = (d.settings.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id));
+        // 设置 → 自动生成 →「顺手点评」关着的人不搭话
+        const vis = (d.settings.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id) && (typeof window !== "undefined" && window.__autoRefreshOn ? window.__autoRefreshOn("react", id) : true));
         if (!vis.length) return;
         const cur = curOf(txn.currency);
         const ev = detectTxnEvent(d.txns, txn, cur);

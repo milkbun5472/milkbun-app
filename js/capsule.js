@@ -76,6 +76,7 @@
     // 每个角色【第一次】给 TA 埋时必回埋一颗（保证你至少见到一次）；之后 70% 概率。失败给提示、不再静默。
     const maybeBuryBack = async (char, openTs) => {
       if (!props.active) return;
+      if (typeof window !== "undefined" && window.__autoRefreshOn && !window.__autoRefreshOn("capsule", char.id)) return;   // 设置里「时光胶囊」关着就不回埋
       const existing = load();
       // 同一个人已经有一颗话在【路上】，就别因为用户连续埋信而叠出一排锁盒。
       // 到期了她还没拆的不算在路上——那是她忘了拆，不该拿它挡住新的（v64.15）。

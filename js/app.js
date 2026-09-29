@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.284";
+const APP_VERSION = "v74.287";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -519,8 +519,7 @@ function App() {
   const [forumPMs, setForumPMs] = useState([]);            // 与 NPC 的私信会话
   const [forumMe, setForumMe] = useState({ handle: "", bio: "", joinTs: 0, followers: 0 });
   const [forumCharMeta, setForumCharMeta] = useState({});  // { [charId]: {handle,bio,joinTs,following,followers} }（AI 生成一次）
-  const [forumOff, setForumOff] = useState([]);            // 不逛论坛的角色 id（默认全逛=空）
-  const forumOffRef = useRef([]); forumOffRef.current = forumOff;
+  const forumOffRef = useRef([]);   // 不逛论坛的角色 id：从自动策略里 forum 那一格算出来（见 autoRefreshOn 下面）
   const forumPostsRef = useRef([]); forumPostsRef.current = forumPosts;
   const forumCommentsRef = useRef({}); forumCommentsRef.current = forumComments;
   const forumCInflightRef = useRef({}); // 每帖评论生成的进行中锁（防重入覆盖）
@@ -1087,7 +1086,7 @@ function App() {
   // extra = 这一路自己那边的对话条数(线下的一场不在 chatsRef 里,只数线上会永远够不着门槛)
   const maybeAutoSeedGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.autoSeedDue) return;
-    if (settingsFor(char.id).engineerEyes) return;
+    if (settingsFor(char.id).engineerEyes || !autoRefreshOn("gaze", char.id)) return;
     if (!window.Gaze.autoSeedDue(char.id)) return;
     const msgs = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m));
     if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
@@ -1101,7 +1100,7 @@ function App() {
   //   **数出「上次复看之后又聊了几条」**——只有调用点拿得到聊天记录。
   const maybeAutoReviewGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.reviewDue) return;
-    if (settingsFor(char.id).engineerEyes) return;
+    if (settingsFor(char.id).engineerEyes || !autoRefreshOn("gaze", char.id)) return;
     const st = window.Gaze.reviewState ? window.Gaze.reviewState(char.id) : null;
     const since = st ? Math.max(Number(st.last) || 0, Number(st.okAt) || 0) : 0;
     const fresh = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)
@@ -1340,6 +1339,9 @@ function App() {
     const clean = window.AutoRefreshPolicy.normalize(next);
     autoRefreshRef.current = clean; setAutoRefreshPolicy(clean); saveJSON(window.AutoRefreshPolicy.KEY, clean);
   };
+  // 不逛论坛＝设置里「论坛」那一栏这个人关着——同一格，论坛页和设置页谁改都是改它
+  const forumOff = Object.keys(autoRefreshPolicy.features.forum.chars).filter(id => autoRefreshPolicy.features.forum.chars[id] === false);
+  forumOffRef.current = forumOff;
   const setAutoRefreshGlobal = (feature, on) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, on));
   const setAutoRefreshChar = (feature, charId, on) => {
     saveAutoRefreshPolicy(window.AutoRefreshPolicy.setChar(autoRefreshRef.current, feature, charId, on));
@@ -1349,6 +1351,18 @@ function App() {
       phoneAutoRef.current = n; saveJSON("x_phoneAuto", n); return n;
     });
   };
+  // 页面里那颗开关（聊天设置、论坛、情书、群、一起看）写回这里的唯一出口：
+  // 打开且总闸关着 → 总闸一起开，并说一声（不然她在页面里开了、设置里还显示暂停）
+  const setAutoFromPage = (feature, charId, on) => {
+    const wasGlobal = window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features[feature].global;
+    if (on) saveAutoRefreshPolicy(window.AutoRefreshPolicy.turnOnFor(autoRefreshRef.current, feature, charId));
+    else if (charId) saveAutoRefreshPolicy(window.AutoRefreshPolicy.setChar(autoRefreshRef.current, feature, charId, false));
+    else saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, false));
+    if (on && !wasGlobal) toast("设置 → 自动生成里「" + ((window.AutoRefreshPolicy.FEATURES.find(f => f.id === feature) || {}).title || feature) + "」的总开关也一起打开了");
+  };
+  // 独立模块（一起看、备忘、账本、胶囊）读写同一份：它们不在这个组件里，走 window 上这两个口
+  window.__autoRefreshOn = autoRefreshOn;
+  window.__setAutoFromPage = setAutoFromPage;
   const [calEvents, setCalEvents] = useState([]);
   const calEventsRef = useRef([]);
   calEventsRef.current = calEvents;   // ⚠️紧跟声明写，别挪到上面那堆 ref 同步里去——那儿在声明之前，TDZ 会当场白屏
@@ -1515,7 +1529,8 @@ function App() {
     setPhoneLang(loadJSON("x_phoneLang", "persona"));
     setPhoneVitals(loadJSON("x_phoneVitals", {}));
     { const a = loadJSON("x_phoneAuto", { on: {}, done: {} }); setPhoneAuto({ on: a.on || {}, done: a.done || {} });
-      const policy = window.AutoRefreshPolicy.normalize(loadJSON(window.AutoRefreshPolicy.KEY, null), a.on || {});
+      const policy = window.AutoRefreshPolicy.absorbLegacy(window.AutoRefreshPolicy.normalize(loadJSON(window.AutoRefreshPolicy.KEY, null), a.on || {}),
+        { chatSettings: loadJSON("x_chatSettings", {}), forumOff: loadJSON("x_forumOff", []), letterCfg: loadJSON("x_coupleLetterCfg", {}), watchAuto: loadJSON("x_watch_auto", true) });
       autoRefreshRef.current = policy; setAutoRefreshPolicy(policy); saveJSON(window.AutoRefreshPolicy.KEY, policy); }
     setPromises(loadJSON("x_promises", []));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
@@ -1606,7 +1621,6 @@ function App() {
     if (!fm || !fm.joinTs) { fm = { handle: (fm && fm.handle) || "", bio: (fm && fm.bio) || "", joinTs: Date.now() - (60 + Math.floor(Math.random() * 400)) * 86400000, followers: (fm && fm.followers) || Math.floor(Math.random() * 600) }; saveJSON("x_forumMe", fm); }
     setForumMe(fm);
     setForumCharMeta(loadJSON("x_forumCharMeta", {}));
-    setForumOff(loadJSON("x_forumOff", []));
     const npcRegistry = loadJSON("x_forumNpcs", null);
     if (!npcRegistry || npcRegistry.version !== 1) saveJSON("x_forumNpcs", { version: 1, items: FORUM_NPC_REGISTRY });
     const npcRelations = loadJSON("x_forumNpcRelations", null);
@@ -6234,7 +6248,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (const group of groups) {
         const gid = group.id;
         const gs = gsFor(gid);
-        if (!gs.memoryInterop || gs.autoChat === false) continue;
+        if (!gs.memoryInterop || gs.autoChat === false || !autoRefreshOn("groupChat")) continue;
         if (groupCallActive(gid)) continue; // 通话缩小仍算通话，不另起线上自发轮
         if (laneBusy("g:" + gid)) continue;
         // ⚠️「线下正在进行」不等于「线下浮层开着」（她 2026-08-31 报）：
@@ -6352,7 +6366,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   （她 2026-09-10：「我都关了自发聊天他们还是在聊」）。她关掉的是【他们自己往下聊】
     //   这件事本身，不是「线上的那一半」——把话头留给她，线上线下都得留。
     //   又是「一层写在两处、第二处没跟上」（施工规则/four-surfaces-same-context.md）。
-    if (gsFor(gid).autoChat === false) return;
+    if (gsFor(gid).autoChat === false || !autoRefreshOn("groupChat")) return;
     const timer = setInterval(() => {
       if (laneBusy("g:" + gid)) return;
       const sess = (groupOfflinesRef.current[gid] || []).find(s => s && !s.endTs);
@@ -6371,7 +6385,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return () => clearInterval(timer);
     // ⚠️groupSettings 必须在 deps 里：少了它，她刚把开关关掉，这个 interval 还闭包着
     //   旧设置照跑——闸加了也等于没加（原来这儿写的是 chatSettings，那是单聊那份）。
-  }, [offlineGroup, groupSettings, chatSettings, sending]);
+  }, [offlineGroup, groupSettings, chatSettings, sending, autoRefreshPolicy]);
   // ---- 默认进线下（她 2026-07-23，方便同居/常在一起的角色：默认基本上都在一起）----
   // 点进开了「默认进线下」的单聊，直接进线下相处；随时可「离开」跳回线上。只在【进入这个聊天】那一下
   // 触发一次——跳回线上后不再自动弹（尊重你主动离开）；下次从列表重新进这个聊天才会再默认开。
@@ -6665,7 +6679,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         for (const c of characters) {
           const cid = c.id;
           const s = settingsFor(cid);
-          if (!s.proactive) continue;
+          if (!autoRefreshOn("proactive", cid)) continue;   // 聊天设置那颗和设置页那栏是同一格
           if (laneBusy("c:" + cid)) continue;
           if (currentlyTogetherWithChar(cid)) continue;
           // 有没有一场进行中的线下（同居/常在一起）。有【正在演的场景】→ 把「思念攒够→主动」落成【线下一拍】而不是线上消息（她 2026-07-23）。
@@ -11237,7 +11251,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const imInGroup = g => !!g && g.roomKind !== "spectate" && !gsFor(g.id).spectate;
   // 群创建时间：优先用显式 createdTs，老群回落到 id 里的时间戳
   const groupCreatedTs = group => (group && group.createdTs) || (group && /^g_\d+$/.test(group.id) ? Number(group.id.slice(2)) : 0);
-  const saveGroupSettings = (id, patch) => setGroupSettings(p => {
+  // 群里那颗「让他们自己聊」打开时，设置页「群里自己聊」的总闸要是关着就一起开
+  const saveGroupSettings = (id, patch) => {
+    if (patch && patch.autoChat === true && !autoRefreshOn("groupChat")) setAutoFromPage("groupChat", null, true);
+    // 总闸关着时页面上显示的是「关」；存别的设置时那个 false 不是她这一次按的，别把这个群原来的选择冲掉
+    else if (patch && patch.autoChat === false && !autoRefreshOn("groupChat")) { patch = { ...patch }; delete patch.autoChat; }
+    saveGroupSettingsRaw(id, patch);
+  };
+  const saveGroupSettingsRaw = (id, patch) => setGroupSettings(p => {
     const n = {
       ...p,
       [id]: {
@@ -17632,7 +17653,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
   const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id) && !settingsFor(c.id).engineerEyes);
   const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
-  const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
+  const toggleForumChar = charId => setAutoRefreshChar("forum", charId, (forumOffRef.current || []).includes(charId));
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   // 楼层落盘失败不许静默（照 commitEmotePacks 那一处的写法：
   // 「绝不能用『看起来成功』掩盖持久化失败」）。
@@ -21179,8 +21200,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const cps = couplesRef.current || {};
       for (const c of (characters || [])) {
         if (!(cps[c.id] && cps[c.id].status === "together")) continue;
-        const cfg = cfgs[c.id];
-        if (!cfg || !cfg.auto) continue;
+        const cfg = cfgs[c.id] || {};
+        if (!autoRefreshOn("letter", c.id)) continue;   // 情书页那颗「自动」和设置页那栏是同一格
         const freq = Math.max(1, cfg.freqDays || 7);
         const lastChar = (coupleLettersRef.current || []).filter(l => l.characterId === c.id && l.authorId !== "user").sort((a, b) => b.createdAt - a.createdAt)[0];
         const days = lastChar ? (Date.now() - lastChar.createdAt) / 86400000 : 999;
@@ -21259,7 +21280,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     genLetterReply(char, letterId, (threadText || "") + "\n我：" + c, false);
   };
-  const saveLetterCfg = (charId, cfg) => setCoupleLetterCfg(p => {
+  const saveLetterCfg = (charId, cfg) => {
+    if (cfg && !!cfg.auto !== autoRefreshOn("letter", charId)) setAutoFromPage("letter", charId, !!cfg.auto);
+    saveLetterCfgRaw(charId, cfg);
+  };
+  const saveLetterCfgRaw = (charId, cfg) => setCoupleLetterCfg(p => {
     const n = { ...p, [charId]: cfg };
     saveJSON("x_coupleLetterCfg", n);
     return n;
@@ -24016,7 +24041,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     meName: profile.name || "我",
     myBalance: wallet,
-    settings: gsFor(activeGroup.id),
+    settings: { ...gsFor(activeGroup.id), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
     directives: directives[activeGroup.id] || [],
     onRemoveDirective: dirId => removeDirective(activeGroup.id, dirId),
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),
@@ -24505,7 +24530,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onAddAnniv: addAnniv,
     onRemoveAnniv: removeAnniv,
     coupleLetters: coupleLetters,
-    coupleLetterCfg: coupleLetterCfg,
+    coupleLetterCfg: Object.fromEntries(liveChars.map(c => [c.id, { ...(coupleLetterCfg[c.id] || {}), auto: autoRefreshOn("letter", c.id) }])),
     onGenLetter: genCoupleLetter,
     onAddMyLetter: addMyLetter,
     onReplyLetter: replyToLetter,
@@ -25576,7 +25601,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
-    settings: settingsFor(activeChar.id),
+    settings: Object.assign({}, settingsFor(activeChar.id), { proactive: autoRefreshOn("proactive", activeChar.id) }),
     // 面具库只读地递进去：那儿只挑，不建、不改（建改在「信息 → 我 → 我的面具」）
     myMasks: masks,
     apiProfiles: apiProfiles,
@@ -25633,6 +25658,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);
+      if (!!s.proactive !== autoRefreshOn("proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, !!s.proactive);
       pC(p => p.map(c => c.id === activeChar.id ? {
         ...c,
         patSig: s.patSig
