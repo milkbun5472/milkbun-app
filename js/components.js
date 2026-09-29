@@ -8763,7 +8763,8 @@ function ChatThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
-    if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
+    // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
+    if (m.kind !== "recorded" && (m.kind === "system" || m.role === "system")) return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
       key: i,
