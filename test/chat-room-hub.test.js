@@ -54,8 +54,9 @@ test("本房限定设定放在醒目位置，且压在每轮房间提示词最�
   assert.equal(Rooms.get("p17", saved.id).scenario, "在这条支线里，他是 17 岁，还没有经历后来的人生。");
   // v66.80 拆成【底子】和【开场】两栏：底子照旧每轮发、照旧压最后；
   // 一个瞬间该写进【开场】，那一栏只在第一轮当指令发（见 fanfic/room 那条病历）。
-  assert.match(prompt, /【本房的底子｜本房内优先级最高】/);
-  assert.ok(prompt.endsWith("也不要复述这份指令。"), "底子没有压在房间提示词最后");
+  // 设定不演成标签：底子搬去人设旁边（sceneSetting），不再压在任务尾巴上标「优先级最高」
+  assert.doesNotMatch(prompt, /本房内优先级最高/);
+  assert.match(Rooms.scenarioSetting(saved), /【这间房的底子】\n在这条支线里，他是 17 岁/);
   assert.doesNotMatch(prompt, /主线后来发生的事/);
   assert.match(components, /这间房的底子 · 每轮提醒 TA/);
   assert.match(components, /三天之后还成立的那些：他多大、你们什么身份、这儿的规矩/);

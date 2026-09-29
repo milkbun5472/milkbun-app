@@ -44,23 +44,22 @@ test("第二轮起它就是往事，而且明说时间会往前走", () => {
   assert.match(later, /别把场面按回那一刻反复重演/);
   assert.ok(later.indexOf("【这一房的开场") < 0, "第二轮还在当指令发＝等于没拆");
   // 往事那一档要跟「这间房前面发生过的」挨着，不是压在最后跟底子抢位置
-  assert.ok(later.indexOf("【这间房是从这儿开始的") < later.indexOf("【本房的底子"));
+  assert.ok(later.indexOf("本房的底子") < 0, "底子已搬到人设旁边，不该再在任务尾巴里");
 });
 
 test("底子照旧每轮发——三天之后还成立的那些本来就该每轮提醒", () => {
   const room = mk();
   [0, 1, 9].forEach(n => {
-    const p = Rooms.prompt(room, [], { turns: n });
-    assert.match(p, /【本房的底子｜本房内优先级最高】\n在这条线里他是你的上司/, "第 " + n + " 轮底子没发");
+    assert.match(Rooms.scenarioSetting(room), /【这间房的底子】\n在这条线里他是你的上司/, "第 " + n + " 轮底子没发");
   });
 });
 
 test("那句「每轮先按设定校准自己」改掉了——每轮校准一次就是每轮回到原点", () => {
-  const p = Rooms.prompt(mk(), [], { turns: 3 });
+  const p = Rooms.prompt(mk(), [], { turns: 3 }) + Rooms.scenarioSetting(mk());
   assert.ok(p.indexOf("本轮回复前先按这段设定校准自己") < 0, "那句又回来了");
-  assert.match(p, /这段底子说的是【你是谁、这里什么规矩】，不是【这一轮你该说什么】/);
-  assert.match(p, /这一轮你该有什么反应，看这一轮真正发生了什么/);
-  assert.match(p, /别每轮都回到这段字上重新校准一遍/);
+  const eng = R("js/engine.js");
+  assert.match(eng, /const SETTING_AS_BACKGROUND = /);
+  assert.match(eng, /这一轮怎么反应，看这一轮真正发生了什么/);
 });
 
 test("旧存档不用迁移：老的 scenario 一律当底子", () => {
@@ -68,7 +67,7 @@ test("旧存档不用迁移：老的 scenario 一律当底子", () => {
   const old = Rooms.save("p1", { ...r, scenario: "他现在 17 岁" });   // 没有 opening
   assert.equal(Rooms.get("p1", old.id).opening, "", "opening 该默认空字符串");
   const p = Rooms.prompt(old, [], { turns: 5 });
-  assert.match(p, /【本房的底子｜本房内优先级最高】\n他现在 17 岁/);
+  assert.match(Rooms.scenarioSetting(old), /【这间房的底子】\n他现在 17 岁/);
   assert.ok(p.indexOf("这间房是从这儿开始的") < 0 && p.indexOf("这一房的开场") < 0, "没写开场却发了一段空的");
 });
 

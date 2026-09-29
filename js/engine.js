@@ -3047,6 +3047,25 @@ function onMeLine(onMe, uName) {
   return "【" + (uName || "她") + "今天身上带着：" + String(onMe).trim() + "】"
     + "见了面你看得见它。要不要提是你的事——顺口说一句、或者只是心里记下都行，别每次都拿它开场。";
 }
+// ── 用户写的「这场戏的设定」怎么递给模型（她 2026-09-29）──────────────────
+// 她报：房间设定里写一句「他是某种身份、某种性子」，TA 就每轮都在演那几个词，演成一张标签。
+// 病不在哪个词上，在【怎么递】：原来设定每轮压在任务最末、还标着「优先级最高」——离回复最近、
+// 调门最高的那句，模型当成「这一轮要演出来的东西」；而且从来没有一句话说过设定跟他平时说话是什么关系，
+// 于是每个形容词都被当成每句话都要兑现一次。
+// 她的要求：「必须能覆盖全部场景，不能只是这次给了 example 照着修，下一次新的 example 又修」。
+// 所以这里不点任何一个词（prompt-no-content-samples），只说设定和人是什么关系；
+// 所有「她写一段设定、每轮带着」的地方都从 sceneSettingBlock 过（test/scene-setting-shared 数着）。
+const SETTING_AS_BACKGROUND = "这段设定说的是你在哪、是谁、处在什么处境。里面描述你的词，是你身上有的东西，不是每句话都要演出来的语气；"
+  + "性子是被碰到才冒出来的，大部分时候你在过自己的日子。这一轮怎么反应，看这一轮真正发生了什么。";
+function sceneSettingBlock(title, text, extra) {
+  const body = String(text == null ? "" : text).trim();
+  if (!body) return "";
+  return "【" + (title || "这场戏的设定") + "】\n" + body
+    + "\n" + SETTING_AS_BACKGROUND
+    + "\n它跟上面的人设在年龄、时间、身份、关系这些事实上冲突时，这场戏里以它为准；人的核心性格和说话方式照旧是人设里那个人。"
+    + (extra ? "\n" + extra : "");
+}
+if (typeof window !== "undefined") window.sceneSettingBlock = sceneSettingBlock;
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -3117,6 +3136,9 @@ function buildBundle(ctx, opts) {
   }
   const uName = userName(profile);
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+  // 这场戏的设定（房间底子、小剧场、穿书……她写给这一场的那段）挨着人设放，当背景，不压在任务末尾当指令。
+  //   说法全在 sceneSettingBlock 一处（见那里的由来）。
+  if (ctx.sceneSetting) parts.push(ctx.sceneSetting);
   // 年龄按【今天】现算。人设里写死的岁数会随时间过期，这一条不会——冲突时以这条为准。
   {
     const _age = charAgeNow(char, Date.now());

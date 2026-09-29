@@ -129,7 +129,7 @@
     if (!ctx || !room || room.main || !room.cognition) return ctx;
     const rc = cognitionOf(room), out = { ...ctx };
     // roomPrompt 是线下调用点在 ctxFor 之后追加的本房边界，不是主线背景。
-    const allowed = new Set(CTX_GATE.always.concat(["roomPrompt"]));
+    const allowed = new Set(CTX_GATE.always.concat(["roomPrompt", "sceneSetting"]));
     Object.keys(CTX_GATE).forEach(group => {
       if (rc[group]) CTX_GATE[group].forEach(k => allowed.add(k));
     });
@@ -532,6 +532,15 @@
   }
   // opts.turns＝这间房已经有几条真对话（调用点数好传进来）。
   // ⚠️它只决定一件事：【开场】那半是当指令发，还是当往事发。
+  // 这间房的底子：交给 engine.js 的 sceneSettingBlock 包（所有「她写的设定」同一个说法），
+  // 本房自己的边界（只用标为可用的背景、别把本房设定说成主线事实）跟在后面。
+  function scenarioSetting(room) {
+    if (!room || room.main || !room.scenario) return "";
+    const extra = "只使用上面标为可用的背景、只执行允许的写回；不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。";
+    const wrap = typeof sceneSettingBlock === "function" ? sceneSettingBlock
+      : (typeof window !== "undefined" && window.sceneSettingBlock) || null;
+    return wrap ? wrap("这间房的底子", room.scenario, extra) : "【这间房的底子】\n" + String(room.scenario).trim() + "\n" + extra;
+  }
   function prompt(room, mainMessages, opts) {
     if (!room) return "";
     const started = Number((opts || {}).turns || 0) > 0;
@@ -590,12 +599,9 @@
     //   【底子】＝三天之后还成立的那些（TA 17 岁 / 你们是师生 / TA还不认识你）→ 每轮发，对的；
     //   【开场】＝一个瞬间（门被推开的那一刻）→ 只第一轮当指令发，之后转成往事（见上面那一段）。
     //   判据一句：**这句话三天之后还成立吗？**
-    if (scenarioOn) lines.push("【本房的底子｜本房内优先级最高】\n" + room.scenario
-      + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。"
-      + "不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。"
-      // ⚠️原来这儿写的是「本轮回复前先按这段设定校准自己」——每轮校准一次，就是每轮回到原点。
-      + "\n⚠️**这段底子说的是【你是谁、这里什么规矩】，不是【这一轮你该说什么】。**"
-      + "这一轮你该有什么反应，看这一轮真正发生了什么；别每轮都回到这段字上重新校准一遍，也不要复述这份指令。");
+    // ⚠️底子不在这儿了（她 2026-09-29）：它原来压在整份任务的最末、标着「本房内优先级最高」，
+    //   TA 就每轮都在演里面那几个词，演成一张标签。现在走 scenarioSetting → ctx.sceneSetting，
+    //   由 buildBundle 挨着人设放（线上、线下、通话一起），说法在 engine.js 的 sceneSettingBlock 一处。
     // 第一轮：开场就是此刻正在发生的事，压在最后。
     if (!started && room.opening) lines.push("【这一房的开场｜就是此刻正在发生的事】\n" + room.opening
       + "\n从这个场面开始写你的第一反应——不要先总结它、不要复述它、也不要把它当成一段背景介绍。"
@@ -702,6 +708,6 @@
     });
   }
 
-  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt,
+  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });

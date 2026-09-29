@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.269";
+const APP_VERSION = "v74.271";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7298,6 +7298,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || [],
           { turns: roomTurnsOf(charId, sideRoom), queryText: (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), memLimit: osFor(charId).memN == null ? (memCfgRef.current.topK || 5) : Math.max(1, osFor(charId).memN) }) : "";
+        oCtx.sceneSetting = window.ChatRooms && window.ChatRooms.scenarioSetting ? window.ChatRooms.scenarioSetting(sideRoom) : "";
         oCtx = gateRoomContext(oCtx, char, scopeKey, sideRoom);
       }
       // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
@@ -12913,6 +12914,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ctx.directives = [...(directives[chatKey] || [])];
     ctx.worldbook = loreForContext("chat", [char.id], ctxOpts && ctxOpts.queryText || text);
     const gated = gateRoomContext(ctx, char, chatKey, room);
+    // 这间房的底子挨着人设放（buildBundle 读 sceneSetting），不再压在任务末尾（她 2026-09-29）
+    gated.sceneSetting = window.ChatRooms && window.ChatRooms.scenarioSetting ? window.ChatRooms.scenarioSetting(room) : "";
     const local = roomStatesRef.current[chatKey] || {};
     if (local.mood) gated.moodLabel = local.mood;
     return gated;
