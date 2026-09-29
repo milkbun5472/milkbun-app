@@ -285,13 +285,20 @@ async function ensureMemVecs(lib, opts) {
   const list = (lib || []).filter(e => e && e.id && e.text);
   const todo = list.filter(e => { if (opts.force) return true; const cur = cache.get(e.id); return !(cur && cur.m === model && cur.h === memVecHash(memEntryEmbedText(e))); });
   // 孤儿清理：缓存/IDB 里有、记忆库里已经没有的条目
-  const liveIds = new Set(list.map(e => e.id));
-  for (const k of Array.from(cache.keys())) { if (!liveIds.has(k)) { cache.delete(k); idbVecDel(k); } }
+  // ⚠️房间记忆（ChatRooms.memAdd，id 以 rm_ 开头）的向量跟主线同住这一份缓存，
+  //   但不在 lib 里——主线这一趟要把它们也算作活的，不然每次存记忆库都把房里的向量清光。
+  //   房间那一趟（opts.noPrune）不清：它手上只有房间那一份，主线的全会被当成孤儿。
+  if (!opts.noPrune) {
+    const liveIds = new Set(list.map(e => e.id));
+    try { if (typeof window !== "undefined" && window.ChatRooms && window.ChatRooms.memAllIds) window.ChatRooms.memAllIds().forEach(id => liveIds.add(id)); } catch (e) {}
+    for (const k of Array.from(cache.keys())) { if (!liveIds.has(k)) { cache.delete(k); idbVecDel(k); } }
+  }
   if (!todo.length) { if (opts.onProgress) opts.onProgress(0, 0); return 0; }
   // 先问云端：CC/别的设备可能已经算好这条向量（同模型 + 同文本 hash 就直接采用，省一次 API）。
   // memory_embeddings 是 App 与 MCP 共用的同一张表；两侧配同一个 embedding 模型时互认互不重算。
   let remaining = todo;
-  if (typeof window !== "undefined" && window.Cloud && window.Cloud.memVecFetch) {
+  // ⚠️opts.noCloud（房间记忆）：memory_embeddings 是跟 CC/MCP 共用的表，房里的事不上那张表。
+  if (!opts.noCloud && typeof window !== "undefined" && window.Cloud && window.Cloud.memVecFetch) {
     try {
       const cloudRows = await window.Cloud.memVecFetch(todo.map(e => e.id));
       const cmap = new Map((cloudRows || []).map(r => [r.id, r]));
@@ -324,7 +331,7 @@ async function ensureMemVecs(lib, opts) {
       cloudPush.push({ id: batch[j].id, model, hash: h, embedding: Array.from(vecs[j]) });
     }
     // 写回云端，让 CC/别的设备共用同一份（best-effort，失败不影响本地检索）
-    try { if (typeof window !== "undefined" && window.Cloud && window.Cloud.memVecUpsert) await window.Cloud.memVecUpsert(cloudPush); } catch (e) {}
+    try { if (!opts.noCloud && typeof window !== "undefined" && window.Cloud && window.Cloud.memVecUpsert) await window.Cloud.memVecUpsert(cloudPush); } catch (e) {}
     done += batch.length;
     if (opts.onProgress) opts.onProgress(done, remaining.length);
     if (i + BATCH < remaining.length) await new Promise(res => setTimeout(res, 300));

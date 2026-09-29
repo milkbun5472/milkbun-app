@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.271";
+const APP_VERSION = "v74.272";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7296,8 +7296,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       let oCtx = ctxFor(char);
       if (sideRoom) {
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
+        // 线下这份的查询字跟下面递进去的 queryText 是同一段——向量缓存按字对账
+        if (window.ChatRooms && window.ChatRooms.memCount(charId, sideRoom.id) && typeof primeQueryVec === "function") await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
         oCtx.roomPrompt = window.ChatRooms ? window.ChatRooms.prompt(sideRoom, chatsRef.current[charId] || [],
-          { turns: roomTurnsOf(charId, sideRoom), queryText: (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), memLimit: osFor(charId).memN == null ? (memCfgRef.current.topK || 5) : Math.max(1, osFor(charId).memN) }) : "";
+          { turns: roomTurnsOf(charId, sideRoom), record: true, queryText: (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), memLimit: osFor(charId).memN == null ? (memCfgRef.current.topK || 5) : Math.max(1, osFor(charId).memN) }) : "";
         oCtx.sceneSetting = window.ChatRooms && window.ChatRooms.scenarioSetting ? window.ChatRooms.scenarioSetting(sideRoom) : "";
         oCtx = gateRoomContext(oCtx, char, scopeKey, sideRoom);
       }
@@ -9154,6 +9156,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 向量记忆（v48.11）：先把「最近对话」查询向量预热进缓存（一次小嵌入调用 ~300ms），
       // 下面 ctxFor 里的同步记忆检索即可用语义相似度挑条目；没开开关/失败自动纯关键词，永不抛错不挡发送
       if (roomReads("formalMemory") && typeof primeQueryVec === "function") await primeQueryVec(sideRoom ? roomHistoryText(char, chatKey) : recentChatText(char));
+      if (sideRoom && window.ChatRooms.memCount(charId, room.id)) await primeRoomMemVec(charId, room);
       // ── A 情绪 / E 余温：v62.37 起【全开、不留授权】（她 2026-09-04 定）──────────
       // 原来两层都要她在诊断台逐个角色「授权试点」。可 A 那一路的授权【从来没接过管子】
       //（isPilotEnabled 全 app 只被 E 调用过一次），于是「授权」这件事本身就名不副实。
@@ -9955,7 +9958,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
-      const _roomHint = roomPromptFor(charId, room);
+      const _roomHint = roomPromptFor(charId, room, true);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       // ⚠️「用手机和她一对一聊天」这句里藏着一个【地点前提】：你俩隔着屏幕。
@@ -12927,9 +12930,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return (chatsRef.current[key] || []).filter(m => m && !m.forkSeed && m.kind !== "system"
       && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled).length;
   };
-  const roomPromptFor = (charId, room) => !room || !window.ChatRooms ? "" : window.ChatRooms.prompt(
+  // record＝这一轮真要发出去（单聊发送、通话）：房间记忆那份召回收据只认这种，预览不留
+  const roomPromptFor = (charId, room, record) => !room || !window.ChatRooms ? "" : window.ChatRooms.prompt(
     { ...room, cognition: { ...room.cognition, schedule: roomTimeAwareFor(room, charId) } }, chatsRef.current[charId] || [],
-    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id) });
+    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id), record: !!record });
+  // 房间记忆的查询向量：跟 roomPromptFor 递进去的【同一段字】预热，retrieveMemories 才对得上缓存
+  const primeRoomMemVec = async (charId, room) => {
+    if (!room || room.main || !window.ChatRooms || typeof primeQueryVec !== "function") return;
+    if (!window.ChatRooms.memCount(charId, room.id)) return;
+    await primeQueryVec(roomRecentText(charId, room.id));
+  };
   // 这间房最近几句——拿来从这间房自己的记忆里挑相关的
   const roomRecentText = (charId, roomId) => !window.ChatRooms ? "" :
     (chatsRef.current[window.ChatRooms.chatKey(charId, roomId)] || []).filter(m => m && !m.recalled && m.content).slice(-6).map(m => String(m.content)).join("\n");
@@ -15824,6 +15834,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
         const callQuery = withUser.slice(-12).map(m => String(m.content || "")).filter(Boolean).join("\n");
         if (window.ChatRooms.canRead(cur.room, "formalMemory") && typeof primeQueryVec === "function") await primeQueryVec(callQuery);
+        if (typeof primeRoomMemVec === "function" && cur.room && !cur.room.main && window.ChatRooms.memCount(char.id, cur.room.id)) await primeRoomMemVec(char.id, cur.room);
         const sys = buildBundle(roomContextFor(char, cur.chatKey || char.id, cur.room, { chat: true, queryText: callQuery }))
           + liveStateContext(liveStateForScope(char.id, cur.chatKey), ["wearing", "action", "place", "condition"]) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**"
           + (opening ? "\n【这是接通后的第一句】电话刚接通，是你拨过去的，对方刚把它接起来——**你先开口**。别等对方先说话、别问「喂？怎么不说话」、别当成是 Ta 打给你的。直接说你打这通电话本来要说的那件事。" : "") + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
@@ -15882,7 +15893,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             }
           };
         })();
-        const callSystem = sys + roomPromptFor(char.id, cur.room) + callBiHint;
+        const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint;
         const raw = await callAI(apiFor(char.id), callSystem, hist, { maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
