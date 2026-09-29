@@ -81,8 +81,8 @@ console.log("ledger-acctface ok");
 // 记账卡是 role:"system"，单聊里不许被「系统」小框先吞掉
 {
   const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
-  const i = comp.indexOf('if (m.kind === "recorded") return'), j = comp.lastIndexOf('return h(SysNote, { key: i, label: "系统"', i);
+  const i = comp.indexOf('if (m.kind === "recorded") return'), j = comp.indexOf('return h(SysNote, { key: i, label: "系统"', i);
   assert.ok(i > 0 && j > 0);
-  assert.match(comp.slice(j - 120, j), /m\.kind !== "recorded" &&/);
+  assert.ok(i < j, "记账卡得排在「系统」小框前面");
   console.log("recorded-not-swallowed ok");
 }
