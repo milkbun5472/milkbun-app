@@ -955,10 +955,11 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
         h("div", { className: "flex items-center", style: { gap: 8 } },
           h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
             nameOf(centerId) + (selLink.both ? " ⇄ " : selLink.out ? " → " : " ← ") + nameOf(selLink.other)),
+          // 光秃秃 12px 两个字几乎点不中（她 2026-09-29：「编辑键有点难点动」）——给足 36px 高的一颗胶囊
           h("button", { onClick: () => onEditEdge(centerId, selLink.other), className: "active:opacity-60 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "编辑"),
+            style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.tint, fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "编辑"),
           h("button", { onClick: () => setSel(null), className: "active:opacity-60 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginLeft: 2 } }, "收起")),
+            style: { minHeight: 36, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "收起")),
         selLink.label ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 14, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selLink.label) : null,
         selLink.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, selLink.note) : null,
         // 对方那一头写得不一样时，也摆出来——一段关系两边看法不同本来就是内容
@@ -5793,7 +5794,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -5941,6 +5942,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   if (partner && cp[view] && cp[view].status === "together" && sub === "gacha") {
     return h(Gacha, { partner, pts: gachaPts, cards: gachaCards, luck: gachaLuck, busy: gachaBusy,
       onPull: onGachaPull, onRedeem: onGachaRedeem, onShow: onGachaShow, onPin: onGachaPin,
+      onDelete: onGachaDelete,
       onTitle: onGachaTitle, onShoot: onGachaShoot, onCarve: onGachaCarve, shooting: !!studioBusy, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：交换日记
@@ -6722,7 +6724,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -6837,17 +6839,20 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     return out.sort((a, b) => (a.t == null ? 1 : 0) - (b.t == null ? 1 : 0) || (a.t || 0) - (b.t || 0));
   };
   useEffect(() => {
-    if (!showLyric || !now || lyrics[now.id] !== undefined) return;
+    // 一起听的人在旁边时也要词：TA 是跟着这几句词开口的（listen-talk.js）
+    if ((!showLyric && !partner) || !now || lyrics[now.id] !== undefined) return;
     if (now.source !== "netease" || !now.neteaseId || !canSearch) { setLyrics(p => ({ ...p, [now.id]: { lines: null } })); return; }
     musicRead("/lyric?id=" + encodeURIComponent(now.gdLyricId || now.neteaseId)).then(d => {
       const raw = d && d.lrc && d.lrc.lyric;
       const lines = raw ? parseLrc(raw).filter(l => l.text) : null;
       setLyrics(p => ({ ...p, [now.id]: { lines: (lines && lines.length) ? lines : null } }));
     }).catch(() => setLyrics(p => ({ ...p, [now.id]: { lines: null } })));
-  }, [showLyric, nowId, musicProvider]);
+  }, [showLyric, nowId, musicProvider, partner && partner.id]);
   const lyricLines = now && lyrics[now.id] !== undefined ? lyrics[now.id].lines : undefined;
   let lyricActive = -1;
   if (Array.isArray(lyricLines)) for (let i = 0; i < lyricLines.length; i++) { if (lyricLines[i].t != null && lyricLines[i].t <= cur) lyricActive = i; }
+  // 边听边说（她 2026-09-29）：两只头像挂在封面上方、谁说话谁冒气泡；底下一行小输入。逻辑全在 listen-talk.js
+  const talk = window.ListenTalk ? window.ListenTalk.useTalk({ partner, profile, song: now, player, lyricLines, lyricActive, active, ctxFor, toast, onToChat, t }) : null;
   useEffect(() => {
     if (!showLyric || lyricActive < 0 || !lyricBoxRef.current) return;
     const el = lyricBoxRef.current.querySelector('[data-lyric-active="1"]');
@@ -6959,6 +6964,8 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     //   只是不会自己开口了。
     pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
+    // 头像那一条粘在顶上：她往下滑到输入框说话时，两只头像和气泡还看得见（她 2026-09-29）
+    talk ? h("div", { className: "w-full", style: { position: "sticky", top: 0, zIndex: 5 } }, talk.stage) : null,
     // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
     showLyric
       ? h("div", { ref: lyricBoxRef, onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
@@ -6969,7 +6976,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       //   这儿只留一块透明的位子让它露出来，点一下换封面。碟上那 148px 的小封面跟整页的封面是同一张，
       //   留着就是同一样东西两份（她 2026-09-05：「封面整个代替掉页面」）。
       : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "w-full active:opacity-90", "aria-label": "换封面",
-          style: { height: 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
+          style: { height: talk ? 130 : 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
 
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
@@ -7013,6 +7020,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       // 前进键右边：当前队列/歌单顺序
       cbtn(ic("list", showQueue ? (t.accent || "#8a6d3b") : t.ink, 20), () => setShowQueue(v => !v), { size: 44, style: { background: showQueue ? (t.accent || "#8a6d3b") + "22" : "transparent" } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, ({ order: "列表循环", one: "单曲循环", shuffle: "随机播放" })[playMode || "order"]),
+    talk ? talk.bar : null,
     // 和谁听：那张封套（sleeveCard 在上面）
     sleeveCard,
     // 当前队列（展开）
@@ -8433,6 +8441,9 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
   const [cid, setCid] = useState(initialCid);
   const [text, setText] = useState(() => initialCid ? readBundle(initialCid) : "");
   const [recall, setRecall] = useState(() => initialCid ? readRecall(initialCid) : null);
+  // 房间自己那份记忆的召回收据（ChatRooms.memRecall 只在真发出去的那一轮留）。跟主线那份分开放、分开画。
+  const readRoomRecall = id => typeof window !== "undefined" && window.__roomRecallSnapshots ? window.__roomRecallSnapshots[String(id)] || null : null;
+  const [roomRecall, setRoomRecall] = useState(() => initialCid ? readRoomRecall(initialCid) : null);
   const [open, setOpen] = useState({});
   const [wireOn, setWireOn] = useState(() => typeof window !== "undefined" && !!window.__offlineWireCaptureEnabled);
   const [wireRows, setWireRows] = useState(() => typeof window !== "undefined" ? (window.__offlineWireCaptures || []).slice() : []);
@@ -8523,6 +8534,7 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     setCid(id);
     setText(readBundle(id));
     setRecall(readRecall(id));
+    setRoomRecall(readRoomRecall(id));
     setOpen({});
   };
   const secs = (() => {
@@ -8602,6 +8614,18 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
             "查看没进来的候选 · " + Object.entries(recall.excludedCounts || {}).map(([reason, count]) => recallReasonLabel(reason) + " " + count).join(" / ")),
           h("div", { style: { marginTop: 5 } }, (recall.excluded || []).map((row, i) => recallRowView(row, i, true)))) : null)
       : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, "还没有这一页生命周期内的真实聊天收据。先和 TA 发一轮消息，再回来刷新。")) : null,
+    // 在小房间里聊的那一轮：这间房自己记下的哪几条被一起送进去了
+    cid && roomRecall ? h("div", { style: { border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", marginBottom: 10, background: t.bg2 } },
+      h("div", { className: "flex items-start justify-between gap-2" },
+        h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "上一轮房间记忆 · 「" + (roomRecall.roomName || "小房间") + "」"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 2 } }, "这间房自己名下记的，只在这间房里送进去；主线那份在上面。刷新 App 即清空。")),
+        h("span", { style: { flexShrink: 0, borderRadius: 999, padding: "3px 7px", fontFamily: F_BODY, fontSize: 9.5, color: roomRecall.mode === "hybrid" ? t.tint : t.fog, border: "1px solid " + (roomRecall.mode === "hybrid" ? t.tint : t.line) } }, roomRecall.mode === "hybrid" ? "向量混合" : "关键词")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8 } },
+        new Date(roomRecall.ts).toLocaleString() + " · 这间房共 " + roomRecall.candidateCount + " 条 · 送进去 " + (roomRecall.picked || []).length + " 条"),
+      (roomRecall.picked || []).length
+        ? h("div", { style: { marginTop: 7 } }, roomRecall.picked.map((row, i) => h("div", { key: row.id || i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, padding: "6px 0", borderTop: i ? "1px dashed " + t.line : "none" } }, "· " + row.text)))
+        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "这一轮这间房里没有记忆可送。")) : null,
     cid ? (() => {
       // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
       const total = Math.max(1, text.length);
@@ -8744,9 +8768,10 @@ function AutoRefreshConfig(props) {
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, f.title),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, marginTop: 3 } }, f.sub),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cfg.global ? t.accent : t.fog, marginTop: 7 } },
-                cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
+                f.noChars ? (cfg.global ? "已开启 · 每个群／每一场在各自页面里还能单独关" : "已关闭")
+                : cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
             h(Toggle, { on: cfg.global, onChange: on => props.onSetGlobal(f.id, on) })),
-          isOpen ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
+          isOpen && !f.noChars ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
             !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
               h("div", { className: "flex items-center", style: { gap: 10, minWidth: 0 } },
                 c.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage, alt: "", style: { width: 30, height: 30, borderRadius: 10, objectFit: "cover" } }) : h("div", { style: { width: 30, height: 30, borderRadius: 10, background: t.line } }),
@@ -9361,7 +9386,7 @@ function ApiConfig({
           style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
       }))), false && onSetBgApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "后台任务 API（省钱可选）"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "抽取记忆 / 日程 / 钱包 / 查手机 / 随身物 / 购物 / 便签墙 / 心情日历 / 记账 / 番茄钟 这些后台活，走一个便宜的按量小模型（如 gemini-flash-nothinking），不动聊天/日记/同人这些创作类。不选＝跟主模型用同一个。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "抽取记忆 / 日程 / 钱包 / 查手机 / 随身物 / 购物 / 外卖 / 陪伴戳一下说的那句 / 便签墙 / 心情日历 / 记账 / 番茄钟 这些后台活，走一个便宜的按量小模型（如 gemini-flash-nothinking），不动聊天/日记/同人这些创作类。不选＝跟主模型用同一个。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       [{ id: null, name: "跟随主模型" }].concat(list).map(p => {
         const on = (bgApiId || null) === (p.id || null);
@@ -11268,6 +11293,10 @@ function VecHealth({ entries }) {
         + " · 去 设置 · 向量记忆 API 按「建向量索引」补上");
 }
 function MemoryLib({
+  pactsOf,
+  onClosePact,
+  onSetPactDue,
+  onAddPact,
   entries,
   characters,
   focusChar,
@@ -11372,7 +11401,13 @@ function MemoryLib({
   const [editing, setEditing] = useState(null); // "new" | entry
   const [cfgOpen, setCfgOpen] = useState(false); // 召回设置弹层
   const [q, setQ] = useState(""); // 搜索
+  // 这个人名下：主线 / 各间房自己的记忆（她 2026-09-29）。换人就回到主线。
+  // 房间的记忆不在 entries 里（那是主线记忆库）——它住在 ChatRooms 自己那个键上，这儿现读。
+  const [roomScope, setRoomScope] = useState("main");
+  const [roomTick, setRoomTick] = useState(0);
+  useEffect(() => { setRoomScope("main"); }, [filter]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | open | pinned；状态与角色各管一层
+  const [pactsFor, setPactsFor] = useState(null);   // 正开着谁的「我们说好的」
   const nameOf = id => {
     const c = characters.find(x => x.id === id);
     return c ? c.remark || c.name : "未知";
@@ -11418,6 +11453,41 @@ function MemoryLib({
   // 先画一截，往下翻到底再续。⚠️窗口只切【画出来的那几张】——list 本身仍是全量，
   // 上面那排数字、搜索、筛选都还是按全部算的；切了 list 的话「这一摞 N 张」会当场变成骗人的数。
   // 换筛选／换搜索词就收回去（resetKey），别让上一摞翻开的长度带过来。
+  const RK = typeof window !== "undefined" ? window.ChatRooms : null;
+  const personKey = filter !== "all" && filter !== "__open__" ? filter : "";
+  const roomDoors = (() => {
+    if (!RK || !personKey || !RK.memList) return [];
+    const rooms = RK.list(personKey).filter(r => !r.main), mem = RK.memList(personKey);
+    const doors = rooms.map(r => ({ id: r.id, name: r.name, n: mem.filter(e => e.roomId === r.id).length }));
+    // 房删了、记忆留着的那些（删房时她选了「留着」）：归一格，别让它们失踪
+    const orphan = mem.filter(e => !rooms.some(r => r.id === e.roomId)).length;
+    return orphan ? doors.concat([{ id: "__gone__", name: "已删的房间", n: orphan }]) : doors;
+  })();
+  const inRoom = roomScope !== "main" && roomDoors.some(d => d.id === roomScope);
+  const roomList = !inRoom ? [] : (roomScope === "__gone__"
+      ? RK.memList(personKey).filter(e => !roomDoors.some(d => d.id === e.roomId))
+      : RK.memList(personKey, roomScope))
+    .filter(e => !qlc || (String(e.text || "") + " " + (e.tags || []).join(" ")).toLowerCase().indexOf(qlc) >= 0)
+    .slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  void roomTick;
+  // 挪进主线（她 2026-09-29）：写进主记忆库，绑这个角色；房里那条拿掉。
+  //   走记忆库自己的 onAdd（＝addMemEntry），不另写一条落库路。先写成了再删房里的，写不进去就一个字都不动。
+  const moveRoomMemToMain = e => requestAppConfirm("挪进主线？",
+    "挪过去以后这件事就是你们主线里发生过的：主聊天、开着「一起经历过的事」的房、群聊里TA都会记得。房里这一条会拿掉。",
+    () => {
+      const made = onAdd({ text: e.text, tags: e.tags || [], charIds: [personKey], knownBy: [personKey], ts: e.ts, v: e.v, a: e.a, pinned: !!e.pinned, source: "manual" });
+      if (!made) return window.__toast && window.__toast("这次没挪成，房里那条还在");
+      RK.memRemove(personKey, e.id); setRoomTick(x => x + 1);
+      window.__toast && window.__toast("挪进主线了");
+    }, "挪过去", null, { danger: false });
+  const editRoomMem = e => requestAppPrompt("改这条记忆", "只在这间房里算数。清空再保存＝删掉这一条。", e.text || "", v => {
+    const txt = String(v || "").trim();
+    if (!txt) {
+      requestAppConfirm("删掉这条？", "删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { RK.memRemove(personKey, e.id); setRoomTick(x => x + 1); }, "删掉");
+      return;
+    }
+    RK.memUpdate(personKey, e.id, { text: txt }); setRoomTick(x => x + 1);
+  }, "保存", { multiline: true, maxLength: 600 });
   const { shown: memShown, more: memMore, sentinel: memSentinel } = useListWindow(list.length, statusFilter + "|" + filter + "|" + qlc);
   const activeTotal = (entries || []).filter(e => e && !e.archived && (e.surfaceState || "active") === "active" && inScope(e)).length;
   const pinnedTotal = (entries || []).filter(e => e && !e.archived && e.pinned && (e.surfaceState || "active") === "active" && inScope(e)).length;
@@ -11466,6 +11536,13 @@ function MemoryLib({
     "repeating-linear-gradient(115deg," + t.ink + "00 0 2px," + t.ink + "06 2px 3px)",
     "repeating-linear-gradient(25deg," + t.ink + "00 0 3px," + t.ink + "05 3px 4px)"
   ].join(",") };
+  // 「我们说好的」那一页（她 2026-09-29：约回的日子想自己定，而且不止情侣才能定）。
+  //   就是情侣空间那一页 CouplePacts 本身——字据、挂历页、三枚印、到点那条约回链全是它的，
+  //   这儿只是多开一道门，不另写一份（one-public-mechanism）。
+  const pactChar = pactsFor ? (characters || []).find(c => c.id === pactsFor) : null;
+  if (pactChar && pactsOf) return h(CouplePacts, { partner: pactChar, pacts: pactsOf(pactChar.id),
+    onClose: onClosePact, onSetDue: (mid, about, ts, via) => onSetPactDue(mid, pactChar.id, about, ts, via),
+    onAdd: (txt, ts) => onAddPact(pactChar.id, txt, ts), onBack: () => setPactsFor(null) });
   return h("div", {
     className: "h-full flex flex-col", style: boxSkin
   // 顶栏改用公共 Head（施工规则/mobile-ui-layout.md §1「别再自己写一条」），
@@ -11668,16 +11745,53 @@ function MemoryLib({
           on ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.ink, marginTop: 3, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             id === "all" ? "所有人" : id === "__open__" ? "没绑角色" : (c.remark || c.name)) : null);
       })) : null,
-    h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
+    // 主线 / 各间房：卡盒里这个人那一格后面插着的【分隔卡】——
+    //   选中那张满高、纸色，底边跟下面那摞卡连成一张；没选的矮一截、暗着，压在后面。
+    roomDoors.length ? h("div", { className: "flex items-end overflow-x-auto", style: { gap: 4, borderBottom: "1px solid " + t.line, marginBottom: 10 } },
+      [{ id: "main", name: "主线", n: activeTotal }].concat(roomDoors).map(d => {
+        const on = (d.id === "main" && !inRoom) || (inRoom && d.id === roomScope);
+        return h("button", { key: d.id, onClick: () => setRoomScope(d.id), className: "shrink-0 active:opacity-70",
+          style: { minHeight: on ? 42 : 34, padding: "6px 12px 5px", borderRadius: "7px 7px 0 0", marginBottom: -1,
+            border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "1px solid " + (on ? t.bg2 : t.line),
+            background: on ? t.bg2 : "transparent", opacity: on ? 1 : 0.6, textAlign: "left" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: on ? 13.5 : 12, color: t.ink, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, d.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: on ? t.sub : t.fog } }, d.n + " 条"));
+      })) : null,
+    inRoom ? h("div", null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "2px 2px 9px", lineHeight: 1.55 } },
+        roomScope === "__gone__" ? "这些房已经删了，记忆还留着——现在没有哪间房读得到它们。"
+          : "只有在「" + ((roomDoors.find(d => d.id === roomScope) || {}).name || "这间房") + "」里TA才想得起这些；主聊天、别的房、群聊都看不见。"),
+      !roomList.length ? h(Empty, { text: qlc ? "没找到这段记忆" : "这间房还没记下什么", sub: qlc ? "换个说法试试" : "房里聊着聊着会自己记下，也可以在房里点「收入记忆」" }) : null,
+      roomList.map(e => {
+        const d = shortDateOf(e);
+        return h("div", { key: e.id, className: "w-full text-left flex", style: { gap: 10, marginBottom: 10 } },
+          h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
+          h("div", { className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
+            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: t.line } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, sourceLabelOf(e)),
+            h("button", { onClick: () => editRoomMem(e), "aria-label": "编辑记忆", className: "w-full text-left active:opacity-75",
+              style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
+            h("div", { className: "flex items-center justify-end", style: { gap: 4, marginTop: 6, paddingTop: 4, borderTop: "1px solid " + t.line } },
+              h("button", { onClick: () => editRoomMem(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "改"),
+              onAdd ? h("button", { onClick: () => moveRoomMemToMain(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "挪进主线") : null)));
+      })) : null,
+    // 未了 + 选了一个人：给这些约定挑日子，到那天TA自己来（不是情侣也能用）
+    !inRoom && statusFilter === "open" && personKey && pactsOf ? h("button", { onClick: () => setPactsFor(personKey), className: "w-full text-left active:opacity-75",
+      style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, margin: "0 0 10px", padding: "10px 13px",
+        background: t.bg2, border: "1px dashed " + t.line, borderRadius: 3 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.5 } },
+        "给这些约定挑个日子", h("span", { style: { display: "block", fontSize: 10.5, color: t.fog } }, "到那天那个点，TA会自己来找你、打给你或视频")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, flexShrink: 0 } }, "我们说好的 ›")) : null,
+    !inRoom && h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
         "这一摞 " + list.length + " 张"
         + (filter === "__open__" ? " · 这些每个角色都看得见，包括跟这件事没关系的那些" : "")),
       correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
-    list.length === 0 && h(Empty, {
+    !inRoom && list.length === 0 && h(Empty, {
       text: qlc ? "没找到这段记忆" : statusFilter === "open" ? "没有未了的事" : statusFilter === "pinned" ? "还没有常驻记忆" : "还没有记忆",
       sub: qlc ? "换个说法、角色名或标签试试" : "点右上角 + 手动记下，聊天也会自动沉淀"
     }),
-    list.slice(0, memShown).map((e, index) => {
+    (inRoom ? [] : list.slice(0, memShown)).map((e, index) => {
       const d = shortDateOf(e);
       const tags = (e.tags || []).slice(0, 2);
       const faded = isFading(e);
@@ -11727,7 +11841,7 @@ function MemoryLib({
     }),
     // 还剩几张没画：这根哨子进视野就自己续一截。
     // ⚠️还要写一句话给她看——一声不吭地停在第 60 条，看着像「后面的记忆没了」。
-    memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", padding: "14px 0" } },
+    !inRoom && memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", padding: "14px 0" } },
       "还有 " + memMore + " 条，往下翻") : null,
     (superseded.length || archived.length) ? h("div", { style: { marginTop: 18, paddingTop: 13, borderTop: "1px solid " + t.line } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "历史索引"),
@@ -14585,7 +14699,7 @@ const gachaWhen = ts => {
   const p = n => (n < 10 ? "0" : "") + n;
   return (d.getFullYear() + "").slice(2) + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 };
-function GachaCard({ card, busy, onRedeem, onShow, onTitle, onShoot, onCarve, shooting, fresh, character, stackLeft }) {
+function GachaCard({ card, busy, onRedeem, onShow, onTitle, onShoot, onCarve, shooting, fresh, character, stackLeft, onDelete }) {
   const t = useTheme();
   const sk = GACHA_SKIN[card.r] || GACHA_SKIN.R;
   const done = !!card.redeemedTs;
@@ -14744,7 +14858,13 @@ function GachaCard({ card, busy, onRedeem, onShow, onTitle, onShoot, onCarve, sh
                 style: { fontFamily: F_DISPLAY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" }
               }, busy === card.id ? "…" : side === "sweet" ? "甜的" : "皮的")))
             : h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
-              busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")));
+              busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")),
+    // 撕掉这一张（她 2026-09-29 转来的：「抽卡那个兑换了的不能删吗」）。
+    // ⚠️加在卡自己身上：券夹和纪念册走的是同一个组件，两处各画一颗就是同一件事写两遍。
+    // ⚠️不抢眼——小字、靠右、和「兑换」拉开距离，省得手滑；真删走确认弹窗。
+    onDelete ? h("div", { className: "flex justify-end", style: { marginTop: 6 } },
+      h("button", { onClick: () => onDelete(card), className: "active:opacity-50",
+        style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, background: "transparent", border: "none", padding: "4px 2px" } }, "撕掉")) : null);
 }
 // ═══ 扭蛋机（她 2026-09-14：「ui 能不能也做好看高级点的扭蛋机可以互动的，
 //     扭的时候里面东西会动有出货动画，参考图上但是画我们之间的形状」）═══
@@ -14949,7 +15069,7 @@ function GachaMachine({ have, costOne, costTen, armed, armSeq, spin, onArm, onSp
             fontFamily: F_DISPLAY, fontSize: 15 } },
           zh, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .78, marginLeft: 6 } }, cost + " 点")))));
 }
-function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPin, onTitle, onShoot, onCarve, shooting, onBack }) {
+function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPin, onTitle, onShoot, onCarve, shooting, onBack, onDelete }) {
   const t = useTheme();
   const [tab, setTab] = useState("open");     // open=券夹（还没兑的）/ all=纪念册（兑过的）
   const [tone, setTone] = useState("all");   // 甜的／皮的
@@ -15043,7 +15163,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
                     style: { fontFamily: F_BODY, fontSize: 11.5, color: g.pinned ? "#a74d70" : t.fog } },
                     g.pinned ? "已别在最上面 · 取下" : "留到下次")) : null,
                 // 摊开＝每张各一格；收着＝只摆最早那张（先进先出），后面还剩几张写在角上
-                (on ? g.cards : [g.first]).map(c => h(GachaCard, { key: c.id, card: c,
+                (on ? g.cards : [g.first]).map(c => h(GachaCard, { key: c.id, card: c, onDelete: onDelete,
                   stackLeft: (!on && g.n > 1) ? g.n - 1 : 0,
                   busy: busy, onRedeem: onRedeem, onShow: onShow, onTitle: onTitle, onShoot: onShoot, onCarve: onCarve, shooting: shooting, fresh: fresh.indexOf(c.id) >= 0, character: partner })));
             }))
@@ -15061,7 +15181,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
                 h("div", { style: { flex: 1, height: 1, background: t.line } }),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, on ? "收起" : "摊开")),
               on ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
-                    m.cards.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, onShow: onShow, onTitle: onTitle, onShoot: onShoot, onCarve: onCarve, shooting: shooting, fresh: false, character: partner })))
+                    m.cards.map(c => h(GachaCard, { key: c.id, card: c, onDelete: onDelete, busy: busy, onRedeem: onRedeem, onShow: onShow, onTitle: onTitle, onShoot: onShoot, onCarve: onCarve, shooting: shooting, fresh: false, character: partner })))
                 // 收着的时候只露【真的发生了什么】那一行，不是券名——券名你已经看过了
                 : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.9, padding: "0 3px" } },
                     m.cards.slice(0, 4).map(c => String((c.result || {}).title || c.name || "").slice(0, 22)).filter(Boolean).join("、")

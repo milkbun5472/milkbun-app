@@ -26,7 +26,7 @@ test('单人和混合群按说话人的双语设置注入，无开关不发', ()
   assert.equal(callBilingualRule(people, () => ({})), '');
 });
 test('流式、尾部对账和群通话均走同一拆分出口，字幕随真实转录写入', () => {
-  assert.match(app, /callSystem = sys \+ roomPromptFor\(char.id, cur.room\) \+ callBiHint/);
+  assert.match(app, /callSystem = sys \+ roomPromptFor\(char.id, cur.room, true\) \+ callBiHint/);
   assert.match(app, /callAI\(active, sys \+ callBiHint, hist/);
   assert.match(app, /callLines\(stripName\(sy\) \|\| "", char\)/);
   assert.match(app, /acc.concat\(callLines\(sy, char\)\)/);

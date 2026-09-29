@@ -24,9 +24,11 @@ const take = lp => {
   const lim = app.match(/const PROMISE_MIN_MINUTES = [^;]+;/)[0];
   const via = app.slice(app.indexOf("const PROMISE_VIA = {"), app.indexOf("\n", app.indexOf("const promiseVia = ")));
   let row = null;
-  new Function("parsed", "charId", "setPromises", "promisesRef", "saveJSON",
-    lim + "\n" + via + "\n" + app.slice(i, j + 10))
-    .call(null, { laterPromise: lp }, "c1", fn => { row = fn([]).slice(-1)[0]; }, { current: [] }, () => true);
+  // v74.3xx 起多了「等一件事」那一支：promiseAfterTs 照真的写入方换算，这儿没有在途的单＝0
+  const after = app.slice(app.indexOf("const PROMISE_AFTER = {"), app.indexOf("\n", app.indexOf("const PROMISE_AFTER = {")));
+  new Function("parsed", "charId", "setPromises", "promisesRef", "saveJSON", "promiseAfterTs",
+    lim + "\n" + via + "\n" + after + "\n" + app.slice(i, j + 10))
+    .call(null, { laterPromise: lp }, "c1", fn => { row = fn([]).slice(-1)[0]; }, { current: [] }, () => true, () => 0);
   return row;
 };
 

@@ -86,7 +86,8 @@ test("控制字符与裸引号两种坏 JSON 都能抢救出必填字段", () =>
 
   // ① opening 里直接写了真换行（5-9 句的开场最容易踩）
   const withNewline = '{"charRole":"他是二房嫡子。\n心思极深。",' + base + ',"opening":"你站在廊下。\n雨声很大。"}';
-  assert.equal(mod.extractJSON(withNewline), null, "裸 extractJSON 本来就死在这里");
+  // v74.266 起真换行在 extractJSON 本身就治了（先转义控制字符再解析）；裸引号那种它照旧解不了，下面那条还在
+  assert.equal(mod.extractJSON(withNewline).opening, "你站在廊下。\n雨声很大。");
   assert.equal(mod.parseSettingPayload(withNewline, KEYS).goal, "让他当众认下这笔账");
 
   // ② 正文里用了未转义的英文引号（中文对白最爱）

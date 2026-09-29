@@ -1069,6 +1069,7 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts)
   }
   open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定",
     onCancel: typeof onCancel === "function" ? onCancel : null,
+    cancelLabel: opts && opts.cancelLabel || "",
     danger: !(opts && opts.danger === false) });
   return true;
 }
@@ -8145,6 +8146,7 @@ function PhotoSheet({ m, onClose, toast, onGen }) {
             style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"))
       : h("div", null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
+          m.noDrawWhy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, m.noDrawWhy) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）"),
           onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null));
 }
@@ -8748,6 +8750,9 @@ function ChatThread({
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
     // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
+    if (m.kind === "listenlog") return h(SysNote, { key: i, label: "一起听",
+      text: (m.content || "一起听了一会儿歌") + ((m.lines || []).length ? " · 边听边说了 " + m.lines.length + " 句" : ""),
+      onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "watchlog") return h(SysNote, { key: i, label: "一起看",
       text: (m.content || ("一起看《" + (m.title || "") + "》")) + ((m.lines || []).length ? " · 边看边说了 " + m.lines.length + " 句" : ""),
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
@@ -8758,6 +8763,10 @@ function ChatThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
+    // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
+    if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+      h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(RecordedCard, { m: m }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
@@ -8832,10 +8841,6 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(TarotShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    // TA替她记进备忘录 / 记了一笔账（v58.10）
-    if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
-      h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(RecordedCard, { m: m }));
     // 逛购物 app 时拿给TA看的那件东西（v57.98）
     if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(ShopAskCard, { m: m }),
@@ -11713,9 +11718,35 @@ function CarvedCard({ m, onOpen }) {
         marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, m.note) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "已经进了你俩的唱片架 ›")));
 }
+// 账本是玻璃皮时：TA 记的那笔是一张从电子钱包里吐出来的小票（她 2026-09-29 给的票纸、回形针、RECORDED 章）。
+//   票纸按九宫格拉伸，长短跟着内容走；底是票纸图自己的实心珠光，壁纸打不穿。
+function LedgerTicketCard({ m }) {
+  const A = "assets/ledger/", V = "?v=293";
+  const ink = "#4d4590", sub = "#7a71b4";
+  const inc = /^\+/.test(m.title || "");
+  const mt = String(m.title || "").match(/^([+−-])(\S*?)([\d.,]+)\s*(.*)$/);
+  // 点这张小票就进账本（她 2026-09-29）
+  return h("button", { "data-wk": "card", "data-ledger-ticket": true, "aria-label": "去账本看这一笔", className: "active:opacity-80 text-left",
+      onClick: () => { try { window.ledgerGoApp && window.ledgerGoApp(); } catch (e) {} }, style: { position: "relative", display: "block", width: 206, paddingTop: 10 } },
+    h("img", { src: A + "rc-clip.webp" + V, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", left: -6, top: -4, width: 30, height: "auto", zIndex: 2, transform: "rotate(-14deg)", pointerEvents: "none" } }),
+    h("div", { style: { position: "relative", borderStyle: "solid", borderColor: "transparent", borderWidth: "58px 22px 36px",
+        borderImage: "url(" + A + "rc-ticket.webp" + V + ") 265 80 150 fill / 58px 22px 36px / 0 stretch", minHeight: 80 } },
+      h("div", { style: { marginTop: -30, fontFamily: F_BODY, fontSize: 9, letterSpacing: ".3em", color: sub, textAlign: "center" } }, "QIUQIU MART"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, textAlign: "center", marginTop: 16 } }, "已记进账本"),
+      mt ? h("div", { style: { textAlign: "center", marginTop: 4, fontFamily: F_DISPLAY, fontWeight: 800, color: ink, lineHeight: 1.1 } },
+          h("span", { style: { fontSize: 15 } }, (mt[1] === "+" ? "+" : "−") + mt[2]), h("span", { style: { fontSize: 26 } }, mt[3]))
+        : h("div", { style: { textAlign: "center", marginTop: 4, fontFamily: F_DISPLAY, fontSize: 17, fontWeight: 800, color: ink } }, m.title || ""),
+      mt && mt[4] ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: ink, marginTop: 2 } }, mt[4]) : null,
+      h("div", { style: { borderTop: "1px dashed rgba(160,150,220,.6)", margin: "10px 0 8px" } }),
+      m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sub, textAlign: "center" } }, m.sub) : null,
+      m.note ? h("div", { style: { fontFamily: "'Kaiti SC','STKaiti','KaiTi',cursive", fontSize: 13, color: ink, lineHeight: 1.5, marginTop: 6, textAlign: "center", paddingRight: 30 } }, "“" + m.note + "”") : null,
+      h("div", { "aria-hidden": "true", style: { height: 16, margin: "10px 34px 0 12px", opacity: .55, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 6px," + ink + " 6px 7px,transparent 7px 10px)" } }),
+      h("img", { src: A + "rc-stamp.webp" + V, alt: "RECORDED", draggable: false, style: { position: "absolute", right: -34, bottom: -30, width: 66, height: "auto", transform: "rotate(-12deg)", opacity: .92, pointerEvents: "none" } })));
+}
 function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo";
+  if (!isMemo && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
   const tone = isMemo ? "122,106,154" : "79,109,90";
   return h("div", { "data-wk": "card",
     style: {
@@ -15433,8 +15464,8 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
       : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。这是模型唯一能看到 TA 平时真怎么跟你说话的地方——拉成 0，角色就只剩人设标签，容易演成刻板印象。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 50, 1, " 条"),
     interop && row("群里自己聊起来", "开互通后，你不看着这个群也没关系：只要 App 还活着，成员就会自己顺着聊，聊出来的内容会在消息页挂未读。额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
     interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（绕着这个数上下浮动，不死板）。嫌太闹就往大调。想让他们先别聊、把话头留给你，点顶栏设置左边那颗圆点——它会变白，底下那颗按钮也跟着变白。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
-    interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),
-    interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),
+    interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 60, 1, " 轮"),
+    interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 300, 5, " 条"),
     interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时"),
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
     row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在TA这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
@@ -15846,14 +15877,21 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   //      不然她面对的是一间刚被自己删掉的房。
   const removeRoom = room => {
     if (!room || room.main) return;
-    requestAppConfirm("删掉「" + (room.name || "这间房") + "」？", "这间房的聊天记录先留着，不会被硬删。", () => {
+    // 这间房名下有记忆时多问一句（她 2026-09-29 定）：删之前先导出备份（never-say-delete-first）
+    const memN = Kit.memCount ? Kit.memCount(character.id, room.id) : 0;
+    const askMem = done => !memN ? done(false) : requestAppConfirm(
+      "这间房有 " + memN + " 条记忆，要一起删吗？",
+      "删之前先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份到自己手里。选「留着」的话，它们还在记忆库里、归在这间房名下，只是再没有哪间房读得到。",
+      () => done(true), "一起删", () => done(false), { cancelLabel: "留着" });
+    requestAppConfirm("删掉「" + (room.name || "这间房") + "」？", "这间房的聊天记录先留着，不会被硬删。", () => askMem(dropMem => {
       if (!Kit.remove(character.id, room.id)) return window.__toast && window.__toast("这次没删成功，房间入口还在");
+      if (dropMem) Kit.memDropRoom(character.id, room.id);
       setRooms(Kit.list(character.id));
       pick("main");
       // 正开着的就是它 → 聊天也一起退回主聊天
       if (String(activeRoomId || "main") === String(room.id)) onSelect("main", false);
       window.__toast && window.__toast("删掉了「" + (room.name || "这间房") + "」，已回到主聊天");
-    }, "删掉");
+    }), "删掉");
   };
   const clearRoom = room => {
     if (!room || room.main || !onClearRoom || clearBusy) return;
@@ -16071,6 +16109,15 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
     !draft.main && group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
     group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
+    // 房内浓缩的上限（她 2026-09-29：「上限搞个拉条自由选择」）。只有侧房有这一份——主聊天走长期记忆。
+    !draft.main && h("div", { style: { marginTop: 18 } },
+      h(Eyebrow, null, "这间房自己记多长"),
+      h("div", { className: "flex items-center justify-between", style: { margin: "8px 0 6px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "前情浓缩最多留"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.accent } }, Kit.digestCapOf(draft) + " 字")),
+      h(Slider, { value: Kit.digestCapOf(draft), min: Kit.ROOM_DIGEST_MIN, max: Kit.ROOM_DIGEST_MAX, step: Kit.ROOM_DIGEST_STEP, onChange: v => patch({ digestCap: v }) }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } },
+        "聊满 50 条会浓缩一段存在这间房里，每轮都会发给 TA。满了先掉最早的那段；拉长记得久，每轮也更费字。")),
     !draft.main && (draft.scenario || draft.opening) && h("div", { style: { marginTop: 16, padding: "11px 12px", borderRadius: 12, border: "1px dashed #c99aa5", fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.6 } }, characterText(character, "长篇如果只负责把底子压在最后，不替你锁门。默认什么都不带进来；你在上面开了哪一条，他就只带那一条进来。")),
     // 看不见就不许改：认知里关了「关系与内在状态」时，这间房读不到旧心情、读不到印象卡原文。
     // 心情要拿上一轮当起点，印象卡是【整块重写】——凭空覆盖等于抹掉。闸在代码里（ChatRooms.canWrite），
@@ -16238,6 +16285,8 @@ function ChatSettings({
   const [showTime, setShowTime] = useState(!!settings.showTime);
   const [timeSec, setTimeSec] = useState(!!settings.timeSec);
   const [showRead, setShowRead] = useState(settings.showRead !== false);
+  // 长消息自动拆成短句：默认开着＝跟原来一模一样（她 2026-09-29）
+  const [splitBubbles, setSplitBubbles] = useState(settings.splitBubbles !== false);
   const [selfP, setSelfP] = useState(settings.selfP || "first");
   const [userP, setUserP] = useState(settings.userP || "second");
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
@@ -16506,6 +16555,7 @@ function ChatSettings({
       showTime,
       timeSec,
       showRead,
+      splitBubbles,
       selfP,
       userP,
       describeMe,
@@ -16705,6 +16755,10 @@ function ChatSettings({
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    dispRow("长消息自动拆成短句", splitBubbles, setSplitBubbles),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+      "开着：TA 一段话会按句子拆成好几个气泡，像一条条打出来的。"
+      + "关掉：TA 发几条就是几条，想写长的（一封信、一段要读完的话）就整段放一条，平时还是短句。"),
     dispRow("显示模型思考链", showReasoning, setShowReasoning),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"

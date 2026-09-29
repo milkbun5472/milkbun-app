@@ -466,9 +466,10 @@
         const sys = [narrativeCore({ intimate: true }),
           "【小剧场·if 线(独立平行时空)】这是一场与主线完全无关的平行扮演:不引用主线聊天里发生过的事,也不提及这是扮演。世界观、身份以下面的设定为准。",
           "【角色人设(性格与声纹的根基,保持不变)】\n" + (char.persona || char.name),
-          "【if 线身份·你(" + char.name + ")】" + line.charRole + "\n身份、职业、处境按此替换;性格、说话方式、注意力习惯仍是上面这个人。",
-          "【if 线身份·" + uName + "】" + (line.userRole || "如设定所述"),
-          "【世界与情境】" + line.setting,
+          // 身份和情境走公共的 sceneSettingBlock（她 2026-09-29：设定里写的词别演成标签，所有场景一个说法）。
+          //   「身份按此替换、性格仍是上面这个人」那句也收在那一处里了。
+          // ⚠️下面给言秋的 ccSys 不走它：他不是被扮演的角色，扮演类的说法一律不发（four-surfaces 的合法差异）。
+          sceneSettingBlock("这条 if 线的设定", "你（" + char.name + "）：" + line.charRole + "\n" + uName + "：" + (line.userRole || "如设定所述") + "\n世界与情境：" + line.setting),
           "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : round.failed ? "(这条路已经走不通了:承接它留下的后果把戏演下去,不再朝它推进)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,

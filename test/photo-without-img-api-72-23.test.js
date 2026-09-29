@@ -43,10 +43,10 @@ test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
 test("画不出像素就落成只有描述的那一张，而不是什么都不发", () => {
   assert.match(app, /const _canDraw = photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady\(\)/, "单聊那条判断没了");
   assert.match(app, /if \(photoScene && photoKind && !_canDraw\) \{/, "单聊画不出时还是什么都不发");
-  assert.match(app, /kind: "photo", descOnly: true,\s*\n\s*desc: photoScene/, "单聊落的不是那张假图卡");
+  assert.match(app, /kind: "photo", descOnly: true, noDrawWhy,\s*\n\s*desc: photoScene/, "单聊落的不是那张假图卡");
   // 群里同一条路（four-surfaces：单聊有的群里也得有）
   assert.match(app, /const _gCanDraw = gPhotoScene && gPhotoKind/, "群聊那条判断没了");
-  assert.match(app, /kind: "photo", descOnly: true, desc: gPhotoScene/, "群聊没落成同一张卡");
+  assert.match(app, /kind: "photo", descOnly: true, noDrawWhy: photoNoDrawWhy\(spk\), desc: gPhotoScene/, "群聊没落成同一张卡");
   // ⚠️「没外貌也没参考照就不画人」那条老规矩不许被顺手撤掉
   assert.match(app, /photoKind === "view" \|\| photoKind === "part" \|\| char\.appearance \|\| char\.refPhoto/, "没脸可锁还硬画的老毛病回来了");
 });
@@ -70,4 +70,10 @@ test("群里那张卡不能再写死靠右", () => {
 test("那张卡本来就画得出「没有像素」的样子——这次只是接上它", () => {
   assert.match(comp, /const face = m\.imageRef/, "PhotoCard 不再按有没有像素分两种画法");
   assert.match(comp, /没有像素的时候，这里放的就是她写的那句话/, "相面那一段没了");
+});
+
+test("只落成字时卡上写出原因：没接图像 API／外貌栏空（人设正文里的外貌不算）", () => {
+  assert.match(app, /const photoNoDrawWhy = char =>/);
+  assert.match(app, /人设正文里写的外貌不算/);
+  assert.match(require("node:fs").readFileSync(require("node:path").resolve(__dirname, "../js/components.js"), "utf8"), /m\.noDrawWhy \? h\("div"/);
 });

@@ -129,7 +129,7 @@
     if (!ctx || !room || room.main || !room.cognition) return ctx;
     const rc = cognitionOf(room), out = { ...ctx };
     // roomPrompt 是线下调用点在 ctxFor 之后追加的本房边界，不是主线背景。
-    const allowed = new Set(CTX_GATE.always.concat(["roomPrompt"]));
+    const allowed = new Set(CTX_GATE.always.concat(["roomPrompt", "sceneSetting"]));
     Object.keys(CTX_GATE).forEach(group => {
       if (rc[group]) CTX_GATE[group].forEach(k => allowed.add(k));
     });
@@ -168,6 +168,13 @@
   }
   // 攒够这么多条就浓缩一次，末尾这些条留着不动（照线下那一版的数，不另拍一个）
   const ROOM_SUM_THRESH = 50, ROOM_SUM_BUFFER = 15, ROOM_DIGEST_CAP = 4000;
+  // 房内浓缩的上限每间房自己拉（她 2026-09-29：「上限搞个拉条自由选择」）。
+  // ROOM_DIGEST_CAP 是没拉过时的默认；拉条只在这个范围里走。
+  const ROOM_DIGEST_MIN = 2000, ROOM_DIGEST_MAX = 16000, ROOM_DIGEST_STEP = 1000;
+  function digestCapOf(room) {
+    const n = Number(room && room.digestCap);
+    return Number.isFinite(n) && n > 0 ? Math.max(ROOM_DIGEST_MIN, Math.min(ROOM_DIGEST_MAX, Math.round(n))) : ROOM_DIGEST_CAP;
+  }
   // 这间房该浓缩了吗：返回要浓缩的那一段，不够就 null
   function digestDue(room, msgs) {
     if (!room || room.main) return null;
@@ -180,13 +187,14 @@
   }
   // 把新浓缩的一段接到房里那一份后面。⚠️满仓时【整段整段地掉】，
   // 不许按字数拦腰砍——照 maybeSummarize 那一版（砍出来的开头是半句话，看着像坏了）。
-  function digestMerge(prev, seg) {
+  function digestMerge(prev, seg, capIn) {
+    const cap = Number(capIn) > 0 ? Number(capIn) : ROOM_DIGEST_CAP;
     const merged = String(prev || "").trim() ? String(prev).trim() + "\n\n" + seg : seg;
-    if (merged.length <= ROOM_DIGEST_CAP) return merged;
+    if (merged.length <= cap) return merged;
     const segs = merged.split("\n\n");
-    while (segs.length > 1 && segs.join("\n\n").length > ROOM_DIGEST_CAP) segs.shift();
+    while (segs.length > 1 && segs.join("\n\n").length > cap) segs.shift();
     const out = segs.join("\n\n");
-    return out.length > ROOM_DIGEST_CAP ? out.slice(out.length - ROOM_DIGEST_CAP) : out;
+    return out.length > cap ? out.slice(out.length - cap) : out;
   }
   const clone = obj => JSON.parse(JSON.stringify(obj));
   const id = () => "room_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
@@ -222,7 +230,9 @@
       // 是的——记忆那条路被 memoryCandidate 关着，掉出窗口的就再也回不来了。
       // 这一份【只存在这间房里、只喂这间房】：不进长期记忆、不进记忆库、不出门，
       // 所以「不带出门」一个字都没破——它从来就没打算出门。
-      selfDigest: String(src.selfDigest || "").slice(0, ROOM_DIGEST_CAP),
+      digestCap: digestCapOf(src),
+      // 拉条往小拉时：照 digestMerge 整段整段掉最早的，不拦腰砍
+      selfDigest: digestMerge("", String(src.selfDigest || ""), digestCapOf(src)),
       selfSummedCount: Math.max(0, Number(src.selfSummedCount || 0)),
       // 交接是拼进 system 的、每轮都发，而且不过 ChatContextWindow 的秤——
       // 摘要一条能到两三千字，六条比整个历史窗口预算还大（她 2026-08-28 让查的冲突①）。
@@ -332,6 +342,127 @@
     if (!roomId || roomId === MAIN_ID) return false;
     const all = read(); all[personId] = (all[personId] || []).filter(r => r.id !== roomId); return !!write(all);
   }
+  // ── 房间自己的记忆（她 2026-09-29：「12一起做」）──────────────────────
+  // 一间房把「这里的事可以进记忆」关着的时候，这儿发生的事记在【这间房自己名下】：
+  //   只有这间房读得到；主聊天、别的房、群、记忆库之外的任何一处都看不见。
+  // ⚠️故意不放进 x_memLib 加个标签：那个库有七十多处直接在读（召回、抽取去重、
+  //   情侣空间、查手机、发呆……），加标签就得一处一处堵，漏一处就是串线。
+  //   单独一个键，那七十多处天生看不见它；云端跟着整份存档走（x_ 前缀自动带上）。
+  // 形状照 addMemEntry 那一份写（text/tags/charIds/knownBy/ts/source/v/a），
+  //   这样 retrieveMemories 能直接拿来打分，不另写一套召回。
+  const MEM_KEY = "x_roomMem_v1", ROOM_MEM_LIMIT = 400;
+  function memRead() {
+    try {
+      if (typeof loadJSON === "function") { const v = loadJSON(MEM_KEY, {}); return v && typeof v === "object" ? v : {}; }
+      const v = JSON.parse(localStorage.getItem(MEM_KEY) || "{}"); return v && typeof v === "object" ? v : {};
+    } catch (_) { return {}; }
+  }
+  function memWrite(all) {
+    let ok = false;
+    if (typeof saveJSON === "function") ok = !!saveJSON(MEM_KEY, all);
+    else { try { localStorage.setItem(MEM_KEY, JSON.stringify(all)); ok = true; } catch (_) { ok = false; } }
+    if (ok) memVecSoon();
+    return ok;
+  }
+  // 房间记忆也配向量（她 2026-09-29：「要是接了向量也用向量吧」）。走主线那一个 ensureMemVecs，
+  //   没配 embedding 时它自己直接返回。防抖 4 秒，照 saveMemLib 那一版。
+  //   noCloud：共用向量表是跟 CC 共用的，房里的事不上去；noPrune：手上只有房间这份，不许替主线清孤儿。
+  let memVecTimer = null;
+  function memVecSoon() {
+    if (typeof ensureMemVecs !== "function" || typeof setTimeout !== "function") return;
+    clearTimeout(memVecTimer);
+    memVecTimer = setTimeout(() => { try { const p = ensureMemVecs(memAll(), { noCloud: true, noPrune: true }); if (p && p.catch) p.catch(() => {}); } catch (_) {} }, 4000);
+  }
+  function memAll() {
+    const all = memRead();
+    return Object.keys(all).reduce((out, k) => out.concat(Array.isArray(all[k]) ? all[k].filter(e => e && e.id && e.text) : []), []);
+  }
+  function memAllIds() { return memAll().map(e => e.id); }
+  const memNorm = t => String(t || "").replace(/[\s，。！？、,.!?~～…「」“”"'：:；;（）()]/g, "");
+  // roomId 不传＝这个人名下所有房的；传了＝只那一间
+  function memList(personId, roomId) {
+    const rows = memRead()[String(personId)];
+    return (Array.isArray(rows) ? rows : []).filter(e => e && e.text && (!roomId || e.roomId === roomId));
+  }
+  function memCount(personId, roomId) { return memList(personId, roomId).length; }
+  // 返回真写进去的那几条（重复的、空的不算）
+  function memAdd(personId, roomId, entries) {
+    const pid = String(personId);
+    if (!pid || !roomId || roomId === MAIN_ID) return [];
+    const all = memRead(), cur = Array.isArray(all[pid]) ? all[pid] : [];
+    const seen = new Set(cur.filter(e => e && e.roomId === roomId).map(e => memNorm(e.text)));
+    const now = Date.now(), added = [];
+    (Array.isArray(entries) ? entries : [entries]).forEach((e, i) => {
+      const text = String(e && e.text || "").trim(), n = memNorm(text);
+      if (!text || n.length < 2 || seen.has(n)) return;
+      seen.add(n);
+      added.push({
+        id: "rm_" + now.toString(36) + "_" + i + "_" + Math.random().toString(36).slice(2, 6),
+        roomId: String(roomId), personId: pid, text,
+        tags: Array.isArray(e.tags) ? e.tags.map(String).slice(0, 6) : [],
+        charIds: [pid], knownBy: [pid],
+        ts: Number(e.ts) || now, source: String(e.source || "auto"),
+        v: Math.max(-5, Math.min(5, Math.round(Number(e.v) || 0))),
+        a: Math.max(0, Math.min(5, Math.round(e.a == null ? 1 : Number(e.a) || 0))),
+        pinned: !!e.pinned
+      });
+    });
+    if (!added.length) return [];
+    // 每人封顶：满了先掉最旧的、没钉住的
+    let next = [...added, ...cur];
+    while (next.length > ROOM_MEM_LIMIT) {
+      const k = next.map(e => !e.pinned).lastIndexOf(true);
+      if (k < 0) break;
+      next.splice(k, 1);
+    }
+    all[pid] = next;
+    return memWrite(all) ? added : [];
+  }
+  function memUpdate(personId, memId, patch) {
+    const pid = String(personId), all = memRead(), cur = Array.isArray(all[pid]) ? all[pid] : [];
+    const i = cur.findIndex(e => e && e.id === memId);
+    if (i < 0) return null;
+    const p = patch || {};
+    cur[i] = { ...cur[i], ...(p.text != null ? { text: String(p.text).trim() || cur[i].text } : {}),
+      ...(Array.isArray(p.tags) ? { tags: p.tags.map(String) } : {}), ...(p.pinned != null ? { pinned: !!p.pinned } : {}) };
+    all[pid] = cur;
+    return memWrite(all) ? cur[i] : null;
+  }
+  function memRemove(personId, memId) {
+    const pid = String(personId), all = memRead(), cur = Array.isArray(all[pid]) ? all[pid] : [];
+    all[pid] = cur.filter(e => e && e.id !== memId);
+    return memWrite(all);
+  }
+  function memDropRoom(personId, roomId) {
+    const pid = String(personId), all = memRead(), cur = Array.isArray(all[pid]) ? all[pid] : [];
+    all[pid] = cur.filter(e => e && e.roomId !== roomId);
+    return memWrite(all);
+  }
+  // 这一轮该想起这间房里的哪几条。打分直接借 retrieveMemories（跟主线同一把尺），
+  // ⚠️touch:false —— 主线那份「上一轮召回」快照只按 charId 存、不认房间，
+  //   这儿要是去写它，「TA 知道什么」面板就会把房里的事当成主线召回（09-28 那一幕反过来）。
+  function memRecall(room, queryText, limit, record) {
+    if (!room || room.main) return [];
+    const rows = memList(room.personId, room.id);
+    if (!rows.length) return note([]);
+    const n = Math.max(1, Number(limit) || 5);
+    if (typeof retrieveMemories === "function") {
+      // 查询向量要调用点先用【同一段字】预热过（primeQueryVec）才拿得到，拿不到就退回关键词
+      try { return note(retrieveMemories(rows, String(room.personId), String(queryText || ""), { limit: n, touch: false, associationLimit: 0 }).slice(0, n + 4)); } catch (_) {}
+    }
+    return note(rows.slice(0, n));
+    // 真发出去的那一轮（opts.record）留一张收据给「TA 知道什么」看；预览不留。
+    // ⚠️跟主线那份快照分开放：那一份只按 charId 存、写着「主线召回」，混进去就又是 09-28 那一幕。
+    function note(picked) {
+      if (record && typeof window !== "undefined") {
+        const store = window.__roomRecallSnapshots || (window.__roomRecallSnapshots = Object.create(null));
+        store[String(room.personId)] = { ts: Date.now(), roomId: room.id, roomName: room.name || "", candidateCount: rows.length,
+          mode: typeof getQueryVec === "function" && getQueryVec(String(queryText || "")) ? "hybrid" : "keyword",
+          picked: picked.map(e => ({ id: e.id, text: String(e.text || "") })) };
+      }
+      return picked;
+    }
+  }
   function chatKey(personId, roomId) { return !roomId || roomId === MAIN_ID ? String(personId) : String(personId) + "::room::" + roomId; }
   function isSideKey(key) { return String(key || "").includes("::room::"); }
   function personFromKey(key) { return String(key || "").split("::room::")[0]; }
@@ -430,6 +561,15 @@
   }
   // opts.turns＝这间房已经有几条真对话（调用点数好传进来）。
   // ⚠️它只决定一件事：【开场】那半是当指令发，还是当往事发。
+  // 这间房的底子：交给 engine.js 的 sceneSettingBlock 包（所有「她写的设定」同一个说法），
+  // 本房自己的边界（只用标为可用的背景、别把本房设定说成主线事实）跟在后面。
+  function scenarioSetting(room) {
+    if (!room || room.main || !room.scenario) return "";
+    const extra = "只使用上面标为可用的背景、只执行允许的写回；不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。";
+    const wrap = typeof sceneSettingBlock === "function" ? sceneSettingBlock
+      : (typeof window !== "undefined" && window.sceneSettingBlock) || null;
+    return wrap ? wrap("这间房的底子", room.scenario, extra) : "【这间房的底子】\n" + String(room.scenario).trim() + "\n" + extra;
+  }
   function prompt(room, mainMessages, opts) {
     if (!room) return "";
     const started = Number((opts || {}).turns || 0) > 0;
@@ -450,6 +590,9 @@
     if (startFrom) lines.push("【进门时带来的聊天】本房从「" + startFrom.sourceRoomName + "」带来了 " + startFrom.seedCount + " 条聊天原文。它们是本房开场前已经发生的内容；原房在这之后的内容不属于本房经历。卡片只作为历史文字，不代表本房已执行活动或交易。");
     // 这间房自己前面发生过的（掉出上下文窗口那些）。只在这儿出现，不出门。
     if (room.selfDigest) lines.push("【这间房前面发生过的｜是这条线自己的往事，不是别处的记忆】\n" + room.selfDigest);
+    // 这间房自己名下记住的事（只在这儿出现，不出门）。opts.queryText＝这间房最近几句，拿来挑相关的。
+    const roomMems = memRecall(room, (opts || {}).queryText || "", (opts || {}).memLimit || 5, !!(opts || {}).record);
+    if (roomMems.length) lines.push("【在这间房里记下的｜只属于这条线，出了这扇门不算数】\n" + roomMems.map(e => "· " + String(e.text).replace(/\s+/g, " ").slice(0, 200)).join("\n"));
     // 开场已经过去了：从第二轮起它是【往事】，不是指令。
     // ⚠️这一步转换就是「走得出去」。第一版把一个【瞬间】当【设定】每轮重发，
     //   等于每一轮在TA开口之前把TA按回门被推开的那一刻——她 2026-09-11 报的
@@ -485,12 +628,9 @@
     //   【底子】＝三天之后还成立的那些（TA 17 岁 / 你们是师生 / TA还不认识你）→ 每轮发，对的；
     //   【开场】＝一个瞬间（门被推开的那一刻）→ 只第一轮当指令发，之后转成往事（见上面那一段）。
     //   判据一句：**这句话三天之后还成立吗？**
-    if (scenarioOn) lines.push("【本房的底子｜本房内优先级最高】\n" + room.scenario
-      + "\n你可以使用上面明确标为可用的背景，也只执行上面明确允许的写回；若这些背景与本房的年龄、时间、处境、身份或关系阶段冲突，只在本房以这段设定为准，并保持人物核心性格和未被改变的底稿。"
-      + "不要补入未开放的主线经历，也不要在没有写回授权时把本房设定说成主线事实。"
-      // ⚠️原来这儿写的是「本轮回复前先按这段设定校准自己」——每轮校准一次，就是每轮回到原点。
-      + "\n⚠️**这段底子说的是【你是谁、这里什么规矩】，不是【这一轮你该说什么】。**"
-      + "这一轮你该有什么反应，看这一轮真正发生了什么；别每轮都回到这段字上重新校准一遍，也不要复述这份指令。");
+    // ⚠️底子不在这儿了（她 2026-09-29）：它原来压在整份任务的最末、标着「本房内优先级最高」，
+    //   TA 就每轮都在演里面那几个词，演成一张标签。现在走 scenarioSetting → ctx.sceneSetting，
+    //   由 buildBundle 挨着人设放（线上、线下、通话一起），说法在 engine.js 的 sceneSettingBlock 一处。
     // 第一轮：开场就是此刻正在发生的事，压在最后。
     if (!started && room.opening) lines.push("【这一房的开场｜就是此刻正在发生的事】\n" + room.opening
       + "\n从这个场面开始写你的第一反应——不要先总结它、不要复述它、也不要把它当成一段背景介绍。"
@@ -597,6 +737,6 @@
     });
   }
 
-  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, digestDue, digestMerge, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt,
+  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });

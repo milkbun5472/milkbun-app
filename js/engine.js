@@ -285,13 +285,20 @@ async function ensureMemVecs(lib, opts) {
   const list = (lib || []).filter(e => e && e.id && e.text);
   const todo = list.filter(e => { if (opts.force) return true; const cur = cache.get(e.id); return !(cur && cur.m === model && cur.h === memVecHash(memEntryEmbedText(e))); });
   // 孤儿清理：缓存/IDB 里有、记忆库里已经没有的条目
-  const liveIds = new Set(list.map(e => e.id));
-  for (const k of Array.from(cache.keys())) { if (!liveIds.has(k)) { cache.delete(k); idbVecDel(k); } }
+  // ⚠️房间记忆（ChatRooms.memAdd，id 以 rm_ 开头）的向量跟主线同住这一份缓存，
+  //   但不在 lib 里——主线这一趟要把它们也算作活的，不然每次存记忆库都把房里的向量清光。
+  //   房间那一趟（opts.noPrune）不清：它手上只有房间那一份，主线的全会被当成孤儿。
+  if (!opts.noPrune) {
+    const liveIds = new Set(list.map(e => e.id));
+    try { if (typeof window !== "undefined" && window.ChatRooms && window.ChatRooms.memAllIds) window.ChatRooms.memAllIds().forEach(id => liveIds.add(id)); } catch (e) {}
+    for (const k of Array.from(cache.keys())) { if (!liveIds.has(k)) { cache.delete(k); idbVecDel(k); } }
+  }
   if (!todo.length) { if (opts.onProgress) opts.onProgress(0, 0); return 0; }
   // 先问云端：CC/别的设备可能已经算好这条向量（同模型 + 同文本 hash 就直接采用，省一次 API）。
   // memory_embeddings 是 App 与 MCP 共用的同一张表；两侧配同一个 embedding 模型时互认互不重算。
   let remaining = todo;
-  if (typeof window !== "undefined" && window.Cloud && window.Cloud.memVecFetch) {
+  // ⚠️opts.noCloud（房间记忆）：memory_embeddings 是跟 CC/MCP 共用的表，房里的事不上那张表。
+  if (!opts.noCloud && typeof window !== "undefined" && window.Cloud && window.Cloud.memVecFetch) {
     try {
       const cloudRows = await window.Cloud.memVecFetch(todo.map(e => e.id));
       const cmap = new Map((cloudRows || []).map(r => [r.id, r]));
@@ -324,7 +331,7 @@ async function ensureMemVecs(lib, opts) {
       cloudPush.push({ id: batch[j].id, model, hash: h, embedding: Array.from(vecs[j]) });
     }
     // 写回云端，让 CC/别的设备共用同一份（best-effort，失败不影响本地检索）
-    try { if (typeof window !== "undefined" && window.Cloud && window.Cloud.memVecUpsert) await window.Cloud.memVecUpsert(cloudPush); } catch (e) {}
+    try { if (!opts.noCloud && typeof window !== "undefined" && window.Cloud && window.Cloud.memVecUpsert) await window.Cloud.memVecUpsert(cloudPush); } catch (e) {}
     done += batch.length;
     if (opts.onProgress) opts.onProgress(done, remaining.length);
     if (i + BATCH < remaining.length) await new Promise(res => setTimeout(res, 300));
@@ -625,7 +632,42 @@ function noteServedModel(profile, req, got) {
     localStorage.setItem("x_apiServed", JSON.stringify(all));
   } catch (e) {}
 }
+// 网络抖一下自动再试一次（她 2026-09-29）。只认【明确没到模型那儿】的那几种，别的一律不重试：
+//   · 刚发出去几秒就断的连接（还没连上，不扣钱）；
+//   · 网关／中转回的 502、503、504、过载、限流（请求没进模型）；
+//   · 回来的是一页 HTML（网关错误页），不是 JSON。
+// ⚠️超时、长时间没首字节被掐断【不重试】：那种可能已经在模型那边跑完、扣过钱了，再发就是双扣。
 async function callAI(p, system, messages, opts) {
+  // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
+  if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
+  // ⚠️这两张表写在函数里面：好几条测试会把 callAI 单独抠出来跑，放外面就抠不到
+  const TRANSIENT_ERR = /\b(502|503|504|520|521|522|523|524|529)\b|bad gateway|service unavailable|gateway time-?out|overloaded|too many requests|rate.?limit|temporarily unavailable|服务繁忙|负载|限流|unexpected token '?<|is not valid json|<!doctype|<html/i;
+  // 配置问题（没填密钥、地址不对）不算「生成失败」要提醒的那种——后台活每分钟一次提醒只会刷屏
+  const CONFIG_ERR = /尚未|没有可用的文字模型|地址填得不对|云端代理不可用|请到设置|去设置/;
+  const t0 = Date.now();
+  // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
+  let streamed = false;
+  const o = Object.assign({}, opts || {});
+  if (typeof o.onDelta === "function") { const f = o.onDelta; o.onDelta = function () { streamed = true; return f.apply(this, arguments); }; }
+  try {
+    return await callAIOnce(p, system, messages, o);
+  } catch (e) {
+    const msg = String((e && e.message) || e || "");
+    const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
+    if (!streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
+      await new Promise(r => setTimeout(r, 2000));
+      try { return await callAIOnce(p, system, messages, o); }
+      catch (e2) { e = e2; }
+    }
+    // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
+    const m2 = String((e && e.message) || e || "");
+    if (!CONFIG_ERR.test(m2)) {
+      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2 } })); } catch (_) {}
+    }
+    throw e;
+  }
+}
+async function callAIOnce(p, system, messages, opts) {
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
@@ -1083,6 +1125,8 @@ function repairJSON(t) {
   }
   if (inStr) out += '"'; // 关闭未闭合的字符串
   out = out.replace(/[,:]\s*$/, ""); // 去掉悬空的逗号/冒号
+  // 截在一个键名上（「"pri」「"price":」）：补齐后是有键没值，照样解析不了——把悬空的键名整个拿掉
+  out = out.replace(/([{,])\s*"(?:[^"\\]|\\.)*"\s*$/, "$1").replace(/,\s*$/, "");
   while (stack.length) out += stack.pop(); // 补齐未闭合的括号
   out = out.replace(/,(\s*[}\]])/g, "$1"); // 去掉尾逗号
   return out;
@@ -1139,9 +1183,38 @@ function extractJSON(raw) {
     r = tryParse(t.slice(0, e + 1));
     if (r !== undefined) return r;
   }
-  r = tryParse(repairJSON(t)); // 兜底：修复被截断的 JSON
-  if (r !== undefined) return r;
+  // 正文里直接写了换行/制表符（最常见的坏法）：先把字符串里的控制字符补成转义再试。
+  // 这一步原来只在 parseJSONLoose 里有，可全库大多数地方直接调的是 extractJSON（她 2026-09-29 要全 app 兜底）
+  const esc = typeof escapeJsonStringControls === "function" ? escapeJsonStringControls(t) : t;
+  if (esc !== t) {
+    r = tryParse(esc);
+    if (r !== undefined) return r;
+    const e2 = Math.max(esc.lastIndexOf("}"), esc.lastIndexOf("]"));
+    if (e2 > 0) { r = tryParse(esc.slice(0, e2 + 1)); if (r !== undefined) return r; }
+  }
+  r = tryParse(repairJSON(esc)); // 兜底：修复被截断的 JSON
+  if (r !== undefined) return pruneTruncatedTail(r);
   return null;
+  // 被截断又补齐的 JSON：列表最后那一项多半只写了一半（补出来的是个残件）。
+  // 跟同一列表里前面那几项比，字段明显少的那一项就丢掉——宁可少一件，不要一件缺胳膊少腿的。
+  // 只在「修复截断」那条路上调，好好的 JSON 一个字不动。
+  function pruneTruncatedTail(v) {
+    if (Array.isArray(v)) {
+      const objs = v.filter(x => x && typeof x === "object" && !Array.isArray(x));
+      if (v.length >= 2 && objs.length === v.length) {
+        const last = v[v.length - 1];
+        const most = Math.max.apply(null, v.slice(0, -1).map(x => Object.keys(x).length));
+        if (Object.keys(last).length < most) v = v.slice(0, -1);
+      }
+      if (v.length) v[v.length - 1] = pruneTruncatedTail(v[v.length - 1]);
+      return v;
+    }
+    if (v && typeof v === "object") {
+      const ks = Object.keys(v);
+      if (ks.length) v[ks[ks.length - 1]] = pruneTruncatedTail(v[ks[ks.length - 1]]);
+    }
+    return v;
+  }
 }
 
 // ============================================================
@@ -2290,6 +2363,22 @@ ${ECHO_QUESTION_BAN}反过来，真的没听清、真的意外到要确认一遍
 保持当前关系阶段与历史连续性，不提前使用尚未发生、未公开或角色不知道的信息。聊天记录中的系统时间标记只用于理解消息发生的时间，不得照抄或当成对方说的话；时间、位置等实时信息只在当前自然相关时使用，不为展示感知能力而主动播报。
 
 偶尔出现自然的补句、改口或打字失误没有问题，但不要为了制造真人感主动安排。`;
+// 气泡长短交给TA自己（她 2026-09-29：「搞一个开关在聊天设置可以选择拆不拆？默认开着的相当于啥都不变」）。
+// 开关关掉时，代码不再替TA切气泡，提示词里「一条＝一句」那一行也得跟着换掉——
+// 只关代码不换这一句，TA照旧不敢写长的；在原句后面补「除非」又正是 no-yes-unless 那条要删的形状。
+// 所以关掉时是【整行换成另一句判据】：一条装的是一口气发出去的东西。
+const ONLINE_ONE_BREATH_LINE = "【一条装的是一口气发出去的东西】平时打字一口气就是一句，所以多半一句一条；一段要一口气读完才成立的话，就整段放进一条，段落照常换行。";
+function onlineChatRule(freeLength) {
+  if (!freeLength) return ONLINE_CHAT_RULE_V2;
+  return ONLINE_CHAT_RULE_V2
+    .replace(/【说多少自由，一条里塞几句不自由】[^\n]*/, ONLINE_ONE_BREATH_LINE)
+    .replace(/嘱咐、安排、解释这类天然会变长的话尤其要拆：先说要紧的那句，再补后面的。/, "");
+}
+// 在一份已经拼好的 system 里，把那一整块聊天规则换成「一口气」版（单聊用；换不到就原样返回）
+function freeLengthSystem(system) {
+  return String(system || "").replace(ONLINE_CHAT_RULE_V2, onlineChatRule(true));
+}
+
 
 // ── 同处一室（她 2026-09-09 提）─────────────────────────────────────────
 // 她的原话：「我和他们在线上明明一起吃饭但是他们总是说为什么在对面还要发消息」。
@@ -2965,6 +3054,25 @@ function onMeLine(onMe, uName) {
   return "【" + (uName || "她") + "今天身上带着：" + String(onMe).trim() + "】"
     + "见了面你看得见它。要不要提是你的事——顺口说一句、或者只是心里记下都行，别每次都拿它开场。";
 }
+// ── 用户写的「这场戏的设定」怎么递给模型（她 2026-09-29）──────────────────
+// 她报：房间设定里写一句「他是某种身份、某种性子」，TA 就每轮都在演那几个词，演成一张标签。
+// 病不在哪个词上，在【怎么递】：原来设定每轮压在任务最末、还标着「优先级最高」——离回复最近、
+// 调门最高的那句，模型当成「这一轮要演出来的东西」；而且从来没有一句话说过设定跟他平时说话是什么关系，
+// 于是每个形容词都被当成每句话都要兑现一次。
+// 她的要求：「必须能覆盖全部场景，不能只是这次给了 example 照着修，下一次新的 example 又修」。
+// 所以这里不点任何一个词（prompt-no-content-samples），只说设定和人是什么关系；
+// 所有「她写一段设定、每轮带着」的地方都从 sceneSettingBlock 过（test/scene-setting-shared 数着）。
+const SETTING_AS_BACKGROUND = "这段设定说的是你在哪、是谁、处在什么处境。里面描述你的词，是你身上有的东西，不是每句话都要演出来的语气；"
+  + "性子是被碰到才冒出来的，大部分时候你在过自己的日子。这一轮怎么反应，看这一轮真正发生了什么。";
+function sceneSettingBlock(title, text, extra) {
+  const body = String(text == null ? "" : text).trim();
+  if (!body) return "";
+  return "【" + (title || "这场戏的设定") + "】\n" + body
+    + "\n" + SETTING_AS_BACKGROUND
+    + "\n它跟上面的人设在年龄、时间、身份、关系这些事实上冲突时，这场戏里以它为准；人的核心性格和说话方式照旧是人设里那个人。"
+    + (extra ? "\n" + extra : "");
+}
+if (typeof window !== "undefined") window.sceneSettingBlock = sceneSettingBlock;
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -3035,6 +3143,9 @@ function buildBundle(ctx, opts) {
   }
   const uName = userName(profile);
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+  // 这场戏的设定（房间底子、小剧场、穿书……她写给这一场的那段）挨着人设放，当背景，不压在任务末尾当指令。
+  //   说法全在 sceneSettingBlock 一处（见那里的由来）。
+  if (ctx.sceneSetting) parts.push(ctx.sceneSetting);
   // 年龄按【今天】现算。人设里写死的岁数会随时间过期，这一条不会——冲突时以这条为准。
   {
     const _age = charAgeNow(char, Date.now());
@@ -3979,7 +4090,9 @@ function pullPhotoMarker(words) {
 }
 function photoCapLine(uName, o) {
   o = o || {};
-  const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : [])
+  // 没外貌也没参考照（face:false）时露脸的不给——画出来是张陌生脸；但拍自己身上不露脸的一部分
+  // 出图那头本来就放行（kind self + face false 落成 part），这里得说出来，不然他只知道能拍空景（她 2026-09-29）
+  const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : ["self（只限拍你身上看不见脸的一部分，face 必须填 false）"])
     .concat(o.duo ? ["duo（你和 " + uName + " 的合照）"] : [])
     .concat(o.group ? ["group（在场几个人的合影）"] : [])
     .concat(["none（画面里一个人都没有：窗外、桌上的东西、刚做好的菜）"]);
@@ -4856,7 +4969,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       : out + "\n【画面尺度补充】画面必须是可公开展示的日常场景：不出现酒精、烟草、武器、血迹与伤口。";
   };
   // 只有【疑似被审核拒了】才值得软化重试；网络错误、超时、配额不足换个说法也没用
-  const looksLikePolicy = e => /safety|policy|内容政策|content policy|moderat|sensitive|blocked|reject|违反/i.test(String((e && e.message) || e || ""));
+  // ⚠️中文站的说法不止「内容政策」（她 2026-09-29 截图：「请求因内容安全策略被拒绝」没认出来，
+  //   软化稿和极简稿一枪都没试就直接报错）——认「策略／审核／安全／拒绝」这一类
+  const looksLikePolicy = e => /safety|policy|内容政策|content policy|moderat|sensitive|blocked|reject|违反|安全策略|内容安全|审核|敏感|违规|拒绝/i.test(String((e && e.message) || e || ""));
   // ⏱整条阶梯的总时间预算（v54.90）。加了几级重试之后，每级各等 180 秒，
   // 最坏情况能卡十几分钟，界面上一直显示「拍照中」（她 2026-08-22 报）。
   // 现在给全程一个总闸：超了就不再往下试，宁可早点告诉她失败。
@@ -5673,6 +5788,19 @@ function splitBilingual(text) {
   const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
   if (/[\u4e00-\u9fff]/.test(orig) && !foreign) return null;
   return { text: orig, zh: zh };
+}
+// 模型把中译另起了一行（「ん？なに？」换行「|……嗯？什么？」）：拆泡是先按换行切的，
+//   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
+//   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
+//   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
+function joinBilingualLines(lines) {
+  return (lines || []).reduce((acc, x) => {
+    const line = String(x == null ? "" : x);
+    const prev = acc.length ? acc[acc.length - 1] : null;
+    if (prev != null && /^\s*\|/.test(line) && prev.indexOf("|") < 0) acc[acc.length - 1] = prev + " " + line.trim();
+    else acc.push(line);
+    return acc;
+  }, []);
 }
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。
@@ -7771,7 +7899,42 @@ async function oocAskGroup(p, ctx, question) {
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
+// 从 schemaHint 认出扁平字段名；有列表或嵌套对象的不管（那种切不准，宁可照旧重来）
+function flatSchemaKeys(hint) {
+  const h = String(hint || "").trim();
+  if (!h || h[0] !== "{" || h.indexOf("[") >= 0 || h.slice(1).indexOf("{") >= 0) return null;
+  const keys = [];
+  h.replace(/"([A-Za-z_][\w]*)"\s*:/g, (_, k) => { if (keys.indexOf(k) < 0) keys.push(k); return _; });
+  return keys.length ? keys : null;
+}
+function flatSchemaSalvage(raw, hint) {
+  const keys = flatSchemaKeys(hint);
+  if (!keys) return null;
+  const s = String(raw || "");
+  const hits = keys.map(k => { const m = new RegExp('"' + k + '"\\s*:\\s*').exec(s); return m ? { k, from: m.index + m[0].length, at: m.index } : null; })
+    .filter(Boolean).sort((a, b) => a.at - b.at);
+  if (hits.length * 2 < keys.length) return null;
+  const out = {};
+  hits.forEach((x, i) => {
+    let v = s.slice(x.from, i + 1 < hits.length ? hits[i + 1].at : s.length).trim();
+    v = v.replace(/```\s*$/, "").trim().replace(/[,}\s]*$/, "").trim();
+    if (/^-?\d+(\.\d+)?$/.test(v)) { out[x.k] = Number(v); return; }
+    if (/^(true|false|null)$/.test(v)) { out[x.k] = v === "null" ? null : v === "true"; return; }
+    v = v.replace(/^"/, "").replace(/"$/, "").replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    if (v) out[x.k] = v;
+  });
+  return Object.keys(out).length * 2 >= keys.length ? out : null;
+}
+// 生成失败广播：app.js 接住弹提示（调用方自己弹过就不重复）。runProbe 这一口收了大多数生成，
+// 在这里挂一张网，比去 600 多个 catch 里一处处补可靠（她 2026-09-29 要「失败都要有 toast」）。
 async function runProbe(p, ctx, probe) {
+  try { return await runProbeInner(p, ctx, probe); }
+  catch (e) {
+    try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (probe && probe.tag) || "", msg: String((e && e.message) || e || "") } })); } catch (_) {}
+    throw e;
+  }
+}
+async function runProbeInner(p, ctx, probe) {
   // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
   // 这个开场白把模型放在【分析师的椅子】上——「不要扮演角色对话，冷静推演」。
   // 绝大多数推演（行程/钱包/相册/书架）本来就该这么站。
@@ -7806,7 +7969,21 @@ async function runProbe(p, ctx, probe) {
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
   // 输出没收好（多写了一句话、JSON 少个括号），重来一次就好了。按次计费，
   // 让她自己去点第二次是没道理的；重试一次仍然失败才报错。
-  if (!parsed) {
+  // 扁平格式的通用捡救（她 2026-09-29：「App 其他还有这种样子的也搞兜底吧」）：
+  //   schemaHint 只有几个平铺的字段、没有列表／嵌套的（四十来处都是这个样子），没解析出来时
+  //   先按字段名从原文里把每一栏切出来——模型最常见的坏法是正文里带了没转义的引号或换行，
+  //   JSON.parse 一碰就碎，按「从这一栏开头切到下一栏开头」切却切得出来。捡回一半以上的栏才算数。
+  if (!parsed && typeof probe.salvage !== "function") {
+    const flat = flatSchemaSalvage(String(raw || ""), probe.schemaHint);
+    if (flat) return flat;
+  }
+  // probe.salvage：只要一两个字段的那种（陪伴戳一下说一句），没解析出 JSON 时先从原文里把东西捡出来——
+  //   模型那句话多半说了，只是没按格式交回来；捡得到就用，不为格式再花一枪。
+  if (!parsed && typeof probe.salvage === "function") {
+    try { const got = probe.salvage(String(raw || "")); if (got) return got; } catch (_) {}
+  }
+  // probe.once：只要一枪的那种——没解析出来就直接报，不再补打
+  if (!parsed && !probe.once) {
     try {
       const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
         [{ role: "user", content: "重来一次。" }], { maxTokens: want, tag: _tag });

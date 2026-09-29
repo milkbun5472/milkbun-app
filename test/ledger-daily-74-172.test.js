@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
 const grab = n => { const i = src.indexOf("function " + n + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
-const { dailyAvg, groupByDay, dayLabel } = new Function("const pad=n=>String(n).padStart(2,'0');" + grab("fmtDay") + grab("dailyAvg") + grab("groupByDay") + grab("dayLabel") + "return {dailyAvg,groupByDay,dayLabel};")();
+const { dailyAvg, groupByDay, dayLabel } = new Function("const pad=n=>String(n).padStart(2,'0');" + src.match(/const isTransfer = [^;]+;/)[0] + src.match(/const refundSum = [^\n]+/)[0] + src.match(/const netAmt = [^\n]+/)[0] + grab("fmtDay") + grab("dailyAvg") + grab("groupByDay") + grab("dayLabel") + "return {dailyAvg,groupByDay,dayLabel};")();
 const today = new Date(2026, 8, 27);
 assert.deepEqual(dailyAvg(648, "2026-09", today), { days: 27, avg: 24 });        // 这个月按已过去的天数
 assert.equal(dailyAvg(310, "2026-08", today).days, 31);                          // 过完的月份按整月

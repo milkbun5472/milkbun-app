@@ -58,7 +58,7 @@ test("两个人的群也得放得下好几个来回，不是刚够一两回", ()
 
 test("人多的时候上限跟着放宽，别把人挤掉", () => {
   assert.ok(nOf(8).nMax > nOf(2).nMax, "人多就该多聊几个来回");
-  assert.ok(nOf(8).nMax <= 20, "也不能没边");
+  assert.ok(nOf(100).nMax <= 48, "也不能没边");
   assert.ok(nOf(8).nMax >= 20, "人多反而比两个人的群还挤就说不过去了");
 });
 
@@ -110,4 +110,19 @@ test("v67.18 那两条不许被顺手改掉", () => {
   assert.match(A, /const G_EACH_OTHER = "接彼此的话/, "「接彼此的话」那一份");
   assert.equal((A.match(/\bG_EACH_OTHER\b/g) || []).length, 3, "一处定义、两条分支各取一次");
   assert.match(A, /不是点名提问/, "她开口那一轮的那一段");
+});
+
+// 她 2026-09-29：「为啥不能放多点人多当然话也得多，反正上限不是必须，给少了反而限制」
+test("人多的群天花板跟着人数长：七人 28 条、十人 40、再多封在 48；两人群不变", () => {
+  assert.equal(nOf(7).nMax, 28);
+  assert.equal(nOf(10).nMax, 40);
+  assert.equal(nOf(20).nMax, 48);
+  assert.equal(nOf(2).nMax, 12, "两个人的群被改动了");
+});
+
+test("群通话一轮条数跟着人数长；自发的两个拉条也放开（总条数到 300、轮数到 60）", () => {
+  assert.match(app, /一次 3~" \+ Math\.min\(30, Math\.max\(7, people\.length \* 3\)\) \+ " 条，name 必须是在场角色之一。/);
+  const comps = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(comps, /autoChatMaxMsg, setAutoChatMaxMsg, 10, 300, 5, " 条"\)/);
+  assert.match(comps, /autoChatRounds, setAutoChatRounds, 1, 60, 1, " 轮"\)/);
 });

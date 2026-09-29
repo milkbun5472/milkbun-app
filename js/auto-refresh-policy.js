@@ -13,7 +13,16 @@
     { id: "forum", group: "social", title: "论坛", sub: "低频主动发帖", globalDefault: true, charDefault: true },
     { id: "whisper", group: "social", title: "悄悄话", sub: "关系内低频留言", globalDefault: true, charDefault: true },
     { id: "capsule", group: "social", title: "时光胶囊", sub: "低频主动埋下胶囊", globalDefault: true, charDefault: true },
-    { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: true }
+    { id: "gaze", group: "content", title: "Ta 眼里", sub: "聊够了自动建卡、隔一阵自动复看", globalDefault: true, charDefault: true },
+    // ⚠️主动私聊的每人开关原来在聊天设置里另存一份（s.proactive，默认关），两边各显示各的。
+    //   现在两边都读写这一份；旧存档开机时由 app.js 把 s.proactive 搬进来（默认关照旧）。
+    { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: false },
+    { id: "letter", group: "social", title: "情书", sub: "恋人按你定的频率自己提笔", globalDefault: true, charDefault: true },
+    { id: "react", group: "social", title: "顺手点评", sub: "你记完一笔账、勾掉一条提醒时TA搭一句", globalDefault: true, charDefault: true },
+    // 下面两样是按「群」「这一场」开的，不按人：设置里只有总闸，细的开关留在各自页面里
+    { id: "groupChat", group: "social", title: "群里自己聊", sub: "群成员在你不说话时自己接着聊", globalDefault: true, charDefault: true, noChars: true },
+    { id: "listen", group: "social", title: "一起听时开口", sub: "一起听歌时TA一首歌最多自己说一句", globalDefault: true, charDefault: true, noChars: true },
+    { id: "watch", group: "social", title: "一起看时开口", sub: "一起看剧时TA隔一阵自己说一句", globalDefault: true, charDefault: true, noChars: true }
   ];
   const byId = Object.fromEntries(FEATURES.map(x => [x.id, x]));
   function normalize(raw, legacyPhoneOn) {
@@ -27,7 +36,39 @@
       const migrateWeeklyOn = f.id === "weekly" && src.version === 1;
       features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars };
     });
-    return { version: 2, features };
+    return { version: 2, features, legacyMerged: !!src.legacyMerged };
+  }
+  // 旧的「页面里自己那份开关」一次性搬进来（她 2026-09-29：「在 app 里关了设置也显示关了」）——
+  //   搬完以后两边都读写这一份，不再各存各的。只搬一次（legacyMerged），之后旧键只是历史。
+  //   legacy：{ chatSettings, forumOff, letterCfg, watchAuto }
+  function absorbLegacy(policy, legacy) {
+    const n = normalize(policy);
+    if (n.legacyMerged) return n;
+    const L = legacy || {};
+    const pro = n.features.proactive.chars;
+    Object.keys(L.chatSettings || {}).forEach(id => {
+      const s = L.chatSettings[id] || {};
+      // 旧口径：每人开关（默认关）× 旧的每人允许（默认开）同时开着才会主动
+      pro[id] = !!s.proactive && pro[id] !== false;
+    });
+    (Array.isArray(L.forumOff) ? L.forumOff : []).forEach(id => { n.features.forum.chars[id] = false; });
+    Object.keys(L.letterCfg || {}).forEach(id => { n.features.letter.chars[id] = !!(L.letterCfg[id] && L.letterCfg[id].auto); });
+    if (L.watchAuto === false) n.features.watch.global = false;
+    n.legacyMerged = true;
+    return n;
+  }
+  // 页面里那颗开关打开【这一个】时：总闸要是关着，一起打开（她按的就是「要」）
+  function turnOnFor(policy, id, charId) {
+    let n = normalize(policy);
+    if (charId) n = setChar(n, id, charId, true);
+    if (!n.features[id].global) n = setGlobal(n, id, true);
+    return n;
+  }
+  // 只看这个人自己那一格、不看总闸——「这个人逛不逛论坛」这种页面里的名单用它
+  function charOn(policy, id, charId) {
+    const f = byId[id]; if (!f) return false;
+    const c = normalize(policy).features[id].chars;
+    return Object.prototype.hasOwnProperty.call(c, charId) ? c[charId] !== false : f.charDefault;
   }
   function enabled(policy, id, charId) {
     const f = byId[id]; if (!f) return false;
@@ -43,6 +84,6 @@
     const n = normalize(policy), cur = n.features[id];
     n.features[id] = { ...cur, chars: { ...cur.chars, [charId]: !!on } }; return n;
   }
-  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setChar };
+  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setChar, absorbLegacy, turnOnFor, charOn };
   if (typeof module !== "undefined" && module.exports) module.exports = root.AutoRefreshPolicy;
 })(typeof window !== "undefined" ? window : globalThis);

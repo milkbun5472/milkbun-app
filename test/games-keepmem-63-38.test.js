@@ -19,7 +19,7 @@ test("app 侧那扇门：只收真实角色、打小游戏标签、knownBy 跟 c
   //   knownBy 跟 charIds 一致那条搬进了公共那一份。
   const kw = cut(app, "const keepWhereItHappened = (opts) => {", "\n  };");
   assert.match(kw, /knownBy: charIds\.slice\(\)/, "写入的形状不对");
-  assert.match(kw, /selfDigest: window\.ChatRooms\.digestMerge\(room\.selfDigest, text\)/, "侧房那一路没落进这间房自己的往事");
+  assert.match(kw, /window\.ChatRooms\.memAdd\(pid, room\.id, \[\{ text,/, "侧房那一路没落进这间房自己的记忆");
   assert.ok(kw.indexOf("addMemEntry") > kw.indexOf("return \"room\";"), "落进房里之后又往记忆库写了一遍");
 });
 
