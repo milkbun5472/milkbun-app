@@ -16,7 +16,7 @@ const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|J
 const ALLOW = {
   // Lisa 2026-09-28 明确要求逐项复制 IMG_0188.PNG；只放行图中实际的卡面/小票字样。
   // Lisa 2026-09-28 又放行一次：「英文可以破例」——Y2K 要有标志性的英文字标（每页顶上一个）
-  "js/ledger.js": ["MY WALLET", "QIUQIU WALLET", "GOOD THINGS", "COST MONEY", "BUT ALSO", "QIUQIU MART", "GOOD LIFE EVERYDAY", "STATISTICS", "MY CALENDAR", "CALENDAR", "MY STUFF", "MY BILLS", "THANK YOU",
+  "js/ledger.js": ["MY WALLET", "QIUQIU WALLET", "GOOD THINGS", "COST MONEY", "BUT ALSO", "QIUQIU MART", "GOOD LIFE EVERYDAY", "STATISTICS", "MY CALENDAR", "CALENDAR", "BILLS", "MY STUFF", "MY BILLS", "THANK YOU",
     // 首页照她给的整页样张逐字抄（页边丝印、卡上贴纸、票根、页脚）
     "QIUQIU", "GOOD", "THINGS", "TAKE TIME", "SINCE", "SPEND", "SAVE", "HAPPIER", "LIFE", "EXPENSES", "LOVE", "SMALL", "MONEY", "BIG", "HAPPINESS", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "BUDGET", "PRIVACY", "CURRENCY", "CATEGORY", "NOTE", "ACCOUNTS", "RECURRING", "EXPORT", "CSV"],
   // ① 这一处压根没有中文名（no-english-titles.md 里写明的那条例外）

@@ -1559,10 +1559,14 @@
     const monthTxns = all.filter(x => (kw ? true : monthKey(x.date) === mk) && (kind === "all" || (kind === "income" ? x.type === "income" : isExpense(x)))
       && (!kw || [x.note, x.category, String(x.amount)].some(v => String(v || "").indexOf(kw) >= 0)))
       .sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    return ledgerPage(sk, "账单", props.onBack,
+    return ledgerPage(sk, sk.id === "glass" ? "" : "账单", props.onBack,
       h("button", { onClick: () => setQ(q == null ? "" : null), "aria-label": "搜索账单", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: "search", size: 19, color: sk.ink })),
-      h("div", { className: "px-5 pb-8 lg-bills" },
-      h(WordMark, { sk, word: "MY BILLS", hand: "small money, big happiness" }),
+      h("div", { className: "px-5 pb-8 lg-bills", style: sk.id === "glass" ? { position: "relative" } : undefined },
+      // 玻璃皮：标题换她出的 BILLS 图，右上角一颗她给的紫星（2026-09-29）
+      sk.id === "glass" ? h(Fragment, null,
+          h("img", { src: "assets/ledger/star-purple.webp?v=283", alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: 14, top: 0, width: 30, height: "auto", pointerEvents: "none" } }),
+          h("img", { src: "assets/ledger/title-bills.webp?v=283", alt: "BILLS", draggable: false, "data-ledger-title": "bills", style: { display: "block", width: "64%", height: "auto", margin: "-6px 0 8px -2%" } }))
+        : h(WordMark, { sk, word: "MY BILLS", hand: "small money, big happiness" }),
         catF ? h("div", { "data-ledger-catfilter": catF, style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
           h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.ink }, sk.card) },
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
