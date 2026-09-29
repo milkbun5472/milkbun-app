@@ -722,6 +722,9 @@
     search: c => [h("circle", { key: 1, cx: 11, cy: 11, r: 6.5 }), h("path", { key: 2, d: "M16 16l4.5 4.5" })]
   };
   const LIcon = ({ k, size, color, sw }) => h("svg", { width: size || 22, height: size || 22, viewBox: "0 0 24 24", fill: "none", stroke: color || "currentColor", strokeWidth: sw || 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }, LI[k] ? LI[k]() : null);
+  // 玻璃框（她给的 panel.png）画在 ::before 上单独压透明度；统计页、日历页共用
+  const PNL_CSS = ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(assets/ledger/panel.png?v=259) 120 fill / 24px / 0 stretch;opacity:.6}" +
+    ".lg-pnl.lg-pnl-hero::before{opacity:.46;filter:saturate(.75);-webkit-mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45));mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45))}";
   // 月份切换：两颗小果冻键夹着一小块屏幕
   //   玻璃皮（她 2026-09-29「日历框也做成第三页这样而不是裸的一行」）：整条垫一块她给的透明滑轨，像一枚小胶囊屏
   const MonthNav = ({ mk, setMk, sk }) => h("div", { "data-ledger-monthnav": true, style: Object.assign({ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, margin: "0 0 10px" },
@@ -868,7 +871,7 @@
       style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent } }, cur.label) : null;
 
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
-      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : tab === "stats" && sk.id === "glass" ? "" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
+      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : (tab === "stats" || tab === "cal") && sk.id === "glass" ? "" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
       // 她 2026-09-29：首页不许左右滑（票根、便签这些故意伸出页边的素材会把页面撑宽），滑到底也不许再弹
       h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", "data-ledger-scroll": true, style: { overflowX: "hidden", overscrollBehavior: "none", touchAction: "pan-y" } },
         tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
@@ -1284,8 +1287,7 @@
     //   本月支出那块最大，四个角同时亮像水晶相框——再压一档，下半截淡出去，让圆环当主角
     const pnl = glassP ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", borderRadius: 0, background: "transparent", padding: 0, position: "relative", isolation: "isolate" } : sk.shell;
     const pnlCls = glassP ? "lg-pnl" : undefined;
-    const pnlCss = glassP ? h("style", null, ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(" + LA + "panel.png" + LV + ") 120 fill / 24px / 0 stretch;opacity:.6}" +
-      ".lg-pnl.lg-pnl-hero::before{opacity:.46;filter:saturate(.75);-webkit-mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45));mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45))}") : null;
+    const pnlCss = glassP ? h("style", null, PNL_CSS) : null;
     const deco = (src, st) => glassP ? h("img", { src: LA + src + ".png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none", zIndex: 3 }, st) }) : null;
     const bay = (title, body, extra, cls) => h("div", { className: glassP ? "lg-pnl" + (cls ? " " + cls : "") : undefined, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl, extra || {}) }, title ? silk(sk, title, { marginBottom: 8 }) : null, body);
     // overflow 两个方向都 clip：装饰素材伸到最后一块面板下面时不许把页面撑长（她 2026-09-29「撑不到那么多的时候也把页面截了」）
@@ -1438,10 +1440,18 @@
     const selRows = data.txns.filter(x => x.currency === code && x.date === sel).sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const today = todayKey();
     const glass = sk.id === "glass";
-    return h("div", { className: "px-5 pb-8" },
-      h(WordMark, { sk, word: "MY CALENDAR", hand: "every little day ♡" }),
+    // 第三页照她给的素材做（2026-09-29）：标题图、便签、三种日期键帽、邮戳、左边一列圆孔都是她出的图；
+    //   日期数字和金额、邮戳上的日期是代码印上去的，所以哪个月都对
+    const LA = "assets/ledger/", LV = "?v=270";
+    const [sy, sm, sd] = sel.split("-");
+    return h("div", { className: "px-5 pb-8 lg-cal", style: glass ? { position: "relative", overflow: "clip" } : undefined },
+      glass ? h("style", null, PNL_CSS) : null,
+      glass ? h("img", { src: LA + "note-good.png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: -6, top: 0, width: 96, height: "auto", transform: "rotate(5deg)", pointerEvents: "none", zIndex: 0 } }) : null,
+      glass ? h("img", { src: LA + "title-cal.png" + LV, alt: "CALENDAR", draggable: false, style: { position: "relative", display: "block", width: "74%", height: "auto", margin: "-2px 0 4px -3%" } })
+        : h(WordMark, { sk, word: "MY CALENDAR", hand: "every little day ♡" }),
       h(MonthNav, { mk, setMk, sk }),
-      h("div", { style: { padding: "4px 0", marginBottom: 12, borderTop: "1px solid " + LINE, borderBottom: "1px solid " + LINE } },
+      h("div", { className: glass ? "lg-pnl" : undefined, style: glass ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", padding: "0", margin: "0 -6px 14px" }
+        : { padding: "4px 0", marginBottom: 12, borderTop: "1px solid " + LINE, borderBottom: "1px solid " + LINE } },
         h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 2px" }, sk.acrylic) },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: sk.sub } }, w))),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 } },
@@ -1449,7 +1459,10 @@
               const d = byDay[k], on = sel === k, lv = d && d.exp ? .12 + .88 * (d.exp / max) : 0;
               // 点亮的格子：屏幕墨色按深浅铺满，上面叠一层像素网格；深的格子字反白
               const lit = lv > 0, dark = lv > .66;
-              return h("button", { key: k, onClick: () => setSel(k), className: "active:opacity-70", style: { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
+              const cap = glass ? (k === today ? "day-today" : lit ? (lv > .5 ? "day-hi" : "day-lo") : null) : null;
+              return h("button", { key: k, onClick: () => setSel(k), className: "active:opacity-70", "data-ledger-daycap": cap || undefined, style: cap ? { minHeight: 46, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
+                background: "url(" + LA + cap + ".png" + LV + ") center / 100% 100% no-repeat", borderRadius: 10,
+                outline: on && k !== today ? "1px solid #9fb6e6" : "none", outlineOffset: 1 } : { minHeight: 46, borderRadius: 4, padding: "3px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, position: "relative",
                 // 花过钱的那天：一颗嵌在机身上的迷你透明键帽——很淡、很透，上沿一丝亮光，底边一点厚度；没花钱的日子完全是平的
                 background: lit ? (glass ? "linear-gradient(170deg, rgba(255,255,255,.7), rgba(" + (lv > .5 ? "196,188,236" : "204,222,246") + "," + (0.25 + lv * 0.3).toFixed(2) + "))" : "rgba(60,54,40," + (lv * .4).toFixed(2) + ")") : "transparent",
                 boxShadow: lit && glass ? "inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 2px rgba(118,122,178,.14), 0 2px 0 rgba(150,154,200,.32), 0 3px 5px rgba(118,122,178,.1)" : "none",
@@ -1459,9 +1472,14 @@
                 h("span", { style: numStyle(sk, 12.5, sk.ink) }, parseInt(k.slice(8), 10)),
                 d && d.exp ? h("span", { style: numStyle(sk, 7.5, sk.fog) }, fmtNum(Math.round(d.exp))) : null,
                 null); })))),
+      // 玻璃皮：这天的流水像夹在活页本里——左边一列她给的圆孔纵向铺；右下角盖一枚 DAILY 邮戳，印的是选中那天
+      h("div", { "data-ledger-dayfile": true, style: glass ? { position: "relative", paddingLeft: 30, paddingBottom: 96, marginLeft: -8, background: "url(" + LA + "holes.png" + LV + ") left 2px top 0 / 22px auto repeat-y" } : undefined },
       h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12, fontWeight: 600, color: sk.sub, margin: "0 6px 8px" } }, h("span", null, dayLabel(sel)), byDay[sel] ? h("span", { style: numStyle(sk, 12, sk.sub) }, "支 " + fmtMoney(byDay[sel].exp, cur)) : null),
       selRows.length ? h(StripSlot, { sk }, selRows.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) })))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "24px 0" } }, "这天没有记账"));
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "24px 0" } }, "这天没有记账"),
+      glass ? h("div", { "data-ledger-stamp": true, "aria-hidden": "true", style: { position: "absolute", right: -4, bottom: 4, width: 132, transform: "rotate(-8deg)", opacity: .78, pointerEvents: "none" } },
+        h("img", { src: LA + "stamp.png" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
+        [[sy.slice(2), "28%"], [sm, "46.5%"], [sd, "64%"]].map((t, i) => h("span", { key: i, style: { position: "absolute", left: t[1], top: "52%", transform: "translate(-50%,-50%)", fontFamily: F_BODY, fontSize: 11, fontWeight: 800, letterSpacing: ".5px", color: "rgba(132,108,196,.85)" } }, t[0]))) : null));
   }
 
   // ============================================================
