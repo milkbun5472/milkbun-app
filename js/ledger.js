@@ -295,6 +295,8 @@
   // 供聊天引擎调用：把「被授权角色能看到的记账动态」拼成一段（financeNote）
   // 只读、只感知，绝不碰钱包/角色余额。app.js 的 ctxFor 会调用它。
   // ============================================================
+  // 聊天里 TA 替她记账的那张卡要跟账本同一套皮：玻璃皮就出小票（components.js RecordedCard 读这个）
+  window.ledgerIsGlass = function () { try { const d = loadJSON("x_ledger", null); return !(d && d.settings && d.settings.skin === "paper"); } catch (e) { return true; } };
   window.ledgerNoteFor = function (charId) {
     try {
       const d = loadJSON("x_ledger", null);
