@@ -1,7 +1,8 @@
 // ============================================================
 // 一起听·边听边说（她 2026-09-29：「有人说一起听想做成这样」——网易云那种两只头像挂在唱片上、
-//   谁说话谁冒气泡）。跟「一起看」同一个形状：上下文走 companionHead（整份 buildBundle），
-//   离开时往单聊落一条 listenlog 交接，话术只写在 listenLogText 一处。
+//   谁说话谁冒气泡）。上下文走 companionHead（整份 buildBundle）。
+//   ⚠️说的每一句都【原样落进单聊】（她 2026-09-29：「为啥不直接做气泡也落在单聊而不是小条」）——
+//   回到单聊往上一翻就是那几句，不再是一条「一起听了几首」的小条。listenLogText 只留着认旧存档里的小条。
 // ⚠️自己开口按次花钱：一首歌最多一句、两句之间至少隔 AUTO_GAP_S 秒；总闸在
 //   设置 → 自动生成 →「一起听时开口」，页面上那颗是同一格（window.__setAutoFromPage）。
 // ============================================================
@@ -68,24 +69,19 @@
     const [txt, setTxt] = useState("");
     const [busy, setBusy] = useState(false);
     const [, setTick] = useState(0);
-    const busyRef = useRef(false), lastAutoRef = useRef(0), spokeForRef = useRef({}), visitRef = useRef({ at: Date.now(), songs: [] });
+    const busyRef = useRef(false), lastAutoRef = useRef(0), spokeForRef = useRef({});
     const autoOn = () => !!(window.__autoRefreshOn && window.__autoRefreshOn("listen"));
     const [auto, setAuto] = useState(autoOn);
     useEffect(() => { setRows(partner ? talkOf(partner.id) : []); }, [partner && partner.id]);
     // 气泡按时间淡掉：有气泡挂着时每秒刷一下
     useEffect(() => { const iv = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(iv); }, []);
-    useEffect(() => { if (song && song.title && visitRef.current.songs.indexOf(song.title) < 0) visitRef.current.songs.push(song.title); }, [song && song.id]);
-    // 离开这一页：这一趟真说过话，往单聊落一条交接
-    useEffect(() => () => {
-      if (!partner || !props.onHandoff) return;
-      const said = talkOf(partner.id).filter(r => (r.ts || 0) >= visitRef.current.at && r.content).slice(-10);
-      if (!said.length) return;
-      props.onHandoff(partner.id, { role: "system", kind: "listenlog", songs: visitRef.current.songs.slice(-5),
-        lines: said.map(r => ({ who: r.role === "user" ? "user" : "assistant", text: r.content })),
-        content: "一起听了 " + visitRef.current.songs.slice(-3).map(s => "《" + s + "》").join("") , ts: Date.now() });
-    }, [partner && partner.id]);
 
-    const add = list => { if (!partner) return; push(partner.id, list); setRows(talkOf(partner.id)); };
+    // 同一句两处落：这一页的气泡（x_listenTalk）＋单聊里真的一条消息
+    const add = list => {
+      if (!partner) return;
+      push(partner.id, list); setRows(talkOf(partner.id));
+      if (props.onToChat) props.onToChat(partner.id, list);
+    };
     const ask = async (mode, text) => {
       if (!partner || !song || busyRef.current) return;
       if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
@@ -131,14 +127,18 @@
       isMe ? (me.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(me.avatarImage) : me.avatarImage, alt: "", style: { width: 50, height: 50, borderRadius: 999, objectFit: "cover" } })
         : h("div", { style: { width: 50, height: 50, borderRadius: 999, background: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, String(me.name || "我").slice(0, 1)))
         : h(Avatar, { character: who, size: 50, radius: 999 }));
-    // 两只头像之间那根耳机线
-    const stage = h("div", { style: { position: "relative", display: "flex", justifyContent: "center", gap: 0, paddingTop: 8 } },
-      h("svg", { "aria-hidden": "true", width: 150, height: 40, viewBox: "0 0 150 40", style: { position: "absolute", top: 0, left: "50%", marginLeft: -75, pointerEvents: "none" } },
-        h("path", { d: "M22 36 C22 4, 128 4, 128 36", fill: "none", stroke: t.ink, strokeOpacity: .35, strokeWidth: 2.2, strokeLinecap: "round" })),
-      h("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", width: "50%", paddingRight: 4 } },
-        h("div", { style: { marginRight: 8 } }, head(null, true)), mine.map((r, i) => bubble(r, i, "l"))),
-      h("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", width: "50%", paddingLeft: 4 } },
-        h("div", { style: { marginLeft: 8 } }, head(partner, false)), theirs.map((r, i) => bubble(r, i, "r")),
+    // 两只头像挨着、叠一点，交界处一枚小耳机章——「戴着同一副耳机」（她说那根线丑，撤了）
+    const phones = h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: 34, marginLeft: -13, width: 26, height: 26, borderRadius: 999,
+        background: t.ink, color: t.bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 2.5px " + (t.bg || "#fff"), zIndex: 2 } },
+      h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round", strokeLinejoin: "round" },
+        h("path", { d: "M4 15v-3a8 8 0 0 1 16 0v3" }),
+        h("rect", { x: 3, y: 14, width: 4.5, height: 7, rx: 1.8 }), h("rect", { x: 16.5, y: 14, width: 4.5, height: 7, rx: 1.8 })));
+    const stage = h("div", { style: { position: "relative", display: "flex", justifyContent: "center", paddingTop: 8 } },
+      phones,
+      h("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", width: "50%" } },
+        h("div", { style: { marginRight: -6 } }, head(null, true)), mine.map((r, i) => bubble(r, i, "l"))),
+      h("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", width: "50%" } },
+        h("div", { style: { marginLeft: -6 } }, head(partner, false)), theirs.map((r, i) => bubble(r, i, "r")),
         busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
       h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },

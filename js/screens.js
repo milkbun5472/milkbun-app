@@ -6722,7 +6722,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ profile, active, ctxFor, toast, onHandoff, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -6850,7 +6850,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onHandoff, listen, cha
   let lyricActive = -1;
   if (Array.isArray(lyricLines)) for (let i = 0; i < lyricLines.length; i++) { if (lyricLines[i].t != null && lyricLines[i].t <= cur) lyricActive = i; }
   // 边听边说（她 2026-09-29）：两只头像挂在封面上方、谁说话谁冒气泡；底下一行小输入。逻辑全在 listen-talk.js
-  const talk = window.ListenTalk ? window.ListenTalk.useTalk({ partner, profile, song: now, player, lyricLines, lyricActive, active, ctxFor, toast, onHandoff, t }) : null;
+  const talk = window.ListenTalk ? window.ListenTalk.useTalk({ partner, profile, song: now, player, lyricLines, lyricActive, active, ctxFor, toast, onToChat, t }) : null;
   useEffect(() => {
     if (!showLyric || lyricActive < 0 || !lyricBoxRef.current) return;
     const el = lyricBoxRef.current.querySelector('[data-lyric-active="1"]');
