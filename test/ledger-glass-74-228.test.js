@@ -110,7 +110,7 @@ console.log("ledger-home-mock ok");
 console.log("ledger-home-assets ok");
 // 第二页素材（她 2026-09-29 给的）：玻璃面板九宫格、滑轨、标题、星星、挂件
 ["panel", "rail", "slider", "title-stats", "star-gold", "star-purple", "charm1", "charm4"].forEach(n => assert.ok(require("fs").existsSync(__dirname + "/../assets/ledger/" + n + ".png"), n));
-assert.match(require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8"), /borderImage: "url\(" \+ LA \+ "panel\.png" \+ LV \+ "\) 120 fill/);
+assert.match(require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8"), /border-image:url\(" \+ LA \+ "panel\.png" \+ LV \+ "\) 120 fill/);
 console.log("ledger-stats-assets ok");
 
 // 六个月柱子：她给的空柱 / 满柱素材，满柱按金额从上裁（不再九宫格挤压）
@@ -122,4 +122,15 @@ console.log("ledger-stats-assets ok");
   }
   if (!/col-full\.png[\s\S]{0,400}clipPath: "inset\("/.test(src2)) throw new Error("full column must be clipped, not squashed");
   console.log("ok six-month glass columns");
+}
+
+// 光污染收一档 + 装饰不对称（她 2026-09-29）
+{
+  const src3 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+  const a = src3.indexOf("function CurView"), body = src3.slice(a, src3.indexOf("\n  function ", a + 10));
+  if (!/\.lg-pnl::before\{[^}]*opacity:\.[0-9]+/.test(body)) throw new Error("panel glass must be dimmed via ::before opacity");
+  if (!/lg-pnl-hero::before\{[^}]*mask-image/.test(body)) throw new Error("hero panel must fade its lower corners");
+  if ((body.match(/deco\("star-gold"/g) || []).length > 2) throw new Error("at most 2 gold stars per page");
+  if ((body.match(/deco\("charm/g) || []).length > 1) throw new Error("clip only one panel");
+  console.log("ok stats glass dimmed & asymmetric deco");
 }

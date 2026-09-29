@@ -1278,16 +1278,25 @@
     const sixMax = Math.max(1, ...six.map(x => x.v));
     // 第二页照她给的素材做（2026-09-29）：面板是她给的那块玻璃框，按九宫格拉伸；标题、星星、挂件都是素材图
     const LA = "assets/ledger/", LV = "?v=259", glassP = sk.id === "glass";
-    const pnl = glassP ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", borderImage: "url(" + LA + "panel.png" + LV + ") 120 fill / 24px / 0 stretch", borderRadius: 0, background: "transparent", padding: 0 } : sk.shell;
+    // 她 2026-09-29「这些玻璃现在有点光污染」：玻璃框挪到 ::before 上单独压透明度，里面的字和圆环不受影响；
+    //   本月支出那块最大，四个角同时亮像水晶相框——再压一档，下半截淡出去，让圆环当主角
+    const pnl = glassP ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", borderRadius: 0, background: "transparent", padding: 0, position: "relative", isolation: "isolate" } : sk.shell;
+    const pnlCls = glassP ? "lg-pnl" : undefined;
+    const pnlCss = glassP ? h("style", null, ".lg-pnl::before{content:'';position:absolute;inset:-24px;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(" + LA + "panel.png" + LV + ") 120 fill / 24px / 0 stretch;opacity:.74}" +
+      ".lg-pnl.lg-pnl-hero::before{opacity:.58;filter:saturate(.8);-webkit-mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45));mask-image:linear-gradient(180deg,#000 45%,rgba(0,0,0,.45))}") : null;
     const deco = (src, st) => glassP ? h("img", { src: LA + src + ".png" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none", zIndex: 3 }, st) }) : null;
-    const bay = (title, body, extra) => h("div", { style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl, extra || {}) }, title ? silk(sk, title, { marginBottom: 8 }) : null, body);
+    const bay = (title, body, extra, cls) => h("div", { className: glassP ? "lg-pnl" + (cls ? " " + cls : "") : undefined, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl, extra || {}) }, title ? silk(sk, title, { marginBottom: 8 }) : null, body);
     return h("div", { className: "px-5 pb-8 lg-stats", style: { position: "relative", overflowX: glassP ? "clip" : undefined } },
       glassP ? h("img", { src: LA + "title-stats.png" + LV, alt: "STATISTICS", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "-4px 0 2px -4%" } }) : h(WordMark, { sk, word: "STATISTICS", hand: "where did my money go?" }),
-      deco("star-purple", { width: 34, right: 2, top: 10 }),
-      deco("charm1", { width: 62, right: -16, top: 300, transform: "rotate(-8deg)" }),
-      deco("star-gold", { width: 30, left: -8, top: 470 }),
-      deco("charm4", { width: 56, right: -14, top: 690, transform: "rotate(6deg)" }),
-      deco("star-purple", { width: 22, left: -6, top: 900 }),
+      pnlCss,
+      // 装饰故意不对称（她 2026-09-29「三块玻璃板太整齐，又有 UI kit 感」）：回形针只夹一块、只露半截；
+      //   金星全页就一颗，紫星多两颗但不是每块都有；票根从支出排行右侧探出一角
+      deco("star-purple", { width: 30, right: 6, top: 14 }),
+      deco("star-purple", { width: 16, right: 40, top: 46, opacity: .8 }),
+      deco("charm1", { width: 62, right: -18, top: 300, transform: "rotate(-8deg)" }),
+      deco("star-gold", { width: 26, left: -8, top: 520 }),
+      deco("stub", { width: 84, right: -30, top: 880, transform: "rotate(-7deg)" }),
+      deco("star-purple", { width: 20, left: -4, top: 1180 }),
       h(MonthNav, { mk, setMk, sk }),
       bay(kind === "income" ? "本月收入" : "本月支出", h(Fragment, null,
         h("div", { style: Object.assign({ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }, sk.acrylic) },
@@ -1298,7 +1307,7 @@
               h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
               h("span", { style: numStyle(sk, 11.5) }, Math.round(c.amount / (total || 1) * 100) + "%")))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub } }, kind === "income" ? "这个月还没有收入" : "这个月还没有支出"))),
-        h("div", { style: { marginTop: 12 } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })))),
+        h("div", { style: { marginTop: 12 } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk }))), null, "lg-pnl-hero"),
       (function () {
         const da = dailyAvg(s.exp, mk);
         if (!da) return null;
@@ -1309,7 +1318,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginBottom: 3 } }, label),
           h("div", { style: numStyle(sk, 14.5) }, fmtMoney(val, cur)),
           note ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.sub, marginTop: 2 } }, note) : null);
-        return h("div", { "data-ledger-daily": true, style: Object.assign({ display: "flex", padding: "12px 6px", marginBottom: 14 }, pnl) },
+        return h("div", { "data-ledger-daily": true, className: pnlCls, style: Object.assign({ display: "flex", padding: "12px 6px", marginBottom: 14 }, pnl) },
           todayExp != null ? row("今天花了", todayExp, "", "today", true) : null,
           row("日均支出", da.avg, "按 " + da.days + " 天算", "avg", todayExp == null),
           row("结余", s.net, "", "net"));
@@ -1323,7 +1332,7 @@
         }, "好", { placeholder: "比如 2000" });
         if (!bs) return h("button", { onClick: edit, className: "active:opacity-60", style: { display: "block", margin: "0 0 14px 4px", minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: sk.fog } }, "＋ 设个每月预算");
         const over = bs.left < 0, pct = Math.min(1, bs.used);
-        return h("div", { "data-ledger-budget": true, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl) },
+        return h("div", { "data-ledger-budget": true, className: pnlCls, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl) },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
             silk(sk, "本月预算"),
             h("button", { onClick: edit, "aria-label": "改预算", className: "active:opacity-60 flex items-center gap-1", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: sk.sub } }, fmtMoney(bs.budget, cur), h(IPencil, { size: 13, color: sk.fog }))),
