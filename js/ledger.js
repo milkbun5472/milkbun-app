@@ -723,7 +723,9 @@
   };
   const LIcon = ({ k, size, color, sw }) => h("svg", { width: size || 22, height: size || 22, viewBox: "0 0 24 24", fill: "none", stroke: color || "currentColor", strokeWidth: sw || 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }, LI[k] ? LI[k]() : null);
   // 月份切换：两颗小果冻键夹着一小块屏幕
-  const MonthNav = ({ mk, setMk, sk }) => h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, margin: "0 0 10px" } },
+  //   玻璃皮（她 2026-09-29「日历框也做成第三页这样而不是裸的一行」）：整条垫一块她给的透明滑轨，像一枚小胶囊屏
+  const MonthNav = ({ mk, setMk, sk }) => h("div", { "data-ledger-monthnav": true, style: Object.assign({ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, margin: "0 0 10px" },
+      sk.id === "glass" ? { width: "fit-content", marginLeft: "auto", marginRight: "auto", padding: "4px 10px", minHeight: 48, background: "url(assets/ledger/rail.png?v=259) center / 100% 100% no-repeat" } : {}) },
     h("button", { onClick: () => setMk(m => shiftMonth(m, -1)), "aria-label": "上个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: 18, color: sk.sub }) }, "‹"),
     h("span", { style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 500, color: sk.ink, minWidth: 96, textAlign: "center" } }, fmtMonth(mk)),
     h("button", { onClick: () => setMk(m => shiftMonth(m, 1)), "aria-label": "下个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: 18, color: sk.sub }) }, "›"));
