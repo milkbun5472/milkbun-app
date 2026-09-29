@@ -871,7 +871,9 @@
       style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent } }, cur.label) : null;
 
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
-      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : (tab === "stats" || tab === "cal" || tab === "me") && sk.id === "glass" ? "" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
+      h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: sk.id === "glass" ? "" : tabTitle, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch }),
+        // 第一页标题也换成她出的图（2026-09-29）；放在顶栏这一格里，下面钱包的一切位置都不用跟着挪
+        tab === "wallet" && sk.id === "glass" ? h("img", { src: "assets/ledger/title-wallet.png?v=279", alt: "MY WALLET", draggable: false, "data-ledger-title": "wallet", style: { display: "block", width: "72%", height: "auto", margin: "-34px 0 0 12%" } }) : null),
       // 她 2026-09-29：首页不许左右滑（票根、便签这些故意伸出页边的素材会把页面撑宽），滑到底也不许再弹
       h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", "data-ledger-scroll": true, style: { overflowX: "hidden", overscrollBehavior: "none", touchAction: "pan-y" } },
         tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,

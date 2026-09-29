@@ -139,7 +139,7 @@ console.log("ledger-stats-assets ok");
 {
   const src4 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
   if (!/className: "px-5 pb-8 lg-stats", style: \{ position: "relative", overflow: glassP \? "clip"/.test(src4)) throw new Error("stats page must clip deco on both axes");
-  if (!/\(tab === "stats" || tab === "cal" || tab === "me"\) && sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
+  if (!/zh: sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
   console.log("ok stats clip & no dup title");
 }
 
