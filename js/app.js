@@ -9897,7 +9897,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
       const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
-      const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
+      const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
+      // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
+      const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
       const g = [];
       for (const m of promptHistory) {
         // 每条历史带时间标注〔今天14:32〕（v47.83 她点名单聊也要）：裸消息模型会把几小时前的事说成昨天
@@ -10229,7 +10231,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!words.length) { const sal = salvageWords(); if (sal.length) words = sal; else if (!looksLikeJSON && String(raw).trim()) words = [String(raw).trim()]; }
       // 拆气泡放在兜底【之后】——这样连 raw/抠出来的一整段也一并拆开，不会「分好行的一大段全挤在一个气泡里」（掉格式）
       // ① 先按换行还原成多条：模型常把本该多条气泡的内容用换行塞进一个字符串
-      words = words.reduce((acc, w) => acc.concat(typeof splitCardsAndLines === "function"
+      // ⚠️「长消息自动拆成短句」关掉的角色（_s.splitBubbles === false）：TA交回来几条就是几条，
+      //   一条里的换行是段落，不再拆成新的泡；下面那一刀按标点拆也跳过。
+      const _splitOn = _s.splitBubbles !== false;
+      words = words.reduce((acc, w) => acc.concat(!_splitOn
+        ? [String(w == null ? "" : w).trim()].filter(Boolean)
+        : typeof splitCardsAndLines === "function"
         ? splitCardsAndLines(w)
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
@@ -10244,7 +10251,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _bilingualOn ? splitBilingual(w) : null;
-        const parts = splitLongBubble(bi ? bi.text : w, !_s.engineerEyes);
+        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_s.engineerEyes) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
         if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
         return acc.concat(parts);
@@ -25551,6 +25558,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             showTime: s.showTime,
             timeSec: s.timeSec,
             showRead: s.showRead,
+            splitBubbles: s.splitBubbles,
             showReasoning: s.showReasoning,
             bilingual: !!s.bilingual,
             selfP: s.selfP,
