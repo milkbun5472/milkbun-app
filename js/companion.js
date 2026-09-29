@@ -89,20 +89,26 @@
   ];
   // 每条轴四分之一的时候整条还给他自己定
   const pokeAxes = () => POKE_AXES.map(([k, vs]) => k + "：" + (Math.random() < .25 ? "你自己定" : vs[Math.floor(Math.random() * vs.length)])).join("；") + "。这只是手感，照你的性子来，哪条不像你就不照它。";
+  // ⚠️节流是【全局一份】，不是每个小人各一份（她 2026-09-29 转读者：「戳了好多下但只说了一句话，
+  //   看使用日志多了三次消耗」）：陪伴页和悬浮那只各自记着「上次说话的时间」，互相不认识，
+  //   两边一起戳就是两份额度。
+  const POKE_GATE = { busy: false, last: 0 };
   function usePokeTalk(char, props, on) {
     const [say, setSay] = useState("");
-    const st = useRef({ timer: 0, busy: false, last: 0, pending: null, hide: 0 });
+    const st = useRef({ timer: 0, pending: null, hide: 0 });
     useEffect(() => () => { clearTimeout(st.current.timer); clearTimeout(st.current.hide); }, []);
     const fire = async () => {
       const s = st.current, info = s.pending; s.pending = null;
-      if (!info || s.busy || !char || Date.now() - s.last < 15000) return;
-      const p = props.apiFor ? props.apiFor(char.id) : null, ctx = props.ctxFor ? props.ctxFor(char) : null;
+      if (!info || POKE_GATE.busy || !char || Date.now() - POKE_GATE.last < 15000) return;
+      // 走后台线路（她 2026-09-29：「陪伴消耗移动到后台 API 便宜一点」）；没配后台线路才退回这个角色自己那条
+      const p = props.bgActive || (props.apiFor ? props.apiFor(char.id) : null), ctx = props.ctxFor ? props.ctxFor(char) : null;
       if (!p || !ctx || typeof runProbe !== "function") return;
-      s.busy = true; s.last = Date.now();
+      POKE_GATE.busy = true; POKE_GATE.last = Date.now();
       try {
         const hr = new Date().getHours(), uName = (props.profile && props.profile.name) || "她";
         const log = pokeLog(char.id), gap = log.lastAt ? Math.round((Date.now() - log.lastAt) / 60000) : null;
-        const d = await runProbe(p, ctx, { voice: true, tag: "陪伴",
+        // once：这一句就一行字，没解析出来就算了，不自动再打一枪（原来一次戳最多会调三次）
+        const d = await runProbe(p, ctx, { voice: true, tag: "陪伴", once: true,
           instruction: "你此刻是" + uName + "手机屏幕上陪着她的一个小人。她刚才" + (POKE_ZH[info.kind] || POKE_ZH.tap) + "。现在是" + hr + "点。"
             + "这是她今天第 " + (log.count + 1) + " 次戳你" + (gap == null ? "。" : "，上一次是 " + (gap < 1 ? "刚刚" : gap < 90 ? gap + " 分钟前" : Math.round(gap / 60) + " 小时前") + "。") + "\n"
             + "按你自己的性子、你此刻的心情，顺手回她一句——短，像被戳到时脱口而出的那种。\n"
@@ -115,8 +121,12 @@
         if (line) { setSay(line); clearTimeout(s.hide); s.hide = setTimeout(() => setSay(""), Math.min(9000, 3000 + line.length * 180));
           // 念出来（她 2026-09-27）：和庭院、列车同一个开关 x_fairyGardenVoice；TA 没选声音就只冒字
           if (voiceOn() && char.voiceId && typeof ttsSpeak === "function") speak(line, char.voiceId, s); }
-      } catch (e) {/* 说不出来就只做动作，不打扰她 */}
-      finally { s.busy = false; }
+      } catch (e) {
+        // 失败要说一声（她 2026-09-29：「任何时候生成东西好了或者失败都要有 toast 提醒」）——
+        //   原来这里是静默吞掉，于是花了钱、他却一句话没说，她只能去翻使用日志才知道
+        props.toast && props.toast("他这一句没说出来：" + String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 60), 5000);
+      }
+      finally { POKE_GATE.busy = false; }
     };
     const onPoke = info => { if (!on) return; const s = st.current; s.pending = info; clearTimeout(s.timer); s.timer = setTimeout(fire, 1200); };
     return [say, onPoke];

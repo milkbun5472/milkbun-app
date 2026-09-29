@@ -1376,10 +1376,29 @@ function App() {
   const [configPage, setConfigPage] = useState("");   // 设置页要落在哪一栏（回程条用）
   const [loaded, setLoaded] = useState(false);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
+  const lastToastAtRef = useRef(0);
   const toast = (m, ms) => {
+    lastToastAtRef.current = Date.now();
     setToastMsg(m);
     setTimeout(() => setToastMsg(null), ms || 2200);
   };
+  // 生成失败的兜底网（她 2026-09-29：「任何时候生成东西好了或者失败都要有 toast 提醒」）。
+  // runProbe 失败时广播一声 gen-failed；调用方自己已经弹过提示的（事件后 900ms 内弹过），这里就不再重复；
+  // 同一类一分钟只说一次——后台自动刷的活连着失败时，不能一屏刷满。
+  const genFailSeenRef = useRef({});
+  useEffect(() => {
+    const on = ev => {
+      const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.tag || "后台生成");
+      if (at - (genFailSeenRef.current[key] || 0) < 60000) return;
+      setTimeout(() => {
+        if (lastToastAtRef.current >= at) return;
+        genFailSeenRef.current[key] = Date.now();
+        toast("「" + key + "」没生成出来：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), 5000);
+      }, 900);
+    };
+    window.addEventListener("gen-failed", on);
+    return () => window.removeEventListener("gen-failed", on);
+  }, []);
   // 自包含子组件（如事件书架）不走 props 也能弹提示
   useEffect(() => { window.__toast = toast; return () => { delete window.__toast; }; });
   // 独立脚本里的删除动作统一借这层确认；不再碰会被 iOS/PWA 永久吞掉的原生 confirm。
@@ -24754,6 +24773,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     moods: moods,
     apiFor: apiFor,
+    bgActive: bgActive,
     ctxFor: ctxFor,
     profile: profile,
     music: !!player.playing,
@@ -25420,7 +25440,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEnded: advanceSong
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, ctxFor: ctxFor, profile: profile, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
+  }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, bgActive: bgActive, toast: toast, ctxFor: ctxFor, profile: profile, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
     song: resolveSong(player.songId),
     playing: player.playing,
     loading: player.loading,

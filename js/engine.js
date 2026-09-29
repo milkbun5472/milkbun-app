@@ -7787,7 +7787,16 @@ async function oocAskGroup(p, ctx, question) {
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
+// 生成失败广播：app.js 接住弹提示（调用方自己弹过就不重复）。runProbe 这一口收了大多数生成，
+// 在这里挂一张网，比去 600 多个 catch 里一处处补可靠（她 2026-09-29 要「失败都要有 toast」）。
 async function runProbe(p, ctx, probe) {
+  try { return await runProbeInner(p, ctx, probe); }
+  catch (e) {
+    try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (probe && probe.tag) || "", msg: String((e && e.message) || e || "") } })); } catch (_) {}
+    throw e;
+  }
+}
+async function runProbeInner(p, ctx, probe) {
   // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
   // 这个开场白把模型放在【分析师的椅子】上——「不要扮演角色对话，冷静推演」。
   // 绝大多数推演（行程/钱包/相册/书架）本来就该这么站。
@@ -7822,7 +7831,8 @@ async function runProbe(p, ctx, probe) {
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
   // 输出没收好（多写了一句话、JSON 少个括号），重来一次就好了。按次计费，
   // 让她自己去点第二次是没道理的；重试一次仍然失败才报错。
-  if (!parsed) {
+  // probe.once：只要一枪的那种（陪伴戳一下说一句）——没解析出来就直接报，不再补打
+  if (!parsed && !probe.once) {
     try {
       const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
         [{ role: "user", content: "重来一次。" }], { maxTokens: want, tag: _tag });
