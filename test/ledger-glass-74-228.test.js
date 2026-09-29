@@ -20,7 +20,7 @@ assert.match(src, /const SKIN_LIST = \[\s*\{ id: "glass"/);
 assert.match(src, /settings && settings\.skin === "paper" \? "paper" : "glass"/);
 assert.match(src, /onSkin: id => setSetting\(\{ skin: id \}\)/);
 // 键盘：两位小数封顶、开头 0 被顶掉
-const press = src.slice(src.indexOf("const press = k => setAmount(a => {"), src.indexOf("const canSave"));
+const press = src.slice(src.indexOf("const press = k => setAmount(a => {"), src.indexOf("const isXfer"));
 const run = (seq) => { let a = ""; const ctx = { setAmount: f => { a = f(a); } }; vm.runInNewContext(press + ";" + seq.map(k => "press(" + JSON.stringify(k) + ");").join(""), ctx); return a; };
 assert.equal(run(["0", "5"]), "5");
 assert.equal(run(["1", ".", "2", "3", "4"]), "1.23");

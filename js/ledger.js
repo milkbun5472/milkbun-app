@@ -126,7 +126,7 @@
   // 流水按天分组：每天一个小标题，带当天支出／收入合计（新的在上）
   function groupByDay(list) {
     const out = [], at = {};
-    list.forEach(x => { const d = x.date || ""; if (!at[d]) { at[d] = { date: d, rows: [], exp: 0, inc: 0 }; out.push(at[d]); } const g = at[d]; g.rows.push(x); if (x.type === "income") g.inc += Number(x.amount) || 0; else g.exp += Number(x.amount) || 0; });
+    list.forEach(x => { const d = x.date || ""; if (!at[d]) { at[d] = { date: d, rows: [], exp: 0, inc: 0 }; out.push(at[d]); } const g = at[d]; g.rows.push(x); if (isTransfer(x)) return; if (x.type === "income") g.inc += Number(x.amount) || 0; else g.exp += Number(x.amount) || 0; });
     return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }
   function dayLabel(dateStr, today) {
@@ -140,17 +140,67 @@
   function fmtNum(n) { const v = Math.round((Number(n) || 0) * 100) / 100; return v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
   function fmtAmt(n, cur) { return (cur ? cur.symbol : "") + fmtNum(n); }
 
+  // ---- 账户（她 2026-09-29 定的三件事：信用卡按账单周期算；角色看不看得到余额单独一个开关；每种卡一种卡面颜色）----
+  //   settings.accounts: [{ id, name, type, currency, init, limit, billDay, dueDay }]
+  //   一笔收支挂 txn.account；转账是 type:"transfer"（from → to），还信用卡就是储蓄卡转给信用卡。
+  //   ⚠️转账不是支出也不是收入：所有汇总（统计、日历、预算、角色看到的收支）都必须跳过它。
+  //   余额不另存，每次现算＝初始余额 + 这个账户的收入 − 支出 ± 转账，永远对得上。
+  const ACCT_TYPES = [
+    { id: "debit", zh: "储蓄卡", hue: -30, tint: "#8fb2e6" },
+    { id: "credit", zh: "信用卡", hue: 40, tint: "#ec8fb3" },
+    { id: "cash", zh: "现金", hue: 0, tint: "#a68ae6" },
+    { id: "wallet", zh: "支付宝/微信", hue: -105, tint: "#7fcfb6" },
+    { id: "other", zh: "其他", hue: 160, tint: "#c3c7e2" }
+  ];
+  const acctType = id => ACCT_TYPES.find(x => x.id === id) || ACCT_TYPES[ACCT_TYPES.length - 1];
+  const isTransfer = t => !!t && t.type === "transfer";
+  const isExpense = t => !!t && t.type !== "income" && t.type !== "transfer";
+  function acctEffect(t, id) {
+    const a = Number(t.amount) || 0;
+    if (isTransfer(t)) return (t.to === id ? a : 0) - (t.from === id ? a : 0);
+    if (t.account !== id) return 0;
+    return t.type === "income" ? a : -a;
+  }
+  // beforeDate：只算这一天【之前】的账（出账单那天算进下一期）
+  function acctBalance(acct, txns, beforeDate) {
+    let b = Number(acct.init) || 0;
+    (txns || []).forEach(t => { if (beforeDate && !(String(t.date) < beforeDate)) return; b += acctEffect(t, acct.id); });
+    return Math.round(b * 100) / 100;
+  }
+  function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  // 信用卡：余额是负的就是欠款。设了账单日就按周期算——上一个账单日那天欠的，减掉那之后还进去的，就是本期应还；
+  //   账单日之后新刷的算下一期（unbilled）。还款日在账单日后面的同月，否则顺延到下个月。
+  function creditState(acct, txns, today) {
+    const now = today || new Date();
+    const bal = acctBalance(acct, txns);
+    const owed = Math.max(0, -bal), limit = Number(acct.limit) || 0;
+    const out = { bal, owed, limit, avail: limit ? Math.round((limit - owed) * 100) / 100 : null };
+    const B = Math.min(28, Math.max(1, parseInt(acct.billDay, 10) || 0));
+    if (!acct.billDay) return out;
+    const lb = now.getDate() >= B ? new Date(now.getFullYear(), now.getMonth(), B) : new Date(now.getFullYear(), now.getMonth() - 1, B);
+    const lbKey = ymd(lb);
+    const owedAtBill = Math.max(0, -acctBalance(acct, txns, lbKey));
+    let credits = 0, spent = 0;
+    (txns || []).forEach(t => { if (String(t.date) < lbKey) return; const e = acctEffect(t, acct.id); if (e > 0) credits += e; else spent -= e; });
+    const D = Math.min(28, Math.max(1, parseInt(acct.dueDay, 10) || B));
+    const due = new Date(lb.getFullYear(), lb.getMonth() + (D > B ? 0 : 1), D);
+    const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Object.assign(out, { billDate: lbKey, due: Math.max(0, Math.round((owedAtBill - credits) * 100) / 100), unbilled: Math.round(spent * 100) / 100,
+      dueDate: ymd(due), daysLeft: Math.round((due - today0) / 86400000) });
+  }
+  const acctName = (settings, id) => { const a = ((settings && settings.accounts) || []).find(x => x.id === id); return a ? a.name : "已删的账户"; };
+
   // 某币种在某月的收支汇总 + 分类明细
   function summarize(txns, code, mk) {
     let exp = 0, inc = 0; const cats = {};
     txns.forEach(t => {
-      if (t.currency !== code || monthKey(t.date) !== mk) return;
+      if (t.currency !== code || monthKey(t.date) !== mk || isTransfer(t)) return;
       const a = Number(t.amount) || 0;
       if (t.type === "income") inc += a;
       else { exp += a; if (!cats[t.category]) cats[t.category] = { amount: 0, emoji: t.catEmoji || "" }; cats[t.category].amount += a; }
     });
     const catList = Object.keys(cats).map(k => ({ name: k, amount: cats[k].amount, emoji: cats[k].emoji })).sort((x, y) => y.amount - x.amount);
-    return { exp, inc, net: inc - exp, catList, count: txns.filter(t => t.currency === code && monthKey(t.date) === mk).length };
+    return { exp, inc, net: inc - exp, catList, count: txns.filter(t => t.currency === code && monthKey(t.date) === mk && !isTransfer(t)).length };
   }
 
   // 主屏记账小组件数据（纯本地零 API）：本月各币种 支出/收入/最大分类
@@ -172,7 +222,7 @@
   // ============================================================
   function detectTxnEvent(txns, txn, cur) {
     const a = Number(txn.amount) || 0;
-    if (!(a > 0)) return null;
+    if (!(a > 0) || isTransfer(txn)) return null;
     const hist = txns.filter(x => x.id !== txn.id && x.currency === txn.currency && x.type === txn.type);
     if (txn.type === "expense") {
       // 大额：比 Ta 平时单笔支出的均值高出 3 倍以上（至少 5 笔历史才有「平时」可言）
@@ -216,6 +266,13 @@
         if (s.catList.length) l += "；花得最多的是 " + s.catList.slice(0, 3).map(c => c.name + " " + fmtAmt(c.amount, cur)).join("、");
         lines.push(l);
       });
+      // 账户余额：单独一个开关（settings.shareAcct），默认不给
+      const accts = d.settings.shareAcct ? (d.settings.accounts || []) : [];
+      if (accts.length) lines.push("账户：" + accts.map(a => {
+        const cur = curs.find(c => c.code === a.currency) || { symbol: "" };
+        if (a.type === "credit") { const cs = creditState(a, txns); return a.name + "（信用卡）欠 " + fmtAmt(cs.owed, cur) + (cs.due ? "，本期应还 " + fmtAmt(cs.due, cur) + "，" + fmtDay(cs.dueDate) + "到期" : ""); }
+        return a.name + " 余额 " + fmtAmt(acctBalance(a, txns), cur);
+      }).join("；"));
       const big = txns.filter(t => t.type === "expense").slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 12)
         .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)).slice(0, 4);
       if (big.length) {
@@ -764,7 +821,7 @@
     const [tab, setTab] = useState("wallet");      // wallet | stats | cal | me
     const [stack, setStack] = useState([]);        // 叠在上面的页：{k:"bills"} | {k:"txn",id}
     const [addState, setAddState] = useState(null); // null | {edit?:txn, type?}
-    const [showSet, setShowSet] = useState(null);  // null | "visible" | "cur" | "cat"
+    const [showSet, setShowSet] = useState(null);  // null | "visible" | "acct" | "cur" | "cat"
     const uName = (props.profile && props.profile.name) || "我";
     const routedLore = (ids, text) => props.worldbookFor ? props.worldbookFor(ids, text) : props.worldbook;
     const sk = ledgerSkin(data.settings);
@@ -903,7 +960,7 @@
     else if (top && top.k === "txn") {
       const txn = data.txns.find(x => x.id === top.id);
       over = txn ? h(TxnView, {
-        txn, cur: curOf(txn.currency), sk, characters: props.characters, moods: props.moods, affinities: props.affinities,
+        txn, cur: curOf(txn.currency), sk, settings: data.settings, characters: props.characters, moods: props.moods, affinities: props.affinities,
         active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName, toast: props.toast,
         onBack: pop,
         onEdit: () => setAddState({ edit: txn }),
@@ -926,6 +983,7 @@
         onAddCurrency: c => { const d = loadData(); d.settings.currencies = (d.settings.currencies || []).concat([c]); persist(d); },
         onAddCat: (type, cat) => { const d = loadData(); d.settings.cats[type] = (d.settings.cats[type] || []).concat([cat]); persist(d); },
         onSave: txn => {
+          if (txn.account) { const d = loadData(); d.settings.lastAcct = { ...(d.settings.lastAcct || {}), [txn.currency]: txn.account }; saveData(d); }
           if (addState.edit) { updTxn(addState.edit.id, txn); setAddState(null); props.toast && props.toast("改好了"); }
           else { addTxn(txn); setAddState(null); autoReact(txn); if (props.characters && props.characters.length) push({ k: "txn", id: txn.id }); else props.toast && props.toast("记好了"); }
         }
@@ -1022,6 +1080,26 @@
     //   直接用她那张整页样张裁下来的图（assets/ledger/，按 960 宽的原图坐标裁），位置和宽度也按原图比例摆；
     //   只有会变的东西（余额、座右铭、预算数字和进度、最近账单）用字写在上面。
     const IMG = "assets/ledger/", IMG_V = "?v=255";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
+    const accts = settings.accounts || [];
+    const [slide, setSlide] = useState(0);
+    // 账户卡上印的字：盖住原卡面左上那块，跟卡一起歪 3 度
+    const acctFace = a => { const c = (props.curs || []).find(x => x.code === a.currency) || cur, ty = acctType(a.type);
+      const cs = a.type === "credit" ? creditState(a, data.txns) : null;
+      const money = v => hide ? c.symbol + " ****" : fmtMoney(v, c);
+      return h("div", { style: { position: "absolute", left: "15%", top: "13%", width: "52%", padding: "10px 12px", borderRadius: 12, transform: "rotate(-3deg)",
+          background: "linear-gradient(150deg, rgba(255,255,255,.88), rgba(255,255,255,.62))", boxShadow: "inset 0 1px 0 #fff, 0 2px 8px rgba(110,110,170,.18)", border: "1px solid rgba(255,255,255,.95)" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: "#2b2c55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          h("span", { style: { width: 12, height: 8, borderRadius: 2, background: ty.tint, flexShrink: 0 } }), a.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#77789a", marginTop: 1 } }, ty.zh + " · " + c.label),
+        cs ? h(Fragment, null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 6 } }, cs.dueDate ? "本期应还" : "欠款"),
+          h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(cs.dueDate ? cs.due : cs.owed)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cs.due && cs.daysLeft >= 0 && cs.daysLeft <= 3 ? sk.over : "#77789a", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+            (cs.dueDate ? (cs.due ? (cs.daysLeft < 0 ? "已过还款日 " + (-cs.daysLeft) + " 天" : cs.daysLeft === 0 ? "今天要还" : "还有 " + cs.daysLeft + " 天还款") : "本期已还清") : "") +
+            (cs.avail != null ? (cs.dueDate ? " · " : "") + "可用 " + money(cs.avail) : "")))
+          : h(Fragment, null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 6 } }, "余额"),
+            h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(acctBalance(a, data.txns))))); };
     const at = (x, w) => ({ marginLeft: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" });
     const pic = (src, x, w, extra, props2) => h("img", Object.assign({ src: IMG + src + ".png" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", height: "auto" }, at(x, w), extra || {}) }, props2 || {}));
     const soft = "linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent), linear-gradient(180deg, transparent, #000 5%, #000 95%, transparent)";
@@ -1039,8 +1117,16 @@
       edgeText([MON, String(now.getFullYear()), "/ " + pad(now.getMonth() + 1)], { right: 4, top: 350, zIndex: 3, fontSize: 9.5, letterSpacing: ".3em", color: "rgba(92,92,130,.65)" }),
       h(Sparkle, { size: 16, style: { position: "absolute", right: 2, top: 404, zIndex: 3 } }),
       h(Sparkle, { size: 11, style: { position: "absolute", left: 4, top: 470, zIndex: 3 } }),
-      // 卡套 + 卡 + 链子兔子（原图）
-      h("div", { "data-ledger-tray": true, style: { position: "relative", paddingTop: 58 } },
+      // 卡套 + 卡 + 链子兔子（原图）。加了账户就变成卡包：第一张还是这张总卡，往左滑是一张张账户卡，
+      //   卡面同一张图、按类型换颜色（她 2026-09-29「3 可以」），卡上印名字和余额；信用卡印本期应还和还款日
+      accts.length ? h("div", { style: { position: "relative", paddingTop: 58 } },
+        h("div", { "data-ledger-cardpack": true, onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); if (i !== slide) setSlide(i); },
+            style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } },
+          [null].concat(accts).map((a, i) => h("div", { key: a ? a.id : "total", "data-ledger-tray": i === 0 ? true : undefined, "data-ledger-acctcard": a ? a.id : undefined, style: { flex: "0 0 100%", scrollSnapAlign: "center", position: "relative" } },
+            h("img", { src: IMG + "card.png" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)", filter: a && acctType(a.type).hue ? "hue-rotate(" + acctType(a.type).hue + "deg)" : "none" } }),
+            a ? acctFace(a) : null))),
+        h("div", { style: { display: "flex", justifyContent: "center", gap: 6, marginTop: 4 } }, [null].concat(accts).map((a, i) => h("span", { key: i, style: { width: i === slide ? 14 : 6, height: 6, borderRadius: 999, background: i === slide ? (a ? acctType(a.type).tint : "#a79cef") : "rgba(150,145,200,.3)", transition: "width .2s" } }))))
+      : h("div", { "data-ledger-tray": true, style: { position: "relative", paddingTop: 58 } },
         h("img", { src: IMG + "card.png" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
@@ -1319,7 +1405,7 @@
         const da = dailyAvg(s.exp, mk);
         if (!da) return null;
         // 今天实际花了多少（她 2026-09-27「那实际的每日消费你没做」）：只在看这个月时有
-        const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && x.type !== "income").reduce((a, x) => a + (Number(x.amount) || 0), 0) : null;
+        const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + (Number(x.amount) || 0), 0) : null;
         // 三块并排的小读数屏
         const row = (label, val, note, key, first) => h("div", { key, style: { flex: 1, textAlign: "center", padding: "2px 4px", borderLeft: first ? "none" : "1px solid " + LINE } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginBottom: 3 } }, label),
@@ -1353,7 +1439,7 @@
             over ? null : h("span", { style: numStyle(sk, 14) }, fmtMoney(bs.perDay, cur))) : null,
           // 今天实际花的对上「今天能花的」：超了照实标出来
           bs.perDay != null && !over ? (function () {
-            const td = todayKey(), spent = monthTxns.filter(x => x.date === td && x.type !== "income").reduce((a, x) => a + (Number(x.amount) || 0), 0);
+            const td = todayKey(), spent = monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + (Number(x.amount) || 0), 0);
             const allow = (bs.left + spent) / bs.daysLeft;   // 今天开张前剩的钱摊到含今天的这几天，就是今天原本能花的
             return h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: F_BODY, fontSize: 11.5, color: sk.sub } },
               h("span", null, "今天已花"),
@@ -1402,7 +1488,7 @@
     const [q, setQ] = useState(null);   // null＝没在搜；字符串＝在搜（搜的时候跨月）
     const all = data.txns.filter(x => x.currency === code && (!catF || x.category === catF));
     const kw = q == null ? "" : q.trim();
-    const monthTxns = all.filter(x => (kw ? true : monthKey(x.date) === mk) && (kind === "all" || (kind === "income" ? x.type === "income" : x.type !== "income"))
+    const monthTxns = all.filter(x => (kw ? true : monthKey(x.date) === mk) && (kind === "all" || (kind === "income" ? x.type === "income" : isExpense(x)))
       && (!kw || [x.note, x.category, String(x.amount)].some(v => String(v || "").indexOf(kw) >= 0)))
       .sort((a, b) => (b.ts || 0) - (a.ts || 0));
     return ledgerPage(sk, "账单", props.onBack,
@@ -1434,7 +1520,7 @@
     const [y, m] = mk.split("-").map(Number);
     const first = new Date(y, m - 1, 1).getDay(), days = new Date(y, m, 0).getDate();
     const byDay = {};
-    data.txns.forEach(x => { if (x.currency !== code || monthKey(x.date) !== mk) return; const d = byDay[x.date] || (byDay[x.date] = { exp: 0, inc: 0 }); if (x.type === "income") d.inc += Number(x.amount) || 0; else d.exp += Number(x.amount) || 0; });
+    data.txns.forEach(x => { if (x.currency !== code || monthKey(x.date) !== mk || isTransfer(x)) return; const d = byDay[x.date] || (byDay[x.date] = { exp: 0, inc: 0 }); if (x.type === "income") d.inc += Number(x.amount) || 0; else d.exp += Number(x.amount) || 0; });
     const max = Math.max(1, ...Object.keys(byDay).map(k => byDay[k].exp));
     const cells = [];
     for (let i = 0; i < first; i++) cells.push(null);
@@ -1507,7 +1593,9 @@
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
-        h("img", { src: LA + "ic-" + icon + ".png" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
+        icon === "card" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
+            h("span", { style: { width: 34, height: 24, borderRadius: 6, transform: "rotate(-8deg)", background: "linear-gradient(125deg,#e6e0fb,#f3dff0 35%,#d9e6fb 70%,#ece0fa)", border: "1px solid rgba(160,150,220,.6)", boxShadow: "inset 0 1px 0 #fff, 0 2px 4px rgba(140,130,200,.25)" } }))
+          : h("img", { src: LA + "ic-" + icon + ".png" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
         h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
         h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
@@ -1531,10 +1619,11 @@
                 h("img", { src: LA + PREV[x.id] + ".png" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
-          grow(1, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
-          grow(2, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
-          grow(3, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
-          grow(4, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat"))),
+          grow(1, "card", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
+          grow(2, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
+          grow(3, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
+          grow(4, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
+          grow(5, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat"))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
     }
     return h("div", { className: "px-5 pb-8" },
@@ -1550,7 +1639,8 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: pv.ink } }, x.zh + (on ? " ✓" : "")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pv.fog, marginTop: 2 } }, x.sub)); }))),
       h("div", { style: Object.assign({ overflow: "hidden" }, sk.shell) },
-        row("每月预算", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget, true),
+        row("账户", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct"), true),
+        row("每月预算", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
         row("谁能看到我的账", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
         row("币种", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
         row("分类", "", () => props.onSettings("cat"))),
@@ -1560,21 +1650,22 @@
   // 单条信息条：像一张插进钱包凹槽里的小票条——左边一排打孔，彩色塑料小方块，右边金额最清楚
   function TxnRow(props) {
     const { txn, cur, sk, settings } = props;
-    const isInc = txn.type === "income";
+    const isInc = txn.type === "income", xfer = isTransfer(txn);
     const tm = txn.ts ? new Date(txn.ts) : null;
     const head = dayLabel(txn.date).split(" ")[0];
     const when = head === "今天" || head === "昨天" ? head + (tm ? " " + pad(tm.getHours()) + ":" + pad(tm.getMinutes()) : "") : fmtDay(txn.date);
     const glass = sk.id === "glass";
     return h("button", { onClick: props.onClick, className: "w-full active:opacity-80 text-left", "data-ledger-strip": true,
       style: Object.assign({ padding: "10px 12px", display: "flex", alignItems: "center", gap: 11, minHeight: 58 }, sk.card, { borderRadius: sk.id === "glass" ? 0 : 16 }) },
-      h(CatTile, { tint: catTint(settings, isInc ? "income" : "expense", txn.category), emoji: txn.catEmoji, name: txn.category, icon: txn.catIcon || catIconOf(settings, isInc ? "income" : "expense", txn.category), size: 38, sk }),
+      xfer ? h("div", { "aria-hidden": "true", style: { width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: sk.sub, background: "rgba(200,196,236,.35)", border: "1px solid rgba(255,255,255,.7)" } }, "⇄")
+        : h(CatTile, { tint: catTint(settings, isInc ? "income" : "expense", txn.category), emoji: txn.catEmoji, name: txn.category, icon: txn.catIcon || catIconOf(settings, isInc ? "income" : "expense", txn.category), size: 38, sk }),
       h("div", { style: { flex: 1, minWidth: 0 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 500, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, txn.note || txn.category),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 500, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, xfer ? (txn.note || acctName(settings, txn.from) + " → " + acctName(settings, txn.to)) : (txn.note || txn.category)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           when + ((txn.comments || []).length ? " · " + txn.comments.length + " 条批注" : ""))),
       h("div", { style: { textAlign: "right", flexShrink: 0 } },
-        h("div", { style: numStyle(sk, 15.5, isInc ? sk.inc : sk.exp) }, (isInc ? "+ " : "- ") + fmtMoney(txn.amount, cur)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, txn.category)),
+        h("div", { style: numStyle(sk, 15.5, xfer ? sk.sub : isInc ? sk.inc : sk.exp) }, (xfer ? "" : isInc ? "+ " : "- ") + fmtMoney(txn.amount, cur)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, xfer ? "转账" : txn.category + (txn.account ? " · " + acctName(settings, txn.account) : ""))),
       h("span", { style: { color: sk.fog, fontSize: 16, marginLeft: -2 } }, "›"));
   }
 
@@ -1585,13 +1676,13 @@
     const { txn, cur, sk } = props;
     const [pick, setPick] = useState(false);
     const [confirmDel, setConfirmDel] = useState(false);
-    const isInc = txn.type === "income";
+    const isInc = txn.type === "income", xfer = isTransfer(txn);
     const comments = txn.comments || [];
     const charById = id => (props.characters || []).find(c => c.id === id);
     const tm = txn.ts ? new Date(txn.ts) : null;
     const line = (k, v, big) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "3px 0", fontFamily: F_BODY, fontSize: 12.5, color: "#5c5a66" } }, h("span", null, k), h("span", { style: { fontFamily: DIGIT, fontWeight: 700, fontSize: big ? 18 : 12.5, color: "#2d2c36" } }, v));
     return h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
-      h(Head, { zh: isInc ? "这笔进账" : "这笔账", onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true,
+      h(Head, { zh: xfer ? "这笔转账" : isInc ? "这笔进账" : "这笔账", onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true,
         right: h("div", { className: "flex items-center" },
           h("button", { onClick: props.onEdit, "aria-label": "改这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IPencil, { size: 17, color: sk.ink })),
           h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(ITrash, { size: 18, color: sk.sub }))) }),
@@ -1599,16 +1690,17 @@
         h(Receipt, { sk, title: sk.id === "glass" ? "QIUQIU MART" : (isInc ? "进账小票" : "小票"), sub: sk.id === "glass" ? "GOOD LIFE EVERYDAY" : "生活也值得被记录", no: txn.id,
           foot: h(Fragment, null, h(Barcode, { seed: txn.id }), h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: "#8f8c98", letterSpacing: ".14em" } }, "记账让生活更清晰", sk.id === "glass" ? h("div", { style: { fontSize: 12, marginTop: 2 } }, "THANK YOU!") : null)) },
           line(txn.note || txn.category, (isInc ? "+" : "") + fmtMoney(txn.amount, cur), true),
-          line("分类", txn.category),
+          xfer ? line("从", acctName(props.settings, txn.from)) : line("分类", txn.category),
+          xfer ? line("到", acctName(props.settings, txn.to)) : txn.account ? line("账户", acctName(props.settings, txn.account)) : null,
           line("时间", txn.date + (tm && txn.date === (tm.getFullYear() + "-" + pad(tm.getMonth() + 1) + "-" + pad(tm.getDate())) ? " " + pad(tm.getHours()) + ":" + pad(tm.getMinutes()) : "")),
           line("币种", cur.label + " " + cur.code)),
-        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } },
+        xfer ? null : h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } },
           silk(sk, "角色批注" + (comments.length ? " · " + comments.length : "")),
           (props.characters && props.characters.length)
             ? h("button", { onClick: () => setPick(true), className: "active:opacity-80", style: { minHeight: 36, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: sk.ink, background: sk.id === "glass" ? "linear-gradient(180deg, #ffe6ef, #ffcfe0)" : sk.accent, boxShadow: "inset 0 1px 0 #fff" } },
                 comments.length ? "再让 TA 们说说" : "让角色批注")
             : null),
-        comments.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+        xfer ? null : comments.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
           comments.map((cm, i) => {
             const ch = charById(cm.charId);
             return h("div", { key: i, style: { display: "flex", gap: 10 } },
@@ -1690,15 +1782,23 @@
   // ============================================================
   function AddSheet(props) {
     const { curs, edit, sk } = props;
-    const [type, setType] = useState(edit ? edit.type : (props.initType === "income" ? "income" : "expense"));
+    const [type, setType] = useState(edit ? edit.type : (props.initType === "income" || props.initType === "transfer" ? props.initType : "expense"));
     const [amount, setAmount] = useState(edit ? String(edit.amount) : "");
     const [code, setCode] = useState(edit ? edit.currency : (props.initCode || (curs[0] ? curs[0].code : "CAD")));
     const [cat, setCat] = useState(edit ? { name: edit.category, emoji: edit.catEmoji || "", icon: edit.catIcon || catIconOf(props.settings, edit.type, edit.category) } : null);
     const [date, setDate] = useState(edit ? edit.date : todayStr());
     const [note, setNote] = useState(edit ? (edit.note || "") : "");
     const [dialog, setDialog] = useState(null); // {kind:'cur'|'cat'}
+    // 账户：只列这个币种的；默认上次在这个币种用的那个（settings.lastAcct）
+    const allAccts = props.settings.accounts || [];
+    const accts = allAccts.filter(a => a.currency === code);
+    const [acct, setAcct] = useState(edit ? (edit.account || "") : ((props.settings.lastAcct || {})[code] || ""));
+    const [from, setFrom] = useState(edit && edit.from || "");
+    const [to, setTo] = useState(edit && edit.to || "");
+    const acctOk = !acct || accts.some(a => a.id === acct);
+    useEffect(() => { if (!acctOk) setAcct(""); if (from && !accts.some(a => a.id === from)) setFrom(""); if (to && !accts.some(a => a.id === to)) setTo(""); }, [code]);
 
-    const catList = (props.settings.cats[type] || []);
+    const catList = type === "transfer" ? [] : (props.settings.cats[type] || []);
     const cur = curs.find(c => c.code === code) || curs[0];
 
     const submitCat = vals => { const nc = { name: (vals.name || "").trim(), emoji: "", icon: vals.icon || "" }; if (!nc.name) return; props.onAddCat(type, nc); setCat(nc); setDialog(null); };
@@ -1719,13 +1819,20 @@
       return a === "0" ? k : a + k;
     });
 
-    const canSave = amount && Number(amount) > 0 && cat;
+    const isXfer = type === "transfer";
+    const canSave = amount && Number(amount) > 0 && (isXfer ? (from && to && from !== to) : cat);
     const save = () => {
       if (!canSave) return;
+      if (isXfer) {
+        const base = { date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, from, to, account: "", category: "转账", catEmoji: "", catIcon: "", note: note.trim() };
+        props.onSave(edit ? base : Object.assign({ id: "l" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), ts: Date.now(), comments: [] }, base));
+        return;
+      }
+      const account = acctOk ? acct : "";
       if (edit) {
-        props.onSave({ date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, category: cat.name, catEmoji: cat.emoji || "", catIcon: cat.icon || "", note: note.trim() });
+        props.onSave({ date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, account, from: "", to: "", category: cat.name, catEmoji: cat.emoji || "", catIcon: cat.icon || "", note: note.trim() });
       } else {
-        props.onSave({ id: "l" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), ts: Date.now(), date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, category: cat.name, catEmoji: cat.emoji || "", catIcon: cat.icon || "", note: note.trim(), comments: [] });
+        props.onSave({ id: "l" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), ts: Date.now(), date, type, amount: Math.round(Number(amount) * 100) / 100, currency: code, account, category: cat.name, catEmoji: cat.emoji || "", catIcon: cat.icon || "", note: note.trim(), comments: [] });
       }
     };
     const glass = sk.id === "glass";
@@ -1738,8 +1845,18 @@
       h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
         h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: sk.ink, bg: "transparent", noLine: true,
           right: h("button", { onClick: save, disabled: !canSave, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "lilac" : "clear", !canSave, { minWidth: 56, height: 34, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, color: canSave ? sk.ink : sk.fog }) }, "完成") }),
-        h("div", { style: { padding: "0 20px 10px" } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: type, onChange: v => { setType(v); setCat(null); }, sk })),
+        h("div", { style: { padding: "0 20px 10px" } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"], ["transfer", "转账"]], value: type, onChange: v => { setType(v); setCat(null); }, sk })),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 10px" } },
+          isXfer ? h("div", { "data-ledger-xfer": true },
+            accts.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.sub, lineHeight: 1.7, padding: "18px 4px" } },
+                "转账要在同一个币种下至少有两个账户。去「我的 → 账户」加上，比如一张储蓄卡、一张信用卡——还信用卡就是从储蓄卡转给信用卡。")
+              : [["从", from, setFrom], ["到", to, setTo]].map(([lab, val, setv]) => h("div", { key: lab, style: { marginBottom: 14 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.sub, marginBottom: 6 } }, lab + "哪个账户"),
+                h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, accts.map(a => { const on = val === a.id, ty = acctType(a.type);
+                  return h("button", { key: a.id, onClick: () => setv(a.id), "aria-pressed": on, className: "active:opacity-70 flex items-center gap-2",
+                    style: { minHeight: 40, padding: "0 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
+                      background: on ? ty.tint + "40" : "rgba(255,255,255,.4)", border: "1.5px solid " + (on ? ty.tint : "rgba(160,160,200,.25)") } },
+                    h("span", { style: { width: 16, height: 11, borderRadius: 3, background: ty.tint } }), a.name); }))))) :
           h("div", { "data-ledger-catgrid": true, className: "lg-add-grid", style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 } },
             catList.map(c => { const on = cat && cat.name === c.name;
               return h("button", { key: c.name, onClick: () => setCat(c), "aria-pressed": !!on, className: "lg-add-category active:opacity-70 flex flex-col items-center", style: { gap: 5, padding: "4px 0" } },
@@ -1762,8 +1879,11 @@
               date === todayStr() ? "今天" : fmtDay(date),
               h("input", { type: "date", value: date, onChange: e => e.target.value && setDate(e.target.value), "aria-label": "日期", style: { position: "absolute", inset: 0, opacity: 0, width: "100%" } })),
             curs.length > 1 ? chip(cur.label, () => { const i = curs.findIndex(c => c.code === code); setCode(curs[(i + 1) % curs.length].code); }) : null,
+            !isXfer && accts.length ? chip(h(Fragment, null, h("span", { style: { width: 14, height: 10, borderRadius: 3, background: acct && acctOk ? acctType((accts.find(a => a.id === acct) || {}).type).tint : "rgba(160,160,200,.35)" } }),
+                acct && acctOk ? (accts.find(a => a.id === acct) || {}).name : "不记账户"),
+              () => { const ids = [""].concat(accts.map(a => a.id)); setAcct(ids[(ids.indexOf(acctOk ? acct : "") + 1) % ids.length]); }, { color: acct && acctOk ? sk.ink : sk.fog }) : null,
             chip("＋币种", () => setDialog({ kind: "cur" }), { color: sk.fog }),
-            cat ? chip(h(Fragment, null, h(CategoryGlyph, { name: cat.name, emoji: cat.emoji, icon: cat.icon, size: 18 }), cat.name), null, { color: sk.ink, fontWeight: 700 }) : null),
+            cat && !isXfer ? chip(h(Fragment, null, h(CategoryGlyph, { name: cat.name, emoji: cat.emoji, icon: cat.icon, size: 18 }), cat.name), null, { color: sk.ink, fontWeight: 700 }) : null),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.1fr", gap: 7 } },
             h("div", { style: { gridColumn: "1 / 4", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7 } },
               ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map(k => key(k, k)), key("del", "⌫")),
@@ -1783,7 +1903,8 @@
     const t = useTheme();
     const s = props.settings;
     const [sel, setSel] = useState((s.visibleTo || []).slice());
-    const [tab, setTab] = useState(props.initTab || "visible"); // visible | cur | cat
+    const [tab, setTab] = useState(props.initTab || "visible"); // visible | acct | cur | cat
+    const [acctEdit, setAcctEdit] = useState(null); // null | {} 新的 | 账户对象
     const [catType, setCatType] = useState("expense");
     const [dialog, setDialog] = useState(null); // {kind, ...}
     const [confirm, setConfirm] = useState(null); // {title,body,onConfirm}
@@ -1836,7 +1957,7 @@
         h(Head, { zh: "记账设置", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: null }),
         h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
-          tabBtn("visible", "谁能看到"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
+          tabBtn("visible", "谁能看到"), tabBtn("acct", "账户"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
           // ---- 可见性 ----
           tab === "visible" ? h(Fragment, null,
@@ -1847,6 +1968,29 @@
                 h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
                 h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "1.5px solid " + (on ? pageColor("ledger", "accent", ACCENT) : t.line), background: on ? pageColor("ledger", "accent", ACCENT) : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null));
             }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) : null,
+          // ---- 账户 ----
+          tab === "acct" ? h(Fragment, null,
+            (s.accounts || []).map(a => { const ty = acctType(a.type), c = curs.find(x => x.code === a.currency) || { symbol: "", label: a.currency };
+              const cs = a.type === "credit" ? creditState(a, props.txns || []) : null;
+              return h("button", { key: a.id, onClick: () => setAcctEdit(a), "data-ledger-acct": a.id, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, marginBottom: 8, minHeight: 56 } },
+                h("div", { style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, a.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, ty.zh + " · " + c.label)),
+                h("div", { style: { textAlign: "right" } },
+                  cs ? h(Fragment, null,
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.ink } }, "欠 " + fmtAmt(cs.owed, c)),
+                    cs.dueDate ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: cs.due && cs.daysLeft <= 3 ? EXP : t.fog, marginTop: 2 } }, "本期应还 " + fmtAmt(cs.due, c) + " · " + fmtDay(cs.dueDate)) : null)
+                    : h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.ink } }, fmtAmt(acctBalance(a, props.txns || []), c))),
+                h("span", { style: { color: t.fog } }, "›")); }),
+            h("button", { onClick: () => setAcctEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, marginBottom: 18 } }, "＋ 添加账户"),
+            // 她 2026-09-29「搞开关给不给」：能看账本的角色，看不看得到账户余额，单独一个开关，默认不给
+            h("button", { onClick: () => props.onPersist(d => { d.settings.shareAcct = !d.settings.shareAcct; }), "data-ledger-shareacct": true, "aria-pressed": !!s.shareAcct, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, minHeight: 56 } },
+              h("div", { style: { flex: 1 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "角色也能看到账户余额"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, "只对「谁能看到」里选中的角色生效。关着的时候 TA 们只知道收支，不知道你卡里有多少、欠多少。")),
+              h("span", { style: { width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative", background: s.shareAcct ? pageColor("ledger", "accent", ACCENT) : t.line, transition: "background .2s" } },
+                h("span", { style: { position: "absolute", top: 3, left: s.shareAcct ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .2s" } })))) : null,
           // ---- 币种管理 ----
           tab === "cur" ? h(Fragment, null,
             curs.map(c => h("div", { key: c.code, style: { ...rowStyle, marginBottom: 8 } },
@@ -1876,7 +2020,65 @@
       dialog && dialog.kind === "editcur" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "改币种", submitLabel: "保存", fields: [{ key: "code", label: "代码（不可改）", value: dialog.code, locked: true }, { key: "label", label: "名称", value: dialog.label, required: true }, { key: "symbol", label: "符号", value: dialog.symbol, maxLength: 3 }], onSubmit: submitEditCur, onCancel: () => setDialog(null) }) : null,
       dialog && dialog.kind === "addcat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新分类", submitLabel: "添加", fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "icon", label: "图标", type: "icon" }], onSubmit: submitAddCat, onCancel: () => setDialog(null) }) : null,
       dialog && dialog.kind === "editcat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "改分类", submitLabel: "保存", fields: [{ key: "name", label: "名称", value: dialog.name, required: true }, { key: "icon", label: "图标", type: "icon", value: dialog.icon }], onSubmit: submitEditCat, onCancel: () => setDialog(null) }) : null,
+      acctEdit ? h(AcctEditor, { acct: acctEdit, curs, sk: props.sk, txns: props.txns || [],
+        onClose: () => setAcctEdit(null),
+        onSave: a => { props.onPersist(d => { const list = d.settings.accounts || []; d.settings.accounts = list.some(x => x.id === a.id) ? list.map(x => x.id === a.id ? a : x) : list.concat([a]); }); setAcctEdit(null); },
+        onDelete: a => { props.onPersist(d => {
+          d.settings.accounts = (d.settings.accounts || []).filter(x => x.id !== a.id);
+          // 挂在它身上的收支照样留着、照样算进统计，只是不再属于哪个账户
+          d.txns = d.txns.map(x => x.account === a.id ? { ...x, account: "" } : x);
+        }); setAcctEdit(null); } }) : null,
       confirm ? h(ConfirmDialog, { title: confirm.title, body: confirm.body, confirmLabel: "删掉", danger: true, onConfirm: confirm.onConfirm, onCancel: () => setConfirm(null) }) : null);
+  }
+
+  // 添加 / 改一个账户：整页（施工规则/no-half-sheet.md）
+  function AcctEditor(props) {
+    const t = useTheme();
+    const a0 = props.acct || {};
+    const isNew = !a0.id;
+    const [name, setName] = useState(a0.name || "");
+    const [type, setType] = useState(a0.type || "debit");
+    const [code, setCode] = useState(a0.currency || (props.curs[0] || {}).code || "CAD");
+    // 信用卡在表单里填「现在欠多少」（正数），存的时候变成负的初始余额
+    const [init, setInit] = useState(a0.id ? String(a0.type === "credit" ? -(Number(a0.init) || 0) : (Number(a0.init) || 0)) : "");
+    const [limit, setLimit] = useState(a0.limit ? String(a0.limit) : "");
+    const [billDay, setBillDay] = useState(a0.billDay ? String(a0.billDay) : "");
+    const [dueDay, setDueDay] = useState(a0.dueDay ? String(a0.dueDay) : "");
+    const [confirmDel, setConfirmDel] = useState(false);
+    const credit = type === "credit";
+    const num = v => Math.round((parseFloat(String(v).replace(/[^\d.-]/g, "")) || 0) * 100) / 100;
+    const day = v => { const n = parseInt(v, 10); return n >= 1 && n <= 28 ? n : 0; };
+    const used = !isNew && (props.txns || []).some(x => x.account === a0.id || x.from === a0.id || x.to === a0.id);
+    const save = () => {
+      if (!name.trim()) return;
+      const v = num(init);
+      props.onSave({ id: a0.id || "a" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), name: name.trim().slice(0, 16), type, currency: code,
+        init: credit ? -Math.abs(v) : v, limit: credit ? num(limit) : 0, billDay: credit ? day(billDay) : 0, dueDay: credit ? day(dueDay) : 0 });
+    };
+    const g = props.sk && props.sk.id === "glass";
+    const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
+    const input = (val, set, ph, mode) => h("input", { value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 16,
+      style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" } });
+    const pill = (on, txt, onClick, tint) => h("button", { onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
+      color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) } }, txt);
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 58, display: "flex", flexDirection: "column" } },
+      h("div", { className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
+        h(Head, { zh: isNew ? "添加账户" : "改账户", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
+          right: isNew ? null : h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这个账户", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(ITrash, { size: 18, color: t.sub })) }),
+        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 20px" } },
+          label("名字"), input(name, setName, credit ? "比如 招行信用卡" : "比如 工资卡"),
+          label("类型"), h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, ACCT_TYPES.map(x => pill(type === x.id, x.zh, () => setType(x.id), x.tint))),
+          label("币种"), h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, props.curs.map(c => pill(code === c.code, c.label, () => setCode(c.code)))),
+          label(credit ? "现在欠多少（没欠就填 0）" : "现在余额"), input(init, setInit, "0", "decimal"),
+          credit ? h(Fragment, null,
+            label("额度（可留空）"), input(limit, setLimit, "比如 20000", "decimal"),
+            h("div", { style: { display: "flex", gap: 10 } },
+              h("div", { style: { flex: 1 } }, label("账单日（每月几号，1–28）"), input(billDay, setBillDay, "5", "numeric")),
+              h("div", { style: { flex: 1 } }, label("还款日（每月几号，1–28）"), input(dueDay, setDueDay, "25", "numeric"))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "设了账单日就按周期算：账单日那天之前刷的算这一期应还，之后刷的算下一期。还信用卡在「记一笔 → 转账」里，从储蓄卡转给这张卡。")) : null),
+        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          h("button", { onClick: save, disabled: !name.trim(), className: "w-full active:opacity-85", style: { minHeight: 48, background: name.trim() ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } }, "保存"))),
+      confirmDel ? h(ConfirmDialog, { title: "删掉「" + (a0.name || "") + "」？", body: used ? "记在它上面的收支会留着、照样算进统计，只是不再属于哪个账户；跟它有关的转账会显示成「已删的账户」。" : "这个账户上还没有账，可以放心删。", confirmLabel: "删掉", danger: true, onConfirm: () => props.onDelete(a0), onCancel: () => setConfirmDel(false) }) : null);
   }
 
   window.Ledger = Ledger;

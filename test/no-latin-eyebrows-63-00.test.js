@@ -18,7 +18,7 @@ const ALLOW = {
   // Lisa 2026-09-28 又放行一次：「英文可以破例」——Y2K 要有标志性的英文字标（每页顶上一个）
   "js/ledger.js": ["MY WALLET", "QIUQIU WALLET", "GOOD THINGS", "COST MONEY", "BUT ALSO", "QIUQIU MART", "GOOD LIFE EVERYDAY", "STATISTICS", "MY CALENDAR", "CALENDAR", "MY STUFF", "MY BILLS", "THANK YOU",
     // 首页照她给的整页样张逐字抄（页边丝印、卡上贴纸、票根、页脚）
-    "QIUQIU", "GOOD", "THINGS", "TAKE TIME", "SINCE", "SPEND", "SAVE", "HAPPIER", "LIFE", "EXPENSES", "LOVE", "SMALL", "MONEY", "BIG", "HAPPINESS", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "BUDGET", "PRIVACY", "CURRENCY", "CATEGORY", "NOTE"],
+    "QIUQIU", "GOOD", "THINGS", "TAKE TIME", "SINCE", "SPEND", "SAVE", "HAPPIER", "LIFE", "EXPENSES", "LOVE", "SMALL", "MONEY", "BIG", "HAPPINESS", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "BUDGET", "PRIVACY", "CURRENCY", "CATEGORY", "NOTE", "ACCOUNTS"],
   // ① 这一处压根没有中文名（no-english-titles.md 里写明的那条例外）
   "js/notify.js": ["ARCHIVE"],            // app 自己的名字，manifest 里就叫这个
   // OOC 在中文同人圈里就是这么写的，它【就是】那个中文词，不是没翻译
