@@ -545,20 +545,18 @@
 .lg-reference{--f-body:Arial,'PingFang SC',sans-serif;--f-display:Arial,'PingFang SC',sans-serif;font-family:Arial,'PingFang SC',sans-serif}
 .lg-reference .lg-wallet-head [data-wk=head]>div:first-child{width:30px}
 .lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2){text-align:left!important}
-.lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:first-child{font-family:Arial,sans-serif!important;font-size:18px!important;font-weight:700!important;letter-spacing:.06em}
-.lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.16em}
+.lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:first-child{font-family:'Avenir Next','Futura','Century Gothic','Helvetica Neue',Arial,sans-serif!important;font-size:25px!important;font-weight:500!important;letter-spacing:.16em;color:#23244a!important}
+.lg-reference .lg-wallet-head [data-wk=head]>div:nth-child(2)>div:nth-child(2){font-size:9px!important;letter-spacing:.55em!important;margin-top:2px}
 .lg-reference .lg-wallet-head [data-wk=head]>div:last-child{width:66px!important}
 .lg-reference .lg-wallet-main{padding:8px 22px 24px}
-.lg-reference [data-ledger-tray]{background:linear-gradient(125deg,rgba(254,255,255,.1),rgba(215,228,250,.12) 38%,rgba(255,255,255,.34) 53%,rgba(240,214,244,.14))!important;border:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 4px 5px 10px rgba(255,255,255,.5),inset -5px -6px 12px rgba(148,138,226,.2),-5px -4px 12px rgba(255,214,236,.22),5px 6px 14px rgba(176,208,250,.3)!important;backdrop-filter:blur(8px) saturate(1.5);-webkit-backdrop-filter:blur(8px) saturate(1.5);transform:rotate(-5deg);padding:16px 14px 12px!important;border-radius:29px!important;margin:8px 2px 23px!important}
 .lg-reference [data-ledger-tray]:after{content:"";position:absolute;inset:1px;border-radius:28px;pointer-events:none;background:linear-gradient(111deg,transparent 6%,#fff8 8%,transparent 10%,transparent 63%,#d8faff44 68%,#ffe4f533 72%,transparent 76%),linear-gradient(5deg,transparent 5%,#fff9 7%,transparent 8%,transparent 93%,#fff9 95%,transparent 97%)}
 .lg-reference [data-ledger-tray]:before{content:'';position:absolute;inset:7px;border:1px solid #ffffff9c;border-radius:22px;box-shadow:inset 2px 2px 2px #929cbd90,2px 2px 3px #ffffffa8;pointer-events:none}
-.lg-reference [data-ledger-card]{height:192px!important;margin:0!important;transform:none!important;border-radius:17px!important;background:linear-gradient(132deg,#cec4ec88 2%,#b8c6f29c 27%,#e1c9efab 54%,#b7d8f3b3 76%,#e2bce3a3)!important;box-shadow:inset 0 0 0 2px #ffffff50,inset 0 2px 3px #ffffffcc,inset -2px -3px 4px #967fa766,0 4px 8px #878ca75e!important}
 .lg-reference .lg-balance{padding:6px 18px 4px!important;margin-bottom:14px!important;background:transparent!important;border:0!important;box-shadow:none!important}
 .lg-reference .lg-balance-summary{display:none!important}
 .lg-reference .lg-motto{background:transparent!important;border-radius:0!important;border-bottom:0!important;margin-top:5px!important;padding:4px 6px!important;color:#444264!important}
 .lg-reference .lg-bigkeys{gap:11px!important;margin-bottom:20px!important}
 .lg-reference [data-ledger-bigkey]{aspect-ratio:1/1.08!important;max-height:113px!important;border-radius:19px!important}
-.lg-reference [data-ledger-wallet-budget]{padding:12px 2px 12px!important;margin-bottom:14px!important;border-radius:0!important}
+.lg-reference [data-ledger-wallet-budget]{margin-bottom:16px!important}
 .lg-reference [data-ledger-tabbar] button>span:first-child{background:transparent!important;box-shadow:none!important}
 .lg-reference [data-ledger-tabbar] button[aria-current=page] svg{fill:#b4a2ec;stroke:#494579}
 .lg-reference .lg-segment{gap:0!important;height:42px;border-radius:21px}
@@ -590,10 +588,8 @@
 .lg-reference .lg-receipt:before{content:'';position:absolute;width:73px;height:23px;left:-20px;top:0;transform:rotate(-32deg);background:linear-gradient(110deg,#c4d2e54f,#adc7e56b,#dce8f55c);border:1px solid #d2e0eb33;z-index:1}
 .lg-reference .lg-receipt>div:first-child{padding:25px 20px 20px!important;background-image:repeating-linear-gradient(0deg,#bbb7d309 0 1px,transparent 1px 4px)!important}
 .lg-reference .lg-receipt svg{height:34px!important;margin-top:22px!important}
-.lg-reference [data-ledger-card]>div:nth-child(2){font-size:11px!important;font-weight:600!important;letter-spacing:.1em!important;color:#464c80!important}
-.lg-reference [data-ledger-card]>svg:last-child{width:15px!important;height:15px!important}
 
-@media(max-height:720px){.lg-reference [data-ledger-card]{height:151px!important}.lg-reference [data-ledger-tray]{margin-bottom:16px!important}.lg-reference .lg-add-category{height:73px}.lg-reference .lg-add-grid{gap:8px!important}.lg-reference .lg-console{padding-top:4px!important}}
+@media(max-height:720px){.lg-reference .lg-add-category{height:73px}.lg-reference .lg-add-grid{gap:8px!important}.lg-reference .lg-console{padding-top:4px!important}}
 `;
   // 金额一律两位小数、负号在符号前面：-¥3,174.80，不是 ¥-3,174.8
   function fmtMoney(n, cur) {
@@ -867,14 +863,18 @@
     const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
       h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: tab === "wallet" && sk.id === "glass" ? "MY WALLET" : tabTitle, sub: tab === "wallet" && sk.id === "glass" ? "A BETTER ME :)" : null, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch })),
       h("div", { key: tab, className: "flex-1 min-h-0 overflow-y-auto", style: { overscrollBehavior: "contain" } },
-        tab === "wallet" ? h(WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
+        tab === "wallet" ? h(sk.id === "glass" ? WalletHomeY2K : WalletHome, Object.assign({}, common, { characters: props.characters, onAdd: type => setAddState({ type }), onBills: () => push({ k: "bills" }), onEditBudget: editBudget,
           onMotto: () => requestAppPrompt("钱包上的那句话", "写一句给自己看的话，留空就用默认那句。", data.settings.motto || "", v => setSetting({ motto: String(v || "").trim().slice(0, 30) }), "好"),
           onToggleHide: () => setSetting({ hideBal: !data.settings.hideBal }) })) :
         tab === "stats" ? h(CurView, Object.assign({}, common, { onOpenCat: (cat, kind, mk) => push({ k: "bills", cat, kind, mk }), txns: data.txns, budget: (data.settings.budgets || {})[code] || 0, onSetBudget })) :
         tab === "cal" ? h(CalView, common) :
         h(MeView, Object.assign({}, common, { characters: props.characters, onSettings: k => setShowSet(k), onEditBudget: editBudget, onSkin: id => setSetting({ skin: id }) }))),
       // 底栏：只吃 0.4 条安全区（mobile-ui-layout §2）；选中那格图标加粗、底下垫一块鼓起来的糖块
-      h("div", { className: "shrink-0 flex", "data-ledger-tabbar": true, style: Object.assign({ padding: "6px 10px calc(env(safe-area-inset-bottom) * 0.4)" }, sk.tabBar) },
+      h("div", { className: "shrink-0 flex", "data-ledger-tabbar": true, style: sk.id === "glass"
+        // 样张：底栏是一条浮起来的玻璃条（圆角、细白边），只吃 0.4 条安全区（mobile-ui-layout §2）
+        ? { padding: "6px 8px", margin: "0 12px calc(env(safe-area-inset-bottom) * 0.4)", borderRadius: 24, background: "linear-gradient(160deg, rgba(255,255,255,.62), rgba(244,245,252,.4))", border: "1px solid rgba(255,255,255,.9)",
+            boxShadow: "inset 0 1px 0 #fff, 0 6px 18px rgba(110,112,160,.14)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }
+        : Object.assign({ padding: "6px 10px calc(env(safe-area-inset-bottom) * 0.4)" }, sk.tabBar) },
         // 底栏轻薄：只有选中那一格底下垫一小块果冻高光
         TABS.map(([k, zh, ic]) => { const on = tab === k;
           return h("button", { key: k, onClick: () => setTab(k), className: "flex-1 flex flex-col items-center justify-center active:opacity-70", "aria-label": zh, "aria-current": on ? "page" : undefined, style: { minHeight: 52, gap: 2 } },
@@ -927,6 +927,161 @@
   // ============================================================
   // 钱包：顶上那张镭射卡是【母组件】——下面的余额屏、三颗键、电量槽都是同一台机器上的舱位
   // ============================================================
+  // ============================================================
+  // 钱包首页 · 照她 2026-09-28 给的整页样张（IMG 抄作业版）逐块做：
+  //   页边印着的小字 → 透明卡套 + 银链 + 透明兔子挂件 → 余额面板 + 手写座右铭 + 贴纸便签
+  //   → 三颗带四颗螺丝的玻璃键 → 透明试管预算槽 + 手写 Keep going → 玻璃面板里的最近账单 → 左边露出一截票根 → 页脚小字和条码
+  // ============================================================
+  const HAND_ZH = "'Kaiti SC','STKaiti','KaiTi','Long Cang',cursive";
+  const WIDE = "'Avenir Next','Futura','Century Gothic','Helvetica Neue',Arial,sans-serif";
+  // 页边印着的一列小字（像机身上的丝印）
+  const edgeText = (lines, style) => h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", fontFamily: WIDE, fontSize: 7.5, letterSpacing: ".22em", lineHeight: 1.9, color: "rgba(92,92,130,.55)", pointerEvents: "none", whiteSpace: "pre" }, style) }, lines.join("\n"));
+  // 银色链子 + 一只透明树脂兔子挂件
+  function KeyChain({ style }) {
+    return h("svg", { width: 44, height: 150, viewBox: "0 0 44 150", "aria-hidden": "true", style: Object.assign({ position: "absolute", overflow: "visible", pointerEvents: "none" }, style) },
+      h("defs", null,
+        h("linearGradient", { id: "lg-chain", x1: 0, y1: 0, x2: 1, y2: 1 }, h("stop", { offset: 0, stopColor: "#ffffff" }), h("stop", { offset: .45, stopColor: "#c9ccd8" }), h("stop", { offset: 1, stopColor: "#8e92a8" })),
+        h("radialGradient", { id: "lg-charm", cx: .38, cy: .3, r: .8 }, h("stop", { offset: 0, stopColor: "rgba(255,255,255,.98)" }), h("stop", { offset: .6, stopColor: "rgba(232,234,248,.7)" }), h("stop", { offset: 1, stopColor: "rgba(196,200,232,.75)" }))),
+      // 链环：一节竖、一节横，交错
+      [0, 1, 2, 3, 4].map(i => i % 2 === 0
+        ? h("rect", { key: i, x: 10, y: 4 + i * 17, width: 11, height: 20, rx: 5.5, fill: "none", stroke: "url(#lg-chain)", strokeWidth: 3 })
+        : h("rect", { key: i, x: 11.5, y: 6 + i * 17, width: 8, height: 16, rx: 4, fill: "none", stroke: "url(#lg-chain)", strokeWidth: 2.4, transform: "rotate(90 15.5 " + (14 + i * 17) + ")" })),
+      // 兔子挂件：透明树脂
+      h("g", { transform: "translate(0 88)", style: { filter: "drop-shadow(0 3px 4px rgba(110,110,170,.25))" } },
+        h("path", { d: "M14 20c-3-8-3-17 1-18s5 8 4 17M28 20c3-8 3-17-1-18s-5 8-4 17", fill: "url(#lg-charm)", stroke: "rgba(170,172,210,.8)", strokeWidth: 1 }),
+        h("ellipse", { cx: 21, cy: 34, rx: 17, ry: 15, fill: "url(#lg-charm)", stroke: "rgba(170,172,210,.8)", strokeWidth: 1 }),
+        h("circle", { cx: 15.5, cy: 33, r: 1.4, fill: "#8a86b4" }), h("circle", { cx: 26.5, cy: 33, r: 1.4, fill: "#8a86b4" }),
+        h("path", { d: "M19 38q2 1.6 4 0", fill: "none", stroke: "#8a86b4", strokeWidth: 1, strokeLinecap: "round" }),
+        h("ellipse", { cx: 13, cy: 26, rx: 4, ry: 2, fill: "rgba(255,255,255,.95)", transform: "rotate(-30 13 26)" })));
+  }
+  // 条码（页脚、卡上的贴纸、票根共用）
+  const miniBarcode = (w, hh, seed) => { const bars = []; let x = 0, n = Math.abs(forumlessHash(seed || "q")) || 7;
+    while (x < w) { n = (n * 1103515245 + 12345) & 0x7fffffff; const bw = 0.8 + (n % 3) * .7; bars.push(h("rect", { key: x, x, y: 0, width: bw, height: hh, fill: "#5d5f7c" })); x += bw + 1 + ((n >> 3) % 2); }
+    return h("svg", { width: w, height: hh, viewBox: "0 0 " + w + " " + hh, "aria-hidden": "true", style: { display: "block" } }, bars); };
+  // 玻璃键四角的小螺丝
+  const screws = () => [[8, 8], [null, 8], [8, null], [null, null]].map(([l, t], i) => h("span", { key: i, "aria-hidden": "true", style: Object.assign({ position: "absolute", width: 7, height: 7, borderRadius: "50%",
+    background: "radial-gradient(circle at 35% 30%, #fff, #d6d8e6 55%, #9ea2bc)", boxShadow: "0 0.5px 1px rgba(80,80,120,.35)", zIndex: 3 }, l == null ? { right: 8 } : { left: l }, t == null ? { bottom: 8 } : { top: t }) }));
+  // 面板：极淡的乳白玻璃，一道细白边（样张里余额 / 预算 / 最近都是这一种）
+  const PANEL = { background: "linear-gradient(160deg, rgba(255,255,255,.55), rgba(246,247,252,.3))", border: "1px solid rgba(255,255,255,.85)", borderRadius: 18,
+    boxShadow: "inset 0 1px 0 #fff, 0 1px 2px rgba(110,112,160,.08), 0 6px 18px rgba(110,112,160,.08)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" };
+  function WalletHomeY2K(props) {
+    const { sk, data, cur, code, settings } = props;
+    const mk = thisMonthKey(), lmk = shiftMonth(mk, -1);
+    const s = summarize(data.txns, code, mk);
+    const hide = !!settings.hideBal;
+    const bs = budgetState((settings.budgets || {})[code], s.exp, mk);
+    const recent = data.txns.filter(x => x.currency === code).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 4);
+    const motto = settings.motto || "认真生活，也要快乐花钱♡";
+    const now = new Date(), MON = ["JAN.", "FEB.", "MAR.", "APR.", "MAY", "JUN.", "JUL.", "AUG.", "SEP.", "OCT.", "NOV.", "DEC."][now.getMonth()];
+    const used = bs ? Math.min(1, bs.used) : 0;
+    // 座右铭按逗号折成两行，照样张那样一上一下
+    const mottoLines = (() => { const t = String(motto); const i = t.search(/[，,]/); return i > 0 && i < t.length - 1 ? [t.slice(0, i + 1), t.slice(i + 1)] : [t]; })();
+    const card = h("div", { "data-ledger-card": true, style: { position: "relative", height: 172, borderRadius: 15, overflow: "hidden",
+        background: "linear-gradient(125deg,#e6e0fb 0%,#f3dff0 28%,#d9e6fb 55%,#ece0fa 80%,#f6e6f3 100%)",
+        boxShadow: "inset 0 1px 0 #fff, inset 0 -4px 10px rgba(150,130,220,.2), inset 0 0 0 1px rgba(255,255,255,.55)" } },
+      h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(112deg, transparent 32%, rgba(255,255,255,.65) 43%, rgba(214,236,255,.35) 49%, transparent 58%)" } }),
+      h("div", { style: { position: "absolute", left: 22, top: 20, fontFamily: WIDE, fontSize: 12.5, fontWeight: 700, letterSpacing: ".16em", color: "#4d4f86" } }, "QIUQIU WALLET"),
+      h("div", { style: { position: "absolute", left: 22, top: 52, width: 38, height: 29, borderRadius: 6, background: "linear-gradient(135deg,#f7f5fc,#c9c4dc 60%,#eeebf6)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.3)" } },
+        h("div", { style: { position: "absolute", left: 12, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", right: 10, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }),
+        h("div", { style: { position: "absolute", inset: "8px 0", borderTop: "1px solid rgba(120,110,160,.3)", borderBottom: "1px solid rgba(120,110,160,.3)" } })),
+      h("div", { style: { position: "absolute", left: 22, bottom: 18, fontFamily: WIDE, fontSize: 10.5, letterSpacing: ".1em", lineHeight: 1.3, color: "#5c5e8c" } }, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)"),
+      h("svg", { width: 66, height: 66, viewBox: "0 0 70 70", style: { position: "absolute", right: 26, bottom: 30 }, fill: "none", stroke: "rgba(255,255,255,.98)", strokeWidth: 2.2, strokeLinecap: "round", "aria-hidden": "true" },
+        h("path", { d: "M25 30c-4-10-4-22 1-24s7 10 6 22M45 30c4-10 4-22-1-24s-7 10-6 22" }),
+        h("path", { d: "M14 50c0-12 9-21 21-21s21 9 21 21-9 14-21 14-21-2-21-14z" }),
+        h("circle", { cx: 28, cy: 48, r: 1.5, fill: "#fff" }), h("circle", { cx: 42, cy: 48, r: 1.5, fill: "#fff" }), h("path", { d: "M32 53c1.5 1.2 4.5 1.2 6 0" })),
+      h(Sparkle, { size: 16, style: { position: "absolute", right: 16, bottom: 88 } }),
+      // 卡上的两张贴纸：椭圆的 QIUQIU、底边一条条码
+      h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 9px", borderRadius: 999, transform: "rotate(-14deg)", fontFamily: WIDE, fontSize: 8.5, fontWeight: 700, letterSpacing: ".08em", color: "#55588a",
+        background: "linear-gradient(160deg, rgba(255,255,255,.95), rgba(222,226,246,.9))", boxShadow: "0 1px 2px rgba(90,90,140,.25), inset 0 1px 0 #fff" } }, "QIUQIU"),
+      h("div", { style: { position: "absolute", left: "50%", bottom: 0, transform: "translateX(-40%)", padding: "4px 8px 2px", borderRadius: "4px 4px 0 0", background: "rgba(255,255,255,.85)", boxShadow: "0 -1px 2px rgba(90,90,140,.15)" } }, miniBarcode(90, 16, "card")));
+    const key = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
+      const ink = { pink: "#4a3446", blue: "#33415e", lilac: "#3f3a62" }[tone];
+      return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
+        style: { position: "relative", height: 104, gap: 6, borderRadius: 18,
+          // 一块厚透明玻璃：外沿一道淡色轮廓，里面一圈亮白厚边，面是透出来的一点点颜色
+          background: "radial-gradient(70% 55% at 35% 18%, rgba(255,255,255,.75), rgba(255,255,255,0) 70%), linear-gradient(160deg, rgba(255,255,255,.55), " + a + "55)",
+          border: "1px solid " + b + "80",
+          boxShadow: "inset 0 0 0 3px rgba(255,255,255,.6), inset 0 0 0 4px " + b + "33, inset 0 3px 4px #fff, inset 0 -4px 8px " + b + "33, 0 3px 0 " + b + "40, 0 8px 16px rgba(110,112,160,.14)" } },
+        screws(),
+        h(JellyGlyph, { k: glyph, tone, size: 42 }),
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: ink } }, label)); };
+    return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 20px 26px" } },
+      // 页边丝印
+      edgeText(["GOOD", "THINGS", "TAKE TIME."], { right: 44, top: -56, zIndex: 2, fontSize: 8, color: "rgba(92,92,130,.7)" }),
+      h(Sparkle, { size: 18, style: { position: "absolute", right: 18, top: -44, zIndex: 2 } }),
+      edgeText(["SINCE", String(now.getFullYear()), "· · ·"], { right: 2, top: 150 }),
+      edgeText(["SPEND", "", "SAVE", "· · ·", "HAPPIER", "·"], { left: 2, top: 140 }),
+      h(Sparkle, { size: 14, style: { position: "absolute", left: 6, top: 262 } }),
+      // 透明卡套 + 卡 + 链子挂件
+      h("div", { "data-ledger-tray": true, style: { position: "relative", margin: "46px 30px 24px 34px", padding: 10, borderRadius: 24, transform: "rotate(-4deg)",
+          background: "linear-gradient(135deg, rgba(255,255,255,.55), rgba(226,232,250,.25) 45%, rgba(255,255,255,.45) 60%, rgba(236,226,250,.3))",
+          border: "1px solid rgba(180,182,220,.7)",
+          boxShadow: "inset 0 0 0 3px rgba(255,255,255,.75), inset 0 0 0 4px rgba(178,184,226,.35), inset 3px 4px 6px #fff, inset -4px -5px 10px rgba(150,150,210,.22), 0 12px 24px rgba(110,112,170,.2)" } },
+        card,
+        h(KeyChain, { style: { right: -30, top: 16 } })),
+      // 余额面板 + 贴着的便签
+      h("div", { className: "lg-balance", style: Object.assign({}, PANEL, { position: "relative", padding: "14px 16px 14px", margin: "0 38px 14px 0" }) },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: sk.ink } }, "本月结余"),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 4 } },
+          h("div", { "data-ledger-balance": true, style: numStyle(sk, 34, s.net < 0 ? sk.over : sk.ink) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
+          h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 22, color: sk.ink }))),
+        h("button", { onClick: props.onMotto, className: "text-left active:opacity-60", style: { marginTop: 6, minHeight: 40, fontFamily: HAND_ZH, fontSize: 16, lineHeight: 1.45, color: "#3f3d58", maxWidth: "62%" } },
+          mottoLines.map((l, i) => h("div", { key: i, style: { paddingLeft: i ? 16 : 0 } }, (i === 0 ? "「" : "") + l + (i === mottoLines.length - 1 ? "」" : "")))),
+        // 右边一张斜贴的便签：More Good Days :)，上面一截胶带
+        h("div", { "aria-hidden": "true", style: { position: "absolute", right: -14, top: 20, width: 118, height: 74, transform: "rotate(-8deg)", background: "#f9f8f4",
+            boxShadow: "0 2px 5px rgba(90,90,130,.18)", backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,.015) 0 1px, transparent 1px 4px)" } },
+          h("div", { style: { position: "absolute", left: 30, top: -8, width: 44, height: 14, background: "rgba(190,200,240,.55)", transform: "rotate(3deg)" } }),
+          h("div", { className: "lg-hand", style: { position: "absolute", left: 10, top: 12, fontSize: 18, lineHeight: 1.05, color: "#4d4b66" } }, "More", h("br"), h("span", { style: { paddingLeft: 10, whiteSpace: "nowrap" } }, "Good Days"), h("br"), h("span", { style: { paddingLeft: 66, fontSize: 15 } }, ":)")))),
+      edgeText([MON, String(now.getFullYear()), "/ " + pad(now.getMonth() + 1)], { right: 0, top: 336, fontSize: 9, letterSpacing: ".24em", color: "rgba(92,92,130,.6)" }),
+      // 三颗玻璃键
+      h("div", { className: "lg-bigkeys", style: { display: "flex", gap: 12, marginBottom: 16 } },
+        key("记一笔", "pink", "plus", () => props.onAdd("expense")),
+        key("收入", "blue", "bag", () => props.onAdd("income")),
+        key("账单", "lilac", "chart", props.onBills)),
+      // 预算：面板里一根透明试管
+      h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: Object.assign({}, PANEL, { display: "block", padding: "12px 14px 12px", marginBottom: 16 }) },
+        bs ? h(Fragment, null,
+          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: sk.ink } }, "本月预算"),
+            h("span", { style: { display: "flex", alignItems: "baseline", gap: 14 } },
+              h("span", { className: "lg-hand", style: { fontSize: 16, color: "#7a7896", transform: "rotate(-6deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
+              h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : sk.ink) }, Math.round(bs.used * 100) + "%"))),
+          // 试管：两头圆、透明管壁（亮边 + 内影），里面一段紫色液体
+          h("div", { "data-ledger-rail": true, style: { position: "relative", height: 22, borderRadius: 22, padding: 4,
+              background: "linear-gradient(180deg, rgba(255,255,255,.85), rgba(232,234,246,.55) 55%, rgba(255,255,255,.8))",
+              border: "1px solid rgba(186,188,222,.75)", boxShadow: "inset 0 2px 3px rgba(96,100,150,.16), inset 0 -2px 2px rgba(255,255,255,.9), 0 2px 4px rgba(110,112,160,.12)" } },
+            h("div", { style: { height: "100%", width: Math.max(8, used * 100) + "%", borderRadius: 12, position: "relative",
+              background: bs.left < 0 ? "linear-gradient(180deg,#f7c3d6,#e088ad)" : "linear-gradient(180deg,#d6cdfa,#a494ea 60%,#8f7fde)",
+              boxShadow: "inset 0 -1px 2px rgba(80,60,160,.25), 0 0 4px rgba(150,130,230,.35)" } },
+              h("span", { style: { position: "absolute", left: 4, right: 4, top: 2, height: 3, borderRadius: 3, background: "rgba(255,255,255,.8)" } })),
+            h("span", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 10, top: 2, height: 2, borderRadius: 2, background: "rgba(255,255,255,.95)" } })),
+          h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: sk.sub } },
+            h("span", { style: numStyle(sk, 13, sk.sub) }, fmtMoney(s.exp, cur) + " / " + fmtMoney(bs.budget, cur)),
+            h("span", null, bs.left < 0 ? "超了 " : "还能花 ", h("span", { style: numStyle(sk, 13, bs.left < 0 ? sk.over : sk.ink) }, fmtMoney(Math.abs(bs.left), cur)))))
+          : h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 设个每月预算")),
+      // 最近：一块面板里一行行账单，行与行之间细线；左边露出一截票根
+      h("div", { style: { position: "relative" } },
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: -30, top: -8, width: 36, height: 230, background: "#f7f6f2", transform: "rotate(-1.5deg)", boxShadow: "1px 2px 5px rgba(90,90,130,.18)",
+            clipPath: "polygon(0 0,100% 0,100% 6%,88% 8%,100% 10%,100% 100%,0 100%)", zIndex: 0 } },
+          h(Sparkle, { size: 12, style: { position: "absolute", left: 16, top: 16 } }),
+          edgeText(["LIFE", "EXPENSES", "LOVE", "· · ·"], { left: 8, top: 38, fontSize: 6.5, letterSpacing: ".14em" }),
+          h("div", { style: { position: "absolute", left: 10, top: 118, transform: "rotate(90deg)", transformOrigin: "0 0" } }, miniBarcode(70, 16, "stub")),
+          edgeText(["QIUQIU", String(now.getFullYear())], { left: 8, bottom: 10, fontSize: 6.5, letterSpacing: ".1em" })),
+        h("div", { style: Object.assign({}, PANEL, { position: "relative", zIndex: 1, marginLeft: 12, padding: "10px 14px 4px" }) },
+          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottom: "1px solid " + LINE } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: sk.ink } }, "最近"),
+            h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 13, fontWeight: 600, color: "#6b62b8" } }, "全部账单 ›")),
+          recent.length ? recent.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) }))
+            : h("div", { style: { padding: "22px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: sk.fog } }, "还没有记账，点上面「记一笔」"))),
+      // 页脚：左边一列小字 + 一颗圆点，右边条码 + 版本
+      h("div", { "aria-hidden": "true", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 22, padding: "0 2px" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 14 } },
+          h("div", { style: { fontFamily: WIDE, fontSize: 7, letterSpacing: ".18em", lineHeight: 1.5, color: "rgba(92,92,130,.6)", whiteSpace: "pre" } }, "SMALL\nMONEY\nBIG\nHAPPINESS\n:)"),
+          h("span", { style: { width: 9, height: 9, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #fff, #b6b8cc)", boxShadow: "0 1px 1px rgba(80,80,120,.3)" } })),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+          miniBarcode(96, 22, "footer"),
+          h("div", { style: { fontFamily: WIDE, fontSize: 7.5, letterSpacing: ".16em", lineHeight: 1.6, color: "rgba(92,92,130,.6)" } }, "QIUQIU WALLET", h("br"), "V1.0"))));
+  }
   function WalletHome(props) {
     const { sk, data, cur, code, settings } = props;
     const mk = thisMonthKey(), lmk = shiftMonth(mk, -1);
