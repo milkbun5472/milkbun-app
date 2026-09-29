@@ -22,7 +22,7 @@ const ALLOW = {
   // ① 这一处压根没有中文名（no-english-titles.md 里写明的那条例外）
   "js/notify.js": ["ARCHIVE"],            // app 自己的名字，manifest 里就叫这个
   // OOC 在中文同人圈里就是这么写的，它【就是】那个中文词，不是没翻译
-  "js/components.js": ["OOC",
+  "js/components.js": ["OOC", "QIUQIU MART", "RECORDED",
     // ④ 主屏装饰件上印的字：她 2026-09-03 对这一类另外定过一条——
     //    「任何有英文字母在图上的都要【可以编辑】换成我要的词」，给的解法是可编辑
     //    （dmark 那一层，v61.87 已经做了），不是翻成中文。它们是道具上的印刷字，

@@ -53,3 +53,17 @@ assert.match(src, /grow\(1, "card", "账户"/);
 assert.match(src, /tabBtn\("acct", "账户"\)/);
 assert.match(src, /\["transfer", "转账"\]/);
 console.log("ledger-accounts ok");
+// 账户卡面对准卡套里那张卡（她 2026-09-29）：跟卡套图套在同一个框里一起歪，卡面自己再斜 8 度
+assert.match(src, /"data-ledger-acctface": a\.id, style: \{ position: "absolute", left: "12\.9%", top: "19\.9%", width: "63%", height: "58%"/);
+assert.match(src, /transform: "rotate\(-8deg\)"/);
+// 周期账单 / 导出两行用她给的图标
+["ic-recur", "ic-export"].forEach(n => assert.ok(fs.existsSync(__dirname + "/../assets/ledger/" + n + ".webp"), n));
+console.log("ledger-acctface ok");
+// 聊天里 TA 记账的卡：账本玻璃皮时是小票（她 2026-09-29 的票纸、回形针、RECORDED 章）；纸皮还是原来那张
+{
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(comp, /if \(!isMemo && typeof window !== "undefined" && window\.ledgerIsGlass && window\.ledgerIsGlass\(\)\) return h\(LedgerTicketCard, \{ m \}\);/);
+  assert.match(src, /window\.ledgerIsGlass = function/);
+  ["rc-ticket", "rc-clip", "rc-stamp"].forEach(n => assert.ok(fs.existsSync(__dirname + "/../assets/ledger/" + n + ".webp"), n));
+  console.log("ledger-ticket-card ok");
+}

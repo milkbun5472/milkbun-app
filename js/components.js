@@ -11718,9 +11718,33 @@ function CarvedCard({ m, onOpen }) {
         marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, m.note) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "已经进了你俩的唱片架 ›")));
 }
+// 账本是玻璃皮时：TA 记的那笔是一张从电子钱包里吐出来的小票（她 2026-09-29 给的票纸、回形针、RECORDED 章）。
+//   票纸按九宫格拉伸，长短跟着内容走；底是票纸图自己的实心珠光，壁纸打不穿。
+function LedgerTicketCard({ m }) {
+  const A = "assets/ledger/", V = "?v=293";
+  const ink = "#4d4590", sub = "#7a71b4";
+  const inc = /^\+/.test(m.title || "");
+  const mt = String(m.title || "").match(/^([+−-])(\S*?)([\d.,]+)\s*(.*)$/);
+  return h("div", { "data-wk": "card", "data-ledger-ticket": true, style: { position: "relative", width: 206, paddingTop: 10 } },
+    h("img", { src: A + "rc-clip.webp" + V, alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", left: -6, top: -4, width: 30, height: "auto", zIndex: 2, transform: "rotate(-14deg)", pointerEvents: "none" } }),
+    h("div", { style: { position: "relative", borderStyle: "solid", borderColor: "transparent", borderWidth: "58px 22px 36px",
+        borderImage: "url(" + A + "rc-ticket.webp" + V + ") 265 80 150 fill / 58px 22px 36px / 0 stretch", minHeight: 80 } },
+      h("div", { style: { marginTop: -30, fontFamily: F_BODY, fontSize: 9, letterSpacing: ".3em", color: sub, textAlign: "center" } }, "QIUQIU MART"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, textAlign: "center", marginTop: 16 } }, "已记进账本"),
+      mt ? h("div", { style: { textAlign: "center", marginTop: 4, fontFamily: F_DISPLAY, fontWeight: 800, color: ink, lineHeight: 1.1 } },
+          h("span", { style: { fontSize: 15 } }, (mt[1] === "+" ? "+" : "−") + mt[2]), h("span", { style: { fontSize: 26 } }, mt[3]))
+        : h("div", { style: { textAlign: "center", marginTop: 4, fontFamily: F_DISPLAY, fontSize: 17, fontWeight: 800, color: ink } }, m.title || ""),
+      mt && mt[4] ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: ink, marginTop: 2 } }, mt[4]) : null,
+      h("div", { style: { borderTop: "1px dashed rgba(160,150,220,.6)", margin: "10px 0 8px" } }),
+      m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sub, textAlign: "center" } }, m.sub) : null,
+      m.note ? h("div", { style: { fontFamily: "'Kaiti SC','STKaiti','KaiTi',cursive", fontSize: 13, color: ink, lineHeight: 1.5, marginTop: 6, textAlign: "center", paddingRight: 30 } }, "“" + m.note + "”") : null,
+      h("div", { "aria-hidden": "true", style: { height: 16, margin: "10px 34px 0 12px", opacity: .55, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 6px," + ink + " 6px 7px,transparent 7px 10px)" } }),
+      h("img", { src: A + "rc-stamp.webp" + V, alt: "RECORDED", draggable: false, style: { position: "absolute", right: -34, bottom: -30, width: 66, height: "auto", transform: "rotate(-12deg)", opacity: .92, pointerEvents: "none" } })));
+}
 function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo";
+  if (!isMemo && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
   const tone = isMemo ? "122,106,154" : "79,109,90";
   return h("div", { "data-wk": "card",
     style: {

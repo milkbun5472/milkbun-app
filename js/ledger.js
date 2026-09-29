@@ -295,6 +295,8 @@
   // 供聊天引擎调用：把「被授权角色能看到的记账动态」拼成一段（financeNote）
   // 只读、只感知，绝不碰钱包/角色余额。app.js 的 ctxFor 会调用它。
   // ============================================================
+  // 聊天里 TA 替她记账的那张卡要跟账本同一套皮：玻璃皮就出小票（components.js RecordedCard 读这个）
+  window.ledgerIsGlass = function () { try { const d = loadJSON("x_ledger", null); return !(d && d.settings && d.settings.skin === "paper"); } catch (e) { return true; } };
   window.ledgerNoteFor = function (charId) {
     try {
       const d = loadJSON("x_ledger", null);
@@ -1155,19 +1157,22 @@
     const acctFace = a => { const c = (props.curs || []).find(x => x.code === a.currency) || cur, ty = acctType(a.type);
       const cs = a.type === "credit" ? creditState(a, data.txns) : null;
       const money = v => hide ? c.symbol + " ****" : fmtMoney(v, c);
-      return h("div", { style: { position: "absolute", left: "15%", top: "13%", width: "52%", padding: "10px 12px", borderRadius: 12, transform: "rotate(-3deg)",
-          background: "linear-gradient(150deg, rgba(255,255,255,.88), rgba(255,255,255,.62))", boxShadow: "inset 0 1px 0 #fff, 0 2px 8px rgba(110,110,170,.18)", border: "1px solid rgba(255,255,255,.95)" } },
-        h("div", { style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: "#2b2c55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+      // 卡套图（1500×950）里那张卡：中心在 44.4% / 48.9%，宽 63%、高 58%，本身斜 -8 度
+      return h("div", { "data-ledger-acctface": a.id, style: { position: "absolute", left: "12.9%", top: "19.9%", width: "63%", height: "58%", padding: "4.5% 6%", borderRadius: "7% / 11%", transform: "rotate(-8deg)", overflow: "hidden", boxSizing: "border-box",
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          background: "radial-gradient(90% 60% at 20% 0%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(125deg, " + ty.tint + "33, " + ty.tint + "8c 55%, " + ty.tint + "40), #f7f6fc",
+          boxShadow: "inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255,255,255,.8)" } },
+        h("div", null, h("div", { style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: "#2b2c55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
           h("span", { style: { width: 12, height: 8, borderRadius: 2, background: ty.tint, flexShrink: 0 } }), a.name),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#77789a", marginTop: 1 } }, ty.zh + " · " + c.label),
-        cs ? h(Fragment, null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 6 } }, cs.dueDate ? "本期应还" : "欠款"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#77789a", marginTop: 1 } }, ty.zh + " · " + c.label)),
+        cs ? h("div", null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 0 } }, cs.dueDate ? "本期应还" : "欠款"),
           h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(cs.dueDate ? cs.due : cs.owed)),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cs.due && cs.daysLeft >= 0 && cs.daysLeft <= 3 ? sk.over : "#77789a", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             (cs.dueDate ? (cs.due ? (cs.daysLeft < 0 ? "已过还款日 " + (-cs.daysLeft) + " 天" : cs.daysLeft === 0 ? "今天要还" : "还有 " + cs.daysLeft + " 天还款") : "本期已还清") : "") +
             (cs.avail != null ? (cs.dueDate ? " · " : "") + "可用 " + money(cs.avail) : "")))
-          : h(Fragment, null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 6 } }, "余额"),
+          : h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 0 } }, "余额"),
             h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(acctBalance(a, data.txns))))); };
     const at = (x, w) => ({ marginLeft: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" });
     const pic = (src, x, w, extra, props2) => h("img", Object.assign({ src: IMG + src + ".webp" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", height: "auto" }, at(x, w), extra || {}) }, props2 || {}));
@@ -1192,8 +1197,10 @@
         h("div", { "data-ledger-cardpack": true, onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); if (i !== slide) setSlide(i); },
             style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } },
           [null].concat(accts).map((a, i) => h("div", { key: a ? a.id : "total", "data-ledger-tray": i === 0 ? true : undefined, "data-ledger-acctcard": a ? a.id : undefined, style: { flex: "0 0 100%", scrollSnapAlign: "center", position: "relative" } },
-            h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)", filter: a && acctType(a.type).hue ? "hue-rotate(" + acctType(a.type).hue + "deg)" : "none" } }),
-            a ? acctFace(a) : null))),
+            // 卡套图和账户卡面套在同一个框里一起歪 3 度；卡面按卡套里那张卡的位置和 8 度斜角贴上去（她 2026-09-29「对准那个框，框相当于卡套」）
+            h("div", { style: { position: "relative", width: "82%", margin: "0 0 0 9%", transform: "rotate(-3deg)" } },
+              h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto", filter: a && acctType(a.type).hue ? "hue-rotate(" + acctType(a.type).hue + "deg)" : "none" } }),
+              a ? acctFace(a) : null)))),
         h("div", { style: { display: "flex", justifyContent: "center", gap: 6, marginTop: 4 } }, [null].concat(accts).map((a, i) => h("span", { key: i, style: { width: i === slide ? 14 : 6, height: 6, borderRadius: 999, background: i === slide ? (a ? acctType(a.type).tint : "#a79cef") : "rgba(150,145,200,.3)", transition: "width .2s" } }))))
       : h("div", { "data-ledger-tray": true, style: { position: "relative", paddingTop: 58 } },
         h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
@@ -1680,15 +1687,9 @@
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
-        icon === "loop" || icon === "export" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, fontSize: 20, fontWeight: 700,
-            color: icon === "loop" ? "#8c7fd8" : "#6f9bd8", background: "radial-gradient(70% 55% at 35% 20%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(160deg,rgba(255,255,255,.6)," + (icon === "loop" ? "rgba(200,186,246,.7)" : "rgba(186,210,246,.7)") + ")",
-            border: "1px solid rgba(255,255,255,.9)", boxShadow: "0 2px 4px rgba(140,130,200,.2)" } },
-            h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" },
-              icon === "loop" ? [h("path", { key: 1, d: "M20 12a8 8 0 1 1-2.3-5.6" }), h("path", { key: 2, d: "M20 4v4.5h-4.5" })]
-                : [h("path", { key: 1, d: "M12 4v11" }), h("path", { key: 2, d: "M7.5 10.5 12 15l4.5-4.5" }), h("path", { key: 3, d: "M5 19.5h14" })])) :
         icon === "card" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
             h("span", { style: { width: 34, height: 24, borderRadius: 6, transform: "rotate(-8deg)", background: "linear-gradient(125deg,#e6e0fb,#f3dff0 35%,#d9e6fb 70%,#ece0fa)", border: "1px solid rgba(160,150,220,.6)", boxShadow: "inset 0 1px 0 #fff, 0 2px 4px rgba(140,130,200,.25)" } }))
-          : h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0 } }),
+          : h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0, objectFit: "contain" } }),
         h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
         h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
@@ -1717,7 +1718,7 @@
           grow(3, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
           grow(4, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
           grow(5, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat")),
-          grow(6, "loop", "周期账单", "RECURRING", (settings.recurring || []).length ? (settings.recurring || []).length + " 条" : "没设", () => props.onSettings("recur")),
+          grow(6, "recur", "周期账单", "RECURRING", (settings.recurring || []).length ? (settings.recurring || []).length + " 条" : "没设", () => props.onSettings("recur")),
           grow(7, "export", "导出账单", "EXPORT", "CSV", props.onExport)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
     }

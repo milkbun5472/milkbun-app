@@ -30,7 +30,7 @@ assert.strictEqual(lines[1], '2026-09-01,支出,36.5,CNY,餐饮,信用卡,,,"火
 assert.strictEqual(lines[2], "2026-09-10,转账,500,CNY,,,工资卡,信用卡,");
 
 // 入口都在：「我的」两行、设置里「周期」tab、打开记账时补记、导出走 saveTextFile
-assert.match(src, /grow\(6, "loop", "周期账单"/);
+assert.match(src, /grow\(6, "recur", "周期账单"/);
 assert.match(src, /grow\(7, "export", "导出账单"/);
 assert.match(src, /tabBtn\("recur", "周期"\)/);
 assert.match(src, /const n = runRecurring\(d\);/);
