@@ -57,3 +57,12 @@ console.log("ledger-recurring ok");
   assert.match(b, /tabBtn\("visible", "谁能看到"\)/);
   console.log("ledger-settings-glass ok");
 }
+{
+  // 她 2026-09-29 第二轮：字要紫不要黑；顶上标题和那段解释都删；保存键放宽
+  assert.match(src, /const glassInk = \(t, sk\) => sk && sk\.id === "glass" \? Object\.assign\(\{\}, t, \{ ink: "#4d4590"/);
+  assert.equal((src.match(/const t = glassInk\(useTheme\(\), props\.sk\);/g) || []).length, 3);
+  assert.match(src, /h\(Head, \{ zh: g \? "" : "记账设置"/);
+  assert.ok(!/被选中的角色在聊天里能自然感知你本月的收支和几笔大开销，按人设关心或调侃你。账户余额另有开关/.test(src));
+  assert.match(src, /style: \{ position: "relative", width: "74%", minHeight: 52,/);
+  console.log("ledger-settings-glass 2 ok");
+}
