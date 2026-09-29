@@ -1148,7 +1148,7 @@
     // ⚠️她 2026-09-29：「我让你完全复制没让你自己画」——实物部件（卡套+链子兔子、便签、三颗键、试管、票根、页脚）
     //   直接用她那张整页样张裁下来的图（assets/ledger/，按 960 宽的原图坐标裁），位置和宽度也按原图比例摆；
     //   只有会变的东西（余额、座右铭、预算数字和进度、最近账单）用字写在上面。
-    const IMG = "assets/ledger/", IMG_V = "?v=283";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
+    const IMG = "assets/ledger/", IMG_V = "?v=290";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
     const accts = settings.accounts || [];
     const [slide, setSlide] = useState(0);
     // 账户卡上印的字：盖住原卡面左上那块，跟卡一起歪 3 度
@@ -1439,7 +1439,7 @@
     const six = [5, 4, 3, 2, 1, 0].map(i => { const m = shiftMonth(mk, -i); return { m, v: summarize(txns, code, m).exp }; });
     const sixMax = Math.max(1, ...six.map(x => x.v));
     // 第二页照她给的素材做（2026-09-29）：面板是她给的那块玻璃框，按九宫格拉伸；标题、星星、挂件都是素材图
-    const LA = "assets/ledger/", LV = "?v=283", glassP = sk.id === "glass";
+    const LA = "assets/ledger/", LV = "?v=290", glassP = sk.id === "glass";
     // 她 2026-09-29「这些玻璃现在有点光污染」：玻璃框挪到 ::before 上单独压透明度，里面的字和圆环不受影响；
     //   本月支出那块最大，四个角同时亮像水晶相框——再压一档，下半截淡出去，让圆环当主角
     const pnl = glassP ? { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", borderRadius: 0, background: "transparent", padding: 0, position: "relative", isolation: "isolate" } : sk.shell;
@@ -1560,10 +1560,14 @@
     const monthTxns = all.filter(x => (kw ? true : monthKey(x.date) === mk) && (kind === "all" || (kind === "income" ? x.type === "income" : isExpense(x)))
       && (!kw || [x.note, x.category, String(x.amount)].some(v => String(v || "").indexOf(kw) >= 0)))
       .sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    return ledgerPage(sk, "账单", props.onBack,
+    return ledgerPage(sk, sk.id === "glass" ? "" : "账单", props.onBack,
       h("button", { onClick: () => setQ(q == null ? "" : null), "aria-label": "搜索账单", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: "search", size: 19, color: sk.ink })),
-      h("div", { className: "px-5 pb-8 lg-bills" },
-      h(WordMark, { sk, word: "MY BILLS", hand: "small money, big happiness" }),
+      h("div", { className: "px-5 pb-8 lg-bills", style: sk.id === "glass" ? { position: "relative" } : undefined },
+      // 玻璃皮：标题换她出的 BILLS 图，右上角一颗她给的紫星（2026-09-29）
+      sk.id === "glass" ? h(Fragment, null,
+          h("img", { src: "assets/ledger/star-purple.webp?v=290", alt: "", "aria-hidden": "true", draggable: false, style: { position: "absolute", right: 14, top: 0, width: 30, height: "auto", pointerEvents: "none" } }),
+          h("img", { src: "assets/ledger/title-bills.webp?v=290", alt: "BILLS", draggable: false, "data-ledger-title": "bills", style: { display: "block", width: "64%", height: "auto", margin: "-6px 0 8px -2%" } }))
+        : h(WordMark, { sk, word: "MY BILLS", hand: "small money, big happiness" }),
         catF ? h("div", { "data-ledger-catfilter": catF, style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
           h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.ink }, sk.card) },
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
@@ -1613,7 +1617,7 @@
     const glass = sk.id === "glass";
     // 第三页照她给的素材做（2026-09-29）：标题图、便签、三种日期键帽、邮戳、左边一列圆孔都是她出的图；
     //   日期数字和金额、邮戳上的日期是代码印上去的，所以哪个月都对
-    const LA = "assets/ledger/", LV = "?v=283";
+    const LA = "assets/ledger/", LV = "?v=290";
     const [sy, sm, sd] = sel.split("-");
     return h("div", { className: "px-5 pb-8 lg-cal", style: glass ? { position: "relative", overflow: "clip" } : undefined },
       glass ? h("style", null, PNL_CSS) : null,
@@ -1671,7 +1675,7 @@
     // 第四页照她给的素材做（2026-09-29）：标题、两张皮肤预览、四个设置图标、右边一列书签都是她出的图；
     //   皮肤名、选中的粉框、编号和英文小字是代码印的
     if (sk.id === "glass") {
-      const LA = "assets/ledger/", LV = "?v=283";
+      const LA = "assets/ledger/", LV = "?v=290";
       const PREV = { glass: "skin-glass", paper: "skin-paper" };
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
@@ -1992,8 +1996,10 @@
   // ============================================================
   // 设置：可见性 + 管理币种(增删改) + 管理分类(增删改)
   // ============================================================
+  // 玻璃皮下设置这几页的字：紫色调，不用主题的黑（她 2026-09-29「字体颜色不要黑色要紫色一点」）
+  const glassInk = (t, sk) => sk && sk.id === "glass" ? Object.assign({}, t, { ink: "#4d4590", sub: "#7a71b4", fog: "#a29bcb", line: "rgba(160,150,220,.32)" }) : t;
   function SettingsSheet(props) {
-    const t = useTheme();
+    const t = glassInk(useTheme(), props.sk);
     const s = props.settings;
     const [sel, setSel] = useState((s.visibleTo || []).slice());
     const [tab, setTab] = useState(props.initTab || "visible"); // visible | acct | cur | cat
@@ -2042,18 +2048,36 @@
 
     const tabBtn = (k, label) => bookTab(tab === k, label, () => setTab(k), pageColor("ledger", "accent", ACCENT));
 
-    const rowStyle = { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line };
+    // 玻璃皮（她 2026-09-29 给的样张）：tab 换成那条透明滑轨，名单装进统计页那块玻璃框，勾选圈、便签、手写字、长尾夹都是她出的图
+    const g = !!(props.sk && props.sk.id === "glass");
+    const LA = "assets/ledger/", LV = "?v=290";
+    const decoImg = (n, st) => h("img", { src: LA + n + ".webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none" }, st) });
+    const rowStyle = g ? { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 14, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.1)" }
+      : { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line };
     const iconBtn = (Icon, onClick, color) => h("button", { onClick, className: "active:opacity-50", style: { background: "transparent", border: "none", padding: 4 } }, h(Icon, { size: 16, color: color || t.fog }));
 
     // 整页，不用半窗：三个 tab、一屋子币种和分类，半窗里一次只看得见三四行
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" } },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
-        h(Head, { zh: "记账设置", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
+      h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative", overflow: "hidden" }, props.sk ? props.sk.page : paperBg()) },
+        g ? h("style", null, PNL_CSS) : null,
+        g ? decoImg("note-better", { right: -8, top: -6, width: 74, transform: "rotate(7deg)", zIndex: 0 }) : null,
+        h(Head, { zh: g ? "" : "记账设置", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: null }),
-        h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
+        g ? h("div", { style: { position: "relative", padding: "2px 16px 0" } }, h(CandySeg, { items: [["visible", "谁能看到"], ["acct", "账户"], ["recur", "周期"], ["cur", "币种"], ["cat", "分类"]], value: tab, onChange: setTab, sk: props.sk }))
+        : h("div", { style: { display: "flex", gap: 6, padding: "0 20px" } },
           tabBtn("visible", "谁能看到"), tabBtn("acct", "账户"), tabBtn("recur", "周期"), tabBtn("cur", "币种"), tabBtn("cat", "分类")),
-        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
+        h("div", { style: { position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "18px 20px 6px", borderTop: g ? "none" : "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), marginTop: -1 } },
           // ---- 可见性 ----
+          tab === "visible" && g ? h(Fragment, null,
+            h("div", { style: { position: "relative", height: 78, marginBottom: 2 } },
+              decoImg("hand-between", { right: 0, top: -2, width: 140, transform: "rotate(-5deg)" })),
+            chars.length ? h("div", { className: "lg-pnl", "data-ledger-visible": true, style: { borderStyle: "solid", borderWidth: 24, borderColor: "transparent", position: "relative", isolation: "isolate", margin: "0 -14px 6px" } },
+              chars.map((c, i) => { const on = sel.includes(c.id);
+                return h("button", { key: c.id, onClick: () => toggle(c.id), "aria-pressed": on, className: "w-full active:opacity-80 flex items-center", style: { gap: 14, minHeight: 60, padding: "6px 2px", borderTop: i ? "1px solid " + LINE : "none" } },
+                  h("span", { style: { padding: 2, borderRadius: 14, background: "linear-gradient(150deg,#fff,rgba(214,206,246,.8))", boxShadow: "0 2px 6px rgba(140,130,200,.25)", flexShrink: 0 } }, h(Avatar, { character: c, size: 42, radius: 12 })),
+                  h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, c.name),
+                  h("img", { src: LA + (on ? "chk-on" : "chk-off") + ".webp" + LV, alt: "", draggable: false, style: { width: 32, height: 32, flexShrink: 0, objectFit: "contain" } })); }))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) :
           tab === "visible" ? h(Fragment, null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "被选中的角色在聊天里能自然感知你本月的真实收支和几笔大开销，按人设关心或调侃你。只是让 TA 知道，不碰任何余额。"),
             chars.length ? chars.map(c => { const on = sel.includes(c.id);
@@ -2117,7 +2141,13 @@
               iconBtn(IPencil, () => editCat(c), t.sub), iconBtn(ITrash, () => delCat(c)))),
             h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加分类")) : null),
         // 底部主按钮（可见性 tab 才需要保存；管理 tab 即时生效，给「完成」）
-        h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)") } },
+        g ? h("div", { className: "shrink-0", style: { position: "relative", display: "flex", justifyContent: "center", padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+            decoImg("hand-small", { left: 2, bottom: "calc(env(safe-area-inset-bottom, 0px) + 62px)", width: 84, transform: "rotate(-8deg)" }),
+            decoImg("binder", { right: 4, bottom: "calc(env(safe-area-inset-bottom, 0px) + 40px)", width: 60, transform: "rotate(10deg)" }),
+            h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, "data-ledger-setsave": true, className: "active:opacity-85",
+              style: { position: "relative", width: "74%", minHeight: 52, border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 15.5, fontWeight: 700, letterSpacing: ".2em", color: "#5b4f9e",
+                background: "url(assets/ledger/rail.webp?v=259) center / 100% 100% no-repeat" } }, tab === "visible" ? "保存" : "完成"))
+        : h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)") } },
           h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, className: "w-full active:opacity-85",
             style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 } },
             tab === "visible" ? "保存" : "完成"))),
@@ -2144,7 +2174,7 @@
 
   // 添加 / 改一条周期账单：整页（施工规则/no-half-sheet.md）
   function RecurEditor(props) {
-    const t = useTheme();
+    const t = glassInk(useTheme(), props.sk);
     const r0 = props.rule || {}, s = props.settings, isNew = !r0.id;
     const [name, setName] = useState(r0.name || "");
     const [type, setType] = useState(r0.type || "expense");
@@ -2194,7 +2224,7 @@
 
   // 添加 / 改一个账户：整页（施工规则/no-half-sheet.md）
   function AcctEditor(props) {
-    const t = useTheme();
+    const t = glassInk(useTheme(), props.sk);
     const a0 = props.acct || {};
     const isNew = !a0.id;
     const [name, setName] = useState(a0.name || "");
