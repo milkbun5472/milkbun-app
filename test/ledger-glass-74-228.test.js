@@ -134,3 +134,11 @@ console.log("ledger-stats-assets ok");
   if ((body.match(/deco\("charm/g) || []).length > 1) throw new Error("clip only one panel");
   console.log("ok stats glass dimmed & asymmetric deco");
 }
+
+// 装饰不许把统计页撑长；玻璃皮统计页顶栏不再写「统计」（标题图已经说了）
+{
+  const src4 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+  if (!/className: "px-5 pb-8 lg-stats", style: \{ position: "relative", overflow: glassP \? "clip"/.test(src4)) throw new Error("stats page must clip deco on both axes");
+  if (!/tab === "stats" && sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
+  console.log("ok stats clip & no dup title");
+}
