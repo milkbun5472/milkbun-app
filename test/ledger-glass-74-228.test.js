@@ -142,3 +142,11 @@ console.log("ledger-stats-assets ok");
   if (!/tab === "stats" && sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
   console.log("ok stats clip & no dup title");
 }
+
+// 月份切换在玻璃皮下是一枚胶囊，不再是裸的一行
+{
+  const src5 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+  const i = src5.indexOf("const MonthNav");
+  if (!/rail\.png/.test(src5.slice(i, i + 700))) throw new Error("glass MonthNav must sit on the rail asset");
+  console.log("ok monthnav capsule");
+}
