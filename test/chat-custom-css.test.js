@@ -32,7 +32,8 @@ test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，�
   const core = R("js/core.js"), ui = R("js/theme-studio-ui.js");
   ["--app-h", "--app-w", "--app-vh", "--app-kb", "--app-safe-top", "--app-safe-bottom"].forEach(v => assert.ok(core.includes('"' + v + '"'), v));
   assert.match(core, /root\.setAttribute\("data-screen-size", size\)/);
-  assert.match(ui, /高度别写死 px/);
+  assert.match(ui, /换手机不走样 · 点一下加进去/, "看不懂的变量表换成了现成的几条");
+  assert.match(ui, /calc\(var\(--app-vh\) \* 12\)/);
   assert.match(ui, /html\[data-screen-size=\\"short\\"\]|html\[data-screen-size="short"\]/);
 });
 
@@ -113,4 +114,12 @@ test("群聊设置那几个框平时只露标题，点开才展开", () => {
   const g = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("\nfunction NewGroupSheet"));
   assert.match(g, /const \[gOpen, setGOpen\] = useState\(""\);/);
   assert.match(g, /on \? h\("div", \{ style: \{ padding: "0 14px 16px"/);
+});
+
+test("html[data-screen-size=…] 这种写在 html 自己身上的属性，限作用域后贴在同一个 html 上", () => {
+  const src = R("js/theme-studio.js");
+  const f = new Function(src.slice(src.indexOf("const unsafeReason"), src.indexOf("  // CSS 里也只保存 iv_")) + "\nreturn scopeCSS;")();
+  assert.equal(f('html[data-screen-size="short"] [data-wk="bubble"]{a:b}', 'html[data-lisa-screen="thread"]'),
+    'html[data-lisa-screen="thread"][data-screen-size="short"] [data-wk="bubble"]{a:b}');
+  assert.equal(f('[data-wk="bubble"]{a:b}', 'html[x]'), 'html[x] [data-wk="bubble"]{a:b}');
 });

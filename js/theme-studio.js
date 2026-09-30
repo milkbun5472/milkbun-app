@@ -542,6 +542,10 @@
       else {
         const sels = head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
           if (/^(html|body|:root)$/i.test(sel)) return scope;
+          // html 自己身上的属性（如 html[data-screen-size="short"]）要贴在 scope 那个 html 上，不是当成它下面的元素——
+          //   原来一律把开头的 html 削掉，[data-screen-size] 就被当成 html 里面的某个元素，一条都不生效
+          const onHtml = /^html((?:\[[^\]]+\])+)\s*(.*)$/i.exec(sel);
+          if (onHtml) return scope + onHtml[1] + (onHtml[2] ? " " + onHtml[2] : "");
           return scope + " " + sel.replace(/^(html|body|:root)\s*/i, "");
         });
         out += sels.join(",") + "{" + body + "}";

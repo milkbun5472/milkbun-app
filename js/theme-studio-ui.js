@@ -33,14 +33,35 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
         "抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
         + "所以每一条声明都要带 !important，不带等于没写。"),
-      // 换一台手机就错位的美化，多半是把高度写死成了 px（她 2026-09-30）。变量挂在 <html> 上，见 core.js lisaViewportVars
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.65, padding: "8px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
-        "要分给别人用：高度别写死 px，每台手机不一样高。可以用这几个跟着手机走的值——",
-        h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
-          "var(--app-h)        屏幕可视高度\nvar(--app-vh)       高度的 1%（calc(var(--app-vh) * 30) ＝ 三成高）\nvar(--app-w)        屏幕宽度\nvar(--app-safe-top) 刘海那一条\nvar(--app-safe-bottom) 底部横条那一条\nvar(--app-kb)       键盘占掉的高度"),
-        h("div", { style: { marginTop: 4 } }, "或者按屏幕高矮整段分开写："),
-        h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 2, whiteSpace: "pre-wrap" } },
-          'html[data-screen-size="short"] [data-wk="…"] { … }   矮屏\nhtml[data-screen-size="tall"]  [data-wk="…"] { … }   高屏')),
+      // 换一台手机就错位（她 2026-09-30）——原来这儿摆的是一张变量表，她说看不懂。改成现成的几条：
+      //   点一下就把整段写进编辑框，数值照 App 现在用的（气泡最宽七成二、字 14.5、内边距 9/13）按屏幕换算，不用她们懂变量。
+      //   变量表还在，折在最底下给会写 CSS 的人看。
+      (function () {
+        const chat = page === "thread" || page === "gthread";
+        const presets = (chat ? [
+          ["顶部按屏幕高度留白", "给顶上的装饰图让位，高手机留得多、矮手机留得少", '[data-wk="body"] {\n  padding-top: calc(var(--app-vh) * 12) !important;\n}'],
+          ["气泡最宽占屏幕七成", "换宽屏、窄屏，气泡都不会撑得太满", '[data-wk="bubble"] {\n  max-width: calc(var(--app-w) * 0.72) !important;\n}'],
+          ["背景图随手机铺满", "背景图不会在长手机上露白边、也不会被拉变形", '[data-wk="chat"] {\n  background-size: cover !important;\n  background-position: center !important;\n}'],
+          ["小屏手机字小一号", "只在矮屏手机上生效，别的手机不变", 'html[data-screen-size="short"] [data-wk="bubble"] {\n  font-size: 13.5px !important;\n  padding: 7px 11px !important;\n}'],
+          ["大屏手机头像大一点", "只在高屏手机上生效", 'html[data-screen-size="tall"] [data-wk="row"] > [data-wk="avatar"] {\n  transform: scale(1.1) !important;\n}']
+        ] : [
+          ["这一页背景图随手机铺满", "背景图不会露白边、不会被拉变形", '[data-wk="app"] {\n  background-size: cover !important;\n  background-position: center !important;\n}']
+        ]);
+        const add = code => setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + code);
+        return h("div", { style: { marginBottom: 10, padding: "9px 10px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 2 } }, "换手机不走样 · 点一下加进去"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7, lineHeight: 1.55 } }, "要分给别人用的美化，高度和宽度别写死数字，用下面这几条：它们会跟着每台手机自己算。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, presets.map(function (p) {
+            return h("button", { key: p[0], onClick: function () { add(p[2]); }, className: "active:opacity-70",
+              style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, p[0]),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, p[1]));
+          })),
+          h("details", { style: { marginTop: 8 } },
+            h("summary", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, cursor: "pointer" } }, "会写 CSS 的看这里：能用的几个值"),
+            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
+              "var(--app-h)  屏幕可视高度\nvar(--app-vh) 高度的 1%\nvar(--app-w)  屏幕宽度\nvar(--app-safe-top) / var(--app-safe-bottom)  刘海 / 底部横条\nvar(--app-kb) 键盘占掉的高度\nhtml[data-screen-size=\"short|mid|tall\"] …  按屏幕高矮分开写")));
+      })(),
       rows.map(function (row) {
         return h("div", { key: row[0], style: { marginBottom: 8 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, row[0]),
