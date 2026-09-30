@@ -8372,12 +8372,14 @@ function PhotoCard({ m, mine, onOpen, max }) {
     ? h("img", { src: resolveImg(m.imageRef), alt: cap || "照片",
         style: { display: "block", width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 4, background: "#e9e3d8", boxShadow: "inset 0 0 0 1px rgba(35,31,27,.10)" } })
     // 相面：没有像素的时候，这里放的就是她写的那句话——那才是这张照片的内容
-    : h("div", { style: { position: "relative", borderRadius: 4, minHeight: 104, padding: "13px 12px 12px",
+    // 相面、相面上的字、右下「点开看这张」各自一个挂点（群友 2026-09-30：「这个照片卡片是没法改变颜色的吗」——
+    //   原来只有整张相纸有挂点，里面那块渐变和字色写死，改了相纸也还是一块米色）
+    : h("div", { "data-wk": "photoface", style: { position: "relative", borderRadius: 4, minHeight: 104, padding: "13px 12px 12px",
         display: "flex", flexDirection: "column", justifyContent: "flex-end",
         background: "linear-gradient(160deg,#efe8dc,#ddd4c4 58%,#c9bfad)",
         boxShadow: "inset 0 0 22px rgba(90,78,60,.16), inset 0 0 0 1px rgba(35,31,27,.10)" } },
         h("div", { style: { position: "absolute", right: 11, top: 10, opacity: .42 } }, h(PGlyph, { k: "album", size: 17, color: "#4b4238" })),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#463f35",
+        h("div", { "data-wk": "phototext", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#463f35",
           display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
           cap || "一张照片"));
   return h("button", { onClick: onOpen, "data-wk": "photocard", className: "active:opacity-85", style: paper },
@@ -8386,7 +8388,7 @@ function PhotoCard({ m, mine, onOpen, max }) {
     h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, padding: "6px 3px 0" } },
       h("span", { "data-wk": "photocap", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: "#5d5346",
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.imageRef ? cap : ""),
-      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
+      h("span", { "data-wk": "photohint", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "rgba(93,83,70,.62)" } }, "点开看这张")));
 }
 // 给一条内容挂一张照片（贴吧发帖／回楼共用）：从相册选一张真图，或者只写一句「图里是什么」——
 //   跟聊天那两种发法同一个意思。value＝null 或 { imageRef?, desc }，交出去的也是这个形状。
