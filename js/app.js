@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.378";
+const APP_VERSION = "v74.379";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -977,6 +977,10 @@ function App() {
   const anyLaneBusy = () => Object.keys(busyLanesRef.current).length > 0;
   const startLane = key => { busyLanesRef.current = { ...busyLanesRef.current, [key]: true }; setBusyLanes(busyLanesRef.current); };
   const endLane = key => { const n = { ...busyLanesRef.current }; delete n[key]; busyLanesRef.current = n; setBusyLanes(n); };
+  // 气泡上那个叉（x_genStopOn 开着才有）：这条 lane 的这一轮当场放手——气泡立刻收掉，
+  //   在飞的那次模型调用由 callAI 按 signal 丢掉结果。只有登记过断点的 lane 才断得了（目前是单聊那一路）。
+  const laneAbortRef = useRef({});
+  const stopLane = key => { const c = laneAbortRef.current[key]; if (!c) return; delete laneAbortRef.current[key]; try { c.abort(); } catch (e) {} endLane(key); };
   // 侧房的生成 lane 用的是 person::room::roomId；这里也必须取同一把钥匙。
   // 以前只看 activeChar.id，主房能亮“正在输入”，侧房请求明明在跑却像毫无反应。
   const _curChatKey = activeChar
@@ -9313,6 +9317,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
     startLane("c:" + chatKey);
+    const _abort = new AbortController();
+    laneAbortRef.current["c:" + chatKey] = _abort;
     try {
       if (!active) throw new Error("请先到设置配置 API");
       const _s = settingsFor(charId);
@@ -10295,7 +10301,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
+        raw = await callAI(_route, system, aiMessages, { signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -10305,7 +10311,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
+        raw = await callAI(_route, system, retryMessages, { signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -11196,11 +11202,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       return delivered;
     } catch (e) {
+      if (_abort.signal.aborted) return null;       // 她自己点叉断掉的：不留「发送失败」
       pChat(chatKey, p => [...p, window.ChatContextFilter.failureNotice(
         "（发送失败：" + e.message + "）", { turnId: "e_" + Date.now() })]);
       return null;                                  // 报错是报错，不许当成「空轮」再烧一次钱
     } finally {
-      endLane("c:" + chatKey);
+      // 断掉之后她可能已经又发了一轮：那一轮的 lane 不归这儿收
+      if (laneAbortRef.current["c:" + chatKey] === _abort) { delete laneAbortRef.current["c:" + chatKey]; endLane("c:" + chatKey); }
+      else if (!_abort.signal.aborted) endLane("c:" + chatKey);
     }
   };
   // CC 工具结果是异步的：云端完成后先作为隐藏系统事实落进同一私聊，
@@ -24022,6 +24031,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     groups: groups,
     messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     sending: sending,
+    onStopGen: loadJSON("x_genStopOn", false) && _curLane ? () => stopLane(_curLane) : null,
     onBack: () => setScreen("messages"),
     onSend: txt => {
       gachaEarn(activeChar.id, "chat");

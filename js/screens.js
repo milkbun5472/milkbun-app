@@ -9033,6 +9033,7 @@ function ApiConfig({
   toast
 }) {
   const t = useTheme();
+  const [genStopOn, setGenStopOn] = useState(() => !!loadJSON("x_genStopOn", false));
   const [list, setList] = useState(profiles.length ? profiles : [{
     id: "p_" + Date.now(),
     name: "",
@@ -9134,6 +9135,14 @@ function ApiConfig({
           style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
       })));
   if (!editing) return h("div", null,
+    // 生成中那颗「…」气泡上挂一个叉（群友 2026-09-30：「有时候发现生不出来，我想自己断掉」）。默认关。
+    h(ConfigPanel, null,
+      h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
+        h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "生成中可以手动断掉"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "单聊里正在输入的「…」旁边多一个叉，点了就不等这一轮了。已经发出去的请求照样会计费。")),
+        h("button", { onClick: () => { const n = !genStopOn; setGenStopOn(n); saveJSON("x_genStopOn", n); }, style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: genStopOn ? t.ink : t.line } },
+          h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: genStopOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
     onSetModelFloat && h(ConfigPanel, null,
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
         h("div", null,

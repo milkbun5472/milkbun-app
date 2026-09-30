@@ -8480,6 +8480,7 @@ function ChatThread({
   characters,
   groups,
   messages,
+  onStopGen,
   sending,
   onBack,
   onSend,
@@ -9417,7 +9418,12 @@ function ChatThread({
       background: "#fff",
       borderRadius: 14
     }
-  }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })))), selMode ? h("div", {
+  }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })),
+  // 断掉这一轮的叉（设置 → API 里「生成中可以手动断掉」开着才有）
+  onStopGen && h("button", {
+    onClick: onStopGen, "aria-label": "断掉这一轮", className: "active:opacity-60",
+    style: { alignSelf: "center", width: 28, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: t.fog, fontSize: 17, lineHeight: 1, background: "transparent" }
+  }, "×"))), selMode ? h("div", {
     className: "flex items-center justify-between px-4 py-3 shrink-0",
     style: {
       background: t.bg2,

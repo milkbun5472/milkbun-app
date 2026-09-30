@@ -681,13 +681,19 @@ async function callAI(p, system, messages, opts) {
   let wentHidden = !!(hasDoc && document.hidden);
   const onVis = () => { if (document.hidden) wentHidden = true; };
   if (hasDoc) document.addEventListener("visibilitychange", onVis);
+  // 她点了气泡上那个叉（o.signal）：当场放手不等了。已经发出去的那一枪收不回来，回来的结果直接丢掉。
+  const userAborted = () => !!(o.signal && o.signal.aborted);
+  const abortErr = () => { const e = new Error("这一轮已经断掉了"); e.userAbort = true; return e; };
+  const once = () => !o.signal ? callAIOnce(p, system, messages, o) : userAborted() ? Promise.reject(abortErr())
+    : Promise.race([callAIOnce(p, system, messages, o), new Promise((_, rej) => o.signal.addEventListener("abort", () => rej(abortErr()), { once: true }))]);
   try {
-    const first = await callAIOnce(p, system, messages, o);
+    const first = await once();
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
     return first;
   } catch (e) {
     const msg = String((e && e.message) || e || "");
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
+    if (userAborted()) throw abortErr();          // 自己断的不算失败：不重试、不弹「没生成出来」
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!bgDrop && !streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
@@ -695,7 +701,7 @@ async function callAI(p, system, messages, opts) {
       for (const wait of waits) {
         await new Promise(r => setTimeout(r, wait));
         if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
-        try { return await callAIOnce(p, system, messages, o); }
+        try { return await once(); }
         catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }
