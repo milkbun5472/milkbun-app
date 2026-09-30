@@ -6199,11 +6199,28 @@ async function weatherFor(lat, lng) {
   try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
   return out;
 }
-function weatherLine(w) { return w && isFinite(w.t) ? wmoEmoji(w.dayCode != null ? w.dayCode : w.code) + wmoZh(w.dayCode != null ? w.dayCode : w.code) + "，现在 " + w.t + "°C（今天 " + w.lo + "~" + w.hi + "°）" : ""; }
+// 「现在」到底是什么天（群友 2026-09-30：「为啥地图老是说我这边下雨」）。
+// ⚠️Open-Meteo 的 daily weather_code 是【这一整天里最坏的那种】：一天里飘过一阵毛毛雨，整天都记成雨。
+//   原来四处都拿它当「现在的天气」——告诉角色的那一行、特殊天气判定、主屏小字、今日卡——
+//   于是只要当天哪个钟点有过雨，一整天都在「下雨」。现在「现在」一律按当前那一刻的 code，
+//   当天另有雨雪雷只当成一句「晚些可能有」补在后面，不冒充此刻。
+function wxNowCode(w) { return w ? (w.code != null ? w.code : w.dayCode) : null; }
+function wxWetKind(c) {
+  if (c == null) return "";
+  if (c >= 95) return "雷雨";
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "雪";
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return "雨";
+  return "";
+}
+function weatherLine(w) {
+  if (!w || !isFinite(w.t)) return "";
+  const now = wxNowCode(w), later = w.dayCode != null && !wxWetKind(now) ? wxWetKind(w.dayCode) : "";
+  return wmoEmoji(now) + wmoZh(now) + "，现在 " + w.t + "°C（今天 " + w.lo + "~" + w.hi + "°" + (later ? "，晚些可能有" + later : "") + "）";
+}
 // 特殊天气判定（给「角色对天气有反应」用）：雨/雪/雷雨/大雾/高温/严寒才算，晴阴多云返回 null
 function wxSpecial(w) {
   if (!w || !isFinite(w.t)) return null;
-  const c = w.dayCode != null ? w.dayCode : w.code;
+  const c = wxNowCode(w);
   if (c >= 95) return "雷雨";
   if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "下雪";
   if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return "下雨";
@@ -8186,7 +8203,7 @@ async function fetchLocalEnv() {
     if (rl && rl.kind === "world") {
       out.location = rl.label;
       const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, new Date()) : null;
-      if (w) out.weather = wmoToText(w.dayCode != null ? w.dayCode : w.code) + " " + Math.round(w.t) + "°C";
+      if (w) out.weather = wmoToText(wxNowCode(w)) + " " + Math.round(w.t) + "°C";
       return out;
     }
   } catch (e) {}
@@ -8585,15 +8602,49 @@ function geoSearch(q, near, signal) {
     .then(list => list.length ? list : om())
     .catch(e => { if (signal && signal.aborted) throw e; return om(); });
 }
-// 手填一个地名 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
+// 一长串地址往短里拆（群友 2026-09-30：「为什么定位老是显示没有我这个地方，我按照格式填写也没有」）。
+// 国内常连不上 OSM，退到 open-meteo 那一家，它只认一个个地名（南京、鼓楼区），不认「江苏省南京市鼓楼区××路」。
+// 所以查不到时按「省／市／区／县／镇」拆开，从最小那一级往大了一级级再问，问到为止。
+function geoQueryLadder(q) {
+  const name = String(q || "").replace(/\s+/g, "").trim();
+  const out = [name];
+  const parts = name.match(/[^省市区县镇旗州盟]+(?:省|市|区|县|镇|旗|州|盟)/g) || [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    out.push(p);
+    const bare = p.replace(/(?:省|市|区|县|镇|旗|盟)$/, "");
+    if (bare.length >= 2) out.push(bare);
+  }
+  return out.filter((x, i) => x && out.indexOf(x) === i);
+}
+// 地名 → 候选列表（去重）。一个都没有就返回 []；连不上抛错。
+async function geoCandidates(q, near) {
+  let lastErr = null;
+  for (const term of geoQueryLadder(q)) {
+    let hits = [];
+    try { hits = await geoSearch(term, near); } catch (e) { lastErr = e; continue; }
+    const ok = (hits || []).filter(x => typeof x.lat === "number" && !isNaN(x.lat));
+    const uniq = ok.filter((x, i) => !ok.slice(0, i).some(y => Math.abs(y.lat - x.lat) < 0.05 && Math.abs(y.lng - x.lng) < 0.05));
+    if (uniq.length) return uniq.slice(0, 6);
+  }
+  if (lastErr) throw lastErr;
+  return [];
+}
+// 选定的那一个候选 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
+async function geoFromPoint(p) {
+  return { lat: p.lat, lng: p.lng, label: await geoLabelOf(p.lat, p.lng), place: p.name, manual: true, ts: Date.now() };
+}
+// 手填一个地名 → 一整份定位。
+// ⚠️同名的地方不止一个时【不许替她挑】：原来闷头拿第一个，于是「定位到江苏去了」。
+//   多于一个就把候选交回去（choices），让界面列出来她自己点。
 async function geoFromPlace(q, near) {
   const name = String(q || "").trim();
   if (!name) return { error: "先写个地名" };
   let hits = [];
-  try { hits = await geoSearch(name, near); } catch (e) { return { error: "地名查询没连上，稍后再试" }; }
-  const p = (hits || []).find(x => typeof x.lat === "number" && !isNaN(x.lat));
-  if (!p) return { error: "查不到「" + name + "」这个地方" };
-  return { lat: p.lat, lng: p.lng, label: await geoLabelOf(p.lat, p.lng), place: p.name, manual: true, ts: Date.now() };
+  try { hits = await geoCandidates(name, near); } catch (e) { return { error: "地名查询没连上，稍后再试" }; }
+  if (!hits.length) return { error: "查不到「" + name + "」这个地方——试试只写城市名，比如「杭州」" };
+  if (hits.length > 1) return { choices: hits };
+  return geoFromPoint(hits[0]);
 }
 async function requestGeo() {
   return new Promise(resolve => {
