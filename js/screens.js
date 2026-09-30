@@ -13205,7 +13205,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onRenameEmote, onDeleteEmotes }) {
   const t = useTheme();
   const list = packs || [];
   const [selId, setSelId] = useState(list[0] && list[0].id);
@@ -13224,9 +13224,12 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
     const text = String(await readTextFileSmart(f) || "");
     setImportText(prev => (prev ? prev + "\n" : "") + text);
   };
-  // 从相册直接选图（自己画的表情不用先传图床）：存进本机图库 iv_，关键词取文件名。
+  // 从相册直接选图（自己画的表情不用先传图床）：存进本机图库 iv_。
+  // 选完先摆在「待贴」里，每张下面一个框填关键词——手机相册改不了文件名，不能指望文件名。
   // GIF 原样存——一压缩就不动了；其余缩到 512 边长，省地方。
   const [picking, setPicking] = useState(false);
+  const [staged, setStaged] = useState([]);
+  const stagedReady = staged.length > 0 && staged.every(x => String(x.keyword || "").trim());
   const pickImages = async e => {
     const files = Array.from((e.target.files) || []); e.target.value = "";
     if (!files.length || !pack || !onAddImages) return;
@@ -13238,9 +13241,9 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
         const raw = () => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
         const dataUrl = /gif/i.test(f.type) || typeof resizeImageFile !== "function" ? await raw() : await resizeImageFile(f, 512, 0.9);
         const ref = typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
-        items.push({ keyword: String(f.name || "").replace(/\.[^.]+$/, "").trim() || "表情", url: ref });
+        items.push({ keyword: "", url: ref });
       }
-      if (items.length) onAddImages(pack.id, items);
+      if (items.length) setStaged(s => [...s, ...items]);
     } finally { setPicking(false); }
   };
   // 印在离型纸上的那行说明：一句中文 + 一道横线拉到头，右边挂这一栏自己的操作
@@ -13302,7 +13305,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
             ? h("div", { className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
             : h("div", { className: "grid grid-cols-3 gap-3" }, pack.emotes.map(em => {
               const on = selEmotes.includes(em.id);
-              return h("button", { key: em.id, onClick: () => { if (!selMode) return; setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
+              return h("button", { key: em.id, onClick: () => { if (!selMode) { if (onRenameEmote) requestAppPrompt("改关键词", "角色靠它挑图，写「什么时候用」最好。", em.keyword || "", v => { const k = String(v || "").trim(); if (k) onRenameEmote(pack.id, em.id, k); }, "改好了"); return; } setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
                 h("div", { style: { position: "relative", borderRadius: 11, overflow: "hidden", background: STICKER_PAPER,
                   // 贴纸的 die-cut 白边：挑中那张按平（不歪、不悬空），换成一圈醒目描边
                   border: "3px solid " + (on ? t.accent : "#fff"),
@@ -13324,7 +13327,16 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: "image/*", multiple: true, onChange: pickImages, disabled: picking, label: "从相册选表情" },
               h("span", { className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "自己画的直接选，可多选；文件名就是关键词，存在这台手机上")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "自己画的直接选，可多选；选完给每张写个关键词，存在这台手机上")),
+          staged.length > 0 && h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: 12, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.7 } }, "给每张写一句「什么时候用」，角色靠它挑图"),
+            h("div", { className: "grid grid-cols-3 gap-3" }, staged.map((x, i) => h("div", { key: x.url + i, style: { position: "relative" } },
+              h("img", { src: stickerSrc(x.url), style: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, display: "block", background: STICKER_PAPER } }),
+              h("button", { onClick: () => setStaged(s => s.filter((_, j) => j !== i)), "aria-label": "不要这张", className: "active:opacity-60", style: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 999, background: "rgba(0,0,0,.5)", color: "#fff", fontSize: 13, lineHeight: "22px" } }, "×"),
+              h("input", { value: x.keyword, onChange: e => { const v = e.target.value; setStaged(s => s.map((y, j) => j === i ? { ...y, keyword: v } : y)); }, placeholder: "关键词", className: "w-full outline-none", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + (String(x.keyword || "").trim() ? t.line : t.accent), borderRadius: 8, padding: "6px 8px", boxSizing: "border-box" } })))),
+            h("div", { className: "flex gap-3", style: { marginTop: 12 } },
+              h("button", { onClick: () => setStaged([]), className: "flex-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "算了"),
+              h("button", { disabled: !stagedReady, onClick: () => { if (onAddImages(pack.id, staged.map(x => ({ keyword: String(x.keyword).trim(), url: x.url })))) setStaged([]); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, opacity: stagedReady ? 1 : 0.4, borderRadius: 12, padding: "11px 0" } }, stagedReady ? "贴上这 " + staged.length + " 张" : "还有没写关键词的"))),
           // ⚠️这里原来写死 background:"#fff" 配 color:t.ink——深色主题下就是白底浅字，
           //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
           h("textarea", { value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),

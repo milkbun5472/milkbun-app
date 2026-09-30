@@ -24,3 +24,12 @@ test("app 把 onAddImages 接到表情库", () => {
   assert.match(a, /const addEmoteImages = /);
   assert.match(a, /onAddImages: addEmoteImages/);
 });
+
+test("选完先填关键词再贴；已贴的点一下能改关键词", () => {
+  const s = src("screens.js");
+  assert.match(s, /setStaged\(s => \[\.\.\.s, \.\.\.items\]\)/);
+  assert.match(s, /stagedReady/);
+  assert.match(s, /onRenameEmote\(pack\.id, em\.id, k\)/);
+  const a = src("app.js");
+  assert.match(a, /onRenameEmote: renameEmote/);
+});
