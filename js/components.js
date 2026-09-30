@@ -10160,6 +10160,8 @@ function CallScreen({
   // 有画面时它铺满整屏当底，上面压一层暗罩让台词还读得清；头像圈就收起来——
   // 人已经在画面里了，再摆一个圆头像是两份同样的东西。
   return h("div", {
+    // 通话页的挂点（她 2026-09-30：「整体美化都要」）：只是名字、不带样式——data-video="1" 是视频通话
+    "data-wk": "call", "data-video": isVideo ? "1" : "0", "data-group": isGroup ? "1" : "0",
     className: "absolute inset-0 z-[70] flex flex-col",
     onPointerDownCapture: () => {
       if (autoVoice && !audioReady && !bye) unlockCallAudio(false).catch(() => setAudioStatus("声音未启用，轻触通话页面重试"));
@@ -10202,9 +10204,11 @@ function CallScreen({
       : h(CGlyph, { k: "picture", size: 14, color: "#fff" }),
     h("span", null, bgBusy ? "在拍" : bg ? "换一张" : "看看画面")) : null,
   h("div", {
+    "data-wk": "callhead",
     className: "shrink-0 pt-10 pb-3 flex flex-col items-center",
     style: Object.assign({}, litPlate(".62", "0"))
   }, h("div", {
+    "data-wk": "calltitle",
     className: "px-6 text-center",
     style: Object.assign({
       fontFamily: F_DISPLAY,
@@ -10223,7 +10227,7 @@ function CallScreen({
       audioStatus || (autoVoice ? (audioReady ? "连续播报已开启 · 等待新台词" : "声音未启用，轻触页面重试") : "连续播报未开启 · 可在聊天设置中打开"))), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
-    key: ci,
+    key: ci, "data-wk": "callavatar",
     style: {
       width: isGroup ? 64 : (isVideo ? 148 : 104),
       height: isGroup ? 64 : (isVideo ? 196 : 104),
@@ -10254,12 +10258,13 @@ function CallScreen({
     ref: ref,
     "data-call-history": true,
     onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
+    "data-wk": "callbody",
     className: "flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2"
   }, recent.map((m, i) => {
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
     const messageKey = list.length - recent.length + i;
     const isU = m.role === "user";
-    if (m.act) return h("div", { key: messageKey, className: "flex justify-center py-0.5" }, h("div", {
+    if (m.act) return h("div", { key: messageKey, "data-wk": "callact", className: "flex justify-center py-0.5" }, h("div", {
       style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isGroup && m.senderName ? m.senderName + " " : "") + "（" + m.content + "）"));
     // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
@@ -10267,11 +10272,12 @@ function CallScreen({
     const canT = !isU && spk && spk.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
     const meP = tp.play && tp.play.k === messageKey;
     return h("div", {
-      key: messageKey,
+      key: messageKey, "data-wk": "callmsg", "data-me": isU ? "1" : "0",
       className: "flex flex-col " + (isU ? "items-end" : "items-start")
-    }, !isU && isGroup && m.senderName && h("span", {
+    }, !isU && isGroup && m.senderName && h("span", { "data-wk": "name",
       style: Object.assign({ fontFamily: F_BODY, fontSize: 10, color: onPhoto ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }, litText)
     }, m.senderName), h("div", { className: "flex items-center gap-1.5", style: { maxWidth: "88%" } }, h("div", {
+      "data-wk": "callbubble", "data-me": isU ? "1" : "0",
       style: {
         maxWidth: canT ? "100%" : "78vw",
         padding: "7px 12px",
@@ -10319,6 +10325,7 @@ function CallScreen({
     className: "px-6 pb-1",
     style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
   }, "🎙 " + liveSt), h("div", {
+    "data-wk": "callcomposer",
     className: "shrink-0 flex items-center gap-2 px-4 py-3",
     style: Object.assign({
       paddingBottom: COMPOSER_PAD_BOTTOM
@@ -10357,6 +10364,7 @@ function CallScreen({
     color: "#fff"
   })), h("button", {
     onClick: () => { audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); },
+    "data-wk": "hangup",
     className: "shrink-0 flex items-center justify-center",
     style: {
       width: 42,
@@ -13736,7 +13744,7 @@ function OfflineMode({
 
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
+  return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
@@ -13791,11 +13799,11 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "往期线下记录"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
-    h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
+    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
       sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
-    h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
       // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
       // 同一类事：都是绕过戏、只有你和模型看得见。留在这儿的只有【正在出戏】时的退出口，
@@ -14006,8 +14014,8 @@ function offBody(t, text, accent) {
   const hasSay = segs.some(x => x.k === "say");
   const d = offDark(t);
   const sayInk = offReadable(accent || t.tint, t.bg2);
-  return h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
-    segs.map((x, i) => x.k === "prose" ? x.s : h("span", { key: i, style: {
+  return h("div", { "data-wk": "offtext", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
+    segs.map((x, i) => x.k === "prose" ? x.s : h("span", { key: i, "data-wk": "offsay", style: {
       color: sayInk, fontWeight: 600,
       background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
       borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
@@ -14074,7 +14082,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     const rule = () => h("span", { className: "flex-1", style: { height: 1, background: "linear-gradient(90deg, transparent, " + offA(t.tint, offDark(t) ? 0.55 : 0.42) + ", transparent)" } });
     const head = (editable || timeEl) ? h("div", { className: "flex items-center justify-end gap-3", style: { marginBottom: 4 } }, timeEl || null, editable ? actions : null) : null;
     if (editing) return h("div", { className: "my-3" }, head, editBox);
-    return h("div", { className: "my-3.5" }, head,
+    return h("div", { className: "my-3.5", "data-wk": "offnarr", "data-short": nShort ? "1" : "0" }, head,
       nShort
         ? h("div", { className: "flex items-center gap-3" }, rule(),
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, whiteSpace: "nowrap" } }, nText), rule())
@@ -14083,16 +14091,16 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
               offSplit(nText).map((x, i) => x.k === "prose" ? x.s
                 : h("span", { key: i, style: { color: offReadable(t.tint, t.bg), fontStyle: "normal", fontWeight: 600 } }, x.s)))));
   }
-  return h("div", { className: "my-2.5" },
+  return h("div", { className: "my-2.5", "data-wk": "offmsg", "data-me": isUser ? "1" : "0", "data-kind": m.kind || "text" },
     // 思考链画在这一拍的【上面】，和单聊同一个位置、同一个组件：一行字加箭头，没有框。
     // 她 2026-08-27 看别家线下也有，问怎么弄的——线下以前压根没要过这个字段（v56.75）。
     (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m, off: showReason === false }) : null,
-    h("div", { style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
-      h("div", { className: "flex items-center gap-2.5 mb-2.5" },
+    h("div", { "data-wk": "offcard", "data-me": isUser ? "1" : "0", style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
+      h("div", { "data-wk": "offhead", className: "flex items-center gap-2.5 mb-2.5" },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
         // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
-        h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
+        h("span", { "data-wk": "offname", className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
         (!isUser && spk && offSpeech) ? h(TtsDot, { k: "off" + (m.id || ""), text: offSpeech, spk, tp }) : null,
         timeEl,
         actions),
@@ -14103,7 +14111,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
         : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint))),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
-      (!isUser && m.thought) && h("div", { className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
+      (!isUser && m.thought) && h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
       (!isUser && (m.cot || m.cotRequested)) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null));
@@ -14329,7 +14337,7 @@ function GroupOfflineMode({
     styleSection,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
   const directorNotes = h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote });
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
+  return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
@@ -14374,11 +14382,11 @@ function GroupOfflineMode({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     directorNotes,
-    h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
+    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState, canOpenState: offCanPeek })),
       sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
-    h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),

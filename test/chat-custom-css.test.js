@@ -136,3 +136,12 @@ test("html[data-screen-size=…] 这种写在 html 自己身上的属性，限�
     'html[data-lisa-screen="thread"][data-screen-size="short"] [data-wk="bubble"]{a:b}');
   assert.equal(f('[data-wk="bubble"]{a:b}', 'html[x]'), 'html[x] [data-wk="bubble"]{a:b}');
 });
+
+test("线下和通话也有挂点，并且进了挂点名单", () => {
+  ["offline", "offbody", "offcomposer", "offmsg", "offcard", "offname", "offtext", "offsay", "offthought", "offnarr",
+   "call", "callhead", "calltitle", "callavatar", "callbody", "callmsg", "callbubble", "callact", "callcomposer", "hangup"].forEach(k => {
+    assert.ok(comp.includes('"data-wk": "' + k + '"'), "组件上没挂：" + k);
+    assert.ok(R("js/theme-studio.js").includes('["' + k + '", "'), "名单里没有：" + k);
+  });
+  assert.equal((comp.match(/"data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col"/g) || []).length, 2, "单人线下和群线下都要挂");
+});
