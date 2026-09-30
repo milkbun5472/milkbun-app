@@ -8788,7 +8788,12 @@ function ChatThread({
     character: character,
     size: 36,
     radius: 9
-  }), /*#__PURE__*/React.createElement("div", {
+  }),
+  // 顶栏里她自己那颗头像：默认藏着，只给主题 CSS 当挂点（群友 2026-09-30：「想搞个双人头像一直不给我生」）。
+  //   CSS 造不出一张图——没有这一颗，秋秋写什么选择器都拼不出「两个人的头像」。
+  //   主题里写 [data-wk="headme"] { display: inline-flex !important; } 就出来了，位置随她摆。
+  h("span", { "data-wk": "headme", style: { display: "none" } }, h(Avatar, { character: meAv, size: 36, radius: 9 })),
+  /*#__PURE__*/React.createElement("div", {
     className: "text-left"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1",

@@ -654,6 +654,18 @@ async function callAI(p, system, messages, opts) {
   const TRANSIENT_ERR = /\b(502|503|504|520|521|522|523|524|529)\b|bad gateway|service unavailable|gateway time-?out|overloaded|too many requests|rate.?limit|temporarily unavailable|服务繁忙|负载|限流|unexpected token '?<|is not valid json|<!doctype|<html/i;
   // 配置问题（没填密钥、地址不对）不算「生成失败」要提醒的那种——后台活每分钟一次提醒只会刷屏
   const CONFIG_ERR = /尚未|没有可用的文字模型|地址填得不对|云端代理不可用|请到设置|去设置/;
+  // 光秃秃一句「开始。」当触发词（群友 2026-10-01 截图：「资产生成失败：解析失败：您好！本服务不支持
+  //   测活/连通性测试（如 Hi、Hello、ping 等测试消息）」）。有的中转站把整段请求里【只有一条两三个字的
+  //   user】当成测活拦掉，于是资料全在 system 里、真要干活的那一枪被当成 ping 了。
+  //   十几处都这么写（料全放 system、user 只留一句触发——那条规矩本身是对的），所以在这一处统一换成
+  //   一句说清要干什么的话；她在聊天里真打的字不是这张表里的，一个字都不碰。
+  // ⚠️这张表也写在函数里面，理由同上。
+  const BARE_TRIGGER = { "开始": 1, "开始。": 1, "开始吧": 1, "继续": 1, "继续。": 1, "重来一次。": 1, "重来": 1, "go": 1 };
+  if (Array.isArray(messages) && messages.length === 1 && messages[0] && messages[0].role === "user"
+    && typeof messages[0].content === "string" && BARE_TRIGGER[messages[0].content.trim()]) {
+    const again = /重来/.test(messages[0].content);
+    messages = [{ role: "user", content: again ? "上一次没能用上，请按上面的要求重新完整生成一次。" : "请按上面的要求开始生成，直接给出结果。" }];
+  }
   const t0 = Date.now();
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
   let streamed = false;
