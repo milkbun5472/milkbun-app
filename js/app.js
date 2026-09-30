@@ -21213,7 +21213,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const c = (content || "").trim();
     if (!c) return;
     let wline = "";
-    try { const g = realGeo(); const w = g ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(w.dayCode != null ? w.dayCode : w.code) + " " + w.t + "°C"; } catch (e) {}
+    try { const g = realGeo(); const w = g ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(wxNowCode(w)) + " " + w.t + "°C"; } catch (e) {}
     const due = Date.now() + (4 + Math.random() * 56) * 3600000; // TA 4~60 小时内挑个时候回（三天内）
     saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: char.id, author: "user", content: c, mood: (moodWord || "").trim(), weather: wline, date: ymd(new Date()), ts: Date.now(), dueTs: due, replied: false }, ...p]);
     toast("写好了，TA 这几天会回你一页");
@@ -23337,6 +23337,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const near = geo && typeof geo.lat === "number" ? [geo.lat, geo.lng] : null;
     const g = await geoFromPlace(name, near);
     if (g.error) { toast(g.error); return; }
+    // 同名的不止一个：交回界面列出来让她挑（返回候选），不替她拿第一个
+    if (g.choices) { toast("找到 " + g.choices.length + " 个同名的地方，挑一个"); return g.choices; }
+    setGeo(g);
+    saveJSON("x_geo", g);
+    toast("现在你在：" + g.label);
+  };
+  const doSetGeoPoint = async pt => {
+    if (!pt) return;
+    const g = await geoFromPoint(pt);
     setGeo(g);
     saveJSON("x_geo", g);
     toast("现在你在：" + g.label);
@@ -25574,6 +25583,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     geo: geo,
     onRequestGeo: doRequestGeo,
     onSetGeoPlace: doSetGeoPlace,
+    onSetGeoPoint: doSetGeoPoint,
     worlds: worlds,
     onBack: goHome,
     onExport: doExport,

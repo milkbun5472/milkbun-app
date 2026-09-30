@@ -2029,7 +2029,7 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
       [[true, "每次常驻", "不等关键词"], [false, "按话题触发", "命中才注入"]].map(x => h("button", { key: String(x[0]), onClick: () => { set({ alwaysOn: x[0] }); setError(""); }, className: "active:opacity-70 text-left", style: { border: "1px solid " + (!!f.alwaysOn === x[0] ? t.ink : t.line), background: !!f.alwaysOn === x[0] ? t.ink : "transparent", color: !!f.alwaysOn === x[0] ? t.bg : t.ink, padding: "11px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 12.5 } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: 10, opacity: .65, marginTop: 3 } }, x[2])))),
     !f.alwaysOn ? h("div", { style: { marginTop: 9 } },
-      h("input", { value: f.keyword, onChange: e => { set({ keyword: e.target.value }); setError(""); }, placeholder: "关键词用逗号分隔，例如：宵禁，通行证，夜巡", style: field }),
+      h("input", { value: f.keyword, onChange: e => { set({ keyword: e.target.value }); setError(""); }, placeholder: "关键词用逗号、顿号或竖线隔开，全角半角都行", style: field }),
       toggle("把关键词当正则", "仅在你确实需要表达式匹配时打开", !!f.regex, () => set({ regex: !f.regex }))) : null,
     lbl("会去哪些地方", "只有勾中的功能可以取到这条；角色绑定和触发条件仍然继续生效"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } }, LORE_SCOPE_UI.map(([k, label, desc]) => { const on = loreScopeEnabled(f, k); return h("button", { key: k, onClick: () => { setScope(k); setError(""); }, className: "active:opacity-70 text-left", style: { minHeight: 62, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink, padding: "9px 10px" } },
@@ -8935,7 +8935,7 @@ function Config(props) {
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(CacheStatCard, null)),
-      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, worlds: props.worlds, toast: props.toast })),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, onSetGeoPoint: props.onSetGeoPoint, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
@@ -9401,12 +9401,14 @@ function SenseConfig({
   geo,
   onRequestGeo,
   onSetGeoPlace,
+  onSetGeoPoint,
   toast
 }) {
   const t = useTheme();
   const [p, setP] = useState(prefs);
   // 手填「我在哪」的草稿（她 2026-09-22：想让角色以为自己在东京）
   const [placeDraft, setPlaceDraft] = useState("");
+  const [placeChoices, setPlaceChoices] = useState(null);   // 同名的好几个地方：列出来让她挑
   const [placeBusy, setPlaceBusy] = useState(false);
   const [notifOn, setNotifOn] = useState(() => !!(window.Notify && window.Notify.isOn()));
   const save = np => {
@@ -9543,12 +9545,23 @@ function SenseConfig({
         onClick: async () => {
           if (placeBusy || !placeDraft.trim()) return;
           setPlaceBusy(true);
-          try { await onSetGeoPlace(placeDraft.trim()); setPlaceDraft(""); }
+          try { const r = await onSetGeoPlace(placeDraft.trim()); if (Array.isArray(r) && r.length) setPlaceChoices(r); else { setPlaceChoices(null); setPlaceDraft(""); } }
           finally { setPlaceBusy(false); }
         },
         className: "active:opacity-70 shrink-0",
         style: { minHeight: 40, padding: "0 14px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "none", opacity: placeDraft.trim() ? 1 : .45 }
       }, placeBusy ? "查…" : "就说我在这儿")),
+    // 同名的好几处：每一行写全（省、国家都带上），她点哪个就是哪个
+    placeChoices && placeChoices.length ? h("div", { style: { marginTop: 8, border: "1px solid " + t.line, borderRadius: 8, background: t.bg2, overflow: "hidden" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "8px 11px 4px" } }, "找到好几个同名的地方，是哪一个？"),
+      placeChoices.map((c, i) => h("button", { key: i, onClick: async () => {
+          if (placeBusy) return;
+          setPlaceBusy(true);
+          try { await onSetGeoPoint(c); setPlaceChoices(null); setPlaceDraft(""); } finally { setPlaceBusy(false); }
+        }, className: "w-full text-left active:opacity-70",
+        style: { display: "block", minHeight: 44, padding: "9px 11px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.5 } }, c.full || c.name)),
+      h("button", { onClick: () => setPlaceChoices(null), className: "w-full active:opacity-70",
+        style: { minHeight: 40, borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "都不是，重新填")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
       geo && geo.manual
         ? "现在是你手填的这个地方。角色口中的「你在哪」、天气、地图上你的位置都按它走；想回真的位置就点上面那颗。"
