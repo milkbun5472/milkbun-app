@@ -31,7 +31,7 @@
   // v 必须等于 app.js 的 APP_VERSION，否则测试 manual-stamp 红。
   // 这一版改了哪几条就把 id 写进 entries；这一版她用起来什么都没变（纯修内部、纯测试），
   // entries 留空、在 none 里写一句为什么——不许光改号不写理由。
-  const STAMP = { v: "v74.368", entries: [], none: "修的是顶栏装饰被气泡盖住的层级，本来就该在上面，攻略没有相关说法" };
+  const STAMP = { v: "v74.369", entries: [], none: "只是修顶栏层级那一版的测试锚点，她用起来没变化" };
   const E = [
     { id: "chat", app: "chat", zh: "说话 · 单聊", where: "消息列表里点开一个人",
       what: "开始前在「人格档案馆」创建角色，聊天框就能自动出现在聊天的最下面啦。",

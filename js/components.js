@@ -8775,10 +8775,11 @@ function ChatThread({
   }, /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     "data-wk": "chathead",
-    // 顶栏自成一层压在消息上面：见群聊顶栏那处同样的注释（蕾丝边被气泡盖住）
     style: {
-      position: "relative", zIndex: 3,
       paddingTop: safeTop(20),
+      // 顶栏自成一层压在消息上面（她 2026-09-30：「顶上的蕾丝会被气泡 override 一部分」）——
+      //   主题给气泡上了 position:relative，没层级的顶栏画出界的装饰（蕾丝边、::after）就被后画的气泡盖住。
+      position: "relative", zIndex: 3,
       background: dsp.chatBg ? "rgba(255,255,255,0.55)" : t.bg2,
       backdropFilter: dsp.chatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: dsp.chatBg ? "blur(8px)" : "none",
@@ -13849,7 +13850,7 @@ function OfflineMode({
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
-    h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { position: "relative", zIndex: 3, paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+    h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
@@ -14442,7 +14443,7 @@ function GroupOfflineMode({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
   const directorNotes = h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote });
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
-    h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { position: "relative", zIndex: 3, paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+    h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName + " ⌄"),
@@ -14785,11 +14786,11 @@ function GroupThread({
   }, h("div", {
     "data-wk": "chathead",
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
-    // 顶栏/输入栏自成一层压在消息上面（她 2026-09-30：「顶上的蕾丝会被气泡 override 一部分」）——
-    //   主题给气泡上了 position:relative，没有层级的顶栏画出界的装饰（蕾丝边、::after）就被后画的气泡盖住。
     style: {
-      position: "relative", zIndex: 3,
       paddingTop: safeTop(20),
+      // 顶栏自成一层压在消息上面（她 2026-09-30：「顶上的蕾丝会被气泡 override 一部分」）——
+      //   主题给气泡上了 position:relative，没层级的顶栏画出界的装饰（蕾丝边、::after）就被后画的气泡盖住。
+      position: "relative", zIndex: 3,
       background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2,
       backdropFilter: gChatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: gChatBg ? "blur(8px)" : "none",
