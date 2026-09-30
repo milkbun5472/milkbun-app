@@ -4015,6 +4015,10 @@ function splitCot(raw, on) {
 // 配置存 localStorage x_imgApi（不含大图，可云同步）；生成的图存 IndexedDB(x_selfies) 不进云
 // OpenAI 兼容：有参考照走 /v1/images/edits(保长相)，否则 /v1/images/generations
 // ============================================================
+// ⚙️锁不住脸时要不要退一步、不带参考照照样出一张图（标成 degraded:"no-ref"，界面上会说没锁住脸）。
+//   原来是 false：锁不住就整张不要，宁可失败也不出陌生人。2026-09-30 她说很多人反映生成失败，
+//   先放开观察一段时间——想收回就把这里改回 false，只此一处。
+const IMG_REF_FAIL_FALLBACK = true;
 const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
@@ -5118,7 +5122,11 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (opts && opts.minimalPrompt) { try { return finish(await attemptWith(refBlobs, preferredMode, opts.minimalPrompt, ms, true), "minimal", preferredMode, true); } catch (e4) { note(e4); } }
       }
     }
-    throw new Error("参考照锁脸请求失败，已停止而没有生成陌生人" + (lastRefErr ? "：" + lastRefErr : ""));
+    // 锁不住脸之后怎么办，看 IMG_REF_FAIL_FALLBACK（写在 IMG_API_DEFAULTS 旁边，一眼能看到、一处能改）
+    if (!IMG_REF_FAIL_FALLBACK || (opts && opts.singleShot)) throw new Error("参考照锁脸请求失败，已停止而没有生成陌生人" + (lastRefErr ? "：" + lastRefErr : ""));
+    const softN = looksLikePolicy({ message: lastRefErr }) ? softenForModeration(prompt) : null;
+    try { return mark(await attempt(false, false, null, softN || undefined), softN ? "softened-no-ref" : "no-ref"); }
+    catch (eN) { note(eN); throw new Error("参考照锁脸失败，不带参考照也没生成出来" + (lastRefErr ? "：" + lastRefErr : "")); }
   }
 
   // 参考图集合的降级顺序:先丢【连贯参考图】(它只是锦上添花),再丢用户的脸,最后才无参考照。
