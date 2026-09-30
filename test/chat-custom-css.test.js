@@ -185,3 +185,13 @@ test("整套美化打包：图一起带走、导进来换成新门牌、别人�
   await assert.rejects(api.importChatLook("{\"kind\":\"theme\"}"), /这不是一份美化文件/);
   assert.equal((comp.match(/h\(ChatLookPack, \{/g) || []).length, 2, "单聊和群聊都要有");
 });
+
+test("通话底下是一排大按键，打字框按需拉出来、记住上次开没开", () => {
+  const call = comp.slice(comp.indexOf("function CallScreen("), comp.indexOf("function anonNightBg("));
+  assert.match(call, /const \[typeOpen, setTypeOpenRaw\] = useState\(\(\) => \{ try \{ return localStorage\.getItem\("x_callTypeOpen"\) === "1"/);
+  assert.match(call, /localStorage\.setItem\("x_callTypeOpen", v \? "1" : "0"\)/);
+  assert.match(call, /typeOpen \? h\("div", \{ "data-wk": "calltype"/);
+  assert.match(call, /bigKey\("挂断",/);
+  assert.ok(call.indexOf('bigKey("挂断"') > call.indexOf("canLive ? bigKey("), "挂断要在正中（说话键后面、打字键前面）");
+  assert.ok(call.indexOf('bigKey("挂断"') < call.indexOf("bigKey(typeOpen"), "挂断要在正中");
+});

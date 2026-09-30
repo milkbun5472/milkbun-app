@@ -368,7 +368,8 @@
         // 通话
         ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
         ["callavatar", "通话中间的大头像"], ["callbody", "通话字幕滚动区"], ["callmsg", "通话里一句（带 data-me）"],
-        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["callcomposer", "通话底部输入栏"], ["hangup", "挂断键"]
+        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
+        ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。

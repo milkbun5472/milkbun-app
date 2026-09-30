@@ -10225,6 +10225,8 @@ function CallScreen({
     background: "linear-gradient(180deg,rgba(10,11,14," + from + ") 0,rgba(10,11,14," + to + ") 100%)",
     backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)"
   } : null;
+  // 打字框收着还是开着：记住她上次（⚠️hook 得排在 minimized 早退前面；她 2026-09-30：「记住上次吧」）——说话多的人进来就是一排大按键，打字多的进来框就在
+  const [typeOpen, setTypeOpenRaw] = useState(() => { try { return localStorage.getItem("x_callTypeOpen") === "1"; } catch (e) { return false; } });
   if (minimized) {
     const onTS = e => { const r = e.currentTarget.getBoundingClientRect(); const tt = e.touches[0]; dragRef.current = { dragging: true, moved: false, grabX: tt.clientX - r.left, grabY: tt.clientY - r.top }; };
     const onTM = e => { if (!dragRef.current.dragging) return; const tt = e.touches[0]; dragRef.current.moved = true; const w = window.innerWidth, hh = window.innerHeight; setPos({ x: Math.max(4, Math.min(w - 150, tt.clientX - dragRef.current.grabX)), y: Math.max(40, Math.min(hh - 60, tt.clientY - dragRef.current.grabY)) }); };
@@ -10242,6 +10244,11 @@ function CallScreen({
   // 「看得见对方」这件事只写在提示词里、屏幕上一点都看不出来。
   // 有画面时它铺满整屏当底，上面压一层暗罩让台词还读得清；头像圈就收起来——
   // 人已经在画面里了，再摆一个圆头像是两份同样的东西。
+  const setTypeOpen = v => { setTypeOpenRaw(v); try { localStorage.setItem("x_callTypeOpen", v ? "1" : "0"); } catch (e) {} };
+  // 底下那一排大按键：圆钮 + 底下一行小字，跟微信通话一个分寸；挂断永远在正中、红色，离别的键远一点
+  const bigKey = (label, icon, onClick, bg, extra) => h("button", Object.assign({ onClick: onClick, className: "flex flex-col items-center active:opacity-70", style: { gap: 7, minWidth: 72 } }, extra || {}),
+    h("span", { style: { width: 62, height: 62, borderRadius: 999, background: bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,.25)" } }, icon),
+    h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.85)" }, litText) }, label));
   return h("div", {
     // 通话页的挂点（她 2026-09-30：「整体美化都要」）：只是名字、不带样式——data-video="1" 是视频通话
     "data-wk": "call", "data-video": isVideo ? "1" : "0", "data-group": isGroup ? "1" : "0",
@@ -10409,62 +10416,40 @@ function CallScreen({
     style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
   }, "🎙 " + liveSt), h("div", {
     "data-wk": "callcomposer",
-    className: "shrink-0 flex items-center gap-2 px-4 py-3",
+    className: "shrink-0",
     style: Object.assign({
       paddingBottom: COMPOSER_PAD_BOTTOM
     }, litPlate("0", ".78"))
-  }, canLive && h("button", {
-    "aria-label": live ? "关闭麦克风" : "开启麦克风",
-    onClick: () => live ? lvStop() : lvStart(),
-    className: "shrink-0 flex items-center justify-center",
-    style: { width: 42, height: 42, borderRadius: 999, background: live ? "#4a9d6e" : "rgba(255,255,255,0.2)" }
-  }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" }), h("path", { d: "M5 11a7 7 0 0 0 14 0" }), h("path", { d: "M12 18v3" }))), h("input", {
-    value: input,
-    onChange: e => setInput(e.target.value),
-    onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: "说点什么…",
-    className: "flex-1 outline-none px-4 py-2.5 rounded-full",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 14,
-      color: "#fff",
-      background: "rgba(255,255,255,0.14)",
-      border: "none",
-      minWidth: 0
-    }
-  }), h("button", {
-    onClick: send,
-    disabled: sending || !input.trim(),
-    className: "disabled:opacity-40 shrink-0 flex items-center justify-center",
-    style: {
-      width: 42,
-      height: 42,
-      borderRadius: 999,
-      background: "rgba(255,255,255,0.2)"
-    }
-  }, h(ISend, {
-    size: 17,
-    color: "#fff"
-  })), h("button", {
-    onClick: () => { audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); },
-    "data-wk": "hangup",
-    className: "shrink-0 flex items-center justify-center",
-    style: {
-      width: 42,
-      height: 42,
-      borderRadius: 999,
-      background: "#e0524a"
-    }
-  }, h(Svg, {
-    size: 20,
-    color: "#fff",
-    sw: 2,
-    style: {
-      transform: "rotate(135deg)"
-    }
-  }, h("path", {
-    d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"
-  })))));
+  },
+    // 打字框：点「打字」才从按键上面滑出来；发完一句不收，方便连着打
+    typeOpen ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
+      h("input", {
+        value: input,
+        autoFocus: true,
+        onChange: e => setInput(e.target.value),
+        onKeyDown: e => e.key === "Enter" && send(),
+        placeholder: "说点什么…",
+        className: "flex-1 outline-none px-4 py-2.5 rounded-full",
+        style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: "rgba(255,255,255,0.14)", border: "none", minWidth: 0 }
+      }),
+      h("button", {
+        onClick: send,
+        disabled: sending || !input.trim(),
+        "aria-label": "发送",
+        className: "disabled:opacity-40 shrink-0 flex items-center justify-center",
+        style: { width: 42, height: 42, borderRadius: 999, background: "rgba(255,255,255,0.2)" }
+      }, h(ISend, { size: 17, color: "#fff" }))) : null,
+    h("div", { "data-wk": "callbtns", className: "flex items-start justify-center", style: { gap: 34, padding: "14px 20px 6px" } },
+      canLive ? bigKey(live ? "麦克风开着" : "说话",
+        h(Svg, { size: 24, color: "#fff", sw: 2 }, h("path", { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" }), h("path", { d: "M5 11a7 7 0 0 0 14 0" }), h("path", { d: "M12 18v3" })),
+        () => live ? lvStop() : lvStart(), live ? "#4a9d6e" : "rgba(255,255,255,0.2)", { "aria-label": live ? "关闭麦克风" : "开启麦克风", "data-wk": "callmic" }) : null,
+      bigKey("挂断",
+        h(Svg, { size: 26, color: "#fff", sw: 2, style: { transform: "rotate(135deg)" } }, h("path", {
+          d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z" })),
+        () => { audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": "挂断" }),
+      bigKey(typeOpen ? "收起键盘" : "打字",
+        h(Svg, { size: 24, color: "#fff", sw: 1.8 }, h("rect", { x: 3, y: 6, width: 18, height: 12, rx: 2 }), h("path", { d: "M7 10h.01M11 10h.01M15 10h.01M7 14h10" })),
+        () => setTypeOpen(!typeOpen), typeOpen ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)", { "aria-label": typeOpen ? "收起打字框" : "打字", "data-wk": "calltypekey" }))));
 }
 // 匿名问答的夜色（她 2026-08-30:「UI 和背景也弄符合主题一点」）。
 // 匿名是【夜里投进去的一张纸条】：整块地方比 app 别处暗一档，像半夜亮着的一个页面。
