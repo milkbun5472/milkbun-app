@@ -42,7 +42,8 @@ const seg = strip(cut("      const _askAvatar = !opts.proactive", "      // Prot
 
 test("她提了头像，就往前多找一段——不再卡死在最近 6 条", () => {
   assert.match(app, /const ASK_PHOTO_LOOKBACK = 40;/);
-  assert.match(seg, /const _askPick = \(_askAvatar && !_seenMsg\) \? freshPhotoIn\(\(chatsRef\.current\[charId\] \|\| \[\]\)\.slice\(-ASK_PHOTO_LOOKBACK\)\) : null;/);
+  // v74.387：原来先 slice(-40) 再进 freshPhotoIn，又被砍回 6 条——往回看几条改成传给 freshPhotoIn
+  assert.match(seg, /freshPhotoIn\(chatsRef\.current\[charId\] \|\| \[\], ASK_PHOTO_LOOKBACK\)/);
 });
 
 test("她开口要的时候，7 天冷却不算数", () => {
@@ -53,13 +54,14 @@ test("她开口要的时候，7 天冷却不算数", () => {
 });
 
 test("主动轮照旧不发：那种轮次TA没在看照片", () => {
-  assert.match(seg, /const _askAvatar = !opts\.proactive && askedRecently\(history, \/头像\/, 4\);/);
+  assert.match(seg, /const _askAvatar = !opts\.proactive && askedRecently\(history, AVATAR_ASK_RE, 4\);/);
+  assert.match(app, /const AVATAR_ASK_RE = \/头像/);
   assert.match(seg, /const _seenMsg = opts\.proactive \? null : freshUserPhoto\(charId\);/);
 });
 
 test("她翻旧账要换头像时，不补记老照片的画面（note 只跟刚看见的那张走）", () => {
   assert.match(seg, /const seenHint = _seenMsg \? photoSeenHint\(_seenAvatarOk, uName\)/);
-  assert.match(seg, /: \(_seenAvatarOk \? photoSeenAskHint\(uName\) : ""\);/);
+  assert.match(seg, /: \(_seenAvatarOk \? \(_askAvatar \? photoSeenAskHint\(uName\) : photoSeenAutoHint\(uName\)\) : ""\);/);
   // 她开口那一档的字段里没有 note
   assert.ok(seg.indexOf('(_seenAvatarOk ? ",\\"photoSeen\\":{\\"avatar\\":false}" : "")') > 0,
     "她开口那一档的字段里不该有 note");

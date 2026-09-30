@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.388";
+const APP_VERSION = "v74.389";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9705,15 +9705,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️判据是现成的，gaze.js 里已经写过一模一样的一句：
       //   「预算防的是【代码偷偷花钱】，不是防她自己要」——手动那次不占自动额度。
       //   这里是同一条判据的第二次落地：她开口要，冷却和回看窗口都让路。
-      const _askAvatar = !opts.proactive && askedRecently(history, /头像/, 4);
+      const _askAvatar = !opts.proactive && askedRecently(history, AVATAR_ASK_RE, 4);
       const _seenMsg = opts.proactive ? null : freshUserPhoto(charId);
       // 她开口要的时候往前多找一段：她多半指的是前面发过的某一张
-      const _askPick = (_askAvatar && !_seenMsg) ? freshPhotoIn((chatsRef.current[charId] || []).slice(-ASK_PHOTO_LOOKBACK)) : null;
-      const _avatarMsg = _seenMsg || _askPick;
+      const _askPick = (_askAvatar && !_seenMsg) ? freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
+      // TA自己起意：刚发的那张不在了，再往前看一段（冷却照旧）
+      const _autoPick = (!_askAvatar && !_seenMsg && !opts.proactive && avatarCoolOk(charId)) ? freshPhotoIn(chatsRef.current[charId] || [], AUTO_AVATAR_LOOKBACK) : null;
+      const _avatarMsg = _seenMsg || _askPick || _autoPick;
       const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar));
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
-        : (_seenAvatarOk ? photoSeenAskHint(uName) : "");
+        : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
         : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
@@ -10834,6 +10836,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   于是又变回「他说换了、实际没换」。note 那半边本来就只在 _seenMsg 时才有。
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
+      // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
+      if (_avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
+        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" "))) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
         photoKind = ["self", "other", "duo", "view", "part", "none"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
@@ -20447,8 +20452,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const AVATAR_COOLDOWN_MS = 7 * 86400000;
   const FRESH_PHOTO_LOOKBACK = 6;
-  const freshPhotoIn = rows => {
-    const tail = (Array.isArray(rows) ? rows : []).filter(m => m && !m.recalled).slice(-FRESH_PHOTO_LOOKBACK);
+  // ⚠️第二个参数是往回看几条。原来写死 6——于是下面「她开口要换」那一档虽然先 slice(-40)，
+  //   进来又被砍回 6 条，发完照片聊几轮再说「换成那张」就永远找不到（她 2026-09-30：「过了几轮他就不行了」）。
+  const freshPhotoIn = (rows, lookback) => {
+    const tail = (Array.isArray(rows) ? rows : []).filter(m => m && !m.recalled).slice(-(lookback || FRESH_PHOTO_LOOKBACK));
     for (let i = tail.length - 1; i >= 0; i--) {
       const m = tail[i];
       if (m && m.role === "user" && m.kind === "photo" && m.imageRef) return m;
@@ -20465,6 +20472,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她开口要换头像时往前找多少条（比 FRESH_PHOTO_LOOKBACK 长得多：
   // 她多半是发完照片又聊了几轮，才想起来说「换成那张吧」）
   const ASK_PHOTO_LOOKBACK = 40;
+  // TA自己起意换头像时往回看几条（她 2026-09-30：「6条太短了」）。6 条仍只管「记下画面」那半边。
+  const AUTO_AVATAR_LOOKBACK = 20;
+  // 她要换头像的说法：不只「头像」两个字
+  const AVATAR_ASK_RE = /头像|\bpp\b|avatar/i;
+  // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
+  const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了/;
+  // 没开口、也不是刚发的那张：只问换不换，不补记画面
+  const photoSeenAutoHint = uName =>
+    "\n【photoSeen 换头像】上面历史里 " + uName + " 发过一张真实照片。要不要把它换成你自己的头像？**默认 false。**"
+    + "只有它是你愿意天天挂在名字旁边的那种才填 photoSeen:{\"avatar\":true}；你平时不爱换头像，就一直 false。";
   // 她开口要的那一版：没有 note 那半边（不补记老照片的画面），只问换不换。
   // ⚠️仍然是【问】不是【命令】：她说了，他也可以不换——那是他这个人的事
   //   （施工规则/bans-make-it-dumber：给出口，不给判决）。但不许嘴上说换了、实际没换。
