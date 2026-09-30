@@ -20,7 +20,7 @@ const card = grab("  if (isNarr) {", "\n}\n// ---- 群聊线下模式");
 // 单调的根子不在框素不素，在【旁白、角色、我】被画成了同一个盒子——
 // 一屏下来十几个一模一样的方块，再给每个盒子加花纹还是十几个一样的东西。
 test("三种东西画得不一样：旁白根本不给框", () => {
-  const narr = card.slice(0, card.indexOf("  return h(\"div\", { className: \"my-2.5\" },"));
+  const narr = card.slice(0, card.indexOf("  return h(\"div\", { className: \"my-2.5\", \"data-wk\": \"offmsg\""));
   assert.ok(!/background: t\.bg2|offCardSkin/.test(narr), "旁白还是一个盒子");
   assert.match(narr, /const nShort = nText\.length <= 34;/, "长短旁白没分开");
   // 短的居中当场次标题，长的靠左走一道竖线——居中的长段落最难读，那是原来最扎眼的地方
