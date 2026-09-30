@@ -219,3 +219,11 @@ test("气泡换了底色，主题画的尖角也跟着换色", () => {
   assert.match(c, /\[data-wk="bubble"\]\[data-me="1"\]::before', \["border-left-color:"/);
   assert.match(c, /\[data-wk="bubble"\]\[data-me="0"\]::before', \["border-right-color:"/);
 });
+
+test("顶栏和输入栏自成一层，主题装饰不被气泡盖住", () => {
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  const n = (c.match(/"data-wk": "chathead",[\s\S]{0,400}?position: "relative", zIndex: 3/g) || []).length;
+  assert.ok(n >= 4, "chathead 层级 " + n);
+  const m = (c.match(/"data-wk": "composer",[\s\S]{0,200}?position: "relative", zIndex: 3/g) || []).length;
+  assert.ok(m >= 2, "composer 层级 " + m);
+});
