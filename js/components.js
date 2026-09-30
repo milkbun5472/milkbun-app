@@ -8796,8 +8796,11 @@ function ChatThread({
   //   CSS 造不出一张图——没有这一颗，秋秋写什么选择器都拼不出「两个人的头像」。
   //   主题里写 [data-wk="headme"] { display: inline-flex !important; } 就出来了，位置随她摆。
   h("span", { "data-wk": "headme", style: { display: "none" } }, h(Avatar, { character: meAv, size: 36, radius: 9 })),
+  // 名字那一块单独一个挂点（群友 2026-09-30：「设置了双头像总是覆盖文字，怎么移动都移不走」）。
+  //   原来名字只挂着 headink——那是整条顶栏共用的，一挪连返回键一起挪；现在挪 headname 只动名字和小字。
   /*#__PURE__*/React.createElement("div", {
-    className: "text-left"
+    className: "text-left",
+    "data-wk": "headname"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1",
     "data-wk": "headink",
