@@ -1057,11 +1057,11 @@ function Head({
 // 任何内核都会开文件选择器，`.click()` 整条路不再需要。
 // ⚠️装到桌面（PWA/WebView）那种壳里，如果连文件选择器本身都没实现，这一层也救不了——
 //   所以每个用它的地方都该另留一条不走文件的路（见 AvatarPicker 的「贴一张图」）。
-function FilePick({ accept, onChange, onPaste, disabled, label, style, children }) {
+function FilePick({ accept, multiple, onChange, onPaste, disabled, label, style, children }) {
   return h("span", { style: Object.assign({ position: "relative", display: "inline-flex" }, style) },
     children,
     h("input", {
-      type: "file", accept: accept || "image/*", disabled: !!disabled,
+      type: "file", accept: accept || "image/*", multiple: !!multiple, disabled: !!disabled,
       "aria-label": label || "选一张图",
       onChange: onChange,
       // ⚠️「贴一张图」那条备用路挂在 input 自己身上：它本来就是可聚焦元素，
@@ -1478,7 +1478,7 @@ function StickerPanel({ packs, emotes, onPick, onManage }) {
           shown.map(em => h("button", { key: (cur && cur.recent ? "r_" : "") + em.id, onClick: () => pick(em), className: "active:opacity-70",
             style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
             h("div", { style: { width: "100%", aspectRatio: "1" } },
-              h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", alt: em.keyword || "",
+              h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", alt: em.keyword || "",
                 style: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
                 onError: e => { e.target.style.display = "none"; } }))))),
     // 底下那一排：每一套一格，摆它自己的封面（第一张）。多了横着滑。
@@ -12984,6 +12984,7 @@ function GeoStampSheet({ recent, onClose, onSend }) {
 // 改显一个带关键词的占位框，保持尺寸 + 可长按，用户能认出是哪张、也删得掉。
 function EmoteBubble({ url, keyword, max }) {
   const t = useTheme();
+  url = stickerSrc(url); // 从相册选的表情存的是 iv_ 引用（本机图库），先换成能显示的地址
   const [broken, setBroken] = useState(!url);
   const kw = keyword || "表情";
   max = max || 116;

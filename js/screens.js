@@ -13205,7 +13205,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onDeleteEmotes }) {
   const t = useTheme();
   const list = packs || [];
   const [selId, setSelId] = useState(list[0] && list[0].id);
@@ -13223,6 +13223,25 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
     const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
     const text = String(await readTextFileSmart(f) || "");
     setImportText(prev => (prev ? prev + "\n" : "") + text);
+  };
+  // 从相册直接选图（自己画的表情不用先传图床）：存进本机图库 iv_，关键词取文件名。
+  // GIF 原样存——一压缩就不动了；其余缩到 512 边长，省地方。
+  const [picking, setPicking] = useState(false);
+  const pickImages = async e => {
+    const files = Array.from((e.target.files) || []); e.target.value = "";
+    if (!files.length || !pack || !onAddImages) return;
+    setPicking(true);
+    try {
+      const items = [];
+      for (const f of files) {
+        if (!/^image\//.test(f.type || "")) continue;
+        const raw = () => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
+        const dataUrl = /gif/i.test(f.type) || typeof resizeImageFile !== "function" ? await raw() : await resizeImageFile(f, 512, 0.9);
+        const ref = typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        items.push({ keyword: String(f.name || "").replace(/\.[^.]+$/, "").trim() || "表情", url: ref });
+      }
+      if (items.length) onAddImages(pack.id, items);
+    } finally { setPicking(false); }
   };
   // 印在离型纸上的那行说明：一句中文 + 一道横线拉到头，右边挂这一栏自己的操作
   const note = (zh, right, top) => h("div", { className: "flex items-center gap-3", style: { marginTop: top === undefined ? 22 : top, marginBottom: 10 } },
@@ -13290,7 +13309,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
                   boxShadow: on ? "none" : "0 4px 9px rgba(0,0,0,.16)",
                   transform: on ? "none" : "rotate(" + tiltById(em.id) + "deg)", transition: "transform .16s" } },
                   h("div", { style: { width: "100%", aspectRatio: "1", position: "relative" } },
-                    h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
+                    h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
                     on && h("span", { style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
                   h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
             })),
@@ -13302,6 +13321,10 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
             h(FilePick, { accept: "text/plain,text/markdown,.txt,.text,.md", onChange: readFile, label: "从文件里读表情包清单" },
               h("span", { className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
+          h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
+            h(FilePick, { accept: "image/*", multiple: true, onChange: pickImages, disabled: picking, label: "从相册选表情" },
+              h("span", { className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "自己画的直接选，可多选；文件名就是关键词，存在这台手机上")),
           // ⚠️这里原来写死 background:"#fff" 配 color:t.ink——深色主题下就是白底浅字，
           //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
           h("textarea", { value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
@@ -13362,7 +13385,7 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SCRAP_FOG } }, (f.role === "user" ? "我" : (c.remark || c.name)) + " · " + fmtStamp(f.ts)),
               h("button", { onClick: () => onDelete(f.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a8503f" } }, "揭下来")),
             f.kind === "emote" && f.url
-              ? h("img", { src: f.url, referrerPolicy: "no-referrer", loading: "lazy", style: { maxWidth: 110, maxHeight: 110, borderRadius: 4, display: "block" }, onError: e => { e.target.style.display = "none"; } })
+              ? h("img", { src: stickerSrc(f.url), referrerPolicy: "no-referrer", loading: "lazy", style: { maxWidth: 110, maxHeight: 110, borderRadius: 4, display: "block" }, onError: e => { e.target.style.display = "none"; } })
               : f.kind === "selfie"
               ? h(SelfieBubble, { m: f }) // 复用聊天里的自拍气泡：从 IndexedDB 读 imgKey，点开可放大
               : f.kind === "voice"
