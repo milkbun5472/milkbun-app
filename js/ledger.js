@@ -386,7 +386,48 @@
   window.ledgerNoteFor = function (charId) {
     const main = _ledgerNoteBase(charId) || "";
     const own = ledgerOwnLines(charId);
-    return [main, own].filter(Boolean).join("\n");
+    const life = ledgerLifeLines(charId);
+    return [main, own, life].filter(Boolean).join("\n");
+  };
+
+  // 同一笔的分享卡和后续线索只读取已存账单，不带账户或其他人的批注。
+  function ledgerLifeLines(charId) {
+    if (!charId) return "";
+    const d = loadData(), global = d.settings.visibleTo.includes(charId);
+    const rows = d.txns.map(t => global || t.byChar === charId ? t : (t.sharedWith || {})[charId])
+      .filter(t => t && !isTransfer(t) && String(t.note || "").trim())
+      .slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 6);
+    if (!rows.length) return "";
+    return "你已知道的生活线索（日期是记录日期，结果以你们实际聊过的内容为准）：\n" + rows.map(t => {
+      const cur = d.settings.currencies.find(c => c.code === t.currency) || { symbol: "" };
+      const own = (t.comments || []).filter(c => c.charId === charId).slice(-1)[0];
+      return "· " + t.date + " · " + t.category + " · " + fmtAmt(netAmt(t), cur) + " · " + t.note
+        + (own ? "；你当时的批注：" + own.text : "");
+    }).join("\n");
+  }
+  window.ledgerShareMessage = function (txnId, charId) {
+    if (!charId) return null;
+    const d = loadData(), txn = d.txns.find(t => t.id === txnId);
+    if (!txn) return null;
+    const cur = d.settings.currencies.find(c => c.code === txn.currency) || { symbol: "", label: txn.currency };
+    const title = (isTransfer(txn) ? "⇄ " : txn.type === "income" ? "+" : "−") + fmtMoney(isTransfer(txn) ? txn.amount : netAmt(txn), cur) + " " + txn.category;
+    const note = String(txn.note || "");
+    const own = (txn.comments || []).filter(c => c.charId === charId).slice(-1)[0];
+    return { role: "user", kind: "ledgershare", what: "ledger", ledgerId: txn.id, title, sub: txn.date + " · " + cur.label, note,
+      content: "【我拿这笔个人账单给你看】\n" + txn.date + " · " + title + "（" + cur.label + "）"
+        + (note ? "\n备注：" + note : "") + (own ? "\n你之前对这笔的批注：" + own.text : "")
+        + "\n这是我主动分享的这一笔生活记录，可以接着和我聊。", ts: Date.now(), read: false };
+  };
+  window.ledgerMarkShared = function (txnId, charId) {
+    if (!charId) return;
+    const d = loadData(), txn = d.txns.find(t => t.id === txnId);
+    if (!txn) return;
+    // 保留分享那一刻的内容；后来编辑账单，不会悄悄扩大单笔分享。
+    txn.sharedWith = Object.assign({}, txn.sharedWith, { [charId]: {
+      id: txn.id, date: txn.date, type: txn.type, category: txn.category, amount: isTransfer(txn) ? txn.amount : netAmt(txn),
+      currency: txn.currency, note: String(txn.note || ""), ts: Date.now()
+    } });
+    saveData(d);
   };
 
   // 角色替她记一笔（她 2026-08-30：「我说帮我记加币 xx 元吃东西，他们也能记上」）。
@@ -752,8 +793,8 @@
 .lg-reference [data-ledger-rail]>img{clip-path:inset(3% 0 5% round 999px)}
 .lg-reference [data-ledger-monthnav],.lg-reference .lg-rail{background:none!important;isolation:isolate;position:relative}
 .lg-reference [data-ledger-monthnav]::before,.lg-reference .lg-rail::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:url(assets/ledger/rail.webp?v=259) center/100% 100% no-repeat;clip-path:inset(2% 0 5% round 999px)}
-.lg-reference .lg-add-category .lg-cattile,.lg-reference .lg-number-key{position:relative;isolation:isolate;background:rgba(243,240,255,.18)!important;border:0!important;box-shadow:none!important;border-radius:13px!important}
-.lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference [data-ledger-done]::before,.lg-reference [data-ledger-tabbar]::before,.lg-reference [data-ledger-tabbar] button::before{content:'';position:absolute;inset:0;height:auto;background:none;z-index:-1;pointer-events:none;border:9px solid transparent;border-image:url(assets/ledger/panel.webp?v=259) 120 fill / 9px / 0 stretch}
+.lg-reference .lg-add-category .lg-cattile,.lg-reference .lg-number-key,.lg-reference .lg-share-key{position:relative;isolation:isolate;background:rgba(243,240,255,.18)!important;border:0!important;box-shadow:none!important;border-radius:13px!important}
+.lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference .lg-share-key::before,.lg-reference [data-ledger-done]::before,.lg-reference [data-ledger-tabbar]::before,.lg-reference [data-ledger-tabbar] button::before{content:'';position:absolute;inset:0;height:auto;background:none;z-index:-1;pointer-events:none;border:9px solid transparent;border-image:url(assets/ledger/panel.webp?v=259) 120 fill / 9px / 0 stretch}
 .lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference [data-ledger-done]::before{opacity:.8}
 .lg-reference [data-ledger-tabbar]::before{border-image-width:12px;opacity:.8}
 .lg-reference [data-ledger-tabbar] button::before{border-image-width:7px}
@@ -1157,6 +1198,7 @@
         txn, cur: curOf(txn.currency), sk, settings: data.settings, characters: props.characters, moods: props.moods, affinities: props.affinities,
         active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName, toast: props.toast,
         onBack: pop,
+        onForwardToChat: props.onForwardToChat,
         onEdit: () => setAddState({ edit: txn }),
         onAddComments: cmts => updTxn(txn.id, { comments: (txn.comments || []).concat(cmts) }),
         onDelete: () => { delTxn(txn.id); pop(); },
@@ -2011,6 +2053,7 @@
   function TxnView(props) {
     const { txn, cur, sk } = props;
     const [pick, setPick] = useState(false);
+    const [share, setShare] = useState(false);
     const [confirmDel, setConfirmDel] = useState(false);
     const isInc = txn.type === "income", xfer = isTransfer(txn);
     const comments = txn.comments || [];
@@ -2032,6 +2075,8 @@
           line("币种", cur.label + " " + cur.code),
           (txn.refunds || []).map((r, i) => line("退回 · " + fmtDay(r.date) + (r.note ? " " + r.note : ""), "−" + fmtMoney(r.amount, cur))),
           (txn.refunds || []).length ? line("实际花了", fmtMoney(netAmt(txn), cur), true) : null),
+        props.onForwardToChat && (props.characters || []).length ? h("button", { "data-ledger-share": true, onClick: () => setShare(true), className: "lg-key lg-share-key w-full active:opacity-80",
+          style: jellyKey(sk, "lilac", false, { minHeight: 44, marginBottom: 16, fontFamily: F_BODY, fontSize: 13, fontWeight: 700 }) }, "拿这笔账给 TA 看") : null,
         // 退款 / AA 回款：挂在这一笔上，这笔按净额算（她 2026-09-29）
         !xfer && !isInc ? h("div", { style: { display: "flex", gap: 8, marginBottom: 16 } },
           h("button", { onClick: () => requestAppPrompt("退回多少", "退款或者别人 AA 还你的钱。会从这笔里扣掉，不算收入。最多还能退 " + fmtMoney(netAmt(txn), cur) + "。", "", v => {
@@ -2061,6 +2106,9 @@
           }))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.fog, textAlign: "center", padding: "20px 0" } },
               (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『人格档案馆』建个角色")),
+      share ? h(LedgerSharePicker, { sk, characters: props.characters, onClose: () => setShare(false), onShare: c => {
+        if (props.onForwardToChat(txn.id, c.id) !== false) setShare(false);
+      } }) : null,
       pick ? h(CommentPicker, {
         characters: props.characters, moods: props.moods, affinities: props.affinities, existing: comments.map(c => c.charId),
         txn, cur, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: props.uName, toast: props.toast,
@@ -2068,6 +2116,16 @@
         onDone: cmts => { props.onAddComments(cmts); setPick(false); }
       }) : null,
       confirmDel ? h(ConfirmDialog, { title: "删掉这笔账？", body: "删掉后连同角色批注一起没了。", confirmLabel: "删掉", danger: true, onConfirm: props.onDelete, onCancel: () => setConfirmDel(false) }) : null);
+  }
+
+  function LedgerSharePicker({ sk, characters, onClose, onShare }) {
+    return h("div", { "data-ledger-sharepicker": true, className: "h-full flex flex-col", style: Object.assign({}, sk.page, { position: "absolute", inset: 0, zIndex: 50 }) },
+      h(Head, { zh: "拿给谁看", onBack: onClose, ink: sk.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: { overscrollBehavior: "contain" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, lineHeight: 1.6, marginBottom: 16 } }, "只分享这一笔和你写的备注。选好后去聊天，可以接着说你想聊的话。"),
+        (characters || []).map(c => h("button", { key: c.id, onClick: () => onShare(c), "data-ledger-recipient": c.id, className: "w-full text-left lg-key lg-share-key flex items-center gap-3",
+          style: jellyKey(sk, "clear", false, { minHeight: 56, padding: "8px 12px", marginBottom: 10 }) },
+          h(Avatar, { character: c, size: 36, radius: 10 }), h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: sk.ink } }, c.remark || c.name)))));
   }
 
   // ============================================================

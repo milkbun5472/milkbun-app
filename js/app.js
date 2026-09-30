@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.374";
+const APP_VERSION = "v74.375";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7915,7 +7915,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       home: (c.home && c.home.city) ? String(c.home.city).trim().slice(0, 40) : "",
       carry: typeof carryContextText === "function"
         ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
-      archive: coupleArchiveFor(c.id)
+      archive: coupleArchiveFor(c.id),
+      finance: typeof window.ledgerNoteFor === "function" ? window.ledgerNoteFor(c.id) : ""
     };
   };
   const ctxForGroupOffline = group => {
@@ -7936,6 +7937,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     chars: characters,
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
+    memberFinance: backgroundMap("finance"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
     // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：此刻心情与好感度，
@@ -19002,6 +19004,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ficshare 卡片的 content：让这篇文的 title/CP/作者/节选落进聊天历史，角色以后回看/重roll 才认得出是同一篇
   const ficShareContent = (s, note) => "[分享了一篇同人文]《" + s.title + "》｜CP：" + (s.cpText || "原创") + "｜作者：" + (s.author || "佚名") + (note ? "｜" + note : "") + (s.excerpt ? "｜开头：" + s.excerpt : "");
   // 转发同人文到私聊：push 一张 ficshare 卡片 + 角色随口读后感（Phase 2 才把新章 context 喂给角色）
+  const forwardLedgerToChat = (txnId, charId) => {
+    const c = liveChars.find(x => x.id === charId);
+    const msg = c && window.ledgerShareMessage && window.ledgerShareMessage(txnId, charId);
+    if (!msg) { toast("这笔账或角色已经不在了"); return false; }
+    pChat(charId, p => [...p, msg]);
+    window.ledgerMarkShared(txnId, charId);
+    openChatById(charId);
+    return true;
+  };
   const forwardFicToChat = async (fic, toChar) => {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
     const cpNames = (fic.cp || []).map(id => id === "me" ? (profile.name || "我") : (function () { const c = characters.find(x => x.id === id); return c ? c.name : null; })()).filter(Boolean);
@@ -25105,6 +25116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {
+    onForwardToChat: forwardLedgerToChat,
     active: bgActive,
     characters: liveChars,
     profile: profile,

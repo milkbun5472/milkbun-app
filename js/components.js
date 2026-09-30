@@ -9082,6 +9082,7 @@ function ChatThread({
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
+    if (m.kind === "ledgershare") return h("div", { key: i, className: "py-1 flex items-start justify-end" }, h(RecordedCard, { m }));
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
@@ -12050,7 +12051,7 @@ function LedgerTicketCard({ m }) {
     h("div", { style: { position: "relative", borderStyle: "solid", borderColor: "transparent", borderWidth: "58px 22px 36px",
         borderImage: "url(" + A + "rc-ticket.webp" + V + ") 265 80 150 fill / 58px 22px 36px / 0 stretch", minHeight: 80 } },
       h("div", { style: { marginTop: -30, fontFamily: F_BODY, fontSize: 9, letterSpacing: ".3em", color: sub, textAlign: "center" } }, "QIUQIU MART"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, textAlign: "center", marginTop: 16 } }, "已记进账本"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, textAlign: "center", marginTop: 16 } }, m.kind === "ledgershare" ? "拿给你看的这笔账" : "已记进账本"),
       mt ? h("div", { style: { textAlign: "center", marginTop: 4, fontFamily: F_DISPLAY, fontWeight: 800, color: ink, lineHeight: 1.1 } },
           h("span", { style: { fontSize: 15 } }, (mt[1] === "+" ? "+" : "−") + mt[2]), h("span", { style: { fontSize: 26 } }, mt[3]))
         : h("div", { style: { textAlign: "center", marginTop: 4, fontFamily: F_DISPLAY, fontSize: 17, fontWeight: 800, color: ink } }, m.title || ""),
@@ -12080,7 +12081,7 @@ function RecordedCard({ m }) {
     }
   },
     h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: "rgba(" + tone + ",0.95)", marginBottom: 4 } },
-      isMemo ? "已记进备忘录" : "已记进账本"),
+      m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : "已记进账本"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, lineHeight: 1.3 } }, m.title || ""),
     m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3 } }, m.sub) : null,
     m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, m.note) : null);

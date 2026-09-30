@@ -3132,6 +3132,10 @@ function sceneSettingBlock(title, text, extra) {
     + (extra ? "\n" + extra : "");
 }
 if (typeof window !== "undefined") window.sceneSettingBlock = sceneSettingBlock;
+function ledgerContextBlock(note, uName) {
+  if (!String(note || "").trim()) return "";
+  return "【" + uName + " 允许你看到的记账动态】（这是 Ta 真实的个人收支，账户资金由 Ta 自己管理。备注里的消费、出行与兴趣也可以成为你们生活的后续：结合你的人设、关系和当前话题，选择你会在意的一件事自然接话。日期与备注是已知事实，体验和结果以你们实际聊过的为准；若还不知道结果，可以在合适的时候问起，若已经聊过就接着已有进展。是否关心、怎么回应由你自己决定。）\n" + String(note).trim();
+}
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -3357,7 +3361,7 @@ function buildBundle(ctx, opts) {
   if (ctx.dateNote && ctx.dateNote.trim()) parts.push("【今天 / 临近的特别日子】（下面是今天或快到的特别日期——生日、纪念日、世界大事、你或 " + uName + " 日历上的安排。像真人那样把它自然织进对话，别为提而提、别机械报日期、别每句都念）\n" + ctx.dateNote.trim());
   if (ctx.memoNote && ctx.memoNote.trim()) parts.push("【" + uName + " 备忘录里、特意让你能看到的提醒/记事】（可自然关心、临近时提醒一句、或问起弄了没，别生硬报清单、别越界、别每句都念）\n" + ctx.memoNote.trim());
   if (ctx.ownWalletNote && ctx.ownWalletNote.trim()) parts.push("【你自己的钱】" + ctx.ownWalletNote.trim());
-  if (ctx.financeNote && ctx.financeNote.trim()) parts.push("【" + uName + " 允许你看到的记账动态】（这是 " + uName + " 真实的个人开销与收入，Ta 特意让你能看到。可按你的人设自然反应——心疼 Ta 乱花、调侃、陪 Ta 心疼氪金、或体贴地不点破；别报流水账、别说教、别越界。这钱是 " + uName + " 自己的、与你无关，只是让你知道并能有反应）\n" + ctx.financeNote.trim());
+  if (ctx.financeNote && ctx.financeNote.trim()) parts.push(ledgerContextBlock(ctx.financeNote, uName));
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
@@ -6386,7 +6390,8 @@ function groupBackgroundSegments(c, background, uName, opts) {
     zSeg: b.sleep ? "\n〔" + String(b.sleep).replace(/\n/g, "\n　") + "〕" : "",
     hcSeg: b.home ? "\n〔你自己住在" + b.home + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "",
     cySeg: b.carry ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + b.carry : "",
-    caSeg: b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : ""
+    caSeg: (b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : "")
+      + (b.finance ? "\n〔以下账单仅 " + c.name + " 知道；其他成员各自以自己的授权为准。这是私下得知的生活线索，由本人决定是否适合在当前场合提起。〕\n" + ledgerContextBlock(b.finance, uName) : "")
   };
 }
 
@@ -7315,7 +7320,8 @@ async function generateOfflineGroup(p, ctx, session) {
       sleep: ctx.memberSleep && ctx.memberSleep[c.id],
       home: ctx.memberHome && ctx.memberHome[c.id],
       carry: ctx.memberCarry && ctx.memberCarry[c.id],
-      archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id]
+      archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id],
+      finance: ctx.memberFinance && ctx.memberFinance[c.id]
     }, userName, { narrative: true });
     return c.npc
     ? "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)

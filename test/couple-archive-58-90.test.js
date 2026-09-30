@@ -42,7 +42,7 @@ test("四处都接上了，一处都没落下", () => {
 
 // 群里这是【这位成员的私事】：别的成员不知道他俩私下怎么称呼彼此
 test("群里两处都带隐私围栏，落在他自己那一段里", () => {
-  const online = eng.slice(eng.indexOf("caSeg: b.archive"), eng.indexOf("caSeg: b.archive") + 400);
+  const online = eng.slice(eng.indexOf("caSeg: (b.archive"), eng.indexOf("caSeg: (b.archive") + 400);
   assert.match(online, /只有 " \+ c\.name \+ " 本人知道，别的成员并不知情/, "群聊线上没围栏——等于把私下的称呼端上台面");
 });
 
