@@ -51,7 +51,8 @@ test("没传头像的人不再是首字母方块；她自己设的 emoji 仍然�
   const av = comp.slice(comp.indexOf("function Avatar({"), comp.indexOf("function Eyebrow({"));
   assert.match(av, /if \(character && character\.avatarEmoji\) return/, "她挑的 emoji 是她挑的，别覆盖");
   assert.match(av, /const seed = \(character && \(character\.id \|\| character\.handle \|\| character\.name\)\)/);
-  assert.match(av, /autoAvatarSrc\(seed\)/);
+  // 取图共用 avatarSrcOf；角色退到程序画的那张，不从头像池拿（v74.383）
+  assert.match(av, /avatarSrcOf\(character\)/);
 });
 
 test("头像池导入不花 API，也不把原图塞爆图库", () => {

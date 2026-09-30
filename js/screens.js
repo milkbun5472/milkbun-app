@@ -8060,7 +8060,7 @@ function CacheStatCard() {
             "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
 // 头像池（她 2026-08-25 定的 B 档）：她从相册一次挑几十张（猫、风景、动漫截图…），
-// 存进本地图库当池子。论坛路人、常驻、小号、还有任何没传头像的人，都按种子哈希
+// 存进本地图库当池子。论坛路人、常驻、小号都按种子哈希（角色不拿，v74.383）
 // 从池子里稳定取一张——同一个人永远同一张。零 API 调用、零外链，图是她自己挑的。
 // 参考的那个小手机是硬编码 190 条别人图床的外链 + Math.random，两点都不抄。
 function AvatarPoolConfig({ toast }) {
@@ -8090,9 +8090,9 @@ function AvatarPoolConfig({ toast }) {
     } finally { setBusy(false); }
   };
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "头像池 · 论坛路人和没传头像的人"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "头像池 · 论坛路人"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } },
-      "论坛里的路人、常驻熟面孔、小号，还有任何没传过头像的人，都从这个池子里按各自的 ID 取一张——"
+      "论坛里的路人、常驻熟面孔、小号，都从这个池子里按各自的 ID 取一张（角色不从这里拿：没传头像的角色用程序画的那张）——"
       + "同一个人永远同一张，不会刷一次换张脸。池子空着的时候会自动画一张渐变色块顶上，"
       + "所以不塞图也不会退回 emoji。一次可以多选，不花任何 API 调用。"),
     h("div", { className: "flex items-center gap-3", style: { marginTop: 12 } },

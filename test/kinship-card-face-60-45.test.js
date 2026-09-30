@@ -54,7 +54,7 @@ test("头像取图那段抽出来共用，别在卡面里再抄一份", () => {
   assert.match(comp, /function avatarSrcOf\(character\)/);
   const av = comp.slice(comp.indexOf("function avatarSrcOf"), comp.indexOf("function Avatar({"));
   assert.match(av, /resolveImg/, "iv_ 键得换成 objectURL");
-  assert.match(av, /autoAvatarSrc/, "没设过头像的要退到程序化那张");
+  assert.match(av, /avatarArt\(seed\)/, "没设过头像的要退到程序化那张（角色不拿头像池，v74.383）");
   assert.match(av, /avatarEmoji/, "emoji 头像没有图，得返回空");
 });
 

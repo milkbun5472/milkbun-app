@@ -749,7 +749,9 @@ function avatarSrcOf(character) {
   if (raw) return raw;
   if (character && character.avatarEmoji) return "";
   const seed = (character && (character.id || character.handle || character.name)) || "?";
-  return typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "";
+  // ⚠️角色不从头像池里拿（她 2026-09-30：移除照片之后，角色被分到了池子里那些随机图）。
+  //   池子是给论坛路人用的；角色没传头像就是程序画的那张。
+  return typeof avatarArt === "function" ? avatarArt(seed) : "";
 }
 // ⚠️挂点长在【组件自己】身上，不在调用点上（她 2026-09-03：「如果设置了圆头像
 //   只有角色是圆的，而且他们发的卡啊照片啊头像还是方的」）。
@@ -802,7 +804,7 @@ function Avatar({
   const seed = (character && (character.id || character.handle || character.name)) || "?";
   return /*#__PURE__*/React.createElement("img", {
     "data-wk": "avatar",
-    src: typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "",
+    src: avatarSrcOf(character),
     alt: "", className: "object-cover shrink-0",
     style: { width: size, height: size, borderRadius: rad }
   });
