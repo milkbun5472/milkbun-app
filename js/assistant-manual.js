@@ -27,6 +27,11 @@
   // ⚠️这一份是 2026-09-28 她跟着代码逐页核过的那版（「内置攻略草稿」），改之前先看代码。
   // ⚠️她 2026-09-28：「以后两边都要对齐」——她那份「内置攻略草稿」文档跟这儿是同一份。
   //   改了这儿就跑 node scripts/guide-to-md.mjs 贴回文档；她在文档里改了，照着改回这儿的 doc。
+  // ── 每次发版都要过这一关（她 2026-09-30：「搞个测试每次更新都要写进秋秋攻略这样全部窗口都会做」）──
+  // v 必须等于 app.js 的 APP_VERSION，否则测试 manual-stamp 红。
+  // 这一版改了哪几条就把 id 写进 entries；这一版她用起来什么都没变（纯修内部、纯测试），
+  // entries 留空、在 none 里写一句为什么——不许光改号不写理由。
+  const STAMP = { v: "v74.355", entries: [], none: "这一版只加了「每次发版都要写攻略」这道测试闸，她用起来什么都没变" };
   const E = [
     { id: "chat", app: "chat", zh: "说话 · 单聊", where: "消息列表里点开一个人",
       what: "开始前在「人格档案馆」创建角色，聊天框就能自动出现在聊天的最下面啦。",
@@ -387,6 +392,6 @@
   }
   function byId(id) { return E.find(function (x) { return x.id === id; }) || null; }
 
-  g.AssistantManual = { version: 2, entries: E, index: index, find: find, textOf: textOf, byId: byId,
+  g.AssistantManual = { version: 2, stamp: STAMP, entries: E, index: index, find: find, textOf: textOf, byId: byId,
     APPS: APPS, APP_CATS: APP_CATS, appEntries: appEntries, teaser: teaser, linkTarget: linkTarget, plain: plain };
 })(window);
