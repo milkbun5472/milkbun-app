@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.339";
+const APP_VERSION = "v74.340";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8561,13 +8561,51 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 所以不接的话一滑就是整个退出去——正在打的字和刚发出去那一轮全没了。
   // ⚠️处理器要读到【当前这一渲染】的状态，所以挂在 ref 上每轮重写；
   //   useEffect 只注册一次，不然每次 setState 都要注销再注册一遍。
+  // ── 侧滑退回【上一页】，不是一律回主屏（她 2026-09-30：「白屏然后回到主屏」）──
+  // 每次换屏记一笔「从哪儿来的」（连着当时开着的是哪个人／哪个群），侧滑就弹一笔回去。
+  // ⚠️页面自己的返回键也是 setScreen：去的正好是栈顶那一页，就当成「退回去」弹掉，
+  //   不再压一笔——不然 A→B、点返回回 A，再一滑又回到 B，来回打转。
+  // ⚠️到了主屏就清空：主屏是根，再往回没有意义，也免得栈越攒越长。
+  const navStackRef = useRef([]);
+  const navLastRef = useRef({ screen: "home", charId: null, groupId: null });
+  const navPoppingRef = useRef(false);
+  useEffect(() => {
+    const prev = navLastRef.current;
+    const cur = { screen, charId: activeChar ? activeChar.id : null, groupId: activeGroup ? activeGroup.id : null };
+    navLastRef.current = cur;
+    if (prev.screen === cur.screen) return;
+    const st = navStackRef.current;
+    if (navPoppingRef.current) navPoppingRef.current = false;
+    else if (st.length && st[st.length - 1].screen === cur.screen) st.pop();
+    else { st.push(prev); if (st.length > 30) st.shift(); }
+    if (cur.screen === "home") navStackRef.current = [];
+    // eslint-disable-next-line
+  }, [screen]);
+  // 退回上一页：那一页当时开着的人／群还在才回得去，不在了（删了）就再往前找一页
+  const navBack = () => {
+    const st = navStackRef.current;
+    while (st.length) {
+      const to = st.pop();
+      if (!to || to.screen === screen) continue;
+      const c = to.charId ? (characters || []).find(x => x && x.id === to.charId) : null;
+      const g = to.groupId ? (groups || []).find(x => x && x.id === to.groupId) : null;
+      if ((to.charId && !c) || (to.groupId && !g)) continue;
+      if (to.screen === "home") { goHome(); return true; }
+      navPoppingRef.current = true;
+      if (c) setActiveChar(c);
+      if (g) setActiveGroup(g);
+      setScreen(to.screen);
+      return true;
+    }
+    return false;
+  };
   const backRef = useRef(null);
   backRef.current = () => {
     if (stateCardOpen) { setStateCardOpen(false); return true; }
     if (offlineChar || offlineGroup) { setOfflineChar(null); setOfflineGroup(null); return true; }
     if (editingChar) { setEditingChar(null); return true; }
     if (screen === "calendar" && calReturnRef.current) { leaveCalendar(); return true; }
-    if (screen && screen !== "home") { goHome(); return true; }
+    if (screen && screen !== "home") { if (!navBack()) goHome(); return true; }
     return false;   // 已经在主屏了：交回给 BackGuard，再滑一次才真退出
   };
   useEffect(() => {
