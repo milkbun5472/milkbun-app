@@ -674,12 +674,23 @@ async function callAI(p, system, messages, opts) {
   // 对面明说「我满了／你太快了」的那几种：等得久一点，而且多给一次机会
   const CAPACITY_ERR = /\b(429|503|529)\b|overloaded|too many requests|rate.?limit|service unavailable|temporarily unavailable|服务繁忙|负载|限流/i;
   const BACKOFF_MS = { drop: [2000], capacity: [4000, 10000] };
+  // 切到别的 app 时 iPhone 会把后台网页正在跑的请求直接掐断（群友 2026-10-01：「秋秋离开不能继续生成」）。
+  //   ⚠️【不自动补发】（她 2026-10-01 当场拍板：「死了不要自动重试！」）——按次计费，断了就是断了。
+  //   这儿只记一下这一枪里页面进没进过后台，好让报错说对原因：别再叫人去调线下的「最低字数」。
+  const hasDoc = typeof document !== "undefined" && typeof document.addEventListener === "function";
+  let wentHidden = !!(hasDoc && document.hidden);
+  const onVis = () => { if (document.hidden) wentHidden = true; };
+  if (hasDoc) document.addEventListener("visibilitychange", onVis);
   try {
-    return await callAIOnce(p, system, messages, o);
+    const first = await callAIOnce(p, system, messages, o);
+    if (hasDoc) document.removeEventListener("visibilitychange", onVis);
+    return first;
   } catch (e) {
     const msg = String((e && e.message) || e || "");
+    if (hasDoc) document.removeEventListener("visibilitychange", onVis);
+    const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
-    if (!streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
+    if (!bgDrop && !streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
       const waits = CAPACITY_ERR.test(msg) ? BACKOFF_MS.capacity : BACKOFF_MS.drop;
       for (const wait of waits) {
         await new Promise(r => setTimeout(r, wait));
@@ -687,6 +698,10 @@ async function callAI(p, system, messages, opts) {
         try { return await callAIOnce(p, system, messages, o); }
         catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
+    }
+    // 进过后台还是断了：别让她去调「最低字数」——那句建议说的是另一种断法
+    if (bgDrop && /连接中断|load failed|failed to fetch|network/i.test(String((e && e.message) || e || ""))) {
+      e = new Error("连接断了：刚才切到别的地方时，手机把后台的连接掐断了（这一次没扣到结果）。想要就再发一次；等它回完再切出去最稳。");
     }
     // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
     const m2 = String((e && e.message) || e || "");
