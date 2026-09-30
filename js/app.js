@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.377";
+const APP_VERSION = "v74.378";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7426,6 +7426,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
       oCtx.wantReasoning = !settingsFor(charId).engineerEyes && !!settingsFor(charId).showReasoning;
       oCtx.styleExamples = pickOfflineStyleExamples(osFor(charId).examples, workSess.msgs || []);
+      // 线下开场那一拍对一眼日程（她 2026-09-30）：最容易跟日程打架的就是开场——日程写着在上班，场景一开却在咖啡店。
+      //   只在还没有角色那一拍时挂这一句；之后每一拍不再提，免得戏变成对账。没开时间感知就没有日程，这句也不挂。
+      if (oCtx.schedNow && !(workSess.msgs || []).some(m => m && m.role === "char")) oCtx.schedNow += OFFLINE_OPEN_SCHED_CHECK;
       // 「Ta 眼里」以前只有单聊线上在写：线下读得到这张卡（buildBundle 发 gazeText），
       // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
       // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。

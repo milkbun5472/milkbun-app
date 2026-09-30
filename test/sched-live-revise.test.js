@@ -22,3 +22,7 @@ test("聊天和线下都把 schedNow 交给 applySchedChange", () => {
   assert.ok(engine.includes("${SCHED_NOW_SPEC}toy"));
   assert.ok(engine.includes("schedNow: (parsed.schedNow"));
 });
+test("线下开场那一拍挂上对日程那一句", () => {
+  assert.ok(app.includes("oCtx.schedNow += OFFLINE_OPEN_SCHED_CHECK"));
+  assert.ok(engine.includes("const OFFLINE_OPEN_SCHED_CHECK"));
+});
