@@ -21371,6 +21371,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const paper = (!cfg.paper || cfg.paper === "auto") ? paperKeys[Math.floor(Math.random() * paperKeys.length)] : cfg.paper;
     return { font, paper };
   };
+  // 情书的人称（群友 2026-10-01：「最新一封突然变成第三人称了，写信按道理应该是第一人称」）。
+  //   原来只说「以某某身份给用户写一封情书」，没说用哪个人称——模型偶尔就写成「他提笔……她……」的旁白。
+  //   写信和回信共用这一句（one-public-mechanism）。
+  const LETTER_PERSON = "这是你亲笔写给她的信：用「我」写你自己，用「你」（或你平时叫她的那个称呼）叫她。是信，不是旁白——不许写成「他／她」的第三人称叙事。";
   const genCoupleLetter = async char => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     // 手动硬门槛：距上一封「TA 发的」情书 ≥3 天（被删的已不在数组、自动不算）
@@ -21386,7 +21390,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         voice: true,
         // 字数（她 2026-09-05：「情书是不是也有点短」）：150-300 写不开——
         // 那是张卡片的长度，不是一封信。下限比上限重要：说清至少要写到这个份上。
-        instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。"
+        instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。" + LETTER_PERSON
           + "一个标题 + 一封完整的信：**至少 450 个汉字、别超过 1000**，4-7 个自然段，贴人设，可回顾你们的点滴、说心里话，结尾落款。"
           + "别喊口号、别写成流水账。⚠️长不等于绕：每一段都要有一件具体的事或一句真话，别用感慨和排比把篇幅填满。信要写完整，别中途断。",
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
@@ -21454,7 +21458,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), { // 情书回信=TA 亲笔，跟随专线（v48.37）
         voice: true,
-        instruction: "你们是恋人，在情书里一来一回。" + (isNewLetter ? "用户刚给你写了一封情书，你读完后回应" : "顺着下面的情书往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。\n【情书往来】\n" + (context || ""),
+        instruction: "你们是恋人，在情书里一来一回。" + (isNewLetter ? "用户刚给你写了一封情书，你读完后回应" : "顺着下面的情书往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】\n" + (context || ""),
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 12000
       });

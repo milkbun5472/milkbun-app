@@ -8637,9 +8637,23 @@ function geoSearch(q, near, signal) {
     .then(list => (list || []).map(x => ({ name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) })));
   // 备用那一家（2026-09-28 别人报「在地图里面搜地名一点反应都没有」）：OSM 那边在国内经常连不上或者慢到像没反应。
   //   天气本来就是 open-meteo 给的，它家也有按地名查坐标，国内一般连得上——第一家失败或者查空了就问它。
+  // 备用那家回来的东西要洗三样（她 2026-09-30 的截图：搜「桂林」出来六个村，
+  //   三条都写着「桂林, 福建省, 中国」，还有一条写着「臺灣省 or 台灣省」）：
+  //   ① 别名串：admin1 会是「臺灣省 or 台灣省」这种两个写法拿 or 串起来的，取头一个就行；
+  //   ② 丢了市/县这一级：三条福建其实是南平、龙岩、南平三个不同的地方，
+  //      标签只写到省，她看见的就是三行一模一样的东西，根本没法挑；
+  //   ③ 行政级别没人管：它自己在 feature_code 里明说了谁是市、谁是村
+  //      （PPLA2=地级市驻地，PPL=村落），原来整个丢掉，于是村排在市前面。
+  const omAlt = v => String(v || "").split(/\s+or\s+/)[0].trim();
+  const OM_RANK = { PPLC: 6, PPLA: 5, PPLA2: 4, PPLA3: 3, PPLA4: 2, PPL: 1 };
   const om = () => fetch("https://geocoding-api.open-meteo.com/v1/search?count=6&language=zh&format=json&name=" + encodeURIComponent(q), { signal: signal })
     .then(r => { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
-    .then(d => ((d && d.results) || []).map(x => { const tail = [x.admin1, x.country].filter(Boolean).join(", "); return { name: x.name + (x.admin1 ? "," + x.admin1 : ""), full: x.name + (tail ? ", " + tail : ""), lat: Number(x.latitude), lng: Number(x.longitude) }; }));
+    .then(d => ((d && d.results) || []).map(x => {
+      const a1 = omAlt(x.admin1), a2 = omAlt(x.admin2);
+      const tail = [a2 !== x.name ? a2 : "", a1, x.country].filter(Boolean).join(", ");
+      return { name: x.name + (a1 ? "," + a1 : ""), full: x.name + (tail ? ", " + tail : ""),
+        lat: Number(x.latitude), lng: Number(x.longitude), rank: OM_RANK[x.feature_code] || 0, src: "om" };
+    }).sort((a, b) => b.rank - a.rank));
   // 第一家最多等 6 秒：卡住不回的时候她看到的就是「一点反应都没有」
   const slow = new Promise((_, rej) => setTimeout(() => rej(new Error("search_timeout")), 6000));
   return Promise.race([nom(), slow])
@@ -8691,11 +8705,38 @@ async function geoCandidates(q, near) {
     let hits = [];
     try { hits = await geoSearch(term, near); } catch (e) { lastErr = e; continue; }
     const ok = (hits || []).filter(x => typeof x.lat === "number" && !isNaN(x.lat));
-    const uniq = ok.filter((x, i) => !ok.slice(0, i).some(y => Math.abs(y.lat - x.lat) < 0.05 && Math.abs(y.lng - x.lng) < 0.05));
-    if (uniq.length) return geoRankByTyped(uniq, q, term).slice(0, 6);
+    // 坐标挨着的算一个；标签一模一样的也算一个——她分不出来的两行，列出来只是添乱
+    const uniq = ok.filter((x, i) => !ok.slice(0, i).some(y =>
+      (Math.abs(y.lat - x.lat) < 0.05 && Math.abs(y.lng - x.lng) < 0.05) ||
+      String(y.full || y.name) === String(x.full || x.name)));
+    if (uniq.length) return (await geoCityProbe(q, term, uniq, near)).slice(0, 6);
   }
   if (lastErr) throw lastErr;
   return [];
+}
+// 掉到备用那家、而且回来的全是村时，补问一次「XX市」（她 2026-09-30 的截图：
+//   搜「桂林」出来六个叫桂林的村，广西桂林市一条都没有）。
+// ⚠️为什么不是「一律先问 XX市」——那是我第一版的写法，被老测试当场拦下来了，
+//   它不安全，实测三种都翻车：
+//     ·「东京市」→ Nominatim 给的是【浙江衢州一个叫东京的村】，先问它就把东京查歪了；
+//     ·「上海市」→ open-meteo 给的是【伊利诺伊州的「上海市」】；
+//     ·「杭州市」→ open-meteo 什么都没有。
+//   「桂林市」能查对纯属那份数据碰巧。所以这一问要卡三道：
+//     ① 主用那家（Nominatim）答上来了就【根本不问】——它本来就给对了（桂林市, 广西）；
+//     ② 只有备用那家回来、而且全是村级（rank≤2）才问；
+//     ③ 问回来的东西，名字必须真的就叫「XX市」，不然一律不要。
+async function geoCityProbe(q, term, uniq, near) {
+  const ranked = geoRankByTyped(uniq, q, term);
+  const bare = !/[省市区县镇旗州盟]$/.test(term) && term.length <= 6;
+  const allVillage = uniq.length && uniq.every(x => x && x.src === "om" && (x.rank || 0) <= 2);
+  if (!bare || !allVillage) return ranked;
+  let more = [];
+  try { more = await geoSearch(term + "市", near); } catch (e) { return ranked; }
+  const real = (more || []).filter(x => x && typeof x.lat === "number" && !isNaN(x.lat)
+    && String(x.full || x.name || "").indexOf(term + "市") === 0);
+  if (!real.length) return ranked;
+  const seen = new Set(real.map(x => String(x.full || x.name)));
+  return real.concat(ranked.filter(x => !seen.has(String(x.full || x.name))));
 }
 // 选定的那一个候选 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
 async function geoFromPoint(p) {
