@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.340";
+const APP_VERSION = "v74.341";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17583,18 +17583,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
     return hit ? (hit.remark || hit.name) : raw;   // 认不出来（旁人、NPC、路人）就原样留着
   };
-  const commentMoment = async (id, text, replyTo) => {
+  // 朋友圈评论区那套回复逻辑，只此一份。
+  // 她 2026-09-29 要「朋友圈也能 AI 补评论、像论坛那样刷更多」，并且点明：
+  //   **「现在生成的回复逻辑就很好，回复就是继续这个逻辑」** ——
+  // 所以这儿没有另写一套生成器，而是把原来 commentMoment 的函数体原样抽出来共用
+  //   （施工规则/one-public-mechanism：同一个形状要出现第二处时，先开公共的）。
+  // 两个调用方的唯一差别是 more：
+  //   more=false —— 我刚在下面评论/回复了某人，角色回我（原来就有的那一档，逻辑未改）
+  //   more=true  —— 我什么都没说，只是想看这条下面再多几条（刷更多评论）
+  // ⚠️朋友圈没有路人（她同日）：roster 一直是【跟发帖人真有关系的角色】算出来的，
+  //   两档共用同一份名单，more 那档还在提示里把「不许出现名单外的人」写明。
+  const momentReplies = async (mom, opts) => {
+    const o = opts || {};
+    const more = !!o.more, text = o.text || "", replyTo = o.replyTo || null;
     const meName0 = profile.name || "我";
-    // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
-    const storedText = replyTo ? "回复 " + replyTo + "：" + text : text;
-    pMom(p => p.map(m => m.id === id ? {
-      ...m,
-      comments: [...(m.comments || []), {
-        author: meName0,
-        text: storedText
-      }]
-    } : m));
-    const mom = moments.find(m => m.id === id);
     if (!active || !mom) return;
     const author = characters.find(c => c.id === mom.characterId);
     const isMine = !author && mom.mine;
@@ -17637,11 +17639,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const scene = author
         ? "这是「" + author.name + "」发的朋友圈：「" + mom.content + "」。"
         : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。";
-      const lastLine = replyTo
+      // ⚠️这三句是她 2026-09-29 之前就有的那一档，一个字没改。
+      //   多出来的 more 那一支是【没有用户新评论】时走的：刷更多评论。
+      const lastLine = more
+        ? ""
+        : (replyTo
         ? "刚回复了「" + replyTo + "」的评论：「" + text + "」——**这句主要是对「" + replyTo + "」说的，TA 必须回**，别人看情况插不插话。"
-        : (thread ? "刚又追评了：「" + text + "」。" : "刚在下面评论了：「" + text + "」。");
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}";
-      const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
+        : (thread ? "刚又追评了：「" + text + "」。" : "刚在下面评论了：「" + text + "」。"));
+      // 刷更多评论：没有「用户刚说了什么」，就是这条动态下面又有共友来说话了。
+      // 她 2026-09-29 点明两条：**只能是共友**（roster 已经是「跟发帖人真有关系的角色」，
+      // 不掷路人 NPC），而且回复对象只有两种——回这条动态本身，或回上面某位共友的评论。
+      const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.join("、")
+        + "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**"
+        + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
+        + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。";
+      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}");
+      const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
       let reps = [];
@@ -17651,9 +17664,44 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
       if (!reps.length) reps = [{ author: fbAuthor, text: fallbackText() }]; // 保底
-      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: "回复 " + meName + "：" + r.text }] } : m)), 400 + i * 600));
+      // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
+      // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
+      const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
+      const prefixFor = r => {
+        if (!more) return "回复 " + meName + "：";
+        const to = momentWho(r.replyTo);
+        return to && to !== momentWho(r.author) && inThreadNames.includes(to) ? "回复 " + to + "：" : "";
+      };
+      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: prefixFor(r) + r.text }] } : m)), 400 + i * 600));
     } catch (e) {
-      setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
+      if (more) return;   // 刷更多失败就是这一轮没人说话，不许伪造一条「回复我」
+      setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
+    }
+  };
+  const commentMoment = async (id, text, replyTo) => {
+    const meName0 = profile.name || "我";
+    // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
+    const storedText = replyTo ? "回复 " + replyTo + "：" + text : text;
+    pMom(p => p.map(m => m.id === id ? {
+      ...m,
+      comments: [...(m.comments || []), {
+        author: meName0,
+        text: storedText
+      }]
+    } : m));
+    await momentReplies(moments.find(m => m.id === id), { text, replyTo });
+  };
+  // 「↻ 更多评论」：同一条动态下再来一轮共友的话。重复点不叠发（进行中锁）。
+  const momentMoreInflight = useRef({});
+  const genMoreMomentComments = async id => {
+    const mom = moments.find(m => m.id === id);
+    if (!mom || momentMoreInflight.current[id]) return;
+    momentMoreInflight.current[id] = true;
+    setGen(g => ({ ...g, momentMore: id }));
+    try { await momentReplies(mom, { more: true }); }
+    finally {
+      momentMoreInflight.current[id] = false;
+      setGen(g => ({ ...g, momentMore: g.momentMore === id ? null : g.momentMore }));
     }
   };
   // 我发一条朋友圈（可带图描述、可选可见范围）
@@ -23809,6 +23857,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     genMoment: gen.moment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
+    onMoreMomentComments: genMoreMomentComments,
+    momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
     onOpenMomProfile: openMomProfile,
     onEditProfile: () => setProfileOpen(true),
