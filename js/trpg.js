@@ -1286,6 +1286,13 @@
     // 开场亲笔票在途的团 id(她 2026-09-01 抓的:「我看你一直没动我以为要我选了你才有」——票在写,屏上却没任何动静)
     const [openPending, setOpenPending] = useState(null);
     const [draft, setDraft] = useState(null);
+    // 开团草稿挂在后台生成上（新开 / 从收藏的世界另起）：走开再回来，搭好的团照样在预览里；
+    //   「守密人在写幕后底牌…」那一行进度也跟着后台那一份走
+    const DRAFT_BG = window.BackgroundGeneration, DRAFT_KEY = "trpg:draft";
+    const draftTask = DRAFT_BG ? DRAFT_BG.useTask(DRAFT_KEY,
+      d => { setDraft(d); setBusy(false); setBusyWhat(""); if (view !== "play") setView("create"); },
+      err => { props.toast("生成失败:" + (err || "重试")); setBusy(false); setBusyWhat(""); }) : null;
+    useEffect(() => { if (draftTask && draftTask.busy) { setBusy(true); setBusyWhat(draftTask.label || ""); } }, [draftTask && draftTask.busy, draftTask && draftTask.label]);
     const [pickIds, setPickIds] = useState([]);
     const [kw, setKw] = useState("");
     const [diff, setDiff] = useState("normal");
@@ -1335,7 +1342,13 @@
     const sumBusyRef = useRef(false);
     // 存不下就【不改界面】：不然那个团当场消失、重开又回来，看起来就是「删不掉」。
     // 存不下的原因由 lsWrite 弹出来（存储满 / 云端恢复冻结中）。
-    const update = fn => setCamps(p => { const n = fn(p.slice()); return persist(n) ? n : p; });
+    // ⚠️存档不写在 setCamps 的 updater 里（2026-10-01「离开这页就白跑」）：页面关了 React 就不跑它，
+    //   那一轮／封面／插图回来时她已经走开，就存不上。先现读存档、改完直接写回，页面还在才 setCamps。
+    const update = fn => {
+      const n = fn(load().slice());
+      if (!persist(n)) return;
+      setCamps(n);
+    };
     // 图库:出过的图永久归档——删掉那一轮跑团,图还在
     const galAdd = entry => { const list = loadGal(); if (list.some(x => x.img === entry.img)) return; saveGalList([Object.assign({ id: rid("tg_") }, entry)].concat(list)); };
     useEffect(() => {
@@ -1466,7 +1479,7 @@
       // 队里只有你=单人团:NPC 与世界把陪伴和对手戏补足
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true); setBusyWhat("守密人在搭台前(世界与地图)…");
-      try {
+      const run = async upd => {
         const frame = kw.trim() ? "" : "\n\n【本团取景框(骰子已掷好,三项照办)】\n世界:" + pick(POOL_WORLD) + "\n主线原型:" + pick(POOL_QUEST) + "\n基调:" + pick(POOL_TONE);
         const prior = camps.slice(0, 8).map(c => c.title + "(" + String(c.world || "").slice(0, 24) + ")").join(";");
         const sys = "你在为一场文字跑团搭【台前】:世界、地图、主线与开场——只写这些,写透它们;秘典底牌、队友私念、支线这些幕后另有一枪,这里一个字都不用管。玩家是 " + uName + (members.length
@@ -1499,12 +1512,15 @@
         // 卡从小分队里取:数值建队时已定,成长归这支队
         const party = buildParty(squad);
         let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(stageOf), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, sceneMeta: normSceneMeta(p, { stages, stageIdx: 0 }), siteActions: normSiteActions(p.siteActions), choices: normChoices(p.choices, party), bgm: (Array.isArray(p.bgm) ? p.bgm : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6), party };
-        setBusyWhat("守密人在写幕后底牌…");
+        upd(null, "守密人在写幕后底牌…");
         const bs = await backstage(d);
         if (bs) d = Object.assign({}, d, bs);
         else props.toast("台前搭好了,但幕后底牌没写成——预览里点「补幕后」重试", 7000);
-        setDraft(d);
-      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+        return d;
+      };
+      // 开团草稿交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，搭好的那一团还摆在预览里等她确认
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在搭这一团…" }, run).catch(() => {}); return; }
+      try { setDraft(await run((_, l) => setBusyWhat(l))); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 收藏的世界开新局:世界观与地图一个字不改,重新生成开局/各章/开场/选项,
     // 幕后(秘典/种子/私念)整套重写——同一个世界,另一个故事
@@ -1515,7 +1531,7 @@
       if (!props.active) return props.toast("请先配置线下 API");
       const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
       setBusy(true); setBusyWhat("在这个世界里另起一个故事…");
-      try {
+      const run = async upd => {
         const SHAPE_W = "{\"hook\":\"开局处境(2-3句,全新的)\",\"stages\":[{\"goal\":\"每章一步具体可判定的事\",\"hint\":\"守密人自用思路\",\"place\":\"必须用地图里已有的节点名\",\"steps\":[\"要达成这章目标必须先过的第一道坎(具体、能失败)\",\"第二道坎(与第一道不是同一种)\"]}],\"place\":\"开局地点(已有节点名)\",\"opening\":\"开场正文(第二人称『你』,6-10句,悬着收尾)\",\"sceneMeta\":{\"type\":\"investigate|social|danger|travel|interlude|explore|general\",\"objective\":\"玩家眼下要办成什么\",\"stakes\":\"拖延或失败会失去什么\"},\"siteActions\":[\"只有这个开局地点才做得了的事×2-3\"],\"choices\":[{\"text\":\"行动\",\"approach\":\"safe|bold|ally|clever|open\",\"risk\":\"可见风险\",\"payoff\":\"这条路擅长换来什么\"}]}";
         const past = camps.filter(c => c.world === w.world).slice(0, 6).map(c => String(c.hook || "").slice(0, 40)).join(";");
         const sys = "基于下面这套【固定的世界与地图】开一局全新的跑团:世界观与区域节点一个字不许改,但主线、开局处境、开场全部另起——换时间点、换事件、换队伍被卷入的理由都行,幅度要大到一眼是另一个故事。主线 4-5 章分布在【不同区域】的节点上,每章两道坎(steps):要达成这章目标必须先过的两件具体、能失败的事,两道不是同一种。绝不复述以往开过的局。开场 choices 要给稳妥 safe、冒险 bold、队友主导 ally(单人团则 clever)三种真正不同的办法,写清 risk/payoff;siteActions 是开局地点独有的 2-3 件事。\n" + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_W;
@@ -1531,12 +1547,15 @@
         const party = buildParty(squad);
         let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: w.style || style, title: w.title, world: w.world, hook: p2.hook || "", stages: stages.map(stageOf), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: p2.opening, sceneMeta: normSceneMeta(p2, { stages, stageIdx: 0 }), siteActions: normSiteActions(p2.siteActions), choices: normChoices(p2.choices, party), party };
         if (w.limits) setLimitsTxt(String(w.limits));
-        setBusyWhat("守密人在写幕后底牌…");
+        upd(null, "守密人在写幕后底牌…");
         const bs = await backstage(d);
         if (bs) d = Object.assign({}, d, bs);
         else props.toast("台前搭好了,但幕后没写成——预览里点「补幕后」", 7000);
-        setDraft(d);
-      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+        return d;
+      };
+      // 开团草稿交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，搭好的那一团还摆在预览里等她确认
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在搭这一团…" }, run).catch(() => {}); return; }
+      try { setDraft(await run((_, l) => setBusyWhat(l))); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 预览里的「补幕后」:台前不动,只重写(或补写)底牌;模组导入的团也走这里配 crew
     const redoBackstage = async () => {

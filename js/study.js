@@ -2211,6 +2211,13 @@
     const [log, setLog] = useState([]);
     const [word, setWord] = useState("");
     const [wordBusy, setWordBusy] = useState(false);
+    // 老师那一两句挂在后台生成上：走开再回来照样接得住（一门课一条）
+    const BG = window.BackgroundGeneration;
+    const drillWordKey = "study:drillword:" + cur0.id;
+    const drillTask = BG ? BG.useTask(drillWordKey,
+      w => { setWord(w); setWordBusy(false); },
+      () => { setWordBusy(false); props.toast && props.toast("老师这回没接上，稍后再试"); }) : null;
+    useEffect(function () { if (drillTask && drillTask.busy) setWordBusy(true); }, [drillTask && drillTask.busy]);
     const fresh = findCurriculum(cur0.id) || cur0;
     const items = (fresh.memory && fresh.memory.review_items) || [];
     const x = deck[idx] != null ? items.find(function (y) { return y.key === deck[idx]; }) : null;
@@ -2248,10 +2255,13 @@
         const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur0.subject + "』。\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
           "\n\n她刚自己刷完一摞到点的复习：" + log.length + " 张，记住了 " + ok + " 张。" + (missed.length ? "\n没过的：\n" + missed.map(function (m) { return "· " + m; }).join("\n") : "") +
           "\n\n用你自己说话的样子跟她说一两句，只输出这一两句。";
-        const raw = await callAI(props.bgActive || props.active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+        const api = props.bgActive || props.active;
+        // 交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，老师那句话还在
+        if (BG) { BG.start(drillWordKey, { label: "老师在想…" }, async () => String((await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 })) || "").trim().slice(0, 300)).catch(() => {}); return; }
+        const raw = await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
         setWord(String(raw || "").trim().slice(0, 300));
       } catch (e) { props.toast && props.toast("老师这回没接上，稍后再试"); }
-      finally { setWordBusy(false); }
+      finally { if (!BG) setWordBusy(false); }
     }
     const head = h(StudyHead, { zh: "快刷", en: cur0.subject, mode: cur0.mode, onBack: props.onBack });
     // 刷完了
@@ -2446,6 +2456,13 @@
     const [answers, setAnswers] = useState([]);
     const [busy, setBusy] = useState(false);
     const [report, setReport] = useState(null);
+    // 出题挂在后台生成上（一门课一套）：走开再回来，出好的题直接接着做
+    const BG = window.BackgroundGeneration;
+    const testKey = "study:unittest:" + cur0.id;
+    const testTask = BG ? BG.useTask(testKey,
+      r => { setUnit(r.u); setQuizzes(r.qs); setIdx(0); setAnswers([]); setDraft(""); setReport(null); setBusy(false); },
+      err => { props.toast && props.toast(String(err || "没出成，再试一次").split("\n")[0]); setUnit(null); setBusy(false); }) : null;
+    useEffect(function () { if (testTask && testTask.busy) setBusy(true); }, [testTask && testTask.busy]);
     const teacherId = cur0.teacher_id || (cur0.character_ids || [])[0];
     const teacher = (props.characters || []).find(function (c) { return c.id === teacherId; }) || null;
     const btn = function (primary) { return { width: "100%", minHeight: 46, fontFamily: F_BODY, fontSize: 14.5, borderRadius: "4px 12px 4px 4px",
@@ -2455,9 +2472,12 @@
       if (busy) return;
       if (!props.active && !props.bgActive) { props.toast && props.toast("请先到设置配置 API"); return; }
       setBusy(true); setUnit(u);
+      const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur0.subject) : props.worldbook;
+      const api = props.bgActive || props.active;
+      // 出题交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，出好的这一套还在
+      if (BG) { BG.start(testKey, { label: "正在出题…" }, async () => ({ u: u, qs: await genUnitTest(api, cur0, u, teacher, wb) })).catch(() => {}); return; }
       try {
-        const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur0.subject) : props.worldbook;
-        const qs = await genUnitTest(props.bgActive || props.active, cur0, u, teacher, wb);
+        const qs = await genUnitTest(api, cur0, u, teacher, wb);
         setQuizzes(qs); setIdx(0); setAnswers([]); setDraft(""); setReport(null);
       } catch (e) { props.toast && props.toast(String(e && e.message || "没出成，再试一次").split("\n")[0]); setUnit(null); }
       finally { setBusy(false); }
@@ -2861,6 +2881,13 @@
     const [focus, setFocus] = useState("");
     const [busy, setBusy] = useState("");   // '' | 'sum' | 'draft'
     const [draft, setDraft] = useState(null);
+    // 起草大纲挂在后台生成上（一门课一份）：走开再回来，起草好的那份大纲还在，接着确认就行
+    const BG = window.BackgroundGeneration;
+    const outlineKey = "study:outline:" + props.curriculum.id;
+    const outlineTask = BG ? BG.useTask(outlineKey,
+      outline => { setDraft(outline); setBusy(""); },
+      err => { props.toast("出错了：" + (err || "重试")); setBusy(""); }) : null;
+    useEffect(function () { if (outlineTask && outlineTask.busy) setBusy(outlineTask.label || "draft"); }, [outlineTask && outlineTask.busy, outlineTask && outlineTask.label]);
     const field = { fontFamily: F_BODY, fontSize: 14, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + skin.accent, borderRadius: "4px 12px 12px 4px", padding: "12px 13px", outline: "none", width: "100%" };
 
     // 惰性总结：开新节前，把这门课里"有内容但还没最新摘要"的旧 session 各总结一句，落进课程记忆
@@ -2902,10 +2929,12 @@
 
     async function generate() {
       if (!props.active) { props.toast("请先到设置配置 API"); return; }
-      try {
-        setBusy("sum");
+      // 整条（先总结往期、再起草大纲）交给后台生成跑（2026-10-01「离开这页就白跑」）：
+      //   往期总结本来就落盘；起草好的那份大纲原来只在这一页，走开就没了。
+      const run = async update => {
+        update(null, "sum");
         await summarizePriors();
-        setBusy("draft");
+        update(null, "draft");
         const fresh = findCurriculum(cur.id) || cur;
         await loadMaterials(fresh);
         const mats = materialText(fresh, [cur.subject, focus.trim(), buildPriorCtx()].join(" "));
@@ -2913,9 +2942,11 @@
         const teacherId = cur.teacher_id || (cur.character_ids || [])[0];
         const loreText = [cur.subject, focus.trim(), priorCtx].filter(Boolean).join("\n");
         const worldbook = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, loreText) : props.worldbook;
-        const outline = await draftSessionOutline(props.active, cur.subject, worldbook, cur.level, priorCtx, focus.trim());
-        setDraft(outline); setBusy("");
-      } catch (e) { props.toast("出错了：" + (e.message || "重试")); setBusy(""); }
+        return await draftSessionOutline(props.active, cur.subject, worldbook, cur.level, priorCtx, focus.trim());
+      };
+      if (BG) { setBusy("sum"); BG.start(outlineKey, { label: "sum" }, run).catch(() => {}); return; }
+      try { setBusy("sum"); const outline = await run((_, lab) => setBusy(lab)); setDraft(outline); setBusy(""); }
+      catch (e) { props.toast("出错了：" + (e.message || "重试")); setBusy(""); }
     }
 
     function confirm(outline) {

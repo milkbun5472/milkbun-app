@@ -50,6 +50,33 @@
     return task.promise;
   }
 
-  root.BackgroundGeneration = { start: start, state: snapshot, subscribe: subscribe, list: list };
+  // 页面里那种「结果只放在这一页自己的 state 里」的生成（2026-10-01 全 app 查「离开这页就白跑」）：
+  //   划线讲解、快刷点评、测验出题、提纲草稿、开场草稿……她走开，结果没地方放，钱照扣。
+  // 用法：生成交给 start(key, …) 跑（不挂在页面上，走开照样跑完）；页面里挂 useTask(key, onDone, onError)，
+  //   跑完时这一页开着就当场接住，没开着就等她下次进来那一刻接住——同一个结果只交一次（taken）。
+  // ⚠️这一层只保「在 app 里切去别处」：整个 app 被 iOS 掐掉就是掐掉了（上面那句注释说的就是这个），也不自动重试。
+  function take(key) {
+    const t = tasks.get(key);
+    if (!t || t.status === "running" || t.taken) return null;
+    t.taken = true;
+    return { status: t.status, result: t.result, error: t.error || null };
+  }
+  function useTask(key, onDone, onError) {
+    const R = root.React;
+    const [s, setS] = R.useState(function () { return snapshot(key); });
+    const cb = R.useRef(null); cb.current = { onDone: onDone, onError: onError };
+    R.useEffect(function () { setS(snapshot(key)); return subscribe(key, setS); }, [key]);
+    R.useEffect(function () {
+      const got = take(key);
+      if (!got) return;
+      try {
+        if (got.status === "done") { if (cb.current.onDone) cb.current.onDone(got.result); }
+        else if (cb.current.onError) cb.current.onError(got.error);
+      } catch (e) {}
+    }, [key, s.status, s.finishedAt]);
+    return s;
+  }
+
+  root.BackgroundGeneration = { start: start, state: snapshot, subscribe: subscribe, list: list, take: take, useTask: useTask };
   if (typeof module !== "undefined" && module.exports) module.exports = root.BackgroundGeneration;
 })(typeof window !== "undefined" ? window : globalThis);

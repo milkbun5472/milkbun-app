@@ -65,12 +65,13 @@
     const charOf = id => chars.find(c => c.id === id);
     const activeChar = charOf(props.characterId);
     const list = allList.filter(c => belongsTo(c, props.characterId, activeChar && activeChar.name));
-    const updateAll = updater => setAllList(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      if (save(next)) return next;
-      props.toast && props.toast("这次没保存成功，原胶囊还在");
-      return prev;
-    });
+    // ⚠️存档不写在 setAllList 的 updater 里（2026-10-01「离开这页就白跑」）：页面关了 React 就不跑它，
+    //   TA的回信生成回来时她已经走开，那封信就存不上。现读、改完、直接写回，页面还在才 setAllList。
+    const updateAll = updater => {
+      const next = typeof updater === "function" ? updater(load()) : updater;
+      if (!save(next)) { props.toast && props.toast("这次没保存成功，原胶囊还在"); return; }
+      setAllList(next);
+    };
 
     // 反向胶囊：你埋给 TA 时，TA 也悄悄埋一颗——内容以 TA 此刻的心境当场写好、封存到同一天。
     // 每个角色【第一次】给 TA 埋时必回埋一颗（保证你至少见到一次）；之后 70% 概率。失败给提示、不再静默。

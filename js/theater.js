@@ -249,6 +249,13 @@
     const [busyWhat, setBusyWhat] = useState("");
     const [panelOpen, setPanelOpen] = useState(false);
     const [draft, setDraft] = useState(null); // create 预览:{charId, keywords, title, charRole, userRole, setting, goal}
+    // 开局草稿（按关键词开 / 从收藏基线开）挂在后台生成上：走开再回来，生成好的那一局照样等她确认
+    const DRAFT_BG = window.BackgroundGeneration, DRAFT_KEY = "theater:draft";
+    const draftTask = DRAFT_BG ? DRAFT_BG.useTask(DRAFT_KEY,
+      // 预览只在「新开」那一页画：她走开又回来时带她回到那一页；正在演着某一场就不打断
+      d => { setDraft(d); setBusy(false); if (view !== "play") { setPickChar(d.charId); setView("create"); } },
+      err => { props.toast("生成失败:" + (err || "重试")); setBusy(false); }) : null;
+    useEffect(() => { if (draftTask && draftTask.busy) setBusy(true); }, [draftTask && draftTask.busy]);
     const [pickChar, setPickChar] = useState((props.characters[0] || {}).id || null);
     const [kw, setKw] = useState("");
     const [input, setInput] = useState("");
@@ -268,7 +275,15 @@
     const scrollRef = useRef(null);
     const linesRef = useRef(null);
     const sumBusyRef = useRef(false);
-    const update = fn => setLines(p => { const n = fn(p.slice()); if (persist(n)) return n; props.toast("这次没保存成功，原记录还在"); return p; });
+    // ⚠️存档【不许】写在 setLines 的 updater 里（2026-10-01 全 app 查「离开这页就白跑」查出来的）：
+    //   页面关掉以后 React 通常不再跑那个 updater——一拍生成到一半她切去别处，回来的那一拍就没存上，钱照扣。
+    //   所以先从存档现读、改完、直接写回；页面还开着才顺手 setLines。
+    const update = fn => {
+      const n = fn(load().slice());
+      if (!persist(n)) { props.toast("这次没保存成功，原记录还在"); return; }
+      linesRef.current = n;
+      setLines(n);
+    };
     useEffect(() => { linesRef.current = lines; });
     // 回填:图库上线前已经出过的剧照(含归档的重开局)一次性补进图库,按图引用去重
     useEffect(() => {
@@ -381,7 +396,7 @@
       if (!char) return props.toast("先选一个角色");
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
-      try {
+      const run = async () => {
         const sys = settingStyle() + characterText(char, "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、理解与判断习惯;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域。关键词为空时,严格按下方给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,按其性格机制和说话方式行事,不许洗白、软化或让他偷偷还是好人。\n先确定两人为何在这个世界里有交集，以及各自此刻关心什么；身份、关系与事件应互相支持。关键词为空时按取景框的关系维度展开，具体内容由本次人物与世界决定。\ngoal 是当前互动中可推进的一件事。") + GOAL_RULE + "\n基调决定场景的情绪与节奏，难度决定目标阻力。轻松与日常可以自然成立，不要求所有关系都有秘密、对立、牺牲或不可逆代价。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;只属于今天这一刻的事件和状态,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个正在进行、可以接话或行动的具体时刻。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代可知的身份处境，把场景推进到那个时刻，留出自然接话或行动的空间，不代写 Ta 的内心;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:" + SHAPE_SETTING + "";
         // 关键词为空才掷骰子;她写了关键词就一切听她的,不拿随机框去顶她的要求
         const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,五项共同取景，门槛按难度落实,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
@@ -400,8 +415,11 @@
         if (lack.length) throw new Error("设定缺了「" + lack.join("、") + "」,再试一次");
         // world=长期为真(可收藏复用) / hook=这一局专属的此刻;setting 仍是两者拼起来的整段,面板与出图都照旧读它
         const world = p.world || p.setting, hook = p.hook || (p.world ? "" : "");
-        setDraft({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: hook, charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, hook), opening: p.opening || "", goal: p.goal });
-      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+        return ({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: hook, charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, hook), opening: p.opening || "", goal: p.goal });
+      };
+      // 开局草稿交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，生成好的开局还摆在那儿等她确认
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在开局…" }, run).catch(() => {}); return; }
+      try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 从收藏基线开新局:身份与世界原样不动,但【此刻的处境要整个换掉】——
     // 基线存的是「TA是龙族监督官、你是人类书记官」,不是「TA行囊打包好了、你堵在TA面前」。
@@ -415,7 +433,7 @@
       if (!char) return props.toast("这个基线的角色不在了");
       if (!props.active) return props.toast("请先配置线下 API");
       setPickChar(ps.charId); setBusy(true);
-      try {
+      const run = async () => {
         const past = lines.filter(l => l.presetId === ps.id).slice(0, 6).map(l => String(l.hook || l.setting || "").slice(0, 50)).join(";");
         const sys = settingStyle() + DIFF[diff].goal + "\n" + "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系保持不变,生成一个【全新的当下处境】以及配套的开场与本轮目标。"
           + newSituation(true, past)
@@ -429,8 +447,11 @@
           "goal:" + GOAL_RULE + "\n难度:" + DIFF[diff].goal + "\nhook 是这一局专属的当下处境(1-3句)。opening 是第二人称『你』写给 " + uName + " 的开场正文(5-9句),留出回应空间。");
         if (!p.goal) throw new Error("开局缺了「本轮目标」,再试一次");
         const world = ps.world || ps.setting;
-        setDraft({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
-      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+        return ({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
+      };
+      // 开局草稿交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，生成好的开局还摆在那儿等她确认
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在开局…" }, run).catch(() => {}); return; }
+      try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const acceptDraft = () => {
       const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };

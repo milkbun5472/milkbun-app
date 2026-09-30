@@ -435,6 +435,13 @@
     const [ending, setEnding] = useState(false);
     const [sel, setSel] = useState(null);          // 划线选中的文字 {text}
     const [selResult, setSelResult] = useState(null); // {q, a, busy} 划线讲解弹层
+    // 划线讲解的那一枪挂在后台生成上：走开再回来，讲完的那条照样弹出来（一本书一条）
+    const BG = window.BackgroundGeneration;
+    const explainKey = "read:explain:" + (book && book.id || "");
+    const explainTask = BG ? BG.useTask(explainKey,
+      r => setSelResult({ q: r.q, a: r.a || "（没讲出来，再试试）", busy: false }),
+      err => setSelResult(p => ({ q: (p && p.q) || "", a: "讲解失败：" + (err || "重试"), busy: false }))) : null;
+    useEffect(() => { if (explainTask && explainTask.busy && !selResult) setSelResult({ q: explainTask.label || "", a: "", busy: true }); }, [explainTask && explainTask.busy]);
     const scrollRef = useRef(null);
 
     const partner = props.characters.find(function (c) { return c.id === book.partnerId; });
@@ -584,10 +591,13 @@
       setSel(null);
       try { window.getSelection && window.getSelection().removeAllRanges(); } catch (e) {}
       setSelResult({ q: q, a: "", busy: true });
-      try {
-        const a = await genExplainSnippet(bg, partner, props.profile, scopedWorldbook(q + "\n" + curParas.join("\n")), q, curParas.join("\n"), book.synopsis || "", props.ctxFor, talkTail());
-        setSelResult({ q: q, a: a || "（没讲出来，再试试）", busy: false });
-      } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
+      // 交给后台生成跑（2026-10-01「离开这页就白跑」）：她讲到一半切去别处，回来那条讲解还在
+      const ask = () => genExplainSnippet(bg, partner, props.profile, scopedWorldbook(q + "\n" + curParas.join("\n")), q, curParas.join("\n"), book.synopsis || "", props.ctxFor, talkTail());
+      if (BG) BG.start(explainKey, { label: q }, async () => ({ q: q, a: await ask() })).catch(() => {});
+      else {
+        try { setSelResult({ q: q, a: (await ask()) || "（没讲出来，再试试）", busy: false }); }
+        catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
+      }
     };
 
     // ── 言秋通道 ①：划线后把你的想法记成一条（粉色，先挂着，等TA回）──

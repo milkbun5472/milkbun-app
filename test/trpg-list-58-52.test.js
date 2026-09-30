@@ -165,8 +165,9 @@ test("写失败要弹出来告诉她，不是闷着", () => {
 });
 
 test("存不下就不改界面——不然当场消失、重开又回来", () => {
-  const up = grab("    const update = fn => setCamps", "    // 图库:出过的图永久归档", 400);
-  assert.match(up, /return persist\(n\) \? n : p;/, "存不下还照改界面，就是「看起来删掉了其实没删」");
+  // v74.352 起存档不再写在 setCamps 的 updater 里（页面关了 React 不跑它，走开时回来的那一轮就丢）
+  const up = grab("    const update = fn => {", "    // 图库:出过的图永久归档", 500);
+  assert.match(up, /const n = fn\(load\(\)\.slice\(\)\);\n\s*if \(!persist\(n\)\) return;\n\s*setCamps\(n\);/, "存不下还照改界面，就是「看起来删掉了其实没删」");
 });
 
 test("跑团里所有写盘都走同一个口子", () => {

@@ -4216,6 +4216,12 @@
     const [labScene, setLabScene] = useState("");
     const [labTesting, setLabTesting] = useState(false);
     const [labAB, setLabAB] = useState(null);
+    // A/B 那两枪挂在后台生成上：走开再回来，写好的两份照样摆出来
+    const LAB_BG = window.BackgroundGeneration, LAB_KEY = "fanfic:styleLabAB";
+    const labTask = LAB_BG ? LAB_BG.useTask(LAB_KEY,
+      r => { setLabAB(r); setLabTesting(false); },
+      err => { setLabTesting(false); props.toast ? props.toast("A/B 生成失败：" + String(err)) : alert(String(err)); }) : null;
+    useEffect(function () { if (labTask && labTask.busy) setLabTesting(true); }, [labTask && labTask.busy]);
     function patch(p) { const n = Object.assign({}, cfg, p); setCfg(n); window.Fanfic.saveCfg(n); }
     function addStyle() {
       if (!text.trim()) { props.toast && props.toast("文风内容不能为空"); return; }
@@ -4253,7 +4259,8 @@
       const style = buildStyleLabPrompt(labName, labSource, labAxes, labNotes, labSamples);
       const task = "把下面场景写成 350～550 字的小说片段。只写正文，不起标题，不解释写法。必须让现场发生变化，并停在一个尚有余波的具体动作上。\n\n【场景】\n" + labScene.trim();
       setLabTesting(true); setLabAB(null);
-      try {
+      // 两枪交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，A/B 两份照样摆着
+      const run = async () => {
         // 两边使用完全相同的场景与篇幅；唯一变量是实验文风。
         // 思考型模型会把内部思考也计入 maxTokens；1400 曾导致正文只剩几十字。
         // 与正式长文一样给足（v59.96 起是 14000，见 施工规则/max-tokens-floor.md）；
@@ -4261,8 +4268,11 @@
         const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 14000, timeout: 300000 });
         const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 14000, timeout: 300000 });
         const cleanBase = String(base || "").trim(), cleanStyled = String(styled || "").trim();
-        setLabAB({ base: cleanBase, styled: cleanStyled, baseShort: cleanBase.length < 280, styledShort: cleanStyled.length < 280 });
-      } catch (e) { props.toast ? props.toast("A/B 生成失败：" + String(e.message || e)) : alert(String(e.message || e)); }
+        return { base: cleanBase, styled: cleanStyled, baseShort: cleanBase.length < 280, styledShort: cleanStyled.length < 280 };
+      };
+      if (LAB_BG) { LAB_BG.start(LAB_KEY, { label: "正在生成两份…" }, run).catch(() => {}); return; }
+      try { setLabAB(await run()); }
+      catch (e) { props.toast ? props.toast("A/B 生成失败：" + String(e.message || e)) : alert(String(e.message || e)); }
       setLabTesting(false);
     }
     function importStyleFile() {
