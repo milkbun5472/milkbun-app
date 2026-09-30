@@ -1452,6 +1452,11 @@ function PromptDialog({ title, body, value, placeholder, okLabel, multiline, max
 //   要分栏就得改两处，改一处必然漏一处。所以先把它提成这一份，两边都搬过来。
 // ⚠️底下那排不是一排药丸（施工规则/tabs-not-plain-pills.md）：每一格是那一套的
 //   **封面图**——跟微信一样，认的是图不是字，换个 app 也不成立。
+// 这一版的封面：她挑过就用她挑的那张（还在这版上才算），没挑过就是第一张
+function packCoverOf(pk) {
+  const list = (pk && pk.emotes) || [];
+  return (pk && pk.cover && list.find(e => e && e.id === pk.cover)) || list[0] || null;
+}
 function StickerPanel({ packs, emotes, onPick, onManage }) {
   const t = useTheme();
   const list = Array.isArray(packs) ? packs.filter(p => p && (p.emotes || []).length) : [];
@@ -1500,7 +1505,9 @@ function StickerPanel({ packs, emotes, onPick, onManage }) {
             ? h("div", { className: "flex items-center justify-center", style: { width: "100%", height: "100%" } },
                 h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: on ? t.ink : t.fog, strokeWidth: 1.6, strokeLinecap: "round", "aria-hidden": "true" },
                   h("circle", { cx: 12, cy: 12, r: 8.4 }), h("path", { d: "M12 7.6V12l3 1.8" })))
-            : h("img", { src: (pk.emotes[0] || {}).url, referrerPolicy: "no-referrer", loading: "lazy", alt: pk.name,
+            // ⚠️要过 stickerSrc：从相册贴的那些存在本机，裸 url 是个占位引用，直接塞 src 就是一张裂图（她 2026-09-30 截图）
+            : h("img", { src: stickerSrc((packCoverOf(pk) || {}).url), referrerPolicy: "no-referrer", loading: "lazy", alt: pk.name,
+                onError: e => { e.target.style.visibility = "hidden"; },
                 style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: on ? 1 : .62 } }));
       })) : null);
 }

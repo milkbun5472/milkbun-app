@@ -13336,6 +13336,8 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           pack.global && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "这一版开着「谁都能用」，上面贴的名字暂时不作数。"),
           // ── 这一版上贴着的 ──
           note("这一版上贴着的" + ((pack.emotes || []).length ? " · " + pack.emotes.length + " 张" : ""),
+            // 挑中正好一张 → 可以设成这一版在发表情那一格底下的封面（她 2026-09-30：「能自由选择表情包头像」）
+            selMode && selEmotes.length === 1 && h("button", { onClick: () => { onUpdatePack(pack.id, { cover: selEmotes[0] }); setSelMode(false); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "5px 12px", marginRight: 6 } }, "设成封面"),
             (pack.emotes || []).length > 0 && h("button", { onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: selMode ? t.accent : t.ink, border: "1px solid " + (selMode ? t.accent : t.line), borderRadius: 8, padding: "5px 12px" } }, selMode ? "不挑了" : "挑几张")),
           (pack.emotes || []).length === 0
             ? h("div", { className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
@@ -13349,6 +13351,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
                   transform: on ? "none" : "rotate(" + tiltById(em.id) + "deg)", transition: "transform .16s" } },
                   h("div", { style: { width: "100%", aspectRatio: "1", position: "relative" } },
                     h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
+                    packCoverOf(pack) === em && h("span", { style: { position: "absolute", left: 5, bottom: 5, fontFamily: F_BODY, fontSize: 10, color: "#fff", background: "rgba(0,0,0,.52)", borderRadius: 6, padding: "1px 6px" } }, "封面"),
                     on && h("span", { style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
                   h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
             })),

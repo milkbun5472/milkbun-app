@@ -35,8 +35,9 @@ test("分组视图另给一份，拍平的那几个不许动", () => {
 
 test("底下那排是封面，不是一排药丸；还记得上次停在哪一栏", () => {
   const seg = comp.slice(comp.indexOf("function StickerPanel("), comp.indexOf("function ConfirmDialog("));
-  // 每一格摆那一套的第一张图（施工规则/tabs-not-plain-pills.md：认的是图不是字）
-  assert.match(seg, /src: \(pk\.emotes\[0\] \|\| \{\}\)\.url/);
+  // 每一格摆那一套的封面图（施工规则/tabs-not-plain-pills.md：认的是图不是字）；
+  //   封面默认第一张、可以自己挑（v74.382），而且要过 stickerSrc，本机存的图才出得来
+  assert.match(seg, /src: stickerSrc\(\(packCoverOf\(pk\) \|\| \{\}\)\.url\)/);
   assert.match(seg, /"aria-label": pk\.name/, "读屏要念得出这是哪一套");
   // 选中那一格：描边 + 底下一道线
   assert.match(seg, /boxShadow: on \? "inset 0 -2px 0 " \+ t\.tint : "none"/);
