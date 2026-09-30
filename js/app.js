@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.349";
+const APP_VERSION = "v74.350";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6479,16 +6479,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ---- 默认进线下（她 2026-07-23，方便同居/常在一起的角色：默认基本上都在一起）----
   // 点进开了「默认进线下」的单聊，直接进线下相处；随时可「离开」跳回线上。只在【进入这个聊天】那一下
   // 触发一次——跳回线上后不再自动弹（尊重你主动离开）；下次从列表重新进这个聊天才会再默认开。
+  // 从哪儿退的，下回回哪儿（她 2026-09-30：「在线下点退出键就应该离开到总信息页面，再点回来还是线下，
+  //   除非主动回到线上再退出聊天框」）。记的是【这个聊天上次停在哪】：线下「离开」＝offline；
+  //   在线下切回「说话」＝online。点进来时 offline 且那一场还没散，就直接回到那一场。
+  const LAST_PLACE_KEY = "x_chatLastPlace";
+  const lastPlaceOf = k => { try { return (loadJSON(LAST_PLACE_KEY, {}) || {})[k] || ""; } catch (e) { return ""; } };
+  const setLastPlace = (k, where) => { try { const m = loadJSON(LAST_PLACE_KEY, {}) || {}; if (m[k] === where) return; m[k] = where; saveJSON(LAST_PLACE_KEY, m); } catch (e) {} };
   const autoOfflineRef = useRef(null);
   useEffect(() => {
     if (screen !== "thread" || !activeChar || activeRoomId !== "main") { autoOfflineRef.current = null; return; }
     const cid = activeChar.id;
     if (autoOfflineRef.current === cid) return;
     autoOfflineRef.current = cid;
-    if (!settingsFor(cid).defaultOffline) return;
     if (offlineChar || offlineGroup) return;
     const list = offlinesRef.current[cid] || loadJSON("x_offline:" + cid, []);
     const hasActive = (list || []).some(s => s && !s.endTs);
+    // 上次是从线下「离开」的、那一场还在：回到那一场（不开新场）
+    const backToScene = lastPlaceOf(cid) === "offline" && hasActive;
+    if (!settingsFor(cid).defaultOffline && !backToScene) return;
     openOffline(activeChar);
     if (!hasActive) startOffline(cid, {});
   }, [screen, activeRoomId, activeChar]);
@@ -6499,10 +6507,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const gid = activeGroup.id;
     if (autoGOfflineRef.current === gid) return;
     autoGOfflineRef.current = gid;
-    if (!gsFor(gid).defaultOffline) return;
     if (offlineChar || offlineGroup) return;
     const list = groupOfflinesRef.current[gid] || loadJSON("x_goffline:" + gid, []);
     const hasActive = (list || []).some(s => s && !s.endTs);
+    const backToScene = lastPlaceOf("g:" + gid) === "offline" && hasActive;
+    if (!gsFor(gid).defaultOffline && !backToScene) return;
     openGroupOffline(activeGroup);
     if (!hasActive) startGroupOffline(gid, {});
   }, [screen, activeGroup]);
@@ -26149,8 +26158,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDelMsg: (mid, idx) => offlineDelMsg(activeOfflineScopeKey, mid, idx),
     onDelSession: (sid, idx) => offlineDelSession(activeOfflineScopeKey, sid, idx),
     onEnd: () => endOffline(activeOfflineScopeKey),
-    onClose: () => { setOfflineChar(null); setOfflineRoomId("main"); },
-    onExit: () => { setOfflineChar(null); setOfflineRoomId("main"); setScreen("messages"); },
+    // 「说话」切回线上＝下回从线上进；顶栏「离开」＝退到信息页，下回点进来还在线下（只记主线那一场）
+    onClose: () => { if (offlineRoomId === "main" && offlineChar) setLastPlace(offlineChar.id, "online"); setOfflineChar(null); setOfflineRoomId("main"); },
+    onExit: () => { if (offlineRoomId === "main" && offlineChar) setLastPlace(offlineChar.id, "offline"); setOfflineChar(null); setOfflineRoomId("main"); setScreen("messages"); },
     onOpenState: () => { setStateCardRoomKey(offlineIsRoom(activeOfflineScopeKey) ? activeOfflineScopeKey : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(activeOfflineRoom, offlineChar.id) ? schedNowBriefFor(offlineChar) : null,
     onOpenStyleLab: goStyleLab,
@@ -26179,8 +26189,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDelSession: (sid, idx) => groupOfflineDelSession(offlineGroup.id, sid, idx),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
     onEnd: () => endGroupOffline(offlineGroup.id),
-    onClose: () => setOfflineGroup(null),                        // 下拉「群聊（回线上群）」：只收线下浮层
-    onExit: () => { setOfflineGroup(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表
+    onClose: () => { if (offlineGroup) setLastPlace("g:" + offlineGroup.id, "online"); setOfflineGroup(null); },                        // 下拉「群聊（回线上群）」：只收线下浮层，下回从线上进
+    onExit: () => { if (offlineGroup) setLastPlace("g:" + offlineGroup.id, "offline"); setOfflineGroup(null); setScreen("messages"); }, // 顶栏「离开」：退回聊天列表，下回点进来还在线下
     onOpenStyleLab: goStyleLab,
     settings: osFor("g_" + offlineGroup.id),
     onSaveSettings: patch => saveOfflineSettings("g_" + offlineGroup.id, patch),

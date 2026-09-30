@@ -200,3 +200,13 @@ test("线下暂离的提醒都撤了（她：我知道我还在线下）", () =>
   assert.doesNotMatch(comp, /h\(OfflineBackBar|liveTag\(|onJumpOffline/);
   assert.doesNotMatch(app, /offlineLiveOf:|onJumpOffline:/);
 });
+
+test("从哪儿退下回回哪儿：线下「离开」记 offline、切回「说话」记 online；点进来 offline 且那场还在就回线下", () => {
+  assert.match(app, /const LAST_PLACE_KEY = "x_chatLastPlace";/);
+  assert.match(app, /const backToScene = lastPlaceOf\(cid\) === "offline" && hasActive;/);
+  assert.match(app, /const backToScene = lastPlaceOf\("g:" \+ gid\) === "offline" && hasActive;/);
+  assert.match(app, /if \(!settingsFor\(cid\)\.defaultOffline && !backToScene\) return;/);
+  assert.match(app, /onExit: \(\) => \{ if \(offlineRoomId === "main" && offlineChar\) setLastPlace\(offlineChar\.id, "offline"\);/);
+  assert.match(app, /onClose: \(\) => \{ if \(offlineRoomId === "main" && offlineChar\) setLastPlace\(offlineChar\.id, "online"\);/);
+  assert.match(app, /onExit: \(\) => \{ if \(offlineGroup\) setLastPlace\("g:" \+ offlineGroup\.id, "offline"\);/);
+});
