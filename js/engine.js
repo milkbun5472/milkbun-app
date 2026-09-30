@@ -5690,7 +5690,10 @@ function ttsHasPause(text) {
 //   于是夹在两句话中间的那条语音，一律掉到了最底下。这里改成在原位置留一个占位符，
 //   发气泡那一圈走到它就地发成语音条。占位符是私用区字符包着的编号，后面那几道
 //   拆句／去标点／过滤都碰不到它；万一被哪一道弄丢了，发送那头会把没发出去的补在最后。
-const VOICE_SLOT_RE = /^\uE000V(\d+)\uE000$/;
+// ⚠️占位符原来是私用区字符包着 V0——真机上中间有一道把私用区字符洗掉了，气泡里冒出「。V0」「V1」
+//   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
+const VOICE_SLOT_TOKEN = n => "voiceslot" + n;
+const VOICE_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*voiceslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 function markPauseVoice(words) {
   // word 里还认两种【明着写的语音】：{"voice":"内容","emo":"…"} 那一项（提示词教的写法），
@@ -5699,13 +5702,13 @@ function markPauseVoice(words) {
   const list = raw.map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;
-  const flush = () => { if (run != null) { out.push("\uE000V" + voice.length + "\uE000"); voice.push(run); run = null; } };
+  const flush = () => { if (run != null) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(run); run = null; } };
   list.forEach(w => {
     const vo = (w && typeof w === "object") ? String(w.voice || w.t || w.text || "").trim()
       : (/^\s*[\[【]语音[\]】]\s*[:：]?\s*/.test(w) ? w.replace(/^\s*[\[【]语音[\]】]\s*[:：]?\s*/, "").trim() : null);
     if (vo != null) {
       flush();
-      if (vo) { out.push("\uE000V" + voice.length + "\uE000"); voice.push(w && typeof w === "object" && w.emo ? { t: vo, emo: String(w.emo) } : vo); }
+      if (vo) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(w && typeof w === "object" && w.emo ? { t: vo, emo: String(w.emo) } : vo); }
       return;
     }
     if (w && typeof w === "object") return;   // 认不出的对象不当字发出去（不然就是一串 [object Object]）
