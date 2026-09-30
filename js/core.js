@@ -822,3 +822,31 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports.decodeTextBytes = decodeTextBytes;
   module.exports.readTextFileSmart = readTextFileSmart;
 }
+// ── 给自己写 CSS 的人用的屏幕尺寸（她 2026-09-30：「有人做了一个美化但是高度不适配其他型号的手机」）──
+//   写死 px 的美化换一台手机就错位：这里把【这台手机此刻】的尺寸挂在 <html> 上，CSS 里直接用。
+//   --lisa-h / --lisa-w：可视区高宽（px，键盘弹起时 --lisa-h 跟着缩）；--lisa-vh：高度的 1%；
+//   --lisa-safe-top / --lisa-safe-bottom：刘海和底部横条那两条安全区；--lisa-kb：键盘占掉的高度。
+//   另挂 data-lisa-size="short|mid|tall"（< 700 / 700~850 / > 850）方便按机型整段分开写。
+//   只写变量和属性，一个元素的长相都不碰（home-screen-layout 那条管的是长相，这里不越界）。
+(function lisaViewportVars() {
+  if (typeof window === "undefined" || typeof document === "undefined" || !document.documentElement) return;
+  const root = document.documentElement;
+  root.style.setProperty("--lisa-safe-top", "env(safe-area-inset-top, 0px)");
+  root.style.setProperty("--lisa-safe-bottom", "env(safe-area-inset-bottom, 0px)");
+  let full = 0;
+  const put = () => {
+    const vv = window.visualViewport;
+    const h = Math.round(vv ? vv.height : window.innerHeight), w = Math.round(vv ? vv.width : window.innerWidth);
+    full = Math.max(full, window.innerHeight || 0, h);
+    root.style.setProperty("--lisa-h", h + "px");
+    root.style.setProperty("--lisa-w", w + "px");
+    root.style.setProperty("--lisa-vh", (h / 100).toFixed(2) + "px");
+    root.style.setProperty("--lisa-kb", Math.max(0, full - h) + "px");
+    const size = full < 700 ? "short" : full > 850 ? "tall" : "mid";
+    if (root.getAttribute("data-lisa-size") !== size) root.setAttribute("data-lisa-size", size);
+  };
+  put();
+  window.addEventListener("resize", () => { full = 0; put(); });
+  window.addEventListener("orientationchange", () => { full = 0; setTimeout(put, 300); });
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", put);
+})();

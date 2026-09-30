@@ -27,3 +27,11 @@ test("聊天那格也给挂点名单和插图按钮，跟主题工作台同一�
   assert.match(comp, /h\(window\.CssImageButton, \{ css: customCSS/);
   assert.match(ui, /h\(CssImageButton, \{ css: css, setCSS: setCSS, editorRef: cssEditor/, "工作台没搬过来用同一个");
 });
+
+test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，挂点那块教怎么用", () => {
+  const core = R("js/core.js"), ui = R("js/theme-studio-ui.js");
+  ["--lisa-h", "--lisa-w", "--lisa-vh", "--lisa-kb", "--lisa-safe-top", "--lisa-safe-bottom"].forEach(v => assert.ok(core.includes('"' + v + '"'), v));
+  assert.match(core, /root\.setAttribute\("data-lisa-size", size\)/);
+  assert.match(ui, /高度别写死 px/);
+  assert.match(ui, /html\[data-lisa-size=\\"short\\"\]|html\[data-lisa-size="short"\]/);
+});

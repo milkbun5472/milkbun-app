@@ -33,6 +33,14 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
         "抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
         + "所以每一条声明都要带 !important，不带等于没写。"),
+      // 换一台手机就错位的美化，多半是把高度写死成了 px（她 2026-09-30）。变量挂在 <html> 上，见 core.js lisaViewportVars
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.65, padding: "8px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
+        "要分给别人用：高度别写死 px，每台手机不一样高。可以用这几个跟着手机走的值——",
+        h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
+          "var(--lisa-h)        屏幕可视高度\nvar(--lisa-vh)       高度的 1%（calc(var(--lisa-vh) * 30) ＝ 三成高）\nvar(--lisa-w)        屏幕宽度\nvar(--lisa-safe-top) 刘海那一条\nvar(--lisa-safe-bottom) 底部横条那一条\nvar(--lisa-kb)       键盘占掉的高度"),
+        h("div", { style: { marginTop: 4 } }, "或者按屏幕高矮整段分开写："),
+        h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 2, whiteSpace: "pre-wrap" } },
+          'html[data-lisa-size="short"] [data-wk="…"] { … }   矮屏\nhtml[data-lisa-size="tall"]  [data-wk="…"] { … }   高屏')),
       rows.map(function (row) {
         return h("div", { key: row[0], style: { marginBottom: 8 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, row[0]),
