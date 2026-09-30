@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.380";
+const APP_VERSION = "v74.381";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13213,6 +13213,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️不另写一套抽取：还是走 maybeAutoExtract 那一份（它自己管节拍、防并发、
   //   管书签），这儿只负责在最后一泡落地之后叫它一声。
   // ⚠️只在主聊天叫：侧房有自己的账，maybeAutoExtract 读的是主线那一份。
+  // 拉黑这条链也要填心声／心情／动作（她 2026-09-30：「拉黑不会填心声那些耶」）——
+  //   同一个病根：它自己 callAI，绕开了 _replyTurn 末尾写状态卡那一段，卡就冻在拉黑前。
+  //   字段说明只写在 BLOCK_STATE_SPEC 一处，两条提示词都拼它；写回只走 applyBlockTurnState 一处。
+  //   侧房跟单聊同一个规矩：不动主线状态卡。
+  const BLOCK_STATE_SPEC = "\n另外三栏跟平时聊天一样每轮都填：thought＝" + (typeof THOUGHT_MEANING === "string" ? THOUGHT_MEANING : "")
+    + "\nmood＝{\"label\":\"此刻中文心情词\"}；action＝此刻正在做什么，第一人称一句。";
+  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的一句心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\"";
+  const applyBlockTurnState = (charId, chatKey, d) => {
+    try {
+      if (!d || String(chatKey) !== String(charId)) return;
+      const char = characters.find(c => c.id === charId);
+      const mood = typeof d.mood === "string" ? { label: d.mood.trim() } : d.mood;
+      if (mood && mood.label) setMoodFor(charId, { ...mood, ts: Date.now() });
+      const now = Date.now(), live = statesRef.current[charId] || {}, st = {};
+      if (d.thought && String(d.thought).toLowerCase() !== "null") Object.assign(st, TVG.turnPatch(live, String(d.thought), now));
+      const act = TVG.normalizeAction(d.action, char && char.name);
+      if (act && String(act).trim()) { st.action = String(act).trim(); st.actionUpdatedAt = now; }
+      if (!Object.keys(st).length && !(mood && mood.label)) return;
+      const ns = { ...live, ...st, mood: mood && mood.label ? mood.label : live.mood, ts: now };
+      setStateFor(charId, ns);
+      pushStateHist(charId, ns);
+    } catch (e) {}
+  };
   const queueUnblockSpeech = (chatKey, says, delay, charId) => {
     says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), delay + i * 650));
     if (charId && String(chatKey) === String(charId)) {
@@ -13225,10 +13248,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const char = characters.find(c => c.id === charId); if (!char) return;
     startLane("c:" + chatKey);
     try {
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId);
+      applyBlockTurnState(charId, chatKey, d);
       if (d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
@@ -13266,7 +13290,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。"
         + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
         + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
-        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
+        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
       // 读不出来就把申请留在 pending，别记这一次 tries，也别当成TA拒绝了
       if (!r.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
@@ -13274,6 +13298,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
       queueUnblockSpeech(chatKey, says, 300, charId);
+      applyBlockTurnState(charId, chatKey, r.d);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   const clearChat = (charId, wipeMem) => {
