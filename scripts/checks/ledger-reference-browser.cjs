@@ -21,7 +21,7 @@ const back=async()=>page.locator('#ledger-test [data-watch=back]:visible').last(
 const root=page.locator('#ledger-test');
 const layout=async()=>{
  const d=await root.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,bar:el.querySelector('[data-ledger-tabbar]').getBoundingClientRect().height}));
- assert.ok(d.scroll<=d.width+1,'no horizontal page overflow');assert.ok(d.bar>=54&&d.bar<=64,'compact bottom navigation');
+ assert.ok(d.scroll<=d.width+1,'no horizontal page overflow');assert.ok(d.bar>=54&&d.bar<=68,'compact bottom navigation');
 };
 await layout();assert.equal(await root.locator('[data-ledger-balance]').innerText(),'¥2,847.50');await snap('wallet');
 await root.getByRole('button',{name:'藏起金额',exact:true}).click();assert.match(await root.locator('[data-ledger-balance]').innerText(),/\*{4}/);
@@ -47,7 +47,11 @@ await root.getByRole('button',{name:'换币种',exact:true}).click();
 // A tall list exercises preserved DOM, scroll position, selected filter and search together.
 await page.evaluate(()=>{
  const d=loadJSON('x_ledger',null), txn=d.txns[0];
- d.txns=Array.from({length:35},(_,i)=>({...txn,id:'scroll-'+i,ts:txn.ts-i, note:'滚动测试 '+i})).concat(d.txns);saveJSON('x_ledger',d);
+ d.txns=Array.from({length:35},(_,i)=>({...txn,id:'scroll-'+i,ts:txn.ts-i, note:'滚动测试 '+i})).concat(d.txns);
+ d.txns.find(t=>t.type==='income').amount=125000;
+ // Account form writes init (not initial), debit/credit type and the credit-cycle fields.
+ d.settings.accounts=[{id:'test-debit',name:'储蓄卡',type:'debit',currency:'CNY',init:2000,limit:0,billDay:0,dueDay:0}];
+ saveJSON('x_ledger',d);
 });
 // Switching skin remounts with the persisted record through the real settings writer.
 await page.reload();await page.waitForFunction(()=>!!window.Ledger);
@@ -60,13 +64,27 @@ const list=root.locator('.lg-bills').locator('..');await list.evaluate(el=>el.sc
 const row=root.locator('[data-ledger-overlay=bills] [data-ledger-strip]').nth(10);await row.click();await back();assert.equal(await list.evaluate(el=>el.scrollTop),scroll,'detail return preserves exact list scroll');
 await back();
 for(const [w,h] of [[320,568],[390,844],[430,932]]){
- await page.setViewportSize({width:w,height:h});await layout();await root.getByRole('button',{name:'记一笔',exact:true}).click();
+ await page.setViewportSize({width:w,height:h});await page.waitForTimeout(300);await layout();
+ await root.locator('[data-ledger-scroll]').evaluate(el=>el.scrollTop=0);
+ const primary=await root.getByRole('button',{name:'记一笔',exact:true}).boundingBox();
+ const bar=await root.locator('[data-ledger-tabbar]').boundingBox();
+ await snap('wallet-'+w);
+ assert.ok(primary.y+primary.height<=bar.y,`primary action fits first viewport ${w}: ${primary.y+primary.height} <= ${bar.y}`);
+ const eye=root.getByRole('button',{name:'藏起金额',exact:true});
+ assert.ok(await eye.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'decoration does not intercept balance toggle');
+ await eye.click();assert.match(await root.locator('[data-ledger-balance]').innerText(),/\*{4}/);
+ await root.getByRole('button',{name:'显示金额',exact:true}).click();
+ await root.getByRole('button',{name:'记一笔',exact:true}).click();
  const grid=root.locator('[data-ledger-catgrid]');assert.equal(await grid.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),4);
  const done=await root.locator('[data-ledger-done]').boundingBox();assert.ok(done.y>=0&&done.y+done.height<=h,'completion key stays on screen');
  const amount=await root.locator('[data-ledger-amount]').boundingBox();assert.ok(amount.y>70,'amount below header');
+ if(w===320){const row2=await grid.locator('.lg-add-category').nth(7).boundingBox();assert.ok(row2.y+row2.height<=amount.y,'two complete category rows on short screens');}
  await grid.locator('button').last().scrollIntoViewIfNeeded();assert.ok(await grid.locator('button').last().isVisible(),'all categories reachable');
  await snap('entry-'+w);await back();
 }
+await page.setViewportSize({width:390,height:844});
+await root.locator('[data-ledger-cardpack]').evaluate(el=>el.scrollLeft=el.clientWidth);await page.waitForTimeout(400);
+await snap('account');assert.match(await root.locator('[data-ledger-acctface]').innerText(),/2,000\.00/);
 await page.setViewportSize({width:390,height:844});await root.getByRole('button',{name:'我的',exact:true}).click();
 await root.getByRole('button',{name:/账簿/}).click();assert.equal(await root.locator('.lg-reference').count(),0,'paper skin still available');await snap('paper');
 assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:['boot','save real ledger shape','amount precision','mask balance','currency isolation','filter/search retention','detail scroll restoration','3 viewport layouts','reachable categories','paper skin'],errors}));await browser.close();

@@ -741,6 +741,33 @@
 .lg-reference .lg-receipt svg{height:34px!important;margin-top:22px!important}
 
 @media(max-height:720px){.lg-reference .lg-add-category{height:73px}.lg-reference .lg-add-grid{gap:8px!important}.lg-reference .lg-console{padding-top:4px!important}}
+.lg-reference .lg-bigkeys img{clip-path:inset(0 0 0 0 round 19%)}
+.lg-reference [data-ledger-rail]>img{clip-path:inset(3% 0 5% round 999px)}
+.lg-reference [data-ledger-monthnav],.lg-reference .lg-rail{background:none!important;isolation:isolate;position:relative}
+.lg-reference [data-ledger-monthnav]::before,.lg-reference .lg-rail::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:url(assets/ledger/rail.webp?v=259) center/100% 100% no-repeat;clip-path:inset(2% 0 5% round 999px)}
+.lg-reference .lg-add-category .lg-cattile,.lg-reference .lg-number-key{position:relative;isolation:isolate;background:rgba(243,240,255,.18)!important;border:0!important;box-shadow:none!important;border-radius:13px!important}
+.lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference [data-ledger-done]::before{content:'';position:absolute;inset:0;height:auto;background:none;z-index:-1;pointer-events:none;border:9px solid transparent;border-image:url(assets/ledger/panel.webp?v=259) 120 fill / 9px / 0 stretch;opacity:.8}
+.lg-reference .lg-add-category[aria-pressed=true] .lg-cattile{background:rgba(249,188,217,.4)!important;box-shadow:0 0 0 1px #e6a9c8!important}
+.lg-reference [data-ledger-acctface]{isolation:isolate}
+.lg-reference [data-ledger-acctface]::before{content:'';position:absolute;inset:-8px;z-index:-1;pointer-events:none;background:url(assets/ledger/card.webp?v=290) 44% 40%/500% 400%;filter:blur(5px) hue-rotate(var(--lg-acct-hue,0deg));opacity:.95}
+.lg-reference .lg-balance>div:nth-child(2){position:relative;z-index:1;flex-wrap:wrap;gap:4px!important}
+.lg-reference .lg-balance>div:nth-child(2)>button{flex-shrink:0}
+.lg-reference .lg-balance>img{pointer-events:none}
+@media(max-height:650px){
+ .lg-reference .lg-wallet-main>[data-ledger-tray],.lg-reference .lg-cardpack-wrap{padding-top:12px!important}
+ .lg-reference .lg-balance{min-height:96px!important;margin-top:0!important;margin-bottom:4px!important}
+ .lg-reference .lg-bigkeys{margin-bottom:8px!important}
+ .lg-reference .lg-bigkeys [data-ledger-bigkey]{aspect-ratio:auto!important}
+ .lg-reference .lg-wallet-main>.lg-edge{display:none}
+ .lg-reference .lg-add-category{height:62px}
+ .lg-reference .lg-add-category .lg-cattile{width:38px!important;height:38px!important}
+ .lg-reference .lg-add-grid{gap:4px!important}
+ .lg-reference .lg-console{padding:4px 16px calc(env(safe-area-inset-bottom) * .4 + 4px)!important}
+ .lg-reference .lg-console [data-ledger-amount]{min-height:40px;margin-bottom:4px!important}
+ .lg-reference .lg-console input{min-height:32px!important;margin-bottom:4px!important}
+ .lg-reference .lg-entry-options{flex-wrap:nowrap!important;overflow-x:auto;min-height:34px}
+ .lg-reference .lg-entry-options>*{flex-shrink:0}
+}
 `;
   // 金额一律两位小数、负号在符号前面：-¥3,174.80，不是 ¥-3,174.8
   function fmtMoney(n, cur) {
@@ -1167,7 +1194,7 @@
   const HAND_ZH = "'Kaiti SC','STKaiti','KaiTi','Long Cang',cursive";
   const WIDE = "'Avenir Next','Futura','Century Gothic','Helvetica Neue',Arial,sans-serif";
   // 页边印着的一列小字（像机身上的丝印）
-  const edgeText = (lines, style) => h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", fontFamily: WIDE, fontSize: 7.5, letterSpacing: ".22em", lineHeight: 1.9, color: "rgba(92,92,130,.55)", pointerEvents: "none", whiteSpace: "pre" }, style) }, lines.join("\n"));
+  const edgeText = (lines, style) => h("div", { className: "lg-edge", "aria-hidden": "true", style: Object.assign({ position: "absolute", fontFamily: WIDE, fontSize: 7.5, letterSpacing: ".22em", lineHeight: 1.9, color: "rgba(92,92,130,.55)", pointerEvents: "none", whiteSpace: "pre" }, style) }, lines.join("\n"));
   // 银色链子 + 一只透明树脂兔子挂件
   function KeyChain({ style }) {
     return h("svg", { width: 44, height: 150, viewBox: "0 0 44 150", "aria-hidden": "true", style: Object.assign({ position: "absolute", overflow: "visible", pointerEvents: "none" }, style) },
@@ -1254,7 +1281,7 @@
       // 卡套图（1500×950）里那张卡：中心在 44.4% / 48.9%，宽 63%、高 58%，本身斜 -8 度
       return h("div", { "data-ledger-acctface": a.id, style: { position: "absolute", left: "12.9%", top: "19.9%", width: "63%", height: "58%", padding: "4.5% 6%", borderRadius: "7% / 11%", transform: "rotate(-8deg)", overflow: "hidden", boxSizing: "border-box",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
-          background: "radial-gradient(90% 60% at 20% 0%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%), linear-gradient(125deg, " + ty.tint + "33, " + ty.tint + "8c 55%, " + ty.tint + "40), #f7f6fc",
+          background: "#e9eafa", "--lg-acct-hue": ty.hue + "deg",
           boxShadow: "inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255,255,255,.8)" } },
         h("div", null, h("div", { style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: "#2b2c55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
           h("span", { style: { width: 12, height: 8, borderRadius: 2, background: ty.tint, flexShrink: 0 } }), a.name),
@@ -1287,7 +1314,7 @@
       h(Sparkle, { size: 11, style: { position: "absolute", left: 4, top: 470, zIndex: 3 } }),
       // 卡套 + 卡 + 链子兔子（原图）。加了账户就变成卡包：第一张还是这张总卡，往左滑是一张张账户卡，
       //   卡面同一张图、按类型换颜色（她 2026-09-29「3 可以」），卡上印名字和余额；信用卡印本期应还和还款日
-      accts.length ? h("div", { style: { position: "relative", paddingTop: 58 } },
+      accts.length ? h("div", { className: "lg-cardpack-wrap", style: { position: "relative", paddingTop: 58 } },
         h("div", { "data-ledger-cardpack": true, onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); if (i !== slide) setSlide(i); },
             style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } },
           [null].concat(accts).map((a, i) => h("div", { key: a ? a.id : "total", "data-ledger-tray": i === 0 ? true : undefined, "data-ledger-acctcard": a ? a.id : undefined, style: { flex: "0 0 100%", scrollSnapAlign: "center", position: "relative" } },
@@ -2183,7 +2210,7 @@
             amount ? h("button", { onClick: () => setAmount(""), "aria-label": "清空金额", className: "active:opacity-60", style: { width: 40, height: 40, color: "rgba(43,52,82,.5)", fontSize: 18 } }, "⊗") : null),
           h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注：这一笔是什么（可留空）", maxLength: 60,
             style: Object.assign({ width: "100%", minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, outline: "none", marginBottom: 8 }, (glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE }) : sk.well), { borderRadius: 12 }) }),
-          h("div", { style: { display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
+          h("div", { className: "lg-entry-options", style: { display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
             // 日期：一颗小胶囊，底下压着一个透明的原生日期框，点了照样弹系统日期
             h("label", { className: "lg-key flex items-center", style: jellyKey(sk, "clear", false, { position: "relative", minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub, borderRadius: 999 }) },
               date === todayStr() ? "今天" : fmtDay(date),
