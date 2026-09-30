@@ -637,6 +637,16 @@ function noteServedModel(profile, req, got) {
 //   · 网关／中转回的 502、503、504、过载、限流（请求没进模型）；
 //   · 回来的是一页 HTML（网关错误页），不是 JSON。
 // ⚠️超时、长时间没首字节被掐断【不重试】：那种可能已经在模型那边跑完、扣过钱了，再发就是双扣。
+//
+// ⚠️等多久要分两种（她 2026-09-30 拿一张公共版用户的截图来问：
+//   「（发送失败：system memory overloaded (current: 91.2%, threshold: 90%)）」）。
+//   那句是**中转站自己**说的：它那台机器内存 91.2%、超过自己定的 90% 保险线，
+//   所以请求根本没进模型。这一层当时已经重试过一次了——可它只等了 2 秒，
+//   而一台内存卡在 91% 的机器，2 秒根本降不下来，于是两次都撞在同一堵墙上。
+//   **连接抖一下** 2 秒够了（对面好着呢，只是这一下没接上）；
+//   **对面明说自己满了／限流** 是另一回事，要给它真的喘口气的时间。
+//   这一类被拒的请求没进模型、不扣钱，所以多试一次也不多花钱；
+//   代价只是失败时她多等十来秒才看到那行红字，比直接失败划算。
 async function callAI(p, system, messages, opts) {
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
@@ -644,20 +654,39 @@ async function callAI(p, system, messages, opts) {
   const TRANSIENT_ERR = /\b(502|503|504|520|521|522|523|524|529)\b|bad gateway|service unavailable|gateway time-?out|overloaded|too many requests|rate.?limit|temporarily unavailable|服务繁忙|负载|限流|unexpected token '?<|is not valid json|<!doctype|<html/i;
   // 配置问题（没填密钥、地址不对）不算「生成失败」要提醒的那种——后台活每分钟一次提醒只会刷屏
   const CONFIG_ERR = /尚未|没有可用的文字模型|地址填得不对|云端代理不可用|请到设置|去设置/;
+  // 光秃秃一句「开始。」当触发词（群友 2026-10-01 截图：「资产生成失败：解析失败：您好！本服务不支持
+  //   测活/连通性测试（如 Hi、Hello、ping 等测试消息）」）。有的中转站把整段请求里【只有一条两三个字的
+  //   user】当成测活拦掉，于是资料全在 system 里、真要干活的那一枪被当成 ping 了。
+  //   十几处都这么写（料全放 system、user 只留一句触发——那条规矩本身是对的），所以在这一处统一换成
+  //   一句说清要干什么的话；她在聊天里真打的字不是这张表里的，一个字都不碰。
+  // ⚠️这张表也写在函数里面，理由同上。
+  const BARE_TRIGGER = { "开始": 1, "开始。": 1, "开始吧": 1, "继续": 1, "继续。": 1, "重来一次。": 1, "重来": 1, "go": 1 };
+  if (Array.isArray(messages) && messages.length === 1 && messages[0] && messages[0].role === "user"
+    && typeof messages[0].content === "string" && BARE_TRIGGER[messages[0].content.trim()]) {
+    const again = /重来/.test(messages[0].content);
+    messages = [{ role: "user", content: again ? "上一次没能用上，请按上面的要求重新完整生成一次。" : "请按上面的要求开始生成，直接给出结果。" }];
+  }
   const t0 = Date.now();
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
   let streamed = false;
   const o = Object.assign({}, opts || {});
   if (typeof o.onDelta === "function") { const f = o.onDelta; o.onDelta = function () { streamed = true; return f.apply(this, arguments); }; }
+  // 对面明说「我满了／你太快了」的那几种：等得久一点，而且多给一次机会
+  const CAPACITY_ERR = /\b(429|503|529)\b|overloaded|too many requests|rate.?limit|service unavailable|temporarily unavailable|服务繁忙|负载|限流/i;
+  const BACKOFF_MS = { drop: [2000], capacity: [4000, 10000] };
   try {
     return await callAIOnce(p, system, messages, o);
   } catch (e) {
     const msg = String((e && e.message) || e || "");
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
-      await new Promise(r => setTimeout(r, 2000));
-      try { return await callAIOnce(p, system, messages, o); }
-      catch (e2) { e = e2; }
+      const waits = CAPACITY_ERR.test(msg) ? BACKOFF_MS.capacity : BACKOFF_MS.drop;
+      for (const wait of waits) {
+        await new Promise(r => setTimeout(r, wait));
+        if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
+        try { return await callAIOnce(p, system, messages, o); }
+        catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
+      }
     }
     // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
     const m2 = String((e && e.message) || e || "");
@@ -2965,8 +2994,13 @@ function loreKeywordHit(e, text) {
   // 正则模式：整条当一个正则（别按逗号切——{3,} 之类量词含逗号会被切坏）
   if (e.regex) { try { return new RegExp(kw, "i").test(t); } catch (_) { return false; } }
   // 普通模式：逗号/顿号/竖线分隔多个关键词，任一命中即可
-  const terms = kw.split(/[,，、|]/).map(s => s.trim()).filter(Boolean);
-  for (const term of terms) { if (t.toLowerCase().indexOf(term.toLowerCase()) >= 0) return true; }
+  // 全角半角不分（群友 2026-09-30 问「关键词有全半角的要求吗」）：两边都先 NFKC 再比——
+  //   ＡＢＣ↔ABC、１２３↔123、（↔(、全角空格↔半角空格都算同一个字。中文字本身不受影响。
+  //   ⚠️先切再归一：归一会把全角逗号变成半角逗号，顺序反过来也一样切得开，但先切更不容易出岔子。
+  const norm = x => { const y = String(x || ""); try { return y.normalize("NFKC").toLowerCase(); } catch (_) { return y.toLowerCase(); } };
+  const tn = norm(t);
+  const terms = kw.split(/[,，、|｜]/).map(s => s.trim()).filter(Boolean);
+  for (const term of terms) { const k = norm(term).trim(); if (k && tn.indexOf(k) >= 0) return true; }
   return false;
 }
 function selectLore(entries, opts) {
@@ -6194,11 +6228,28 @@ async function weatherFor(lat, lng) {
   try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
   return out;
 }
-function weatherLine(w) { return w && isFinite(w.t) ? wmoEmoji(w.dayCode != null ? w.dayCode : w.code) + wmoZh(w.dayCode != null ? w.dayCode : w.code) + "，现在 " + w.t + "°C（今天 " + w.lo + "~" + w.hi + "°）" : ""; }
+// 「现在」到底是什么天（群友 2026-09-30：「为啥地图老是说我这边下雨」）。
+// ⚠️Open-Meteo 的 daily weather_code 是【这一整天里最坏的那种】：一天里飘过一阵毛毛雨，整天都记成雨。
+//   原来四处都拿它当「现在的天气」——告诉角色的那一行、特殊天气判定、主屏小字、今日卡——
+//   于是只要当天哪个钟点有过雨，一整天都在「下雨」。现在「现在」一律按当前那一刻的 code，
+//   当天另有雨雪雷只当成一句「晚些可能有」补在后面，不冒充此刻。
+function wxNowCode(w) { return w ? (w.code != null ? w.code : w.dayCode) : null; }
+function wxWetKind(c) {
+  if (c == null) return "";
+  if (c >= 95) return "雷雨";
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "雪";
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return "雨";
+  return "";
+}
+function weatherLine(w) {
+  if (!w || !isFinite(w.t)) return "";
+  const now = wxNowCode(w), later = w.dayCode != null && !wxWetKind(now) ? wxWetKind(w.dayCode) : "";
+  return wmoEmoji(now) + wmoZh(now) + "，现在 " + w.t + "°C（今天 " + w.lo + "~" + w.hi + "°" + (later ? "，晚些可能有" + later : "") + "）";
+}
 // 特殊天气判定（给「角色对天气有反应」用）：雨/雪/雷雨/大雾/高温/严寒才算，晴阴多云返回 null
 function wxSpecial(w) {
   if (!w || !isFinite(w.t)) return null;
-  const c = w.dayCode != null ? w.dayCode : w.code;
+  const c = wxNowCode(w);
   if (c >= 95) return "雷雨";
   if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "下雪";
   if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return "下雨";
@@ -8181,7 +8232,7 @@ async function fetchLocalEnv() {
     if (rl && rl.kind === "world") {
       out.location = rl.label;
       const w = (typeof WorldWeather !== "undefined" && rl.node) ? WorldWeather.dayOf(rl.world.id + "|" + rl.node, rl.terrain, new Date()) : null;
-      if (w) out.weather = wmoToText(w.dayCode != null ? w.dayCode : w.code) + " " + Math.round(w.t) + "°C";
+      if (w) out.weather = wmoToText(wxNowCode(w)) + " " + Math.round(w.t) + "°C";
       return out;
     }
   } catch (e) {}
@@ -8580,15 +8631,72 @@ function geoSearch(q, near, signal) {
     .then(list => list.length ? list : om())
     .catch(e => { if (signal && signal.aborted) throw e; return om(); });
 }
-// 手填一个地名 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
+// 一长串地址往短里拆（群友 2026-09-30：「为什么定位老是显示没有我这个地方，我按照格式填写也没有」）。
+// 国内常连不上 OSM，退到 open-meteo 那一家，它只认一个个地名（南京、鼓楼区），不认「江苏省南京市鼓楼区××路」。
+// 所以查不到时按「省／市／区／县／镇」拆开，从最小那一级往大了一级级再问，问到为止。
+function geoQueryLadder(q) {
+  const name = String(q || "").replace(/\s+/g, "").trim();
+  const out = [name];
+  const parts = name.match(/[^省市区县镇旗州盟]+(?:省|市|区|县|镇|旗|州|盟)/g) || [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    out.push(p);
+    const bare = p.replace(/(?:省|市|区|县|镇|旗|盟)$/, "");
+    if (bare.length >= 2) out.push(bare);
+  }
+  return out.filter((x, i) => x && out.indexOf(x) === i);
+}
+// 退到小地名去问的时候，【她已经写明的那几级不许扔】（群友九里香 2026-09-30：
+//   「搜出来的城市和省份不对应」）。
+// ⚠️这正是「定位到江苏去了」那件事的真病根，v74.343 只治了一半：
+//   她输「福建省福州市鼓楼区」，整串两家都查不到，梯子退到「鼓楼区」再问——
+//   可「鼓楼区」全国有四个（南京、福州、开封、徐州），返回顺序里南京排第一。
+//   原来是闷头拿第一个（定位到江苏），v74.343 改成把四个列出来让她挑，
+//   但列表第一个还是南京——她明明已经打了「福州」「福建」，那两个词被整个丢掉了。
+// 所以：拿小地名问回来之后，用【她写过、但这一轮没拿去问】的那几级去对一遍，
+//   对得上的才留。对不上一个都没有时**全都留着**——给出口，不给判决
+//   （施工规则/bans-make-it-dumber）：她可能把省写错了，但那地方是真的。
+function geoRankByTyped(list, typed, term) {
+  const name = String(typed || "").replace(/\s+/g, "").trim();
+  const others = geoQueryLadder(name).filter(x => x !== name && x !== term && x.length >= 2);
+  if (!others.length) return list;
+  const scoreOf = c => {
+    const hay = String((c && (c.full || c.name)) || "");
+    return others.filter(o => hay.indexOf(o) >= 0).length;
+  };
+  const scored = list.map(c => ({ c: c, n: scoreOf(c) }));
+  const best = scored.reduce((m, x) => Math.max(m, x.n), 0);
+  if (!best) return list;                       // 一个都对不上：别替她做主，全列出来
+  return scored.filter(x => x.n === best).map(x => x.c);
+}
+// 地名 → 候选列表（去重）。一个都没有就返回 []；连不上抛错。
+async function geoCandidates(q, near) {
+  let lastErr = null;
+  for (const term of geoQueryLadder(q)) {
+    let hits = [];
+    try { hits = await geoSearch(term, near); } catch (e) { lastErr = e; continue; }
+    const ok = (hits || []).filter(x => typeof x.lat === "number" && !isNaN(x.lat));
+    const uniq = ok.filter((x, i) => !ok.slice(0, i).some(y => Math.abs(y.lat - x.lat) < 0.05 && Math.abs(y.lng - x.lng) < 0.05));
+    if (uniq.length) return geoRankByTyped(uniq, q, term).slice(0, 6);
+  }
+  if (lastErr) throw lastErr;
+  return [];
+}
+// 选定的那一个候选 → 一整份定位。坐标和标签【一起】换掉，缺一不可。
+async function geoFromPoint(p) {
+  return { lat: p.lat, lng: p.lng, label: await geoLabelOf(p.lat, p.lng), place: p.name, manual: true, ts: Date.now() };
+}
+// 手填一个地名 → 一整份定位。
+// ⚠️同名的地方不止一个时【不许替她挑】：原来闷头拿第一个，于是「定位到江苏去了」。
+//   多于一个就把候选交回去（choices），让界面列出来她自己点。
 async function geoFromPlace(q, near) {
   const name = String(q || "").trim();
   if (!name) return { error: "先写个地名" };
   let hits = [];
-  try { hits = await geoSearch(name, near); } catch (e) { return { error: "地名查询没连上，稍后再试" }; }
-  const p = (hits || []).find(x => typeof x.lat === "number" && !isNaN(x.lat));
-  if (!p) return { error: "查不到「" + name + "」这个地方" };
-  return { lat: p.lat, lng: p.lng, label: await geoLabelOf(p.lat, p.lng), place: p.name, manual: true, ts: Date.now() };
+  try { hits = await geoCandidates(name, near); } catch (e) { return { error: "地名查询没连上，稍后再试" }; }
+  if (!hits.length) return { error: "查不到「" + name + "」这个地方——试试只写城市名，比如「杭州」" };
+  if (hits.length > 1) return { choices: hits };
+  return geoFromPoint(hits[0]);
 }
 async function requestGeo() {
   return new Promise(resolve => {

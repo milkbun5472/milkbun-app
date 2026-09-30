@@ -86,3 +86,42 @@ test("退不出去就把保护装回去，不许留在没人管的状态", async
   assert.equal(typeof handler, "function", "保护没装回去，下一次侧滑会直接掉出去");
   assert.equal(win.history.state[win.BackGuard.MARK], 1, "哨兵没补回来");
 });
+
+// 她 2026-09-30：「右滑返回白屏然后回到主屏」——侧滑要退回【上一页】，不是一律回主屏
+test("侧滑退回上一页：记来处、返回键去栈顶就弹掉、到主屏清空、人没了就再往前", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const a = src.indexOf("  const navStackRef = useRef([]);"), b = src.indexOf("  const backRef = useRef(null);", a);
+  assert.ok(a > 0 && b > a, "抠不出退回上一页那一段");
+  const seg = src.slice(a, b);
+  const eff = seg.slice(seg.indexOf("useEffect(() => {") + "useEffect(() => {".length, seg.indexOf("}, [screen]);"));
+  const nb = seg.slice(seg.indexOf("const navBack = () => {"));
+  const W = { screen: "home", activeChar: null, activeGroup: null, went: [] };
+  const box = new Function("W", `
+    const useRef = v => ({ current: v });
+    let screen, activeChar, activeGroup;
+    const characters = [{ id: "c1" }, { id: "c2" }], groups = [{ id: "g1" }];
+    const setActiveChar = c => { W.activeChar = c; }, setActiveGroup = g => { W.activeGroup = g; };
+    const setScreen = s => { W.screen = s; W.went.push(s); };
+    const goHome = () => { W.screen = "home"; W.activeChar = null; W.went.push("home"); };
+    ${seg.slice(0, seg.indexOf("useEffect("))}
+    const effect = () => { screen = W.screen; activeChar = W.activeChar; activeGroup = W.activeGroup; ${eff} };
+    ${nb}
+    return { effect, back: () => { screen = W.screen; return navBack(); }, stack: navStackRef };`)(W);
+  const go = (s, c) => { W.screen = s; if (c !== undefined) W.activeChar = c; box.effect(); };
+  go("messages"); go("thread", { id: "c1" }); go("memlib");
+  assert.equal(box.back(), true); box.effect();
+  assert.equal(W.screen, "thread", "记忆库滑回来没回到刚才那个聊天");
+  assert.equal(W.activeChar.id, "c1");
+  assert.equal(box.back(), true); box.effect();
+  assert.equal(W.screen, "messages", "聊天滑回来没回到消息列表");
+  // 页面自己的返回键：去的正好是栈顶 → 弹掉，不再压一笔（不然会来回打转）
+  go("thread", { id: "c2" }); go("messages");
+  assert.deepEqual(box.stack.current.map(x => x.screen), ["home"], "点返回键又压了一笔，下一滑会回到刚离开的那一页");
+  // 到主屏就清空
+  go("home"); assert.equal(box.stack.current.length, 0);
+  // 那一页的人被删了：跳过它再往前
+  go("messages"); go("thread", { id: "c9" }); go("memlib");
+  box.back(); box.effect();
+  assert.equal(W.screen, "messages", "人没了还硬退回那个聊天");
+  assert.match(src, /if \(screen && screen !== "home"\) \{ if \(!navBack\(\)\) goHome\(\); return true; \}/);
+});

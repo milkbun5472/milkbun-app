@@ -338,6 +338,7 @@
       hooks: Object.freeze([
         ["chat", "聊天页整块背景"], ["body", "正文区背景"],
         ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
+        ["headme", "顶栏里她自己的头像（单聊；默认 display:none，写 display:inline-flex 打开就是双人头像）"],
         ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
         ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],

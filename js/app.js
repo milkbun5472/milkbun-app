@@ -211,7 +211,19 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
   const dragStart = useRef(null);
   const justDragged = useRef(false);
+  // 闲着就贴边藏一半（群友 2026-09-30：「不用时吸附到边边就显示半个比较好，它有点点占屏」）。
+  //   开着、拖着的时候整颗露出来；手一离开 3 秒就往边上缩进去一半。
+  //   藏着的那半颗照样点得开、拖得动——露出来的 23px 宽、46px 高，够一根手指。
+  const TUCK_MS = 3000;
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (open || drag) { setIdle(false); return; }
+    const tm = setTimeout(() => setIdle(true), TUCK_MS);
+    return () => clearTimeout(tm);
+  }, [open, drag, pos]);
+  const tucked = idle && !open && !drag;
   const onDown = e => {
+    setIdle(false);
     dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
   };
@@ -257,7 +269,8 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const side = pos ? pos.side : "right";
   const anchor = drag
     ? { left: drag.x - 23, top: drag.y - 23, right: "auto", flexDirection: "row-reverse" }
-    : Object.assign({ top: pos ? pos.top : "42%" }, side === "left" ? { left: 12, flexDirection: "row-reverse" } : { right: 12 });
+    : Object.assign({ top: pos ? pos.top : "42%", transition: "left .28s ease, right .28s ease, opacity .28s ease", opacity: tucked ? .82 : 1 },
+        side === "left" ? { left: tucked ? -23 : 12, flexDirection: "row-reverse" } : { right: tucked ? -23 : 12 });
   // ⚠️她 2026-09-05 报的那个：「有很多 api 的时候点开会跳到屏幕下面然后关不掉，
   //   得关掉 app 重开」。病根有两层，两层都得治：
   //   ① 这一行原来是 flex + alignItems:center，而【面板是它的兄弟】：
@@ -8563,13 +8576,51 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 所以不接的话一滑就是整个退出去——正在打的字和刚发出去那一轮全没了。
   // ⚠️处理器要读到【当前这一渲染】的状态，所以挂在 ref 上每轮重写；
   //   useEffect 只注册一次，不然每次 setState 都要注销再注册一遍。
+  // ── 侧滑退回【上一页】，不是一律回主屏（她 2026-09-30：「白屏然后回到主屏」）──
+  // 每次换屏记一笔「从哪儿来的」（连着当时开着的是哪个人／哪个群），侧滑就弹一笔回去。
+  // ⚠️页面自己的返回键也是 setScreen：去的正好是栈顶那一页，就当成「退回去」弹掉，
+  //   不再压一笔——不然 A→B、点返回回 A，再一滑又回到 B，来回打转。
+  // ⚠️到了主屏就清空：主屏是根，再往回没有意义，也免得栈越攒越长。
+  const navStackRef = useRef([]);
+  const navLastRef = useRef({ screen: "home", charId: null, groupId: null });
+  const navPoppingRef = useRef(false);
+  useEffect(() => {
+    const prev = navLastRef.current;
+    const cur = { screen, charId: activeChar ? activeChar.id : null, groupId: activeGroup ? activeGroup.id : null };
+    navLastRef.current = cur;
+    if (prev.screen === cur.screen) return;
+    const st = navStackRef.current;
+    if (navPoppingRef.current) navPoppingRef.current = false;
+    else if (st.length && st[st.length - 1].screen === cur.screen) st.pop();
+    else { st.push(prev); if (st.length > 30) st.shift(); }
+    if (cur.screen === "home") navStackRef.current = [];
+    // eslint-disable-next-line
+  }, [screen]);
+  // 退回上一页：那一页当时开着的人／群还在才回得去，不在了（删了）就再往前找一页
+  const navBack = () => {
+    const st = navStackRef.current;
+    while (st.length) {
+      const to = st.pop();
+      if (!to || to.screen === screen) continue;
+      const c = to.charId ? (characters || []).find(x => x && x.id === to.charId) : null;
+      const g = to.groupId ? (groups || []).find(x => x && x.id === to.groupId) : null;
+      if ((to.charId && !c) || (to.groupId && !g)) continue;
+      if (to.screen === "home") { goHome(); return true; }
+      navPoppingRef.current = true;
+      if (c) setActiveChar(c);
+      if (g) setActiveGroup(g);
+      setScreen(to.screen);
+      return true;
+    }
+    return false;
+  };
   const backRef = useRef(null);
   backRef.current = () => {
     if (stateCardOpen) { setStateCardOpen(false); return true; }
     if (offlineChar || offlineGroup) { setOfflineChar(null); setOfflineGroup(null); return true; }
     if (editingChar) { setEditingChar(null); return true; }
     if (screen === "calendar" && calReturnRef.current) { leaveCalendar(); return true; }
-    if (screen && screen !== "home") { goHome(); return true; }
+    if (screen && screen !== "home") { if (!navBack()) goHome(); return true; }
     return false;   // 已经在主屏了：交回给 BackGuard，再滑一次才真退出
   };
   useEffect(() => {
@@ -17547,18 +17598,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const hit = (characters || []).find(c => c && (norm(c.name) === raw || norm(c.remark) === raw));
     return hit ? (hit.remark || hit.name) : raw;   // 认不出来（旁人、NPC、路人）就原样留着
   };
-  const commentMoment = async (id, text, replyTo) => {
+  // 朋友圈评论区那套回复逻辑，只此一份。
+  // 她 2026-09-29 要「朋友圈也能 AI 补评论、像论坛那样刷更多」，并且点明：
+  //   **「现在生成的回复逻辑就很好，回复就是继续这个逻辑」** ——
+  // 所以这儿没有另写一套生成器，而是把原来 commentMoment 的函数体原样抽出来共用
+  //   （施工规则/one-public-mechanism：同一个形状要出现第二处时，先开公共的）。
+  // 两个调用方的唯一差别是 more：
+  //   more=false —— 我刚在下面评论/回复了某人，角色回我（原来就有的那一档，逻辑未改）
+  //   more=true  —— 我什么都没说，只是想看这条下面再多几条（刷更多评论）
+  // ⚠️朋友圈没有路人（她同日）：roster 一直是【跟发帖人真有关系的角色】算出来的，
+  //   两档共用同一份名单，more 那档还在提示里把「不许出现名单外的人」写明。
+  const momentReplies = async (mom, opts) => {
+    const o = opts || {};
+    const more = !!o.more, text = o.text || "", replyTo = o.replyTo || null;
     const meName0 = profile.name || "我";
-    // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
-    const storedText = replyTo ? "回复 " + replyTo + "：" + text : text;
-    pMom(p => p.map(m => m.id === id ? {
-      ...m,
-      comments: [...(m.comments || []), {
-        author: meName0,
-        text: storedText
-      }]
-    } : m));
-    const mom = moments.find(m => m.id === id);
     if (!active || !mom) return;
     const author = characters.find(c => c.id === mom.characterId);
     const isMine = !author && mom.mine;
@@ -17601,11 +17654,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const scene = author
         ? "这是「" + author.name + "」发的朋友圈：「" + mom.content + "」。"
         : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。";
-      const lastLine = replyTo
+      // ⚠️这三句是她 2026-09-29 之前就有的那一档，一个字没改。
+      //   多出来的 more 那一支是【没有用户新评论】时走的：刷更多评论。
+      const lastLine = more
+        ? ""
+        : (replyTo
         ? "刚回复了「" + replyTo + "」的评论：「" + text + "」——**这句主要是对「" + replyTo + "」说的，TA 必须回**，别人看情况插不插话。"
-        : (thread ? "刚又追评了：「" + text + "」。" : "刚在下面评论了：「" + text + "」。");
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}";
-      const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
+        : (thread ? "刚又追评了：「" + text + "」。" : "刚在下面评论了：「" + text + "」。"));
+      // 刷更多评论：没有「用户刚说了什么」，就是这条动态下面又有共友来说话了。
+      // 她 2026-09-29 点明两条：**只能是共友**（roster 已经是「跟发帖人真有关系的角色」，
+      // 不掷路人 NPC），而且回复对象只有两种——回这条动态本身，或回上面某位共友的评论。
+      const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.join("、")
+        + "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**"
+        + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
+        + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。";
+      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}");
+      const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
       let reps = [];
@@ -17615,9 +17679,44 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
       if (!reps.length) reps = [{ author: fbAuthor, text: fallbackText() }]; // 保底
-      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: "回复 " + meName + "：" + r.text }] } : m)), 400 + i * 600));
+      // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
+      // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
+      const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
+      const prefixFor = r => {
+        if (!more) return "回复 " + meName + "：";
+        const to = momentWho(r.replyTo);
+        return to && to !== momentWho(r.author) && inThreadNames.includes(to) ? "回复 " + to + "：" : "";
+      };
+      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: prefixFor(r) + r.text }] } : m)), 400 + i * 600));
     } catch (e) {
-      setTimeout(() => pMom(p => p.map(m => m.id === id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
+      if (more) return;   // 刷更多失败就是这一轮没人说话，不许伪造一条「回复我」
+      setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
+    }
+  };
+  const commentMoment = async (id, text, replyTo) => {
+    const meName0 = profile.name || "我";
+    // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
+    const storedText = replyTo ? "回复 " + replyTo + "：" + text : text;
+    pMom(p => p.map(m => m.id === id ? {
+      ...m,
+      comments: [...(m.comments || []), {
+        author: meName0,
+        text: storedText
+      }]
+    } : m));
+    await momentReplies(moments.find(m => m.id === id), { text, replyTo });
+  };
+  // 「↻ 更多评论」：同一条动态下再来一轮共友的话。重复点不叠发（进行中锁）。
+  const momentMoreInflight = useRef({});
+  const genMoreMomentComments = async id => {
+    const mom = moments.find(m => m.id === id);
+    if (!mom || momentMoreInflight.current[id]) return;
+    momentMoreInflight.current[id] = true;
+    setGen(g => ({ ...g, momentMore: id }));
+    try { await momentReplies(mom, { more: true }); }
+    finally {
+      momentMoreInflight.current[id] = false;
+      setGen(g => ({ ...g, momentMore: g.momentMore === id ? null : g.momentMore }));
     }
   };
   // 我发一条朋友圈（可带图描述、可选可见范围）
@@ -21129,7 +21228,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const c = (content || "").trim();
     if (!c) return;
     let wline = "";
-    try { const g = realGeo(); const w = g ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(w.dayCode != null ? w.dayCode : w.code) + " " + w.t + "°C"; } catch (e) {}
+    try { const g = realGeo(); const w = g ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(wxNowCode(w)) + " " + w.t + "°C"; } catch (e) {}
     const due = Date.now() + (4 + Math.random() * 56) * 3600000; // TA 4~60 小时内挑个时候回（三天内）
     saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: char.id, author: "user", content: c, mood: (moodWord || "").trim(), weather: wline, date: ymd(new Date()), ts: Date.now(), dueTs: due, replied: false }, ...p]);
     toast("写好了，TA 这几天会回你一页");
@@ -23253,6 +23352,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const near = geo && typeof geo.lat === "number" ? [geo.lat, geo.lng] : null;
     const g = await geoFromPlace(name, near);
     if (g.error) { toast(g.error); return; }
+    // 同名的不止一个：交回界面列出来让她挑（返回候选），不替她拿第一个
+    if (g.choices) { toast("找到 " + g.choices.length + " 个同名的地方，挑一个"); return g.choices; }
+    setGeo(g);
+    saveJSON("x_geo", g);
+    toast("现在你在：" + g.label);
+  };
+  const doSetGeoPoint = async pt => {
+    if (!pt) return;
+    const g = await geoFromPoint(pt);
     setGeo(g);
     saveJSON("x_geo", g);
     toast("现在你在：" + g.label);
@@ -23780,6 +23888,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     genMoment: gen.moment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
+    onMoreMomentComments: genMoreMomentComments,
+    momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
     onOpenMomProfile: openMomProfile,
     onEditProfile: () => setProfileOpen(true),
@@ -25497,6 +25607,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     geo: geo,
     onRequestGeo: doRequestGeo,
     onSetGeoPlace: doSetGeoPlace,
+    onSetGeoPoint: doSetGeoPoint,
     worlds: worlds,
     onBack: goHome,
     onExport: doExport,

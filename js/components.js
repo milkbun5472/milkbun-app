@@ -7162,6 +7162,8 @@ function Messages({
   genMoment,
   onLikeMoment,
   onCommentMoment,
+  onMoreMomentComments,
+  momentMoreBusy,
   onDelMoment,
   onOpenMomProfile,
   onEditProfile,
@@ -7386,6 +7388,8 @@ function Messages({
     gen: genMoment,
     onLike: onLikeMoment,
     onComment: onCommentMoment,
+    onMore: onMoreMomentComments,
+    moreBusy: momentMoreBusy,
     onDelete: onDelMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false)
   }), tab === "me" && h("div", {
@@ -7861,6 +7865,8 @@ function MomentsFeed({
   gen,
   onLike,
   onComment,
+  onMore,
+  moreBusy,
   onDelete,
   onOpenProfile
 }) {
@@ -8084,7 +8090,16 @@ function MomentsFeed({
       style: {
         color: t.sub
       }
-    }, "：", cm.text)))), commenting === m.id && /*#__PURE__*/React.createElement("div", {
+    }, "：", cm.text)))), onMore && /*#__PURE__*/React.createElement("button", {
+      onClick: () => moreBusy !== m.id && onMore(m.id),
+      disabled: moreBusy === m.id,
+      className: "mt-2 active:opacity-60",
+      style: {
+        fontFamily: F_BODY,
+        fontSize: 11.5,
+        color: moreBusy === m.id ? t.fog : t.tint
+      }
+    }, moreBusy === m.id ? "更多评论生成中…" : "↻ 更多评论"), commenting === m.id && /*#__PURE__*/React.createElement("div", {
       className: "mt-2 flex gap-2"
     }, /*#__PURE__*/React.createElement("input", {
       value: cText,
@@ -8791,7 +8806,12 @@ function ChatThread({
     character: character,
     size: 36,
     radius: 9
-  }), /*#__PURE__*/React.createElement("div", {
+  }),
+  // 顶栏里她自己那颗头像：默认藏着，只给主题 CSS 当挂点（群友 2026-09-30：「想搞个双人头像一直不给我生」）。
+  //   CSS 造不出一张图——没有这一颗，秋秋写什么选择器都拼不出「两个人的头像」。
+  //   主题里写 [data-wk="headme"] { display: inline-flex !important; } 就出来了，位置随她摆。
+  h("span", { "data-wk": "headme", style: { display: "none" } }, h(Avatar, { character: meAv, size: 36, radius: 9 })),
+  /*#__PURE__*/React.createElement("div", {
     className: "text-left"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1",
