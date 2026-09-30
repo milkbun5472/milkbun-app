@@ -15545,10 +15545,19 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     h(Slider, { value: val, min: min, max: max, step: step, onChange: set }));
 
   // 一个框：一类设置装一格，框里原来那些行一个字没改（跟单聊设置那叠卡片同一个分寸：底 t.bg2、一道细边）
-  const gCard = (title, note, ...kids) => h("div", { style: { marginTop: 14, padding: "12px 14px 16px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title),
-    note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, note) : null,
-    ...kids);
+  // 平时只露一行标题，点开才展开（她 2026-09-30：「平时一个 title 点开才展开」）——一次只开一格，跟单聊设置那叠一样
+  const [gOpen, setGOpen] = useState("");
+  const gCard = (title, note, ...kids) => {
+    const on = gOpen === title;
+    return h("div", { style: { marginTop: 10, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden" } },
+      h("button", { onClick: () => setGOpen(on ? "" : title), className: "w-full flex items-center justify-between active:opacity-70",
+        style: { minHeight: 52, padding: "0 14px", textAlign: "left" } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, display: "inline-block", transition: "transform .2s", transform: on ? "rotate(90deg)" : "none" } }, "›")),
+      on ? h("div", { style: { padding: "0 14px 16px" } },
+        note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55 } }, note) : null,
+        ...kids) : null);
+  };
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),

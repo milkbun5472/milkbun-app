@@ -106,3 +106,9 @@ test("气泡透明度只淡底色：纯色、rgb、渐变都吃得住；100 原�
   assert.match(comp, /numRow\("我的气泡不透明度 %", "myAlpha", 0, 100, 100\)/);
   assert.match(comp, /BUBBLE_SHADOWS\.map/);
 });
+
+test("群聊设置那几个框平时只露标题，点开才展开", () => {
+  const g = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("\nfunction NewGroupSheet"));
+  assert.match(g, /const \[gOpen, setGOpen\] = useState\(""\);/);
+  assert.match(g, /on \? h\("div", \{ style: \{ padding: "0 14px 16px" \} \}/);
+});
