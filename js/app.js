@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.395";
+const APP_VERSION = "v74.396";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9722,7 +9722,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const seenField = _seenMsg ? photoSeenField(_seenAvatarOk)
         : (_seenAvatarOk ? ",\"photoSeen\":{\"avatar\":false}" : "");
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
-      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise"];
+      const openCaps = ["silent", "quote", "语音（写进 word 原位）", "transfer", "location", "gift", "takeout", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
       // ⚠️这一段【必须排在 capState 声明之后】：v69.30 我把它写在上面那个
       //   photoSeen 块里，而 capState 是 const，于是每次走到这儿都是
@@ -10476,6 +10476,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   ⚠️放在最前面：后面那几道都按字符串处理，对象进去会变成 [object Object]。
       let _inlineVoice = [];
       if (typeof markPauseVoice === "function") { const _pv = markPauseVoice(words); words = _pv.words.filter(w => String(w).trim()); _inlineVoice = _pv.voice.map(v => typeof v === "object" ? { ...v, sent: false } : { t: v, sent: false }); }
+      // 单独那一栏 voice 已经取消（她 2026-09-30：「取消掉语音那条，不喜欢在最下面」）。
+      //   模型要是还照老习惯交回来，不丢、也不排到最后：插在第一句后面（「说一句→发条语音」最常见）。
+      if (Array.isArray(parsed.voice) && parsed.voice.length && typeof voiceSlotOf === "function") {
+        const _old = parsed.voice.map(x => typeof x === "object" && x ? { t: String(x.t || x.text || "").trim(), emo: x.emo } : { t: String(x || "").trim() })
+          .filter(v => v.t && v.t.toLowerCase() !== "null");
+        const _slots = _old.map(v => { _inlineVoice.push({ ...v, sent: false }); return "\uE000V" + (_inlineVoice.length - 1) + "\uE000"; });
+        words = words.slice(0, 1).concat(_slots, words.slice(1));
+        parsed.voice = [];
+      }
       // 模型改用【它自己那套函数调用语法】交这几栏（2026-09-28 她转来的截图：气泡里一行行
       // 冒出 <invoke name="mood">、<parameter name="label">嘴硬</parameter>）：先把标记从正文里
       // 捞干净，能还原的字段顺手补上——和下面照片那一刀同一个形状，也放在同一处。
@@ -10834,8 +10843,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
       }
       // TA 发语音消息（显示成语音气泡+转文字）。v48.31：元素兼容两代形态——"转文字" 或 {t, emo}（emo=作者标的语气，TTS 优先用它）
-      const vArr = (Array.isArray(parsed.voice) ? parsed.voice.filter(x => x && String(typeof x === "object" ? x.t : x).toLowerCase() !== "null") : [])
-        .concat(_inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t })));
+      // 只剩就地没发出去的（被中间哪一道弄丢了占位）才补在这儿，平常是空的
+      const vArr = _inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t, emo: v.emo }));
       for (let i = 0; i < vArr.length; i++) {
         await new Promise(r => setTimeout(r, 420));
         const raw = vArr[i];

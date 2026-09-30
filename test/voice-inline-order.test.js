@@ -12,7 +12,10 @@ test("夹在文字中间的语音留在原位，不再掉到最后", () => {
   assert.deepStrictEqual(r.voice, []);
   // 单聊发气泡那一圈就地发语音；没发出去的补在最后
   assert.ok(app.includes("const _slot = typeof voiceSlotOf === \"function\" ? voiceSlotOf(words[i]) : null;"));
-  assert.ok(app.includes(".concat(_inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t })))"));
+  // 单独那一栏 voice 取消：老习惯交回来的插在第一句后面，不排最后（v74.396）
+  assert.ok(app.includes("words = words.slice(0, 1).concat(_slots, words.slice(1));"));
+  assert.ok(app.includes("const vArr = _inlineVoice.filter(v => !v.sent)"));
+  assert.ok(!/const openCaps = \[[^\]]*"voice"/.test(app));
   assert.ok(!app.includes("pullPauseVoice(words); if (_pv.voice.length) { words = _pv.words"));
 });
 test("word 里明着写的 {voice} 和「[语音]」也就地发；提示词教的是写进 word", () => {
