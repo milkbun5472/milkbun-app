@@ -21,9 +21,18 @@ const back=async()=>page.locator('#ledger-test [data-watch=back]:visible').last(
 const root=page.locator('#ledger-test');
 const layout=async()=>{
  const d=await root.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,bar:el.querySelector('[data-ledger-tabbar]').getBoundingClientRect().height}));
- assert.ok(d.scroll<=d.width+1,'no horizontal page overflow');assert.ok(d.bar>=54&&d.bar<=68,'compact bottom navigation');
+ assert.ok(d.scroll<=d.width+1,'no horizontal page overflow');assert.ok(d.bar>=54&&d.bar<=60,'compact bottom navigation');
+ const nav=root.locator('[data-ledger-tabbar]');
+ for(const label of ['钱包','统计','日历','我的']){
+  const button=nav.getByRole('button',{name:label,exact:true});const box=await button.boundingBox();
+  assert.ok(box.height>=40&&box.y+box.height<=page.viewportSize().height,'navigation tap target stays on screen');
+  await button.click();assert.equal(await button.getAttribute('aria-current'),'page');
+  assert.equal(await nav.locator('[aria-current=page]').count(),1,'one active navigation key');
+ }
+ await nav.getByRole('button',{name:'钱包',exact:true}).click();
 };
 await layout();assert.equal(await root.locator('[data-ledger-balance]').innerText(),'¥2,847.50');await snap('wallet');
+await root.locator('[data-ledger-tabbar]').screenshot({path:path.join(out,'navigation.png')});
 await root.getByRole('button',{name:'藏起金额',exact:true}).click();assert.match(await root.locator('[data-ledger-balance]').innerText(),/\*{4}/);
 await root.getByRole('button',{name:'显示金额',exact:true}).click();
 await root.getByRole('button',{name:'记一笔',exact:true}).click();await root.getByRole('button',{name:'餐饮',exact:true}).click();

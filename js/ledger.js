@@ -708,7 +708,14 @@
 .lg-reference .lg-bigkeys{gap:11px!important;margin-bottom:20px!important}
 .lg-reference [data-ledger-bigkey]{aspect-ratio:1/1.08!important;max-height:113px!important;border-radius:19px!important}
 .lg-reference [data-ledger-wallet-budget]{margin-bottom:16px!important}
+.lg-reference [data-ledger-tabbar]{position:relative;isolation:isolate;background:transparent!important;border:0!important;box-shadow:0 4px 12px rgba(110,112,160,.12)!important;padding:4px 8px!important;gap:6px}
+.lg-reference [data-ledger-tabbar] button{position:relative;isolation:isolate;min-width:0;min-height:50px!important;border-radius:12px;background:rgba(235,232,250,.16);transition:transform .15s,background .15s}
+.lg-reference [data-ledger-tabbar] button[aria-current=page]{transform:translateY(-2px);background:rgba(228,214,249,.5)}
+.lg-reference [data-ledger-tabbar] button::before{opacity:.4}
+.lg-reference [data-ledger-tabbar] button[aria-current=page]::before{opacity:1}
 .lg-reference [data-ledger-tabbar] button>span:first-child{background:transparent!important;box-shadow:none!important}
+.lg-reference [data-ledger-tabbar] button>span:first-child::before{content:none}
+.lg-reference [data-ledger-tabbar] svg{fill:rgba(197,185,236,.35);stroke:#8980ae;filter:drop-shadow(0 1px 0 rgba(255,255,255,.9))}
 .lg-reference [data-ledger-tabbar] button[aria-current=page] svg{fill:#b4a2ec;stroke:#494579}
 .lg-reference .lg-segment{gap:0!important;height:42px;border-radius:21px}
 .lg-reference .lg-segment button{min-height:36px!important;border-radius:16px!important;font-size:13px!important}
@@ -746,7 +753,10 @@
 .lg-reference [data-ledger-monthnav],.lg-reference .lg-rail{background:none!important;isolation:isolate;position:relative}
 .lg-reference [data-ledger-monthnav]::before,.lg-reference .lg-rail::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:url(assets/ledger/rail.webp?v=259) center/100% 100% no-repeat;clip-path:inset(2% 0 5% round 999px)}
 .lg-reference .lg-add-category .lg-cattile,.lg-reference .lg-number-key{position:relative;isolation:isolate;background:rgba(243,240,255,.18)!important;border:0!important;box-shadow:none!important;border-radius:13px!important}
-.lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference [data-ledger-done]::before{content:'';position:absolute;inset:0;height:auto;background:none;z-index:-1;pointer-events:none;border:9px solid transparent;border-image:url(assets/ledger/panel.webp?v=259) 120 fill / 9px / 0 stretch;opacity:.8}
+.lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference [data-ledger-done]::before,.lg-reference [data-ledger-tabbar]::before,.lg-reference [data-ledger-tabbar] button::before{content:'';position:absolute;inset:0;height:auto;background:none;z-index:-1;pointer-events:none;border:9px solid transparent;border-image:url(assets/ledger/panel.webp?v=259) 120 fill / 9px / 0 stretch}
+.lg-reference .lg-add-category .lg-cattile::before,.lg-reference .lg-number-key::before,.lg-reference [data-ledger-done]::before{opacity:.8}
+.lg-reference [data-ledger-tabbar]::before{border-image-width:12px;opacity:.8}
+.lg-reference [data-ledger-tabbar] button::before{border-image-width:7px}
 .lg-reference .lg-add-category[aria-pressed=true] .lg-cattile{background:rgba(249,188,217,.4)!important;box-shadow:0 0 0 1px #e6a9c8!important}
 .lg-reference [data-ledger-acctface]{isolation:isolate}
 .lg-reference [data-ledger-acctface]::before{content:'';position:absolute;inset:-8px;z-index:-1;pointer-events:none;background:url(assets/ledger/card.webp?v=290) 44% 40%/500% 400%;filter:blur(5px) hue-rotate(var(--lg-acct-hue,0deg));opacity:.95}
