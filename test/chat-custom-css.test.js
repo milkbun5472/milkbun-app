@@ -92,7 +92,9 @@ test("头像框 / 挂件也能直接贴网上的图片地址", () => {
 
 test("群聊设置分成六个框，原来那些行都还在", () => {
   const g = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("\nfunction NewGroupSheet"));
-  ["群名 · 成员", "记忆互通 · 他们自己聊", "怎么相处", "这个群长什么样", "记忆库 · 群规矩", "清掉"].forEach(x => assert.ok(g.includes('gCard("' + x + '"'), x));
+  ["群名 · 成员", "记忆互通 · 他们自己聊", "怎么相处", "这个群长什么样", "记忆库 · 群规矩", "清掉"].forEach(x => assert.ok(g.includes('gCard({ title: "' + x + '"'), x));
+  // 长相跟单聊那叠卡一样：汉字索引牌 + 一行状态
+  assert.match(g, /meta\.char\),/); assert.match(g, /meta\.state\)\),/);
   ["记忆互通", "群里自己聊起来", "默认进线下", "记忆上下文条数", "群聊背景", "清除聊天记录", "删除群聊"].forEach(x => assert.ok(g.includes(x), "丢了：" + x));
 });
 
@@ -110,5 +112,5 @@ test("气泡透明度只淡底色：纯色、rgb、渐变都吃得住；100 原�
 test("群聊设置那几个框平时只露标题，点开才展开", () => {
   const g = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("\nfunction NewGroupSheet"));
   assert.match(g, /const \[gOpen, setGOpen\] = useState\(""\);/);
-  assert.match(g, /on \? h\("div", \{ style: \{ padding: "0 14px 16px" \} \}/);
+  assert.match(g, /on \? h\("div", \{ style: \{ padding: "0 14px 16px"/);
 });
