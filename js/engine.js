@@ -637,6 +637,16 @@ function noteServedModel(profile, req, got) {
 //   · 网关／中转回的 502、503、504、过载、限流（请求没进模型）；
 //   · 回来的是一页 HTML（网关错误页），不是 JSON。
 // ⚠️超时、长时间没首字节被掐断【不重试】：那种可能已经在模型那边跑完、扣过钱了，再发就是双扣。
+//
+// ⚠️等多久要分两种（她 2026-09-30 拿一张公共版用户的截图来问：
+//   「（发送失败：system memory overloaded (current: 91.2%, threshold: 90%)）」）。
+//   那句是**中转站自己**说的：它那台机器内存 91.2%、超过自己定的 90% 保险线，
+//   所以请求根本没进模型。这一层当时已经重试过一次了——可它只等了 2 秒，
+//   而一台内存卡在 91% 的机器，2 秒根本降不下来，于是两次都撞在同一堵墙上。
+//   **连接抖一下** 2 秒够了（对面好着呢，只是这一下没接上）；
+//   **对面明说自己满了／限流** 是另一回事，要给它真的喘口气的时间。
+//   这一类被拒的请求没进模型、不扣钱，所以多试一次也不多花钱；
+//   代价只是失败时她多等十来秒才看到那行红字，比直接失败划算。
 async function callAI(p, system, messages, opts) {
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
@@ -649,15 +659,22 @@ async function callAI(p, system, messages, opts) {
   let streamed = false;
   const o = Object.assign({}, opts || {});
   if (typeof o.onDelta === "function") { const f = o.onDelta; o.onDelta = function () { streamed = true; return f.apply(this, arguments); }; }
+  // 对面明说「我满了／你太快了」的那几种：等得久一点，而且多给一次机会
+  const CAPACITY_ERR = /\b(429|503|529)\b|overloaded|too many requests|rate.?limit|service unavailable|temporarily unavailable|服务繁忙|负载|限流/i;
+  const BACKOFF_MS = { drop: [2000], capacity: [4000, 10000] };
   try {
     return await callAIOnce(p, system, messages, o);
   } catch (e) {
     const msg = String((e && e.message) || e || "");
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
-      await new Promise(r => setTimeout(r, 2000));
-      try { return await callAIOnce(p, system, messages, o); }
-      catch (e2) { e = e2; }
+      const waits = CAPACITY_ERR.test(msg) ? BACKOFF_MS.capacity : BACKOFF_MS.drop;
+      for (const wait of waits) {
+        await new Promise(r => setTimeout(r, wait));
+        if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
+        try { return await callAIOnce(p, system, messages, o); }
+        catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
+      }
     }
     // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
     const m2 = String((e && e.message) || e || "");
