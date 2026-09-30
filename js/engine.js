@@ -7868,6 +7868,33 @@ function sanitizeBubblePatch(obj) {
   };
   if (obj.radius != null) num("radius", 0, 30);
   if (obj.stickerSize != null) num("stickerSize", 32, 72);
+  // 气泡不透明度（v74.329）：只淡底色、不淡字，0~100
+  if (obj.myAlpha != null) num("myAlpha", 0, 100);
+  if (obj.charAlpha != null) num("charAlpha", 0, 100);
+  return Object.keys(out).length ? out : null;
+}
+// 这个聊天窗的排版开关（秋秋改的时候走这一道洗）：只收设置页那几档，别的一律丢。
+//   头像框/挂件的图只认 https 地址或现状里已有的 iv_ 门牌——模型编不出能用的门牌，编了也会被这里挡掉。
+function sanitizeChatLayoutPatch(obj, knownRefs) {
+  if (!obj || typeof obj !== "object") return null;
+  const out = {}, pick = (k, list) => { if (obj[k] != null && list.indexOf(obj[k]) >= 0) out[k] = obj[k]; };
+  pick("bubble", ["bubble", "plain"]); pick("avatar", ["all", "first", "none"]); pick("time", ["show", "hide"]); pick("gap", ["normal", "tight", "loose"]);
+  if (obj.name != null) out.name = !!obj.name;
+  if (obj.top != null && Number.isFinite(Number(obj.top))) out.top = Math.max(0, Math.min(240, Math.round(Number(obj.top))));
+  const okImg = v => v === "" || /^https?:\/\/[^\s"'()<>]+$/i.test(String(v)) || (/^iv_[A-Za-z0-9_-]+$/.test(String(v)) && (knownRefs || []).indexOf(String(v)) >= 0);
+  if (obj.deco && typeof obj.deco === "object") {
+    const deco = {};
+    ["ta", "me"].forEach(k => {
+      const d = obj.deco[k]; if (!d || typeof d !== "object") return;
+      const o = {};
+      ["frame", "pend"].forEach(f => { if (d[f] != null && okImg(d[f])) o[f] = String(d[f]); });
+      if (Number.isFinite(Number(d.frameSize))) o.frameSize = Math.max(100, Math.min(200, Math.round(Number(d.frameSize))));
+      if (Number.isFinite(Number(d.pendSize))) o.pendSize = Math.max(20, Math.min(100, Math.round(Number(d.pendSize))));
+      if (["br", "bl", "tr", "tl"].indexOf(d.pendPos) >= 0) o.pendPos = d.pendPos;
+      if (Object.keys(o).length) deco[k] = o;
+    });
+    if (Object.keys(deco).length) out.deco = deco;
+  }
   return Object.keys(out).length ? out : null;
 }
 // OOC 改旧准则（群里有人报 2026-09-28：「OOC 里让它改东西，它只会无限叠加，改不了之前的准则」）。

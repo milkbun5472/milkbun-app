@@ -1,0 +1,29 @@
+// 秋秋能改这一个人聊天窗的 CSS 和排版（她 2026-09-30：「如果我跟它提我要啥，所有挂点它都能改了吧」）
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+const asst = R("js/assistant.js"), eng = R("js/engine.js"), app = R("js/app.js");
+
+test("两个新写入口：chatcss 走 ThemeStudio 洗、chatlayout 走公共那道洗；app 两处都接上", () => {
+  assert.match(asst, /chatcss: \{/);
+  assert.match(asst, /const bad = ts\.unsafeReason\(css\); if \(bad\) throw new Error\(bad\);/);
+  assert.match(asst, /ctx\.onPatchChatSetting\(id, \{ customCSS: css \}\)/);
+  assert.match(asst, /chatlayout: \{/);
+  assert.match(asst, /sanitizeChatLayoutPatch\(obj, known\)/);
+  assert.equal((app.match(/onPatchChatSetting: \(charId, patch\) => patchChatSetting\(charId, patch\)/g) || []).length, 2);
+  assert.match(asst, /p\.target === "chatlayout"\) throw new Error\("排版这一栏要整份给/);
+});
+test("排版那道洗：只收那几档，编的门牌和怪值都丢", () => {
+  const body = eng.slice(eng.indexOf("function sanitizeChatLayoutPatch"), eng.indexOf("// OOC 改旧准则"));
+  const f = new Function(body + "\nreturn sanitizeChatLayoutPatch;")();
+  const o = f({ bubble: "plain", avatar: "weird", top: 999, name: 1, deco: { ta: { frame: "iv_fake", pend: "https://x.com/w.png", pendPos: "tl", frameSize: 500 } } }, []);
+  assert.equal(o.bubble, "plain"); assert.equal(o.avatar, undefined); assert.equal(o.top, 240); assert.equal(o.name, true);
+  assert.equal(o.deco.ta.frame, undefined, "编出来的门牌要挡掉"); assert.equal(o.deco.ta.pend, "https://x.com/w.png"); assert.equal(o.deco.ta.frameSize, 200);
+});
+test("气泡透明度秋秋也能调；提示词里告诉它新挂点和尺寸变量", () => {
+  assert.match(eng, /if \(obj\.myAlpha != null\) num\("myAlpha", 0, 100\);/);
+  assert.match(asst, /data-first／data-last/);
+  assert.match(asst, /var\(--app-h\)/);
+});

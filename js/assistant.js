@@ -237,7 +237,7 @@
   // 摆整份 JSON 的话，改前改后并排一比，满屏都是没动过的空栏。
   const BUB_ZH = { myBg: "我的气泡底色", charBg: "TA 的气泡底色", myText: "我的字色", charText: "TA 的字色",
     myBorder: "我的描边", charBorder: "TA 的描边", shadow: "投影", chatBg: "聊天页底色", radius: "圆角",
-    mySticker: "我的气泡贴纸", charSticker: "TA 的气泡贴纸", stickerSize: "贴纸大小" };
+    mySticker: "我的气泡贴纸", charSticker: "TA 的气泡贴纸", stickerSize: "贴纸大小", myAlpha: "我的气泡不透明度%", charAlpha: "TA 的气泡不透明度%" };
   const bubbleText = b => Object.keys(BUB_ZH).filter(k => b[k] !== "" && b[k] != null)
     .map(k => BUB_ZH[k] + "：" + b[k]).join("\n") || "（都空着）";
 
@@ -343,6 +343,47 @@
         const clean = typeof sanitizeBubblePatch === "function" ? sanitizeBubblePatch(obj) : null;
         if (!clean) throw new Error("这份里没有一栏是能用的");
         ctx.onPatchBubble(id, clean);
+        return 1;
+      }
+    },
+    // 这一个人的聊天窗自己写的 CSS（她 2026-09-30：「秋秋应该也能全部 css 都写吧」）——
+    //   就是聊天设置里「只给 TA 写 CSS」那一格。洗和限作用域都走 ThemeStudio 那一份，这里不另写。
+    chatcss: {
+      zh: "这个人聊天窗的 CSS",
+      read: ctx => {
+        const st = loadJ("x_chatSettings", {}) || {};
+        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: (st[c.id] || {}).customCSS || "" }));
+      },
+      write: (id, patch, ctx) => {
+        const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
+        if (!ctx.onPatchChatSetting) throw new Error("这个页面没接聊天窗写入口");
+        const css = String(patch.text || "");
+        const bad = ts.unsafeReason(css); if (bad) throw new Error(bad);
+        ts.scopeCSS(css, "html");      // 编不过就在这儿抛，别等存进去整个聊天窗变形
+        ctx.onPatchChatSetting(id, { customCSS: css });
+        return 1;
+      }
+    },
+    // 这一个人的聊天窗怎么排（排版开关 + 头像框/挂件），text 是 JSON，跟 bubble 一样不许「改一小段」
+    chatlayout: {
+      zh: "这个人聊天窗的排版",
+      read: ctx => {
+        const st = loadJ("x_chatSettings", {}) || {};
+        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: JSON.stringify((st[c.id] || {}).layout || {}) }));
+      },
+      write: (id, patch, ctx) => {
+        if (!ctx.onPatchChatSetting) throw new Error("这个页面没接聊天窗写入口");
+        let obj = null;
+        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        if (!obj) throw new Error("这一条不是一份能读的 JSON");
+        const st = loadJ("x_chatSettings", {}) || {};
+        const cur = (st[id] || {}).layout || {};
+        const known = JSON.stringify(cur).match(/iv_[A-Za-z0-9_-]+/g) || [];
+        const clean = typeof sanitizeChatLayoutPatch === "function" ? sanitizeChatLayoutPatch(obj, known) : null;
+        if (!clean) throw new Error("这份里没有一栏是能用的");
+        const deco = Object.assign({}, cur.deco || {});
+        Object.keys(clean.deco || {}).forEach(k => { deco[k] = Object.assign({}, deco[k] || {}, clean.deco[k]); });
+        ctx.onPatchChatSetting(id, { layout: Object.assign({}, cur, clean, { deco: deco }) });
         return 1;
       }
     },
@@ -630,13 +671,22 @@
       + "  可填的栏：myBg／charBg（底色，#hex 或一整段 linear-gradient(...)）、myText／charText（字色）、"
       + "myBorder／charBorder（形如 1px solid #hex）、shadow（形如 0 2px 8px rgba(...)）、chatBg（聊天页底色）、"
       + "radius（0-30 的整数）、mySticker／charSticker（只能逐字复用现状快照里已有的 iv_ 图片门牌，空字符串＝拆掉）、"
-      + "stickerSize（32-72 的整数）。**只填这些栏，不许自造新栏；贴纸门牌不许编。**\n"
+      + "stickerSize（32-72 的整数）、myAlpha／charAlpha（气泡底色不透明度 0-100，只淡底不淡字）。**只填这些栏，不许自造新栏；贴纸门牌不许编。**\n"
       + "  · 她只说了一处（如「我的气泡」）就【只填那一栏】，没提到的一栏都别写——写了就是把她原来的盖掉。\n"
       + "  · 她说的是一种气氛而不是一个颜色时，你要自己定这套配色：先想清楚**那个气氛在她眼里是什么样的光**，"
       + "再让底色、字色、圆角、投影一起往那个方向走——四栏各说各的，出来就是一套四不像。\n"
       + "  · **字要看得清**：底色深就把字色调亮，底色浅就调暗。这一条压过任何审美。\n"
       + "  · 这一份只盖【这一个人的聊天窗】，别人的窗口和全局都不受影响。她没说是谁、你也不知道她开着谁的窗口时，先问。\n"
-      + "别的一律不许碰，也别假装你改了。**装修只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把界面弄坏。\n\n"
+      + "· chatcss 这个人聊天窗自己的 CSS（id＝角色 id；text 是 CSS，写法同 theme 的单聊页，会自动限到这一个人的窗口；"
+      + "它压在皮肤、气泡、排版所有层上面）。挂点照上面那份名单用；msg／bubble 还带 data-first／data-last（连发那一串的头/尾）、"
+      + "data-kind（text/voice/photo…）、data-recent=\"1\"（刚进来，可做入场动画）。高度别写死 px，用 var(--app-h)／var(--app-vh)／"
+      + "var(--app-safe-top)／var(--app-safe-bottom)，或 html[data-screen-size=\"short|mid|tall\"] 分开写。\n"
+      + "· chatlayout 这个人聊天窗的排版（id＝角色 id；text 是 JSON）：bubble（\"bubble\"|\"plain\" 没气泡）、avatar（\"all\"|\"first\" 连发只留第一条|\"none\"）、"
+      + "name（true 在连发第一条上写名字）、time（\"show\"|\"hide\"）、gap（\"normal\"|\"tight\"|\"loose\"）、top（0-240 顶部留白，给装饰让位）、"
+      + "deco（{ta:{frame,frameSize,pend,pendSize,pendPos}, me:{…}}：头像框/挂件，图只能是 https 地址或现状里已有的 iv_ 门牌；frameSize 100-200，pendSize 20-100，pendPos br/bl/tr/tl）。"
+      + "只填她提到的那几栏。\n"
+      + "别的一律不许碰，也别假装你改了。**theme 那一栏只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把全 App 弄坏。"
+      + "要藏东西、挪位置、换排法，只在这一个人的聊天窗里做：走 chatlayout 或 chatcss。\n\n"
       + "【两种改法 · 挑对的那一种】\n"
       + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
       + "text＝换成的那一段。替换在本地做，原文别处一个字节都不动。\n"
@@ -833,6 +883,7 @@
       if (p.target === "bubble") throw new Error("气泡这一栏要整份给，不能改一小段");
       // 配色那一栏同理：它是一份 JSON，在里头替换一小段，出来多半不再是合法 JSON
       if (p.target === "pagecolor") throw new Error("配色这一栏要整份给，不能改一小段");
+      if (p.target === "chatlayout") throw new Error("排版这一栏要整份给，不能改一小段");
       const cur = before(p, ctx);
       if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");
       return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);
