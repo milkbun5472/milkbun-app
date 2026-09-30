@@ -13,7 +13,7 @@ test("两个新写入口：chatcss 走 ThemeStudio 洗、chatlayout 走公共那
   assert.match(asst, /chatlayout: \{/);
   assert.match(asst, /sanitizeChatLayoutPatch\(obj, known\)/);
   assert.equal((app.match(/onPatchChatSetting: \(charId, patch\) => patchChatSetting\(charId, patch\)/g) || []).length, 2);
-  assert.match(asst, /p\.target === "chatlayout"\) throw new Error\("排版这一栏要整份给/);
+  assert.match(asst, /p\.target === "chatlayout" \|\| p\.target === "grouplayout"\) throw new Error\("排版这一栏要整份给/);
 });
 test("排版那道洗：只收那几档，编的门牌和怪值都丢", () => {
   const body = eng.slice(eng.indexOf("function sanitizeChatLayoutPatch"), eng.indexOf("// OOC 改旧准则"));
@@ -35,4 +35,23 @@ test("能发图给秋秋：两处输入栏共用一颗，图只跟着这一句�
   assert.match(asst, /pic: pic \? pic\.thumb : undefined/);
   assert.match(asst, /A\.ask\(act, ctx, before, q, pic \? pic\.full : null\)/);
   assert.match(asst, /if \(\(!q && !pic\) \|\| A\.isBusy\(\)\) return;/, "只发图不写字也要发得出去");
+});
+
+test("秋秋也能改某一个群：groupcss / grouplayout，快照里看得见群和现在的排版、CSS", () => {
+  assert.match(asst, /groupcss: \{/);
+  assert.match(asst, /grouplayout: \{/);
+  assert.match(asst, /ctx\.onPatchGroupSetting\(id, \{ customCSS: css \}\)/);
+  assert.match(asst, /if \(!\(ctx\.groups \|\| \[\]\)\.some\(g => g && g\.id === id\)\) throw new Error\("没有这个群："/);
+  assert.equal((app.match(/onPatchGroupSetting: \(gid, patch\) => saveGroupSettings\(gid, patch\)/g) || []).length, 2);
+  assert.match(asst, /return \{ 角色: chars, 群: groups,/);
+  assert.match(asst, /row\.聊天窗CSS = /);
+});
+test("现成的头像框：几种画法 + 几个色 + 方圆，秋秋也能挑", () => {
+  const comp = R("js/components.js");
+  const body = comp.slice(comp.indexOf("const CHAT_LAYOUT_DEFAULT"), comp.indexOf("// ── 聊天窗「排版」和「自己写 CSS」那两块"));
+  const f = new Function(body + "\nreturn chatLayoutCSS;")();
+  const css = f({ deco: { ta: { fstyle: "double", fcolor: "#e8b566", fshape: "circle" } } });
+  assert.match(css, /\[data-me="0"\][^{]*::after\{[^}]*border-radius:50%;[^}]*border:2px solid #e8b566/);
+  assert.equal(f({ deco: { ta: { fstyle: "nope" } } }), "", "不认识的画法一条都不发");
+  assert.match(eng, /\["", "ring", "double", "dashed", "dotted", "glow", "grad"\]\.indexOf\(d\.fstyle\)/);
 });

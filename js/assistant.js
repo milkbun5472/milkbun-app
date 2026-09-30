@@ -387,6 +387,47 @@
         return 1;
       }
     },
+    // 某一个群的 CSS 和排版（她 2026-09-30：「接吧」）——跟单聊那两栏同一个形状，只是存在这个群的设置里
+    groupcss: {
+      zh: "这个群聊天窗的 CSS",
+      read: ctx => {
+        const st = loadJ("x_groupSettings", {}) || {};
+        return (ctx.groups || []).map(g => ({ id: g.id, name: g.name, text: (st[g.id] || {}).customCSS || "" }));
+      },
+      write: (id, patch, ctx) => {
+        const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
+        if (!ctx.onPatchGroupSetting) throw new Error("这个页面没接群聊写入口");
+        if (!(ctx.groups || []).some(g => g && g.id === id)) throw new Error("没有这个群：" + id);
+        const css = String(patch.text || "");
+        const bad = ts.unsafeReason(css); if (bad) throw new Error(bad);
+        ts.scopeCSS(css, "html");
+        ctx.onPatchGroupSetting(id, { customCSS: css });
+        return 1;
+      }
+    },
+    grouplayout: {
+      zh: "这个群聊天窗的排版",
+      read: ctx => {
+        const st = loadJ("x_groupSettings", {}) || {};
+        return (ctx.groups || []).map(g => ({ id: g.id, name: g.name, text: JSON.stringify((st[g.id] || {}).layout || {}) }));
+      },
+      write: (id, patch, ctx) => {
+        if (!ctx.onPatchGroupSetting) throw new Error("这个页面没接群聊写入口");
+        if (!(ctx.groups || []).some(g => g && g.id === id)) throw new Error("没有这个群：" + id);
+        let obj = null;
+        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        if (!obj) throw new Error("这一条不是一份能读的 JSON");
+        const st = loadJ("x_groupSettings", {}) || {};
+        const cur = (st[id] || {}).layout || {};
+        const known = JSON.stringify(cur).match(/iv_[A-Za-z0-9_-]+/g) || [];
+        const clean = typeof sanitizeChatLayoutPatch === "function" ? sanitizeChatLayoutPatch(obj, known) : null;
+        if (!clean) throw new Error("这份里没有一栏是能用的");
+        const deco = Object.assign({}, cur.deco || {});
+        Object.keys(clean.deco || {}).forEach(k => { deco[k] = Object.assign({}, deco[k] || {}, clean.deco[k]); });
+        ctx.onPatchGroupSetting(id, { layout: Object.assign({}, cur, clean, { deco: deco }) });
+        return 1;
+      }
+    },
     // 某一页整页换调子（v65.06，她 2026-09-06：「全部能做主题的页面秋秋都应该可以改」）。
     // ⚠️为什么这件事不走 CSS：各页正文里的卡片、按钮、列表都是各页自己内联写的、
     //   没有挂点，CSS 抓不住它们；而它们的颜色全是从同一份 token 里取的。
@@ -557,7 +598,20 @@
     const offSet = loadJ("x_offlineSettings", {});
     const errs = (typeof window !== "undefined" && window.__errLog ? window.__errLog : []).slice(-5)
       .map(e => clip(e && e.msg, 120));
-    return { 角色: chars, 已存的文风预设: styles, 线下设置: offSet, 最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
+    // 聊天窗的长相现在是什么（她 2026-09-30：让秋秋改单聊/群聊的 CSS 和排版）——不给它看，它只能照空白重写、把她原来的盖掉
+    const cs = loadJ("x_chatSettings", {}) || {}, gsAll = loadJ("x_groupSettings", {}) || {};
+    chars.forEach(row => {
+      const st = cs[row.id] || {};
+      row.聊天窗排版 = st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）";
+      row.聊天窗CSS = st.customCSS ? clipRaw(st.customCSS, 3000) : "（空）";
+    });
+    const groups = (ctx.groups || []).map(g => {
+      const st = gsAll[g.id] || {};
+      return { 群名: g.name, id: g.id,
+        排版: st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）",
+        CSS: st.customCSS ? clipRaw(st.customCSS, 3000) : "（空）" };
+    });
+    return { 角色: chars, 群: groups, 已存的文风预设: styles, 线下设置: offSet, 最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
@@ -684,7 +738,10 @@
       + "· chatlayout 这个人聊天窗的排版（id＝角色 id；text 是 JSON）：bubble（\"bubble\"|\"plain\" 没气泡）、avatar（\"all\"|\"first\" 连发只留第一条|\"none\"）、"
       + "name（true 在连发第一条上写名字）、time（\"show\"|\"hide\"）、gap（\"normal\"|\"tight\"|\"loose\"）、top（0-240 顶部留白，给装饰让位）、"
       + "deco（{ta:{frame,frameSize,pend,pendSize,pendPos}, me:{…}}：头像框/挂件，图只能是 https 地址或现状里已有的 iv_ 门牌；frameSize 100-200，pendSize 20-100，pendPos br/bl/tr/tl）。"
+      + "deco 里也可以不用图、挑一种现成的框：fstyle（ring 细圈|double 双圈|dashed 虚线|dotted 花边点|glow 发光|grad 渐变）、fcolor（#hex）、fshape（round 圆角方|circle 圆）。"
       + "只填她提到的那几栏。\n"
+      + "· groupcss／grouplayout 某一个群的聊天窗 CSS 和排版（id＝群 id，见快照里的群列表）：写法同 chatcss／chatlayout，只是作用在那个群里；"
+      + "群里的 deco.ta 管全部群成员的头像，deco.me 管她自己的。\n"
       + "别的一律不许碰，也别假装你改了。**theme 那一栏只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把全 App 弄坏。"
       + "要藏东西、挪位置、换排法，只在这一个人的聊天窗里做：走 chatlayout 或 chatcss。\n\n"
       + "【两种改法 · 挑对的那一种】\n"
@@ -884,7 +941,7 @@
       if (p.target === "bubble") throw new Error("气泡这一栏要整份给，不能改一小段");
       // 配色那一栏同理：它是一份 JSON，在里头替换一小段，出来多半不再是合法 JSON
       if (p.target === "pagecolor") throw new Error("配色这一栏要整份给，不能改一小段");
-      if (p.target === "chatlayout") throw new Error("排版这一栏要整份给，不能改一小段");
+      if (p.target === "chatlayout" || p.target === "grouplayout") throw new Error("排版这一栏要整份给，不能改一小段");
       const cur = before(p, ctx);
       if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");
       return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);
