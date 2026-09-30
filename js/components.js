@@ -128,7 +128,7 @@ function msgRunAttrs(list, i, part, last, same) {
 // ── 排版开关（她 2026-09-30：美化自由度 C 档）：不会写 CSS 的人也能换排法。
 //   全部编成 CSS、踩在上面那几个状态挂点上——不另画一套气泡，所以跟皮肤/气泡/自己写的 CSS 叠得起来，
 //   而且她自己写的 CSS 排在它后面，想改照样盖得住。L 缺的栏一律当「原样」。
-const CHAT_LAYOUT_DEFAULT = { bubble: "bubble", avatar: "all", name: false, time: "show", gap: "normal", top: 0 };
+const CHAT_LAYOUT_DEFAULT = { bubble: "bubble", avatar: "all", name: false, time: "show", gap: "normal", top: 0, enter: "none", fontSize: 0, lineHeight: 0, head: "normal", composer: "normal" };
 function chatLayoutCSS(L) {
   L = Object.assign({}, CHAT_LAYOUT_DEFAULT, L || {});
   const out = [];
@@ -143,6 +143,21 @@ function chatLayoutCSS(L) {
   if (L.gap === "loose") out.push('[data-wk="msg"][data-first="1"]{padding-top:14px !important;}');
   const top = Math.max(0, Math.min(400, Number(L.top) || 0));
   if (top) out.push('[data-wk="body"]{padding-top:' + top + 'px !important;}');
+  // 字号 / 行距（0＝原样）：只动气泡里的字，线下、通话那几处各有各的字号，不跟着变
+  const fs = Number(L.fontSize) || 0, lh = Number(L.lineHeight) || 0;
+  if (fs >= 11 && fs <= 22) out.push('[data-wk="bubble"]{font-size:' + fs + 'px !important;}');
+  if (lh >= 1.2 && lh <= 2.2) out.push('[data-wk="bubble"]{line-height:' + lh + ' !important;}');
+  // 入场动画：踩的是 data-recent（刚进来十几秒内那几条），翻历史不会一路闪
+  const ENTER = {
+    fade: "@keyframes wkEnterFade{from{opacity:0}to{opacity:1}}", rise: "@keyframes wkEnterRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}",
+    pop: "@keyframes wkEnterPop{0%{opacity:0;transform:scale(.86)}70%{opacity:1;transform:scale(1.03)}100%{transform:none}}"
+  };
+  if (ENTER[L.enter]) out.push(ENTER[L.enter], '[data-wk="msg"][data-recent="1"]{animation:' + { fade: "wkEnterFade .45s ease both", rise: "wkEnterRise .45s cubic-bezier(.2,.8,.2,1) both", pop: "wkEnterPop .42s ease both" }[L.enter] + ' !important;}');
+  // 顶栏 / 输入栏的几档现成样子
+  if (L.head === "clear") out.push('[data-wk="chathead"]{background:transparent !important;border-bottom-color:transparent !important;box-shadow:none !important;}');
+  if (L.head === "glass") out.push('[data-wk="chathead"]{background:rgba(255,255,255,.55) !important;-webkit-backdrop-filter:blur(14px) !important;backdrop-filter:blur(14px) !important;border-bottom-color:transparent !important;}');
+  if (L.composer === "float") out.push('[data-wk="composer"]{margin:0 10px 8px !important;border-radius:22px !important;border-top-color:transparent !important;box-shadow:0 6px 20px rgba(0,0,0,.12) !important;}');
+  if (L.composer === "glass") out.push('[data-wk="composer"]{background:rgba(255,255,255,.55) !important;-webkit-backdrop-filter:blur(14px) !important;backdrop-filter:blur(14px) !important;border-top-color:transparent !important;}');
   // 头像框 / 挂件（她 2026-09-30：「跟 qq 头像框或者挂件那种差不多」）：一张透明图叠在头像上。
   //   框＝整张盖住、比头像大一圈（::after）；挂件＝一小张挂在某个角上（::before）。TA 和她各一套。
   //   图只存保险箱门牌 iv_…，App 那头发出去前换成真地址（跟自己写的 CSS 同一支 resolveCSSImages）。
@@ -186,6 +201,17 @@ function ChatLayoutFields({ layout, setLayout, taName, meNote, onPeek, group }) 
     group ? null : pick("name", "名字", [[false, "不写"], [true, "写在连发第一条上面"]]),
     pick("time", "中间那行时间", [["show", "显示"], ["hide", "藏起来"]]),
     pick("gap", "连发间距", [["normal", "原样"], ["tight", "贴紧"], ["loose", "每串之间多空一点"]]),
+    pick("enter", "新消息进来的样子", [["none", "直接出现"], ["fade", "淡入"], ["rise", "从下往上浮"], ["pop", "轻轻弹一下"]]),
+    pick("head", "顶栏", [["normal", "原样"], ["clear", "透明"], ["glass", "毛玻璃"]]),
+    pick("composer", "输入栏", [["normal", "原样"], ["float", "悬浮圆角"], ["glass", "毛玻璃"]]),
+    // 字号 / 行距：0＝原样；拉到头再点「原样」就回去
+    [["fontSize", "气泡字号", 12, 20, 0.5, "px", 14.5], ["lineHeight", "气泡行距", 1.2, 2.2, 0.05, "", 1.5]].map(([k, zh, lo, hi, st, unit, dflt]) =>
+      h("div", { key: k, style: { marginTop: 12 } },
+        h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } },
+          h("span", null, zh),
+          h("span", { className: "flex items-center", style: { gap: 8, color: t.fog } }, Number(layout[k]) ? layout[k] + unit : "原样",
+            Number(layout[k]) ? h("button", { onClick: () => setLay(k, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent } }, "回原样") : null)),
+        h("input", { type: "range", min: lo, max: hi, step: st, value: Number(layout[k]) || dflt, onChange: e => setLay(k, Number(e.target.value)), style: { width: "100%" } }))),
     h("div", { style: { marginTop: 12 } },
       h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } },
         h("span", null, "顶部留白（给装饰图让位置）"), h("span", { style: { color: t.fog } }, (Number(layout.top) || 0) + " px")),
@@ -227,6 +253,63 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
     // 抓得住哪些挂点：跟主题工作台同一个名单同一个组件
     window.CssHookPicker ? h(window.CssHookPicker, { page: page || "thread", css: css, setCSS: setCSS }) : null,
     h("input", { ref: fileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
+}
+// ── 整套美化打包（她 2026-09-30：「美化打包分享」）──────────────────────────────
+//   皮肤、气泡、字、背景、排版、头像框、自己写的 CSS 装进一个 .json；里面用到的保险箱图片（iv_…）一起装进去，
+//   对方导进来时存进自己的保险箱、门牌换成新的。单聊、群聊两处共用；群里用不上的几栏（皮肤/气泡/字）导进来就跳过。
+const CHAT_LOOK_KIND = "chat-look";
+async function exportChatLook(look, fileBase) {
+  const clean = {};
+  ["skin", "bubble", "font", "chatBg", "layout", "customCSS"].forEach(k => { if (look[k] != null && look[k] !== "") clean[k] = look[k]; });
+  const refs = [...new Set(JSON.stringify(clean).match(/iv_[A-Za-z0-9_-]+/g) || [])];
+  const assets = {};
+  for (const ref of refs) {
+    try {
+      const blob = typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref) : null;
+      if (blob) assets[ref] = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+    } catch (e) {}
+  }
+  const pack = { kind: CHAT_LOOK_KIND, v: 1, name: fileBase || "", look: clean, assets: assets };
+  if (typeof saveTextFile === "function") await saveTextFile((fileBase || "聊天") + "-美化.json", JSON.stringify(pack), "application/json");
+  return pack;
+}
+async function importChatLook(text) {
+  let pack = null;
+  try { pack = JSON.parse(String(text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { throw new Error("这不是一份美化文件"); }
+  if (!pack || pack.kind !== CHAT_LOOK_KIND || !pack.look) throw new Error("这不是一份美化文件");
+  let json = JSON.stringify(pack.look);
+  for (const ref of Object.keys(pack.assets || {})) {
+    if (!/^iv_[A-Za-z0-9_-]+$/.test(ref)) continue;
+    const nu = typeof imgToVault === "function" ? await imgToVault(pack.assets[ref]) : pack.assets[ref];
+    json = json.split(ref).join(nu);
+  }
+  const look = JSON.parse(json);
+  // 写进来的 CSS 走同一道安全检查——别人给的文件，不安全的整段不收
+  const TS = typeof window !== "undefined" && window.ThemeStudio;
+  if (look.customCSS && TS && TS.unsafeReason(look.customCSS)) delete look.customCSS;
+  return look;
+}
+// 那一行按钮：导出这一套 / 导入一套（导进来先铺进草稿，她点右上角勾才真的存；挑不开文件可以贴）
+function ChatLookPack({ getLook, onApply, fileBase, group }) {
+  const t = useTheme(), ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const toast = m => window.__toast && window.__toast(m, 3000);
+  const take = async txt => {
+    try { const look = await importChatLook(txt); onApply(look); toast("导进来了，看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
+    catch (e) { toast((e && e.message) || "导不进来"); return false; }
+  };
+  const pick = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) f.text().then(take); };
+  const btn = (label, fn) => h("button", { onClick: fn, disabled: busy, className: "active:opacity-70",
+    style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, opacity: busy ? .5 : 1 } }, label);
+  return h("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "整套美化 · 打包分享"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "2px 0 8px", lineHeight: 1.55 } },
+      (group ? "背景、排版、头像框、自己写的 CSS" : "皮肤、气泡、字、背景、排版、头像框、自己写的 CSS") + "装进一个文件，用到的图片也一起带上。别人导进来就是整套一样的。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      btn(busy ? "打包中…" : "导出这一套", async () => { setBusy(true); try { await exportChatLook(getLook(), fileBase); } catch (e) { toast("没导出来：" + ((e && e.message) || "")); } finally { setBusy(false); } }),
+      btn("导入一套", () => ref.current && ref.current.click())),
+    window.ThemePackPasteBox ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: take, open: "挑不开文件？把美化 JSON 贴进来", ph: "把导出的那份 .json 全文贴在这里" })) : null,
+    h("input", { ref: ref, type: "file", accept: ".json,application/json,text/plain", onChange: pick, style: { display: "none" } }));
 }
 // 排版里「头像框 / 挂件」那一行：一个人一行，框和挂件各一张透明图（png 最好），各一根大小
 function AvatarDecoRow({ who, k, layout, setLayout, note }) {
@@ -15737,6 +15820,9 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示已读", showRead, setShowRead),
     h("div", { style: { marginTop: 18, paddingTop: 10, borderTop: "1px dashed " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "排版 · 气泡怎么摆"),
     h(ChatLayoutFields, { layout: gLayout, setLayout: setGLayout, taName: "群成员", group: true, meNote: "（上面要打开「显示我的头像」才看得见）", onPeek: gPeekGo }),
+    h(ChatLookPack, { group: true, fileBase: (group && group.name) || "群聊",
+      getLook: () => ({ chatBg, layout: gLayout, customCSS: gCss }),
+      onApply: L => { if (L.chatBg != null) setChatBg(L.chatBg); if (L.layout) setGLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout)); if (L.customCSS != null) setGCss(L.customCSS); } }),
     h(ChatCssFields, { css: gCss, setCSS: setGCss, fileBase: (group && group.name) || "群聊", onPeek: gPeekGo, page: "gthread", title: "只给这个群写 CSS" }),
     h(OnlineMediaSettings, null)),
     gCard({ title: "记忆库 · 群规矩", char: "记", tint: "#6693c7", state: "带 " + ctxN + " 条上下文 · 满 " + sumThresh + " 条总结" + ((directives && directives.length) ? " · 群规矩 " + directives.length + " 条" : "") }, null,
@@ -17145,7 +17231,11 @@ function ChatSettings({
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } })))),
-  show("dress", { title: "自己写 CSS · 导出导入", ...sec("look-css") },
+  show("dress", { title: "自己写 CSS · 整套导出导入", ...sec("look-css") },
+    h(ChatLookPack, { fileBase: (settings.remark || (character && character.name) || "TA"),
+      getLook: () => ({ skin, bubble, font, chatBg, layout, customCSS }),
+      onApply: L => { if (L.skin != null) setSkin(L.skin); if (L.bubble != null) setBubble(L.bubble); if (L.font != null) setFont(L.font);
+        if (L.chatBg != null) setChatBg(L.chatBg); if (L.layout) setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout)); if (L.customCSS != null) setCustomCSS(L.customCSS); } }),
     h(ChatCssFields, { css: customCSS, setCSS: setCustomCSS, fileBase: (settings.remark || (character && character.name) || "TA"), seedName: skin,
       seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"

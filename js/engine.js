@@ -7879,6 +7879,9 @@ function sanitizeChatLayoutPatch(obj, knownRefs) {
   if (!obj || typeof obj !== "object") return null;
   const out = {}, pick = (k, list) => { if (obj[k] != null && list.indexOf(obj[k]) >= 0) out[k] = obj[k]; };
   pick("bubble", ["bubble", "plain"]); pick("avatar", ["all", "first", "none"]); pick("time", ["show", "hide"]); pick("gap", ["normal", "tight", "loose"]);
+  pick("enter", ["none", "fade", "rise", "pop"]); pick("head", ["normal", "clear", "glass"]); pick("composer", ["normal", "float", "glass"]);
+  if (obj.fontSize != null && Number.isFinite(Number(obj.fontSize))) out.fontSize = Number(obj.fontSize) ? Math.max(12, Math.min(20, Number(obj.fontSize))) : 0;
+  if (obj.lineHeight != null && Number.isFinite(Number(obj.lineHeight))) out.lineHeight = Number(obj.lineHeight) ? Math.max(1.2, Math.min(2.2, Number(obj.lineHeight))) : 0;
   if (obj.name != null) out.name = !!obj.name;
   if (obj.top != null && Number.isFinite(Number(obj.top))) out.top = Math.max(0, Math.min(240, Math.round(Number(obj.top))));
   const okImg = v => v === "" || /^https?:\/\/[^\s"'()<>]+$/i.test(String(v)) || (/^iv_[A-Za-z0-9_-]+$/.test(String(v)) && (knownRefs || []).indexOf(String(v)) >= 0);

@@ -737,6 +737,8 @@
       + "var(--app-safe-top)／var(--app-safe-bottom)，或 html[data-screen-size=\"short|mid|tall\"] 分开写。\n"
       + "· chatlayout 这个人聊天窗的排版（id＝角色 id；text 是 JSON）：bubble（\"bubble\"|\"plain\" 没气泡）、avatar（\"all\"|\"first\" 连发只留第一条|\"none\"）、"
       + "name（true 在连发第一条上写名字）、time（\"show\"|\"hide\"）、gap（\"normal\"|\"tight\"|\"loose\"）、top（0-240 顶部留白，给装饰让位）、"
+      + "enter（新消息入场：\"none\"|\"fade\"|\"rise\"|\"pop\"）、head（顶栏：\"normal\"|\"clear\"|\"glass\"）、composer（输入栏：\"normal\"|\"float\"|\"glass\"）、"
+      + "fontSize（气泡字号 12-20，0＝原样）、lineHeight（气泡行距 1.2-2.2，0＝原样）、"
       + "deco（{ta:{frame,frameSize,pend,pendSize,pendPos}, me:{…}}：头像框/挂件，图只能是 https 地址或现状里已有的 iv_ 门牌；frameSize 100-200，pendSize 20-100，pendPos br/bl/tr/tl）。"
       + "想要不用图的框（一圈描边、发光、渐变圈），写进 chatcss／groupcss：对 [data-wk=\"row\"] > [data-wk=\"avatar\"] 写 position:relative，再用 ::after 画。"
       + "只填她提到的那几栏。\n"

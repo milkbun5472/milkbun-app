@@ -145,3 +145,43 @@ test("线下和通话也有挂点，并且进了挂点名单", () => {
   });
   assert.equal((comp.match(/"data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col"/g) || []).length, 2, "单人线下和群线下都要挂");
 });
+
+test("排版多了入场动画、字号行距、顶栏输入栏样子；原样一条都不发", () => {
+  const body = comp.slice(comp.indexOf("const CHAT_LAYOUT_DEFAULT"), comp.indexOf("// ── 聊天窗「排版」和「自己写 CSS」那两块"));
+  const f = new Function(body + "\nreturn chatLayoutCSS;")();
+  assert.equal(f({}), "");
+  const css = f({ enter: "rise", fontSize: 16, lineHeight: 1.8, head: "glass", composer: "float" });
+  assert.match(css, /@keyframes wkEnterRise/);
+  assert.match(css, /\[data-wk="msg"\]\[data-recent="1"\]\{animation:wkEnterRise/);
+  assert.match(css, /\[data-wk="bubble"\]\{font-size:16px !important;\}/);
+  assert.match(css, /line-height:1\.8 !important/);
+  assert.match(css, /\[data-wk="chathead"\]\{background:rgba\(255,255,255,\.55\)/);
+  assert.match(css, /\[data-wk="composer"\]\{margin:0 10px 8px !important;border-radius:22px/);
+  assert.equal(f({ fontSize: 99 }), "", "越界的字号不发");
+});
+test("整套美化打包：图一起带走、导进来换成新门牌、别人给的不安全 CSS 不收；单聊群聊两处都有", async () => {
+  const body = comp.slice(comp.indexOf("const CHAT_LOOK_KIND"), comp.indexOf("// 那一行按钮：导出这一套"));
+  const vault = { iv_old: new Blob(["x"], { type: "image/png" }) };
+  let saved = null;
+  const env = {
+    imgVaultFetchBlob: async r => vault[r] || null,
+    imgToVault: async d => "iv_new",
+    saveTextFile: async (n, txt) => { saved = { n, txt }; },
+    FileReader: class { readAsDataURL(b) { this.result = "data:image/png;base64,eA=="; setTimeout(() => this.onload(), 0); } },
+    window: { ThemeStudio: { unsafeReason: css => /@import/.test(css) ? "不允许 @import" : "" } }
+  };
+  const api = new Function(...Object.keys(env), body + "\nreturn { exportChatLook, importChatLook };")(...Object.values(env));
+  await api.exportChatLook({ skin: "仿微信", layout: { deco: { ta: { frame: "iv_old" } } }, customCSS: "[data-wk=\"chat\"]{background:url(iv_old)}" }, "江识");
+  assert.equal(saved.n, "江识-美化.json");
+  const pack = JSON.parse(saved.txt);
+  assert.equal(pack.kind, "chat-look");
+  assert.ok(pack.assets.iv_old, "用到的图没带上");
+  const look = await api.importChatLook(saved.txt);
+  assert.equal(look.layout.deco.ta.frame, "iv_new", "门牌没换成导进来的那张");
+  assert.match(look.customCSS, /iv_new/);
+  pack.look.customCSS = "@import url(x);";
+  const bad = await api.importChatLook(JSON.stringify(pack));
+  assert.equal(bad.customCSS, undefined, "不安全的 CSS 被收进来了");
+  await assert.rejects(api.importChatLook("{\"kind\":\"theme\"}"), /这不是一份美化文件/);
+  assert.equal((comp.match(/h\(ChatLookPack, \{/g) || []).length, 2, "单聊和群聊都要有");
+});
