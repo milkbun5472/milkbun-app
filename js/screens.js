@@ -13337,8 +13337,10 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           // ── 这一版上贴着的 ──
           note("这一版上贴着的" + ((pack.emotes || []).length ? " · " + pack.emotes.length + " 张" : ""),
             // 挑中正好一张 → 可以设成这一版在发表情那一格底下的封面（她 2026-09-30：「能自由选择表情包头像」）
+            // ⚠️note 右边只收一格（第三个参数是上边距）——两颗按钮包进一个 span，不然「挑几张」被挤掉（v74.383 就这么丢过）
+            h("span", { className: "flex items-center shrink-0" },
             selMode && selEmotes.length === 1 && h("button", { onClick: () => { onUpdatePack(pack.id, { cover: selEmotes[0] }); setSelMode(false); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "5px 12px", marginRight: 6 } }, "设成封面"),
-            (pack.emotes || []).length > 0 && h("button", { onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: selMode ? t.accent : t.ink, border: "1px solid " + (selMode ? t.accent : t.line), borderRadius: 8, padding: "5px 12px" } }, selMode ? "不挑了" : "挑几张")),
+            (pack.emotes || []).length > 0 && h("button", { onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: selMode ? t.accent : t.ink, border: "1px solid " + (selMode ? t.accent : t.line), borderRadius: 8, padding: "5px 12px" } }, selMode ? "不挑了" : "挑几张"))),
           (pack.emotes || []).length === 0
             ? h("div", { className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
             : h("div", { className: "grid grid-cols-3 gap-3" }, pack.emotes.map(em => {
