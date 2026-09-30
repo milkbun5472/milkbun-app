@@ -76,3 +76,23 @@ test("窗台在墙上、花房整页、durable 与脚本都挂了", () => {
   assert.match(eng, /"x_coupleGarden"/, "没登记 durable");
   assert.match(html, /js\/garden\.js\?v=/, "index.html 没挂 garden.js");
 });
+
+// 她 2026-09-30：「情侣空间的花，如果在群聊聊天进度不会动能不能修一修」
+test("群里开口也算相处：群线上 group 档、群线下 offline 档；旁观群和 NPC 不算", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const gacha = fs.readFileSync(path.join(__dirname, "..", "js", "gacha.js"), "utf8");
+  assert.match(gacha, /group: 40 \}/);
+  const i = app.indexOf("  const gachaEarnGroup = (groupId, kind) => {"), j = app.indexOf("\n  };\n", i);
+  assert.ok(i > 0 && j > i, "抠不出 gachaEarnGroup");
+  const earned = [];
+  const f = new Function("groups", "gsFor", "characters", "gachaEarn", app.slice(i, j + 5) + "\nreturn gachaEarnGroup;")(
+    [{ id: "g1", memberIds: ["c1", "c2", "npc1"] }, { id: "g2", memberIds: ["c1"] }],
+    id => id === "g2" ? { spectate: true } : {},
+    [{ id: "c1" }, { id: "c2" }, { id: "npc1", npc: true }],
+    (id, kind) => earned.push(id + ":" + kind));
+  f("g1", "group"); f("g2", "group");
+  assert.deepEqual(earned, ["c1:group", "c2:group"], "NPC 或旁观群也攒了，或者群里有人没攒到");
+  assert.match(app, /const pushGroupUser = \(groupId, text\) => \{\n\s*if \(text == null \|\| text === ""\) return;\n\s*gachaEarnGroup\(groupId, "group"\);/);
+  assert.match(app, /onSend: txt => \{ gachaEarnGroup\(offlineGroup\.id, "offline"\); groupOfflineSend\(offlineGroup\.id, txt\); \},/);
+});

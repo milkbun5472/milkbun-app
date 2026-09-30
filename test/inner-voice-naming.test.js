@@ -46,7 +46,8 @@ test("字段说明本地也补一句：action 有人称硬规则，thought 不�
   // ⚠️v67.49 起心声那一段抠成了 engine.js 的公共 THOUGHT_MEANING（线上线下共用一份），
   //   app.js 那头只剩一个 ${THOUGHT_MEANING}。所以这条要对着【拼起来的那一份】验。
   assert.match(app + engine, /心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）/);
-  assert.match(app + engine, /那是内心戏体裁自带的默认，不是你的人设/);
+  // v74.311 心声那段重写成短的：「这是体裁默认、不是人设」那半句只留在 PERSONA_REGISTER_ANCHOR 里
+  //   （见下面那条——锚里点名了心声），不在字段说明里再说一遍。
   // 群聊那条也要有
   assert.match(app, /心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔/);
 });

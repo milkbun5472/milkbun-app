@@ -24,10 +24,10 @@ assert.deepStrictEqual(M.recurNext(d.settings.recurring[0], new Date(2026, 9, 2)
 const csv = M.ledgerCSV({ settings: { accounts: [{ id: "deb", name: "工资卡" }, { id: "cc", name: "信用卡" }] }, txns: [
   { date: "2026-09-10", type: "transfer", amount: 500, currency: "CNY", from: "deb", to: "cc", note: "" },
   { date: "2026-09-01", type: "expense", amount: 36.5, currency: "CNY", category: "餐饮", account: "cc", note: "火锅, \"超辣\"" }] });
-assert.ok(csv.startsWith("﻿日期,类型,金额,币种,分类,账户,转出,转入,备注\r\n"));
+assert.ok(csv.startsWith("﻿日期,类型,金额,币种,分类,账户,转出,转入,备注,已退\r\n"));
 const lines = csv.slice(1).split("\r\n");
-assert.strictEqual(lines[1], '2026-09-01,支出,36.5,CNY,餐饮,信用卡,,,"火锅, ""超辣"""');
-assert.strictEqual(lines[2], "2026-09-10,转账,500,CNY,,,工资卡,信用卡,");
+assert.strictEqual(lines[1], '2026-09-01,支出,36.5,CNY,餐饮,信用卡,,,"火锅, ""超辣""",');
+assert.strictEqual(lines[2], "2026-09-10,转账,500,CNY,,,工资卡,信用卡,,");
 
 // 入口都在：「我的」两行、设置里「周期」tab、打开记账时补记、导出走 saveTextFile
 assert.match(src, /grow\(6, "recur", "周期账单"/);

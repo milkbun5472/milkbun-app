@@ -340,13 +340,15 @@
         ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
         ["now", "顶栏底下那条此刻日程"], ["nowdot", "日程条前面那个小点"],
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
-        ["bubble", "气泡本体（data-me=\"1\" 是她的）"], ["msg", "一条消息（同样有 data-me）"],
+        ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],
+        ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
+        ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],
         ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
         ["note", "系统小字（撤回、进房这类）"], ["noteink", "系统小字的字色"],
         ["narr", "居中那行旁白／动作（data-me=\"1\" 是她做的）"], ["narrink", "旁白那行字本身"],
         ["sameroom", "顶栏那个「同处一室」键（data-on=\"1\" 是开着）"],
         ["card", "气泡里的卡片（照片、转发、语音）"],
-        ["quote", "消息引用块"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
+        ["quote", "消息引用块（带 data-me）"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
         ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
         ["transfercard", "转账卡整张（那张纸的底、边、圆角）"], ["transferamount", "转账卡上的金额"],
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
@@ -357,7 +359,17 @@
         // 点头像那张心声卡（她 2026-09-22 转群里读者：「那个卡片不可以美化的嘛？」）
         ["statecard", "点头像那张心声卡整张"], ["statehead", "心声卡抬头（头像·名字·此刻心情）"],
         ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statevoice", "心声卡「心里想的」那一块"],
-        ["stateaff", "心声卡底下那颗好感的心"]
+        ["stateaff", "心声卡底下那颗好感的心"],
+        // 线下（单人、群都走这一套，她 2026-09-30：「整体美化都要」）
+        ["offline", "线下整页（最外那层）"], ["offbody", "线下正文滚动区"], ["offcomposer", "线下底部输入栏"],
+        ["offmsg", "线下一段（data-me=\"1\" 是她写的）"], ["offcard", "线下那张卡片本体"], ["offhead", "卡片顶上那行（头像·名字·时间）"],
+        ["offname", "卡片上的名字"], ["offtext", "线下正文"], ["offsay", "正文里引号那几句台词"], ["offthought", "线下的心声那块"],
+        ["offnarr", "线下旁白（data-short=\"1\" 是居中那种短的）"],
+        // 通话
+        ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
+        ["callavatar", "通话中间的大头像"], ["callbody", "通话字幕滚动区"], ["callmsg", "通话里一句（带 data-me）"],
+        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
+        ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。
@@ -540,6 +552,10 @@
       else {
         const sels = head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
           if (/^(html|body|:root)$/i.test(sel)) return scope;
+          // html 自己身上的属性（如 html[data-screen-size="short"]）要贴在 scope 那个 html 上，不是当成它下面的元素——
+          //   原来一律把开头的 html 削掉，[data-screen-size] 就被当成 html 里面的某个元素，一条都不生效
+          const onHtml = /^html((?:\[[^\]]+\])+)\s*(.*)$/i.exec(sel);
+          if (onHtml) return scope + onHtml[1] + (onHtml[2] ? " " + onHtml[2] : "");
           return scope + " " + sel.replace(/^(html|body|:root)\s*/i, "");
         });
         out += sels.join(",") + "{" + body + "}";

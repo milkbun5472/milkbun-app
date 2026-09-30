@@ -211,6 +211,31 @@ function extractLastTurn(lines) {
             }
           } catch {}
         }
+        // 票中票（2026-09-29 雪糕案）：唤醒票有时不在 user 正文里，而是折在后续
+        // Read 工具结果里（哨兵输出文件被 Read 读出）。往后翻少量 tool_result 行捞同款 JSON。
+        if (!ccTexts.length) {
+          for (let k = i + 1; k < Math.min(rows.length, i + 8); k++) {
+            const rr = rows[k];
+            const cc = rr && rr.message && rr.message.content;
+            if (!rr || rr.type !== "user" || !Array.isArray(cc)) continue;
+            for (const blk of cc) {
+              if (!blk || blk.type !== "tool_result") continue;
+              const body = typeof blk.content === "string" ? blk.content
+                : Array.isArray(blk.content) ? blk.content.map(x => x && x.text || "").join("\n") : "";
+              for (const ln of String(body).split("\n")) {
+                const t2 = ln.trim().replace(/^\s*\d+\t/, "").replace(/^<event>/, "").replace(/<\/event>$/, "").trim();
+                if (!t2.startsWith("{") || t2.indexOf('"wake_source"') < 0) continue;
+                try {
+                  const j2 = JSON.parse(t2);
+                  if (j2 && j2.wake_source === "cc_chat" && j2.record && typeof j2.record.text === "string" && j2.record.text.trim()) {
+                    ccTexts.push(j2.record.text.trim());
+                  }
+                } catch {}
+              }
+            }
+            if (ccTexts.length) break;
+          }
+        }
         if (!ccTexts.length) return null;
         userIndex = i;
         rows[i] = { ...row, __ccChatLisaText: ccTexts.join("\n") };

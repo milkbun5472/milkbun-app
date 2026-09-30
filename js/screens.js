@@ -11293,6 +11293,10 @@ function VecHealth({ entries }) {
         + " · 去 设置 · 向量记忆 API 按「建向量索引」补上");
 }
 function MemoryLib({
+  pactsOf,
+  onClosePact,
+  onSetPactDue,
+  onAddPact,
   entries,
   characters,
   focusChar,
@@ -11403,6 +11407,7 @@ function MemoryLib({
   const [roomTick, setRoomTick] = useState(0);
   useEffect(() => { setRoomScope("main"); }, [filter]);
   const [statusFilter, setStatusFilter] = useState("all"); // all | open | pinned；状态与角色各管一层
+  const [pactsFor, setPactsFor] = useState(null);   // 正开着谁的「我们说好的」
   const nameOf = id => {
     const c = characters.find(x => x.id === id);
     return c ? c.remark || c.name : "未知";
@@ -11531,6 +11536,13 @@ function MemoryLib({
     "repeating-linear-gradient(115deg," + t.ink + "00 0 2px," + t.ink + "06 2px 3px)",
     "repeating-linear-gradient(25deg," + t.ink + "00 0 3px," + t.ink + "05 3px 4px)"
   ].join(",") };
+  // 「我们说好的」那一页（她 2026-09-29：约回的日子想自己定，而且不止情侣才能定）。
+  //   就是情侣空间那一页 CouplePacts 本身——字据、挂历页、三枚印、到点那条约回链全是它的，
+  //   这儿只是多开一道门，不另写一份（one-public-mechanism）。
+  const pactChar = pactsFor ? (characters || []).find(c => c.id === pactsFor) : null;
+  if (pactChar && pactsOf) return h(CouplePacts, { partner: pactChar, pacts: pactsOf(pactChar.id),
+    onClose: onClosePact, onSetDue: (mid, about, ts, via) => onSetPactDue(mid, pactChar.id, about, ts, via),
+    onAdd: (txt, ts) => onAddPact(pactChar.id, txt, ts), onBack: () => setPactsFor(null) });
   return h("div", {
     className: "h-full flex flex-col", style: boxSkin
   // 顶栏改用公共 Head（施工规则/mobile-ui-layout.md §1「别再自己写一条」），
@@ -11763,6 +11775,13 @@ function MemoryLib({
               h("button", { onClick: () => editRoomMem(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "改"),
               onAdd ? h("button", { onClick: () => moveRoomMemToMain(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "挪进主线") : null)));
       })) : null,
+    // 未了 + 选了一个人：给这些约定挑日子，到那天TA自己来（不是情侣也能用）
+    !inRoom && statusFilter === "open" && personKey && pactsOf ? h("button", { onClick: () => setPactsFor(personKey), className: "w-full text-left active:opacity-75",
+      style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, margin: "0 0 10px", padding: "10px 13px",
+        background: t.bg2, border: "1px dashed " + t.line, borderRadius: 3 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.5 } },
+        "给这些约定挑个日子", h("span", { style: { display: "block", fontSize: 10.5, color: t.fog } }, "到那天那个点，TA会自己来找你、打给你或视频")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, flexShrink: 0 } }, "我们说好的 ›")) : null,
     !inRoom && h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
         "这一摞 " + list.length + " 张"

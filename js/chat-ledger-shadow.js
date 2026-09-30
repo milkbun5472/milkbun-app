@@ -194,9 +194,16 @@
       if (speaker === "character" && !isDeleted && /^\[表情\] .+$/m.test(rowContent)) {
         const kept = [];
         rowContent.split("\n").forEach(ln => {
-          const mm = /^\[表情\] (.+)$/.exec(ln.trim());
+          const t = ln.trim();
+          const mm = /^\[表情\] (.+)$/.exec(t);
           const em = mm ? emoteFor(mm[1].trim(), cid) : null;
-          if (em) emoteRows.push(em); else kept.push(ln);
+          if (em) { emoteRows.push(em); return; }
+          // 句尾表情也捞（他老把「[表情] X」塞句尾，2026-09-29 三犯）：关键词在字典里才拆，
+          // 拆出的贴纸排在整段正文之后；查无此图就整行原样保留。
+          const tail = /^(.*\S)\s*\[表情\] (.+)$/.exec(t);
+          const emTail = tail ? emoteFor(tail[2].trim(), cid) : null;
+          if (emTail) { kept.push(tail[1]); emoteRows.push(emTail); return; }
+          kept.push(ln);
         });
         if (emoteRows.length) rowContent = kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
       }

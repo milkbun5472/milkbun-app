@@ -216,7 +216,7 @@ test("两档合成一档：查毛病的那套话直接进主提示词，不再�
   assert.doesNotMatch(src, /mode === "diagnose"/, "还按模式分叉");
   assert.match(src, /查毛病的时候先看下面的现状快照/, "合并之后查毛病那套话也跟着没了");
   // ask 不该再收一个没人用的 mode——声明了没人引用比压根没写更坏
-  assert.match(src, /async function ask\(active, ctx, history, text\)/);
+  assert.match(src, /async function ask\(active, ctx, history, text, pic\)/);   // v74.331 多一个 pic：她发来的那张图
 });
 
 // 她 2026-09-03：「它聊天也要有上下文然后可以清空」
@@ -305,7 +305,7 @@ test("线路：不选＝跟随全局，选了就走那条；解析只写一处",
   assert.equal((src.match(/cfg\.apiId && \(ctx\.apiProfiles/g) || []).length, 1, "解析被抄成了两处");
   // 收发真的用解析出来的那条，不是原样的 ctx.active
   assert.match(src, /const act = A\.activeFor\(ctx\);/);
-  assert.match(src, /await A\.ask\(act, ctx, before, q\)/, "还在拿没解析过的那条发请求");
+  assert.match(src, /await A\.ask\(act, ctx, before, q, /, "还在拿没解析过的那条发请求");
   assert.doesNotMatch(src, /A\.ask\(ctx\.active,/);
 });
 
@@ -500,7 +500,7 @@ test("「还在生成」是共享的，退出去再回来还在转", () => {
   assert.match(src, /A\.bumpBusy\(1\); A\.markAsking\(q\);/);
   assert.match(src, /finally \{ A\.clearAsking\(\); A\.bumpBusy\(-1\); \}/, "出错也得把忙的牌子摘掉，否则永远发不出话");
   // 忙的时候两处都发不出第二句——不然老那条回完接在后面，顺序全乱
-  assert.match(src, /if \(!q \|\| A\.isBusy\(\)\) return;/);
+  assert.match(src, /if \(\(!q && !pic\) \|\| A\.isBusy\(\)\) return;/);   // 只发图不写字也发得出去
   assert.doesNotMatch(src, /if \(!q \|\| busy\) return;/, "还在看自己那份 busy");
   // 真跑一遍
   let seen = [];

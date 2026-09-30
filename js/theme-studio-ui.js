@@ -19,6 +19,84 @@
           style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消")));
   }
   g.ThemePackPasteBox = ThemePackPasteBox;
+
+  // ── 手写 CSS 那两样小工具：主题工作台和「只给 TA 写 CSS」共用（她 2026-09-30：「挂点给的提示够不够」）──
+  //   原来只写在工作台里，聊天设置那格一个都没有，只能猜。one-public-mechanism：开公共的、工作台也搬过来用。
+  // ① 抓得住的挂点：名单只有 ThemeStudio 那一份（WK_COMMON + WK_SCOPED），点一下写进编辑框
+  function CssHookPicker({ page, css, setCSS }) {
+    const t = useTheme(), studio = g.ThemeStudio || {};
+    const common = studio.WK_COMMON || [];
+    const grp = (studio.WK_SCOPED || []).filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
+    const rows = [["每一页都有", common]].concat(grp ? [["这一页专有（" + grp.zh + "）", grp.hooks]] : []);
+    const put = function (nm) { setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + '[data-wk="' + nm + '"] {\n  \n}'); };
+    return h("div", { style: { marginTop: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
+        "抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
+        + "所以每一条声明都要带 !important，不带等于没写。"),
+      // 换一台手机就错位（她 2026-09-30）——原来这儿摆的是一张变量表，她说看不懂。改成现成的几条：
+      //   点一下就把整段写进编辑框，数值照 App 现在用的（气泡最宽七成二、字 14.5、内边距 9/13）按屏幕换算，不用她们懂变量。
+      //   变量表还在，折在最底下给会写 CSS 的人看。
+      (function () {
+        const chat = page === "thread" || page === "gthread";
+        const presets = (chat ? [
+          ["顶部按屏幕高度留白", "给顶上的装饰图让位，高手机留得多、矮手机留得少", '[data-wk="body"] {\n  padding-top: calc(var(--app-vh) * 12) !important;\n}'],
+          ["气泡最宽占屏幕七成", "换宽屏、窄屏，气泡都不会撑得太满", '[data-wk="bubble"] {\n  max-width: calc(var(--app-w) * 0.72) !important;\n}'],
+          ["背景图随手机铺满", "背景图不会在长手机上露白边、也不会被拉变形", '[data-wk="chat"] {\n  background-size: cover !important;\n  background-position: center !important;\n}'],
+          ["小屏手机字小一号", "只在矮屏手机上生效，别的手机不变", 'html[data-screen-size="short"] [data-wk="bubble"] {\n  font-size: 13.5px !important;\n  padding: 7px 11px !important;\n}'],
+          ["大屏手机头像大一点", "只在高屏手机上生效", 'html[data-screen-size="tall"] [data-wk="row"] > [data-wk="avatar"] {\n  transform: scale(1.1) !important;\n}']
+        ] : [
+          ["这一页背景图随手机铺满", "背景图不会露白边、不会被拉变形", '[data-wk="app"] {\n  background-size: cover !important;\n  background-position: center !important;\n}']
+        ]);
+        const add = code => setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + code);
+        return h("div", { style: { marginBottom: 10, padding: "9px 10px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 2 } }, "换手机不走样 · 点一下加进去"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7, lineHeight: 1.55 } }, "要分给别人用的美化，高度和宽度别写死数字，用下面这几条：它们会跟着每台手机自己算。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, presets.map(function (p) {
+            return h("button", { key: p[0], onClick: function () { add(p[2]); }, className: "active:opacity-70",
+              style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, p[0]),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, p[1]));
+          })),
+          h("details", { style: { marginTop: 8 } },
+            h("summary", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, cursor: "pointer" } }, "会写 CSS 的看这里：能用的几个值"),
+            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
+              "var(--app-h)  屏幕可视高度\nvar(--app-vh) 高度的 1%\nvar(--app-w)  屏幕宽度\nvar(--app-safe-top) / var(--app-safe-bottom)  刘海 / 底部横条\nvar(--app-kb) 键盘占掉的高度\nhtml[data-screen-size=\"short|mid|tall\"] …  按屏幕高矮分开写")));
+      })(),
+      rows.map(function (row) {
+        return h("div", { key: row[0], style: { marginBottom: 8 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, row[0]),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+            (row[1] || []).map(function (hk) {
+              return h("button", { key: hk[0], onClick: function () { put(hk[0]); }, className: "active:opacity-70",
+                style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, textAlign: "left" } },
+                h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.ink } }, hk[0]),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, hk[1]));
+            })));
+      }),
+      !grp && page !== "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog } },
+        "这一页只有上面这几个通用的。正文里的卡片、按钮、列表还没挂钩子——底色、字色、顶栏、半窗、空状态改得动，单独改某一张卡片改不动。") : null);
+  }
+  // ② 插一张图：进图片保险箱，光标处写 url("iv_…")。别处的图直接写 url("https://…") 也行，只是那个网站删了图就没了
+  function CssImageButton({ css, setCSS, editorRef, toast }) {
+    const t = useTheme(), file = React.useRef(null);
+    const pick = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      try {
+        const ref = await imgToVault(await resizeImageFile(f, 1600, .92));
+        const token = 'url("' + ref + '")', el = editorRef && editorRef.current, cur = String(css || "");
+        const a = el && Number.isFinite(el.selectionStart) ? el.selectionStart : cur.length;
+        const b = el && Number.isFinite(el.selectionEnd) ? el.selectionEnd : a;
+        setCSS(cur.slice(0, a) + token + cur.slice(b));
+        requestAnimationFrame(() => { const x = editorRef && editorRef.current; if (x) { x.focus(); x.setSelectionRange(a + token.length, a + token.length); } });
+        toast && toast("图片已进保险箱，引用写进编辑框了");
+      } catch (err) { toast && toast("图片读取失败：" + (err.message || err)); }
+    };
+    return h(React.Fragment, null,
+      h("button", { onClick: () => file.current && file.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "7px 11px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5 } }, "插入图库图片"),
+      h("input", { ref: file, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }));
+  }
+  g.CssHookPicker = CssHookPicker;
+  g.CssImageButton = CssImageButton;
   // 预览台跳出去再回来时，落回她刚才那一栏、那一页（v65.00）。
   // ⚠️不进存档：它只是「上一秒在哪儿」，关掉 app 就该忘掉。
   let lastSpot = null;
@@ -36,7 +114,7 @@
     const [xPick, setXPick] = useState(() => studio.cleanPick(null));
     const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
     useEffect(() => { lastSpot = null; }, []);
-    const iconFile = useRef(null), iconFiles = useRef(null), cssImageFile = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
+    const iconFile = useRef(null), iconFiles = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
     //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
@@ -257,18 +335,6 @@
     useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
     const css = page === "all" ? draft.globalCSS || "" : (draft.pageCSS[page] || "");
     const setCSS = v => page === "all" ? patchDraft({ globalCSS: v }) : patchDraft({ pageCSS: { ...draft.pageCSS, [page]: v } });
-    const chooseCssImage = async e => {
-      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-      try {
-        const ref = await imgToVault(await resizeImageFile(f, 1600, .92));
-        const token = 'url("' + ref + '")', el = cssEditor.current;
-        const a = el && Number.isFinite(el.selectionStart) ? el.selectionStart : css.length;
-        const b = el && Number.isFinite(el.selectionEnd) ? el.selectionEnd : a;
-        setCSS(css.slice(0, a) + token + css.slice(b));
-        requestAnimationFrame(() => { if (cssEditor.current) { cssEditor.current.focus(); cssEditor.current.setSelectionRange(a + token.length, a + token.length); } });
-        toast("图片已进保险箱，引用写进编辑框了");
-      } catch (err) { toast("图片读取失败：" + (err.message || err)); }
-    };
     // ⚠️这个跟预览无关，别跟着一起删：身上挂着气泡皮肤时，那张 style 带 !important
     //   又排在主题 CSS 后面，直接灌内置 CSS 会像是一个字都没生效（v61.05 她要的顺序）。
     const clearSkin = () => { try { if (typeof applyBubblePreset === "function") applyBubblePreset("default"); localStorage.setItem("x_bubbleSkinPreset", ""); } catch (_) {} };
@@ -395,38 +461,11 @@
         h("textarea", { ref: cssEditor, value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
         h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 8 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.55, color: t.fog } }, "光标放到 background-image 后面，再选一张图；这里只存保险箱门牌，导出主题包会把原图一起带走。"),
-          h("button", { onClick: () => cssImageFile.current && cssImageFile.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "7px 11px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5 } }, "插入图库图片"),
-          h("input", { ref: cssImageFile, type: "file", accept: "image/*", onChange: chooseCssImage, style: { display: "none" } })),
+          h(CssImageButton, { css: css, setCSS: setCSS, editorRef: cssEditor, toast: toast })),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
-        // ── 这一页抓得住的挂点（v65.05）────────────────────────────────
-        // 她在这儿手写 CSS，界面上却从没说过【能抓住什么】——只能猜类名，
-        // 而这个 App 没有语义 class，猜出来的一条都不生效（跟秋秋当初栽的是同一处）。
-        // ⚠️名单只有 ThemeStudio 那一份（WK_COMMON + WK_SCOPED），这儿不另抄。
-        (function () {
-          const common = studio.WK_COMMON || [];
-          const grp = (studio.WK_SCOPED || []).filter(function (g) { return (g.pages || []).indexOf(page) >= 0; })[0];
-          const rows = [["每一页都有", common]].concat(grp ? [["这一页专有（" + grp.zh + "）", grp.hooks]] : []);
-          const put = function (nm) {
-            setCSS((css.trim() ? css.replace(/\s*$/, "") + "\n\n" : "") + '[data-wk="' + nm + '"] {\n  \n}');
-          };
-          return h("div", { style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
-              "这一页抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
-              + "所以每一条声明都要带 !important，不带等于没写。"),
-            rows.map(function (row) {
-              return h("div", { key: row[0], style: { marginBottom: 8 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, row[0]),
-                h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-                  (row[1] || []).map(function (hk) {
-                    return h("button", { key: hk[0], onClick: function () { put(hk[0]); }, className: "active:opacity-70",
-                      style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, textAlign: "left" } },
-                      h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.ink } }, hk[0]),
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, hk[1]));
-                  })));
-            }),
-            !grp && page !== "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog } },
-              "这一页只有上面这几个通用的。正文里的卡片、按钮、列表还没挂钩子——底色、字色、顶栏、半窗、空状态改得动，单独改某一张卡片改不动。") : null);
-        })(),
+        // ── 这一页抓得住的挂点（v65.05）：她在这儿手写 CSS，界面上却从没说过【能抓住什么】——只能猜类名。
+        //   v74.318 起跟「只给 TA 写 CSS」共用 CssHookPicker（名单仍只有 ThemeStudio 那一份）。
+        h(CssHookPicker, { page: page, css: css, setCSS: setCSS }),
         // ── 内置预设 + 这一页自己的 5 个槽位（v61.05，她 2026-09-03 要的）──
         // ⚠️内置是【拷贝】进编辑框的，不是引用：内置改了，她手上那份不会跟着变。
         //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，

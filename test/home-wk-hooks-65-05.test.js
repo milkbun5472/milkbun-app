@@ -63,7 +63,10 @@ test("页码点浮在上面，不占一条实块", () => {
 test("编辑器把这一页抓得住的挂点列给她看，名单只问 ThemeStudio 要", () => {
   // ⚠️她自己在主题台里写 CSS，界面上却从没说过能抓什么——只能猜类名，
   //   而这个 App 没有语义 class（只有 Tailwind 工具类），猜出来的一条都不生效。
-  const css = ui.slice(ui.indexOf('section === "css"'), ui.indexOf("内置（点一下灌进上面的编辑框"));
+  // v74.318 起挂点那块搬成公共组件 CssHookPicker（「只给 TA 写 CSS」也用它）：编辑器里只剩一行调用，判据查组件本身
+  const editor = ui.slice(ui.indexOf('section === "css"'), ui.indexOf("内置（点一下灌进上面的编辑框"));
+  assert.match(editor, /h\(CssHookPicker, \{ page: page, css: css, setCSS: setCSS \}\)/, "编辑器没挂上挂点那块");
+  const css = ui.slice(ui.indexOf("function CssHookPicker"), ui.indexOf("function CssImageButton"));
   assert.match(css, /studio\.WK_COMMON \|\| \[\]/, "没列每页都有的那几个");
   assert.match(css, /\(studio\.WK_SCOPED \|\| \[\]\)\.filter/, "没按当前这一页去表里找专有的那一组");
   // ⚠️名单不许在这儿另抄一份（抄了迟早跟表对不上）

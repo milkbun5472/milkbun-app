@@ -69,6 +69,6 @@ test("台词用说话人自己的颜色，我用强调色", () => {
   assert.match(body, /fontWeight: 600/, "台词没加重");
   assert.match(body, /boxDecorationBreak: "clone"/, "高亮带换行会断成一块一块");
   // 旁白里夹着的台词也一样标出来
-  const narr = grab(comp, "  if (isNarr) {", "  return h(\"div\", { className: \"my-2.5\" },");
+  const narr = grab(comp, "  if (isNarr) {", "  return h(\"div\", { className: \"my-2.5\", \"data-wk\": \"offmsg\"");
   assert.match(narr, /offSplit\(nText\)\.map/, "长旁白里引的那句话没标出来");
 });

@@ -51,7 +51,8 @@ test("引用只显示原话，不显示「引用 XXX：」", () => {
   const live = f => f.split("\n").filter(l => !/^\s*\/\//.test(l) && l.indexOf('"引用 " +') >= 0);
   assert.deepEqual(live(comp), [], "群气泡");
   assert.deepEqual(live(gq), [], "共用 label");
-  assert.match(comp, /\}, "❝ " \+ m\.replyTo\), m\.recalled/);
+  // v74.322 起 ❝ 和原话各挂一个挂点（quoteicon / quotetext）能单独美化，显示的还是这两样
+  assert.match(comp, /h\("span", \{ "data-wk": "quoteicon" \}, "❝ "\), h\("span", \{ "data-wk": "quotetext" \}, m\.replyTo\)\), m\.recalled/);
   assert.match(gq, /return "❝ " \+ clean\(value\.text \|\| value\.replyTo\);/);
 });
 

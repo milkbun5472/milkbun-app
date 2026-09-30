@@ -68,7 +68,7 @@ test("底纹铺在外壳上、顶栏透明（mobile-ui-layout §3.5）", () => {
   const i1 = code.indexOf("const curPage = settingsTab ? settingPages.find");
   assert.ok(i1 > 0, "找不到那一段");
   const seg = code.slice(i1, code.indexOf("!settingsTab && h(\"div\"", i1));
-  assert.match(seg, /h\("div", \{ className: "h-full flex flex-col", style: Object\.assign\(\{ position: "fixed", inset: 0, zIndex: 240 \}, pgSkin\) \}/,
+  assert.match(seg, /h\("div", \{ className: "h-full flex flex-col", style: Object\.assign\(\{ position: "fixed", inset: 0, zIndex: 240 \}, pgSkin(, lookPeek \? \{ display: "none" \} : null)?\) \}/,
     "底纹没铺在最外面那个外壳上，顶栏那一条会露出一道平色带");
   assert.match(seg, /h\(Head, \{\s*bg: "transparent",/, "顶栏没透上来");
   assert.ok(!/backgroundAttachment/.test(seg), "底纹跟着内容滚了");
