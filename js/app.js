@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.375";
+const APP_VERSION = "v74.377";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7570,6 +7570,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 线下相处也影响好感与心情（跟私聊一样）
       if (!sideRoom) bumpAff(charId, res.affinityDelta);   // 读成数这一步收在 affDelta 一处
       if (!sideRoom) tickAmbient(charId, {}); // 侧房不推动主时间线的人格/动态生态
+      if (!sideRoom) applySchedChange(charId, res.schedNow); // 线下这一拍改了接下来的安排 → 写回日程
       // mood 一直不动的老毛病（她 2026-08-24）：病根是线下协议原本写着「值得更新才填，
       // 否则 null」，示范形状里还直接摆着 "mood":null——模型照着模板填 null，心情就永远冻着。
       // v55.67 改成每轮必填。这里再加一只计数器：还是不回就说出来，别又变成静默失败。
@@ -10040,6 +10041,7 @@ action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的�
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: ${AFFINITY_DELTA_SPEC}
+${SCHED_NOW_SPEC}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
@@ -10385,6 +10387,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           });
         }
       } catch (e) {}
+      // 这一轮当场改了接下来的安排 → 写回日程。隔离房同约回，不许动共同状态。
+      if (!room || !!(room.writeback && room.writeback.sharedState)) applySchedChange(charId, parsed.schedNow);
       // ⚠️好感那一栏也要救（她 2026-09-15：「感觉有时候不涨」）。
       //   上面那句注释写着「坏 JSON 时状态卡就冻住不变……逐个从 raw 里正则抠回来」，
       //   可救的只有 action/wearing/thought/mood 四样——全是字符串，salvageStr 只认带引号的。
@@ -13479,6 +13483,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_schedules", n);
     return n;
   });
+  // 聊天/线下这一轮当场改了安排（schedNow 字段）→ 写回今天那份日程。一处收着，两条路都走这儿。
+  //   没排今天的日程就不凭空造一份；写过之后记上 selfRevCheck，免得「临时起意」再把它改走。
+  //   群聊、群线下暂不接：一拍里好几个人各有各的日程，先把单人两条路走通。
+  const applySchedChange = (charId, change) => {
+    try {
+      if (!change || typeof change !== "object" || !change.title) return;
+      const c = characters.find(x => x && x.id === charId);
+      if (!c) return;
+      const today = schedLocalDayKey(c);
+      const plan = (schedulesRef.current[charId] || {})[today];
+      if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.length) return;
+      const charNow = new Date(Date.now() + schedTzShiftMin(c) * 60000);
+      const seqs = schedSpliceNow(plan.seqs, charNow.getHours() * 60 + charNow.getMinutes(), change);
+      if (seqs) saveSchedDay(charId, today, { ...plan, seqs: seqs, selfRevCheck: true, liveRevisedAt: Date.now() });
+    } catch (e) {}
+  };
   // ── 删掉 AI 排的日程（她 2026-09-18：「做ai生成的日程可以删除吧，both individually
   //    for each 角色的日程或者角色整周生成的，每个角色单独弄」）──
   //

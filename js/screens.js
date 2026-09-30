@@ -1744,6 +1744,33 @@ function schedDateParts(k) {
 // AI 现在会一起生成 end；旧数据和漏填的按「顶到下一段开始、最多 3 小时」补，最后一段给 60 分钟
 //（不封顶的话，一个下午只排了一件事就会画成四五个小时的大块——那中间其实是没排事）。
 // 跨午夜（23:40 → 次日 00:30）按同一天的 24:00 收口，不往回画成负高度。
+// 聊天/线下里当场改了的安排，写回今天的日程（她 2026-09-30：「生成的日程和实际线下不一样，日程不覆盖吗」）。
+//   只动【此刻到 until】这一截：此刻之前的原样留着，被盖住那段切掉中间、两头留下；
+//   新插的那段带 deviation，日程页和下一轮提示词都认得出它是临时改的。
+//   change = {title, location, until:"HH:MM", reason}；nowMin 是 TA 当地此刻的分钟数。
+function schedSpliceNow(seqs, nowMin, change) {
+  const min = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  const hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
+  const title = String((change && change.title) || "").trim().slice(0, 40);
+  if (!title || !Number.isFinite(nowMin)) return null;
+  const full = schedFillEnds(Array.isArray(seqs) ? seqs : []);
+  const n = Math.max(0, Math.min(1439, Math.floor(nowMin)));
+  let u = min(change.until);
+  if (u == null || u <= n) { const cur = full.find(s => min(s.time) != null && min(s.time) <= n && (min(s.end) == null || min(s.end) > n)); u = cur && min(cur.end) > n ? min(cur.end) : n + 60; }
+  u = Math.min(1440, u);
+  const out = [], hit = [];
+  for (const s of full) {
+    const st = min(s.time), en = min(s.end);
+    if (st == null || st >= u || (en != null && en <= n)) { out.push(s); continue; }
+    hit.push(s.title || "");
+    if (st < n) out.push({ ...s, end: hm(n) });
+    if (en != null && en > u) out.push({ ...s, time: hm(u) });
+  }
+  out.push({ time: hm(n), end: hm(u), title: title, location: String(change.location || "").slice(0, 40), place: "", type: "other",
+    deviation: { plan: hit.filter(Boolean).join("、") || "原本没排事", reason: String(change.reason || "跟你在一起，临时改了").slice(0, 60), actual: title } });
+  out.sort((a, b) => (min(a.time) ?? 9999) - (min(b.time) ?? 9999));
+  return out.map((s, i) => ({ ...s, seq: i + 1 }));
+}
 function schedFillEnds(seqs) {
   const arr = Array.isArray(seqs) ? seqs : [];
   const min = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };

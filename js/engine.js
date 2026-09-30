@@ -2117,6 +2117,8 @@ const ACT_MEANING = "如实填写角色此刻真正正在做的事或所处的�
 // ⚠️改的是判据不是天花板：乘 0.2 那一步留着（一轮最多 ±1 是对的），这儿只把门槛换成
 //   一条【每轮都答得出来】的轴——往哪边动了一点点就 ±1，转折才 ±3~5。
 //   见 施工规则/bans-make-it-dumber.md「掷约束，别掷答案」。
+// 当场改了接下来的安排 → 写回日程（app.js applySchedChange）。聊天、线下共用这一句。
+const SCHED_NOW_SPEC = 'schedNow:{"title":"接下来实际在做什么","location":"在哪","until":"HH:MM，大约到几点（TA 当地时间）","reason":"为什么改了，一句"}——只在这一轮【真的定下了】TA 从现在起要做的事跟今日安排不一样时才填（一起出门了、留下来陪她、临时去了别处……），好让日程跟上实际发生的事；照原安排走、或只是嘴上聊聊没定下来，就省略。';
 const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪边动了一点点，就填 ±1——聊得开心、被照顾到、有来有往、说了句戳心窝的话都算，不用等大事；真正的转折（表白、吵架、被戳到痛处、第一次交底）才给 ±3~5；确实什么都没发生才 0。";
 // 心声那一格的说明（v74.311 重写，她 2026-09-29：「三个不同的人…心声格式是不是太像了」）。
 //   单聊里三个人各调各的模型，说话都在角色里，只有心声长成同一句：一句带点宠的、对她刚说的话的小吐槽。
@@ -2829,7 +2831,7 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 你就是 TA 本人。落笔之前先以 TA 的第一人称把此刻这一幕想一遍：眼前发生的事在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——scene 从那个判断里长出来，不是先想「这种人该有什么反应」再往人设上凑。
 thought、mood、wearing、action 等附属字段只记录已经形成的场景与角色状态，不用来提前铺排剧情，也不用来给 scene 补一段解释。wearing、toy 没有真实变化时留空即可，不要为了填字段制造变化；但 thought、mood、action 是【此刻重新看一眼】的读数，不是变更通知，每轮都要写。
 
-只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
 
 输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的一句真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
 先想清楚 TA 怎么看这一刻，场景再发生；系统最后记录。`;
@@ -6959,6 +6961,7 @@ async function generateOffline(p, ctx, session) {
     action: cln(parsed.action),
     affinityDelta,
     toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null,
+    schedNow: (parsed.schedNow && typeof parsed.schedNow === "object" && parsed.schedNow.title) ? parsed.schedNow : null,
     // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
     photo: (session.photoOn && parsed.photo && typeof parsed.photo === "object" && String(parsed.photo.scene || "").trim())
       ? { kind: String(parsed.photo.kind || "self"), scene: String(parsed.photo.scene).trim() } : null
