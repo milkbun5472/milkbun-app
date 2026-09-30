@@ -2965,8 +2965,13 @@ function loreKeywordHit(e, text) {
   // 正则模式：整条当一个正则（别按逗号切——{3,} 之类量词含逗号会被切坏）
   if (e.regex) { try { return new RegExp(kw, "i").test(t); } catch (_) { return false; } }
   // 普通模式：逗号/顿号/竖线分隔多个关键词，任一命中即可
-  const terms = kw.split(/[,，、|]/).map(s => s.trim()).filter(Boolean);
-  for (const term of terms) { if (t.toLowerCase().indexOf(term.toLowerCase()) >= 0) return true; }
+  // 全角半角不分（群友 2026-09-30 问「关键词有全半角的要求吗」）：两边都先 NFKC 再比——
+  //   ＡＢＣ↔ABC、１２３↔123、（↔(、全角空格↔半角空格都算同一个字。中文字本身不受影响。
+  //   ⚠️先切再归一：归一会把全角逗号变成半角逗号，顺序反过来也一样切得开，但先切更不容易出岔子。
+  const norm = x => { const y = String(x || ""); try { return y.normalize("NFKC").toLowerCase(); } catch (_) { return y.toLowerCase(); } };
+  const tn = norm(t);
+  const terms = kw.split(/[,，、|｜]/).map(s => s.trim()).filter(Boolean);
+  for (const term of terms) { const k = norm(term).trim(); if (k && tn.indexOf(k) >= 0) return true; }
   return false;
 }
 function selectLore(entries, opts) {
