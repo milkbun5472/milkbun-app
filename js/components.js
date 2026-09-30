@@ -182,6 +182,12 @@ function AvatarDecoRow({ who, k, layout, setLayout, note }) {
         style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, d[key] ? "换一张" : "选图"),
       d[key] ? h("button", { onClick: () => set({ [key]: "" }), className: "active:opacity-70", style: { minHeight: 32, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "拿掉") : null,
       h("input", { ref: el => { fileFor.current[key] = el; }, type: "file", accept: "image/*", onChange: pick(key), style: { display: "none" } })),
+    // 也能直接贴别处的图片地址（她 2026-09-30）：不进保险箱，那个网站删了图这里也就没了
+    h("input", { key: key + "-url", defaultValue: /^https?:\/\//i.test(d[key] || "") ? d[key] : "", placeholder: "或者贴一个图片地址 https://…",
+      onBlur: e => { const v = e.target.value.trim(); if (!v) { if (/^https?:/i.test(d[key] || "")) set({ [key]: "" }); return; }
+        if (!/^https?:\/\/[^\s"'()<>]+$/i.test(v)) { window.__toast && window.__toast("这不像一个图片地址（要 http:// 或 https:// 开头）"); return; }
+        set({ [key]: v }); },
+      style: { width: "100%", marginTop: 6, minHeight: 34, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, outline: "none" } }),
     d[key] ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 4 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, width: 44 } }, "大小"),
       h("input", { type: "range", min: lo, max: hi, step: 2, value: Number(d[sizeKey]) || def, onChange: e => set({ [sizeKey]: Number(e.target.value) }), style: { flex: 1 } }),
@@ -189,7 +195,7 @@ function AvatarDecoRow({ who, k, layout, setLayout, note }) {
   return h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, who + " 的头像框 · 挂件",
       note ? h("span", { style: { fontSize: 11, color: t.fog } }, note) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "用透明底的 png：框会整张盖在头像上、比头像大一圈；挂件是挂在一个角上的小图。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "用透明底的 png：框会整张盖在头像上、比头像大一圈；挂件是挂在一个角上的小图。可以从相册选，也可以贴网上的图片地址。"),
     slot("frame", "头像框", "frameSize", 100, 200, 140),
     slot("pend", "挂件", "pendSize", 20, 100, 45),
     d.pend ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6, paddingLeft: 52 } },

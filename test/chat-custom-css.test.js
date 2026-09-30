@@ -82,3 +82,10 @@ test("头像框 / 挂件：TA 和她各一套，编进排版那层 CSS，门牌�
   assert.match(comp, /isU && dsp\.myAvatar && h\("span", \{ "data-wk": "avatar"/, "她那颗没包挂点壳，框会被头像的圆角裁掉");
   assert.match(app, /window\.ThemeStudio\.resolveCSSImages\(window\.ThemeStudio\.scopeCSS\(c, scope\)\)/);
 });
+
+test("头像框 / 挂件也能直接贴网上的图片地址", () => {
+  const body = comp.slice(comp.indexOf("const CHAT_LAYOUT_DEFAULT"), comp.indexOf("// 排版里「头像框 / 挂件」那一行"));
+  const f = new Function(body + "\nreturn chatLayoutCSS;")();
+  assert.match(f({ deco: { ta: { frame: "https://x.com/a.png" } } }), /url\("https:\/\/x\.com\/a\.png"\)/);
+  assert.match(comp, /placeholder: "或者贴一个图片地址 https:\/\/…"/);
+});
