@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.321";
+const APP_VERSION = "v74.322";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2220,6 +2220,8 @@ function App() {
       fontCSS: charFontCSS(s.font, scope),
       skinCSS: charSkinCSS(s.skin, scope),
       customCSS: charCustomCSS(s.customCSS, scope),
+      // 排版开关：编成 CSS 再用同一支 scopeCSS 限到这个人这一页
+      layoutCSS: (() => { try { const c = typeof chatLayoutCSS === "function" ? chatLayoutCSS(s.layout) : ""; return c && scope && window.ThemeStudio ? window.ThemeStudio.scopeCSS(c, scope) : ""; } catch (e) { return ""; } })(),
       bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
       chatBg: s.chatBg || ""
     });
@@ -25799,6 +25801,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             describeMe: s.describeMe,
             chatBg: s.chatBg,
             skin: s.skin || "",
+            layout: s.layout && typeof s.layout === "object" ? s.layout : undefined,
             // 这个聊天自己写的 CSS：不安全的（@import / javascript: 之类）不存
             customCSS: (window.ThemeStudio && s.customCSS && !window.ThemeStudio.unsafeReason(s.customCSS)) ? String(s.customCSS).slice(0, 60000) : "",
             // 这个人自己的字（她 2026-09-18）。存进来之前先洗一遍：她在主题工作台

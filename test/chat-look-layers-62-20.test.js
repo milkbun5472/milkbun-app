@@ -50,7 +50,7 @@ test("这几层按这个顺序挂上去，一层都不许换位", () => {
     fontCSS: SCOPE + " {--f-body: 'X';}", bubble: { myBg: "#95ec69" }, chatBg: "iv_abc" });
   // v71.13 在皮肤后面插了「只给 TA 换字」。它只写 --f-body / --f-display 两个变量，
   // 不跟底色气泡抢任何一条声明，所以插在哪儿都不改谁盖谁——但顺序本身仍旧钉死。
-  assert.deepEqual(order, ["wk-char-skin-css", "wk-char-font-css", "wk-skin-css", "wk-char-skin-bg-css", "wk-char-bubble-css", "wk-chat-bg-css", "wk-char-custom-css"],
+  assert.deepEqual(order, ["wk-char-skin-css", "wk-char-font-css", "wk-skin-css", "wk-char-skin-bg-css", "wk-char-bubble-css", "wk-chat-bg-css", "wk-char-layout-css", "wk-char-custom-css"],
     // v74.301：这个聊天自己写的 CSS 挂在最后——它是这个窗口里最具体的一层
     "顺序变了——后挂的赢，换位就等于换了谁盖谁");
 });

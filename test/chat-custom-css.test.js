@@ -39,7 +39,35 @@ test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，�
 test("长相预览台：草稿铺到真聊天窗、设置页只藏不卸、回去改时按存档重铺", () => {
   assert.match(app, /const paintChatLook = draft =>/);
   assert.match(app, /window\.__previewChatLook = draft => paintChatLook\(draft\)/);
-  assert.match(comp, /window\.__previewChatLook\(\{ skin, bubble, font, chatBg, customCSS \}\)/);
+  assert.match(comp, /window\.__previewChatLook\(\{ skin, bubble, font, chatBg, customCSS, layout \}\)/);
   assert.match(comp, /lookPeek \? \{ display: "none" \} : null/);
   assert.match(comp, /h\(ThemePeekBar, \{ zh: cNm \+ " 的聊天长相（还没保存）", onBack: endPeek \}\)/);
+});
+
+test("美化 A：每条消息挂上连发头尾、类型、刚进来；单聊群聊同一份", () => {
+  assert.match(comp, /function msgRunAttrs\(list, i, part, last, same\)/);
+  assert.equal((comp.match(/\.\.\.msgRunAttrs\(messages, i,/g) || []).length, 2, "单聊、群聊两处都要挂");
+  const body = comp.slice(comp.indexOf("const MSG_RUN_BREAK"), comp.indexOf("// ── 排版开关"));
+  const f = new Function(body + "\nreturn msgRunAttrs;")();
+  const L = [{ role: "user" }, { role: "user" }, { role: "assistant" }, { role: "assistant", kind: "narration" }];
+  const same = (a, b) => a.role === b.role;
+  assert.equal(f(L, 0, 0, true, same)["data-first"], "1");
+  assert.equal(f(L, 1, 0, true, same)["data-first"], "0");
+  assert.equal(f(L, 1, 0, true, same)["data-last"], "1");
+  assert.equal(f(L, 2, 0, true, same)["data-last"], "1", "旁白不算连着说");
+});
+test("美化 C：排版开关编成 CSS、限到这个人、排在自己写的 CSS 前面", () => {
+  const body = comp.slice(comp.indexOf("const CHAT_LAYOUT_DEFAULT"), comp.indexOf("const bubbleDecls"));
+  const f = new Function(body + "\nreturn chatLayoutCSS;")();
+  assert.equal(f(null), "", "原样就一条都不发");
+  const css = f({ bubble: "plain", avatar: "first", name: true, time: "hide", gap: "tight", top: 80 });
+  assert.match(css, /:not\(\[data-preview\]\)\{background:transparent/, "长按菜单里那颗仍留气泡，不然深底上读不清");
+  assert.match(css, /\[data-first="0"\] \[data-wk="row"\] > \[data-wk="avatar"\]\{visibility:hidden/);
+  assert.match(css, /padding-top:80px/);
+  assert.match(app, /layoutCSS: \(\(\) => \{ try \{ const c = typeof chatLayoutCSS === "function" \? chatLayoutCSS\(s\.layout\)/);
+});
+test("长按菜单里那颗气泡跟着美化走；引用块拆成可单独美化的两截", () => {
+  assert.match(comp, /"data-wk": "bubble", "data-me": isMine \? "1" : "0", "data-kind": \(message && message\.kind\) \|\| "text", "data-preview": "1"/);
+  assert.match(R("js/theme-studio.js"), /\["quoteicon", "/);
+  assert.match(R("js/theme-studio.js"), /\["name", "/);
 });

@@ -108,6 +108,39 @@ function ColorDot({ value, onChange, label, palette, size, tone, hexField, place
 // 贴纸那一栏可以是图片保险箱的 iv_ 门牌，也可以是 assets/xx.png 或 https 地址。
 // 换成真实地址只有这一处：聊天里那只气泡和设置里的试衣镜共用它。
 function stickerSrc(v) { return v ? (typeof resolveImg === "function" ? resolveImg(v) : v) : ""; }
+// ── 一条消息的「状态挂点」（她 2026-09-30：美化自由度 A 档）──────────────────────
+//   写 CSS 的人原来只分得清「她的 / TA 的」。这里再给 msg / bubble 挂上：
+//   data-first / data-last＝是不是同一个人连发那一串的头一条 / 末一条；data-kind＝文字/语音/图片…；
+//   data-recent＝刚进来十几秒内（做入场动画用）。单聊、群聊两处都调这一份（one-public-mechanism）。
+//   same(a, b)：两条是不是同一个人连着说的——单聊看 role，群聊还要看 senderId，由调用方给。
+const MSG_RUN_BREAK = { narration: 1, system: 1, callend: 1, watchlog: 1, listenlog: 1, offlinelog: 1, ooc: 1, pat: 1 };
+function msgRunAttrs(list, i, part, last, same) {
+  const m = list[i] || {};
+  const talk = x => !!x && !x.recalled && !MSG_RUN_BREAK[x.kind] && (x.role === "user" || x.role === "assistant");
+  const prevSame = part > 0 || (talk(m) && talk(list[i - 1]) && same(list[i - 1], m));
+  const nextSame = !last || (talk(m) && talk(list[i + 1]) && same(m, list[i + 1]));
+  const ts = Number(m.ts) || 0;
+  return { "data-first": prevSame ? "0" : "1", "data-last": nextSame ? "0" : "1",
+    "data-recent": ts && Date.now() - ts < 15000 ? "1" : "0" };
+}
+// ── 排版开关（她 2026-09-30：美化自由度 C 档）：不会写 CSS 的人也能换排法。
+//   全部编成 CSS、踩在上面那几个状态挂点上——不另画一套气泡，所以跟皮肤/气泡/自己写的 CSS 叠得起来，
+//   而且她自己写的 CSS 排在它后面，想改照样盖得住。L 缺的栏一律当「原样」。
+const CHAT_LAYOUT_DEFAULT = { bubble: "bubble", avatar: "all", name: false, time: "show", gap: "normal", top: 0 };
+function chatLayoutCSS(L) {
+  L = Object.assign({}, CHAT_LAYOUT_DEFAULT, L || {});
+  const out = [];
+  if (L.bubble === "plain") out.push('[data-wk="bubble"][data-kind="text"]:not([data-preview]){background:transparent !important;border:none !important;box-shadow:none !important;padding-left:2px !important;padding-right:2px !important;}');
+  if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="row"] > [data-wk="avatar"]{visibility:hidden !important;}');
+  if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"]{display:none !important;}');
+  if (L.name) out.push('[data-wk="msg"][data-first="1"] [data-wk="name"]{display:block !important;}');
+  if (L.time === "hide") out.push('[data-wk="time"]{display:none !important;}');
+  if (L.gap === "tight") out.push('[data-wk="msg"][data-first="0"]{padding-top:0 !important;margin-top:-2px !important;}');
+  if (L.gap === "loose") out.push('[data-wk="msg"][data-first="1"]{padding-top:14px !important;}');
+  const top = Math.max(0, Math.min(400, Number(L.top) || 0));
+  if (top) out.push('[data-wk="body"]{padding-top:' + top + 'px !important;}');
+  return out.join("\n");
+}
 const bubbleDecls = S => {
   const q = v => String(v == null ? "" : v).replace(/[<>{}]/g, "");   // 只允许当值用，别让它带出括号
   const out = [];
@@ -216,6 +249,8 @@ function applyChatLook(next) {
     + scope + ' [data-wk="body"]{background:transparent !important;background-image:none !important;}' : "");
   // ⑥ 这个聊天自己写的 CSS（她 2026-09-30：「每个人单独聊天不能细化 css」）：压在最上面——
   //   它是这一个窗口里最具体的一层。App 那头已经用主题工作台同一支 scopeCSS 限死到这个人这一页。
+  // ⑤.5 排版开关编出来的那几条：排在自己写的 CSS 前面——开关是起手，自己写的最具体
+  put("wk-char-layout-css", (scope && L.layoutCSS) ? L.layoutCSS : "");
   put("wk-char-custom-css", (scope && L.customCSS) ? L.customCSS : "");
 }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
@@ -8949,7 +8984,8 @@ function ChatThread({
       // data-wk=chat/chathead/body/msg/time/row/avatar/bubble/composer，
       // 外加 data-me="1|0" 分我和TA。这些【只是名字，不带任何样式】——
       // 加了不影响现在的长相，删了才会让别人写好的主题失效，所以别改名。
-      "data-wk": "msg", "data-me": isU ? "1" : "0"
+      "data-wk": "msg", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      ...msgRunAttrs(messages, i, part, last, (a, b) => a.role === b.role)
     }, part === 0 && (function () {
       // ⚠️原来这儿是手写的一份：`i===0 || 换轮了 || 间隔 >3 分钟`，文案走 fmtStamp——
       //   而 fmtStamp 跨天只给「9/15 14:30」，混在满屏时刻里看不出那是新的一天。
@@ -8988,8 +9024,11 @@ function ChatThread({
         maxWidth: "72%",
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
-    }, m.replyTo && h("div", {
-      "data-wk": "quote",
+    },
+    // 名字：单聊平常不显示（只有两个人），留着给排版「名字写在气泡上面」和写 CSS 的人打开
+    h("div", { "data-wk": "name", "data-me": isU ? "1" : "0", style: { display: "none", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, isU ? ((profile && profile.name) || "我") : cName),
+    m.replyTo && h("div", {
+      "data-wk": "quote", "data-me": isU ? "1" : "0",
       style: {
         fontFamily: F_BODY,
         fontSize: 11,
@@ -9004,7 +9043,7 @@ function ChatThread({
         textOverflow: "ellipsis",
         whiteSpace: "nowrap"
       }
-    }, "❝ " + m.replyTo), /*#__PURE__*/React.createElement("div", {
+    }, h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, m.replyTo)), /*#__PURE__*/React.createElement("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),
@@ -12791,10 +12830,14 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
       className: "mb-3",
       style: { display: "flex", justifyContent: isMine ? "flex-end" : "flex-start" }
     }, h("div", {
-      style: { maxWidth: "100%", maxHeight: 96, overflow: "hidden", padding: "9px 13px", borderRadius: 15,
+      // ⚠️原来这一个是自己拿全局气泡色画的，给某个人挑的气泡、写的 CSS 一样都不跟（她 2026-09-30）。
+      //   挂上同一个 bubble 挂点，皮肤/单挑气泡/自己写的 CSS 就原样落到它身上；data-preview 留给想单独改它的人。
+      "data-wk": "bubble", "data-me": isMine ? "1" : "0", "data-kind": (message && message.kind) || "text", "data-preview": "1",
+      style: { maxWidth: "100%", maxHeight: 96, overflow: "hidden", padding: "9px 13px", borderRadius: BUBBLE_SKIN.radius,
         fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55,
         background: isMine ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
-        color: isMine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink) }
+        color: isMine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
+        border: (isMine ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none", boxShadow: BUBBLE_SKIN.shadow || "none" }
     }, txt)) : null,
     groups.map((g, gi) => h("div", {
       key: gi,
@@ -14396,7 +14439,7 @@ function GroupThread({
   // ⚠️别在这儿再写一份：线下那头原来就是各判各的，结果闭群里点普通成员没反应。
   const canPeek = onOpenMemberState && (canPeekMember || (c => gsp.memoryInterop || !!(c && c.npc)));
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
-    ? h("button", { onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
+    ? h("button", { "data-wk": "avatar", onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
     : h(Avatar, { character: character, size: size || 34, radius: 8 });
   const openRp = i => {
     const rp = messages[i];
@@ -14774,7 +14817,8 @@ function GroupThread({
     const groupTimeLabel = gStamp.text;
     return h("div", {
       key: i,
-      "data-wk": "msg", "data-me": isU ? "1" : "0"
+      "data-wk": "msg", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      ...msgRunAttrs(messages, i, 0, true, (a, b) => a.role === b.role && (a.senderId || "") === (b.senderId || ""))
     }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", "data-day": gStamp.day ? "1" : "0",
       style: { margin: gStamp.day ? "18px 0 10px" : "13px 0 8px" } },
       h("span", { style: gStamp.day
@@ -14790,6 +14834,7 @@ function GroupThread({
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
     }, !isU && h("span", {
+      "data-wk": "name", "data-me": "0",
       style: {
         fontFamily: F_BODY,
         fontSize: 10.5,
@@ -14798,7 +14843,7 @@ function GroupThread({
         marginLeft: 2
       }
     }, m.senderName), m.replyTo && h("div", {
-      "data-wk": "quote",
+      "data-wk": "quote", "data-me": isU ? "1" : "0",
       style: {
         fontFamily: F_BODY,
         fontSize: 11,
@@ -14815,7 +14860,7 @@ function GroupThread({
       }
       // 只显示被引用的原话，不写「引用 XXX：」——是谁说的代码里有 replyToSenderName，
       // 界面上照旧只摆一句原文就够了（她 2026-08-24）
-    }, "❝ " + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { "data-wk": "note", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+    }, h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, m.replyTo)), m.recalled ? h(m.origText ? "button" : "div", { "data-wk": "note", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),
@@ -16299,13 +16344,15 @@ function ChatSettings({
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
   const [customCSS, setCustomCSS] = useState(settings.customCSS || "");
+  const [layout, setLayout] = useState(() => Object.assign({}, CHAT_LAYOUT_DEFAULT, settings.layout || {}));
+  const setLay = (k, v) => setLayout(p => Object.assign({}, p, { [k]: v }));
   const cssFileRef = useRef(null), cssEditRef = useRef(null);
   // 预览台（她 2026-09-30）：设置页先藏起来（不卸载，草稿都还在），底下就是真的聊天窗，铺上这份没存的长相；
   //   回程条跟主题工作台那条是同一个 ThemePeekBar。
   const [lookPeek, setLookPeek] = useState(false);
   const peekLook = () => {
     if (!window.__previewChatLook) return;
-    window.__previewChatLook({ skin, bubble, font, chatBg, customCSS });
+    window.__previewChatLook({ skin, bubble, font, chatBg, customCSS, layout });
     setLookPeek(true);
   };
   const endPeek = () => { setLookPeek(false); if (window.__previewChatLook) window.__previewChatLook(null); };
@@ -16581,6 +16628,7 @@ function ChatSettings({
       chatBg,
       skin,
       customCSS,
+      layout,
       font,
       bubble,
       apiId,
@@ -16884,6 +16932,28 @@ function ChatSettings({
           "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
         row("body", "正文"), row("display", "标题"));
     })()),
+  show("dress", { title: "排版 · 气泡怎么摆", ...sec("look-layout") }, (() => {
+    const pick = (k, label, opts) => h("div", { style: { marginTop: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 6 } }, label),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, opts.map(([v, zh]) => h("button", {
+        key: String(v), onClick: () => setLay(k, v), className: "active:opacity-70",
+        style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12, padding: "0 12px", borderRadius: 999,
+          background: layout[k] === v ? t.ink : "transparent", color: layout[k] === v ? t.bg2 : t.fog, border: "1px solid " + (layout[k] === v ? t.ink : t.line) } }, zh))));
+    return h("div", { className: "pt-2" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } },
+        "不写 CSS 也能换排法。只在这个聊天窗里生效，跟上面的皮肤、气泡叠着用；下面「自己写 CSS」排在它后面，想再细改照样盖得住。"),
+      pick("bubble", "气泡", [["bubble", "有气泡"], ["plain", "没有气泡（纯文字，像小说）"]]),
+      pick("avatar", "头像", [["all", "每条都有"], ["first", "连发只留第一条"], ["none", "不显示"]]),
+      pick("name", "名字", [[false, "不写"], [true, "写在连发第一条上面"]]),
+      pick("time", "中间那行时间", [["show", "显示"], ["hide", "藏起来"]]),
+      pick("gap", "连发间距", [["normal", "原样"], ["tight", "贴紧"], ["loose", "每串之间多空一点"]]),
+      h("div", { style: { marginTop: 12 } },
+        h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } },
+          h("span", null, "顶部留白（给装饰图让位置）"), h("span", { style: { color: t.fog } }, (Number(layout.top) || 0) + " px")),
+        h("input", { type: "range", min: 0, max: 240, step: 4, value: Number(layout.top) || 0, onChange: e => setLay("top", Number(e.target.value)), style: { width: "100%" } })),
+      h("button", { onClick: peekLook, className: "w-full active:opacity-70", style: { minHeight: 40, marginTop: 12, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "去聊天里看看"),
+      h("button", { onClick: () => setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT)), className: "active:opacity-70", style: { minHeight: 34, marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "全部回到原样"));
+  })()),
   show("dress", { title: "聊天背景", ...sec("look-bg") },
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
