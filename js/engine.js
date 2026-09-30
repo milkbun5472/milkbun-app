@@ -8634,6 +8634,29 @@ function geoQueryLadder(q) {
   }
   return out.filter((x, i) => x && out.indexOf(x) === i);
 }
+// 退到小地名去问的时候，【她已经写明的那几级不许扔】（群友九里香 2026-09-30：
+//   「搜出来的城市和省份不对应」）。
+// ⚠️这正是「定位到江苏去了」那件事的真病根，v74.343 只治了一半：
+//   她输「福建省福州市鼓楼区」，整串两家都查不到，梯子退到「鼓楼区」再问——
+//   可「鼓楼区」全国有四个（南京、福州、开封、徐州），返回顺序里南京排第一。
+//   原来是闷头拿第一个（定位到江苏），v74.343 改成把四个列出来让她挑，
+//   但列表第一个还是南京——她明明已经打了「福州」「福建」，那两个词被整个丢掉了。
+// 所以：拿小地名问回来之后，用【她写过、但这一轮没拿去问】的那几级去对一遍，
+//   对得上的才留。对不上一个都没有时**全都留着**——给出口，不给判决
+//   （施工规则/bans-make-it-dumber）：她可能把省写错了，但那地方是真的。
+function geoRankByTyped(list, typed, term) {
+  const name = String(typed || "").replace(/\s+/g, "").trim();
+  const others = geoQueryLadder(name).filter(x => x !== name && x !== term && x.length >= 2);
+  if (!others.length) return list;
+  const scoreOf = c => {
+    const hay = String((c && (c.full || c.name)) || "");
+    return others.filter(o => hay.indexOf(o) >= 0).length;
+  };
+  const scored = list.map(c => ({ c: c, n: scoreOf(c) }));
+  const best = scored.reduce((m, x) => Math.max(m, x.n), 0);
+  if (!best) return list;                       // 一个都对不上：别替她做主，全列出来
+  return scored.filter(x => x.n === best).map(x => x.c);
+}
 // 地名 → 候选列表（去重）。一个都没有就返回 []；连不上抛错。
 async function geoCandidates(q, near) {
   let lastErr = null;
@@ -8642,7 +8665,7 @@ async function geoCandidates(q, near) {
     try { hits = await geoSearch(term, near); } catch (e) { lastErr = e; continue; }
     const ok = (hits || []).filter(x => typeof x.lat === "number" && !isNaN(x.lat));
     const uniq = ok.filter((x, i) => !ok.slice(0, i).some(y => Math.abs(y.lat - x.lat) < 0.05 && Math.abs(y.lng - x.lng) < 0.05));
-    if (uniq.length) return uniq.slice(0, 6);
+    if (uniq.length) return geoRankByTyped(uniq, q, term).slice(0, 6);
   }
   if (lastErr) throw lastErr;
   return [];
