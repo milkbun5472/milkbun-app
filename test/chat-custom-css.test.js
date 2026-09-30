@@ -95,3 +95,14 @@ test("群聊设置分成六个框，原来那些行都还在", () => {
   ["群名 · 成员", "记忆互通 · 他们自己聊", "怎么相处", "这个群长什么样", "记忆库 · 群规矩", "清掉"].forEach(x => assert.ok(g.includes('gCard("' + x + '"'), x));
   ["记忆互通", "群里自己聊起来", "默认进线下", "记忆上下文条数", "群聊背景", "清除聊天记录", "删除群聊"].forEach(x => assert.ok(g.includes(x), "丢了：" + x));
 });
+
+test("气泡透明度只淡底色：纯色、rgb、渐变都吃得住；100 原样；投影有现成几档", () => {
+  const body = comp.slice(comp.indexOf("function bubbleBgAlpha"), comp.indexOf("// 投影的几档现成的"));
+  const f = new Function(body + "\nreturn bubbleBgAlpha;")();
+  assert.equal(f("#ff0000", 100), "#ff0000");
+  assert.equal(f("#ff0000", 50), "rgba(255,0,0,0.50)");
+  assert.equal(f("linear-gradient(#fff, rgba(0,0,0,0.8))", 50), "linear-gradient(rgba(255,255,255,0.50), rgba(0,0,0,0.40))");
+  assert.match(comp, /q\(bubbleBgAlpha\(S\.myBg, S\.myAlpha\)\)/);
+  assert.match(comp, /numRow\("我的气泡不透明度 %", "myAlpha", 0, 100, 100\)/);
+  assert.match(comp, /BUBBLE_SHADOWS\.map/);
+});

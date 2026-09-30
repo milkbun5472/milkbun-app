@@ -16,6 +16,8 @@ const BUBBLE_SKIN = {
   stickerSize: 52,    //贴纸边长(px)
   radius: 20,         //圆角
   shadow: "0 1px 2px rgba(0,0,0,0.05)", //气泡投影
+  myAlpha: 100,       //我的气泡底色不透明度 %（只淡底、不淡字）
+  charAlpha: 100,     //TA 的气泡底色不透明度 %
   chatBg: ""          //聊天页全局背景（纯色/渐变；每个聊天单独设过图的优先）；留空=主题默认
 };
 // v3（第六课）：皮肤从写死常量升级成可换装——localStorage x_bubbleSkin 覆盖上面的默认值。
@@ -203,19 +205,36 @@ function AvatarDecoRow({ who, k, layout, setLayout, note }) {
         style: { minHeight: 30, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5,
           background: (d.pendPos || "br") === v ? t.ink : "transparent", color: (d.pendPos || "br") === v ? t.bg2 : t.fog, border: "1px solid " + ((d.pendPos || "br") === v ? t.ink : t.line) } }, zh))) : null);
 }
+// 气泡底色调透明度（她 2026-09-30）：只淡底色、不淡字——把底色里每一个 #hex / rgb() 换成带透明度的 rgba，
+//   所以纯色和一整段渐变都吃得住。a 是 0~100；100（或没设）原样返回，一个字不改。
+function bubbleBgAlpha(bg, a) {
+  const k = a == null || a === "" ? 100 : Math.max(0, Math.min(100, Number(a)));
+  if (!bg || k >= 100) return bg;
+  const f = (k / 100).toFixed(2);
+  // 一趟换完：分两趟的话，第一趟换出来的 rgba 会被第二趟再淡一次（测试里抓到的）
+  return String(bg).replace(/#([0-9a-f]{3}|[0-9a-f]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/gi, (m0, h, r, g, b, a0) => {
+    if (h) {
+      const x = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+      return "rgba(" + parseInt(x.slice(0, 2), 16) + "," + parseInt(x.slice(2, 4), 16) + "," + parseInt(x.slice(4, 6), 16) + "," + f + ")";
+    }
+    return "rgba(" + r + "," + g + "," + b + "," + (a0 == null ? f : (Number(a0) * k / 100).toFixed(2)) + ")";
+  });
+}
+// 投影的几档现成的（手打那格照旧留着）
+const BUBBLE_SHADOWS = [["", "无"], ["0 1px 4px rgba(0,0,0,0.08)", "轻"], ["0 4px 14px rgba(0,0,0,0.12)", "柔"], ["0 8px 22px rgba(0,0,0,0.22)", "重"], ["0 0 10px rgba(255,160,200,0.6)", "粉光"]];
 const bubbleDecls = S => {
   const q = v => String(v == null ? "" : v).replace(/[<>{}]/g, "");   // 只允许当值用，别让它带出括号
   const out = [];
   const one = (sel, decls) => { const d = decls.filter(Boolean); if (d.length) out.push(sel + "{" + d.join("") + "}"); };
   one('[data-wk="bubble"][data-me="1"]', [
-    S.myBg ? "background:" + q(S.myBg) + " !important;" : "",
+    S.myBg ? "background:" + q(bubbleBgAlpha(S.myBg, S.myAlpha)) + " !important;" : "",
     S.myText ? "color:" + q(S.myText) + " !important;" : "",
     "border:" + (S.myBorder ? q(S.myBorder) : "none") + " !important;",
     "border-radius:" + (Number(S.radius) || 0) + "px !important;",
     "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
   ]);
   one('[data-wk="bubble"][data-me="0"]', [
-    S.charBg ? "background:" + q(S.charBg) + " !important;" : "",
+    S.charBg ? "background:" + q(bubbleBgAlpha(S.charBg, S.charAlpha)) + " !important;" : "",
     S.charText ? "color:" + q(S.charText) + " !important;" : "",
     "border:" + (S.charBorder ? q(S.charBorder) : "none") + " !important;",
     "border-radius:" + (Number(S.radius) || 0) + "px !important;",
@@ -230,14 +249,14 @@ const bubbleDecls = S => {
   //   当成两个独立挂点在用（theme-studio.js 那张名单），改名会让她写好的主题失效。
   //   所以是让皮肤这一层【多认一个选择器】，不是让语音条改名去冒充文字气泡。
   one('[data-wk="voice"][data-me="1"]', [
-    S.myBg ? "background:" + q(S.myBg) + " !important;" : "",
+    S.myBg ? "background:" + q(bubbleBgAlpha(S.myBg, S.myAlpha)) + " !important;" : "",
     S.myText ? "color:" + q(S.myText) + " !important;" : "",
     "border:" + (S.myBorder ? q(S.myBorder) : "none") + " !important;",
     "border-radius:" + (Number(S.radius) || 0) + "px !important;",
     "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
   ]);
   one('[data-wk="voice"][data-me="0"]', [
-    S.charBg ? "background:" + q(S.charBg) + " !important;" : "",
+    S.charBg ? "background:" + q(bubbleBgAlpha(S.charBg, S.charAlpha)) + " !important;" : "",
     S.charText ? "color:" + q(S.charText) + " !important;" : "",
     "border:" + (S.charBorder ? q(S.charBorder) : "none") + " !important;",
     "border-radius:" + (Number(S.radius) || 0) + "px !important;",
@@ -423,28 +442,31 @@ function BubbleSkinFields({ s, set }) {
   const colorRow = (label, key, ph) => h("div", { key: key, className: "mb-2.5" },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 3 } }, label),
     h(ColorDot, { value: s[key] == null ? "" : String(s[key]), onChange: v => set({ [key]: v }), label: label, hexField: true, placeholder: ph }));
-  const numRow = (label, key, min, max) => h("div", { key: key, className: "mb-2.5" },
+  const numRow = (label, key, min, max, dflt) => h("div", { key: key, className: "mb-2.5" },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 3 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, label),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.tint } }, String(s[key]))),
-    h("input", { type: "range", min: min, max: max, step: 1, value: Number(s[key]) || 0, onChange: e => set({ [key]: Number(e.target.value) }), style: { width: "100%" } }));
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.tint } }, String(s[key] == null ? (dflt == null ? "" : dflt) : s[key]))),
+    h("input", { type: "range", min: min, max: max, step: 1, value: s[key] == null && dflt != null ? dflt : (Number(s[key]) || 0), onChange: e => set({ [key]: Number(e.target.value) }), style: { width: "100%" } }));
   // 试衣镜：两只气泡实时读草稿——还没保存就能看效果
   // ⚠️贴纸地址跟聊天里那只气泡走同一支 resolveImg（iv_ 门牌→真实地址）：
   //   试衣镜里是裂图、聊天里好的，或者反过来，都会让她以为是自己填错了。
   const bub = (mine, text) => h("div", { className: "flex " + (mine ? "justify-end" : "justify-start"), style: { margin: "8px 0" } },
     h("div", { style: { position: "relative", maxWidth: "78%", padding: "9px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5,
-      background: mine ? s.myBg : s.charBg, color: mine ? s.myText : (s.charText || t.ink),
+      background: bubbleBgAlpha(mine ? s.myBg : s.charBg, mine ? s.myAlpha : s.charAlpha), color: mine ? s.myText : (s.charText || t.ink),
       border: (mine ? s.myBorder : s.charBorder) || "none", borderRadius: Number(s.radius) || 0, boxShadow: s.shadow || "none" } },
       (mine ? s.mySticker : s.charSticker) ? h("img", { src: stickerSrc(mine ? s.mySticker : s.charSticker), alt: "", style: { position: "absolute", top: -(Number(s.stickerSize) || 52) / 2, right: mine ? -10 : "auto", left: mine ? "auto" : -10, width: Number(s.stickerSize) || 52, height: Number(s.stickerSize) || 52, objectFit: "contain", pointerEvents: "none", transform: mine ? "none" : "scaleX(-1)" } }) : null,
       text));
   return h(React.Fragment, null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, marginBottom: 10 } },
-      "颜色填 #hex 或一整段渐变 linear-gradient(...)；贴纸填图片地址（assets/xx.png 或 https）；描边/贴纸留空=不启用。试衣镜实时预览。"),
+      "颜色填 #hex 或一整段渐变 linear-gradient(...)；贴纸填图片地址（assets/xx.png 或 https）——气泡角上的小翅膀、蝴蝶结就是它；描边/贴纸留空=不启用。试衣镜实时预览。"),
     h("div", { style: { padding: "14px 14px 10px", borderRadius: 12, background: s.chatBg || t.bg, border: "1px solid " + t.line, marginBottom: 12, overflow: "hidden" } },
       bub(false, "试衣镜：TA 的气泡"),
       bub(true, "试衣镜：我的气泡")),
     colorRow("我的气泡底色（可渐变）", "myBg", "#f7b6c2"),
     colorRow("TA 的气泡底色（可渐变）", "charBg", "#a8c8e8"),
+    // 透明度只淡底色、字不淡（她 2026-09-30）：底下铺了图的时候，气泡半透明才看得见图
+    numRow("我的气泡不透明度 %", "myAlpha", 0, 100, 100),
+    numRow("TA 的气泡不透明度 %", "charAlpha", 0, 100, 100),
     numRow("圆角", "radius", 0, 30),
     colorRow("我的文字色", "myText", "#16330a"),
     row("我的描边", "myBorder", "2px solid #f56a91"),
@@ -453,6 +475,10 @@ function BubbleSkinFields({ s, set }) {
     row("TA描边", "charBorder", "2px solid #75b0eb"),
     row("TA的贴纸", "charSticker", ""),
     row("投影", "shadow", "0 6px 18px rgba(141,189,255,0.3)"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: -4, marginBottom: 10 } },
+      BUBBLE_SHADOWS.map(([v, zh]) => h("button", { key: zh, onClick: () => set({ shadow: v }), className: "active:opacity-70",
+        style: { minHeight: 30, padding: "0 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5,
+          background: (s.shadow || "") === v ? t.ink : "transparent", color: (s.shadow || "") === v ? t.bg2 : t.fog, border: "1px solid " + ((s.shadow || "") === v ? t.ink : t.line) } }, zh))),
     colorRow("聊天背景", "chatBg", "#dadbc9"),
     numRow("贴纸大小", "stickerSize", 32, 72));
 }
