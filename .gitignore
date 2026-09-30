@@ -11,3 +11,8 @@ index-debug.html
 __pycache__/
 *.pyc
 xcuserdata/
+
+# 美术大源文件放 art-source 分支，别进 main（发版会整份搬，v74.397）
+art/**/*.blend
+art/**/*.blend1
+art/incoming/
