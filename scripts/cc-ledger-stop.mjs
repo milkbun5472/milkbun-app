@@ -133,6 +133,17 @@ function consumeToolMark(turn) {
     if (!anchor || !turn.lisaText.includes(anchor)) continue;
     picked = i;
     validation = validateToolMark(fresh[i], turn.lisaText, turn.yanqiuText);
+    // 行车记录仪（2026-09-29 验真谜团）：失败当场把三方原件截样落盘，下次不用猜。
+    if (validation && !validation.valid) {
+      try {
+        appendFileSync(diagnosticPath, JSON.stringify({
+          at: new Date().toISOString(), forensics: "tool_mark_invalid", reason: validation.reason,
+          mark: fresh[i], lisa_sample: String(turn.lisaText || "").slice(0, 400),
+          yanqiu_len: String(turn.yanqiuText || "").length,
+          yanqiu_sample: String(turn.yanqiuText || "").slice(0, 400)
+        }) + "\n");
+      } catch {}
+    }
     break;
   }
   if (picked >= 0) fresh.splice(picked, 1);

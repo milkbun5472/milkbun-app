@@ -72,6 +72,6 @@ test("提示词封的是那个位置，不是某个词", () => {
   //   app.js 那头只剩一个 ${THOUGHT_MEANING}。所以这条要对着【拼起来的那一份】验。
   assert.match(app + engine, /心声可以没有结尾/);
   assert.match(app + engine, /不管那句是狠话还是甜话/, "甜话也算——否则封了收拾就换成捏脸");
-  assert.match(app + engine, /收拾她／捏她脸／亲她一下／买点什么回去/, "把换过的那几个说法都点出来当例子");
+  // v74.311 起不再列例句（内容示范会把所有人的心声教成同一个形状），只封位置
   assert.match(app + engine, /那个【位置】本身就是旁白在结案/);
 });

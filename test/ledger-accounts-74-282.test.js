@@ -49,7 +49,7 @@ for (const re of [/todayExp = [^\n]*isExpense\(x\)/, /spent = monthTxns\.filter\
 // 角色看余额：只在开关打开时
 assert.match(src, /const accts = d\.settings\.shareAcct \? \(d\.settings\.accounts \|\| \[\]\) : \[\];/);
 // 入口：「我的」里有账户，设置里有账户 tab，记一笔有转账
-assert.match(src, /grow\(1, "card", "账户"/);
+
 assert.match(src, /tabBtn\("acct", "账户"\)/);
 assert.match(src, /\["transfer", "转账"\]/);
 console.log("ledger-accounts ok");
@@ -85,4 +85,15 @@ console.log("ledger-acctface ok");
   assert.ok(i > 0 && j > 0);
   assert.ok(i < j, "记账卡得排在「系统」小框前面");
   console.log("recorded-not-swallowed ok");
+}
+// 她 2026-09-29：小票点了进账本；首页结余跟着卡包换；六个月柱子能点；账户图标用她那枚硬币
+{
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8"), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(comp, /onClick: \(\) => \{ try \{ window\.ledgerGoApp && window\.ledgerGoApp\(\); \} catch \(e\) \{\} \}/);
+  assert.match(app, /window\.ledgerGoApp = \(\) => \{ setScreen\("ledger"\); \};/);
+  assert.match(src, /const shownNet = slideAcct \?/);
+  assert.match(src, /"data-ledger-sixmonth": x\.m, [^\n]*onClick: \(\) => props\.onOpenCat && props\.onOpenCat\("", "expense", x\.m\)/);
+  assert.match(src, /grow\(1, "acct", "账户"/);
+  assert.ok(fs.existsSync(__dirname + "/../assets/ledger/ic-acct.webp"));
+  console.log("ledger-links ok");
 }

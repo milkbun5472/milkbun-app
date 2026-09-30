@@ -115,13 +115,21 @@
     if (!partner) return null;
 
     const now = Date.now();
-    const live = rows.filter(r => now - (r.ts || 0) < BUBBLE_MS).slice(-SHOW);
+    // 她的气泡跟TA的回话一起走（她 2026-09-29：「等回复很久我的气泡消失了他才回」）：
+    //   她那句的钟从【TA接上她的那一刻】起算——就是她后面第一条TA的话；
+    //   还在等TA（busy）时一直挂着，不开始淡。TA的气泡照旧从自己冒出来那刻算。
+    const clockOf = r => {
+      if (r.role !== "user") return r.ts || 0;
+      const k = rows.indexOf(r), reply = rows.slice(k + 1).find(x => x.role !== "user");
+      return reply ? (reply.ts || 0) : busy ? now : (r.ts || 0);
+    };
+    const live = rows.filter(r => now - clockOf(r) < BUBBLE_MS).slice(-SHOW);
     const mine = live.filter(r => r.role === "user"), theirs = live.filter(r => r.role !== "user");
     const bubble = (r, i, side) => h("div", { key: (r.ts || 0) + "_" + i, style: {
         maxWidth: 150, padding: "7px 11px", borderRadius: 14, marginTop: 6, background: "rgba(255,255,255,.88)", color: "#2d2a26",
         boxShadow: "0 3px 10px rgba(30,28,24,.14)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, wordBreak: "break-word",
         [side === "l" ? "borderTopRightRadius" : "borderTopLeftRadius"]: 4,
-        opacity: Math.max(0.25, 1 - Math.max(0, now - (r.ts || 0) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } }, r.content);
+        opacity: Math.max(0.25, 1 - Math.max(0, now - clockOf(r) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } }, r.content);
     const me = props.profile || {};
     const head = (who, isMe) => h("div", { style: { width: 54, height: 54, borderRadius: 999, padding: 2, background: "rgba(255,255,255,.7)", boxShadow: "0 4px 12px rgba(30,28,24,.2)" } },
       isMe ? (me.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(me.avatarImage) : me.avatarImage, alt: "", style: { width: 50, height: 50, borderRadius: 999, objectFit: "cover" } })

@@ -126,7 +126,7 @@
   // 流水按天分组：每天一个小标题，带当天支出／收入合计（新的在上）
   function groupByDay(list) {
     const out = [], at = {};
-    list.forEach(x => { const d = x.date || ""; if (!at[d]) { at[d] = { date: d, rows: [], exp: 0, inc: 0 }; out.push(at[d]); } const g = at[d]; g.rows.push(x); if (isTransfer(x)) return; if (x.type === "income") g.inc += Number(x.amount) || 0; else g.exp += Number(x.amount) || 0; });
+    list.forEach(x => { const d = x.date || ""; if (!at[d]) { at[d] = { date: d, rows: [], exp: 0, inc: 0 }; out.push(at[d]); } const g = at[d]; g.rows.push(x); if (isTransfer(x)) return; if (x.type === "income") g.inc += netAmt(x); else g.exp += netAmt(x); });
     return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }
   function dayLabel(dateStr, today) {
@@ -154,9 +154,12 @@
   ];
   const acctType = id => ACCT_TYPES.find(x => x.id === id) || ACCT_TYPES[ACCT_TYPES.length - 1];
   const isTransfer = t => !!t && t.type === "transfer";
+  // 退款 / AA 回款（她 2026-09-29）：挂在原来那笔支出上 t.refunds=[{date,amount,note}]，这笔的支出按净额算；不另记一笔收入把收入弄虚
+  const refundSum = t => ((t && t.refunds) || []).reduce((a, r) => a + (Number(r.amount) || 0), 0);
+  const netAmt = t => Math.max(0, Math.round(((Number(t && t.amount) || 0) - (t && t.type !== "income" && !isTransfer(t) ? refundSum(t) : 0)) * 100) / 100);
   const isExpense = t => !!t && t.type !== "income" && t.type !== "transfer";
   function acctEffect(t, id) {
-    const a = Number(t.amount) || 0;
+    const a = isTransfer(t) ? (Number(t.amount) || 0) : netAmt(t);
     if (isTransfer(t)) return (t.to === id ? a : 0) - (t.from === id ? a : 0);
     if (t.account !== id) return 0;
     return t.type === "income" ? a : -a;
@@ -226,12 +229,58 @@
   function ledgerCSV(d) {
     const q = v => { const t = String(v == null ? "" : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
     const an = id => id ? acctName(d.settings, id) : "";
-    const rows = [["日期", "类型", "金额", "币种", "分类", "账户", "转出", "转入", "备注"]];
+    const rows = [["日期", "类型", "金额", "币种", "分类", "账户", "转出", "转入", "备注", "已退"]];
     d.txns.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts || 0) - (b.ts || 0))).forEach(t => {
       const x = isTransfer(t);
-      rows.push([t.date, x ? "转账" : t.type === "income" ? "收入" : "支出", Number(t.amount) || 0, t.currency, x ? "" : t.category, x ? "" : an(t.account), x ? an(t.from) : "", x ? an(t.to) : "", t.note || ""]);
+      rows.push([t.date, x ? "转账" : t.type === "income" ? "收入" : "支出", Number(t.amount) || 0, t.currency, x ? "" : t.category, x ? "" : an(t.account), x ? an(t.from) : "", x ? an(t.to) : "", t.note || "", refundSum(t) || ""]);
     });
     return "\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n");
+  }
+  // ---- 折合（她 2026-09-29）：settings.rates { 币种: 1 这个币 = 多少主币 }，settings.baseCur 主币；只用来看，不改任何一笔 ----
+  function convertTotal(txns, settings, mk, kind) {
+    const base = settings.baseCur, rates = settings.rates || {};
+    if (!base) return null;
+    let sum = 0, missing = [];
+    (settings.currencies || []).forEach(c => {
+      const s = summarize(txns, c.code, mk), v = kind === "income" ? s.inc : s.exp;
+      if (!v) return;
+      const r = c.code === base ? 1 : Number(rates[c.code]);
+      if (!(r > 0)) { missing.push(c.code); return; }
+      sum += v * r;
+    });
+    return { base, sum: Math.round(sum * 100) / 100, missing };
+  }
+  // ---- 存钱目标：settings.goals [{ id, name, target, currency, due, log:[{date,amount}] }] ----
+  //   存进去 / 取出来都只记在目标自己的 log 上，不算支出——钱只是换了个罐子
+  const goalSaved = g => Math.round(((g && g.log) || []).reduce((a, x) => a + (Number(x.amount) || 0), 0) * 100) / 100;
+  function goalState(g, today) {
+    const saved = goalSaved(g), target = Number(g.target) || 0, now = today || new Date();
+    const out = { saved, target, pct: target ? Math.min(1, Math.max(0, saved / target)) : 0, left: Math.max(0, Math.round((target - saved) * 100) / 100), done: target > 0 && saved >= target };
+    if (g.due) {
+      const [y, m, d] = String(g.due).split("-").map(Number);
+      const days = Math.round((new Date(y, m - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+      out.days = days;
+      const months = Math.max(1, Math.ceil(days / 30));
+      out.perMonth = days > 0 && !out.done ? Math.round(out.left / months * 100) / 100 : null;
+    }
+    return out;
+  }
+  // ---- 分类预算：settings.catBudgets { 币种: { 分类名: 每月上限 } } ----
+  const catBudgetOf = (settings, code, name) => Number((((settings && settings.catBudgets) || {})[code] || {})[name]) || 0;
+  // ---- 年度回顾 ----
+  function yearStats(txns, code, year) {
+    const Y = String(year), mine = (txns || []).filter(t => t.currency === code && String(t.date).slice(0, 4) === Y && !isTransfer(t));
+    const exps = mine.filter(isExpense);
+    let exp = 0, inc = 0; const cats = {}, months = {};
+    mine.forEach(t => { const a = netAmt(t); if (t.type === "income") inc += a; else { exp += a; cats[t.category] = (cats[t.category] || 0) + a; months[monthKey(t.date)] = (months[monthKey(t.date)] || 0) + a; } });
+    const catList = Object.keys(cats).map(k => ({ name: k, amount: Math.round(cats[k] * 100) / 100 })).sort((a, b) => b.amount - a.amount);
+    const freq = {}; exps.forEach(t => { freq[t.category] = (freq[t.category] || 0) + 1; });
+    const mostOften = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0] || "";
+    const monthList = Object.keys(months).sort();
+    const cheapest = monthList.slice().sort((a, b) => months[a] - months[b])[0] || "", priciest = monthList.slice().sort((a, b) => months[b] - months[a])[0] || "";
+    const biggest = exps.slice().sort((a, b) => netAmt(b) - netAmt(a))[0] || null;
+    return { year: Y, exp: Math.round(exp * 100) / 100, inc: Math.round(inc * 100) / 100, net: Math.round((inc - exp) * 100) / 100, count: mine.length, catList,
+      mostOften, mostOftenN: freq[mostOften] || 0, cheapest, cheapestAmt: months[cheapest] || 0, priciest, priciestAmt: months[priciest] || 0, biggest, months };
   }
   const acctName = (settings, id) => { const a = ((settings && settings.accounts) || []).find(x => x.id === id); return a ? a.name : "已删的账户"; };
 
@@ -240,7 +289,7 @@
     let exp = 0, inc = 0; const cats = {};
     txns.forEach(t => {
       if (t.currency !== code || monthKey(t.date) !== mk || isTransfer(t)) return;
-      const a = Number(t.amount) || 0;
+      const a = netAmt(t);
       if (t.type === "income") inc += a;
       else { exp += a; if (!cats[t.category]) cats[t.category] = { amount: 0, emoji: t.catEmoji || "" }; cats[t.category].amount += a; }
     });
@@ -873,7 +922,8 @@
     const [tab, setTab] = useState("wallet");      // wallet | stats | cal | me
     const [stack, setStack] = useState([]);        // 叠在上面的页：{k:"bills"} | {k:"txn",id}
     const [addState, setAddState] = useState(null); // null | {edit?:txn, type?}
-    const [showSet, setShowSet] = useState(null);  // null | "visible" | "acct" | "cur" | "cat"
+    const [showSet, setShowSet] = useState(null);
+    const [confirmAsk, setConfirmAsk] = useState(null);  // null | "visible" | "acct" | "cur" | "cat"
     const uName = (props.profile && props.profile.name) || "我";
     const routedLore = (ids, text) => props.worldbookFor ? props.worldbookFor(ids, text) : props.worldbook;
     const sk = ledgerSkin(data.settings);
@@ -978,6 +1028,33 @@
         else if (remind) props.toast(soon.map(x => (x.r.name || x.r.category) + (x.nx.days === 0 ? " 今天" : " " + x.nx.days + " 天后") + "到期").join("，"));
       }
     }, []);
+    // 年度回顾：能看账本的角色一起说几句（一次 API 出所有人；失败不落库）
+    const genYearly = async (year, ys) => {
+      try {
+        const d0 = loadData(), vis = (d0.settings.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id));
+        if (!vis.length || !props.active) return;
+        const aff = props.affinities || {};
+        const list = vis.map(id => { const c = props.characters.find(x => x.id === id); const mo = props.moods && props.moods[id]; return { id, name: c.name, gender: c.gender, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[id] }; });
+        const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  应用称呼：" + characterText(it, "他") + "\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 300) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气亲疏）" : "")).join("\n\n");
+        const stat = [cur.label + "（" + cur.code + "）" + year + " 年：支出 " + fmtAmt(ys.exp, cur) + "、收入 " + fmtAmt(ys.inc, cur) + "、结余 " + fmtAmt(ys.net, cur) + "，共 " + ys.count + " 笔",
+          ys.catList.length ? "花得最多的几类：" + ys.catList.slice(0, 5).map(c => c.name + " " + fmtAmt(c.amount, cur)).join("、") : "",
+          ys.mostOften ? "记得最多的是「" + ys.mostOften + "」，" + ys.mostOftenN + " 笔" : "",
+          ys.biggest ? "最贵的一笔：" + (ys.biggest.note || ys.biggest.category) + " " + fmtAmt(netAmt(ys.biggest), cur) : "",
+          ys.priciest ? "最能花的月份：" + ys.priciest + "（" + fmtAmt(ys.priciestAmt, cur) + "）；最省的月份：" + ys.cheapest + "（" + fmtAmt(ys.cheapestAmt, cur) + "）" : ""].filter(Boolean).join("\n");
+        const sys = AC() + CB() + NAC() +
+          uName + " 一整年（" + year + " 年）的账本回顾如下。请【分别以每位角色本人的口吻】对这一年说一段话（2~4 句）。\n" +
+          "【硬性要求】\n" +
+          "· 这是【年度回顾】：看一整年的花钱习惯、变化和亮点，按各自人设和跟 " + uName + " 的关系来说，几个人腔调各不相同。\n" +
+          "· 各角色以第一人称说。需要第三人称时，使用条目里的「应用称呼」或姓名。\n\n" +
+          "【这一年】\n" + stat + "\n\n【要说话的角色】\n" + block +
+          "\n\n【输出】只输出 JSON，comments 与角色顺序一一对应、数量一致：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色说的话\"}]}。别加解释、别加代码块。";
+        const raw = await callAI(props.active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 14000 });
+        const pd = extractJSON(raw) || {}, arr = Array.isArray(pd.comments) ? pd.comments : [];
+        const cmts = list.map((it, i) => { const r = arr.find(x => x && String(x.name || "").trim() === it.name) || arr[i]; const txt = r && (r.text || r.comment) ? String(r.text || r.comment).trim() : ""; return { charId: it.id, charName: it.name, text: txt, ts: Date.now() }; }).filter(x => x.text);
+        if (!cmts.length) { props.toast && props.toast("TA 们这次没说出来，等会儿再试"); return; }
+        const d1 = loadData(); d1.yearly = d1.yearly || {}; d1.yearly[cur.code + "-" + year] = { genAt: Date.now(), comments: cmts }; persist(d1);
+      } catch (e) { props.toast && props.toast("没生成出来：" + (e && e.message || e)); }
+    };
     const exportCSV = async () => {
       try {
         const d = loadData();
@@ -1014,7 +1091,7 @@
           onToggleHide: () => setSetting({ hideBal: !data.settings.hideBal }) })) :
         tab === "stats" ? h(CurView, Object.assign({}, common, { onOpenCat: (cat, kind, mk) => push({ k: "bills", cat, kind, mk }), txns: data.txns, budget: (data.settings.budgets || {})[code] || 0, onSetBudget })) :
         tab === "cal" ? h(CalView, common) :
-        h(MeView, Object.assign({}, common, { characters: props.characters, onSettings: k => setShowSet(k), onExport: exportCSV, onEditBudget: editBudget, onSkin: id => setSetting({ skin: id }) }))),
+        h(MeView, Object.assign({}, common, { characters: props.characters, onSettings: k => setShowSet(k), onExport: exportCSV, onGoals: () => push({ k: "goals" }), onYear: () => push({ k: "year" }), onEditBudget: editBudget, onSkin: id => setSetting({ skin: id }) }))),
       // 底栏：只吃 0.4 条安全区（mobile-ui-layout §2）；选中那格图标加粗、底下垫一块鼓起来的糖块
       h("div", { className: "shrink-0 flex", "data-ledger-tabbar": true, style: sk.id === "glass"
         // 样张：底栏是一条浮起来的玻璃条（圆角、细白边），只吃 0.4 条安全区（mobile-ui-layout §2）
@@ -1032,7 +1109,11 @@
 
     const renderOverlay = top => {
       let over = null;
-    if (top && top.k === "bills") over = h(BillsView, Object.assign({}, common, { onBack: pop, initCat: top.cat, initKind: top.kind, initMk: top.mk }));
+    if (top && top.k === "goals") over = h(GoalsView, Object.assign({}, common, { onBack: pop, toast: props.toast, onPersist: mutate => { const d = loadData(); mutate(d); persist(d); },
+      onConfirm: (title, body, fn) => setConfirmAsk({ title, body, fn }) }));
+    else if (top && top.k === "year") over = h(YearView, Object.assign({}, common, { onBack: pop, characters: props.characters, onGenerate: genYearly,
+      canComment: !!props.active && (data.settings.visibleTo || []).some(id => (props.characters || []).some(c => c.id === id)) }));
+    else if (top && top.k === "bills") over = h(BillsView, Object.assign({}, common, { onBack: pop, initCat: top.cat, initKind: top.kind, initMk: top.mk }));
     else if (top && top.k === "txn") {
       const txn = data.txns.find(x => x.id === top.id);
       over = txn ? h(TxnView, {
@@ -1041,7 +1122,10 @@
         onBack: pop,
         onEdit: () => setAddState({ edit: txn }),
         onAddComments: cmts => updTxn(txn.id, { comments: (txn.comments || []).concat(cmts) }),
-        onDelete: () => { delTxn(txn.id); pop(); }
+        onDelete: () => { delTxn(txn.id); pop(); },
+        onRefund: (amt, note) => { const now = loadData().txns.find(x => x.id === txn.id); if (!now) return; const rs = (now.refunds || []).slice();
+          if (amt == null) rs.pop(); else rs.push({ date: todayStr(), amount: amt, note: note || "" });
+          updTxn(txn.id, { refunds: rs }); props.toast && props.toast(amt == null ? "撤掉了" : "记上了，这笔现在按 " + fmtMoney(netAmt({ ...now, refunds: rs }), curOf(txn.currency)) + " 算"); }
       }) : null;
     }
 
@@ -1064,8 +1148,9 @@
           else { addTxn(txn); setAddState(null); autoReact(txn); if (props.characters && props.characters.length) push({ k: "txn", id: txn.id }); else props.toast && props.toast("记好了"); }
         }
       }) : null,
+      confirmAsk ? h(ConfirmDialog, { title: confirmAsk.title, body: confirmAsk.body, confirmLabel: "删掉", danger: true, onConfirm: () => { confirmAsk.fn(); setConfirmAsk(null); }, onCancel: () => setConfirmAsk(null) }) : null,
       showSet ? h(SettingsSheet, {
-        settings: data.settings, characters: props.characters, txns: data.txns, toast: props.toast, initTab: showSet, sk,
+        settings: data.settings, characters: props.characters, txns: data.txns, toast: props.toast, initTab: showSet, sk, code,
         onClose: () => setShowSet(null),
         onPersist: mutate => { const d = loadData(); mutate(d); persist(d); }
       }) : null);
@@ -1158,6 +1243,10 @@
     const IMG = "assets/ledger/", IMG_V = "?v=290";   // 素材换了就改这个数，不然手机里缓存的旧图不会换
     const accts = settings.accounts || [];
     const [slide, setSlide] = useState(0);
+    // 她 2026-09-29「滑到不同的卡数字要变」：第 0 张是总卡＝这个币种本月结余；滑到账户卡＝那个账户本月的收入 − 支出（转账不算收支）
+    const slideAcct = slide > 0 ? accts[slide - 1] : null;
+    const shownNet = slideAcct ? data.txns.filter(t => t.account === slideAcct.id && monthKey(t.date) === mk && !isTransfer(t))
+      .reduce((a, t) => a + (t.type === "income" ? 1 : -1) * netAmt(t), 0) : s.net;
     // 账户卡上印的字：盖住原卡面左上那块，跟卡一起歪 3 度
     const acctFace = a => { const c = (props.curs || []).find(x => x.code === a.currency) || cur, ty = acctType(a.type);
       const cs = a.type === "credit" ? creditState(a, data.txns) : null;
@@ -1211,9 +1300,9 @@
         h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月结余"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, slideAcct ? slideAcct.name + " · 本月结余" : "本月结余"),
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } },
-          h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, s.net < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
+          h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, shownNet < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(shownNet, cur)),
           h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }) }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 24, color: "#23244a" }))),
         // 座右铭：一行、小一点，装在一条淡淡的透明框里（她 2026-09-29：喜欢之前那种有点透明框的）
         h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto-y2k", style: { marginTop: 10, minHeight: 36, padding: "6px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, color: "#44465f",
@@ -1482,11 +1571,19 @@
               h("span", { style: numStyle(sk, 11.5) }, Math.round(c.amount / (total || 1) * 100) + "%")))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub } }, kind === "income" ? "这个月还没有收入" : "这个月还没有支出"))),
         h("div", { style: { marginTop: 12 } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk }))), null, "lg-pnl-hero"),
+      // 多币种折合（她 2026-09-29）：设了主币和汇率才出现，只是换算着看，不改任何一笔
+      (function () {
+        if ((settings.currencies || []).length < 2 || !settings.baseCur) return null;
+        const ct = convertTotal(txns, settings, mk, kind), bc = (settings.currencies || []).find(c => c.code === ct.base) || { symbol: "", label: ct.base };
+        return h("div", { "data-ledger-converted": true, style: { margin: "-6px 4px 14px", fontFamily: F_BODY, fontSize: 12, color: sk.sub, textAlign: "center" } },
+          "所有币种折合成" + bc.label + "，这个月" + (kind === "income" ? "收入" : "花了") + " ", h("span", { style: numStyle(sk, 13, sk.ink) }, fmtMoney(ct.sum, bc)),
+          ct.missing.length ? h("span", { style: { color: sk.fog } }, "（" + ct.missing.join("、") + " 还没填汇率，没算进去）") : null);
+      })(),
       (function () {
         const da = dailyAvg(s.exp, mk);
         if (!da) return null;
         // 今天实际花了多少（她 2026-09-27「那实际的每日消费你没做」）：只在看这个月时有
-        const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + (Number(x.amount) || 0), 0) : null;
+        const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + netAmt(x), 0) : null;
         // 三块并排的小读数屏
         const row = (label, val, note, key, first) => h("div", { key, style: { flex: 1, textAlign: "center", padding: "2px 4px", borderLeft: first ? "none" : "1px solid " + LINE } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginBottom: 3 } }, label),
@@ -1520,7 +1617,7 @@
             over ? null : h("span", { style: numStyle(sk, 14) }, fmtMoney(bs.perDay, cur))) : null,
           // 今天实际花的对上「今天能花的」：超了照实标出来
           bs.perDay != null && !over ? (function () {
-            const td = todayKey(), spent = monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+            const td = todayKey(), spent = monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + netAmt(x), 0);
             const allow = (bs.left + spent) / bs.daysLeft;   // 今天开张前剩的钱摊到含今天的这几天，就是今天原本能花的
             return h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: F_BODY, fontSize: 11.5, color: sk.sub } },
               h("span", null, "今天已花"),
@@ -1538,13 +1635,19 @@
                 h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12.5, color: sk.ink, marginBottom: 5 } },
                   h("span", { style: { fontWeight: 600 } }, c.name),
                   h("span", { style: numStyle(sk, 12) }, fmtMoney(c.amount, cur) + " " + Math.round(c.amount / (total || 1) * 100) + "%")),
-                h(Bar, { pct: c.amount / maxCat, color: tint, height: 6, sk })),
+                // 设了分类上限：条按「用了上限的几成」画，快到了变粉、超了变红（她 2026-09-29）
+                (() => { const lim = kind === "income" ? 0 : catBudgetOf(settings, code, c.name);
+                  return lim ? h(Fragment, null, h(Bar, { pct: Math.min(1, c.amount / lim), over: c.amount > lim, color: c.amount / lim >= .8 ? "#ec8fb3" : tint, height: 6, sk }),
+                      h("div", { "data-ledger-catlimit": c.name, style: { fontFamily: F_BODY, fontSize: 10.5, color: c.amount > lim ? sk.over : sk.fog, marginTop: 3 } }, c.amount > lim ? "超了上限 " + fmtMoney(c.amount - lim, cur) : "上限 " + fmtMoney(lim, cur) + " · 还能花 " + fmtMoney(lim - c.amount, cur)))
+                    : h(Bar, { pct: c.amount / maxCat, color: tint, height: 6, sk }); })()),
               h("span", { style: { color: sk.fog, fontSize: 15 } }, "›")); }))) : null,
       // 近六个月：屏上的像素柱，一格一格往上垒
       bay("近六个月支出",
         h("div", { style: Object.assign({ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 12px 8px" }, sk.acrylic) },
           six.map(x => { const lit = x.v ? Math.max(1, Math.round(x.v / sixMax * 10)) : 0, now = x.m === mk;
-            return h("div", { key: x.m, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 } },
+            // 点一根柱子＝看那个月的支出账单（她 2026-09-29）
+            return h("button", { key: x.m, "data-ledger-sixmonth": x.m, "aria-label": "看" + fmtMonth(x.m) + "的支出", onClick: () => props.onOpenCat && props.onOpenCat("", "expense", x.m), className: "active:opacity-70",
+                style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minHeight: 40, padding: 0, background: "transparent", border: "none" } },
               h("div", { style: numStyle(sk, 9.5, sk.sub) }, x.v ? fmtNum(Math.round(x.v)) : "—"),
               // 玻璃皮：她给的一对柱子素材——空柱子当底，满柱子按金额从下往上长（九宫格拉伸，圆头不变形）
               glassP ? h("div", { "data-ledger-col": x.m, style: { position: "relative", width: "100%", maxWidth: 30, height: 96 } },
@@ -1588,7 +1691,7 @@
         h("div", { style: { marginBottom: 10 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
         // 本月汇总条（她 2026-09-29）：滑下去也钉在顶上。算的就是眼下列出来的这些——筛了分类、搜了字，数跟着变；转账不算收支
         (function () {
-          const exp = monthTxns.filter(isExpense).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+          const exp = monthTxns.filter(isExpense).reduce((a, x) => a + netAmt(x), 0);
           const inc = monthTxns.filter(x => x.type === "income").reduce((a, x) => a + (Number(x.amount) || 0), 0);
           const cell = (label, val, color, first) => h("div", { style: { flex: 1, textAlign: "center", borderLeft: first ? "none" : "1px solid " + LINE } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog } }, label),
@@ -1609,6 +1712,96 @@
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "40px 0" } }, kw ? "没搜到" : "这个月还没有记账")));
   }
 
+
+  // ============================================================
+  // 存钱目标（她 2026-09-29）：一个罐子一根试管；存进去 / 取出来只记在目标自己的 log 上，不算支出
+  // ============================================================
+  function GoalsView(props) {
+    const { sk, cur, code, settings } = props;
+    const [adding, setAdding] = useState(false);
+    const [open, setOpen] = useState(null);
+    const goals = (settings.goals || []).filter(g => g.currency === code);
+    const money = v => fmtMoney(v, cur);
+    const ask = (g, sign) => requestAppPrompt(sign > 0 ? "往「" + g.name + "」里存" : "从「" + g.name + "」里取", sign > 0 ? "存多少" + cur.label + "？" : "取出多少" + cur.label + "？最多 " + money(goalSaved(g)) + "。", "", v => {
+      let n = Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100; if (!(n > 0)) return;
+      if (sign < 0) n = Math.min(n, goalSaved(g));
+      props.onPersist(d => { d.settings.goals = (d.settings.goals || []).map(x => x.id === g.id ? { ...x, log: (x.log || []).concat([{ date: todayStr(), amount: sign * n }]) } : x); });
+      const after = goalState({ ...g, log: (g.log || []).concat([{ amount: sign * n }]) });
+      props.toast && props.toast(after.done ? "「" + g.name + "」存满啦 ♡" : sign > 0 ? "存进去了，还差 " + money(after.left) : "取出来了");
+    }, "好", { placeholder: "比如 200" });
+    return h(Fragment, null, ledgerPage(sk, sk.id === "glass" ? "" : "存钱目标", props.onBack, null,
+      h("div", { className: "px-5 pb-8", "data-ledger-goals": true },
+        sk.id === "glass" ? h(WordMark, { sk, word: "SAVING", hand: "a brighter me ♡" }) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: sk.fog, lineHeight: 1.6, margin: "0 4px 14px" } }, "存进去、取出来都只记在目标自己身上，不算花钱，也不动账户余额。"),
+        goals.map(g => { const st = goalState(g), on = open === g.id;
+          return h("div", { key: g.id, "data-ledger-goal": g.id, style: Object.assign({ padding: "12px 14px", marginBottom: 12, borderRadius: 18 }, sk.id === "glass" ? { background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "0 3px 10px rgba(140,130,200,.12)" } : sk.shell) },
+            h("button", { onClick: () => setOpen(on ? null : g.id), className: "w-full text-left active:opacity-80", style: { display: "block", minHeight: 40 } },
+              h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 800, color: sk.ink } }, (st.done ? "♡ " : "") + g.name),
+                h("span", { style: numStyle(sk, 12.5, sk.sub) }, money(st.saved) + " / " + money(st.target))),
+              h("div", { style: { margin: "8px 0 6px" } }, h(Bar, { pct: st.pct, sk, rail: true })),
+              h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11, color: sk.fog } },
+                h("span", null, st.done ? "存满了" : "还差 " + money(st.left)),
+                h("span", null, g.due ? (st.days < 0 ? "已过 " + fmtDay(g.due) : fmtDay(g.due) + (st.perMonth ? " · 每月存 " + money(st.perMonth) : "")) : Math.round(st.pct * 100) + "%"))),
+            on ? h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
+              h("button", { onClick: () => ask(g, 1), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#6b3a5a", background: "linear-gradient(160deg,#fcd6e8,#efa3c7)" } }, "存一笔"),
+              h("button", { onClick: () => ask(g, -1), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: sk.sub, border: "1px solid " + sk.line } }, "取出来"),
+              h("button", { onClick: () => props.onConfirm("删掉目标「" + g.name + "」？", "只删这个目标和它的存取记录，账本里的账一笔都不动。", () => props.onPersist(d => { d.settings.goals = (d.settings.goals || []).filter(x => x.id !== g.id); })),
+                "aria-label": "删掉这个目标", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(ITrash, { size: 17, color: sk.fog }))) : null); }),
+        h("button", { onClick: () => setAdding(true), className: "w-full active:opacity-70", style: { minHeight: 48, borderRadius: 16, border: "1px dashed " + sk.line, fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 新的存钱目标"))),
+      adding ? h(FieldDialog, { glass: sk.id === "glass", title: "新的存钱目标", submitLabel: "好",
+        fields: [{ key: "name", label: "存来做什么", placeholder: "比如 回国机票", required: true }, { key: "target", label: "目标金额（" + cur.label + "）", placeholder: "比如 6000", required: true }, { key: "due", label: "想在哪天前存够（可留空，写成 2027-01-31）", placeholder: "2027-01-31" }],
+        onSubmit: v => { const target = Math.round((parseFloat(String(v.target).replace(/[^\d.]/g, "")) || 0) * 100) / 100; if (!(target > 0)) return;
+          const due = /^\d{4}-\d{2}-\d{2}$/.test(String(v.due || "").trim()) ? String(v.due).trim() : "";
+          props.onPersist(d => { d.settings.goals = (d.settings.goals || []).concat([{ id: "g" + Date.now().toString(36), name: String(v.name).trim().slice(0, 20), target, currency: code, due, log: [] }]); }); setAdding(false); },
+        onCancel: () => setAdding(false) }) : null);
+  }
+
+  // ============================================================
+  // 年度回顾（她 2026-09-29）：一张年终小票；能看账本的角色可以一起说几句
+  // ============================================================
+  function YearView(props) {
+    const { sk, cur, code, data } = props;
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [busy, setBusy] = useState(false);
+    const ys = yearStats(data.txns, code, year);
+    const key = code + "-" + year, saved = (data.yearly || {})[key];
+    const money = v => fmtMoney(v, cur);
+    const row = (k, v) => h("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 0", fontFamily: F_BODY, fontSize: 12.5, color: "#5c5a66" } }, h("span", null, k), h("span", { style: { fontWeight: 700, color: "#2d2c36", textAlign: "right" } }, v));
+    const mName = mk => mk ? parseInt(mk.slice(5), 10) + "月" : "—";
+    return ledgerPage(sk, sk.id === "glass" ? "" : "年度回顾", props.onBack, null,
+      h("div", { className: "px-5 pb-8", "data-ledger-year": year },
+        sk.id === "glass" ? h(WordMark, { sk, word: "MY YEAR", hand: "small money, big happiness" }) : null,
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 10 } },
+          h("button", { onClick: () => setYear(y => y - 1), "aria-label": "上一年", className: "active:opacity-50", style: { width: 40, height: 40, fontSize: 18, color: sk.sub } }, "‹"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 600, color: sk.ink, minWidth: 80, textAlign: "center" } }, year + " 年"),
+          h("button", { onClick: () => setYear(y => Math.min(new Date().getFullYear(), y + 1)), "aria-label": "下一年", className: "active:opacity-50", style: { width: 40, height: 40, fontSize: 18, color: sk.sub } }, "›")),
+        ys.count ? h(Receipt, { sk, title: year + " 年度小票", sub: cur.label + " · " + ys.count + " 笔", no: key,
+          foot: h(Barcode, { seed: key }) },
+          row("一整年花了", money(ys.exp)),
+          row("一整年进账", money(ys.inc)),
+          row("结余", money(ys.net)),
+          h("div", { style: { borderTop: "1px dashed rgba(60,60,80,.3)", margin: "8px 0" } }),
+          ys.catList[0] ? row("花得最多", ys.catList[0].name + " " + money(ys.catList[0].amount)) : null,
+          ys.mostOften ? row("最常记", ys.mostOften + " · " + ys.mostOftenN + " 笔") : null,
+          ys.biggest ? row("最贵的一笔", (ys.biggest.note || ys.biggest.category) + " " + money(netAmt(ys.biggest))) : null,
+          ys.priciest ? row("最能花的月", mName(ys.priciest) + " " + money(ys.priciestAmt)) : null,
+          ys.cheapest && ys.cheapest !== ys.priciest ? row("最省的月", mName(ys.cheapest) + " " + money(ys.cheapestAmt)) : null,
+          ys.catList.length > 1 ? h("div", { style: { marginTop: 8 } }, ys.catList.slice(0, 5).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 8, margin: "5px 0", fontFamily: F_BODY, fontSize: 11.5, color: "#5c5a66" } },
+            h("span", { style: { width: 58, flexShrink: 0 } }, c.name), h("div", { style: { flex: 1 } }, h(Bar, { pct: c.amount / ys.catList[0].amount, height: 5, sk })), h("span", { style: { width: 64, textAlign: "right" } }, money(c.amount))))) : null)
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "40px 0" } }, "这一年还没有" + cur.label + "的账"),
+        ys.count && props.canComment ? h("div", { style: { marginTop: 4 } },
+          silk(sk, "TA 们看了你这一年", { marginBottom: 10 }),
+          (saved && saved.comments || []).map((cm, i) => { const ch = (props.characters || []).find(c => c.id === cm.charId);
+            return h("div", { key: i, style: { display: "flex", gap: 10, marginBottom: 12 } },
+              ch ? h(Avatar, { character: ch, size: 34, radius: 10 }) : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: sk.line, flexShrink: 0 } }),
+              h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginBottom: 3 } }, cm.charName),
+                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text))); }),
+          h("button", { disabled: busy, onClick: async () => { setBusy(true); try { await props.onGenerate(year, ys); } finally { setBusy(false); } }, "data-ledger-yeargen": true, className: "w-full active:opacity-80",
+            style: { minHeight: 44, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" } },
+            busy ? "TA 们在看…" : saved ? "再让 TA 们说说" : "让能看账本的 TA 们说说")) : null));
+  }
+
   // ============================================================
   // 日历：整个月装进一块电子屏里，花过钱的日子像 LCD 像素格被点亮，花得越多越黑
   // ============================================================
@@ -1619,7 +1812,7 @@
     const [y, m] = mk.split("-").map(Number);
     const first = new Date(y, m - 1, 1).getDay(), days = new Date(y, m, 0).getDate();
     const byDay = {};
-    data.txns.forEach(x => { if (x.currency !== code || monthKey(x.date) !== mk || isTransfer(x)) return; const d = byDay[x.date] || (byDay[x.date] = { exp: 0, inc: 0 }); if (x.type === "income") d.inc += Number(x.amount) || 0; else d.exp += Number(x.amount) || 0; });
+    data.txns.forEach(x => { if (x.currency !== code || monthKey(x.date) !== mk || isTransfer(x)) return; const d = byDay[x.date] || (byDay[x.date] = { exp: 0, inc: 0 }); if (x.type === "income") d.inc += netAmt(x); else d.exp += netAmt(x); });
     const max = Math.max(1, ...Object.keys(byDay).map(k => byDay[k].exp));
     const cells = [];
     for (let i = 0; i < first; i++) cells.push(null);
@@ -1691,10 +1884,9 @@
       const PREV = { glass: "skin-glass", paper: "skin-paper" };
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, "0" + n),
-        icon === "card" ? h("span", { "aria-hidden": "true", style: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
-            h("span", { style: { width: 34, height: 24, borderRadius: 6, transform: "rotate(-8deg)", background: "linear-gradient(125deg,#e6e0fb,#f3dff0 35%,#d9e6fb 70%,#ece0fa)", border: "1px solid rgba(160,150,220,.6)", boxShadow: "inset 0 1px 0 #fff, 0 2px 4px rgba(140,130,200,.25)" } }))
-          : h("img", { src: LA + "ic-" + icon + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0, objectFit: "contain" } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, (n < 10 ? "0" : "") + n),
+        // 存钱目标 / 年度回顾还没有专门的图标，先借她给过的果冻柱和 DAILY 邮戳
+        h("img", { src: LA + ({ goal: "col-full", year: "stamp" }[icon] || "ic-" + icon) + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0, objectFit: "contain" } }),
         h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
         h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
@@ -1718,13 +1910,15 @@
                 h("img", { src: LA + PREV[x.id] + ".webp" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
-          grow(1, "card", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
+          grow(1, "acct", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
           grow(2, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
           grow(3, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
           grow(4, "coin", "币种", "CURRENCY", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
           grow(5, "folder", "分类", "CATEGORY", "", () => props.onSettings("cat")),
           grow(6, "recur", "周期账单", "RECURRING", (settings.recurring || []).length ? (settings.recurring || []).length + " 条" : "没设", () => props.onSettings("recur")),
-          grow(7, "export", "导出账单", "EXPORT", "CSV", props.onExport)),
+          grow(7, "export", "导出账单", "EXPORT", "CSV", props.onExport),
+          grow(8, "goal", "存钱目标", "SAVING", (settings.goals || []).filter(g => g.currency === code).length ? (settings.goals || []).filter(g => g.currency === code).length + " 个" : "还没有", props.onGoals),
+          grow(9, "year", "年度回顾", "MY YEAR", String(new Date().getFullYear()), props.onYear)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
     }
     return h("div", { className: "px-5 pb-8" },
@@ -1746,7 +1940,9 @@
         row("币种", (settings.currencies || []).length + " 种", () => props.onSettings("cur")),
         row("分类", "", () => props.onSettings("cat")),
         row("周期账单", (settings.recurring || []).length ? (settings.recurring || []).length + " 条" : "没设", () => props.onSettings("recur")),
-        row("导出账单", "CSV", props.onExport)),
+        row("导出账单", "CSV", props.onExport),
+        row("存钱目标", (settings.goals || []).filter(g => g.currency === code).length + " 个", props.onGoals),
+        row("年度回顾", String(new Date().getFullYear()), props.onYear)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "10px 4px 0" } }, "颜色还能在 设置 → 主题工作台 里单独调。"));
   }
 
@@ -1767,8 +1963,8 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           when + ((txn.comments || []).length ? " · " + txn.comments.length + " 条批注" : ""))),
       h("div", { style: { textAlign: "right", flexShrink: 0 } },
-        h("div", { style: numStyle(sk, 15.5, xfer ? sk.sub : isInc ? sk.inc : sk.exp) }, (xfer ? "" : isInc ? "+ " : "- ") + fmtMoney(txn.amount, cur)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, xfer ? "转账" : txn.category + (txn.account ? " · " + acctName(settings, txn.account) : ""))),
+        h("div", { style: numStyle(sk, 15.5, xfer ? sk.sub : isInc ? sk.inc : sk.exp) }, (xfer ? "" : isInc ? "+ " : "- ") + fmtMoney(xfer ? txn.amount : netAmt(txn), cur)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, xfer ? "转账" : (refundSum(txn) ? "已退 " + fmtMoney(refundSum(txn), cur) + " · " : "") + txn.category + (txn.account ? " · " + acctName(settings, txn.account) : ""))),
       h("span", { style: { color: sk.fog, fontSize: 16, marginLeft: -2 } }, "›"));
   }
 
@@ -1796,7 +1992,18 @@
           xfer ? line("从", acctName(props.settings, txn.from)) : line("分类", txn.category),
           xfer ? line("到", acctName(props.settings, txn.to)) : txn.account ? line("账户", acctName(props.settings, txn.account)) : null,
           line("时间", txn.date + (tm && txn.date === (tm.getFullYear() + "-" + pad(tm.getMonth() + 1) + "-" + pad(tm.getDate())) ? " " + pad(tm.getHours()) + ":" + pad(tm.getMinutes()) : "")),
-          line("币种", cur.label + " " + cur.code)),
+          line("币种", cur.label + " " + cur.code),
+          (txn.refunds || []).map((r, i) => line("退回 · " + fmtDay(r.date) + (r.note ? " " + r.note : ""), "−" + fmtMoney(r.amount, cur))),
+          (txn.refunds || []).length ? line("实际花了", fmtMoney(netAmt(txn), cur), true) : null),
+        // 退款 / AA 回款：挂在这一笔上，这笔按净额算（她 2026-09-29）
+        !xfer && !isInc ? h("div", { style: { display: "flex", gap: 8, marginBottom: 16 } },
+          h("button", { onClick: () => requestAppPrompt("退回多少", "退款或者别人 AA 还你的钱。会从这笔里扣掉，不算收入。最多还能退 " + fmtMoney(netAmt(txn), cur) + "。", "", v => {
+              const n = Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100;
+              if (n > 0) props.onRefund && props.onRefund(Math.min(n, netAmt(txn)), "");
+            }, "好", { placeholder: "比如 12.5" }), "data-ledger-refund": true, className: "active:opacity-80",
+            style: { flex: 1, minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" } }, "＋ 退款 / AA 回款"),
+          (txn.refunds || []).length ? h("button", { onClick: () => props.onRefund && props.onRefund(null), className: "active:opacity-80",
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: sk.sub, background: "transparent", border: "1px solid rgba(160,150,220,.3)" } }, "撤掉最后一笔退款") : null) : null,
         xfer ? null : h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } },
           silk(sk, "角色批注" + (comments.length ? " · " + comments.length : "")),
           (props.characters && props.characters.length)
@@ -2097,7 +2304,10 @@
             (s.accounts || []).map(a => { const ty = acctType(a.type), c = curs.find(x => x.code === a.currency) || { symbol: "", label: a.currency };
               const cs = a.type === "credit" ? creditState(a, props.txns || []) : null;
               return h("button", { key: a.id, onClick: () => setAcctEdit(a), "data-ledger-acct": a.id, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, marginBottom: 8, minHeight: 56 } },
-                h("div", { style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
+                g ? h("span", { style: { position: "relative", width: 40, height: 34, flexShrink: 0 } },
+                    h("img", { src: LA + "ic-acct.webp" + LV, alt: "", draggable: false, style: { width: 40, height: 34, objectFit: "contain" } }),
+                    h("span", { style: { position: "absolute", right: -2, bottom: 0, width: 12, height: 12, borderRadius: 99, background: ty.tint, border: "2px solid #fff" } }))
+                  : h("div", { style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, a.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, ty.zh + " · " + c.label)),
@@ -2134,6 +2344,16 @@
               h("div", { style: { flex: 1, minWidth: 0 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.label + " " + c.symbol),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: "0.08em" } }, c.code)),
+              // 折合用：主币 / 汇率（她 2026-09-29）。只影响统计页那一行「折合」，不动任何一笔账
+              curs.length > 1 ? h("button", { "data-ledger-rate": c.code, className: "active:opacity-70", onClick: () => {
+                  if (!s.baseCur) { props.onPersist(d => { d.settings.baseCur = c.code; }); props.toast && props.toast(c.label + " 设成主币了，其他币填汇率就能折合"); return; }
+                  if (s.baseCur === c.code) return;
+                  const bc = curs.find(x => x.code === s.baseCur) || { label: s.baseCur };
+                  requestAppPrompt("汇率", "1 " + c.label + " 等于多少" + bc.label + "？只用来折合着看。", String((s.rates || {})[c.code] || ""), v => {
+                    const n = parseFloat(String(v).replace(/[^\d.]/g, "")) || 0; props.onPersist(d => { d.settings.rates = { ...(d.settings.rates || {}), [c.code]: n > 0 ? n : undefined }; });
+                  }, "好", { placeholder: "比如 0.19" }); },
+                  style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11, color: s.baseCur === c.code ? "#fff" : t.sub, background: s.baseCur === c.code ? "#a79cef" : "transparent", border: "1px solid " + t.line, flexShrink: 0 } },
+                s.baseCur === c.code ? "主币" : !s.baseCur ? "设为主币" : (s.rates || {})[c.code] ? "×" + s.rates[c.code] : "填汇率") : null,
               iconBtn(IPencil, () => editCur(c), t.sub), iconBtn(ITrash, () => delCur(c)))),
             h("button", { onClick: addCur, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加币种")) : null,
           // ---- 分类管理 ----
@@ -2145,6 +2365,15 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
             cats.map(c => h("div", { key: c.name, style: { ...rowStyle, marginBottom: 8 } },
               h("span", { style: { width: 28, display: "flex", justifyContent: "center" } }, h(CategoryGlyph, { name: c.name, emoji: c.emoji, icon: c.icon, size: 26 })),
               h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
+              // 分类上限（支出分类才有）：按统计页当前看的币种存（她 2026-09-29）
+              catType === "expense" ? h("button", { "data-ledger-setlimit": c.name, className: "active:opacity-70", onClick: () => {
+                  const code = props.code, curLabel = (curs.find(x => x.code === code) || { label: code }).label;
+                  requestAppPrompt(c.name + " 每月上限", "每个月在「" + c.name + "」上最多花多少" + curLabel + "？填 0 就是不设。", String(catBudgetOf(s, code, c.name) || ""), v => {
+                    const n = Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100;
+                    props.onPersist(d => { const all = { ...(d.settings.catBudgets || {}) }; const m = { ...(all[code] || {}) }; if (n > 0) m[c.name] = n; else delete m[c.name]; all[code] = m; d.settings.catBudgets = all; });
+                  }, "好", { placeholder: "比如 800" }); },
+                  style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11, color: catBudgetOf(s, props.code, c.name) ? t.ink : t.fog, background: "transparent", border: "1px solid " + t.line, flexShrink: 0 } },
+                catBudgetOf(s, props.code, c.name) ? "上限 " + catBudgetOf(s, props.code, c.name) : "设上限") : null,
               iconBtn(IPencil, () => editCat(c), t.sub), iconBtn(ITrash, () => delCat(c)))),
             h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "＋ 添加分类")) : null),
         // 底部主按钮（可见性 tab 才需要保存；管理 tab 即时生效，给「完成」）

@@ -72,6 +72,10 @@ const PROMISE_VIA = {
   video: "video", 视频: "video", 视频通话: "video", facetime: "video", videocall: "video"
 };
 const promiseVia = how => PROMISE_VIA[String(how == null ? "" : how).trim().toLowerCase()] || "chat";
+// 约回「等哪件事」：模型写的几种叫法都认，认不出的当没写（退回按分钟算）
+const PROMISE_AFTER = { takeout: "takeout", 外卖: "takeout", food: "takeout", gift: "gift", 礼物: "gift", 快递: "gift", parcel: "gift" };
+// 送到之后留一点拆开/吃上几口的工夫再来，不是门铃一响就发消息
+const PROMISE_AFTER_GRACE_MS = 3 * 60000;
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
@@ -3748,6 +3752,45 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 到期TA会自己提起——走的是已有那条约回链，不是新机制
   // via：到那天TA【怎么来】——"chat" 发消息（原来只有这一种）／"voice" 打语音／
   // "video" 打视频（她 2026-09-06：「约好了打电话没做」）。
+  // 这件事几点真的发生：照【写那一单的地方】存的 arriveTs 来——
+  //   外卖＝她在聊天里给TA点的那张卡（kind:"takeout"，role:"user"，arriveTs）；
+  //   礼物＝在途礼物表 x_giftOut（{charId, arriveTs}）。取最近下的那一单。
+  //   已经到了（她刚说「到了吗」）就照现在算；什么都没在路上＝没这件事，返回 0。
+  const promiseAfterTs = (charId, kindIn) => {
+    const kind = PROMISE_AFTER[String(kindIn == null ? "" : kindIn).trim().toLowerCase()];
+    if (!kind) return 0;
+    const now = Date.now(), recent = now - 6 * 3600000;
+    const rows = kind === "takeout"
+      ? (chatsRef.current[charId] || []).filter(m => m && m.kind === "takeout" && m.role === "user" && m.arriveTs)
+      : (giftOutRef.current || []).filter(g => g && g.charId === charId && g.arriveTs);
+    const last = rows.filter(x => Number(x.arriveTs) > recent).sort((a, b) => (Number(b.ts || b.arriveTs) || 0) - (Number(a.ts || a.arriveTs) || 0))[0];
+    if (!last) return 0;
+    return Math.max(Number(last.arriveTs), now) + PROMISE_AFTER_GRACE_MS;
+  };
+  // 约回的机械兜底（她 2026-09-29：「能不能加强提示词让模型约定的时候填」→ 选了不加字、补一道机械的）。
+  //   模型嘴上说了「外卖到了跟你说」、那一栏却没填——就照TA说出口的那句替它记上。
+  //   ⚠️只兜「等一件事」：有一单真在路上、送达时刻是真的，才补得准。
+  //     「忙完找你」这种没有时间可对的不兜——猜一个时长，猜错比不来还怪。
+  //   ⚠️判据按【一句话】看：这一句里既说了「拿到/送到」、又说了「告诉你/找你」才算，
+  //     「到了」太泛（「我到家了」），只有同一句里点了外卖/礼物才认它。
+  const PROMISE_EVENT_WORDS = { takeout: /外卖|饭|吃的|奶茶|咖啡/, gift: /礼物|快递|包裹|东西/ };
+  const promiseFromWords = (charId, words) => {
+    const lines = (Array.isArray(words) ? words : [words]).map(x => String(x == null ? "" : x))
+      .join("\n").split(/[。！？!?\n]+/).map(x => x.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (!/告诉你|跟你说|和你说|给你说|同你说|反馈|汇报|找你|发你|给你发|拍给你|打给你|给你打|视频给你/.test(line)) continue;
+      const named = Object.keys(PROMISE_EVENT_WORDS).filter(k => PROMISE_EVENT_WORDS[k].test(line));
+      const arrived = /拿到|收到|送到|到手|吃上|吃到/.test(line) || (named.length && /到了/.test(line));
+      if (!arrived) continue;
+      // 没点名是哪件事（「等我拿到了跟你说」）：看哪样真在路上，外卖优先
+      for (const kind of (named.length ? named : ["takeout", "gift"])) {
+        if (!promiseAfterTs(charId, kind)) continue;
+        return { after: kind, about: line.slice(0, 60),
+          how: /视频/.test(line) ? "video" : /打给你|给你打|电话/.test(line) ? "voice" : "chat" };
+      }
+    }
+    return null;
+  };
   const PACT_VIA = { chat: "发消息", voice: "语音电话", video: "视频电话" };
   const setPactDue = (memId, charId, about, dueTs, via) => {
     if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
@@ -4695,6 +4738,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 种没种、开没开花全由 GardenKit.feed 自己判，这儿不加任何新闸。
     if (r.got > 0) try { gardenFeed(charId, r.got); } catch (e) {}
     return r.got;   // v62.09：打卡那头要知道真给了没有，别在 toast 里谎报
+  };
+  // 她在群里开口：群里每个真角色都算跟她相处了一段（抽卡点数＋花房同一口，走 gachaEarn 那一处）。
+  //   ⚠️旁观群不算：那儿她是在看TA们自己聊，不是在跟TA相处。NPC 没有情侣空间，不算。
+  const gachaEarnGroup = (groupId, kind) => {
+    const g = (groups || []).find(x => x && x.id === groupId);
+    if (!g || gsFor(groupId).spectate) return;
+    (g.memberIds || []).forEach(id => { const c = characters.find(x => x.id === id); if (c && !c.npc) { try { gachaEarn(id, kind); } catch (e) {} } });
   };
   const gachaPull = (char, n) => {
     const K = window.GachaKit;
@@ -9915,7 +9965,7 @@ ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音（${VOICE_PAUSE_MARK}）；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
-laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
+laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
       const selfTask = _s.engineerEyes
@@ -10225,18 +10275,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const salvageStr = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')); if (m) { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1]; } } return null; };
       // 约回：TA这轮说了「等我…再找你」→ 记下什么时候该回来。到点由 tick 直接发，不看动念。
       try {
+        // 模型没填、可TA嘴上说了「拿到了跟你说」→ 照那句补上。
+        //   隔离房（不许改共同状态）上面已经把这一栏封成 null——这儿不许从侧门补回来。
+        if (!parsed.laterPromise && (!room || !!(room.writeback && room.writeback.sharedState))) parsed.laterPromise = promiseFromWords(charId, parsed.word);
         const lp = parsed.laterPromise;
         const mins = lp && Number(lp.minutes);
+        // 「等一件事」的约（她 2026-09-29：给TA点了外卖，TA说拿到了一定反馈，然后什么都没来）。
+        //   TA不知道骑手几点到，模型估的分钟数是瞎猜；可 app 知道——那一单自己带着 arriveTs。
+        //   所以 after 只说【等哪件事】，时间由这儿照那一单真的到达时刻换算，还是落成一个 dueTs，
+        //   到点走的仍是下面那一条约回链（不另开一个触发口）。
+        const after = lp && promiseAfterTs(charId, lp.after);
         // NaN / Infinity 不用另外挡：两头的范围比较对它们本来就是 false
-        if (lp && mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES) {
-          const due = Date.now() + mins * 60000;
+        if (lp && (after || (mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES))) {
+          const due = after || Date.now() + mins * 60000;
           // TA说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
           // 现在我是想把打电话这种也接上去」）。提示词里那句「到家给你打电话」本来就是
           // 触发例子之一，可这条约里【没有一栏能记下它是个电话】，于是每一次都落成一条
           // 文字消息——说好的电话到点变成一句「我到家了」。
           // 认得出的那几种写法都认（见 PROMISE_VIA）；认不出的仍旧当 chat。
           const via = promiseVia(lp.how);
-          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now() };
+          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), via: via, createdTs: Date.now(),
+            ...(after ? { after: PROMISE_AFTER[String(lp.after).trim().toLowerCase()] } : {}) };
           setPromises(p => {
             // 同一个人只留最新那一个：TA又说了一次「等我忙完」，就以最新的为准，别攒一堆
             const n = [...p.filter(x => x && x.charId !== charId), row];
@@ -10355,6 +10414,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    （splitLongBubble 两档合一，群聊用的是同一个函数——见 engine.js 上方那段）
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
+      // 中译另起一行的那种先接回去（群里同一个函数）
+      if (_bilingualOn) words = joinBilingualLines(words);
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
@@ -11297,6 +11358,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 只把我的消息（或旁白）入队，不触发角色 —— 像私聊那样连发后再按按钮
   const pushGroupUser = (groupId, text) => {
     if (text == null || text === "") return;
+    gachaEarnGroup(groupId, "group");
     const gs = gsFor(groupId);
     pGChat(groupId, p => [...p, gs.spectate ? {
       role: "narration",
@@ -11535,7 +11597,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   所以这个数往大了给一分钱都不多花（同一次调用，maxTokens 有 65535，
       //   二十来条聊天离截断还远得很），给小了却会实打实地把来回掐掉。
       //   两个人的群 12 条＝六个来回；人多按 n*3 放宽，20 封顶。
-      let nMax = Math.min(20, Math.max(12, members.length * 3));
+      // ⚠️v74.308 再放开（她 2026-09-29：「人多当然话也得多，反正上限不是必须，给少了反而限制」）：
+      //   七个人的群按 n*3 算是 21、被 20 封顶——还不到一人三条。改成每人四条、48 封顶：
+      //   七人 28、十人 40。同上面那句：天花板是许可，模型不会写满；四十来条 JSON 离 maxTokens 还远。
+      let nMax = Math.min(48, Math.max(12, members.length * 4));
       // 自发轮：这一轮条数上限 = 剩余总预算（50-已发x，跨轮递减），不超过自然上限
       if (rgOpts.auto && rgOpts.msgBudget) nMax = Math.max(1, Math.min(nMax, rgOpts.msgBudget));
       // ⚠️下限说的是【这一轮几条】，不是【几个人开口】——这两个数不一样，
@@ -12019,14 +12084,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
             // 整块 HTML 卡片先认一次：splitBubbles 按换行拆，会把卡片碾碎（四处一样喂）
             const _gCard = typeof htmlCardOf === "function" ? htmlCardOf(item.text) : null;
-            const rawLines = _gCard ? [_gCard]
-              : (window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/));
-            // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
-            const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
             const gBiOn = !!(settingsFor(spk.id) || {}).bilingual;
+            // ⚠️双语开着时【只按换行切】，按句末标点拆泡留给下面 splitLongBubble（劈完竖线之后）。
+            //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
+            //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
+            //   单聊一直是先劈竖线再拆泡，群里这一步跟上。
+            const rawLines = _gCard ? [_gCard]
+              : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(item.text);
+            // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
+            const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
             const gBiZh = new Map();
-            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean)
+            const gLines = (gBiOn ? joinBilingualLines : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x) : null;
@@ -13208,6 +13277,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   window.calOpenFromMemo = () => { setScreen("calendar"); };
   window.memoGoApp = () => { setScreen("memo"); };
+  window.ledgerGoApp = () => { setScreen("ledger"); };
   // ---- 日历 / calendar ----
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });
@@ -16009,11 +16079,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 电话里没有，于是同一个人在电话里退回原卡的旧倾向（v55.87「换个入口换个人」）。
         const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
         const gcOnMe = onMeFor();
+        // 群通话一轮几条跟着人数长（她 2026-09-29「开吧」）：原来写死 3~7，七个人一人一条都不够。上限是许可，模型不会写满
         const sys = groupBans({ echo: true })
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys + callBiHint, hist, { maxTokens: 65535 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -25128,6 +25199,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "memlib") body = h(MemoryLib, {
+    pactsOf: pactsFor, onClosePact: closePact, onSetPactDue: setPactDue, onAddPact: addPact,
     entries: memLib,
     characters: liveChars,
     focusChar: activeChar,
@@ -25954,7 +26026,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     activeSession: (groupOfflines[offlineGroup.id] || []).find(s => !s.endTs) || null,
     sending: sending,
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
-    onSend: txt => groupOfflineSend(offlineGroup.id, txt),
+    onSend: txt => { gachaEarnGroup(offlineGroup.id, "offline"); groupOfflineSend(offlineGroup.id, txt); },
     onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
     onShoot: () => groupOfflineShotNow(offlineGroup.id),
     canShoot: groupOfflineCanShoot(offlineGroup),
