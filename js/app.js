@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.314";
+const APP_VERSION = "v74.315";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4732,6 +4732,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 种没种、开没开花全由 GardenKit.feed 自己判，这儿不加任何新闸。
     if (r.got > 0) try { gardenFeed(charId, r.got); } catch (e) {}
     return r.got;   // v62.09：打卡那头要知道真给了没有，别在 toast 里谎报
+  };
+  // 她在群里开口：群里每个真角色都算跟她相处了一段（抽卡点数＋花房同一口，走 gachaEarn 那一处）。
+  //   ⚠️旁观群不算：那儿她是在看TA们自己聊，不是在跟TA相处。NPC 没有情侣空间，不算。
+  const gachaEarnGroup = (groupId, kind) => {
+    const g = (groups || []).find(x => x && x.id === groupId);
+    if (!g || gsFor(groupId).spectate) return;
+    (g.memberIds || []).forEach(id => { const c = characters.find(x => x.id === id); if (c && !c.npc) { try { gachaEarn(id, kind); } catch (e) {} } });
   };
   const gachaPull = (char, n) => {
     const K = window.GachaKit;
@@ -11345,6 +11352,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 只把我的消息（或旁白）入队，不触发角色 —— 像私聊那样连发后再按按钮
   const pushGroupUser = (groupId, text) => {
     if (text == null || text === "") return;
+    gachaEarnGroup(groupId, "group");
     const gs = gsFor(groupId);
     pGChat(groupId, p => [...p, gs.spectate ? {
       role: "narration",
@@ -26010,7 +26018,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     activeSession: (groupOfflines[offlineGroup.id] || []).find(s => !s.endTs) || null,
     sending: sending,
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
-    onSend: txt => groupOfflineSend(offlineGroup.id, txt),
+    onSend: txt => { gachaEarnGroup(offlineGroup.id, "offline"); groupOfflineSend(offlineGroup.id, txt); },
     onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
     onShoot: () => groupOfflineShotNow(offlineGroup.id),
     canShoot: groupOfflineCanShoot(offlineGroup),
