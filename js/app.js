@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.338";
+const APP_VERSION = "v74.339";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -211,7 +211,19 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
   const dragStart = useRef(null);
   const justDragged = useRef(false);
+  // 闲着就贴边藏一半（群友 2026-09-30：「不用时吸附到边边就显示半个比较好，它有点点占屏」）。
+  //   开着、拖着的时候整颗露出来；手一离开 3 秒就往边上缩进去一半。
+  //   藏着的那半颗照样点得开、拖得动——露出来的 23px 宽、46px 高，够一根手指。
+  const TUCK_MS = 3000;
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (open || drag) { setIdle(false); return; }
+    const tm = setTimeout(() => setIdle(true), TUCK_MS);
+    return () => clearTimeout(tm);
+  }, [open, drag, pos]);
+  const tucked = idle && !open && !drag;
   const onDown = e => {
+    setIdle(false);
     dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
   };
@@ -257,7 +269,8 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const side = pos ? pos.side : "right";
   const anchor = drag
     ? { left: drag.x - 23, top: drag.y - 23, right: "auto", flexDirection: "row-reverse" }
-    : Object.assign({ top: pos ? pos.top : "42%" }, side === "left" ? { left: 12, flexDirection: "row-reverse" } : { right: 12 });
+    : Object.assign({ top: pos ? pos.top : "42%", transition: "left .28s ease, right .28s ease, opacity .28s ease", opacity: tucked ? .82 : 1 },
+        side === "left" ? { left: tucked ? -23 : 12, flexDirection: "row-reverse" } : { right: tucked ? -23 : 12 });
   // ⚠️她 2026-09-05 报的那个：「有很多 api 的时候点开会跳到屏幕下面然后关不掉，
   //   得关掉 app 重开」。病根有两层，两层都得治：
   //   ① 这一行原来是 flex + alignItems:center，而【面板是它的兄弟】：
