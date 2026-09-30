@@ -217,6 +217,7 @@ test("从哪儿退下回回哪儿：线下「离开」记 offline、切回「说
 test("气泡换了底色，主题画的尖角也跟着换色", () => {
   const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
   assert.match(c, /\[data-wk="bubble"\]\[data-me="1"\]::before', \["border-left-color:"/);
+  assert.match(c, /const tailOf = /, "渐变气泡的尖角取渐变里的颜色");
   assert.match(c, /\[data-wk="bubble"\]\[data-me="0"\]::before', \["border-right-color:"/);
 });
 
