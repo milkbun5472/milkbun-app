@@ -703,11 +703,12 @@
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
 
-  async function ask(active, ctx, history, text) {
+  async function ask(active, ctx, history, text, pic) {
     // 门在最前面：命中就当场回绝，一次调用都不花
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
-    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") }))
-      .concat([{ role: "user", content: String(text || "") }]);
+    // 她发的图（她 2026-09-30）：只跟着【这一句】发给模型；历史里只留一张小缩略图给她看，不再回传——一张图每轮重发太贵
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了一张图）" : "") }))
+      .concat([{ role: "user", content: String(text || "") || "（她发来一张图，看看说说）", imageDataUrls: pic ? [pic] : undefined }]);
     const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 12000, timeout: 120000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
@@ -1034,16 +1035,16 @@
     // busy 同理：退出整页再回来，「在想…」得还在转。
     useEffect(() => A.onChat(setMsgs), []);
     useEffect(() => A.onBusy(setBusy), []);
-    const send = async text => {
+    const send = async (text, pic) => {
       const q = String(text || "").trim();
-      if (!q || A.isBusy()) return;              // 忙的时候两处都发不出第二句，免得回复串了顺序
+      if ((!q && !pic) || A.isBusy()) return;    // 忙的时候两处都发不出第二句，免得回复串了顺序
       const act = A.activeFor(ctx);
       if (!act && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
       A.bumpBusy(1); A.markAsking(q);
       const before = A.loadChat();
-      put(before.concat([{ role: "me", text: q, ts: Date.now() }]));
+      put(before.concat([{ role: "me", text: q, pic: pic ? pic.thumb : undefined, ts: Date.now() }]));
       try {
-        const r = await A.ask(act, ctx, before, q);
+        const r = await A.ask(act, ctx, before, q, pic ? pic.full : null);
         put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, ts: Date.now() }]));
       } catch (e) {
         put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
@@ -1092,7 +1093,9 @@
     const t = useTheme(), sm = !!props.compact, C = props.C, av = sm ? 24 : 30;
     return h(React.Fragment, null, C.msgs.map((m, i) => m.role === "me"
       ? h("div", { key: i, style: { display: "flex", justifyContent: "flex-end", alignItems: "flex-start", gap: 7, marginBottom: sm ? 9 : 12 } },
-          h("div", { style: { maxWidth: "78%", padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
+          h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
+            m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
+            m.text ? h("div", { style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null),
           h(MeFace, { profile: props.profile, size: av, radius: 9 }))
       : h("div", { key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
@@ -1221,15 +1224,35 @@
   // ============================================================
   // 整页版
   // ============================================================
+  // 发图给秋秋（她 2026-09-30）：整页和小悬浮屏两处输入栏共用这一颗（one-public-mechanism）。
+  //   pic＝{ full, thumb }：full 768px 给模型看，thumb 240px 留在聊天记录里给她看。
+  function AssistAttach({ pic, setPic, small, toast }) {
+    const t = useTheme(), ref = useRef(null);
+    const pick = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      try { setPic({ full: await resizeImageFile(f, 768, .82), thumb: await resizeImageFile(f, 240, .75) }); }
+      catch (err) { toast && toast("这张图读不出来，换一张试试"); }
+    };
+    const sz = small ? 32 : 38;
+    return h(React.Fragment, null,
+      pic ? h("div", { style: { position: "relative", flexShrink: 0 } },
+        h("img", { src: pic.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }),
+        h("button", { onClick: () => setPic(null), "aria-label": "拿掉这张图", style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×"))
+        : h("button", { onClick: () => ref.current && ref.current.click(), "aria-label": "发一张图", className: "active:opacity-60",
+            style: { flexShrink: 0, width: sz, height: sz, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.sub, fontSize: small ? 14 : 16, display: "flex", alignItems: "center", justifyContent: "center" } }, "📷"),
+      h("input", { ref: ref, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }));
+  }
+
   function AssistantApp(props) {
     const t = useTheme();
     const [input, setInput] = useState("");
+    const [pic, setPic] = useState(null);
     const [page, setPage] = useState("chat");      // chat | setup
     const [cfg, setCfg] = useState(A.loadCfg);
     const C = useAssistChat(props, props.toast);
     const scroller = useRef(null);
     useEffect(() => { if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }); }, [C.msgs.length, C.busy]);
-    const fire = txt => { setInput(""); C.send(txt); };
+    const fire = txt => { setInput(""); const p = pic; setPic(null); C.send(txt, p); };
 
     if (page === "setup") return h(AssistantSetup, { toast: props.toast, apiProfiles: props.apiProfiles, active: props.active, ctx: props, onBack: () => { setCfg(A.loadCfg()); setPage("chat"); } });
 
@@ -1277,7 +1300,8 @@
               // 虚线圆角药丸是任何 app 的「快捷短语」，跟这张桌子没关系。
               QUICK.map((q, qi) => h("button", { key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 2, transform: "rotate(" + ((qi % 3) - 1) * 0.6 + "deg)", boxShadow: "0 2px 5px -4px rgba(0,0,0,.7)", border: "1px solid " + t.line, background: "rgba(255,255,255,.62)", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, q)))
           : null),
-      h("div", { style: { display: "flex", gap: 8, padding: "10px 14px", paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 10px)", borderTop: "1px solid " + t.line, flexShrink: 0 } },
+      h("div", { style: { display: "flex", gap: 8, alignItems: "center", padding: "10px 14px", paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 10px)", borderTop: "1px solid " + t.line, flexShrink: 0 } },
+        h(AssistAttach, { pic: pic, setPic: setPic, toast: props.toast }),
         h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1,
           placeholder: "问功能、查毛病，或者说想改什么",
           style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none", maxHeight: 120 } }),
@@ -1324,6 +1348,8 @@
     const [open, setOpen] = useState(false);
     const [cfg, setCfg] = useState(A.loadCfg);
     const [input, setInput] = useState("");
+    const [pic, setPic] = useState(null);
+    const dockSend = () => { const p = pic; setPic(null); C.send(input, p); setInput(""); };
     // 点位只保留在本次前台使用中；不读取旧 x_assistDock，避免重开仍困在状态栏。
     const [pos, setPos] = useState(() => ({ x: -1, y: -1 }));
     const C = useAssistChat(props, props.toast);
@@ -1429,12 +1455,13 @@
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "在想…") : null,
         h(StaleAsk, { C: C })),
-      h("div", { style: { display: "flex", gap: 6, padding: "7px 9px 8px", borderTop: "1px solid " + t.line, flexShrink: 0 } },
+      h("div", { style: { display: "flex", gap: 6, alignItems: "center", padding: "7px 9px 8px", borderTop: "1px solid " + t.line, flexShrink: 0 } },
+        h(AssistAttach, { pic: pic, setPic: setPic, small: true, toast: props.toast }),
         h("textarea", { value: input, rows: 1, onChange: e => setInput(e.target.value),
-          onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); C.send(input); setInput(""); } },
+          onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); dockSend(); } },
           placeholder: "问点什么…",
           style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none", maxHeight: 84 } }),
-        h("button", { onClick: () => { C.send(input); setInput(""); }, disabled: C.busy,
+        h("button", { onClick: dockSend, disabled: C.busy,
           style: { padding: "7px 13px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, C.busy ? "…" : "问")));
   }
   window.AssistantDock = AssistantDock;

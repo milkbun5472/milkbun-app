@@ -27,3 +27,12 @@ test("气泡透明度秋秋也能调；提示词里告诉它新挂点和尺寸�
   assert.match(asst, /data-first／data-last/);
   assert.match(asst, /var\(--app-h\)/);
 });
+
+test("能发图给秋秋：两处输入栏共用一颗，图只跟着这一句发给模型、记录里只留缩略图", () => {
+  assert.match(asst, /function AssistAttach\(\{ pic, setPic, small, toast \}\)/);
+  assert.equal((asst.match(/h\(AssistAttach, \{ pic: pic, setPic: setPic/g) || []).length, 2, "整页和小悬浮屏都要有");
+  assert.match(asst, /imageDataUrls: pic \? \[pic\] : undefined/);
+  assert.match(asst, /pic: pic \? pic\.thumb : undefined/);
+  assert.match(asst, /A\.ask\(act, ctx, before, q, pic \? pic\.full : null\)/);
+  assert.match(asst, /if \(\(!q && !pic\) \|\| A\.isBusy\(\)\) return;/, "只发图不写字也要发得出去");
+});
