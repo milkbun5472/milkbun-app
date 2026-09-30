@@ -67,6 +67,8 @@ assert.equal(guard.accept("收拾这丫头一顿"), "收拾她一顿", "没带�
   //   共用之后那句里不再写死 word（线下说出口的是 scene 里的对白），改成「让 TA 听见」。
   const app = fs2.readFileSync(path2.join(__dirname, "..", "js", "app.js"), "utf8")
     + fs2.readFileSync(path2.join(__dirname, "..", "js", "engine.js"), "utf8");
-  assert.match(app, /『这人真是无法无天了』『回去看我怎么收拾她』『回头跟她算账』/);
-  assert.match(app, /这类狠话本来就是【说得出口的】：真要撂就让 TA 听见/);
+  // v74.311 起字段说明里不再列『』例句（内容示范会把心声教成同一个形状，她 2026-09-29「三个人心声格式一模一样」）；
+  //   那几类狠话由上面这把 guard 在代码里拦，提示词只留去处：说得出口的就让 TA 听见。
+  assert.doesNotMatch(app, /『回去看我怎么收拾她』/);
+  assert.match(app, /说得出口的话就让 TA 听见，心声只留真正咽下去的那一点/);
 }
