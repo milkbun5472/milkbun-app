@@ -89,3 +89,9 @@ test("头像框 / 挂件也能直接贴网上的图片地址", () => {
   assert.match(f({ deco: { ta: { frame: "https://x.com/a.png" } } }), /url\("https:\/\/x\.com\/a\.png"\)/);
   assert.match(comp, /placeholder: "或者贴一个图片地址 https:\/\/…"/);
 });
+
+test("群聊设置分成六个框，原来那些行都还在", () => {
+  const g = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("\nfunction NewGroupSheet"));
+  ["群名 · 成员", "记忆互通 · 他们自己聊", "怎么相处", "这个群长什么样", "记忆库 · 群规矩", "清掉"].forEach(x => assert.ok(g.includes('gCard("' + x + '"'), x));
+  ["记忆互通", "群里自己聊起来", "默认进线下", "记忆上下文条数", "群聊背景", "清除聊天记录", "删除群聊"].forEach(x => assert.ok(g.includes(x), "丢了：" + x));
+});

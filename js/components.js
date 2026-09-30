@@ -15518,11 +15518,19 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     note && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, note),
     h(Slider, { value: val, min: min, max: max, step: step, onChange: set }));
 
+  // 一个框：一类设置装一格，框里原来那些行一个字没改（跟单聊设置那叠卡片同一个分寸：底 t.bg2、一道细边）
+  const gCard = (title, note, ...kids) => h("div", { style: { marginTop: 14, padding: "12px 14px 16px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title),
+    note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, note) : null,
+    ...kids);
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
       h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
 
+    // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
+    //   按「管的是什么」装进六个框：谁在群里 / 他们自己聊不聊 / 怎么相处 / 长什么样 / 记得多少 / 清掉。
+    gCard("群名 · 成员", null,
     // 群名（改完点右上角的勾才生效，和别的设置一样）
     h("div", { className: "pt-4" },
       h("input", {
@@ -15569,7 +15577,8 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         onClick: () => { const go = () => { onSetPresence(spec); onClose(); }; if (spec) go(); else requestAppConfirm("退出群聊，改成旁观？", "群里只会显示你退群了。", go); },
         className: "active:opacity-60",
         style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: spec ? t.tint : t.sub }
-      }, spec ? "回到群里" : "退出群聊")),
+      }, spec ? "回到群里" : "退出群聊"))),
+    gCard("记忆互通 · 他们自己聊", "这个群跟单聊通不通气，以及你不在的时候他们要不要自己往下聊。",
     row("记忆互通", "开：群实时抽取每位成员跟你的单聊+长期记忆+记忆库，双向记得，带心声/实时好感。关：本群是封闭空间——长期记忆、记忆库、印象卡照样读得到，但群里发生的事一个字都不回流主线（只进不出）；你俩平时怎么说话，靠下面的『入群前上文』。", interop, setInterop),
     interop
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")
@@ -15578,18 +15587,11 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（绕着这个数上下浮动，不死板）。嫌太闹就往大调。想让他们先别聊、把话头留给你，点顶栏设置左边那颗圆点——它会变白，底下那颗按钮也跟着变白。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
     interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 60, 1, " 轮"),
     interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 300, 5, " 条"),
-    interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时"),
+    interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时")),
+    gCard("怎么相处", null,
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
-    row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在TA这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
-
-    // 记忆库
-    h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },
-      h(Eyebrow, null, "记忆库")),
-    sliderRow("记忆上下文条数", "每次群成员回复时真正读到的就是这些条——超出的一句都不进上下文。", ctxN, setCtxN, 10, 300, 5, " 条"),
-    sliderRow("总结触发阈值", "群聊累积多少条后，自动把较早的对话总结进记忆库。", sumThresh, setSumThresh, 40, 400, 10, " 条"),
-    sliderRow("总结保留缓存", "总结时末尾保留多少条不总结（保持最近上下文连贯）。", sumBuffer, setSumBuffer, 0, 60, 5, " 条"),
-
-    h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } }, h(Eyebrow, null, "气泡显示")),
+    row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在TA这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc)),
+    gCard("这个群长什么样", null,
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "群聊背景"),
@@ -15603,8 +15605,11 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
-    h(OnlineMediaSettings, null),
-
+    h(OnlineMediaSettings, null)),
+    gCard("记忆库 · 群规矩", null,
+    sliderRow("记忆上下文条数", "每次群成员回复时真正读到的就是这些条——超出的一句都不进上下文。", ctxN, setCtxN, 10, 300, 5, " 条"),
+    sliderRow("总结触发阈值", "群聊累积多少条后，自动把较早的对话总结进记忆库。", sumThresh, setSumThresh, 40, 400, 10, " 条"),
+    sliderRow("总结保留缓存", "总结时末尾保留多少条不总结（保持最近上下文连贯）。", sumBuffer, setSumBuffer, 0, 60, 5, " 条"),
     (() => {
       const n = Number(msgCount) || 0, left = Math.max(0, (sumThresh || 150) - Math.max(0, n - (gs.lastSummarizedCount || 0)));
       return h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 18 } },
@@ -15634,8 +15639,8 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
             style: { marginTop: 5, fontFamily: F_BODY, fontSize: 11, color: temp ? t.accent : t.fog, padding: "1px 0" }
           }, temp ? "临时 · 还剩 " + Number(d.turns) + " 轮（点回长期）" : "长期 · 点这里改成临时 10 轮")),
           onRemoveDirective && h("button", { onClick: () => onRemoveDirective(d.id), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除"));
-      }))) : null,
-
+      }))) : null),
+    gCard("清掉", null,
     // 清除聊天记录（她 2026-08-24 要的）：照单聊那份的形状来。
     // 只删【本群的线上 + 群线下】；成员各自的单聊/单人线下是他们自己的记录，不从这里连带删。
     onClearChat && h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },
@@ -15660,7 +15665,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
           h("div", { className: "flex gap-2" },
             h("button", { onClick: () => setConfirmDel(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
             h("button", { onClick: () => { onDelete(); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, "删除")))
-      : h("button", { onClick: () => setConfirmDel(true), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "删除群聊"));
+      : h("button", { onClick: () => setConfirmDel(true), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "删除群聊")));
 }
 function NewGroupSheet({
   characters,
