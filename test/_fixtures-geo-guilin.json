@@ -1,0 +1,70 @@
+{
+ "_来历": "2026-09-30 真去问 geocoding-api.open-meteo.com 拿回来的原样字段；她那张「桂林」截图就是这一份的渲染结果。不许手改，要更新就重新去问一次。",
+ "桂林": [
+  {
+   "name": "桂林",
+   "admin1": "安徽",
+   "admin2": "黄山市",
+   "country": "中国",
+   "latitude": 29.922,
+   "longitude": 118.46802,
+   "feature_code": "PPLA4"
+  },
+  {
+   "name": "桂林",
+   "admin1": "臺灣省 or 台灣省",
+   "admin2": "南投縣",
+   "country": "台湾",
+   "latitude": 23.74552,
+   "longitude": 120.69755,
+   "feature_code": "PPL"
+  },
+  {
+   "name": "桂林",
+   "admin1": "臺灣省 or 台灣省",
+   "admin2": "雲林縣",
+   "country": "台湾",
+   "latitude": 23.61278,
+   "longitude": 120.60639,
+   "feature_code": "PPL"
+  },
+  {
+   "name": "桂林",
+   "admin1": "福建省",
+   "admin2": "南平市",
+   "country": "中国",
+   "latitude": 27.14156,
+   "longitude": 117.16485,
+   "feature_code": "PPL"
+  },
+  {
+   "name": "桂林",
+   "admin1": "福建省",
+   "admin2": "龙岩市",
+   "country": "中国",
+   "latitude": 25.29389,
+   "longitude": 117.4225,
+   "feature_code": "PPL"
+  },
+  {
+   "name": "桂林",
+   "admin1": "福建省",
+   "admin2": "南平市",
+   "country": "中国",
+   "latitude": 27.60453,
+   "longitude": 117.66244,
+   "feature_code": "PPL"
+  }
+ ],
+ "桂林市": [
+  {
+   "name": "桂林市",
+   "admin1": "广西",
+   "admin2": "桂林市",
+   "country": "中国",
+   "latitude": 25.28022,
+   "longitude": 110.29639,
+   "feature_code": "PPLA2"
+  }
+ ]
+}

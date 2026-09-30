@@ -55,8 +55,12 @@ test('⑤ 梯子本身：从最小一级往大了问，且带不带后缀都试'
 });
 
 test('⑥ 接线：geoCandidates 真的用了它，而不是白写一个函数放着', () => {
+  // v74.360 起这一步挪进了 geoCityProbe（补问「XX市」那一支也要先排序）
   const body = src.slice(src.indexOf('async function geoCandidates('),
-                         src.indexOf('async function geoFromPoint('));
+                         src.indexOf('// 选定的那一个候选 → 一整份定位。'));
+  assert.match(body, /geoCityProbe\(q, term, uniq, near\)/,
+    'geoCandidates 必须把候选交给 geoCityProbe');
   assert.match(body, /geoRankByTyped\(uniq, q, term\)/,
-    'geoCandidates 必须把候选过一遍 geoRankByTyped');
+    '⚠️第二个参数必须是【她输的整串 q】，不是这一级的 term——传成 term 就等于每一级' +
+    '只拿自己跟自己比，「按她写明的省市收敛」整个失效');
 });
