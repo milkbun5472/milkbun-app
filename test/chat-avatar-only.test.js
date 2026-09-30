@@ -13,3 +13,10 @@ test("TA 换头像只换聊天里那张，档案那张不动；档案页能用�
   assert.ok(app.includes("characters: liveChars.map(chatFace)"));
   assert.ok(scr.includes("chatAvatar: chatAvatarOn ? initial.chatAvatar : null"));
 });
+test("聊天设置里能直接设/清聊天头像，存回角色的 chatAvatar", () => {
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  const cs = comp.slice(comp.indexOf("function ChatSettings({"));
+  assert.ok(cs.includes('h(LineField, { zh: "聊天头像"'));
+  assert.ok(cs.includes("onPick: setChatAvatar"));
+  assert.ok(app.includes("chatAvatar: s.chatAvatar || null"));
+});

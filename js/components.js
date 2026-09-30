@@ -1156,7 +1156,7 @@ function AvatarPicker({
       className: "active:opacity-60",
       style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: genBusy ? t.fog : t.tint }
     }, genBusy ? "生成中…" : (character && character.avatarImage ? "重新生成" : "生成头像")) : null,
-    character && character.avatarImage && /*#__PURE__*/React.createElement("button", {
+    character && character.avatarImage && onClear && /*#__PURE__*/React.createElement("button", {
     onClick: onClear,
     style: {
       fontFamily: "'Archivo',sans-serif",
@@ -16643,6 +16643,8 @@ function ChatSettings({
   const [settingsTab, setSettingsTab] = useState("");
   const sec = key => ({ open: openSec === key, onToggle: () => setOpenSec(v => v === key ? "" : key) });
   const [remark, setRemark] = useState(character.remark || "");
+  // 聊天头像（chatAvatar）：只在聊天列表和聊天页用；档案那张不动（她 2026-09-30：「换了也不需要回人格档案馆改」）
+  const [chatAvatar, setChatAvatar] = useState(character.chatAvatar || null);
   const [patSig, setPatSig] = useState(character.patSig || "");
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
@@ -16947,6 +16949,7 @@ function ChatSettings({
       right: /*#__PURE__*/React.createElement("button", {
     onClick: () => onSave({
       remark,
+      chatAvatar,
       patSig,
       ctxN,
       sumThresh,
@@ -17166,7 +17169,12 @@ function ChatSettings({
     value: remark,
     onChange: e => setRemark(e.target.value),
     placeholder: "给 Ta 起个备注"
-  })), /*#__PURE__*/React.createElement(LineField, {
+  })), h(LineField, { zh: "聊天头像", en: "Chat Avatar" },
+    h("div", { className: "flex items-center gap-3", style: { paddingTop: 4 } },
+      h(AvatarPicker, { character: { name: character.name, color: character.color, avatarImage: chatAvatar || character.avatarImage }, size: 48, radius: 10, onPick: setChatAvatar, onClear: chatAvatar ? () => setChatAvatar(null) : null }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+        chatAvatar ? "只在聊天里用这张，档案那张不动。点「移除照片」就用回档案那张。" : "没单独设就用档案那张。TA 自己在聊天里换头像，也换的是这一张。"))),
+  /*#__PURE__*/React.createElement(LineField, {
     zh: "拍一拍签名",
     en: "Nudge"
   }, /*#__PURE__*/React.createElement(LineInput, {
