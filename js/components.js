@@ -16300,6 +16300,15 @@ function ChatSettings({
   const [skin, setSkin] = useState(settings.skin || "");
   const [customCSS, setCustomCSS] = useState(settings.customCSS || "");
   const cssFileRef = useRef(null), cssEditRef = useRef(null);
+  // 预览台（她 2026-09-30）：设置页先藏起来（不卸载，草稿都还在），底下就是真的聊天窗，铺上这份没存的长相；
+  //   回程条跟主题工作台那条是同一个 ThemePeekBar。
+  const [lookPeek, setLookPeek] = useState(false);
+  const peekLook = () => {
+    if (!window.__previewChatLook) return;
+    window.__previewChatLook({ skin, bubble, font, chatBg, customCSS });
+    setLookPeek(true);
+  };
+  const endPeek = () => { setLookPeek(false); if (window.__previewChatLook) window.__previewChatLook(null); };
   // 这个人自己的字体（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）。
   // 跟皮肤同一个形状：空＝跟随全局，挑了就只盖这一个聊天窗。名单还是问 FontChoice 要。
   const [font, setFont] = useState(() => {
@@ -16539,8 +16548,9 @@ function ChatSettings({
         glyph: settingsTab ? (curPage && curPage.char) : ""
       })
     : { background: t.bg };
-  return ReactDOM.createPortal(
-    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
+  return ReactDOM.createPortal(h(React.Fragment, null,
+    lookPeek ? h(ThemePeekBar, { zh: cNm + " 的聊天长相（还没保存）", onBack: endPeek }) : null,
+    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin, lookPeek ? { display: "none" } : null) },
     h(Head, {
       bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",
@@ -16803,6 +16813,8 @@ function ChatSettings({
     // 上面是设置里那两层全局的；这两格只盖这一个聊天窗，别人不受影响。
     // ⚠️两格都必须留【跟随全局】那一档：没有它就退不回去，改一次就永远脱离全局了。
     h("div", { className: "pt-5" },
+      h("button", { onClick: peekLook, className: "w-full active:opacity-70", style: { minHeight: 40, marginBottom: 12, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },
+        "去聊天里看看（皮肤、气泡、字、背景、CSS 一起，还没保存也看得到）"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换皮肤"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
         "顶栏、底色、输入栏这一整套。挑了就盖掉设置里那套全局的，只在这个聊天窗里生效。"),
@@ -16919,6 +16931,7 @@ function ChatSettings({
           btn("导入", () => cssFileRef.current && cssFileRef.current.click()),
           skin ? btn("从「" + skin + "」起稿", fromSkin) : null,
           btn("清空", () => setCustomCSS(""), !customCSS),
+          btn("去聊天里看看", peekLook),
           window.CssImageButton ? h(window.CssImageButton, { css: customCSS, setCSS: setCustomCSS, editorRef: cssEditRef, toast: (m, ms) => window.__toast && window.__toast(m, ms) }) : null),
         // 抓得住哪些挂点：跟主题工作台同一个名单同一个组件（单聊页那一组）
         window.CssHookPicker ? h(window.CssHookPicker, { page: "thread", css: customCSS, setCSS: setCustomCSS }) : null,
@@ -17248,5 +17261,5 @@ function ChatSettings({
       fontFamily: F_DISPLAY,
       fontSize: 15
     }
-  }, "从对话提取")))))), document.body);
+  }, "从对话提取"))))))), document.body);
 }

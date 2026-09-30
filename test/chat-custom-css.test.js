@@ -35,3 +35,11 @@ test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，�
   assert.match(ui, /高度别写死 px/);
   assert.match(ui, /html\[data-screen-size=\\"short\\"\]|html\[data-screen-size="short"\]/);
 });
+
+test("长相预览台：草稿铺到真聊天窗、设置页只藏不卸、回去改时按存档重铺", () => {
+  assert.match(app, /const paintChatLook = draft =>/);
+  assert.match(app, /window\.__previewChatLook = draft => paintChatLook\(draft\)/);
+  assert.match(comp, /window\.__previewChatLook\(\{ skin, bubble, font, chatBg, customCSS \}\)/);
+  assert.match(comp, /lookPeek \? \{ display: "none" \} : null/);
+  assert.match(comp, /h\(ThemePeekBar, \{ zh: cNm \+ " 的聊天长相（还没保存）", onBack: endPeek \}\)/);
+});

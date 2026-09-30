@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.320";
+const APP_VERSION = "v74.321";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2198,11 +2198,12 @@ function App() {
     if (!css || !scope || !window.ThemeStudio) return "";
     try { return window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(css, scope)); } catch (e) { return ""; }
   };
-  useEffect(() => {
+  // 这个聊天窗的长相发出去：存档那份，或者预览台递过来的一份草稿（draft 盖在存档上，不落盘）
+  const paintChatLook = draft => {
     if (typeof applyChatLook !== "function") return;
     const inChat = !!(activeChar && screen === "thread");
     document.documentElement.setAttribute("data-lisa-char", inChat ? String(activeChar.id) : "");
-    const s = inChat ? settingsFor(activeChar.id) : {};
+    const s = inChat ? Object.assign({}, settingsFor(activeChar.id), draft || {}) : {};
     const scope = inChat ? lookScope(activeChar.id) : "";
     // 只给 TA 换字（她 2026-09-18）：名单和自己传的那几支都问主题那份要——
     // 聊天窗这儿不另存一份字体名单（one-public-mechanism）。
@@ -2222,7 +2223,10 @@ function App() {
       bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
       chatBg: s.chatBg || ""
     });
-  }, [activeChar && activeChar.id, chatSettings, screen]);
+  };
+  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen]);
+  // 聊天设置「TA 的聊天长相」的预览台（她 2026-09-30）：草稿先铺到真聊天窗上看，回去改或保存时再按存档重铺
+  useEffect(() => { window.__previewChatLook = draft => paintChatLook(draft); return () => { delete window.__previewChatLook; }; });
   // 全局只给默认值；角色可单独覆盖。侧房还会在生成入口处再覆盖这一层。
   const timeAwareFor = id => {
     const mode = (chatSettings[id] || {}).timeAwareMode;
