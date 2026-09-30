@@ -4019,6 +4019,10 @@ function splitCot(raw, on) {
 //   原来是 false：锁不住就整张不要，宁可失败也不出陌生人。2026-09-30 她说很多人反映生成失败，
 //   先放开观察一段时间——想收回就把这里改回 false，只此一处。
 const IMG_REF_FAIL_FALLBACK = true;
+// ⚙️一张图只发一次请求（她 2026-09-30：「能不能一次只一次请求啊」——按次计费，阶梯每一级都是一笔）。
+//   true：锁脸那一枪失败就直接报错，不换字段、不软化重发、不退无参考照，上面那个 FALLBACK 也不生效。
+//   想恢复原来的降级阶梯就改回 false，只此一处。
+const IMG_ONE_SHOT = true;
 const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
@@ -5004,7 +5008,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const rawTxt = await r.text();
     // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（GPT Image 2 的 quality 值域
     // 是 low/medium/high，别家可能只认 standard/hd；response_format 也有接口不认）
-    if (!useRef && !slim && r.status >= 400 && r.status < 500 && ![401, 402, 403, 429].includes(r.status) && /param|quality|response_format|invalid\s+value|不支持|参数/i.test(rawTxt)) {
+    if (!IMG_ONE_SHOT && !useRef && !slim && r.status >= 400 && r.status < 500 && ![401, 402, 403, 429].includes(r.status) && /param|quality|response_format|invalid\s+value|不支持|参数/i.test(rawTxt)) {
       try { return await attempt(false, true); } catch (e) {}
     }
     return await parseOut(r, rawTxt);
@@ -5102,6 +5106,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       // 设置页的能力探针必须一键只发一枪。生产拍照可以有受控兜底，但体检若自动
       // 轮换字段/提示词，会把同一请求连续打给上游：审核站会因此进入冷却，慢站则
       // 可能连续挂几分钟，让人根本分不清是哪一种请求失败。
+      if (IMG_ONE_SHOT && !(opts && opts.singleShot)) throw new Error("参考照锁脸这一次没成功（只发一次，不自动重试）：" + (lastRefErr || "未知错误"));
       if (opts && opts.singleShot) {
         throw new Error("单次参考图探针失败（字段 " + (preferredMode === "bracket" ? "image[]" : "image") + "）：" + (lastRefErr || "未知错误"));
       }
@@ -5163,6 +5168,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   if (refs.length) {
     try { return await attempt(true); } catch (e) {
       note(e);
+      if (IMG_ONE_SHOT) throw e;
       // 被审核拒了 → 先换个说法、【照片照带】再试一次；脸比杯子重要
       // ⚠️只有【审核拒绝】才值得往下试：超时、断网、配额不足换个说法一样跑不通，
       //   硬试只会让「拍照中」多转好几分钟（她 2026-08-22 卡了几分钟）。
