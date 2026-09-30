@@ -387,6 +387,10 @@ const bubbleDecls = S => {
     "border-radius:" + (Number(S.radius) || 0) + "px !important;",
     "box-shadow:" + (S.shadow ? q(S.shadow) : "none") + " !important;"
   ]);
+  // 尖角跟气泡同色（她 2026-09-30：「为啥我的气泡那个蓝色去不掉」）——主题皮肤的尖角是 ::before 三角，
+  //   颜色抄的是【主题自己】的气泡底色；这里换了气泡底色、尖角还是主题那抹蓝。只改颜色，形状仍归主题管。
+  if (S.myBg) one('[data-wk="bubble"][data-me="1"]::before', ["border-left-color:" + q(bubbleBgAlpha(S.myBg, S.myAlpha)) + " !important;"]);
+  if (S.charBg) one('[data-wk="bubble"][data-me="0"]::before', ["border-right-color:" + q(bubbleBgAlpha(S.charBg, S.charAlpha)) + " !important;"]);
   // ── 语音条也是一只气泡（她 2026-09-16：「语音条的颜色没跟上设定的气泡颜色和样式」）──
   // 原来这四层 CSS 只认 [data-wk="bubble"]，而语音条挂的是 data-wk="voice"、
   // 连 data-me 都没有——于是**这个人那两层（她给某人单挑的气泡）一个字都落不到它身上**，
