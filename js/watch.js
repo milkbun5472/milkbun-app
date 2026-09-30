@@ -745,8 +745,10 @@
     const chars = props.characters || [];
     const back = () => { setFilms(loadFilms()); setView("shelf"); };
     const del = f => requestAppConfirm("删掉《" + (f.title || "这部") + "》？", "电影文件只存在这台手机上，删了要重新导入；你们看的时候说的话也会一起删掉（已经「记住」进记忆里的不受影响）。", async () => {
-      try { await _store.del(f.id); await _store.del("cues:" + f.id); } catch (e) {}
+      // 先把票夹里这一张撕掉、界面立刻变（她 2026-09-30：「删除视频按了没反应要退出重进」）；
+      //   片子文件在 IndexedDB 里慢慢删——手机上那边偶尔卡住，别让整张票跟着等。
       saveFilms(loadFilms().filter(x => x.id !== f.id)); setFilms(loadFilms());
+      _store.del(f.id).catch(() => {}).then(() => _store.del("cues:" + f.id)).catch(() => {});
     }, "删掉");
     if (view === "import") return h(ImportPage, { toast: props.toast, onBack: back, onDone: fid => { setFilms(loadFilms()); setView(fid); } });
     if (view !== "shelf") return h(Screening, Object.assign({}, props, { filmId: view, onBack: back }));

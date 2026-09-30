@@ -743,17 +743,22 @@ async function readTextFileSmart(file) {
 // 原来只长在一起读里（一本书的正文）；一起学的课程资料是第二处，所以搬到这儿共用。
 // ⚠️不走 saveJSON 那一层：那一层开机会把整张表读进内存，整本书、整份讲义不该一直占着内存。
 function makeTextStore(dbName, storeName) {
-  const open = () => new Promise((res, rej) => {
+  // 连接只开一次、反复用（原来每读写一次就 indexedDB.open 一条新连接、从不关——
+  //   一起看放片子时一直在读，手机上连接一多，后面的删除/写入就卡着不回，得退出重进才动）。
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
     const r = indexedDB.open(dbName, 1);
     r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains(storeName)) r.result.createObjectStore(storeName); };
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-  const run = (mode, fn) => open().then(db => new Promise((res, rej) => {
+    r.onsuccess = () => { const db = r.result; db.onversionchange = () => { try { db.close(); } catch (e) {} dbp = null; }; db.onclose = () => { dbp = null; }; res(db); };
+    r.onerror = () => { dbp = null; rej(r.error); };
+  }));
+  const once = (mode, fn) => open().then(db => new Promise((res, rej) => {
     const tx = db.transaction(storeName, mode), rq = fn(tx.objectStore(storeName));
     tx.oncomplete = () => res(rq && mode === "readonly" ? (rq.result || "") : undefined);
     tx.onerror = () => rej(tx.error);
   }));
+  // 缓存的连接被系统收走了（切后台久了会这样）：丢掉重开一次
+  const run = (mode, fn) => once(mode, fn).catch(e => { if (e && e.name === "InvalidStateError") { dbp = null; return once(mode, fn); } throw e; });
   return {
     put: (id, text) => run("readwrite", st => st.put(text, id)),
     get: id => run("readonly", st => st.get(id)),
