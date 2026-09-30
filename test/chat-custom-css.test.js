@@ -46,8 +46,11 @@ test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，�
   ["--app-h", "--app-w", "--app-vh", "--app-kb", "--app-safe-top", "--app-safe-bottom"].forEach(v => assert.ok(core.includes('"' + v + '"'), v));
   assert.match(core, /root\.setAttribute\("data-screen-size", size\)/);
   assert.match(ui, /换手机不走样 · 点一下加进去/, "看不懂的变量表换成了现成的几条");
-  assert.match(ui, /calc\(var\(--app-vh\) \* 12\)/);
-  assert.match(ui, /html\[data-screen-size=\\"short\\"\]|html\[data-screen-size="short"\]/);
+  // 现成那几条搬进 ThemeStudio.sizePresets（按钮和「复制给别的 AI」共用一份）
+  const ts = R("js/theme-studio.js");
+  assert.match(ui, /studio\.sizePresets\(page\)/);
+  assert.match(ts, /calc\(var\(--app-vh\) \* 12\)/);
+  assert.match(ts, /html\[data-screen-size=\\"short\\"\]|html\[data-screen-size="short"\]/);
 });
 
 test("长相预览台：草稿铺到真聊天窗、设置页只藏不卸、回去改时按存档重铺", () => {

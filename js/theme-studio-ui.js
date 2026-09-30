@@ -49,16 +49,7 @@
       //   点一下就把整段写进编辑框，数值照 App 现在用的（气泡最宽七成二、字 14.5、内边距 9/13）按屏幕换算，不用她们懂变量。
       //   变量表还在，折在最底下给会写 CSS 的人看。
       (function () {
-        const chat = page === "thread" || page === "gthread";
-        const presets = (chat ? [
-          ["顶部按屏幕高度留白", "给顶上的装饰图让位，高手机留得多、矮手机留得少", '[data-wk="body"] {\n  padding-top: calc(var(--app-vh) * 12) !important;\n}'],
-          ["气泡最宽占屏幕七成", "换宽屏、窄屏，气泡都不会撑得太满", '[data-wk="bubble"] {\n  max-width: calc(var(--app-w) * 0.72) !important;\n}'],
-          ["背景图随手机铺满", "背景图不会在长手机上露白边、也不会被拉变形", '[data-wk="chat"] {\n  background-size: cover !important;\n  background-position: center !important;\n}'],
-          ["小屏手机字小一号", "只在矮屏手机上生效，别的手机不变", 'html[data-screen-size="short"] [data-wk="bubble"] {\n  font-size: 13.5px !important;\n  padding: 7px 11px !important;\n}'],
-          ["大屏手机头像大一点", "只在高屏手机上生效", 'html[data-screen-size="tall"] [data-wk="row"] > [data-wk="avatar"] {\n  transform: scale(1.1) !important;\n}']
-        ] : [
-          ["这一页背景图随手机铺满", "背景图不会露白边、不会被拉变形", '[data-wk="app"] {\n  background-size: cover !important;\n  background-position: center !important;\n}']
-        ]);
+        const presets = studio.sizePresets ? studio.sizePresets(page) : [];
         const add = code => setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + code);
         return h("div", { style: { marginBottom: 10, padding: "9px 10px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 2 } }, "换手机不走样 · 点一下加进去"),

@@ -711,6 +711,28 @@
   // 「复制给别的 AI」（群友 2026-09-30：把主题发给 DeepSeek，它说「这是空壳代码、你没有 html」）。
   //   页面是运行时拼的，本来就没有一份 html 能给；别的 AI 缺的是【挂点表】和【写法规矩】。
   //   这里把她现在的 CSS、这一页能抓的全部挂点、规矩打成一段话，她整段粘过去就能改。
+  // 「换手机不走样」那几条现成写法：数值照 App 现在用的。挂点选择器的按钮和「复制给别的 AI」都读这一份。
+  function sizePresets(page) {
+    const chat = page === "thread" || page === "gthread";
+    return (chat ? [
+          ["顶部按屏幕高度留白", "给顶上的装饰图让位，高手机留得多、矮手机留得少", '[data-wk="body"] {\n  padding-top: calc(var(--app-vh) * 12) !important;\n}'],
+          ["气泡最宽占屏幕七成", "换宽屏、窄屏，气泡都不会撑得太满", '[data-wk="bubble"] {\n  max-width: calc(var(--app-w) * 0.72) !important;\n}'],
+          ["背景图随手机铺满", "背景图不会在长手机上露白边、也不会被拉变形", '[data-wk="chat"] {\n  background-size: cover !important;\n  background-position: center !important;\n}'],
+          ["小屏手机字小一号", "只在矮屏手机上生效，别的手机不变", 'html[data-screen-size="short"] [data-wk="bubble"] {\n  font-size: 13.5px !important;\n  padding: 7px 11px !important;\n}'],
+          ["大屏手机头像大一点", "只在高屏手机上生效", 'html[data-screen-size="tall"] [data-wk="row"] > [data-wk="avatar"] {\n  transform: scale(1.1) !important;\n}']
+        ] : [
+          ["这一页背景图随手机铺满", "背景图不会露白边、不会被拉变形", '[data-wk="app"] {\n  background-size: cover !important;\n  background-position: center !important;\n}']
+        ]);
+  }
+  // 这台手机此刻量到的尺寸（给别的 AI 当参考，不是让它写死）
+  function screenNow() {
+    try {
+      const root = document.documentElement, cs = g.getComputedStyle ? g.getComputedStyle(root) : null;
+      const v = k => cs ? String(cs.getPropertyValue(k) || "").trim() : "";
+      const out = { w: v("--app-w"), h: v("--app-h"), top: v("--app-safe-top"), bottom: v("--app-safe-bottom"), size: root.getAttribute ? root.getAttribute("data-screen-size") || "" : "" };
+      return out.w || out.h ? out : null;
+    } catch (_) { return null; }
+  }
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
@@ -728,10 +750,18 @@
       "【每一页都有的挂点】"
     ].concat(WK_COMMON.map(line));
     if (grp) out.push("", "【这一页（" + grp.zh + "）专有的挂点】", ...grp.hooks.map(line));
+    out.push("", "【App 现在用的尺寸，照这些写、别自己估】",
+      "- 气泡最宽占屏幕 72%（calc(var(--app-w) * 0.72)），气泡字 14.5px，内边距上下 9px、左右 13px。",
+      "- 高度和宽度一律用上面那几个变量换算，不要写死 px：同一份主题会发给不同型号的手机，写死就会有人错位。",
+      "- 顶部、底部要让开刘海和横条：用 var(--app-safe-top) / var(--app-safe-bottom)。");
+    const sn = screenNow();
+    if (sn) out.push("- 我这台手机此刻：宽 " + (sn.w || "?") + "、高 " + (sn.h || "?") + "、顶部安全区 " + (sn.top || "0") + "、底部安全区 " + (sn.bottom || "0") + (sn.size ? "（" + sn.size + " 档）" : "") + "。只给你参考，写的时候照样用变量。");
+    const ps = sizePresets(page);
+    if (ps.length) { out.push("", "【现成写法，要用就原样照抄】"); ps.forEach(function (p) { out.push("/* " + p[0] + "：" + p[1] + " */", p[2]); }); }
     out.push("", "【我现在的 CSS】", String(css || "").trim() || "（还是空的，从头写）", "", "【我想改成】", "（在这里写你想要的样子）");
     return out.join("\n");
   }
-  g.ThemeStudio = { aiBrief, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
+  g.ThemeStudio = { aiBrief, sizePresets, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

@@ -34,3 +34,13 @@ test("挂点选择器旁边有「复制给别的 AI」按钮", () => {
   assert.match(ui, /studio\.aiBrief\(page, css\)/);
   assert.match(ui, /复制给别的 AI/);
 });
+
+test("打包里带着 App 现在用的尺寸和「换手机不走样」现成写法，跟按钮是同一份", () => {
+  const S = loadStudio();
+  const out = S.aiBrief("thread", "");
+  assert.match(out, /App 现在用的尺寸/);
+  assert.match(out, /calc\(var\(--app-w\) \* 0\.72\)/);
+  S.sizePresets("thread").forEach(p => assert.ok(out.includes(p[2]), "打包里缺现成写法：" + p[0]));
+  assert.ok(S.sizePresets("thread").length > S.sizePresets("home").length);
+  assert.match(src("theme-studio-ui.js"), /studio\.sizePresets\(page\)/);
+});
