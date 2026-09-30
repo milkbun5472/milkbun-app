@@ -27,7 +27,7 @@ const SECTIONS = [...CS.matchAll(/show\("(\w+)",\s*\{\s*title: ([^\n]*?)(?:,\s*\
   .map(m => ({ tab: m[1], title: m[2] }));
 
 test("七类都在，而且每一类都有名有姓", () => {
-  assert.equal(PAGES.length, 7, "现在是 " + PAGES.length + " 类");
+  assert.equal(PAGES.length, 9, "现在是 " + PAGES.length + " 类");
   for (const p of PAGES) {
     assert.ok(/[一-鿿]/.test(p.title), "「" + p.key + "」的标题不是中文");
     assert.ok(/[一-鿿]/.test(p.char), "「" + p.key + "」的索引牌不是一个汉字");

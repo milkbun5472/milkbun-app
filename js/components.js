@@ -16497,8 +16497,12 @@ function ChatSettings({
         + (timeAwareMode === "on" ? "开" : timeAwareMode === "off" ? "关" : "跟随全局") },
     { key: "look", char: "窗", title: "这个聊天窗", tint: "#9b7bc4",
       state: () => "已读 " + onOff(showRead) + " · 时间戳 " + onOff(showTime)
-        + " · 点进来先" + (defaultOffline ? "线下" : "线上") + " · 动描 " + onOff(actDesc)
-        + (chatBg ? " · 有背景图" : "") },
+        + " · 点进来先" + (defaultOffline ? "线下" : "线上") + " · 动描 " + onOff(actDesc) },
+    // 「窗」原来一格装了八节（她 2026-09-30：「太长了分一分」）——长相和那几样「看不见的层」各自拉一个抽屉
+    { key: "dress", char: "衣", title: "TA 的聊天长相", tint: "#b0708f",
+      state: () => "皮肤 " + (skin || "跟随全局") + (bubble ? " · 单挑了气泡" : "") + (customCSS ? " · 自己写了 CSS" : "") + (chatBg ? " · 有背景图" : "") },
+    { key: "hear", char: "听", title: "思考链 · 译文 · 通话", tint: "#7a8fa8",
+      state: () => "思考链 " + onOff(showReasoning) + " · 外语中译 " + onOff(bilingual) },
     { key: "rooms", char: "房", title: "这一段算哪个房间", tint: "#477f88",
       state: () => (roomNow && roomNow.name) || "主线" },
     { key: "route", char: "线", title: "走哪条线路", tint: "#6693c7",
@@ -16542,7 +16546,7 @@ function ChatSettings({
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",
       sub: settingsTab
         ? ((settingPages.find(x => x.key === settingsTab) || {}).state || (() => cNm))()
-        : "关于 " + cNm + " 的七件事",
+        : "关于 " + cNm + " 的九件事",
       onBack: () => { if (settingsTab) { setSettingsTab(""); setOpenSec(""); } else onClose(); },
       right: /*#__PURE__*/React.createElement("button", {
     onClick: () => onSave({
@@ -16607,7 +16611,7 @@ function ChatSettings({
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "›")
     ))),
     h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
-      "房间决定这一段对话看得见什么、能主动做什么、会写回哪里——只管当前这一段；其余六类是这个人的长期设置，换房间也跟着走。")),
+      "房间决定这一段对话看得见什么、能主动做什么、会写回哪里——只管当前这一段；其余八类是这个人的长期设置，换房间也跟着走。")),
   settingsTab === "rooms" && h(ChatRoomSheet, {
     embedded: true,
     character,
@@ -16755,7 +16759,25 @@ function ChatSettings({
         "后台检测 " + Number(aShadowPanel.bReport.calls || 0) + " 次 · 失败 " + Number(aShadowPanel.bReport.failures || 0) + " · 平均 " + Number(aShadowPanel.bReport.avgLatencyMs || 0) + "ms", h("br"),
         "候选 " + Number(aShadowPanel.bReport.rawCandidates || 0) + " → 有效 " + Number(aShadowPanel.bReport.validCandidates || 0) + " · 玩笑拦截 " + Number(aShadowPanel.bReport.playfulBlocked || 0), h("br"),
         "进入 " + Number(aShadowPanel.bReport.entered || 0) + " · 退出 " + Number(aShadowPanel.bReport.exited || 0) + " · 真修复解锁 " + Number(aShadowPanel.bReport.repairUnlocked || 0) + " · 假修复拦截 " + Number(aShadowPanel.bReport.fakeRepairBlocked || 0)))),
-  show("look", { title: "气泡 · 背景 · 备注", ...sec("look") }, h("div", { className: "pt-2" },
+  // ⚠️这一格原来是一整节「气泡 · 背景 · 备注」，什么都挤在里面（她 2026-09-30：「太长了分一分」）——
+  //   按「改的是什么」拆成五节：名字 / 气泡里显示什么 / 长相 / 背景 / 自己写 CSS。
+  show("look", { title: "备注 · 拍一拍", ...sec("look-name") }, h("div", { className: "pt-1" },
+    /*#__PURE__*/React.createElement(LineField, {
+    zh: "备注名",
+    en: "Remark"
+  }, /*#__PURE__*/React.createElement(LineInput, {
+    value: remark,
+    onChange: e => setRemark(e.target.value),
+    placeholder: "给 Ta 起个备注"
+  })), /*#__PURE__*/React.createElement(LineField, {
+    zh: "拍一拍签名",
+    en: "Nudge"
+  }, /*#__PURE__*/React.createElement(LineInput, {
+    value: patSig,
+    onChange: e => setPatSig(e.target.value),
+    placeholder: "如：的脑袋、的猫耳朵"
+  })))),
+  show("look", { title: "气泡里显示什么", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
@@ -16765,6 +16787,8 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "开着：TA 一段话会按句子拆成好几个气泡，像一条条打出来的。"
       + "关掉：TA 发几条就是几条，想写长的（一封信、一段要读完的话）就整段放一条，平时还是短句。"),
+    "")),
+  show("hear", { title: "思考链 · 外语中译 · 语音", ...sec("look-extra") }, h("div", { className: "pt-2" },
     dispRow("显示模型思考链", showReasoning, setShowReasoning),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
@@ -16773,7 +16797,8 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来。"
       + "语音、视频通话也适用，译文随通话记录保留，朗读只读原文。已有中译不再请求翻译，中文消息不受影响。"),
-    h(OnlineMediaSettings, null)),
+    h(OnlineMediaSettings, null))),
+  show("dress", { title: "皮肤 · 气泡 · 字体", ...sec("look-skin") },
     // ── 只管这个人的两层（她 2026-09-04：「全局是 line 我给 a 选微信应该覆盖它」）──
     // 上面是设置里那两层全局的；这两格只盖这一个聊天窗，别人不受影响。
     // ⚠️两格都必须留【跟随全局】那一档：没有它就退不回去，改一次就永远脱离全局了。
@@ -16788,6 +16813,76 @@ function ChatSettings({
             style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
               background: skin === v ? t.ink : "transparent", color: skin === v ? t.bg2 : t.fog,
               border: "1px solid " + (skin === v ? t.ink : t.line) } }, label)))),
+    h("div", { className: "pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换气泡"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+        "气泡压在皮肤上面：挑了这个，显示的就是【上面那套皮肤 + 这里挑的气泡】。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        [{ key: "", name: "跟随全局", tint: t.line }].concat(BUBBLE_PRESETS).map(o => {
+          const on = o.key ? !!(bubble && bubble._preset === o.key) : !bubble;
+          return h("button", {
+            key: o.key || "_",
+            onClick: () => setBubble(o.key ? Object.assign({ _preset: o.key }, bubblePresetSkin(o.key)) : null),
+            className: "active:opacity-70 flex items-center",
+            style: { gap: 6, fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
+              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
+              border: "1px solid " + (on ? t.ink : t.line) } },
+            o.key ? h("span", { style: { width: 10, height: 10, borderRadius: 999, background: o.tint, flexShrink: 0 } }) : null,
+            o.name);
+        })),
+      // 细调：设置里那一整排字段（她 2026-09-05：「气泡这里每个人都可以搞设置里那些」）。
+      // 同一个 BubbleSkinFields，只是草稿存在这个人身上——预设只是起手的那一套，
+      // 挑完还能一栏栏改，改的只盖这个聊天窗。
+      h("button", { onClick: () => setBubOpen(v => !v), className: "w-full flex items-center justify-between active:opacity-60",
+        style: { minHeight: 40, marginTop: 10 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+          bubble && bubble._tuned ? "细调（已单独改过）" : "细调这一套"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, display: "inline-block", transition: "transform .2s", transform: bubOpen ? "rotate(90deg)" : "none" } }, "›")),
+      bubOpen ? h("div", null,
+        h(BubbleSkinFields, { s: Object.assign({}, BUBBLE_SKIN, bubble || {}), set: tuneBubble }),
+        // ⚠️退得回去：细调之后「跟随全局」那一档还在上面，但改过之后离它太远了，这里再给一个
+        h("button", { onClick: () => setBubble(null), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.line, borderRadius: 9, padding: "8px 14px" } },
+          "清掉，跟随全局")) : null),
+    // ── 只给 TA 换字（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）──
+    // 跟上面那两格同一个形状：第一档永远是「跟随全局」，不然改一次就退不回去了。
+    // 名单问 FontChoice 要（内置那十支 + 她在主题工作台自己传的），这儿不另抄一份。
+    // 每一支仍旧【用它自己的字写自己的名字】，跟工作台那边一样认得出。
+    (() => {
+      const F = typeof window !== "undefined" && window.FontChoice;
+      if (!F) return null;
+      const cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
+      const list = F.facesWith(cus);
+      const row = (kind, label) => h("div", { style: { marginTop: 8 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 5 } }, label),
+        h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+          list.map(f => {
+            const on = String(font[kind] || "") === f.key;
+            return h("button", {
+              key: (f.key || "_") + kind,
+              onClick: () => setFont(p => Object.assign({}, p, { [kind]: f.key })),
+              className: "active:opacity-70",
+              style: { fontFamily: f.stack || F_BODY, fontSize: 13, padding: "6px 12px", borderRadius: 999,
+                background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
+                border: "1px solid " + (on ? t.ink : t.line) } }, f.key ? f.zh : "跟随全局");
+          })));
+      return h("div", { className: "pt-5" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换字"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+          "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
+        row("body", "正文"), row("display", "标题"));
+    })()),
+  show("dress", { title: "聊天背景", ...sec("look-bg") },
+    h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, chatBg ? "已设置 · 点右侧可换/清除" : "从相册选一张图当这个聊天的背景")),
+      h("div", { className: "flex items-center gap-2 shrink-0" },
+        chatBg ? h("div", { style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(" + chatBg + ")", border: "1px solid " + t.line } }) : null,
+        h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
+        chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } })))),
+  show("dress", { title: "自己写 CSS · 导出导入", ...sec("look-css") },
     // ── 这个聊天自己的 CSS（她 2026-09-30）：比上面「挑一套皮肤」更细——想改哪儿写哪儿，只在这个窗口里生效。
     //   选择器照主题工作台「单聊页」那格的写法（[data-wk="…"]），这边会自动限到这一个人；能导出成 .css 分给别人、也能导进来。
     (() => {
@@ -16824,90 +16919,7 @@ function ChatSettings({
           skin ? btn("从「" + skin + "」起稿", fromSkin) : null,
           btn("清空", () => setCustomCSS(""), !customCSS)),
         h("input", { ref: cssFileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
-    })(),
-    // ── 只给 TA 换字（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）──
-    // 跟上面那两格同一个形状：第一档永远是「跟随全局」，不然改一次就退不回去了。
-    // 名单问 FontChoice 要（内置那十支 + 她在主题工作台自己传的），这儿不另抄一份。
-    // 每一支仍旧【用它自己的字写自己的名字】，跟工作台那边一样认得出。
-    (() => {
-      const F = typeof window !== "undefined" && window.FontChoice;
-      if (!F) return null;
-      const cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
-      const list = F.facesWith(cus);
-      const row = (kind, label) => h("div", { style: { marginTop: 8 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 5 } }, label),
-        h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-          list.map(f => {
-            const on = String(font[kind] || "") === f.key;
-            return h("button", {
-              key: (f.key || "_") + kind,
-              onClick: () => setFont(p => Object.assign({}, p, { [kind]: f.key })),
-              className: "active:opacity-70",
-              style: { fontFamily: f.stack || F_BODY, fontSize: 13, padding: "6px 12px", borderRadius: 999,
-                background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
-                border: "1px solid " + (on ? t.ink : t.line) } }, f.key ? f.zh : "跟随全局");
-          })));
-      return h("div", { className: "pt-5" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换字"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
-          "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
-        row("body", "正文"), row("display", "标题"));
-    })(),
-    h("div", { className: "pt-5" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换气泡"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
-        "气泡压在皮肤上面：挑了这个，显示的就是【上面那套皮肤 + 这里挑的气泡】。"),
-      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-        [{ key: "", name: "跟随全局", tint: t.line }].concat(BUBBLE_PRESETS).map(o => {
-          const on = o.key ? !!(bubble && bubble._preset === o.key) : !bubble;
-          return h("button", {
-            key: o.key || "_",
-            onClick: () => setBubble(o.key ? Object.assign({ _preset: o.key }, bubblePresetSkin(o.key)) : null),
-            className: "active:opacity-70 flex items-center",
-            style: { gap: 6, fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
-              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
-              border: "1px solid " + (on ? t.ink : t.line) } },
-            o.key ? h("span", { style: { width: 10, height: 10, borderRadius: 999, background: o.tint, flexShrink: 0 } }) : null,
-            o.name);
-        })),
-      // 细调：设置里那一整排字段（她 2026-09-05：「气泡这里每个人都可以搞设置里那些」）。
-      // 同一个 BubbleSkinFields，只是草稿存在这个人身上——预设只是起手的那一套，
-      // 挑完还能一栏栏改，改的只盖这个聊天窗。
-      h("button", { onClick: () => setBubOpen(v => !v), className: "w-full flex items-center justify-between active:opacity-60",
-        style: { minHeight: 40, marginTop: 10 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
-          bubble && bubble._tuned ? "细调（已单独改过）" : "细调这一套"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, display: "inline-block", transition: "transform .2s", transform: bubOpen ? "rotate(90deg)" : "none" } }, "›")),
-      bubOpen ? h("div", null,
-        h(BubbleSkinFields, { s: Object.assign({}, BUBBLE_SKIN, bubble || {}), set: tuneBubble }),
-        // ⚠️退得回去：细调之后「跟随全局」那一档还在上面，但改过之后离它太远了，这里再给一个
-        h("button", { onClick: () => setBubble(null), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.line, borderRadius: 9, padding: "8px 14px" } },
-          "清掉，跟随全局")) : null),
-    h("div", { className: "flex items-center justify-between pt-5" },
-      h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, chatBg ? "已设置 · 点右侧可换/清除" : "从相册选一张图当这个聊天的背景")),
-      h("div", { className: "flex items-center gap-2 shrink-0" },
-        chatBg ? h("div", { style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(" + chatBg + ")", border: "1px solid " + t.line } }) : null,
-        h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
-        chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
-    /*#__PURE__*/React.createElement(LineField, {
-    zh: "备注名",
-    en: "Remark"
-  }, /*#__PURE__*/React.createElement(LineInput, {
-    value: remark,
-    onChange: e => setRemark(e.target.value),
-    placeholder: "给 Ta 起个备注"
-  })), /*#__PURE__*/React.createElement(LineField, {
-    zh: "拍一拍签名",
-    en: "Nudge"
-  }, /*#__PURE__*/React.createElement(LineInput, {
-    value: patSig,
-    onChange: e => setPatSig(e.target.value),
-    placeholder: "如：的脑袋、的猫耳朵"
-  }))), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
+    })()), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {
@@ -16989,7 +17001,7 @@ function ChatSettings({
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 }
   }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))),
-  show("look", { title: "打电话的时候", ...sec("callplay") }, h("div", { className: "flex items-center justify-between pt-5" },
+  show("hear", { title: "打电话的时候", ...sec("callplay") }, h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { style: { paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "连续播报"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } },
