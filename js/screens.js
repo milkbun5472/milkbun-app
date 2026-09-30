@@ -13296,13 +13296,21 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
       list.length > 0 && h("div", { className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6, marginBottom: 4 } },
         list.map(p => {
           const on = pack && p.id === pack.id;
-          const first = (p.emotes || [])[0];
+          // ⚠️这一格原来写死拿【第一张】，而且是裸 url（她 2026-09-30：「为啥设了表情包
+          //   封面实际不会变」）。她就是在这一页设的封面、也在这一页看结果，
+          //   偏偏这一格从来不看 cover——设完当然一点变化都没有。
+          // 同一个形状（「这一版的封面长什么样」）两处各写各的，正是
+          //   施工规则/one-public-mechanism 说的那种：聊天那一格早就走
+          //   packCoverOf + stickerSrc 了，这儿却自己又写了一遍，于是
+          //   v74.382 修好的裂图也只修在那一边，这边的裸 url 还留着。
+          //   现在两处共用同一份，别再在这里另写。
+          const first = packCoverOf(p);
           return h("button", { key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); },
             className: "shrink-0 active:opacity-80", style: { width: 76, paddingTop: on ? 0 : 10, paddingBottom: on ? 10 : 0 } },
             h("div", { style: { width: 76, height: on ? 76 : 62, borderRadius: 10, overflow: "hidden", position: "relative",
               background: STICKER_PAPER, border: (on ? 3 : 1) + "px solid " + (on ? "#fff" : t.line),
               boxShadow: on ? "0 7px 15px rgba(0,0,0,.20)" : "none", opacity: on ? 1 : 0.5 } },
-              first ? h("img", { src: first.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })
+              first ? h("img", { src: stickerSrc(first.url), referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })
                 : h("div", { className: "w-full h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a79c86" } }, "空版")),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.fog, marginTop: 5, textAlign: "center" } }, p.name));
         })),
@@ -13353,7 +13361,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
                   transform: on ? "none" : "rotate(" + tiltById(em.id) + "deg)", transition: "transform .16s" } },
                   h("div", { style: { width: "100%", aspectRatio: "1", position: "relative" } },
                     h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
-                    packCoverOf(pack) === em && h("span", { style: { position: "absolute", left: 5, bottom: 5, fontFamily: F_BODY, fontSize: 10, color: "#fff", background: "rgba(0,0,0,.52)", borderRadius: 6, padding: "1px 6px" } }, "封面"),
+                    (packCoverOf(pack) || {}).id === em.id && h("span", { style: { position: "absolute", left: 5, bottom: 5, fontFamily: F_BODY, fontSize: 10, color: "#fff", background: "rgba(0,0,0,.52)", borderRadius: 6, padding: "1px 6px" } }, "封面"),
                     on && h("span", { style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
                   h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
             })),
