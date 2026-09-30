@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.394";
+const APP_VERSION = "v74.395";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12153,6 +12153,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
+          // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
+          if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasPause === "function" && ttsHasPause(item.text)) item.text = stripPauseMarks(item.text);
           // 重名的群里按名字找到的永远是第一个（她 2026-09-22：「同名的头像会被第一个人覆盖」）
           const spk = pickMember(members, item.name);
           if (!spk) continue;
@@ -12205,7 +12207,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: item.text, mid, ts: Date.now(), turnId: gTurnId }]);
             autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
-          } else if ((item.voice === true || (typeof ttsHasPause === "function" && ttsHasPause(item.text))) && item.text) {
+          } else if (item.voice === true && item.text) {
             const vt = String(item.text);
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
             const q = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };

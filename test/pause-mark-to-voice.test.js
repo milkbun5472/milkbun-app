@@ -11,5 +11,6 @@ assert.deepStrictEqual([...r.words], ["再也不惹你发火了～"]);
 r = sb.f(["早", "吃了吗"]); assert.strictEqual(r.voice.length, 0); assert.strictEqual(r.words.length, 2);
 assert.ok(sb.h("a<#1#>b") && sb.h("a<#1#>b") && !sb.h("a#1b"), "判据不受 g 正则 lastIndex 影响");
 assert.ok(/markPauseVoice\(words\)/.test(app), "单聊接上了（v74.392 起留在原位：markPauseVoice）");
-assert.ok(/item\.voice === true \|\| \(typeof ttsHasPause === "function" && ttsHasPause\(item\.text\)\)/.test(app), "群聊接上了");
+// v74.395 起停顿句不再猜成语音（她拍板）：群里只认 voice:true，别的擦掉记号照文字发
+assert.ok(/item\.voice !== true && typeof item\.text === "string" && typeof ttsHasPause === "function" && ttsHasPause\(item\.text\)\) item\.text = stripPauseMarks\(item\.text\)/.test(app), "群聊接上了");
 console.log("pause-mark-to-voice ok");

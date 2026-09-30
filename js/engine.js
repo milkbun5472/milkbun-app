@@ -5680,6 +5680,7 @@ function ttsHasMark(text) {
 // 停顿标记只有语音才有意义（<#0.5#> 是说给 TTS 听的）。模型偶尔把一条语音写进了普通文字气泡，
 // 气泡里就冒出一串 <#0.5#>（群里有人报 2026-09-28）。带停顿标记的气泡＝TA 本来想发语音：
 // 连着的几条并成一条语音还回去，不带标记的原样留在文字里。
+function stripPauseMarks(text) { return String(text == null ? "" : text).replace(TTS_MARK_PAUSE, "").replace(/[ \t]{2,}/g, " ").trim(); }
 function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
   return !!s && s.replace(TTS_MARK_PAUSE, "") !== s;
@@ -5708,9 +5709,10 @@ function markPauseVoice(words) {
       return;
     }
     if (w && typeof w === "object") return;   // 认不出的对象不当字发出去（不然就是一串 [object Object]）
-    if (ttsHasPause(w)) { run = run == null ? w.trim() : run + " " + w.trim(); return; }
+    // 带 <#秒#> 停顿的文字句【不再猜成语音】（她 2026-09-30 拍板）：现在有 {"voice":…} 这条正经写法了，
+    //   文字里的停顿记号只是写多了——擦掉记号，照文字发。
     flush();
-    out.push(w);
+    out.push(ttsHasPause(w) ? stripPauseMarks(w) : w);
   });
   flush();
   return { words: out, voice };

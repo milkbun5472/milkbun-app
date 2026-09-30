@@ -5,10 +5,11 @@ const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("夹在文字中间的语音留在原位，不再掉到最后", () => {
   const src = eng.slice(eng.indexOf("const VOICE_SLOT_RE"), eng.indexOf("function pullPauseVoice"));
-  const f = new Function("ttsHasPause", src + ";return {markPauseVoice,voiceSlotOf};")(w => /<#[\d.]+#>/.test(w));
-  const r = f.markPauseVoice(["先说一句", "我<#0.5#>想你", "嗯<#1#>", "再补一句"]);
-  assert.deepStrictEqual(r.words.map(f.voiceSlotOf), [null, 0, null]);
-  assert.deepStrictEqual(r.voice, ["我<#0.5#>想你 嗯<#1#>"]);
+  const f = new Function("ttsHasPause", "stripPauseMarks", src + ";return {markPauseVoice,voiceSlotOf};")(w => /<#[\d.]+#>/.test(w), w => w.replace(/<#[\d.]+#>/g, ""));
+  // v74.395：停顿句不再猜成语音，擦掉记号照文字发
+  const r = f.markPauseVoice(["先说一句", "我<#0.5#>想你", "再补一句"]);
+  assert.deepStrictEqual(r.words, ["先说一句", "我想你", "再补一句"]);
+  assert.deepStrictEqual(r.voice, []);
   // 单聊发气泡那一圈就地发语音；没发出去的补在最后
   assert.ok(app.includes("const _slot = typeof voiceSlotOf === \"function\" ? voiceSlotOf(words[i]) : null;"));
   assert.ok(app.includes(".concat(_inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t })))"));
@@ -16,7 +17,7 @@ test("夹在文字中间的语音留在原位，不再掉到最后", () => {
 });
 test("word 里明着写的 {voice} 和「[语音]」也就地发；提示词教的是写进 word", () => {
   const src = eng.slice(eng.indexOf("const VOICE_SLOT_RE"), eng.indexOf("function pullPauseVoice"));
-  const f = new Function("ttsHasPause", src + ";return {markPauseVoice,voiceSlotOf};")(w => /<#[\d.]+#>/.test(w));
+  const f = new Function("ttsHasPause", "stripPauseMarks", src + ";return {markPauseVoice,voiceSlotOf};")(w => /<#[\d.]+#>/.test(w), w => w.replace(/<#[\d.]+#>/g, ""));
   const r = f.markPauseVoice(["先说", { voice: "想你了", emo: "sad" }, "[语音] 快回来", "再说"]);
   assert.deepStrictEqual(r.words.map(f.voiceSlotOf), [null, 0, 1, null]);
   assert.deepStrictEqual(r.voice, [{ t: "想你了", emo: "sad" }, "快回来"]);
