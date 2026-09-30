@@ -450,6 +450,8 @@ function CastForm({
   const [color, setColor] = useState(initial && initial.color || AV_COLORS[0]);
   const [persona, setPersona] = useState(initial && initial.persona || "");
   const [avatarImage, setAvatarImage] = useState(initial && initial.avatarImage || null);
+  // TA 在聊天里自己换的那张（chatAvatar）：只在聊天界面用，档案这张不动。这里只给「用回档案那张」。
+  const [chatAvatarOn, setChatAvatarOn] = useState(!!(initial && initial.chatAvatar));
   const [tz, setTz] = useState(initial && initial.tz != null ? String(initial.tz) : "");
   const [appearance, setAppearance] = useState(initial && initial.appearance || "");
   const [photoCanon, setPhotoCanon] = useState(initial && initial.photoCanon || "");
@@ -470,6 +472,7 @@ function CastForm({
   const save = () => {
     if (!name.trim()) return;
     onSave(Object.assign({}, initial || {}, {
+      chatAvatar: chatAvatarOn ? initial.chatAvatar : null,
       id: initial && initial.id || "char_" + Date.now(),
       name: name.trim(),
       tagline: tagline.trim(),
@@ -604,7 +607,10 @@ function CastForm({
             initial ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".05em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 8px" } }, "待归档")),
           h("div", { className: "flex items-center gap-4" },
             h("div", { className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
-              h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3, onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar })),
+              h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3, onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
+              chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
+                h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
+                h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35 } }, "聊天里用的是TA自己换的\n点这里用回档案这张"))),
             h("div", { className: "flex-1 min-w-0" },
               h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
               h("span", { style: { display: "block", height: 1, background: t.line, margin: "5px 0 7px" } }),

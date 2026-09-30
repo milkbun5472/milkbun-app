@@ -102,6 +102,6 @@ test("换的是 _avatarMsg 那张，不是 _seenMsg", () => {
   // applyPhotoSeen 自己那道门没动：canAvatar 为假、或没填 true，都不换
   assert.match(app, /if \(!canAvatar \|\| seen\.avatar !== true\) return;/);
   // 换完仍旧留住换之前那张，也仍旧不走 saveChar（那会把她踢到档案馆）
-  assert.match(app, /const prev = ch\.avatarImage \|\| "";/);
-  assert.match(app, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, avatarImage: msg\.imageRef \} : x\)\);/);
+  assert.match(app, /const prev = ch\.chatAvatar \|\| "";/);
+  assert.match(app, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, chatAvatar: msg\.imageRef \} : x\)\);/);
 });

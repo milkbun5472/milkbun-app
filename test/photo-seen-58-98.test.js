@@ -59,11 +59,11 @@ test("认那一条要认得准，别 undefined 撞 undefined", () => {
 });
 
 test("换头像留住旧那张，而且不许把她踢出聊天", () => {
-  assert.match(helpers, /const prev = ch\.avatarImage \|\| "";/, "没留旧头像，换了就回不去");
+  assert.match(helpers, /const prev = ch\.chatAvatar \|\| "";/, "没留旧头像，换了就回不去");
   assert.match(helpers, /\[charId\]: \{ ts: Date\.now\(\), prev: prev \}/, "没记下换的时间和旧那张");
   // saveChar 顺手 setScreen("cast")：后台换个头像会把她从聊天里踢到档案馆去
   assert.ok(helpers.indexOf("saveChar(") < 0, "用了 saveChar——它会顺手切屏");
-  assert.match(helpers, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, avatarImage: msg\.imageRef \} : x\)\)/, "没真换上");
+  assert.match(helpers, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, chatAvatar: msg\.imageRef \} : x\)\)/, "没真换上");
   assert.match(app, /setAvatarSwap\(loadJSON\("x_avatarSwap", \{\}\)\);/, "重开 App 冷却就忘了");
 });
 

@@ -54,7 +54,7 @@ test("两处拿【对象本身】当依赖的 effect 都有自锁，重跑是空
 
 test("换头像那条落地路本来就是对的，这次一个字没动", () => {
   // 她说「保存路径有 bug」——查下来保存一直没问题，所以这几行原样留着当对照
-  assert.match(app, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, avatarImage: msg\.imageRef \} : x\)\);/);
+  assert.match(app, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, chatAvatar: msg\.imageRef \} : x\)\);/);
   assert.match(app, /saveJSON\("x_characters", n\);/);
-  assert.match(app, /const prev = ch\.avatarImage \|\| "";/);
+  assert.match(app, /const prev = ch\.chatAvatar \|\| "";/);
 });

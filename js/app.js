@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.389";
+const APP_VERSION = "v74.390";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -380,6 +380,9 @@ function neteaseSharedTitle(input) {
 //   缺席时把心声全丢掉，比放行一条偶尔出戏的更坏。
 // ⚠️turnPatch 那三行是照抄真实实现：「这一轮没有有效心声就清掉旧的」是铁律，
 //   不能因为守卫没加载就失效——那会让状态卡永远冻在上一句。
+// 聊天界面看到的那张脸：TA 在聊天里自己换过（chatAvatar）就用那张，否则就是档案那张。
+//   只给聊天列表和聊天页用；档案、编辑页、锁脸都还读 avatarImage。
+const chatFace = c => c && c.chatAvatar ? { ...c, avatarImage: c.chatAvatar } : c;
 const TVG = {
   accept(value, pronoun) {
     const g = typeof window !== "undefined" && window.ThoughtVoiceGuard;
@@ -20518,9 +20521,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!canAvatar || seen.avatar !== true) return;
     const ch = characters.find(c => c.id === charId);
     if (!ch || !msg.imageRef) return;
-    const prev = ch.avatarImage || "";
+    // 只换【聊天里用的那张】chatAvatar（群里读者 2026-09-30：「只换聊天界面的头像，不换人设档案」）。
+    //   档案那张 avatarImage 不动——锁脸、档案、编辑页都还认它；档案页可以一键用回。
+    const prev = ch.chatAvatar || "";
     // ⚠️别用 saveChar：它顺手 setScreen("cast")，后台换个头像会把她从聊天里踢到档案馆去
-    pC(p => p.map(x => x.id === charId ? { ...x, avatarImage: msg.imageRef } : x));
+    pC(p => p.map(x => x.id === charId ? { ...x, chatAvatar: msg.imageRef } : x));
     const n = { ...avatarSwapRef.current, [charId]: { ts: Date.now(), prev: prev } };
     avatarSwapRef.current = n; setAvatarSwap(n); saveJSON("x_avatarSwap", n);
     toast((ch.remark || ch.name) + " 把这张换成了头像");
@@ -23953,7 +23958,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
     }
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
-    characters: liveChars,
+    characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     groups: groups,
     chats: chats,
@@ -24081,8 +24086,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: activeChar.id + "::" + activeRoomId,
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
     unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
-    character: activeChar,
-    characters: liveChars,
+    character: chatFace(activeChar),
+    characters: liveChars.map(chatFace),
     groups: groups,
     messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     sending: sending,
