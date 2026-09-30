@@ -196,8 +196,7 @@ test("通话底下是一排大按键，打字框按需拉出来、记住上次�
   assert.ok(call.indexOf('bigKey("挂断"') < call.indexOf("bigKey(typeOpen"), "挂断要在正中");
 });
 
-test("线下暂离的捷径只留消息列表那个小签；聊天顶上那条撤了（她不要那个点）", () => {
-  assert.doesNotMatch(comp, /h\(OfflineBackBar/);
-  assert.match(comp, /onClick: e => \{ e\.stopPropagation\(\); onJumpOffline && onJumpOffline\(thing, isGroup\); \}/);
-  assert.match(app, /window\.InteractionClock\.offlineSceneLive\(list, Date\.now\(\)\)/);
+test("线下暂离的提醒都撤了（她：我知道我还在线下）", () => {
+  assert.doesNotMatch(comp, /h\(OfflineBackBar|liveTag\(|onJumpOffline/);
+  assert.doesNotMatch(app, /offlineLiveOf:|onJumpOffline:/);
 });

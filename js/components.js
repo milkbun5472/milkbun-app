@@ -7129,8 +7129,8 @@ function ProfileSheet({
 // ============================================================
 // MESSAGES — WeChat-style: 聊天 / 通讯录 / 朋友圈
 // ============================================================
-// ⚠️聊天顶上原来挂过一条「● 线下还没散场 · 回到现场」——她 2026-09-30：「不要这个点！我知道我还在线下」，撤了。
-//   暂离回去的捷径只留消息列表里那个「线下中 · 回去」小签。
+// ⚠️线下暂离的提醒（聊天顶上那条、消息列表那个「线下中」小签）试过又撤了——她 2026-09-30：「不要这个点！我知道我还在线下」「要拿掉」。
+//   别再加回来：进线下走聊天顶上「见一面」，或者聊天设置里开「默认进线下」。
 function Messages({
   characters,
   allChars,
@@ -7141,8 +7141,6 @@ function Messages({
   profile,
   unreadMap,
   offlineLastTs,
-  offlineLiveOf,       // (id, isGroup) => 这一场线下还没散
-  onJumpOffline,       // (thing, isGroup) => 直接回到那一场
   pinned,
   onTogglePin,
   onBack,
@@ -7269,22 +7267,17 @@ function Messages({
   const longProps = id => ({ onPointerDown: () => startPress(id), onPointerUp: () => endPress(id), onPointerLeave: () => endPress(id), onPointerCancel: () => endPress(id) });
   const unreadBadge = un => un > 0 && h("span", { style: { position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 10, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, un > 99 ? "99+" : un);
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
-  // 「线下中」小签：点它直接回到那一场（行本身照旧是进聊天）。行是 button，里面不能再套 button，所以用 span 接点击
-  const liveTag = (thing, isGroup) => offlineLiveOf && offlineLiveOf(thing.id, isGroup) ? h("span", {
-    role: "button", "data-wk": "offtag",
-    onClick: e => { e.stopPropagation(); onJumpOffline && onJumpOffline(thing, isGroup); },
-    style: { marginLeft: 4, padding: "2px 8px", borderRadius: 999, background: "rgba(194,90,74,0.12)", color: t.accent, fontFamily: F_BODY, fontSize: 10.5, whiteSpace: "nowrap" } }, "线下中 · 回去") : null;
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   const renderCharRow = it => { const c = it.c, last = it.last, un = unreadMap[c.id] || 0; return h("button", Object.assign({ key: it.key, onClick: () => guardClick(() => onOpenThread(c)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(c.id) } }, longProps(c.id)),
     h("div", { className: "relative shrink-0" }, h(Avatar, { character: c, size: 50, radius: 10 }), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
-      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name), liveTag(c, false)),
+      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
     last && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
   const renderGroupRow = it => { const g = it.g, last = it.last, un = unreadMap[g.id] || 0; return h("button", Object.assign({ key: it.key, onClick: () => guardClick(() => onOpenGroup(g)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(g.id) } }, longProps(g.id)),
     h("div", { className: "relative shrink-0" }, h("div", { className: "grid grid-cols-2 gap-0.5 p-0.5", style: { width: 50, height: 50, borderRadius: 10, background: t.bg, overflow: "hidden" } }, (g.memberIds || []).slice(0, 4).map((mid, k) => { const m = (allChars || characters).find(x => x.id === mid); return h("div", { key: k, style: { overflow: "hidden", borderRadius: 3 } }, m ? h(Avatar, { character: m, size: 23, radius: 3 }) : null); })), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
-      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")"), liveTag(g, true)),
+      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
     last && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.348";
+const APP_VERSION = "v74.349";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7142,21 +7142,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       observeSomatic(charId, msg, "offline", "physical");
     }
     pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s));
-  };
-  // 这一场线下还没散（暂离回来）：判据跟自发聊那道闸同一支 InteractionClock.offlineSceneLive（忘了结束的老场次它自己会放掉）
-  const offlineLiveFor = (charId, roomId) => {
-    try {
-      const rid = roomId && roomId !== "main" ? roomId : "main";
-      const key = window.ChatRooms ? window.ChatRooms.chatKey(charId, rid) : charId;
-      const list = (offlinesRef.current && offlinesRef.current[key]) || loadJSON("x_offline:" + key, []);
-      return !!(window.InteractionClock && window.InteractionClock.offlineSceneLive(list, Date.now()));
-    } catch (e) { return false; }
-  };
-  const groupOfflineLiveFor = gid => {
-    try {
-      const list = (groupOfflinesRef.current && groupOfflinesRef.current[gid]) || loadJSON("x_goffline:" + gid, []);
-      return !!(window.InteractionClock && window.InteractionClock.offlineSceneLive(list, Date.now()));
-    } catch (e) { return false; }
   };
   const openOffline = (char, room) => {
     const rid = room && !room.main ? room.id : "main";
@@ -23869,13 +23854,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setActiveGroup(g);
       clearUnread(g.id);
       setScreen("gthread");
-    },
-    // 「线下中 · 回去」：一下回到那一场，不用 进聊天 → 顶上 → 见一面（她 2026-09-30 转群友）
-    offlineLiveOf: (id, isGroup) => isGroup ? groupOfflineLiveFor(id) : offlineLiveFor(id, "main"),
-    onJumpOffline: (x, isGroup) => {
-      clearUnread(x.id);
-      if (isGroup) { setActiveGroup(x); setScreen("gthread"); openGroupOffline(x); }
-      else { setActiveChar(x); setScreen("thread"); openOffline(x, null); }
     },
     pinned: pinnedChats,
     onTogglePin: togglePinChat,
