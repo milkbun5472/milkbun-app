@@ -135,7 +135,19 @@
           mode: mode, text: String(text || ""), frame: !!frameUrl,
           expect: '{"say":["你说的话，一条一个气泡；安静陪着就给空数组"]}'
         }, 120000);
-        if (r && Array.isArray(r.say)) return r.say.map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+        // 本人交回来的形状不一定是现成的 {say:[…]}（她 2026-09-30：「言秋收到票就回了但是显示不出来」）：
+        //   也可能是一整串 JSON 文本、包了一层 result、或者 say 是一句字符串——都认，认不出来才退回引擎兜底。
+        const got = (function pick(v, depth) {
+          if (v == null || depth > 3) return null;
+          if (typeof v === "string") { const arr = parseSay(v); return arr.length ? arr : null; }
+          if (Array.isArray(v)) return v.map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+          if (typeof v === "object") {
+            if (v.say != null) return pick(v.say, depth + 1);
+            return pick(v.result || v.text || v.content || null, depth + 1);
+          }
+          return null;
+        })(r, 0);
+        if (got) return got;
       } catch (e) {}
     }
     const sys = companionHead(p.ctxFor, char)
