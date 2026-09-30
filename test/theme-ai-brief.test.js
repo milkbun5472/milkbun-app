@@ -44,3 +44,27 @@ test("打包里带着 App 现在用的尺寸和「换手机不走样」现成写
   assert.ok(S.sizePresets("thread").length > S.sizePresets("home").length);
   assert.match(src("theme-studio-ui.js"), /studio\.sizePresets\(page\)/);
 });
+
+test("代码里每一个 data-wk 挂点都进了挂点名单（复制给别的 AI 才带得上）", () => {
+  const S = loadStudio();
+  const known = new Set(S.WK_COMMON.map(r => r[0]));
+  S.WK_SCOPED.forEach(g => g.hooks.forEach(r => known.add(r[0])));
+  const miss = [];
+  for (const f of fs.readdirSync(path.join(__dirname, "..", "js"))) {
+    if (!f.endsWith(".js")) continue;
+    for (const m of src(f).matchAll(/"data-wk":\s*"([a-z0-9]+)"|\bwk:\s*"([a-z0-9]+)"/g)) {
+      const k = m[1] || m[2];
+      if (!known.has(k)) miss.push(k + "（" + f + "）");
+    }
+  }
+  assert.deepStrictEqual([...new Set(miss)], [], "新挂点没写进 theme-studio.js 的 WK_COMMON / WK_SCOPED：" + miss.join("、"));
+});
+
+test("「复制给别的 AI」那段话跟上了这一版", () => {
+  const S = loadStudio();
+  const v = src("app.js").match(/APP_VERSION\s*=\s*"(v[\d.]+)"/)[1];
+  const s = S.BRIEF_STAMP;
+  assert.strictEqual(s.v, v, "发了 " + v + " 但「复制给别的 AI」那段还停在 " + s.v +
+    "：去 js/theme-studio.js 的 BRIEF_STAMP，这一版改了样式规矩/尺寸/现成写法就写进 changed 并同步改 aiBrief，碰不到样式就在 none 写为什么");
+  assert.ok(String(s.changed || s.none || "").trim().length >= 6, "BRIEF_STAMP 的 changed 和 none 至少写一个");
+});
