@@ -195,3 +195,12 @@ test("通话底下是一排大按键，打字框按需拉出来、记住上次�
   assert.ok(call.indexOf('bigKey("挂断"') > call.indexOf("canLive ? bigKey("), "挂断要在正中（说话键后面、打字键前面）");
   assert.ok(call.indexOf('bigKey("挂断"') < call.indexOf("bigKey(typeOpen"), "挂断要在正中");
 });
+
+test("线下暂离回来有捷径：聊天顶上「回到现场」、消息列表「线下中 · 回去」，单聊群聊都有", () => {
+  assert.match(comp, /function OfflineBackBar\(\{ onGo \}\)/);
+  assert.equal((comp.match(/offlineLive && onOffline \? h\(OfflineBackBar, \{ onGo: onOffline \}\) : null/g) || []).length, 2, "单聊、群聊顶上都要有");
+  assert.match(comp, /onClick: e => \{ e\.stopPropagation\(\); onJumpOffline && onJumpOffline\(thing, isGroup\); \}/);
+  assert.match(app, /offlineLive: offlineLiveFor\(activeChar\.id, activeRoomId\)/);
+  assert.match(app, /offlineLive: groupOfflineLiveFor\(activeGroup\.id\)/);
+  assert.match(app, /window\.InteractionClock\.offlineSceneLive\(list, Date\.now\(\)\)/, "判据要跟自发聊那道闸同一支");
+});

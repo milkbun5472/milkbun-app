@@ -7129,6 +7129,16 @@ function ProfileSheet({
 // ============================================================
 // MESSAGES — WeChat-style: 聊天 / 通讯录 / 朋友圈
 // ============================================================
+// 线下暂离回来的那条（她 2026-09-30 转群友：「暂离后再要进 信息 再点 char 再点上面 再点见一面 好像有点繁琐」）——
+//   那一场其实没散，只是浮层收起来了。单聊、群聊顶上都挂这一条，点一下直接回到那一场；消息列表那个「线下中」同一个意思。
+function OfflineBackBar({ onGo }) {
+  const t = useTheme();
+  return h("button", { onClick: onGo, "data-wk": "offback", className: "shrink-0 w-full flex items-center gap-2 active:opacity-70",
+    style: { padding: "7px 16px", background: "rgba(194,90,74,0.08)", borderBottom: "1px solid " + t.line, textAlign: "left" } },
+    h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, flexShrink: 0, animation: "pulse 1.6s ease-in-out infinite" } }),
+    h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "线下还没散场"),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "回到现场 ›"));
+}
 function Messages({
   characters,
   allChars,
@@ -7139,6 +7149,8 @@ function Messages({
   profile,
   unreadMap,
   offlineLastTs,
+  offlineLiveOf,       // (id, isGroup) => 这一场线下还没散
+  onJumpOffline,       // (thing, isGroup) => 直接回到那一场
   pinned,
   onTogglePin,
   onBack,
@@ -7263,17 +7275,22 @@ function Messages({
   const longProps = id => ({ onPointerDown: () => startPress(id), onPointerUp: () => endPress(id), onPointerLeave: () => endPress(id), onPointerCancel: () => endPress(id) });
   const unreadBadge = un => un > 0 && h("span", { style: { position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 10, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, un > 99 ? "99+" : un);
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
+  // 「线下中」小签：点它直接回到那一场（行本身照旧是进聊天）。行是 button，里面不能再套 button，所以用 span 接点击
+  const liveTag = (thing, isGroup) => offlineLiveOf && offlineLiveOf(thing.id, isGroup) ? h("span", {
+    role: "button", "data-wk": "offtag",
+    onClick: e => { e.stopPropagation(); onJumpOffline && onJumpOffline(thing, isGroup); },
+    style: { marginLeft: 4, padding: "2px 8px", borderRadius: 999, background: "rgba(194,90,74,0.12)", color: t.accent, fontFamily: F_BODY, fontSize: 10.5, whiteSpace: "nowrap" } }, "线下中 · 回去") : null;
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   const renderCharRow = it => { const c = it.c, last = it.last, un = unreadMap[c.id] || 0; return h("button", Object.assign({ key: it.key, onClick: () => guardClick(() => onOpenThread(c)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(c.id) } }, longProps(c.id)),
     h("div", { className: "relative shrink-0" }, h(Avatar, { character: c, size: 50, radius: 10 }), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
-      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)),
+      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name), liveTag(c, false)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
     last && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
   const renderGroupRow = it => { const g = it.g, last = it.last, un = unreadMap[g.id] || 0; return h("button", Object.assign({ key: it.key, onClick: () => guardClick(() => onOpenGroup(g)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(g.id) } }, longProps(g.id)),
     h("div", { className: "relative shrink-0" }, h("div", { className: "grid grid-cols-2 gap-0.5 p-0.5", style: { width: 50, height: 50, borderRadius: 10, background: t.bg, overflow: "hidden" } }, (g.memberIds || []).slice(0, 4).map((mid, k) => { const m = (allChars || characters).find(x => x.id === mid); return h("div", { key: k, style: { overflow: "hidden", borderRadius: 3 } }, m ? h(Avatar, { character: m, size: 23, radius: 3 }) : null); })), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
-      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
+      h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")"), liveTag(g, true)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
     last && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
@@ -8498,6 +8515,7 @@ function ChatThread({
   onOpenGift,          // 拆开TA寄来的那个盒子（她 2026-09-19）
   onOpenMoments,
   onOffline,
+  offlineLive,         // 这一场线下还没散（暂离回来的），顶上挂一条「回到现场」
   onOOC,
   block,
   onSendUnblockReq,
@@ -8922,7 +8940,7 @@ function ChatThread({
       }, "发给 TA"))),
   (bk.iBlocked || bk.theyBlocked) && h("div", {
     style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
-  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
+  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), offlineLive && onOffline ? h(OfflineBackBar, { onGo: onOffline }) : null, /*#__PURE__*/React.createElement("div", {
     ref: ref,
     "data-wk": "body",
     // 翻到顶上那一小段就自动补下一批（她手指还在滑的时候就补好，不用等她撞到头）
@@ -14545,6 +14563,7 @@ function GroupThread({
   onDeleteGroup,
   onClearGroupChat,
   onOffline,
+  offlineLive,
   onSendRich,
   onStartCall,
   onCallBack,
@@ -14815,7 +14834,7 @@ function GroupThread({
     size: 20,
     color: t.ink,
     wk: "headink"
-  }))), h("div", {
+  }))), offlineLive && onOffline ? h(OfflineBackBar, { onGo: onOffline }) : null, h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
