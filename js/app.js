@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.379";
+const APP_VERSION = "v74.380";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -981,6 +981,14 @@ function App() {
   //   在飞的那次模型调用由 callAI 按 signal 丢掉结果。只有登记过断点的 lane 才断得了（目前是单聊那一路）。
   const laneAbortRef = useRef({});
   const stopLane = key => { const c = laneAbortRef.current[key]; if (!c) return; delete laneAbortRef.current[key]; try { c.abort(); } catch (e) {} endLane(key); };
+  // 开一轮：登记这条 lane 的断点。收一轮：还是自己那一轮才收 lane——断掉之后她可能已经又发了一轮，那一轮不归这儿收。
+  const laneAbortBegin = key => { startLane(key); const c = new AbortController(); laneAbortRef.current[key] = c; return c; };
+  // 气泡上给不给叉：开关开着、而且这条 lane 此刻真有一轮登记了断点（总结、抽记忆那些没登记的不给，免得点了没反应）
+  const stopBtnFor = key => loadJSON("x_genStopOn", false) && key && laneAbortRef.current[key] ? () => stopLane(key) : null;
+  const laneAbortEnd = (key, c) => {
+    if (laneAbortRef.current[key] === c) { delete laneAbortRef.current[key]; endLane(key); }
+    else if (!c.signal.aborted) endLane(key);
+  };
   // 侧房的生成 lane 用的是 person::room::roomId；这里也必须取同一把钥匙。
   // 以前只看 activeChar.id，主房能亮“正在输入”，侧房请求明明在跑却像毫无反应。
   const _curChatKey = activeChar
@@ -7414,7 +7422,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 空场不再拦：她留空开场＝让角色自己起头（界面上那句 placeholder 一直这样写着，
     // 而这道闸让它从上线起一次都没兑现过——她 2026-09-26 报「线下必须由我开场」）。
     // 引擎那头空场会发 OFFLINE_OPEN_SCENE 当触发句，不是「（继续）」。
-    startLane("c:" + scopeKey);
+    const _abort = laneAbortBegin("c:" + scopeKey);
     try {
       let oCtx = ctxFor(char);
       if (sideRoom) {
@@ -7504,7 +7512,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
       const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
         const _got = res.minimumLengthShortCount || res.minimumLengthChars || 0;
@@ -7622,9 +7631,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       setTimeout(() => maybeSummarizeOffline(scopeKey), 120); // 侧房函数内硬隔离，不进入主记忆
       setTimeout(() => maybeAutoExtractOffline(scopeKey), 200);
     } catch (e) {
-      toast("生成失败：" + (e.message || "重试"));
+      if (!_abort.signal.aborted) toast("生成失败：" + (e.message || "重试"));
     } finally {
-      endLane("c:" + scopeKey);
+      laneAbortEnd("c:" + scopeKey, _abort);
     }
   };
   // 线下的文风／预设台跟着这个人记住（群里反馈 2026-09-27：「每次进线下先来一段默认的，才能去设置里改文风库的文风」）。
@@ -8235,7 +8244,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 空场不再拦：她留空开场＝让角色自己起头（界面上那句 placeholder 一直这样写着，
     // 而这道闸让它从上线起一次都没兑现过——她 2026-09-26 报「线下必须由我开场」）。
     // 引擎那头空场会发 OFFLINE_OPEN_SCENE 当触发句，不是「（继续）」。
-    startLane("g:" + group.id);
+    const _abort = laneAbortBegin("g:" + group.id);
     try {
       let effectiveSess = workSess;
       if (!Array.isArray(workSess.onlinePrelude)) {
@@ -8264,8 +8273,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? (gCtx.members || []).filter(c => c && (c.appearance || c.refPhoto) && !photoCooldownState(_gWindow, c.id).cooling) : [];
       const _gDuo = _gShooters.filter(c => c.refPhoto && profile && profile.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
-      const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
+      const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
         photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
@@ -8333,9 +8343,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       setTimeout(() => maybeSummarizeGroupOffline(group.id), 120); // 群线下防失忆：攒够就滚动总结
       setTimeout(() => maybeAutoExtractGroupOffline(group.id), 240); // 群线下多发言人离散抽取（各点按 who 归属）
     } catch (e) {
-      toast("生成失败：" + (e.message || "重试"));
+      if (!_abort.signal.aborted) toast("生成失败：" + (e.message || "重试"));
     } finally {
-      endLane("g:" + group.id);
+      laneAbortEnd("g:" + group.id, _abort);
     }
   };
   const startGroupOffline = async (groupId, opts) => {
@@ -9316,9 +9326,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
-    startLane("c:" + chatKey);
-    const _abort = new AbortController();
-    laneAbortRef.current["c:" + chatKey] = _abort;
+    const _abort = laneAbortBegin("c:" + chatKey);
     try {
       if (!active) throw new Error("请先到设置配置 API");
       const _s = settingsFor(charId);
@@ -11207,9 +11215,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         "（发送失败：" + e.message + "）", { turnId: "e_" + Date.now() })]);
       return null;                                  // 报错是报错，不许当成「空轮」再烧一次钱
     } finally {
-      // 断掉之后她可能已经又发了一轮：那一轮的 lane 不归这儿收
-      if (laneAbortRef.current["c:" + chatKey] === _abort) { delete laneAbortRef.current["c:" + chatKey]; endLane("c:" + chatKey); }
-      else if (!_abort.signal.aborted) endLane("c:" + chatKey);
+      laneAbortEnd("c:" + chatKey, _abort);
     }
   };
   // CC 工具结果是异步的：云端完成后先作为隐藏系统事实落进同一私聊，
@@ -11539,7 +11545,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       _rowsThisRound++;
       if (!rgOpts.borrowed) addAutoChatMessages(groupId, 1);
     };
-    startLane("g:" + groupId);
+    const _abort = laneAbortBegin("g:" + groupId);
     // 走到哪一步的标记：出错时和错误类型一起报出来，省得只剩一句无从下手的报错文案
     let phase = "准备上下文";
     try {
@@ -12031,6 +12037,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ...(groupImageDataUrls.length ? { imageDataUrls: groupImageDataUrls } : {})
       }], {
         // 多人回复给足思考与正文预算。
+        signal: _abort.signal,
         maxTokens: 65535,
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
         timeout: 180000,
@@ -12041,6 +12048,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         meta: _gReasonMeta
       });
       let raw = await _gShoot(userContent);
+      if (_abort.signal.aborted) return;             // 她点叉断掉了
       checkAutoCall();
       phase = "解析回复";
       // 群聊回复里全是对白，最容易踩「JSON 字符串正文里直接写了换行/裸引号」这两种坏法；
@@ -12451,14 +12459,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // DOMException 之类的报错只给一句没头没尾的话（比如 iOS 上那句 "The string did not
       // match the expected pattern."），光看文案根本不知道是哪一步、哪个 API 抛的。
       // 把【错误类型】和【当时走到哪一步】一起带出来，下次一眼能定位。
-      if (autoCancelled()) return;
+      if (autoCancelled() || _abort.signal.aborted) return;
       const kind = e && e.name && e.name !== "Error" ? "[" + e.name + "] " : "";
       // 跟单聊同一个形状：一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）
       pGChat(groupId, p => [...p, window.ChatContextFilter.failureNotice(
         "（群聊生成失败·" + phase + "：" + kind + (e && e.message || "未知错误") + "）",
         { senderName: "系统" })]);
     } finally {
-      endLane("g:" + groupId);
+      laneAbortEnd("g:" + groupId, _abort);
       if (!autoCancelled()) {
         maybeSummarizeGroup(groupId);
         setTimeout(() => { if (!autoCancelled()) maybeAutoExtractGroup(groupId); }, 260);
@@ -24031,7 +24039,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     groups: groups,
     messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     sending: sending,
-    onStopGen: loadJSON("x_genStopOn", false) && _curLane ? () => stopLane(_curLane) : null,
+    onStopGen: stopBtnFor(_curLane),
     onBack: () => setScreen("messages"),
     onSend: txt => {
       gachaEarn(activeChar.id, "chat");
@@ -24324,6 +24332,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
     messages: groupChats[activeGroup.id] || [],
+    onStopGen: stopBtnFor("g:" + activeGroup.id),
     sending: sending,
     profile: profile,
     meName: profile.name || "我",
@@ -26179,6 +26188,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     sessions: offlines[activeOfflineScopeKey] || [],
     activeSession: (offlines[activeOfflineScopeKey] || []).find(s => !s.endTs) || null,
+    onStopGen: stopBtnFor("c:" + activeOfflineScopeKey),
     sending: sending,
     settings: osFor(offlineChar.id),
     registerTelemetry: offlineRegisterTelemetry[activeOfflineScopeKey] || null,
@@ -26233,6 +26243,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     members: (offlineGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean),
     sessions: groupOfflines[offlineGroup.id] || [],
     activeSession: (groupOfflines[offlineGroup.id] || []).find(s => !s.endTs) || null,
+    onStopGen: stopBtnFor("g:" + offlineGroup.id),
     sending: sending,
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
     onSend: txt => { gachaEarnGroup(offlineGroup.id, "offline"); groupOfflineSend(offlineGroup.id, txt); },

@@ -9140,7 +9140,7 @@ function ApiConfig({
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
         h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "生成中可以手动断掉"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "单聊里正在输入的「…」旁边多一个叉，点了就不等这一轮了。已经发出去的请求照样会计费。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "单聊、群聊、线下、群线下正在生成的「…」旁边多一个叉，点了就不等这一轮了。已经发出去的请求照样会计费。")),
         h("button", { onClick: () => { const n = !genStopOn; setGenStopOn(n); saveJSON("x_genStopOn", n); }, style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: genStopOn ? t.ink : t.line } },
           h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: genStopOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
     onSetModelFloat && h(ConfigPanel, null,

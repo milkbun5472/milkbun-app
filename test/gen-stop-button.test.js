@@ -14,11 +14,16 @@ test("callAI 按 signal 当场放手，自己断的不重试不报失败", async
   await assert.rejects(p, e => e.userAbort === true);
   assert.strictEqual(calls, 1);
 });
-test("单聊那一路登记断点、气泡挂叉、设置里有开关", () => {
+test("单聊、群聊、线下、群线下登记断点、气泡挂叉、设置里有开关", () => {
   const app = read("app.js"), comp = read("components.js"), scr = read("screens.js");
-  assert.ok(app.includes('laneAbortRef.current["c:" + chatKey] = _abort'));
+  assert.ok(app.includes('laneAbortBegin("c:" + chatKey)'));
+  assert.ok(app.includes('laneAbortBegin("c:" + scopeKey)'));
+  assert.ok(app.includes('laneAbortBegin("g:" + group.id)'));
+  assert.ok(app.includes('laneAbortBegin("g:" + groupId)'));
   assert.ok(app.includes("signal: _abort.signal"));
-  assert.ok(app.includes("stopLane(_curLane)"));
-  assert.ok(comp.includes("onClick: onStopGen"));
+  assert.strictEqual((app.match(/onStopGen: stopBtnFor\(/g) || []).length, 4);
+  assert.strictEqual((comp.match(/h\(GenStopX, \{ onStop: onStopGen \}\)/g) || []).length, 4);
+  const eng = read("engine.js");
+  assert.strictEqual((eng.match(/signal: session\.signal/g) || []).length, 4);
   assert.ok(scr.includes('saveJSON("x_genStopOn"'));
 });

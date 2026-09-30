@@ -8467,6 +8467,14 @@ function RoomWorldBanner({ onEnter }) {
       style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }
     }, label + " ›")));
 }
+// 断掉这一轮的叉（设置 → API 里「生成中可以手动断掉」开着才有）。单聊、群聊、线下、群线下共用这一颗。
+function GenStopX({ onStop }) {
+  const t = useTheme();
+  return h("button", {
+    onClick: onStop, "aria-label": "断掉这一轮", className: "active:opacity-60",
+    style: { alignSelf: "center", width: 28, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: t.fog, fontSize: 17, lineHeight: 1, background: "transparent" }
+  }, "×");
+}
 function ChatThread({
   unreadOther,
   onOpenUs,
@@ -9419,11 +9427,7 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })),
-  // 断掉这一轮的叉（设置 → API 里「生成中可以手动断掉」开着才有）
-  onStopGen && h("button", {
-    onClick: onStopGen, "aria-label": "断掉这一轮", className: "active:opacity-60",
-    style: { alignSelf: "center", width: 28, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: t.fog, fontSize: 17, lineHeight: 1, background: "transparent" }
-  }, "×"))), selMode ? h("div", {
+  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", {
     className: "flex items-center justify-between px-4 py-3 shrink-0",
     style: {
       background: t.bg2,
@@ -13621,6 +13625,7 @@ function OfflineSetupStyleEditor({ t, editor }) {
 }
 
 function OfflineMode({
+  onStopGen,
   char,
   room,
   profile,
@@ -13916,7 +13921,7 @@ function OfflineMode({
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
-      sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
+      sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
       // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
@@ -14268,6 +14273,7 @@ function OfflineLengthModeSection({ value, onChange }) {
       }, o.t))));
 }
 function GroupOfflineMode({
+  onStopGen,
   group,
   profile,
   members,
@@ -14499,7 +14505,7 @@ function GroupOfflineMode({
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState, canOpenState: offCanPeek })),
-      sending && h("div", { className: "flex mt-3 justify-center" }, h(TypingDots, { color: t.fog }))),
+      sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
@@ -14551,6 +14557,7 @@ function GroupOfflineMode({
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
+  onStopGen,
   group,
   groups,
   characters,
@@ -15192,7 +15199,7 @@ function GroupThread({
       background: "#fff",
       borderRadius: 14
     }
-  }, h(TypingDots, { color: t.fog })))), panel && h("div", {
+  }, h(TypingDots, { color: t.fog })), onStopGen && h(GenStopX, { onStop: onStopGen }))), panel && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
     style: {
       background: t.bg2,

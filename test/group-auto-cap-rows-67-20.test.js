@@ -16,7 +16,7 @@ const A = strip(app);
 
 // 闸那几行是自成一体的：给它 rgOpts/gs/groupId/计数器就能跑
 const gate = app.slice(app.indexOf("    const _autoCap = Math.max(1, Number(gs.autoChatMaxMsg) || 50);"),
-  app.indexOf("    startLane(\"g:\" + groupId);", app.indexOf("const _autoCap")));
+  app.indexOf("    const _abort = laneAbortBegin(\"g:\" + groupId);", app.indexOf("const _autoCap")));
 assert.ok(gate.length > 300, "抠不出那道闸");
 const mk = (rgOpts, gs, already) => {
   const box = { groupId: "g1", rgOpts: rgOpts, gs: gs, autoChatMsgsRef: { current: { g1: already || 0 } } };

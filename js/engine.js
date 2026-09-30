@@ -6830,6 +6830,7 @@ async function generateOffline(p, ctx, session) {
       wantReasoning: _wantReason,
       meta: _reasonMeta,
       wireScope: "offline",
+      signal: session.signal,
       wireMeta: {
         charId: char.id,
         sessionId: session.id || null,
@@ -6861,7 +6862,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -7468,7 +7469,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const _reasonMeta = {};
   const _wantReason = !!ctx.wantReasoning;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta });
+    raw = await callAI(p, system, hist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -7478,7 +7479,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
