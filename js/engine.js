@@ -5692,11 +5692,22 @@ function ttsHasPause(text) {
 const VOICE_SLOT_RE = /^\uE000V(\d+)\uE000$/;
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 function markPauseVoice(words) {
-  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  // word 里还认两种【明着写的语音】：{"voice":"内容","emo":"…"} 那一项（提示词教的写法），
+  //   和「[语音] 内容」这种字面写法。它们各自一条，不跟前后的停顿句合并。
+  const raw = Array.isArray(words) ? words : [];
+  const list = raw.map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;
   const flush = () => { if (run != null) { out.push("\uE000V" + voice.length + "\uE000"); voice.push(run); run = null; } };
   list.forEach(w => {
+    const vo = (w && typeof w === "object") ? String(w.voice || w.t || w.text || "").trim()
+      : (/^\s*[\[【]语音[\]】]\s*[:：]?\s*/.test(w) ? w.replace(/^\s*[\[【]语音[\]】]\s*[:：]?\s*/, "").trim() : null);
+    if (vo != null) {
+      flush();
+      if (vo) { out.push("\uE000V" + voice.length + "\uE000"); voice.push(w && typeof w === "object" && w.emo ? { t: vo, emo: String(w.emo) } : vo); }
+      return;
+    }
+    if (w && typeof w === "object") return;   // 认不出的对象不当字发出去（不然就是一串 [object Object]）
     if (ttsHasPause(w)) { run = run == null ? w.trim() : run + " " + w.trim(); return; }
     flush();
     out.push(w);

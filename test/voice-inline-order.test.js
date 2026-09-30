@@ -14,3 +14,12 @@ test("夹在文字中间的语音留在原位，不再掉到最后", () => {
   assert.ok(app.includes(".concat(_inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t })))"));
   assert.ok(!app.includes("pullPauseVoice(words); if (_pv.voice.length) { words = _pv.words"));
 });
+test("word 里明着写的 {voice} 和「[语音]」也就地发；提示词教的是写进 word", () => {
+  const src = eng.slice(eng.indexOf("const VOICE_SLOT_RE"), eng.indexOf("function pullPauseVoice"));
+  const f = new Function("ttsHasPause", src + ";return {markPauseVoice,voiceSlotOf};")(w => /<#[\d.]+#>/.test(w));
+  const r = f.markPauseVoice(["先说", { voice: "想你了", emo: "sad" }, "[语音] 快回来", "再说"]);
+  assert.deepStrictEqual(r.words.map(f.voiceSlotOf), [null, 0, 1, null]);
+  assert.deepStrictEqual(r.voice, [{ t: "想你了", emo: "sad" }, "快回来"]);
+  assert.deepStrictEqual(f.markPauseVoice([{ foo: 1 }, "a"]).words, ["a"]);
+  assert.ok(app.includes('语音＝直接写进 word 数组里、你想让它出现的那个位置'));
+});
