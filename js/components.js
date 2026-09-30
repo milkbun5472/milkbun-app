@@ -139,7 +139,63 @@ function chatLayoutCSS(L) {
   if (L.gap === "loose") out.push('[data-wk="msg"][data-first="1"]{padding-top:14px !important;}');
   const top = Math.max(0, Math.min(400, Number(L.top) || 0));
   if (top) out.push('[data-wk="body"]{padding-top:' + top + 'px !important;}');
+  // 头像框 / 挂件（她 2026-09-30：「跟 qq 头像框或者挂件那种差不多」）：一张透明图叠在头像上。
+  //   框＝整张盖住、比头像大一圈（::after）；挂件＝一小张挂在某个角上（::before）。TA 和她各一套。
+  //   图只存保险箱门牌 iv_…，App 那头发出去前换成真地址（跟自己写的 CSS 同一支 resolveCSSImages）。
+  const img = v => String(v || "").replace(/["\\\r\n()]/g, "");
+  [["ta", "0"], ["me", "1"]].forEach(([k, me]) => {
+    const d = (L.deco && L.deco[k]) || {};
+    if (!d.frame && !d.pend) return;
+    const sel = '[data-wk="msg"][data-me="' + me + '"] [data-wk="row"] > [data-wk="avatar"]';
+    out.push(sel + "{position:relative !important;overflow:visible !important;}");
+    if (d.frame) {
+      const sz = Math.max(100, Math.min(200, Number(d.frameSize) || 140)), off = -(sz - 100) / 2;
+      out.push(sel + '::after{content:"" !important;position:absolute !important;left:' + off + "%;top:" + off + "%;width:" + sz + "%;height:" + sz
+        + '%;background:url("' + img(d.frame) + '") center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important;}');
+    }
+    if (d.pend) {
+      const ps = Math.max(20, Math.min(100, Number(d.pendSize) || 45));
+      const pos = { br: "right:-12%;bottom:-12%;", bl: "left:-12%;bottom:-12%;", tr: "right:-12%;top:-12%;", tl: "left:-12%;top:-12%;" }[d.pendPos] || "right:-12%;bottom:-12%;";
+      out.push(sel + '::before{content:"" !important;position:absolute !important;' + pos + "width:" + ps + "%;height:" + ps
+        + '%;background:url("' + img(d.pend) + '") center/contain no-repeat !important;pointer-events:none !important;z-index:3 !important;}');
+    }
+  });
   return out.join("\n");
+}
+// 排版里「头像框 / 挂件」那一行：一个人一行，框和挂件各一张透明图（png 最好），各一根大小
+function AvatarDecoRow({ who, k, layout, setLayout, note }) {
+  const t = useTheme();
+  const d = (layout.deco && layout.deco[k]) || {};
+  const set = patch => setLayout(p => Object.assign({}, p, { deco: Object.assign({}, p.deco || {}, { [k]: Object.assign({}, (p.deco || {})[k] || {}, patch) }) }));
+  const fileFor = useRef({});
+  const pick = slot => async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    try { set({ [slot]: await imgToVault(await resizeImageFile(f, 600, .92)) }); }
+    catch (err) { window.__toast && window.__toast("图片读取失败：" + ((err && err.message) || err)); }
+  };
+  const thumb = ref => ref ? h("div", { style: { width: 34, height: 34, borderRadius: 8, border: "1px solid " + t.line, background: "center/contain no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(ref) : ref) + ")" } }) : null;
+  const slot = (key, zh, sizeKey, lo, hi, def) => h("div", { style: { marginTop: 8 } },
+    h("div", { className: "flex items-center", style: { gap: 8 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, width: 44 } }, zh),
+      thumb(d[key]),
+      h("button", { onClick: () => fileFor.current[key] && fileFor.current[key].click(), className: "active:opacity-70",
+        style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, d[key] ? "换一张" : "选图"),
+      d[key] ? h("button", { onClick: () => set({ [key]: "" }), className: "active:opacity-70", style: { minHeight: 32, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "拿掉") : null,
+      h("input", { ref: el => { fileFor.current[key] = el; }, type: "file", accept: "image/*", onChange: pick(key), style: { display: "none" } })),
+    d[key] ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 4 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, width: 44 } }, "大小"),
+      h("input", { type: "range", min: lo, max: hi, step: 2, value: Number(d[sizeKey]) || def, onChange: e => set({ [sizeKey]: Number(e.target.value) }), style: { flex: 1 } }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, width: 38, textAlign: "right" } }, (Number(d[sizeKey]) || def) + "%")) : null);
+  return h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, who + " 的头像框 · 挂件",
+      note ? h("span", { style: { fontSize: 11, color: t.fog } }, note) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "用透明底的 png：框会整张盖在头像上、比头像大一圈；挂件是挂在一个角上的小图。"),
+    slot("frame", "头像框", "frameSize", 100, 200, 140),
+    slot("pend", "挂件", "pendSize", 20, 100, 45),
+    d.pend ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6, paddingLeft: 52 } },
+      [["br", "右下"], ["bl", "左下"], ["tr", "右上"], ["tl", "左上"]].map(([v, zh]) => h("button", { key: v, onClick: () => set({ pendPos: v }), className: "active:opacity-70",
+        style: { minHeight: 30, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5,
+          background: (d.pendPos || "br") === v ? t.ink : "transparent", color: (d.pendPos || "br") === v ? t.bg2 : t.fog, border: "1px solid " + ((d.pendPos || "br") === v ? t.ink : t.line) } }, zh))) : null);
 }
 const bubbleDecls = S => {
   const q = v => String(v == null ? "" : v).replace(/[<>{}]/g, "");   // 只允许当值用，别让它带出括号
@@ -9108,7 +9164,9 @@ function ChatThread({
         fontSize: 10.5,
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))), isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !selMode && !m.kind && last && subLine(m))),
+    // 她自己那颗也包一层挂点壳：头像框/挂件要叠在壳上（头像本身裁成圆角，叠在里面会被裁掉）——跟 TA 那颗外面的按钮同一个位置
+    isU && dsp.myAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
       title: (isU && bk.theyBlocked) ? "点这里写一句话，求 TA 解除拉黑" : "拉黑中",
       className: "shrink-0 self-center active:opacity-60",
@@ -16951,6 +17009,8 @@ function ChatSettings({
         h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } },
           h("span", null, "顶部留白（给装饰图让位置）"), h("span", { style: { color: t.fog } }, (Number(layout.top) || 0) + " px")),
         h("input", { type: "range", min: 0, max: 240, step: 4, value: Number(layout.top) || 0, onChange: e => setLay("top", Number(e.target.value)), style: { width: "100%" } })),
+      h(AvatarDecoRow, { who: cNm, k: "ta", layout: layout, setLayout: setLayout }),
+      h(AvatarDecoRow, { who: "我", k: "me", layout: layout, setLayout: setLayout, note: "（聊天设置里要打开「显示我的头像」才看得见）" }),
       h("button", { onClick: peekLook, className: "w-full active:opacity-70", style: { minHeight: 40, marginTop: 12, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "去聊天里看看"),
       h("button", { onClick: () => setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT)), className: "active:opacity-70", style: { minHeight: 34, marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "全部回到原样"));
   })()),
