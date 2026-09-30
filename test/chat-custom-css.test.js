@@ -18,3 +18,12 @@ test("设置里能写、能导出导入，存档接住且挡掉不安全的", ()
   assert.match(comp, /accept: "\.css,\.txt,text\/css,text\/plain"/);
   assert.match(app, /customCSS: \(window\.ThemeStudio && s\.customCSS && !window\.ThemeStudio\.unsafeReason\(s\.customCSS\)\)/);
 });
+
+test("聊天那格也给挂点名单和插图按钮，跟主题工作台同一个组件", () => {
+  const ui = R("js/theme-studio-ui.js");
+  assert.match(ui, /g\.CssHookPicker = CssHookPicker;/);
+  assert.match(ui, /g\.CssImageButton = CssImageButton;/);
+  assert.match(comp, /h\(window\.CssHookPicker, \{ page: "thread"/);
+  assert.match(comp, /h\(window\.CssImageButton, \{ css: customCSS/);
+  assert.match(ui, /h\(CssImageButton, \{ css: css, setCSS: setCSS, editorRef: cssEditor/, "工作台没搬过来用同一个");
+});

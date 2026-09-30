@@ -16299,7 +16299,7 @@ function ChatSettings({
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
   const [customCSS, setCustomCSS] = useState(settings.customCSS || "");
-  const cssFileRef = useRef(null);
+  const cssFileRef = useRef(null), cssEditRef = useRef(null);
   // 这个人自己的字体（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）。
   // 跟皮肤同一个形状：空＝跟随全局，挑了就只盖这一个聊天窗。名单还是问 FontChoice 要。
   const [font, setFont] = useState(() => {
@@ -16907,8 +16907,9 @@ function ChatSettings({
       return h("div", { className: "pt-5" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 写 CSS"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
-          "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「单聊页」那格一样，不用自己加前缀。"),
-        h("textarea", { value: customCSS, onChange: e => setCustomCSS(e.target.value), rows: 8, spellCheck: false,
+          "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「单聊页」那格一样，不用自己加前缀。"
+          + "图片可以用图库里的（下面「插入图库图片」），也可以直接写别处的地址 url(https://…)——那个网站删了图，这里也就没了。"),
+        h("textarea", { ref: cssEditRef, value: customCSS, onChange: e => setCustomCSS(e.target.value), rows: 8, spellCheck: false,
           placeholder: '[data-wk="chat"] { … }',
           style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
             fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, lineHeight: 1.6, resize: "vertical" } }),
@@ -16917,7 +16918,10 @@ function ChatSettings({
           btn("导出 .css", exportCSS, !customCSS.trim()),
           btn("导入", () => cssFileRef.current && cssFileRef.current.click()),
           skin ? btn("从「" + skin + "」起稿", fromSkin) : null,
-          btn("清空", () => setCustomCSS(""), !customCSS)),
+          btn("清空", () => setCustomCSS(""), !customCSS),
+          window.CssImageButton ? h(window.CssImageButton, { css: customCSS, setCSS: setCustomCSS, editorRef: cssEditRef, toast: (m, ms) => window.__toast && window.__toast(m, ms) }) : null),
+        // 抓得住哪些挂点：跟主题工作台同一个名单同一个组件（单聊页那一组）
+        window.CssHookPicker ? h(window.CssHookPicker, { page: "thread", css: customCSS, setCSS: setCustomCSS }) : null,
         h("input", { ref: cssFileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
     })()), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"
