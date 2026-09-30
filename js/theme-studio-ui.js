@@ -29,7 +29,19 @@
     const grp = (studio.WK_SCOPED || []).filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const rows = [["每一页都有", common]].concat(grp ? [["这一页专有（" + grp.zh + "）", grp.hooks]] : []);
     const put = function (nm) { setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + '[data-wk="' + nm + '"] {\n  \n}'); };
+    const [copied, setCopied] = useState(false);
+    const copyForAI = function () {
+      if (!studio.aiBrief || typeof copyText !== "function") return;
+      copyText(studio.aiBrief(page, css)).then(function (ok) {
+        setCopied(ok ? "ok" : "fail");
+        if (typeof window.__toast === "function") window.__toast(ok ? "复制好了，整段粘给别的 AI，最后一行写你想要的样子" : "没复制成功，再点一次试试");
+      });
+    };
     return h("div", { style: { marginTop: 12 } },
+      h("button", { onClick: copyForAI, className: "w-full active:opacity-70",
+        style: { minHeight: 44, marginBottom: 10, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, copied === "ok" ? "已复制 · 复制给别的 AI" : "复制给别的 AI"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "连同这页全部挂点和写法规矩一起复制。发给 DeepSeek、豆包它们，就不会再说「没有 html、是空壳」")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
         "抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
         + "所以每一条声明都要带 !important，不带等于没写。"),

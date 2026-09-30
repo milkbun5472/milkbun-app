@@ -708,7 +708,30 @@
     const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? pkg.bubbleSkin : null;
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
   };
-  g.ThemeStudio = { KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
+  // 「复制给别的 AI」（群友 2026-09-30：把主题发给 DeepSeek，它说「这是空壳代码、你没有 html」）。
+  //   页面是运行时拼的，本来就没有一份 html 能给；别的 AI 缺的是【挂点表】和【写法规矩】。
+  //   这里把她现在的 CSS、这一页能抓的全部挂点、规矩打成一段话，她整段粘过去就能改。
+  function aiBrief(page, css) {
+    const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
+    const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
+    const out = [
+      "我在用一个手机 App 的主题功能，想请你帮我改下面这段 CSS。先说清楚这个 App 的规矩：",
+      "",
+      "1. 没有 html 可以给你：页面是 App 运行时现场拼出来的。你不需要 html，也不要让我去找 html。",
+      "2. 能改的每一块都有固定的挂点名字，写法是 [data-wk=\"名字\"]。只用下面列出来的挂点，别自己编类名或 id，编的抓不到任何东西。",
+      "3. 样式大多是写在元素上的，所以每一条声明后面都要加 !important，不加等于没写。",
+      "4. 只交回 CSS，不要 <style> 标签，不要 html，不要 JavaScript。",
+      "5. 有的挂点带附加属性可以细分：data-me=\"1\" 是我这一侧、data-me=\"0\" 是对方那一侧；气泡还有 data-kind（text/voice/photo 等）。",
+      "6. 想跟着屏幕大小走，可以用这几个变量：--app-w（屏宽）、--app-h（屏高）、--app-vh（屏高的百分之一）、--app-safe-top、--app-safe-bottom；html 上还有 data-screen-size=\"short\"/\"tall\" 可以分矮屏高屏。",
+      "7. 里面的 url(...) 图片引用原样保留，别改它们的地址。",
+      "",
+      "【每一页都有的挂点】"
+    ].concat(WK_COMMON.map(line));
+    if (grp) out.push("", "【这一页（" + grp.zh + "）专有的挂点】", ...grp.hooks.map(line));
+    out.push("", "【我现在的 CSS】", String(css || "").trim() || "（还是空的，从头写）", "", "【我想改成】", "（在这里写你想要的样子）");
+    return out.join("\n");
+  }
+  g.ThemeStudio = { aiBrief, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);
