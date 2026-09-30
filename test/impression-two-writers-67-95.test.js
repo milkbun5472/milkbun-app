@@ -15,7 +15,8 @@ test("取料一律现读存档，不许再读闭包里那份 book", () => {
   // v67.95：这本册子有两个写手——这一页，和 app.js 里那条自动出卡（它直接 M.load/M.save）。
   // 拿 state 当底合并会把对方刚写的那张抹掉，所以一律以存档现读的那一份为底。
   assert.match(imp, /const liveBook = \(\) => M\.load\(\) \|\| bookRef\.current \|\| \{\};/);
-  assert.match(imp, /const put = fn => setBook\(p => \{ const n = fn\(M\.load\(\) \|\| p\);/,
+  // v74.352：存档不写在 setBook 的 updater 里了（页面关了不跑），但合并仍以存档现读那一份为底
+  assert.match(imp, /const n = fn\(M\.load\(\) \|\| bookRef\.current\);/,
     "合并的底必须是存档，不是 state");
   // 三条写卡的路都从 ref 取料
   assert.match(imp, /M\.genOpts\(liveBook\(\), charId, monthKey, 0\)/, "首次生成/补齐");
@@ -35,5 +36,5 @@ test("补齐时已经写过的月份不再重写", () => {
 
 test("写存档那一步照旧只动这一个月（这条没变，钉住）", () => {
   assert.match(imp, /\[entry\]\.concat\(\(p\[charId\] \|\| \[\]\)\.filter\(x => x\.monthKey !== monthKey\)\)/);
-  assert.match(imp, /const put = fn => setBook\(p =>/, "写存档必须是函数式更新，不能拿闭包里那份合并");
+  assert.match(imp, /const n = fn\(M\.load\(\) \|\| bookRef\.current\);/, "写存档必须以现读的存档为底，不能拿闭包里那份合并");
 });

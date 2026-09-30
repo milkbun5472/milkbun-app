@@ -447,7 +447,14 @@
     //   她 2026-09-13 报的「八月被重写了一遍，图和字两次都不一样」就是这么来的：
     //   自动那条先写了八月，补齐这条手里那份 book 还是没有八月的旧账，于是又写了一遍。
     //   所以合并一律以【存档现读的那一份】为底，state 只用来画界面。
-    const put = fn => setBook(p => { const n = fn(M.load() || p); if (M.save(n)) return n; props.toast("这次没保存成功，原印象还在"); return p; });
+    // ⚠️存档不写在 setBook 的 updater 里（2026-10-01「离开这页就白跑」）：页面关了 React 就不跑它，
+    //   出卡回来时她已经走开，那张就存不上。现读、改完、直接写回，页面还在才 setBook。
+    const put = fn => {
+      const n = fn(M.load() || bookRef.current);
+      if (!M.save(n)) { props.toast("这次没保存成功，原印象还在"); return; }
+      bookRef.current = n;
+      setBook(n);
+    };
     // ⚠️补齐是一个 await 接一个 await 的长循环，而这中间 book 这个 state 在闭包里【不会变】。
     //   她 2026-09-13 报「补齐两个月，七月出来的时候等于把八月又写了一遍」：
     //   写存档那一步本来就是按月份合并的（不会真盖掉），可【喂给模型的那份料】用的是

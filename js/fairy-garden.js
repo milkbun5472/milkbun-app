@@ -874,6 +874,15 @@
     const frame = useRef(null), alive = useRef(true), busyRef = useRef(false), propsRef = useRef(props), owner = useRef(initial.current.id), serial = useRef(0), messages = useRef(null); propsRef.current = props;
     // ⚠️禁区要跟着这一屏一起走：不撤的话，出了庭院悬浮播放器还悬在半空，
     //   而外面根本没有那条行动栏——那就成了「哪儿都躲着一条看不见的东西」。
+    // 这一季的安排还在路上她就离开了（2026-10-01「离开这页就白跑」查出来的）：
+    //   回来的那一份按庭院的规矩不写入，可存档里那条 pending 原样挂着——下回进来 185 秒内
+    //   点什么都是「上次请求还在处理」。所以离开的那一刻就把它标成没排完，回来可以直接重试。
+    const planInFlight = useRef(null);
+    useEffect(() => () => {
+      const f = planInFlight.current; if (!f) return;
+      try { const d = loadJSON(storeKey.current, null); if (d && d.plans && d.plans[f.key] && d.plans[f.key].request === f.request)
+        write(storeKey.current, { ...d, plans: { ...d.plans, [f.key]: { status: "failed", at: Date.now(), error: "离开庭院时这一季还没排好，回来可以重试。" } } }); } catch (e) {}
+    }, []);
     useEffect(() => { alive.current = true; return () => { alive.current = false; serial.current++; if (window.FloatKeepClear) window.FloatKeepClear.set(0); if (frame.current) hosts.delete(frame.current.contentWindow); }; }, []);
     const current = () => {
       if (!alive.current) throw new Error("这个庭院页面已经离开了。");
@@ -936,7 +945,7 @@
       const accountId=async()=>root.Cloud?.getSessionUser?String((await root.Cloud.getSessionUser().catch(()=>null))?.id||""):"";
       busyRef.current=true;setBusy(true);
       try {
-        update(d=>({...d,plans:{...(d.plans||{}),[key]:{status:"pending",at:Date.now(),request}}}));
+        update(d=>({...d,plans:{...(d.plans||{}),[key]:{status:"pending",at:Date.now(),request}}}));planInFlight.current={key,request};
         const account=await accountId();if(!alive.current||serial.current!==epoch)throw Error("庭院已离开，这次安排没有写入。");current();
         const plan=await generateSeason({active:propsRef.current.apiFor?propsRef.current.apiFor(cid):propsRef.current.active,character:c,profile:propsRef.current.profile,world,mainline:mainlineNow()});
         if(await accountId()!==account||!alive.current||serial.current!==epoch)throw Error("角色或账号已切换，这次安排没有写入。");
@@ -946,7 +955,7 @@
       } catch(e) {
         if(alive.current&&serial.current===epoch)try{update(d=>d.plans?.[key]?.request===request?{...d,plans:{...d.plans,[key]:{status:"failed",at:Date.now(),error:e.message,detail:e.detail||""}}}:d);}catch(_){}
         throw e;
-      } finally {busyRef.current=false;if(alive.current)setBusy(false);}
+      } finally {busyRef.current=false;planInFlight.current=null;if(alive.current)setBusy(false);}
     }
     const bind = node => {
       if (frame.current && frame.current !== node) hosts.delete(frame.current.contentWindow); frame.current = node; if (!node) return;

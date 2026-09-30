@@ -393,7 +393,9 @@
     const closeDetail = () => { setDetail(null); leaveIfFromCal(); };
     const backOut = () => { if (!leaveIfFromCal()) props.onBack && props.onBack(); };
     const [visFor, setVisFor] = useState(null);    // 正在设可见角色的 {kind,id}
-    const persist = updater => setData(prev => { const n = typeof updater === "function" ? updater(prev) : updater; saveData(n); return n; });
+    // ⚠️存档不写在 setData 的 updater 里（2026-10-01「离开这页就白跑」）：页面关了 React 就不跑它，
+    //   TA的批注回来时她已经走开，就存不上。现读、改完、直接写回，页面还在才 setData。
+    const persist = updater => { const n = typeof updater === "function" ? updater(loadData()) : updater; saveData(n); setData(n); };
 
     const upReminder = (id, patch) => persist(d => ({ ...d, reminders: (d.reminders || []).map(r => r.id === id ? Object.assign({}, r, typeof patch === "function" ? patch(r) : patch) : r) }));
     const uName = (props.profile && props.profile.name) || "用户";
