@@ -134,6 +134,8 @@ function chatLayoutCSS(L) {
   const out = [];
   if (L.bubble === "plain") out.push('[data-wk="bubble"][data-kind="text"]:not([data-preview]){background:transparent !important;border:none !important;box-shadow:none !important;padding-left:2px !important;padding-right:2px !important;}');
   if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="row"] > [data-wk="avatar"]{visibility:hidden !important;}');
+  // 群里每条上面都写着名字：头像只留第一条时，名字也跟着只留第一条，不然一串里重复写同一个名字
+  if (L.avatar === "first") out.push('[data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important;}');
   if (L.avatar === "none") out.push('[data-wk="msg"] [data-wk="row"] > [data-wk="avatar"]{display:none !important;}');
   if (L.name) out.push('[data-wk="msg"][data-first="1"] [data-wk="name"]{display:block !important;}');
   if (L.time === "hide") out.push('[data-wk="time"]{display:none !important;}');
@@ -163,6 +165,68 @@ function chatLayoutCSS(L) {
     }
   });
   return out.join("\n");
+}
+// ── 聊天窗「排版」和「自己写 CSS」那两块：单聊设置和群聊设置共用（她 2026-09-30：「群聊也加这一堆美化」）──
+//   one-public-mechanism：原来长在单聊设置里，群聊要第二份时整块搬出来，两边都调这一份。
+function ChatLayoutFields({ layout, setLayout, taName, meNote, onPeek, group }) {
+  const t = useTheme();
+  const setLay = (k, v) => setLayout(p => Object.assign({}, p, { [k]: v }));
+  const pick = (k, label, opts) => h("div", { style: { marginTop: 12 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 6 } }, label),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } }, opts.map(([v, zh]) => h("button", {
+      key: String(v), onClick: () => setLay(k, v), className: "active:opacity-70",
+      style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12, padding: "0 12px", borderRadius: 999,
+        background: layout[k] === v ? t.ink : "transparent", color: layout[k] === v ? t.bg2 : t.fog, border: "1px solid " + (layout[k] === v ? t.ink : t.line) } }, zh))));
+  return h("div", { className: "pt-2" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } },
+      "不写 CSS 也能换排法。只在这个聊天窗里生效，跟皮肤、气泡叠着用；「自己写 CSS」排在它后面，想再细改照样盖得住。"),
+    pick("bubble", "气泡", [["bubble", "有气泡"], ["plain", "没有气泡（纯文字，像小说）"]]),
+    pick("avatar", "头像", [["all", "每条都有"], ["first", "连发只留第一条"], ["none", "不显示"]]),
+    // 群里本来每串都写着是谁说的，这一栏只在单聊里有意义
+    group ? null : pick("name", "名字", [[false, "不写"], [true, "写在连发第一条上面"]]),
+    pick("time", "中间那行时间", [["show", "显示"], ["hide", "藏起来"]]),
+    pick("gap", "连发间距", [["normal", "原样"], ["tight", "贴紧"], ["loose", "每串之间多空一点"]]),
+    h("div", { style: { marginTop: 12 } },
+      h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } },
+        h("span", null, "顶部留白（给装饰图让位置）"), h("span", { style: { color: t.fog } }, (Number(layout.top) || 0) + " px")),
+      h("input", { type: "range", min: 0, max: 240, step: 4, value: Number(layout.top) || 0, onChange: e => setLay("top", Number(e.target.value)), style: { width: "100%" } })),
+    h(AvatarDecoRow, { who: taName, k: "ta", layout: layout, setLayout: setLayout }),
+    h(AvatarDecoRow, { who: "我", k: "me", layout: layout, setLayout: setLayout, note: meNote || "（聊天设置里要打开「显示我的头像」才看得见）" }),
+    onPeek ? h("button", { onClick: onPeek, className: "w-full active:opacity-70", style: { minHeight: 40, marginTop: 12, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "去聊天里看看") : null,
+    h("button", { onClick: () => setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT)), className: "active:opacity-70", style: { minHeight: 34, marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "全部回到原样"));
+}
+function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title }) {
+  const t = useTheme();
+  const fileRef = useRef(null), editRef = useRef(null);
+  const TS = typeof window !== "undefined" && window.ThemeStudio;
+  const bad = TS && css ? TS.unsafeReason(css) : "";
+  const exportCSS = () => { if (css.trim() && typeof saveTextFile === "function") saveTextFile((fileBase || "聊天") + "-聊天.css", css, "text/css"); };
+  const importCSS = e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (f) f.text().then(txt => setCSS(String(txt || ""))).catch(() => {});
+  };
+  const btn = (label, fn, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70",
+    style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: dis ? t.fog : t.ink, opacity: dis ? .5 : 1 } }, label);
+  return h("div", { className: "pt-5" },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, title || "自己写 CSS"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+      "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「" + (page === "gthread" ? "群聊页" : "单聊页") + "」那格一样，不用自己加前缀。"
+      + "图片可以用图库里的（下面「插入图库图片」），也可以直接写别处的地址 url(https://…)——那个网站删了图，这里也就没了。"),
+    h("textarea", { ref: editRef, value: css, onChange: e => setCSS(e.target.value), rows: 8, spellCheck: false,
+      placeholder: '[data-wk="chat"] { … }',
+      style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
+        fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, lineHeight: 1.6, resize: "vertical" } }),
+    bad ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 4 } }, "这段存不了：" + bad) : null,
+    h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+      btn("导出 .css", exportCSS, !css.trim()),
+      btn("导入", () => fileRef.current && fileRef.current.click()),
+      seedName && seedCSS ? btn("从「" + seedName + "」起稿", () => setCSS(seedCSS)) : null,
+      btn("清空", () => setCSS(""), !css),
+      onPeek ? btn("去聊天里看看", onPeek) : null,
+      window.CssImageButton ? h(window.CssImageButton, { css: css, setCSS: setCSS, editorRef: editRef, toast: (m, ms) => window.__toast && window.__toast(m, ms) }) : null),
+    // 抓得住哪些挂点：跟主题工作台同一个名单同一个组件
+    window.CssHookPicker ? h(window.CssHookPicker, { page: page || "thread", css: css, setCSS: setCSS }) : null,
+    h("input", { ref: fileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
 }
 // 排版里「头像框 / 挂件」那一行：一个人一行，框和挂件各一张透明图（png 最好），各一根大小
 function AvatarDecoRow({ who, k, layout, setLayout, note }) {
@@ -333,6 +397,14 @@ function applyChatLook(next) {
   // ⑤.5 排版开关编出来的那几条：排在自己写的 CSS 前面——开关是起手，自己写的最具体
   put("wk-char-layout-css", (scope && L.layoutCSS) ? L.layoutCSS : "");
   put("wk-char-custom-css", (scope && L.customCSS) ? L.customCSS : "");
+}
+// 群聊窗自己那层（排版开关 + 自己写的 CSS）：App 那头已经限到这一个群、换好图片地址，这里只管挂上去（挂在单聊那几层后面）
+function applyGroupLook(css) {
+  if (typeof document === "undefined") return;
+  let el = document.getElementById("wk-group-look-css");
+  if (!el) { el = document.createElement("style"); el.id = "wk-group-look-css"; }
+  el.textContent = css || "";
+  document.head.appendChild(el);
 }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }
@@ -14530,7 +14602,8 @@ function GroupThread({
   const canPeek = onOpenMemberState && (canPeekMember || (c => gsp.memoryInterop || !!(c && c.npc)));
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
     ? h("button", { "data-wk": "avatar", onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
-    : h(Avatar, { character: character, size: size || 34, radius: 8 });
+    // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
+    : h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }));
   const openRp = i => {
     const rp = messages[i];
     if (rp.byMe || rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
@@ -14977,7 +15050,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }, (cardLayout(m.content) || {}).bubble)
-    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+    }, cardLayout(m.content) ? null : bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), msgFoot(i, m, !m.recalled && subLine(m))), isU && gsp.showMyAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 34, radius: 8 }))));
   }).flatMap((row, i) => {
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
@@ -15547,6 +15620,13 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   // 一个框：一类设置装一格，框里原来那些行一个字没改（跟单聊设置那叠卡片同一个分寸：底 t.bg2、一道细边）
   // 平时只露一行标题，点开才展开（她 2026-09-30：「平时一个 title 点开才展开」）——一次只开一格，跟单聊设置那叠一样
   const [gOpen, setGOpen] = useState("");
+  // 这个群自己的排版和 CSS（她 2026-09-30：「群聊也加这一堆美化」）——跟单聊设置同一块 ChatLayoutFields / ChatCssFields
+  const [gLayout, setGLayout] = useState(() => Object.assign({}, CHAT_LAYOUT_DEFAULT, gs.layout || {}));
+  const [gCss, setGCss] = useState(gs.customCSS || "");
+  // 预览台：设置先不画（组件不卸载，草稿都在），真群聊铺上这份没存的；回程条跟单聊、主题工作台同一个 ThemePeekBar
+  const [gPeek, setGPeek] = useState(false);
+  const gPeekGo = () => { if (window.__previewGroupLook) window.__previewGroupLook({ layout: gLayout, customCSS: gCss }); setGPeek(true); };
+  const gPeekEnd = () => { setGPeek(false); if (window.__previewGroupLook) window.__previewGroupLook(null); };
   // 长相照单聊设置那叠卡：左边一个汉字索引牌（一类一个字、一类一个色）、标题、下面一行现在是什么状态
   //   （她 2026-09-30：「你看单聊的框多好看，群聊现在纯黑白好敷衍」）。点开在卡里展开，一次开一格。
   const gOnOff = v => v ? "开" : "关";
@@ -15564,10 +15644,11 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55, marginTop: 10 } }, note) : null,
         ...kids) : null);
   };
+  if (gPeek) return h(ThemePeekBar, { zh: ((group && group.name) || "这个群") + " 的长相（还没保存）", onBack: gPeekEnd });
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
     //   按「管的是什么」装进六个框：谁在群里 / 他们自己聊不聊 / 怎么相处 / 长什么样 / 记得多少 / 清掉。
@@ -15646,6 +15727,9 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    h("div", { style: { marginTop: 18, paddingTop: 10, borderTop: "1px dashed " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "排版 · 气泡怎么摆"),
+    h(ChatLayoutFields, { layout: gLayout, setLayout: setGLayout, taName: "群成员", group: true, meNote: "（上面要打开「显示我的头像」才看得见）", onPeek: gPeekGo }),
+    h(ChatCssFields, { css: gCss, setCSS: setGCss, fileBase: (group && group.name) || "群聊", onPeek: gPeekGo, page: "gthread", title: "只给这个群写 CSS" }),
     h(OnlineMediaSettings, null)),
     gCard({ title: "记忆库 · 群规矩", char: "记", tint: "#6693c7", state: "带 " + ctxN + " 条上下文 · 满 " + sumThresh + " 条总结" + ((directives && directives.length) ? " · 群规矩 " + directives.length + " 条" : "") }, null,
     sliderRow("记忆上下文条数", "每次群成员回复时真正读到的就是这些条——超出的一句都不进上下文。", ctxN, setCtxN, 10, 300, 5, " 条"),
@@ -16455,8 +16539,7 @@ function ChatSettings({
   const [skin, setSkin] = useState(settings.skin || "");
   const [customCSS, setCustomCSS] = useState(settings.customCSS || "");
   const [layout, setLayout] = useState(() => Object.assign({}, CHAT_LAYOUT_DEFAULT, settings.layout || {}));
-  const setLay = (k, v) => setLayout(p => Object.assign({}, p, { [k]: v }));
-  const cssFileRef = useRef(null), cssEditRef = useRef(null);
+
   // 预览台（她 2026-09-30）：设置页先藏起来（不卸载，草稿都还在），底下就是真的聊天窗，铺上这份没存的长相；
   //   回程条跟主题工作台那条是同一个 ThemePeekBar。
   const [lookPeek, setLookPeek] = useState(false);
@@ -17042,30 +17125,8 @@ function ChatSettings({
           "只在这个聊天窗里生效，别人的窗口不受影响。想加别的字，去 设置 · 主题工作台 · 字体。"),
         row("body", "正文"), row("display", "标题"));
     })()),
-  show("dress", { title: "排版 · 气泡怎么摆", ...sec("look-layout") }, (() => {
-    const pick = (k, label, opts) => h("div", { style: { marginTop: 12 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 6 } }, label),
-      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, opts.map(([v, zh]) => h("button", {
-        key: String(v), onClick: () => setLay(k, v), className: "active:opacity-70",
-        style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12, padding: "0 12px", borderRadius: 999,
-          background: layout[k] === v ? t.ink : "transparent", color: layout[k] === v ? t.bg2 : t.fog, border: "1px solid " + (layout[k] === v ? t.ink : t.line) } }, zh))));
-    return h("div", { className: "pt-2" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } },
-        "不写 CSS 也能换排法。只在这个聊天窗里生效，跟上面的皮肤、气泡叠着用；下面「自己写 CSS」排在它后面，想再细改照样盖得住。"),
-      pick("bubble", "气泡", [["bubble", "有气泡"], ["plain", "没有气泡（纯文字，像小说）"]]),
-      pick("avatar", "头像", [["all", "每条都有"], ["first", "连发只留第一条"], ["none", "不显示"]]),
-      pick("name", "名字", [[false, "不写"], [true, "写在连发第一条上面"]]),
-      pick("time", "中间那行时间", [["show", "显示"], ["hide", "藏起来"]]),
-      pick("gap", "连发间距", [["normal", "原样"], ["tight", "贴紧"], ["loose", "每串之间多空一点"]]),
-      h("div", { style: { marginTop: 12 } },
-        h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } },
-          h("span", null, "顶部留白（给装饰图让位置）"), h("span", { style: { color: t.fog } }, (Number(layout.top) || 0) + " px")),
-        h("input", { type: "range", min: 0, max: 240, step: 4, value: Number(layout.top) || 0, onChange: e => setLay("top", Number(e.target.value)), style: { width: "100%" } })),
-      h(AvatarDecoRow, { who: cNm, k: "ta", layout: layout, setLayout: setLayout }),
-      h(AvatarDecoRow, { who: "我", k: "me", layout: layout, setLayout: setLayout, note: "（聊天设置里要打开「显示我的头像」才看得见）" }),
-      h("button", { onClick: peekLook, className: "w-full active:opacity-70", style: { minHeight: 40, marginTop: 12, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "去聊天里看看"),
-      h("button", { onClick: () => setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT)), className: "active:opacity-70", style: { minHeight: 34, marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "全部回到原样"));
-  })()),
+  show("dress", { title: "排版 · 气泡怎么摆", ...sec("look-layout") },
+    h(ChatLayoutFields, { layout: layout, setLayout: setLayout, taName: cNm, onPeek: peekLook })),
   show("dress", { title: "聊天背景", ...sec("look-bg") },
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
@@ -17077,48 +17138,8 @@ function ChatSettings({
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } })))),
   show("dress", { title: "自己写 CSS · 导出导入", ...sec("look-css") },
-    // ── 这个聊天自己的 CSS（她 2026-09-30）：比上面「挑一套皮肤」更细——想改哪儿写哪儿，只在这个窗口里生效。
-    //   选择器照主题工作台「单聊页」那格的写法（[data-wk="…"]），这边会自动限到这一个人；能导出成 .css 分给别人、也能导进来。
-    (() => {
-      const TS = typeof window !== "undefined" && window.ThemeStudio;
-      const bad = TS && customCSS ? TS.unsafeReason(customCSS) : "";
-      const who = (settings.remark || (character && character.name) || "TA");
-      const exportCSS = () => {
-        if (!customCSS.trim()) return;
-        if (typeof saveTextFile === "function") saveTextFile(who + "-聊天.css", customCSS, "text/css");
-      };
-      const importCSS = e => {
-        const f = e.target.files && e.target.files[0]; e.target.value = "";
-        if (!f) return;
-        f.text().then(txt => setCustomCSS(String(txt || ""))).catch(() => {});
-      };
-      const fromSkin = () => {
-        const hit = skin && TS ? ((TS.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) : null;
-        if (hit) setCustomCSS(hit[1]);
-      };
-      const btn = (label, fn, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70",
-        style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: dis ? t.fog : t.ink, opacity: dis ? .5 : 1 } }, label);
-      return h("div", { className: "pt-5" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 写 CSS"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
-          "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「单聊页」那格一样，不用自己加前缀。"
-          + "图片可以用图库里的（下面「插入图库图片」），也可以直接写别处的地址 url(https://…)——那个网站删了图，这里也就没了。"),
-        h("textarea", { ref: cssEditRef, value: customCSS, onChange: e => setCustomCSS(e.target.value), rows: 8, spellCheck: false,
-          placeholder: '[data-wk="chat"] { … }',
-          style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
-            fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, lineHeight: 1.6, resize: "vertical" } }),
-        bad ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 4 } }, "这段存不了：" + bad) : null,
-        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-          btn("导出 .css", exportCSS, !customCSS.trim()),
-          btn("导入", () => cssFileRef.current && cssFileRef.current.click()),
-          skin ? btn("从「" + skin + "」起稿", fromSkin) : null,
-          btn("清空", () => setCustomCSS(""), !customCSS),
-          btn("去聊天里看看", peekLook),
-          window.CssImageButton ? h(window.CssImageButton, { css: customCSS, setCSS: setCustomCSS, editorRef: cssEditRef, toast: (m, ms) => window.__toast && window.__toast(m, ms) }) : null),
-        // 抓得住哪些挂点：跟主题工作台同一个名单同一个组件（单聊页那一组）
-        window.CssHookPicker ? h(window.CssHookPicker, { page: "thread", css: customCSS, setCSS: setCustomCSS }) : null,
-        h("input", { ref: cssFileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
-    })()), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
+    h(ChatCssFields, { css: customCSS, setCSS: setCustomCSS, fileBase: (settings.remark || (character && character.name) || "TA"), seedName: skin,
+      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {

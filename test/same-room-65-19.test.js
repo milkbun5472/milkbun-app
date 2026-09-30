@@ -213,7 +213,7 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "群里那一行还挂着 ✕");
   // 群设置里那个开关（群设置是整份 patch 存的，不像单聊那头逐项手抄）
   assert.match(comp, /const \[gActDesc, setGActDesc\] = useState\(!!gs\.actDesc\);/);
-  assert.match(comp, /defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName \}\);/);
+  assert.match(comp, /defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName(, layout: gLayout, customCSS: gCss)? \}\);/);
   assert.match(comp, /row\("动描（居中那一行）"/);
 });
 

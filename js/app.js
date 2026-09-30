@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.331";
+const APP_VERSION = "v74.332";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2227,6 +2227,20 @@ function App() {
     });
   };
   useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen]);
+  // 群聊窗那一层（她 2026-09-30：「群聊也加这一堆美化」）：排版开关 + 这个群自己写的 CSS，限到【这一个群】
+  //   ——别的群也是 gthread，只按页面限的话会串到别的群里去（单聊那条同样的教训）。
+  const paintGroupLook = draft => {
+    if (typeof applyGroupLook !== "function") return;
+    const inG = !!(activeGroup && screen === "gthread");
+    document.documentElement.setAttribute("data-lisa-group", inG ? String(activeGroup.id) : "");
+    if (!inG || !window.ThemeStudio) { applyGroupLook(""); return; }
+    const g = Object.assign({}, gsFor(activeGroup.id), draft || {});
+    const scope = 'html[data-lisa-screen="gthread"][data-lisa-group="' + String(activeGroup.id).replace(/[^A-Za-z0-9_:-]/g, "") + '"]';
+    const one = css => { try { return css ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(css, scope)) : ""; } catch (e) { return ""; } };
+    applyGroupLook([one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
+  };
+  useEffect(() => { paintGroupLook(null); }, [activeGroup && activeGroup.id, groupSettings, screen]);
+  useEffect(() => { window.__previewGroupLook = draft => paintGroupLook(draft); return () => { delete window.__previewGroupLook; }; });
   // 聊天设置「TA 的聊天长相」的预览台（她 2026-09-30）：草稿先铺到真聊天窗上看，回去改或保存时再按存档重铺
   useEffect(() => { window.__previewChatLook = draft => paintChatLook(draft); return () => { delete window.__previewChatLook; }; });
   // 全局只给默认值；角色可单独覆盖。侧房还会在生成入口处再覆盖这一层。

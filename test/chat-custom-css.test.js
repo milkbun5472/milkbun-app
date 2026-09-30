@@ -13,8 +13,10 @@ test("限到这个人这一页、压在最上面", () => {
   assert.ok(i > 0 && j > i, "自己写的那层要排在背景图后面（最上面）");
 });
 test("设置里能写、能导出导入，存档接住且挡掉不安全的", () => {
-  assert.match(comp, /"只给 TA 写 CSS"/);
-  assert.match(comp, /saveTextFile\(who \+ "-聊天\.css", customCSS, "text\/css"\)/);
+  // v74.332 那一块搬成公共的 ChatCssFields（单聊、群聊两处调）
+  assert.match(comp, /function ChatCssFields\(\{ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title \}\)/);
+  assert.match(comp, /h\(ChatCssFields, \{ css: customCSS, setCSS: setCustomCSS,[\s\S]*?title: "只给 TA 写 CSS" \}\)/);
+  assert.match(comp, /saveTextFile\(\(fileBase \|\| "聊天"\) \+ "-聊天\.css", css, "text\/css"\)/);
   assert.match(comp, /accept: "\.css,\.txt,text\/css,text\/plain"/);
   assert.match(app, /customCSS: \(window\.ThemeStudio && s\.customCSS && !window\.ThemeStudio\.unsafeReason\(s\.customCSS\)\)/);
 });
@@ -23,9 +25,20 @@ test("聊天那格也给挂点名单和插图按钮，跟主题工作台同一�
   const ui = R("js/theme-studio-ui.js");
   assert.match(ui, /g\.CssHookPicker = CssHookPicker;/);
   assert.match(ui, /g\.CssImageButton = CssImageButton;/);
-  assert.match(comp, /h\(window\.CssHookPicker, \{ page: "thread"/);
-  assert.match(comp, /h\(window\.CssImageButton, \{ css: customCSS/);
+  assert.match(comp, /h\(window\.CssHookPicker, \{ page: page \|\| "thread"/);
+  assert.match(comp, /h\(window\.CssImageButton, \{ css: css, setCSS: setCSS, editorRef: editRef/);
   assert.match(ui, /h\(CssImageButton, \{ css: css, setCSS: setCSS, editorRef: cssEditor/, "工作台没搬过来用同一个");
+});
+
+test("群聊也有这一堆美化：同一块排版/CSS、限到这一个群、有预览台", () => {
+  const g = comp.slice(comp.indexOf("function GroupSettingsSheet("), comp.indexOf("\nfunction NewGroupSheet"));
+  assert.match(g, /h\(ChatLayoutFields, \{ layout: gLayout, setLayout: setGLayout, taName: "群成员", group: true/);
+  assert.match(g, /h\(ChatCssFields, \{ css: gCss,[\s\S]*?page: "gthread"/);
+  assert.match(g, /layout: gLayout, customCSS: gCss \}/, "存的时候没带上");
+  assert.match(g, /if \(gPeek\) return h\(ThemePeekBar,/);
+  assert.match(app, /'html\[data-lisa-screen="gthread"\]\[data-lisa-group="'/);
+  assert.match(app, /window\.__previewGroupLook = draft => paintGroupLook\(draft\)/);
+  assert.match(comp, /: h\("span", \{ "data-wk": "avatar", className: "shrink-0", style: \{ display: "inline-flex" \} \}, h\(Avatar, \{ character: character, size: size \|\| 34, radius: 8 \}\)\);/, "群成员头像没包挂点壳，头像框会被裁");
 });
 
 test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，挂点那块教怎么用", () => {
