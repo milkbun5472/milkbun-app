@@ -214,6 +214,9 @@ function applyChatLook(next) {
     + "background-size:cover !important;background-position:center !important;"
     + "background-repeat:no-repeat !important;background-color:transparent !important;}"
     + scope + ' [data-wk="body"]{background:transparent !important;background-image:none !important;}' : "");
+  // ⑥ 这个聊天自己写的 CSS（她 2026-09-30：「每个人单独聊天不能细化 css」）：压在最上面——
+  //   它是这一个窗口里最具体的一层。App 那头已经用主题工作台同一支 scopeCSS 限死到这个人这一页。
+  put("wk-char-custom-css", (scope && L.customCSS) ? L.customCSS : "");
 }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }
@@ -16293,6 +16296,8 @@ function ChatSettings({
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
+  const [customCSS, setCustomCSS] = useState(settings.customCSS || "");
+  const cssFileRef = useRef(null);
   // 这个人自己的字体（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）。
   // 跟皮肤同一个形状：空＝跟随全局，挑了就只盖这一个聊天窗。名单还是问 FontChoice 要。
   const [font, setFont] = useState(() => {
@@ -16559,6 +16564,7 @@ function ChatSettings({
       describeMe,
       chatBg,
       skin,
+      customCSS,
       font,
       bubble,
       apiId,
@@ -16780,6 +16786,43 @@ function ChatSettings({
             style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999,
               background: skin === v ? t.ink : "transparent", color: skin === v ? t.bg2 : t.fog,
               border: "1px solid " + (skin === v ? t.ink : t.line) } }, label)))),
+    // ── 这个聊天自己的 CSS（她 2026-09-30）：比上面「挑一套皮肤」更细——想改哪儿写哪儿，只在这个窗口里生效。
+    //   选择器照主题工作台「单聊页」那格的写法（[data-wk="…"]），这边会自动限到这一个人；能导出成 .css 分给别人、也能导进来。
+    (() => {
+      const TS = typeof window !== "undefined" && window.ThemeStudio;
+      const bad = TS && customCSS ? TS.unsafeReason(customCSS) : "";
+      const who = (settings.remark || (character && character.name) || "TA");
+      const exportCSS = () => {
+        if (!customCSS.trim()) return;
+        if (typeof saveTextFile === "function") saveTextFile(who + "-聊天.css", customCSS, "text/css");
+      };
+      const importCSS = e => {
+        const f = e.target.files && e.target.files[0]; e.target.value = "";
+        if (!f) return;
+        f.text().then(txt => setCustomCSS(String(txt || ""))).catch(() => {});
+      };
+      const fromSkin = () => {
+        const hit = skin && TS ? ((TS.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) : null;
+        if (hit) setCustomCSS(hit[1]);
+      };
+      const btn = (label, fn, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70",
+        style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: dis ? t.fog : t.ink, opacity: dis ? .5 : 1 } }, label);
+      return h("div", { className: "pt-5" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 写 CSS"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+          "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「单聊页」那格一样，不用自己加前缀。"),
+        h("textarea", { value: customCSS, onChange: e => setCustomCSS(e.target.value), rows: 8, spellCheck: false,
+          placeholder: '[data-wk="chat"] { … }',
+          style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
+            fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, lineHeight: 1.6, resize: "vertical" } }),
+        bad ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 4 } }, "这段存不了：" + bad) : null,
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+          btn("导出 .css", exportCSS, !customCSS.trim()),
+          btn("导入", () => cssFileRef.current && cssFileRef.current.click()),
+          skin ? btn("从「" + skin + "」起稿", fromSkin) : null,
+          btn("清空", () => setCustomCSS(""), !customCSS)),
+        h("input", { ref: cssFileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
+    })(),
     // ── 只给 TA 换字（她 2026-09-18：「字体能不能聊天里的字体按角色单独设置啊」）──
     // 跟上面那两格同一个形状：第一档永远是「跟随全局」，不然改一次就退不回去了。
     // 名单问 FontChoice 要（内置那十支 + 她在主题工作台自己传的），这儿不另抄一份。
