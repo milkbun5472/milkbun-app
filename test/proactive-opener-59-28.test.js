@@ -19,7 +19,7 @@ test("主动开场允许普通，撤掉逐句独特性与强制新鲜事", () =>
 test("规则只降概率：他自己说过的开口原样发回去", () => {
   // 存
   const save = cut(app, "      if (opts.proactive && words.length) {", "\n      }");
-  assert.match(save, /String\(words\[0\] \|\| ""\)/, "记的不是开口那一句");
+  assert.match(save, /String\(words\.find\(w => voiceSlotOf\(w\) == null\) \|\| ""\)/, "记的不是开口那一句（跳过就地语音的占位，v74.392）");
   assert.match(save, /\.slice\(0, 6\)/, "没有上限，会越攒越长");
   assert.match(save, /cur\.filter\(x => x !== first\)/, "同一句会在名单里堆好几遍");
   assert.match(app, /saveJSON\("x_openers", n\)/, "只在内存里，重开就没了");

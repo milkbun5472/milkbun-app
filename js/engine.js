@@ -5684,6 +5684,26 @@ function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
   return !!s && s.replace(TTS_MARK_PAUSE, "") !== s;
 }
+// 同一件事、但【留在原地】（她 2026-09-30：「为啥语音都会掉到最下面」）：
+//   pullPauseVoice 把语音整段拿出去塞进 voice 那一栏，而 voice 是整轮最后才发的——
+//   于是夹在两句话中间的那条语音，一律掉到了最底下。这里改成在原位置留一个占位符，
+//   发气泡那一圈走到它就地发成语音条。占位符是私用区字符包着的编号，后面那几道
+//   拆句／去标点／过滤都碰不到它；万一被哪一道弄丢了，发送那头会把没发出去的补在最后。
+const VOICE_SLOT_RE = /^\uE000V(\d+)\uE000$/;
+function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+function markPauseVoice(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const out = [], voice = [];
+  let run = null;
+  const flush = () => { if (run != null) { out.push("\uE000V" + voice.length + "\uE000"); voice.push(run); run = null; } };
+  list.forEach(w => {
+    if (ttsHasPause(w)) { run = run == null ? w.trim() : run + " " + w.trim(); return; }
+    flush();
+    out.push(w);
+  });
+  flush();
+  return { words: out, voice };
+}
 function pullPauseVoice(words) {
   const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
   const out = [], voice = [];

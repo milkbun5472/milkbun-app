@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.392";
+const APP_VERSION = "v74.393";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10491,11 +10491,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 模型把 photo 写进了正文（「[photo: kind=…, face=…, scene=…]」）：捞出来还原成照片，正文里不留这串参数
       if (typeof pullPhotoMarker === "function") { const _pm = pullPhotoMarker(words); if (_pm.photo || _pm.words.length !== words.length) { words = _pm.words.filter(w => String(w).trim()); if (_pm.photo && !parsed.photo && !parsed.selfie) parsed.photo = _pm.photo; } }
       // 带 <#秒#> 停顿标记的文字气泡＝本来要发的语音（engine.js pullPauseVoice）
-      if (typeof pullPauseVoice === "function") { const _pv = pullPauseVoice(words); if (_pv.voice.length) { words = _pv.words.filter(w => String(w).trim()); parsed.voice = (Array.isArray(parsed.voice) ? parsed.voice : []).concat(_pv.voice.map(t => ({ t }))); } }
+      //   留在原位（markPauseVoice 放占位符），发气泡那一圈走到它就地发成语音条；丢了的最后补发
+      let _inlineVoice = [];
+      if (typeof markPauseVoice === "function") { const _pv = markPauseVoice(words); if (_pv.voice.length) { words = _pv.words.filter(w => String(w).trim()); _inlineVoice = _pv.voice.map(t => ({ t, sent: false })); } }
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
       // 消息全是同一个模板）。只记【主动】那一路——被动回复本来就该顺着她的话走。
       if (opts.proactive && words.length) {
-        const first = String(words[0] || "").replace(/\s+/g, " ").trim().slice(0, 40);
+        const first = String(words.find(w => voiceSlotOf(w) == null) || "").replace(/\s+/g, " ").trim().slice(0, 40);
         if (first) {
           const cur = (openersRef.current || {})[charId] || [];
           const n = { ...(openersRef.current || {}), [charId]: [first, ...cur.filter(x => x !== first)].slice(0, 6) };
@@ -10697,7 +10699,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.silent === true && !opts.proactive && !contMode) {
         pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
-        words = []; emoteWordKws.length = 0;
+        words = []; emoteWordKws.length = 0; _inlineVoice = [];
         parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null; parsed.takeout = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
@@ -10782,10 +10784,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }]);
         try { window.errLog && window.errLog("chat", "空回：解析后没有任何可显示内容", String(raw || "").slice(0, 600)); } catch (e) {}
       }
+      // 一条语音条落地：夹在文字中间的（就地）和 voice 栏的（最后）走同一个口子
+      const pushVoiceMsg = raw => {
+        const vt = String((raw && (raw.t || raw.text)) || "").trim();
+        if (!vt) return;
+        const vEmo = raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
+      };
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
         if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
+        const _slot = typeof voiceSlotOf === "function" ? voiceSlotOf(words[i]) : null;
+        if (_slot != null) {
+          const _v = _inlineVoice[_slot];
+          if (_v && !_v.sent) { _v.sent = true; pushVoiceMsg(_v); notifyBubble("[语音] " + _v.t, "voice-in-" + i); delivered = true; }
+          continue;
+        }
         pChat(chatKey, p => [...p, {
           role: "assistant",
           content: words[i],
@@ -10817,14 +10832,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
       }
       // TA 发语音消息（显示成语音气泡+转文字）。v48.31：元素兼容两代形态——"转文字" 或 {t, emo}（emo=作者标的语气，TTS 优先用它）
-      const vArr = Array.isArray(parsed.voice) ? parsed.voice.filter(x => x && String(typeof x === "object" ? x.t : x).toLowerCase() !== "null") : [];
+      const vArr = (Array.isArray(parsed.voice) ? parsed.voice.filter(x => x && String(typeof x === "object" ? x.t : x).toLowerCase() !== "null") : [])
+        .concat(_inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t })));
       for (let i = 0; i < vArr.length; i++) {
         await new Promise(r => setTimeout(r, 420));
         const raw = vArr[i];
         const vt = String(typeof raw === "object" && raw ? (raw.t || raw.text || "") : raw).trim();
         if (!vt) continue;
-        const vEmo = typeof raw === "object" && raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
-        pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
+        pushVoiceMsg(typeof raw === "object" && raw ? { ...raw, t: vt } : { t: vt });
         delivered = true;
         notifyBubble("[语音] " + vt, "voice-" + i);
       }
@@ -11131,7 +11146,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
       if (!sideRoom) observeEmotionAShadow(charId, _affD, parsed.mood && parsed.mood.label);
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。
-      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
+      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.filter(w => voiceSlotOf(w) == null).map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
       const stateNow = Date.now();
       const _live0 = statesRef.current[charId] || {};

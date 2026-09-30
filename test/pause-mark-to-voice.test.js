@@ -10,6 +10,6 @@ assert.deepStrictEqual([...r.voice], ["头头……<#0.5#>不气了好不好 <#0
 assert.deepStrictEqual([...r.words], ["再也不惹你发火了～"]);
 r = sb.f(["早", "吃了吗"]); assert.strictEqual(r.voice.length, 0); assert.strictEqual(r.words.length, 2);
 assert.ok(sb.h("a<#1#>b") && sb.h("a<#1#>b") && !sb.h("a#1b"), "判据不受 g 正则 lastIndex 影响");
-assert.ok(/pullPauseVoice\(words\)/.test(app), "单聊接上了");
+assert.ok(/markPauseVoice\(words\)/.test(app), "单聊接上了（v74.392 起留在原位：markPauseVoice）");
 assert.ok(/item\.voice === true \|\| \(typeof ttsHasPause === "function" && ttsHasPause\(item\.text\)\)/.test(app), "群聊接上了");
 console.log("pause-mark-to-voice ok");
