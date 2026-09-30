@@ -7129,16 +7129,8 @@ function ProfileSheet({
 // ============================================================
 // MESSAGES — WeChat-style: 聊天 / 通讯录 / 朋友圈
 // ============================================================
-// 线下暂离回来的那条（她 2026-09-30 转群友：「暂离后再要进 信息 再点 char 再点上面 再点见一面 好像有点繁琐」）——
-//   那一场其实没散，只是浮层收起来了。单聊、群聊顶上都挂这一条，点一下直接回到那一场；消息列表那个「线下中」同一个意思。
-function OfflineBackBar({ onGo }) {
-  const t = useTheme();
-  return h("button", { onClick: onGo, "data-wk": "offback", className: "shrink-0 w-full flex items-center gap-2 active:opacity-70",
-    style: { padding: "7px 16px", background: "rgba(194,90,74,0.08)", borderBottom: "1px solid " + t.line, textAlign: "left" } },
-    h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, flexShrink: 0, animation: "pulse 1.6s ease-in-out infinite" } }),
-    h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "线下还没散场"),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "回到现场 ›"));
-}
+// ⚠️聊天顶上原来挂过一条「● 线下还没散场 · 回到现场」——她 2026-09-30：「不要这个点！我知道我还在线下」，撤了。
+//   暂离回去的捷径只留消息列表里那个「线下中 · 回去」小签。
 function Messages({
   characters,
   allChars,
@@ -8530,7 +8522,7 @@ function ChatThread({
   onOpenGift,          // 拆开TA寄来的那个盒子（她 2026-09-19）
   onOpenMoments,
   onOffline,
-  offlineLive,         // 这一场线下还没散（暂离回来的），顶上挂一条「回到现场」
+
   onOOC,
   block,
   onSendUnblockReq,
@@ -8960,7 +8952,7 @@ function ChatThread({
       }, "发给 TA"))),
   (bk.iBlocked || bk.theyBlocked) && h("div", {
     style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
-  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), offlineLive && onOffline ? h(OfflineBackBar, { onGo: onOffline }) : null, /*#__PURE__*/React.createElement("div", {
+  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
     ref: ref,
     "data-wk": "body",
     // 翻到顶上那一小段就自动补下一批（她手指还在滑的时候就补好，不用等她撞到头）
@@ -14854,7 +14846,7 @@ function GroupThread({
     size: 20,
     color: t.ink,
     wk: "headink"
-  }))), offlineLive && onOffline ? h(OfflineBackBar, { onGo: onOffline }) : null, h("div", {
+  }))), h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
