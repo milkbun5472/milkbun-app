@@ -7891,9 +7891,6 @@ function sanitizeChatLayoutPatch(obj, knownRefs) {
       if (Number.isFinite(Number(d.frameSize))) o.frameSize = Math.max(100, Math.min(200, Math.round(Number(d.frameSize))));
       if (Number.isFinite(Number(d.pendSize))) o.pendSize = Math.max(20, Math.min(100, Math.round(Number(d.pendSize))));
       if (["br", "bl", "tr", "tl"].indexOf(d.pendPos) >= 0) o.pendPos = d.pendPos;
-      if (["", "ring", "double", "dashed", "dotted", "glow", "grad"].indexOf(d.fstyle) >= 0) o.fstyle = d.fstyle;
-      if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(String(d.fcolor || ""))) o.fcolor = d.fcolor;
-      if (["round", "circle"].indexOf(d.fshape) >= 0) o.fshape = d.fshape;
       if (Object.keys(o).length) deco[k] = o;
     });
     if (Object.keys(deco).length) out.deco = deco;

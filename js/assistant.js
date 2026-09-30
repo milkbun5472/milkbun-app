@@ -738,7 +738,7 @@
       + "· chatlayout 这个人聊天窗的排版（id＝角色 id；text 是 JSON）：bubble（\"bubble\"|\"plain\" 没气泡）、avatar（\"all\"|\"first\" 连发只留第一条|\"none\"）、"
       + "name（true 在连发第一条上写名字）、time（\"show\"|\"hide\"）、gap（\"normal\"|\"tight\"|\"loose\"）、top（0-240 顶部留白，给装饰让位）、"
       + "deco（{ta:{frame,frameSize,pend,pendSize,pendPos}, me:{…}}：头像框/挂件，图只能是 https 地址或现状里已有的 iv_ 门牌；frameSize 100-200，pendSize 20-100，pendPos br/bl/tr/tl）。"
-      + "deco 里也可以不用图、挑一种现成的框：fstyle（ring 细圈|double 双圈|dashed 虚线|dotted 花边点|glow 发光|grad 渐变）、fcolor（#hex）、fshape（round 圆角方|circle 圆）。"
+      + "想要不用图的框（一圈描边、发光、渐变圈），写进 chatcss／groupcss：对 [data-wk=\"row\"] > [data-wk=\"avatar\"] 写 position:relative，再用 ::after 画。"
       + "只填她提到的那几栏。\n"
       + "· groupcss／grouplayout 某一个群的聊天窗 CSS 和排版（id＝群 id，见快照里的群列表）：写法同 chatcss／chatlayout，只是作用在那个群里；"
       + "群里的 deco.ta 管全部群成员的头像，deco.me 管她自己的。\n"

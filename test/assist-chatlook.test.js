@@ -46,12 +46,3 @@ test("秋秋也能改某一个群：groupcss / grouplayout，快照里看得见�
   assert.match(asst, /return \{ 角色: chars, 群: groups,/);
   assert.match(asst, /row\.聊天窗CSS = /);
 });
-test("现成的头像框：几种画法 + 几个色 + 方圆，秋秋也能挑", () => {
-  const comp = R("js/components.js");
-  const body = comp.slice(comp.indexOf("const CHAT_LAYOUT_DEFAULT"), comp.indexOf("// ── 聊天窗「排版」和「自己写 CSS」那两块"));
-  const f = new Function(body + "\nreturn chatLayoutCSS;")();
-  const css = f({ deco: { ta: { fstyle: "double", fcolor: "#e8b566", fshape: "circle" } } });
-  assert.match(css, /\[data-me="0"\][^{]*::after\{[^}]*border-radius:50%;[^}]*border:2px solid #e8b566/);
-  assert.equal(f({ deco: { ta: { fstyle: "nope" } } }), "", "不认识的画法一条都不发");
-  assert.match(eng, /\["", "ring", "double", "dashed", "dotted", "glow", "grad"\]\.indexOf\(d\.fstyle\)/);
-});

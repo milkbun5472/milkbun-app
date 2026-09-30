@@ -129,17 +129,6 @@ function msgRunAttrs(list, i, part, last, same) {
 //   全部编成 CSS、踩在上面那几个状态挂点上——不另画一套气泡，所以跟皮肤/气泡/自己写的 CSS 叠得起来，
 //   而且她自己写的 CSS 排在它后面，想改照样盖得住。L 缺的栏一律当「原样」。
 const CHAT_LAYOUT_DEFAULT = { bubble: "bubble", avatar: "all", name: false, time: "show", gap: "normal", top: 0 };
-// 现成的头像框：一种一个画法，颜色由她挑。css(c) 只写外观，定位/圆角在上面统一给
-const AVATAR_FRAME_STYLES = {
-  ring:   { zh: "细圈", css: c => "border:2.5px solid " + c + ";" },
-  double: { zh: "双圈", css: c => "border:2px solid " + c + ";box-shadow:0 0 0 2px #fff,0 0 0 4px " + c + ";" },
-  dashed: { zh: "虚线", css: c => "border:2px dashed " + c + ";" },
-  dotted: { zh: "花边点", css: c => "border:3.5px dotted " + c + ";" },
-  glow:   { zh: "发光", css: c => "border:1.5px solid " + c + ";box-shadow:0 0 8px 2px " + c + ";" },
-  grad:   { zh: "渐变", css: c => "border:3px solid transparent;background:linear-gradient(135deg," + c + ",#ffe0ec,#cfe3ff," + c + ") border-box;"
-    + "-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;" }
-};
-const AVATAR_FRAME_COLORS = [["#ff8fb8", "粉"], ["#e8b566", "金"], ["#7fb0ff", "蓝"], ["#b48cff", "紫"], ["#6cc3a0", "绿"], ["#ffffff", "白"], ["#2b2b2b", "黑"]];
 function chatLayoutCSS(L) {
   L = Object.assign({}, CHAT_LAYOUT_DEFAULT, L || {});
   const out = [];
@@ -160,18 +149,9 @@ function chatLayoutCSS(L) {
   const img = v => String(v || "").replace(/["\\\r\n()]/g, "");
   [["ta", "0"], ["me", "1"]].forEach(([k, me]) => {
     const d = (L.deco && L.deco[k]) || {};
-    if (!d.frame && !d.pend && !AVATAR_FRAME_STYLES[d.fstyle]) return;
+    if (!d.frame && !d.pend) return;
     const sel = '[data-wk="msg"][data-me="' + me + '"] [data-wk="row"] > [data-wk="avatar"]';
     out.push(sel + "{position:relative !important;overflow:visible !important;}");
-    // 现成的框（她 2026-09-30：「头像框能搞别的样式的吧」）：不用找图，一根线画出来；自己传了图就用图
-    if (!d.frame && AVATAR_FRAME_STYLES[d.fstyle]) {
-      const c = /^#[0-9a-f]{3,8}$/i.test(String(d.fcolor || "")) ? d.fcolor : "#ff8fb8";
-      const r = d.fshape === "circle" ? "50%" : "14px";
-      out.push(sel + '::after{content:"" !important;position:absolute !important;inset:-4px;border-radius:' + r + ';pointer-events:none !important;z-index:2 !important;'
-        + AVATAR_FRAME_STYLES[d.fstyle].css(c) + "}");
-      // 挑了圆框，头像自己也裁成圆——方头像套圆圈，四个角会戳出去
-      if (d.fshape === "circle") out.push(sel + " > *, " + sel + " > * img{border-radius:50% !important;overflow:hidden !important;}");
-    }
     if (d.frame) {
       const sz = Math.max(100, Math.min(200, Number(d.frameSize) || 140)), off = -(sz - 100) / 2;
       out.push(sel + '::after{content:"" !important;position:absolute !important;left:' + off + "%;top:" + off + "%;width:" + sz + "%;height:" + sz
@@ -282,26 +262,6 @@ function AvatarDecoRow({ who, k, layout, setLayout, note }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, who + " 的头像框 · 挂件",
       note ? h("span", { style: { fontSize: 11, color: t.fog } }, note) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "用透明底的 png：框会整张盖在头像上、比头像大一圈；挂件是挂在一个角上的小图。可以从相册选，也可以贴网上的图片地址。"),
-    // 现成的框：挑一种、挑个色就行；下面「头像框」传了图的话以图为准
-    h("div", { style: { marginTop: 8 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 5 } }, "现成的框"),
-      h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-        [["", "不要"]].concat(Object.keys(AVATAR_FRAME_STYLES).map(k2 => [k2, AVATAR_FRAME_STYLES[k2].zh])).map(([v, zh]) => {
-          const on = (d.fstyle || "") === v;
-          const c = d.fcolor || "#ff8fb8";
-          return h("button", { key: v || "_", onClick: () => set({ fstyle: v }), className: "active:opacity-70 flex items-center",
-            style: { gap: 6, minHeight: 34, padding: "0 10px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5,
-              background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog, border: "1px solid " + (on ? t.ink : t.line) } },
-            v ? h("span", { style: Object.assign({ position: "relative", width: 20, height: 20, borderRadius: d.fshape === "circle" ? 999 : 6, background: t.line, flexShrink: 0 }) },
-              h("span", { ref: el => { if (el) el.style.cssText = "position:absolute;inset:-3px;border-radius:" + (d.fshape === "circle" ? "50%" : "8px") + ";" + AVATAR_FRAME_STYLES[v].css(c); } })) : null,
-            zh);
-        })),
-      d.fstyle ? h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 7 } },
-        AVATAR_FRAME_COLORS.map(([c, zh]) => h("button", { key: c, onClick: () => set({ fcolor: c }), "aria-label": zh, title: zh, className: "active:opacity-70",
-          style: { width: 26, height: 26, borderRadius: 999, background: c, border: "2px solid " + ((d.fcolor || "#ff8fb8") === c ? t.ink : t.line) } })),
-        h("span", { style: { width: 8 } }),
-        [["round", "圆角方"], ["circle", "圆"]].map(([v, zh]) => h("button", { key: v, onClick: () => set({ fshape: v }), className: "active:opacity-70",
-          style: { minHeight: 28, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11, background: (d.fshape || "round") === v ? t.ink : "transparent", color: (d.fshape || "round") === v ? t.bg2 : t.fog, border: "1px solid " + ((d.fshape || "round") === v ? t.ink : t.line) } }, zh))) : null),
     slot("frame", "头像框", "frameSize", 100, 200, 140),
     slot("pend", "挂件", "pendSize", 20, 100, 45),
     d.pend ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6, paddingLeft: 52 } },
