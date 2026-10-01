@@ -19,8 +19,11 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const S = v => String(v == null ? "" : v);
 
-  // 脚本收拾：认得的动作才留，心声按点开次数封顶
-  function cleanScript(raw, allowApps) {
+  // 脚本收拾：认得的动作才留，心声按点开次数封顶。
+  // hints：{ forum: [{title, anon}], diary: [title] }——她真有的帖子和日记标题（没看过的排前面），
+  //   模型打开论坛／日记却没点进去的时候，代码替它点第一条（她 2026-10-01：「论坛这次也直接不点开帖子看了」）。
+  function cleanScript(raw, allowApps, hints) {
+    hints = hints || {};
     const list = Array.isArray(raw && raw.steps) ? raw.steps : (Array.isArray(raw) ? raw : []);
     const out = [];
     let opens = 0, thoughts = 0;
@@ -44,20 +47,35 @@
         if (text) out.push({ do: "think", text });
       }
     });
+    // 退出来才想的那一句挪回退出之前（她 2026-10-01：「第二句钱包想法是会退出了钱包才想的」）
+    for (let i = 1; i < out.length; i++) {
+      if (out[i].do === "think" && out[i - 1].do === "back") { const b = out[i - 1]; out[i - 1] = out[i]; out[i] = b; }
+    }
     const cap = Math.max(4, opens + THOUGHT_FREE);
     const kept = out.filter(s => s.do !== "think" || (++thoughts <= cap));
-    // 点开就要往下读（她 2026-10-01：「看信息不会下划」「论坛也只是看了我的正文」）：
-    //   聊天停在最新那条，往【上】翻才是在读；帖子、日记往【下】滑才看得到回复。
-    //   脚本里点开之后紧跟着没写滑动的，代码补一下——补在那一句心声之前，先看再想。
+    const nextReal = i => { let j = i + 1; while (j < kept.length && (kept[j].do === "think" || kept[j].do === "pause")) j++; return j < kept.length ? kept[j] : null; };
+    const fq = (hints.forum || []).slice(), dq = (hints.diary || []).slice();
     const res = [];
     for (let i = 0; i < kept.length; i++) {
       const s = kept[i]; res.push(s);
-      const opened = (s.do === "open" && (s.app === "chat" || s.app === "forum" || s.app === "diary")) || s.do === "tap";
-      if (!opened) continue;
-      let j = i + 1;
-      while (j < kept.length && (kept[j].do === "think" || kept[j].do === "pause")) j++;
-      if (j < kept.length && kept[j].do === "scroll") continue;
-      res.push({ do: "scroll", dir: s.do === "open" && s.app === "chat" ? "up" : "down", n: 2, auto: true });
+      const nx = nextReal(i);
+      // 打开论坛／日记却没点进具体那一条：替它点一条（匿名帖不在「我」里，要绕到匿名吧去找）
+      if (s.do === "open" && s.app === "forum" && !(nx && nx.do === "tap") && fq.length) {
+        const p = fq.shift();
+        if (p.anon) res.push({ do: "tap", text: "主页", exact: true, bottom: true, auto: true }, { do: "tap", text: "匿名吧", auto: true });
+        res.push({ do: "tap", text: S(p.title).slice(0, 30), auto: true }, { do: "scroll", dir: "down", n: 2, auto: true });
+        continue;
+      }
+      if (s.do === "open" && s.app === "diary" && !(nx && nx.do === "tap") && dq.length) {
+        res.push({ do: "tap", text: S(dq.shift()).slice(0, 30), auto: true }, { do: "scroll", dir: "down", n: 2, auto: true });
+        continue;
+      }
+      // 点开就要往下读（她 2026-10-01：「看信息不会下划」「不会看聊天记录整体」）：
+      //   聊天停在最新那条，往【上】翻才是在读，翻两回、中间停一下；列表、帖子、日记往【下】滑。
+      const opened = (s.do === "open" && (s.app === "chat" || s.app === "messages" || s.app === "forum" || s.app === "diary")) || s.do === "tap";
+      if (!opened || (nx && nx.do === "scroll")) continue;
+      if (s.do === "open" && s.app === "chat") res.push({ do: "scroll", dir: "up", n: 3, auto: true }, { do: "pause", ms: 900 }, { do: "scroll", dir: "up", n: 3, auto: true });
+      else res.push({ do: "scroll", dir: "down", n: 2, auto: true });
     }
     return res;
   }
@@ -68,6 +86,8 @@
   // 信息页会记着上次停在哪个底栏（翻过钱包就停在「我」），所以找人之前先点回「聊天」
   // 论坛点开先去底栏「我」（她发过的帖在那儿）；日记点开先翻到她自己那本（她 2026-10-01：「日记和论坛也就点进去页面也没深入」）
   const HOME_SPOT = { chat: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
+    // 消息列表本身也是一处能看的（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
+    messages: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
     forum: { dock: "论坛", path: [{ text: "我", exact: true, minTopK: 0.8, optional: true }] },
     diary: { dock: "日记", path: [{ call: "diaryMine" }] },
     memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop" }, takeout: { key: "takeout" },
@@ -160,13 +180,18 @@
     const openViaHome = async (app, who) => {
       const spot = HOME_SPOT[app];
       if (!spot || !props.goHome) return false;
-      // 刚翻完一个聊天再翻下一个：退回信息列表点名字，不用每次都回主屏（她 2026-10-01：「看完一条退出信息然后再进再点开」）
-      if (app === "chat" && who && lastAppRef.current === "chat" && props.toMessages) {
-        setCaption("退回聊天列表，找" + who);
+      // 人已经在「信息」里了（刚翻完聊天、列表或钱包），下一样还在信息里：不回主屏，退回信息再点
+      //   （她 2026-10-01：「看完一条退出信息然后再进再点开」「刚看完消息就直接点我-钱包过来」）
+      const IN_MSG = ["chat", "messages", "wallet"];
+      if (IN_MSG.indexOf(app) >= 0 && IN_MSG.indexOf(lastAppRef.current) >= 0 && props.toMessages) {
+        setCaption(app === "wallet" ? "点开「我」，找钱包" : app === "chat" && who ? "退回聊天列表，找" + who : "退回聊天列表");
         props.toMessages(); await sleep(800);
-        const tab = findByText("聊天", window.innerHeight * 0.8, true); if (tab) { await tapEl(tab); await sleep(600); }
-        const n = findByText(who); if (!n) return false;
-        await tapEl(n); await sleep(900);
+        for (const step of (spot.path || [])) {
+          const n = findByText(step.text, step.minTopK ? window.innerHeight * step.minTopK : 0, !!step.exact);
+          if (!n) { if (step.optional) continue; return false; }
+          await tapEl(n); await sleep(800);
+        }
+        if (app === "chat" && who) { const n = findByText(who); if (!n) return false; await tapEl(n); await sleep(900); }
         return true;
       }
       setCaption("回到主屏，找" + (props.labelOf ? props.labelOf(app, "") : app));
@@ -231,7 +256,7 @@
             setCaption("在翻：" + (props.labelOf ? props.labelOf(s.app, s.who) : s.app));
             if (!ok) { props.onOpen && props.onOpen(s.app, s.who); await sleep(1100); }
           } else if (s.do === "tap") {
-            const el = findByText(s.text);
+            const el = findByText(s.text, s.bottom ? window.innerHeight * 0.8 : 0, !!s.exact);
             if (!el) continue;                                  // 找不到就不硬点
             const r = el.getBoundingClientRect();
             setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false });
