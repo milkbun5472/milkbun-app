@@ -15,5 +15,5 @@ test("群规里写明：你只知道你自己那张卡，别人的身份只知�
 
 test("三处群路都吃得到（走 groupBans）", () => {
   const i = eng.indexOf("function groupBans("), j = eng.indexOf("\n}", i);
-  assert.match(eng.slice(i, j), /P\.push\(GROUP_IN_CHARACTER\);/);
+  assert.match(eng.slice(i, j), /P\.push\(\(opts\.drama \? groupInCharacterDrama : x => x\)\(GROUP_IN_CHARACTER\)\);/);
 });

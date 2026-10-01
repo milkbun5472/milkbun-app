@@ -1954,6 +1954,10 @@ function offlinePhotoHint(userName, charName, canDuo, isGroup) {
 //   群线上出 JSON 数组（带 quoteId/emote/voice/thought/impression）、
 //   群线下出叙事正文、群通话出 {name,text,action,hangup}。
 //   那是写着理由的合法差异，硬揉成一份只会把三份契约弄坏——所以它们照旧各留各的。
+const groupInCharacterDrama = base => base
+  .replace("、今天在干嘛、跟她之间的事，", "、今天在干嘛，")
+  .replace("刚认识的人之间最常见的是好奇、客气、打量、随口开个不痛不痒的玩笑——敌意要有具体的来由才成立，没有来由就别演。", "这一局里你们的交集是她、而且都跟她是那种关系——这本身就是来由，怎么对待它看你自己。")
+  + "\n（这个群开了修罗场：谁跟她是什么关系，大家都知道，见下面【修罗场】那段。）";
 function groupBans(opts) {
   opts = opts || {};
   const P = [ANTI_CLICHE];
@@ -1963,7 +1967,9 @@ function groupBans(opts) {
   P.push(FOREIGN_TONGUE_RULE);   // 群里一样：她在群里说英文，古代那位照样不该懂
   if (opts.worldbook !== false) P.push(WORLDBOOK_RULE);
   P.push(CHARCARD_RULE);
-  P.push(GROUP_IN_CHARACTER);
+  // 修罗场开着时，「跟她之间的事你不知道」「生人之间最常见的是客气」这两句跟修罗场那段打架——
+  //   模型听排在前面、语气更重的那句，于是永远吵不起来（她 2026-10-02 贴出的真实提示词）。
+  P.push((opts.drama ? groupInCharacterDrama : x => x)(GROUP_IN_CHARACTER));
   P.push(GROUP_USER_IS_PRESENT);
   P.push(CONDESCENDING_TONE_BAN);
   P.push(INTIMATE_CHAT_ANTI_CLICHE);
@@ -7427,7 +7433,7 @@ async function generateOfflineGroup(p, ctx, session) {
     + ((ctx.memberSched && ctx.memberSched[c.id]) ? "\n〔今天此刻在做什么〕" + ctx.memberSched[c.id] + "（" + SCHEDULE_CONTEXT_RULE + "）" : "")
     + bg.cySeg
     + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
-    + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下是 " + c.name + " 跟用户的关系 · 只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
+    + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? (ctx.dramaRule ? "\n〔以下是 " + c.name + " 跟用户的关系 · 修罗场开着，在场每个人都知道〕" : "\n〔以下是 " + c.name + " 跟用户的关系 · 只有 " + c.name + " 本人知道，别的成员并不知情〕") + ctx.memberCouple[c.id] : "")
     + bg.caSeg
   }).join("\n\n");
   // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
@@ -7462,7 +7468,7 @@ async function generateOfflineGroup(p, ctx, session) {
   // echo=true 是这次顺带补的——群线下原来【只有代码那一道削回声】，
   // 提示词那一层从来没给过（v55.66 补的是单人线下那一处，群线下没跟上）。
   const system =
-    groupBans({ narrative: true, mood: true, echo: true, worldbook: !!(ctx.worldbook && ctx.worldbook.trim()) }) +
+    groupBans({ narrative: true, mood: true, echo: true, drama: !!ctx.dramaRule, worldbook: !!(ctx.worldbook && ctx.worldbook.trim()) }) +
     // 谁的决定归谁 / 一拍写到哪儿停 / 从哪儿往前走：跟单人线下同一份（v73.18）
     "\n\n【以下对在场每个人各自成立：「TA」是正在写的那一位，「她」是用户】\n" + OFFLINE_AGENCY_RULE +
     groupGrowthRule +

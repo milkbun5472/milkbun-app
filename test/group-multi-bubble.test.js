@@ -30,7 +30,7 @@ test("群聊线上真的拼进 system 了，不是声明完没人引用", () => 
   const seg = app.slice(i, app.indexOf("const system =", i));
   assert.match(seg, /GROUP_MULTI_BUBBLE/, "得挂在 groupOnlineRuntime 上");
   // groupOnlineRuntime 本身进 system，所以挂上去就等于进了 system
-  assert.match(app, /groupBans\(\{ echo: false \}\) \+ "\\n\\n" \+ groupOnlineRuntime/,
+  assert.match(app, /groupBans\(\{ echo: false[^}]*\}\) \+ "\\n\\n" \+ groupOnlineRuntime/,
     "groupOnlineRuntime 得真的拼进 system");
 });
 

@@ -90,7 +90,7 @@ test("群聊两处都给，而且走情侣状态那道私事围栏", () => {
   // 围栏本身没换：只有他本人知道，别的成员并不知情
   // v74.441：标签点名「跟用户的关系」，好让修罗场只公开这一段（行程/心声的围栏另写）
   assert.match(app, /跟用户的关系 · 只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
-  assert.match(engine, /跟用户的关系 · 只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕" \+ ctx\.memberCouple\[c\.id\]/);
+  assert.match(engine, /跟用户的关系 · 只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕"\) \+ ctx\.memberCouple\[c\.id\]/);
   // 句子仍然只有一份
   assert.equal((app.match(/const blockLineFor = /g) || []).length, 1);
   // 上一版那句「群里不发」必须删掉，不然注释和代码打架
