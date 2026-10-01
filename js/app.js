@@ -9539,28 +9539,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pChat(chatKey, p => [...p, um]);
       base = [...base, um];
     }
-    const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
-    // 她撤回的那几条：搭这一轮的便车过去（v61.80 起不再单独调一次模型）。
-    // 只挑【TA还没回过话】的那几条——TA一开口，这件事就算过去了，下一轮不该再提。
-    // ⚠️看没看到由代码判，不交给模型：撤得快就【连原文都不发过去】。
-    //   把原文给出去再让它自己填 saw，等于把它必然会漏的东西塞它嘴里
-    //   （.claude/rules 那条「规则降概率，代码才保证」在这一处的落法）。
-    const RECALL_SEEN_MS = 20000;   // 20 秒内撤掉的，当TA没看清
-    const _recallHint = (() => {
-      let lastHe = 0;
-      for (const m of base) if (m && m.role === "assistant" && !m.recalled) lastHe = Math.max(lastHe, Number(m.ts) || 0);
-      const fresh = base.filter(m => m && m.recalled && m.role === "user" && (Number(m.ts) || 0) >= lastHe).slice(-3);
-      if (!fresh.length) return "";
-      const lines = fresh.map(m => {
-        const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
-        const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
-        return seen && m.content
-          ? "· 撤掉的那条你瞥见了，写的是「" + String(m.content).slice(0, 80) + "」"
-          : "· 撤得太快，你只看到「对方撤回了一条消息」，没看清写的什么";
-      });
-      return "\n【刚刚 " + ((profile && profile.name) || "对方") + " 撤回了消息】\n" + lines.join("\n")
-        + "\n多数时候当没看见就好；只有你这个人真的会追一句（或者刚好戳到你在意的事）才提，而且提完就过去，别揪着不放。";
-    })();
+    // 她撤回的那条留在原位、变成一行提示（recallStub，单聊群聊共用，定义在 groupContextRows 上面）
+    const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : m)
+      .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
+    // 撤回那件事已经留在历史原位了（见上面 recallStub），末尾不再另挂一句——同一件事说两遍，
+    //   第二遍还是「多数时候当没看见」，等于叫他别理。
+    const _recallHint = "";
     // CC turn 仍完整留在 App 时间线里；模型侧只走 continuity 亲历块这一份载体，
     // 避免同一原话既在历史中段回插、又在实时背景重复携带，击穿 prompt cache。
     const modelHistory = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"
@@ -11839,7 +11823,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️她 2026-10-02 又指出：前几版这里写死了「你一直以为自己是她唯一的那个」「她那句冲谁」
       //   「不许当成笑话或语法题岔过去」——「这本身就是一个限制，修罗场也可以有别的」。
       //   那是把一次截图写成了规则。这里只摆事实（谁原本不知道、谁跟谁是陌生人），反应交给各人。
-      + "\n【这一局是什么局面】除非你的设定里写明你早就知道，否则你原本并不知道这里还有别人跟她是这种关系；你是什么时候知道的，看上面的群聊记录。"
+      + "\n【这一局是什么局面】除非你的设定里写明你早就知道，否则你原本并不知道这里还有别人跟她是这种关系；你是什么时候知道的，看上面的群聊记录：记录里还没人把这件事说破过，那就是这一刻——你刚发现这个群里还有别人也跟她是这种关系。"
+      + "这一局的点是【这件事本身】：她刚发的那句话只是让它露出来的引子，别光围着那句话本身（发错没发错、该不该撤回、叫的是谁）打转。"
       + "没设定过彼此关系的成员，互相就是陌生人，你们之间的交集是她。"
       + "\n这件事怎么落到你身上，先翻你自己那张卡：卡里写了你吃醋、在意、碰上别人跟她亲近时是什么样，就照那个来——那是她给你写好的你；卡里没写，就照你平时的脾气和说话方式。别人怎么反应，不决定你怎么反应。"
       + "\n范围是开的：吃醋、对峙、装大度、暗暗较劲、拉谁结盟、看热闹、私下去问她、干脆退出……都可能，也可以都不是。"
@@ -12302,6 +12287,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // （跟单聊 offlineNow 那处同一条判据）。旁观群不发：她不在场。
       const gSameRoomHint = (gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
         ? "\n\n" + samePlacePresence(userName(profile), true) : "";
+      // 她 2026-10-02：「顾朝顾暮现在就说把我带回家在他们身边了」——同居那俩的私聊旧记录里全是「端进去」「在卧室吗」，
+      //   单聊那条「记录里说在一块儿就是在一块儿」到了群里，就成了谁都能宣称她此刻在自己身边。
+      //   没开同处一室时把来源说清楚：她此刻在哪，只看这个群里说过的话。
+      const gWhereHint = (!gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
+        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——别替自己认领一个「她就在我旁边」。" : "";
       // ── 旁观群里唯一变的一件事：她不是【听众】（她 2026-09-11）──
       // 起因：「大晏趣闻·旁观中」里陆闻把话头扔进群里，说「Lisa你评评理」。
       // ⚠️v66.56 我第一版改过头了，她当场纠正：「我有旁观群就是看他们感情的，你去掉好感和
@@ -12340,11 +12330,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️上一版这段写死了「唯一的男朋友」「她那句冲谁」「不是语法题」——她说这本身就是限制。只摆局面。
       const gDramaTail = gsFor(groupId).drama
         ? "\n\n【修罗场 · 回到此刻】上面的群聊是已经发生的事。你们各自跟 " + userName(profile) + " 是什么关系，现在当着彼此摆在明面上了——"
+          + (() => {
+            // 她 2026-10-02「重roll了」：还是围着她那句话打转（发错群、撤回），没人说「你也是她男朋友？」——
+            //   关系散在前面五六段里，模型没把它摆到眼前。在这儿点名摆一遍。
+            const tog = members.filter(c => couples[c.id] && couples[c.id].status === "together").map(c => c.name);
+            return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + userName(profile) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
+          })()
           + "这件事在你心里是什么分量、你打算怎么对待它，按你自己那张卡来——你平时怎么说话，这会儿还是那个人在说话。"
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -12921,7 +12917,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (act === "copy") {
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
-      pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, origText: x.content, reason: x.reason || "" } : x));
+      pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now(), origText: x.content, reason: x.reason || "" } : x));
     } else if (act === "edit") {
       setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
     } else if (act === "reroll") {
@@ -16164,7 +16160,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast(accept ? nm + " 收下了转账" : nm + " 退回了转账");
   };
   // 群线上、通话前情和投票都尊重同一档上下文设置；过滤后再计条数。
+  // 她撤回的那条不从历史里整条消失（她 2026-10-01：「撤回他不知道我撤回了，应该要么看见撤回的是啥，
+  //   要么知道我撤回了没看见具体」）。原来只在本轮任务末尾挂一句「多数时候当没看见」，
+  //   而历史里那个位置空空的——他根本察觉不到。现在【留在原位】，变成一行提示：
+  //   撤得慢的瞥见了原文，撤得快的只知道撤了一条。看没看见由代码判，不交给模型。
+  //   单聊、群聊共用这一个（群里那一行按旁注画，role 换成 system）。
+  const RECALL_SEEN_MS = 10000;   // 10 秒内撤掉的，当没看清（她 2026-10-01：「20 秒有点久给 10 秒吧」）
+  const recallStub = (m, inGroup) => {
+    const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
+    const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
+    const who = inGroup ? userName(profile) : "对方";
+    return { ...m, recalled: false, kind: "recallStub", ...(inGroup ? { role: "system" } : {}), content: seen && m.content
+      ? "【聊天界面提示：" + who + "撤回了一条消息。撤之前瞥见了，写的是「" + String(m.content).slice(0, 80) + "」——这是界面上的提示，不是又说了一句】"
+      : "【聊天界面提示：" + who + "撤回了一条消息，撤得太快，没看清写的什么——这是界面上的提示，不是又说了一句】" };
+  };
+  // 群里她撤回的也留在原位（她 2026-10-01：「群聊也接上吧」）——跟单聊同一个 recallStub。
   const groupContextRows = groupId => (groupChatsRef.current[groupId] || [])
+    .map(m => (m && m.recalled && m.role === "user") ? recallStub(m, true) : m)
     .filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m))
     .slice(-Math.max(1, Number(gsFor(groupId).ctxN) || 30));
   const groupPollText = poll => "[投票 " + poll.pollId + "] " + poll.title + "（" + (poll.anon ? "匿名" : "记名") + "）\n"

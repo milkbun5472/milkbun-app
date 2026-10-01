@@ -60,7 +60,7 @@ test("群里也说清：今天是谁的生日、不是谁的", () => {
   assert.match(seg, /if \(!who\.length\) return "";/, "没人过生日也照发一段");
   // 真挂进 system 了
   // v74.108：两个人的旁观群换了开头那段，拼进 system 的是 commonTurn
-  assert.match(app, /dir \+ commonTurn \+ gSameRoomHint \+ gBdayHint \+ gTimeHint/, "算出来了却没发下去");
+  assert.match(app, /dir \+ commonTurn \+ gSameRoomHint \+ gBdayHint \+ (gWhereHint \+ )?gTimeHint/, "算出来了却没发下去");
 });
 
 // 她 2026-09-10：「我都关了自发聊天他们还是在聊」。
