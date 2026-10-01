@@ -8,9 +8,12 @@ const { app, engine, cut, fixture, evaluate, wire, sections } = require('./_grou
 //   改成走公共的 npcRosterLine（在场的谁跟 TA 有边也一并说出来）。
 //   换哈希的同时下面加了一条专门盯配角那一行的断言——光换数字等于把守门的拆了。
 //   ⚠️主角色那两段【一个字都没动】，那才是这三张哈希真正在守的东西。
+// ⚠️v74.439 online/call 又换了一次：行程和「上一动作／心声」两格加了「只有本人知道」的围栏
+//   （她 2026-10-02 修罗场截图：互不认识的人张口就知道别人在实验室、在喝红茶）。
+//   照上面那条规矩，换数字的同时下面加了一条盯这道围栏的断言。
 const beforeHashes = {
-  online: 'a06e34e6b10cd41c8d6d7a8cb6461b3151b3a49091eb2602757398c971f7c654',
-  call: '7ba5534f78d18b5a940cf569e7d3099eb08abe2a3bc9a60f77fdfebd84ec20c8',
+  online: 'e3d53f39927aa85c4a6a0fac33dbc0404d5babdf10875a995dc631da98c2d96e',
+  call: '49f3bc2fd37aad9493b36015b2d8aeaf7d089f8a7fe1db8c329aad9d3d424ce2',
   offline: '074b43e33d9720371b2e4e9e6cf68bf51cd1a5eb25a8f05e8a734a2ee92eeb77',
 };
 for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景输出与重构前逐字一致', () => {
@@ -23,6 +26,8 @@ for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景
   const a = text.slice(text.indexOf('【甲】'), text.indexOf('【乙】'));
   const b = text.slice(text.indexOf('【乙】'), text.indexOf('【配角】'));
   assert.match(a, /只有 甲 本人知道/);
+  // v74.439：行程那一格的围栏点的是本人的名字，不是一句泛泛的「别人不知道」
+  if (surface !== 'offline') assert.match(a, /〔此刻在做什么 · 只有 甲 本人知道/);
   assert.match(b, /只有 乙 本人知道/);
   assert.ok(!a.includes('b私有档案') && !b.includes('a私有档案'));
   assert.doesNotMatch(text.slice(text.indexOf('【配角】')), /底色|睡眠|私有档案|成长|随身物/);
