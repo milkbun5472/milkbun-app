@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.415";
+const APP_VERSION = "v74.416";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11382,6 +11382,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 长按 TA 的照片 →「只重拍这张图」：话不动，只把这一张重新画一遍
+  // 群里成员发的一张照片：真的去画（发言那一轮落「拍照中」之后调它；长按「只重拍这张图」也走它）。
+  //   跟单聊 drawChatSelfie 同一件事，群里多一个点名单 gCast（合照的那几张脸），存在消息上，重拍时原样带回来。
+  const drawGroupSelfie = async ({ groupId, spk, gsid, gPhotoKind, gPhotoScene, gCast, keySuffix }) => {
+    try {
+      const st = (statesRef.current || {})[spk.id] || {};
+      const me = photoMe("对方");
+      // view＝画面里没有人：走空景那条路，一张参考照都不喂（喂了它就会把脸画进去）
+      const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";
+      const gNoFace = gIsView || gIsPart;
+      const refs = gNoFace ? []
+        : gCast ? gCast.map(x => x.refPhoto)
+        : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
+        : [spk.refPhoto].filter(Boolean);
+      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: closetTextFor(spk.id) };
+      const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
+      const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
+      if (out.blob) {
+        const key = "img_" + spk.id + "_" + gsid + (keySuffix || "");
+        await idbImgPut(key, out.blob);
+        const back = await idbImgGet(key).catch(() => null);
+        if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
+        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
+      } else if (out.url) {
+        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
+      } else { throw new Error("没拿到图"); }
+    } catch (e) {
+      pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, failed: true } : m));
+      toast("自拍没生成：" + (e.message || "重试"));
+    }
+  };
+  const reshootGroupSelfie = (groupId, idx) => {
+    const m = (groupChatsRef.current[groupId] || [])[idx];
+    if (!m || m.kind !== "selfie" || m.role !== "assistant" || m.pending || !m.sid) return;
+    const spk = characters.find(c => c.id === m.senderId);
+    if (!spk) return;
+    pGChat(groupId, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+    drawGroupSelfie({ groupId, spk, gsid: m.sid, gPhotoKind: m.photoKind, gPhotoScene: m.desc || "", gCast: m.cast || null, keySuffix: "_r" + Date.now() });
+  };
   const reshootChatSelfie = (chatKey, idx, charId) => {
     const m = (chatsRef.current[chatKey] || [])[idx];
     if (!m || m.kind !== "selfie" || m.role !== "assistant" || m.pending || !m.sid) return;
@@ -12424,37 +12463,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
             checkAutoCall();
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, desc: gPhotoScene, photoKind: gPhotoKind, ts: Date.now(), turnId: gTurnId }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, ...(gCast ? { cast: gCast } : {}), desc: gPhotoScene, photoKind: gPhotoKind, ts: Date.now(), turnId: gTurnId }]);
             autoTook();
-            (async () => {
-              try {
-                const st = states[spk.id] || {};
-                const me = photoMe("对方");
-                // view＝画面里没有人：走空景那条路，一张参考照都不喂（喂了它就会把脸画进去）
-                const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";
-                const gNoFace = gIsView || gIsPart;
-                const refs = gNoFace ? []
-                  : gCast ? gCast.map(x => x.refPhoto)
-                  : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
-                  : [spk.refPhoto].filter(Boolean);
-                const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: closetTextFor(spk.id) };
-                const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
-                const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
-                const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
-                if (out.blob) {
-                  const key = "img_" + spk.id + "_" + gsid;
-                  await idbImgPut(key, out.blob);
-                  const back = await idbImgGet(key).catch(() => null);
-                  if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-                  pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
-                } else if (out.url) {
-                  pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
-                } else { throw new Error("没拿到图"); }
-              } catch (e) {
-                pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, failed: true } : m));
-                toast("自拍没生成：" + (e.message || "重试"));
-              }
-            })();
+            drawGroupSelfie({ groupId, spk, gsid, gPhotoKind, gPhotoScene, gCast });
           }
           // 记忆互通：这次发言影响该成员对用户的实时好感与心情，并把心声写进【和私聊同一套】的实时状态里（双向影响、可变化）
           // ⚠️NPC 那四样（心情／想法／穿着／动作）【不看这个开关】（她 2026-09-20：
@@ -12580,6 +12591,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const m = msgs[idx];
     if (!m) return;
     if (act === "fav") { addFavorite(m.senderId || null, m); return; }
+    if (act === "reshoot") { reshootGroupSelfie(groupId, idx); return; }
     if (act === "copy") {
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
