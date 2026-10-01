@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.468";
+const APP_VERSION = "v74.469";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9530,18 +9530,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pChat(chatKey, p => [...p, um]);
       base = [...base, um];
     }
-    // 她撤回的那条不再从历史里整条消失（她 2026-10-01：「撤回他不知道我撤回了，应该要么看见撤回的是啥，
-    //   要么知道我撤回了没看见具体」）。原来只在本轮任务末尾挂一句「多数时候当没看见」，
-    //   而历史里那个位置空空的——他根本察觉不到。现在【留在原位】，变成一行提示：
-    //   撤得慢的他瞥见了原文，撤得快的只知道撤了一条。看没看见仍由代码判，不交给模型。
-    const RECALL_SEEN_MS = 20000;   // 20 秒内撤掉的，当TA没看清
-    const recallStub = m => {
-      const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
-      const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
-      return { ...m, recalled: false, kind: "recallStub", content: seen && m.content
-        ? "【聊天界面提示：对方撤回了一条消息。撤之前你瞥见了，写的是「" + String(m.content).slice(0, 80) + "」——这是界面上的提示，不是她又说了一句】"
-        : "【聊天界面提示：对方撤回了一条消息，撤得太快，你没看清写的什么——这是界面上的提示，不是她又说了一句】" };
-    };
+    // 她撤回的那条留在原位、变成一行提示（recallStub，单聊群聊共用，定义在 groupContextRows 上面）
     const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : m)
       .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
     // 撤回那件事已经留在历史原位了（见上面 recallStub），末尾不再另挂一句——同一件事说两遍，
@@ -12919,7 +12908,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (act === "copy") {
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
-      pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, origText: x.content, reason: x.reason || "" } : x));
+      pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now(), origText: x.content, reason: x.reason || "" } : x));
     } else if (act === "edit") {
       setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
     } else if (act === "reroll") {
@@ -16162,7 +16151,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast(accept ? nm + " 收下了转账" : nm + " 退回了转账");
   };
   // 群线上、通话前情和投票都尊重同一档上下文设置；过滤后再计条数。
+  // 她撤回的那条不从历史里整条消失（她 2026-10-01：「撤回他不知道我撤回了，应该要么看见撤回的是啥，
+  //   要么知道我撤回了没看见具体」）。原来只在本轮任务末尾挂一句「多数时候当没看见」，
+  //   而历史里那个位置空空的——他根本察觉不到。现在【留在原位】，变成一行提示：
+  //   撤得慢的瞥见了原文，撤得快的只知道撤了一条。看没看见由代码判，不交给模型。
+  //   单聊、群聊共用这一个（群里那一行按旁注画，role 换成 system）。
+  const RECALL_SEEN_MS = 10000;   // 10 秒内撤掉的，当没看清（她 2026-10-01：「20 秒有点久给 10 秒吧」）
+  const recallStub = (m, inGroup) => {
+    const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
+    const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
+    const who = inGroup ? userName(profile) : "对方";
+    return { ...m, recalled: false, kind: "recallStub", ...(inGroup ? { role: "system" } : {}), content: seen && m.content
+      ? "【聊天界面提示：" + who + "撤回了一条消息。撤之前瞥见了，写的是「" + String(m.content).slice(0, 80) + "」——这是界面上的提示，不是又说了一句】"
+      : "【聊天界面提示：" + who + "撤回了一条消息，撤得太快，没看清写的什么——这是界面上的提示，不是又说了一句】" };
+  };
+  // 群里她撤回的也留在原位（她 2026-10-01：「群聊也接上吧」）——跟单聊同一个 recallStub。
   const groupContextRows = groupId => (groupChatsRef.current[groupId] || [])
+    .map(m => (m && m.recalled && m.role === "user") ? recallStub(m, true) : m)
     .filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m))
     .slice(-Math.max(1, Number(gsFor(groupId).ctxN) || 30));
   const groupPollText = poll => "[投票 " + poll.pollId + "] " + poll.title + "（" + (poll.anon ? "匿名" : "记名") + "）\n"

@@ -59,15 +59,19 @@ test("撤回不再当场单独调一次模型", () => {
 });
 
 test("撤回留在历史原位：他知道撤过一条（她 2026-10-01：「撤回他不知道我撤回了」）", () => {
-  const i = app.indexOf("const recallStub = m => {");
+  const i = app.indexOf("const recallStub = (m, inGroup) => {");
   assert.ok(i > 0, "没有 recallStub");
   const seg = app.slice(i - 200, i + 1200);
   assert.match(seg, /const RECALL_SEEN_MS = \d+;/, "没有那道时间闸");
   assert.match(seg, /const seen = !\(Number\(m\.recalledTs\) && gap >= 0 && gap < RECALL_SEEN_MS\)/);
   // 原文只挂在 seen 那一支上；没看清那一支是一句写死的话
-  assert.match(seg, /content: seen && m\.content\s*\n?\s*\? "【[^"]*" \+ String\(m\.content\)[^\n]*\n\s*: "【[^"]*" \};/,
+  assert.match(seg, /content: seen && m\.content\s*\n?\s*\? "【[^"]*" \+ who \+ "[^"]*" \+ String\(m\.content\)[^\n]*\n\s*: "【[^"]*" \+ who \+ "[^"]*" \};/,
     "两支的形状不对：要么原文没挂在 seen 上，要么「没看清」那一支拼了东西进去");
   assert.match(app, /const history = base\.map\(m => \(m && m\.recalled && m\.role === "user"\) \? recallStub\(m\) : m\)/);
+  // 群聊也接上，而且群里撤回记下 recalledTs（她 2026-10-01）
+  assert.ok(app.includes("? recallStub(m, true) : m)"));
+  assert.ok(app.includes("recalled: true, recalledTs: Date.now(), origText: x.content"));
+  assert.match(app, /const RECALL_SEEN_MS = 10000;/);
   // 末尾那句「多数时候当没看见」撤掉了：同一件事不说两遍
   assert.ok(app.includes('const _recallHint = "";'));
 });
