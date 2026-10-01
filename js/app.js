@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.441";
+const APP_VERSION = "v74.442";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11716,7 +11716,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 群里那颗「让他们自己聊」打开时，设置页「群里自己聊」的总闸要是关着就一起开
   // 修罗场那一段：群设置里开了才有，线上群聊和群线下共用这一份（one-public-mechanism）
   const groupDramaRule = gid => gsFor(gid).drama
-    ? "\n\n【修罗场 · 这个群关系不保密（用户自己打开的）】\n这个群里，每个成员都知道用户「" + userName(profile) + "」和群里其他成员各是什么关系——上面那些标着〔只有某某本人知道〕的段落，在这个群里对所有成员都是公开的，大家都看得见。"
+    ? "\n\n【修罗场 · 这个群关系不保密（用户自己打开的）】\n这个群里，每个成员都知道用户「" + userName(profile) + "」和群里其他成员各是什么关系——上面那些标着〔以下是某某跟用户的关系〕的段落，在这个群里对所有成员都是公开的，大家都看得见。"
+      + "（只公开【跟用户的关系】那几段；各人的行程、此刻在干嘛、心声，照旧只有本人知道。）"
       // ⚠️她 2026-10-02：「群聊加了个修罗场但是还是吵不起来啊，而且他们之间都没有设定关系，
       //   理论上除了顾朝顾暮都是互相不认识的」——截图里她发「宝宝我爱你」，一群人在讨论语法。
       //   病根两头：① 原来末尾那句「不必每一轮都提，该来的时候自然会来」，模型读成「这轮可以不来」，
@@ -16084,7 +16085,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️拉黑／刚解除也在这一段（她 2026-09-15：「可以角色在群聊问我为什么拉黑他」）：
         //   摆在最前面——被关在门外这件事压过一切日常语气。
         const l = relationshipLineFor(c.id);
-        return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
+        // ⚠️标签跟行程／状态那两道围栏分开写（「跟用户的关系」这几个字）：修罗场只公开【这一段】，
+        //   要是共用一句「只有本人知道」，修罗场一开，连各人的行程、心声也一起被当成公开的了（v74.441）。
+        return l ? "\n〔以下是 " + c.name + " 跟用户的关系 · 只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
       })(),
       sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么 · 只有 " + c.name + " 本人知道：别的成员看不见你在干嘛，除非你在群里说过、或者此刻就在一处〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
     };

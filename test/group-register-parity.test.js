@@ -67,7 +67,7 @@ test("群里每个人都要知道自己和用户是不是恋人（而且只有�
   assert.match(fn, /pending/, "暧昧待定那一档也要有");
 
   // 群线上：必须落在这位成员自己那一段里，走隐私围栏
-  const online = app.slice(app.indexOf("cpSeg: (() =>"), app.indexOf("cpSeg: (() =>") + 400);
+  const online = app.slice(app.indexOf("cpSeg: (() =>"), app.indexOf("cpSeg: (() =>") + 1200);
   assert.match(online, /只有 " \+ c\.name \+ " 本人知道，别的成员并不知情/);
   // 群线下：同款围栏
   const off = engine.slice(engine.indexOf("+ ((ctx.memberCouple &&"), engine.indexOf("+ ((ctx.memberCouple &&") + 300);

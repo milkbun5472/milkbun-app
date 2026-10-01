@@ -11,9 +11,10 @@ const { app, engine, cut, fixture, evaluate, wire, sections } = require('./_grou
 // ⚠️v74.439 online/call 又换了一次：行程和「上一动作／心声」两格加了「只有本人知道」的围栏
 //   （她 2026-10-02 修罗场截图：互不认识的人张口就知道别人在实验室、在喝红茶）。
 //   照上面那条规矩，换数字的同时下面加了一条盯这道围栏的断言。
+// ⚠️v74.441 再换一次：关系那一段标签改成「以下是 X 跟用户的关系」，跟行程/状态的围栏分开（修罗场只公开关系那段）。
 const beforeHashes = {
-  online: 'e3d53f39927aa85c4a6a0fac33dbc0404d5babdf10875a995dc631da98c2d96e',
-  call: '49f3bc2fd37aad9493b36015b2d8aeaf7d089f8a7fe1db8c329aad9d3d424ce2',
+  online: '9c6e9defbe778345dc12d7d26d66407aa5b4bbef7f622d5e819083d8ae1e5948',
+  call: '2584a5ed1648a36dafc309a638f0adcb49bef4bd883ca1aeb5666db153bd9d63',
   offline: '074b43e33d9720371b2e4e9e6cf68bf51cd1a5eb25a8f05e8a734a2ee92eeb77',
 };
 for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景输出与重构前逐字一致', () => {

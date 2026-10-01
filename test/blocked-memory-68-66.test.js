@@ -88,8 +88,9 @@ test("群聊两处都给，而且走情侣状态那道私事围栏", () => {
   // 群线下：同一道围栏、同一个顺序（四处一样喂）
   assert.match(app, /const both = relationshipLineFor\(id\);/);
   // 围栏本身没换：只有他本人知道，别的成员并不知情
-  assert.match(app, /〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
-  assert.match(engine, /〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕" \+ ctx\.memberCouple\[c\.id\]/);
+  // v74.441：标签点名「跟用户的关系」，好让修罗场只公开这一段（行程/心声的围栏另写）
+  assert.match(app, /跟用户的关系 · 只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
+  assert.match(engine, /跟用户的关系 · 只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕" \+ ctx\.memberCouple\[c\.id\]/);
   // 句子仍然只有一份
   assert.equal((app.match(/const blockLineFor = /g) || []).length, 1);
   // 上一版那句「群里不发」必须删掉，不然注释和代码打架

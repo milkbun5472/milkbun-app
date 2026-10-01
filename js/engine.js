@@ -7426,7 +7426,7 @@ async function generateOfflineGroup(p, ctx, session) {
     + ((ctx.memberSched && ctx.memberSched[c.id]) ? "\n〔今天此刻在做什么〕" + ctx.memberSched[c.id] + "（" + SCHEDULE_CONTEXT_RULE + "）" : "")
     + bg.cySeg
     + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
-    + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
+    + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下是 " + c.name + " 跟用户的关系 · 只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
     + bg.caSeg
   }).join("\n\n");
   // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
