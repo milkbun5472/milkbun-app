@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.410";
+const APP_VERSION = "v74.411";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24202,6 +24202,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id)),
     onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
     profile: profile,
+    // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
+    //   「char2 对应面具 2，但聊天显示的不是面具 2 的头像」）。profile 本身不换——语音标定那些按它记的。
+    meProfile: profileFor(activeChar.id),
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
@@ -26314,7 +26317,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     showReason: !!settingsFor(offlineChar.id).showReasoning,
     char: offlineChar,
     room: activeOfflineRoom,
-    profile: profile,
+    profile: profileFor(offlineChar.id),
     sessions: offlines[activeOfflineScopeKey] || [],
     activeSession: (offlines[activeOfflineScopeKey] || []).find(s => !s.endTs) || null,
     onStopGen: stopBtnFor("c:" + activeOfflineScopeKey),

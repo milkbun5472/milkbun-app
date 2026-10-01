@@ -8502,6 +8502,7 @@ function ChatThread({
   characters,
   groups,
   messages,
+  meProfile,
   onStopGen,
   sending,
   onBack,
@@ -8567,7 +8568,8 @@ function ChatThread({
   const [recallView, setRecallView] = useState(null);
   const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息数组]
-  const meAv = { name: (profile && profile.name) || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
+  const _me = meProfile || profile;
+  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: _me && _me.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
