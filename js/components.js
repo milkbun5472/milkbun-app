@@ -9104,6 +9104,11 @@ function ChatThread({
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
+    // 转账回执：收款方那一侧的一张单子（她 2026-10-01），不是一行灰字
+    if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
+      isU: m.receipt.side === "me", charId: character && character.id,
+      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
+      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
@@ -12675,7 +12680,8 @@ function TransferCard({
   const t = useTheme();
   const pending = m.status === "pending";
   const canAct = pending && m.dir === "toMe"; // 我是收款方，可操作
-  const statusLabel = m.status === "accepted" ? "已收款" : m.status === "returned" ? "已退回" : m.dir === "toChar" ? "等待 TA 接受" : "待接收";
+  const statusLabel = m.receiptCard ? (m.status === "accepted" ? "已收款" : "已退还")
+    : m.status === "accepted" ? "已收款" : m.status === "returned" ? "已退回" : m.dir === "toChar" ? "等待 TA 接受" : "待接收";
   // 这张纸自己的颜色：它是一张纸，不跟主题走（同礼物盒 / 情书 / 亲属卡）
   const PAPER = "#fbf7ee", PAPER_D = "#f3ebdc", RULE = "rgba(70,52,28,.16)";
   const INK = "#3a3025", FADE = "rgba(58,48,37,.52)";
@@ -12723,7 +12729,7 @@ function TransferCard({
     // ── 眉头：这是一张什么单（中文，原来是 CNY）+ 那枚印 ──
     h("div", { className: "flex items-start justify-between px-4 pt-3.5 pb-3" },
       h("div", { style: { minWidth: 0 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, "转账"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账"),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
@@ -14960,6 +14966,11 @@ function GroupThread({
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
     // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
     //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
+    // 转账回执：收钱那位成员名下的一张单子（她 2026-10-01）
+    if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
+      isU: m.receipt.side === "me", charId: m.receipt.senderId,
+      avatar: mAvatar(memberById(m.receipt.senderId) || { name: m.receipt.senderName, color: t.tint }),
+      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "poll") return h(PollCard, {

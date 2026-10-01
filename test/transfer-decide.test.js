@@ -67,7 +67,8 @@ test("转账卡带头像，和位置卡同一个摆法", () => {
   assert.match(seg, /\}, statusLabel\)\), isU && myAvatar\);/, "我的头像该在右边");
   // 两处调用各自都要把头像递进去（别的卡片也用同样的写法，所以要卡在 TransferCard 这两处上）
   const calls = [...comp.matchAll(/h\(TransferCard, \{/g)].map(x => comp.slice(x.index, x.index + 340));
-  assert.equal(calls.length, 2, "单聊 + 群聊两处调用，现在有 " + calls.length + " 处");
+  // v74.405 起多两处：单聊、群聊各一张收款／退还回执卡，同样要递头像
+  assert.equal(calls.length, 4, "单聊 + 群聊各两处调用（转账卡＋回执卡），现在有 " + calls.length + " 处");
   calls.forEach((c, k) => {
     assert.match(c, /avatar:/, "第 " + (k + 1) + " 处没传对方头像");
     assert.match(c, /myAvatar:/, "第 " + (k + 1) + " 处没传我的头像");

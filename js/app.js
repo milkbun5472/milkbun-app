@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.404";
+const APP_VERSION = "v74.405";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15734,7 +15734,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const line = accept
       ? (card.dir === "toChar" ? nm + " 领取了你的转账 " + moneyText(card.amount, charId) : "你领取了 " + nm + " 的转账 " + moneyText(card.amount, charId))
       : (card.dir === "toChar" ? nm + " 退回了你的转账 " + moneyText(card.amount, charId) : "你退回了 " + nm + " 的转账 " + moneyText(card.amount, charId));
-    pChat(charId, p => [...p, { role: "system", kind: "system", content: line, ts: Date.now() }]);
+    // 回执卡（她 2026-10-01「转账接受和拒绝也做成转账卡」）：还是那条 system 行（模型那边读的字一个没变），
+    //   只是多挂一个 receipt——界面认得它就画成收款方那一侧的一张单子，不再是一行灰字。
+    pChat(charId, p => [...p, { role: "system", kind: "system", content: line, ts: Date.now(),
+      receipt: { side: card.dir === "toChar" ? "char" : "me", amount: card.amount, note: card.note || "", status: accept ? "accepted" : "returned" } }]);
   };
   // ---- 群聊转账（我转给群里某个指定成员）----
   const sendGroupTransfer = (groupId, memberId, amount, note) => {
@@ -15773,7 +15776,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pGChat(groupId, p => p.map(m => m.kind === "transfer" && m.tid === tid ? { ...m, status: accept ? "accepted" : "returned" } : m).concat([{
       role: "system",
       content: nm + (accept ? " 收下了你的转账" : " 退回了你的转账"),
-      ts: Date.now()
+      ts: Date.now(),
+      receipt: { side: "char", senderId: card.toId, senderName: card.toName || "", amount: card.amount, note: card.note || "", status: accept ? "accepted" : "returned" }
     }]));
     toast(accept ? nm + " 收下了转账" : nm + " 退回了转账");
   };
