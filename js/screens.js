@@ -2240,6 +2240,31 @@ function AltAvatar({ seed, size }) {
     style: { width: size, height: size, borderRadius: "50%" }
   });
 }
+// 匿名吧里谁都没有 id（群友 2026-10-01：「为啥匿名吧还是能刷出有 id 的路人」）。
+//   生成那头有七八处各自拼作者（NPC 发帖、NPC 回楼、楼主回复、搜索……），只有她自己和角色那两处记得匿名；
+//   一处处去补，下回再加一处又漏。所以在【显示】这一层一次收口：匿名吧里的帖、楼、楼中楼，
+//   一律按匿名显示——没名字、没 @、点不进主页。楼主还是标楼主（那是位置，不是身份）。
+function forumAnonView(posts, comments) {
+  const mask = x => {
+    if (!x || x.anon) return x;
+    const me = x.authorType === "me";
+    return Object.assign({}, x, { anon: true, authorName: me ? "匿名者" : "匿名用户", authorHandle: me ? "匿名者" : "anonymous" });
+  };
+  const anonIds = new Set();
+  const outPosts = (posts || []).map(p => { if (p && p.board === "匿名吧") { anonIds.add(p.id); return mask(p); } return p; });
+  if (!anonIds.size || !comments) return { posts: outPosts, comments };
+  const outCm = Object.assign({}, comments);
+  anonIds.forEach(id => {
+    if (!Array.isArray(outCm[id])) return;
+    outCm[id] = outCm[id].map(f => { const m = mask(f); return m && Array.isArray(m.replies) ? Object.assign({}, m, { replies: m.replies.map(mask) }) : m; });
+  });
+  return { posts: outPosts, comments: outCm };
+}
+function ForumAnonWrap(props) {
+  // ⚠️要 memo：每次渲染都换一份新数组，下面以 posts/comments 作依赖的 effect 会一直重跑
+  const _av = useMemo(() => forumAnonView(props.posts, props.comments), [props.posts, props.comments]);
+  return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
+}
 function Forum({
   characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
