@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.442";
+const APP_VERSION = "v74.443";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9312,7 +9312,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
         return { c, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 4);
-      if (rows.length) out.push("【跟别人的聊天】\n" + rows.map(x => "和「" + (x.c.remark || x.c.name) + "」：\n" + x.ms.slice(-6).map(m => "  " + (m.role === "user" ? uN : (x.c.remark || x.c.name)) + "：" + cut(m.content, 70)).join("\n")).join("\n"));
+      // ⚠️说清楚这是谁跟谁（她 2026-10-01：截图里TA把别人说的话当成段子看，没看懂这是【她跟别人】的聊天）
+      if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(x => "她（" + uN + "）和「" + (x.c.remark || x.c.name) + "」的聊天：\n" + x.ms.slice(-6).map(m => "  " + (m.role === "user" ? "她：" : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70)).join("\n")).join("\n"));
     }
     if (on("forum")) {
       const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me").sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5);
@@ -9383,6 +9384,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n\n能打开的 app：" + apps.map(a => a + "（" + PEEK_APP_ZH[a] + "）").join("、")
           + (apps.includes("chat") ? "。打开聊天要写 who＝对方名字，能选的：" + others.join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
+          + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 12~30 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"forum\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000

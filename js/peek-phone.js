@@ -50,8 +50,11 @@
   // 主屏上每个 app 在哪儿（她 2026-10-01：「能不能做在主屏幕滑动翻找这些 app 的动画」）。
   //   dock 上那几个按字找（只看屏幕下面那一截）；组件、图标按 data-appkey 找；
   //   在文件夹里的，查 x_homeFolders 是哪个文件夹，先点开文件夹再点它。钱包不在主屏上，直接打开。
-  const HOME_SPOT = { chat: { dock: "信息" }, forum: { dock: "论坛" }, diary: { dock: "日记" },
-    memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop" }, takeout: { key: "takeout" } };
+  // 信息页会记着上次停在哪个底栏（翻过钱包就停在「我」），所以找人之前先点回「聊天」
+  const HOME_SPOT = { chat: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] }, forum: { dock: "论坛" }, diary: { dock: "日记" },
+    memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop" }, takeout: { key: "takeout" },
+    // 钱包不在主屏上：信息 → 底栏「我」→「我的钱包」（她 2026-10-01：「钱包页面找不到直接点进来的」）
+    wallet: { dock: "信息", path: [{ text: "我", exact: true, minTopK: 0.8 }, { text: "我的钱包" }] } };
   function folderOf(key) {
     let f = {}; try { f = JSON.parse(localStorage.getItem("x_homeFolders") || "{}") || {}; } catch (e) {}
     const ids = Object.keys(f);
@@ -59,7 +62,7 @@
     return null;
   }
   // 当前屏幕上写着这几个字、而且看得见的那一块（取最小的那块，免得点到整页外壳）
-  function findByText(text, minTop) {
+  function findByText(text, minTop, exact) {
     const vw = window.innerWidth, vh = window.innerHeight;
     let best = null, bestArea = Infinity;
     const all = document.querySelectorAll("#root button, #root a, #root [role=button], #root span, #root div");
@@ -68,6 +71,7 @@
       if (el.closest("[data-peek-overlay]")) continue;
       const tx = (el.textContent || "").trim();
       if (!tx || tx.indexOf(text) < 0 || tx.length > text.length + 60) continue;
+      if (exact && tx !== text) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
       if (minTop && r.top < minTop) continue;
@@ -165,6 +169,12 @@
       await sleep(950);
       // 点完还停在主屏＝没点开（主屏上才有 data-appkey）：交给外面直接打开
       if (document.querySelector("#root [data-appkey]")) return false;
+      // 还要再点几下才到的（钱包：信息 →「我」→「我的钱包」）
+      for (const step of (spot.path || [])) {
+        const n = findByText(step.text, step.minTopK ? window.innerHeight * step.minTopK : 0, !!step.exact);
+        if (!n) { if (step.optional) continue; return false; }
+        await tapEl(n); await sleep(900);
+      }
       if (app === "chat" && who) { const n = findByText(who); if (!n) return false; await tapEl(n); await sleep(900); }
       return true;
     };

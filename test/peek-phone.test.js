@@ -44,7 +44,7 @@ test("录像脚本收拾：她藏起来的 app 打不开，心声按点开次数
 });
 
 test("在她真的 app 上播：照屏幕上的字找、照返回键退，翻完回聊天再开口", () => {
-  assert.match(p, /function findByText\(text, minTop\)/);
+  assert.match(p, /function findByText\(text, minTop, exact\)/);
   assert.match(a, /document\.querySelector\('#root \[data-watch="back"\]'\)/);
   assert.match(a, /peekPlay && window\.PeekPhone && h\(window\.PeekPhone\.PeekPlayer, \{/);
   assert.match(a, /thoughts: thoughts \|\| \[\]/);
@@ -61,4 +61,11 @@ test("先回主屏一页页滑过去找 app、文件夹里的先点开文件夹�
   assert.match(p, /if \(!ok\) \{ props\.onOpen && props\.onOpen\(s\.app, s\.who\);/);
   assert.match(c, /window\.__homeNav = \{ go: goPage, page: function \(\) \{ return page; \} \};/);
   assert.match(a, /goHome: \(\) => setScreen\("home"\),/);
+});
+
+test("钱包从信息 →「我」→「我的钱包」点进去；找人前先点回「聊天」；聊天素材写清是她和别人", () => {
+  assert.match(p, /wallet: \{ dock: "信息", path: \[\{ text: "我", exact: true/);
+  assert.match(p, /chat: \{ dock: "信息", path: \[\{ text: "聊天", exact: true/);
+  assert.match(a, /【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】/);
+  assert.match(a, /翻聊天的时候记着：那是【她和别人】在聊/);
 });
