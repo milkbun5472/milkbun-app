@@ -2311,7 +2311,7 @@ function ForumWorlds({ characters }) {
   return h("div", { style: { marginBottom: 16, paddingBottom: 14, borderBottom: "1px dashed " + t.line } },
     h(Eyebrow, { style: { marginBottom: 6 } }, "世界"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.6 } },
-      "角色各跟你是不同的线、时间点对不上？给他们分到不同的世界：同一个世界的人才会在同一个帖子里碰面、认得彼此。不分就都在「同一个世界」。"),
+      "角色各跟你是不同的线、时间点对不上？给他们分到不同的世界，再切到那个世界去逛：那里只有同一个世界的人碰面。在「全部」里大家照旧混着。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: d.worlds.length ? 10 : 0 } },
       h("span", { style: Object.assign({}, chip, { display: "inline-flex", alignItems: "center", color: t.sub }) }, "同一个世界"),
       d.worlds.map(w => h("span", { key: w.id, className: "inline-flex items-center", style: Object.assign({}, chip, { padding: 0 }) },
@@ -2325,7 +2325,7 @@ function ForumWorlds({ characters }) {
     d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点世界名写它的世界观，点 × 拆掉。"),
     d.worlds.length > 0 && h("div", { style: { marginTop: 14 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginBottom: 6 } }, "现在逛哪个世界的论坛"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "默认是「全部」：所有世界的帖子都看得到，刷新时哪个世界的路人和角色都可能来（每个帖子里面还是只有一个世界的人）。切到某个世界，就只看、只刷那个世界的。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "默认是「全部」大杂烩：所有世界的帖子都看得到，哪个世界的角色都能去任何帖子底下说话。切到某个世界，就只看、只刷那个世界的，也只有那个世界的人碰面。"),
       h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["*"].concat(order).map(id => h("button", { key: id || "same", onClick: () => pick(id), className: "active:opacity-70",
         style: Object.assign({}, chip, cur === id ? { background: t.ink, color: t.bg2, borderColor: t.ink } : null) }, nameOf(id))))));
 }
