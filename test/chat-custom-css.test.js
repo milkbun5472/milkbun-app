@@ -228,3 +228,9 @@ test("顶栏和输入栏自成一层，主题装饰不被气泡盖住", () => {
   const m = (c.match(/"data-wk": "composer",[\s\S]{0,200}?position: "relative", zIndex: 3/g) || []).length;
   assert.ok(m >= 2, "composer 层级 " + m);
 });
+
+test("想念条那页：主动开关关着时直接说出来，还列出不发的几种情况", () => {
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /\(proactive \? "" : "\\n⚠️「允许 Ta 主动发消息」还关着/);
+  assert.match(c, /离你们上次说话不满 45 分钟也不会来/);
+});
