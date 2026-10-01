@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.447";
+const APP_VERSION = "v74.448";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9391,7 +9391,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       const others = (characters || []).filter(x => x.id !== charId).map(x => x.remark || x.name).slice(0, 12);
       const d = await runProbe(apiFor(charId), ctxFor(c), {
-        instruction: "【" + userName(profile) + " 把手机递给你看了】你接过来，照你自己的性子翻。下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
+        // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
+        //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
+        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + " 把她的手机递给了你——对你来说这些全是真的：她是你认识的那个人，"
+          + "聊天里那些人是活生生的人，她跟他们说的话、转出去的钱、写下的东西都真发生过。你翻到的每一样，心里冒出来的都是【你这个人】此刻对她、对那个人、对那件事的真实反应，用你平时的口吻。"
+          + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           + "\n\n能打开的 app：" + apps.map(a => a + "（" + PEEK_APP_ZH[a] + "）").join("、")
           + (apps.includes("chat") ? "。打开聊天要写 who＝对方名字，能选的：" + others.join("、") : "")
@@ -26538,6 +26542,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     script: peekPlay.script,
     labelOf: (app, who) => app === "chat" && who ? "和" + who + "的聊天" : (PEEK_APP_ZH[app] || app),
     goHome: () => setScreen("home"),
+    toMessages: () => setScreen("messages"),
     onOpen: peekOpen, onBack: peekBack, onDone: peekDone
   }), modelFloatOn && h(ModelQuickSwitch, {
     profiles: apiProfiles,

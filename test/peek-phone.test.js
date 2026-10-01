@@ -80,3 +80,15 @@ test("论坛先去「我」、日记先翻到她那本；钱包流水从她这�
   const P = loadPeek();
   assert.strictEqual(P.cleanScript({ steps: [{ do: "tap", text: "《我的帖子》" }] }, []).find(x => x.do === "tap").text, "我的帖子");
 });
+
+test("点开就读：聊天往上翻、帖子日记往下滑（脚本没写就代码补）；连着翻两个聊天走列表不回主屏；心声站在TA自己的世界里", () => {
+  const P = loadPeek();
+  const s = P.cleanScript({ steps: [{ do: "open", app: "chat", who: "甲" }, { do: "think", text: "一" }, { do: "tap", text: "帖子" }] }, ["chat"]);
+  const sc = s.filter(x => x.do === "scroll");
+  assert.strictEqual(sc[0].dir, "up", "聊天要往上翻");
+  assert.strictEqual(sc[1].dir, "down", "点开的帖子要往下滑");
+  assert.match(p, /elementsFromPoint/, "滚动找容器要绕开遮罩");
+  assert.match(p, /lastAppRef\.current === "chat" && props\.toMessages/);
+  assert.match(a, /toMessages: \(\) => setScreen\("messages"\),/);
+  assert.match(a, /你就是「" \+ c\.name \+ "」本人，此刻在你自己的日子里/);
+});

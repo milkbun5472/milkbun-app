@@ -45,7 +45,21 @@
       }
     });
     const cap = Math.max(4, opens + THOUGHT_FREE);
-    return out.filter(s => s.do !== "think" || (++thoughts <= cap));
+    const kept = out.filter(s => s.do !== "think" || (++thoughts <= cap));
+    // 点开就要往下读（她 2026-10-01：「看信息不会下划」「论坛也只是看了我的正文」）：
+    //   聊天停在最新那条，往【上】翻才是在读；帖子、日记往【下】滑才看得到回复。
+    //   脚本里点开之后紧跟着没写滑动的，代码补一下——补在那一句心声之前，先看再想。
+    const res = [];
+    for (let i = 0; i < kept.length; i++) {
+      const s = kept[i]; res.push(s);
+      const opened = (s.do === "open" && (s.app === "chat" || s.app === "forum" || s.app === "diary")) || s.do === "tap";
+      if (!opened) continue;
+      let j = i + 1;
+      while (j < kept.length && (kept[j].do === "think" || kept[j].do === "pause")) j++;
+      if (j < kept.length && kept[j].do === "scroll") continue;
+      res.push({ do: "scroll", dir: s.do === "open" && s.app === "chat" ? "up" : "down", n: 2, auto: true });
+    }
+    return res;
   }
 
   // 主屏上每个 app 在哪儿（她 2026-10-01：「能不能做在主屏幕滑动翻找这些 app 的动画」）。
@@ -86,7 +100,8 @@
   }
   // 圆点底下那个能滚的；没有就挑屏幕上最大的那个能滚的
   function findScroller(x, y) {
-    let el = document.elementFromPoint(x, y);
+    // ⚠️遮罩盖在最上面，elementFromPoint 只会拿到遮罩自己——要往下数第一个不是遮罩的
+    let el = (document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)]).find(e => e && !e.closest("[data-peek-overlay]")) || null;
     while (el && el !== document.body) {
       if (!el.closest("[data-peek-overlay]")) {
         const st = getComputedStyle(el);
@@ -124,6 +139,7 @@
     const stopRef = React.useRef(false);
     const doneRef = React.useRef(false);
     const logRef = React.useRef([]);
+    const openViaHomeLast = React.useRef("");
     const tapEl = async el => {
       const r = el.getBoundingClientRect();
       setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false });
@@ -140,9 +156,19 @@
       await sleep(520); setDot(d => ({ ...d, down: false })); await sleep(250);
     };
     // 回主屏 → 一页页滑过去找 → 点开（文件夹里的先点开文件夹）。哪一步找不到就回 false，外面直接打开兜底
+    const lastAppRef = openViaHomeLast;
     const openViaHome = async (app, who) => {
       const spot = HOME_SPOT[app];
       if (!spot || !props.goHome) return false;
+      // 刚翻完一个聊天再翻下一个：退回信息列表点名字，不用每次都回主屏（她 2026-10-01：「看完一条退出信息然后再进再点开」）
+      if (app === "chat" && who && lastAppRef.current === "chat" && props.toMessages) {
+        setCaption("退回聊天列表，找" + who);
+        props.toMessages(); await sleep(800);
+        const tab = findByText("聊天", window.innerHeight * 0.8, true); if (tab) { await tapEl(tab); await sleep(600); }
+        const n = findByText(who); if (!n) return false;
+        await tapEl(n); await sleep(900);
+        return true;
+      }
       setCaption("回到主屏，找" + (props.labelOf ? props.labelOf(app, "") : app));
       props.goHome(); await sleep(900);
       let el = null, inner = null;
@@ -200,6 +226,7 @@
           if (s.do === "open") {
             let ok = false;
             try { ok = await openViaHome(s.app, s.who); } catch (e) { ok = false; }
+            openViaHomeLast.current = s.app;
             if (!alive || stopRef.current) return;
             setCaption("在翻：" + (props.labelOf ? props.labelOf(s.app, s.who) : s.app));
             if (!ok) { props.onOpen && props.onOpen(s.app, s.who); await sleep(1100); }
