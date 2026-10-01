@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.408";
+const APP_VERSION = "v74.409";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26097,6 +26097,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }),
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
+      // 换了「TA 认识的是我哪一张」：今天起往后已经排好的日程是照旧面具写的（群里读者 2026-10-01：
+      //   「绑了面具2，char 行程里提到的地方还是我主面具的」）——日程会提前排几天，换面具不重排。
+      //   这几天删掉，下次自动生成照新面具重排；已经过去的日子不动。
+      if (String(s.maskId || "") !== String(settingsFor(activeChar.id).maskId || "")) {
+        try {
+          const _todayK = schedLocalDayKey(activeChar);
+          const _days = Object.keys((schedulesRef.current || {})[activeChar.id] || {}).filter(k => k >= _todayK);
+          if (_days.length) delSchedDays(activeChar.id, _days);
+        } catch (e) {}
+      }
       saveRemark(activeChar.id, s.remark);
       if (!!s.proactive !== autoRefreshOn("proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, !!s.proactive);
       pC(p => p.map(c => c.id === activeChar.id ? {
@@ -26223,7 +26233,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!m) return;
       // 只数她看得见的那几位（配角不该在这种名单里冒出来）
       const used = liveChars.filter(c => c && String(settingsFor(c.id).maskId || "") === String(id));
-      requestAppConfirm("删掉面具「" + (m.name || "未命名") + "」？",
+      requestAppConfirm("删掉面具「" + (m.label || m.name || "未命名") + "」？",
         (used.length ? "有 " + used.length + " 个角色认的是这张（" + used.map(c => c.name).join("、").slice(0, 40) + "）——删了之后他们会认回主面具。\n" : "")
         + "这张面具本身删了就没了。",
         () => { saveMasks((masksRef.current || []).filter(x => x.id !== id)); toast("删掉了"); }, "删掉");

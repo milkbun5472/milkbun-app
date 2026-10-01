@@ -7004,6 +7004,9 @@ function ProfileSheet({
   const [editId, setEditId] = useState("");
   const cur = editId ? (lib.find(m => m && m.id === editId) || profile) : profile;
   const [name, setName] = useState(profile.name || "");
+  // 面具名称：只给她自己在列表里认的（群里读者 2026-10-01：「两个面具都是同个人只是年龄段不一样，
+  //   用一个名称容易搞错」）。TA 看不到它，TA 叫她的还是下面那个昵称。
+  const [label, setLabel] = useState(profile.label || "");
   const [tagline, setTagline] = useState(profile.tagline || "");
   const [persona, setPersona] = useState(profile.persona || "");
   const [avatarImage, setAvatarImage] = useState(profile.avatarImage || null);
@@ -7014,12 +7017,12 @@ function ProfileSheet({
   const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
   // 表单 → 一份面具。保存、切走前的自动落盘、设为主面具，都读这一份（只拼这一处）
   const formOf = () => Object.assign({}, cur, {
-    name, tagline, persona, avatarImage, color,
+    name, label: label.trim().slice(0, 20), tagline, persona, avatarImage, color,
     birthday: birthday.trim(), appearance: appearance.trim(),
     refPhoto: refPhoto, photoOutfit: photoOutfit.trim()
   });
   const loadInto = m => {
-    setName(m.name || ""); setTagline(m.tagline || ""); setPersona(m.persona || "");
+    setName(m.name || ""); setLabel(m.label || ""); setTagline(m.tagline || ""); setPersona(m.persona || "");
     setAvatarImage(m.avatarImage || null); setColor(m.color || AV_COLORS[0]);
     setBirthday(m.birthday || ""); setAppearance(m.appearance || "");
     setRefPhoto(m.refPhoto || null); setPhotoOutfit(m.photoOutfit || "");
@@ -7038,7 +7041,7 @@ function ProfileSheet({
   const addMask = () => {
     commit();
     const id = "mk_" + Date.now();
-    if (onSaveMask) onSaveMask({ id: id, name: "", tagline: "", persona: "", avatarImage: null, color: AV_COLORS[0], birthday: "", appearance: "", refPhoto: null, photoOutfit: "" });
+    if (onSaveMask) onSaveMask({ id: id, name: "", label: "", tagline: "", persona: "", avatarImage: null, color: AV_COLORS[0], birthday: "", appearance: "", refPhoto: null, photoOutfit: "" });
     setEditId(id); loadInto({});
   };
   const isPrimary = editId ? (String(primaryId || "") === editId) : !primaryId;
@@ -7049,10 +7052,12 @@ function ProfileSheet({
     label);
   const maskBar = h("div", { style: { marginBottom: 10 } },
     h("div", { className: "flex items-center overflow-x-auto", style: { gap: 6, scrollbarWidth: "none", paddingBottom: 2 } },
-      (!primaryId ? [chip("", (profile.name || "主面具") + " · 主", editId === "")] : []).concat(
-        lib.map(m => chip(m.id, (m.name || "未命名") + (String(primaryId || "") === m.id ? " · 主" : ""), editId === m.id)))
+      (!primaryId ? [chip("", (profile.label || profile.name || "主面具") + " · 主", editId === "")] : []).concat(
+        lib.map(m => chip(m.id, (m.label || m.name || "未命名") + (String(primaryId || "") === m.id ? " · 主" : ""), editId === m.id)))
         .concat([h("button", { key: "+", onClick: addMask, className: "active:opacity-70 shrink-0",
           style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px dashed " + t.line } }, "＋ 新面具")])),
+    h("input", { value: label, onChange: e => setLabel(e.target.value), placeholder: "面具名称（只给你自己认，TA 看不到；不填就用昵称）",
+      className: "w-full outline-none", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: "transparent", border: "1px solid " + t.line, borderRadius: 10, padding: "7px 10px" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 6 } },
       isPrimary
         ? "这是主面具：没单独指定的角色，认的都是这一张。"
@@ -17065,7 +17070,7 @@ function ChatSettings({
       + "⚠️只在一对一的地方生效（单聊、线下、通话、日记、查手机这些）；群里大家都在场，"
       + "同一句话没法对着不同的人戴不同的脸，所以群聊一律用主面具。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-      [{ id: "", name: "主面具" }].concat((myMasks || []).map(m => ({ id: m.id, name: m.name || "未命名" })))
+      [{ id: "", name: "主面具" }].concat((myMasks || []).map(m => ({ id: m.id, name: m.label || m.name || "未命名" })))
         .map(o => {
           const on = String(maskId || "") === o.id;
           return h("button", { key: o.id || "_main", onClick: () => setMaskId(o.id), className: "active:opacity-70",
