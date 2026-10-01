@@ -128,3 +128,10 @@ test("翻手机：购物先进「我的」、外卖先进「订单」，两份�
   assert.match(a, /【外卖 app 里的订单】/);
   assert.match(a, /s\.do === "open" \? i : -1/);
 });
+
+test("翻手机：翻完的料留到TA真接上话才用掉，她先开口也接得上", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(a, /peekPendingRef\.current\[p\.charId\] = \{/);
+  assert.match(a, /opts = \{ \.\.\.opts, peekPhone: _pk \}/);
+  assert.match(a, /if \(delivered && _peekTurn\) delete peekPendingRef\.current\[charId\]/);
+});

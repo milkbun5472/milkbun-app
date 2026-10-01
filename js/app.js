@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.461";
+const APP_VERSION = "v74.462";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9471,6 +9471,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
   };
+  // 翻完那一下的料先存着，直到TA真的接上话才算用掉（她 2026-10-01：「看完接不上啊」——
+  //   那一枪没送到时，她自己问一句「看了怎么样」，TA就只剩自己的日常可说了）
+  const peekPendingRef = useRef({});
   const peekDone = thoughts => {
     const p = peekPlay;
     setPeekPlay(null);
@@ -9483,6 +9486,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_peekLast", all);
     } catch (e) {}
     openChatById(p.charId);
+    peekPendingRef.current[p.charId] = { ts: Date.now(), seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [] };
     replyNow(p.charId, "", null, { proactive: true, peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [] } });
   };
   const _replyTurn = async (charId, extraText, mode, opts) => {
@@ -9495,6 +9499,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let delivered = false;
     // 递手机是她亲手递的，不是TA自己冒出来的：下面几道「主动」闸（主动私聊开关、此刻在一起、防连发）
     //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
+    const _pk = !opts.room && peekPendingRef.current[charId];
+    if (_pk && Date.now() - _pk.ts < 2 * 3600e3 && !opts.peekPhone && !opts.proactive) opts = { ...opts, peekPhone: _pk };
     const _peekTurn = !!(opts && opts.peekPhone);
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
@@ -11459,6 +11465,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const clearOneShot = room.syncMode === "ask" && room.syncOnce;
         if (seenTo > Number(room.mainCursorTs || 0) || clearOneShot) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo, syncOnce: clearOneShot ? false : room.syncOnce });
       }
+      if (delivered && _peekTurn) delete peekPendingRef.current[charId];
       return delivered;
     } catch (e) {
       if (_abort.signal.aborted) return null;       // 她自己点叉断掉的：不留「发送失败」
