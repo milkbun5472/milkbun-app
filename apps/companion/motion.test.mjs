@@ -36,9 +36,9 @@ test('new actions have a visible pose, settle cleanly and are reachable in match
   for(const mood of a.moods)assert.ok(MOODS[mood].acts.includes('emotion-'+name));
   for(const p of [0,1])assert.ok(Object.values(emotionPose(name,p)).flat().every(v=>Math.abs(v)<1e-8));
   const poses=[.2,.4,.6,.8].map(p=>emotionPose(name,p));signatures.push(JSON.stringify(poses));
-  assert.ok(poses.some(q=>Math.max(...q.left.map(Math.abs),...q.right.map(Math.abs))>.7),name);
+  assert.ok(poses.some(q=>Math.max(...q.left.map(Math.abs),...q.right.map(Math.abs),Math.abs(q.rightElbow||0))>.7),name);
  }
- assert.equal(new Set(signatures).size,5);
+ assert.equal(new Set(signatures).size,Object.keys(EXTRA_ACTIONS).length);
 });
 test('repeated selections change the action, including duplicate entries and fallback moods',()=>{
  for(const m of Object.values(MOODS)){

@@ -3,12 +3,12 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-56c89142830d3852';
-import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-56c89142830d3852';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-56c89142830d3852';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-56c89142830d3852';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-56c89142830d3852';
-import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-56c89142830d3852';
+import {targetAt,highFiveHit} from './touch-targets.mjs?v=fg-e522caba130be3e1';
+import {MOODS,DUR,moodBase,pulse,accent,chooseAction} from './motion.mjs?v=fg-e522caba130be3e1';
+import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-e522caba130be3e1';
+import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-e522caba130be3e1';
+import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-e522caba130be3e1';
+import {lookForTa,mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-e522caba130be3e1';
 const mode=new URLSearchParams(location.search).get('mode')||'full';
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -57,7 +57,7 @@ function setCtx(m){const was=ctx.idle;ctx={screen:String(m.screen||''),music:!!m
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-56c89142830d3852',
+ const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-e522caba130be3e1',
    e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
  pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
@@ -66,7 +66,7 @@ try{
  throw err;
 }
 let act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0,soft={y:0,tilt:0,yaw:0};const clock=new T.Clock();
-window.petDebug={frames:0,snapshot:()=>({action:act?.kind,emotion:pet.root.userData.emotion,targets:touchTargets()}),play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
+window.petDebug={ready:()=>pet.ready(),frames:0,snapshot:()=>({action:act?.kind,emotion:pet.root.userData.emotion,targets:touchTargets()}),play:(k,at)=>{act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k]};}};   // 截图/测试用；frames 用来验切后台真停了
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
 const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
@@ -88,6 +88,8 @@ function touchTargets(){
  const head=pet.root.getObjectByName('HeadAnchor');
  if(head){const pos=head.localToWorld(new T.Vector3(0,-.13,.65)),p=project(pos),scale=head.getWorldScale(new T.Vector3()).x/.20448;
   const forward=new T.Vector3(0,0,1).transformDirection(head.matrixWorld),front=forward.dot(cam.position.clone().sub(pos).normalize())>.35;
+  const crown=head.localToWorld(new T.Vector3(0,.48,.35)),hp=project(crown);
+  result.push({kind:'head',...hp,rx:radius(crown,.12*scale),ry:radius(crown,.075*scale),visible:front&&hp.z>-1&&hp.z<1});
   result.push({kind:'face',...p,rx:radius(pos,.13*scale),ry:radius(pos,.105*scale),visible:front&&p.z>-1&&p.z<1});}
  return result;
 }
@@ -97,7 +99,8 @@ function touch(x,y){
  if(target.kind==='hand'){
   const hit=highFiveHit(act,target.side,t,DUR[act?.kind]);
   act={kind:'emotion-'+(hit?'clap-':'five-')+target.side,start:t};
- }else act={kind:'emotion-dodge-'+target.side,start:t};
+ }else if(target.kind==='head')act={kind:'emotion-headpat',start:t};
+ else act={kind:'emotion-dodge-'+target.side,start:t};
  // 外壳的聊天反馈仍沿原来的单点入口，不增加模型调用入口。
  parent.postMessage({type:'pet-poke',kind:'tap',count:1},'*');
 }
@@ -119,7 +122,7 @@ function draw(t){
  if(ctx.idle&&!sleeping&&!held){sleeping=true;act=null;}
  if(!greeted&&t>1.5){greeted=true;const h=new Date().getHours();if(h>=6&&h<10&&!act)act={kind:'stretch',start:t};}
  if(face!==curMood){curMood=face;act=null;nextAt=t+1.2;}
- if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pickForMood(face,pool);act={kind:k,start:t};}
+ if(!act&&!sleeping&&!held&&t>nextAt){const pool=QUIET.includes(ctx.screen)?['read','sit','tea','emotion-chin']:night()?[...M.acts,'yawn','yawn']:M.acts;const k=pickForMood(face,pool);act={kind:k,start:t};}
  let emotion=null,gesture='rest',progress=0,moving=false,seated=false,dy=0,dtilt=0,dyaw=0;
  if(act){progress=(t-act.start)/DUR[act.kind];if(progress>=1){act=null;nextAt=t+M.every*(.7+Math.random()*.6);progress=0;}
   else{if(act.kind.startsWith('emotion-'))emotion=act.kind.slice(8);const e=pulse(progress);const a=accent(act.kind,progress);dy=a.dy;dtilt=a.dtilt;dyaw=a.dyaw;switch(act.kind){

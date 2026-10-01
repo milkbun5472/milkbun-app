@@ -4,6 +4,14 @@ const beat=(p,a,b,c,d)=>ease((p-a)/(b-a))*(1-ease((p-c)/(d-c)));
 export function emotionPose(face,p){
  const e=beat(p,0,.18,.76,1),late=beat(p,.42,.6,.78,1),q={left:[0,0,0],right:[0,0,0],tilt:0,roll:0,yaw:0,lift:0};
  switch(face){
+ case 'chin': { // 收手托住下巴，歪头听一会儿，再轻轻点头收势
+  const hold=beat(p,0,.24,.72,1),nod=beat(p,.58,.64,.68,.76);
+  q.right=[-.48*hold,0,-.48*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-2.35*hold;q.chinHold=hold;
+  q.roll=-.055*hold;q.tilt=.025*hold+.025*nod;q.yaw=-.045*hold;break;}
+ case 'headpat': { // 先低头靠近手心，停留后抬起来
+  const lean=beat(p,0,.24,.5,.88),look=beat(p,.62,.76,.84,1);
+  q.tilt=.1*lean-.035*look;q.roll=-.035*lean;q.yaw=.07*look;
+  q.left=[-.2*lean,0,-.08*lean];q.right=[-.3*lean,0,.08*lean];break;}
  case 'show': { // 展开手臂，左右转给你看，最后回正亮相
   const l=beat(p,.12,.3,.36,.5),r=beat(p,.42,.62,.7,.84);
   q.left=[-.35*e,0,-.4*e];q.right=[-.35*e,0,.4*e];q.yaw=-.8*l+.8*r;q.tilt=-.035*late;break;}

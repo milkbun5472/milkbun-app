@@ -14,6 +14,7 @@ export const MOODS={
 export const DUR={wave:3.4,stretch:4.8,tea:5,read:7,sit:8,hop:1.8,jolt:1.8,nod:2.6,sigh:4,stomp:2.2,turn:3.6,look:3,shy:3.2,yawn:4.8,wake:2.8,land:1};
 for(const face of Object.keys(MOODS))DUR['emotion-'+face]=['sad','gloomy','relax'].includes(face)?5.6:4.6;
 export const EXTRA_ACTIONS={
+ chin:{duration:7.2,moods:['default','cozy','relax']},
  beckon:{duration:4.8,moods:['default','cozy','sad']},
  dance:{duration:5.2,moods:['happy','amazed','proud']},
  bow:{duration:4.8,moods:['happy','cozy','relax','proud']},
@@ -29,7 +30,7 @@ export function chooseAction(pool,last,random=Math.random){
  const fresh=pool.filter(k=>k!==last),choices=fresh.length?fresh:pool;
  return choices[Math.floor(random()*choices.length)];
 }
-Object.assign(DUR,{'emotion-show':6,'emotion-five-left':4.8,'emotion-five-right':4.8,'emotion-clap-left':1.8,'emotion-clap-right':1.8,'emotion-dodge-left':3.2,'emotion-dodge-right':3.2});
+Object.assign(DUR,{'emotion-headpat':4.8,'emotion-show':6,'emotion-five-left':4.8,'emotion-five-right':4.8,'emotion-clap-left':1.8,'emotion-clap-right':1.8,'emotion-dodge-left':3.2,'emotion-dodge-right':3.2});
 const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
 // 到位后稍作停留，收势比起势慢；两端速度为零。
 export const pulse=(p,inEnd=.25,outStart=.52)=>smooth(p/inEnd)*(1-smooth((p-outStart)/(1-outStart)));

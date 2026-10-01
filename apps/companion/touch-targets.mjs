@@ -2,6 +2,8 @@
 export function targetAt(x,y,targets){
  const hands=targets.filter(t=>t.kind==='hand'&&t.visible!==false).map(t=>({t,d:Math.hypot(x-t.x,y-t.y)/t.radius})).filter(v=>v.d<=1).sort((a,b)=>a.d-b.d);
  if(hands.length)return {...hands[0].t};
+ const head=targets.find(t=>t.kind==='head'&&t.visible!==false&&((x-t.x)/t.rx)**2+((y-t.y)/t.ry)**2<=1);
+ if(head)return {...head};
  const face=targets.find(t=>t.kind==='face'&&t.visible!==false&&((x-t.x)/t.rx)**2+((y-t.y)/t.ry)**2<=1);
  return face?{...face,side:x<face.x?'left':'right'}:null;
 }

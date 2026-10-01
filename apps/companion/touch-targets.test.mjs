@@ -15,9 +15,16 @@ test('high five requires the same offered hand during its held phase',()=>{
  assert.equal(highFiveHit({kind:'emotion-show',start:10},'left',11.5,6),false);
 });
 test('reactive poses settle, and a completed high five starts at the offered hand pose',()=>{
- for(const name of ['show','five-left','five-right','clap-left','clap-right','dodge-left','dodge-right']){
+ for(const name of ['show','five-left','five-right','clap-left','clap-right','dodge-left','dodge-right','headpat','chin']){
   for(const v of Object.values(emotionPose(name,1)).flat())assert.ok(Math.abs(v)<1e-8);
   for(let p=0;p<=1;p+=.01)assert.ok(Object.values(emotionPose(name,p)).flat().every(Number.isFinite));
  }
  for(const side of ['left','right'])assert.deepEqual(emotionPose('clap-'+side,0)[side],emotionPose('five-'+side,.5)[side]);
+});
+
+test('head and face remain separate, hidden heads reject touches, hands keep priority',()=>{
+ const targets=[{kind:'head',x:100,y:30,rx:25,ry:12},{kind:'face',x:100,y:70,rx:25,ry:20},{kind:'hand',side:'right',x:100,y:30,radius:8}];
+ assert.equal(targetAt(100,30,targets).kind,'hand');assert.equal(targetAt(115,30,targets).kind,'head');
+ assert.equal(targetAt(100,70,targets).kind,'face');assert.equal(targetAt(100,48,targets),null);
+ targets[0].visible=false;assert.equal(targetAt(115,30,targets),null);
 });
