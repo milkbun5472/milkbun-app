@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.438";
+const APP_VERSION = "v74.439";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -446,6 +446,8 @@ function App() {
   const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
   const [now, setNow] = useState(new Date());
   const [screen, setScreen] = useState("home");
+  // 他正在翻她的手机（递手机那一路的录像播放）：{ charId, allow, seen, hidden, script|null }
+  const [peekPlay, setPeekPlay] = useState(null);
   const [dreamEnterKey, setDreamEnterKey] = useState(null); // 解梦馆 → 梦境：要推开的是哪一场（v62.99 合龙）
   // 时光胶囊从某一段情侣空间进入：只把那位对象带进胶囊页，绝不展示全库。
   useEffect(() => {
@@ -9346,12 +9348,55 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     return out.join("\n\n");
   };
-  const handPhoneTo = (charId, allow) => {
+  // 递手机：先让TA写一段「怎么翻」的录像（每点开一样东西想一句），在她真的 app 上播完，再回聊天开口。
+  //   跟「看他玩」一个形状（phone-watch.js），只是这回被翻的是她的手机。
+  const PEEK_APPS = { chats: ["chat"], forum: ["forum"], money: ["wallet"], shop: ["shop", "takeout"], music: ["listen"], memo: ["memo"], journal: ["diary"], pics: ["chat"] };
+  const PEEK_APP_ZH = { chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记" };
+  const peekOpen = (app, who) => {
+    if (app === "chat") {
+      const c = (characters || []).find(x => x && (x.name === who || x.remark === who));
+      if (c) openChatById(c.id); else setScreen("messages");
+      return;
+    }
+    if (PEEK_APP_ZH[app]) setScreen(app);
+  };
+  const peekBack = () => {
+    // 照屏幕上那颗返回键点（公共顶栏的返回键挂着 data-watch="back"，「看他玩」也靠它；聊天页是 chatback）；找不到就回主屏
+    const btn = document.querySelector('#root [data-watch="back"]') || document.querySelector('#root [data-wk="chatback"]') || document.querySelector('#root [aria-label="返回"]');
+    if (btn) { try { btn.click(); return; } catch (e) {} }
+    setScreen("home");
+  };
+  const handPhoneTo = async (charId, allow) => {
     const seen = peekPhoneMaterial(charId, allow);
     const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
     const c = (characters || []).find(x => x.id === charId);
-    pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c ? (c.remark || c.name) : "TA") + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
-    replyNow(charId, "", null, { proactive: true, peekPhone: { seen: seen || "（翻了一圈，没什么东西）", hidden } });
+    if (!c) return;
+    pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
+    const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
+    setPeekPlay({ charId, allow, seen, hidden, script: null });
+    let script = [];
+    try {
+      const others = (characters || []).filter(x => x.id !== charId).map(x => x.remark || x.name).slice(0, 12);
+      const d = await runProbe(apiFor(charId), ctxFor(c), {
+        instruction: "【" + userName(profile) + " 把手机递给你看了】你接过来，照你自己的性子翻。下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
+          + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
+          + "\n\n能打开的 app：" + apps.map(a => a + "（" + PEEK_APP_ZH[a] + "）").join("、")
+          + (apps.includes("chat") ? "。打开聊天要写 who＝对方名字，能选的：" + others.join("、") : "")
+          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
+          + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 12~30 步。",
+        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"forum\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
+        maxTokens: 8000
+      });
+      script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps) : [];
+    } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
+    setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
+  };
+  const peekDone = thoughts => {
+    const p = peekPlay;
+    setPeekPlay(null);
+    if (!p) return;
+    openChatById(p.charId);
+    replyNow(p.charId, "", null, { proactive: true, peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [] } });
   };
   const _replyTurn = async (charId, extraText, mode, opts) => {
     opts = opts || {};
@@ -9562,6 +9607,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const peekHint = opts.peekPhone ? ("\n\n【此刻·" + uName + " 把手机递给你看了】"
         + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
         + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。察不察觉、在不在意，看你这个人。" : "")
+        + (opts.peekPhone.thoughts && opts.peekPhone.thoughts.length ? "\n\n你刚才翻的时候心里闪过这几句（没说出口）：" + opts.peekPhone.thoughts.map(x => "「" + x + "」").join("") + "——现在把手机还给她，开口跟这几句对得上。" : "")
         + "\n\n你按自己的性子挑着翻，不必样样都提；看到在意的就说，1~4 条消息。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
@@ -26442,6 +26488,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setScreen("memlib");
     },
     onExtractMem: () => extractMemForChar(activeChar.id)
+  }), peekPlay && window.PeekPhone && h(window.PeekPhone.PeekPlayer, {
+    charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",
+    avatarChar: (characters || []).find(x => x.id === peekPlay.charId),
+    script: peekPlay.script,
+    labelOf: (app, who) => app === "chat" && who ? "和" + who + "的聊天" : (PEEK_APP_ZH[app] || app),
+    onOpen: peekOpen, onBack: peekBack, onDone: peekDone
   }), modelFloatOn && h(ModelQuickSwitch, {
     profiles: apiProfiles,
     activeId: activeId,
