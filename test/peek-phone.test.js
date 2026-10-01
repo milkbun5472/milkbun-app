@@ -44,10 +44,21 @@ test("录像脚本收拾：她藏起来的 app 打不开，心声按点开次数
 });
 
 test("在她真的 app 上播：照屏幕上的字找、照返回键退，翻完回聊天再开口", () => {
-  assert.match(p, /function findByText\(text\)/);
+  assert.match(p, /function findByText\(text, minTop\)/);
   assert.match(a, /document\.querySelector\('#root \[data-watch="back"\]'\)/);
   assert.match(a, /peekPlay && window\.PeekPhone && h\(window\.PeekPhone\.PeekPlayer, \{/);
   assert.match(a, /thoughts: thoughts \|\| \[\]/);
   assert.match(a, /你刚才翻的时候心里闪过这几句/);
   assert.match(fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8"), /<script src="js\/peek-phone\.js\?v=[\d.]+"><\/script>\n<script src="js\/app\.js/);
+});
+
+test("先回主屏一页页滑过去找 app、文件夹里的先点开文件夹，找不到或没点开就直接打开兜底", () => {
+  assert.match(p, /const HOME_SPOT = \{/);
+  assert.match(p, /function folderOf\(key\)/);
+  assert.match(p, /x_homeFolders/);
+  assert.match(p, /window\.__homeNav\.go\(window\.__homeNav\.page\(\) \+ dir\)/);
+  assert.match(p, /if \(document\.querySelector\("#root \[data-appkey\]"\)\) return false;/);
+  assert.match(p, /if \(!ok\) \{ props\.onOpen && props\.onOpen\(s\.app, s\.who\);/);
+  assert.match(c, /window\.__homeNav = \{ go: goPage, page: function \(\) \{ return page; \} \};/);
+  assert.match(a, /goHome: \(\) => setScreen\("home"\),/);
 });

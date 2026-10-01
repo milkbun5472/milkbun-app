@@ -5362,6 +5362,12 @@ function Home({
   const [extraPage, setExtraPage] = useState(false);
   const extraPageRef = useRef(false); extraPageRef.current = extraPage;
   const goPage = function (np) { setPage(np); try { localStorage.setItem("x_homePage", String(np)); } catch (e) {} };
+  // 「他翻你的手机」那段录像要在主屏上真的一页页滑过去找 app（peek-phone.js）：只借翻页这一个动作，
+  //   ⚠️不碰主屏任何布局（施工规则/home-screen-layout.md）。
+  useEffect(function () {
+    window.__homeNav = { go: goPage, page: function () { return page; } };
+    return function () { if (window.__homeNav && window.__homeNav.go === goPage) delete window.__homeNav; };
+  });
   // 注册表：所有可摆放的项（组件 w_ / app 图标 / 文件夹），供布局按 key 查
   // ⚠️日记和备忘录【不进 REG】：日记的正门在底部 dock 上，备忘录有 w_memo 组件，
   // 主屏再放一个图标是重复入口（她 2026-08-30 让删的）。不在 REG 里 = valid() 会把存档里

@@ -47,8 +47,19 @@
     return out.filter(s => s.do !== "think" || (++thoughts <= cap));
   }
 
+  // 主屏上每个 app 在哪儿（她 2026-10-01：「能不能做在主屏幕滑动翻找这些 app 的动画」）。
+  //   dock 上那几个按字找（只看屏幕下面那一截）；组件、图标按 data-appkey 找；
+  //   在文件夹里的，查 x_homeFolders 是哪个文件夹，先点开文件夹再点它。钱包不在主屏上，直接打开。
+  const HOME_SPOT = { chat: { dock: "信息" }, forum: { dock: "论坛" }, diary: { dock: "日记" },
+    memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop" }, takeout: { key: "takeout" } };
+  function folderOf(key) {
+    let f = {}; try { f = JSON.parse(localStorage.getItem("x_homeFolders") || "{}") || {}; } catch (e) {}
+    const ids = Object.keys(f);
+    for (let i = 0; i < ids.length; i++) if ((f[ids[i]].keys || []).indexOf(key) >= 0) return ids[i];
+    return null;
+  }
   // 当前屏幕上写着这几个字、而且看得见的那一块（取最小的那块，免得点到整页外壳）
-  function findByText(text) {
+  function findByText(text, minTop) {
     const vw = window.innerWidth, vh = window.innerHeight;
     let best = null, bestArea = Infinity;
     const all = document.querySelectorAll("#root button, #root a, #root [role=button], #root span, #root div");
@@ -59,6 +70,7 @@
       if (!tx || tx.indexOf(text) < 0 || tx.length > text.length + 60) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+      if (minTop && r.top < minTop) continue;
       const area = r.width * r.height;
       if (area < bestArea) { best = el; bestArea = area; }
     }
@@ -95,7 +107,7 @@
     });
   }
 
-  // props: charName, avatarChar, script(null＝还在想), onOpen(app, who)→bool, onBack(), onDone(thoughts)
+  // props: charName, avatarChar, script(null＝还在想), goHome(), onOpen(app, who)（主屏找不到时直接打开）, onBack(), onDone(thoughts)
   function PeekPlayer(props) {
     const h = React.createElement, t = (typeof useTheme === "function" ? useTheme() : {}) || {};
     const [dot, setDot] = React.useState({ x: window.innerWidth / 2, y: window.innerHeight * 0.62, down: false });
@@ -104,6 +116,58 @@
     const stopRef = React.useRef(false);
     const doneRef = React.useRef(false);
     const logRef = React.useRef([]);
+    const tapEl = async el => {
+      const r = el.getBoundingClientRect();
+      setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false });
+      await sleep(650);
+      setDot(d => ({ ...d, down: true })); await sleep(160);
+      try { el.click(); } catch (e) {}
+      setDot(d => ({ ...d, down: false }));
+    };
+    const swipe = async dir => {
+      const y = window.innerHeight * 0.45, a = window.innerWidth * 0.78, b = window.innerWidth * 0.22;
+      setDot({ x: dir > 0 ? a : b, y, down: true }); await sleep(260);
+      setDot({ x: dir > 0 ? b : a, y, down: true });
+      window.__homeNav.go(window.__homeNav.page() + dir);
+      await sleep(520); setDot(d => ({ ...d, down: false })); await sleep(250);
+    };
+    // 回主屏 → 一页页滑过去找 → 点开（文件夹里的先点开文件夹）。哪一步找不到就回 false，外面直接打开兜底
+    const openViaHome = async (app, who) => {
+      const spot = HOME_SPOT[app];
+      if (!spot || !props.goHome) return false;
+      setCaption("回到主屏，找" + (props.labelOf ? props.labelOf(app, "") : app));
+      props.goHome(); await sleep(900);
+      let el = null, inner = null;
+      if (spot.dock) el = findByText(spot.dock, window.innerHeight * 0.72);
+      else {
+        el = document.querySelector('#root [data-appkey="' + spot.key + '"]');
+        if (!el) { const fid = folderOf(spot.key); if (fid) { el = document.querySelector('#root [data-appkey="' + fid + '"]'); inner = spot.key; } }
+      }
+      if (!el) return false;
+      let guard = 0;
+      while (window.__homeNav && guard++ < 6) {
+        const r = el.getBoundingClientRect();
+        if (r.left >= 0 && r.right <= window.innerWidth) break;
+        await swipe(r.left < 0 ? -1 : 1);
+      }
+      // 组件（w_ 开头）外壳本身不接点击，点它里面那颗按钮
+      if (/^w_/.test(spot.key || "")) {
+        const btn = el.querySelector("button, [role=button]");
+        if (btn) el = btn;
+      }
+      await tapEl(el);
+      if (inner) {
+        await sleep(750);
+        const it = document.querySelector('#root [data-appkey="' + inner + '"]');
+        if (!it) return false;
+        await tapEl(it);
+      }
+      await sleep(950);
+      // 点完还停在主屏＝没点开（主屏上才有 data-appkey）：交给外面直接打开
+      if (document.querySelector("#root [data-appkey]")) return false;
+      if (app === "chat" && who) { const n = findByText(who); if (!n) return false; await tapEl(n); await sleep(900); }
+      return true;
+    };
     const finish = () => { if (doneRef.current) return; doneRef.current = true; stopRef.current = true; props.onDone && props.onDone(logRef.current.slice()); };
 
     React.useEffect(() => {
@@ -116,9 +180,11 @@
           if (!alive || stopRef.current) return;
           const s = steps[i];
           if (s.do === "open") {
+            let ok = false;
+            try { ok = await openViaHome(s.app, s.who); } catch (e) { ok = false; }
+            if (!alive || stopRef.current) return;
             setCaption("在翻：" + (props.labelOf ? props.labelOf(s.app, s.who) : s.app));
-            props.onOpen && props.onOpen(s.app, s.who);
-            await sleep(1100);
+            if (!ok) { props.onOpen && props.onOpen(s.app, s.who); await sleep(1100); }
           } else if (s.do === "tap") {
             const el = findByText(s.text);
             if (!el) continue;                                  // 找不到就不硬点
