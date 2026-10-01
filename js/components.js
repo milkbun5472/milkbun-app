@@ -13067,6 +13067,8 @@ function EmoteBubble({ url, keyword, max }) {
 const MSG_MENU = {
   copy: ["复制", "copy"], fav: ["收藏", "bookmark"], quote: ["引用", "quote"],
   edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
+  // 只重拍这张图（她 2026-10-01）：TA 那一轮的话留着，只把这张照片重新画一遍
+  reshoot: ["只重拍这张图", "picture"],
   multi: ["多选", "checklist"], recall: ["撤回", "undo"]
 };
 // 一组一个数组；空组会被丢掉，所以不用担心某一档一条都不剩时留下一道空隔断
@@ -13085,6 +13087,8 @@ function menuItemsForKind(m, canSpeak) {
   if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall"]];
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
   if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall"]];
+  // TA 发的照片：「只重拍这张图」只换像素；「重Roll」照旧把这一轮整个重来
+  if (k === "selfie" && m.role === "assistant" && m.sid && !m.senderId) return [["fav"], m.pending ? ["reroll"] : ["reshoot", "reroll"], ["multi", "recall"]];
   return [[  "fav"], listen, ["multi", "recall"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.412";
+const APP_VERSION = "v74.413";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10949,66 +10949,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         await new Promise(r => setTimeout(r, 420));
         pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
         delivered = true;
-        (async () => {
-          try {
-            const st = states[charId] || {};
-            const me = photoMe(uName);
-            const freshPlace = freshLiveStateValue(st, "place");
-            const freshCond = freshLiveStateValue(st, "condition");
-            // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
-            // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
-            const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
-              .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
-            // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
-            // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
-            // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
-            // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
-            // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
-            const isView = photoKind === "view", isPart = photoKind === "part";
-            const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
-            const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
-            const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
-            if (contBlobKey) refs.push(contBlobKey);
-            const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-            const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
-            // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
-            const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
-            // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
-            // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
-            // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
-            // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
-            // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
-            const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
-            const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
-            // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
-            if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
-            if (out.blob) {
-              const key = "img_" + charId + "_" + sid;
-              await idbImgPut(key, out.blob);
-              // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
-              const back = await idbImgGet(key).catch(() => null);
-              if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-              pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
-            } else if (out.url) {
-              // 跨域取不到 blob，直接用图片 URL 显示
-              pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
-            } else { throw new Error("没拿到图"); }
-          } catch (e) {
-            pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true } : m));
-            const em = String(e.message || "");
-            // 配额/模型类报错 → 指路：多半是图像模型名不对或该模型没配额
-            // ⚠️顺序要紧：审核拒绝的原话里常带「misclassified by the upstream model」，
-            // 里面那个 model 会被下面的配额正则命中，于是审核问题被报成「没配额或名字不对」，
-            // 她照着提示去改模型名纯属白折腾（她 2026-08-22 第三张截图）。所以先判审核。
-            const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
-            const hint = isSafety
-              ? "上游审核拒了这一张（试过换措辞、也试过只拍人像都没过）。多半是这一拍的场景描述里有它敏感的词——换个平静点的时刻再拍，或者直接说「拍张脸就行」。原始报错：" + em
-              : /quota|available|not\s*found|额度|配额|无可用|不存在|无权限|permission|model_not|invalid_model/i.test(em)
-              ? "图像模型没配额或名字不对——去 设置·图像API 点「拉取模型」，换一个你中转站真有货的图像模型（gpt-image-1 很多便宜中转没有）。原始报错：" + em
-              : (em || "重试");
-            toast("自拍没生成：" + hint);
-          }
-        })();
+        drawChatSelfie({ chatKey, charId, sid, photoKind, photoScene });
       }
       // 配件·触发硬件（安全铁律：再核一遍 toyOn——授权门在生成时已挡掉所有主动/后台路径；这里防御性再查一次）
       if (toyOn && parsed.toy && typeof parsed.toy === "object" && typeof toyPlay === "function") {
@@ -11373,12 +11314,87 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("已收藏");
   };
   const delFavorite = id => setFavorites(p => { const n = p.filter(f => f.id !== id); saveJSON("x_favorites", n); return n; });
+  // TA 发的一张照片：真的去画（聊天那一轮落一张「拍照中」之后调它；长按「只重拍这张图」也走它）。
+  //   她 2026-10-01：「角色发照片那轮，长按图片只重 roll 图片、消息留着」——所以拆成单独一口，
+  //   一轮里的话一个字不动，只换这一张的像素。keySuffix：重拍时换一个图库键，别读到缓存里的旧图。
+  const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix }) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+    const uName = userName(profileFor(charId));
+    const profile = profileFor(charId);
+    try {
+      const st = (statesRef.current || {})[charId] || {};
+      const me = photoMe(uName);
+      const freshPlace = freshLiveStateValue(st, "place");
+      const freshCond = freshLiveStateValue(st, "condition");
+      // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
+      // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
+      const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
+        .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
+      // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
+      // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
+      // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
+      // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
+      // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
+      const isView = photoKind === "view", isPart = photoKind === "part";
+      const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
+      const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
+      const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
+      if (contBlobKey) refs.push(contBlobKey);
+      const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
+      const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
+      // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
+      const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
+      // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
+      // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
+      // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
+      // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
+      // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
+      const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+      // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
+      if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
+      if (out.blob) {
+        const key = "img_" + charId + "_" + sid + (keySuffix || "");
+        await idbImgPut(key, out.blob);
+        // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
+        const back = await idbImgGet(key).catch(() => null);
+        if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
+        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
+      } else if (out.url) {
+        // 跨域取不到 blob，直接用图片 URL 显示
+        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
+      } else { throw new Error("没拿到图"); }
+    } catch (e) {
+      pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true } : m));
+      const em = String(e.message || "");
+      // 配额/模型类报错 → 指路：多半是图像模型名不对或该模型没配额
+      // ⚠️顺序要紧：审核拒绝的原话里常带「misclassified by the upstream model」，
+      // 里面那个 model 会被下面的配额正则命中，于是审核问题被报成「没配额或名字不对」，
+      // 她照着提示去改模型名纯属白折腾（她 2026-08-22 第三张截图）。所以先判审核。
+      const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
+      const hint = isSafety
+        ? "上游审核拒了这一张（试过换措辞、也试过只拍人像都没过）。多半是这一拍的场景描述里有它敏感的词——换个平静点的时刻再拍，或者直接说「拍张脸就行」。原始报错：" + em
+        : /quota|available|not\s*found|额度|配额|无可用|不存在|无权限|permission|model_not|invalid_model/i.test(em)
+        ? "图像模型没配额或名字不对——去 设置·图像API 点「拉取模型」，换一个你中转站真有货的图像模型（gpt-image-1 很多便宜中转没有）。原始报错：" + em
+        : (em || "重试");
+      toast("自拍没生成：" + hint);
+    }
+  };
+  // 长按 TA 的照片 →「只重拍这张图」：话不动，只把这一张重新画一遍
+  const reshootChatSelfie = (chatKey, idx, charId) => {
+    const m = (chatsRef.current[chatKey] || [])[idx];
+    if (!m || m.kind !== "selfie" || m.role !== "assistant" || m.pending || !m.sid) return;
+    pChat(chatKey, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+    drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", keySuffix: "_r" + Date.now() });
+  };
   const handleMsgAction = (act, idx, sourceKey) => {
     const threadKey = sourceKey || activeChar.id;
     const isSideRoom = !!(window.ChatRooms && window.ChatRooms.isSideKey(threadKey));
     const msgs = chats[threadKey] || [];
     const m = msgs[idx];
     if (act === "fav") { addFavorite(activeChar.id, m); return; }
+    if (act === "reshoot") { reshootChatSelfie(threadKey, idx, activeChar.id); return; }
     if (act === "copy") {
       copyText(m.content).then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
