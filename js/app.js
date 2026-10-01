@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.400";
+const APP_VERSION = "v74.402";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13277,8 +13277,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pushStateHist(charId, ns);
     } catch (e) {}
   };
-  const queueUnblockSpeech = (chatKey, says, delay, charId) => {
-    says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), delay + i * 650));
+  // blocked：这几句是【被拉黑时】发的，要挂上那颗红色感叹号。
+  // ⚠️原来一律不挂——设置页写着「气泡旁带红色感叹号」，可TA那边一颗都没出现过
+  //   （她 2026-10-01：「拉黑的时候他发信息能不能加个红色感叹号」）。
+  //   和好之后那句「谢谢你愿意听我说」也走这里，那句不挂。
+  const queueUnblockSpeech = (chatKey, says, delay, charId, blocked) => {
+    says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false, ...(blocked ? { blocked: true } : {}) }]), delay + i * 650));
     if (charId && String(chatKey) === String(charId)) {
       setTimeout(() => { try { maybeAutoExtract(charId); } catch (e) {} }, delay + says.length * 650 + 1200);
     }
@@ -13292,7 +13296,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-      queueUnblockSpeech(chatKey, says, 250, charId);
+      queueUnblockSpeech(chatKey, says, 250, charId, true);
       applyBlockTurnState(charId, chatKey, d);
       if (d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }

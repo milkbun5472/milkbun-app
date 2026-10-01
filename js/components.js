@@ -9412,8 +9412,11 @@ function ChatThread({
     isU && dsp.myAvatar && h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: 40, radius: 10 })), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
       onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
       title: (isU && bk.theyBlocked) ? "点这里写一句话，求 TA 解除拉黑" : "拉黑中",
+      "data-wk": "blockdot",
+      "data-me": isU ? "1" : "0",
       className: "shrink-0 self-center active:opacity-60",
-      style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
+      // 微信那颗红（她 2026-10-01）。原来是 t.accent——换个蓝主题，感叹号就成了蓝的，认不出是「发不出去」。
+      style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: "#FA5151", color: "#fff", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
     }, "!")));
   }), sending && /*#__PURE__*/React.createElement("div", {
     role: "status",

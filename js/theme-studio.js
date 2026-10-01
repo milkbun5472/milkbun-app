@@ -364,6 +364,8 @@
         ["statecard", "点头像那张心声卡整张"], ["statehead", "心声卡抬头（头像·名字·此刻心情）"],
         ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statevoice", "心声卡「心里想的」那一块"],
         ["stateaff", "心声卡底下那颗好感的心"],
+        // 拉黑时气泡旁那颗红色感叹号（她 2026-10-01：「跟微信一样，然后加一个美化挂点」）
+        ["blockdot", "拉黑中气泡旁那颗红色感叹号（data-me=\"1\" 是她那边的）"],
         // 线下（单人、群都走这一套，她 2026-09-30：「整体美化都要」）
         ["offline", "线下整页（最外那层）"], ["offbody", "线下正文滚动区"], ["offcomposer", "线下底部输入栏"],
         ["offmsg", "线下一段（data-me=\"1\" 是她写的）"], ["offcard", "线下那张卡片本体"], ["offhead", "卡片顶上那行（头像·名字·时间）"],
@@ -738,7 +740,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.400", changed: "", none: "只改语音识别，样式规矩没变" };
+  const BRIEF_STAMP = { v: "v74.402", changed: "聊天页新挂点 blockdot：拉黑中气泡旁那颗红色感叹号（部件表自动带进 aiBrief）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

@@ -12,10 +12,10 @@ const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("拉黑期间那几句说完了，要叫一声抽取", () => {
-  assert.match(app, /const queueUnblockSpeech = \(chatKey, says, delay, charId\) => \{/);
+  assert.match(app, /const queueUnblockSpeech = \(chatKey, says, delay, charId[,)]/);
   assert.match(app, /setTimeout\(\(\) => \{ try \{ maybeAutoExtract\(charId\); \} catch \(e\) \{\} \}, delay \+ says\.length \* 650 \+ 1200\);/);
   // 三条路都从这一个口出去（她碎碎念那一轮、她答应和好、他答应解除）
-  assert.equal((app.match(/queueUnblockSpeech\(chatKey, [^\n]*charId\);/g) || []).length, 3, "有一条路没带上 charId");
+  assert.equal((app.match(/queueUnblockSpeech\(chatKey, [^\n]*charId(?:, true)?\);/g) || []).length, 3, "有一条路没带上 charId");
 });
 
 test("不另写一套抽取，也不在侧房乱叫", () => {
