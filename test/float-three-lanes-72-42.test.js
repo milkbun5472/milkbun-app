@@ -48,3 +48,12 @@ test("选中态看这一档自己存的那个 id，不看算出来的结果", ()
   assert.match(comp, /color: \(p \? lane\.picked === p\.id : !lane\.picked\) \? t\.bg2 : t\.ink/, "选中态算错了");
   assert.ok(!/=== \(kind === "online"/.test(comp), "旧的两档写法还留着");
 });
+
+test("生图站有两个以上时，悬浮旋钮多一档「生图」，写回图像 API 页那同一份存档", () => {
+  assert.match(comp, /const \[imgStore, setImgStore\] = useState\(null\);/);
+  assert.ok(comp.indexOf("useState(null);") < comp.indexOf("if (!(profiles || []).length) return null;"), "hook 必须在提前 return 之前");
+  assert.match(comp, /imgList\.length > 1 \? \[\{ key: "img", zh: "生图"/);
+  assert.match(comp, /saveImgApiProfiles\(Object\.assign\(\{\}, imgStore, \{ activeId: id \}\)\)/);
+  assert.match(comp, /ALL_LANES\.map\(\(lane, li\)/);
+  assert.match(comp, /lane\.list \|\| profiles/);
+});
