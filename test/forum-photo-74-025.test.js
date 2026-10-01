@@ -33,7 +33,10 @@ const bf = app.indexOf("const buildForumFloor = ("); assert.ok(bf > 0);
 assert.match(app.slice(bf, bf + 2000), /photo: forumPhotoOf\(x\)/);
 const pc = app.indexOf("const postCharToForum = ("); assert.ok(pc > 0);
 assert.match(app.slice(pc, pc + 800), /photo: forumPhotoOf\(content\)/);
-assert.match(app, /identity: rolledId, photo: d\.photo \}/);
+// ⚠️原来把 photo 那一格也钉进了锚，v74.435 在它后面加了 photoWho 就断——
+//   参数组合不该当锚（施工规则/anchor-on-code）。这条守的是「发帖带上了配图」。
+assert.match(app, /identity: rolledId/);
+assert.match(app, /photo: d\.photo/);
 // 不强制：那一句里没有「必须/每条都要」
 const line = (app.match(/const FORUM_PHOTO_LINE = "([^"]*)"/) || [])[1] || "";
 assert.ok(line && !/必须|每条都|至少/.test(line), "配图不许写成硬性要求");

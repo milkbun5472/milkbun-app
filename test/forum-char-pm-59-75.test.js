@@ -63,7 +63,11 @@ test("小号和匿名的私信一个字都不许沾", () => {
 test("入口只长在角色的论坛主页上，点完就跳过去", () => {
   const pv = cut(sc, "function profileView(isMe)", "function altProfileView()");
   assert.match(pv, /onStartCharPM \? h\("button"/, "角色主页上没有私信入口");
-  assert.match(pv, /const tid = onStartCharPM\(c\); if \(tid\) \{ setProfileId\(null\); setNav\("pm"\); setPmId\(tid\); \}/, "开完不跳过去");
+  // ⚠️原来钉的是那一【整行】，v74.436 在后面加了 setFromPost(null)（跳私信不是「退出来」，
+  //   记着的那条帖要扔掉）就断了——整行不该当锚（施工规则/anchor-on-code）。
+  //   这条守的是「开完真跳过去」，拆成三件事各钉各的。
+  assert.match(pv, /const tid = onStartCharPM\(c\); if \(tid\) \{/, "没开私信");
+  assert.match(pv, /setProfileId\(null\); setNav\("pm"\); setPmId\(tid\);/, "开完不跳过去");
   // 我自己的主页不该有：isMe 那一支还是「编辑资料」，私信按钮在 !isMe 那一支里
   assert.ok(pv.indexOf('"编辑资料"') > 0, "我自己的主页那一支被改坏了");
   assert.ok(pv.indexOf('"私信 TA"') > pv.indexOf('"编辑资料"'), "私信按钮跑到我自己那一支去了");

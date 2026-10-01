@@ -64,7 +64,9 @@ test("能主动私信一个网友，他在私信里得还是吧里那个人", ()
   assert.match(np, /const pmGround = authored\.slice\(0, 3\)/, "主页没把他发过的帖整理出来");
   assert.match(np, /traces\.slice\(0, 5\)/, "主页没把他在别人楼里说的话整理出来");
   assert.match(np, /gen && gen\.forumPM === "start" \? "去敲门…" : "私信 TA"/, "网友主页上没有「私信 TA」");
-  assert.match(np, /\.then\(tid => \{ if \(tid\) \{ setNpcProfile\(null\); setNav\("pm"\); setPmId\(tid\); \} \}\)/, "开完不跳过去");
+  // ⚠️同上：整行当锚，v74.436 加了 setFromPost(null) 就断。
+  assert.match(np, /\.then\(tid => \{ if \(tid\) \{/, "没开私信");
+  assert.match(np, /setNpcProfile\(null\); setNav\("pm"\); setPmId\(tid\);/, "开完不跳过去");
 });
 
 // 审计发现：同一条帖转进群里，作者本人一点都认不出是自己发的

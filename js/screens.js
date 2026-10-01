@@ -2189,7 +2189,17 @@ function forumPhotoOf(x) {
   if (!p) return null;
   const desc = String((typeof p === "string" ? p : p.desc) || "").trim().slice(0, 300);
   const imageRef = typeof p === "object" && p.imageRef ? p.imageRef : "";
-  return desc || imageRef ? (imageRef ? { imageRef: imageRef, desc: desc } : { desc: desc }) : null;
+  // who：发帖的人自己说的「画面里有没有人」（none/part/self）。没有就是旧数据，照旧去猜。
+  // ⚠️两种形状都要认（施工规则/stub-from-the-writer：照【写进来的那一头】看字段名）：
+  //   · 模型刚吐出来的那一坨：{ photo: "描述", photoWho: "none" } —— photoWho 是【兄弟字段】；
+  //   · 已经落盘的帖子/楼层：  { photo: { desc, imageRef, who } }。
+  //   只认其中一种的话，这条链在落盘那一步就断了，而且不报任何错。
+  const raw = (typeof p === "object" && p.who) || (x && x.photoWho) || "";
+  const who = ["none", "part", "self"].includes(String(raw).toLowerCase()) ? String(raw).toLowerCase() : "";
+  if (!desc && !imageRef) return null;
+  const out = imageRef ? { imageRef: imageRef, desc: desc } : { desc: desc };
+  if (who) out.who = who;
+  return out;
 }
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);
@@ -2625,9 +2635,18 @@ function Forum({
   const altFollowKey = a => "alt:" + String(a && a.authorId || "");
   const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : (isAlt(a) ? h(AltAvatar, { seed: a.authorHandle || a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size }))));
   const nameOf = a => a.anon ? a.authorName : (a.authorType === "character" && charOf(a.authorId) ? charOf(a.authorId).name : (a.authorType === "me" ? meChar.name : a.authorName));
-  const goProfile = id => { setProfileId(id); setOpen(null); };
-  const goAltProfile = a => { if (!isAlt(a) || !a.authorId) return; setAltProfile({ authorId: a.authorId, name: a.authorName || "小号", handle: a.authorHandle || a.authorName || "side" }); setOpen(null); };
-  const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" }); setOpen(null); };
+  // 从一条帖里点进谁的主页，退出来要回到【那条帖】，不是回贴吧主页
+  // （她 2026-10-01：「从帖子点进主页再退出来直接回到贴吧主页而不是在看的那条帖」）。
+  // ⚠️不能图省事把 open 留着：下面那串分派是 `if (open)` 打头，open 还在就永远渲染帖子、
+  //   主页根本进不去。所以是【进去时收起来、退出时放回去】，不是不清。
+  // ⚠️三种主页（角色／小号／网友）原来各写各的 setOpen(null)，是同一个形状——
+  //   收成这一对（施工规则/one-public-mechanism），以后再添一种主页也不会漏。
+  const [fromPost, setFromPost] = useState(null);
+  const enterSub = go => { setFromPost(open || null); setOpen(null); go(); };
+  const leaveSub = go => { go(); if (fromPost) { setOpen(fromPost); setFromPost(null); } };
+  const goProfile = id => enterSub(() => setProfileId(id));
+  const goAltProfile = a => { if (!isAlt(a) || !a.authorId) return; enterSub(() => setAltProfile({ authorId: a.authorId, name: a.authorName || "小号", handle: a.authorHandle || a.authorName || "side" })); };
+  const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; enterSub(() => setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })); };
   const toggleNpcFollow = id => setNpcFollows(prev => {
     const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
     try { localStorage.setItem("x_forumNpcFollows", JSON.stringify(next)); } catch (e) {}
@@ -2879,7 +2898,7 @@ function Forum({
               // ⚠️小号主页（altProfileView）上故意【没有】这个按钮：小号私信一旦喂回聊天，
               //   「TA知道两边是同一个人、她不知道」这个玩法当场塌掉，TA迟早说漏。
               onStartCharPM ? h("button", {
-                onClick: () => { const tid = onStartCharPM(c); if (tid) { setProfileId(null); setNav("pm"); setPmId(tid); } },
+                onClick: () => { const tid = onStartCharPM(c); if (tid) { setProfileId(null); setNav("pm"); setPmId(tid);  setFromPost(null); } },
                 className: "px-3.5 py-1.5 active:opacity-70",
                 style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent }
               }, "私信 TA") : null)),
@@ -2973,7 +2992,7 @@ function Forum({
               onClick: () => {
                 if (!onStartPM) return;
                 Promise.resolve(onStartPM({ id, name: npcProfile.name, handle: npcProfile.handle }, pmGround))
-                  .then(tid => { if (tid) { setNpcProfile(null); setNav("pm"); setPmId(tid); } });
+                  .then(tid => { if (tid) { setNpcProfile(null); setNav("pm"); setPmId(tid);  setFromPost(null); } });
               },
               disabled: gen && (gen.forumPM === "start"),
               className: "px-3.5 py-1.5 active:opacity-70 disabled:opacity-40",
@@ -3109,9 +3128,9 @@ function Forum({
   const inSub = open || altProfile || npcProfile || (profileId && profileId !== "me") || pmId;
   let title = "论坛", bodyEl, backFn = null, rightEl = null;
   if (open) { title = "帖子"; bodyEl = detail(); backFn = closePost; }
-  else if (altProfile) { title = "小号主页"; bodyEl = altProfileView(); backFn = () => setAltProfile(null); }
-  else if (npcProfile) { title = "网友主页"; bodyEl = npcProfileView(); backFn = () => setNpcProfile(null); }
-  else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => setProfileId(null); }
+  else if (altProfile) { title = "小号主页"; bodyEl = altProfileView(); backFn = () => leaveSub(() => setAltProfile(null)); }
+  else if (npcProfile) { title = "网友主页"; bodyEl = npcProfileView(); backFn = () => leaveSub(() => setNpcProfile(null)); }
+  else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => leaveSub(() => setProfileId(null)); }
   else if (pmId) { title = ((pms || []).find(x => x.id === pmId) || {}).npcName || "私信"; bodyEl = pmThread(); backFn = () => setPmId(null); }
   else if (nav === "search") { title = "搜索"; bodyEl = searchView(); rightEl = h("button", { onClick: () => onGenSearch(searchQ.trim()), className: "active:opacity-50" }, h(IRefresh, { size: 19, color: t.ink })); }
   else if (nav === "notice") { title = "回复我的"; bodyEl = noticeList(); }
@@ -3172,7 +3191,7 @@ function Forum({
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
     (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
-      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
+      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
         h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
         nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),

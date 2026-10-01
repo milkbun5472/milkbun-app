@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.444";
+const APP_VERSION = "v74.446";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14565,7 +14565,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
       // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
-      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo }, manual ? "手动发帖" : "auto");
+      const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo, photoWho: d.photoWho }, manual ? "手动发帖" : "auto");
       if (!manual) { notifyApp("forum"); toast("论坛有了新帖子"); if (window.Notify) window.Notify.push({ title: "论坛有了新帖子", body: String(d.title), tag: "forum-" + char.id, charId: char.id }); }
       return rec;
     } catch (e) { if (manual) throw e; return null; }
@@ -17954,7 +17954,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!ph || ph.imageRef || !ph.desc) return false;
     const char = characters.find(c => c.id === x.authorId && !x.anon);
     try {
-      const ref = await drawFromDesc(char || null, ph.desc);
+      const ref = await drawFromDesc(char || null, ph.desc, ph.who);
       const photo = { imageRef: ref, desc: ph.desc };
       if (post) setForumPosts(prev => { const n = prev.map(p => p.id === itemId ? { ...p, photo } : p); saveJSON("x_forumPosts", n); return n; });
       else setForumComments(prev => { const n = { ...prev, [floorOf]: (prev[floorOf] || []).map(f => f.id === itemId ? { ...f, photo } : f) }; saveForumComments(n); return n; });
@@ -18645,8 +18645,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   病根是原来那句「大多数楼 replies 留空」。首刷、续刷两处共用这一句（one-public-mechanism）。
   // 配图（她 2026-09-24：「角色也可以（不要强制）」）：photo 是可选的一栏，写的是【图里拍到了什么】，界面画成一张相纸。
   //   发帖、刷吧、盖楼共用这一句（one-public-mechanism）。
-  const FORUM_PHOTO_LINE = "帖子或楼层要是本来就会配一张图（晒出来的东西、现场、截图之类），可以填 photo＝这张图里拍到了什么，照着一张真照片的画面写；不配就不填这一栏，正文里也别写「[图片]」这类字。";
-  const FORUM_PHOTO_FIELD = ",\"photo\":\"可选：配图里拍到了什么\"";
+  // ⚠️photoWho 这一格是必须的（她 2026-10-01 拿一张贴吧配图来问：描述写着
+  //   「微信个人主页截图，头像是一只小黑狗」，画出来却是一张人脸）。
+  //   v74.426 给朋友圈治过同一个病，当时的注释写着「发的人说了就照他说的；
+  //   没说（旧数据、**贴吧**）才退回去猜」——贴吧就留在「猜」那条路上了。
+  //   那个猜法（noFaceKindFor）是查词表：描述里没有「风景／无人」就不算空镜、
+  //   没有「只拍手／背影」就不算局部，剩下的一律当成本人自拍【锁着脸画】。
+  //   「微信个人主页截图」这种两头都不沾的，就被兜底成了自拍。
+  //   治法和朋友圈同一套：别猜，让发帖的人自己说。
+  const FORUM_PHOTO_LINE = "帖子或楼层要是本来就会配一张图（晒出来的东西、现场、截图之类），可以填 photo＝这张图里拍到了什么，照着一张真照片的画面写；不配就不填这一栏，正文里也别写「[图片]」这类字。填了 photo 就同时填 photoWho：none＝画面里没有人（东西、风景、截图、宠物都算），part＝只有手/背影这种局部、不露脸，self＝是你本人出镜的照片。";
+  const FORUM_PHOTO_FIELD = ",\"photo\":\"可选：配图里拍到了什么\",\"photoWho\":\"填了 photo 才填：none｜part｜self\"";
   const FORUM_THREAD_LINE = "楼中楼（replies）是贴吧的精髓：【大约一半的楼】底下要有人接——2~5 条，来自【不同的人】（多是没单独开楼的路人和熟面孔），"
     + "有人附和、有人抬杠、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，吵得起来的楼可以更长；一句话就说完的楼就让它空着。楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。"
     // 回谁得写出来，界面才画得出「回复 @某某」（她 2026-09-24：层主回了楼里某人，看不出是在回谁）
@@ -20015,19 +20023,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
       const looksOwner = s => { s = String(s || "").trim(); return s === "层主" || (ownerName && s === ownerName); };
       const replyBase = Date.now();
+      // 这一整批生成的前提就是「她刚说了一句，谁来回她」——所以层主和帖主这两支
+      // 回的都是她，「回复 @她」这一格不该各写各的。
+      // ⚠️她 2026-10-01：「楼主回复我的时候显示不出来回复，而是直接写的」。
+      //   病根：层主那一支写着 toName: meNow，帖主那两支【漏了】——同一个形状
+      //   手写四遍，漏一处不报任何错，只是那条回复看上去像在自言自语。
+      //   收成这一份（施工规则/one-public-mechanism），以后再添一支也忘不掉。
+      const toMe = { replyToMe: true, toName: meNow };
       const reps = items.map((x, replyIndex) => {
         // 层主回我：还原成这层楼作者本人的身份（角色→真名档案，路人→沿用层主的马甲）
         if (x.is_owner === true || looksOwner(x.char) || looksOwner(x.authorName)) {
           // ⚠️层主就是她自己（她在自己开的那层楼里又回了一句）：这条本该是她说的话，丢掉
           if (resp.type === "me" || resp.id === "me") return null;
-          if (ownerChar) return { authorName: resp.name, authorHandle: resp.handle, authorType: resp.type, authorId: ownerChar.id, content: x.content, isOwner: true, replyToMe: true, toName: meNow, ts: replyBase + replyIndex };
-          return { authorName: ownerName, authorHandle: resp.handle || ownerName, authorType: resp.type || "npc", authorId: resp.id || null, content: x.content, isOwner: true, replyToMe: true, toName: meNow, ts: replyBase + replyIndex };
+          if (ownerChar) return { authorName: resp.name, authorHandle: resp.handle, authorType: resp.type, authorId: ownerChar.id, content: x.content, isOwner: true, ...toMe, ts: replyBase + replyIndex };
+          return { authorName: ownerName, authorHandle: resp.handle || ownerName, authorType: resp.type || "npc", authorId: resp.id || null, content: x.content, isOwner: true, ...toMe, ts: replyBase + replyIndex };
         }
         if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
           // ⚠️帖主是她（她自己发的帖）：同上，不许替她开口
           if (post.authorType === "me") return null;
-          if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
-          return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: "npc", authorId: null, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
+          if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true, ...toMe, ts: replyBase + replyIndex };
+          return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: "npc", authorId: null, content: x.content, isOp: true, ...toMe, ts: replyBase + replyIndex };
         }
         // 「回复 @谁」：她、或者这层里已经说过话的人（她 2026-09-24）
         const toName = forumValidTo(x.to, [meNow].concat((floor.replies || []).map(y => y && y.authorName)));
