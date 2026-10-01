@@ -144,3 +144,9 @@ test("翻手机：帖子滑到评论区；组件不去点里面的按钮；料�
   assert.match(a, /const floors = p =>/);
   assert.match(a, /这是在查她的手机/);
 });
+
+test("翻手机：看完开口不限条数，照心情多说或沉默", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.doesNotMatch(a, /看到在意的就说，1~4 条消息/);
+  assert.match(a, /说多少照你此刻的心情来/);
+});

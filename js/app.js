@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.463";
+const APP_VERSION = "v74.464";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9706,7 +9706,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
         + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。察不察觉、在不在意，看你这个人。" : "")
         + (opts.peekPhone.thoughts && opts.peekPhone.thoughts.length ? "\n\n你刚才翻的时候心里闪过这几句（没说出口）：" + opts.peekPhone.thoughts.map(x => "「" + x + "」").join("") + "——现在把手机还给她，开口跟这几句对得上。" : "")
-        + "\n\n你按自己的性子挑着翻，不必样样都提；看到在意的就说，1~4 条消息。") : "";
+        + "\n\n你按自己的性子挑着翻，不必样样都提；看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
       const openerAvoid = (opts.proactive && _openLines.length)
