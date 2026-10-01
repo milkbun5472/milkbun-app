@@ -66,7 +66,7 @@
   function placeSpec(char, hintName, known) {
     const nm = char.name;
     const which = hintName
-      ? "这次写的是【" + hintName + characterText(char, "】——他行程里常出现的那个地方。")
+      ? "这次写的是【" + hintName + characterText(char, "】——他会去、会在那儿待上一阵的一个地方（可能是他行程里常去的，也可能是地图上的某处，或者被随口点到的一个角落）。")
       : characterText(char, "这次写他现在住的地方。");
     return {
       maxTokens: 12000,
@@ -469,6 +469,28 @@
     const freq = char ? frequentPlaces(char.id, props.schedules, 14) : [];
     const made = new Set(places.map(function (p) { return p.name; }));
     const todo = freq.filter(function (f) { return !made.has(f.name); });
+    // 地图上的地方（群友 2026-10-01：「为什么外出只能去对方家里，不能去城市自定义的角落」）：
+    //   TA钉在哪个架空世界里，那张图上的地点都能去看看（不调模型，名字现读 x_worlds）；
+    //   再留一格「自己写一个地方」——现实城市、图上没有的角落，写个名字就去。
+    let mapPlaces = [];
+    try {
+      const worlds = JSON.parse(localStorage.getItem("x_worlds") || "[]");
+      const realm = char && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(char, worlds) : null;
+      if (realm && realm.kind === "world") {
+        const seen = new Set();
+        ((realm.world && realm.world.regions) || []).forEach(function (r) {
+          ((r && r.nodes) || []).forEach(function (n) {
+            const nm = String((n && n.name) || "").trim();
+            if (nm && !seen.has(nm) && !made.has(nm) && !todo.some(function (f) { return f.name === nm; })) { seen.add(nm); mapPlaces.push({ name: nm, region: String((r && r.name) || ""), home: nm === realm.node }); }
+          });
+        });
+      }
+    } catch (e) { mapPlaces = []; }
+    const askPlace = function () {
+      requestAppPrompt("去哪儿看看", characterText(char, "写一个地方的名字：店、街角、他常待的某处都行。会照他的样子把那儿写出来。"), "", function (v) {
+        const nm = String(v || "").trim().slice(0, 24); if (nm) gen(nm, null);
+      }, "去看看");
+    };
     return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
       topBar(char ? (char.remark || char.name) : "去处", null,
         // 生成的时候要不要顺带出图：她按次付钱，这是第二次调用，所以放在明面上随时能关
@@ -508,7 +530,15 @@
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "行程里去过 " + f.days + " 天"));
         }),
         !todo.length && places.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } },
-          "行程里还没攒出常去的地方——同一个地点去过两天以上才会出现在这里。") : null));
+          "行程里还没攒出常去的地方——同一个地点去过两天以上才会出现在这里。") : null,
+        mapPlaces.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 0 8px" } }, "地图上的地方") : null,
+        mapPlaces.length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, mapPlaces.slice(0, 24).map(function (m) {
+          return h("button", { key: m.name, onClick: function () { gen(m.name, null); }, disabled: !!busy, className: "active:opacity-70",
+            style: { minHeight: 40, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: "transparent" } },
+            m.name + (m.home ? " · 他在这儿" : ""));
+        })) : null,
+        h("button", { onClick: askPlace, disabled: !!busy, className: "w-full text-left active:opacity-70",
+          style: { marginTop: 14, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "＋ 自己写一个地方")));
   }
 
   window.DwellApp = DwellApp;
