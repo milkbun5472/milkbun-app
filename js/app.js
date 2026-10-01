@@ -14276,10 +14276,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (Date.now() - (ts[kind] || 0) < 4 * 3600000) return;
     ts[kind] = Date.now(); saveJSON("x_ambientTs", ts);
     try {
-      // 匿名吧原来和别的版块等权（1/6），而匿名吧整批都是匿名身份——这是匿名占比过高的
-      // 第三个来源。按真实论坛的样子加权：日常/吐槽/兴趣是主流，匿名吧只留一格。
-      if (kind === "forum") { const bs = ["吐槽吧", "吐槽吧", "日常吧", "日常吧", "求助吧", "兴趣吧", "兴趣吧", "脑洞吧", "脑洞吧", "匿名吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
-      else if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) await genMoment(ps[Math.floor(Math.random() * ps.length)]); }
+      // ⚠️这儿原来还有一支 forum：一进论坛就补一条网友帖（4 小时冷却）。
+      //   它的【调用点】早就被摘掉了（下面那个 useEffect 里写着「进入论坛只读已有内容」），
+      //   只剩这段函数体吊在这儿够不着。2026-10-01 她点名「那个 4 小时点进去论坛的直接删掉，
+      //   我不要每次进去都生成」——行为本来就没了，这一刀删的是**死代码**，
+      //   免得哪天谁看见这支还在、顺手把线接回去。
+      //   论坛的新内容只有两条路：她自己在论坛里按（刷新 / 请TA们发帖 / 让TA发一条），
+      //   或者角色低频主动发帖那一条（autoForumForChar，设置里「论坛」那个开关管得住）。
+      if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) await genMoment(ps[Math.floor(Math.random() * ps.length)]); }
       else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
     } catch (e) {/* 静默 */}
   };
@@ -14517,9 +14521,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } finally { desireTendRef.current = false; }
   };
   useEffect(() => {
-    // 进入论坛只读已有内容，不再自动生成 12~18 层并烧一次主池。
-    // 新内容由用户在论坛内明确触发，或由已有的低频 ambient 调度产生。
-    if (screen === "forum") { clearAppNotif("forum"); } else ambientRunRef.current.forum = false;
+    // 进入论坛只读已有内容，不自动生成、不烧一次主池（新内容全由她在论坛里明确触发）
+    if (screen === "forum") clearAppNotif("forum");
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);

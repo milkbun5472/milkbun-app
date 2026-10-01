@@ -135,11 +135,11 @@ test("大号是默认身份，小号和匿名各有明确用途", () => {
   assert.equal((presets.match(/identityBias: "alt"/g) || []).length, 1);
 });
 
-test("随机版块不再让匿名吧和别的版块等权", () => {
-  const m = app.match(/const bs = \["吐槽吧".*?\];/);
-  assert.ok(m);
-  const all = m[0].match(/"[^"]+"/g);
-  const anon = all.filter(x => x === '"匿名吧"').length;
-  assert.equal(anon, 1);
-  assert.ok(all.length >= 9, "总格子只有 " + all.length + " 个，匿名占比还是太高");
-});
+// ⚠️这儿原来有一条「随机版块不再让匿名吧和别的版块等权」，钉的是 autoAmbientRun 里
+//   那张加权表 const bs = ["吐槽吧","吐槽吧",…]。2026-10-01 删掉了——**它守的是一段
+//   从来没执行过的代码**：那张表只服务于「一进论坛就补一条网友帖」，而那条路的调用点
+//   早就被摘了，表还吊在函数体里。测试只读源码文本，所以一直是绿的。
+//   真正活着的那条路（autoForumForChar）是模型自己挑吧，防匿名靠另一套：
+//   身份掷轴（大号/小号/匿名）＋「匿名的一半才去匿名吧」，
+//   有 test/forum-identity-roll-74-015.js 和 test/forum-regulars.js 两份盯着。
+//   教训：一条断言绿着，不等于它守的东西还活着。

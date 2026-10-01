@@ -14,10 +14,11 @@ test("一起学轮次导演是本地规则，不再单独调用模型", () => {
   assert.doesNotMatch(body, /callAI\s*\(/);
 });
 
-test("进入论坛不再自动生成楼层", () => {
-  assert.match(app, /if \(screen === "forum"\) \{ clearAppNotif\("forum"\); \}/);
-  assert.doesNotMatch(app, /if \(screen === "forum"\) \{ autoAmbientRun\("forum"\)/);
-});
+// 「进入论坛不自动生成」这条 2026-10-01 搬去了 test/forum-never-auto-on-open-74-411.js：
+// 那边连 autoAmbientRun 里那支 forum、以及 genForumBoard 的调用点一起钉。
+// 这儿不留第二份——同一条规则住两处，改一处必然漏一处（施工规则/one-public-mechanism）。
+// 顺带：原来那句断言钉死了大括号的写法（`{ clearAppNotif("forum"); }`），
+// 把花括号去掉就红——锚不该钉在格式上（施工规则/anchor-on-code）。
 
 test("后台未单独选择时跟随主模型，显式选择独立；本体仍走角色线路", () => {
   // v68.49：三处选路合成了一份 pickRoute，所以这儿要把它一起带上
