@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.406";
+const APP_VERSION = "v74.407";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2637,6 +2637,21 @@ function App() {
   //   这儿再兜一道——只要它照抄了，就在落进气泡之前摘掉。
   const ECHOED_META = /^\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的)[^）)】\]]*[）)】\]]\s*/;
   const stripEchoedMeta = w => String(w == null ? "" : w).replace(ECHOED_META, "").trim();
+  const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话/;
+  const dropEchoedNotes = list => {
+    const out = [];
+    let inNote = null;
+    for (const w0 of list || []) {
+      const w = String(w0 == null ? "" : w0);
+      if (inNote) { inNote.push(w); if (/】\s*$/.test(w)) { if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote); inNote = null; } continue; }
+      if (/^\s*【/.test(w) && !/】/.test(w.replace(/^\s*【/, ""))) { inNote = [w]; continue; }
+      if (/^\s*【[^】]*】\s*$/.test(w) && ECHO_NOTE_HINT.test(w)) continue;
+      if (/^\s*照片内容[:：]/.test(w) && out.length < list.length && ECHO_NOTE_HINT.test((list || []).join(""))) continue;
+      out.push(w);
+    }
+    if (inNote) { if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote); }
+    return out;
+  };
   // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定时线上跟随全局线上主线路。
   // 角色专线覆盖所有「这个角色本人开口」的场合；线下无专线角色则由 offlineApiFor 回退全局线下线路。
   const apiFor = id => pickRoute((chatSettings[id] || {}).apiId, active);
@@ -9130,7 +9145,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
   // 连续几轮「要了却没拍」的计数，按角色分开（只用来判断要不要提示，不落库）
   const noPhotoStreakRef = useRef({});
-  const PHOTO_REQUEST_RE = /(?:照片|自拍|拍(?:一|两|几|张|个)|再拍|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看你|合照|photo|selfie|picture)/i;
+  // 她开口要照片 → 冷却让路。说法放宽（她 2026-10-01：「没到冷却我让他拍也是可以的啊」）：
+  //   「拍腹肌给我」「看看腹肌」「发个图」都算；「拍一拍」那个动作不算。
+  const PHOTO_REQUEST_RE = /(?:照片|自拍|(?<!拍一)拍(?!一拍)|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看|看一下|合照|photo|selfie|picture|pic)/i;
   // 最近三次角色文字回复内，已经发过照片就关闭 photo 能力；只有用户在那张图之后
   // 明确要求再拍才放行。不能把“别频繁”只交给模型自觉。
   const photoCooldownState = (messages, senderId) => {
@@ -10529,6 +10546,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
+      // 抄了历史里的旁注当正文（她 2026-10-01 截图：「【用户刚才要求你发一张自拍……这里你已经实际拍下并发出去了」
+      //   「这已经是真实发生过的事」「不能在消息里说…】」「照片内容：男生宿舍全身镜前」一条条冒出来）。
+      //   这轮发不了照片，模型就照着历史里那种【你在这里已经实际发出一张…】的旁注自己「写」了一张。
+      //   旁注是给它看的，不是它说的话：整段【…】连同紧跟着的「照片内容：」一并拿掉。
+      words = dropEchoedNotes(words);
       // ①.8 双语（v56.56）：把「原文 | 中文」劈开——中译单独收着，原文照常往下走拆泡那一串。
       //      必须排在拆泡【之前】：不然长句会被从中间断开，竖线两边各落进一个气泡。
       // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡；一路逗号连下去的长句同样拆
