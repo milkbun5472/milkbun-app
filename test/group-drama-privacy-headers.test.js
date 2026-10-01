@@ -22,3 +22,14 @@ test("修罗场开着：关系标签、人设规则不再跟修罗场打架", ()
   const d = f(G);
   assert.ok(d.indexOf("跟她之间的事") < 0 && d.indexOf("最常见的是好奇、客气") < 0, "替换没生效（原文改过了？）");
 });
+
+test("修罗场开着：不再整段禁止圈地、划界、抱团（这正是修罗场会发生的事）", () => {
+  const eng = require("fs").readFileSync(require("path").join(__dirname, "..", "js/engine.js"), "utf8");
+  const G = eng.slice(eng.indexOf("const GROUP_IN_CHARACTER = `") + 28, eng.indexOf("`;", eng.indexOf("const GROUP_IN_CHARACTER = `")));
+  const f = new Function("return " + eng.slice(eng.indexOf("const groupInCharacterDrama = ") + 30, eng.indexOf("function groupBans(")).trim().replace(/;$/, ""))();
+  const d = f(G);
+  assert.ok(d.indexOf("不许因为多了个生人就抱团对外") < 0, "抱团禁令还在");
+  assert.ok(d.indexOf("把新来的当入侵者") < 0, "入侵者禁令还在");
+  assert.match(d, /都有了来由/);
+  assert.ok(G.indexOf("抱团对外") > 0, "平时那份别动");
+});
