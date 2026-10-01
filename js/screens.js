@@ -2289,7 +2289,7 @@ function AltAvatar({ seed, size }) {
 //   一处处去补，下回再加一处又漏。所以在【显示】这一层一次收口：匿名吧里的帖、楼、楼中楼，
 //   一律按匿名显示——没名字、没 @、点不进主页。楼主还是标楼主（那是位置，不是身份）。
 // 论坛设置里的「世界」那一块：开几个世界、每个角色点一下换到下一个世界
-function ForumWorlds({ characters }) {
+function ForumWorlds({ characters, forumOff, onToggleForumChar, charToggles }) {
   const t = useTheme();
   const [d, setD] = useState(charWorldsLoad);
   const put = next => { charWorldsSave(next); setD(charWorldsLoad()); };
@@ -2310,10 +2310,25 @@ function ForumWorlds({ characters }) {
     put({ worlds: d.worlds.filter(x => x.id !== w.id), of });
   }, "拆掉");
   const chip = { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2 };
-  return h("div", { style: { marginBottom: 16, paddingBottom: 14, borderBottom: "1px dashed " + t.line } },
-    h(Eyebrow, { style: { marginBottom: 6 } }, "世界"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.6 } },
-      "角色各跟你是不同的线、时间点对不上？给他们分到不同的世界，再切到那个世界去逛：那里只有同一个世界的人碰面。在「全部」里大家照旧混着。"),
+  // 论坛设置分成几格收着（她 2026-10-01：「设置能不能整理一下搞几个分类 dropdown，现在太长了」）：
+  //   点标题摊开、再点收起；收着的时候右边那句说明这一格现在是什么状态。
+  const [open, setOpen] = useState("");
+  const fold = (key, title, state, kids) => h("div", { key, style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: () => setOpen(v => v === key ? "" : key), className: "w-full flex items-center active:opacity-70", style: { gap: 10, minHeight: 50, textAlign: "left" } },
+      h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title),
+      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, state),
+      h("span", { style: { flexShrink: 0, fontSize: 13, color: t.fog, display: "inline-block", transition: "transform .2s", transform: open === key ? "rotate(90deg)" : "none" } }, "›")),
+    open === key ? h("div", { style: { paddingBottom: 14 } }, kids) : null);
+  const note = s => h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, s);
+  const onN = (characters || []).filter(c => !(forumOff || []).includes(c.id)).length;
+  return h("div", null,
+    fold("chars", "在逛论坛的角色", (characters || []).length ? onN + " / " + (characters || []).length + " 个在逛" : "还没有角色",
+      h("div", null,
+        note("关掉的角色不会在评论/回复里冒泡，也不会在论坛发帖。"),
+        (characters || []).length === 0 ? h(Empty, { text: "还没有角色", sub: "" }) : charToggles)),
+    fold("worlds", "世界", d.worlds.length ? "分了 " + d.worlds.length + " 个世界" : "还没分",
+      h("div", null,
+        note("角色各跟你是不同的线、时间点对不上？给他们分到不同的世界，再切到那个世界去逛：那里只有同一个世界的人碰面。在「全部」里大家照旧混着。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: d.worlds.length ? 10 : 0 } },
       h("span", { style: Object.assign({}, chip, { display: "inline-flex", alignItems: "center", color: t.sub }) }, "同一个世界"),
       d.worlds.map(w => h("span", { key: w.id, className: "inline-flex items-center", style: Object.assign({}, chip, { padding: 0 }) },
@@ -2324,12 +2339,12 @@ function ForumWorlds({ characters }) {
       h(Avatar, { character: c, size: 30, radius: 15 }),
       h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.remark || c.name),
       h("button", { onClick: () => cycle(c.id), className: "active:opacity-70", style: Object.assign({}, chip, { color: charWorldOf(c.id, d) ? t.accent : t.sub }) }, nameOf(charWorldOf(c.id, d)) + " ›")))),
-    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点世界名写它的世界观，点 × 拆掉。"),
-    d.worlds.length > 0 && h("div", { style: { marginTop: 14 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginBottom: 6 } }, "现在逛哪个世界的论坛"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "默认是「全部」大杂烩：所有世界的帖子都看得到，哪个世界的角色都能去任何帖子底下说话。切到某个世界，就只看、只刷那个世界的，也只有那个世界的人碰面。"),
+    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点世界名写它的世界观，点 × 拆掉。"))),
+    d.worlds.length > 0 && fold("pick", "现在逛哪个世界", nameOf(cur),
+      h("div", null,
+        note("默认是「全部」大杂烩：所有世界的帖子都看得到，哪个世界的角色都能去任何帖子底下说话。切到某个世界，就只看、只刷那个世界的，也只有那个世界的人碰面。"),
       h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["*"].concat(order).map(id => h("button", { key: id || "same", onClick: () => pick(id), className: "active:opacity-70",
-        style: Object.assign({}, chip, cur === id ? { background: t.ink, color: t.bg2, borderColor: t.ink } : null) }, nameOf(id))))));
+        style: Object.assign({}, chip, cur === id ? { background: t.ink, color: t.bg2, borderColor: t.ink } : null) }, nameOf(id)))))));
 }
 function forumAnonView(posts, comments) {
   const mask = x => {
@@ -3220,11 +3235,8 @@ function Forum({
       h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim() }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
     // 谁在逛论坛
     settingsOpen && h(Sheet, { onClose: () => setSettingsOpen(false) },
-      h(Eyebrow, { style: { marginBottom: 6 } }, "哪些角色在逛论坛"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "关掉的角色不会在评论/回复里冒泡，也不会在论坛发帖"),
-      (characters || []).length === 0 && h(Empty, { text: "还没有角色", sub: "" }),
-      h(ForumWorlds, { characters: characters }),
-      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); }))),
+      h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),
+      h(ForumWorlds, { characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); })) })),
     // 我关注的角色 + 公开网友目录，点进各自主页
     followListOpen && h(Sheet, { onClose: () => setFollowListOpen(false) },
       h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),

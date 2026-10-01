@@ -32,7 +32,11 @@ test("论坛：帖子里能开口的角色、认得出的角色、关系行都�
 });
 
 test("界面在论坛设置里", () => {
-  assert.match(s, /h\(ForumWorlds, \{ characters: characters \}\)/);
+  assert.match(s, /h\(ForumWorlds, \{ characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: /);
+  // 分几格收着（她 2026-10-01）：在逛的角色 / 世界 / 现在逛哪个世界
+  assert.match(s, /fold\("chars", "在逛论坛的角色"/);
+  assert.match(s, /fold\("worlds", "世界"/);
+  assert.match(s, /fold\("pick", "现在逛哪个世界"/);
   assert.match(s, /"＋ 新开一个世界"/);
 });
 
