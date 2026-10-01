@@ -59,7 +59,8 @@ test("她不在场 ≠ 她不存在：好感、情侣、关系铁律、她是谁
   assert.match(app, /cpSeg: \(\(\) => \{[\s\S]{0,400}relationshipLineFor\(c\.id\)/, "旁观群的情侣状态被删了");
   assert.match(app, /cpSeg: \(\(\) => \{[\s\S]{0,400}只有 " \+ c\.name \+ " 本人知道/, "那道围栏没了");
   // 关系隐私铁律旁观群更需要：两个人都跟她有关系时，正是这条挡住互相拆穿
-  assert.match(app, /const gRelRule = "\\n\\n【成员间关系 · ⚠️关系隐私铁律】/, "旁观群没了那条铁律");
+  // 修罗场（2026-10-01）：只有群设置里打开了才换成那一段，默认分支照旧是铁律
+  assert.match(app, /const gRelRule = gsFor\(groupId\)\.drama \? groupDramaRule\(groupId\) : "\\n\\n【成员间关系 · ⚠️关系隐私铁律】/, "旁观群没了那条铁律");
   assert.ok(app.indexOf("const gRelRule = gSpec") < 0, "又给旁观群另写了一份阉割的关系段");
   // 她是谁：照给，只是标题不能再说她「和大家说话」
   assert.match(app, /const gMeBlock = \(profile && \(profile\.name \|\| profile\.persona\)\)/, "旁观群里她是谁被删了");

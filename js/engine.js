@@ -7473,7 +7473,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (ctx.onMe && String(ctx.onMe).trim() ? "\n\n" + onMeLine(ctx.onMe, userName) : "") +
     // 她想要什么（四处一样喂）：用户的信息，群里共享一份
     wishLine(ctx.wishLog, userName, { group: true, gift: false }) +
-    "\n\n【在场角色间的关系（有方向）】\n" + relLines +
+    "\n\n【在场角色间的关系（有方向）】\n" + relLines + (ctx.dramaRule || "") +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") +
     (memLibText && memLibText.trim() ? "\n\n【记忆库·相关条目（请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是照演的剧本：记住只为连贯，别复刻里头的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作。生活往前走，这一刻要有新的具体。" : "") +
