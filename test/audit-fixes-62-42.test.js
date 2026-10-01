@@ -26,7 +26,7 @@ test("四个自动日志全部封顶：朋友圈/论坛NPC总量/匿名箱三处
   assert.match(src, /const MOMENTS_CAP = \d+/);
   assert.match(src, /FORUM_NPC_TOTAL_CAP = 240/);
   assert.equal((src.match(/records: \[[^\n]*\.slice\(0, 200\)/g) || []).length >= 2, true);
-  assert.match(src, /appendForumPosts\(recs, board\); \/\/ v62\.42/);
+  assert.match(src, /appendForumPosts\(recs\.map\(r => \(\{ \.\.\.r, world: genW \}\)\), board\); \/\/ v62\.42/);
 });
 
 test("淘汰帖子时孤儿评论一起清", () => {

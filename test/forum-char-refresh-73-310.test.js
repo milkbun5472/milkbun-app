@@ -45,7 +45,7 @@ test("角色发帖只剩一份：手动那条走自动那份（带着论坛习�
 });
 
 test("普通刷新偶尔掉一条配角帖：掷在代码里，点名是谁，匿名吧不掉", () => {
-  const b = seg("const genForumBoard = async board => {", "appendForumPosts(recs, board);");
+  const b = seg("const genForumBoard = async board => {", "appendForumPosts(recs.map(r => ({ ...r, world: genW })), board);");
   assert.match(app, /const FORUM_CAST_CHANCE = 0\.\d+;/);
   assert.match(b, /Math\.random\(\) < FORUM_CAST_CHANCE/, "「偶尔」交给模型了——它要么次次塞、要么从不塞");
   assert.match(b, /board === "匿名吧" \? \[\]/);

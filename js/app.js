@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.429";
+const APP_VERSION = "v74.430";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18451,7 +18451,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
     // 这一批记到她现在逛的那个世界（已经自己带了 world 的不动）
-    const _w = forumCurWorld();
+    const _w = forumCurWorld() === "*" ? "" : forumCurWorld();
     let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r), ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
@@ -18512,6 +18512,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forum: board }));
     const anonB = board === "匿名吧";
+    const genW = forumGenWorld();   // 这一批是哪个世界的（「全部」时随手挑一个）
     try {
       // 吧里最近在聊的那几件事：给模型看，好让新帖里有一条【接着前头那件事】的。
       // ⚠️她 2026-09-15：「帖子之间没有关系，论坛没有事」——刷十次就是十堆互不相干的帖，
@@ -18531,14 +18532,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️掷在代码里、不交给模型：「偶尔」写进提示词，模型要么每次都塞一条、要么从来不塞。
       //   掷中了就点名是谁、要一条【整条是TA写的】帖，它照样混在这一批网友帖中间。
       // ⚠️TA照样守关系隐私：TA生活里的事可以说，别人（台上那位、她）的私事不往网上发。
-      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id) && charWorldOf(c.id) === forumCurWorld()).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
+      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id) && charWorldOf(c.id) === genW).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
       const cast = castPool.length && Math.random() < FORUM_CAST_CHANCE ? castPool[Math.floor(Math.random() * castPool.length)] : null;
       const castLine = cast
         ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。" + String(cast.n.persona || "").replace(/\s+/g, " ").slice(0, 400)
           + "\n那一条填 cast:true，authorName／handle 写TA在网上用的网名（跟TA这个人对得上，不必是本名）；"
           + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
         : "";
-      const d = await runProbeRetry(active, forumWorldCtx(board), {
+      const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
         instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
@@ -18572,7 +18573,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ...forumCounts(npc.id + ":" + x.title + i, Number(x.replyCount))
         });
       });
-      appendForumPosts(recs, board);
+      appendForumPosts(recs.map(r => ({ ...r, world: genW })), board);
     } catch (e) { toast("刷新失败：" + e.message); }
     finally { setGen(g => ({ ...g, forum: null })); }
   };
@@ -19898,7 +19899,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const postMyForum = (board, title, body, photo) => {
     const anonB = board === "匿名吧";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld() };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: (forumCurWorld() === "*" ? "" : forumCurWorld()) };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
@@ -19907,9 +19908,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const genForumSearch = async query => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forumSearch: true }));
+    const genW = forumGenWorld();
     try {
       const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content && contextAllowsMessage(m)).slice(-30).map(m => m.content).join(" ").slice(0, 300);
-      const d = await runProbeRetry(active, forumWorldCtx((query || "") + "\n" + recentAll), {
+      const d = await runProbeRetry(active, forumWorldCtx((query || "") + "\n" + recentAll, genW), {
         instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
         schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
         maxTokens: FTOK.board
@@ -19919,7 +19921,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!items.length) throw new Error("没搜到内容");
       const base = Date.now();
       const recs = items.map((x, i) => { const npc = forumPublicNpcOf(x, "搜索", i); return { id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc", authorName: npc.name, authorHandle: npc.handle, board, title: x.title, body: x.body || "", anon: false, triggerSource: "搜索:" + (query || "随机"), ts: base - i, ...forumCounts(npc.id + ":" + x.title + i, Number(x.replyCount)) }; });
-      appendForumPosts(recs, board); // v62.42：搜索帖也走同一道闸（含全库 NPC 总封顶+孤儿评论清理）
+      appendForumPosts(recs.map(r => ({ ...r, world: genW })), board); // v62.42：搜索帖也走同一道闸（含全库 NPC 总封顶+孤儿评论清理）
     } catch (e) { toast(e.message); }
     finally { setGen(g => ({ ...g, forumSearch: false })); }
   };
