@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.420";
+const APP_VERSION = "v74.421";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6896,7 +6896,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
           else if (_cpNow && Math.random() < COUPLE_LEAVE_P)
             leaveInCoupleSpace(c, jwStyle).then(_settle);
-          else { replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 }); _drain(); }
+          // ⚠️发消息这一路原来是「调了就泄」——不管 replyNow 有没有真送到（群友 2026-10-01：
+          //   「憋到红条爆了也不发，然后自动退回粉色」）。模型回空、里面哪道闸没放行、接口报错，
+          //   都会白白泄掉 0.28、还占着 25 分钟的闸。跟另外两个出口一样：送到了才泄，没送到把闸还回去。
+          else replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 })
+            .then(r => _settle(r === true), () => _settle(false));
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
       } catch (e) {}

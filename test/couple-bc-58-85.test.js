@@ -48,7 +48,9 @@ test("不新开定时器、不多花一次调用——只是把思念的出口�
     "没接在思念那条现成的链上,或者不是 else 分支（那就是多花一次）");
   // v62.34：最后那一档包了个大括号（要在里面 _drain）；判据不变——发消息必须是【else】，
   // 排在留东西后面，不能跟它并列执行，否则一次动念烧两次调用。
-  assert.ok(fire.indexOf("else { replyNow(cid") > fire.indexOf("leaveInCoupleSpace"), "留东西和发消息不是二选一——那就变成两次了");
+  // 2026-10-01：发消息那一档也改成「送到了才泄」（.then(_settle)），大括号去掉了；判据仍是它排在 else 上
+  assert.ok(fire.indexOf("else replyNow(cid") > fire.indexOf("leaveInCoupleSpace"), "留东西和发消息不是二选一——那就变成两次了");
+  assert.match(fire, /else replyNow\(cid[\s\S]*?\.then\(r => _settle\(r === true\), \(\) => _settle\(false\)\)/, "发消息那一档又变回「调了就泄」——没送到也白泄 0.28");
   // 愿望那一档也得是同一条 if/else 上的一环（v62.34），不是另起一条链
   assert.ok(fire.indexOf("pinWishAsChar") > 0 && fire.indexOf("pinWishAsChar") < fire.indexOf("leaveInCoupleSpace"),
     "钉愿望那一档没排进这条 else 链里——那就是多花一次");
