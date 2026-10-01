@@ -24,7 +24,7 @@ test("按「这个动作对这句话做了什么」分组，不是一长条", ()
   const g = fn({ kind: null }, false);
   assert.equal(g.length, 3, "三组：拿走它 / 动它 / 撤掉它");
   assert.deepEqual(g[0], ["copy", "fav", "quote"]);
-  assert.deepEqual(g[2], ["multi", "recall"]);
+  assert.deepEqual(g[2], ["multi", "recall", "del"]);
   // 空组不许留下一道空隔断
   assert.match(menu, /items\.filter\(g => g && g\.length\)/);
   // 组内才画分隔线，组之间靠间距

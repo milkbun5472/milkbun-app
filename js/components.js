@@ -9735,6 +9735,9 @@ function ChatThread({
         if (mm && mm.content) setQuoted(String(mm.content));
       } else if (act === "speak") {
         speakMsg(menu, messages[menu]);
+      } else if (act === "del") {
+        const at = menu;
+        if (onDeleteMessages) requestAppConfirm("删除这条消息？", "只从你这边的聊天记录里删掉，不是撤回。删了不能恢复。", () => onDeleteMessages([at]), "删除");
       } else onLongPress(act, menu);
       setMenu(null);
     }
@@ -12859,6 +12862,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
   const R = (x, y, w, ht, rx) => h("rect", { x: x, y: y, width: w, height: ht, rx: rx });
   const kids = {
     pin: [P("M12 21.5s-6.6-6.2-6.6-10.6a6.6 6.6 0 1113.2 0c0 4.4-6.6 10.6-6.6 10.6z"), C(12, 10.9, 2.3)],
+    trash: [P("M4.5 6.5h15"), P("M9.5 6.5V4.5h5v2"), P("M6.5 6.5l1 13h9l1-13"), P("M10.5 10.5v6M13.5 10.5v6")],
     sticker: [P("M4.5 4.5h10.8L19.5 8.7v10.8h-15z"), P("M15.3 4.5v4.2h4.2"), P("M9 13c.9 1.4 4.1 1.4 5 0"), P("M9.3 9.6v.7M14.7 9.6v.7")],
     picture: [R(3.5, 5, 17, 14, 2), C(8.6, 10, 1.6), P("M20.5 16.5l-5.2-5.2L5 19")],
     wave: [P("M3.5 10.5v3M7.5 7.5v9M11.5 5v14M15.5 8.5v7M19.5 10.8v2.4")],
@@ -13069,7 +13073,10 @@ const MSG_MENU = {
   edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
   // 只重拍这张图（她 2026-10-01）：TA 那一轮的话留着，只把这张照片重新画一遍
   reshoot: ["只重拍这张图", "picture"],
-  multi: ["多选", "checklist"], recall: ["撤回", "undo"]
+  multi: ["多选", "checklist"], recall: ["撤回", "undo"],
+  // 单独删一条（群里读者 2026-10-02：「有时候不需要多选，只需要删除这条就行」）。
+  // 跟撤回不一样：撤回是TA看得见的「撤回了一条消息」，删除只是从你这边的记录里抹掉。
+  del: ["删除", "trash"]
 };
 // 一组一个数组；空组会被丢掉，所以不用担心某一档一条都不剩时留下一道空隔断
 function menuItemsForKind(m, canSpeak) {
@@ -13081,15 +13088,15 @@ function menuItemsForKind(m, canSpeak) {
   //   她自己写的旁白没什么可 roll 的，只给编辑。两边都不给「引用」——引用一行动作没有意义。
   if (k === "narration" || (m && m.role === "narration")) {
     return m && m.who === "char"
-      ? [["copy", "fav"], ["edit", "reroll"], ["multi", "recall"]]
-      : [["copy", "fav"], ["edit"], ["multi", "recall"]];
+      ? [["copy", "fav"], ["edit", "reroll"], ["multi", "recall", "del"]]
+      : [["copy", "fav"], ["edit"], ["multi", "recall", "del"]];
   }
-  if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall"]];
+  if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall", "del"]];
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
-  if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall"]];
+  if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall", "del"]];
   // TA 发的照片：「只重拍这张图」只换像素；「重Roll」照旧把这一轮整个重来
-  if (k === "selfie" && m.role === "assistant" && m.sid && !m.senderId) return [["fav"], m.pending ? ["reroll"] : ["reshoot", "reroll"], ["multi", "recall"]];
-  return [[  "fav"], listen, ["multi", "recall"]];
+  if (k === "selfie" && m.role === "assistant" && m.sid && !m.senderId) return [["fav"], m.pending ? ["reroll"] : ["reshoot", "reroll"], ["multi", "recall", "del"]];
+  return [[  "fav"], listen, ["multi", "recall", "del"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。
 function MsgEditSheet({ init, onCancel, onSave }) {
@@ -13119,13 +13126,13 @@ function MsgEditSheet({ init, onCancel, onSave }) {
 }
 function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
   const t = useTheme();
-  if (!items) items = [["copy", "fav", "quote"], ["edit", "reroll"], ["multi", "recall"]];
+  if (!items) items = [["copy", "fav", "quote"], ["edit", "reroll"], ["multi", "recall", "del"]];
   const groups = items.filter(g => g && g.length);
   const txt = String((message && message.content) || "").trim();
   const row = (k, gi, ri, last) => {
     const d = MSG_MENU[k];
     if (!d) return null;
-    const kill = k === "recall";
+    const kill = k === "recall" || k === "del";
     return h("button", {
       key: k,
       onClick: () => onAction(k),
@@ -15487,6 +15494,7 @@ function GroupThread({
       if (act === "multi") { setSelMode(true); setSelIds([menu]); }
       else if (act === "quote") { const mm = messages[menu]; if (mm && mm.content) setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, menu, meName) : String(mm.content)); }
       else if (act === "speak") { speakMsg(menu, messages[menu]); }
+      else if (act === "del") { const at = menu; if (onDeleteMessages) requestAppConfirm("删除这条消息？", "只从你这边的聊天记录里删掉，不是撤回。删了不能恢复。", () => onDeleteMessages([at]), "删除"); }
       else onMsgAction && onMsgAction(act, menu);
       setMenu(null);
     }

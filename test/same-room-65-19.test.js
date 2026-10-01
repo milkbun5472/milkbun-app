@@ -157,7 +157,7 @@ test("他那一行是【消息】不是系统字：长按有菜单、没有那�
   assert.match(row, /onTouchStart: selMode \? undefined : \(\) => startPress\(i\)/, "他那一行长按不出菜单");
   assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "他那一行还挂着那颗 ✕");
   // 菜单里真的有编辑和重 Roll
-  assert.match(comp, /\? \[\["copy", "fav"\], \["edit", "reroll"\], \["multi", "recall"\]\]/);
+  assert.match(comp, /\? \[\["copy", "fav"\], \["edit", "reroll"\], \["multi", "recall", "del"\]\]/);
   // 重 Roll 那道门要放他这一行过（原来只认 role==="assistant"）
   assert.match(app, /if \(m\.role !== "assistant" && m\.who !== "char"\) \{/, "他那一行点重 Roll 会被拦下");
 });
