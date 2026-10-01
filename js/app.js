@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.457";
+const APP_VERSION = "v74.458";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9445,15 +9445,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
       script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary }) : [];
-      // 翻的地方太少就代码补（她 2026-10-01：「来来回回都只是在看信息钱包日记偶尔论坛，其他都没看过」）：
-      //   不够 4 样，从没打开的里挑，上次也没翻过的排前面，补在末尾、各看一眼
+      // 每一趟都要翻到上次没打开过的（她 2026-10-01：「来来回回都只是在看信息钱包日记偶尔论坛」「还是没翻过外卖购物一起听这种」）。
+      //   ⚠️上一版是「总数不够 4 样才补」——可信息、聊天、钱包、日记、论坛加起来早就够 4 样了，那道闸从来没开过。
+      //   现在按「新的」算：这一趟里上次没开过的至少两样；不够就从购物、外卖、一起听、备忘录这些冷门的里补，补在中间不是最后。
+      const lastApps = new Set((L.apps || []).map(a => a === "messages" ? "chat" : a));
       const opened = new Set(script.filter(s => s.do === "open").map(s => s.app === "messages" ? "chat" : s.app));
-      const pool = apps.filter(a => a !== "messages" && !opened.has(a)).sort((x, y) => ((L.apps || []).includes(x) - (L.apps || []).includes(y)));
-      while (opened.size < 4 && pool.length) {
-        const a = pool.shift(); opened.add(a);
-        if (a === "chat") continue;
-        script.push({ do: "open", app: a, auto: true }, { do: "scroll", dir: "down", n: 1, auto: true }, { do: "pause", ms: 900 });
+      //   「冷门」那几样（购物、外卖、一起听、备忘录）：她给看了的、上次没翻到的，这一趟至少翻到两样
+      const COLD = ["shop", "takeout", "listen", "memo"];
+      const want = COLD.filter(a => apps.includes(a) && !lastApps.has(a));
+      const pool = (want.length ? want : COLD.filter(a => apps.includes(a))).filter(a => !opened.has(a));
+      let fresh = COLD.filter(a => opened.has(a) && (want.length ? want.includes(a) : true)).length;
+      const adds = [];
+      while (fresh < 2 && pool.length) {
+        const a = pool.shift();
+        adds.push({ do: "open", app: a, auto: true }, { do: "scroll", dir: "down", n: 1, auto: true }, { do: "pause", ms: 1200 });
+        fresh++;
       }
+      if (adds.length) { const at = Math.max(0, Math.floor(script.length / 2)); script.splice(at, 0, ...adds); }
     } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
   };

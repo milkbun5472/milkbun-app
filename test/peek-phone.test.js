@@ -114,6 +114,7 @@ test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没�
   assert.match(a, /聊起，到现在一共 " \+ n \+ " 条）/);
   assert.match(a, /seg\("早先", ms\.slice\(0, 4\)\)/);
   assert.match(a, /md\(e\.ts\) \+ "写的"/);
-  assert.match(a, /while \(opened\.size < 4 && pool\.length\)/);
+  assert.match(a, /while \(fresh < 2 && pool\.length\)/, "按「上次没开过的」算，不是按总数");
+  assert.match(a, /const COLD = \["shop", "takeout", "listen", "memo"/);
   assert.match(a, /apps: \[\.\.\.new Set\(sc\.filter\(s => s\.do === "open"\)\.map\(s => s\.app\)\)\]/);
 });
