@@ -39,5 +39,6 @@ test("修罗场开着时，在群聊历史【后面】、输出要求前面再�
   assert.match(app, /\+ gQuoteCatalogText \+ gDramaTail \+ "\\n\\n【输出】/);
   assert.match(app, /const gDramaTail = gsFor\(groupId\)\.drama\n/);
   assert.ok(app.indexOf("const gDramaTail = ") < app.indexOf("+ gDramaTail + "), "用在声明之前了（TDZ）");
-  assert.match(tail, /按你自己来/);
+  assert.match(tail, /按你自己那张卡来/);
+  assert.match(seg, /先翻你自己那张卡/, "怎么反应先照卡上写的那个人");
 });

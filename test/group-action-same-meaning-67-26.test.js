@@ -68,7 +68,7 @@ test("上一动作在【动描开着】时也要喂给他，不只互通", () =>
 });
 
 test("群回复那一处要把动描开关传下去", () => {
-  assert.match(A, /groupNowSegs\(c, \{ interop: gs\.memoryInterop, act: !!gs\.actDesc \}\)/,
+  assert.match(A, /groupNowSegs\(c, \{ interop: gs\.memoryInterop, act: !!gs\.actDesc[,}]/,
     "不传的话上面那一半等于白写");
 });
 
