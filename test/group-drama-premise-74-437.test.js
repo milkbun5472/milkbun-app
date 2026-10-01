@@ -28,3 +28,10 @@ test("前提是每个人原本都以为自己是唯一的那个，没摊开过�
   assert.match(seg, /你一直以为自己是她【唯一】的那个/);
   assert.match(seg, /要是之前从没在群里摊开过，那就是【现在】/);
 });
+
+// 她 2026-10-02 第四轮还在斗嘴：前提埋在成员资料中间，后面几十条玩梗的历史压过它。
+test("修罗场开着时，在群聊历史【后面】、输出要求前面再重申一次局面", () => {
+  assert.match(app, /\+ gQuoteCatalogText \+ gDramaTail \+ "\\n\\n【输出】/);
+  assert.match(app, /const gDramaTail = gsFor\(groupId\)\.drama\n/);
+  assert.ok(app.indexOf("const gDramaTail = ") < app.indexOf("+ gDramaTail + "), "用在声明之前了（TDZ）");
+});
