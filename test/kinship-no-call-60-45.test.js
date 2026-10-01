@@ -20,8 +20,9 @@ test("刷卡通知不许再走 kind:\"system\"——那一类压根不进模型�
   assert.match(pay, /kind: "kinbill"/, "得有一条落进聊天");
   assert.ok(!/kind: "system"/.test(pay), "v60.44 就是写成 system 的，他一个字都读不到");
   // history 那道过滤器：kind==="system" 除 ccToolResult 外一律不进模型
-  const filt = app.slice(app.indexOf("const history = base.filter"));
-  assert.match(filt.slice(0, 220), /m\.kind !== "system" \|\| m\.ccToolResult === true/,
+  // v74.4xx：history 先把她撤回的那条换成原位提示（recallStub）再过这道过滤器
+  const filt = app.slice(app.indexOf("const history = base."));
+  assert.match(filt.slice(0, 400), /m\.kind !== "system" \|\| m\.ccToolResult === true/,
     "这道过滤器就是 v60.44 那条通知没人看见的原因，别改坏了");
   assert.ok(!/kinbill/.test(filt.slice(0, 220)), "kinbill 不该被这道过滤器挡掉");
 });

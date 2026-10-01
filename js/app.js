@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.466";
+const APP_VERSION = "v74.467";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9530,28 +9530,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pChat(chatKey, p => [...p, um]);
       base = [...base, um];
     }
-    const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
-    // 她撤回的那几条：搭这一轮的便车过去（v61.80 起不再单独调一次模型）。
-    // 只挑【TA还没回过话】的那几条——TA一开口，这件事就算过去了，下一轮不该再提。
-    // ⚠️看没看到由代码判，不交给模型：撤得快就【连原文都不发过去】。
-    //   把原文给出去再让它自己填 saw，等于把它必然会漏的东西塞它嘴里
-    //   （.claude/rules 那条「规则降概率，代码才保证」在这一处的落法）。
+    // 她撤回的那条不再从历史里整条消失（她 2026-10-01：「撤回他不知道我撤回了，应该要么看见撤回的是啥，
+    //   要么知道我撤回了没看见具体」）。原来只在本轮任务末尾挂一句「多数时候当没看见」，
+    //   而历史里那个位置空空的——他根本察觉不到。现在【留在原位】，变成一行提示：
+    //   撤得慢的他瞥见了原文，撤得快的只知道撤了一条。看没看见仍由代码判，不交给模型。
     const RECALL_SEEN_MS = 20000;   // 20 秒内撤掉的，当TA没看清
-    const _recallHint = (() => {
-      let lastHe = 0;
-      for (const m of base) if (m && m.role === "assistant" && !m.recalled) lastHe = Math.max(lastHe, Number(m.ts) || 0);
-      const fresh = base.filter(m => m && m.recalled && m.role === "user" && (Number(m.ts) || 0) >= lastHe).slice(-3);
-      if (!fresh.length) return "";
-      const lines = fresh.map(m => {
-        const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
-        const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
-        return seen && m.content
-          ? "· 撤掉的那条你瞥见了，写的是「" + String(m.content).slice(0, 80) + "」"
-          : "· 撤得太快，你只看到「对方撤回了一条消息」，没看清写的什么";
-      });
-      return "\n【刚刚 " + ((profile && profile.name) || "对方") + " 撤回了消息】\n" + lines.join("\n")
-        + "\n多数时候当没看见就好；只有你这个人真的会追一句（或者刚好戳到你在意的事）才提，而且提完就过去，别揪着不放。";
-    })();
+    const recallStub = m => {
+      const gap = (Number(m.recalledTs) || 0) - (Number(m.ts) || 0);
+      const seen = !(Number(m.recalledTs) && gap >= 0 && gap < RECALL_SEEN_MS);
+      return { ...m, recalled: false, kind: "recallStub", content: seen && m.content
+        ? "【聊天界面提示：对方撤回了一条消息。撤之前你瞥见了，写的是「" + String(m.content).slice(0, 80) + "」——这是界面上的提示，不是她又说了一句】"
+        : "【聊天界面提示：对方撤回了一条消息，撤得太快，你没看清写的什么——这是界面上的提示，不是她又说了一句】" };
+    };
+    const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : m)
+      .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
+    // 撤回那件事已经留在历史原位了（见上面 recallStub），末尾不再另挂一句——同一件事说两遍，
+    //   第二遍还是「多数时候当没看见」，等于叫他别理。
+    const _recallHint = "";
     // CC turn 仍完整留在 App 时间线里；模型侧只走 continuity 亲历块这一份载体，
     // 避免同一原话既在历史中段回插、又在实时背景重复携带，击穿 prompt cache。
     const modelHistory = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"

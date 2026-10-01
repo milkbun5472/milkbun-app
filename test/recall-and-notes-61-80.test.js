@@ -58,31 +58,18 @@ test("撤回不再当场单独调一次模型", () => {
   assert.match(seg, /recalledTs: Date\.now\(\)/, "没记撤回的时刻，就没法判他看没看到");
 });
 
-test("撤回搭下一轮的便车，而且只带【他还没回过话】的那几条", () => {
-  const i = app.indexOf("const _recallHint = (() => {");
-  assert.ok(i > 0, "没有 _recallHint");
-  const seg = app.slice(i, i + 1600);
-  // 只挑他最后一条之后的：他一开口这件事就过去了，别每轮都提
-  assert.match(seg, /m\.role === "assistant" && !m\.recalled/, "没找他最后一次说话的时刻");
-  assert.match(seg, /\(Number\(m\.ts\) \|\| 0\) >= lastHe/, "没按「他还没回过话」筛");
-  assert.match(seg, /\.slice\(-3\)/, "没封顶，她连撤五条就会刷屏");
-  // 真的挂进了这一轮的任务串
-  assert.match(app, /desireHint \+ _recallHint \+ _clockStampHint \+ capabilityHint/, "_recallHint 没接进 v2 任务串");
-});
-
-test("看没看到由代码判：撤得快就连原文都不发过去", () => {
-  // 「规则降概率，代码才保证」——把原文给出去再让模型自己填 saw，
-  // 等于把它必然会漏的东西塞它嘴里（老的 reactToMyRecall 就是这么写的）。
-  const i = app.indexOf("const _recallHint = (() => {");
-  const seg = app.slice(i - 700, i + 1600);
+test("撤回留在历史原位：他知道撤过一条（她 2026-10-01：「撤回他不知道我撤回了」）", () => {
+  const i = app.indexOf("const recallStub = m => {");
+  assert.ok(i > 0, "没有 recallStub");
+  const seg = app.slice(i - 200, i + 1200);
   assert.match(seg, /const RECALL_SEEN_MS = \d+;/, "没有那道时间闸");
   assert.match(seg, /const seen = !\(Number\(m\.recalledTs\) && gap >= 0 && gap < RECALL_SEEN_MS\)/);
-  // 两支的形状一起钉死：带原文的那一支挂在 seen 上，没看到的那一支是【一句写死的话】，
-  // 后面直接分号收尾——中间拼不进任何东西，原文也就漏不过去。
-  assert.match(seg, /return seen && m\.content\s*\n?\s*\?\s*"·[^"]*" \+ String\(m\.content\)[^\n]*\n\s*: "·[^"]*";/,
+  // 原文只挂在 seen 那一支上；没看清那一支是一句写死的话
+  assert.match(seg, /content: seen && m\.content\s*\n?\s*\? "【[^"]*" \+ String\(m\.content\)[^\n]*\n\s*: "【[^"]*" \};/,
     "两支的形状不对：要么原文没挂在 seen 上，要么「没看清」那一支拼了东西进去");
-  // 别把撤回变成每次都追问
-  assert.match(seg, /多数时候当没看见就好/, "没有那句「多数时候当没看见」");
+  assert.match(app, /const history = base\.map\(m => \(m && m\.recalled && m\.role === "user"\) \? recallStub\(m\) : m\)/);
+  // 末尾那句「多数时候当没看见」撤掉了：同一件事不说两遍
+  assert.ok(app.includes('const _recallHint = "";'));
 });
 
 // ── ③ 挂断小结在皮肤上看不见 ──────────────────────────────────────────────
