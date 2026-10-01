@@ -89,7 +89,9 @@
     messages: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
     forum: { dock: "论坛", path: [{ text: "我", exact: true, minTopK: 0.8, optional: true }] },
     diary: { dock: "日记", path: [{ call: "diaryMine" }] },
-    memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop" }, takeout: { key: "takeout" },
+    memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop", path: [{ text: "我的", exact: true, minTopK: 0.8, optional: true }] },
+    takeout: { key: "takeout", path: [{ text: "订单", exact: true, minTopK: 0.8, optional: true }] },
+    // ↑购物先去底栏「我的」、外卖先去底栏「订单」——买过什么在那儿，首页只是货架（她 2026-10-01：「购物没点到我的页面就开始说话了」）
     // 钱包不在主屏上：信息 → 底栏「我」→「我的钱包」（她 2026-10-01：「钱包页面找不到直接点进来的」）
     wallet: { dock: "信息", path: [{ text: "我", exact: true, minTopK: 0.8 }, { text: "我的钱包" }] } };
   function folderOf(key) {

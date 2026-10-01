@@ -118,3 +118,13 @@ test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没�
   assert.match(a, /const COLD = \["shop", "takeout", "listen", "memo"/);
   assert.match(a, /apps: \[\.\.\.new Set\(sc\.filter\(s => s\.do === "open"\)\.map\(s => s\.app\)\)\]/);
 });
+
+test("翻手机：购物先进「我的」、外卖先进「订单」，两份单子分开写，补的冷门 app 只插在 open 前", () => {
+  const p = require("fs").readFileSync(require("path").join(__dirname, "../js/peek-phone.js"), "utf8");
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(p, /shop: \{ key: "shop", path: \[\{ text: "我的"/);
+  assert.match(p, /takeout: \{ key: "takeout", path: \[\{ text: "订单"/);
+  assert.match(a, /【购物 app 里的订单】/);
+  assert.match(a, /【外卖 app 里的订单】/);
+  assert.match(a, /s\.do === "open" \? i : -1/);
+});

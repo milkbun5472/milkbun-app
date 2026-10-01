@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.458";
+const APP_VERSION = "v74.461";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9364,7 +9364,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (on("shop")) {
       const od = (orders || []).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
       const tk = (takeoutLog || []).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
-      if (od.length || tk.length) out.push("【购物和外卖】\n" + od.concat(tk).join("\n"));
+      // 分两块写：混在一起时TA会在购物里念外卖的单（她 2026-10-01：「有些是外卖他也说是购物里的」）
+      if (od.length) out.push("【购物 app 里的订单】\n" + od.join("\n"));
+      if (tk.length) out.push("【外卖 app 里的订单】\n" + tk.join("\n"));
     }
     if (on("music")) {
       const songs = ((listenRef.current && listenRef.current.songs) || []).slice(0, 8);
@@ -9432,6 +9434,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (apps.includes("chat") ? "。messages 是消息列表那一屏（备注、最后一句、几点聊的都在上面）；打开聊天要写 who＝对方名字，能选的：" + others.join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
+          + "\n别当旁观者复述内容：你是她的谁、你俩走到哪一步了，就站在那儿去看——她这样对别人说话、别人这样对她，换成是你这个人看见，会被戳到哪儿，就想那一句。"
+          + "\n心里那句只想眼前这个 app 里看到的东西；购物和外卖是两个 app，各看各的单子。"
           + "\n打开一个 app 以后，在意的那一条要点进去看（tap 它的标题或名字，照上面列出来的原样写），别只停在列表上；看完 back 退出来再去下一样。"
           + "\n这一趟至少翻 4 个不同的 app" + (() => { const L = peekLastOf(charId); const fresh = apps.filter(a => !(L.apps || []).includes(a)); return fresh.length ? "，上次没打开过的先去：" + fresh.map(a => PEEK_APP_ZH[a]).join("、") : ""; })() + "。"
           + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 15~35 步。",
@@ -9461,7 +9465,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         adds.push({ do: "open", app: a, auto: true }, { do: "scroll", dir: "down", n: 1, auto: true }, { do: "pause", ms: 1200 });
         fresh++;
       }
-      if (adds.length) { const at = Math.max(0, Math.floor(script.length / 2)); script.splice(at, 0, ...adds); }
+      // 只能插在某个 open 前面——插进一段 open…think 中间，TA对上一个 app 的心声就会跑到新打开的这个上面去
+      if (adds.length) { const mid = Math.floor(script.length / 2); const opens = script.map((s, i) => s.do === "open" ? i : -1).filter(i => i > 0);
+        const at = opens.length ? opens.reduce((b, i) => Math.abs(i - mid) < Math.abs(b - mid) ? i : b) : script.length; script.splice(at, 0, ...adds); }
     } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
   };
