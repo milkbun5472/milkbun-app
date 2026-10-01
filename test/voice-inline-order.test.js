@@ -36,3 +36,13 @@ test("占位符被中间哪一道加了标点、洗掉私用区字符也认得�
   assert.strictEqual(f.voiceSlotOf("voiceslot1 好的"), null);
   assert.ok(!/\\uE000V/.test(eng) && !/\\uE000V/.test(app));
 });
+test("【voice】…【/voice】标签式写法，跨好几项也并成一条就地发", () => {
+  const src = eng.slice(eng.indexOf("const VOICE_SLOT_TOKEN"), eng.indexOf("function pullPauseVoice"));
+  const f = new Function("ttsHasPause", "stripPauseMarks", src + ";return {markPauseVoice,voiceSlotOf};")(() => false, x => x);
+  const r = f.markPauseVoice(["顺手回我也必须排第一", "【voice】到底在等谁的消息啊……男的女的？", "同学还是同事？", "我这火锅都吃不下去了……【/voice】", "你看他们都在看我笑话！"]);
+  assert.deepStrictEqual(r.words.map(f.voiceSlotOf), [null, 0, null]);
+  assert.deepStrictEqual(r.voice, ["到底在等谁的消息啊……男的女的？ 同学还是同事？ 我这火锅都吃不下去了……"]);
+  assert.deepStrictEqual(f.markPauseVoice(["<voice>想你</voice>", "嗯"]).voice, ["想你"]);
+  // 没有合上的标签＝前缀写法，只算这一项
+  assert.deepStrictEqual(f.markPauseVoice(["[voice]没合上", "后面"]).voice, ["没合上"]);
+});

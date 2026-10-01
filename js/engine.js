@@ -5703,7 +5703,18 @@ function markPauseVoice(words) {
   const out = [], voice = [];
   let run = null;
   const flush = () => { if (run != null) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(run); run = null; } };
-  list.forEach(w => {
+  // 标签式写法（她 2026-10-01 截图：「【voice】到底在等谁的消息啊……」「我这火锅都吃不下去了……【/voice】」）：
+  //   有的模型往字符串数组里塞不了对象，就自己发明一对开合标签，还常常跨好几项。
+  //   【voice】…【/voice】、[voice]…[/voice]、<voice>…</voice>、【语音】…【/语音】都认，跨项的并成一条。
+  const OPEN = /^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]\s*/i, CLOSE = /\s*[【\[<]\s*\/\s*(?:voice|语音)\s*[】\]>]\s*$/i;
+  let tag = null;
+  const endTag = () => { const t = (tag || []).join(" ").trim(); tag = null; if (t) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(t); } };
+  list.forEach((w, idx) => {
+    if (typeof w === "string") {
+      if (tag) { const closed = CLOSE.test(w); tag.push(w.replace(CLOSE, "").trim()); if (closed) endTag(); return; }
+      // 后面没有合上的标签＝「[语音] 内容」那种前缀写法：只算这一项
+      if (OPEN.test(w)) { flush(); const rest = w.replace(OPEN, ""); tag = []; const closed = CLOSE.test(rest) || !list.slice(idx + 1).some(x => typeof x === "string" && CLOSE.test(x)); tag.push(rest.replace(CLOSE, "").trim()); if (closed) endTag(); return; }
+    }
     const vo = (w && typeof w === "object") ? String(w.voice || w.t || w.text || "").trim()
       : (/^\s*[\[【]语音[\]】]\s*[:：]?\s*/.test(w) ? w.replace(/^\s*[\[【]语音[\]】]\s*[:：]?\s*/, "").trim() : null);
     if (vo != null) {
