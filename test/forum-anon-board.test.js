@@ -33,3 +33,10 @@ test("论坛走的是带匿名收口的那一层", () => {
   assert.match(src("app.js"), /React\.createElement\(ForumAnonWrap, \{/);
   assert.match(s, /useMemo\(\(\) => forumAnonView\(props\.posts, props\.comments\)/);
 });
+
+test("角色的真实经历只给 TA 本人用：路人只看得见帖子正文", () => {
+  const a = src("app.js");
+  const i = a.indexOf("const forumCharGrounding = ");
+  const g = a.slice(i, a.indexOf("const forumCommentProbe = ", i));
+  assert.match(g, /路人、熟面孔、其他角色都【只看得见帖子标题和正文】/);
+});
