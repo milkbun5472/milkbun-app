@@ -2616,7 +2616,7 @@ function Forum({
     const fresh = isFreshFloor(cm);
     return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), style: { margin: "8px 13px 0", padding: "12px 13px", borderRadius: 15, border: "1px solid " + (fresh ? FORUM_SKIN.accent + "55" : FORUM_SKIN.line), borderLeft: (fresh ? "3px solid " + FORUM_SKIN.accent : "1px solid " + FORUM_SKIN.line), background: fresh ? "rgba(255,252,246,.95)" : "rgba(251,252,247,.82)" } },
       h("div", { className: "flex gap-2.5" },
-        avatarBtn(cm, 34),
+        avatarBtn(cm, 34, cm.anon),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "grid items-start", style: { gridTemplateColumns: "minmax(0,1fr) auto", columnGap: 8, minWidth: 0 } },
             h("div", { className: "min-w-0" },

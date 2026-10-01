@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.409";
+const APP_VERSION = "v74.410";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19636,11 +19636,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return () => { clearTimeout(first); clearInterval(iv); };
   }, [loaded]);
   // 我开新楼评论 → 随后刷 4-6 条回我的（含楼主本人）挂到这层楼中楼
+  // 我在这个帖子里叫什么（九里香 2026-10-01：「发了匿名贴之后发现回复评论是自己的大号」）。
+  //   匿名吧里一律是「匿名者」，楼上楼下都一样，不许一回复就把大号亮出来；别的版块照旧用论坛昵称。
+  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : (forumMe.handle || profile.name || "我");
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
-    const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
+    const floor = { id: fid, authorId: "me", authorType: "me", authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
@@ -19656,7 +19659,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId, "mine");
     const to = String(toName || "").trim();
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
