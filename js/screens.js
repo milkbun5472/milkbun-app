@@ -2085,6 +2085,19 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
 //  搜索 = 随机刷到四版块之外的吧（据全局聊天）；私信 = NPC 私信；我 = 我的主页
 //  帖子只有一份，版块是筛选视图；评论懒加载（含楼中楼，回复者随机 NPC/角色）
 // ============================================================
+// ── 世界线（她 2026-10-01，群友：「char1 在论坛大号发的帖子 char2 大号回复了，理论上两个人对着的我的时间点根本不在一起」）──
+// 角色分到几个「世界」里：同一个世界的人才会碰面、认得彼此；默认大家都在同一个世界（不分＝现在的样子）。
+// ⚠️界面放在论坛设置里，但这份分组单独存（x_charWorlds），不写死在论坛里——以后朋友圈之类要分世界，读同一份。
+const CHAR_WORLDS_KEY = "x_charWorlds";
+function charWorldsLoad() {
+  try {
+    const v = JSON.parse(localStorage.getItem(CHAR_WORLDS_KEY) || "null");
+    return { worlds: Array.isArray(v && v.worlds) ? v.worlds.filter(w => w && w.id && w.name) : [], of: (v && v.of && typeof v.of === "object") ? v.of : {} };
+  } catch (e) { return { worlds: [], of: {} }; }
+}
+function charWorldsSave(d) { try { localStorage.setItem(CHAR_WORLDS_KEY, JSON.stringify({ worlds: d.worlds || [], of: d.of || {} })); } catch (e) {} }
+// 这个角色在哪个世界：""＝默认那个「同一个世界」
+function charWorldOf(id, d) { d = d || charWorldsLoad(); const w = d.of[id]; return w && d.worlds.some(x => x.id === w) ? w : ""; }
 const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
 // 每个吧自己的规矩（她 2026-09-15 问「5 呢」）。一份写在这儿：置顶那块牌子（下面 Forum 里）
 // 和喂给模型的吧规（app.js 的 forumBoardRuleLines）读的是同一份——两处各抄一份必然有一处过时。
@@ -2244,6 +2257,37 @@ function AltAvatar({ seed, size }) {
 //   生成那头有七八处各自拼作者（NPC 发帖、NPC 回楼、楼主回复、搜索……），只有她自己和角色那两处记得匿名；
 //   一处处去补，下回再加一处又漏。所以在【显示】这一层一次收口：匿名吧里的帖、楼、楼中楼，
 //   一律按匿名显示——没名字、没 @、点不进主页。楼主还是标楼主（那是位置，不是身份）。
+// 论坛设置里的「世界」那一块：开几个世界、每个角色点一下换到下一个世界
+function ForumWorlds({ characters }) {
+  const t = useTheme();
+  const [d, setD] = useState(charWorldsLoad);
+  const put = next => { charWorldsSave(next); setD(charWorldsLoad()); };
+  const nameOf = id => id ? ((d.worlds.find(w => w.id === id) || {}).name || "同一个世界") : "同一个世界";
+  const order = [""].concat(d.worlds.map(w => w.id));
+  const cycle = cid => { const cur = charWorldOf(cid, d); const nx = order[(order.indexOf(cur) + 1) % order.length]; const of = Object.assign({}, d.of); if (nx) of[cid] = nx; else delete of[cid]; put({ worlds: d.worlds, of }); };
+  const add = () => requestAppPrompt("新开一个世界", "起个名字，比如「周周那条线」。分进来的角色只跟同一个世界的人碰面。", "", v => {
+    const name = String(v || "").trim().slice(0, 16); if (!name) return;
+    put({ worlds: d.worlds.concat([{ id: "w_" + Date.now().toString(36), name }]), of: d.of });
+  }, "开");
+  const drop = w => requestAppConfirm("拆掉「" + w.name + "」？", "里面的角色回到「同一个世界」。", () => {
+    const of = {}; Object.keys(d.of).forEach(k => { if (d.of[k] !== w.id) of[k] = d.of[k]; });
+    put({ worlds: d.worlds.filter(x => x.id !== w.id), of });
+  }, "拆掉");
+  const chip = { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2 };
+  return h("div", { style: { marginBottom: 16, paddingBottom: 14, borderBottom: "1px dashed " + t.line } },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "世界"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.6 } },
+      "角色各跟你是不同的线、时间点对不上？给他们分到不同的世界：同一个世界的人才会在同一个帖子里碰面、认得彼此。不分就都在「同一个世界」。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: d.worlds.length ? 10 : 0 } },
+      h("span", { style: Object.assign({}, chip, { display: "inline-flex", alignItems: "center", color: t.sub }) }, "同一个世界"),
+      d.worlds.map(w => h("button", { key: w.id, onClick: () => drop(w), className: "active:opacity-70", style: chip }, w.name + "  ×")),
+      h("button", { onClick: add, className: "active:opacity-70", style: Object.assign({}, chip, { borderStyle: "dashed" }) }, "＋ 新开一个世界")),
+    d.worlds.length > 0 && h("div", { className: "space-y-1" }, (characters || []).map(c => h("div", { key: c.id, className: "flex items-center gap-3", style: { minHeight: 44 } },
+      h(Avatar, { character: c, size: 30, radius: 15 }),
+      h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.remark || c.name),
+      h("button", { onClick: () => cycle(c.id), className: "active:opacity-70", style: Object.assign({}, chip, { color: charWorldOf(c.id, d) ? t.accent : t.sub }) }, nameOf(charWorldOf(c.id, d)) + " ›")))),
+    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点上面的世界名可以拆掉它。"));
+}
 function forumAnonView(posts, comments) {
   const mask = x => {
     if (!x || x.anon) return x;
@@ -3129,6 +3173,7 @@ function Forum({
       h(Eyebrow, { style: { marginBottom: 6 } }, "哪些角色在逛论坛"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "关掉的角色不会在评论/回复里冒泡，也不会在论坛发帖"),
       (characters || []).length === 0 && h(Empty, { text: "还没有角色", sub: "" }),
+      h(ForumWorlds, { characters: characters }),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); }))),
     // 我关注的角色 + 公开网友目录，点进各自主页
     followListOpen && h(Sheet, { onClose: () => setFollowListOpen(false) },
