@@ -106,5 +106,14 @@ test("消息列表也是一处看点；退出来才想的那句挪回退出之�
   assert.match(a, /【她的消息列表（一打开「信息」就看得到）】/);
   assert.match(a, /saveJSON\("x_peekLast", all\)/);
   assert.match(a, /你上次翻她手机已经看过：/);
-  assert.match(a, /x\.ms\.slice\(-14\)/);
+  assert.match(a, /seg\("最近", ms\.slice\(-12\)\)/);
+});
+
+test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没翻的先去），记住上次开过哪些 app", () => {
+  assert.match(a, /今天是" \+ \(d\.getMonth\(\) \+ 1\) \+ "月"/);
+  assert.match(a, /聊起，到现在一共 " \+ n \+ " 条）/);
+  assert.match(a, /seg\("早先", ms\.slice\(0, 4\)\)/);
+  assert.match(a, /md\(e\.ts\) \+ "写的"/);
+  assert.match(a, /while \(opened\.size < 4 && pool\.length\)/);
+  assert.match(a, /apps: \[\.\.\.new Set\(sc\.filter\(s => s\.do === "open"\)\.map\(s => s\.app\)\)\]/);
 });

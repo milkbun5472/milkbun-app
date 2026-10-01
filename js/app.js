@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.454";
+const APP_VERSION = "v74.455";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9306,6 +9306,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
     const uN = userName(profile);
+    // 日子都写上（她 2026-10-01：「他好像不知道日记日期和现在日期」）
+    const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
     const last = peekLastOf(viewerId);
     const seenWho = new Set(last.who || []);
     const out = [];
@@ -9325,12 +9327,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 上次翻过的人排到后面（她 2026-10-01：「这几次测试评论的都是同样两件事」「下次可以看其他角色的」）
       }).filter(x => x.ms.length).sort((a, b) => (seenWho.has(a.c.remark || a.c.name) - seenWho.has(b.c.remark || b.c.name)) || (b.last - a.last)).slice(0, 6);
       // ⚠️说清楚这是谁跟谁（她 2026-10-01：截图里TA把别人说的话当成段子看，没看懂这是【她跟别人】的聊天）
-      if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(x => "她（" + uN + "）和「" + (x.c.remark || x.c.name) + "」的聊天：\n" + x.ms.slice(-14).map(m => "  " + (m.role === "user" ? "她：" : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70)).join("\n")).join("\n"));
+      // 整段的来龙去脉，不只最后一截（她 2026-10-01：「还是不会看我和别人整体的聊天，只是看一小段」）：
+      //   从哪天聊起、一共多少条，再从早先、中间、最近各抽几句，每段标上日子
+      const line = (x, m) => "  " + (m.role === "user" ? "她：" : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70);
+      const arc = x => {
+        const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
+        const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，到现在一共 " + n + " 条）：";
+        if (n <= 18) return head + "\n" + ms.map(m => line(x, m)).join("\n");
+        const mid = Math.floor(n / 2);
+        const seg = (label, arr) => "  —— " + label + "（" + md(arr[0].ts) + "）\n" + arr.map(m => line(x, m)).join("\n");
+        return head + "\n" + seg("早先", ms.slice(0, 4)) + "\n" + seg("中间", ms.slice(mid - 2, mid + 2)) + "\n" + seg("最近", ms.slice(-12));
+      };
+      if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
     }
     if (on("forum")) {
       const seenT = new Set(last.taps || []);
       const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me").sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
-      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70)).join("\n"));
+      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70)).join("\n"));
     }
     if (on("money")) {
       const log = (walletLog || []).slice(0, 10);
@@ -9346,11 +9359,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if ((m = L.match(/^抢到\s*(.+?)\s*的红包$/))) return "她抢到" + who(m[1]) + "的红包 " + amt;
         return (w.delta < 0 ? "她花出去 " : "她收到 ") + amt + "（" + cut(L, 24) + "）";
       };
-      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + say(w)).join("\n"));
+      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n"));
     }
     if (on("shop")) {
-      const od = (orders || []).slice(0, 8).map(o => "· 买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
-      const tk = (takeoutLog || []).slice(0, 6).map(o => "· 外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
+      const od = (orders || []).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
+      const tk = (takeoutLog || []).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
       if (od.length || tk.length) out.push("【购物和外卖】\n" + od.concat(tk).join("\n"));
     }
     if (on("music")) {
@@ -9364,7 +9377,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("journal")) {
       const es = ((diariesRef.current || {})["__me"] || []).slice(-3);
-      if (es.length) out.push("【她的手记】\n" + es.map(e => "· " + (e.title ? "《" + cut(e.title, 20) + "》" : "") + cut((e.paras || []).map(p => p.text).join(" "), 90)).join("\n"));
+      if (es.length) out.push("【她的手记】\n" + es.map(e => "· " + md(e.ts) + "写的" + (e.title ? "《" + cut(e.title, 20) + "》" : "") + cut((e.paras || []).map(p => p.text).join(" "), 90)).join("\n"));
     }
     if (on("pics")) {
       const pics = [];
@@ -9410,6 +9423,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
         instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + " 把她的手机递给了你——对你来说这些全是真的：她是你认识的那个人，"
           + "聊天里那些人是活生生的人，她跟他们说的话、转出去的钱、写下的东西都真发生过。你翻到的每一样，心里冒出来的都是【你这个人】此刻对她、对那个人、对那件事的真实反应，用你平时的口吻。"
+          + (() => { const d = new Date(); return "\n今天是" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + d.toTimeString().slice(0, 5) + "——下面写着日子的，都按今天往回算是几天前的事。"; })()
           + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
@@ -9419,7 +9433,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n打开一个 app 以后，在意的那一条要点进去看（tap 它的标题或名字，照上面列出来的原样写），别只停在列表上；看完 back 退出来再去下一样。"
-          + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 12~30 步。",
+          + "\n这一趟至少翻 4 个不同的 app" + (() => { const L = peekLastOf(charId); const fresh = apps.filter(a => !(L.apps || []).includes(a)); return fresh.length ? "，上次没打开过的先去：" + fresh.map(a => PEEK_APP_ZH[a]).join("、") : ""; })() + "。"
+          + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 15~35 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"forum\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });
@@ -9430,6 +9445,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
       script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary }) : [];
+      // 翻的地方太少就代码补（她 2026-10-01：「来来回回都只是在看信息钱包日记偶尔论坛，其他都没看过」）：
+      //   不够 4 样，从没打开的里挑，上次也没翻过的排前面，补在末尾、各看一眼
+      const opened = new Set(script.filter(s => s.do === "open").map(s => s.app === "messages" ? "chat" : s.app));
+      const pool = apps.filter(a => a !== "messages" && !opened.has(a)).sort((x, y) => ((L.apps || []).includes(x) - (L.apps || []).includes(y)));
+      while (opened.size < 4 && pool.length) {
+        const a = pool.shift(); opened.add(a);
+        if (a === "chat") continue;
+        script.push({ do: "open", app: a, auto: true }, { do: "scroll", dir: "down", n: 1, auto: true }, { do: "pause", ms: 900 });
+      }
     } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
   };
@@ -9440,7 +9464,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       const sc = p.script || [];
       const all = loadJSON("x_peekLast", {}) || {};
-      all[p.charId] = { ts: Date.now(), who: [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))].slice(0, 6),
+      all[p.charId] = { ts: Date.now(), apps: [...new Set(sc.filter(s => s.do === "open").map(s => s.app))], who: [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))].slice(0, 6),
         taps: [...new Set(sc.filter(s => s.do === "tap" && !s.exact).map(s => s.text))].slice(0, 10), thoughts: (thoughts || []).slice(0, 6) };
       saveJSON("x_peekLast", all);
     } catch (e) {}
