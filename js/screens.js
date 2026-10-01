@@ -2098,6 +2098,19 @@ function charWorldsLoad() {
 function charWorldsSave(d) { try { localStorage.setItem(CHAR_WORLDS_KEY, JSON.stringify({ worlds: d.worlds || [], of: d.of || {} })); } catch (e) {} }
 // 这个角色在哪个世界：""＝默认那个「同一个世界」
 function charWorldOf(id, d) { d = d || charWorldsLoad(); const w = d.of[id]; return w && d.worlds.some(x => x.id === w) ? w : ""; }
+// ── 论坛按世界分（她 2026-10-01：「如果我想路人也生成具体世界观的帖子……吐槽吧我也想让古风角色或者 npc 来发帖」）──
+// 每个世界有自己一整套论坛（吐槽吧、日常吧……都在），在论坛设置里切「现在逛哪个世界」。
+// 帖子落盘时记下 world；老帖没记的：角色发的算TA那个世界，其余算默认世界（一个都不用迁移）。
+const FORUM_WORLD_KEY = "x_forumWorld";
+function forumCurWorld(d) { d = d || charWorldsLoad(); let w = ""; try { w = localStorage.getItem(FORUM_WORLD_KEY) || ""; } catch (e) {} return w && d.worlds.some(x => x.id === w) ? w : ""; }
+function forumSetWorld(w) { try { localStorage.setItem(FORUM_WORLD_KEY, w || ""); } catch (e) {} try { window.dispatchEvent(new CustomEvent("lisa-forum-world")); } catch (e) {} }
+function forumPostWorld(p, d) {
+  d = d || charWorldsLoad();
+  if (p && typeof p.world === "string") return p.world && d.worlds.some(x => x.id === p.world) ? p.world : "";
+  if (p && p.authorId && /^character/.test(String(p.authorType || ""))) return charWorldOf(p.authorId, d);
+  return "";
+}
+function charWorldLore(w, d) { d = d || charWorldsLoad(); return w ? String(((d.worlds.find(x => x.id === w) || {}).lore) || "").trim() : ""; }
 const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
 // 每个吧自己的规矩（她 2026-09-15 问「5 呢」）。一份写在这儿：置顶那块牌子（下面 Forum 里）
 // 和喂给模型的吧规（app.js 的 forumBoardRuleLines）读的是同一份——两处各抄一份必然有一处过时。
@@ -2269,6 +2282,11 @@ function ForumWorlds({ characters }) {
     const name = String(v || "").trim().slice(0, 16); if (!name) return;
     put({ worlds: d.worlds.concat([{ id: "w_" + Date.now().toString(36), name }]), of: d.of });
   }, "开");
+  const editLore = w => requestAppPrompt("「" + w.name + "」的世界观", "写几句这是个什么世界：朝代/年代、地方、日常用的东西。这个世界的论坛里，路人发帖、回帖都照这个写；空着＝普通现代论坛。", w.lore || "", v => {
+    put({ worlds: d.worlds.map(x => x.id === w.id ? Object.assign({}, x, { lore: String(v || "").trim().slice(0, 400) }) : x), of: d.of });
+  }, "存好了", { multiline: true });
+  const [cur, setCur] = useState(forumCurWorld);
+  const pick = id => { forumSetWorld(id); setCur(id); };
   const drop = w => requestAppConfirm("拆掉「" + w.name + "」？", "里面的角色回到「同一个世界」。", () => {
     const of = {}; Object.keys(d.of).forEach(k => { if (d.of[k] !== w.id) of[k] = d.of[k]; });
     put({ worlds: d.worlds.filter(x => x.id !== w.id), of });
@@ -2280,13 +2298,20 @@ function ForumWorlds({ characters }) {
       "角色各跟你是不同的线、时间点对不上？给他们分到不同的世界：同一个世界的人才会在同一个帖子里碰面、认得彼此。不分就都在「同一个世界」。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: d.worlds.length ? 10 : 0 } },
       h("span", { style: Object.assign({}, chip, { display: "inline-flex", alignItems: "center", color: t.sub }) }, "同一个世界"),
-      d.worlds.map(w => h("button", { key: w.id, onClick: () => drop(w), className: "active:opacity-70", style: chip }, w.name + "  ×")),
+      d.worlds.map(w => h("span", { key: w.id, className: "inline-flex items-center", style: Object.assign({}, chip, { padding: 0 }) },
+        h("button", { onClick: () => editLore(w), className: "active:opacity-70", style: { minHeight: 34, padding: "0 4px 0 12px", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, w.name + (w.lore ? " · 有世界观" : "")),
+        h("button", { onClick: () => drop(w), "aria-label": "拆掉" + w.name, className: "active:opacity-70", style: { minWidth: 34, minHeight: 34, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "×"))),
       h("button", { onClick: add, className: "active:opacity-70", style: Object.assign({}, chip, { borderStyle: "dashed" }) }, "＋ 新开一个世界")),
     d.worlds.length > 0 && h("div", { className: "space-y-1" }, (characters || []).map(c => h("div", { key: c.id, className: "flex items-center gap-3", style: { minHeight: 44 } },
       h(Avatar, { character: c, size: 30, radius: 15 }),
       h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.remark || c.name),
       h("button", { onClick: () => cycle(c.id), className: "active:opacity-70", style: Object.assign({}, chip, { color: charWorldOf(c.id, d) ? t.accent : t.sub }) }, nameOf(charWorldOf(c.id, d)) + " ›")))),
-    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点上面的世界名可以拆掉它。"));
+    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点世界名写它的世界观，点 × 拆掉。"),
+    d.worlds.length > 0 && h("div", { style: { marginTop: 14 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginBottom: 6 } }, "现在逛哪个世界的论坛"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "每个世界一整套论坛，吐槽吧、日常吧都在。切过去以后，刷出来的帖子、路人、来冒泡的角色都是那个世界的。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, order.map(id => h("button", { key: id || "same", onClick: () => pick(id), className: "active:opacity-70",
+        style: Object.assign({}, chip, cur === id ? { background: t.ink, color: t.bg2, borderColor: t.ink } : null) }, nameOf(id))))));
 }
 function forumAnonView(posts, comments) {
   const mask = x => {
@@ -2306,7 +2331,14 @@ function forumAnonView(posts, comments) {
 }
 function ForumAnonWrap(props) {
   // ⚠️要 memo：每次渲染都换一份新数组，下面以 posts/comments 作依赖的 effect 会一直重跑
-  const _av = useMemo(() => forumAnonView(props.posts, props.comments), [props.posts, props.comments]);
+  // 只显示「现在逛的这个世界」的帖子；在论坛设置里切世界时重画一次
+  const [wRev, setWRev] = useState(0);
+  useEffect(() => { const on = () => setWRev(x => x + 1); window.addEventListener("lisa-forum-world", on); return () => window.removeEventListener("lisa-forum-world", on); }, []);
+  const _av = useMemo(() => {
+    const d = charWorldsLoad(), cur = forumCurWorld(d);
+    const posts = d.worlds.length ? (props.posts || []).filter(p => forumPostWorld(p, d) === cur) : props.posts;
+    return forumAnonView(posts, props.comments);
+  }, [props.posts, props.comments, wRev]);
   return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
 }
 function Forum({

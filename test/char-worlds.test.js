@@ -34,3 +34,24 @@ test("界面在论坛设置里", () => {
   assert.match(s, /h\(ForumWorlds, \{ characters: characters \}\)/);
   assert.match(s, /"＋ 新开一个世界"/);
 });
+
+test("论坛按世界分：帖子记 world、视图只显示当前世界、世界观压进网友设定", () => {
+  const W = (() => {
+    const mem = {};
+    const localStorage = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
+    const code = s.slice(s.indexOf("const CHAR_WORLDS_KEY"), s.indexOf("const FORUM_BOARDS"));
+    return new Function("localStorage", "window", code + "; return { charWorldsSave, forumCurWorld, forumSetWorld, forumPostWorld, charWorldLore };")(localStorage, { dispatchEvent() {} });
+  })();
+  W.charWorldsSave({ worlds: [{ id: "g", name: "古风", lore: "大梁朝" }], of: { zhou: "g" } });
+  assert.strictEqual(W.forumCurWorld(), "");
+  W.forumSetWorld("g");
+  assert.strictEqual(W.forumCurWorld(), "g");
+  assert.strictEqual(W.forumPostWorld({ world: "g" }), "g");
+  assert.strictEqual(W.forumPostWorld({ authorType: "npc" }), "", "老的路人帖算默认世界");
+  assert.strictEqual(W.forumPostWorld({ authorType: "character", authorId: "zhou" }), "g", "老的角色帖算TA那个世界");
+  assert.strictEqual(W.charWorldLore("g"), "大梁朝");
+  assert.match(a, /const _w = forumCurWorld\(\);/);
+  assert.match(a, /world: charWorldOf\(char\.id\),/);
+  assert.match(a, /persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" \+ forumLoreLine\(/);
+  assert.match(s, /filter\(p => forumPostWorld\(p, d\) === cur\)/);
+});

@@ -24,10 +24,11 @@ const evict = (posts, board, cmts, inflight = {}) => {
   assert.ok(i > 0 && j > i, "抠不出淘汰那一段");
   const src = app.slice(i, j + 6);
   let out = null, killedComments = null;
-  new Function("FORUM_NPC_CAP", "FORUM_NPC_TOTAL_CAP", "forumCommentsRef", "setForumPosts", "setForumComments", "saveJSON", "saveForumComments", "BOARD_", "forumCInflightRef",
+  new Function("FORUM_NPC_CAP", "FORUM_NPC_TOTAL_CAP", "forumCommentsRef", "setForumPosts", "setForumComments", "saveJSON", "saveForumComments", "BOARD_", "forumCInflightRef", "forumCurWorld",
     src + "\nappendForumPosts([], BOARD_);")
     .call(null, 30, 240, { current: cmts || {} },
-      fn => { out = fn(posts); }, fn => { killedComments = fn(cmts || {}); }, () => true, () => true, board, {current: inflight});
+      fn => { out = fn(posts); }, fn => { killedComments = fn(cmts || {}); }, () => true, () => true, board, {current: inflight},
+      () => "");  // 世界线（v74.428）：这一批记到哪个世界——这份测的是淘汰，按默认世界
   return { posts: out, cmts: killedComments };
 };
 const npcPost = (id, ts, board) => ({ id, ts, board: board || "日常吧", authorType: "npc" });

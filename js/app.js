@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.427";
+const APP_VERSION = "v74.428";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18100,16 +18100,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
   const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id) && !settingsFor(c.id).engineerEyes);
   // 世界线（她 2026-10-01）：一个帖子里只有【同一个世界】的角色。楼主是角色＝楼主那个世界；
-  //   楼主是她或路人＝按帖子 id 固定挑一个有人在逛的世界（同一帖每次都是同一个，不会这轮甲世界下轮乙世界）。
-  const forumThreadWorld = post => {
-    const d = charWorldsLoad();
-    const opC = post && isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
-    if (opC) return charWorldOf(opC.id, d);
-    const ws = [...new Set(forumActiveChars().map(c => charWorldOf(c.id, d)))];
-    if (ws.length <= 1) return ws[0] || "";
-    ws.sort();
-    return ws[forumHash(String((post && (post.id || post.title)) || "")) % ws.length];
-  };
+  //   楼主是她或路人＝发帖时她正在逛的那个世界。
+  //   帖子自己记着它属于哪个世界（forumPostWorld：新帖落盘时记下；老帖按作者推）。
+  const forumThreadWorld = post => forumPostWorld(post);
+  const forumLoreLine = w => { const lore = charWorldLore(w); return lore ? "\n【这个论坛开在这样一个世界里】" + lore + "\n网友是这个世界的人：网名、口吻、聊的事、用的东西都是这个世界里有的，这个世界没有的东西（年代不对的物件、说法）一样都别出现。" : ""; };
   const forumInWorld = (c, post) => !!c && charWorldOf(c.id) === forumThreadWorld(post);
   const forumCharList = post => forumActiveChars().filter(c => !post || forumInWorld(c, post)).map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
   const toggleForumChar = charId => setAutoRefreshChar("forum", charId, (forumOffRef.current || []).includes(charId));
@@ -18177,7 +18171,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       () => { const n = forumDropPosts(hit.map(x => x.id)); toast("「" + b + "」清空了，删掉 " + n + " 帖"); },
       "清空");
   };
-  const forumWorldCtx = text => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
+  // world：这一次写的是哪个世界的论坛（不传＝她现在逛的那个）。那个世界写了世界观，就整段压进网友的设定里。
+  const forumWorldCtx = (text, world) => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" + forumLoreLine(world === undefined ? forumCurWorld() : world) }, chars: characters, rels, worldbook: loreForContext("social", [], text), profile, timeAware: prefs.timeAware });
   // 网名那两栏（她 2026-09-12：「以前名字跟TA发的内容没有关系很灵的。
   // 你去研究一下固定 npc 时代前」）。翻了 ce1e3ac「feat(forum): add recurring regulars」
   // 之前那一版，形状是这样的：
@@ -18446,7 +18441,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return out;
   };
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
-    let n = [...recs, ...prev];
+    // 这一批记到她现在逛的那个世界（已经自己带了 world 的不动）
+    const _w = forumCurWorld();
+    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r), ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
     const evictable = x => x.authorType === "npc" && !x.keptFrom && !spare.has(x.id) && !forumCInflightRef.current[x.id];
@@ -18525,7 +18522,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️掷在代码里、不交给模型：「偶尔」写进提示词，模型要么每次都塞一条、要么从来不塞。
       //   掷中了就点名是谁、要一条【整条是TA写的】帖，它照样混在这一批网友帖中间。
       // ⚠️TA照样守关系隐私：TA生活里的事可以说，别人（台上那位、她）的私事不往网上发。
-      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id)).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
+      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id) && charWorldOf(c.id) === forumCurWorld()).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
       const cast = castPool.length && Math.random() < FORUM_CAST_CHANCE ? castPool[Math.floor(Math.random() * castPool.length)] : null;
       const castLine = cast
         ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。" + String(cast.n.persona || "").replace(/\s+/g, " ").slice(0, 400)
@@ -18822,7 +18819,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     forumCInflightRef.current[post.id] = true;
     setGen(g => ({ ...g, forumC: post.id }));
     try {
-      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "")), forumCommentProbe(post, "12-18"));
+      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)), forumCommentProbe(post, "12-18"));
       if (!forumCommentsRef.current[post.id]) { // 等待期间别处已写入 → 保留先到的，绝不覆盖
         let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
         if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
@@ -18876,7 +18873,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         });
       }
       const repliedChars = forumRepliedCharCells(existing);
-      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "")), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
+      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) throw new Error("没有更多");
       // 新楼从【旧队列最后一条之后】起排：这样它一定排在所有旧楼后面，
@@ -18943,7 +18940,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       authorName: identity.authorName, authorHandle: identity.authorHandle,
       board, title: content.title, body: content.body || "",
       ...(forumPhotoOf(content) ? { photo: forumPhotoOf(content) } : {}),
-      anon: anonB, triggerSource: triggerSource || "", ts: base,
+      anon: anonB, triggerSource: triggerSource || "", ts: base, world: charWorldOf(char.id),
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
@@ -19670,7 +19667,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 排队没露面的楼也给模型看：它们早就写好了，只是按时间放；这一波一律接在队尾之后才露面，
       // 轮到它时前面那些都已经放完。以前只给看已露面的，模型不知道自己排着一条，就又写一遍
       // （她 2026-09-25：「就算是没放出来不应该是写好了的等到时间放吗」）。
-      const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || "")),
+      const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)),
         forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
       const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
       if (cs.length) {
@@ -19826,7 +19823,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //    不然接得上话、细节全是编的（她 2026-09-20 报的就是这条路）。
         + (isSearch ? "" : forumActiveChars().filter(c => !groundedR.has(c.id) && forumInWorld(c, post))
             .map(c => forumCharGrounding(c, post, "这层楼里可能开口的", myText)).join(""));
-      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText), {
+      const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText, forumThreadWorld(post)), {
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
@@ -19892,7 +19889,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const postMyForum = (board, title, body, photo) => {
     const anonB = board === "匿名吧";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");

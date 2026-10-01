@@ -73,7 +73,7 @@ for (const scope of scopeKeys) assert.match(app, new RegExp('(?:loreForContext\\
 assert.match(app, /worldbookFor: \(charId, text\) => loreForContext\("study"/, "学习/共读应支持发送时按角色与语境取世界书");
 assert.match(app, /worldbookFor: \(charId, text\) => loreForContext\("lifestyle"/, "番茄钟应支持发送时按角色与语境取世界书");
 assert.match(app, /loreForContext\("social", canSee\.map/, "动态生成应按可见角色取公开世界设定");
-assert.match(app, /forumWorldCtx = text =>[^\n]+loreForContext\("social", \[\], text\)/, "论坛生成应把当前话题交给公开世界路由");
+assert.match(app, /forumWorldCtx = \(text, world\) =>[^\n]+loreForContext\("social", \[\], text\)/, "论坛生成应把当前话题交给公开世界路由");
 
 assert.match(study, /props\.worldbookFor\(chars\[i\]\.id, subject\.trim\(\)\)/, "能力判定应按候选角色取设定");
 assert.match(study, /props\.worldbookFor\(char\.id, \[sessRef\.current\.subject, recent\]/, "学习对话应按说话角色和近期课堂触发设定");
