@@ -150,3 +150,18 @@ test("翻手机：看完开口不限条数，照心情多说或沉默", () => {
   assert.doesNotMatch(a, /看到在意的就说，1~4 条消息/);
   assert.match(a, /说多少照你此刻的心情来/);
 });
+
+test("翻手机：先查聊天；聊天里往下滑改往上；兜底打开也走底栏路径；一起听带播放记录和挂着的人；对照她对你的语气", () => {
+  const fs = require("fs"), path = require("path");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "forum" }, { do: "open", app: "chat", who: "A" }, { do: "scroll", dir: "down", n: 1 }] }, ["forum", "chat", "messages"], {});
+  assert.equal(out.find(s => s.do === "open").app, "messages");
+  const ci = out.findIndex(s => s.do === "open" && s.app === "chat");
+  assert.equal(out[ci + 1].dir, "up");
+  assert.match(p, /if \(sp && sp\.key && sp\.path\)/);
+  assert.match(a, /她现在挂着跟/);
+  assert.match(a, /【对照：她最近跟你说话是这样的】/);
+});

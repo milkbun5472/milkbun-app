@@ -58,10 +58,18 @@
     const res = [];
     // 帖子点开要一路滑到评论区（她 2026-10-01：「论坛也还是只是看正文不看评论区」）
     const POST_READ = () => [{ do: "scroll", dir: "down", n: 2, auto: true }, { do: "pause", ms: 900 }, { do: "scroll", dir: "down", n: 3, auto: true }];
-    let cur = "";
+    let cur = "", wentUp = false;
+    // 查手机先查聊天（她 2026-10-01）：第一个打开的不是聊天／消息列表，就先补一眼消息列表
+    const firstOpen = kept.find(x => x.do === "open");
+    if (firstOpen && firstOpen.app !== "chat" && firstOpen.app !== "messages" && allowApps.indexOf("messages") >= 0)
+      kept.splice(kept.indexOf(firstOpen), 0, { do: "open", app: "messages", auto: true }, { do: "scroll", dir: "down", n: 2, auto: true }, { do: "pause", ms: 900 });
     for (let i = 0; i < kept.length; i++) {
-      const s = kept[i]; res.push(s);
-      if (s.do === "open") cur = s.app;
+      const s = kept[i];
+      if (s.do === "open") { cur = s.app; wentUp = false; }
+      // 聊天一打开就停在最底下（最新那条），往下滑是空滑——还没往上翻过的「往下」一律改成往上
+      //   （她 2026-10-01：「有时候还是不滑动聊天就进到下面的聊天框了」）
+      if (s.do === "scroll" && cur === "chat") { if (s.dir === "down" && !wentUp) s.dir = "up"; if (s.dir === "up") wentUp = true; }
+      res.push(s);
       const nx = nextReal(i);
       // 打开论坛／日记却没点进具体那一条：替它点一条（匿名发的也在她的「我」里，不用绕）
       if (s.do === "open" && s.app === "forum" && !(nx && nx.do === "tap") && fq.length) {
@@ -265,7 +273,12 @@
             openViaHomeLast.current = s.app;
             if (!alive || stopRef.current) return;
             setCaption("在翻：" + (props.labelOf ? props.labelOf(s.app, s.who) : s.app));
-            if (!ok) { props.onOpen && props.onOpen(s.app, s.who); await sleep(1100); }
+            if (!ok) { props.onOpen && props.onOpen(s.app, s.who); await sleep(1100);
+              // 直接打开的也要照样点到底栏那一格（购物「我的」、外卖「订单」……）——
+              //   她 2026-10-01：「购物和外卖还是不到我的页面就看了」：主屏没点成走了这条兜底，路径就丢了
+              const sp = HOME_SPOT[s.app];
+              if (sp && sp.key && sp.path) for (const st of sp.path) { const n = st.text && findByText(st.text, st.minTopK ? window.innerHeight * st.minTopK : 0, !!st.exact); if (n) { await tapEl(n); await sleep(800); } }
+            }
           } else if (s.do === "tap") {
             const el = findByText(s.text, s.bottom ? window.innerHeight * 0.8 : 0, !!s.exact);
             if (!el) continue;                                  // 找不到就不硬点

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.464";
+const APP_VERSION = "v74.470";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9339,6 +9339,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         return head + "\n" + seg("早先", ms.slice(0, 4)) + "\n" + seg("中间", ms.slice(mid - 2, mid + 2)) + "\n" + seg("最近", ms.slice(-12));
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
+      // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
+      const mineMs = (chatsRef.current[viewerId] || []).filter(m => m && m.role === "user" && m.content && !m.kind).slice(-6);
+      if (rows.length && mineMs.length) out.push("【对照：她最近跟你说话是这样的】\n" + mineMs.map(m => "  她：" + cut(m.content, 60)).join("\n"));
     }
     if (on("forum")) {
       const seenT = new Set(last.taps || []);
@@ -9374,7 +9377,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("music")) {
       const songs = ((listenRef.current && listenRef.current.songs) || []).slice(0, 8);
-      if (songs.length) out.push("【一起听的歌】\n" + songs.map(s => "· " + cut(s.name || s.title, 24) + (s.artist ? " - " + cut(s.artist, 16) : "")).join("\n"));
+      // 播放记录＋她挂着跟谁一起听（她 2026-10-01：「一起听要不要搞可以看播放记录还有限制挂着和谁一起听」）
+      const L = listenRef.current || {}, who = id => !id ? "" : id === viewerId ? "你" : "「" + nameOf(id) + "」";
+      const hist = (L.history || []).slice(0, 10);
+      const now = L.partnerId ? "她现在挂着跟" + who(L.partnerId) + "一起听\n" : "";
+      if (hist.length) out.push("【一起听】\n" + now + "播放记录：\n" + hist.map(x => "· " + md(x.ts) + "《" + cut(x.title, 24) + "》" + (x.artist ? " - " + cut(x.artist, 16) : "") + (x.partnerId ? "，和" + who(x.partnerId) + "一起听的" : "，一个人听的")).join("\n"));
+      else if (songs.length || now) out.push("【一起听】\n" + now + songs.map(s => "· " + cut(s.name || s.title, 24) + (s.artist ? " - " + cut(s.artist, 16) : "")).join("\n"));
     }
     if (on("memo")) {
       const d = loadJSON("x_memo", null) || {};
@@ -9439,6 +9447,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
+          + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
           + "\n别当旁观者复述内容：你是她的谁、你俩走到哪一步了，就站在那儿去看——她这样对别人说话、别人这样对她，换成是你这个人看见，会被戳到哪儿，就想那一句。"
           + "\n心里那句只想眼前这个 app 里看到的东西；购物和外卖是两个 app，各看各的单子。"
           + "\n打开一个 app 以后，在意的那一条要点进去看（tap 它的标题或名字，照上面列出来的原样写），别只停在列表上；看完 back 退出来再去下一样。"
@@ -9706,7 +9715,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
         + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。察不察觉、在不在意，看你这个人。" : "")
         + (opts.peekPhone.thoughts && opts.peekPhone.thoughts.length ? "\n\n你刚才翻的时候心里闪过这几句（没说出口）：" + opts.peekPhone.thoughts.map(x => "「" + x + "」").join("") + "——现在把手机还给她，开口跟这几句对得上。" : "")
-        + "\n\n你按自己的性子挑着翻，不必样样都提；看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
+        + "\n\n你按自己的性子挑着翻，不必样样都提；开口先说你心里最放不下的那件，别拿无关紧要的起头、也别用一句客套收尾。看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
       const openerAvoid = (opts.proactive && _openLines.length)
