@@ -16938,7 +16938,7 @@ function ChatSettings({
         // 条子满了却一条都不来（群友 2026-10-01：「过线了还是不主动发」）——最常见是这三条，
         //   原来这一页一句没提，徽章还写着「会主动」，看着像坏了。
         + (proactive ? "" : "\n⚠️「允许 Ta 主动发消息」还关着（在「TA 会主动做什么」里），条子满了也不会来找你。")
-        + "\n另外：你正开着跟 TA 的聊天时不会发（会等你离开）；App 要开着才发得出来，iPhone 切到后台或被关掉就停了；离你们上次说话不满 45 分钟也不会来。"),
+        + "\n另外：你正在输入框里打字时 TA 会先让一让；App 要开着才发得出来，iPhone 切到后台或被关掉就停了；离你们上次说话不满 45 分钟也不会来。"),
       dnNumsOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
         "此刻 " + c.toFixed(3) + "；开口线 0.35，忍不住线 0.50。关着 app 的时间一次最多补 12 小时。"
         + (aPride >= PRIDE_BLOCK ? "　傲娇 " + aPride.toFixed(2) + "（过了 " + PRIDE_BLOCK + " 就先不开口）。" : "")) : null,

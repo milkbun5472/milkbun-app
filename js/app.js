@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.421";
+const APP_VERSION = "v74.422";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6833,8 +6833,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             ? (offlinesRef.current[cid] || []).find(s => s && !s.endTs && (s.msgs || []).length)
             : offlineTogetherSess(cid);
           const activeOffScene = activeOff && (activeOff.msgs || []).length > 0 ? activeOff : null;
-          // 线上路径：正在看这个聊天就不发；线下路径（有场景）：她看着/离开都能自己动（她要"从线上变线下"）。
-          if (!activeOffScene && viewRef.current.charId === cid) continue;
+          // 线上路径：她正开着这个聊天时，只在【她正在打字】时让一让；线下路径（有场景）：她看着/离开都能自己动。
+          // ⚠️原来是「开着这个聊天就不发」，注释说「前台那套负责」——可前台根本没有思念这一路（群友 2026-10-01：
+          //   「我有点冷战的心态想等他主动……开着和他的聊天框也不会发」）。坐在聊天里等TA，正是最该来的时候。
+          //   让路只为防撞车：输入框里有字或光标在里面＝她在打字，这一轮先不插话。
+          if (!activeOffScene && viewRef.current.charId === cid) {
+            let composing = false;
+            try {
+              const box = document.querySelector('[data-wk="chatinput"]');
+              composing = !!box && (document.activeElement === box || String(box.value || "").trim().length > 0);
+            } catch (e) {}
+            if (composing) continue;
+          }
           if (activeOff && !activeOffScene) continue; // 线下开着但还没开演：不发线上、也没得演，跳过
           const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
           if (!activeOffScene && !ms.length) continue;

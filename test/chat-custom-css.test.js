@@ -233,4 +233,7 @@ test("想念条那页：主动开关关着时直接说出来，还列出不发�
   const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
   assert.match(c, /\(proactive \? "" : "\\n⚠️「允许 Ta 主动发消息」还关着/);
   assert.match(c, /离你们上次说话不满 45 分钟也不会来/);
+  const a = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.doesNotMatch(a, /if \(!activeOffScene && viewRef\.current\.charId === cid\) continue;/, "又变回「开着聊天就不发」——前台没有思念那一路");
+  assert.match(a, /document\.activeElement === box \|\| String\(box\.value \|\| ""\)\.trim\(\)\.length > 0/);
 });
