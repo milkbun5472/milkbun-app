@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.417";
+const APP_VERSION = "v74.418";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9731,6 +9731,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _askPick = (_askAvatar && !_seenMsg) ? freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
       // TA自己起意：刚发的那张不在了，再往前看一段（冷却照旧）
       const _autoPick = (!_askAvatar && !_seenMsg && !opts.proactive && avatarCoolOk(charId)) ? freshPhotoIn(chatsRef.current[charId] || [], AUTO_AVATAR_LOOKBACK) : null;
+      // 情头那一档：她开口说了一对／一起换，而且往回真找得到两张她发的照片。
+      //   ⚠️只在她开口时给——换的是【她自己的】头像，不能由他起意。
+      const _pairPick = (!opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 4))
+        ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
       const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar));
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
@@ -10033,9 +10037,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // ⚠️这一条必须挂在【Protocol v2】上：旁边那个 _normalTaskFull 写着「暂留作 A/B
       // 回滚基线，但不再发送给普通角色」——挂上去等于挂在死路上，一个字都发不出去。
-      if (_seenMsg) {
+      // ⚠️原来只在【她刚发照片】那一档才发：她过几轮才开口要换、或者TA想起前面那张，
+      //   seenHint 早就按三档拼好了（刚发／她开口／TA自己起意），却一直没挂上来——
+      //   于是那两档TA手上根本没有 photoSeen，换没换全靠嘴上一句「换好了」被兜底认出来。
+      if (seenHint) {
         openCaps.push("photoSeen");
-        capState.push(photoSeenHint(_seenAvatarOk, uName).trim());
+        capState.push(seenHint.trim());
+      }
+      if (_pairPick) {
+        openCaps.push("pairAvatar");
+        capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
+          + " 发过的最近两张真实照片就是这一对：【第 1 张】是先发的那张，【第 2 张】是后发的那张。"
+          + "要换就填 pairAvatar:{\"yours\":1 或 2}——yours 是你自己用哪一张，另一张就换到 " + uName + " 那边。"
+          + "看图挑：通常男生那张给男生、女生那张给女生，或者按两张图里谁像谁来。"
+          + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
+          + "\n· 不想换就省略 pairAvatar，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
       for (let i = capState.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, capState[i].split(/[：:]/)[0])) capState.splice(i, 1);
@@ -10885,10 +10901,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️传 _avatarMsg 不是 _seenMsg：她开口要换头像那一档，要换的是【前面那张】，
       //   _seenMsg 这时候是 null——还传它的话整个落地会被 `if (!msg)` 挡掉，
       //   于是又变回「他说换了、实际没换」。note 那半边本来就只在 _seenMsg 时才有。
+      // 情头先落：落了就别再让单张那一格把他那张又换回去（photoSeen 里的 note 照记）
+      const _pairDone = !!(_pairPick && parsed.pairAvatar && typeof parsed.pairAvatar === "object"
+        && applyPairAvatar(charId, _pairPick, parsed.pairAvatar.yours));
+      if (_pairDone && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
-      if (_avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
+      if (!_pairDone && !_pairPick && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
         && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" "))) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
@@ -20563,6 +20583,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return null;
   };
   const freshUserPhoto = charId => freshPhotoIn(chatsRef.current[charId] || []);
+  // 情头（她 2026-10-02：「我在这个聊天里发一对情头，他能帮我们都换上」）：
+  //   往回找她发的最近两张真照片，按发出的先后排好——第 1 张是早发的那张。
+  const freshPhotoPairIn = (rows, lookback) => {
+    const tail = (Array.isArray(rows) ? rows : []).filter(m => m && !m.recalled).slice(-(lookback || FRESH_PHOTO_LOOKBACK));
+    const got = [];
+    for (let i = tail.length - 1; i >= 0 && got.length < 2; i--) {
+      const m = tail[i];
+      if (m && m.role === "user" && m.kind === "photo" && m.imageRef) got.unshift(m);
+    }
+    return got.length === 2 ? got : null;
+  };
+  // 一对里他挑一张自己用，另一张就是她的。两张都只换【这个聊天窗】里的那张（chatAvatar / myChatAvatar），
+  //   档案、她自己的资料都不动。
+  const applyPairAvatar = (charId, pair, yours) => {
+    const k = Number(yours);
+    if (!pair || pair.length !== 2 || (k !== 1 && k !== 2)) return false;
+    const his = pair[k - 1], hers = pair[2 - k];
+    const ch = characters.find(c => c.id === charId);
+    if (!ch || !his.imageRef || !hers.imageRef) return false;
+    const prev = ch.chatAvatar || "";
+    pC(p => p.map(x => x.id === charId ? { ...x, chatAvatar: his.imageRef, myChatAvatar: hers.imageRef } : x));
+    const n = { ...avatarSwapRef.current, [charId]: { ts: Date.now(), prev: prev } };
+    avatarSwapRef.current = n; setAvatarSwap(n); saveJSON("x_avatarSwap", n);
+    toast((ch.remark || ch.name) + " 把你俩的头像换成了这一对");
+    return true;
+  };
   // 线下那一场里的（v58.100 补上：这一处 v58.98 时登记成「欠的」）
   const freshOfflinePhoto = charId => {
     const sess = (offlinesRef.current[charId] || []).find(x => x && !x.endTs);
@@ -20576,6 +20622,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const AUTO_AVATAR_LOOKBACK = 20;
   // 她要换头像的说法：不只「头像」两个字
   const AVATAR_ASK_RE = /头像|\bpp\b|avatar/i;
+  // 一对、两个人一起换——跟单张那句分开认：「换个头像」不等于「把我的也换了」
+  const PAIR_AVATAR_ASK_RE = /情头|一对头像|情侣头像|一起换|我俩.{0,6}头像|我们.{0,6}头像|也帮我换|帮我也换|给我也换/;
   // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
   const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了/;
   // 没开口、也不是刚发的那张：只问换不换，不补记画面

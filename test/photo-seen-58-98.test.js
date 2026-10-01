@@ -15,7 +15,9 @@ const helpers = app.slice(app.indexOf("  const AVATAR_COOLDOWN_MS ="), app.index
 // 真正在跑的是 Protocol v2（openCaps + capState）。
 test("挂在真正在跑的那条协议上，不是那条死路", () => {
   assert.match(app, /openCaps\.push\("photoSeen"\);/, "没进本轮开放能力");
-  assert.match(app, /capState\.push\(photoSeenHint\(_seenAvatarOk, uName\)\.trim\(\)\);/, "没进本轮能力状态");
+  // v74.418：挂的是 seenHint（刚发／她开口／TA起意三档都在里头），原来只挂了「刚发」那档
+  assert.match(app, /capState\.push\(seenHint\.trim\(\)\);/, "没进本轮能力状态");
+  assert.match(app, /const seenHint = _seenMsg \? photoSeenHint\(_seenAvatarOk, uName\)/, "seenHint 不是从 photoSeenHint 来的");
   // 那条 A/B 基线上不许再挂
   const dead = app.slice(app.indexOf("      const _normalTaskFull = ("), app.indexOf("      // 旧 _normalTaskFull 暂留作"));
   assert.ok(dead.indexOf("seenHint") < 0 && dead.indexOf("seenField") < 0, "又挂回那条不再发送的基线上了");
@@ -24,7 +26,9 @@ test("挂在真正在跑的那条协议上，不是那条死路", () => {
 // 十轮里九轮用不上的层不该常驻（跟论坛回声同一条判据）
 test("她这一轮没发照片就一个字都不发", () => {
   assert.match(app, /const _seenMsg = opts\.proactive \? null : freshUserPhoto\(charId\);/, "没按需算");
-  assert.match(app, /if \(_seenMsg\) \{\n        openCaps\.push\("photoSeen"\);/, "没发照片也照发");
+  // seenHint 只在【刚发了照片】或【这一轮真能换头像】时才非空，其余一律是空串
+  assert.match(app, /if \(seenHint\) \{\n        openCaps\.push\("photoSeen"\);/, "没发照片也照发");
+  assert.match(app, /: \(_seenAvatarOk \? \(_askAvatar \? photoSeenAskHint\(uName\) : photoSeenAutoHint\(uName\)\) : ""\);/, "没照片的轮次 seenHint 不是空串");
   // 主动问候那种轮次不发：他没在看照片
   assert.match(app, /opts\.proactive \? null :/, "主动轮也发了");
 });
