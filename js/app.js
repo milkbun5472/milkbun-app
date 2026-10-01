@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.456";
+const APP_VERSION = "v74.457";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12511,6 +12511,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const _thoughtOnce = new Set();
         // 回声判定的比对文本：先装她这一整轮，然后随着本批成员依次开口往后累加
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
+        // 一轮里各人各自一个 turnId，但共用同一个轮次戳：重 Roll 要整轮撤掉，不能留下前面几个人的旧发言
+        const gRoundTs = Date.now();
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
           // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
@@ -12545,7 +12547,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             if (_mine) respondGroupTransfer(groupId, _mine.tid, item.transferAccept === true);
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见TA刚说的
-          const gTurnId = "gt_" + Date.now() + "_" + i;
+          const gTurnId = "gt_" + gRoundTs + "_" + i;
           // 这一条发言的人此刻在做什么。⚠️只算一次：动描那一行和状态卡写回共用这一个值，
           //   而且它【不看记忆互通】——互通管的是写不写状态卡，不是显不显示。
           const _rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
@@ -12859,6 +12861,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       endLane("g:" + groupId);
     }
   };
+  // 往回找到这一轮第一条：同一轮次戳（gt_<戳>_序号）；旧消息没有共用戳，就认紧挨着、序号递增、前后不过 90 秒的成员发言
+  const groupRoundStart = (msgs, start) => {
+    const roundOf = x => { const mm = /^gt_(\d+)_/.exec(String((x && x.turnId) || "")); return mm ? mm[1] : ""; };
+    const seqOf = x => Number((/_(\d+)$/.exec(String((x && x.turnId) || "")) || [])[1] || 0);
+    if (!roundOf(msgs[start])) return start;
+    while (start > 0) {
+      const prev = msgs[start - 1], cur = msgs[start], rp = roundOf(prev);
+      if (!rp || prev.role === "user") break;
+      // 旧消息：序号得比后一条小（一轮里序号只增不减），且挨得够近
+      if (rp !== roundOf(cur) && !(seqOf(prev) < seqOf(cur) && Math.abs(Number(rp) - Number(roundOf(cur))) < 90000)) break;
+      start--;
+    }
+    return start;
+  };
   // 群聊消息长按操作：复制/收藏/编辑/撤回/重Roll（引用、多选在组件内处理）
   const handleGroupMsgAction = (groupId, act, idx) => {
     const msgs = groupChatsRef.current[groupId] || [];
@@ -12877,6 +12893,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 新版同一成员拆泡共享 turnId：从这一组的首泡起删，避免半条旧回答残留。
       let start = idx;
       if (m.turnId) while (start > 0 && msgs[start - 1] && msgs[start - 1].turnId === m.turnId) start--;
+      // 她 2026-10-02「群聊重roll还有以前的记录」：一轮是好几个人说的，只从点的那条往后删，
+      //   前面几位的旧发言留着，新一轮就接着旧的往下写。整轮退回去。
+      start = groupRoundStart(msgs, start);
       const removed = msgs.slice(start), group = groups.find(g => g.id === groupId);
       const y = ledgerYanqiu(); if (group && y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
       const byChar = new Map();
