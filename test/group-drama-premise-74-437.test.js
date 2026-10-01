@@ -22,3 +22,9 @@ test("线上群聊和群线下都走这一份", () => {
   assert.match(app, /gCtx\.dramaRule = groupDramaRule\(group\.id\);/);
   assert.match(app, /const gRelRule = gsFor\(groupId\)\.drama \? groupDramaRule\(groupId\)/);
 });
+
+// 她 2026-10-02：「全都是男朋友啊」——吵成了「谁更受宠」，像早就知道彼此存在
+test("前提是每个人原本都以为自己是唯一的那个，没摊开过就是此刻撞破", () => {
+  assert.match(seg, /你一直以为自己是她【唯一】的那个/);
+  assert.match(seg, /要是之前从没在群里摊开过，那就是【现在】/);
+});
