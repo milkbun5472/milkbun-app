@@ -8569,7 +8569,8 @@ function ChatThread({
   const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息数组]
   const _me = meProfile || profile;
-  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: _me && _me.avatarImage };
+  // 这个聊天窗单独给我设过头像，就用那张；没设就是我的资料（或这个人认的那张面具）那张
+  const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: (character && character.myChatAvatar) || (_me && _me.avatarImage) };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
@@ -16691,6 +16692,7 @@ window.ChatRoomSheet = ChatRoomSheet;
 
 function ChatSettings({
   character,
+  meProfile,
   settings,
   memory,
   apiProfiles,
@@ -16730,6 +16732,8 @@ function ChatSettings({
   const [remark, setRemark] = useState(character.remark || "");
   // 聊天头像（chatAvatar）：只在聊天列表和聊天页用；档案那张不动（她 2026-09-30：「换了也不需要回人格档案馆改」）
   const [chatAvatar, setChatAvatar] = useState(character.chatAvatar || null);
+  // 我在这个聊天窗里的头像：跟上面那张对称，一个管TA、一个管我
+  const [myChatAvatar, setMyChatAvatar] = useState(character.myChatAvatar || null);
   const [patSig, setPatSig] = useState(character.patSig || "");
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
@@ -17035,6 +17039,7 @@ function ChatSettings({
     onClick: () => onSave({
       remark,
       chatAvatar,
+      myChatAvatar,
       patSig,
       ctxN,
       sumThresh,
@@ -17259,6 +17264,11 @@ function ChatSettings({
       h(AvatarPicker, { character: { name: character.name, color: character.color, avatarImage: chatAvatar || character.avatarImage }, size: 48, radius: 10, onPick: setChatAvatar, onClear: chatAvatar ? () => setChatAvatar(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
         chatAvatar ? "只在聊天里用这张，档案那张不动。点「移除照片」就用回档案那张。" : "没单独设就用档案那张。TA 自己在聊天里换头像，也换的是这一张。"))),
+  h(LineField, { zh: "我在这儿的头像", en: "My Avatar Here" },
+    h("div", { className: "flex items-center gap-3", style: { paddingTop: 4 } },
+      h(AvatarPicker, { character: { name: (meProfile && meProfile.name) || "我", color: (meProfile && meProfile.color) || t.tint, avatarImage: myChatAvatar || (meProfile && meProfile.avatarImage) }, size: 48, radius: 10, onPick: setMyChatAvatar, onClear: myChatAvatar ? () => setMyChatAvatar(null) : null }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+        myChatAvatar ? "只在跟 " + cNm + " 的这个聊天窗里用这张，你自己资料那张不动。点「移除照片」就用回原来那张。" : "没单独设就用你资料里那张。设了只在这个聊天窗里换，别处不变。"))),
   /*#__PURE__*/React.createElement(LineField, {
     zh: "拍一拍签名",
     en: "Nudge"

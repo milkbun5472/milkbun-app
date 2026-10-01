@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.416";
+const APP_VERSION = "v74.417";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26078,6 +26078,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
+    // 「我在这儿的头像」那一格要显示我现在用的是哪张：跟聊天页同一个来源（这个人认的那张面具）
+    meProfile: profileFor(activeChar.id),
     settings: Object.assign({}, settingsFor(activeChar.id), { proactive: autoRefreshOn("proactive", activeChar.id) }),
     // 面具库只读地递进去：那儿只挑，不建、不改（建改在「信息 → 我 → 我的面具」）
     myMasks: masks,
@@ -26149,7 +26151,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pC(p => p.map(c => c.id === activeChar.id ? {
         ...c,
         patSig: s.patSig,
-        chatAvatar: s.chatAvatar || null
+        chatAvatar: s.chatAvatar || null,
+        // 我在【这个聊天窗】里的头像（群里读者 2026-10-02：「仅在这个聊天框里面是这个头像」）。
+        //   存在角色身上，跟 chatAvatar 同一个待遇：只管这一个人的聊天页，我的资料那张不动。
+        myChatAvatar: s.myChatAvatar || null
       } : c));
       setChatSettings(p => {
         const n = {
