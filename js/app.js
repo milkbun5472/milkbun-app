@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.436";
+const APP_VERSION = "v74.437";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -197,6 +197,11 @@ function ScreenBoundaryClass() {
   };
   return _screenBoundary;
 }
+// 把手机递给TA看（她 2026-10-01：「想做角色反查手机」）：能翻的几样。记账是现实里的钱，先不给看。
+// 聊天页「给TA看手机」那张单子和下面拼素材的那段读同一张表。
+const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["forum", "论坛发过的帖"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"],
+  ["music", "一起听的歌"], ["memo", "备忘录"], ["journal", "我的手记"], ["pics", "发过的图"]];
+if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -9293,6 +9298,61 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 重来这一次不再把她那句话塞一遍（extraText 传 null＝照现有对话重生成，跟重 Roll 同一条路）
     return await _replyTurn(charId, null, mode, { ...(opts || {}), _emptyRetry: true });
   };
+  // ── 递手机：拼出TA这一趟能翻到的东西（都是她手机上真有的，一条不编）──────────
+  const peekPhoneMaterial = (viewerId, allow) => {
+    const on = k => (allow || []).includes(k);
+    const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
+    const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
+    const uN = userName(profile);
+    const out = [];
+    if (on("chats")) {
+      const rows = (characters || []).filter(c => c.id !== viewerId && !settingsFor(c.id).engineerEyes).map(c => {
+        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
+        return { c, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
+      }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 4);
+      if (rows.length) out.push("【跟别人的聊天】\n" + rows.map(x => "和「" + (x.c.remark || x.c.name) + "」：\n" + x.ms.slice(-6).map(m => "  " + (m.role === "user" ? uN : (x.c.remark || x.c.name)) + "：" + cut(m.content, 70)).join("\n")).join("\n"));
+    }
+    if (on("forum")) {
+      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me").sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5);
+      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70)).join("\n"));
+    }
+    if (on("money")) {
+      const log = (walletLog || []).slice(0, 10);
+      if (log.length) out.push("【钱包流水】\n" + log.map(w => "· " + cut(w.label, 30) + " " + (w.delta > 0 ? "+" : "") + w.delta).join("\n"));
+    }
+    if (on("shop")) {
+      const od = (orders || []).slice(0, 8).map(o => "· 买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
+      const tk = (takeoutLog || []).slice(0, 6).map(o => "· 外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
+      if (od.length || tk.length) out.push("【购物和外卖】\n" + od.concat(tk).join("\n"));
+    }
+    if (on("music")) {
+      const songs = ((listenRef.current && listenRef.current.songs) || []).slice(0, 8);
+      if (songs.length) out.push("【一起听的歌】\n" + songs.map(s => "· " + cut(s.name || s.title, 24) + (s.artist ? " - " + cut(s.artist, 16) : "")).join("\n"));
+    }
+    if (on("memo")) {
+      const d = loadJSON("x_memo", null) || {};
+      const ls = (d.notes || []).map(n => "· 备忘：" + cut(n.title || n.body, 40)).concat((d.reminders || []).filter(r => !r.done).map(r => "· 提醒：" + cut(r.title, 30)));
+      if (ls.length) out.push("【备忘录】\n" + ls.slice(0, 8).join("\n"));
+    }
+    if (on("journal")) {
+      const es = ((diariesRef.current || {})["__me"] || []).slice(-3);
+      if (es.length) out.push("【她的手记】\n" + es.map(e => "· " + (e.title ? "《" + cut(e.title, 20) + "》" : "") + cut((e.paras || []).map(p => p.text).join(" "), 90)).join("\n"));
+    }
+    if (on("pics")) {
+      const pics = [];
+      (characters || []).forEach(c => (chatsRef.current[c.id] || []).forEach(m => { if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie")) pics.push({ m, to: c.id === viewerId ? "你" : (c.remark || c.name) }); }));
+      pics.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
+      if (pics.length) out.push("【发过的图】\n" + pics.slice(0, 6).map(x => "· 发给" + x.to + "的：" + (cut(x.m.desc, 50) || "一张照片")).join("\n"));
+    }
+    return out.join("\n\n");
+  };
+  const handPhoneTo = (charId, allow) => {
+    const seen = peekPhoneMaterial(charId, allow);
+    const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
+    const c = (characters || []).find(x => x.id === charId);
+    pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c ? (c.remark || c.name) : "TA") + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
+    replyNow(charId, "", null, { proactive: true, peekPhone: { seen: seen || "（翻了一圈，没什么东西）", hidden } });
+  };
   const _replyTurn = async (charId, extraText, mode, opts) => {
     opts = opts || {};
     const chatKey = opts.chatKey || charId;
@@ -9301,6 +9361,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const roomReads = group => !window.ChatRooms || window.ChatRooms.canRead(room, group);
     const roomClockOn = roomTimeAwareFor(room, charId);
     let delivered = false;
+    // 递手机是她亲手递的，不是TA自己冒出来的：下面几道「主动」闸（主动私聊开关、此刻在一起、防连发）
+    //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
+    const _peekTurn = !!(opts && opts.peekPhone);
+    if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
@@ -9374,6 +9438,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return null;
     }
+    if (_peekTurn) opts = { ...opts, proactive: true };
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
     const _abort = laneAbortBegin("c:" + chatKey);
@@ -9493,6 +9558,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "对面的话音刚落，手机就回到了你手上——你当场就看见了这一段，于是立刻来找 " + uName + "。"
         + "开口就从这件事落地——**别当没这回事重新起一个话题**。"
         + "至于你是什么反应，跟平时一样由你这个人和这段关系决定。1~3 条短消息。") : "";
+      // 递手机（她 2026-10-01）：只摆事实——给了什么、藏了什么；看完什么反应由TA这个人决定（同 phoneAsHint 那条）
+      const peekHint = opts.peekPhone ? ("\n\n【此刻·" + uName + " 把手机递给你看了】"
+        + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
+        + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。察不察觉、在不在意，看你这个人。" : "")
+        + "\n\n你按自己的性子挑着翻，不必样样都提；看到在意的就说，1~4 条消息。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
       const openerAvoid = (opts.proactive && _openLines.length)
@@ -9558,7 +9628,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "\n【本次收件人】你正在给「" + uName + "」发私聊。关系网中的其他角色是独立的人；他们的身份、物品、经历和与你的共同生活，不属于收件人。提及第三人时保留其姓名或明确称谓；只有上下文明确属于收件人的事实才用‘你’指代。不了解收件人的近况就保持未知，不为主动开口补造共同经历。\n"
         : "");
       // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
-      const dongnianHint = opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "";
+      // 递手机那段挂在这一格最前面：这一轮是「看完她手机才开口」，口气由TA自己定（她 2026-10-01）
+      const dongnianHint = peekHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -24539,6 +24610,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(activeChar.id, p => p.map(x => (x.kind === "gift" && x.turnId === key) ? { ...x, opened: true } : x));
     },
     onOpenMoments: () => openMomProfile(activeChar.id, false),
+    onHandPhone: allow => handPhoneTo(activeChar.id, allow),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),

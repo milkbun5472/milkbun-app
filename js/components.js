@@ -8546,6 +8546,7 @@ function ChatThread({
   onRespondTransfer,
   onOpenGift,          // 拆开TA寄来的那个盒子（她 2026-09-19）
   onOpenMoments,
+  onHandPhone,   // 把手机递给TA看（她 2026-10-01：「角色反查手机」）
   onOffline,
 
   onOOC,
@@ -8596,6 +8597,9 @@ function ChatThread({
   const [studyPickOpen, setStudyPickOpen] = useState(false);   // 「换课」那张单子展开没有
   const pendingFic = room && !room.main && room.actions && room.actions.fanfic && window.ChatRooms
     ? window.ChatRooms.pendingFicInvite(messages, roomFicId) : null;
+  // 递手机：勾掉的那几样＝她先藏起来了（TA看不到，但可能察觉少了点什么）
+  const [peekOpen, setPeekOpen] = useState(false);
+  const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]));
   const [searchOpen, setSearchOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -8648,7 +8652,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"]].filter(([key]) => room && !room.main ? !["moments", "transfer"].includes(key) : true);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"]].filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone"].includes(key) : true).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -8687,6 +8691,9 @@ function ChatThread({
     } else if (k === "transfer") {
       setTransferOpen(true);
       setPanelOpen(false);
+    } else if (k === "peekphone") {
+      setPanelOpen(false);
+      setPeekOpen(true);
     } else if (k === "moments") {
       setPanelOpen(false);
       onOpenMoments && onOpenMoments();
@@ -9703,6 +9710,17 @@ function ChatThread({
         setStickerOpen(false);
       }
     })
+  ), peekOpen && h(Sheet, { onClose: () => setPeekOpen(false) },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
+      "勾着的TA能翻到；不想给看的先关掉——那几样就算你藏起来了，TA看不到，但未必察觉不到。递过去以后，TA会照自己的性子挑着翻，再来跟你说。"),
+    (window.PEEK_PHONE_SECTIONS || []).map(s => {
+      const on = peekAllow.includes(s[0]);
+      return h("button", { key: s[0], onClick: () => setPeekAllow(a => on ? a.filter(x => x !== s[0]) : a.concat(s[0])), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: on ? t.ink : t.fog, textDecoration: on ? "none" : "line-through" } }, s[1]),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.accent : t.fog } }, on ? "给看" : "藏起来"));
+    }),
+    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
@@ -12916,6 +12934,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     wave: [P("M3.5 10.5v3M7.5 7.5v9M11.5 5v14M15.5 8.5v7M19.5 10.8v2.4")],
     handset: [P("M21.5 16.9v2.6a1.9 1.9 0 01-2.1 1.9A18.6 18.6 0 013.1 4.6 1.9 1.9 0 015 2.5h2.6a1.9 1.9 0 011.9 1.6c.1 1 .4 1.9.7 2.7a1.9 1.9 0 01-.5 2L8.5 10a15 15 0 005.5 5.5l1.2-1.2a1.9 1.9 0 012-.5c.8.3 1.7.6 2.7.7a1.9 1.9 0 011.6 1.9z")],
     camcorder: [R(3, 7, 12.5, 10, 2.4), P("M15.5 11.6l5.5-3.1v7l-5.5-3.1z")],
+    mobile: [R(7, 2.5, 10, 19, 2.4), P("M11 18.5h2")],
     clock: [C(12, 12, 8.6), P("M12 7.3V12l3.2 1.9")],
     magnifier: [C(10.8, 10.8, 6.4), P("M15.4 15.4L20.5 20.5")],
     grid: [R(4, 4, 7, 7, 1.6), R(13, 4, 7, 7, 1.6), R(4, 13, 7, 7, 1.6), R(13, 13, 7, 7, 1.6)],
