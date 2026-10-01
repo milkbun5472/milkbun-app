@@ -135,3 +135,12 @@ test("翻手机：翻完的料留到TA真接上话才用掉，她先开口也接
   assert.match(a, /opts = \{ \.\.\.opts, peekPhone: _pk \}/);
   assert.match(a, /if \(delivered && _peekTurn\) delete peekPendingRef\.current\[charId\]/);
 });
+
+test("翻手机：帖子滑到评论区；组件不去点里面的按钮；料里带评论；按查她手机来想", () => {
+  const p = require("fs").readFileSync(require("path").join(__dirname, "../js/peek-phone.js"), "utf8");
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(p, /const POST_READ = \(\) =>/);
+  assert.doesNotMatch(p, /el\.querySelector\("button, \[role=button\]"\)/);
+  assert.match(a, /const floors = p =>/);
+  assert.match(a, /这是在查她的手机/);
+});

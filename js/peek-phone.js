@@ -56,13 +56,17 @@
     const nextReal = i => { let j = i + 1; while (j < kept.length && (kept[j].do === "think" || kept[j].do === "pause")) j++; return j < kept.length ? kept[j] : null; };
     const fq = (hints.forum || []).slice(), dq = (hints.diary || []).slice();
     const res = [];
+    // 帖子点开要一路滑到评论区（她 2026-10-01：「论坛也还是只是看正文不看评论区」）
+    const POST_READ = () => [{ do: "scroll", dir: "down", n: 2, auto: true }, { do: "pause", ms: 900 }, { do: "scroll", dir: "down", n: 3, auto: true }];
+    let cur = "";
     for (let i = 0; i < kept.length; i++) {
       const s = kept[i]; res.push(s);
+      if (s.do === "open") cur = s.app;
       const nx = nextReal(i);
       // 打开论坛／日记却没点进具体那一条：替它点一条（匿名发的也在她的「我」里，不用绕）
       if (s.do === "open" && s.app === "forum" && !(nx && nx.do === "tap") && fq.length) {
         const p = fq.shift();
-        res.push({ do: "tap", text: S(p.title).slice(0, 30), auto: true }, { do: "scroll", dir: "down", n: 2, auto: true });
+        res.push({ do: "tap", text: S(p.title).slice(0, 30), auto: true }, ...POST_READ());
         continue;
       }
       if (s.do === "open" && s.app === "diary" && !(nx && nx.do === "tap") && dq.length) {
@@ -74,6 +78,7 @@
       const opened = (s.do === "open" && (s.app === "chat" || s.app === "messages" || s.app === "forum" || s.app === "diary")) || s.do === "tap";
       if (!opened || (nx && nx.do === "scroll")) continue;
       if (s.do === "open" && s.app === "chat") res.push({ do: "scroll", dir: "up", n: 3, auto: true }, { do: "pause", ms: 900 }, { do: "scroll", dir: "up", n: 3, auto: true });
+      else if (s.do === "tap" && cur === "forum") res.push(...POST_READ());
       else res.push({ do: "scroll", dir: "down", n: 2, auto: true });
     }
     return res;
@@ -211,9 +216,14 @@
         await swipe(r.left < 0 ? -1 : 1);
       }
       // 组件（w_ 开头）外壳本身不接点击，点它里面那颗按钮
+      //   ⚠️不能拿 querySelector("button") 去点：备忘录组件里第一颗是勾待办的框、一起听里是播放键——
+      //   点下去会真改她的东西（她 2026-10-01：「备忘录评论也错位了」——那一下没进备忘录，人还停在主屏上）。
+      //   组件只做个按下去的样子，然后交给外面直接打开。
       if (/^w_/.test(spot.key || "")) {
-        const btn = el.querySelector("button, [role=button]");
-        if (btn) el = btn;
+        const r = el.getBoundingClientRect();
+        setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false }); await sleep(650);
+        setDot(d => ({ ...d, down: true })); await sleep(160); setDot(d => ({ ...d, down: false }));
+        return false;
       }
       await tapEl(el);
       if (inner) {
