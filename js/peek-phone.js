@@ -32,7 +32,8 @@
         if (allowApps.indexOf(app) < 0) return;          // 她藏起来的那几样，录像里也碰不到
         opens++; out.push({ do: "open", app, who: S(s.who).trim().slice(0, 24) });
       } else if (d === "tap") {
-        const text = S(s.text).trim().slice(0, 30);
+        // 模型常把标题连书名号一起抄过来，屏幕上没有那对符号就找不到
+        const text = S(s.text).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 30);
         if (text) { opens++; out.push({ do: "tap", text }); }
       } else if (d === "scroll") {
         out.push({ do: "scroll", dir: s.dir === "up" ? "up" : "down", n: Math.max(1, Math.min(3, Number(s.n) || 1)) });
@@ -51,7 +52,10 @@
   //   dock 上那几个按字找（只看屏幕下面那一截）；组件、图标按 data-appkey 找；
   //   在文件夹里的，查 x_homeFolders 是哪个文件夹，先点开文件夹再点它。钱包不在主屏上，直接打开。
   // 信息页会记着上次停在哪个底栏（翻过钱包就停在「我」），所以找人之前先点回「聊天」
-  const HOME_SPOT = { chat: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] }, forum: { dock: "论坛" }, diary: { dock: "日记" },
+  // 论坛点开先去底栏「我」（她发过的帖在那儿）；日记点开先翻到她自己那本（她 2026-10-01：「日记和论坛也就点进去页面也没深入」）
+  const HOME_SPOT = { chat: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
+    forum: { dock: "论坛", path: [{ text: "我", exact: true, minTopK: 0.8, optional: true }] },
+    diary: { dock: "日记", path: [{ call: "diaryMine" }] },
     memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop" }, takeout: { key: "takeout" },
     // 钱包不在主屏上：信息 → 底栏「我」→「我的钱包」（她 2026-10-01：「钱包页面找不到直接点进来的」）
     wallet: { dock: "信息", path: [{ text: "我", exact: true, minTopK: 0.8 }, { text: "我的钱包" }] } };
@@ -171,6 +175,10 @@
       if (document.querySelector("#root [data-appkey]")) return false;
       // 还要再点几下才到的（钱包：信息 →「我」→「我的钱包」）
       for (const step of (spot.path || [])) {
+        if (step.call === "diaryMine") {
+          if (window.__diaryNav && window.__diaryNav.openMine) { window.__diaryNav.openMine(); await sleep(900); }
+          continue;
+        }
         const n = findByText(step.text, step.minTopK ? window.innerHeight * step.minTopK : 0, !!step.exact);
         if (!n) { if (step.optional) continue; return false; }
         await tapEl(n); await sleep(900);

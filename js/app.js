@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.443";
+const APP_VERSION = "v74.444";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9321,7 +9321,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("money")) {
       const log = (walletLog || []).slice(0, 10);
-      if (log.length) out.push("【钱包流水】\n" + log.map(w => "· " + cut(w.label, 30) + " " + (w.delta > 0 ? "+" : "") + w.delta).join("\n"));
+      // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
+      const vName = nameOf(viewerId);
+      const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
+      const say = w => {
+        const L = String(w.label || ""), amt = Math.abs(Number(w.delta) || 0);
+        let m;
+        if ((m = L.match(/^群?转账给\s*(.+)$/))) return "她转给" + who(m[1]) + " " + amt;
+        if ((m = L.match(/^(.+?)\s*转账给你$/))) return who(m[1]) + "转给她 " + amt;
+        if ((m = L.match(/^给\s*(.+?)\s*点外卖/))) return "她给" + who(m[1]) + "点外卖 " + amt;
+        if ((m = L.match(/^抢到\s*(.+?)\s*的红包$/))) return "她抢到" + who(m[1]) + "的红包 " + amt;
+        return (w.delta < 0 ? "她花出去 " : "她收到 ") + amt + "（" + cut(L, 24) + "）";
+      };
+      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + say(w)).join("\n"));
     }
     if (on("shop")) {
       const od = (orders || []).slice(0, 8).map(o => "· 买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
@@ -9385,6 +9397,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (apps.includes("chat") ? "。打开聊天要写 who＝对方名字，能选的：" + others.join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
+          + "\n打开一个 app 以后，在意的那一条要点进去看（tap 它的标题或名字，照上面列出来的原样写），别只停在列表上；看完 back 退出来再去下一样。"
           + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 12~30 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"forum\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000

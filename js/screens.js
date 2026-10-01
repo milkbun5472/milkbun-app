@@ -12589,6 +12589,11 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
 
   const openEntries = id => { setCurId(id); setView("entries"); };
   const openArchive = id => { setCurId(id); setView("archive"); };
+  // 「他翻你的手机」那段录像要翻到她自己那本（书架是左右划的，只渲染当前那一本，按字找不到）
+  useEffect(() => {
+    window.__diaryNav = { openMine: () => openEntries("__me") };
+    return () => { if (window.__diaryNav && window.__diaryNav.openMine) delete window.__diaryNav; };
+  });
   const saveMyEntry = data => {
     const id = onAddMyEntry(data);
     if (id) { setCurId("__me"); setCurEntry(id); setView("entry"); }

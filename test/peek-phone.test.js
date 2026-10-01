@@ -69,3 +69,14 @@ test("钱包从信息 →「我」→「我的钱包」点进去；找人前先�
   assert.match(a, /【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】/);
   assert.match(a, /翻聊天的时候记着：那是【她和别人】在聊/);
 });
+
+test("论坛先去「我」、日记先翻到她那本；钱包流水从她这边说清给了谁；书名号不挡找字", () => {
+  assert.match(p, /forum: \{ dock: "论坛", path: \[\{ text: "我", exact: true/);
+  assert.match(p, /diary: \{ dock: "日记", path: \[\{ call: "diaryMine" \}\] \}/);
+  assert.match(src("screens.js"), /window\.__diaryNav = \{ openMine: \(\) => openEntries\("__me"\) \};/);
+  assert.match(a, /【她的钱包流水——是她的钱进进出出】/);
+  assert.match(a, /"她转给" \+ who\(m\[1\]\)/);
+  assert.match(a, /（就是你）/);
+  const P = loadPeek();
+  assert.strictEqual(P.cleanScript({ steps: [{ do: "tap", text: "《我的帖子》" }] }, []).find(x => x.do === "tap").text, "我的帖子");
+});
