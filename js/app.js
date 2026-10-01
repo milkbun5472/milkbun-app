@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.467";
+const APP_VERSION = "v74.468";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12332,6 +12332,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️上一版这段写死了「唯一的男朋友」「她那句冲谁」「不是语法题」——她说这本身就是限制。只摆局面。
       const gDramaTail = gsFor(groupId).drama
         ? "\n\n【修罗场 · 回到此刻】上面的群聊是已经发生的事。你们各自跟 " + userName(profile) + " 是什么关系，现在当着彼此摆在明面上了——"
+          + (() => {
+            // 她 2026-10-02「重roll了」：还是围着她那句话打转（发错群、撤回），没人说「你也是她男朋友？」——
+            //   关系散在前面五六段里，模型没把它摆到眼前。在这儿点名摆一遍。
+            const tog = members.filter(c => couples[c.id] && couples[c.id].status === "together").map(c => c.name);
+            return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + userName(profile) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
+          })()
           + "这件事在你心里是什么分量、你打算怎么对待它，按你自己那张卡来——你平时怎么说话，这会儿还是那个人在说话。"
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
