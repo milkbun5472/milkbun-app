@@ -2296,7 +2296,7 @@ function ForumWorlds({ characters }) {
   const nameOf = id => id === "*" ? "全部" : id ? ((d.worlds.find(w => w.id === id) || {}).name || "同一个世界") : "同一个世界";
   const order = [""].concat(d.worlds.map(w => w.id));
   const cycle = cid => { const cur = charWorldOf(cid, d); const nx = order[(order.indexOf(cur) + 1) % order.length]; const of = Object.assign({}, d.of); if (nx) of[cid] = nx; else delete of[cid]; put({ worlds: d.worlds, of }); };
-  const add = () => requestAppPrompt("新开一个世界", "起个名字，比如「周周那条线」。分进来的角色只跟同一个世界的人碰面。", "", v => {
+  const add = () => requestAppPrompt("新开一个世界", "给这个世界起个名字。分进来的角色只跟同一个世界的人碰面。", "", v => {
     const name = String(v || "").trim().slice(0, 16); if (!name) return;
     put({ worlds: d.worlds.concat([{ id: "w_" + Date.now().toString(36), name }]), of: d.of });
   }, "开");
