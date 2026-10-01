@@ -28,3 +28,26 @@ test("递过去：只摆她手机上真有的、藏了什么；主动开关和�
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: true \};/);
   assert.ok(a.indexOf("proactive: false };") < a.indexOf("!opts.phoneAs && history.length") && a.indexOf("!opts.phoneAs && history.length") < a.indexOf("if (_peekTurn) opts = { ...opts, proactive: true };"), "摘掉→过闸→挂回 的顺序");
 });
+
+const p = src("peek-phone.js");
+const loadPeek = () => { const w = {}; new Function("window", "React", p)(w, {}); return w.PeekPhone; };
+
+test("录像脚本收拾：她藏起来的 app 打不开，心声按点开次数封顶，认不得的动作丢掉", () => {
+  const P = loadPeek();
+  const s = P.cleanScript({ steps: [
+    { do: "open", app: "forum" }, { do: "open", app: "wallet" }, { do: "fly" },
+    { do: "think", text: "一" }, { do: "think", text: "二" }, { do: "think", text: "三" }, { do: "think", text: "四" }, { do: "think", text: "五" }
+  ] }, ["forum"]);
+  assert.deepStrictEqual(s.filter(x => x.do === "open").map(x => x.app), ["forum"], "wallet 被藏了还打开了");
+  assert.ok(!s.some(x => x.do === "fly"));
+  assert.ok(s.filter(x => x.do === "think").length <= 4, "心声没封顶");
+});
+
+test("在她真的 app 上播：照屏幕上的字找、照返回键退，翻完回聊天再开口", () => {
+  assert.match(p, /function findByText\(text\)/);
+  assert.match(a, /document\.querySelector\('#root \[data-watch="back"\]'\)/);
+  assert.match(a, /peekPlay && window\.PeekPhone && h\(window\.PeekPhone\.PeekPlayer, \{/);
+  assert.match(a, /thoughts: thoughts \|\| \[\]/);
+  assert.match(a, /你刚才翻的时候心里闪过这几句/);
+  assert.match(fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8"), /<script src="js\/peek-phone\.js\?v=[\d.]+"><\/script>\n<script src="js\/app\.js/);
+});
