@@ -114,8 +114,8 @@ test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没�
   assert.match(a, /聊起，到现在一共 " \+ n \+ " 条）/);
   assert.match(a, /seg\("早先", ms\.slice\(0, 4\)\)/);
   assert.match(a, /md\(e\.ts\) \+ "写的"/);
-  assert.match(a, /while \(fresh < 2 && pool\.length\)/, "按「上次没开过的」算，不是按总数");
-  assert.match(a, /const COLD = \["shop", "takeout", "listen", "memo"/);
+  assert.doesNotMatch(a, /const COLD = /, "查岗不硬塞冷门 app（她 2026-10-01）");
+  assert.match(a, /一趟翻 1~3 样就够/);
   assert.match(a, /apps: \[\.\.\.new Set\(sc\.filter\(s => s\.do === "open"\)\.map\(s => s\.app\)\)\]/);
 });
 
@@ -126,7 +126,6 @@ test("翻手机：购物先进「我的」、外卖先进「订单」，两份�
   assert.match(p, /takeout: \{ key: "takeout", path: \[\{ text: "订单"/);
   assert.match(a, /【购物 app 里的订单】/);
   assert.match(a, /【外卖 app 里的订单】/);
-  assert.match(a, /s\.do === "open" \? i : -1/);
 });
 
 test("翻手机：翻完的料留到TA真接上话才用掉，她先开口也接得上", () => {

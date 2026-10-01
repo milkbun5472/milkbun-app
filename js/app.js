@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.470";
+const APP_VERSION = "v74.472";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9451,8 +9451,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n别当旁观者复述内容：你是她的谁、你俩走到哪一步了，就站在那儿去看——她这样对别人说话、别人这样对她，换成是你这个人看见，会被戳到哪儿，就想那一句。"
           + "\n心里那句只想眼前这个 app 里看到的东西；购物和外卖是两个 app，各看各的单子。"
           + "\n打开一个 app 以后，在意的那一条要点进去看（tap 它的标题或名字，照上面列出来的原样写），别只停在列表上；看完 back 退出来再去下一样。"
-          + "\n这一趟至少翻 4 个不同的 app" + (() => { const L = peekLastOf(charId); const fresh = apps.filter(a => !(L.apps || []).includes(a)); return fresh.length ? "，上次没打开过的先去：" + fresh.map(a => PEEK_APP_ZH[a]).join("、") : ""; })() + "。"
-          + "\n每点开一样东西就想一句；在意的地方多停、多滑，不在意的扫一眼就走。一共 15~35 步。",
+          // 查岗不是逛手机（她 2026-10-01：「他查我们真的需要那么多吗」）：聊天是主场，别的 app 只在顺着某个人、某件事追下去时才开
+          + "\n你是带着心思来查的，不是来逛的：先翻聊天，看得细一点、多看几段；哪个人、哪句话让你在意了，就顺着那个人往下追——去钱包看有没有转过账、去别处看有没有他的影子；跟这件事不沾边的 app 不用开。"
+          + "\n一趟翻 1~3 样就够；找到让你放不下的那件，就可以收手了。每点开一样东西就想一句；在意的地方多停、多滑。一共 10~25 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"forum\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });
@@ -9463,25 +9464,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
       script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary }) : [];
-      // 每一趟都要翻到上次没打开过的（她 2026-10-01：「来来回回都只是在看信息钱包日记偶尔论坛」「还是没翻过外卖购物一起听这种」）。
-      //   ⚠️上一版是「总数不够 4 样才补」——可信息、聊天、钱包、日记、论坛加起来早就够 4 样了，那道闸从来没开过。
-      //   现在按「新的」算：这一趟里上次没开过的至少两样；不够就从购物、外卖、一起听、备忘录这些冷门的里补，补在中间不是最后。
-      const lastApps = new Set((L.apps || []).map(a => a === "messages" ? "chat" : a));
-      const opened = new Set(script.filter(s => s.do === "open").map(s => s.app === "messages" ? "chat" : s.app));
-      //   「冷门」那几样（购物、外卖、一起听、备忘录）：她给看了的、上次没翻到的，这一趟至少翻到两样
-      const COLD = ["shop", "takeout", "listen", "memo"];
-      const want = COLD.filter(a => apps.includes(a) && !lastApps.has(a));
-      const pool = (want.length ? want : COLD.filter(a => apps.includes(a))).filter(a => !opened.has(a));
-      let fresh = COLD.filter(a => opened.has(a) && (want.length ? want.includes(a) : true)).length;
-      const adds = [];
-      while (fresh < 2 && pool.length) {
-        const a = pool.shift();
-        adds.push({ do: "open", app: a, auto: true }, { do: "scroll", dir: "down", n: 1, auto: true }, { do: "pause", ms: 1200 });
-        fresh++;
-      }
-      // 只能插在某个 open 前面——插进一段 open…think 中间，TA对上一个 app 的心声就会跑到新打开的这个上面去
-      if (adds.length) { const mid = Math.floor(script.length / 2); const opens = script.map((s, i) => s.do === "open" ? i : -1).filter(i => i > 0);
-        const at = opens.length ? opens.reduce((b, i) => Math.abs(i - mid) < Math.abs(b - mid) ? i : b) : script.length; script.splice(at, 0, ...adds); }
     } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
   };
