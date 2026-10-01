@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.418";
+const APP_VERSION = "v74.419";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -206,6 +206,9 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //   v69 那次「点开跳到屏幕下面然后关不掉」就是面板长出屏幕闹的。
   //   收着之后无论多少条线路，默认高度就是三行。
   const [tab, setTab] = useState("");
+  // 生图那一档的站点：打开面板时现读（见下面 LANES 那段注释）。⚠️hook 必须在下面那个「没线路就 return」之前。
+  const [imgStore, setImgStore] = useState(null);
+  useEffect(() => { if (open && typeof loadImgApiProfiles === "function") { try { setImgStore(loadImgApiProfiles()); } catch (e) {} } }, [open]);
   // 浮窗可拖动（她 2026-08-16 点名固定位置挡手）：拖完贴边吸附，位置存 x_modelFloatPos，重开 App 记得住。
   const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
@@ -253,11 +256,23 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   // ⚠️线下和后台都有「跟随线上主模型」那一档，而它的值是 null——所以「选中」要看
   //   【那一档自己的 id 存没存过】，不能拿算出来的 offline/bg 去比（没存过时它俩就是 online 本身，
   //   一比就会把主模型那一行也点亮，看着像选了两个）。
+  // 生图那一档（群友 2026-10-01：「能不能把其他的（图像之类的）api 快捷切换也一起放到那个时钟里」）。
+  //   生图站自己一套存档（图像 API 页那份），这里每次打开面板现读一次，切了就写回同一份——不另存一份。
+  const imgList = (imgStore && imgStore.profiles) || [];
   const LANES = [
     { key: "online", zh: "线上", cur: online, picked: activeId, follow: false, set: id => onSetOnline(id) },
     { key: "offline", zh: "线下", cur: offline, picked: offlineApiId, follow: true, set: id => onSetOffline(id || null) },
     { key: "bg", zh: "后台", cur: bg, picked: bgApiId, follow: true, set: id => onSetBg && onSetBg(id || null) }
   ];
+  const ALL_LANES = LANES.concat(imgList.length > 1 ? [{ key: "img", zh: "生图", list: imgList, follow: false,
+    cur: imgList.find(p => p.id === imgStore.activeId) || imgList[0], picked: imgStore.activeId,
+    set: id => {
+      if (!id || typeof saveImgApiProfiles !== "function") return;
+      const clean = saveImgApiProfiles(Object.assign({}, imgStore, { activeId: id }));
+      setImgStore(clean);
+      const p = clean.profiles.find(x => x.id === id);
+      if (typeof window.__toast === "function") window.__toast("生图已切换为 " + ((p && (p.name || p.model)) || "该站"));
+    } }] : []);
   const choice = (lane, p) => h("button", {
     key: lane.key + ":" + (p && p.id || "follow"),
     onClick: () => lane.set(p && p.id),
@@ -290,8 +305,8 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。"),
-      LANES.map((lane, li) => h("div", { key: lane.key, style: li ? { marginTop: 6 } : null },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。生图有两个站以上才会出现。"),
+      ALL_LANES.map((lane, li) => h("div", { key: lane.key, style: li ? { marginTop: 6 } : null },
         // 收着的那一行：左边是这一档叫什么、右边是它现在走哪条线路。点一下摊开这一档，
         // 再点一下收起；摊开一档就把别的收上去（面板高度才不会一路长下去）。
         h("button", { onClick: () => setTab(v => v === lane.key ? "" : lane.key), className: "w-full active:opacity-60 flex items-center",
@@ -303,7 +318,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, transition: "transform .2s",
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
-          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat((profiles || []).map(p => choice(lane, p))))
+          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
           : null))) : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
