@@ -23,7 +23,8 @@ test("世界分组单独存一份，默认所有人在同一个世界；拆掉�
 
 test("论坛：帖子里能开口的角色、认得出的角色、关系行都按世界过滤", () => {
   assert.match(a, /const forumThreadWorld = post =>/);
-  assert.match(a, /const forumInWorld = \(c, post\) => !!c && \(forumCurWorld\(\) === "\*" \|\| charWorldOf\(c\.id\) === forumThreadWorld\(post\)\);/, "「全部」里谁都能去谁的帖下说话");
+  assert.match(a, /const forumInWorld = \(c, post\) => !!c && \(forumCurWorld\(\) === "\*" \|\|/, "「全部」里谁都能去谁的帖下说话");
+  assert.match(a, /world: forumCurWorld\(\) \}/, "她在「全部」里发的记成 *");
   assert.match(a, /const poolChars = forumActiveChars\(\)\.filter\(c => \(!opChar \|\| c\.id !== opChar\.id\) && forumInWorld\(c, post\)\);/);
   const n = (a.match(/c\.name === (x|r)\.char && forumInWorld\(c, post\)/g) || []).length;
   assert.ok(n >= 4, "模型写了别的世界的角色名也不许落成那个角色（现在 " + n + " 处）");
@@ -54,10 +55,11 @@ test("论坛按世界分：帖子记 world、视图只显示当前世界、世�
   assert.strictEqual(W.forumPostWorld({ authorType: "npc" }), "", "老的路人帖算默认世界");
   assert.strictEqual(W.forumPostWorld({ authorType: "character", authorId: "zhou" }), "g", "老的角色帖算TA那个世界");
   assert.strictEqual(W.charWorldLore("g"), "大梁朝");
+  assert.strictEqual(W.forumPostWorld({ authorType: "me", world: "*" }), "*", "她在「全部」里发的帖记成哪个世界都看得到");
   assert.match(a, /const _w = forumCurWorld\(\) === "\*" \? "" : forumCurWorld\(\);/);
   assert.match(a, /world: charWorldOf\(char\.id\),/);
   assert.match(a, /persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" \+ forumLoreLine\(/);
-  assert.match(s, /d\.worlds\.length && cur !== "\*" \? \(props\.posts \|\| \[\]\)\.filter\(p => forumPostWorld\(p, d\) === cur\)/);
+  assert.match(s, /return pw === cur \|\| pw === "\*";/);
   assert.match(a, /forumWorldCtx\(board, genW\)/);
   assert.match(a, /appendForumPosts\(recs\.map\(r => \(\{ \.\.\.r, world: genW \}\)\), board\);/);
 });

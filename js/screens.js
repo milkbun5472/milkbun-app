@@ -2122,6 +2122,8 @@ function forumGenWorld(d) {
 function forumSetWorld(w) { try { localStorage.setItem(FORUM_WORLD_KEY, w || ""); } catch (e) {} try { window.dispatchEvent(new CustomEvent("lisa-forum-world")); } catch (e) {} }
 function forumPostWorld(p, d) {
   d = d || charWorldsLoad();
+  // "*"＝她在「全部」里发的：哪个世界都看得到（她 2026-10-01：「我发的全部不能让全部世界的看到吗」）
+  if (p && p.world === "*") return "*";
   if (p && typeof p.world === "string") return p.world && d.worlds.some(x => x.id === p.world) ? p.world : "";
   if (p && p.authorId && /^character/.test(String(p.authorType || ""))) return charWorldOf(p.authorId, d);
   return "";
@@ -2352,7 +2354,7 @@ function ForumAnonWrap(props) {
   useEffect(() => { const on = () => setWRev(x => x + 1); window.addEventListener("lisa-forum-world", on); return () => window.removeEventListener("lisa-forum-world", on); }, []);
   const _av = useMemo(() => {
     const d = charWorldsLoad(), cur = forumCurWorld(d);
-    const posts = d.worlds.length && cur !== "*" ? (props.posts || []).filter(p => forumPostWorld(p, d) === cur) : props.posts;
+    const posts = d.worlds.length && cur !== "*" ? (props.posts || []).filter(p => { const pw = forumPostWorld(p, d); return pw === cur || pw === "*"; }) : props.posts;
     return forumAnonView(posts, props.comments);
   }, [props.posts, props.comments, wRev]);
   return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
