@@ -8787,7 +8787,12 @@ function ChatThread({
     } else onReply(pending);
   };
   // 长按出菜单走公共那一份（滑动/滚动一动就取消；弹出后吞掉抬手那一下）
-  const { startPress, endPress } = useLongPressMenu(setMenu);
+  // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
+  const { startPress, endPress } = useLongPressMenu(setMenu, { onSwipeLeft: i => {
+    const mm = messages[i];
+    if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
+    setQuoted(String(mm.content));
+  } });
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
     "data-wk": "chat",
@@ -11237,9 +11242,25 @@ function TransText({ text, isU, zhReady, ink, inline }) {
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_SLOP = 10;      // 动过这么多像素就不算长按了（iOS 自己也是这个量级）
 const LONG_PRESS_MUTE_MS = 350;  // 菜单弹出后，这段时间里的第一次点击一律吞掉
-function useLongPressMenu(onFire) {
+// 往左滑一下就引用（群里读者 2026-10-02：「是不是可以像 QQ 一样往左滑就引用啊，不需要长按了」）。
+// 跟长按住在同一只钩子里：按下的位置、动了多少，本来就是这儿在量；
+//   两个手势分开写，就会有两份「手指动了多少算数」各判各的。
+const SWIPE_QUOTE_PX = 56;       // 往左拖过这么远才算（短了会跟上下滚动打架）
+const SWIPE_QUOTE_MAX_DY = 28;   // 上下偏出这么多就当是在滚动，不算滑
+function useLongPressMenu(onFire, opts) {
   const timer = useRef(null);
   const from = useRef(null);
+  // 这一指按在哪一条上；滑出去之前一直记着（长按的计时器动 10px 就掐了，滑要走得更远）
+  const swipeIdx = useRef(null);
+  const swipeEl = useRef(null);
+  const onSwipeLeft = opts && opts.onSwipeLeft;
+  const swipeRef = useRef(onSwipeLeft);
+  swipeRef.current = onSwipeLeft;
+  const resetSwipe = () => {
+    const el = swipeEl.current;
+    if (el) { el.style.transition = "transform .18s ease-out"; el.style.transform = ""; }
+    swipeEl.current = null; swipeIdx.current = null;
+  };
   useEffect(() => {
     // 手指按下的位置从这儿拿：调用点是 startPress(i) 这种不带事件的写法，
     // 一处处改签名要动十七个地方，而这一只监听器把它们全兜住了。
@@ -11256,10 +11277,32 @@ function useLongPressMenu(onFire) {
         clearTimeout(timer.current); timer.current = null;
       }
     };
+    // 左滑引用那一路单独量：长按计时器早被上面掐了，这儿看的是走了多远、偏没偏。
+    const swipeMove = e => {
+      if (swipeIdx.current == null || !from.current || !swipeRef.current) return;
+      const p = (e.touches && e.touches[0]) || e;
+      if (!p) return;
+      const dx = p.clientX - from.current.x, dy = p.clientY - from.current.y;
+      if (Math.abs(dy) > SWIPE_QUOTE_MAX_DY) { resetSwipe(); return; }
+      if (dx >= 0) return;
+      // 这一条跟着手指往左挪一点，让人看得见「在滑」；挪到头就停住，不会整条拖跑
+      if (!swipeEl.current && e.target && e.target.closest) swipeEl.current = e.target.closest('[data-wk="msg"]');
+      const el = swipeEl.current;
+      if (el) { el.style.transition = "none"; el.style.transform = "translateX(" + Math.max(dx, -SWIPE_QUOTE_PX - 14) + "px)"; }
+      if (dx <= -SWIPE_QUOTE_PX) {
+        const at = swipeIdx.current;
+        resetSwipe();
+        swipeRef.current(at);
+      }
+    };
+    const swipeEnd = () => { if (swipeIdx.current != null) resetSwipe(); };
     const off = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
     document.addEventListener("touchstart", down, true);
     document.addEventListener("mousedown", down, true);
     document.addEventListener("touchmove", move, { passive: true });
+    document.addEventListener("touchmove", swipeMove, { passive: true });
+    document.addEventListener("touchend", swipeEnd, { passive: true });
+    document.addEventListener("touchcancel", swipeEnd, { passive: true });
     document.addEventListener("touchcancel", off, { passive: true });
     // 惯性滚动时手指已经离开屏幕，touchmove 不再来——滚动本身也得能掐掉
     document.addEventListener("scroll", off, true);
@@ -11268,12 +11311,16 @@ function useLongPressMenu(onFire) {
       document.removeEventListener("touchstart", down, true);
       document.removeEventListener("mousedown", down, true);
       document.removeEventListener("touchmove", move);
+      document.removeEventListener("touchmove", swipeMove);
+      document.removeEventListener("touchend", swipeEnd);
+      document.removeEventListener("touchcancel", swipeEnd);
       document.removeEventListener("touchcancel", off);
       document.removeEventListener("scroll", off, true);
     };
   }, []);
   const startPress = idx => {
     if (timer.current) clearTimeout(timer.current);
+    swipeIdx.current = swipeRef.current ? idx : null;
     timer.current = setTimeout(() => {
       timer.current = null;
       // ⚠️菜单是在手指还按着的时候弹的，抬手那一下会直接落在菜单上。
@@ -14749,7 +14796,12 @@ function GroupThread({
     onSend(v);
   };
   // 同上，走公共那一份
-  const { startPress, endPress } = useLongPressMenu(setMenu);
+  // 左滑引用：跟单聊同一只钩子、同一条判据；引用的形状走群里自己的 GroupQuote
+  const { startPress, endPress } = useLongPressMenu(setMenu, { onSwipeLeft: i => {
+    const mm = messages[i];
+    if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
+    setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, i, meName) : String(mm.content));
+  } });
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
   const exitSel = () => { setSelMode(false); setSelIds([]); setFwdPick(false); };
   const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };

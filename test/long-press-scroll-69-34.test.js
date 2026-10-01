@@ -18,8 +18,8 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 const hook = comp.slice(comp.indexOf("const LONG_PRESS_MS = 450;"), comp.indexOf("function TransTextState("));
 
 test("长按判据只有一份，单聊和群聊都搬过去了", () => {
-  assert.match(comp, /function useLongPressMenu\(onFire\) \{/);
-  assert.equal((comp.match(/const \{ startPress, endPress \} = useLongPressMenu\(setMenu\);/g) || []).length, 2,
+  assert.match(comp, /function useLongPressMenu\(onFire[,)]/);
+  assert.equal((comp.match(/const \{ startPress, endPress \} = useLongPressMenu\(setMenu[,)]/g) || []).length, 2,
     "单聊和群聊都要走公共那一份");
   // 原地不许留第二份手表（只开公共的、旧的留着是最坏的一种）
   assert.ok(!/pressTimer\.current = setTimeout\(\(\) => setMenu\(idx\), 450\)/.test(comp), "还留着手写的那份");

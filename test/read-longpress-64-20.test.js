@@ -13,7 +13,7 @@ const components = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 //   还会把抬手那一下的误点吞掉）。开了公共的就把已有的搬过去，不许并存两套。
 test("长按走全库那一份，read.js 不留第二套", () => {
   assert.ok(!/function useLongPress\(\)/.test(read), "read.js 里又长出自己那一份了");
-  assert.match(components, /function useLongPressMenu\(onFire\) \{/, "公共那一份没了");
+  assert.match(components, /function useLongPressMenu\(onFire[,)]/, "公共那一份没了");
   // 三处都接上了：书架封面、正文页上那两张卡、批注册每一行
   // ⚠️v72.56：这一行原来写的是 useLongPressMenu(askDrop) ——裸名字在渲染那一刻就求值，
   //   而 askDrop 是几十行之后才 const 出来的：TDZ 当场抛、整页白屏（读者 2026-09-22 报的
