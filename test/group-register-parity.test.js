@@ -94,6 +94,6 @@ test("群里带的是此刻在做什么这一行，不是整张行程表——�
   const fn = app.slice(i, app.indexOf("const ctxFor = (char"));
   assert.doesNotMatch(fn, /今日安排/, "整张行程表留给单聊");
   assert.match(fn, /cur\.title/);
-  assert.match(app, /〔此刻在做什么〕/);
+  assert.match(app, /〔此刻在做什么/);
   assert.match(engine, /ctx\.memberSched/);
 });

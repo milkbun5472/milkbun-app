@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.438";
+const APP_VERSION = "v74.439";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15998,6 +15998,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 抽成一份，群聊和群通话共用；差异只剩显式传进来的 opts。
   const groupNowSegs = (c, opts) => {
     if (!c) return {};
+    // 这一段只属于这位成员本人：一个模型同时写群里所有人，不标出来它就会让别人「知道」
+    const privateTo = (who, seg) => seg ? "\n〔以下只有 " + who.name + " 本人知道，别的成员看不见〕" + seg : "";
     const o = opts || {};
     // 配角那四样（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）。
     // ⚠️只有这四样：好感、印象卡、年龄生日、行程、长出来的自我、随身物一律不给——
@@ -16024,7 +16026,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   却从没见过上一次填的是什么，**根本没法「原样填写」**，
       //   于是每轮都是一个新动作，代码那道去重闸一次都拦不住（她 2026-09-12 报）。
       //   又是这一格的第三次「一层写在两处」：v67.18 修了措辞，这次是料没给全。
-      live: liveStateContext(st, [...(o.interop ? ["wearing"] : []), ...(o.interop || o.act ? ["action"] : []), ...(o.interop ? ["thought"] : [])]),
+      // ⚠️她 2026-10-02 修罗场截图：互相不认识的几个人，张口就是「某人刚还在实验室对着报错」
+      //   「你在那儿喝着红茶」——一个模型同时写所有人，每个人的行程、动作、心声都摆在它面前，
+      //   没标是谁的私事，它就当成大家都知道。关系那一格早就有围栏，行程和状态这两格补上同一道。
+      live: privateTo(c, liveStateContext(st, [...(o.interop ? ["wearing"] : []), ...(o.interop || o.act ? ["action"] : []), ...(o.interop ? ["thought"] : [])])),
       mdSeg: md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : ""),
       afSeg: "\n〔对 " + userName(profile) + " 的好感〕" + Math.round(affOf(c.id)) + "/100",
       ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
@@ -16035,7 +16040,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const l = relationshipLineFor(c.id);
         return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
       })(),
-      sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
+      sbSeg: (() => { if (!timeAwareFor(c.id)) return "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"; const b = schedBriefFor(c); return b ? "\n〔此刻在做什么 · 只有 " + c.name + " 本人知道：别的成员看不见你在干嘛，除非你在群里说过、或者此刻就在一处〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; })()
     };
   };
   // 这位成员最近和用户的单聊（带时间戳）。群聊和群通话共用同一份取法，
