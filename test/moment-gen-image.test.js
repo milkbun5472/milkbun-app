@@ -3,7 +3,7 @@ const fs = require("fs"), assert = require("assert");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 assert.ok(/const momentGenImage = async \(momentId, quiet\)/.test(app), "有 momentGenImage");
-assert.ok(/const drawFromDesc = async \(char, desc\)/.test(app), "画图走共用那一份");
+assert.ok(/const drawFromDesc = async \(char, desc[,)]/.test(app), "画图走共用那一份");
 assert.ok(/const desc = String\(mom\.image\)/.test(app), "prompt 取自朋友圈的配图描述");
 assert.ok(/image: ref, imageDesc: desc/.test(app), "成图写回 m.image，描述留在 imageDesc");
 assert.ok(/if \(!isImgRef\(ref\)\) throw/.test(app), "没存进本机不许装成功");

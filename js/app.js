@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.425";
+const APP_VERSION = "v74.426";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17678,6 +17678,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? "\n\n**【不许复读】TA 最近已经发过下面这些朋友圈，这一条【绝对不要】再写同一件事、同一种心情或雷同句式，换一件全新的事、一个新角度：**\n" + recentPosts.map((c, i) => (i + 1) + "、" + c.slice(0, 60)).join("\n")
         : "";
       const livedMaterial = ambientMaterialFor(char, { limit: 20 });
+      // 配不配图交还给TA（群里读者 2026-10-02：「是默认每一条都带图？让 char 自己选择带图 or 不带图」）。
+      //   原来提示词里写死「大约一半概率配一张图」——那是替TA掷了答案。这里只摆出TA自己的习惯当参照。
+      const _ownMoms = moments.filter(m => m.characterId === char.id).slice(0, 6);
+      const _momImgHabit = _ownMoms.length >= 3
+        ? "（你最近 " + _ownMoms.length + " 条朋友圈里有 " + _ownMoms.filter(m => m.image).length + " 条配了图。）" : "";
       // 「评论者从关系网里挑」原来只是一句抽象的话——关系网确实在上下文里（leanWriteCtx 没砍它），
       // 但模型得自己去那一段里翻。把名字直接点出来，命中率完全不是一回事。
       // 名单＝和 TA 有【任一方向】关系的角色 + TA 自己的 NPC（她 2026-08-26 问的皇帝 NPC 走的正是这条）。
@@ -17694,18 +17699,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       })();
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**大约一半概率配一张图**——如果这条适合配图，就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），不配图就填 null。再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
-        schemaHint: "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
+        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
+        schemaHint: "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
       const newMomId = "m_" + Date.now();
       const newMomImage = d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
+      const newMomWho = ["none", "part", "self"].includes(String(d.imageWho || "").toLowerCase()) ? String(d.imageWho).toLowerCase() : null;
       pMom(p => [{
         id: newMomId,
         characterId: char.id,
         content,
         image: newMomImage,
+        ...(newMomImage && newMomWho ? { imageWho: newMomWho } : {}),
         ts: Date.now(),
         liked: false,
         likeCount: 0,
@@ -17728,9 +17735,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 人不在画面里的走空景稿、不喂参考照；画人才走人像稿 + 参考照——跟私聊拍照同一条路。
   // 按一段画面描述画一张图，返回存进本机的 iv_ 引用（朋友圈、贴吧共用这一份）。
   // char 缺省（NPC、匿名号发的帖）＝一律画空景，不画人。
-  const drawFromDesc = async (char, desc) => {
+  // whoSaid（可选）：发的人自己说的画面里有没有人——none／part／self。
+  //   ⚠️原来只凭描述里的字猜：「窗台上的多肉，逆光」里没有「风景／无人」这类词，
+  //   于是一律当成本人自拍、锁着脸画（群里读者 2026-10-02：「带图的怎么都是带人脸的」）。
+  //   发的人说了就照他说的；没说（旧数据、贴吧）才退回去猜。
+  const drawFromDesc = async (char, desc, whoSaid) => {
     const who = char || { name: "", persona: "" };
-    const kind = noFaceKindFor(desc, who.name);
+    const kind = whoSaid === "none" ? "view" : whoSaid === "part" ? "part" : whoSaid === "self" ? "" : noFaceKindFor(desc, who.name);
     const noFace = !char || !!kind || !(char.appearance || char.refPhoto);
     const prompt = kind === "part" && char ? buildScenePrompt(char, desc, { body: true })
       : noFace ? buildScenePrompt(who, desc, { forText: false })
@@ -17753,7 +17764,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
     const desc = String(mom.image);
     try {
-      const ref = await drawFromDesc(char, desc);
+      const ref = await drawFromDesc(char, desc, mom.imageWho);
       pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
       return true;
     } catch (e) {
