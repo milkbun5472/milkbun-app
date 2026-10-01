@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.427";
+const APP_VERSION = "v74.428";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17681,6 +17681,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 配不配图交还给TA（群里读者 2026-10-02：「是默认每一条都带图？让 char 自己选择带图 or 不带图」）。
       //   原来提示词里写死「大约一半概率配一张图」——那是替TA掷了答案。这里只摆出TA自己的习惯当参照。
       const _ownMoms = moments.filter(m => m.characterId === char.id).slice(0, 6);
+      // ⚠️她 2026-10-02 一句话点破：「配不配图他自己定，这个不就是相当于让他发吗」——
+      //   模型拿到一个可填可不填的格子，几乎都会填。所以有没有配图的【机会】由代码掷，
+      //   掷中了才把那一格交给TA，TA还可以不配：实际配图率封顶在 MOMENT_IMG_CHANCE，
+      //   给了机会的那一部分里配不配仍是TA自己的事（施工规则/bans-make-it-dumber：掷约束，不掷答案）。
+      const MOMENT_IMG_CHANCE = 0.5;
+      const _momImgOpen = Math.random() < MOMENT_IMG_CHANCE;
       const _momImgHabit = _ownMoms.length >= 3
         ? "（你最近 " + _ownMoms.length + " 条朋友圈里有 " + _ownMoms.filter(m => m.image).length + " 条配了图。）" : "";
       // 「评论者从关系网里挑」原来只是一句抽象的话——关系网确实在上下文里（leanWriteCtx 没砍它），
@@ -17699,13 +17705,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       })();
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
-        schemaHint: "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
+        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
+        schemaHint: _momImgOpen
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
       const newMomId = "m_" + Date.now();
-      const newMomImage = d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
+      // 没给机会的那一条，模型硬填了也不作数（闸在代码这一道）
+      const newMomImage = _momImgOpen && d.image && String(d.image).toLowerCase() !== "null" ? String(d.image) : null;
       const newMomWho = ["none", "part", "self"].includes(String(d.imageWho || "").toLowerCase()) ? String(d.imageWho).toLowerCase() : null;
       pMom(p => [{
         id: newMomId,

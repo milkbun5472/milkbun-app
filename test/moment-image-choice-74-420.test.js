@@ -21,3 +21,13 @@ test("TA自己说画面里有没有人，画图照TA说的来", () => {
   assert.match(app, /const kind = whoSaid === "none" \? "view" : whoSaid === "part" \? "part" : whoSaid === "self" \? "" : noFaceKindFor\(desc, who\.name\);/);
   assert.match(app, /const ref = await drawFromDesc\(char, desc, mom\.imageWho\);/);
 });
+
+// 她 2026-10-02：「配不配图他自己定，这个不就是相当于让他发吗」——模型拿到可填的格子几乎都会填。
+test("有没有配图的机会由代码掷；没掷中这一条连格子都不给，硬填也不作数", () => {
+  assert.match(seg, /const MOMENT_IMG_CHANCE = 0\.5;\n\s*const _momImgOpen = Math\.random\(\) < MOMENT_IMG_CHANCE;/);
+  assert.match(seg, /_momImgOpen \? "\*\*配不配图你自己定\*\*/);
+  assert.match(seg, /: "这一条只发文字，不配图，image 填 null。"\)/);
+  assert.match(seg, /schemaHint: _momImgOpen\n/);
+  assert.match(seg, /const newMomImage = _momImgOpen && d\.image/);
+  assert.ok(seg.indexOf("const _momImgOpen") < seg.indexOf("instruction:"), "掷在用之后了（TDZ）");
+});
