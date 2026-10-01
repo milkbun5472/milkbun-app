@@ -59,10 +59,9 @@
     for (let i = 0; i < kept.length; i++) {
       const s = kept[i]; res.push(s);
       const nx = nextReal(i);
-      // 打开论坛／日记却没点进具体那一条：替它点一条（匿名帖不在「我」里，要绕到匿名吧去找）
+      // 打开论坛／日记却没点进具体那一条：替它点一条（匿名发的也在她的「我」里，不用绕）
       if (s.do === "open" && s.app === "forum" && !(nx && nx.do === "tap") && fq.length) {
         const p = fq.shift();
-        if (p.anon) res.push({ do: "tap", text: "主页", exact: true, bottom: true, auto: true }, { do: "tap", text: "匿名吧", auto: true });
         res.push({ do: "tap", text: S(p.title).slice(0, 30), auto: true }, { do: "scroll", dir: "down", n: 2, auto: true });
         continue;
       }

@@ -99,7 +99,8 @@ test("消息列表也是一处看点；退出来才想的那句挪回退出之�
   assert.ok(s1.findIndex(x => x.do === "think") < s1.findIndex(x => x.do === "back"), "心声还在退出之后");
   const s2 = P.cleanScript({ steps: [{ do: "open", app: "forum" }, { do: "think", text: "帖" }] }, ["forum"], { forum: [{ title: "匿名的帖", anon: true }] });
   const taps = s2.filter(x => x.do === "tap").map(x => x.text);
-  assert.deepStrictEqual(taps, ["主页", "匿名吧", "匿名的帖"]);
+  assert.deepStrictEqual(taps, ["匿名的帖"], "匿名帖现在就在她的「我」里，不用绕");
+  assert.match(src("screens.js"), /isMe \? p\.authorType === "me" : \(p\.authorId === profileId && p\.authorType === "character" && !p\.anon\)/);
   assert.match(p, /messages: \{ dock: "信息"/);
   assert.match(p, /const IN_MSG = \["chat", "messages", "wallet"\];/);
   assert.match(a, /【她的消息列表（一打开「信息」就看得到）】/);

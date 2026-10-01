@@ -2882,7 +2882,9 @@ function Forum({
     if (!isMe && !c) return null;
     const meta = isMe ? { handle: (forumMe && forumMe.handle) || profile.name || "我", bio: (forumMe && forumMe.bio) || "", joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
     const av = h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
-    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? p.authorType === "me" : (p.authorId === profileId && p.authorType === "character")) && !p.anon).sort((a, b) => b.ts - a.ts);
+    // 她自己的主页连匿名发的也列出来（她 2026-10-01：「我匿名的帖子能不能放进我的主页」）——
+    //   这一页只有她自己看得到（还有她递手机时的那个人）；别人的主页照旧不露匿名帖
+    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? p.authorType === "me" : (p.authorId === profileId && p.authorType === "character" && !p.anon))).sort((a, b) => b.ts - a.ts);
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
         h("div", { className: "flex items-start gap-3" },
@@ -2915,7 +2917,7 @@ function Forum({
             : h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
         !isMe && h("button", { onClick: () => onGenCharPost(c, "日常吧"), disabled: gen && gen.forum === "char_" + c.id, className: "mt-3 px-3.5 py-1.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, gen && gen.forum === "char_" + c.id ? "发帖中…" : "＋ 让 TA 发一条")),
-      mine.length === 0 && h(Empty, { text: isMe ? "你还没发过帖" : "TA 还没有公开发帖", sub: "匿名吧的帖子不会显示在这里" }),
+      mine.length === 0 && h(Empty, { text: isMe ? "你还没发过帖" : "TA 还没有公开发帖", sub: isMe ? "" : "匿名吧的帖子不会显示在这里" }),
       mine.map(p => postRow(p, true)));
   }
 
