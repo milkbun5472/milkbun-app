@@ -55,7 +55,7 @@ test("递给 UI 的角色列表默认不含 NPC", () => {
   // 这条断言守的不是数字，是「这份名单是显式的、grep 得出来的」。
   assert.equal((app.match(/allChars: characters,/g) || []).length, 4,
     "聊天列表的群头像 + 群聊页 + 关系页 + 同人文（配角要能被写进 CP）");
-  assert.match(comp, /const memberById = id => \(allChars \|\| characters\)\.find/);
+  assert.match(comp, /const memberById = id => \{ const c = \(allChars \|\| characters\)\.find/);
 });
 
 // v72.06（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）：
