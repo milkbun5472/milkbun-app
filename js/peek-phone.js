@@ -37,6 +37,8 @@
       const d = S(s.do || s.action).trim();
       if (d === "open") {
         const app = S(s.app).trim();
+        // 进自己那一栏是 rename／pin 自己的事，不单独演一趟「打开自己的聊天」
+        if (app === "chat" && hints.self && (S(s.who).trim() === hints.self)) { skip = true; return; }
         if (allowApps.indexOf(app) < 0) { skip = true; return; }          // 她藏起来的那几样，录像里也碰不到
         if (gate && FOLLOW.indexOf(app) >= 0 && gate.indexOf(app) < 0) { skip = true; return; }
         skip = false; at = app;
@@ -46,7 +48,11 @@
           if (text) out.push({ do: "scroll", dir: app === "chat" ? "up" : "down", n: 1, auto: true }, { do: "think", text }); });
         return;
       }
-      if (skip) return;
+      // 被跳过的那一段里，真动手的那几步（改备注、置顶……）照留——它们不靠那一页
+      if (skip && ["rename", "pin", "unpin", "unfriend", "block", "impersonate"].indexOf(d) < 0) return;
+      // 改备注、置顶、删好友这些有自己的一步，模型却常自己去「点设置、点备注」——屏幕上没有那些字，
+      //   播出来就是圆点在空处划拉（她 2026-10-02）。这种点一律不演
+      if (d === "tap" && /备注|置顶|删除|拉黑|设置|资料|更多|…|\.\.\./.test(S(s.text))) return;
       if (d === "tap") {
         // 模型常把标题连书名号一起抄过来，屏幕上没有那对符号就找不到
         const text = S(s.text).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 30);
@@ -225,16 +231,22 @@
     //   真点进去就翻成了群聊。人对上以后交给外面按 id 直接打开那个单聊（她 2026-10-02：「把旁观群剔除掉」）
     // 先把列表滑到那一行露出来再点（她 2026-10-02：「还是不会翻到要看的消息才点开，直接随便点点就开了」）
     const scrollTo = async el => {
+      // ⚠️原来露出来的判定是屏幕 22%~78%，最上面那一行（自己、置顶的）永远「没露出来」，
+      //   于是往上空滑六下（她 2026-10-02：「把自己置顶的时候也空划了」）。现在：大致在屏幕里就算；
+      //   滑的是这一行自己所在的那个滚动容器；滑了没动就停
+      let sc = el.parentElement;
+      while (sc && sc !== document.body && !(sc.scrollHeight > sc.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+      if (!sc || sc === document.body) return;
       for (let k = 0; k < 6; k++) {
-        const r = el.getBoundingClientRect(), lo = window.innerHeight * 0.22, hi = window.innerHeight * 0.78;
+        const r = el.getBoundingClientRect(), lo = window.innerHeight * 0.1, hi = window.innerHeight * 0.85;
         if (r.top >= lo && r.bottom <= hi) return;
-        const sc = findScroller(window.innerWidth / 2, window.innerHeight / 2);
-        if (!sc) return;
+        const before = sc.scrollTop;
         const dy = Math.max(-sc.clientHeight * 0.55, Math.min(sc.clientHeight * 0.55, (r.top + r.height / 2) - window.innerHeight / 2));
         setDot({ x: window.innerWidth * 0.55, y: dy > 0 ? window.innerHeight * 0.7 : window.innerHeight * 0.35, down: true }); await sleep(200);
         setDot({ x: window.innerWidth * 0.55, y: dy > 0 ? window.innerHeight * 0.35 : window.innerHeight * 0.7, down: true });
         try { sc.scrollBy({ top: dy, behavior: "smooth" }); } catch (e) { sc.scrollTop += dy; }
         await sleep(650); setDot(d => ({ ...d, down: false })); await sleep(250);
+        if (Math.abs(sc.scrollTop - before) < 2) return;   // 到头了，不再空滑
       }
     };
     // 按 id 找列表里那一行（她 2026-10-02：「点击聊天还是对不上实际对话框」——按名字找字，
@@ -381,7 +393,9 @@
               setCaption(s.do === "pin" ? "把" + (s.who ? "「" + s.who + "」" : "自己") + "置顶了" : "把「" + nm + "」取消置顶");
               if (props.toMessages) { props.toMessages("chats"); await sleep(800); }
               const row = s.who ? findRow(s.who) : (props.idOf ? findRow(props.selfName || "") : findByText(props.selfName || ""));
-              if (row) { await scrollTo(row); await pressOnly(row); await sleep(500); await pressOnly(row); }
+              if (row) { await scrollTo(row); await pressOnly(row); }
+              // 长按出来的那个小菜单，看得见点了什么
+              setRenameBox({ title: (s.who || "自己"), typed: s.do === "pin" ? "置顶聊天" : "取消置顶", ok: "确定", noCaret: true }); await sleep(1300); setRenameBox(null);
               props.onEffect && props.onEffect(s); await sleep(900);
             } else if (s.do === "impersonate") {
               if (props.onOpen) { props.onOpen("chat", s.who); await sleep(1000); }
@@ -441,7 +455,7 @@
       renameBox ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.28)", pointerEvents: "none" } },
         h("div", { style: { width: 280, borderRadius: 16, background: bg2, color: ink, padding: "16px 16px 12px", boxShadow: "0 12px 32px rgba(0,0,0,.28)" } },
           h("div", { style: { fontSize: 15, fontWeight: 600, textAlign: "center", marginBottom: 12 } }, renameBox.title || "设置备注"),
-          h("div", { style: { minHeight: 40, borderRadius: 10, border: "1px solid rgba(0,0,0,.18)", padding: "9px 12px", fontSize: 15 } }, renameBox.typed, h("span", { style: { opacity: .6 } }, "｜")),
+          h("div", { style: { minHeight: 40, borderRadius: 10, border: "1px solid rgba(0,0,0,.18)", padding: "9px 12px", fontSize: 15 } }, renameBox.typed, renameBox.noCaret ? null : h("span", { style: { opacity: .6 } }, "｜")),
           h("div", { style: { marginTop: 12, textAlign: "right", fontSize: 14, opacity: .8 } }, renameBox.ok || "完成"))) : null,
       // 心声：浮在屏幕下半，第一人称一句
       thought ? h("div", { style: { position: "absolute", left: 20, right: 20, bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)", display: "flex", justifyContent: "center", pointerEvents: "none" } },

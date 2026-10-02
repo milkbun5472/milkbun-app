@@ -256,7 +256,8 @@ test("翻手机：消息列表里有TA自己那一行；TA能进自己那栏改�
   const out = PP.cleanScript({ steps: [{ do: "open", app: "messages" }, { do: "think", text: "嗯" }, { do: "rename", text: "「老公」" }, { do: "rename", text: "二次" }] }, ["messages", "chat"], {});
   assert.deepStrictEqual(out.filter(s => s.do === "rename").map(s => s.text), ["老公"]);
   assert.match(a, /filter\(c => c\.id === viewerId \|\| shownId\(c\.id\)\)/);
-  assert.match(a, /\(x\.c\.id === viewerId \? "【就是你】" : ""\)/);
+  assert.match(a, /\(x\.c\.id === viewerId \? "【你自己】" : ""\)/);
+  assert.doesNotMatch(a, /"· 第" \+ \(i \+ 1\) \+ "行"/, "不给每行标号，TA会去数第几行");
   assert.match(a, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, remark: text \} : x\)\)/);
   assert.match(p, /props\.onRename && props\.onRename\(s\.text, old\)/);
 });
@@ -312,4 +313,17 @@ test("翻手机：动手那几样是鼓励、不是「别写」，格式示范�
   assert.doesNotMatch(a, /真气到那份上才用，不想就一样都别写/);
   assert.match(a, /照你的性子挑一两样做（各一趟最多一次）/);
   assert.match(a, /\{\\"do\\":\\"impersonate\\",\\"who\\":\\"名字\\",\\"text\\":/);
+});
+
+test("翻手机：滑到那一行用它自己的滚动容器、滑不动就停；不演打开自己的聊天、不演点「设置／备注」这种空点", () => {
+  const fs = require("fs"), path = require("path");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "messages" }, { do: "think", text: "嗯" }, { do: "open", app: "chat", who: "我自己" }, { do: "tap", text: "设置备注" }, { do: "scroll", dir: "up" },
+    { do: "rename", text: "新名" }] }, ["messages", "chat"], { who: ["甲"], self: "我自己" });
+  assert.ok(!out.some(s => s.do === "open" && s.who === "我自己"));
+  assert.ok(!out.some(s => s.do === "tap"));
+  assert.ok(out.some(s => s.do === "rename"));
+  assert.match(p, /if \(Math\.abs\(sc\.scrollTop - before\) < 2\) return;/);
 });
