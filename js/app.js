@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.486";
+const APP_VERSION = "v74.488";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9335,8 +9335,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }).filter(x => x.ms.length).sort((a, b) => (seenWho.has(a.c.remark || a.c.name) - seenWho.has(b.c.remark || b.c.name)) || (b.last - a.last));
       // 留一个位置给「以前聊得多、后来断了」的那个人（她 2026-10-02：「我和 a 断了好几个星期没聊，还会轮到她吗」）——
       //   查岗的人翻到这种，反而会多想一句「怎么不聊了」。一周没动静、以前聊过 30 条以上的里，挑聊得最多的那个
-      const rows = rowsAll.slice(0, 5);
-      const gone = rowsAll.slice(5).filter(x => Date.now() - x.last > 7 * 86400000 && x.ms.length >= 30).sort((a, b) => b.ms.length - a.ms.length)[0];
+      // 一趟就看这几个，给多了每个都翻得浅（她 2026-10-02：「一次刷几个人，不需要 6 个吧」）
+      const rows = rowsAll.slice(0, 3);
+      const gone = rowsAll.slice(3).filter(x => Date.now() - x.last > 7 * 86400000 && x.ms.length >= 30).sort((a, b) => b.ms.length - a.ms.length)[0];
       if (gone) rows.push({ ...gone, cold: Math.floor((Date.now() - gone.last) / 86400000) });
       // ⚠️说清楚这是谁跟谁（她 2026-10-01：截图里TA把别人说的话当成段子看，没看懂这是【她跟别人】的聊天）
       // 整段的来龙去脉，不只最后一截（她 2026-10-01：「还是不会看我和别人整体的聊天，只是看一小段」）：
@@ -9354,7 +9355,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const gRows = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
         const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
         return { g, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
-      }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 3);
+      }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 2);
       if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => "群「" + (x.g.name || "群聊") + "」（最近这些）：\n"
         + x.ms.slice(-14).map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n")).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
