@@ -5911,9 +5911,18 @@ function _transStrip(text) {
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, " ") // 表情不算
     .replace(/[\s\d]+/g, " ");
 }
+// 颜文字（她 2026-10-02：「(っ˘з(˘⌣˘ )」里的「っ」被认成日文挂了译键）：
+//   括号里一个汉字都没有、又不长的那一段当成表情扔掉；嵌套的一层层剥，没合上的尾巴也扔
+function _transStripKaomoji(t) {
+  let s = String(t || ""), prev;
+  do { prev = s; s = s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}[)）]/g, " "); } while (s !== prev);
+  return s.replace(/[(（][^()（）\u4e00-\u9fff]{0,24}$/g, " ");
+}
 // 返回 "" 表示不用翻；否则返回中文语种名，直接拿去当标签
 function translatableLang(text) {
-  const t = _transStrip(text);
+  // 设置里一键关掉（她 2026-10-02）
+  try { if (typeof localStorage !== "undefined" && localStorage.getItem("x_noTranslate") === "1") return ""; } catch (e) {}
+  const t = _transStripKaomoji(_transStrip(text));
   if (!t.trim()) return "";
   const count = re => (t.match(re) || []).length;
   const han    = count(/[\u4e00-\u9fff]/g);
