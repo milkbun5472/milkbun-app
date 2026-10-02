@@ -82,3 +82,7 @@ test("城市联动：去过留星＋「那天」卡；TA会自己钉地方；TA�
   assert.match(d, /if \(herePin && herePin\.id === p\.id && props\.onMeet && Math\.random\(\) < 0\.7\)/);
   assert.match(a, /onMeet: async \(char, place\) => \{/);
 });
+
+test("去过几次写成一颗星加数字，不会越去越长", () => {
+  assert.match(d, /\(n \? " ★" \+ n : ""\)/);
+});

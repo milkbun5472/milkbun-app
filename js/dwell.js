@@ -52,7 +52,7 @@
           // 他在这儿：钉上面冒一个小头像；他钉的：名字前一颗心；去过几次：名字后几颗星
           here && props.avatar ? h("span", { style: { marginBottom: 2, borderRadius: 999, boxShadow: "0 0 0 2px " + t.bg2, animation: "wkpop .4s ease both" } }, props.avatar) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.bg2 : t.ink, background: on ? t.ink : t.bg, border: "1px solid " + (his ? ACCENT : t.line), borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" } },
-            (his ? "♡ " : "") + p.name + (n ? " " + "★".repeat(Math.min(3, n)) : "")),
+            (his ? "♡ " : "") + p.name + (n ? " ★" + n : "")),
           h("span", { style: { width: 8, height: 8, borderRadius: 999, background: here ? "#d9776b" : ACCENT, marginTop: 2, boxShadow: "0 0 0 3px " + t.bg2 } }));
       }),
       !places.length ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } },
