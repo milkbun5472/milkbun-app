@@ -94,3 +94,8 @@ test("Fish 中转地址自带 /v1 也认", () => {
     assert.equal(e.loadTtsApi().fishBase, "https://fishaudio.org", u);
   }
 });
+
+test("Fish 回 400 ERR_VOICE_NOT_FOUND 也要说成「声音 ID 不对」", async () => {
+  const e = load({}, async () => ({ ok: false, status: 400, text: async () => '{"retryable":false,"code":"ERR_VOICE_NOT_FOUND"}' }));
+  await assert.rejects(e.ttsSynthOther({ provider: "fish", fishKey: "k" }, "hi", "R", 1), /声音 ID 不对/);
+});

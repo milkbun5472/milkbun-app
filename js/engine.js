@@ -6354,7 +6354,7 @@ async function ttsSynthOther(a, txt, vid, spd) {
     let msg = "";
     try { msg = (await r.text()).replace(/\s+/g, " ").slice(0, 200); } catch (e) {}
     throw new Error((a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + " 报错 HTTP " + r.status + (msg ? "：" + msg : "")
-      + (r.status === 401 || r.status === 403 ? "（检查密钥是否完整、账户额度够不够）" : r.status === 404 || r.status === 422 ? "（多半是声音 ID 不对：要填这一家的声音 ID）" : ""));
+      + (r.status === 401 || r.status === 403 ? "（检查密钥是否完整、账户额度够不够）" : r.status === 404 || r.status === 422 || /VOICE_NOT_FOUND|voice.{0,12}not.{0,6}found/i.test(msg) ? "（声音 ID 不对：要填这一家的声音 ID——Fish 是声音页网址 fish.audio/m/ 后面那串，不是名字；试听用的是设置里的「默认音色 ID」）" : ""));
   }
   const blob = await r.blob();
   if (!blob || blob.size < 200) throw new Error("返回的音频是空的");
