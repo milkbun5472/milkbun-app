@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.562";
+const APP_VERSION = "v74.563";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9771,7 +9771,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const put = (name, note, from) => { const n = String(name || "").trim(); if (n && !seen[n]) { seen[n] = 1; out.push({ name: n.slice(0, 24), note: String(note || "").slice(0, 60), from }); } };
     try { (window.DatePlaces && char ? window.DatePlaces.list(char.id) : []).forEach(p => put(p.name, p.note, "我们的城市")); } catch (e) {}
     const r = char && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(char, worldsRef.current || []) : null;
-    if (r && r.kind === "world" && r.world) (r.world.regions || []).forEach(g => (g.nodes || []).forEach(nd => put(nd && nd.name, nd && nd.hook, r.world.name)));
+    // 世界里的地点只带名字：它的 hook 是地图上的场景描述，不是一句备注，带进邀约就整段印在卡上
+    if (r && r.kind === "world" && r.world) (r.world.regions || []).forEach(g => (g.nodes || []).forEach(nd => put(nd && nd.name, "", r.world.name)));
     return out.slice(0, 40);
   };
   // TA主动约她（她 2026-10-02 拍板）：跟她约TA是同一张卡，方向反过来。三天最多一回，还挂着一张没回的就不再约

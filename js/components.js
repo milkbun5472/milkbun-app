@@ -12741,7 +12741,8 @@ function DateInviteCard({ m, character, onGo, onGoMine, onAnswer, avatar, myAvat
       (m.invitees || []).length ? row(I.ppl, m.invitees.map(x => x.name + (rep[x.id] === "yes" ? " 去" : rep[x.id] === "no" ? " 不去" : " 还没回")).join(" · ")) : null,
       w.now ? row(I.clk, "现在，说走就走") : w.date ? row(I.cal, dateLabel(w.date)) : w.text ? row(I.cal, w.text) : null,
       !w.now && w.time ? row(I.clk, w.time) : null,
-      m.say ? row(I.pen, m.say, true) : (pl.note ? row(I.pen, pl.note, true) : null),
+      // 只写她（或TA）亲口说的那句；没写就空着，不拿地点备注顶上——架空世界的地点备注是地图上那段描述（她 2026-10-02）
+      m.say ? row(I.pen, m.say, true) : null,
       h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, foot),
         ask && st === "pending" && onAnswer ? h("span", { className: "flex", style: { gap: 14 } },

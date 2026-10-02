@@ -147,3 +147,8 @@ test("邀约小框能直接选「现在」，单聊群里同一个小框", () =>
   assert.match(app, /if \(w\.now\) return "现在";/);
   assert.equal((app.match(/\.\.\.\(v\.now \? \{ now: true \} : \{\}\)/g) || []).length, 2, "单聊群里两头都带上「现在」");
 });
+
+test("邀约卡只印亲口说的那句；世界地点不把地图描述当备注带进来", () => {
+  assert.ok(comp.indexOf("pl.note ? row(I.pen, pl.note") < 0, "没写话时又拿地点备注顶上了");
+  assert.match(app, /put\(nd && nd\.name, "", r\.world\.name\)/);
+});
