@@ -43,7 +43,7 @@ test('connect is explicit, single flight, durable on return, sequential continua
   assert.match(R.contextFor('a'),/第二页/);assert.doesNotMatch(R.contextFor('a'),/最后一行|等核对/);
   assert.equal((await R.connect(scene,chars,()=>{throw Error('unfinished');},true)).id,e.id);
   R.reveal(e.id,1);R.reveal(e.id,2);
-  const next=await R.connect(scene,chars,async(s,old)=>{assert.equal(old.length,1);assert.match(R.lifePrompt(s,old),/等核对完/);calls++;return raw;},true);
+  const next=await R.connect(scene,chars,async(s,old)=>{assert.equal(old.length,1);assert.match(R.lifePrompt(s,old),/等核对完/);calls++;return {...raw,lines:[{speakerId:'a',text:'校对结束了，我把这份稿子装订好。'}]};},true);
   assert.notEqual(next.id,e.id);assert.equal(next.ordinal,1);assert.equal(calls,2);
 });
 test('save has no listener notification; participant memory isolation and replay only include heard lines',async()=>{
@@ -105,4 +105,11 @@ test('saved older scenes are retained beyond a recent-items window; closed rooms
 test('solo self-talk is a valid schedule scene and does not make available contacts participants',async()=>{
  const f=setup();const e=await f.R.connect(f.scene,f.chars,async()=>({title:'独处的片段',lines:[{speakerId:'a',text:'这一页还得重新校对。'},{speakerId:'a',text:'先把纸张理好。'}]}));
  f.R.reveal(e.id,0);assert.deepEqual(Array.from(e.participantIds),['a']);assert.match(f.R.contextFor('a'),/重新校对/);assert.equal(f.R.contextFor('b'),'');assert.match(f.R.lifePrompt(f.scene,[]),/无需安排别人出场/);
+});
+
+test('continuation carries exact past facts and saved end position; copied output does not append or retry',async()=>{
+ const f=setup(),{R,scene,chars,raw}=f;const e=await R.connect(scene,chars,async()=>({...raw,progress:{reached:'第二页和末行已校对完',open:'下一步装订，尚未发生'}}));
+ raw.lines.forEach((_,i)=>R.reveal(e.id,i));let calls=0;const prompt=R.lifePrompt(scene,R.read().events);assert.match(prompt,/已校对完/);assert.match(prompt,/下一步装订，尚未发生/);assert.match(prompt,/第2段/);assert.match(prompt,/换词复述同一件事不算新的进展/);
+ await assert.rejects(R.connect(scene,chars,async()=>{calls++;return raw;},true),/重复的片段/);assert.equal(calls,1);assert.equal(R.read().events.length,1);assert.equal(R.read().events[0].id,e.id);
+ const fresh=await R.connect(scene,chars,async()=>({title:'校对之后',progress:{reached:'稿件开始装订',open:'装订仍在进行'},lines:[{speakerId:'a',text:'校对好了，这会儿把稿页整理好再装订。'}]}),true);assert.equal(fresh.ordinal,1);assert.equal(fresh.progress.reached,'稿件开始装订');
 });
