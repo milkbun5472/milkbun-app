@@ -17,18 +17,41 @@
   function placesOf(charId) { const a = loadAll()[charId]; return Array.isArray(a && a.places) ? a.places : []; }
   function uid(p) { return (p || "d") + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
 
-  // 她自己钉的约会地点（群友 2026-10-02：「进去处显示城市大地图，里面有咖啡店、书店这种可以约会的自定义场所」）：
-  //   不分角色，是她的城市；去处这里点开能「自己去转转」或「约TA在这儿见」，约会券和旅行挑地方时也读这一份
-  //   x_datePlaces = [{ id, name, note }]
+  // 她和【这个人】的城市（她 2026-10-02：「怎么大家共用一个我们的城市啊，王爷的地点也跑来这里了」）：
+  //   每个人各一份，x_datePlacesBy = { charId: [{ id, name, note, by }] }。
+  //   去处点开能「自己去转转」或「约TA在这儿见」，约会券、旅行、聊天里的邀约挑地方也读【那个人的】这一份。
+  //   旧版共用的 x_datePlaces 不删：开机时按「谁钉的／跟谁去过／约过谁」认领，认不出的留在 unclaimed，
+  //   钉地方时能一键捡回来——不替她猜，也不丢。
+  const DP_KEY = "x_datePlacesBy";
+  const dpAll = function () { try { const o = JSON.parse(localStorage.getItem(DP_KEY) || "{}"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
   const DatePlaces = {
-    list: function () { try { const a = JSON.parse(localStorage.getItem("x_datePlaces") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } },
-    save: function (a) { try { localStorage.setItem("x_datePlaces", JSON.stringify(a.slice(0, 30))); } catch (e) {} return a; },
-    add: function (name, note, by) { const a = DatePlaces.list(); a.push({ id: "dp_" + Date.now(), name: String(name).slice(0, 24), note: String(note || "").slice(0, 60), by: by || "" }); return DatePlaces.save(a); },
-    // 去过几次：x_dateVisits = { 地名: [{ charId, ts, line }] }，见面散场时记（app.js endOffline）
-    visits: function (name) { try { const v = JSON.parse(localStorage.getItem("x_dateVisits") || "{}") || {}; return Array.isArray(v[name]) ? v[name] : []; } catch (e) { return []; } },
-    remove: function (id) { return DatePlaces.save(DatePlaces.list().filter(function (x) { return x.id !== id; })); },
+    list: function (cid) { if (!cid) return []; const a = dpAll()[cid]; return Array.isArray(a) ? a : []; },
+    save: function (a, cid) { if (!cid) return a; const o = dpAll(); o[cid] = (a || []).slice(0, 30); try { localStorage.setItem(DP_KEY, JSON.stringify(o)); } catch (e) {} return o[cid]; },
+    add: function (name, note, by, cid) { const a = DatePlaces.list(cid).slice(); a.push({ id: "dp_" + Date.now(), name: String(name).slice(0, 24), note: String(note || "").slice(0, 60), by: by || "" }); return DatePlaces.save(a, cid); },
+    // 去过几次：x_dateVisits = { 地名: [{ charId, ts, line }] }，见面散场时记（app.js endOffline）；只数跟这个人去的
+    visits: function (name, cid) { try { const v = JSON.parse(localStorage.getItem("x_dateVisits") || "{}") || {}; const a = Array.isArray(v[name]) ? v[name] : []; return cid ? a.filter(function (x) { return x && x.charId === cid; }) : a; } catch (e) { return []; } },
+    remove: function (id, cid) { return DatePlaces.save(DatePlaces.list(cid).filter(function (x) { return x.id !== id; }), cid); },
     // 给模型的一行：约会券、旅行、TA开的线下挑地方时可以从这里挑
-    hint: function () { const a = DatePlaces.list(); return a.length ? "她在自己的城市里钉过这些可以约会的地方（挑地方时可以优先从这里挑，也可以不挑）：" + a.map(function (x) { return "「" + x.name + "」" + (x.note ? "（" + x.note + "）" : ""); }).join("、") + "。" : ""; }
+    hint: function (cid) { const a = DatePlaces.list(cid); return a.length ? "她在你们俩的城市里钉过这些可以约会的地方（挑地方时可以优先从这里挑，也可以不挑）：" + a.map(function (x) { return "「" + x.name + "」" + (x.note ? "（" + x.note + "）" : ""); }).join("") + "。" : ""; },
+    // 旧版共用那份里还没认领的
+    unclaimed: function () { try { const a = JSON.parse(localStorage.getItem("x_datePlaces") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } },
+    dropUnclaimed: function (name) { try { localStorage.setItem("x_datePlaces", JSON.stringify(DatePlaces.unclaimed().filter(function (x) { return x.name !== name; }))); } catch (e) {} },
+    // 认领：ownersOf(地名) 返回跟这地方有过来往的人的 id（app 那头翻邀约卡）；by、去过记录在这儿自己看
+    migrate: function (ownersOf) {
+      const old = DatePlaces.unclaimed();
+      if (!old.length) return;
+      const left = [];
+      old.forEach(function (p) {
+        const ids = {};
+        if (p.by) ids[p.by] = 1;
+        DatePlaces.visits(p.name).forEach(function (v) { if (v && v.charId) ids[v.charId] = 1; });
+        (ownersOf ? ownersOf(p.name) || [] : []).forEach(function (id) { if (id) ids[id] = 1; });
+        const keys = Object.keys(ids);
+        if (!keys.length) { left.push(p); return; }
+        keys.forEach(function (cid) { if (!DatePlaces.list(cid).some(function (x) { return x.name === p.name; })) DatePlaces.save(DatePlaces.list(cid).concat([p]), cid); });
+      });
+      try { localStorage.setItem("x_datePlaces", JSON.stringify(left)); } catch (e) {}
+    }
   };
   window.DatePlaces = DatePlaces;
   // 地图上的落点：按名字算一个固定位置，钉上去以后不乱跳
@@ -46,7 +69,7 @@
         h("ellipse", { cx: 66, cy: 30, rx: 9, ry: 6, fill: t.line, opacity: .5 })),
       places.map(function (p, i) {
         const q = pinPos(p.name, i), on = sel && sel.id === p.id;
-        const n = DatePlaces.visits(p.name).length, here = props.hereId === p.id, his = p.by && props.charId && p.by === props.charId;
+        const n = DatePlaces.visits(p.name, props.charId).length, here = props.hereId === p.id, his = p.by && props.charId && p.by === props.charId;
         return h("button", { key: p.id, onClick: function () { props.onPick(on ? null : p); }, className: "active:opacity-70",
           style: { position: "absolute", left: q.x + "%", top: q.y + "%", transform: "translate(-50%,-100%)", display: "flex", flexDirection: "column", alignItems: "center" } },
           // 他在这儿：钉上面冒一个小头像；他钉的：名字前一颗心；去过几次：名字后几颗星
@@ -237,8 +260,10 @@
     const [drawing, setDrawing] = useState(false);
     const [shot, setShot] = useState("");   // 正在全屏看的那张图（她 2026-09-01：v59.82 把全屏观看整个弄没了）
     const [cfg, setCfg] = useState(loadCfg);
-    const [dates, setDates] = useState(DatePlaces.list);
+    const [dates, setDates] = useState([]);
     const [dateSel, setDateSel] = useState(null);
+    // 换一个人，就是换一座城：地点表跟着这个人走
+    useEffect(function () { setDates(DatePlaces.list(char && char.id)); setDateSel(null); }, [char && char.id]);
     // 「我们的城市」看哪张图（她 2026-10-02 转群友：切换现实/架空）：手绘＝原来那张钉点图；
     //   现实、架空直接用好友地图那两张，不另画。记住上次看的是哪张。
     const [mapKind, setMapKind] = useState(function () { try { return localStorage.getItem("x_cityMapKind") || "draw"; } catch (e) { return "draw"; } });
@@ -586,7 +611,7 @@
         dateSel ? h("div", { style: { marginTop: 10, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 13px", background: t.bg2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, dateSel.name),
           dateSel.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, (dateSel.by ? characterText(char, "他钉的：") : "") + dateSel.note) : null,
-          (function () { const vs = DatePlaces.visits(dateSel.name); if (!vs.length) return null; const last = vs[vs.length - 1], d = new Date(last.ts);
+          (function () { const vs = DatePlaces.visits(dateSel.name, char && char.id); if (!vs.length) return null; const last = vs[vs.length - 1], d = new Date(last.ts);
             return h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 5, lineHeight: 1.6 } }, "★ 一起来过 " + vs.length + " 次 · 上次 " + (d.getMonth() + 1) + "月" + d.getDate() + "日" + (last.line ? "：" + last.line : "")); })(),
           h("div", { className: "grid grid-cols-2", style: { gap: 8, marginTop: 10 } },
             h("button", { onClick: function () {
@@ -598,29 +623,30 @@
               style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "自己去转转"),
             h("button", { onClick: function () { const p = dateSel; setDateSel(null); setCompose(p); }, className: "active:opacity-80",
               style: { minHeight: 42, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "约" + (char ? (char.remark || char.name) : "TA") + "在这儿见")),
-          h("button", { onClick: function () { const id = dateSel.id; requestAppConfirm("把「" + dateSel.name + "」从地图上拿掉？", "只是拿掉这个钉，去过的记录不动。", function () { setDates(DatePlaces.remove(id)); setDateSel(null); }); },
+          h("button", { onClick: function () { const id = dateSel.id; requestAppConfirm("把「" + dateSel.name + "」从地图上拿掉？", "只是拿掉这个钉，去过的记录不动。", function () { setDates(DatePlaces.remove(id, char && char.id)); setDateSel(null); }); },
             className: "w-full active:opacity-60", style: { paddingTop: 10, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉这个钉")) : null,
         h("button", { onClick: function () { setPinPick(function (v) { return !v; }); }, className: "w-full text-left active:opacity-70", style: { marginTop: 10, marginBottom: pinPick ? 8 : 18, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, pinPick ? "收起" : "＋ 钉一个地方"),
         pinPick ? (function () {
           const pinned = new Set(dates.map(function (x) { return x.name; }));
           const seen = new Set();
-          const cands = [].concat(places.map(function (p) { return p.name; }), todo.map(function (f) { return f.name; }), mapPlaces.map(function (m) { return m.name; }))
+          // 旧版大家共用那份里没认出是谁的，排最前面——她点一下就归到这个人名下
+          const cands = [].concat(DatePlaces.unclaimed().map(function (p) { return p.name; }), places.map(function (p) { return p.name; }), todo.map(function (f) { return f.name; }), mapPlaces.map(function (m) { return m.name; }))
             .filter(function (n) { n = String(n || "").trim(); if (!n || pinned.has(n) || seen.has(n)) return false; seen.add(n); return true; });
           const writeOwn = function () {
             requestAppPrompt("钉一个地方", "店名或地名：咖啡店、书店、常去的那家面馆……", "", function (v) {
               const nm = String(v || "").trim(); if (!nm) return;
               // 先钉上；再问一句备注（取消也不丢这个钉）
-              const list = DatePlaces.add(nm, ""), id = list[list.length - 1].id; setDates(list);
+              const list = DatePlaces.add(nm, "", "", char && char.id), id = list[list.length - 1].id; setDates(list);
               setTimeout(function () { requestAppPrompt("这地方怎么样（可空）", "一句就行：在哪儿、什么样、你们为什么去。", "", function (note) {
                 const n = String(note || "").trim(); if (!n) return;
-                setDates(DatePlaces.save(DatePlaces.list().map(function (x) { return x.id === id ? Object.assign({}, x, { note: n.slice(0, 60) }) : x; })));
+                setDates(DatePlaces.save(DatePlaces.list(char && char.id).map(function (x) { return x.id === id ? Object.assign({}, x, { note: n.slice(0, 60) }) : x; }), char && char.id));
               }, "好了"); }, 350);
             }, "下一步");
           };
           return h("div", { style: { marginBottom: 18 } },
             cands.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "从下面现成的里挑一个钉上：") : null,
             cands.length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, cands.slice(0, 30).map(function (n) {
-              return h("button", { key: n, onClick: function () { setDates(DatePlaces.add(n, "")); setPinPick(false); }, className: "active:opacity-70",
+              return h("button", { key: n, onClick: function () { const u = DatePlaces.unclaimed().find(function (x) { return x.name === n; }); setDates(DatePlaces.add(n, u ? u.note : "", u ? u.by : "", char && char.id)); DatePlaces.dropUnclaimed(n); setPinPick(false); }, className: "active:opacity-70",
                 style: { minHeight: 38, padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2 } }, n);
             })) : null,
             h("button", { onClick: function () { setPinPick(false); writeOwn(); }, className: "w-full text-left active:opacity-70",

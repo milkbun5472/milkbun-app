@@ -82,3 +82,19 @@ test("我们的城市能切手绘/现实/架空，现实架空就是好友地图
   assert.match(map, /function WorldMapEmbed\(\{ world, characters, status, me, ops \}\) \{\n    const o = ops \|\| \{\};\n    return h\(WorldMap, \{/, "嵌进去的就是同一个 WorldMap");
   assert.match(app, /worldOps: \{ busy: worldBusy, onPin: pinWorld/);
 });
+
+test("我们的城市每个人一份：换人就换城，旧版共用的按来往认领、认不出的留着让她捡", () => {
+  global.localStorage = (() => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; })();
+  global.window = global.window || {};
+  const src = R("js/dwell.js");
+  const i = src.indexOf("  const DP_KEY"), j = src.indexOf("  window.DatePlaces = DatePlaces;");
+  const DatePlaces = new Function("localStorage", src.slice(i, j) + "\nreturn DatePlaces;")(global.localStorage);
+  localStorage.setItem("x_datePlaces", JSON.stringify([{ id: "a", name: "御马监跑马场", note: "", by: "" }, { id: "b", name: "面馆", by: "qz" }, { id: "c", name: "无主", by: "" }]));
+  localStorage.setItem("x_dateVisits", JSON.stringify({ "御马监跑马场": [{ charId: "wy", ts: 1 }] }));
+  DatePlaces.migrate(() => []);
+  assert.deepEqual(DatePlaces.list("wy").map(x => x.name), ["御马监跑马场"]);
+  assert.deepEqual(DatePlaces.list("qz").map(x => x.name), ["面馆"], "王爷的地点不许跑到齐周这里");
+  assert.deepEqual(DatePlaces.unclaimed().map(x => x.name), ["无主"], "认不出的不丢");
+  assert.equal(DatePlaces.list(undefined).length, 0);
+  assert.equal(DatePlaces.visits("御马监跑马场", "qz").length, 0, "去过几次也只数跟这个人的");
+});

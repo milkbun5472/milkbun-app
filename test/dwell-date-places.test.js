@@ -20,7 +20,7 @@ test("点一个钉：自己去转转（串门）／约TA在这儿见（开见面
 
 test("约会券、TA开的线下、旅行挑地方时能从她钉的地方里挑", () => {
   assert.match(g, /\(card\.act === "date" \|\| card\.act === "offline"\) && typeof window !== "undefined" && window\.DatePlaces/);
-  assert.match(a, /\+ \(window\.DatePlaces \? window\.DatePlaces\.hint\(\) : ""\)/);
+  assert.match(a, /\+ \(window\.DatePlaces \? window\.DatePlaces\.hint\(char\.id\) : ""\)/);
 });
 
 test("约TA：先发邀请卡到线上，TA回话时决定（dateReply），答应了回一张回执，点「出发」才进见面", () => {
@@ -36,7 +36,7 @@ test("约TA：先发邀请卡到线上，TA回话时决定（dateReply），答�
 
 test("钉一个地方：先从下面现成的地方里挑（他的地方、常去、地图上的），挑不到再自己写", () => {
   assert.match(d, /const \[pinPick, setPinPick\] = useState\(false\);/);
-  assert.match(d, /\[\]\.concat\(places\.map\(function \(p\) \{ return p\.name; \}\), todo\.map\(function \(f\) \{ return f\.name; \}\), mapPlaces\.map/);
+  assert.match(d, /\[\]\.concat\(DatePlaces\.unclaimed\(\)\.map\(function \(p\) \{ return p\.name; \}\), places\.map\(function \(p\) \{ return p\.name; \}\), todo\.map\(function \(f\) \{ return f\.name; \}\), mapPlaces\.map/);
   assert.match(d, /"从下面现成的里挑一个钉上："/);
   assert.match(d, /"自己写一个"/);
 });
@@ -77,7 +77,7 @@ test("城市联动：去过留星＋「那天」卡；TA会自己钉地方；TA�
   assert.match(c, /function DateMemoryCard\(/);
   assert.match(c, /if \(m\.kind === "datememory"\) return h\(DateMemoryCard/);
   assert.match(a, /openCaps\.push\("pinPlace"\)/);
-  assert.match(a, /window\.DatePlaces\.add\(nm, nt, charId\)/);
+  assert.match(a, /window\.DatePlaces\.add\(nm, nt, charId, charId\)/);
   assert.match(d, /herePin = dates\.find\(/);
   assert.match(d, /if \(herePin && herePin\.id === p\.id && props\.onMeet && Math\.random\(\) < 0\.7\)/);
   assert.match(a, /onMeet: async \(char, place\) => \{/);

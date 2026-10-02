@@ -14,7 +14,7 @@ const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
 
 test("提示词搬进卡表了，app.js 里不许再留第二份", () => {
   assert.doesNotMatch(app, /GACHA_SR_ASK|GACHA_SSR_ASK/, "旧那两张表还在，就是又多了一处要同步的地方");
-  assert.match(app, /const gAsk = \(poolId, phase\) => \(window\.GachaKit\.askOf\(poolId, phase\) \|\| ""\)/);
+  assert.match(app, /const gAsk = \(poolId, phase, charId\) => \(window\.GachaKit\.askOf\(poolId, phase, charId\) \|\| ""\)/);
 });
 
 test("每一张要花调用的卡都带着自己的提示词", () => {
@@ -44,8 +44,8 @@ test("兑换那一头一处都没落下", () => {
   assert.match(app, /gAsk\("x_box", "his"\)/);
   // make 那六张和 past/pact/offline/date/gaze 都按 poolId 取，不再按 kind/act 分两路
   // 按卡取的那几路：SR 的 make、v68.45 的 make1（彩虹屁/冷笑话）、SSR 那几张、CC 书房那一支
-  assert.ok((app.match(/gAsk\(card\.poolId\)/g) || []).length >= 3, "按卡取那几处数不对");
-  assert.match(app, /ask: gAsk\(card\.poolId\)/, "书房那一支没按卡取");
+  assert.ok((app.match(/gAsk\(card\.poolId[,)]/g) || []).length >= 3, "按卡取那几处数不对");
+  assert.match(app, /ask: gAsk\(card\.poolId[,)]/, "书房那一支没按卡取");
 });
 
 // ── 反向扭蛋券：整份里最好的一张 ──

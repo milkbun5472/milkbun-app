@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.552";
+const APP_VERSION = "v74.554";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4928,7 +4928,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 正是这个仓库犯过太多次的那个形状（施工规则/one-public-mechanism.md）。
   // 现在一行就是一张完整的卡：稀有度、走哪条路、提示词全在一起，这儿只负责【取】。
   // 多段的（双面券两面、秘密筹备的信封和拆开、盒子的放和开）第二个参数给阶段名。
-  const gAsk = (poolId, phase) => (window.GachaKit.askOf(poolId, phase) || "");
+  const gAsk = (poolId, phase, charId) => (window.GachaKit.askOf(poolId, phase, charId) || "");
   // ── 事件种子：往TA的世界里真的扔一个东西进去 ────────────────────
   // 她 2026-09-14 采纳 GPT 那条：「不是生成一段剧情，是往世界里扔一个事件种子」。
   //
@@ -5060,7 +5060,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!(window.CCSeat && window.Cloud)) { toast(characterText(char, "他这会儿不在书房，卡留着，等他在的时候再兑")); return; }
           try {
             let r = await window.CCSeat.ask({ tool: "gacha_make", char_id: char.id, card_id: card.id, kind: card.kind, card_name: card.name,
-              ask: gAsk(card.poolId) + _gSongAsk(card), expect: _gSongExpect(card), }, 180000, { charId: char.id });
+              ask: gAsk(card.poolId, undefined, char.id) + _gSongAsk(card), expect: _gSongExpect(card), }, 180000, { charId: char.id });
             if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = { body: r }; } }
             const got = { title: String(r && r.title || card.name).trim(), body: String(r && r.body || "").trim(), via: "cc",
               ...(card.kind === "song" ? { song: String(r && r.song || "").replace(/[《》"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) } : {}) };
@@ -5075,7 +5075,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         }
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
+          instruction: gAsk(card.poolId, undefined, char.id) + characterText(char, "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。") + _gSongAsk(card),
           schemaHint: card.kind === "song"
             ? "{\"title\":\"一行小标题\",\"body\":\"正文\",\"song\":\"歌名 歌手\"}"
             : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
@@ -5091,7 +5091,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (card.act === "make1") {
         const d = await runProbe(apiFor(char.id), ctxFor(char), {
           voice: true,
-          instruction: gAsk(card.poolId) + characterText(char, "\n扣着他此刻真实的处境和心情写。"),
+          instruction: gAsk(card.poolId, undefined, char.id) + characterText(char, "\n扣着他此刻真实的处境和心情写。"),
           schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
           maxTokens: 65535
         });
@@ -9703,12 +9703,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const invitePlacesFor = char => {
     const out = [], seen = {};
     const put = (name, note, from) => { const n = String(name || "").trim(); if (n && !seen[n]) { seen[n] = 1; out.push({ name: n.slice(0, 24), note: String(note || "").slice(0, 60), from }); } };
-    try { (window.DatePlaces ? window.DatePlaces.list() : []).forEach(p => put(p.name, p.note, "我们的城市")); } catch (e) {}
+    try { (window.DatePlaces && char ? window.DatePlaces.list(char.id) : []).forEach(p => put(p.name, p.note, "我们的城市")); } catch (e) {}
     const r = char && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(char, worldsRef.current || []) : null;
     if (r && r.kind === "world" && r.world) (r.world.regions || []).forEach(g => (g.nodes || []).forEach(nd => put(nd && nd.name, nd && nd.hook, r.world.name)));
     return out.slice(0, 40);
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+  // 旧版大家共用的那座城，按「约过谁」认领一次（by、去过记录 DatePlaces 自己看）
+  const dpMigRef = useRef(false);
+  useEffect(() => {
+    if (dpMigRef.current || !window.DatePlaces || !window.DatePlaces.migrate || !Object.keys(chats || {}).length) return;
+    dpMigRef.current = true;
+    try {
+      window.DatePlaces.migrate(name => Object.keys(chatsRef.current || {}).filter(k => (chatsRef.current[k] || []).some(m => m && (m.kind === "dateinvite" || m.kind === "datereceipt") && m.place && m.place.name === name)));
+    } catch (e) {}
+  }, [chats]);
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
   //   只认【TA答应了、还没去、定了日子钟点】的回执；弹过一次记上 popped，不反复弹
   const [dateArrive, setDateArrive] = useState(null);   // { charId, m }
@@ -10487,9 +10496,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
       // TA也会在「我们的城市」上钉地方（她 2026-10-02）：偶尔才给，免得天天钉
-      if (!(room && !room.main) && !_peekTurn && window.DatePlaces && Math.random() < 0.12 && window.DatePlaces.list().filter(x => x.by === charId).length < 6) {
+      if (!(room && !room.main) && !_peekTurn && window.DatePlaces && Math.random() < 0.12 && window.DatePlaces.list(charId).filter(x => x.by === charId).length < 6) {
         openCaps.push("pinPlace");
-        capState.push("pinPlace：你们俩有一张城市地图，" + uName + " 在上面钉着她想跟你去的地方" + (window.DatePlaces.list().length ? "（" + window.DatePlaces.list().slice(0, 8).map(x => "「" + x.name + "」").join("") + "）" : "") + "。你要是正好想到一个想带她去的地方（你常去的、刚路过的、一直想去的），可以钉上去：pinPlace:{\"name\":\"地名\",\"note\":\"一句为什么\"}。没想到就别填。");
+        capState.push("pinPlace：你们俩有一张城市地图，" + uName + " 在上面钉着她想跟你去的地方" + (window.DatePlaces.list(charId).length ? "（" + window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") + "）" : "") + "。你要是正好想到一个想带她去的地方（你常去的、刚路过的、一直想去的），可以钉上去：pinPlace:{\"name\":\"地名\",\"note\":\"一句为什么\"}。没想到就别填。");
       }
       // 她发来的约会邀请还没回：TA这一轮决定去不去
       const _inv = !(room && !room.main) && pendingInviteOf(charId);
@@ -11666,8 +11675,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
       if (parsed.pinPlace && typeof parsed.pinPlace === "object" && window.DatePlaces && !(room && !room.main)) {
         const nm = String(parsed.pinPlace.name || "").trim().slice(0, 24), nt = String(parsed.pinPlace.note || "").trim().slice(0, 60);
-        if (nm && !window.DatePlaces.list().some(x => x.name === nm)) {
-          window.DatePlaces.add(nm, nt, charId);
+        if (nm && !window.DatePlaces.list(charId).some(x => x.name === nm)) {
+          window.DatePlaces.add(nm, nt, charId, charId);
           pChat(charId, p => [...p, { role: "system", kind: "system", content: (char.remark || char.name) + " 在你们的城市地图上钉了「" + nm + "」" + (nt ? "：" + nt : ""), ts: Date.now() + 3 }]);
         }
       }
@@ -21412,7 +21421,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
         instruction: "你们是恋人。你们俩定下来要一起去「" + trip.dest + "」——现在由你来排这趟旅行。"
-          + (window.DatePlaces ? window.DatePlaces.hint() : "")
+          + (window.DatePlaces ? window.DatePlaces.hint(char.id) : "")
           + "以「" + char.name + "」的身份出 3-6 段行程：每段一个 when（哪一天的什么时段）、"
           + "一个 where（具体到店、街、馆那一级，不是城市名）、一句 note——【为什么带 Ta 去这儿】，"
           + "是说给 Ta 听的那一句。\n"

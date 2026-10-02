@@ -48,7 +48,7 @@ test("凡是【他亲口说的话】都换了站位，凡是推演数据的照�
   const has = (fn, zh) => { const i = app.indexOf(fn); assert.ok(i > 0, "抠不出：" + zh);
     const seg = app.slice(i - 900, i + 40); assert.ok(seg.indexOf("voice: true") >= 0, zh + " 还坐在分析师的椅子上"); };
   // 他亲口说 / 亲手写的那些
-  [["instruction: gAsk(card.poolId) + characterText(char, \"\\n扣着他此刻真实的处境和心情写", "扭蛋SR"],
+  [["instruction: gAsk(card.poolId, undefined, char.id) + characterText(char, \"\\n扣着他此刻真实的处境和心情写", "扭蛋SR"],
    ["instruction: gAsk(card.poolId) + characterText(char, \"\\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容", "扭蛋SSR"],
    ['的身份去论坛随手发一个帖', "论坛发帖"],
    ['身份发一条朋友圈', "朋友圈"],

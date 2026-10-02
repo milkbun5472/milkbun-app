@@ -297,12 +297,12 @@
     + "· 这跟「像不像你」是两件事：不像你的那一个是写坏了，**你根本不会去的那一个是假的**。";
   // ⚠️挂在卡上（scene: true），不是在调用点一条条 push——一条条 push 的东西，
   //   加新卡时换个入口就一条都没有，而且不留任何能 grep 的痕迹（four-surfaces 那条）。
-  function askOf(poolId, phase) {
+  function askOf(poolId, phase, charId) {
     const card = byId[poolId] || {};
     const a = card.ask;
     if (a == null) return "";
     // TA挑约会、挑见面的地方时，可以从她钉在「去处」地图上的那几处里挑（她 2026-10-02）
-    const dp = (card.act === "date" || card.act === "offline") && typeof window !== "undefined" && window.DatePlaces ? window.DatePlaces.hint() : "";
+    const dp = (card.act === "date" || card.act === "offline") && typeof window !== "undefined" && window.DatePlaces ? window.DatePlaces.hint(charId) : "";
     const base = (typeof a === "string" ? a : String(a[phase] || "")) + (dp ? "\n" + dp : "");
     if (!base) return "";
     return card.scene ? base + SCENE_TRUTH : base;
