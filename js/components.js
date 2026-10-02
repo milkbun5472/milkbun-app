@@ -12613,6 +12613,8 @@ function DateComposeDialog({ place, places, members, who, onCancel, onSend }) {
   const today = new Date(); const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const [date, setDate] = useState(iso(today));
   const [time, setTime] = useState("19:00");
+  // 「现在」：不用翻日子调钟点，就是此刻（她 2026-10-02）。单聊群里同一个小框，两边一起有
+  const [now, setNow] = useState(false);
   const [say, setSay] = useState("");
   const field = { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px" };
   return appDialogPortal(
@@ -12638,13 +12640,16 @@ function DateComposeDialog({ place, places, members, who, onCancel, onSend }) {
           })) : null)
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 4 } }, (place && place.name) || ""),
       h("div", { className: "flex", style: { gap: 8, marginTop: 16 } },
+        [[true, "现在"], [false, "定个时间"]].map(([v, zh]) => h("button", { key: zh, onClick: () => setNow(v), className: "flex-1 active:opacity-70",
+          style: { minHeight: 38, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: now === v ? t.bg2 : t.ink, background: now === v ? t.ink : "transparent", border: "1px solid " + (now === v ? t.ink : t.line) } }, zh))),
+      now ? null : h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
         h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1.4, minWidth: 0 }) }),
         h("input", { type: "time", value: time, onChange: e => setTime(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1, minWidth: 0 }) })),
       h("textarea", { value: say, onChange: e => setSay(e.target.value.slice(0, 60)), rows: 2, placeholder: "想对" + who + "说的话（可空）",
         className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8, resize: "none", lineHeight: 1.6 }) }),
       h("div", { className: "flex", style: { gap: 10, marginTop: 16 } },
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "算了"),
-        h("button", { onClick: () => { if (finalPlace) onSend({ date, time, say: say.trim(), place: finalPlace, invitees: (members || []).filter(c => inv.indexOf(c.id) >= 0).map(c => ({ id: c.id, name: c.remark || c.name })) }); }, disabled: !finalPlace || ((members || []).length > 0 && !inv.length), className: "flex-1 active:opacity-80 disabled:opacity-40", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
+        h("button", { onClick: () => { if (finalPlace) onSend({ ...(now ? (() => { const d = new Date(); return { date: iso(d), time: String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), now: true }; })() : { date, time }), say: say.trim(), place: finalPlace, invitees: (members || []).filter(c => inv.indexOf(c.id) >= 0).map(c => ({ id: c.id, name: c.remark || c.name })) }); }, disabled: !finalPlace || ((members || []).length > 0 && !inv.length), className: "flex-1 active:opacity-80 disabled:opacity-40", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
     onCancel);
 }
 // 见面散场以后留下的「那天」（她 2026-10-02）：跟约会卡同一张素纸，居中放着，像夹进本子里的一张小票
@@ -12734,8 +12739,8 @@ function DateInviteCard({ m, character, onGo, onGoMine, onAnswer, avatar, myAvat
     h("div", { key: "bot", style: { padding: "6px 14px 10px" } },
       row(I.pin, pl.name || "某处"),
       (m.invitees || []).length ? row(I.ppl, m.invitees.map(x => x.name + (rep[x.id] === "yes" ? " 去" : rep[x.id] === "no" ? " 不去" : " 还没回")).join(" · ")) : null,
-      w.date ? row(I.cal, dateLabel(w.date)) : w.text ? row(I.cal, w.text) : null,
-      w.time ? row(I.clk, w.time) : null,
+      w.now ? row(I.clk, "现在，说走就走") : w.date ? row(I.cal, dateLabel(w.date)) : w.text ? row(I.cal, w.text) : null,
+      !w.now && w.time ? row(I.clk, w.time) : null,
       m.say ? row(I.pen, m.say, true) : (pl.note ? row(I.pen, pl.note, true) : null),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, foot),

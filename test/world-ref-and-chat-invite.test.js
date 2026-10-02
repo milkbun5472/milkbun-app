@@ -140,3 +140,10 @@ test("TA主动约她：偶尔给、不闹别扭时给、三天一回、挂着没
   assert.match(comp, /ask \? "想带你去个地方。"/);
   assert.match(comp, /m\.kind === "dateinvite" \|\| m\.kind === "datereceipt" \|\| m\.kind === "dateask"/);
 });
+
+test("邀约小框能直接选「现在」，单聊群里同一个小框", () => {
+  assert.match(comp, /\[\[true, "现在"\], \[false, "定个时间"\]\]/);
+  assert.match(comp, /now: true \}; \}\)\(\) : \{ date, time \}\)/);
+  assert.match(app, /if \(w\.now\) return "现在";/);
+  assert.equal((app.match(/\.\.\.\(v\.now \? \{ now: true \} : \{\}\)/g) || []).length, 2, "单聊群里两头都带上「现在」");
+});

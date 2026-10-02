@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.561";
+const APP_VERSION = "v74.562";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9744,11 +9744,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekPendingRef = useRef({});
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
-  const dateWhenText = w => { if (!w) return ""; if (w.text && !w.date) return String(w.text).slice(0, 24); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
+  const dateWhenText = w => { if (!w) return ""; if (w.now) return "现在"; if (w.text && !w.date) return String(w.text).slice(0, 24); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
     return (m ? (+m[2]) + "月" + (+m[3]) + "日（周" + "日一二三四五六"[d.getDay()] + "）" : "") + (w.time ? " " + w.time : ""); };
   const sendDateInvite = (char, place, v) => {
     if (!char || !place) return;
-    const when = v && (v.date || v.time) ? { date: v.date || "", time: v.time || "" } : null, say = (v && v.say) || "";
+    const when = v && (v.date || v.time) ? { date: v.date || "", time: v.time || "", ...(v.now ? { now: true } : {}) } : null, say = (v && v.say) || "";
     pChat(char.id, p => [...p, { id: "inv_" + Date.now(), role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, when, say, state: "pending",
       content: "[约会邀请] 约你" + (when ? dateWhenText(when) + " " : "") + "在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + (say ? "——" + say : ""), ts: Date.now(), read: true }]);
     // 不自动让TA回：她可能还要补几句，等她自己发（她 2026-10-02：「我一发他就触发回复了，等我打完字再让他回」）
@@ -13491,7 +13491,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ---- 群里的邀约（她 2026-10-02）：挑地方、挑请谁，发一张约会卡；没有回执，人齐了她点「出发」进群线下 ----
   const sendGroupDateInvite = (groupId, place, v) => {
     if (!place) return;
-    const when = v && (v.date || v.time) ? { date: v.date || "", time: v.time || "" } : null, say = (v && v.say) || "";
+    const when = v && (v.date || v.time) ? { date: v.date || "", time: v.time || "", ...(v.now ? { now: true } : {}) } : null, say = (v && v.say) || "";
     const inv = (v && Array.isArray(v.invitees)) ? v.invitees : [];
     const names = inv.map(x => x.name).join("、");
     pushGroupRich(groupId, { role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, when, say, invitees: inv, state: "pending",
