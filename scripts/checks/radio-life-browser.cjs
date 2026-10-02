@@ -59,7 +59,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  await page.evaluate(()=>qaAudios.at(-1).onplaying());await root.getByText('正在说…',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>qaTts[0]),{text:'第二页的标注要改回去。',voiceId:'qa-voice-a'});
  await page.evaluate(()=>qaAudios.at(-1).onended());
- await root.getByText('说完了 · 轻点继续',{exact:true}).waitFor();
+ await root.getByText('说完了 · 轻点继续',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'stage-ended.png')});
  assert.equal(await page.evaluate(()=>qaTts.length),1,'speech completion does not advance the stream');
  await root.locator('[data-radio-transcript]').click();await page.waitForFunction(()=>qaTts.length===2);
  assert.equal(await root.getByText('第二页的标注要改回去。',{exact:true}).count(),0,'previous paragraph leaves the screen');
@@ -108,6 +108,9 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  for(let i=0;i<5;i++)await root.locator('[data-radio-transcript]').click();
  assert.equal(await page.evaluate(()=>RadioLife.read().events.at(-1).heard),1,'last page commits the full original line');
  assert.equal(await root.locator('[data-radio-transcript]').innerText(),'甲'.repeat(50));
+ await page.evaluate(()=>qaFailLife=true);await root.locator('[data-radio-transcript]').click();await root.getByRole('alert').waitFor();
+ assert.ok(await root.locator('[data-radio-life-scroll]').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'failed receive does not push controls off stage');
+ await root.locator('[data-radio-transcript]').click();await root.getByText('甲'.repeat(90),{exact:true}).waitFor();await root.getByRole('alert').waitFor({state:'hidden'});
  await root.locator('[data-watch=back]').click();
  await root.getByRole('button',{name:'录音间',exact:true}).click();await root.getByLabel('你们的台名').fill('校稿间隙');await root.getByRole('button',{name:'建好录音间',exact:true}).click();
  await root.getByLabel('今天想聊什么').fill('我们怎么选第一期主题');await root.getByRole('button',{name:'一起试播',exact:true}).click();

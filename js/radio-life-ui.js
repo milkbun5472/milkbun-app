@@ -66,9 +66,8 @@
       stop();
       if (!event || !scene || event.scene.key !== scene.key) return;
       if (pageIndex + 1 < stageChunks.length) { setPageIndex(pageIndex+1); if (pageIndex+1 === stageChunks.length-1 && position === event.heard) { R.reveal(event.id,position); notify(); } if(sound) play([{...stageLine,text:stageChunks[pageIndex+1]}],0,"",position); return; }
-      setPageIndex(0);
       const at = Math.max(0,position) + 1;
-      if (at < event.lines.length) { if(Array.from(event.lines[at].text).length <= 90) R.reveal(event.id, at); setPosition(at); notify(); if (sound) play([{...event.lines[at],text:Array.from(event.lines[at].text).slice(0,90).join("")}], 0, "", at); }
+      if (at < event.lines.length) { setPageIndex(0); if(Array.from(event.lines[at].text).length <= 90) R.reveal(event.id, at); setPosition(at); notify(); if (sound) play([{...event.lines[at],text:Array.from(event.lines[at].text).slice(0,90).join("")}], 0, "", at); }
       else receive(true);
     };
     const advance = () => {
@@ -201,8 +200,8 @@
         onClick:e=>{ if (!e.target.closest("button,select,input,textarea,a,label") && !String(root.getSelection && root.getSelection() || "")) advance(); },
         onKeyDown:e=>{ if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); advance(); } },
         tabIndex:mode === "live" && !detail ? 0 : undefined,"aria-label":mode === "live" && !detail ? "轻点屏幕继续听现场" : undefined,
-        className:fullStage ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0 overflow-y-auto",style:{padding:"18px 16px",paddingBottom:"calc(18px + env(safe-area-inset-bottom) * 0.4)"}},
-        error && h("div", {role:"alert",style:{...panel,color:ink,fontSize:13,lineHeight:1.7,overflowWrap:"anywhere"}}, error), body));
+        className:fullStage ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0 overflow-y-auto",style:{position:"relative",padding:"18px 16px",paddingBottom:"calc(18px + env(safe-area-inset-bottom) * 0.4)"}},
+        error && h("div", {role:"alert",style:{...panel,...(fullStage ? {position:"absolute",top:12,left:16,right:16,zIndex:2,padding:12,maxHeight:90,overflowY:"auto"} : {}),color:ink,fontSize:13,lineHeight:1.7,overflowWrap:"anywhere"}}, error), body));
   }
   root.RadioLifeScreen = RadioLifeScreen;
 })(window);
