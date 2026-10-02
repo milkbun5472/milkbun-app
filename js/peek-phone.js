@@ -110,7 +110,12 @@
       else if (s.do === "tap" && cur === "forum") res.push(...POST_READ());
       else res.push({ do: "scroll", dir: "down", n: 2, auto: true });
     }
-    return res;
+    // 同一个聊天被开了两回、前一回一句没想：模型常先写一遍「打开、滑、退」，再写一遍带心声的——
+    //   播出来就是打开看一遍不吭声、退出去、再打开同一个才开始想（她 2026-10-02）。安静的那一回删掉
+    const segs = [];
+    res.forEach(s => { if (s.do === "open" || !segs.length) segs.push([]); segs[segs.length - 1].push(s); });
+    const key = g => g[0].do === "open" ? g[0].app + "|" + (g[0].who || "") : "";
+    return [].concat(...segs.filter((g, i) => !(key(g) && !g[0].auto && !g.some(x => x.do === "think") && segs.slice(i + 1).some(h => key(h) === key(g)))));
   }
 
   // 主屏上每个 app 在哪儿（她 2026-10-01：「能不能做在主屏幕滑动翻找这些 app 的动画」）。

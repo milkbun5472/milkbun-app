@@ -195,3 +195,14 @@ test("翻手机：没心声的那段不删；open 自带心声；心声上限放
   assert.equal(out.filter(s => s.do === "think").length, 3, "一个聊天能想三句");
   assert.match(p, /if \(app === "chat" && who\) \{ const n = findByText\(who\); if \(n\) await pressOnly\(n\); return false; \}/);
 });
+
+test("翻手机：同一个聊天先安静开一回、再带心声开一回——安静的那回删掉", () => {
+  const fs = require("fs"), path = require("path");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "chat", who: "甲" }, { do: "scroll", dir: "up", n: 2 }, { do: "back" },
+    { do: "open", app: "chat", who: "甲", thoughts: ["想一", "想二"] }] }, ["chat", "messages"], {});
+  assert.equal(out.filter(s => s.do === "open" && s.who === "甲").length, 1);
+  assert.equal(out.filter(s => s.do === "think").length, 2);
+});
