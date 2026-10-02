@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.548";
+const APP_VERSION = "v74.549";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6539,6 +6539,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const LAST_PLACE_KEY = "x_chatLastPlace";
   const lastPlaceOf = k => { try { return (loadJSON(LAST_PLACE_KEY, {}) || {})[k] || ""; } catch (e) { return ""; } };
   const setLastPlace = (k, where) => { try { const m = loadJSON(LAST_PLACE_KEY, {}) || {}; if (m[k] === where) return; m[k] = where; saveJSON(LAST_PLACE_KEY, m); } catch (e) {} };
+  const lastTsOf = rows => (rows || []).reduce((n, m) => (m && !m.recalled && m.kind !== "system" && m.role !== "system") ? Math.max(n, Number(m.ts || 0)) : n, 0);
+  const placeByLatest = (scenes, onlineRows, lastPlace) => {
+    const live = (scenes || []).filter(x => x && !x.endTs);
+    const offTs = live.reduce((n, x) => Math.max(n, lastTsOf(x.msgs), Number(x.startTs || x.ts || 0)), 0);
+    const onTs = lastTsOf(onlineRows);
+    return offTs > onTs || (offTs === onTs && lastPlace === "offline");
+  };
   const autoOfflineRef = useRef(null);
   useEffect(() => {
     if (screen !== "thread" || !activeChar || activeRoomId !== "main") { autoOfflineRef.current = null; return; }
@@ -6548,8 +6555,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (offlineChar || offlineGroup) return;
     const list = offlinesRef.current[cid] || loadJSON("x_offline:" + cid, []);
     const hasActive = (list || []).some(s => s && !s.endTs);
-    // 上次是从线下「离开」的、那一场还在：回到那一场（不开新场）
-    const backToScene = lastPlaceOf(cid) === "offline" && hasActive;
+    // 回哪边看【最晚那一条】在哪边（她 2026-10-02：「线下最后一条明明比线上晚，退出去重进还是线上」）。
+    //   一样晚才看上次停在哪。那一场得还没散。
+    const backToScene = hasActive && placeByLatest(list, chatsRef.current[cid], lastPlaceOf(cid));
     if (!settingsFor(cid).defaultOffline && !backToScene) return;
     openOffline(activeChar);
     if (!hasActive) startOffline(cid, {});
@@ -6564,7 +6572,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (offlineChar || offlineGroup) return;
     const list = groupOfflinesRef.current[gid] || loadJSON("x_goffline:" + gid, []);
     const hasActive = (list || []).some(s => s && !s.endTs);
-    const backToScene = lastPlaceOf("g:" + gid) === "offline" && hasActive;
+    const backToScene = hasActive && placeByLatest(list, groupChatsRef.current[gid], lastPlaceOf("g:" + gid));
     if (!gsFor(gid).defaultOffline && !backToScene) return;
     openGroupOffline(activeGroup);
     if (!hasActive) startGroupOffline(gid, {});
