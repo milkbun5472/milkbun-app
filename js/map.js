@@ -575,10 +575,10 @@ function mapSubSkin(t) {
       adding ? h(NodeAdd, { world: world, busy: busy, onBack: function () { setAdding(false); },
         onAdd: function (r, nd) { return onAdd(r, nd); }, onGen: function (r, hint) { onGen(r, hint); } }) : null,
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 14px 4px" } },
-        h("button", { onClick: onBack, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "‹ 全部世界"),
+        onBack ? h("button", { onClick: onBack, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "‹ 全部世界") : null,
         h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, world.name),
         h("button", { onClick: function () { setAdding(true); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "＋ 地点"),
-        h("button", { onClick: onEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, "···")),
+        onEdit ? h("button", { onClick: onEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, "···") : null),
       h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, padding: "4px 12px 0" } },
         h("div", { style: { position: "absolute", right: 20, top: 14, zIndex: 2, display: "flex", flexDirection: "column", gap: 6 } },
           zoomBtn("＋", function () { setVb(function (v) { return zoomAt(v || V, 1.4); }); }),
@@ -725,6 +725,16 @@ function mapSubSkin(t) {
           h("button", { onClick: onDel, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 18px" } }, "删掉")) : null));
   }
 
+  // 嵌在别处的那张世界图（她 2026-10-02：「我们的城市」切到架空）：同一个 WorldMap，不另画一份；
+  //   没有「全部世界」和「···」——那两样是好友地图里管世界的，嵌进来只看图、钉人、加地点。
+  function WorldMapEmbed({ world, characters, status, me, ops }) {
+    const o = ops || {};
+    return h(WorldMap, { world: world, characters: characters, status: status, me: me, busy: o.busy,
+      onPin: function (charId, node) { o.onPin && o.onPin(world.id, charId, node); },
+      onRoute: function (charId) { o.onRoute && o.onRoute(world.id, charId); },
+      onAdd: function (r, nd) { return o.onAddNode ? o.onAddNode(world.id, r, nd) : false; },
+      onGen: function (r, hint) { o.onGenNodes && o.onGenNodes(world.id, r, hint); } });
+  }
   // 架空那一半的总入口：世界列表 → 某个世界的舆图
   function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onRoute, onAddNode, onGenNodes }) {
     const t = useTheme();
@@ -1039,7 +1049,7 @@ function mapSubSkin(t) {
           }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" } }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
-  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
+  if (inApp) window.MapKit = { MapWidget: MapWidget, WorldMapEmbed: WorldMapEmbed, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
   // 纯函数导出给 node --test；浏览器里没有 module，原样跳过（同 trpg.js）
   if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
 })();

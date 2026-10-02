@@ -73,3 +73,12 @@ test("＋面板单聊群聊共用一个矮高度，能往下滑", () => {
   assert.match(comp, /const CHAT_PANEL_SCROLL = \{ maxHeight: \d+, overflowY: "auto"/);
   assert.equal((comp.match(/\}, CHAT_PANEL_SCROLL\)/g) || []).length, 2);
 });
+
+test("我们的城市能切手绘/现实/架空，现实架空就是好友地图那两张，不另画", () => {
+  const dw = R("js/dwell.js");
+  assert.match(dw, /\[\["draw", "手绘"\], \["real", "现实"\], \["story", "架空"\]\]/);
+  assert.match(dw, /h\(K\.MapWidget, \{ characters: \[char\]/);
+  assert.match(dw, /h\(K\.WorldMapEmbed, \{ world: r\.world/);
+  assert.match(map, /function WorldMapEmbed\(\{ world, characters, status, me, ops \}\) \{\n    const o = ops \|\| \{\};\n    return h\(WorldMap, \{/, "嵌进去的就是同一个 WorldMap");
+  assert.match(app, /worldOps: \{ busy: worldBusy, onPin: pinWorld/);
+});

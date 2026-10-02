@@ -239,6 +239,10 @@
     const [cfg, setCfg] = useState(loadCfg);
     const [dates, setDates] = useState(DatePlaces.list);
     const [dateSel, setDateSel] = useState(null);
+    // 「我们的城市」看哪张图（她 2026-10-02 转群友：切换现实/架空）：手绘＝原来那张钉点图；
+    //   现实、架空直接用好友地图那两张，不另画。记住上次看的是哪张。
+    const [mapKind, setMapKind] = useState(function () { try { return localStorage.getItem("x_cityMapKind") || "draw"; } catch (e) { return "draw"; } });
+    const pickMapKind = function (k) { setMapKind(k); try { localStorage.setItem("x_cityMapKind", k); } catch (e) {} };
     const [pinPick, setPinPick] = useState(false);
     const [compose, setCompose] = useState(null);   // 约TA之前那一小框：挑日子钟点、写一句话（她 2026-10-02）   // 钉一个地方：先从下面现成的里挑，挑不到再自己写（她 2026-10-02）
     useEffect(function () { setPlaces(selId ? placesOf(selId) : []); setOpenId(null); setZoneIdx(-1); }, [selId]);
@@ -557,9 +561,27 @@
         onSend: function (v) { const p = compose; setCompose(null); props.onDate && props.onDate(char, p, v); } }) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         // 我们的城市：她钉的约会地点。点一个：自己去转转（照旧串门，TA不在）／约TA在这儿见（开一场见面）
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 8px" } }, "我们的城市"),
-        h(CityMap, { t: t, places: dates, sel: dateSel, onPick: setDateSel, charId: char && char.id, hereId: herePin ? herePin.id : null,
-          avatar: char && typeof Avatar === "function" ? h(Avatar, { character: char, size: 22, radius: 11 }) : null }),
+        h("div", { style: { display: "flex", alignItems: "center", margin: "4px 0 8px" } },
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "我们的城市"),
+          h("div", { style: { display: "flex", border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
+            [["draw", "手绘"], ["real", "现实"], ["story", "架空"]].map(function (x) {
+              const on = mapKind === x[0];
+              return h("button", { key: x[0], onClick: function () { pickMapKind(x[0]); }, className: "active:opacity-70",
+                style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", minHeight: 28, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, x[1]);
+            }))),
+        (function () {
+          const K = window.MapKit;
+          if (mapKind === "real" && K && K.MapWidget && char) return h(K.MapWidget, { characters: [char], status: props.mapStatus, userGeo: props.userGeo, worlds: props.worlds, onOpen: props.onOpenMap });
+          if (mapKind === "story" && K && K.WorldMapEmbed && char) {
+            const r = K.charRealm ? K.charRealm(char, props.worlds || []) : null;
+            if (r && r.kind === "world") return h("div", { style: { height: 440, display: "flex", flexDirection: "column", border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg2 } },
+              h(K.WorldMapEmbed, { world: r.world, characters: [char], status: props.mapStatus, me: props.profile, ops: props.worldOps }));
+            return h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8, textAlign: "center" } },
+              characterText(char, "他还没住进哪个架空世界。去「好友地图 · 架空」开一个世界、把他钉进去，这里就能看那张图。"));
+          }
+          return h(CityMap, { t: t, places: dates, sel: dateSel, onPick: setDateSel, charId: char && char.id, hereId: herePin ? herePin.id : null,
+            avatar: char && typeof Avatar === "function" ? h(Avatar, { character: char, size: 22, radius: 11 }) : null });
+        })(),
         herePin ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 6 } }, characterText(char, "他这会儿就在「") + herePin.name + "」" + (nowLoc && nowLoc !== herePin.name ? "（" + nowLoc + "）" : "") + "——现在去转转，说不定会碰上") : null,
         dateSel ? h("div", { style: { marginTop: 10, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 13px", background: t.bg2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, dateSel.name),

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.550";
+const APP_VERSION = "v74.552";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26365,6 +26365,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         opening: "你一个人去「" + place.name + "」转转，没跟谁说。刚走进去，就看见 " + char.name + " 也在这儿——" + char.name + " 还没看见你。" });
       setOfflineChar(char);
     },
+    // 「我们的城市」切现实/架空（她 2026-10-02 转群友）：两张图都是好友地图那两张，这里只递料
+    worlds: worlds,
+    mapStatus: mapStatusAll(),
+    userGeo: realGeo(),
+    profile: profile,
+    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes },
+    onOpenMap: () => setScreen("map"),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {
