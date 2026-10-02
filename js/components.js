@@ -14084,6 +14084,33 @@ function OfflineSetupStyleEditor({ t, editor }) {
         h("button", { onClick: saveCustomStyle, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"));
 }
 
+// 线下＋里那一段「穿什么」：先挑给谁换，再从那个人的衣柜里挑一身，或者自己写一句
+function OfflineWardrobe({ t, cName, wardrobe, who, setWho, own, setOwn, forever, setForever, onPick }) {
+  const w = wardrobe || {};
+  const sets = who === "him" ? (w.his || []) : who === "me" ? (w.mine || []) : [];
+  const chip = (on) => ({ fontFamily: F_BODY, fontSize: 12.5, padding: "7px 12px", borderRadius: 999, minHeight: 36, color: on ? t.bg2 : t.ink, background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line) });
+  return h("div", null,
+    h("div", { style: { height: 1, background: t.line, margin: "16px 0 12px" } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "穿什么"),
+    h("div", { className: "flex gap-2" },
+      h("button", { onClick: () => setWho(who === "him" ? null : "him"), className: "flex-1 active:opacity-70", style: chip(who === "him") }, "给" + cName + "换"),
+      h("button", { onClick: () => setWho(who === "me" ? null : "me"), className: "flex-1 active:opacity-70", style: chip(who === "me") }, "我换")),
+    who ? h("div", { style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 6 } },
+        "现在：" + ((who === "him" ? w.hisNow : w.meNow) || "没记着")),
+      sets.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 180, overflowY: "auto" } },
+        sets.map((x, i) => h("button", { key: i, onClick: () => onPick(who, x.name + (x.note ? "（" + x.note + "）" : "")), className: "active:opacity-70 text-left", style: chip(false) },
+          x.name, x.occasion ? h("span", { style: { fontSize: 10, opacity: 0.55, marginLeft: 4 } }, x.occasion) : null)))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (who === "him" ? cName + "的" : "你的") + "衣柜还是空的，先自己写一身"),
+      h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+        h("input", { value: own, onChange: e => setOwn(e.target.value.slice(0, 80)), placeholder: "或者写一身：白衬衫、牛仔外套…", className: "flex-1 outline-none",
+          style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 11px", minWidth: 0 } }),
+        h("button", { onClick: () => { if (own.trim()) onPick(who, own.trim()); }, disabled: !own.trim(), className: "active:opacity-70 disabled:opacity-30",
+          style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 10, padding: "0 14px" } }, "换上")),
+      who === "me" ? h("button", { onClick: () => setForever(!forever), className: "flex items-center gap-2 active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+        h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1px solid " + t.line, background: forever ? t.ink : "transparent", display: "inline-block" } }),
+        "以后出图都固定这身（不勾只管这一场）") : null) : null);
+}
 function OfflineMode({
   onStopGen,
   char,
@@ -14120,8 +14147,12 @@ function OfflineMode({
   onOpenSched,
   onOpenStyleLab
   , showReason
+  , wardrobe, onWear   // ＋里换衣服（她 2026-10-02）：TA那身进状态卡，我那身管这一场出图
 }) {
   const t = useTheme();
+  const [wearWho, setWearWho] = useState(null);   // null | "him" | "me"
+  const [wearOwn, setWearOwn] = useState("");
+  const [wearForever, setWearForever] = useState(false);
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传 onExit 就退回线上（兜底）
   const kbLift = useKbLift(); // iOS 键盘弹起时把底部输入栏顶上来，别被键盘挡住（v47.91）
   const cName = char.remark || char.name;
@@ -14417,7 +14448,9 @@ function OfflineMode({
         (canShoot && !canShootDuo) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "合照要你俩各自的参考照都在，才能把两张脸都锁住") : null,
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给 Ta 看你手机里的一张")) : null,
-      h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }))),
+      h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }),
+      onWear && wardrobe ? h(OfflineWardrobe, { t, cName, wardrobe, who: wearWho, setWho: setWearWho, own: wearOwn, setOwn: setWearOwn, forever: wearForever, setForever: setWearForever,
+        onPick: (who, text) => { onWear(who, text, who === "me" && wearForever); setWearWho(null); setWearOwn(""); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。「只管这两轮」用两次就停，「整场都算」一直有效到你删掉。"),

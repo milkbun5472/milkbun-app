@@ -111,3 +111,15 @@ test("群邀约散场：在场的人各记一次去过、群里留「那天」�
   const gt = comp.slice(comp.indexOf("function GroupThread"));
   assert.ok(gt.indexOf('m.kind === "datememory"') > 0 && gt.indexOf('m.kind === "datememory"') < gt.indexOf('if (m.kind === "system" || m.role === "system")'), "「那天」要排在系统提示前面，不然被吞成一行字");
 });
+
+test("线下＋里换衣服：TA那身进状态卡，我那身管这一场出图、可以固定成以后都这样；两边都落旁白", () => {
+  const i = app.indexOf("const wearOffline = ");
+  const seg = app.slice(i, app.indexOf("// 这个人住的那个架空世界的风景参考", i));
+  assert.match(seg, /putLiveField\(patch, live, "wearing", v, now\)/, "TA那身写进状态卡的穿着");
+  assert.match(seg, /meOutfit: v/);
+  assert.match(seg, /photoOutfit: v/, "勾了以后都这样就写进固定服装锁");
+  assert.match(seg, /role: "narration"/);
+  assert.match(app, /if \(!groupId && sess\.meOutfit\) me\.outfit = sess\.meOutfit;/, "出图时这一场挑的那身顶掉固定锁");
+  assert.match(comp, /function OfflineWardrobe\(/);
+  assert.match(comp, /"以后出图都固定这身（不勾只管这一场）"/);
+});

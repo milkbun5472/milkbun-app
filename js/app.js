@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.557";
+const APP_VERSION = "v74.559";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7419,6 +7419,39 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
   //   kind    self｜other｜duo｜group
   //   cast    仅 group：镜头里点名的那几位（顺序＝参考图顺序，错位脸就串）
+  // 线下＋里换衣服（她 2026-10-02：「选我和他的衣柜，他的状态卡显示他穿着这个，我也可以固定住我的衣服来生图」）
+  //   TA那身：写进状态卡的「穿着」——出图那条链本来就是 固定锁 ＞ 此刻穿着 ＞ 衣柜，不另开一条路。
+  //   我那身：记在这一场上，出图时顶掉我的固定锁和衣柜；勾了「以后都这样」就写进资料里那把固定服装锁。
+  //   两边都落一句旁白：模型下一拍就知道换了，不会接着写原来那身。
+  const closetSetsOf = box => (typeof closetGroups === "function" ? closetGroups(box && box.outfit) : [])
+    .flatMap(g => (g.sets || []).map(x => ({ name: String(x.name || "").trim(), note: String(x.note || "").trim(), occasion: g.occasion || "" }))).filter(x => x.name).slice(0, 40);
+  const wearOffline = (scopeKey, who, text, forever) => {
+    const v = String(text || "").trim().slice(0, 80);
+    const charId = offlinePersonId(scopeKey), char = characters.find(c => c.id === charId);
+    if (!v || !char) return;
+    const now = Date.now();
+    if (who === "him") {
+      if (offlineIsRoom(scopeKey)) {
+        const prev = roomStatesRef.current[scopeKey] || {}, patch = {};
+        putLiveField(patch, prev, "wearing", v, now);
+        const next = { ...roomStatesRef.current, [scopeKey]: { ...prev, ...patch, ts: now } };
+        roomStatesRef.current = next; setRoomStates(next); saveJSON("x_roomStates", next);
+      } else {
+        const live = statesRef.current[charId] || {}, patch = {};
+        putLiveField(patch, live, "wearing", v, now);
+        setStateFor(charId, { ...live, ...patch, ts: now });
+      }
+    } else {
+      pOffline(scopeKey, list => list.map(x => x.endTs ? x : { ...x, meOutfit: v }));
+      if (forever) {
+        const p = { ...profile, photoOutfit: v };
+        setProfile(p); saveJSON("x_profile", p);
+        if (maskPrimary) saveMasks((masksRef.current || []).map(x => x.id === maskPrimary ? Object.assign({}, p, { id: maskPrimary }) : x));
+      }
+    }
+    pushOffMsg(scopeKey, { id: "n_" + now, role: "narration", content: who === "him" ? (char.remark || char.name) + "换上了" + v + "。" : "你换上了" + v + "。", ts: now });
+    toast(who === "him" ? "状态卡上的穿着换好了" : (forever ? "以后出图都穿这身" : "这一场出图都穿这身"));
+  };
   // 这个人住的那个架空世界的风景参考（她 2026-10-02）：按这一格画面挑最对得上的那张 {img,label}。
   //   住在现实、或世界没传图 → null。
   const worldRefFor = (c, text) => {
@@ -7467,6 +7500,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 原始参考照永远比生成图可信，只有完全没有参考照时才让生成图临时当锚。
       const sessList = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[scopeKey] || []);
       const sess = sessList.find(x => !x.endTs) || { msgs: [] };
+      if (!groupId && sess.meOutfit) me.outfit = sess.meOutfit;   // 这一场她挑的那身，顶掉固定锁和衣柜
       const prevShot = (sess.msgs || []).slice().reverse()
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid
           && (!groupId || String(m.senderId || "") === String(char.id))
@@ -27516,6 +27550,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSendPhoto: photo => offlineSendPhoto(activeOfflineScopeKey, photo),
     // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
     onShoot: kind => offlineShotNow(activeOfflineScopeKey, kind),
+    wardrobe: {
+      his: closetSetsOf((carryRef.current || {})[offlineChar.id]),
+      mine: closetSetsOf(myClosetRef.current),
+      hisNow: freshLiveStateValue(liveStateForScope(offlineChar.id, activeOfflineScopeKey), "wearing"),
+      meNow: (((offlinesRef.current[activeOfflineScopeKey] || []).find(x => !x.endTs) || {}).meOutfit) || (profile && profile.photoOutfit) || ""
+    },
+    onWear: (who, text, forever) => wearOffline(activeOfflineScopeKey, who, text, forever),
     canShoot: offlinePhotoCan(offlineChar),
     canShootDuo: offlinePhotoCanDuo(offlineChar),
     onReply: txt => {
