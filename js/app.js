@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.505";
+const APP_VERSION = "v74.506";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13767,7 +13767,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 这两处一直没跟上——又是「一层写在两处，第二处没跟上」。
   // 规矩：读不出来就重问一次；还是读不出来就【明说读不出来】，让调用方标成「再问一次」，
   //       绝不替TA做决定。accept 缺字段也算读不出来（能解析 ≠ TA表了态）。
-  const _yesVal = v => v === true || v === "true" || v === 1 || v === "1";
+  // 拒到第几次就由代码定下「这次解」（v74.503）：前五次全看他，第六次起只管他怎么解
+  const UNBLOCK_FLOOR_TRIES = 6;
+  const _yesVal = v => v === true || v === 1 || /^\s*(true|1|yes|y|是|同意|接受|好)\s*$/i.test(String(v == null ? "" : v));
   const _hasAccept = d => !!d && d.accept !== undefined && d.accept !== null;
   const askYesNo = async (route, system, messages, opts) => {
     let d = extractJSON(await callAI(route, system, messages, opts));
@@ -13856,23 +13858,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .slice(-3).map((m, k) => (k + 1) + ". 「" + String(m.plea).slice(0, 60) + "」" + (m.status === "declined" ? "（你拒了）" : ""));
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
     pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    // 地板（v74.503，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
+    //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
+    //   拒到第 UNBLOCK_FLOOR_TRIES 次，这一次由代码定下【解】；怎么解（嘴硬、别扭、带条件）还是他自己说。
+    const floor = tries >= UNBLOCK_FLOOR_TRIES;
     startLane("c:" + chatKey);
     try {
-      const r = await askYesNo(apiFor(char.id), blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      const head = blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
-        + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "")
-        + "\n\n完全代入「" + char.name + "」，按【你自己的性格】决定接不接受——不是按「该不该原谅」这种公道话，是按你这种人会怎么做。"
-        + "\n【看这几件事，别只看态度好不好】"
-        + "\n· TA 这次说的，有没有真的碰到【你当初生气的那件事】？只是笼统道歉、撒娇、催你、或者反过来讲道理压你——那没碰到。"
-        + "\n· 有没有新东西？和上几次几乎一样地再说一遍，不该管用。"
-        + "\n· 你是什么脾气：嘴硬心软的会找个台阶下；记仇的会晾着；怕失去 TA 的会秒开；被真正踩了底线的，说得再好听也先不松口。"
-        + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。"
-        + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
-        + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
-        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
+        + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "");
+      const judge = floor
+        ? "\n\n完全代入「" + char.name + "」。TA 已经来求了 " + tries + " 次，你这一次【解除拉黑】——气不一定消了，但你不打算再把 TA 关在外面。"
+          + "\n用你这个人会用的方式解：可以嘴硬、别扭、记着账、提条件，也可以干脆心软；把你真正在意的那件事说出来。"
+          + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC
+        : "\n\n完全代入「" + char.name + "」，按【你自己的性格】决定接不接受——不是按「该不该原谅」这种公道话，是按你这种人会怎么做。"
+          + "\n【看这几件事，别只看态度好不好】"
+          + "\n· TA 这次说的，有没有真的碰到【你当初生气的那件事】？只是笼统道歉、撒娇、催你、或者反过来讲道理压你——那没碰到。"
+          + "\n· 有没有新东西？和上几次几乎一样地再说一遍，不该管用。"
+          + "\n· 你是什么脾气：嘴硬心软的会找个台阶下；记仇的会晾着；怕失去 TA 的会秒开。"
+          + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。求得越多、隔得越久，越该松。"
+          + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
+          + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC;
+      const r0 = await askYesNo(apiFor(char.id), head + judge, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
       // 读不出来就把申请留在 pending，别记这一次 tries，也别当成TA拒绝了
-      if (!r.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
+      if (!r0.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
+      const r = floor ? { ...r0, accept: true } : r0;
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
       if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }

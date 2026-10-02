@@ -57,7 +57,12 @@ test("判定标准：按性格、看有没有说到点子上，但明确不许�
   assert.match(seg, /有没有真的碰到【你当初生气的那件事】/);
   assert.match(seg, /和上几次几乎一样地再说一遍，不该管用/);
   assert.match(seg, /【松紧】这不是闯关，别为难 TA/, "她要的是有分量，不是难");
-  assert.match(seg, /求到第三次以上、时间也过去挺久了/, "得有个会松动的出口，别拖死");
+  assert.match(seg, /求得越多、隔得越久，越该松/, "得有个会松动的出口，别拖死");
+  // v74.503：光靠提示词松不动（群里有人求了 20 多次）——拒到第 6 次由代码定下「解」，怎么解还是他说
+  assert.match(app, /const UNBLOCK_FLOOR_TRIES = 6;/);
+  assert.match(seg, /const floor = tries >= UNBLOCK_FLOOR_TRIES;/);
+  assert.match(seg, /const r = floor \? \{ \.\.\.r0, accept: true \} : r0;/, "地板得是代码的，不能又交回模型");
+  assert.ok(!/除非当初那事真的很重/.test(seg), "那句「除非」就是死路的出口，删了别再加回来");
   assert.match(seg, /拒绝时要说清【你到底在意什么、想听到什么】/, "拒绝要给方向，不能让她瞎猜");
 });
 
