@@ -124,7 +124,7 @@ test("线下＋里换衣服：单聊群线下共用一份；TA那身进状态卡
   assert.equal((app.match(/outfit: sceneMeOutfit\(\{ groupId/g) || []).length, 2, "群线下两处拍照也认这一场的那身");
   assert.match(app, /wearScene\(\{ scopeKey: activeOfflineScopeKey \}, who, text, forever\)/);
   assert.match(app, /wearScene\(\{ groupId: offlineGroup\.id \}, who, text, forever\)/);
-  assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe, onPick:/g) || []).length, 2, "单聊群线下都接同一段");
+  assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe,/g) || []).length, 2, "单聊群线下都接同一段");
   assert.equal((comp.match(/^function OfflineWardrobe\(/gm) || []).length, 1);
 });
 

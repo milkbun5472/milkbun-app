@@ -8105,7 +8105,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       c.provider === "minimax" ? h("div", null,
       row("接口地址（key 在哪个平台申请的就点哪个，别混）", h("div", null,
         h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } },
-          [["国际版 platform.minimax.io", "https://api.minimax.io"], ["国内 minimaxi.com", "https://api.minimaxi.com"], ["老国内站", "https://api.minimax.chat"]].map(pair =>
+          MINIMAX_API_SITES.map(pair =>
             h("button", { key: pair[1], onClick: () => set({ baseUrl: pair[1] }), className: "active:opacity-70",
               style: { flex: 1, fontFamily: F_BODY, fontSize: 10, padding: "7px 2px", borderRadius: 8, background: t.bg2, border: "1px solid " + ((c.baseUrl || "").trim() === pair[1] ? t.tint : t.line), color: (c.baseUrl || "").trim() === pair[1] ? t.tint : t.sub } }, pair[0]))),
         h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: inSt }))),
@@ -9053,7 +9053,7 @@ function Config(props) {
   //   而且下一个人照着这份表继续往里加英文。撤掉东西要删干净，不是留在原地。
   const meta = {
     home: "设置", api: "接哪些模型", apiText: "文字模型",
-    apiImage: "图像 API", apiTts: "语音 API", apiEmbed: "向量记忆",
+    apiImage: "图像 API", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
     apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
     cot: "创作小稿", look: "这个 app 长什么样",
     theme: "外观与壁纸", themeStudio: "主题工作台",
@@ -9157,6 +9157,7 @@ function Config(props) {
       page === "api" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
+        h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax 三站、动态陪伴图", onClick: () => setPage("apiVideo") }),
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "MiniMax TTS、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
         h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
@@ -9164,6 +9165,7 @@ function Config(props) {
         h(ConfigTile, { icon: "量", tint: "#8a8378", title: "额度与缓存", sub: "缓存命中与调用读数", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
       page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
+      page === "apiVideo" && section(h(VideoApiConfig, { toast: props.toast })),
       page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
       page === "apiEmbed" && section(h(EmbedApiConfig, { toast: props.toast })),
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
