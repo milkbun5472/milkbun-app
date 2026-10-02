@@ -588,7 +588,7 @@ function CastForm({
   const ttsProv = typeof loadTtsApi === "function" ? loadTtsApi().provider : "minimax";
   const voiceFields = h("div", null,
     ttsProv === "minimax" && h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
-    h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+    h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "voicestudio" ? "填自己电脑上的音色 ID（可在语音设置读取并指派）" : ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
   return h("div", { className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
     h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
@@ -8006,7 +8006,22 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   const set = patch => setC(saveTtsApi(patch));
   const [testing, setTesting] = useState(false);
   const [testErr, setTestErr] = useState(null);
+  const [vsVoices, setVsVoices] = useState([]);
+  const [vsBusy, setVsBusy] = useState(false);
+  const [vsStatus, setVsStatus] = useState("");
+  const vsEpoch = useRef(0);
+  useEffect(() => { vsEpoch.current++; setVsVoices([]); setVsStatus(""); setVsBusy(false); }, [c.vsBase, c.vsKey, c.vsPin, c.provider]);
+  useEffect(() => () => { vsEpoch.current++; }, []);
+  const readVsVoices = async () => {
+    const epoch = vsEpoch.current; setVsBusy(true); setVsStatus("");
+    try { const list = await voiceStudioVoices(c); if (epoch !== vsEpoch.current) return; setVsVoices(list); setVsStatus(list.length ? "连上了，找到 " + list.length + " 个电脑音色" : "连上了，还没有自建音色；可以先用默认声音试音"); }
+    catch (e) { if (epoch === vsEpoch.current) setVsStatus(String(e.message || e)); }
+    finally { if (epoch === vsEpoch.current) setVsBusy(false); }
+  };
   const testAudRef = useRef(null);
+  const testUrlRef = useRef(null);
+  const testEpoch = useRef(0);
+  useEffect(() => () => { testEpoch.current++; if (testAudRef.current) testAudRef.current.pause(); if (testUrlRef.current) URL.revokeObjectURL(testUrlRef.current); }, []);
   // 语气标记验货台：把原文原样送去合成，听 MiniMax 到底认哪些标记。
   const [markTxt, setMarkTxt] = useState("你回来啦 <#0.5#> 我等好久了 <#0.3#> 饿不饿");
   const [markVid, setMarkVid] = useState("");
@@ -8040,20 +8055,27 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     finally { setCloning(false); }
   };
   const runTest = async () => {
-    if (!ttsReady(c)) { toast && toast(c.provider === "minimax" ? "先填 GroupId 和密钥" : "先填密钥"); return; }
+    if (!ttsReady(c)) { toast && toast(c.provider === "voicestudio" ? "先填电脑连接地址" : c.provider === "minimax" ? "先填 GroupId 和密钥" : "先填密钥"); return; }
     if (!ttsDefaultVoice(c)) { toast && toast("先填一个默认音色 ID 才能试听"); return; }
+    const epoch = ++testEpoch.current;
+    if (testAudRef.current) testAudRef.current.pause();
+    if (testUrlRef.current) URL.revokeObjectURL(testUrlRef.current);
     const aud = new Audio();
     testAudRef.current = aud;
     aud.play().catch(() => {});
     setTesting(true); setTestErr(null);
     try {
+      const started = Date.now();
       const blob = await ttsSpeak("你好呀，听听我的声音合不合适？", ttsDefaultVoice(c));
+      if (epoch !== testEpoch.current) return;
+      if (c.provider === "voicestudio") setVsStatus("音频准备用了 " + ((Date.now() - started) / 1000).toFixed(1) + " 秒（含缓存；实际开始播放还取决于浏览器）");
       const url = URL.createObjectURL(blob);
-      aud.src = url; aud.onended = () => URL.revokeObjectURL(url);
+      testUrlRef.current = url;
+      aud.src = url; aud.onended = () => { URL.revokeObjectURL(url); if (testUrlRef.current === url) testUrlRef.current = null; };
       await aud.play();
       toast && toast("✅ 接口通了，正在播放试听");
-    } catch (e) { setTestErr(String((e && e.message) || e)); }
-    finally { setTesting(false); }
+    } catch (e) { if (epoch === testEpoch.current) setTestErr(String((e && e.message) || e)); }
+    finally { if (epoch === testEpoch.current) setTesting(false); }
   };
   const runMark = async () => {
     if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
@@ -8078,13 +8100,31 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax / ElevenLabs / Fish Audio 语音合成。开了之后，选了音色的角色发的语音消息能点 ▶ 真听。⭐按字符计费，但只有你点开那条才合成；合成过的存在本机、重播免费。")),
-      h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才收费）" : "已关闭"); } })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接云端语音服务，或自己的电脑。选了音色的角色语音能点 ▶ 真听；点开才生成，生成过的存在本机。云端按服务商规则计费，自己的电脑负责本地运算。")),
+      h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才生成）" : "已关闭"); } })),
     c.enabled ? h("div", { className: "pt-3" },
-      row("用哪一家（角色档案里的「音色」要填这一家的声音 ID）", h("div", { style: { display: "flex", gap: 6 } },
-        [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"]].map(pair =>
+      row("声音从哪来（角色档案填对应的音色 ID）", h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } },
+        [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"], ["voicestudio", "自己的电脑"]].map(pair =>
           h("button", { key: pair[0], onClick: () => set({ provider: pair[0] }), className: "active:opacity-70",
             style: { flex: 1, fontFamily: F_BODY, fontSize: 12, padding: "8px 2px", borderRadius: 8, background: c.provider === pair[0] ? t.tint : t.bg2, border: "1px solid " + (c.provider === pair[0] ? t.tint : t.line), color: c.provider === pair[0] ? "#fff" : t.sub } }, pair[1])))),
+      c.provider === "voicestudio" ? h("div", { "data-voice-studio": "settings" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7, marginBottom: 12 } }, "电脑安装开源 VoiceStudio 并准备好语音模型 → 开启分享，取得手机可访问的 HTTPS 地址 → 在这里填好并读取音色。使用时电脑和 VoiceStudio 都要开着。"),
+        row("电脑连接地址（不是 /mcp 地址）", h("input", { value: c.vsBase || "", onChange: e => set({ vsBase: e.target.value }), placeholder: "https://你的电脑地址", style: inSt })),
+        row("分享密码（电脑开启分享后显示，没设置可留空）", h("input", { value: c.vsPin || "", onChange: e => set({ vsPin: e.target.value }), type: "password", inputMode: "numeric", autoComplete: "off", style: inSt })),
+        row("服务密钥（电脑另外设了 API Key 时填写）", h("input", { value: c.vsKey || "", onChange: e => set({ vsKey: e.target.value }), type: "password", autoComplete: "off", style: inSt })),
+        row("电脑使用的语音引擎（一般保留默认）", h("input", { value: c.vsModel || "tts-1", onChange: e => set({ vsModel: e.target.value }), style: inSt })),
+        h("button", { disabled: vsBusy || !c.vsBase, onClick: readVsVoices, style: { padding: "12px", minHeight: 44, borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, color: t.ink, width: "100%", fontFamily: F_BODY } }, vsBusy ? "正在连接电脑…" : "连接电脑 · 读取音色"),
+        row("默认声音（留空使用电脑的默认声音）", h("input", { value: c.vsVoice || "", onChange: e => set({ vsVoice: e.target.value }), placeholder: "default 或电脑上的音色 ID", style: { ...inSt, marginTop: 8 } })),
+        vsStatus && h("div", { role: "status", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, overflowWrap: "anywhere", margin: "8px 0" } }, vsStatus),
+        vsVoices.map(v => h("div", { key: v.id, style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, color: t.ink, overflowWrap: "anywhere" } }, v.name),
+          h("button", { onClick: () => set({ vsVoice: v.id }), style: { padding: "12px 0", minHeight: 44, color: t.tint } }, c.vsVoice === v.id ? "已选为默认" : "用作默认声音"),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, (characters || []).map(ch => h("button", { key: ch.id, onClick: () => { onAssignVoice && onAssignVoice(ch.id, v.id); toast && toast("已把这个声音给 " + ch.name); }, style: { minHeight: 44, padding: "8px 12px", borderRadius: 8, border: "1px solid " + t.line, color: t.ink } }, "给 " + ch.name))))),
+        h("details", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "12px 0" } },
+          h("summary", null, "第一次连接怎么准备"),
+          h("p", null, "手机填 localhost 会连到手机自己。电脑需提供可访问的 HTTPS 地址，并允许当前秋秋机网页的来源；电脑端 OMNIVOICE_ALLOWED_ORIGINS 需包含网页的来源地址（不带路径）。连接参数由你自己填写，不需要大家共用一台电脑。"),
+          h("a", { href: "https://github.com/debpalash/VoiceStudio", target: "_blank", rel: "noopener noreferrer", style: { color: t.tint, display: "block", minHeight: 44 } }, "下载电脑端 VoiceStudio"),
+          h("a", { href: "https://github.com/debpalash/VoiceStudio/blob/main/docs/api-auth.md", target: "_blank", rel: "noopener noreferrer", style: { color: t.tint } }, "看电脑端连接说明"))) : null,
       c.provider === "elevenlabs" ? h("div", null,
         row("密钥 API Key（elevenlabs.io → Developers → API Keys）", h("input", { value: c.elKey || "", onChange: e => set({ elKey: e.target.value }), placeholder: "sk_…", type: "password", style: inSt })),
         row("模型", h("select", { value: c.elModel || "eleven_multilingual_v2", onChange: e => set({ elModel: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
@@ -8101,7 +8141,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
           h("option", { value: "speech-1.6" }, "speech-1.6"),
           h("option", { value: "speech-1.5" }, "speech-1.5"))),
         row("默认音色 ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.fishVoice || "", onChange: e => set({ fishVoice: e.target.value }), placeholder: "声音页网址最后那串 ID", style: inSt }))) : null,
-      c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
+      c.provider !== "minimax" && c.provider !== "voicestudio" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
       c.provider === "minimax" ? h("div", null,
       row("接口地址（key 在哪个平台申请的就点哪个，别混）", h("div", null,
         h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } },
@@ -9158,7 +9198,7 @@ function Config(props) {
         h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
         h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax 三站、动态陪伴图", onClick: () => setPage("apiVideo") }),
-        h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "MiniMax TTS、克隆音色与指派", onClick: () => setPage("apiTts") }),
+        h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "云端语音、自己的电脑与音色指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
         h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
         h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),

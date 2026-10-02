@@ -104,8 +104,8 @@ test("教模型写停顿那一句只有一份，单聊群聊都接上了", () =>
     "把标记名写进提示词＝把这个形状介绍给它（prompt-no-content-samples）");
   assert.equal((engine.match(/const VOICE_PAUSE_MARK = /g) || []).length, 1);
   const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
-  assert.match(app, /\{"voice":"内容","emo":"[^"]*"\}（\$\{VOICE_PAUSE_MARK\}）/, "单聊那一处没接上（v74.394 起语音写进 word 原位）");
-  assert.match(app, /习惯来" \+ VOICE_PAUSE_MARK \+ "/, "群聊那一处没接上");
+  assert.match(app, /\{"voice":"内容","emo":"[^"]*"\}（\$\{VOICE_PAUSE_MARK\}(?:\$\{voiceSoundHint\(\)\})?）/, "单聊那一处没接上（v74.394 起语音写进 word 原位）");
+  assert.match(app, /习惯来" \+ VOICE_PAUSE_MARK \+ (?:voiceSoundHint\(\) \+ )?"/, "群聊那一处没接上");
 });
 
 // 波形和秒数也按剥干净的那一份算：不剥的话那几个标记会把时长算长

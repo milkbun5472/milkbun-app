@@ -75,7 +75,7 @@ test("报错说人话：跨域被挡不许说成「写太长被掐断」", async
 });
 
 test("缓存钥匙带上服务商（MiniMax 不带，老缓存照旧命中）；合成只有一个入口", () => {
-  assert.match(eng, /ttsCacheKey\(\(prov === "minimax" \? "" : prov \+ ":"\) \+ vid/);
+  assert.match(eng, /ttsCacheKey\(\(prov === "minimax" \? "" : prov \+ ":"\) \+ source \+ vid/);
   const syn = eng.slice(eng.indexOf("async function ttsSynth("), eng.indexOf("async function ttsSynthOther("));
   assert.match(syn, /ttsSynthOther\(a, synthTxt, vid, spd\)/);
   assert.match(syn, /idbAudPut\(key, blob\)/);
