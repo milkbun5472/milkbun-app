@@ -65,7 +65,7 @@
     if (record.draftRef) return { title: "生成完成，等待你选用", detail: "先预览动作，满意后保存；保存后的循环播放不会重新生成。" };
     if (!record.taskId) return { title: busy && !record.lastError ? "正在提交，等待任务编号" : "提交未确认，请核对控制台", detail: "还没拿到任务编号，无法确认是否开始生成或是否失败。请到对应站点控制台核对这次任务；确认后再决定是否放弃记录，避免重复付费。" };
     if (["fail", "failed", "cancelled"].includes(status)) return { title: status === "cancelled" ? "任务已取消" : "生成失败", detail: "这是接口返回的任务状态。任务编号已保留；重新生成是另一笔任务，费用以对应站点为准。" };
-    if (["success", "succeeded"].includes(status)) return { title: busy ? "生成完成，正在保存视频" : "生成完成，视频尚未保存", detail: "动画已经生成，但本机还没有保存到视频。点「查询原任务 / 重试下载」重试，不会重新生成。" };
+    if (["success", "succeeded"].includes(status)) return { title: busy ? "生成完成，正在保存视频" : "生成完成，视频尚未保存", detail: "动画已经生成，但本机还没有保存到视频。点「查询原任务 / 重试下载」重试；如果一直连接失败，可打开原视频手动保存，再导入这次任务，不会重新生成。" };
     if (record.lastError && !busy) return { title: "查询暂时中断，生成结果未确认", detail: "连接或查询失败不代表生成失败。任务编号已保留，可以查询原任务；不会重新提交。" };
     const title = ({ preparing: "正在准备画面", queueing: "正在排队", queued: "正在排队", processing: "正在生成动作", running: "正在生成动作" })[status] || "任务已提交，正在查询进度";
     return { title, detail: "已取得任务编号，正在等待原任务。离开后仍保留记录，回来只查询进度。" };
@@ -96,15 +96,27 @@
       const f = await request(c, "/v1/files/retrieve?file_id=" + encodeURIComponent(record.fileId), null, signal); url = f.file && f.file.download_url;
     }
     if (!url || !/^https?:\/\//i.test(url)) throw Error("接口没有返回可用的视频下载地址");
+    record.downloadUrl = url; patchMap(JOBS, id, record);
     const controller = new AbortController(), relay = () => controller.abort(), timer = setTimeout(relay, 90000);
     if (signal && signal.aborted) { clearTimeout(timer); throw new DOMException("已停止等待", "AbortError"); } if (signal) signal.addEventListener("abort", relay, { once: true });
     try {
       const r = await fetch(url, { signal: controller.signal }); if (!r.ok) throw Error("下载视频失败（HTTP " + r.status + "），可以查询原任务重试下载");
-      const b = await r.blob(); if (!b.size || b.size > 100 * 1024 * 1024 || /text|json|image/.test(b.type)) throw Error("返回的不是可保存的视频文件");
-      const head = new Uint8Array(await b.slice(0, 12).arrayBuffer()); const ftyp = String.fromCharCode(...head.slice(4, 8)) === "ftyp", webm = head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3; if (!ftyp && !webm) throw Error("下载内容不是 MP4 或 WebM 视频，可查询原任务重试下载");
-      const ref = "pvideo_" + record.taskId; await blobOp(ref, new Blob([b], { type: webm ? "video/webm" : "video/mp4" })); if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) { await blobOp(ref, null, true); throw new DOMException("已停止等待", "AbortError"); } record.draftRef = ref; return patchMap(JOBS, id, record);
+      return await saveDraftFile(id, await r.blob(), record.taskId, signal);
+    } catch (e) {
+      if (e instanceof TypeError) throw Error("视频下载连接失败，可能是网络或下载站点的跨域限制。可打开原视频手动保存，再导入这次任务；不需要重新生成。");
+      throw e;
     } finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", relay); }
   }
+  async function saveDraftFile(id, b, taskId, signal) {
+    const record = job(id); if (!record || record.taskId !== taskId) throw Error("原任务记录已变化，请重新打开页面");
+    if (!b || !b.size || b.size > 100 * 1024 * 1024 || /text|json|image/.test(b.type)) throw Error("请选择 100MB 以内的 MP4 或 WebM 视频文件");
+    const head = new Uint8Array(await b.slice(0, 12).arrayBuffer()); const ftyp = String.fromCharCode(...head.slice(4, 8)) === "ftyp", webm = head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3;
+    if (!ftyp && !webm) throw Error("文件内容不是 MP4 或 WebM 视频，请选择下载好的视频");
+    const ref = "pvideo_" + taskId; await blobOp(ref, new Blob([b], { type: webm ? "video/webm" : "video/mp4" }));
+    if ((signal && signal.aborted) || !job(id) || job(id).taskId !== taskId) { await blobOp(ref, null, true); throw new DOMException("已停止等待", "AbortError"); }
+    record.draftRef = ref; delete record.lastError; return patchMap(JOBS, id, record);
+  }
+  async function importTaskVideo(id, file) { const r = job(id); if (!r || !r.taskId || !["success", "succeeded"].includes(String(r.status).toLowerCase())) throw Error("原任务还没有确认生成完成"); return saveDraftFile(id, file, r.taskId); }
   async function queryTracked(id, signal) {
     const previous = job(id); try { return await query(id, signal); } catch (e) { if (previous && job(id) && job(id).taskId === previous.taskId) rememberError(id, e); throw e; }
   }
@@ -149,7 +161,7 @@
     const [scene, setScene] = useState("坐在桌边安静陪我专注，半身构图，保留人物原来的长相与画风。");
     const [record, setRecord] = useState(() => job(id)), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
     const [configOpen, setConfigOpen] = useState(false), controller = useRef(null), working = useRef(false), live = useRef(true), savedScroll = useRef(0), scroller = useRef(null);
-    const localVideo = useRef(null), imagePicker = useRef(null);
+    const localVideo = useRef(null), imagePicker = useRef(null), taskVideoPicker = useRef(null);
     useEffect(() => { live.current = true; return () => { live.current = false; if (controller.current) controller.current.abort(); }; }, []);
     useEffect(() => { let active = true; imageData(imageRef).then(url => { if (active) setImageURL(url); }).catch(() => { if (active) setImageURL(""); }); return () => { active = false; }; }, [imageRef]);
     useEffect(() => { if (!configOpen && scroller.current) scroller.current.scrollTop = savedScroll.current; }, [configOpen]);
@@ -180,6 +192,7 @@
     });
     const useDraft = () => run(async () => { await adopt(id); onSaved(); toast && toast("这段画面已设为陪伴图，以后一直用它"); onBack(); });
     const forgetJob = () => requestAppConfirm("放弃这次视频任务？", "已经提交的任务不会取消或退款。之后重新生成会另计费；当前已选中的陪伴图保留。", () => { if (controller.current) controller.current.abort(); const old = job(id); patchMap(JOBS, id, null); if (old && old.draftRef && (!media(id) || media(id).videoRef !== old.draftRef)) blobOp(old.draftRef, null, true).catch(() => {}); setRecord(null); setMessage(""); }, "放弃任务");
+    const importTask = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { const r = await importTaskVideo(id, f); update(r); }); };
     const importLocal = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { await importVideo(id, f, imageRef); onSaved(); toast && toast("视频已导入并设为陪伴图"); onBack(); }); };
     const btn = { minHeight: 44, padding: "10px 12px", border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, borderRadius: 3 };
     const input = { width: "100%", minWidth: 0, padding: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, borderRadius: 3 };
@@ -212,6 +225,11 @@
           record.lastError ? h("div", { style: { fontSize: 11, lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "上次请求提示：" + record.lastError) : null) : null,
         !record ? h("button", { disabled: busy || !imageRef, onClick: createVideo, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, busy ? "正在处理…" : "生成动画（按视频接口计费）") : h("div", { style: { display: "grid", gap: 8, marginTop: 12 } },
           record.taskId && !record.draftRef ? h("button", { disabled: busy, onClick: () => run(inspect), style: btn }, busy ? "正在等待原任务…" : "查询原任务 / 重试下载") : null,
+          record.downloadUrl && /^https?:\/\//i.test(record.downloadUrl) && !record.draftRef ? h("a", { href: record.downloadUrl, target: "_blank", rel: "noopener noreferrer", referrerPolicy: "no-referrer", style: Object.assign({}, btn, { display: "block", textAlign: "center", textDecoration: "none" }) }, "打开原视频 / 手动下载") : null,
+          record.downloadUrl && !record.draftRef ? h("div", null,
+            h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "在新页面保存视频到「文件」，再导入这次任务，预览满意后选用。链接若过期，查询原任务可更新地址。"),
+            h("input", { ref: taskVideoPicker, type: "file", accept: "video/mp4,video/webm", hidden: true, onChange: importTask }),
+            h("button", { disabled: busy, onClick: () => taskVideoPicker.current.click(), style: Object.assign({}, btn, { width: "100%" }) }, "导入这次任务的视频")) : null,
           h("button", { onClick: forgetJob, style: btn }, record.draftRef ? "不满意，放弃这段" : "放弃任务记录")),
         heading("已有视频也能直接用"),
         h("input", { ref: localVideo, type: "file", accept: "video/mp4,video/webm,video/quicktime", onChange: importLocal, hidden: true }),
@@ -220,6 +238,6 @@
           exportRef ? h("button", { onClick: () => run(() => exportVideo(exportRef)), disabled: busy, style: btn }, "导出视频备份") : null,
           existing ? h("button", { disabled: busy, onClick: () => { patchMap(MEDIA, id, null); onSaved(); onBack(); }, style: btn }, "恢复静态头像") : null)));
   }
-  g.VideoApi = { load, save, normalize, ready, taskState, create: createTracked, query: queryTracked, poll, adopt, media, job, importVideo, exportVideo, blob: blobOp, imageData, patchMap, keys: { CONFIG, MEDIA, JOBS } };
+  g.VideoApi = { load, save, normalize, ready, taskState, create: createTracked, query: queryTracked, poll, adopt, media, job, importVideo, importTaskVideo, exportVideo, blob: blobOp, imageData, patchMap, keys: { CONFIG, MEDIA, JOBS } };
   g.VideoApiConfig = VideoApiConfig; g.PomodoroVideoEditor = PomodoroVideoEditor; g.PomodoroLoopVideo = LoopVideo;
 })(window);

@@ -76,3 +76,11 @@ test('提交连接失败的提示持久化，刷新仍是未确认且禁止重�
  const {api}=load(async()=>{throw new TypeError('Failed to fetch')});api.save({enabled:true,apiKey:'fixture'});await assert.rejects(api.create('a','data:image/png;base64,fixture','动作'));
  assert.match(api.job('a').lastError,/连接失败/);assert.match(api.taskState(api.job('a'),false).title,/提交未确认/);await assert.rejects(api.create('a','data:image/png;base64,fixture','动作'),/已有视频任务/);
 });
+
+test('下载连接失败保留原URL和任务，只查询GET，不重复生成',async()=>{
+ const sent=[],{api}=load(async(url,init)=>{sent.push({url,init});if(url.includes('/v2/query/'))return response({task:{status:'succeeded',content:{url:'https://cdn.fixture.invalid/video.mp4'}}});throw new TypeError('Load failed');});api.save({apiKey:'fixture'});api.patchMap(api.keys.JOBS,'a',{taskId:'original',protocol:'v2',baseUrl:'https://api.minimax.io'});
+ await assert.rejects(api.query('a'),/视频下载连接失败/);assert.equal(api.job('a').downloadUrl,'https://cdn.fixture.invalid/video.mp4');assert.equal(api.job('a').taskId,'original');assert.equal(api.job('a').status,'succeeded');assert.equal(sent[0].init.method,'GET');assert.equal(sent[1].init.headers,undefined);assert.match(api.job('a').lastError,/手动保存/);
+});
+test('导入原任务只接受已完成任务和真实视频内容',async()=>{
+ const {api}=load();await assert.rejects(api.importTaskVideo('a',new Blob(['fake'])),/还没有确认/);api.patchMap(api.keys.JOBS,'a',{taskId:'original',status:'succeeded'});await assert.rejects(api.importTaskVideo('a',new Blob(['this is not a video'])),/文件内容不是/);assert.equal(api.job('a').draftRef,undefined);
+});

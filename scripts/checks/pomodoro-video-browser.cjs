@@ -22,7 +22,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.POM_VIDEO_SHOTS||'/tm
   if(url.pathname==='/v1/files/retrieve'){return route.fulfill({json:{file:{download_url:origin+'/fixture.mp4'},base_resp:{status_code:0}}});}
   return route.abort();
  });
- await page.route(origin+'/fixture.mp4',route=>failDownload?route.fulfill({status:503,body:'offline'}):route.continue());
+ await page.route(origin+'/fixture.mp4',route=>failDownload==='cors'?route.abort():failDownload?route.fulfill({status:503,body:'offline'}):route.continue());
  await page.addInitScript(()=>{
   if(localStorage.getItem('qa-pom-video'))return;
   const data={x_characters:[{id:'qa-a',name:'角色甲',persona:'虚构的装订师，今天准备校对书稿。',voiceId:'qa-voice'},{id:'qa-b',name:'角色乙',persona:'虚构的校对师。'}],x_profile:{name:'测试读者'},x_api:[{id:'qa',name:'虚构模型',baseUrl:'https://fixture.invalid/v1',apiKey:'fixture',model:'fixture'}],x_activeApi:'qa',x_videoApi:{enabled:true,baseUrl:'https://api.minimax.io',apiKey:'fixture',model:'MiniMax-Hailuo-2.3-Fast',duration:6,resolution:'768P'},x_ttsApi:{enabled:true,baseUrl:'https://fixture.invalid',apiKey:'fixture',groupId:'fixture',model:'fixture'},x_settings:{timeAware:true,autoDiary:false},x_autoRefreshPolicy_v1:{version:2,legacyMerged:true,features:Object.fromEntries(['phone','weekly','diary','wallet','schedule','desire','impression','moments','forum','whisper','capsule','gaze','proactive','letter','react','groupChat','listen','watch'].map(id=>[id,{global:false,chars:{}}]))}};
@@ -62,6 +62,15 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.POM_VIDEO_SHOTS||'/tm
  failDownload=true;await page.evaluate(()=>VideoApi.patchMap(VideoApi.keys.JOBS,'qa-a',{taskId:'retry',protocol:VideoApi.load().model==='MiniMax-H3'?'v2':'v1',baseUrl:VideoApi.load().baseUrl,imageRef:VideoApi.media('qa-a').imageRef}));
  await page.locator('[data-wk="head"] button').first().click();await page.locator('[data-pomodoro-video-entry]').click();await page.getByText(/下载视频失败/).first().waitFor();await page.locator('[data-video-task-status]').getByText('生成完成，视频尚未保存',{exact:true}).waitFor();assert.ok(await page.evaluate(()=>VideoApi.job('qa-a').fileId||VideoApi.job('qa-a').protocol==='v2'));failDownload=false;await editor.getByRole('button',{name:'查询原任务 / 重试下载',exact:true}).click();await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).waitFor();assert.equal(calls.filter(c=>c.body).length,1);
 
+ // A download host blocked by browser fetch still has a navigable original URL and can be imported into the same task.
+ failDownload='cors';await page.evaluate(()=>VideoApi.patchMap(VideoApi.keys.JOBS,'qa-a',{taskId:'manual-download',protocol:VideoApi.load().model==='MiniMax-H3'?'v2':'v1',baseUrl:VideoApi.load().baseUrl,imageRef:VideoApi.media('qa-a').imageRef}));
+ await page.locator('[data-wk="head"] button').first().click();await page.locator('[data-pomodoro-video-entry]').click();await page.getByText(/视频下载连接失败/).first().waitFor();
+ const link=editor.getByRole('link',{name:'打开原视频 / 手动下载',exact:true});assert.equal(await link.getAttribute('href'),origin+'/fixture.mp4');assert.equal(await link.getAttribute('referrerpolicy'),'no-referrer');
+ assert.equal(await page.evaluate(()=>VideoApi.job('qa-a').taskId),'manual-download');assert.equal(calls.filter(c=>c.body).length,1);await link.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'download-blocked.png')});
+ await open();await page.locator('[data-pomodoro-video-entry]').click();await link.waitFor();await page.getByText(/视频下载连接失败/).first().waitFor();assert.equal(await page.evaluate(()=>VideoApi.job('qa-a').downloadUrl),origin+'/fixture.mp4');
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='导入这次任务的视频'&&!b.disabled));
+ await editor.locator('input[type=file][accept="video/mp4,video/webm"]').setInputFiles(process.env.POM_VIDEO_FIXTURE||'/tmp/pomodoro-video-fixture.mp4');await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).waitFor();assert.equal(await page.evaluate(()=>VideoApi.job('qa-a').taskId),'manual-download');
+ await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).click();await page.locator('[data-pomodoro-video-entry]').waitFor();assert.equal(await page.evaluate(()=>VideoApi.media('qa-a').videoRef),'pvideo_manual-download');assert.equal(calls.filter(c=>c.body).length,1);failDownload=false;await page.locator('[data-pomodoro-video-entry]').click();
  // Reproduce an older ambiguous submission record: status stays visible beside actions after reload.
  const postsBeforeStatus=calls.filter(c=>c.body).length;
  await page.evaluate(()=>VideoApi.patchMap(VideoApi.keys.JOBS,'qa-a',{status:'Submitting',baseUrl:VideoApi.load().baseUrl,imageRef:VideoApi.media('qa-a').imageRef,createdAt:Date.now()}));
