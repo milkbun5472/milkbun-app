@@ -55,8 +55,9 @@ test("群里也能邀约：挑请谁，带答应了的人出发进群线下", ()
 test("回执单聊群聊共用一套：问法、认去不去、回执长相各一份", () => {
   assert.equal((app.match(/const rsvpReceipt = /g) || []).length, 1);
   assert.match(app, /capState\.push\("dateReply：" \+ inviteAskText\(_inv, "她"\)\)/);
-  assert.match(app, /pChat\(charId, p => \[\.\.\.p, rsvpReceipt\(inv, null\)\]\)/);
-  assert.match(app, /pushGroupRich\(groupId, rsvpReceipt\(_gInv, spk\)\)/);
+  assert.match(app, /pChat\(charId, p => \[\.\.\.p, rsvpReceipt\(inv, null, rsvpSay\(parsed\.dateReply\)\)\]\)/);
+  assert.match(app, /pushGroupRich\(groupId, rsvpReceipt\(_gInv, spk, rsvpSay\(item\.dateReply\)\)\)/);
+  assert.match(app, /const rsvpSay = v => /, "回执上那一句：单聊群里共用");
   assert.match(app, /gTfHint \+ gInviteHint \+ gPollHint/);
   assert.match(app, /没被约到的人不填/);
   assert.match(comp, /if \(m\.kind === "datereceipt"\) return h\(DateInviteCard/);

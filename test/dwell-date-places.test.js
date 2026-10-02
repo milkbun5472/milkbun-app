@@ -27,7 +27,7 @@ test("约TA：先发邀请卡到线上，TA回话时决定（dateReply），答�
   const c = read("components.js");
   assert.match(a, /kind: "dateinvite"/);
   assert.match(a, /openCaps\.push\("dateReply"\)/);
-  assert.match(a, /dateReply:"yes"\|"no"=回她的约会邀请；/);
+  assert.match(a, /dateReply:\{"go":"yes"\|"no","say":"写在回执上的一句"\}=回她的约会邀请；/);
   assert.match(a, /kind: "datereceipt"/);
   assert.match(a, /const dateGo = async \(charId, m\) => \{/);
   assert.match(c, /function DateInviteCard\(/);
