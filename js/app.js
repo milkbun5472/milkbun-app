@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.475";
+const APP_VERSION = "v74.477";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -199,8 +199,9 @@ function ScreenBoundaryClass() {
 }
 // 把手机递给TA看（她 2026-10-01：「想做角色反查手机」）：能翻的几样。记账是现实里的钱，先不给看。
 // 聊天页「给TA看手机」那张单子和下面拼素材的那段读同一张表。
-const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["forum", "论坛发过的帖"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"],
-  ["music", "一起听的歌"], ["memo", "备忘录"], ["journal", "我的手记"], ["pics", "发过的图"]];
+// 她 2026-10-02：「我们真的需要那些 app 吗」——查岗只查聊天；钱包、外卖、购物是聊天里翻出线索才顺着去的。
+//   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
+const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg }) {
   const t = useTheme();
@@ -9333,13 +9334,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 整段的来龙去脉，不只最后一截（她 2026-10-01：「还是不会看我和别人整体的聊天，只是看一小段」）：
       //   从哪天聊起、一共多少条，再从早先、中间、最近各抽几句，每段标上日子
       const line = (x, m) => "  " + (m.role === "user" ? "她：" : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70);
+      // 只给翻得到的那一截：录像里聊天是从最新那条往上翻几屏，早先的话屏幕上根本看不到，
+      //   心声念的是一个月前那句，画面却停在昨天（她 2026-10-02：「他的心声说的是很久以前的聊天吧，跟屏幕对不上」）
       const arc = x => {
         const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
-        const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，到现在一共 " + n + " 条）：";
-        if (n <= 18) return head + "\n" + ms.map(m => line(x, m)).join("\n");
-        const mid = Math.floor(n / 2);
-        const seg = (label, arr) => "  —— " + label + "（" + md(arr[0].ts) + "）\n" + arr.map(m => line(x, m)).join("\n");
-        return head + "\n" + seg("早先", ms.slice(0, 4)) + "\n" + seg("中间", ms.slice(mid - 2, mid + 2)) + "\n" + seg("最近", ms.slice(-12));
+        const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
+        return head + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
@@ -9433,6 +9433,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
     setPeekPlay({ charId, allow, seen, hidden, script: null });
     let script = [];
+    // 聊天里翻得出线索的，才顺着去（她 2026-10-02：「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
+    const CLUE = { transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" }, clues = {};
+    (characters || []).forEach(x => { if (x.id === charId) return;
+      (chatsRef.current[x.id] || []).slice(-80).forEach(m => { const app = m && CLUE[m.kind];
+        if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 30 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
+    const gate = Object.keys(clues);
     try {
       const others = (characters || []).filter(x => x.id !== charId).map(x => x.remark || x.name).slice(0, 12);
       const d = await runProbe(apiFor(charId), ctxFor(c), {
@@ -9445,21 +9451,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
-          + "\n\n能打开的 app：" + apps.map(a => a + "（" + PEEK_APP_ZH[a] + "）").join("、")
-          + (apps.includes("chat") ? "。messages 是消息列表那一屏（备注、最后一句、几点聊的都在上面）；打开聊天要写 who＝对方名字，能选的：" + others.join("、") : "")
-          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开一个 app；tap 点屏幕上写着某几个字的地方（text 填那几个字，照上面真有的标题、名字、栏目名写，比如论坛底栏的「我」、日记里她那本「我的手记」）；scroll 往下或往上滑（dir、n=1~3）；back 退一层；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
+          + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人的聊天，要写 who＝对方名字，能选的：" + others.join("、") + "）"
+          + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
+          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
           + "\n别当旁观者复述内容：你是她的谁、你俩走到哪一步了，就站在那儿去看——她这样对别人说话、别人这样对她，换成是你这个人看见，会被戳到哪儿，就想那一句。"
-          + "\n心里那句只想眼前这个 app 里看到的东西；购物和外卖是两个 app，各看各的单子。"
-          + "\n打开一个 app 以后，在意的那一条要点进去看（tap 它的标题或名字，照上面列出来的原样写），别只停在列表上；看完 back 退出来再去下一样。"
-          // 查岗不是逛手机（她 2026-10-01：「他查我们真的需要那么多吗」）：聊天是主场，别的 app 只在顺着某个人、某件事追下去时才开
-          + "\n你是带着心思来查的，不是来逛的：先翻聊天，看得细一点、多看几段；哪个人、哪句话让你在意了，就顺着那个人往下追——去钱包看有没有转过账、去别处看有没有他的影子；跟这件事不沾边的 app 不用开。"
-          // ⚠️上一版写「1~3 样就够、找到就收手」，TA看完一个人就走了（她 2026-10-02：「太短了而且就看了一个人的就走了」）
-          + "\n聊天这一块要翻透：一个一个点开，至少看 3 个人的聊天（列表里还有的话就接着点），每个都往上翻着读；看完一个退回列表再点下一个，别看了一个就走。"
-          + "\n聊天之外再顺着在意的人或事去 1~3 个别的 app 追一追。每点开一样东西就想一句；在意的地方多停、多滑。一共 25~45 步。",
-        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"forum\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
+          + "\n心里那句只想眼前看到的东西。"
+          // 查岗不是逛手机（她 2026-10-01／02）：只查聊天，钱包、外卖、购物是聊天里翻出线索才顺着去的
+          + "\n你是带着心思来查的：先看一眼消息列表，再一个一个点开聊天——至少看 3 个人（列表里还有就接着点），每个都往上翻着读；看完一个 back 退回列表再点下一个，别看了一个就走。"
+          + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，在意的话就顺着去对应那一样看看是谁给谁、多少、什么时候；没线索的不用去。" : "")
+          + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。没想法的就别点开。一共 25~45 步。",
+        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });
       const L = peekLastOf(charId), seenT = new Set(L.taps || []);
@@ -9468,7 +9472,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧") }));
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
-      script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary }) : [];
+      script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary, who: others, gate }) : [];
     } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
   };
@@ -26696,7 +26700,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     script: peekPlay.script,
     labelOf: (app, who) => app === "chat" && who ? "和" + who + "的聊天" : (PEEK_APP_ZH[app] || app),
     goHome: () => setScreen("home"),
-    toMessages: () => setScreen("messages"),
+    toMessages: tab => { setMsgTab(tab || "chats"); setScreen("messages"); },
     onOpen: peekOpen, onBack: peekBack, onDone: peekDone
   }), modelFloatOn && h(ModelQuickSwitch, {
     profiles: apiProfiles,

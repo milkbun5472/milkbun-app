@@ -116,7 +116,7 @@ test("她替他发的那一条，模型看见的是「这不是你打的」", ()
   // ① 单聊线上 ② 群聊那一行 ③ recentChat（线下/通话/穿书/匿名箱/解梦馆都从这儿拿）
   assert.match(app, /const byU = m\.byUser \? bySomeoneElseMark\(uName, char\.name\) : "";/);
   assert.match(app, /const ac = stp \+ byU \+/);
-  assert.match(app, /const groupHistLine = m => \(m\.byUser \? bySomeoneElseMark\(userName\(profile\), m\.senderName \|\| "TA"\) : ""\)/);
+  assert.match(app, /const groupHistLine = m =>[\s\S]{0,200}?\(m\.byUser \? bySomeoneElseMark\(userName\(profile\), m\.senderName \|\| "TA"\) : ""\)/);
   assert.match(app, /\+ \(m\.byUser \? bySomeoneElseMark\(uName, m\.senderName \|\| char\.name\) : ""\);/);
 });
 
