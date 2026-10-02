@@ -168,3 +168,12 @@ test("「我换」里配一身：参考在场的人此刻穿的，挂进我的�
   assert.equal((app.match(/return wearMatch\(sc, kw, wardrobeFor\(sc,/g) || []).length, 2);
   assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe, onMatch, matchBusy,/g) || []).length, 2);
 });
+
+test("长名字、长地名、一串人都不冲出框（她 2026-10-02：群邀约弹出来的框文字超出框了）", () => {
+  const pop = comp.slice(comp.indexOf("function DateArrivePop("), comp.indexOf("function DateInviteCard("));
+  assert.match(pop, /const manyWho = who\.indexOf\("、"\) >= 0, longWho = manyWho \|\| who\.length > 6;/);
+  assert.match(pop, /longWho \? \(manyWho \? "他们在等你了。" : "在等你了。"\)/, "一行手写里不许塞一串名字");
+  assert.match(pop, /wordBreak: "break-word" \} \}, pl\.name/, "长地名要能换行");
+  const dlg = comp.slice(comp.indexOf("function DateComposeDialog("), comp.indexOf("function DateComposeDialog(") + 3000);
+  assert.match(dlg, /maxHeight: "88vh", overflowY: "auto"/, "小框比屏幕高时要能在框里滚");
+});

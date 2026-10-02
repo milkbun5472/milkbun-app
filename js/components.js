@@ -12618,7 +12618,8 @@ function DateComposeDialog({ place, places, members, who, onCancel, onSend }) {
   const [say, setSay] = useState("");
   const field = { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px" };
   return appDialogPortal(
-    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+    // 地方多、人多的时候整框会比屏幕高：框里自己滚，别把「递过去」挤出屏幕
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, maxHeight: "88vh", overflowY: "auto", overscrollBehavior: "contain", background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, textAlign: "center" } }, "约" + who),
       pickMode ? h("div", { style: { marginTop: 14 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "去哪儿"),
@@ -12664,13 +12665,16 @@ function DateMemoryCard({ m, character }) {
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink, marginTop: 8 } }, pl.name || "某处"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: ".2em", color: ink, marginTop: 4 } }, when + " ★"),
       m.line ? h("div", { style: { fontFamily: F_HAND, fontSize: 14, lineHeight: 1.6, color: ink, marginTop: 10, wordBreak: "break-word" } }, "「" + m.line + "」") : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, (character.remark || character.name || "TA") + (pl.how === "meet" ? " · 碰巧遇上的那天" : " · 一起去过的那天"))));
+      // 群里那张署名是一串名字：名字自己占一行，后面那句另起，别被从中间折断
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" } },
+        (character.remark || character.name || "TA"), h("br"), pl.how === "meet" ? "碰巧遇上的那天" : "一起去过的那天")));
 }
 // 约到点了，盖在整个页面上那一层：赴约卡从中间浮出来，点卡就出发（她 2026-10-02）
 function DateArrivePop({ m, character, onGo, onLater }) {
   const t = useTheme();
   useEffect(() => { dateHandFont(); }, []);
   const pl = m.place || {}, w = m.when || {}, ink = t.sub, who = character.remark || character.name || "TA";
+  const manyWho = who.indexOf("、") >= 0, longWho = manyWho || who.length > 6;
   const heart = h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.4 }, h("path", { d: "M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" }));
   return appDialogPortal(
     h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", flexDirection: "column", alignItems: "center" } },
@@ -12678,11 +12682,14 @@ function DateArrivePop({ m, character, onGo, onLater }) {
         style: { position: "relative", width: 236, padding: "34px 22px 24px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, textAlign: "center",
           boxShadow: "0 18px 40px rgba(0,0,0,.28)", animation: "wkpop .5s cubic-bezier(.2,1.4,.4,1) both", cursor: "pointer" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 9.5, letterSpacing: ".28em", color: t.fog } }, "IT'S TIME"),
-        h("div", { style: { fontFamily: F_HAND, fontSize: 18, color: ink, marginTop: 14, whiteSpace: "nowrap" } }, who + "在等你了。"),
+        // 手写那句要一行（她 2026-10-02 定的）；可名字一长、群里一串人，一行就冲出卡外——
+        //   那就手写只留「他们在等你了。」，名字挪到下面一行小字里去换行
+        h("div", { style: { fontFamily: F_HAND, fontSize: 18, color: ink, marginTop: 14, whiteSpace: "nowrap" } }, longWho ? (manyWho ? "他们在等你了。" : "在等你了。") : who + "在等你了。"),
+        longWho ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 6, lineHeight: 1.6, wordBreak: "break-word" } }, who) : null,
         h("div", { style: { marginTop: 10, display: "flex", justifyContent: "center" } }, heart),
         h("div", { style: { width: 28, height: 1, background: t.line, margin: "14px auto" } }),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, pl.name || "某处"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, (typeof dateLabel === "function" ? dateLabel(w.date) : "") + (w.time ? " " + w.time : "")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, wordBreak: "break-word" } }, pl.name || "某处"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, w.now ? "现在" : (typeof dateLabel === "function" ? dateLabel(w.date) : "") + (w.time ? " " + w.time : "")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, marginTop: 16, letterSpacing: ".15em" } }, "点一下 · 出发")),
       h("button", { onClick: onLater, className: "active:opacity-60", style: { marginTop: 16, minHeight: 40, padding: "0 18px", fontFamily: F_BODY, fontSize: 12.5, color: "#fff", opacity: .85 } }, "晚点再说")),
     onLater);
