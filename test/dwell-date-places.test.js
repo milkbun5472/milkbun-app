@@ -43,7 +43,7 @@ test("钉一个地方：先从下面现成的地方里挑（他的地方、常�
 
 test("约会卡：两边带头像（跟位置卡、礼物卡一样）；发邀请不自动让TA回", () => {
   const c = read("components.js");
-  assert.match(c, /function DateInviteCard\(\{ m, character, onGo, onGoMine, avatar, myAvatar \}\)/);
+  assert.match(c, /function DateInviteCard\(\{ m, character, onGo, onGoMine, onAnswer, avatar, myAvatar \}\)/);
   assert.match(c, /!mine && avatar,/);
   assert.doesNotMatch(a, /setTimeout\(\(\) => replyNow\(char\.id, "", null, \{\}\), 600\)/);
 });

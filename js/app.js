@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.559";
+const APP_VERSION = "v74.560";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7425,33 +7425,45 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   两边都落一句旁白：模型下一拍就知道换了，不会接着写原来那身。
   const closetSetsOf = box => (typeof closetGroups === "function" ? closetGroups(box && box.outfit) : [])
     .flatMap(g => (g.sets || []).map(x => ({ name: String(x.name || "").trim(), note: String(x.note || "").trim(), occasion: g.occasion || "" }))).filter(x => x.name).slice(0, 40);
-  const wearOffline = (scopeKey, who, text, forever) => {
+  // scope：{ scopeKey } 是单聊那一场，{ groupId } 是群线下那一场；who 是要换的那个人的 id，或 "me"
+  const sceneSessOf = scope => scope.groupId ? (groupOfflinesRef.current[scope.groupId] || []).find(x => !x.endTs) : (offlinesRef.current[scope.scopeKey] || []).find(x => !x.endTs);
+  const sceneMeOutfit = scope => ((sceneSessOf(scope) || {}).meOutfit) || (profile && profile.photoOutfit) || "";
+  const wearScene = (scope, who, text, forever) => {
     const v = String(text || "").trim().slice(0, 80);
-    const charId = offlinePersonId(scopeKey), char = characters.find(c => c.id === charId);
-    if (!v || !char) return;
+    if (!v || !who) return;
     const now = Date.now();
-    if (who === "him") {
-      if (offlineIsRoom(scopeKey)) {
-        const prev = roomStatesRef.current[scopeKey] || {}, patch = {};
+    const char = who === "me" ? null : characters.find(c => c.id === who);
+    if (who !== "me" && !char) return;
+    if (char) {
+      if (scope.scopeKey && offlineIsRoom(scope.scopeKey)) {
+        const prev = roomStatesRef.current[scope.scopeKey] || {}, patch = {};
         putLiveField(patch, prev, "wearing", v, now);
-        const next = { ...roomStatesRef.current, [scopeKey]: { ...prev, ...patch, ts: now } };
+        const next = { ...roomStatesRef.current, [scope.scopeKey]: { ...prev, ...patch, ts: now } };
         roomStatesRef.current = next; setRoomStates(next); saveJSON("x_roomStates", next);
       } else {
-        const live = statesRef.current[charId] || {}, patch = {};
+        const live = statesRef.current[char.id] || {}, patch = {};
         putLiveField(patch, live, "wearing", v, now);
-        setStateFor(charId, { ...live, ...patch, ts: now });
+        setStateFor(char.id, { ...live, ...patch, ts: now });
       }
     } else {
-      pOffline(scopeKey, list => list.map(x => x.endTs ? x : { ...x, meOutfit: v }));
+      const put = list => list.map(x => x.endTs ? x : { ...x, meOutfit: v });
+      if (scope.groupId) pGOffline(scope.groupId, put); else pOffline(scope.scopeKey, put);
       if (forever) {
         const p = { ...profile, photoOutfit: v };
         setProfile(p); saveJSON("x_profile", p);
         if (maskPrimary) saveMasks((masksRef.current || []).map(x => x.id === maskPrimary ? Object.assign({}, p, { id: maskPrimary }) : x));
       }
     }
-    pushOffMsg(scopeKey, { id: "n_" + now, role: "narration", content: who === "him" ? (char.remark || char.name) + "换上了" + v + "。" : "你换上了" + v + "。", ts: now });
-    toast(who === "him" ? "状态卡上的穿着换好了" : (forever ? "以后出图都穿这身" : "这一场出图都穿这身"));
+    const line = { id: "n_" + now, role: "narration", content: char ? (char.remark || char.name) + "换上了" + v + "。" : "你换上了" + v + "。", ts: now };
+    if (scope.groupId) pushGOffMsg(scope.groupId, line); else pushOffMsg(scope.scopeKey, line);
+    toast(char ? "状态卡上的穿着换好了" : (forever ? "以后出图都穿这身" : "这一场出图都穿这身"));
   };
+  // 「穿什么」那一段要的料：单聊就他一个，群线下是在场的每一位
+  const wardrobeFor = (scope, people) => ({
+    people: people.filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name, sets: closetSetsOf((carryRef.current || {})[c.id]),
+      now: freshLiveStateValue(scope.scopeKey ? liveStateForScope(c.id, scope.scopeKey) : (statesRef.current[c.id] || {}), "wearing") })),
+    me: { sets: closetSetsOf(myClosetRef.current), now: sceneMeOutfit(scope) }
+  });
   // 这个人住的那个架空世界的风景参考（她 2026-10-02）：按这一格画面挑最对得上的那张 {img,label}。
   //   住在现实、或世界没传图 → null。
   const worldRefFor = (c, text) => {
@@ -7500,7 +7512,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 原始参考照永远比生成图可信，只有完全没有参考照时才让生成图临时当锚。
       const sessList = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[scopeKey] || []);
       const sess = sessList.find(x => !x.endTs) || { msgs: [] };
-      if (!groupId && sess.meOutfit) me.outfit = sess.meOutfit;   // 这一场她挑的那身，顶掉固定锁和衣柜
+      if (sess.meOutfit) me.outfit = sess.meOutfit;   // 这一场她挑的那身，顶掉固定锁和衣柜（单聊群里同一条）
       const prevShot = (sess.msgs || []).slice().reverse()
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid
           && (!groupId || String(m.senderId || "") === String(char.id))
@@ -7563,7 +7575,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const withRef = groupMembers(group).filter(c => c && c.refPhoto);
     const cast = withRef.slice(0, (profile && profile.refPhoto) ? 3 : 4)
       .map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
-    if (profile && profile.refPhoto) cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto, outfit: (profile && profile.photoOutfit) || "", closet: myClosetText() });
+    if (profile && profile.refPhoto) cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto, outfit: sceneMeOutfit({ groupId }), closet: myClosetText() });
     if (cast.length < 2 || !withRef.length) { toast("合影要在场至少两个人有参考照，才能把脸都锁住——去给他们（或你自己）各传一张", 9000); return; }
     const shooter = withRef[0];
     const st = statesRef.current[shooter.id] || {};
@@ -8503,7 +8515,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (_shooter && b.photo.kind === "group") {
             const withRef = [_shooter].concat((gCtx.members || []).filter(c => c.id !== _shooter.id)).filter(c => c && c.refPhoto);
             _cast = withRef.slice(0, (profile && profile.refPhoto) ? 3 : 4).map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
-            if (profile && profile.refPhoto) _cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto, outfit: (profile && profile.photoOutfit) || "", closet: myClosetText() });
+            if (profile && profile.refPhoto) _cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto, outfit: sceneMeOutfit({ groupId: group.id }), closet: myClosetText() });
           }
           if (_shooter) runOfflineShot({ char: _shooter, groupId: group.id, kind: b.photo.kind, scene: b.photo.scene, cast: _cast });
         }
@@ -9729,7 +9741,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekPendingRef = useRef({});
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
-  const dateWhenText = w => { if (!w) return ""; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
+  const dateWhenText = w => { if (!w) return ""; if (w.text && !w.date) return String(w.text).slice(0, 24); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
     return (m ? (+m[2]) + "月" + (+m[3]) + "日（周" + "日一二三四五六"[d.getDay()] + "）" : "") + (w.time ? " " + w.time : ""); };
   const sendDateInvite = (char, place, v) => {
     if (!char || !place) return;
@@ -9758,6 +9770,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const r = char && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(char, worldsRef.current || []) : null;
     if (r && r.kind === "world" && r.world) (r.world.regions || []).forEach(g => (g.nodes || []).forEach(nd => put(nd && nd.name, nd && nd.hook, r.world.name)));
     return out.slice(0, 40);
+  };
+  // TA主动约她（她 2026-10-02 拍板）：跟她约TA是同一张卡，方向反过来。三天最多一回，还挂着一张没回的就不再约
+  const charInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateask" && m.state === "pending" && Date.now() - (m.ts || 0) < 3 * 86400000);
+  const dateAskReady = charId => { const a = loadJSON("x_dateAskLast", {}) || {}; return Date.now() - (a[charId] || 0) > 3 * 86400000; };
+  // 她在TA那张邀约上点「好」或「改天」：卡上的字跟着改，TA下一轮从记录里就看得到她怎么回的；答应了这地方钉进你俩的城
+  const answerDateAsk = (charId, m, yes) => {
+    const pl = (m && m.place) || {};
+    pChat(charId, p => p.map(x => x && m && x.id === m.id ? { ...x, state: yes ? "accepted" : "declined", content: x.content + (yes ? "（她答应了）" : "（她说改天）") } : x));
+    if (yes && pl.name && window.DatePlaces && !window.DatePlaces.list(charId).some(x => x.name === pl.name)) window.DatePlaces.add(pl.name, pl.note || "", charId, charId);
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
   // 旧版大家共用的那座城，按「约过谁」认领一次（by、去过记录 DatePlaces 自己看）
@@ -9793,7 +9814,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const char = (characters || []).find(x => x.id === charId);
     if (!char || !m || !m.place) return;
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: "gone" } : x));
-    await startOffline(charId, { datePlace: { name: m.place.name, note: m.place.note || "", how: "date" }, opening: "你约了 " + char.name + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
+    const _byHim = m.kind === "dateask";
+    await startOffline(charId, { datePlace: { name: m.place.name, note: m.place.note || "", how: "date" }, opening: _byHim
+      ? char.name + " 约了你" + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，你答应了。此刻你们都到了。"
+      : "你约了 " + char.name + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
     setOfflineChar(char);
   };
   // TA开口要看手机（她 2026-10-02）：一天最多要一回，卡片上她点给／不给
@@ -10562,6 +10586,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && phoneAskReady(charId) && (_moodNeg || _harsh) && Math.random() < 0.5) {
         openCaps.push("askPhone");
         capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
+      }
+      // TA主动约她出来（她 2026-10-02）：只在不闹别扭、没有挂着的邀约、三天没约过时偶尔给一次
+      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && !_moodNeg && !_harsh && !_inv && !charInviteOf(charId) && dateAskReady(charId) && Math.random() < 0.1) {
+        openCaps.push("dateAsk");
+        const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
+        capState.push("dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
+          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + "没这个心思就别填；话照常写在 word 里。");
       }
       // 申请信（v74.507）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
@@ -11737,6 +11768,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const yes = rsvpYes(parsed.dateReply);
           pChat(charId, p => p.map(x => x.id === inv.id ? { ...x, state: yes ? "accepted" : "declined" } : x));
           if (yes) pChat(charId, p => [...p, rsvpReceipt(inv, null)]);
+          delivered = true;
+        }
+      }
+      if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && dateAskReady(charId) && !charInviteOf(charId)) {
+        const da = parsed.dateAsk, nm = String(da.place || "").trim().slice(0, 24);
+        if (nm) {
+          const nt = String(da.note || "").trim().slice(0, 60), wt = String(da.when || "").trim().slice(0, 24), say = String(da.say || "").trim().slice(0, 60);
+          pChat(charId, p => [...p, { id: "cinv_" + Date.now(), role: "assistant", kind: "dateask", place: { name: nm, note: nt }, when: wt ? { text: wt } : null, say, state: "pending",
+            content: "[约会邀请] 约你" + (wt ? wt + " " : "") + "在「" + nm + "」见面" + (nt ? "（" + nt + "）" : "") + (say ? "——" + say : ""), ts: Date.now() + 2 }]);
+          try { const a = loadJSON("x_dateAskLast", {}) || {}; a[charId] = Date.now(); saveJSON("x_dateAskLast", a); } catch (e) {}
           delivered = true;
         }
       }
@@ -25524,6 +25565,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     onDateGo: m => dateGo(activeChar.id, m),
+    onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
@@ -27553,13 +27595,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSendPhoto: photo => offlineSendPhoto(activeOfflineScopeKey, photo),
     // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
     onShoot: kind => offlineShotNow(activeOfflineScopeKey, kind),
-    wardrobe: {
-      his: closetSetsOf((carryRef.current || {})[offlineChar.id]),
-      mine: closetSetsOf(myClosetRef.current),
-      hisNow: freshLiveStateValue(liveStateForScope(offlineChar.id, activeOfflineScopeKey), "wearing"),
-      meNow: (((offlinesRef.current[activeOfflineScopeKey] || []).find(x => !x.endTs) || {}).meOutfit) || (profile && profile.photoOutfit) || ""
-    },
-    onWear: (who, text, forever) => wearOffline(activeOfflineScopeKey, who, text, forever),
+    wardrobe: wardrobeFor({ scopeKey: activeOfflineScopeKey }, [offlineChar]),
+    onWear: (who, text, forever) => wearScene({ scopeKey: activeOfflineScopeKey }, who, text, forever),
     canShoot: offlinePhotoCan(offlineChar),
     canShootDuo: offlinePhotoCanDuo(offlineChar),
     onReply: txt => {
@@ -27603,6 +27640,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSend: txt => { gachaEarnGroup(offlineGroup.id, "offline"); groupOfflineSend(offlineGroup.id, txt); },
     onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
     onShoot: () => groupOfflineShotNow(offlineGroup.id),
+    // 换衣服：跟单聊同一段、同一个函数，只是在场的人不止一个（这一场只认答应来了的）
+    wardrobe: wardrobeFor({ groupId: offlineGroup.id }, (() => {
+      const _s = (groupOfflines[offlineGroup.id] || []).find(x => !x.endTs);
+      const ids = (offlineGroup.memberIds || []).filter(id => !(_s && Array.isArray(_s.present) && _s.present.length) || _s.present.includes(id));
+      return ids.map(id => characters.find(c => c.id === id));
+    })()),
+    onWear: (who, text, forever) => wearScene({ groupId: offlineGroup.id }, who, text, forever),
     canShoot: groupOfflineCanShoot(offlineGroup),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
     onAddNote: (n, long) => groupOfflineAddNote(offlineGroup.id, n, long),

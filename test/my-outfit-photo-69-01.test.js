@@ -35,8 +35,10 @@ test("照相馆那一处【不】塞衣柜——她刚挑的那身不能被顶�
 });
 
 test("群合照名单里的「我」也带着自己的衣柜和固定锁", () => {
-  assert.equal((live.match(/id: "__me", name: profile\.name \|\| "我", appearance: profile\.appearance, refPhoto: profile\.refPhoto, outfit: \(profile && profile\.photoOutfit\) \|\| "", closet: myClosetText\(\)/g) || []).length, 2,
+  assert.equal((live.match(/id: "__me", name: profile\.name \|\| "我", appearance: profile\.appearance, refPhoto: profile\.refPhoto, outfit: sceneMeOutfit\(\{ groupId[^}]*\}\), closet: myClosetText\(\)/g) || []).length, 2,
     "两处合照名单都要带上——漏一处就是「有时候有、有时候没有」");
+  // sceneMeOutfit＝这一场她在「穿什么」里挑的那身，没挑就是资料里那把固定锁（她 2026-10-02）
+  assert.match(live, /const sceneMeOutfit = scope => \(\(sceneSessOf\(scope\) \|\| \{\}\)\.meOutfit\) \|\| \(profile && profile\.photoOutfit\) \|\| "";/);
 });
 
 test("提示词那头按 固定锁 ＞ 衣柜 ＞ 自由搭 三级落", () => {

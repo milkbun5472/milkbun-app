@@ -112,14 +112,31 @@ test("群邀约散场：在场的人各记一次去过、群里留「那天」�
   assert.ok(gt.indexOf('m.kind === "datememory"') > 0 && gt.indexOf('m.kind === "datememory"') < gt.indexOf('if (m.kind === "system" || m.role === "system")'), "「那天」要排在系统提示前面，不然被吞成一行字");
 });
 
-test("线下＋里换衣服：TA那身进状态卡，我那身管这一场出图、可以固定成以后都这样；两边都落旁白", () => {
-  const i = app.indexOf("const wearOffline = ");
-  const seg = app.slice(i, app.indexOf("// 这个人住的那个架空世界的风景参考", i));
+test("线下＋里换衣服：单聊群线下共用一份；TA那身进状态卡，我那身管这一场出图、可固定；都落旁白", () => {
+  const i = app.indexOf("const wearScene = ");
+  const seg = app.slice(i, app.indexOf("const wardrobeFor = ", i));
   assert.match(seg, /putLiveField\(patch, live, "wearing", v, now\)/, "TA那身写进状态卡的穿着");
   assert.match(seg, /meOutfit: v/);
   assert.match(seg, /photoOutfit: v/, "勾了以后都这样就写进固定服装锁");
-  assert.match(seg, /role: "narration"/);
-  assert.match(app, /if \(!groupId && sess\.meOutfit\) me\.outfit = sess\.meOutfit;/, "出图时这一场挑的那身顶掉固定锁");
-  assert.match(comp, /function OfflineWardrobe\(/);
-  assert.match(comp, /"以后出图都固定这身（不勾只管这一场）"/);
+  assert.match(seg, /if \(scope\.groupId\) pushGOffMsg\(scope\.groupId, line\); else pushOffMsg\(scope\.scopeKey, line\);/);
+  assert.match(app, /if \(sess\.meOutfit\) me\.outfit = sess\.meOutfit;/);
+  assert.equal((app.match(/outfit: sceneMeOutfit\(\{ groupId/g) || []).length, 2, "群线下两处拍照也认这一场的那身");
+  assert.match(app, /wearScene\(\{ scopeKey: activeOfflineScopeKey \}, who, text, forever\)/);
+  assert.match(app, /wearScene\(\{ groupId: offlineGroup\.id \}, who, text, forever\)/);
+  assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe, onPick:/g) || []).length, 2, "单聊群线下都接同一段");
+  assert.equal((comp.match(/^function OfflineWardrobe\(/gm) || []).length, 1);
+});
+
+test("TA主动约她：偶尔给、不闹别扭时给、三天一回、挂着没回的不再约；同一张卡，她点好／改天，答应了钉进你俩的城", () => {
+  const i = app.indexOf('openCaps.push("dateAsk")');
+  const gate = app.slice(app.lastIndexOf("if (", i), i);
+  assert.match(gate, /!_moodNeg && !_harsh/);
+  assert.match(gate, /!charInviteOf\(charId\) && dateAskReady\(charId\) && Math\.random\(\) < 0\.1/);
+  assert.match(app, /kind: "dateask", place: \{ name: nm, note: nt \}/);
+  assert.match(app, /saveJSON\("x_dateAskLast", a\)/);
+  const ans = app.slice(app.indexOf("const answerDateAsk"), app.indexOf("const pendingInviteOf"));
+  assert.match(ans, /（她答应了）/, "她怎么回的要留在记录里，TA下一轮看得到");
+  assert.match(ans, /window\.DatePlaces\.add\(pl\.name, pl\.note \|\| "", charId, charId\)/);
+  assert.match(comp, /ask \? "想带你去个地方。"/);
+  assert.match(comp, /m\.kind === "dateinvite" \|\| m\.kind === "datereceipt" \|\| m\.kind === "dateask"/);
 });

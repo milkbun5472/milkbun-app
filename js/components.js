@@ -8558,6 +8558,7 @@ function ChatThread({
   onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   onDateGo,      // 约会回执上的「出发」：点开才进见面
+  onDateAnswer,  // TA约她的那张卡：好／改天
   onDateInvite, invitePlaces,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
@@ -9193,7 +9194,8 @@ function ChatThread({
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
-    if (m.kind === "dateinvite" || m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
+    if (m.kind === "dateinvite" || m.kind === "datereceipt" || m.kind === "dateask") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
+      onAnswer: m.kind === "dateask" && onDateAnswer ? yes => onDateAnswer(m, yes) : null,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
@@ -12681,13 +12683,15 @@ function DateArrivePop({ m, character, onGo, onLater }) {
     onLater);
 }
 // onGoMine：群里那张邀请是她自己发的，没有回执——人齐了由她点「出发」
-function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
+// kind "dateask"：TA主动约她（她 2026-10-02）。同一张卡，方向反过来：她在卡上点「好／改天」，答应了再点出发
+function DateInviteCard({ m, character, onGo, onGoMine, onAnswer, avatar, myAvatar }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   useEffect(() => { dateHandFont(); }, []);
   const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {}, w = m.when || {};
   // 群里的那张不叫约会（她 2026-10-02：「群里的邀约就不叫约会了吧」）：换一句话、换一行小字，其余同一张
   const grp = !!(m.invitees || m.inviteMid !== undefined);
+  const ask = m.kind === "dateask";   // 他约她：封面跟她发的一样是邀请，不是回执
   const rep = m.replies || {};
   const who = character.remark || character.name || "TA";
   const ink = t.sub, line = t.line, paper = t.bg2;
@@ -12695,7 +12699,7 @@ function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
   const coverDate = md ? md[2] + "." + md[3] : "";
   const star = (x, y, r) => h("path", { d: "M" + x + " " + (y - r) + " L" + (x + r * .28) + " " + (y - r * .28) + " L" + (x + r) + " " + y + " L" + (x + r * .28) + " " + (y + r * .28) + " L" + x + " " + (y + r) + " L" + (x - r * .28) + " " + (y + r * .28) + " L" + (x - r) + " " + y + " L" + (x - r * .28) + " " + (y - r * .28) + " Z", fill: ink, opacity: .55 });
   const heart = sz => h("svg", { width: sz, height: sz, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.4 }, h("path", { d: "M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" }));
-  const foot = mine && onGoMine && st === "pending" ? "" : mine && st === "gone" ? "已经一起去了" : mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
+  const foot = ask ? ({ accepted: "你答应了", declined: "你说了改天", gone: "已经一起去了" })[st] || "" : mine && onGoMine && st === "pending" ? "" : mine && st === "gone" ? "已经一起去了" : mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
   const card = (kids, extra) => h("div", Object.assign({ "data-wk": "card", style: { position: "relative", width: 200, background: paper, border: "1px solid " + line, borderRadius: 12, boxShadow: "0 1px 0 " + line + ", 0 6px 16px rgba(0,0,0,.07)" } }, extra || {}), kids);
   // 合上：素封面——角上一个蝴蝶结、两颗星，中间一颗心、一道细线、日子
   const cover = card([
@@ -12704,11 +12708,11 @@ function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
       h("path", { d: "M14 168 C 22 210, 46 236, 84 240", fill: "none", stroke: ink, strokeWidth: .8, opacity: .45 }),
       star(132, 58, 5), star(30, 214, 5)),
     h("div", { key: "body", style: { position: "relative", height: 250, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, letterSpacing: ".22em", color: ink, paddingLeft: ".22em" } }, mine ? "FOR YOU" : "SEE YOU"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, letterSpacing: ".22em", color: ink, paddingLeft: ".22em" } }, mine || ask ? "FOR YOU" : "SEE YOU"),
       h("div", { style: { marginTop: 10, display: "flex", justifyContent: "center" } }, heart(20)),
       h("div", { style: { width: 26, height: 1, background: ink, opacity: .5, margin: "14px 0" } }),
       coverDate ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: ".25em", color: ink } }, coverDate) : null,
-      h("div", { style: { position: "absolute", right: 14, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".2em", color: t.fog, textAlign: "right", lineHeight: 1.6 } }, "A SMALL", h("br"), mine ? "INVITATION" : "REPLY"))
+      h("div", { style: { position: "absolute", right: 14, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".2em", color: t.fog, textAlign: "right", lineHeight: 1.6 } }, "A SMALL", h("br"), mine || ask ? "INVITATION" : "REPLY"))
   ], { onClick: () => setOpen(true), className: "active:opacity-90", role: "button" });
   const row = (icon, text, last) => h("div", { className: "flex items-center", style: { gap: 10, padding: "8px 0", borderBottom: last ? "none" : "1px solid " + line } },
     h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, icon),
@@ -12724,18 +12728,22 @@ function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
   const inside = card([
     h("div", { key: "top", style: { position: "relative", padding: "20px 16px 14px", borderBottom: "1.5px dashed " + line, textAlign: "center" } },
       h("svg", { width: 24, height: 24, viewBox: "0 0 24 24", style: { position: "absolute", right: 10, top: 8 } }, star(12, 12, 5)),
-      h("div", { style: { fontFamily: F_HAND, fontSize: 16, lineHeight: 1.45, color: ink, whiteSpace: "nowrap" } }, mine ? (grp ? "想约大家一起出去。" : "想和你一起去约会。") : "好，那就说定了。"),
+      h("div", { style: { fontFamily: F_HAND, fontSize: 16, lineHeight: 1.45, color: ink, whiteSpace: "nowrap" } }, ask ? "想带你去个地方。" : mine ? (grp ? "想约大家一起出去。" : "想和你一起去约会。") : "好，那就说定了。"),
       h("div", { style: { marginTop: 6, display: "flex", justifyContent: "center" } }, heart(15)),
       h("div", { style: { textAlign: "right", marginTop: 2, fontFamily: F_DISPLAY, fontSize: 8, letterSpacing: ".22em", color: t.fog } }, grp ? "SEE YOU" : "DATE WITH YOU")),
     h("div", { key: "bot", style: { padding: "6px 14px 10px" } },
       row(I.pin, pl.name || "某处"),
       (m.invitees || []).length ? row(I.ppl, m.invitees.map(x => x.name + (rep[x.id] === "yes" ? " 去" : rep[x.id] === "no" ? " 不去" : " 还没回")).join(" · ")) : null,
-      w.date ? row(I.cal, dateLabel(w.date)) : null,
+      w.date ? row(I.cal, dateLabel(w.date)) : w.text ? row(I.cal, w.text) : null,
       w.time ? row(I.clk, w.time) : null,
       m.say ? row(I.pen, m.say, true) : (pl.note ? row(I.pen, pl.note, true) : null),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, foot),
-        mine && onGoMine && st === "pending" && Object.keys(rep).some(k => rep[k] === "yes") ? h("button", { onClick: onGoMine, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "带答应的人出发 →")
+        ask && st === "pending" && onAnswer ? h("span", { className: "flex", style: { gap: 14 } },
+            h("button", { onClick: () => onAnswer(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "4px 0", minHeight: 30 } }, "改天"),
+            h("button", { onClick: () => onAnswer(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0", minHeight: 30 } }, "好"))
+        : ask && st === "accepted" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →")
+        : mine && onGoMine && st === "pending" && Object.keys(rep).some(k => rep[k] === "yes") ? h("button", { onClick: onGoMine, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "带答应的人出发 →")
         : !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →")
           : h("button", { onClick: () => setOpen(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0 4px 8px", minHeight: 30 } }, "合上")))
   ]);
@@ -14084,28 +14092,33 @@ function OfflineSetupStyleEditor({ t, editor }) {
         h("button", { onClick: saveCustomStyle, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"));
 }
 
-// 线下＋里那一段「穿什么」：先挑给谁换，再从那个人的衣柜里挑一身，或者自己写一句
-function OfflineWardrobe({ t, cName, wardrobe, who, setWho, own, setOwn, forever, setForever, onPick }) {
-  const w = wardrobe || {};
-  const sets = who === "him" ? (w.his || []) : who === "me" ? (w.mine || []) : [];
+// 线下＋里那一段「穿什么」（单聊和群线下共用这一份）：先挑给谁换，再从那个人的衣柜里挑一身，或者自己写一句
+//   wardrobe = { people: [{ id, name, now, sets }], me: { now, sets } }；onPick(谁的 id 或 "me", 那一身, 以后都固定)
+function OfflineWardrobe({ t, wardrobe, onPick }) {
+  const [who, setWho] = useState(null);
+  const [own, setOwn] = useState("");
+  const [forever, setForever] = useState(false);
+  const w = wardrobe || {}, people = w.people || [], me = w.me || {};
+  const cur = who === "me" ? me : people.find(p => p.id === who) || null;
+  const sets = (cur && cur.sets) || [];
+  const pick = text => { onPick(who, text, who === "me" && forever); setWho(null); setOwn(""); };
   const chip = (on) => ({ fontFamily: F_BODY, fontSize: 12.5, padding: "7px 12px", borderRadius: 999, minHeight: 36, color: on ? t.bg2 : t.ink, background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line) });
   return h("div", null,
     h("div", { style: { height: 1, background: t.line, margin: "16px 0 12px" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "穿什么"),
-    h("div", { className: "flex gap-2" },
-      h("button", { onClick: () => setWho(who === "him" ? null : "him"), className: "flex-1 active:opacity-70", style: chip(who === "him") }, "给" + cName + "换"),
-      h("button", { onClick: () => setWho(who === "me" ? null : "me"), className: "flex-1 active:opacity-70", style: chip(who === "me") }, "我换")),
-    who ? h("div", { style: { marginTop: 10 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 6 } },
-        "现在：" + ((who === "him" ? w.hisNow : w.meNow) || "没记着")),
+    h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+      people.map(p => h("button", { key: p.id, onClick: () => setWho(who === p.id ? null : p.id), className: "active:opacity-70", style: Object.assign(chip(who === p.id), { flex: people.length === 1 ? 1 : "0 0 auto" }) }, "给" + p.name + "换")),
+      h("button", { onClick: () => setWho(who === "me" ? null : "me"), className: "active:opacity-70", style: Object.assign(chip(who === "me"), { flex: people.length === 1 ? 1 : "0 0 auto" }) }, "我换")),
+    cur ? h("div", { style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, "现在：" + (cur.now || "没记着")),
       sets.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 180, overflowY: "auto" } },
-        sets.map((x, i) => h("button", { key: i, onClick: () => onPick(who, x.name + (x.note ? "（" + x.note + "）" : "")), className: "active:opacity-70 text-left", style: chip(false) },
+        sets.map((x, i) => h("button", { key: i, onClick: () => pick(x.name + (x.note ? "（" + x.note + "）" : "")), className: "active:opacity-70 text-left", style: chip(false) },
           x.name, x.occasion ? h("span", { style: { fontSize: 10, opacity: 0.55, marginLeft: 4 } }, x.occasion) : null)))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (who === "him" ? cName + "的" : "你的") + "衣柜还是空的，先自己写一身"),
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (who === "me" ? "你的" : cur.name + "的") + "衣柜还是空的，先自己写一身"),
       h("div", { className: "flex gap-2", style: { marginTop: 8 } },
         h("input", { value: own, onChange: e => setOwn(e.target.value.slice(0, 80)), placeholder: "或者写一身：白衬衫、牛仔外套…", className: "flex-1 outline-none",
           style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 11px", minWidth: 0 } }),
-        h("button", { onClick: () => { if (own.trim()) onPick(who, own.trim()); }, disabled: !own.trim(), className: "active:opacity-70 disabled:opacity-30",
+        h("button", { onClick: () => { if (own.trim()) pick(own.trim()); }, disabled: !own.trim(), className: "active:opacity-70 disabled:opacity-30",
           style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 10, padding: "0 14px" } }, "换上")),
       who === "me" ? h("button", { onClick: () => setForever(!forever), className: "flex items-center gap-2 active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
         h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1px solid " + t.line, background: forever ? t.ink : "transparent", display: "inline-block" } }),
@@ -14150,9 +14163,6 @@ function OfflineMode({
   , wardrobe, onWear   // ＋里换衣服（她 2026-10-02）：TA那身进状态卡，我那身管这一场出图
 }) {
   const t = useTheme();
-  const [wearWho, setWearWho] = useState(null);   // null | "him" | "me"
-  const [wearOwn, setWearOwn] = useState("");
-  const [wearForever, setWearForever] = useState(false);
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传 onExit 就退回线上（兜底）
   const kbLift = useKbLift(); // iOS 键盘弹起时把底部输入栏顶上来，别被键盘挡住（v47.91）
   const cName = char.remark || char.name;
@@ -14449,8 +14459,7 @@ function OfflineMode({
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给 Ta 看你手机里的一张")) : null,
       h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }),
-      onWear && wardrobe ? h(OfflineWardrobe, { t, cName, wardrobe, who: wearWho, setWho: setWearWho, own: wearOwn, setOwn: setWearOwn, forever: wearForever, setForever: setWearForever,
-        onPick: (who, text) => { onWear(who, text, who === "me" && wearForever); setWearWho(null); setWearOwn(""); setPhotoOpen(false); } }) : null)),
+      onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。「只管这两轮」用两次就停，「整场都算」一直有效到你删掉。"),
@@ -14806,6 +14815,7 @@ function GroupOfflineMode({
   canPeekMember,
   onOpenStyleLab
   , showReason
+  , wardrobe, onWear   // 换衣服：跟单聊同一段 OfflineWardrobe
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传就退回线上群（兜底）
@@ -15033,7 +15043,8 @@ function GroupOfflineMode({
         }, "拍张合影"),
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给大家看你手机里的一张")) : null,
-      h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }))),
+      h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }),
+      onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
