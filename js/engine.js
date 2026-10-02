@@ -4598,7 +4598,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
         // ⚠️原来这儿还有一句「姿势自然亲密：依偎、勾肩、贴脸、并肩、十指相扣都行」——
         //   一张菜单、排头是依偎和贴脸，模型每次就点排头那道（她 2026-09-24：「合照也都是一种姿势」）。
         //   姿势交给「场景/正在做什么」和下面掷的那一格，这儿不再列。
-        + "像真实亲密关系的人随手拍的合照。");
+        + "像真实亲密关系的人随手拍的合照。"
+        // 她 2026-10-02：同骑一匹马，她在前他在后，出图成了他在前面举手机。
+        + "两人谁前谁后、谁左谁右、谁举的手机，描述里写了就严格照它摆，别默认 TA 在前面掌镜。");
   }
   // 她 2026-08-25：「为啥生出来的图都是参考图那个角度」——一个角色参考照微微仰头看镜头，
   // 出来的图永远仰头；另一个低头平视，就永远低头平视。
@@ -6868,7 +6870,7 @@ async function generateOffline(p, ctx, session) {
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2
-      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。other 是别人拿着手机拍你：scene 里分开写清你自己此刻的样子、和拍的人从哪儿拍（比如她在马背上往下拍你牵着缰绳走）。它是上面输出形状的追加项。" : "")
+      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。other 是别人拿着手机拍你：scene 里分开写清你自己此刻的样子、和拍的人从哪儿拍（比如她在马背上往下拍你牵着缰绳走）。duo 合照：scene 里写清你俩谁在前谁在后、谁举的手机。它是上面输出形状的追加项。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
