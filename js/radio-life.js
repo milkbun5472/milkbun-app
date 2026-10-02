@@ -64,7 +64,7 @@
     });
     if (!lines.some(l => l.speakerId === scene.charId)) throw new Error("这段现场没有选中角色的声音，请重新接收。");
     return { id: uid(), kind: "life", ownerId: scene.charId, scene: { ...scene }, ordinal,
-      title: text(raw.title) || scene.title, participantIds: [...new Set(lines.map(l => l.speakerId).filter(Boolean))], lines, heard: 0, createdAt: Date.now(), savedAt: 0 };
+      title: text(raw.title) || scene.title, progress: { reached: text(raw.progress && raw.progress.reached), open: text(raw.progress && raw.progress.open) }, participantIds: [...new Set(lines.map(l => l.speakerId).filter(Boolean))], lines, heard: 0, createdAt: Date.now(), savedAt: 0 };
   }
   const heardLines = e => (e.lines || []).slice(0, Math.max(0, Number(e.heard) || 0));
   const transcript = (lines) => lines.map(l => l.speaker + "：" + l.text).join("\n");
@@ -79,6 +79,12 @@
       const raw = await generate(scene, old);
       if (Date.now() >= scene.endAt) throw new Error("接收时这段日程已经结束，这次没有写入现场；请调回现在的频率。");
       const e = accept(raw, scene, actors, old.length);
+      if (old.length) {
+        const normalize = s => String(s).replace(/[\s\p{P}\p{S}]/gu, "");
+        const spoken = new Set(old.flatMap(x => heardLines(x).map(l=>normalize(l.text))));
+        const content = e.lines.map(l=>normalize(l.text)).filter(s=>s.length >= 8);
+        if (content.length && content.filter(s=>spoken.has(s)).length / content.length >= 0.6) throw new Error("这次接到的是重复的片段，上一段仍保留。可以稍后再接后续。");
+      }
       const d = read(); d.events.push(e); write(d); return e;
     })();
     flights.set(scene.key, task);
@@ -99,9 +105,14 @@
       + "【当前日程·事实锚】\n" + JSON.stringify(scene) + "\n"
       + "写一小段正在发生的事情：按这段日程的活动、地点、临时变更和角色自己的处境展开。可以是角色独处时自然的自言自语，也可以是在场的人彼此说话；是否有人同行取决于此刻日程，无需安排别人出场。用户没有在场，也没有向现场发问。说话对象、话题与语言由实际情境和人设决定。\n"
       + "输出连续的口语台词（约8至16条，疏密随现场），能让人从内容听懂正在做什么。动作与环境放在可选的 sceneNote 里，播放器只念台词 text。speakerId 填下方名单里实际说话人的 id；人设中已有但不在名单里的生活人物可以用 speaker 写称呼、speakerId 留空。名单只是可用角色，不代表都在场；谁在场由日程与既有关系决定。\n"
-      + (previous.length ? "【这一段日程已发生的现场·接着往后走】\n" + previous.map(e => transcript(heardLines(e))).join("\n\n") : "");
+      + (previous.length ? "【续接位置·从上一段结束之后往前走】\n"
+        + "当前是第"+(previous.length+1)+"段，接入时间 "+new Date().toISOString()+"。下方原话全部已发生。此前做过的动作、得出的结果、聊过的问题是既成事实，续段从最后一幕之后开始，写出当前日程中接下来发生的新变化；换词复述同一件事不算新的进展。推进幅度按实际经过的时间与活动决定，角色独处也可以自然继续自己的事，无需为续段凭空换人、换地点或完成整张日程。\n"
+        + previous.map((e,i) => "〔第"+(i+1)+"段 · "+e.title+" · "+new Date(e.createdAt).toISOString()+"〕\n"+transcript(heardLines(e))
+          + (e.progress && e.progress.reached ? "\n本段结束时已到达："+e.progress.reached : "")
+          + (e.progress && e.progress.open ? "\n当时尚未发生的下一步/未解决处："+e.progress.open : "")).join("\n\n") : "")
+      + "\nprogress.reached 简述这段台词体现的结束位置和新增进展，progress.open 写尚未发生的下一步或未解决处；下一步只是意图，不能算已发生事实。让这一小段有自然停顿，片段结束不等于整段日程结束。";
   }
-  const schema = '{"title":"这段现场的短标题","lines":[{"speakerId":"实际说话角色的id，无id的生活人物留空","speaker":"说话人的名字或称呼","text":"现场实际说出口的台词"}]}';
+  const schema = '{"title":"这段现场的短标题","progress":{"reached":"本段结束时的实际位置与进展","open":"尚未发生的下一步或未解决处"},"lines":[{"speakerId":"实际说话角色的id，无id的生活人物留空","speaker":"说话人的名字或称呼","text":"现场实际说出口的台词"}]}';
   // 此刻现场仅在原日程有效；收藏是长期事实。按实际说话人隔离，用户听见本身不进模型。
   function contextFor(charId, opts) {
     const o = opts || {}, now = o.now || Date.now(), d = read(), id = String(charId);

@@ -33,8 +33,9 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
    window.qaPrompts.push({system,messages,tag:opts?.tag});
    if(opts?.tag==='电台现场'){
     if(window.qaFailLife){window.qaFailLife=false;throw Error('本地测试：信号暂时中断');}
-    if(window.qaLong) return JSON.stringify({title:'独处长段',lines:[{speakerId:'qa-a',speaker:'角色甲',text:'甲'.repeat(500)}]});
-    return JSON.stringify({title:'稿件的最后一页',lines:[{speakerId:'qa-a',speaker:'角色甲',text:'第二页的标注要改回去。'},{speakerId:'qa-b',speaker:'角色乙',text:'我把最后一行一起校对。'},{speakerId:'qa-a',speaker:'角色甲',text:'等核对完再装订。'}]});
+    if(window.qaLong) return JSON.stringify({title:'独处长段',lines:[{speakerId:'qa-a',speaker:'角色甲',text:(window.qaLongCount++ ? '乙':'甲').repeat(500)}]});
+    if(window.qaPrompts.filter(x=>x.tag==='电台现场').length>1) return JSON.stringify({title:'开始装订',progress:{reached:'稿页已校对，开始装订',open:'装订仍在进行'},lines:[{speakerId:'qa-a',speaker:'角色甲',text:'校对好了，接下来把这些页装订成册。'}]});
+    return JSON.stringify({title:'稿件的最后一页',progress:{reached:'第二页与末行已完成校对',open:'尚未装订'},lines:[{speakerId:'qa-a',speaker:'角色甲',text:'第二页的标注要改回去。'},{speakerId:'qa-b',speaker:'角色乙',text:'我把最后一行一起校对。'},{speakerId:'qa-a',speaker:'角色甲',text:'等核对完再装订。'}]});
    }
    if(opts?.tag==='共同电台')return JSON.stringify({lines:[{text:'这回的题目由你定，我先说刚才校稿时想到的一件事。'},{text:'你想从哪儿聊起？'}]});
    if(opts?.tag==='聊天')return JSON.stringify({word:['那份稿子确实刚校对过。你怎么听到的？'],mood:'平静',thought:'她怎么知道这件事。'});
@@ -59,7 +60,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  await page.evaluate(()=>qaAudios.at(-1).onplaying());await root.getByText('正在说…',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>qaTts[0]),{text:'第二页的标注要改回去。',voiceId:'qa-voice-a'});
  await page.evaluate(()=>qaAudios.at(-1).onended());
- await root.getByText('说完了 · 轻点继续',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'stage-ended.png')});
+ await root.getByText('这句说完了 · 轻点继续',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'stage-ended.png')});
  assert.equal(await page.evaluate(()=>qaTts.length),1,'speech completion does not advance the stream');
  await root.locator('[data-radio-transcript]').click();await page.waitForFunction(()=>qaTts.length===2);
  assert.equal(await root.getByText('第二页的标注要改回去。',{exact:true}).count(),0,'previous paragraph leaves the screen');
@@ -78,8 +79,13 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  await root.locator('[data-radio-scene]').click();await root.getByText('我把最后一行一起校对。',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>qaPrompts.filter(x=>x.tag==='电台现场').length),1,'re-enter reuses scene without charging');
  await root.locator('[data-radio-transcript]').click();await root.getByText('等核对完再装订。',{exact:true}).waitFor();
- await root.locator('[data-radio-transcript]').click();await page.waitForFunction(()=>qaPrompts.filter(x=>x.tag==='电台现场').length===2);
- await root.getByText('第二页的标注要改回去。',{exact:true}).waitFor();
+ await root.getByText('本段已结束',{exact:true}).waitFor();
+ for(let i=0;i<3;i++)await root.locator('[data-radio-transcript]').click();
+ assert.equal(await page.evaluate(()=>qaPrompts.filter(x=>x.tag==='电台现场').length),1,'tapping the last line does not generate a fresh segment');
+ await root.getByRole('button',{name:'接着听后续',exact:true}).click();await page.waitForFunction(()=>qaPrompts.filter(x=>x.tag==='电台现场').length===2);
+ await root.getByText('校对好了，接下来把这些页装订成册。',{exact:true}).waitFor();
+ const continuation=await page.evaluate(()=>qaPrompts.filter(x=>x.tag==='电台现场')[1].system);assert.match(continuation,/第二页与末行已完成校对/);assert.match(continuation,/尚未装订/);
+ await page.screenshot({path:path.join(out,'segment-ended.png')});
  // Populate collection through the actual radio writer, then verify full-page return restores its scroll.
  await page.evaluate(()=>{
   const p=qaRadioProps,c=p.characters[0],s=p.sceneFor(c);
@@ -102,15 +108,15 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
   await page.screenshot({path:path.join(out,'live-'+width+'.png')});
  }
  await root.locator('[data-watch=back]').click();
- await page.evaluate(()=>{qaLong=true;saveJSON(RadioLife.KEY,{...RadioLife.read(),events:RadioLife.read().events.filter(e=>e.savedAt).map(e=>({...e,scene:{...e.scene,key:e.scene.key+"-archived-fixture"}}))});});
+ await page.evaluate(()=>{qaLong=true;qaLongCount=0;saveJSON(RadioLife.KEY,{...RadioLife.read(),events:RadioLife.read().events.filter(e=>e.savedAt).map(e=>({...e,scene:{...e.scene,key:e.scene.key+"-archived-fixture"}}))});});
  await root.locator('[data-radio-scene]').click();await root.getByText('甲'.repeat(90),{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>RadioLife.read().events.at(-1).heard),0,'long original line stays out of facts before all pages are shown');
  for(let i=0;i<5;i++)await root.locator('[data-radio-transcript]').click();
  assert.equal(await page.evaluate(()=>RadioLife.read().events.at(-1).heard),1,'last page commits the full original line');
  assert.equal(await root.locator('[data-radio-transcript]').innerText(),'甲'.repeat(50));
- await page.evaluate(()=>qaFailLife=true);await root.locator('[data-radio-transcript]').click();await root.getByRole('alert').waitFor();
+ await page.evaluate(()=>qaFailLife=true);await root.getByRole('button',{name:'接着听后续',exact:true}).click();await root.getByRole('alert').waitFor();
  assert.ok(await root.locator('[data-radio-life-scroll]').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'failed receive does not push controls off stage');
- await root.locator('[data-radio-transcript]').click();await root.getByText('甲'.repeat(90),{exact:true}).waitFor();await root.getByRole('alert').waitFor({state:'hidden'});
+ await root.getByRole('button',{name:'接着听后续',exact:true}).click();await root.getByText('乙'.repeat(90),{exact:true}).waitFor();await root.getByRole('alert').waitFor({state:'hidden'});
  await root.locator('[data-watch=back]').click();
  await root.getByRole('button',{name:'录音间',exact:true}).click();await root.getByLabel('你们的台名').fill('校稿间隙');await root.getByRole('button',{name:'建好录音间',exact:true}).click();
  await root.getByLabel('今天想聊什么').fill('我们怎么选第一期主题');await root.getByRole('button',{name:'一起试播',exact:true}).click();
@@ -125,7 +131,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  assert.ok(await page.evaluate(()=>RadioLife.read().events.some(e=>e.savedAt&&e.title==='稿件的最后一页')));
  assert.ok(await page.evaluate(()=>RadioLife.read().shows[0].episodes[0].status==='finished'));
  await page.evaluate(()=>__openFromNotif(null,'radioArchive'));await page.getByLabel('想听谁的时间线').waitFor();
- const result={passed:['real App radio generation/full persona','no auto requests','participant isolation','MiniMax character voice switching','cancel/revoke','same-schedule chat original facts','re-enter single generation','screen tap progression/continuation','collection scroll return','320/390/430 one-paragraph full-screen/no scroll','joint recording/archive','IDB reload','legacy archive'],errors};
+ const result={passed:['real App radio generation/full persona','no auto requests','participant isolation','MiniMax character voice switching','cancel/revoke','same-schedule chat original facts','re-enter single generation','segment end stops taps/explicit continuation with saved progress','collection scroll return','320/390/430 one-paragraph full-screen/no scroll','joint recording/archive','IDB reload','legacy archive'],errors};
  fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(result,null,2));assert.deepEqual(errors,[]);console.log(JSON.stringify(result));
  await ctx.close();
  } finally {await browser.close();server.close();}

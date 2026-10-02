@@ -16,6 +16,7 @@
     const stageLine = event && event.lines[position >= 0 ? position : Math.max(0,event.heard-1)];
     const stageChunks = stageLine ? Array.from(stageLine.text).join("").match(/[\s\S]{1,90}/gu) || [""] : [];
     const stageText = stageChunks[pageIndex] || "";
+    const atEnd = !!event && position === event.lines.length-1 && pageIndex === stageChunks.length-1 && event.heard === event.lines.length;
     const shownLines = event ? R.heardLines(event) : episode ? episode.lines : [];
     const notify = () => refresh(n => n + 1);
     const stop = () => { token.current++; if (speech.current) speech.current.cancel(); speech.current = null; if (alive.current) { setPlaying(false); setAudioState(""); } };
@@ -63,12 +64,13 @@
       }
     });
     const next = () => {
+      if (atEnd) return;
       stop();
       if (!event || !scene || event.scene.key !== scene.key) return;
       if (pageIndex + 1 < stageChunks.length) { setPageIndex(pageIndex+1); if (pageIndex+1 === stageChunks.length-1 && position === event.heard) { R.reveal(event.id,position); notify(); } if(sound) play([{...stageLine,text:stageChunks[pageIndex+1]}],0,"",position); return; }
       const at = Math.max(0,position) + 1;
       if (at < event.lines.length) { setPageIndex(0); if(Array.from(event.lines[at].text).length <= 90) R.reveal(event.id, at); setPosition(at); notify(); if (sound) play([{...event.lines[at],text:Array.from(event.lines[at].text).slice(0,90).join("")}], 0, "", at); }
-      else receive(true);
+      // 最后一句停在本段结尾；后续只能从单独的文字入口接入。
     };
     const advance = () => {
       if (lock.current || mode !== "live" || detail) return;
@@ -80,7 +82,7 @@
       const version = token.current; setPlaying(true); setAudioState("正在准备声音…"); setError("");
       const step = index => {
         if (!alive.current || version !== token.current) return;
-        if (index >= lines.length) { setPlaying(false); setAudioState("说完了 · 轻点继续"); speech.current = null; return; }
+        if (index >= lines.length) { setPlaying(false); setAudioState("这句说完了 · 轻点继续"); speech.current = null; return; }
         if (liveId) {
           const current = char && p.sceneFor(char);
           if (!current || !event || current.key !== event.scene.key) { stop(); return; }
@@ -155,8 +157,10 @@
           h("div", {className:"flex-1 min-h-0 flex flex-col items-center justify-center",style:{gap:14,padding:"12px 0"}},
             h(Avatar, {character:chars.find(c=>c.id===stageLine?.speakerId) || {name:stageLine?.speaker},size:64,radius:999}),
             h("div", {style:{fontSize:15,color:accent}}, stageLine && stageLine.speaker),
+            h("div", {style:{fontSize:11,opacity:.55}}, "第"+(event.ordinal+1)+"段 · "+(position+1)+" / "+event.lines.length),
             h("div", {"data-radio-transcript":true,"data-radio-line":position,style:{fontSize:18,lineHeight:1.8,whiteSpace:"pre-wrap",overflowWrap:"anywhere",maxWidth:420}}, stageText)),
-          h("div", {role:"status","aria-live":"polite","data-radio-audio-status":true,style:{fontSize:12,color:accent,minHeight:24,flexShrink:0}}, busy ? "电波正在接续…" : sound ? audioState || "轻点屏幕，继续听" : "轻点看下一段"),
+          h("div", {role:"status","aria-live":"polite","data-radio-audio-status":true,style:{fontSize:12,color:accent,minHeight:24,flexShrink:0}}, busy ? "电波正在接续…" : atEnd ? (sound && playing ? "本段最后一句 · "+audioState : "本段已结束") : sound ? audioState || "轻点屏幕，继续听" : "轻点看下一句"),
+          atEnd && current && btn("接着听后续", () => receive(true), false, {background:"transparent",border:0,padding:"6px 8px",fontSize:12,flexShrink:0,color:accent}),
           h("div", {className:"shrink-0",style:{display:"flex",justifyContent:"center",gap:20,padding:"10px 0 2px"}},
             btn(sound ? "静音" : "朗读", () => { stop(); setSound(!sound); if (!sound && stageLine) play([{...stageLine,text:stageText}],0,"",position); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:12}),
             btn(event.savedAt ? "已收藏" : "收藏", () => run(async () => R.keep(event.id, !event.savedAt)), !event.heard, {background:"transparent",border:0,padding:"6px 8px",fontSize:12}),
