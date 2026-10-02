@@ -207,8 +207,10 @@ test("线下暂离的提醒都撤了（她：我知道我还在线下）", () =>
 
 test("从哪儿退下回回哪儿：线下「离开」记 offline、切回「说话」记 online；点进来 offline 且那场还在就回线下", () => {
   assert.match(app, /const LAST_PLACE_KEY = "x_chatLastPlace";/);
-  assert.match(app, /const backToScene = lastPlaceOf\(cid\) === "offline" && hasActive;/);
-  assert.match(app, /const backToScene = lastPlaceOf\("g:" \+ gid\) === "offline" && hasActive;/);
+  // v74.547：回哪边看最晚那一条；一样晚才看上次停在哪
+  assert.match(app, /const backToScene = hasActive && placeByLatest\(list, chatsRef\.current\[cid\], lastPlaceOf\(cid\)\);/);
+  assert.match(app, /const backToScene = hasActive && placeByLatest\(list, groupChatsRef\.current\[gid\], lastPlaceOf\("g:" \+ gid\)\);/);
+  assert.match(app, /return offTs > onTs \|\| \(offTs === onTs && lastPlace === "offline"\);/);
   assert.match(app, /if \(!settingsFor\(cid\)\.defaultOffline && !backToScene\) return;/);
   assert.match(app, /onExit: \(\) => \{ if \(offlineRoomId === "main" && offlineChar\) setLastPlace\(offlineChar\.id, "offline"\);/);
   assert.match(app, /onClose: \(\) => \{ if \(offlineRoomId === "main" && offlineChar\) setLastPlace\(offlineChar\.id, "online"\);/);

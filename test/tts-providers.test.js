@@ -99,3 +99,10 @@ test("Fish 回 400 ERR_VOICE_NOT_FOUND 也要说成「声音 ID 不对」", asyn
   const e = load({}, async () => ({ ok: false, status: 400, text: async () => '{"retryable":false,"code":"ERR_VOICE_NOT_FOUND"}' }));
   await assert.rejects(e.ttsSynthOther({ provider: "fish", fishKey: "k" }, "hi", "R", 1), /声音 ID 不对/);
 });
+
+test("MiniMax 模型：列表之外能自己填（群里问「只有 01 和 02 嘛」）", () => {
+  assert.match(scr, /const MM_MODELS = \["speech-2\.6-hd",/);
+  assert.match(scr, /h\("option", \{ value: "__custom" \}, "自己填…"\)/);
+  assert.match(scr, /const custom = !!c\.modelCustom \|\| MM_MODELS\.indexOf\(cur\) < 0;/, "存着列表外的名字时要认得出是自己填的");
+  assert.match(eng, /model: a\.model \|\| "speech-02-hd"/, "填空了就退回默认，不发空模型名");
+});

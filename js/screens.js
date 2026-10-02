@@ -8111,11 +8111,18 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: inSt }))),
       row("GroupId（MiniMax 控制台·账户信息里）", h("input", { value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "eyJ…", type: "password", style: inSt })),
-      row("模型", h("select", { value: c.model || "speech-02-hd", onChange: e => set({ model: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
-        h("option", { value: "speech-02-hd" }, "speech-02-hd（音质好·推荐）"),
-        h("option", { value: "speech-02-turbo" }, "speech-02-turbo（快·便宜）"),
-        h("option", { value: "speech-01-hd" }, "speech-01-hd"),
-        h("option", { value: "speech-01-turbo" }, "speech-01-turbo"))),
+      // 模型：列表里放常见的几个，后面再给一格手填——MiniMax 出新模型比这儿改得快（群里 2026-10-02 问「只有 01 和 02 嘛」），
+      //   官网文档上写的模型名原样填进来就能用，不用等这边加选项。
+      (() => {
+        const MM_MODELS = ["speech-2.6-hd", "speech-2.6-turbo", "speech-2.5-hd-preview", "speech-2.5-turbo-preview", "speech-02-hd", "speech-02-turbo", "speech-01-hd", "speech-01-turbo"];
+        const cur = c.model || "speech-02-hd";
+        const custom = !!c.modelCustom || MM_MODELS.indexOf(cur) < 0;
+        return row("模型（列表里没有的，选「自己填」照官网文档写模型名）", h("div", null,
+          h("select", { value: custom ? "__custom" : cur, onChange: e => set(e.target.value === "__custom" ? { modelCustom: true } : { model: e.target.value, modelCustom: false }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
+            MM_MODELS.map(id => h("option", { key: id, value: id }, id + (id === "speech-02-hd" ? "（稳·推荐）" : id === "speech-02-turbo" ? "（快·便宜）" : ""))),
+            h("option", { value: "__custom" }, "自己填…")),
+          custom ? h("input", { value: c.model || "", onChange: e => set({ model: e.target.value.trim(), modelCustom: true }), placeholder: "例如官网上新出的模型名", style: Object.assign({}, inSt, { marginTop: 6 }) }) : null));
+      })(),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。")) : null,
       h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
       // ---- 语气标记验货台 ----
