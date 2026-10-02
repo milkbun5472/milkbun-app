@@ -9947,7 +9947,7 @@ function CallScreen({
     speaking: false, ttsCtx: audioSession && audioSession.ctx, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
   // TA自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿。
-  // v74.499 起【不自己关页面】——群里报「char 挂断的话就看不到最后的消息了」：
+  // v74.499 起可以【不自己关页面】（v74.502 做成开关，默认仍自动退出）——群里报「char 挂断的话就看不到最后的消息了」：
   //   原来是等念完（没开播报就固定 1.8 秒）再自动收线，看字的人根本来不及读完最后那几句。
   //   （病历：v67.43 之前是「立刻掐掉声音 + 固定 1.8 秒收线」，开着播报时最后那句【一个字都没念出来】；
   //    2026-09-12 改成等念完再收，2026-09-16 又补了嘴被 lvStop 一起拆掉那一刀——可看字的人照样读不完。）
@@ -9957,17 +9957,26 @@ function CallScreen({
   const byeRef = useRef(false);
   const byeSecRef = useRef(null);
   const leaveAfterBye = () => { audioRef.current.enabled = false; lvStop(); onHangup(byeSecRef.current != null ? byeSecRef.current : secRef.current, "them"); };
+  const [stayAfterBye] = useCallStayAfterBye();
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
     byeSecRef.current = secRef.current;
     lvStop({ keepVoice: true });                // TA挂了，不再录她说话——但嘴留着，把最后一句念完
   }, [!!bye]);
+  // 自动退出（默认）：等TA把话说完再收线——队列空了、没在念、也没在合成；没开播报就留 1.8 秒。
+  // 兜底 90 秒：合成卡住/断网时也不能让这通电话永远挂不掉。缩成小窗时不管选哪个都自动收。
   useEffect(() => {
-    if (!bye || !minimized) return;
-    const tm = setTimeout(leaveAfterBye, 1800);
-    return () => clearTimeout(tm);
-  }, [!!bye, !!minimized]);
+    if (!bye || (stayAfterBye && !minimized)) return;
+    const st = lv.current;
+    const quiet = () => !audioRef.current.enabled || (!st.speaking && !st.busy && st.played >= msgsRef.current.length);
+    let done = false;
+    const finish = () => { if (done) return; done = true; leaveAfterBye(); };
+    if (quiet()) { const tm = setTimeout(finish, 1800); return () => clearTimeout(tm); }
+    const poll = setInterval(() => { if (quiet()) { clearInterval(poll); setTimeout(finish, 900); } }, 250);
+    const cap = setTimeout(() => { clearInterval(poll); finish(); }, 90000);
+    return () => { clearInterval(poll); clearTimeout(cap); };
+  }, [!!bye, !!minimized, stayAfterBye]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   // 她开口的那一刻，中间那一句就该没了——不是等TA下一句来了才换
   useEffect(() => { if (stream && sending) setSubLine(null); }, [stream, !!sending]);
@@ -11082,6 +11091,16 @@ function setCallAutoVoice(value) {
 function useCallAutoVoice() {
   return useOnlineDisplayPreference(callAutoVoice, ["x_callAutoVoice"], "archive-call-playback", setCallAutoVoice);
 }
+// TA挂断后停不停在通话页（v74.502）。她喜欢挂了就走（默认）；群里有人要留下来把最后几句读完。
+function callStayAfterBye() { return loadJSON("x_callStayAfterBye", false) === true; }
+function setCallStayAfterBye(value) {
+  if (!saveJSON("x_callStayAfterBye", value === true)) return false;
+  window.dispatchEvent(new Event("archive-call-stay"));
+  return true;
+}
+function useCallStayAfterBye() {
+  return useOnlineDisplayPreference(callStayAfterBye, ["x_callStayAfterBye"], "archive-call-stay", setCallStayAfterBye);
+}
 // iOS 的默认 ambient 会被静音键静音，即使 AudioContext 仍是 running。
 // 单/群语音与视频共用媒体路由；按 context 持有，旧通话卸载不能重置新通话。
 function routeCallAudio(owner, mode) {
@@ -11144,7 +11163,19 @@ function OnlineMediaSettings() {
         error ? "保存失败，点此重试" : auto ? "连续播报：开" : "连续播报：关")),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
       "语音和视频通话共用；拨打或接听后，按顺序播放对方的新消息。需配置音色与语音线路，合成会使用额度。这里是【还没单独设过的角色】用的默认值——每个角色的聊天设置里可以单独开关，还能再开「流式字幕」。"),
+    h(CallStayControl, null),
     h(OnlineTranslationControl, null));
+}
+function CallStayControl() {
+  const t = useTheme(), [stay, setStay] = useCallStayAfterBye(), [error, setError] = useState(false);
+  return h("div", { style: { marginTop: 14 }, "data-call-stay-setting": true },
+    h("div", { className: "flex items-center justify-between gap-3" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "TA挂断电话之后"),
+      h("button", { type: "button", "aria-pressed": stay, onClick: () => setError(!setStay(!stay)),
+        style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 9px" } },
+        error ? "保存失败，点此重试" : stay ? "留在通话页" : "自动退出")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+      "自动退出：TA最后那几句念完（没开播报就停一两秒）就收线。留在通话页：屏幕停在「TA挂断了」，最后几句留着慢慢看，点中间的「退出」再走。"));
 }
 function OnlineTranslationControl() {
   const t = useTheme();
