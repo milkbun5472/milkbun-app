@@ -227,6 +227,9 @@
     const uName = (props.profile && props.profile.name) || "我";
     const chars = props.characters || [];
     const [view, setView] = useState("setup");
+    const [videoRevision, setVideoRevision] = useState(0);
+    const setupScroll = useRef(0), setupScroller = useRef(null);
+    useEffect(() => { if (view === "setup" && setupScroller.current) setupScroller.current.scrollTop = setupScroll.current; }, [view]);
     const [saves, setSaves] = useState(loadSaves);
     const [detail, setDetail] = useState(null);
     const [charId, setCharId] = useState(chars[0] ? chars[0].id : "");
@@ -249,6 +252,10 @@
     const charOf = id => chars.find(c => c.id === id);
     const moodOf = id => { const mo = props.moods && props.moods[id]; return mo && mo.label ? String(mo.label) : ""; };
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
+    const stopSpeechRef = useRef(null);
+    stopSpeechRef.current = tp && tp.stop;
+    useEffect(() => { if (view !== "focus" && stopSpeechRef.current) stopSpeechRef.current(); }, [view]);
+    useEffect(() => { const hidden = () => { if (document.hidden && stopSpeechRef.current) stopSpeechRef.current(); }; document.addEventListener("visibilitychange", hidden); return () => document.removeEventListener("visibilitychange", hidden); }, []);
     sessRef.current = sess;
 
     const keepSession = next => { sessRef.current = next; setSess(next); persistSession(next); };
@@ -349,8 +356,11 @@
       );
     }
 
+    if (view === "video" && charOf(charId)) return h(PomodoroVideoEditor, { key: charId, character: charOf(charId), onBack: () => setView("setup"), onSaved: () => setVideoRevision(v => v + 1), toast: props.toast });
+
     if (view === "focus" && sess) {
       const c = sess.char;
+      const companion = VideoApi.media(c.id);
       const idx = noteIndex(sess, left);
       const line = (sess.pack.notes && sess.pack.notes[idx]) || fallbackPack(sess.task).notes[idx];
       const progress = Math.max(0, Math.min(1, 1 - left / Math.max(1, sess.min * 60)));
@@ -360,7 +370,9 @@
       // 剩下的分钟数：盘上的指针照这个走，跟摆桌那页拧的是同一个盘，只是现在在往回松
       const leftMin = Math.max(0, Math.ceil(left / 60));
       return h("div", { className: "h-full", style: { position: "relative", ...bg, overflow: "hidden" } },
-        h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(9,10,12,0.6),rgba(9,10,12,0.18) 43%,rgba(9,10,12,0.82))" } }),
+        companion ? h(PomodoroLoopVideo, { key: companion.videoRef, videoRef: companion.videoRef, poster: companion.imageRef, controls: true, controlStyle: { right: 22, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 130px)" }, style: { position: "absolute", inset: 0 } }) : null,
+        h("div", { style: { pointerEvents: "none", position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(9,10,12,0.6),rgba(9,10,12,0.18) 43%,rgba(9,10,12,0.82))" } }),
+        tp && c.voiceId && typeof ttsReady === "function" && ttsReady() ? h("button", { "aria-label": "点击陪伴画面听语音", onClick: () => tp.toggle("pmd-note-" + sess.startTs + "-" + idx + (sess.pausedAt ? "-pause" : ""), sess.pausedAt ? sess.pack.pause : line, c.voiceId), style: { position: "absolute", inset: 0, zIndex: 1, border: "none", background: "transparent" } }) : null,
         // 桌上那只钟：淡淡浮在中间，指针一分一分往回退
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: "46%", transform: "translate(-50%,-50%)", opacity: .17, pointerEvents: "none" } },
           h(Dial, { t: { bg2: "transparent", line: "rgba(255,255,255,.5)", ink: "#fff", fog: "rgba(255,255,255,.75)", accent: "#fff" }, min: leftMin, size: 288 })),
@@ -377,7 +389,8 @@
               transform: "rotate(-3deg)", background: "rgba(226,214,186,.6)",
               borderLeft: "1px dashed rgba(255,255,255,.55)", borderRight: "1px dashed rgba(255,255,255,.55)" } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.18em", color: "#827e75", marginBottom: 9 } }, sess.pausedAt ? "留座纸条" : "桌边纸条 · " + pad2(idx + 1)),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.55, color: "#24221e" } }, sess.pausedAt ? sess.pack.pause : line))),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.55, color: "#24221e" } }, sess.pausedAt ? sess.pack.pause : line),
+            tp && c.voiceId && typeof ttsReady === "function" && ttsReady() ? h("button", { "aria-label": "听桌边纸条", onClick: () => tp.toggle("pmd-note-" + sess.startTs + "-" + idx + (sess.pausedAt ? "-pause" : ""), sess.pausedAt ? sess.pack.pause : line, c.voiceId), style: { minHeight: 40, marginTop: 8, border: "none", padding: "0 10px", background: "transparent", color: "#827e75", fontFamily: F_BODY, fontSize: 12 } }, tp.play ? (tp.play.st === "gen" ? "正在准备声音…" : "停止语音") : "听这句 · 也可以轻点画面") : null)),
         h("div", { style: { position: "absolute", left: 22, right: 22, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)", zIndex: 4 } },
           h("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14 } },
             h("div", null,
@@ -442,7 +455,7 @@
       backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESK,
       boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
       h(Head, { zh: "番茄钟", onBack: props.onBack, right: archiveRight, bg: "transparent" }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+      h("div", { ref: setupScroller, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
         // ① 桌上那张便签：这一轮只做的一件事。写在纸上，不是写在一个输入框里。
         h("div", { style: { position: "relative", background: "#fdf6d8", padding: "16px 16px 18px",
           borderRadius: 2, boxShadow: "0 8px 20px rgba(80,60,25,.18)", transform: "rotate(-.7deg)", marginTop: 4 } },
@@ -499,6 +512,7 @@
           chars.length
             ? h("div", { className: "flex", style: { gap: 10, overflowX: "auto", paddingBottom: 4 } }, chars.map(seat))
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5e" } }, "先去『人格档案馆』建个角色，再来共桌。")),
+        cur ? h("button", { onClick: () => { setupScroll.current = setupScroller.current ? setupScroller.current.scrollTop : 0; setView("video"); }, "data-pomodoro-video-entry": "", "data-wk": "pomvideoentry", style: { width: "100%", minHeight: 48, marginTop: 14, padding: "12px 14px", textAlign: "left", border: "1px solid rgba(90,72,44,.28)", borderRadius: 3, background: "#fffdf6", color: "#3a3024", fontFamily: F_BODY, fontSize: 12 } }, VideoApi.media(cur.id) ? "动态陪伴图 · 已选好，换一段或导出" : "动态陪伴图 · 上传 / 生图，让它动起来") : null,
         // ④ 怎么陪：三张摊在桌上的小卡
         h("div", { style: { marginTop: 22 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#3a3024", marginBottom: 10 } }, "怎么陪"),

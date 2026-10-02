@@ -1,0 +1,188 @@
+// MiniMax 视频：独立配置，创建任务只由用户点击；任务编号持久化，恢复只查询。
+(function (g) {
+  "use strict";
+  const CONFIG = "x_videoApi", MEDIA = "x_pomodoro_media", JOBS = "x_pomodoro_video_jobs";
+  const DEFAULT = { enabled: false, baseUrl: "https://api.minimax.io", apiKey: "", model: "MiniMax-Hailuo-2.3-Fast", resolution: "768P", duration: 6 };
+  const MODELS = ["MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-02", "I2V-01-live", "I2V-01-Director", "I2V-01"];
+  const MOTION = "[Static shot] 人物保持原来的位置，轻轻呼吸、自然眨眼，头发轻微摆动，动作幅度很小，最后回到初始姿态，适合循环播放。";
+  function base(value) { return cleanBaseUrl(value).replace(/\/v[12](?:\/.*)?$/i, ""); }
+  function normalize(raw) {
+    const c = Object.assign({}, DEFAULT, raw || {}); c.baseUrl = base(c.baseUrl); c.apiKey = String(c.apiKey || "").trim();
+    if (!MODELS.includes(c.model)) c.model = DEFAULT.model;
+    const legacy = c.model.indexOf("I2V-") === 0;
+    if (legacy) { c.duration = 6; c.resolution = "720P"; }
+    else { c.duration = Number(c.duration) === 10 ? 10 : 6; if (!["768P", "1080P", ...(c.model === "MiniMax-Hailuo-02" ? ["512P"] : [])].includes(c.resolution)) c.resolution = "768P"; if (c.resolution === "1080P") c.duration = 6; }
+    return c;
+  }
+  const load = () => normalize(loadJSON(CONFIG, {}));
+  function save(patch) { const c = normalize(Object.assign(load(), patch)); if (!saveJSON(CONFIG, c)) throw Error("视频设置没有保存成功"); return c; }
+  const ready = c => !!((c || load()).enabled && (c || load()).apiKey && /^https?:\/\//.test((c || load()).baseUrl));
+  function patchMap(key, id, value) { const m = loadJSON(key, {}); if (value == null) delete m[id]; else m[id] = value; if (!saveJSON(key, m)) throw Error("没有保存成功，请检查本机存储空间"); return value; }
+  const media = id => loadJSON(MEDIA, {})[id] || null;
+  const job = id => loadJSON(JOBS, {})[id] || null;
+  function openStore() { return new Promise((resolve, reject) => { const r = indexedDB.open("x_companion_video", 1); r.onupgradeneeded = () => r.result.createObjectStore("video"); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); }); }
+  async function blobOp(key, value, remove) {
+    const db = await openStore();
+    try { return await new Promise((resolve, reject) => { const tx = db.transaction("video", value || remove ? "readwrite" : "readonly"), st = tx.objectStore("video"); const rq = remove ? st.delete(key) : value ? st.put(value, key) : st.get(key); let result; rq.onsuccess = () => { result = rq.result; }; tx.oncomplete = () => resolve(result || null); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || Error("视频保存中断")); }); }
+    finally { db.close(); }
+  }
+  async function request(c, path, body, signal) {
+    const controller = new AbortController(), relay = () => controller.abort(); if (signal && signal.aborted) throw new DOMException("已停止等待", "AbortError");
+    if (signal) signal.addEventListener("abort", relay, { once: true }); const timer = setTimeout(relay, 45000);
+    try {
+      const r = await fetch(base(c.baseUrl) + path, { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + c.apiKey }, body ? { "Content-Type": "application/json" } : {}), body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
+      let d; try { const raw = await r.text(); d = JSON.parse(raw.replace(/("(?:task_id|file_id)"\s*:\s*)(\d{16,})(?=\s*[,}])/g, '$1"$2"')); } catch (_) { throw Error("视频接口没有返回可读取的结果（HTTP " + r.status + "）"); }
+      if (!r.ok || (d.base_resp && Number(d.base_resp.status_code) !== 0)) throw Error((d.base_resp && d.base_resp.status_msg) || (d.error && d.error.message) || ("视频接口 HTTP " + r.status));
+      return d;
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      if (e instanceof TypeError) throw Error("视频接口连接失败，请核对站点和网络；浏览器跨域限制也可能阻止请求"); throw e;
+    } finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", relay); }
+  }
+  async function imageData(ref) {
+    if (/^data:image\/(jpeg|png|webp);base64,/i.test(ref || "") || /^https?:\/\//i.test(ref || "")) return ref;
+    const b = String(ref || "").startsWith("iv_") ? await imgVaultFetchBlob(ref) : String(ref || "").startsWith("img_") ? await idbImgGet(ref) : null;
+    if (!b) throw Error("原图不在这台设备上，请重新选择图片"); return blobToDataUrl(b);
+  }
+  async function create(id, imageRef, prompt, signal) {
+    const c = load(); if (!ready(c)) throw Error("先开启并填写视频 API"); if (job(id)) throw Error("已有视频任务，请先查询结果或明确放弃");
+    const input = await imageData(imageRef); if (!String(prompt || "").trim()) throw Error("写一下想让人物怎么动");
+    if (job(id)) throw Error("已有视频任务，请先查询结果或明确放弃");
+    const record = { baseUrl: c.baseUrl, model: c.model, imageRef, prompt: String(prompt).trim().slice(0, 2000), createdAt: Date.now(), status: "Submitting" };
+    patchMap(JOBS, id, record);
+    // 超时/断网时不能猜上游没收到：留下 Submitting，不自动补发一笔收费任务。
+    const d = await request(c, "/v1/video_generation", { model: c.model, first_frame_image: input, prompt: record.prompt, duration: c.duration, resolution: c.resolution, prompt_optimizer: false }, signal);
+    if ((signal && signal.aborted) || !job(id) || job(id).createdAt !== record.createdAt) throw new DOMException("已停止等待", "AbortError");
+    if (!d.task_id) throw Error("接口没有返回任务编号；请先到控制台核对是否已创建");
+    record.taskId = String(d.task_id); record.status = "Preparing"; return patchMap(JOBS, id, record);
+  }
+  function taskConfig(record) { const c = load(); if (!c.apiKey) throw Error("先填写视频 API 密钥"); if (base(c.baseUrl) !== record.baseUrl) throw Error("请切回创建这段视频时的站点，再查询原任务"); return c; }
+  async function query(id, signal) {
+    const record = job(id); if (!record || !record.taskId) throw Error("没有拿到任务编号，请先在控制台核对，避免重复付费");
+    if (record.draftRef) return record;
+    const c = taskConfig(record), d = await request(c, "/v1/query/video_generation?task_id=" + encodeURIComponent(record.taskId), null, signal);
+    if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) throw new DOMException("已停止等待", "AbortError");
+    record.status = d.status; if (d.file_id) record.fileId = String(d.file_id); patchMap(JOBS, id, record);
+    if (String(d.status).toLowerCase() === "fail") throw Error("视频生成失败：" + ((d.base_resp && d.base_resp.status_msg) || "请修改图片或动作后再试"));
+    if (String(d.status).toLowerCase() !== "success") return record;
+    if (!record.fileId) throw Error("任务成功但缺少视频文件编号，请稍后查询原任务");
+    const f = await request(c, "/v1/files/retrieve?file_id=" + encodeURIComponent(record.fileId), null, signal), url = f.file && f.file.download_url;
+    if (!url || !/^https?:\/\//i.test(url)) throw Error("接口没有返回可用的视频下载地址");
+    const controller = new AbortController(), relay = () => controller.abort(), timer = setTimeout(relay, 90000);
+    if (signal && signal.aborted) { clearTimeout(timer); throw new DOMException("已停止等待", "AbortError"); } if (signal) signal.addEventListener("abort", relay, { once: true });
+    try {
+      const r = await fetch(url, { signal: controller.signal }); if (!r.ok) throw Error("下载视频失败（HTTP " + r.status + "），可以查询原任务重试下载");
+      const b = await r.blob(); if (!b.size || b.size > 100 * 1024 * 1024 || /text|json|image/.test(b.type)) throw Error("返回的不是可保存的视频文件");
+      const head = new Uint8Array(await b.slice(0, 12).arrayBuffer()); const ftyp = String.fromCharCode(...head.slice(4, 8)) === "ftyp", webm = head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3; if (!ftyp && !webm) throw Error("下载内容不是 MP4 或 WebM 视频，可查询原任务重试下载");
+      const ref = "pvideo_" + record.taskId; await blobOp(ref, new Blob([b], { type: webm ? "video/webm" : "video/mp4" })); if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) { await blobOp(ref, null, true); throw new DOMException("已停止等待", "AbortError"); } record.draftRef = ref; return patchMap(JOBS, id, record);
+    } finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", relay); }
+  }
+  function wait(ms, signal) { return new Promise((resolve, reject) => { const stop = () => { clearTimeout(timer); signal.removeEventListener("abort", stop); reject(new DOMException("已停止等待", "AbortError")); }; const timer = setTimeout(() => { if (signal) signal.removeEventListener("abort", stop); resolve(); }, ms); if (signal) { if (signal.aborted) stop(); else signal.addEventListener("abort", stop, { once: true }); } }); }
+  async function poll(id, signal, onUpdate) {
+    for (let i = 0; i < 120; i++) { const r = await query(id, signal); if (onUpdate) onUpdate(r); if (r.draftRef) return r; await wait(10000, signal); }
+    throw Error("等待较久，任务编号已保留，稍后回来查询即可");
+  }
+  async function adopt(id) { const r = job(id); if (!r || !r.draftRef || !await blobOp(r.draftRef)) throw Error("还没有可保存的视频"); const previous = media(id); const value = { videoRef: r.draftRef, imageRef: r.imageRef, updatedAt: Date.now() }; patchMap(MEDIA, id, value); patchMap(JOBS, id, null); if (previous && previous.videoRef !== value.videoRef) await blobOp(previous.videoRef, null, true).catch(() => {}); return value; }
+  async function importVideo(id, file, imageRef) { if (!file || !/^video\//.test(file.type) || !file.size || file.size > 100 * 1024 * 1024) throw Error("请选择 100MB 以内的视频文件"); const ref = "pvideo_local_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7); await blobOp(ref, file); return patchMap(MEDIA, id, { videoRef: ref, imageRef: imageRef || "", updatedAt: Date.now() }); }
+  async function exportVideo(ref) { const b = await blobOp(ref); if (!b) throw Error("视频不在这台设备上，请重新导入备份"); const ext = /webm/.test(b.type) ? "webm" : /quicktime/.test(b.type) ? "mov" : "mp4"; return saveFile(new File([b], "动态陪伴图." + ext, { type: b.type || "video/mp4" })); }
+  function useVideoURL(ref) { const [url, setUrl] = useState(""); useEffect(() => { let live = true, own = ""; setUrl(""); if (ref) blobOp(ref).then(b => { if (b && live) { own = URL.createObjectURL(b); setUrl(own); } }).catch(() => {}); return () => { live = false; if (own) URL.revokeObjectURL(own); }; }, [ref]); return url; }
+  function LoopVideo({ videoRef, poster, style, controls, controlStyle }) {
+    const url = useVideoURL(videoRef), ref = useRef(null), [paused, setPaused] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    useEffect(() => { const mq = window.matchMedia("(prefers-reduced-motion: reduce)"); const sync = () => { const v = ref.current; if (!v) return; if (document.hidden || paused) v.pause(); else v.play().catch(() => {}); }; const motionChange = () => setPaused(mq.matches); sync(); document.addEventListener("visibilitychange", sync); mq.addEventListener("change", motionChange); return () => { document.removeEventListener("visibilitychange", sync); mq.removeEventListener("change", motionChange); if (ref.current) ref.current.pause(); }; }, [url, paused]);
+    return h("div", { style: Object.assign({ position: "relative" }, style), "data-pomodoro-video": "", "data-wk": "pomvideostage" },
+      url ? h("video", { ref, src: url, poster: resolveImg(poster) || undefined, muted: true, loop: true, playsInline: true, preload: "metadata", onError: () => setPaused(true), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : poster ? h("img", { src: resolveImg(poster), alt: "陪伴原图", style: { width: "100%", height: "100%", objectFit: "cover" } }) : null,
+      controls && url ? h("button", { type: "button", onClick: () => setPaused(!paused), style: Object.assign({ position: "absolute", right: 10, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", zIndex: 2, minHeight: 40, padding: "0 12px", border: "1px solid #ffffff88", background: "#24221ecc", color: "#fff", fontFamily: F_BODY }, controlStyle || {}) }, paused ? "播放画面" : "暂停画面") : null,
+      !url && videoRef ? h("div", { style: { position: "absolute", bottom: 8, left: 8, right: 8, color: "#fff", background: "#24221ecc", padding: 8, fontSize: 11 } }, "本机视频暂不可用，可在动态陪伴图里重新导入") : null);
+  }
+  function VideoApiConfig() {
+    const t = useTheme(), [c, setC] = useState(load), [err, setErr] = useState("");
+    const set = patch => { try { setC(save(patch)); setErr(""); } catch (e) { setErr(e.message); } };
+    const input = { width: "100%", minWidth: 0, minHeight: 42, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13 };
+    const row = (label, child) => h("div", { style: { display: "block", marginTop: 14, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, h("span", { style: { display: "block", marginBottom: 6 } }, label), child);
+    return h("div", { "data-video-api-config": "" },
+      h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "给图片制作一段动态陪伴画面。视频接口独立配置；只有点击生成才创建收费任务，满意后保存，循环播放不再调用。"),
+      row("开启视频生成", h("input", { type: "checkbox", "aria-label": "开启视频生成", checked: c.enabled, onChange: e => set({ enabled: e.target.checked }), style: { width: 22, height: 22 } })),
+      row("站点（与密钥申请站点配对）", h("div", { style: { display: "grid", gap: 6 } }, MINIMAX_API_SITES.map(([name, url]) => h("button", { key: url, "aria-label": name, type: "button", onClick: () => set({ baseUrl: url }), "aria-pressed": c.baseUrl === url, style: Object.assign({}, input, { textAlign: "left", borderLeft: (c.baseUrl === url ? "5px" : "1px") + " solid " + (c.baseUrl === url ? t.accent : t.line) }) }, name)))),
+      row("接口地址", h("input", { "aria-label": "视频接口地址", value: c.baseUrl, onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: input })),
+      row("视频 API 密钥", h("input", { type: "password", "aria-label": "视频 API 密钥", autoComplete: "off", value: c.apiKey, onChange: e => set({ apiKey: e.target.value }), placeholder: "填写对应站点的 API Key", style: input })),
+      row("视频模型", h("select", { "aria-label": "视频模型", value: c.model, onChange: e => set({ model: e.target.value }), style: input }, MODELS.map(m => h("option", { key: m, value: m }, m)))),
+      row("画质", h("select", { "aria-label": "视频画质", value: c.resolution, onChange: e => set({ resolution: e.target.value }), style: input }, (c.model.startsWith("I2V-") ? ["720P"] : ["768P", "1080P", ...(c.model === "MiniMax-Hailuo-02" ? ["512P"] : [])]).map(r => h("option", { key: r, value: r }, r)))),
+      row("时长", h("select", { "aria-label": "视频时长", value: c.duration, onChange: e => set({ duration: Number(e.target.value) }), style: input }, h("option", { value: 6 }, "6 秒"), !c.model.startsWith("I2V-") && c.resolution !== "1080P" ? h("option", { value: 10 }, "10 秒") : null)),
+      h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "密钥与语音设置分别保存。到番茄钟的「动态陪伴图」制作和预览；模型是否开放、费用以对应站点账户为准。"),
+      err ? h("p", { role: "alert", style: { color: t.accent } }, err) : null);
+  }
+  function PomodoroVideoEditor({ character, onBack, onSaved, toast }) {
+    const t = useTheme(), id = character.id, existing = media(id);
+    const [imageRef, setImageRef] = useState(() => { const r = job(id); return (r && r.imageRef) || (existing && existing.imageRef) || character.refPhoto || character.avatarImage || ""; });
+    const [imageURL, setImageURL] = useState(""), [motion, setMotion] = useState(() => (job(id) || {}).prompt || MOTION);
+    const [scene, setScene] = useState("坐在桌边安静陪我专注，半身构图，保留人物原来的长相与画风。");
+    const [record, setRecord] = useState(() => job(id)), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
+    const [configOpen, setConfigOpen] = useState(false), controller = useRef(null), working = useRef(false), live = useRef(true), savedScroll = useRef(0), scroller = useRef(null);
+    const localVideo = useRef(null), imagePicker = useRef(null);
+    useEffect(() => { live.current = true; return () => { live.current = false; if (controller.current) controller.current.abort(); }; }, []);
+    useEffect(() => { let active = true; imageData(imageRef).then(url => { if (active) setImageURL(url); }).catch(() => { if (active) setImageURL(""); }); return () => { active = false; }; }, [imageRef]);
+    useEffect(() => { if (!configOpen && scroller.current) scroller.current.scrollTop = savedScroll.current; }, [configOpen]);
+    const report = value => { if (live.current) setMessage(value); };
+    const run = async action => {
+      if (working.current) return; working.current = true; setBusy(true); setMessage(""); const ac = new AbortController(); controller.current = ac;
+      try { await action(ac.signal); }
+      catch (e) { if (e.name !== "AbortError") report(e.message || "暂时没有完成，请稍后再试"); }
+      finally { working.current = false; if (live.current) { setBusy(false); setRecord(job(id)); } }
+    };
+    const update = r => { if (live.current) { setRecord(r); report(r.draftRef ? "生成好了，看看动作喜欢吗？" : ({ Preparing: "正在准备画面…", Queueing: "正在排队…", Processing: "正在生成动作…", Success: "正在保存视频…" }[r.status] || "正在查询原任务…")); } };
+    const inspect = signal => poll(id, signal, update);
+    // 自动恢复只读已有任务，不调用创建接口，也不会重做已经存好的视频。
+    useEffect(() => { const r = job(id); if (r && r.taskId && !r.draftRef && r.status !== "Fail") run(inspect); }, [id]);
+    const createVideo = () => run(async signal => { const r = await create(id, imageRef, motion, signal); update(r); await inspect(signal); });
+    const storeImage = async b => {
+      if (!b || !/^image\/(jpeg|png|webp)$/.test(b.type) || b.size >= 20 * 1024 * 1024) throw Error("请选择小于 20 兆的图片（支持 jpg / png / webp）");
+      const data = await blobToDataUrl(b), dims = await new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve([im.naturalWidth, im.naturalHeight]); im.onerror = () => reject(Error("图片无法读取")); im.src = data; });
+      if (Math.min(...dims) <= 300 || dims[0] / dims[1] < .4 || dims[0] / dims[1] > 2.5) throw Error("图片短边要大于 300 像素，宽高比例请在 2:5 到 5:2 之间");
+      const ref = await imgToVault(data); if (!String(ref).startsWith("iv_")) throw Error("原图保存失败，请检查本机存储空间"); return ref;
+    };
+    const chooseImage = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { const ref = await storeImage(f); if (live.current) setImageRef(ref); report("原图已选好，点生成才会制作视频。"); }); };
+    const generateImage = () => run(async () => {
+      if (!scene.trim()) throw Error("先写一下想要的画面");
+      const out = await generateSelfieImage(scene.trim(), character.refPhoto || imageRef || null, { singleShot: true, size: "1024x1536" });
+      let b = out.blob; if (!b && out.dataUrl) b = dataUrlToBlob(out.dataUrl); if (!b && out.url) { const r = await fetch(out.url); if (!r.ok) throw Error("原图下载失败"); b = await r.blob(); }
+      const ref = await storeImage(b); if (live.current) setImageRef(ref); report("新图已保存。喜欢这张图，再点生成动画。");
+    });
+    const useDraft = () => run(async () => { await adopt(id); onSaved(); toast && toast("这段画面已设为陪伴图，以后一直用它"); onBack(); });
+    const forgetJob = () => requestAppConfirm("放弃这次视频任务？", "已经提交的任务不会取消或退款。之后重新生成会另计费；当前已选中的陪伴图保留。", () => { if (controller.current) controller.current.abort(); const old = job(id); patchMap(JOBS, id, null); if (old && old.draftRef && (!media(id) || media(id).videoRef !== old.draftRef)) blobOp(old.draftRef, null, true).catch(() => {}); setRecord(null); setMessage(""); }, "放弃任务");
+    const importLocal = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { await importVideo(id, f, imageRef); onSaved(); toast && toast("视频已导入并设为陪伴图"); onBack(); }); };
+    const btn = { minHeight: 44, padding: "10px 12px", border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, borderRadius: 3 };
+    const input = { width: "100%", minWidth: 0, padding: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, borderRadius: 3 };
+    const heading = text => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, margin: "18px 0 8px" } }, text);
+    const paper = { backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.035) 0 2px,transparent 2px 26px),linear-gradient(163deg," + t.bg + "," + t.bg2 + ")" };
+    if (configOpen) return h("div", { className: "h-full flex flex-col", style: paper }, h(Head, { zh: "视频 API", bg: "transparent", onBack: () => setConfigOpen(false) }), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } }, h(VideoApiConfig)));
+    const showRef = record && record.draftRef || existing && existing.imageRef === imageRef && existing.videoRef;
+    const exportRef = showRef || existing && existing.videoRef;
+    const showPoster = record && record.draftRef ? record.imageRef : imageRef;
+    return h("div", { className: "h-full flex flex-col", "data-pomodoro-video-editor": "", "data-wk": "pomvideoeditor", style: paper },
+      h(Head, { zh: "动态陪伴图", bg: "transparent", onBack, right: h("button", { onClick: () => { savedScroll.current = scroller.current ? scroller.current.scrollTop : 0; setConfigOpen(true); }, style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
+      h("div", { ref: scroller, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
+        h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, character.name + " 的画面：选一张喜欢的图，制作一次动画，满意后一直用。点击语音时只播放声音，画面独立循环。"),
+        showRef ? h(LoopVideo, { key: showRef, videoRef: showRef, poster: showPoster, controls: true, style: { width: "100%", aspectRatio: "3 / 4", maxHeight: 420, overflow: "hidden", borderRadius: 3, background: t.bg2 } }) : imageURL ? h("img", { src: imageURL, alt: "待制作的陪伴原图", style: { width: "100%", maxHeight: 420, objectFit: "contain", display: "block", background: t.bg2 } }) : h("div", { style: { padding: "40px 20px", background: t.bg2, textAlign: "center", color: t.sub, fontFamily: F_BODY } }, "先放一张人物图在桌上"),
+        record && record.draftRef ? h("button", { onClick: useDraft, disabled: busy, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, "满意，就一直用这段") : null,
+        h("div", { role: message ? "status" : undefined, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub, marginTop: 10, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, message || (record && !record.taskId ? "上次提交没有拿到任务编号。请先到 MiniMax 控制台核对，避免重复付费。" : "画面与声音分开保存，视频本体保存在这台设备；换设备前请导出备份。")),
+        heading("原图"),
+        h("input", { ref: imagePicker, type: "file", accept: "image/jpeg,image/png,image/webp", onChange: chooseImage, hidden: true }),
+        h("button", { disabled: busy || !!record, onClick: () => imagePicker.current.click(), style: btn }, "上传图片"),
+        h("textarea", { "aria-label": "原图画面描述", value: scene, onChange: e => setScene(e.target.value), disabled: busy || !!record, rows: 3, style: Object.assign({}, input, { marginTop: 10 }) }),
+        h("button", { disabled: busy || !!record, onClick: generateImage, style: Object.assign({}, btn, { width: "100%", marginTop: 8 }) }, "用图像 API 生成新图"),
+        heading("让它怎么动"),
+        h("textarea", { "aria-label": "视频动作描述", value: motion, onChange: e => setMotion(e.target.value), disabled: busy || !!record, maxLength: 2000, rows: 4, style: input }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, marginTop: 6 } }, "轻动作更适合专注。首尾能否自然衔接，以预览效果为准。当前：" + load().duration + " 秒 · " + load().resolution),
+        !record ? h("button", { disabled: busy || !imageRef, onClick: createVideo, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, busy ? "正在处理…" : "生成动画（按视频接口计费）") : h("div", { style: { display: "grid", gap: 8, marginTop: 12 } },
+          record.taskId && !record.draftRef ? h("button", { disabled: busy, onClick: () => run(inspect), style: btn }, busy ? "正在等待原任务…" : "查询原任务 / 重试下载") : null,
+          h("button", { onClick: forgetJob, style: btn }, record.draftRef ? "不满意，放弃这段" : "放弃任务记录")),
+        heading("已有视频也能直接用"),
+        h("input", { ref: localVideo, type: "file", accept: "video/mp4,video/webm,video/quicktime", onChange: importLocal, hidden: true }),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+          h("button", { disabled: busy || !!record, onClick: () => localVideo.current.click(), style: btn }, "导入本机视频"),
+          exportRef ? h("button", { onClick: () => run(() => exportVideo(exportRef)), disabled: busy, style: btn }, "导出视频备份") : null,
+          existing ? h("button", { disabled: busy, onClick: () => { patchMap(MEDIA, id, null); onSaved(); onBack(); }, style: btn }, "恢复静态头像") : null)));
+  }
+  g.VideoApi = { load, save, normalize, ready, create, query, poll, adopt, media, job, importVideo, exportVideo, blob: blobOp, imageData, patchMap, keys: { CONFIG, MEDIA, JOBS } };
+  g.VideoApiConfig = VideoApiConfig; g.PomodoroVideoEditor = PomodoroVideoEditor; g.PomodoroLoopVideo = LoopVideo;
+})(window);

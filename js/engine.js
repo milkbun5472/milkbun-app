@@ -5230,6 +5230,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
 // ⭐懒生成：点开那条才合成（按字符计费，没人点就不花钱）；成品存 IndexedDB(x_tts) 缓存，重播免费
 // 配置存 x_ttsApi（可云同步）；每角色音色在角色档案 voiceId 字段
 // ============================================================
+const MINIMAX_API_SITES = [["国际版 platform.minimax.io", "https://api.minimax.io"], ["国内 minimaxi.com", "https://api.minimaxi.com"], ["老国内站", "https://api.minimax.chat"]];
 function loadTtsApi() {
   // provider：minimax（默认，老存档没这个字段＝照旧）／elevenlabs／fish。三家各存各的 key 和默认音色，
   // 来回切不用重填；角色档案里的 voiceId 填的是【当前这家】的声音 ID。
