@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.513";
+const APP_VERSION = "v74.514";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23382,6 +23382,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     setGiftOut(p => { const n = [...p, { id: giftId, charId, name: itemName, arriveTs, cat: cat || null }]; giftOutRef.current = n; saveJSON("x_giftOut", n); return n; });
     toast("礼物已下单，送给 " + (char.remark || char.name) + "，在路上");
+  };
+  // 替TA付购物车（查TA手机 → 购物 → 还没舍得付）：从她钱包扣、那件变成一份礼物寄过去，车里那件不再出现
+  //   x_cartPaid = { [charId]: [title…] }（TA手机下次重写购物车时自然换掉，这里只挡住已经付过的那几件）
+  window.__phoneCart = {
+    paid: charId => (((loadJSON("x_cartPaid", {}) || {})[charId]) || []),
+    pay: (char, it) => {
+      const title = String(it.title || "").trim(), total = Math.round((Number(it.price) || 0) * (Number(it.qty) || 1) * 100) / 100;
+      if (!title || !total) return false;
+      if (total > wallet) { toast("钱包不够付这一件"); return false; }
+      changeWallet(-total, "替 " + (char.remark || char.name) + " 付了购物车里的 " + title.slice(0, 18), "shop");
+      const all = loadJSON("x_cartPaid", {}) || {}; all[char.id] = [...(all[char.id] || []), title].slice(-40); saveJSON("x_cartPaid", all);
+      sendGiftToChar(char.id, title + "（你购物车里一直没舍得付的那件）", null);
+      return true;
+    }
   };
   // 礼物送达后，TA 才 cue 到收到并做出反应
   const charReceiveGiftReact = async (charId, itemName) => {

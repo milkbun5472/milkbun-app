@@ -3390,7 +3390,19 @@ const shopMoney = (n, charId) => (typeof Money !== "undefined" && Money)
   ? Money.fmt(n, charId)
   : "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
+function CartPayBtn({ char, it, pay }) {
+  const [st, setSt] = React.useState("");   // "" → "ask" → "paid"
+  if (st === "paid") return h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, "已替TA付了，在路上");
+  return h("button", { onClick: () => { if (st !== "ask") { setSt("ask"); return; } setSt(pay(char, it) ? "paid" : ""); },
+    className: "active:opacity-75", style: { marginTop: 10, minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+      background: st === "ask" ? SHOP_MARK : "transparent", color: st === "ask" ? "#fff" : SHOP_MARK, border: "1px solid " + SHOP_MARK } },
+    st === "ask" ? "确认付 " + shopMoney((Number(it.price) || 0) * (Number(it.qty) || 1), char.id) : "替TA付了，送给TA");
+}
 function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats, drive }) {
+  // 替TA付购物车里那件（群友 2026-10-02：「查手机看到 TA 加入购物车还没买的东西，能直接帮他付款送给他」）：
+  //   点一下变「确认付 ¥X」，再点才付；付了的那件从车里消失、变成一份礼物在路上（app.js 的 window.__phoneCart）
+  //   按钮自己是个小组件（CartPayBtn）：这一屏本身不用 hook，渲染冒烟测试是直接当函数调它的
+  const PC = (typeof window !== "undefined" && window.__phoneCart) || null;
   const [tab, setTab] = useState("home");
   const [sheet, setSheet] = useState(null);
   // ── 「看TA玩」驱动（第四批）──────────────────────────────────────
@@ -3464,7 +3476,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         [it.eta, it.shop].filter(Boolean).join(" · ")),
       it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: SHOP_BODY, marginTop: 7 } }, it.why) : null)))) : null;
   // ── 购物车 ──
-  const cart = A(data.cart);
+  const paidT = PC ? PC.paid(char.id) : [];
+  const cart = A(data.cart).filter(it => !paidT.includes(String(it.title || "")));
   const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("还没舍得付", cart.length + " 件停在这儿"),
     plain(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", "data-watch": "item:" + (it.title || ""), style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
@@ -3477,7 +3490,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
           // ⚠️「满减／限时」那枚促销标不画：那是货架上的标签，不是TA的事。
           // TA为什么把这件东西一直停在车里，写在下面 why 那一行。
           null,
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1)))))))) : null;
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1))),
+        PC ? h(CartPayBtn, { char, it, pay: PC.pay }) : null))))) : null;
   // ── 一直没下手的 ─────────────────────────────────────────────
   // 原来是【两列渐变卡 + 卡里一个首字方块】：那是货架缩略图，是这一页上最后一件
   // 电商家具（审美审计 2026-09-04）。何况那个渐变色块跟东西本身毫无关系——
