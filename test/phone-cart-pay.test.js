@@ -15,5 +15,5 @@ test("付款从她钱包扣、钱不够不付，付了变成一份寄给TA的礼
   assert.match(a, /window\.__phoneCart = \{/);
   assert.match(a, /if \(total > wallet\) \{ toast\("钱包不够付这一件"\); return false; \}/);
   assert.match(a, /changeWallet\(-total, "替 "/);
-  assert.match(a, /sendGiftToChar\(char\.id, title \+ "（你购物车里一直没舍得付的那件）", null\)/);
+  assert.match(a, /sendGiftToChar\(char\.id, title \+ "（她翻你手机时看到你购物车里一直没舍得付，替你付了）", null\)/);
 });
