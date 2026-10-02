@@ -6333,6 +6333,25 @@ async function ttsSynth(text, voiceId, opts) {
   idbAudPut(key, blob).catch(() => {});
   return blob;
 }
+// 试着问 MiniMax 要语音模型清单（v74.552，她 2026-10-02：「为啥不能搞拉取模型」）。
+// ⚠️不确定它有没有这个地址：文字模型那套 /v1/models 是 OpenAI 的规矩，MiniMax 语音这边没见过文档写。
+//   所以这里只【试】：拿到了就只留名字里带 speech 的；拿不到就抛一句人话，界面照旧用内置列表＋自己填。
+async function ttsListModels(a) {
+  a = a || loadTtsApi();
+  if (!a.apiKey) throw new Error("先填密钥");
+  const base = cleanBaseUrl(a.baseUrl) || "https://api.minimax.io";
+  let r;
+  try {
+    r = await fetchT(base + "/v1/models" + (a.groupId ? "?GroupId=" + encodeURIComponent(a.groupId) : ""), { headers: { Authorization: "Bearer " + a.apiKey } }, 20000);
+  } catch (e) { throw new Error("没连上：" + String((e && e.message) || e).slice(0, 80)); }
+  const raw = await r.text().catch(() => "");
+  let d = null; try { d = JSON.parse(raw); } catch (e) {}
+  const rows = d && (Array.isArray(d.data) ? d.data : Array.isArray(d.models) ? d.models : Array.isArray(d) ? d : null);
+  if (!r.ok || !rows) throw new Error("这家没给模型清单（HTTP " + r.status + "）——照官网文档用「自己填」就行" + (raw ? "。原始返回：" + raw.replace(/\s+/g, " ").slice(0, 100) : ""));
+  const ids = rows.map(x => typeof x === "string" ? x : (x && (x.id || x.model || x.name)) || "").map(x => String(x).trim()).filter(x => /speech/i.test(x));
+  if (!ids.length) throw new Error("清单拿到了，但里面没有语音模型——照官网文档用「自己填」就行");
+  return Array.from(new Set(ids)).sort().reverse();
+}
 // ElevenLabs / Fish Audio：两家都直接回 mp3 二进制。停顿标记 <#0.5#> 是 MiniMax 的写法——
 // ElevenLabs 换成它认的 <break time="0.5s" />，Fish 不认标签，换成省略号让它自己停一下。
 // 情绪参数只有 MiniMax 有，这两家不传；语速照音色库里调的那一档。

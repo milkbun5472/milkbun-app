@@ -101,8 +101,18 @@ test("Fish 回 400 ERR_VOICE_NOT_FOUND 也要说成「声音 ID 不对」", asyn
 });
 
 test("MiniMax 模型：列表之外能自己填（群里问「只有 01 和 02 嘛」）", () => {
-  assert.match(scr, /const MM_MODELS = \["speech-2\.8-hd",/);
+  assert.match(scr, /const MM_BUILTIN = \["speech-2\.8-hd",/);
   assert.match(scr, /h\("option", \{ value: "__custom" \}, "自己填…"\)/);
   assert.match(scr, /const custom = !!c\.modelCustom \|\| MM_MODELS\.indexOf\(cur\) < 0;/, "存着列表外的名字时要认得出是自己填的");
   assert.match(eng, /model: a\.model \|\| "speech-02-hd"/, "填空了就退回默认，不发空模型名");
+});
+
+test("拉取模型：只是试；拿到了只留 speech，拿不到说人话、内置列表照旧", async () => {
+  const src = eng.slice(eng.indexOf("async function ttsListModels("), eng.indexOf("// ElevenLabs / Fish Audio"));
+  const mk = res => new Function("loadTtsApi", "cleanBaseUrl", "fetchT", src + "\nreturn ttsListModels;")(() => ({}), u => u, async () => res);
+  const ok = mk({ ok: true, status: 200, text: async () => JSON.stringify({ data: [{ id: "abab6.5" }, { id: "speech-2.8-hd" }, { id: "speech-02-hd" }] }) });
+  assert.deepEqual(await ok({ apiKey: "k" }), ["speech-2.8-hd", "speech-02-hd"]);
+  const no = mk({ ok: false, status: 404, text: async () => "not found" });
+  await assert.rejects(no({ apiKey: "k" }), /自己填/);
+  assert.match(scr, /const MM_MODELS = Array\.from\(new Set\(\[\.\.\.\(Array\.isArray\(c\.mmModels\) \? c\.mmModels : \[\]\), \.\.\.MM_BUILTIN\]\)\);/);
 });

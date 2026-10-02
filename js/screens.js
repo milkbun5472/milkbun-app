@@ -8114,13 +8114,19 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       // 模型：列表里放常见的几个，后面再给一格手填——MiniMax 出新模型比这儿改得快（群里 2026-10-02 问「只有 01 和 02 嘛」），
       //   官网文档上写的模型名原样填进来就能用，不用等这边加选项。
       (() => {
-        const MM_MODELS = ["speech-2.8-hd", "speech-2.8-turbo", "speech-2.6-hd", "speech-2.6-turbo", "speech-2.5-hd-preview", "speech-2.5-turbo-preview", "speech-02-hd", "speech-02-turbo", "speech-01-hd", "speech-01-turbo"];
+        const MM_BUILTIN = ["speech-2.8-hd", "speech-2.8-turbo", "speech-2.6-hd", "speech-2.6-turbo", "speech-2.5-hd-preview", "speech-2.5-turbo-preview", "speech-02-hd", "speech-02-turbo", "speech-01-hd", "speech-01-turbo"];
+        // 拉取到的放前面、跟内置的合并去重；拉取结果存进配置，下次打开还在
+        const MM_MODELS = Array.from(new Set([...(Array.isArray(c.mmModels) ? c.mmModels : []), ...MM_BUILTIN]));
         const cur = c.model || "speech-02-hd";
         const custom = !!c.modelCustom || MM_MODELS.indexOf(cur) < 0;
         return row("模型（列表里没有的，选「自己填」照官网文档写模型名）", h("div", null,
           h("select", { value: custom ? "__custom" : cur, onChange: e => set(e.target.value === "__custom" ? { modelCustom: true } : { model: e.target.value, modelCustom: false }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
             MM_MODELS.map(id => h("option", { key: id, value: id }, id + (id === "speech-02-hd" ? "（稳·推荐）" : id === "speech-02-turbo" ? "（快·便宜）" : ""))),
             h("option", { value: "__custom" }, "自己填…")),
+          h("button", { onClick: async () => {
+              try { const ids = await ttsListModels(c); set({ mmModels: ids }); toast && toast("拉到 " + ids.length + " 个语音模型"); }
+              catch (e) { toast && toast(String((e && e.message) || e)); }
+            }, className: "active:opacity-70", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "6px 12px" } }, "拉取模型"),
           custom ? h("input", { value: c.model || "", onChange: e => set({ model: e.target.value.trim(), modelCustom: true }), placeholder: "例如官网上新出的模型名", style: Object.assign({}, inSt, { marginTop: 6 }) }) : null));
       })(),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。")) : null,
