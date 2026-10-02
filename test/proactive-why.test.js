@@ -10,7 +10,10 @@ test("每道闸都记下原因", () => {
 });
 test("条子下面写出来", () => {
   assert.match(c, /const proactiveWhyLine = \(\) =>/);
-  assert.match(c, /"现在卡在："/);
+  assert.match(c, /"照闸门推："/);
+  assert.match(c, /"后台上一次看到的："/);
+  assert.match(a, /window\.__pTick = \{ start: Date\.now\(\)/);
+  assert.match(a, /window\.__pTick\.loop = Date\.now\(\)/);
 });
 test("打开页面当场查一遍，不等后台那一轮", () => {
   assert.match(a, /const proactiveWhyNow = cid =>/);

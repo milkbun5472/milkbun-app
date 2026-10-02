@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.531";
+const APP_VERSION = "v74.532";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6580,6 +6580,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   useEffect(() => {
     const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
     const tick = () => {
+      // 后台这一轮跑没跑、走没走到主动消息那一段（她 2026-10-02：「过了五分钟还是不发」——页面上要看得见）
+      try { window.__pTick = { start: Date.now(), loop: (window.__pTick || {}).loop || 0, active: !!active }; } catch (e) {}
       if (!active) return;
       const dayKey = schedDayKey(new Date());
       // —— 生日主动祝福：今天是用户生日 → 能看到你日历、真在聊的角色主动祝一次（每年每人一次，只白天发）——
@@ -6830,6 +6832,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } catch (e) {}
       try {
         for (const c of characters) {
+          try { window.__pTick.loop = Date.now(); } catch (e) {}
           const cid = c.id;
           const s = settingsFor(cid);
           if (!autoRefreshOn("proactive", cid)) pWhy(cid, "「允许 Ta 主动发消息」关着");

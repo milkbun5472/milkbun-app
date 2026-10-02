@@ -17173,13 +17173,20 @@ function ChatSettings({
   // 上一次归零是被什么清的（她 2026-09-14：想我莫名其妙就没了，我猜了两回都不对——
   // 与其继续猜，不如让它自己说）。没归过零就不出现，不占地方。
   const proactiveWhyLine = () => {
-    // 当场查一遍；查不了再退回后台那一轮记下的
+    // 两样都写：① 照闸门顺序当场推一遍；② 后台那一轮真走到哪儿、停在TA身上的原因（她 2026-10-02：「过了五分钟还是不发」）
     let now = ""; try { now = window.__proactiveWhyNow ? window.__proactiveWhyNow(character.id) : ""; } catch (e) {}
     const w = (typeof window !== "undefined" && window.__proactiveWhy || {})[character.id];
-    const last = w && /发出去|没发成|出错/.test(w.why) ? "（上一次：" + w.why + "，" + Math.max(0, Math.round((Date.now() - w.ts) / 60000)) + " 分钟前）" : "";
-    if (!now && !w) return null;
+    const pt = (typeof window !== "undefined" && window.__pTick) || null;
+    const ago = ts => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m ? m + " 分钟前" : "刚刚"; };
+    let bg = "";
+    if (!pt) bg = "后台检查还没跑过（刚打开 app 的话等一分钟）";
+    else if (Date.now() - pt.start > 3 * 60000) bg = "后台检查 " + ago(pt.start) + "跑过一次，之后没再跑——app 可能在后台被停了";
+    else if (!pt.active) bg = "后台检查在跑，但没配好模型 API，主动这一路不走";
+    else if (!pt.loop || pt.start - pt.loop > 60000) bg = "后台检查在跑，但这几轮没走到「主动发消息」那一段——被别的到点的事（生日、提醒、约好的事、天气）先占了";
+    else if (w) bg = "后台上一次看到的：" + w.why + "（" + ago(w.ts) + "）";
+    if (!now && !bg) return null;
     return h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 10, lineHeight: 1.7, padding: "8px 10px", borderRadius: 8, background: t.bg2 } },
-      "现在卡在：" + (now || w.why) + last); };
+      now ? "照闸门推：" + now : null, now && bg ? h("br") : null, bg || null); };
   const renderDongnianWhy = () => {
     if (!dongnianWhy || !dongnianWhy.ts) return null;
     const d = new Date(dongnianWhy.ts);
