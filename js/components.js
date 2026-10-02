@@ -12558,21 +12558,21 @@ function LoveLetterCard({ m, character, onOpen, onAnswer }) {
   const c = character || {}, st = m.state || "sealed";
   const nm = c.remark || c.name || "TA";
   if (st === "sealed") return h("div", { className: "py-1 flex justify-start" },
-    h("button", { onClick: onOpen, "aria-label": "拆开" + nm + "的信", className: "active:opacity-80",
+    h("button", { "data-wk": "letter", "data-state": "sealed", onClick: onOpen, "aria-label": "拆开" + nm + "的信", className: "active:opacity-80",
       style: { width: 220, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: 0, overflow: "hidden" } },
-      h("div", { style: { position: "relative", height: 92, background: (c.color || "#c98a8a") + "22", borderBottom: "1px solid " + t.line } },
+      h("div", { "data-wk": "letterseal", style: { position: "relative", height: 92, background: (c.color || "#c98a8a") + "22", borderBottom: "1px solid " + t.line } },
         h("svg", { viewBox: "0 0 220 92", width: "100%", height: "100%", style: { display: "block" } },
           h("path", { d: "M1 1 L110 58 L219 1", fill: "none", stroke: t.line, strokeWidth: 1.2 })),
-        h("div", { style: { position: "absolute", left: "50%", top: 44, transform: "translate(-50%,-50%)", width: 26, height: 26, borderRadius: 999, background: c.color || "#c25a5a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "♥")),
-      h("div", { style: { padding: "9px 12px 11px" } },
+        h("div", { "data-wk": "letterstamp", style: { position: "absolute", left: "50%", top: 44, transform: "translate(-50%,-50%)", width: 26, height: 26, borderRadius: 999, background: c.color || "#c25a5a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "♥")),
+      h("div", { "data-wk": "lettercover", style: { padding: "9px 12px 11px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, nm + "给你写了一封信"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "轻点拆开"))));
   return h("div", { className: "py-1 flex justify-start" },
-    h("div", { style: { width: 268, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px" } },
+    h("div", { "data-wk": "letter", "data-state": st, style: { width: 268, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, nm + "的信"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, m.content || ""),
+      h("div", { "data-wk": "letterbody", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, m.content || ""),
       st === "open"
-        ? h("div", { className: "flex gap-2", style: { marginTop: 12 } },
+        ? h("div", { "data-wk": "letterbtns", className: "flex gap-2", style: { marginTop: 12 } },
             h("button", { onClick: () => onAnswer(false), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "再想想"),
             h("button", { onClick: () => onAnswer(true), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "答应"))
         : h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "accepted" ? "你答应了 ♥" : "你说再想想")));
