@@ -3390,10 +3390,10 @@ const shopMoney = (n, charId) => (typeof Money !== "undefined" && Money)
   ? Money.fmt(n, charId)
   : "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
-function CartPayBtn({ char, it, pay }) {
+function CartPayBtn({ char, it, pay, kind }) {
   const [st, setSt] = React.useState("");   // "" → "ask" → "paid"
   if (st === "paid") return h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, "已替TA付了，在路上");
-  return h("button", { onClick: () => { if (st !== "ask") { setSt("ask"); return; } setSt(pay(char, it) ? "paid" : ""); },
+  return h("button", { onClick: () => { if (st !== "ask") { setSt("ask"); return; } setSt(pay(char, it, kind || "cart") ? "paid" : ""); },
     className: "active:opacity-75", style: { marginTop: 10, minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
       background: st === "ask" ? SHOP_MARK : "transparent", color: st === "ask" ? "#fff" : SHOP_MARK, border: "1px solid " + SHOP_MARK } },
     st === "ask" ? "确认付 " + shopMoney((Number(it.price) || 0) * (Number(it.qty) || 1), char.id) : "替TA付了，送给TA");
@@ -3491,14 +3491,14 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
           // TA为什么把这件东西一直停在车里，写在下面 why 那一行。
           null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1))),
-        PC ? h(CartPayBtn, { char, it, pay: PC.pay }) : null))))) : null;
+        PC ? h(CartPayBtn, { char, it, pay: PC.pay, kind: "cart" }) : null))))) : null;
   // ── 一直没下手的 ─────────────────────────────────────────────
   // 原来是【两列渐变卡 + 卡里一个首字方块】：那是货架缩略图，是这一页上最后一件
   // 电商家具（审美审计 2026-09-04）。何况那个渐变色块跟东西本身毫无关系——
   // 它只是在替一张不存在的商品图占位。
   // 册子里「看了很久没买」的东西不长成货架，长成【圈起来的那几条】：
   // 一条一样，界行分开，条目左边一枚朱砂圈——圈点是册子上真会有的记号。
-  const wish = A(data.wish);
+  const wish = A(data.wish).filter(it => !paidT.includes(String(it.title || "")));
   const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("一直没下手的", wish.length + " 样"),
     h("div", { style: { marginBottom: 16 } }, wish.map((it, i) => h("button", {
       key: i, className: "w-full text-left active:opacity-70", "data-watch": "item:" + (it.title || ""),
@@ -3579,12 +3579,13 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 那是一张营销位：折扣规则、适用范围、有效期——纯平台部件，换个角色照样成立，
   // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的「只砍显示」）。
   // ── 最近浏览 ──
-  const viewed = A(data.viewed);
+  const viewed = A(data.viewed).filter(it => !paidT.includes(String(it.title || "")));
   const viewSec = viewed.length ? h("section", { key: "vw" }, secTitle("反复看过的", "看了没买"),
     plain(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.45, color: SHOP_INK } }, v.title || ""),
-        v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 5 } }, v.shop) : null),
+        v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 5 } }, v.shop) : null,
+        PC && Number(v.price) > 0 ? h(CartPayBtn, { char, it: v, pay: PC.pay, kind: "viewed" }) : null),
       h("div", { style: { flexShrink: 0, textAlign: "right" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_MARK } }, shopMoney(v.price, char.id)),
         v.time ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 4 } }, v.time) : null)))))  : null;
@@ -3691,6 +3692,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
           it.why ? h("div", { style: { marginTop: 16 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 8 } }, T("他为什么想买")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2.05, color: SHOP_BODY, whiteSpace: "pre-wrap", textIndent: "2em" } }, it.why)) : null,
+          PC && Number(it.price) > 0 ? h("div", { style: { marginTop: 14 } }, h(CartPayBtn, { char, it, pay: PC.pay, kind: "wish" })) : null,
           peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price, char.id) : "", it.why].filter(Boolean).join("｜")))));
   })() : null;
   // 叶码：册页每一叶底下都有一个。中文数字，不是「1 / 3」——那是分页控件。

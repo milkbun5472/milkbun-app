@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.525";
+const APP_VERSION = "v74.526";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23468,13 +23468,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   x_cartPaid = { [charId]: [title…] }（TA手机下次重写购物车时自然换掉，这里只挡住已经付过的那几件）
   window.__phoneCart = {
     paid: charId => (((loadJSON("x_cartPaid", {}) || {})[charId]) || []),
-    pay: (char, it) => {
+    // kind：cart 购物车／wish 一直没下手的／viewed 反复看过的——礼物上写清是哪一种，TA才知道她看到的是什么（她 2026-10-02）
+    pay: (char, it, kind) => {
       const title = String(it.title || "").trim(), total = Math.round((Number(it.price) || 0) * (Number(it.qty) || 1) * 100) / 100;
       if (!title || !total) return false;
       if (total > wallet) { toast("钱包不够付这一件"); return false; }
-      changeWallet(-total, "替 " + (char.remark || char.name) + " 付了购物车里的 " + title.slice(0, 18), "shop");
+      changeWallet(-total, "替 " + (char.remark || char.name) + " 付了" + ({ wish: "想买的", viewed: "反复看的" }[kind] || "购物车里的") + " " + title.slice(0, 18), "shop");
       const all = loadJSON("x_cartPaid", {}) || {}; all[char.id] = [...(all[char.id] || []), title].slice(-40); saveJSON("x_cartPaid", all);
-      sendGiftToChar(char.id, title + "（她翻你手机时看到你购物车里一直没舍得付，替你付了）", null);
+      const why = ({ wish: "她翻你手机时看到你一直想买、迟迟没下手的这件，替你买了", viewed: "她翻你手机时看到你反复点开看、一直没买的这件，替你买了" })[kind]
+        || "她翻你手机时看到你购物车里一直没舍得付，替你付了";
+      sendGiftToChar(char.id, title + "（" + why + "）", null);
       return true;
     }
   };

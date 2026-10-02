@@ -15,5 +15,12 @@ test("付款从她钱包扣、钱不够不付，付了变成一份寄给TA的礼
   assert.match(a, /window\.__phoneCart = \{/);
   assert.match(a, /if \(total > wallet\) \{ toast\("钱包不够付这一件"\); return false; \}/);
   assert.match(a, /changeWallet\(-total, "替 "/);
-  assert.match(a, /sendGiftToChar\(char\.id, title \+ "（她翻你手机时看到你购物车里一直没舍得付，替你付了）", null\)/);
+  assert.match(a, /sendGiftToChar\(char\.id, title \+ "（" \+ why \+ "）", null\)/);
+});
+
+test("一直没下手的、反复看过的也能替TA付；礼物上分清是哪一种", () => {
+  assert.match(p, /h\(CartPayBtn, \{ char, it, pay: PC\.pay, kind: "wish" \}\)/);
+  assert.match(p, /h\(CartPayBtn, \{ char, it: v, pay: PC\.pay, kind: "viewed" \}\)/);
+  assert.match(a, /wish: "她翻你手机时看到你一直想买、迟迟没下手的这件，替你买了"/);
+  assert.match(a, /viewed: "她翻你手机时看到你反复点开看、一直没买的这件，替你买了"/);
 });
