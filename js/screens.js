@@ -8114,7 +8114,10 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       // 模型：列表里放常见的几个，后面再给一格手填——MiniMax 出新模型比这儿改得快（群里 2026-10-02 问「只有 01 和 02 嘛」），
       //   官网文档上写的模型名原样填进来就能用，不用等这边加选项。
       (() => {
-        const MM_MODELS = ["speech-2.8-hd", "speech-2.8-turbo", "speech-2.6-hd", "speech-2.6-turbo", "speech-2.5-hd-preview", "speech-2.5-turbo-preview", "speech-02-hd", "speech-02-turbo", "speech-01-hd", "speech-01-turbo"];
+        const MM_BUILTIN = ["speech-2.8-hd", "speech-2.8-turbo", "speech-2.6-hd", "speech-2.6-turbo", "speech-2.5-hd-preview", "speech-2.5-turbo-preview", "speech-02-hd", "speech-02-turbo", "speech-01-hd", "speech-01-turbo"];
+        // 「拉取模型」v74.553 试过又撤了（她 2026-10-02：「这家没给 撤掉吧」）——MiniMax 语音没有模型清单可问，
+        //   新模型出来就往 MM_BUILTIN 里加，等不及的用「自己填」
+        const MM_MODELS = MM_BUILTIN;
         const cur = c.model || "speech-02-hd";
         const custom = !!c.modelCustom || MM_MODELS.indexOf(cur) < 0;
         return row("模型（列表里没有的，选「自己填」照官网文档写模型名）", h("div", null,
