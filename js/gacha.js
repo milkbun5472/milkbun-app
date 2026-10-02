@@ -301,7 +301,9 @@
     const card = byId[poolId] || {};
     const a = card.ask;
     if (a == null) return "";
-    const base = typeof a === "string" ? a : String(a[phase] || "");
+    // TA挑约会、挑见面的地方时，可以从她钉在「去处」地图上的那几处里挑（她 2026-10-02）
+    const dp = (card.act === "date" || card.act === "offline") && typeof window !== "undefined" && window.DatePlaces ? window.DatePlaces.hint() : "";
+    const base = (typeof a === "string" ? a : String(a[phase] || "")) + (dp ? "\n" + dp : "");
     if (!base) return "";
     return card.scene ? base + SCENE_TRUTH : base;
   }
