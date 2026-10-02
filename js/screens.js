@@ -2388,7 +2388,7 @@ function Forum({
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
-  onDeletePost, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
+  onDeletePost, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
 }) {
@@ -2528,6 +2528,9 @@ function Forum({
   const forumUnreadRows = (posts || []).filter(forumVisible).map(post => ({ post, count: unreadFloors(post.id) }))
     .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
   const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
+  const [newPostSeen, setNewPostSeen] = useState([]);
+  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && p.authorType === "character" && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
+    .sort((a, b) => Number(b.visibleAt || b.ts || 0) - Number(a.visibleAt || a.ts || 0));
   const forumNotices = [];
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
     if (!forumVisible(f)) return;
@@ -2777,7 +2780,12 @@ function Forum({
               !cm.anon && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
-              fresh && newTag())),
+              fresh && newTag(),
+              // 删楼（她 2026-10-02 转群友）：跟删帖同一颗 ✕、同一种问法
+              onDeleteFloor && cm.id && h("button", { onClick: e => { e.stopPropagation();
+                requestAppConfirm("删掉这一楼", (cm.authorType === "me" ? "这楼是你自己写的，删了回不来。" : "") + "楼里的楼中楼也一起删。", () => onDeleteFloor(post.id, cm.id), "删掉"); },
+                title: "删掉这一楼", className: "shrink-0 active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
           cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)) : null,
           forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
@@ -3089,6 +3097,15 @@ function Forum({
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
+      // 角色发的新帖在哪个吧（她 2026-10-02 转群友：「首页论坛提示了数字2，点进去没有引导，得一个个吧去看」）
+      forumNewCharPosts.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, overflow: "hidden" } },
+        h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖")),
+        forumNewCharPosts.slice(0, 6).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
+          h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, p.board)))),
       forumUnreadRows.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 5px 14px rgba(42,55,38,.05)", overflow: "hidden" } },
         h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新回复在这里"),

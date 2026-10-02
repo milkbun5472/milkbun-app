@@ -11018,6 +11018,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
       words = words.filter(w => !protocolFieldRe.test(String(w)));
+      // 拿字假装发了一张申请（群里 2026-10-02：「char 会发来一个虚假字面的情侣申请」）：
+      //   这一轮本来能写信、他却没填 loveLetter，而是在气泡里写了「[情侣申请] ……」——
+      //   那就是他想写信，只是没用对地方。把那几泡收成真的信封卡；本来就不能写信的那几轮不动。
+      if (!(typeof parsed.loveLetter === "string" && parsed.loveLetter.trim()) && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
+        const _fakeRe = /^\s*[\[【〔（(]\s*(?:情侣|恋爱|交往)?\s*(?:申请|邀请|表白)(?:信|书)?\s*[\]】〕）)]\s*/;
+        const _k = words.findIndex(w => typeof w === "string" && _fakeRe.test(w));
+        if (_k >= 0) {
+          const rest = String(words[_k]).replace(_fakeRe, "").trim();
+          const body = rest || words.slice(_k + 1).filter(w => typeof w === "string").join("\n").trim();
+          if (body) { parsed.loveLetter = body; words = rest ? words.filter((_, i) => i !== _k) : words.slice(0, _k); }
+        }
+      }
       // \u8868\u60c5\u88ab\u5199\u8fdb\u6587\u5b57\u6c14\u6ce1\u7684\u515c\u5e95\uff08\u5979\u53cd\u9988\u300c\u8868\u60c5\u5076\u5c14\u8fd8\u662f\u53d1\u51fa\u6587\u5b57\u300d\uff09\uff1aword \u91cc\u82e5\u6709\u4e00\u6761\u3010\u53bb\u62ec\u53f7\u6807\u70b9\u540e\u6b63\u597d\u7b49\u4e8e\u3011\u67d0\u4e2a\u53ef\u7528\u8868\u60c5\u5173\u952e\u8bcd\uff0c
       // \u5c31\u628a\u5b83\u5f53\u8868\u60c5\u53d1\u3001\u522b\u5f53\u6587\u5b57\uff08\u7cbe\u786e\u76f8\u7b49\u3001\u4e0d\u505a\u5b50\u4e32\uff0c\u514d\u5f97\u300c\u6211\u597d\u5f00\u5fc3\u300d\u88ab\u8bef\u5f53\u300c\u5f00\u5fc3\u300d\u8868\u60c5\uff09\uff1b\u7eaf\u300c[\u8868\u60c5]\u300d\u8fd9\u7c7b\u7a7a\u6807\u8bb0\u76f4\u63a5\u4e22\u3002
       const emoteWordKws = [];
@@ -11894,6 +11906,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return next;
       });
       // ⚠️别在这儿调模型（见 recallHintFor 上面那段）：撤回搭下一轮的便车。
+    } else if (act === "edit" && m && m.kind === "selfie" && m.sid) {
+      // 照片被上游审核拦了（她 2026-10-02 转群友：「图片有敏感词可以修改吗」）：改画面描述，存下就照新描述重拍
+      setEditMsg({ content: m.desc || "", onSave: nv => {
+        if (m.pending) return;
+        // 直接拿新描述去画，别回头读状态（setState 还没落，读到的是旧描述）
+        pChat(threadKey, p => p.map(x => x.sid === m.sid ? { ...x, desc: nv, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+        drawChatSelfie({ chatKey: threadKey, charId: activeChar.id, sid: m.sid, photoKind: m.photoKind, photoScene: nv, keySuffix: "_r" + Date.now() });
+      } });
     } else if (act === "edit") {
       const cid = activeChar.id;
       setEditMsg({ content: m.content || "", onSave: nv => pChat(threadKey, p => {
@@ -13109,6 +13129,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
       pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now(), origText: x.content, reason: x.reason || "" } : x));
+    } else if (act === "edit" && m.kind === "selfie" && m.sid) {
+      setEditMsg({ content: m.desc || "", onSave: nv => {
+        const spk = characters.find(c => c.id === m.senderId);
+        if (!spk || m.pending) return;
+        pGChat(groupId, p => p.map(x => x.sid === m.sid ? { ...x, desc: nv, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+        drawGroupSelfie({ groupId, spk, gsid: m.sid, gPhotoKind: m.photoKind, gPhotoScene: nv, gCast: m.cast || null, keySuffix: "_r" + Date.now() });
+      } });
     } else if (act === "edit") {
       setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
     } else if (act === "reroll") {
@@ -18698,6 +18725,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     Object.keys(cur).forEach(pid => { if (!kill.has(pid)) keep[pid] = cur[pid]; });
     saveForumComments(keep); setForumComments(keep);
     return kill.size;
+  };
+  // 删一楼（她 2026-10-02 转群友「加一个可以删楼层」）：只动这一帖的楼，楼中楼跟着楼走
+  const deleteForumFloor = (postId, floorId) => {
+    const cur = forumCommentsRef.current || {};
+    const list = cur[postId] || [];
+    if (!list.some(f => f && f.id === floorId)) return;
+    const next = { ...cur, [postId]: list.filter(f => !f || f.id !== floorId) };
+    saveForumComments(next); setForumComments(next);
+    toast("删了这一楼");
   };
   const deleteForumPost = id => {
     const p0 = (forumPostsRef.current || []).find(x => x.id === id);
@@ -25556,6 +25592,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForwardToGroup: forwardPostToGroup,
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
+    onDeleteFloor: deleteForumFloor,
     onClearBoard: clearForumBoard,
     onRenameBoard: renameForumBoard,
     onDropBoard: dropForumBoard,

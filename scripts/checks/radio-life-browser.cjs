@@ -19,6 +19,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
   const data={x_characters:chars,x_profile:{name:'测试听众'},x_rels:{'qa-a->qa-b':{label:'同事'},'qa-b->qa-a':{label:'同事'}},
    x_schedules:Object.fromEntries(chars.map(c=>[c.id,{[day]:{load:'NORMAL',generatedAt:Date.now(),seqs:[{seq:1,time:'00:00',end:'24:00',title:'一起校对装订稿',location:'工作室',type:'work',deviation:null}]}}])),
    x_api:[{id:'qa',name:'虚构模型',baseUrl:'https://fixture.invalid/v1',apiKey:'fixture-not-a-secret',model:'fixture'}],x_activeApi:'qa',
+   x_autoRefreshPolicy_v1:{version:2,legacyMerged:true,features:Object.fromEntries(['phone','weekly','diary','wallet','schedule','desire','impression','moments','forum','whisper','capsule','gaze','proactive','letter','react','groupChat','listen','watch'].map(id=>[id,{global:false,chars:{}}]))},
    x_settings:{timeAware:true,autoDiary:false},x_ttsApi:{enabled:true,groupId:'fixture',apiKey:'fixture',baseUrl:'https://fixture.invalid',model:'fixture'}};
   Object.entries(data).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));localStorage.setItem('qa-radio-seeded','1');
  });
@@ -33,7 +34,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
    window.qaPrompts.push({system,messages,tag:opts?.tag});
    if(opts?.tag==='电台现场'){
     if(window.qaFailLife){window.qaFailLife=false;throw Error('本地测试：信号暂时中断');}
-    if(window.qaLong) return JSON.stringify({title:'独处长段',lines:[{speakerId:'qa-a',speaker:'角色甲',text:(window.qaLongCount++ ? '乙':'甲').repeat(500)}]});
+    if(window.qaLong) return JSON.stringify({title:'独处长段',lines:[{speakerId:'qa-a',speaker:'角色甲',text:(window.qaLongCount++ ? '乙':'甲').repeat(450)}]});
     if(window.qaPrompts.filter(x=>x.tag==='电台现场').length>1) return JSON.stringify({title:'开始装订',progress:{reached:'稿页已校对，开始装订',open:'装订仍在进行'},lines:[{speakerId:'qa-a',speaker:'角色甲',text:'校对好了，接下来把这些页装订成册。'}]});
     return JSON.stringify({title:'稿件的最后一页',progress:{reached:'第二页与末行已完成校对',open:'尚未装订'},lines:[{speakerId:'qa-a',speaker:'角色甲',text:'第二页的标注要改回去。'},{speakerId:'qa-b',speaker:'角色乙',text:'我把最后一行一起校对。'},{speakerId:'qa-a',speaker:'角色甲',text:'等核对完再装订。'}]});
    }
@@ -48,6 +49,14 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  });
  const root=page.locator('[data-radio-life]');await page.waitForTimeout(500);await root.waitFor();
  assert.equal(await page.evaluate(()=>qaPrompts.filter(x=>x.tag==='电台现场').length),0,'open does not generate');
+ for(const [width,height] of [[320,568],[390,844],[430,932]]){
+  await page.setViewportSize({width,height});assert.equal(await root.locator('.rl-receiver').count(),1);
+  assert.ok(await root.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'receiver stays inside width');
+  assert.ok((await root.getByLabel('调到谁的频率').boundingBox()).height>=40);
+  assert.ok(await root.locator('.rl-invitation').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'tap invitation visible in first screen');
+  await page.screenshot({path:path.join(out,'receiver-'+width+'.png')});
+ }
+ await page.setViewportSize({width:390,height:844});
  await root.locator('[data-radio-scene]').click();
  await root.getByText('第二页的标注要改回去。',{exact:true}).waitFor();
  assert.equal(await root.getByText('我把最后一行一起校对。',{exact:true}).count(),0,'unheard lines stay hidden');
@@ -58,9 +67,14 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  assert.equal(await page.evaluate(()=>RadioLife.contextFor('qa-c')),'');assert.equal(await page.evaluate(()=>qaTts.length),0,'receive does not charge TTS until play');
  await root.getByRole('button',{name:'朗读',exact:true}).click();await page.waitForFunction(()=>qaTts.length===1);
  await page.evaluate(()=>qaAudios.at(-1).onplaying());await root.getByText('正在说…',{exact:true}).waitFor();
+ assert.equal(await root.locator('[data-radio-stage]').getAttribute('data-speaking'),'1');
+ await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await root.locator('.rl-wave i').first().evaluate(el=>getComputedStyle(el).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
+ assert.equal(await root.locator('.rl-wave i').first().evaluate(el=>getComputedStyle(el).animationName),'rl-wave');
+ const custom=await page.addStyleTag({content:'[data-wk="radiocaption"] { color: rgb(210, 180, 140) !important; }'});assert.equal(await root.locator('[data-radio-transcript]').evaluate(el=>getComputedStyle(el).color),'rgb(210, 180, 140)');await custom.evaluate(el=>el.remove());
+ await page.screenshot({path:path.join(out,'speaking.png')});
  assert.deepEqual(await page.evaluate(()=>qaTts[0]),{text:'第二页的标注要改回去。',voiceId:'qa-voice-a'});
  await page.evaluate(()=>qaAudios.at(-1).onended());
- await root.getByText('这句说完了 · 轻点继续',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'stage-ended.png')});
+ await root.getByText('这句说完了 · 轻点继续',{exact:true}).waitFor();assert.equal(await root.locator('[data-radio-stage]').getAttribute('data-speaking'),'0');await page.screenshot({path:path.join(out,'stage-ended.png')});
  assert.equal(await page.evaluate(()=>qaTts.length),1,'speech completion does not advance the stream');
  await root.locator('[data-radio-transcript]').click();await page.waitForFunction(()=>qaTts.length===2);
  assert.equal(await root.getByText('第二页的标注要改回去。',{exact:true}).count(),0,'previous paragraph leaves the screen');
@@ -93,7 +107,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  });
  await root.locator('[data-watch=back]').click();
  await root.getByRole('button',{name:'录音架',exact:true}).click();const scroll=root.locator('[data-radio-life-scroll]');
- await scroll.evaluate(el=>el.scrollTop=350);const top=await scroll.evaluate(el=>el.scrollTop);
+ await scroll.evaluate(el=>el.scrollTop=350);const top=await scroll.evaluate(el=>el.scrollTop);await page.screenshot({path:path.join(out,'tapes.png')});
  await root.getByRole('button',{name:/收藏测试 13/}).evaluate(el=>el.click());await root.getByRole('button',{name:'回听这段',exact:true}).waitFor();
  await root.locator('[data-watch=back]').click();assert.ok(Math.abs(await scroll.evaluate(el=>el.scrollTop)-top)<2,'collection scroll preserved');
  for(const [width,height] of [[320,568],[390,844],[430,932]]){
@@ -111,9 +125,19 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  await page.evaluate(()=>{qaLong=true;qaLongCount=0;saveJSON(RadioLife.KEY,{...RadioLife.read(),events:RadioLife.read().events.filter(e=>e.savedAt).map(e=>({...e,scene:{...e.scene,key:e.scene.key+"-archived-fixture"}}))});});
  await root.locator('[data-radio-scene]').click();await root.getByText('甲'.repeat(90),{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>RadioLife.read().events.at(-1).heard),0,'long original line stays out of facts before all pages are shown');
- for(let i=0;i<5;i++)await root.locator('[data-radio-transcript]').click();
+ await page.setViewportSize({width:320,height:568});
+ const longBounds=await root.locator('[data-radio-transcript]').boundingBox(),toolsBounds=await root.locator('.rl-tools').boundingBox();
+ assert.ok(longBounds.y>=70 && longBounds.y+longBounds.height<toolsBounds.y,'90-character screen fits at 320px');
+ assert.ok(await root.locator('[data-radio-life-scroll]').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'long screen does not scroll');
+ await page.screenshot({path:path.join(out,'long-320.png')});await page.setViewportSize({width:430,height:932});
+ for(let i=0;i<4;i++)await root.locator('[data-radio-transcript]').click();
  assert.equal(await page.evaluate(()=>RadioLife.read().events.at(-1).heard),1,'last page commits the full original line');
- assert.equal(await root.locator('[data-radio-transcript]').innerText(),'甲'.repeat(50));
+ assert.equal(await root.locator('[data-radio-transcript]').innerText(),'甲'.repeat(90));
+ await page.setViewportSize({width:320,height:568});
+ const endCaption=await root.locator('[data-radio-transcript]').boundingBox(),endControls=await root.locator('.rl-tools').boundingBox();
+ assert.ok(endCaption.y+endCaption.height<endControls.y,'90-character last sentence fits above controls');
+ assert.ok(await root.locator('[data-radio-life-scroll]').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'end of long segment does not scroll');
+ await page.screenshot({path:path.join(out,'long-ended-320.png')});await page.setViewportSize({width:430,height:932});
  await page.evaluate(()=>qaFailLife=true);await root.getByRole('button',{name:'接着听后续',exact:true}).click();await root.getByRole('alert').waitFor();
  assert.ok(await root.locator('[data-radio-life-scroll]').evaluate(el=>el.scrollHeight<=el.clientHeight+1),'failed receive does not push controls off stage');
  await root.getByRole('button',{name:'接着听后续',exact:true}).click();await root.getByText('乙'.repeat(90),{exact:true}).waitFor();await root.getByRole('alert').waitFor({state:'hidden'});
@@ -131,7 +155,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  assert.ok(await page.evaluate(()=>RadioLife.read().events.some(e=>e.savedAt&&e.title==='稿件的最后一页')));
  assert.ok(await page.evaluate(()=>RadioLife.read().shows[0].episodes[0].status==='finished'));
  await page.evaluate(()=>__openFromNotif(null,'radioArchive'));await page.getByLabel('想听谁的时间线').waitFor();
- const result={passed:['real App radio generation/full persona','no auto requests','participant isolation','MiniMax character voice switching','cancel/revoke','same-schedule chat original facts','re-enter single generation','segment end stops taps/explicit continuation with saved progress','collection scroll return','320/390/430 one-paragraph full-screen/no scroll','joint recording/archive','IDB reload','legacy archive'],errors};
+ const result={passed:['real App radio generation/full persona','no auto requests','participant isolation','MiniMax character voice switching','cancel/revoke','same-schedule chat original facts','re-enter single generation','segment end stops taps/explicit continuation with saved progress','collection scroll return','320/390/430 receiver and full-screen/90-character no scroll','joint recording/archive','IDB reload','legacy archive'],errors};
  fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(result,null,2));assert.deepEqual(errors,[]);console.log(JSON.stringify(result));
  await ctx.close();
  } finally {await browser.close();server.close();}

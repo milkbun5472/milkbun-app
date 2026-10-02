@@ -13328,7 +13328,7 @@ function menuItemsForKind(m, canSpeak) {
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
   if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall", "del"]];
   // TA 发的照片：「只重拍这张图」只换像素；「重Roll」照旧把这一轮整个重来
-  if (k === "selfie" && m.role === "assistant" && m.sid) return [["fav"], m.pending ? ["reroll"] : ["reshoot", "reroll"], ["multi", "recall", "del"]];
+  if (k === "selfie" && m.role === "assistant" && m.sid) return [["fav"], m.pending ? ["reroll"] : ["edit", "reshoot", "reroll"], ["multi", "recall", "del"]];
   return [[  "fav"], listen, ["multi", "recall", "del"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。

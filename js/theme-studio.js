@@ -333,6 +333,12 @@
   //   不许在旁边再并排开一对 WK_XXX / WK_XXX_PAGES —— 那就是同一层写在两处，
   //   秋秋那边迟早只念到其中一份（one-public-mechanism.md）。
   const WK_SCOPED = Object.freeze([
+    Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
+      ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
+      ["radioreceiver","调频接入面板"],["radiodial","频率刻度与指针"],["radiostage","接入后的全屏单句舞台（data-speaking/data-ended/data-long）"],
+      ["radioportrait","说话人头像与信号环"],["radiowave","语音播放指示，只有实际播放时起伏"],
+      ["radiocaption","屏幕当前一句"],["radiostatus","单句/整段结束提示"],["radiotools","舞台底部朗读/收藏/聊聊"],["radiotape","录音架和共同节目的磁带标签"]
+    ])}),
     Object.freeze({
       zh: "聊天页", pages: Object.freeze(["thread", "gthread"]),
       hooks: Object.freeze([

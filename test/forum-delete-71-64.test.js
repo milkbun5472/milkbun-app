@@ -97,7 +97,7 @@ test("整版清空要把数报清楚，尤其是她自己那几帖", () => {
 test("两条路都接上了，中间没掉层", () => {
   assert.ok(app.includes("onDeletePost: deleteForumPost"), "app 那头没传");
   assert.ok(app.includes("onClearBoard: clearForumBoard"), "app 那头没传");
-  assert.ok(/onDeletePost, onClearBoard/.test(screens), "Forum 的参数表里没接住");
+  assert.ok(/onDeletePost, (onDeleteFloor, )?onClearBoard/.test(screens), "Forum 的参数表里没接住");
   assert.ok(screens.includes("onClearBoard(tab)"), "清空那颗没接上");
   assert.ok(screens.includes("onDeletePost(p.id)"), "长按删那一路没接上");
 });
