@@ -54,7 +54,7 @@ test("约会卡：合上是素封面、点开是一句邀请＋地点日子钟�
   assert.match(c, /h\("input", \{ type: "date"/);
   assert.match(c, /h\("input", \{ type: "time"/);
   assert.match(c, /const \[open, setOpen\] = useState\(false\);/);
-  assert.match(c, /"一起去约会。"/);
+  assert.match(c, /"想和你一起去约会。"/);
   assert.match(dw, /h\(DateComposeDialog, \{/);
   assert.match(a, /onDate: \(char, place, v\) => sendDateInvite\(char, place, v\)/);
   assert.match(a, /const dateWhenText = w =>/);

@@ -12561,7 +12561,8 @@ function FoldRow({ title, state, open, onToggle, children }) {
 }
 // 约会邀请（她发的，右边）和回执（TA答应了，左边）（她 2026-10-02）：回执上点「出发」才进见面
 // 约会卡（她 2026-10-02 给了参考图：合上是一张素封面，点开上半一句邀请、下半是约会信息和想说的话）。
-//   ⚠️封面上她参考图里是「FOR YOU」「A SMALL INVITATION」——按 no-english-titles 写成中文，她要英文再改回来。
+//   封面上的英文是装饰，照她参考图用英文（她 2026-10-02：「界面不太要英文，装饰性的可以」）——
+//   no-english-titles 管的是界面标题；卡面上的字是卡的一部分，不是标题。
 //   手写那一句用 Long Cang，只按这几个字取子集（&text=），连不上就退回 F_DISPLAY，不阻塞。
 const DATE_HAND_TEXT = "想和你一起去约会。好那就说定了";
 function dateHandFont() {
@@ -12617,11 +12618,11 @@ function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
       h("path", { d: "M14 168 C 22 210, 46 236, 84 240", fill: "none", stroke: ink, strokeWidth: .8, opacity: .45 }),
       star(132, 58, 5), star(30, 214, 5)),
     h("div", { key: "body", style: { position: "relative", height: 250, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, letterSpacing: ".35em", color: ink, paddingLeft: ".35em" } }, mine ? "给你" : "回你"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, letterSpacing: ".22em", color: ink, paddingLeft: ".22em" } }, mine ? "FOR YOU" : "SEE YOU"),
       h("div", { style: { marginTop: 10, display: "flex", justifyContent: "center" } }, heart(20)),
       h("div", { style: { width: 26, height: 1, background: ink, opacity: .5, margin: "14px 0" } }),
       coverDate ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: ".25em", color: ink } }, coverDate) : null,
-      h("div", { style: { position: "absolute", right: 14, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".2em", color: t.fog, textAlign: "right", lineHeight: 1.6 } }, mine ? "一封小小的" : "一张小小的", h("br"), mine ? "邀请" : "回执"))
+      h("div", { style: { position: "absolute", right: 14, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".2em", color: t.fog, textAlign: "right", lineHeight: 1.6 } }, "A SMALL", h("br"), mine ? "INVITATION" : "REPLY"))
   ], { onClick: () => setOpen(true), className: "active:opacity-90", role: "button" });
   const row = (icon, text, last) => h("div", { className: "flex items-center", style: { gap: 10, padding: "8px 0", borderBottom: last ? "none" : "1px solid " + line } },
     h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, icon),
@@ -12636,8 +12637,9 @@ function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
   const inside = card([
     h("div", { key: "top", style: { position: "relative", padding: "20px 16px 14px", borderBottom: "1.5px dashed " + line, textAlign: "center" } },
       h("svg", { width: 24, height: 24, viewBox: "0 0 24 24", style: { position: "absolute", right: 10, top: 8 } }, star(12, 12, 5)),
-      h("div", { style: { fontFamily: F_HAND, fontSize: 22, lineHeight: 1.35, color: ink } }, mine ? "想和你" : "好，", h("br"), mine ? "一起去约会。" : "那就说定了。"),
-      h("div", { style: { marginTop: 6, display: "flex", justifyContent: "center" } }, heart(15))),
+      h("div", { style: { fontFamily: F_HAND, fontSize: 16, lineHeight: 1.45, color: ink, whiteSpace: "nowrap" } }, mine ? "想和你一起去约会。" : "好，那就说定了。"),
+      h("div", { style: { marginTop: 6, display: "flex", justifyContent: "center" } }, heart(15)),
+      h("div", { style: { textAlign: "right", marginTop: 2, fontFamily: F_DISPLAY, fontSize: 8, letterSpacing: ".22em", color: t.fog } }, "DATE WITH YOU")),
     h("div", { key: "bot", style: { padding: "6px 14px 10px" } },
       row(I.pin, pl.name || "某处"),
       w.date ? row(I.cal, dateLabel(w.date)) : null,

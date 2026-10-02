@@ -28,7 +28,9 @@ const ALLOW = {
     //    （dmark 那一层，v61.87 已经做了），不是翻成中文。它们是道具上的印刷字，
     //    不是标题、副标题或栏目名，no-english-titles 管不到。
     "EVIDENCE / ", "ARCHIVED", "PHOTO BOOTH", "WEEKEND", "A SMALL STORY",
-    "CABINET OF MOMENTS", "ADMIT ONE"],
+    "CABINET OF MOMENTS", "ADMIT ONE",
+    // ⑤ 约会卡上的印刷字（她 2026-10-02：「界面不太要英文，装饰性的可以」）——卡面上的字，不是标题
+    "FOR YOU", "SEE YOU", "A SMALL", "INVITATION", "REPLY", "DATE WITH YOU"],
   "js/vps-codex.js": ["CODEX · ALWAYS ON"], // 那台机器自己的名字
   // ③ 发给模型的枚举值 / 模型返回的枚举值——不是给人看的字，各自都有中文映射
   "js/app.js": ["HIGH LOAD", "LOW LOAD", "NORMAL", "LIGHT"],
