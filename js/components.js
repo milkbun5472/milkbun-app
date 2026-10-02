@@ -17356,10 +17356,10 @@ function ChatSettings({
   // 给住进项目的工程师角色（如小克）用；普通角色别开，省 token 也免得 TA 突然聊起报错日志出戏。
   h("div", { className: "pt-4" },
     h("div", { className: "flex items-center justify-between" },
-      h("div", null,
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
-      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) }))),
     // 书房直通钥匙（她 2026-09-25 拍板「全走 CC」）：贴一次 relay 的 cc_token，这个角色的
     // 私聊/线下默认改走书房窗口。钥匙存本机 localStorage，不进 saves 不上云（见 cc-lane.js）。
     engineerEyes && window.CcLane && h("div", { className: "pt-3" },
@@ -17377,17 +17377,10 @@ function ChatSettings({
   // 默认关，一个一个角色自己开：古代角色开了就会真的去搜引擎，那是出戏；而且搜索另计费。
   h("div", { className: "pt-4" },
     h("div", { className: "flex items-center justify-between" },
-      h("div", null,
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
-      h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))),
-  // 申请信（v74.507）：还不是恋人时，TA自己想表白就能写一封；关掉就不会
-  h("div", { className: "pt-4" },
-    h("div", { className: "flex items-center justify-between" },
-      h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "允许 Ta 主动表白"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
-      h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) })))),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))))),
   show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       // ⚠️v62.37 起这一层就是常开的，这里写的词真的会发出去。原来那句「不会进
@@ -17574,7 +17567,14 @@ function ChatSettings({
       onApply: L => { if (L.skin != null) setSkin(L.skin); if (L.bubble != null) setBubble(L.bubble); if (L.font != null) setFont(L.font);
         if (L.chatBg != null) setChatBg(L.chatBg); if (L.layout) setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout)); if (L.customCSS != null) setCustomCSS(L.customCSS); } }),
     h(ChatCssFields, { css: customCSS, setCSS: setCustomCSS, fileBase: (settings.remark || (character && character.name) || "TA"), seedName: skin,
-      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
+      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
+  // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还不是恋人时，TA自己想表白就能写一封；关掉就不会
+  h("div", { className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "允许 Ta 主动表白"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
+    h("div", { className: "shrink-0" }, h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) }))),
+  h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {
