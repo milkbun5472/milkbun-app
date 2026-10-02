@@ -5233,7 +5233,8 @@ function loadTtsApi() {
   if (TTS_PROVIDERS.indexOf(a.provider) < 0) a.provider = "minimax";
   a.elKey = String(a.elKey || "").replace(/\s+/g, "");
   a.fishKey = String(a.fishKey || "").replace(/\s+/g, "");
-  a.fishBase = cleanBaseUrl(a.fishBase) || "https://api.fish.audio";
+  // 中转站给的地址常常自带 /v1 甚至 /v1/tts（群里报的就是 https://fishaudio.org/v1）——下面还要拼 /v1/tts，先剥掉
+  a.fishBase = (cleanBaseUrl(a.fishBase) || "https://api.fish.audio").replace(/\/v1(\/tts)?\/?$/i, "");
   a.elVoice = String(a.elVoice || "").trim();
   a.fishVoice = String(a.fishVoice || "").trim();
   return a;
@@ -6345,7 +6346,9 @@ async function ttsSynthOther(a, txt, vid, spd) {
     // 跨域被挡在浏览器里只报「Load failed / Failed to fetch」，fetchT 会把它说成「写太长被掐断」——这里不是那回事
     if (/超时/.test(String(e && e.message))) throw e;
     throw new Error("连不上 " + (a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + "：网络不通，或者这家不让网页直接调用（跨域）。"
-      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : "国内网络要能连上 elevenlabs.io。"));
+      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : "国内网络要能连上 elevenlabs.io。")
+      + "\n请求地址：" + (a.provider === "fish" ? (a.fishBase || "https://api.fish.audio") + "/v1/tts" : "api.elevenlabs.io")
+      + "\n原始报错：" + String((e && e.message) || e).replace(/^连接中断了（Load failed）。[\s\S]*原始报错：/, "").slice(0, 120));
   }
   if (!r.ok) {
     let msg = "";

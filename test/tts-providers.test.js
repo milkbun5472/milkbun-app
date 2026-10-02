@@ -87,3 +87,10 @@ test("设置页三选一；克隆和语气标记只在 MiniMax 下出现；角�
   assert.match(scr, /\/\/ ---- 克隆音色：[^\n]*\n\s+c\.provider === "minimax" && h\(/);
   assert.match(scr, /ttsProv === "minimax" && h\("div", \{ className: "flex flex-wrap gap-1\.5 mb-2" \}, \(typeof TTS_VOICES/);
 });
+
+test("Fish 中转地址自带 /v1 也认", () => {
+  for (const u of ["https://fishaudio.org/v1", "https://fishaudio.org/v1/", "https://fishaudio.org/v1/tts", "https://fishaudio.org"]) {
+    const e = load({ x_ttsApi: JSON.stringify({ provider: "fish", fishBase: u }) });
+    assert.equal(e.loadTtsApi().fishBase, "https://fishaudio.org", u);
+  }
+});
