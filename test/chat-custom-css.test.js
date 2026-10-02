@@ -193,10 +193,11 @@ test("通话底下是一排大按键，打字框按需拉出来、记住上次�
   const call = comp.slice(comp.indexOf("function CallScreen("), comp.indexOf("function anonNightBg("));
   assert.match(call, /const \[typeOpen, setTypeOpenRaw\] = useState\(\(\) => \{ try \{ return localStorage\.getItem\("x_callTypeOpen"\) === "1"/);
   assert.match(call, /localStorage\.setItem\("x_callTypeOpen", v \? "1" : "0"\)/);
-  assert.match(call, /typeOpen \? h\("div", \{ "data-wk": "calltype"/);
-  assert.match(call, /bigKey\("挂断",/);
-  assert.ok(call.indexOf('bigKey("挂断"') > call.indexOf("canLive ? bigKey("), "挂断要在正中（说话键后面、打字键前面）");
-  assert.ok(call.indexOf('bigKey("挂断"') < call.indexOf("bigKey(typeOpen"), "挂断要在正中");
+  assert.match(call, /typeOpen && !bye \? h\("div", \{ "data-wk": "calltype"/, "他挂了以后打字框不出来");
+  assert.match(call, /bigKey\(bye \? "退出" : "挂断",/);
+  const mid = call.indexOf('bigKey(bye ? "退出" : "挂断"');
+  assert.ok(mid > call.indexOf("canLive && !bye ? bigKey("), "挂断要在正中（说话键后面、打字键前面）");
+  assert.ok(mid < call.indexOf("bigKey(typeOpen"), "挂断要在正中");
 });
 
 test("线下暂离的提醒都撤了（她：我知道我还在线下）", () => {
