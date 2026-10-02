@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.556";
+const APP_VERSION = "v74.557";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8533,6 +8533,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       onlinePrelude: groupOnlinePrelude(groupId),
       // 邀约出发的那一场只有答应了的人在场（她 2026-10-02：「能确保没选的人不会出现吧」）
       ...(Array.isArray(opts.present) && opts.present.length ? { present: opts.present.slice() } : {}),
+      ...(opts.datePlace ? { datePlace: opts.datePlace } : {}),
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pGOffline(groupId, list => [sess, ...list.filter(s => s.endTs)]);
@@ -8633,8 +8634,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
   };
   const endGroupOffline = async groupId => {
-    const group = groups.find(g => g.id === groupId);
+    const groupAll = groups.find(g => g.id === groupId);
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
+    // 邀约出发的那一场只有答应了的人在场：总结、记忆归属都只算他们（没来的人不该「记得」这一场）
+    const group = groupAll && sess && Array.isArray(sess.present) && sess.present.length
+      ? { ...groupAll, memberIds: (groupAll.memberIds || []).filter(id => sess.present.includes(id)) } : groupAll;
     if (!sess) {
       setOfflineGroup(null);
       return;
@@ -8655,6 +8659,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
+    // 约好的那个地方：在场的每个人各记一次去过；群里留一张「那天」（跟单聊同一张卡）
+    if (group && sess.datePlace && sess.datePlace.name) {
+      try {
+        const v = loadJSON("x_dateVisits", {}) || {}, nm = sess.datePlace.name;
+        const line = String(summary || "").split(/[。！？\n]/)[0].slice(0, 40);
+        v[nm] = [...(v[nm] || []), ...(group.memberIds || []).map(id => ({ charId: id, ts: sess.startTs || Date.now(), line }))].slice(-30);
+        saveJSON("x_dateVisits", v);
+      } catch (e) {}
+      const lastTa = [...(sess.msgs || [])].reverse().find(m => m && m.role === "assistant" && m.content);
+      pushGroupRich(groupId, { id: "mem_" + Date.now(), role: "system", kind: "datememory", place: sess.datePlace, startTs: sess.startTs,
+        who: (group.memberIds || []).map(id => { const c = characters.find(x => x.id === id); return c ? (c.remark || c.name) : ""; }).filter(Boolean).join("、"),
+        line: lastTa ? String(lastTa.content).replace(/\s+/g, " ").slice(0, 60) : "", content: "那天在「" + sess.datePlace.name + "」" });
+    }
     // 与单人一致：沿用共享去重/确认候选机制。
     if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId, ofs: sess.id });
     // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
@@ -13414,8 +13431,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if ((list || []).some(x => x && !x.endTs)) { toast("这个群还有一场见面没结束——先去结束它，再出发"); openGroupOffline(group); return; }
     pGChat(groupId, p => p.map(x => (x.kind === "dateinvite" && x.mid === inv.mid) || (x.kind === "datereceipt" && x.inviteMid === inv.mid) ? { ...x, state: "gone" } : x));
     const pl = inv.place || {};
+    // 地方钉进每个去的人和她的那座城（群邀约里手写的新地方，用完不该就没了）
+    if (pl.name && window.DatePlaces) going.forEach(x => { try { if (!window.DatePlaces.list(x.id).some(p => p.name === pl.name)) window.DatePlaces.add(pl.name, pl.note || "", "", x.id); } catch (e) {} });
     openGroupOffline(group);
-    startGroupOffline(groupId, { present: going.map(x => x.id),
+    startGroupOffline(groupId, { present: going.map(x => x.id), datePlace: pl.name ? { name: pl.name, note: pl.note || "", how: "group" } : null,
       opening: "约好的" + (inv.when ? dateWhenText(inv.when) : "那天") + "，在「" + (pl.name || "约好的地方") + "」" + (pl.note ? "（" + pl.note + "）" : "") + "。来的是" + going.map(x => x.name).join("、") + "。" });
   };
   // 群里能挑的地方：我们的城市 + 每个成员住的那个架空世界里的地点

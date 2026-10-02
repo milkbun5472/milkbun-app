@@ -15435,6 +15435,9 @@ function GroupThread({
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
     // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
     //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
+    // ⚠️排在系统提示那条之前：它 role 也是 system，晚了就被当成一行系统字吞掉
+    // 群邀约散场后的「那天」：跟单聊同一张卡，署名是那天去了的人
+    if (m.kind === "datememory") return h(DateMemoryCard, { key: i, m: m, character: { name: m.who || "我们" } });
     // 转账回执：收钱那位成员名下的一张单子（她 2026-10-01）
     if (m.receipt && m.receipt.amount != null) return h(TransferCard, { key: i, m: Object.assign({ tid: "rcpt_" + i }, m.receipt, { receiptCard: true }),
       isU: m.receipt.side === "me", charId: m.receipt.senderId,

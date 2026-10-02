@@ -98,3 +98,16 @@ test("我们的城市每个人一份：换人就换城，旧版共用的按来�
   assert.equal(DatePlaces.list(undefined).length, 0);
   assert.equal(DatePlaces.visits("御马监跑马场", "qz").length, 0, "去过几次也只数跟这个人的");
 });
+
+test("群邀约散场：在场的人各记一次去过、群里留「那天」；手写的地方钉进去了的人的城；没来的人不记得这一场", () => {
+  const i = app.indexOf("const endGroupOffline = async groupId => {");
+  const seg = app.slice(i, app.indexOf("\n  };\n", i));
+  assert.match(seg, /memberIds: \(groupAll\.memberIds \|\| \[\]\)\.filter\(id => sess\.present\.includes\(id\)\)/, "总结和记忆只算在场的人");
+  assert.match(seg, /saveJSON\("x_dateVisits", v\)/);
+  assert.match(seg, /kind: "datememory"/);
+  const g = app.slice(app.indexOf("const groupDateGo"), app.indexOf("const groupInvitePlacesFor"));
+  assert.match(g, /window\.DatePlaces\.add\(pl\.name, pl\.note \|\| "", "", x\.id\)/);
+  assert.match(g, /datePlace: pl\.name \?/);
+  const gt = comp.slice(comp.indexOf("function GroupThread"));
+  assert.ok(gt.indexOf('m.kind === "datememory"') > 0 && gt.indexOf('m.kind === "datememory"') < gt.indexOf('if (m.kind === "system" || m.role === "system")'), "「那天」要排在系统提示前面，不然被吞成一行字");
+});
