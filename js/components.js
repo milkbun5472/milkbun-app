@@ -12987,7 +12987,8 @@ function TransferCard({
     // ── 眉头：这是一张什么单（中文，原来是 CNY）+ 那枚印 ──
     h("div", { className: "flex items-start justify-between px-4 pt-3.5 pb-3" },
       h("div", { style: { minWidth: 0 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账"),
+        // 美化挂点（她 2026-10-02 转群友：「转账卡片的『转账』是不是不能改」）
+        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账"),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
