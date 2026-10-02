@@ -839,7 +839,11 @@ function phoneApplyChatUpdates(oldData, updates, nowTs) {
     const had = {};
     const old = A(c.messages);
     old.forEach(m => { had[String(m && m.from) + "|" + String(m && (m.text || m.content))] = 1; });
-    const fresh = add.filter(m => !had[String(m.from) + "|" + String(m.text || m.content)]);
+    // 这一批新说的话打上「哪一回刷新来的」（群里读者 2026-10-02：「查手机微信所有聊天内容没有时间戳，
+    //   分不清从哪里开始是当天新的」）——会话里按这一批画一条时间分隔线，跟真微信一样。
+    const batchLabel = String(u.time || "").trim();
+    const fresh = add.filter(m => !had[String(m.from) + "|" + String(m.text || m.content)])
+      .map(m => ({ ...m, _at: nowTs, ...(batchLabel ? { _atLabel: batchLabel } : {}) }));
     if (!fresh.length) return c;
     hit++;
     const msgs = old.concat(fresh).slice(-40);
@@ -2660,7 +2664,14 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       ? h("div", { style: { animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } },
           h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 108 }))
       : h("div", { style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
-    return h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), body));
+    // 一批新话的开头画一条时间线（真微信隔一阵就有一行灰字时间）。没打过 _at 的老消息不画。
+    const prevM = i > 0 ? arr(th.messages).concat(driveSent)[i - 1] : null;
+    const batchLine = (m && m._at && (!prevM || prevM._at !== m._at))
+      ? h("div", { key: "t" + i, className: "text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a3a3a3", margin: "4px 0 -4px" } },
+          m._atLabel || (function (d) { return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })(new Date(m._at)))
+      : null;
+    const row = h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#888", margin: "0 4px 3px" } }, m.from), body));
+    return batchLine ? h(React.Fragment, { key: i }, batchLine, row) : row;
   }),
     // 她替他发完、群里那一枪正在跑：屏幕上得看得见（她 2026-09-15）。
     // ⚠️这一颗跟主聊天那三个点是同一份（components.js 的 TypingDots），
