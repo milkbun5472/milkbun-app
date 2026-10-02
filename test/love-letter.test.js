@@ -36,7 +36,7 @@ test("能力只在闸开着时给，落地时再过一遍闸；侧房、言秋�
   assert.match(app, /!_peekTurn && !\(room && !room\.main\) && !_s\.engineerEyes && !\(opts && opts\.loveLetterAnswer\) && loveLetterReady\(charId\)\) \{\n\s*openCaps\.push\("loveLetter"\);/);
   assert.match(app, /loveLetter:"信的全文"=写给她的情侣申请信；/);
   assert.match(app, /if \(_letter && _letter\.toLowerCase\(\) !== "null" && !_peekTurn && !\(room && !room\.main\) && loveLetterReady\(charId\)\)/);
-  assert.match(app, /kind: "loveletter", content: _letter\.slice\(0, 1200\), state: "sealed"/);
+  assert.match(app, /kind: "loveletter", content: _letter\.slice\(0, 6000\), state: "sealed"/);
   assert.match(app, /parsed\.block = false; parsed\.loveLetter = null;/, "决定不回她的那一轮也别塞一封信");
   assert.match(rooms, /"coupleInvite", "loveLetter", "whisper"/);
 });
