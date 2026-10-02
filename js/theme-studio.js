@@ -359,7 +359,7 @@
         ["card", "气泡里的卡片（照片、转发、语音）"],
         ["quote", "消息引用块（带 data-me）"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
         ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
-        ["transfercard", "转账卡整张（那张纸的底、边、圆角）"], ["transferamount", "转账卡上的金额"],
+        ["transfercard", "转账卡整张（那张纸的底、边、圆角）"], ["transferamount", "转账卡上的金额"], ["transferlabel", "转账卡左上角「转账／收款／退还」那几个字（想换成别的字：font-size:0 再用 ::after 写 content）"],
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
         ["photocard", "照片卡整张（相纸的底、边、影）"], ["photocap", "照片底下那行配文"],
         ["photoface", "没真图的照片卡里那块相面（米色渐变那块，改色写 background）"], ["phototext", "相面上那句描述的字"], ["photohint", "照片卡右下「点开看这张」"],
@@ -751,7 +751,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.525", changed: "", none: "多一行说明文字和几颗现成地点的按钮，沿用原样式" };
+  const BRIEF_STAMP = { v: "v74.525", changed: "转账卡新增 transferlabel 挂点（左上角「转账／收款／退还」那几个字）" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
