@@ -23,7 +23,7 @@ test("聊天加号里有「给TA看手机」，单子能把几样藏起来再递
 
 test("递过去：只摆她手机上真有的、藏了什么；主动开关和防连发闸都不拦", () => {
   assert.match(a, /const peekHint = opts\.peekPhone \?/);
-  assert.match(a, /const dongnianHint = peekHint \+ refuseHint \+ \(/, "递手机那段喂进这一轮");
+  assert.match(a, /const dongnianHint = peekHint \+ refuseHint \+ caughtHint \+ \(/, "递手机那段喂进这一轮");
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: false \};/);
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: true \};/);
   assert.ok(a.indexOf("proactive: false };") < a.indexOf("!opts.phoneAs && history.length") && a.indexOf("!opts.phoneAs && history.length") < a.indexOf("if (_peekTurn) opts = { ...opts, proactive: true };"), "摘掉→过闸→挂回 的顺序");
@@ -259,4 +259,35 @@ test("翻手机：消息列表里有TA自己那一行；TA能进自己那栏改�
   assert.match(a, /\(x\.c\.id === viewerId \? "【就是你】" : ""\)/);
   assert.match(a, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, remark: text \} : x\)\)/);
   assert.match(p, /props\.onRename && props\.onRename\(s\.text, old\)/);
+});
+
+test("翻手机：置顶／取消置顶／删好友／拉黑／用她名义回一句，各一趟一次；删好友拉黑只是盖一张空白页、能加回来", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "messages" }, { do: "think", text: "嗯" }, { do: "pin" }, { do: "pin", who: "甲" },
+    { do: "unfriend", who: "甲" }, { do: "block", who: "不在名单" }, { do: "impersonate", who: "乙", text: "她有男朋友了" }, { do: "impersonate", who: "乙" }] }, ["messages", "chat"], { who: ["甲", "乙"] });
+  assert.deepStrictEqual(out.filter(s => ["pin", "unfriend", "block", "impersonate"].includes(s.do)).map(s => s.do + ":" + (s.who || "")), ["pin:", "unfriend:甲", "impersonate:乙"]);
+  assert.match(a, /savePeekCut\(p => \(\{ \.\.\.p, \[tgt\.id\]: \{ kind: step\.do, by: viewerId, ts: Date\.now\(\) \} \}\)\)/);
+  assert.match(a, /peekCut\[activeChar\.id\]\) body = h\(PeekCutPage, \{/);
+  assert.match(c, /function PeekCutPage\(/);
+  assert.match(c, /un \? "加回好友" : "解除拉黑"/);
+  assert.match(a, /pChat\(tgt\.id, p => \[\.\.\.p, \{ role: "user", content: step\.text, ts: Date\.now\(\), peekBy: viewerId \}\]\)/);
+});
+
+test("翻手机：偷偷翻——每个角色一个开关、所有角色共用一个冷却；当场生效，留卡片能回放／当面问／装没看见；回放不再动一遍", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  assert.match(a, /const PEEK_SNEAK_GAP = 24 \* 3600e3;/);
+  assert.match(a, /loadJSON\("x_peekSneakLast", 0\)/, "冷却只有一个，不按角色分");
+  assert.match(a, /handPhoneTo\(charId, PEEK_PHONE_SECTIONS\.map\(s => s\[0\]\), \[\], true\)/);
+  assert.match(a, /kind: "peeksneak"/);
+  assert.match(a, /onEffect: step => \{ if \(!peekPlay\.replay\) peekEffect/);
+  assert.match(a, /if \(p && p\.replay\) \{ openChatById\(p\.charId\); return; \}/);
+  assert.match(c, /function PeekSneakCard\(/);
+  assert.match(c, /"允许" \+ \(character\.remark \|\| character\.name\) \+ "偷偷翻"/);
 });

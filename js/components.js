@@ -8555,6 +8555,8 @@ function ChatThread({
   onOpenMoments,
   onHandPhone,   // 把手机递给TA看（她 2026-10-01：「角色反查手机」）
   onPhoneAsk,    // TA开口要看手机那张卡：给／不给
+  onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
+  peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
   onOffline,
 
@@ -9167,6 +9169,7 @@ function ChatThread({
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
     if (m.kind === "askphone") return h(PhoneAskCard, { key: i, m: m, character: character,
       onGive: () => { onPhoneAsk && onPhoneAsk(m, true); setPeekOpen(true); },
       onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) });
@@ -9739,6 +9742,10 @@ function ChatThread({
         return h("button", { key: p.id, onClick: () => setPeekHide(a => hid ? a.filter(x => x !== p.id) : a.concat(p.id)), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 42, borderBottom: "1px solid " + t.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: hid ? t.fog : t.ink, textDecoration: hid ? "line-through" : "none" } }, (p.group ? "群 · " : "") + p.name),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: hid ? t.fog : t.accent } }, hid ? "藏起来" : "给看")); })) : null,
+    onToggleSneak ? h("button", { onClick: onToggleSneak, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, marginTop: 10, borderTop: "1px solid " + t.line } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "偷偷翻",
+        h("span", { style: { display: "block", fontSize: 11, color: t.fog, marginTop: 2 } }, "所有角色共用一个冷却，一天最多一回")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null,
     h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
@@ -12482,6 +12489,34 @@ function KinshipCardFace({ character, limit, used, note, width }) {
       note
         ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.45, color: t.ink } }, "「" + note + "」")
         : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "刷这张卡花的是" + (c.name || "TA") + "的钱")));
+}
+// 被TA删掉／拉黑的那一栏：聊天记录一条不动，只是盖上一张空白页，点一下就加回来（她 2026-10-02）
+function PeekCutPage({ character, cut, byName, onBack, onRestore }) {
+  const t = useTheme();
+  const nm = character.remark || character.name || "TA", un = cut.kind === "unfriend";
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: nm, onBack, bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center", style: { padding: "0 32px", textAlign: "center" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, lineHeight: 1.8 } }, un ? "你和「" + nm + "」已经不是好友了" : "「" + nm + "」已被拉黑"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+        (byName ? byName + "翻你手机的时候" + (un ? "删的" : "拉黑的") + "。" : "") + "聊天记录都还在，加回来就能接着聊。"),
+      h("button", { onClick: onRestore, className: "active:opacity-80", style: { marginTop: 22, minHeight: 44, padding: "0 28px", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14.5 } },
+        un ? "加回好友" : "解除拉黑")));
+}
+// TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
+function PeekSneakCard({ m, character, onPick }) {
+  const t = useTheme();
+  const st = m.state || "pending";
+  const btn = (k, zh, solid) => h("button", { key: k, onClick: () => onPick(k), className: "flex-1 active:opacity-75",
+    style: { minHeight: 38, borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: solid ? t.ink : "transparent", color: solid ? t.bg2 : t.ink, border: solid ? "none" : "1px solid " + t.line } }, zh);
+  return h("div", { className: "py-1 flex justify-center" },
+    h("div", { style: { width: 280, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px", textAlign: "center" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.6 } }, m.content),
+      h("div", { className: "flex gap-2", style: { marginTop: 10 } },
+        btn("replay", "回放", false),
+        st === "pending" ? btn("ask", "当面问", true) : null,
+        st === "pending" ? btn("ignore", "装没看见", false) : null),
+      st !== "pending" ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "ask" ? "你当面问了" : "你装作没看见") : null));
 }
 // TA开口要看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：给，就打开递手机那张单子；不给，TA照自己的性子接
 function PhoneAskCard({ m, character, onGive, onRefuse }) {

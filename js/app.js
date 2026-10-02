@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.492";
+const APP_VERSION = "v74.493";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9444,19 +9444,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (btn) { try { btn.click(); return; } catch (e) {} }
     setScreen("home");
   };
-  const handPhoneTo = async (charId, allow, hideIds) => {
+  // sneak：TA趁她不注意偷偷翻的（她 2026-10-02：开关决定谁可以偷偷翻，全部角色共用冷却）——
+  //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
+  const handPhoneTo = async (charId, allow, hideIds, sneak) => {
     const hideSet = new Set((hideIds || []).map(String));
     const seen = peekPhoneMaterial(charId, allow, hideIds);
-    try { window.__peekHide = hideSet; } catch (e) {}
+    if (!sneak) try { window.__peekHide = hideSet; } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
-    pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
+    if (!sneak) pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
     const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
     // 单独藏的人也算进「藏起了」，翻完开口那一轮TA照样知道
     const hidePeople = (characters || []).filter(x => hideSet.has(String(x.id))).map(x => x.remark || x.name)
       .concat((groupsRef.current || []).filter(g => g && hideSet.has(String(g.id))).map(g => "群「" + (g.name || "群聊") + "」"));
-    setPeekPlay({ charId, allow, seen, hidden: hidden.concat(hidePeople.map(n => "和" + n + "的聊天")), script: null });
+    if (!sneak) setPeekPlay({ charId, allow, seen, hidden: hidden.concat(hidePeople.map(n => "和" + n + "的聊天")), script: null });
     let script = [];
     // 聊天里【近 3 天】翻得出线索的，才顺着去（她 2026-10-02：「30 天太长了，改成 3 天内」；「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
     const CLUE = { transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" }, clues = {};
@@ -9470,7 +9472,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const d = await runProbe(apiFor(charId), ctxFor(c), {
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
-        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + " 把她的手机递给了你——对你来说这些全是真的：她是你认识的那个人，"
+        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
           + "聊天里那些人是活生生的人，她跟他们说的话、转出去的钱、写下的东西都真发生过。你翻到的每一样，心里冒出来的都是【你这个人】此刻对她、对那个人、对那件事的真实反应，用你平时的口吻。"
           + (() => { const d = new Date(); return "\n今天是" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + d.toTimeString().slice(0, 5) + "——下面写着日子的，都按今天往回算是几天前的事。"; })()
           + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
@@ -9482,6 +9484,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 进你自己那一栏，把她给你的备注改掉（text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。"
+          + "\n下面这几样也是真的会动她手机的，各一趟最多一次，真气到那份上才用，不想就一样都别写：pin 置顶（who 空＝把你自己置顶，填名字＝置顶那个人）；unpin 把某人取消置顶（who）；unfriend 删掉她和某人的好友（who）；block 把某人拉黑（who）；impersonate 用她的手机、以她的名义给某人发一句（who、text 填那句话——对面会当成是她说的，会接着回）。who 只能填上面能选的单聊名字。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
@@ -9501,8 +9504,42 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
       script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary, who: others, gate }) : [];
-    } catch (e) { toast("这次没翻成：" + (e.message || "再试一次")); }
+    } catch (e) { if (!sneak) toast("这次没翻成：" + (e.message || "再试一次")); }
+    if (sneak) {
+      if (!script.length) return;
+      // 手脚当场就动了；她回放时只看，不再动一遍
+      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate"].includes(st.do)) peekEffect(charId, st); });
+      const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
+      follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
+      delete peekRenamedRef.current[charId];
+      pChat(charId, p => [...p, { id: "sneak_" + Date.now(), role: "assistant", kind: "peeksneak", content: "你发现" + (c.remark || c.name) + "刚才偷偷翻过你的手机",
+        script, seen, thoughts: script.filter(st => st.do === "think").map(st => st.text), state: "pending", ts: Date.now() }]);
+      return;
+    }
     setPeekPlay(p => p && p.charId === charId ? { ...p, script } : p);
+  };
+  // 偷偷翻：谁可以（每个角色一个开关）、多久一回（所有角色共用一个冷却）
+  const PEEK_SNEAK_GAP = 24 * 3600e3;
+  const [peekSneakOk, setPeekSneakOk] = useState(() => loadJSON("x_peekSneak", {}) || {});
+  const togglePeekSneak = id => setPeekSneakOk(p => { const n = { ...p, [id]: !p[id] }; saveJSON("x_peekSneak", n); return n; });
+  const maybeSneak = charId => {
+    if (!peekSneakOk[charId] || peekPlay) return;
+    const last = Number(loadJSON("x_peekSneakLast", 0)) || 0;
+    if (Date.now() - last < PEEK_SNEAK_GAP || Math.random() > 0.25) return;
+    saveJSON("x_peekSneakLast", Date.now());
+    handPhoneTo(charId, PEEK_PHONE_SECTIONS.map(s => s[0]), [], true);
+  };
+  // 她看到那张卡：回放（只看）／当面问（TA接）／装没看见
+  // 她点开一个允许偷偷翻的人的聊天时，偶尔会发现TA刚翻过（冷却够了才有几率）
+  useEffect(() => {
+    if (screen !== "thread" || !activeChar) return;
+    const id = activeChar.id, tm = setTimeout(() => maybeSneak(id), 2500);
+    return () => clearTimeout(tm);
+  }, [screen, activeChar && activeChar.id]);
+  const answerSneak = (charId, m, how) => {
+    pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
+    if (how === "replay") { setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
+    if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
   };
   // 翻完那一下的料先存着，直到TA真的接上话才算用掉（她 2026-10-01：「看完接不上啊」——
   //   那一枪没送到时，她自己问一句「看了怎么样」，TA就只剩自己的日常可说了）
@@ -9515,6 +9552,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你没把手机给他", ts: Date.now() }]);
     replyNow(charId, "", null, { proactive: true, phoneRefused: true });
   };
+  // 删好友／拉黑（她 2026-10-02：「删好友就是把那个聊天变成空白的假页面，给我一个加回来的按钮就恢复了」）：
+  //   聊天记录一条不动，只是这一栏被盖上；x_peekCut = { [charId]: { kind: "unfriend"|"block", by, ts } }
+  const [peekCut, setPeekCut] = useState(() => loadJSON("x_peekCut", {}) || {});
+  const savePeekCut = f => setPeekCut(p => { const n = f(p); saveJSON("x_peekCut", n); return n; });
+  const peekFollowRef = useRef([]);   // 用她名义发出去的那几句：翻完再让对面接
+  const peekEffect = (viewerId, step) => {
+    const v = (characters || []).find(x => x.id === viewerId);
+    const tgt = step.who ? (characters || []).find(x => x.id !== viewerId && (x.remark === step.who || x.name === step.who)) : null;
+    const vn = (v && v.name) || "TA", tn = tgt ? (tgt.remark || tgt.name) : "";
+    const note = t => pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);
+    if (step.do === "pin") {
+      const id = tgt ? tgt.id : viewerId;
+      setPinnedChats(p => { const n = [id, ...p.filter(x => x !== id)]; saveJSON("x_pinnedChats", n); return n; });
+      note(vn + " 把" + (tgt ? "「" + tn + "」" : "自己") + "置顶了");
+    } else if (step.do === "unpin" && tgt) {
+      setPinnedChats(p => { const n = p.filter(x => x !== tgt.id); saveJSON("x_pinnedChats", n); return n; });
+      note(vn + " 把「" + tn + "」取消了置顶");
+    } else if ((step.do === "unfriend" || step.do === "block") && tgt) {
+      savePeekCut(p => ({ ...p, [tgt.id]: { kind: step.do, by: viewerId, ts: Date.now() } }));
+      note(vn + (step.do === "unfriend" ? " 删掉了你的好友「" : " 拉黑了「") + tn + "」");
+    } else if (step.do === "impersonate" && tgt && step.text) {
+      pChat(tgt.id, p => [...p, { role: "user", content: step.text, ts: Date.now(), peekBy: viewerId }]);
+      peekFollowRef.current.push(tgt.id);
+      note(vn + " 用你的手机给「" + tn + "」发了一句：「" + step.text + "」");
+    }
+  };
+  const leaveCutPage = () => setScreen("messages");   // 空白页的返回：回消息列表
+  const peekRestore = id => savePeekCut(p => { const n = { ...p }; delete n[id]; return n; });
   const peekRenamedRef = useRef({});
   const peekRename = (charId, text, old) => {
     const c = (characters || []).find(x => x.id === charId);
@@ -9527,6 +9592,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const p = peekPlay;
     setPeekPlay(null);
     try { window.__peekHide = null; } catch (e) {}
+    if (p && p.replay) { openChatById(p.charId); return; }   // 回放：只看，不记「上次翻过」，TA也不开口
     if (!p) return;
     try {
       const sc = p.script || [];
@@ -9538,6 +9604,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     openChatById(p.charId);
     peekPendingRef.current[p.charId] = { ts: Date.now(), seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed: peekRenamedRef.current[p.charId] };
     const renamed = peekRenamedRef.current[p.charId]; delete peekRenamedRef.current[p.charId];
+    // 用她名义发出去的那几句，对面会接（她 2026-10-02：冒充你回一句）
+    const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
+    follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
     replyNow(p.charId, "", null, { proactive: true, peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed } });
   };
   const _replyTurn = async (charId, extraText, mode, opts) => {
@@ -9552,7 +9621,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
     const _pk = !opts.room && peekPendingRef.current[charId];
     if (_pk && Date.now() - _pk.ts < 2 * 3600e3 && !opts.peekPhone && !opts.proactive) opts = { ...opts, peekPhone: _pk };
-    const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused));
+    const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
@@ -9804,8 +9873,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "");
       // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
       // 递手机那段挂在这一格最前面：这一轮是「看完她手机才开口」，口气由TA自己定（她 2026-10-01）
+      const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
+        + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
+        + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
-      const dongnianHint = peekHint + refuseHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const dongnianHint = peekHint + refuseHint + caughtHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -24663,7 +24735,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
-  })());else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
+  })());else if (screen === "thread" && activeChar && peekCut[activeChar.id]) body = h(PeekCutPage, {
+    character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
+    onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
+  });else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
     key: activeChar.id + "::" + activeRoomId,
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
     unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
@@ -24907,6 +24982,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
       .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true }))),
     onPhoneAsk: (m, give) => answerPhoneAsk(activeChar.id, m, give),
+    onSneak: (m, how) => answerSneak(activeChar.id, m, how),
+    peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
@@ -26765,7 +26842,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 改她给TA的备注：进自己那一栏、真的改（她 2026-10-02）
     openSelf: () => openChatById(peekPlay.charId),
     selfRemark: () => (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || "",
-    onRename: (text, old) => peekRename(peekPlay.charId, text, old)
+    onRename: (text, old) => { if (!peekPlay.replay) peekRename(peekPlay.charId, text, old); },
+    onEffect: step => { if (!peekPlay.replay) peekEffect(peekPlay.charId, step); },
+    selfName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || ""
   }), modelFloatOn && h(ModelQuickSwitch, {
     profiles: apiProfiles,
     activeId: activeId,
