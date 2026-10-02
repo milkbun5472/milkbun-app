@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.493";
+const APP_VERSION = "v74.494";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9512,6 +9512,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
+      peekLogAdd(charId, { how: "sneak", who: [...new Set(script.filter(st => st.do === "open" && st.app === "chat" && st.who).map(st => st.who))].slice(0, 4),
+        thoughts: script.filter(st => st.do === "think").map(st => st.text).slice(0, 2), did: peekDidRef.current[charId] || [] });
+      delete peekDidRef.current[charId];
       pChat(charId, p => [...p, { id: "sneak_" + Date.now(), role: "assistant", kind: "peeksneak", content: "你发现" + (c.remark || c.name) + "刚才偷偷翻过你的手机",
         script, seen, thoughts: script.filter(st => st.do === "think").map(st => st.text), state: "pending", ts: Date.now() }]);
       return;
@@ -9539,6 +9542,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const answerSneak = (charId, m, how) => {
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
     if (how === "replay") { setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
+    if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
     if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
   };
   // 翻完那一下的料先存着，直到TA真的接上话才算用掉（她 2026-10-01：「看完接不上啊」——
@@ -9548,7 +9552,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const phoneAskReady = charId => { const a = loadJSON("x_peekAsk", {}) || {}; return Date.now() - (a[charId] || 0) > 20 * 3600e3; };
   const answerPhoneAsk = (charId, m, give) => {
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: give ? "given" : "refused" } : x));
-    if (give) return;   // 给：ChatThread 那边打开递手机那张单子
+    if (give) { peekAskedRef.current[charId] = Date.now(); return; }   // 给：ChatThread 那边打开递手机那张单子
+    peekLogAdd(charId, { how: "refused" });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你没把手机给他", ts: Date.now() }]);
     replyNow(charId, "", null, { proactive: true, phoneRefused: true });
   };
@@ -9561,32 +9566,53 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const v = (characters || []).find(x => x.id === viewerId);
     const tgt = step.who ? (characters || []).find(x => x.id !== viewerId && (x.remark === step.who || x.name === step.who)) : null;
     const vn = (v && v.name) || "TA", tn = tgt ? (tgt.remark || tgt.name) : "";
-    const note = t => pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);
+    // t 给她看（聊天里那条记录）；mine 是TA自己记得的说法（进查手机记事）
+    const note = (t, mine) => { pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);
+      (peekDidRef.current[viewerId] = peekDidRef.current[viewerId] || []).push(mine); };
     if (step.do === "pin") {
       const id = tgt ? tgt.id : viewerId;
       setPinnedChats(p => { const n = [id, ...p.filter(x => x !== id)]; saveJSON("x_pinnedChats", n); return n; });
-      note(vn + " 把" + (tgt ? "「" + tn + "」" : "自己") + "置顶了");
+      note(vn + " 把" + (tgt ? "「" + tn + "」" : "自己") + "置顶了", "在她手机上把" + (tgt ? "「" + tn + "」" : "你自己") + "置顶了");
     } else if (step.do === "unpin" && tgt) {
       setPinnedChats(p => { const n = p.filter(x => x !== tgt.id); saveJSON("x_pinnedChats", n); return n; });
-      note(vn + " 把「" + tn + "」取消了置顶");
+      note(vn + " 把「" + tn + "」取消了置顶", "把「" + tn + "」从她的置顶里拿掉了");
     } else if ((step.do === "unfriend" || step.do === "block") && tgt) {
       savePeekCut(p => ({ ...p, [tgt.id]: { kind: step.do, by: viewerId, ts: Date.now() } }));
-      note(vn + (step.do === "unfriend" ? " 删掉了你的好友「" : " 拉黑了「") + tn + "」");
+      note(vn + (step.do === "unfriend" ? " 删掉了你的好友「" : " 拉黑了「") + tn + "」", (step.do === "unfriend" ? "删掉了她和「" : "替她拉黑了「") + tn + (step.do === "unfriend" ? "」的好友" : "」"));
     } else if (step.do === "impersonate" && tgt && step.text) {
       pChat(tgt.id, p => [...p, { role: "user", content: step.text, ts: Date.now(), peekBy: viewerId }]);
       peekFollowRef.current.push(tgt.id);
-      note(vn + " 用你的手机给「" + tn + "」发了一句：「" + step.text + "」");
+      note(vn + " 用你的手机给「" + tn + "」发了一句：「" + step.text + "」", "用她的手机、以她的名义给「" + tn + "」发了一句「" + step.text + "」");
     }
   };
   const leaveCutPage = () => setScreen("messages");   // 空白页的返回：回消息列表
   const peekRestore = id => savePeekCut(p => { const n = { ...p }; delete n[id]; return n; });
   const peekRenamedRef = useRef({});
+  // 查手机记事（她 2026-10-02：「后续他查过的有啥能进上下文」）：每翻一趟记一条，之后一周里TA回她时带着最近几条，当成自己记得的事
+  //   x_peekLog = { [charId]: [{ ts, how: "given"|"asked"|"sneak"|"refused", who, thoughts, did, hid, end }] }
+  const peekDidRef = useRef({});
+  const peekAskedRef = useRef({});
+  const peekLogAdd = (charId, e) => { const all = loadJSON("x_peekLog", {}) || {}; all[charId] = [{ ts: Date.now(), ...e }, ...(all[charId] || [])].slice(0, 8); saveJSON("x_peekLog", all); };
+  const peekLogEndSneak = (charId, end) => { const all = loadJSON("x_peekLog", {}) || {}; const l = all[charId] || []; const i = l.findIndex(x => x.how === "sneak" && !x.end); if (i >= 0) { l[i] = { ...l[i], end }; saveJSON("x_peekLog", all); } };
+  const peekMemoFor = charId => {
+    const l = ((loadJSON("x_peekLog", {}) || {})[charId] || []).filter(x => Date.now() - x.ts < 7 * 86400000).slice(0, 3);
+    if (!l.length) return "";
+    const ago = ts => { const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d + "天前"; };
+    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。"
+      : ago(x.ts) + ({ given: "她把手机递给你看了", asked: "你开口要了她的手机，她给了", sneak: "你趁她不注意偷偷翻了她的手机" + (x.end === "ask" ? "，被她发现、当面问了" : x.end === "ignore" ? "，她发现了但没吭声" : "") })[x.how] + "。"
+        + (x.who && x.who.length ? "看了她和" + x.who.map(n => "「" + n + "」").join("") + "的聊天。" : "")
+        + (x.hid && x.hid.length ? "她藏起了" + x.hid.map(n => "「" + n + "」").join("") + "。" : "")
+        + (x.thoughts && x.thoughts.length ? "当时心里想：" + x.thoughts.map(t => "「" + t + "」").join("") + "。" : "")
+        + (x.did && x.did.length ? "你还动了她的手机：" + x.did.join("；") + "。" : "");
+    return "\n\n【你最近查过她的手机（你自己记得的事，用不用、什么时候翻旧账看你）】\n" + l.map(one).join("\n");
+  };
   const peekRename = (charId, text, old) => {
     const c = (characters || []).find(x => x.id === charId);
     if (!c || !text) return;
     pC(p => p.map(x => x.id === charId ? { ...x, remark: text } : x));
     pChat(charId, p => [...p, { role: "system", kind: "system", content: (c.name || "TA") + " 把你给他的备注" + (old ? "从「" + old + "」" : "") + "改成了「" + text + "」", ts: Date.now() }]);
     peekRenamedRef.current[charId] = { from: old || "", to: text };
+    (peekDidRef.current[charId] = peekDidRef.current[charId] || []).push("把她给你的备注" + (old ? "从「" + old + "」" : "") + "改成了「" + text + "」");
   };
   const peekDone = thoughts => {
     const p = peekPlay;
@@ -9600,6 +9626,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       all[p.charId] = { ts: Date.now(), apps: [...new Set(sc.filter(s => s.do === "open").map(s => s.app))], who: [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))].slice(0, 6),
         taps: [...new Set(sc.filter(s => s.do === "tap" && !s.exact).map(s => s.text))].slice(0, 10), thoughts: (thoughts || []).slice(0, 6) };
       saveJSON("x_peekLast", all);
+      const askedAt = peekAskedRef.current[p.charId] || 0; delete peekAskedRef.current[p.charId];
+      peekLogAdd(p.charId, { how: Date.now() - askedAt < 3600e3 ? "asked" : "given", who: all[p.charId].who, thoughts: (thoughts || []).slice(0, 2),
+        did: peekDidRef.current[p.charId] || [], hid: (p.hidden || []).filter(x => /^和.+的聊天$/.test(x)).map(x => x.slice(1, -3)) });
+      delete peekDidRef.current[p.charId];
     } catch (e) {}
     openChatById(p.charId);
     peekPendingRef.current[p.charId] = { ts: Date.now(), seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed: peekRenamedRef.current[p.charId] };
@@ -9647,7 +9677,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // 她撤回的那条留在原位、变成一行提示（recallStub，单聊群聊共用，定义在 groupContextRows 上面）
     const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : m)
-      .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
+      .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
+        // 「TA想看你手机」「你发现TA偷翻过」那两张卡不是TA说的话（她 2026-10-02）；那几件事走下面的查手机记事
+        && m.kind !== "askphone" && m.kind !== "peeksneak");
     // 撤回那件事已经留在历史原位了（见上面 recallStub），末尾不再另挂一句——同一件事说两遍，
     //   第二遍还是「多数时候当没看见」，等于叫他别理。
     const _recallHint = "";
@@ -9877,7 +9909,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
-      const dongnianHint = peekHint + refuseHint + caughtHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const peekMemo = opts.peekPhone ? "" : peekMemoFor(charId);
+      const dongnianHint = peekHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -26844,6 +26877,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     selfRemark: () => (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || "",
     onRename: (text, old) => { if (!peekPlay.replay) peekRename(peekPlay.charId, text, old); },
     onEffect: step => { if (!peekPlay.replay) peekEffect(peekPlay.charId, step); },
+    idOf: who => { const x = (characters || []).find(c => c.remark === who || c.name === who); if (x) return x.id; const g = (groupsRef.current || []).find(g => g && g.name === who); return g ? g.id : null; },
     selfName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || ""
   }), modelFloatOn && h(ModelQuickSwitch, {
     profiles: apiProfiles,

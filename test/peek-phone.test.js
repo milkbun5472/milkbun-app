@@ -23,7 +23,7 @@ test("聊天加号里有「给TA看手机」，单子能把几样藏起来再递
 
 test("递过去：只摆她手机上真有的、藏了什么；主动开关和防连发闸都不拦", () => {
   assert.match(a, /const peekHint = opts\.peekPhone \?/);
-  assert.match(a, /const dongnianHint = peekHint \+ refuseHint \+ caughtHint \+ \(/, "递手机那段喂进这一轮");
+  assert.match(a, /const dongnianHint = peekHint \+ refuseHint \+ caughtHint \+ peekMemo \+ \(/, "递手机那段喂进这一轮");
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: false \};/);
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: true \};/);
   assert.ok(a.indexOf("proactive: false };") < a.indexOf("!opts.phoneAs && history.length") && a.indexOf("!opts.phoneAs && history.length") < a.indexOf("if (_peekTurn) opts = { ...opts, proactive: true };"), "摘掉→过闸→挂回 的顺序");
@@ -194,7 +194,7 @@ test("翻手机：没心声的那段不删；open 自带心声；心声上限放
   const withT = PP.cleanScript({ steps: [{ do: "open", app: "chat", who: "丙", thoughts: ["甲句", "乙句"] }] }, ["chat"], {});
   assert.equal(withT.filter(s => s.do === "think").length, 2, "open 自带的心声展开成边翻边想");
   assert.equal(out.filter(s => s.do === "think").length, 3, "一个聊天能想三句");
-  assert.match(p, /if \(app === "chat" && who\) \{ const n = findByText\(who\); if \(n\) \{ await scrollTo\(n\); await pressOnly\(n\); \} return false; \}/);
+  assert.match(p, /if \(app === "chat" && who\) \{ const n = findRow\(who\); if \(n\) \{ await scrollTo\(n\); await pressOnly\(n\); \} return false; \}/);
 });
 
 test("翻手机：同一个聊天先安静开一回、再带心声开一回——安静的那回删掉", () => {
@@ -290,4 +290,19 @@ test("翻手机：偷偷翻——每个角色一个开关、所有角色共用�
   assert.match(a, /if \(p && p\.replay\) \{ openChatById\(p\.charId\); return; \}/);
   assert.match(c, /function PeekSneakCard\(/);
   assert.match(c, /"允许" \+ \(character\.remark \|\| character\.name\) \+ "偷偷翻"/);
+});
+
+test("翻手机：查手机记事进之后一周的上下文；两张卡不当TA的话进历史；列表按 id 找那一行", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  assert.match(a, /&& m\.kind !== "askphone" && m\.kind !== "peeksneak"\);/);
+  assert.match(a, /const peekMemo = opts\.peekPhone \? "" : peekMemoFor\(charId\);/);
+  assert.match(a, /Date\.now\(\) - x\.ts < 7 \* 86400000/);
+  assert.match(a, /peekLogAdd\(charId, \{ how: "refused" \}\)/);
+  assert.match(a, /peekLogAdd\(charId, \{ how: "sneak"/);
+  assert.match(c, /"data-chatid": c\.id/);
+  assert.match(c, /"data-chatid": g\.id/);
+  assert.match(p, /const findRow = who =>/);
 });

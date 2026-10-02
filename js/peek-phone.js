@@ -237,6 +237,13 @@
         await sleep(650); setDot(d => ({ ...d, down: false })); await sleep(250);
       }
     };
+    // 按 id 找列表里那一行（她 2026-10-02：「点击聊天还是对不上实际对话框」——按名字找字，
+    //   会找到别人那一行的最后一句里提到的名字、或者群名里带着的人名）；找不到再退回按字找
+    const findRow = who => {
+      const id = props.idOf ? props.idOf(who) : null;
+      const el = id != null ? document.querySelector('#root [data-chatid="' + String(id).replace(/"/g, "") + '"]') : null;
+      return el || findByText(who);
+    };
     const pressOnly = async el => {
       const r = el.getBoundingClientRect();
       setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false }); await sleep(650);
@@ -268,7 +275,7 @@
           if (!n) { if (step.optional) continue; return false; }
           await tapEl(n); await sleep(800);
         }
-        if (app === "chat" && who) { const n = findByText(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
+        if (app === "chat" && who) { const n = findRow(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
         return true;
       }
       setCaption("回到主屏，找" + (props.labelOf ? props.labelOf(app, "") : app));
@@ -316,7 +323,7 @@
         if (!n) { if (step.optional) continue; return false; }
         await tapEl(n); await sleep(900);
       }
-      if (app === "chat" && who) { const n = findByText(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
+      if (app === "chat" && who) { const n = findRow(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
       return true;
     };
     const finish = () => { if (doneRef.current) return; doneRef.current = true; stopRef.current = true; props.onDone && props.onDone(logRef.current.slice()); };
@@ -373,7 +380,7 @@
             if (s.do === "pin" || s.do === "unpin") {
               setCaption(s.do === "pin" ? "把" + (s.who ? "「" + s.who + "」" : "自己") + "置顶了" : "把「" + nm + "」取消置顶");
               if (props.toMessages) { props.toMessages("chats"); await sleep(800); }
-              const row = findByText(s.who || props.selfName || "");
+              const row = s.who ? findRow(s.who) : (props.idOf ? findRow(props.selfName || "") : findByText(props.selfName || ""));
               if (row) { await scrollTo(row); await pressOnly(row); await sleep(500); await pressOnly(row); }
               props.onEffect && props.onEffect(s); await sleep(900);
             } else if (s.do === "impersonate") {
