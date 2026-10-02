@@ -2325,12 +2325,8 @@ function ForumWorlds({ characters, forumOff, onToggleForumChar, charToggles }) {
   // 论坛设置分成几格收着（她 2026-10-01：「设置能不能整理一下搞几个分类 dropdown，现在太长了」）：
   //   点标题摊开、再点收起；收着的时候右边那句说明这一格现在是什么状态。
   const [open, setOpen] = useState("");
-  const fold = (key, title, state, kids) => h("div", { key, style: { borderBottom: "1px solid " + t.line } },
-    h("button", { onClick: () => setOpen(v => v === key ? "" : key), className: "w-full flex items-center active:opacity-70", style: { gap: 10, minHeight: 50, textAlign: "left" } },
-      h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title),
-      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, state),
-      h("span", { style: { flexShrink: 0, fontSize: 13, color: t.fog, display: "inline-block", transition: "transform .2s", transform: open === key ? "rotate(90deg)" : "none" } }, "›")),
-    open === key ? h("div", { style: { paddingBottom: 14 } }, kids) : null);
+  // 那一格的样子搬去了公共的 FoldRow（递手机那张单子也用它）
+  const fold = (key, title, state, kids) => h(FoldRow, { key, title, state, open: open === key, onToggle: () => setOpen(v => v === key ? "" : key) }, kids);
   const note = s => h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, s);
   const onN = (characters || []).filter(c => !(forumOff || []).includes(c.id)).length;
   return h("div", null,

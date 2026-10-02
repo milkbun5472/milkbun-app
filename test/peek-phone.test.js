@@ -345,3 +345,14 @@ test("翻手机：换了面具聊的人默认查不到（连钱包购物痕迹�
   assert.match(c, /"别的面具聊的也给看"/);
   assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
 });
+
+test("翻手机：递手机单子分三格折叠（能翻的几样／单独藏起几个人／更多），用公共 FoldRow，论坛设置也是它", () => {
+  const fs = require("fs"), path = require("path");
+  const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  const sc = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  assert.match(c, /function FoldRow\(\{ title, state, open, onToggle, children \}\)/);
+  assert.match(c, /h\(FoldRow, \{ title: "能翻的几样"/);
+  assert.match(c, /h\(FoldRow, \{ title: "单独藏起几个人"/);
+  assert.match(c, /h\(FoldRow, \{ title: "更多"/);
+  assert.match(sc, /const fold = \(key, title, state, kids\) => h\(FoldRow,/);
+});

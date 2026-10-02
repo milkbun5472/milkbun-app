@@ -8613,7 +8613,9 @@ function ChatThread({
   const [peekOpen, setPeekOpen] = useState(false);
   const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]));
   const [peekHide, setPeekHide] = useState([]);
-  const [peekAllMasks, setPeekAllMasks] = useState(false);   // 别的面具聊的也给看（默认不给：换了面具就是另一个你）   // 藏某一个人的聊天（她 2026-10-02：比藏整类更像真的在心虚）
+  const [peekAllMasks, setPeekAllMasks] = useState(false);
+  const [peekFold, setPeekFold] = useState("");   // 单子分几格收着（她 2026-10-02：「单子能不能做 dropdown，东西有点多」）
+  const pf = k => ({ open: peekFold === k, onToggle: () => setPeekFold(v => v === k ? "" : k) });   // 别的面具聊的也给看（默认不给：换了面具就是另一个你）   // 藏某一个人的聊天（她 2026-10-02：比藏整类更像真的在心虚）
   const [searchOpen, setSearchOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -9735,26 +9737,28 @@ function ChatThread({
     h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
       "勾着的TA能翻到；不想给看的先关掉——那几样就算你藏起来了，TA看不到，但未必察觉不到。递过去以后，TA会照自己的性子挑着翻，再来跟你说。"),
+    h(FoldRow, { title: "能翻的几样", state: peekAllow.length === (window.PEEK_PHONE_SECTIONS || []).length ? "全给看" : "藏了 " + ((window.PEEK_PHONE_SECTIONS || []).length - peekAllow.length) + " 样", ...pf("sec") },
     (window.PEEK_PHONE_SECTIONS || []).map(s => {
       const on = peekAllow.includes(s[0]);
       return h("button", { key: s[0], onClick: () => setPeekAllow(a => on ? a.filter(x => x !== s[0]) : a.concat(s[0])), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: on ? t.ink : t.fog, textDecoration: on ? "none" : "line-through" } }, s[1]),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.accent : t.fog } }, on ? "给看" : "藏起来"));
-    }),
-    peekAllow.includes("chats") && (peekPeople || []).length ? h("div", { style: { marginTop: 14 } },
+    })),
+    peekAllow.includes("chats") && (peekPeople || []).length ? h(FoldRow, { title: "单独藏起几个人", state: peekHide.length ? "藏了 " + peekHide.length + " 个" : "没藏", ...pf("ppl") },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 4, lineHeight: 1.7 } }, "单独藏起几个聊天——列表里就没这一行了，TA翻不到；可别处要是留着痕迹（比如钱包里给这个人的转账），TA也许会对不上。"),
-      (peekPeople || []).some(p => p.otherMask) ? h("button", { onClick: () => setPeekAllMasks(v => !v), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } }, "别的面具聊的也给看",
-          h("span", { style: { display: "block", fontSize: 11, color: t.fog, marginTop: 2 } }, "关着＝换了面具聊的那些人，TA 查不到")),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekAllMasks ? t.accent : t.fog } }, peekAllMasks ? "给看" : "查不到")) : null,
       (peekPeople || []).filter(p => peekAllMasks || !p.otherMask).map(p => { const hid = peekHide.includes(p.id);
         return h("button", { key: p.id, onClick: () => setPeekHide(a => hid ? a.filter(x => x !== p.id) : a.concat(p.id)), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 42, borderBottom: "1px solid " + t.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: hid ? t.fog : t.ink, textDecoration: hid ? "line-through" : "none" } }, (p.group ? "群 · " : "") + p.name),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: hid ? t.fog : t.accent } }, hid ? "藏起来" : "给看")); })) : null,
-    onToggleSneak ? h("button", { onClick: onToggleSneak, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, marginTop: 10, borderTop: "1px solid " + t.line } },
+    h(FoldRow, { title: "更多", state: [peekAllMasks ? "别的面具也给看" : "", peekSneakOn ? "允许偷偷翻" : ""].filter(Boolean).join("、") || "—", ...pf("more") },
+    (peekPeople || []).some(p => p.otherMask) ? h("button", { onClick: () => setPeekAllMasks(v => !v), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } }, "别的面具聊的也给看",
+          h("span", { style: { display: "block", fontSize: 11, color: t.fog, marginTop: 2 } }, "关着＝换了面具聊的那些人，TA 查不到")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekAllMasks ? t.accent : t.fog } }, peekAllMasks ? "给看" : "查不到")) : null,
+    onToggleSneak ? h("button", { onClick: onToggleSneak, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "偷偷翻",
         h("span", { style: { display: "block", fontSize: 11, color: t.fog, marginTop: 2 } }, "所有角色共用一个冷却，一天最多一回")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null,
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null),
     h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
@@ -12539,6 +12543,17 @@ function PeekCutPage({ character, cut, byName, onBack, onRestore }) {
         (byName ? byName + "翻你手机的时候" + (un ? "删的" : "拉黑的") + "。" : "") + "聊天记录都还在，加回来就能接着聊。"),
       h("button", { onClick: onRestore, className: "active:opacity-80", style: { marginTop: 22, minHeight: 44, padding: "0 28px", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14.5 } },
         un ? "加回好友" : "解除拉黑")));
+}
+// 点标题摊开、再点收起，收着的时候右边一句说这一格现在是什么状态。
+//   论坛设置先有的这个形状（她 2026-10-01：「搞几个分类 dropdown」）；递手机那张单子是第二处（她 2026-10-02），所以抽成公共的
+function FoldRow({ title, state, open, onToggle, children }) {
+  const t = useTheme();
+  return h("div", { style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: onToggle, className: "w-full flex items-center active:opacity-70", style: { gap: 10, minHeight: 50, textAlign: "left" } },
+      h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title),
+      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, state),
+      h("span", { style: { flexShrink: 0, fontSize: 13, color: t.fog, display: "inline-block", transition: "transform .2s", transform: open ? "rotate(90deg)" : "none" } }, "›")),
+    open ? h("div", { style: { paddingBottom: 14 } }, children) : null);
 }
 // TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
 function PeekSneakCard({ m, character, onPick }) {
