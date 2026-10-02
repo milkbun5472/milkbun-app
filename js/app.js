@@ -12516,9 +12516,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         wantReasoning: _gWantReason,
         meta: _gReasonMeta
       });
-      // 「复制上一轮群聊提示词」（她 2026-10-02：修罗场调了七轮还在猜，要对着真发出去的东西查）。
-      //   只留在这次打开 App 的内存里，不落盘、不上云：里面有每个人的私事和她的记忆。
-      try { window.__lastGroupPrompt = { ...(window.__lastGroupPrompt || {}), [groupId]: { ts: Date.now(), system: system, user: userContent } }; } catch (e) {}
       let raw = await _gShoot(userContent);
       if (_abort.signal.aborted) return;             // 她点叉断掉了
       checkAutoCall();

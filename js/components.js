@@ -15997,17 +15997,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     row("修罗场（关系不保密）", "关着：每个成员跟你是什么关系只有他自己知道，别人不会吃醋、不会拆穿。开着：群里每个人都知道你和其他成员各是什么关系——吃不吃醋、当面问不问、拆不拆穿，看他们各自的性子。只管这一个群。", gDrama, setGDrama),
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
     row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在TA这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
-    // 查上一轮群聊真的发了什么（她 2026-10-02：修罗场调了七轮还在猜）。只读内存里那一份，没发过就说没有。
-    h("button", {
-      onClick: async () => {
-        const rec = (window.__lastGroupPrompt || {})[group && group.id];
-        if (!rec) { requestAppConfirm("还没有可复制的", "这一次打开 App 以后，这个群还没让他们回过话。先在群里发一句、等他们回完，再来点这里。", () => {}, "知道了"); return; }
-        const ok = await copyText("【system】\n" + rec.system + "\n\n【user】\n" + rec.user);
-        requestAppConfirm(ok ? "已复制上一轮群聊提示词" : "没复制上", ok ? "里面有每个人的私事和你的记忆，只发给信得过的人。" : "这台设备不让复制，换个浏览器试试。", () => {}, "知道了");
-      },
-      className: "w-full text-left active:opacity-60",
-      style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 13, color: t.accent }
-    }, "复制上一轮群聊真正发出去的提示词")),
+    ),
     gCard({ title: "这个群长什么样", char: "衣", tint: "#9b7bc4", state: (chatBg ? "有背景图 · " : "") + "已读 " + gOnOff(showRead) + " · 时间戳 " + gOnOff(showTime) }, null,
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
