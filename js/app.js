@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.545";
+const APP_VERSION = "v74.546";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13338,6 +13338,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const set = new Set(indices);
     pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
   };
+  // ---- 群里的邀约（她 2026-10-02）：挑地方、挑请谁，发一张约会卡；没有回执，人齐了她点「出发」进群线下 ----
+  const sendGroupDateInvite = (groupId, place, v) => {
+    if (!place) return;
+    const when = v && (v.date || v.time) ? { date: v.date || "", time: v.time || "" } : null, say = (v && v.say) || "";
+    const inv = (v && Array.isArray(v.invitees)) ? v.invitees : [];
+    const names = inv.map(x => x.name).join("、");
+    pushGroupRich(groupId, { role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, when, say, invitees: inv, state: "pending",
+      content: "[约会邀请] 约" + (names || "大家") + (when ? dateWhenText(when) + " " : "") + "在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + (say ? "——" + say : "") + "。被约到的人各自表个态：去不去、几点到。" });
+  };
+  const groupDateGo = (groupId, m) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group || !m) return;
+    const list = groupOfflinesRef.current[groupId] || loadJSON("x_goffline:" + groupId, []);
+    if ((list || []).some(x => x && !x.endTs)) { toast("这个群还有一场见面没结束——先去结束它，再出发"); openGroupOffline(group); return; }
+    pGChat(groupId, p => p.map(x => x.kind === "dateinvite" && (m.mid ? x.mid === m.mid : x.ts === m.ts) ? { ...x, state: "gone" } : x));
+    const names = (m.invitees || []).map(x => x.name).join("、");
+    const pl = m.place || {};
+    openGroupOffline(group);
+    startGroupOffline(groupId, { opening: "约好的" + (m.when ? dateWhenText(m.when) : "那天") + "，在「" + (pl.name || "约好的地方") + "」" + (pl.note ? "（" + pl.note + "）" : "") + "。" + (names ? "被约来的是" + names + "，其他人这次不在场。" : "") });
+  };
+  // 群里能挑的地方：我们的城市 + 每个成员住的那个架空世界里的地点
+  const groupInvitePlacesFor = group => {
+    const all = [], seen = {};
+    ((group && group.memberIds) || []).map(id => characters.find(c => c.id === id)).filter(Boolean).forEach(c => invitePlacesFor(c).forEach(p => { if (!seen[p.name]) { seen[p.name] = 1; all.push(p); } }));
+    return all.slice(0, 40);
+  };
   // ---- 群投票 ----
   const pollVoteBusyRef = useRef(new Set());
   // 一张投票卡只有这一个出生点：我发起和成员发起共用它，只差 role/by 和发起人
@@ -25446,6 +25472,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast(on ? "他们知道大家此刻在一起了" : "回到各聊各的");
     },
     characters: liveChars,
+    onGroupDateInvite: (place, v) => sendGroupDateInvite(activeGroup.id, place, v),
+    onGroupDateGo: m => groupDateGo(activeGroup.id, m),
+    invitePlaces: groupInvitePlacesFor(activeGroup),
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
     messages: groupChats[activeGroup.id] || [],

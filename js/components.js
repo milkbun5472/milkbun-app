@@ -9627,10 +9627,11 @@ function ChatThread({
     }))
   }))), panelOpen && !selMode && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
-    style: {
+    // 她 2026-10-02：「这个+框太高了收小点可以下滑」——露两排多一点，剩下的往下滑
+    style: Object.assign({
       background: t.bg2,
       borderTop: `1px solid ${t.line}`
-    }
+    }, CHAT_PANEL_SCROLL)
   }, PANEL.map(([k, zh, glyph]) => h("button", {
     key: k,
     "data-wk": "chattool", "data-chat-tool": k,
@@ -12586,9 +12587,11 @@ const dateWeek = s => { try { const d = new Date(s + "T00:00"); return "周" + "
 const dateLabel = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || "")); return m ? (+m[2]) + "月" + m[3] + "日（" + dateWeek(s) + "）" : ""; };
 // 发约会邀请前那一小框：挑日子、挑钟点、写一句想说的话（她 2026-10-02：「发送前可以选择编辑想要说的话和想要去的时间」）
 // places：从聊天＋面板进来时还没定地方——列出能挑的（我们的城市钉过的、TA住的那个世界里的），也能自己写一个。
-function DateComposeDialog({ place, places, who, onCancel, onSend }) {
+// members：群里约——默认全请，点掉不想叫的
+function DateComposeDialog({ place, places, members, who, onCancel, onSend }) {
   const t = useTheme();
   const [picked, setPicked] = useState(null);
+  const [inv, setInv] = useState(() => (members || []).map(c => c.id));
   const [own, setOwn] = useState("");
   const pickMode = !place;
   const finalPlace = place || picked || (own.trim() ? { name: own.trim().slice(0, 24), note: "" } : null);
@@ -12609,7 +12612,15 @@ function DateComposeDialog({ place, places, who, onCancel, onSend }) {
               style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 11px", borderRadius: 999, color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } },
               p.name, p.from ? h("span", { style: { fontSize: 10, opacity: 0.6, marginLeft: 4 } }, p.from) : null);
           })) : null,
-        h("input", { value: own, onChange: e => { setOwn(e.target.value); if (e.target.value) setPicked(null); }, placeholder: "或者自己写一个地方", className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8 }) }))
+        h("input", { value: own, onChange: e => { setOwn(e.target.value); if (e.target.value) setPicked(null); }, placeholder: "或者自己写一个地方", className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8 }) }),
+        (members || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 6px" } }, "请谁") : null,
+        (members || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+          members.map(c => {
+            const on = inv.indexOf(c.id) >= 0;
+            return h("button", { key: c.id, onClick: () => setInv(p => on ? p.filter(x => x !== c.id) : [...p, c.id]), className: "active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 11px", borderRadius: 999, color: on ? t.bg2 : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line) } },
+              c.remark || c.name);
+          })) : null)
         : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 4 } }, (place && place.name) || ""),
       h("div", { className: "flex", style: { gap: 8, marginTop: 16 } },
         h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1.4, minWidth: 0 }) }),
@@ -12618,7 +12629,7 @@ function DateComposeDialog({ place, places, who, onCancel, onSend }) {
         className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8, resize: "none", lineHeight: 1.6 }) }),
       h("div", { className: "flex", style: { gap: 10, marginTop: 16 } },
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "算了"),
-        h("button", { onClick: () => { if (finalPlace) onSend({ date, time, say: say.trim(), place: finalPlace }); }, disabled: !finalPlace, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
+        h("button", { onClick: () => { if (finalPlace) onSend({ date, time, say: say.trim(), place: finalPlace, invitees: (members || []).filter(c => inv.indexOf(c.id) >= 0).map(c => ({ id: c.id, name: c.remark || c.name })) }); }, disabled: !finalPlace || ((members || []).length > 0 && !inv.length), className: "flex-1 active:opacity-80 disabled:opacity-40", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
     onCancel);
 }
 // 见面散场以后留下的「那天」（她 2026-10-02）：跟约会卡同一张素纸，居中放着，像夹进本子里的一张小票
@@ -12656,7 +12667,8 @@ function DateArrivePop({ m, character, onGo, onLater }) {
       h("button", { onClick: onLater, className: "active:opacity-60", style: { marginTop: 16, minHeight: 40, padding: "0 18px", fontFamily: F_BODY, fontSize: 12.5, color: "#fff", opacity: .85 } }, "晚点再说")),
     onLater);
 }
-function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
+// onGoMine：群里那张邀请是她自己发的，没有回执——人齐了由她点「出发」
+function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   useEffect(() => { dateHandFont(); }, []);
@@ -12667,7 +12679,7 @@ function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
   const coverDate = md ? md[2] + "." + md[3] : "";
   const star = (x, y, r) => h("path", { d: "M" + x + " " + (y - r) + " L" + (x + r * .28) + " " + (y - r * .28) + " L" + (x + r) + " " + y + " L" + (x + r * .28) + " " + (y + r * .28) + " L" + x + " " + (y + r) + " L" + (x - r * .28) + " " + (y + r * .28) + " L" + (x - r) + " " + y + " L" + (x - r * .28) + " " + (y - r * .28) + " Z", fill: ink, opacity: .55 });
   const heart = sz => h("svg", { width: sz, height: sz, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.4 }, h("path", { d: "M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" }));
-  const foot = mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
+  const foot = mine && onGoMine && st === "pending" ? "" : mine && st === "gone" ? "已经一起去了" : mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
   const card = (kids, extra) => h("div", Object.assign({ "data-wk": "card", style: { position: "relative", width: 200, background: paper, border: "1px solid " + line, borderRadius: 12, boxShadow: "0 1px 0 " + line + ", 0 6px 16px rgba(0,0,0,.07)" } }, extra || {}), kids);
   // 合上：素封面——角上一个蝴蝶结、两颗星，中间一颗心、一道细线、日子
   const cover = card([
@@ -12689,7 +12701,8 @@ function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
     pin: [h("path", { key: 1, d: "M12 21s-6-5.6-6-11a6 6 0 0112 0c0 5.4-6 11-6 11z" }), h("circle", { key: 2, cx: 12, cy: 10, r: 2.2 })],
     cal: [h("rect", { key: 1, x: 4, y: 5, width: 16, height: 15, rx: 2 }), h("path", { key: 2, d: "M4 10h16M8 3v4M16 3v4" })],
     clk: [h("circle", { key: 1, cx: 12, cy: 12, r: 8 }), h("path", { key: 2, d: "M12 8v4l3 2" })],
-    pen: [h("path", { key: 1, d: "M4 20l4-1 10-10-3-3L5 16l-1 4z" })]
+    pen: [h("path", { key: 1, d: "M4 20l4-1 10-10-3-3L5 16l-1 4z" })],
+    ppl: [h("circle", { key: 1, cx: 9, cy: 9, r: 3 }), h("path", { key: 2, d: "M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6M15 6.5a3 3 0 010 5.6M17 14.6c1.8.6 3 2 3.4 4.4" })]
   };
   // 打开：上半一句手写的话，一道撕线，下半是信息
   const inside = card([
@@ -12700,12 +12713,14 @@ function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
       h("div", { style: { textAlign: "right", marginTop: 2, fontFamily: F_DISPLAY, fontSize: 8, letterSpacing: ".22em", color: t.fog } }, "DATE WITH YOU")),
     h("div", { key: "bot", style: { padding: "6px 14px 10px" } },
       row(I.pin, pl.name || "某处"),
+      (m.invitees || []).length ? row(I.ppl, "约了 " + m.invitees.map(x => x.name).join("、")) : null,
       w.date ? row(I.cal, dateLabel(w.date)) : null,
       w.time ? row(I.clk, w.time) : null,
       m.say ? row(I.pen, m.say, true) : (pl.note ? row(I.pen, pl.note, true) : null),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, foot),
-        !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →")
+        mine && onGoMine && st === "pending" ? h("button", { onClick: onGoMine, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "人齐了，出发 →")
+        : !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →")
           : h("button", { onClick: () => setOpen(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0 4px 8px", minHeight: 30 } }, "合上")))
   ]);
   return h("div", { className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") }, !mine && avatar, open ? inside : cover, mine && myAvatar);
@@ -13235,6 +13250,8 @@ function UnblockReqCard({ m, character, onRespond }) {
             h("button", { onClick: () => onRespond(m.cid, true), className: "flex-1 py-2.5 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "接受"))
         : statusLabel && h("div", { className: "px-4 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: m.status === "accepted" ? t.tint : t.fog } }, statusLabel)));
 }
+// 聊天 ＋面板单聊群聊共用的高度：两排多露一截，告诉她底下还有，往下滑
+const CHAT_PANEL_SCROLL = { maxHeight: 226, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" };
 // 聊天 +面板的图标(v60.12)
 // 原来这排直接借了【查手机那套 app 图标】(PGlyph),于是:
 //   · 「发语音」和「视频通话」在那套里压根没有对应的 key → 两个格子是空白的(她 2026-09-02 截图)
@@ -15016,6 +15033,7 @@ function GroupThread({
   onResummarizeOffline,
   onForward,
   onSaveSettings,
+  onGroupDateInvite, onGroupDateGo, invitePlaces,   // 群里的邀约（她 2026-10-02）：挑地方、挑请谁；人齐了点出发进群线下
   sameRoom,
   onToggleSameRoom,
   onOpenMemberState,
@@ -15096,6 +15114,7 @@ function GroupThread({
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [panel, setPanel] = useState(false);
+  const [gInviteOpen, setGInviteOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [chatMode, setChatMode] = useState("chat"); // chat | ooc
   const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
@@ -15186,13 +15205,14 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : [])];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
   };
   const onPanelTap = k => {
     setPanel(false);
+    if (k === "dateinvite") { setGInviteOpen(true); return; }
     if (k === "location") setGeoOpen(true);
     else if (k === "photo") { setPhotoText(""); setGroupPhotoImg(""); setGroupPhotoMode("real"); setPhotoOpen(true); }
     else if (k === "voicemsg") setVoiceMsgOpen(true);
@@ -15394,6 +15414,9 @@ function GroupThread({
       myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
+    if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },
+      onGoMine: onGroupDateGo ? () => onGroupDateGo(m) : null,
+      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "poll") return h(PollCard, {
       key: i,
       poll: m,
@@ -15645,10 +15668,10 @@ function GroupThread({
     }
   }, h(TypingDots, { color: t.fog })), onStopGen && h(GenStopX, { onStop: onStopGen }))), panel && h("div", {
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
-    style: {
+    style: Object.assign({
       background: t.bg2,
       borderTop: "1px solid " + t.line
-    }
+    }, CHAT_PANEL_SCROLL)
   }, PANEL.map(([k, zh, glyph]) => h("button", {
     key: k,
     "data-wk": "chattool", "data-chat-tool": k,
@@ -15796,7 +15819,9 @@ function GroupThread({
     rp: messages[rpView],
     meName: meName,
     onClose: () => setRpView(null)
-  }), geoOpen && h(GeoStampSheet, {
+  }), gInviteOpen && h(DateComposeDialog, { places: invitePlaces || [], members: members, who: "大家",
+    onCancel: () => setGInviteOpen(false),
+    onSend: v => { setGInviteOpen(false); onGroupDateInvite(v.place, v); } }), geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
     onClose: () => setGeoOpen(false),
     onSend: name => {

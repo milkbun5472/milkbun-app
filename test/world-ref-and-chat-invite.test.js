@@ -23,11 +23,28 @@ test("住在世界里的人拍照：线上线下都喂世界参考；空景局�
 
 test("＋面板有邀约：挑地方（我们的城市＋TA的世界）或自己写，发约会卡", () => {
   assert.match(comp, /\["dateinvite", "邀约", "invite"\]/);
-  assert.match(comp, /function DateComposeDialog\(\{ place, places, who, onCancel, onSend \}\)/);
+  assert.match(comp, /function DateComposeDialog\(\{ place, places, members, who, onCancel, onSend \}\)/);
   assert.match(comp, /disabled: !finalPlace/);
   assert.match(app, /onDateInvite: \(place, v\) => sendDateInvite\(activeChar, place, v\)/);
   const i = app.indexOf("const invitePlacesFor");
   const seg = app.slice(i, app.indexOf("const pendingInviteOf", i));
   assert.match(seg, /DatePlaces/);
   assert.match(seg, /charRealm/);
+});
+
+test("群里也能邀约：挑请谁，人齐了出发进群线下，开场写明谁来了", () => {
+  assert.match(comp, /\["rp", "红包", "packet"\], \.\.\.\(onGroupDateInvite \? \[\["dateinvite", "邀约", "invite"\]\] : \[\]\)/);
+  assert.match(comp, /function DateComposeDialog\(\{ place, places, members, who, onCancel, onSend \}\)/);
+  assert.match(comp, /"人齐了，出发 →"/);
+  assert.match(app, /const sendGroupDateInvite = /);
+  const i = app.indexOf("const groupDateGo");
+  const seg = app.slice(i, app.indexOf("const groupInvitePlacesFor", i));
+  assert.match(seg, /some\(x => x && !x\.endTs\)/, "还有一场没结束就别盖掉");
+  assert.match(seg, /startGroupOffline\(groupId, \{ opening:/);
+  assert.match(seg, /其他人这次不在场/);
+});
+
+test("＋面板单聊群聊共用一个矮高度，能往下滑", () => {
+  assert.match(comp, /const CHAT_PANEL_SCROLL = \{ maxHeight: \d+, overflowY: "auto"/);
+  assert.equal((comp.match(/\}, CHAT_PANEL_SCROLL\)/g) || []).length, 2);
 });

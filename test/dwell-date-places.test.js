@@ -43,14 +43,14 @@ test("钉一个地方：先从下面现成的地方里挑（他的地方、常�
 
 test("约会卡：两边带头像（跟位置卡、礼物卡一样）；发邀请不自动让TA回", () => {
   const c = read("components.js");
-  assert.match(c, /function DateInviteCard\(\{ m, character, onGo, avatar, myAvatar \}\)/);
+  assert.match(c, /function DateInviteCard\(\{ m, character, onGo, onGoMine, avatar, myAvatar \}\)/);
   assert.match(c, /!mine && avatar,/);
   assert.doesNotMatch(a, /setTimeout\(\(\) => replyNow\(char\.id, "", null, \{\}\), 600\)/);
 });
 
 test("约会卡：合上是素封面、点开是一句邀请＋地点日子钟点想说的话；发之前能挑日子钟点、写一句话", () => {
   const c = read("components.js"), dw = d;
-  assert.match(c, /function DateComposeDialog\(\{ place, places, who, onCancel, onSend \}\)/);
+  assert.match(c, /function DateComposeDialog\(\{ place, places, members, who, onCancel, onSend \}\)/);
   assert.match(c, /h\("input", \{ type: "date"/);
   assert.match(c, /h\("input", \{ type: "time"/);
   assert.match(c, /const \[open, setOpen\] = useState\(false\);/);
