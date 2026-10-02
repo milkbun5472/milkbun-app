@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.480";
+const APP_VERSION = "v74.482";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9326,7 +9326,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (list.length) out.push("【她的消息列表（一打开「信息」就看得到）】\n" + list.map(x => "· " + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」")
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
       const rows = (characters || []).filter(c => c.id !== viewerId && !settingsFor(c.id).engineerEyes).map(c => {
-        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
+        // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
+        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
         return { c, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       // 上次翻过的人排到后面（她 2026-10-01：「这几次测试评论的都是同样两件事」「下次可以看其他角色的」）
       }).filter(x => x.ms.length).sort((a, b) => (seenWho.has(a.c.remark || a.c.name) - seenWho.has(b.c.remark || b.c.name)) || (b.last - a.last)).slice(0, 6);
@@ -9342,6 +9343,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         return head + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
+      // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
+      const gRows = (groupsRef.current || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
+        const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
+        return { g, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
+      }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 3);
+      if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => "群「" + (x.g.name || "群聊") + "」（最近这些）：\n"
+        + x.ms.slice(-14).map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n")).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
       const mineMs = (chatsRef.current[viewerId] || []).filter(m => m && m.role === "user" && m.content && !m.kind).slice(-6);
       if (rows.length && mineMs.length) out.push("【对照：她最近跟你说话是这样的】\n" + mineMs.map(m => "  她：" + cut(m.content, 60)).join("\n"));
@@ -9413,7 +9421,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekOpen = (app, who) => {
     if (app === "chat") {
       const c = (characters || []).find(x => x && (x.name === who || x.remark === who));
-      if (c) openChatById(c.id); else setScreen("messages");
+      if (c) { openChatById(c.id); return; }
+      const g = (groupsRef.current || []).find(x => x && x.name === who && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
+      if (g) { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); return; }
+      setScreen("messages");
       return;
     }
     if (PEEK_APP_ZH[app]) setScreen(app);
@@ -9433,14 +9444,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
     setPeekPlay({ charId, allow, seen, hidden, script: null });
     let script = [];
-    // 聊天里翻得出线索的，才顺着去（她 2026-10-02：「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
+    // 聊天里【近 3 天】翻得出线索的，才顺着去（她 2026-10-02：「30 天太长了，改成 3 天内」；「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
     const CLUE = { transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" }, clues = {};
     (characters || []).forEach(x => { if (x.id === charId) return;
       (chatsRef.current[x.id] || []).slice(-80).forEach(m => { const app = m && CLUE[m.kind];
-        if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 30 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
+        if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
     try {
-      const others = (characters || []).filter(x => x.id !== charId).map(x => x.remark || x.name).slice(0, 12);
+      const others = (characters || []).filter(x => x.id !== charId).map(x => x.remark || x.name).slice(0, 12)
+        .concat((groupsRef.current || []).filter(g => g && g.name && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
       const d = await runProbe(apiFor(charId), ctxFor(c), {
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
@@ -9451,7 +9463,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
-          + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人的聊天，要写 who＝对方名字，能选的：" + others.join("、") + "）"
+          + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"

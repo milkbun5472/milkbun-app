@@ -210,6 +210,20 @@
     };
     // 只做按下去的样子、不真点：列表里按名字找到的那一行可能是群（旁观群名字里也带着人名），
     //   真点进去就翻成了群聊。人对上以后交给外面按 id 直接打开那个单聊（她 2026-10-02：「把旁观群剔除掉」）
+    // 先把列表滑到那一行露出来再点（她 2026-10-02：「还是不会翻到要看的消息才点开，直接随便点点就开了」）
+    const scrollTo = async el => {
+      for (let k = 0; k < 6; k++) {
+        const r = el.getBoundingClientRect(), lo = window.innerHeight * 0.22, hi = window.innerHeight * 0.78;
+        if (r.top >= lo && r.bottom <= hi) return;
+        const sc = findScroller(window.innerWidth / 2, window.innerHeight / 2);
+        if (!sc) return;
+        const dy = Math.max(-sc.clientHeight * 0.55, Math.min(sc.clientHeight * 0.55, (r.top + r.height / 2) - window.innerHeight / 2));
+        setDot({ x: window.innerWidth * 0.55, y: dy > 0 ? window.innerHeight * 0.7 : window.innerHeight * 0.35, down: true }); await sleep(200);
+        setDot({ x: window.innerWidth * 0.55, y: dy > 0 ? window.innerHeight * 0.35 : window.innerHeight * 0.7, down: true });
+        try { sc.scrollBy({ top: dy, behavior: "smooth" }); } catch (e) { sc.scrollTop += dy; }
+        await sleep(650); setDot(d => ({ ...d, down: false })); await sleep(250);
+      }
+    };
     const pressOnly = async el => {
       const r = el.getBoundingClientRect();
       setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false }); await sleep(650);
@@ -241,7 +255,7 @@
           if (!n) { if (step.optional) continue; return false; }
           await tapEl(n); await sleep(800);
         }
-        if (app === "chat" && who) { const n = findByText(who); if (n) await pressOnly(n); return false; }
+        if (app === "chat" && who) { const n = findByText(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
         return true;
       }
       setCaption("回到主屏，找" + (props.labelOf ? props.labelOf(app, "") : app));
@@ -289,7 +303,7 @@
         if (!n) { if (step.optional) continue; return false; }
         await tapEl(n); await sleep(900);
       }
-      if (app === "chat" && who) { const n = findByText(who); if (n) await pressOnly(n); return false; }
+      if (app === "chat" && who) { const n = findByText(who); if (n) { await scrollTo(n); await pressOnly(n); } return false; }
       return true;
     };
     const finish = () => { if (doneRef.current) return; doneRef.current = true; stopRef.current = true; props.onDone && props.onDone(logRef.current.slice()); };

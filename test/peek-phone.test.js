@@ -193,7 +193,7 @@ test("翻手机：没心声的那段不删；open 自带心声；心声上限放
   const withT = PP.cleanScript({ steps: [{ do: "open", app: "chat", who: "丙", thoughts: ["甲句", "乙句"] }] }, ["chat"], {});
   assert.equal(withT.filter(s => s.do === "think").length, 2, "open 自带的心声展开成边翻边想");
   assert.equal(out.filter(s => s.do === "think").length, 3, "一个聊天能想三句");
-  assert.match(p, /if \(app === "chat" && who\) \{ const n = findByText\(who\); if \(n\) await pressOnly\(n\); return false; \}/);
+  assert.match(p, /if \(app === "chat" && who\) \{ const n = findByText\(who\); if \(n\) \{ await scrollTo\(n\); await pressOnly\(n\); \} return false; \}/);
 });
 
 test("翻手机：同一个聊天先安静开一回、再带心声开一回——安静的那回删掉", () => {
@@ -205,4 +205,15 @@ test("翻手机：同一个聊天先安静开一回、再带心声开一回—�
     { do: "open", app: "chat", who: "甲", thoughts: ["想一", "想二"] }] }, ["chat", "messages"], {});
   assert.equal(out.filter(s => s.do === "open" && s.who === "甲").length, 1);
   assert.equal(out.filter(s => s.do === "think").length, 2);
+});
+
+test("翻手机：动作描写不当聊天；她在的群照群开（旁观群不给）；线索只看近 3 天；列表先滑到那一行再点", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  assert.match(a, /m\.role !== "narration" && m\.kind !== "narration" && contextAllowsMessage\(m\)/);
+  assert.match(a, /【她在的群（打开时 who 写群名）】/);
+  assert.match(a, /if \(g\) \{ setActiveGroup\(g\); clearUnread\(g\.id\); setScreen\("gthread"\); return; \}/);
+  assert.match(a, /Date\.now\(\) - \(m\.ts \|\| 0\) < 3 \* 86400000/);
+  assert.match(p, /if \(n\) \{ await scrollTo\(n\); await pressOnly\(n\); \}/);
 });
