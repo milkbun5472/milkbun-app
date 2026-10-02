@@ -103,7 +103,7 @@ test("消息列表也是一处看点；退出来才想的那句挪回退出之�
   assert.match(src("screens.js"), /isMe \? p\.authorType === "me" : \(p\.authorId === profileId && p\.authorType === "character" && !p\.anon\)/);
   assert.match(p, /messages: \{ dock: "信息"/);
   assert.match(p, /const IN_MSG = \["chat", "messages", "wallet"\];/);
-  assert.match(a, /【她的消息列表（一打开「信息」就看得到）】/);
+  assert.match(a, /【她的消息列表（一打开「信息」就看得到，从上往下）】/);
   assert.match(a, /saveJSON\("x_peekLast", all\)/);
   assert.match(a, /你上次翻她手机已经看过：/);
   assert.match(a, /ms\.slice\(-16\)\.map\(m => line\(x, m\)\)/);
@@ -245,4 +245,18 @@ test("翻手机：只在吵架生气时有几率开口要；单独藏的人直�
   assert.match(a, /phoneAskReady\(charId\) && \(_moodNeg \|\| _harsh\) && Math\.random\(\) < 0\.5/);
   assert.match(a, /的聊天藏起来了——消息列表里没有，你翻不到，但你知道她藏了/);
   assert.match(a, /hidden: hidden\.concat\(hidePeople\.map/);
+});
+
+test("翻手机：消息列表里有TA自己那一行；TA能进自己那栏改她给的备注（真改，一趟一次）", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "messages" }, { do: "think", text: "嗯" }, { do: "rename", text: "「老公」" }, { do: "rename", text: "二次" }] }, ["messages", "chat"], {});
+  assert.deepStrictEqual(out.filter(s => s.do === "rename").map(s => s.text), ["老公"]);
+  assert.match(a, /filter\(c => c\.id === viewerId \|\| shownId\(c\.id\)\)/);
+  assert.match(a, /\(x\.c\.id === viewerId \? "【就是你】" : ""\)/);
+  assert.match(a, /pC\(p => p\.map\(x => x\.id === charId \? \{ \.\.\.x, remark: text \} : x\)\)/);
+  assert.match(p, /props\.onRename && props\.onRename\(s\.text, old\)/);
 });

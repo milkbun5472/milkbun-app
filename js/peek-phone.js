@@ -63,6 +63,11 @@
         out.push({ do: "back" });
       }
       else if (d === "pause") out.push({ do: "pause", ms: Math.max(400, Math.min(2500, Number(s.ms) || 900)) });
+      // 改她给TA的备注（她 2026-10-02：「给他权限进入自己聊天开一个假框改备注，然后真的能改」）：一趟最多一次
+      else if (d === "rename" && !out.some(x => x.do === "rename")) {
+        const text = S(s.text).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 16);
+        if (text) out.push({ do: "rename", text });
+      }
       else if (d === "think") {
         const text = S(s.text).trim().slice(0, 60);
         if (text) out.push({ do: "think", text });
@@ -196,6 +201,7 @@
     const [dot, setDot] = React.useState({ x: window.innerWidth / 2, y: window.innerHeight * 0.62, down: false });
     const [thought, setThought] = React.useState("");
     const [caption, setCaption] = React.useState("接过了你的手机…");
+    const [renameBox, setRenameBox] = React.useState(null);   // { old, typed }：改备注那个假框
     const stopRef = React.useRef(false);
     const doneRef = React.useRef(false);
     const logRef = React.useRef([]);
@@ -355,6 +361,19 @@
             await sleep(800);
           } else if (s.do === "pause") {
             await sleep(s.ms);
+          } else if (s.do === "rename") {
+            // 进自己那一栏，开一个「设置备注」的框，一个字一个字删掉旧的、打上新的，按「完成」——真的改
+            if (props.openSelf) { setCaption("点开了自己那一栏"); props.openSelf(); await sleep(1000); }
+            const old = props.selfRemark ? props.selfRemark() : "";
+            setCaption("在改你给他的备注");
+            setRenameBox({ old, typed: old }); await sleep(700);
+            for (let k = old.length; k >= 0; k--) { if (!alive || stopRef.current) return; setRenameBox({ old, typed: old.slice(0, k) }); await sleep(90); }
+            for (let k = 1; k <= s.text.length; k++) { if (!alive || stopRef.current) return; setRenameBox({ old, typed: s.text.slice(0, k) }); await sleep(170); }
+            await sleep(700);
+            setRenameBox(null);
+            props.onRename && props.onRename(s.text, old);
+            logRef.current.renamed = s.text;
+            await sleep(600);
           } else if (s.do === "think") {
             logRef.current.push(s.text);
             setThought(s.text);
@@ -383,6 +402,12 @@
           background: dot.down ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.45)", border: "2px solid rgba(0,0,0,.35)",
           boxShadow: "0 2px 10px rgba(0,0,0,.25)", transform: dot.down ? "scale(.82)" : "scale(1)",
           transition: "left .55s cubic-bezier(.3,.7,.3,1), top .55s cubic-bezier(.3,.7,.3,1), transform .15s", pointerEvents: "none" } }) : null,
+      // 改备注的假框：照「设置备注」那种样子，居中一张卡
+      renameBox ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.28)", pointerEvents: "none" } },
+        h("div", { style: { width: 280, borderRadius: 16, background: bg2, color: ink, padding: "16px 16px 12px", boxShadow: "0 12px 32px rgba(0,0,0,.28)" } },
+          h("div", { style: { fontSize: 15, fontWeight: 600, textAlign: "center", marginBottom: 12 } }, "设置备注"),
+          h("div", { style: { minHeight: 40, borderRadius: 10, border: "1px solid rgba(0,0,0,.18)", padding: "9px 12px", fontSize: 15 } }, renameBox.typed, h("span", { style: { opacity: .6 } }, "｜")),
+          h("div", { style: { marginTop: 12, textAlign: "right", fontSize: 14, opacity: .8 } }, "完成"))) : null,
       // 心声：浮在屏幕下半，第一人称一句
       thought ? h("div", { style: { position: "absolute", left: 20, right: 20, bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)", display: "flex", justifyContent: "center", pointerEvents: "none" } },
         h("div", { style: { maxWidth: 320, padding: "10px 14px", borderRadius: 14, background: bg2, color: ink, fontSize: 14, lineHeight: 1.6,

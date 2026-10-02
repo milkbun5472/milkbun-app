@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.490";
+const APP_VERSION = "v74.492";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9320,12 +9320,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (on("chats")) {
       // 消息列表那一屏本身（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
       const hm = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? d.toTimeString().slice(0, 5) : (d.getMonth() + 1) + "/" + d.getDate(); };
-      const list = (characters || []).filter(c => c.id !== viewerId && shownId(c.id)).map(c => {
+      // 你自己那一行也在列表里（她 2026-10-02）：她给你的备注、你排第几，查岗的人第一眼就看这个
+      const list = (characters || []).filter(c => c.id === viewerId || shownId(c.id)).map(c => {
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
         const lm = ms[ms.length - 1];
         return lm ? { c, lm } : null;
       }).filter(Boolean).sort((a, b) => (b.lm.ts || 0) - (a.lm.ts || 0)).slice(0, 10);
-      if (list.length) out.push("【她的消息列表（一打开「信息」就看得到）】\n" + list.map(x => "· " + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」")
+      if (list.length) out.push("【她的消息列表（一打开「信息」就看得到，从上往下）】\n" + list.map((x, i) => "· 第" + (i + 1) + "行" + (x.c.id === viewerId ? "【就是你】" : "") + " " + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」")
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
       const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
@@ -9480,7 +9481,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
-          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）。"
+          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 进你自己那一栏，把她给你的备注改掉（text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
@@ -9514,6 +9515,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你没把手机给他", ts: Date.now() }]);
     replyNow(charId, "", null, { proactive: true, phoneRefused: true });
   };
+  const peekRenamedRef = useRef({});
+  const peekRename = (charId, text, old) => {
+    const c = (characters || []).find(x => x.id === charId);
+    if (!c || !text) return;
+    pC(p => p.map(x => x.id === charId ? { ...x, remark: text } : x));
+    pChat(charId, p => [...p, { role: "system", kind: "system", content: (c.name || "TA") + " 把你给他的备注" + (old ? "从「" + old + "」" : "") + "改成了「" + text + "」", ts: Date.now() }]);
+    peekRenamedRef.current[charId] = { from: old || "", to: text };
+  };
   const peekDone = thoughts => {
     const p = peekPlay;
     setPeekPlay(null);
@@ -9527,8 +9536,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_peekLast", all);
     } catch (e) {}
     openChatById(p.charId);
-    peekPendingRef.current[p.charId] = { ts: Date.now(), seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [] };
-    replyNow(p.charId, "", null, { proactive: true, peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [] } });
+    peekPendingRef.current[p.charId] = { ts: Date.now(), seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed: peekRenamedRef.current[p.charId] };
+    const renamed = peekRenamedRef.current[p.charId]; delete peekRenamedRef.current[p.charId];
+    replyNow(p.charId, "", null, { proactive: true, peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed } });
   };
   const _replyTurn = async (charId, extraText, mode, opts) => {
     opts = opts || {};
@@ -9725,6 +9735,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const peekHint = opts.peekPhone ? ("\n\n【此刻·" + uName + " 把手机递给你看了】"
         + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
         + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。察不察觉、在不在意，看你这个人。" : "")
+        + (opts.peekPhone.renamed ? "\n\n你刚才顺手把她手机里给你的备注" + (opts.peekPhone.renamed.from ? "从「" + opts.peekPhone.renamed.from + "」" : "") + "改成了「" + opts.peekPhone.renamed.to + "」——她会看到的。" : "")
         + (opts.peekPhone.thoughts && opts.peekPhone.thoughts.length ? "\n\n你刚才翻的时候心里闪过这几句（没说出口）：" + opts.peekPhone.thoughts.map(x => "「" + x + "」").join("") + "——现在把手机还给她，开口跟这几句对得上。" : "")
         + "\n\n你按自己的性子挑着翻，不必样样都提；开口先说你心里最放不下的那件，别拿无关紧要的起头、也别用一句客套收尾。看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
@@ -26753,7 +26764,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     labelOf: (app, who) => app === "chat" && who ? "和" + who + "的聊天" : (PEEK_APP_ZH[app] || app),
     goHome: () => setScreen("home"),
     toMessages: tab => { setMsgTab(tab || "chats"); setScreen("messages"); },
-    onOpen: peekOpen, onBack: peekBack, onDone: peekDone
+    onOpen: peekOpen, onBack: peekBack, onDone: peekDone,
+    // 改她给TA的备注：进自己那一栏、真的改（她 2026-10-02）
+    openSelf: () => openChatById(peekPlay.charId),
+    selfRemark: () => (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || "",
+    onRename: (text, old) => peekRename(peekPlay.charId, text, old)
   }), modelFloatOn && h(ModelQuickSwitch, {
     profiles: apiProfiles,
     activeId: activeId,
