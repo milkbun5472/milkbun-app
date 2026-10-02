@@ -26,21 +26,39 @@
     hints = hints || {};
     const list = Array.isArray(raw && raw.steps) ? raw.steps : (Array.isArray(raw) ? raw : []);
     const out = [];
-    let opens = 0, thoughts = 0;
+    let opens = 0, thoughts = 0, at = "", skip = false;
+    // 只查聊天，钱包／外卖／购物是顺藤摸瓜才去的（她 2026-10-02：「聊天记录里近期有转账再去看钱包，有外卖记录再去看外卖」）：
+    //   hints.gate 是聊天里真翻得出线索的那几样，不在里面的那一趟连同它后面的动作一起不演
+    const FOLLOW = ["wallet", "takeout", "shop"], gate = hints.gate || null;
+    const names = (hints.who || []).map(S).filter(Boolean);
+    const nameIn = t => names.find(n => t === n || (t.length >= 2 && (t.indexOf(n) >= 0 || n.indexOf(t) >= 0))) || "";
     list.forEach(s => {
       if (!s || out.length >= STEP_CAP) return;
       const d = S(s.do || s.action).trim();
       if (d === "open") {
         const app = S(s.app).trim();
-        if (allowApps.indexOf(app) < 0) return;          // 她藏起来的那几样，录像里也碰不到
+        if (allowApps.indexOf(app) < 0) { skip = true; return; }          // 她藏起来的那几样，录像里也碰不到
+        if (gate && FOLLOW.indexOf(app) >= 0 && gate.indexOf(app) < 0) { skip = true; return; }
+        skip = false; at = app;
         opens++; out.push({ do: "open", app, who: S(s.who).trim().slice(0, 24) });
-      } else if (d === "tap") {
+        return;
+      }
+      if (skip) return;
+      if (d === "tap") {
         // 模型常把标题连书名号一起抄过来，屏幕上没有那对符号就找不到
         const text = S(s.text).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 30);
+        // 在消息列表里「点某个人」＝打开和那人的聊天（不然退回列表那一下会掉回主屏，后面全对不上——她 2026-10-02）
+        const nm = (at === "messages" || at === "chat") && nameIn(text);
+        if (nm && allowApps.indexOf("chat") >= 0) { at = "chat"; opens++; out.push({ do: "open", app: "chat", who: nm }); return; }
         if (text) { opens++; out.push({ do: "tap", text }); }
       } else if (d === "scroll") {
         out.push({ do: "scroll", dir: s.dir === "up" ? "up" : "down", n: Math.max(1, Math.min(3, Number(s.n) || 1)) });
-      } else if (d === "back") out.push({ do: "back" });
+      } else if (d === "back") {
+        // 消息列表就是最外面一层了，再退就出了 app——下一样会自己找过去，不用退
+        if (at === "messages") return;
+        if (at === "chat") at = "messages";
+        out.push({ do: "back" });
+      }
       else if (d === "pause") out.push({ do: "pause", ms: Math.max(400, Math.min(2500, Number(s.ms) || 900)) });
       else if (d === "think") {
         const text = S(s.text).trim().slice(0, 60);
@@ -197,10 +215,13 @@
       // 人已经在「信息」里了（刚翻完聊天、列表或钱包），下一样还在信息里：不回主屏，退回信息再点
       //   （她 2026-10-01：「看完一条退出信息然后再进再点开」「刚看完消息就直接点我-钱包过来」）
       const IN_MSG = ["chat", "messages", "wallet"];
-      if (IN_MSG.indexOf(app) >= 0 && IN_MSG.indexOf(lastAppRef.current) >= 0 && props.toMessages) {
-        setCaption(app === "wallet" ? "点开「我」，找钱包" : app === "chat" && who ? "退回聊天列表，找" + who : "退回聊天列表");
-        props.toMessages(); await sleep(800);
+      //   信息里那几样一律直接进「信息」并切好底栏，不回主屏（她 2026-10-02：上次停在别的底栏，点进去不是消息列表，后面全对不上）
+      if (IN_MSG.indexOf(app) >= 0 && props.toMessages) {
+        const inMsg = IN_MSG.indexOf(lastAppRef.current) >= 0;
+        setCaption(app === "wallet" ? "点开「我」，找钱包" : app === "chat" && who ? (inMsg ? "退回聊天列表，找" : "打开信息，找") + who : "打开消息列表");
+        props.toMessages(app === "wallet" ? "me" : "chats"); await sleep(800);
         for (const step of (spot.path || [])) {
+          if (app === "wallet" && step.text === "我") continue;          // 底栏已经切到「我」了
           const n = findByText(step.text, step.minTopK ? window.innerHeight * step.minTopK : 0, !!step.exact);
           if (!n) { if (step.optional) continue; return false; }
           await tapEl(n); await sleep(800);

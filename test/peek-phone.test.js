@@ -10,7 +10,7 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
   const m = a.match(/const PEEK_PHONE_SECTIONS = (\[[\s\S]*?\]\]);/);
   assert.ok(m);
   const list = new Function("return " + m[1])();
-  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "forum", "money", "shop", "music", "memo", "journal", "pics"]);
+  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "money", "shop", "pics"]);
   assert.ok(!list.some(x => /记账/.test(x[1])));
 });
 
@@ -88,8 +88,8 @@ test("点开就读：聊天往上翻、帖子日记往下滑（脚本没写就�
   assert.strictEqual(sc[0].dir, "up", "聊天要往上翻");
   assert.strictEqual(sc[sc.length - 1].dir, "down", "点开的帖子要往下滑");
   assert.match(p, /elementsFromPoint/, "滚动找容器要绕开遮罩");
-  assert.match(p, /IN_MSG\.indexOf\(lastAppRef\.current\) >= 0 && props\.toMessages/);
-  assert.match(a, /toMessages: \(\) => setScreen\("messages"\),/);
+  assert.match(p, /if \(IN_MSG\.indexOf\(app\) >= 0 && props\.toMessages\) \{/);
+  assert.match(a, /toMessages: tab => \{ setMsgTab\(tab \|\| "chats"\); setScreen\("messages"\); \},/);
   assert.match(a, /你就是「" \+ c\.name \+ "」本人，此刻在你自己的日子里/);
 });
 
@@ -115,7 +115,7 @@ test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没�
   assert.match(a, /seg\("早先", ms\.slice\(0, 4\)\)/);
   assert.match(a, /md\(e\.ts\) \+ "写的"/);
   assert.doesNotMatch(a, /const COLD = /, "查岗不硬塞冷门 app（她 2026-10-01）");
-  assert.match(a, /至少看 3 个人的聊天/);
+  assert.match(a, /至少看 3 个人/);
   assert.match(a, /apps: \[\.\.\.new Set\(sc\.filter\(s => s\.do === "open"\)\.map\(s => s\.app\)\)\]/);
 });
 
@@ -163,4 +163,21 @@ test("翻手机：先查聊天；聊天里往下滑改往上；兜底打开也�
   assert.match(p, /if \(sp && sp\.key && sp\.path\)/);
   assert.match(a, /她现在挂着跟/);
   assert.match(a, /【对照：她最近跟你说话是这样的】/);
+});
+
+test("翻手机：只查聊天；钱包外卖购物要聊天里有线索才去；列表里点人名就是打开那人的聊天，列表不往外退", () => {
+  const fs = require("fs"), path = require("path");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "messages" }, { do: "back" }, { do: "tap", text: "阿乙" }, { do: "think", text: "x" },
+    { do: "open", app: "takeout" }, { do: "think", text: "不该出现" }, { do: "open", app: "wallet" }, { do: "think", text: "y" }] },
+    ["messages", "chat", "wallet", "takeout", "shop"], { who: ["阿乙"], gate: ["wallet"] });
+  assert.ok(!out.some(s => s.do === "back"), "消息列表上不往外退");
+  assert.ok(out.some(s => s.do === "open" && s.app === "chat" && s.who === "阿乙"), "点人名＝打开聊天");
+  assert.ok(!out.some(s => s.app === "takeout" || s.text === "不该出现"), "没线索的外卖连同心声一起不演");
+  assert.ok(out.some(s => s.app === "wallet"));
+  assert.match(a, /const CLUE = \{ transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" \}/);
+  assert.match(a, /toMessages: tab => \{ setMsgTab\(tab \|\| "chats"\)/);
 });
