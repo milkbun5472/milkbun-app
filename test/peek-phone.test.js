@@ -16,14 +16,14 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
 
 test("聊天加号里有「给TA看手机」，单子能把几样藏起来再递", () => {
   assert.match(c, /\["peekphone", "给TA看手机", "mobile"\]/);
-  assert.match(c, /onHandPhone\(peekAllow\)/);
+  assert.match(c, /onHandPhone\(peekAllow, peekHide\)/);
   assert.match(c, /mobile: \[R\(/);
-  assert.match(a, /onHandPhone: allow => handPhoneTo\(activeChar\.id, allow\)/);
+  assert.match(a, /onHandPhone: \(allow, hideIds\) => handPhoneTo\(activeChar\.id, allow, hideIds\)/);
 });
 
 test("递过去：只摆她手机上真有的、藏了什么；主动开关和防连发闸都不拦", () => {
   assert.match(a, /const peekHint = opts\.peekPhone \?/);
-  assert.match(a, /const dongnianHint = peekHint \+ \(/, "递手机那段喂进这一轮");
+  assert.match(a, /const dongnianHint = peekHint \+ refuseHint \+ \(/, "递手机那段喂进这一轮");
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: false \};/);
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: true \};/);
   assert.ok(a.indexOf("proactive: false };") < a.indexOf("!opts.phoneAs && history.length") && a.indexOf("!opts.phoneAs && history.length") < a.indexOf("if (_peekTurn) opts = { ...opts, proactive: true };"), "摘掉→过闸→挂回 的顺序");
@@ -222,4 +222,19 @@ test("翻手机：留一个位置给以前聊得多、后来断了的那个人",
   const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
   assert.match(a, /const gone = rowsAll\.slice\(5\)\.filter\(x => Date\.now\(\) - x\.last > 7 \* 86400000 && x\.ms\.length >= 30\)/);
   assert.match(a, /以前聊得挺多，后来断了/);
+});
+
+test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA能开口要手机，卡片上给／不给", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  assert.match(c, /onHandPhone\(peekAllow, peekHide\)/);
+  assert.match(c, /window\.__peekHide\.has\(String\(it\.id\)\)/);
+  assert.match(a, /const peekPhoneMaterial = \(viewerId, allow, hideIds\)/);
+  assert.match(a, /try \{ window\.__peekHide = null; \} catch \(e\) \{\}/, "播完要清");
+  assert.match(a, /askPhone:"开口那句话"=想看她的手机；/);
+  assert.match(a, /kind: "askphone"/);
+  assert.match(c, /function PhoneAskCard\(/);
+  assert.match(a, /replyNow\(charId, "", null, \{ proactive: true, phoneRefused: true \}\)/);
+  assert.match(a, /Date\.now\(\) - \(a\[charId\] \|\| 0\) > 20 \* 3600e3/, "一天最多要一回");
 });
