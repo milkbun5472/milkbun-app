@@ -68,7 +68,8 @@ test("提前退出一律 null，不是 false", () => {
   assert.match(A, /if \(laneBusy\("c:" \+ chatKey\)\) return null;/);
   assert.match(A, /if \(opts\.proactive && !autoRefreshOn\("proactive", charId\)\) return null;/);
   assert.match(A, /if \(opts\.proactive && currentlyTogetherWithChar\(charId\)\) return null;/);
-  assert.match(A, /toast\("先发条消息再让 TA 回复"\);\n\s*return null;/);
+  // 她 2026-10-02：新认识的人也能先开口——空聊天框不再拦（原来这里是「先发条消息再让 TA 回复」+ return null）
+  assert.match(A, /const firstWord = !opts\.proactive && history\.length === 0;/);
   assert.match(A, /if \(Date\.now\(\) - _lastTs < 12 \* 60000\) return null;/);
   // v68.18：那条失败提示改走公共的 failureNotice（形状和群聊统一），但「报错之后
   // return null、不当成空轮再烧一次钱」这件事一个字没变。

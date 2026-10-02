@@ -78,13 +78,15 @@ test("旁白那一行，引擎是按【场景设定】读的（桩照写入方�
   assert.match(seg, /m\.role === "narration" \? "【场景设定】"/);
 });
 
-test("留空开场＝由他们起头：那道拦路的闸拆了，两边都拆", () => {
-  assert.ok(!app.includes("先说点什么，或写一句开场"), "空场闸还在，界面上那句「留空则由他们起头」就还是假的");
-  assert.match(app, /pGOffline\(groupId, list => \[sess, \.\.\.list\.filter\(s => s\.endTs\)\]\);\n    await genGroupOfflineFrom\(group, sess\);/);
-  assert.match(app, /pOffline\(scopeKey, list => \[sess, \.\.\.list\.filter\(s => s\.endTs\)\]\);\n    await genOfflineFrom\(scopeKey, sess\);/);
-  // 界面上那句承诺还在（它就是这条的来由）
-  assert.match(components, /留空则由他们起头/);
-  assert.match(components, /留空则由 Ta 起头/);
+// 她 2026-10-02 改了规矩：「进入线下后除了邀约不要主动调用，让我选择要不要开口或者让他们开口」。
+//   空场仍然不拦（那道闸不回来），但也不再自己开演：铺好场就停，等她说、或点「让他们演绎」。
+test("留空开场不拦，也不自己开演：只有邀约那一场一到就演", () => {
+  assert.ok(!app.includes("先说点什么，或写一句开场"), "空场闸又回来了");
+  assert.match(app, /pGOffline\(groupId, list => \[sess, \.\.\.list\.filter\(s => s\.endTs\)\]\);\n[^\n]*\n    if \(opts\.autoGen\) await genGroupOfflineFrom\(group, sess\);/);
+  assert.match(app, /if \(opts\.autoGen\) await genOfflineFrom\(scopeKey, sess\);/);
+  // 界面上那句承诺跟着改：留空＝进去后由她选谁先开口
+  assert.match(components, /进去后你先说，或点「让他们演绎」让他们起头/);
+  assert.match(components, /进去后你先说，或点「让 Ta 演绎」让 Ta 起头/);
 });
 
 test("空场的触发句不是「（继续）」——没有可继续的东西", () => {

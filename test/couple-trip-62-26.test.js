@@ -27,7 +27,7 @@ test("一次只走一趟；攻略是全程唯一花调用的一步，prompt 只�
   assert.match(plan, /maxTokens: 12000/, "一份行程是「一段正文」那档");
   // 出发照抽卡兑线下那条先例：startOffline + setOfflineChar，绝不 openOffline（会盖掉刚开的场）
   const dep = cut(app, "const tripDepart = async char => {", "\n  const tripDone");
-  assert.match(dep, /await startOffline\(char\.id, \{ opening: opening \}\);/, "行程没带进线下");
+  assert.match(dep, /await startOffline\(char\.id, \{ autoGen: true, opening: opening \}\);/, "行程没带进线下");
   assert.match(dep, /setOfflineChar\(char\);/, "线下那层没掀起来");
   assert.ok(dep.indexOf("openOffline") < 0, "用了 openOffline——它会重读存储把刚开的场盖掉");
 });

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.560";
+const APP_VERSION = "v74.561";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5347,7 +5347,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const body = String(d.body || "").trim();
         if (!body) { toast("这次没拆开，券还留着，可以再拆一次"); return; }
         gachaStamp(card.id, { ...(card.result || {}), title: String(d.title || "那一天").trim(), body: body, where: "plan", ready: false, opened: true });
-        await startOffline(char.id, { opening: body });
+        await startOffline(char.id, { autoGen: true, opening: body });
         setOfflineChar(char);
         return { title: String(d.title || "那一天").trim(), body: body };
       }
@@ -5432,7 +5432,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 而 startOffline 刚往 state 里塞了这一场——多读一次只会把它盖掉。
         // 这里要的只是「把线下那层掀起来」，那就只做这一件事。
         gachaStamp(card.id, { title: title, body: body, where: card.act });
-        await startOffline(char.id, { opening: body });
+        await startOffline(char.id, { autoGen: true, opening: body });
         setOfflineChar(char);
       }
       return { title: title, body: body };
@@ -7852,7 +7852,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pOffline(scopeKey, list => [sess, ...list.filter(s => s.endTs)]);
-    await genOfflineFrom(scopeKey, sess);
+    // 进了线下不自己开口（她 2026-10-02：「除了邀约不要主动调用，让我选择要不要开口或者让他们开口」）：
+    //   场景铺好就停，她说一句、或点「让 Ta 演绎」才开始。只有约好的那一场（autoGen）一到就接着演。
+    if (opts.autoGen) await genOfflineFrom(scopeKey, sess);
   };
   const offlineSend = (scopeKey, text) => pushOffMsg(scopeKey, {
     id: "u_" + Date.now(),
@@ -8583,7 +8585,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pGOffline(groupId, list => [sess, ...list.filter(s => s.endTs)]);
-    await genGroupOfflineFrom(group, sess);
+    // 同单聊：只有邀约出发的那一场一到就演，别的都等她（她 2026-10-02）
+    if (opts.autoGen) await genGroupOfflineFrom(group, sess);
   };
   const groupOfflineSend = (groupId, text) => pushGOffMsg(groupId, {
     id: "u_" + Date.now(),
@@ -9815,7 +9818,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char || !m || !m.place) return;
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: "gone" } : x));
     const _byHim = m.kind === "dateask";
-    await startOffline(charId, { datePlace: { name: m.place.name, note: m.place.note || "", how: "date" }, opening: _byHim
+    await startOffline(charId, { autoGen: true, datePlace: { name: m.place.name, note: m.place.note || "", how: "date" }, opening: _byHim
       ? char.name + " 约了你" + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，你答应了。此刻你们都到了。"
       : "你约了 " + char.name + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
     setOfflineChar(char);
@@ -9974,10 +9977,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const promptHistory = window.ChatContextWindow
       ? window.ChatContextWindow.select(modelHistory, _historyBudget)
       : modelHistory.slice(-_historyBudget.maxMessages);
-    if (!opts.proactive && history.length === 0) {
-      toast("先发条消息再让 TA 回复");
-      return null;
-    }
+    // 新认识的人也能先开口（她 2026-10-02：「单聊也是新人只能我先开口他才能回复」）：
+    //   聊天框还空着时点「让 TA 回复」＝让TA说第一句，不再拦。走的是续说那条路，只换一句话。
+    const firstWord = !opts.proactive && history.length === 0;
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字TA就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
     // ⚠️phoneAs 跟 promise 同理：它是对【她刚做过的一件事】的回应，不是随机冒泡。
@@ -9988,7 +9990,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (_peekTurn) opts = { ...opts, proactive: true };
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
-    const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
+    const contMode = firstWord || (!opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user");
     const _abort = laneAbortBegin("c:" + chatKey);
     try {
       if (!active) throw new Error("请先到设置配置 API");
@@ -10169,7 +10171,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以，那正是真人隔一阵回来最常说的第一句（「后来那个怎么样了」「我想起你说的那件事」）。\n"
             + "当然也可以完全换一件事说：普通旧话题已经过去了就让它过去。怎么选是你的事，别硬找由头，也别装作那段没发生过。\n"
             + "1~2 条短消息，像真人隔一阵重新来敲门，别整段复述旧话。"
-          : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
+          : firstWord
+            ? "\n\n【此刻·聊天框里的第一句】你们在这儿还一句话都没说过，Ta 在等你先开口。照你此刻的处境、你俩是什么关系、你对 Ta 知道多少，自然地说第一句；1~2 条短消息，别自我介绍成一张名片。"
+            : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
         : "";
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
@@ -11012,7 +11016,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 续说/主动模式下历史以角色自己的话结尾——补一个「继续」的 user 回合，给模型一个应答对象（否则易返回空）
       if ((opts.proactive || contMode) && (!g.length || g[g.length - 1].role === "assistant")) {
-        g.push({ role: "user", content: proactiveFreshStart
+        g.push({ role: "user", content: firstWord
+          ? "（我们还没说过话。你先开口，说第一句，1~2 条。）"
+          : proactiveFreshStart
           ? "（我暂时没有新消息。你已经过了一阵自己的生活，现在忽然想来找我：默认自然另开一个此刻的新话题；只有确有未解决的事才续旧话题。主动发 1~2 条。）"
           : "（我还没回你新消息，请顺着你刚才自己的话自然接着说、追问或调侃一句，主动发 1~2 条，别重复已经说过的。）" });
       }
@@ -13509,7 +13515,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 地方钉进每个去的人和她的那座城（群邀约里手写的新地方，用完不该就没了）
     if (pl.name && window.DatePlaces) going.forEach(x => { try { if (!window.DatePlaces.list(x.id).some(p => p.name === pl.name)) window.DatePlaces.add(pl.name, pl.note || "", "", x.id); } catch (e) {} });
     openGroupOffline(group);
-    startGroupOffline(groupId, { present: going.map(x => x.id), datePlace: pl.name ? { name: pl.name, note: pl.note || "", how: "group" } : null,
+    startGroupOffline(groupId, { autoGen: true, present: going.map(x => x.id), datePlace: pl.name ? { name: pl.name, note: pl.note || "", how: "group" } : null,
       opening: "约好的" + (inv.when ? dateWhenText(inv.when) : "那天") + "，在「" + (pl.name || "约好的地方") + "」" + (pl.note ? "（" + pl.note + "）" : "") + "。来的是" + going.map(x => x.name).join("、") + "。" });
   };
   // 群里能挑的地方：我们的城市 + 每个成员住的那个架空世界里的地点
@@ -21544,7 +21550,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + (trip.plan && trip.plan.title ? "（" + char.name + " 给这趟起的名字：" + trip.plan.title + "）" : "")
       + "。此刻你们刚到。" + (legs ? "\n" + char.name + " 排的行程：\n" + legs : "");
     // ⚠️照抽卡兑线下那条的先例走：开场之后只把线下那层掀起来——那条会从存储重读一遍的路不许走，它会把刚开的这场盖掉
-    await startOffline(char.id, { opening: opening });
+    await startOffline(char.id, { autoGen: true, opening: opening });
     setOfflineChar(char);
   };
   const tripDone = char => {

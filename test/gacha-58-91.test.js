@@ -43,7 +43,7 @@ test("三档分路：R 不花调用，SR/SSR 才花", () => {
 test("SSR 真的留下东西", () => {
   assert.match(redeem, /addMemEntry\(\{ text: body, tags: \["抽卡", "过去"\]/, "「他的一段过去」没进记忆库");
   assert.match(redeem, /addPact\(char\.id, body, null\)/, "「我们说好的」没进那条已有的路");
-  assert.match(redeem, /await startOffline\(char\.id, \{ opening: body \}\);\n        setOfflineChar\(char\);/,
+  assert.match(redeem, /await startOffline\(char\.id, \{ autoGen: true, opening: body \}\);\n        setOfflineChar\(char\);/,
     "线下没开起来，或者用了 openOffline（它会重读存储、把刚塞进去的那一场盖掉）");
   ["memlib", "pacts"].forEach(w => assert.ok(redeem.indexOf('where: "' + w + '"') > 0, "票根上没写清留在哪儿：" + w));
   assert.match(redeem, /gachaStamp\(card\.id, \{ title: title, body: body, where: card\.act \}\)/, "开线下那两张没在票根上写清是哪一种");

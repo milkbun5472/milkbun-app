@@ -14092,6 +14092,23 @@ function OfflineSetupStyleEditor({ t, editor }) {
         h("button", { onClick: saveCustomStyle, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"));
 }
 
+// 线下那几张底部单子（单聊、群线下共用）：内容一长就在单子里滚，不再撑成整屏关不掉；
+//   右上角一个 ✓ 随时收起（她 2026-10-02：「点了衣服会变成全屏没办法叉出去」）
+function offSheet(t, title, onClose, children) {
+  return h("div", { className: "absolute inset-0 z-30 flex items-end", style: { background: "rgba(0,0,0,.35)" }, onClick: onClose },
+    h("div", { onClick: e => e.stopPropagation(), className: "w-full flex flex-col", style: { background: t.bg2, borderTopLeftRadius: 18, borderTopRightRadius: 18, maxHeight: "86%" } },
+      h("div", { className: "flex items-center shrink-0", style: { padding: "14px 16px 6px 20px" } },
+        // 标题给空串＝这张单子自己带抬头（线下那张「切换」就是），别再垫一条空标题
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title || ""),
+        h("button", { onClick: onClose, title: "收起", "aria-label": "收起", className: "active:opacity-60 flex items-center justify-center shrink-0", style: { width: 36, height: 36, borderRadius: 999 } },
+          h("svg", { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: t.ink, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: "M5 12.5l4.5 4.5L19 7.5" })))),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 20px 32px", overscrollBehavior: "contain" } }, children)));
+}
+// 「给TA看你手机里的一张」默认收着（她 2026-10-02：「把我发图那块收起来」），用公共的 FoldRow
+function OffPhotoFold({ title, children }) {
+  const [open, setOpen] = useState(false);
+  return h(FoldRow, { title: title, state: open ? "" : "点开选照片", open: open, onToggle: () => setOpen(!open) }, open ? children : null);
+}
 // 线下＋里那一段「穿什么」（单聊和群线下共用这一份）：先挑给谁换，再从那个人的衣柜里挑一身，或者自己写一句
 //   wardrobe = { people: [{ id, name, now, sets }], me: { now, sets } }；onPick(谁的 id 或 "me", 那一身, 以后都固定)
 function OfflineWardrobe({ t, wardrobe, onPick }) {
@@ -14332,12 +14349,7 @@ function OfflineMode({
     setNoteOpen(false);
   };
 
-  const sheet = (title, children) => h("div", {
-    className: "absolute inset-0 z-30 flex items-end", style: { background: "rgba(0,0,0,.35)" }, onClick: () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }
-  }, h("div", {
-    onClick: e => e.stopPropagation(), className: "w-full p-5 pb-8", style: { background: t.bg2, borderTopLeftRadius: 18, borderTopRightRadius: 18 }
-    // 标题给空串＝这张单子自己带抬头（线下那张「切换」就是），别再垫一条空标题
-  }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
+  const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
   if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp });
@@ -14352,7 +14364,7 @@ function OfflineMode({
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.fog, marginBottom: 18 } }, "进入线下后，你和 " + cName + " 默认身处同一个地方，Ta 会带动作、心理与旁白地演绎。" + (room && !room.main ? "这场只属于「" + room.name + "」，心声和记录不写回主时间线。" : "") + "可以先铺垫一句开场，选一个文风。"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "开场白 / 铺垫第一句剧情"),
-        h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*雨下得很大，我推门进了那家咖啡馆，看见你已经坐在窗边*（留空则由 Ta 起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
+        h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*雨下得很大，我推门进了那家咖啡馆，看见你已经坐在窗边*（可留空；进去后你先说，或点「让 Ta 演绎」让 Ta 起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
         h(OfflineSetupStyleSection, { t, editor: styleEditor }),
         // 预设台也在进门这一页选（群里反馈 2026-09-27：「进线下的时候也让我选一下预设台的文风，现在进去先来一段默认的」）
         h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
@@ -14457,8 +14469,8 @@ function OfflineMode({
         }, label))),
         (canShoot && !canShootDuo) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "合照要你俩各自的参考照都在，才能把两张脸都锁住") : null,
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给 Ta 看你手机里的一张")) : null,
-      h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }),
+        null) : null,
+      h(OffPhotoFold, { title: "给 Ta 看你手机里的一张" }, h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending })),
       onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
@@ -14895,12 +14907,7 @@ function GroupOfflineMode({
     setNoteOpen(false);
   };
 
-  const sheet = (title, children) => h("div", {
-    className: "absolute inset-0 z-30 flex items-end", style: { background: "rgba(0,0,0,.35)" }, onClick: () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }
-  }, h("div", {
-    onClick: e => e.stopPropagation(), className: "w-full p-5 pb-8", style: { background: t.bg2, borderTopLeftRadius: 18, borderTopRightRadius: 18 }
-    // 标题给空串＝这张单子自己带抬头（线下那张「切换」就是），别再垫一条空标题
-  }, title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 12 } }, title) : null, children));
+  const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
   if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
@@ -14915,7 +14922,7 @@ function GroupOfflineMode({
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.fog, marginBottom: 18 } }, "进入线下后，你和 " + memberLine + " 默认身处同一个地方，他们会带动作、心理与旁白地彼此互动、跟你相处。可以先铺垫一句开场，选一个文风。"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "开场白 / 铺垫第一句剧情"),
-        h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*包厢里灯光暖黄，我推门进去，他们几个已经围着桌子坐下了*（留空则由他们起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
+        h("textarea", { value: opening, onChange: e => setOpening(e.target.value), rows: 3, placeholder: "如：*包厢里灯光暖黄，我推门进去，他们几个已经围着桌子坐下了*（可留空；进去后你先说，或点「让他们演绎」让他们起头）", className: "w-full outline-none p-3 mb-5", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
         h(OfflineSetupStyleSection, { t, editor: styleEditor }),
         // 预设台也在进门这一页选（群里反馈 2026-09-27：「进线下的时候也让我选一下预设台的文风，现在进去先来一段默认的」）
         h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
@@ -15042,8 +15049,8 @@ function GroupOfflineMode({
           style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
         }, "拍张合影"),
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给大家看你手机里的一张")) : null,
-      h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending }),
+        null) : null,
+      h(OffPhotoFold, { title: "给大家看你手机里的一张" }, h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending })),
       onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),

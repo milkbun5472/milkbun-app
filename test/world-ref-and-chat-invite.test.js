@@ -47,7 +47,7 @@ test("群里也能邀约：挑请谁，带答应了的人出发进群线下", ()
   const seg = app.slice(i, app.indexOf("const groupInvitePlacesFor", i));
   assert.match(seg, /some\(x => x && !x\.endTs\)/, "还有一场没结束就别盖掉");
   assert.match(seg, /\(inv\.replies \|\| \{\}\)\[x\.id\] === "yes"/, "只带答应了的人");
-  assert.match(seg, /startGroupOffline\(groupId, \{ present: going\.map/);
+  assert.match(seg, /startGroupOffline\(groupId, \{ autoGen: true, present: going\.map/);
   // 没选、没答应的人进不了那一场：群线下一开头就把成员表收窄
   assert.match(app, /memberIds: \(groupIn\.memberIds \|\| \[\]\)\.filter\(id => workSess\.present\.includes\(id\)\)/);
 });

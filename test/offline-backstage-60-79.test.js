@@ -63,5 +63,7 @@ test("单子的抬头能换，下半截没东西就整段不画", () => {
   assert.match(pick, /const hasTail = \(\(elsewhere \|\| \[\]\)\.length > 0\) \|\| !!children;/);
   // 空标题的 sheet 别再垫一条空标题栏
   // ⚠两处 sheet（单人线下、群线下）各有一份：只钉一处的话，改了一处另一处照样漏
-  assert.equal((comp.match(/title \? h\("div", \{ style: \{ fontFamily: F_DISPLAY, fontSize: 16, color: t\.ink, marginBottom: 12 \} \}, title\) : null/g) || []).length, 2);
+  // v74.561 两份并成了公共的 offSheet（带 ✓ 收起、内容在单子里滚）：两处都得走它
+  assert.equal((comp.match(/const sheet = \(title, children\) => offSheet\(t, title,/g) || []).length, 2);
+  assert.match(comp, /function offSheet\(t, title, onClose, children\) \{/);
 });
