@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.521";
+const APP_VERSION = "v74.522";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9565,6 +9565,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 翻完那一下的料先存着，直到TA真的接上话才算用掉（她 2026-10-01：「看完接不上啊」——
   //   那一枪没送到时，她自己问一句「看了怎么样」，TA就只剩自己的日常可说了）
   const peekPendingRef = useRef({});
+  // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
+  const sendDateInvite = (char, place) => {
+    if (!char || !place) return;
+    pChat(char.id, p => [...p, { id: "inv_" + Date.now(), role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, state: "pending",
+      content: "[约会邀请] 约你在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : ""), ts: Date.now(), read: true }]);
+    openChatById(char.id);
+    setTimeout(() => replyNow(char.id, "", null, {}), 600);
+  };
+  const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+  const dateGo = async (charId, m) => {
+    const char = (characters || []).find(x => x.id === charId);
+    if (!char || !m || !m.place) return;
+    pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: "gone" } : x));
+    await startOffline(charId, { opening: "你约了 " + char.name + " 在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
+    setOfflineChar(char);
+  };
   // TA开口要看手机（她 2026-10-02）：一天最多要一回，卡片上她点给／不给
   const phoneAskReady = charId => { const a = loadJSON("x_peekAsk", {}) || {}; return Date.now() - (a[charId] || 0) > 20 * 3600e3; };
   const answerPhoneAsk = (charId, m, give) => {
@@ -10311,6 +10327,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
+      // 她发来的约会邀请还没回：TA这一轮决定去不去
+      const _inv = !(room && !room.main) && pendingInviteOf(charId);
+      if (_inv) {
+        openCaps.push("dateReply");
+        capState.push("dateReply：她约你在「" + _inv.place.name + "」见面" + (_inv.place.note ? "（" + _inv.place.note + "）" : "") + "，还等着你回。去就填 \"yes\"，不去或改天填 \"no\"，照你此刻的处境和心意来；说话照常写在 word 里。");
+      }
       // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
       //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
       if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && phoneAskReady(charId) && (_moodNeg || _harsh) && Math.random() < 0.5) {
@@ -10517,7 +10539,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；dateReply:"yes"|"no"=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -11473,6 +11495,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      if (parsed.dateReply && !(room && !room.main)) {
+        const inv = pendingInviteOf(charId);
+        if (inv) {
+          const yes = /^(yes|y|true|好|去|答应)/i.test(String(parsed.dateReply).trim());
+          pChat(charId, p => p.map(x => x.id === inv.id ? { ...x, state: yes ? "accepted" : "declined" } : x));
+          if (yes) pChat(charId, p => [...p, { id: "rcpt_" + Date.now(), role: "assistant", kind: "datereceipt", place: inv.place, state: "pending",
+            content: "[约会回执] 好，「" + inv.place.name + "」见", ts: Date.now() + 2 }]);
+          delivered = true;
+        }
+      }
       if (parsed.askPhone && !_peekTurn && !(room && !room.main) && phoneAskReady(charId)) {
         const ask = { id: "ask_" + Date.now(), role: "assistant", kind: "askphone", content: String(parsed.askPhone === true ? "手机给我看看。" : parsed.askPhone).slice(0, 60), state: "pending", ts: Date.now() + 1 };
         pChat(charId, p => [...p, ask]);
@@ -25194,6 +25226,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLoveLetterOpen: m => openLoveLetter(activeChar.id, m),
     onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
+    onDateGo: m => dateGo(activeChar.id, m),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
@@ -26085,11 +26118,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     busyId: gen.dwell,
     onGen: genDwellPlace,
     // 约TA在钉着的那个地方见（她 2026-10-02）：照旅行出发那条先例开一场见面，开场就在那儿
-    onDate: async (char, place) => {
-      if (!char || !place) return;
-      await startOffline(char.id, { opening: "你约了 " + char.name + " 在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + "。此刻你们都到了。" });
-      setOfflineChar(char);
-    },
+    // 先在线上发一张邀请，TA答应了回一张回执，她点开回执才进见面（她 2026-10-02）
+    onDate: (char, place) => sendDateInvite(char, place),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {

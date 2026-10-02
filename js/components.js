@@ -8557,6 +8557,7 @@ function ChatThread({
   onPhoneAsk,    // TA开口要看手机那张卡：给／不给
   onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
+  onDateGo,      // 约会回执上的「出发」：点开才进见面
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
   onOffline,
@@ -9173,6 +9174,7 @@ function ChatThread({
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "dateinvite" || m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m) });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
     if (m.kind === "loveletter") return h(LoveLetterCard, { key: i, m: m, character: character,
       onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
@@ -12554,6 +12556,20 @@ function FoldRow({ title, state, open, onToggle, children }) {
       h("span", { className: "truncate", style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, state),
       h("span", { style: { flexShrink: 0, fontSize: 13, color: t.fog, display: "inline-block", transition: "transform .2s", transform: open ? "rotate(90deg)" : "none" } }, "›")),
     open ? h("div", { style: { paddingBottom: 14 } }, children) : null);
+}
+// 约会邀请（她发的，右边）和回执（TA答应了，左边）（她 2026-10-02）：回执上点「出发」才进见面
+function DateInviteCard({ m, character, onGo }) {
+  const t = useTheme();
+  const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {};
+  const sub = mine ? ({ pending: "等" + (character.remark || character.name) + "回", accepted: "答应了", declined: "这次没去成" })[st] || ""
+    : st === "gone" ? "已经去了" : "点出发就过去";
+  return h("div", { className: "py-1 flex " + (mine ? "justify-end" : "justify-start") },
+    h("div", { style: { width: 230, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, mine ? "约会邀请" : "约会回执"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 4 } }, pl.name || "某处"),
+      pl.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, pl.note) : null,
+      !mine && st === "pending" ? h("button", { onClick: onGo, className: "w-full active:opacity-80", style: { marginTop: 10, minHeight: 38, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, "出发")
+        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, sub)));
 }
 // TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
 function PeekSneakCard({ m, character, onPick }) {

@@ -15,11 +15,21 @@ test("她自己钉的约会地点一份存着（x_datePlaces），去处顶上�
 test("点一个钉：自己去转转（串门）／约TA在这儿见（开见面，开场就在那儿）", () => {
   assert.match(d, /"自己去转转"/);
   assert.match(d, /props\.onDate && props\.onDate\(char, p\)/);
-  assert.match(a, /onDate: async \(char, place\) => \{/);
-  assert.match(a, /await startOffline\(char\.id, \{ opening: "你约了 "/);
+  assert.match(a, /onDate: \(char, place\) => sendDateInvite\(char, place\)/);
 });
 
 test("约会券、TA开的线下、旅行挑地方时能从她钉的地方里挑", () => {
   assert.match(g, /\(card\.act === "date" \|\| card\.act === "offline"\) && typeof window !== "undefined" && window\.DatePlaces/);
   assert.match(a, /\+ \(window\.DatePlaces \? window\.DatePlaces\.hint\(\) : ""\)/);
+});
+
+test("约TA：先发邀请卡到线上，TA回话时决定（dateReply），答应了回一张回执，点「出发」才进见面", () => {
+  const c = read("components.js");
+  assert.match(a, /kind: "dateinvite"/);
+  assert.match(a, /openCaps\.push\("dateReply"\)/);
+  assert.match(a, /dateReply:"yes"\|"no"=回她的约会邀请；/);
+  assert.match(a, /kind: "datereceipt"/);
+  assert.match(a, /const dateGo = async \(charId, m\) => \{/);
+  assert.match(c, /function DateInviteCard\(/);
+  assert.match(c, /"出发"/);
 });
